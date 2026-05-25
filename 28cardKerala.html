@@ -1,0 +1,4026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>28 Card Game</title>
+<style>
+
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#1a5f2a;--primary-dark:#0d3d18;--accent:#f4c430;--accent-hover:#e5b520;--bg-dark:#0a0e0a;--bg-card:#111811;--bg-table:#1a4a1a;--text-primary:#fff;--text-secondary:#a0b8a0;--border:#2a4a2a;--success:#4ade80;--danger:#f87171;--info:#60a5fa;--warning:#fbbf24}
+html{scroll-behavior:smooth}
+body{font-family:'Poppins',sans-serif;background:var(--bg-dark);color:var(--text-primary);overflow-x:hidden; width:100%; max-width:100vw; -webkit-tap-highlight-color:transparent; touch-action:manipulation}
+
+/* NAV */
+nav{position:fixed;top:0;width:100%;padding:1rem 2rem;background:rgba(10,14,10,0.95);backdrop-filter:blur(10px);z-index:1000;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)}
+.logo{display:flex;align-items:center;gap:0.5rem;font-size:1.8rem;font-weight:800;color:var(--accent);text-decoration:none;cursor:pointer}
+.logo i{font-size:2rem}
+.nav-links{display:flex;gap:2rem;list-style:none}
+.nav-links a{color:var(--text-secondary);text-decoration:none;font-weight:500;transition:color 0.3s;font-size:0.95rem;cursor:pointer}
+.nav-links a:hover{color:var(--accent)}
+.nav-buttons{display:flex;gap:1rem}
+.btn{padding:0.6rem 1.5rem;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.3s;border:none;font-family:inherit;font-size:0.9rem;text-decoration:none;display:inline-flex;align-items:center;gap:0.5rem}
+.btn-outline{background:transparent;border:2px solid var(--accent);color:var(--accent)}
+.btn-outline:hover{background:var(--accent);color:var(--bg-dark)}
+.btn-primary{background:var(--accent);color:var(--bg-dark)}
+.btn-primary:hover{background:var(--accent-hover);transform:translateY(-2px);box-shadow:0 4px 20px rgba(244,196,48,0.3)}
+.btn-large{padding:1rem 2.5rem;font-size:1.1rem;border-radius:12px}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none!important}
+.btn-success{background:var(--success);color:var(--bg-dark)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-info{background:var(--info);color:#fff}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:8rem 2rem 4rem;background:radial-gradient(ellipse at 20% 50%,rgba(26,95,42,0.15) 0%,transparent 50%),radial-gradient(ellipse at 80% 50%,rgba(244,196,48,0.05) 0%,transparent 50%),var(--bg-dark);position:relative;overflow:hidden}
+.hero-content{max-width:1200px;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;position:relative;z-index:1}
+.hero-text h1{font-size:4rem;font-weight:800;line-height:1.1;margin-bottom:1.5rem;background:linear-gradient(135deg,#fff 0%,var(--accent) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-text p{font-size:1.2rem;color:var(--text-secondary);margin-bottom:2rem;line-height:1.6}
+.hero-stats{display:flex;gap:2rem;margin-bottom:2.5rem}
+.stat{text-align:center}
+.stat-number{font-size:2rem;font-weight:700;color:var(--accent)}
+.stat-label{font-size:0.85rem;color:var(--text-secondary)}
+.hero-buttons{display:flex;gap:1rem;flex-wrap:wrap}
+
+/* CARDS DISPLAY */
+.card-display{position:relative;height:500px;display:flex;align-items:center;justify-content:center}
+.floating-card{position:absolute;width:120px;height:168px;background:linear-gradient(135deg,#fff 0%,#f0f0f0 100%);border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.3);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:3rem;animation:float 6s ease-in-out infinite;border:2px solid #ddd}
+.floating-card:nth-child(1){transform:rotate(-15deg) translateX(-80px);animation-delay:0s;z-index:1}
+.floating-card:nth-child(2){transform:rotate(-5deg) translateX(-20px) translateY(-20px);animation-delay:0.5s;z-index:2}
+.floating-card:nth-child(3){transform:rotate(5deg) translateX(40px) translateY(-10px);animation-delay:1s;z-index:3}
+.floating-card:nth-child(4){transform:rotate(15deg) translateX(100px) translateY(10px);animation-delay:1.5s;z-index:4}
+.card-rank{position:absolute;top:8px;left:10px;font-size:1.2rem;font-weight:700;color:#d32f2f}
+.card-rank-bottom{position:absolute;bottom:8px;right:10px;font-size:1.2rem;font-weight:700;color:#d32f2f;transform:rotate(180deg)}
+@keyframes float{0%,100%{transform:translateY(0px) rotate(var(--r,0deg))}50%{transform:translateY(-20px) rotate(var(--r,0deg))}}
+
+/* GAME MODES */
+.game-modes{padding:6rem 2rem;background:var(--bg-card)}
+.section-header{text-align:center;margin-bottom:4rem}
+.section-header h2{font-size:2.5rem;font-weight:700;margin-bottom:1rem}
+.section-header p{color:var(--text-secondary);font-size:1.1rem;max-width:600px;margin:0 auto}
+.modes-grid{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:2rem}
+.mode-card{background:var(--bg-dark);border:1px solid var(--border);border-radius:20px;padding:2.5rem;text-align:center;transition:all 0.3s;cursor:pointer;position:relative;overflow:hidden}
+.mode-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--primary),var(--accent));transform:scaleX(0);transition:transform 0.3s}
+.mode-card:hover::before{transform:scaleX(1)}
+.mode-card:hover{transform:translateY(-5px);border-color:var(--accent);box-shadow:0 20px 40px rgba(0,0,0,0.3)}
+.mode-icon{width:80px;height:80px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;font-size:2rem;color:var(--accent)}
+.mode-card h3{font-size:1.5rem;margin-bottom:0.5rem}
+.mode-card p{color:var(--text-secondary);margin-bottom:1.5rem;font-size:0.95rem}
+.mode-players{display:inline-flex;align-items:center;gap:0.5rem;background:rgba(244,196,48,0.1);padding:0.4rem 1rem;border-radius:20px;font-size:0.85rem;color:var(--accent);margin-bottom:1.5rem}
+
+/* ACTIVE GAME TABLE */
+.game-container{
+    display:none;
+    padding:3.5rem 0.5rem 0.5rem;
+    background:var(--bg-dark);
+    min-height:100vh;
+    min-height:100dvh;
+    box-sizing:border-box;
+}
+.game-container.active{
+    display:block;
+}
+.game-table-wrapper{
+    max-width:1000px;
+    margin:0 auto;
+    width:100%;
+    padding:0 0.5rem;
+}
+.game-info-bar{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:var(--bg-card);
+    padding:0.5rem 0.75rem;
+    border-radius:12px;
+    margin-bottom:0.5rem;
+    border:1px solid var(--border);
+    gap:0.5rem;
+    flex-wrap:wrap;
+    overflow-x:visible;
+    width:100%;
+    flex-shrink:0;
+}
+.game-info-bar .info-item{display:flex;align-items:center;gap:0.25rem;font-size:0.75rem; white-space:nowrap}
+.game-info-bar .info-item .label{color:var(--text-secondary)}
+.game-info-bar .info-item .value{color:var(--accent);font-weight:700}
+
+.table-area{
+    display:grid;
+    grid-template-columns:96px 1fr 96px;
+    grid-template-rows:auto 1fr 80px auto;
+    grid-template-areas:
+        "top top top"
+        "left center right"
+        "hand hand hand"
+        "bottom bottom bottom";
+    gap:0.5rem;
+    background:radial-gradient(ellipse at center,#1a5a1a 0%,#0d2d0d 70%);
+    border-radius:24px;
+    padding:0.6rem;
+    border:3px solid #2a5a2a;
+    box-shadow:0 0 80px rgba(26,95,42,0.3),inset 0 0 80px rgba(0,0,0,0.4);
+    min-height:336px;
+    max-width:100%;
+    width:100%;
+    margin:0 auto 0.5rem;
+    position:relative;
+    flex:0 0 auto;
+}
+
+/* PLAYER POSITIONS */
+.player-pos{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:0.15rem;
+    transition:all 0.3s;
+    position:relative;
+    min-width:0;
+    padding:0.15rem;
+}
+.player-pos.pos-top{grid-area:top;justify-self:center}
+.player-pos.pos-left{grid-area:left;justify-self:center;align-self:center}
+.player-pos.pos-right{grid-area:right;justify-self:center;align-self:center}
+.player-pos.pos-bottom{
+    grid-area:bottom;
+    justify-self:center;
+    padding-bottom:0.3rem;
+}
+.player-pos .avatar{
+    width:36px;height:36px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:0.8rem;
+    border:2px solid var(--border);
+    position:relative;
+    background:linear-gradient(135deg,#444,#222);
+    flex-shrink:0;
+}
+.player-pos .avatar.active{border-color:var(--accent);box-shadow:0 0 20px rgba(244,196,48,0.4);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 20px rgba(244,196,48,0.4)}50%{box-shadow:0 0 30px rgba(244,196,48,0.7)}}
+.player-pos .name{font-size:0.6rem;font-weight:600;white-space:nowrap}
+.player-pos .card-count{
+    font-size:0.5rem;
+    color:var(--text-secondary);
+    background:rgba(255,255,255,0.1);
+    padding:0.05rem 0.3rem;
+    border-radius:6px;
+    margin-top:0.05rem;
+}
+.player-pos .bid-tag{
+    background:rgba(244,196,48,0.2);
+    padding:0.15rem 0.5rem;
+    border-radius:8px;
+    font-size:0.55rem;
+    color:var(--accent);
+    margin-top:0.15rem;
+    white-space:nowrap;
+}
+.player-pos .cards-row{
+    display:flex;
+    gap:0;
+    margin-top:0.3rem;
+}
+.player-pos .cards-row .card{
+    width:28px;
+    height:39px;
+    margin-left:-10px;
+}
+.player-pos .cards-row .card:first-child{
+    margin-left:0;
+}
+
+/* Position placements */
+
+
+
+
+
+/* CENTER PLAY AREA */
+.center-play{
+    grid-area:center;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:0.3rem;
+    position:relative;
+    min-height:96px;
+    padding:0.3rem 0;
+}
+.center-cards{
+    display:flex;
+    gap:0.5rem;
+    justify-content:center;
+    align-items:center;
+    min-height:80px;
+    flex-wrap:wrap;
+}
+.trump-reveal{
+    background:rgba(0,0,0,0.6);
+    padding:0.25rem 0.6rem;
+    border-radius:8px;
+    font-size:0.65rem;
+    color:var(--accent);
+    font-weight:600;
+    border:1px solid var(--accent);
+    white-space:nowrap;
+}
+
+/* Bid winner display in center */
+.trick-winner-display{
+    background:linear-gradient(135deg,rgba(74,222,128,0.2),rgba(74,222,128,0.05));
+    border:2px solid var(--success);
+    border-radius:12px;
+    padding:0.25rem 0.6rem;
+    font-size:0.65rem;
+    color:var(--success);
+    font-weight:700;
+    text-align:center;
+    white-space:nowrap;
+    display:none;
+    align-items:center;
+    gap:0.3rem;
+    position:relative;
+    overflow:hidden;
+}
+.trick-winner-display.active{
+    display:flex;
+}
+.trick-winner-display .tw-icon{
+    font-size:0.9rem;
+    animation:trophyPulse 1s ease-in-out infinite;
+}
+.trick-winner-display .tw-name{
+    color:#fff;
+    font-weight:800;
+}
+.trick-winner-display .tw-points{
+    background:var(--success);
+    color:var(--bg-dark);
+    padding:0.05rem 0.3rem;
+    border-radius:6px;
+    font-weight:900;
+    font-size:0.65rem;
+}
+
+/* Trick winner change animation */
+@keyframes trickWinnerPop{
+    0%{transform:scale(0.3);opacity:0;border-color:var(--danger)}
+    40%{transform:scale(1.3);opacity:1;border-color:var(--warning)}
+    60%{transform:scale(1.1);border-color:var(--success)}
+    100%{transform:scale(1);opacity:1;border-color:var(--success)}
+}
+.trick-winner-change{
+    animation:trickWinnerPop 0.6s ease-out;
+}
+
+@keyframes trophyPulse{
+    0%,100%{transform:scale(1)}
+    50%{transform:scale(1.2)}
+}
+
+/* Trick leader glow */
+@keyframes leaderGlow{
+    0%,100%{box-shadow:0 0 5px rgba(74,222,128,0.3)}
+    50%{box-shadow:0 0 15px rgba(74,222,128,0.8),0 0 30px rgba(74,222,128,0.4)}
+}
+.trick-winner-display.leading{
+    animation:leaderGlow 2s ease-in-out infinite;
+}
+.played-area{
+    display:flex;
+    gap:0.5rem;
+    justify-content:center;
+    align-items:center;
+    min-height:80px;
+    flex-wrap:wrap;
+}
+
+/* CARD STYLES */
+.card{
+    width:46px;height:65px;
+    background:linear-gradient(135deg,#fff,#f0f0f0);
+    border-radius:8px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 3px 12px rgba(0,0,0,0.3);
+    border:2px solid #ddd;
+    position:relative;
+    cursor:pointer;
+    transition:all 0.2s;
+    user-select:none;
+    flex-shrink:0;
+}
+.card:hover:not(.disabled){transform:translateY(-10px);box-shadow:0 8px 25px rgba(0,0,0,0.4)}
+.card.disabled{opacity:0.4;cursor:not-allowed}
+.card .cr{position:absolute;top:3px;left:5px;font-size:0.7rem;font-weight:700}
+.card .cs{font-size:1.1rem;line-height:1}
+.card .crb{position:absolute;bottom:3px;right:5px;font-size:0.7rem;font-weight:700;transform:rotate(180deg)}
+.card.back{
+    background:linear-gradient(135deg,#b71c1c,#8e0000);
+    border:1px solid #7f0000;
+}
+.card.back::after{
+    content:'';
+    width:30px;
+    height:42px;
+    border:2px dashed rgba(255,255,255,0.3);
+    border-radius:6px;
+}
+
+.card.played{animation:dealIn 0.4s ease-out}
+.card.trump-hidden{background:linear-gradient(135deg,#1a5f2a,#0d3d18);border:2px solid var(--accent);color:var(--accent)}
+.card.trump-hidden::after{content:'?';font-size:2rem;font-weight:700;color:var(--accent)}
+@keyframes dealIn{from{transform:scale(0.3) translateY(-50px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+
+/* HAND AREA */
+.hand-area{
+    grid-area:hand;
+    display:flex;
+    justify-content:center;
+    align-items:flex-end;
+    gap:0;
+    padding:0.4rem 0.4rem 0.6rem;
+    min-height:72px;
+    background:rgba(0,0,0,0.2);
+    border-radius:0 0 12px 12px;
+    border-top:1px dashed rgba(244,196,48,0.2);
+}
+.hand-area .card{
+    width:48px;
+    height:67px;
+    margin-left:-16px;
+    transition:all 0.2s;
+    z-index:1;
+}
+.hand-area .card:first-child{margin-left:0}
+.hand-area .card:hover{
+    z-index:100;
+    transform:translateY(-16px);
+}
+.hand-area .card .cs{font-size:1.3rem}
+.hand-area .card .cr,.hand-area .card .crb{font-size:0.75rem}
+
+/* BIDDING PANEL */
+.bid-panel{
+    display:none;
+    position:fixed;
+    top:60px;
+    left:50%;
+    transform:translateX(-50%);
+    background:var(--bg-card);
+    border:2px solid var(--accent);
+    border-radius:14px;
+    padding:0.8rem 1rem;
+    z-index:3000;
+    text-align:center;
+    min-width:280px;
+    max-width:95vw;
+    max-height:calc(100vh - 80px);
+    overflow-y:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,0.8);
+}
+.bid-panel.active{display:block;animation:popIn 0.3s ease}
+@keyframes popIn{from{transform:translateX(-50%) scale(0.8);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+.bid-panel h3{color:var(--accent);margin-bottom:0.5rem;font-size:1.1rem}
+.bid-panel p{color:var(--text-secondary);margin-bottom:0.6rem;font-size:0.8rem}
+.bid-buttons{
+    display:grid;
+    grid-template-columns:repeat(5, 1fr);
+    gap:0.4rem;
+    justify-content:center;
+    margin-bottom:0.8rem;
+    max-width:280px;
+    margin-left:auto;
+    margin-right:auto;
+}
+.bid-btn{
+    padding:0.4rem 0;
+    border-radius:6px;
+    border:2px solid var(--border);
+    background:var(--bg-dark);
+    color:var(--text-primary);
+    font-weight:700;
+    cursor:pointer;
+    transition:all 0.2s;
+    font-family:inherit;
+    font-size:0.85rem;
+    min-width:0;
+    text-align:center;
+}
+.bid-btn:hover{border-color:var(--accent);color:var(--accent)}
+.bid-btn.selected{background:var(--accent);color:var(--bg-dark);border-color:var(--accent)}
+.bid-btn:disabled{opacity:0.3;cursor:not-allowed}
+
+/* TRUMP SELECT */
+.trump-select{display:none;flex-direction:column;gap:1rem;align-items:center}
+.trump-select.active{display:flex}
+.trump-suits{display:flex;gap:1rem}
+.trump-suit-btn{width:60px;height:80px;border-radius:12px;border:2px solid var(--border);background:var(--bg-dark);font-size:2.5rem;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center}
+.trump-suit-btn:hover{border-color:var(--accent);transform:scale(1.1)}
+.trump-suit-btn.selected{background:var(--accent);border-color:var(--accent)}
+
+/* PAIR PANEL */
+.pair-panel{display:none;position:fixed;top:70px;right:20px;background:var(--bg-card);border:2px solid var(--info);border-radius:16px;padding:1.2rem;z-index:3000;max-width:260px;max-height:calc(100vh - 100px);overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.8)}
+.pair-panel.active{display:block;animation:slideIn 0.3s ease}
+@keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}
+.pair-panel h4{color:var(--info);margin-bottom:0.5rem}
+.pair-panel p{color:var(--text-secondary);font-size:0.85rem;margin-bottom:1rem}
+
+/* GAME LOG */
+.game-log{
+    background:var(--bg-card);
+    border-radius:12px;
+    padding:0.5rem 0.75rem;
+    border:1px solid var(--border);
+    max-height:100px;
+    overflow-y:auto;
+    margin-top:0.4rem;
+}
+.game-log h4{
+    font-size:0.75rem;
+    margin-bottom:0.3rem;
+}
+.game-log .log-entry{
+    font-size:0.7rem;
+    padding:0.1rem 0;
+}
+.game-log h4{color:var(--accent);margin-bottom:0.5rem;font-size:0.9rem}
+.game-log .log-entry{font-size:0.8rem;color:var(--text-secondary);padding:0.2rem 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+.game-log .log-entry:last-child{border-bottom:none}
+.game-log .log-entry .time{color:var(--accent);margin-right:0.5rem;font-size:0.7rem}
+.game-log .log-entry.win{color:var(--success)}
+.game-log .log-entry.lose{color:var(--danger)}
+.game-log .log-entry.info{color:var(--info)}
+
+/* HOW TO PLAY */
+.how-to-play{padding:6rem 2rem;background:var(--bg-card)}
+.rules-grid{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:2rem}
+.rule-card{background:var(--bg-dark);border-radius:16px;padding:2rem;border:1px solid var(--border)}
+.rule-number{width:40px;height:40px;background:var(--accent);color:var(--bg-dark);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;margin-bottom:1rem}
+.rule-card h3{font-size:1.2rem;margin-bottom:0.5rem}
+.rule-card p{color:var(--text-secondary);font-size:0.9rem;line-height:1.6}
+.card-values{display:grid;grid-template-columns:repeat(2,1fr);gap:0.5rem;margin-top:1rem}
+.card-value{display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;padding:0.3rem;background:rgba(26,95,42,0.2);border-radius:6px}
+.cv-rank{font-weight:700;color:var(--accent)}
+
+/* LEADERBOARD */
+.leaderboard{padding:6rem 2rem;background:var(--bg-dark)}
+.leaderboard-table{max-width:800px;margin:0 auto;background:var(--bg-card);border-radius:20px;overflow:hidden;border:1px solid var(--border)}
+.lb-header{display:grid;grid-template-columns:80px 1fr 100px 100px;padding:1rem 2rem;background:rgba(244,196,48,0.1);font-weight:600;font-size:0.9rem;color:var(--accent)}
+.lb-row{display:grid;grid-template-columns:80px 1fr 100px 100px;padding:1rem 2rem;border-top:1px solid var(--border);align-items:center;transition:background 0.2s}
+.lb-row:hover{background:rgba(255,255,255,0.02)}
+.lb-rank{font-weight:700;font-size:1.2rem}
+.lb-rank.gold{color:#ffd700}.lb-rank.silver{color:#c0c0c0}.lb-rank.bronze{color:#cd7f32}
+.lb-player{display:flex;align-items:center;gap:1rem}
+.lb-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;justify-content:center;font-weight:700}
+.lb-score{font-weight:700;color:var(--accent)}
+.lb-wins{color:var(--text-secondary)}
+
+/* FOOTER */
+footer{background:var(--bg-card);padding:3rem 2rem 2rem;border-top:1px solid var(--border)}
+.footer-content{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:3rem}
+.footer-brand p{color:var(--text-secondary);font-size:0.9rem;line-height:1.6;margin-top:1rem}
+.footer-links h4{margin-bottom:1rem;color:var(--accent)}
+.footer-links ul{list-style:none}
+.footer-links li{margin-bottom:0.5rem}
+.footer-links a{color:var(--text-secondary);text-decoration:none;font-size:0.9rem;transition:color 0.3s;cursor:pointer}
+.footer-links a:hover{color:var(--accent)}
+.footer-bottom{max-width:1200px;margin:2rem auto 0;padding-top:2rem;border-top:1px solid var(--border);text-align:center;color:var(--text-secondary);font-size:0.85rem}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:2000;align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:2rem;max-width:400px;width:90%;text-align:center;animation:modalIn 0.3s ease;position:relative}
+@keyframes modalIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+.modal h3{margin-bottom:1rem;color:var(--accent)}
+.modal p{color:var(--text-secondary);margin-bottom:1.5rem}
+.modal-close{position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--text-secondary);font-size:1.5rem;cursor:pointer}
+
+/* PHASE INDICATOR */
+.phase-indicator{
+    display:none;
+    background:rgba(0,0,0,0.8);
+    border:1px solid var(--accent);
+    border-radius:16px;
+    padding:0.3rem 1rem;
+    font-size:0.75rem;
+    color:var(--accent);
+    text-align:center;
+    margin-bottom:0.4rem;
+    width:fit-content;
+    margin-left:auto;
+    margin-right:auto;
+    flex-shrink:0;
+}
+.phase-indicator.active{display:block}
+
+/* MOBILE */
+.mobile-menu-btn{display:none;background:none;border:none;color:var(--text-primary);font-size:1.5rem;cursor:pointer}
+.mobile-menu{display:none;position:fixed;top:70px;left:0;right:0;background:rgba(10,14,10,0.98);backdrop-filter:blur(10px);z-index:999;padding:2rem;border-bottom:1px solid var(--border)}
+.mobile-menu.active{display:block}
+.mobile-menu a{display:block;padding:1rem 0;color:var(--text-secondary);text-decoration:none;font-size:1.1rem;border-bottom:1px solid var(--border);cursor:pointer}
+.mobile-menu a:hover{color:var(--accent)}
+
+
+/* ===== CURRENT BIDDER ANIMATION ===== */
+@keyframes bidderPulse{
+    0%,100%{transform:scale(1);box-shadow:0 0 0 rgba(244,196,48,0)}
+    25%{transform:scale(1.08);box-shadow:0 0 25px rgba(244,196,48,0.6)}
+    50%{transform:scale(1.05);box-shadow:0 0 15px rgba(244,196,48,0.3)}
+    75%{transform:scale(1.12);box-shadow:0 0 35px rgba(244,196,48,0.8)}
+}
+@keyframes bidderBlink{
+    0%,100%{opacity:1}
+    50%{opacity:0.4}
+}
+@keyframes bidderPop{
+    0%{transform:scale(0.5);opacity:0}
+    50%{transform:scale(1.15)}
+    70%{transform:scale(0.95)}
+    100%{transform:scale(1);opacity:1}
+}
+@keyframes bidderGlow{
+    0%,100%{text-shadow:0 0 5px rgba(244,196,48,0.3)}
+    50%{text-shadow:0 0 20px rgba(244,196,48,1),0 0 40px rgba(244,196,48,0.5)}
+}
+
+.current-bidder-box{
+    display:inline-flex;
+    align-items:center;
+    gap:0.5rem;
+    background:linear-gradient(135deg,rgba(244,196,48,0.15),rgba(244,196,48,0.05));
+    border:2px solid var(--accent);
+    border-radius:12px;
+    padding:0.4rem 0.8rem;
+    animation:bidderPulse 1.5s ease-in-out infinite, bidderGlow 2s ease-in-out infinite;
+    position:relative;
+    overflow:hidden;
+}
+.current-bidder-box::before{
+    content:'';
+    position:absolute;
+    top:-50%;left:-50%;width:200%;height:200%;
+    background:linear-gradient(45deg,transparent 30%,rgba(244,196,48,0.1) 50%,transparent 70%);
+    animation:shimmer 2s infinite;
+}
+@keyframes shimmer{
+    0%{transform:translateX(-100%) rotate(45deg)}
+    100%{transform:translateX(100%) rotate(45deg)}
+}
+.current-bidder-box .bidder-icon{
+    font-size:1.3rem;
+    animation:bidderBlink 1s ease-in-out infinite;
+}
+.current-bidder-box .bidder-name{
+    font-weight:800;
+    color:var(--accent);
+    font-size:1rem;
+    animation:bidderGlow 1.5s ease-in-out infinite;
+}
+.current-bidder-box .bidder-amount{
+    background:var(--accent);
+    color:var(--bg-dark);
+    padding:0.15rem 0.5rem;
+    border-radius:8px;
+    font-weight:900;
+    font-size:0.9rem;
+    animation:bidderPop 0.6s ease-out;
+}
+
+/* Bid panel current bidder section */
+.bid-panel .current-bidder-section{
+    margin-bottom:1rem;
+    text-align:center;
+}
+.bid-panel .current-bidder-label{
+    font-size:0.75rem;
+    color:var(--text-secondary);
+    text-transform:uppercase;
+    letter-spacing:2px;
+    margin-bottom:0.4rem;
+}
+
+/* Phase badge animation */
+@keyframes phaseBadgeBounce{
+    0%,100%{transform:translateY(0)}
+    50%{transform:translateY(-3px)}
+}
+.phase-badge-anim{
+    display:inline-block;
+    animation:phaseBadgeBounce 1s ease-in-out infinite;
+}
+
+/* ===== ANIMATED PLAYER FACES - TABLE ===== */
+@keyframes faceBounce{
+    0%,100%{transform:translateY(0) scale(1)}
+    50%{transform:translateY(-6px) scale(1.08)}
+}
+@keyframes faceTilt{
+    0%,100%{transform:rotate(0deg)}
+    25%{transform:rotate(-8deg)}
+    75%{transform:rotate(8deg)}
+}
+@keyframes facePulse{
+    0%,100%{transform:scale(1)}
+    50%{transform:scale(1.12)}
+}
+@keyframes faceShake{
+    0%,100%{transform:translateX(0)}
+    20%{transform:translateX(-3px) rotate(-5deg)}
+    40%{transform:translateX(3px) rotate(5deg)}
+    60%{transform:translateX(-3px) rotate(-3deg)}
+    80%{transform:translateX(3px) rotate(3deg)}
+}
+@keyframes faceNod{
+    0%,100%{transform:translateY(0)}
+    30%{transform:translateY(4px)}
+    60%{transform:translateY(-2px)}
+}
+@keyframes faceSpin{
+    0%{transform:rotate(0deg) scale(1)}
+    50%{transform:rotate(180deg) scale(1.2)}
+    100%{transform:rotate(360deg) scale(1)}
+}
+@keyframes faceWink{
+    0%,100%{transform:scaleY(1)}
+    50%{transform:scaleY(0.3)}
+}
+@keyframes glowPulse{
+    0%,100%{box-shadow:0 0 5px rgba(244,196,48,0.3)}
+    50%{box-shadow:0 0 20px rgba(244,196,48,0.8),0 0 40px rgba(244,196,48,0.4)}
+}
+@keyframes borderGlow{
+    0%,100%{border-color:var(--border)}
+    50%{border-color:var(--accent)}
+}
+
+/* SAM - Top (pos0) - Happy bouncer */
+#pos0 .avatar{
+    animation:faceBounce 1.8s ease-in-out infinite, glowPulse 2s ease-in-out infinite;
+}
+#pos0 .avatar span{
+    display:inline-block;
+    animation:faceWink 3s ease-in-out infinite;
+}
+
+/* BENSON - Left (pos1) - Wise nodder */
+#pos1 .avatar{
+    animation:faceNod 2.5s ease-in-out infinite, borderGlow 3s ease-in-out infinite;
+}
+#pos1 .avatar span{
+    display:inline-block;
+    animation:faceTilt 4s ease-in-out infinite;
+}
+
+/* KOSHY - Right (pos2) - Steady pulser */
+#pos2 .avatar{
+    animation:facePulse 2s ease-in-out infinite, glowPulse 2.5s ease-in-out infinite;
+}
+#pos2 .avatar span{
+    display:inline-block;
+    animation:faceWink 2.5s ease-in-out infinite 1s;
+}
+
+/* YOU - Bottom (pos3) - Cool shaker */
+#pos3 .avatar{
+    animation:faceShake 3s ease-in-out infinite, glowPulse 2s ease-in-out infinite;
+}
+#pos3 .avatar span{
+    display:inline-block;
+    animation:faceBounce 1.5s ease-in-out infinite;
+}
+
+/* Active turn - fast excited animation */
+.player-pos .avatar.active{
+    animation:facePulse 0.8s ease-in-out infinite, glowPulse 1s ease-in-out infinite !important;
+    border-color:var(--accent) !important;
+    border-width:3px !important;
+}
+.player-pos .avatar.active span{
+    animation:faceSpin 2s linear infinite !important;
+}
+
+/* Winner celebration */
+.winner-face{
+    animation:faceSpin 1s ease-in-out !important;
+}
+
+/* Bidder special glow */
+.bidder-avatar{
+    animation:facePulse 1.2s ease-in-out infinite, glowPulse 1.5s ease-in-out infinite !important;
+    border-color:#fbbf24 !important;
+    border-width:3px !important;
+}
+
+/* DEALER & BIDDER BADGES */
+.player-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:0.2rem;
+    font-size:0.5rem;
+    font-weight:700;
+    padding:0.1rem 0.4rem;
+    border-radius:5px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    margin-top:0.15rem;
+}
+.badge-dealer{
+    background:var(--info);
+    color:#fff;
+}
+.badge-bidder{
+    background:var(--accent);
+    color:var(--bg-dark);
+}
+.badge-both{
+    background:linear-gradient(135deg,var(--info),var(--accent));
+    color:#fff;
+}
+.player-pos .badges{
+    display:flex;
+    gap:0.2rem;
+    flex-wrap:wrap;
+    justify-content:center;
+    margin-top:0.15rem;
+}
+
+
+/* TEAM INDICATORS */
+.team-indicator{
+    width:12px;
+    height:12px;
+    border-radius:50%;
+    display:inline-block;
+    margin-right:0.3rem;
+    border:2px solid;
+}
+.team-a{background:var(--accent);border-color:var(--accent)}
+.team-b{background:var(--info);border-color:var(--info)}
+.player-pos .team-dot{
+    position:absolute;
+    top:-4px;
+    right:-4px;
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    border:2px solid var(--bg-dark);
+}
+.team-you{background:var(--accent)}
+.team-opp{background:var(--info)}
+
+
+/* LAST TRICK PANEL - SMALLER, TOP LEFT */
+.last-trick-panel{
+    position:absolute;
+    top:4px;
+    left:4px;
+    background:rgba(0,0,0,0.7);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:0.4rem;
+    z-index:10;
+    min-width:72px;
+    transform:scale(0.64);
+    transform-origin:top left;
+}
+.last-trick-panel h5{
+    color:var(--accent);
+    font-size:0.65rem;
+    margin-bottom:0.3rem;
+    text-align:center;
+    text-transform:uppercase;
+    letter-spacing:1px;
+}
+.last-trick-cards{
+    display:flex;
+    gap:0.2rem;
+    justify-content:center;
+    margin-bottom:0.2rem;
+}
+.last-trick-cards .card{
+    width:26px;
+    height:36px;
+    font-size:0.6rem;
+}
+.last-trick-cards .card .cs{
+    font-size:0.8rem;
+}
+.last-trick-cards .card .cr,
+.last-trick-cards .card .crb{
+    font-size:0.5rem;
+}
+.last-trick-winner{
+    text-align:center;
+    font-size:0.6rem;
+    color:var(--success);
+    font-weight:600;
+}
+.last-trick-empty{
+    text-align:center;
+    font-size:0.6rem;
+    color:var(--text-secondary);
+    padding:0.3rem 0;
+}
+
+
+/* PLAYER PLAYED CARD SLOTS */
+.played-slot{
+    position:absolute;
+    width:44px;
+    height:62px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:10;
+}
+.played-slot .card{
+    width:44px;
+    height:62px;
+    animation:dealIn 0.4s ease-out;
+}
+.played-slot .card.played{
+    animation:dealIn 0.4s ease-out;
+}
+.played-slot .card .cs{font-size:1rem}
+.played-slot .card .cr,.played-slot .card .crb{font-size:0.65rem}
+/* Position slots in center cross pattern - relative to center-play */
+.slot-top{top:5px;left:50%;transform:translateX(-50%)}
+.slot-left{left:5px;top:50%;transform:translateY(-50%)}
+.slot-right{right:5px;top:50%;transform:translateY(-50%)}
+.slot-bottom{bottom:5px;left:50%;transform:translateX(-50%)}
+
+
+/* CALL TRUMP PANEL */
+.call-trump-panel{
+    display:none;
+    position:fixed;
+    top:70px;
+    left:50%;
+    transform:translateX(-50%);
+    background:var(--bg-card);
+    border:2px solid var(--danger);
+    border-radius:16px;
+    padding:1rem 1.5rem;
+    z-index:3000;
+    text-align:center;
+    box-shadow:0 10px 40px rgba(0,0,0,0.8);
+    animation:slideUp 0.3s ease;
+    max-width:95vw;
+    max-height:calc(100vh - 100px);
+    overflow-y:auto;
+}
+.call-trump-panel.active{display:block}
+@keyframes slideUp{from{transform:translateX(-50%) translateY(-20px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+.call-trump-panel h4{color:var(--danger);margin-bottom:0.5rem;font-size:1rem}
+.call-trump-panel p{color:var(--text-secondary);font-size:0.85rem;margin-bottom:0.8rem}
+.call-trump-panel .trump-cards{display:flex;gap:0.5rem;justify-content:center;margin-bottom:0.8rem}
+.call-trump-panel .card{cursor:pointer}
+.call-trump-panel .card:hover{transform:translateY(-8px)}
+.call-trump-panel .no-trump{color:var(--text-secondary);font-size:0.8rem;padding:0.5rem}
+
+/* RESPONSIVE */
+
+/* TRICK WIN ANIMATION */
+@keyframes trickWin{
+    0%{transform:scale(1);box-shadow:0 0 0 rgba(244,196,48,0)}
+    50%{transform:scale(1.3);box-shadow:0 0 30px rgba(244,196,48,0.8)}
+    100%{transform:scale(1);box-shadow:0 0 0 rgba(244,196,48,0)}
+}
+.trick-winner{
+    animation:trickWin 0.8s ease-out;
+}
+
+@keyframes cardFlyToWinner{
+    0%{transform:translate(0,0) scale(1) rotate(0deg);opacity:1}
+    30%{transform:translate(calc(var(--tx)*0.3),calc(var(--ty)*0.3)) scale(1.1) rotate(5deg);opacity:1}
+    100%{transform:translate(var(--tx),var(--ty)) scale(0.2) rotate(0deg);opacity:0}
+}
+.card-fly{
+    animation:cardFlyToWinner 2s ease-in-out forwards;
+    position:fixed !important;
+    z-index:5000;
+    pointer-events:none;
+}
+
+@keyframes winnerAvatarBig{
+    0%{transform:scale(1)}
+    20%{transform:scale(1.8)}
+    50%{transform:scale(1.6)}
+    80%{transform:scale(1.7)}
+    100%{transform:scale(1)}
+}
+.winner-avatar-big{
+    animation:winnerAvatarBig 2s ease-out !important;
+}
+
+/* CHAMPIONSHIP ANIMATION */
+@keyframes championPulse{
+    0%{transform:scale(1)}
+    25%{transform:scale(1.2)}
+    50%{transform:scale(1)}
+    75%{transform:scale(1.2)}
+    100%{transform:scale(1)}
+}
+.champion-anim{
+    animation:championPulse 1s ease-in-out 3;
+}
+
+/* ===== FINAL BID WINNER ANIMATION ===== */
+@keyframes finalBidWinner{
+    0%{transform:translate(-50%,-50%) scale(0) rotate(-10deg);opacity:0}
+    40%{transform:translate(-50%,-50%) scale(1.3) rotate(3deg);opacity:1}
+    60%{transform:translate(-50%,-50%) scale(1.1) rotate(-2deg);opacity:1}
+    80%{transform:translate(-50%,-50%) scale(1.15) rotate(1deg);opacity:1}
+    100%{transform:translate(-50%,-50%) scale(1) rotate(0deg);opacity:0}
+}
+.final-bid-popup{
+    position:fixed;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    z-index:5004;
+    text-align:center;
+    pointer-events:none;
+    animation:finalBidWinner 2.5s ease-out forwards;
+}
+.final-bid-popup .fb-avatar{
+    font-size:5rem;
+    display:block;
+    margin-bottom:0.5rem;
+    filter:drop-shadow(0 0 30px rgba(244,196,48,0.8));
+}
+.final-bid-popup .fb-name{
+    font-size:2rem;
+    font-weight:900;
+    color:var(--accent);
+    text-shadow:0 0 20px rgba(244,196,48,0.8),0 0 40px rgba(244,196,48,0.4);
+}
+.final-bid-popup .fb-text{
+    font-size:1.2rem;
+    color:var(--text-secondary);
+    margin-top:0.3rem;
+}
+.final-bid-popup .fb-amount{
+    font-size:3.5rem;
+    font-weight:900;
+    color:var(--success);
+    text-shadow:0 0 30px rgba(74,222,128,0.6),0 0 60px rgba(74,222,128,0.3);
+}
+
+/* ===== PLAYER FACE BIG ON TRICK WIN ===== */
+@keyframes facePopBig{
+    0%{transform:scale(1)}
+    15%{transform:scale(2.2)}
+    30%{transform:scale(1.9)}
+    50%{transform:scale(2.0)}
+    70%{transform:scale(1.95)}
+    100%{transform:scale(1)}
+}
+.face-pop-big{
+    animation:facePopBig 1.8s ease-out !important;
+    z-index:100 !important;
+}
+
+/* ===== PARTNER SPEECH BUBBLE ===== */
+@keyframes speechBubbleIn{
+    0%{transform:scale(0) translateY(10px);opacity:0}
+    60%{transform:scale(1.1) translateY(-5px);opacity:1}
+    100%{transform:scale(1) translateY(0);opacity:1}
+}
+@keyframes speechBubbleOut{
+    0%{transform:scale(1) translateY(0);opacity:1}
+    100%{transform:scale(0.8) translateY(-10px);opacity:0}
+}
+.speech-bubble{
+    position:absolute;
+    background:linear-gradient(135deg,var(--accent),#e5b520);
+    color:var(--bg-dark);
+    padding:0.5rem 1rem;
+    border-radius:16px;
+    font-size:0.85rem;
+    font-weight:700;
+    z-index:200;
+    white-space:nowrap;
+    box-shadow:0 4px 20px rgba(244,196,48,0.4);
+    animation:speechBubbleIn 0.4s ease-out forwards;
+    pointer-events:none;
+    max-width:180px;
+    text-align:center;
+    line-height:1.3;
+}
+.speech-bubble::after{
+    content:'';
+    position:absolute;
+    bottom:-8px;
+    left:50%;
+    transform:translateX(-50%);
+    border-left:8px solid transparent;
+    border-right:8px solid transparent;
+    border-top:8px solid var(--accent);
+}
+.speech-bubble.fadeout{
+    animation:speechBubbleOut 0.3s ease-in forwards;
+}
+
+/* Partner positions for speech bubbles */
+.pos-top .speech-bubble{top:-45px;left:50%;transform:translateX(-50%)}
+.pos-left .speech-bubble{top:-35px;left:80%}
+.pos-right .speech-bubble{top:-35px;right:80%}
+.pos-bottom .speech-bubble{top:-50px;left:50%;transform:translateX(-50%)}
+
+
+/* ===== TOTAL TRICKS COUNTER - ALWAYS ANIMATED ===== */
+@keyframes totalCounterPulse{
+    0%,100%{transform:scale(1);text-shadow:0 0 5px rgba(244,196,48,0.2)}
+    50%{transform:scale(1.08);text-shadow:0 0 20px rgba(244,196,48,0.8),0 0 40px rgba(244,196,48,0.3)}
+}
+.total-tricks-glow{
+    animation:totalCounterPulse 3s ease-in-out infinite;
+    display:inline-block;
+    font-weight:900;
+}
+@keyframes totalCounterBump{
+    0%{transform:scale(1)}
+    40%{transform:scale(1.25)}
+    100%{transform:scale(1)}
+}
+.total-tricks-bump{
+    animation:totalCounterBump 0.5s ease-out;
+}
+
+/* ===== TABLE TRICKS DISPLAY (small, bottom left, colorful) ===== */
+.table-tricks-display{
+    position:absolute;
+    bottom:4px;
+    left:6px;
+    display:flex;
+    gap:0.4rem;
+    z-index:20;
+    background:rgba(0,0,0,0.5);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:0.2rem 0.4rem;
+    backdrop-filter:blur(4px);
+    pointer-events:none;
+}
+.table-tricks-team{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:0;
+    min-width:32px;
+}
+.table-tricks-label{
+    font-size:0.4rem;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:0.3px;
+    line-height:1;
+}
+.table-tricks-label.your-team{
+    color:var(--accent);
+}
+.table-tricks-label.opp-team{
+    color:var(--info);
+}
+.table-tricks-score{
+    font-size:0.7rem;
+    font-weight:900;
+    line-height:1;
+}
+.table-tricks-score.your-score{
+    color:var(--accent);
+    text-shadow:0 0 8px rgba(244,196,48,0.5);
+}
+.table-tricks-score.opp-score{
+    color:var(--info);
+    text-shadow:0 0 8px rgba(96,165,250,0.5);
+}
+.table-tricks-target{
+    font-size:0.45rem;
+    color:var(--text-secondary);
+    line-height:1;
+}
+@keyframes yourTeamGlow{
+    0%,100%{text-shadow:0 0 5px rgba(244,196,48,0.3);transform:scale(1);color:var(--accent)}
+    50%{text-shadow:0 0 15px rgba(244,196,48,0.9);transform:scale(1.08);color:#fff}
+}
+@keyframes oppTeamGlow{
+    0%,100%{text-shadow:0 0 5px rgba(96,165,250,0.3);transform:scale(1);color:var(--info)}
+    50%{text-shadow:0 0 15px rgba(96,165,250,0.9);transform:scale(1.08);color:#fff}
+}
+.your-team-glow{
+    animation:yourTeamGlow 2.5s ease-in-out infinite;
+}
+.opp-team-glow{
+    animation:oppTeamGlow 2.5s ease-in-out infinite;
+}
+@keyframes yourTeamBump{
+    0%{transform:scale(1)}
+    50%{transform:scale(1.3);color:#fff}
+    100%{transform:scale(1)}
+}
+@keyframes oppTeamBump{
+    0%{transform:scale(1)}
+    50%{transform:scale(1.3);color:#fff}
+    100%{transform:scale(1)}
+}
+.your-team-bump{
+    animation:yourTeamBump 0.4s ease-out;
+}
+.opp-team-bump{
+    animation:oppTeamBump 0.4s ease-out;
+}
+
+
+/* ===== BIDDING STATUS POPUP ===== */
+@keyframes bidStatusIn{
+    0%{transform:translate(-50%,-50%) scale(0.2);opacity:0}
+    60%{transform:translate(-50%,-50%) scale(1.1);opacity:1}
+    100%{transform:translate(-50%,-50%) scale(1);opacity:1}
+}
+@keyframes bidStatusOut{
+    0%{transform:translate(-50%,-50%) scale(1);opacity:1}
+    100%{transform:translate(-50%,-50%) scale(0.6);opacity:0}
+}
+.bid-status-popup{
+    position:fixed;
+    top:50%;
+    left:50%;
+    z-index:5002;
+    background:linear-gradient(135deg,var(--bg-card),var(--bg-dark));
+    border:3px solid var(--accent);
+    border-radius:20px;
+    padding:1.2rem 2rem;
+    text-align:center;
+    box-shadow:0 0 50px rgba(244,196,48,0.3);
+    animation:bidStatusIn 0.35s ease-out forwards;
+    pointer-events:none;
+    min-width:200px;
+}
+.bid-status-popup.fadeout{
+    animation:bidStatusOut 0.25s ease-in forwards;
+}
+.bid-status-popup .bid-player{font-size:1.2rem;font-weight:700;color:var(--text-primary)}
+.bid-status-popup .bid-action{font-size:2rem;font-weight:900;color:var(--accent);margin:0.3rem 0;text-shadow:0 0 15px rgba(244,196,48,0.4)}
+.bid-status-popup .bid-amount{font-size:2.8rem;font-weight:900;color:var(--success);text-shadow:0 0 20px rgba(74,222,128,0.4)}
+.bid-status-popup .bid-pass{font-size:2.2rem;font-weight:900;color:var(--danger);text-shadow:0 0 15px rgba(248,113,113,0.4)}
+
+/* ===== ROUND WIN POPUP ===== */
+@keyframes roundWinIn{
+    0%{transform:translate(-50%,-50%) scale(0);opacity:0}
+    40%{transform:translate(-50%,-50%) scale(1.25);opacity:1}
+    70%{transform:translate(-50%,-50%) scale(1.05);opacity:1}
+    100%{transform:translate(-50%,-50%) scale(1);opacity:0}
+}
+.round-win-popup{
+    position:fixed;
+    top:50%;
+    left:50%;
+    z-index:5003;
+    text-align:center;
+    pointer-events:none;
+    animation:roundWinIn 2.5s ease-out forwards;
+}
+.round-win-popup .round-winner{font-size:2.6rem;font-weight:900;color:var(--accent);text-shadow:0 0 30px rgba(244,196,48,0.8),0 0 60px rgba(244,196,48,0.3)}
+.round-win-popup .round-score{font-size:1.5rem;font-weight:700;color:var(--success);margin-top:0.5rem}
+.round-win-popup .round-points{font-size:1.1rem;color:var(--text-secondary);margin-top:0.3rem}
+
+/* ===== TRICK POINTS GLOW ===== */
+@keyframes trickPointsGlow{
+    0%,100%{color:var(--accent);text-shadow:0 0 5px rgba(244,196,48,0.2)}
+    50%{color:#fff;text-shadow:0 0 15px rgba(244,196,48,0.8),0 0 30px rgba(244,196,48,0.3)}
+}
+.trick-points-glow{
+    animation:trickPointsGlow 2.5s ease-in-out infinite;
+    display:inline-block;
+    font-weight:800;
+}
+@keyframes trickPointsBump{
+    0%{transform:scale(1)}
+    50%{transform:scale(1.3)}
+    100%{transform:scale(1)}
+}
+.trick-points-bump{
+    animation:trickPointsBump 0.4s ease-out;
+}
+
+@keyframes confettiFall{
+    0%{transform:translateY(-100vh) rotate(0deg);opacity:1}
+    100%{transform:translateY(100vh) rotate(720deg);opacity:0}
+}
+.confetti{
+    position:fixed;
+    width:10px;
+    height:10px;
+    z-index:5000;
+    pointer-events:none;
+}
+.confetti-1{background:#f4c430;animation:confettiFall 3s linear forwards}
+.confetti-2{background:#4ade80;animation:confettiFall 2.5s linear forwards 0.2s}
+.confetti-3{background:#60a5fa;animation:confettiFall 3.5s linear forwards 0.4s}
+.confetti-4{background:#f87171;animation:confettiFall 2.8s linear forwards 0.1s}
+.confetti-5{background:#a78bfa;animation:confettiFall 3.2s linear forwards 0.3s}
+
+@keyframes trophyBounce{
+    0%,100%{transform:translateY(0) scale(1)}
+    50%{transform:translateY(-30px) scale(1.2)}
+}
+.trophy-anim{
+    animation:trophyBounce 1s ease-in-out 3;
+    font-size:4rem;
+    display:block;
+    margin:1rem auto;
+}
+
+@keyframes glowText{
+    0%,100%{text-shadow:0 0 10px rgba(244,196,48,0.5)}
+    50%{text-shadow:0 0 30px rgba(244,196,48,1),0 0 60px rgba(244,196,48,0.5)}
+}
+.glow-text{
+    animation:glowText 1.5s ease-in-out infinite;
+}
+
+#bidHandDisplay .card, #trumpHandDisplay .card{width:28px;height:39px}
+#bidHandDisplay .card .cs, #trumpHandDisplay .card .cs{font-size:0.7rem}
+#bidHandDisplay .card .cr, #trumpHandDisplay .card .cr{font-size:0.5rem}
+
+@media(max-width:968px){
+.hero-content{grid-template-columns:1fr;text-align:center}
+.hero-text h1{font-size:2.5rem}
+.hero-stats{justify-content:center}
+.hero-buttons{justify-content:center}
+.card-display{height:300px}
+.floating-card{width:80px;height:112px;font-size:2rem}
+.nav-links,.nav-buttons{display:none}
+.mobile-menu-btn{display:block}
+.table-area{
+    min-height:450px;
+    padding:1rem;
+    grid-template-columns:80px 1fr 80px;
+}
+.card{width:50px;height:70px}
+.card .cs{font-size:1.3rem}
+.hand-area{min-height:90px; bottom:auto}
+.pos-top{top:5px}.pos-bottom{bottom:5px}.pos-left{left:5px}.pos-right{right:5px}
+}
+#bidHandDisplay .card, #trumpHandDisplay .card{width:28px;height:39px}
+#bidHandDisplay .card .cs, #trumpHandDisplay .card .cs{font-size:0.7rem}
+#bidHandDisplay .card .cr, #trumpHandDisplay .card .cr{font-size:0.5rem}
+
+@media(max-width:600px){
+.hero-text h1{font-size:2rem}
+.modes-grid{grid-template-columns:1fr}
+.lb-header,.lb-row{grid-template-columns:50px 1fr 80px}
+.lb-wins{display:none}
+.bid-panel{min-width:260px;padding:1rem}
+.table-area{grid-template-columns:50px 1fr 50px;min-height:272px;padding:0.3rem;gap:0.25rem}
+.card{width:26px;height:36px}
+.card .cs{font-size:0.6rem}
+.player-pos .avatar{width:22px;height:22px;font-size:0.55rem}
+.player-pos .name{font-size:0.45rem}
+.player-pos .cards-row .card{width:16px;height:22px;margin-left:-5px}
+.trump-reveal{font-size:0.6rem;padding:0.2rem 0.5rem}
+.game-info-bar{gap:0.3rem; padding:0.35rem;margin-bottom:0.3rem}
+.game-info-bar .info-item{font-size:0.65rem}
+.player-pos .card-count{font-size:0.5rem}
+.player-pos .bid-tag{font-size:0.5rem}
+.hand-area .card{
+    width:36px;
+    height:50px;
+    margin-left:-11px;
+}
+.hand-area{padding:0.25rem 0.25rem 0.4rem;min-height:56px}
+.played-slot{width:26px;height:36px}
+.played-slot .card{width:26px;height:36px}
+.center-play{min-height:0}
+.last-trick-panel{transform:scale(0.7);top:2px;left:2px}
+.table-tricks-display{transform:scale(0.8);bottom:2px;left:2px}
+}
+
+/* ===== CARD DEALING ANIMATION ===== */
+@keyframes dealFromDeck{
+    0%{transform:translate(-50%,-50%) scale(0.5) rotate(0deg);opacity:0}
+    30%{transform:translate(var(--tx),var(--ty)) scale(1.1) rotate(180deg);opacity:1}
+    60%{transform:translate(var(--tx),var(--ty)) scale(0.95) rotate(360deg)}
+    100%{transform:translate(var(--tx),var(--ty)) scale(1) rotate(360deg)}
+}
+@keyframes cardFlip{
+    0%{transform:rotateY(0deg)}
+    50%{transform:rotateY(90deg)}
+    100%{transform:rotateY(0deg)}
+}
+@keyframes cardSlideIn{
+    0%{transform:translateX(-100px) rotate(-20deg);opacity:0}
+    70%{transform:translateX(10px) rotate(5deg);opacity:1}
+    100%{transform:translateX(0) rotate(0deg)}
+}
+@keyframes cardPop{
+    0%{transform:scale(0.3);opacity:0}
+    60%{transform:scale(1.15)}
+    100%{transform:scale(1);opacity:1}
+}
+@keyframes cardFlyToCenter{
+    0%{transform:translate(var(--sx),var(--sy)) scale(1) rotate(var(--r,0deg));opacity:1;z-index:100}
+    50%{transform:translate(calc(var(--sx)*0.5 + var(--tx)*0.5),calc(var(--sy)*0.5 + var(--ty)*0.5)) scale(1.3) rotate(0deg);z-index:1000}
+    100%{transform:translate(var(--tx),var(--ty)) scale(1) rotate(0deg);opacity:1;z-index:10}
+}
+@keyframes cardLand{
+    0%{transform:scale(1.3);box-shadow:0 0 30px rgba(244,196,48,0.8)}
+    100%{transform:scale(1);box-shadow:0 4px 15px rgba(0,0,0,0.3)}
+}
+
+/* Dealing card style */
+.dealing-card{
+    position:fixed;
+    width:46px;
+    height:65px;
+    z-index:5000;
+    pointer-events:none;
+    animation:dealFromDeck 0.6s ease-out forwards;
+}
+
+/* Card play fly animation */
+.card-played-anim{
+    animation:cardPop 0.4s ease-out, cardLand 0.3s ease-out 0.4s forwards;
+}
+
+/* Slot card entrance */
+.slot-card-enter{
+    animation:cardPop 0.5s ease-out;
+}
+
+/* Hand card entrance after deal */
+.hand-card-dealt{
+    animation:cardSlideIn 0.4s ease-out;
+}
+
+/* Bot cards fan deal */
+@keyframes fanDeal{
+    0%{transform:translateY(-50px) rotate(var(--rot));opacity:0}
+    100%{transform:translateY(0) rotate(var(--rot));opacity:1}
+}
+.bot-card-dealt{
+    animation:fanDeal 0.5s ease-out forwards;
+}
+
+/* ANIMATIONS *//
+.fade-in{opacity:0;transform:translateY(30px);transition:all 0.6s ease}
+.fade-in.visible{opacity:1;transform:translateY(0)}
+
+/* CURSOR FIXES */
+a, button, .mode-card, .bid-btn, .trump-suit-btn, .card { cursor: pointer; }
+a { text-decoration: none; }
+
+/* game display handled by .active class */
+
+/* ENHANCED MOBILE FIXES */
+.btn, .card, .bid-btn, .trump-suit-btn, .mode-card { 
+    -webkit-touch-callout: none; 
+    -webkit-user-select: none; 
+    user-select: none; 
+    touch-action: manipulation;
+}
+
+/* AI DIFFICULTY BADGE */
+.ai-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:0.3rem;
+    background:linear-gradient(135deg, #ff4757, #ff6348);
+    color:#fff;
+    padding:0.2rem 0.6rem;
+    border-radius:8px;
+    font-size:0.65rem;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    animation:pulse-danger 2s infinite;
+}
+@keyframes pulse-danger{
+    0%,100%{box-shadow:0 0 0 rgba(255,71,87,0)}
+    50%{box-shadow:0 0 10px rgba(255,71,87,0.5)}
+}
+
+/* SMART AI NOTIFICATIONS */
+.smart-play{
+    background:linear-gradient(135deg, rgba(96,165,250,0.2), rgba(96,165,250,0.05));
+    border-left:3px solid var(--info);
+    padding-left:0.5rem;
+}
+.trump-save{
+    color:var(--info);
+    font-weight:600;
+}
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<div class="game-container active" id="gameContainer">
+<div class="game-table-wrapper">
+<div class="phase-indicator" id="phaseIndicator">Phase 1: Trump Hidden</div>
+<div class="game-info-bar">
+<div class="info-item"><span class="label">Round:</span><span class="value" id="roundNum">1</span></div>
+<div class="info-item"><span class="label">Dealer:</span><span class="value" id="dealerDisplay">—</span></div>
+<div class="info-item"><span class="label">Bidder:</span><span class="value" id="bidderDisplay">—</span></div>
+<div class="info-item"><span class="label">Trump:</span><span class="value" id="trumpDisplay">Hidden</span></div>
+<div class="info-item"><span class="label">Bid:</span><span class="value" id="bidDisplay">—</span></div>
+<!-- Trick counters moved to table display -->
+<div class="info-item"><span class="label"><span class="team-indicator team-a"></span>Your Team:</span><span class="value total-tricks-glow" id="yourScore">0</span></div>
+<div class="info-item"><span class="label"><span class="team-indicator team-b"></span>Opponent:</span><span class="value total-tricks-glow" id="oppScore">0</span></div>
+<div class="info-item"><span class="label">Turn:</span><span class="value" id="turnDisplay">Bidding</span></div>
+<div class="info-item"><span class="label">Phase:</span><span class="value" id="phaseDisplay">Bidding</span></div>
+<div class="info-item"><span class="label">🤖 AI:</span><span class="value" style="color:var(--danger); font-weight:800">DIFFICULT</span></div>
+</div>
+
+<div class="table-area" id="tableArea">
+<div class="last-trick-panel" id="lastTrickPanel">
+<h5>Last Trick</h5>
+<div class="last-trick-empty" id="lastTrickContent">No tricks yet</div>
+</div>
+
+
+
+<div class="player-pos pos-top" id="pos0">
+<div class="avatar" id="av0" style="background:linear-gradient(135deg,#4a90d9,#2a5a9a)">👨<span class="team-dot team-you"></span></div>
+<div class="name" id="name0">Sam</div><div class="card-count" id="cardCount0">4 cards</div>
+<div class="badges" id="badges0"></div>
+<div class="bid-tag" id="bid0"></div>
+<div class="cards-row" id="cards0"></div>
+</div>
+
+<div class="player-pos pos-left" id="pos1">
+<div class="avatar" id="av1" style="background:linear-gradient(135deg,#e74c3c,#c0392b)">👴<span class="team-dot team-opp"></span></div>
+<div class="name" id="name1">Benson</div><div class="card-count" id="cardCount1">4 cards</div>
+<div class="badges" id="badges1"></div>
+<div class="bid-tag" id="bid1"></div>
+<div class="cards-row" id="cards1"></div>
+</div>
+
+<div class="player-pos pos-bottom" id="pos3">
+<div class="avatar active" id="av3" style="background:linear-gradient(135deg,#f39c12,#e67e22)">😎<span class="team-dot team-you"></span></div>
+<div class="name" id="name3">You</div><div class="card-count" id="cardCount3">4 cards</div>
+<div class="badges" id="badges3"></div>
+<div class="bid-tag" id="bid3"></div>
+<div class="cards-row" id="cards3"></div>
+</div>
+
+<div class="player-pos pos-right" id="pos2">
+<div class="avatar" id="av2" style="background:linear-gradient(135deg,#9b59b6,#8e44ad)">🧔<span class="team-dot team-opp"></span></div>
+<div class="name" id="name2">Koshy</div><div class="card-count" id="cardCount2">4 cards</div>
+<div class="badges" id="badges2"></div>
+<div class="bid-tag" id="bid2"></div>
+<div class="cards-row" id="cards2"></div>
+</div>
+
+<div class="center-play">
+<div class="trick-winner-display" id="trickWinnerDisplay">
+    <span class="tw-icon">🏆</span>
+    <span class="tw-name" id="trickWinnerName">—</span>
+    <span class="tw-points" id="trickWinnerPoints">0 pts</span>
+</div>
+<div class="trump-reveal" id="trumpReveal">🎯 Trump: Hidden</div>
+<div class="center-cards" id="centerCards"></div>
+</div>
+
+<div class="played-slot slot-top" id="slot0"></div>
+<div class="played-slot slot-left" id="slot1"></div>
+<div class="played-slot slot-right" id="slot2"></div>
+<div class="played-slot slot-bottom" id="slot3"></div>
+
+<div class="hand-area" id="handArea"></div>
+
+<div class="table-tricks-display" id="tableTricksDisplay">
+    <div class="table-tricks-team">
+        <div class="table-tricks-label your-team">You</div>
+        <div class="table-tricks-score your-score your-team-glow" id="tableYourTricks">0</div>
+        <div class="table-tricks-target">/ <span id="tableYourTarget">—</span></div>
+    </div>
+    <div class="table-tricks-team">
+        <div class="table-tricks-label opp-team">Opp</div>
+        <div class="table-tricks-score opp-score opp-team-glow" id="tableOppTricks">0</div>
+        <div class="table-tricks-target">/ <span id="tableOppTarget">—</span></div>
+    </div>
+</div>
+
+</div>
+
+<div class="game-log" id="gameLog">
+<h4>Game Log</h4>
+<div id="logContent"></div>
+</div>
+
+<div style="text-align:center;margin-top:0.4rem;flex-shrink:0;padding-bottom:0.3rem">
+<button class="btn btn-primary" onclick="startGame()" id="newGameBtn" style="padding:0.4rem 1rem;font-size:0.8rem">New Game</button>
+<button class="btn btn-outline" onclick="showSection('landing')" id="homeBtn" style="padding:0.4rem 1rem;font-size:0.8rem">🏠 Home</button>
+</div>
+</div>
+</div>
+
+<div class="bid-panel" id="bidPanel">
+<h3 id="bidTitle">Place Your Bid</h3>
+<p id="bidText">Minimum bid is 14. Current highest: <span id="currentBid">—</span></p>
+<div style="margin:1rem 0;padding:0.8rem;background:rgba(0,0,0,0.3);border-radius:12px;border:1px solid var(--border);">
+  <div style="font-size:0.8rem;color:var(--accent);margin-bottom:0.5rem;font-weight:600;">🃏 Your Cards</div>
+  <div id="bidHandDisplay" style="display:flex;justify-content:center;gap:0.3rem;flex-wrap:wrap;min-height:90px;"></div>
+</div>
+<div class="bid-buttons" id="bidButtons"></div>
+<div style="display:flex;gap:0.5rem;justify-content:center;">
+<button class="btn btn-primary" id="bidConfirm" disabled style="padding:0.4rem 1rem;font-size:0.8rem">Confirm</button>
+<button class="btn btn-outline" style="padding:0.4rem 1rem;font-size:0.8rem">Pass</button>
+</div>
+</div>
+
+<div class="bid-panel" id="trumpPanel">
+<h3>Choose Trump Suit</h3>
+<p>You won the bid! Select the trump suit.</p>
+<div style="margin:1rem 0;padding:0.8rem;background:rgba(0,0,0,0.3);border-radius:12px;border:1px solid var(--border);">
+  <div style="font-size:0.8rem;color:var(--accent);margin-bottom:0.5rem;font-weight:600;">🃏 Your Cards</div>
+  <div id="trumpHandDisplay" style="display:flex;justify-content:center;gap:0.3rem;flex-wrap:wrap;min-height:90px;"></div>
+</div>
+<div class="trump-select active" id="trumpSelect">
+<div class="trump-suits" style="margin-bottom:0.5rem">
+<button class="trump-suit-btn" style="color:#d32f2f;width:50px;height:65px;font-size:2rem" onclick="selectTrump('♥',this)">♥</button>
+<button class="trump-suit-btn" style="color:black;width:50px;height:65px;font-size:2rem" onclick="selectTrump('♠',this)">♠</button>
+<button class="trump-suit-btn" style="color:#d32f2f;width:50px;height:65px;font-size:2rem" onclick="selectTrump('♦',this)">♦</button>
+<button class="trump-suit-btn" style="color:black;width:50px;height:65px;font-size:2rem" onclick="selectTrump('♣',this)">♣</button>
+</div>
+<button class="btn btn-primary" id="trumpConfirm" disabled style="padding:0.4rem 1.2rem;font-size:0.85rem">Confirm Trump</button>
+</div>
+</div>
+
+<div class="pair-panel" id="pairPanel">
+<h4>Pair Declaration</h4>
+<p>You hold the King and Queen of trump!</p>
+<button class="btn btn-info" onclick="declarePair()" style="width:100%">Declare Pair</button>
+<button class="btn btn-outline" onclick="skipPair()" style="width:100%;margin-top:0.5rem">Skip</button>
+</div>
+
+<div class="call-trump-panel" id="callTrumpPanel">
+<h4>🎯 Cannot Follow Suit!</h4>
+<p>You have no <b id="ledSuitDisplay">—</b> cards. Choose your action:</p>
+<div style="display:flex;gap:1rem;justify-content:center;margin:1rem 0;">
+    <button class="btn btn-danger" onclick="passOnTrump()" style="min-width:140px">
+        ❌ PASS<br><small style="font-size:0.7rem">Discard without calling trump</small>
+    </button>
+    <button class="btn btn-success" id="callTrumpBtn" onclick="callTrumpChoice()" style="min-width:140px">
+        🎯 CALL TRUMP<br><small style="font-size:0.7rem">Expose hidden trump</small>
+    </button>
+</div>
+<div id="callTrumpSubPanel" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+    <div style="font-size:0.8rem;color:var(--danger);margin-bottom:0.5rem;font-weight:600">
+        ⚠️ You called trump! You MUST play a trump card if you have one:
+    </div>
+    <div id="callTrumpCards" style="display:flex;gap:0.5rem;justify-content:center;margin-bottom:1rem;flex-wrap:wrap;"></div>
+</div>
+<div id="passSubPanel" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+    <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.5rem;font-weight:600">
+        Click any card to discard (no trump called):
+    </div>
+    <div id="discardCards" style="display:flex;gap:0.5rem;justify-content:center;margin-bottom:1rem;flex-wrap:wrap;"></div>
+</div>
+<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.5rem;text-align:center;">
+    <b>Rule:</b> If you call trump, you must play a trump. If you pass, you can discard any card.
+</div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+<div class="modal" onclick="event.stopPropagation()">
+<button class="modal-close" onclick="closeModal()">&times;</button>
+<h3 id="modalTitle">Title</h3>
+<p id="modalText">Message</p>
+<button class="btn btn-primary" onclick="closeModal()">Got it!</button>
+</div>
+</div>
+
+<script>
+function toggleMobileMenu(){
+    const menu = document.getElementById('mobileMenu');
+    if(menu) menu.classList.toggle('active');
+}
+
+function scrollToSection(id){
+    const el = document.getElementById(id);
+    if(el) el.scrollIntoView({behavior:'smooth'});
+}
+
+
+// ==================== AUTHENTIC 28 GAME ENGINE ====================
+// Rules per Pagat.com, Wikipedia, and gambiter.com
+
+const SUITS = ['♥','♦','♣','♠'];
+const RANKS = ['7','8','9','10','J','Q','K','A'];
+const RANK_ORDER = {'J':7,'9':6,'A':5,'10':4,'K':3,'Q':2,'8':1,'7':0};
+const POINTS = {'J':3,'9':2,'A':1,'10':1,'K':0,'Q':0,'8':0,'7':0};
+const SUIT_COLORS = {'♥':'#d32f2f','♦':'#d32f2f','♣':'black','♠':'black'};
+const BOT_NAMES = ['Sam','Benson','Koshy','You'];
+
+// ==================== STATE ====================
+let deck = [];
+let players = [[],[],[],[]];
+let currentPlayer = 0;
+let dealer = 0;
+let bidder = -1;
+let highestBid = 0;
+let trumpSuit = '';
+let hiddenTrump = null;
+let trumpExposed = false;
+let round = 1;
+let trickCards = [];
+let trickSuit = '';
+let teamPoints = [0,0];
+let gameScore = [0,0];
+let phase = 'bidding1';
+let passes = 0;
+let pairDeclared = false;
+let pairTeam = -1;
+let tricksWon = [0,0,0,0];
+
+// TEAM MAPPING: You(3) + Sam(0) = Your Team (1), Benson(1) + Koshy(2) = Opponent (0)
+function getTeam(p){ return (p === 0 || p === 3) ? 1 : 0; }
+let lastTrick = null;
+let turnInProgress = false;
+
+// ==================== UTILITY FUNCTIONS (defined first) ====================
+function nextPlayer(p){
+    // Play/Bid/Dealer order: You(3) → Opponent(1) → Partner(0) → Other Opp(2) → You(3)
+    const order = [3, 1, 0, 2];
+    const idx = order.indexOf(p);
+    return order[(idx + 1) % 4];
+}
+
+function prevPlayer(p){
+    // Reverse order for bidding first bidder: You(3) ← Other Opp(2) ← Partner(0) ← Opponent(1) ← You(3)
+    const order = [3, 2, 0, 1];
+    const idx = order.indexOf(p);
+    return order[(idx + 1) % 4];
+}
+
+function createDeck(){
+    deck = [];
+    for(let s of SUITS){
+        for(let r of RANKS){
+            deck.push({suit:s, rank:r, points:POINTS[r], color:SUIT_COLORS[s]});
+        }
+    }
+    for(let i=deck.length-1; i>0; i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [deck[i],deck[j]] = [deck[j],deck[i]];
+    }
+}
+
+function dealFour(){
+    players = [[],[],[],[]];
+    for(let i=0; i<16; i++){
+        players[i%4].push(deck.pop());
+    }
+    sortHands();
+}
+
+function dealRemaining(){
+    for(let i=0; i<16; i++){
+        players[i%4].push(deck.pop());
+    }
+    sortHands();
+}
+
+function sortHands(){
+    for(let p=0; p<4; p++){
+        players[p].sort((a,b)=>{
+            if(SUITS.indexOf(a.suit)!==SUITS.indexOf(b.suit)) return SUITS.indexOf(a.suit)-SUITS.indexOf(b.suit);
+            return RANK_ORDER[b.rank]-RANK_ORDER[a.rank];
+        });
+    }
+}
+
+function cardHTML(card, clickable, disabled){
+    const clk = clickable ? `onclick="playCard('${card.suit}','${card.rank}')"` : '';
+    const dis = disabled ? 'disabled' : '';
+    return `<div class="card ${dis}" ${clk} ${dis ? 'style="pointer-events:none"' : ''}>
+        <span class="cr" style="color:${card.color}">${card.rank}</span>
+        <span class="cs" style="color:${card.color}">${card.suit}</span>
+        <span class="crb" style="color:${card.color}">${card.rank}</span>
+    </div>`;
+}
+
+function backCardHTML(){
+    return `<div class="card back"></div>`;
+}
+
+function log(msg, type){
+    const now = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const entry = document.createElement('div');
+    entry.className = 'log-entry ' + (type||'');
+    entry.innerHTML = `<span class="time">${now}</span>${msg}`;
+    const lc = document.getElementById('logContent');
+    if(lc) lc.prepend(entry);
+}
+
+/* ===== BIDDING STATUS ANIMATION ===== */
+function showBidStatus(player, action, amount){
+    const popup = document.createElement('div');
+    popup.className = 'bid-status-popup';
+    const name = player === 3 ? 'You' : BOT_NAMES[player];
+    if(action === 'bid'){
+        popup.innerHTML = `<div class="bid-player">${name}</div><div class="bid-action">BIDS</div><div class="bid-amount">${amount}</div>`;
+    }else if(action === 'pass'){
+        popup.innerHTML = `<div class="bid-player">${name}</div><div class="bid-pass">PASS</div>`;
+    }else if(action === 'win'){
+        popup.innerHTML = `<div class="bid-player">${name}</div><div class="bid-action">WINS BID!</div><div class="bid-amount">${amount}</div>`;
+    }
+    document.body.appendChild(popup);
+    setTimeout(()=>{ popup.classList.add('fadeout'); }, 900);
+    setTimeout(()=>{ if(popup.parentNode) popup.remove(); }, 1200);
+}
+
+/* ===== ROUND WIN ANIMATION ===== */
+function showRoundWin(bidTeam, made, points, effBid){
+    const popup = document.createElement('div');
+    popup.className = 'round-win-popup';
+    const teamName = bidTeam === 1 ? 'YOUR TEAM' : 'OPPONENTS';
+    const color = bidTeam === 1 ? 'var(--accent)' : 'var(--info)';
+    if(made){
+        const pts = highestBid >= 25 ? 3 : highestBid >= 20 ? 2 : 1;
+        popup.innerHTML = `<div class="round-winner" style="color:${color}">🏆 ${teamName} WINS!</div><div class="round-score">${points} / ${effBid} pts</div><div class="round-points">+${pts} Championship Points</div>`;
+    }else{
+        const other = bidTeam === 1 ? 'OPPONENTS' : 'YOUR TEAM';
+        const pts = highestBid >= 25 ? 4 : highestBid >= 20 ? 3 : 2;
+        popup.innerHTML = `<div class="round-winner" style="color:var(--danger)">❌ ${teamName} FAILED!</div><div class="round-score">${points} / ${effBid} pts</div><div class="round-points">${other} +${pts} Points</div>`;
+    }
+    document.body.appendChild(popup);
+    setTimeout(()=>{ if(popup.parentNode) popup.remove(); }, 2600);
+}
+
+/* ===== TRICK POINTS BUMP ===== */
+function bumpTrickPoints(team){
+    const el = team === 1 ? document.getElementById('yourTricks') : document.getElementById('oppTricks');
+    if(!el) return;
+    el.classList.remove('trick-points-bump');
+    void el.offsetWidth;
+    el.classList.add('trick-points-bump');
+    setTimeout(()=>{ el.classList.remove('trick-points-bump'); }, 400);
+}
+
+/* ===== TOTAL TRICKS COUNTER ANIMATION ===== */
+function bumpTotalTricks(team){
+    const el = team === 1 ? document.getElementById('yourScore') : document.getElementById('oppScore');
+    if(!el) return;
+    el.classList.remove('total-tricks-bump');
+    void el.offsetWidth;
+    el.classList.add('total-tricks-bump');
+    setTimeout(()=>{ el.classList.remove('total-tricks-bump'); }, 500);
+}
+
+/* ===== UPDATE TABLE TRICKS DISPLAY ===== */
+function updateTableTricks(){
+    const yourEl = document.getElementById('tableYourTricks');
+    const oppEl = document.getElementById('tableOppTricks');
+    const yourTarget = document.getElementById('tableYourTarget');
+    const oppTarget = document.getElementById('tableOppTarget');
+
+    // Team mapping: You(3) + Sam(0) = Your Team, Benson(1) + Koshy(2) = Opponent
+    const yourTeamPoints = teamPoints[1]; // getTeam(0)=1, getTeam(3)=1
+    const oppTeamPoints = teamPoints[0];  // getTeam(1)=0, getTeam(2)=0
+
+    if(yourEl) yourEl.textContent = yourTeamPoints;
+    if(oppEl) oppEl.textContent = oppTeamPoints;
+
+    // Show target bid for each team
+    let effBid = highestBid;
+    if(pairDeclared){
+        effBid = pairTeam===getTeam(bidder) ? Math.max(14, effBid-4) : Math.min(28, effBid+4);
+    }
+
+    const bidTeam = getTeam(bidder);
+    if(yourTarget) yourTarget.textContent = bidTeam === 1 ? effBid : (28 - effBid);
+    if(oppTarget) oppTarget.textContent = bidTeam === 0 ? effBid : (28 - effBid);
+}
+
+/* ===== BUMP TABLE TRICKS ANIMATION ===== */
+function bumpTableTricks(team){
+    const el = team === 1 ? document.getElementById('tableYourTricks') : document.getElementById('tableOppTricks');
+    if(!el) return;
+    const bumpClass = team === 1 ? 'your-team-bump' : 'opp-team-bump';
+    el.classList.remove(bumpClass);
+    void el.offsetWidth;
+    el.classList.add(bumpClass);
+    setTimeout(()=>{ el.classList.remove(bumpClass); }, 500);
+}
+
+/* ===== FINAL BID WINNER ANIMATION ===== */
+function showFinalBidWinner(){
+    if(bidder < 0) return;
+    const popup = document.createElement('div');
+    popup.className = 'final-bid-popup';
+    const name = bidder === 3 ? 'You' : BOT_NAMES[bidder];
+    const avatar = document.getElementById('av'+bidder);
+    const avatarEmoji = avatar ? avatar.textContent.trim().substring(0,2) : '👤';
+    popup.innerHTML = `
+        <span class="fb-avatar">${avatarEmoji}</span>
+        <div class="fb-name">${name}</div>
+        <div class="fb-text">Wins the Bid!</div>
+        <div class="fb-amount">${highestBid}</div>
+    `;
+    document.body.appendChild(popup);
+    setTimeout(()=>{ if(popup.parentNode) popup.remove(); }, 2600);
+}
+
+/* ===== PARTNER ENCOURAGEMENT WORDS ===== */
+const PARTNER_WORDS = [
+    "Nice play! 👏",
+    "Great move! 🔥",
+    "Well done! 💪",
+    "Excellent! ⭐",
+    "Perfect! 🎯",
+    "Awesome! 🚀",
+    "Brilliant! 💎",
+    "Superb! 🏆",
+    "Fantastic! 🌟",
+    "Amazing! ✨",
+    "Keep it up! 🎉",
+    "That's the way! 👍",
+    "Beautiful! 🎨",
+    "Crushing it! 💥",
+    "On fire! 🔥"
+];
+
+function showPartnerSpeech(winnerPlayer){
+    // Find partner (2 seats away)
+    const partner = (winnerPlayer + 2) % 4;
+    const partnerPos = document.getElementById('pos'+partner);
+    if(!partnerPos) return;
+
+    // Don't show if partner is the winner (they won, not their partner)
+    if(partner === winnerPlayer) return;
+
+    const word = PARTNER_WORDS[Math.floor(Math.random() * PARTNER_WORDS.length)];
+    const bubble = document.createElement('div');
+    bubble.className = 'speech-bubble';
+    bubble.textContent = word;
+    partnerPos.appendChild(bubble);
+
+    setTimeout(()=>{
+        bubble.classList.add('fadeout');
+        setTimeout(()=>{ if(bubble.parentNode) bubble.remove(); }, 300);
+    }, 2000);
+}
+
+/* ===== TABLE TOTALS UPDATE ===== */
+function updateTableTotals(){
+    const yourPts = document.getElementById('tableYourPoints');
+    const oppPts = document.getElementById('tableOppPoints');
+    const yourTgt = document.getElementById('tableYourTarget');
+    const oppTgt = document.getElementById('tableOppTarget');
+
+    if(yourPts) yourPts.textContent = teamPoints[1];
+    if(oppPts) oppPts.textContent = teamPoints[0];
+
+    let effBid = highestBid;
+    if(pairDeclared){
+        effBid = pairTeam===getTeam(bidder) ? Math.max(14, effBid-4) : Math.min(28, effBid+4);
+    }
+
+    if(yourTgt) yourTgt.textContent = getTeam(bidder)===1 ? '/ ' + effBid : '';
+    if(oppTgt) oppTgt.textContent = getTeam(bidder)===0 ? '/ ' + effBid : '';
+}
+
+function bumpTableTricks(team){
+    const el = team === 1 ? document.getElementById('tableYourPoints') : document.getElementById('tableOppPoints');
+    if(!el) return;
+    el.classList.remove('table-total-bump');
+    void el.offsetWidth;
+    el.classList.add('table-total-bump');
+    setTimeout(()=>{ el.classList.remove('table-total-bump'); }, 500);
+}
+
+function showSection(section){
+    const landing = document.getElementById('landing');
+    const gameContainer = document.getElementById('gameContainer');
+    if(section==='landing'){
+        if(landing) landing.style.display='block';
+        if(gameContainer) gameContainer.classList.remove('active');
+        window.scrollTo(0,0);
+    }else if(section==='game'){
+        if(landing) landing.style.display='none';
+        if(gameContainer) gameContainer.classList.add('active');
+    }
+}
+
+function showModal(title,text){
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalText').textContent = text;
+    document.getElementById('modalOverlay').classList.add('active');
+}
+
+function closeModal(e){
+    if(!e || e.target.id==='modalOverlay' || e.target.classList.contains('modal-close')){
+        document.getElementById('modalOverlay').classList.remove('active');
+    }
+}
+
+function updatePhase(){
+    const ind = document.getElementById('phaseIndicator');
+    if(!ind) return;
+    if(phase==='bidding1'){
+        ind.innerHTML = '🎯 Phase 1 Bidding: Min 14 | First bidder must bid';
+        ind.classList.add('active');
+    }else if(phase==='bidding2'){
+        ind.innerHTML = '🎯 Phase 2: Bidder may raise (min 20 to overcall)';
+        ind.classList.add('active');
+    }else if(phase==='play1'){
+        ind.innerHTML = '🎯 Play: Trump HIDDEN | Bidder cannot lead trump';
+        ind.classList.add('active');
+    }else if(phase==='play2'){
+        ind.innerHTML = '🎯 Play: Trump EXPOSED | ' + trumpSuit + ' wins!';
+        ind.classList.add('active');
+    }else{
+        ind.classList.remove('active');
+    }
+}
+
+function highlightPlayer(p){
+    for(let i=0; i<4; i++){
+        const av = document.getElementById('av'+i);
+        if(av) av.classList.toggle('active', i===p);
+    }
+}
+
+function updateCardCounts(){
+    for(let p=0; p<4; p++){
+        const el = document.getElementById('cardCount'+p);
+        if(!el) continue;
+        let count = players[p] ? players[p].length : 0;
+        if(hiddenTrump && !trumpExposed && p===bidder) count += 1;
+        el.textContent = count + ' cards';
+    }
+}
+
+function updateBadges(){
+    for(let i=0; i<4; i++){
+        const bc = document.getElementById('badges'+i);
+        const av = document.getElementById('av'+i);
+        if(!bc) continue;
+        let badges = [];
+        if(i===dealer) badges.push('<span class="player-badge badge-dealer">Dealer</span>');
+        if(i===bidder && bidder>=0){
+            badges.push('<span class="player-badge badge-bidder">Bidder ('+highestBid+')</span>');
+            if(av) av.classList.add('bidder-avatar');
+        }else{
+            if(av) av.classList.remove('bidder-avatar');
+        }
+        if(hiddenTrump && !trumpExposed && i===bidder) badges.push('<span class="player-badge" style="background:var(--danger)">Hidden Trump</span>');
+        bc.innerHTML = badges.join('');
+    }
+}
+
+let _lastTrickWinner = -1;
+
+function getCurrentTrickLeader(){
+    if(trickCards.length === 0) return null;
+    let winner = trickCards[0];
+    for(let i=1; i<trickCards.length; i++){
+        const tc = trickCards[i];
+        const wc = winner.card;
+        if(trumpExposed){
+            if(tc.card.suit===trumpSuit && wc.suit!==trumpSuit){
+                winner = tc;
+            }else if(tc.card.suit===wc.suit && RANK_ORDER[tc.card.rank]>RANK_ORDER[wc.rank]){
+                winner = tc;
+            }
+        }else{
+            if(tc.card.suit===wc.suit && RANK_ORDER[tc.card.rank]>RANK_ORDER[wc.rank]){
+                winner = tc;
+            }
+        }
+    }
+    return winner;
+}
+
+function updateTrickWinnerDisplay(){
+    const display = document.getElementById('trickWinnerDisplay');
+    const nameEl = document.getElementById('trickWinnerName');
+    const pointsEl = document.getElementById('trickWinnerPoints');
+    if(!display || !nameEl || !pointsEl) return;
+
+    const leader = getCurrentTrickLeader();
+
+    if(leader && trickCards.length > 0){
+        const name = leader.player === 3 ? 'You' : BOT_NAMES[leader.player];
+        const pts = trickCards.reduce((sum,tc)=>sum+tc.card.points,0);
+
+        // Check if leader changed
+        if(leader.player !== _lastTrickWinner){
+            display.classList.add('active');
+            nameEl.textContent = name + ' leads!';
+            pointsEl.textContent = pts + ' pts';
+            display.classList.remove('trick-winner-change');
+            display.classList.remove('leading');
+            void display.offsetWidth;
+            display.classList.add('trick-winner-change');
+            display.classList.add('leading');
+            _lastTrickWinner = leader.player;
+        } else {
+            // Same leader, just update points
+            nameEl.textContent = name + ' leads!';
+            pointsEl.textContent = pts + ' pts';
+        }
+    } else {
+        display.classList.remove('active');
+        display.classList.remove('leading');
+        _lastTrickWinner = -1;
+    }
+}
+
+function updateInfo(){
+    const roundNum = document.getElementById('roundNum');
+    if(roundNum) roundNum.textContent = round;
+
+    const trumpDisplay = document.getElementById('trumpDisplay');
+    if(trumpDisplay) trumpDisplay.textContent = trumpExposed ? trumpSuit : 'Hidden';
+
+    updateTableTricks();
+
+    let bidText = highestBid > 0 ? highestBid : '—';
+    if(pairDeclared){
+        bidText += pairTeam===getTeam(bidder) ? ' (-4)' : ' (+4)';
+    }
+    const bidDisplay = document.getElementById('bidDisplay');
+    if(bidDisplay) bidDisplay.textContent = bidText;
+
+    const yourTricks = document.getElementById('yourTricks');
+    if(yourTricks) yourTricks.textContent = teamPoints[1] + ' pts';
+
+    const oppTricks = document.getElementById('oppTricks');
+    if(oppTricks) oppTricks.textContent = teamPoints[0] + ' pts';
+
+    const yourScore = document.getElementById('yourScore');
+    if(yourScore) yourScore.textContent = gameScore[1];
+
+    const oppScore = document.getElementById('oppScore');
+    if(oppScore) oppScore.textContent = gameScore[0];
+
+    // Update table totals display
+    updateTableTotals();
+
+    let turnText = 'Bidding';
+    if(phase==='play1' || phase==='play2'){
+        turnText = currentPlayer===3 ? 'Your Turn' : BOT_NAMES[currentPlayer]+"'s Turn";
+    }
+    const turnDisplay = document.getElementById('turnDisplay');
+    if(turnDisplay) turnDisplay.textContent = turnText;
+
+    const phaseDisplay = document.getElementById('phaseDisplay');
+    if(phaseDisplay) phaseDisplay.textContent = phase==='bidding1' ? 'Phase 1 Bid' : phase==='bidding2' ? 'Phase 2 Bid' : phase==='play1' ? 'Play (Hidden)' : 'Play (Revealed)';
+
+    const dealerDisplay = document.getElementById('dealerDisplay');
+    if(dealerDisplay) dealerDisplay.textContent = dealer===3?'You':BOT_NAMES[dealer];
+
+    const bidderDisplay = document.getElementById('bidderDisplay');
+    if(bidderDisplay){
+        if(bidder >= 0){
+            bidderDisplay.textContent = (bidder===3?'You':BOT_NAMES[bidder]) + ' (' + highestBid + ')';
+        } else {
+            bidderDisplay.textContent = '—';
+        }
+    }
+
+    updateBadges();
+    updateTrickWinnerDisplay();
+}
+
+function updateLastTrick(){
+    const panel = document.getElementById('lastTrickContent');
+    if(!panel) return;
+    if(!lastTrick || !lastTrick.cards || lastTrick.cards.length===0){
+        panel.innerHTML = '<div class="last-trick-empty">No tricks yet</div>';
+        return;
+    }
+    let html = '<div class="last-trick-cards">';
+    for(let tc of lastTrick.cards){
+        const c = tc.card;
+        html += `<div class="card"><span class="cr" style="color:${c.color}">${c.rank}</span><span class="cs" style="color:${c.color}">${c.suit}</span><span class="crb" style="color:${c.color}">${c.rank}</span></div>`;
+    }
+    html += '</div>';
+    const wn = lastTrick.winner===3?'You':BOT_NAMES[lastTrick.winner];
+    html += `<div class="last-trick-winner">${wn} won (+${lastTrick.points} pts)</div>`;
+    panel.innerHTML = html;
+}
+
+// ==================== CAN PLAY (before renderPlayerHand) ====================
+function canPlay(card){
+    if(phase.startsWith('bidding')) return false;
+    if(currentPlayer !== 3) return false;
+    if(turnInProgress) return false;
+    if(trickSuit === ''){
+        // Leading: bidder cannot lead trump in Phase 1 unless no alternative
+        if(phase==='play1' && bidder===3 && card.suit===trumpSuit){
+            const nonTrump = players[3].filter(c=>c.suit!==trumpSuit);
+            if(nonTrump.length > 0) return false;
+        }
+        return true;
+    }
+    // Must follow suit if possible
+    const hasSuit = players[3].some(c=>c.suit===trickSuit);
+    if(hasSuit && card.suit!==trickSuit) return false;
+    // If can't follow and trump is hidden, can play any card (discard) OR call trump
+    // The actual trump call is handled separately via showCallTrumpPanel
+    return true;
+}
+
+// ==================== RENDERING (after canPlay) ====================
+function renderPlayerHand(){
+    const container = document.getElementById('handArea');
+    if(!container) return;
+    container.innerHTML = '';
+    const hand = players[3] || [];
+    for(let i=0; i<hand.length; i++){
+        const card = hand[i];
+        const playable = canPlay(card);
+        const cardEl = document.createElement('div');
+        cardEl.innerHTML = cardHTML(card, true, !playable);
+        const child = cardEl.firstChild;
+        child.classList.add('hand-card-dealt');
+        child.style.animationDelay = (i * 0.06) + 's';
+        container.appendChild(child);
+    }
+}
+
+function renderHands(){
+    for(let p=0; p<3; p++){
+        const container = document.getElementById('cards'+p);
+        if(!container) continue;
+        container.innerHTML = '';
+        const count = players[p] ? players[p].length : 0;
+        for(let i=0; i<count; i++){
+            const card = document.createElement('div');
+            card.className = 'card back bot-card-dealt';
+            card.style.setProperty('--rot', ((i - count/2) * 5) + 'deg');
+            card.style.animationDelay = (i * 0.08) + 's';
+            container.appendChild(card);
+        }
+    }
+    renderPlayerHand();
+    updateCardCounts();
+}
+
+// ==================== BIDDING PHASE 1 ====================
+function doBidding1(){
+    phase = 'bidding1';
+    highlightPlayer(currentPlayer);
+    updateInfo();
+    updatePhase();
+
+    if(currentPlayer === 3){
+        showBidPanel1();
+    }else{
+        setTimeout(()=>botBid1(), 1000);
+    }
+}
+
+function showBidPanel1(){
+    const panel = document.getElementById('bidPanel');
+    if(!panel) return;
+    panel.classList.remove('active');
+    void panel.offsetWidth;
+    panel.classList.add('active');
+    document.getElementById('bidTitle').innerHTML = '<span class="phase-badge-anim">🎯</span> Phase 1: Place Your Bid';
+
+    const minBid = highestBid > 0 ? highestBid + 1 : 14;
+    const dealerName = dealer === 3 ? 'You' : BOT_NAMES[dealer];
+    const currentBidderName = bidder >= 0 ? (bidder === 3 ? 'You' : BOT_NAMES[bidder]) : 'None';
+
+    // Check if current player is the FIRST bidder
+    const isFirstBidder = (highestBid === 0 && passes === 0 && currentPlayer === nextPlayer(dealer));
+
+    // Build animated current bidder display
+    let currentBidderHTML = '';
+    if(bidder >= 0){
+        const bidderEmoji = bidder === 3 ? '😎' : (bidder === 0 ? '👨' : (bidder === 1 ? '👴' : '🧔'));
+        currentBidderHTML = '<div class="current-bidder-section">' +
+            '<div class="current-bidder-label">👑 Current Bidder</div>' +
+            '<div class="current-bidder-box">' +
+                '<span class="bidder-icon">' + bidderEmoji + '</span>' +
+                '<span class="bidder-name">' + currentBidderName + '</span>' +
+                '<span class="bidder-amount">' + highestBid + '</span>' +
+            '</div>' +
+        '</div>';
+    }else{
+        currentBidderHTML = '<div class="current-bidder-section">' +
+            '<div class="current-bidder-label">👑 Current Bidder</div>' +
+            '<div style="color:var(--text-secondary);font-size:0.9rem;font-weight:600">None yet — be the first!</div>' +
+        '</div>';
+    }
+
+    document.getElementById('bidText').innerHTML = 
+        currentBidderHTML +
+        '<div style="margin-bottom:0.8rem;margin-top:0.8rem">' +
+        '<span style="color:var(--accent)">🃏 Dealer:</span> <b>' + dealerName + '</b> &nbsp;|&nbsp; ' +
+        '<span style="color:var(--success)">📈 Highest Bid:</span> <b>' + (highestBid>0?highestBid:'—') + '</b>' +
+        '</div>' +
+        (isFirstBidder 
+            ? '<div style="color:var(--danger);font-size:0.9rem;font-weight:700">⚠️ You are the FIRST bidder — you MUST bid at least 14. Passing is not allowed!</div>'
+            : '<div style="color:var(--text-secondary);font-size:0.85rem">Minimum bid is <b>14</b>. You may bid or pass.</div>'
+        );
+
+    const btns = document.getElementById('bidButtons');
+    btns.innerHTML = '';
+
+    // Only show PASS button if NOT the first bidder
+    if(!isFirstBidder){
+        const passBtn = document.createElement('button');
+        passBtn.className = 'bid-btn';
+        passBtn.textContent = 'PASS';
+        passBtn.style.background = 'var(--danger)';
+        passBtn.style.color = '#fff';
+        passBtn.onclick = ()=>{ panel.classList.remove('active'); processBid(currentPlayer, 0); };
+        btns.appendChild(passBtn);
+    }
+
+    for(let b=minBid; b<=28; b++){
+        const btn = document.createElement('button');
+        btn.className = 'bid-btn';
+        btn.textContent = b;
+        btn.onclick = ()=>{ panel.classList.remove('active'); processBid(currentPlayer, b); };
+        btns.appendChild(btn);
+    }
+
+    // Show player's hand in bid panel
+    const handDisplay = document.getElementById('bidHandDisplay');
+    if(handDisplay){
+        handDisplay.innerHTML = '';
+        const hand = players[3] || [];
+        for(let card of hand){
+            handDisplay.innerHTML += cardHTML(card, false, false);
+        }
+    }
+}
+
+function botBid1(){
+    const p = currentPlayer;
+    const hand = players[p];
+
+    // First bidder MUST bid
+    const isFirstBidder = (highestBid === 0 && passes === 0 && p === prevPlayer(dealer));
+    const minBid = highestBid > 0 ? highestBid + 1 : 14;
+
+    // === ADVANCED HAND EVALUATION ===
+    let totalPoints = 0;
+    let suitStrength = {};
+    let hasJ = false, has9 = false;
+    let aceCount = 0, tenCount = 0;
+
+    for(let s of SUITS) suitStrength[s] = {points:0, highCards:0, cards:[]};
+
+    for(let c of hand){
+        totalPoints += c.points;
+        suitStrength[c.suit].points += c.points;
+        suitStrength[c.suit].cards.push(c);
+        if(c.rank === 'J') hasJ = true;
+        if(c.rank === '9') has9 = true;
+        if(c.rank === 'A') aceCount++;
+        if(c.rank === '10') tenCount++;
+        // High card bonus
+        if(['J','9','A','10'].includes(c.rank)) suitStrength[c.suit].highCards++;
+    }
+
+    // Find best suit for trump
+    let bestSuit = SUITS[0];
+    let bestSuitScore = -1;
+    for(let s of SUITS){
+        let score = suitStrength[s].points * 2 + suitStrength[s].highCards;
+        if(suitStrength[s].cards.some(c => c.rank === 'J')) score += 3;
+        if(suitStrength[s].cards.some(c => c.rank === '9')) score += 2;
+        if(score > bestSuitScore){
+            bestSuitScore = score;
+            bestSuit = s;
+        }
+    }
+
+    // Calculate realistic bid based on hand strength
+    // Max points in game = 28. Good hand = 6-8 points in 4 cards.
+    // With 8 cards after phase 2, expect 12-16 points for strong hand.
+    let estimatedTotal = totalPoints * 2; // Estimate for 8 cards
+    if(hasJ && has9) estimatedTotal += 3;
+    if(aceCount >= 2) estimatedTotal += 2;
+    if(tenCount >= 2) estimatedTotal += 1;
+
+    // Partner factor: if partner is bidder, be more conservative
+    let partnerBoost = 0;
+    if(bidder >= 0 && (getTeam(bidder)) === (getTeam(p))){
+        partnerBoost = 2; // Trust partner's bid
+    }
+
+    let targetBid = Math.min(28, Math.max(14, Math.floor(estimatedTotal + partnerBoost)));
+
+    let bid = 0;
+
+    if(isFirstBidder){
+        bid = Math.max(14, Math.min(targetBid, 18));
+        log(BOT_NAMES[p] + ' is first bidder, bids ' + bid + ' (hand strength: ' + totalPoints + ' pts)');
+    }else if(minBid <= targetBid && minBid <= 28){
+        // Bid up to target, but be smart about it
+        if(minBid <= targetBid - 2){
+            bid = minBid + 1; // Jump bid to pressure opponents
+        }else if(minBid <= targetBid){
+            bid = minBid; // Match minimum
+        }
+        log(BOT_NAMES[p] + ' bids ' + bid + ' (target: ' + targetBid + ', hand: ' + totalPoints + ' pts)');
+    }else{
+        log(BOT_NAMES[p] + ' passes (target ' + targetBid + ' < min ' + minBid + ')');
+    }
+
+    // Safety: if everyone passed and no bid yet, force bid
+    if(passes >= 3 && highestBid === 0){
+        bid = Math.max(14, Math.min(16, targetBid));
+        log(BOT_NAMES[p] + ' forced to bid ' + bid + ' (all others passed)!');
+    }
+
+    processBid(p, bid);
+}
+
+function processBid(p, bid){
+    // Check if this player is the first bidder and trying to pass
+    const isFirstBidder = (highestBid === 0 && passes === 0 && p === nextPlayer(dealer));
+
+    if(bid === 0 && isFirstBidder){
+        // First bidder cannot pass! Force minimum bid
+        log((p===3?'You':BOT_NAMES[p]) + ' tried to pass as first bidder — FORCED to bid 14!');
+        bid = 14;
+    }
+
+    if(bid > 0){
+        highestBid = bid;
+        bidder = p;
+        passes = 0;
+        document.getElementById('bid'+p).textContent = 'Bid: '+bid;
+        log((p===3?'You':BOT_NAMES[p]) + ' bid ' + bid);
+        showBidStatus(p, 'bid', bid);
+        updateTrickWinnerDisplay(); // trigger center animation
+    }else{
+        passes++;
+        document.getElementById('bid'+p).textContent = 'Pass';
+        log((p===3?'You':BOT_NAMES[p]) + ' passed');
+        showBidStatus(p, 'pass', 0);
+    }
+
+    if((passes>=3 && highestBid>0) || passes>=4){
+        setTimeout(()=>{ showBidStatus(bidder, 'win', highestBid); }, 400);
+        setTimeout(()=>{ endBidding1(); }, 1600);
+        return;
+    }
+
+    currentPlayer = nextPlayer(currentPlayer);
+
+    let safety = 0;
+    while(safety<4 && document.getElementById('bid'+currentPlayer).textContent==='Pass'){
+        currentPlayer = nextPlayer(currentPlayer);
+        safety++;
+    }
+
+    doBidding1();
+}
+
+function endBidding1(){
+    if(bidder===-1 || highestBid===0){
+        log('No valid bids. Redealing...');
+        setTimeout(()=>startGame(), 1500);
+        return;
+    }
+
+    // Store the original Phase 1 bidder for Phase 2 trump change logic
+    window._phase1Bidder = bidder;
+
+    log((bidder===3?'You':BOT_NAMES[bidder]) + ' won Phase 1 with ' + highestBid + '!');
+    showFinalBidWinner();
+    for(let i=0; i<4; i++) document.getElementById('bid'+i).textContent = '';
+
+    currentPlayer = bidder;
+    if(bidder===3){
+        setTimeout(()=>showTrumpPanel(), 2600);
+    }else{
+        setTimeout(()=>botChooseTrump(), 2800);
+    }
+}
+
+// ==================== TRUMP SELECTION ====================
+function showTrumpPanel(){
+    const panel = document.getElementById('trumpPanel');
+    if(!panel) return;
+    panel.classList.add('active');
+    document.querySelectorAll('.trump-suit-btn').forEach(b=>b.classList.remove('selected'));
+    document.getElementById('trumpConfirm').disabled = true;
+    document.getElementById('trumpConfirm').onclick = confirmTrumpChoice;
+
+    // Show player's hand in trump panel
+    const handDisplay = document.getElementById('trumpHandDisplay');
+    if(handDisplay){
+        handDisplay.innerHTML = '';
+        const hand = players[3] || [];
+        for(let card of hand){
+            handDisplay.innerHTML += cardHTML(card, false, false);
+        }
+    }
+}
+
+function selectTrump(suit, btn){
+    trumpSuit = suit;
+    document.querySelectorAll('.trump-suit-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('trumpConfirm').disabled = false;
+}
+
+function confirmTrumpChoice(){
+    if(!trumpSuit) return;
+    document.getElementById('trumpPanel').classList.remove('active');
+    log('You chose ' + trumpSuit + ' as trump.');
+    placeHiddenTrump(3);
+}
+
+// ==================== TRUMP CHANGE PANEL (Phase 2) ====================
+function showChangeTrumpPanel(){
+    const panel = document.getElementById('trumpPanel');
+    if(!panel) return;
+
+    // Only allow keep-same if You were the original Phase 1 bidder AND raised
+    const isOriginalBidder = (getTeam(window._phase1Bidder) === 1);
+    const didRaise = (highestBid > window._phase1BidAmount);
+    const canKeepSame = isOriginalBidder && didRaise;
+
+    panel.classList.add('active');
+    document.querySelector('#trumpPanel h3').textContent = canKeepSame ? 'Change Trump Suit' : 'Choose Trump Suit';
+    document.querySelector('#trumpPanel p').innerHTML = 
+        canKeepSame 
+            ? 'You raised and won Phase 2! You can <b>keep ' + trumpSuit + '</b> or <b>choose a new suit</b>.'
+            : 'You won the Phase 2 bid! You must <b>choose a new trump suit</b>.';
+
+    document.querySelectorAll('.trump-suit-btn').forEach(b=>{
+        b.classList.remove('selected');
+        // Highlight current trump
+        if(b.textContent === trumpSuit) b.classList.add('selected');
+    });
+
+    document.getElementById('trumpConfirm').disabled = false;
+    document.getElementById('trumpConfirm').textContent = 'Confirm Trump';
+    document.getElementById('trumpConfirm').onclick = confirmTrumpChange;
+
+    // Add or update Keep Same button
+    let keepSameBtn = document.getElementById('keepSameTrumpBtn');
+    if(!keepSameBtn){
+        keepSameBtn = document.createElement('button');
+        keepSameBtn.id = 'keepSameTrumpBtn';
+        keepSameBtn.className = 'btn btn-success';
+        keepSameBtn.style.marginTop = '1rem';
+        keepSameBtn.style.width = '100%';
+        keepSameBtn.onclick = ()=>{
+            document.getElementById('trumpPanel').classList.remove('active');
+            log('You kept ' + trumpSuit + ' as trump.');
+            endBidding2(false, false);
+        };
+        document.getElementById('trumpSelect').appendChild(keepSameBtn);
+    }
+
+    // Only show Keep Same button if original bidder who raised
+    if(canKeepSame){
+        keepSameBtn.textContent = '✓ Keep ' + trumpSuit + ' (Same Suit)';
+        keepSameBtn.style.display = 'block';
+    }else{
+        keepSameBtn.style.display = 'none';
+    }
+
+    // Show player's hand in trump panel
+    const handDisplay = document.getElementById('trumpHandDisplay');
+    if(handDisplay){
+        handDisplay.innerHTML = '';
+        const hand = players[3] || [];
+        for(let card of hand){
+            handDisplay.innerHTML += cardHTML(card, false, false);
+        }
+    }
+}
+
+function confirmTrumpChange(){
+    if(!trumpSuit) return;
+    document.getElementById('trumpPanel').classList.remove('active');
+
+    // Hide keep same button for next time
+    const keepSameBtn = document.getElementById('keepSameTrumpBtn');
+    if(keepSameBtn) keepSameBtn.style.display = 'none';
+
+    log('You changed trump to ' + trumpSuit + '!');
+
+    // Reset hidden trump with new suit
+    hiddenTrump = null;
+    trumpExposed = false;
+
+    // Place new hidden trump
+    placeHiddenTrump(3);
+}
+
+function botChooseTrump(){
+    const p = bidder;
+    const hand = players[p];
+
+    // Advanced trump selection: consider J, 9, A, 10 combinations
+    let suitScores = {};
+    for(let s of SUITS){
+        suitScores[s] = {points:0, hasJ:false, has9:false, hasA:false, has10:false, hasK:false, hasQ:false, count:0};
+    }
+
+    for(let c of hand){
+        suitScores[c.suit].points += c.points;
+        suitScores[c.suit].count++;
+        if(c.rank === 'J') suitScores[c.suit].hasJ = true;
+        if(c.rank === '9') suitScores[c.suit].has9 = true;
+        if(c.rank === 'A') suitScores[c.suit].hasA = true;
+        if(c.rank === '10') suitScores[c.suit].has10 = true;
+        if(c.rank === 'K') suitScores[c.suit].hasK = true;
+        if(c.rank === 'Q') suitScores[c.suit].hasQ = true;
+    }
+
+    let bestSuit = SUITS[0];
+    let bestScore = -1;
+
+    for(let s of SUITS){
+        let score = suitScores[s].points * 3;
+        if(suitScores[s].hasJ) score += 8;  // J is most powerful
+        if(suitScores[s].has9) score += 5;  // 9 is second most powerful
+        if(suitScores[s].hasA) score += 3;
+        if(suitScores[s].has10) score += 2;
+        if(suitScores[s].hasK && suitScores[s].hasQ) score += 6; // Potential pair!
+        if(suitScores[s].count >= 3) score += 4; // Long suit bonus
+
+        if(score > bestScore){
+            bestScore = score;
+            bestSuit = s;
+        }
+    }
+
+    trumpSuit = bestSuit;
+    log(BOT_NAMES[p] + ' chose ' + trumpSuit + ' as trump (strategic pick based on J/9 presence).');
+    placeHiddenTrump(p);
+}
+
+function placeHiddenTrump(p){
+    const hand = players[p];
+    const trumps = hand.filter(c=>c.suit===trumpSuit);
+
+    if(trumps.length > 0){
+        trumps.sort((a,b)=>RANK_ORDER[a.rank]-RANK_ORDER[b.rank]);
+        hiddenTrump = trumps[0];
+        const idx = hand.findIndex(c=>c.suit===hiddenTrump.suit && c.rank===hiddenTrump.rank);
+        if(idx>-1) hand.splice(idx, 1);
+        log((p===3?'You':BOT_NAMES[p]) + ' placed ' + trumpSuit + ' card FACE DOWN.');
+    }else{
+        hiddenTrump = null;
+        log('Bidder has no trump - using fallback.');
+    }
+
+    updateInfo();
+    // If coming from Phase 2 trump change, go directly to play
+    if(phase === 'bidding2'){
+        setTimeout(()=>startPlay(), 800);
+    }else{
+        setTimeout(()=>startPhase2(), 800);
+    }
+}
+
+// ==================== PHASE 2 (OPTIONAL RAISE) ====================
+function startPhase2(){
+    dealRemaining();
+    log('Remaining 4 cards dealt. Everyone has 8 cards.');
+    renderHands();
+
+    phase = 'bidding2';
+    updateInfo();
+    updatePhase();
+
+    log('Phase 2: Any player may raise! Min bid to overcall: ' + (highestBid + 1));
+
+    // In authentic 28, after 8 cards, ANY player can raise
+    // We go around the table starting from nextPlayer(dealer)
+    // Each player gets a chance to raise or pass
+
+    window._phase2Raised = false;
+    window._phase2CurrentPlayer = nextPlayer(dealer);
+    window._phase2Passes = 0;
+
+    setTimeout(()=>doPhase2Bidding(), 800);
+}
+
+function doPhase2Bidding(){
+    const p = window._phase2CurrentPlayer;
+
+    // Check if round-robin is complete
+    // Complete when all 4 players have passed consecutively (full cycle with no raises)
+    if(window._phase2Passes >= 4){
+        log('Phase 2: All players passed. Final bid: ' + highestBid);
+        // Check if human original bidder raised and needs trump change
+        const humanRaised = (bidder === 3 && window._phase1Bidder === 3 && window._phase2Raised);
+        endBidding2(false, humanRaised);
+        return;
+    }
+
+    currentPlayer = p;
+    highlightPlayer(p);
+    updateInfo();
+
+    if(p === 3){
+        // Human player
+        showRaisePanel();
+    }else{
+        // Bot player
+        setTimeout(()=>botPhase2Decision(p), 1000);
+    }
+}
+
+function botPhase2Decision(p){
+    const hand = players[p];
+    const myTeam = getTeam(p);
+    const bidTeam = getTeam(bidder);
+    const isBidder = (p === bidder);
+    const isBidderTeam = (myTeam === bidTeam);
+
+    // Evaluate full 8-card hand
+    let totalPoints = 0;
+    let suitStrength = {};
+
+    for(let s of SUITS) suitStrength[s] = {points:0, cards:[], hasJ:false, has9:false, hasK:false, hasQ:false};
+
+    for(let c of hand){
+        totalPoints += c.points;
+        suitStrength[c.suit].points += c.points;
+        suitStrength[c.suit].cards.push(c);
+        if(c.rank === 'J') suitStrength[c.suit].hasJ = true;
+        if(c.rank === '9') suitStrength[c.suit].has9 = true;
+        if(c.rank === 'K') suitStrength[c.suit].hasK = true;
+        if(c.rank === 'Q') suitStrength[c.suit].hasQ = true;
+    }
+
+    // Check for pair potential
+    let hasPairPotential = false;
+    if(suitStrength[trumpSuit] && suitStrength[trumpSuit].hasK && suitStrength[trumpSuit].hasQ){
+        hasPairPotential = true;
+        totalPoints += 4;
+    }
+
+    // Calculate estimated capture with 8 cards
+    let estimatedCapture = totalPoints;
+    if(suitStrength[trumpSuit] && suitStrength[trumpSuit].hasJ) estimatedCapture += 2;
+    if(suitStrength[trumpSuit] && suitStrength[trumpSuit].has9) estimatedCapture += 1;
+
+    // Minimum raise is highestBid + 1
+    const minRaise = highestBid + 1;
+    let targetRaise = 0;
+    let didRaise = false;
+
+    // DIFFICULT AI: More aggressive raising logic
+    if(isBidderTeam){
+        // We're on the bidding team - raise if hand improved significantly
+        if(estimatedCapture >= 22 && minRaise <= 20){
+            targetRaise = 20;
+        }else if(estimatedCapture >= 24 && minRaise <= 22){
+            targetRaise = 22;
+        }else if(estimatedCapture >= 26 && minRaise <= 24){
+            targetRaise = 24;
+        }else if(estimatedCapture >= 27 && minRaise <= 26){
+            targetRaise = 26;
+        }else if(estimatedCapture >= 28 && minRaise <= 28){
+            targetRaise = 28;
+        }
+
+        if(targetRaise > 0 && targetRaise >= minRaise){
+            highestBid = targetRaise;
+            bidder = p; // New bidder!
+            didRaise = true;
+            window._phase2Raised = true;
+            window._phase2Passes = 0;
+            log('🤖 ' + BOT_NAMES[p] + ' [DIFFICULT AI] raised to ' + highestBid + ' (bidder team, est. ' + estimatedCapture + ' pts)');
+            showBidStatus(p, 'bid', highestBid);
+            showBidStatus(p, 'bid', highestBid);
+        }
+    }else{
+        // We're defending - raise only if we have a VERY strong hand to sabotage
+        if(estimatedCapture >= 24 && minRaise <= 22 && Math.random() < 0.3){
+            targetRaise = Math.max(20, minRaise);
+            highestBid = targetRaise;
+            bidder = p; // Take over as bidder!
+            didRaise = true;
+            window._phase2Raised = true;
+            window._phase2Passes = 0;
+            log('🤖 ' + BOT_NAMES[p] + ' [DIFFICULT AI] raised to ' + highestBid + ' (defensive takeover, est. ' + estimatedCapture + ' pts)!');
+            showBidStatus(p, 'bid', highestBid);
+            showBidStatus(p, 'bid', highestBid);
+        }
+    }
+
+    if(!didRaise){
+        window._phase2Passes++;
+        log(BOT_NAMES[p] + ' passed in Phase 2');
+        showBidStatus(p, 'pass', 0);
+    }
+
+    // Move to next player
+    window._phase2CurrentPlayer = nextPlayer(window._phase2CurrentPlayer);
+
+    // Continue Phase 2 bidding round-robin
+    setTimeout(()=>doPhase2Bidding(), 800);
+}
+
+function showRaisePanel(){
+    const panel = document.getElementById('bidPanel');
+    if(!panel) return;
+    // Remove and re-add active to re-trigger popIn animation
+    panel.classList.remove('active');
+    void panel.offsetWidth; // Force reflow
+    panel.classList.add('active');
+    document.getElementById('bidTitle').innerHTML = '<span class="phase-badge-anim">🎯</span> Phase 2: Raise Bid?';
+
+    const dealerName = dealer === 3 ? 'You' : BOT_NAMES[dealer];
+    const currentBidderName = bidder >= 0 ? (bidder === 3 ? 'You' : BOT_NAMES[bidder]) : 'None';
+    const currentTrump = trumpSuit ? trumpSuit : 'Not chosen yet';
+
+    // Check if current player (You = 3) was the original Phase 1 bidder
+    const isOriginalBidder = (getTeam(window._phase1Bidder) === 1);
+
+    // Store original bid for comparison
+    const originalBid = highestBid;
+    window._phase1BidAmount = originalBid;
+
+    // Build animated current bidder display for Phase 2
+    let currentBidderHTML2 = '';
+    if(bidder >= 0){
+        const bidderEmoji2 = bidder === 3 ? '😎' : (bidder === 0 ? '👨' : (bidder === 1 ? '👴' : '🧔'));
+        currentBidderHTML2 = '<div class="current-bidder-section">' +
+            '<div class="current-bidder-label">👑 Current Bidder</div>' +
+            '<div class="current-bidder-box">' +
+                '<span class="bidder-icon">' + bidderEmoji2 + '</span>' +
+                '<span class="bidder-name">' + currentBidderName + '</span>' +
+                '<span class="bidder-amount">' + highestBid + '</span>' +
+            '</div>' +
+        '</div>';
+    }else{
+        currentBidderHTML2 = '<div class="current-bidder-section">' +
+            '<div class="current-bidder-label">👑 Current Bidder</div>' +
+            '<div style="color:var(--text-secondary);font-size:0.9rem;font-weight:600">None yet</div>' +
+        '</div>';
+    }
+
+    document.getElementById('bidText').innerHTML = 
+        currentBidderHTML2 +
+        '<div style="margin-bottom:0.8rem;margin-top:0.8rem">' +
+        '<span style="color:var(--accent)">🃏 Dealer:</span> <b>' + dealerName + '</b> &nbsp;|&nbsp; ' +
+        '<span style="color:var(--success)">📈 Current Bid:</span> <b>' + highestBid + '</b>' +
+        '</div>' +
+        '<div style="color:var(--warning);font-size:0.9rem;margin-bottom:0.5rem">🎴 Current Trump: <b>' + currentTrump + '</b></div>' +
+        '<div style="color:var(--text-secondary);font-size:0.85rem">Pass to keep current bid, or raise to take over as bidder.</div>';
+
+    const btns = document.getElementById('bidButtons');
+    btns.innerHTML = '';
+
+    // PASS button (continue round-robin)
+    const passBtn = document.createElement('button');
+    passBtn.className = 'bid-btn';
+    passBtn.textContent = 'PASS';
+    passBtn.style.background = 'var(--danger)';
+    passBtn.style.color = '#fff';
+    passBtn.onclick = ()=>{ 
+        panel.classList.remove('active'); 
+        window._phase2Passes++;
+        log('You passed in Phase 2');
+        showBidStatus(3, 'pass', 0);
+        window._phase2CurrentPlayer = nextPlayer(window._phase2CurrentPlayer);
+        setTimeout(()=>doPhase2Bidding(), 600);
+    };
+    btns.appendChild(passBtn);
+
+    for(let b = highestBid + 1; b <= 28; b++){
+        const btn = document.createElement('button');
+        btn.className = 'bid-btn';
+        btn.textContent = b;
+        btn.onclick = ()=>{ 
+            panel.classList.remove('active'); 
+            highestBid = b; 
+            bidder = 3;
+            window._phase2Raised = true;
+            window._phase2Passes = 0;
+            log('You raised to ' + b + '! You are now the bidder.'); 
+            showBidStatus(3, 'bid', b);
+            window._phase2CurrentPlayer = nextPlayer(window._phase2CurrentPlayer);
+            setTimeout(()=>doPhase2Bidding(), 800);
+        };
+        btns.appendChild(btn);
+    }
+
+    // Show player's hand in bid panel
+    const handDisplay = document.getElementById('bidHandDisplay');
+    if(handDisplay){
+        handDisplay.innerHTML = '';
+        const hand = players[3] || [];
+        for(let card of hand){
+            handDisplay.innerHTML += cardHTML(card, false, false);
+        }
+    }
+}
+
+// botRaiseDecision replaced by botPhase2Decision in round-robin Phase 2
+
+function endBidding2(changeTrump, canChangeTrump){
+    // Phase 2 round-robin: if we got here, it means the round is complete
+    // (either everyone passed or 3 consecutive passes after a raise)
+    log('Final bid: ' + highestBid + ' by ' + (bidder===3?'You':BOT_NAMES[bidder]));
+    showFinalBidWinner();
+    for(let i=0; i<4; i++) document.getElementById('bid'+i).textContent = '';
+
+    // canChangeTrump is true only if player RAISED the bid AND was original bidder
+    if(canChangeTrump && bidder===3){
+        setTimeout(()=>showChangeTrumpPanel(), 2800);
+    }else{
+        setTimeout(()=>startPlay(), 2800);
+    }
+}
+
+// ==================== PLAY ====================
+function startPlay(){
+    phase = 'play1';
+    trumpExposed = false;
+    document.getElementById('trumpReveal').textContent = '🎯 Trump: HIDDEN (face down)';
+    document.getElementById('trumpReveal').style.borderColor = 'var(--accent)';
+    document.getElementById('trumpReveal').style.color = 'var(--accent)';
+
+    log('=== PLAY BEGINS === Trump hidden. No special power yet.');
+    log('Bidder cannot lead trump unless no other suits.');
+
+    updateInfo();
+    updatePhase();
+
+    trickCards = [];
+    trickSuit = '';
+    turnInProgress = false;
+    for(let i=0; i<4; i++){
+        const slot = document.getElementById('slot'+i);
+        if(slot) slot.innerHTML = '';
+    }
+
+    // First trick led by nextPlayer(dealer) — follows play order
+    currentPlayer = nextPlayer(dealer);
+    log((currentPlayer===3?'You':BOT_NAMES[currentPlayer]) + ' leads first trick.');
+    setTimeout(()=>doTurn(), 800);
+}
+
+
+function showCallTrumpPanel(){
+    const panel = document.getElementById('callTrumpPanel');
+    if(!panel) return;
+
+    const hand = players[3];
+    const trumps = hand.filter(c=>c.suit===trumpSuit);
+    const nonTrumps = hand.filter(c=>c.suit!==trumpSuit);
+
+    // Show the led suit
+    const ledSuitDisplay = document.getElementById('ledSuitDisplay');
+    if(ledSuitDisplay) ledSuitDisplay.textContent = trickSuit;
+
+    // Reset sub-panels
+    document.getElementById('callTrumpSubPanel').style.display = 'none';
+    document.getElementById('passSubPanel').style.display = 'none';
+
+    // Enable/disable Call Trump button based on whether player has trump cards
+    const callTrumpBtn = document.getElementById('callTrumpBtn');
+    if(callTrumpBtn){
+        if(trumps.length === 0){
+            callTrumpBtn.disabled = true;
+            callTrumpBtn.style.opacity = '0.5';
+            callTrumpBtn.innerHTML = '🎯 CALL TRUMP<br><small style="font-size:0.7rem">(You have no trump cards)</small>';
+        }else{
+            callTrumpBtn.disabled = false;
+            callTrumpBtn.style.opacity = '1';
+            callTrumpBtn.innerHTML = '🎯 CALL TRUMP<br><small style="font-size:0.7rem">Expose hidden trump</small>';
+        }
+    }
+
+    // Pre-build trump cards for call trump sub-panel
+    let trumpHtml = '';
+    for(let card of trumps){
+        trumpHtml += `<div class="card" onclick="callTrumpAndPlay('${card.suit}','${card.rank}')" style="cursor:pointer">
+            <span class="cr" style="color:${card.color}">${card.rank}</span>
+            <span class="cs" style="color:${card.color}">${card.suit}</span>
+            <span class="crb" style="color:${card.color}">${card.rank}</span>
+        </div>`;
+    }
+    document.getElementById('callTrumpCards').innerHTML = trumpHtml || '<span style="color:var(--text-secondary);font-size:0.8rem">No trump cards in hand</span>';
+
+    // Pre-build all cards for pass sub-panel (can discard ANY card including trump)
+    let allCardsHtml = '';
+    for(let card of hand){
+        allCardsHtml += `<div class="card" onclick="discardAnyCard('${card.suit}','${card.rank}')" style="cursor:pointer;opacity:0.9">
+            <span class="cr" style="color:${card.color}">${card.rank}</span>
+            <span class="cs" style="color:${card.color}">${card.suit}</span>
+            <span class="crb" style="color:${card.color}">${card.rank}</span>
+        </div>`;
+    }
+    document.getElementById('discardCards').innerHTML = allCardsHtml;
+
+    panel.classList.add('active');
+}
+
+function passOnTrump(){
+    // Player chooses to NOT call trump - show discard options
+    document.getElementById('passSubPanel').style.display = 'block';
+    document.getElementById('callTrumpSubPanel').style.display = 'none';
+    log('You chose to PASS (not call trump). Select a card to discard.');
+}
+
+function callTrumpChoice(){
+    // Player chooses to call trump - show trump cards they must play
+    const hand = players[3];
+    const trumps = hand.filter(c=>c.suit===trumpSuit);
+
+    if(trumps.length === 0){
+        // No trump cards - can only discard after calling
+        log('You called trump but have no trump cards. You may discard any card.');
+        document.getElementById('passSubPanel').style.display = 'block';
+        document.getElementById('callTrumpSubPanel').style.display = 'none';
+        // Expose trump but let them discard
+        exposeTrump(3);
+    }else{
+        document.getElementById('callTrumpSubPanel').style.display = 'block';
+        document.getElementById('passSubPanel').style.display = 'none';
+        log('You chose to CALL TRUMP! You must play a trump card.');
+    }
+}
+
+function callTrumpAndPlay(suit, rank){
+    document.getElementById('callTrumpPanel').classList.remove('active');
+    document.getElementById('discardCards').innerHTML = '';
+    document.getElementById('callTrumpCards').innerHTML = '';
+    document.getElementById('passSubPanel').style.display = 'none';
+    document.getElementById('callTrumpSubPanel').style.display = 'none';
+    exposeTrump(3);
+    setTimeout(()=>playCard(suit, rank, 3), 300);
+}
+
+function discardAnyCard(suit, rank){
+    document.getElementById('callTrumpPanel').classList.remove('active');
+    document.getElementById('discardCards').innerHTML = '';
+    document.getElementById('callTrumpCards').innerHTML = '';
+    document.getElementById('passSubPanel').style.display = 'none';
+    document.getElementById('callTrumpSubPanel').style.display = 'none';
+    playCard(suit, rank, 3);
+}
+
+function doTurn(){
+    highlightPlayer(currentPlayer);
+    updateInfo();
+
+    if(currentPlayer === 3){
+        const hand = players[3];
+
+        // Auto-play hidden trump if bidder has no cards left
+        if(hand.length === 0 && hiddenTrump && bidder === 3){
+            log('You have no cards left. Playing hidden trump automatically!');
+            setTimeout(()=>playHiddenTrump(3), 600);
+            return;
+        }
+
+        // Check if human can't follow suit and trump is hidden and has trump
+        const hasSuit = hand.some(c=>c.suit===trickSuit);
+        const trumps = hand.filter(c=>c.suit===trumpSuit);
+
+        if(trickSuit!=='' && !hasSuit && !trumpExposed && trumps.length>0){
+            showCallTrumpPanel();
+        }else{
+            renderPlayerHand();
+            if(trumpExposed && !pairDeclared && hasPair(3) && tricksWon[3]>0){
+                showPairPanel();
+            }
+        }
+    }else{
+        setTimeout(()=>botPlay(), 1200);
+    }
+}
+
+function hasPair(p){
+    const hand = players[p];
+    return hand.some(c=>c.suit===trumpSuit && c.rank==='K') && hand.some(c=>c.suit===trumpSuit && c.rank==='Q');
+}
+
+function showPairPanel(){
+    document.getElementById('pairPanel').classList.add('active');
+}
+
+function declarePair(){
+    document.getElementById('pairPanel').classList.remove('active');
+    pairDeclared = true;
+    pairTeam = getTeam(3);
+    log('Your team declared PAIR! Bid ' + (pairTeam===getTeam(bidder)?'reduced by 4':'increased by 4'), 'info');
+    updateInfo();
+}
+
+function skipPair(){
+    document.getElementById('pairPanel').classList.remove('active');
+}
+
+function botPlay(){
+    const p = currentPlayer;
+    const hand = players[p];
+    const myTeam = getTeam(p);
+    const bidTeam = getTeam(bidder);
+    const isBidderTeam = (myTeam === bidTeam);
+
+    // Auto-play hidden trump if bot bidder has no cards left
+    if(hand.length === 0 && hiddenTrump && bidder === p){
+        log(BOT_NAMES[p] + ' has no cards left. Playing hidden trump automatically!');
+        setTimeout(()=>playHiddenTrump(p), 800);
+        return;
+    }
+
+    // Declare pair strategically: only if it helps the bid
+    if(trumpExposed && !pairDeclared && hasPair(p) && tricksWon[p]>0){
+        // Declare if we're the bidding team (reduces target) OR to sabotage opponents
+        if(myTeam === bidTeam || (myTeam !== bidTeam && Math.random()>0.7)){
+            pairDeclared = true;
+            pairTeam = getTeam(p);
+            log(BOT_NAMES[p] + ' declared PAIR!', 'info');
+            updateInfo();
+        }
+    }
+
+    const hasSuit = hand.some(c=>c.suit===trickSuit);
+    const trumps = hand.filter(c=>c.suit===trumpSuit);
+
+    // ==================== DIFFICULT AI: TRUMP EXPOSURE LOGIC ====================
+    // If can't follow suit and trump is hidden, decide whether to call trump
+    if(!hasSuit && !trumpExposed && trumps.length>0 && trickSuit!==''){
+        const trickPoints = trickCards.reduce((sum,tc)=>sum+tc.card.points,0);
+        const currentWinner = getCurrentTrickWinner();
+        const winningTeam = currentWinner ? getTeam(currentWinner.player) : -1;
+        const isLastChance = (trickCards.length === 3);
+
+        // DIFFICULT AI: Always evaluate if calling trump is optimal
+        let shouldCallTrump = false;
+        let callReason = '';
+
+        // 1. LAST CHANCE: Must decide now or lose the trick
+        if(isLastChance){
+            // If opponent is winning or points are at stake
+            if(winningTeam !== myTeam && trickPoints > 0){
+                shouldCallTrump = true;
+                callReason = 'last chance to steal ' + trickPoints + ' points';
+            }
+            // Even if partner is winning, confirm with trump if high points
+            else if(winningTeam === myTeam && trickPoints >= 4){
+                shouldCallTrump = true;
+                callReason = 'securing ' + trickPoints + ' points for partner';
+            }
+        }
+
+        // 2. HIGH-VALUE TRICK: Opponent winning with J or 9 visible
+        if(!shouldCallTrump && winningTeam !== myTeam){
+            const oppHighCard = trickCards.find(tc => getTeam(tc.player) !== myTeam && 
+                (tc.card.rank === 'J' || tc.card.rank === '9'));
+            if(oppHighCard){
+                shouldCallTrump = true;
+                callReason = 'opponent played high card (' + oppHighCard.card.rank + ')';
+            }
+        }
+
+        // 3. BIDDER TEAM STRATEGY: If we need to make the bid, be aggressive
+        if(!shouldCallTrump && isBidderTeam){
+            const pointsNeeded = highestBid - teamPoints[myTeam];
+            const remainingTricksEstimate = Math.ceil((players[0].length + players[1].length + players[2].length + players[3].length) / 4);
+
+            // If we need points and this trick has value, grab it
+            if(pointsNeeded > 0 && trickPoints > 0 && winningTeam !== myTeam){
+                shouldCallTrump = true;
+                callReason = 'bidder team needs ' + pointsNeeded + ' more points';
+            }
+        }
+
+        // 4. DEFENSIVE: Non-bidder team should also contest high-point tricks
+        if(!shouldCallTrump && !isBidderTeam && winningTeam !== myTeam){
+            if(trickPoints >= 2){
+                shouldCallTrump = true;
+                callReason = 'defending against ' + trickPoints + ' point trick';
+            }
+        }
+
+        // 5. TRUMP QUALITY CHECK: Only call if we have decent trump
+        if(shouldCallTrump){
+            const bestTrump = trumps.sort((a,b)=>RANK_ORDER[b.rank]-RANK_ORDER[a.rank])[0];
+            // If our best trump is very low (7 or 8) and trick is almost done, reconsider
+            if((bestTrump.rank === '7' || bestTrump.rank === '8') && trickCards.length >= 2){
+                // Check if anyone else might have higher trump
+                // In difficult mode, we still call it to expose and gain info
+                callReason += ' (with ' + bestTrump.rank + ')';
+            }
+
+            log('🤖 ' + BOT_NAMES[p] + ' [DIFFICULT AI] calls TRUMP: ' + callReason + '!', 'info');
+            exposeTrump(p);
+            playCard(bestTrump.suit, bestTrump.rank, p);
+            return;
+        }
+
+        // DIFFICULT AI: Sometimes call trump even when not obvious to bluff or gain info
+        // Only if we have excess trump cards
+        if(trumps.length >= 3 && Math.random() < 0.15){
+            const bestTrump = trumps.sort((a,b)=>RANK_ORDER[b.rank]-RANK_ORDER[a.rank])[0];
+            log('🤖 ' + BOT_NAMES[p] + ' [DIFFICULT AI] calls TRUMP early with excess trumps (strategic)!', 'info');
+            exposeTrump(p);
+            playCard(bestTrump.suit, bestTrump.rank, p);
+            return;
+        }
+    }
+
+    const card = chooseBotCard(p);
+    playCard(card.suit, card.rank, p);
+}
+
+function chooseBotCard(p){
+    const hand = [...players[p]];
+    const myTeam = getTeam(p);
+    const bidTeam = getTeam(bidder);
+    const isBidder = (p === bidder);
+    const isBidderTeam = (myTeam === bidTeam);
+
+    // Count remaining cards per suit (for deduction)
+    let suitCounts = {};
+    for(let s of SUITS) suitCounts[s] = 4; // Start with 4 per suit
+    // Subtract played cards
+    for(let tc of trickCards){
+        suitCounts[tc.card.suit]--;
+    }
+    // Subtract my own cards
+    for(let c of hand){
+        suitCounts[c.suit]--;
+    }
+    // Subtract partner's played cards if visible
+    if(lastTrick && lastTrick.cards){
+        for(let tc of lastTrick.cards){
+            if(getTeam(tc.player) === myTeam && tc.player !== p){
+                suitCounts[tc.card.suit]--;
+            }
+        }
+    }
+
+    if(trickSuit === ''){
+        // ==================== LEADING ====================
+
+        // Phase 1: Bidder cannot lead trump unless no alternative
+        if(phase==='play1' && isBidder){
+            const nonTrump = hand.filter(c=>c.suit!==trumpSuit);
+            if(nonTrump.length > 0){
+                // Lead from strong non-trump suit
+                nonTrump.sort((a,b)=>RANK_ORDER[b.rank]-RANK_ORDER[a.rank]);
+                const pts = nonTrump.filter(c=>c.points>0);
+                if(pts.length > 0) return pts[0];
+                return nonTrump[0];
+            }
+        }
+
+        // === CARD TRACKING: Build map of all played/known cards ===
+        let knownCards = new Set(); // "suit|rank" strings
+        let partnerHas = {}; // suit -> {rank: confidence} - inferred partner cards
+
+        // Helper to add card to known
+        function markKnown(suit, rank){
+            knownCards.add(suit + '|' + rank);
+        }
+
+        // Mark my own cards as known
+        for(let c of hand) markKnown(c.suit, c.rank);
+
+        // Mark cards from current trick
+        for(let tc of trickCards) markKnown(tc.card.suit, tc.card.rank);
+
+        // Mark cards from last trick
+        if(lastTrick && lastTrick.cards){
+            for(let tc of lastTrick.cards) markKnown(tc.card.suit, tc.card.rank);
+        }
+
+        // Infer partner's cards from their plays
+        // If partner played a card in a suit, they likely don't have higher cards
+        // (or they would have played them to win)
+        let partner = (p + 2) % 4; // Partner is 2 seats away
+
+        // Check partner's plays from last trick
+        if(lastTrick && lastTrick.cards){
+            for(let tc of lastTrick.cards){
+                if(tc.player === partner){
+                    // Partner played this - if they didn't win, they likely lack higher cards
+                    let higherRanks = [];
+                    if(tc.card.rank === '9') higherRanks = ['J'];
+                    else if(tc.card.rank === 'A') higherRanks = ['J','9'];
+                    else if(tc.card.rank === '10') higherRanks = ['J','9','A'];
+                    else if(tc.card.rank === 'K') higherRanks = ['J','9','A','10'];
+                    else if(tc.card.rank === 'Q') higherRanks = ['J','9','A','10','K'];
+                    else if(tc.card.rank === '8') higherRanks = ['J','9','A','10','K','Q'];
+                    else if(tc.card.rank === '7') higherRanks = ['J','9','A','10','K','Q','8'];
+
+                    for(let hr of higherRanks){
+                        if(!knownCards.has(tc.card.suit + '|' + hr)){
+                            // Partner likely doesn't have this higher card
+                            // (or they would have played it)
+                        }
+                    }
+                }
+            }
+        }
+
+        // === CHECK IF J HAS BEEN PLAYED IN EACH SUIT ===
+        let jPlayed = {};
+        let nineAloneSafe = {}; // Can lead 9 knowing partner has J
+        for(let s of SUITS){
+            jPlayed[s] = knownCards.has(s + '|J');
+
+            // If J not played, check if partner MIGHT have it
+            // Partner might have J if: they played 9 in this suit (showing strength)
+            // or if they trumped this suit (showing void + strength elsewhere)
+            nineAloneSafe[s] = false;
+
+            if(!jPlayed[s]){
+                // Check if partner showed strength in this suit
+                if(lastTrick && lastTrick.cards){
+                    for(let tc of lastTrick.cards){
+                        if(tc.player === partner && tc.card.suit === s){
+                            // Partner played in this suit before
+                            if(['J','9','A'].includes(tc.card.rank)){
+                                // Partner showed high cards in this suit - might have J
+                                nineAloneSafe[s] = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let bestLead = null;
+        let bestLeadScore = -100;
+
+        for(let c of hand){
+            let score = 0;
+            const suit = c.suit;
+            const rank = c.rank;
+
+            // === SAFETY ANALYSIS ===
+            let isSafe = true;
+            let safetyReason = '';
+
+            if(rank === 'J'){
+                // J is always safe - highest card
+                isSafe = true;
+                safetyReason = 'J is highest';
+                score += 10;
+            }
+            else if(rank === '9'){
+                // 9 is safe ONLY if J has been played OR partner likely has J
+                if(jPlayed[suit]){
+                    isSafe = true;
+                    safetyReason = 'J played';
+                    score += 7;
+                }else if(nineAloneSafe[suit]){
+                    isSafe = true;
+                    safetyReason = 'partner likely has J';
+                    score += 6;
+                }else{
+                    isSafe = false; // J still out there, could lose 9
+                    safetyReason = 'J unplayed - 9 vulnerable!';
+                    score -= 15; // HEAVY penalty - leading 9 into J is terrible
+                }
+            }
+            else if(rank === 'A' || rank === '10'){
+                // A/10 are POINT cards - NEVER lead them if J is unplayed!
+                // Someone with J will just play it and steal your point card
+                if(jPlayed[suit]){
+                    // J is gone, but 9 might still be out there
+                    if(knownCards.has(suit + '|9')){
+                        isSafe = true;
+                        safetyReason = 'J and 9 played';
+                        score += (rank === 'A' ? 4 : 3);
+                    }else{
+                        // 9 still out there - A/10 could lose to 9
+                        isSafe = false;
+                        safetyReason = '9 unplayed - ' + rank + ' loses to 9!';
+                        score -= 12;
+                    }
+                }else{
+                    // J is still out there - leading A/10 is giving away free points
+                    isSafe = false;
+                    safetyReason = 'J unplayed - NEVER lead ' + rank + '!';
+                    score -= 20; // MASSIVE penalty - this is a huge mistake
+                }
+            }
+            else if(rank === 'K' || rank === 'Q'){
+                // K/Q have no points, but still lose to J,9,A,10
+                // Only lead if we know J is played (or it's very late game)
+                if(jPlayed[suit]){
+                    // J gone - check if 9 is played too
+                    if(knownCards.has(suit + '|9')){
+                        score += 3; // Pretty safe now
+                    }else{
+                        score += 0; // Could lose to 9, but no points lost
+                    }
+                }else{
+                    // J still out there - K/Q will lose but at least no points given away
+                    safetyReason = 'J unplayed - K/Q loses but no points risk';
+                    score -= 2; // Small penalty, not as bad as point cards
+                }
+            }
+            else {
+                // 8, 7 - always safe, no points, perfect for probing
+                score += 5; // BOOSTED - these are the best leads when J is unplayed
+            }
+
+            // === SUIT LENGTH BONUS ===
+            let suitCards = hand.filter(x => x.suit === suit);
+            if(suitCards.length >= 3) score += 3; // Long suit = control
+            if(suitCards.length === 2) score += 1;
+
+            // === TRUMP AVOIDANCE ===
+            if(suit === trumpSuit && !isBidder) score -= 5;
+            if(suit === trumpSuit && isBidder && phase === 'play1') score -= 10;
+
+            // === PROBING BONUS: Lead from suit where we know highs are out ===
+            if(jPlayed[suit]) score += 2;
+
+            if(score > bestLeadScore){
+                bestLeadScore = score;
+                bestLead = c;
+            }
+        }
+
+        // CRITICAL: Only lead if the card is SAFE (score > 0 means it's a 7 or 8)
+        // If bestLead has negative score, it means 9/A/10/K/Q were selected - DON'T use them
+        if(bestLead && bestLead.score >= 8){
+            log('🤖 ' + BOT_NAMES[p] + ' [DIFFICULT AI] safely leads ' + bestLead.rank + bestLead.suit);
+            return bestLead;
+        }
+
+        // DIFFICULT AI: If no "safe" lead found, lead from shortest suit to create void
+        // This sets up future trump opportunities
+        let suitLengths = {};
+        for(let s of SUITS) suitLengths[s] = hand.filter(c=>c.suit===s).length;
+        let shortestSuit = SUITS.reduce((a,b)=>suitLengths[a]<suitLengths[b]?a:b);
+        let shortestCards = hand.filter(c=>c.suit===shortestSuit);
+        if(shortestCards.length > 0 && shortestSuit !== trumpSuit){
+            shortestCards.sort((a,b)=>RANK_ORDER[a.rank]-RANK_ORDER[b.rank]);
+            return shortestCards[0];
+        }        // DIFFICULT AI: Fallback - ONLY lead 7 or 8
+        let probeCards = hand.filter(c=>c.suit!==trumpSuit && 
+            (c.rank==='7' || c.rank==='8'));
+        if(probeCards.length > 0){
+            probeCards.sort((a,b)=>RANK_ORDER[a.rank]-RANK_ORDER[b.rank]);
+            log('🤖 ' + BOT_NAMES[p] + ' [DIFFICULT AI] probes with ' + probeCards[0].rank + probeCards[0].suit);
+            return probeCards[0];
+        }
+
+        // Fallback: ONLY 7 or 8 are safe leads when J unplayed
+        let safeCards = hand.filter(c=>c.suit!==trumpSuit && (c.rank==='7' || c.rank==='8'));
+        if(safeCards.length > 0){
+            safeCards.sort((a,b)=>RANK_ORDER[a.rank]-RANK_ORDER[b.rank]);
+            log('🤖 ' + BOT_NAMES[p] + ' [DIFFICULT AI] safely leads ' + safeCards[0].rank + safeCards[0].suit);
+            return safeCards[0];
+        }
+
+        // Last resort: lead lowest card, never lead point card if J unplayed in that suit
+        let nonPoint = hand.filter(c=>c.points===0);
+        if(nonPoint.length > 0){
+            nonPoint.sort((a,b)=>RANK_ORDER[a.rank]-RANK_ORDER[b.rank]);
+            return nonPoint[0];
+        }
+
+        hand.sort((a,b)=>RANK_ORDER[a.rank]-RANK_ORDER[b.rank]);
+        return hand[0];
+
+        // Last resort: lead lowest card
+        hand.sort((a,b)=>RANK_ORDER[a.rank]-RANK_ORDER[b.rank]);
+        return hand[0];
+    }
+
+    // ==================== FOLLOWING ====================
+    const follow = hand.filter(c=>c.suit===trickSuit);
+    const currentWinner = getCurrentTrickWinner();
+    const winningTeam = currentWinner ? getTeam(currentWinner.player) : -1;
+
+    if(follow.length > 0){
+        // Can follow suit - decide whether to try to win
+        follow.sort((a,b)=>RANK_ORDER[b.rank]-RANK_ORDER[a.rank]);
+
+        const highestFollow = follow[0]; // Best card we have in suit
+        const currentWinningCard = currentWinner ? currentWinner.card : null;
+
+        // Check if we can win this trick
+        let canWin = false;
+        if(!currentWinningCard){
+            canWin = true; // We're first to follow
+        }else if(currentWinningCard.suit === trickSuit){
+            canWin = RANK_ORDER[highestFollow.rank] > RANK_ORDER[currentWinningCard.rank];
+        }else if(currentWinningCard.suit === trumpSuit && trumpExposed){
+            canWin = false; // Trump beats our suit
+        }
+
+        if(canWin){
+            // We can win - but should we?
+            const trickPoints = trickCards.reduce((sum,tc)=>sum+tc.card.points,0) + highestFollow.points;
+
+            if(winningTeam === myTeam){
+                // Partner is winning - don't waste high card unless many points at stake
+                if(trickPoints >= 3 || trickCards.length === 3){
+                    // Last chance, lots of points - try to win
+                    return highestFollow;
+                }
+                // Let partner have it - play lowest
+                return follow[follow.length-1];
+            }else{
+                // Opponent winning - try to win if points are significant
+                if(trickPoints >= 2 || isBidderTeam){
+                    return highestFollow;
+                }
+                // Not worth it - save high card
+                return follow[follow.length-1];
+            }
+        }else{
+            // Can't win - play lowest to save cards
+            return follow[follow.length-1];
+        }
+    }
+
+    // ==================== CAN'T FOLLOW SUIT ====================
+    const trumps = hand.filter(c=>c.suit===trumpSuit);
+
+    // If trump is exposed, MUST play trump if have one (rules)
+    if(trumpExposed && trumps.length > 0){
+        trumps.sort((a,b)=>RANK_ORDER[b.rank]-RANK_ORDER[a.rank]);
+
+        const currentWinningCard = currentWinner ? currentWinner.card : null;
+        let trumpCanWin = true;
+        if(currentWinningCard && currentWinningCard.suit === trumpSuit){
+            trumpCanWin = RANK_ORDER[trumps[0].rank] > RANK_ORDER[currentWinningCard.rank];
+        }
+
+        // DIFFICULT AI: Use LOWEST sufficient trump, save J/9 for critical moments
+        if(trumpCanWin && winningTeam !== myTeam){
+            // Find the lowest trump that can still win
+            let winningTrump = trumps[0]; // Default to highest
+
+            if(currentWinningCard && currentWinningCard.suit === trumpSuit){
+                // Someone already played trump - need to beat it
+                for(let t of trumps){
+                    if(RANK_ORDER[t.rank] > RANK_ORDER[currentWinningCard.rank]){
+                        winningTrump = t;
+                        break; // First (highest) that wins - but we want LOWEST that wins
+                    }
+                }
+                // Actually find the LOWEST trump that still beats current winner
+                let lowestWinner = null;
+                for(let i = trumps.length - 1; i >= 0; i--){
+                    if(RANK_ORDER[trumps[i].rank] > RANK_ORDER[currentWinningCard.rank]){
+                        lowestWinner = trumps[i];
+                    }
+                }
+                if(lowestWinner) winningTrump = lowestWinner;
+            } else {
+                // No trump played yet - use LOWEST trump to win
+                // Unless trick has high value (3+ points) or is last chance
+                const trickPoints = trickCards.reduce((sum,tc)=>sum+tc.card.points,0);
+                const isLastChance = (trickCards.length === 3);
+
+                if(trickPoints >= 3 || isLastChance){
+                    // High value trick - use lowest trump that guarantees win
+                    winningTrump = trumps[trumps.length - 1]; // Lowest trump
+                } else {
+                    // Low value trick - don't waste ANY high trump if possible
+                    // Check if we can win with just a point card or low trump
+                    const lowTrumps = trumps.filter(t => t.rank !== 'J' && t.rank !== '9');
+                    if(lowTrumps.length > 0){
+                        winningTrump = lowTrumps[lowTrumps.length - 1]; // Lowest non-J/9 trump
+                    }
+                    // If only J/9 available, use 9 before J
+                    else if(trumps.length > 1 && trumps.some(t => t.rank === '9')){
+                        winningTrump = trumps.find(t => t.rank === '9');
+                    }
+                }
+            }
+
+            // Log if we're conserving high trump
+            if(winningTrump.rank !== 'J' && winningTrump.rank !== '9' && trumps.some(t => t.rank === 'J' || t.rank === '9')){
+                log('🤖 ' + BOT_NAMES[p] + ' [DIFFICULT AI] conserves high trump, uses ' + winningTrump.rank + winningTrump.suit + ' instead', 'info');
+            }
+
+            return winningTrump;
+
+        }else if(trumpCanWin && winningTeam === myTeam && trickCards.length === 3){
+            // Partner winning but this is last card - use LOWEST trump to secure
+            const lowestTrump = trumps[trumps.length - 1];
+            // Only use high trump if partner's card is threatened
+            const partnerCard = trickCards.find(tc => getTeam(tc.player) === myTeam);
+            if(partnerCard && currentWinningCard && currentWinningCard.getTeam(player) !== myTeam){
+                // Partner NOT currently winning - need to save with trump
+                return trumps[0]; // Use highest to guarantee
+            }
+            return lowestTrump;
+
+        }else{
+            // Don't waste trump - use lowest
+            return trumps[trumps.length-1];
+        }
+    }
+
+    // If trump is hidden and have trump
+    if(!trumpExposed && trumps.length > 0){
+        // Only call trump if it's worth it (opponent winning with points)
+        const trickPoints = trickCards.reduce((sum,tc)=>sum+tc.card.points,0);
+        if(winningTeam !== myTeam && trickPoints >= 3){
+            // Call trump to win valuable trick
+            trumps.sort((a,b)=>RANK_ORDER[b.rank]-RANK_ORDER[a.rank]);
+            return trumps[0];
+        }
+        // Otherwise discard
+    }
+
+    // Discard: lowest non-trump, preferably non-point card
+    let discards = hand.filter(c=>c.suit!==trumpSuit);
+    if(discards.length === 0) discards = hand; // Only trumps left
+
+    // Sort: prefer discarding cards with 0 points, then lowest rank
+    discards.sort((a,b)=>{
+        if(a.points !== b.points) return a.points - b.points;
+        return RANK_ORDER[a.rank] - RANK_ORDER[b.rank];
+    });
+
+    return discards[0];
+}
+
+// Helper: Get current trick winner before this card is played
+function getCurrentTrickWinner(){
+    if(trickCards.length === 0) return null;
+    let winner = trickCards[0];
+    for(let i=1; i<trickCards.length; i++){
+        const tc = trickCards[i];
+        const wc = winner.card;
+        if(trumpExposed){
+            if(tc.card.suit===trumpSuit && wc.suit!==trumpSuit){
+                winner = tc;
+            }else if(tc.card.suit===wc.suit && RANK_ORDER[tc.card.rank]>RANK_ORDER[wc.rank]){
+                winner = tc;
+            }
+        }else{
+            if(tc.card.suit===wc.suit && RANK_ORDER[tc.card.rank]>RANK_ORDER[wc.rank]){
+                winner = tc;
+            }
+        }
+    }
+    return winner;
+}
+
+function playCard(suit, rank, player){
+    const p = (player!==undefined) ? player : 3;
+    if(turnInProgress && p===3) return;
+    if(p===3) turnInProgress = true;
+
+    const hand = players[p];
+    let idx = hand.findIndex(c=>c.suit===suit && c.rank===rank);
+    let card;
+
+    if(idx === -1){
+        if(hiddenTrump && p===bidder && suit===hiddenTrump.suit && rank===hiddenTrump.rank){
+            playHiddenTrump(p);
+            return;
+        }
+        if(p===3) turnInProgress = false;
+        return;
+    }
+
+    // Check if this is the last card and bidder still has hidden trump
+    if(hand.length === 1 && hiddenTrump && p===bidder){
+        log('Bidder plays last regular card. Hidden trump will be played next turn!');
+    }
+
+    card = hand.splice(idx, 1)[0];
+
+    if(!trumpExposed && phase==='play1' && trickSuit!=='' && card.suit===trumpSuit && trickSuit!==trumpSuit){
+        exposeTrump(p);
+    }
+    if(!trumpExposed && p===bidder && trickSuit!=='' && trickSuit!==trumpSuit){
+        const hasLed = hand.some(c=>c.suit===trickSuit);
+        if(!hasLed && card.suit===trumpSuit) exposeTrump(p);
+    }
+
+    if(trickSuit === '') trickSuit = card.suit;
+    trickCards.push({player:p, card:card});
+    updateTrickWinnerDisplay();
+    updateTrickWinnerDisplay(); // update center trick leader
+
+    const slot = document.getElementById('slot'+p);
+    if(slot){
+        slot.innerHTML = '';
+        const cardDiv = document.createElement('div');
+        cardDiv.innerHTML = cardHTML(card);
+        const cardEl = cardDiv.firstChild;
+        cardEl.classList.add('slot-card-enter');
+        slot.appendChild(cardEl);
+    }
+    // Also show in center
+    const centerCards = document.getElementById('centerCards');
+    if(centerCards){
+        const centerCard = document.createElement('div');
+        centerCard.innerHTML = cardHTML(card);
+        centerCard.firstElementChild.style.transform = 'scale(0.9)';
+        centerCards.appendChild(centerCard.firstElementChild);
+    }
+
+    log((p===3?'You':BOT_NAMES[p]) + ' played ' + card.rank + card.suit);
+
+    if(p===3) renderPlayerHand();
+    else{
+        const botCards = document.getElementById('cards'+p);
+        if(botCards && botCards.children.length>0) botCards.removeChild(botCards.lastChild);
+    }
+
+    updateCardCounts();
+
+    if(trickCards.length === 4){
+        setTimeout(()=>{turnInProgress=false; endTrick();}, 2000);
+    }else{
+        currentPlayer = nextPlayer(currentPlayer);
+        setTimeout(()=>{if(p===3) turnInProgress=false; doTurn();}, 800);
+    }
+}
+
+function playHiddenTrump(p){
+    const card = hiddenTrump;
+    hiddenTrump = null;
+    if(!trumpExposed) exposeTrump(p);
+
+    if(trickSuit === '') trickSuit = card.suit;
+    trickCards.push({player:p, card:card});
+    updateTrickWinnerDisplay();
+    updateTrickWinnerDisplay(); // update center trick leader
+
+    const slot = document.getElementById('slot'+p);
+    if(slot){
+        slot.innerHTML = '';
+        const cardDiv = document.createElement('div');
+        cardDiv.innerHTML = cardHTML(card);
+        const cardEl = cardDiv.firstChild;
+        cardEl.classList.add('slot-card-enter');
+        slot.appendChild(cardEl);
+    }
+    // Also show in center
+    const centerCards = document.getElementById('centerCards');
+    if(centerCards){
+        const centerCard = document.createElement('div');
+        centerCard.innerHTML = cardHTML(card);
+        centerCard.firstElementChild.style.transform = 'scale(0.9)';
+        centerCards.appendChild(centerCard.firstElementChild);
+    }
+
+    log((p===3?'You':BOT_NAMES[p]) + ' played HIDDEN TRUMP ' + card.rank + card.suit + '!');
+    updateCardCounts();
+
+    if(trickCards.length === 4){
+        setTimeout(()=>{turnInProgress=false; endTrick();}, 2000);
+    }else if(trickCards.length === 1 && players.every(pl=>pl.length===0)){
+        // Only bidder has the hidden trump, all others out of cards
+        // Auto-win this final trick for bidder
+        log('All other players are out of cards. Bidder wins final trick automatically!');
+        setTimeout(()=>{turnInProgress=false; endTrick();}, 1200);
+    }else{
+        currentPlayer = nextPlayer(currentPlayer);
+        setTimeout(()=>{turnInProgress=false; doTurn();}, 800);
+    }
+}
+
+function exposeTrump(caller){
+    if(trumpExposed) return;
+    trumpExposed = true;
+    phase = 'play2';
+
+    document.getElementById('trumpReveal').textContent = '🎯 Trump: ' + trumpSuit + ' (EXPOSED!)';
+    document.getElementById('trumpReveal').style.borderColor = '#4ade80';
+    document.getElementById('trumpReveal').style.color = '#4ade80';
+
+    log((caller===3?'You':BOT_NAMES[caller]) + ' exposed trump! ' + trumpSuit + ' is now active!', 'win');
+
+    if(hiddenTrump && bidder>=0){
+        players[bidder].push(hiddenTrump);
+        sortHands();
+        log((bidder===3?'You':BOT_NAMES[bidder]) + ' retrieves face-down trump (' + hiddenTrump.rank + hiddenTrump.suit + ').');
+        hiddenTrump = null;
+        if(bidder===3) renderPlayerHand();
+    }
+
+    updatePhase();
+    updateInfo();
+    updateCardCounts();
+}
+
+function getTrickWinner(){
+    if(trickCards.length === 0) return null;
+    let winner = trickCards[0];
+
+    for(let i=1; i<trickCards.length; i++){
+        const tc = trickCards[i];
+        const wc = winner.card;
+
+        if(trumpExposed){
+            if(tc.card.suit===trumpSuit && wc.suit!==trumpSuit){
+                winner = tc;
+            }else if(tc.card.suit===wc.suit && RANK_ORDER[tc.card.rank]>RANK_ORDER[wc.rank]){
+                winner = tc;
+            }
+        }else{
+            if(tc.card.suit===wc.suit && RANK_ORDER[tc.card.rank]>RANK_ORDER[wc.rank]){
+                winner = tc;
+            }
+        }
+    }
+    return winner;
+}
+
+function endTrick(){
+    // Hide trick winner display before calculating final winner
+    const twDisplay = document.getElementById('trickWinnerDisplay');
+    if(twDisplay){
+        twDisplay.classList.remove('active');
+        twDisplay.classList.remove('leading');
+    }
+    _lastTrickWinner = -1;
+
+    const winner = getTrickWinner();
+    if(!winner) return;
+
+    const winTeam = getTeam(winner.player);
+    const pts = trickCards.reduce((sum,tc)=>sum+tc.card.points,0);
+    teamPoints[winTeam] += pts;
+    tricksWon[winner.player]++;
+
+    lastTrick = {cards:trickCards.map(tc=>({...tc})), winner:winner.player, points:pts, team:winTeam};
+    updateLastTrick();
+
+    const teamName = winTeam===1?'Your team':'Opponents';
+    log((winner.player===3?'Your team':teamName) + ' won trick (+' + pts + ' pts). You:' + teamPoints[1] + ' Opp:' + teamPoints[0], 'win');
+    bumpTrickPoints(winTeam);
+    bumpTableTricks(winTeam);
+    updateInfo();
+
+    const winnerName = winner.player===3?'You':BOT_NAMES[winner.player];
+
+    // ===== TRICK WIN ANIMATION =====
+    // 1. Flash popup
+    const flash = document.createElement('div');
+    flash.className = 'trick-win-flash';
+    flash.innerHTML = '<div>' + winnerName + ' wins! <span style="color:#4ade80">+' + pts + ' pts</span></div>' +
+        '<div style="font-size:2.2rem;margin-top:0.5rem;color:var(--text-secondary);text-shadow:0 0 15px rgba(244,196,48,0.3)">' +
+        (winTeam===1?'Your Team':'Opponents') + ': <span style="color:var(--accent);font-weight:900;font-size:2.8rem">' + teamPoints[winTeam] + '</span> <span style="font-size:1.4rem">/ ' + highestBid + '</span></div>';
+    document.body.appendChild(flash);
+    setTimeout(()=>flash.remove(), 3000);
+
+    // 2. Make winner avatar BIG + pop + face animation
+    const winnerAvatar = document.getElementById('av'+winner.player);
+    if(winnerAvatar){
+        winnerAvatar.classList.add('face-pop-big');
+        winnerAvatar.classList.add('winner-glow');
+        winnerAvatar.classList.add('winner-face');
+        setTimeout(()=>{
+            winnerAvatar.classList.remove('face-pop-big');
+            winnerAvatar.classList.remove('winner-glow');
+            winnerAvatar.classList.remove('winner-face');
+        }, 2000);
+    }
+
+    // 2b. Partner says encouraging words
+    showPartnerSpeech(winner.player);
+
+    // 3. Cards fly TO the winner's position
+    const winnerPos = document.getElementById('pos'+winner.player);
+    const winnerRect = winnerPos ? winnerPos.getBoundingClientRect() : null;
+    const allPlayedCards = [];
+
+    // Collect cards from slots
+    for(let i=0; i<4; i++){
+        const slot = document.getElementById('slot'+i);
+        if(slot && slot.children.length > 0){
+            const cardEl = slot.children[0];
+            const rect = cardEl.getBoundingClientRect();
+            allPlayedCards.push({el: cardEl, rect: rect, fromSlot: true});
+        }
+    }
+    // Collect center cards
+    const centerCards = document.getElementById('centerCards');
+    if(centerCards){
+        centerCards.querySelectorAll('.card').forEach(el => {
+            allPlayedCards.push({el: el, rect: el.getBoundingClientRect(), fromSlot: false});
+        });
+    }
+
+    if(winnerRect && allPlayedCards.length > 0){
+        const targetX = winnerRect.left + winnerRect.width/2;
+        const targetY = winnerRect.top + winnerRect.height/2;
+
+        allPlayedCards.forEach((item, idx) => {
+            const cardEl = item.el;
+            const startX = item.rect.left;
+            const startY = item.rect.top;
+            const tx = targetX - startX - item.rect.width/2;
+            const ty = targetY - startY - item.rect.height/2;
+
+            // Clone for fly animation
+            const flyer = cardEl.cloneNode(true);
+            flyer.style.position = 'fixed';
+            flyer.style.left = startX + 'px';
+            flyer.style.top = startY + 'px';
+            flyer.style.width = item.rect.width + 'px';
+            flyer.style.height = item.rect.height + 'px';
+            flyer.style.margin = '0';
+            flyer.style.zIndex = '5000';
+            flyer.style.setProperty('--tx', tx + 'px');
+            flyer.style.setProperty('--ty', ty + 'px');
+            flyer.classList.add('card-fly');
+            flyer.style.animationDelay = (idx * 120) + 'ms';
+            document.body.appendChild(flyer);
+
+            setTimeout(()=>{ if(flyer.parentNode) flyer.remove(); }, 2200 + idx * 120);
+        });
+    }
+
+    // 4. Clear original cards after fly starts
+    setTimeout(()=>{
+        for(let i=0; i<4; i++){
+            const slot = document.getElementById('slot'+i);
+            if(slot) slot.innerHTML = '';
+        }
+        if(centerCards) centerCards.innerHTML = '';
+    }, 600);
+
+    const cardsLeft = players.reduce((sum,p)=>sum+p.length,0);
+
+    if(cardsLeft===0 && !hiddenTrump){
+        setTimeout(()=>endRound(), 3500);
+    }else if(cardsLeft===0 && hiddenTrump){
+        log('Final trick complete. Bidder will play hidden trump next.');
+        trickCards = [];
+        trickSuit = '';
+        currentPlayer = bidder;
+        setTimeout(()=>doTurn(), 2500);
+    }else{
+        trickCards = [];
+        trickSuit = '';
+        currentPlayer = winner.player;
+        setTimeout(()=>doTurn(), 3500);
+    }
+}
+
+// ==================== ROUND END ====================
+function endRound(){
+    const bidTeam = getTeam(bidder);
+    const otherTeam = 1 - bidTeam;
+    const total = teamPoints[0] + teamPoints[1];
+    if(total !== 28) log('WARNING: Total=' + total + ' (should be 28)', 'lose');
+
+    let effBid = highestBid;
+    if(pairDeclared){
+        effBid = pairTeam===bidTeam ? Math.max(14, effBid-4) : Math.min(28, effBid+4);
+    }
+
+    log('Round over! You:' + teamPoints[1] + ' Opp:' + teamPoints[0], 'info');
+
+    const made = teamPoints[bidTeam] >= effBid;
+    showRoundWin(bidTeam, made, teamPoints[bidTeam], effBid);
+    if(made){
+        let pts = highestBid>=25 ? 3 : highestBid>=20 ? 2 : 1;
+        gameScore[bidTeam] += pts;
+        log('Bid made! +' + pts + ' game points', 'win');
+        bumpTotalTricks(bidTeam);
+    }else{
+        let pts = highestBid>=25 ? 4 : highestBid>=20 ? 3 : 2;
+        gameScore[otherTeam] += pts;
+        log('Bid failed! Opponents +' + pts + ' game points', 'lose');
+        bumpTotalTricks(otherTeam);
+    }
+
+    updateInfo();
+
+    // Championship: game ends when a team reaches 12 (started from 6)
+    if(gameScore[0]>=12 || gameScore[1]>=12){
+        setTimeout(()=>{
+            const won = gameScore[1]>=12;
+            createConfetti();
+            showModal('🏆 Game Over 🏆', 
+                (won?'<div class="trophy-anim">🏆</div><div class="glow-text" style="font-size:1.5rem;color:var(--accent)">CHAMPION!</div>':'<div style="font-size:3rem">😢</div><div style="color:var(--danger)">Better luck next time!</div>') + 
+                '<br><br>Final Score: You ' + gameScore[1] + ' - Opponent ' + gameScore[0] + '<br>Rounds: ' + round);
+            document.getElementById('newGameBtn').style.display = 'inline-flex';
+
+            // Animate winner
+            if(won){
+                document.getElementById('av3').classList.add('champion-anim');
+                document.querySelector('.modal h3').classList.add('glow-text');
+            }
+        }, 2000);
+    }else{
+        round++;
+        setTimeout(()=>{
+            teamPoints=[0,0]; bidder=-1; highestBid=0; trumpSuit='';
+            updateTableTricks();
+            hiddenTrump=null; trumpExposed=false; passes=0;
+            phase='bidding1'; pairDeclared=false; pairTeam=-1;
+            tricksWon=[0,0,0,0]; trickCards=[]; trickSuit='';
+            turnInProgress=false; lastTrick=null;
+
+       
+    updateTableTotals();     document.getElementById('trumpReveal').textContent='🎯 Trump: Hidden';
+            document.getElementById('trumpReveal').style.borderColor='var(--accent)';
+            document.getElementById('trumpReveal').style.color='var(--accent)';
+            document.getElementById('phaseIndicator').classList.remove('active');
+            updateLastTrick();
+            for(let i=0;i<4;i++){const s=document.getElementById('slot'+i); if(s) s.innerHTML='';}
+
+            createDeck(); dealFour(); renderHands();
+            dealer = nextPlayer(dealer);
+            currentPlayer = nextPlayer(dealer);
+            log('=== ROUND ' + round + ' === Dealer: ' + (dealer===3?'You':BOT_NAMES[dealer]));
+            doBidding1();
+        }, 3000);
+    }
+}
+
+// ==================== GAME START (defined AFTER all helpers) ====================
+
+function createConfetti(){
+    const colors = ['#f4c430','#4ade80','#60a5fa','#f87171','#a78bfa','#fbbf24'];
+    for(let i=0; i<50; i++){
+        const conf = document.createElement('div');
+        conf.className = 'confetti confetti-' + (Math.floor(Math.random()*5)+1);
+        conf.style.left = Math.random()*100 + 'vw';
+        conf.style.background = colors[Math.floor(Math.random()*colors.length)];
+        conf.style.width = (Math.random()*10+5) + 'px';
+        conf.style.height = (Math.random()*10+5) + 'px';
+        conf.style.borderRadius = Math.random()>0.5?'50%':'0';
+        conf.style.animationDuration = (Math.random()*2+2) + 's';
+        conf.style.animationDelay = (Math.random()*1) + 's';
+        document.body.appendChild(conf);
+        setTimeout(()=>conf.remove(), 4000);
+    }
+}
+
+function startGame(){
+    showSection('game');
+    document.getElementById('newGameBtn').style.display='none';
+    document.getElementById('logContent').innerHTML='';
+    document.getElementById('pairPanel').classList.remove('active');
+
+    round = 1;
+    teamPoints = [0,0];
+    // Championship format: both teams start with 6 points, play to 12
+    gameScore = [6,6];
+    bidder = -1;
+    highestBid = 0;
+    trumpSuit = '';
+    hiddenTrump = null;
+    trumpExposed = false;
+    passes = 0;
+    phase = 'bidding1';
+    pairDeclared = false;
+    pairTeam = -1;
+    tricksWon = [0,0,0,0];
+    trickCards = [];
+    trickSuit = '';
+    turnInProgress = false;
+
+    // Random dealer for first game (0-3)
+    dealer = Math.floor(Math.random() * 4);
+
+    createDeck();
+    dealFour();
+
+    log('=== NEW GAME === Dealer: ' + (dealer===3?'You':BOT_NAMES[dealer]));
+    log('4 cards dealt. Phase 1 bidding starts at 14.');
+
+    updateInfo();
+    renderHands();
+
+    // Bidding starts with nextPlayer(dealer) — same as play order
+    currentPlayer = nextPlayer(dealer);
+    doBidding1();
+}
+
+// ==================== INIT ====================
+window.addEventListener('DOMContentLoaded', function(){
+    console.log('Auto-starting 28 card game...');
+    try {
+        startGame();
+    } catch(e) {
+        console.error('Game init error:', e);
+        alert('Error: ' + e.message + '\n' + e.stack);
+    }
+});
+</script>
+</body>
+</html>
