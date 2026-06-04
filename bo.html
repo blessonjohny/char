@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bolivar Watch & Clock Services | Master Watchmaker</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+--gold: #C9A84C;
+--gold-light: #E8D5A3;
+--dark: #1A1A2E;
+--darker: #0F0F1A;
+--cream: #F5F0E8;
+--white: #FFFFFF;
+--accent: #8B4513;
+}
+
+* {
+margin: 0;
+padding: 0;
+box-sizing: border-box;
+-webkit-tap-highlight-color: transparent;
+}
+
+body {
+font-family: 'Lato', sans-serif;
+background: var(--darker);
+color: var(--cream);
+overflow-x: hidden;
+-webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+font-family: 'Playfair Display', serif;
+}
+
+/* Navigation */
+nav {
+position: fixed;
+top: 0;
+width: 100%;
+background: rgba(15, 15, 26, 0.95);
+backdrop-filter: blur(10px);
+-webkit-backdrop-filter: blur(10px);
+z-index: 1000;
+padding: 1rem 0;
+border-bottom: 1px solid rgba(201, 168, 76, 0.3);
+}
+
+.nav-container {
+max-width: 1200px;
+margin: 0 auto;
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 0 2rem;
+}
+
+.logo {
+font-family: 'Playfair Display', serif;
+font-size: 1.5rem;
+color: var(--gold);
+font-weight: 700;
+letter-spacing: 1px;
+}
+
+.nav-links {
+display: flex;
+gap: 2rem;
+list-style: none;
+}
+
+.nav-links a {
+color: var(--cream);
+text-decoration: none;
+font-size: 0.9rem;
+letter-spacing: 1px;
+transition: color 0.3s;
+cursor: pointer;
+}
+
+.nav-links a:hover {
+color: var(--gold);
+}
+
+.admin-link {
+color: var(--gold) !important;
+border: 1px solid var(--gold);
+padding: 0.3rem 0.8rem;
+border-radius: 4px;
+}
+
+/* Hero Section */
+.hero {
+min-height: 100vh;
+display: flex;
+align-items: center;
+justify-content: center;
+position: relative;
+background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 100%);
+overflow: hidden;
+}
+
+.hero::before {
+content: '';
+position: absolute;
+width: 600px;
+height: 600px;
+border: 2px solid rgba(201, 168, 76, 0.1);
+border-radius: 50%;
+animation: rotate 30s linear infinite;
+}
+
+.hero::after {
+content: '';
+position: absolute;
+width: 400px;
+height: 400px;
+border: 1px solid rgba(201, 168, 76, 0.15);
+border-radius: 50%;
+animation: rotate 20s linear infinite reverse;
+}
+
+@keyframes rotate {
+from { transform: rotate(0deg); }
+to { transform: rotate(360deg); }
+}
+
+.hero-content {
+text-align: center;
+z-index: 10;
+padding: 2rem;
+}
+
+.hero h1 {
+font-size: 4rem;
+color: var(--gold);
+margin-bottom: 1rem;
+animation: fadeInUp 1s ease;
+}
+
+.hero .subtitle {
+font-size: 1.3rem;
+color: var(--gold-light);
+margin-bottom: 0.5rem;
+animation: fadeInUp 1s ease 0.2s both;
+}
+
+.hero .tagline {
+font-size: 1rem;
+color: var(--cream);
+opacity: 0.8;
+margin-bottom: 2rem;
+animation: fadeInUp 1s ease 0.4s both;
+}
+
+.cta-button {
+display: inline-block;
+padding: 1rem 2.5rem;
+background: var(--gold);
+color: var(--darker);
+text-decoration: none;
+font-weight: 700;
+letter-spacing: 2px;
+border-radius: 50px;
+transition: all 0.3s;
+animation: fadeInUp 1s ease 0.6s both;
+cursor: pointer;
+border: none;
+font-size: 1rem;
+-webkit-appearance: none;
+}
+
+.cta-button:hover {
+background: var(--gold-light);
+transform: translateY(-3px);
+box-shadow: 0 10px 30px rgba(201, 168, 76, 0.3);
+}
+
+@keyframes fadeInUp {
+from {
+opacity: 0;
+transform: translateY(30px);
+}
+to {
+opacity: 1;
+transform: translateY(0);
+}
+}
+
+/* Clock Animation */
+.clock-container {
+position: absolute;
+right: 10%;
+top: 50%;
+transform: translateY(-50%);
+width: 200px;
+height: 200px;
+opacity: 0.3;
+}
+
+.clock-face {
+width: 100%;
+height: 100%;
+border: 3px solid var(--gold);
+border-radius: 50%;
+position: relative;
+}
+
+.hand {
+position: absolute;
+bottom: 50%;
+left: 50%;
+transform-origin: bottom center;
+background: var(--gold);
+}
+
+.hour-hand {
+width: 4px;
+height: 50px;
+animation: tick 43200s linear infinite;
+}
+
+.minute-hand {
+width: 3px;
+height: 70px;
+animation: tick 3600s linear infinite;
+}
+
+.second-hand {
+width: 2px;
+height: 80px;
+background: var(--accent);
+animation: tick 60s linear infinite;
+}
+
+@keyframes tick {
+from { transform: rotate(0deg); }
+to { transform: rotate(360deg); }
+}
+
+/* Sections */
+section {
+padding: 5rem 2rem;
+max-width: 1200px;
+margin: 0 auto;
+}
+
+.section-title {
+font-size: 2.5rem;
+color: var(--gold);
+text-align: center;
+margin-bottom: 3rem;
+position: relative;
+}
+
+.section-title::after {
+content: '';
+display: block;
+width: 60px;
+height: 3px;
+background: var(--gold);
+margin: 1rem auto;
+}
+
+/* About Section */
+.about {
+background: var(--dark);
+border-radius: 20px;
+padding: 4rem;
+margin: 2rem auto;
+position: relative;
+overflow: hidden;
+}
+
+.about::before {
+content: '⚙';
+position: absolute;
+font-size: 200px;
+opacity: 0.03;
+right: -20px;
+top: -20px;
+}
+
+.about-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 3rem;
+align-items: center;
+}
+
+.about-text p {
+line-height: 1.8;
+margin-bottom: 1.5rem;
+font-size: 1.05rem;
+}
+
+.experience-badge {
+display: inline-block;
+background: var(--gold);
+color: var(--darker);
+padding: 1rem 2rem;
+border-radius: 10px;
+font-weight: 700;
+font-size: 1.2rem;
+margin-top: 1rem;
+}
+
+.about-image {
+position: relative;
+}
+
+.watch-showcase {
+width: 100%;
+height: 300px;
+background: linear-gradient(45deg, var(--darker), var(--dark));
+border-radius: 15px;
+display: flex;
+align-items: center;
+justify-content: center;
+border: 2px solid rgba(201, 168, 76, 0.3);
+position: relative;
+overflow: hidden;
+}
+
+.watch-showcase::before {
+content: '';
+position: absolute;
+width: 150px;
+height: 150px;
+border: 4px solid var(--gold);
+border-radius: 50%;
+animation: pulse 2s ease-in-out infinite;
+}
+
+.watch-showcase::after {
+content: '⌚';
+font-size: 80px;
+z-index: 2;
+}
+
+@keyframes pulse {
+0%, 100% { transform: scale(1); opacity: 0.5; }
+50% { transform: scale(1.1); opacity: 1; }
+}
+
+/* Services Section */
+.services-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+gap: 2rem;
+}
+
+.service-card {
+background: var(--dark);
+border-radius: 15px;
+padding: 2.5rem;
+text-align: center;
+border: 1px solid rgba(201, 168, 76, 0.2);
+transition: all 0.3s;
+position: relative;
+overflow: hidden;
+}
+
+.service-card:hover {
+transform: translateY(-10px);
+border-color: var(--gold);
+box-shadow: 0 20px 40px rgba(201, 168, 76, 0.1);
+}
+
+.service-icon {
+font-size: 3rem;
+margin-bottom: 1rem;
+}
+
+.service-card h3 {
+color: var(--gold);
+margin-bottom: 1rem;
+font-size: 1.3rem;
+}
+
+.service-card p {
+line-height: 1.6;
+opacity: 0.9;
+}
+
+/* Why Choose Us */
+.features-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+gap: 2rem;
+}
+
+.feature-item {
+display: flex;
+align-items: flex-start;
+gap: 1rem;
+padding: 1.5rem;
+background: rgba(201, 168, 76, 0.05);
+border-radius: 10px;
+border-left: 3px solid var(--gold);
+}
+
+.feature-icon {
+font-size: 2rem;
+flex-shrink: 0;
+}
+
+.feature-text h4 {
+color: var(--gold);
+margin-bottom: 0.5rem;
+}
+
+/* Appointment Section */
+.appointment-section {
+background: linear-gradient(135deg, var(--dark) 0%, var(--darker) 100%);
+border-radius: 20px;
+padding: 4rem;
+border: 1px solid rgba(201, 168, 76, 0.2);
+}
+
+.form-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 1.5rem;
+}
+
+.form-group {
+display: flex;
+flex-direction: column;
+}
+
+.form-group.full-width {
+grid-column: 1 / -1;
+}
+
+.form-group label {
+color: var(--gold);
+margin-bottom: 0.5rem;
+font-weight: 600;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+padding: 1rem;
+background: rgba(255, 255, 255, 0.05);
+border: 1px solid rgba(201, 168, 76, 0.3);
+border-radius: 8px;
+color: var(--cream);
+font-family: 'Lato', sans-serif;
+font-size: 1rem;
+transition: all 0.3s;
+-webkit-appearance: none;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+outline: none;
+border-color: var(--gold);
+box-shadow: 0 0 10px rgba(201, 168, 76, 0.2);
+}
+
+.form-group textarea {
+min-height: 120px;
+resize: vertical;
+}
+
+.submit-btn {
+grid-column: 1 / -1;
+padding: 1.2rem;
+background: var(--gold);
+color: var(--darker);
+border: none;
+border-radius: 50px;
+font-size: 1.1rem;
+font-weight: 700;
+letter-spacing: 2px;
+cursor: pointer;
+transition: all 0.3s;
+margin-top: 1rem;
+-webkit-appearance: none;
+}
+
+.submit-btn:hover {
+background: var(--gold-light);
+transform: translateY(-2px);
+box-shadow: 0 10px 30px rgba(201, 168, 76, 0.3);
+}
+
+.success-message {
+display: none;
+grid-column: 1 / -1;
+background: rgba(39, 174, 96, 0.2);
+border: 1px solid #27AE60;
+color: #27AE60;
+padding: 1rem;
+border-radius: 8px;
+text-align: center;
+}
+
+/* ===== CHAT WIDGET - BULLETPROOF ===== */
+.chat-widget {
+position: fixed;
+bottom: 20px;
+right: 20px;
+z-index: 9999;
+}
+
+.chat-toggle-btn {
+width: 60px;
+height: 60px;
+border-radius: 50%;
+background: var(--gold);
+color: var(--darker);
+border: none;
+font-size: 24px;
+cursor: pointer;
+box-shadow: 0 4px 15px rgba(201, 168, 76, 0.5);
+transition: all 0.3s ease;
+display: flex;
+align-items: center;
+justify-content: center;
+position: relative;
+z-index: 10002;
+-webkit-appearance: none;
+touch-action: manipulation;
+user-select: none;
+-webkit-user-select: none;
+pointer-events: auto;
+}
+
+.chat-toggle-btn:hover {
+transform: scale(1.1);
+box-shadow: 0 6px 25px rgba(201, 168, 76, 0.7);
+}
+
+.chat-toggle-btn:active {
+transform: scale(0.95);
+}
+
+.chat-box {
+position: absolute;
+bottom: 75px;
+right: 0;
+width: 350px;
+max-width: calc(100vw - 40px);
+height: 500px;
+max-height: calc(100vh - 100px);
+background: var(--dark);
+border-radius: 15px;
+border: 1px solid rgba(201, 168, 76, 0.3);
+box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+flex-direction: column;
+overflow: hidden;
+z-index: 10001;
+
+/* CRITICAL: Use visibility + opacity instead of display:none */
+visibility: hidden;
+opacity: 0;
+display: flex;
+pointer-events: none;
+transform: translateY(10px);
+transition: visibility 0s linear 0.3s, opacity 0.3s ease, transform 0.3s ease;
+}
+
+.chat-box.active {
+visibility: visible;
+opacity: 1;
+pointer-events: auto;
+transform: translateY(0);
+transition: visibility 0s linear 0s, opacity 0.3s ease, transform 0.3s ease;
+}
+
+.chat-header {
+background: var(--gold);
+color: var(--darker);
+padding: 1rem;
+display: flex;
+justify-content: space-between;
+align-items: center;
+flex-shrink: 0;
+}
+
+.chat-header h3 {
+font-size: 1rem;
+margin: 0;
+font-family: 'Lato', sans-serif;
+font-weight: 700;
+}
+
+.chat-close-btn {
+background: none;
+border: none;
+color: var(--darker);
+font-size: 1.8rem;
+cursor: pointer;
+line-height: 1;
+padding: 0;
+width: 30px;
+height: 30px;
+display: flex;
+align-items: center;
+justify-content: center;
+-webkit-appearance: none;
+touch-action: manipulation;
+pointer-events: auto;
+}
+
+.chat-messages {
+flex: 1;
+overflow-y: auto;
+padding: 1rem;
+display: flex;
+flex-direction: column;
+gap: 1rem;
+min-height: 0;
+}
+
+.message {
+max-width: 80%;
+padding: 0.8rem 1rem;
+border-radius: 15px;
+line-height: 1.4;
+font-size: 0.9rem;
+word-wrap: break-word;
+}
+
+.message.bot {
+background: rgba(201, 168, 76, 0.15);
+color: var(--cream);
+align-self: flex-start;
+border-bottom-left-radius: 5px;
+}
+
+.message.user {
+background: var(--gold);
+color: var(--darker);
+align-self: flex-end;
+border-bottom-right-radius: 5px;
+}
+
+.chat-input-area {
+display: flex;
+padding: 1rem;
+border-top: 1px solid rgba(201, 168, 76, 0.2);
+gap: 0.5rem;
+flex-shrink: 0;
+background: var(--dark);
+}
+
+.chat-input {
+flex: 1;
+padding: 0.8rem 1rem;
+background: rgba(255, 255, 255, 0.05);
+border: 1px solid rgba(201, 168, 76, 0.3);
+border-radius: 25px;
+color: var(--cream);
+font-family: 'Lato', sans-serif;
+font-size: 1rem;
+-webkit-appearance: none;
+}
+
+.chat-input:focus {
+outline: none;
+border-color: var(--gold);
+}
+
+.chat-send-btn {
+width: 44px;
+height: 44px;
+border-radius: 50%;
+background: var(--gold);
+border: none;
+color: var(--darker);
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 1.2rem;
+flex-shrink: 0;
+-webkit-appearance: none;
+touch-action: manipulation;
+pointer-events: auto;
+}
+
+.chat-send-btn:active {
+transform: scale(0.95);
+}
+
+/* Admin Panel */
+.admin-panel {
+display: none;
+position: fixed;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background: var(--darker);
+z-index: 2000;
+overflow-y: auto;
+}
+
+.admin-panel.active {
+display: block;
+}
+
+.admin-header {
+background: var(--dark);
+padding: 1.5rem 2rem;
+display: flex;
+justify-content: space-between;
+align-items: center;
+border-bottom: 2px solid var(--gold);
+position: sticky;
+top: 0;
+z-index: 10;
+}
+
+.admin-header h2 {
+color: var(--gold);
+margin: 0;
+}
+
+.close-admin-btn {
+background: var(--gold);
+color: var(--darker);
+border: none;
+padding: 0.5rem 1.5rem;
+border-radius: 5px;
+cursor: pointer;
+font-weight: 700;
+font-size: 1rem;
+-webkit-appearance: none;
+touch-action: manipulation;
+}
+
+.admin-content {
+max-width: 1200px;
+margin: 2rem auto;
+padding: 0 2rem;
+}
+
+.admin-tabs {
+display: flex;
+gap: 1rem;
+margin-bottom: 2rem;
+flex-wrap: wrap;
+}
+
+.admin-tab {
+padding: 0.8rem 1.5rem;
+background: var(--dark);
+border: 1px solid rgba(201, 168, 76, 0.3);
+color: var(--cream);
+border-radius: 8px;
+cursor: pointer;
+transition: all 0.3s;
+font-size: 1rem;
+-webkit-appearance: none;
+touch-action: manipulation;
+}
+
+.admin-tab.active {
+background: var(--gold);
+color: var(--darker);
+border-color: var(--gold);
+}
+
+.admin-section {
+display: none;
+}
+
+.admin-section.active {
+display: block;
+}
+
+.data-table {
+width: 100%;
+border-collapse: collapse;
+background: var(--dark);
+border-radius: 10px;
+overflow: hidden;
+font-size: 0.9rem;
+}
+
+.data-table th,
+.data-table td {
+padding: 1rem;
+text-align: left;
+border-bottom: 1px solid rgba(201, 168, 76, 0.2);
+}
+
+.data-table th {
+background: rgba(201, 168, 76, 0.1);
+color: var(--gold);
+font-weight: 700;
+}
+
+.data-table tr:hover {
+background: rgba(201, 168, 76, 0.05);
+}
+
+.no-data {
+text-align: center;
+padding: 3rem;
+color: rgba(255, 255, 255, 0.5);
+}
+
+.stats-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+gap: 1.5rem;
+margin-bottom: 2rem;
+}
+
+.stat-card {
+background: var(--dark);
+padding: 1.5rem;
+border-radius: 10px;
+border: 1px solid rgba(201, 168, 76, 0.2);
+text-align: center;
+}
+
+.stat-number {
+font-size: 2rem;
+color: var(--gold);
+font-weight: 700;
+}
+
+.stat-label {
+color: var(--cream);
+opacity: 0.8;
+margin-top: 0.5rem;
+}
+
+/* Footer */
+footer {
+background: var(--darker);
+border-top: 1px solid rgba(201, 168, 76, 0.2);
+padding: 3rem 2rem 2rem;
+text-align: center;
+}
+
+.footer-content {
+max-width: 1200px;
+margin: 0 auto;
+}
+
+.footer-logo {
+font-family: 'Playfair Display', serif;
+font-size: 1.8rem;
+color: var(--gold);
+margin-bottom: 1rem;
+}
+
+.footer-contact {
+margin: 1.5rem 0;
+line-height: 2;
+}
+
+.footer-contact p {
+opacity: 0.8;
+}
+
+.copyright {
+margin-top: 2rem;
+padding-top: 2rem;
+border-top: 1px solid rgba(201, 168, 76, 0.2);
+opacity: 0.6;
+font-size: 0.9rem;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+.hero h1 {
+font-size: 2.2rem;
+}
+
+.about-grid,
+.form-grid {
+grid-template-columns: 1fr;
+}
+
+.nav-links {
+display: none;
+}
+
+.clock-container {
+display: none;
+}
+
+.chat-box {
+width: calc(100vw - 40px);
+right: 0;
+height: 450px;
+}
+
+.chat-toggle-btn {
+width: 56px;
+height: 56px;
+}
+
+.admin-tabs {
+flex-wrap: wrap;
+}
+
+.data-table {
+font-size: 0.8rem;
+}
+
+.data-table th,
+.data-table td {
+padding: 0.5rem;
+}
+
+.about {
+padding: 2rem;
+}
+
+.appointment-section {
+padding: 2rem;
+}
+}
+
+/* Smooth scroll */
+html {
+scroll-behavior: smooth;
+}
+
+/* Loading animation */
+.typing-indicator {
+display: flex;
+gap: 4px;
+padding: 0.5rem 1rem;
+}
+
+.typing-indicator span {
+width: 8px;
+height: 8px;
+background: var(--gold);
+border-radius: 50%;
+animation: typing 1.4s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+animation-delay: 0.4s;
+}
+
+@keyframes typing {
+0%, 60%, 100% { transform: translateY(0); }
+30% { transform: translateY(-10px); }
+}
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav>
+<div class="nav-container">
+<div class="logo">⚜ Bolivar Watch & Clock</div>
+<ul class="nav-links">
+<li><a href="#home">Home</a></li>
+<li><a href="#about">About</a></li>
+<li><a href="#services">Services</a></li>
+<li><a href="#why-us">Why Us</a></li>
+<li><a href="#appointment">Book Appointment</a></li>
+<li><a href="#" class="admin-link" id="adminNavLink">Admin</a></li>
+</ul>
+</div>
+</nav>
+
+<!-- Hero Section -->
+<section class="hero" id="home">
+<div class="clock-container">
+<div class="clock-face">
+<div class="hand hour-hand"></div>
+<div class="hand minute-hand"></div>
+<div class="hand second-hand"></div>
+</div>
+</div>
+<div class="hero-content">
+<h1>Bolivar Watch & Clock Services</h1>
+<p class="subtitle">Master Independent Watchmaker</p>
+<p class="tagline">Precision Repairs for Quartz, Automatic & Vintage Timepieces</p>
+<a href="#appointment" class="cta-button">Schedule Your Service</a>
+</div>
+</section>
+
+<!-- About Section -->
+<section id="about">
+<div class="about">
+<h2 class="section-title">About Our Workshop</h2>
+<div class="about-grid">
+<div class="about-text">
+<p>Welcome to Bolivar Watch & Clock Services, where time-honored craftsmanship meets modern precision. As an independent master watchmaker, I specialize in the meticulous repair and restoration of quartz, automatic, and vintage timepieces.</p>
+<p>My state-of-the-art workshop is equipped with top-of-the-line tools and diagnostic instruments, ensuring every repair meets the highest standards of excellence. From routine battery replacements to complex movement overhauls, each timepiece receives the dedicated attention it deserves.</p>
+<p>We understand that your watch is more than just an instrument—it is a cherished possession, an heirloom, or a statement of personal style. That is why we guarantee all workmanship and use only genuine parts or high-quality alternatives.</p>
+<div class="experience-badge">40+ Years of Experience</div>
+</div>
+<div class="about-image">
+<div class="watch-showcase"></div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Services Section -->
+<section id="services">
+<h2 class="section-title">Our Expert Services</h2>
+<div class="services-grid">
+<div class="service-card">
+<div class="service-icon">🔋</div>
+<h3>Quartz Watch Repair</h3>
+<p>Battery replacement, circuit diagnostics, coil repairs, and complete quartz movement servicing. Fast turnaround with precision testing.</p>
+</div>
+<div class="service-card">
+<div class="service-icon">⚙️</div>
+<h3>Automatic Watch Service</h3>
+<p>Full movement overhaul, lubrication, regulation, and water resistance testing. Restoring your automatic timepiece to factory specifications.</p>
+</div>
+<div class="service-card">
+<div class="service-icon">🏛️</div>
+<h3>Vintage Restoration</h3>
+<p>Specialized restoration of antique and vintage timepieces. Preserving historical integrity while ensuring reliable timekeeping.</p>
+</div>
+<div class="service-card">
+<div class="service-icon">🕐</div>
+<h3>Clock Repair</h3>
+<p>Wall clocks, mantel clocks, grandfather clocks, and specialty timepieces. Mechanical and quartz clock expertise.</p>
+</div>
+<div class="service-card">
+<div class="service-icon">💎</div>
+<h3>Case & Bracelet Refinishing</h3>
+<p>Professional polishing, scratch removal, and bracelet adjustment. Restoring the original luster of your timepiece.</p>
+</div>
+<div class="service-card">
+<div class="service-icon">🌊</div>
+<h3>Water Resistance Testing</h3>
+<p>Pressure testing and seal replacement to ensure your watch maintains its rated water resistance specifications.</p>
+</div>
+</div>
+</section>
+
+<!-- Why Choose Us -->
+<section id="why-us">
+<h2 class="section-title">Why Choose Bolivar</h2>
+<div class="features-grid">
+<div class="feature-item">
+<div class="feature-icon">⏱️</div>
+<div class="feature-text">
+<h4>Fast Turnaround</h4>
+<p>Most repairs completed within 3-5 business days. Express service available for urgent needs.</p>
+</div>
+</div>
+<div class="feature-item">
+<div class="feature-icon">🛡️</div>
+<div class="feature-text">
+<h4>Warranty Protection</h4>
+<p>All repairs carry a comprehensive warranty. Your satisfaction and peace of mind are guaranteed.</p>
+</div>
+</div>
+<div class="feature-item">
+<div class="feature-icon">🔬</div>
+<div class="feature-text">
+<h4>Premium Equipment</h4>
+<p>State-of-the-art workshop with Swiss-grade tools, timing machines, and ultrasonic cleaning systems.</p>
+</div>
+</div>
+<div class="feature-item">
+<div class="feature-icon">👨‍🔧</div>
+<div class="feature-text">
+<h4>Master Craftsmanship</h4>
+<p>Over four decades of hands-on experience with the world's finest watch brands and movements.</p>
+</div>
+</div>
+<div class="feature-item">
+<div class="feature-icon">💰</div>
+<div class="feature-text">
+<h4>Transparent Pricing</h4>
+<p>Detailed estimates provided before any work begins. No hidden fees or surprise charges.</p>
+</div>
+</div>
+<div class="feature-item">
+<div class="feature-icon">📞</div>
+<div class="feature-text">
+<h4>Personalized Service</h4>
+<p>Direct communication with the watchmaker. Your questions answered by the expert working on your timepiece.</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Appointment Section -->
+<section id="appointment">
+<div class="appointment-section">
+<h2 class="section-title">Book Your Appointment</h2>
+<p style="text-align: center; margin-bottom: 2rem; opacity: 0.9;">Schedule a consultation or drop-off appointment. We will confirm your booking within 24 hours.</p>
+
+<form id="appointmentForm" class="form-grid">
+<div class="form-group">
+<label for="appName">Full Name *</label>
+<input type="text" id="appName" name="name" required placeholder="Your full name">
+</div>
+<div class="form-group">
+<label for="appEmail">Email Address *</label>
+<input type="email" id="appEmail" name="email" required placeholder="your@email.com">
+</div>
+<div class="form-group">
+<label for="appPhone">Phone Number *</label>
+<input type="tel" id="appPhone" name="phone" required placeholder="(555) 123-4567">
+</div>
+<div class="form-group">
+<label for="appService">Service Type *</label>
+<select id="appService" name="service" required>
+<option value="">Select a service</option>
+<option value="quartz-repair">Quartz Watch Repair</option>
+<option value="automatic-service">Automatic Watch Service</option>
+<option value="vintage-restoration">Vintage Restoration</option>
+<option value="clock-repair">Clock Repair</option>
+<option value="case-refinishing">Case & Bracelet Refinishing</option>
+<option value="water-test">Water Resistance Testing</option>
+<option value="consultation">General Consultation</option>
+</select>
+</div>
+<div class="form-group">
+<label for="appDate">Preferred Date *</label>
+<input type="date" id="appDate" name="date" required>
+</div>
+<div class="form-group">
+<label for="appTime">Preferred Time *</label>
+<select id="appTime" name="time" required>
+<option value="">Select time</option>
+<option value="9:00 AM">9:00 AM</option>
+<option value="10:00 AM">10:00 AM</option>
+<option value="11:00 AM">11:00 AM</option>
+<option value="1:00 PM">1:00 PM</option>
+<option value="2:00 PM">2:00 PM</option>
+<option value="3:00 PM">3:00 PM</option>
+<option value="4:00 PM">4:00 PM</option>
+</select>
+</div>
+<div class="form-group full-width">
+<label for="appNotes">Additional Details</label>
+<textarea id="appNotes" name="notes" placeholder="Describe your timepiece issue, brand, model, or any special requirements..."></textarea>
+</div>
+<button type="submit" class="submit-btn">Confirm Appointment</button>
+<div class="success-message" id="successMessage">
+✅ Appointment request submitted successfully! We will contact you shortly to confirm.
+</div>
+</form>
+</div>
+</section>
+
+<!-- Footer -->
+<footer>
+<div class="footer-content">
+<div class="footer-logo">⚜ Bolivar Watch & Clock Services</div>
+<div class="footer-contact">
+<p>Email: Blessonjohnye@gmail.com</p>
+<p>Professional Independent Watchmaking Services</p>
+<p>40+ Years of Expertise in Timepiece Restoration</p>
+</div>
+<div class="copyright">
+© 2024 Bolivar Watch & Clock Services. All rights reserved. Crafted with precision.
+</div>
+</div>
+</footer>
+
+<!-- ===== CHAT WIDGET - DOM ORDER: Toggle button FIRST ===== -->
+<div class="chat-widget" id="chatWidget">
+<!-- Toggle button MUST come first in DOM for natural z-index stacking -->
+<button class="chat-toggle-btn" id="chatToggleBtn" type="button">💬</button>
+
+<!-- Chat box comes AFTER toggle button -->
+<div class="chat-box" id="chatBox">
+<div class="chat-header">
+<h3>🤖 Bolivar AI Assistant</h3>
+<button class="chat-close-btn" id="chatCloseBtn" type="button">×</button>
+</div>
+<div class="chat-messages" id="chatMessages">
+<div class="message bot">
+Welcome to Bolivar Watch & Clock Services! I am your AI assistant. How may I help you today? You can ask about our services, pricing, turnaround times, or schedule an appointment.
+</div>
+</div>
+<div class="chat-input-area">
+<input type="text" class="chat-input" id="chatInput" placeholder="Type your message..." autocomplete="off">
+<button class="chat-send-btn" id="chatSendBtn" type="button">➤</button>
+</div>
+</div>
+</div>
+
+<!-- Admin Panel -->
+<div class="admin-panel" id="adminPanel">
+<div class="admin-header">
+<h2>⚜ Admin Dashboard</h2>
+<button class="close-admin-btn" id="closeAdminBtn" type="button">Close Dashboard</button>
+</div>
+<div class="admin-content">
+<div class="stats-grid">
+<div class="stat-card">
+<div class="stat-number" id="statAppointments">0</div>
+<div class="stat-label">Total Appointments</div>
+</div>
+<div class="stat-card">
+<div class="stat-number" id="statChats">0</div>
+<div class="stat-label">Chat Conversations</div>
+</div>
+<div class="stat-card">
+<div class="stat-number" id="statToday">0</div>
+<div class="stat-label">Today's Requests</div>
+</div>
+</div>
+
+<div class="admin-tabs">
+<button class="admin-tab active" data-tab="appointments" type="button">Appointments</button>
+<button class="admin-tab" data-tab="chats" type="button">Chat History</button>
+<button class="admin-tab" data-tab="messages" type="button">Contact Messages</button>
+</div>
+
+<div class="admin-section active" id="tab-appointments">
+<table class="data-table">
+<thead>
+<tr>
+<th>Date</th>
+<th>Name</th>
+<th>Email</th>
+<th>Phone</th>
+<th>Service</th>
+<th>Preferred Date</th>
+<th>Time</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody id="appointmentsTable">
+<tr><td colspan="8" class="no-data">No appointments yet</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="admin-section" id="tab-chats">
+<table class="data-table">
+<thead>
+<tr>
+<th>Date & Time</th>
+<th>User Message</th>
+<th>AI Response</th>
+</tr>
+</thead>
+<tbody id="chatsTable">
+<tr><td colspan="3" class="no-data">No chat history yet</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="admin-section" id="tab-messages">
+<table class="data-table">
+<thead>
+<tr>
+<th>Date</th>
+<th>Name</th>
+<th>Email</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody id="messagesTable">
+<tr><td colspan="4" class="no-data">No messages yet</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+<script>
+// ===== INITIALIZE LOCALSTORAGE =====
+if (!localStorage.getItem('bolivar_appointments')) {
+localStorage.setItem('bolivar_appointments', JSON.stringify([]));
+}
+if (!localStorage.getItem('bolivar_chats')) {
+localStorage.setItem('bolivar_chats', JSON.stringify([]));
+}
+if (!localStorage.getItem('bolivar_messages')) {
+localStorage.setItem('bolivar_messages', JSON.stringify([]));
+}
+
+// ===== NAVIGATION SMOOTH SCROLL =====
+document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
+anchor.addEventListener('click', function(e) {
+var href = this.getAttribute('href');
+if (href === '#') {
+e.preventDefault();
+return;
+}
+var target = document.querySelector(href);
+if (target) {
+e.preventDefault();
+target.scrollIntoView({ behavior: 'smooth' });
+}
+});
+});
+
+// ===== CHAT WIDGET - BULLETPROOF FOR ALL BROWSERS =====
+(function() {
+var chatBox = document.getElementById('chatBox');
+var chatToggleBtn = document.getElementById('chatToggleBtn');
+var chatCloseBtn = document.getElementById('chatCloseBtn');
+var chatSendBtn = document.getElementById('chatSendBtn');
+var chatInput = document.getElementById('chatInput');
+var chatMessages = document.getElementById('chatMessages');
+var isOpen = false;
+
+function openChat() {
+isOpen = true;
+chatBox.classList.add('active');
+// Small delay to ensure transition completes before focusing
+setTimeout(function() {
+chatInput.focus();
+}, 100);
+}
+
+function closeChat() {
+isOpen = false;
+chatBox.classList.remove('active');
+}
+
+function toggleChat() {
+if (isOpen) {
+closeChat();
+} else {
+openChat();
+}
+}
+
+// Toggle button - handle click only (most reliable across browsers)
+chatToggleBtn.addEventListener('click', function(e) {
+e.preventDefault();
+e.stopPropagation();
+toggleChat();
+});
+
+// Close button
+chatCloseBtn.addEventListener('click', function(e) {
+e.preventDefault();
+e.stopPropagation();
+closeChat();
+});
+
+function sendMessage() {
+var text = chatInput.value.trim();
+if (!text) return;
+
+// Add user message
+var userMsg = document.createElement('div');
+userMsg.className = 'message user';
+userMsg.textContent = text;
+chatMessages.appendChild(userMsg);
+chatInput.value = '';
+chatMessages.scrollTop = chatMessages.scrollHeight;
+
+// Show typing indicator
+var typing = document.createElement('div');
+typing.className = 'message bot typing-indicator';
+typing.innerHTML = '<span></span><span></span><span></span>';
+typing.id = 'typing-indicator';
+chatMessages.appendChild(typing);
+chatMessages.scrollTop = chatMessages.scrollHeight;
+
+// Generate AI response
+setTimeout(function() {
+var typingEl = document.getElementById('typing-indicator');
+if (typingEl) typingEl.remove();
+
+var response = generateAIResponse(text);
+
+var botMsg = document.createElement('div');
+botMsg.className = 'message bot';
+botMsg.textContent = response;
+chatMessages.appendChild(botMsg);
+chatMessages.scrollTop = chatMessages.scrollHeight;
+
+// Save chat to localStorage
+saveChat(text, response);
+}, 1500);
+}
+
+chatSendBtn.addEventListener('click', function(e) {
+e.preventDefault();
+e.stopPropagation();
+sendMessage();
+});
+
+chatInput.addEventListener('keypress', function(e) {
+if (e.key === 'Enter') {
+e.preventDefault();
+sendMessage();
+}
+});
+
+// Close chat when clicking outside
+document.addEventListener('click', function(e) {
+if (isOpen && !chatBox.contains(e.target) && e.target !== chatToggleBtn) {
+closeChat();
+}
+});
+})();
+
+function generateAIResponse(input) {
+var lower = input.toLowerCase();
+
+if (lower.indexOf('price') !== -1 || lower.indexOf('cost') !== -1 || lower.indexOf('how much') !== -1) {
+return 'Our pricing varies depending on the service required. Quartz battery replacement starts at 150-$400, and vintage restoration is quoted individually. Would you like to schedule a free consultation for a detailed estimate?';
+}
+if (lower.indexOf('time') !== -1 || lower.indexOf('long') !== -1 || lower.indexOf('turnaround') !== -1) {
+return 'Most standard repairs are completed within 3-5 business days. Complex restorations may take 2-3 weeks. We also offer express same-day service for urgent repairs at a premium rate. Would you like to book an appointment?';
+}
+if (lower.indexOf('appointment') !== -1 || lower.indexOf('book') !== -1 || lower.indexOf('schedule') !== -1) {
+return 'You can schedule an appointment by filling out the form in the "Book Appointment" section above. Please provide your name, contact information, service type, and preferred date. We will confirm your booking within 24 hours via email.';
+}
+if (lower.indexOf('warranty') !== -1 || lower.indexOf('guarantee') !== -1) {
+return 'All our repairs come with a comprehensive 12-month warranty on workmanship. Parts carry the manufacturer's warranty where applicable. Your satisfaction is our priority, and we stand behind every repair we perform.';
+}
+if (lower.indexOf('vintage') !== -1 || lower.indexOf('antique') !== -1) {
+return 'Vintage timepiece restoration is one of our specialties. We carefully preserve the historical integrity of your watch while ensuring reliable timekeeping. Each vintage piece is assessed individually, and we provide detailed restoration plans before proceeding.';
+}
+if (lower.indexOf('contact') !== -1 || lower.indexOf('email') !== -1 || lower.indexOf('phone') !== -1) {
+return 'You can reach us at Blessonjohnye@gmail.com. Our workshop hours are Monday through Friday, 9:00 AM to 5:00 PM. We respond to all inquiries within 24 hours during business days.';
+}
+if (lower.indexOf('service') !== -1 || lower.indexOf('repair') !== -1 || lower.indexOf('fix') !== -1) {
+return 'We offer comprehensive services including: Quartz watch repair, automatic watch servicing, vintage restoration, clock repair, case and bracelet refinishing, and water resistance testing. Which type of timepiece do you need assistance with?';
+}
+if (lower.indexOf('brand') !== -1 || lower.indexOf('rolex') !== -1 || lower.indexOf('omega') !== -1 || lower.indexOf('tag') !== -1) {
+return 'We service all major brands including Rolex, Omega, Tag Heuer, Seiko, Citizen, and many more. We also specialize in rare and discontinued models. No brand is too prestigious or too humble for our expert care.';
+}
+if (lower.indexOf('hello') !== -1 || lower.indexOf('hi') !== -1 || lower.indexOf('hey') !== -1) {
+return 'Hello! Welcome to Bolivar Watch & Clock Services. I am your AI assistant. How may I assist you with your timepiece today? Feel free to ask about services, pricing, or appointments.';
+}
+if (lower.indexOf('thank') !== -1) {
+return 'You are very welcome! It is our pleasure to assist you. If you need any further information or would like to schedule a service, please do not hesitate to reach out. Have a wonderful day!';
+}
+if (lower.indexOf('location') !== -1 || lower.indexOf('address') !== -1 || lower.indexOf('where') !== -1) {
+return 'Our workshop serves clients by appointment. Please book through our appointment form or contact us at Blessonjohnye@gmail.com to arrange a visit. We look forward to welcoming you to our state-of-the-art facility.';
+}
+
+return 'Thank you for your inquiry. For detailed information about your specific request, I recommend scheduling a consultation with our master watchmaker. You can book an appointment through the form on this page, or email us at Blessonjohnye@gmail.com. Is there anything else I can help you with?';
+}
+
+function saveChat(userMsg, botMsg) {
+var chats = JSON.parse(localStorage.getItem('bolivar_chats') || '[]');
+chats.push({
+date: new Date().toLocaleString(),
+user: userMsg,
+bot: botMsg
+});
+localStorage.setItem('bolivar_chats', JSON.stringify(chats));
+}
+
+// ===== APPOINTMENT FORM =====
+document.getElementById('appointmentForm').addEventListener('submit', function(e) {
+e.preventDefault();
+
+var formData = {
+date: new Date().toLocaleString(),
+name: document.getElementById('appName').value,
+email: document.getElementById('appEmail').value,
+phone: document.getElementById('appPhone').value,
+service: document.getElementById('appService').value,
+preferredDate: document.getElementById('appDate').value,
+time: document.getElementById('appTime').value,
+notes: document.getElementById('appNotes').value
+};
+
+// Save to localStorage
+var appointments = JSON.parse(localStorage.getItem('bolivar_appointments') || '[]');
+appointments.push(formData);
+localStorage.setItem('bolivar_appointments', JSON.stringify(appointments));
+
+// Show success message
+document.getElementById('successMessage').style.display = 'block';
+
+// Reset form
+this.reset();
+
+// Hide success message after 5 seconds
+setTimeout(function() {
+document.getElementById('successMessage').style.display = 'none';
+}, 5000);
+});
+
+// ===== ADMIN PANEL =====
+(function() {
+var adminPanel = document.getElementById('adminPanel');
+var adminNavLink = document.getElementById('adminNavLink');
+var closeAdminBtn = document.getElementById('closeAdminBtn');
+
+function openAdmin() {
+adminPanel.style.display = 'block';
+adminPanel.classList.add('active');
+document.body.style.overflow = 'hidden';
+loadAdminData();
+}
+
+function closeAdmin() {
+adminPanel.style.display = 'none';
+adminPanel.classList.remove('active');
+document.body.style.overflow = 'auto';
+}
+
+adminNavLink.addEventListener('click', function(e) {
+e.preventDefault();
+e.stopPropagation();
+openAdmin();
+});
+
+closeAdminBtn.addEventListener('click', function(e) {
+e.preventDefault();
+e.stopPropagation();
+closeAdmin();
+});
+
+// Admin tabs
+document.querySelectorAll('.admin-tab').forEach(function(tab) {
+tab.addEventListener('click', function(e) {
+e.preventDefault();
+e.stopPropagation();
+var tabName = this.getAttribute('data-tab');
+
+// Update tab buttons
+document.querySelectorAll('.admin-tab').forEach(function(t) {
+t.classList.remove('active');
+});
+this.classList.add('active');
+
+// Update sections
+document.querySelectorAll('.admin-section').forEach(function(s) {
+s.classList.remove('active');
+});
+document.getElementById('tab-' + tabName).classList.add('active');
+});
+});
+})();
+
+function loadAdminData() {
+// Load appointments
+var appointments = JSON.parse(localStorage.getItem('bolivar_appointments') || '[]');
+var appTable = document.getElementById('appointmentsTable');
+
+if (appointments.length === 0) {
+appTable.innerHTML = '<tr><td colspan="8" class="no-data">No appointments yet</td></tr>';
+} else {
+appTable.innerHTML = appointments.slice().reverse().map(function(a) {
+return '<tr>' +
+'<td>' + a.date + '</td>' +
+'<td>' + a.name + '</td>' +
+'<td>' + a.email + '</td>' +
+'<td>' + a.phone + '</td>' +
+'<td>' + a.service + '</td>' +
+'<td>' + a.preferredDate + '</td>' +
+'<td>' + a.time + '</td>' +
+'<td>' + (a.notes || '-') + '</td>' +
+'</tr>';
+}).join('');
+}
+
+// Load chats
+var chats = JSON.parse(localStorage.getItem('bolivar_chats') || '[]');
+var chatTable = document.getElementById('chatsTable');
+
+if (chats.length === 0) {
+chatTable.innerHTML = '<tr><td colspan="3" class="no-data">No chat history yet</td></tr>';
+} else {
+chatTable.innerHTML = chats.slice().reverse().map(function(c) {
+return '<tr>' +
+'<td>' + c.date + '</td>' +
+'<td>' + c.user + '</td>' +
+'<td>' + c.bot + '</td>' +
+'</tr>';
+}).join('');
+}
+
+// Load messages
+var messages = JSON.parse(localStorage.getItem('bolivar_messages') || '[]');
+var msgTable = document.getElementById('messagesTable');
+
+if (messages.length === 0) {
+msgTable.innerHTML = '<tr><td colspan="4" class="no-data">No messages yet</td></tr>';
+} else {
+msgTable.innerHTML = messages.slice().reverse().map(function(m) {
+return '<tr>' +
+'<td>' + m.date + '</td>' +
+'<td>' + m.name + '</td>' +
+'<td>' + m.email + '</td>' +
+'<td>' + m.message + '</td>' +
+'</tr>';
+}).join('');
+}
+
+// Update stats
+document.getElementById('statAppointments').textContent = appointments.length;
+document.getElementById('statChats').textContent = chats.length;
+
+var today = new Date().toDateString();
+var todayCount = appointments.concat(chats).filter(function(x) {
+return new Date(x.date).toDateString() === today;
+}).length;
+document.getElementById('statToday').textContent = todayCount;
+}
+
+// Set minimum date to today
+document.getElementById('appDate').min = new Date().toISOString().split('T')[0];
+
+// Add scroll effect to nav
+window.addEventListener('scroll', function() {
+var nav = document.querySelector('nav');
+if (window.scrollY > 50) {
+nav.style.background = 'rgba(15, 15, 26, 0.98)';
+} else {
+nav.style.background = 'rgba(15, 15, 26, 0.95)';
+}
+});
+</script>
+</body>
+</html>
