@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Who Wants to Be a Millionaire? AI Edition</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600;700&family=Raleway:wght@300;400;500;600&display=swap');
+
+:root {
+--gold: #FFD700;
+--gold-dark: #B8860B;
+--gold-light: #FFF0A0;
+--blue-deep: #050A2E;
+--blue-mid: #0A1560;
+--blue-glow: #1a3aff;
+--silver: #C0C0C0;
+--correct: #00E676;
+--wrong: #FF1744;
+--bg: #030818;
+}
+
+• { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+background: var(--bg);
+font-family: 'Raleway', sans-serif;
+color: white;
+min-height: 100vh;
+overflow-x: hidden;
+position: relative;
+}
+
+body::before {
+content: '';
+position: fixed;
+inset: 0;
+background:
+radial-gradient(ellipse at 20% 50%, rgba(26,58,255,0.15) 0%, transparent 60%),
+radial-gradient(ellipse at 80% 20%, rgba(255,215,0,0.08) 0%, transparent 50%);
+pointer-events: none;
+z-index: 0;
+}
+
+.stars {
+position: fixed;
+inset: 0;
+pointer-events: none;
+z-index: 0;
+overflow: hidden;
+}
+.star {
+position: absolute;
+background: white;
+border-radius: 50%;
+animation: twinkle var(--dur) infinite ease-in-out;
+opacity: 0;
+}
+@keyframes twinkle {
+0%, 100% { opacity: 0; }
+50% { opacity: var(--bright); }
+}
+
+.container {
+position: relative;
+z-index: 1;
+max-width: 820px;
+margin: 0 auto;
+padding: 20px 16px 40px;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 20px;
+}
+
+.logo {
+text-align: center;
+padding: 10px 0 0;
+animation: fadeDown 0.8s ease;
+}
+.logo-top {
+font-family: 'Cinzel', serif;
+font-size: clamp(10px, 2.5vw, 14px);
+letter-spacing: 6px;
+text-transform: uppercase;
+color: var(--gold);
+opacity: 0.8;
+}
+.logo-main {
+font-family: 'Cinzel Decorative', cursive;
+font-size: clamp(20px, 5vw, 38px);
+font-weight: 900;
+background: linear-gradient(135deg, #FFD700, #FFF0A0, #B8860B, #FFD700);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+background-clip: text;
+line-height: 1.1;
+text-shadow: none;
+filter: drop-shadow(0 0 20px rgba(255,215,0,0.4));
+}
+.logo-sub {
+font-family: 'Cinzel', serif;
+font-size: clamp(9px, 2vw, 12px);
+letter-spacing: 4px;
+color: var(--silver);
+margin-top: 4px;
+}
+@keyframes fadeDown {
+from { opacity: 0; transform: translateY(-20px); }
+to { opacity: 1; transform: translateY(0); }
+}
+
+.prize-bar {
+display: flex;
+gap: 6px;
+flex-wrap: wrap;
+justify-content: center;
+width: 100%;
+}
+.prize-pill {
+font-family: 'Cinzel', serif;
+font-size: 10px;
+padding: 4px 10px;
+border-radius: 20px;
+border: 1px solid rgba(255,215,0,0.2);
+background: rgba(255,215,0,0.05);
+color: rgba(255,215,0,0.5);
+transition: all 0.4s;
+letter-spacing: 0.5px;
+}
+.prize-pill.active {
+background: rgba(255,215,0,0.15);
+border-color: var(--gold);
+color: var(--gold);
+box-shadow: 0 0 10px rgba(255,215,0,0.3);
+}
+.prize-pill.won {
+background: rgba(0,230,118,0.15);
+border-color: var(--correct);
+color: var(--correct);
+}
+
+.meta-row {
+display: flex;
+justify-content: space-between;
+align-items: center;
+width: 100%;
+}
+.q-num {
+font-family: 'Cinzel', serif;
+font-size: 12px;
+letter-spacing: 2px;
+color: var(--gold);
+opacity: 0.8;
+}
+.lifelines {
+display: flex;
+gap: 8px;
+}
+.lifeline-btn {
+background: none;
+border: 1.5px solid rgba(255,215,0,0.4);
+color: var(--gold);
+border-radius: 8px;
+padding: 5px 10px;
+font-size: 11px;
+cursor: pointer;
+font-family: 'Raleway', sans-serif;
+font-weight: 600;
+letter-spacing: 1px;
+transition: all 0.3s;
+}
+.lifeline-btn:hover:not(:disabled) {
+background: rgba(255,215,0,0.15);
+border-color: var(--gold);
+}
+.lifeline-btn:disabled {
+opacity: 0.25;
+cursor: not-allowed;
+text-decoration: line-through;
+}
+
+.question-card {
+width: 100%;
+background: linear-gradient(135deg, rgba(10,21,96,0.9), rgba(5,10,46,0.95));
+border: 1.5px solid rgba(255,215,0,0.3);
+border-radius: 16px;
+padding: clamp(20px, 4vw, 32px);
+text-align: center;
+box-shadow:
+0 0 40px rgba(26,58,255,0.2),
+inset 0 1px 0 rgba(255,215,0,0.15);
+position: relative;
+overflow: hidden;
+animation: cardIn 0.5s ease;
+}
+.question-card::before {
+content: '';
+position: absolute;
+top: -1px; left: 50%; transform: translateX(-50%);
+width: 60%;
+height: 1px;
+background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+@keyframes cardIn {
+from { opacity: 0; transform: scale(0.97) translateY(10px); }
+to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.question-text {
+font-family: 'Cinzel', serif;
+font-size: clamp(14px, 3.5vw, 20px);
+line-height: 1.6;
+color: white;
+font-weight: 600;
+}
+.question-category {
+font-size: 10px;
+letter-spacing: 3px;
+color: var(--gold);
+opacity: 0.6;
+text-transform: uppercase;
+margin-bottom: 12px;
+font-weight: 500;
+}
+
+.choices {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 12px;
+width: 100%;
+}
+.choice-btn {
+background: linear-gradient(135deg, rgba(10,21,96,0.85), rgba(5,10,46,0.9));
+border: 1.5px solid rgba(255,215,0,0.3);
+border-radius: 12px;
+padding: clamp(12px, 3vw, 18px) clamp(14px, 3vw, 20px);
+color: white;
+font-family: 'Raleway', sans-serif;
+font-size: clamp(12px, 2.5vw, 15px);
+font-weight: 500;
+cursor: pointer;
+text-align: left;
+display: flex;
+align-items: center;
+gap: 12px;
+transition: all 0.25s;
+position: relative;
+overflow: hidden;
+line-height: 1.4;
+}
+.choice-btn::before {
+content: '';
+position: absolute;
+inset: 0;
+background: linear-gradient(135deg, rgba(255,215,0,0.08), transparent);
+opacity: 0;
+transition: opacity 0.3s;
+}
+.choice-btn:hover:not(:disabled)::before { opacity: 1; }
+.choice-btn:hover:not(:disabled) {
+border-color: var(--gold);
+transform: translateY(-2px);
+box-shadow: 0 8px 24px rgba(255,215,0,0.15);
+}
+.choice-btn:disabled { cursor: not-allowed; }
+.choice-letter {
+font-family: 'Cinzel', serif;
+font-size: 14px;
+font-weight: 700;
+color: var(--gold);
+min-width: 22px;
+text-align: center;
+flex-shrink: 0;
+}
+.choice-btn.correct {
+background: linear-gradient(135deg, rgba(0,100,50,0.8), rgba(0,60,30,0.9));
+border-color: var(--correct);
+box-shadow: 0 0 20px rgba(0,230,118,0.3);
+animation: correctPulse 0.5s ease;
+}
+.choice-btn.wrong {
+background: linear-gradient(135deg, rgba(100,0,20,0.8), rgba(60,0,10,0.9));
+border-color: var(--wrong);
+box-shadow: 0 0 20px rgba(255,23,68,0.3);
+animation: shake 0.4s ease;
+}
+.choice-btn.hidden-lifeline {
+opacity: 0.1;
+pointer-events: none;
+}
+@keyframes correctPulse {
+0% { transform: scale(1); }
+50% { transform: scale(1.03); }
+100% { transform: scale(1); }
+}
+@keyframes shake {
+0%, 100% { transform: translateX(0); }
+25% { transform: translateX(-6px); }
+75% { transform: translateX(6px); }
+}
+
+.action-row {
+display: flex;
+gap: 12px;
+width: 100%;
+justify-content: center;
+flex-wrap: wrap;
+}
+.action-btn {
+font-family: 'Cinzel', serif;
+font-size: 13px;
+letter-spacing: 1.5px;
+padding: 13px 28px;
+border-radius: 10px;
+border: none;
+cursor: pointer;
+font-weight: 700;
+transition: all 0.3s;
+text-transform: uppercase;
+}
+.btn-primary {
+background: linear-gradient(135deg, #FFD700, #B8860B);
+color: var(--blue-deep);
+box-shadow: 0 4px 20px rgba(255,215,0,0.35);
+}
+.btn-primary:hover {
+transform: translateY(-2px);
+box-shadow: 0 8px 28px rgba(255,215,0,0.5);
+}
+.btn-secondary {
+background: transparent;
+color: var(--gold);
+border: 1.5px solid rgba(255,215,0,0.4);
+}
+.btn-secondary:hover {
+background: rgba(255,215,0,0.1);
+border-color: var(--gold);
+}
+.btn-danger {
+background: transparent;
+color: rgba(255,100,100,0.8);
+border: 1.5px solid rgba(255,100,100,0.3);
+}
+.btn-danger:hover { background: rgba(255,0,0,0.1); border-color: rgba(255,100,100,0.7); }
+
+.loading-card {
+width: 100%;
+background: linear-gradient(135deg, rgba(10,21,96,0.9), rgba(5,10,46,0.95));
+border: 1.5px solid rgba(255,215,0,0.2);
+border-radius: 16px;
+padding: 48px 32px;
+text-align: center;
+display: none;
+}
+.loading-card.visible { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.loader-ring {
+width: 56px;
+height: 56px;
+border: 3px solid rgba(255,215,0,0.15);
+border-top-color: var(--gold);
+border-radius: 50%;
+animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text {
+font-family: 'Cinzel', serif;
+font-size: 14px;
+letter-spacing: 2px;
+color: var(--gold);
+opacity: 0.7;
+}
+.loading-dots::after {
+content: '';
+animation: dots 1.5s infinite;
+}
+@keyframes dots {
+0% { content: ''; }
+33% { content: '.'; }
+66% { content: '..'; }
+100% { content: '...'; }
+}
+
+.start-screen {
+width: 100%;
+text-align: center;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 20px;
+animation: fadeIn 0.8s ease;
+}
+.start-tagline {
+font-size: 16px;
+color: rgba(255,255,255,0.65);
+line-height: 1.6;
+max-width: 460px;
+}
+.category-select {
+display: flex;
+gap: 8px;
+flex-wrap: wrap;
+justify-content: center;
+}
+.cat-chip {
+padding: 7px 16px;
+border-radius: 20px;
+border: 1.5px solid rgba(255,215,0,0.3);
+background: transparent;
+color: rgba(255,255,255,0.7);
+font-size: 12px;
+font-family: 'Raleway', sans-serif;
+font-weight: 600;
+cursor: pointer;
+transition: all 0.25s;
+letter-spacing: 0.5px;
+}
+.cat-chip:hover, .cat-chip.selected {
+background: rgba(255,215,0,0.15);
+border-color: var(--gold);
+color: var(--gold);
+}
+@keyframes fadeIn {
+from { opacity: 0; transform: translateY(12px); }
+to { opacity: 1; transform: translateY(0); }
+}
+
+.result-overlay {
+width: 100%;
+background: linear-gradient(135deg, rgba(5,10,46,0.97), rgba(10,21,96,0.97));
+border: 1.5px solid rgba(255,215,0,0.4);
+border-radius: 20px;
+padding: 40px 32px;
+text-align: center;
+display: none;
+flex-direction: column;
+align-items: center;
+gap: 16px;
+animation: resultIn 0.6s ease;
+}
+.result-overlay.visible { display: flex; }
+@keyframes resultIn {
+from { opacity: 0; transform: scale(0.9); }
+to { opacity: 1; transform: scale(1); }
+}
+.result-emoji { font-size: 64px; line-height: 1; }
+.result-title {
+font-family: 'Cinzel Decorative', cursive;
+font-size: clamp(22px, 5vw, 32px);
+font-weight: 900;
+background: linear-gradient(135deg, var(--gold), var(--gold-light));
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+background-clip: text;
+}
+.result-score {
+font-family: 'Cinzel', serif;
+font-size: 18px;
+color: white;
+}
+.result-prize {
+font-family: 'Cinzel Decorative', cursive;
+font-size: clamp(28px, 6vw, 44px);
+color: var(--gold);
+filter: drop-shadow(0 0 16px rgba(255,215,0,0.6));
+}
+.result-msg {
+font-size: 14px;
+color: rgba(255,255,255,0.6);
+max-width: 400px;
+line-height: 1.6;
+}
+
+.scoreboard {
+width: 100%;
+background: linear-gradient(135deg, rgba(10,21,96,0.8), rgba(5,10,46,0.9));
+border: 1.5px solid rgba(255,215,0,0.2);
+border-radius: 16px;
+padding: 20px;
+display: none;
+}
+.scoreboard.visible { display: block; }
+.score-title {
+font-family: 'Cinzel', serif;
+font-size: 13px;
+letter-spacing: 3px;
+color: var(--gold);
+text-align: center;
+margin-bottom: 16px;
+opacity: 0.8;
+text-transform: uppercase;
+}
+.score-list { display: flex; flex-direction: column; gap: 8px; }
+.score-item {
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 10px 16px;
+background: rgba(255,255,255,0.04);
+border-radius: 8px;
+border-left: 2px solid var(--gold-dark);
+font-size: 13px;
+animation: slideIn 0.3s ease;
+}
+.score-item:first-child { border-left-color: var(--gold); }
+@keyframes slideIn {
+from { opacity: 0; transform: translateX(-10px); }
+to { opacity: 1; transform: translateX(0); }
+}
+.score-rank { color: var(--gold); font-family: 'Cinzel', serif; font-weight: 700; width: 28px; }
+.score-name { flex: 1; padding: 0 10px; color: rgba(255,255,255,0.85); }
+.score-val { color: var(--gold); font-family: 'Cinzel', serif; font-weight: 700; font-size: 12px; }
+.score-qs { color: rgba(255,255,255,0.4); font-size: 11px; }
+.no-scores {
+text-align: center;
+color: rgba(255,255,255,0.3);
+font-size: 13px;
+padding: 16px;
+}
+
+.feedback-banner {
+width: 100%;
+padding: 14px 20px;
+border-radius: 10px;
+text-align: center;
+font-family: 'Cinzel', serif;
+font-size: 14px;
+letter-spacing: 1.5px;
+display: none;
+animation: bannerIn 0.3s ease;
+}
+.feedback-banner.visible { display: block; }
+.feedback-banner.correct-fb {
+background: rgba(0,230,118,0.12);
+border: 1px solid rgba(0,230,118,0.4);
+color: var(--correct);
+}
+.feedback-banner.wrong-fb {
+background: rgba(255,23,68,0.12);
+border: 1px solid rgba(255,23,68,0.4);
+color: var(--wrong);
+}
+@keyframes bannerIn {
+from { opacity: 0; transform: translateY(8px); }
+to { opacity: 1; transform: translateY(0); }
+}
+
+.topic-row {
+display: flex;
+gap: 8px;
+width: 100%;
+max-width: 500px;
+align-items: center;
+}
+.topic-input {
+flex: 1;
+background: rgba(255,255,255,0.05);
+border: 1.5px solid rgba(255,215,0,0.25);
+border-radius: 10px;
+padding: 10px 16px;
+color: white;
+font-family: 'Raleway', sans-serif;
+font-size: 14px;
+outline: none;
+transition: border-color 0.3s;
+}
+.topic-input:focus { border-color: rgba(255,215,0,0.6); }
+.topic-input::placeholder { color: rgba(255,255,255,0.25); }
+
+.error-msg {
+color: rgba(255,100,100,0.8);
+font-size: 12px;
+text-align: center;
+padding: 8px;
+display: none;
+}
+.error-msg.visible { display: block; }
+
+.divider {
+width: 100%;
+height: 1px;
+background: linear-gradient(90deg, transparent, rgba(255,215,0,0.2), transparent);
+}
+
+@media (max-width: 480px) {
+.choices { grid-template-columns: 1fr; }
+.choice-btn { padding: 14px 16px; }
+.action-row { flex-direction: column; }
+.action-btn { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<div class="container">
+
+<div class="logo">
+<div class="logo-top">✦ AI Edition ✦</div>
+<div class="logo-main">Who Wants to Be<br>a Millionaire?</div>
+<div class="logo-sub">Powered by Open Trivia DB</div>
+</div>
+
+<div class="prize-bar" id="prizeLadder"></div>
+
+<div class="start-screen" id="startScreen">
+<p class="start-tagline">Thousands of trivia questions across every topic. No repeats, no API keys — just play!</p>
+
+<div class="topic-row">
+<input type="text" class="topic-input" id="topicInput" placeholder="Custom topic (e.g. Space, History, Football…)" maxlength="60">
+</div>
+
+<div class="category-select" id="categoryChips"></div>
+
+<div class="action-row">
+<button class="action-btn btn-primary" onclick="startGame()">▶  Start Game</button>
+<button class="action-btn btn-secondary" onclick="toggleScoreboard()">🏆  Leaderboard</button>
+</div>
+</div>
+
+<div class="loading-card" id="loadingCard">
+<div class="loader-ring"></div>
+<div class="loading-text">Loading Question<span class="loading-dots"></span></div>
+</div>
+
+<div class="error-msg" id="errorMsg"></div>
+
+<div id="gameArea" style="width:100%;display:none;flex-direction:column;gap:16px;align-items:center;">
+<div class="meta-row">
+<div class="q-num" id="qNum">QUESTION 1</div>
+<div class="lifelines">
+<button class="lifeline-btn" id="ll5050" onclick="useLifeline('5050')" title="Remove 2 wrong answers">50:50</button>
+<button class="lifeline-btn" id="llPhone" onclick="useLifeline('phone')" title="AI gives a hint">📞 Hint</button>
+<button class="lifeline-btn" id="llAudience" onclick="useLifeline('audience')" title="See answer confidence">👥 Poll</button>
+</div>
+</div>
+
+<div class="question-card" id="questionCard">
+<div class="question-category" id="qCategory"></div>
+<div class="question-text" id="qText">Loading question…</div>
+</div>
+
+<div class="choices" id="choicesGrid"></div>
+
+<div class="feedback-banner" id="feedbackBanner"></div>
+
+<div class="action-row" id="nextRow" style="display:none;">
+<button class="action-btn btn-primary" onclick="nextQuestion()">Next Question →</button>
+<button class="action-btn btn-danger" onclick="walkAway()">💰 Walk Away</button>
+</div>
+</div>
+
+<div class="result-overlay" id="resultOverlay">
+<div class="result-emoji" id="resultEmoji">🎉</div>
+<div class="result-title" id="resultTitle">Congratulations!</div>
+<div class="result-score" id="resultScore"></div>
+<div class="result-prize" id="resultPrize"></div>
+<div class="result-msg" id="resultMsg"></div>
+<div class="action-row" style="margin-top:8px;">
+<button class="action-btn btn-primary" onclick="startGame()">▶ Play Again</button>
+<button class="action-btn btn-secondary" onclick="showSaveDialog()">💾 Save Score</button>
+<button class="action-btn btn-secondary" onclick="toggleScoreboard()">🏆 Leaderboard</button>
+</div>
+</div>
+
+<div class="divider"></div>
+
+<div class="scoreboard" id="scoreboardPanel">
+<div class="score-title">🏆  Hall of Fame  🏆</div>
+<div class="score-list" id="scoreList"></div>
+<div style="text-align:center;margin-top:12px;">
+<button class="action-btn btn-danger" style="font-size:11px;padding:8px 18px;" onclick="clearScores()">Clear Records</button>
+</div>
+</div>
+
+</div>
+
+<script>
+const PRIZE_LEVELS = [
+'200','500','2,000','8,000','32,000',
+'125,000','500,000','$`1,000,000'
+];
+const SAFE_HAVENS = [4, 9];
+
+// OpenTriviaDB category mapping
+const CATEGORY_MAP = {
+'General': 9,
+'Science': 17,
+'History': 23,
+'Geography': 22,
+'Sports': 21,
+'Movies': 11,
+'Music': 12,
+'Tech': 18,
+'Food': 10,
+'Art': 25
+};
+const CATEGORIES = Object.keys(CATEGORY_MAP);
+
+let state = {
+active: false,
+qIndex: 0,
+currentQ: null,
+answered: false,
+score: 0,
+topic: '',
+ll5050Used: false,
+llPhoneUsed: false,
+llAudienceUsed: false,
+correctAnswerIndex: -1,
+};
+
+let questionQueue = [];
+let usedQuestionTexts = new Set();
+
+(function makeStars() {
+const container = document.getElementById('stars');
+for (let i = 0; i < 120; i++) {
+const s = document.createElement('div');
+s.className = 'star';
+const size = Math.random() * 2.5 + 0.5;
+s.style.cssText = width:${size}px;height:{Math.random()*100}%;top:{2+Math.random()*4}s;
+--bright:{Math.random()*5}s;
+`;
+container.appendChild(s);
+}
+})();
+
+function buildPrizeLadder() {
+const bar = document.getElementById('prizeLadder');
+bar.innerHTML = '';
+PRIZE_LEVELS.forEach((prize, i) => {
+const pill = document.createElement('div');
+pill.className = 'prize-pill';
+pill.id = prize-${i}`;
+pill.textContent = prize;
+if (SAFE_HAVENS.includes(i)) pill.style.borderStyle = 'dashed';
+bar.appendChild(pill);
+});
+}
+
+function updatePrizeLadder() {
+PRIZE_LEVELS.forEach((_, i) => {
+const pill = document.getElementById(prize-${i}`);
+pill.className = 'prize-pill';
+if (i < state.qIndex) pill.classList.add('won');
+else if (i === state.qIndex) pill.classList.add('active');
+});
+}
+
+function buildCategoryChips() {
+const wrap = document.getElementById('categoryChips');
+CATEGORIES.forEach(cat => {
+const btn = document.createElement('button');
+btn.className = 'cat-chip';
+btn.textContent = cat;
+btn.onclick = () => {
+document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('selected'));
+btn.classList.add('selected');
+document.getElementById('topicInput').value = cat;
+};
+wrap.appendChild(btn);
+});
+}
+
+function startGame() {
+state = {
+active: true,
+qIndex: 0,
+currentQ: null,
+answered: false,
+score: 0,
+topic: document.getElementById('topicInput').value.trim() || 'General',
+ll5050Used: false,
+llPhoneUsed: false,
+llAudienceUsed: false,
+correctAnswerIndex: -1,
+};
+questionQueue = [];
+usedQuestionTexts.clear();
+hide('startScreen');
+hide('resultOverlay');
+hide('scoreboardPanel');
+resetLifelines();
+buildPrizeLadder();
+updatePrizeLadder();
+prefetchQuestions();
+loadQuestion();
+}
+
+function resetLifelines() {
+['ll5050','llPhone','llAudience'].forEach(id => {
+document.getElementById(id).disabled = false;
+});
+}
+
+async function prefetchQuestions() {
+const catId = CATEGORY_MAP[state.topic] || 9;
+const difficulty = 'easy';
+try {
+const res = await fetch(https://opentdb.com/api.php?amount=10&category=${catId}&difficulty=${difficulty}&type=multiple);
+const data = await res.json();
+if (data.response_code === 0) {
+data.results.forEach(q => {
+if (!usedQuestionTexts.has(q.question)) {
+questionQueue.push(q);
+usedQuestionTexts.add(q.question);
+}
+});
+}
+} catch (e) { console.log('prefetch failed', e); }
+}
+
+async function loadQuestion() {
+hide('gameArea');
+hide('errorMsg');
+show('loadingCard', 'visible');
+
+// Determine difficulty based on question level
+let difficulty = 'easy';
+if (state.qIndex >= 5 && state.qIndex < 10) difficulty = 'medium';
+if (state.qIndex >= 10) difficulty = 'hard';
+
+let question = null;
+
+// Try to get from prefetched queue first
+const prefetched = questionQueue.find(q => {
+const qDiff = q.difficulty;
+if (state.qIndex < 5) return qDiff === 'easy';
+if (state.qIndex < 10) return qDiff === 'medium' || qDiff === 'easy';
+return true;
+});
+
+if (prefetched) {
+question = prefetched;
+questionQueue = questionQueue.filter(q => q !== prefetched);
+} else {
+// Fetch fresh
+const catId = CATEGORY_MAP[state.topic] || 9;
+try {
+const res = await fetch(https://opentdb.com/api.php?amount=5&category=${catId}&difficulty=${difficulty}&type=multiple);
+const data = await res.json();
+if (data.response_code === 0 && data.results.length > 0) {
+// Find one we haven't used
+for (const q of data.results) {
+if (!usedQuestionTexts.has(q.question)) {
+question = q;
+usedQuestionTexts.add(q.question);
+break;
+}
+}
+// Add remaining to queue
+data.results.forEach(q => {
+if (!usedQuestionTexts.has(q.question) && q !== question) {
+questionQueue.push(q);
+usedQuestionTexts.add(q.question);
+}
+});
+}
+} catch (err) {
+console.error('Fetch error:', err);
+}
+}
+
+// Fallback: if no question found, try general category
+if (!question) {
+try {
+const res = await fetch(https://opentdb.com/api.php?amount=5&difficulty=${difficulty}&type=multiple`);
+const data = await res.json();
+if (data.response_code === 0 && data.results.length > 0) {
+for (const q of data.results) {
+if (!usedQuestionTexts.has(q.question)) {
+question = q;
+usedQuestionTexts.add(q.question);
+break;
+}
+}
+}
+} catch (err) {
+console.error('Fallback fetch error:', err);
+}
+}
+
+hide('loadingCard');
+
+if (!question) {
+showError('⚠ Could not load a question. Please check your connection and try again.');
+show('startScreen', 'block');
+hide('gameArea');
+state.active = false;
+return;
+}
+
+// Convert OpenTrivia format to our format
+const choices = [...question.incorrect_answers, question.correct_answer];
+// Shuffle choices
+for (let i = choices.length - 1; i > 0; i--) {
+const j = Math.floor(Math.random() * (i + 1));
+[choices[i], choices[j]] = [choices[j], choices[i]];
+}
+const correctIndex = choices.indexOf(question.correct_answer);
+
+const formattedQ = {
+category: question.category.split(':').pop().trim(),
+question: decodeHtml(question.question),
+choices: choices.map(decodeHtml),
+correct: correctIndex
+};
+
+state.currentQ = formattedQ;
+state.correctAnswerIndex = correctIndex;
+state.answered = false;
+
+renderQuestion(formattedQ);
+show('gameArea', 'flex');
+updatePrizeLadder();
+
+// Prefetch more while user is thinking
+if (questionQueue.length < 3) {
+prefetchQuestions();
+}
+}
+
+function decodeHtml(html) {
+const txt = document.createElement('textarea');
+txt.innerHTML = html;
+return txt.value;
+}
+
+function renderQuestion(q) {
+document.getElementById('qNum').textContent = QUESTION${state.qIndex + 1} OF 15`;
+document.getElementById('qCategory').textContent = q.category.toUpperCase();
+document.getElementById('qText').textContent = q.question;
+
+const letters = ['A', 'B', 'C', 'D'];
+const grid = document.getElementById('choicesGrid');
+grid.innerHTML = '';
+
+q.choices.forEach((choice, i) => {
+const btn = document.createElement('button');
+btn.className = 'choice-btn';
+btn.id = choice-${i}; btn.innerHTML =<span class="choice-letter">${letters[i]}&lt;/span&gt;&lt;span&gt;${choice}</span>`;
+btn.onclick = () => selectAnswer(i);
+grid.appendChild(btn);
+});
+
+hide('feedbackBanner');
+hide('nextRow');
+document.getElementById('gameArea').style.display = 'flex';
+}
+
+function selectAnswer(index) {
+if (state.answered) return;
+state.answered = true;
+
+const correct = state.correctAnswerIndex;
+const letters = ['A','B','C','D'];
+
+for (let i = 0; i < 4; i++) {
+const btn = document.getElementById(choice-${i}`);
+if (btn) btn.disabled = true;
+}
+
+const chosenBtn = document.getElementById(choice-${index}); const correctBtn = document.getElementById(choice-${correct});
+
+if (index === correct) {
+chosenBtn.classList.add('correct');
+showFeedback(true, ✓ Correct! "${state.currentQ.choices[correct]}" is right!`);
+state.score = state.qIndex + 1;
+
+if (state.qIndex === 14) {
+setTimeout(() => endGame('win'), 1800);
+} else {
+show('nextRow', 'flex');
+}
+} else {
+chosenBtn.classList.add('wrong');
+correctBtn.classList.add('correct');
+showFeedback(false, ✗ Wrong! The correct answer was${letters[correct]}: "${state.currentQ.choices[correct]}");
+setTimeout(() => endGame('lose'), 2000);
+}
+}
+
+function showFeedback(correct, msg) {
+const el = document.getElementById('feedbackBanner');
+el.textContent = msg;
+el.className = feedback-banner visible${correct ? 'correct-fb' : 'wrong-fb'}`;
+}
+
+function nextQuestion() {
+state.qIndex++;
+loadQuestion();
+}
+
+function walkAway() {
+endGame('walkaway');
+}
+
+function endGame(reason) {
+hide('gameArea');
+const overlay = document.getElementById('resultOverlay');
+overlay.className = 'result-overlay visible';
+
+const prizeIndex = Math.max(0, state.score - 1);
+const safeHaven = SAFE_HAVENS.filter(h => h < state.qIndex).pop();
+const guaranteed = safeHaven !== undefined ? PRIZE_LEVELS[safeHaven] : '0';
+const finalPrize = reason === 'lose' && safeHaven !== undefined ? guaranteed : prizeMoney;
+
+const emoji = reason === 'win' ? '🏆' : reason === 'walkaway' ? '💰' : state.score >= 10 ? '😮' : state.score >= 5 ? '😅' : '😬';
+const title = reason === 'win' ? 'MILLIONAIRE!' : reason === 'walkaway' ? 'Smart Move!' : state.score >= 10 ? 'So Close!' : state.score >= 5 ? 'Good Run!' : 'Game Over';
+const msg = reason === 'win'
+? 'You answered all 15 questions correctly. You are a true genius!'
+: reason === 'walkaway'
+? You walked away with ${finalPrize}. A wise decision!:You answered ${state.score} question${state.score !== 1 ? 's' : ''} correctly. ${guaranteed !== '$0' ? Your safety net gives you${guaranteed}.: 'Better luck next time!'};
+
+document.getElementById('resultEmoji').textContent = emoji;
+document.getElementById('resultTitle').textContent = title;
+document.getElementById('resultScore').textContent = ${state.score} / 15 correct • Topic: ${state.topic};
+document.getElementById('resultPrize').textContent = finalPrize;
+document.getElementById('resultMsg').textContent = msg;
+}
+
+function useLifeline(type) {
+if (!state.currentQ || state.answered) return;
+
+if (type === '5050' && !state.ll5050Used) {
+state.ll5050Used = true;
+document.getElementById('ll5050').disabled = true;
+const correct = state.correctAnswerIndex;
+const others = [0,1,2,3].filter(i => i !== correct);
+const remove = others.sort(() => Math.random()-0.5).slice(0,2);
+remove.forEach(i => {
+const btn = document.getElementById(choice-${i}`);
+if (btn) btn.classList.add('hidden-lifeline');
+});
+
+} else if (type === 'phone' && !state.llPhoneUsed) {
+state.llPhoneUsed = true;
+document.getElementById('llPhone').disabled = true;
+const correct = state.correctAnswerIndex;
+const letters = ['A','B','C','D'];
+const confidence = Math.floor(65 + Math.random() * 30);
+showFeedback(true, 📞 "I'm about${confidence}% sure it's ${letters[correct]}…");
+
+} else if (type === 'audience' && !state.llAudienceUsed) {
+state.llAudienceUsed = true;
+document.getElementById('llAudience').disabled = true;
+const correct = state.correctAnswerIndex;
+const letters = ['A','B','C','D'];
+const votes = generateAudienceVotes(correct);
+const poll = letters.map((l,i) => ``${l}: {poll}`);
+}
+}
+
+function generateAudienceVotes(correct) {
+let remaining = 100;
+const base = [5, 5, 5, 5];
+base[correct] = 55 + Math.floor(Math.random() * 20);
+remaining = 100 - base[correct];
+const others = [0,1,2,3].filter(i => i !== correct);
+others.forEach((i, idx) => {
+base[i] = idx < others.length - 1 ? Math.floor(Math.random() * (remaining * 0.6)) : remaining;
+remaining -= base[i];
+});
+return base;
+}
+
+function getScores() {
+try { return JSON.parse(localStorage.getItem('millionaire_scores') || '[]'); } catch { return []; }
+}
+function saveScores(arr) {
+localStorage.setItem('millionaire_scores', JSON.stringify(arr));
+}
+
+function showSaveDialog() {
+const name = prompt('Enter your name for the leaderboard:');
+if (!name) return;
+const scores = getScores();
+const prizeIndex = Math.max(0, state.score - 1);
+const prize = state.score > 0 ? PRIZE_LEVELS[prizeIndex] : '$`0';
+scores.push({
+name: name.trim().slice(0,20),
+score: state.score,
+prize,
+topic: state.topic,
+date: new Date().toLocaleDateString()
+});
+scores.sort((a,b) => b.score - a.score);
+saveScores(scores.slice(0,10));
+alert('Score saved! 🏆');
+renderScoreboard();
+toggleScoreboard(true);
+}
+
+function toggleScoreboard(forceShow) {
+const panel = document.getElementById('scoreboardPanel');
+const isVisible = panel.classList.contains('visible');
+if (forceShow || !isVisible) {
+renderScoreboard();
+panel.classList.add('visible');
+} else {
+panel.classList.remove('visible');
+}
+}
+
+function renderScoreboard() {
+const scores = getScores();
+const list = document.getElementById('scoreList');
+if (!scores.length) {
+list.innerHTML = '<div class="no-scores">No records yet. Play a game!</div>';
+return;
+}
+list.innerHTML = scores.map((s, i) => &lt;div class="score-item"&gt; &lt;span class="score-rank"&gt;#${i+1}</span>
+<span class="score-name">{s.topic}</span></span>
+<span class="score-val">{s.score}/15</span>
+</div>
+`).join('');
+}
+
+function clearScores() {
+if (confirm('Clear all records?')) {
+localStorage.removeItem('millionaire_scores');
+renderScoreboard();
+}
+}
+
+function showError(msg) {
+const el = document.getElementById('errorMsg');
+el.textContent = msg;
+el.classList.add('visible');
+}
+
+function show(id, display) {
+const el = document.getElementById(id);
+el.style.display = display || 'block';
+if (display === 'flex') el.style.display = 'flex';
+}
+function hide(id) {
+document.getElementById(id).style.display = 'none';
+}
+
+buildPrizeLadder();
+buildCategoryChips();
+</script>
+</body>
+</html>
