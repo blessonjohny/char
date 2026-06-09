@@ -1,0 +1,1951 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>കൂടീശ്വരൻ - Koodeeshwaran</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;600;700;900&family=Orbitron:wght@700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --gold: #FFD700;
+    --gold-bright: #FFF5A0;
+    --gold-dark: #B8860B;
+    --gold-dim: #8B6914;
+    --blue-glow: #1a3a6e;
+    --blue-neon: #00d4ff;
+    --danger: #ff3333;
+    --success: #00ff88;
+    --warning: #ffaa00;
+    --bg-dark: #050508;
+    --bg-panel: #0a0a12;
+    --bg-panel-light: #12121e;
+    --border-gold: rgba(255, 215, 0, 0.3);
+    --border-gold-bright: rgba(255, 215, 0, 0.6);
+}
+
+body {
+    font-family: 'Noto Sans Malayalam', 'Inter', sans-serif;
+    background: var(--bg-dark);
+    color: white;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* ===== AMBIENT STUDIO BACKGROUND ===== */
+.studio-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background: 
+        radial-gradient(ellipse at 50% 100%, rgba(26, 58, 110, 0.4) 0%, transparent 60%),
+        radial-gradient(ellipse at 20% 50%, rgba(0, 212, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 50%, rgba(0, 212, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 0%, rgba(255, 215, 0, 0.05) 0%, transparent 40%),
+        linear-gradient(180deg, #050508 0%, #0a0a15 50%, #050508 100%);
+}
+
+/* Spotlight beams */
+.spotlight {
+    position: fixed;
+    z-index: -1;
+    pointer-events: none;
+}
+.spotlight-left {
+    top: -10%;
+    left: 10%;
+    width: 200px;
+    height: 120vh;
+    background: linear-gradient(180deg, rgba(0, 212, 255, 0.15) 0%, transparent 70%);
+    transform: rotate(-15deg);
+    filter: blur(40px);
+    animation: spotMove1 8s ease-in-out infinite;
+}
+.spotlight-right {
+    top: -10%;
+    right: 10%;
+    width: 200px;
+    height: 120vh;
+    background: linear-gradient(180deg, rgba(255, 215, 0, 0.12) 0%, transparent 70%);
+    transform: rotate(15deg);
+    filter: blur(40px);
+    animation: spotMove2 10s ease-in-out infinite;
+}
+.spotlight-center {
+    top: -5%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 300px;
+    height: 100vh;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+    filter: blur(60px);
+    animation: spotPulse 6s ease-in-out infinite;
+}
+
+@keyframes spotMove1 {
+    0%, 100% { transform: rotate(-15deg) translateX(0); opacity: 0.6; }
+    50% { transform: rotate(-12deg) translateX(30px); opacity: 1; }
+}
+@keyframes spotMove2 {
+    0%, 100% { transform: rotate(15deg) translateX(0); opacity: 0.5; }
+    50% { transform: rotate(12deg) translateX(-30px); opacity: 0.9; }
+}
+@keyframes spotPulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+}
+
+/* Floating particles */
+.particles {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+}
+.particle {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    background: var(--gold);
+    border-radius: 50%;
+    opacity: 0;
+    animation: floatUp 10s linear infinite;
+    box-shadow: 0 0 6px var(--gold), 0 0 12px var(--gold);
+}
+@keyframes floatUp {
+    0% { transform: translateY(100vh) scale(0); opacity: 0; }
+    10% { opacity: 0.8; }
+    90% { opacity: 0.8; }
+    100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+}
+
+/* Floor glow */
+.floor-glow {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 200px;
+    background: linear-gradient(0deg, rgba(255, 215, 0, 0.08) 0%, transparent 100%);
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* ===== TITLE SCREEN ===== */
+.title-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    text-align: center;
+    padding: 20px;
+    position: relative;
+}
+
+.logo-container {
+    position: relative;
+    margin-bottom: 40px;
+}
+
+.logo-ring {
+    width: 220px;
+    height: 220px;
+    border: 4px solid var(--gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    animation: pulse 3s ease-in-out infinite;
+    box-shadow: 
+        0 0 60px rgba(255, 215, 0, 0.3),
+        0 0 120px rgba(255, 215, 0, 0.1),
+        inset 0 0 60px rgba(255, 215, 0, 0.05);
+}
+
+.logo-ring::before {
+    content: '';
+    position: absolute;
+    inset: -15px;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 50%;
+    animation: rotate 15s linear infinite;
+}
+
+.logo-ring::after {
+    content: '';
+    position: absolute;
+    inset: -30px;
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    border-radius: 50%;
+    animation: rotate 20s linear infinite reverse;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 60px rgba(255, 215, 0, 0.3), 0 0 120px rgba(255, 215, 0, 0.1), inset 0 0 60px rgba(255, 215, 0, 0.05); }
+    50% { transform: scale(1.03); box-shadow: 0 0 80px rgba(255, 215, 0, 0.5), 0 0 160px rgba(255, 215, 0, 0.2), inset 0 0 80px rgba(255, 215, 0, 0.1); }
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.logo-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 3rem;
+    font-weight: 900;
+    color: var(--gold);
+    text-shadow: 0 0 30px rgba(255, 215, 0, 0.6), 0 0 60px rgba(255, 215, 0, 0.3);
+}
+
+.logo-sub {
+    font-family: 'Noto Sans Malayalam', sans-serif;
+    font-size: 1.4rem;
+    color: var(--gold-bright);
+    margin-top: 8px;
+    font-weight: 700;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+}
+
+.title-screen h1 {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, var(--gold), #fff, var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    font-weight: 900;
+}
+
+.title-screen .subtitle {
+    font-size: 1.1rem;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 40px;
+    letter-spacing: 1px;
+}
+
+.start-btn {
+    padding: 16px 60px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    border: 2px solid var(--gold);
+    background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,215,0,0.05));
+    color: var(--gold);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.4s;
+    font-family: 'Noto Sans Malayalam', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.2);
+}
+
+.start-btn:hover {
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: var(--bg-dark);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 40px rgba(255, 215, 0, 0.5), 0 0 80px rgba(255, 215, 0, 0.3);
+}
+
+/* ===== GAME SCREEN ===== */
+.game-screen {
+    display: none;
+    min-height: 100vh;
+    padding: 8px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Top Bar */
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background: linear-gradient(90deg, rgba(10,10,18,0.9), rgba(18,18,30,0.9));
+    border-radius: 12px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-gold);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 20px rgba(255,215,0,0.05);
+}
+
+.game-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    color: var(--gold);
+    text-shadow: 0 0 15px rgba(255,215,0,0.4);
+    letter-spacing: 2px;
+}
+
+.prize-display {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.3rem;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(255,215,0,0.5);
+    letter-spacing: 1px;
+}
+
+.walk-away-btn {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, rgba(255,170,0,0.15), rgba(255,170,0,0.05));
+    border: 1px solid var(--warning);
+    color: var(--warning);
+    border-radius: 20px;
+    cursor: pointer;
+    font-family: 'Noto Sans Malayalam', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.3s;
+    box-shadow: 0 0 15px rgba(255,170,0,0.1);
+}
+
+.walk-away-btn:hover {
+    background: var(--warning);
+    color: var(--bg-dark);
+    box-shadow: 0 0 25px rgba(255,170,0,0.4);
+}
+
+/* ===== MAIN LAYOUT ===== */
+.game-layout {
+    display: flex;
+    gap: 12px;
+    height: calc(100vh - 80px);
+    min-height: 600px;
+}
+
+/* Left Panel */
+.left-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+/* Host Area */
+.host-area {
+    background: linear-gradient(135deg, rgba(10,10,18,0.95), rgba(18,18,30,0.95));
+    border-radius: 15px;
+    padding: 12px 18px;
+    border: 1px solid var(--border-gold);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 70px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,215,0,0.1);
+}
+
+.host-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(255,215,0,0.3);
+}
+
+.host-text {
+    font-size: 1rem;
+    line-height: 1.4;
+    color: var(--gold-bright);
+}
+
+.host-text .english {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.5);
+    font-style: italic;
+    margin-top: 3px;
+}
+
+/* Question Box */
+.question-box {
+    background: linear-gradient(135deg, rgba(18,18,30,0.95), rgba(10,10,18,0.95));
+    border-radius: 16px;
+    padding: 18px 22px;
+    border: 2px solid var(--border-gold-bright);
+    position: relative;
+    box-shadow: 
+        0 0 30px rgba(255,215,0,0.08),
+        0 8px 32px rgba(0,0,0,0.4),
+        inset 0 1px 0 rgba(255,215,0,0.1);
+}
+
+.question-box::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: 0.6;
+}
+
+.question-number {
+    font-family: 'Orbitron', sans-serif;
+    color: var(--blue-neon);
+    font-size: 0.8rem;
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.question-text {
+    font-size: 1.25rem;
+    line-height: 1.5;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.question-english {
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.55);
+    font-style: italic;
+}
+
+/* Timer */
+.timer-bar {
+    width: 100%;
+    height: 5px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    margin-top: 14px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.timer-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success), var(--warning), var(--danger));
+    border-radius: 3px;
+    transition: width 0.1s linear;
+    box-shadow: 0 0 10px rgba(0,255,136,0.3);
+}
+
+/* Options - TV Style */
+.options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.option-btn {
+    padding: 14px 16px;
+    background: linear-gradient(135deg, rgba(18,18,30,0.9), rgba(10,10,18,0.9));
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'Noto Sans Malayalam', 'Inter', sans-serif;
+    position: relative;
+    overflow: hidden;
+    text-align: left;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    min-height: 60px;
+}
+
+.option-btn::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--blue-neon);
+    opacity: 0;
+    transition: opacity 0.3s;
+    border-radius: 14px 0 0 14px;
+}
+
+.option-btn:hover:not(.disabled):not(.selected) {
+    border-color: var(--gold);
+    transform: translateX(4px) scale(1.01);
+    background: linear-gradient(135deg, rgba(30,30,50,0.95), rgba(18,18,35,0.95));
+    box-shadow: 0 6px 25px rgba(255,215,0,0.15), 0 0 30px rgba(255,215,0,0.05);
+}
+
+.option-btn:hover:not(.disabled):not(.selected)::before {
+    opacity: 1;
+    background: var(--gold);
+}
+
+.option-btn.selected {
+    border-color: var(--gold);
+    background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,215,0,0.05));
+    box-shadow: 0 0 25px rgba(255,215,0,0.2), 0 0 50px rgba(255,215,0,0.1);
+    transform: scale(1.02);
+}
+
+.option-btn.selected::before {
+    opacity: 1;
+    background: var(--gold);
+    box-shadow: 0 0 10px var(--gold);
+}
+
+.option-btn.correct {
+    background: linear-gradient(135deg, rgba(0,255,136,0.2), rgba(0,255,136,0.08));
+    border-color: var(--success);
+    box-shadow: 0 0 30px rgba(0,255,136,0.3), 0 0 60px rgba(0,255,136,0.1);
+    animation: correctPulse 0.6s ease;
+}
+
+.option-btn.wrong {
+    background: linear-gradient(135deg, rgba(255,51,51,0.2), rgba(255,51,51,0.08));
+    border-color: var(--danger);
+    box-shadow: 0 0 30px rgba(255,51,51,0.3);
+    animation: shake 0.5s ease;
+}
+
+.option-btn.disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+    filter: grayscale(0.8);
+}
+
+.option-label {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    color: var(--gold);
+    font-size: 1.2rem;
+    min-width: 32px;
+    text-shadow: 0 0 10px rgba(255,215,0,0.4);
+}
+
+.option-text {
+    flex: 1;
+    text-align: left;
+    font-size: 0.95rem;
+    line-height: 1.3;
+}
+
+.option-english {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.5);
+    margin-top: 3px;
+}
+
+@keyframes correctPulse {
+    0%, 100% { transform: scale(1); }
+    25% { transform: scale(1.03); }
+    50% { transform: scale(1.01); }
+    75% { transform: scale(1.03); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+}
+
+/* Confirm Button */
+.confirm-area {
+    display: none;
+    text-align: center;
+    margin-top: 6px;
+}
+
+.confirm-btn {
+    padding: 12px 50px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border: 2px solid var(--gold);
+    background: linear-gradient(135deg, rgba(255,215,0,0.25), rgba(255,215,0,0.08));
+    color: var(--gold);
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: 'Noto Sans Malayalam', sans-serif;
+    box-shadow: 0 0 25px rgba(255,215,0,0.2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.confirm-btn:hover {
+    background: var(--gold);
+    color: var(--bg-dark);
+    transform: scale(1.08);
+    box-shadow: 0 0 40px rgba(255,215,0,0.5);
+}
+
+/* Lifelines */
+.lifelines {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 4px;
+}
+
+.lifeline-btn {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    border: 2px solid var(--gold);
+    background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,215,0,0.03));
+    color: var(--gold);
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    box-shadow: 0 0 20px rgba(255,215,0,0.1);
+}
+
+.lifeline-btn:hover:not(.used) {
+    transform: scale(1.15) rotate(5deg);
+    box-shadow: 0 0 30px rgba(255,215,0,0.4), 0 0 60px rgba(255,215,0,0.2);
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: var(--bg-dark);
+}
+
+.lifeline-btn.used {
+    opacity: 0.2;
+    border-color: #444;
+    cursor: not-allowed;
+    text-decoration: line-through;
+    box-shadow: none;
+}
+
+/* ===== RIGHT PANEL - PRIZE LADDER ===== */
+.right-panel {
+    width: 200px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.prize-ladder {
+    background: linear-gradient(180deg, rgba(10,10,18,0.9), rgba(18,18,30,0.9));
+    border-radius: 14px;
+    padding: 12px;
+    border: 1px solid var(--border-gold);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,215,0,0.05);
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.prize-item {
+    display: flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    transition: all 0.3s;
+    gap: 8px;
+    min-height: 28px;
+}
+
+.prize-item.active {
+    background: linear-gradient(90deg, rgba(255,215,0,0.25), rgba(255,215,0,0.05));
+    border-left: 3px solid var(--gold);
+    font-weight: 700;
+    color: var(--gold);
+    box-shadow: 0 0 15px rgba(255,215,0,0.2);
+    transform: scale(1.05);
+}
+
+.prize-item.milestone {
+    color: var(--warning);
+    font-weight: 600;
+    text-shadow: 0 0 10px rgba(255,170,0,0.3);
+}
+
+.prize-item.won {
+    color: var(--success);
+    text-shadow: 0 0 10px rgba(0,255,136,0.3);
+}
+
+.prize-number {
+    width: 24px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+.prize-amount {
+    flex: 1;
+    text-align: right;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.5px;
+}
+
+/* ===== OVERLAYS ===== */
+.overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(5,5,8,0.92);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+}
+
+.overlay-modal {
+    background: linear-gradient(135deg, rgba(18,18,30,0.98), rgba(10,10,18,0.98));
+    border: 2px solid var(--gold);
+    border-radius: 24px;
+    padding: 35px;
+    max-width: 520px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 
+        0 0 60px rgba(255,215,0,0.2),
+        0 0 120px rgba(255,215,0,0.1),
+        0 20px 60px rgba(0,0,0,0.5);
+    position: relative;
+    overflow: hidden;
+}
+
+.overlay-modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+
+.overlay-title {
+    font-size: 1.6rem;
+    color: var(--gold);
+    margin-bottom: 18px;
+    font-family: 'Noto Sans Malayalam', sans-serif;
+    font-weight: 700;
+    text-shadow: 0 0 20px rgba(255,215,0,0.3);
+}
+
+.overlay-text {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 25px;
+}
+
+.overlay-btn {
+    padding: 14px 40px;
+    font-size: 1.05rem;
+    border: 2px solid var(--gold);
+    background: transparent;
+    color: var(--gold);
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: 'Noto Sans Malayalam', sans-serif;
+    font-weight: 700;
+    margin: 6px;
+    box-shadow: 0 0 20px rgba(255,215,0,0.1);
+}
+
+.overlay-btn:hover {
+    background: var(--gold);
+    color: var(--bg-dark);
+    box-shadow: 0 0 40px rgba(255,215,0,0.4);
+    transform: scale(1.05);
+}
+
+/* Poll Overlay */
+.poll-bar {
+    display: flex;
+    align-items: center;
+    margin: 12px 0;
+    gap: 12px;
+}
+
+.poll-label {
+    width: 40px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    color: var(--gold);
+    font-size: 1rem;
+    text-shadow: 0 0 10px rgba(255,215,0,0.4);
+}
+
+.poll-track {
+    flex: 1;
+    height: 32px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.poll-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue-neon), var(--gold));
+    border-radius: 10px;
+    transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 10px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: white;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    box-shadow: 0 0 20px rgba(0,212,255,0.2);
+}
+
+/* Expert Overlay */
+.expert-avatar {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    margin: 0 auto 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.8rem;
+    box-shadow: 0 0 40px rgba(255,215,0,0.4);
+}
+
+.expert-name {
+    font-size: 1.15rem;
+    color: var(--gold);
+    margin-bottom: 10px;
+    font-weight: 700;
+    text-shadow: 0 0 15px rgba(255,215,0,0.3);
+}
+
+.expert-speech {
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.9);
+    padding: 18px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 14px;
+    border-left: 4px solid var(--gold);
+    font-family: 'Noto Sans Malayalam', sans-serif;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+/* Game Over */
+.game-over-title {
+    font-size: 2.8rem;
+    font-family: 'Orbitron', sans-serif;
+    margin-bottom: 18px;
+    text-shadow: 0 0 40px rgba(255,215,0,0.4);
+}
+
+.game-over-title.win {
+    color: var(--gold);
+    text-shadow: 0 0 40px rgba(255,215,0,0.6), 0 0 80px rgba(255,215,0,0.3);
+}
+
+.game-over-title.lose {
+    color: var(--danger);
+    text-shadow: 0 0 40px rgba(255,51,51,0.4);
+}
+
+.final-prize {
+    font-size: 2rem;
+    color: var(--gold);
+    margin-bottom: 18px;
+    font-family: 'Orbitron', sans-serif;
+    text-shadow: 0 0 30px rgba(255,215,0,0.5);
+}
+
+/* Confetti */
+.confetti {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    top: -10px;
+    animation: confetti-fall 4s linear forwards;
+    z-index: 150;
+    border-radius: 2px;
+}
+
+@keyframes confetti-fall {
+    0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(1080deg) scale(0.5); opacity: 0; }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+    .game-layout {
+        flex-direction: column;
+        height: auto;
+        min-height: auto;
+    }
+
+    .right-panel {
+        width: 100%;
+        order: -1;
+        flex-direction: row;
+    }
+
+    .prize-ladder {
+        flex-direction: row;
+        flex-wrap: wrap;
+        height: auto;
+        gap: 6px;
+        justify-content: center;
+        padding: 10px;
+    }
+
+    .prize-item {
+        flex: 0 0 calc(20% - 6px);
+        min-width: 70px;
+        flex-direction: column;
+        padding: 6px 4px;
+        gap: 2px;
+    }
+
+    .prize-item.active {
+        transform: scale(1.08);
+    }
+
+    .prize-number {
+        width: auto;
+        font-size: 0.7rem;
+    }
+
+    .prize-amount {
+        text-align: center;
+        font-size: 0.7rem;
+    }
+
+    .options-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .option-btn {
+        min-height: 55px;
+        padding: 12px 14px;
+    }
+
+    .logo-ring {
+        width: 160px;
+        height: 160px;
+    }
+
+    .logo-text {
+        font-size: 2.2rem;
+    }
+
+    .question-text {
+        font-size: 1.1rem;
+    }
+
+    .host-area {
+        padding: 10px 14px;
+        min-height: 60px;
+    }
+
+    .host-avatar {
+        width: 42px;
+        height: 42px;
+        font-size: 1.3rem;
+    }
+
+    .top-bar {
+        padding: 8px 14px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .game-title {
+        font-size: 0.9rem;
+    }
+
+    .prize-display {
+        font-size: 1rem;
+    }
+
+    .lifeline-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 1rem;
+    }
+
+    .overlay-modal {
+        padding: 25px 20px;
+    }
+
+    .game-over-title {
+        font-size: 2rem;
+    }
+
+    .final-prize {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .prize-item {
+        flex: 0 0 calc(25% - 6px);
+    }
+
+    .prize-amount {
+        font-size: 0.65rem;
+    }
+
+    .question-text {
+        font-size: 1rem;
+    }
+
+    .option-text {
+        font-size: 0.88rem;
+    }
+
+    .option-label {
+        font-size: 1rem;
+        min-width: 26px;
+    }
+
+    .start-btn {
+        padding: 14px 40px;
+        font-size: 1rem;
+    }
+
+    .title-screen h1 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255,215,0,0.3);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,215,0,0.5);
+}
+</style>
+</head>
+<body>
+
+<!-- AMBIENT BACKGROUND -->
+<div class="studio-bg"></div>
+<div class="spotlight spotlight-left"></div>
+<div class="spotlight spotlight-right"></div>
+<div class="spotlight spotlight-center"></div>
+<div class="floor-glow"></div>
+<div class="particles" id="particles"></div>
+
+<!-- TITLE SCREEN -->
+<div class="title-screen" id="titleScreen">
+    <div class="logo-container">
+        <div class="logo-ring">
+            <div>
+                <div class="logo-text">Rs</div>
+                <div class="logo-sub">കൂടീശ്വരൻ</div>
+            </div>
+        </div>
+    </div>
+    <h1>Who Wants to Be a Millionaire?</h1>
+    <p class="subtitle">കോടീശ്വരനാകാൻ ആഗ്രഹമുള്ളവർക്ക്</p>
+    <button class="start-btn" onclick="startGame()">🎬 ഗേം ആരംഭിക്കുക / Start Game</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div class="game-screen" id="gameScreen">
+    <div class="top-bar">
+        <div class="game-title">കൂടീശ്വരൻ</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div class="prize-display" id="currentPrize">Rs 0</div>
+            <button class="walk-away-btn" onclick="confirmWalkAway()">🏃 വിട്ടുകൊടുക്കുക</button>
+        </div>
+    </div>
+
+    <div class="game-layout">
+        <div class="left-panel">
+            <div class="host-area" id="hostArea">
+                <div class="host-avatar">🎙️</div>
+                <div class="host-text" id="hostText">
+                    <div>നമസ്കാരം! കൂടീശ്വരനിലേക്ക് സ്വാഗതം!</div>
+                    <div class="english">Welcome to Koodeeshwaran! Let's begin!</div>
+                </div>
+            </div>
+
+            <div class="question-box" id="questionBox">
+                <div class="question-number" id="questionNumber">QUESTION 1 of 15</div>
+                <div class="question-text" id="questionText">Loading...</div>
+                <div class="question-english" id="questionEnglish"></div>
+                <div class="timer-bar"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+            </div>
+
+            <div class="options-grid" id="optionsGrid"></div>
+
+            <div class="confirm-area" id="confirmArea">
+                <button class="confirm-btn" onclick="confirmAnswer()">✅ ഉറപ്പിക്കുക / Confirm</button>
+            </div>
+
+            <div class="lifelines" id="lifelines">
+                <button class="lifeline-btn" id="ll50" onclick="useLifeline('50-50')">50:50</button>
+                <button class="lifeline-btn" id="llPoll" onclick="useLifeline('poll')">📊</button>
+                <button class="lifeline-btn" id="llExpert" onclick="useLifeline('expert')">🎓</button>
+                <button class="lifeline-btn" id="llFlip" onclick="useLifeline('flip')">🔄</button>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="prize-ladder" id="prizeLadder"></div>
+        </div>
+    </div>
+</div>
+
+<!-- CONFIRMATION OVERLAY -->
+<div class="overlay" id="confirmOverlay">
+    <div class="overlay-modal">
+        <div class="overlay-title" id="confirmTitle">ഉറപ്പാണോ? / Are you sure?</div>
+        <div class="overlay-text" id="confirmText"></div>
+        <div>
+            <button class="overlay-btn" onclick="confirmYes()">✅ അതെ / Yes</button>
+            <button class="overlay-btn" onclick="confirmNo()">❌ അല്ല / No</button>
+        </div>
+    </div>
+</div>
+
+<!-- ANSWER RESULT OVERLAY -->
+<div class="overlay" id="resultOverlay">
+    <div class="overlay-modal">
+        <div class="overlay-title" id="resultTitle"></div>
+        <div class="overlay-text" id="resultText"></div>
+        <button class="overlay-btn" id="resultBtn" onclick="nextQuestion()">തുടരുക / Continue</button>
+    </div>
+</div>
+
+<!-- POLL OVERLAY -->
+<div class="overlay" id="pollOverlay">
+    <div class="overlay-modal">
+        <div class="overlay-title">📊 പ്രേക്ഷക വോട്ടെടുപ്പ്</div>
+        <div id="pollBars"></div>
+        <button class="overlay-btn" onclick="closePoll()" style="margin-top:15px;">തുടരുക / Continue</button>
+    </div>
+</div>
+
+<!-- EXPERT OVERLAY -->
+<div class="overlay" id="expertOverlay">
+    <div class="overlay-modal">
+        <div class="expert-avatar">🎓</div>
+        <div class="expert-name" id="expertName"></div>
+        <div class="expert-speech" id="expertSpeech"></div>
+        <button class="overlay-btn" onclick="closeExpert()" style="margin-top:15px;">തുടരുക / Continue</button>
+    </div>
+</div>
+
+<!-- GAME OVER OVERLAY -->
+<div class="overlay" id="gameOverOverlay">
+    <div class="overlay-modal">
+        <div class="game-over-title" id="gameOverTitle"></div>
+        <div class="final-prize" id="finalPrize"></div>
+        <div class="overlay-text" id="gameOverMessage"></div>
+        <button class="overlay-btn" onclick="restartGame()">🔄 വീണ്ടും കളിക്കുക</button>
+    </div>
+</div>
+
+<script>
+
+const questionLibrary = [
+    { ml: "കേരളത്തിന്റെ ഔദ്യോഗിക ഭാഷ ഏത്?", en: "What is the official language of Kerala?", options: [{ ml: "മലയാളം", en: "Malayalam" }, { ml: "തമിഴ്", en: "Tamil" }, { ml: "കന്നഡ", en: "Kannada" }, { ml: "തെലുങ്ക്", en: "Telugu" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിന്റെ ഔദ്യോഗിക പുഷ്പം ഏത്?", en: "What is the official flower of Kerala?", options: [{ ml: "കണിക്കൊന്ന", en: "Kanikonna" }, { ml: "താമര", en: "Lotus" }, { ml: "രോസ്", en: "Rose" }, { ml: "സൂര്യകാന്തി", en: "Sunflower" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിന്റെ ഔദ്യോഗിക മൃഗം ഏത്?", en: "What is the official animal of Kerala?", options: [{ ml: "ആന", en: "Elephant" }, { ml: "പുലി", en: "Tiger" }, { ml: "സിംഹം", en: "Lion" }, { ml: "പുള്ളിപ്പുലി", en: "Leopard" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിന്റെ ഔദ്യോഗിക പക്ഷി ഏത്?", en: "What is the official bird of Kerala?", options: [{ ml: "മലബാർ കാഠ്ഠികൊക്ക്", en: "Great Hornbill" }, { ml: "മയിൽ", en: "Peacock" }, { ml: "കൊക്ക്", en: "Crane" }, { ml: "പരുന്ത്", en: "Eagle" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിന്റെ ഔദ്യോഗിക മത്സ്യം ഏത്?", en: "What is the official fish of Kerala?", options: [{ ml: "കരിമീൻ", en: "Karimeen" }, { ml: "അയല", en: "Mackerel" }, { ml: "നെയ്മീൻ", en: "Seer Fish" }, { ml: "സാർഡീൻ", en: "Sardine" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിന്റെ ഔദ്യോഗിക വൃക്ഷം ഏത്?", en: "What is the official tree of Kerala?", options: [{ ml: "തെങ്ങ്", en: "Coconut Palm" }, { ml: "മാവ്", en: "Mango" }, { ml: "ജാതി", en: "Nutmeg" }, { ml: "പ്ലാവ്", en: "Jackfruit" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിന്റെ തലസ്ഥാനം ഏത്?", en: "What is the capital of Kerala?", options: [{ ml: "തിരുവനന്തപുരം", en: "Thiruvananthapuram" }, { ml: "കൊച്ചി", en: "Kochi" }, { ml: "കോഴിക്കോട്", en: "Kozhikode" }, { ml: "തൃശ്ശൂർ", en: "Thrissur" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ഏറ്റവും വലിയ ജില്ല ഏത്?", en: "Which is the largest district in Kerala?", options: [{ ml: "ഇടുക്കി", en: "Idukki" }, { ml: "പാലക്കാട്", en: "Palakkad" }, { ml: "മലപ്പുറം", en: "Malappuram" }, { ml: "എറണാകുളം", en: "Ernakulam" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ഏറ്റവും ചെറിയ ജില്ല ഏത്?", en: "Which is the smallest district in Kerala?", options: [{ ml: "ആലപ്പുഴ", en: "Alappuzha" }, { ml: "കൊല്ലം", en: "Kollam" }, { ml: "വയനാട്", en: "Wayanad" }, { ml: "പത്തനംതിട്ട", en: "Pathanamthitta" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ഏറ്റവും ഉയരം കൂടിയ കൊടുമുടി ഏത്?", en: "Which is the highest peak in Kerala?", options: [{ ml: "അനമുടി", en: "Anamudi" }, { ml: "അഗസ്ത്യാർകൂടം", en: "Agasthyakoodam" }, { ml: "ചെമ്പ്ര കൊടുമുടി", en: "Chembra Peak" }, { ml: "മീശാപുലിമല", en: "Meesapulimala" }], correct: 0, category: "kerala" },
+    { ml: "ചെമ്മീൻ നോവലിന്റെ രചയിതാവ് ആര്?", en: "Who wrote the novel Chemmeen?", options: [{ ml: "തകഴി ശിവശങ്കര പിള്ള", en: "Thakazhi" }, { ml: "ഒ.വി. വിജയൻ", en: "O.V. Vijayan" }, { ml: "എം.ടി. വാസുദേവൻ നായർ", en: "M.T. Vasudevan Nair" }, { ml: "വൈക്കം മുഹമ്മദ് ബഷീർ", en: "Vaikom Basheer" }], correct: 0, category: "kerala" },
+    { ml: "മലയാളത്തിന്റെ പിതാവ് ആര്?", en: "Who is the Father of Malayalam?", options: [{ ml: "തുഞ്ചത്ത് എഴുത്തച്ഛൻ", en: "Thunchath Ezhuthachan" }, { ml: "കുമാരനാശാൻ", en: "Kumaran Asan" }, { ml: "ഉള്ളൂർ", en: "Ulloor" }, { ml: "വള്ളത്തോൾ", en: "Vallathol" }], correct: 0, category: "kerala" },
+    { ml: "മലയാള സിനിമയുടെ പിതാവ് ആര്?", en: "Father of Malayalam Cinema?", options: [{ ml: "ജെ.സി. ഡാനിയേൽ", en: "J.C. Daniel" }, { ml: "പി. രാമദാസ്", en: "P. Ramdas" }, { ml: "രാമു കാര്യാട്", en: "Ramu Kariat" }, { ml: "അടൂർ ഗോപാലകൃഷ്ണൻ", en: "Adoor Gopalakrishnan" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ആദ്യ 100% സാക്ഷരതാ നഗരം?", en: "First 100% literate town in Kerala?", options: [{ ml: "കോട്ടയം", en: "Kottayam" }, { ml: "കോഴിക്കോട്", en: "Kozhikode" }, { ml: "തൃശ്ശൂർ", en: "Thrissur" }, { ml: "ആലപ്പുഴ", en: "Alappuzha" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ആദ്യ ഇ-സാക്ഷരതാ ജില്ല?", en: "First e-literate district in Kerala?", options: [{ ml: "മലപ്പുറം", en: "Malappuram" }, { ml: "എറണാകുളം", en: "Ernakulam" }, { ml: "കോഴിക്കോട്", en: "Kozhikode" }, { ml: "കണ്ണൂർ", en: "Kannur" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ഏറ്റവും വലിയ ശുദ്ധജല തടാകം?", en: "Largest freshwater lake in Kerala?", options: [{ ml: "ശാസ്താംകോട്ട", en: "Sasthamkotta" }, { ml: "വേമ്പനാട്", en: "Vembanad" }, { ml: "അഷ്ടമുടി", en: "Ashtamudi" }, { ml: "പൂക്കോട്", en: "Pookode" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിന്റെ ജീവനാഡി ഏത് നദി?", en: "Lifeline of Kerala?", options: [{ ml: "പെരിയാർ", en: "Periyar" }, { ml: "പമ്പ", en: "Pamba" }, { ml: "ഭാരതപ്പുഴ", en: "Bharathapuzha" }, { ml: "ചാലിയാർ", en: "Chaliyar" }], correct: 0, category: "kerala" },
+    { ml: "ഓണത്തിന് സമീപം നടക്കുന്ന വള്ളംകളി?", en: "Famous boat race during Onam?", options: [{ ml: "നെഹ്റു ട്രോഫി", en: "Nehru Trophy" }, { ml: "അരൻമുള", en: "Aranmula" }, { ml: "പയ്യോളി", en: "Payyoli" }, { ml: "കല്ലട", en: "Kallada" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ആദ്യ ബയോസ്ഫിയർ റിസർവ്?", en: "First biosphere reserve in Kerala?", options: [{ ml: "നീലഗിരി", en: "Nilgiri" }, { ml: "അഗസ്ത്യമല", en: "Agasthyamala" }, { ml: "വയനാട്", en: "Wayanad" }, { ml: "പെരിയാർ", en: "Periyar" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ആദ്യ മലയാള നോവൽ?", en: "First Malayalam novel?", options: [{ ml: "കുന്ദലത", en: "Kundalatha" }, { ml: "ഇന്ദുലേഖ", en: "Indulekha" }, { ml: "സരസ്വതീവിജയം", en: "Saraswathi Vijayam" }, { ml: "മാർത്താണ്ഡവർമ", en: "Marthandavarma" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ആദ്യ മലയാള പത്രം?", en: "First Malayalam newspaper?", options: [{ ml: "രാജ്യസമാചാരം", en: "Rajyasamacharam" }, { ml: "ദീപിക", en: "Deepika" }, { ml: "മലയാള മനോരമ", en: "Manorama" }, { ml: "മാതൃഭൂമി", en: "Mathrubhumi" }], correct: 0, category: "kerala" },
+    { ml: "തൃശ്ശൂർ പൂരം ഏത് ക്ഷേത്രത്തിൽ?", en: "Thrissur Pooram temple?", options: [{ ml: "വടക്കുന്നാഥൻ", en: "Vadakkunnathan" }, { ml: "ഗുരുവായൂർ", en: "Guruvayur" }, { ml: "ശബരിമല", en: "Sabarimala" }, { ml: "പദ്മനാഭസ്വാമി", en: "Padmanabhaswamy" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ആദ്യ ടെക്നോപാർക്ക് എവിടെ?", en: "First Technopark in Kerala?", options: [{ ml: "തിരുവനന്തപുരം", en: "Thiruvananthapuram" }, { ml: "കൊച്ചി", en: "Kochi" }, { ml: "കോഴിക്കോട്", en: "Kozhikode" }, { ml: "തൃശ്ശൂർ", en: "Thrissur" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ആദ്യ മെട്രോ എവിടെ?", en: "First metro in Kerala?", options: [{ ml: "കൊച്ചി", en: "Kochi" }, { ml: "തിരുവനന്തപുരം", en: "Thiruvananthapuram" }, { ml: "കോഴിക്കോട്", en: "Kozhikode" }, { ml: "തൃശ്ശൂർ", en: "Thrissur" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ആദ്യ അന്താരാഷ്ട്ര വിമാനത്താവളം?", en: "First international airport in Kerala?", options: [{ ml: "നെടുമ്പാശ്ശേരി", en: "Nedumbassery" }, { ml: "തിരുവനന്തപുരം", en: "Thiruvananthapuram" }, { ml: "കോഴിക്കോട്", en: "Kozhikode" }, { ml: "കണ്ണൂർ", en: "Kannur" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ആദ്യ IIT എവിടെ?", en: "First IIT in Kerala?", options: [{ ml: "പാലക്കാട്", en: "Palakkad" }, { ml: "തിരുവനന്തപുരം", en: "Thiruvananthapuram" }, { ml: "കൊച്ചി", en: "Kochi" }, { ml: "കോഴിക്കോട്", en: "Kozhikode" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ആദ്യ മെഡിക്കൽ കോളേജ്?", en: "First medical college in Kerala?", options: [{ ml: "തിരുവനന്തപുരം", en: "Thiruvananthapuram" }, { ml: "എറണാകുളം", en: "Ernakulam" }, { ml: "കോഴിക്കോട്", en: "Kozhikode" }, { ml: "കോട്ടയം", en: "Kottayam" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ആദ്യ യൂണിവേഴ്സിറ്റി?", en: "First university in Kerala?", options: [{ ml: "കേരള യൂണിവേഴ്സിറ്റി", en: "Kerala University" }, { ml: "മഹാത്മാ ഗാന്ധി", en: "MG University" }, { ml: "കാലിക്കറ്റ്", en: "Calicut" }, { ml: "കൊച്ചിൻ", en: "Cochin" }], correct: 0, category: "kerala" },
+    { ml: "കേരളത്തിലെ ആദ്യ ഹൈക്കോടതി എവിടെ?", en: "First High Court in Kerala?", options: [{ ml: "എറണാകുളം", en: "Ernakulam" }, { ml: "തിരുവനന്തപുരം", en: "Thiruvananthapuram" }, { ml: "കോഴിക്കോട്", en: "Kozhikode" }, { ml: "കൊച്ചി", en: "Kochi" }], correct: 0, category: "kerala" },
+    { ml: "ഭാരതത്തിന്റെ പിതാവ് ആര്?", en: "Who is the Father of India?", options: [{ ml: "മഹാത്മാ ഗാന്ധി", en: "Mahatma Gandhi" }, { ml: "ജവഹർലാൽ നെഹ്റു", en: "Jawaharlal Nehru" }, { ml: "സുഭാഷ് ചന്ദ്ര ബോസ്", en: "Subhash Bose" }, { ml: "ഭഗത് സിംഗ്", en: "Bhagat Singh" }], correct: 0, category: "gk" },
+    { ml: "ഭാരതത്തിന്റെ ആദ്യ പ്രധാനമന്ത്രി?", en: "First Prime Minister of India?", options: [{ ml: "ജവഹർലാൽ നെഹ്റു", en: "Jawaharlal Nehru" }, { ml: "സർദാർ പട്ടേൽ", en: "Sardar Patel" }, { ml: "ഡോ. രാജേന്ദ്ര പ്രസാദ്", en: "Dr. Rajendra Prasad" }, { ml: "ലാൽ ബഹദൂർ ശാസ്ത്രി", en: "Lal Bahadur Shastri" }], correct: 0, category: "gk" },
+    { ml: "ഭാരതത്തിന്റെ ആദ്യ രാഷ്ട്രപതി?", en: "First President of India?", options: [{ ml: "ഡോ. രാജേന്ദ്ര പ്രസാദ്", en: "Dr. Rajendra Prasad" }, { ml: "സർവേപ്പള്ളി രാധാകൃഷ്ണൻ", en: "Radhakrishnan" }, { ml: "ഡോ. സാക്കിർ ഹുസൈൻ", en: "Zakir Hussain" }, { ml: "വി.വി. ഗിരി", en: "V.V. Giri" }], correct: 0, category: "gk" },
+    { ml: "ആദ്യ വനിതാ പ്രധാനമന്ത്രി?", en: "First female PM of India?", options: [{ ml: "ഇന്ദിരാ ഗാന്ധി", en: "Indira Gandhi" }, { ml: "സരോജിനി നായിഡു", en: "Sarojini Naidu" }, { ml: "വിജയലക്ഷ്മി പണ്ഡിറ്റ്", en: "Vijaya Pandit" }, { ml: "അന്നി ബസന്റ്", en: "Annie Besant" }], correct: 0, category: "gk" },
+    { ml: "ആദ്യ വനിതാ രാഷ്ട്രപതി?", en: "First female President?", options: [{ ml: "പ്രതിഭാ പാട്ടീൽ", en: "Pratibha Patil" }, { ml: "ഇന്ദിരാ ഗാന്ധി", en: "Indira Gandhi" }, { ml: "സോണിയ ഗാന്ധി", en: "Sonia Gandhi" }, { ml: "മായാവതി", en: "Mayawati" }], correct: 0, category: "gk" },
+    { ml: "ആദ്യ വനിതാ ഗവർണർ?", en: "First female Governor?", options: [{ ml: "സരോജിനി നായിഡു", en: "Sarojini Naidu" }, { ml: "ഇന്ദിരാ ഗാന്ധി", en: "Indira Gandhi" }, { ml: "വിജയലക്ഷ്മി പണ്ഡിറ്റ്", en: "Vijaya Pandit" }, { ml: "അന്നി ബസന്റ്", en: "Annie Besant" }], correct: 0, category: "gk" },
+    { ml: "ആദ്യ വനിതാ മുഖ്യമന്ത്രി?", en: "First female CM?", options: [{ ml: "സുചേതാ കൃപലാനി", en: "Sucheta Kripalani" }, { ml: "ഇന്ദിരാ ഗാന്ധി", en: "Indira Gandhi" }, { ml: "സരോജിനി നായിഡു", en: "Sarojini Naidu" }, { ml: "വിജയലക്ഷ്മി പണ്ഡിറ്റ്", en: "Vijaya Pandit" }], correct: 0, category: "gk" },
+    { ml: "ആദ്യ വനിതാ IAS?", en: "First female IAS?", options: [{ ml: "അന്ന രാജം മലോത്ര", en: "Anna Malhotra" }, { ml: "ഇന്ദിരാ ഗാന്ധി", en: "Indira Gandhi" }, { ml: "സരോജിനി നായിഡു", en: "Sarojini Naidu" }, { ml: "വിജയലക്ഷ്മി പണ്ഡിറ്റ്", en: "Vijaya Pandit" }], correct: 0, category: "gk" },
+    { ml: "ആദ്യ വനിതാ പൈലറ്റ്?", en: "First female pilot?", options: [{ ml: "സരളാ ഥാക്കർ", en: "Sarla Thakral" }, { ml: "ഇന്ദിരാ ഗാന്ധി", en: "Indira Gandhi" }, { ml: "സരോജിനി നായിഡു", en: "Sarojini Naidu" }, { ml: "വിജയലക്ഷ്മി പണ്ഡിറ്റ്", en: "Vijaya Pandit" }], correct: 0, category: "gk" },
+    { ml: "ആദ്യ വനിതാ സുപ്രീം കോടതി ജഡ്ജി?", en: "First female SC Judge?", options: [{ ml: "ഫാത്തിമ ബീവി", en: "Fathima Beevi" }, { ml: "ഇന്ദിരാ ഗാന്ധി", en: "Indira Gandhi" }, { ml: "സരോജിനി നായിഡു", en: "Sarojini Naidu" }, { ml: "വിജയലക്ഷ്മി പണ്ഡിറ്റ്", en: "Vijaya Pandit" }], correct: 0, category: "gk" },
+    { ml: "ആദ്യ വനിതാ ഹൈക്കോടതി ജഡ്ജി?", en: "First female HC Judge?", options: [{ ml: "അന്ന ചാണ്ടി", en: "Anna Chandy" }, { ml: "ഇന്ദിരാ ഗാന്ധി", en: "Indira Gandhi" }, { ml: "സരോജിനി നായിഡു", en: "Sarojini Naidu" }, { ml: "വിജയലക്ഷ്മി പണ്ഡിറ്റ്", en: "Vijaya Pandit" }], correct: 0, category: "gk" },
+    { ml: "ആദ്യ വനിതാ ലോകസഭാ സ്പീക്കർ?", en: "First female LS Speaker?", options: [{ ml: "മീര കുമാർ", en: "Meira Kumar" }, { ml: "ഇന്ദിരാ ഗാന്ധി", en: "Indira Gandhi" }, { ml: "സരോജിനി നായിഡു", en: "Sarojini Naidu" }, { ml: "വിജയലക്ഷ്മി പണ്ഡിറ്റ്", en: "Vijaya Pandit" }], correct: 0, category: "gk" },
+    { ml: "ആദ്യ വനിതാ സംസ്ഥാന ഗവർണർ?", en: "First female State Governor?", options: [{ ml: "സരോജിനി നായിഡു", en: "Sarojini Naidu" }, { ml: "ഇന്ദിരാ ഗാന്ധി", en: "Indira Gandhi" }, { ml: "വിജയലക്ഷ്മി പണ്ഡിറ്റ്", en: "Vijaya Pandit" }, { ml: "അന്നി ബസന്റ്", en: "Annie Besant" }], correct: 0, category: "gk" },
+    { ml: "ആദ്യ വനിതാ മേയർ?", en: "First female Mayor?", options: [{ ml: "താരാദേവി", en: "Tara Devi" }, { ml: "ഇന്ദിരാ ഗാന്ധി", en: "Indira Gandhi" }, { ml: "സരോജിനി നായിഡു", en: "Sarojini Naidu" }, { ml: "വിജയലക്ഷ്മി പണ്ഡിറ്റ്", en: "Vijaya Pandit" }], correct: 0, category: "gk" },
+    { ml: "ആദ്യ വനിതാ പഞ്ചായത്ത് പ്രസിഡന്റ്?", en: "First female Panchayat President?", options: [{ ml: "അന്ന ചാണ്ടി", en: "Anna Chandy" }, { ml: "ഇന്ദിരാ ഗാന്ധി", en: "Indira Gandhi" }, { ml: "സരോജിനി നായിഡു", en: "Sarojini Naidu" }, { ml: "വിജയലക്ഷ്മി പണ്ഡിറ്റ്", en: "Vijaya Pandit" }], correct: 0, category: "gk" },
+    { ml: "ഭൂമിയുടെ ഏറ്റവും അടുത്ത നക്ഷത്രം?", en: "Nearest star to Earth?", options: [{ ml: "സൂര്യൻ", en: "Sun" }, { ml: "പ്രോക്സിമ സെന്റോറി", en: "Proxima Centauri" }, { ml: "സിരിയസ്", en: "Sirius" }, { ml: "പോളാരിസ്", en: "Polaris" }], correct: 0, category: "science" },
+    { ml: "ഭൂമിയുടെ ഏറ്റവും അടുത്ത ഗ്രഹം?", en: "Nearest planet to Earth?", options: [{ ml: "ശുക്രൻ", en: "Venus" }, { ml: "ചൊവ്വ", en: "Mars" }, { ml: "ബുധൻ", en: "Mercury" }, { ml: "യുറാനസ്", en: "Uranus" }], correct: 0, category: "science" },
+    { ml: "സൗരയൂഥത്തിലെ ഏറ്റവും വലിയ ഗ്രഹം?", en: "Largest planet?", options: [{ ml: "വ്യാഴം", en: "Jupiter" }, { ml: "ശനി", en: "Saturn" }, { ml: "യുറാനസ്", en: "Uranus" }, { ml: "നെപ്റ്റ്യൂൺ", en: "Neptune" }], correct: 0, category: "science" },
+    { ml: "സൗരയൂഥത്തിലെ ഏറ്റവും ചെറിയ ഗ്രഹം?", en: "Smallest planet?", options: [{ ml: "ബുധൻ", en: "Mercury" }, { ml: "ശുക്രൻ", en: "Venus" }, { ml: "ചൊവ്വ", en: "Mars" }, { ml: "പ്ലൂട്ടോ", en: "Pluto" }], correct: 0, category: "science" },
+    { ml: "സൗരയൂഥത്തിലെ ഏറ്റവും ചൂടുള്ള ഗ്രഹം?", en: "Hottest planet?", options: [{ ml: "ശുക്രൻ", en: "Venus" }, { ml: "ബുധൻ", en: "Mercury" }, { ml: "ചൊവ്വ", en: "Mars" }, { ml: "വ്യാഴം", en: "Jupiter" }], correct: 0, category: "science" },
+    { ml: "സൗരയൂഥത്തിലെ ഏറ്റവും തണുത്ത ഗ്രഹം?", en: "Coldest planet?", options: [{ ml: "നെപ്റ്റ്യൂൺ", en: "Neptune" }, { ml: "യുറാനസ്", en: "Uranus" }, { ml: "ശനി", en: "Saturn" }, { ml: "വ്യാഴം", en: "Jupiter" }], correct: 0, category: "science" },
+    { ml: "ഏറ്റവും വേഗത്തിൽ കറങ്ങുന്ന ഗ്രഹം?", en: "Fastest rotating planet?", options: [{ ml: "വ്യാഴം", en: "Jupiter" }, { ml: "ശനി", en: "Saturn" }, { ml: "യുറാനസ്", en: "Uranus" }, { ml: "നെപ്റ്റ്യൂൺ", en: "Neptune" }], correct: 0, category: "science" },
+    { ml: "ഏറ്റവും മന്ദഗതിയിൽ കറങ്ങുന്ന ഗ്രഹം?", en: "Slowest rotating planet?", options: [{ ml: "ശുക്രൻ", en: "Venus" }, { ml: "ബുധൻ", en: "Mercury" }, { ml: "ചൊവ്വ", en: "Mars" }, { ml: "യുറാനസ്", en: "Uranus" }], correct: 0, category: "science" },
+    { ml: "ഏറ്റവും കൂടുതൽ ചന്ദ്രന്മാരുള്ള ഗ്രഹം?", en: "Most moons?", options: [{ ml: "ശനി", en: "Saturn" }, { ml: "വ്യാഴം", en: "Jupiter" }, { ml: "യുറാനസ്", en: "Uranus" }, { ml: "നെപ്റ്റ്യൂൺ", en: "Neptune" }], correct: 0, category: "science" },
+    { ml: "ഭൂമിയുടെ ഉപഗ്രഹം ഏത്?", en: "Earth's satellite?", options: [{ ml: "ചന്ദ്രൻ", en: "Moon" }, { ml: "ഫോബോസ്", en: "Phobos" }, { ml: "ടൈറ്റൻ", en: "Titan" }, { ml: "യൂറോപ", en: "Europa" }], correct: 0, category: "science" },
+    { ml: "സൂര്യനിൽ നിന്ന് ഏറ്റവും അടുത്ത ഗ്രഹം?", en: "Closest to Sun?", options: [{ ml: "ബുധൻ", en: "Mercury" }, { ml: "ശുക്രൻ", en: "Venus" }, { ml: "ചൊവ്വ", en: "Mars" }, { ml: "ഭൂമി", en: "Earth" }], correct: 0, category: "science" },
+    { ml: "സൂര്യനിൽ നിന്ന് ഏറ്റവും അകലെ ഗ്രഹം?", en: "Farthest from Sun?", options: [{ ml: "നെപ്റ്റ്യൂൺ", en: "Neptune" }, { ml: "യുറാനസ്", en: "Uranus" }, { ml: "ശനി", en: "Saturn" }, { ml: "വ്യാഴം", en: "Jupiter" }], correct: 0, category: "science" },
+    { ml: "ചെങ്കുത്തായ വലയങ്ങളുള്ള ഗ്രഹം?", en: "Planet with prominent rings?", options: [{ ml: "ശനി", en: "Saturn" }, { ml: "വ്യാഴം", en: "Jupiter" }, { ml: "യുറാനസ്", en: "Uranus" }, { ml: "നെപ്റ്റ്യൂൺ", en: "Neptune" }], correct: 0, category: "science" },
+    { ml: "ചുവന്ന ഗ്രഹം എന്നറിയപ്പെടുന്നത്?", en: "Red Planet?", options: [{ ml: "ചൊവ്വ", en: "Mars" }, { ml: "ശുക്രൻ", en: "Venus" }, { ml: "ബുധൻ", en: "Mercury" }, { ml: "യുറാനസ്", en: "Uranus" }], correct: 0, category: "science" },
+    { ml: "പ്രഭാതനക്ഷത്രം ഏത് ഗ്രഹം?", en: "Morning Star?", options: [{ ml: "ശുക്രൻ", en: "Venus" }, { ml: "ബുധൻ", en: "Mercury" }, { ml: "ചൊവ്വ", en: "Mars" }, { ml: "വ്യാഴം", en: "Jupiter" }], correct: 0, category: "science" },
+    { ml: "ഭാരത സ്വാതന്ത്ര്യദിനം?", en: "Independence Day of India?", options: [{ ml: "ആഗസ്റ്റ് 15", en: "August 15" }, { ml: "ജനുവരി 26", en: "January 26" }, { ml: "ഒക്ടോബർ 2", en: "October 2" }, { ml: "നവംബർ 14", en: "November 14" }], correct: 0, category: "history" },
+    { ml: "ഭാരത ഗണരാജ്യദിനം?", en: "Republic Day of India?", options: [{ ml: "ജനുവരി 26", en: "January 26" }, { ml: "ആഗസ്റ്റ് 15", en: "August 15" }, { ml: "ഒക്ടോബർ 2", en: "October 2" }, { ml: "നവംബർ 14", en: "November 14" }], correct: 0, category: "history" },
+    { ml: "ഗാന്ധിജയന്തി?", en: "Gandhi Jayanti?", options: [{ ml: "ഒക്ടോബർ 2", en: "October 2" }, { ml: "ആഗസ്റ്റ് 15", en: "August 15" }, { ml: "ജനുവരി 26", en: "January 26" }, { ml: "നവംബർ 14", en: "November 14" }], correct: 0, category: "history" },
+    { ml: "ചന്ദ്രയാൻ 1 എപ്പോൾ?", en: "When was Chandrayaan 1?", options: [{ ml: "2008", en: "2008" }, { ml: "2009", en: "2009" }, { ml: "2010", en: "2010" }, { ml: "2011", en: "2011" }], correct: 0, category: "history" },
+    { ml: "ചന്ദ്രയാൻ 2 എപ്പോൾ?", en: "When was Chandrayaan 2?", options: [{ ml: "2019", en: "2019" }, { ml: "2018", en: "2018" }, { ml: "2020", en: "2020" }, { ml: "2017", en: "2017" }], correct: 0, category: "history" },
+    { ml: "ചന്ദ്രയാൻ 3 എപ്പോൾ?", en: "When was Chandrayaan 3?", options: [{ ml: "2023", en: "2023" }, { ml: "2022", en: "2022" }, { ml: "2024", en: "2024" }, { ml: "2021", en: "2021" }], correct: 0, category: "history" },
+    { ml: "മംഗളയാൻ എപ്പോൾ?", en: "When was Mangalyaan?", options: [{ ml: "2013", en: "2013" }, { ml: "2012", en: "2012" }, { ml: "2014", en: "2014" }, { ml: "2015", en: "2015" }], correct: 0, category: "history" },
+    { ml: "ആദ്യ ഭാരതീയ ബഹിരാകാശയാത്രികൻ?", en: "First Indian astronaut?", options: [{ ml: "രാകേഷ് ശർമ", en: "Rakesh Sharma" }, { ml: "കൽപന ചൗള", en: "Kalpana Chawla" }, { ml: "സUNITA വില്യംസ്", en: "Sunita Williams" }, { ml: "വിക്രം സാരാഭായി", en: "Vikram Sarabhai" }], correct: 0, category: "history" },
+    { ml: "ചന്ദ്രനിൽ ഇറങ്ങിയ ആദ്യ മനുഷ്യൻ?", en: "First man on Moon?", options: [{ ml: "നീൽ ആംസ്ട്രോങ്", en: "Neil Armstrong" }, { ml: "ബസ് ആൽഡ്രിൻ", en: "Buzz Aldrin" }, { ml: "യൂറി ഗാഗറിൻ", en: "Yuri Gagarin" }, { ml: "മൈക്കൽ കോളിൻസ്", en: "Michael Collins" }], correct: 0, category: "history" },
+    { ml: "ആദ്യ ബഹിരാകാശയാത്രികൻ?", en: "First astronaut?", options: [{ ml: "യൂറി ഗാഗറിൻ", en: "Yuri Gagarin" }, { ml: "നീൽ ആംസ്ട്രോങ്", en: "Neil Armstrong" }, { ml: "ബസ് ആൽഡ്രിൻ", en: "Buzz Aldrin" }, { ml: "അലൻ ഷെപ്പർഡ്", en: "Alan Shepard" }], correct: 0, category: "history" },
+    { ml: "ഭാരതത്തിന്റെ ആദ്യ അണുവിക്ഷേപണം?", en: "First nuclear test?", options: [{ ml: "1974", en: "1974" }, { ml: "1964", en: "1964" }, { ml: "1998", en: "1998" }, { ml: "1980", en: "1980" }], correct: 0, category: "history" },
+    { ml: "ഭാരതത്തിന്റെ രണ്ടാമത്തെ അണുവിക്ഷേപണം?", en: "Second nuclear test?", options: [{ ml: "1998", en: "1998" }, { ml: "1974", en: "1974" }, { ml: "2000", en: "2000" }, { ml: "1990", en: "1990" }], correct: 0, category: "history" },
+    { ml: "ആദ്യ ഭാരതീയ ഉപഗ്രഹം?", en: "First Indian satellite?", options: [{ ml: "ആര്യഭട്ട", en: "Aryabhata" }, { ml: "ഭാസ്കര", en: "Bhaskara" }, { ml: "റോഹിണി", en: "Rohini" }, { ml: "ഇൻസാറ്റ്", en: "INSAT" }], correct: 0, category: "history" },
+    { ml: "ISRO സ്ഥാപിതമായ വർഷം?", en: "ISRO founded?", options: [{ ml: "1969", en: "1969" }, { ml: "1972", en: "1972" }, { ml: "1962", en: "1962" }, { ml: "1975", en: "1975" }], correct: 0, category: "history" },
+    { ml: "NASA സ്ഥാപിതമായ വർഷം?", en: "NASA founded?", options: [{ ml: "1958", en: "1958" }, { ml: "1960", en: "1960" }, { ml: "1950", en: "1950" }, { ml: "1965", en: "1965" }], correct: 0, category: "history" },
+    { ml: "ഒളിമ്പിക്സ് ആരംഭിച്ച വർഷം?", en: "Olympics started?", options: [{ ml: "1896", en: "1896" }, { ml: "1900", en: "1900" }, { ml: "1888", en: "1888" }, { ml: "1912", en: "1912" }], correct: 0, category: "sports" },
+    { ml: "ഫിഫ ലോകകപ്പ് ആരംഭിച്ച വർഷം?", en: "FIFA World Cup started?", options: [{ ml: "1930", en: "1930" }, { ml: "1928", en: "1928" }, { ml: "1934", en: "1934" }, { ml: "1920", en: "1920" }], correct: 0, category: "sports" },
+    { ml: "ആദ്യ ക്രിക്കറ്റ് ലോകകപ്പ്?", en: "First Cricket World Cup?", options: [{ ml: "1975", en: "1975" }, { ml: "1971", en: "1971" }, { ml: "1979", en: "1979" }, { ml: "1983", en: "1983" }], correct: 0, category: "sports" },
+    { ml: "ആദ്യ ടി20 ലോകകപ്പ്?", en: "First T20 World Cup?", options: [{ ml: "2007", en: "2007" }, { ml: "2005", en: "2005" }, { ml: "2009", en: "2009" }, { ml: "2011", en: "2011" }], correct: 0, category: "sports" },
+    { ml: "ആദ്യ ഐപിഎൽ?", en: "First IPL?", options: [{ ml: "2008", en: "2008" }, { ml: "2007", en: "2007" }, { ml: "2009", en: "2009" }, { ml: "2010", en: "2010" }], correct: 0, category: "sports" },
+    { ml: "ആദ്യ ക്രിക്കറ്റ് ടെസ്റ്റ്?", en: "First Test match?", options: [{ ml: "1877", en: "1877" }, { ml: "1880", en: "1880" }, { ml: "1875", en: "1875" }, { ml: "1890", en: "1890" }], correct: 0, category: "sports" },
+    { ml: "ആദ്യ ഏകദിനം?", en: "First ODI?", options: [{ ml: "1971", en: "1971" }, { ml: "1975", en: "1975" }, { ml: "1969", en: "1969" }, { ml: "1973", en: "1973" }], correct: 0, category: "sports" },
+    { ml: "ആദ്യ ടി20?", en: "First T20?", options: [{ ml: "2003", en: "2003" }, { ml: "2005", en: "2005" }, { ml: "2001", en: "2001" }, { ml: "2007", en: "2007" }], correct: 0, category: "sports" },
+    { ml: "ആദ്യ ഫിഫ ലോകകപ്പ് ജേതാവ്?", en: "First FIFA WC winner?", options: [{ ml: "ഉറുഗ്വേ", en: "Uruguay" }, { ml: "ബ്രസീൽ", en: "Brazil" }, { ml: "അർജന്റീന", en: "Argentina" }, { ml: "ജർമനി", en: "Germany" }], correct: 0, category: "sports" },
+    { ml: "ഏറ്റവും കൂടുതൽ ഫിഫ ലോകകപ്പ്?", en: "Most FIFA WC wins?", options: [{ ml: "ബ്രസീൽ", en: "Brazil" }, { ml: "ജർമനി", en: "Germany" }, { ml: "ഇറ്റലി", en: "Italy" }, { ml: "അർജന്റീന", en: "Argentina" }], correct: 0, category: "sports" },
+    { ml: "ഏറ്റവും കൂടുതൽ ക്രിക്കറ്റ് ലോകകപ്പ്?", en: "Most Cricket WC wins?", options: [{ ml: "ഓസ്ട്രേലിയ", en: "Australia" }, { ml: "ഇന്ത്യ", en: "India" }, { ml: "വെസ്റ്റിൻഡീസ്", en: "West Indies" }, { ml: "പാകിസ്താൻ", en: "Pakistan" }], correct: 0, category: "sports" },
+    { ml: "ആദ്യ ടി20 ലോകകപ്പ് ജേതാവ്?", en: "First T20 WC winner?", options: [{ ml: "ഇന്ത്യ", en: "India" }, { ml: "ഓസ്ട്രേലിയ", en: "Australia" }, { ml: "പാകിസ്താൻ", en: "Pakistan" }, { ml: "ശ്രീലങ്ക", en: "Sri Lanka" }], correct: 0, category: "sports" },
+    { ml: "ആദ്യ ഐപിഎൽ ജേതാവ്?", en: "First IPL winner?", options: [{ ml: "രാജസ്ഥാൻ റോയൽസ്", en: "Rajasthan Royals" }, { ml: "ചെന്നൈ സൂപ്പർ കിങ്സ്", en: "Chennai Super Kings" }, { ml: "കൊൽക്കത്ത നൈറ്റ് റൈഡേഴ്സ്", en: "Kolkata Knight Riders" }, { ml: "മുംബൈ ഇന്ത്യൻസ്", en: "Mumbai Indians" }], correct: 0, category: "sports" },
+    { ml: "ആദ്യ ക്രിക്കറ്റ് ടെസ്റ്റ് ജേതാവ്?", en: "First Test winner?", options: [{ ml: "ഓസ്ട്രേലിയ", en: "Australia" }, { ml: "ഇംഗ്ലണ്ട്", en: "England" }, { ml: "വെസ്റ്റിൻഡീസ്", en: "West Indies" }, { ml: "ഇന്ത്യ", en: "India" }], correct: 0, category: "sports" },
+    { ml: "ആദ്യ ഏകദിന ജേതാവ്?", en: "First ODI winner?", options: [{ ml: "ഓസ്ട്രേലിയ", en: "Australia" }, { ml: "ഇംഗ്ലണ്ട്", en: "England" }, { ml: "വെസ്റ്റിൻഡീസ്", en: "West Indies" }, { ml: "ഇന്ത്യ", en: "India" }], correct: 0, category: "sports" },
+    { ml: "ആദ്യ മലയാള സിനിമ?", en: "First Malayalam film?", options: [{ ml: "വിഗതകുമാരൻ", en: "Vigathakumaran" }, { ml: "ബാലന്", en: "Balan" }, { ml: "ജീവിതനൗക", en: "Jeevithanauka" }, { ml: "നീലക്കുയിൽ", en: "Neelakkuyil" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള ടോക്കി?", en: "First Malayalam talkie?", options: [{ ml: "ബാലന്", en: "Balan" }, { ml: "വിഗതകുമാരൻ", en: "Vigathakumaran" }, { ml: "ജീവിതനൗക", en: "Jeevithanauka" }, { ml: "നീലക്കുയിൽ", en: "Neelakkuyil" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ കളർ മലയാള സിനിമ?", en: "First color Malayalam film?", options: [{ ml: "കണ്ടംബെച്ച കോട്ട്", en: "Kandambecha Kottu" }, { ml: "ചെമ്മീൻ", en: "Chemmeen" }, { ml: "ഭാരതം", en: "Bharatham" }, { ml: "ഗുരു", en: "Guru" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ സിനിമാ തിയേറ്റർ കേരളത്തിൽ?", en: "First cinema theater in Kerala?", options: [{ ml: "കൊച്ചി", en: "Kochi" }, { ml: "തിരുവനന്തപുരം", en: "Thiruvananthapuram" }, { ml: "കോഴിക്കോട്", en: "Kozhikode" }, { ml: "കോട്ടയം", en: "Kottayam" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള സിനിമാ നിർമ്മാതാവ്?", en: "First Malayalam film producer?", options: [{ ml: "ജെ.സി. ഡാനിയേൽ", en: "J.C. Daniel" }, { ml: "പി. രാമദാസ്", en: "P. Ramdas" }, { ml: "രാമു കാര്യാട്", en: "Ramu Kariat" }, { ml: "അടൂർ ഗോപാലകൃഷ്ണൻ", en: "Adoor Gopalakrishnan" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള സിനിമാ നടൻ?", en: "First Malayalam actor?", options: [{ ml: "ജെ.സി. ഡാനിയേൽ", en: "J.C. Daniel" }, { ml: "പ്രേം നസീർ", en: "Prem Nazir" }, { ml: "സത്യൻ", en: "Sathyan" }, { ml: "മധു", en: "Madhu" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള സിനിമാ നടി?", en: "First Malayalam actress?", options: [{ ml: "പി.കെ. റോസി", en: "P.K. Rosy" }, { ml: "ഷീല", en: "Sheela" }, { ml: "സരസ്വതി", en: "Saraswathi" }, { ml: "അംബിക", en: "Ambika" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള സംവിധായകൻ?", en: "First Malayalam director?", options: [{ ml: "ജെ.സി. ഡാനിയേൽ", en: "J.C. Daniel" }, { ml: "പി. രാമദാസ്", en: "P. Ramdas" }, { ml: "രാമു കാര്യാട്", en: "Ramu Kariat" }, { ml: "അടൂർ ഗോപാലകൃഷ്ണൻ", en: "Adoor Gopalakrishnan" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള സംഗീതസംവിധായകൻ?", en: "First Malayalam music director?", options: [{ ml: "ദക്ഷിണാമൂർത്തി", en: "Dakshinamurthy" }, { ml: "എം.എസ്. വിശ്വനാഥൻ", en: "M.S. Viswanathan" }, { ml: "ഇളയരാജ", en: "Ilayaraja" }, { ml: "എ.ആർ. റഹ്‌മാൻ", en: "A.R. Rahman" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള ഗാനരചയിതാവ്?", en: "First Malayalam lyricist?", options: [{ ml: "വള്ളത്തോൾ", en: "Vallathol" }, { ml: "ഒ.എൻ.വി. കുറുപ്പ്", en: "O.N.V. Kurup" }, { ml: "വയലാർ", en: "Vayalar" }, { ml: "പി. ഭാസ്കരൻ", en: "P. Bhaskaran" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള പശ്ചാത്തലസംഗീതം?", en: "First Malayalam background music?", options: [{ ml: "വിഗതകുമാരൻ", en: "Vigathakumaran" }, { ml: "ബാലന്", en: "Balan" }, { ml: "ജീവിതനൗക", en: "Jeevithanauka" }, { ml: "നീലക്കുയിൽ", en: "Neelakkuyil" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള സിനിമാ പുരസ്കാരം?", en: "First Malayalam film award?", options: [{ ml: "ദേശീയ പുരസ്കാരം", en: "National Award" }, { ml: "ഫിലിംഫെയർ", en: "Filmfare" }, { ml: "കേരള സംസ്ഥാന പുരസ്കാരം", en: "State Award" }, { ml: "പദ്മ പുരസ്കാരം", en: "Padma Award" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള സിനിമാ അവാർഡ് ജേതാവ്?", en: "First Malayalam award winner?", options: [{ ml: "ചെമ്മീൻ", en: "Chemmeen" }, { ml: "സ്വയംവരം", en: "Swayamvaram" }, { ml: "പിറവി", en: "Piravi" }, { ml: "മത്തിലുകൾ", en: "Mathilukal" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള സിനിമാ ഓസ്കാർ നോമിനേഷൻ?", en: "First Malayalam Oscar nomination?", options: [{ ml: "ഗുരു", en: "Guru" }, { ml: "സലാം ബോംബേ", en: "Salaam Bombay" }, { ml: "ലഗാൻ", en: "Lagaan" }, { ml: "മദർ ഇന്ത്യ", en: "Mother India" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള സിനിമാ കാൻസ്?", en: "First Malayalam at Cannes?", options: [{ ml: "സ്വയംവരം", en: "Swayamvaram" }, { ml: "ചെമ്മീൻ", en: "Chemmeen" }, { ml: "പിറവി", en: "Piravi" }, { ml: "മത്തിലുകൾ", en: "Mathilukal" }], correct: 0, category: "cinema" },
+    { ml: "ആദ്യ മലയാള കവിത?", en: "First Malayalam poem?", options: [{ ml: "രാമചരിതം", en: "Ramacharitham" }, { ml: "കുന്ദലത", en: "Kundalatha" }, { ml: "ഇന്ദുലേഖ", en: "Indulekha" }, { ml: "സരസ്വതീവിജയം", en: "Saraswathi Vijayam" }], correct: 0, category: "literature" },
+    { ml: "ആദ്യ മലയാള കവി?", en: "First Malayalam poet?", options: [{ ml: "ചേരുശ്ശേരി", en: "Cherusseri" }, { ml: "എഴുത്തച്ഛൻ", en: "Ezhuthachan" }, { ml: "കുമാരനാശാൻ", en: "Kumaran Asan" }, { ml: "വള്ളത്തോൾ", en: "Vallathol" }], correct: 0, category: "literature" },
+    { ml: "ആദ്യ മലയാള നാടകം?", en: "First Malayalam drama?", options: [{ ml: "അഭിജ്ഞാനശാകുന്തളം", en: "Abhijnanasakuntalam" }, { ml: "ശകുന്തള", en: "Shakuntala" }, { ml: "സാക്ഷത്കാരം", en: "Sakshatkaram" }, { ml: "രംഗഭൂമി", en: "Rangabhoomi" }], correct: 0, category: "literature" },
+    { ml: "ആദ്യ മലയാള നാടകകൃത്ത്?", en: "First Malayalam playwright?", options: [{ ml: "വള്ളത്തോൾ", en: "Vallathol" }, { ml: "എഴുത്തച്ഛൻ", en: "Ezhuthachan" }, { ml: "കുമാരനാശാൻ", en: "Kumaran Asan" }, { ml: "ചേരുശ്ശേരി", en: "Cherusseri" }], correct: 0, category: "literature" },
+    { ml: "ആദ്യ മലയാള ചെറുകഥ?", en: "First Malayalam short story?", options: [{ ml: "വസനവികൃതി", en: "Vasanavikriti" }, { ml: "ഒരു സങ്കീർത്തനം", en: "Oru Sankirtanam" }, { ml: "തെരഞ്ഞെടുപ്പ്", en: "Theranjeduppu" }, { ml: "കാലം", en: "Kalam" }], correct: 0, category: "literature" },
+    { ml: "ആദ്യ മലയാള ചെറുകഥാകൃത്ത്?", en: "First Malayalam short story writer?", options: [{ ml: "വൈക്കം ബഷീർ", en: "Vaikom Basheer" }, { ml: "എം.ടി.", en: "M.T." }, { ml: "തകഴി", en: "Thakazhi" }, { ml: "ഒ.വി.വിജയൻ", en: "O.V. Vijayan" }], correct: 0, category: "literature" },
+    { ml: "ആദ്യ മലയാള നോവലിസ്റ്റ്?", en: "First Malayalam novelist?", options: [{ ml: "സി.വി. രാമൻ പിള്ള", en: "C.V. Raman Pillai" }, { ml: "എഴുത്തച്ഛൻ", en: "Ezhuthachan" }, { ml: "കുമാരനാശാൻ", en: "Kumaran Asan" }, { ml: "വള്ളത്തോൾ", en: "Vallathol" }], correct: 0, category: "literature" },
+    { ml: "ആദ്യ മലയാള സാഹിത്യ പുരസ്കാരം?", en: "First Malayalam literary award?", options: [{ ml: "ഓടക്കുഴൽ പുരസ്കാരം", en: "Odakkuzhal Award" }, { ml: "എഴുത്തച്ഛൻ പുരസ്കാരം", en: "Ezhuthachan Award" }, { ml: "കേന്ദ്ര സാഹിത്യ അക്കാദമി", en: "Sahitya Akademi" }, { ml: "ജ്ഞാനപീഠം", en: "Jnanpith" }], correct: 0, category: "literature" },
+    { ml: "ആദ്യ മലയാള ജ്ഞാനപീഠം ജേതാവ്?", en: "First Malayalam Jnanpith winner?", options: [{ ml: "ജി. ശങ്കരക്കുറുപ്പ്", en: "G. Sankarakurup" }, { ml: "എം.ടി.", en: "M.T." }, { ml: "ഒ.എൻ.വി.", en: "O.N.V." }, { ml: "വൈക്കം ബഷീർ", en: "Vaikom Basheer" }], correct: 0, category: "literature" },
+    { ml: "ആദ്യ മലയാള നോബൽ സാഹിത്യ പുരസ്കാരം?", en: "First Malayalam Nobel nomination?", options: [{ ml: "രബീന്ദ്രനാഥ് താഗോർ", en: "Rabindranath Tagore" }, { ml: "ജി. ശങ്കരക്കുറുപ്പ്", en: "G. Sankarakurup" }, { ml: "എം.ടി.", en: "M.T." }, { ml: "ഒ.എൻ.വി.", en: "O.N.V." }], correct: 0, category: "literature" },
+    { ml: "ആദ്യ കമ്പ്യൂട്ടർ?", en: "First computer?", options: [{ ml: "ENIAC", en: "ENIAC" }, { ml: "UNIVAC", en: "UNIVAC" }, { ml: "IBM PC", en: "IBM PC" }, { ml: "Apple II", en: "Apple II" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ മൈക്രോപ്രോസസർ?", en: "First microprocessor?", options: [{ ml: "Intel 4004", en: "Intel 4004" }, { ml: "Intel 8080", en: "Intel 8080" }, { ml: "Z80", en: "Z80" }, { ml: "6502", en: "6502" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ പേഴ്സണൽ കമ്പ്യൂട്ടർ?", en: "First PC?", options: [{ ml: "Altair 8800", en: "Altair 8800" }, { ml: "IBM PC", en: "IBM PC" }, { ml: "Apple I", en: "Apple I" }, { ml: "Commodore PET", en: "Commodore PET" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ മൊബൈൽ ഫോൺ?", en: "First mobile phone?", options: [{ ml: "Motorola DynaTAC", en: "Motorola DynaTAC" }, { ml: "Nokia 3310", en: "Nokia 3310" }, { ml: "iPhone", en: "iPhone" }, { ml: "BlackBerry", en: "BlackBerry" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ സ്മാർട്ട്ഫോൺ?", en: "First smartphone?", options: [{ ml: "IBM Simon", en: "IBM Simon" }, { ml: "iPhone", en: "iPhone" }, { ml: "BlackBerry", en: "BlackBerry" }, { ml: "Nokia Communicator", en: "Nokia Communicator" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ iPhone?", en: "First iPhone?", options: [{ ml: "2007", en: "2007" }, { ml: "2005", en: "2005" }, { ml: "2009", en: "2009" }, { ml: "2010", en: "2010" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ Android ഫോൺ?", en: "First Android phone?", options: [{ ml: "HTC Dream", en: "HTC Dream" }, { ml: "Samsung Galaxy", en: "Samsung Galaxy" }, { ml: "Nexus One", en: "Nexus One" }, { ml: "Motorola Droid", en: "Motorola Droid" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ വിൻഡോസ്?", en: "First Windows?", options: [{ ml: "Windows 1.0", en: "Windows 1.0" }, { ml: "Windows 3.0", en: "Windows 3.0" }, { ml: "Windows 95", en: "Windows 95" }, { ml: "Windows XP", en: "Windows XP" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ Linux?", en: "First Linux?", options: [{ ml: "1991", en: "1991" }, { ml: "1993", en: "1993" }, { ml: "1995", en: "1995" }, { ml: "1997", en: "1997" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ വേൾഡ് വൈഡ് വെബ്?", en: "First WWW?", options: [{ ml: "1989", en: "1989" }, { ml: "1990", en: "1990" }, { ml: "1991", en: "1991" }, { ml: "1993", en: "1993" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ Google?", en: "First Google?", options: [{ ml: "1998", en: "1998" }, { ml: "1996", en: "1996" }, { ml: "2000", en: "2000" }, { ml: "1994", en: "1994" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ Facebook?", en: "First Facebook?", options: [{ ml: "2004", en: "2004" }, { ml: "2003", en: "2003" }, { ml: "2005", en: "2005" }, { ml: "2006", en: "2006" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ Twitter?", en: "First Twitter?", options: [{ ml: "2006", en: "2006" }, { ml: "2004", en: "2004" }, { ml: "2008", en: "2008" }, { ml: "2005", en: "2005" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ YouTube?", en: "First YouTube?", options: [{ ml: "2005", en: "2005" }, { ml: "2004", en: "2004" }, { ml: "2006", en: "2006" }, { ml: "2003", en: "2003" }], correct: 0, category: "tech" },
+    { ml: "ആദ്യ WhatsApp?", en: "First WhatsApp?", options: [{ ml: "2009", en: "2009" }, { ml: "2008", en: "2008" }, { ml: "2010", en: "2010" }, { ml: "2011", en: "2011" }], correct: 0, category: "tech" },
+    { ml: "ലോകത്തിലെ ഏറ്റവും വലിയ സമുദ്രം?", en: "Largest ocean?", options: [{ ml: "പസിഫിക്", en: "Pacific" }, { ml: "അറ്റ്ലാന്റിക്", en: "Atlantic" }, { ml: "ഇന്ത്യൻ", en: "Indian" }, { ml: "ആർക്ടിക്", en: "Arctic" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും ചെറിയ സമുദ്രം?", en: "Smallest ocean?", options: [{ ml: "ആർക്ടിക്", en: "Arctic" }, { ml: "ഇന്ത്യൻ", en: "Indian" }, { ml: "അറ്റ്ലാന്റിക്", en: "Atlantic" }, { ml: "പസിഫിക്", en: "Pacific" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും വലിയ കണ്ടinent?", en: "Largest continent?", options: [{ ml: "ഏഷ്യ", en: "Asia" }, { ml: "ആഫ്രിക്ക", en: "Africa" }, { ml: "നോർത്ത് അമേരിക്ക", en: "North America" }, { ml: "അന്റാർട്ടിക്ക", en: "Antarctica" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും ചെറിയ കണ്ടinent?", en: "Smallest continent?", options: [{ ml: "ഓസ്‌ട്രേലിയ", en: "Australia" }, { ml: "യൂറോപ്പ്", en: "Europe" }, { ml: "അന്റാർട്ടിക്ക", en: "Antarctica" }, { ml: "ദക്ഷിണ അമേരിക്ക", en: "South America" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും വലിയ രാജ്യം?", en: "Largest country?", options: [{ ml: "റഷ്യ", en: "Russia" }, { ml: "കാനഡ", en: "Canada" }, { ml: "ചൈന", en: "China" }, { ml: "അമേരിക്ക", en: "USA" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും ചെറിയ രാജ്യം?", en: "Smallest country?", options: [{ ml: "വത്തിക്കാൻ", en: "Vatican" }, { ml: "മൊണാക്കോ", en: "Monaco" }, { ml: "നൗറു", en: "Nauru" }, { ml: "ടുവാലു", en: "Tuvalu" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും ജനസംഖ്യ കൂടിയ രാജ്യം?", en: "Most populous country?", options: [{ ml: "ചൈന", en: "China" }, { ml: "ഇന്ത്യ", en: "India" }, { ml: "അമേരിക്ക", en: "USA" }, { ml: "ഇന്തോനേഷ്യ", en: "Indonesia" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും ജനസംഖ്യ കുറഞ്ഞ രാജ്യം?", en: "Least populous country?", options: [{ ml: "വത്തിക്കാൻ", en: "Vatican" }, { ml: "മൊണാക്കോ", en: "Monaco" }, { ml: "നൗറു", en: "Nauru" }, { ml: "ടുവാലു", en: "Tuvalu" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും നീളം കൂടിയ നദി?", en: "Longest river?", options: [{ ml: "നൈൽ", en: "Nile" }, { ml: "അമസോൺ", en: "Amazon" }, { ml: "യാങ്സി", en: "Yangtze" }, { ml: "മിസിസിപ്പി", en: "Mississippi" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും വലിയ മരുഭൂമി?", en: "Largest desert?", options: [{ ml: "സഹാറ", en: "Sahara" }, { ml: "അറേബ്യൻ", en: "Arabian" }, { ml: "ഗോബി", en: "Gobi" }, { ml: "കലഹരി", en: "Kalahari" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും ഉയരം കൂടിയ കൊടുമുടി?", en: "Highest mountain?", options: [{ ml: "എവറസ്റ്റ്", en: "Everest" }, { ml: "ക2", en: "K2" }, { ml: "കാഞ്ചൻജംഗ", en: "Kanchenjunga" }, { ml: "ലോട്ട്സെ", en: "Lhotse" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും വലിയ ദ്വീപ്?", en: "Largest island?", options: [{ ml: "ഗ്രീൻലാൻഡ്", en: "Greenland" }, { ml: "ന്യൂ ഗിനിയ", en: "New Guinea" }, { ml: "ബോർണിയോ", en: "Borneo" }, { ml: "മഡഗാസ്കർ", en: "Madagascar" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും വലിയ തടാകം?", en: "Largest lake?", options: [{ ml: "കാസ്പിയൻ", en: "Caspian" }, { ml: "സുപീരിയർ", en: "Superior" }, { ml: "വിക്ടോറിയ", en: "Victoria" }, { ml: "ഹുറോൺ", en: "Huron" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും ആഴം കൂടിയ സമുദ്രം?", en: "Deepest ocean?", options: [{ ml: "പസിഫിക്", en: "Pacific" }, { ml: "അറ്റ്ലാന്റിക്", en: "Atlantic" }, { ml: "ഇന്ത്യൻ", en: "Indian" }, { ml: "ആർക്ടിക്", en: "Arctic" }], correct: 0, category: "geography" },
+    { ml: "ഏറ്റവും വലിയ വെള്ളച്ചാട്ടം?", en: "Largest waterfall?", options: [{ ml: "വിക്ടോറിയ", en: "Victoria" }, { ml: "നയാഗ്ര", en: "Niagara" }, { ml: "ഏഞ്ചൽ", en: "Angel" }, { ml: "ഇഗ്വാസു", en: "Iguazu" }], correct: 0, category: "geography" },
+];
+
+// ===== GAME STATE =====
+let currentQuestion = 0;
+let currentPrize = 0;
+let safePrize = 0;
+let lifelines = { '50-50': false, 'poll': false, 'expert': false, 'flip': false };
+let timerInterval;
+let timeLeft = 45;
+let questions = [];
+let selectedAnswer = -1;
+let isProcessing = false;
+
+const prizeAmounts = [
+    1000, 2000, 3000, 5000, 10000,
+    20000, 40000, 80000, 160000, 320000,
+    640000, 1250000, 2500000, 5000000, 10000000
+];
+
+const milestones = [4, 9, 14];
+
+// ===== HOST COMMENTARIES =====
+const hostCommentaries = {
+    start: [
+        { ml: 'നമസ്കാരം! കൂടീശ്വരനിലേക്ക് സ്വാഗതം! ഇന്ന് ആരായിരിക്കും കോടീശ്വരൻ?', en: 'Welcome to Koodeeshwaran! Who will be the millionaire today?' },
+        { ml: 'എല്ലാവർക്കും നമസ്കാരം! കൂടീശ്വരന്റെ മഞ്ഞുകാലം തുടങ്ങുന്നു!', en: 'Greetings everyone! The Koodeeshwaran journey begins!' }
+    ],
+    select: [
+        { ml: 'ഉറപ്പാണോ? ഈ ഉത്തരം ലോക്ക് ചെയ്യട്ടേ?', en: 'Are you sure? Shall we lock this answer?' },
+        { ml: 'നിങ്ങൾക്ക് ഈ ഉത്തരത്തിൽ വിശ്വാസമുണ്ടോ? ലോക്ക് ചെയ്യണോ?', en: 'Do you believe in this answer? Shall we lock it?' },
+        { ml: 'ഒരു സെക്കൻഡ്! ഈ ഉത്തരം തന്നെയാണോ? ലോക്ക് ചെയ്യാം?', en: 'One second! Is this the answer? Shall we lock it?' }
+    ],
+    correct: [
+        { ml: 'ശരിയാണ്! അഭിനന്ദനങ്ങൾ! നിങ്ങൾ വിജയകരമായി മുന്നോട്ട്!', en: 'Correct! Congratulations! You move forward successfully!' },
+        { ml: 'അതെ! അത് ശരിയായ ഉത്തരം! വളരെ നല്ലത്!', en: 'Yes! That is the correct answer! Very good!' },
+        { ml: 'അഭിനന്ദനങ്ങൾ! ശരിയായ ഉത്തരം! നിങ്ങൾ അടുത്ത ഘട്ടത്തിലേക്ക്!', en: 'Congratulations! Correct answer! To the next level!' }
+    ],
+    milestone: [
+        { ml: 'വാഹ്! ഒരു സേഫ് പോയിന്റ് കടന്നു! ഇനി ഈ തുക നിങ്ങൾക്ക് ഉറപ്പാണ്!', en: 'Wow! You crossed a safe point! This amount is now guaranteed!' },
+        { ml: 'അടിപൊളി! ഒരു വലിയ മൈൽക്കല്ല് കടന്നു! അഭിനന്ദനങ്ങൾ!', en: 'Awesome! You crossed a major milestone! Congratulations!' }
+    ],
+    wrong: [
+        { ml: 'ക്ഷമിക്കണം! അത് തെറ്റായ ഉത്തരം! ഗേം ഓവർ!', en: 'Sorry! That is the wrong answer! Game Over!' },
+        { ml: 'അയ്യോ! തെറ്റായി! ശരിയായ ഉത്തരം വേറെയാണ്!', en: 'Oh no! Wrong! The correct answer was different!' }
+    ],
+    walkAway: [
+        { ml: 'നിങ്ങൾ വിട്ടുകൊടുത്തു! ബുദ്ധിയുള്ള തീരുമാനം! നിങ്ങൾ നേടിയത്...', en: 'You walked away! A wise decision! You have won...' }
+    ],
+    win: [
+        { ml: 'അഭിനന്ദനങ്ങൾ! നിങ്ങൾ കൂടീശ്വരനായി! ഏഴുകോടി രൂപ നേടി!', en: 'Congratulations! You became a Millionaire! Won 7 Crores!' }
+    ],
+    lifeline50: [
+        { ml: '50:50 ഉപയോഗിക്കുന്നു! രണ്ട് തെറ്റായ ഉത്തരങ്ങൾ നീക്കം ചെയ്തു!', en: 'Using 50:50! Two wrong answers removed!' }
+    ],
+    lifelinePoll: [
+        { ml: 'പ്രേക്ഷക വോട്ടെടുപ്പ്! നോക്കൂ എന്താണ് ജനങ്ങൾ പറയുന്നത്!', en: 'Audience poll! Let us see what the people say!' }
+    ],
+    lifelineExpert: [
+        { ml: 'വിദഗ്ധ സഹായം! ഞങ്ങളുടെ വിദഗ്ധനെ വിളിക്കാം!', en: 'Expert help! Let us call our expert!' }
+    ],
+    lifelineFlip: [
+        { ml: 'ചോദ്യം മാറ്റുന്നു! പുതിയ ചോദ്യം വരുന്നു!', en: 'Flipping the question! New question coming!' }
+    ],
+    questionIntro: [
+        { ml: 'ചോദ്യം നമ്പർ {n}... {amount} രൂപയ്ക്ക്!', en: 'Question number {n}... for Rs {amount}!' },
+        { ml: 'ഇനി {n} ആം ചോദ്യം... {amount} രൂപ!', en: 'Now the {n}th question... for Rs {amount}!' }
+    ]
+};
+
+// ===== SOUND EFFECTS (Web Audio API) =====
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playSound(type) {
+    try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        switch(type) {
+            case 'select':
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.15);
+                break;
+            case 'lock':
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.3);
+                break;
+            case 'correct':
+                [523, 659, 784, 1047].forEach((freq, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.15);
+                    g.gain.setValueAtTime(0.1, audioCtx.currentTime + i * 0.15);
+                    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.15 + 0.3);
+                    o.start(audioCtx.currentTime + i * 0.15);
+                    o.stop(audioCtx.currentTime + i * 0.15 + 0.3);
+                });
+                break;
+            case 'wrong':
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.5);
+                break;
+            case 'milestone':
+                [523, 659, 784, 1047, 1319].forEach((freq, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
+                    g.gain.setValueAtTime(0.12, audioCtx.currentTime + i * 0.1);
+                    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.4);
+                    o.start(audioCtx.currentTime + i * 0.1);
+                    o.stop(audioCtx.currentTime + i * 0.1 + 0.4);
+                });
+                break;
+            case 'tick':
+                osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.05);
+                break;
+            case 'lifeline':
+                osc.frequency.setValueAtTime(700, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.2);
+                break;
+            case 'win':
+                [523, 659, 784, 1047, 1319, 1568].forEach((freq, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.12);
+                    g.gain.setValueAtTime(0.12, audioCtx.currentTime + i * 0.12);
+                    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.12 + 0.5);
+                    o.start(audioCtx.currentTime + i * 0.12);
+                    o.stop(audioCtx.currentTime + i * 0.12 + 0.5);
+                });
+                break;
+        }
+    } catch(e) { console.log('Audio error:', e); }
+}
+
+// ===== HOST FUNCTIONS =====
+function setHostText(ml, en) {
+    const hostText = document.getElementById('hostText');
+    hostText.innerHTML = '<div>' + ml + '</div><div class="english">' + en + '</div>';
+    const hostArea = document.getElementById('hostArea');
+    hostArea.style.animation = 'none';
+    hostArea.offsetHeight;
+    hostArea.style.animation = 'fadeIn 0.5s ease';
+}
+
+function getRandomCommentary(type, replacements) {
+    replacements = replacements || {};
+    const list = hostCommentaries[type];
+    let item = list[Math.floor(Math.random() * list.length)];
+    let ml = item.ml;
+    let en = item.en;
+    for (let key in replacements) {
+        ml = ml.replace('{' + key + '}', replacements[key]);
+        en = en.replace('{' + key + '}', replacements[key]);
+    }
+    return { ml: ml, en: en };
+}
+
+// ===== INITIALIZE =====
+function initPrizeLadder() {
+    const ladder = document.getElementById('prizeLadder');
+    ladder.innerHTML = '';
+    for (let i = 14; i >= 0; i--) {
+        const div = document.createElement('div');
+        div.className = 'prize-item' + (milestones.includes(i) ? ' milestone' : '');
+        div.id = 'prize-' + i;
+        div.innerHTML = '<span class="prize-number">' + (i+1) + '</span><span class="prize-amount">Rs' + prizeAmounts[i].toLocaleString() + '</span>';
+        ladder.appendChild(div);
+    }
+}
+
+function shuffleArray(array) {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+}
+
+function selectQuestions() {
+    return shuffleArray(questionLibrary).slice(0, 15);
+}
+
+// ===== PARTICLES =====
+function createParticles() {
+    const container = document.getElementById('particles');
+    for (let i = 0; i < 30; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = Math.random() * 100 + 'vw';
+        p.style.animationDelay = Math.random() * 10 + 's';
+        p.style.animationDuration = (8 + Math.random() * 6) + 's';
+        container.appendChild(p);
+    }
+}
+
+// ===== GAME START =====
+function startGame() {
+    document.getElementById('titleScreen').style.display = 'none';
+    document.getElementById('gameScreen').style.display = 'block';
+    document.getElementById('gameOverOverlay').style.display = 'none';
+
+    currentQuestion = 0;
+    currentPrize = 0;
+    safePrize = 0;
+    selectedAnswer = -1;
+    lifelines = { '50-50': false, 'poll': false, 'expert': false, 'flip': false };
+    questions = selectQuestions();
+
+    document.querySelectorAll('.lifeline-btn').forEach(function(btn) { btn.classList.remove('used'); });
+
+    initPrizeLadder();
+
+    const commentary = getRandomCommentary('start');
+    setHostText(commentary.ml, commentary.en);
+    playSound('milestone');
+
+    setTimeout(function() { loadQuestion(); }, 2000);
+}
+
+// ===== LOAD QUESTION =====
+function loadQuestion() {
+    if (currentQuestion >= 15) {
+        endGame(true);
+        return;
+    }
+
+    isProcessing = false;
+    selectedAnswer = -1;
+    document.getElementById('confirmArea').style.display = 'none';
+
+    const q = questions[currentQuestion];
+    const amount = prizeAmounts[currentQuestion].toLocaleString();
+
+    const commentary = getRandomCommentary('questionIntro', { n: currentQuestion + 1, amount: amount });
+    setHostText(commentary.ml, commentary.en);
+
+    document.getElementById('questionNumber').textContent = 'QUESTION ' + (currentQuestion + 1) + ' of 15';
+    document.getElementById('questionText').textContent = q.ml;
+    document.getElementById('questionEnglish').textContent = q.en;
+    document.getElementById('currentPrize').textContent = 'Rs ' + currentPrize.toLocaleString();
+
+    document.querySelectorAll('.prize-item').forEach(function(item, idx) {
+        item.classList.remove('active', 'won');
+        if (idx === 14 - currentQuestion) item.classList.add('active');
+        if (idx > 14 - currentQuestion) item.classList.add('won');
+    });
+
+    const grid = document.getElementById('optionsGrid');
+    grid.innerHTML = '';
+    const labels = ['A', 'B', 'C', 'D'];
+
+    q.options.forEach(function(opt, idx) {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.id = 'opt-' + idx;
+        btn.innerHTML = '<span class="option-label">' + labels[idx] + '</span><div class="option-text"><div>' + opt.ml + '</div><div class="option-english">' + opt.en + '</div></div>';
+        btn.onclick = function() { selectAnswer(idx); };
+        grid.appendChild(btn);
+    });
+
+    startTimer();
+}
+
+// ===== TIMER =====
+function startTimer() {
+    clearInterval(timerInterval);
+    timeLeft = 45;
+    const fill = document.getElementById('timerFill');
+    fill.style.width = '100%';
+
+    timerInterval = setInterval(function() {
+        timeLeft--;
+        fill.style.width = ((timeLeft / 45) * 100) + '%';
+
+        if (timeLeft <= 10) {
+            playSound('tick');
+        }
+
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            setHostText('സമയം കഴിഞ്ഞു! ഗേം ഓവർ!', 'Time is up! Game Over!');
+            playSound('wrong');
+            setTimeout(function() { endGame(false, 'സമയം കഴിഞ്ഞു! / Time Up!'); }, 2000);
+        }
+    }, 1000);
+}
+
+// ===== SELECT ANSWER =====
+function selectAnswer(idx) {
+    if (isProcessing) return;
+
+    playSound('select');
+
+    document.querySelectorAll('.option-btn').forEach(function(btn) { btn.classList.remove('selected'); });
+
+    selectedAnswer = idx;
+    document.getElementById('opt-' + idx).classList.add('selected');
+    document.getElementById('confirmArea').style.display = 'block';
+
+    const commentary = getRandomCommentary('select');
+    setHostText(commentary.ml, commentary.en);
+}
+
+// ===== CONFIRM ANSWER =====
+function confirmAnswer() {
+    if (selectedAnswer === -1 || isProcessing) return;
+    isProcessing = true;
+    clearInterval(timerInterval);
+
+    playSound('lock');
+
+    const q = questions[currentQuestion];
+    const buttons = document.querySelectorAll('.option-btn');
+
+    buttons.forEach(function(btn) { btn.classList.add('disabled'); });
+    buttons[selectedAnswer].classList.remove('disabled');
+
+    setHostText('ഉത്തരം ലോക്ക് ചെയ്തു! ശരിയാണോ എന്ന് നോക്കാം...', 'Answer locked! Let us see if it is correct...');
+
+    setTimeout(function() {
+        if (selectedAnswer === q.correct) {
+            buttons[selectedAnswer].classList.add('correct');
+            currentPrize = prizeAmounts[currentQuestion];
+
+            if (milestones.includes(currentQuestion)) {
+                safePrize = currentPrize;
+                playSound('milestone');
+                const commentary = getRandomCommentary('milestone');
+                setHostText(commentary.ml, commentary.en);
+                createConfetti();
+            } else {
+                playSound('correct');
+                const commentary = getRandomCommentary('correct');
+                setHostText(commentary.ml, commentary.en);
+            }
+
+            setTimeout(function() {
+                currentQuestion++;
+                loadQuestion();
+            }, milestones.includes(currentQuestion) ? 4000 : 2500);
+
+        } else {
+            buttons[selectedAnswer].classList.add('wrong');
+            buttons[q.correct].classList.add('correct');
+
+            playSound('wrong');
+            const commentary = getRandomCommentary('wrong');
+            setHostText(commentary.ml, commentary.en);
+
+            setTimeout(function() {
+                showResultOverlay(false);
+            }, 2500);
+        }
+    }, 2000);
+}
+
+// ===== RESULT OVERLAY =====
+function showResultOverlay(won) {
+    const overlay = document.getElementById('resultOverlay');
+    const title = document.getElementById('resultTitle');
+    const text = document.getElementById('resultText');
+    const btn = document.getElementById('resultBtn');
+
+    if (won) {
+        title.textContent = '✅ ശരി! / Correct!';
+        title.style.color = 'var(--success)';
+        text.innerHTML = 'അഭിനന്ദനങ്ങൾ! നിങ്ങൾ Rs ' + currentPrize.toLocaleString() + ' നേടി!<br>Congratulations! You won Rs ' + currentPrize.toLocaleString() + '!';
+        btn.textContent = 'അടുത്ത ചോദ്യം / Next Question';
+        btn.onclick = function() { closeResultOverlay(); loadQuestion(); };
+    } else {
+        title.textContent = '❌ തെറ്റ്! / Wrong!';
+        title.style.color = 'var(--danger)';
+        text.innerHTML = 'ക്ഷമിക്കണം! ശരിയായ ഉത്തരം ' + String.fromCharCode(65 + questions[currentQuestion].correct) + ' ആയിരുന്നു.<br>Sorry! The correct answer was ' + String.fromCharCode(65 + questions[currentQuestion].correct) + '.<br><br>നിങ്ങൾ നേടിയത്: Rs ' + safePrize.toLocaleString();
+        btn.textContent = 'ഗേം ഓവർ / Game Over';
+        btn.onclick = function() { closeResultOverlay(); showGameOver(false); };
+    }
+
+    overlay.style.display = 'flex';
+}
+
+function closeResultOverlay() {
+    document.getElementById('resultOverlay').style.display = 'none';
+}
+
+function nextQuestion() {
+    closeResultOverlay();
+    loadQuestion();
+}
+
+// ===== LIFELINES =====
+function useLifeline(type) {
+    if (lifelines[type] || isProcessing) return;
+    lifelines[type] = true;
+    document.getElementById('ll' + (type === '50-50' ? '50' : type === 'poll' ? 'Poll' : type === 'expert' ? 'Expert' : 'Flip')).classList.add('used');
+
+    playSound('lifeline');
+
+    const q = questions[currentQuestion];
+    const buttons = document.querySelectorAll('.option-btn');
+
+    switch(type) {
+        case '50-50':
+            const commentary50 = getRandomCommentary('lifeline50');
+            setHostText(commentary50.ml, commentary50.en);
+            let wrongIndices = [];
+            for (let i = 0; i < q.options.length; i++) {
+                if (i !== q.correct) wrongIndices.push(i);
+            }
+            const toRemove = shuffleArray(wrongIndices).slice(0, 2);
+            for (let i = 0; i < toRemove.length; i++) {
+                buttons[toRemove[i]].classList.add('disabled');
+                buttons[toRemove[i]].style.opacity = '0.3';
+            }
+            break;
+
+        case 'poll':
+            const commentaryPoll = getRandomCommentary('lifelinePoll');
+            setHostText(commentaryPoll.ml, commentaryPoll.en);
+            showPoll(q);
+            break;
+
+        case 'expert':
+            const commentaryExpert = getRandomCommentary('lifelineExpert');
+            setHostText(commentaryExpert.ml, commentaryExpert.en);
+            showExpert(q);
+            break;
+
+        case 'flip':
+            const commentaryFlip = getRandomCommentary('lifelineFlip');
+            setHostText(commentaryFlip.ml, commentaryFlip.en);
+            const remaining = [];
+            for (let i = 0; i < questionLibrary.length; i++) {
+                if (!questions.includes(questionLibrary[i])) {
+                    remaining.push(questionLibrary[i]);
+                }
+            }
+            questions[currentQuestion] = shuffleArray(remaining)[0];
+            setTimeout(function() { loadQuestion(); }, 1500);
+            break;
+    }
+}
+
+// ===== POLL =====
+function showPoll(q) {
+    const overlay = document.getElementById('pollOverlay');
+    const bars = document.getElementById('pollBars');
+    bars.innerHTML = '';
+
+    const labels = ['A', 'B', 'C', 'D'];
+    let percentages = [15, 20, 25, 40];
+    const temp = percentages[0];
+    percentages[0] = percentages[q.correct];
+    percentages[q.correct] = temp;
+    percentages = shuffleArray(percentages);
+    percentages[q.correct] = Math.max.apply(null, percentages) + 5 + Math.floor(Math.random() * 10);
+
+    const total = percentages.reduce(function(a, b) { return a + b; }, 0);
+    percentages = percentages.map(function(p) { return Math.round((p / total) * 100); });
+
+    for (let idx = 0; idx < q.options.length; idx++) {
+        const bar = document.createElement('div');
+        bar.className = 'poll-bar';
+        bar.innerHTML = '<span class="poll-label">' + labels[idx] + '</span><div class="poll-track"><div class="poll-fill" style="width:0%" data-width="' + percentages[idx] + '%">' + percentages[idx] + '%</div></div>';
+        bars.appendChild(bar);
+    }
+
+    overlay.style.display = 'flex';
+
+    setTimeout(function() {
+        const fills = document.querySelectorAll('.poll-fill');
+        for (let i = 0; i < fills.length; i++) {
+            fills[i].style.width = fills[i].dataset.width;
+        }
+    }, 100);
+}
+
+function closePoll() {
+    document.getElementById('pollOverlay').style.display = 'none';
+}
+
+// ===== EXPERT =====
+function showExpert(q) {
+    const overlay = document.getElementById('expertOverlay');
+    const speech = document.getElementById('expertSpeech');
+
+    const labels = ['A', 'B', 'C', 'D'];
+    const correctLabel = labels[q.correct];
+
+    const isCorrect = Math.random() < 0.9;
+    const suggestedLabel = isCorrect ? correctLabel : labels[Math.floor(Math.random() * 4)];
+
+    const expertNames = [
+        'Dr. Radhakrishnan',
+        'Prof. Shankaran',
+        'Dr. Meeradevi',
+        'Prof. Krishnamoorthy'
+    ];
+
+    document.getElementById('expertName').textContent = expertNames[Math.floor(Math.random() * expertNames.length)];
+
+    speech.innerHTML = '<div>ഞാൻ ' + suggestedLabel + ' ഓപ്ഷൻ തിരഞ്ഞെടുക്കും.</div><div style="margin-top:8px;color:rgba(255,255,255,0.7);font-size:0.9rem;">I would choose option ' + suggestedLabel + '.</div><div style="margin-top:8px;color:var(--blue-neon);font-size:0.85rem;">ഉറപ്പ്: ' + (isCorrect ? '90%' : '60%') + ' / Confidence: ' + (isCorrect ? '90%' : '60%') + '</div>';
+
+    overlay.style.display = 'flex';
+}
+
+function closeExpert() {
+    document.getElementById('expertOverlay').style.display = 'none';
+}
+
+// ===== WALK AWAY =====
+function confirmWalkAway() {
+    if (isProcessing) return;
+    document.getElementById('confirmOverlay').style.display = 'flex';
+    document.getElementById('confirmTitle').textContent = 'വിട്ടുകൊടുക്കണോ? / Walk Away?';
+    document.getElementById('confirmText').innerHTML = 'നിങ്ങൾ Rs ' + currentPrize.toLocaleString() + ' നേടി!<br>You have won Rs ' + currentPrize.toLocaleString() + '!<br><br>വിട്ടുകൊടുക്കണോ? / Do you want to walk away?';
+
+    window.confirmYes = function() {
+        document.getElementById('confirmOverlay').style.display = 'none';
+        const commentary = getRandomCommentary('walkAway');
+        setHostText(commentary.ml, commentary.en);
+        playSound('milestone');
+        setTimeout(function() { showGameOver(true); }, 2000);
+    };
+    window.confirmNo = function() {
+        document.getElementById('confirmOverlay').style.display = 'none';
+    };
+}
+
+function showGameOver(won) {
+    const overlay = document.getElementById('gameOverOverlay');
+    const title = document.getElementById('gameOverTitle');
+    const prize = document.getElementById('finalPrize');
+    const msg = document.getElementById('gameOverMessage');
+
+    if (won) {
+        if (currentQuestion >= 15) {
+            title.textContent = 'MILLIONAIRE!';
+            title.className = 'game-over-title win';
+            prize.textContent = 'Rs ' + currentPrize.toLocaleString();
+            msg.innerHTML = 'Congratulations! You became a Millionaire!';
+            playSound('win');
+            createConfetti();
+        } else {
+            title.textContent = 'Well Done!';
+            title.className = 'game-over-title win';
+            prize.textContent = 'Rs ' + currentPrize.toLocaleString();
+            msg.innerHTML = 'You walked away! A wise decision!';
+            playSound('milestone');
+        }
+    } else {
+        title.textContent = 'GAME OVER';
+        title.className = 'game-over-title lose';
+        prize.textContent = 'Rs ' + safePrize.toLocaleString();
+        msg.innerHTML = 'Try again! You can do it!';
+    }
+
+    overlay.style.display = 'flex';
+}
+
+function endGame(won, message) {
+    clearInterval(timerInterval);
+    showGameOver(won);
+}
+
+function restartGame() {
+    document.getElementById('gameOverOverlay').style.display = 'none';
+    startGame();
+}
+
+// ===== CONFETTI =====
+function createConfetti() {
+    const colors = ['#FFD700', '#00d4ff', '#ff4444', '#00ff88', '#ffaa00', '#ff00ff', '#00ffff'];
+    for (let i = 0; i < 80; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + 'vw';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.width = (Math.random() * 8 + 4) + 'px';
+        confetti.style.height = (Math.random() * 8 + 4) + 'px';
+        confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+        confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+        confetti.style.animationDelay = Math.random() * 2 + 's';
+        document.body.appendChild(confetti);
+        setTimeout(function() { confetti.remove(); }, 5000);
+    }
+}
+
+// Initialize
+window.onload = function() {
+    initPrizeLadder();
+    createParticles();
+};
+
+</script>
+</body>
+</html>
