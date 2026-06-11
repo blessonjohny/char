@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>മാർക്കോസ് ക്വിസ് | Mark Quiz</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;600;700&family=Inter:wght@400;600;700&display=swap');
+  :root { --bg:#0a0e1a; --card:#141b2d; --accent:#f59e0b; --accent2:#10b981; --danger:#ef4444; --info:#3b82f6; --text:#f1f5f9; --muted:#94a3b8; --border:#2d3748; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Noto Sans Malayalam','Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; justify-content:center; align-items:center; padding:16px; overflow-x:hidden; }
+  .app { width:100%; max-width:650px; background:var(--card); border-radius:24px; padding:28px; box-shadow:0 25px 80px rgba(0,0,0,0.5); border:1px solid var(--border); position:relative; }
+  h1 { text-align:center; font-size:1.5rem; margin-bottom:4px; color:var(--accent); }
+  .subtitle { text-align:center; color:var(--muted); font-size:0.85rem; margin-bottom:20px; }
+  .screen { display:none; }
+  .screen.active { display:block; animation:fadeIn 0.4s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+  .start-screen .logo { font-size:3.5rem; text-align:center; margin-bottom:12px; animation:float 3s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+  .input-group { margin:14px 0; }
+  .input-group label { display:block; margin-bottom:6px; font-size:0.9rem; color:var(--muted); font-weight:600; }
+  .input-group input,.input-group select { width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:1rem; font-family:inherit; outline:none; transition:border-color 0.2s; }
+  .input-group input:focus,.input-group select:focus { border-color:var(--accent); }
+
+  .btn { width:100%; padding:14px; border:none; border-radius:14px; font-size:1rem; font-weight:700; cursor:pointer; transition:all 0.2s; margin-top:10px; font-family:inherit; }
+  .btn-primary { background:linear-gradient(135deg,var(--accent),#d97706); color:#fff; }
+  .btn-primary:hover { transform:translateY(-2px); box-shadow:0 10px 25px rgba(245,158,11,0.35); }
+  .btn-secondary { background:var(--border); color:var(--text); }
+  .btn-secondary:hover { background:#374151; }
+  .btn-success { background:linear-gradient(135deg,var(--accent2),#059669); color:#fff; }
+  .btn-success:hover { transform:translateY(-2px); box-shadow:0 10px 25px rgba(16,185,129,0.35); }
+  .btn-danger { background:var(--danger); color:#fff; }
+  .btn-danger:hover { background:#dc2626; }
+  .btn-info { background:var(--info); color:#fff; }
+  .btn-info:hover { background:#2563eb; }
+
+  .top-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+  .stat-box { background:var(--bg); padding:10px 16px; border-radius:12px; font-size:0.85rem; border:1px solid var(--border); font-weight:600; }
+  .stat-box span { color:var(--accent); font-weight:700; font-size:1.1rem; }
+  .stat-box .lives { color:var(--danger); }
+  .stat-box .correct { color:var(--accent2); }
+
+  .progress-bar { height:8px; background:var(--border); border-radius:4px; margin-bottom:18px; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:4px; transition:width 0.5s ease; }
+
+  .question-card { background:var(--bg); border-radius:18px; padding:22px; margin-bottom:16px; border:1px solid var(--border); }
+  .question-num { color:var(--accent); font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+  .question-text { font-size:1.15rem; line-height:1.7; margin-bottom:10px; }
+  .question-text .en { display:block; font-size:0.95rem; color:var(--muted); margin-top:8px; font-style:italic; padding-top:8px; border-top:1px solid var(--border); }
+
+  .options { display:flex; flex-direction:column; gap:10px; }
+  .option { padding:14px 16px; border-radius:14px; background:var(--bg); border:2px solid var(--border); cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:12px; }
+  .option:hover:not(.disabled):not(.selected):not(.correct-reveal):not(.wrong-reveal) { border-color:var(--accent); background:rgba(245,158,11,0.08); transform:translateX(4px); }
+  .option.selected { border-color:var(--accent); background:rgba(245,158,11,0.15); }
+  .option.correct-reveal { border-color:var(--accent2)!important; background:rgba(16,185,129,0.15)!important; }
+  .option.wrong-reveal { border-color:var(--danger)!important; background:rgba(239,68,68,0.15)!important; }
+  .option.disabled { pointer-events:none; opacity:0.5; }
+  .option .opt-letter { width:32px; height:32px; border-radius:50%; background:var(--border); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem; flex-shrink:0; transition:all 0.2s; }
+  .option.correct-reveal .opt-letter { background:var(--accent2); color:#fff; }
+  .option.wrong-reveal .opt-letter { background:var(--danger); color:#fff; }
+  .option.selected .opt-letter { background:var(--accent); color:#fff; }
+
+  .feedback-section { background:var(--bg); border-radius:18px; padding:22px; margin-top:16px; border:1px solid var(--border); animation:slideUp 0.4s ease; }
+  @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  .feedback-header { display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:1.3rem; font-weight:700; }
+  .feedback-right { color:var(--accent2); }
+  .feedback-wrong { color:var(--danger); }
+  .feedback-answer { background:rgba(16,185,129,0.1); border:2px solid var(--accent2); border-radius:12px; padding:14px; margin:12px 0; }
+  .feedback-answer h4 { color:var(--accent2); font-size:0.85rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  .feedback-answer p { font-size:1.05rem; line-height:1.6; }
+  .feedback-answer .ref { color:var(--muted); font-size:0.85rem; margin-top:6px; font-style:italic; }
+  .feedback-explanation { color:var(--muted); font-size:0.95rem; line-height:1.6; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+
+  .restore-popup { background:linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15)); border:2px solid var(--info); border-radius:18px; padding:20px; margin:16px 0; text-align:center; animation:popIn 0.5s ease; }
+  @keyframes popIn { 0%{transform:scale(0.9);opacity:0} 100%{transform:scale(1);opacity:1} }
+  .restore-popup h3 { color:var(--info); margin-bottom:8px; font-size:1.1rem; }
+  .restore-popup p { color:var(--muted); font-size:0.9rem; margin-bottom:12px; }
+
+  .all-good { background:rgba(16,185,129,0.1); border:2px solid var(--accent2); border-radius:18px; padding:20px; margin:16px 0; text-align:center; animation:popIn 0.5s ease; }
+  .all-good h3 { color:var(--accent2); margin-bottom:6px; }
+  .all-good p { color:var(--muted); font-size:0.9rem; }
+
+  .round-msg { text-align:center; padding:30px 10px; }
+  .round-msg h2 { font-size:1.8rem; margin-bottom:10px; }
+  .round-msg p { color:var(--muted); margin-bottom:20px; line-height:1.6; }
+  .score-big { font-size:3rem; font-weight:700; color:var(--accent); margin:16px 0; }
+  .lives-display { font-size:2.5rem; margin:12px 0; }
+
+  .win-anim { animation: winPulse 1.5s ease-in-out; }
+  @keyframes winPulse { 0%{transform:scale(1)} 25%{transform:scale(1.03);box-shadow:0 0 30px rgba(16,185,129,0.4)} 50%{transform:scale(1)} 75%{transform:scale(1.02);box-shadow:0 0 20px rgba(16,185,129,0.2)} 100%{transform:scale(1)} }
+  .lose-anim { animation: loseShake 0.8s ease-in-out; }
+  @keyframes loseShake { 0%,100%{transform:translateX(0)} 10%,30%,50%,70%,90%{transform:translateX(-6px)} 20%,40%,60%,80%{transform:translateX(6px)} }
+  .confetti { position:fixed; width:10px; height:10px; border-radius:50%; animation:confettiFall 3s ease-out forwards; z-index:200; }
+  @keyframes confettiFall { 0%{transform:translateY(-100px) rotate(0deg); opacity:1} 100%{transform:translateY(100vh) rotate(720deg); opacity:0} }
+
+  .leaderboard-table { width:100%; border-collapse:collapse; margin-top:12px; }
+  .leaderboard-table th,.leaderboard-table td { padding:10px; text-align:left; border-bottom:1px solid var(--border); }
+  .leaderboard-table th { color:var(--accent); font-size:0.8rem; text-transform:uppercase; }
+  .leaderboard-table tr:nth-child(even) { background:rgba(255,255,255,0.02); }
+  .rank-1 { color:#fbbf24; font-weight:700; }
+  .rank-2 { color:#cbd5e1; font-weight:700; }
+  .rank-3 { color:#b45309; font-weight:700; }
+
+  .mute-btn { background:none; border:1px solid var(--border); color:var(--muted); padding:6px 12px; border-radius:8px; cursor:pointer; font-size:0.8rem; transition:all 0.2s; }
+  .mute-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .mute-btn.muted { background:var(--danger); color:#fff; border-color:var(--danger); }
+
+  .tts-btn { background:none; border:1px solid var(--border); color:var(--muted); padding:6px 12px; border-radius:8px; cursor:pointer; font-size:0.8rem; margin-right:8px; transition:all 0.2s; }
+  .tts-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+  .milestone-reached { position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-100px); background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; padding:12px 24px; border-radius:30px; font-weight:700; font-size:0.95rem; z-index:300; box-shadow:0 10px 30px rgba(0,0,0,0.4); animation:milestoneSlide 3s ease forwards; }
+  @keyframes milestoneSlide { 0%{transform:translateX(-50%) translateY(-100px);opacity:0} 15%{transform:translateX(-50%) translateY(0);opacity:1} 85%{transform:translateX(-50%) translateY(0);opacity:1} 100%{transform:translateX(-50%) translateY(-100px);opacity:0} }
+
+  @media(max-width:480px){ .app{padding:18px} h1{font-size:1.3rem} .question-text{font-size:1rem} .stat-box{padding:8px 10px;font-size:0.75rem} }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+<!-- START SCREEN -->
+<div id="screen-start" class="screen active start-screen">
+  <div class="logo">📖✝️</div>
+  <h1>മാർക്കോസ് ക്വിസ്</h1>
+  <p class="subtitle">Mark 9–16 Bible Quiz — 50 Questions</p>
+  <div class="input-group">
+    <label>നിങ്ങളുടെ പേര് / Your Name</label>
+    <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
+  </div>
+  <div class="input-group">
+    <label>ഭാഷ / Language</label>
+    <select id="langPref">
+      <option value="both">മലയാളം + English</option>
+      <option value="ml">മലയാളം മാത്രം</option>
+      <option value="en">English only</option>
+    </select>
+  </div>
+  <div style="background:var(--bg);border-radius:12px;padding:14px;margin:14px 0;border:1px solid var(--border);">
+    <p style="font-size:0.85rem;color:var(--muted);line-height:1.6;">
+      📋 <strong>Rules:</strong><br>
+      • 50 questions from Mark 9–16 (random order)<br>
+      • 3 lives — 3 wrong answers = Game Over<br>
+      • Lifelines restore at Q15 and Q35<br>
+      • See correct answer + reference after each question
+    </p>
+  </div>
+  <button class="btn btn-primary" id="startBtn">🚀 ആരംഭിക്കുക / Start Quiz</button>
+  <button class="btn btn-secondary" id="leaderboardBtn" style="margin-top:8px">🏆 ലീഡർബോർഡ് / Leaderboard</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="screen-game" class="screen">
+  <div class="top-bar">
+    <div class="stat-box">Q: <span id="qNumDisplay">1</span>/50</div>
+    <div class="stat-box">Score: <span id="scoreDisplay">0</span></div>
+    <div class="stat-box">Lives: <span id="livesDisplay" class="lives">❤️❤️❤️</span></div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressBar" style="width:0%"></div></div>
+
+  <div class="question-card" id="questionCard">
+    <div class="question-num" id="questionNum">Question 1 of 50</div>
+    <div style="display:flex;align-items:center;margin-bottom:10px;">
+      <button class="tts-btn" id="ttsBtn">🔊 Listen</button>
+      <button class="mute-btn" id="muteBtn">🔊 Sound On</button>
+    </div>
+    <div class="question-text" id="questionText"></div>
+  </div>
+
+  <div class="options" id="optionsContainer"></div>
+
+  <div id="feedbackArea"></div>
+
+  <div id="restoreArea"></div>
+
+  <button class="btn btn-primary" id="nextBtn" style="display:none;margin-top:16px;">OK → Next Question</button>
+</div>
+
+<!-- GAME OVER / WIN SCREEN -->
+<div id="screen-over" class="screen">
+  <div class="round-msg">
+    <h2 id="overTitle">💔 Game Over</h2>
+    <div class="lives-display" id="overLives"></div>
+    <div class="score-big" id="overScore">0</div>
+    <p id="overMessage"></p>
+    <p id="overDetails" style="color:var(--muted);font-size:0.9rem;margin-bottom:20px;"></p>
+    <div style="font-size:2.5rem;margin:16px 0" id="overEmoji">📖</div>
+    <button class="btn btn-primary" id="restartBtn">🔄 വീണ്ടും കളിക്കുക / Play Again</button>
+    <button class="btn btn-secondary" id="overLeaderboardBtn" style="margin-top:8px">🏆 Leaderboard</button>
+  </div>
+</div>
+
+<!-- LEADERBOARD SCREEN -->
+<div id="screen-leaderboard" class="screen">
+  <h1>🏆 ലീഡർബോർഡ്</h1>
+  <p class="subtitle">Leaderboard — Top Scorers</p>
+  <table class="leaderboard-table">
+    <thead><tr><th>#</th><th>Name</th><th>Score</th><th>Correct</th><th>Date</th></tr></thead>
+    <tbody id="leaderboardBody"></tbody>
+  </table>
+  <button class="btn btn-secondary" id="backBtn" style="margin-top:16px">← Back</button>
+  <button class="btn btn-danger" id="clearScoresBtn" style="margin-top:8px">Clear All Scores</button>
+</div>
+
+</div>
+
+<script>
+const QUESTIONS = [
+{ml:"യേശു രൂപാന്തരപ്പെട്ടപ്പോൾ അവനോടുകൂടെ പ്രത്യക്ഷപ്പെട്ട രണ്ടു പേർ ആരായിരുന്നു?",en:"Who appeared with Jesus at the Transfiguration?",o:["അബ്രാഹാമും ദാവീദും","ഏലിയാവും മോശെയും","യോശുവയും ഏശയ്യാവും","ശമൂവേലും ഏലീയാവും"],eo:["Abraham and David","Elijah and Moses","Joshua and Isaiah","Samuel and Elijah"],c:1,ref:"Mark 9:4"},
+{ml:"രൂപാന്തരത്തിനിടയിൽ സ്വർഗ്ഗത്തിൽ നിന്ന് വന്ന ശബ്ദം എന്തായിരുന്നു?",en:"What did the voice from heaven say?",o:["ഇവൻ ലോകത്തിന്റെ പ്രകാശം","ഇവൻ എന്റെ പ്രിയ പുത്രൻ; ഇവനെ കേൾപ്പിൻ","ഇവൻ രാജാധിരാജൻ","ഇവൻ രക്ഷകൻ"],eo:["He is the Light of the world","This is My beloved Son; listen to Him","King of kings","Savior"],c:1,ref:"Mark 9:7"},
+{ml:"ഭൂതബാധിതനായ ബാലന്റെ അപ്പൻ പറഞ്ഞത്?",en:"What did the father say?",o:["എന്നെ രക്ഷിക്കേണമേ","ഞാൻ വിശ്വസിക്കുന്നു; എന്റെ അവിശ്വാസത്തിന് സഹായിക്കേണമേ","എനിക്ക് സമാധാനം തരണമേ","ഞാൻ അർഹനല്ല"],eo:["Save me","I believe; help my unbelief","Give peace","I am not worthy"],c:1,ref:"Mark 9:24"},
+{ml:"ചില ഭൂതങ്ങൾ എന്തുകൊണ്ടാണ് പുറത്താക്കപ്പെടുക?",en:"What drives out some demons?",o:["ഉപവാസം","പ്രാർത്ഥന","ബലി","ജലം"],eo:["Fasting","Prayer","Sacrifice","Water"],c:1,ref:"Mark 9:29"},
+{ml:"ശിഷ്യന്മാർ വഴിയിൽ എന്തിനെക്കുറിച്ച് തർക്കിച്ചു?",en:"What did the disciples argue about?",o:["ധനം","ആരാണ് വലിയവൻ","യാത്ര","ഭക്ഷണം"],eo:["Wealth","Who is greatest","Journey","Food"],c:1,ref:"Mark 9:33-34"},
+{ml:"കുഞ്ഞ് എന്തിന്റെ പ്രതീകമായിരുന്നു?",en:"The child represented what?",o:["ശക്തി","വിനയം","സമ്പത്ത്","ജ്ഞാനം"],eo:["Power","Humility","Wealth","Wisdom"],c:1,ref:"Mark 9:36-37"},
+{ml:"'നമ്മുടെ വിരോധിയല്ലാത്തവൻ...'",en:"'Whoever is not against us...'",o:["നമ്മെ അനുഗമിക്കും","നമ്മുടെ പക്ഷത്തുള്ളവൻ","നമ്മെ പരീക്ഷിക്കും","നമ്മെ ഒഴിവാക്കും"],eo:["Follows us","Is for us","Tests us","Rejects us"],c:1,ref:"Mark 9:40"},
+{ml:"വിവാഹത്തിന്റെ തുടക്കം ആരായിരുന്നു?",en:"Who were the first married couple?",o:["അബ്രാഹാം & സാറ","ആദാം & ഹവ്വ","യിസ്ഹാക്ക് & റിബേക്ക","യാക്കോബ് & രാഹേൽ"],eo:["Abraham & Sarah","Adam & Eve","Isaac & Rebekah","Jacob & Rachel"],c:1,ref:"Mark 10:6-8"},
+{ml:"'കുഞ്ഞുങ്ങളെ വരാൻ അനുവദിപ്പിൻ' ഏത് അധ്യായം?",en:"Which chapter says 'Let the children come'?",o:["9","10","11","12"],eo:["9","10","11","12"],c:1,ref:"Mark 10:13-16"},
+{ml:"ധനിക യുവാവിനോട് യേശു പറഞ്ഞത്?",en:"What did Jesus tell the rich man?",o:["പ്രാർത്ഥിക്കുക","ഉപവസിക്കുക","വിറ്റ് ദരിദ്രർക്കു കൊടുക്കുക","യാത്ര ചെയ്യുക"],eo:["Pray","Fast","Sell and give to poor","Travel"],c:2,ref:"Mark 10:21"},
+{ml:"ഒട്ടകം സൂചിക്കണ്ണിലൂടെ... ആരെക്കുറിച്ച്?",en:"Camel through needle refers to?",o:["ദരിദ്രൻ","ധനവാൻ","രാജാവ്","പുരോഹിതൻ"],eo:["Poor","Rich","King","Priest"],c:1,ref:"Mark 10:25"},
+{ml:"യാക്കോബും യോഹന്നാനും എന്ത് ചോദിച്ചു?",en:"What did James & John ask?",o:["ഭക്ഷണം","മഹത്വത്തിൽ ഇരിക്കാൻ","ധനം","യാത്ര"],eo:["Food","Sit in glory","Money","Travel"],c:1,ref:"Mark 10:37"},
+{ml:"യെരീഹോയിലെ അന്ധൻ?",en:"Blind man at Jericho?",o:["ലാസർ","ബർത്തിമായി","സഖായി","ശിമോൻ"],eo:["Lazarus","Bartimaeus","Zacchaeus","Simon"],c:1,ref:"Mark 10:46"},
+{ml:"ബർത്തിമായി യേശുവിനെ വിളിച്ചത്?",en:"What did Bartimaeus call Jesus?",o:["ഗുരു","ദാവീദിന്റെ പുത്രൻ","പ്രവാചകൻ","രാജാവ്"],eo:["Teacher","Son of David","Prophet","King"],c:1,ref:"Mark 10:47"},
+{ml:"യേശു യെരൂശലേമിൽ കയറിയത്?",en:"Jesus entered Jerusalem on?",o:["കുതിര","കഴുതക്കുട്ടി","ഒട്ടകം","നടന്ന്"],eo:["Horse","Donkey colt","Camel","Walking"],c:1,ref:"Mark 11:7"},
+{ml:"ജനങ്ങൾ വിരിച്ചത്?",en:"People spread?",o:["കല്ലുകൾ","വസ്ത്രങ്ങളും കൊമ്പുകളും","പൊന്നു","ഭക്ഷണം"],eo:["Stones","Clothes & branches","Gold","Food"],c:1,ref:"Mark 11:8"},
+{ml:"അത്തിവൃക്ഷത്തിൽ കണ്ടില്ല?",en:"Fig tree had no?",o:["ഇല","ഫലം","പക്ഷി","പൂവ്"],eo:["Leaves","Fruit","Bird","Flower"],c:1,ref:"Mark 11:13"},
+{ml:"യേശു ക്ഷേത്രത്തിൽ മറിച്ചത്?",en:"Jesus overturned?",o:["സിംഹാസനം","മേശകൾ","കസേരകൾ","വിളക്കുകൾ"],eo:["Thrones","Tables","Chairs","Lamps"],c:1,ref:"Mark 11:15"},
+{ml:"ദൈവാലയം എന്താണ്?",en:"House of God is?",o:["മാർക്കറ്റ്","പ്രാർത്ഥനാലയം","സ്കൂൾ","രാജധാനി"],eo:["Market","House of prayer","School","Palace"],c:1,ref:"Mark 11:17"},
+{ml:"ഉണങ്ങിയ അത്തിവൃക്ഷം കണ്ടത്?",en:"Who saw the withered fig tree?",o:["യോഹന്നാൻ","പത്രോസ്","യാക്കോബ്","അന്ദ്രേയാസ്"],eo:["John","Peter","James","Andrew"],c:1,ref:"Mark 11:21"},
+{ml:"ദുഷ്ട കർഷകരുടെ കഥയിൽ പുത്രൻ?",en:"Son in the parable?",o:["ദാസൻ","പ്രിയ പുത്രൻ","രാജാവ്","പ്രവാചകൻ"],eo:["Servant","Beloved son","King","Prophet"],c:1,ref:"Mark 12:6"},
+{ml:"കൈസർക്ക് കൊടുക്കുക?",en:"Give to Caesar?",o:["എല്ലാം","ദൈവത്തിനുള്ളത്","കൈസർക്കുള്ളത് കൈസർക്കും","ഒന്നുമില്ല"],eo:["Everything","God's","Caesar's to Caesar","Nothing"],c:2,ref:"Mark 12:17"},
+{ml:"സദൂക്യർ വിശ്വസിക്കാത്തത്?",en:"Sadducees didn't believe in?",o:["ദൈവം","പുനരുത്ഥാനം","നിയമം","പ്രവാചകർ"],eo:["God","Resurrection","Law","Prophets"],c:1,ref:"Mark 12:18"},
+{ml:"വലിയ കല്പന?",en:"Greatest commandment?",o:["ഉപവസിക്കുക","ദൈവത്തെ സ്നേഹിക്കുക","ബലി അർപ്പിക്കുക","യാത്ര ചെയ്യുക"],eo:["Fast","Love God","Sacrifice","Travel"],c:1,ref:"Mark 12:30"},
+{ml:"രണ്ടാമത്തെ കല്പന?",en:"Second commandment?",o:["ദൈവത്തെ മാത്രം സ്നേഹിക്കുക","അയൽക്കാരനെ സ്നേഹിക്കുക","രാജാവിനെ അനുസരിക്കുക","ദാനം നൽകുക"],eo:["Only God","Love neighbor","Obey king","Give offerings"],c:1,ref:"Mark 12:31"},
+{ml:"ദരിദ്രയായ വിധവ എത്ര നാണയങ്ങൾ ഇട്ടു?",en:"How many coins did the poor widow give?",o:["ഒന്ന്","രണ്ട് ചെറിയ നാണയങ്ങൾ","അഞ്ച്","പത്ത്"],eo:["One","Two small coins","Five","Ten"],c:1,ref:"Mark 12:42"},
+{ml:"ഒലിവുമലയിൽ യേശു എന്തിനെക്കുറിച്ച് സംസാരിച്ചു?",en:"Jesus spoke about what on Mount of Olives?",o:["ലോകത്തിന്റെ അവസാനം","ധനം","ഭക്ഷണം","യുദ്ധം മാത്രം"],eo:["End times","Wealth","Food","War only"],c:0,ref:"Mark 13:3"},
+{ml:"'ജാഗരിച്ചുകൊൾവിൻ' എന്തിനാണ്?",en:"Why 'watch'?",o:["സമയം അറിയില്ല","മഴ വരും","ഭക്ഷണം ഇല്ല","യാത്ര പോകണം"],eo:["You do not know the time","Rain coming","No food","Travel"],c:0,ref:"Mark 13:33"},
+{ml:"യേശുവിനെ അഭിഷേകം ചെയ്തത് എന്തുകൊണ്ട്?",en:"Anointing was with?",o:["വെള്ളം","വിലയേറിയ സുഗന്ധതൈലം","എണ്ണ","വീഞ്ഞ്"],eo:["Water","Expensive perfume","Oil","Wine"],c:1,ref:"Mark 14:3"},
+{ml:"യേശുവിനെ ഒറ്റിക്കൊടുത്തത്?",en:"Who betrayed Jesus?",o:["പത്രോസ്","യൂദാസ്","യോഹന്നാൻ","തോമസ്"],eo:["Peter","Judas","John","Thomas"],c:1,ref:"Mark 14:10-11"},
+{ml:"പെസഹാ ഒരുക്കാനുള്ള അടയാളം?",en:"Sign for Passover room?",o:["ദീപം","വെള്ളം ചുമക്കുന്ന മനുഷ്യൻ","ആട്","വാതിൽ"],eo:["Lamp","Man carrying water jar","Lamb","Door"],c:1,ref:"Mark 14:13"},
+{ml:"അപ്പം എന്തിനെ സൂചിപ്പിക്കുന്നു?",en:"Bread represents?",o:["വാക്ക്","ശരീരം","ജീവൻ","നിയമം"],eo:["Word","Body","Life","Law"],c:1,ref:"Mark 14:22"},
+{ml:"പാനപാത്രം എന്തിനെ സൂചിപ്പിക്കുന്നു?",en:"Cup represents?",o:["സന്തോഷം","രക്തം","ഭക്ഷണം","ആത്മാവ്"],eo:["Joy","Blood","Food","Spirit"],c:1,ref:"Mark 14:24"},
+{ml:"ഗെത്സെമനെയിൽ ശിഷ്യന്മാർ എന്തു ചെയ്തു?",en:"Disciples did what?",o:["പ്രാർത്ഥിച്ചു","ഉറങ്ങി","ഓടി","പാടി"],eo:["Prayed","Slept","Ran","Sang"],c:1,ref:"Mark 14:37"},
+{ml:"യേശുവിനെ ഒറ്റിക്കൊടുത്ത അടയാളം?",en:"Betrayal sign?",o:["കൈവീശൽ","ചുംബനം","വാക്ക്","നിലവിളി"],eo:["Hand wave","Kiss","Word","Cry"],c:1,ref:"Mark 14:44-45"},
+{ml:"മഹാപുരോഹിതന്റെ ദാസന്റെ ചെവി വെട്ടിയത്?",en:"Who cut the servant's ear?",o:["പത്രോസ്","യോഹന്നാൻ","യാക്കോബ്","അന്ദ്രേയാസ്"],eo:["Peter","John","James","Andrew"],c:0,ref:"John 18:10"},
+{ml:"യേശു തന്റെ തിരിച്ചറിയൽ പറഞ്ഞത്?",en:"Jesus said?",o:["ഞാൻ രാജാവാണ്","ഞാൻ ആകുന്നു","ഞാൻ പ്രവാചകൻ","ഞാൻ ദാസൻ"],eo:["I am king","I am","I am prophet","I am servant"],c:1,ref:"Mark 14:62"},
+{ml:"പത്രോസ് എത്ര പ്രാവശ്യം നിഷേധിക്കുമെന്ന്?",en:"Peter would deny how many times?",o:["1","2","3","4"],eo:["1","2","3","4"],c:2,ref:"Mark 14:30"},
+{ml:"പത്രോസ് എത്ര പ്രാവശ്യം നിഷേധിച്ചു?",en:"Peter denied?",o:["1","2","3","4"],eo:["1","2","3","4"],c:2,ref:"Mark 14:72"},
+{ml:"ജനങ്ങൾ വിട്ടയച്ച തടവുകാരൻ?",en:"Released prisoner?",o:["ബറബ്ബാസ്","യൂദാസ്","ശിമോൻ","ഫിലിപ്പ്"],eo:["Barabbas","Judas","Simon","Philip"],c:0,ref:"Mark 15:15"},
+{ml:"ക്രൂശ് ചുമന്നത്?",en:"Who carried cross?",o:["പത്രോസ്","ശിമോൻ","യൂദാസ്","തോമസ്"],eo:["Peter","Simon of Cyrene","Judas","Thomas"],c:1,ref:"Mark 15:21"},
+{ml:"ക്രൂശിക്കപ്പെട്ട സ്ഥലം?",en:"Crucifixion place?",o:["ഗൊൽഗോഥാ","നസറത്ത്","ബെഥാന്യ","യെരീഹോ"],eo:["Golgotha","Nazareth","Bethany","Jericho"],c:0,ref:"Mark 15:22"},
+{ml:"ഗൊൽഗോഥാ അർത്ഥം?",en:"Meaning of Golgotha?",o:["സമാധാനം","തലയോട്ടിസ്ഥലം","മല","ക്ഷേത്രം"],eo:["Peace","Place of skull","Mountain","Temple"],c:1,ref:"Mark 15:22"},
+{ml:"ക്രൂശിൽ എഴുതിയത്?",en:"Inscription?",o:["ദൈവപുത്രൻ","യെഹൂദന്മാരുടെ രാജാവ്","പ്രവാചകൻ","രക്ഷകൻ"],eo:["Son of God","King of Jews","Prophet","Savior"],c:1,ref:"Mark 15:26"},
+{ml:"ഇരുട്ടായത് എത്ര മണിക്കൂർ?",en:"Darkness duration?",o:["1-3","3-6","6-9","9-12"],eo:["1-3","3-6","6-9","9-12"],c:2,ref:"Mark 15:33"},
+{ml:"ദൈവാലയ തിരശ്ശീല?",en:"Temple curtain?",o:["വീണു","കീറി","കത്തി","അടഞ്ഞു"],eo:["Fell","Torn","Burned","Closed"],c:1,ref:"Mark 15:38"},
+{ml:"'ദൈവപുത്രൻ ആയിരുന്നു' പറഞ്ഞത്?",en:"Who said Son of God?",o:["പീലാത്തോസ്","ശതാധിപൻ","യൂദാസ്","പത്രോസ്"],eo:["Pilate","Centurion","Judas","Peter"],c:1,ref:"Mark 15:39"},
+{ml:"യേശുവിന്റെ ശരീരം എടുത്തത്?",en:"Took Jesus body?",o:["നിക്കോദെമോസ്","യോസേഫ്","പത്രോസ്","യോഹന്നാൻ"],eo:["Nicodemus","Joseph of Arimathea","Peter","John"],c:1,ref:"Mark 15:43-46"},
+{ml:"കല്ല് എന്തായി?",en:"Stone?",o:["കെട്ടി","ഉരുട്ടിമാറ്റി","പൊട്ടി","വീണു"],eo:["Sealed","Rolled away","Broken","Fell"],c:1,ref:"Mark 16:4"},
+{ml:"യേശു ആദ്യം പ്രത്യക്ഷപ്പെട്ടത്?",en:"First appeared to?",o:["പത്രോസ്","മഗ്ദലക്കാരി മറിയം","യോഹന്നാൻ","തോമസ്"],eo:["Peter","Mary Magdalene","John","Thomas"],c:1,ref:"Mark 16:9"}
+];
+
+let gameState = {
+  score: 0, qIndex: 0, questions: [], lives: 3, wrongCount: 0,
+  playerName: '', langPref: 'both', currentQ: null, answered: false,
+  selectedOption: null, correctCount: 0, muted: false,
+  milestones: { q15: false, q35: false }
+};
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function shuffleQuestionOptions(q) {
+  const indices = [0, 1, 2, 3];
+  const shuffledIndices = shuffle(indices);
+  const newCorrectIndex = shuffledIndices.indexOf(q.c);
+  const newOptions = shuffledIndices.map(i => q.o[i]);
+  const newEnglishOptions = q.eo ? shuffledIndices.map(i => q.eo[i]) : null;
+  return { ...q, o: newOptions, eo: newEnglishOptions, c: newCorrectIndex };
+}
+
+function getLivesEmoji() {
+  let hearts = '';
+  for (let i = 0; i < gameState.lives; i++) hearts += '❤️';
+  for (let i = gameState.lives; i < 3; i++) hearts += '🖤';
+  return hearts;
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function toggleMute() {
+  gameState.muted = !gameState.muted;
+  const btn = document.getElementById('muteBtn');
+  if (gameState.muted) {
+    btn.textContent = '🔇 Sound Off';
+    btn.classList.add('muted');
+    window.speechSynthesis.cancel();
+  } else {
+    btn.textContent = '🔊 Sound On';
+    btn.classList.remove('muted');
+  }
+}
+
+function speak(text) {
+  if (!window.speechSynthesis || gameState.muted) return;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'en-US';
+  utter.rate = 0.9;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
+}
+
+function createConfetti() {
+  const colors = ['#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'];
+  for (let i = 0; i < 40; i++) {
+    const conf = document.createElement('div');
+    conf.className = 'confetti';
+    conf.style.left = Math.random() * 100 + 'vw';
+    conf.style.background = colors[Math.floor(Math.random() * colors.length)];
+    conf.style.animationDuration = (Math.random() * 2 + 2) + 's';
+    conf.style.animationDelay = (Math.random() * 1) + 's';
+    document.body.appendChild(conf);
+    setTimeout(() => conf.remove(), 4000);
+  }
+}
+
+function showMilestone(text) {
+  const div = document.createElement('div');
+  div.className = 'milestone-reached';
+  div.textContent = text;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 3500);
+}
+
+function startGame() {
+  const name = document.getElementById('playerName').value.trim();
+  if (!name) { alert('Please enter your name'); return; }
+  gameState.playerName = name;
+  gameState.langPref = document.getElementById('langPref').value;
+  gameState.score = 0; gameState.qIndex = 0; gameState.lives = 3; gameState.wrongCount = 0;
+  gameState.correctCount = 0; gameState.answered = false; gameState.selectedOption = null;
+  gameState.milestones = { q15: false, q35: false };
+  gameState.questions = shuffle(QUESTIONS).map(shuffleQuestionOptions);
+  showScreen('screen-game');
+  showQuestion();
+}
+
+function updateStats() {
+  document.getElementById('qNumDisplay').textContent = gameState.qIndex + 1;
+  document.getElementById('scoreDisplay').textContent = gameState.score;
+  document.getElementById('livesDisplay').innerHTML = getLivesEmoji();
+  const pct = ((gameState.qIndex) / 50) * 100;
+  document.getElementById('progressBar').style.width = pct + '%';
+}
+
+function showQuestion() {
+  gameState.answered = false;
+  gameState.selectedOption = null;
+  document.getElementById('feedbackArea').innerHTML = '';
+  document.getElementById('restoreArea').innerHTML = '';
+  document.getElementById('nextBtn').style.display = 'none';
+
+  const q = gameState.questions[gameState.qIndex];
+  gameState.currentQ = q;
+
+  document.getElementById('questionNum').textContent = 'Question ' + (gameState.qIndex + 1) + ' of 50';
+
+  let html = '';
+  if (gameState.langPref === 'en') html = q.en;
+  else if (gameState.langPref === 'ml') html = q.ml;
+  else html = q.ml + '<span class="en">' + q.en + '</span>';
+  document.getElementById('questionText').innerHTML = html;
+
+  const opts = document.getElementById('optionsContainer');
+  opts.innerHTML = '';
+  const letters = ['A', 'B', 'C', 'D'];
+  q.o.forEach((opt, i) => {
+    const div = document.createElement('div');
+    div.className = 'option';
+    div.id = 'opt-' + i;
+    let optText = '';
+    if (gameState.langPref === 'en') {
+      optText = (q.eo && q.eo[i]) ? q.eo[i] : opt;
+    } else if (gameState.langPref === 'ml') {
+      optText = opt;
+    } else {
+      const enText = (q.eo && q.eo[i]) ? q.eo[i] : opt;
+      optText = opt + '<br><span style="font-size:0.9rem;color:var(--muted);font-style:italic;">' + enText + '</span>';
+    }
+    div.innerHTML = '<span class="opt-letter">' + letters[i] + '</span><span>' + optText + '</span>';
+    div.addEventListener('click', () => selectOption(i));
+    opts.appendChild(div);
+  });
+
+  updateStats();
+
+  if (!gameState.muted) {
+    let text = q.en + '. Options: ';
+    q.o.forEach((opt, i) => { text += letters[i] + '. ' + ((q.eo && q.eo[i]) ? q.eo[i] : opt) + '. '; });
+    setTimeout(() => speak(text), 400);
+  }
+}
+
+function selectOption(idx) {
+  if (gameState.answered) return;
+  document.querySelectorAll('.option').forEach(el => el.classList.remove('selected'));
+  document.getElementById('opt-' + idx).classList.add('selected');
+  gameState.selectedOption = idx;
+  confirmAnswer();
+}
+
+function confirmAnswer() {
+  if (gameState.selectedOption === null) return;
+  gameState.answered = true;
+  const q = gameState.currentQ;
+  const idx = gameState.selectedOption;
+  const opts = document.querySelectorAll('.option');
+  const letters = ['A', 'B', 'C', 'D'];
+
+  opts.forEach((el, i) => {
+    el.classList.add('disabled');
+    el.classList.remove('selected');
+    if (i === q.c) el.classList.add('correct-reveal');
+    else if (i === idx && i !== q.c) el.classList.add('wrong-reveal');
+  });
+
+  const isCorrect = (idx === q.c);
+  const feedbackArea = document.getElementById('feedbackArea');
+
+  let feedbackHtml = '';
+  if (isCorrect) {
+    gameState.score += 10;
+    gameState.correctCount++;
+    feedbackHtml += '<div class="feedback-section">';
+    feedbackHtml += '<div class="feedback-header feedback-right">✅ ശരിയാണ്! / Correct!</div>';
+    if (!gameState.muted) speak('Correct!');
+  } else {
+    gameState.lives--;
+    gameState.wrongCount++;
+    feedbackHtml += '<div class="feedback-section">';
+    feedbackHtml += '<div class="feedback-header feedback-wrong">❌ തെറ്റ്! / Wrong!</div>';
+    if (!gameState.muted) speak('Wrong!');
+  }
+
+  // Show correct answer
+  let correctText = '';
+  if (gameState.langPref === 'en') {
+    correctText = (q.eo && q.eo[q.c]) ? q.eo[q.c] : q.o[q.c];
+  } else if (gameState.langPref === 'ml') {
+    correctText = q.o[q.c];
+  } else {
+    correctText = q.o[q.c] + '<br><span style="font-size:0.95rem;color:var(--muted);font-style:italic;">' + ((q.eo && q.eo[q.c]) ? q.eo[q.c] : q.o[q.c]) + '</span>';
+  }
+
+  feedbackHtml += '<div class="feedback-answer">';
+  feedbackHtml += '<h4>✅ ശരിയായ ഉത്തരം / Correct Answer:</h4>';
+  feedbackHtml += '<p><strong>' + letters[q.c] + '. ' + correctText + '</strong></p>';
+  feedbackHtml += '<p class="ref">📖 Bible Reference: ' + q.ref + '</p>';
+  feedbackHtml += '</div>';
+
+  if (!isCorrect) {
+    feedbackHtml += '<div class="feedback-explanation">';
+    feedbackHtml += '💔 You lost a life! You have ' + gameState.lives + ' life' + (gameState.lives !== 1 ? 's' : '') + ' remaining.';
+    feedbackHtml += '</div>';
+  }
+
+  feedbackHtml += '</div>';
+  feedbackArea.innerHTML = feedbackHtml;
+
+  document.getElementById('livesDisplay').innerHTML = getLivesEmoji();
+
+  // Check for game over
+  if (gameState.lives <= 0) {
+    document.getElementById('nextBtn').textContent = '💔 Game Over';
+    document.getElementById('nextBtn').className = 'btn btn-danger';
+    document.getElementById('nextBtn').style.display = 'block';
+    document.getElementById('nextBtn').onclick = () => gameOver(false);
+    return;
+  }
+
+  // Check for win
+  if (gameState.qIndex >= 49) {
+    document.getElementById('nextBtn').textContent = '🏆 See Results';
+    document.getElementById('nextBtn').className = 'btn btn-success';
+    document.getElementById('nextBtn').style.display = 'block';
+    document.getElementById('nextBtn').onclick = () => gameOver(true);
+    return;
+  }
+
+  // Normal next button
+  document.getElementById('nextBtn').textContent = 'OK → Next Question';
+  document.getElementById('nextBtn').className = 'btn btn-primary';
+  document.getElementById('nextBtn').style.display = 'block';
+  document.getElementById('nextBtn').onclick = nextQuestion;
+}
+
+function nextQuestion() {
+  gameState.qIndex++;
+
+  // Check milestones for lifeline restore
+  const qNum = gameState.qIndex + 1; // 1-based for display
+
+  if (qNum === 15 && !gameState.milestones.q15) {
+    gameState.milestones.q15 = true;
+    showRestoreOffer(15);
+    return;
+  }
+  if (qNum === 35 && !gameState.milestones.q35) {
+    gameState.milestones.q35 = true;
+    showRestoreOffer(35);
+    return;
+  }
+
+  showQuestion();
+}
+
+function showRestoreOffer(atQuestion) {
+  const restoreArea = document.getElementById('restoreArea');
+  const lostLives = 3 - gameState.lives;
+
+  if (lostLives === 0) {
+    // All lives intact
+    restoreArea.innerHTML = '<div class="all-good"><h3>🎉 You are good so far!</h3><p>You still have all 3 lives. Keep going!</p><button class="btn btn-success" id="continueBtn" style="margin-top:12px;">Continue →</button></div>';
+    showMilestone('🎯 Question ' + atQuestion + ' reached!');
+    document.getElementById('continueBtn').onclick = () => {
+      restoreArea.innerHTML = '';
+      showQuestion();
+    };
+  } else {
+    // Offer to restore one life
+    restoreArea.innerHTML = '<div class="restore-popup"><h3>🎁 Lifeline Restore!</h3><p>You have lost ' + lostLives + ' life' + (lostLives > 1 ? 's' : '') + '.<br>Would you like to restore 1 life?</p><button class="btn btn-success" id="restoreYesBtn" style="margin-right:8px;width:auto;padding:10px 20px;">Yes, restore 1 life!</button><button class="btn btn-secondary" id="restoreNoBtn" style="width:auto;padding:10px 20px;">No, keep going</button></div>';
+    showMilestone('🎯 Question ' + atQuestion + ' — Lifeline available!');
+
+    document.getElementById('restoreYesBtn').onclick = () => {
+      gameState.lives = Math.min(3, gameState.lives + 1);
+      document.getElementById('livesDisplay').innerHTML = getLivesEmoji();
+      restoreArea.innerHTML = '<div class="all-good"><h3>❤️ Life Restored!</h3><p>You now have ' + gameState.lives + ' life' + (gameState.lives !== 1 ? 's' : '') + '.</p><button class="btn btn-success" id="continueAfterRestore" style="margin-top:12px;">Continue →</button></div>';
+      if (!gameState.muted) speak('Life restored!');
+      document.getElementById('continueAfterRestore').onclick = () => {
+        restoreArea.innerHTML = '';
+        showQuestion();
+      };
+    };
+
+    document.getElementById('restoreNoBtn').onclick = () => {
+      restoreArea.innerHTML = '';
+      showQuestion();
+    };
+  }
+}
+
+function gameOver(won) {
+  saveScore();
+  const app = document.getElementById('app');
+
+  if (won) {
+    document.getElementById('overTitle').textContent = '🏆 Champion!';
+    document.getElementById('overTitle').style.color = 'var(--accent2)';
+    document.getElementById('overLives').innerHTML = getLivesEmoji();
+    document.getElementById('overScore').textContent = gameState.score;
+    document.getElementById('overEmoji').textContent = '👑';
+    app.classList.add('win-anim');
+    createConfetti();
+    let msg = '<strong>🎉 You completed all 50 questions!</strong><br>';
+    msg += 'Correct: ' + gameState.correctCount + ' / 50<br>';
+    msg += 'Wrong: ' + gameState.wrongCount + '<br>';
+    msg += 'Lives remaining: ' + gameState.lives;
+    document.getElementById('overMessage').innerHTML = msg;
+    document.getElementById('overDetails').textContent = 'You are a true Bible scholar!';
+    if (!gameState.muted) speak('Congratulations! You are a champion!');
+  } else {
+    document.getElementById('overTitle').textContent = '💔 Game Over';
+    document.getElementById('overTitle').style.color = 'var(--danger)';
+    document.getElementById('overLives').innerHTML = getLivesEmoji();
+    document.getElementById('overScore').textContent = gameState.score;
+    document.getElementById('overEmoji').textContent = '📖';
+    app.classList.add('lose-anim');
+    setTimeout(() => app.classList.remove('lose-anim'), 800);
+    let msg = 'Correct: ' + gameState.correctCount + ' / ' + (gameState.qIndex + 1) + '<br>';
+    msg += 'Wrong: ' + gameState.wrongCount + '<br>';
+    msg += 'Reached: Question ' + (gameState.qIndex + 1) + ' of 50';
+    document.getElementById('overMessage').innerHTML = msg;
+    const encouragements = [
+      "തോൽവി വിജയത്തിന്റെ ആദ്യപടിയാണ്. വീണ്ടും ശ്രമിക്കൂ!",
+      "ദൈവം നിങ്ങളെ ശക്തിപ്പെടുത്തും. വീണ്ടും കളിക്കൂ!",
+      "എല്ലാം ദൈവത്തിന്റെ പദ്ധതിയിൽ ഉൾപ്പെട്ടിരിക്കുന്നു. തുടരൂ!",
+      "വിശ്വാസം കൊണ്ട് നീങ്ങൂ. നിങ്ങൾക്ക് കഴിയും!"
+    ];
+    document.getElementById('overDetails').textContent = encouragements[Math.floor(Math.random() * encouragements.length)];
+    if (!gameState.muted) speak('Game over. Try again!');
+  }
+
+  showScreen('screen-over');
+}
+
+function restartGame() {
+  document.getElementById('app').classList.remove('win-anim', 'lose-anim');
+  showScreen('screen-start');
+  document.getElementById('playerName').value = gameState.playerName;
+}
+
+function saveScore() {
+  const scores = JSON.parse(localStorage.getItem('markQuizScores') || '[]');
+  scores.push({
+    name: gameState.playerName,
+    score: gameState.score,
+    correct: gameState.correctCount,
+    total: gameState.qIndex + 1,
+    date: new Date().toLocaleDateString()
+  });
+  scores.sort((a, b) => b.score - a.score);
+  localStorage.setItem('markQuizScores', JSON.stringify(scores.slice(0, 50)));
+}
+
+function showLeaderboard() {
+  const scores = JSON.parse(localStorage.getItem('markQuizScores') || '[]');
+  const tbody = document.getElementById('leaderboardBody');
+  tbody.innerHTML = '';
+  if (scores.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No scores yet. Play a game!</td></tr>';
+  } else {
+    scores.slice(0, 20).forEach((s, i) => {
+      const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
+      tbody.innerHTML += '<tr><td class="' + rankClass + '">' + (i + 1) + '</td><td>' + s.name + '</td><td>' + s.score + '</td><td>' + s.correct + '/' + s.total + '</td><td>' + s.date + '</td></tr>';
+    });
+  }
+  showScreen('screen-leaderboard');
+}
+
+function clearLeaderboard() {
+  if (confirm('Clear all scores?')) {
+    localStorage.removeItem('markQuizScores');
+    showLeaderboard();
+  }
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('leaderboardBtn').addEventListener('click', showLeaderboard);
+  document.getElementById('restartBtn').addEventListener('click', restartGame);
+  document.getElementById('overLeaderboardBtn').addEventListener('click', showLeaderboard);
+  document.getElementById('backBtn').addEventListener('click', () => showScreen('screen-start'));
+  document.getElementById('clearScoresBtn').addEventListener('click', clearLeaderboard);
+  document.getElementById('ttsBtn').addEventListener('click', () => {
+    const q = gameState.currentQ;
+    if (!q) return;
+    let text = q.en + '. Options: ';
+    const letters = ['A', 'B', 'C', 'D'];
+    q.o.forEach((opt, i) => { text += letters[i] + '. ' + ((q.eo && q.eo[i]) ? q.eo[i] : opt) + '. '; });
+    speak(text);
+  });
+  document.getElementById('muteBtn').addEventListener('click', toggleMute);
+});
+</script>
+</body>
+</html>
