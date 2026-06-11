@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ബൈബിൾ ക്വിസ് | Bible Quiz</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;600;700&family=Inter:wght@400;600;700&display=swap');
+
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Noto Sans Malayalam','Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; justify-content:center; align-items:flex-start; padding:8px; overflow-x:hidden; }
+  .app { width:100%; max-width:520px; background:var(--card); border-radius:16px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,0.4); border:1px solid var(--border); position:relative; }
+  h1 { text-align:center; font-size:1.4rem; margin-bottom:2px; }
+  .subtitle { text-align:center; color:var(--muted); font-size:0.8rem; margin-bottom:12px; }
+  .screen { display:none; }
+  .screen.active { display:block; animation:fadeIn 0.4s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  .start-screen .logo { font-size:2.8rem; text-align:center; margin-bottom:4px; }
+  .input-group { margin:10px 0; }
+  .input-group label { display:block; margin-bottom:4px; font-size:0.8rem; color:var(--muted); }
+  .input-group input,.input-group select { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.95rem; font-family:inherit; }
+  .btn { width:100%; padding:12px; border:none; border-radius:12px; font-size:0.95rem; font-weight:700; cursor:pointer; transition:all 0.2s; margin-top:8px; font-family:inherit; }
+  .btn-primary { background:linear-gradient(135deg,var(--accent),#d97706); color:#fff; }
+  .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(245,158,11,0.3); }
+  .btn-secondary { background:var(--border); color:var(--text); }
+  .btn-secondary:hover { background:#475569; }
+  .btn-danger { background:var(--danger); color:#fff; }
+  .btn-success { background:var(--accent2); color:#fff; }
+  .top-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px; }
+  .stat-box { background:var(--bg); padding:6px 10px; border-radius:10px; font-size:0.75rem; border:1px solid var(--border); }
+  .stat-box span { color:var(--accent); font-weight:700; }
+  .lifelines { display:flex; gap:6px; margin-bottom:10px; }
+  .lifeline { flex:1; padding:8px 4px; border-radius:10px; background:var(--bg); border:1px solid var(--border); text-align:center; cursor:pointer; transition:all 0.2s; font-size:0.7rem; }
+  .lifeline:hover:not(.used) { border-color:var(--accent); }
+  .lifeline.used { opacity:0.4; cursor:not-allowed; text-decoration:line-through; }
+  .lifeline .icon { font-size:1.3rem; display:block; margin-bottom:4px; }
+  .question-card { background:var(--bg); border-radius:14px; padding:14px; margin-bottom:10px; border:1px solid var(--border); }
+  .question-text { font-size:1rem; line-height:1.5; margin-bottom:6px; }
+  .question-text .en { display:block; font-size:0.95rem; color:var(--muted); margin-top:6px; font-style:italic; }
+  .progress-bar { height:5px; background:var(--border); border-radius:3px; margin-bottom:10px; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:3px; transition:width 0.4s ease; }
+  .options { display:flex; flex-direction:column; gap:6px; }
+  .option { padding:10px 12px; border-radius:10px; background:var(--bg); border:2px solid var(--border); cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:8px; }
+  .option:hover:not(.disabled) { border-color:var(--accent); background:#1e293b; }
+  .option.correct { border-color:var(--accent2)!important; background:rgba(16,185,129,0.15)!important; }
+  .option.wrong { border-color:var(--danger)!important; background:rgba(239,68,68,0.15)!important; }
+  .option.disabled { pointer-events:none; opacity:0.6; }
+  .option .opt-letter { width:28px; height:28px; border-radius:50%; background:var(--border); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; flex-shrink:0; }
+  .option.correct .opt-letter { background:var(--accent2); color:#fff; }
+  .option.wrong .opt-letter { background:var(--danger); color:#fff; }
+  .round-msg { text-align:center; padding:16px 8px; }
+  .round-msg h2 { font-size:1.4rem; color:var(--accent); margin-bottom:6px; }
+  .round-msg p { color:var(--muted); margin-bottom:12px; }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none; justify-content:center; align-items:center; z-index:100; padding:20px; }
+  .overlay.active { display:flex; }
+  .overlay-box { background:var(--card); border-radius:16px; padding:20px; max-width:360px; width:100%; border:1px solid var(--border); text-align:center; }
+  .poll-bar { display:flex; align-items:center; gap:10px; margin:8px 0; }
+  .poll-label { width:30px; font-weight:700; }
+  .poll-track { flex:1; height:24px; background:var(--bg); border-radius:12px; overflow:hidden; }
+  .poll-fill { height:100%; background:var(--accent); border-radius:12px; transition:width 1s ease; }
+  .poll-pct { width:40px; text-align:right; font-size:0.85rem; }
+  .leaderboard-table { width:100%; border-collapse:collapse; margin-top:12px; }
+  .leaderboard-table th,.leaderboard-table td { padding:8px 6px; text-align:left; border-bottom:1px solid var(--border); font-size:0.8rem; }
+  .leaderboard-table th { color:var(--accent); font-size:0.8rem; text-transform:uppercase; }
+  .leaderboard-table tr:nth-child(even) { background:rgba(255,255,255,0.03); }
+  .rank-1 { color:#fbbf24; font-weight:700; }
+  .rank-2 { color:#cbd5e1; font-weight:700; }
+  .rank-3 { color:#b45309; font-weight:700; }
+  .difficulty-badge { display:inline-block; padding:3px 8px; border-radius:20px; font-size:0.7rem; font-weight:700; margin-bottom:6px; }
+  .diff-easy { background:rgba(16,185,129,0.2); color:#34d399; }
+  .diff-medium { background:rgba(245,158,11,0.2); color:#fbbf24; }
+  .diff-hard { background:rgba(239,68,68,0.2); color:#f87171; }
+  .option.selected { border-color: var(--accent); background: rgba(245,158,11,0.15); }
+
+  /* Right/Wrong feedback banner */
+  .feedback-banner { text-align:center; padding:10px; border-radius:10px; margin-bottom:10px; font-size:1rem; font-weight:700; animation:feedbackPop 0.5s ease; }
+  .feedback-right { background:rgba(16,185,129,0.2); color:#34d399; border:2px solid var(--accent2); }
+  .feedback-wrong { background:rgba(239,68,68,0.2); color:#f87171; border:2px solid var(--danger); }
+  @keyframes feedbackPop { 0%{transform:scale(0.8);opacity:0} 50%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1} }
+
+  /* Mute button */
+  .mute-btn { background:none; border:1px solid var(--border); color:var(--muted); padding:5px 10px; border-radius:8px; cursor:pointer; font-size:0.75rem; margin-left:6px; transition:all 0.2s; }
+  .mute-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .mute-btn.muted { background:var(--danger); color:#fff; border-color:var(--danger); }
+
+  /* TTS button */
+  .tts-btn { background:none; border:1px solid var(--border); color:var(--muted); padding:5px 10px; border-radius:8px; cursor:pointer; font-size:0.75rem; margin-bottom:6px; transition:all 0.2s; }
+  .tts-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* Knockout badge - NO SKULL, Bible themed */
+  .knockout-badge { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; padding: 6px 16px; border-radius: 30px; font-weight: 700; font-size: 0.88rem; display: inline-block; margin-bottom: 6px; animation: knockoutPulse 2s infinite; }
+  @keyframes knockoutPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 10px rgba(245,158,11,0.5); } 50% { transform: scale(1.05); box-shadow: 0 0 25px rgba(245,158,11,0.8); } }
+
+  /* Win/Lose animations */
+  .win-anim { animation: winPulse 1.5s ease-in-out; }
+  @keyframes winPulse { 0%{transform:scale(1)} 25%{transform:scale(1.05);box-shadow:0 0 30px rgba(16,185,129,0.5)} 50%{transform:scale(1)} 75%{transform:scale(1.03);box-shadow:0 0 20px rgba(16,185,129,0.3)} 100%{transform:scale(1)} }
+  .lose-anim { animation: loseShake 0.8s ease-in-out; }
+  @keyframes loseShake { 0%,100%{transform:translateX(0)} 10%,30%,50%,70%,90%{transform:translateX(-8px)} 20%,40%,60%,80%{transform:translateX(8px)} }
+  .confetti { position:fixed; width:10px; height:10px; background:var(--accent); border-radius:50%; animation:confettiFall 3s ease-out forwards; z-index:200; }
+  @keyframes confettiFall { 0%{transform:translateY(-100px) rotate(0deg); opacity:1} 100%{transform:translateY(100vh) rotate(720deg); opacity:0} }
+  .encouragement { font-size:1rem; color:var(--accent); margin-top:10px; animation:encourageFade 2s ease; }
+  @keyframes encourageFade { 0%{opacity:0;transform:translateY(20px)} 100%{opacity:1;transform:translateY(0)} }
+
+  /* Game over correct answer display */
+  .correct-answer-box { background:rgba(16,185,129,0.1); border:2px solid var(--accent2); border-radius:10px; padding:12px; margin:10px 0; }
+  .correct-answer-box h3 { color:var(--accent2); margin-bottom:8px; }
+  .correct-answer-box p { color:var(--text); font-size:1.1rem; }
+
+  /* Round requirement info */
+  .round-info { background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3); border-radius:10px; padding:10px; margin-bottom:10px; text-align:center; }
+  .round-info h4 { color:#60a5fa; margin-bottom:4px; font-size:0.9rem; }
+  .round-info p { color:var(--muted); font-size:0.8rem; margin:0; }
+
+  /* Round progress - shows correct count during round */
+  .round-progress { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); border-radius:10px; padding:6px 12px; margin-bottom:8px; text-align:center; font-size:0.8rem; }
+  .round-progress span { color:var(--accent2); font-weight:700; font-size:1.1rem; }
+
+  /* Knockout animation */
+  .knockout-anim { animation: knockoutGlow 2s ease-in-out infinite; }
+  @keyframes knockoutGlow { 
+    0%, 100% { box-shadow: 0 0 20px rgba(245,158,11,0.3); border-color: var(--accent); }
+    50% { box-shadow: 0 0 40px rgba(245,158,11,0.6); border-color: #fbbf24; }
+  }
+  .cross-flash { position:fixed; font-size:4rem; animation: crossFlash 1s ease-out forwards; z-index:200; pointer-events:none; }
+  @keyframes crossFlash { 0%{transform:scale(0) rotate(-45deg); opacity:1} 100%{transform:scale(2) rotate(0deg); opacity:0} }
+
+  /* Idle popup */
+  .idle-popup { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--card); border:2px solid var(--accent); border-radius:16px; padding:20px; max-width:340px; width:90%; z-index:300; text-align:center; box-shadow:0 15px 40px rgba(0,0,0,0.6); display:none; }
+  .idle-popup.active { display:block; animation:popIn 0.3s ease; }
+  @keyframes popIn { from{transform:translate(-50%,-50%) scale(0.8);opacity:0} to{transform:translate(-50%,-50%) scale(1);opacity:1} }
+  .idle-popup h3 { color:var(--accent); margin-bottom:8px; font-size:1.1rem; }
+  .idle-popup p { color:var(--muted); margin-bottom:12px; font-size:0.85rem; }
+  .idle-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:250; display:none; }
+  .idle-backdrop.active { display:block; }
+
+
+  /* ========== TV SHOW AESTHETIC - ULTRA COMPACT ========== */
+  :root {
+    --bg: #0c0c1a;
+    --card: #14142b;
+    --accent: #ff6b35;
+    --accent2: #00d4aa;
+    --accent3: #7c3aed;
+    --danger: #ff2d55;
+    --text: #f0f0ff;
+    --muted: #8b8bb5;
+    --border: #252545;
+    --gold: #ffd700;
+    --pink: #ff6b9d;
+    --cyan: #00d4ff;
+  }
+
+  body {
+    background: radial-gradient(ellipse at 20% 20%, #1a0a2e 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, #0d1b2a 0%, transparent 50%),
+                var(--bg);
+    font-family: 'Noto Sans Malayalam', 'Inter', system-ui, -apple-system, sans-serif;
+    padding: 4px;
+    align-items: flex-start;
+    min-height: 100svh;
+  }
+
+  .app {
+    background: linear-gradient(145deg, #16162e 0%, #0f0f24 100%);
+    border: 1px solid rgba(255,107,53,0.15);
+    box-shadow: 0 0 20px rgba(255,107,53,0.06), 0 8px 20px rgba(0,0,0,0.4);
+    position: relative;
+    overflow: hidden;
+    padding: 10px;
+    border-radius: 12px;
+    max-width: 520px;
+  }
+
+  .app::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: conic-gradient(from 0deg, transparent, rgba(255,107,53,0.03), transparent, rgba(0,212,170,0.03), transparent);
+    animation: rotateGlow 20s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes rotateGlow {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .screen { position: relative; z-index: 1; }
+
+  h1 {
+    background: linear-gradient(135deg, var(--accent), var(--pink), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 6px rgba(255,107,53,0.25));
+    font-size: 1.15rem;
+    margin-bottom: 1px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.7rem;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Start screen ultra compact */
+  .start-screen .logo {
+    font-size: 2.2rem;
+    margin-bottom: 2px;
+    animation: logoFloat 3s ease-in-out infinite, logoGlow 2s ease-in-out infinite alternate;
+    filter: drop-shadow(0 0 12px rgba(255,107,53,0.35));
+  }
+
+  @keyframes logoFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  @keyframes logoGlow {
+    0% { filter: drop-shadow(0 0 6px rgba(255,107,53,0.25)); }
+    100% { filter: drop-shadow(0 0 15px rgba(255,107,53,0.45)); }
+  }
+
+  /* Ultra compact inputs */
+  .input-group { margin: 6px 0; }
+  .input-group label {
+    font-size: 0.72rem;
+    margin-bottom: 2px;
+    color: var(--muted);
+  }
+  .input-group input, .input-group select {
+    padding: 8px 10px;
+    font-size: 0.88rem;
+    background: rgba(20,20,43,0.8);
+    border: 1px solid rgba(255,107,53,0.2);
+    border-radius: 8px;
+  }
+  .input-group input:focus, .input-group select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 8px rgba(255,107,53,0.12);
+    outline: none;
+  }
+
+  /* Ultra compact buttons */
+  .btn {
+    padding: 10px;
+    font-size: 0.88rem;
+    border-radius: 10px;
+    margin-top: 6px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--pink));
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+  }
+  .btn-primary:hover::before { left: 100%; }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(255,107,53,0.3);
+  }
+  .btn-secondary {
+    background: rgba(37,37,69,0.8);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  /* Top bar - ultra compact */
+  .top-bar {
+    margin-bottom: 6px;
+    gap: 4px;
+  }
+  .stat-box {
+    padding: 4px 8px;
+    font-size: 0.68rem;
+    background: rgba(20,20,43,0.8);
+    border: 1px solid rgba(255,107,53,0.15);
+    border-radius: 8px;
+    position: relative;
+  }
+  .stat-box::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 0 0 8px 8px;
+  }
+  .stat-box span { font-size: 0.82rem; }
+
+  /* Lifelines - ultra compact */
+  .lifelines {
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  .lifeline {
+    padding: 5px 3px;
+    border-radius: 8px;
+    background: rgba(20,20,43,0.8);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.62rem;
+  }
+  .lifeline:hover:not(.used) {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(255,107,53,0.12);
+  }
+  .lifeline .icon {
+    font-size: 0.92rem;
+    margin-bottom: 1px;
+  }
+
+  /* Progress bar - ultra thin */
+  .progress-bar {
+    height: 4px;
+    margin-bottom: 6px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 2px;
+  }
+  .progress-fill {
+    background: linear-gradient(90deg, var(--accent), var(--pink), var(--accent2));
+    box-shadow: 0 0 6px rgba(255,107,53,0.3);
+  }
+
+  /* Round progress - ultra compact */
+  .round-progress {
+    padding: 4px 8px;
+    margin-bottom: 5px;
+    font-size: 0.72rem;
+    background: rgba(0,212,170,0.08);
+    border: 1px solid rgba(0,212,170,0.2);
+    border-radius: 8px;
+  }
+
+  /* Question card - ultra compact */
+  .question-card {
+    padding: 10px;
+    margin-bottom: 6px;
+    border-radius: 10px;
+    background: rgba(20,20,43,0.9);
+    border: 1px solid rgba(255,107,53,0.15);
+    position: relative;
+  }
+  .question-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3));
+    border-radius: 10px 10px 0 0;
+  }
+
+  .difficulty-badge {
+    padding: 2px 6px;
+    font-size: 0.62rem;
+    margin-bottom: 4px;
+    border-radius: 20px;
+  }
+  .diff-easy { background: rgba(0,212,170,0.15); color: #34d399; border: 1px solid rgba(0,212,170,0.3); }
+  .diff-medium { background: rgba(255,215,0,0.15); color: #ffd700; border: 1px solid rgba(255,215,0,0.3); }
+  .diff-hard { background: rgba(255,45,85,0.15); color: #ff6b7a; border: 1px solid rgba(255,45,85,0.3); }
+
+  /* TTS/Mute buttons ultra compact */
+  .tts-btn, .mute-btn {
+    padding: 4px 8px;
+    font-size: 0.68rem;
+    margin-bottom: 4px;
+    margin-right: 4px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+  }
+
+  /* Question text - ultra compact */
+  .question-text {
+    font-size: 0.92rem;
+    line-height: 1.4;
+    margin-bottom: 0;
+  }
+  .question-text .en {
+    font-size: 0.78rem;
+    margin-top: 2px;
+  }
+
+  /* Options - ultra compact */
+  .options { gap: 4px; }
+  .option {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(20,20,43,0.7);
+    border: 1.5px solid rgba(255,255,255,0.06);
+    gap: 4px;
+  }
+  .option::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0;
+    width: 2px; height: 100%;
+    background: transparent;
+    transition: all 0.3s;
+  }
+  .option:hover:not(.disabled)::before {
+    background: linear-gradient(180deg, var(--accent), var(--pink));
+  }
+  .option:hover:not(.disabled) {
+    border-color: rgba(255,107,53,0.3);
+    background: rgba(255,107,53,0.05);
+    transform: translateX(3px);
+  }
+  .option.selected {
+    border-color: var(--accent);
+    background: rgba(255,107,53,0.1);
+    box-shadow: 0 0 10px rgba(255,107,53,0.08);
+  }
+  .option.correct {
+    border-color: var(--accent2) !important;
+    background: rgba(0,212,170,0.15) !important;
+    box-shadow: 0 0 10px rgba(0,212,170,0.15) !important;
+  }
+  .option.wrong {
+    border-color: var(--danger) !important;
+    background: rgba(255,45,85,0.15) !important;
+  }
+  .option .opt-letter {
+    width: 22px; height: 22px;
+    font-size: 0.7rem;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .option.correct .opt-letter {
+    background: var(--accent2);
+    box-shadow: 0 0 6px rgba(0,212,170,0.3);
+  }
+
+  /* Feedback banner - ultra compact */
+  .feedback-banner {
+    padding: 8px;
+    margin-bottom: 6px;
+    font-size: 0.92rem;
+    border-radius: 8px;
+  }
+  .feedback-right {
+    background: rgba(0,212,170,0.15);
+    color: #34d399;
+    border: 1.5px solid var(--accent2);
+    box-shadow: 0 0 10px rgba(0,212,170,0.1);
+  }
+  .feedback-wrong {
+    background: rgba(255,45,85,0.15);
+    color: #ff6b7a;
+    border: 1.5px solid var(--danger);
+    box-shadow: 0 0 10px rgba(255,45,85,0.1);
+  }
+
+  /* Round info screen - ultra compact */
+  .round-msg { padding: 10px 6px; }
+  .round-msg h2 { font-size: 1.15rem; margin-bottom: 4px; }
+  .round-msg p { font-size: 0.78rem; margin-bottom: 8px; }
+  .round-info {
+    padding: 8px;
+    margin-bottom: 6px;
+    border-radius: 8px;
+    background: rgba(0,212,170,0.08);
+    border: 1px solid rgba(0,212,170,0.2);
+  }
+  .round-info h4 { font-size: 0.82rem; margin-bottom: 2px; }
+  .round-info p { font-size: 0.72rem; margin: 0; }
+
+  /* Overlays - ultra compact */
+  .overlay-box {
+    padding: 10px;
+    border-radius: 12px;
+    background: rgba(20,20,43,0.95);
+    border: 1px solid rgba(255,107,53,0.2);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .poll-bar { margin: 4px 0; }
+  .poll-track { height: 16px; }
+
+  /* Knockout badge */
+  .knockout-badge {
+    padding: 4px 12px;
+    font-size: 0.82rem;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--danger));
+    box-shadow: 0 0 10px rgba(255,107,53,0.25);
+  }
+
+  /* Correct answer box */
+  .correct-answer-box {
+    padding: 8px;
+    margin: 6px 0;
+    border-radius: 8px;
+    background: rgba(0,212,170,0.08);
+    border: 1.5px solid rgba(0,212,170,0.3);
+  }
+  .correct-answer-box h3 { font-size: 0.78rem; margin-bottom: 2px; }
+  .correct-answer-box p { font-size: 0.88rem; }
+
+  /* Encouragement */
+  .encouragement {
+    font-size: 0.88rem;
+    margin-top: 6px;
+  }
+
+  /* Leaderboard ultra compact */
+  .leaderboard-table th, .leaderboard-table td {
+    padding: 6px 4px;
+    font-size: 0.72rem;
+  }
+
+  /* ========== HEART POPUP ANIMATIONS ========== */
+  .heart-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 400;
+    overflow: hidden;
+  }
+  .floating-heart {
+    position: absolute;
+    font-size: 1.3rem;
+    animation: heartFloatUp 2.5s ease-out forwards;
+    pointer-events: none;
+    filter: drop-shadow(0 0 6px rgba(255,107,157,0.35));
+    z-index: 400;
+  }
+  @keyframes heartFloatUp {
+    0% { opacity: 0; transform: translateY(20px) scale(0.3) rotate(-10deg); }
+    15% { opacity: 1; transform: translateY(-10px) scale(1.1) rotate(5deg); }
+    50% { opacity: 0.9; transform: translateY(-80px) scale(1) rotate(-5deg); }
+    100% { opacity: 0; transform: translateY(-250px) scale(0.5) rotate(10deg); }
+  }
+
+  /* Idle popup - ultra compact */
+  .idle-popup {
+    padding: 10px;
+    max-width: 300px;
+    background: linear-gradient(145deg, #1a1a3e 0%, #12122a 100%);
+    border: 2px solid rgba(255,107,53,0.3);
+    box-shadow: 0 0 20px rgba(255,107,53,0.12);
+    border-radius: 12px;
+  }
+  .idle-popup h3 {
+    font-size: 0.92rem;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .idle-popup p { font-size: 0.78rem; margin-bottom: 8px; }
+
+  /* Confetti */
+  .confetti {
+    border-radius: 2px;
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  /* Cross flash */
+  .cross-flash {
+    font-size: 2.5rem;
+    filter: drop-shadow(0 0 15px rgba(255,215,0,0.5));
+  }
+
+  /* TV show corner decorations */
+  .app::after {
+    content: '';
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 30px; height: 30px;
+    border-top: 2px solid rgba(255,107,53,0.2);
+    border-right: 2px solid rgba(255,107,53,0.2);
+    border-radius: 0 12px 0 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from{opacity:0;transform:translateY(6px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  @keyframes feedbackPop {
+    0%{transform:scale(0.85);opacity:0}
+    50%{transform:scale(1.02)}
+    100%{transform:scale(1);opacity:1}
+  }
+  @keyframes winPulse {
+    0%{transform:scale(1)}
+    25%{transform:scale(1.02);box-shadow:0 0 15px rgba(0,212,170,0.25)}
+    50%{transform:scale(1)}
+    75%{transform:scale(1.01);box-shadow:0 0 10px rgba(0,212,170,0.15)}
+    100%{transform:scale(1)}
+  }
+  @keyframes loseShake {
+    0%,100%{transform:translateX(0)}
+    10%,30%,50%,70%,90%{transform:translateX(-4px)}
+    20%,40%,60%,80%{transform:translateX(4px)}
+  }
+  @keyframes encourageFade {
+    0%{opacity:0;transform:translateY(12px)}
+    100%{opacity:1;transform:translateY(0)}
+  }
+  @keyframes knockoutPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 6px rgba(245,158,11,0.25); }
+    50% { transform: scale(1.02); box-shadow: 0 0 12px rgba(245,158,11,0.4); }
+  }
+  @keyframes knockoutGlow {
+    0%, 100% { box-shadow: 0 0 10px rgba(245,158,11,0.15); border-color: var(--accent); }
+    50% { box-shadow: 0 0 20px rgba(245,158,11,0.3); border-color: #fbbf24; }
+  }
+  @keyframes crossFlash {
+    0%{transform:scale(0) rotate(-45deg); opacity:1}
+    100%{transform:scale(1.3) rotate(0deg); opacity:0}
+  }
+  @keyframes confettiFall {
+    0%{transform:translateY(-40px) rotate(0deg); opacity:1}
+    100%{transform:translateY(100vh) rotate(720deg); opacity:0}
+  }
+  @keyframes popIn {
+    from{transform:translate(-50%,-50%) scale(0.85);opacity:0}
+    to{transform:translate(-50%,-50%) scale(1);opacity:1}
+  }
+
+  @media(max-width:480px){
+    .app{padding:8px; border-radius:10px;}
+    h1{font-size:1.05rem}
+    .question-text{font-size:0.88rem}
+    .option{padding:7px 8px; font-size:0.85rem}
+    .stat-box{padding:3px 6px; font-size:0.62rem}
+    .lifeline{padding:4px 2px; font-size:0.58rem}
+    .lifeline .icon{font-size:0.9rem}
+    .btn{padding:8px; font-size:0.82rem}
+    .start-screen .logo{font-size:2rem}
+    .top-bar{gap:3px}
+    .round-progress{padding:3px 6px; font-size:0.68rem}
+    .question-card{padding:8px; margin-bottom:5px}
+    .feedback-banner{padding:6px; font-size:0.85rem}
+  }
+  @media(max-width:360px){
+    .app{padding:6px; border-radius:8px}
+    .question-text{font-size:0.82rem}
+    .option{padding:6px; font-size:0.8rem}
+    .stat-box{padding:3px 5px; font-size:0.58rem}
+    .top-bar{gap:2px}
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+<!-- START SCREEN -->
+<div id="screen-start" class="screen active start-screen">
+  <div class="logo">📖✝️</div>
+  <h1>ബൈബിൾ ക്വിസ്</h1>
+  <p class="subtitle">Bible Quiz — Malayalam & English</p>
+  <div class="input-group">
+    <label>നിങ്ങളുടെ പേര് / Your Name</label>
+    <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
+  </div>
+  <div class="input-group">
+    <label>ഭാഷ / Language Preference</label>
+    <select id="langPref">
+      <option value="both">മലയാളം + English (Both)</option>
+      <option value="ml">മലയാളം മാത്രം (Malayalam only)</option>
+      <option value="en">English only</option>
+    </select>
+  </div>
+  <button class="btn btn-primary" id="startBtn">🚀 ആരംഭിക്കുക / Start Quiz</button>
+  <button class="btn btn-secondary" id="leaderboardBtn" style="margin-top:8px">🏆 ലീഡർബോർഡ് / Leaderboard</button>
+</div>
+
+<!-- ROUND INFO SCREEN -->
+<div id="screen-roundinfo" class="screen">
+  <div class="round-msg">
+    <div id="roundInfoBadge" class="difficulty-badge diff-easy" style="margin-bottom:16px;">Round 1</div>
+    <h2 id="roundInfoTitle">📋 Round 1</h2>
+    <div class="round-info">
+      <h4>🎯 To Move to Next Round:</h4>
+      <p id="roundInfoReq">Answer 2 out of 5 questions correctly</p>
+    </div>
+    <div class="round-info" style="background:rgba(16,185,129,0.1); border-color:rgba(16,185,129,0.3);">
+      <h4 style="color:#34d399;">📊 Difficulty:</h4>
+      <p id="roundInfoDiff">Easy Questions</p>
+    </div>
+    <div style="font-size:3rem;margin:20px 0" id="roundInfoEmoji">🌟</div>
+    <button class="btn btn-primary" id="startRoundBtn">Start Round →</button>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="screen-game" class="screen">
+  <div class="top-bar">
+    <div class="stat-box">Round: <span id="roundDisplay">1</span></div>
+    <div class="stat-box">Score: <span id="scoreDisplay">0</span></div>
+    <div class="stat-box">Q: <span id="qNumDisplay">1</span>/<span id="qTotalDisplay">5</span></div>
+  </div>
+
+  <!-- Round Progress - shows correct count during round -->
+  <div class="round-progress" id="roundProgress">
+    ✅ Correct this round: <span id="roundCorrectDisplay">0</span> / <span id="roundTotalDisplay">5</span>
+  </div>
+
+  <div class="lifelines">
+    <div class="lifeline" id="lf-5050"><span class="icon">✂️</span><div>50-50</div></div>
+    <div class="lifeline" id="lf-poll"><span class="icon">📊</span><div>Audience</div></div>
+    <div class="lifeline" id="lf-expert"><span class="icon">👨‍🏫</span><div>Expert</div></div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressBar" style="width:0%"></div></div>
+
+  <!-- Feedback Banner -->
+  <div id="feedbackBanner" style="display:none;"></div>
+
+  <div class="question-card" id="questionCard">
+    <div id="diffBadge" class="difficulty-badge diff-easy">Easy</div>
+    <div style="display:flex;align-items:center;margin-bottom:10px;">
+      <button class="tts-btn" id="ttsBtn">🔊 Listen</button>
+      <button class="mute-btn" id="muteBtn">🔊 Sound On</button>
+    </div>
+    <div class="question-text" id="questionText"></div>
+  </div>
+  <div class="options" id="optionsContainer"></div>
+</div>
+
+<!-- ROUND TRANSITION SCREEN -->
+<div id="screen-round" class="screen">
+  <div class="round-msg">
+    <h2 id="roundTitle">🎉 Round Complete!</h2>
+    <p id="roundMessage"></p>
+    <div style="font-size:3rem;margin:16px 0" id="roundEmoji">🌟</div>
+    <button class="btn btn-primary" id="nextRoundBtn">അടുത്ത റൗണ്ട് / Next Round →</button>
+  </div>
+</div>
+
+<!-- GAME OVER SCREEN -->
+<div id="screen-over" class="screen">
+  <div class="round-msg">
+    <h2 id="overTitle">💔 Game Over</h2>
+    <p id="overMessage"></p>
+
+    <!-- Show correct answer -->
+    <div class="correct-answer-box" id="correctAnswerBox" style="display:none;">
+      <h3>✅ ശരിയായ ഉത്തരം / Correct Answer:</h3>
+      <p id="correctAnswerText"></p>
+    </div>
+
+    <div id="encouragementText" class="encouragement"></div>
+    <div style="font-size:2.5rem;margin:16px 0" id="overEmoji">📖</div>
+    <button class="btn btn-primary" id="restartBtn">🔄 വീണ്ടും കളിക്കുക / Play Again</button>
+    <button class="btn btn-secondary" id="overLeaderboardBtn" style="margin-top:8px">🏆 Leaderboard</button>
+  </div>
+</div>
+
+<!-- LEADERBOARD SCREEN -->
+<div id="screen-leaderboard" class="screen">
+  <h1>🏆 ലീഡർബോർഡ്</h1>
+  <p class="subtitle">Leaderboard — Top Scorers</p>
+  <table class="leaderboard-table">
+    <thead><tr><th>#</th><th>Name</th><th>Score</th><th>Round</th><th>Date</th></tr></thead>
+    <tbody id="leaderboardBody"></tbody>
+  </table>
+  <button class="btn btn-secondary" id="backBtn" style="margin-top:16px">← Back</button>
+  <button class="btn btn-danger" id="clearScoresBtn" style="margin-top:8px">Clear All Scores</button>
+</div>
+
+</div>
+
+<!-- POLL OVERLAY -->
+<div class="overlay" id="pollOverlay">
+  <div class="overlay-box">
+    <h3 style="margin-bottom:16px">📊 Audience Poll</h3>
+    <div id="pollResults"></div>
+    <button class="btn btn-primary" id="closePollBtn" style="margin-top:16px">Close</button>
+  </div>
+</div>
+
+<!-- EXPERT OVERLAY -->
+<div class="overlay" id="expertOverlay">
+  <div class="overlay-box">
+    <h3 style="margin-bottom:12px">👨‍🏫 Expert Advice</h3>
+    <p id="expertText" style="line-height:1.6;color:var(--muted)"></p>
+    <button class="btn btn-primary" id="closeExpertBtn" style="margin-top:16px">Close</button>
+  </div>
+</div>
+
+<!-- IDLE POPUP -->
+<div class="idle-backdrop" id="idleBackdrop"></div>
+<div class="idle-popup" id="idlePopup">
+  <div class="heart-container" id="heartContainer"></div>
+  <h3>💖 Keep Going!</h3>
+  <p id="idlePopupText">You are doing great! ✨</p>
+  <button class="btn btn-primary" id="idleNoBtn" style="margin-top:8px">I'm still here! 💪</button>
+</div>
+
+<script>
+const QUESTIONS = [
+
+
+
+
+// EASY (61 questions)
+{ml:"ദൈവം എത്ര ദിവസത്തിൽ ലോകം സൃഷ്ടിച്ചു?",en:"How many days did God take to create the world?",o:["6 days", "7 days", "8 days", "10 days"],eo:["6 days", "7 days", "8 days", "10 days"],c:0,d:1},
+{ml:"ആദാമിന്റെ ഭാര്യയുടെ പേര് എന്തായിരുന്നു?",en:"What was the name of Adam's wife?",o:["ഈവ്", "സാറാ", "റെബേക്ക", "റാഹേൽ"],eo:["Eve", "Sarah", "Rebekah", "Rachel"],c:0,d:1},
+{ml:"നോഹയുടെ പേടകത്തിൽ എത്ര ജോഡി മൃഗങ്ങളെ കയറ്റി?",en:"How many pairs of animals did Noah take into the ark?",o:["ഒരു ജോഡി", "രണ്ട് ജോഡി", "ഏഴ് ജോഡി", "പത്ത് ജോഡി"],eo:["One pair", "Two pairs", "Seven pairs", "Ten pairs"],c:1,d:1},
+{ml:"ദൈവം നോഹയോട് പ്രവചിച്ച മഴയുടെ ദിവസങ്ങൾ?",en:"How many days of rain did God tell Noah about?",o:["20 days", "30 days", "40 days", "50 days"],eo:["20 days", "30 days", "40 days", "50 days"],c:2,d:1},
+{ml:"അബ്രാഹാമിന്റെ പത്നിയുടെ പേര്?",en:"What was Abraham's wife's name?",o:["സാറാ", "ഹാഗാർ", "റെബേക്ക", "ലേയ"],eo:["Sarah", "Hagar", "Rebekah", "ലേയ"],c:0,d:1},
+{ml:"അബ്രാഹാമിന് എത്ര വയസ്സുള്ളപ്പോഴാണ് ഇസ്ഹാക് ജനിച്ചത്?",en:"How old was Abraham when Isaac was born?",o:["80", "90", "100", "110"],eo:["80", "90", "100", "110"],c:2,d:1},
+{ml:"ഇസ്ഹാകിന്റെ പത്നിയുടെ പേര്?",en:"What was Isaac's wife's name?",o:["റെബേക്ക", "സാറാ", "റാഹേൽ", "ലേയ"],eo:["Rebekah", "Sarah", "Rachel", "ലേയ"],c:0,d:1},
+{ml:"യാക്കോബിന്റെ പന്ത്രണ്ട് പുത്രന്മാരെ എന്താണ് വിളിക്കുന്നത്?",en:"What are Jacob's twelve sons called?",o:["പന്ത്രണ്ട് അപ്പസ്തോലന്മാർ", "ഇസ്രായേലിന്റെ പന്ത്രണ്ടു ഗോത്രങ്ങൾ", "പ്രവാചകന്മാർ", "രാജാക്കന്മാർ"],eo:["Twelve apostles", "Twelve tribes of Israel", "Prophets", "Kings"],c:1,d:1},
+{ml:"യോസേഫിനെ സഹോദരന്മാർ എങ്ങനെ വഞ്ചിച്ചു?",en:"How did Joseph's brothers deceive him?",o:["കൊന്നു", "അടിമയായി വിറ്റു", "പുറത്താക്കി", "തടവിലാക്കി"],eo:["Killed", "Sold as slave", "Expelled", "Imprisoned"],c:1,d:1},
+{ml:"യോസേഫ് ഏത് രാജ്യത്ത് അടിമയായി?",en:"In which country was Joseph sold as a slave?",o:["ഈജിപ്ത്", "ബാബിലോൺ", "അസീറിയ", "കാനാൻ"],eo:["Egypt", "Babylon", "Assyria", "Canaan"],c:0,d:1},
+{ml:"മോശെയെ കണ്ടെത്തിയ നദി ഏത്?",en:"Which river was Moses found in?",o:["യോർദ്ദാൻ", "നൈൽ", "യൂഫ്രട്ടീസ്", "ടൈഗ്രിസ്"],eo:["Jordan", "Nile", "Euphrates", "ടൈഗ്രിസ്"],c:1,d:1},
+{ml:"മോശെയുടെ സഹോദരിയുടെ പേര്?",en:"What was Moses' sister's name?",o:["മിരിയാം", "ദെബോറ", "എസ്തേർ", "റൂത്ത്"],eo:["മിരിയാം", "Deborah", "Esther", "റൂത്ത്"],c:0,d:1},
+{ml:"ദൈവം മോശെയോട് സംസാരിച്ച പർവ്വതം?",en:"Which mountain did God speak to Moses on?",o:["സീനായി", "അരാരാത്ത്", "സിയോൻ", "കര്മ്മേൽ"],eo:["Sinai", "Ararat", "Zion", "Carmel"],c:0,d:1},
+{ml:"പത്തു കല്പനകൾ എത്രയാമത്തെ കല്പനയാണ് 'നിങ്ങൾക്ക് മറ്റ് ദൈവങ്ങൾ ഉണ്ടാകരുത്'?",en:"Which commandment says 'You shall have no other gods'?",o:["1-ആം", "2-ആം", "3-ആം", "4-ആം"],eo:["1st", "2nd", "3rd", "4th"],c:0,d:1},
+{ml:"യോർദ്ദാൻ നദി കടന്നപ്പോൾ ഇസ്രായേല്യർ എന്ത് കൊണ്ടുനടന്നു?",en:"What did the Israelites carry when crossing the Jordan?",o:["പെട്ടകം", "കുരിശ്", "തീ", "വെള്ളം"],eo:["Ark", "Cross", "Fire", "വെള്ളം"],c:0,d:1},
+{ml:"യെരിഹോയുടെ മതിലുകൾ എങ്ങനെ വീണു?",en:"How did the walls of Jericho fall?",o:["കാഹളം ഊതിയപ്പോൾ", "തീയിൽ", "ഭൂകമ്പത്തിൽ", "യുദ്ധത്തിൽ"],eo:["When trumpets blew", "In fire", "In earthquake", "In battle"],c:0,d:1},
+{ml:"ദാവീദിന്റെ അച്ഛന്റെ പേര്?",en:"What was David's father's name?",o:["യിശ്ശായി", "സൗൽ", "യോനാഥാൻ", "ശമൂവേൽ"],eo:["Jesse", "Saul", "Jonathan", "Samuel"],c:0,d:1},
+{ml:"ദാവീദ് എത്ര ഗോലിയാത്തിനെ കൊന്നു?",en:"How many Goliaths did David kill?",o:["1", "2", "3", "4"],eo:["1", "2", "3", "4"],c:0,d:1},
+{ml:"ദാവീദ് ഗോലിയാത്തിനെ എന്തുകൊണ്ടാണ് കൊന്നത്?",en:"What did David use to kill Goliath?",o:["കല്ലും കവണയും", "വാൾ", "വില്ലും അമ്പും", "ഭാലം"],eo:["Stone and sling", "Sword", "Bow and arrow", "Spear"],c:0,d:1},
+{ml:"സോളമന്റെ അമ്മയുടെ പേര്?",en:"What was Solomon's mother's name?",o:["ബത്ത്‌ശേബ", "സാറാ", "റെബേക്ക", "ഹാഗാർ"],eo:["ബത്ത്‌ശേബ", "Sarah", "Rebekah", "Hagar"],c:0,d:1},
+{ml:"സോളമൻ എന്തിനെക്കുറിച്ച് ദൈവത്തോട് ചോദിച്ചു?",en:"What did Solomon ask God for?",o:["അറിവ്", "ധനം", "ശക്തി", "ദീർഘായുസ്സ്"],eo:["Wisdom", "Money", "Power", "Long life"],c:0,d:1},
+{ml:"യോനാ മത്സ്യത്തിന്റെ വയറ്റിൽ എത്ര ദിവസം കിടന്നു?",en:"How many days was Jonah in the fish's belly?",o:["1", "2", "3", "7"],eo:["1", "2", "3", "7"],c:2,d:1},
+{ml:"യേശു ഏത് നഗരത്തിൽ ജനിച്ചു?",en:"In which city was Jesus born?",o:["ബേത്‌ലഹേം", "നാസറത്ത്", "യെരൂശലേം", "കപ്പർണാഹൂം"],eo:["Beth‌ലഹേം", "Nazareth", "Jerusalem", "Capernaum"],c:0,d:1},
+{ml:"യേശുവിന്റെ അമ്മയുടെ പേര്?",en:"What was Jesus' mother's name?",o:["മറിയം", "എലിസബത്ത്", "മാർത്ത", "മഗ്ദലന മറിയം"],eo:["Mary", "Elizabeth", "Martha", "Mary Magdalene"],c:0,d:1},
+{ml:"യേശുവിന്റെ പീഡാനുഭവത്തിൽ ആദ്യം എന്താണ് സംഭവിച്ചത്?",en:"What was the first event of Jesus' passion?",o:["പിടിക്കപ്പെട്ടു", "കുരിശിൽ അറയ്ക്കപ്പെട്ടു", "മരിച്ചു", "ഉയിർത്തെഴുന്നേറ്റു"],eo:["Arrested", "Crucified", "Died", "Rose again"],c:0,d:1},
+{ml:"യേശു എത്ര ദിവസം മരണശേഷം ഉയിർത്തെഴുന്നേറ്റു?",en:"How many days after death did Jesus rise?",o:["1", "2", "3", "7"],eo:["1", "2", "3", "7"],c:2,d:1},
+{ml:"പന്ത്രണ്ട് അപ്പസ്തോലന്മാരിൽ ഒരാളായ പത്രോസിന്റെ തൊഴിൽ?",en:"What was Peter's occupation before following Jesus?",o:["മീൻപിടിത്തക്കാരൻ", "വ്യാപാരി", "രാജാവ്", "പുരോഹിതൻ"],eo:["Fisherman", "Merchant", "King", "പുരോഹിതൻ"],c:0,d:1},
+{ml:"യേശു പത്രോസിനോട് 'എന്റെ ആടുകളെ മേയ്ക്കുക' എന്ന് പറഞ്ഞപ്പോൾ?",en:"When did Jesus tell Peter to 'Feed my sheep'?",o:["ഉയിർത്തെഴുന്നേറ്റ ശേഷം", "കുരിശിൽ", "പീഡാനുഭവത്തിൽ", "ജനനസമയം"],eo:["After resurrection", "On the cross", "During passion", "At birth"],c:0,d:1},
+{ml:"പൗലോസിന്റെ യഥാർത്ഥ പേര്?",en:"What was Paul's original name?",o:["ശൗൽ", "പത്രോസ്", "യോഹന്നാൻ", "മർക്കോസ്"],eo:["ശൗൽ", "Peter", "John", "Mark"],c:0,d:1},
+{ml:"പൗലോസ് ഏത് നഗരത്തിലേക്കുള്ള വഴിയിൽ ദർശനം കണ്ടു?",en:"On the road to which city did Paul see his vision?",o:["ദമ്മേശെക്", "യെരൂശലേം", "അന്ത്യോക്യ", "റോം"],eo:["Damascus", "Jerusalem", "Antioch", "Rome"],c:0,d:1},
+{ml:"യേശു എത്ര അപ്പസ്തോലന്മാരെ തിരഞ്ഞെടുത്തു?",en:"How many apostles did Jesus choose?",o:["10", "12", "14", "70"],eo:["10", "12", "14", "70"],c:1,d:1},
+{ml:"യേശു കുഷ്ഠരോഗിയെ സൗഖ്യമാക്കിയപ്പോൾ അയാൾ എന്ത് ചെയ്തു?",en:"What did the leper do when Jesus healed him?",o:["സ്തോത്രം ചെയ്തു", "ഓടിപ്പോയി", "പറഞ്ഞു", "നിശ്ശബ്ദനായി"],eo:["Gave thanks", "Ran away", "Said", "Remained silent"],c:0,d:1},
+{ml:"യേശു ജലത്തെ എന്താക്കി മാറ്റി?",en:"What did Jesus turn water into?",o:["ദ്രാക്ഷാരസം", "തേൻ", "പാല്", "എണ്ണ"],eo:["Wine", "Honey", "Milk", "Oil"],c:0,d:1},
+{ml:"യേശു എത്ര ആളുകളെ അഞ്ച് അപ്പവും രണ്ട് മീനും കൊണ്ട് പോഷിപ്പിച്ചു?",en:"How many people did Jesus feed with 5 loaves and 2 fish?",o:["1000", "3000", "5000", "15000"],eo:["1000", "3000", "5000", "15000"],c:2,d:1},
+{ml:"യേശു കടലിന് മുകളിൽ നടന്നപ്പോൾ അവനോടൊപ്പം ആരായിരുന്നു?",en:"Who walked on water with Jesus?",o:["പത്രോസ്", "യോഹന്നാൻ", "യാക്കോബ്", "ആന്ദ്രേയ"],eo:["Peter", "John", "James", "Andrew"],c:0,d:1},
+{ml:"യേശു ഏത് മരത്തിൽ നിന്ന് സാത്താനെ കണ്ടെത്തി?",en:"From which tree did Jesus find Satan?",o:["അത്തി", "ഒലീവ്", "അത്തിപ്പഴം", "ദേവദാരു"],eo:["Fig", "Olive", "Fig tree", "Cedar"],c:2,d:1},
+{ml:"യേശു കുരിശിൽ മരിക്കുന്നതിന് മുമ്പ് എന്ത് പാനീയം നല്കപ്പെട്ടു?",en:"What drink was given to Jesus before crucifixion?",o:["പുളിപ്പിച്ച വീഞ്ഞ്", "വെള്ളം", "പാല്", "തേൻ"],eo:["Sour wine", "Water", "Milk", "Honey"],c:0,d:1},
+{ml:"യേശുവിന്റെ കുരിശിൽ എന്ത് എഴുതിയിരുന്നു?",en:"What was written on Jesus' cross?",o:["യെഹൂദരുടെ രാജാവ്", "ദൈവപുത്രൻ", "രക്ഷകൻ", "പാപമോചകൻ"],eo:["King of the Jews", "Son of God", "Savior", "പാപമോചകൻ"],c:0,d:1},
+{ml:"യേശു ഉയിർത്തെഴുന്നേറ്റ ശേഷം ആദ്യം ആരെ കണ്ടു?",en:"Who did Jesus first appear to after resurrection?",o:["മഗ്ദലന മറിയം", "പത്രോസ്", "യോഹന്നാൻ", "തോമസ്"],eo:["Mary Magdalene", "Peter", "John", "Thomas"],c:0,d:1},
+{ml:"പത്രോസ് എത്ര തവണ യേശുവിനെ തള്ളിപ്പറഞ്ഞു?",en:"How many times did Peter deny Jesus?",o:["1", "2", "3", "4"],eo:["1", "2", "3", "4"],c:2,d:1},
+{ml:"പരിശുദ്ധാത്മാവ് അപ്പസ്തോലന്മാർക്ക് ഇറങ്ങിയത് ഏത് ദിവസം?",en:"On which day did the Holy Spirit descend on the apostles?",o:["പെന്തക്കോസ്ത്", "പെസഹ", "വെള്ളിയാഴ്ച", "ശനിയാഴ്ച"],eo:["Pentecost", "Passover", "Friday", "Saturday"],c:0,d:1},
+{ml:"ആദ്യ രക്തസാക്ഷി ആരായിരുന്നു?",en:"Who was the first martyr?",o:["സ്തെഫാനോസ്", "പത്രോസ്", "പൗലോസ്", "യാക്കോബ്"],eo:["Stephen", "Peter", "Paul", "James"],c:0,d:1},
+{ml:"യോഹന്നാൻ സ്നാപകന്റെ അച്ഛന്റെ പേര്?",en:"What was John the Baptist's father's name?",o:["സെഖരിയാ", "യോസേഫ്", "യാക്കോബ്", "ശിമയോൻ"],eo:["Zechariah", "Joseph", "James", "Simeon"],c:0,d:1},
+{ml:"യോഹന്നാൻ സ്നാപകന്റെ അമ്മയുടെ പേര്?",en:"What was John the Baptist's mother's name?",o:["എലിസബത്ത്", "മറിയം", "മാർത്ത", "സാറാ"],eo:["Elizabeth", "Mary", "Martha", "Sarah"],c:0,d:1},
+{ml:"യേശു സ്നാനം ഏത് നദിയിൽ വച്ച് സ്വീകരിച്ചു?",en:"In which river was Jesus baptized?",o:["യോർദ്ദാൻ", "നൈൽ", "യൂഫ്രട്ടീസ്", "കിശോൻ"],eo:["Jordan", "Nile", "Euphrates", "Kishon"],c:0,d:1},
+{ml:"യേശു മരുഭൂമിയിൽ എത്ര ദിവസം ഉപവസിച്ചു?",en:"How many days did Jesus fast in the desert?",o:["20", "30", "40", "50"],eo:["20", "30", "40", "50"],c:2,d:1},
+{ml:"യേശു പീഡാനുഭവത്തിന് മുമ്പ് ഏത് മലയിൽ പ്രാർത്ഥിച്ചു?",en:"On which mountain did Jesus pray before passion?",o:["ഒലിവ് മല", "സീനായി", "കര്മ്മേൽ", "സിയോൻ"],eo:["Mount of Olives", "Sinai", "Carmel", "Zion"],c:0,d:1},
+{ml:"യൂദാ യേശുവിനെ എത്ര നാണയത്തിന് വിൽക്കി?",en:"For how many coins did Judas sell Jesus?",o:["10 വെള്ളി നാണയം", "20 വെള്ളി നാണയം", "30 വെള്ളി നാണയം", "40 വെള്ളി നാണയം"],eo:["10 silver coins", "20 silver coins", "30 silver coins", "40 silver coins"],c:2,d:1},
+{ml:"യൂദാ യേശുവിനെ ചുംബിച്ച് കാണിച്ചത് ഏത് തോട്ടത്തിൽ?",en:"In which garden did Judas betray Jesus with a kiss?",o:["ഗെത്സമനെ", "ഈദൻ", "ഒലിവ്", "സീനായി"],eo:["Gethsemane", "Eden", "Olive", "Sinai"],c:0,d:1},
+{ml:"യേശു കുരിശിൽ മരിച്ചത് ഏത് ദിവസം?",en:"On which day did Jesus die on the cross?",o:["വെള്ളിയാഴ്ച", "ശനിയാഴ്ച", "ഞായറാഴ്ച", "തിങ്കളാഴ്ച"],eo:["Friday", "Saturday", "Sunday", "Monday"],c:0,d:1},
+{ml:"യേശു ഉയിർത്തെഴുന്നേറ്റത് ഏത് ദിവസം?",en:"On which day did Jesus rise from the dead?",o:["ഞായറാഴ്ച", "ശനിയാഴ്ച", "വെള്ളിയാഴ്ച", "തിങ്കളാഴ്ച"],eo:["Sunday", "Saturday", "Friday", "Monday"],c:0,d:1},
+{ml:"ആദ്യത്തെ ക്രിസ്തീയ സഭ ഏത് നഗരത്തിൽ രൂപംകൊണ്ടു?",en:"In which city was the first Christian church formed?",o:["യെരൂശലേം", "അന്ത്യോക്യ", "റോം", "എഫേസോസ്"],eo:["Jerusalem", "Antioch", "Rome", "എഫേസോസ്"],c:0,d:1},
+{ml:"ബാർണബാസിന്റെ യഥാർത്ഥ പേര്?",en:"What was Barnabas' original name?",o:["യോസേഫ്", "ശൗൾ", "യോഹന്നാൻ", "മർക്കോസ്"],eo:["Joseph", "Saul", "John", "Mark"],c:0,d:1},
+{ml:"യേശുവിന്റെ സുവിശേഷം എഴുതിയ ആദ്യ അപ്പസ്തോലൻ?",en:"Which apostle wrote the first Gospel?",o:["മത്തായി", "മർക്കോസ്", "ലൂക്കാ", "യോഹന്നാൻ"],eo:["Matthew", "Mark", "Luke", "John"],c:0,d:1},
+{ml:"ദൈവം മോശെയെ കണ്ടുമുട്ടിയത് ഏത് മരത്തിന്റെ അടുത്ത്?",en:"Near which bush did God meet Moses?",o:["കത്തുന്ന കുറ്റിച്ചെടി", "ഒലീവ്", "അത്തി", "ദേവദാരു"],eo:["Burning bush", "Olive", "Fig", "Cedar"],c:0,d:1},
+{ml:"ഫറവോന്റെ മകൾ മോശെയെ എവിടെ നിന്ന് കണ്ടെത്തി?",en:"Where did Pharaoh's daughter find Moses?",o:["നൈൽ നദിയിൽ", "യോർദ്ദാനിൽ", "കടലിൽ", "തടാകത്തിൽ"],eo:["In the Nile", "In the Jordan", "In the sea", "In the lake"],c:0,d:1},
+{ml:"മോശെയുടെ സഹോദരന്റെ പേര്?",en:"What was Moses' brother's name?",o:["അഹരോൻ", "യോശുവ", "കാലേബ്", "കോറഹ്"],eo:["Aaron", "Joshua", "Caleb", "കോറഹ്"],c:0,d:1},
+{ml:"യോശുവയുടെ പൂർവ്വനാമം?",en:"What was Joshua's original name?",o:["ഹോശേയ", "യോശുവ", "കാലേബ്", "എലിയാസർ"],eo:["Hosea", "Joshua", "Caleb", "Eleazar"],c:0,d:1},
+{ml:"ദാവീദ് ഏത് ഗോത്രത്തിൽപ്പെട്ടവനായിരുന്നു?",en:"Which tribe did David belong to?",o:["യെഹൂദാ", "ബെന്യാമീൻ", "ലേവി", "എഫ്രയീം"],eo:["Judah", "Benjamin", "Levi", "Ephraim"],c:0,d:1},
+{ml:"സോളമന്റെ ക്ഷേത്രം എത്ര വർഷം കൊണ്ട് പണിതു?",en:"How many years did it take to build Solomon's temple?",o:["5", "7", "10", "20"],eo:["5", "7", "10", "20"],c:1,d:1},
+{ml:"യോനാ ഏത് നഗരത്തിലേക്ക് ഓടിപ്പോയി?",en:"To which city did Jonah try to flee?",o:["തർശീശ്", "നിനവേ", "യെരൂശലേം", "ദമ്മേശെക്"],eo:["Tarshish", "Nineveh", "Jerusalem", "Damascus"],c:0,d:1},
+{ml:"ആദ്യത്തെ പാപം ആരാണ് ചെയ്തത്?",en:"Who committed the first sin?",o:["ആദാമും ഈവും", "കായീൻ", "നോഹ", "ശൗൾ"],eo:["ആദാമും ഈവും", "കായീൻ", "നോഹ", "ശൗൾ"],c:0,d:2},
+{ml:"കായീൻ തന്റെ സഹോദരനെ എന്തുകൊണ്ട് കൊന്നു?",en:"Why did Cain kill his brother?",o:["അസൂയ", "ധനം", "ഭൂമി", "പദവി"],eo:["Jealousy", "Money", "Land", "പദവി"],c:0,d:2},
+{ml:"നോഹയുടെ പേടകത്തിന്റെ വ്യാസം?",en:"What was the width of Noah's ark?",o:["50 മീറ്റർ", "75 മീറ്റർ", "100 മീറ്റർ", "150 മീറ്റർ"],eo:["50 meters", "75 meters", "100 meters", "150 meters"],c:0,d:2},
+{ml:"അബ്രാഹാം ഹാഗാറിനെ എവിടെനിന്ന് കൊണ്ടുവന്നു?",en:"From where did Abraham bring Hagar?",o:["ഈജിപ്ത്", "കാനാൻ", "അസീറിയ", "ബാബിലോൺ"],eo:["Egypt", "Canaan", "Assyria", "Babylon"],c:0,d:2},
+{ml:"ഇസ്മായേലിന്റെ അർത്ഥം?",en:"What does Ishmael mean?",o:["ദൈവം കേട്ടു", "ദൈവം രക്ഷിക്കുന്നു", "ദൈവം അനുഗ്രഹിക്കുന്നു", "ദൈവം സംരക്ഷിക്കുന്നു"],eo:["God കേട്ടു", "God saves", "God അനുഗ്രഹിക്കുന്നു", "God സംSalvationിക്കുന്നു"],c:0,d:2},
+{ml:"യാക്കോബ് ഏത് സ്ഥലത്ത് ദൈവവുമായി പോരാടി?",en:"Where did Jacob wrestle with God?",o:["യബ്ബോക്ക്", "ബേത്‌ലഹേം", "ബേഥേൽ", "ഹെബ്രോൺ"],eo:["Jabbok", "Beth‌ലഹേം", "Bethel", "Hebron"],c:0,d:2},
+{ml:"യാക്കോബിന് 'ഇസ്രായേൽ' എന്ന പേര് ലഭിച്ചത് എന്തുകൊണ്ട്?",en:"Why was Jacob named Israel?",o:["ദൈവവുമായി പോരാടി", "അനുഗ്രഹം ലഭിച്ചു", "രാജാവായി", "പ്രവാചകനായി"],eo:["Wrestled with God", "Received blessing", "Became king", "Became prophet"],c:0,d:2},
+{ml:"യോസേഫിന്റെ ഏറ്റവും ഇളയ സഹോദരൻ ആര്?",en:"Who was Joseph's youngest brother?",o:["ബെന്യാമീൻ", "യെഹൂദാ", "റൂബൻ", "ലേവി"],eo:["Benjamin", "Judah", "Reuben", "Levi"],c:0,d:2},
+{ml:"യോസേഫ് ഈജിപ്തിൽ ആദ്യം എന്തായിരുന്നു?",en:"What was Joseph's first position in Egypt?",o:["അടിമ", "ജയിലിൽ", "ഭരണാധികാരി", "രാജാവിന്റെ ഉപദേഷ്ടാവ്"],eo:["Slave", "Prison", "Governor", "King's advisor"],c:0,d:2},
+{ml:"യോസേഫ് ഫറവോന്റെ സ്വപ്നം എങ്ങനെ വ്യാഖ്യാനിച്ചു?",en:"How did Joseph interpret Pharaoh's dream?",o:["7 സമൃദ്ധി വർഷങ്ങൾ, 7 ക്ഷാമ വർഷങ്ങൾ", "7 യുദ്ധങ്ങൾ", "7 രാജാക്കന്മാർ", "7 മഹാമാരികൾ"],eo:["7 years of plenty, 7 years of famine", "7 wars", "7 kings", "7 plagues"],c:0,d:2},
+{ml:"മോശെയുടെ മരണസ്ഥലം?",en:"Where did Moses die?",o:["നെബോ പർവ്വതം", "സീനായി", "യെരൂശലേം", "യോർദ്ദാൻ"],eo:["Mount Nebo", "Sinai", "Jerusalem", "യോർദ്ദാൻ"],c:0,d:2},
+{ml:"യോശുവയുടെ മരണസ്ഥലം?",en:"Where did Joshua die?",o:["തിമ്നത്സെരഹ്", "യെരൂശലേം", "ഗില്ഗാൽ", "ഷീഹെം"],eo:["Timnathserah", "Jerusalem", "Gilgal", "Shechem"],c:0,d:2},
+{ml:"യോർദ്ദാൻ നദി കടന്ന ശേഷം ആദ്യം കീഴടക്കിയ നഗരം?",en:"Which was the first city conquered after crossing Jordan?",o:["യെരിഹോ", "അയ്യ്", "ഗിബെയോൺ", "ലാക്ഷീഷ്"],eo:["Jericho", "Ai", "Gibeon", "Lachish"],c:0,d:2},
+{ml:"ദാവീദ് എത്ര വയസ്സുള്ളപ്പോൾ രാജാവായി?",en:"How old was David when he became king?",o:["20", "25", "30", "35"],eo:["20", "25", "30", "35"],c:2,d:2},
+{ml:"ദാവീദ് എത്ര വർഷം രാജാവായി?",en:"How many years did David reign?",o:["30", "40", "50", "60"],eo:["30", "40", "50", "60"],c:1,d:2},
+{ml:"സോളമന്റെ ക്ഷേത്രത്തിലെ 'മഹാ പരിശുദ്ധസ്ഥലം' എന്തായിരുന്നു?",en:"What was in the 'Most Holy Place' of Solomon's temple?",o:["പെട്ടകം", "അഗ്നി", "ദൂതൻ", "കുരിശ്"],eo:["Ark", "Fire", "Angel", "കുരിശ്"],c:0,d:2},
+{ml:"സോളമന്റെ വിശാലമായ ക്ഷേത്രം എവിടെയായിരുന്നു?",en:"Where was Solomon's magnificent temple located?",o:["യെരൂശലേം", "ബേത്‌ലഹേം", "നാസറത്ത്", "കപ്പർണാഹൂം"],eo:["Jerusalem", "Beth‌ലഹേം", "Nazareth", "Capernaum"],c:0,d:2},
+{ml:"എലിയാ പ്രവാചകൻ എവിടെയാണ് സ്വർഗ്ഗത്തിലേക്ക് കയറിപ്പോയത്?",en:"Where did Elijah ascend to heaven?",o:["യോർദ്ദാൻ", "സീനായി", "കര്മ്മേൽ", "യെരൂശലേം"],eo:["Jordan", "Sinai", "Carmel", "Jerusalem"],c:0,d:2},
+{ml:"എലീശാ പ്രവാചകന് എലിയായുടെ എന്താണ് ലഭിച്ചത്?",en:"What did Elisha receive from Elijah?",o:["അംശവസ്ത്രം", "വാൾ", "വില്ല്", "മുടി"],eo:["Mantle", "Sword", "Bow", "Hair"],c:0,d:2},
+{ml:"യെശയ്യാ പ്രവാചകന്റെ സമയത്ത് ഏത് രാജാവായിരുന്നു?",en:"Which king reigned during Isaiah's time?",o:["ഹിസ്കിയ്യാ", "യോശിയ്യാ", "ഹോഷേയ", "യെഹോവാഹാസ്"],eo:["Hezekiah", "Josiah", "Hosea", "Jehoahaz"],c:0,d:2},
+{ml:"യിരമ്യാ പ്രവാചകനെ 'വിലാപഗീതം' എഴുതാൻ പ്രേരിപ്പിച്ചത് എന്ത്?",en:"What inspired Jeremiah to write Lamentations?",o:["യെരൂശലേമിന്റെ നാശം", "ബാബിലോണിന്റെ പതനം", "ഈജിപ്തിന്റെ നാശം", "അസീറിയയുടെ പതനം"],eo:["Jerusalem's destruction", "Babylon's fall", "Egypt's destruction", "Assyriaയുടെ പതനം"],c:0,d:2},
+{ml:"ദാനിയേലിന്റെ സുഹൃത്തുക്കളുടെ പേരുകൾ?",en:"What were the names of Daniel's friends?",o:["ശദ്രാക്ക്, മേശാക്ക്, അബേദ്നഗോ", "ഹനനിയ, മീശായേൽ, അസരിയ", "എല്ലാം", "ഒന്നുമല്ല"],eo:["Shadrach, Meshach, Abednego", "Hananiah, Mishael, Azariah", "All of them", "None"],c:0,d:2},
+{ml:"ദാനിയേലിന്റെ സുഹൃത്തുക്കളെ അഗ്നിക്കുണ്ണിൽ ഇട്ടപ്പോൾ എന്ത് സംഭവിച്ചു?",en:"What happened when Daniel's friends were thrown into the fiery furnace?",o:["രക്ഷപ്പെട്ടു", "മരിച്ചു", "പലായനം ചെയ്തു", "രാജാവ് കുറ്റം സമ്മതിച്ചു"],eo:["Saved", "Died", "Escaped", "King admitted guilt"],c:0,d:2},
+{ml:"ദാനിയേൽ സിംഹക്കുഴിയിൽ എത്ര രാത്രി കിടന്നു?",en:"How many nights did Daniel spend in the lions' den?",o:["1", "2", "3", "7"],eo:["1", "2", "3", "7"],c:0,d:2},
+{ml:"യേശു 'ഞാൻ പാതയും സത്യവും ജീവനുമാണ്' എന്ന് ആരോട് പറഞ്ഞു?",en:"To whom did Jesus say 'I am the way, the truth, and the life'?",o:["തോമസ്", "പത്രോസ്", "യോഹന്നാൻ", "ഫിലിപ്പോസ്"],eo:["Thomas", "Peter", "John", "Philip"],c:0,d:2},
+{ml:"യേശു 'എന്റെ കുഞ്ഞാടുകളെ മേയ്ക്കുക' എന്ന് ആരോട് പറഞ്ഞു?",en:"To whom did Jesus say 'Feed my lambs'?",o:["പത്രോസ്", "യോഹന്നാൻ", "യാക്കോബ്", "ആന്ദ്രേയ"],eo:["Peter", "John", "James", "Andrew"],c:0,d:2},
+{ml:"പത്രോസ് 'നിങ്ങൾ പരിശുദ്ധനായിരിക്കുക' എന്ന് എഴുതിയത് എവിടെ?",en:"Where did Peter write 'Be holy'?",o:["1 പത്രോസ്", "2 പത്രോസ്", "യാക്കോബ്", "യൂദാ"],eo:["1 Peter", "2 Peter", "James", "Jude"],c:0,d:2},
+{ml:"പൗലോസ് ആദ്യ മിഷനറി യാത്രയിൽ ആരായിരുന്നു സഹചാരി?",en:"Who was Paul's companion on his first missionary journey?",o:["ബാർണബാസ്", "ശീലാസ്", "തിമോത്തെയൊസ്", "ലൂക്കാ"],eo:["Barnabas", "Silas", "Timothy", "Luke"],c:0,d:2},
+{ml:"പൗലോസ് രണ്ടാം മിഷനറി യാത്രയിൽ ആരായിരുന്നു സഹചാരി?",en:"Who was Paul's companion on his second missionary journey?",o:["ശീലാസ്", "ബാർണബാസ്", "മർക്കോസ്", "യോഹന്നാൻ"],eo:["Silas", "Barnabas", "Mark", "John"],c:0,d:2},
+{ml:"പൗലോസ് ഏത് നഗരത്തിൽ രണ്ട് വർഷം തടവിലായിരുന്നു?",en:"In which city was Paul imprisoned for two years?",o:["റോം", "യെരൂശലേം", "കൈസരിയ", "എഫേസോസ്"],eo:["Rome", "Jerusalem", "Caesarea", "എഫേസോസ്"],c:0,d:2},
+{ml:"പൗലോസ് എത്ര ലേഖനങ്ങൾ എഴുതി?",en:"How many letters did Paul write?",o:["10", "13", "15", "7"],eo:["10", "13", "15", "7"],c:1,d:2},
+{ml:"പൗലോസ് ഏത് ദ്വീപിൽ കപ്പലപകടത്തിൽപ്പെട്ടു?",en:"On which island was Paul shipwrecked?",o:["മാൽത്താ", "ക്രേത്ത്", "സൈപ്രസ്", "റോഡോസ്"],eo:["Malta", "Crete", "Cyprus", "റോഡോസ്"],c:0,d:2},
+{ml:"യോഹന്നാന്റെ സുവിശേഷത്തിൽ 'ദൈവം സ്നേഹമാണ്' എന്ന് എവിടെ?",en:"Where in John's Gospel does it say 'God is love'?",o:["1 യോഹന്നാൻ 4", "യോഹന്നാൻ 3", "യോഹന്നാൻ 14", "യോഹന്നാൻ 1"],eo:["1 John 4", "John 3", "John 14", "John 1"],c:0,d:2},
+{ml:"യോഹന്നാന്റെ വെളിപ്പാടിൽ എത്ര സഭകളെ പരാമർശിക്കുന്നു?",en:"How many churches are mentioned in Revelation?",o:["5", "7", "10", "12"],eo:["5", "7", "10", "12"],c:1,d:2},
+{ml:"യോഹന്നാന്റെ വെളിപ്പാടിലെ 'പുതിയ യെരൂശലേം' എന്താണ്?",en:"What is the 'New Jerusalem' in Revelation?",o:["സ്വർഗ്ഗീയ നഗരം", "ഭൂമിയിലെ നഗരം", "ഒരു രാജ്യം", "ഒരു സഭ"],eo:["Heavenly city", "Earthly city", "A kingdom", "A church"],c:0,d:2},
+{ml:"യേശു 'എന്റെ കുരിശ് എടുത്ത് എന്നെ അനുഗമിക്കുക' എന്ന് ആരോട് പറഞ്ഞു?",en:"To whom did Jesus say 'Take up your cross and follow me'?",o:["എല്ലാവരോടും", "പത്രോസിനോട്", "യോഹന്നാനോട്", "യാക്കോബിനോട്"],eo:["To everyone", "To Peter", "To John", "To James"],c:0,d:2},
+{ml:"യേശു 'നിങ്ങൾ ലോകത്തിന്റെ ഉപ്പാണ്' എന്ന് എവിടെ പറഞ്ഞു?",en:"Where did Jesus say 'You are the salt of the earth'?",o:["മത്തായി 5", "മർക്കോസ് 4", "ലൂക്കാ 6", "യോഹന്നാൻ 3"],eo:["Matthew 5", "Mark 4", "Luke 6", "John 3"],c:0,d:2},
+{ml:"യേശു 'നിങ്ങൾ ലോകത്തിന്റെ വെളിച്ചമാണ്' എന്ന് എവിടെ പറഞ്ഞു?",en:"Where did Jesus say 'You are the light of the world'?",o:["മത്തായി 5", "മർക്കോസ് 4", "ലൂക്കാ 6", "യോഹന്നാൻ 8"],eo:["Matthew 5", "Mark 4", "Luke 6", "John 8"],c:0,d:2},
+{ml:"യേശു 'പിതാവിനെ സ്നേഹിക്കുക' എന്ന കല്പന എവിടെ?",en:"Where is the commandment 'Love your Father'?",o:["മത്തായി 22", "മർക്കോസ് 12", "ലൂക്കാ 10", "യോഹന്നാൻ 14"],eo:["Matthew 22", "Mark 12", "Luke 10", "John 14"],c:0,d:2},
+{ml:"യേശു 'നിങ്ങൾക്ക് മുമ്പിൽ പരിചയപ്പെടുത്തിയിരിക്കുന്ന കല്പന' ഏത്?",en:"Which commandment did Jesus say was new?",o:["പരസ്പരം സ്നേഹിക്കുക", "ദൈവത്തെ സ്നേഹിക്കുക", "പിതാവിനെ ബഹുമാനിക്കുക", "ശബ്ബത്ത് ആചരിക്കുക"],eo:["Love one another", "Love God", "Honor parents", "Keep Sabbath"],c:0,d:2},
+{ml:"യേശു 'എന്റെ രാജ്യം ഈ ലോകത്തിൽ നിന്നുള്ളതല്ല' എന്ന് ആരോട് പറഞ്ഞു?",en:"To whom did Jesus say 'My kingdom is not of this world'?",o:["പീലാത്തൊസ്", "കായഫാ", "ഹേരോദേസ്", "യൂദാ"],eo:["Pilate", "Caiaphas", "Herod", "Jude"],c:0,d:2},
+{ml:"യേശു 'എന്റെ കുഞ്ഞാടുകളെ മേയ്ക്കുക' എന്ന് എത്ര തവണ പറഞ്ഞു?",en:"How many times did Jesus say 'Feed my sheep/lambs'?",o:["1", "2", "3", "4"],eo:["1", "2", "3", "4"],c:2,d:2},
+{ml:"ആദ്യത്തെ ഹീബ്രു അക്ഷരം ഏത്?",en:"What is the first letter of the Hebrew alphabet?",o:["ആലഫ്", "ബേത്", "ഗിമൽ", "ദാലത്ത്"],eo:["Aleph", "Beth", "Gimel", "Daleth"],c:0,d:3},
+{ml:"മെല്ക്കിസേദെക്ക് ഏത് നഗരത്തിന്റെ രാജാവായിരുന്നു?",en:"Of which city was Melchizedek king?",o:["ശാലേം", "യെരൂശലേം", "ബേഥേൽ", "ഹെബ്രോൺ"],eo:["Salem", "Jerusalem", "Bethel", "Hebron"],c:0,d:3},
+{ml:"അബ്രാഹാമിന്റെ ദാസന്റെ പേര്?",en:"What was the name of Abraham's servant?",o:["എലിയേസർ", "ഇസ്മായേൽ", "ലോത്ത്", "ഹാഗാർ"],eo:["Eliezer", "Ishmael", "Lot", "Hagar"],c:0,d:3},
+{ml:"യാക്കോബിന്റെ മൂത്ത മകൻ ആര്?",en:"Who was Jacob's firstborn son?",o:["റൂബൻ", "ശിമയോൻ", "ലേവി", "യെഹൂദാ"],eo:["Reuben", "Simeon", "Levi", "Judah"],c:0,d:3},
+{ml:"യോസേഫിന്റെ മകന്മാരുടെ പേരുകൾ?",en:"What were the names of Joseph's sons?",o:["മനശ്ശേ, എഫ്രയീം", "റൂബൻ, ശിമയോൻ", "ലേവി, യെഹൂദാ", "ദാൻ, നഫ്താലി"],eo:["Manasseh, Ephraim", "Reuben, Simeon", "Levi, Judah", "Dan, Naphtali"],c:0,d:3},
+{ml:"യോസേഫ് മരിക്കുന്നതിന് മുമ്പ് എന്ത് പ്രവചനം നൽകി?",en:"What prophecy did Joseph give before dying?",o:["ഇസ്രായേല്യർ ഈജിപ്ത് വിടും", "രാജാവ് വരും", "യുദ്ധം വരും", "ക്ഷാമം വരും"],eo:["Israelites will leave Egypt", "A king will come", "War will come", "Famine will come"],c:0,d:3},
+{ml:"മോശെയുടെ അമ്മയുടെ പേര്?",en:"What was Moses' mother's name?",o:["യോക്ബേദ്", "മിരിയാം", "സിപ്പോറ", "എലീശേബ"],eo:["Jochebed", "മിരിയാം", "Zipporah", "Elisheba"],c:0,d:3},
+{ml:"മോശെയുടെ ഭാര്യയുടെ പേര്?",en:"What was Moses' wife's name?",o:["സിപ്പോറ", "മിരിയാം", "യോക്ബേദ്", "എലീശേബ"],eo:["Zipporah", "മിരിയാം", "Jochebed", "Elisheba"],c:0,d:3},
+{ml:"മോശെയുടെ മരണശേഷം ആരാണ് ഇസ്രായേലിനെ നയിച്ചത്?",en:"Who led Israel after Moses' death?",o:["യോശുവ", "കാലേബ്", "എലിയാസർ", "യോനാഥാൻ"],eo:["Joshua", "Caleb", "Eleazar", "Jonathan"],c:0,d:3},
+{ml:"യോശുവയുടെ മരണശേഷം ഇസ്രായേലിനെ നയിച്ചത് ആര്?",en:"Who led Israel after Joshua's death?",o:["ന്യായാധിപന്മാർ", "രാജാക്കന്മാർ", "പുരോഹിതന്മാർ", "പ്രവാചകന്മാർ"],eo:["Judges", "Kings", "Priests", "Prophets"],c:0,d:3},
+{ml:"ആദ്യ ന്യായാധിപൻ ആര്?",en:"Who was the first judge?",o:["ഒത്നിയേൽ", "എഹൂദ്", "ദെബോറ", "ഗിദെയോൻ"],eo:["Othniel", "Ehud", "Deborah", "Gideon"],c:0,d:3},
+{ml:"ദെബോറയുടെ സഹചാരി ആരായിരുന്നു?",en:"Who was Deborah's companion?",o:["ബാരാക്ക്", "ഒത്നിയേൽ", "ഗിദെയോൻ", "യിഫ്താഹ്"],eo:["Barak", "Othniel", "Gideon", "Jephthah"],c:0,d:3},
+{ml:"ഗിദെയോന് എത്ര പേർ ഉണ്ടായിരുന്നു?",en:"How many men did Gideon originally have?",o:["32000", "15000", "300", "100"],eo:["32000", "15000", "300", "100"],c:0,d:3},
+{ml:"ഗിദെയോന്റെ 32000 പേരിൽ ദൈവം എത്ര പേരെ തിരഞ്ഞെടുത്തു?",en:"Of Gideon's 32,000 men, how many did God choose?",o:["300", "1000", "5000", "15000"],eo:["300", "1000", "5000", "15000"],c:0,d:3},
+{ml:"ശിംശോന്റെ ശക്തിയുടെ രഹസ്യം എന്തായിരുന്നു?",en:"What was the secret of Samson's strength?",o:["നാസീർ വ്രതം", "ദൈവത്തിന്റെ ആത്മാവ്", "അവന്റെ മുടി", "അവന്റെ ഭക്ഷണം"],eo:["Nazirite vow", "Spirit of God", "His hair", "His food"],c:2,d:3},
+{ml:"ശിംശോനെ വഞ്ചിച്ച സ്ത്രീയുടെ പേര്?",en:"What was the name of the woman who betrayed Samson?",o:["ദെലീല", "ദെബോറ", "യൂദിത്ത്", "എസ്തേർ"],eo:["Delilah", "Deborah", "Judith", "Esther"],c:0,d:3},
+{ml:"ശിംശോൻ മരിക്കുന്നതിന് മുമ്പ് എന്ത് ചെയ്തു?",en:"What did Samson do before he died?",o:["ദൈവാലയം ഇടിച്ചുകളഞ്ഞു", "രാജാവിനെ കൊന്നു", "പലായനം ചെയ്തു", "പ്രാർത്ഥിച്ചു"],eo:["Destroyed the temple", "Killed the king", "Escaped", "Prayed"],c:0,d:3},
+{ml:"റൂത്ത് ഏത് രാജ്യത്തിൽ നിന്ന് വന്നു?",en:"From which country did Ruth come?",o:["മോവാബ്", "ഈജിപ്ത്", "കാനാൻ", "അസീറിയ"],eo:["Moab", "Egypt", "Canaan", "Assyria"],c:0,d:3},
+{ml:"റൂത്തിന്റെ അമ്മായിയമ്മയുടെ പേര്?",en:"What was Ruth's mother-in-law's name?",o:["നവോമി", "ഒർപ്പ", "എലീശേബ", "സാറാ"],eo:["Naomi", "Orpah", "Elisheba", "Sarah"],c:0,d:3},
+{ml:"റൂത്തിന്റെ ഭർത്താവിന്റെ പേര്?",en:"What was Ruth's husband's name?",o:["ബോവസ്", "മഹ്ലോൻ", "കില്യോൻ", "എലീമേലെക്ക്"],eo:["Boaz", "Mahlon", "Chilion", "Elimelech"],c:1,d:3},
+{ml:"സാമുവേൽ പ്രവാചകന്റെ അമ്മയുടെ പേര്?",en:"What was Samuel the prophet's mother's name?",o:["ഹന്ന", "പെന്നിന്ന", "എലീശേബ", "സാറാ"],eo:["Hannah", "Peninnah", "Elisheba", "Sarah"],c:0,d:3},
+{ml:"സാമുവേൽ പ്രവാചകന്റെ പിതാവിന്റെ പേര്?",en:"What was Samuel the prophet's father's name?",o:["എല്ക്കാനാ", "യോസേഫ്", "യാക്കോബ്", "ശിമയോൻ"],eo:["Elkanah", "Joseph", "James", "Simeon"],c:0,d:3},
+{ml:"സൗൽ രാജാവിന്റെ പുത്രന്റെ പേര്?",en:"What was King Saul's son's name?",o:["യോനാഥാൻ", "ദാവീദ്", "ശിമയി", "അബ്നേർ"],eo:["Jonathan", "David", "Shimei", "Abner"],c:0,d:3},
+{ml:"ദാവീദിന്റെ ആദ്യ ഭാര്യയുടെ പേര്?",en:"What was David's first wife's name?",o:["മീഖാൽ", "ബത്ത്‌ശേബ", "അബിഗയിൽ", "അഹീനോവം"],eo:["Michal", "ബത്ത്‌ശേബ", "Abigail", "Ahinoam"],c:0,d:3},
+{ml:"ദാവീദിന്റെ മൂത്ത മകന്റെ പേര്?",en:"What was David's eldest son's name?",o:["അമ്നോൻ", "അബ്സലോം", "അദോനിയ്യാ", "ശലോമോൻ"],eo:["Amnon", "Absalom", "Adonijah", "Solomon"],c:0,d:3},
+{ml:"ദാവീദിന്റെ മകൻ അബ്സലോം എങ്ങനെ മരിച്ചു?",en:"How did David's son Absalom die?",o:["മരത്തിൽ തലയിൽ കുടുങ്ങി", "യുദ്ധത്തിൽ", "വിഷം", "തീയിൽ"],eo:["Caught by his head in a tree", "In battle", "Poison", "In fire"],c:0,d:3},
+{ml:"സോളമന്റെ ക്ഷേത്രത്തിന്റെ നീളം?",en:"What was the length of Solomon's temple?",o:["60 മീറ്റർ", "90 മീറ്റർ", "120 മീറ്റർ", "150 മീറ്റർ"],eo:["60 meters", "90 meters", "120 meters", "150 meters"],c:0,d:3},
+{ml:"സോളമന്റെ ക്ഷേത്രത്തിന്റെ വീതി?",en:"What was the width of Solomon's temple?",o:["20 മീറ്റർ", "30 മീറ്റർ", "40 മീറ്റർ", "50 മീറ്റർ"],eo:["20 meters", "30 meters", "40 meters", "50 meters"],c:0,d:3},
+{ml:"സോളമന്റെ ക്ഷേത്രത്തിന്റെ ഉയരം?",en:"What was the height of Solomon's temple?",o:["30 മീറ്റർ", "40 മീറ്റർ", "50 മീറ്റർ", "60 മീറ്റർ"],eo:["30 meters", "40 meters", "50 meters", "60 meters"],c:0,d:3},
+{ml:"സോളമന്റെ ക്ഷേത്രത്തിൽ എത്ര സ്വർണ്ണ താലന്ത് ഉപയോഗിച്ചു?",en:"How many talents of gold were used in Solomon's temple?",o:["100", "200", "500", "1000"],eo:["100", "200", "500", "1000"],c:0,d:3},
+{ml:"സോളമന്റെ ക്ഷേത്രത്തിൽ എത്ര വെള്ളി താലന്ത് ഉപയോഗിച്ചു?",en:"How many talents of silver were used in Solomon's temple?",o:["1000", "2000", "5000", "15000"],eo:["1000", "2000", "5000", "15000"],c:0,d:3},
+{ml:"എലിയാ പ്രവാചകൻ എത്ര വർഷം പ്രവചനം നടത്തി?",en:"How many years did Elijah prophesy?",o:["10", "15", "20", "25"],eo:["10", "15", "20", "25"],c:1,d:3},
+{ml:"എലീശാ പ്രവാചകൻ എത്ര വർഷം പ്രവചനം നടത്തി?",en:"How many years did Elisha prophesy?",o:["40", "50", "60", "70"],eo:["40", "50", "60", "70"],c:1,d:3},
+{ml:"യെശയ്യാ പ്രവാചകന്റെ പുസ്തകത്തിൽ എത്ര അദ്ധ്യായങ്ങൾ?",en:"How many chapters are in Isaiah's book?",o:["50", "60", "66", "70"],eo:["50", "60", "66", "70"],c:2,d:3},
+{ml:"യിരമ്യാ പ്രവാചകന്റെ പുസ്തകത്തിൽ എത്ര അദ്ധ്യായങ്ങൾ?",en:"How many chapters are in Jeremiah's book?",o:["50", "52", "60", "66"],eo:["50", "52", "60", "66"],c:1,d:3},
+{ml:"യിരമ്യാ പ്രവാചകന്റെ 'വിലാപഗീതം' പുസ്തകത്തിൽ എത്ര അദ്ധ്യായങ്ങൾ?",en:"How many chapters in Lamentations?",o:["3", "4", "5", "6"],eo:["3", "4", "5", "6"],c:2,d:3},
+{ml:"ദാനിയേലിന്റെ പുസ്തകത്തിൽ എത്ര അദ്ധ്യായങ്ങൾ?",en:"How many chapters in Daniel's book?",o:["10", "12", "14", "16"],eo:["10", "12", "14", "16"],c:1,d:3},
+{ml:"യോശുവ സൂര്യനെ നിർത്തിയത് ഏത് യുദ്ധത്തിൽ?",en:"In which battle did Joshua command the sun to stand still?",o:["ഗിബെയോൺ","അയ്യ്","യെരിഹോ","ലാക്ഷീഷ്"],eo:["Gibeon","Ai","Jericho","Lachish"],c:0,d:2},
+{ml:"ലെബനോൺ ഏത് മരത്തിന് പ്രസിദ്ധമായിരുന്നു?",en:"For which type of tree was Lebanon well known?",o:["ദേവദാരു","ഒലീവ്","അത്തി","അത്തിപ്പഴം"],eo:["Cedar","Olive","Fig","Fig tree"],c:0,d:2},
+{ml:"സ്തെഫാനോസ് എങ്ങനെ മരിച്ചു?",en:"How did Stephen die?",o:["കല്ലെറിഞ്ഞു","വാൾകൊണ്ട്","ക്ഷയരോഗം","തൂക്കിക്കൊന്നു"],eo:["Stoned to death","By sword","By disease","Hanged"],c:0,d:2},
+{ml:"യേശുവിനെ പിടിച്ചത് ഏത് തോട്ടത്തിൽ?",en:"Where was Jesus taken prisoner?",o:["ഗെത്സമനെ","ഈദൻ","ഒലിവ്","സീനായി"],eo:["Gethsemane","Eden","Olive","Sinai"],c:0,d:2},
+{ml:"ദാവീദും ഗോലിയാത്തും ഏത് പുസ്തകത്തിൽ?",en:"Which biblical book tells of David and Goliath?",o:["1 ശമൂവേൽ","2 ശമൂവേൽ","1 രാജാക്കന്മാർ","ന്യായാധിപന്മാർ"],eo:["1 Samuel","2 Samuel","1 Kings","Judges"],c:0,d:2},
+{ml:"ഹോരേബ് ഒരു പട്ടണത്തിന്റെ പേരോ പർവ്വതത്തിന്റെ പേരോ?",en:"Is Horeb the name of a town or a mountain?",o:["പർവ്വതം","പട്ടണം","നദി","തടാകം"],eo:["A mountain","A town","A river","A lake"],c:0,d:2},
+{ml:"ജയിലിൽ വച്ച് വിശ്വാസം കണ്ടെത്തിയത് ഏത് നഗരത്തിൽ?",en:"Where did a jailer find his faith?",o:["ഫിലippi","അന്ത്യോക്യ","എഫേസോസ്","കൊരിന്തോസ്"],eo:["Philippi","Antioch","Ephesus","Corinth"],c:0,d:2},
+{ml:"സെബദിയുടെ രണ്ട് പുത്രന്മാർ ആരായിരുന്നു?",en:"What were the two sons of Zebedee called?",o:["യോഹന്നാനും യാക്കോബും","പത്രോസും ആന്ദ്രേയനും","യൂദയും തോമസും","മത്തായിയും മർക്കോസും"],eo:["John and James","Peter and Andrew","Jude and Thomas","Matthew and Mark"],c:0,d:2},
+{ml:"പൗലോസിന്റെ മിഷനറി യാത്രകൾ ഏത് പുസ്തകത്തിൽ?",en:"Which book reports on the missionary travels of Paul?",o:["പ്രവൃത്തികൾ","റോമർ","1 കൊരിന്തോസ്","എഫേസോസ്"],eo:["Acts","Romans","1 Corinthians","Ephesians"],c:0,d:2},
+{ml:"യാക്കോബിന്റെ മൂത്ത മകന്റെ പേര്?",en:"What was Jacob's eldest son called?",o:["റൂബൻ","ശിമയോൻ","ലേവി","യെഹൂദാ"],eo:["Reuben","Simeon","Levi","Judah"],c:0,d:2},
+{ml:"ബൈബിളിൽ പറയുന്ന മൂന്ന് തടവുകാർ ആരായിരുന്നു?",en:"Name three prisoners mentioned in the Bible.",o:["യോസേഫ്, ശിംശോൻ, പൗലോസ്","മോശെ, ദാവീദ്, യോശുവ","ദാനിയേൽ, എസ്തേർ, റൂത്ത്","എലിയാ, എലീശാ, യിരമ്യാ"],eo:["Joseph, Samson, Paul","Moses, David, Joshua","Daniel, Esther, Ruth","Elijah, Elisha, Jeremiah"],c:0,d:2},
+{ml:"യേശുവിന്റെ വരവ് പ്രവചിച്ച പ്രവാചകൻ ആര്?",en:"Who prophesied the coming of Jesus shortly beforehand?",o:["യോഹന്നാൻ സ്നാപകൻ","യെശയ്യാ","യിരമ്യാ","മലാഖി"],eo:["John the Baptist","Isaiah","Jeremiah","Malachi"],c:0,d:2},
+{ml:"യാക്കോബിന്റെ അമ്മയും അമ്മൂമ്മയും ആരായിരുന്നു?",en:"What were the names of the mother and grandmother of Jacob?",o:["റെബേക്ക, സാറാ","ലേയ, റാഹേൽ","മറിയം, എലിസബത്ത്","ഹന്ന, പെന്നിന്ന"],eo:["Rebekah, Sarah","Leah, Rachel","Mary, Elizabeth","Hannah, Peninnah"],c:0,d:2},
+{ml:"ബൈബിളിലെ മൂന്ന് പ്രവാചകന്മാർ ആരായിരുന്നു?",en:"Name three prophets?",o:["എലിയാ, യിരമ്യാ, യോനാ","മോശെ, ആരോൻ, യോശുവ","ദാവീദ്, സോളമൻ, ഹിസ്കിയ്യാ","പത്രോസ്, പൗലോസ്, യോഹന്നാൻ"],eo:["Elijah, Jeremiah, Jonah","Moses, Aaron, Joshua","David, Solomon, Hezekiah","Peter, Paul, John"],c:0,d:2},
+{ml:"യേശുവിന്റെ സ്നാനവും 5000 പേരെ പോഷിപ്പിച്ചതും ഏത് മുമ്പ്?",en:"What happened first? Jesus' baptism or the feeding of the 5000?",o:["യേശുവിന്റെ സ്നാനം","5000 പേരെ പോഷിപ്പിച്ചത്","രണ്ടും ഒരേ സമയം","ബൈബിളിൽ പറയുന്നില്ല"],eo:["Jesus' baptism","Feeding of the 5000","Both at same time","Not mentioned"],c:0,d:2},
+{ml:"ബൈബിളിലെ മൂന്ന് മിഷനറിമാർ ആരായിരുന്നു?",en:"Name three missionaries named in the Bible.",o:["പൗലോസ്, ശീലാസ്, ബാർണബാസ്","പത്രോസ്, യോഹന്നാൻ, യാക്കോബ്","മത്തായി, മർക്കോസ്, ലൂക്കാ","ഫിലിപ്പോസ്, ആന്ദ്രേയ, ബർത്തലൊമായി"],eo:["Paul, Silas, Barnabas","Peter, John, James","Matthew, Mark, Luke","Philip, Andrew, Bartholomew"],c:0,d:2},
+{ml:"റൂത്തിന്റെ ഭർത്താവിന്റെ പേര്?",en:"What was Ruth's husband called?",o:["ബോവസ്","മഹ്ലോൻ","കില്യോൻ","എലീമേലെക്ക്"],eo:["Boaz","Mahlon","Chilion","Elimelech"],c:0,d:2},
+{ml:"മെഫിബോശത്തിന് എന്ത് രോഗമായിരുന്നു?",en:"Which illness did Mephibosheth suffer from?",o:["മുടന്തൻ","കുരുടൻ","ബധിരൻ","ക്ഷയരോഗം"],eo:["He was lame","Blind","Deaf","Leprosy"],c:0,d:2},
+{ml:"എനോക്കിന്റെ ആരോഹണവും എലിയായുടെ ആരോഹണവും ഏത് മുമ്പ്?",en:"What came first? Elijah's ascension or Enoch's rapture?",o:["എനോക്കിന്റെ ആരോഹണം","എലിയായുടെ ആരോഹണം","രണ്ടും ഒരേ സമയം","ബൈബിളിൽ പറയുന്നില്ല"],eo:["Enoch's rapture","Elijah's ascension","Both at same time","Not mentioned"],c:0,d:2},
+{ml:"സ്വർണ്ണക്കാളയും വെങ്കലസർപ്പവും ആരാണ് ഉണ്ടാക്കിയത്?",en:"Who made the golden calf and the bronze snake?",o:["ആരോൻ, മോശെ","യോശുവ, കാലേബ്","ദാവീദ്, സോളമൻ","പത്രോസ്, പൗലോസ്"],eo:["Aaron, Moses","Joshua, Caleb","David, Solomon","Peter, Paul"],c:0,d:2},
+{ml:"ബൈബിളിലെ R അക്ഷരത്തിൽ തുടങ്ങുന്ന മൂന്ന് സ്ത്രീകൾ?",en:"Name three women in the Bible whose names begin with R.",o:["റെബേക്ക, റാഹേൽ, റൂത്ത്","മറിയം, മാർത്ത, മഗ്ദലന മറിയം","സാറാ, സെഖരിയായുടെ ഭാര്യ, സുസന്ന","ഹന്ന, ഹാഗാർ, ഹെർമിയോൻ"],eo:["Rebekah, Rachel, Ruth","Mary, Martha, Mary Magdalene","Sarah, Zechariah's wife, Susanna","Hannah, Hagar, Hermione"],c:0,d:2},
+{ml:"ഏത് രാജാവിന് സൂര്യഘടികാരം ഉണ്ടായിരുന്നു?",en:"Which king had a sundial?",o:["ഹിസ്കിയ്യാ","ഹോഷേയ","യോശിയ്യാ","യെഹോവാഹാസ്"],eo:["Hezekiah","Hosea","Josiah","Jehoahaz"],c:0,d:2},
+{ml:"ഏത് ശിഷ്യൻ മീനിന്റെ വായിൽ നിന്ന് നാണയം കണ്ടെത്തി?",en:"Which disciple found a coin in the mouth of a fish?",o:["പത്രോസ്","യോഹന്നാൻ","യാക്കോബ്","ആന്ദ്രേയ"],eo:["Peter","John","James","Andrew"],c:0,d:2},
+{ml:"ഹാമിന്റെ പിതാവും സഹോദരന്മാരും ആരായിരുന്നു?",en:"What was Ham's father called? What were his brothers called?",o:["നോഹ, ശേം, യാഫെത്ത്","ആദാം, ആബേൽ, സേഥ്","തെരഹ, അബ്രാഹാം, നാഹോർ","യിശ്ശായി, ദാവീദ്, ശമൂവേൽ"],eo:["Noah, Shem, Japheth","Adam, Abel, Seth","Terah, Abraham, Nahor","Jesse, David, Samuel"],c:0,d:2},
+{ml:"1 തിമോത്തെയൊസ് 2:4-ൽ എന്താണ് എഴുതിയിരിക്കുന്നത്?",en:"What is written in 1 Timothy 2:4?",o:["ദൈവം എല്ലാ മനുഷ്യരെയും രക്ഷിക്കാൻ ആഗ്രഹിക്കുന്നു","കർത്താവ് തിരിച്ചുവരും","സ്നേഹിക്കുക പരസ്പരം","ദൈവത്തെ ഭയപ്പെടുക"],eo:["God wants all people to be saved","The Lord will return","Love one another","Fear God"],c:0,d:2},
+{ml:"ബൈബിളിൽ പേര് മാറ്റപ്പെടാത്തത് ആരാണ്?",en:"Which of these did not have their name changed in the Bible?",o:["ദാവീദ്","സാറാ","അബ്രാഹാം","യാക്കോബ്"],eo:["David","Sarah","Abraham","Jacob"],c:0,d:3},
+{ml:"ബൈബിളിൽ പറയുന്ന ഏറ്റവും പ്രായം കൂടിയ വ്യക്തി ആര്?",en:"What is the name and age of the oldest person mentioned in the Bible?",o:["മെതൂശലഹ്, 969 വർഷം","നോഹ, 990 വർഷം","എനോശ്, 905 വർഷം","എസ്തേർ റാണി, 859 വർഷം"],eo:["Methuselah, lived 969 years","Noah, lived 990 years","Enosh, lived 905 years","Queen Esther, lived 859 years"],c:0,d:3},
+{ml:"മോശെ ദൈവത്തിന്റെ പേര് ചോദിച്ചപ്പോൾ ലഭിച്ച മറുപടി?",en:"What names was Moses supposed to give to the Israelites when asked about who had sent him?",o:["ഞാൻ ആകുന്നു ഞാൻ","എലോഹീം","എൽ ഷദ്ദായി","ഞാൻ കർത്താവാണ്"],eo:["I am who I am","Elohim","El Shaddai","I am the Lord"],c:0,d:3},
+{ml:"ബാലാക്കിനോട് സംസാരിച്ച മൃഗം ഏത്?",en:"Which animal spoke to Balaam?",o:["കഴുത","ഒട്ടകം","കുഞ്ഞാട്","പ്രാവ്"],eo:["Donkey","Camel","Lamb","Dove"],c:0,d:3},
+{ml:"സാമുവേലിന്റെ കഥകളിൽ ഏത് സത്യമല്ല?",en:"In the stories of Samuel, which is not true?",o:["അവൻ മൂന്ന് രാജാക്കന്മാരെ അഭിഷേകം ചെയ്തു","അവന്റെ അമ്മ ഹന്നയായിരുന്നു","അവൻ പ്രവാചകൻ എലിയായെ പിന്തുടർന്നു","അവൻ ചെറുപ്പത്തിൽ ദർശനം കണ്ടു"],eo:["He anointed 3 kings","His mother was Hannah","He succeeded prophet Eli","He had a vision while young"],c:0,d:3},
+{ml:"ദാവീദ് തന്റെ ആടുകളെ എന്തെല്ലാം മൃഗങ്ങളിൽ നിന്ന് രക്ഷിച്ചു?",en:"As a shepherd, David protected his flock from two dangerous animals. Which ones?",o:["കരടിയും സിംഹവും","പാമ്പും ഒട്ടകവും","പാമ്പും തോളയും","കരടിയും തേളും"],eo:["Bear and lion","Snake and camel","Snake and wolf","Bear and scorpion"],c:0,d:3},
+{ml:"വെളിപ്പാട് എഴുതിയ ദ്വീപിന്റെ പേര്?",en:"What is the name of the island where John wrote the book of Revelation?",o:["പാത്മോസ് ദ്വീപ്","ക്രേത്ത് ദ്വീപ്","മാൽത്താ ദ്വീപ്","പെർഗമോസ് ദ്വീപ്"],eo:["The island of Patmos","Island of Crete","Island of Malta","Island of Pergamon"],c:0,d:3},
+{ml:"പൗലോസ് നമ്മുടെ സഹയോദ്ധാവ് എന്ന് വിളിച്ചത് ആരെ?",en:"Whom did Paul call our fellow soldier?",o:["അർക്കിപ്പോസ്","അപ്പൊല്ലോസ്","അപ്പിയ","ലൂക്കാ"],eo:["Archippus","Apollos","Apphia","Luke"],c:0,d:3},
+{ml:"സൗൽ ഏത് ഗോത്രത്തിൽപ്പെട്ടവനായിരുന്നു?",en:"To which tribe did Saul belong?",o:["ബെന്യാമീൻ","നഫ്താലി","ലേവി","ദാൻ"],eo:["Benjamin","Naphtali","Levi","Dan"],c:0,d:3},
+{ml:"ഏഴാം മുദ്ര ഒടിഞ്ഞപ്പോൾ എന്ത് സംഭവിച്ചു?",en:"What happened when the Lamb broke the seventh seal?",o:["സ്വർഗ്ഗത്തിൽ അരമണിക്കൂർ നിശ്ശബ്ദത","പിശാച് 2000 വർഷം തടവിലായി","വിശ്വാസികളെ എടുത്തുകൊണ്ടുപോയി","പന്ത്രണ്ട് ദൂതന്മാർ കാഹളം ഊതി"],eo:["Silence in heaven for half an hour","Devil imprisoned for 2000 years","Believers caught up","Twelve angels sounded trumpets"],c:0,d:3},
+{ml:"ചോദ്യചിഹ്നത്തിൽ അവസാനിക്കുന്ന പുസ്തകം ഏത്?",en:"Which book of the Bible ends with a question mark?",o:["യോനാ","യോവേൽ","യൂദാ","ഇയ്യോബ്"],eo:["Jonah","Joel","Jude","Job"],c:0,d:3},
+{ml:"സങ്കീർത്തനം 119-ൽ എത്ര വചനങ്ങൾ ഉണ്ട്?",en:"How many verses does Psalm 119 have?",o:["176 വചനങ്ങൾ","200 വചനങ്ങൾ","100 വചനങ്ങൾ","170 വചനങ്ങൾ"],eo:["176 verses","200 verses","100 verses","170 verses"],c:0,d:3},
+{ml:"ബൈബിളിലെ ഏറ്റവും നീളം കൂടിയ വചനം ഏത്?",en:"What is the longest verse in the Bible?",o:["എസ്തേർ 8:9","സങ്കീർത്തനം 119:43","യെശയ്യാ 24:2","നെഹെമ്യാ 7:66"],eo:["Esther 8:9","Psalm 119:43","Isaiah 24:2","Nehemiah 7:66"],c:0,d:3},
+{ml:"ദൈവം എന്ന വാക്ക് ഇല്ലാത്ത പുസ്തകങ്ങൾ ഏത്?",en:"Which books of the Bible do not contain the word God?",o:["എസ്തേർ, സോങ് ഓഫ് സോങ്‌സ്","എസ്രാ, റൂത്ത്","ഹഗ്ഗായി, ആമോസ്","ഹോഷേയ, സഭാപ്രസംഗി"],eo:["Esther and Song of Songs","Ezra and Ruth","Haggai and Amos","Hosea and Ecclesiastes"],c:0,d:3},
+{ml:"ബൈബിളിലെ ഏറ്റവും ചെറിയ പുസ്തകം ഏത്?",en:"What is the shortest book of the Bible?",o:["2 യോഹന്നാൻ","യൂദാ","3 യോഹന്നാൻ","ഓബദ്യാ"],eo:["2 John","Jude","3 John","Obadiah"],c:0,d:3},
+{ml:"യേശുവിന്റെ ജനനകഥ ഏത് പുസ്തകങ്ങളിൽ?",en:"In which books of the Bible is the story of Jesus birth told?",o:["മത്തായി, ലൂക്കാ","മത്തായി, മർക്കോസ്","എബ്രായർ, വെളിപ്പാട്","ഉല്പത്തി, സങ്കീർത്തനം"],eo:["Matthew and Luke","Matthew and Mark","Hebrews and Revelation","Genesis and Psalms"],c:0,d:3},
+{ml:"നോഹയുടെ പേടകത്തിൽ എത്ര മനുഷ്യ ജോഡികൾ കയറി?",en:"How many human couples entered Noah's ark?",o:["4 ജോഡി","1 ജോഡി","6 ജോഡി","3 ജോഡി"],eo:["4 couples","1 couple","6 couples","3 couples"],c:0,d:3},
+{ml:"കായീൻ ദൈവസന്നിധി വിട്ട ശേഷം സ്ഥാപിച്ച നഗരത്തിന്റെ പേര്?",en:"What was the name of the city founded by Cain after he left God's presence?",o:["എനോക്ക്","സോദോം","ഗോമോറ","കാനാൻ"],eo:["Enoch","Sodom","Gomorrah","Canaan"],c:0,d:3},
+{ml:"ദൈവം അബ്രാഹാമിനോട് വാഗ്ദാനം ചെയ്തപ്പോൾ എന്ത് നോക്കാൻ പറഞ്ഞു?",en:"What did God tell Abraham to look at when he made him a promise?",o:["ആകാശത്തിലെ നക്ഷത്രങ്ങൾ","കടലിലെ മണൽ","മഴവില്ല്","വനത്തിലെ മരങ്ങൾ"],eo:["Stars in the sky","Sand of the sea","Rainbow","Fruit trees"],c:0,d:3},
+{ml:"യൂദാ യേശുവിനെ വിൽക്കാൻ കാരണം?",en:"How much did Judas betray Jesus for?",o:["30 വെള്ളി നാണയം","100 സ്വർണ്ണ നാണയം","50 വെള്ളി നാണയം","30 സ്വർണ്ണ നാണയം"],eo:["30 silver coins","100 gold coins","50 silver coins","30 gold coins"],c:0,d:3},
+{ml:"യാക്കോബ് ദൈവത്തെ കണ്ട സ്വപ്നം കണ്ട സ്ഥലത്തിന്റെ പേര്?",en:"What name did Jacob give to the place where he dreamed about God?",o:["ബേഥേൽ","ബേതൂവേൽ","ലൂസ്","പദ്ദാൻ-അരാം"],eo:["Bethel","Bethuel","Luz","Paddan-Aram"],c:0,d:3},
+{ml:"പൗലോസ് അഥേനയിൽ പ്രസംഗിച്ചത് ഏത് സ്ഥലത്ത്?",en:"To what place was Paul taken in Athens to speak about Jesus Christ?",o:["അറിയോപാഗസ്","കൊളോസിയം","പരിശുദ്ധസ്ഥലം","കൈസരിയ"],eo:["Areopagus","Colosseum","Sanctuary","Caesarea"],c:0,d:3},
+{ml:"യേശുവിനെ കുരിശിൽ കൊണ്ടുപോയ ശിഷ്യൻ ആര്?",en:"Which disciple accompanied Jesus to His crucifixion?",o:["യോഹന്നാൻ","ആന്ദ്രേയ","യാക്കോബ്","പത്രോസ്"],eo:["John","Andrew","James","Peter"],c:0,d:3},
+{ml:"നവോമി തന്റെ പേര് മാറ്റാൻ ആഗ്രഹിച്ചത് എന്തിന്?",en:"What woman wanted to change her name to Mara (meaning bitter)?",o:["നവോമി","ഹന്ന","ഓർപ്പ","റെബേക്ക"],eo:["Naomi","Hannah","Orpah","Rebekah"],c:0,d:3},
+{ml:"എലിയാ പ്രവാചകനെ കൊല്ലാൻ ഭീഷണിപ്പെടുത്തിയ സ്ത്രീ ആര്?",en:"Who was the woman who threatened to kill the prophet Elijah?",o:["ഇസേബേൽ","യെരൂഷ","എന്ദോരിലെ മാന്ത്രിക","സാരഫത്തിലെ വിധവ"],eo:["Jezebel","Jerusha","Medium of Endor","Widow of Zarephath"],c:0,d:3},
+{ml:"സാറാ എത്ര വയസ്സ് ജീവിച്ചു?",en:"How many years did Sarah live?",o:["127 വർഷം","156 വർഷം","107 വർഷം","116 വർഷം"],eo:["127 years","156 years","107 years","116 years"],c:0,d:3},
+{ml:"പ്രിസ്കില്ലയുടെ തൊഴിൽ എന്തായിരുന്നു?",en:"What was Priscilla's trade?",o:["കൂടാരം നിർമ്മാണം","ഊദവസ്ത്ര വ്യാപാരി","വിഗ്രഹ നിർമ്മാണം","തയ്യൽ"],eo:["Tent maker","Seller of purple fabric","Idol maker","Dressmaker"],c:0,d:3},
+{ml:"തിയാതിറയിലെ പ്രവാചികയുടെ പേര്?",en:"What was the name of the so-called prophetess who was leading the church in Thyatira into sexual immorality and idolatry?",o:["ഇസേബേൽ","ലിലി","ദെലീല","അതല്യാ"],eo:["Jezebel","Lili","Delilah","Athaliah"],c:0,d:3},
+{ml:"തിമോത്തെയൊസിന്റെ അമ്മയും അമ്മൂമ്മയും ആരായിരുന്നു?",en:"What were the names of Timothy's mother and grandmother?",o:["യൂനീക്ക, ലോയിസ്","പ്രിസ്കില്ല, അക്വില","സാറാ, റാഹേൽ","മറിയം, എലിസബത്ത്"],eo:["Eunice and Lois","Priscilla and Aquila","Sarah and Rachel","Mary and Elizabeth"],c:0,d:3},
+{ml:"ബാബേൽ ഗോപുരത്തിന്റെ നിർമ്മാണം നിർത്താൻ ദൈവം എന്ത് ചെയ്തു?",en:"What did God do to stop the construction of the Tower of Babel?",o:["ഭാഷകൾ കലക്കി","ഭൂകമ്പം അയച്ചു","ശത്രുജനത കയറ്റി നശിപ്പിച്ചു","വ്യാധികൾ അയച്ചു"],eo:["Confused languages","Sent earthquake","Enemy invasion","Sent plagues"],c:0,d:3},
+{ml:"യാക്കോബിന്റെ അമ്മാവൻ ആരായിരുന്നു?",en:"What was the name of Jacob's father-in-law who deceived him?",o:["ലാബാൻ","നാഹോർ","ബേതൂവേൽ","യിത്രോ"],eo:["Laban","Nahor","Bethuel","Jethro"],c:0,d:3},
+{ml:"യോസേഫിന്റെ (യാക്കോബിന്റെ മകൻ) ഭാര്യയുടെ പേര്?",en:"What was the name of the wife of Joseph (son of Jacob)?",o:["അസനത്ത്","പോതിഫർ","സിപ്പോറ","കേതൂരാ"],eo:["Asenath","Potiphar","Zipporah","Keturah"],c:0,d:3},
+{ml:"ദെബോറയുടെ കഥയിൽ ഏത് ശരിയാണ്?",en:"About Deborah's life, it is CORRECT to say:",o:["അവൾ പ്രവാചികയും ഇസ്രായേലിന്റെ നായികയും","അവൾ അഹാബിന്റെ രാജ്ഞിയായിരുന്നു","അവൾ അഹശ്വേരോഷിന്റെ രാജ്ഞിയായിരുന്നു","അവൾ സിസേരയെ കൊന്നു"],eo:["She was a prophetess and leader of Israel","She was queen married to Ahab","She was queen married to Ahasuerus","She struck down Sisera"],c:0,d:3}
+];
+
+
+// ===================== GAME LOGIC =====================
+let gameState = {
+  round: 1, score: 0, qIndex: 0, questions: [], usedQuestionIds: new Set(),
+  lifelines: { '5050': false, poll: false, expert: false },
+  playerName: '', langPref: 'both', currentQ: null, answered: false,
+  selectedOption: null, roundCorrect: 0, isKnockout: false, muted: false,
+  idleTimer: null, idlePopupShown: false
+};
+
+// Round config: q=questions, req=required correct, diff=difficulty
+const ROUND_CONFIG = [
+  { q: 5, req: 2, diff: 1 },   // Round 1: 5 easy, need 2
+  { q: 5, req: 3, diff: 1 },   // Round 2: 5 easy, need 3
+  { q: 5, req: 4, diff: 2 },   // Round 3: 5 medium, need 4
+  { q: 5, req: 4, diff: 2 },   // Round 4: 5 medium, need 4
+  { q: 5, req: 4, diff: 3 },   // Round 5: 5 hard, need 4
+];
+
+const ROUND_MESSAGES = [
+  { ml: "അഭിനന്ദനങ്ങൾ! റൗണ്ട് 1 പൂർത്തിയായി!", en: "Congratulations! Round 1 Complete!", emoji: "🌟" },
+  { ml: "വളരെ നല്ലത്! റൗണ്ട് 2 പൂർത്തിയായി!", en: "Great job! Round 2 completed!", emoji: "🎉" },
+  { ml: "അതിശയകരം! റൗണ്ട് 3 പൂർത്തിയായി!", en: "Amazing! Round 3 completed!", emoji: "🏆" },
+  { ml: "അസാധാരണം! റൗണ്ട് 4 വിജയം!", en: "Extraordinary! Round 4 victory!", emoji: "👑" },
+  { ml: "ദൈവം നിങ്ങളെ അനുഗ്രഹിക്കട്ടെ! റൗണ്ട് 5 വിജയം!", en: "God bless you! Round 5 conquered!", emoji: "✨" },
+];
+
+const ENCOURAGEMENTS = [
+  { ml: "തോൽവി വിജയത്തിന്റെ ആദ്യപടിയാണ്. വീണ്ടും ശ്രമിക്കൂ!", en: "Failure is the first step to success. Try again!" },
+  { ml: "ദൈവം നിങ്ങളെ ശക്തിപ്പെടുത്തും. വീണ്ടും കളിക്കൂ!", en: "God will strengthen you. Play again!" },
+  { ml: "എല്ലാം ദൈവത്തിന്റെ പദ്ധതിയിൽ ഉൾപ്പെട്ടിരിക്കുന്നു. തുടരൂ!", en: "Everything is part of God's plan. Keep going!" },
+  { ml: "വിശ്വാസം കൊണ്ട് നീങ്ങൂ. നിങ്ങൾക്ക് കഴിയും!", en: "Move forward with faith. You can do it!" },
+  { ml: "ഓരോ ചോദ്യവും നിങ്ങളെ കൂടുതൽ അറിവിലേക്ക് നയിക്കുന്നു!", en: "Every question leads you to more knowledge!" },
+];
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Shuffle options for a question so correct answer appears in random position
+function shuffleQuestionOptions(q) {
+  // Create array of indices [0,1,2,3]
+  const indices = [0, 1, 2, 3];
+  const shuffledIndices = shuffle(indices);
+
+  // Find where the correct answer moved to
+  const newCorrectIndex = shuffledIndices.indexOf(q.c);
+
+  // Create new shuffled option arrays
+  const newOptions = shuffledIndices.map(i => q.o[i]);
+  const newEnglishOptions = q.eo ? shuffledIndices.map(i => q.eo[i]) : null;
+
+  return {
+    ...q,
+    o: newOptions,
+    eo: newEnglishOptions,
+    c: newCorrectIndex
+  };
+}
+
+function getQuestionsForRound(round) {
+  if (round > ROUND_CONFIG.length) {
+    // Knockout round - ALL remaining questions not yet used
+    const pool = QUESTIONS.filter(q => !gameState.usedQuestionIds.has(q.ml));
+    if (pool.length === 0) return [];
+    return shuffle(pool).map(shuffleQuestionOptions);
+  }
+  const cfg = ROUND_CONFIG[round - 1];
+  const pool = QUESTIONS.filter(q => q.d === cfg.diff && !gameState.usedQuestionIds.has(q.ml));
+  // If not enough unused questions, include used ones
+  if (pool.length < cfg.q) {
+    const extra = QUESTIONS.filter(q => q.d === cfg.diff);
+    return shuffle(extra).slice(0, cfg.q).map(shuffleQuestionOptions);
+  }
+  return shuffle(pool).slice(0, cfg.q).map(shuffleQuestionOptions);
+}
+
+function getRoundConfig(round) {
+  if (round > ROUND_CONFIG.length) {
+    return { q: 0, req: 999, diff: 3, knockout: true };
+  }
+  return { ...ROUND_CONFIG[round - 1], knockout: false };
+}
+
+function markQuestionUsed(q) {
+  if (q && q.ml) gameState.usedQuestionIds.add(q.ml);
+}
+
+// ===================== IDLE TIMER - HEART POPUP =====================
+let heartInterval = null;
+let heartTimeout = null;
+
+function resetIdleTimer() {
+  clearTimeout(gameState.idleTimer);
+  clearInterval(heartInterval);
+  clearTimeout(heartTimeout);
+  gameState.idlePopupShown = false;
+  hideIdlePopup();
+  removeAllHearts();
+  const gameScreen = document.getElementById('screen-game');
+  if (gameScreen.classList.contains('active') && !gameState.answered) {
+    gameState.idleTimer = setTimeout(showHeartPopup, 30000);
+  }
+}
+
+function removeAllHearts() {
+  document.querySelectorAll('.floating-heart, .heart-pop-in').forEach(h => h.remove());
+}
+
+function showHeartPopup() {
+  if (gameState.answered || gameState.idlePopupShown) return;
+  gameState.idlePopupShown = true;
+
+  // Show the popup with encouraging message
+  const popupText = document.getElementById('idlePopupText');
+  const noBtn = document.getElementById('idleNoBtn');
+
+  const encouragements = [
+    { ml: "നിങ്ങൾക്ക് കഴിയും! തുടരൂ! 💪", en: "You can do it! Keep going! 💪" },
+    { ml: "ദൈവം നിങ്ങളോടൊപ്പമുണ്ട്! ✨", en: "God is with you! ✨" },
+    { ml: "വിശ്വാസം കൊണ്ട് മുന്നോട്ട് പോകൂ! 🙏", en: "Move forward with faith! 🙏" },
+    { ml: "ഒരുപടി കൂടി! നിങ്ങൾക്ക് കഴിയും! 🌟", en: "One more step! You can do it! 🌟" },
+    { ml: "എല്ലാം നല്ലതിനാണ്! തുടരൂ! 💖", en: "All is well! Keep going! 💖" }
+  ];
+  const enc = encouragements[Math.floor(Math.random() * encouragements.length)];
+  popupText.innerHTML = gameState.langPref === 'ml' ? enc.ml : enc.en;
+  noBtn.textContent = gameState.langPref === 'ml' ? 'ഞാൻ ഇവിടെയുണ്ട്! 💪' : "I'm still here! 💪";
+
+  document.getElementById('idleBackdrop').classList.add('active');
+  document.getElementById('idlePopup').classList.add('active');
+
+  // Start spawning hearts every second
+  spawnHeart();
+  heartInterval = setInterval(spawnHeart, 1000);
+
+  // Stop after 5 seconds
+  heartTimeout = setTimeout(() => {
+    clearInterval(heartInterval);
+  }, 5000);
+
+  if (!gameState.muted) {
+    const text = gameState.langPref === 'ml' ? enc.ml : enc.en;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = gameState.langPref === 'en' ? 'en-US' : 'ml-IN';
+    utter.rate = 0.9;
+    window.speechSynthesis.speak(utter);
+  }
+}
+
+function spawnHeart() {
+  const hearts = ['💖', '💕', '💗', '💝', '💘', '💓', '❤️', '🧡', '💛', '💚', '💙', '💜'];
+  const heart = document.createElement('div');
+  heart.className = 'floating-heart';
+  heart.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+  heart.style.left = (Math.random() * 90 + 5) + '%';
+  heart.style.top = (Math.random() * 60 + 20) + '%';
+  heart.style.fontSize = (Math.random() * 1.5 + 1) + 'rem';
+  heart.style.animationDuration = (Math.random() * 2 + 2) + 's';
+  heart.style.animationDelay = (Math.random() * 0.5) + 's';
+  document.body.appendChild(heart);
+  setTimeout(() => heart.remove(), 3500);
+}
+
+function hideIdlePopup() {
+  document.getElementById('idleBackdrop').classList.remove('active');
+  document.getElementById('idlePopup').classList.remove('active');
+  clearInterval(heartInterval);
+  removeAllHearts();
+}
+
+// ===================== EVENT LISTENERS =====================
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('leaderboardBtn').addEventListener('click', showLeaderboard);
+  document.getElementById('startRoundBtn').addEventListener('click', startRound);
+  document.getElementById('nextRoundBtn').addEventListener('click', nextRound);
+  document.getElementById('restartBtn').addEventListener('click', restartGame);
+  document.getElementById('overLeaderboardBtn').addEventListener('click', showLeaderboard);
+  document.getElementById('backBtn').addEventListener('click', function() { showScreen('screen-start'); });
+  document.getElementById('clearScoresBtn').addEventListener('click', clearLeaderboard);
+  document.getElementById('closePollBtn').addEventListener('click', closeOverlay);
+  document.getElementById('closeExpertBtn').addEventListener('click', closeOverlay);
+  document.getElementById('ttsBtn').addEventListener('click', speakQuestion);
+  document.getElementById('muteBtn').addEventListener('click', toggleMute);
+
+  document.getElementById('idleNoBtn').addEventListener('click', function() {
+    hideIdlePopup();
+    resetIdleTimer();
+  });
+
+  ['click', 'touchstart', 'keydown', 'mousemove'].forEach(evt => {
+    document.addEventListener(evt, function() {
+      if (!gameState.idlePopupShown) resetIdleTimer();
+    });
+  });
+
+  document.getElementById('lf-5050').addEventListener('click', function() { useLifeline('5050'); });
+  document.getElementById('lf-poll').addEventListener('click', function() { useLifeline('poll'); });
+  document.getElementById('lf-expert').addEventListener('click', function() { useLifeline('expert'); });
+});
+
+function toggleMute() {
+  gameState.muted = !gameState.muted;
+  const btn = document.getElementById('muteBtn');
+  if (gameState.muted) {
+    btn.textContent = '🔇 Sound Off';
+    btn.classList.add('muted');
+    window.speechSynthesis.cancel();
+  } else {
+    btn.textContent = '🔊 Sound On';
+    btn.classList.remove('muted');
+  }
+}
+
+function startGame() {
+  const name = document.getElementById('playerName').value.trim();
+  if (!name) { alert('Please enter your name'); return; }
+  gameState.playerName = name;
+  gameState.langPref = document.getElementById('langPref').value;
+  gameState.round = 1; gameState.score = 0; gameState.qIndex = 0; gameState.roundCorrect = 0;
+  gameState.lifelines = { '5050': false, poll: false, expert: false };
+  gameState.isKnockout = false;
+  gameState.usedQuestionIds = new Set();
+  gameState.questions = getQuestionsForRound(1);
+  showRoundInfo();
+}
+
+function showRoundInfo() {
+  const cfg = getRoundConfig(gameState.round);
+  const badge = document.getElementById('roundInfoBadge');
+  const title = document.getElementById('roundInfoTitle');
+  const req = document.getElementById('roundInfoReq');
+  const diff = document.getElementById('roundInfoDiff');
+  const emoji = document.getElementById('roundInfoEmoji');
+
+  if (cfg.knockout) {
+    badge.className = 'knockout-badge';
+    badge.textContent = '🔥 FINAL CHALLENGE 🔥';
+    title.textContent = '🔥 Final Challenge';
+    req.innerHTML = '<strong>Answer ALL questions correctly!</strong><br>One wrong answer = Game Over<br>Continue until all questions are answered!';
+    diff.innerHTML = '<strong>All Remaining Questions</strong><br>Easy + Medium + Hard, no repeats!';
+    emoji.textContent = '📖';
+  } else {
+    badge.className = 'difficulty-badge ' + (cfg.diff === 1 ? 'diff-easy' : cfg.diff === 2 ? 'diff-medium' : 'diff-hard');
+    badge.textContent = 'Round ' + gameState.round;
+    title.textContent = '📋 Round ' + gameState.round;
+    req.innerHTML = '<strong>Answer ' + cfg.req + ' out of ' + cfg.q + ' questions correctly</strong> to move to the next round';
+    diff.innerHTML = cfg.diff === 1 ? '<strong>Easy Questions</strong>' : cfg.diff === 2 ? '<strong>Medium Questions</strong>' : '<strong>Hard Questions</strong>';
+    emoji.textContent = cfg.diff === 1 ? '🌟' : cfg.diff === 2 ? '⭐' : '💎';
+  }
+
+  showScreen('screen-roundinfo');
+}
+
+function startRound() {
+  showScreen('screen-game');
+  updateStats(); showQuestion();
+}
+
+function updateStats() {
+  const cfg = getRoundConfig(gameState.round);
+  const totalQ = cfg.q > 0 ? cfg.q : gameState.questions.length;
+  document.getElementById('roundDisplay').textContent = gameState.isKnockout ? '🔥 Final' : gameState.round;
+  document.getElementById('scoreDisplay').textContent = gameState.score;
+  document.getElementById('qNumDisplay').textContent = gameState.qIndex + 1;
+  document.getElementById('qTotalDisplay').textContent = totalQ;
+  document.getElementById('roundCorrectDisplay').textContent = gameState.roundCorrect;
+  document.getElementById('roundTotalDisplay').textContent = totalQ;
+  const pct = totalQ > 0 ? ((gameState.qIndex) / totalQ) * 100 : 0;
+  document.getElementById('progressBar').style.width = pct + '%';
+}
+
+function showQuestion() {
+  gameState.answered = false;
+  gameState.selectedOption = null;
+  gameState.lifelinesUsedThisQuestion = { '5050': false, poll: false, expert: false };
+
+  if (!gameState.questions || gameState.questions.length === 0) {
+    if (gameState.isKnockout) {
+      gameOver(true);
+      return;
+    }
+    gameState.questions = getQuestionsForRound(gameState.round);
+  }
+
+  const q = gameState.questions[gameState.qIndex];
+
+  if (!q && gameState.isKnockout) {
+    gameOver(true);
+    return;
+  }
+
+  if (!q) {
+    gameOver(false);
+    return;
+  }
+
+  gameState.currentQ = q;
+  markQuestionUsed(q);
+
+  document.getElementById('feedbackBanner').style.display = 'none';
+  document.getElementById('feedbackBanner').className = '';
+
+  const badge = document.getElementById('diffBadge');
+  badge.className = 'difficulty-badge ' + (q.d === 1 ? 'diff-easy' : q.d === 2 ? 'diff-medium' : 'diff-hard');
+  badge.textContent = q.d === 1 ? 'Easy' : q.d === 2 ? 'Medium' : 'Hard';
+
+  // Knockout styling - no skull, Bible themed
+  const card = document.getElementById('questionCard');
+  if (gameState.isKnockout) {
+    card.classList.add('knockout-anim');
+    if (!document.getElementById('knockoutBadge')) {
+      const kb = document.createElement('div');
+      kb.id = 'knockoutBadge';
+      kb.className = 'knockout-badge';
+      kb.textContent = '🔥 FINAL CHALLENGE 🔥';
+      card.insertBefore(kb, card.firstChild);
+    }
+  } else {
+    card.classList.remove('knockout-anim');
+    const kb = document.getElementById('knockoutBadge');
+    if (kb) kb.remove();
+  }
+
+  // Display question
+  let html = '';
+  if (gameState.langPref === 'en') {
+    html = q.en;
+  } else if (gameState.langPref === 'ml') {
+    html = q.ml;
+  } else {
+    html = q.ml + '<span class="en">' + q.en + '</span>';
+  }
+  document.getElementById('questionText').innerHTML = html;
+
+  // Display options - shuffled so correct answer is in random position
+  const opts = document.getElementById('optionsContainer');
+  opts.innerHTML = '';
+  const letters = ['A', 'B', 'C', 'D'];
+  q.o.forEach((opt, i) => {
+    const div = document.createElement('div');
+    div.className = 'option';
+    div.id = 'opt-' + i;
+    let optText = '';
+    if (gameState.langPref === 'en') {
+      optText = (q.eo && q.eo[i]) ? q.eo[i] : opt;
+    } else if (gameState.langPref === 'ml') {
+      optText = opt;
+    } else {
+      const enText = (q.eo && q.eo[i]) ? q.eo[i] : opt;
+      optText = opt + '<br><span style="font-size:0.9rem;color:var(--muted);font-style:italic;">' + enText + '</span>';
+    }
+    div.innerHTML = '<span class="opt-letter">' + letters[i] + '</span><span>' + optText + '</span>';
+    div.addEventListener('click', function() { selectOption(i); });
+    opts.appendChild(div);
+  });
+
+  const oldConfirm = document.getElementById('confirmBtn');
+  if (oldConfirm) oldConfirm.remove();
+
+  ['5050', 'poll', 'expert'].forEach(lf => {
+    document.getElementById('lf-' + lf).classList.toggle('used', gameState.lifelines[lf]);
+  });
+
+  resetIdleTimer();
+
+  if (!gameState.muted) {
+    setTimeout(() => speakQuestion(), 500);
+  }
+}
+
+function selectOption(idx) {
+  if (gameState.answered) return;
+  document.querySelectorAll('.option').forEach(el => el.classList.remove('selected'));
+  const selectedEl = document.getElementById('opt-' + idx);
+  selectedEl.classList.add('selected');
+  gameState.selectedOption = idx;
+
+  if (!document.getElementById('confirmBtn')) {
+    const confirmBtn = document.createElement('button');
+    confirmBtn.id = 'confirmBtn';
+    confirmBtn.className = 'btn btn-primary';
+    confirmBtn.style.marginTop = '12px';
+    confirmBtn.textContent = gameState.langPref === 'ml' ? 'സ്ഥിരീകരിക്കുക ✓' : 'Confirm Answer ✓';
+    confirmBtn.addEventListener('click', confirmAnswer);
+    document.getElementById('optionsContainer').after(confirmBtn);
+  }
+
+  resetIdleTimer();
+}
+
+function confirmAnswer() {
+  if (gameState.selectedOption === null) return;
+  gameState.answered = true;
+  const q = gameState.currentQ;
+  const idx = gameState.selectedOption;
+  const opts = document.querySelectorAll('.option');
+
+  clearTimeout(gameState.idleTimer);
+
+  const confirmBtn = document.getElementById('confirmBtn');
+  if (confirmBtn) confirmBtn.remove();
+
+  opts.forEach((el, i) => {
+    el.classList.add('disabled');
+    el.classList.remove('selected');
+    if (i === q.c) el.classList.add('correct');
+    else if (i === idx && i !== q.c) el.classList.add('wrong');
+  });
+
+  const banner = document.getElementById('feedbackBanner');
+  const isCorrect = (idx === q.c);
+
+  if (isCorrect) {
+    gameState.score += q.d * 10;
+    gameState.roundCorrect++;
+    banner.style.display = 'block';
+    banner.className = 'feedback-banner feedback-right';
+    banner.innerHTML = '✅ ശരിയാണ്! / Correct!';
+    createSparkles();
+    if (!gameState.muted) {
+      const utter = new SpeechSynthesisUtterance('Correct!');
+      utter.lang = 'en-US'; utter.rate = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    }
+  } else {
+    banner.style.display = 'block';
+    banner.className = 'feedback-banner feedback-wrong';
+    banner.innerHTML = '❌ തെറ്റ്! / Wrong!';
+    if (!gameState.muted) {
+      const utter = new SpeechSynthesisUtterance('Wrong!');
+      utter.lang = 'en-US'; utter.rate = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    }
+  }
+
+  setTimeout(() => {
+    gameState.qIndex++;
+    const cfg = getRoundConfig(gameState.round);
+    const totalQ = cfg.q > 0 ? cfg.q : gameState.questions.length;
+
+    if (gameState.isKnockout && !isCorrect) {
+      gameOver(false);
+      return;
+    }
+
+    if (gameState.qIndex >= totalQ) {
+      if (gameState.roundCorrect >= cfg.req) {
+        showRoundTransition(true);
+      } else {
+        gameOver(false);
+      }
+      return;
+    }
+
+    updateStats(); showQuestion();
+  }, 2000);
+}
+
+function showRoundTransition(passed) {
+  if (!passed) {
+    gameOver(false);
+    return;
+  }
+
+  const msg = ROUND_MESSAGES[Math.min(gameState.round - 1, ROUND_MESSAGES.length - 1)];
+  document.getElementById('roundTitle').textContent = msg.emoji + ' Round ' + gameState.round + ' Complete!';
+  let message = '<strong>' + msg.ml + '</strong>';
+  if (gameState.langPref !== 'ml') message += '<br><span style="font-size:0.9rem;opacity:0.7">' + msg.en + '</span>';
+  message += '<br><br>✅ Correct: ' + gameState.roundCorrect + ' / ' + getRoundConfig(gameState.round).q;
+  message += '<br>⭐ Score: ' + gameState.score;
+  document.getElementById('roundMessage').innerHTML = message;
+  document.getElementById('roundEmoji').textContent = msg.emoji;
+
+  const app = document.getElementById('app');
+  app.classList.add('win-anim');
+  setTimeout(() => app.classList.remove('win-anim'), 1500);
+  createConfetti();
+
+  showScreen('screen-round');
+}
+
+function nextRound() {
+  gameState.round++;
+  gameState.qIndex = 0;
+  gameState.roundCorrect = 0;
+  gameState.lifelines = { '5050': false, poll: false, expert: false };
+
+  const cfg = getRoundConfig(gameState.round);
+  if (cfg.knockout) {
+    gameState.isKnockout = true;
+  }
+
+  gameState.questions = getQuestionsForRound(gameState.round);
+  showRoundInfo();
+}
+
+function gameOver(won) {
+  saveScore();
+  const app = document.getElementById('app');
+  const q = gameState.currentQ;
+
+  const correctBox = document.getElementById('correctAnswerBox');
+  const correctText = document.getElementById('correctAnswerText');
+
+  if (q) {
+    let ansText = '';
+    if (gameState.langPref === 'en') {
+      ansText = (q.eo && q.eo[q.c]) ? q.eo[q.c] : q.o[q.c];
+    } else if (gameState.langPref === 'ml') {
+      ansText = q.o[q.c];
+    } else {
+      ansText = q.o[q.c] + '<br><span style="font-size:0.95rem;color:var(--muted);font-style:italic;">' + ((q.eo && q.eo[q.c]) ? q.eo[q.c] : q.o[q.c]) + '</span>';
+    }
+    correctText.innerHTML = ansText;
+    correctBox.style.display = 'block';
+  }
+
+  if (won) {
+    document.getElementById('overTitle').textContent = '🏆 Champion!';
+    document.getElementById('overEmoji').textContent = '👑';
+    app.classList.add('win-anim');
+    createConfetti();
+    // Knockout win animation - cross flash
+    createCrossFlash();
+    let msg = '<strong>🎉 You conquered all questions!</strong><br>';
+    msg += 'Final Score: ' + gameState.score + '<br>';
+    msg += 'Rounds Completed: ' + (gameState.round > 1 ? gameState.round - 1 : 1);
+    document.getElementById('overMessage').innerHTML = msg;
+    document.getElementById('encouragementText').innerHTML = '<span style="color:var(--accent2)">🌟 You are a true Bible scholar!</span>';
+  } else {
+    app.classList.add('lose-anim');
+    setTimeout(() => app.classList.remove('lose-anim'), 800);
+    document.getElementById('overTitle').textContent = '💔 Game Over';
+    document.getElementById('overEmoji').textContent = '📖';
+    let msg = 'Score: ' + gameState.score + '<br>';
+    msg += 'Round: ' + gameState.round + '<br>';
+    const cfg = getRoundConfig(gameState.round);
+    const totalQ = cfg.q > 0 ? cfg.q : gameState.questions.length;
+    msg += 'Question: ' + (gameState.qIndex + 1) + '/' + totalQ;
+    document.getElementById('overMessage').innerHTML = msg;
+
+    const enc = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
+    let encHtml = '<strong>' + enc.ml + '</strong>';
+    if (gameState.langPref !== 'ml') encHtml += '<br><span style="font-size:0.9rem;opacity:0.7">' + enc.en + '</span>';
+    document.getElementById('encouragementText').innerHTML = encHtml;
+  }
+
+  showScreen('screen-over');
+}
+
+function restartGame() { 
+  document.getElementById('correctAnswerBox').style.display = 'none';
+  showScreen('screen-start'); 
+  document.getElementById('playerName').value = gameState.playerName;
+}
+
+function createSparkles() {
+  const colors = ['#ff6b35', '#ff6b9d', '#ffd700', '#00d4aa', '#00d4ff', '#7c3aed'];
+  for (let i = 0; i < 20; i++) {
+    const spark = document.createElement('div');
+    spark.style.position = 'fixed';
+    spark.style.width = (Math.random() * 6 + 2) + 'px';
+    spark.style.height = spark.style.width;
+    spark.style.background = colors[Math.floor(Math.random() * colors.length)];
+    spark.style.borderRadius = '50%';
+    spark.style.left = (Math.random() * 100) + 'vw';
+    spark.style.top = (Math.random() * 100) + 'vh';
+    spark.style.boxShadow = '0 0 10px ' + spark.style.background;
+    spark.style.animation = 'sparklePop ' + (Math.random() * 0.5 + 0.5) + 's ease-out forwards';
+    spark.style.zIndex = '200';
+    document.body.appendChild(spark);
+    setTimeout(() => spark.remove(), 1000);
+  }
+}
+
+// Add sparkle animation keyframe dynamically
+const sparkleStyle = document.createElement('style');
+sparkleStyle.textContent = `
+  @keyframes sparklePop {
+    0% { transform: scale(0); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.8; }
+    100% { transform: scale(0); opacity: 0; }
+  }
+`;
+document.head.appendChild(sparkleStyle);
+
+function createConfetti() {
+  const colors = ['#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'];
+  for (let i = 0; i < 50; i++) {
+    const conf = document.createElement('div');
+    conf.className = 'confetti';
+    conf.style.left = Math.random() * 100 + 'vw';
+    conf.style.background = colors[Math.floor(Math.random() * colors.length)];
+    conf.style.animationDuration = (Math.random() * 2 + 2) + 's';
+    conf.style.animationDelay = (Math.random() * 1) + 's';
+    document.body.appendChild(conf);
+    setTimeout(() => conf.remove(), 4000);
+  }
+}
+
+function createCrossFlash() {
+  const cross = document.createElement('div');
+  cross.className = 'cross-flash';
+  cross.textContent = '✝️';
+  cross.style.left = '50%';
+  cross.style.top = '40%';
+  cross.style.transform = 'translate(-50%, -50%)';
+  document.body.appendChild(cross);
+  setTimeout(() => cross.remove(), 1000);
+}
+
+function useLifeline(type) {
+  if (gameState.lifelines[type] || gameState.answered || gameState.lifelinesUsedThisQuestion[type]) return;
+  gameState.lifelines[type] = true;
+  gameState.lifelinesUsedThisQuestion[type] = true;
+  document.getElementById('lf-' + type).classList.add('used');
+  const q = gameState.currentQ;
+  const opts = document.querySelectorAll('.option');
+  if (type === '5050') {
+    const wrongIndices = [];
+    opts.forEach((el, i) => { if (i !== q.c) wrongIndices.push(i); });
+    shuffle(wrongIndices).slice(0, 2).forEach(i => {
+      opts[i].style.visibility = 'hidden';
+      opts[i].classList.add('disabled');
+    });
+  } else if (type === 'poll') {
+    const results = [0, 0, 0, 0];
+    results[q.c] = Math.floor(Math.random() * 30) + 40;
+    let remaining = 100 - results[q.c];
+    for (let i = 0; i < 4; i++) {
+      if (i !== q.c) { results[i] = Math.floor(Math.random() * remaining); remaining -= results[i]; }
+    }
+    results[3] += remaining;
+    let html = '';
+    const letters = ['A', 'B', 'C', 'D'];
+    results.forEach((pct, i) => {
+      html += '<div class="poll-bar"><span class="poll-label">' + letters[i] + '</span><div class="poll-track"><div class="poll-fill" style="width:0%" id="poll-' + i + '"></div></div><span class="poll-pct">' + pct + '%</span></div>';
+    });
+    document.getElementById('pollResults').innerHTML = html;
+    document.getElementById('pollOverlay').classList.add('active');
+    setTimeout(() => { results.forEach((pct, i) => { document.getElementById('poll-' + i).style.width = pct + '%'; }); }, 100);
+  } else if (type === 'expert') {
+    const letters = ['A', 'B', 'C', 'D'];
+    const expertTexts = [
+      "I believe the answer is " + letters[q.c] + ". Studying God's Word is a blessing.",
+      "Based on my knowledge of Scripture, I would choose " + letters[q.c] + ".",
+      "The Bible teaches us that the correct answer is " + letters[q.c] + ". Pray and verify!",
+      "In my humble opinion, " + letters[q.c] + " is the right choice. God bless your learning!"
+    ];
+    document.getElementById('expertText').textContent = expertTexts[Math.floor(Math.random() * expertTexts.length)];
+    document.getElementById('expertOverlay').classList.add('active');
+  }
+
+  resetIdleTimer();
+}
+
+function closeOverlay() {
+  document.getElementById('pollOverlay').classList.remove('active');
+  document.getElementById('expertOverlay').classList.remove('active');
+  resetIdleTimer();
+}
+
+function speakQuestion() {
+  if (!window.speechSynthesis || gameState.muted) return;
+  const q = gameState.currentQ;
+  if (!q) return;
+
+  let text = '';
+  if (gameState.langPref === 'en') text = q.en;
+  else if (gameState.langPref === 'ml') text = q.ml;
+  else text = q.ml + '. ' + q.en;
+
+  text += '. Options: ';
+  const letters = ['A', 'B', 'C', 'D'];
+  q.o.forEach((opt, i) => {
+    let optText = opt;
+    if ((gameState.langPref === 'en' || gameState.langPref === 'both') && q.eo && q.eo[i]) {
+      optText = gameState.langPref === 'en' ? q.eo[i] : opt + '. ' + q.eo[i];
+    }
+    text += letters[i] + '. ' + optText + '. ';
+  });
+
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = gameState.langPref === 'en' ? 'en-US' : 'ml-IN';
+  utter.rate = 0.85;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function saveScore() {
+  const scores = JSON.parse(localStorage.getItem('bibleQuizScores') || '[]');
+  scores.push({
+    name: gameState.playerName,
+    score: gameState.score,
+    round: gameState.round,
+    date: new Date().toLocaleDateString()
+  });
+  scores.sort((a, b) => b.score - a.score);
+  localStorage.setItem('bibleQuizScores', JSON.stringify(scores.slice(0, 50)));
+}
+
+function showLeaderboard() {
+  const scores = JSON.parse(localStorage.getItem('bibleQuizScores') || '[]');
+  const tbody = document.getElementById('leaderboardBody');
+  tbody.innerHTML = '';
+  if (scores.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No scores yet. Play a game!</td></tr>';
+  } else {
+    scores.slice(0, 20).forEach((s, i) => {
+      const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
+      tbody.innerHTML += '<tr><td class="' + rankClass + '">' + (i + 1) + '</td><td>' + s.name + '</td><td>' + s.score + '</td><td>' + s.round + '</td><td>' + s.date + '</td></tr>';
+    });
+  }
+  showScreen('screen-leaderboard');
+}
+
+function clearLeaderboard() {
+  if (confirm('Clear all scores?')) {
+    localStorage.removeItem('bibleQuizScores');
+    showLeaderboard();
+  }
+}
+</script>
+</body>
+</html>
