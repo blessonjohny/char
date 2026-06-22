@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>28 Kerala Gulan — Choose Your Table</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;1,400;1,500&family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy-deep:#050b18;
+  --navy-mid:#0b1730;
+  --navy-card:#0e1d3b;
+  --navy-line:#28385e;
+  --gold:#c6a455;
+  --gold-bright:#e9d093;
+  --cream:#ece4d2;
+  --dim:#8b96b3;
+  --crimson:#7a2331;
+  --crimson-bright:#a8364a;
+  --violet:#473167;
+  --violet-bright:#6b4a96;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--navy-deep);
+  color:var(--cream);
+  font-family:'Jost',sans-serif;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  position:relative;
+  overflow-x:hidden;
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;}
+}
+
+/* ===== Ambient background ===== */
+.bg-glow{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 8%, rgba(198,164,85,0.10), transparent 60%),
+    radial-gradient(ellipse 80% 60% at 50% 100%, rgba(71,49,103,0.18), transparent 65%),
+    var(--navy-deep);
+}
+.bg-vignette{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  box-shadow:inset 0 0 18vw rgba(0,0,0,0.55);
+}
+.bg-felt{
+  position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.035;
+  background-image:
+    repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 1px, transparent 14px);
+}
+
+/* ===== Layout ===== */
+.page{
+  position:relative;z-index:1;
+  width:100%;max-width:780px;
+  display:flex;flex-direction:column;align-items:center;
+  padding:48px 22px 40px;
+}
+
+/* ===== Hero ===== */
+.hero{text-align:center;margin-bottom:38px}
+.deal-row{
+  display:flex;justify-content:center;gap:18px;margin-bottom:14px;
+  font-size:1.1rem;letter-spacing:0.08em;
+}
+.deal-row span{
+  display:inline-block;opacity:0;transform:translateY(-14px) scale(0.6) rotate(-12deg);
+  animation:dealIn 0.55s cubic-bezier(.2,.9,.3,1.3) forwards;
+}
+.deal-row span:nth-child(1){animation-delay:0.05s;color:var(--crimson-bright)}
+.deal-row span:nth-child(2){animation-delay:0.18s;color:var(--gold)}
+.deal-row span:nth-child(3){animation-delay:0.31s;color:var(--gold)}
+.deal-row span:nth-child(4){animation-delay:0.44s;color:var(--violet-bright)}
+@keyframes dealIn{
+  60%{opacity:1;transform:translateY(2px) scale(1.08) rotate(3deg)}
+  100%{opacity:0.85;transform:translateY(0) scale(1) rotate(0)}
+}
+h1{
+  font-family:'Cinzel',serif;
+  font-weight:700;
+  font-size:clamp(2.1rem,8vw,3.1rem);
+  letter-spacing:0.05em;
+  color:var(--gold-bright);
+  text-shadow:0 0 28px rgba(198,164,85,0.25);
+  opacity:0;
+  animation:fadeUp 0.7s ease 0.5s forwards;
+}
+.tagline{
+  font-family:'EB Garamond',serif;
+  font-style:italic;
+  font-size:1.05rem;
+  color:var(--dim);
+  margin-top:10px;
+  letter-spacing:0.02em;
+  opacity:0;
+  animation:fadeUp 0.7s ease 0.7s forwards;
+}
+.hr-orn{
+  display:flex;align-items:center;gap:10px;justify-content:center;
+  margin:22px auto 0;width:min(280px,70%);
+  opacity:0;animation:fadeUp 0.7s ease 0.85s forwards;
+}
+.hr-orn::before,.hr-orn::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--navy-line))}
+.hr-orn::after{background:linear-gradient(90deg,var(--navy-line),transparent)}
+.hr-orn b{color:var(--gold);font-size:0.7rem}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== Table cards ===== */
+.tables{
+  display:grid;grid-template-columns:1fr 1fr;gap:22px;
+  width:100%;margin-bottom:8px;
+}
+@media (max-width:560px){.tables{grid-template-columns:1fr}}
+.table-card{
+  position:relative;
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  background:linear-gradient(160deg,var(--navy-card),var(--navy-mid));
+  border:1px solid var(--navy-line);
+  border-radius:14px;
+  padding:34px 22px 26px;
+  text-decoration:none;color:inherit;
+  cursor:pointer;
+  transition:transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  opacity:0;animation:fadeUp 0.7s ease 1s forwards;
+}
+.table-card:nth-child(2){animation-delay:1.12s}
+.table-card::before,.table-card::after,
+.table-card .pip-tl,.table-card .pip-br{
+  content:'';position:absolute;width:22px;height:22px;
+  border:1px solid var(--navy-line);opacity:0.7;
+}
+.table-card .pip-tl{top:10px;left:10px;border-right:none;border-bottom:none}
+.table-card .pip-br{bottom:10px;right:10px;border-left:none;border-top:none}
+.table-card:active{transform:scale(0.98)}
+@media (hover:hover){
+  .table-card:hover{transform:translateY(-4px)}
+  .table-card.t4:hover{border-color:var(--crimson-bright);box-shadow:0 14px 34px -12px rgba(168,54,74,0.45)}
+  .table-card.t6:hover{border-color:var(--violet-bright);box-shadow:0 14px 34px -12px rgba(107,74,150,0.45)}
+}
+.suit-emblem{font-size:2.6rem;margin-bottom:14px;line-height:1}
+.t4 .suit-emblem{color:var(--crimson-bright);text-shadow:0 0 22px rgba(168,54,74,0.35)}
+.t6 .suit-emblem{color:var(--violet-bright);text-shadow:0 0 22px rgba(107,74,150,0.35)}
+.table-card h2{
+  font-family:'Cinzel',serif;font-weight:600;
+  font-size:1.3rem;letter-spacing:0.06em;color:var(--cream);
+}
+.table-card p{
+  font-family:'EB Garamond',serif;font-style:italic;
+  color:var(--dim);font-size:0.92rem;margin-top:8px;line-height:1.4;
+}
+.table-card .modes{
+  margin-top:12px;font-size:0.62rem;letter-spacing:0.08em;
+  color:var(--dim);text-transform:uppercase;
+}
+.live-status{
+  margin-top:12px;display:flex;align-items:center;gap:6px;
+  font-size:0.68rem;letter-spacing:0.03em;color:#7fd99a;
+  background:rgba(127,217,154,0.08);border:1px solid rgba(127,217,154,0.3);
+  padding:5px 12px;border-radius:20px;
+}
+.live-status .dot{
+  width:6px;height:6px;border-radius:50%;background:#7fd99a;
+  animation:liveDotPulse 1.4s ease-in-out infinite;
+}
+@keyframes liveDotPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(127,217,154,0.5)}50%{opacity:0.6;box-shadow:0 0 0 4px rgba(127,217,154,0)}}
+.table-card .cta{
+  margin-top:20px;font-size:0.78rem;font-weight:600;letter-spacing:0.1em;
+  padding:9px 22px;border-radius:30px;border:1px solid var(--navy-line);
+  transition:border-color 0.25s ease, color 0.25s ease, background 0.25s ease;
+}
+.t4 .cta{color:var(--crimson-bright)}
+.t6 .cta{color:var(--violet-bright)}
+.table-card:active .cta,.table-card:hover .cta{background:rgba(255,255,255,0.03)}
+.t4:hover .cta,.t4:active .cta{border-color:var(--crimson-bright)}
+.t6:hover .cta,.t6:active .cta{border-color:var(--violet-bright)}
+
+/* ===== Features strip ===== */
+.features{
+  width:100%;margin-top:36px;
+  opacity:0;animation:fadeUp 0.7s ease 1.2s forwards;
+}
+.feat-row{
+  display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px;
+}
+@media(max-width:560px){.feat-row{grid-template-columns:1fr}}
+.feat-card{
+  background:linear-gradient(150deg,rgba(14,29,59,0.9),rgba(11,23,48,0.7));
+  border:1px solid var(--navy-line);border-radius:12px;
+  padding:20px 18px;
+  transition:border-color 0.25s,transform 0.25s;
+}
+@media(hover:hover){.feat-card:hover{border-color:rgba(198,164,85,0.35);transform:translateY(-2px)}}
+.feat-icon{font-size:1.7rem;margin-bottom:10px;line-height:1}
+.feat-title{
+  font-family:'Cinzel',serif;font-size:0.82rem;font-weight:600;
+  color:var(--gold-bright);letter-spacing:0.04em;margin-bottom:7px;
+}
+.feat-body{
+  font-size:0.78rem;color:var(--dim);line-height:1.65;
+}
+.how-strip{
+  border:1px solid var(--navy-line);border-radius:12px;
+  padding:18px 20px;background:rgba(198,164,85,0.04);
+  text-align:center;
+}
+.how-title{
+  font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--gold);margin-bottom:14px;font-weight:600;
+}
+.how-steps{
+  display:flex;align-items:center;justify-content:center;
+  gap:8px;flex-wrap:wrap;
+}
+.how-step{
+  display:flex;align-items:center;gap:8px;
+  font-size:0.77rem;color:var(--cream);
+}
+.how-num{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border-radius:50%;
+  background:var(--gold);color:var(--navy-deep);
+  font-size:0.7rem;font-weight:700;flex-shrink:0;
+}
+.how-arrow{color:var(--navy-line);font-size:1rem}
+@media(max-width:560px){.how-arrow{display:none}.how-steps{flex-direction:column;gap:10px}}
+
+/* ===== Footer ===== */
+.page-footer{
+  margin-top:46px;text-align:center;
+  opacity:0;animation:fadeUp 0.7s ease 1.3s forwards;
+}
+.visitor-line{
+  font-family:'Jost',sans-serif;font-size:0.78rem;letter-spacing:0.05em;
+  color:var(--gold);display:flex;align-items:center;gap:8px;justify-content:center;
+}
+.visitor-line .num{font-weight:600;font-variant-numeric:tabular-nums;color:var(--gold-bright)}
+.footer-fine{
+  margin-top:8px;font-size:0.68rem;color:var(--dim);letter-spacing:0.04em;
+}
+
+/* ===== Secret corner (tap 3x) ===== */
+.secret-corner{
+  position:fixed;bottom:0;right:0;width:54px;height:54px;z-index:5;
+  display:flex;align-items:flex-end;justify-content:flex-end;
+  padding:10px;cursor:default;
+}
+.secret-corner span{
+  font-size:0.85rem;color:var(--navy-line);opacity:0.55;
+  transition:opacity 0.3s ease;
+}
+.secret-corner:active span{opacity:0.9}
+
+/* ===== Modals ===== */
+.modal-overlay{
+  position:fixed;inset:0;z-index:50;
+  background:rgba(2,5,12,0.78);
+  display:none;align-items:center;justify-content:center;
+  padding:20px;backdrop-filter:blur(3px);
+}
+.modal-overlay.on{display:flex}
+.modal-box{
+  background:linear-gradient(165deg,var(--navy-card),var(--navy-mid));
+  border:1px solid var(--navy-line);
+  border-radius:16px;
+  padding:26px 22px;
+  width:100%;max-width:340px;
+  text-align:center;
+  position:relative;
+  box-shadow:0 24px 60px -16px rgba(0,0,0,0.6);
+}
+.modal-box h3{
+  font-family:'Cinzel',serif;font-size:1.05rem;color:var(--gold-bright);
+  letter-spacing:0.04em;margin-bottom:6px;
+}
+.modal-box .sub{font-size:0.74rem;color:var(--dim);margin-bottom:18px}
+.pin-input{
+  width:100%;text-align:center;font-size:1.6rem;letter-spacing:0.6em;
+  padding:12px 0 12px 0.6em;border-radius:10px;border:1.5px solid var(--navy-line);
+  background:rgba(0,0,0,0.35);color:var(--cream);font-family:'Jost',sans-serif;
+  margin-bottom:14px;
+}
+.pin-input:focus{outline:none;border-color:var(--gold)}
+.modal-btn-row{display:flex;gap:10px}
+.mbtn{
+  flex:1;padding:11px 0;border-radius:9px;border:none;font-size:0.82rem;
+  font-weight:600;letter-spacing:0.04em;cursor:pointer;font-family:'Jost',sans-serif;
+}
+.mbtn.primary{background:var(--gold);color:var(--navy-deep)}
+.mbtn.ghost{background:transparent;border:1px solid var(--navy-line);color:var(--dim)}
+.pw-error{color:var(--crimson-bright);font-size:0.72rem;margin-top:10px;min-height:1em}
+
+.admin-box{max-width:480px;text-align:left;max-height:86vh;overflow-y:auto}
+.admin-close{
+  position:absolute;top:14px;right:16px;background:none;border:none;
+  color:var(--dim);font-size:1.3rem;cursor:pointer;line-height:1;
+}
+.admin-box h3{text-align:center;margin-bottom:18px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px}
+.stat-card{
+  background:rgba(0,0,0,0.25);border:1px solid var(--navy-line);border-radius:10px;
+  padding:12px 10px;text-align:center;
+}
+.stat-card .v{font-family:'Cinzel',serif;font-size:1.4rem;color:var(--gold-bright);font-variant-numeric:tabular-nums}
+.stat-card .l{font-size:0.62rem;color:var(--dim);letter-spacing:0.06em;text-transform:uppercase;margin-top:4px}
+.admin-section-title{
+  font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);
+  margin:18px 0 10px;display:flex;align-items:center;gap:8px;
+}
+.admin-section-title::after{content:'';flex:1;height:1px;background:var(--navy-line)}
+.history-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;margin-bottom:14px}
+.history-row{
+  display:flex;justify-content:space-between;gap:10px;font-size:0.72rem;
+  padding:8px 10px;background:rgba(255,255,255,0.025);border-radius:7px;color:var(--dim);
+}
+.history-row b{color:var(--cream);font-weight:500}
+.history-empty{font-size:0.74rem;color:var(--dim);text-align:center;padding:14px 0}
+.admin-foot-row{display:flex;gap:10px;margin-top:16px}
+.device-line{font-size:0.66rem;color:var(--dim);margin-top:14px;word-break:break-all;line-height:1.6}
+
+/* ===== Comment / Message box ===== */
+.msg-btn{
+  margin-top:18px;
+  background:none;border:1.5px solid rgba(198,164,85,0.35);border-radius:8px;
+  color:var(--dim);font-family:'Jost',sans-serif;font-size:0.78rem;
+  padding:9px 20px;cursor:pointer;letter-spacing:0.06em;
+  transition:border-color 0.2s,color 0.2s;
+}
+.msg-btn:hover{border-color:var(--gold);color:var(--gold-bright);}
+.msg-modal-box{
+  background:var(--navy-card);border:1.5px solid var(--navy-line);
+  border-radius:14px;padding:28px 24px 22px;width:100%;max-width:360px;
+  position:relative;
+}
+.msg-modal-box h3{
+  font-family:'Cinzel',serif;font-size:1.1rem;color:var(--gold-bright);
+  margin-bottom:6px;text-align:center;letter-spacing:0.06em;
+}
+.msg-modal-box p.sub{font-size:0.74rem;color:var(--dim);text-align:center;margin-bottom:18px;}
+.msg-field{
+  width:100%;padding:10px 13px;border-radius:8px;
+  border:1.5px solid var(--navy-line);background:rgba(255,255,255,0.04);
+  color:var(--cream);font-family:'Jost',sans-serif;font-size:0.88rem;
+  margin-bottom:10px;resize:none;outline:none;
+  transition:border-color 0.2s;
+}
+.msg-field:focus{border-color:var(--gold);}
+.msg-field::placeholder{color:var(--dim);}
+.msg-sent{font-size:0.82rem;color:#6fcf97;text-align:center;padding:10px 0;display:none;}
+.msg-error{font-size:0.78rem;color:#e57373;text-align:center;padding:6px 0;display:none;}
+.msg-spinner{display:none;text-align:center;font-size:0.8rem;color:var(--dim);padding:4px 0;}
+</style>
+</head>
+<body>
+
+<div class="bg-glow"></div>
+<div class="bg-felt"></div>
+<div class="bg-vignette"></div>
+
+<div class="page">
+  <div class="hero">
+    <div class="deal-row"><span>♠</span><span>♥</span><span>♦</span><span>♣</span></div>
+    <h1>28 KERALA GULAN</h1>
+    <p class="tagline">Invite friends. Challenge bots. Play Kerala's favourite card game — anywhere.</p>
+    <div class="hr-orn"><b>◆</b></div>
+  </div>
+
+  <main class="tables">
+    <a class="table-card t4" href="4p2p.html" data-game="4p" id="cardT4">
+      <span class="pip-tl"></span><span class="pip-br"></span>
+      <div class="suit-emblem">♦</div>
+      <h2>4 Players</h2>
+      <p>Two against two,<br>across the table</p>
+      <div class="modes">Online with friends · vs Smart Bots</div>
+      <div class="live-status" id="liveStatusT4" style="display:none"></div>
+      <span class="cta">Enter Table →</span>
+    </a>
+    <a class="table-card t6" href="6p2p.html" data-game="6p" id="cardT6">
+      <span class="pip-tl"></span><span class="pip-br"></span>
+      <div class="suit-emblem">♣</div>
+      <h2>6 Players</h2>
+      <p>Two teams of three,<br>the full house</p>
+      <div class="modes">Online with friends · vs Smart Bots</div>
+      <div class="live-status" id="liveStatusT6" style="display:none"></div>
+      <span class="cta">Enter Table →</span>
+    </a>
+  </main>
+
+  <!-- ===== Features strip ===== -->
+  <section class="features">
+
+    <div class="feat-row">
+      <div class="feat-card">
+        <div class="feat-icon">🌐</div>
+        <div class="feat-title">Play with Anyone, Anywhere</div>
+        <div class="feat-body">Share a link and your friends or family join in seconds — no account, no download, no fuss. Works on any phone or laptop.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🤖</div>
+        <div class="feat-title">Bots That Play Like Humans</div>
+        <div class="feat-body">Our AI bots study the game as it unfolds — reading the table, remembering discards, and adapting their strategy to challenge you at every level.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🧠</div>
+        <div class="feat-title">They Learn Your Style</div>
+        <div class="feat-body">The longer you play, the sharper the bots get. They pick up on your bidding habits, your trump calls, and your favourite moves — then make you earn every trick.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">⚡</div>
+        <div class="feat-title">Instant, Free, No Sign-Up</div>
+        <div class="feat-body">Jump into a game in under 10 seconds. No registration, no waiting room, no ads. Just the authentic 28 experience your family grew up with.</div>
+      </div>
+    </div>
+
+    <div class="how-strip">
+      <div class="how-title">How to play online in 3 steps</div>
+      <div class="how-steps">
+        <div class="how-step"><span class="how-num">1</span><span>Choose your table — 4 or 6 players</span></div>
+        <div class="how-arrow">→</div>
+        <div class="how-step"><span class="how-num">2</span><span>Share the room link with friends</span></div>
+        <div class="how-arrow">→</div>
+        <div class="how-step"><span class="how-num">3</span><span>They tap the link &amp; you're at the table</span></div>
+      </div>
+    </div>
+
+  </section>
+
+  <footer class="page-footer">
+    <p class="visitor-line">◈ <span class="num" id="visitorNum">—</span> guests have joined the table ◈</p>
+    <p class="footer-fine">First to 12 points wins</p>
+    <button class="msg-btn" id="openMsgBtn">✉ Leave a message for Jason</button>
+  </footer>
+</div>
+
+<!-- Message / Feedback modal -->
+<div class="modal-overlay" id="msgOverlay" style="display:none">
+  <div class="msg-modal-box">
+    <button class="admin-close" id="msgClose">×</button>
+    <h3>Leave a Message</h3>
+    <p class="sub">Send Jason your feedback, bug reports, or just say hi!</p>
+    <div class="msg-sent" id="msgSent">✅ Message sent! Thank you 🙏</div>
+    <div class="msg-error" id="msgError">Something went wrong. Please try again.</div>
+    <div class="msg-spinner" id="msgSpinner">Sending…</div>
+    <input id="msgName" class="msg-field" type="text" placeholder="Your name (optional)" maxlength="60">
+    <textarea id="msgText" class="msg-field" rows="4" placeholder="Your message…" maxlength="500"></textarea>
+    <div class="modal-btn-row">
+      <button class="mbtn ghost" id="msgCancelBtn">Cancel</button>
+      <button class="mbtn primary" id="msgSendBtn">Send Message</button>
+    </div>
+  </div>
+</div>
+
+<div class="secret-corner" id="secretCorner"><span>♠</span></div>
+
+<!-- Password modal -->
+<div class="modal-overlay" id="pwOverlay">
+  <div class="modal-box">
+    <h3>Staff Access</h3>
+    <p class="sub">Enter the house code</p>
+    <input type="password" id="pwInput" class="pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+    <div class="modal-btn-row">
+      <button class="mbtn ghost" id="pwCancel">Cancel</button>
+      <button class="mbtn primary" id="pwSubmit">Unlock</button>
+    </div>
+    <p class="pw-error" id="pwError"></p>
+  </div>
+</div>
+
+<!-- Admin panel -->
+<div class="modal-overlay" id="adminOverlay">
+  <div class="modal-box admin-box">
+    <button class="admin-close" id="adminClose">×</button>
+    <h3>House Dashboard</h3>
+    <div class="stat-grid" id="statGrid">
+      <div class="stat-card"><div class="v" id="statTotal">—</div><div class="l">Total Visits</div></div>
+      <div class="stat-card"><div class="v" id="statToday">—</div><div class="l">This Device Today</div></div>
+      <div class="stat-card"><div class="v" id="stat4p">—</div><div class="l">Chose 4 Players</div></div>
+      <div class="stat-card"><div class="v" id="stat6p">—</div><div class="l">Chose 6 Players</div></div>
+    </div>
+    <div class="admin-section-title">This device — visit history</div>
+    <div class="history-list" id="historyList"><div class="history-empty">No visits recorded yet</div></div>
+    <div class="device-line" id="deviceLine"></div>
+    <div class="admin-foot-row">
+      <button class="mbtn ghost" id="refreshStatsBtn">Refresh</button>
+      <button class="mbtn ghost" id="resetHistoryBtn">Clear local history</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ==================== CONFIG ====================
+// Public, no-signup counter API (countapi.xyz successor). Keys are public,
+// so these are namespaced with a project-specific prefix to avoid collisions.
+var COUNTER_BASE = 'https://countapi.mileshilliard.com/api/v1';
+var KEY_TOTAL = 'kg28_site_visits_q7m2x';
+var KEY_4P = 'kg28_pick_4p_q7m2x';
+var KEY_6P = 'kg28_pick_6p_q7m2x';
+
+var DEVICE_KEY = 'kg28_device_id';
+var HISTORY_KEY = 'kg28_visit_history';
+var TODAY_KEY = 'kg28_today_count';
+var SESSION_START = Date.now();
+var sessionRecorded = false;
+
+// ==================== DEVICE / LOCAL STORAGE HELPERS ====================
+function getDeviceId(){
+  try{
+    var id = localStorage.getItem(DEVICE_KEY);
+    if(!id){
+      id = 'guest-' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
+      localStorage.setItem(DEVICE_KEY, id);
+    }
+    return id;
+  }catch(e){ return 'guest-unknown'; }
+}
+function readHistory(){
+  try{ return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function writeHistory(list){
+  try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(-40))); }
+  catch(e){}
+}
+function bumpTodayCount(){
+  try{
+    var today = new Date().toDateString();
+    var raw = JSON.parse(localStorage.getItem(TODAY_KEY) || 'null');
+    if(!raw || raw.day !== today){ raw = {day: today, count: 0}; }
+    raw.count++;
+    localStorage.setItem(TODAY_KEY, JSON.stringify(raw));
+    return raw.count;
+  }catch(e){ return null; }
+}
+function getTodayCount(){
+  try{
+    var today = new Date().toDateString();
+    var raw = JSON.parse(localStorage.getItem(TODAY_KEY) || 'null');
+    return (raw && raw.day === today) ? raw.count : 0;
+  }catch(e){ return 0; }
+}
+
+// ==================== GLOBAL COUNTER (best-effort) ====================
+function hit(key){
+  return fetch(COUNTER_BASE + '/hit/' + key).then(function(r){
+    if(!r.ok) throw new Error('bad status');
+    return r.json();
+  }).then(function(d){ return parseInt(d.value,10); });
+}
+function get(key){
+  return fetch(COUNTER_BASE + '/get/' + key).then(function(r){
+    if(!r.ok) throw new Error('bad status');
+    return r.json();
+  }).then(function(d){ return parseInt(d.value,10); });
+}
+
+function renderVisitorCount(n){
+  var el = document.getElementById('visitorNum');
+  if(el) el.textContent = (n===null || isNaN(n)) ? '—' : n.toLocaleString();
+}
+
+// Fire the global hit ONCE per browser session (not on every refresh).
+// sessionStorage is cleared when the tab closes, so each new visit counts
+// but F5 / pull-to-refresh no longer inflates the number.
+var SESSION_FLAG = 'kg28_counted_this_session';
+if (!sessionStorage.getItem(SESSION_FLAG)) {
+  sessionStorage.setItem(SESSION_FLAG, '1');
+  hit(KEY_TOTAL).then(renderVisitorCount).catch(function(){
+    var local = readHistory().length;
+    renderVisitorCount(local || null);
+  });
+  bumpTodayCount();
+} else {
+  // Already counted — just display the current number without hitting
+  get(KEY_TOTAL).then(renderVisitorCount).catch(function(){
+    var local = readHistory().length;
+    renderVisitorCount(local || null);
+  });
+}
+
+// ==================== TABLE SELECTION TRACKING ====================
+document.querySelectorAll('.table-card').forEach(function(card){
+  card.addEventListener('click', function(){
+    var game = card.getAttribute('data-game');
+    recordSessionEnd(game);
+    var key = game === '4p' ? KEY_4P : KEY_6P;
+    try{ navigator.sendBeacon ? navigator.sendBeacon(COUNTER_BASE+'/hit/'+key) : hit(key).catch(function(){}); }
+    catch(e){ hit(key).catch(function(){}); }
+  });
+});
+
+// ==================== SESSION / HISTORY RECORDING ====================
+function recordSessionEnd(gameChosen){
+  if(sessionRecorded) return;
+  sessionRecorded = true;
+  var duration = Date.now() - SESSION_START;
+  var history = readHistory();
+  history.push({
+    ts: SESSION_START,
+    duration: duration,
+    game: gameChosen || null,
+    ua: navigator.userAgent,
+    screen: (screen.width||0) + 'x' + (screen.height||0)
+  });
+  writeHistory(history);
+}
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'hidden') recordSessionEnd(null);
+});
+window.addEventListener('pagehide', function(){ recordSessionEnd(null); });
+
+// ==================== SECRET CORNER: TAP 3x ====================
+var tapCount = 0, tapTimer = null;
+document.getElementById('secretCorner').addEventListener('click', function(){
+  tapCount++;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(function(){ tapCount = 0; }, 1800);
+  if(tapCount >= 3){
+    tapCount = 0;
+    clearTimeout(tapTimer);
+    openPasswordPrompt();
+  }
+});
+
+// ==================== PASSWORD MODAL ====================
+var pwOverlay = document.getElementById('pwOverlay');
+var pwInput = document.getElementById('pwInput');
+var pwError = document.getElementById('pwError');
+function openPasswordPrompt(){
+  pwError.textContent = '';
+  pwInput.value = '';
+  pwOverlay.classList.add('on');
+  setTimeout(function(){ pwInput.focus(); }, 100);
+}
+function closePasswordPrompt(){ pwOverlay.classList.remove('on'); }
+document.getElementById('pwCancel').addEventListener('click', closePasswordPrompt);
+document.getElementById('pwSubmit').addEventListener('click', tryUnlock);
+pwInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') tryUnlock(); });
+function tryUnlock(){
+  if(pwInput.value === '0000'){
+    closePasswordPrompt();
+    openAdminPanel();
+  }else{
+    pwError.textContent = 'Incorrect code';
+    pwInput.value = '';
+    pwInput.focus();
+  }
+}
+
+// ==================== ADMIN PANEL ====================
+var adminOverlay = document.getElementById('adminOverlay');
+function openAdminPanel(){
+  adminOverlay.classList.add('on');
+  loadAdminStats();
+  renderHistory();
+  document.getElementById('deviceLine').textContent = 'Device ID: ' + getDeviceId();
+}
+document.getElementById('adminClose').addEventListener('click', function(){
+  adminOverlay.classList.remove('on');
+});
+document.getElementById('refreshStatsBtn').addEventListener('click', function(){
+  loadAdminStats(); renderHistory();
+});
+document.getElementById('resetHistoryBtn').addEventListener('click', function(){
+  if(confirm('Clear this device\'s local visit history? This cannot be undone.')){
+    writeHistory([]);
+    renderHistory();
+  }
+});
+
+function loadAdminStats(){
+  document.getElementById('statTotal').textContent = '…';
+  document.getElementById('stat4p').textContent = '…';
+  document.getElementById('stat6p').textContent = '…';
+  document.getElementById('statToday').textContent = getTodayCount();
+
+  get(KEY_TOTAL).then(function(n){
+    document.getElementById('statTotal').textContent = isNaN(n) ? '0' : n.toLocaleString();
+  }).catch(function(){ document.getElementById('statTotal').textContent = 'n/a'; });
+
+  get(KEY_4P).then(function(n){
+    document.getElementById('stat4p').textContent = isNaN(n) ? '0' : n.toLocaleString();
+  }).catch(function(){ document.getElementById('stat4p').textContent = 'n/a'; });
+
+  get(KEY_6P).then(function(n){
+    document.getElementById('stat6p').textContent = isNaN(n) ? '0' : n.toLocaleString();
+  }).catch(function(){ document.getElementById('stat6p').textContent = 'n/a'; });
+}
+
+function formatDuration(ms){
+  var s = Math.round(ms/1000);
+  var m = Math.floor(s/60); s = s%60;
+  return m>0 ? (m+'m '+s+'s') : (s+'s');
+}
+function formatWhen(ts){
+  var d = new Date(ts);
+  var now = new Date();
+  var sameDay = d.toDateString() === now.toDateString();
+  var time = d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  return sameDay ? ('Today, ' + time) : (d.toLocaleDateString([], {month:'short', day:'numeric'}) + ', ' + time);
+}
+function renderHistory(){
+  var list = readHistory().slice().reverse();
+  var container = document.getElementById('historyList');
+  if(list.length === 0){
+    container.innerHTML = '<div class="history-empty">No visits recorded yet</div>';
+    return;
+  }
+  container.innerHTML = list.map(function(v){
+    var gameLabel = v.game === '4p' ? '4-Player' : (v.game === '6p' ? '6-Player' : 'Browsed only');
+    return '<div class="history-row"><span>' + formatWhen(v.ts) + '</span><b>' + formatDuration(v.duration) + '</b><span>' + gameLabel + '</span></div>';
+  }).join('');
+}
+
+// Ensure device id exists from first load
+getDeviceId();
+
+// ==================== LIVE ROOM STATUS (read-only) ====================
+// Listens on the same public broker/topics the games use to announce rooms,
+// purely to show "X open now" on the home page -- no room creation here.
+(function(){
+  var MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+  var TOPIC_4P = 'kerala28/rooms';
+  var TOPIC_6P = 'kerala28/rooms6';
+  var MQTT_SOURCES = [
+    'https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js',
+    'https://unpkg.com/mqtt/dist/mqtt.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js'
+  ];
+  var rooms4p = {}, rooms6p = {};
+
+  function loadScript(src){
+    return new Promise(function(resolve, reject){
+      var s = document.createElement('script');
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  function loadWithFallback(urls){
+    return new Promise(function(resolve, reject){
+      var i = 0;
+      function tryNext(){
+        if(i >= urls.length){ reject(new Error('all failed')); return; }
+        var url = urls[i]; i++;
+        loadScript(url).then(resolve).catch(tryNext);
+      }
+      tryNext();
+    });
+  }
+
+  function renderStatus(badgeId, roomMap, label){
+    var el = document.getElementById(badgeId);
+    if(!el) return;
+    var cardId = badgeId === 'liveStatusT4' ? 'cardT4' : 'cardT6';
+    var basePath = badgeId === 'liveStatusT4' ? '4p2p.html' : '6p2p.html';
+    var card = document.getElementById(cardId);
+    var ctaEl = card ? card.querySelector('.cta') : null;
+    var count = Object.keys(roomMap).length;
+    if(count === 0){
+      el.style.display = 'none';
+      if(card) card.setAttribute('href', basePath);
+      if(ctaEl) ctaEl.textContent = 'Enter Table \u2192';
+      return;
+    }
+    var totalPlayers = 0;
+    for(var k in roomMap) totalPlayers += (roomMap[k].players || 1);
+    el.style.display = 'flex';
+    el.innerHTML = '<span class="dot"></span>' + count + ' ' + (count === 1 ? 'table' : 'tables') + ' open now \u2014 ' + totalPlayers + ' waiting';
+    if(card) card.setAttribute('href', basePath + '?lobby=online');
+    if(ctaEl) ctaEl.textContent = 'Join Now \u2192';
+  }
+
+  function prune(roomMap){
+    var changed = false;
+    var now = Date.now();
+    for(var k in roomMap){
+      if(now - roomMap[k].timestamp > 60000){ delete roomMap[k]; changed = true; }
+    }
+    return changed;
+  }
+
+  loadWithFallback(MQTT_SOURCES).then(function(){
+    try{
+      var clientId = 'k28_home_' + Math.random().toString(36).substring(2, 10);
+      var client = mqtt.connect(MQTT_BROKER, { clientId: clientId, keepalive: 60, clean: true, connectTimeout: 6000 });
+      client.on('connect', function(){
+        client.subscribe([TOPIC_4P, TOPIC_6P], function(err){ if(!err) console.log('[Home] subscribed to room topics'); });
+      });
+      client.on('message', function(topic, message){
+        try{
+          var data = JSON.parse(message.toString());
+          var map = topic === TOPIC_4P ? rooms4p : (topic === TOPIC_6P ? rooms6p : null);
+          if(!map) return;
+          if(data.type === 'room_announce'){
+            map[data.peerId] = { players: data.playerCount || 1, timestamp: Date.now() };
+          }else if(data.type === 'room_close'){
+            delete map[data.peerId];
+          }
+          renderStatus('liveStatusT4', rooms4p);
+          renderStatus('liveStatusT6', rooms6p);
+        }catch(e){}
+      });
+      client.on('error', function(err){ console.warn('[Home] MQTT error', err); });
+      setInterval(function(){
+        var c1 = prune(rooms4p), c2 = prune(rooms6p);
+        if(c1) renderStatus('liveStatusT4', rooms4p);
+        if(c2) renderStatus('liveStatusT6', rooms6p);
+      }, 15000);
+    }catch(e){ console.warn('[Home] MQTT init failed', e); }
+  }).catch(function(e){ console.warn('[Home] MQTT library failed to load', e); });
+})();
+
+// ==================== MESSAGE / FEEDBACK BOX ====================
+// Uses Formspree — sign up free at https://formspree.io, create a form,
+// then replace YOUR_FORM_ID below with your actual form ID (e.g. "xpwzabcd").
+var FORMSPREE_ID = 'mojoqjny';
+
+var msgOverlay  = document.getElementById('msgOverlay');
+var msgClose    = document.getElementById('msgClose');
+var msgCancelBtn= document.getElementById('msgCancelBtn');
+var msgSendBtn  = document.getElementById('msgSendBtn');
+var msgSent     = document.getElementById('msgSent');
+var msgError    = document.getElementById('msgError');
+var msgSpinner  = document.getElementById('msgSpinner');
+
+document.getElementById('openMsgBtn').addEventListener('click', function(){
+  msgOverlay.style.display = 'flex';
+  msgSent.style.display = 'none';
+  msgError.style.display = 'none';
+  msgSpinner.style.display = 'none';
+  document.getElementById('msgName').value = '';
+  document.getElementById('msgText').value = '';
+});
+function closeMsgModal(){
+  msgOverlay.style.display = 'none';
+}
+msgClose.addEventListener('click', closeMsgModal);
+msgCancelBtn.addEventListener('click', closeMsgModal);
+msgOverlay.addEventListener('click', function(e){ if(e.target === msgOverlay) closeMsgModal(); });
+
+msgSendBtn.addEventListener('click', function(){
+  var name = document.getElementById('msgName').value.trim() || 'Anonymous';
+  var text = document.getElementById('msgText').value.trim();
+  if(!text){ msgError.textContent = 'Please write a message first.'; msgError.style.display = 'block'; return; }
+  if(FORMSPREE_ID === 'YOUR_FORM_ID'){
+    msgError.textContent = 'Set up Formspree first — see README for instructions.';
+    msgError.style.display = 'block'; return;
+  }
+  msgError.style.display = 'none';
+  msgSpinner.style.display = 'block';
+  msgSendBtn.disabled = true;
+  fetch('https://formspree.io/f/' + FORMSPREE_ID, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ name: name, message: text, _subject: '28 Kerala Gulan — Message from ' + name })
+  })
+  .then(function(r){ return r.json().then(function(d){ return {ok: r.ok, data: d}; }); })
+  .then(function(res){
+    msgSpinner.style.display = 'none';
+    msgSendBtn.disabled = false;
+    if(res.ok){
+      msgSent.style.display = 'block';
+      document.getElementById('msgText').value = '';
+      setTimeout(closeMsgModal, 2800);
+    } else {
+      msgError.textContent = (res.data && res.data.error) ? res.data.error : 'Could not send. Try again.';
+      msgError.style.display = 'block';
+    }
+  })
+  .catch(function(){
+    msgSpinner.style.display = 'none';
+    msgSendBtn.disabled = false;
+    msgError.textContent = 'Network error. Check your connection.';
+    msgError.style.display = 'block';
+  });
+});
+
+})();
+</script>
+</body>
+</html>
