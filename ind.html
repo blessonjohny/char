@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MultiGames Card Room — 28, Hold'em, Spades | Online & Offline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --tm-forest:#0a1f0a;--tm-forest-deep:#061206;--tm-forest-light:#143314;
+  --tm-gold:#c9a84c;--tm-gold-bright:#e8d070;--tm-gold-dim:#8a7530;--tm-gold-warm:#d4a853;
+  --tm-ivory:#f5ecd8;--tm-ivory-dim:#c8bfa0;--tm-cream:#e8dcc0;--tm-cream-dark:#b5a880;
+  --tm-marble:#1a2e1a;--tm-marble-light:#2a402a;--tm-jade:#1a5a3a;--tm-jade-bright:#2ecc71;
+  --tm-emerald:#1a7a4a;--tm-emerald-bright:#3ddc84;--tm-rose:#8a2a3a;--tm-rose-bright:#c04050;
+  --tm-amber:#b8860b;--tm-amber-bright:#daa520;--tm-sapphire:#2a5a8a;--tm-sapphire-bright:#4a8acc;
+  --tm-border:rgba(201,168,76,0.25);--tm-border-bright:rgba(201,168,76,0.45);
+  --tm-glass:rgba(10,31,10,0.85);--tm-glass-light:rgba(20,51,20,0.7);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:var(--tm-forest-deep);color:var(--tm-ivory);font-family:'Jost',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;position:relative;overflow-x:hidden;}
+@media (prefers-reduced-motion: reduce){*{animation-duration:0.01ms!important;animation-iteration-count:1!important;transition-duration:0.01ms!important;}}
+
+/* ===== Background with animated particles ===== */
+.tm-bg{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(201,168,76,0.08),transparent 55%),radial-gradient(ellipse 50% 40% at 50% 100%,rgba(26,90,58,0.15),transparent 50%),var(--tm-forest-deep);}
+.tm-vignette{position:fixed;inset:0;z-index:0;pointer-events:none;box-shadow:inset 0 0 25vw rgba(0,0,0,0.7);}
+.tm-pattern{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.04;background-image:repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(201,168,76,0.3) 19px,rgba(201,168,76,0.3) 20px),repeating-linear-gradient(90deg,transparent,transparent 19px,rgba(201,168,76,0.3) 19px,rgba(201,168,76,0.3) 20px);}
+/* Animated gold border lines */
+.tm-ornament-top{position:fixed;top:0;left:0;right:0;height:3px;z-index:2;pointer-events:none;background:linear-gradient(90deg,transparent,var(--tm-gold),var(--tm-gold-bright),var(--tm-gold),transparent);opacity:0.6;}
+.tm-ornament-bottom{position:fixed;bottom:0;left:0;right:0;height:2px;z-index:2;pointer-events:none;background:linear-gradient(90deg,transparent,var(--tm-gold-dim),transparent);opacity:0.4;}
+
+/* ===== Layout ===== */
+.page{position:relative;z-index:1;width:100%;max-width:900px;display:flex;flex-direction:column;align-items:center;padding:24px 16px 20px;}
+
+/* ===== Hero ===== */
+.hero{text-align:center;margin-bottom:20px;position:relative}
+.hero-ornament{display:flex;justify-content:center;align-items:center;gap:12px;margin-bottom:10px;opacity:0;animation:fadeInUp 0.8s ease 0.2s forwards;}
+.hero-ornament .orn-line{width:40px;height:1px;background:linear-gradient(90deg,transparent,var(--tm-gold-dim),transparent);animation:expandLine 1.5s ease-out 0.5s forwards;transform:scaleX(0);}
+@keyframes expandLine{to{transform:scaleX(1)}}
+.hero-ornament .orn-center{font-size:1.4rem;color:var(--tm-gold);text-shadow:0 0 12px rgba(201,168,76,0.4);}
+
+.tm-title{font-family:'Cinzel',serif;font-weight:700;font-size:clamp(1.5rem,6.5vw,2.2rem);letter-spacing:0.12em;color:var(--tm-gold-bright);text-shadow:0 0 20px rgba(201,168,76,0.25),0 2px 4px rgba(0,0,0,0.6);opacity:0;animation:goldReveal 1s ease 0.4s forwards;}
+@keyframes goldReveal{0%{opacity:0;transform:translateY(15px)}100%{opacity:1;transform:translateY(0)}}
+
+.tm-subtitle{font-family:'Playfair Display',serif;font-style:italic;font-weight:400;font-size:0.95rem;color:var(--tm-cream);margin-top:6px;letter-spacing:0.03em;opacity:0;animation:fadeInUp 0.8s ease 0.7s forwards;}
+.tm-divider{display:flex;align-items:center;gap:10px;justify-content:center;margin:12px auto 0;width:min(200px,55%);opacity:0;animation:fadeInUp 0.6s ease 0.9s forwards;}
+.tm-divider::before,.tm-divider::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--tm-gold-dim));animation:expandLine 1s ease-out 1s forwards;transform:scaleX(0);}
+.tm-divider::after{background:linear-gradient(90deg,var(--tm-gold-dim),transparent)}
+.tm-divider .diamond{color:var(--tm-gold);font-size:0.6rem;text-shadow:0 0 8px rgba(201,168,76,0.5);}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* Game pills with stagger */
+.game-pills{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.gpill{display:inline-flex;align-items:center;gap:5px;font-size:0.62rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--tm-gold-bright);border:1px solid var(--tm-border);padding:4px 12px;border-radius:20px;background:rgba(201,168,76,0.05);opacity:0;transform:translateY(10px) scale(0.9);animation:pillPop 0.5s ease forwards;}
+.gpill:nth-child(1){animation-delay:1.0s}.gpill:nth-child(2){animation-delay:1.15s}.gpill:nth-child(3){animation-delay:1.3s}
+@keyframes pillPop{0%{opacity:0;transform:translateY(10px) scale(0.9)}60%{transform:translateY(-2px) scale(1.05)}100%{opacity:1;transform:translateY(0) scale(1)}}
+.gpill .dot{width:5px;height:5px;border-radius:50%;background:var(--tm-gold);box-shadow:0 0 6px rgba(201,168,76,0.6);}
+
+/* Feature chips with stagger */
+.feature-chips{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:8px;}
+.fchip{font-size:0.65rem;color:var(--tm-cream-dark);display:flex;align-items:center;gap:4px;opacity:0;transform:translateY(8px);animation:chipSlide 0.4s ease forwards;}
+.fchip:nth-child(1){animation-delay:1.4s}.fchip:nth-child(2){animation-delay:1.5s}.fchip:nth-child(3){animation-delay:1.6s}.fchip:nth-child(4){animation-delay:1.7s}
+@keyframes chipSlide{to{opacity:1;transform:translateY(0)}}
+.fchip b{color:var(--tm-gold);font-weight:500;font-size:0.55rem;}
+
+/* ===== Tables Grid ===== */
+.tables{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;margin-top:8px;}
+@media(max-width:560px){.tables{grid-template-columns:1fr}}
+
+.table-card{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;background:linear-gradient(170deg,var(--tm-glass),rgba(6,18,6,0.95));border:1.5px solid var(--tm-border);border-radius:18px;padding:22px 16px 18px;text-decoration:none;color:inherit;cursor:pointer;transition:all 0.4s cubic-bezier(.25,.46,.45,.94);opacity:0;overflow:hidden;transform:translateY(20px);animation:cardSlideIn 0.6s ease forwards;}
+@keyframes cardSlideIn{0%{opacity:0;transform:translateY(20px)}100%{opacity:1;transform:translateY(0)}}
+.table-card:nth-child(1){animation-delay:1.2s}.table-card:nth-child(2){animation-delay:1.35s}.table-card:nth-child(3){animation-delay:1.5s}.table-card:nth-child(4){animation-delay:1.65s}
+
+.table-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--tm-gold-dim),transparent);opacity:0.5;}
+
+.table-card:hover{transform:translateY(-4px);border-color:var(--tm-border-bright);box-shadow:0 8px 24px rgba(0,0,0,0.4);}
+
+/* Taj arch corners with glow on hover */
+.table-card .arch-tl,.table-card .arch-tr,.table-card .arch-bl,.table-card .arch-br{position:absolute;width:24px;height:24px;opacity:0.5;transition:all 0.3s ease;}
+.table-card .arch-tl{top:6px;left:6px;border-top:2px solid var(--tm-gold-dim);border-left:2px solid var(--tm-gold-dim);border-radius:8px 0 0 0}
+.table-card .arch-tr{top:6px;right:6px;border-top:2px solid var(--tm-gold-dim);border-right:2px solid var(--tm-gold-dim);border-radius:0 8px 0 0}
+.table-card .arch-bl{bottom:6px;left:6px;border-bottom:2px solid var(--tm-gold-dim);border-left:2px solid var(--tm-gold-dim);border-radius:0 0 0 8px}
+.table-card .arch-br{bottom:6px;right:6px;border-bottom:2px solid var(--tm-gold-dim);border-right:2px solid var(--tm-gold-dim);border-radius:0 0 8px 0}
+.table-card:hover .arch-tl,.table-card:hover .arch-tr,.table-card:hover .arch-bl,.table-card:hover .arch-br{opacity:1;border-color:var(--tm-gold);}
+
+/* Suit emblem with ring animation */
+.suit-wrap{position:relative;width:56px;height:56px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;}
+.suit-wrap::before{content:'';position:absolute;inset:0;border-radius:50%;border:2px solid var(--tm-border);opacity:0.6;}
+.suit-wrap::after{content:'';position:absolute;inset:4px;border-radius:50%;border:1px solid var(--tm-border);opacity:0.3;}
+.suit-emblem{font-size:1.8rem;line-height:1;position:relative;z-index:1;transition:transform 0.3s ease}
+.table-card:hover .suit-emblem{transform:scale(1.15) rotate(-5deg)}
+.t4 .suit-emblem{color:var(--tm-rose-bright);text-shadow:0 0 14px rgba(192,64,80,0.5)}
+.t6 .suit-emblem{color:var(--tm-jade-bright);text-shadow:0 0 14px rgba(46,204,113,0.4)}
+.holdem .suit-emblem{color:var(--tm-emerald-bright);text-shadow:0 0 14px rgba(61,220,132,0.4)}
+.spades .suit-emblem{color:var(--tm-sapphire-bright);text-shadow:0 0 14px rgba(74,138,204,0.4)}
+
+.table-card h2{font-family:'Cinzel',serif;font-weight:600;font-size:1rem;letter-spacing:0.08em;color:var(--tm-ivory);transition:color 0.3s ease;}
+.table-card:hover h2{color:var(--tm-gold-bright)}
+.table-card p{font-family:'Playfair Display',serif;font-style:italic;color:var(--tm-cream-dark);font-size:0.78rem;margin-top:4px;line-height:1.35;}
+.table-card .modes{margin-top:8px;font-size:0.52rem;letter-spacing:0.07em;color:var(--tm-cream-dark);text-transform:uppercase;opacity:0.8;}
+
+/* Live status with pulse */
+.live-status{margin-top:8px;display:flex;align-items:center;gap:5px;font-size:0.58rem;letter-spacing:0.03em;color:#7fd99a;background:rgba(127,217,154,0.06);border:1px solid rgba(127,217,154,0.25);padding:3px 10px;border-radius:20px;opacity:0;animation:statusPop 0.4s ease forwards;}
+@keyframes statusPop{from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)}}
+.live-status .dot{width:5px;height:5px;border-radius:50%;background:#7fd99a;}
+
+/* CTA Button with shimmer sweep */
+.table-card .cta{margin-top:14px;font-size:0.68rem;font-weight:600;letter-spacing:0.12em;padding:8px 20px;border-radius:24px;border:1.5px solid var(--tm-border);background:linear-gradient(135deg,rgba(201,168,76,0.08),rgba(201,168,76,0.02));color:var(--tm-gold-bright);transition:all 0.3s ease;position:relative;overflow:hidden;}
+
+.table-card:hover .cta{border-color:var(--tm-gold-dim);}
+.t4:hover .cta{color:var(--tm-rose-bright);border-color:rgba(192,64,80,0.4)}
+.t6:hover .cta{color:var(--tm-jade-bright);border-color:rgba(46,204,113,0.4)}
+.holdem:hover .cta{color:var(--tm-emerald-bright);border-color:rgba(61,220,132,0.4)}
+.spades:hover .cta{color:var(--tm-sapphire-bright);border-color:rgba(74,138,204,0.4)}
+
+/* ===== How to Play Strip ===== */
+.how-strip{width:100%;margin-top:16px;border:1.5px solid var(--tm-border);border-radius:14px;padding:12px 16px;background:linear-gradient(135deg,rgba(201,168,76,0.04),rgba(26,90,58,0.06));text-align:center;opacity:0;transform:translateY(20px);animation:stripSlide 0.7s ease 1.8s forwards;}
+@keyframes stripSlide{to{opacity:1;transform:translateY(0)}}
+.how-title{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--tm-gold);margin-bottom:8px;font-weight:600;}
+.how-steps{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;}
+.how-step{display:flex;align-items:center;gap:5px;font-size:0.7rem;color:var(--tm-cream);opacity:0;transform:translateX(-10px);animation:stepSlide 0.4s ease forwards;}
+.how-step:nth-child(1){animation-delay:2.0s}.how-step:nth-child(3){animation-delay:2.2s}.how-step:nth-child(5){animation-delay:2.4s}
+@keyframes stepSlide{to{opacity:1;transform:translateX(0)}}
+.how-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--tm-gold);color:var(--tm-forest-deep);font-size:0.6rem;font-weight:700;flex-shrink:0;box-shadow:0 0 8px rgba(201,168,76,0.3);}
+.how-arrow{color:var(--tm-gold-dim);font-size:0.85rem;}
+@media(max-width:560px){.how-arrow{display:none}.how-steps{flex-direction:column;gap:6px}}
+
+/* ===== Footer ===== */
+.page-footer{margin-top:20px;text-align:center;opacity:0;transform:translateY(15px);animation:fadeInUp 0.6s ease 2.0s forwards;}
+.visitor-line{font-family:'Jost',sans-serif;font-size:0.68rem;letter-spacing:0.06em;color:var(--tm-gold);display:flex;align-items:center;gap:6px;justify-content:center;}
+.visitor-line .num{font-weight:600;font-variant-numeric:tabular-nums;color:var(--tm-gold-bright);animation:numCount 0.5s ease forwards;}
+.footer-fine{margin-top:4px;font-size:0.58rem;color:var(--tm-cream-dark);letter-spacing:0.04em;}
+.msg-btn{margin-top:8px;background:none;border:1.5px solid var(--tm-border);border-radius:8px;color:var(--tm-cream-dark);font-family:'Jost',sans-serif;font-size:0.68rem;padding:6px 14px;cursor:pointer;letter-spacing:0.06em;transition:all 0.25s ease;position:relative;overflow:hidden;}
+.msg-btn:hover{border-color:var(--tm-gold-dim);color:var(--tm-gold-bright);}
+
+/* ===== Secret corner with glow ===== */
+.secret-corner{position:fixed;bottom:0;right:0;width:48px;height:48px;z-index:5;display:flex;align-items:flex-end;justify-content:flex-end;padding:8px;cursor:default;}
+.secret-corner span{font-size:0.75rem;color:var(--tm-gold-dim);opacity:0.3;transition:all 0.3s ease;}
+.secret-corner:active span{opacity:0.9;transform:scale(1.3)}
+
+/* ===== Modals with rich entrance ===== */
+.modal-overlay{position:fixed;inset:0;z-index:50;background:rgba(6,18,6,0.9);display:none;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity 0.3s ease;}
+.modal-overlay.on{display:flex;opacity:1}
+.modal-box{background:linear-gradient(170deg,var(--tm-glass),rgba(6,18,6,0.98));border:1.5px solid var(--tm-border);border-radius:18px;padding:24px 20px;width:100%;max-width:340px;text-align:center;position:relative;box-shadow:0 24px 60px -16px rgba(0,0,0,0.7),0 0 30px rgba(201,168,76,0.05);transform:translateY(15px);transition:transform 0.3s ease;}
+.modal-overlay.on .modal-box{transform:translateY(0);}
+.modal-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--tm-gold-dim),transparent);opacity:0.6;}
+.modal-box h3{font-family:'Cinzel',serif;font-size:1rem;color:var(--tm-gold-bright);letter-spacing:0.06em;margin-bottom:6px;}
+.modal-box .sub{font-size:0.72rem;color:var(--tm-cream-dark);margin-bottom:16px}
+.pin-input{width:100%;text-align:center;font-size:1.4rem;letter-spacing:0.6em;padding:10px 0 10px 0.6em;border-radius:10px;border:1.5px solid var(--tm-border);background:rgba(0,0,0,0.35);color:var(--tm-ivory);font-family:'Jost',sans-serif;margin-bottom:12px;transition:all 0.3s ease;}
+.pin-input:focus{outline:none;border-color:var(--tm-gold);}
+.modal-btn-row{display:flex;gap:10px}
+.mbtn{flex:1;padding:10px 0;border-radius:10px;border:none;font-size:0.8rem;font-weight:600;letter-spacing:0.04em;cursor:pointer;font-family:'Jost',sans-serif;transition:all 0.25s ease;}
+.mbtn.primary{background:linear-gradient(135deg,var(--tm-gold),var(--tm-gold-warm));color:var(--tm-forest-deep);box-shadow:0 4px 15px rgba(201,168,76,0.2);}
+.mbtn.primary:hover{box-shadow:0 4px 15px rgba(201,168,76,0.3);}
+.mbtn.ghost{background:transparent;border:1.5px solid var(--tm-border);color:var(--tm-cream-dark)}
+.mbtn.ghost:hover{border-color:var(--tm-gold-dim);color:var(--tm-gold-bright);}
+.pw-error{color:var(--tm-rose-bright);font-size:0.68rem;margin-top:6px;min-height:1em}
+
+/* Admin panel */
+.admin-box{max-width:480px;text-align:left;max-height:86vh;overflow-y:auto}
+.admin-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--tm-cream-dark);font-size:1.2rem;cursor:pointer;line-height:1;transition:all 0.2s;}
+.admin-close:hover{color:var(--tm-gold-bright);}
+.admin-box h3{text-align:center;margin-bottom:16px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.stat-card{background:rgba(0,0,0,0.25);border:1.5px solid var(--tm-border);border-radius:12px;padding:12px 10px;text-align:center;transition:all 0.3s ease;opacity:0;transform:translateY(10px);animation:statPop 0.4s ease forwards;}
+.stat-card:nth-child(1){animation-delay:0.1s}.stat-card:nth-child(2){animation-delay:0.15s}.stat-card:nth-child(3){animation-delay:0.2s}.stat-card:nth-child(4){animation-delay:0.25s}.stat-card:nth-child(5){animation-delay:0.3s}.stat-card:nth-child(6){animation-delay:0.35s}
+@keyframes statPop{to{opacity:1;transform:translateY(0)}}
+.stat-card:hover{border-color:var(--tm-border-bright);}
+.stat-card .v{font-family:'Cinzel',serif;font-size:1.3rem;color:var(--tm-gold-bright);font-variant-numeric:tabular-nums}
+.stat-card .l{font-size:0.56rem;color:var(--tm-cream-dark);letter-spacing:0.06em;text-transform:uppercase;margin-top:3px}
+.admin-section-title{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--tm-gold);margin:16px 0 8px;display:flex;align-items:center;gap:8px;}
+.admin-section-title::after{content:'';flex:1;height:1px;background:var(--tm-border)}
+.history-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;margin-bottom:10px}
+.history-row{display:flex;justify-content:space-between;gap:10px;font-size:0.68rem;padding:7px 9px;background:rgba(255,255,255,0.025);border-radius:7px;color:var(--tm-cream-dark);border:1px solid rgba(201,168,76,0.05);transition:all 0.2s ease;}
+.history-row:hover{background:rgba(201,168,76,0.05);border-color:rgba(201,168,76,0.15);}
+.history-row b{color:var(--tm-ivory);font-weight:500}
+.history-empty{font-size:0.68rem;color:var(--tm-cream-dark);text-align:center;padding:12px 0}
+.admin-foot-row{display:flex;gap:10px;margin-top:12px}
+.device-line{font-size:0.6rem;color:var(--tm-cream-dark);margin-top:10px;word-break:break-all;line-height:1.6}
+
+/* Message box */
+.msg-modal-box{background:var(--tm-glass);border:1.5px solid var(--tm-border);border-radius:16px;padding:24px 22px 20px;width:100%;max-width:360px;position:relative;box-shadow:0 24px 60px -16px rgba(0,0,0,0.7);transform:translateY(15px);transition:transform 0.3s ease;}
+.modal-overlay.on .msg-modal-box{transform:translateY(0);}
+.msg-modal-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--tm-gold-dim),transparent);opacity:0.6;}
+.msg-modal-box h3{font-family:'Cinzel',serif;font-size:1.05rem;color:var(--tm-gold-bright);margin-bottom:5px;text-align:center;letter-spacing:0.06em;}
+.msg-modal-box p.sub{font-size:0.72rem;color:var(--tm-cream-dark);text-align:center;margin-bottom:16px;}
+.msg-field{width:100%;padding:10px 13px;border-radius:10px;border:1.5px solid var(--tm-border);background:rgba(255,255,255,0.03);color:var(--tm-ivory);font-family:'Jost',sans-serif;font-size:0.85rem;margin-bottom:10px;resize:none;outline:none;transition:all 0.3s ease;}
+.msg-field:focus{border-color:var(--tm-gold);}
+.msg-field::placeholder{color:var(--tm-cream-dark);}
+.msg-sent{font-size:0.8rem;color:#6fcf97;text-align:center;padding:8px 0;display:none;}
+.msg-error{font-size:0.76rem;color:#e57373;text-align:center;padding:5px 0;display:none;}
+.msg-spinner{display:none;text-align:center;font-size:0.78rem;color:var(--tm-cream-dark);padding:4px 0;}
+</style>
+
+<!-- ===== SEO & Search Engine Optimization ===== -->
+<meta name="description" content="Play 28 Kerala, Texas Hold'em Poker, and Spades online or offline. MultiGames Card Room offers P2P multiplayer, smart AI bots, tournament mode, and no sign-up required. Free card games for friends and family.">
+<meta name="keywords" content="28 card game, 28 Kerala, twenty eight card game, Kerala 28, 28 Gulan, Texas Hold'em, Hold'em poker, online poker, no limit poker, poker tournament, Spades card game, online spades, play spades, multiplayer card games, P2P card games, card games with friends, free card games, smart bots card game, offline card games, casino card games, Indian card games, traditional card games, play 28 online, play poker online, play spades online, card game room, multiplayer poker, multiplayer spades, 4 player card game, 6 player card game, team card games, bid card game, trick taking card game, bluff poker, raise fold poker, partner card game, card game app, no download card games, no sign up games, browser card games, mobile card games, family card games, competitive card games">
+<meta name="author" content="MultiGames Card Room - Jason">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<meta name="googlebot" content="index, follow">
+<meta name="bingbot" content="index, follow">
+<meta name="language" content="English">
+<meta name="revisit-after" content="7 days">
+<meta name="rating" content="general">
+<meta name="distribution" content="global">
+<meta name="subject" content="Multiplayer Card Games - 28 Kerala, Texas Hold'em, Spades">
+<meta name="topic" content="Online Card Games, Poker, Traditional Card Games">
+<meta name="classification" content="Games, Card Games, Online Games">
+<meta name="copyright" content="MultiGames Card Room">
+<meta name="owner" content="MultiGames Card Room">
+<meta name="designer" content="Jason">
+<meta name="reply-to" content="">
+<meta name="url" content="https://yourdomain.com">
+<meta name="identifier-URL" content="https://yourdomain.com">
+<meta name="coverage" content="Worldwide">
+<meta name="target" content="all">
+<meta name="audience" content="all">
+<meta name="HandheldFriendly" content="true">
+<meta name="MobileOptimized" content="320">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#061206">
+<meta name="msapplication-TileColor" content="#061206">
+<meta name="msapplication-navbutton-color" content="#061206">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MultiGames Card Room">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://yourdomain.com">
+<meta property="og:title" content="MultiGames Card Room - Play 28, Hold'em & Spades Online">
+<meta property="og:description" content="Play 28 Kerala, Texas Hold'em Poker, and Spades online or offline with friends. P2P multiplayer, smart AI bots, tournament mode. No sign-up required.">
+<meta property="og:image" content="https://yourdomain.com/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="MultiGames Card Room - 28 Kerala, Texas Hold'em, Spades">
+<meta property="og:site_name" content="MultiGames Card Room">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="en_GB">
+<meta property="og:locale:alternate" content="en_IN">
+
+<!-- Twitter / X -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://yourdomain.com">
+<meta name="twitter:title" content="MultiGames Card Room - Play 28, Hold'em & Spades Online">
+<meta name="twitter:description" content="Play 28 Kerala, Texas Hold'em Poker, and Spades online or offline with friends. P2P multiplayer, smart AI bots. No sign-up required.">
+<meta name="twitter:image" content="https://yourdomain.com/og-image.jpg">
+<meta name="twitter:image:alt" content="MultiGames Card Room - 28 Kerala, Texas Hold'em, Spades">
+<meta name="twitter:creator" content="@yourhandle">
+<meta name="twitter:site" content="@yourhandle">
+
+<!-- Canonical URL -->
+<link rel="canonical" href="https://yourdomain.com">
+
+<!-- Structured Data / JSON-LD for Search Engines -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "MultiGames Card Room",
+  "alternateName": "28 Kerala Gulan - Multi-Game Casino Room",
+  "url": "https://yourdomain.com",
+  "description": "Play 28 Kerala, Texas Hold'em Poker, and Spades online or offline. Multiplayer card games with P2P, smart AI bots, and tournament mode.",
+  "inLanguage": "en",
+  "publisher": {
+    "@type": "Organization",
+    "name": "MultiGames Card Room",
+    "url": "https://yourdomain.com",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://yourdomain.com/logo.png",
+      "width": 512,
+      "height": 512
+    }
+  },
+  "potentialAction": [
+    {
+      "@type": "PlayAction",
+      "name": "Play 28 Kerala - 4 Players",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://yourdomain.com/4p2p.html"
+      }
+    },
+    {
+      "@type": "PlayAction",
+      "name": "Play 28 Kerala - 6 Players",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://yourdomain.com/6p2p.html"
+      }
+    },
+    {
+      "@type": "PlayAction",
+      "name": "Play Texas Hold'em Poker",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://yourdomain.com/holdem.html"
+      }
+    },
+    {
+      "@type": "PlayAction",
+      "name": "Play Spades",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://yourdomain.com/spades.html"
+      }
+    }
+  ],
+  "about": [
+    {
+      "@type": "VideoGame",
+      "name": "28 Kerala Card Game",
+      "description": "Traditional Kerala card game played with 4 or 6 players. Two teams compete to win tricks and score points.",
+      "genre": ["Card Game", "Strategy", "Team Game"],
+      "gamePlatform": ["Web Browser", "Mobile Browser"],
+      "applicationCategory": "Game",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "VideoGame",
+      "name": "Texas Hold'em Poker",
+      "description": "No-Limit Texas Hold'em poker with 1/2, 5/10 blinds and tournament mode. Play online or offline.",
+      "genre": ["Card Game", "Poker", "Gambling"],
+      "gamePlatform": ["Web Browser", "Mobile Browser"],
+      "applicationCategory": "Game",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "VideoGame",
+      "name": "Spades Card Game",
+      "description": "Classic Spades card game with partners, solo, and P2P multiplayer modes. Bid your tricks and break the nil.",
+      "genre": ["Card Game", "Trick-Taking", "Strategy"],
+      "gamePlatform": ["Web Browser", "Mobile Browser"],
+      "applicationCategory": "Game",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is 28 Kerala card game?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "28 Kerala is a traditional Indian card game from Kerala, played with 4 or 6 players in two teams. Players bid for tricks and try to win points by capturing high-value cards. It's one of the most popular card games in South India."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I play Texas Hold'em poker online for free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, MultiGames Card Room offers free Texas Hold'em poker with no sign-up required. Play online with friends via P2P or practice against smart AI bots offline. Choose from 1/2, 5/10 blinds or tournament mode."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I play Spades online with friends?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Simply visit MultiGames Card Room, click the Spades table, and share the room link with your friends. They can join instantly with no download or account needed. You can also play offline against smart AI bots."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need to download or sign up to play?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No download and no sign-up required. All games run directly in your web browser on any device - phone, tablet, or computer. Just visit the site and start playing immediately."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I play offline without internet?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, all three games - 28 Kerala, Texas Hold'em, and Spades - support offline mode with smart AI bots that adapt to your playing style. Perfect for practicing or playing when you don't have internet."
+      }
+    }
+  ]
+}
+</script>
+
+<!-- Preconnect for performance -->
+<link rel="dns-prefetch" href="https://fonts.googleapis.com">
+<link rel="dns-prefetch" href="https://fonts.gstatic.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<!-- Favicon -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♠️</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♠️</text></svg>">
+
+<!-- ===== END SEO ===== -->
+
+</head>
+<body>
+
+<div class="tm-bg"></div>
+<div class="tm-pattern"></div>
+<div class="tm-vignette"></div>
+<div class="tm-ornament-top"></div>
+<div class="tm-ornament-bottom"></div>
+
+
+<div class="page">
+  <div class="hero">
+    <div class="hero-ornament">
+      <span class="orn-line"></span>
+      <span class="orn-center">&#10047;</span>
+      <span class="orn-line"></span>
+    </div>
+    <h1 class="tm-title">MULTIGAMES CARD ROOM</h1>
+    <p class="tm-subtitle">28 Kerala &middot; Texas Hold'em &middot; Spades</p>
+    <div class="tm-divider"><span class="diamond">&#9670;</span></div>
+    <div class="game-pills">
+      <span class="gpill"><span class="dot"></span> 28 Kerala</span>
+      <span class="gpill"><span class="dot"></span> Texas Hold'em</span>
+      <span class="gpill"><span class="dot"></span> Spades</span>
+    </div>
+    <div class="feature-chips">
+      <span class="fchip"><b>&#9670;</b> Smart Bots</span>
+      <span class="fchip"><b>&#9670;</b> P2P Online</span>
+      <span class="fchip"><b>&#9670;</b> Offline Mode</span>
+      <span class="fchip"><b>&#9670;</b> No Sign-Up</span>
+    </div>
+  </div>
+
+  <main class="tables">
+    <a class="table-card t4" href="4p2p.html" data-game="4p" id="cardT4">
+      <span class="arch-tl"></span><span class="arch-tr"></span>
+      <span class="arch-bl"></span><span class="arch-br"></span>
+      <div class="suit-wrap"><div class="suit-emblem">&#9830;</div></div>
+      <h2>28 &mdash; 4 Players</h2>
+      <p>Two against two, across the table<br>Kerala's favourite card game</p>
+      <div class="modes">Online P2P &middot; vs Smart Bots &middot; Offline</div>
+      <div class="live-status" id="liveStatusT4" style="display:none"></div>
+      <span class="cta">Enter Table &rarr;</span>
+    </a>
+    <a class="table-card t6" href="6p2p.html" data-game="6p" id="cardT6">
+      <span class="arch-tl"></span><span class="arch-tr"></span>
+      <span class="arch-bl"></span><span class="arch-br"></span>
+      <div class="suit-wrap"><div class="suit-emblem">&#9827;</div></div>
+      <h2>28 &mdash; 6 Players</h2>
+      <p>Two teams of three, the full house<br>Classic 28 with bigger tables</p>
+      <div class="modes">Online P2P &middot; vs Smart Bots &middot; Offline</div>
+      <div class="live-status" id="liveStatusT6" style="display:none"></div>
+      <span class="cta">Enter Table &rarr;</span>
+    </a>
+    <a class="table-card holdem" href="holdem.html" data-game="holdem" id="cardHoldem">
+      <span class="arch-tl"></span><span class="arch-tr"></span>
+      <span class="arch-bl"></span><span class="arch-br"></span>
+      <div class="suit-wrap"><div class="suit-emblem">&#9824;</div></div>
+      <h2>Texas Hold'em</h2>
+      <p>No-Limit poker, raise or fold<br>Bluff your way to the pot</p>
+      <div class="modes">1/2 &middot; 5/10 &middot; Tournament &middot; P2P &middot; Offline</div>
+      <div class="live-status" id="liveStatusHoldem" style="display:none"></div>
+      <span class="cta">Enter Table &rarr;</span>
+    </a>
+    <a class="table-card spades" href="spades.html" data-game="spades" id="cardSpades">
+      <span class="arch-tl"></span><span class="arch-tr"></span>
+      <span class="arch-bl"></span><span class="arch-br"></span>
+      <div class="suit-wrap"><div class="suit-emblem">&#9824;</div></div>
+      <h2>Spades</h2>
+      <p>Bid your tricks, break the nil<br>Partners or solo &mdash; you decide</p>
+      <div class="modes">Classic &middot; Partners &middot; Solo &middot; P2P &middot; Offline</div>
+      <div class="live-status" id="liveStatusSpades" style="display:none"></div>
+      <span class="cta">Enter Table &rarr;</span>
+    </a>
+  </main>
+
+  <div class="how-strip">
+    <div class="how-title">How to Play in 3 Steps</div>
+    <div class="how-steps">
+      <div class="how-step"><span class="how-num">1</span><span>Pick your game & table</span></div>
+      <div class="how-arrow">&rarr;</div>
+      <div class="how-step"><span class="how-num">2</span><span>Share the room link</span></div>
+      <div class="how-arrow">&rarr;</div>
+      <div class="how-step"><span class="how-num">3</span><span>Play live with friends</span></div>
+    </div>
+  </div>
+
+  <footer class="page-footer">
+    <p class="visitor-line">&#9670; <span class="num" id="visitorNum">&mdash;</span> guests have joined the table &#9670;</p>
+    <p class="footer-fine">28, Hold'em, Spades &mdash; Online &amp; Offline &mdash; No download &middot; No sign-up</p>
+    <button class="msg-btn" id="openMsgBtn">&#9993; Leave a message for Jason</button>
+  </footer>
+</div>
+
+<div class="modal-overlay" id="msgOverlay" style="display:none">
+  <div class="msg-modal-box">
+    <button class="admin-close" id="msgClose">&times;</button>
+    <h3>Leave a Message</h3>
+    <p class="sub">Send Jason your feedback, bug reports, or just say hi!</p>
+    <div class="msg-sent" id="msgSent">&#9989; Message sent! Thank you &#128591;</div>
+    <div class="msg-error" id="msgError">Something went wrong. Please try again.</div>
+    <div class="msg-spinner" id="msgSpinner">Sending&hellip;</div>
+    <input id="msgName" class="msg-field" type="text" placeholder="Your name (optional)" maxlength="60">
+    <textarea id="msgText" class="msg-field" rows="4" placeholder="Your message&hellip;" maxlength="500"></textarea>
+    <div class="modal-btn-row">
+      <button class="mbtn ghost" id="msgCancelBtn">Cancel</button>
+      <button class="mbtn primary" id="msgSendBtn">Send Message</button>
+    </div>
+  </div>
+</div>
+
+<div class="secret-corner" id="secretCorner"><span>&#9824;</span></div>
+
+<div class="modal-overlay" id="pwOverlay">
+  <div class="modal-box">
+    <h3>Staff Access</h3>
+    <p class="sub">Enter the house code</p>
+    <input type="password" id="pwInput" class="pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+    <div class="modal-btn-row">
+      <button class="mbtn ghost" id="pwCancel">Cancel</button>
+      <button class="mbtn primary" id="pwSubmit">Unlock</button>
+    </div>
+    <p class="pw-error" id="pwError"></p>
+  </div>
+</div>
+
+<div class="modal-overlay" id="adminOverlay">
+  <div class="modal-box admin-box">
+    <button class="admin-close" id="adminClose">&times;</button>
+    <h3>House Dashboard</h3>
+    <div class="stat-grid" id="statGrid">
+      <div class="stat-card"><div class="v" id="statTotal">&mdash;</div><div class="l">Total Visits</div></div>
+      <div class="stat-card"><div class="v" id="statToday">&mdash;</div><div class="l">This Device Today</div></div>
+      <div class="stat-card"><div class="v" id="stat4p">&mdash;</div><div class="l">28 &mdash; 4 Players</div></div>
+      <div class="stat-card"><div class="v" id="stat6p">&mdash;</div><div class="l">28 &mdash; 6 Players</div></div>
+      <div class="stat-card"><div class="v" id="statHoldem">&mdash;</div><div class="l">Texas Hold'em</div></div>
+      <div class="stat-card"><div class="v" id="statSpades">&mdash;</div><div class="l">Spades</div></div>
+    </div>
+    <div class="admin-section-title">This device &mdash; visit history</div>
+    <div class="history-list" id="historyList"><div class="history-empty">No visits recorded yet</div></div>
+    <div class="device-line" id="deviceLine"></div>
+    <div class="admin-foot-row">
+      <button class="mbtn ghost" id="refreshStatsBtn">Refresh</button>
+      <button class="mbtn ghost" id="resetHistoryBtn">Clear local history</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ==================== CONFIG ====================
+var COUNTER_BASE='https://countapi.mileshilliard.com/api/v1';
+var KEY_TOTAL='kg28_site_visits_q7m2x';
+var KEY_4P='kg28_pick_4p_q7m2x';
+var KEY_6P='kg28_pick_6p_q7m2x';
+var KEY_HOLDEM='kg28_pick_holdem_q7m2x';
+var KEY_SPADES='kg28_pick_spades_q7m2x';
+var DEVICE_KEY='kg28_device_id';
+var HISTORY_KEY='kg28_visit_history';
+var TODAY_KEY='kg28_today_count';
+var SESSION_START=Date.now();
+var sessionRecorded=false;
+
+function getDeviceId(){
+  try{var id=localStorage.getItem(DEVICE_KEY);if(!id){id='guest-'+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4);localStorage.setItem(DEVICE_KEY,id);}return id;}catch(e){return'guest-unknown';}
+}
+function readHistory(){
+  try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');}catch(e){return[];}
+}
+function writeHistory(list){
+  try{localStorage.setItem(HISTORY_KEY,JSON.stringify(list.slice(-40)));}catch(e){}
+}
+function bumpTodayCount(){
+  try{var today=new Date().toDateString();var raw=JSON.parse(localStorage.getItem(TODAY_KEY)||'null');if(!raw||raw.day!==today){raw={day:today,count:0};}raw.count++;localStorage.setItem(TODAY_KEY,JSON.stringify(raw));return raw.count;}catch(e){return null;}
+}
+function getTodayCount(){
+  try{var today=new Date().toDateString();var raw=JSON.parse(localStorage.getItem(TODAY_KEY)||'null');return(raw&&raw.day===today)?raw.count:0;}catch(e){return 0;}
+}
+
+function hit(key){
+  return fetch(COUNTER_BASE+'/hit/'+key).then(function(r){if(!r.ok)throw new Error('bad status');return r.json();}).then(function(d){return parseInt(d.value,10);});
+}
+function get(key){
+  return fetch(COUNTER_BASE+'/get/'+key).then(function(r){if(!r.ok)throw new Error('bad status');return r.json();}).then(function(d){return parseInt(d.value,10);});
+}
+function renderVisitorCount(n){
+  var el=document.getElementById('visitorNum');
+  if(el)el.textContent=(n===null||isNaN(n))?'—':n.toLocaleString();
+}
+
+var SESSION_FLAG='kg28_counted_this_session';
+if(!sessionStorage.getItem(SESSION_FLAG)){
+  sessionStorage.setItem(SESSION_FLAG,'1');
+  hit(KEY_TOTAL).then(renderVisitorCount).catch(function(){var local=readHistory().length;renderVisitorCount(local||null);});
+  bumpTodayCount();
+}else{
+  get(KEY_TOTAL).then(renderVisitorCount).catch(function(){var local=readHistory().length;renderVisitorCount(local||null);});
+}
+
+document.querySelectorAll('.table-card').forEach(function(card){
+  card.addEventListener('click',function(){
+    var game=card.getAttribute('data-game');
+    recordSessionEnd(game);
+    var keyMap={'4p':KEY_4P,'6p':KEY_6P,'holdem':KEY_HOLDEM,'spades':KEY_SPADES};
+    var key=keyMap[game];
+    if(key){
+      try{navigator.sendBeacon?navigator.sendBeacon(COUNTER_BASE+'/hit/'+key):hit(key).catch(function(){});}
+      catch(e){hit(key).catch(function(){});}
+    }
+  });
+});
+
+function recordSessionEnd(gameChosen){
+  if(sessionRecorded)return;
+  sessionRecorded=true;
+  var duration=Date.now()-SESSION_START;
+  var history=readHistory();
+  history.push({ts:SESSION_START,duration:duration,game:gameChosen||null,ua:navigator.userAgent,screen:(screen.width||0)+'x'+(screen.height||0)});
+  writeHistory(history);
+}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')recordSessionEnd(null);});
+window.addEventListener('pagehide',function(){recordSessionEnd(null);});
+
+var tapCount=0,tapTimer=null;
+document.getElementById('secretCorner').addEventListener('click',function(){
+  tapCount++;clearTimeout(tapTimer);
+  tapTimer=setTimeout(function(){tapCount=0;},1800);
+  if(tapCount>=3){tapCount=0;clearTimeout(tapTimer);openPasswordPrompt();}
+});
+
+var pwOverlay=document.getElementById('pwOverlay');
+var pwInput=document.getElementById('pwInput');
+var pwError=document.getElementById('pwError');
+function openPasswordPrompt(){pwError.textContent='';pwInput.value='';pwOverlay.classList.add('on');setTimeout(function(){pwInput.focus();},100);}
+function closePasswordPrompt(){pwOverlay.classList.remove('on');}
+document.getElementById('pwCancel').addEventListener('click',closePasswordPrompt);
+document.getElementById('pwSubmit').addEventListener('click',tryUnlock);
+pwInput.addEventListener('keydown',function(e){if(e.key==='Enter')tryUnlock();});
+function tryUnlock(){
+  if(pwInput.value==='0000'){closePasswordPrompt();openAdminPanel();}
+  else{pwError.textContent='Incorrect code';pwInput.value='';pwInput.focus();}
+}
+
+var adminOverlay=document.getElementById('adminOverlay');
+function openAdminPanel(){
+  adminOverlay.classList.add('on');
+  loadAdminStats();renderHistory();
+  document.getElementById('deviceLine').textContent='Device ID: '+getDeviceId();
+}
+document.getElementById('adminClose').addEventListener('click',function(){adminOverlay.classList.remove('on');});
+document.getElementById('refreshStatsBtn').addEventListener('click',function(){loadAdminStats();renderHistory();});
+document.getElementById('resetHistoryBtn').addEventListener('click',function(){
+  if(confirm('Clear this device\'s local visit history? This cannot be undone.')){writeHistory([]);renderHistory();}
+});
+
+function loadAdminStats(){
+  document.getElementById('statTotal').textContent='…';
+  document.getElementById('stat4p').textContent='…';
+  document.getElementById('stat6p').textContent='…';
+  document.getElementById('statHoldem').textContent='…';
+  document.getElementById('statSpades').textContent='…';
+  document.getElementById('statToday').textContent=getTodayCount();
+  get(KEY_TOTAL).then(function(n){document.getElementById('statTotal').textContent=isNaN(n)?'0':n.toLocaleString();}).catch(function(){document.getElementById('statTotal').textContent='n/a';});
+  get(KEY_4P).then(function(n){document.getElementById('stat4p').textContent=isNaN(n)?'0':n.toLocaleString();}).catch(function(){document.getElementById('stat4p').textContent='n/a';});
+  get(KEY_6P).then(function(n){document.getElementById('stat6p').textContent=isNaN(n)?'0':n.toLocaleString();}).catch(function(){document.getElementById('stat6p').textContent='n/a';});
+  get(KEY_HOLDEM).then(function(n){document.getElementById('statHoldem').textContent=isNaN(n)?'0':n.toLocaleString();}).catch(function(){document.getElementById('statHoldem').textContent='n/a';});
+  get(KEY_SPADES).then(function(n){document.getElementById('statSpades').textContent=isNaN(n)?'0':n.toLocaleString();}).catch(function(){document.getElementById('statSpades').textContent='n/a';});
+}
+
+function formatDuration(ms){
+  var s=Math.round(ms/1000);
+  var m=Math.floor(s/60);s=s%60;
+  return m>0?(m+'m '+s+'s'):(s+'s');
+}
+function formatWhen(ts){
+  var d=new Date(ts);
+  var now=new Date();
+  var sameDay=d.toDateString()===now.toDateString();
+  var time=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  return sameDay?('Today, '+time):(d.toLocaleDateString([],{month:'short',day:'numeric'})+', '+time);
+}
+function renderHistory(){
+  var list=readHistory().slice().reverse();
+  var container=document.getElementById('historyList');
+  if(list.length===0){container.innerHTML='<div class="history-empty">No visits recorded yet</div>';return;}
+  var gameLabels={'4p':'28 &mdash; 4P','6p':'28 &mdash; 6P','holdem':'Hold\'em','spades':'Spades'};
+  container.innerHTML=list.map(function(v){
+    var gameLabel=gameLabels[v.game]||'Browsed only';
+    return'<div class="history-row"><span>'+formatWhen(v.ts)+'</span><b>'+formatDuration(v.duration)+'</b><span>'+gameLabel+'</span></div>';
+  }).join('');
+}
+
+getDeviceId();
+
+// ==================== LIVE ROOM STATUS ====================
+(function(){
+  var MQTT_BROKER='wss://broker.emqx.io:8084/mqtt';
+  var TOPIC_4P='kerala28/rooms';
+  var TOPIC_6P='kerala28/rooms6';
+  var TOPIC_HOLDEM='kerala28/rooms_holdem';
+  var TOPIC_SPADES='kerala28/rooms_spades';
+  var MQTT_SOURCES=['https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js','https://unpkg.com/mqtt/dist/mqtt.min.js','https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js'];
+  var rooms4p={},rooms6p={},roomsHoldem={},roomsSpades={};
+  function loadScript(src){
+    return new Promise(function(resolve,reject){
+      var s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s);
+    });
+  }
+  function loadWithFallback(urls){
+    return new Promise(function(resolve,reject){
+      var i=0;
+      function tryNext(){if(i>=urls.length){reject(new Error('all failed'));return;}var url=urls[i];i++;loadScript(url).then(resolve).catch(tryNext);}
+      tryNext();
+    });
+  }
+  function renderStatus(badgeId,roomMap,label){
+    var el=document.getElementById(badgeId);if(!el)return;
+    var card=document.getElementById(badgeId.replace('liveStatus','card'));
+    var ctaEl=card?card.querySelector('.cta'):null;
+    var count=Object.keys(roomMap).length;
+    if(count===0){el.style.display='none';if(ctaEl)ctaEl.textContent='Enter Table →';return;}
+    var totalPlayers=0;
+    for(var k in roomMap)totalPlayers+=(roomMap[k].players||1);
+    el.style.display='flex';
+    el.innerHTML='<span class="dot"></span>'+count+' '+(count===1?'table':'tables')+' open — '+totalPlayers+' waiting';
+    if(ctaEl)ctaEl.textContent='Join Now →';
+  }
+  function prune(roomMap){
+    var changed=false;var now=Date.now();
+    for(var k in roomMap){if(now-roomMap[k].timestamp>60000){delete roomMap[k];changed=true;}}
+    return changed;
+  }
+  loadWithFallback(MQTT_SOURCES).then(function(){
+    try{
+      var clientId='k28_home_'+Math.random().toString(36).substring(2,10);
+      var client=mqtt.connect(MQTT_BROKER,{clientId:clientId,keepalive:60,clean:true,connectTimeout:6000});
+      client.on('connect',function(){client.subscribe([TOPIC_4P,TOPIC_6P,TOPIC_HOLDEM,TOPIC_SPADES],function(err){if(!err)console.log('[Home] subscribed to room topics');});});
+      client.on('message',function(topic,message){
+        try{
+          var data=JSON.parse(message.toString());
+          var map=null;
+          if(topic===TOPIC_4P)map=rooms4p;
+          else if(topic===TOPIC_6P)map=rooms6p;
+          else if(topic===TOPIC_HOLDEM)map=roomsHoldem;
+          else if(topic===TOPIC_SPADES)map=roomsSpades;
+          if(!map)return;
+          if(data.type==='room_announce'){map[data.peerId]={players:data.playerCount||1,timestamp:Date.now()};}
+          else if(data.type==='room_close'){delete map[data.peerId];}
+          renderStatus('liveStatusT4',rooms4p);
+          renderStatus('liveStatusT6',rooms6p);
+          renderStatus('liveStatusHoldem',roomsHoldem);
+          renderStatus('liveStatusSpades',roomsSpades);
+        }catch(e){}
+      });
+      client.on('error',function(err){console.warn('[Home] MQTT error',err);});
+      setInterval(function(){
+        var c1=prune(rooms4p),c2=prune(rooms6p),c3=prune(roomsHoldem),c4=prune(roomsSpades);
+        if(c1)renderStatus('liveStatusT4',rooms4p);
+        if(c2)renderStatus('liveStatusT6',rooms6p);
+        if(c3)renderStatus('liveStatusHoldem',roomsHoldem);
+        if(c4)renderStatus('liveStatusSpades',roomsSpades);
+      },15000);
+    }catch(e){console.warn('[Home] MQTT init failed',e);}
+  }).catch(function(e){console.warn('[Home] MQTT library failed to load',e);});
+})();
+
+// ==================== MESSAGE BOX ====================
+var FORMSPREE_ID='mojoqjny';
+var msgOverlay=document.getElementById('msgOverlay');
+var msgClose=document.getElementById('msgClose');
+var msgCancelBtn=document.getElementById('msgCancelBtn');
+var msgSendBtn=document.getElementById('msgSendBtn');
+var msgSent=document.getElementById('msgSent');
+var msgError=document.getElementById('msgError');
+var msgSpinner=document.getElementById('msgSpinner');
+
+document.getElementById('openMsgBtn').addEventListener('click',function(){
+  msgOverlay.style.display='flex';
+  msgSent.style.display='none';
+  msgError.style.display='none';
+  msgSpinner.style.display='none';
+  document.getElementById('msgName').value='';
+  document.getElementById('msgText').value='';
+});
+function closeMsgModal(){msgOverlay.style.display='none';}
+msgClose.addEventListener('click',closeMsgModal);
+msgCancelBtn.addEventListener('click',closeMsgModal);
+msgOverlay.addEventListener('click',function(e){if(e.target===msgOverlay)closeMsgModal();});
+
+msgSendBtn.addEventListener('click',function(){
+  var name=document.getElementById('msgName').value.trim()||'Anonymous';
+  var text=document.getElementById('msgText').value.trim();
+  if(!text){msgError.textContent='Please write a message first.';msgError.style.display='block';return;}
+  if(FORMSPREE_ID==='YOUR_FORM_ID'){msgError.textContent='Set up Formspree first — see README for instructions.';msgError.style.display='block';return;}
+  msgError.style.display='none';
+  msgSpinner.style.display='block';
+  msgSendBtn.disabled=true;
+  fetch('https://formspree.io/f/'+FORMSPREE_ID,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({name:name,message:text,_subject:'MultiGames Card Room — Message from '+name})})
+  .then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});})
+  .then(function(res){
+    msgSpinner.style.display='none';
+    msgSendBtn.disabled=false;
+    if(res.ok){msgSent.style.display='block';document.getElementById('msgText').value='';setTimeout(closeMsgModal,2800);}
+    else{msgError.textContent=(res.data&&res.data.error)?res.data.error:'Could not send. Try again.';msgError.style.display='block';}
+  })
+  .catch(function(){
+    msgSpinner.style.display='none';
+    msgSendBtn.disabled=false;
+    msgError.textContent='Network error. Check your connection.';
+    msgError.style.display='block';
+  });
+});
+
+})();
+</script>
+</body>
+</html>
