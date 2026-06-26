@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ballas Entertainment | DJ Gus Ballas</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+:root {
+  --bg: #0a0a0f; --bg2: #12121a; --card: #1a1a25;
+  --accent: #00d4ff; --accent2: #ff006e; --gold: #ffd700;
+  --text: #e8e8e8; --text2: #a0a0b0; --border: rgba(255,255,255,0.08);
+}
+html { scroll-behavior:smooth; }
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; -webkit-font-smoothing: antialiased; width: 100%; max-width: 100vw; }
+
+@keyframes fadeUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeLeft { from { opacity:0; transform:translateX(-30px); } to { opacity:1; transform:translateX(0); } }
+@keyframes fadeRight { from { opacity:0; transform:translateX(30px); } to { opacity:1; transform:translateX(0); } }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes scaleIn { from { opacity:0; transform:scale(0.9); } to { opacity:1; transform:scale(1); } }
+@keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-15px); } }
+@keyframes pulse { 0%,100% { box-shadow:0 0 20px rgba(0,212,255,0.3); } 50% { box-shadow:0 0 40px rgba(0,212,255,0.6); } }
+@keyframes shine { 0% { background-position:0% center; } 100% { background-position:200% center; } }
+@keyframes bounce { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
+@keyframes spinIn { from { opacity:0; transform:rotate(-180deg) scale(0.5); } to { opacity:1; transform:rotate(0) scale(1); } }
+@keyframes barDance { 0%,100% { height:20%; } 50% { height:100%; } }
+
+.animate-on-scroll { opacity:0; }
+.animate-on-scroll.visible { animation: fadeUp 0.6s ease forwards; }
+.animate-left.visible { animation: fadeLeft 0.6s ease forwards; }
+.animate-right.visible { animation: fadeRight 0.6s ease forwards; }
+.animate-scale.visible { animation: scaleIn 0.5s ease forwards; }
+.animate-fade.visible { animation: fadeIn 0.5s ease forwards; }
+.delay-1 { animation-delay:0.1s !important; }
+.delay-2 { animation-delay:0.2s !important; }
+.delay-3 { animation-delay:0.3s !important; }
+.delay-4 { animation-delay:0.4s !important; }
+.delay-5 { animation-delay:0.5s !important; }
+
+nav { position: fixed; top: 0; left: 0; right: 0; padding: 0.8rem 1rem; display: flex; justify-content: space-between; align-items: center; z-index: 100; background: rgba(10,10,15,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); transition: all 0.3s ease; }
+.nav-logo { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 700; background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.nav-links { display: flex; gap: 1.2rem; align-items: center; }
+.nav-links a { color: var(--text2); text-decoration: none; font-size: 0.85rem; font-weight: 500; transition: color 0.3s; position: relative; }
+.nav-links a::after { content:''; position:absolute; bottom:-4px; left:0; width:0; height:2px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.3s; }
+.nav-links a:hover { color: var(--accent); }
+.nav-links a:hover::after { width:100%; }
+.nav-admin { background: var(--card); border: 1px solid var(--border); padding: 0.35rem 0.9rem; border-radius: 20px; color: var(--text2); cursor: pointer; font-size: 0.75rem; transition: all 0.3s; font-family: 'Inter', sans-serif; }
+.nav-admin:hover { border-color: var(--accent); color: var(--accent); }
+
+.mobile-menu-btn { display: none; background: none; border: none; color: var(--text); font-size: 1.5rem; cursor: pointer; }
+.mobile-nav { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,10,15,0.98); z-index: 99; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+.mobile-nav.active { display: flex; opacity: 1; pointer-events: all; }
+.mobile-nav a { color: var(--text); text-decoration: none; font-family: 'Orbitron', sans-serif; font-size: 1.5rem; font-weight: 700; transition: color 0.3s; }
+.mobile-nav a:hover { color: var(--accent); }
+.mobile-nav .close-menu { position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: var(--text); font-size: 2rem; cursor: pointer; }
+
+.hero { position: relative; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 6rem 1.5rem 3rem; overflow: hidden; }
+.hero-bg { position: absolute; inset: 0; background: linear-gradient(135deg, #0a0a0f 0%, #1a0a2e 50%, #0a0a0f 100%); z-index: 0; }
+.hero-bg::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 30% 50%, rgba(0,212,255,0.1) 0%, transparent 50%), radial-gradient(circle at 70% 80%, rgba(255,0,110,0.06) 0%, transparent 50%); }
+.particles { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
+.particle { position: absolute; width: 3px; height: 3px; background: var(--accent); border-radius: 50%; opacity: 0.6; animation: float 8s ease-in-out infinite; }
+.hero-content { position: relative; z-index: 2; width: 100%; max-width: 800px; padding: 0 1rem; }
+.hero-logo { font-family: 'Orbitron', sans-serif; font-size: clamp(2rem, 8vw, 6rem); font-weight: 900; letter-spacing: 0.05em; background: linear-gradient(90deg, var(--accent), var(--accent2), var(--gold), var(--accent)); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.8rem; animation: shine 4s linear infinite; }
+.hero-sub { font-size: clamp(0.9rem, 3vw, 1.4rem); color: var(--text2); letter-spacing: 0.4em; text-transform: uppercase; margin-bottom: 1.5rem; animation: fadeUp 0.8s ease 0.2s both; }
+.hero-tagline { font-size: clamp(1rem, 2.5vw, 1.4rem); color: var(--text); max-width: 700px; line-height: 1.7; margin-bottom: 2.5rem; animation: fadeUp 0.8s ease 0.4s both; }
+.hero-btns { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; animation: fadeUp 0.8s ease 0.6s both; }
+.btn { padding: 1rem 2.5rem; border-radius: 50px; font-size: 1rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.3s ease; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; -webkit-appearance: none; }
+.btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; box-shadow: 0 0 30px rgba(0,212,255,0.3); animation: pulse 2s infinite; }
+.btn-primary:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 0 50px rgba(0,212,255,0.5); }
+.btn-outline { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+.btn-outline:hover { background: var(--accent); color: var(--bg); transform: translateY(-3px) scale(1.05); }
+.scroll-indicator { position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%); animation: bounce 2s infinite; color: var(--text2); font-size: 1.5rem; cursor: pointer; }
+
+.section { padding: 4rem 1.5rem; max-width: 1200px; margin: 0 auto; }
+.section-title { font-family: 'Orbitron', sans-serif; font-size: clamp(1.5rem, 4vw, 2.5rem); font-weight: 700; text-align: center; margin-bottom: 2.5rem; background: linear-gradient(90deg, var(--accent), var(--gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+.about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
+.about-img { position: relative; border-radius: 20px; overflow: hidden; border: 2px solid var(--border); aspect-ratio: 1; background: var(--card); display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; }
+.about-img:hover { border-color: var(--accent); transform: scale(1.02); }
+.about-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+.about-img:hover img { transform: scale(1.1); }
+.about-img .placeholder-text { color: var(--text2); font-size: 0.9rem; text-align: center; padding: 2rem; }
+.about-text h3 { font-family: 'Orbitron', sans-serif; font-size: 1.5rem; margin-bottom: 1rem; color: var(--accent); }
+.about-text p { color: var(--text2); line-height: 1.8; margin-bottom: 1rem; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 2rem; }
+.stat-item { text-align: center; padding: 1.2rem; background: var(--card); border-radius: 15px; border: 1px solid var(--border); transition: all 0.3s ease; }
+.stat-item:hover { border-color: var(--accent); transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,212,255,0.1); }
+.stat-number { font-family: 'Orbitron', sans-serif; font-size: 1.8rem; font-weight: 700; color: var(--accent); transition: color 0.3s; }
+.stat-item:hover .stat-number { color: var(--gold); }
+.stat-label { font-size: 0.75rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.3rem; }
+
+.services-section { background: var(--bg2); border-radius: 30px; margin: 0 1rem; padding: 4rem 1.5rem; }
+.services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; max-width: 1200px; margin: 0 auto; }
+.service-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 2rem; transition: all 0.3s ease; position: relative; overflow: hidden; }
+.service-card::before { content:''; position:absolute; top:0; left:0; width:100%; height:3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transform: scaleX(0); transform-origin: left; transition: transform 0.3s ease; }
+.service-card:hover::before { transform: scaleX(1); }
+.service-card:hover { border-color: var(--accent); transform: translateY(-8px) scale(1.02); box-shadow: 0 20px 50px rgba(0,212,255,0.15); }
+.service-icon { font-size: 2.5rem; margin-bottom: 1rem; display: inline-block; animation: float 3s ease-in-out infinite; }
+.service-card:nth-child(2) .service-icon { animation-delay: 0.5s; }
+.service-card:nth-child(3) .service-icon { animation-delay: 1s; }
+.service-card:nth-child(4) .service-icon { animation-delay: 1.5s; }
+.service-card:nth-child(5) .service-icon { animation-delay: 2s; }
+.service-card:nth-child(6) .service-icon { animation-delay: 2.5s; }
+.service-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; margin-bottom: 0.8rem; color: var(--accent); }
+.service-card p { color: var(--text2); font-size: 0.95rem; line-height: 1.6; }
+
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+.gallery-item { position: relative; border-radius: 15px; overflow: hidden; aspect-ratio: 4/3; background: var(--card); border: 1px solid var(--border); cursor: pointer; transition: all 0.3s ease; }
+.gallery-item:hover { transform: scale(1.03); border-color: var(--accent); box-shadow: 0 15px 40px rgba(0,212,255,0.2); }
+.gallery-item img, .gallery-item video { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+.gallery-item:hover img, .gallery-item:hover video { transform: scale(1.1); }
+.gallery-item .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; }
+.gallery-item:hover .overlay { opacity: 1; }
+.gallery-item .overlay span { color: white; font-size: 2.5rem; transition: transform 0.3s ease; }
+.gallery-item:hover .overlay span { transform: scale(1.2); }
+
+.music-section { background: var(--bg2); border-radius: 30px; margin: 0 1rem; padding: 4rem 1.5rem; }
+.music-list { display: flex; flex-direction: column; gap: 1rem; max-width: 800px; margin: 0 auto; }
+.music-item { display: flex; align-items: center; gap: 1rem; background: var(--card); border: 1px solid var(--border); border-radius: 15px; padding: 1rem 1.2rem; transition: all 0.3s ease; cursor: pointer; }
+.music-item:hover { border-color: var(--accent); transform: translateX(10px); box-shadow: 0 10px 30px rgba(0,212,255,0.1); }
+.music-play { width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; color: white; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; flex-shrink: 0; }
+.music-play:hover { transform: scale(1.15); box-shadow: 0 0 25px rgba(0,212,255,0.5); }
+.music-play.playing { animation: pulse 1s infinite; }
+.music-info { flex: 1; min-width: 0; }
+.music-info h4 { font-size: 1rem; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.music-info p { font-size: 0.8rem; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.music-wave { display: flex; align-items: flex-end; gap: 3px; height: 30px; flex-shrink: 0; }
+.music-wave span { width: 4px; background: var(--accent); border-radius: 2px; animation: barDance 1s ease-in-out infinite; }
+.music-wave span:nth-child(1) { animation-delay: 0s; height: 30%; }
+.music-wave span:nth-child(2) { animation-delay: 0.1s; height: 60%; }
+.music-wave span:nth-child(3) { animation-delay: 0.2s; height: 40%; }
+.music-wave span:nth-child(4) { animation-delay: 0.3s; height: 80%; }
+.music-wave span:nth-child(5) { animation-delay: 0.4s; height: 50%; }
+.music-item:hover .music-wave span { background: var(--gold); }
+
+.booking-section { background: linear-gradient(135deg, var(--bg2), #1a0a2e); border-radius: 30px; padding: 3rem 1.5rem; border: 1px solid var(--border); transition: all 0.3s ease; }
+.booking-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; max-width: 1200px; margin: 0 auto; }
+.booking-form { display: flex; flex-direction: column; gap: 0.8rem; }
+.booking-form input, .booking-form textarea, .booking-form select { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.2rem; color: var(--text); font-size: 1rem; outline: none; transition: all 0.3s ease; -webkit-appearance: none; font-family: 'Inter', sans-serif; }
+.booking-form input:focus, .booking-form textarea:focus, .booking-form select:focus { border-color: var(--accent); box-shadow: 0 0 20px rgba(0,212,255,0.2); transform: translateY(-2px); }
+.booking-form textarea { min-height: 100px; resize: vertical; }
+.booking-form select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23a0a0b0'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; padding-right: 2.5rem; }
+.ai-chat { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 1.2rem; height: 100%; display: flex; flex-direction: column; min-height: 400px; transition: all 0.3s ease; }
+.ai-chat:hover { border-color: var(--accent); box-shadow: 0 10px 40px rgba(0,212,255,0.1); }
+.ai-chat-header { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.ai-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; animation: spinIn 0.5s ease; }
+.ai-chat-messages { flex: 1; overflow-y: auto; max-height: 350px; display: flex; flex-direction: column; gap: 0.8rem; padding-right: 0.5rem; }
+.ai-msg { padding: 0.8rem 1rem; border-radius: 15px; max-width: 85%; font-size: 0.9rem; line-height: 1.5; transition: all 0.3s ease; }
+.ai-msg.bot { background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.2); align-self: flex-start; animation: fadeLeft 0.3s ease; }
+.ai-msg.user { background: rgba(255,0,110,0.1); border: 1px solid rgba(255,0,110,0.2); align-self: flex-end; animation: fadeRight 0.3s ease; }
+.ai-input-area { display: flex; gap: 0.5rem; margin-top: 1rem; }
+.ai-input-area input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem 1rem; color: var(--text); font-size: 0.9rem; outline: none; transition: all 0.3s ease; }
+.ai-input-area input:focus { border-color: var(--accent); box-shadow: 0 0 15px rgba(0,212,255,0.2); }
+.ai-input-area button { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 12px; padding: 0.8rem 1.2rem; color: white; cursor: pointer; transition: all 0.3s ease; font-weight: 600; }
+.ai-input-area button:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(0,212,255,0.4); }
+.ai-input-area button:active { transform: scale(0.95); }
+.ai-typing { display: flex; gap: 4px; padding: 0.8rem 1rem; }
+.ai-typing span { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: barDance 0.6s ease-in-out infinite; }
+.ai-typing span:nth-child(2) { animation-delay: 0.15s; }
+.ai-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 3rem 1.5rem; text-align: center; }
+.footer-socials { display: flex; justify-content: center; gap: 1.2rem; margin-bottom: 1.5rem; }
+.footer-socials a { width: 50px; height: 50px; border-radius: 50%; background: var(--card); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text2); font-size: 1.3rem; text-decoration: none; transition: all 0.3s ease; }
+.footer-socials a:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-5px) scale(1.1); box-shadow: 0 10px 30px rgba(0,212,255,0.2); }
+footer p { color: var(--text2); font-size: 0.9rem; }
+
+.admin-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 1rem; opacity: 0; transition: opacity 0.3s ease; }
+.admin-overlay.active { display: flex; opacity: 1; }
+.admin-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 25px; width: 100%; max-width: 800px; max-height: 90vh; overflow-y: auto; padding: 1.5rem; animation: scaleIn 0.3s ease; }
+.admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.admin-header h2 { font-family: 'Orbitron', sans-serif; color: var(--accent); font-size: 1.3rem; }
+.admin-close { background: none; border: none; color: var(--text2); font-size: 1.8rem; cursor: pointer; transition: color 0.3s; }
+.admin-close:hover { color: var(--accent2); }
+.admin-tabs { display: flex; gap: 0.4rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.admin-tab { padding: 0.5rem 1rem; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--text2); cursor: pointer; font-size: 0.8rem; transition: all 0.3s; font-family: 'Inter', sans-serif; }
+.admin-tab:hover { border-color: var(--accent); color: var(--accent); }
+.admin-tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; border-color: transparent; }
+.admin-section { display: none; }
+.admin-section.active { display: block; animation: fadeUp 0.3s ease; }
+.admin-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 1rem; color: var(--text); margin-bottom: 1rem; font-size: 0.9rem; outline: none; transition: all 0.3s ease; -webkit-appearance: none; font-family: 'Inter', sans-serif; }
+.admin-input:focus { border-color: var(--accent); box-shadow: 0 0 15px rgba(0,212,255,0.2); }
+.admin-label { display: block; color: var(--text2); font-size: 0.8rem; margin-bottom: 0.4rem; font-weight: 500; }
+.admin-btn { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 10px; padding: 0.8rem 1.5rem; color: white; font-weight: 600; cursor: pointer; margin-right: 0.5rem; margin-bottom: 0.5rem; transition: all 0.3s ease; font-size: 0.85rem; font-family: 'Inter', sans-serif; }
+.admin-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0,212,255,0.3); }
+.admin-btn:active { transform: translateY(0); }
+.admin-btn-secondary { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+.admin-btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.visit-counter { background: var(--card); border: 1px solid var(--border); border-radius: 15px; padding: 1.5rem; text-align: center; margin-bottom: 1rem; transition: all 0.3s ease; }
+.visit-counter:hover { border-color: var(--accent); }
+.visit-counter .big-number { font-family: 'Orbitron', sans-serif; font-size: 2.5rem; color: var(--accent); transition: color 0.3s; }
+.visit-counter:hover .big-number { color: var(--gold); }
+
+.login-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 1rem; opacity: 0; transition: opacity 0.3s ease; }
+.login-overlay.active { display: flex; opacity: 1; }
+.login-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 25px; padding: 2.5rem 2rem; text-align: center; width: 100%; max-width: 400px; animation: scaleIn 0.3s ease; }
+.login-box h2 { font-family: 'Orbitron', sans-serif; color: var(--accent); margin-bottom: 1rem; font-size: 1.5rem; }
+.login-box input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; color: var(--text); font-size: 1rem; margin-bottom: 1rem; text-align: center; letter-spacing: 0.3em; outline: none; transition: all 0.3s ease; -webkit-appearance: none; }
+.login-box input:focus { border-color: var(--accent); box-shadow: 0 0 20px rgba(0,212,255,0.2); }
+
+.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1500; display: none; align-items: center; justify-content: center; padding: 1rem; opacity: 0; transition: opacity 0.3s ease; }
+.lightbox.active { display: flex; opacity: 1; }
+.lightbox img, .lightbox video { max-width: 95%; max-height: 90vh; border-radius: 15px; animation: scaleIn 0.3s ease; }
+.lightbox-close { position: absolute; top: 15px; right: 20px; color: white; font-size: 2.5rem; cursor: pointer; background: none; border: none; transition: color 0.3s; z-index: 10; }
+.lightbox-close:hover { color: var(--accent2); }
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .mobile-menu-btn { display: block; }
+  .hero { padding: 4rem 0.8rem 2rem; min-height: 70vh; padding-bottom: 3rem; }
+  .hero-logo { font-size: clamp(1.8rem, 10vw, 3rem); letter-spacing: 0.02em; }
+  .hero-sub { font-size: 0.8rem; letter-spacing: 0.2em; }
+  .hero-tagline { font-size: 0.95rem; line-height: 1.6; }
+  .hero-btns { flex-direction: column; width: 100%; gap: 0.8rem; }
+  .btn { width: 100%; justify-content: center; padding: 0.9rem 1.5rem; font-size: 0.95rem; }
+  .section { padding: 3rem 0.8rem; }
+  .section-title { font-size: 1.3rem; margin-bottom: 1.5rem; }
+  .about-grid { grid-template-columns: 1fr; gap: 2rem; }
+  .about-img { aspect-ratio: 4/3; max-width: 300px; margin: 0 auto; width: 100%; }
+  .about-text h3 { font-size: 1.3rem; text-align: center; }
+  .about-text p { font-size: 0.9rem; }
+  .stats { grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
+  .stat-item { padding: 0.8rem 0.3rem; }
+  .stat-number { font-size: 1.3rem; }
+  .stat-label { font-size: 0.6rem; }
+  .services-section { padding: 2.5rem 0.8rem; margin: 0; border-radius: 15px; }
+  .services-grid { grid-template-columns: 1fr; gap: 0.8rem; }
+  .service-card { padding: 1.5rem; }
+  .service-icon { font-size: 2rem; }
+  .service-card h3 { font-size: 1.1rem; }
+  .service-card p { font-size: 0.85rem; }
+  .gallery-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+  .gallery-item { aspect-ratio: 1; }
+  .music-section { padding: 2.5rem 0.8rem; margin: 0; border-radius: 15px; }
+  .music-item { padding: 0.8rem 1rem; gap: 0.7rem; }
+  .music-play { width: 42px; height: 42px; font-size: 1rem; }
+  .music-info h4 { font-size: 0.9rem; }
+  .music-info p { font-size: 0.75rem; }
+  .music-wave { height: 24px; gap: 2px; }
+  .music-wave span { width: 3px; }
+  .booking-section { padding: 1.5rem 0.8rem; margin: 0; border-radius: 15px; }
+  .booking-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+  .booking-form input, .booking-form textarea, .booking-form select { padding: 0.8rem 0.9rem; font-size: 0.9rem; }
+  .ai-chat { min-height: 300px; padding: 0.8rem; }
+  .ai-chat-messages { max-height: 220px; }
+  .ai-msg { font-size: 0.85rem; padding: 0.6rem 0.8rem; max-width: 90%; }
+  .ai-input-area { gap: 0.4rem; }
+  .ai-input-area input { padding: 0.7rem 0.8rem; font-size: 0.85rem; }
+  .ai-input-area button { padding: 0.7rem 1rem; font-size: 0.85rem; }
+  .footer-socials a { width: 45px; height: 45px; font-size: 1.1rem; }
+  .admin-panel { padding: 1rem; border-radius: 15px; }
+  .admin-tabs { gap: 0.3rem; }
+  .admin-tab { padding: 0.4rem 0.7rem; font-size: 0.75rem; }
+  .visit-counter .big-number { font-size: 2rem; }
+  .login-box { padding: 2rem 1.5rem; }
+}
+
+@media (max-width: 400px) {
+  .hero-logo { font-size: 1.5rem; }
+  .stats { grid-template-columns: 1fr; }
+  .gallery-grid { grid-template-columns: 1fr; }
+  .music-item { flex-wrap: wrap; }
+  .music-wave { width: 100%; justify-content: center; margin-top: 0.5rem; }
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent2); }
+
+.section, .about-grid, .about-img, .about-text, .stats, .stat-item,
+.services-wrap, .services-grid, .service-card,
+.gallery-grid, .gallery-item,
+.music-wrap, .music-list, .music-item,
+.booking-wrap, .booking-grid, .booking-form, .ai-chat,
+footer, .footer-socials, .footer-socials a {
+  opacity: 1;
+  visibility: visible;
+}
+
+.admin-overlay, .login-overlay, .lightbox, .mobile-nav {
+  opacity: 0;
+}
+.admin-overlay.active, .login-overlay.active, .lightbox.active, .mobile-nav.active {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .service-card:hover, .gallery-item:hover, .music-item:hover, .stat-item:hover { transform: none; box-shadow: none; }
+  .service-card:active, .gallery-item:active, .music-item:active, .stat-item:active { transform: scale(0.98); }
+  .btn:hover { transform: none; }
+  .btn:active { transform: scale(0.95); }
+}
+</style>
+</head>
+<body>
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">BALLAS</div>
+  <div class="nav-links">
+    <a href="#about">About</a>
+    <a href="#services">Services</a>
+    <a href="#gallery">Gallery</a>
+    <a href="#music">Music</a>
+    <a href="#booking">Book Now</a>
+    <button class="nav-admin" onclick="openLogin()">Admin</button>
+  </div>
+  <button class="mobile-menu-btn" onclick="toggleMobileMenu()">&#9776;</button>
+</nav>
+
+<div class="mobile-nav" id="mobileNav">
+  <button class="close-menu" onclick="toggleMobileMenu()">&#10005;</button>
+  <a href="#about" onclick="toggleMobileMenu()">About</a>
+  <a href="#services" onclick="toggleMobileMenu()">Services</a>
+  <a href="#gallery" onclick="toggleMobileMenu()">Gallery</a>
+  <a href="#music" onclick="toggleMobileMenu()">Music</a>
+  <a href="#booking" onclick="toggleMobileMenu()">Book Now</a>
+  <a href="#" onclick="toggleMobileMenu(); openLogin();">Admin</a>
+</div>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-bg"></div>
+  <div class="particles" id="particles"></div>
+  <div class="hero-content">
+    <div class="hero-logo" id="heroTitle">BALLAS ENTERTAINMENT</div>
+    <div class="hero-sub" id="heroSub">DJ Gus Ballas</div>
+    <div class="hero-tagline" id="heroTagline">
+      30+ years of experience. Multi-genre DJ specializing in weddings, Sweet 16s, corporate events, and Greek cultural celebrations. Keeping dance floors packed across the New York area.
+    </div>
+    <div class="hero-btns">
+      <a href="#booking" class="btn btn-primary">Book Now</a>
+      <a href="#music" class="btn btn-outline">Listen to Mixes</a>
+    </div>
+  </div>
+  <div class="scroll-indicator" onclick="document.getElementById('about').scrollIntoView({behavior:'smooth'})">&#8595;</div>
+</section>
+
+<!-- ABOUT -->
+<section class="section" id="about">
+  <div class="section-title animate-on-scroll">About The DJ</div>
+  <div class="about-grid">
+    <div class="about-img animate-on-scroll animate-left" id="aboutImage">
+      <div class="placeholder-text">Upload your photo in Admin panel</div>
+    </div>
+    <div class="about-text animate-on-scroll animate-right">
+      <h3>DJ Gus Ballas</h3>
+      <p id="aboutBio">
+        DJ Gus Ballas (owner of Ballas Entertainment) is a highly experienced, multi-genre DJ with over 30 years in the entertainment industry, specializing in custom events throughout the New York area. He is widely recognized for his versatility, keeping dance floors packed by seamlessly mixing standard open-format music with deeply specialized cultural genres.
+      </p>
+      <p><strong style="color:var(--accent)">Greek Music Specialist:</strong> Deeply rooted in the Greek-American community, playing traditional dances, modern Greek hits, and maintaining the true cultural energy (kefi) required for authentic celebrations.</p>
+      <p><strong style="color:var(--accent2)">All-Genre Open Format:</strong> Fully versatile across mainstream genres, including Freestyle, Top 40, Classics, Hip Hop, Pop, and Dance music.</p>
+      <div class="stats">
+        <div class="stat-item animate-on-scroll delay-1"><div class="stat-number">30+</div><div class="stat-label">Years Experience</div></div>
+        <div class="stat-item animate-on-scroll delay-2"><div class="stat-number">1000+</div><div class="stat-label">Events Done</div></div>
+        <div class="stat-item animate-on-scroll delay-3"><div class="stat-number">5&#9733;</div><div class="stat-label">Rating</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section class="services-section" id="services" style="margin-left:0.5rem;margin-right:0.5rem;">
+  <div class="section-title animate-on-scroll">Core Specialties & Events</div>
+  <div class="services-grid" id="servicesGrid">
+    <div class="service-card animate-on-scroll delay-1">
+      <div class="service-icon">&#128146;</div><h3>Weddings</h3><p>Crafting high-energy, memorable receptions with customized itineraries and curated music sets.</p>
+    </div>
+    <div class="service-card animate-on-scroll delay-2">
+      <div class="service-icon">&#127874;</div><h3>Sweet 16s & Birthdays</h3><p>Tailoring modern playlists to match the exact energy and musical preferences of younger crowds.</p>
+    </div>
+    <div class="service-card animate-on-scroll delay-3">
+      <div class="service-icon">&#127970;</div><h3>Corporate Events</h3><p>Providing professional MC services, background ambiance, and high-energy dance sets for professional crowds.</p>
+    </div>
+    <div class="service-card animate-on-scroll delay-4">
+      <div class="service-icon">&#127881;</div><h3>All Event Types</h3><p>Experienced in handling baptisms, christenings, anniversaries, fundraisers, and casual neighborhood parties.</p>
+    </div>
+    <div class="service-card animate-on-scroll delay-5">
+      <div class="service-icon">&#127468;&#127479;</div><h3>Greek Celebrations</h3><p>Traditional dances, modern Greek hits, and maintaining the true cultural energy (kefi) for authentic celebrations.</p>
+    </div>
+    <div class="service-card animate-on-scroll delay-1">
+      <div class="service-icon">&#127925;</div><h3>Open Format</h3><p>Fully versatile across mainstream genres: Freestyle, Top 40, Classics, Hip Hop, Pop, and Dance music.</p>
+    </div>
+  </div>
+</section>
+
+<!-- GALLERY -->
+<section class="section" id="gallery">
+  <div class="section-title animate-on-scroll">Gallery & Highlights</div>
+  <div class="gallery-grid" id="galleryGrid">
+    <div class="gallery-item animate-on-scroll" onclick="openLightbox(this)">
+      <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);font-size:0.85rem;padding:1rem;text-align:center;">&#128248; Upload photos/videos in Admin panel</div>
+    </div>
+  </div>
+</section>
+
+<!-- MUSIC -->
+<section class="music-section" id="music" style="margin-left:0.5rem;margin-right:0.5rem;">
+  <div class="section-title animate-on-scroll">Music & Mixes</div>
+  <div class="music-list" id="musicList">
+    <div class="music-item animate-on-scroll delay-1">
+      <button class="music-play">&#9654;</button>
+      <div class="music-info"><h4>Wedding Mix 2024</h4><p>High-energy wedding set featuring Top 40, Greek classics, and crowd favorites</p></div>
+      <div class="music-wave"><span></span><span></span><span></span><span></span><span></span></div>
+    </div>
+    <div class="music-item animate-on-scroll delay-2">
+      <button class="music-play">&#9654;</button>
+      <div class="music-info"><h4>Greek Kefi Set</h4><p>Traditional and modern Greek hits for authentic cultural celebrations</p></div>
+      <div class="music-wave"><span></span><span></span><span></span><span></span><span></span></div>
+    </div>
+    <div class="music-item animate-on-scroll delay-3">
+      <button class="music-play">&#9654;</button>
+      <div class="music-info"><h4>Sweet 16 Party Mix</h4><p>Modern hits tailored for younger crowds and birthday celebrations</p></div>
+      <div class="music-wave"><span></span><span></span><span></span><span></span><span></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- BOOKING -->
+<section class="section" id="booking" style="padding-left:0.5rem;padding-right:0.5rem;">
+  <div class="section-title animate-on-scroll">Book Your Event</div>
+  <div class="booking-section">
+    <div class="booking-grid">
+      <div class="animate-on-scroll animate-left" style="width:100%;">
+        <h3 style="font-family:Orbitron,sans-serif;color:var(--accent);margin-bottom:1rem;font-size:1.1rem;">Send a Booking Request</h3>
+        <form class="booking-form" id="bookingForm" onsubmit="handleBooking(event)">
+          <input type="text" placeholder="Your Name" required id="bookName">
+          <input type="email" placeholder="Email Address" required id="bookEmail">
+          <input type="tel" placeholder="Phone Number" required id="bookPhone">
+          <select required id="bookEvent">
+            <option value="">Select Event Type</option>
+            <option>Wedding</option>
+            <option>Sweet 16 / Birthday</option>
+            <option>Corporate Event</option>
+            <option>Greek Celebration</option>
+            <option>Fundraiser</option>
+            <option>Other</option>
+          </select>
+          <input type="date" required id="bookDate">
+          <textarea placeholder="Tell us about your event..." id="bookMsg"></textarea>
+          <button type="submit" class="btn btn-primary" style="justify-content:center;width:100%;">Send Booking Request</button>
+        </form>
+      </div>
+      <div class="ai-chat animate-on-scroll animate-right">
+        <div class="ai-chat-header">
+          <div class="ai-avatar">&#129302;</div>
+          <div><div style="font-weight:600;font-size:0.95rem;">Ballas AI Assistant</div><div style="font-size:0.8rem;color:var(--text2);">Ask me anything about booking!</div></div>
+        </div>
+        <div class="ai-chat-messages" id="aiChatMessages">
+          <div class="ai-msg bot">Hey! I am the Ballas Entertainment AI. I can help you book DJ Gus Ballas for your event, answer questions about pricing, availability, and event types. What can I help you with?</div>
+        </div>
+        <div class="ai-input-area">
+          <input type="text" placeholder="Type your message..." id="aiInput" onkeypress="if(event.key==='Enter')sendAI()">
+          <button onclick="sendAI()">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-socials">
+    <a href="https://instagram.com/djballas" target="_blank">&#128247;</a>
+    <a href="https://facebook.com/djballas" target="_blank">f</a>
+    <a href="mailto:Ballasentertainment@yahoo.com">&#9993;</a>
+    <a href="tel:19175845852">&#128222;</a>
+  </div>
+  <p>Ballas Entertainment | DJ Gus Ballas | New York Area</p>
+  <p style="margin-top:0.5rem;font-size:0.8rem;">Ballasentertainment@yahoo.com | 1-917-584-5852</p>
+</footer>
+
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <h2>&#128272; Admin Access</h2>
+    <p style="color:var(--text2);margin-bottom:1.5rem;font-size:0.9rem;">Enter password to access admin panel</p>
+    <input type="password" placeholder="0000" id="adminPassword" maxlength="10" onkeypress="if(event.key==='Enter')checkLogin()">
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:0.5rem;" onclick="checkLogin()">Login</button>
+    <p style="color:var(--text2);margin-top:1rem;font-size:0.8rem;cursor:pointer;" onclick="closeLogin()">Cancel</p>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="admin-overlay" id="adminOverlay">
+  <div class="admin-panel">
+    <div class="admin-header">
+      <h2>&#9881; Admin Panel</h2>
+      <button class="admin-close" onclick="closeAdmin()">&#10005;</button>
+    </div>
+    <div class="admin-tabs">
+      <button class="admin-tab active" onclick="switchTab('content')">Content</button>
+      <button class="admin-tab" onclick="switchTab('media')">Media</button>
+      <button class="admin-tab" onclick="switchTab('music')">Music</button>
+      <button class="admin-tab" onclick="switchTab('ai')">AI Knowledge</button>
+      <button class="admin-tab" onclick="switchTab('stats')">Analytics</button>
+      <button class="admin-tab" onclick="switchTab('settings')">Settings</button>
+    </div>
+    <div class="admin-section active" id="tab-content">
+      <label class="admin-label">Hero Title</label>
+      <input class="admin-input" id="editHeroTitle" value="BALLAS ENTERTAINMENT">
+      <label class="admin-label">Hero Subtitle</label>
+      <input class="admin-input" id="editHeroSub" value="DJ Gus Ballas">
+      <label class="admin-label">Hero Tagline</label>
+      <textarea class="admin-input" id="editHeroTagline" rows="3">30+ years of experience. Multi-genre DJ specializing in weddings, Sweet 16s, corporate events, and Greek cultural celebrations. Keeping dance floors packed across the New York area.</textarea>
+      <label class="admin-label">Bio Text</label>
+      <textarea class="admin-input" id="editBio" rows="5">DJ Gus Ballas (owner of Ballas Entertainment) is a highly experienced, multi-genre DJ with over 30 years in the entertainment industry, specializing in custom events throughout the New York area. He is widely recognized for his versatility, keeping dance floors packed by seamlessly mixing standard open-format music with deeply specialized cultural genres.</textarea>
+      <button class="admin-btn" onclick="saveContent()">Save Content</button>
+    </div>
+    <div class="admin-section" id="tab-media">
+      <label class="admin-label">About Image URL (or base64)</label>
+      <input class="admin-input" id="editAboutImg" placeholder="Paste image URL or base64">
+      <button class="admin-btn" onclick="saveAboutImage()">Update About Image</button>
+      <hr style="border:0;border-top:1px solid var(--border);margin:1.5rem 0;">
+      <label class="admin-label">Gallery Image/Video URL</label>
+      <input class="admin-input" id="editGalleryUrl" placeholder="Paste image or video URL">
+      <label class="admin-label">Caption (optional)</label>
+      <input class="admin-input" id="editGalleryCaption" placeholder="Event name or caption">
+      <button class="admin-btn" onclick="addGalleryItem()">Add to Gallery</button>
+      <div id="galleryList" style="margin-top:1rem;"></div>
+    </div>
+    <div class="admin-section" id="tab-music">
+      <label class="admin-label">Track Title</label>
+      <input class="admin-input" id="editMusicTitle" placeholder="e.g. Summer Mix 2024">
+      <label class="admin-label">Track Description</label>
+      <input class="admin-input" id="editMusicDesc" placeholder="Brief description">
+      <label class="admin-label">Audio URL (SoundCloud, etc.)</label>
+      <input class="admin-input" id="editMusicUrl" placeholder="Paste audio URL">
+      <button class="admin-btn" onclick="addMusicTrack()">Add Track</button>
+      <div id="musicListAdmin" style="margin-top:1rem;"></div>
+    </div>
+    <div class="admin-section" id="tab-ai">
+      <p style="color:var(--text2);font-size:0.85rem;margin-bottom:1rem;">Customize what the AI assistant tells visitors about your services. Changes apply immediately.</p>
+      <label class="admin-label">Pricing Info</label>
+      <textarea class="admin-input" id="editAIpricing" rows="3" placeholder="What the AI says about pricing...">Pricing depends on the event type, duration, and location. Weddings typically start around $1,500-$2,500. Sweet 16s and birthdays range from $800-$1,500. Corporate events are customized based on requirements. Contact us for a exact quote!</textarea>
+      <label class="admin-label">Availability Info</label>
+      <textarea class="admin-input" id="editAIavailability" rows="2" placeholder="What the AI says about availability...">I can check availability for your date! Please fill out the booking form with your event date and I will get back to you within 24 hours.</textarea>
+      <label class="admin-label">Greek Music Info</label>
+      <textarea class="admin-input" id="editAIgreek" rows="2" placeholder="What the AI says about Greek music...">DJ Gus Ballas is a Greek music specialist! He plays traditional dances like Kalamatiano, Tsamiko, and modern Greek hits. He maintains the true kefi (cultural energy) for authentic Greek celebrations.</textarea>
+      <label class="admin-label">Equipment Info</label>
+      <textarea class="admin-input" id="editAIequipment" rows="2" placeholder="What the AI says about equipment...">Ballas Entertainment provides full professional sound and lighting equipment. We handle setup and breakdown. Wireless microphones for speeches and announcements are included.</textarea>
+      <label class="admin-label">Hours Info</label>
+      <textarea class="admin-input" id="editAIhours" rows="2" placeholder="What the AI says about hours...">Typical events run 4-6 hours, but we can accommodate longer events. Overtime is available at an hourly rate.</textarea>
+      <label class="admin-label">Deposit Info</label>
+      <textarea class="admin-input" id="editAIdeposit" rows="2" placeholder="What the AI says about deposits...">A 50% deposit is required to secure your date. The remaining balance is due one week before the event. We accept cash, check, Venmo, and Zelle.</textarea>
+      <label class="admin-label">Cancellation Info</label>
+      <textarea class="admin-input" id="editAIcancel" rows="2" placeholder="What the AI says about cancellation...">Deposits are refundable if cancellation is made 60+ days before the event. Within 60 days, the deposit can be transferred to a new date within 12 months.</textarea>
+      <button class="admin-btn" onclick="saveAIKnowledge()">Save AI Knowledge</button>
+    </div>
+
+    <div class="admin-section" id="tab-stats">
+      <div class="visit-counter"><div class="big-number" id="visitCount">0</div><div style="color:var(--text2);font-size:0.9rem;">Total Page Visits</div></div>
+      <div class="visit-counter"><div class="big-number" id="bookingCount">0</div><div style="color:var(--text2);font-size:0.9rem;">Booking Requests</div></div>
+      <button class="admin-btn admin-btn-secondary" onclick="resetStats()">Reset Stats</button>
+    </div>
+    <div class="admin-section" id="tab-settings">
+      <label class="admin-label">Change Admin Password</label>
+      <input class="admin-input" type="password" id="newPassword" placeholder="New password">
+      <input class="admin-input" type="password" id="confirmPassword" placeholder="Confirm password">
+      <button class="admin-btn" onclick="changePassword()">Change Password</button>
+      <hr style="border:0;border-top:1px solid var(--border);margin:1.5rem 0;">
+      <label class="admin-label">Contact Email</label>
+      <input class="admin-input" id="editContactEmail" value="Ballasentertainment@yahoo.com">
+      <label class="admin-label">Contact Phone</label>
+      <input class="admin-input" id="editContactPhone" value="1-917-584-5852">
+      <button class="admin-btn" onclick="saveContact()">Save Contact Info</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close">&#10005;</button>
+  <img id="lightboxImg" src="" style="display:none;">
+  <video id="lightboxVideo" controls style="display:none;"></video>
+</div>
+<script>
+// ===== DATA STORAGE =====
+let adminPass = localStorage.getItem('be_adminPass') || '0000';
+let visits = parseInt(localStorage.getItem('be_visits') || '0') + 1;
+localStorage.setItem('be_visits', visits);
+let bookings = parseInt(localStorage.getItem('be_bookings') || '0');
+let galleryData = JSON.parse(localStorage.getItem('be_gallery') || '[]');
+let musicData = JSON.parse(localStorage.getItem('be_music') || '[]');
+let siteContent = JSON.parse(localStorage.getItem('be_content') || '{}');
+let savedAIKnowledge = JSON.parse(localStorage.getItem('be_aiKnowledge') || '{}');
+
+// ===== PARTICLES =====
+const particles = document.getElementById('particles');
+for(let i=0; i<60; i++){
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.style.left = Math.random()*100+'%';
+  p.style.top = Math.random()*100+'%';
+  p.style.width = (2+Math.random()*4)+'px';
+  p.style.height = p.style.width;
+  p.style.animationDuration = (8+Math.random()*12)+'s';
+  p.style.animationDelay = Math.random()*8+'s';
+  p.style.opacity = 0.3+Math.random()*0.7;
+  particles.appendChild(p);
+}
+
+// ===== SCROLL ANIMATIONS =====
+let observer;
+function initAnimations(){
+  observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.05, rootMargin: '0px 0px -30px 0px' });
+
+  document.querySelectorAll('.animate-on-scroll').forEach(el => {
+    observer.observe(el);
+  });
+}
+
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', initAnimations);
+} else {
+  initAnimations();
+}
+
+// ===== LOAD CONTENT =====
+function loadContent(){
+  if(siteContent.heroTitle) document.getElementById('heroTitle').textContent = siteContent.heroTitle;
+  if(siteContent.heroSub) document.getElementById('heroSub').textContent = siteContent.heroSub;
+  if(siteContent.heroTagline) document.getElementById('heroTagline').textContent = siteContent.heroTagline;
+  if(siteContent.bio) document.getElementById('aboutBio').textContent = siteContent.bio;
+  if(siteContent.aboutImg){
+    document.getElementById('aboutImage').innerHTML = '<img src="'+siteContent.aboutImg+'" alt="DJ Gus Ballas">';
+  }
+  if(siteContent.contactEmail) document.querySelectorAll('a[href^="mailto"]').forEach(a=>a.href='mailto:'+siteContent.contactEmail);
+  if(siteContent.contactPhone) document.querySelectorAll('a[href^="tel"]').forEach(a=>a.href='tel:'+siteContent.contactPhone.replace(/-/g,''));
+  renderGallery();
+  renderMusic();
+}
+loadContent();
+
+// ===== MOBILE MENU =====
+function toggleMobileMenu(){
+  document.getElementById('mobileNav').classList.toggle('active');
+}
+
+// ===== GALLERY =====
+function renderGallery(){
+  const grid = document.getElementById('galleryGrid');
+  if(galleryData.length === 0){
+    grid.innerHTML = '<div class="gallery-item animate-on-scroll" onclick="openLightbox(this)"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);font-size:0.85rem;padding:1rem;text-align:center;">&#128248; Upload photos/videos in Admin panel</div></div>';
+    return;
+  }
+  grid.innerHTML = galleryData.map((item, i) => {
+    const isVideo = item.url.match(/\.(mp4|webm|mov)$/i) || item.url.includes('video');
+    if(isVideo){
+      return '<div class="gallery-item animate-on-scroll" onclick="openLightbox(this,'+i+')">'+
+             '<video src="'+item.url+'" muted loop></video>'+
+             '<div class="overlay"><span>&#9654;</span></div></div>';
+    }
+    return '<div class="gallery-item animate-on-scroll" onclick="openLightbox(this,'+i+')">'+
+           '<img src="'+item.url+'" alt="'+(item.caption||'')+'">'+
+           '<div class="overlay"><span>&#128269;</span></div></div>';
+  }).join('');
+  document.querySelectorAll('#galleryGrid .animate-on-scroll').forEach(el => observer.observe(el));
+}
+
+function openLightbox(el, idx){
+  const lb = document.getElementById('lightbox');
+  const img = document.getElementById('lightboxImg');
+  const vid = document.getElementById('lightboxVideo');
+  if(idx !== undefined && galleryData[idx]){
+    const item = galleryData[idx];
+    const isVideo = item.url.match(/\.(mp4|webm|mov)$/i) || item.url.includes('video');
+    if(isVideo){
+      img.style.display='none'; vid.style.display='block';
+      vid.src = item.url; vid.play();
+    } else {
+      vid.style.display='none'; img.style.display='block';
+      img.src = item.url;
+    }
+  } else {
+    const media = el.querySelector('img, video');
+    if(media){
+      if(media.tagName === 'VIDEO'){
+        img.style.display='none'; vid.style.display='block';
+        vid.src = media.src; vid.play();
+      } else {
+        vid.style.display='none'; img.style.display='block';
+        img.src = media.src;
+      }
+    }
+  }
+  lb.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('active');
+  document.getElementById('lightboxVideo').pause();
+  document.body.style.overflow = '';
+}
+
+// ===== MUSIC =====
+function renderMusic(){
+  const list = document.getElementById('musicList');
+  if(musicData.length === 0) return;
+  list.innerHTML = musicData.map((track, i) => 
+    '<div class="music-item animate-on-scroll delay-'+(i%3+1)+'">'+
+    '<button class="music-play" onclick="playTrack('+i+')">&#9654;</button>'+
+    '<div class="music-info"><h4>'+track.title+'</h4><p>'+track.desc+'</p></div>'+
+    '<div class="music-wave"><span></span><span></span><span></span><span></span><span></span></div>'+
+    '</div>'
+  ).join('');
+  document.querySelectorAll('#musicList .animate-on-scroll').forEach(el => observer.observe(el));
+}
+function playTrack(i){
+  const track = musicData[i];
+  if(track && track.url) window.open(track.url, '_blank');
+}
+
+// ===== AI CHAT - FIXED: No variable redeclaration =====
+const defaultAIKnowledge = {
+  pricing: "Pricing depends on the event type, duration, and location. Weddings typically start around $1,500-$2,500. Sweet 16s and birthdays range from $800-$1,500. Corporate events are customized based on requirements. Contact us for a exact quote!",
+  availability: "I can check availability for your date! Please fill out the booking form with your event date and I will get back to you within 24 hours.",
+  greek: "DJ Gus Ballas is a Greek music specialist! He plays traditional dances like Kalamatiano, Tsamiko, and modern Greek hits. He maintains the true kefi (cultural energy) for authentic Greek celebrations.",
+  equipment: "Ballas Entertainment provides full professional sound and lighting equipment. We handle setup and breakdown. Wireless microphones for speeches and announcements are included.",
+  hours: "Typical events run 4-6 hours, but we can accommodate longer events. Overtime is available at an hourly rate.",
+  deposit: "A 50% deposit is required to secure your date. The remaining balance is due one week before the event. We accept cash, check, Venmo, and Zelle.",
+  cancel: "Deposits are refundable if cancellation is made 60+ days before the event. Within 60 days, the deposit can be transferred to a new date within 12 months."
+};
+
+// Merge saved knowledge with defaults - FIXED: use Object.assign instead of spread to avoid redeclaration
+const aiKnowledge = Object.assign({}, defaultAIKnowledge, savedAIKnowledge);
+
+function sendAI(){
+  const input = document.getElementById('aiInput');
+  const msg = input.value.trim();
+  if(!msg) return;
+  const chat = document.getElementById('aiChatMessages');
+  chat.innerHTML += '<div class="ai-msg user">'+escapeHtml(msg)+'</div>';
+  input.value = '';
+  chat.scrollTop = chat.scrollHeight;
+
+  // Show typing indicator
+  const typingId = 'typing_' + Date.now();
+  chat.innerHTML += '<div class="ai-msg bot ai-typing" id="'+typingId+'"><span></span><span></span><span></span></div>';
+  chat.scrollTop = chat.scrollHeight;
+
+  setTimeout(() => {
+    const typingEl = document.getElementById(typingId);
+    if(typingEl) typingEl.remove();
+    const reply = generateAIReply(msg.toLowerCase());
+    chat.innerHTML += '<div class="ai-msg bot">'+reply+'</div>';
+    chat.scrollTop = chat.scrollHeight;
+  }, 800);
+}
+
+function generateAIReply(msg){
+  if(msg.includes('price') || msg.includes('cost') || msg.includes('how much') || msg.includes('rate'))
+    return aiKnowledge.pricing;
+  if(msg.includes('available') || msg.includes('date') || msg.includes('book') || msg.includes('schedule'))
+    return aiKnowledge.availability;
+  if(msg.includes('greek') || msg.includes('kefi') || msg.includes('traditional'))
+    return aiKnowledge.greek;
+  if(msg.includes('equipment') || msg.includes('sound') || msg.includes('light') || msg.includes('mic'))
+    return aiKnowledge.equipment;
+  if(msg.includes('hour') || msg.includes('long') || msg.includes('time'))
+    return aiKnowledge.hours;
+  if(msg.includes('deposit') || msg.includes('payment') || msg.includes('pay'))
+    return aiKnowledge.deposit;
+  if(msg.includes('cancel') || msg.includes('refund'))
+    return aiKnowledge.cancel;
+  if(msg.includes('hello') || msg.includes('hi') || msg.includes('hey'))
+    return "Hey there! Ready to make your event unforgettable? Ask me about pricing, availability, or anything about DJ Gus Ballas!";
+  if(msg.includes('contact') || msg.includes('email') || msg.includes('phone') || msg.includes('call'))
+    return "You can reach Ballas Entertainment at Ballasentertainment@yahoo.com or call/text 1-917-584-5852. You can also fill out the booking form on this page!";
+  if(msg.includes('wedding') || msg.includes('marriage'))
+    return "Weddings are our specialty! DJ Gus Ballas crafts high-energy, memorable receptions with customized itineraries and curated music sets. Pricing starts around $1,500-$2,500. Want to check availability?";
+  if(msg.includes('sweet 16') || msg.includes('birthday') || msg.includes('party'))
+    return "Sweet 16s and birthdays are a blast! We tailor modern playlists to match the exact energy and musical preferences of younger crowds. Pricing ranges from $800-$1,500.";
+  return "Great question! DJ Gus Ballas has 30+ years of experience covering weddings, Sweet 16s, corporate events, Greek celebrations, and more. For the most accurate info, fill out the booking form or call 1-917-584-5852. What type of event are you planning?";
+}
+
+function escapeHtml(text){
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ===== BOOKING =====
+function handleBooking(e){
+  e.preventDefault();
+  const name = document.getElementById('bookName').value;
+  const email = document.getElementById('bookEmail').value;
+  const phone = document.getElementById('bookPhone').value;
+  const event = document.getElementById('bookEvent').value;
+  const date = document.getElementById('bookDate').value;
+  const msg = document.getElementById('bookMsg').value;
+
+  const subject = 'Booking Request: ' + event + ' on ' + date;
+  const body = 'Name: ' + name + '%0D%0AEmail: ' + email + '%0D%0APhone: ' + phone + '%0D%0AEvent: ' + event + '%0D%0ADate: ' + date + '%0D%0AMessage: ' + msg;
+  window.open('mailto:Ballasentertainment@yahoo.com?subject=' + encodeURIComponent(subject) + '&body=' + body);
+
+  const smsBody = 'New Booking: ' + name + ' wants ' + event + ' on ' + date + '. Call: ' + phone;
+  window.open('sms:19175845852?body=' + encodeURIComponent(smsBody));
+
+  bookings++;
+  localStorage.setItem('be_bookings', bookings);
+
+  const chat = document.getElementById('aiChatMessages');
+  chat.innerHTML += '<div class="ai-msg bot">Thanks ' + name + '! Your booking request for ' + event + ' on ' + date + ' has been sent. DJ Gus Ballas will contact you within 24 hours at ' + phone + ' or ' + email + '.</div>';
+  chat.scrollTop = chat.scrollHeight;
+
+  document.getElementById('bookingForm').reset();
+  alert('Booking request sent! We will contact you soon.');
+}
+
+// ===== ADMIN - FIXED =====
+function openLogin(){ 
+  document.getElementById('loginOverlay').classList.add('active'); 
+  document.getElementById('adminPassword').value = '';
+  document.getElementById('adminPassword').focus();
+}
+function closeLogin(){ 
+  document.getElementById('loginOverlay').classList.remove('active'); 
+}
+
+function checkLogin(){
+  const pass = document.getElementById('adminPassword').value;
+  if(pass === adminPass){
+    closeLogin();
+    document.getElementById('adminOverlay').classList.add('active');
+    document.getElementById('visitCount').textContent = parseInt(localStorage.getItem('be_visits')||'0');
+    document.getElementById('bookingCount').textContent = parseInt(localStorage.getItem('be_bookings')||'0');
+    renderGalleryList();
+    renderMusicListAdmin();
+    document.getElementById('editHeroTitle').value = siteContent.heroTitle || 'BALLAS ENTERTAINMENT';
+    document.getElementById('editHeroSub').value = siteContent.heroSub || 'DJ Gus Ballas';
+    document.getElementById('editHeroTagline').value = siteContent.heroTagline || '';
+    document.getElementById('editBio').value = siteContent.bio || '';
+    document.getElementById('editContactEmail').value = siteContent.contactEmail || 'Ballasentertainment@yahoo.com';
+    document.getElementById('editContactPhone').value = siteContent.contactPhone || '1-917-584-5852';
+    loadAIKnowledge();
+  } else { 
+    alert('Wrong password!'); 
+  }
+}
+function closeAdmin(){ 
+  document.getElementById('adminOverlay').classList.remove('active'); 
+}
+function switchTab(tab){
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='stats'){
+    document.getElementById('visitCount').textContent = parseInt(localStorage.getItem('be_visits')||'0');
+    document.getElementById('bookingCount').textContent = parseInt(localStorage.getItem('be_bookings')||'0');
+  }
+}
+function saveContent(){
+  siteContent.heroTitle = document.getElementById('editHeroTitle').value;
+  siteContent.heroSub = document.getElementById('editHeroSub').value;
+  siteContent.heroTagline = document.getElementById('editHeroTagline').value;
+  siteContent.bio = document.getElementById('editBio').value;
+  localStorage.setItem('be_content', JSON.stringify(siteContent));
+  loadContent(); 
+  alert('Content saved!');
+}
+function saveAboutImage(){
+  const url = document.getElementById('editAboutImg').value.trim();
+  if(!url){ alert('Enter an image URL'); return; }
+  siteContent.aboutImg = url; 
+  localStorage.setItem('be_content', JSON.stringify(siteContent));
+  document.getElementById('aboutImage').innerHTML = '<img src="'+url+'" alt="DJ Gus Ballas">';
+  alert('About image updated!');
+}
+function addGalleryItem(){
+  const url = document.getElementById('editGalleryUrl').value.trim(), caption = document.getElementById('editGalleryCaption').value.trim();
+  if(!url){ alert('Enter a URL'); return; }
+  galleryData.push({url, caption}); 
+  localStorage.setItem('be_gallery', JSON.stringify(galleryData));
+  renderGallery(); 
+  renderGalleryList();
+  document.getElementById('editGalleryUrl').value=''; 
+  document.getElementById('editGalleryCaption').value='';
+}
+function renderGalleryList(){
+  const el = document.getElementById('galleryList');
+  if(galleryData.length===0){ el.innerHTML='<p style="color:var(--text2);font-size:0.82rem;">No gallery items yet</p>'; return; }
+  el.innerHTML = galleryData.map((item,i) => '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem;background:var(--bg);border-radius:8px;margin-bottom:0.3rem;"><span style="font-size:0.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:65%;">'+(item.caption||item.url)+'</span><button onclick="removeGallery('+i+')" style="background:var(--accent2);border:none;color:white;padding:0.3rem 0.6rem;border-radius:5px;cursor:pointer;font-size:0.72rem;">Remove</button></div>').join('');
+}
+function removeGallery(i){ 
+  galleryData.splice(i,1); 
+  localStorage.setItem('be_gallery',JSON.stringify(galleryData)); 
+  renderGallery(); 
+  renderGalleryList(); 
+}
+
+// FIXED: The broken line was here - now properly written
+function addMusicTrack(){
+  const title = document.getElementById('editMusicTitle').value.trim(), 
+        desc = document.getElementById('editMusicDesc').value.trim(), 
+        url = document.getElementById('editMusicUrl').value.trim();
+  if(!title || !url){ alert('Enter title and URL'); return; }
+  musicData.push({title, desc, url}); 
+  localStorage.setItem('be_music', JSON.stringify(musicData));
+  renderMusic(); 
+  renderMusicListAdmin();
+  document.getElementById('editMusicTitle').value=''; 
+  document.getElementById('editMusicDesc').value=''; 
+  document.getElementById('editMusicUrl').value='';
+}
+
+function renderMusicListAdmin(){
+  const el = document.getElementById('musicListAdmin');
+  if(musicData.length===0){ el.innerHTML='<p style="color:var(--text2);font-size:0.82rem;">No tracks yet</p>'; return; }
+  el.innerHTML = musicData.map((track,i) => '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem;background:var(--bg);border-radius:8px;margin-bottom:0.3rem;"><span style="font-size:0.82rem;">'+track.title+'</span><button onclick="removeMusic('+i+')" style="background:var(--accent2);border:none;color:white;padding:0.3rem 0.6rem;border-radius:5px;cursor:pointer;font-size:0.72rem;">Remove</button></div>').join('');
+}
+function removeMusic(i){ 
+  musicData.splice(i,1); 
+  localStorage.setItem('be_music',JSON.stringify(musicData)); 
+  renderMusic(); 
+  renderMusicListAdmin(); 
+}
+function resetStats(){ 
+  localStorage.setItem('be_visits', '0'); 
+  localStorage.setItem('be_bookings', '0'); 
+  document.getElementById('visitCount').textContent = '0'; 
+  document.getElementById('bookingCount').textContent = '0'; 
+  alert('Stats reset!'); 
+}
+function changePassword(){
+  const newPass = document.getElementById('newPassword').value, confirm = document.getElementById('confirmPassword').value;
+  if(!newPass || newPass !== confirm){ alert('Passwords do not match'); return; }
+  adminPass = newPass; 
+  localStorage.setItem('be_adminPass', adminPass); 
+  alert('Password changed!');
+  document.getElementById('newPassword').value=''; 
+  document.getElementById('confirmPassword').value='';
+}
+function saveContact(){
+  siteContent.contactEmail = document.getElementById('editContactEmail').value;
+  siteContent.contactPhone = document.getElementById('editContactPhone').value;
+  localStorage.setItem('be_content', JSON.stringify(siteContent)); 
+  loadContent(); 
+  alert('Contact info saved!');
+}
+
+// FIXED: AI Knowledge save/load functions
+function saveAIKnowledge(){
+  const newKnowledge = {
+    pricing: document.getElementById('editAIpricing').value,
+    availability: document.getElementById('editAIavailability').value,
+    greek: document.getElementById('editAIgreek').value,
+    equipment: document.getElementById('editAIequipment').value,
+    hours: document.getElementById('editAIhours').value,
+    deposit: document.getElementById('editAIdeposit').value,
+    cancel: document.getElementById('editAIcancel').value
+  };
+  localStorage.setItem('be_aiKnowledge', JSON.stringify(newKnowledge));
+  // Update the in-memory aiKnowledge object
+  Object.assign(aiKnowledge, newKnowledge);
+  alert('AI Knowledge saved!');
+}
+
+function loadAIKnowledge(){
+  const saved = JSON.parse(localStorage.getItem('be_aiKnowledge') || '{}');
+  if(saved.pricing) document.getElementById('editAIpricing').value = saved.pricing;
+  if(saved.availability) document.getElementById('editAIavailability').value = saved.availability;
+  if(saved.greek) document.getElementById('editAIgreek').value = saved.greek;
+  if(saved.equipment) document.getElementById('editAIequipment').value = saved.equipment;
+  if(saved.hours) document.getElementById('editAIhours').value = saved.hours;
+  if(saved.deposit) document.getElementById('editAIdeposit').value = saved.deposit;
+  if(saved.cancel) document.getElementById('editAIcancel').value = saved.cancel;
+}
+
+// Smooth scroll
+function smoothScroll(e){
+  e.preventDefault();
+  const target = document.querySelector(this.getAttribute('href'));
+  if(target) target.scrollIntoView({behavior:'smooth'});
+}
+document.querySelectorAll('a[href^="#"]').forEach(a=>{
+  a.addEventListener('click', smoothScroll);
+});
+</script>
+</body>
+</html>
