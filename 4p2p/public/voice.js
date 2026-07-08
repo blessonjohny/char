@@ -52,6 +52,28 @@
   let audioCtx = null;
   let micAnalyser = null;
 
+  const blockedAudio = new Set();
+  function attemptPlay(audio) {
+    const p = audio.play();
+    if (p && p.catch) {
+      p.then(() => {
+        blockedAudio.delete(audio);
+        updateSoundBanner();
+      }).catch((err) => {
+        blockedAudio.add(audio);
+        updateSoundBanner();
+        console.warn('[voice] autoplay blocked, waiting for a tap to enable sound:', err.message);
+      });
+    }
+  }
+  function retryBlockedAudio() {
+    for (const audio of Array.from(blockedAudio)) attemptPlay(audio);
+  }
+  function updateSoundBanner() {
+    if (!ui) return;
+    ui.soundBanner.style.display = blockedAudio.size > 0 ? 'block' : 'none';
+  }
+
   // ---------------- UI ----------------
   let ui = null;
   function buildUI() {
@@ -75,6 +97,9 @@
       .k28v-dot{width:8px;height:8px;border-radius:50%;background:#555;flex-shrink:0;transition:background 0.15s,box-shadow 0.15s}
       .k28v-dot.on{background:#3ddc84;box-shadow:0 0 6px #3ddc84}
       .k28v-empty{font-size:0.72rem;color:#8a98ac;padding:4px 2px}
+      #k28vSoundBanner{position:fixed;left:64px;right:10px;top:60px;z-index:160;display:none;
+        background:linear-gradient(135deg,#e6a817,#f4c430);color:#0a1628;font-weight:800;font-size:0.8rem;
+        border-radius:10px;padding:10px 14px;text-align:center;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.4)}
     `;
     document.head.appendChild(style);
 
@@ -89,7 +114,14 @@
     panel.innerHTML = '<h4>🔊 On voice</h4><div id="k28vList"></div>';
     document.body.appendChild(panel);
 
+    const soundBanner = document.createElement('div');
+    soundBanner.id = 'k28vSoundBanner';
+    soundBanner.textContent = '🔇 Tap here to enable voice sound';
+    soundBanner.addEventListener('click', retryBlockedAudio);
+    document.body.appendChild(soundBanner);
+
     btn.addEventListener('click', async () => {
+      retryBlockedAudio(); // a real tap — good moment to also unstick any blocked playback
       if (!inCall) {
         const ok = await join();
         if (ok) { btn.classList.add('live'); panel.classList.add('on'); renderList(); }
@@ -100,7 +132,7 @@
       }
     });
 
-    ui = { btn, panel, list: panel.querySelector('#k28vList') };
+    ui = { btn, panel, list: panel.querySelector('#k28vList'), soundBanner };
     return ui;
   }
 
@@ -165,11 +197,21 @@
         audio = document.createElement('audio');
         audio.autoplay = true;
         audio.playsInline = true;
+        audio.volume = 1;
+        audio.muted = false;
         audio.style.display = 'none';
         document.body.appendChild(audio);
         audioEls.set(id, audio);
       }
       audio.srcObject = e.streams[0];
+      // Browsers can silently refuse to actually play an <audio> element
+      // even though the track is arriving fine — the level meter below
+      // reads straight off the incoming stream, so it lights up whether
+      // or not this succeeds, which is exactly why voice can look
+      // "connected" while staying silent. If play() is blocked, surface
+      // an explicit "tap to enable sound" prompt (a real tap always
+      // satisfies the browser's autoplay gesture requirement).
+      attemptPlay(audio);
       watchLevel(id, e.streams[0]);
     };
     pc.onconnectionstatechange = () => {
@@ -191,10 +233,11 @@
     const pc = peers.get(id);
     if (pc) { pc.close(); peers.delete(id); }
     const audio = audioEls.get(id);
-    if (audio) { audio.remove(); audioEls.delete(id); }
+    if (audio) { blockedAudio.delete(audio); audio.remove(); audioEls.delete(id); }
     analysers.delete(id);
     names.delete(id);
     renderList();
+    updateSoundBanner();
   }
 
   async function handleSignal(from, signal) {
@@ -233,6 +276,8 @@
     for (const id of Array.from(peers.keys())) removePeer(id);
     if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
     analysers.delete('me');
+    blockedAudio.clear();
+    updateSoundBanner();
   }
 
   function positionTopLeft() {
@@ -245,6 +290,7 @@
     }
     ui.btn.style.top = top + 'px';
     ui.panel.style.top = (top + 58) + 'px';
+    if (ui.soundBanner) ui.soundBanner.style.top = top + 'px';
   }
   window.addEventListener('resize', positionTopLeft);
 
@@ -265,6 +311,7 @@
     socket.on('voicePeerJoined', (p) => { names.set(p.id, p.name); renderList(); });
     socket.on('voicePeerLeft', ({ id }) => removePeer(id));
     socket.on('voiceSignal', ({ from, signal }) => handleSignal(from, signal));
+    document.addEventListener('click', retryBlockedAudio, { passive: true });
   }
 
   window.K28Voice = { attach, showButton, hideButton, join, leave, get inCall() { return inCall; } };
