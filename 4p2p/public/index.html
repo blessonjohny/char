@@ -65,6 +65,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .welcome-tagline{font-size:0.85rem;color:rgba(255,215,0,0.7);margin-bottom:28px;font-weight:500;letter-spacing:1px}
 .welcome-btn-wrap{width:100%;max-width:320px;margin:0 auto;padding:0 20px;display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px}
 .welcome-btn{width:100%;padding:14px 20px;border-radius:12px;border:1.5px solid rgba(255,215,0,0.3);background:rgba(255,215,0,0.05);color:var(--accent);font-size:0.95rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);position:relative;overflow:hidden}
+.welcome-subbtn-row{width:100%;max-width:320px;margin:0 auto 20px;padding:0 20px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;box-sizing:border-box}
+.welcome-subbtn{padding:7px 13px;border-radius:18px;border:1px solid rgba(255,215,0,0.22);background:rgba(255,255,255,0.03);color:var(--text-secondary);font-size:0.7rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap;transition:all 0.2s}
+.welcome-subbtn:active{background:rgba(255,215,0,0.1);color:var(--accent)}
 .welcome-btn::before{content:'';position:absolute;top:0;left:-100%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent);animation:buttonShine 3s ease-in-out infinite}
 .welcome-btn:hover,.welcome-btn:active{background:rgba(255,215,0,0.15);border-color:var(--accent);transform:translateY(-2px) scale(1.02);box-shadow:0 8px 25px rgba(255,215,0,0.15)}
 .welcome-btn .icon{font-size:1.2rem}
@@ -2257,26 +2260,21 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 
   <div class="welcome-btn-wrap">
     <button class="welcome-btn primary" id="btnPlayOnline">
-      <span class="icon">🌐</span> Play Online <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🎙️ with live voice chat — feels like playing at the real table</span>
+      <span class="icon">🌐</span> Play 4 Player Online <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🎙️ with live voice chat — feels like playing at the real table</span>
     </button>
-    <button class="welcome-btn" id="btnPlayLocal">
-      <span class="icon">🎮</span> Play vs Bots
-    </button>
-    <button class="welcome-btn" id="btnRules">
-      <span class="icon">📖</span> How to Play
-    </button>
-    <button class="welcome-btn" id="btnBrainManager">
-      <span class="icon">🧠</span> Bot Brain Manager
-    </button>
-    <button class="welcome-btn" id="btnLoadSavedGame">
-      <span class="icon">📂</span> Load Saved Game
-    </button>
-    <a class="welcome-btn" href="/six.html" style="background:linear-gradient(135deg,#9b59b6,#8e44ad);border-color:transparent;color:#fff;text-decoration:none">
-      <span class="icon">👥</span> 6 Player Table
+    <a class="welcome-btn primary" href="/six.html" style="background:linear-gradient(135deg,#9b59b6,#8e44ad);border-color:transparent;color:#fff;text-decoration:none">
+      <span class="icon">👥</span> Play 6 Player Online <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🎙️ with live voice chat — 2 teams of 3, feels like the real table</span>
     </a>
-    <button class="welcome-btn" id="btnLeaveComment">
-      <span class="icon">💌</span> Leave a Comment
+    <button class="welcome-btn primary" id="btnPlayLocal" style="background:linear-gradient(135deg,#2a3f5f,#1a2942);border-color:transparent;color:#fff">
+      <span class="icon">🎮</span> Play vs Bots <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🧠 Teach them your moves — each bot learns your strategy over time</span>
     </button>
+  </div>
+
+  <div class="welcome-subbtn-row">
+    <button class="welcome-subbtn" id="btnRules"><span>📖</span> How to Play</button>
+    <button class="welcome-subbtn" id="btnBrainManager"><span>🧠</span> Bot Brain Manager</button>
+    <button class="welcome-subbtn" id="btnLoadSavedGame"><span>📂</span> Load Saved Game</button>
+    <button class="welcome-subbtn" id="btnLeaveComment"><span>💌</span> Leave a Comment</button>
   </div>
 
   <div class="welcome-features">
@@ -3850,7 +3848,13 @@ function showModal(title, text) {
   document.getElementById('modalText').innerHTML = text;
   document.getElementById('modalOverlay').classList.add('on');
 }
-function closeModal() { document.getElementById('modalOverlay').classList.remove('on'); }
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('on');
+  if (typeof botPickerReturnToHostMenu !== 'undefined' && botPickerReturnToHostMenu) {
+    botPickerReturnToHostMenu = false;
+    openServerHostMenu();
+  }
+}
 
 // ==================== HOME / QUIT WARNING ====================
 function showHomeWarning() {
@@ -3871,7 +3875,7 @@ function showHomeWarning() {
     okBtn.style.background = '';
     okBtn.onclick = oldOk;
     saveGameToFile();
-    setTimeout(function() { goHome(); }, 500);
+    setTimeout(function() { exitToHome(); }, 500);
   };
 
   let noBtn = document.getElementById('modalNoBtn');
@@ -3894,7 +3898,7 @@ function showHomeWarning() {
     okBtn.textContent = 'OK';
     okBtn.style.background = '';
     okBtn.onclick = oldOk;
-    goHome();
+    exitToHome();
   };
 
   // Add a third button for "Continue Playing"
@@ -9338,9 +9342,18 @@ document.getElementById('btnLog').addEventListener('click', openLog);
 document.getElementById('btnCloseLog').addEventListener('click', closeLog);
 document.getElementById('btnHome').addEventListener('click', showHomeWarning);
 function backToRoomLobby() {
+  leaveCurrentTableCleanup();
   document.getElementById('gameWrap').style.display = 'none';
   document.getElementById('topBar').style.display = 'none';
+  document.getElementById('welcomeScreen').style.display = 'none';
   document.getElementById('lobbyScreen').style.display = 'flex';
+  document.getElementById('nameCard').style.display = 'none';
+  document.getElementById('hostCard').style.display = 'block';
+  document.getElementById('joinCard').style.display = 'block';
+  const sub = document.getElementById('lobbySub');
+  if (sub) sub.textContent = 'Create or join a table';
+  connectGameSocket();
+  gameSocket.emit('listRooms');
 }
 document.getElementById('modalOkBtn').addEventListener('click', closeModal);
 document.getElementById('modalOverlay').addEventListener('click', (e) => { if (e.target.id === 'modalOverlay') closeModal(); });
@@ -11796,7 +11809,7 @@ function joinTableOnServer(tableIdRaw, name) {
   }, 8000);
 }
 
-function leaveServerTable() {
+function leaveCurrentTableCleanup() {
   if (window.K28Voice) K28Voice.hideButton();
   if (gameSocket) gameSocket.emit('leaveTable');
   MY_TABLE_ID = null;
@@ -11806,7 +11819,22 @@ function leaveServerTable() {
   try { localStorage.removeItem('k28_table_id'); localStorage.removeItem('k28_session_time'); } catch (e) {}
   const linkBox = document.getElementById('roomLinkBox');
   if (linkBox) { linkBox.style.display = 'none'; linkBox.innerHTML = ''; }
+}
+
+function leaveServerTable() {
+  leaveCurrentTableCleanup();
   goHome();
+}
+
+// Used by the "Home" confirmation: local (offline vs-bots) games just go
+// straight home, but an online game needs the server told we're actually
+// leaving the table first — otherwise the socket/table stay alive
+// server-side with us still "in" them, and the next click gets confusing
+// (this was the bug behind Home appearing to silently do nothing, or
+// Leave/Play acting like the old table was still current).
+function exitToHome() {
+  if (SERVER_MODE || IS_ONLINE) leaveServerTable();
+  else goHome();
 }
 
 // The seat-picker: shown to every fresh joiner (never a reconnect), either
@@ -12141,6 +12169,15 @@ function renderHostMenuPlayerList() {
 // Swapping a bot's personality mid-game is safe at any point — it only
 // ever changes which name/learned brain is behind the seat, never the
 // cards or whose turn it is (see renameBotSeat server-side).
+//
+// This picker reuses the generic modal — but that modal sits at a LOWER
+// z-index than the Host Menu it's opened from, so the Host Menu has to
+// actually close first or the picker renders invisibly underneath it
+// (tap events land on nothing, even though a pick still silently reaches
+// the server). botPickerReturnToHostMenu makes closeModal() bring the
+// Host Menu back — refreshed — once the picker closes, however it closes
+// (a pick, or tapping outside to cancel).
+var botPickerReturnToHostMenu = false;
 function openChangeBotPicker(pos) {
   const takenNames = new Set((latestServerState.seats || []).filter(Boolean).map(s => s.name));
   const options = ALL_PLAYERS.filter(p => !takenNames.has(p.name));
@@ -12148,6 +12185,8 @@ function openChangeBotPicker(pos) {
   const listHtml = options.map(p =>
     `<button class="btn btn-outline" style="width:100%;margin-bottom:6px;text-align:left" onclick="confirmChangeBot(${pos}, '${p.name}')">${p.emoji} ${p.name}</button>`
   ).join('');
+  document.getElementById('hostMenuOverlay').classList.remove('on');
+  botPickerReturnToHostMenu = true;
   showModal('🔄 Change Bot', `<div style="max-height:50vh;overflow-y:auto">${listHtml}</div>`);
   const okBtn = document.getElementById('modalOkBtn');
   okBtn.style.display = 'none'; // this modal is pick-one-of-many, not a single OK action
@@ -12156,6 +12195,7 @@ function confirmChangeBot(pos, newName) {
   closeModal();
   document.getElementById('modalOkBtn').style.display = 'block';
   gameSocket.emit('changeBotName', { pos, newName });
+  showToast(`🔄 Bot changed to ${newName}`, 'win', 2200);
 }
 
 function openServerHostMenu() {
