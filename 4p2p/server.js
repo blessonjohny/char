@@ -118,11 +118,14 @@ const playerIndex = {};
 // approves a mid-game join request.
 const pendingSeatChoice = {};
 
-// Server-wide entry lock, set/cleared by the admin panel. When set, brand
-// new table creations and brand new joins require this code — but anyone
-// already seated, and anyone reconnecting to a seat they already hold,
-// is completely unaffected. This gates NEW entry only, never continuation.
-let serverLockCode = null;
+// Room cap, set/cleared by the admin panel. When enabled, brand new table
+// creations (4-player or 6-player, counted together) are refused once
+// roomCapMax tables already exist — but joining/watching any table that
+// already exists is completely unaffected, and so is anyone reconnecting
+// to a seat they already hold. This only throttles NEW room creation.
+let roomCapEnabled = false;
+let roomCapMax = 3;
+function totalActiveRooms() { return Object.keys(tables).length + Object.keys(sixpTables).length; }
 
 // Matches the client's ADMIN_PASSWORD default (0000) — that's the panel
 // this lock feature actually lives in — so it works out of the box, but
@@ -205,7 +208,14 @@ function broadcastTable(t) {
   io.emit('roomList', publicTableList()); // cheap enough at this scale; trims a room's "Playing" badge live
 }
 
-function touch(t) { t.lastActivityAt = Date.now(); }
+function touch(t) {
+  t.lastActivityAt = Date.now();
+  if (t.stillPlayingTimer) {
+    clearTimeout(t.stillPlayingTimer);
+    t.stillPlayingTimer = null;
+    if (t.id) io.to(t.id).emit('stillPlayingResolved');
+  }
+}
 
 // If a table has zero real humans left (everyone who's left is a bot, or
 // the table is just empty), don't let it sit around playing bot-vs-bot for
@@ -231,7 +241,31 @@ function scheduleNoHumanShutdown(t, id) {
 // currently have nobody connected at all — mirrors the "close after 5 min
 // idle" policy from the old client, but now enforced centrally instead of
 // depending on any one browser's timer still being alive to do it.
+//
+// For tables where people ARE still connected but nothing has actually
+// happened in 5 minutes (nobody's bid, played, or so on — maybe everyone
+// just wandered off with the tab open), don't silently close it or let it
+// sit there forever either: ask. Everyone gets a 60-second countdown to
+// tap "Still here" — any real game action, or that tap, cancels it and
+// resets the clock. Nobody answering closes the table.
 const IDLE_LIMIT_MS = 5 * 60 * 1000;
+const STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
+
+function startStillPlayingCheck(t, id) {
+  if (t.stillPlayingTimer) return; // already asking
+  io.to(id).emit('stillPlayingCheck', { seconds: STILL_PLAYING_COUNTDOWN_MS / 1000 });
+  t.stillPlayingTimer = setTimeout(() => {
+    const stillThere = tables[id];
+    if (!stillThere) return;
+    stillThere.stillPlayingTimer = null;
+    console.log(`[idle] Closing table ${id} — nobody confirmed still playing`);
+    io.to(id).emit('tableClosed', { reason: 'idle' });
+    for (const s of stillThere.engine.seats) if (s && s.playerId) delete playerIndex[s.playerId];
+    delete tables[id];
+    io.emit('roomList', publicTableList());
+  }, STILL_PLAYING_COUNTDOWN_MS);
+}
+
 setInterval(() => {
   const now = Date.now();
   for (const id of Object.keys(tables)) {
@@ -241,6 +275,8 @@ setInterval(() => {
       console.log(`[cleanup] Closing idle table ${id} (${now - t.lastActivityAt}ms since last activity)`);
       for (const s of t.engine.seats) if (s && s.playerId) delete playerIndex[s.playerId];
       delete tables[id];
+    } else if (anyoneConnected && now - t.lastActivityAt > IDLE_LIMIT_MS) {
+      startStillPlayingCheck(t, id);
     }
   }
   io.emit('roomList', publicTableList());
@@ -250,38 +286,39 @@ io.on('connection', (socket) => {
   let playerId = null;
   let tableId = null;
 
-  // Every fresh connection immediately learns whether the server is
-  // locked, so the client can show the code prompt before even attempting
-  // create/join rather than after a round-trip failure.
-  socket.emit('lockStatus', { locked: !!serverLockCode });
+  // Every fresh connection immediately learns the current room-cap status,
+  // mainly so the admin panel can show it — regular players never need to
+  // act on this themselves, since creating is the only thing it can block
+  // and that comes back as its own friendly 'createBlocked' message.
+  socket.emit('lockStatus', { capped: roomCapEnabled, maxRooms: roomCapMax, currentRooms: totalActiveRooms() });
 
   socket.on('listRooms', () => {
     socket.emit('roomList', publicTableList());
   });
 
-  // Admin-only: set or clear the server-wide entry lock. Verified against
-  // a server-side secret so this can't just be called from devtools by
+  // Admin-only: enable/change or clear the room cap. Verified against a
+  // server-side secret so this can't just be called from devtools by
   // anyone who noticed the event name — the client's own password prompt
   // is a convenience, not the actual security boundary.
-  socket.on('adminSetLock', ({ adminPassword, code }) => {
+  socket.on('adminSetLock', ({ adminPassword, maxRooms }) => {
     if (adminPassword !== ADMIN_SECRET) return;
-    const trimmed = String(code || '').trim();
-    if (!trimmed) return;
-    serverLockCode = trimmed;
-    io.emit('lockStatus', { locked: true });
-    console.log(`[admin] server locked with a new entry code`);
+    const n = parseInt(maxRooms, 10);
+    roomCapMax = Number.isFinite(n) && n > 0 ? Math.min(n, 50) : 3;
+    roomCapEnabled = true;
+    io.emit('lockStatus', { capped: true, maxRooms: roomCapMax, currentRooms: totalActiveRooms() });
+    console.log(`[admin] room cap enabled — max ${roomCapMax} concurrent rooms`);
   });
 
   socket.on('adminClearLock', ({ adminPassword }) => {
     if (adminPassword !== ADMIN_SECRET) return;
-    serverLockCode = null;
-    io.emit('lockStatus', { locked: false });
-    console.log('[admin] server lock cleared');
+    roomCapEnabled = false;
+    io.emit('lockStatus', { capped: false, maxRooms: roomCapMax, currentRooms: totalActiveRooms() });
+    console.log('[admin] room cap disabled');
   });
 
-  socket.on('createTable', ({ name, code }) => {
-    if (serverLockCode && code !== serverLockCode) {
-      socket.emit('lockRequired', { action: 'create' });
+  socket.on('createTable', ({ name }) => {
+    if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
+      socket.emit('createBlocked', { maxRooms: roomCapMax });
       return;
     }
     const id = newTableId();
@@ -289,7 +326,7 @@ io.on('connection', (socket) => {
     playerId = newId();
     engine.seatHuman(3, name || 'Player', playerId);
     const t = {
-      engine, name: name || 'Player', hostPlayerId: playerId,
+      id, engine, name: name || 'Player', hostPlayerId: playerId,
       botFill: 3, createdAt: Date.now(), lastActivityAt: Date.now(),
       sockets: new Map()
     };
@@ -334,15 +371,9 @@ io.on('connection', (socket) => {
       // treat this as a brand new join, exactly as requested.
     }
 
-    // Past this point it's a genuinely new join (never a reconnect), so
-    // the entry lock applies — a locked server still lets anyone already
-    // seated keep playing and reconnecting freely, this only stops brand
-    // new people from getting in without the code.
-    if (serverLockCode && code !== serverLockCode) {
-      socket.emit('lockRequired', { action: 'join' });
-      return;
-    }
-
+    // Past this point it's a genuinely new join (never a reconnect). The
+    // room cap only throttles brand new CREATE requests — joining or
+    // watching a table that already exists is always allowed, cap or not.
     const t = tables[reqTableId];
     if (!t) { socket.emit('joinError', { reason: 'table_not_found' }); return; }
     const openSeats = t.engine.emptySeats();
@@ -709,6 +740,14 @@ io.on('connection', (socket) => {
     touch(t);
   });
 
+  // A tap of "Still here" on the idle-check popup — just counts as
+  // activity, which touch() already turns into cancelling the countdown
+  // and telling everyone in the room to dismiss the popup.
+  socket.on('stillPlaying', () => {
+    const t = tables[tableId];
+    if (t) touch(t);
+  });
+
   socket.on('leaveTable', () => {
     handleDisconnectOrLeave(true);
   });
@@ -896,7 +935,14 @@ function sixpBroadcastTable(t) {
   io.emit('sixp_roomList', sixpPublicTableList());
 }
 
-function sixpTouch(t) { t.lastActivityAt = Date.now(); }
+function sixpTouch(t) {
+  t.lastActivityAt = Date.now();
+  if (t.stillPlayingTimer) {
+    clearTimeout(t.stillPlayingTimer);
+    t.stillPlayingTimer = null;
+    if (t.id) io.to('sixp_' + t.id).emit('sixp_stillPlayingResolved');
+  }
+}
 
 const SIXP_NO_HUMAN_GRACE_MS = 60 * 1000;
 function sixpScheduleNoHumanShutdown(t, id) {
@@ -913,6 +959,22 @@ function sixpScheduleNoHumanShutdown(t, id) {
 }
 
 const SIXP_IDLE_LIMIT_MS = 5 * 60 * 1000;
+const SIXP_STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
+function sixpStartStillPlayingCheck(t, id) {
+  if (t.stillPlayingTimer) return;
+  io.to('sixp_' + id).emit('sixp_stillPlayingCheck', { seconds: SIXP_STILL_PLAYING_COUNTDOWN_MS / 1000 });
+  t.stillPlayingTimer = setTimeout(() => {
+    const stillThere = sixpTables[id];
+    if (!stillThere) return;
+    stillThere.stillPlayingTimer = null;
+    console.log(`[6p idle] Closing table ${id} — nobody confirmed still playing`);
+    io.to('sixp_' + id).emit('sixp_tableClosed', { reason: 'idle' });
+    for (const s of stillThere.engine.seats) if (s && s.playerId) delete sixpPlayerIndex[s.playerId];
+    delete sixpTables[id];
+    io.emit('sixp_roomList', sixpPublicTableList());
+  }, SIXP_STILL_PLAYING_COUNTDOWN_MS);
+}
+
 setInterval(() => {
   const now = Date.now();
   for (const id of Object.keys(sixpTables)) {
@@ -922,6 +984,8 @@ setInterval(() => {
       console.log(`[6p cleanup] Closing idle table ${id}`);
       for (const s of t.engine.seats) if (s && s.playerId) delete sixpPlayerIndex[s.playerId];
       delete sixpTables[id];
+    } else if (anyoneConnected && now - t.lastActivityAt > SIXP_IDLE_LIMIT_MS) {
+      sixpStartStillPlayingCheck(t, id);
     }
   }
   io.emit('sixp_roomList', sixpPublicTableList());
@@ -934,12 +998,16 @@ io.on('connection', (socket) => {
   socket.on('sixp_listRooms', () => { socket.emit('sixp_roomList', sixpPublicTableList()); });
 
   socket.on('sixp_createTable', ({ name }) => {
+    if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
+      socket.emit('createBlocked', { maxRooms: roomCapMax });
+      return;
+    }
     const id = newSixpTableId();
     const engine = new GameEngine6P(id);
     sixpPlayerId = newId();
     engine.seatHuman(0, name || 'Player', sixpPlayerId);
     const t = {
-      engine, name: name || 'Player', hostPlayerId: sixpPlayerId,
+      id, engine, name: name || 'Player', hostPlayerId: sixpPlayerId,
       botFill: 5, createdAt: Date.now(), lastActivityAt: Date.now(),
       sockets: new Map()
     };
@@ -1047,6 +1115,10 @@ io.on('connection', (socket) => {
       io.to('sixp_' + sixpTableId).emit('sixp_chat', { from: seat.name, msg: trimmed, senderId: socket.id });
       sixpTouch(t);
     });
+  });
+
+  socket.on('sixp_stillPlaying', () => {
+    withSixpTable((t) => { sixpTouch(t); });
   });
 
   socket.on('sixp_fillBots', ({ count }) => {
