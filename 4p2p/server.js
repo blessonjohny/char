@@ -739,6 +739,58 @@ io.on('connection', (socket) => {
 });
 
 // ============================================================
+// VOICE CHAT — WebRTC signaling relay only.
+// This server never touches actual audio; it just shuttles small JSON
+// offer/answer/ICE messages between browsers sitting at the same table so
+// they can open direct peer-to-peer audio connections with each other
+// (a "mesh" call). Works for both the 4-player and 6-player tables
+// without knowing anything about either — it just uses whichever room
+// the socket already joined via socket.join(...) above (the table id for
+// 4-player, 'sixp_'+id for 6-player), so voice is automatically scoped to
+// "everyone currently at this table".
+// ============================================================
+const voiceRooms = new Map(); // roomName -> Map(socketId -> displayName)
+
+function voiceRoomOf(socket) {
+  for (const r of socket.rooms) if (r !== socket.id) return r;
+  return null;
+}
+
+io.on('connection', (socket) => {
+  socket.on('voiceJoin', ({ name }) => {
+    const room = voiceRoomOf(socket);
+    if (!room) return;
+    let peers = voiceRooms.get(room);
+    if (!peers) { peers = new Map(); voiceRooms.set(room, peers); }
+    const existing = Array.from(peers.entries()).map(([id, n]) => ({ id, name: n }));
+    peers.set(socket.id, String(name || 'Player').slice(0, 20));
+    socket.emit('voicePeers', existing);
+    socket.to(room).emit('voicePeerJoined', { id: socket.id, name: peers.get(socket.id) });
+  });
+
+  socket.on('voiceSignal', ({ to, signal }) => {
+    if (!to || !signal) return;
+    io.to(to).emit('voiceSignal', { from: socket.id, signal });
+  });
+
+  socket.on('voiceLeave', () => {
+    const room = voiceRoomOf(socket);
+    if (room && voiceRooms.has(room)) voiceRooms.get(room).delete(socket.id);
+    if (room) socket.to(room).emit('voicePeerLeft', { id: socket.id });
+  });
+
+  socket.on('disconnect', () => {
+    for (const [room, peers] of voiceRooms) {
+      if (peers.has(socket.id)) {
+        peers.delete(socket.id);
+        socket.to(room).emit('voicePeerLeft', { id: socket.id });
+        if (peers.size === 0) voiceRooms.delete(room);
+      }
+    }
+  });
+});
+
+// ============================================================
 // 6-PLAYER VARIANT — completely separate table registry, separate socket
 // connection handler, separate (sixp_-prefixed) event names. Deliberately
 // NOT sharing a single line of state with the 4-player system above —
@@ -939,6 +991,17 @@ io.on('connection', (socket) => {
     if (!info) return;
     fn(t, info.pos);
   }
+
+  socket.on('sixp_chat', ({ msg }) => {
+    withSixpTable((t, pos) => {
+      const trimmed = String(msg || '').slice(0, 300).trim();
+      if (!trimmed) return;
+      const seat = t.engine.seats[pos];
+      if (!seat) return;
+      io.to('sixp_' + sixpTableId).emit('sixp_chat', { from: seat.name, msg: trimmed, senderId: socket.id });
+      sixpTouch(t);
+    });
+  });
 
   socket.on('sixp_fillBots', ({ count }) => {
     withSixpTable((t, pos) => {

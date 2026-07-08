@@ -8,7 +8,7 @@
 //    each suit (worth 0 points, like 7/8/K/Q). 6 cards dealt per player,
 //    all at once — no split "4 now, 4 more after trump" like the 4p game.
 //  - Single bidding phase, 16-28 (no phase-2 raise round at all). The
-//    first bidder (dealer's left) must bid at least 16 and cannot pass.
+//    first bidder (dealer's right) must bid at least 16 and cannot pass.
 //  - No Pair (K+Q of trump) bonus — deliberately left out.
 //  - No championship/King-of-the-Table meta-game — the match simply ends
 //    the moment either team's score reaches 12 or drops to 0.
@@ -29,13 +29,14 @@ brain.loadBrains();
 // Alternating seats form each team: 0,2,4 vs 1,3,5 — matches the source
 // file's own getTeam() exactly, not assumed.
 function getTeam(pos) { return pos % 2 === 0 ? 0 : 1; }
-// Matches the source file's own nextPlayer() convention exactly: seats
-// count DOWN, wrapping from 0 back to 5. Not the same as the 4-player
-// game's special non-sequential order — that fix was specific to a
-// reported real-multiplayer bug in THAT game; this one faithfully
-// preserves whatever convention the uploaded 6-player file already used
-// and had presumably already been played/tested with.
-function nextPos(p) { return (p + SEATS - 1) % SEATS; }
+// Turn order goes to the right around the table: seat numbers count UP,
+// wrapping from 5 back to 0. The very first dealer of a match is chosen
+// at random (see the constructor / restartGame below); every dealer
+// after that is simply whoever is one seat to the right of the last one,
+// and bidding/play always starts from the seat to the right of whoever
+// is currently acting — so the whole table rotates consistently in one
+// direction, right around from the random starting point.
+function nextPos(p) { return (p + 1) % SEATS; }
 
 function freshDeck() {
   const deck = [];
@@ -355,7 +356,7 @@ class GameEngine6P {
     this.trumpExposed = false;
     this.trickCards = [];
     this.trickSuit = '';
-    this.currentPlayer = nextPos(this.dealer); // dealer's left always leads, same as the 4p game
+    this.currentPlayer = nextPos(this.dealer); // dealer's right always leads
     this.addLog(`Play begins. Seat ${this.currentPlayer} leads.`);
     this._notify();
     this.maybeAutoAct();
