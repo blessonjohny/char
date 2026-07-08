@@ -88,15 +88,16 @@
       #k28vBtn.live{background:linear-gradient(135deg,#e74040,#c93030);animation:k28vPulse 1.8s ease-in-out infinite}
       #k28vBtn.speaking{box-shadow:0 0 0 4px rgba(61,220,132,0.55),0 4px 14px rgba(0,0,0,0.4)}
       @keyframes k28vPulse{0%,100%{box-shadow:0 4px 14px rgba(231,64,64,0.5)}50%{box-shadow:0 4px 22px rgba(231,64,64,0.9)}}
-      #k28vPanel{position:fixed;left:10px;top:110px;width:170px;max-height:220px;overflow-y:auto;
-        background:rgba(15,25,40,0.97);border:1px solid rgba(255,255,255,0.15);border-radius:12px;
-        padding:8px;z-index:150;display:none;font-family:inherit}
+      #k28vPanel{position:fixed;left:10px;top:106px;width:118px;max-height:150px;overflow-y:auto;
+        background:rgba(15,25,40,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+        border:1px solid rgba(255,255,255,0.12);border-radius:10px;
+        padding:6px;z-index:150;display:none;font-family:inherit}
       #k28vPanel.on{display:block}
-      #k28vPanel h4{margin:0 0 6px;font-size:0.65rem;color:#f4c430;letter-spacing:0.5px;text-transform:uppercase}
-      .k28v-row{display:flex;align-items:center;gap:6px;padding:4px 2px;font-size:0.78rem;color:#dfe8f5}
-      .k28v-dot{width:8px;height:8px;border-radius:50%;background:#555;flex-shrink:0;transition:background 0.15s,box-shadow 0.15s}
-      .k28v-dot.on{background:#3ddc84;box-shadow:0 0 6px #3ddc84}
-      .k28v-empty{font-size:0.72rem;color:#8a98ac;padding:4px 2px}
+      #k28vPanel h4{margin:0 0 4px;font-size:0.56rem;color:#f4c430;letter-spacing:0.3px;text-transform:uppercase}
+      .k28v-row{display:flex;align-items:center;gap:5px;padding:2px 1px;font-size:0.66rem;color:#dfe8f5}
+      .k28v-dot{width:6px;height:6px;border-radius:50%;background:#555;flex-shrink:0;transition:background 0.15s,box-shadow 0.15s}
+      .k28v-dot.on{background:#3ddc84;box-shadow:0 0 5px #3ddc84}
+      .k28v-empty{font-size:0.62rem;color:#8a98ac;padding:2px 1px}
       #k28vSoundBanner{position:fixed;left:64px;right:10px;top:60px;z-index:160;display:none;
         background:linear-gradient(135deg,#e6a817,#f4c430);color:#0a1628;font-weight:800;font-size:0.8rem;
         border-radius:10px;padding:10px 14px;text-align:center;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,0.4)}
