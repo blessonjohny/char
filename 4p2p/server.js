@@ -26,6 +26,7 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const { Server } = require('socket.io');
 const { GameEngine } = require('./game-engine');
@@ -44,6 +45,51 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 app.get('/status', (req, res) => {
   res.send('28 Kerala Gulan — Authoritative Server running ✅ | ' + Object.keys(tables).length + ' active table(s)');
+});
+
+// ============================================================
+// COMMENT BOX — lets a player leave a message from the welcome screen
+// without needing any email server. Stored as a plain JSON file on disk
+// (same durable-across-restarts approach as bot-brains-data.json), and
+// readable only through /api/comments with the admin password — that's
+// the "admin panel" this feeds; see public/admin.html.
+// ============================================================
+app.use(express.json({ limit: '32kb' }));
+
+const COMMENTS_FILE = path.join(__dirname, 'comments-data.json');
+let comments = [];
+try {
+  if (fs.existsSync(COMMENTS_FILE)) comments = JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf8'));
+} catch (e) {
+  console.error('[comments] failed to load comments file, starting fresh:', e.message);
+  comments = [];
+}
+function saveComments() {
+  try { fs.writeFileSync(COMMENTS_FILE, JSON.stringify(comments)); }
+  catch (e) { console.error('[comments] failed to save comments file:', e.message); }
+}
+
+app.post('/api/comments', (req, res) => {
+  const name = String((req.body && req.body.name) || 'Anonymous').slice(0, 40).trim() || 'Anonymous';
+  const message = String((req.body && req.body.message) || '').slice(0, 2000).trim();
+  if (!message) return res.status(400).json({ ok: false, error: 'empty_message' });
+  comments.unshift({ id: crypto.randomBytes(6).toString('hex'), name, message, time: Date.now() });
+  if (comments.length > 500) comments.length = 500; // cap growth — this is a comment box, not a database
+  saveComments();
+  console.log(`[comments] new message from ${name}`);
+  res.json({ ok: true });
+});
+
+app.get('/api/comments', (req, res) => {
+  if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  res.json({ ok: true, comments });
+});
+
+app.delete('/api/comments/:id', (req, res) => {
+  if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  comments = comments.filter(c => c.id !== req.params.id);
+  saveComments();
+  res.json({ ok: true });
 });
 
 const server = http.createServer(app);
