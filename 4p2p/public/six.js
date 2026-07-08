@@ -43,6 +43,7 @@ function showToast(msg, kind, ms) {
 function connectSocket() {
   if (socket) return;
   socket = io();
+  if (window.K28Voice) K28Voice.attach(socket, { getName: () => MY_NAME || 'Player' });
 
   socket.on('sixp_roomList', (rooms) => renderRoomList(rooms));
 
@@ -84,6 +85,10 @@ function connectSocket() {
   });
 
   socket.on('sixp_state', (state) => applyState(state));
+
+  socket.on('sixp_chat', ({ from, msg, senderId }) => {
+    addChatMessage(from, msg, senderId === socket.id);
+  });
 }
 
 // ---------------- Welcome / name / create / join flow ----------------
@@ -175,6 +180,7 @@ function showSeatPicker(info) {
 $('btnLeaveLobby').addEventListener('click', leaveToWelcome);
 $('btnGameOverLeave').addEventListener('click', leaveToWelcome);
 function leaveToWelcome() {
+  if (window.K28Voice) K28Voice.hideButton();
   if (socket) socket.emit('sixp_leaveTable');
   try {
     localStorage.removeItem('k28six_table_id');
@@ -227,12 +233,14 @@ function applyState(state) {
     showScreen('lobbyScreen');
     $('roomCodeDisplay').textContent = MY_TABLE_ID;
     renderLobby(state);
+    if (window.K28Voice) K28Voice.hideButton();
     return;
   }
 
   // Any non-lobby phase means we're in the game screen.
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   $('gameScreen').style.display = 'block';
+  if (window.K28Voice) K28Voice.showButton();
   document.querySelector('.link-back').style.display = 'none'; // was overlapping the info bar during play
 
   $('roundNum').textContent = state.round;
@@ -568,3 +576,130 @@ window.addEventListener('DOMContentLoaded', () => {
     } catch (e) {}
   }
 });
+
+// ==================== CHAT ====================
+let chatUnread = 0;
+let chatPanelInited = false;
+function initChatPanelPosition() {
+  const panel = $('chatPanel');
+  if (!panel) return;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const w = Math.min(340, vw - 20);
+  const h = Math.min(420, vh - 100);
+  panel.style.width = w + 'px';
+  panel.style.height = h + 'px';
+  panel.style.left = Math.max(8, vw - w - 12) + 'px';
+  panel.style.top = Math.max(8, vh - h - 90) + 'px';
+  chatPanelInited = true;
+}
+function clampChatPanelToViewport() {
+  const panel = $('chatPanel');
+  if (!panel) return;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const rect = panel.getBoundingClientRect();
+  let left = rect.left, top = rect.top;
+  left = Math.min(Math.max(left, -rect.width + 60), vw - 60);
+  top = Math.min(Math.max(top, 0), vh - 44);
+  panel.style.left = left + 'px';
+  panel.style.top = top + 'px';
+}
+function openChat() {
+  $('chatOverlay').classList.add('on');
+  if (!chatPanelInited) initChatPanelPosition();
+  else clampChatPanelToViewport();
+  chatUnread = 0;
+  const badge = $('chatBadge');
+  if (badge) { badge.textContent = ''; badge.classList.remove('on'); }
+  const msgs = $('chatMessages');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  setTimeout(() => { const inp = $('chatInput'); if (inp) inp.focus(); }, 100);
+}
+function closeChat() { $('chatOverlay').classList.remove('on'); }
+
+(function setupChatDragResize() {
+  const panel = $('chatPanel');
+  const hdr = $('chatHdr');
+  const grip = $('chatResizeHandle');
+  if (!panel || !hdr || !grip) return;
+
+  let dragging = false, dragStartX = 0, dragStartY = 0, panelStartLeft = 0, panelStartTop = 0;
+  hdr.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('#btnCloseChat')) return;
+    dragging = true;
+    hdr.setPointerCapture(e.pointerId);
+    const rect = panel.getBoundingClientRect();
+    dragStartX = e.clientX; dragStartY = e.clientY;
+    panelStartLeft = rect.left; panelStartTop = rect.top;
+  });
+  hdr.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const rect = panel.getBoundingClientRect();
+    let newLeft = panelStartLeft + (e.clientX - dragStartX);
+    let newTop = panelStartTop + (e.clientY - dragStartY);
+    newLeft = Math.min(Math.max(newLeft, -rect.width + 60), vw - 60);
+    newTop = Math.min(Math.max(newTop, 0), vh - 44);
+    panel.style.left = newLeft + 'px';
+    panel.style.top = newTop + 'px';
+  });
+  const endDrag = (e) => { dragging = false; try { hdr.releasePointerCapture(e.pointerId); } catch (err) {} };
+  hdr.addEventListener('pointerup', endDrag);
+  hdr.addEventListener('pointercancel', endDrag);
+
+  let resizing = false, resizeStartX = 0, resizeStartY = 0, panelStartW = 0, panelStartH = 0;
+  grip.addEventListener('pointerdown', (e) => {
+    resizing = true;
+    grip.setPointerCapture(e.pointerId);
+    const rect = panel.getBoundingClientRect();
+    resizeStartX = e.clientX; resizeStartY = e.clientY;
+    panelStartW = rect.width; panelStartH = rect.height;
+    e.stopPropagation();
+  });
+  grip.addEventListener('pointermove', (e) => {
+    if (!resizing) return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const rect = panel.getBoundingClientRect();
+    let newW = panelStartW + (e.clientX - resizeStartX);
+    let newH = panelStartH + (e.clientY - resizeStartY);
+    newW = Math.min(Math.max(newW, 220), vw - rect.left - 8);
+    newH = Math.min(Math.max(newH, 180), vh - rect.top - 8);
+    panel.style.width = newW + 'px';
+    panel.style.height = newH + 'px';
+    e.stopPropagation();
+  });
+  const endResize = (e) => { resizing = false; try { grip.releasePointerCapture(e.pointerId); } catch (err) {} };
+  grip.addEventListener('pointerup', endResize);
+  grip.addEventListener('pointercancel', endResize);
+
+  window.addEventListener('resize', () => { if (chatPanelInited) clampChatPanelToViewport(); });
+})();
+
+function addChatMessage(from, msg, isMine) {
+  const container = $('chatMessages');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + (isMine ? 'mine' : 'theirs');
+  div.innerHTML = '<div class="chat-from">' + (isMine ? 'You' : escapeHtml(from)) + '</div>' + escapeHtml(msg);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  if (!$('chatOverlay').classList.contains('on') && !isMine) {
+    chatUnread++;
+    const badge = $('chatBadge');
+    if (badge) { badge.textContent = chatUnread > 9 ? '9+' : chatUnread; badge.classList.add('on'); }
+  }
+}
+
+function sendChat() {
+  const inp = $('chatInput');
+  if (!inp || !socket) return;
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = '';
+  socket.emit('sixp_chat', { msg: msg });
+}
+
+$('btnChat').addEventListener('click', openChat);
+$('btnCloseChat').addEventListener('click', closeChat);
+$('chatOverlay').addEventListener('click', function (e) { if (e.target === this) closeChat(); });
+$('btnSendChat').addEventListener('click', sendChat);
+$('chatInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); sendChat(); } });

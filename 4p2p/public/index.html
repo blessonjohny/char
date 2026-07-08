@@ -2811,6 +2811,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <!-- Socket.IO client — served by our own authoritative game server at
      the same origin as this page, so no separate URL/CDN is needed. -->
 <script src="/socket.io/socket.io.js"></script>
+<script src="/voice.js"></script>
 
 <script>
 // ==================== CONFIG ====================
@@ -11449,6 +11450,7 @@ function connectGameSocket() {
   // Same origin as the page itself — the server serves both the game HTML
   // and the socket endpoint, so no URL/port needs configuring here.
   gameSocket = io();
+  if (window.K28Voice) K28Voice.attach(gameSocket, { getName: () => MY_NAME || 'Player' });
 
   // Free-tier hosts (Render, etc.) put a server to sleep after a stretch
   // of no HTTP traffic — and since the whole game lives in that process's
@@ -11660,6 +11662,7 @@ function joinTableOnServer(tableIdRaw, name) {
 }
 
 function leaveServerTable() {
+  if (window.K28Voice) K28Voice.hideButton();
   if (gameSocket) gameSocket.emit('leaveTable');
   MY_TABLE_ID = null;
   SERVER_MODE = false;
@@ -12229,6 +12232,7 @@ function applyServerState(state) {
     document.getElementById('gameWrap').style.display = 'flex';
     document.getElementById('btnChat').style.display = 'flex';
     document.getElementById('btnRoomManage').style.display = 'none';
+    if (window.K28Voice) K28Voice.showButton();
   }
   updateServerHostControlsVisibility();
   if (document.getElementById('hostMenuOverlay').classList.contains('on')) renderHostMenuPlayerList();
