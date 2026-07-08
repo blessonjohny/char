@@ -26,11 +26,19 @@
   const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    // Optional free TURN relay for players on restrictive networks.
-    // Free options: https://www.metered.ca/tools/openrelay/ (community,
-    // no signup) or a free Metered.ca account (bigger free quota). Paste
-    // the credentials they give you here, e.g.:
-    // { urls: 'turn:standard.relay.metered.ca:80', username: '...', credential: '...' },
+    // Free, shared community TURN relay (Open Relay Project) — no signup.
+    // Needed whenever a direct connection can't be made — most commonly
+    // when someone is on mobile data, since carriers almost always sit
+    // everyone behind carrier-grade NAT that blocks direct peer audio
+    // even though the two devices can still "find" each other via STUN.
+    // Being a shared public relay it can occasionally be slow/rate-limited;
+    // if voice still misbehaves for someone, swap these 3 lines for a free
+    // personal Metered.ca account (2-minute signup, 20GB/month free,
+    // dedicated to just this game): https://www.metered.ca/tools/openrelay/
+    { urls: 'stun:openrelay.metered.ca:80' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
   ];
 
   let socket = null;

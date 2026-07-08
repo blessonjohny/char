@@ -2274,6 +2274,9 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <a class="welcome-btn" href="/six.html" style="background:linear-gradient(135deg,#9b59b6,#8e44ad);border-color:transparent;color:#fff;text-decoration:none">
       <span class="icon">👥</span> 6 Player Table
     </a>
+    <button class="welcome-btn" id="btnLeaveComment">
+      <span class="icon">💌</span> Leave a Comment
+    </button>
   </div>
 
   <div class="welcome-features">
@@ -2674,6 +2677,19 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <h3 id="modalTitle"></h3>
     <p id="modalText"></p>
     <button class="btn btn-primary" style="width:100%" id="modalOkBtn">OK</button>
+  </div>
+</div>
+
+<!-- ===== LEAVE A COMMENT ===== -->
+<div class="modal-overlay" id="commentOverlay">
+  <div class="modal" id="commentBox" style="text-align:left">
+    <h3 style="text-align:center">💌 Leave a Comment</h3>
+    <p style="text-align:center;color:var(--text-secondary);font-size:0.8rem;margin-top:-6px">Made with love for card game lovers — tell me what you think, report a bug, or request a feature.</p>
+    <input type="text" id="commentName" placeholder="Your name (optional)" maxlength="40" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.9rem;margin-bottom:10px;font-family:inherit;box-sizing:border-box">
+    <textarea id="commentMsg" placeholder="Your message..." maxlength="2000" rows="5" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.9rem;margin-bottom:10px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+    <button class="btn btn-primary" style="width:100%" id="btnSendComment">Send</button>
+    <button class="btn" style="width:100%;margin-top:8px;background:transparent;border:1.5px solid var(--border);color:#fff" id="btnCloseComment">Cancel</button>
+    <div style="text-align:center;margin-top:12px;font-size:0.7rem;color:var(--text-secondary)">Prefer email? <a href="mailto:blessonjohny@gmail.com" style="color:var(--accent)">blessonjohny@gmail.com</a></div>
   </div>
 </div>
 
@@ -3753,6 +3769,43 @@ function showChatBubble(from, msg) {
 
 function openLog() { document.getElementById('logSheet').classList.add('on'); }
 function closeLog() { document.getElementById('logSheet').classList.remove('on'); }
+
+// ==================== LEAVE A COMMENT ====================
+// Posts straight to this same server (no email setup needed) — see
+// server.js's /api/comments and public/admin.html for the reader side.
+function openCommentBox() {
+  document.getElementById('commentOverlay').classList.add('on');
+  setTimeout(() => { const inp = document.getElementById('commentMsg'); if (inp) inp.focus(); }, 100);
+}
+function closeCommentBox() { document.getElementById('commentOverlay').classList.remove('on'); }
+async function sendComment() {
+  const nameEl = document.getElementById('commentName');
+  const msgEl = document.getElementById('commentMsg');
+  const message = msgEl.value.trim();
+  if (!message) { showToast('Write a message first', 'lose', 1800); return; }
+  const btn = document.getElementById('btnSendComment');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  try {
+    const res = await fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: nameEl.value.trim(), message })
+    });
+    if (!res.ok) throw new Error('bad response');
+    nameEl.value = ''; msgEl.value = '';
+    closeCommentBox();
+    showToast('💌 Thanks! Your message was sent.', 'win', 2500);
+  } catch (e) {
+    showToast('⚠️ Could not send — email blessonjohny@gmail.com instead', 'lose', 3500);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Send';
+  }
+}
+document.getElementById('btnLeaveComment').addEventListener('click', openCommentBox);
+document.getElementById('btnCloseComment').addEventListener('click', closeCommentBox);
+document.getElementById('commentOverlay').addEventListener('click', (e) => { if (e.target.id === 'commentOverlay') closeCommentBox(); });
+document.getElementById('btnSendComment').addEventListener('click', sendComment);
+
 function showModal(title, text) {
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modalText').innerHTML = text;

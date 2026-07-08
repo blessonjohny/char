@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>28 Kerala Gulan — Comments Admin</title>
+<style>
+  :root{--bg:#0a1628;--panel:#111d2e;--accent:#f4c430;--text:#fff;--text2:#9fb0c3;--border:rgba(255,255,255,0.12);--danger:#ff5c5c}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:linear-gradient(135deg,#0a1628,#0d1b2a,#111d2e);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px}
+  .wrap{max-width:640px;margin:0 auto}
+  h1{font-size:1.3rem;background:linear-gradient(135deg,#f4c430,#e6a817);-webkit-background-clip:text;background-clip:text;color:transparent;margin:0 0 4px}
+  .sub{color:var(--text2);font-size:0.8rem;margin-bottom:20px}
+  .gate{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;margin-top:40px}
+  .gate input{width:100%;padding:12px;border-radius:10px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:1rem;margin-bottom:12px;text-align:center;letter-spacing:2px}
+  button{font-family:inherit;cursor:pointer}
+  .btn{padding:12px 18px;border-radius:10px;border:none;font-weight:700;font-size:0.9rem;background:linear-gradient(135deg,#f4c430,#e6a817);color:#0a1628;width:100%}
+  .btn.ghost{background:transparent;border:1.5px solid var(--border);color:var(--text);font-weight:600}
+  .toolbar{display:flex;gap:8px;margin-bottom:14px}
+  .toolbar .btn{width:auto;flex:1}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px}
+  .card .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:8px}
+  .card .name{font-weight:800;color:var(--accent);font-size:0.85rem}
+  .card .time{color:var(--text2);font-size:0.68rem;white-space:nowrap}
+  .card .msg{font-size:0.88rem;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .card .del{margin-top:10px;background:transparent;border:1px solid rgba(255,92,92,0.4);color:var(--danger);border-radius:8px;padding:6px 10px;font-size:0.72rem}
+  .empty{color:var(--text2);text-align:center;padding:40px 10px;font-size:0.85rem}
+  .err{color:var(--danger);font-size:0.8rem;text-align:center;margin-top:8px;display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>💌 Comments — Admin</h1>
+  <div class="sub">28 Kerala Gulan · messages left from the welcome screen</div>
+
+  <div class="gate" id="gate">
+    <input type="password" id="pwd" placeholder="Admin password" autocomplete="off">
+    <button class="btn" id="btnEnter">Unlock</button>
+    <div class="err" id="gateErr">Wrong password.</div>
+  </div>
+
+  <div id="panel" style="display:none">
+    <div class="toolbar">
+      <button class="btn ghost" id="btnRefresh">🔄 Refresh</button>
+    </div>
+    <div id="list"></div>
+  </div>
+</div>
+
+<script>
+let PASSWORD = '';
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function fmtTime(ms) {
+  const d = new Date(ms);
+  return d.toLocaleString();
+}
+
+async function unlock() {
+  const pwd = document.getElementById('pwd').value;
+  const res = await fetch('/api/comments?password=' + encodeURIComponent(pwd));
+  if (!res.ok) {
+    document.getElementById('gateErr').style.display = 'block';
+    return;
+  }
+  const data = await res.json();
+  PASSWORD = pwd;
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('panel').style.display = 'block';
+  render(data.comments || []);
+}
+
+async function refresh() {
+  const res = await fetch('/api/comments?password=' + encodeURIComponent(PASSWORD));
+  if (!res.ok) { document.getElementById('panel').style.display = 'none'; document.getElementById('gate').style.display = 'block'; return; }
+  const data = await res.json();
+  render(data.comments || []);
+}
+
+async function del(id) {
+  if (!confirm('Delete this comment?')) return;
+  await fetch('/api/comments/' + id + '?password=' + encodeURIComponent(PASSWORD), { method: 'DELETE' });
+  refresh();
+}
+
+function render(list) {
+  const el = document.getElementById('list');
+  if (!list.length) { el.innerHTML = '<div class="empty">No comments yet.</div>'; return; }
+  el.innerHTML = list.map(c => `
+    <div class="card">
+      <div class="top">
+        <span class="name">${esc(c.name)}</span>
+        <span class="time">${esc(fmtTime(c.time))}</span>
+      </div>
+      <div class="msg">${esc(c.message)}</div>
+      <button class="del" onclick="del('${c.id}')">Delete</button>
+    </div>
+  `).join('');
+}
+
+document.getElementById('btnEnter').addEventListener('click', unlock);
+document.getElementById('pwd').addEventListener('keydown', (e) => { if (e.key === 'Enter') unlock(); });
+document.getElementById('btnRefresh').addEventListener('click', refresh);
+</script>
+</body>
+</html>
