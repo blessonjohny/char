@@ -89,6 +89,17 @@ function connectSocket() {
   socket.on('sixp_chat', ({ from, msg, senderId }) => {
     addChatMessage(from, msg, senderId === socket.id);
   });
+
+  socket.on('sixp_stillPlayingCheck', ({ seconds }) => showStillPlayingPopup(seconds || 60));
+  socket.on('sixp_stillPlayingResolved', () => hideStillPlayingPopup());
+  socket.on('sixp_tableClosed', ({ reason }) => {
+    hideStillPlayingPopup();
+    showToast(reason === 'idle' ? '⏱️ Table closed — nobody confirmed they were still there' : 'Table closed', 'lose', 4000);
+    leaveToWelcome();
+  });
+  socket.on('createBlocked', ({ maxRooms }) => {
+    showToast(`🚧 Room Restricted for now to ${maxRooms} — will reopen in a few.`, 'lose', 4000);
+  });
 }
 
 // ---------------- Welcome / name / create / join flow ----------------
@@ -560,6 +571,16 @@ $('btnGameOverRestart').addEventListener('click', () => {
 
 window.addEventListener('DOMContentLoaded', () => {
   showScreen('welcomeScreen');
+
+  const inviteCode = new URLSearchParams(window.location.search).get('invite');
+  if (inviteCode) {
+    history.replaceState({}, '', window.location.pathname); // don't re-trigger on refresh
+    pendingJoinCode = inviteCode.trim().toUpperCase();
+    pendingAction = 'join';
+    showScreen('nameScreen');
+    return; // skip auto-reconnect — they're here to join a specific friend's table
+  }
+
   let tableId = null, sessionTime = 0;
   try {
     tableId = localStorage.getItem('k28six_table_id');
@@ -699,6 +720,48 @@ function sendChat() {
 }
 
 $('btnChat').addEventListener('click', openChat);
+$('btnInvite').addEventListener('click', shareInviteLink);
+
+// ==================== STILL PLAYING? (idle check) ====================
+let stillPlayingInterval = null;
+function showStillPlayingPopup(seconds) {
+  const overlay = $('stillPlayingOverlay');
+  const countEl = $('stillPlayingCountdown');
+  if (!overlay) return;
+  let remaining = seconds;
+  if (countEl) countEl.textContent = remaining;
+  overlay.classList.add('on');
+  if (stillPlayingInterval) clearInterval(stillPlayingInterval);
+  stillPlayingInterval = setInterval(() => {
+    remaining -= 1;
+    if (countEl) countEl.textContent = Math.max(remaining, 0);
+    if (remaining <= 0) clearInterval(stillPlayingInterval);
+  }, 1000);
+}
+function hideStillPlayingPopup() {
+  const overlay = $('stillPlayingOverlay');
+  if (overlay) overlay.classList.remove('on');
+  if (stillPlayingInterval) { clearInterval(stillPlayingInterval); stillPlayingInterval = null; }
+}
+$('btnStillPlaying').addEventListener('click', () => {
+  if (socket) socket.emit('sixp_stillPlaying');
+  hideStillPlayingPopup();
+});
+async function shareInviteLink() {
+  if (!MY_TABLE_ID) { showToast('Join a table first', 'lose', 1500); return; }
+  const link = window.location.origin + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);
+  const text = `Join my 28 Kerala Gulan 6-player table! Room code: ${MY_TABLE_ID}`;
+  if (navigator.share) {
+    try { await navigator.share({ title: '28 Kerala Gulan', text, url: link }); return; }
+    catch (e) { /* cancelled the share sheet — fall through to copy */ }
+  }
+  try {
+    await navigator.clipboard.writeText(link);
+    showToast('🔗 Invite link copied — send it to a friend!', 'win', 3000);
+  } catch (e) {
+    showToast(`Room code: ${MY_TABLE_ID} — share this with a friend`, 'info', 4000);
+  }
+}
 $('btnCloseChat').addEventListener('click', closeChat);
 $('chatOverlay').addEventListener('click', function (e) { if (e.target === this) closeChat(); });
 $('btnSendChat').addEventListener('click', sendChat);

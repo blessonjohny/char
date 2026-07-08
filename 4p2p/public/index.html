@@ -2210,16 +2210,16 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       </div>
     </div>
     <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;text-align:left">
-      <div style="font-size:0.68rem;color:var(--text-secondary);margin-bottom:6px">🔒 Server Entry Lock</div>
+      <div style="font-size:0.68rem;color:var(--text-secondary);margin-bottom:6px">🚧 Room Cap</div>
       <div style="font-size:0.75rem;color:#fff;margin-bottom:8px">
-        Status: <b id="adminLockStatus" style="color:var(--success)">Unlocked</b>
-        <div style="opacity:0.7;font-size:0.68rem;margin-top:2px">Only blocks brand new joins/creates — anyone already playing is unaffected.</div>
+        Status: <b id="adminLockStatus" style="color:var(--success)">Unlimited</b>
+        <div style="opacity:0.7;font-size:0.68rem;margin-top:2px">Caps total open tables (4p + 6p). Joining/watching existing tables is never affected — this only stops brand new "Create Room" attempts once the cap is hit.</div>
       </div>
       <div style="display:flex;gap:6px">
-        <input type="text" id="adminLockCodeInput" placeholder="New code" maxlength="20" style="flex:1;min-width:0;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.8rem">
-        <button class="counter-unlock-btn" id="btnAdminSetLock" style="width:auto;flex-shrink:0;margin:0;padding:6px 12px;font-size:0.7rem;white-space:nowrap">🔒 Lock</button>
+        <input type="number" id="adminLockCodeInput" placeholder="Max rooms" value="3" min="1" max="50" style="flex:1;min-width:0;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.8rem">
+        <button class="counter-unlock-btn" id="btnAdminSetLock" style="width:auto;flex-shrink:0;margin:0;padding:6px 12px;font-size:0.7rem;white-space:nowrap">🚧 Cap it</button>
       </div>
-      <button class="counter-unlock-btn" id="btnAdminClearLock" style="width:100%;margin-top:8px;background:var(--success);font-size:0.7rem">🔓 Unlock Server</button>
+      <button class="counter-unlock-btn" id="btnAdminClearLock" style="width:100%;margin-top:8px;background:var(--success);font-size:0.7rem">♾️ Remove Cap</button>
     </div>
     <button class="counter-unlock-btn" id="btnCloseAdmin" style="margin-top:16px;background:var(--danger)">✕ Close</button>
   </div>
@@ -2256,11 +2256,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   </div>
 
   <div class="welcome-btn-wrap">
-    <button class="welcome-btn primary" id="btnPlayLocal">
-      <span class="icon">🎮</span> Play vs Bots
+    <button class="welcome-btn primary" id="btnPlayOnline">
+      <span class="icon">🌐</span> Play Online <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🎙️ with live voice chat — feels like playing at the real table</span>
     </button>
-    <button class="welcome-btn" id="btnPlayOnline">
-      <span class="icon">🌐</span> Play Online
+    <button class="welcome-btn" id="btnPlayLocal">
+      <span class="icon">🎮</span> Play vs Bots
     </button>
     <button class="welcome-btn" id="btnRules">
       <span class="icon">📖</span> How to Play
@@ -2282,6 +2282,16 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   <div class="welcome-features">
     <div class="welcome-features-title">Game Features</div>
     <div class="welcome-feature-grid">
+      <div class="welcome-feature-item" style="border-color:rgba(244,196,48,0.5);box-shadow:0 0 20px rgba(244,196,48,0.15)">
+        <span class="welcome-feature-icon">🎙️</span>
+        <div class="welcome-feature-title">Live Voice Chat</div>
+        <div class="welcome-feature-desc">Talk to everyone at the table hands-free, just by tapping the mic. Feels like playing with family and friends for real — this is the heart of Play Online.</div>
+      </div>
+      <div class="welcome-feature-item">
+        <span class="welcome-feature-icon">🌐</span>
+        <div class="welcome-feature-title">Play Online</div>
+        <div class="welcome-feature-desc">Create a room and invite friends with a simple code or share link. Voice chat, text chat, and AI bots to fill empty seats — reconnect anytime, the game keeps running even if you close the tab.</div>
+      </div>
       <div class="welcome-feature-item">
         <span class="welcome-feature-icon">🤖</span>
         <div class="welcome-feature-title">AI Bots That Learn</div>
@@ -2306,11 +2316,6 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
         <span class="welcome-feature-icon">🧠</span>
         <div class="welcome-feature-title">Round Analysis</div>
         <div class="welcome-feature-desc">After each round, get a detailed breakdown of every trick, your plays, and tips to improve.</div>
-      </div>
-      <div class="welcome-feature-item">
-        <span class="welcome-feature-icon">🌐</span>
-        <div class="welcome-feature-title">Play Online</div>
-        <div class="welcome-feature-desc">Create a room and invite friends with a simple code. Reconnect anytime — the game keeps running even if you close the tab.</div>
       </div>
       <div class="welcome-feature-item">
         <span class="welcome-feature-icon">📱</span>
@@ -2464,6 +2469,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <button class="icon-btn" id="btnSaveGame" title="Save Game">💾</button>
       <button class="icon-btn" id="btnLoadGame" title="Load Game">📂</button>
       <button class="icon-btn" id="btnChat" title="Chat" style="display:none">💬<span class="chat-badge" id="chatBadge"></span></button>
+      <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none">✉️</button>
       <button class="icon-btn" id="btnRequestSeat" title="Ask for a Seat" style="display:none">🪑</button>
       <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none">👑</button>
       <button class="icon-btn" id="btnRoomManage" title="Manage Room (Host)" style="display:none">🎛️</button>
@@ -2680,7 +2686,14 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   </div>
 </div>
 
-<!-- ===== LEAVE A COMMENT ===== -->
+<!-- ===== STILL PLAYING? (idle check) ===== -->
+<div class="modal-overlay" id="stillPlayingOverlay" style="z-index:2200">
+  <div class="modal" id="stillPlayingBox">
+    <h3>👋 Still there?</h3>
+    <p>Nothing's happened at this table in a while. It'll close in <b id="stillPlayingCountdown">60</b>s if nobody's around.</p>
+    <button class="btn btn-primary" style="width:100%" id="btnStillPlaying">Yes, I'm here!</button>
+  </div>
+</div>
 <div class="modal-overlay" id="commentOverlay" style="z-index:2100">
   <div class="modal" id="commentBox" style="text-align:left">
     <h3 style="text-align:center">💌 Leave a Comment</h3>
@@ -3805,6 +3818,32 @@ document.getElementById('btnLeaveComment').addEventListener('click', openComment
 document.getElementById('btnCloseComment').addEventListener('click', closeCommentBox);
 document.getElementById('commentOverlay').addEventListener('click', (e) => { if (e.target.id === 'commentOverlay') closeCommentBox(); });
 document.getElementById('btnSendComment').addEventListener('click', sendComment);
+
+// ==================== STILL PLAYING? (idle check) ====================
+let stillPlayingInterval = null;
+function showStillPlayingPopup(seconds) {
+  const overlay = document.getElementById('stillPlayingOverlay');
+  const countEl = document.getElementById('stillPlayingCountdown');
+  if (!overlay) return;
+  let remaining = seconds;
+  if (countEl) countEl.textContent = remaining;
+  overlay.classList.add('on');
+  if (stillPlayingInterval) clearInterval(stillPlayingInterval);
+  stillPlayingInterval = setInterval(() => {
+    remaining -= 1;
+    if (countEl) countEl.textContent = Math.max(remaining, 0);
+    if (remaining <= 0) clearInterval(stillPlayingInterval);
+  }, 1000);
+}
+function hideStillPlayingPopup() {
+  const overlay = document.getElementById('stillPlayingOverlay');
+  if (overlay) overlay.classList.remove('on');
+  if (stillPlayingInterval) { clearInterval(stillPlayingInterval); stillPlayingInterval = null; }
+}
+document.getElementById('btnStillPlaying').addEventListener('click', () => {
+  if (gameSocket) gameSocket.emit('stillPlaying');
+  hideStillPlayingPopup();
+});
 
 function showModal(title, text) {
   document.getElementById('modalTitle').textContent = title;
@@ -9307,6 +9346,22 @@ document.getElementById('modalOkBtn').addEventListener('click', closeModal);
 document.getElementById('modalOverlay').addEventListener('click', (e) => { if (e.target.id === 'modalOverlay') closeModal(); });
 document.getElementById('newGameBtn').addEventListener('click', startGame);
 document.getElementById('btnChat').addEventListener('click', openChat);
+document.getElementById('btnInvite').addEventListener('click', shareInviteLink);
+async function shareInviteLink() {
+  if (!MY_TABLE_ID) { showToast('Join a table first', 'lose', 1500); return; }
+  const link = window.location.origin + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);
+  const text = `Join my 28 Kerala Gulan table! Room code: ${MY_TABLE_ID}`;
+  if (navigator.share) {
+    try { await navigator.share({ title: '28 Kerala Gulan', text, url: link }); return; }
+    catch (e) { /* user cancelled the share sheet — fall through to copy */ }
+  }
+  try {
+    await navigator.clipboard.writeText(link);
+    showToast('🔗 Invite link copied — send it to a friend!', 'win', 3000);
+  } catch (e) {
+    showToast(`Room code: ${MY_TABLE_ID} — share this with a friend`, 'info', 4000);
+  }
+}
 document.getElementById('btnCloseChat').addEventListener('click', closeChat);
 document.getElementById('chatOverlay').addEventListener('click', function(e) { if (e.target === this) closeChat(); });
 document.getElementById('btnSendChat').addEventListener('click', sendChat);
@@ -9393,29 +9448,28 @@ function showAdminPanel() {
   }
 }
 
+let SERVER_ROOM_CAP_MAX = 3;
 function updateAdminLockDisplay() {
   const statusEl = document.getElementById('adminLockStatus');
   const clearBtn = document.getElementById('btnAdminClearLock');
   if (!statusEl) return;
-  statusEl.textContent = SERVER_IS_LOCKED ? 'Locked' : 'Unlocked';
+  statusEl.textContent = SERVER_IS_LOCKED ? `Capped at ${SERVER_ROOM_CAP_MAX}` : 'Unlimited';
   statusEl.style.color = SERVER_IS_LOCKED ? 'var(--danger)' : 'var(--success)';
   if (clearBtn) clearBtn.style.display = SERVER_IS_LOCKED ? 'block' : 'none';
 }
 
 function adminSetServerLock() {
   const input = document.getElementById('adminLockCodeInput');
-  const code = input ? input.value.trim() : '';
-  if (!code) { showToast('Enter a code first', 'lose', 1500); return; }
+  const maxRooms = input ? parseInt(input.value, 10) || 3 : 3;
   connectGameSocket();
-  gameSocket.emit('adminSetLock', { adminPassword: ADMIN_PASSWORD, code });
-  if (input) input.value = '';
-  showToast('🔒 Server locked — share this code with whoever you want to let in', 'win', 3000);
+  gameSocket.emit('adminSetLock', { adminPassword: ADMIN_PASSWORD, maxRooms });
+  showToast(`🚧 Room cap set to ${maxRooms} — new "Create Room" attempts beyond that will be turned away, joining/watching stays open`, 'win', 4000);
 }
 
 function adminClearServerLock() {
   connectGameSocket();
   gameSocket.emit('adminClearLock', { adminPassword: ADMIN_PASSWORD });
-  showToast('🔓 Server unlocked — anyone can join normally now', 'win', 2500);
+  showToast('♾️ Room cap removed — unlimited rooms again', 'win', 2500);
 }
 
 function hideAdminPanel() {
@@ -10785,9 +10839,20 @@ document.getElementById('btnSetName').addEventListener('click', async () => {
   connectGameSocket();
   gameSocket.emit('listRooms');
   document.getElementById('nameCard').style.display = 'none';
-  document.getElementById('hostCard').style.display = 'block';
-  document.getElementById('joinCard').style.display = 'block';
-  document.getElementById('lobbySub').textContent = 'Create or join a table';
+  if (window.PENDING_INVITE_CODE) {
+    const code = window.PENDING_INVITE_CODE;
+    window.PENDING_INVITE_CODE = null;
+    document.getElementById('hostCard').style.display = 'none';
+    document.getElementById('joinCard').style.display = 'block';
+    document.getElementById('lobbySub').textContent = 'Joining your friend\'s table...';
+    const roomInput = document.getElementById('joinRoomId');
+    if (roomInput) roomInput.value = code;
+    joinTableOnServer(code, MY_NAME);
+  } else {
+    document.getElementById('hostCard').style.display = 'block';
+    document.getElementById('joinCard').style.display = 'block';
+    document.getElementById('lobbySub').textContent = 'Create or join a table';
+  }
 });
 
 // Create Room button
@@ -10947,7 +11012,18 @@ window.addEventListener('DOMContentLoaded', async () => {
   const roomId = urlParams.get('room');
   const hostPeerId = urlParams.get('host');
   const lobbyParam = urlParams.get('lobby');
-  if (roomId && hostPeerId) {
+  const inviteParam = urlParams.get('invite');
+  if (inviteParam) {
+    window.PENDING_INVITE_CODE = inviteParam.trim().toUpperCase();
+    history.replaceState({}, '', window.location.pathname); // don't re-trigger this on refresh
+    document.getElementById('welcomeScreen').style.display = 'none';
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('lobbyScreen').style.display = 'flex';
+    document.getElementById('nameCard').style.display = 'block';
+    document.getElementById('hostCard').style.display = 'none';
+    document.getElementById('joinCard').style.display = 'none';
+    document.getElementById('playersCard').style.display = 'none';
+  } else if (roomId && hostPeerId) {
     document.getElementById('welcomeScreen').style.display = 'none';
     document.getElementById('authScreen').style.display = 'none';
     document.getElementById('lobbyScreen').style.display = 'flex';
@@ -11587,14 +11663,15 @@ function connectGameSocket() {
     console.log('[server] action rejected:', err.reason);
   });
 
-  // Server-wide entry lock: only gates brand new create/join attempts,
-  // never anyone already seated or reconnecting. lockStatus arrives
-  // unprompted on every connection (mainly so the admin panel can show
-  // current status); lockRequired arrives specifically in response to a
-  // rejected create/join, at which point we ask for the code and simply
-  // retry the exact same action once it's provided.
-  gameSocket.on('lockStatus', ({ locked }) => {
-    SERVER_IS_LOCKED = locked;
+  // Room cap: only throttles brand new "Create Room" attempts once the
+  // cap is hit — joining/watching an existing table, or reconnecting, is
+  // never affected. lockStatus arrives unprompted on every connection
+  // mainly so the admin panel can show current status; a rejected create
+  // attempt gets its own friendly 'createBlocked' toast instead of a
+  // password prompt, since there's no code to enter anymore.
+  gameSocket.on('lockStatus', ({ capped, maxRooms }) => {
+    SERVER_IS_LOCKED = !!capped;
+    if (maxRooms) SERVER_ROOM_CAP_MAX = maxRooms;
     updateAdminLockDisplay();
   });
 
@@ -11602,18 +11679,6 @@ function connectGameSocket() {
     serverBrainData = brains || {};
     const panel = document.getElementById('brainPanel');
     if (panel && panel.classList.contains('on')) renderBrainSlots();
-  });
-
-  gameSocket.on('lockRequired', ({ action }) => {
-    const code = prompt('🔒 This server is locked. Enter the access code to continue:');
-    if (code === null) { return; } // cancelled — leave them right where they were
-    cachedEntryCode = code.trim();
-    if (action === 'create') {
-      createTableOnServer(MY_NAME);
-    } else if (action === 'join') {
-      const roomInput = document.getElementById('joinRoomId');
-      joinTableOnServer(roomInput ? roomInput.value : '', MY_NAME);
-    }
   });
 
   // Fresh join (not a reconnect): the server always makes us pick exactly
@@ -11667,6 +11732,23 @@ function connectGameSocket() {
 
   gameSocket.on('chat', ({ from, msg, senderId }) => {
     addChatMessage(from, msg, senderId === gameSocket.id);
+  });
+
+  // Idle check: table's had connected humans but no real activity for a
+  // while. Show a "still there?" popup with a live countdown; a tap, or
+  // any real game action anywhere in the room, cancels it server-side and
+  // that cancellation is what sends stillPlayingResolved back to dismiss
+  // the popup here too (not just our own tap).
+  gameSocket.on('stillPlayingCheck', ({ seconds }) => showStillPlayingPopup(seconds || 60));
+  gameSocket.on('stillPlayingResolved', () => hideStillPlayingPopup());
+  gameSocket.on('tableClosed', ({ reason }) => {
+    hideStillPlayingPopup();
+    showToast(reason === 'idle' ? '⏱️ Table closed — nobody confirmed they were still there' : 'Table closed', 'lose', 4000);
+    leaveServerTable();
+  });
+
+  gameSocket.on('createBlocked', ({ maxRooms }) => {
+    showToast(`🚧 Room Restricted for now to ${maxRooms} — will reopen in a few.`, 'lose', 4000);
   });
 
   gameSocket.on('seatRequestSent', ({ message }) => {
@@ -12284,6 +12366,7 @@ function applyServerState(state) {
     syncGameWrapTop();
     document.getElementById('gameWrap').style.display = 'flex';
     document.getElementById('btnChat').style.display = 'flex';
+    document.getElementById('btnInvite').style.display = 'flex';
     document.getElementById('btnRoomManage').style.display = 'none';
     if (window.K28Voice) K28Voice.showButton();
   }

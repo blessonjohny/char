@@ -166,6 +166,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
       <div class="score">Team A <span id="scoreA">6</span> — Team B <span id="scoreB">6</span></div>
       <button class="btn-outline" id="btnHostMenu" style="display:none;padding:4px 10px;border-radius:8px;font-size:0.7rem">👑</button>
       <button class="btn-outline" id="btnChat" title="Chat" style="padding:4px 10px;border-radius:8px;font-size:0.7rem;position:relative">💬<span class="chat-badge" id="chatBadge"></span></button>
+      <button class="btn-outline" id="btnInvite" title="Invite a Friend" style="padding:4px 10px;border-radius:8px;font-size:0.7rem">✉️</button>
     </div>
     <div style="display:flex;justify-content:center;gap:6px;font-size:0.66rem;color:var(--text-secondary);flex-wrap:wrap">
       <span>Dealer: <b style="color:#fff" id="dealerDisplay">—</b></span>
@@ -271,6 +272,15 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
       <button class="chat-send-btn" id="btnSendChat">Send</button>
     </div>
     <div class="chat-resize-handle" id="chatResizeHandle"></div>
+  </div>
+</div>
+
+<!-- ============ STILL PLAYING? (idle check) ============ -->
+<div class="modal-overlay" id="stillPlayingOverlay" style="z-index:2200">
+  <div class="modal-box" id="stillPlayingBox">
+    <h3>👋 Still there?</h3>
+    <p>Nothing's happened at this table in a while. It'll close in <b id="stillPlayingCountdown">60</b>s if nobody's around.</p>
+    <button class="btn btn-primary" style="width:100%" id="btnStillPlaying">Yes, I'm here!</button>
   </div>
 </div>
 
