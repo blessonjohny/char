@@ -50,17 +50,17 @@
     if (ui) return ui;
     const style = document.createElement('style');
     style.textContent = `
-      #k28vBtn{position:fixed;right:14px;bottom:14px;width:52px;height:52px;border-radius:50%;
+      #k28vBtn{position:fixed;left:10px;top:60px;width:44px;height:44px;border-radius:50%;
         background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);
-        color:#fff;font-size:1.3rem;display:none;align-items:center;justify-content:center;
-        z-index:800;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
+        color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;
+        z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
       #k28vBtn:active{transform:scale(0.92)}
       #k28vBtn.live{background:linear-gradient(135deg,#e74040,#c93030);animation:k28vPulse 1.8s ease-in-out infinite}
       #k28vBtn.speaking{box-shadow:0 0 0 4px rgba(61,220,132,0.55),0 4px 14px rgba(0,0,0,0.4)}
       @keyframes k28vPulse{0%,100%{box-shadow:0 4px 14px rgba(231,64,64,0.5)}50%{box-shadow:0 4px 22px rgba(231,64,64,0.9)}}
-      #k28vPanel{position:fixed;right:14px;bottom:74px;width:180px;max-height:220px;overflow-y:auto;
+      #k28vPanel{position:fixed;left:10px;top:110px;width:170px;max-height:220px;overflow-y:auto;
         background:rgba(15,25,40,0.97);border:1px solid rgba(255,255,255,0.15);border-radius:12px;
-        padding:8px;z-index:800;display:none;font-family:inherit}
+        padding:8px;z-index:150;display:none;font-family:inherit}
       #k28vPanel.on{display:block}
       #k28vPanel h4{margin:0 0 6px;font-size:0.65rem;color:#f4c430;letter-spacing:0.5px;text-transform:uppercase}
       .k28v-row{display:flex;align-items:center;gap:6px;padding:4px 2px;font-size:0.78rem;color:#dfe8f5}
@@ -227,7 +227,20 @@
     analysers.delete('me');
   }
 
-  function showButton() { buildUI().btn.style.display = 'flex'; }
+  function positionTopLeft() {
+    if (!ui) return;
+    const topbar = document.getElementById('topBar') || document.querySelector('.topbar');
+    let top = 60;
+    if (topbar) {
+      const rect = topbar.getBoundingClientRect();
+      if (rect.height > 0 && getComputedStyle(topbar).display !== 'none') top = rect.bottom + 8;
+    }
+    ui.btn.style.top = top + 'px';
+    ui.panel.style.top = (top + 58) + 'px';
+  }
+  window.addEventListener('resize', positionTopLeft);
+
+  function showButton() { buildUI().btn.style.display = 'flex'; positionTopLeft(); setTimeout(positionTopLeft, 300); }
   function hideButton() {
     leave();
     if (ui) { ui.btn.style.display = 'none'; ui.panel.classList.remove('on'); ui.btn.classList.remove('live', 'speaking'); }
