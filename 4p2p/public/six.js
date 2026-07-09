@@ -13,6 +13,10 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
+// Same pool the server picks from when auto-filling bot seats — kept in
+// sync manually since this is just for the Change Bot picker's option
+// list, not anything server-authoritative.
+const BOT_NAME_POOL = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya', 'Sanjay', 'Johny', 'Vinod', 'Jean', 'Randall', 'Rajesh', 'Stev', 'Alok', 'Jerin', 'Binchu', 'Ajai', 'Peter', 'Shyam', 'Appu', 'Anup', 'Arun', 'Vilphy', 'Roji'];
 let IS_HOST = false;
 let pendingJoinCode = null;
 let latestState = null;
@@ -310,6 +314,7 @@ function applyState(state) {
   // hold finishes and the circle catches up (see processNextSixpTrickReveal).
   if (!trickHoldBusy && sixpTrickRevealQueue.length === 0) renderHand(state);
   updateTurnLabel(state);
+  if ($('hostMenuOverlay').classList.contains('on') && $('hostMenuMainView').style.display !== 'none') renderHostMenuPlayerList();
 
   if (state.phase === 'bidding1' && state.currentPlayer === MY_POS) showBidPanel(state);
   else $('bidOverlay').classList.remove('on');
@@ -946,3 +951,107 @@ $('btnCloseChat').addEventListener('click', closeChat);
 $('chatOverlay').addEventListener('click', function (e) { if (e.target === this) closeChat(); });
 $('btnSendChat').addEventListener('click', sendChat);
 $('chatInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); sendChat(); } });
+
+// ==================== HOME / LEAVE MID-GAME ====================
+// There was previously no way to exit once a game had actually started —
+// "Leave Table" only existed on the pre-game lobby screen.
+$('btnGameHome').addEventListener('click', () => {
+  if (confirm('Leave this table? You can rejoin with the room code if the table is still running.')) {
+    leaveToWelcome();
+  }
+});
+
+// ==================== HOST MENU ====================
+$('btnHostMenu').addEventListener('click', openHostMenu);
+$('btnCloseHostMenu').addEventListener('click', closeHostMenu);
+$('btnCloseBotPicker').addEventListener('click', () => {
+  $('hostMenuBotPickerView').style.display = 'none';
+  $('hostMenuMainView').style.display = 'block';
+});
+
+function openHostMenu() {
+  if (!IS_HOST) return;
+  $('hostMenuBotPickerView').style.display = 'none';
+  $('hostMenuMainView').style.display = 'block';
+  renderHostMenuPlayerList();
+  $('hostMenuOverlay').classList.add('on');
+}
+function closeHostMenu() {
+  $('hostMenuOverlay').classList.remove('on');
+}
+
+function renderHostMenuPlayerList() {
+  const container = $('hostMenuPlayerList');
+  if (!container || !latestState) return;
+  const seats = latestState.seats || [];
+  let html = '';
+  seats.forEach((s, pos) => {
+    if (!s) return;
+    const isSelf = pos === MY_POS;
+    const tag = s.isBot ? '🤖' : (s.connected ? '🟢' : '🔌');
+    let actionBtn = '';
+    if (!isSelf && !s.isBot) {
+      actionBtn = `<button class="btn btn-outline btn-sm" onclick="sixpKickPlayer(${pos})" style="padding:4px 10px;font-size:0.7rem;width:auto">Kick</button>`;
+    } else if (s.isBot) {
+      actionBtn = `<button class="btn btn-outline btn-sm" onclick="openSixpChangeBotPicker(${pos})" style="padding:4px 10px;font-size:0.7rem;width:auto">🔄 Change</button>`;
+    }
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+      <span style="font-size:0.8rem">${tag} ${escapeHtml(s.name)}${isSelf ? ' (you)' : ''}</span>
+      ${actionBtn}
+    </div>`;
+  });
+  container.innerHTML = html || '<p style="color:var(--text-secondary);font-size:0.75rem">No one seated yet.</p>';
+}
+
+// Swapping a bot's personality mid-game only ever changes which name is
+// behind the seat, never the cards or whose turn it is — safe any time.
+// Uses a sub-view within the SAME overlay (rather than a separate modal)
+// so there's no z-index stacking to get wrong.
+function openSixpChangeBotPicker(pos) {
+  const takenNames = new Set((latestState.seats || []).filter(Boolean).map(s => s.name));
+  const options = BOT_NAME_POOL.filter(n => !takenNames.has(n));
+  if (options.length === 0) { showToast('No other bot names available right now', 'info', 2000); return; }
+  const listHtml = options.map(name =>
+    `<button class="btn btn-outline" style="width:100%;margin-bottom:6px;text-align:left" onclick="confirmSixpChangeBot(${pos}, '${name}')">🤖 ${name}</button>`
+  ).join('');
+  $('botPickerList').innerHTML = listHtml;
+  $('hostMenuMainView').style.display = 'none';
+  $('hostMenuBotPickerView').style.display = 'block';
+}
+function confirmSixpChangeBot(pos, newName) {
+  socket.emit('sixp_changeBotName', { pos, newName });
+  showToast(`🔄 Bot changed to ${newName}`, 'win', 2200);
+  $('hostMenuBotPickerView').style.display = 'none';
+  $('hostMenuMainView').style.display = 'block';
+  setTimeout(renderHostMenuPlayerList, 300); // give the server's confirming state a moment to arrive
+}
+
+function sixpKickPlayer(pos) {
+  const seat = latestState && latestState.seats && latestState.seats[pos];
+  const name = seat ? seat.name : 'this player';
+  if (!confirm(`Remove ${name} from the table?`)) return;
+  socket.emit('sixp_kickPlayer', { pos });
+  setTimeout(renderHostMenuPlayerList, 300);
+}
+
+let pendingSixpRestartAction = null; // 'round' | 'game'
+function confirmSixpRestart(kind) {
+  pendingSixpRestartAction = kind;
+  $('restartConfirmText').textContent = kind === 'round'
+    ? "Restart this round? Everyone's current hand will be reshuffled and redealt."
+    : 'Restart the entire game? Match score and everything else will reset to the very start.';
+  $('hostMenuOverlay').classList.remove('on');
+  $('restartConfirmOverlay').classList.add('on');
+}
+$('btnHostRestartRound').addEventListener('click', () => confirmSixpRestart('round'));
+$('btnHostRestartGame').addEventListener('click', () => confirmSixpRestart('game'));
+$('btnRestartConfirmCancel').addEventListener('click', () => {
+  $('restartConfirmOverlay').classList.remove('on');
+  pendingSixpRestartAction = null;
+});
+$('btnRestartConfirmOk').addEventListener('click', () => {
+  $('restartConfirmOverlay').classList.remove('on');
+  if (pendingSixpRestartAction === 'round') socket.emit('sixp_restartRound');
+  else if (pendingSixpRestartAction === 'game') socket.emit('sixp_restartGame');
+  pendingSixpRestartAction = null;
+});
