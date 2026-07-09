@@ -24,6 +24,7 @@ let lastRoundSeen = -1;
 let roundTrickHistory = []; // every completed trick so far THIS round, for the "played so far" view
 let roundHistorySeenFor = -1; // which round roundTrickHistory currently belongs to
 let lastRenderedTrickSlot = [null, null, null, null, null, null]; // for the card-landing animation diff
+let gameOverShownFor = false;
 
 const SUITS = ['♥', '♠', '♦', '♣'];
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1, '6': 0 };
@@ -328,11 +329,21 @@ function applyState(state) {
 
   if (state.phase === 'roundEnd' && state.round !== lastRoundSeen) {
     lastRoundSeen = state.round;
-    showRoundEnd(state);
+    // The round can end right on the last trick, whose own 2s-hold +
+    // fly-to-winner animation (~3.2s total) may still be playing. Wait for
+    // it to actually finish instead of popping the round summary over it.
+    (function waitThenShowRoundEnd() {
+      if (trickHoldTimer) { setTimeout(waitThenShowRoundEnd, 150); return; }
+      showRoundEnd(state);
+    })();
   }
 
-  if (state.gameOver) {
-    showGameOver(state);
+  if (state.gameOver && !gameOverShownFor) {
+    gameOverShownFor = true;
+    (function waitThenShowGameOver() {
+      if (trickHoldTimer) { setTimeout(waitThenShowGameOver, 150); return; }
+      showGameOver(state);
+    })();
   }
 }
 
