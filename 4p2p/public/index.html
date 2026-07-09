@@ -6173,11 +6173,13 @@ function showBidPanel1() {
     btns.appendChild(btn);
   }
 
-  // PASS button at the END (after numbers)
+  // PASS button at the END (after numbers) — if already the highest
+  // bidder, passing just keeps that bid rather than giving anything up.
   if (!isFirst) {
+    const alreadyHighest = bidder === MY_POS;
     const pb = document.createElement('button');
     pb.className = 'bid-btn pass-btn';
-    pb.textContent = 'PASS';
+    pb.textContent = alreadyHighest ? 'STAY AT ' + highestBid : 'PASS';
     pb.addEventListener('click', () => {
       showBidConfirmation(0, true);
     });
@@ -6251,13 +6253,16 @@ function showBidConfirmation(bid, isPass) {
   pendingBid = bid;
   pendingIsPass = isPass || false;
   const isFirst = (highestBid === 0 && passes === 0 && currentPlayer === nextPlayer(dealer));
+  const alreadyHighest = bidder === MY_POS;
 
-  document.getElementById('bidTitle').textContent = isPass ? 'Confirm Pass?' : 'Confirm Your Bid';
+  document.getElementById('bidTitle').textContent = isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Bid';
 
   let confirmText = '';
   if (isPass) {
     if (isFirst) {
       confirmText = "<b style='color:var(--danger)'>⚠️ First bidder must bid 14!</b><br><br>Pass will auto-bid 14.";
+    } else if (alreadyHighest) {
+      confirmText = "You'll <b>stay at your bid of " + highestBid + "</b> — you're already the highest bidder, this just locks it in without raising further.<br><br>Confirm?";
     } else {
       confirmText = "You are about to <b>PASS</b>.<br>Current highest: <b style='color:var(--accent)'>" + highestBid + "</b><br><br>Confirm?";
     }
@@ -6295,6 +6300,8 @@ function showBidConfirmation(bid, isPass) {
   if (isPass) {
     if (isFirst) {
       confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">AUTO-BID</span><span class="btn-sub">14 (First Bidder)</span>';
+    } else if (alreadyHighest) {
+      confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Stay at ' + highestBid + '</span>';
     } else {
       confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Pass</span>';
     }
@@ -6639,10 +6646,14 @@ function showRaisePanel() {
     btns.appendChild(btn);
   }
 
-  // PASS button at the END (after raise buttons)
+  // PASS button at the END (after raise buttons) — if this player is
+  // already the highest bidder, "passing" doesn't forfeit anything, it
+  // just locks in the bid they already have. Label it accordingly so it
+  // doesn't read like they're about to lose their own bid.
+  const alreadyHighest = bidder === MY_POS;
   const pb = document.createElement('button');
   pb.className = 'bid-btn pass-btn';
-  pb.textContent = 'PASS';
+  pb.textContent = alreadyHighest ? 'STAY AT ' + highestBid : 'PASS';
   pb.addEventListener('click', () => {
     showPhase2Confirmation(0, true);
   });
@@ -6657,12 +6668,15 @@ function showRaisePanel() {
 function showPhase2Confirmation(bid, isPass) {
   pendingBid = bid;
   pendingIsPass = isPass || false;
+  const alreadyHighest = bidder === MY_POS;
 
-  document.getElementById('bidTitle').textContent = isPass ? 'Confirm Pass?' : 'Confirm Your Raise';
+  document.getElementById('bidTitle').textContent = isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Raise';
 
   let confirmText = '';
   if (isPass) {
-    confirmText = "You are about to <b>PASS</b> in Phase 2.<br>Current highest bid: <b style='color:var(--accent)'>" + highestBid + "</b><br><br>Confirm?";
+    confirmText = alreadyHighest
+      ? "You'll <b>stay at your bid of " + highestBid + "</b> — you're already the highest bidder, this just locks it in without raising further.<br><br>Confirm?"
+      : "You are about to <b>PASS</b> in Phase 2.<br>Current highest bid: <b style='color:var(--accent)'>" + highestBid + "</b><br><br>Confirm?";
   } else {
     confirmText = "You are about to raise to: <b style='color:var(--accent);font-size:1.8rem;text-shadow:0 2px 10px rgba(255,215,0,.3)'>" + bid + "</b><br>";
     confirmText += "Raising from: <b>" + highestBid + "</b> by " + (bidder === (MY_POS) ? 'You' : (playerAt(bidder) ? playerAt(bidder).name : '—')) + "<br>";
@@ -6693,7 +6707,9 @@ function showPhase2Confirmation(bid, isPass) {
   const confirmBtn = document.createElement('button');
   confirmBtn.className = 'confirm-btn';
   if (isPass) {
-    confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Pass</span>';
+    confirmBtn.innerHTML = alreadyHighest
+      ? '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Stay at ' + highestBid + '</span>'
+      : '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Pass</span>';
   } else {
     confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Raise to ' + bid + '</span>';
   }

@@ -648,9 +648,10 @@ function showBidPanel(state) {
   btns.innerHTML = '';
   btns.className = 'bid-grid';
   if (!isFirst) {
+    const alreadyHighest = state.bidder === MY_POS;
     const pass = document.createElement('button');
     pass.className = 'bid-btn pass-btn';
-    pass.textContent = 'PASS';
+    pass.textContent = alreadyHighest ? 'STAY AT ' + state.highestBid : 'PASS';
     pass.addEventListener('click', () => showBidConfirm(state, 0, true));
     btns.appendChild(pass);
   }
@@ -672,9 +673,12 @@ function showBidPanel(state) {
 // mis-tap on a bid number was otherwise irreversible the instant it
 // registered, with real match points on the line.
 function showBidConfirm(state, bid, isPass) {
-  $('bidTitle').textContent = isPass ? 'Confirm Pass?' : 'Confirm Your Bid';
+  const alreadyHighest = state.bidder === MY_POS;
+  $('bidTitle').textContent = isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Bid';
   $('bidText').innerHTML = isPass
-    ? `You are about to <b>PASS</b>.<br>Current highest: <b style="color:var(--accent)">${state.highestBid}</b>`
+    ? (alreadyHighest
+        ? `You'll <b>stay at your bid of ${state.highestBid}</b> — you're already the highest bidder, this just locks it in.`
+        : `You are about to <b>PASS</b>.<br>Current highest: <b style="color:var(--accent)">${state.highestBid}</b>`)
     : `You are about to bid: <b style="color:var(--accent);font-size:1.8rem">${bid}</b>` +
       (state.highestBid > 0 ? `<br>Raising from: <b>${state.highestBid}</b> by ${state.seats[state.bidder] ? state.seats[state.bidder].name : '—'}` : '');
   const btns = $('bidButtons');
@@ -695,7 +699,7 @@ function showBidConfirm(state, bid, isPass) {
   confirmBtn.style.background = 'var(--success, #2ecc71)';
   confirmBtn.style.color = '#0a1628';
   confirmBtn.style.fontWeight = '800';
-  confirmBtn.textContent = isPass ? '✓ Confirm Pass' : `✓ Confirm Bid ${bid}`;
+  confirmBtn.textContent = isPass ? (alreadyHighest ? `✓ Stay at ${state.highestBid}` : '✓ Confirm Pass') : `✓ Confirm Bid ${bid}`;
   confirmBtn.addEventListener('click', () => {
     $('bidOverlay').classList.remove('on');
     socket.emit('sixp_placeBid', { bid: isPass ? 0 : bid });
