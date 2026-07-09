@@ -23,6 +23,7 @@ let trickHoldTimer = null;     // holds the completed trick visible briefly befo
 let lastRoundSeen = -1;
 let roundTrickHistory = []; // every completed trick so far THIS round, for the "played so far" view
 let roundHistorySeenFor = -1; // which round roundTrickHistory currently belongs to
+let lastRenderedTrickSlot = [null, null, null, null, null, null]; // for the card-landing animation diff
 
 const SUITS = ['♥', '♠', '♦', '♣'];
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1, '6': 0 };
@@ -387,14 +388,25 @@ function renderTrick(state) {
   // Clear every slot first, then fill in only the seats that have
   // actually played into the current trick — each card sits near the
   // seat that played it, not bunched into one static center pile.
-  for (let slot = 0; slot < 6; slot++) $('trickSlot' + slot).innerHTML = '';
+  // Only slots that are newly filled since the last render get the
+  // landing-pop animation — re-rendering an already-settled card (e.g.
+  // from an unrelated state update) shouldn't replay it.
+  const desired = [null, null, null, null, null, null];
   for (const tc of (state.trickCards || [])) {
-    const slot = slotFor(tc.pos);
-    $('trickSlot' + slot).innerHTML = cardHTML(tc.card, false, false, 'tiny');
+    desired[slotFor(tc.pos)] = tc.card.suit + tc.card.rank;
+  }
+  for (let slot = 0; slot < 6; slot++) {
+    if (desired[slot] === lastRenderedTrickSlot[slot]) continue;
+    lastRenderedTrickSlot[slot] = desired[slot];
+    const el = $('trickSlot' + slot);
+    if (desired[slot] === null) { el.innerHTML = ''; continue; }
+    const tc = (state.trickCards || []).find(t => slotFor(t.pos) === slot);
+    if (tc) el.innerHTML = cardHTML(tc.card, false, false, 'tiny trick-card-landing');
   }
 }
 
 function renderCompletedTrick(lastTrick) {
+  lastRenderedTrickSlot = [null, null, null, null, null, null];
   for (let slot = 0; slot < 6; slot++) $('trickSlot' + slot).innerHTML = '';
   for (const tc of lastTrick.cards) {
     const slot = slotFor(tc.pos);
