@@ -304,7 +304,11 @@ function applyState(state) {
   } else if (!trickHoldBusy && sixpTrickRevealQueue.length === 0) {
     renderTrick(state);
   }
-  renderHand(state);
+  // Hand restrictions must never update ahead of what the circle is
+  // showing — if the circle is still holding the previous completed
+  // trick, leave the hand as it was too, and only refresh it once the
+  // hold finishes and the circle catches up (see processNextSixpTrickReveal).
+  if (!trickHoldBusy && sixpTrickRevealQueue.length === 0) renderHand(state);
   updateTurnLabel(state);
 
   if (state.phase === 'bidding1' && state.currentPlayer === MY_POS) showBidPanel(state);
@@ -445,7 +449,7 @@ function processNextSixpTrickReveal() {
       processNextSixpTrickReveal();
       return;
     }
-    if (latestState) renderTrick(latestState);
+    if (latestState) { renderTrick(latestState); renderHand(latestState); }
   }, 3200);
 }
 
