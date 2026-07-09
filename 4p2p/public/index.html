@@ -12639,6 +12639,7 @@ function showChampionshipResultServerMode(champResult, yourTeam) {
 let lastSeenTricksPlayed = -1;
 let trickRevealQueue = [];  // queued completed tricks still waiting to be shown
 let trickRevealBusy = false; // a trick is currently mid-reveal (its full pause hasn't elapsed yet)
+let trickRevealGen = 0; // bumped whenever a hold gets cut short, to invalidate any in-flight timers from it
 
 let lastRenderedSlotContent = [null, null, null, null];
 function renderTrickSlotsWithWinnerPause(state) {
@@ -12664,11 +12665,26 @@ function renderTrickSlotsWithWinnerPause(state) {
     return;
   }
   if (state.tricksPlayed !== undefined) lastSeenTricksPlayed = state.tricksPlayed;
-  if (trickRevealBusy || trickRevealQueue.length > 0) {
+  const myTurnToAct = !state.phase?.startsWith('bidding') && state.currentPlayer === MY_POS && state.phase !== 'roundEnd';
+  if ((trickRevealBusy || trickRevealQueue.length > 0) && !myTurnToAct) {
     // A reveal is in progress or queued — don't touch the DOM now. Once
     // the queue drains, the real current state gets rendered fresh,
     // correctly picking up whatever's happened by then.
     return;
+  }
+  if (myTurnToAct && (trickRevealBusy || trickRevealQueue.length > 0)) {
+    // It's genuinely our turn to act on a NEW trick, but the old one is
+    // still mid-hold — bots move on the server's own schedule, not this
+    // browser's display pacing, so a fresh trick can already have 1-3
+    // cards in it by the time it's our turn even while the previous
+    // trick is still being shown. The hand's follow-suit restrictions are
+    // already live and correct at this point (they always sync
+    // immediately, unlike this DOM), so leaving the circle stuck on the
+    // old trick just makes those restrictions look inexplicable. Cut the
+    // hold short and show what's actually on the table right now.
+    trickRevealBusy = false;
+    trickRevealQueue.length = 0;
+    trickRevealGen++;
   }
   renderTrickSlots(state);
 }
@@ -12711,11 +12727,14 @@ function processTrickRevealQueue() {
   // takes about 1.2s on top of this pause.
   const TRICK_PAUSE_MS = 2000;
   const FLY_AWAY_MS = 1200;
+  const myGen = trickRevealGen;
   setTimeout(() => {
+    if (myGen !== trickRevealGen) return; // this hold got cut short — a fresh trick is already showing, don't fly stale cards
     if (typeof animateCardsToWinner === 'function') animateCardsToWinner(lastTrick.winner);
   }, TRICK_PAUSE_MS);
 
   setTimeout(() => {
+    if (myGen !== trickRevealGen) return; // superseded — the real-state render already happened when the hold was cut short
     trickRevealBusy = false;
     if (trickRevealQueue.length > 0) {
       // Another trick completed while this one was showing — reveal it

@@ -20,6 +20,7 @@ let lastAnnouncedTrumpExposed = false;
 let lastShownRoundVoidMessage = null;
 let lastSeenTricksPlayed = -1; // detects exactly when a new trick has just completed
 let trickHoldTimer = null;     // holds the completed trick visible briefly before clearing
+let trickHoldGen = 0;          // bumped when a hold gets cut short, to invalidate in-flight timers from it
 let lastRoundSeen = -1;
 let roundTrickHistory = []; // every completed trick so far THIS round, for the "played so far" view
 let roundHistorySeenFor = -1; // which round roundTrickHistory currently belongs to
@@ -307,13 +308,33 @@ function applyState(state) {
     // connection, cards could otherwise start flying away before everyone
     // even finished seeing what was played.
     const TRICK_PAUSE_MS = 2000, FLY_AWAY_MS = 1200;
-    setTimeout(() => animateCardsToWinner(state.lastTrick.winner), TRICK_PAUSE_MS);
+    const myGen = ++trickHoldGen;
+    setTimeout(() => {
+      if (myGen !== trickHoldGen) return; // hold got cut short — don't fly stale cards
+      animateCardsToWinner(state.lastTrick.winner);
+    }, TRICK_PAUSE_MS);
     trickHoldTimer = setTimeout(() => {
+      if (myGen !== trickHoldGen) return; // superseded — already re-rendered when the hold was cut short
       trickHoldTimer = null;
       if (latestState) renderTrick(latestState); // reflect whatever's actually current by now
     }, TRICK_PAUSE_MS + FLY_AWAY_MS);
-  } else if (!trickHoldTimer) {
-    renderTrick(state);
+  } else {
+    const myTurnToAct = state.phase !== 'bidding1' && state.phase !== 'roundEnd' && state.currentPlayer === MY_POS;
+    if (trickHoldTimer && myTurnToAct) {
+      // Bots move on the server's own schedule, not this browser's
+      // display pacing — a whole new trick can already have several
+      // cards in it by the time it's genuinely our turn, even while the
+      // PREVIOUS trick is still being held on screen. The hand's
+      // follow-suit restrictions are already live and correct at this
+      // point; leaving the circle stuck on the old trick just makes them
+      // look inexplicable. Cut the hold short and show the real table.
+      clearTimeout(trickHoldTimer);
+      trickHoldTimer = null;
+      trickHoldGen++;
+      renderTrick(state);
+    } else if (!trickHoldTimer) {
+      renderTrick(state);
+    }
   }
   renderHand(state);
   updateTurnLabel(state);
