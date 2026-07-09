@@ -84,6 +84,9 @@ function connectSocket() {
 
   socket.on('sixp_actionError', (err) => {
     console.log('[server] action rejected:', err.reason);
+    if (err.reason === 'illegal_card') {
+      showToast("⚠️ That card can't be played right now — check what's highlighted", 'lose', 2500);
+    }
   });
 
   socket.on('sixp_chooseSeat', (info) => showSeatPicker(info));
@@ -595,6 +598,15 @@ function canPlay(state, card) {
   if (state.trickSuit === '') return true;
   const hasSuit = hand.some(c => c.suit === state.trickSuit);
   if (hasSuit && card.suit !== state.trickSuit) return false;
+  // Whoever just called for trump to be revealed must play a trump card
+  // next if they have one and can't follow the led suit — matches the
+  // server's canPlayCard exactly (game-engine-6p.js). Missing this was
+  // the actual bug: the client showed every card as tappable, the server
+  // silently rejected the illegal ones, and nothing visibly happened.
+  if (state.mustPlayTrump && !hasSuit && card.suit !== state.trumpSuit) {
+    const hasTrump = hand.some(c => c.suit === state.trumpSuit);
+    if (hasTrump) return false;
+  }
   return true;
 }
 
@@ -730,7 +742,11 @@ function showRoundEnd(state) {
   if (!r) return;
   $('roundEndTitle').textContent = r.made ? '✅ Bid Made!' : '❌ Bid Failed';
   const bidderName = state.seats[r.bidder] ? state.seats[r.bidder].name : ('Seat ' + r.bidder);
-  $('roundEndBody').innerHTML = `${bidderName} bid ${r.highestBid}.<br>Team points: ${r.teamPoints[0]} - ${r.teamPoints[1]}<br><b style="color:${r.made ? 'var(--success)' : 'var(--danger)'}">${r.made ? '+' : '-'}${r.pts} match points</b>`;
+  let body = `${bidderName} bid ${r.highestBid}.<br>Team points: ${r.teamPoints[0]} - ${r.teamPoints[1]}<br><b style="color:${r.made ? 'var(--success)' : 'var(--danger)'}">${r.made ? '+' : '-'}${r.pts} match points</b>`;
+  if (!IS_HOST) {
+    body += `<br><br><span style="color:var(--text-secondary);font-size:0.8rem">⏳ Waiting for the host to start the next round...</span>`;
+  }
+  $('roundEndBody').innerHTML = body;
   $('btnContinueRound').style.display = IS_HOST ? 'flex' : 'none';
   $('roundEndOverlay').classList.add('on');
 }
