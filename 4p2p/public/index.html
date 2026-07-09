@@ -6248,11 +6248,6 @@ let pendingBid = 0;
 let pendingIsPass = false;
 
 function showBidConfirmation(bid, isPass) {
-  if (SERVER_MODE) {
-    document.getElementById('bidOverlay').classList.remove('on');
-    processBid(MY_POS, isPass ? 0 : bid);
-    return;
-  }
   pendingBid = bid;
   pendingIsPass = isPass || false;
   const isFirst = (highestBid === 0 && passes === 0 && currentPlayer === nextPlayer(dealer));
@@ -6660,12 +6655,6 @@ function showRaisePanel() {
 }
 
 function showPhase2Confirmation(bid, isPass) {
-  if (SERVER_MODE) {
-    document.getElementById('bidOverlay').classList.remove('on');
-    if (isPass) gameSocket.emit('passPhase2');
-    else gameSocket.emit('raiseBid', { bid: bid });
-    return;
-  }
   pendingBid = bid;
   pendingIsPass = isPass || false;
 
@@ -6711,6 +6700,11 @@ function showPhase2Confirmation(bid, isPass) {
   confirmBtn.addEventListener('click', () => {
     document.getElementById('bidOverlay').classList.remove('on');
     const myPos = MY_POS;
+    if (SERVER_MODE) {
+      if (isPass) gameSocket.emit('passPhase2');
+      else gameSocket.emit('raiseBid', { bid: pendingBid });
+      return;
+    }
     if (isPass) {
       log('You passed P2');
       if (IS_ONLINE && !IS_HOST) {

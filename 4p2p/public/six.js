@@ -646,18 +646,19 @@ function showBidPanel(state) {
     : 'You are the first bidder — must bid at least 16.';
   const btns = $('bidButtons');
   btns.innerHTML = '';
+  btns.className = 'bid-grid';
   if (!isFirst) {
     const pass = document.createElement('button');
     pass.className = 'bid-btn pass-btn';
     pass.textContent = 'PASS';
-    pass.addEventListener('click', () => { $('bidOverlay').classList.remove('on'); socket.emit('sixp_placeBid', { bid: 0 }); });
+    pass.addEventListener('click', () => showBidConfirm(state, 0, true));
     btns.appendChild(pass);
   }
   for (let b = minBid; b <= 28; b++) {
     const btn = document.createElement('button');
     btn.className = 'bid-btn';
     btn.textContent = b;
-    btn.addEventListener('click', () => { $('bidOverlay').classList.remove('on'); socket.emit('sixp_placeBid', { bid: b }); });
+    btn.addEventListener('click', () => showBidConfirm(state, b, false));
     btns.appendChild(btn);
   }
   const mySeat = state.seats[MY_POS];
@@ -665,6 +666,41 @@ function showBidPanel(state) {
   const sorted = hand.slice().sort((a, b) => SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit) || RANK_ORDER[b.rank] - RANK_ORDER[a.rank]);
   $('bidHandDisplay').innerHTML = sorted.map(c => cardHTML(c, false, false, '')).join('');
   $('bidOverlay').classList.add('on');
+}
+
+// A confirm step before the bid actually goes to the server — a
+// mis-tap on a bid number was otherwise irreversible the instant it
+// registered, with real match points on the line.
+function showBidConfirm(state, bid, isPass) {
+  $('bidTitle').textContent = isPass ? 'Confirm Pass?' : 'Confirm Your Bid';
+  $('bidText').innerHTML = isPass
+    ? `You are about to <b>PASS</b>.<br>Current highest: <b style="color:var(--accent)">${state.highestBid}</b>`
+    : `You are about to bid: <b style="color:var(--accent);font-size:1.8rem">${bid}</b>` +
+      (state.highestBid > 0 ? `<br>Raising from: <b>${state.highestBid}</b> by ${state.seats[state.bidder] ? state.seats[state.bidder].name : '—'}` : '');
+  const btns = $('bidButtons');
+  btns.innerHTML = '';
+  btns.className = 'bid-grid';
+  btns.style.gridTemplateColumns = '1fr 1fr';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'bid-btn';
+  cancelBtn.style.background = 'transparent';
+  cancelBtn.style.border = '1.5px solid var(--border)';
+  cancelBtn.textContent = '✕ Cancel';
+  cancelBtn.addEventListener('click', () => showBidPanel(state));
+  btns.appendChild(cancelBtn);
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.className = 'bid-btn';
+  confirmBtn.style.background = 'var(--success, #2ecc71)';
+  confirmBtn.style.color = '#0a1628';
+  confirmBtn.style.fontWeight = '800';
+  confirmBtn.textContent = isPass ? '✓ Confirm Pass' : `✓ Confirm Bid ${bid}`;
+  confirmBtn.addEventListener('click', () => {
+    $('bidOverlay').classList.remove('on');
+    socket.emit('sixp_placeBid', { bid: isPass ? 0 : bid });
+  });
+  btns.appendChild(confirmBtn);
 }
 
 // ---------------- Trump choice UI ----------------
