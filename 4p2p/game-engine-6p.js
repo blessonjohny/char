@@ -698,10 +698,19 @@ class GameEngine6P {
           if (p === pos || getTeam(p) === myTeam) continue;
           if (this.voidSuits[p].has(s)) { voidOpponentPenalty = this.trumpExposed ? 20 : 10; break; }
         }
-        let sc = -voidOpponentPenalty;
+        // The flip side: a PARTNER known to be void in this suit can
+        // trump straight in and win it for the team once trump is
+        // exposed — leading into that is a genuine team tactic ("what
+        // can my partner cut"), not just a read on this bot's own hand.
+        let partnerVoidBonus = 0;
+        for (let p = 0; p < SEATS; p++) {
+          if (p === pos || getTeam(p) !== myTeam) continue;
+          if (this.voidSuits[p].has(s) && this.trumpExposed) { partnerVoidBonus = 18; break; }
+        }
+        let sc = -voidOpponentPenalty + partnerVoidBonus;
         if (isEarly) {
           if (low.rank === 'J' || low.rank === '9') {
-            if (bySuit[s].length > 1) { candidates.push({ card: bySuit[s][1], score: bySuit[s].length * 5 - voidOpponentPenalty, suit: s }); continue; }
+            if (bySuit[s].length > 1) { candidates.push({ card: bySuit[s][1], score: bySuit[s].length * 5 - voidOpponentPenalty + partnerVoidBonus, suit: s }); continue; }
             // A lone 9 with no second card of that suit to lead instead —
             // this is exactly the risky "leading a point card into a suit
             // where the opponent may still hold the Jack" case if that
@@ -782,10 +791,35 @@ class GameEngine6P {
           for (let i = trumps.length - 1; i >= 0; i--) {
             if (RANK_ORDER[trumps[i].rank] > RANK_ORDER[cwc.rank]) { wtr = trumps[i]; break; }
           }
+          // The minimal sufficient trump is only safe if no one still to
+          // act in this trick can hold a bigger one — in practice, whether
+          // the trump Jack is still unaccounted for. Spending our only
+          // realistic winner into a trick a live Jack can still take away
+          // is exactly the waste this was meant to avoid.
+          if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && wtr.rank !== 'J' && tPts >= 3) {
+            wtr = trumps[0];
+          }
         }
         return wtr;
       }
-      return trumps[trumps.length - 1];
+      // Not spending trump to win this one — most commonly because our
+      // OWN partner is already winning it (wt === myTeam), where cutting
+      // in over our own teammate would just waste a trump for nothing. A
+      // trump card is not automatically the right thing to throw away
+      // just because we're void in the led suit — a non-trump discard
+      // (ideally a point card, feeding our own partner the same way the
+      // follow-suit logic above does) preserves trump for later.
+      const nonTrumpDiscard = hand.filter(c => c.suit !== this.trumpSuit);
+      if (nonTrumpDiscard.length > 0) {
+        const feedablePts = nonTrumpDiscard.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+        if (wt === myTeam && feedablePts.length > 0) {
+          feedablePts.sort((a, c) => c.points - a.points);
+          return feedablePts[0];
+        }
+        nonTrumpDiscard.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+        return nonTrumpDiscard[0];
+      }
+      return trumps[trumps.length - 1]; // genuinely nothing else left to throw
     }
 
     if (!this.trumpExposed && trumps.length > 0 && this.trickSuit !== this.trumpSuit) {
