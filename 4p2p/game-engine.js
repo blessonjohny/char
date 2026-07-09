@@ -1215,12 +1215,22 @@ class GameEngine {
       if (!hasSuit && !this.trumpExposed && this.trickSuit !== '' && trumps.length >= 0) {
         const goodExposures = b.patterns.trumpExposures.filter(te => te.exposed && te.goodOutcome);
         let callTrump = false;
-        if (goodExposures.length > 0 && Math.random() < 0.4 * b.level) callTrump = true;
-        else if (pos === this.bidder) callTrump = true;
-        else if (isLast && wt !== myTeam && tPts > 0) callTrump = true;
-        else if (wt !== myTeam && tPts >= 2) callTrump = true;
-        else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) callTrump = true;
-        else if (this.trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) callTrump = true;
+        // None of the reasons below justify exposing trump and cutting in
+        // if our OWN partner already has this trick won for free — that's
+        // pure waste: we'd be spending a trump card (and giving away
+        // where trump lives, information the whole table can use against
+        // us) to "win" a trick our team already had. This was the actual
+        // bug behind repeated "why did my partner cut over me" reports —
+        // holding a J/9 of trump, or simply seeing points already on the
+        // table, used to trigger a call regardless of who was winning.
+        if (wt !== myTeam) {
+          if (goodExposures.length > 0 && Math.random() < 0.4 * b.level) callTrump = true;
+          else if (pos === this.bidder) callTrump = true;
+          else if (isLast && tPts > 0) callTrump = true;
+          else if (tPts >= 2) callTrump = true;
+          else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) callTrump = true;
+          else if (this.trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) callTrump = true;
+        }
         if (callTrump) {
           const goodOutcome = wt !== myTeam; // calling trump to steal back a trick the other team was winning
           brain.recordTrumpExposure(this.seats[pos].name, { trickLen: this.trickCards.length }, true, goodOutcome);
@@ -1487,7 +1497,7 @@ class GameEngine {
 
     if (!this.trumpExposed && trumps.length > 0 && this.trickSuit !== this.trumpSuit) {
       if (isLast && wt !== myTeam && tPts >= 2) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
-      if (isBidder && tPts >= 3) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
+      if (isBidder && wt !== myTeam && tPts >= 3) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
     }
 
     let disc = hand.filter(c => c.suit !== this.trumpSuit);

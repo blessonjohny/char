@@ -621,11 +621,16 @@ class GameEngine6P {
 
       if (!hasSuit && !this.trumpExposed && this.trickSuit !== '' && trumps.length >= 0) {
         let callTrumpNow = false;
-        if (pos === this.bidder) callTrumpNow = true;
-        else if (isLast && wt !== myTeam && tPts > 0) callTrumpNow = true;
-        else if (wt !== myTeam && tPts >= 2) callTrumpNow = true;
-        else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) callTrumpNow = true;
-        else if (this.trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) callTrumpNow = true;
+        // None of these reasons justify exposing trump and cutting in if
+        // our OWN partner already has this trick won for free — pure
+        // waste of a trump card and revealed information for nothing.
+        if (wt !== myTeam) {
+          if (pos === this.bidder) callTrumpNow = true;
+          else if (isLast && tPts > 0) callTrumpNow = true;
+          else if (tPts >= 2) callTrumpNow = true;
+          else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) callTrumpNow = true;
+          else if (this.trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) callTrumpNow = true;
+        }
         if (callTrumpNow) {
           this.exposeTrump();
           if (trumps.length > 0) {
@@ -835,7 +840,7 @@ class GameEngine6P {
 
     if (!this.trumpExposed && trumps.length > 0 && this.trickSuit !== this.trumpSuit) {
       if (isLast && wt !== myTeam && tPts >= 2) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
-      if (isBidder && tPts >= 3) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
+      if (isBidder && wt !== myTeam && tPts >= 3) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
     }
 
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
