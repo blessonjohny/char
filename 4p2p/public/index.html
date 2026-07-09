@@ -12778,16 +12778,25 @@ function scheduleTrickHoldTimers(myGen, pauseMs, flyMs) {
 }
 
 // Called when it turns out to already be genuinely the player's turn
-// while a hold from an earlier trick is still running its full, slow
-// pause — reschedules that hold's remaining timers to finish almost
-// immediately instead. Nothing is skipped: the trick that's currently
-// showing has already been fully visible for however long it's been up,
-// this just cuts the REMAINING wait short and still plays the
-// fly-to-winner animation before handing off to whatever's queued next
-// (or the real current state, if the queue's empty).
+// while a hold from an earlier trick is still running. This is not a
+// "speed up" anymore — any remaining delay at all was still enough for a
+// fast tap to beat it. Jump straight to the real current state, right
+// now, synchronously. The interrupted trick already had whatever time it
+// had on screen; the fly-to-winner flourish for it is skipped entirely
+// in this case, in favor of the player never being blocked from seeing
+// what they actually need to act on.
 function speedUpCurrentTrickHold() {
   trickHoldSpedUp = true;
-  scheduleTrickHoldTimers(trickHoldGen, 60, 350);
+  if (trickHoldAnimTimer) clearTimeout(trickHoldAnimTimer);
+  if (trickHoldTimer) clearTimeout(trickHoldTimer);
+  trickHoldTimer = null;
+  trickHoldAnimTimer = null;
+  trickHoldGen++; // invalidates any timer still in flight from the interrupted hold
+  if (trickRevealQueue.length > 0) { processNextTrickReveal(); return; }
+  const nowReal = latestServerState;
+  if (!nowReal) return;
+  trickCards = (nowReal.trickCards || []).map(tc => ({ player: tc.pos, card: { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' } }));
+  renderTrickSlots(nowReal);
 }
 
 function renderTrickSlots(state) {

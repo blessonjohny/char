@@ -476,15 +476,20 @@ function scheduleSixpTrickHoldTimers(myGen, pauseMs, flyMs) {
 }
 
 // Called when it turns out to already be genuinely the player's turn
-// while an earlier trick's hold is still running its full, slow pause —
-// reschedules that hold's remaining timers to finish almost immediately.
-// Nothing is skipped: the trick currently showing has already been
-// visible for however long it's been up; this just cuts the REMAINING
-// wait short and still plays the fly-to-winner animation before handing
-// off to whatever's queued next (or the real current state).
+// while an earlier trick's hold is still running. Any remaining
+// scheduled delay was still enough for a fast tap to beat it, so this
+// jumps straight to the real current state, right now, synchronously —
+// skipping the fly-to-winner flourish for the interrupted trick in favor
+// of never blocking the player from seeing what they need to act on.
 function speedUpSixpTrickHold() {
   sixpTrickHoldSpedUp = true;
-  scheduleSixpTrickHoldTimers(trickHoldGen, 60, 350);
+  if (sixpTrickHoldAnimTimer) clearTimeout(sixpTrickHoldAnimTimer);
+  if (trickHoldTimer) clearTimeout(trickHoldTimer);
+  trickHoldTimer = null;
+  sixpTrickHoldAnimTimer = null;
+  trickHoldGen++;
+  if (sixpTrickRevealQueue.length > 0) { processNextSixpTrickReveal(); return; }
+  if (latestState) renderTrick(latestState);
 }
 
 function renderLastTrick(state) {
