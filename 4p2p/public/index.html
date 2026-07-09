@@ -12660,8 +12660,11 @@ function showChampionshipResultServerMode(champResult, yourTeam) {
 // actual correctness property the player's own turn depends on.
 let lastSeenTricksPlayed = -1;
 let trickHoldTimer = null; // set while a completed trick is being held on screen
+let trickHoldAnimTimer = null; // the pending "fly to winner" timer specifically
 let trickHoldGen = 0;      // bumped whenever a hold is superseded, to invalidate its own in-flight timers
 let trickRevealQueue = []; // completed tricks still waiting their turn to be shown — nothing in here is ever dropped
+let trickHoldSpedUp = false; // true once the CURRENT hold has already been sped up, so it only happens once per trick
+let currentlyShowingTrick = null; // whichever trick's cards are on screen right now, for the fly-to-winner animation
 
 let lastRenderedSlotContent = [null, null, null, null];
 function renderTrickSlotsWithWinnerPause(state) {
@@ -12685,9 +12688,20 @@ function renderTrickSlotsWithWinnerPause(state) {
   }
 
   // Not a fresh resolution — a hold (or backlog) may still be showing.
-  // Leave it running; it always catches up on its own (see below), and
-  // interrupting it here is what used to cause tricks to visibly skip.
-  if (trickHoldTimer || trickRevealQueue.length > 0) return;
+  if (trickHoldTimer || trickRevealQueue.length > 0) {
+    // If it's already genuinely the player's turn to act on a LATER
+    // trick, don't just let a slow hold run its full course — the "is
+    // this urgent" call used to only get made once, right when a hold
+    // started, so a hold that began before it was our turn had no way to
+    // notice things changed partway through and would run the full 2s+
+    // 1.2s regardless. Check on every update instead, and speed up
+    // whatever's currently showing the moment it becomes relevant —
+    // nothing in the queue is skipped, this only shortens how long the
+    // CURRENT item stays on screen.
+    const myTurnToAct = !state.phase?.startsWith('bidding') && state.currentPlayer === MY_POS && state.phase !== 'roundEnd';
+    if (myTurnToAct && trickHoldTimer && !trickHoldSpedUp) speedUpCurrentTrickHold();
+    return;
+  }
   renderTrickSlots(state);
 }
 
@@ -12696,6 +12710,8 @@ function processNextTrickReveal() {
   const lastTrick = trickRevealQueue.shift();
   trickHoldGen++;
   const myGen = trickHoldGen;
+  trickHoldSpedUp = false;
+  currentlyShowingTrick = lastTrick;
 
   for (let i = 0; i < 4; i++) {
     const el = document.getElementById('slot' + i);
@@ -12729,31 +12745,49 @@ function processNextTrickReveal() {
   // even finished seeing what was played. The fly-away animation itself
   // takes about 1.2s on top of this pause.
   //
-  // Exception: if there's already a backlog (more tricks queued behind
-  // this one) or it's already genuinely the player's turn to act on a
-  // later trick, that means this reveal is already behind real-time —
-  // still show it in full, just faster, so the display can catch back up
-  // instead of making the player wait through a full-length replay of
-  // something that's already old news.
+  // Exception: if there's already a backlog, or it's already genuinely
+  // the player's turn to act on a later trick, that means this reveal is
+  // already behind real-time — still show it in full, just faster.
+  // (speedUpCurrentTrickHold below covers the case where this becomes
+  // true partway through, not just at the start.)
   const real = latestServerState;
   const myTurnWaiting = real && !real.phase?.startsWith('bidding') && real.currentPlayer === MY_POS && real.phase !== 'roundEnd';
   const fastCatchUp = trickRevealQueue.length > 0 || myTurnWaiting;
-  const TRICK_PAUSE_MS = fastCatchUp ? 500 : 2000;
-  const FLY_AWAY_MS = fastCatchUp ? 350 : 1200;
-  setTimeout(() => {
+  scheduleTrickHoldTimers(myGen, fastCatchUp ? 500 : 2000, fastCatchUp ? 350 : 1200);
+}
+
+function scheduleTrickHoldTimers(myGen, pauseMs, flyMs) {
+  if (trickHoldAnimTimer) clearTimeout(trickHoldAnimTimer);
+  if (trickHoldTimer) clearTimeout(trickHoldTimer);
+  const lastTrick = currentlyShowingTrick;
+  trickHoldAnimTimer = setTimeout(() => {
     if (myGen !== trickHoldGen) return;
-    if (typeof animateCardsToWinner === 'function') animateCardsToWinner(lastTrick.winner);
-  }, TRICK_PAUSE_MS);
+    if (typeof animateCardsToWinner === 'function' && lastTrick) animateCardsToWinner(lastTrick.winner);
+  }, pauseMs);
 
   trickHoldTimer = setTimeout(() => {
     if (myGen !== trickHoldGen) return;
     trickHoldTimer = null;
+    trickHoldAnimTimer = null;
     if (trickRevealQueue.length > 0) { processNextTrickReveal(); return; }
     const nowReal = latestServerState;
     if (!nowReal) return;
     trickCards = (nowReal.trickCards || []).map(tc => ({ player: tc.pos, card: { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' } }));
     renderTrickSlots(nowReal);
-  }, TRICK_PAUSE_MS + FLY_AWAY_MS);
+  }, pauseMs + flyMs);
+}
+
+// Called when it turns out to already be genuinely the player's turn
+// while a hold from an earlier trick is still running its full, slow
+// pause — reschedules that hold's remaining timers to finish almost
+// immediately instead. Nothing is skipped: the trick that's currently
+// showing has already been fully visible for however long it's been up,
+// this just cuts the REMAINING wait short and still plays the
+// fly-to-winner animation before handing off to whatever's queued next
+// (or the real current state, if the queue's empty).
+function speedUpCurrentTrickHold() {
+  trickHoldSpedUp = true;
+  scheduleTrickHoldTimers(trickHoldGen, 60, 350);
 }
 
 function renderTrickSlots(state) {
