@@ -635,7 +635,15 @@ class GameEngine6P {
           this.exposeTrump();
           if (trumps.length > 0) {
             trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
-            this.playCard(pos, trumps[0]);
+            // Always a FIRST cut — any trump we hold wins this outright,
+            // so reflexively playing our best one (often the Jack) is
+            // pure waste when a King or 7 would win it just as well.
+            const zeroPt = trumps.filter(c => c.points === 0);
+            let cutCard = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1] : trumps[trumps.length - 1];
+            if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && cutCard.rank !== 'J' && tPts >= 3) {
+              cutCard = trumps[0];
+            }
+            this.playCard(pos, cutCard);
           } else {
             const allCards = [...hand].sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
             this.playCard(pos, allCards[0]);

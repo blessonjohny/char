@@ -1237,7 +1237,25 @@ class GameEngine {
           this.exposeTrump();
           if (trumps.length > 0) {
             trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
-            this.playCard(pos, trumps[0]);
+            // This is always a FIRST cut — trump wasn't exposed before this
+            // exact moment, and any earlier same-trick trump card would
+            // only have been an "incidental," powerless discard (see
+            // playCard's isIncidentalTrumpDiscard) that can't currently be
+            // winning. So any trump we hold wins this outright, and
+            // reflexively playing our best one (often the Jack) to win a
+            // trick a King or 7 would have won just as well is exactly the
+            // waste reported — a bidder doing this on their own last turn
+            // with cheaper trump sitting right there in hand.
+            const zeroPt = trumps.filter(c => c.points === 0);
+            let cutCard = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1] : trumps[trumps.length - 1];
+            // Still respect real overtake risk: if other players still
+            // act after us in this same trick and the trump Jack hasn't
+            // been seen yet, a big enough trick is worth committing our
+            // strongest trump to make sure it actually holds up.
+            if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && cutCard.rank !== 'J' && tPts >= 3) {
+              cutCard = trumps[0];
+            }
+            this.playCard(pos, cutCard);
           } else {
             const allCards = [...hand].sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
             this.playCard(pos, allCards[0]);
