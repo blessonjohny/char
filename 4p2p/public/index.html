@@ -344,7 +344,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ccard::after{content:'';position:absolute;inset:2px;border:1px solid rgba(255,255,255,0.12);border-radius:1px}
 @keyframes ccardIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 .trick-card-landing{animation:trickCardLand 0.4s cubic-bezier(0.34,1.56,0.64,1) both}
-.trick-winner{box-shadow:0 0 0 3px var(--accent),0 0 16px rgba(244,196,48,0.8)!important;transform:scale(1.15);z-index:6}
 @keyframes trickCardLand{from{opacity:0;transform:scale(0.4) translateY(-30px)}to{opacity:1;transform:scale(1) translateY(0)}}
 .pbid{font-size:0.58rem;color:var(--accent);background:rgba(255,215,0,0.12);padding:1px 5px;border-radius:4px;white-space:nowrap}
 .mini-cards{display:flex;gap:0;margin-top:2px}
@@ -2872,11 +2871,7 @@ const ALL_PLAYERS = [
   {name:'Peter',emoji:'🏀',bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
   {name:'Shyam',emoji:'🍵',bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
   {name:'Appu',emoji:'🌺',bg:'linear-gradient(135deg,#ff7979,#eb4d4b)'},
-  {name:'Anup',emoji:'🦊',bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  // Newest additions.
-  {name:'Arun',emoji:'🧑‍💼',bg:'linear-gradient(135deg,#e67e22,#d35400)'},
-  {name:'Vilphy',emoji:'😎',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Roji',emoji:'🙂',bg:'linear-gradient(135deg,#1abc9c,#16a085)'}
+  {name:'Anup',emoji:'🦊',bg:'linear-gradient(135deg,#00b894,#00a085)'}
 ];
 
 const SUITS=['♥','♠','♦','♣'];
@@ -6173,13 +6168,11 @@ function showBidPanel1() {
     btns.appendChild(btn);
   }
 
-  // PASS button at the END (after numbers) — if already the highest
-  // bidder, passing just keeps that bid rather than giving anything up.
+  // PASS button at the END (after numbers)
   if (!isFirst) {
-    const alreadyHighest = bidder === MY_POS;
     const pb = document.createElement('button');
     pb.className = 'bid-btn pass-btn';
-    pb.textContent = alreadyHighest ? 'STAY AT ' + highestBid : 'PASS';
+    pb.textContent = 'PASS';
     pb.addEventListener('click', () => {
       showBidConfirmation(0, true);
     });
@@ -6250,19 +6243,21 @@ let pendingBid = 0;
 let pendingIsPass = false;
 
 function showBidConfirmation(bid, isPass) {
+  if (SERVER_MODE) {
+    document.getElementById('bidOverlay').classList.remove('on');
+    processBid(MY_POS, isPass ? 0 : bid);
+    return;
+  }
   pendingBid = bid;
   pendingIsPass = isPass || false;
   const isFirst = (highestBid === 0 && passes === 0 && currentPlayer === nextPlayer(dealer));
-  const alreadyHighest = bidder === MY_POS;
 
-  document.getElementById('bidTitle').textContent = isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Bid';
+  document.getElementById('bidTitle').textContent = isPass ? 'Confirm Pass?' : 'Confirm Your Bid';
 
   let confirmText = '';
   if (isPass) {
     if (isFirst) {
       confirmText = "<b style='color:var(--danger)'>⚠️ First bidder must bid 14!</b><br><br>Pass will auto-bid 14.";
-    } else if (alreadyHighest) {
-      confirmText = "You'll <b>stay at your bid of " + highestBid + "</b> — you're already the highest bidder, this just locks it in without raising further.<br><br>Confirm?";
     } else {
       confirmText = "You are about to <b>PASS</b>.<br>Current highest: <b style='color:var(--accent)'>" + highestBid + "</b><br><br>Confirm?";
     }
@@ -6300,8 +6295,6 @@ function showBidConfirmation(bid, isPass) {
   if (isPass) {
     if (isFirst) {
       confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">AUTO-BID</span><span class="btn-sub">14 (First Bidder)</span>';
-    } else if (alreadyHighest) {
-      confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Stay at ' + highestBid + '</span>';
     } else {
       confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Pass</span>';
     }
@@ -6646,14 +6639,10 @@ function showRaisePanel() {
     btns.appendChild(btn);
   }
 
-  // PASS button at the END (after raise buttons) — if this player is
-  // already the highest bidder, "passing" doesn't forfeit anything, it
-  // just locks in the bid they already have. Label it accordingly so it
-  // doesn't read like they're about to lose their own bid.
-  const alreadyHighest = bidder === MY_POS;
+  // PASS button at the END (after raise buttons)
   const pb = document.createElement('button');
   pb.className = 'bid-btn pass-btn';
-  pb.textContent = alreadyHighest ? 'STAY AT ' + highestBid : 'PASS';
+  pb.textContent = 'PASS';
   pb.addEventListener('click', () => {
     showPhase2Confirmation(0, true);
   });
@@ -6666,17 +6655,20 @@ function showRaisePanel() {
 }
 
 function showPhase2Confirmation(bid, isPass) {
+  if (SERVER_MODE) {
+    document.getElementById('bidOverlay').classList.remove('on');
+    if (isPass) gameSocket.emit('passPhase2');
+    else gameSocket.emit('raiseBid', { bid: bid });
+    return;
+  }
   pendingBid = bid;
   pendingIsPass = isPass || false;
-  const alreadyHighest = bidder === MY_POS;
 
-  document.getElementById('bidTitle').textContent = isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Raise';
+  document.getElementById('bidTitle').textContent = isPass ? 'Confirm Pass?' : 'Confirm Your Raise';
 
   let confirmText = '';
   if (isPass) {
-    confirmText = alreadyHighest
-      ? "You'll <b>stay at your bid of " + highestBid + "</b> — you're already the highest bidder, this just locks it in without raising further.<br><br>Confirm?"
-      : "You are about to <b>PASS</b> in Phase 2.<br>Current highest bid: <b style='color:var(--accent)'>" + highestBid + "</b><br><br>Confirm?";
+    confirmText = "You are about to <b>PASS</b> in Phase 2.<br>Current highest bid: <b style='color:var(--accent)'>" + highestBid + "</b><br><br>Confirm?";
   } else {
     confirmText = "You are about to raise to: <b style='color:var(--accent);font-size:1.8rem;text-shadow:0 2px 10px rgba(255,215,0,.3)'>" + bid + "</b><br>";
     confirmText += "Raising from: <b>" + highestBid + "</b> by " + (bidder === (MY_POS) ? 'You' : (playerAt(bidder) ? playerAt(bidder).name : '—')) + "<br>";
@@ -6707,20 +6699,13 @@ function showPhase2Confirmation(bid, isPass) {
   const confirmBtn = document.createElement('button');
   confirmBtn.className = 'confirm-btn';
   if (isPass) {
-    confirmBtn.innerHTML = alreadyHighest
-      ? '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Stay at ' + highestBid + '</span>'
-      : '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Pass</span>';
+    confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Pass</span>';
   } else {
     confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Raise to ' + bid + '</span>';
   }
   confirmBtn.addEventListener('click', () => {
     document.getElementById('bidOverlay').classList.remove('on');
     const myPos = MY_POS;
-    if (SERVER_MODE) {
-      if (isPass) gameSocket.emit('passPhase2');
-      else gameSocket.emit('raiseBid', { bid: pendingBid });
-      return;
-    }
     if (isPass) {
       log('You passed P2');
       if (IS_ONLINE && !IS_HOST) {
@@ -12520,34 +12505,23 @@ function applyServerState(state) {
     const isYourBid = (getTeam(r.bidder) === yourTeam);
     const champResult = state.lastChampionshipResult;
     let roundEndPanelShown = false;
-
-    // The round can end on the very last trick, whose own 2s-hold +
-    // fly-to-winner animation may still be playing when this arrives.
-    // Don't cut that off — wait for it to actually finish before
-    // starting the round-end sequence on top of it.
-    function afterTrickRevealSettles(fn) {
-      if (trickRevealBusy || trickRevealQueue.length > 0) { setTimeout(() => afterTrickRevealSettles(fn), 150); return; }
-      fn();
-    }
-    afterTrickRevealSettles(() => {
-      setTimeout(() => {
-        animateCrownRoundEnd(r.bidderWon, function () {
-          roundEndPanelShown = true;
-          proceedAfterCrownAnimationServerMode(r.bidderWon, r.made, bT, oT, yourTeam, isYourBid, champResult);
-        });
-      }, 400);
-      // Safety net: if the crown animation's callback chain never actually
-      // fires for any reason, the game must not be able to get stuck
-      // showing a finished round with no way to continue. Force the panel
-      // open directly after a few seconds regardless.
-      setTimeout(() => {
-        if (roundEndPanelShown) return;
-        const overlay = document.getElementById('postRoundOverlay');
-        if (overlay && overlay.classList.contains('on')) return;
-        console.log('[server-mode] round-end panel never appeared on its own — forcing it open');
+    setTimeout(() => {
+      animateCrownRoundEnd(r.bidderWon, function () {
+        roundEndPanelShown = true;
         proceedAfterCrownAnimationServerMode(r.bidderWon, r.made, bT, oT, yourTeam, isYourBid, champResult);
-      }, 3000);
-    });
+      });
+    }, 400);
+    // Safety net: if the crown animation's callback chain never actually
+    // fires for any reason, the game must not be able to get stuck
+    // showing a finished round with no way to continue. Force the panel
+    // open directly after a few seconds regardless.
+    setTimeout(() => {
+      if (roundEndPanelShown) return;
+      const overlay = document.getElementById('postRoundOverlay');
+      if (overlay && overlay.classList.contains('on')) return;
+      console.log('[server-mode] round-end panel never appeared on its own — forcing it open');
+      proceedAfterCrownAnimationServerMode(r.bidderWon, r.made, bT, oT, yourTeam, isYourBid, champResult);
+    }, 3000);
   }
 }
 
@@ -12697,8 +12671,7 @@ function processTrickRevealQueue() {
     const slotIdx = slotForPlayer(tc.pos);
     const el = document.getElementById('slot' + slotIdx);
     const cardWithColor = { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' };
-    const isWinner = tc.pos === lastTrick.winner;
-    if (el) el.innerHTML = cardHTML(cardWithColor, false, false, 'trick-card-landing' + (isWinner ? ' trick-winner' : ''));
+    if (el) el.innerHTML = cardHTML(cardWithColor, false, false, 'trick-card-landing');
     lastRenderedSlotContent[slotIdx] = tc.card.suit + tc.card.rank;
   }
   trickCards = lastTrick.cards.map(tc => ({ player: tc.pos, card: { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' } }));
@@ -12713,15 +12686,7 @@ function processTrickRevealQueue() {
     trumpSuit: trumpSuit,
     phase: phase
   });
-
-  // Hold the completed trick fully visible and still for 2s BEFORE
-  // flying the cards to the winner — this used to fire the fly-away
-  // animation immediately, in parallel with this same pause, so cards
-  // started flying off before the pause had actually done anything.
-  // Now the fly-away only starts once the pause has genuinely elapsed.
-  setTimeout(() => {
-    if (typeof animateCardsToWinner === 'function') animateCardsToWinner(lastTrick.winner);
-  }, 2000);
+  if (typeof animateCardsToWinner === 'function') animateCardsToWinner(lastTrick.winner);
 
   setTimeout(() => {
     trickRevealBusy = false;
@@ -12736,7 +12701,7 @@ function processTrickRevealQueue() {
     if (!real) return;
     trickCards = (real.trickCards || []).map(tc => ({ player: tc.pos, card: { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' } }));
     renderTrickSlots(real);
-  }, 3200);
+  }, 2000);
 }
 
 function renderTrickSlots(state) {
