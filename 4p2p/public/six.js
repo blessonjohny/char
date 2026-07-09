@@ -405,7 +405,29 @@ function renderCompletedTrick(lastTrick) {
 
 function renderLastTrick(state) {
   const el = $('lastTrickContent');
+  const titleEl = $('lastTrickTitle');
   if (!el) return;
+
+  // Prefer showing the trick that's actually in progress right now — cards
+  // scattered around 6 distant seats are hard to compare at a glance, so
+  // this corner window doubles as "everything played in this trick so
+  // far," live, and only falls back to the last completed trick in the
+  // gap before anyone's played into the new one yet.
+  const inProgress = state.trickCards && state.trickCards.length > 0;
+  if (inProgress) {
+    if (titleEl) titleEl.textContent = 'Current Trick';
+    let h = '<div class="lt-cards">';
+    for (const tc of state.trickCards) {
+      const c = tc.card;
+      const color = cardColor(c.suit);
+      h += `<div class="lt-card"><span class="ltr" style="color:${color}">${c.rank}</span><span class="lts" style="color:${color}">${c.suit}</span></div>`;
+    }
+    h += '</div>';
+    el.innerHTML = h;
+    return;
+  }
+
+  if (titleEl) titleEl.textContent = 'Last Trick';
   if (!state.lastTrick || !state.lastTrick.cards || !state.lastTrick.cards.length) {
     el.innerHTML = '<div class="lt-empty">None yet</div>';
     return;

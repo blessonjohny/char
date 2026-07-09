@@ -62,7 +62,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .hand-prev .card:first-child{margin-left:0}
 .hand-prev .card .cr,.hand-prev .card .crb{font-size:0.62rem}
 
-.ltrick{position:absolute;top:58px;right:8px;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border:1.5px solid var(--accent);border-radius:10px;padding:5px 7px;min-width:64px;z-index:10;cursor:pointer;transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1)}
+.ltrick{position:absolute;top:58px;right:8px;background:rgba(0,0,0,0.32);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1.5px solid rgba(244,196,48,0.55);border-radius:10px;padding:5px 6px;width:96px;max-width:96px;z-index:10;cursor:pointer;transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1)}
 .ltrick::after{content:'tap to enlarge';position:absolute;bottom:-13px;left:50%;transform:translateX(-50%);font-size:0.4rem;color:var(--text-secondary);white-space:nowrap;opacity:0.7}
 .ltrick.enlarged::after{content:'tap to close';top:-15px;bottom:auto}
 .ltrick-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:290;display:none}
@@ -204,7 +204,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
   </div>
   <div class="trumpchip" id="trumpChip">🎯 Trump: Hidden</div>
   <div class="ltrick" id="lastTrickPanel">
-    <h6>Last Trick</h6>
+    <h6 id="lastTrickTitle">Last Trick</h6>
     <div id="lastTrickContent"><div class="lt-empty">None yet</div></div>
     <div class="lt-history" id="lastTrickHistory"></div>
   </div>
