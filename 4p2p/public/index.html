@@ -12477,18 +12477,18 @@ function applyServerState(state) {
   });
 
   if (state.phase === 'choosingTrump' && MY_POS === bidder) {
-    setTimeout(() => showTrumpPanel(false), 300);
+    afterTrickRevealSettles(() => setTimeout(() => showTrumpPanel(false), 300));
   } else if (state.phase === 'bidding1' && currentPlayer === MY_POS) {
-    setTimeout(() => showBidPanel1(), 300);
+    afterTrickRevealSettles(() => setTimeout(() => showBidPanel1(), 300));
   } else if (state.phase === 'bidding2' && currentPlayer === MY_POS) {
-    setTimeout(() => showRaisePanel(), 300);
+    afterTrickRevealSettles(() => setTimeout(() => showRaisePanel(), 300));
   } else if (state.phase === 'play' && currentPlayer === MY_POS && botModeActive) {
     // Deliberately NOT reusing the local botPlayForMe() here — it has
     // direct local-state mutations (e.g. calling exposeTrump() itself)
     // that make sense when the client IS the authority, but would desync
     // from the server in server mode. This just submits a legal card and
     // lets the server's own logic handle exposure/hidden-trump on its own.
-    setTimeout(() => serverBotPlayForMe(), 600);
+    afterTrickRevealSettles(() => setTimeout(() => serverBotPlayForMe(), 600));
   } else if (state.phase === 'play' && currentPlayer === MY_POS && !botModeActive) {
     // The "Call Trump?" prompt: can't follow the led suit, trump isn't
     // exposed yet, and there's actually a trump card in hand to call with.
@@ -12509,11 +12509,13 @@ function applyServerState(state) {
     // what got reported as a joined player "not getting the option" when
     // they couldn't follow suit.
     if (trickSuit !== '' && !hasSuit && !trumpExposed) {
-      setTimeout(() => {
-        const alreadyOpen = document.getElementById('callTrumpOverlay').classList.contains('on') ||
-          document.getElementById('modalOverlay').classList.contains('on');
-        if (!alreadyOpen) showCallTrumpPanel();
-      }, 300);
+      afterTrickRevealSettles(() => {
+        setTimeout(() => {
+          const alreadyOpen = document.getElementById('callTrumpOverlay').classList.contains('on') ||
+            document.getElementById('modalOverlay').classList.contains('on');
+          if (!alreadyOpen) showCallTrumpPanel();
+        }, 300);
+      });
     }
   }
 
@@ -12532,6 +12534,7 @@ function applyServerState(state) {
       const stillMyTurn = (watchdogPhase === 'choosingTrump' && MY_POS === bidder) ||
         (watchdogPhase !== 'choosingTrump' && latestServerState.currentPlayer === MY_POS);
       if (!stillMyTurn) return;
+      if (trickRevealBusy || trickRevealQueue.length > 0) return; // still catching up — let afterTrickRevealSettles's own retry handle it
       const anyOverlayOpen = ['bidOverlay', 'trumpOverlay'].some(id => {
         const el = document.getElementById(id);
         return el && el.classList.contains('on');
@@ -12557,10 +12560,6 @@ function applyServerState(state) {
     // fly-to-winner animation may still be playing when this arrives.
     // Don't cut that off — wait for it to actually finish before
     // starting the round-end sequence on top of it.
-    function afterTrickRevealSettles(fn) {
-      if (trickRevealBusy || trickRevealQueue.length > 0) { setTimeout(() => afterTrickRevealSettles(fn), 150); return; }
-      fn();
-    }
     afterTrickRevealSettles(() => {
       setTimeout(() => {
         animateCrownRoundEnd(r.bidderWon, function () {
@@ -12682,6 +12681,19 @@ let lastSeenTricksPlayed = -1;
 let trickRevealQueue = [];  // queued completed tricks still waiting to be shown
 let trickRevealBusy = false; // a trick is currently mid-reveal (its full pause hasn't elapsed yet)
 let trickHoldGen = 0; // bumped whenever a staggered catch-up reveal is superseded by a newer one
+
+// Any panel that's about to pop up because "it's now my turn" needs to
+// wait for the trick-reveal system to actually finish first — otherwise
+// it can appear WHILE bots' cards are still being staggered onto the
+// table (or while the last trick's 2s hold is still running), popping up
+// over a table that visually hasn't caught up yet. This was reported
+// exactly as it looks: "Call Trump popped up before I ever saw the bots'
+// cards, even though the modal's own card list was correct" — the data
+// was always right, the panel was just jumping the queue on the display.
+function afterTrickRevealSettles(fn) {
+  if (trickRevealBusy || trickRevealQueue.length > 0) { setTimeout(() => afterTrickRevealSettles(fn), 150); return; }
+  fn();
+}
 
 let lastRenderedSlotContent = [null, null, null, null];
 function renderTrickSlotsWithWinnerPause(state) {
