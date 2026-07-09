@@ -21,6 +21,7 @@ let lastShownRoundVoidMessage = null;
 let lastSeenTricksPlayed = -1; // detects exactly when a new trick has just completed
 let trickHoldTimer = null;     // holds the completed trick visible briefly before clearing
 let trickHoldGen = 0;          // bumped when a hold gets cut short, to invalidate in-flight timers from it
+let sixpTrickRevealQueue = []; // completed tricks still waiting their turn — nothing in here is ever dropped
 let lastRoundSeen = -1;
 let roundTrickHistory = []; // every completed trick so far THIS round, for the "played so far" view
 let roundHistorySeenFor = -1; // which round roundTrickHistory currently belongs to
@@ -294,47 +295,17 @@ function applyState(state) {
   }
   const tricksPlayed = state.tricksPlayed || 0;
   if (tricksPlayed > lastSeenTricksPlayed && state.lastTrick) {
-    // A trick just completed since the last render — show it fully (with
-    // the winning card highlighted) and hold it on screen for a moment
-    // before clearing, instead of the table wiping instantly the second
-    // the last card lands with no time to actually see what happened.
+    // A trick just completed since the last render. Queue it — never
+    // skip straight to showing it even if one's already mid-hold. Bots
+    // can complete a second or third trick before the first one's pause
+    // finishes; every one still gets shown, just faster once there's a
+    // backlog (see processNextSixpTrickReveal), instead of any of them
+    // being silently dropped or cut off mid-display.
     lastSeenTricksPlayed = tricksPlayed;
-    renderCompletedTrick(state.lastTrick);
-    roundTrickHistory.push(state.lastTrick);
-    renderLastTrickHistory();
-    if (trickHoldTimer) clearTimeout(trickHoldTimer);
-    // Hold the completed trick fully visible and still for a beat BEFORE
-    // flying the cards to the winner — online, especially on a slow
-    // connection, cards could otherwise start flying away before everyone
-    // even finished seeing what was played.
-    const TRICK_PAUSE_MS = 2000, FLY_AWAY_MS = 1200;
-    const myGen = ++trickHoldGen;
-    setTimeout(() => {
-      if (myGen !== trickHoldGen) return; // hold got cut short — don't fly stale cards
-      animateCardsToWinner(state.lastTrick.winner);
-    }, TRICK_PAUSE_MS);
-    trickHoldTimer = setTimeout(() => {
-      if (myGen !== trickHoldGen) return; // superseded — already re-rendered when the hold was cut short
-      trickHoldTimer = null;
-      if (latestState) renderTrick(latestState); // reflect whatever's actually current by now
-    }, TRICK_PAUSE_MS + FLY_AWAY_MS);
-  } else {
-    const myTurnToAct = state.phase !== 'bidding1' && state.phase !== 'roundEnd' && state.currentPlayer === MY_POS;
-    if (trickHoldTimer && myTurnToAct) {
-      // Bots move on the server's own schedule, not this browser's
-      // display pacing — a whole new trick can already have several
-      // cards in it by the time it's genuinely our turn, even while the
-      // PREVIOUS trick is still being held on screen. The hand's
-      // follow-suit restrictions are already live and correct at this
-      // point; leaving the circle stuck on the old trick just makes them
-      // look inexplicable. Cut the hold short and show the real table.
-      clearTimeout(trickHoldTimer);
-      trickHoldTimer = null;
-      trickHoldGen++;
-      renderTrick(state);
-    } else if (!trickHoldTimer) {
-      renderTrick(state);
-    }
+    sixpTrickRevealQueue.push(state.lastTrick);
+    processNextSixpTrickReveal();
+  } else if (!trickHoldTimer && sixpTrickRevealQueue.length === 0) {
+    renderTrick(state);
   }
   renderHand(state);
   updateTurnLabel(state);
@@ -354,7 +325,7 @@ function applyState(state) {
     // fly-to-winner animation (~3.2s total) may still be playing. Wait for
     // it to actually finish instead of popping the round summary over it.
     (function waitThenShowRoundEnd() {
-      if (trickHoldTimer) { setTimeout(waitThenShowRoundEnd, 150); return; }
+      if (trickHoldTimer || sixpTrickRevealQueue.length > 0) { setTimeout(waitThenShowRoundEnd, 150); return; }
       showRoundEnd(state);
     })();
   }
@@ -362,7 +333,7 @@ function applyState(state) {
   if (state.gameOver && !gameOverShownFor) {
     gameOverShownFor = true;
     (function waitThenShowGameOver() {
-      if (trickHoldTimer) { setTimeout(waitThenShowGameOver, 150); return; }
+      if (trickHoldTimer || sixpTrickRevealQueue.length > 0) { setTimeout(waitThenShowGameOver, 150); return; }
       showGameOver(state);
     })();
   }
@@ -450,6 +421,37 @@ function renderCompletedTrick(lastTrick) {
     const isWinner = tc.pos === lastTrick.winner;
     $('trickSlot' + slot).innerHTML = cardHTML(tc.card, false, false, 'tiny' + (isWinner ? ' trick-winner' : ''));
   }
+}
+
+function processNextSixpTrickReveal() {
+  if (trickHoldTimer || sixpTrickRevealQueue.length === 0) return;
+  const lastTrick = sixpTrickRevealQueue.shift();
+  const myGen = ++trickHoldGen;
+
+  renderCompletedTrick(lastTrick);
+  roundTrickHistory.push(lastTrick);
+  renderLastTrickHistory();
+
+  // If there's already a backlog behind this one, or it's already
+  // genuinely the player's turn to act on a later trick, this reveal is
+  // already behind real-time — still show it in full, just faster, so
+  // the display catches back up instead of making the player wait
+  // through a full-length replay of something that's already old news.
+  const myTurnWaiting = latestState && latestState.phase !== 'bidding1' && latestState.phase !== 'roundEnd' && latestState.currentPlayer === MY_POS;
+  const fastCatchUp = sixpTrickRevealQueue.length > 0 || myTurnWaiting;
+  const TRICK_PAUSE_MS = fastCatchUp ? 500 : 2000;
+  const FLY_AWAY_MS = fastCatchUp ? 350 : 1200;
+
+  setTimeout(() => {
+    if (myGen !== trickHoldGen) return;
+    animateCardsToWinner(lastTrick.winner);
+  }, TRICK_PAUSE_MS);
+  trickHoldTimer = setTimeout(() => {
+    if (myGen !== trickHoldGen) return;
+    trickHoldTimer = null;
+    if (sixpTrickRevealQueue.length > 0) { processNextSixpTrickReveal(); return; }
+    if (latestState) renderTrick(latestState);
+  }, TRICK_PAUSE_MS + FLY_AWAY_MS);
 }
 
 function renderLastTrick(state) {
