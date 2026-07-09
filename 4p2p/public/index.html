@@ -9421,6 +9421,7 @@ function backToRoomLobby() {
   document.getElementById('nameCard').style.display = 'none';
   document.getElementById('hostCard').style.display = 'block';
   document.getElementById('joinCard').style.display = 'block';
+  document.getElementById('playersCard').style.display = 'none';
   const sub = document.getElementById('lobbySub');
   if (sub) sub.textContent = 'Create or join a table';
   connectGameSocket();
