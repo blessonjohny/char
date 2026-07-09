@@ -344,7 +344,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ccard::after{content:'';position:absolute;inset:2px;border:1px solid rgba(255,255,255,0.12);border-radius:1px}
 @keyframes ccardIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 .trick-card-landing{animation:trickCardLand 0.4s cubic-bezier(0.34,1.56,0.64,1) both}
-.trick-winner{box-shadow:0 0 0 3px var(--accent),0 0 16px rgba(244,196,48,0.8)!important;transform:scale(1.15);z-index:6}
 @keyframes trickCardLand{from{opacity:0;transform:scale(0.4) translateY(-30px)}to{opacity:1;transform:scale(1) translateY(0)}}
 .pbid{font-size:0.58rem;color:var(--accent);background:rgba(255,215,0,0.12);padding:1px 5px;border-radius:4px;white-space:nowrap}
 .mini-cards{display:flex;gap:0;margin-top:2px}
@@ -2872,11 +2871,7 @@ const ALL_PLAYERS = [
   {name:'Peter',emoji:'🏀',bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
   {name:'Shyam',emoji:'🍵',bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
   {name:'Appu',emoji:'🌺',bg:'linear-gradient(135deg,#ff7979,#eb4d4b)'},
-  {name:'Anup',emoji:'🦊',bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  // Newest additions.
-  {name:'Arun',emoji:'🧑‍💼',bg:'linear-gradient(135deg,#e67e22,#d35400)'},
-  {name:'Vilphy',emoji:'😎',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Roji',emoji:'🙂',bg:'linear-gradient(135deg,#1abc9c,#16a085)'}
+  {name:'Anup',emoji:'🦊',bg:'linear-gradient(135deg,#00b894,#00a085)'}
 ];
 
 const SUITS=['♥','♠','♦','♣'];
@@ -6173,13 +6168,11 @@ function showBidPanel1() {
     btns.appendChild(btn);
   }
 
-  // PASS button at the END (after numbers) — if already the highest
-  // bidder, passing just keeps that bid rather than giving anything up.
+  // PASS button at the END (after numbers)
   if (!isFirst) {
-    const alreadyHighest = bidder === MY_POS;
     const pb = document.createElement('button');
     pb.className = 'bid-btn pass-btn';
-    pb.textContent = alreadyHighest ? 'STAY AT ' + highestBid : 'PASS';
+    pb.textContent = 'PASS';
     pb.addEventListener('click', () => {
       showBidConfirmation(0, true);
     });
@@ -6250,19 +6243,21 @@ let pendingBid = 0;
 let pendingIsPass = false;
 
 function showBidConfirmation(bid, isPass) {
+  if (SERVER_MODE) {
+    document.getElementById('bidOverlay').classList.remove('on');
+    processBid(MY_POS, isPass ? 0 : bid);
+    return;
+  }
   pendingBid = bid;
   pendingIsPass = isPass || false;
   const isFirst = (highestBid === 0 && passes === 0 && currentPlayer === nextPlayer(dealer));
-  const alreadyHighest = bidder === MY_POS;
 
-  document.getElementById('bidTitle').textContent = isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Bid';
+  document.getElementById('bidTitle').textContent = isPass ? 'Confirm Pass?' : 'Confirm Your Bid';
 
   let confirmText = '';
   if (isPass) {
     if (isFirst) {
       confirmText = "<b style='color:var(--danger)'>⚠️ First bidder must bid 14!</b><br><br>Pass will auto-bid 14.";
-    } else if (alreadyHighest) {
-      confirmText = "You'll <b>stay at your bid of " + highestBid + "</b> — you're already the highest bidder, this just locks it in without raising further.<br><br>Confirm?";
     } else {
       confirmText = "You are about to <b>PASS</b>.<br>Current highest: <b style='color:var(--accent)'>" + highestBid + "</b><br><br>Confirm?";
     }
@@ -6300,8 +6295,6 @@ function showBidConfirmation(bid, isPass) {
   if (isPass) {
     if (isFirst) {
       confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">AUTO-BID</span><span class="btn-sub">14 (First Bidder)</span>';
-    } else if (alreadyHighest) {
-      confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Stay at ' + highestBid + '</span>';
     } else {
       confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Pass</span>';
     }
@@ -6646,14 +6639,10 @@ function showRaisePanel() {
     btns.appendChild(btn);
   }
 
-  // PASS button at the END (after raise buttons) — if this player is
-  // already the highest bidder, "passing" doesn't forfeit anything, it
-  // just locks in the bid they already have. Label it accordingly so it
-  // doesn't read like they're about to lose their own bid.
-  const alreadyHighest = bidder === MY_POS;
+  // PASS button at the END (after raise buttons)
   const pb = document.createElement('button');
   pb.className = 'bid-btn pass-btn';
-  pb.textContent = alreadyHighest ? 'STAY AT ' + highestBid : 'PASS';
+  pb.textContent = 'PASS';
   pb.addEventListener('click', () => {
     showPhase2Confirmation(0, true);
   });
@@ -6666,17 +6655,20 @@ function showRaisePanel() {
 }
 
 function showPhase2Confirmation(bid, isPass) {
+  if (SERVER_MODE) {
+    document.getElementById('bidOverlay').classList.remove('on');
+    if (isPass) gameSocket.emit('passPhase2');
+    else gameSocket.emit('raiseBid', { bid: bid });
+    return;
+  }
   pendingBid = bid;
   pendingIsPass = isPass || false;
-  const alreadyHighest = bidder === MY_POS;
 
-  document.getElementById('bidTitle').textContent = isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Raise';
+  document.getElementById('bidTitle').textContent = isPass ? 'Confirm Pass?' : 'Confirm Your Raise';
 
   let confirmText = '';
   if (isPass) {
-    confirmText = alreadyHighest
-      ? "You'll <b>stay at your bid of " + highestBid + "</b> — you're already the highest bidder, this just locks it in without raising further.<br><br>Confirm?"
-      : "You are about to <b>PASS</b> in Phase 2.<br>Current highest bid: <b style='color:var(--accent)'>" + highestBid + "</b><br><br>Confirm?";
+    confirmText = "You are about to <b>PASS</b> in Phase 2.<br>Current highest bid: <b style='color:var(--accent)'>" + highestBid + "</b><br><br>Confirm?";
   } else {
     confirmText = "You are about to raise to: <b style='color:var(--accent);font-size:1.8rem;text-shadow:0 2px 10px rgba(255,215,0,.3)'>" + bid + "</b><br>";
     confirmText += "Raising from: <b>" + highestBid + "</b> by " + (bidder === (MY_POS) ? 'You' : (playerAt(bidder) ? playerAt(bidder).name : '—')) + "<br>";
@@ -6707,20 +6699,13 @@ function showPhase2Confirmation(bid, isPass) {
   const confirmBtn = document.createElement('button');
   confirmBtn.className = 'confirm-btn';
   if (isPass) {
-    confirmBtn.innerHTML = alreadyHighest
-      ? '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Stay at ' + highestBid + '</span>'
-      : '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Pass</span>';
+    confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Pass</span>';
   } else {
     confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Raise to ' + bid + '</span>';
   }
   confirmBtn.addEventListener('click', () => {
     document.getElementById('bidOverlay').classList.remove('on');
     const myPos = MY_POS;
-    if (SERVER_MODE) {
-      if (isPass) gameSocket.emit('passPhase2');
-      else gameSocket.emit('raiseBid', { bid: pendingBid });
-      return;
-    }
     if (isPass) {
       log('You passed P2');
       if (IS_ONLINE && !IS_HOST) {
@@ -12520,34 +12505,23 @@ function applyServerState(state) {
     const isYourBid = (getTeam(r.bidder) === yourTeam);
     const champResult = state.lastChampionshipResult;
     let roundEndPanelShown = false;
-
-    // The round can end on the very last trick, whose own 2s-hold +
-    // fly-to-winner animation (~3.2s total) may still be playing when this
-    // arrives. Don't cut that off — wait for it to actually finish before
-    // starting the round-end sequence on top of it.
-    function afterTrickRevealSettles(fn) {
-      if (trickHoldTimer || trickRevealQueue.length > 0) { setTimeout(() => afterTrickRevealSettles(fn), 150); return; }
-      fn();
-    }
-    afterTrickRevealSettles(() => {
-      setTimeout(() => {
-        animateCrownRoundEnd(r.bidderWon, function () {
-          roundEndPanelShown = true;
-          proceedAfterCrownAnimationServerMode(r.bidderWon, r.made, bT, oT, yourTeam, isYourBid, champResult);
-        });
-      }, 400);
-      // Safety net: if the crown animation's callback chain never actually
-      // fires for any reason, the game must not be able to get stuck
-      // showing a finished round with no way to continue. Force the panel
-      // open directly after a few seconds regardless.
-      setTimeout(() => {
-        if (roundEndPanelShown) return;
-        const overlay = document.getElementById('postRoundOverlay');
-        if (overlay && overlay.classList.contains('on')) return;
-        console.log('[server-mode] round-end panel never appeared on its own — forcing it open');
+    setTimeout(() => {
+      animateCrownRoundEnd(r.bidderWon, function () {
+        roundEndPanelShown = true;
         proceedAfterCrownAnimationServerMode(r.bidderWon, r.made, bT, oT, yourTeam, isYourBid, champResult);
-      }, 3000);
-    });
+      });
+    }, 400);
+    // Safety net: if the crown animation's callback chain never actually
+    // fires for any reason, the game must not be able to get stuck
+    // showing a finished round with no way to continue. Force the panel
+    // open directly after a few seconds regardless.
+    setTimeout(() => {
+      if (roundEndPanelShown) return;
+      const overlay = document.getElementById('postRoundOverlay');
+      if (overlay && overlay.classList.contains('on')) return;
+      console.log('[server-mode] round-end panel never appeared on its own — forcing it open');
+      proceedAfterCrownAnimationServerMode(r.bidderWon, r.made, bT, oT, yourTeam, isYourBid, champResult);
+    }, 3000);
   }
 }
 
@@ -12646,72 +12620,47 @@ function showChampionshipResultServerMode(champResult, yourTeam) {
 
 // Trick-in-progress card display — mirrors the old clientApplyState's slot
 // rendering, driven directly by the server's trickCards.
-//
-// Simplified design: at most ONE trick is ever "held" for display at a
-// time. If another trick completes (or it becomes genuinely the player's
-// turn) while one is still being held, that hold is immediately
-// superseded — never queued. A queue sounds nicer ("show every trick in
-// order") but in practice it could silently fall behind: a fast run of
-// bot tricks could leave the display several tricks in the past by the
-// time it caught up, showing stale cards and stale follow-suit
-// restrictions on the player's own turn. Superseding trades "you might
-// not see every single bot-vs-bot trick's hold" for "the table always
-// catches up to the truth the moment it matters" — the second one is the
-// actual correctness property the player's own turn depends on.
 let lastSeenTricksPlayed = -1;
-let trickHoldTimer = null; // set while a completed trick is being held on screen
-let trickHoldAnimTimer = null; // the pending "fly to winner" timer specifically
-let trickHoldGen = 0;      // bumped whenever a hold is superseded, to invalidate its own in-flight timers
-let trickRevealQueue = []; // completed tricks still waiting their turn to be shown — nothing in here is ever dropped
-let trickHoldSpedUp = false; // true once the CURRENT hold has already been sped up, so it only happens once per trick
-let currentlyShowingTrick = null; // whichever trick's cards are on screen right now, for the fly-to-winner animation
+let trickRevealQueue = [];  // queued completed tricks still waiting to be shown
+let trickRevealBusy = false; // a trick is currently mid-reveal (its full pause hasn't elapsed yet)
 
 let lastRenderedSlotContent = [null, null, null, null];
 function renderTrickSlotsWithWinnerPause(state) {
   // A trick has genuinely just resolved exactly when tricksPlayed has
   // incremented since the last render — an unambiguous counter, unlike
   // trying to infer it from trickCards.length (which can legitimately be
-  // 0 for other reasons).
+  // 0 for other reasons, and was causing this exact animation to
+  // misfire and clash with the next trick's opening card).
   const justResolved = state.lastTrick && state.tricksPlayed > lastSeenTricksPlayed;
-  if (state.tricksPlayed !== undefined) lastSeenTricksPlayed = state.tricksPlayed;
 
   if (justResolved) {
-    // Queue it — never skip straight to showing it, even if one is
-    // already mid-hold. Bots can complete a second (or third) trick
-    // before the first one's pause finishes; every one of them still
-    // gets shown, just at a faster pace once there's a backlog (see
-    // processNextTrickReveal) instead of any of them being silently
-    // dropped or cut off mid-display.
+    lastSeenTricksPlayed = state.tricksPlayed;
+    // Queue it rather than showing it immediately — if a trick is
+    // ALREADY mid-reveal (bots can play fast enough that a second trick
+    // completes before the first one's pause finishes), starting this
+    // one right now would cancel and overwrite the first one early,
+    // cutting its visible time short. That was the actual bug: most
+    // tricks displayed for the full, intended ~1.3s, but occasionally
+    // one got cut down to a fraction of that when two completed close
+    // together — exactly "sometimes you can't see the last card."
     trickRevealQueue.push(state.lastTrick);
-    processNextTrickReveal();
+    processTrickRevealQueue();
     return;
   }
-
-  // Not a fresh resolution — a hold (or backlog) may still be showing.
-  if (trickHoldTimer || trickRevealQueue.length > 0) {
-    // If it's already genuinely the player's turn to act on a LATER
-    // trick, don't just let a slow hold run its full course — the "is
-    // this urgent" call used to only get made once, right when a hold
-    // started, so a hold that began before it was our turn had no way to
-    // notice things changed partway through and would run the full 2s+
-    // 1.2s regardless. Check on every update instead, and speed up
-    // whatever's currently showing the moment it becomes relevant —
-    // nothing in the queue is skipped, this only shortens how long the
-    // CURRENT item stays on screen.
-    const myTurnToAct = !state.phase?.startsWith('bidding') && state.currentPlayer === MY_POS && state.phase !== 'roundEnd';
-    if (myTurnToAct && trickHoldTimer && !trickHoldSpedUp) speedUpCurrentTrickHold();
+  if (state.tricksPlayed !== undefined) lastSeenTricksPlayed = state.tricksPlayed;
+  if (trickRevealBusy || trickRevealQueue.length > 0) {
+    // A reveal is in progress or queued — don't touch the DOM now. Once
+    // the queue drains, the real current state gets rendered fresh,
+    // correctly picking up whatever's happened by then.
     return;
   }
   renderTrickSlots(state);
 }
 
-function processNextTrickReveal() {
-  if (trickHoldTimer || trickRevealQueue.length === 0) return;
+function processTrickRevealQueue() {
+  if (trickRevealBusy || trickRevealQueue.length === 0) return;
+  trickRevealBusy = true;
   const lastTrick = trickRevealQueue.shift();
-  trickHoldGen++;
-  const myGen = trickHoldGen;
-  trickHoldSpedUp = false;
-  currentlyShowingTrick = lastTrick;
 
   for (let i = 0; i < 4; i++) {
     const el = document.getElementById('slot' + i);
@@ -12722,8 +12671,7 @@ function processNextTrickReveal() {
     const slotIdx = slotForPlayer(tc.pos);
     const el = document.getElementById('slot' + slotIdx);
     const cardWithColor = { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' };
-    const isWinner = tc.pos === lastTrick.winner;
-    if (el) el.innerHTML = cardHTML(cardWithColor, false, false, 'trick-card-landing' + (isWinner ? ' trick-winner' : ''));
+    if (el) el.innerHTML = cardHTML(cardWithColor, false, false, 'trick-card-landing');
     lastRenderedSlotContent[slotIdx] = tc.card.suit + tc.card.rank;
   }
   trickCards = lastTrick.cards.map(tc => ({ player: tc.pos, card: { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' } }));
@@ -12744,59 +12692,26 @@ function processNextTrickReveal() {
   // connection, cards can otherwise start flying away before everyone's
   // even finished seeing what was played. The fly-away animation itself
   // takes about 1.2s on top of this pause.
-  //
-  // Exception: if there's already a backlog, or it's already genuinely
-  // the player's turn to act on a later trick, that means this reveal is
-  // already behind real-time — still show it in full, just faster.
-  // (speedUpCurrentTrickHold below covers the case where this becomes
-  // true partway through, not just at the start.)
-  const real = latestServerState;
-  const myTurnWaiting = real && !real.phase?.startsWith('bidding') && real.currentPlayer === MY_POS && real.phase !== 'roundEnd';
-  const fastCatchUp = trickRevealQueue.length > 0 || myTurnWaiting;
-  scheduleTrickHoldTimers(myGen, fastCatchUp ? 500 : 2000, fastCatchUp ? 350 : 1200);
-}
+  const TRICK_PAUSE_MS = 2000;
+  const FLY_AWAY_MS = 1200;
+  setTimeout(() => {
+    if (typeof animateCardsToWinner === 'function') animateCardsToWinner(lastTrick.winner);
+  }, TRICK_PAUSE_MS);
 
-function scheduleTrickHoldTimers(myGen, pauseMs, flyMs) {
-  if (trickHoldAnimTimer) clearTimeout(trickHoldAnimTimer);
-  if (trickHoldTimer) clearTimeout(trickHoldTimer);
-  const lastTrick = currentlyShowingTrick;
-  trickHoldAnimTimer = setTimeout(() => {
-    if (myGen !== trickHoldGen) return;
-    if (typeof animateCardsToWinner === 'function' && lastTrick) animateCardsToWinner(lastTrick.winner);
-  }, pauseMs);
-
-  trickHoldTimer = setTimeout(() => {
-    if (myGen !== trickHoldGen) return;
-    trickHoldTimer = null;
-    trickHoldAnimTimer = null;
-    if (trickRevealQueue.length > 0) { processNextTrickReveal(); return; }
-    const nowReal = latestServerState;
-    if (!nowReal) return;
-    trickCards = (nowReal.trickCards || []).map(tc => ({ player: tc.pos, card: { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' } }));
-    renderTrickSlots(nowReal);
-  }, pauseMs + flyMs);
-}
-
-// Called when it turns out to already be genuinely the player's turn
-// while a hold from an earlier trick is still running. This is not a
-// "speed up" anymore — any remaining delay at all was still enough for a
-// fast tap to beat it. Jump straight to the real current state, right
-// now, synchronously. The interrupted trick already had whatever time it
-// had on screen; the fly-to-winner flourish for it is skipped entirely
-// in this case, in favor of the player never being blocked from seeing
-// what they actually need to act on.
-function speedUpCurrentTrickHold() {
-  trickHoldSpedUp = true;
-  if (trickHoldAnimTimer) clearTimeout(trickHoldAnimTimer);
-  if (trickHoldTimer) clearTimeout(trickHoldTimer);
-  trickHoldTimer = null;
-  trickHoldAnimTimer = null;
-  trickHoldGen++; // invalidates any timer still in flight from the interrupted hold
-  if (trickRevealQueue.length > 0) { processNextTrickReveal(); return; }
-  const nowReal = latestServerState;
-  if (!nowReal) return;
-  trickCards = (nowReal.trickCards || []).map(tc => ({ player: tc.pos, card: { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' } }));
-  renderTrickSlots(nowReal);
+  setTimeout(() => {
+    trickRevealBusy = false;
+    if (trickRevealQueue.length > 0) {
+      // Another trick completed while this one was showing — reveal it
+      // next, with its own full, uninterrupted pause.
+      processTrickRevealQueue();
+      return;
+    }
+    // Nothing else queued — sync back to whatever's actually current now.
+    const real = latestServerState;
+    if (!real) return;
+    trickCards = (real.trickCards || []).map(tc => ({ player: tc.pos, card: { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' } }));
+    renderTrickSlots(real);
+  }, TRICK_PAUSE_MS + FLY_AWAY_MS);
 }
 
 function renderTrickSlots(state) {
