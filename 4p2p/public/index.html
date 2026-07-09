@@ -12686,17 +12686,7 @@ function processTrickRevealQueue() {
     trumpSuit: trumpSuit,
     phase: phase
   });
-
-  // Hold the completed trick fully visible and still for a beat BEFORE
-  // flying the cards to the winner — online, especially on a slow
-  // connection, cards can otherwise start flying away before everyone's
-  // even finished seeing what was played. The fly-away animation itself
-  // takes about 1.2s on top of this pause.
-  const TRICK_PAUSE_MS = 2000;
-  const FLY_AWAY_MS = 1200;
-  setTimeout(() => {
-    if (typeof animateCardsToWinner === 'function') animateCardsToWinner(lastTrick.winner);
-  }, TRICK_PAUSE_MS);
+  if (typeof animateCardsToWinner === 'function') animateCardsToWinner(lastTrick.winner);
 
   setTimeout(() => {
     trickRevealBusy = false;
@@ -12711,7 +12701,7 @@ function processTrickRevealQueue() {
     if (!real) return;
     trickCards = (real.trickCards || []).map(tc => ({ player: tc.pos, card: { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' } }));
     renderTrickSlots(real);
-  }, TRICK_PAUSE_MS + FLY_AWAY_MS);
+  }, 2000);
 }
 
 function renderTrickSlots(state) {
