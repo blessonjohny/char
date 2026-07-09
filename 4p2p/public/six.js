@@ -298,14 +298,19 @@ function applyState(state) {
     // the last card lands with no time to actually see what happened.
     lastSeenTricksPlayed = tricksPlayed;
     renderCompletedTrick(state.lastTrick);
-    animateCardsToWinner(state.lastTrick.winner);
     roundTrickHistory.push(state.lastTrick);
     renderLastTrickHistory();
     if (trickHoldTimer) clearTimeout(trickHoldTimer);
+    // Hold the completed trick fully visible and still for a beat BEFORE
+    // flying the cards to the winner — online, especially on a slow
+    // connection, cards could otherwise start flying away before everyone
+    // even finished seeing what was played.
+    const TRICK_PAUSE_MS = 2000, FLY_AWAY_MS = 1200;
+    setTimeout(() => animateCardsToWinner(state.lastTrick.winner), TRICK_PAUSE_MS);
     trickHoldTimer = setTimeout(() => {
       trickHoldTimer = null;
       if (latestState) renderTrick(latestState); // reflect whatever's actually current by now
-    }, 2000);
+    }, TRICK_PAUSE_MS + FLY_AWAY_MS);
   } else if (!trickHoldTimer) {
     renderTrick(state);
   }
