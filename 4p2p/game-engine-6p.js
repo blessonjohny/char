@@ -786,8 +786,11 @@ class GameEngine6P {
       else trumpWinning = RANK_ORDER[trumps[0].rank] > RANK_ORDER[cwc.rank];
       const worthTrumping = tPts >= 2 || isLast || (isBidder && tPts >= 1);
       if (trumpWinning && wt !== myTeam && worthTrumping) {
-        let wtr = trumps[0];
+        let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {
+          // Over-cutting another trump that's currently winning — find the
+          // minimal trump that still beats it, not necessarily our best.
+          wtr = trumps[0];
           for (let i = trumps.length - 1; i >= 0; i--) {
             if (RANK_ORDER[trumps[i].rank] > RANK_ORDER[cwc.rank]) { wtr = trumps[i]; break; }
           }
@@ -799,6 +802,14 @@ class GameEngine6P {
           if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && wtr.rank !== 'J' && tPts >= 3) {
             wtr = trumps[0];
           }
+        } else {
+          // The FIRST cut in this trick — nothing on the table is trump
+          // yet, so literally any trump wins it. Reflexively reaching for
+          // our best trump (often the Jack) to win a trick a King or 7
+          // would have won exactly as well is a real, common waste. Use
+          // the cheapest trump we have, preferring a zero-point one.
+          const zeroPt = trumps.filter(c => c.points === 0);
+          wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1] : trumps[trumps.length - 1];
         }
         return wtr;
       }
