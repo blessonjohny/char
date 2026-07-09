@@ -7462,7 +7462,17 @@ function animateCardsToWinner(winnerPos) {
   setTimeout(() => {
     winnerAv.classList.remove('winner-pulse');
     winnerAv.style.animation = '';
-    for (let i = 0; i < 4; i++) { const s = document.getElementById('slot' + i); if (s) s.innerHTML = ''; }
+    // Deliberately NOT clearing the trick slots here anymore — this used
+    // to blank all 4 slots unconditionally, but it fires at the exact
+    // same moment the trick-hold system's own timer renders the NEW
+    // trick's already-played cards into those same slots. Depending on
+    // which of the two same-tick timers happened to run second, this
+    // could wipe out cards that had just been correctly shown a moment
+    // earlier — leaving the circle empty while a player's hand was
+    // already correctly restricted for a trick they couldn't see. The
+    // hold system (processTrickRevealQueue's own finish handler) already
+    // owns clearing/updating these slots; this doesn't need to duplicate
+    // that, and doing so was actively harmful.
   }, 1200);
 }
 
