@@ -2004,6 +2004,38 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 
 /* ---------- Lobby ---------- */
 .lobby-screen{background:linear-gradient(170deg,#0B1512,#0E211A 60%,#0B1512)}
+
+/* Themed photo backdrops — same source image, three different crops (the
+   "Connecting to server" portal panel, the casino-lobby panel, and the
+   card-table panel), each matched to the screen where it fits. A dark
+   gradient sits on top of the photo in every case so the existing text
+   and buttons stay fully readable — the photo is a backdrop, not a
+   replacement for the readable dark UI. */
+.welcome-screen{
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(233,185,73,0.10), transparent 60%),
+    linear-gradient(180deg, rgba(11,21,18,0.88) 0%, rgba(11,21,18,0.94) 55%, rgba(11,21,18,0.98) 100%),
+    url('/background-main.jpeg');
+  background-size:cover, cover, cover;
+  background-position:center, center, center 30%;
+  background-repeat:no-repeat, no-repeat, no-repeat;
+}
+.lobby-screen{
+  background:
+    linear-gradient(180deg, rgba(11,21,18,0.90) 0%, rgba(11,21,18,0.95) 60%, rgba(11,21,18,0.98) 100%),
+    url('/background-lobby.jpeg');
+  background-size:cover, cover;
+  background-position:center, center 40%;
+  background-repeat:no-repeat, no-repeat;
+}
+#reconnectingOverlay{
+  background:
+    linear-gradient(180deg, rgba(10,22,40,0.85) 0%, rgba(10,22,40,0.93) 55%, rgba(10,22,40,0.97) 100%),
+    url('/background-connecting.jpeg');
+  background-size:cover, cover;
+  background-position:center, center;
+  background-repeat:no-repeat, no-repeat;
+}
 .lobby-hdr{background:rgba(233,185,73,0.04);border-bottom:1px solid rgba(233,185,73,0.12)}
 /* The lobby cards (Your Name / Host / Join / Players) were left stacked at
    the top of .lobby-body with all the remaining vertical space just sitting
@@ -2468,7 +2500,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <button class="icon-btn" id="btnSaveGame" title="Save Game">💾</button>
       <button class="icon-btn" id="btnLoadGame" title="Load Game">📂</button>
       <button class="icon-btn" id="btnChat" title="Chat" style="display:none">💬<span class="chat-badge" id="chatBadge"></span></button>
-      <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none">💌</button>
+      <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none;width:auto;padding:0 6px;gap:3px;white-space:nowrap">💌 Invite</button>
       <button class="icon-btn" id="btnRequestSeat" title="Ask for a Seat" style="display:none">🪑</button>
       <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none">👑</button>
       <button class="icon-btn" id="btnRoomManage" title="Manage Room (Host)" style="display:none">🎛️</button>
@@ -11756,6 +11788,13 @@ function connectGameSocket() {
 
   // Host-side: someone wants in on a table that's already running.
   gameSocket.on('joinRequest', (req) => {
+    // Defense in depth: the server already targets this event at the
+    // host's socket only, but this client should still refuse to show a
+    // "let them in?" prompt about someone else's request unless it
+    // genuinely believes itself to be the host right now — e.g. a stale
+    // second tab/socket for the same host account should never surface
+    // this, even if it technically received the event.
+    if (!SERVER_IS_HOST) return;
     showJoinRequestPrompt(req);
   });
 
