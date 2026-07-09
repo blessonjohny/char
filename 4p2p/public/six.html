@@ -33,6 +33,10 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .seat{position:absolute;display:flex;flex-direction:column;align-items:center;gap:2px;width:64px}
 .seat .av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#4a90d9,#2a5a9a);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:2px solid rgba(255,255,255,0.2);position:relative}
 .seat.on .av{border-color:var(--accent);box-shadow:0 0 12px rgba(244,196,48,0.6)}
+@keyframes winnerTrickReceive{0%{transform:scale(1)}20%{transform:scale(1.4)}40%{transform:scale(1.15)}60%{transform:scale(1.35)}80%{transform:scale(1.1)}100%{transform:scale(1)}}
+@keyframes winnerRingBurst{0%{transform:scale(0.5);opacity:1;border-width:4px}100%{transform:scale(2.5);opacity:0;border-width:0}}
+@keyframes winnerPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,215,0,0.6)}50%{box-shadow:0 0 25px 8px rgba(255,215,0,0.3)}}
+.av.winner-pulse{animation:winnerPulse 0.8s ease 2}
 .seat .nm{font-size:0.62rem;color:var(--text-secondary);max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .seat .cc{font-size:0.6rem;color:var(--accent)}
 .seat .bdg{position:absolute;top:-6px;right:-6px;background:var(--accent);color:#111;border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800}
@@ -58,6 +62,28 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .hand-prev .card:first-child{margin-left:0}
 .hand-prev .card .cr,.hand-prev .card .crb{font-size:0.62rem}
 
+.ltrick{position:absolute;top:58px;right:8px;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border:1.5px solid var(--accent);border-radius:10px;padding:5px 7px;min-width:64px;z-index:10;cursor:pointer;transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1)}
+.ltrick::after{content:'tap to enlarge';position:absolute;bottom:-13px;left:50%;transform:translateX(-50%);font-size:0.4rem;color:var(--text-secondary);white-space:nowrap;opacity:0.7}
+.ltrick.enlarged::after{content:'tap to close';top:-15px;bottom:auto}
+.ltrick-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:290;display:none}
+.ltrick-backdrop.on{display:block}
+.ltrick.enlarged{position:fixed;inset:0;margin:auto;width:fit-content;height:fit-content;max-width:90vw;max-height:80vh;min-width:220px;padding:16px;z-index:300;box-shadow:0 12px 40px rgba(0,0,0,0.7);backdrop-filter:none;background:rgba(8,10,14,0.98)}
+.ltrick.enlarged h6{font-size:0.8rem;margin-bottom:8px}
+.ltrick.enlarged .lt-cards{gap:7px;padding:6px 0}
+.ltrick.enlarged .lt-card{width:52px;height:74px;border-radius:9px;border-width:1.5px}
+.ltrick.enlarged .lt-card .ltr{font-size:1rem}
+.ltrick.enlarged .lt-card .lts{font-size:1.4rem}
+.ltrick.enlarged .lt-win{font-size:0.8rem;margin-top:8px}
+.ltrick.enlarged .lt-empty{font-size:0.85rem;padding:12px 0}
+.lt-history{margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.12);max-height:40vh;overflow-y:auto;display:none}
+.ltrick.enlarged .lt-history{display:block}
+.lt-history-title{font-size:0.6rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;text-align:center}
+.lt-history-row{display:flex;align-items:center;justify-content:center;gap:4px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+.lt-history-row .lt-history-num{font-size:0.6rem;color:var(--text-secondary);width:16px;flex-shrink:0}
+.lt-history-row .lt-card{width:26px;height:36px}
+.lt-history-row .lt-card .ltr{font-size:0.55rem}
+.lt-history-row .lt-card .lts{font-size:0.75rem}
+.lt-history-row .lt-history-win{font-size:0.55rem;color:var(--success);margin-left:4px;white-space:nowrap}
 .ltrick h6{font-size:0.52rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.8px;text-align:center;margin-bottom:4px;font-weight:700}
 .lt-cards{display:flex;gap:3px;justify-content:center;flex-wrap:wrap;padding:2px 0}
 .lt-card{width:22px;height:30px;background:linear-gradient(135deg,#fff 0%,#f8f8f8 50%,#f0f0f0 100%);border-radius:5px;border:1px solid rgba(180,180,180,0.5);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.18);position:relative}
@@ -177,10 +203,12 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
     </div>
   </div>
   <div class="trumpchip" id="trumpChip">🎯 Trump: Hidden</div>
-  <div class="ltrick" id="lastTrickPanel" style="position:absolute;top:58px;right:8px;background:rgba(0,0,0,0.85);border:1.5px solid var(--accent);border-radius:10px;padding:6px 8px;min-width:80px;z-index:10">
+  <div class="ltrick" id="lastTrickPanel">
     <h6>Last Trick</h6>
     <div id="lastTrickContent"><div class="lt-empty">None yet</div></div>
+    <div class="lt-history" id="lastTrickHistory"></div>
   </div>
+  <div class="ltrick-backdrop" id="ltrickBackdrop"></div>
   <div class="table-oval">
     <div class="seat" id="seatWrap0"><div class="av" id="av0">👤</div><div class="nm" id="nm0"></div><div class="cc" id="cc0"></div></div>
     <div class="seat" id="seatWrap1"><div class="av" id="av1">👤</div><div class="nm" id="nm1"></div><div class="cc" id="cc1"></div></div>

@@ -12701,7 +12701,7 @@ function processTrickRevealQueue() {
     if (!real) return;
     trickCards = (real.trickCards || []).map(tc => ({ player: tc.pos, card: { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' } }));
     renderTrickSlots(real);
-  }, 1300);
+  }, 2000);
 }
 
 function renderTrickSlots(state) {

@@ -21,6 +21,8 @@ let lastShownRoundVoidMessage = null;
 let lastSeenTricksPlayed = -1; // detects exactly when a new trick has just completed
 let trickHoldTimer = null;     // holds the completed trick visible briefly before clearing
 let lastRoundSeen = -1;
+let roundTrickHistory = []; // every completed trick so far THIS round, for the "played so far" view
+let roundHistorySeenFor = -1; // which round roundTrickHistory currently belongs to
 
 const SUITS = ['♥', '♠', '♦', '♣'];
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1, '6': 0 };
@@ -283,6 +285,10 @@ function applyState(state) {
   }
 
   renderSeats(state);
+  if (state.round !== roundHistorySeenFor) {
+    roundHistorySeenFor = state.round;
+    roundTrickHistory = [];
+  }
   const tricksPlayed = state.tricksPlayed || 0;
   if (tricksPlayed > lastSeenTricksPlayed && state.lastTrick) {
     // A trick just completed since the last render — show it fully (with
@@ -291,11 +297,14 @@ function applyState(state) {
     // the last card lands with no time to actually see what happened.
     lastSeenTricksPlayed = tricksPlayed;
     renderCompletedTrick(state.lastTrick);
+    animateCardsToWinner(state.lastTrick.winner);
+    roundTrickHistory.push(state.lastTrick);
+    renderLastTrickHistory();
     if (trickHoldTimer) clearTimeout(trickHoldTimer);
     trickHoldTimer = setTimeout(() => {
       trickHoldTimer = null;
       if (latestState) renderTrick(latestState); // reflect whatever's actually current by now
-    }, 1300);
+    }, 2000);
   } else if (!trickHoldTimer) {
     renderTrick(state);
   }
@@ -413,6 +422,85 @@ function renderLastTrick(state) {
   const winnerName = lt.winner === MY_POS ? 'You' : (winnerSeat ? winnerSeat.name : ('Seat ' + lt.winner));
   h += `<div class="lt-win">${winnerName} +${lt.points}pt</div>`;
   el.innerHTML = h;
+}
+
+// Full list of every trick played so far this round, shown inside the
+// enlarged Last Trick view — the compact corner panel only ever has room
+// for the most recent one.
+function renderLastTrickHistory() {
+  const el = $('lastTrickHistory');
+  if (!el) return;
+  if (!roundTrickHistory.length) { el.innerHTML = ''; return; }
+  let h = '<div class="lt-history-title">Played so far this round</div>';
+  roundTrickHistory.forEach((t, i) => {
+    const seat = latestState && latestState.seats ? latestState.seats[t.winner] : null;
+    const winnerName = t.winner === MY_POS ? 'You' : (seat ? seat.name : ('Seat ' + t.winner));
+    h += `<div class="lt-history-row"><span class="lt-history-num">#${i + 1}</span>`;
+    for (const tc of t.cards) {
+      const c = tc.card, color = cardColor(c.suit);
+      h += `<div class="lt-card"><span class="ltr" style="color:${color}">${c.rank}</span><span class="lts" style="color:${color}">${c.suit}</span></div>`;
+    }
+    h += `<span class="lt-history-win">${escapeHtml(winnerName)} +${t.points}</span></div>`;
+  });
+  el.innerHTML = h;
+}
+
+function toggleLastTrickEnlarged() {
+  const panel = $('lastTrickPanel');
+  const backdrop = $('ltrickBackdrop');
+  if (!panel || !backdrop) return;
+  const enlarging = !panel.classList.contains('enlarged');
+  panel.classList.toggle('enlarged', enlarging);
+  backdrop.classList.toggle('on', enlarging);
+}
+$('lastTrickPanel') && $('lastTrickPanel').addEventListener('click', toggleLastTrickEnlarged);
+$('ltrickBackdrop') && $('ltrickBackdrop').addEventListener('click', toggleLastTrickEnlarged);
+
+// Cards flying from each seat to whoever won the trick — the 4-player
+// table has always had this; the 6-player one was just wiping the trick
+// in place with no sense of who actually took it.
+function animateCardsToWinner(winnerPos) {
+  const winnerSlot = slotFor(winnerPos);
+  const winnerAv = $('av' + winnerSlot);
+  if (!winnerAv) return;
+
+  winnerAv.style.animation = 'none';
+  void winnerAv.offsetHeight;
+  winnerAv.style.animation = 'winnerTrickReceive 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards';
+
+  const ring = document.createElement('div');
+  ring.style.cssText = 'position:absolute;inset:-15px;border-radius:50%;border:3px solid var(--accent);z-index:100;pointer-events:none;animation:winnerRingBurst 1s ease-out forwards';
+  winnerAv.style.position = 'relative';
+  winnerAv.appendChild(ring);
+  setTimeout(() => ring.remove(), 1200);
+
+  const wRect = winnerAv.getBoundingClientRect();
+  const wCx = wRect.left + wRect.width / 2;
+  const wCy = wRect.top + wRect.height / 2;
+
+  for (let slot = 0; slot < 6; slot++) {
+    const el = $('trickSlot' + slot);
+    if (!el || !el.firstElementChild) continue;
+    const card = el.firstElementChild;
+    card.style.animation = 'none';
+    void card.offsetWidth;
+    const cRect = card.getBoundingClientRect();
+    const cCx = cRect.left + cRect.width / 2;
+    const cCy = cRect.top + cRect.height / 2;
+    const tx = wCx - cCx;
+    const ty = wCy - cCy;
+    card.style.transition = `transform 0.7s cubic-bezier(0.4,0,0.2,1) ${slot * 60}ms, opacity 0.5s ease ${slot * 60 + 200}ms`;
+    card.style.transform = `translate(${tx}px, ${ty}px) scale(0.15) rotate(${20 + slot * 12}deg)`;
+    card.style.opacity = '0';
+    card.style.position = 'relative';
+    card.style.zIndex = '500';
+  }
+
+  winnerAv.classList.add('winner-pulse');
+  setTimeout(() => {
+    winnerAv.classList.remove('winner-pulse');
+    winnerAv.style.animation = '';
+  }, 1200);
 }
 
 function updateTurnLabel(state) {
