@@ -1198,14 +1198,28 @@ $('btnRestartConfirmOk').addEventListener('click', () => {
   if (!el) return;
   const full = '▶ Start now with smart bots — invite friends anytime, even mid-game!';
   el.innerHTML = '';
+  const words = full.split(' ');
+  const cycleMs = 3000;
+  const step = cycleMs / full.length;
+  let idx = 0;
   const frag = document.createDocumentFragment();
-  for (let i = 0; i < full.length; i++){
-    const ch = full[i];
-    const span = document.createElement('span');
-    span.className = 'pop-letter';
-    span.style.animationDelay = (i * 80) + 'ms';
-    span.textContent = ch === ' ' ? '\u00A0' : ch;
-    frag.appendChild(span);
-  }
+  words.forEach((word, wi) => {
+    const wordSpan = document.createElement('span');
+    wordSpan.style.whiteSpace = 'nowrap';
+    wordSpan.style.display = 'inline-block';
+    for (const ch of word) {
+      const span = document.createElement('span');
+      span.className = 'pop-letter';
+      span.style.animationDelay = (idx * step) + 'ms';
+      span.textContent = ch;
+      wordSpan.appendChild(span);
+      idx++;
+    }
+    frag.appendChild(wordSpan);
+    if (wi < words.length - 1) {
+      frag.appendChild(document.createTextNode(' '));
+      idx++;
+    }
+  });
   el.appendChild(frag);
 })();
