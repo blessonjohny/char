@@ -1197,16 +1197,15 @@ $('btnRestartConfirmOk').addEventListener('click', () => {
   const el = document.getElementById('liveTagline6p');
   if (!el) return;
   const full = '▶ Start now with smart bots — invite friends anytime, even mid-game!';
-  let i = 0, deleting = false;
-  function tick(){
-    el.textContent = full.slice(0, i);
-    if (!deleting){
-      if (i < full.length){ i++; setTimeout(tick, 32); }
-      else { deleting = true; setTimeout(tick, 2200); }
-    } else {
-      if (i > 0){ i--; setTimeout(tick, 14); }
-      else { deleting = false; setTimeout(tick, 500); }
-    }
+  el.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < full.length; i++){
+    const ch = full[i];
+    const span = document.createElement('span');
+    span.className = 'pop-letter';
+    span.style.animationDelay = (i * 22) + 'ms';
+    span.textContent = ch === ' ' ? '\u00A0' : ch;
+    frag.appendChild(span);
   }
-  tick();
+  el.appendChild(frag);
 })();
