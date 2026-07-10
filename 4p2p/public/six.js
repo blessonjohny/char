@@ -13,6 +13,28 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
+// Matches game-engine-6p.js's getTeam() exactly: even seats vs odd seats.
+function sixpGetTeam(pos) { return pos % 2 === 0 ? 0 : 1; }
+// Relative label for any seat from MY_POS's point of view — a bot's name
+// tells a player nothing about whether a bid is good or bad news for them.
+function sixpRelLabel(pos) {
+  if (pos === MY_POS) return 'You';
+  return sixpGetTeam(pos) === sixpGetTeam(MY_POS) ? 'your partner' : 'your opponent';
+}
+// Renders the "so far this round" bid/pass list, in the order actions
+// actually happened, using relative labels throughout.
+function sixpRenderBidHistory(history) {
+  if (!history || !history.length) return '';
+  const rows = history.map(h => {
+    const who = sixpRelLabel(h.pos);
+    return h.bid > 0
+      ? '<span style="color:var(--text-primary)">' + who + '</span> bid <b style="color:var(--accent)">' + h.bid + '</b>'
+      : '<span style="color:var(--text-secondary)">' + who + ' passed</span>';
+  });
+  return '<div style="margin-top:8px;padding:8px 10px;background:rgba(255,255,255,0.04);border-radius:8px;font-size:0.72rem;line-height:1.6;text-align:left">' +
+    '<b style="color:var(--text-secondary);font-size:0.65rem;letter-spacing:0.5px">SO FAR THIS ROUND</b><br>' +
+    rows.join('<br>') + '</div>';
+}
 // Same pool the server picks from when auto-filling bot seats — kept in
 // sync manually since this is just for the Change Bot picker's option
 // list, not anything server-authoritative.
@@ -749,9 +771,9 @@ function showBidPanel(state) {
   const isFirst = state.highestBid === 0 && state.passes === 0;
   const minBid = state.highestBid > 0 ? state.highestBid + 1 : 16;
   $('bidTitle').textContent = 'Place Your Bid';
-  $('bidText').innerHTML = state.highestBid > 0
-    ? `Current highest: <b style="color:var(--accent)">${state.highestBid}</b> by ${state.seats[state.bidder] ? state.seats[state.bidder].name : '—'}`
-    : 'You are the first bidder — must bid at least 16.';
+  $('bidText').innerHTML = (state.highestBid > 0
+    ? `Current highest: <b style="color:var(--accent)">${state.highestBid}</b> by ${sixpRelLabel(state.bidder)}`
+    : 'You are the first bidder — must bid at least 16.') + sixpRenderBidHistory(state.bidHistory);
   const btns = $('bidButtons');
   btns.innerHTML = '';
   btns.className = 'bid-grid';
@@ -1170,3 +1192,21 @@ $('btnRestartConfirmOk').addEventListener('click', () => {
   else if (pendingSixpRestartAction === 'game') socket.emit('sixp_restartGame');
   pendingSixpRestartAction = null;
 });
+
+(function startLiveTypewriter6p(){
+  const el = document.getElementById('liveTagline6p');
+  if (!el) return;
+  const full = '▶ Start now with smart bots — invite friends anytime, even mid-game!';
+  let i = 0, deleting = false;
+  function tick(){
+    el.textContent = full.slice(0, i);
+    if (!deleting){
+      if (i < full.length){ i++; setTimeout(tick, 32); }
+      else { deleting = true; setTimeout(tick, 2200); }
+    } else {
+      if (i > 0){ i--; setTimeout(tick, 14); }
+      else { deleting = false; setTimeout(tick, 500); }
+    }
+  }
+  tick();
+})();

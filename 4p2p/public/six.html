@@ -8,6 +8,8 @@
 <script src="/voice.js"></script>
 <style>
 :root{--bg-dark:#0a1628;--panel:#111d2e;--panel2:#0d1b2a;--accent:#f4c430;--text-primary:#fff;--text-secondary:#9fb0c3;--success:#3ddc84;--danger:#ff5c5c;--border:rgba(255,255,255,0.12)}
+.live-cursor{animation:liveBlink 0.8s step-end infinite}
+@keyframes liveBlink{0%,100%{opacity:1}50%{opacity:0}}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg-dark);color:var(--text-primary);touch-action:manipulation;-webkit-user-select:none;user-select:none;overflow:hidden}
 button{font-family:inherit;cursor:pointer}
@@ -181,7 +183,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 <div class="screen hidden" id="lobbyScreen">
   <h1>🎮 Online Table</h1>
   <div class="subtitle" id="lobbySub">Waiting for players...</div>
-  <div style="font-size:0.72rem;color:var(--accent);font-weight:700;margin:-8px 0 14px">▶ Start now with smart bots — invite friends anytime, even mid-game!</div>
+  <div style="font-size:0.72rem;color:var(--accent);font-weight:700;margin:-8px 0 14px"><span id="liveTagline6p"></span><span class="live-cursor">▍</span></div>
   <div style="background:var(--panel);border:1px dashed var(--accent);border-radius:12px;padding:14px;margin-bottom:16px;width:100%;max-width:320px">
     <div style="font-size:1.5rem;font-weight:800;letter-spacing:2px;color:var(--accent)" id="roomCodeDisplay">------</div>
     <div style="font-size:0.68rem;color:var(--text-secondary);margin-top:4px">Share this code, or use Invite a Friend below</div>

@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>28 Kerala Gulan — Royal Red Edition</title>
 <style>
+.live-cursor{animation:liveBlink 0.8s step-end infinite}
+@keyframes liveBlink{0%,100%{opacity:1}50%{opacity:0}}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
   --primary:#0a1628;
@@ -2408,7 +2410,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <span style="width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block"></span>
       Online
     </div>
-    <div style="font-size:0.72rem;color:var(--accent);font-weight:700;margin-top:8px">▶ Start now with smart bots — invite friends anytime, even mid-game!</div>
+    <div style="font-size:0.72rem;color:var(--accent);font-weight:700;margin-top:8px"><span id="liveTagline"></span><span class="live-cursor">▍</span></div>
   </div>
   <div class="lobby-body">
     <div class="lobby-card" id="nameCard">
@@ -2973,6 +2975,7 @@ let deck=[], players=[[],[],[],[]], currentPlayer=0, dealer=0, bidder=-1, highes
 let trumpSuit='', hiddenTrump=null, trumpExposed=false, trumpExplicitlyCalled=false, round=1;
 let trickCards=[], trickSuit='', teamPoints=[0,0], gameScore=[6,6];
 let phase='bidding1', passes=0;
+let bidHistory = []; // [{pos, bid}] — bid===0 means pass. Used to render "who's bid/passed so far" in the bid sheet.
 // True between a bidder winning phase-1 bidding and them actually choosing a
 // trump suit. currentPlayer is set to the bidder during this window while
 // phase is still 'bidding1' (unchanged), so this flag is the only reliable
@@ -3637,6 +3640,27 @@ function showRules() {
 }
 
 function getTeam(p) { return (p === 0 || p === 3) ? 1 : 0; }
+// Relative label for any seat, from MY_POS's point of view — used everywhere
+// the bid sheet used to print a bot's name, since "Charlie" tells a player
+// nothing about whether that bid is good or bad news for their own team.
+function relLabel(pos) {
+  if (pos === MY_POS) return 'You';
+  return getTeam(pos) === getTeam(MY_POS) ? 'your partner' : 'your opponent';
+}
+// Renders the "so far this round" bid/pass list for the bid sheet, in the
+// order actions actually happened, using relative labels throughout.
+function renderBidHistoryList(history) {
+  if (!history || !history.length) return '';
+  const rows = history.map(h => {
+    const who = relLabel(h.pos);
+    return h.bid > 0
+      ? '<span style="color:var(--text-primary)">' + who + '</span> bid <b style="color:var(--accent)">' + h.bid + '</b>'
+      : '<span style="color:var(--text-secondary)">' + who + ' passed</span>';
+  });
+  return '<div style="margin-top:8px;padding:8px 10px;background:rgba(255,255,255,0.04);border-radius:8px;font-size:0.72rem;line-height:1.6;text-align:left">' +
+    '<b style="color:var(--text-secondary);font-size:0.65rem;letter-spacing:0.5px">SO FAR THIS ROUND</b><br>' +
+    rows.join('<br>') + '</div>';
+}
 
 // Bots display as "NAME 🤖" (uppercase, small bot emoji) instead of the
 // literal "(Bot)" text suffix stored in the underlying name string.
@@ -5430,6 +5454,7 @@ function restoreGameState(data) {
   dealer = 0;
   returnHiddenTrump(); // Safeguard: return any lingering hidden trump
   bidder = -1;
+  bidHistory = [];
   highestBid = 0;
   trumpSuit = '';
   hiddenTrump = null;
@@ -5537,6 +5562,7 @@ function restoreGameState(data) {
     // === STEP 7: Reset ALL round-specific state for a fresh start ===
   returnHiddenTrump(); // Safeguard: return any lingering hidden trump
   bidder = -1;
+  bidHistory = [];
   highestBid = 0;
   trumpSuit = '';
   hiddenTrump = null;
@@ -6168,9 +6194,10 @@ function botPhase2WithBrain(p) {
   }
   if (tr > 0 && (isBT || Math.random() < 0.3 * brain.level)) {
     highestBid = tr; bidder = p; raised = true; window._p2LastRaiser = p; window._p2Passes = 0;
+    window._p2History.push({ pos: p, bid: tr });
     log('🤖 ' + name + (isBT ? ' raised to ' : ' defensive raise to ') + highestBid);
   }
-  if (!raised) { window._p2Passes++; window._p2TotalPasses++; log(name + ' passed P2'); }
+  if (!raised) { window._p2Passes++; window._p2TotalPasses++; window._p2History.push({ pos: p, bid: 0 }); log(name + ' passed P2'); }
   // Host sends the phase2 action
   window._p2Cur = nextPlayer(window._p2Cur);
   setTimeout(() => { doPhase2(); if (IS_ONLINE && IS_HOST) { hostSendState(); } }, 600);
@@ -6206,10 +6233,9 @@ function showBidPanel1() {
   document.getElementById('bidTitle').textContent = 'Your Bid';
   let highText = '';
   if (highestBid > 0 && bidder >= 0) {
-    const b = playerAt(bidder);
-    highText = '<br><b style="color:var(--accent)">👑 Highest: ' + highestBid + ' by ' + (bidder === MY_POS ? 'You' : (b ? b.name : '—')) + '</b>';
+    highText = '<br><b style="color:var(--accent)">👑 Highest: ' + highestBid + ' by ' + relLabel(bidder) + '</b>';
   }
-  document.getElementById('bidText').innerHTML = '<b>Dealer:</b> ' + (dealer === MY_POS ? 'You' : (playerAt(dealer) ? playerAt(dealer).name : '—')) + ' | <b>Your Turn</b> | Min: ' + minBid + highText + (isFirst ? "<br><b style='color:var(--danger)'>⚠️ First bidder — must bid at least 14!</b>" : '');
+  document.getElementById('bidText').innerHTML = '<b>Dealer:</b> ' + relLabel(dealer) + ' | <b>Your Turn</b> | Min: ' + minBid + highText + (isFirst ? "<br><b style='color:var(--danger)'>⚠️ First bidder — must bid at least 14!</b>" : '') + renderBidHistoryList(bidHistory);
   const btns = document.getElementById('bidButtons');
   btns.innerHTML = '';
   btns.className = 'bid-grid';
@@ -6267,6 +6293,7 @@ function processBid(p, bid) {
     highestBid = bid;
     bidder = p;
     passes = 0;
+    bidHistory.push({ pos: p, bid });
     const bt = document.getElementById('bid' + slotForPlayer(p));
     if (bt) bt.textContent = 'Bid:' + bid;
     const name = playerAt(p) ? playerAt(p).name : 'Player';
@@ -6274,6 +6301,7 @@ function processBid(p, bid) {
     showToast((p === myPos ? '🎯 You' : '🤖 ' + name) + ' bid ' + bid, 'info', 1000);
   } else {
     passes++;
+    bidHistory.push({ pos: p, bid: 0 });
     const bt = document.getElementById('bid' + slotForPlayer(p));
     if (bt) bt.textContent = 'Pass';
     const name = playerAt(p) ? playerAt(p).name : 'Player';
@@ -6323,7 +6351,7 @@ function showBidConfirmation(bid, isPass) {
   } else {
     confirmText = "You are about to bid: <b style='color:var(--accent);font-size:1.8rem;text-shadow:0 2px 10px rgba(255,215,0,.3)'>" + bid + "</b><br>";
     if (highestBid > 0) {
-      confirmText += "Raising from: <b>" + highestBid + "</b> by " + (bidder === (MY_POS) ? 'You' : (playerAt(bidder) ? playerAt(bidder).name : '—')) + "<br>";
+      confirmText += "Raising from: <b>" + highestBid + "</b> by " + relLabel(bidder) + "<br>";
     }
     confirmText += "<br><b style='color:var(--success)'>✓ Confirm this bid?</b>";
   }
@@ -6643,6 +6671,7 @@ function startPhase2() {
   window._p2LastRaiser = -1;
   window._p2Passes = 0;
   window._p2TotalPasses = 0;
+  window._p2History = [];
   currentPlayer = window._p2Cur;
   if (IS_ONLINE && IS_HOST) { hostSendState(); }
   setTimeout(() => doPhase2(), 500);
@@ -6677,10 +6706,9 @@ function showRaisePanel() {
   const minBid = Math.max(20, highestBid + 1);
   let highText = '';
   if (highestBid > 0 && bidder >= 0) {
-    const b = playerAt(bidder);
-    highText = '<br><b style="color:var(--accent)">👑 Highest: ' + highestBid + ' by ' + (bidder === MY_POS ? 'You' : (b ? b.name : '—')) + '</b>';
+    highText = '<br><b style="color:var(--accent)">👑 Highest: ' + highestBid + ' by ' + relLabel(bidder) + '</b>';
   }
-  document.getElementById('bidText').innerHTML = '<b>Current bid:</b> ' + highestBid + ' by ' + (bidder === (MY_POS) ? 'You' : (playerAt(bidder) ? playerAt(bidder).name : '—')) + highText + "<br><span style='color:var(--text-secondary)'>Trump: <b>" + trumpSuit + '</b> (hidden). Pass or raise. Phase 2 bids: 24-28 only. Min: ' + minBid + '</span>';
+  document.getElementById('bidText').innerHTML = '<b>Current bid:</b> ' + highestBid + ' by ' + relLabel(bidder) + highText + "<br><span style='color:var(--text-secondary)'>Trump: <b>" + trumpSuit + '</b> (hidden). Pass or raise. Phase 2 bids: 24-28 only. Min: ' + minBid + '</span>' + renderBidHistoryList(window._p2History);
   const btns = document.getElementById('bidButtons');
   btns.innerHTML = '';
   btns.className = 'bid-grid';
@@ -6733,7 +6761,7 @@ function showPhase2Confirmation(bid, isPass) {
       : "You are about to <b>PASS</b> in Phase 2.<br>Current highest bid: <b style='color:var(--accent)'>" + highestBid + "</b><br><br>Confirm?";
   } else {
     confirmText = "You are about to raise to: <b style='color:var(--accent);font-size:1.8rem;text-shadow:0 2px 10px rgba(255,215,0,.3)'>" + bid + "</b><br>";
-    confirmText += "Raising from: <b>" + highestBid + "</b> by " + (bidder === (MY_POS) ? 'You' : (playerAt(bidder) ? playerAt(bidder).name : '—')) + "<br>";
+    confirmText += "Raising from: <b>" + highestBid + "</b> by " + relLabel(bidder) + "<br>";
     confirmText += "<br><b style='color:var(--success)'>✓ Confirm this raise?</b>";
   }
 
@@ -6783,6 +6811,7 @@ function showPhase2Confirmation(bid, isPass) {
       }
       window._p2Passes++;
       window._p2TotalPasses++;
+      window._p2History.push({ pos: myPos, bid: 0 });
       window._p2Cur = nextPlayer(window._p2Cur);
       setTimeout(() => { doPhase2(); if (IS_HOST) hostSendState(); }, 500);
     } else {
@@ -6795,6 +6824,7 @@ function showPhase2Confirmation(bid, isPass) {
         clientSendAction('phase2Bid', { bid: highestBid });
         return;
       }
+      window._p2History.push({ pos: myPos, bid: pendingBid });
       window._p2Cur = nextPlayer(window._p2Cur);
       setTimeout(() => { doPhase2(); if (IS_HOST) hostSendState(); }, 500);
     }
@@ -8182,6 +8212,7 @@ function continueNextRound() {
     returnHiddenTrump(); // Return hidden trump to bidder before new round
     teamPoints = [0, 0];
     bidder = -1;
+    bidHistory = [];
     highestBid = 0;
     trumpSuit = '';
     hiddenTrump = null;
@@ -8383,6 +8414,7 @@ function startNextChampionship() {
   teamPoints = [0, 0];
   returnHiddenTrump(); // Safeguard: return any lingering hidden trump
   bidder = -1;
+  bidHistory = [];
   highestBid = 0;
   trumpSuit = '';
   hiddenTrump = null;
@@ -8559,6 +8591,7 @@ function startGame() {
   if (oBoxStart) { oBoxStart.classList.remove('winning','losing','int-1','int-2','int-3','int-4','int-5'); oBoxStart.classList.add('tie'); }
   returnHiddenTrump(); // Safeguard: return any lingering hidden trump
   bidder = -1;
+  bidHistory = [];
   highestBid = 0;
   trumpSuit = '';
   hiddenTrump = null;
@@ -9138,6 +9171,7 @@ function resetAllGameState() {
   dealer = 0;
   returnHiddenTrump(); // Safeguard: return any lingering hidden trump
   bidder = -1;
+  bidHistory = [];
   highestBid = 0;
   trumpSuit = '';
   hiddenTrump = null;
@@ -9674,11 +9708,29 @@ function setupKingTableTrigger() {
   });
 }
 
+function startLiveTypewriter(){
+  const el = document.getElementById('liveTagline');
+  if (!el) return;
+  const full = '▶ Start now with smart bots — invite friends anytime, even mid-game!';
+  let i = 0, deleting = false;
+  function tick(){
+    el.textContent = full.slice(0, i);
+    if (!deleting){
+      if (i < full.length){ i++; setTimeout(tick, 32); }
+      else { deleting = true; setTimeout(tick, 2200); }
+    } else {
+      if (i > 0){ i--; setTimeout(tick, 14); }
+      else { deleting = false; setTimeout(tick, 500); }
+    }
+  }
+  tick();
+}
 window.addEventListener('DOMContentLoaded', () => {
   loadVisitorStats();
   trackVisitor();
   setupAdminTrigger();
   setupKingTableTrigger();
+  startLiveTypewriter();
 
   // Close admin button
   const closeBtn = document.getElementById('btnCloseAdmin');
@@ -12470,6 +12522,8 @@ function applyServerState(state) {
   bidder = state.bidder;
   highestBid = state.highestBid;
   passes = state.passes;
+  bidHistory = state.bidHistory || [];
+  window._p2History = state.p2History || [];
   trumpSuit = state.trumpSuit || '';
   trumpExposed = state.trumpExposed;
   hiddenTrump = state.myHiddenTrumpCard
