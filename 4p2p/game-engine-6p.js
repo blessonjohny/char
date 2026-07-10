@@ -130,6 +130,7 @@ class GameEngine6P {
     this.mustPlayTrumpBy = -1;
     this.trickCards = [];
     this.trickSuit = '';
+    this.suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
     this.playedCardsThisRound = [];
     this.voidSuits = Array.from({ length: SEATS }, () => new Set());
     this.tricksPlayed = 0;
@@ -356,6 +357,7 @@ class GameEngine6P {
     this.trumpExposed = false;
     this.trickCards = [];
     this.trickSuit = '';
+    this.suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
     this.currentPlayer = nextPos(this.dealer); // dealer's right always leads
     this.addLog(`Play begins. Seat ${this.currentPlayer} leads.`);
     this._notify();
@@ -403,7 +405,7 @@ class GameEngine6P {
     const idx = hand.findIndex(c => cardEq(c, card));
     const played = hand.splice(idx, 1)[0];
     if (this.mustPlayTrumpBy === pos) this.mustPlayTrumpBy = -1;
-    if (this.trickSuit === '') this.trickSuit = played.suit;
+    if (this.trickSuit === '') { this.trickSuit = played.suit; this.suitLeadCount[played.suit]++; }
 
     // Same rule as the 4-player game: a trump-suited card played as an
     // ordinary discard (couldn't follow suit, never explicitly called
@@ -433,7 +435,7 @@ class GameEngine6P {
     this.hiddenTrump = null; this.hiddenTrumpOwner = -1;
     if (this.mustPlayTrumpBy === pos) this.mustPlayTrumpBy = -1;
     if (!this.trumpExposed) this.exposeTrump();
-    if (this.trickSuit === '') this.trickSuit = card.suit;
+    if (this.trickSuit === '') { this.trickSuit = card.suit; this.suitLeadCount[card.suit]++; }
     this.trickCards.push({ pos, card });
     this.addLog(`Seat ${pos} played the hidden trump ${card.rank}${card.suit}!`);
     if (this.trickCards.length === SEATS) this._resolveTrick();
@@ -628,6 +630,7 @@ class GameEngine6P {
           if (pos === this.bidder) callTrumpNow = true;
           else if (isLast && tPts > 0) callTrumpNow = true;
           else if (tPts >= 2) callTrumpNow = true;
+          else if ((this.suitLeadCount[this.trickSuit] || 0) >= 2 && tPts >= 1) callTrumpNow = true;
           else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) callTrumpNow = true;
           else if (this.trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) callTrumpNow = true;
         }
@@ -797,7 +800,8 @@ class GameEngine6P {
       if (!cwc) trumpWinning = true;
       else if (cwc.suit !== this.trumpSuit) trumpWinning = true;
       else trumpWinning = RANK_ORDER[trumps[0].rank] > RANK_ORDER[cwc.rank];
-      const worthTrumping = tPts >= 2 || isLast || (isBidder && tPts >= 1);
+      const suitRepeat = this.suitLeadCount[this.trickSuit] || 0;
+      const worthTrumping = tPts >= 2 || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {

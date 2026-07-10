@@ -298,6 +298,15 @@ class GameEngine {
     this.mustPlayTrumpBy = -1; // seat that just ASKED for trump to be opened (callTrump) — Kerala rule: having asked, they must play a trump card this trick if they hold one
     this.trickCards = []; // [{pos, card}]
     this.trickSuit = '';
+    // How many times each suit has already been led THIS round — used by
+    // the bot AI's cut-decision below: the more times a suit has come
+    // around, the more of the table has had a chance to run out of it,
+    // so a defender void in it is increasingly likely to be one of
+    // several such players rather than a rare exception, making a cut
+    // both safer (less likely another defender is about to steal it
+    // right back) and more urgent (an opponent void in it is just as
+    // likely, and they get to act too).
+    this.suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
     // Every card played so far THIS round, in play order — the bot AI's
     // memory for "has the Jack of this suit already been played", "which
     // trumps remain", etc. (see _cardsSeenSoFar). Doesn't include the
@@ -718,6 +727,7 @@ class GameEngine {
     this.trumpExposed = false;
     this.trickCards = [];
     this.trickSuit = '';
+    this.suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
     // Play is always led by the dealer's left — the same seat phase-1
     // bidding started with — regardless of who ended up winning the bid.
     this.currentPlayer = nextPos(this.dealer);
@@ -781,7 +791,7 @@ class GameEngine {
     const idx = hand.findIndex(c => cardEq(c, card));
     const played = hand.splice(idx, 1)[0];
     if (this.mustPlayTrumpBy === pos) this.mustPlayTrumpBy = -1; // obligation satisfied (or they held no trump)
-    if (this.trickSuit === '') this.trickSuit = played.suit;
+    if (this.trickSuit === '') { this.trickSuit = played.suit; this.suitLeadCount[played.suit]++; }
 
     // Playing a trump-suited card while unable to follow the led suit,
     // WITHOUT having explicitly called for trump first, is just an
@@ -819,7 +829,7 @@ class GameEngine {
     this.hiddenTrumpOwner = -1;
     if (this.mustPlayTrumpBy === pos) this.mustPlayTrumpBy = -1;
     if (!this.trumpExposed) this.exposeTrump();
-    if (this.trickSuit === '') this.trickSuit = card.suit;
+    if (this.trickSuit === '') { this.trickSuit = card.suit; this.suitLeadCount[card.suit]++; }
     this.trickCards.push({ pos, card });
     this.addLog(`Seat ${pos} played the hidden trump ${card.rank}${card.suit}!`);
     if (this.trickCards.length === 4) {
@@ -1228,6 +1238,7 @@ class GameEngine {
           else if (pos === this.bidder) callTrump = true;
           else if (isLast && tPts > 0) callTrump = true;
           else if (tPts >= 2) callTrump = true;
+          else if ((this.suitLeadCount[this.trickSuit] || 0) >= 2 && tPts >= 1) callTrump = true;
           else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) callTrump = true;
           else if (this.trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) callTrump = true;
         }
@@ -1457,7 +1468,8 @@ class GameEngine {
       // or this bot is the bidder protecting their own contract, who can
       // reasonably justify spending more to keep tricks away from the
       // defense even when the immediate point value is small.
-      const worthTrumping = tPts >= 2 || isLast || (isBidder && tPts >= 1);
+      const suitRepeat = this.suitLeadCount[this.trickSuit] || 0;
+      const worthTrumping = tPts >= 2 || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {
