@@ -266,17 +266,8 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
   </div>
   <div class="ltrick-backdrop" id="ltrickBackdrop"></div>
   <div class="table-oval">
-    <div class="clock-side-box" id="weatherBox" style="left:calc(50% + 100px);top:calc(50% + 30px)">
-      <div class="csb-icon">☀️</div>
-      <div class="csb-val" id="weatherTemp">--°F</div>
-      <div class="csb-lbl">NYC</div>
-    </div>
-    <div class="clock-side-box" id="leapYearBox" style="left:calc(50% - 100px);top:calc(50% - 40px)">
-      <div class="csb-val" id="leapYearNum">----</div>
-      <div class="csb-lbl" id="leapYearLbl">—</div>
-    </div>
     <div class="table-clock" id="tableClock">
-      <svg id="vclk6Svg" viewBox="0 0 200 200" width="170" height="170" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;overflow:visible">
+      <svg id="vclk6Svg" viewBox="0 0 200 200" width="170" height="170" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);overflow:visible">
 <defs>
     <radialGradient id="vclk6Bezel" cx="50%" cy="38%" r="72%">
       <stop offset="0%" stop-color="#f4dfa0"/>
@@ -294,6 +285,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
       <stop offset="100%" stop-color="#1a1206"/>
     </linearGradient>
   </defs>
+<g style="pointer-events:none">
 <circle cx="100" cy="100" r="98" fill="url(#vclk6Bezel)"/>
 <circle cx="100" cy="100" r="95" fill="none" stroke="#3d2a08" stroke-width="1" opacity="0.5"/>
 <circle cx="100" cy="100" r="92" fill="url(#vclk6Face)" stroke="#5c4410" stroke-width="1.5"/>
@@ -363,29 +355,15 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 <line x1="72.5" y1="15.4" x2="73.7" y2="19.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
 <line x1="81.5" y1="12.9" x2="82.3" y2="16.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
 <line x1="90.7" y1="11.5" x2="91.1" y2="15.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<text x="100.0" y="43.0" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XII</text>
-<text x="128.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">I</text>
-<text x="149.4" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">II</text>
-<text x="157.0" y="100.0" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">III</text>
-<text x="149.4" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">IV</text>
-<text x="128.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">V</text>
-<text x="71.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VII</text>
-<text x="50.6" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VIII</text>
-<text x="43.0" y="100.0" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">IX</text>
-<text x="50.6" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">X</text>
-<text x="71.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XI</text>
-<text class="vclk6CityLabel" data-tz="America/New_York" data-code="NYC" x="139.5" y="168.4" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">NYC</text>
-<text class="vclk6CityLabel" data-tz="Europe/London" data-code="LON" x="100.0" y="179.0" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">LON</text>
-<text class="vclk6CityLabel" data-tz="Europe/Paris" data-code="PAR" x="60.5" y="168.4" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">PAR</text>
-<text class="vclk6CityLabel" data-tz="Europe/Istanbul" data-code="IST" x="31.6" y="139.5" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">IST</text>
-<text class="vclk6CityLabel" data-tz="Asia/Dubai" data-code="DXB" x="21.0" y="100.0" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">DXB</text>
-<text class="vclk6CityLabel" data-tz="Asia/Kolkata" data-code="DEL" x="31.6" y="60.5" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">DEL</text>
-<text class="vclk6CityLabel" data-tz="Asia/Kolkata" data-code="KOC" x="60.5" y="31.6" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">KOC</text>
-<text class="vclk6CityLabel" data-tz="Asia/Shanghai" data-code="BEI" x="100.0" y="21.0" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">BEI</text>
-<text class="vclk6CityLabel" data-tz="Asia/Tokyo" data-code="TOK" x="139.5" y="31.6" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">TOK</text>
-<text class="vclk6CityLabel" data-tz="America/Los_Angeles" data-code="VGS" x="168.4" y="60.5" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">VGS</text>
-<text class="vclk6CityLabel" data-tz="America/Chicago" data-code="CHI" x="179.0" y="100.0" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">CHI</text>
-<text class="vclk6CityLabel" data-tz="America/Chicago" data-code="DAL" x="168.4" y="139.5" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">DAL</text>
+<text x="100.0" y="43.0" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XII</text>
+<text x="128.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">I</text>
+<text x="149.4" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">II</text>
+<text x="149.4" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">IV</text>
+<text x="128.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">V</text>
+<text x="71.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VII</text>
+<text x="50.6" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VIII</text>
+<text x="50.6" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">X</text>
+<text x="71.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XI</text>
 <rect x="80" y="56.0" width="19" height="12" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
 <text id="vclk6DayText" x="89.5" y="62.5" font-family="Georgia, serif" font-size="6.4" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
 <rect x="102" y="56.0" width="14" height="12" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
@@ -394,6 +372,12 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 <circle id="vclk6MoonBg" cx="100" cy="138" r="10" fill="#efe6c8"/>
 <path id="vclk6MoonShadow" d="" fill="#1a2035"/>
 <circle cx="100" cy="138" r="10" fill="none" stroke="#3d2a08" stroke-width="0.7"/>
+<rect x="125.0" y="92.5" width="30" height="15" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
+<text id="vclk6WeatherIcon" x="131.0" y="100.5" font-size="8" text-anchor="middle" dominant-baseline="central">☀</text>
+<text id="vclk6WeatherTemp" x="145.0" y="100.5" font-family="Georgia, serif" font-size="6.3" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--°F</text>
+<rect x="45.0" y="92.5" width="30" height="15" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
+<text id="vclk6LeapYear" x="60.0" y="97.5" font-family="Georgia, serif" font-size="6" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">----</text>
+<text id="vclk6LeapLbl" x="60.0" y="104.5" font-family="Georgia, serif" font-size="4.6" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central">--</text>
 <circle cx="100" cy="100" r="7" fill="url(#vclk6Bezel)" stroke="#3d2a08" stroke-width="0.8"/>
 <circle cx="100" cy="100" r="2.4" fill="#3d2a08"/>
 <g id="vclk6HourHand" transform="rotate(0 100 100)">
@@ -407,6 +391,17 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
       <circle cx="100" cy="110" r="3" fill="#8b2020"/>
     </g>
 <circle cx="100" cy="100" r="2.4" fill="#1a1206"/>
+</g>
+<circle id="vclk6FaceClickOverlay" cx="100" cy="100" r="92" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
+<text class="vclk6CityLabel" data-tz="America/New_York" data-code="NYC" x="100.0" y="22.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">NYC</text>
+<text class="vclk6CityLabel" data-tz="Europe/London" data-code="LON" x="139.0" y="32.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">LON</text>
+<text class="vclk6CityLabel" data-tz="Europe/Paris" data-code="PAR" x="167.5" y="61.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">PAR</text>
+<text class="vclk6CityLabel" data-tz="Europe/Istanbul" data-code="IST" x="167.5" y="139.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">IST</text>
+<text class="vclk6CityLabel" data-tz="Asia/Dubai" data-code="DXB" x="139.0" y="167.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">DXB</text>
+<text class="vclk6CityLabel" data-tz="Pacific/Kiritimati" data-code="KIR" x="61.0" y="167.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">KIR</text>
+<text class="vclk6CityLabel" data-tz="Asia/Kolkata" data-code="KOC" x="32.5" y="139.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">KOC</text>
+<text class="vclk6CityLabel" data-tz="Asia/Shanghai" data-code="BEI" x="32.5" y="61.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">BEI</text>
+<text class="vclk6CityLabel" data-tz="Asia/Tokyo" data-code="TOK" x="61.0" y="32.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">TOK</text>
 </svg>
     </div>
     <div class="seat" id="seatWrap0"><div class="av" id="av0">👤</div><div class="nm" id="nm0"></div><div class="cc" id="cc0"></div></div>

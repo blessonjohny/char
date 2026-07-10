@@ -2616,17 +2616,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </div>
     <div class="center">
       <div class="felt"></div>
-      <div class="clock-side-box" id="weatherBox4p" style="left:calc(50% + 108px);top:calc(50% + 35px)">
-        <div class="csb-icon">☀️</div>
-        <div class="csb-val" id="weatherTemp4p">--°F</div>
-        <div class="csb-lbl">NYC</div>
-      </div>
-      <div class="clock-side-box" id="leapYearBox4p" style="left:calc(50% - 108px);top:calc(50% - 45px)">
-        <div class="csb-val" id="leapYearNum4p">----</div>
-        <div class="csb-lbl" id="leapYearLbl4p">—</div>
-      </div>
       <div class="table-clock" id="tableClock4p">
-        <svg id="vclk4Svg" viewBox="0 0 200 200" width="190" height="190" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;overflow:visible">
+        <svg id="vclk4Svg" viewBox="0 0 200 200" width="190" height="190" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);overflow:visible">
 <defs>
     <radialGradient id="vclk4Bezel" cx="50%" cy="38%" r="72%">
       <stop offset="0%" stop-color="#f4dfa0"/>
@@ -2644,6 +2635,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <stop offset="100%" stop-color="#1a1206"/>
     </linearGradient>
   </defs>
+<g style="pointer-events:none">
 <circle cx="100" cy="100" r="98" fill="url(#vclk4Bezel)"/>
 <circle cx="100" cy="100" r="95" fill="none" stroke="#3d2a08" stroke-width="1" opacity="0.5"/>
 <circle cx="100" cy="100" r="92" fill="url(#vclk4Face)" stroke="#5c4410" stroke-width="1.5"/>
@@ -2713,29 +2705,15 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <line x1="72.5" y1="15.4" x2="73.7" y2="19.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
 <line x1="81.5" y1="12.9" x2="82.3" y2="16.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
 <line x1="90.7" y1="11.5" x2="91.1" y2="15.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<text x="100.0" y="43.0" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XII</text>
-<text x="128.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">I</text>
-<text x="149.4" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">II</text>
-<text x="157.0" y="100.0" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">III</text>
-<text x="149.4" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">IV</text>
-<text x="128.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">V</text>
-<text x="71.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VII</text>
-<text x="50.6" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VIII</text>
-<text x="43.0" y="100.0" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">IX</text>
-<text x="50.6" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">X</text>
-<text x="71.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XI</text>
-<text class="vclk4CityLabel" data-tz="America/New_York" data-code="NYC" x="139.5" y="168.4" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">NYC</text>
-<text class="vclk4CityLabel" data-tz="Europe/London" data-code="LON" x="100.0" y="179.0" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">LON</text>
-<text class="vclk4CityLabel" data-tz="Europe/Paris" data-code="PAR" x="60.5" y="168.4" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">PAR</text>
-<text class="vclk4CityLabel" data-tz="Europe/Istanbul" data-code="IST" x="31.6" y="139.5" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">IST</text>
-<text class="vclk4CityLabel" data-tz="Asia/Dubai" data-code="DXB" x="21.0" y="100.0" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">DXB</text>
-<text class="vclk4CityLabel" data-tz="Asia/Kolkata" data-code="DEL" x="31.6" y="60.5" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">DEL</text>
-<text class="vclk4CityLabel" data-tz="Asia/Kolkata" data-code="KOC" x="60.5" y="31.6" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">KOC</text>
-<text class="vclk4CityLabel" data-tz="Asia/Shanghai" data-code="BEI" x="100.0" y="21.0" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">BEI</text>
-<text class="vclk4CityLabel" data-tz="Asia/Tokyo" data-code="TOK" x="139.5" y="31.6" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">TOK</text>
-<text class="vclk4CityLabel" data-tz="America/Los_Angeles" data-code="VGS" x="168.4" y="60.5" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">VGS</text>
-<text class="vclk4CityLabel" data-tz="America/Chicago" data-code="CHI" x="179.0" y="100.0" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">CHI</text>
-<text class="vclk4CityLabel" data-tz="America/Chicago" data-code="DAL" x="168.4" y="139.5" font-family="Georgia, serif" font-size="5.4" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">DAL</text>
+<text x="100.0" y="43.0" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XII</text>
+<text x="128.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">I</text>
+<text x="149.4" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">II</text>
+<text x="149.4" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">IV</text>
+<text x="128.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">V</text>
+<text x="71.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VII</text>
+<text x="50.6" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VIII</text>
+<text x="50.6" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">X</text>
+<text x="71.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XI</text>
 <rect x="80" y="56.0" width="19" height="12" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
 <text id="vclk4DayText" x="89.5" y="62.5" font-family="Georgia, serif" font-size="6.4" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
 <rect x="102" y="56.0" width="14" height="12" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
@@ -2744,6 +2722,12 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <circle id="vclk4MoonBg" cx="100" cy="138" r="10" fill="#efe6c8"/>
 <path id="vclk4MoonShadow" d="" fill="#1a2035"/>
 <circle cx="100" cy="138" r="10" fill="none" stroke="#3d2a08" stroke-width="0.7"/>
+<rect x="125.0" y="92.5" width="30" height="15" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
+<text id="vclk4WeatherIcon" x="131.0" y="100.5" font-size="8" text-anchor="middle" dominant-baseline="central">☀</text>
+<text id="vclk4WeatherTemp" x="145.0" y="100.5" font-family="Georgia, serif" font-size="6.3" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--°F</text>
+<rect x="45.0" y="92.5" width="30" height="15" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
+<text id="vclk4LeapYear" x="60.0" y="97.5" font-family="Georgia, serif" font-size="6" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">----</text>
+<text id="vclk4LeapLbl" x="60.0" y="104.5" font-family="Georgia, serif" font-size="4.6" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central">--</text>
 <circle cx="100" cy="100" r="7" fill="url(#vclk4Bezel)" stroke="#3d2a08" stroke-width="0.8"/>
 <circle cx="100" cy="100" r="2.4" fill="#3d2a08"/>
 <g id="vclk4HourHand" transform="rotate(0 100 100)">
@@ -2757,6 +2741,17 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <circle cx="100" cy="110" r="3" fill="#8b2020"/>
     </g>
 <circle cx="100" cy="100" r="2.4" fill="#1a1206"/>
+</g>
+<circle id="vclk4FaceClickOverlay" cx="100" cy="100" r="92" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
+<text class="vclk4CityLabel" data-tz="America/New_York" data-code="NYC" x="100.0" y="22.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">NYC</text>
+<text class="vclk4CityLabel" data-tz="Europe/London" data-code="LON" x="139.0" y="32.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">LON</text>
+<text class="vclk4CityLabel" data-tz="Europe/Paris" data-code="PAR" x="167.5" y="61.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">PAR</text>
+<text class="vclk4CityLabel" data-tz="Europe/Istanbul" data-code="IST" x="167.5" y="139.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">IST</text>
+<text class="vclk4CityLabel" data-tz="Asia/Dubai" data-code="DXB" x="139.0" y="167.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">DXB</text>
+<text class="vclk4CityLabel" data-tz="Pacific/Kiritimati" data-code="KIR" x="61.0" y="167.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">KIR</text>
+<text class="vclk4CityLabel" data-tz="Asia/Kolkata" data-code="KOC" x="32.5" y="139.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">KOC</text>
+<text class="vclk4CityLabel" data-tz="Asia/Shanghai" data-code="BEI" x="32.5" y="61.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">BEI</text>
+<text class="vclk4CityLabel" data-tz="Asia/Tokyo" data-code="TOK" x="61.0" y="32.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">TOK</text>
 </svg>
       </div>
       <div class="cross">
@@ -9902,19 +9897,25 @@ let clock4pCityClicksWired = false;
 function wireCityClicks4p() {
   if (clock4pCityClicksWired) return;
   const labels = document.querySelectorAll('.vclk4CityLabel');
-  if (!labels.length) return;
+  const overlay = document.getElementById('vclk4FaceClickOverlay');
+  if (!labels.length && !overlay) return;
   clock4pCityClicksWired = true;
+  const cityNames = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', KIR: 'Kiritimati', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
+  function showCityTime(code, tz) {
+    try {
+      const timeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });
+      showToast('🌍 ' + (cityNames[code] || code) + ': ' + timeStr, 'info', 2500);
+    } catch (e) {}
+  }
   labels.forEach(el => {
-    el.addEventListener('click', () => {
-      const tz = el.getAttribute('data-tz');
-      const code = el.getAttribute('data-code');
-      try {
-        const timeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });
-        const cityNames = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', DEL: 'New Delhi', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
-        showToast('🌍 ' + (cityNames[code] || code) + ': ' + timeStr, 'info', 2500);
-      } catch (e) {}
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      showCityTime(el.getAttribute('data-code'), el.getAttribute('data-tz'));
     });
   });
+  if (overlay) {
+    overlay.addEventListener('click', () => showCityTime('NYC', 'America/New_York'));
+  }
 }
 
 function updateClock4pComplications(now) {
@@ -9933,10 +9934,10 @@ function updateClock4pComplications(now) {
 
   const year = now.getFullYear();
   const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
-  const leapNumEl = document.getElementById('leapYearNum4p'), leapLblEl = document.getElementById('leapYearLbl4p'), leapBoxEl = document.getElementById('leapYearBox4p');
+  const leapNumEl = document.getElementById('vclk4LeapYear'), leapLblEl = document.getElementById('vclk4LeapLbl');
   if (leapNumEl) leapNumEl.textContent = String(year);
   if (leapLblEl) leapLblEl.textContent = isLeap ? 'LEAP YEAR' : 'not leap';
-  if (leapBoxEl) leapBoxEl.classList.toggle('leap-active', isLeap);
+  if (leapLblEl) leapLblEl.setAttribute('fill', isLeap ? '#2e7d32' : '#6b4a12');
 }
 
 let clock4pWeatherFetched = false;
@@ -9956,9 +9957,9 @@ function fetchWeather4p() {
     .then(data => {
       const t = data && data.current && data.current.temperature_2m;
       const code = data && data.current && data.current.weather_code;
-      const tempEl = document.getElementById('weatherTemp4p');
+      const tempEl = document.getElementById('vclk4WeatherTemp');
       if (tempEl && typeof t === 'number') tempEl.textContent = Math.round(t) + '\u00B0F';
-      const iconEl = document.querySelector('#weatherBox4p .csb-icon');
+      const iconEl = document.getElementById('vclk4WeatherIcon');
       if (iconEl) iconEl.textContent = weatherIcon4p(code);
     })
     .catch(() => {});
