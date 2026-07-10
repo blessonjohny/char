@@ -3639,6 +3639,8 @@ function showRules() {
     'First team to 12 game points wins!');
 }
 
+const SUIT_NAMES = { '♠': 'Spades', '♥': 'Hearts', '♦': 'Diamonds', '♣': 'Clubs' };
+function suitName(suit) { return SUIT_NAMES[suit] || suit; }
 function getTeam(p) { return (p === 0 || p === 3) ? 1 : 0; }
 // Relative label for any seat, from MY_POS's point of view — used everywhere
 // the bid sheet used to print a bot's name, since "Charlie" tells a player
@@ -4324,7 +4326,7 @@ function updateInfo() {
       const isRedSuit = (trumpSuit === '♥' || trumpSuit === '♦');
       const suitColor = isRedSuit ? '#d32f2f' : '#fff';
       const darkClass = isRedSuit ? '' : ' dark-suit';
-      tr.innerHTML = '<span class="trump-suit-text' + darkClass + '" style="color:' + suitColor + '">' + trumpSuit + '</span> <span style="color:var(--accent);font-weight:700">ACTIVE</span>';
+      tr.innerHTML = '<span class="trump-suit-text' + darkClass + '" style="color:' + suitColor + '">' + trumpSuit + ' ' + suitName(trumpSuit) + '</span> <span style="color:var(--accent);font-weight:700">ACTIVE</span>';
       tr.classList.add('trump-active');
     } else {
       tr.innerHTML = '🎯 <span style="color:var(--text-secondary)">Trump: Hidden</span>';
@@ -6838,7 +6840,12 @@ function showPhase2Confirmation(bid, isPass) {
 
 function endBidding2(x, canChange) {
   if (highestBid > 0 && highestBid < 20 && window._p2LastRaiser !== -1) { highestBid = 20; log('Bid raised to minimum 20 for Phase 2'); }
-  log('Final bid: ' + highestBid + ' by ' + (bidder === (MY_POS) ? 'You' : (playerAt(bidder) ? playerAt(bidder).name : '—')));
+  log('Final bid: ' + highestBid + ' by ' + relLabel(bidder));
+  if (highestBid >= 20) {
+    const bidderName = bidder === MY_POS ? 'You' : relLabel(bidder);
+    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + highestBid, 'win', 3200);
+    log('👑 Honors called — bid of ' + highestBid + ' by ' + bidderName + '. Win pays double, lose costs double.', 'win');
+  }
   for (let i = 0; i < 4; i++) { const b = document.getElementById('bid' + i); if (b) b.textContent = ''; }
   if (canChange && bidder === MY_POS) setTimeout(() => showTrumpPanel(true), 500);
   else setTimeout(() => startPlay(), 500);
@@ -7433,7 +7440,7 @@ function exposeTrump(caller) {
     const isRedSuit = (trumpSuit === '♥' || trumpSuit === '♦');
     const suitColor = isRedSuit ? '#d32f2f' : '#fff';
     const darkClass = isRedSuit ? '' : ' dark-suit';
-    tr.innerHTML = '<span class="trump-suit-text' + darkClass + '" style="color:' + suitColor + '">' + trumpSuit + '</span> <span style="color:var(--accent);font-weight:700">ACTIVE</span>';
+    tr.innerHTML = '<span class="trump-suit-text' + darkClass + '" style="color:' + suitColor + '">' + trumpSuit + ' ' + suitName(trumpSuit) + '</span> <span style="color:var(--accent);font-weight:700">ACTIVE</span>';
     tr.classList.add('trump-active');
   }
   showToast('⚡ Trump exposed: ' + trumpSuit + '!', 'win', 1800);
@@ -7867,9 +7874,9 @@ function endRoundWithLearning() {
   if (highestBid >= 28) {
     if (made) { pts = 3; gameScore[bT] += pts; gameScore[oT] -= pts; logMsg = '28 Made! +' + pts; toastMsg = (isYourBid ? '✅ YOUR TEAM' : '❌ OPPONENTS') + ' 28 Made! +' + pts; toastType = isYourBid ? 'win' : 'lose'; }
     else { pts = 4; gameScore[oT] += pts; gameScore[bT] -= pts; logMsg = '28 Failed! -' + pts; toastMsg = (isYourBid ? '❌ YOUR TEAM' : '✅ OPPONENTS') + ' 28 Failed! -' + pts; toastType = isYourBid ? 'lose' : 'win'; }
-  } else if (highestBid >= 18) {
-    if (made) { pts = 2; gameScore[bT] += pts; gameScore[oT] -= pts; logMsg = 'Bid made (18+)! +' + pts; toastMsg = (isYourBid ? '✅ YOUR TEAM' : '❌ OPPONENTS') + ' Made! +' + pts; toastType = isYourBid ? 'win' : 'lose'; }
-    else { pts = 3; gameScore[oT] += pts; gameScore[bT] -= pts; logMsg = 'Bid failed (18+)! -' + pts; toastMsg = (isYourBid ? '❌ YOUR TEAM' : '✅ OPPONENTS') + ' Failed! -' + pts; toastType = isYourBid ? 'lose' : 'win'; }
+  } else if (highestBid >= 20) {
+    if (made) { pts = 2; gameScore[bT] += pts; gameScore[oT] -= pts; logMsg = 'Bid made (Honors)! +' + pts; toastMsg = (isYourBid ? '✅ YOUR TEAM' : '❌ OPPONENTS') + ' Made! +' + pts; toastType = isYourBid ? 'win' : 'lose'; }
+    else { pts = 3; gameScore[oT] += pts; gameScore[bT] -= pts; logMsg = 'Bid failed (Honors)! -' + pts; toastMsg = (isYourBid ? '❌ YOUR TEAM' : '✅ OPPONENTS') + ' Failed! -' + pts; toastType = isYourBid ? 'lose' : 'win'; }
   } else {
     if (made) { pts = 1; gameScore[bT] += pts; gameScore[oT] -= pts; logMsg = 'Bid made! +' + pts; toastMsg = (isYourBid ? '✅ YOUR TEAM' : '❌ OPPONENTS') + ' Made! +' + pts; toastType = isYourBid ? 'win' : 'lose'; }
     else { pts = 2; gameScore[oT] += pts; gameScore[bT] -= pts; logMsg = 'Bid failed! -' + pts; toastMsg = (isYourBid ? '❌ YOUR TEAM' : '✅ OPPONENTS') + ' Failed! -' + pts; toastType = isYourBid ? 'lose' : 'win'; }
@@ -11679,6 +11686,7 @@ let serverLobbyPollTimer = null;
 let serverTurnWatchdog = null;
 let serverRoundEndShown = -1; // which round number we've already shown the summary panel for
 let serverLastAnnouncedTrumpExposed = false; // tracks trumpExposed so the announcement toast fires exactly once per exposure, not on every render
+let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired, so it shows exactly once per round
 let lastShownRoundVoidMessage = null; // tracks the defending-team-has-no-trump void message so it shows exactly once per occurrence
 
 // A full page reload wipes every JS variable but leaves localStorage
@@ -12455,6 +12463,16 @@ function applyServerState(state) {
   if (typeof state.round === 'number' && state.round !== lastSeenRoundForLearning) {
     lastSeenRoundForLearning = state.round;
     resetLearningProgressBar();
+  }
+  if (typeof state.round === 'number' && state.round !== lastAnnouncedHonorsRound) {
+    lastAnnouncedHonorsRound = -1; // allow a fresh announcement once this round's bidding actually concludes
+  }
+  if (state.phase !== 'bidding1' && state.phase !== 'bidding2' && state.highestBid >= 20 &&
+      state.bidder >= 0 && state.round !== lastAnnouncedHonorsRound) {
+    lastAnnouncedHonorsRound = state.round;
+    const bidderName = state.bidder === MY_POS ? 'You' : relLabel(state.bidder);
+    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + state.highestBid, 'win', 3200);
+    log('👑 Honors called — bid of ' + state.highestBid + ' by ' + bidderName + '. Win pays double, lose costs double.', 'win');
   }
   if (typeof state.learningPulseCount === 'number' && state.learningPulseCount > lastSeenLearningPulse) {
     if (lastSeenLearningPulse >= 0) { // skip the very first state (would fire on join with stale history)

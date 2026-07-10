@@ -48,6 +48,7 @@ let IS_HOST = false;
 let pendingJoinCode = null;
 let latestState = null;
 let lastAnnouncedTrumpExposed = false;
+let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired
 let lastShownRoundVoidMessage = null;
 let lastSeenTricksPlayed = -1; // detects exactly when a new trick has just completed
 let trickHoldBusy = false;     // a trick is currently mid-reveal (its full pause hasn't elapsed yet)
@@ -381,6 +382,12 @@ function applyState(state) {
   updateTurnLabel(state);
   if ($('hostMenuOverlay').classList.contains('on') && $('hostMenuMainView').style.display !== 'none') renderHostMenuPlayerList();
 
+  if (state.phase !== 'bidding1' && state.highestBid >= 20 && state.bidder >= 0 &&
+      state.round !== lastAnnouncedHonorsRound) {
+    lastAnnouncedHonorsRound = state.round;
+    const bidderName = state.bidder === MY_POS ? 'You' : sixpRelLabel(state.bidder, state.seats);
+    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + state.highestBid, 'win', 3200);
+  }
   if (state.phase === 'bidding1' && state.currentPlayer === MY_POS) showBidPanel(state);
   else $('bidOverlay').classList.remove('on');
 
