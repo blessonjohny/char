@@ -1259,16 +1259,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   position:relative;
   z-index:3;
 }
-.table-clock{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:150px;height:150px;border-radius:50%;border:1.5px solid rgba(255,215,0,0.18);z-index:0;pointer-events:none}
+.table-clock{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:150px;height:150px;border-radius:50%;border:2px solid rgba(255,215,0,0.45);z-index:0;pointer-events:none}
 .table-clock::before{content:'';position:absolute;inset:0;border-radius:50%;background:
-    radial-gradient(circle, transparent 92%, rgba(255,215,0,0.12) 93%, transparent 94%),
-    repeating-conic-gradient(rgba(255,215,0,0.14) 0deg 1deg, transparent 1deg 30deg)}
-.table-clock .clock-center{position:absolute;top:50%;left:50%;width:7px;height:7px;margin:-3.5px;border-radius:50%;background:rgba(255,215,0,0.3)}
-.table-clock .clock-hand{position:absolute;left:50%;bottom:50%;transform-origin:50% 100%;background:rgba(255,215,0,0.22);border-radius:2px;transition:transform 0.5s linear}
-.table-clock .clock-hand.clock-flash{transition:transform 0.5s linear,filter 0.3s ease;filter:brightness(2.4) drop-shadow(0 0 5px rgba(255,215,0,0.9))}
+    radial-gradient(circle, transparent 90%, rgba(255,215,0,0.3) 91%, transparent 93%),
+    repeating-conic-gradient(rgba(255,215,0,0.35) 0deg 1.2deg, transparent 1.2deg 30deg)}
+.table-clock .clock-center{position:absolute;top:50%;left:50%;width:8px;height:8px;margin:-4px;border-radius:50%;background:rgba(255,215,0,0.8);box-shadow:0 0 7px rgba(255,215,0,0.6)}
+.table-clock .clock-hand{position:absolute;left:50%;bottom:50%;transform-origin:50% 100%;background:rgba(255,215,0,0.6);border-radius:2px}
+/* No continuous transition — hands snap each tick like a real clock's
+   mechanical movement. Only the moment a hand actually reaches a new
+   minute/hour gets a brief bright flash (see updateTableClock4p). */
+.table-clock .clock-hand.clock-flash{animation:clockHandFlash4p 0.7s ease}
+@keyframes clockHandFlash4p{0%{filter:brightness(1)}30%{filter:brightness(3) drop-shadow(0 0 9px rgba(255,215,0,1))}100%{filter:brightness(1)}}
 .table-clock .clock-hour{width:3px;height:40px;margin-left:-1.5px}
 .table-clock .clock-minute{width:2px;height:58px;margin-left:-1px}
-.table-clock .clock-second{width:1px;height:64px;margin-left:-0.5px;background:rgba(220,60,60,0.5)}
+.table-clock .clock-second{width:1.5px;height:64px;margin-left:-0.75px;background:rgba(230,80,80,0.7)}
 /* The oval "table" itself — a distinct object with its own rail, sized to
    spill slightly outside the center grid cell so it clearly reads as a
    table the seated players surround, not a surface under their feet. */
@@ -9749,30 +9753,26 @@ function updateTableClock4p(){
   const hourEl = document.getElementById('clockHour4p'), minEl = document.getElementById('clockMinute4p'), secEl = document.getElementById('clockSecond4p');
   if (!hourEl || !minEl) return;
   const now = new Date();
-  // Local-adjusted timestamp so the ever-increasing angle below tracks
-  // LOCAL wall-clock time (Date.now() alone is UTC). Ever-increasing
-  // (never reset to 0) so the CSS transition always sweeps forward
-  // through 12 instead of spinning backward for one frame there.
-  const localMs = now.getTime() - now.getTimezoneOffset() * 60000;
-  const secAngle = (localMs / 1000) * 6;
-  const minAngle = (localMs / 1000 / 60) * 6;
-  const hourAngle = (localMs / 1000 / 3600) * 30;
+  // Plain snap-to-position every tick — no continuous glide. The only
+  // motion beyond that is the brief flash below, right when a hand
+  // actually reaches a new minute/hour.
+  const hourAngle = ((now.getHours() % 12) + now.getMinutes() / 60) * 30;
+  const minAngle = now.getMinutes() * 6;
+  const secAngle = now.getSeconds() * 6;
   hourEl.style.transform = 'rotate(' + hourAngle + 'deg)';
   minEl.style.transform = 'rotate(' + minAngle + 'deg)';
   if (secEl) secEl.style.transform = 'rotate(' + secAngle + 'deg)';
 
-  const minuteMark = Math.floor(localMs / 1000 / 60);
+  const minuteMark = now.getHours() * 60 + now.getMinutes();
   if (clock4pLastMinuteMark !== -1 && minuteMark !== clock4pLastMinuteMark) {
     flashClockHand4p(secEl);
     flashClockHand4p(minEl);
   }
   clock4pLastMinuteMark = minuteMark;
 
-  const hourMark = Math.floor(localMs / 1000 / 3600);
+  const hourMark = now.getHours();
   if (clock4pLastHourMark !== -1 && hourMark !== clock4pLastHourMark) {
     flashClockHand4p(hourEl);
-    flashClockHand4p(minEl);
-    flashClockHand4p(secEl);
   }
   clock4pLastHourMark = hourMark;
 }

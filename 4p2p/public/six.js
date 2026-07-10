@@ -32,29 +32,26 @@ function updateTableClock() {
   const hourEl = $('clockHour'), minEl = $('clockMinute'), secEl = $('clockSecond');
   if (!hourEl || !minEl) return;
   const now = new Date();
-  // Local-adjusted timestamp (UTC ms shifted by the local offset) so the
-  // continuously-increasing angle below tracks LOCAL wall-clock time, not
-  // UTC — Date.now() alone is UTC and would show the wrong hour.
-  const localMs = now.getTime() - now.getTimezoneOffset() * 60000;
-  const secAngle = (localMs / 1000) * 6;
-  const minAngle = (localMs / 1000 / 60) * 6;
-  const hourAngle = (localMs / 1000 / 3600) * 30;
+  // Plain snap-to-position every tick — no continuous glide. The only
+  // motion beyond that is the brief flash below, right when a hand
+  // actually reaches a new minute/hour.
+  const hourAngle = ((now.getHours() % 12) + now.getMinutes() / 60) * 30;
+  const minAngle = now.getMinutes() * 6;
+  const secAngle = now.getSeconds() * 6;
   hourEl.style.transform = 'rotate(' + hourAngle + 'deg)';
   minEl.style.transform = 'rotate(' + minAngle + 'deg)';
   if (secEl) secEl.style.transform = 'rotate(' + secAngle + 'deg)';
 
-  const minuteMark = Math.floor(localMs / 1000 / 60);
+  const minuteMark = now.getHours() * 60 + now.getMinutes();
   if (sixpClockLastMinuteMark !== -1 && minuteMark !== sixpClockLastMinuteMark) {
     sixpFlashClockHand(secEl);
     sixpFlashClockHand(minEl);
   }
   sixpClockLastMinuteMark = minuteMark;
 
-  const hourMark = Math.floor(localMs / 1000 / 3600);
+  const hourMark = now.getHours();
   if (sixpClockLastHourMark !== -1 && hourMark !== sixpClockLastHourMark) {
     sixpFlashClockHand(hourEl);
-    sixpFlashClockHand(minEl);
-    sixpFlashClockHand(secEl);
   }
   sixpClockLastHourMark = hourMark;
 }
