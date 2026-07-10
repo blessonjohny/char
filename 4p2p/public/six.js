@@ -493,7 +493,15 @@ function catchUpSixpTrickStaggered(real) {
         processNextSixpTrickReveal();
         return;
       }
-      if (latestState) renderHand(latestState);
+      // More cards can legitimately have been played WHILE this staggered
+      // reveal was still working through its own snapshot — especially
+      // likely here with up to 6 players' worth of staggering to get
+      // through. Those live updates were correctly held off the whole
+      // time (that's the point), but nothing ever went back and caught
+      // them up afterward, so they'd just silently never appear until
+      // the round moved on. Render against whatever's ACTUALLY current
+      // now, not the stale snapshot this function started with.
+      if (latestState) { renderTrick(latestState); renderHand(latestState); }
       return;
     }
     const tc = cardsToShow[idx];
