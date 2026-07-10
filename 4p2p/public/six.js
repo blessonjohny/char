@@ -16,31 +16,28 @@ let MY_POS = -1;
 // Matches game-engine-6p.js's getTeam() exactly: even seats vs odd seats.
 function sixpGetTeam(pos) { return pos % 2 === 0 ? 0 : 1; }
 
-// A quiet, always-on analog clock built into the table's felt — sits at
-// z-index:0, behind every seat and card, so it's felt more than seen: a
-// bit of "this is a real table" ambiance rather than a UI element anyone
-// needs to read. Updates every 15s, which is plenty for hands this size.
+// A vintage grandfather-clock face built into the table felt — sits at
+// z-index:0, behind every seat and card. Hands snap to position each
+// second (no continuous glide); the only motion is a brief brass flash
+// exactly when a hand reaches a new minute/hour.
 let sixpClockLastMinuteMark = -1, sixpClockLastHourMark = -1;
 function sixpFlashClockHand(el) {
   if (!el) return;
-  el.classList.remove('clock-flash');
-  void el.offsetWidth;
-  el.classList.add('clock-flash');
-  setTimeout(() => el.classList.remove('clock-flash'), 700);
+  el.classList.remove('clock-hand-flash');
+  void el.getBBox && el.getBBox();
+  el.classList.add('clock-hand-flash');
+  setTimeout(() => el.classList.remove('clock-hand-flash'), 700);
 }
 function updateTableClock() {
-  const hourEl = $('clockHour'), minEl = $('clockMinute'), secEl = $('clockSecond');
+  const hourEl = document.getElementById('vclk6HourHand'), minEl = document.getElementById('vclk6MinuteHand'), secEl = document.getElementById('vclk6SecondHand');
   if (!hourEl || !minEl) return;
   const now = new Date();
-  // Plain snap-to-position every tick — no continuous glide. The only
-  // motion beyond that is the brief flash below, right when a hand
-  // actually reaches a new minute/hour.
   const hourAngle = ((now.getHours() % 12) + now.getMinutes() / 60) * 30;
   const minAngle = now.getMinutes() * 6;
   const secAngle = now.getSeconds() * 6;
-  hourEl.style.transform = 'rotate(' + hourAngle + 'deg)';
-  minEl.style.transform = 'rotate(' + minAngle + 'deg)';
-  if (secEl) secEl.style.transform = 'rotate(' + secAngle + 'deg)';
+  hourEl.setAttribute('transform', 'rotate(' + hourAngle + ' 100 100)');
+  minEl.setAttribute('transform', 'rotate(' + minAngle + ' 100 100)');
+  if (secEl) secEl.setAttribute('transform', 'rotate(' + secAngle + ' 100 100)');
 
   const minuteMark = now.getHours() * 60 + now.getMinutes();
   if (sixpClockLastMinuteMark !== -1 && minuteMark !== sixpClockLastMinuteMark) {
