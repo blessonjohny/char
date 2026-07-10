@@ -450,15 +450,60 @@ function processNextSixpTrickReveal() {
   }, 2000);
 
   setTimeout(() => {
-    trickHoldBusy = false;
     if (sixpTrickRevealQueue.length > 0) {
       // Another trick completed while this one was showing — reveal it
-      // next, with its own full, uninterrupted pause.
+      // next, with its own full, uninterrupted pause. trickHoldBusy stays
+      // true throughout (processNextSixpTrickReveal keeps it set).
       processNextSixpTrickReveal();
       return;
     }
-    if (latestState) { renderTrick(latestState); renderHand(latestState); }
+    // Nothing else queued — catch up to whatever's actually current now.
+    // Bots don't wait for this hold; by the time it's over, several of
+    // them may have already played into the new trick. Reveal those one
+    // at a time (staggered) instead of dumping them all in at once, so
+    // their turns are still visible instead of being silently swallowed.
+    const real = latestState;
+    if (!real) { trickHoldBusy = false; return; }
+    catchUpSixpTrickStaggered(real);
   }, 3200);
+}
+
+// Reveals whichever cards are already sitting in a new trick one at a
+// time, at roughly the server's own bot "thinking" pace, instead of
+// slapping them all into the circle in a single instant frame. Keeps
+// trickHoldBusy held the whole time so the player's hand only unlocks
+// once they've actually seen what happened, in order — mirrors the
+// 4-player table's catchUpTrickSlotsStaggered exactly.
+let sixpCatchUpGen = 0;
+function catchUpSixpTrickStaggered(real) {
+  const cardsToShow = real.trickCards || [];
+  for (let slot = 0; slot < 6; slot++) {
+    $('trickSlot' + slot).innerHTML = '';
+    lastRenderedTrickSlot[slot] = null;
+  }
+  const myGen = ++sixpCatchUpGen;
+  let idx = 0;
+  function revealNext() {
+    if (myGen !== sixpCatchUpGen) return; // superseded by a newer trick completing mid-catch-up
+    if (idx >= cardsToShow.length) {
+      trickHoldBusy = false;
+      if (sixpTrickRevealQueue.length > 0) {
+        // A full trick completed while this staggered catch-up was still
+        // running — show it next with its own full pause.
+        processNextSixpTrickReveal();
+        return;
+      }
+      if (latestState) renderHand(latestState);
+      return;
+    }
+    const tc = cardsToShow[idx];
+    const slot = slotFor(tc.pos);
+    $('trickSlot' + slot).innerHTML = cardHTML(tc.card, false, false, 'tiny trick-card-landing');
+    lastRenderedTrickSlot[slot] = tc.card.suit + tc.card.rank;
+    idx++;
+    setTimeout(revealNext, 550);
+  }
+  revealNext();
 }
 
 function renderLastTrick(state) {
