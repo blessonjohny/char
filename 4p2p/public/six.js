@@ -28,7 +28,40 @@ function sixpFlashClockHand(el) {
   el.classList.add('clock-hand-flash');
   setTimeout(() => el.classList.remove('clock-hand-flash'), 700);
 }
+// Fills the day/date apertures and the moon-phase sub-dial — these only
+// change once a day (moon phase effectively so), so this only actually
+// touches the DOM when the calendar day changes, not on every 1s tick.
+let sixpClockLastDay = -1;
+function sixpMoonPath(phase, cx, cy, R) {
+  const theta = phase * 2 * Math.PI;
+  const rx = R * Math.abs(Math.cos(theta));
+  const top = [cx, cy - R], bottom = [cx, cy + R];
+  let outerSweep, termSweep;
+  if (phase <= 0.5) { outerSweep = 1; termSweep = phase < 0.25 ? 1 : 0; }
+  else { outerSweep = 0; termSweep = phase < 0.75 ? 0 : 1; }
+  return 'M ' + top[0].toFixed(2) + ',' + top[1].toFixed(2) +
+    ' A ' + R + ',' + R + ' 0 0,' + outerSweep + ' ' + bottom[0].toFixed(2) + ',' + bottom[1].toFixed(2) +
+    ' A ' + rx.toFixed(2) + ',' + R + ' 0 0,' + termSweep + ' ' + top[0].toFixed(2) + ',' + top[1].toFixed(2) + ' Z';
+}
+function sixpUpdateClockComplications(now) {
+  const dayNum = now.getFullYear() * 1000 + Math.floor(now.getTime() / 86400000);
+  if (dayNum === sixpClockLastDay) return;
+  sixpClockLastDay = dayNum;
+  const dayEl = document.getElementById('vclk6DayText'), dateEl = document.getElementById('vclk6DateText');
+  if (dayEl) dayEl.textContent = ['SUN','MON','TUE','WED','THU','FRI','SAT'][now.getDay()];
+  if (dateEl) dateEl.textContent = String(now.getDate());
+  // Simple synodic-month approximation: known new moon reference
+  // (Jan 6, 2000 18:14 UTC) plus the 29.53059-day cycle length.
+  const synodic = 29.530588853;
+  const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14);
+  const daysSince = (now.getTime() - knownNewMoon) / 86400000;
+  const phase = ((daysSince % synodic) + synodic) % synodic / synodic;
+  const shadowEl = document.getElementById('vclk6MoonShadow');
+  if (shadowEl) shadowEl.setAttribute('d', sixpMoonPath(phase, 100, 140, 11));
+}
+
 function updateTableClock() {
+  sixpUpdateClockComplications(new Date());
   const hourEl = document.getElementById('vclk6HourHand'), minEl = document.getElementById('vclk6MinuteHand'), secEl = document.getElementById('vclk6SecondHand');
   if (!hourEl || !minEl) return;
   const now = new Date();

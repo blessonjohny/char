@@ -2703,12 +2703,19 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <text x="164.0" y="100.0" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">III</text>
 <text x="155.4" y="132.0" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">IV</text>
 <text x="132.0" y="155.4" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">V</text>
-<text x="100.0" y="164.0" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VI</text>
 <text x="68.0" y="155.4" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VII</text>
 <text x="44.6" y="132.0" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VIII</text>
 <text x="36.0" y="100.0" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">IX</text>
 <text x="44.6" y="68.0" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">X</text>
 <text x="68.0" y="44.6" font-family="Georgia, 'Times New Roman', serif" font-size="13" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XI</text>
+<rect x="79" y="53.5" width="20" height="13" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
+<text id="vclk4DayText" x="89.0" y="60.5" font-family="Georgia, serif" font-size="6.8" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
+<rect x="102" y="53.5" width="15" height="13" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
+<text id="vclk4DateText" x="109.5" y="60.5" font-family="Georgia, serif" font-size="7.2" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
+<circle cx="100" cy="140" r="14" fill="none" stroke="#8a6218" stroke-width="0.8" opacity="0.6"/>
+<circle id="vclk4MoonBg" cx="100" cy="140" r="11" fill="#efe6c8"/>
+<path id="vclk4MoonShadow" d="" fill="#1a2035"/>
+<circle cx="100" cy="140" r="11" fill="none" stroke="#3d2a08" stroke-width="0.7"/>
 <circle cx="100" cy="100" r="7" fill="url(#vclk4Bezel)" stroke="#3d2a08" stroke-width="0.8"/>
 <circle cx="100" cy="100" r="2.4" fill="#3d2a08"/>
 <g id="vclk4HourHand" transform="rotate(0 100 100)">
@@ -9847,7 +9854,37 @@ function flashClockHand4p(el) {
   el.classList.add('clock-hand-flash');
   setTimeout(() => el.classList.remove('clock-hand-flash'), 700);
 }
+// Fills the day/date apertures and the moon-phase sub-dial — only
+// touches the DOM when the calendar day changes, not every 1s tick.
+let clock4pLastDay = -1;
+function moonPath4p(phase, cx, cy, R) {
+  const theta = phase * 2 * Math.PI;
+  const rx = R * Math.abs(Math.cos(theta));
+  const top = [cx, cy - R], bottom = [cx, cy + R];
+  let outerSweep, termSweep;
+  if (phase <= 0.5) { outerSweep = 1; termSweep = phase < 0.25 ? 1 : 0; }
+  else { outerSweep = 0; termSweep = phase < 0.75 ? 0 : 1; }
+  return 'M ' + top[0].toFixed(2) + ',' + top[1].toFixed(2) +
+    ' A ' + R + ',' + R + ' 0 0,' + outerSweep + ' ' + bottom[0].toFixed(2) + ',' + bottom[1].toFixed(2) +
+    ' A ' + rx.toFixed(2) + ',' + R + ' 0 0,' + termSweep + ' ' + top[0].toFixed(2) + ',' + top[1].toFixed(2) + ' Z';
+}
+function updateClock4pComplications(now) {
+  const dayNum = now.getFullYear() * 1000 + Math.floor(now.getTime() / 86400000);
+  if (dayNum === clock4pLastDay) return;
+  clock4pLastDay = dayNum;
+  const dayEl = document.getElementById('vclk4DayText'), dateEl = document.getElementById('vclk4DateText');
+  if (dayEl) dayEl.textContent = ['SUN','MON','TUE','WED','THU','FRI','SAT'][now.getDay()];
+  if (dateEl) dateEl.textContent = String(now.getDate());
+  const synodic = 29.530588853;
+  const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14);
+  const daysSince = (now.getTime() - knownNewMoon) / 86400000;
+  const phase = ((daysSince % synodic) + synodic) % synodic / synodic;
+  const shadowEl = document.getElementById('vclk4MoonShadow');
+  if (shadowEl) shadowEl.setAttribute('d', moonPath4p(phase, 100, 140, 11));
+}
+
 function updateTableClock4p(){
+  updateClock4pComplications(new Date());
   const hourEl = document.getElementById('vclk4HourHand'), minEl = document.getElementById('vclk4MinuteHand'), secEl = document.getElementById('vclk4SecondHand');
   if (!hourEl || !minEl) return;
   const now = new Date();
