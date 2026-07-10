@@ -15,6 +15,8 @@ let MY_NAME = '';
 let MY_POS = -1;
 // Matches game-engine-6p.js's getTeam() exactly: even seats vs odd seats.
 function sixpGetTeam(pos) { return pos % 2 === 0 ? 0 : 1; }
+const SUIT_NAMES = { '♠': 'Spades', '♥': 'Hearts', '♦': 'Diamonds', '♣': 'Clubs' };
+function suitName(suit) { return SUIT_NAMES[suit] || suit; }
 // Relative label for any seat from MY_POS's point of view — a bot's name
 // tells a player nothing about whether a bid is good or bad news for them.
 function sixpRelLabel(pos, seats) {
@@ -333,10 +335,10 @@ function applyState(state) {
 
   const tr = $('trumpChip');
   if (state.trumpExposed) {
-    tr.textContent = '🎯 Trump: ' + state.trumpSuit + ' ACTIVE';
+    tr.textContent = '🎯 Trump: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit) + ' ACTIVE';
     tr.style.color = 'var(--accent)';
     if (!lastAnnouncedTrumpExposed) {
-      showToast('⚡ Trump exposed: ' + state.trumpSuit + '!', 'win', 2200);
+      showToast('⚡ Trump exposed: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit) + '!', 'win', 2200);
     }
     lastAnnouncedTrumpExposed = true;
   } else {
@@ -536,16 +538,24 @@ function processNextSixpTrickReveal() {
 // 4-player table's catchUpTrickSlotsStaggered exactly.
 let sixpCatchUpGen = 0;
 function catchUpSixpTrickStaggered(real) {
-  const cardsToShow = real.trickCards || [];
   for (let slot = 0; slot < 6; slot++) {
     $('trickSlot' + slot).innerHTML = '';
     lastRenderedTrickSlot[slot] = null;
   }
   const myGen = ++sixpCatchUpGen;
-  let idx = 0;
   function revealNext() {
     if (myGen !== sixpCatchUpGen) return; // superseded by a newer trick completing mid-catch-up
-    if (idx >= cardsToShow.length) {
+    // Re-check against whatever's ACTUALLY current on every tick, not a
+    // fixed snapshot taken when catch-up started — bots keep playing
+    // during this whole reveal (up to 6 players' worth), and the earlier
+    // version dumped whichever of their cards had piled up by the time
+    // the original snapshot finished revealing all in one instant frame
+    // with no gap. Now every card, however late it arrives, gets its own
+    // properly-spaced reveal.
+    const current = latestState || real;
+    const cardsToShow = current.trickCards || [];
+    const nextCard = cardsToShow.find(tc => lastRenderedTrickSlot[slotFor(tc.pos)] !== (tc.card.suit + tc.card.rank));
+    if (!nextCard) {
       trickHoldBusy = false;
       if (sixpTrickRevealQueue.length > 0) {
         // A full trick completed while this staggered catch-up was still
@@ -553,22 +563,12 @@ function catchUpSixpTrickStaggered(real) {
         processNextSixpTrickReveal();
         return;
       }
-      // More cards can legitimately have been played WHILE this staggered
-      // reveal was still working through its own snapshot — especially
-      // likely here with up to 6 players' worth of staggering to get
-      // through. Those live updates were correctly held off the whole
-      // time (that's the point), but nothing ever went back and caught
-      // them up afterward, so they'd just silently never appear until
-      // the round moved on. Render against whatever's ACTUALLY current
-      // now, not the stale snapshot this function started with.
-      if (latestState) { renderTrick(latestState); renderHand(latestState); }
+      if (latestState) renderHand(latestState);
       return;
     }
-    const tc = cardsToShow[idx];
-    const slot = slotFor(tc.pos);
-    $('trickSlot' + slot).innerHTML = cardHTML(tc.card, false, false, 'tiny trick-card-landing');
-    lastRenderedTrickSlot[slot] = tc.card.suit + tc.card.rank;
-    idx++;
+    const slot = slotFor(nextCard.pos);
+    $('trickSlot' + slot).innerHTML = cardHTML(nextCard.card, false, false, 'tiny trick-card-landing');
+    lastRenderedTrickSlot[slot] = nextCard.card.suit + nextCard.card.rank;
     setTimeout(revealNext, 550);
   }
   revealNext();
