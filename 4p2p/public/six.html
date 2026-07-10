@@ -66,7 +66,8 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
     radial-gradient(circle, transparent 92%, rgba(244,196,48,0.15) 93%, transparent 94%),
     repeating-conic-gradient(rgba(244,196,48,0.18) 0deg 1deg, transparent 1deg 30deg)}
 .clock-center{position:absolute;top:50%;left:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(244,196,48,0.35)}
-.clock-hand{position:absolute;left:50%;bottom:50%;transform-origin:50% 100%;background:rgba(244,196,48,0.28);border-radius:2px}
+.clock-hand{position:absolute;left:50%;bottom:50%;transform-origin:50% 100%;background:rgba(244,196,48,0.28);border-radius:2px;transition:transform 0.5s linear}
+.clock-hand.clock-flash{transition:transform 0.5s linear,filter 0.3s ease,background 0.3s ease;filter:brightness(2.4) drop-shadow(0 0 5px rgba(244,196,48,0.9))}
 .clock-hour{width:3px;height:32px;margin-left:-1.5px}
 .clock-minute{width:2px;height:46px;margin-left:-1px}
 .clock-second{width:1px;height:52px;margin-left:-0.5px;background:rgba(220,60,60,0.55)}

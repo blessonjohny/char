@@ -20,16 +20,43 @@ function sixpGetTeam(pos) { return pos % 2 === 0 ? 0 : 1; }
 // z-index:0, behind every seat and card, so it's felt more than seen: a
 // bit of "this is a real table" ambiance rather than a UI element anyone
 // needs to read. Updates every 15s, which is plenty for hands this size.
+let sixpClockLastMinuteMark = -1, sixpClockLastHourMark = -1;
+function sixpFlashClockHand(el) {
+  if (!el) return;
+  el.classList.remove('clock-flash');
+  void el.offsetWidth;
+  el.classList.add('clock-flash');
+  setTimeout(() => el.classList.remove('clock-flash'), 700);
+}
 function updateTableClock() {
-  const now = new Date();
   const hourEl = $('clockHour'), minEl = $('clockMinute'), secEl = $('clockSecond');
   if (!hourEl || !minEl) return;
-  const hourAngle = ((now.getHours() % 12) + now.getMinutes() / 60) * 30;
-  const minAngle = now.getMinutes() * 6;
-  const secAngle = now.getSeconds() * 6;
+  const now = new Date();
+  // Local-adjusted timestamp (UTC ms shifted by the local offset) so the
+  // continuously-increasing angle below tracks LOCAL wall-clock time, not
+  // UTC — Date.now() alone is UTC and would show the wrong hour.
+  const localMs = now.getTime() - now.getTimezoneOffset() * 60000;
+  const secAngle = (localMs / 1000) * 6;
+  const minAngle = (localMs / 1000 / 60) * 6;
+  const hourAngle = (localMs / 1000 / 3600) * 30;
   hourEl.style.transform = 'rotate(' + hourAngle + 'deg)';
   minEl.style.transform = 'rotate(' + minAngle + 'deg)';
   if (secEl) secEl.style.transform = 'rotate(' + secAngle + 'deg)';
+
+  const minuteMark = Math.floor(localMs / 1000 / 60);
+  if (sixpClockLastMinuteMark !== -1 && minuteMark !== sixpClockLastMinuteMark) {
+    sixpFlashClockHand(secEl);
+    sixpFlashClockHand(minEl);
+  }
+  sixpClockLastMinuteMark = minuteMark;
+
+  const hourMark = Math.floor(localMs / 1000 / 3600);
+  if (sixpClockLastHourMark !== -1 && hourMark !== sixpClockLastHourMark) {
+    sixpFlashClockHand(hourEl);
+    sixpFlashClockHand(minEl);
+    sixpFlashClockHand(secEl);
+  }
+  sixpClockLastHourMark = hourMark;
 }
 updateTableClock();
 setInterval(updateTableClock, 1000);
