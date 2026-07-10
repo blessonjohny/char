@@ -1020,6 +1020,7 @@ function sendChat() {
 
 $('btnChat').addEventListener('click', openChat);
 $('btnInvite').addEventListener('click', shareInviteLink);
+$('btnInviteFromLobby').addEventListener('click', shareInviteLink);
 
 // ==================== STILL PLAYING? (idle check) ====================
 let stillPlayingInterval = null;

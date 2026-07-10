@@ -179,9 +179,11 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 <div class="screen hidden" id="lobbyScreen">
   <h1>🎮 Online Table</h1>
   <div class="subtitle" id="lobbySub">Waiting for players...</div>
+  <div style="font-size:0.72rem;color:var(--accent);font-weight:700;margin:-8px 0 14px">▶ Start now with smart bots — invite friends anytime, even mid-game!</div>
   <div style="background:var(--panel);border:1px dashed var(--accent);border-radius:12px;padding:14px;margin-bottom:16px;width:100%;max-width:320px">
     <div style="font-size:1.5rem;font-weight:800;letter-spacing:2px;color:var(--accent)" id="roomCodeDisplay">------</div>
-    <div style="font-size:0.68rem;color:var(--text-secondary);margin-top:4px">Share this code — they enter it under "Join Table"</div>
+    <div style="font-size:0.68rem;color:var(--text-secondary);margin-top:4px">Share this code, or use Invite a Friend below</div>
+    <button id="btnInviteFromLobby" style="margin-top:10px;width:100%;padding:10px;border-radius:10px;border:none;background:linear-gradient(160deg,#5FA8F5,#2E63D6);color:#fff;font-weight:800;font-size:0.85rem;cursor:pointer">💌 Invite a Friend</button>
   </div>
   <div id="lobbyPlayerList" style="width:100%;max-width:320px;margin-bottom:14px"></div>
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px" id="botFillRow">
