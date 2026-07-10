@@ -22,15 +22,17 @@ function sixpGetTeam(pos) { return pos % 2 === 0 ? 0 : 1; }
 // needs to read. Updates every 15s, which is plenty for hands this size.
 function updateTableClock() {
   const now = new Date();
-  const hourEl = $('clockHour'), minEl = $('clockMinute');
+  const hourEl = $('clockHour'), minEl = $('clockMinute'), secEl = $('clockSecond');
   if (!hourEl || !minEl) return;
   const hourAngle = ((now.getHours() % 12) + now.getMinutes() / 60) * 30;
   const minAngle = now.getMinutes() * 6;
+  const secAngle = now.getSeconds() * 6;
   hourEl.style.transform = 'rotate(' + hourAngle + 'deg)';
   minEl.style.transform = 'rotate(' + minAngle + 'deg)';
+  if (secEl) secEl.style.transform = 'rotate(' + secAngle + 'deg)';
 }
 updateTableClock();
-setInterval(updateTableClock, 15000);
+setInterval(updateTableClock, 1000);
 
 // Mirrors the 4-player table's score-box treatment exactly: pop-bounce on
 // every value change, plus a continuous ambient green/red glow for

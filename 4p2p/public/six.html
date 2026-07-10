@@ -69,6 +69,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .clock-hand{position:absolute;left:50%;bottom:50%;transform-origin:50% 100%;background:rgba(244,196,48,0.28);border-radius:2px}
 .clock-hour{width:3px;height:32px;margin-left:-1.5px}
 .clock-minute{width:2px;height:46px;margin-left:-1px}
+.clock-second{width:1px;height:52px;margin-left:-0.5px;background:rgba(220,60,60,0.55)}
 .seat{position:absolute;display:flex;flex-direction:column;align-items:center;gap:2px;width:64px}
 .seat .av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#4a90d9,#2a5a9a);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:2px solid rgba(255,255,255,0.2);position:relative}
 .seat.on .av{border-color:var(--accent);animation:turnActiveGlow6 1.1s ease-in-out infinite}
@@ -268,6 +269,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
     <div class="table-clock" id="tableClock">
       <div class="clock-hand clock-hour" id="clockHour"></div>
       <div class="clock-hand clock-minute" id="clockMinute"></div>
+      <div class="clock-hand clock-second" id="clockSecond"></div>
       <div class="clock-center"></div>
     </div>
     <div class="seat" id="seatWrap0"><div class="av" id="av0">👤</div><div class="nm" id="nm0"></div><div class="cc" id="cc0"></div></div>

@@ -1267,6 +1267,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .table-clock .clock-hand{position:absolute;left:50%;bottom:50%;transform-origin:50% 100%;background:rgba(255,215,0,0.22);border-radius:2px}
 .table-clock .clock-hour{width:3px;height:40px;margin-left:-1.5px}
 .table-clock .clock-minute{width:2px;height:58px;margin-left:-1px}
+.table-clock .clock-second{width:1px;height:64px;margin-left:-0.5px;background:rgba(220,60,60,0.5)}
 /* The oval "table" itself — a distinct object with its own rail, sized to
    spill slightly outside the center grid cell so it clearly reads as a
    table the seated players surround, not a surface under their feet. */
@@ -2618,6 +2619,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <div class="table-clock" id="tableClock4p">
         <div class="clock-hand clock-hour" id="clockHour4p"></div>
         <div class="clock-hand clock-minute" id="clockMinute4p"></div>
+        <div class="clock-hand clock-second" id="clockSecond4p"></div>
         <div class="clock-center"></div>
       </div>
       <div class="cross">
@@ -9736,15 +9738,17 @@ function setupKingTableTrigger() {
 // table's clock. Updates every 15s, plenty for hands this size.
 function updateTableClock4p(){
   const now = new Date();
-  const hourEl = document.getElementById('clockHour4p'), minEl = document.getElementById('clockMinute4p');
+  const hourEl = document.getElementById('clockHour4p'), minEl = document.getElementById('clockMinute4p'), secEl = document.getElementById('clockSecond4p');
   if (!hourEl || !minEl) return;
   const hourAngle = ((now.getHours() % 12) + now.getMinutes() / 60) * 30;
   const minAngle = now.getMinutes() * 6;
+  const secAngle = now.getSeconds() * 6;
   hourEl.style.transform = 'rotate(' + hourAngle + 'deg)';
   minEl.style.transform = 'rotate(' + minAngle + 'deg)';
+  if (secEl) secEl.style.transform = 'rotate(' + secAngle + 'deg)';
 }
 updateTableClock4p();
-setInterval(updateTableClock4p, 15000);
+setInterval(updateTableClock4p, 1000);
 
 function startLiveTypewriter(){
   const el = document.getElementById('liveTagline');
