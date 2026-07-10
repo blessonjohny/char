@@ -15,6 +15,61 @@ let MY_NAME = '';
 let MY_POS = -1;
 // Matches game-engine-6p.js's getTeam() exactly: even seats vs odd seats.
 function sixpGetTeam(pos) { return pos % 2 === 0 ? 0 : 1; }
+
+// A quiet, always-on analog clock built into the table's felt — sits at
+// z-index:0, behind every seat and card, so it's felt more than seen: a
+// bit of "this is a real table" ambiance rather than a UI element anyone
+// needs to read. Updates every 15s, which is plenty for hands this size.
+function updateTableClock() {
+  const now = new Date();
+  const hourEl = $('clockHour'), minEl = $('clockMinute');
+  if (!hourEl || !minEl) return;
+  const hourAngle = ((now.getHours() % 12) + now.getMinutes() / 60) * 30;
+  const minAngle = now.getMinutes() * 6;
+  hourEl.style.transform = 'rotate(' + hourAngle + 'deg)';
+  minEl.style.transform = 'rotate(' + minAngle + 'deg)';
+}
+updateTableClock();
+setInterval(updateTableClock, 15000);
+
+// Mirrors the 4-player table's score-box treatment exactly: pop-bounce on
+// every value change, plus a continuous ambient green/red glow for
+// whichever side is currently ahead in the match score (gameScore), with
+// intensity scaling with how big the lead is. "Your Team" / "Opp Team"
+// always means relative to MY_POS, not a fixed team index, since which
+// raw team (0 or 1) is "mine" depends on which seat I'm sitting in.
+function updateSixpScoreDisplay(state) {
+  const myTeam = sixpGetTeam(MY_POS);
+  const yScore = state.gameScore[myTeam];
+  const oScore = state.gameScore[1 - myTeam];
+  const ys = $('scoreA'), os = $('scoreB');
+  const yBox = $('scoreBoxYours'), oBox = $('scoreBoxOpp');
+
+  if (ys.textContent !== String(yScore)) {
+    ys.textContent = yScore;
+    ys.classList.remove('pop-anim');
+    void ys.offsetWidth;
+    ys.classList.add('pop-anim');
+    setTimeout(() => ys.classList.remove('pop-anim'), 500);
+  }
+  if (os.textContent !== String(oScore)) {
+    os.textContent = oScore;
+    os.classList.remove('pop-anim');
+    void os.offsetWidth;
+    os.classList.add('pop-anim');
+    setTimeout(() => os.classList.remove('pop-anim'), 500);
+  }
+
+  function setScoreClass(box, diff) {
+    if (!box) return;
+    box.classList.remove('tie', 'winning', 'losing', 'int-1', 'int-2', 'int-3', 'int-4', 'int-5');
+    if (diff === 0) { box.classList.add('tie'); return; }
+    const intensity = Math.abs(diff) >= 8 ? 5 : Math.abs(diff) >= 6 ? 4 : Math.abs(diff) >= 4 ? 3 : Math.abs(diff) >= 2 ? 2 : 1;
+    box.classList.add(diff > 0 ? 'winning' : 'losing', 'int-' + intensity);
+  }
+  setScoreClass(yBox, yScore - oScore);
+  setScoreClass(oBox, oScore - yScore);
+}
 const SUIT_NAMES = { '♠': 'Spades', '♥': 'Hearts', '♦': 'Diamonds', '♣': 'Clubs' };
 function suitName(suit) { return SUIT_NAMES[suit] || suit; }
 // Relative label for any seat from MY_POS's point of view — a bot's name
@@ -321,8 +376,7 @@ function applyState(state) {
   document.querySelector('.link-back').style.display = 'none'; // was overlapping the info bar during play
 
   $('roundNum').textContent = state.round;
-  $('scoreA').textContent = state.gameScore[0];
-  $('scoreB').textContent = state.gameScore[1];
+  updateSixpScoreDisplay(state);
   $('btnHostMenu').style.display = IS_HOST ? 'inline-flex' : 'none';
 
   const dealerSeat = state.seats[state.dealer];
@@ -331,7 +385,17 @@ function applyState(state) {
   $('bidderDisplay').textContent = bidderSeat
     ? (state.bidder === MY_POS ? 'You' : bidderSeat.name) + (state.highestBid > 0 ? ' (' + state.highestBid + ')' : '')
     : '—';
-  $('teamPointsDisplay').textContent = (state.teamPoints ? state.teamPoints[0] : 0) + ' - ' + (state.teamPoints ? state.teamPoints[1] : 0);
+  {
+    const tp = $('teamPointsDisplay');
+    const newVal = (state.teamPoints ? state.teamPoints[0] : 0) + ' - ' + (state.teamPoints ? state.teamPoints[1] : 0);
+    if (tp.textContent !== newVal) {
+      tp.textContent = newVal;
+      tp.classList.remove('pop-anim');
+      void tp.offsetWidth;
+      tp.classList.add('pop-anim');
+      setTimeout(() => tp.classList.remove('pop-anim'), 500);
+    }
+  }
   renderLastTrick(state);
 
   const tr = $('trumpChip');
@@ -862,13 +926,56 @@ function showBidConfirm(state, bid, isPass) {
 
 // ---------------- Trump choice UI ----------------
 
+let selectedHiddenTrumpCard = null;
+
 document.querySelectorAll('#trumpPickButtons button').forEach(btn => {
   btn.addEventListener('click', () => {
     const suit = btn.getAttribute('data-suit');
-    $('trumpOverlay').classList.remove('on');
-    socket.emit('sixp_chooseTrump', { suit, hiddenCard: null }); // server picks the lowest trump automatically if none specified
+    document.querySelectorAll('#trumpPickButtons button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    showTrumpCardSelect(suit);
   });
 });
+
+function showTrumpCardSelect(suit) {
+  const section = $('trumpCardSelectSection');
+  const area = $('trumpCardSelectArea');
+  const confirmBtn = $('btnConfirmHiddenTrump');
+  selectedHiddenTrumpCard = null;
+  confirmBtn.disabled = true;
+  const hand = (latestState && latestState.seats[MY_POS] && latestState.seats[MY_POS].hand) || [];
+  const trumps = hand.filter(c => c.suit === suit);
+  if (trumps.length === 0) {
+    section.style.display = 'none';
+    // No cards of this suit at all (rare, but possible) — nothing to hide from hand, server picks.
+    socket.emit('sixp_chooseTrump', { suit, hiddenCard: null });
+    $('trumpOverlay').classList.remove('on');
+    return;
+  }
+  section.style.display = 'block';
+  area.innerHTML = '';
+  trumps.forEach(card => {
+    const div = document.createElement('div');
+    div.innerHTML = cardHTML(card, true, false, '');
+    const cardEl = div.firstElementChild;
+    cardEl.removeAttribute('onclick');
+    cardEl.addEventListener('click', () => {
+      selectedHiddenTrumpCard = card;
+      area.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+      cardEl.classList.add('selected');
+      confirmBtn.disabled = false;
+    });
+    area.appendChild(cardEl);
+  });
+  confirmBtn.onclick = () => {
+    $('trumpOverlay').classList.remove('on');
+    const suitBtn = document.querySelector('#trumpPickButtons button.on');
+    const chosenSuit = suitBtn ? suitBtn.getAttribute('data-suit') : suit;
+    const ht = selectedHiddenTrumpCard ? { suit: selectedHiddenTrumpCard.suit, rank: selectedHiddenTrumpCard.rank, points: selectedHiddenTrumpCard.points } : null;
+    socket.emit('sixp_chooseTrump', { suit: chosenSuit, hiddenCard: ht });
+    section.style.display = 'none';
+  };
+}
 
 // ---------------- Round end / game over ----------------
 
@@ -900,9 +1007,10 @@ $('btnContinueRound').addEventListener('click', () => {
 
 function showGameOver(state) {
   $('roundEndOverlay').classList.remove('on');
-  const won = state.gameOver.winningTeam === (MY_POS % 2 === 0 ? 0 : 1);
+  const myTeam = sixpGetTeam(MY_POS);
+  const won = state.gameOver.winningTeam === myTeam;
   $('gameOverTitle').textContent = won ? '🏆 You Win!' : '😢 Defeat';
-  $('gameOverBody').innerHTML = `Final score — Team A: ${state.gameOver.finalScore[0]}, Team B: ${state.gameOver.finalScore[1]}`;
+  $('gameOverBody').innerHTML = `Final score — Your Team: ${state.gameOver.finalScore[myTeam]}, Opp Team: ${state.gameOver.finalScore[1 - myTeam]}`;
   $('btnGameOverRestart').style.display = IS_HOST ? 'flex' : 'none';
   $('gameOverOverlay').classList.add('on');
 }
