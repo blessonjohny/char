@@ -290,6 +290,7 @@ class GameEngine {
     this.highestBid = 0;
     this.passes = 0;
     this.bidHistory = []; // [{pos, bid}]
+    this.p2History = []; // [{pos, bid}] — phase 2 raises/passes, reset again when phase 2 actually starts
     this.trumpSuit = '';
     this.trumpExposed = false;
     this.roundVoidMessage = null;
@@ -625,6 +626,7 @@ class GameEngine {
     this.p2LastRaiser = -1;
     this.p2Passes = 0;
     this.p2TotalPasses = 0;
+    this.p2History = [];
     this.currentPlayer = this.p2Cur;
     this.addLog('Phase 2: anyone may raise the bid. Min 20.');
     this._notify();
@@ -644,6 +646,7 @@ class GameEngine {
     this.bidder = pos;
     this.p2LastRaiser = pos;
     this.p2Passes = 0;
+    this.p2History.push({ pos, bid });
     if (this.seats[pos]) this._bidderHandProfileForLearning = brain.getHandProfile(this.seats[pos].hand);
     this.addLog(`Seat ${pos} raised to ${bid}.`);
     // Any raise in phase 2 — even the original bidder re-raising their own
@@ -671,6 +674,7 @@ class GameEngine {
     if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
     this.p2Passes++;
     this.p2TotalPasses++;
+    this.p2History.push({ pos, bid: 0 });
     this.addLog(`Seat ${pos} passed (phase 2).`);
     return this._afterPhase2Action();
   }
@@ -1553,6 +1557,7 @@ class GameEngine {
       highestBid: this.highestBid,
       passes: this.passes,
       bidHistory: this.bidHistory,
+      p2History: this.p2History,
       p2LastRaiser: this.p2LastRaiser,
       p2MinRaise: this.phase === 'bidding2' ? Math.max(20, this.highestBid + 1) : null,
       learningPulseCount: this.learningPulseCount,
