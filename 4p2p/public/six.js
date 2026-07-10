@@ -345,6 +345,7 @@ function applyState(state) {
   if (state.round !== roundHistorySeenFor) {
     roundHistorySeenFor = state.round;
     roundTrickHistory = [];
+    lastSeenTricksPlayed = state.tricksPlayed || 0;
   }
   const tricksPlayed = state.tricksPlayed || 0;
   if (tricksPlayed > lastSeenTricksPlayed && state.lastTrick) {
@@ -355,8 +356,16 @@ function applyState(state) {
     lastSeenTricksPlayed = tricksPlayed;
     sixpTrickRevealQueue.push(state.lastTrick);
     processNextSixpTrickReveal();
-  } else if (!trickHoldBusy && sixpTrickRevealQueue.length === 0) {
-    renderTrick(state);
+  } else {
+    // Self-correcting catch-all: keeps lastSeenTricksPlayed in step with
+    // reality on every render, not just when a trick just resolved — so a
+    // new round's tricksPlayed resetting to 0 (below whatever the previous
+    // round ended at) can never leave this counter stuck above the new
+    // round's real count, which would otherwise silently suppress every
+    // future trick-completion animation for the rest of the game. Mirrors
+    // the 4-player table's renderTrickSlotsWithWinnerPause exactly.
+    lastSeenTricksPlayed = tricksPlayed;
+    if (!trickHoldBusy && sixpTrickRevealQueue.length === 0) renderTrick(state);
   }
   // Hand restrictions must never update ahead of what the circle is
   // showing — if the circle is still holding the previous completed
@@ -762,10 +771,10 @@ $('btnCallTrumpYes').addEventListener('click', () => {
 });
 $('btnCallTrumpNo').addEventListener('click', () => {
   $('callTrumpOverlay').classList.remove('on');
-  // Play lowest legal card instead.
-  const hand = (latestState.seats[MY_POS] && latestState.seats[MY_POS].hand) || [];
-  const legal = hand.slice().sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
-  if (legal[0]) playHandCard(legal[0].suit, legal[0].rank);
+  // Just close the overlay — the player picks their own card from the
+  // normal hand UI below. Auto-playing the lowest card for them here was
+  // the actual bug: declining to call trump doesn't mean "let the
+  // computer choose", it means "let me pick what to discard myself".
 });
 
 // ---------------- Bidding UI ----------------
