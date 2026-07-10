@@ -1203,7 +1203,7 @@ $('btnRestartConfirmOk').addEventListener('click', () => {
     const ch = full[i];
     const span = document.createElement('span');
     span.className = 'pop-letter';
-    span.style.animationDelay = (i * 22) + 'ms';
+    span.style.animationDelay = (i * 80) + 'ms';
     span.textContent = ch === ' ' ? '\u00A0' : ch;
     frag.appendChild(span);
   }

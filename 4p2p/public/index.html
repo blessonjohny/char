@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>28 Kerala Gulan — Royal Red Edition</title>
 <style>
-.pop-letter{display:inline-block;opacity:0;transform:scale(0.3);animation:popLetterIn 0.4s cubic-bezier(.34,1.56,.64,1) forwards}
-@keyframes popLetterIn{0%{opacity:0;transform:scale(0.3)}60%{opacity:1;transform:scale(1.18)}100%{opacity:1;transform:scale(1)}}
+.pop-letter{display:inline-block;animation:popLetterLoop 2.2s ease-in-out infinite}
+@keyframes popLetterLoop{0%,80%,100%{transform:scale(1)}40%{transform:scale(1.35);color:#fff}}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
   --primary:#0a1628;
@@ -9718,7 +9718,7 @@ function startLiveTypewriter(){
     const ch = full[i];
     const span = document.createElement('span');
     span.className = 'pop-letter';
-    span.style.animationDelay = (i * 22) + 'ms';
+    span.style.animationDelay = (i * 80) + 'ms';
     span.textContent = ch === ' ' ? '\u00A0' : ch;
     frag.appendChild(span);
   }
