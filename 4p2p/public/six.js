@@ -17,16 +17,19 @@ let MY_POS = -1;
 function sixpGetTeam(pos) { return pos % 2 === 0 ? 0 : 1; }
 // Relative label for any seat from MY_POS's point of view — a bot's name
 // tells a player nothing about whether a bid is good or bad news for them.
-function sixpRelLabel(pos) {
+function sixpRelLabel(pos, seats) {
   if (pos === MY_POS) return 'You';
-  return sixpGetTeam(pos) === sixpGetTeam(MY_POS) ? 'your partner' : 'your opponent';
+  const seat = seats && seats[pos];
+  const name = seat ? seat.name : null;
+  const rel = sixpGetTeam(pos) === sixpGetTeam(MY_POS) ? 'your partner' : 'your opponent';
+  return name ? rel + ' (' + name + ')' : rel;
 }
 // Renders the "so far this round" bid/pass list, in the order actions
 // actually happened, using relative labels throughout.
-function sixpRenderBidHistory(history) {
+function sixpRenderBidHistory(history, seats) {
   if (!history || !history.length) return '';
   const rows = history.map(h => {
-    const who = sixpRelLabel(h.pos);
+    const who = sixpRelLabel(h.pos, seats);
     return h.bid > 0
       ? '<span style="color:var(--text-primary)">' + who + '</span> bid <b style="color:var(--accent)">' + h.bid + '</b>'
       : '<span style="color:var(--text-secondary)">' + who + ' passed</span>';
@@ -772,8 +775,8 @@ function showBidPanel(state) {
   const minBid = state.highestBid > 0 ? state.highestBid + 1 : 16;
   $('bidTitle').textContent = 'Place Your Bid';
   $('bidText').innerHTML = (state.highestBid > 0
-    ? `Current highest: <b style="color:var(--accent)">${state.highestBid}</b> by ${sixpRelLabel(state.bidder)}`
-    : 'You are the first bidder — must bid at least 16.') + sixpRenderBidHistory(state.bidHistory);
+    ? `Current highest: <b style="color:var(--accent)">${state.highestBid}</b> by ${sixpRelLabel(state.bidder, state.seats)}`
+    : 'You are the first bidder — must bid at least 16.') + sixpRenderBidHistory(state.bidHistory, state.seats);
   const btns = $('bidButtons');
   btns.innerHTML = '';
   btns.className = 'bid-grid';

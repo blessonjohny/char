@@ -3645,7 +3645,10 @@ function getTeam(p) { return (p === 0 || p === 3) ? 1 : 0; }
 // nothing about whether that bid is good or bad news for their own team.
 function relLabel(pos) {
   if (pos === MY_POS) return 'You';
-  return getTeam(pos) === getTeam(MY_POS) ? 'your partner' : 'your opponent';
+  const p = playerAt(pos);
+  const name = p ? p.name : null;
+  const rel = getTeam(pos) === getTeam(MY_POS) ? 'your partner' : 'your opponent';
+  return name ? rel + ' (' + name + ')' : rel;
 }
 // Renders the "so far this round" bid/pass list for the bid sheet, in the
 // order actions actually happened, using relative labels throughout.
