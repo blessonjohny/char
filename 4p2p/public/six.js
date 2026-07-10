@@ -172,7 +172,11 @@ $('btnRules').addEventListener('click', () => {
 });
 $('btnNameBack').addEventListener('click', () => showScreen('welcomeScreen'));
 $('btnNameContinue').addEventListener('click', () => {
-  const name = $('nameInput').value.trim() || 'Player';
+  const name = $('nameInput').value.trim();
+  if (!name || name.length < 2) {
+    showToast('Enter a name (2+ chars)', 'lose', 1500);
+    return;
+  }
   MY_NAME = name;
   connectSocket();
   if (pendingAction === 'create') {
