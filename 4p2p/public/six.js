@@ -56,6 +56,28 @@ function connectSocket() {
 
   socket.on('sixp_roomList', (rooms) => renderRoomList(rooms));
 
+  // A real network drop can happen mid-hold or mid-staggered-reveal —
+  // whatever local trick-rendering state existed at that exact instant
+  // (trickHoldBusy stuck true, a stagger sequence half-finished, etc.)
+  // has no way to recover on its own once the connection comes back,
+  // since it was designed assuming a continuous, unbroken stream of
+  // state updates. Treat every reconnect as a clean slate for rendering
+  // purposes — the very next 'state' broadcast will draw the table
+  // correctly from scratch regardless of whatever was happening before
+  // the drop.
+  socket.on('connect', () => {
+    trickHoldBusy = false;
+    sixpTrickRevealQueue = [];
+    lastRenderedTrickSlot = [null, null, null, null, null, null];
+    sixpCatchUpGen++;
+    if (MY_TABLE_ID && MY_PLAYER_ID) {
+      socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
+    }
+  });
+  socket.on('disconnect', () => {
+    showToast('⚠️ Lost connection to server — trying to reconnect...', 'lose', 3000);
+  });
+
   socket.on('sixp_joined', (info) => {
     MY_TABLE_ID = info.tableId;
     MY_PLAYER_ID = info.playerId;

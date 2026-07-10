@@ -11692,6 +11692,16 @@ function connectGameSocket() {
   gameSocket.on('connect', () => {
     console.log('[server] connected, socket id', gameSocket.id);
     if (notice) notice.style.display = 'none';
+    // A real network drop can happen mid-hold or mid-staggered-reveal —
+    // whatever local trick-rendering state existed at that exact instant
+    // has no way to recover on its own once the connection comes back.
+    // Treat every reconnect as a clean slate for rendering purposes; the
+    // very next 'state' broadcast draws the table correctly from
+    // scratch regardless of what was happening before the drop.
+    trickRevealBusy = false;
+    trickRevealQueue = [];
+    lastRenderedSlotContent = [null, null, null, null];
+    trickHoldGen++;
     // A reconnect after a real network drop: if we already have a table,
     // ask to rejoin it with our saved token so we reclaim our seat.
     if (MY_TABLE_ID && MY_PLAYER_TOKEN) {
