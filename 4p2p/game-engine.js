@@ -940,13 +940,14 @@ class GameEngine {
     const made = this.teamPoints[bT] >= this.highestBid;
     let pts;
     if (this.highestBid >= 28) pts = made ? 3 : 4;
-    else if (this.highestBid >= 18) pts = made ? 2 : 3;
+    else if (this.highestBid >= 20) pts = made ? 2 : 3;
     else pts = made ? 1 : 2;
+    const isHonors = this.highestBid >= 20;
     if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
     else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
     this.roundWinnerAnnounced = {
       bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
-      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT
+      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors
     };
     this.phase = 'roundEnd';
     this.addLog(`Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
@@ -1081,10 +1082,18 @@ class GameEngine {
         0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1);
 
       // Walk the dynamically-computed probability curve and take the
-      // highest bid level that still clears this bot's comfort bar.
+      // highest bid level that still clears this bot's comfort bar. Bids
+      // of 20+ ("Honors") pay and cost more per point than sub-20 bids —
+      // a bad guess up there is a bigger absolute swing on the
+      // scoreboard, not just a bigger number, so the bar to cross into
+      // that territory (and again into 28) is a bit higher than the
+      // plain curve alone would ask for. This is on top of the comfort
+      // bar, not instead of it — a hand that wasn't going to clear the
+      // ordinary bar doesn't get pulled up here.
       let target = 14;
       for (let bidLevel = 14; bidLevel <= 28; bidLevel++) {
-        if (ev.probByBid[bidLevel] >= comfortThreshold) target = bidLevel;
+        const honorsPremium = bidLevel >= 28 ? 0.08 : bidLevel >= 20 ? 0.05 : 0;
+        if (ev.probByBid[bidLevel] >= comfortThreshold + honorsPremium) target = bidLevel;
         else break;
       }
 
@@ -1199,7 +1208,8 @@ class GameEngine {
       let raised = false;
       let tr = 0;
       for (const lvl of [20, 22, 24, 26, 28]) {
-        if (lvl >= minRaise && probByBid[lvl] >= riskThreshold) tr = lvl;
+        const topTierPremium = lvl >= 28 ? 0.05 : 0;
+        if (lvl >= minRaise && probByBid[lvl] >= riskThreshold + topTierPremium) tr = lvl;
       }
       // Some randomness even when the read is favorable, and only ever
       // for genuinely live opportunities (never as a pure bluff) —

@@ -513,13 +513,14 @@ class GameEngine6P {
     const made = this.teamPoints[bT] >= this.highestBid;
     let pts;
     if (this.highestBid >= 28) pts = made ? 3 : 4;
-    else if (this.highestBid >= 18) pts = made ? 2 : 3;
+    else if (this.highestBid >= 20) pts = made ? 2 : 3;
     else pts = made ? 1 : 2;
+    const isHonors = this.highestBid >= 20;
     if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
     else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
     this.roundWinnerAnnounced = {
       bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
-      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT
+      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors
     };
     this.phase = 'roundEnd';
     this.addLog(`Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
@@ -580,7 +581,13 @@ class GameEngine6P {
       const comfortThreshold = Math.max(0.45, 0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1);
       let target = 16;
       for (let bidLevel = 16; bidLevel <= 28; bidLevel++) {
-        if (ev.probByBid[bidLevel] >= comfortThreshold) target = bidLevel;
+        // Bids of 20+ ("Honors") pay and cost more per point than
+        // sub-20 bids — a bad guess up there is a bigger absolute swing
+        // on the scoreboard, so crossing into that territory (and again
+        // into 28) needs a bit more confidence than the plain curve
+        // alone would ask for, on top of the ordinary comfort bar.
+        const honorsPremium = bidLevel >= 28 ? 0.08 : bidLevel >= 20 ? 0.05 : 0;
+        if (ev.probByBid[bidLevel] >= comfortThreshold + honorsPremium) target = bidLevel;
         else break;
       }
       if (ev.defensive > ev.offensive * 1.3) target = Math.max(16, target - 3);
