@@ -43,6 +43,27 @@ function sixpMoonPath(phase, cx, cy, R) {
     ' A ' + R + ',' + R + ' 0 0,' + outerSweep + ' ' + bottom[0].toFixed(2) + ',' + bottom[1].toFixed(2) +
     ' A ' + rx.toFixed(2) + ',' + R + ' 0 0,' + termSweep + ' ' + top[0].toFixed(2) + ',' + top[1].toFixed(2) + ' Z';
 }
+// Tapping a city on the ring shows its current local time in a toast —
+// wired once, the first time the clock SVG is actually in the DOM.
+let sixpCityClicksWired = false;
+function sixpWireCityClicks() {
+  if (sixpCityClicksWired) return;
+  const labels = document.querySelectorAll('.vclk6CityLabel');
+  if (!labels.length) return;
+  sixpCityClicksWired = true;
+  labels.forEach(el => {
+    el.addEventListener('click', () => {
+      const tz = el.getAttribute('data-tz');
+      const code = el.getAttribute('data-code');
+      try {
+        const timeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });
+        const cityNames = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', DEL: 'New Delhi', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
+        showToast('🌍 ' + (cityNames[code] || code) + ': ' + timeStr, 'info', 2500);
+      } catch (e) {}
+    });
+  });
+}
+
 function sixpUpdateClockComplications(now) {
   const dayNum = now.getFullYear() * 1000 + Math.floor(now.getTime() / 86400000);
   if (dayNum === sixpClockLastDay) return;
@@ -58,9 +79,52 @@ function sixpUpdateClockComplications(now) {
   const phase = ((daysSince % synodic) + synodic) % synodic / synodic;
   const shadowEl = document.getElementById('vclk6MoonShadow');
   if (shadowEl) shadowEl.setAttribute('d', sixpMoonPath(phase, 100, 140, 11));
+
+  const year = now.getFullYear();
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+  const leapNumEl = document.getElementById('leapYearNum'), leapLblEl = document.getElementById('leapYearLbl'), leapBoxEl = document.getElementById('leapYearBox');
+  if (leapNumEl) leapNumEl.textContent = String(year);
+  if (leapLblEl) leapLblEl.textContent = isLeap ? 'LEAP YEAR' : 'not leap';
+  if (leapBoxEl) leapBoxEl.classList.toggle('leap-active', isLeap);
+}
+
+// One-time weather fetch (Open-Meteo — free, no API key) for New York,
+// refreshed roughly hourly. Fails silently and leaves the placeholder if
+// there's no network access, rather than blocking anything.
+let sixpWeatherFetched = false;
+function sixpWeatherIcon(code) {
+  if (code === 0) return '☀️';
+  if (code <= 2) return '🌤️';
+  if (code === 3) return '☁️';
+  if (code >= 51 && code <= 67) return '🌧️';
+  if (code >= 71 && code <= 77) return '❄️';
+  if (code >= 80 && code <= 82) return '🌦️';
+  if (code >= 95) return '⛈️';
+  return '🌤️';
+}
+function sixpFetchWeather() {
+  fetch('https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.006&current=temperature_2m,weather_code&temperature_unit=fahrenheit')
+    .then(r => r.json())
+    .then(data => {
+      const t = data && data.current && data.current.temperature_2m;
+      const code = data && data.current && data.current.weather_code;
+      const tempEl = document.getElementById('weatherTemp');
+      if (tempEl && typeof t === 'number') tempEl.textContent = Math.round(t) + '\u00B0F';
+      const iconEl = document.querySelector('#weatherBox .csb-icon');
+      if (iconEl) iconEl.textContent = sixpWeatherIcon(code);
+    })
+    .catch(() => {});
+}
+function sixpMaybeFetchWeather() {
+  if (sixpWeatherFetched) return;
+  sixpWeatherFetched = true;
+  sixpFetchWeather();
+  setInterval(sixpFetchWeather, 60 * 60 * 1000);
 }
 
 function updateTableClock() {
+  sixpWireCityClicks();
+  sixpMaybeFetchWeather();
   sixpUpdateClockComplications(new Date());
   const hourEl = document.getElementById('vclk6HourHand'), minEl = document.getElementById('vclk6MinuteHand'), secEl = document.getElementById('vclk6SecondHand');
   if (!hourEl || !minEl) return;
