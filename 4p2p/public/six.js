@@ -629,6 +629,21 @@ function renderHand(state) {
   // Can't follow suit and trump not exposed yet -> offer Call Trump.
   const hasSuit = hand.some(c => c.suit === state.trickSuit);
   if (myTurn && state.trickSuit !== '' && !hasSuit && !state.trumpExposed) {
+    const tc = state.trickCards || [];
+    let trickHtml = '';
+    if (tc.length > 0) {
+      trickHtml = '<div style="margin:10px 0;padding:10px;background:rgba(255,215,0,0.08);border:1.5px solid var(--accent);border-radius:10px">' +
+        '<div style="font-size:0.68rem;color:var(--accent);font-weight:700;margin-bottom:8px;text-align:center">🃏 CARDS PLAYED THIS TRICK</div>' +
+        '<div style="display:flex;justify-content:center;gap:6px;flex-wrap:wrap">' +
+        tc.map(t => {
+          const seat = state.seats[t.pos];
+          const pName = seat ? seat.name : ('Seat ' + t.pos);
+          return '<div style="text-align:center">' + cardHTML(t.card, false, false, '') +
+            '<div style="font-size:0.55rem;color:var(--text-secondary);margin-top:3px">' + (t.pos === MY_POS ? 'You' : escapeHtml(pName)) + '</div></div>';
+        }).join('') +
+        '</div></div>';
+    }
+    $('callTrumpTrickCards').innerHTML = trickHtml;
     $('callTrumpOverlay').classList.add('on');
   } else {
     $('callTrumpOverlay').classList.remove('on');
