@@ -13,6 +13,32 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
+// Matches game-engine-6p.js's getTeam() exactly: even seats vs odd seats.
+function sixpGetTeam(pos) { return pos % 2 === 0 ? 0 : 1; }
+// Relative label for any seat from MY_POS's point of view — a bot's name
+// tells a player nothing about whether a bid is good or bad news for them.
+function sixpRelLabel(pos) {
+  if (pos === MY_POS) return 'You';
+  return sixpGetTeam(pos) === sixpGetTeam(MY_POS) ? 'your partner' : 'your opponent';
+}
+// Renders the "so far this round" bid/pass list, in the order actions
+// actually happened, using relative labels throughout.
+function sixpRenderBidHistory(history) {
+  if (!history || !history.length) return '';
+  const rows = history.map(h => {
+    const who = sixpRelLabel(h.pos);
+    return h.bid > 0
+      ? '<span style="color:var(--text-primary)">' + who + '</span> bid <b style="color:var(--accent)">' + h.bid + '</b>'
+      : '<span style="color:var(--text-secondary)">' + who + ' passed</span>';
+  });
+  return '<div style="margin-top:8px;padding:8px 10px;background:rgba(255,255,255,0.04);border-radius:8px;font-size:0.72rem;line-height:1.6;text-align:left">' +
+    '<b style="color:var(--text-secondary);font-size:0.65rem;letter-spacing:0.5px">SO FAR THIS ROUND</b><br>' +
+    rows.join('<br>') + '</div>';
+}
+// Same pool the server picks from when auto-filling bot seats — kept in
+// sync manually since this is just for the Change Bot picker's option
+// list, not anything server-authoritative.
+const BOT_NAME_POOL = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya', 'Sanjay', 'Johny', 'Vinod', 'Jean', 'Randall', 'Rajesh', 'Stev', 'Alok', 'Jerin', 'Binchu', 'Ajai', 'Peter', 'Shyam', 'Appu', 'Anup', 'Arun', 'Vilphy', 'Roji'];
 let IS_HOST = false;
 let pendingJoinCode = null;
 let latestState = null;
@@ -52,6 +78,28 @@ function connectSocket() {
 
   socket.on('sixp_roomList', (rooms) => renderRoomList(rooms));
 
+  // A real network drop can happen mid-hold or mid-staggered-reveal —
+  // whatever local trick-rendering state existed at that exact instant
+  // (trickHoldBusy stuck true, a stagger sequence half-finished, etc.)
+  // has no way to recover on its own once the connection comes back,
+  // since it was designed assuming a continuous, unbroken stream of
+  // state updates. Treat every reconnect as a clean slate for rendering
+  // purposes — the very next 'state' broadcast will draw the table
+  // correctly from scratch regardless of whatever was happening before
+  // the drop.
+  socket.on('connect', () => {
+    trickHoldBusy = false;
+    sixpTrickRevealQueue = [];
+    lastRenderedTrickSlot = [null, null, null, null, null, null];
+    sixpCatchUpGen++;
+    if (MY_TABLE_ID && MY_PLAYER_ID) {
+      socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
+    }
+  });
+  socket.on('disconnect', () => {
+    showToast('⚠️ Lost connection to server — trying to reconnect...', 'lose', 3000);
+  });
+
   socket.on('sixp_joined', (info) => {
     MY_TABLE_ID = info.tableId;
     MY_PLAYER_ID = info.playerId;
@@ -80,6 +128,9 @@ function connectSocket() {
 
   socket.on('sixp_actionError', (err) => {
     console.log('[server] action rejected:', err.reason);
+    if (err.reason === 'illegal_card') {
+      showToast("⚠️ That card can't be played right now — check what's highlighted", 'lose', 2500);
+    }
   });
 
   socket.on('sixp_chooseSeat', (info) => showSeatPicker(info));
@@ -310,6 +361,7 @@ function applyState(state) {
   // hold finishes and the circle catches up (see processNextSixpTrickReveal).
   if (!trickHoldBusy && sixpTrickRevealQueue.length === 0) renderHand(state);
   updateTurnLabel(state);
+  if ($('hostMenuOverlay').classList.contains('on') && $('hostMenuMainView').style.display !== 'none') renderHostMenuPlayerList();
 
   if (state.phase === 'bidding1' && state.currentPlayer === MY_POS) showBidPanel(state);
   else $('bidOverlay').classList.remove('on');
@@ -442,15 +494,68 @@ function processNextSixpTrickReveal() {
   }, 2000);
 
   setTimeout(() => {
-    trickHoldBusy = false;
     if (sixpTrickRevealQueue.length > 0) {
       // Another trick completed while this one was showing — reveal it
-      // next, with its own full, uninterrupted pause.
+      // next, with its own full, uninterrupted pause. trickHoldBusy stays
+      // true throughout (processNextSixpTrickReveal keeps it set).
       processNextSixpTrickReveal();
       return;
     }
-    if (latestState) { renderTrick(latestState); renderHand(latestState); }
+    // Nothing else queued — catch up to whatever's actually current now.
+    // Bots don't wait for this hold; by the time it's over, several of
+    // them may have already played into the new trick. Reveal those one
+    // at a time (staggered) instead of dumping them all in at once, so
+    // their turns are still visible instead of being silently swallowed.
+    const real = latestState;
+    if (!real) { trickHoldBusy = false; return; }
+    catchUpSixpTrickStaggered(real);
   }, 3200);
+}
+
+// Reveals whichever cards are already sitting in a new trick one at a
+// time, at roughly the server's own bot "thinking" pace, instead of
+// slapping them all into the circle in a single instant frame. Keeps
+// trickHoldBusy held the whole time so the player's hand only unlocks
+// once they've actually seen what happened, in order — mirrors the
+// 4-player table's catchUpTrickSlotsStaggered exactly.
+let sixpCatchUpGen = 0;
+function catchUpSixpTrickStaggered(real) {
+  const cardsToShow = real.trickCards || [];
+  for (let slot = 0; slot < 6; slot++) {
+    $('trickSlot' + slot).innerHTML = '';
+    lastRenderedTrickSlot[slot] = null;
+  }
+  const myGen = ++sixpCatchUpGen;
+  let idx = 0;
+  function revealNext() {
+    if (myGen !== sixpCatchUpGen) return; // superseded by a newer trick completing mid-catch-up
+    if (idx >= cardsToShow.length) {
+      trickHoldBusy = false;
+      if (sixpTrickRevealQueue.length > 0) {
+        // A full trick completed while this staggered catch-up was still
+        // running — show it next with its own full pause.
+        processNextSixpTrickReveal();
+        return;
+      }
+      // More cards can legitimately have been played WHILE this staggered
+      // reveal was still working through its own snapshot — especially
+      // likely here with up to 6 players' worth of staggering to get
+      // through. Those live updates were correctly held off the whole
+      // time (that's the point), but nothing ever went back and caught
+      // them up afterward, so they'd just silently never appear until
+      // the round moved on. Render against whatever's ACTUALLY current
+      // now, not the stale snapshot this function started with.
+      if (latestState) { renderTrick(latestState); renderHand(latestState); }
+      return;
+    }
+    const tc = cardsToShow[idx];
+    const slot = slotFor(tc.pos);
+    $('trickSlot' + slot).innerHTML = cardHTML(tc.card, false, false, 'tiny trick-card-landing');
+    lastRenderedTrickSlot[slot] = tc.card.suit + tc.card.rank;
+    idx++;
+    setTimeout(revealNext, 550);
+  }
+  revealNext();
 }
 
 function renderLastTrick(state) {
@@ -590,6 +695,15 @@ function canPlay(state, card) {
   if (state.trickSuit === '') return true;
   const hasSuit = hand.some(c => c.suit === state.trickSuit);
   if (hasSuit && card.suit !== state.trickSuit) return false;
+  // Whoever just called for trump to be revealed must play a trump card
+  // next if they have one and can't follow the led suit — matches the
+  // server's canPlayCard exactly (game-engine-6p.js). Missing this was
+  // the actual bug: the client showed every card as tappable, the server
+  // silently rejected the illegal ones, and nothing visibly happened.
+  if (state.mustPlayTrump && !hasSuit && card.suit !== state.trumpSuit) {
+    const hasTrump = hand.some(c => c.suit === state.trumpSuit);
+    if (hasTrump) return false;
+  }
   return true;
 }
 
@@ -612,6 +726,21 @@ function renderHand(state) {
   // Can't follow suit and trump not exposed yet -> offer Call Trump.
   const hasSuit = hand.some(c => c.suit === state.trickSuit);
   if (myTurn && state.trickSuit !== '' && !hasSuit && !state.trumpExposed) {
+    const tc = state.trickCards || [];
+    let trickHtml = '';
+    if (tc.length > 0) {
+      trickHtml = '<div style="margin:10px 0;padding:10px;background:rgba(255,215,0,0.08);border:1.5px solid var(--accent);border-radius:10px">' +
+        '<div style="font-size:0.68rem;color:var(--accent);font-weight:700;margin-bottom:8px;text-align:center">🃏 CARDS PLAYED THIS TRICK</div>' +
+        '<div style="display:flex;justify-content:center;gap:6px;flex-wrap:wrap">' +
+        tc.map(t => {
+          const seat = state.seats[t.pos];
+          const pName = seat ? seat.name : ('Seat ' + t.pos);
+          return '<div style="text-align:center">' + cardHTML(t.card, false, false, '') +
+            '<div style="font-size:0.55rem;color:var(--text-secondary);margin-top:3px">' + (t.pos === MY_POS ? 'You' : escapeHtml(pName)) + '</div></div>';
+        }).join('') +
+        '</div></div>';
+    }
+    $('callTrumpTrickCards').innerHTML = trickHtml;
     $('callTrumpOverlay').classList.add('on');
   } else {
     $('callTrumpOverlay').classList.remove('on');
@@ -642,9 +771,9 @@ function showBidPanel(state) {
   const isFirst = state.highestBid === 0 && state.passes === 0;
   const minBid = state.highestBid > 0 ? state.highestBid + 1 : 16;
   $('bidTitle').textContent = 'Place Your Bid';
-  $('bidText').innerHTML = state.highestBid > 0
-    ? `Current highest: <b style="color:var(--accent)">${state.highestBid}</b> by ${state.seats[state.bidder] ? state.seats[state.bidder].name : '—'}`
-    : 'You are the first bidder — must bid at least 16.';
+  $('bidText').innerHTML = (state.highestBid > 0
+    ? `Current highest: <b style="color:var(--accent)">${state.highestBid}</b> by ${sixpRelLabel(state.bidder)}`
+    : 'You are the first bidder — must bid at least 16.') + sixpRenderBidHistory(state.bidHistory);
   const btns = $('bidButtons');
   btns.innerHTML = '';
   btns.className = 'bid-grid';
@@ -723,9 +852,21 @@ document.querySelectorAll('#trumpPickButtons button').forEach(btn => {
 function showRoundEnd(state) {
   const r = state.roundWinnerAnnounced;
   if (!r) return;
-  $('roundEndTitle').textContent = r.made ? '✅ Bid Made!' : '❌ Bid Failed';
+  const myTeam = MY_POS % 2 === 0 ? 0 : 1;
+  const bidTeam = r.bidder % 2 === 0 ? 0 : 1;
+  // Whether the bid was "made" only tells you how the BIDDING team did —
+  // a defending player's own result is the opposite of that. Frame this
+  // from each viewer's own side, not the same bidder-centric text for
+  // everyone regardless of which team they're actually on.
+  const myTeamWon = (bidTeam === myTeam) ? r.made : !r.made;
+  $('roundEndTitle').textContent = myTeamWon ? '🎉 Your Team Won This Round!' : '😢 Your Team Lost This Round';
+  $('roundEndTitle').style.color = myTeamWon ? 'var(--success)' : 'var(--danger)';
   const bidderName = state.seats[r.bidder] ? state.seats[r.bidder].name : ('Seat ' + r.bidder);
-  $('roundEndBody').innerHTML = `${bidderName} bid ${r.highestBid}.<br>Team points: ${r.teamPoints[0]} - ${r.teamPoints[1]}<br><b style="color:${r.made ? 'var(--success)' : 'var(--danger)'}">${r.made ? '+' : '-'}${r.pts} match points</b>`;
+  let body = `${bidderName} bid ${r.highestBid} — ${r.made ? 'made it' : 'fell short'}.<br>Team points: ${r.teamPoints[0]} - ${r.teamPoints[1]}<br><b style="color:${myTeamWon ? 'var(--success)' : 'var(--danger)'}">${myTeamWon ? '+' : '-'}${r.pts} match points for your team</b>`;
+  if (!IS_HOST) {
+    body += `<br><br><span style="color:var(--text-secondary);font-size:0.8rem">⏳ Waiting for the host to start the next round...</span>`;
+  }
+  $('roundEndBody').innerHTML = body;
   $('btnContinueRound').style.display = IS_HOST ? 'flex' : 'none';
   $('roundEndOverlay').classList.add('on');
 }
@@ -901,6 +1042,7 @@ function sendChat() {
 
 $('btnChat').addEventListener('click', openChat);
 $('btnInvite').addEventListener('click', shareInviteLink);
+$('btnInviteFromLobby').addEventListener('click', shareInviteLink);
 
 // ==================== STILL PLAYING? (idle check) ====================
 let stillPlayingInterval = null;
@@ -946,3 +1088,138 @@ $('btnCloseChat').addEventListener('click', closeChat);
 $('chatOverlay').addEventListener('click', function (e) { if (e.target === this) closeChat(); });
 $('btnSendChat').addEventListener('click', sendChat);
 $('chatInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); sendChat(); } });
+
+// ==================== HOME / LEAVE MID-GAME ====================
+// There was previously no way to exit once a game had actually started —
+// "Leave Table" only existed on the pre-game lobby screen.
+$('btnGameHome').addEventListener('click', () => {
+  if (confirm('Leave this table? You can rejoin with the room code if the table is still running.')) {
+    leaveToWelcome();
+  }
+});
+
+// ==================== HOST MENU ====================
+$('btnHostMenu').addEventListener('click', openHostMenu);
+$('btnCloseHostMenu').addEventListener('click', closeHostMenu);
+$('btnCloseBotPicker').addEventListener('click', () => {
+  $('hostMenuBotPickerView').style.display = 'none';
+  $('hostMenuMainView').style.display = 'block';
+});
+
+function openHostMenu() {
+  if (!IS_HOST) return;
+  $('hostMenuBotPickerView').style.display = 'none';
+  $('hostMenuMainView').style.display = 'block';
+  renderHostMenuPlayerList();
+  $('hostMenuOverlay').classList.add('on');
+}
+function closeHostMenu() {
+  $('hostMenuOverlay').classList.remove('on');
+}
+
+function renderHostMenuPlayerList() {
+  const container = $('hostMenuPlayerList');
+  if (!container || !latestState) return;
+  const seats = latestState.seats || [];
+  let html = '';
+  seats.forEach((s, pos) => {
+    if (!s) return;
+    const isSelf = pos === MY_POS;
+    const tag = s.isBot ? '🤖' : (s.connected ? '🟢' : '🔌');
+    let actionBtn = '';
+    if (!isSelf && !s.isBot) {
+      actionBtn = `<button class="btn btn-outline btn-sm" onclick="sixpKickPlayer(${pos})" style="padding:4px 10px;font-size:0.7rem;width:auto">Kick</button>`;
+    } else if (s.isBot) {
+      actionBtn = `<button class="btn btn-outline btn-sm" onclick="openSixpChangeBotPicker(${pos})" style="padding:4px 10px;font-size:0.7rem;width:auto">🔄 Change</button>`;
+    }
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+      <span style="font-size:0.8rem">${tag} ${escapeHtml(s.name)}${isSelf ? ' (you)' : ''}</span>
+      ${actionBtn}
+    </div>`;
+  });
+  container.innerHTML = html || '<p style="color:var(--text-secondary);font-size:0.75rem">No one seated yet.</p>';
+}
+
+// Swapping a bot's personality mid-game only ever changes which name is
+// behind the seat, never the cards or whose turn it is — safe any time.
+// Uses a sub-view within the SAME overlay (rather than a separate modal)
+// so there's no z-index stacking to get wrong.
+function openSixpChangeBotPicker(pos) {
+  const takenNames = new Set((latestState.seats || []).filter(Boolean).map(s => s.name));
+  const options = BOT_NAME_POOL.filter(n => !takenNames.has(n));
+  if (options.length === 0) { showToast('No other bot names available right now', 'info', 2000); return; }
+  const listHtml = options.map(name =>
+    `<button class="btn btn-outline" style="width:100%;margin-bottom:6px;text-align:left" onclick="confirmSixpChangeBot(${pos}, '${name}')">🤖 ${name}</button>`
+  ).join('');
+  $('botPickerList').innerHTML = listHtml;
+  $('hostMenuMainView').style.display = 'none';
+  $('hostMenuBotPickerView').style.display = 'block';
+}
+function confirmSixpChangeBot(pos, newName) {
+  socket.emit('sixp_changeBotName', { pos, newName });
+  showToast(`🔄 Bot changed to ${newName}`, 'win', 2200);
+  $('hostMenuBotPickerView').style.display = 'none';
+  $('hostMenuMainView').style.display = 'block';
+  setTimeout(renderHostMenuPlayerList, 300); // give the server's confirming state a moment to arrive
+}
+
+function sixpKickPlayer(pos) {
+  const seat = latestState && latestState.seats && latestState.seats[pos];
+  const name = seat ? seat.name : 'this player';
+  if (!confirm(`Remove ${name} from the table?`)) return;
+  socket.emit('sixp_kickPlayer', { pos });
+  setTimeout(renderHostMenuPlayerList, 300);
+}
+
+let pendingSixpRestartAction = null; // 'round' | 'game'
+function confirmSixpRestart(kind) {
+  pendingSixpRestartAction = kind;
+  $('restartConfirmText').textContent = kind === 'round'
+    ? "Restart this round? Everyone's current hand will be reshuffled and redealt."
+    : 'Restart the entire game? Match score and everything else will reset to the very start.';
+  $('hostMenuOverlay').classList.remove('on');
+  $('restartConfirmOverlay').classList.add('on');
+}
+$('btnHostRestartRound').addEventListener('click', () => confirmSixpRestart('round'));
+$('btnHostRestartGame').addEventListener('click', () => confirmSixpRestart('game'));
+$('btnRestartConfirmCancel').addEventListener('click', () => {
+  $('restartConfirmOverlay').classList.remove('on');
+  pendingSixpRestartAction = null;
+});
+$('btnRestartConfirmOk').addEventListener('click', () => {
+  $('restartConfirmOverlay').classList.remove('on');
+  if (pendingSixpRestartAction === 'round') socket.emit('sixp_restartRound');
+  else if (pendingSixpRestartAction === 'game') socket.emit('sixp_restartGame');
+  pendingSixpRestartAction = null;
+});
+
+(function startLiveTypewriter6p(){
+  const el = document.getElementById('liveTagline6p');
+  if (!el) return;
+  const full = '▶ Start now with smart bots — invite friends anytime, even mid-game!';
+  el.innerHTML = '';
+  const words = full.split(' ');
+  const cycleMs = 3000;
+  const step = cycleMs / full.length;
+  let idx = 0;
+  const frag = document.createDocumentFragment();
+  words.forEach((word, wi) => {
+    const wordSpan = document.createElement('span');
+    wordSpan.style.whiteSpace = 'nowrap';
+    wordSpan.style.display = 'inline-block';
+    for (const ch of word) {
+      const span = document.createElement('span');
+      span.className = 'pop-letter';
+      span.style.animationDelay = (idx * step) + 'ms';
+      span.textContent = ch;
+      wordSpan.appendChild(span);
+      idx++;
+    }
+    frag.appendChild(wordSpan);
+    if (wi < words.length - 1) {
+      frag.appendChild(document.createTextNode(' '));
+      idx++;
+    }
+  });
+  el.appendChild(frag);
+})();
