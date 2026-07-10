@@ -1259,6 +1259,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   position:relative;
   z-index:3;
 }
+.table-clock{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:150px;height:150px;border-radius:50%;border:1.5px solid rgba(255,215,0,0.18);z-index:0;pointer-events:none}
+.table-clock::before{content:'';position:absolute;inset:0;border-radius:50%;background:
+    radial-gradient(circle, transparent 92%, rgba(255,215,0,0.12) 93%, transparent 94%),
+    repeating-conic-gradient(rgba(255,215,0,0.14) 0deg 1deg, transparent 1deg 30deg)}
+.table-clock .clock-center{position:absolute;top:50%;left:50%;width:7px;height:7px;margin:-3.5px;border-radius:50%;background:rgba(255,215,0,0.3)}
+.table-clock .clock-hand{position:absolute;left:50%;bottom:50%;transform-origin:50% 100%;background:rgba(255,215,0,0.22);border-radius:2px}
+.table-clock .clock-hour{width:3px;height:40px;margin-left:-1.5px}
+.table-clock .clock-minute{width:2px;height:58px;margin-left:-1px}
 /* The oval "table" itself — a distinct object with its own rail, sized to
    spill slightly outside the center grid cell so it clearly reads as a
    table the seated players surround, not a surface under their feet. */
@@ -2607,6 +2615,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </div>
     <div class="center">
       <div class="felt"></div>
+      <div class="table-clock" id="tableClock4p">
+        <div class="clock-hand clock-hour" id="clockHour4p"></div>
+        <div class="clock-hand clock-minute" id="clockMinute4p"></div>
+        <div class="clock-center"></div>
+      </div>
       <div class="cross">
         <div class="pslot s-top" id="slot0"></div>
         <div class="pslot s-left" id="slot1"></div>
@@ -9717,6 +9730,21 @@ function setupKingTableTrigger() {
     }
   });
 }
+
+// A quiet, always-on analog clock built into the table felt — sits at
+// z-index:0, behind every seat and card. Same treatment as the 6-player
+// table's clock. Updates every 15s, plenty for hands this size.
+function updateTableClock4p(){
+  const now = new Date();
+  const hourEl = document.getElementById('clockHour4p'), minEl = document.getElementById('clockMinute4p');
+  if (!hourEl || !minEl) return;
+  const hourAngle = ((now.getHours() % 12) + now.getMinutes() / 60) * 30;
+  const minAngle = now.getMinutes() * 6;
+  hourEl.style.transform = 'rotate(' + hourAngle + 'deg)';
+  minEl.style.transform = 'rotate(' + minAngle + 'deg)';
+}
+updateTableClock4p();
+setInterval(updateTableClock4p, 15000);
 
 function startLiveTypewriter(){
   const el = document.getElementById('liveTagline');
