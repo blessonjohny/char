@@ -900,11 +900,11 @@ function slotFor(pos) { return (pos - MY_POS + 6) % 6; }
 // Hexagon layout, slot 0 (me) at the bottom-center.
 const SLOT_POS = [
   { left: '50%', top: '78%' },   // 0 me
-  { left: '73%', top: '68%' },   // 1
-  { left: '73%', top: '33%' },   // 2
+  { left: '82%', top: '68%' },   // 1
+  { left: '82%', top: '33%' },   // 2
   { left: '50%', top: '23%' },   // 3
-  { left: '27%', top: '33%' },   // 4
-  { left: '27%', top: '68%' }    // 5
+  { left: '18%', top: '33%' },   // 4
+  { left: '18%', top: '68%' }    // 5
 ];
 // Each played card sits about 55% of the way from that seat toward the
 // center of the table — radiating in front of whoever played it, same
@@ -987,7 +987,6 @@ function processNextSixpTrickReveal() {
 
   renderCompletedTrick(lastTrick);
   roundTrickHistory.push(lastTrick);
-  renderLastTrickHistory();
 
   // Hold the completed trick fully visible and still for 2s BEFORE
   // flying the cards to the winner — online, especially on a slow

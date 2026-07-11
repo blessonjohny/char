@@ -261,7 +261,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 <div id="gameScreen">
   <div class="topbar" style="flex-direction:column;align-items:stretch;gap:2px;padding:6px 10px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:4px">
-      <div style="font-size:0.72rem;flex-shrink:0">R<span id="roundNum">1</span></div>
+      <div class="score-box" style="padding:2px 5px;min-width:0;flex-shrink:0"><span class="slabel" style="font-size:0.42rem">ROUND</span><span class="sval" id="roundNum" style="font-size:0.8rem">1</span></div>
       <div class="score" style="display:flex;align-items:center;gap:3px;flex-shrink:0">
         <div class="score-box" id="scoreBoxYours" style="padding:2px 5px;min-width:0"><span class="slabel" style="font-size:0.42rem">YOU</span><span class="sval" id="scoreA" style="font-size:0.8rem">6</span></div>
         <span style="opacity:0.5;font-size:0.7rem">—</span>
@@ -286,7 +286,6 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
   <div class="ltrick" id="lastTrickPanel">
     <h6 id="lastTrickTitle">Last Trick</h6>
     <div id="lastTrickContent"><div class="lt-empty">None yet</div></div>
-    <div class="lt-history" id="lastTrickHistory"></div>
   </div>
   <div class="ltrick-backdrop" id="ltrickBackdrop"></div>
   <div class="table-oval">
