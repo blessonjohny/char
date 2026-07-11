@@ -2631,8 +2631,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <stop offset="100%" stop-color="#d8bd80"/>
     </radialGradient>
     <linearGradient id="vclk4HandGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#3a2a12"/>
-      <stop offset="100%" stop-color="#1a1206"/>
+      <stop id="vclk4HandGradStop1" offset="0%" stop-color="#3a2a12"/>
+      <stop id="vclk4HandGradStop2" offset="100%" stop-color="#1a1206"/>
     </linearGradient>
   </defs>
 <g style="pointer-events:none">
@@ -2718,16 +2718,20 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <text id="vclk4DayText" x="89.5" y="62.5" font-family="Georgia, serif" font-size="6.4" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
 <rect x="102" y="56.0" width="14" height="12" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
 <text id="vclk4DateText" x="109.0" y="62.5" font-family="Georgia, serif" font-size="6.8" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
+<circle id="vclk4FaceClickOverlay" cx="100" cy="100" r="92" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
 <circle cx="100" cy="138" r="13" fill="none" stroke="#8a6218" stroke-width="0.8" opacity="0.6"/>
 <circle id="vclk4MoonBg" cx="100" cy="138" r="10" fill="#efe6c8"/>
 <path id="vclk4MoonShadow" d="" fill="#1a2035"/>
 <circle cx="100" cy="138" r="10" fill="none" stroke="#3d2a08" stroke-width="0.7"/>
+<circle id="vclk4MoonClick" cx="100" cy="138" r="14" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
 <rect x="125.0" y="92.5" width="30" height="15" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
 <text id="vclk4WeatherIcon" x="131.0" y="100.5" font-size="8" text-anchor="middle" dominant-baseline="central">☀</text>
 <text id="vclk4WeatherTemp" x="145.0" y="100.5" font-family="Georgia, serif" font-size="6.3" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--°F</text>
+<rect id="vclk4WeatherClick" x="125.0" y="92.5" width="30" height="15" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
 <rect x="45.0" y="92.5" width="30" height="15" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
 <text id="vclk4LeapYear" x="60.0" y="97.5" font-family="Georgia, serif" font-size="6" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">----</text>
 <text id="vclk4LeapLbl" x="60.0" y="104.5" font-family="Georgia, serif" font-size="4.6" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central">--</text>
+<rect id="vclk4LeapClick" x="45.0" y="92.5" width="30" height="15" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
 <circle cx="100" cy="100" r="7" fill="url(#vclk4Bezel)" stroke="#3d2a08" stroke-width="0.8"/>
 <circle cx="100" cy="100" r="2.4" fill="#3d2a08"/>
 <g id="vclk4HourHand" transform="rotate(0 100 100)">
@@ -2742,7 +2746,6 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </g>
 <circle cx="100" cy="100" r="2.4" fill="#1a1206"/>
 </g>
-<circle id="vclk4FaceClickOverlay" cx="100" cy="100" r="92" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
 <text class="vclk4CityLabel" data-tz="America/New_York" data-code="NYC" x="100.0" y="22.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">NYC</text>
 <text class="vclk4CityLabel" data-tz="Europe/London" data-code="LON" x="139.0" y="32.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">LON</text>
 <text class="vclk4CityLabel" data-tz="Europe/Paris" data-code="PAR" x="167.5" y="61.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">PAR</text>
@@ -9880,6 +9883,18 @@ function flashClockHand4p(el) {
 // Fills the day/date apertures and the moon-phase sub-dial — only
 // touches the DOM when the calendar day changes, not every 1s tick.
 let clock4pLastDay = -1;
+let clock4pLastMoonPhase = null;
+let clock4pLastWeather = null;
+function clock4pMoonPhaseName(phase) {
+  if (phase < 0.03 || phase > 0.97) return 'New Moon';
+  if (phase < 0.22) return 'Waxing Crescent';
+  if (phase < 0.28) return 'First Quarter (Half Moon)';
+  if (phase < 0.47) return 'Waxing Gibbous';
+  if (phase < 0.53) return 'Full Moon';
+  if (phase < 0.72) return 'Waning Gibbous';
+  if (phase < 0.78) return 'Last Quarter (Half Moon)';
+  return 'Waning Crescent';
+}
 function moonPath4p(phase, cx, cy, R) {
   const theta = phase * 2 * Math.PI;
   const rx = R * Math.abs(Math.cos(theta));
@@ -9916,6 +9931,40 @@ function wireCityClicks4p() {
   if (overlay) {
     overlay.addEventListener('click', () => showCityTime('NYC', 'America/New_York'));
   }
+
+  const moonClick = document.getElementById('vclk4MoonClick');
+  if (moonClick) {
+    moonClick.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const phase = clock4pLastMoonPhase;
+      if (phase === null) return;
+      const pct = Math.round((phase <= 0.5 ? phase * 2 : (1 - phase) * 2) * 100);
+      showToast('🌙 ' + clock4pMoonPhaseName(phase) + ' — ' + pct + '% illuminated', 'info', 3000);
+    });
+  }
+  const weatherClick = document.getElementById('vclk4WeatherClick');
+  if (weatherClick) {
+    weatherClick.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (!clock4pLastWeather || typeof clock4pLastWeather.temp !== 'number') {
+        showToast('🌦️ Weather still loading...', 'info', 2000);
+        return;
+      }
+      showToast('🌦️ New York: ' + Math.round(clock4pLastWeather.temp) + '°F, ' + weatherDesc4p(clock4pLastWeather.code), 'info', 3000);
+    });
+  }
+  const leapClick = document.getElementById('vclk4LeapClick');
+  if (leapClick) {
+    leapClick.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const year = new Date().getFullYear();
+      const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+      let nextLeap = year;
+      while (!((nextLeap % 4 === 0 && nextLeap % 100 !== 0) || (nextLeap % 400 === 0))) nextLeap++;
+      if (isLeap) showToast('📅 ' + year + ' is a leap year — 366 days, Feb has 29', 'win', 3000);
+      else showToast('📅 ' + year + ' is not a leap year — next one is ' + nextLeap, 'info', 3000);
+    });
+  }
 }
 
 function updateClock4pComplications(now) {
@@ -9931,6 +9980,7 @@ function updateClock4pComplications(now) {
   const phase = ((daysSince % synodic) + synodic) % synodic / synodic;
   const shadowEl = document.getElementById('vclk4MoonShadow');
   if (shadowEl) shadowEl.setAttribute('d', moonPath4p(phase, 100, 140, 11));
+  clock4pLastMoonPhase = phase;
 
   const year = now.getFullYear();
   const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
@@ -9951,6 +10001,17 @@ function weatherIcon4p(code) {
   if (code >= 95) return '⛈️';
   return '🌤️';
 }
+function weatherDesc4p(code) {
+  if (code === 0) return 'Clear sky';
+  if (code <= 2) return 'Partly cloudy';
+  if (code === 3) return 'Overcast';
+  if (code >= 45 && code <= 48) return 'Foggy';
+  if (code >= 51 && code <= 67) return 'Rainy';
+  if (code >= 71 && code <= 77) return 'Snowy';
+  if (code >= 80 && code <= 82) return 'Rain showers';
+  if (code >= 95) return 'Thunderstorm';
+  return 'Fair';
+}
 function fetchWeather4p() {
   fetch('https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.006&current=temperature_2m,weather_code&temperature_unit=fahrenheit')
     .then(r => r.json())
@@ -9961,6 +10022,7 @@ function fetchWeather4p() {
       if (tempEl && typeof t === 'number') tempEl.textContent = Math.round(t) + '\u00B0F';
       const iconEl = document.getElementById('vclk4WeatherIcon');
       if (iconEl) iconEl.textContent = weatherIcon4p(code);
+      clock4pLastWeather = { temp: t, code: code };
     })
     .catch(() => {});
 }
@@ -9971,9 +10033,29 @@ function maybeFetchWeather4p() {
   setInterval(fetchWeather4p, 60 * 60 * 1000);
 }
 
+// Hands shift color with the time of day: whitish through the morning,
+// a warm amber for evening, back to the standard dark wood tone for the
+// rest of the day/night.
+let clock4pLastHandColorHour = -1;
+function handColorsForHour4p(hour) {
+  if (hour >= 0 && hour < 12) return ['#f5f0e0', '#d9d0b0']; // AM — whitish
+  if (hour >= 17 && hour < 21) return ['#e08a3c', '#a8551a']; // evening — warm amber
+  return ['#3a2a12', '#1a1206']; // daytime PM / night — standard dark
+}
+function updateHandColors4p(now) {
+  const hour = now.getHours();
+  if (hour === clock4pLastHandColorHour) return;
+  clock4pLastHandColorHour = hour;
+  const [c1, c2] = handColorsForHour4p(hour);
+  const s1 = document.getElementById('vclk4HandGradStop1'), s2 = document.getElementById('vclk4HandGradStop2');
+  if (s1) s1.setAttribute('stop-color', c1);
+  if (s2) s2.setAttribute('stop-color', c2);
+}
+
 function updateTableClock4p(){
   wireCityClicks4p();
   maybeFetchWeather4p();
+  updateHandColors4p(new Date());
   updateClock4pComplications(new Date());
   const hourEl = document.getElementById('vclk4HourHand'), minEl = document.getElementById('vclk4MinuteHand'), secEl = document.getElementById('vclk4SecondHand');
   if (!hourEl || !minEl) return;

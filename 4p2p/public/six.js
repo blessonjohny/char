@@ -32,6 +32,18 @@ function sixpFlashClockHand(el) {
 // change once a day (moon phase effectively so), so this only actually
 // touches the DOM when the calendar day changes, not on every 1s tick.
 let sixpClockLastDay = -1;
+let sixpLastMoonPhase = null;
+let sixpLastWeather = null; // {temp, code}
+function sixpMoonPhaseName(phase) {
+  if (phase < 0.03 || phase > 0.97) return 'New Moon';
+  if (phase < 0.22) return 'Waxing Crescent';
+  if (phase < 0.28) return 'First Quarter (Half Moon)';
+  if (phase < 0.47) return 'Waxing Gibbous';
+  if (phase < 0.53) return 'Full Moon';
+  if (phase < 0.72) return 'Waning Gibbous';
+  if (phase < 0.78) return 'Last Quarter (Half Moon)';
+  return 'Waning Crescent';
+}
 function sixpMoonPath(phase, cx, cy, R) {
   const theta = phase * 2 * Math.PI;
   const rx = R * Math.abs(Math.cos(theta));
@@ -70,6 +82,40 @@ function sixpWireCityClicks() {
   if (overlay) {
     overlay.addEventListener('click', () => showCityTime('NYC', 'America/New_York'));
   }
+
+  const moonClick = document.getElementById('vclk6MoonClick');
+  if (moonClick) {
+    moonClick.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const phase = sixpLastMoonPhase;
+      if (phase === null) return;
+      const pct = Math.round((phase <= 0.5 ? phase * 2 : (1 - phase) * 2) * 100);
+      showToast('🌙 ' + sixpMoonPhaseName(phase) + ' — ' + pct + '% illuminated', 'info', 3000);
+    });
+  }
+  const weatherClick = document.getElementById('vclk6WeatherClick');
+  if (weatherClick) {
+    weatherClick.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (!sixpLastWeather || typeof sixpLastWeather.temp !== 'number') {
+        showToast('🌦️ Weather still loading...', 'info', 2000);
+        return;
+      }
+      showToast('🌦️ New York: ' + Math.round(sixpLastWeather.temp) + '°F, ' + sixpWeatherDesc(sixpLastWeather.code), 'info', 3000);
+    });
+  }
+  const leapClick = document.getElementById('vclk6LeapClick');
+  if (leapClick) {
+    leapClick.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const year = new Date().getFullYear();
+      const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+      let nextLeap = year;
+      while (!((nextLeap % 4 === 0 && nextLeap % 100 !== 0) || (nextLeap % 400 === 0))) nextLeap++;
+      if (isLeap) showToast('📅 ' + year + ' is a leap year — 366 days, Feb has 29', 'win', 3000);
+      else showToast('📅 ' + year + ' is not a leap year — next one is ' + nextLeap, 'info', 3000);
+    });
+  }
 }
 
 function sixpUpdateClockComplications(now) {
@@ -87,6 +133,7 @@ function sixpUpdateClockComplications(now) {
   const phase = ((daysSince % synodic) + synodic) % synodic / synodic;
   const shadowEl = document.getElementById('vclk6MoonShadow');
   if (shadowEl) shadowEl.setAttribute('d', sixpMoonPath(phase, 100, 140, 11));
+  sixpLastMoonPhase = phase;
 
   const year = now.getFullYear();
   const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
@@ -110,6 +157,17 @@ function sixpWeatherIcon(code) {
   if (code >= 95) return '⛈️';
   return '🌤️';
 }
+function sixpWeatherDesc(code) {
+  if (code === 0) return 'Clear sky';
+  if (code <= 2) return 'Partly cloudy';
+  if (code === 3) return 'Overcast';
+  if (code >= 45 && code <= 48) return 'Foggy';
+  if (code >= 51 && code <= 67) return 'Rainy';
+  if (code >= 71 && code <= 77) return 'Snowy';
+  if (code >= 80 && code <= 82) return 'Rain showers';
+  if (code >= 95) return 'Thunderstorm';
+  return 'Fair';
+}
 function sixpFetchWeather() {
   fetch('https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.006&current=temperature_2m,weather_code&temperature_unit=fahrenheit')
     .then(r => r.json())
@@ -120,6 +178,7 @@ function sixpFetchWeather() {
       if (tempEl && typeof t === 'number') tempEl.textContent = Math.round(t) + '\u00B0F';
       const iconEl = document.getElementById('vclk6WeatherIcon');
       if (iconEl) iconEl.textContent = sixpWeatherIcon(code);
+      sixpLastWeather = { temp: t, code: code };
     })
     .catch(() => {});
 }
@@ -130,9 +189,29 @@ function sixpMaybeFetchWeather() {
   setInterval(sixpFetchWeather, 60 * 60 * 1000);
 }
 
+// Hands shift color with the time of day: whitish through the morning,
+// a warm amber for evening, back to the standard dark wood tone for the
+// rest of the day/night.
+let sixpLastHandColorHour = -1;
+function sixpHandColorsForHour(hour) {
+  if (hour >= 0 && hour < 12) return ['#f5f0e0', '#d9d0b0']; // AM — whitish
+  if (hour >= 17 && hour < 21) return ['#e08a3c', '#a8551a']; // evening — warm amber
+  return ['#3a2a12', '#1a1206']; // daytime PM / night — standard dark
+}
+function sixpUpdateHandColors(now) {
+  const hour = now.getHours();
+  if (hour === sixpLastHandColorHour) return;
+  sixpLastHandColorHour = hour;
+  const [c1, c2] = sixpHandColorsForHour(hour);
+  const s1 = document.getElementById('vclk6HandGradStop1'), s2 = document.getElementById('vclk6HandGradStop2');
+  if (s1) s1.setAttribute('stop-color', c1);
+  if (s2) s2.setAttribute('stop-color', c2);
+}
+
 function updateTableClock() {
   sixpWireCityClicks();
   sixpMaybeFetchWeather();
+  sixpUpdateHandColors(new Date());
   sixpUpdateClockComplications(new Date());
   const hourEl = document.getElementById('vclk6HourHand'), minEl = document.getElementById('vclk6MinuteHand'), secEl = document.getElementById('vclk6SecondHand');
   if (!hourEl || !minEl) return;

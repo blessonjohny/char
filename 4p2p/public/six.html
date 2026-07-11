@@ -281,8 +281,8 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
       <stop offset="100%" stop-color="#d8bd80"/>
     </radialGradient>
     <linearGradient id="vclk6HandGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#3a2a12"/>
-      <stop offset="100%" stop-color="#1a1206"/>
+      <stop id="vclk6HandGradStop1" offset="0%" stop-color="#3a2a12"/>
+      <stop id="vclk6HandGradStop2" offset="100%" stop-color="#1a1206"/>
     </linearGradient>
   </defs>
 <g style="pointer-events:none">
@@ -368,16 +368,20 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 <text id="vclk6DayText" x="89.5" y="62.5" font-family="Georgia, serif" font-size="6.4" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
 <rect x="102" y="56.0" width="14" height="12" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
 <text id="vclk6DateText" x="109.0" y="62.5" font-family="Georgia, serif" font-size="6.8" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
+<circle id="vclk6FaceClickOverlay" cx="100" cy="100" r="92" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
 <circle cx="100" cy="138" r="13" fill="none" stroke="#8a6218" stroke-width="0.8" opacity="0.6"/>
 <circle id="vclk6MoonBg" cx="100" cy="138" r="10" fill="#efe6c8"/>
 <path id="vclk6MoonShadow" d="" fill="#1a2035"/>
 <circle cx="100" cy="138" r="10" fill="none" stroke="#3d2a08" stroke-width="0.7"/>
+<circle id="vclk6MoonClick" cx="100" cy="138" r="14" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
 <rect x="125.0" y="92.5" width="30" height="15" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
 <text id="vclk6WeatherIcon" x="131.0" y="100.5" font-size="8" text-anchor="middle" dominant-baseline="central">☀</text>
 <text id="vclk6WeatherTemp" x="145.0" y="100.5" font-family="Georgia, serif" font-size="6.3" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--°F</text>
+<rect id="vclk6WeatherClick" x="125.0" y="92.5" width="30" height="15" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
 <rect x="45.0" y="92.5" width="30" height="15" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
 <text id="vclk6LeapYear" x="60.0" y="97.5" font-family="Georgia, serif" font-size="6" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">----</text>
 <text id="vclk6LeapLbl" x="60.0" y="104.5" font-family="Georgia, serif" font-size="4.6" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central">--</text>
+<rect id="vclk6LeapClick" x="45.0" y="92.5" width="30" height="15" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
 <circle cx="100" cy="100" r="7" fill="url(#vclk6Bezel)" stroke="#3d2a08" stroke-width="0.8"/>
 <circle cx="100" cy="100" r="2.4" fill="#3d2a08"/>
 <g id="vclk6HourHand" transform="rotate(0 100 100)">
@@ -392,7 +396,6 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
     </g>
 <circle cx="100" cy="100" r="2.4" fill="#1a1206"/>
 </g>
-<circle id="vclk6FaceClickOverlay" cx="100" cy="100" r="92" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
 <text class="vclk6CityLabel" data-tz="America/New_York" data-code="NYC" x="100.0" y="22.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">NYC</text>
 <text class="vclk6CityLabel" data-tz="Europe/London" data-code="LON" x="139.0" y="32.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">LON</text>
 <text class="vclk6CityLabel" data-tz="Europe/Paris" data-code="PAR" x="167.5" y="61.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">PAR</text>
