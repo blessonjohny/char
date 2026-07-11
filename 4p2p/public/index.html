@@ -1284,17 +1284,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .center::after{
   content:'';
   position:absolute;
-  inset:-16px -7px;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  width:calc(clamp(102px,27.5vh,184px) + 130px);
+  height:calc(clamp(102px,27.5vh,184px) + 54px);
   border-radius:50%;
   z-index:-2;
   /* Wooden rail lit from the top — conic-gradient varies color by angle
      around the ring, which is what actually sells "curved 3D surface"
      instead of a flat painted line. Masked into a donut so only the rail
      itself (not the whole oval) picks up the gradient. Wide enough that
-     the color is unmistakable at a glance, not just a thin outline. */
+     the color is unmistakable at a glance, not just a thin outline.
+     Sized off the clock itself (not the grid row) so it always reads as
+     a slim edge just outside the clock, instead of stretching taller
+     whenever there's extra vertical space on screen. */
   background: var(--table-rail);
-  -webkit-mask-image: radial-gradient(ellipse at center, transparent 68%, black 72%, black 95%, transparent 100%);
-  mask-image: radial-gradient(ellipse at center, transparent 68%, black 72%, black 95%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
+  mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
   box-shadow:
     0 0 0 1px var(--table-felt-border),
     0 10px 26px 6px rgba(0,0,0,0.6),
@@ -1307,19 +1314,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .center::before{
   content:'';
   position:absolute;
-  inset:-16px -7px;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  width:calc(clamp(102px,27.5vh,184px) + 130px);
+  height:calc(clamp(102px,27.5vh,184px) + 54px);
   border-radius:50%;
   z-index:-2;
   box-shadow:
     inset 0 4px 7px rgba(255,235,180,0.3),
     inset 0 -6px 10px rgba(0,0,0,0.6);
-  -webkit-mask-image: radial-gradient(ellipse at center, transparent 68%, black 72%, black 95%, transparent 100%);
-  mask-image: radial-gradient(ellipse at center, transparent 68%, black 72%, black 95%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
+  mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
   pointer-events:none;
 }
 .center .felt{
   position:absolute;
-  inset:0 6px;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  width:calc(clamp(102px,27.5vh,184px) + 100px);
+  height:calc(clamp(102px,27.5vh,184px) + 24px);
   border-radius:50%;
   z-index:-1;
   pointer-events:none;
