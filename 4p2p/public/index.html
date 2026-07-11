@@ -1337,6 +1337,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .table-clock{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(96px,26vh,175px);height:clamp(96px,26vh,175px);z-index:0;pointer-events:none;filter:drop-shadow(0 5px 4px rgba(0,0,0,0.5)) drop-shadow(0 12px 20px rgba(0,0,0,0.55))}
 .table-clock-rim{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(102px,27.5vh,184px);height:clamp(102px,27.5vh,184px);border-radius:50%;border:2px solid rgba(255,215,0,0.38);box-shadow:0 0 16px rgba(255,215,0,0.14)}
 #vclk4Svg{width:100% !important;height:100% !important}
+.vclk4CityLabel,.vclk4CityText{transition:cx 650ms cubic-bezier(0.34,1.2,0.4,1),cy 650ms cubic-bezier(0.34,1.2,0.4,1)}
 .table-clock::before{content:'';position:absolute;top:54%;left:50%;transform:translate(-50%,-50%);width:150%;height:135%;background:radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.24) 42%, transparent 68%);z-index:-1;pointer-events:none}
 .clock-side-box{position:absolute;transform:translate(-50%,-50%);z-index:0;pointer-events:none;background:linear-gradient(160deg,rgba(255,215,0,0.18),rgba(255,215,0,0.06));border:1px solid rgba(255,215,0,0.32);border-radius:10px;padding:5px 9px;text-align:center;min-width:44px}
 .clock-side-box .csb-icon{font-size:0.85rem;line-height:1}
@@ -6988,7 +6989,7 @@ function showRaisePanel() {
   if (highestBid > 0 && bidder >= 0) {
     highText = '<br><b style="color:var(--accent)">👑 Highest: ' + highestBid + ' by ' + relLabel(bidder) + '</b>';
   }
-  document.getElementById('bidText').innerHTML = '<b>Current bid:</b> ' + highestBid + ' by ' + relLabel(bidder) + highText + "<br><span style='color:var(--text-secondary)'>Trump: <b>" + trumpSuit + '</b> (hidden). Pass or raise. Phase 2 bids: 24-28 only. Min: ' + minBid + '</span>' + renderBidHistoryList(window._p2History);
+  document.getElementById('bidText').innerHTML = '<b>Current bid:</b> ' + highestBid + ' by ' + relLabel(bidder) + highText + "<br><span style='color:var(--text-secondary)'>Trump: <b>Hidden</b>. Pass or raise. Phase 2 bids: 24-28 only. Min: " + minBid + '</span>' + renderBidHistoryList(window._p2History);
   const btns = document.getElementById('bidButtons');
   btns.innerHTML = '';
   btns.className = 'bid-grid';
@@ -10053,13 +10054,46 @@ function clock4pSetHandShortest(el, targetDeg) {
   if (diff < -180) diff += 360;
   el.setAttribute('transform', 'rotate(' + (cur + diff) + ' 100 100)');
 }
-// Switches the whole clock over to a new city — hands, day/date, and
-// weather all update, and it STAYS there (no auto-revert) until a
-// different city is tapped.
+// The 12 city markers sit 30° apart around the dial, in this clockwise
+// order starting from the 12 o'clock position (NYC's original spot).
+const CLOCK4P_CITY_ORDER = ['NYC','LON','PAR','VGS','IST','DXB','CHI','KIR','KOC','DAL','BEI','TOK'];
+const CLOCK4P_CITY_NAMES = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', KIR: 'Kiritimati', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
+const CLOCK4P_RING_CENTER = 100, CLOCK4P_RING_RADIUS = 78;
+// Rotates the whole ring of city markers so `selectedCode` lands at 12
+// o'clock. Only the marker that ends up at 12 shows its full city name
+// (e.g. "New York"); every other marker shows its 3-letter code.
+function clock4pRotateCityRing(selectedCode) {
+  const homeIdx = CLOCK4P_CITY_ORDER.indexOf(selectedCode);
+  if (homeIdx === -1) return;
+  const offsetDeg = -(homeIdx * 30);
+  document.querySelectorAll('.vclk4CityLabel, .vclk4CityText').forEach(el => {
+    const code = el.getAttribute('data-code');
+    const idx = CLOCK4P_CITY_ORDER.indexOf(code);
+    if (idx === -1) return;
+    const angleDeg = ((idx * 30 + offsetDeg) % 360 + 360) % 360;
+    const rad = angleDeg * Math.PI / 180;
+    const cx = CLOCK4P_RING_CENTER + CLOCK4P_RING_RADIUS * Math.sin(rad);
+    const cy = CLOCK4P_RING_CENTER - CLOCK4P_RING_RADIUS * Math.cos(rad);
+    const isAtTwelve = (code === selectedCode);
+    if (el.classList.contains('vclk4CityLabel')) {
+      el.setAttribute('cx', cx.toFixed(2));
+      el.setAttribute('cy', cy.toFixed(2));
+    } else {
+      el.setAttribute('x', cx.toFixed(2));
+      el.setAttribute('y', cy.toFixed(2));
+      el.setAttribute('font-size', isAtTwelve ? '6.2' : '8.5');
+      el.textContent = isAtTwelve ? (CLOCK4P_CITY_NAMES[code] || code) : code;
+    }
+  });
+}
+// The clock always shows ONE city's time — New York by default, or
+// whichever city was last tapped. This persists until a different city
+// is tapped; it does not auto-revert.
 function clock4pSelectCity(code, tz, lat, lon) {
   clock4pSelectedCity = { code, tz, lat, lon };
   clock4pClockLastDay = -1; // force complications to recompute for the new city right away
   clock4pFetchWeather();
+  clock4pRotateCityRing(code);
   const hourEl = document.getElementById('vclk4HourHand'), minEl = document.getElementById('vclk4MinuteHand');
   if (hourEl && minEl) {
     const { hour, minute } = clock4pGetHourMinuteInTz(tz);
@@ -10084,7 +10118,8 @@ function clock4pWireCityClicks() {
   const overlay = document.getElementById('vclk4FaceClickOverlay');
   if (!labels.length && !overlay) return;
   clock4pCityClicksWired = true;
-  const cityNames = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', KIR: 'Kiritimati', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
+  clock4pRotateCityRing(clock4pSelectedCity.code); // show the correct full name at 12 o'clock right away
+  const cityNames = CLOCK4P_CITY_NAMES;
   function showCityTime(code, tz, lat, lon) {
     try {
       const timeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });
