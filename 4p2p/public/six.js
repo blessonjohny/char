@@ -147,6 +147,7 @@ function sixpWireCityClicks() {
       }
       const cityLabel = cityNames[sixpSelectedCity.code] || sixpSelectedCity.code;
       showToast(sixpWeatherIcon(sixpLastWeather.code) + ' ' + cityLabel + ': ' + Math.round(sixpLastWeather.temp) + '°F, ' + sixpWeatherDesc(sixpLastWeather.code), 'info', 3000);
+      sixpPlayWeatherAnimation(sixpLastWeather.code);
     });
   }
   const leapClick = document.getElementById('vclk6LeapClick');
@@ -201,6 +202,88 @@ function sixpUpdateClockComplications(nowInCity, city) {
 // refreshed roughly hourly. Fails silently and leaves the placeholder if
 // there's no network access, rather than blocking anything.
 let sixpWeatherFetched = false;
+// A brief, condition-matched flourish over the clock whenever the
+// weather window is tapped — falling rain/snow, radiating sun rays,
+// drifting clouds, or a lightning flash, depending on the actual code.
+let sixpWeatherFxTimer = null;
+function sixpClearWeatherFx() {
+  const host = document.getElementById('weatherFx');
+  if (host) host.innerHTML = '';
+}
+function sixpMakeParticle(host, style, animName, durationMs, delayMs, iterations) {
+  const el = document.createElement('div');
+  el.style.cssText = style + ';position:absolute;animation:' + animName + ' ' + durationMs + 'ms ease-in ' + delayMs + 'ms ' + (iterations || 1);
+  host.appendChild(el);
+  return el;
+}
+function sixpPlayWeatherAnimation(code) {
+  code = Number(code);
+  const host = document.getElementById('weatherFx');
+  if (!host) return;
+  if (sixpWeatherFxTimer) { clearTimeout(sixpWeatherFxTimer); sixpWeatherFxTimer = null; }
+  sixpClearWeatherFx();
+  let totalDuration = 2600;
+
+  if (code === 0 || code <= 2) {
+    // Clear / partly cloudy — sun rays pulsing outward from center
+    for (let i = 0; i < 8; i++) {
+      const ang = i * 45;
+      sixpMakeParticle(host,
+        'left:50%;top:50%;width:3px;height:34px;margin:-17px 0 0 -1.5px;transform-origin:50% 100%;background:linear-gradient(to top,rgba(255,210,90,0.95),transparent);border-radius:2px;--ang:' + ang + 'deg',
+        'weatherSunRay', 1300, i * 60, 1);
+    }
+    if (code >= 1) {
+      for (let i = 0; i < 3; i++) {
+        sixpMakeParticle(host,
+          'top:' + (30 + i * 25) + 'px;width:44px;height:16px;border-radius:50%;background:rgba(255,255,255,0.5);filter:blur(2px)',
+          'weatherCloudDrift', 2400, i * 300, 1);
+      }
+      totalDuration = 2400;
+    } else {
+      totalDuration = 1300 + 8 * 60;
+    }
+  } else if (code === 3) {
+    // Overcast — soft drifting cloud puffs
+    for (let i = 0; i < 4; i++) {
+      sixpMakeParticle(host,
+        'top:' + (24 + i * 30) + 'px;width:56px;height:20px;border-radius:50%;background:rgba(210,210,210,0.55);filter:blur(2px)',
+        'weatherCloudDrift', 2600, i * 260, 1);
+    }
+    totalDuration = 2600 + 4 * 260;
+  } else if (code >= 45 && code <= 48) {
+    // Fog — slow, hazy, low-opacity bands
+    for (let i = 0; i < 4; i++) {
+      sixpMakeParticle(host,
+        'top:' + (20 + i * 34) + 'px;width:200px;height:26px;left:0;background:rgba(230,230,230,0.35);filter:blur(4px)',
+        'weatherCloudDrift', 3400, i * 220, 1);
+    }
+    totalDuration = 3400 + 4 * 220;
+  } else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95) {
+    // Rain / rain showers / thunderstorm — falling raindrops
+    const dropCount = code >= 95 ? 16 : 12;
+    for (let i = 0; i < dropCount; i++) {
+      sixpMakeParticle(host,
+        'left:' + (6 + Math.random() * 188) + 'px;top:-20px;width:2px;height:16px;background:linear-gradient(to bottom,transparent,rgba(120,180,255,0.9));border-radius:2px',
+        'weatherRainFall', 900 + Math.random() * 300, Math.random() * 900, 2);
+    }
+    if (code >= 95) {
+      sixpMakeParticle(host, 'inset:0;background:#fff', 'weatherLightning', 1800, 100, 1);
+    }
+    totalDuration = 2400;
+  } else if (code >= 71 && code <= 77) {
+    // Snow — drifting snowflakes
+    for (let i = 0; i < 14; i++) {
+      const size = 3 + Math.random() * 3;
+      sixpMakeParticle(host,
+        'left:' + (6 + Math.random() * 188) + 'px;top:-16px;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:rgba(255,255,255,0.95)',
+        'weatherSnowFall', 1800 + Math.random() * 500, Math.random() * 900, 1);
+    }
+    totalDuration = 2700;
+  }
+
+  sixpWeatherFxTimer = setTimeout(sixpClearWeatherFx, totalDuration + 200);
+}
+
 function sixpWeatherIcon(code) {
   code = Number(code);
   if (code === 0) return '☀️';

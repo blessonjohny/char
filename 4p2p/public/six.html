@@ -73,6 +73,12 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .clock-hand-flash{animation:clockHandFlash 0.7s ease}
 .clock-hand-preview{transition:transform 1.1s cubic-bezier(0.4,0,0.2,1)!important}
 @keyframes clockHandFlash{0%{filter:brightness(1)}30%{filter:brightness(2.2) drop-shadow(0 0 6px rgba(244,196,48,1))}100%{filter:brightness(1)}}
+@keyframes weatherRainFall{0%{transform:translateY(-24px);opacity:0}12%{opacity:0.9}100%{transform:translateY(230px);opacity:0}}
+@keyframes weatherSnowFall{0%{transform:translate(0,-24px) rotate(0deg);opacity:0}12%{opacity:0.95}100%{transform:translate(18px,230px) rotate(180deg);opacity:0}}
+@keyframes weatherSunRay{0%{transform:scale(0.4) rotate(var(--ang,0deg));opacity:0}30%{opacity:1}100%{transform:scale(2.4) rotate(var(--ang,0deg));opacity:0}}
+@keyframes weatherCloudDrift{0%{transform:translateX(-50px);opacity:0}18%{opacity:0.85}82%{opacity:0.85}100%{transform:translateX(240px);opacity:0}}
+@keyframes weatherLightning{0%,100%{opacity:0}6%{opacity:1}11%{opacity:0.1}16%{opacity:0.9}22%{opacity:0}}
+.weather-fx{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;pointer-events:none;overflow:hidden;border-radius:50%;z-index:2}
 .seat{position:absolute;display:flex;flex-direction:column;align-items:center;gap:2px;width:64px}
 .seat .av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#4a90d9,#2a5a9a);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:2px solid rgba(255,255,255,0.2);position:relative}
 .seat.on .av{border-color:var(--accent);animation:turnActiveGlow6 1.1s ease-in-out infinite}
@@ -273,6 +279,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
   <div class="table-oval">
     <div class="table-clock-rim"></div>
     <div class="table-clock" id="tableClock">
+      <div class="weather-fx" id="weatherFx"></div>
       <svg id="vclk6Svg" viewBox="0 0 200 200" width="200" height="200" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);overflow:visible">
 <defs>
     <radialGradient id="vclk6Bezel" cx="50%" cy="38%" r="72%">
