@@ -60,9 +60,10 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 #gameScreen{position:fixed;inset:0;background:radial-gradient(ellipse at center,#132840 0%,#0a1628 70%);display:none;z-index:50}
 .topbar{position:absolute;top:0;left:0;right:0;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:0.75rem;background:rgba(0,0,0,0.25);z-index:10}
 .topbar .score{font-weight:800;color:var(--accent)}
-.table-oval{position:absolute;top:104px;bottom:150px;left:10px;right:10px;border:2px solid rgba(244,196,48,0.25);border-radius:50%;}
-.table-clock{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;z-index:0;pointer-events:none;filter:drop-shadow(0 6px 5px rgba(0,0,0,0.5)) drop-shadow(0 14px 24px rgba(0,0,0,0.55))}
-.table-clock-rim{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:210px;height:210px;border-radius:50%;border:2px solid rgba(244,196,48,0.4);box-shadow:0 0 18px rgba(244,196,48,0.15)}
+.table-oval{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(calc(clamp(116px,27.5vh,210px) + 150px),68%);height:min(calc(clamp(116px,27.5vh,210px) + 70px),76%);border:5px solid rgba(244,196,48,0.32);border-radius:50%;box-shadow:0 0 16px rgba(244,196,48,0.12),inset 0 0 20px rgba(0,0,0,0.35);}
+.table-clock{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(110px,26vh,200px);height:clamp(110px,26vh,200px);z-index:0;pointer-events:none;filter:drop-shadow(0 6px 5px rgba(0,0,0,0.5)) drop-shadow(0 14px 24px rgba(0,0,0,0.55))}
+.table-clock-rim{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(116px,27.5vh,210px);height:clamp(116px,27.5vh,210px);border-radius:50%;border:2px solid rgba(244,196,48,0.4);box-shadow:0 0 18px rgba(244,196,48,0.15)}
+#vclk6Svg{width:100% !important;height:100% !important}
 .table-clock::before{content:'';position:absolute;top:54%;left:50%;transform:translate(-50%,-50%);width:150%;height:135%;background:radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.24) 42%, transparent 68%);z-index:-1;pointer-events:none}
 .clock-side-box{position:absolute;transform:translate(-50%,-50%);z-index:0;pointer-events:none;background:linear-gradient(160deg,rgba(244,196,48,0.18),rgba(244,196,48,0.06));border:1px solid rgba(244,196,48,0.35);border-radius:10px;padding:5px 9px;text-align:center;min-width:44px}
 .clock-side-box .csb-icon{font-size:0.85rem;line-height:1}
@@ -79,7 +80,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 @keyframes weatherCloudDrift{0%{transform:translateX(-50px);opacity:0}18%{opacity:0.85}82%{opacity:0.85}100%{transform:translateX(240px);opacity:0}}
 @keyframes weatherLightning{0%,100%{opacity:0}6%{opacity:1}11%{opacity:0.1}16%{opacity:0.9}22%{opacity:0}}
 .weather-fx{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;pointer-events:none;overflow:hidden;border-radius:50%;z-index:2}
-.seat{position:absolute;display:flex;flex-direction:column;align-items:center;gap:2px;width:64px}
+.seat{position:absolute;display:flex;flex-direction:column;align-items:center;gap:2px;width:64px;z-index:5}
 .seat .av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#4a90d9,#2a5a9a);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:2px solid rgba(255,255,255,0.2);position:relative}
 .seat.on .av{border-color:var(--accent);animation:turnActiveGlow6 1.1s ease-in-out infinite}
 @keyframes turnActiveGlow6{

@@ -1287,8 +1287,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   top:50%;
   left:50%;
   transform:translate(-50%,-50%);
-  width:calc(clamp(102px,27.5vh,184px) + 130px);
-  height:calc(clamp(102px,27.5vh,184px) + 54px);
+  width:min(calc(clamp(102px,27.5vh,184px) + 130px), 88%);
+  height:min(calc(clamp(102px,27.5vh,184px) + 54px), 82%);
   border-radius:50%;
   z-index:-2;
   /* Wooden rail lit from the top — conic-gradient varies color by angle
@@ -1298,7 +1298,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      the color is unmistakable at a glance, not just a thin outline.
      Sized off the clock itself (not the grid row) so it always reads as
      a slim edge just outside the clock, instead of stretching taller
-     whenever there's extra vertical space on screen. */
+     whenever there's extra vertical space on screen. Capped to a % of
+     the center column so on narrow phones it can never spill into the
+     left/right seat columns and cover those avatars. */
   background: var(--table-rail);
   -webkit-mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
   mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
@@ -1317,8 +1319,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   top:50%;
   left:50%;
   transform:translate(-50%,-50%);
-  width:calc(clamp(102px,27.5vh,184px) + 130px);
-  height:calc(clamp(102px,27.5vh,184px) + 54px);
+  width:min(calc(clamp(102px,27.5vh,184px) + 130px), 88%);
+  height:min(calc(clamp(102px,27.5vh,184px) + 54px), 82%);
   border-radius:50%;
   z-index:-2;
   box-shadow:
@@ -1333,8 +1335,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   top:50%;
   left:50%;
   transform:translate(-50%,-50%);
-  width:calc(clamp(102px,27.5vh,184px) + 100px);
-  height:calc(clamp(102px,27.5vh,184px) + 24px);
+  width:min(calc(clamp(102px,27.5vh,184px) + 100px), 82%);
+  height:min(calc(clamp(102px,27.5vh,184px) + 24px), 74%);
   border-radius:50%;
   z-index:-1;
   pointer-events:none;
@@ -1386,7 +1388,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* Player spots look like seated positions */
 .pspot{
   position:relative;
-  z-index:3;
+  z-index:5;
 }
 /* Mini cards (opponent card backs) look like they're on the table */
 .mc{
