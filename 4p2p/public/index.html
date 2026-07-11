@@ -302,8 +302,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .table:not(.mode6) .pspot.right{grid-area:r;justify-self:center;align-self:center}
 .table:not(.mode6) .pspot.pos3{grid-area:b;justify-self:center;align-self:end;padding-bottom:2px}
 .table:not(.mode6) .center{grid-area:c;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
-.table:not(.mode6) .cross{position:relative;width:200px;height:150px;margin:0 auto}
-.table:not(.mode6) .pslot{position:absolute;display:flex;align-items:center;justify-content:center;width:50px;height:70px}
+.table:not(.mode6) .cross{position:relative;width:200px;height:150px;margin:0 auto;pointer-events:none}
+.table:not(.mode6) .pslot{position:absolute;display:flex;align-items:center;justify-content:center;width:50px;height:70px;pointer-events:none}
 .table:not(.mode6) .s-top{top:0;left:50%;transform:translateX(-50%)}
 .table:not(.mode6) .s-left{left:0;top:50%;transform:translateY(-50%)}
 .table:not(.mode6) .s-right{right:0;top:50%;transform:translateY(-50%)}
@@ -2649,75 +2649,75 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <circle cx="181.0" cy="100.0" r="1.6" fill="#8a6218" opacity="0.6"/>
 <circle cx="100.0" cy="181.0" r="1.6" fill="#8a6218" opacity="0.6"/>
 <circle cx="19.0" cy="100.0" r="1.6" fill="#8a6218" opacity="0.6"/>
-<line x1="100.0" y1="11.0" x2="100.0" y2="19.0" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line x1="109.3" y1="11.5" x2="108.9" y2="15.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="118.5" y1="12.9" x2="117.7" y2="16.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="127.5" y1="15.4" x2="126.3" y2="19.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="136.2" y1="18.7" x2="134.6" y2="22.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="144.5" y1="22.9" x2="140.5" y2="29.9" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line x1="152.3" y1="28.0" x2="150.0" y2="31.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="159.6" y1="33.9" x2="156.9" y2="36.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="166.1" y1="40.4" x2="163.2" y2="43.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="172.0" y1="47.7" x2="168.8" y2="50.0" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="177.1" y1="55.5" x2="170.1" y2="59.5" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line x1="181.3" y1="63.8" x2="177.7" y2="65.4" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="184.6" y1="72.5" x2="180.8" y2="73.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="187.1" y1="81.5" x2="183.1" y2="82.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="188.5" y1="90.7" x2="184.5" y2="91.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="189.0" y1="100.0" x2="181.0" y2="100.0" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line x1="188.5" y1="109.3" x2="184.5" y2="108.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="187.1" y1="118.5" x2="183.1" y2="117.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="184.6" y1="127.5" x2="180.8" y2="126.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="181.3" y1="136.2" x2="177.7" y2="134.6" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="177.1" y1="144.5" x2="170.1" y2="140.5" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line x1="172.0" y1="152.3" x2="168.8" y2="150.0" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="166.1" y1="159.6" x2="163.2" y2="156.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="159.6" y1="166.1" x2="156.9" y2="163.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="152.3" y1="172.0" x2="150.0" y2="168.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="144.5" y1="177.1" x2="140.5" y2="170.1" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line x1="136.2" y1="181.3" x2="134.6" y2="177.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="127.5" y1="184.6" x2="126.3" y2="180.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="118.5" y1="187.1" x2="117.7" y2="183.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="109.3" y1="188.5" x2="108.9" y2="184.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="100.0" y1="189.0" x2="100.0" y2="181.0" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line x1="90.7" y1="188.5" x2="91.1" y2="184.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="81.5" y1="187.1" x2="82.3" y2="183.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="72.5" y1="184.6" x2="73.7" y2="180.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="63.8" y1="181.3" x2="65.4" y2="177.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="55.5" y1="177.1" x2="59.5" y2="170.1" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line x1="47.7" y1="172.0" x2="50.0" y2="168.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="40.4" y1="166.1" x2="43.1" y2="163.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="33.9" y1="159.6" x2="36.8" y2="156.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="28.0" y1="152.3" x2="31.2" y2="150.0" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="22.9" y1="144.5" x2="29.9" y2="140.5" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line x1="18.7" y1="136.2" x2="22.3" y2="134.6" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="15.4" y1="127.5" x2="19.2" y2="126.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="12.9" y1="118.5" x2="16.9" y2="117.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="11.5" y1="109.3" x2="15.5" y2="108.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="11.0" y1="100.0" x2="19.0" y2="100.0" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line x1="11.5" y1="90.7" x2="15.5" y2="91.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="12.9" y1="81.5" x2="16.9" y2="82.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="15.4" y1="72.5" x2="19.2" y2="73.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="18.7" y1="63.8" x2="22.3" y2="65.4" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="22.9" y1="55.5" x2="29.9" y2="59.5" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line x1="28.0" y1="47.7" x2="31.2" y2="50.0" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="33.9" y1="40.4" x2="36.8" y2="43.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="40.4" y1="33.9" x2="43.1" y2="36.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="47.7" y1="28.0" x2="50.0" y2="31.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="55.5" y1="22.9" x2="59.5" y2="29.9" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line x1="63.8" y1="18.7" x2="65.4" y2="22.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="72.5" y1="15.4" x2="73.7" y2="19.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="81.5" y1="12.9" x2="82.3" y2="16.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line x1="90.7" y1="11.5" x2="91.1" y2="15.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<text x="100.0" y="43.0" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XII</text>
-<text x="128.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">I</text>
-<text x="149.4" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">II</text>
-<text x="149.4" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">IV</text>
-<text x="128.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">V</text>
-<text x="71.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VII</text>
-<text x="50.6" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VIII</text>
-<text x="50.6" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">X</text>
-<text x="71.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XI</text>
+<line class="vclk4Tick" data-major="1" x1="100.0" y1="11.0" x2="100.0" y2="19.0" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
+<line class="vclk4Tick" data-major="0" x1="109.3" y1="11.5" x2="108.9" y2="15.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="118.5" y1="12.9" x2="117.7" y2="16.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="127.5" y1="15.4" x2="126.3" y2="19.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="136.2" y1="18.7" x2="134.6" y2="22.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="1" x1="144.5" y1="22.9" x2="140.5" y2="29.9" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
+<line class="vclk4Tick" data-major="0" x1="152.3" y1="28.0" x2="150.0" y2="31.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="159.6" y1="33.9" x2="156.9" y2="36.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="166.1" y1="40.4" x2="163.2" y2="43.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="172.0" y1="47.7" x2="168.8" y2="50.0" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="1" x1="177.1" y1="55.5" x2="170.1" y2="59.5" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
+<line class="vclk4Tick" data-major="0" x1="181.3" y1="63.8" x2="177.7" y2="65.4" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="184.6" y1="72.5" x2="180.8" y2="73.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="187.1" y1="81.5" x2="183.1" y2="82.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="188.5" y1="90.7" x2="184.5" y2="91.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="1" x1="189.0" y1="100.0" x2="181.0" y2="100.0" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
+<line class="vclk4Tick" data-major="0" x1="188.5" y1="109.3" x2="184.5" y2="108.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="187.1" y1="118.5" x2="183.1" y2="117.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="184.6" y1="127.5" x2="180.8" y2="126.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="181.3" y1="136.2" x2="177.7" y2="134.6" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="1" x1="177.1" y1="144.5" x2="170.1" y2="140.5" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
+<line class="vclk4Tick" data-major="0" x1="172.0" y1="152.3" x2="168.8" y2="150.0" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="166.1" y1="159.6" x2="163.2" y2="156.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="159.6" y1="166.1" x2="156.9" y2="163.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="152.3" y1="172.0" x2="150.0" y2="168.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="1" x1="144.5" y1="177.1" x2="140.5" y2="170.1" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
+<line class="vclk4Tick" data-major="0" x1="136.2" y1="181.3" x2="134.6" y2="177.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="127.5" y1="184.6" x2="126.3" y2="180.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="118.5" y1="187.1" x2="117.7" y2="183.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="109.3" y1="188.5" x2="108.9" y2="184.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="1" x1="100.0" y1="189.0" x2="100.0" y2="181.0" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
+<line class="vclk4Tick" data-major="0" x1="90.7" y1="188.5" x2="91.1" y2="184.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="81.5" y1="187.1" x2="82.3" y2="183.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="72.5" y1="184.6" x2="73.7" y2="180.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="63.8" y1="181.3" x2="65.4" y2="177.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="1" x1="55.5" y1="177.1" x2="59.5" y2="170.1" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
+<line class="vclk4Tick" data-major="0" x1="47.7" y1="172.0" x2="50.0" y2="168.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="40.4" y1="166.1" x2="43.1" y2="163.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="33.9" y1="159.6" x2="36.8" y2="156.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="28.0" y1="152.3" x2="31.2" y2="150.0" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="1" x1="22.9" y1="144.5" x2="29.9" y2="140.5" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
+<line class="vclk4Tick" data-major="0" x1="18.7" y1="136.2" x2="22.3" y2="134.6" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="15.4" y1="127.5" x2="19.2" y2="126.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="12.9" y1="118.5" x2="16.9" y2="117.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="11.5" y1="109.3" x2="15.5" y2="108.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="1" x1="11.0" y1="100.0" x2="19.0" y2="100.0" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
+<line class="vclk4Tick" data-major="0" x1="11.5" y1="90.7" x2="15.5" y2="91.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="12.9" y1="81.5" x2="16.9" y2="82.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="15.4" y1="72.5" x2="19.2" y2="73.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="18.7" y1="63.8" x2="22.3" y2="65.4" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="1" x1="22.9" y1="55.5" x2="29.9" y2="59.5" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
+<line class="vclk4Tick" data-major="0" x1="28.0" y1="47.7" x2="31.2" y2="50.0" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="33.9" y1="40.4" x2="36.8" y2="43.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="40.4" y1="33.9" x2="43.1" y2="36.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="47.7" y1="28.0" x2="50.0" y2="31.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="1" x1="55.5" y1="22.9" x2="59.5" y2="29.9" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
+<line class="vclk4Tick" data-major="0" x1="63.8" y1="18.7" x2="65.4" y2="22.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="72.5" y1="15.4" x2="73.7" y2="19.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="81.5" y1="12.9" x2="82.3" y2="16.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<line class="vclk4Tick" data-major="0" x1="90.7" y1="11.5" x2="91.1" y2="15.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
+<text class="vclk4Numeral" x="100.0" y="43.0" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XII</text>
+<text class="vclk4Numeral" x="128.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">I</text>
+<text class="vclk4Numeral" x="149.4" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">II</text>
+<text class="vclk4Numeral" x="149.4" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">IV</text>
+<text class="vclk4Numeral" x="128.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">V</text>
+<text class="vclk4Numeral" x="71.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VII</text>
+<text class="vclk4Numeral" x="50.6" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VIII</text>
+<text class="vclk4Numeral" x="50.6" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">X</text>
+<text class="vclk4Numeral" x="71.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XI</text>
 <rect x="80" y="56.0" width="19" height="12" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
 <text id="vclk4DayText" x="89.5" y="62.5" font-family="Georgia, serif" font-size="6.4" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
 <rect x="102" y="56.0" width="14" height="12" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
@@ -2751,29 +2751,29 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <circle cx="100" cy="100" r="2.4" fill="#1a1206"/>
 </g>
 <circle class="vclk4CityLabel" data-tz="America/New_York" data-code="NYC" data-lat="40.7128" data-lon="-74.006" cx="100.0" cy="22.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text data-tz="America/New_York" data-code="NYC" x="100.0" y="22.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">NYC</text>
+<text class="vclk4CityText" data-tz="America/New_York" data-code="NYC" x="100.0" y="22.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">NYC</text>
 <circle class="vclk4CityLabel" data-tz="Europe/London" data-code="LON" data-lat="51.5072" data-lon="-0.1276" cx="139.0" cy="32.5" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text data-tz="Europe/London" data-code="LON" x="139.0" y="32.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">LON</text>
+<text class="vclk4CityText" data-tz="Europe/London" data-code="LON" x="139.0" y="32.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">LON</text>
 <circle class="vclk4CityLabel" data-tz="Europe/Paris" data-code="PAR" data-lat="48.8566" data-lon="2.3522" cx="167.5" cy="61.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text data-tz="Europe/Paris" data-code="PAR" x="167.5" y="61.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">PAR</text>
+<text class="vclk4CityText" data-tz="Europe/Paris" data-code="PAR" x="167.5" y="61.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">PAR</text>
 <circle class="vclk4CityLabel" data-tz="America/Los_Angeles" data-code="VGS" data-lat="36.1699" data-lon="-115.1398" cx="178.0" cy="100.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text data-tz="America/Los_Angeles" data-code="VGS" x="178.0" y="100.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">VGS</text>
+<text class="vclk4CityText" data-tz="America/Los_Angeles" data-code="VGS" x="178.0" y="100.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">VGS</text>
 <circle class="vclk4CityLabel" data-tz="Europe/Istanbul" data-code="IST" data-lat="41.0082" data-lon="28.9784" cx="167.5" cy="139.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text data-tz="Europe/Istanbul" data-code="IST" x="167.5" y="139.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">IST</text>
+<text class="vclk4CityText" data-tz="Europe/Istanbul" data-code="IST" x="167.5" y="139.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">IST</text>
 <circle class="vclk4CityLabel" data-tz="Asia/Dubai" data-code="DXB" data-lat="25.2048" data-lon="55.2708" cx="139.0" cy="167.5" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text data-tz="Asia/Dubai" data-code="DXB" x="139.0" y="167.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">DXB</text>
+<text class="vclk4CityText" data-tz="Asia/Dubai" data-code="DXB" x="139.0" y="167.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">DXB</text>
 <circle class="vclk4CityLabel" data-tz="America/Chicago" data-code="CHI" data-lat="41.8781" data-lon="-87.6298" cx="100.0" cy="178.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text data-tz="America/Chicago" data-code="CHI" x="100.0" y="178.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">CHI</text>
+<text class="vclk4CityText" data-tz="America/Chicago" data-code="CHI" x="100.0" y="178.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">CHI</text>
 <circle class="vclk4CityLabel" data-tz="Pacific/Kiritimati" data-code="KIR" data-lat="1.8721" data-lon="-157.4278" cx="61.0" cy="167.5" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text data-tz="Pacific/Kiritimati" data-code="KIR" x="61.0" y="167.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">KIR</text>
+<text class="vclk4CityText" data-tz="Pacific/Kiritimati" data-code="KIR" x="61.0" y="167.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">KIR</text>
 <circle class="vclk4CityLabel" data-tz="Asia/Kolkata" data-code="KOC" data-lat="9.9312" data-lon="76.2673" cx="32.5" cy="139.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text data-tz="Asia/Kolkata" data-code="KOC" x="32.5" y="139.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">KOC</text>
+<text class="vclk4CityText" data-tz="Asia/Kolkata" data-code="KOC" x="32.5" y="139.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">KOC</text>
 <circle class="vclk4CityLabel" data-tz="America/Chicago" data-code="DAL" data-lat="32.7767" data-lon="-96.797" cx="22.0" cy="100.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text data-tz="America/Chicago" data-code="DAL" x="22.0" y="100.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">DAL</text>
+<text class="vclk4CityText" data-tz="America/Chicago" data-code="DAL" x="22.0" y="100.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">DAL</text>
 <circle class="vclk4CityLabel" data-tz="Asia/Shanghai" data-code="BEI" data-lat="39.9042" data-lon="116.4074" cx="32.5" cy="61.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text data-tz="Asia/Shanghai" data-code="BEI" x="32.5" y="61.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">BEI</text>
+<text class="vclk4CityText" data-tz="Asia/Shanghai" data-code="BEI" x="32.5" y="61.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">BEI</text>
 <circle class="vclk4CityLabel" data-tz="Asia/Tokyo" data-code="TOK" data-lat="35.6762" data-lon="139.6503" cx="61.0" cy="32.5" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text data-tz="Asia/Tokyo" data-code="TOK" x="61.0" y="32.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">TOK</text>
+<text class="vclk4CityText" data-tz="Asia/Tokyo" data-code="TOK" x="61.0" y="32.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">TOK</text>
 </svg>
       </div>
       <div class="cross">
@@ -10124,20 +10124,20 @@ function clock4pMaybeFetchWeather() {
 // transitional tones for dawn and evening.
 function clock4pColorsForHour(hour) {
   if (hour >= 21 || hour < 5) {
-    return { face: ['#2a241a', '#1a1610', '#0c0a06'], hand: ['#f5f0e0', '#e0d5b8'] }; // night — black
+    return { face: ['#2a241a', '#1a1610', '#0c0a06'], hand: ['#f5f0e0', '#e0d5b8'], text: '#f0e8d0', tickMajor: '#e8dcb8', tickMinor: '#b8a878' }; // night — black dial, light lettering
   } else if (hour >= 5 && hour < 7) {
-    return { face: ['#e8c8a0', '#d4a870', '#b8875a'], hand: ['#3a2a12', '#1a1206'] }; // dawn — soft peach
+    return { face: ['#e8c8a0', '#d4a870', '#b8875a'], hand: ['#3a2a12', '#1a1206'], text: '#3d2a08', tickMajor: '#4d3608', tickMinor: '#8a6218' }; // dawn — soft peach
   } else if (hour >= 7 && hour < 17) {
-    return { face: ['#fdfbf5', '#f6efd8', '#e9dcc0'], hand: ['#1a1206', '#000000'] }; // day — white
+    return { face: ['#fdfbf5', '#f6efd8', '#e9dcc0'], hand: ['#1a1206', '#000000'], text: '#3d2a08', tickMajor: '#4d3608', tickMinor: '#8a6218' }; // day — white dial, dark lettering
   } else {
-    return { face: ['#e8a860', '#cf8740', '#a76a28'], hand: ['#2a1a08', '#140b04'] }; // evening — amber
+    return { face: ['#e8a860', '#cf8740', '#a76a28'], hand: ['#2a1a08', '#140b04'], text: '#2a1a08', tickMajor: '#2a1a08', tickMinor: '#5a3f18' }; // evening — amber
   }
 }
 let clock4pLastColorHour = -1;
 function clock4pUpdateClockColors(hour) {
   if (hour === clock4pLastColorHour) return;
   clock4pLastColorHour = hour;
-  const { face, hand } = clock4pColorsForHour(hour);
+  const { face, hand, text, tickMajor, tickMinor } = clock4pColorsForHour(hour);
   const s1 = document.getElementById('vclk4HandGradStop1'), s2 = document.getElementById('vclk4HandGradStop2');
   if (s1) s1.setAttribute('stop-color', hand[0]);
   if (s2) s2.setAttribute('stop-color', hand[1]);
@@ -10147,6 +10147,11 @@ function clock4pUpdateClockColors(hour) {
     stops[1].setAttribute('stop-color', face[1]);
     stops[2].setAttribute('stop-color', face[2]);
   }
+  document.querySelectorAll('.vclk4Numeral').forEach(el => el.setAttribute('fill', text));
+  document.querySelectorAll('.vclk4CityText').forEach(el => el.setAttribute('fill', text));
+  document.querySelectorAll('.vclk4Tick').forEach(el => {
+    el.setAttribute('stroke', el.getAttribute('data-major') === '1' ? tickMajor : tickMinor);
+  });
 }
 
 // The clock always shows ONE city's time — New York by default, or

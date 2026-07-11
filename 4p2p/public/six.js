@@ -253,20 +253,20 @@ function sixpMaybeFetchWeather() {
 // transitional tones for dawn and evening.
 function sixpColorsForHour(hour) {
   if (hour >= 21 || hour < 5) {
-    return { face: ['#2a241a', '#1a1610', '#0c0a06'], hand: ['#f5f0e0', '#e0d5b8'] }; // night — black
+    return { face: ['#2a241a', '#1a1610', '#0c0a06'], hand: ['#f5f0e0', '#e0d5b8'], text: '#f0e8d0', tickMajor: '#e8dcb8', tickMinor: '#b8a878' }; // night — black dial, light lettering
   } else if (hour >= 5 && hour < 7) {
-    return { face: ['#e8c8a0', '#d4a870', '#b8875a'], hand: ['#3a2a12', '#1a1206'] }; // dawn — soft peach
+    return { face: ['#e8c8a0', '#d4a870', '#b8875a'], hand: ['#3a2a12', '#1a1206'], text: '#3d2a08', tickMajor: '#4d3608', tickMinor: '#8a6218' }; // dawn — soft peach
   } else if (hour >= 7 && hour < 17) {
-    return { face: ['#fdfbf5', '#f6efd8', '#e9dcc0'], hand: ['#1a1206', '#000000'] }; // day — white
+    return { face: ['#fdfbf5', '#f6efd8', '#e9dcc0'], hand: ['#1a1206', '#000000'], text: '#3d2a08', tickMajor: '#4d3608', tickMinor: '#8a6218' }; // day — white dial, dark lettering
   } else {
-    return { face: ['#e8a860', '#cf8740', '#a76a28'], hand: ['#2a1a08', '#140b04'] }; // evening — amber
+    return { face: ['#e8a860', '#cf8740', '#a76a28'], hand: ['#2a1a08', '#140b04'], text: '#2a1a08', tickMajor: '#2a1a08', tickMinor: '#5a3f18' }; // evening — amber
   }
 }
 let sixpLastColorHour = -1;
 function sixpUpdateClockColors(hour) {
   if (hour === sixpLastColorHour) return;
   sixpLastColorHour = hour;
-  const { face, hand } = sixpColorsForHour(hour);
+  const { face, hand, text, tickMajor, tickMinor } = sixpColorsForHour(hour);
   const s1 = document.getElementById('vclk6HandGradStop1'), s2 = document.getElementById('vclk6HandGradStop2');
   if (s1) s1.setAttribute('stop-color', hand[0]);
   if (s2) s2.setAttribute('stop-color', hand[1]);
@@ -276,6 +276,11 @@ function sixpUpdateClockColors(hour) {
     stops[1].setAttribute('stop-color', face[1]);
     stops[2].setAttribute('stop-color', face[2]);
   }
+  document.querySelectorAll('.vclk6Numeral').forEach(el => el.setAttribute('fill', text));
+  document.querySelectorAll('.vclk6CityText').forEach(el => el.setAttribute('fill', text));
+  document.querySelectorAll('.vclk6Tick').forEach(el => {
+    el.setAttribute('stroke', el.getAttribute('data-major') === '1' ? tickMajor : tickMinor);
+  });
 }
 
 // The clock always shows ONE city's time — New York by default, or
