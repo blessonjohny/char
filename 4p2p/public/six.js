@@ -62,8 +62,6 @@ let sixpCityClicksWired = false;
 // time for a few seconds, then eases them back to real local time —
 // always via the shortest rotation direction so they never spin the
 // long way around.
-let sixpClockPreviewActive = false;
-let sixpClockPreviewTimer = null;
 function sixpGetCurrentHandAngle(el) {
   const t = el.getAttribute('transform') || '';
   const m = t.match(/rotate\(([-\d.]+)/);
@@ -78,65 +76,29 @@ function sixpSetHandShortest(el, targetDeg) {
   if (diff < -180) diff += 360;
   el.setAttribute('transform', 'rotate(' + (cur + diff) + ' 100 100)');
 }
-function sixpPreviewCityOnHands(hour24, minute) {
-  const hourEl = document.getElementById('vclk6HourHand');
-  const minEl = document.getElementById('vclk6MinuteHand');
-  if (!hourEl || !minEl) return;
-  if (sixpClockPreviewTimer) { clearTimeout(sixpClockPreviewTimer); sixpClockPreviewTimer = null; }
-  sixpClockPreviewActive = true;
-  hourEl.classList.add('clock-hand-preview');
-  minEl.classList.add('clock-hand-preview');
-  sixpSetHandShortest(hourEl, ((hour24 % 12) + minute / 60) * 30);
-  sixpSetHandShortest(minEl, minute * 6);
-  sixpClockPreviewTimer = setTimeout(() => {
-    const now = new Date();
-    sixpSetHandShortest(hourEl, ((now.getHours() % 12) + now.getMinutes() / 60) * 30);
-    sixpSetHandShortest(minEl, now.getMinutes() * 6);
-    sixpRevertComplicationsToLocal();
-    sixpClockPreviewTimer = setTimeout(() => {
-      hourEl.classList.remove('clock-hand-preview');
-      minEl.classList.remove('clock-hand-preview');
-      sixpClockPreviewActive = false;
-      sixpClockPreviewTimer = null;
-    }, 1200);
-  }, 3200);
+// Switches the whole clock over to a new city — hands, day/date, and
+// weather all update, and it STAYS there (no auto-revert) until a
+// different city is tapped.
+function sixpSelectCity(code, tz, lat, lon) {
+  sixpSelectedCity = { code, tz, lat, lon };
+  sixpClockLastDay = -1; // force complications to recompute for the new city right away
+  sixpFetchWeather();
+  const hourEl = document.getElementById('vclk6HourHand'), minEl = document.getElementById('vclk6MinuteHand');
+  if (hourEl && minEl) {
+    const { hour, minute } = sixpGetHourMinuteInTz(tz);
+    hourEl.classList.add('clock-hand-preview');
+    minEl.classList.add('clock-hand-preview');
+    sixpSetHandShortest(hourEl, ((hour % 12) + minute / 60) * 30);
+    sixpSetHandShortest(minEl, minute * 6);
+    setTimeout(() => { hourEl.classList.remove('clock-hand-preview'); minEl.classList.remove('clock-hand-preview'); }, 1200);
+  }
+  updateTableClock();
 }
 function sixpGetHourMinuteInTz(tz) {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date());
   const h = parseInt(parts.find(p => p.type === 'hour').value, 10);
   const m = parseInt(parts.find(p => p.type === 'minute').value, 10);
   return { hour: h, minute: m };
-}
-// While previewing a city, the day/date window and weather window show
-// THAT city's info too — the whole clock, not just the hands. Forces a
-// fresh complications recompute on the next real tick once the preview
-// ends, so everything settles back to local/NYC.
-function sixpRevertComplicationsToLocal() {
-  sixpClockLastDay = -1;
-  sixpFetchWeather();
-}
-function sixpShowCityComplications(tz, lat, lon) {
-  try {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', day: 'numeric' }).formatToParts(new Date());
-    const wk = parts.find(p => p.type === 'weekday').value.toUpperCase();
-    const dy = parts.find(p => p.type === 'day').value;
-    const dayEl = document.getElementById('vclk6DayText'), dateEl = document.getElementById('vclk6DateText');
-    if (dayEl) dayEl.textContent = wk;
-    if (dateEl) dateEl.textContent = dy;
-  } catch (e) {}
-  if (typeof lat === 'number' && typeof lon === 'number') {
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code&temperature_unit=fahrenheit')
-      .then(r => r.json())
-      .then(data => {
-        const t = data && data.current && data.current.temperature_2m;
-        const code = data && data.current && data.current.weather_code;
-        const tempEl = document.getElementById('vclk6WeatherTemp');
-        if (tempEl && typeof t === 'number') tempEl.textContent = Math.round(t) + '\u00B0F';
-        const iconEl = document.getElementById('vclk6WeatherIcon');
-        if (iconEl) iconEl.textContent = sixpWeatherIcon(code);
-      })
-      .catch(() => {});
-  }
 }
 
 function sixpWireCityClicks() {
@@ -145,14 +107,12 @@ function sixpWireCityClicks() {
   const overlay = document.getElementById('vclk6FaceClickOverlay');
   if (!labels.length && !overlay) return;
   sixpCityClicksWired = true;
-  const cityNames = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', KIR: 'Kiritimati', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
+  const cityNames = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
   function showCityTime(code, tz, lat, lon) {
     try {
       const timeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });
       showToast('🌍 ' + (cityNames[code] || code) + ': ' + timeStr, 'info', 2500);
-      const { hour, minute } = sixpGetHourMinuteInTz(tz);
-      sixpPreviewCityOnHands(hour, minute);
-      sixpShowCityComplications(tz, lat, lon);
+      sixpSelectCity(code, tz, lat, lon);
     } catch (e) {}
   }
   labels.forEach(el => {
@@ -204,15 +164,25 @@ function sixpWireCityClicks() {
   }
 }
 
-function sixpUpdateClockComplications(now) {
-  const dayNum = now.getFullYear() * 1000 + Math.floor(now.getTime() / 86400000);
-  if (dayNum === sixpClockLastDay) return;
+let sixpClockLastCityCode = null;
+function sixpUpdateClockComplications(nowInCity, city) {
+  const cityParts = new Intl.DateTimeFormat('en-US', { timeZone: city.tz, year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short' }).formatToParts(new Date());
+  const cityDay = cityParts.find(p => p.type === 'day').value;
+  const cityYear = parseInt(cityParts.find(p => p.type === 'year').value, 10);
+  const cityWeekday = cityParts.find(p => p.type === 'weekday').value.toUpperCase();
+  const dayNum = cityYear * 1000 + parseInt(cityDay, 10);
+  if (dayNum === sixpClockLastDay && city.code === sixpClockLastCityCode) return;
   sixpClockLastDay = dayNum;
+  sixpClockLastCityCode = city.code;
   const dayEl = document.getElementById('vclk6DayText'), dateEl = document.getElementById('vclk6DateText');
-  if (dayEl) dayEl.textContent = ['SUN','MON','TUE','WED','THU','FRI','SAT'][now.getDay()];
-  if (dateEl) dateEl.textContent = String(now.getDate());
+  if (dayEl) dayEl.textContent = cityWeekday;
+  if (dateEl) dateEl.textContent = cityDay;
   // Simple synodic-month approximation: known new moon reference
-  // (Jan 6, 2000 18:14 UTC) plus the 29.53059-day cycle length.
+  // (Jan 6, 2000 18:14 UTC) plus the 29.53059-day cycle length. This is
+  // a real astronomical fact, so it's the same regardless of which
+  // city's clock is being shown — computed from the actual current
+  // moment, not the selected city's local calendar.
+  const now = new Date();
   const synodic = 29.530588853;
   const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14);
   const daysSince = (now.getTime() - knownNewMoon) / 86400000;
@@ -221,10 +191,9 @@ function sixpUpdateClockComplications(now) {
   if (shadowEl) shadowEl.setAttribute('d', sixpMoonPath(phase, 100, 140, 11));
   sixpLastMoonPhase = phase;
 
-  const year = now.getFullYear();
-  const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+  const isLeap = (cityYear % 4 === 0 && cityYear % 100 !== 0) || (cityYear % 400 === 0);
   const leapNumEl = document.getElementById('vclk6LeapYear'), leapLblEl = document.getElementById('vclk6LeapLbl');
-  if (leapNumEl) leapNumEl.textContent = String(year);
+  if (leapNumEl) leapNumEl.textContent = String(cityYear);
   if (leapLblEl) leapLblEl.textContent = isLeap ? 'LEAP YEAR' : 'not leap';
   if (leapLblEl) leapLblEl.setAttribute('fill', isLeap ? '#2e7d32' : '#6b4a12');
 }
@@ -255,7 +224,8 @@ function sixpWeatherDesc(code) {
   return 'Fair';
 }
 function sixpFetchWeather() {
-  fetch('https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.006&current=temperature_2m,weather_code&temperature_unit=fahrenheit')
+  const lat = sixpSelectedCity.lat, lon = sixpSelectedCity.lon;
+  fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code&temperature_unit=fahrenheit')
     .then(r => r.json())
     .then(data => {
       const t = data && data.current && data.current.temperature_2m;
@@ -284,8 +254,7 @@ function sixpHandColorsForHour(hour) {
   if (hour >= 17 && hour < 21) return ['#e08a3c', '#a8551a']; // evening — warm amber
   return ['#3a2a12', '#1a1206']; // daytime PM / night — standard dark
 }
-function sixpUpdateHandColors(now) {
-  const hour = now.getHours();
+function sixpUpdateHandColors(hour) {
   if (hour === sixpLastHandColorHour) return;
   sixpLastHandColorHour = hour;
   const [c1, c2] = sixpHandColorsForHour(hour);
@@ -294,31 +263,65 @@ function sixpUpdateHandColors(now) {
   if (s2) s2.setAttribute('stop-color', c2);
 }
 
+// The dial face itself shifts too — lighter, brighter ivory through the
+// day; a deeper, dimmer parchment tone once it's night in the city
+// currently shown.
+let sixpLastDialColorHour = -1;
+function sixpDialColorsForHour(hour) {
+  const isDay = hour >= 6 && hour < 18;
+  return isDay
+    ? ['#f7ecd0', '#eddcae', '#d8bd80']   // lighter, brighter face — daytime
+    : ['#cbb98a', '#a9945f', '#7a6538'];  // deeper, dimmer face — nighttime
+}
+function sixpUpdateDialColors(hour) {
+  if (hour === sixpLastDialColorHour) return;
+  sixpLastDialColorHour = hour;
+  const [c1, c2, c3] = sixpDialColorsForHour(hour);
+  const stops = document.querySelectorAll('#vclk6Face stop');
+  if (stops.length >= 3) {
+    stops[0].setAttribute('stop-color', c1);
+    stops[1].setAttribute('stop-color', c2);
+    stops[2].setAttribute('stop-color', c3);
+  }
+}
+
+// The clock always shows ONE city's time — New York by default, or
+// whichever city was last tapped. This persists until a different city
+// is tapped; it does not auto-revert.
+let sixpSelectedCity = { code: 'NYC', tz: 'America/New_York', lat: 40.7128, lon: -74.006 };
+function sixpGetNowInTz(tz) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23' }).formatToParts(new Date());
+  return {
+    hour: parseInt(parts.find(p => p.type === 'hour').value, 10),
+    minute: parseInt(parts.find(p => p.type === 'minute').value, 10),
+    second: parseInt(parts.find(p => p.type === 'second').value, 10)
+  };
+}
+
 function updateTableClock() {
   sixpWireCityClicks();
   sixpMaybeFetchWeather();
-  sixpUpdateHandColors(new Date());
-  sixpUpdateClockComplications(new Date());
+  const nowInCity = sixpGetNowInTz(sixpSelectedCity.tz);
+  sixpUpdateHandColors(nowInCity.hour);
+  sixpUpdateDialColors(nowInCity.hour);
+  sixpUpdateClockComplications(nowInCity, sixpSelectedCity);
   const hourEl = document.getElementById('vclk6HourHand'), minEl = document.getElementById('vclk6MinuteHand'), secEl = document.getElementById('vclk6SecondHand');
   if (!hourEl || !minEl) return;
-  const now = new Date();
-  const hourAngle = ((now.getHours() % 12) + now.getMinutes() / 60) * 30;
-  const minAngle = now.getMinutes() * 6;
-  const secAngle = now.getSeconds() * 6;
-  if (!sixpClockPreviewActive) {
-    hourEl.setAttribute('transform', 'rotate(' + hourAngle + ' 100 100)');
-    minEl.setAttribute('transform', 'rotate(' + minAngle + ' 100 100)');
-  }
+  const hourAngle = ((nowInCity.hour % 12) + nowInCity.minute / 60) * 30;
+  const minAngle = nowInCity.minute * 6;
+  const secAngle = nowInCity.second * 6;
+  hourEl.setAttribute('transform', 'rotate(' + hourAngle + ' 100 100)');
+  minEl.setAttribute('transform', 'rotate(' + minAngle + ' 100 100)');
   if (secEl) secEl.setAttribute('transform', 'rotate(' + secAngle + ' 100 100)');
 
-  const minuteMark = now.getHours() * 60 + now.getMinutes();
+  const minuteMark = nowInCity.hour * 60 + nowInCity.minute;
   if (sixpClockLastMinuteMark !== -1 && minuteMark !== sixpClockLastMinuteMark) {
     sixpFlashClockHand(secEl);
     sixpFlashClockHand(minEl);
   }
   sixpClockLastMinuteMark = minuteMark;
 
-  const hourMark = now.getHours();
+  const hourMark = nowInCity.hour;
   if (sixpClockLastHourMark !== -1 && hourMark !== sixpClockLastHourMark) {
     sixpFlashClockHand(hourEl);
   }
