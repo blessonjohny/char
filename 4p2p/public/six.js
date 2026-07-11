@@ -107,7 +107,7 @@ function sixpWireCityClicks() {
   const overlay = document.getElementById('vclk6FaceClickOverlay');
   if (!labels.length && !overlay) return;
   sixpCityClicksWired = true;
-  const cityNames = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
+  const cityNames = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', KIR: 'Kiritimati', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
   function showCityTime(code, tz, lat, lon) {
     try {
       const timeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });
@@ -145,7 +145,8 @@ function sixpWireCityClicks() {
         showToast('🌦️ Weather still loading...', 'info', 2000);
         return;
       }
-      showToast('🌦️ New York: ' + Math.round(sixpLastWeather.temp) + '°F, ' + sixpWeatherDesc(sixpLastWeather.code), 'info', 3000);
+      const cityLabel = cityNames[sixpSelectedCity.code] || sixpSelectedCity.code;
+      showToast('🌦️ ' + cityLabel + ': ' + Math.round(sixpLastWeather.temp) + '°F, ' + sixpWeatherDesc(sixpLastWeather.code), 'info', 3000);
     });
   }
   const leapClick = document.getElementById('vclk6LeapClick');

@@ -61,10 +61,9 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .topbar{position:absolute;top:0;left:0;right:0;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:0.75rem;background:rgba(0,0,0,0.25);z-index:10}
 .topbar .score{font-weight:800;color:var(--accent)}
 .table-oval{position:absolute;top:104px;bottom:150px;left:10px;right:10px;border:2px solid rgba(244,196,48,0.25);border-radius:50%;}
-.table-clock-tilt{position:absolute;top:50%;left:50%;width:170px;height:170px;transform:translate(-50%,-50%) perspective(700px) rotateX(22deg);transform-style:preserve-3d;z-index:0;pointer-events:none}
-.table-clock{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:170px;height:170px;pointer-events:none;filter:drop-shadow(0 3px 2px rgba(0,0,0,0.6)) drop-shadow(0 16px 26px rgba(0,0,0,0.65)) drop-shadow(0 2px 0 rgba(255,255,255,0.08))}
-.table-clock-rim{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:196px;height:196px;border-radius:50%;background:conic-gradient(from 0deg,#8a6218,#f4dfa0,#c9a03e,#4d3608,#f4dfa0,#8a6218,#c9a03e,#f4dfa0,#8a6218);box-shadow:inset 0 3px 5px rgba(255,255,255,0.35),inset 0 -4px 8px rgba(0,0,0,0.65),0 2px 3px rgba(0,0,0,0.4)}
-.table-clock-tilt::before{content:'';position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);width:165%;height:145%;background:radial-gradient(ellipse at center, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.32) 42%, transparent 68%);z-index:-1;pointer-events:none}
+.table-clock{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;z-index:0;pointer-events:none;filter:drop-shadow(0 6px 5px rgba(0,0,0,0.5)) drop-shadow(0 14px 24px rgba(0,0,0,0.55))}
+.table-clock-rim{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:210px;height:210px;border-radius:50%;border:2px solid rgba(244,196,48,0.4);box-shadow:0 0 18px rgba(244,196,48,0.15)}
+.table-clock::before{content:'';position:absolute;top:54%;left:50%;transform:translate(-50%,-50%);width:150%;height:135%;background:radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.24) 42%, transparent 68%);z-index:-1;pointer-events:none}
 .clock-side-box{position:absolute;transform:translate(-50%,-50%);z-index:0;pointer-events:none;background:linear-gradient(160deg,rgba(244,196,48,0.18),rgba(244,196,48,0.06));border:1px solid rgba(244,196,48,0.35);border-radius:10px;padding:5px 9px;text-align:center;min-width:44px}
 .clock-side-box .csb-icon{font-size:0.85rem;line-height:1}
 .clock-side-box .csb-val{font-size:0.72rem;font-weight:800;color:rgba(244,196,48,0.85);line-height:1.3;font-family:Georgia,serif}
@@ -242,17 +241,19 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 <!-- ============ GAME ============ -->
 <div id="gameScreen">
   <div class="topbar" style="flex-direction:column;align-items:stretch;gap:2px;padding:6px 10px">
-    <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;row-gap:4px">
       <div>Round <span id="roundNum">1</span></div>
-      <div class="score" style="display:flex;align-items:center;gap:6px">
-        <div class="score-box" id="scoreBoxYours"><span class="slabel">Your Team</span><span class="sval" id="scoreA">6</span></div>
+      <div class="score" style="display:flex;align-items:center;gap:4px">
+        <div class="score-box" id="scoreBoxYours" style="padding:3px 6px;min-width:0"><span class="slabel">Your Team</span><span class="sval" id="scoreA">6</span></div>
         <span style="opacity:0.5">—</span>
-        <div class="score-box" id="scoreBoxOpp"><span class="slabel">Opp Team</span><span class="sval" id="scoreB">6</span></div>
+        <div class="score-box" id="scoreBoxOpp" style="padding:3px 6px;min-width:0"><span class="slabel">Opp Team</span><span class="sval" id="scoreB">6</span></div>
       </div>
+      <div style="display:flex;gap:4px;align-items:center">
       <button class="btn-outline" id="btnGameHome" title="Leave Table" style="padding:4px 10px;border-radius:8px;font-size:0.7rem">🏠</button>
       <button class="btn-outline" id="btnHostMenu" style="display:none;padding:4px 10px;border-radius:8px;font-size:0.7rem">👑</button>
       <button class="btn-outline" id="btnChat" title="Chat" style="padding:4px 10px;border-radius:8px;font-size:0.7rem;position:relative">💬<span class="chat-badge" id="chatBadge"></span></button>
       <button class="btn-outline" id="btnInvite" title="Invite a Friend" style="padding:4px 10px;border-radius:8px;font-size:0.7rem;white-space:nowrap">💌 Invite</button>
+      </div>
     </div>
     <div style="display:flex;justify-content:center;gap:6px;font-size:0.66rem;color:var(--text-secondary);flex-wrap:wrap">
       <span>Dealer: <b style="color:#fff" id="dealerDisplay">—</b></span>
@@ -271,8 +272,8 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
   <div class="ltrick-backdrop" id="ltrickBackdrop"></div>
   <div class="table-oval">
     <div class="table-clock-rim"></div>
-    <div class="table-clock-tilt"><div class="table-clock" id="tableClock">
-      <svg id="vclk6Svg" viewBox="0 0 200 200" width="170" height="170" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);overflow:visible">
+    <div class="table-clock" id="tableClock">
+      <svg id="vclk6Svg" viewBox="0 0 200 200" width="200" height="200" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);overflow:visible">
 <defs>
     <radialGradient id="vclk6Bezel" cx="50%" cy="38%" r="72%">
       <stop offset="0%" stop-color="#f4dfa0"/>
@@ -426,7 +427,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 <circle class="vclk6CityLabel" data-tz="Asia/Tokyo" data-code="TOK" data-lat="35.6762" data-lon="139.6503" cx="61.0" cy="32.5" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
 <text data-tz="Asia/Tokyo" data-code="TOK" x="61.0" y="32.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">TOK</text>
 </svg>
-    </div></div>
+    </div>
     <div class="seat" id="seatWrap0"><div class="av" id="av0">👤</div><div class="nm" id="nm0"></div><div class="cc" id="cc0"></div></div>
     <div class="seat" id="seatWrap1"><div class="av" id="av1">👤</div><div class="nm" id="nm1"></div><div class="cc" id="cc1"></div></div>
     <div class="seat" id="seatWrap2"><div class="av" id="av2">👤</div><div class="nm" id="nm2"></div><div class="cc" id="cc2"></div></div>

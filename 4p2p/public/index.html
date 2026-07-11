@@ -1259,10 +1259,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   position:relative;
   z-index:3;
 }
-.table-clock-tilt{position:absolute;top:50%;left:50%;width:190px;height:190px;transform:translate(-50%,-50%) perspective(700px) rotateX(22deg);transform-style:preserve-3d;z-index:0;pointer-events:none}
-.table-clock{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:190px;height:190px;pointer-events:none;filter:drop-shadow(0 3px 2px rgba(0,0,0,0.6)) drop-shadow(0 16px 26px rgba(0,0,0,0.65)) drop-shadow(0 2px 0 rgba(255,255,255,0.08))}
-.table-clock-rim{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:218px;height:218px;border-radius:50%;background:conic-gradient(from 0deg,#8a6218,#f4dfa0,#c9a03e,#4d3608,#f4dfa0,#8a6218,#c9a03e,#f4dfa0,#8a6218);box-shadow:inset 0 3px 5px rgba(255,255,255,0.35),inset 0 -4px 8px rgba(0,0,0,0.65),0 2px 3px rgba(0,0,0,0.4)}
-.table-clock-tilt::before{content:'';position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);width:165%;height:145%;background:radial-gradient(ellipse at center, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.32) 42%, transparent 68%);z-index:-1;pointer-events:none}
+.table-clock{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:175px;height:175px;z-index:0;pointer-events:none;filter:drop-shadow(0 5px 4px rgba(0,0,0,0.5)) drop-shadow(0 12px 20px rgba(0,0,0,0.55))}
+.table-clock-rim{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:184px;height:184px;border-radius:50%;border:2px solid rgba(255,215,0,0.38);box-shadow:0 0 16px rgba(255,215,0,0.14)}
+.table-clock::before{content:'';position:absolute;top:54%;left:50%;transform:translate(-50%,-50%);width:150%;height:135%;background:radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.24) 42%, transparent 68%);z-index:-1;pointer-events:none}
 .clock-side-box{position:absolute;transform:translate(-50%,-50%);z-index:0;pointer-events:none;background:linear-gradient(160deg,rgba(255,215,0,0.18),rgba(255,215,0,0.06));border:1px solid rgba(255,215,0,0.32);border-radius:10px;padding:5px 9px;text-align:center;min-width:44px}
 .clock-side-box .csb-icon{font-size:0.85rem;line-height:1}
 .clock-side-box .csb-val{font-size:0.72rem;font-weight:800;color:rgba(255,215,0,0.85);line-height:1.3;font-family:Georgia,serif}
@@ -2621,8 +2620,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <div class="center">
       <div class="felt"></div>
       <div class="table-clock-rim"></div>
-      <div class="table-clock-tilt"><div class="table-clock" id="tableClock4p">
-        <svg id="vclk4Svg" viewBox="0 0 200 200" width="190" height="190" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);overflow:visible">
+      <div class="table-clock" id="tableClock4p">
+        <svg id="vclk4Svg" viewBox="0 0 200 200" width="175" height="175" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);overflow:visible">
 <defs>
     <radialGradient id="vclk4Bezel" cx="50%" cy="38%" r="72%">
       <stop offset="0%" stop-color="#f4dfa0"/>
@@ -2776,7 +2775,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <circle class="vclk4CityLabel" data-tz="Asia/Tokyo" data-code="TOK" data-lat="35.6762" data-lon="139.6503" cx="61.0" cy="32.5" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
 <text data-tz="Asia/Tokyo" data-code="TOK" x="61.0" y="32.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">TOK</text>
 </svg>
-      </div></div>
+      </div>
       <div class="cross">
         <div class="pslot s-top" id="slot0"></div>
         <div class="pslot s-left" id="slot1"></div>
@@ -9890,21 +9889,22 @@ function setupKingTableTrigger() {
 
 // A vintage grandfather-clock face built into the table felt — sits at
 // z-index:0, behind every seat and card. Hands snap to position each
-// second; the only motion is a brief brass flash exactly when a hand
-// reaches a new minute/hour.
-let clock4pLastMinuteMark = -1, clock4pLastHourMark = -1;
-function flashClockHand4p(el) {
+// second (no continuous glide); the only motion is a brief brass flash
+// exactly when a hand reaches a new minute/hour.
+let clock4pClockLastMinuteMark = -1, clock4pClockLastHourMark = -1;
+function clock4pFlashClockHand(el) {
   if (!el) return;
   el.classList.remove('clock-hand-flash');
-  void (el.getBBox && el.getBBox());
+  void el.getBBox && el.getBBox();
   el.classList.add('clock-hand-flash');
   setTimeout(() => el.classList.remove('clock-hand-flash'), 700);
 }
-// Fills the day/date apertures and the moon-phase sub-dial — only
-// touches the DOM when the calendar day changes, not every 1s tick.
-let clock4pLastDay = -1;
+// Fills the day/date apertures and the moon-phase sub-dial — these only
+// change once a day (moon phase effectively so), so this only actually
+// touches the DOM when the calendar day changes, not on every 1s tick.
+let clock4pClockLastDay = -1;
 let clock4pLastMoonPhase = null;
-let clock4pLastWeather = null;
+let clock4pLastWeather = null; // {temp, code}
 function clock4pMoonPhaseName(phase) {
   if (phase < 0.03 || phase > 0.97) return 'New Moon';
   if (phase < 0.22) return 'Waxing Crescent';
@@ -9915,7 +9915,7 @@ function clock4pMoonPhaseName(phase) {
   if (phase < 0.78) return 'Last Quarter (Half Moon)';
   return 'Waning Crescent';
 }
-function moonPath4p(phase, cx, cy, R) {
+function clock4pMoonPath(phase, cx, cy, R) {
   const theta = phase * 2 * Math.PI;
   const rx = R * Math.abs(Math.cos(theta));
   const top = [cx, cy - R], bottom = [cx, cy + R];
@@ -9930,15 +9930,16 @@ function moonPath4p(phase, cx, cy, R) {
 // wired once, the first time the clock SVG is actually in the DOM.
 let clock4pCityClicksWired = false;
 // Animates the hour/minute hands to actually show a clicked city's
-// time for a few seconds, then eases back to real local time, always
-// via the shortest rotation direction.
-function getCurrentHandAngle4p(el) {
+// time for a few seconds, then eases them back to real local time —
+// always via the shortest rotation direction so they never spin the
+// long way around.
+function clock4pGetCurrentHandAngle(el) {
   const t = el.getAttribute('transform') || '';
   const m = t.match(/rotate\(([-\d.]+)/);
   return m ? parseFloat(m[1]) : 0;
 }
-function setHandShortest4p(el, targetDeg) {
-  const cur = getCurrentHandAngle4p(el);
+function clock4pSetHandShortest(el, targetDeg) {
+  const cur = clock4pGetCurrentHandAngle(el);
   const curNorm = ((cur % 360) + 360) % 360;
   const tgtNorm = ((targetDeg % 360) + 360) % 360;
   let diff = tgtNorm - curNorm;
@@ -9949,40 +9950,40 @@ function setHandShortest4p(el, targetDeg) {
 // Switches the whole clock over to a new city — hands, day/date, and
 // weather all update, and it STAYS there (no auto-revert) until a
 // different city is tapped.
-function selectCity4p(code, tz, lat, lon) {
+function clock4pSelectCity(code, tz, lat, lon) {
   clock4pSelectedCity = { code, tz, lat, lon };
-  clock4pLastDay = -1; // force complications to recompute for the new city right away
-  fetchWeather4p();
+  clock4pClockLastDay = -1; // force complications to recompute for the new city right away
+  clock4pFetchWeather();
   const hourEl = document.getElementById('vclk4HourHand'), minEl = document.getElementById('vclk4MinuteHand');
   if (hourEl && minEl) {
-    const { hour, minute } = getHourMinuteInTz4p(tz);
+    const { hour, minute } = clock4pGetHourMinuteInTz(tz);
     hourEl.classList.add('clock-hand-preview');
     minEl.classList.add('clock-hand-preview');
-    setHandShortest4p(hourEl, ((hour % 12) + minute / 60) * 30);
-    setHandShortest4p(minEl, minute * 6);
+    clock4pSetHandShortest(hourEl, ((hour % 12) + minute / 60) * 30);
+    clock4pSetHandShortest(minEl, minute * 6);
     setTimeout(() => { hourEl.classList.remove('clock-hand-preview'); minEl.classList.remove('clock-hand-preview'); }, 1200);
   }
   updateTableClock4p();
 }
-function getHourMinuteInTz4p(tz) {
+function clock4pGetHourMinuteInTz(tz) {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date());
   const h = parseInt(parts.find(p => p.type === 'hour').value, 10);
   const m = parseInt(parts.find(p => p.type === 'minute').value, 10);
   return { hour: h, minute: m };
 }
 
-function wireCityClicks4p() {
+function clock4pWireCityClicks() {
   if (clock4pCityClicksWired) return;
   const labels = document.querySelectorAll('.vclk4CityLabel');
   const overlay = document.getElementById('vclk4FaceClickOverlay');
   if (!labels.length && !overlay) return;
   clock4pCityClicksWired = true;
-  const cityNames = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
+  const cityNames = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', KIR: 'Kiritimati', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
   function showCityTime(code, tz, lat, lon) {
     try {
       const timeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });
       showToast('🌍 ' + (cityNames[code] || code) + ': ' + timeStr, 'info', 2500);
-      selectCity4p(code, tz, lat, lon);
+      clock4pSelectCity(code, tz, lat, lon);
     } catch (e) {}
   }
   labels.forEach(el => {
@@ -9993,9 +9994,9 @@ function wireCityClicks4p() {
       showCityTime(el.getAttribute('data-code'), el.getAttribute('data-tz'), lat, lon);
     });
   });
-  if (overlay) {
-    overlay.addEventListener('click', () => showCityTime('NYC', 'America/New_York', 40.7128, -74.006));
-  }
+  // Tapping a blank part of the dial does nothing — New York only shows
+  // when its own city marker (at 12) is actually tapped, same as any
+  // other city. No silent "everything defaults to NYC" fallback.
 
   const moonClick = document.getElementById('vclk4MoonClick');
   if (moonClick) {
@@ -10015,7 +10016,8 @@ function wireCityClicks4p() {
         showToast('🌦️ Weather still loading...', 'info', 2000);
         return;
       }
-      showToast('🌦️ ' + clock4pSelectedCity.code + ': ' + Math.round(clock4pLastWeather.temp) + '°F, ' + weatherDesc4p(clock4pLastWeather.code), 'info', 3000);
+      const cityLabel = cityNames[clock4pSelectedCity.code] || clock4pSelectedCity.code;
+      showToast('🌦️ ' + cityLabel + ': ' + Math.round(clock4pLastWeather.temp) + '°F, ' + clock4pWeatherDesc(clock4pLastWeather.code), 'info', 3000);
     });
   }
   const leapClick = document.getElementById('vclk4LeapClick');
@@ -10032,26 +10034,31 @@ function wireCityClicks4p() {
   }
 }
 
-let clock4pLastCityCode = null;
-function updateClock4pComplications(nowInCity, city) {
+let clock4pClockLastCityCode = null;
+function clock4pUpdateClockComplications(nowInCity, city) {
   const cityParts = new Intl.DateTimeFormat('en-US', { timeZone: city.tz, year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short' }).formatToParts(new Date());
   const cityDay = cityParts.find(p => p.type === 'day').value;
   const cityYear = parseInt(cityParts.find(p => p.type === 'year').value, 10);
   const cityWeekday = cityParts.find(p => p.type === 'weekday').value.toUpperCase();
   const dayNum = cityYear * 1000 + parseInt(cityDay, 10);
-  if (dayNum === clock4pLastDay && city.code === clock4pLastCityCode) return;
-  clock4pLastDay = dayNum;
-  clock4pLastCityCode = city.code;
+  if (dayNum === clock4pClockLastDay && city.code === clock4pClockLastCityCode) return;
+  clock4pClockLastDay = dayNum;
+  clock4pClockLastCityCode = city.code;
   const dayEl = document.getElementById('vclk4DayText'), dateEl = document.getElementById('vclk4DateText');
   if (dayEl) dayEl.textContent = cityWeekday;
   if (dateEl) dateEl.textContent = cityDay;
+  // Simple synodic-month approximation: known new moon reference
+  // (Jan 6, 2000 18:14 UTC) plus the 29.53059-day cycle length. This is
+  // a real astronomical fact, so it's the same regardless of which
+  // city's clock is being shown — computed from the actual current
+  // moment, not the selected city's local calendar.
   const now = new Date();
   const synodic = 29.530588853;
   const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14);
   const daysSince = (now.getTime() - knownNewMoon) / 86400000;
   const phase = ((daysSince % synodic) + synodic) % synodic / synodic;
   const shadowEl = document.getElementById('vclk4MoonShadow');
-  if (shadowEl) shadowEl.setAttribute('d', moonPath4p(phase, 100, 140, 11));
+  if (shadowEl) shadowEl.setAttribute('d', clock4pMoonPath(phase, 100, 140, 11));
   clock4pLastMoonPhase = phase;
 
   const isLeap = (cityYear % 4 === 0 && cityYear % 100 !== 0) || (cityYear % 400 === 0);
@@ -10061,8 +10068,11 @@ function updateClock4pComplications(nowInCity, city) {
   if (leapLblEl) leapLblEl.setAttribute('fill', isLeap ? '#2e7d32' : '#6b4a12');
 }
 
+// One-time weather fetch (Open-Meteo — free, no API key) for New York,
+// refreshed roughly hourly. Fails silently and leaves the placeholder if
+// there's no network access, rather than blocking anything.
 let clock4pWeatherFetched = false;
-function weatherIcon4p(code) {
+function clock4pWeatherIcon(code) {
   if (code === 0) return '☀️';
   if (code <= 2) return '🌤️';
   if (code === 3) return '☁️';
@@ -10072,7 +10082,7 @@ function weatherIcon4p(code) {
   if (code >= 95) return '⛈️';
   return '🌤️';
 }
-function weatherDesc4p(code) {
+function clock4pWeatherDesc(code) {
   if (code === 0) return 'Clear sky';
   if (code <= 2) return 'Partly cloudy';
   if (code === 3) return 'Overcast';
@@ -10083,7 +10093,7 @@ function weatherDesc4p(code) {
   if (code >= 95) return 'Thunderstorm';
   return 'Fair';
 }
-function fetchWeather4p() {
+function clock4pFetchWeather() {
   const lat = clock4pSelectedCity.lat, lon = clock4pSelectedCity.lon;
   fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code&temperature_unit=fahrenheit')
     .then(r => r.json())
@@ -10093,23 +10103,26 @@ function fetchWeather4p() {
       const tempEl = document.getElementById('vclk4WeatherTemp');
       if (tempEl && typeof t === 'number') tempEl.textContent = Math.round(t) + '\u00B0F';
       const iconEl = document.getElementById('vclk4WeatherIcon');
-      if (iconEl) iconEl.textContent = weatherIcon4p(code);
+      if (iconEl) iconEl.textContent = clock4pWeatherIcon(code);
       clock4pLastWeather = { temp: t, code: code };
     })
     .catch(() => {});
 }
-function maybeFetchWeather4p() {
+function clock4pMaybeFetchWeather() {
   if (clock4pWeatherFetched) return;
   clock4pWeatherFetched = true;
-  fetchWeather4p();
-  setInterval(fetchWeather4p, 60 * 60 * 1000);
+  clock4pFetchWeather();
+  setInterval(clock4pFetchWeather, 60 * 60 * 1000);
 }
 
-// One combined lookup for both the dial face AND the hands — always
-// deliberately complementary (light hands on dark dial, dark hands on
-// light dial). True black at night, true white through the day, warm
+// Hands shift color with the time of day: whitish through the morning,
+// a warm amber for evening, back to the standard dark wood tone for the
+// One combined lookup for both the dial face AND the hands, so they're
+// always deliberately complementary — light hands on a dark dial, dark
+// hands on a light one — rather than two systems that could drift out
+// of sync. True black at night, true white through the day, with warm
 // transitional tones for dawn and evening.
-function colorsForHour4p(hour) {
+function clock4pColorsForHour(hour) {
   if (hour >= 21 || hour < 5) {
     return { face: ['#2a241a', '#1a1610', '#0c0a06'], hand: ['#f5f0e0', '#e0d5b8'] }; // night — black
   } else if (hour >= 5 && hour < 7) {
@@ -10121,10 +10134,10 @@ function colorsForHour4p(hour) {
   }
 }
 let clock4pLastColorHour = -1;
-function updateClock4pColors(hour) {
+function clock4pUpdateClockColors(hour) {
   if (hour === clock4pLastColorHour) return;
   clock4pLastColorHour = hour;
-  const { face, hand } = colorsForHour4p(hour);
+  const { face, hand } = clock4pColorsForHour(hour);
   const s1 = document.getElementById('vclk4HandGradStop1'), s2 = document.getElementById('vclk4HandGradStop2');
   if (s1) s1.setAttribute('stop-color', hand[0]);
   if (s2) s2.setAttribute('stop-color', hand[1]);
@@ -10136,8 +10149,11 @@ function updateClock4pColors(hour) {
   }
 }
 
+// The clock always shows ONE city's time — New York by default, or
+// whichever city was last tapped. This persists until a different city
+// is tapped; it does not auto-revert.
 let clock4pSelectedCity = { code: 'NYC', tz: 'America/New_York', lat: 40.7128, lon: -74.006 };
-function getNowInTz4p(tz) {
+function clock4pGetNowInTz(tz) {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23' }).formatToParts(new Date());
   return {
     hour: parseInt(parts.find(p => p.type === 'hour').value, 10),
@@ -10146,13 +10162,12 @@ function getNowInTz4p(tz) {
   };
 }
 
-function updateTableClock4p(){
-  wireCityClicks4p();
-  maybeFetchWeather4p();
-  const nowInCity = getNowInTz4p(clock4pSelectedCity.tz);
-  updateHandColors4p(nowInCity.hour);
-  updateDialColors4p(nowInCity.hour);
-  updateClock4pComplications(nowInCity, clock4pSelectedCity);
+function updateTableClock4p() {
+  clock4pWireCityClicks();
+  clock4pMaybeFetchWeather();
+  const nowInCity = clock4pGetNowInTz(clock4pSelectedCity.tz);
+  clock4pUpdateClockColors(nowInCity.hour);
+  clock4pUpdateClockComplications(nowInCity, clock4pSelectedCity);
   const hourEl = document.getElementById('vclk4HourHand'), minEl = document.getElementById('vclk4MinuteHand'), secEl = document.getElementById('vclk4SecondHand');
   if (!hourEl || !minEl) return;
   const hourAngle = ((nowInCity.hour % 12) + nowInCity.minute / 60) * 30;
@@ -10163,17 +10178,17 @@ function updateTableClock4p(){
   if (secEl) secEl.setAttribute('transform', 'rotate(' + secAngle + ' 100 100)');
 
   const minuteMark = nowInCity.hour * 60 + nowInCity.minute;
-  if (clock4pLastMinuteMark !== -1 && minuteMark !== clock4pLastMinuteMark) {
-    flashClockHand4p(secEl);
-    flashClockHand4p(minEl);
+  if (clock4pClockLastMinuteMark !== -1 && minuteMark !== clock4pClockLastMinuteMark) {
+    clock4pFlashClockHand(secEl);
+    clock4pFlashClockHand(minEl);
   }
-  clock4pLastMinuteMark = minuteMark;
+  clock4pClockLastMinuteMark = minuteMark;
 
   const hourMark = nowInCity.hour;
-  if (clock4pLastHourMark !== -1 && hourMark !== clock4pLastHourMark) {
-    flashClockHand4p(hourEl);
+  if (clock4pClockLastHourMark !== -1 && hourMark !== clock4pClockLastHourMark) {
+    clock4pFlashClockHand(hourEl);
   }
-  clock4pLastHourMark = hourMark;
+  clock4pClockLastHourMark = hourMark;
 }
 updateTableClock4p();
 setInterval(updateTableClock4p, 1000);
