@@ -92,6 +92,7 @@ function sixpPreviewCityOnHands(hour24, minute) {
     const now = new Date();
     sixpSetHandShortest(hourEl, ((now.getHours() % 12) + now.getMinutes() / 60) * 30);
     sixpSetHandShortest(minEl, now.getMinutes() * 6);
+    sixpRevertComplicationsToLocal();
     sixpClockPreviewTimer = setTimeout(() => {
       hourEl.classList.remove('clock-hand-preview');
       minEl.classList.remove('clock-hand-preview');
@@ -106,6 +107,37 @@ function sixpGetHourMinuteInTz(tz) {
   const m = parseInt(parts.find(p => p.type === 'minute').value, 10);
   return { hour: h, minute: m };
 }
+// While previewing a city, the day/date window and weather window show
+// THAT city's info too — the whole clock, not just the hands. Forces a
+// fresh complications recompute on the next real tick once the preview
+// ends, so everything settles back to local/NYC.
+function sixpRevertComplicationsToLocal() {
+  sixpClockLastDay = -1;
+  sixpFetchWeather();
+}
+function sixpShowCityComplications(tz, lat, lon) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', day: 'numeric' }).formatToParts(new Date());
+    const wk = parts.find(p => p.type === 'weekday').value.toUpperCase();
+    const dy = parts.find(p => p.type === 'day').value;
+    const dayEl = document.getElementById('vclk6DayText'), dateEl = document.getElementById('vclk6DateText');
+    if (dayEl) dayEl.textContent = wk;
+    if (dateEl) dateEl.textContent = dy;
+  } catch (e) {}
+  if (typeof lat === 'number' && typeof lon === 'number') {
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code&temperature_unit=fahrenheit')
+      .then(r => r.json())
+      .then(data => {
+        const t = data && data.current && data.current.temperature_2m;
+        const code = data && data.current && data.current.weather_code;
+        const tempEl = document.getElementById('vclk6WeatherTemp');
+        if (tempEl && typeof t === 'number') tempEl.textContent = Math.round(t) + '\u00B0F';
+        const iconEl = document.getElementById('vclk6WeatherIcon');
+        if (iconEl) iconEl.textContent = sixpWeatherIcon(code);
+      })
+      .catch(() => {});
+  }
+}
 
 function sixpWireCityClicks() {
   if (sixpCityClicksWired) return;
@@ -114,24 +146,27 @@ function sixpWireCityClicks() {
   if (!labels.length && !overlay) return;
   sixpCityClicksWired = true;
   const cityNames = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', KIR: 'Kiritimati', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
-  function showCityTime(code, tz) {
+  function showCityTime(code, tz, lat, lon) {
     try {
       const timeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });
       showToast('🌍 ' + (cityNames[code] || code) + ': ' + timeStr, 'info', 2500);
       const { hour, minute } = sixpGetHourMinuteInTz(tz);
       sixpPreviewCityOnHands(hour, minute);
+      sixpShowCityComplications(tz, lat, lon);
     } catch (e) {}
   }
   labels.forEach(el => {
     el.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      showCityTime(el.getAttribute('data-code'), el.getAttribute('data-tz'));
+      const lat = parseFloat(el.getAttribute('data-lat'));
+      const lon = parseFloat(el.getAttribute('data-lon'));
+      showCityTime(el.getAttribute('data-code'), el.getAttribute('data-tz'), lat, lon);
     });
   });
   // Tapping anywhere else on the dial (not a specific city) defaults to
   // New York — the clock's "home" city, sitting at 12 on the ring.
   if (overlay) {
-    overlay.addEventListener('click', () => showCityTime('NYC', 'America/New_York'));
+    overlay.addEventListener('click', () => showCityTime('NYC', 'America/New_York', 40.7128, -74.006));
   }
 
   const moonClick = document.getElementById('vclk6MoonClick');
