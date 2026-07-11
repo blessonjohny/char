@@ -1267,6 +1267,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .clock-side-box.leap-active .csb-lbl{color:#4ade80}
 .clock-side-box.leap-active{border-color:rgba(74,222,128,0.45)}
 .clock-hand-flash{animation:clockHandFlash4p 0.7s ease}
+.clock-hand-preview{transition:transform 1.1s cubic-bezier(0.4,0,0.2,1)!important}
 @keyframes clockHandFlash4p{0%{filter:brightness(1)}30%{filter:brightness(2.2) drop-shadow(0 0 7px rgba(255,215,0,1))}100%{filter:brightness(1)}}
 /* The oval "table" itself — a distinct object with its own rail, sized to
    spill slightly outside the center grid cell so it clearly reads as a
@@ -2718,20 +2719,20 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <text id="vclk4DayText" x="89.5" y="62.5" font-family="Georgia, serif" font-size="6.4" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
 <rect x="102" y="56.0" width="14" height="12" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
 <text id="vclk4DateText" x="109.0" y="62.5" font-family="Georgia, serif" font-size="6.8" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
-<circle id="vclk4FaceClickOverlay" cx="100" cy="100" r="92" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
+<circle id="vclk4FaceClickOverlay" cx="100" cy="100" r="92" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
 <circle cx="100" cy="138" r="13" fill="none" stroke="#8a6218" stroke-width="0.8" opacity="0.6"/>
 <circle id="vclk4MoonBg" cx="100" cy="138" r="10" fill="#efe6c8"/>
 <path id="vclk4MoonShadow" d="" fill="#1a2035"/>
 <circle cx="100" cy="138" r="10" fill="none" stroke="#3d2a08" stroke-width="0.7"/>
-<circle id="vclk4MoonClick" cx="100" cy="138" r="14" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
+<circle id="vclk4MoonClick" cx="100" cy="138" r="14" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
 <rect x="125.0" y="92.5" width="30" height="15" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
 <text id="vclk4WeatherIcon" x="131.0" y="100.5" font-size="8" text-anchor="middle" dominant-baseline="central">☀</text>
 <text id="vclk4WeatherTemp" x="145.0" y="100.5" font-family="Georgia, serif" font-size="6.3" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--°F</text>
-<rect id="vclk4WeatherClick" x="125.0" y="92.5" width="30" height="15" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
+<rect id="vclk4WeatherClick" x="125.0" y="92.5" width="30" height="15" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
 <rect x="45.0" y="92.5" width="30" height="15" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
 <text id="vclk4LeapYear" x="60.0" y="97.5" font-family="Georgia, serif" font-size="6" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">----</text>
 <text id="vclk4LeapLbl" x="60.0" y="104.5" font-family="Georgia, serif" font-size="4.6" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central">--</text>
-<rect id="vclk4LeapClick" x="45.0" y="92.5" width="30" height="15" fill="transparent" style="pointer-events:auto;cursor:pointer"/>
+<rect id="vclk4LeapClick" x="45.0" y="92.5" width="30" height="15" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
 <circle cx="100" cy="100" r="7" fill="url(#vclk4Bezel)" stroke="#3d2a08" stroke-width="0.8"/>
 <circle cx="100" cy="100" r="2.4" fill="#3d2a08"/>
 <g id="vclk4HourHand" transform="rotate(0 100 100)">
@@ -2746,15 +2747,30 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </g>
 <circle cx="100" cy="100" r="2.4" fill="#1a1206"/>
 </g>
-<text class="vclk4CityLabel" data-tz="America/New_York" data-code="NYC" x="100.0" y="22.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">NYC</text>
-<text class="vclk4CityLabel" data-tz="Europe/London" data-code="LON" x="139.0" y="32.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">LON</text>
-<text class="vclk4CityLabel" data-tz="Europe/Paris" data-code="PAR" x="167.5" y="61.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">PAR</text>
-<text class="vclk4CityLabel" data-tz="Europe/Istanbul" data-code="IST" x="167.5" y="139.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">IST</text>
-<text class="vclk4CityLabel" data-tz="Asia/Dubai" data-code="DXB" x="139.0" y="167.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">DXB</text>
-<text class="vclk4CityLabel" data-tz="Pacific/Kiritimati" data-code="KIR" x="61.0" y="167.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">KIR</text>
-<text class="vclk4CityLabel" data-tz="Asia/Kolkata" data-code="KOC" x="32.5" y="139.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">KOC</text>
-<text class="vclk4CityLabel" data-tz="Asia/Shanghai" data-code="BEI" x="32.5" y="61.0" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">BEI</text>
-<text class="vclk4CityLabel" data-tz="Asia/Tokyo" data-code="TOK" x="61.0" y="32.5" font-family="Georgia, serif" font-size="7" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:auto;cursor:pointer">TOK</text>
+<circle class="vclk4CityLabel" data-tz="America/New_York" data-code="NYC" cx="100.0" cy="22.0" r="7.5" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
+<text data-tz="America/New_York" data-code="NYC" x="100.0" y="22.0" font-family="Georgia, serif" font-size="6.5" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:none">NYC</text>
+<circle class="vclk4CityLabel" data-tz="America/Chicago" data-code="CHI" cx="120.2" cy="20.7" r="7.5" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
+<text data-tz="America/Chicago" data-code="CHI" x="120.2" y="20.7" font-family="Georgia, serif" font-size="6.5" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:none">CHI</text>
+<circle class="vclk4CityLabel" data-tz="America/Chicago" data-code="DAL" cx="120.2" cy="28.7" r="7.5" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
+<text data-tz="America/Chicago" data-code="DAL" x="120.2" y="28.7" font-family="Georgia, serif" font-size="6.5" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:none">DAL</text>
+<circle class="vclk4CityLabel" data-tz="Europe/London" data-code="LON" cx="139.0" cy="32.5" r="7.5" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
+<text data-tz="Europe/London" data-code="LON" x="139.0" y="32.5" font-family="Georgia, serif" font-size="6.5" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:none">LON</text>
+<circle class="vclk4CityLabel" data-tz="Europe/Paris" data-code="PAR" cx="167.5" cy="61.0" r="7.5" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
+<text data-tz="Europe/Paris" data-code="PAR" x="167.5" y="61.0" font-family="Georgia, serif" font-size="6.5" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:none">PAR</text>
+<circle class="vclk4CityLabel" data-tz="Europe/Istanbul" data-code="IST" cx="167.5" cy="139.0" r="7.5" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
+<text data-tz="Europe/Istanbul" data-code="IST" x="167.5" y="139.0" font-family="Georgia, serif" font-size="6.5" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:none">IST</text>
+<circle class="vclk4CityLabel" data-tz="Asia/Dubai" data-code="DXB" cx="139.0" cy="167.5" r="7.5" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
+<text data-tz="Asia/Dubai" data-code="DXB" x="139.0" y="167.5" font-family="Georgia, serif" font-size="6.5" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:none">DXB</text>
+<circle class="vclk4CityLabel" data-tz="Pacific/Kiritimati" data-code="KIR" cx="61.0" cy="167.5" r="7.5" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
+<text data-tz="Pacific/Kiritimati" data-code="KIR" x="61.0" y="167.5" font-family="Georgia, serif" font-size="6.5" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:none">KIR</text>
+<circle class="vclk4CityLabel" data-tz="Asia/Kolkata" data-code="KOC" cx="32.5" cy="139.0" r="7.5" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
+<text data-tz="Asia/Kolkata" data-code="KOC" x="32.5" y="139.0" font-family="Georgia, serif" font-size="6.5" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:none">KOC</text>
+<circle class="vclk4CityLabel" data-tz="Asia/Shanghai" data-code="BEI" cx="32.5" cy="61.0" r="7.5" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
+<text data-tz="Asia/Shanghai" data-code="BEI" x="32.5" y="61.0" font-family="Georgia, serif" font-size="6.5" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:none">BEI</text>
+<circle class="vclk4CityLabel" data-tz="Asia/Tokyo" data-code="TOK" cx="61.0" cy="32.5" r="7.5" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
+<text data-tz="Asia/Tokyo" data-code="TOK" x="61.0" y="32.5" font-family="Georgia, serif" font-size="6.5" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:none">TOK</text>
+<circle class="vclk4CityLabel" data-tz="America/Los_Angeles" data-code="VGS" cx="79.8" cy="24.7" r="7.5" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
+<text data-tz="America/Los_Angeles" data-code="VGS" x="79.8" y="24.7" font-family="Georgia, serif" font-size="6.5" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central" opacity="0.8" style="pointer-events:none">VGS</text>
 </svg>
       </div>
       <div class="cross">
@@ -9909,6 +9925,54 @@ function moonPath4p(phase, cx, cy, R) {
 // Tapping a city on the ring shows its current local time in a toast —
 // wired once, the first time the clock SVG is actually in the DOM.
 let clock4pCityClicksWired = false;
+// Animates the hour/minute hands to actually show a clicked city's
+// time for a few seconds, then eases back to real local time, always
+// via the shortest rotation direction.
+let clock4pPreviewActive = false;
+let clock4pPreviewTimer = null;
+function getCurrentHandAngle4p(el) {
+  const t = el.getAttribute('transform') || '';
+  const m = t.match(/rotate\(([-\d.]+)/);
+  return m ? parseFloat(m[1]) : 0;
+}
+function setHandShortest4p(el, targetDeg) {
+  const cur = getCurrentHandAngle4p(el);
+  const curNorm = ((cur % 360) + 360) % 360;
+  const tgtNorm = ((targetDeg % 360) + 360) % 360;
+  let diff = tgtNorm - curNorm;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  el.setAttribute('transform', 'rotate(' + (cur + diff) + ' 100 100)');
+}
+function previewCityOnHands4p(hour24, minute) {
+  const hourEl = document.getElementById('vclk4HourHand');
+  const minEl = document.getElementById('vclk4MinuteHand');
+  if (!hourEl || !minEl) return;
+  if (clock4pPreviewTimer) { clearTimeout(clock4pPreviewTimer); clock4pPreviewTimer = null; }
+  clock4pPreviewActive = true;
+  hourEl.classList.add('clock-hand-preview');
+  minEl.classList.add('clock-hand-preview');
+  setHandShortest4p(hourEl, ((hour24 % 12) + minute / 60) * 30);
+  setHandShortest4p(minEl, minute * 6);
+  clock4pPreviewTimer = setTimeout(() => {
+    const now = new Date();
+    setHandShortest4p(hourEl, ((now.getHours() % 12) + now.getMinutes() / 60) * 30);
+    setHandShortest4p(minEl, now.getMinutes() * 6);
+    clock4pPreviewTimer = setTimeout(() => {
+      hourEl.classList.remove('clock-hand-preview');
+      minEl.classList.remove('clock-hand-preview');
+      clock4pPreviewActive = false;
+      clock4pPreviewTimer = null;
+    }, 1200);
+  }, 3200);
+}
+function getHourMinuteInTz4p(tz) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date());
+  const h = parseInt(parts.find(p => p.type === 'hour').value, 10);
+  const m = parseInt(parts.find(p => p.type === 'minute').value, 10);
+  return { hour: h, minute: m };
+}
+
 function wireCityClicks4p() {
   if (clock4pCityClicksWired) return;
   const labels = document.querySelectorAll('.vclk4CityLabel');
@@ -9920,6 +9984,8 @@ function wireCityClicks4p() {
     try {
       const timeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });
       showToast('🌍 ' + (cityNames[code] || code) + ': ' + timeStr, 'info', 2500);
+      const { hour, minute } = getHourMinuteInTz4p(tz);
+      previewCityOnHands4p(hour, minute);
     } catch (e) {}
   }
   labels.forEach(el => {
@@ -10063,8 +10129,10 @@ function updateTableClock4p(){
   const hourAngle = ((now.getHours() % 12) + now.getMinutes() / 60) * 30;
   const minAngle = now.getMinutes() * 6;
   const secAngle = now.getSeconds() * 6;
-  hourEl.setAttribute('transform', 'rotate(' + hourAngle + ' 100 100)');
-  minEl.setAttribute('transform', 'rotate(' + minAngle + ' 100 100)');
+  if (!clock4pPreviewActive) {
+    hourEl.setAttribute('transform', 'rotate(' + hourAngle + ' 100 100)');
+    minEl.setAttribute('transform', 'rotate(' + minAngle + ' 100 100)');
+  }
   if (secEl) secEl.setAttribute('transform', 'rotate(' + secAngle + ' 100 100)');
 
   const minuteMark = now.getHours() * 60 + now.getMinutes();

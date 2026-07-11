@@ -58,6 +58,55 @@ function sixpMoonPath(phase, cx, cy, R) {
 // Tapping a city on the ring shows its current local time in a toast —
 // wired once, the first time the clock SVG is actually in the DOM.
 let sixpCityClicksWired = false;
+// Animates the hour/minute hands to actually show a clicked city's
+// time for a few seconds, then eases them back to real local time —
+// always via the shortest rotation direction so they never spin the
+// long way around.
+let sixpClockPreviewActive = false;
+let sixpClockPreviewTimer = null;
+function sixpGetCurrentHandAngle(el) {
+  const t = el.getAttribute('transform') || '';
+  const m = t.match(/rotate\(([-\d.]+)/);
+  return m ? parseFloat(m[1]) : 0;
+}
+function sixpSetHandShortest(el, targetDeg) {
+  const cur = sixpGetCurrentHandAngle(el);
+  const curNorm = ((cur % 360) + 360) % 360;
+  const tgtNorm = ((targetDeg % 360) + 360) % 360;
+  let diff = tgtNorm - curNorm;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  el.setAttribute('transform', 'rotate(' + (cur + diff) + ' 100 100)');
+}
+function sixpPreviewCityOnHands(hour24, minute) {
+  const hourEl = document.getElementById('vclk6HourHand');
+  const minEl = document.getElementById('vclk6MinuteHand');
+  if (!hourEl || !minEl) return;
+  if (sixpClockPreviewTimer) { clearTimeout(sixpClockPreviewTimer); sixpClockPreviewTimer = null; }
+  sixpClockPreviewActive = true;
+  hourEl.classList.add('clock-hand-preview');
+  minEl.classList.add('clock-hand-preview');
+  sixpSetHandShortest(hourEl, ((hour24 % 12) + minute / 60) * 30);
+  sixpSetHandShortest(minEl, minute * 6);
+  sixpClockPreviewTimer = setTimeout(() => {
+    const now = new Date();
+    sixpSetHandShortest(hourEl, ((now.getHours() % 12) + now.getMinutes() / 60) * 30);
+    sixpSetHandShortest(minEl, now.getMinutes() * 6);
+    sixpClockPreviewTimer = setTimeout(() => {
+      hourEl.classList.remove('clock-hand-preview');
+      minEl.classList.remove('clock-hand-preview');
+      sixpClockPreviewActive = false;
+      sixpClockPreviewTimer = null;
+    }, 1200);
+  }, 3200);
+}
+function sixpGetHourMinuteInTz(tz) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date());
+  const h = parseInt(parts.find(p => p.type === 'hour').value, 10);
+  const m = parseInt(parts.find(p => p.type === 'minute').value, 10);
+  return { hour: h, minute: m };
+}
+
 function sixpWireCityClicks() {
   if (sixpCityClicksWired) return;
   const labels = document.querySelectorAll('.vclk6CityLabel');
@@ -69,6 +118,8 @@ function sixpWireCityClicks() {
     try {
       const timeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });
       showToast('🌍 ' + (cityNames[code] || code) + ': ' + timeStr, 'info', 2500);
+      const { hour, minute } = sixpGetHourMinuteInTz(tz);
+      sixpPreviewCityOnHands(hour, minute);
     } catch (e) {}
   }
   labels.forEach(el => {
@@ -219,8 +270,10 @@ function updateTableClock() {
   const hourAngle = ((now.getHours() % 12) + now.getMinutes() / 60) * 30;
   const minAngle = now.getMinutes() * 6;
   const secAngle = now.getSeconds() * 6;
-  hourEl.setAttribute('transform', 'rotate(' + hourAngle + ' 100 100)');
-  minEl.setAttribute('transform', 'rotate(' + minAngle + ' 100 100)');
+  if (!sixpClockPreviewActive) {
+    hourEl.setAttribute('transform', 'rotate(' + hourAngle + ' 100 100)');
+    minEl.setAttribute('transform', 'rotate(' + minAngle + ' 100 100)');
+  }
   if (secEl) secEl.setAttribute('transform', 'rotate(' + secAngle + ' 100 100)');
 
   const minuteMark = now.getHours() * 60 + now.getMinutes();
