@@ -877,7 +877,7 @@ const SLOT_POS = [
 // card just piling into one static row in the dead middle.
 const TRICK_SLOT_POS = SLOT_POS.map(p => {
   const l = parseFloat(p.left), t = parseFloat(p.top);
-  return { left: (l + (50 - l) * 0.72) + '%', top: (t + (50 - t) * 0.72) + '%' };
+  return { left: (l + (50 - l) * 0.55) + '%', top: (t + (50 - t) * 0.55) + '%' };
 });
 function ensureSeatPositions() {
   for (let slot = 0; slot < 6; slot++) {
