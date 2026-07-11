@@ -146,7 +146,7 @@ function sixpWireCityClicks() {
         return;
       }
       const cityLabel = cityNames[sixpSelectedCity.code] || sixpSelectedCity.code;
-      showToast('🌦️ ' + cityLabel + ': ' + Math.round(sixpLastWeather.temp) + '°F, ' + sixpWeatherDesc(sixpLastWeather.code), 'info', 3000);
+      showToast(sixpWeatherIcon(sixpLastWeather.code) + ' ' + cityLabel + ': ' + Math.round(sixpLastWeather.temp) + '°F, ' + sixpWeatherDesc(sixpLastWeather.code), 'info', 3000);
     });
   }
   const leapClick = document.getElementById('vclk6LeapClick');
@@ -202,6 +202,7 @@ function sixpUpdateClockComplications(nowInCity, city) {
 // there's no network access, rather than blocking anything.
 let sixpWeatherFetched = false;
 function sixpWeatherIcon(code) {
+  code = Number(code);
   if (code === 0) return '☀️';
   if (code <= 2) return '🌤️';
   if (code === 3) return '☁️';
@@ -212,6 +213,7 @@ function sixpWeatherIcon(code) {
   return '🌤️';
 }
 function sixpWeatherDesc(code) {
+  code = Number(code);
   if (code === 0) return 'Clear sky';
   if (code <= 2) return 'Partly cloudy';
   if (code === 3) return 'Overcast';
