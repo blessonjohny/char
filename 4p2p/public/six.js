@@ -864,12 +864,12 @@ function applyState(state) {
 function slotFor(pos) { return (pos - MY_POS + 6) % 6; }
 // Hexagon layout, slot 0 (me) at the bottom-center.
 const SLOT_POS = [
-  { left: '50%', top: '92%' },   // 0 me
-  { left: '84%', top: '76%' },   // 1
-  { left: '84%', top: '22%' },   // 2
-  { left: '50%', top: '10%' },   // 3
-  { left: '16%', top: '22%' },   // 4
-  { left: '16%', top: '76%' }    // 5
+  { left: '50%', top: '90%' },   // 0 me
+  { left: '80%', top: '74%' },   // 1
+  { left: '80%', top: '28%' },   // 2
+  { left: '50%', top: '16%' },   // 3
+  { left: '20%', top: '28%' },   // 4
+  { left: '20%', top: '74%' }    // 5
 ];
 // Each played card sits about 55% of the way from that seat toward the
 // center of the table — radiating in front of whoever played it, same
