@@ -123,11 +123,9 @@ function sixpWireCityClicks() {
       showCityTime(el.getAttribute('data-code'), el.getAttribute('data-tz'), lat, lon);
     });
   });
-  // Tapping anywhere else on the dial (not a specific city) defaults to
-  // New York — the clock's "home" city, sitting at 12 on the ring.
-  if (overlay) {
-    overlay.addEventListener('click', () => showCityTime('NYC', 'America/New_York', 40.7128, -74.006));
-  }
+  // Tapping a blank part of the dial does nothing — New York only shows
+  // when its own city marker (at 12) is actually tapped, same as any
+  // other city. No silent "everything defaults to NYC" fallback.
 
   const moonClick = document.getElementById('vclk6MoonClick');
   if (moonClick) {
@@ -247,41 +245,35 @@ function sixpMaybeFetchWeather() {
 
 // Hands shift color with the time of day: whitish through the morning,
 // a warm amber for evening, back to the standard dark wood tone for the
-// rest of the day/night.
-let sixpLastHandColorHour = -1;
-function sixpHandColorsForHour(hour) {
-  if (hour >= 0 && hour < 12) return ['#f5f0e0', '#d9d0b0']; // AM — whitish
-  if (hour >= 17 && hour < 21) return ['#e08a3c', '#a8551a']; // evening — warm amber
-  return ['#3a2a12', '#1a1206']; // daytime PM / night — standard dark
+// One combined lookup for both the dial face AND the hands, so they're
+// always deliberately complementary — light hands on a dark dial, dark
+// hands on a light one — rather than two systems that could drift out
+// of sync. True black at night, true white through the day, with warm
+// transitional tones for dawn and evening.
+function sixpColorsForHour(hour) {
+  if (hour >= 21 || hour < 5) {
+    return { face: ['#2a241a', '#1a1610', '#0c0a06'], hand: ['#f5f0e0', '#e0d5b8'] }; // night — black
+  } else if (hour >= 5 && hour < 7) {
+    return { face: ['#e8c8a0', '#d4a870', '#b8875a'], hand: ['#3a2a12', '#1a1206'] }; // dawn — soft peach
+  } else if (hour >= 7 && hour < 17) {
+    return { face: ['#fdfbf5', '#f6efd8', '#e9dcc0'], hand: ['#1a1206', '#000000'] }; // day — white
+  } else {
+    return { face: ['#e8a860', '#cf8740', '#a76a28'], hand: ['#2a1a08', '#140b04'] }; // evening — amber
+  }
 }
-function sixpUpdateHandColors(hour) {
-  if (hour === sixpLastHandColorHour) return;
-  sixpLastHandColorHour = hour;
-  const [c1, c2] = sixpHandColorsForHour(hour);
+let sixpLastColorHour = -1;
+function sixpUpdateClockColors(hour) {
+  if (hour === sixpLastColorHour) return;
+  sixpLastColorHour = hour;
+  const { face, hand } = sixpColorsForHour(hour);
   const s1 = document.getElementById('vclk6HandGradStop1'), s2 = document.getElementById('vclk6HandGradStop2');
-  if (s1) s1.setAttribute('stop-color', c1);
-  if (s2) s2.setAttribute('stop-color', c2);
-}
-
-// The dial face itself shifts too — lighter, brighter ivory through the
-// day; a deeper, dimmer parchment tone once it's night in the city
-// currently shown.
-let sixpLastDialColorHour = -1;
-function sixpDialColorsForHour(hour) {
-  const isDay = hour >= 6 && hour < 18;
-  return isDay
-    ? ['#f7ecd0', '#eddcae', '#d8bd80']   // lighter, brighter face — daytime
-    : ['#cbb98a', '#a9945f', '#7a6538'];  // deeper, dimmer face — nighttime
-}
-function sixpUpdateDialColors(hour) {
-  if (hour === sixpLastDialColorHour) return;
-  sixpLastDialColorHour = hour;
-  const [c1, c2, c3] = sixpDialColorsForHour(hour);
+  if (s1) s1.setAttribute('stop-color', hand[0]);
+  if (s2) s2.setAttribute('stop-color', hand[1]);
   const stops = document.querySelectorAll('#vclk6Face stop');
   if (stops.length >= 3) {
-    stops[0].setAttribute('stop-color', c1);
-    stops[1].setAttribute('stop-color', c2);
-    stops[2].setAttribute('stop-color', c3);
+    stops[0].setAttribute('stop-color', face[0]);
+    stops[1].setAttribute('stop-color', face[1]);
+    stops[2].setAttribute('stop-color', face[2]);
   }
 }
 
@@ -302,8 +294,7 @@ function updateTableClock() {
   sixpWireCityClicks();
   sixpMaybeFetchWeather();
   const nowInCity = sixpGetNowInTz(sixpSelectedCity.tz);
-  sixpUpdateHandColors(nowInCity.hour);
-  sixpUpdateDialColors(nowInCity.hour);
+  sixpUpdateClockColors(nowInCity.hour);
   sixpUpdateClockComplications(nowInCity, sixpSelectedCity);
   const hourEl = document.getElementById('vclk6HourHand'), minEl = document.getElementById('vclk6MinuteHand'), secEl = document.getElementById('vclk6SecondHand');
   if (!hourEl || !minEl) return;
