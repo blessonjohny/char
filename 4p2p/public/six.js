@@ -864,12 +864,12 @@ function applyState(state) {
 function slotFor(pos) { return (pos - MY_POS + 6) % 6; }
 // Hexagon layout, slot 0 (me) at the bottom-center.
 const SLOT_POS = [
-  { left: '50%', top: '85%' },   // 0 me
-  { left: '76%', top: '70%' },   // 1
-  { left: '76%', top: '32%' },   // 2
-  { left: '50%', top: '20%' },   // 3
-  { left: '24%', top: '32%' },   // 4
-  { left: '24%', top: '70%' }    // 5
+  { left: '50%', top: '78%' },   // 0 me
+  { left: '73%', top: '68%' },   // 1
+  { left: '73%', top: '33%' },   // 2
+  { left: '50%', top: '23%' },   // 3
+  { left: '27%', top: '33%' },   // 4
+  { left: '27%', top: '68%' }    // 5
 ];
 // Each played card sits about 55% of the way from that seat toward the
 // center of the table — radiating in front of whoever played it, same
@@ -877,7 +877,7 @@ const SLOT_POS = [
 // card just piling into one static row in the dead middle.
 const TRICK_SLOT_POS = SLOT_POS.map(p => {
   const l = parseFloat(p.left), t = parseFloat(p.top);
-  return { left: (l + (50 - l) * 0.62) + '%', top: (t + (50 - t) * 0.62) + '%' };
+  return { left: (l + (50 - l) * 0.72) + '%', top: (t + (50 - t) * 0.72) + '%' };
 });
 function ensureSeatPositions() {
   for (let slot = 0; slot < 6; slot++) {
