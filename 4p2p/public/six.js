@@ -76,6 +76,39 @@ function sixpSetHandShortest(el, targetDeg) {
   if (diff < -180) diff += 360;
   el.setAttribute('transform', 'rotate(' + (cur + diff) + ' 100 100)');
 }
+// The 12 city markers sit 30° apart around the dial, in this clockwise
+// order starting from the 12 o'clock position (NYC's original spot).
+const SIXP_CITY_ORDER = ['NYC','LON','PAR','VGS','IST','DXB','CHI','KIR','KOC','DAL','BEI','TOK'];
+const SIXP_CITY_NAMES = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', KIR: 'Kiritimati', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
+const SIXP_RING_CENTER = 100, SIXP_RING_RADIUS = 78;
+// Rotates the whole ring of city markers so `selectedCode` lands at 12
+// o'clock. Only the marker that ends up at 12 shows its full city name
+// (e.g. "New York"); every other marker shows its 3-letter code.
+function sixpRotateCityRing(selectedCode) {
+  const homeIdx = SIXP_CITY_ORDER.indexOf(selectedCode);
+  if (homeIdx === -1) return;
+  const offsetDeg = -(homeIdx * 30);
+  document.querySelectorAll('.vclk6CityLabel, .vclk6CityText').forEach(el => {
+    const code = el.getAttribute('data-code');
+    const idx = SIXP_CITY_ORDER.indexOf(code);
+    if (idx === -1) return;
+    const angleDeg = ((idx * 30 + offsetDeg) % 360 + 360) % 360;
+    const rad = angleDeg * Math.PI / 180;
+    const cx = SIXP_RING_CENTER + SIXP_RING_RADIUS * Math.sin(rad);
+    const cy = SIXP_RING_CENTER - SIXP_RING_RADIUS * Math.cos(rad);
+    const isAtTwelve = (code === selectedCode);
+    if (el.classList.contains('vclk6CityLabel')) {
+      el.setAttribute('cx', cx.toFixed(2));
+      el.setAttribute('cy', cy.toFixed(2));
+    } else {
+      el.setAttribute('x', cx.toFixed(2));
+      el.setAttribute('y', cy.toFixed(2));
+      el.setAttribute('font-size', isAtTwelve ? '10.5' : '8.5');
+      el.setAttribute('font-weight', isAtTwelve ? '900' : '700');
+      el.textContent = isAtTwelve ? (SIXP_CITY_NAMES[code] || code) : code;
+    }
+  });
+}
 // Switches the whole clock over to a new city — hands, day/date, and
 // weather all update, and it STAYS there (no auto-revert) until a
 // different city is tapped.
@@ -83,6 +116,7 @@ function sixpSelectCity(code, tz, lat, lon) {
   sixpSelectedCity = { code, tz, lat, lon };
   sixpClockLastDay = -1; // force complications to recompute for the new city right away
   sixpFetchWeather();
+  sixpRotateCityRing(code);
   const hourEl = document.getElementById('vclk6HourHand'), minEl = document.getElementById('vclk6MinuteHand');
   if (hourEl && minEl) {
     const { hour, minute } = sixpGetHourMinuteInTz(tz);
@@ -107,7 +141,8 @@ function sixpWireCityClicks() {
   const overlay = document.getElementById('vclk6FaceClickOverlay');
   if (!labels.length && !overlay) return;
   sixpCityClicksWired = true;
-  const cityNames = { NYC: 'New York', LON: 'London', PAR: 'Paris', IST: 'Istanbul', DXB: 'Dubai', KIR: 'Kiritimati', KOC: 'Kochi', BEI: 'Beijing', TOK: 'Tokyo', VGS: 'Las Vegas', CHI: 'Chicago', DAL: 'Dallas' };
+  sixpRotateCityRing(sixpSelectedCity.code); // show the correct full name at 12 o'clock right away
+  const cityNames = SIXP_CITY_NAMES;
   function showCityTime(code, tz, lat, lon) {
     try {
       const timeStr = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });

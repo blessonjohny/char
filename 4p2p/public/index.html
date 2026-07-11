@@ -1337,7 +1337,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .table-clock{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(96px,26vh,175px);height:clamp(96px,26vh,175px);z-index:0;pointer-events:none;filter:drop-shadow(0 5px 4px rgba(0,0,0,0.5)) drop-shadow(0 12px 20px rgba(0,0,0,0.55))}
 .table-clock-rim{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(102px,27.5vh,184px);height:clamp(102px,27.5vh,184px);border-radius:50%;border:2px solid rgba(255,215,0,0.38);box-shadow:0 0 16px rgba(255,215,0,0.14)}
 #vclk4Svg{width:100% !important;height:100% !important}
-.vclk4CityLabel,.vclk4CityText{transition:cx 650ms cubic-bezier(0.34,1.2,0.4,1),cy 650ms cubic-bezier(0.34,1.2,0.4,1)}
+.vclk4CityLabel,.vclk4CityText{transition:cx 650ms cubic-bezier(0.34,1.2,0.4,1),cy 650ms cubic-bezier(0.34,1.2,0.4,1),x 650ms cubic-bezier(0.34,1.2,0.4,1),y 650ms cubic-bezier(0.34,1.2,0.4,1),font-size 400ms ease}
 .table-clock::before{content:'';position:absolute;top:54%;left:50%;transform:translate(-50%,-50%);width:150%;height:135%;background:radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.24) 42%, transparent 68%);z-index:-1;pointer-events:none}
 .clock-side-box{position:absolute;transform:translate(-50%,-50%);z-index:0;pointer-events:none;background:linear-gradient(160deg,rgba(255,215,0,0.18),rgba(255,215,0,0.06));border:1px solid rgba(255,215,0,0.32);border-radius:10px;padding:5px 9px;text-align:center;min-width:44px}
 .clock-side-box .csb-icon{font-size:0.85rem;line-height:1}
@@ -10081,7 +10081,8 @@ function clock4pRotateCityRing(selectedCode) {
     } else {
       el.setAttribute('x', cx.toFixed(2));
       el.setAttribute('y', cy.toFixed(2));
-      el.setAttribute('font-size', isAtTwelve ? '6.2' : '8.5');
+      el.setAttribute('font-size', isAtTwelve ? '10.5' : '8.5');
+      el.setAttribute('font-weight', isAtTwelve ? '900' : '700');
       el.textContent = isAtTwelve ? (CLOCK4P_CITY_NAMES[code] || code) : code;
     }
   });
