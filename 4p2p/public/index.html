@@ -10103,17 +10103,17 @@ function clock4pPlayWeatherAnimation(code) {
   let totalDuration = 2600;
 
   if (code === 0 || code <= 2) {
-    // Clear / partly cloudy — sun rays pulsing outward from center
+    // Clear / partly cloudy — bright, glowing sun rays pulsing outward
     for (let i = 0; i < 8; i++) {
       const ang = i * 45;
       clock4pMakeParticle(host,
-        'left:50%;top:50%;width:3px;height:34px;margin:-17px 0 0 -1.5px;transform-origin:50% 100%;background:linear-gradient(to top,rgba(255,210,90,0.95),transparent);border-radius:2px;--ang:' + ang + 'deg',
+        'left:50%;top:50%;width:4px;height:40px;margin:-20px 0 0 -2px;transform-origin:50% 100%;background:linear-gradient(to top,#ffd23f,#fff4c2);border-radius:3px;box-shadow:0 0 8px 2px rgba(255,200,60,0.85);--ang:' + ang + 'deg',
         'weatherSunRay', 1300, i * 60, 1);
     }
     if (code >= 1) {
       for (let i = 0; i < 3; i++) {
         clock4pMakeParticle(host,
-          'top:' + (30 + i * 25) + 'px;width:44px;height:16px;border-radius:50%;background:rgba(255,255,255,0.5);filter:blur(2px)',
+          'top:' + (28 + i * 26) + 'px;width:50px;height:20px;border-radius:50%;background:radial-gradient(ellipse at 35% 30%,#ffffff,#e4e9f0 70%);box-shadow:0 3px 6px rgba(0,0,0,0.15)',
           'weatherCloudDrift', 2400, i * 300, 1);
       }
       totalDuration = 2400;
@@ -10121,39 +10121,39 @@ function clock4pPlayWeatherAnimation(code) {
       totalDuration = 1300 + 8 * 60;
     }
   } else if (code === 3) {
-    // Overcast — soft drifting cloud puffs
+    // Overcast — solid, well-defined drifting cloud puffs
     for (let i = 0; i < 4; i++) {
       clock4pMakeParticle(host,
-        'top:' + (24 + i * 30) + 'px;width:56px;height:20px;border-radius:50%;background:rgba(210,210,210,0.55);filter:blur(2px)',
+        'top:' + (22 + i * 32) + 'px;width:62px;height:24px;border-radius:50%;background:radial-gradient(ellipse at 35% 30%,#e8ecf0,#b9c2cc 75%);box-shadow:0 3px 6px rgba(0,0,0,0.2)',
         'weatherCloudDrift', 2600, i * 260, 1);
     }
     totalDuration = 2600 + 4 * 260;
   } else if (code >= 45 && code <= 48) {
-    // Fog — slow, hazy, low-opacity bands
+    // Fog — soft but visible drifting bands
     for (let i = 0; i < 4; i++) {
       clock4pMakeParticle(host,
-        'top:' + (20 + i * 34) + 'px;width:200px;height:26px;left:0;background:rgba(230,230,230,0.35);filter:blur(4px)',
+        'top:' + (18 + i * 34) + 'px;width:200px;height:28px;left:0;background:linear-gradient(to bottom,rgba(220,226,232,0.75),rgba(220,226,232,0.15))',
         'weatherCloudDrift', 3400, i * 220, 1);
     }
     totalDuration = 3400 + 4 * 220;
   } else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95) {
-    // Rain / rain showers / thunderstorm — falling raindrops
+    // Rain / rain showers / thunderstorm — crisp, bright falling raindrops
     const dropCount = code >= 95 ? 16 : 12;
     for (let i = 0; i < dropCount; i++) {
       clock4pMakeParticle(host,
-        'left:' + (6 + Math.random() * 188) + 'px;top:-20px;width:2px;height:16px;background:linear-gradient(to bottom,transparent,rgba(120,180,255,0.9));border-radius:2px',
-        'weatherRainFall', 900 + Math.random() * 300, Math.random() * 900, 2);
+        'left:' + (6 + Math.random() * 188) + 'px;top:-20px;width:2.5px;height:20px;background:linear-gradient(to bottom,rgba(150,205,255,0.3),#bfe0ff);border-radius:2px;box-shadow:0 0 3px rgba(150,205,255,0.7)',
+        'weatherRainFall', 800 + Math.random() * 260, Math.random() * 900, 2);
     }
     if (code >= 95) {
-      clock4pMakeParticle(host, 'inset:0;background:#fff', 'weatherLightning', 1800, 100, 1);
+      clock4pMakeParticle(host, 'inset:0;background:linear-gradient(rgba(255,255,255,0.95),rgba(210,225,255,0.7))', 'weatherLightning', 1800, 100, 1);
     }
     totalDuration = 2400;
   } else if (code >= 71 && code <= 77) {
-    // Snow — drifting snowflakes
+    // Snow — bright, glowing snowflakes
     for (let i = 0; i < 14; i++) {
-      const size = 3 + Math.random() * 3;
+      const size = 5 + Math.random() * 3.5;
       clock4pMakeParticle(host,
-        'left:' + (6 + Math.random() * 188) + 'px;top:-16px;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:rgba(255,255,255,0.95)',
+        'left:' + (6 + Math.random() * 188) + 'px;top:-16px;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:#ffffff;box-shadow:0 0 6px 2px rgba(255,255,255,0.95)',
         'weatherSnowFall', 1800 + Math.random() * 500, Math.random() * 900, 1);
     }
     totalDuration = 2700;
