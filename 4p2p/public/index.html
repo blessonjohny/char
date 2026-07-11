@@ -4320,6 +4320,25 @@ function goHome() {
   const kingRow = document.getElementById('kingRow');
   if (kingRow) kingRow.style.display = 'none';
 
+  // Hide the online-room lobby screen (room code / players list / start
+  // game panel) — this one toggles via inline style, not the 'on' class
+  // the other overlays use below, so it needs its own line or "Leave
+  // Room" looks like it does nothing while this stays on top.
+  const lobbyEl = document.getElementById('lobbyScreen');
+  if (lobbyEl) lobbyEl.style.display = 'none';
+
+  // Close every host/table-management overlay too (host menu, restart
+  // confirm, seat picker, join request/pending, chat, hand analysis,
+  // etc.) — leaving any of these open on top of the welcome screen made
+  // "Leave Room" / "Home" look broken from whatever screen you were on.
+  ['hostMenuOverlay', 'restartConfirmOverlay', 'seatPickerOverlay', 'joinRequestOverlay',
+   'joinPendingOverlay', 'postRoundOverlay', 'chatOverlay', 'analyzeOverlay', 'commentOverlay',
+   'stillPlayingOverlay', 'learnAdviceOverlay', 'playerJoinedOverlay', 'modalOverlay'
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('on');
+  });
+
   // Show welcome screen
   document.getElementById('welcomeScreen').style.display = 'flex';
 
