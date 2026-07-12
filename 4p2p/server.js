@@ -1301,7 +1301,9 @@ const l56Rooms = {}; // code -> { state, lastActivityAt, hostPlayerId, creatorNa
 // Global, admin-controlled: whether the 👁 "reveal all hands" testing
 // button shows up at all in the 56 game (single site-wide switch, same
 // pattern as the 4p/6p room cap).
-let reveal56Disabled = false;
+// Defaults to DISABLED (hidden for everyone) — the admin has to
+// explicitly turn it on for it to show up at all.
+let reveal56Disabled = true;
 
 function newL56Id() { return crypto.randomBytes(4).toString('hex').toUpperCase(); }
 function l56SocketRoom(code) { return 'l56_' + code; }
