@@ -1274,94 +1274,311 @@ io.on('connection', (socket) => {
 });
 
 // ============================================================
-// 56 — STATE SYNC RELAY (not an authoritative game server)
+// 56 — LOBBY-AWARE STATE SYNC RELAY
 // ============================================================
-// The 56 game (public/56.html) is the user's own original file, kept
-// completely intact — every rule, every bit of bidding/play/scoring
-// logic, and the entire UI is exactly as they wrote it. That file was
-// built around a simple shared-state model: whoever acts calls
-// saveState(state) with the *entire* room's state as one JSON blob, and
-// everyone else picks up the change via loadState(). Originally that
-// used window.storage / a localStorage+BroadcastChannel fallback, which
-// only ever synced tabs on the same browser — never real players on
-// different devices.
+// public/56.html is still the user's own original file, completely
+// unmodified in its actual game logic (bidding, dealing, play, scoring,
+// bot AI all still run 100% client-side, exactly as written). What this
+// block adds is everything AROUND that: table discovery, requesting to
+// join a table (gated by host approval), picking a seat (including
+// replacing a bot), host-only kick, automatic host handoff if the host
+// leaves, and a 5-minute-idle "still playing?" warning before a table
+// closes. None of that is game logic — it's connection/session
+// management, same category of thing as the equivalent features on the
+// 4-player and 6-player 28 tables elsewhere in this file.
 //
-// This block is only the network fix: it's a dumb key-value relay. It
-// does not know what a "bid" or a "trick" is and never inspects the
-// state's contents — it just stores whatever JSON blob a client sends
-// for a room and immediately pushes that same blob to every other
-// client currently in that room, so the existing loadState/saveState
-// calls in 56.html work the same way they always did, just over the
-// network instead of one browser's local storage.
+// The actual in-game state (seats, hands, bids, tricks, scores) is still
+// exactly the same single JSON blob the client already builds via
+// newRoomState()/render(state) — this server just stores that blob per
+// room code and pushes it to everyone in the room whenever it changes,
+// the same as before. The only NEW thing the server actually looks
+// inside the blob for is `seats` and `phase`, purely to answer "how many
+// people are at this table / has it started" for the room list — it
+// still has zero opinion about what a legal bid or a legal card is.
 // ============================================================
-const syncRooms = {}; // roomCode -> { state, lastActivityAt }
-
-const SYNC_IDLE_LIMIT_MS = 30 * 60 * 1000; // rooms are cheap (just JSON); keep them around a while
-setInterval(() => {
-  const now = Date.now();
-  for (const code of Object.keys(syncRooms)) {
-    if (now - syncRooms[code].lastActivityAt > SYNC_IDLE_LIMIT_MS) delete syncRooms[code];
-  }
-}, 5 * 60 * 1000);
-
-function sync56Room(code) { return 'sync56_' + code; }
+const l56Rooms = {}; // code -> { state, lastActivityAt, hostPlayerId, creatorName, sockets, pendingRequests, stillPlayingTimer }
 
 // Global, admin-controlled: whether the 👁 "reveal all hands" testing
-// button shows up at all in the 56 game. Not per-room — this is a single
-// site-wide switch, same pattern as the existing room cap. Broadcast to
-// every connected socket (across every page) the moment it changes, plus
-// sent unprompted to each new connection so a freshly-loaded 56.html
-// always starts out knowing the current policy.
+// button shows up at all in the 56 game (single site-wide switch, same
+// pattern as the 4p/6p room cap).
 let reveal56Disabled = false;
 
-io.on('connection', (socket) => {
-  socket.emit('reveal56Policy', { disabled: reveal56Disabled });
+function newL56Id() { return crypto.randomBytes(4).toString('hex').toUpperCase(); }
+function l56SocketRoom(code) { return 'l56_' + code; }
 
+function l56PublicList() {
+  return Object.entries(l56Rooms).map(([code, r]) => {
+    const seats = (r.state && r.state.seats) || [];
+    const players = seats.filter(Boolean).length;
+    const phase = (r.state && r.state.phase) || 'lobby';
+    return {
+      code,
+      name: r.creatorName || 'Table',
+      players,
+      seats: 6,
+      isPlaying: phase !== 'lobby',
+      full: players >= 6
+    };
+  }).filter(r => r.players > 0);
+}
+
+function l56Broadcast(code) {
+  const r = l56Rooms[code];
+  if (!r) return;
+  // Server-initiated mutations (kick, host reassignment on disconnect)
+  // still need a fresh updatedAt, or the client's own "is this actually
+  // a new state?" dedup check in pollLoop() will silently ignore the
+  // push since the timestamp looks unchanged.
+  if (r.state) r.state.updatedAt = Date.now();
+  io.to(l56SocketRoom(code)).emit('sync56_state', { room: code, state: r.state });
+  io.emit('l56_roomList', l56PublicList());
+}
+
+function l56Touch(r) {
+  r.lastActivityAt = Date.now();
+  if (r.stillPlayingTimer) {
+    clearTimeout(r.stillPlayingTimer);
+    r.stillPlayingTimer = null;
+    io.to(l56SocketRoom(r.code)).emit('l56_stillPlayingResolved');
+  }
+}
+
+// Picks the next host when the current one disconnects/leaves: lowest
+// seat index that's a currently-connected human. If nobody qualifies,
+// the room is left without a host until someone (re)connects — kick
+// and approval actions just have no effect until then, nothing crashes.
+function l56ReassignHost(r) {
+  if (!r.state || !r.state.seats) { r.hostPlayerId = null; return; }
+  let best = null;
+  for (const [, info] of r.sockets) {
+    if (info.pos == null || info.pos < 0) continue;
+    const seat = r.state.seats[info.pos];
+    if (!seat || seat.bot) continue;
+    if (best === null || info.pos < best.pos) best = info;
+  }
+  r.hostPlayerId = best ? best.playerId : null;
+  if (r.state) r.state.hostPlayerId = r.hostPlayerId;
+}
+
+const L56_IDLE_LIMIT_MS = 5 * 60 * 1000;
+const L56_STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  for (const code of Object.keys(l56Rooms)) {
+    const r = l56Rooms[code];
+    if (r.stillPlayingTimer) continue; // already mid-countdown
+    if (now - r.lastActivityAt <= L56_IDLE_LIMIT_MS) continue;
+    io.to(l56SocketRoom(code)).emit('l56_stillPlayingCheck', { seconds: L56_STILL_PLAYING_COUNTDOWN_MS / 1000 });
+    r.stillPlayingTimer = setTimeout(() => {
+      const stillThere = l56Rooms[code];
+      if (!stillThere) return;
+      stillThere.stillPlayingTimer = null;
+      console.log(`[56 lobby] closing idle table ${code} — nobody confirmed still playing`);
+      io.to(l56SocketRoom(code)).emit('l56_tableClosed', { reason: 'idle' });
+      delete l56Rooms[code];
+      io.emit('l56_roomList', l56PublicList());
+    }, L56_STILL_PLAYING_COUNTDOWN_MS);
+  }
+}, 30 * 1000);
+
+io.on('connection', (socket) => {
+  socket.data.l56 = null; // { code, playerId, pos }
+
+  socket.emit('reveal56Policy', { disabled: reveal56Disabled });
   socket.on('admin56SetRevealDisabled', ({ adminPassword, disabled }) => {
     if (adminPassword !== ADMIN_SECRET) return;
     reveal56Disabled = !!disabled;
     io.emit('reveal56Policy', { disabled: reveal56Disabled });
     console.log(`[admin] 56 reveal button ${reveal56Disabled ? 'disabled' : 'enabled'}`);
   });
-});
 
-io.on('connection', (socket) => {
+  socket.on('l56_listRooms', () => { socket.emit('l56_roomList', l56PublicList()); });
+
+  socket.on('l56_createTable', ({ name }) => {
+    const code = newL56Id();
+    const playerId = newId();
+    const r = {
+      code, state: null, lastActivityAt: Date.now(),
+      hostPlayerId: playerId, creatorName: name || 'Player',
+      sockets: new Map(), pendingRequests: new Map(), stillPlayingTimer: null
+    };
+    r.sockets.set(socket.id, { playerId, pos: 0, name: name || 'Player' });
+    l56Rooms[code] = r;
+    socket.join(l56SocketRoom(code));
+    socket.data.l56 = { code, playerId, pos: 0 };
+    socket.emit('l56_created', { code, playerId, pos: 0, isHost: true });
+    io.emit('l56_roomList', l56PublicList());
+    console.log(`[56 lobby] table ${code} created by ${name}`);
+  });
+
+  // Reconnect path: a known token pointing at a seat that's still there.
+  socket.on('l56_reconnect', ({ code, playerId, name }) => {
+    const r = l56Rooms[code];
+    if (!r || !r.state) { socket.emit('l56_reconnectFailed'); return; }
+    const pos = (r.state.seats || []).findIndex(s => s && s.playerId === playerId);
+    if (pos === -1) { socket.emit('l56_reconnectFailed'); return; }
+    r.sockets.set(socket.id, { playerId, pos, name: name || r.state.seats[pos].name });
+    if (r.state.seats[pos]) r.state.seats[pos].connected = true;
+    socket.join(l56SocketRoom(code));
+    socket.data.l56 = { code, playerId, pos };
+    if (!r.hostPlayerId) l56ReassignHost(r);
+    const isHost = r.hostPlayerId === playerId;
+    socket.emit('l56_created', { code, playerId, pos, isHost });
+    l56Touch(r);
+    l56Broadcast(code);
+  });
+
+  socket.on('l56_requestJoin', ({ code, name }) => {
+    const r = l56Rooms[code];
+    if (!r) { socket.emit('l56_joinDenied', { reason: 'not_found' }); return; }
+    const seats = (r.state && r.state.seats) || [];
+    const openSeats = seats.map((s, i) => s ? null : i).filter(i => i !== null);
+    const botSeats = seats.map((s, i) => (s && s.bot) ? i : null).filter(i => i !== null);
+    if (openSeats.length === 0 && botSeats.length === 0) {
+      socket.emit('l56_joinDenied', { reason: 'full' });
+      return;
+    }
+    const reqId = newId();
+    r.pendingRequests.set(reqId, { socketId: socket.id, name: name || 'Player' });
+    let hostSocketId = null;
+    for (const [sockId, info] of r.sockets) if (info.playerId === r.hostPlayerId) hostSocketId = sockId;
+    if (!hostSocketId) {
+      // No host currently connected -- don't make someone wait forever
+      // for a popup nobody can answer; let them straight through to the
+      // seat picker instead.
+      r.pendingRequests.delete(reqId);
+      socket.emit('l56_joinApproved', { code, openSeats, botSeats });
+      return;
+    }
+    const hostSocket = io.sockets.sockets.get(hostSocketId);
+    if (hostSocket) hostSocket.emit('l56_joinRequest', { reqId, code, name: name || 'Player', openSeats, botSeats });
+    socket.emit('l56_joinPending');
+  });
+
+  socket.on('l56_respondJoinRequest', ({ code, reqId, approved }) => {
+    const r = l56Rooms[code];
+    if (!r || !r.pendingRequests.has(reqId)) return;
+    const info = socket.data.l56;
+    if (!info || info.code !== code || r.hostPlayerId !== info.playerId) return; // only the host may respond
+    const reqInfo = r.pendingRequests.get(reqId);
+    r.pendingRequests.delete(reqId);
+    const reqSocket = io.sockets.sockets.get(reqInfo.socketId);
+    if (!reqSocket) return;
+    if (!approved) { reqSocket.emit('l56_joinDenied', { reason: 'host_declined' }); return; }
+    const seats = (r.state && r.state.seats) || [];
+    const openSeats = seats.map((s, i) => s ? null : i).filter(i => i !== null);
+    const botSeats = seats.map((s, i) => (s && s.bot) ? i : null).filter(i => i !== null);
+    reqSocket.emit('l56_joinApproved', { code, openSeats, botSeats });
+  });
+
+  // Purely for lobby bookkeeping (who's connected, at which seat) -- the
+  // actual seat assignment in the shared state blob is written by the
+  // client itself via the existing saveState(), same as it always was.
+  socket.on('l56_claimSeat', ({ code, pos, playerId, name }) => {
+    const r = l56Rooms[code];
+    if (!r) return;
+    r.sockets.set(socket.id, { playerId, pos, name });
+    socket.join(l56SocketRoom(code));
+    socket.data.l56 = { code, playerId, pos };
+    if (!r.hostPlayerId) l56ReassignHost(r);
+    l56Touch(r);
+  });
+
+  socket.on('l56_kick', ({ code, pos }) => {
+    const r = l56Rooms[code];
+    if (!r || !r.state || !r.state.seats) return;
+    const info = socket.data.l56;
+    if (!info || info.code !== code || r.hostPlayerId !== info.playerId) return; // host-only
+    const seat = r.state.seats[pos];
+    if (!seat) return;
+    const kickedPlayerId = seat.playerId;
+    if (r.state.phase === 'lobby') {
+      r.state.seats[pos] = null;
+    } else {
+      r.state.seats[pos] = { name: seat.name, bot: true };
+    }
+    for (const [sockId, sInfo] of r.sockets) {
+      if (sInfo.playerId === kickedPlayerId) {
+        const kSocket = io.sockets.sockets.get(sockId);
+        if (kSocket) kSocket.emit('l56_kicked');
+        r.sockets.delete(sockId);
+      }
+    }
+    if (r.hostPlayerId === kickedPlayerId) l56ReassignHost(r);
+    l56Touch(r);
+    l56Broadcast(code);
+  });
+
+  socket.on('l56_stillPlaying', ({ code }) => {
+    const r = l56Rooms[code];
+    if (r) l56Touch(r);
+  });
+
+  socket.on('l56_leaveTable', ({ code }) => {
+    const r = l56Rooms[code];
+    if (!r) return;
+    const info = r.sockets.get(socket.id);
+    r.sockets.delete(socket.id);
+    socket.leave(l56SocketRoom(code));
+    if (info && r.hostPlayerId === info.playerId) l56ReassignHost(r);
+    socket.data.l56 = null;
+    l56Touch(r);
+    l56Broadcast(code);
+  });
+
+  // ---------------- Shared state blob sync (unchanged mechanics) ----------------
   socket.on('sync56_join', ({ room }) => {
     if (!room || typeof room !== 'string') return;
     const code = room.trim().toUpperCase().slice(0, 20);
-    socket.join(sync56Room(code));
-    socket.data.sync56Room = code;
-    const entry = syncRooms[code];
-    socket.emit('sync56_state', { room: code, state: entry ? entry.state : null });
+    socket.join(l56SocketRoom(code));
+    const r = l56Rooms[code];
+    socket.emit('sync56_state', { room: code, state: r ? r.state : null });
   });
 
-  // Explicit request/response read, used by loadState() -- this is the
-  // one that actually matters for correctness (every bid/play/pass goes
-  // through "read current state, modify, write it back", so this has to
-  // return the real current value, not a possibly-stale cached push).
   socket.on('sync56_load', ({ room }, ack) => {
     if (typeof ack !== 'function') return;
     if (!room || typeof room !== 'string') { ack(null); return; }
     const code = room.trim().toUpperCase().slice(0, 20);
-    const entry = syncRooms[code];
-    ack(entry ? entry.state : null);
+    const r = l56Rooms[code];
+    ack(r ? r.state : null);
   });
 
   socket.on('sync56_save', ({ room, state }) => {
     if (!room || typeof room !== 'string') return;
     const code = room.trim().toUpperCase().slice(0, 20);
-    syncRooms[code] = { state, lastActivityAt: Date.now() };
-    // Broadcast to everyone in the room, including the sender, so a
-    // single code path (the 'sync56_state' handler) is what actually
-    // renders — no separate "optimistic local render" branch to keep
-    // in sync with the networked one.
-    io.to(sync56Room(code)).emit('sync56_state', { room: code, state });
+    let r = l56Rooms[code];
+    if (!r) {
+      // Extremely rare race (room deleted between create and first save) --
+      // recreate a minimal entry rather than silently dropping the save.
+      r = l56Rooms[code] = { code, state: null, lastActivityAt: Date.now(), hostPlayerId: null, creatorName: 'Player', sockets: new Map(), pendingRequests: new Map(), stillPlayingTimer: null };
+    }
+    r.state = state;
+    if (r.hostPlayerId && (!state.hostPlayerId)) state.hostPlayerId = r.hostPlayerId;
+    l56Touch(r);
+    io.to(l56SocketRoom(code)).emit('sync56_state', { room: code, state });
+    io.emit('l56_roomList', l56PublicList());
   });
 
   socket.on('sync56_leave', ({ room }) => {
     if (!room) return;
-    const code = room.trim().toUpperCase().slice(0, 20);
-    socket.leave(sync56Room(code));
+    socket.leave(l56SocketRoom(room.trim().toUpperCase().slice(0, 20)));
+  });
+
+  socket.on('disconnect', () => {
+    const info = socket.data.l56;
+    if (!info) return;
+    const r = l56Rooms[info.code];
+    if (!r) return;
+    r.sockets.delete(socket.id);
+    if (r.state && r.state.seats && r.state.seats[info.pos] && r.state.seats[info.pos].playerId === info.playerId) {
+      // Silent drop: keep the seat (same reconnect-friendly behavior as
+      // the other tables) -- just mark it disconnected so the host
+      // badge / UI can show it, but don't free the seat outright.
+      r.state.seats[info.pos].connected = false;
+    }
+    if (r.hostPlayerId === info.playerId) l56ReassignHost(r);
+    l56Touch(r);
+    l56Broadcast(info.code);
   });
 });
 
