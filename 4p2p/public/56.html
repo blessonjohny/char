@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Play 56 Card Game Online – Six Player Kerala Card Game</title>
+<meta name="description" content="Play 56, the six-player Kerala trick-taking card game, online free with live bidding, doubling, and trump play. No download needed.">
+<meta name="robots" content="index, follow">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root{--bg-dark:#0a1628;--panel:#111d2e;--panel2:#0d1b2a;--accent:#f4c430;--accent2:#9b59b6;--text-primary:#fff;--text-secondary:#9fb0c3;--success:#3ddc84;--danger:#ff5c5c;--border:rgba(255,255,255,0.12)}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg-dark);color:var(--text-primary);touch-action:manipulation;-webkit-user-select:none;user-select:none;overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+.screen{position:fixed;inset:0;background:radial-gradient(ellipse at top, #17233a 0%, #0a1628 60%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;overflow-y:auto;z-index:100}
+.hidden{display:none !important}
+.btn{padding:12px 20px;border-radius:10px;border:2px solid transparent;font-weight:700;font-size:0.9rem;transition:transform .1s}
+.btn:active{transform:scale(0.97)}
+.btn-primary{background:linear-gradient(135deg,#4a90d9,#2a5a9a);color:#fff}
+.btn-gold{background:linear-gradient(135deg,var(--accent),#c99a1f);color:#1a1206}
+.btn-purple{background:linear-gradient(135deg,var(--accent2),#6c3483);color:#fff}
+.btn-outline{background:transparent;border-color:var(--border);color:#fff}
+.btn-danger{background:linear-gradient(135deg,#e05c5c,#a33);color:#fff}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.card-box{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px;width:100%;max-width:420px}
+input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:#fff;font-size:1rem;margin-bottom:10px}
+.title{font-size:1.8rem;font-weight:800;color:var(--accent);margin-bottom:4px}
+.subtitle{color:var(--text-secondary);font-size:0.85rem;margin-bottom:18px}
+.room-code-box{font-family:monospace;font-size:1.3rem;font-weight:800;letter-spacing:2px;background:rgba(0,0,0,0.5);border:2px dashed var(--accent);color:var(--accent);padding:10px 14px;border-radius:10px;cursor:pointer;margin:8px 0}
+.player-row{display:flex;align-items:center;gap:10px;background:var(--panel2);border-radius:10px;padding:8px 12px;margin-bottom:6px}
+.p-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0}
+.p-name{flex:1;text-align:left;font-weight:600;font-size:0.9rem}
+.tag{font-size:0.65rem;padding:2px 6px;border-radius:6px;font-weight:700}
+.tag-host{background:rgba(244,196,48,0.2);color:var(--accent)}
+.tag-bot{background:rgba(159,176,195,0.2);color:var(--text-secondary)}
+.tag-you{background:rgba(61,220,132,0.2);color:var(--success)}
+
+/* ===== TABLE ===== */
+#tableScreen{position:fixed;inset:0;background:radial-gradient(ellipse at center, #163a2e 0%, #0a1f18 70%);display:none;z-index:50}
+#tableScreen.on{display:block}
+.table-oval{position:absolute;inset:8% 6%;border-radius:50%;background:radial-gradient(ellipse at center, #1d4a3a 0%, #123527 100%);border:6px solid #3d2a10;box-shadow:inset 0 0 40px rgba(0,0,0,0.5)}
+.seat{position:absolute;width:70px;transform:translate(-50%,-50%);text-align:center;z-index:5}
+.seat .p-avatar{margin:0 auto 2px;width:38px;height:38px;font-size:1rem;background:linear-gradient(135deg,#4a90d9,#2a5a9a);border:2px solid rgba(255,255,255,0.3)}
+.seat.active .p-avatar{border-color:var(--accent);box-shadow:0 0 12px var(--accent)}
+.seat .sname{font-size:0.65rem;font-weight:700;background:rgba(0,0,0,0.5);border-radius:6px;padding:1px 4px}
+.seat .scards{font-size:0.6rem;color:var(--text-secondary)}
+.trick-slot{position:absolute;width:38px;height:52px;transform:translate(-50%,-50%);border-radius:6px;z-index:4}
+.card-mini{width:38px;height:52px;border-radius:6px;background:#fff;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 6px rgba(0,0,0,0.4)}
+.card-mini.red{color:#c0392b}
+
+#topBar{position:absolute;top:0;left:0;right:0;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;z-index:20;background:linear-gradient(180deg, rgba(0,0,0,0.6), transparent)}
+.score-pill{background:rgba(0,0,0,0.5);border-radius:10px;padding:4px 10px;font-size:0.75rem;font-weight:700}
+.score-pill.mine{color:var(--success)}
+.score-pill.theirs{color:var(--danger)}
+
+#handArea{position:absolute;bottom:0;left:0;right:0;padding:10px 6px 14px;display:flex;justify-content:center;gap:4px;flex-wrap:wrap;z-index:20}
+.hand-card{width:46px;height:64px;border-radius:7px;background:#fff;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:1rem;box-shadow:0 2px 8px rgba(0,0,0,0.5);cursor:pointer;transition:transform .1s}
+.hand-card.red{color:#c0392b}
+.hand-card.illegal{opacity:0.35;cursor:not-allowed}
+.hand-card:active{transform:translateY(-6px)}
+
+#logStrip{position:absolute;top:44px;left:8px;right:8px;text-align:center;font-size:0.7rem;color:var(--text-secondary);background:rgba(0,0,0,0.4);border-radius:8px;padding:4px 8px;z-index:20}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center;z-index:300;padding:16px}
+.modal-overlay.on{display:flex}
+.modal-box{background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid rgba(244,196,48,0.3);border-radius:16px;padding:20px;width:100%;max-width:380px;text-align:center;max-height:85vh;overflow-y:auto}
+.modal-box h3{color:var(--accent);margin-top:0}
+.suit-btn{width:44px;height:44px;border-radius:8px;font-size:1.3rem;border:2px solid var(--border);background:var(--panel2);color:#fff}
+.suit-btn.selected{border-color:var(--accent);background:rgba(244,196,48,0.2)}
+.suit-btn.red{color:#e05c5c}
+.stepper{display:flex;align-items:center;justify-content:center;gap:12px;margin:10px 0}
+.stepper button{width:38px;height:38px;border-radius:50%;font-size:1.2rem;font-weight:800}
+.stepper .val{font-size:1.6rem;font-weight:800;min-width:60px;color:var(--accent)}
+.toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:rgba(20,30,45,0.95);border:1px solid var(--border);border-radius:10px;padding:8px 16px;font-size:0.8rem;z-index:500;opacity:0;transition:opacity .3s}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- ===== LANDING ===== -->
+<div class="screen" id="landingScreen">
+  <div class="title">🂮 56</div>
+  <div class="subtitle">Six-player Kerala card game — 2 teams of 3, bid 28–56</div>
+  <div class="card-box">
+    <input type="text" id="nameInput" placeholder="Your name" maxlength="18">
+    <button class="btn btn-gold" style="width:100%;margin-bottom:14px" id="btnCreateTable">🏠 Create Table</button>
+    <div style="border-top:1px solid var(--border);margin:10px 0;padding-top:12px">
+      <div id="roomListWrap">
+        <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px">🌐 Public tables</div>
+        <div id="roomList" style="max-height:160px;overflow-y:auto"></div>
+      </div>
+      <div style="font-size:0.7rem;color:var(--text-secondary);margin:10px 0 6px">Or enter a code:</div>
+      <input type="text" id="codeInput" placeholder="Table code" maxlength="10" style="text-transform:uppercase">
+      <button class="btn btn-purple" style="width:100%" id="btnJoinCode">Join Table</button>
+    </div>
+  </div>
+  <div id="connStatus" style="margin-top:10px;font-size:0.7rem;color:var(--text-secondary)">⏳ Connecting...</div>
+</div>
+
+<!-- ===== LOBBY ===== -->
+<div class="screen hidden" id="lobbyScreen">
+  <div class="title" style="font-size:1.2rem">👥 Lobby</div>
+  <div class="room-code-box" id="lobbyRoomCode" title="Tap to copy">------</div>
+  <div class="subtitle">Send this code to friends — they can join from the landing page</div>
+  <div class="card-box" style="text-align:left">
+    <div id="lobbySeats"></div>
+    <div id="lobbyHostControls" class="hidden" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:0.8rem;color:var(--text-secondary)">Fill empty seats with bots:</span>
+        <select id="botFillSelect" style="background:var(--panel2);color:#fff;border:1px solid var(--border);border-radius:8px;padding:4px">
+          <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+          <option value="3">3</option><option value="4">4</option><option value="5" selected>5</option>
+        </select>
+      </div>
+      <button class="btn btn-gold" style="width:100%" id="btnStartGame">▶ Start Game</button>
+    </div>
+    <button class="btn btn-outline" style="width:100%;margin-top:10px" id="btnLeaveLobby">Leave</button>
+  </div>
+</div>
+
+<!-- ===== SEAT PICKER ===== -->
+<div class="modal-overlay" id="seatPickerOverlay">
+  <div class="modal-box">
+    <h3>🪑 Choose a seat</h3>
+    <div id="seatOptions" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+
+<!-- ===== TABLE ===== -->
+<div id="tableScreen">
+  <div id="topBar">
+    <div class="score-pill mine" id="scoreMinePill">You 12</div>
+    <div id="logStripInline" style="font-size:0.7rem;color:var(--text-secondary)"></div>
+    <div class="score-pill theirs" id="scoreTheirsPill">Them 12</div>
+  </div>
+  <div id="logStrip"></div>
+  <div class="table-oval"></div>
+  <div id="seatsLayer"></div>
+  <div id="trickLayer"></div>
+  <div id="handArea"></div>
+</div>
+
+<!-- ===== BID PANEL ===== -->
+<div class="modal-overlay" id="bidPanelOverlay">
+  <div class="modal-box">
+    <h3>Your bid</h3>
+    <div id="bidCurrentInfo" style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px"></div>
+    <div class="stepper">
+      <button class="btn btn-outline" id="bidDown">−</button>
+      <div class="val" id="bidValueDisplay">28</div>
+      <button class="btn btn-outline" id="bidUp">+</button>
+    </div>
+    <div style="font-size:0.75rem;color:var(--text-secondary);margin:8px 0 4px">Trump suit</div>
+    <div style="display:flex;justify-content:center;gap:8px;margin-bottom:8px" id="suitPicker">
+      <button class="suit-btn" data-suit="S">♠</button>
+      <button class="suit-btn red" data-suit="H">♥</button>
+      <button class="suit-btn red" data-suit="D">♦</button>
+      <button class="suit-btn" data-suit="C">♣</button>
+    </div>
+    <div style="display:flex;justify-content:center;gap:8px;margin-bottom:12px">
+      <button class="btn btn-outline" id="bidKindNT" style="font-size:0.75rem">No Trump</button>
+      <button class="btn btn-outline" id="bidKindNS" style="font-size:0.75rem">No Suit (void)</button>
+    </div>
+    <button class="btn btn-gold" style="width:100%;margin-bottom:6px" id="btnSubmitBid">Bid</button>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-outline" style="flex:1" id="btnPass">Pass</button>
+      <button class="btn btn-outline" style="flex:1" id="btnDouble">Double</button>
+      <button class="btn btn-outline" style="flex:1" id="btnRedouble">Redouble</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== AUCTION CLOSED ===== -->
+<div class="modal-overlay" id="auctionClosedOverlay">
+  <div class="modal-box">
+    <h3>🔨 Bidding closed</h3>
+    <div id="auctionClosedText" style="font-size:0.95rem"></div>
+  </div>
+</div>
+
+<!-- ===== HAND END ===== -->
+<div class="modal-overlay" id="handEndOverlay">
+  <div class="modal-box">
+    <h3 id="handEndTitle">Hand over</h3>
+    <div id="handEndText" style="font-size:0.9rem;margin-bottom:14px"></div>
+    <button class="btn btn-gold hidden" style="width:100%" id="btnContinueHand">Continue</button>
+    <div id="handEndWaitMsg" class="hidden" style="font-size:0.75rem;color:var(--text-secondary)">Waiting for host to continue...</div>
+  </div>
+</div>
+
+<!-- ===== MATCH OVER ===== -->
+<div class="modal-overlay" id="matchOverOverlay">
+  <div class="modal-box">
+    <h3 id="matchOverTitle">🏆 Match over</h3>
+    <div id="matchOverText" style="font-size:0.95rem;margin-bottom:14px"></div>
+    <button class="btn btn-gold hidden" style="width:100%;margin-bottom:8px" id="btnRestartMatch">New Match</button>
+    <button class="btn btn-outline" style="width:100%" id="btnBackToLanding">Back to Home</button>
+  </div>
+</div>
+
+<div class="toast" id="toastEl"></div>
+
+<script src="/56.js"></script>
+</body>
+</html>
