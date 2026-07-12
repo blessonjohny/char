@@ -1,0 +1,2529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>56 · Six-Hand Kerala Card Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,600&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --felt-1:#0e3d2f;
+    --felt-2:#0a2e24;
+    --gold:#c9a227;
+    --gold-soft:#e6c86b;
+    --maroon:#7c2334;
+    --cream:#f6eedd;
+    --ink:#241a12;
+    --line:rgba(230,200,107,0.25);
+    --felt-t1:#17604a;
+    --felt-t2:#0f4634;
+    --felt-t3:#0a3527;
+    --felt-t4:#062217;
+    --rail-1:#6b4a1f;
+    --rail-2:#3d2a10;
+    --rail-3:#2a1c0a;
+  }
+  *{box-sizing:border-box;}
+
+  @keyframes popIn{
+    0%{opacity:0; transform:scale(0.7) translateY(10px);}
+    100%{opacity:1; transform:scale(1) translateY(0);}
+  }
+  @keyframes avatarPulse{
+    0%,100%{box-shadow:0 3px 8px rgba(0,0,0,0.4), 0 0 0 rgba(201,162,39,0);}
+    50%{box-shadow:0 3px 8px rgba(0,0,0,0.4), 0 0 14px rgba(201,162,39,0.85);}
+  }
+  @keyframes popupIn{
+    0%{opacity:0; transform:scale(0.93) translateY(6px);}
+    100%{opacity:1; transform:scale(1) translateY(0);}
+  }
+  @keyframes scoreFlash{
+    0%{text-shadow:0 0 0 transparent;}
+    35%{color:#fff; text-shadow:0 0 14px var(--gold);}
+    100%{text-shadow:0 0 0 transparent;}
+  }
+  @keyframes fadeSlideDown{
+    0%{opacity:0; transform:translateY(-6px);}
+    100%{opacity:1; transform:translateY(0);}
+  }
+  @keyframes trickCardIn{
+    0%{opacity:0; transform:translate(-50%,-50%) scale(0.4) rotate(-8deg);}
+    100%{opacity:1; transform:translate(-50%,-50%) scale(1) rotate(0deg);}
+  }
+  html,body{margin:0;padding:0;height:100%;overscroll-behavior-y:contain;}
+  body{
+    font-family:'Inter',sans-serif;
+    background:
+      radial-gradient(ellipse at 50% 20%, rgba(230,200,107,0.08), transparent 60%),
+      linear-gradient(160deg, var(--felt-1), var(--felt-2) 70%);
+    color:var(--cream);
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  h1,h2,h3,.display{font-family:'Fraunces',serif;}
+  .mono{font-family:'Space Mono',monospace;}
+  a{color:var(--gold-soft);}
+
+  /* ---------- Landing / Lobby ---------- */
+  #landing{
+    max-width:520px;margin:0 auto;padding:64px 24px 40px;
+    text-align:center;
+  }
+  .brand-mark{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:64px;height:64px;border:1px solid var(--gold);border-radius:50%;
+    font-family:'Fraunces',serif;font-weight:700;font-size:26px;color:var(--gold-soft);
+    margin-bottom:18px;
+  }
+  #landing h1{font-size:40px;font-weight:700;margin:0 0 6px;letter-spacing:-0.5px;}
+  #landing .tag{color:var(--gold-soft);opacity:0.85;font-size:15px;margin-bottom:32px;font-style:italic;}
+  .field{text-align:left;margin-bottom:16px;}
+  .field label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--gold-soft);margin-bottom:6px;}
+  .field input{
+    width:100%;padding:12px 14px;border-radius:8px;border:1px solid var(--line);
+    background:rgba(0,0,0,0.25);color:var(--cream);font-size:16px;font-family:'Inter',sans-serif;
+  }
+  .field input:focus{outline:none;border-color:var(--gold);}
+  .btn{
+    appearance:none;border:none;cursor:pointer;border-radius:8px;
+    font-family:'Inter',sans-serif;font-weight:600;font-size:15px;
+    padding:12px 20px;transition:transform .12s ease, box-shadow .12s ease, opacity .12s;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-gold{background:linear-gradient(180deg,var(--gold-soft),var(--gold));color:#241a12;box-shadow:0 2px 0 #8a6f16;}
+  .btn-gold:disabled{opacity:0.4;cursor:not-allowed;box-shadow:none;}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--cream);}
+  .btn-maroon{background:var(--maroon);color:var(--cream);}
+  .btn-small{padding:7px 12px;font-size:13px;border-radius:6px;}
+  #landing .btn{width:100%;}
+  .hint{font-size:12px;color:rgba(246,238,221,0.55);margin-top:20px;line-height:1.5;}
+
+  /* ---------- Game shell ---------- */
+  #game{
+    display:none;flex-direction:column;
+    position:fixed;left:0;right:0;bottom:0;overflow:hidden;
+    top:var(--header-h,52px);
+    height:calc(100vh - var(--header-h,52px));height:calc(100dvh - var(--header-h,52px));
+  }
+  header.bar{
+    display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden;
+    padding:6px 10px;border-bottom:1px solid var(--line);
+    background:rgba(10,30,23,0.98);
+    position:fixed;top:0;left:0;right:0;z-index:41;
+  }
+  header.bar .hdr-room{
+    font-family:'Fraunces',serif;font-weight:700;font-size:13px;color:var(--gold-soft);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0;
+  }
+  header.bar .hdr-room b{color:var(--cream);}
+  header.bar .hdr-scores{display:flex;align-items:center;gap:8px;font-size:12px;flex-shrink:0;font-family:'Fraunces',serif;}
+  header.bar .hdr-team{display:flex;align-items:center;font-weight:700;gap:3px;}
+  header.bar .hdr-team .lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.4px;opacity:0.75;}
+  header.bar .hdr-team .val{font-size:15px;transition:color .4s ease;}
+  header.bar .hdr-round{opacity:0.6;font-size:10.5px;margin-left:1px;}
+  header.bar #revealToggle{margin-left:auto;}
+  .hdr-icon-btn{
+    flex-shrink:0;width:29px;height:29px;border-radius:8px;border:1px solid var(--line);
+    background:transparent;color:var(--cream);font-size:14px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:background .15s ease, border-color .15s ease;
+  }
+  .hdr-icon-btn:active{transform:scale(0.94);}
+  .hdr-icon-btn.on{background:var(--gold);color:#241a12;border-color:var(--gold);}
+  .team-a-dot,.team-b-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;}
+  .team-a-dot{background:var(--gold);}
+  .team-b-dot{background:var(--maroon);}
+
+  #handInfoBar{
+    text-align:center;font-size:12px;color:var(--gold-soft);font-family:'Fraunces',serif;
+    padding:5px 12px;border-bottom:1px solid var(--line);background:rgba(0,0,0,0.15);
+    flex:0 0 auto;
+  }
+  #handInfoBar b{color:var(--cream);font-weight:700;}
+  #handInfoBar i{font-style:normal;color:var(--gold-soft);font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.5px;margin-right:3px;}
+
+  .nowrap-chunk{white-space:nowrap;display:inline-block;}
+
+  #tableTalk{
+    text-align:center;font-size:12.5px;font-style:italic;color:var(--cream);
+    padding:6px 16px;background:rgba(201,162,39,0.12);border-bottom:1px solid var(--line);
+    flex:0 0 auto;
+  }
+  #tableTalk b{font-style:normal;color:var(--gold-soft);}
+
+  #table-wrap{
+    position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;
+    padding:30px 18px;overflow:hidden;
+  }
+  #table{
+    position:relative;width:min(560px,90vw);height:min(52vh,460px);
+    border-radius:50%;
+    background:
+      radial-gradient(ellipse at 50% 38%, rgba(255,255,255,0.06), transparent 55%),
+      radial-gradient(ellipse at center, var(--felt-t1) 0%, var(--felt-t2) 45%, var(--felt-t3) 75%, var(--felt-t4) 100%);
+    border:10px solid;
+    border-image: linear-gradient(155deg, var(--rail-1), var(--rail-2) 30%, var(--rail-1) 55%, var(--rail-3) 80%, var(--rail-1)) 1;
+    box-shadow:
+      0 0 0 2px rgba(230,200,107,0.2),
+      0 18px 40px rgba(0,0,0,0.55),
+      inset 0 0 70px rgba(0,0,0,0.55),
+      inset 0 2px 0 rgba(255,255,255,0.08);
+  }
+  .seat{
+    position:absolute;width:110px;transform:translate(-50%,-50%);text-align:center;
+    z-index:2;transition:transform .2s ease;
+  }
+  .seat .avatar-wrap{position:relative;width:48px;margin:0 auto -8px;z-index:3;}
+  .seat .avatar{
+    width:48px;height:48px;border-radius:50%;
+    background:radial-gradient(circle at 32% 28%, #1f6a50, #0a2e22 75%);
+    display:flex;align-items:center;justify-content:center;font-size:22px;
+    box-shadow:
+      0 0 0 2px #0a2419,
+      0 0 0 4px var(--line),
+      0 4px 10px rgba(0,0,0,0.5);
+    animation:avatarIdle 3.4s ease-in-out infinite;
+  }
+  @keyframes avatarIdle{
+    0%,100%{transform:translateY(0) rotate(0deg);}
+    50%{transform:translateY(-3px) rotate(-2deg);}
+  }
+  .seat:nth-child(2) .avatar{animation-delay:-0.6s;}
+  .seat:nth-child(3) .avatar{animation-delay:-1.2s;}
+  .seat:nth-child(4) .avatar{animation-delay:-1.8s;}
+  .seat:nth-child(5) .avatar{animation-delay:-2.4s;}
+  .seat:nth-child(6) .avatar{animation-delay:-3.0s;}
+  .seat.team-A .avatar{box-shadow:0 0 0 2px #0a2419, 0 0 0 4px var(--gold), 0 4px 10px rgba(0,0,0,0.5), 0 0 12px rgba(201,162,39,0.35);}
+  .seat.team-B .avatar{box-shadow:0 0 0 2px #0a2419, 0 0 0 4px var(--maroon), 0 4px 10px rgba(0,0,0,0.5), 0 0 12px rgba(124,35,52,0.35);}
+  .seat.active .avatar{animation:avatarPulse 1.3s ease-in-out infinite;}
+  .seat .bot-tag{
+    position:absolute;bottom:-3px;right:-3px;width:16px;height:16px;border-radius:50%;
+    background:#1a1410;border:1.5px solid var(--gold-soft);display:flex;align-items:center;justify-content:center;
+    font-size:8px;line-height:1;
+  }
+  .last-action-badge{
+    display:inline-block;background:rgba(0,0,0,0.6);border:1px solid var(--gold);color:var(--gold-soft);
+    font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-bottom:3px;
+    white-space:nowrap;animation:popIn .2s ease;
+  }
+  .seat .pod{
+    background:rgba(0,0,0,0.35);border:1px solid var(--line);border-radius:10px;
+    padding:6px 8px 6px 8px;padding-top:22px;backdrop-filter:blur(2px);transition:border-color .25s ease, box-shadow .25s ease;
+  }
+  .seat.active .pod{border-color:var(--gold);box-shadow:0 0 14px rgba(201,162,39,0.5);}
+  .seat .name{font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .seat .role{font-size:9.5px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;}
+  .seat .cardcount{font-size:9.5px;margin-top:2px;color:var(--gold-soft);}
+  .mini-stack{display:flex;justify-content:center;margin-top:4px;height:14px;}
+  .mini-stack .mini-back{
+    width:9px;height:13px;border-radius:2px;margin-left:-5px;
+    background:linear-gradient(135deg,#7c2334,#5a1826);
+    border:1px solid rgba(230,200,107,0.5);box-shadow:0 1px 2px rgba(0,0,0,0.4);
+  }
+  .mini-stack .mini-back:first-child{margin-left:0;}
+  .seat.team-A .name{color:var(--gold-soft);}
+  .seat.team-B .name{color:#e8a6b4;}
+  .seat.empty .pod{opacity:0.35;font-style:italic;}
+  .seat .pod{position:relative;}
+  .dealer-chip{
+    position:absolute;top:-9px;right:-9px;width:22px;height:22px;border-radius:50%;
+    background:var(--gold);color:#241a12;font-weight:800;font-size:12px;
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid var(--felt-2);box-shadow:0 2px 4px rgba(0,0,0,0.4);
+  }
+
+  .center-trick{
+    position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;
+  }
+  .trick-card{
+    position:absolute;width:38px;height:54px;border-radius:5px;
+    background:linear-gradient(160deg, #faf4e2 0%, #f0e5c4 100%);color:var(--ink);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:700;
+    box-shadow:0 2px 6px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.6);border:1px solid #a8863a;
+    font-size:12px;transform:translate(-50%,-50%);
+    animation:trickCardIn .28s cubic-bezier(.2,.9,.3,1.2);
+  }
+  .trick-card.red{color:#a3243a;}
+  .trick-winner-toast{
+    position:absolute;top:58%;left:50%;transform:translate(-50%,-50%);
+    font-size:11px;background:rgba(0,0,0,0.6);padding:4px 11px;border-radius:20px;
+    border:1px solid var(--gold); color:var(--gold-soft); white-space:nowrap;
+    max-width:90%;overflow:hidden;text-overflow:ellipsis;
+    animation:toastIn .3s cubic-bezier(.2,.9,.3,1.2);
+  }
+  @keyframes toastIn{
+    0%{opacity:0; transform:translate(-50%,-50%) scale(0.6);}
+    100%{opacity:1; transform:translate(-50%,-50%) scale(1);}
+  }
+
+  #hand-area{padding:4px 12px 6px;flex:0 0 auto;}
+  #hand-strip{
+    display:flex;justify-content:flex-start;flex-wrap:nowrap;align-items:flex-end;
+    overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;
+    padding:4px 20px 4px 4px;scroll-padding:0 20px;
+  }
+  #hand-strip::-webkit-scrollbar{height:5px;}
+  #hand-area{position:relative;}
+  #hand-area.can-scroll::after{
+    content:'⟷ scroll for more';
+    position:absolute;top:-2px;right:14px;font-size:10px;color:var(--gold-soft);opacity:0.7;
+  }
+  .card{
+    width:clamp(50px,13vw,60px);height:clamp(70px,18vw,86px);border-radius:7px;
+    background:linear-gradient(160deg, #faf4e2 0%, #f0e5c4 100%);color:var(--ink);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-family:'Fraunces',serif;font-weight:700;
+    margin-left:clamp(-14px,-3vw,-10px);
+    box-shadow:0 3px 10px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.65);
+    border:1px solid #a8863a;
+    cursor:pointer;transition:transform .15s ease;position:relative;flex-shrink:0;
+  }
+  .card.card-new{ animation:popIn .22s ease; }
+  .card:first-child{margin-left:0;}
+  .card:hover{transform:translateY(-10px);}
+  .card.red{color:#a3243a;}
+  .card.disabled{opacity:0.35;cursor:not-allowed;filter:grayscale(0.4);}
+  .card.disabled:hover{transform:none;}
+  .card .corner{position:absolute;line-height:1;text-align:center;font-size:clamp(9px,2.4vw,11px);}
+  .card .corner.tl{top:5px;left:5px;}
+  .card .corner.br{bottom:5px;right:5px;transform:rotate(180deg);}
+  .card .corner .csuit{font-size:0.9em;margin-top:-1px;}
+  .card .center-pip{font-size:clamp(20px,5.6vw,27px);opacity:0.92;}
+  .card .rank{font-size:clamp(14px,3.6vw,18px);}
+  .card .suit{font-size:clamp(13px,3.2vw,20px);margin-top:-2px;}
+  .card .pts{position:absolute;bottom:3px;right:5px;font-size:8px;opacity:0.55;}
+
+  /* ---------- Panels (bidding, log, scoreboard) ---------- */
+  #side{
+    position:fixed;top:var(--header-h,52px);right:0;height:calc(100% - var(--header-h,52px));width:340px;max-width:92vw;
+    background:rgba(8,26,20,0.97);border-left:1px solid var(--line);
+    transform:translateX(100%);transition:transform .25s ease;
+    display:flex;flex-direction:column;z-index:40;
+  }
+  #side.open{transform:translateX(0);}
+  #side .side-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);}
+  #side .side-body{flex:1;overflow-y:auto;padding:14px 16px;overscroll-behavior-y:contain;}
+  #sideToggle{}
+  .log-line{font-size:12.5px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--line);line-height:1.4;}
+  .log-line .who{color:var(--gold-soft);font-weight:600;}
+
+  .bid-modal-box{
+    text-align:left; width:min(480px,92vw); max-height:calc(90vh - var(--header-h,52px)); overflow-y:auto;
+    background:rgba(10,30,23,0.98); border:1px solid var(--line); border-radius:14px;
+    padding:22px 22px 20px; box-shadow:0 12px 40px rgba(0,0,0,0.6);
+    overscroll-behavior-y:contain;
+    animation:popupIn .22s ease;
+  }
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+  .segmented{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .segmented button{
+    background:transparent;color:var(--cream);border:none;padding:8px 12px;cursor:pointer;font-size:13px;
+    font-family:'Inter',sans-serif;border-right:1px solid var(--line);
+  }
+  .segmented button:last-child{border-right:none;}
+  .segmented button.sel{background:var(--gold);color:#241a12;font-weight:700;}
+  #orderSeg button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 8px;}
+  #orderSeg .order-preview{font-family:'Fraunces',serif;font-size:19px;font-weight:700;}
+  #orderSeg .order-caption{font-size:10px;opacity:0.8;text-transform:uppercase;letter-spacing:0.3px;}
+  #orderSeg button.sel .order-caption{opacity:0.85;}
+  .numstep{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .numstep button{background:transparent;color:var(--cream);border:none;padding:8px 14px;font-size:16px;cursor:pointer;}
+  .numstep input{width:52px;text-align:center;background:transparent;border:none;color:var(--cream);font-size:16px;font-family:'Space Mono',monospace;}
+  .suitpick{display:flex;gap:6px;}
+  .suitpick button{
+    width:38px;height:38px;border-radius:8px;border:1px solid var(--line);background:transparent;
+    font-size:18px;cursor:pointer;color:var(--cream);
+  }
+  .suitpick button.red{color:#e08a9a;}
+  .suitpick button.sel{border-color:var(--gold);background:rgba(201,162,39,0.2);}
+  .note-input{width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,0.25);color:var(--cream);font-size:13px;}
+  .bidline{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:4px;}
+  .current-bid-display{font-family:'Fraunces',serif;font-size:20px;color:var(--gold-soft);}
+
+  .mini-hand{display:flex;flex-wrap:wrap;gap:5px;}
+  .seating-box{
+    background:rgba(201,162,39,0.08);border:1px solid var(--line);border-radius:8px;
+    padding:10px 12px;margin-bottom:14px;font-size:12.5px;line-height:1.5;
+  }
+  .mini-card{
+    display:inline-block;padding:5px 8px;border-radius:6px;
+    background:linear-gradient(160deg, #faf4e2 0%, #f0e5c4 100%);color:var(--ink);
+    font-family:'Fraunces',serif;font-weight:700;font-size:13px;border:1px solid #a8863a;
+  }
+  .mini-card.red{color:#a3243a;}
+  .explain-box{
+    font-size:12px; line-height:1.5; background:rgba(201,162,39,0.1); border:1px solid var(--line);
+    border-radius:8px; padding:9px 11px; margin:-4px 0 12px; color:var(--cream);
+    animation:fadeSlideDown .2s ease;
+  }
+  .hist-box{
+    background:rgba(0,0,0,0.25);border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;
+  }
+  .hist-line{font-size:12px;line-height:1.5;padding:3px 0;border-bottom:1px dashed var(--line);}
+  .hist-line:last-child{border-bottom:none;}
+
+  .overlay-msg{
+    position:fixed;top:var(--header-h,52px);left:0;width:100%;height:calc(100% - var(--header-h,52px));background:rgba(4,14,10,0.88);
+    display:flex;align-items:center;justify-content:center;z-index:30;text-align:center;padding:24px;box-sizing:border-box;
+  }
+  .overlay-msg .box{max-width:460px; animation:popupIn .22s ease;}
+  .review-box{
+    display:flex; flex-direction:column; text-align:left; overflow:hidden;
+    background:rgba(10,30,23,0.98); border:1px solid var(--line); border-radius:14px;
+    padding:0; box-shadow:0 12px 40px rgba(0,0,0,0.6);
+  }
+  .review-pinned-top{
+    flex:0 0 auto; padding:18px 20px 12px; border-bottom:1px solid var(--line);
+    background:rgba(10,30,23,0.98);
+  }
+  .review-scroll{
+    flex:1 1 auto; overflow-y:auto; overscroll-behavior-y:contain; padding:14px 20px;
+    min-height:0;
+  }
+  .review-pinned-bottom{
+    flex:0 0 auto; padding:12px 20px 18px; border-top:1px solid var(--line);
+    background:rgba(10,30,23,0.98);
+  }
+  .overlay-msg h2{font-size:26px;margin-bottom:10px;}
+  .overlay-msg p{opacity:0.85;line-height:1.6;font-size:14.5px;}
+  .waiting-strip{
+    position:fixed;bottom:0;left:0;width:100%;padding:14px;text-align:center;
+    background:rgba(0,0,0,0.35);font-size:13px;color:var(--gold-soft);border-top:1px solid var(--line);
+  }
+  .hidden{display:none !important;}
+  .team-tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;letter-spacing:0.5px;text-transform:uppercase;font-weight:700;}
+  .team-tag.A{background:rgba(201,162,39,0.2);color:var(--gold-soft);border:1px solid var(--gold);}
+  .team-tag.B{background:rgba(124,35,52,0.35);color:#e8a6b4;border:1px solid var(--maroon);}
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+
+  @media (max-width:600px){
+    #table{width:94vw;height:min(40vh,340px);}
+    .seat{width:78px;}
+    .seat .pod{padding:5px 6px;}
+    .seat .name{font-size:10.5px;}
+  }
+  @media (max-height:640px){
+    #table{height:min(40vh,320px);}
+    #hand-area{padding:4px 10px 8px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================= LANDING ======================= -->
+<div id="landing">
+  <div class="brand-mark">56</div>
+  <h1>56 &mdash; The Kerala Card Game</h1>
+  <div class="tag">Six players. Two teams of three. One target: 56 points.</div>
+
+  <div class="field">
+    <label for="roomInput">Room code (share this with your table)</label>
+    <input id="roomInput" placeholder="e.g. KOCHI7" autocomplete="off" maxlength="20">
+  </div>
+  <div class="field">
+    <label for="nameInput">Your name</label>
+    <input id="nameInput" placeholder="e.g. Anju" autocomplete="off" maxlength="18">
+  </div>
+  <button class="btn btn-gold" id="joinBtn">Join Table</button>
+  <div class="hint">
+    Everyone at the table opens this same page and enters the same room code.
+    Seats fill in order &mdash; seats 1‑3‑5 are one team, seats 2‑4‑6 are the other, alternating around the table.<br><br>
+    <b>Honesty note:</b> this runs on shared storage with no private server, so in theory anyone could inspect the page and see all hands. Play like it's a real table &mdash; nobody peeks. 🙏
+  </div>
+</div>
+
+<!-- ======================= GAME ======================= -->
+<header class="bar hidden" id="gameHeader">
+  <span class="hdr-room mono">Room <b id="roomLabel"></b></span>
+  <span class="hdr-scores" id="hdrScores">
+    <span class="hdr-team"><span class="lbl">You</span><span class="val" id="scoreYou">0</span></span>
+    <span class="hdr-team"><span class="lbl">Opp</span><span class="val" id="scoreOpp">0</span></span>
+    <span class="hdr-round">R<span id="handNum">1</span> · <span id="sessionWL">W0 L0</span></span>
+  </span>
+  <button class="hdr-icon-btn hidden" id="revealToggle" title="Reveal all hands (testing)">👁</button>
+  <button class="hdr-icon-btn hidden" id="sideToggle" title="Log &amp; Bids">☰</button>
+</header>
+
+<div id="game">
+  <div id="handInfoBar" class="hidden"></div>
+  <div id="tableTalk" class="hidden"></div>
+
+  <div id="table-wrap">
+    <div id="table"></div>
+  </div>
+
+  <div id="hand-area">
+    <div id="hand-strip"></div>
+  </div>
+
+  <div class="waiting-strip hidden" id="waitingStrip"></div>
+</div>
+
+<div id="side">
+  <div class="side-head">
+    <b>Table Log</b>
+    <button class="btn btn-ghost btn-small" id="sideClose">Close</button>
+  </div>
+  <div class="side-body" id="sideBody"></div>
+</div>
+
+<div id="bid-panel-overlay" class="overlay-msg hidden">
+  <div class="box bid-modal-box" id="bid-panel"></div>
+</div>
+<div id="overlay" class="overlay-msg hidden"></div>
+
+<script>
+/* ============================================================
+   56 — Six Player Card Game
+   ============================================================ */
+
+const SUITS = ['S','H','D','C'];
+const HAND_SORT_ORDER = ['S','H','C','D']; // display order requested: spades, hearts, clubs, diamonds
+const SUIT_SYM = {S:'♠',H:'♥',D:'♦',C:'♣'};
+const SUIT_RED = {S:false,H:true,D:true,C:false};
+const RANKS = ['J','9','A','10','K','Q']; // power order, highest first
+const RANK_PTS = {J:3,'9':2,A:1,'10':1,K:0,Q:0};
+const TEAM_OF = seat => (seat % 2 === 0 ? 'A' : 'B'); // seats 0,2,4 = A ; 1,3,5 = B
+
+let roomCode = null;
+let myName = null;
+let mySeat = null;
+let pollTimer = null;
+let lastRenderedStamp = null;
+const _scoreState = {};
+
+function animateScoreTo(elId, target){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  const from = _scoreState[elId] !== undefined ? _scoreState[elId] : target;
+  _scoreState[elId] = target;
+  if(from === target){ el.textContent = target; return; }
+  const start = performance.now();
+  const duration = 500;
+  function step(now){
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const val = Math.round(from + (target - from) * eased);
+    el.textContent = val;
+    if(t < 1){ requestAnimationFrame(step); }
+    else{
+      el.textContent = target;
+      el.style.animation = 'none';
+      void el.offsetWidth;
+      el.style.animation = 'scoreFlash .6s ease';
+    }
+  }
+  requestAnimationFrame(step);
+}
+function lerpColor(a, b, t){
+  const r = Math.round(a[0] + (b[0]-a[0])*t);
+  const g = Math.round(a[1] + (b[1]-a[1])*t);
+  const bl = Math.round(a[2] + (b[2]-a[2])*t);
+  return `rgb(${r},${g},${bl})`;
+}
+function applyScoreMoodColor(myScore, oppScore){
+  const youEl = document.getElementById('scoreYou');
+  const oppEl = document.getElementById('scoreOpp');
+  if(!youEl || !oppEl) return;
+  const margin = myScore - oppScore;
+  if(margin === 0){
+    youEl.style.color = 'var(--cream)';
+    oppEl.style.color = 'var(--cream)';
+    return;
+  }
+  const intensity = Math.min(1, Math.abs(margin) / 10);
+  const softGreen = [190,230,200], deepGreen = [40,205,110];
+  const softRed = [235,190,195], deepRed = [215,60,70];
+  if(margin > 0){
+    youEl.style.color = lerpColor(softGreen, deepGreen, intensity);
+    oppEl.style.color = lerpColor(softRed, deepRed, intensity);
+  } else {
+    youEl.style.color = lerpColor(softRed, deepRed, intensity);
+    oppEl.style.color = lerpColor(softGreen, deepGreen, intensity);
+  }
+}
+// Curated color themes for the table — each keeps a dark, high-contrast felt
+// with a light readable accent, just in a different hue family. One gets
+// picked at random each hand (synced via shared state so everyone sees the
+// same theme, not each client randomizing independently).
+const THEMES = [
+  { name:'Violet', felt1:'#2a1444', felt2:'#1e0e34', gold:'#c99ae0', goldSoft:'#e2c6f2', maroon:'#7c2860',
+    feltT1:'#4a2478', feltT2:'#361a5a', feltT3:'#271342', feltT4:'#160b28', rail1:'#5a4a6b', rail2:'#33283d', rail3:'#1e182a' },
+  { name:'Indigo', felt1:'#161244', felt2:'#0f0c32', gold:'#8a90e0', goldSoft:'#c2c6f2', maroon:'#5a3a7c',
+    feltT1:'#2c2578', feltT2:'#1f1a5a', feltT3:'#151142', feltT4:'#0b0928', rail1:'#4a4a6b', rail2:'#28283d', rail3:'#18182a' },
+  { name:'Blue', felt1:'#0e2c46', felt2:'#0a2036', gold:'#7fb8e0', goldSoft:'#bcdcf2', maroon:'#3a5a8a',
+    feltT1:'#1a5178', feltT2:'#123c5a', feltT3:'#0c2c42', feltT4:'#06192a', rail1:'#4a5a6b', rail2:'#26313d', rail3:'#161e26' },
+  { name:'Green', felt1:'#0e3d2f', felt2:'#0a2e24', gold:'#c9a227', goldSoft:'#e6c86b', maroon:'#7c2334',
+    feltT1:'#17604a', feltT2:'#0f4634', feltT3:'#0a3527', feltT4:'#062217', rail1:'#6b4a1f', rail2:'#3d2a10', rail3:'#2a1c0a' },
+  { name:'Yellow', felt1:'#3d3610', felt2:'#2e290c', gold:'#e8d55a', goldSoft:'#f5eaa0', maroon:'#8a6a1f',
+    feltT1:'#786a1f', feltT2:'#5a4f17', feltT3:'#423910', feltT4:'#28230a', rail1:'#6b5a1f', rail2:'#3d3410', rail3:'#2a220a' },
+  { name:'Orange', felt1:'#3d1f0e', felt2:'#2e170a', gold:'#e08a3a', goldSoft:'#f2bc82', maroon:'#8a4a1f',
+    feltT1:'#783a1f', feltT2:'#5a2c17', feltT3:'#421f10', feltT4:'#28130a', rail1:'#6b4a2a', rail2:'#3d2a15', rail3:'#2a1c0e' },
+  { name:'Red', felt1:'#3d0e18', felt2:'#2e0a12', gold:'#e0a05a', goldSoft:'#f2c896', maroon:'#8a1f3a',
+    feltT1:'#781f34', feltT2:'#5a1727', feltT3:'#42101c', feltT4:'#280a11', rail1:'#6b3a1f', rail2:'#3d1f10', rail3:'#2a140a' },
+];
+
+function applyTheme(idx){
+  const t = THEMES[idx % THEMES.length];
+  const root = document.documentElement.style;
+  root.setProperty('--felt-1', t.felt1);
+  root.setProperty('--felt-2', t.felt2);
+  root.setProperty('--gold', t.gold);
+  root.setProperty('--gold-soft', t.goldSoft);
+  root.setProperty('--maroon', t.maroon);
+  root.setProperty('--felt-t1', t.feltT1);
+  root.setProperty('--felt-t2', t.feltT2);
+  root.setProperty('--felt-t3', t.feltT3);
+  root.setProperty('--felt-t4', t.feltT4);
+  root.setProperty('--rail-1', t.rail1);
+  root.setProperty('--rail-2', t.rail2);
+  root.setProperty('--rail-3', t.rail3);
+}
+
+let latestState = null;
+let debugRevealAll = false;
+let reviewDismissedKey = null;
+
+function biddingReviewKey(state){
+  if(!state.currentBid) return state.handNumber + ':none';
+  const cb = state.currentBid;
+  return state.handNumber + ':' + cb.seat + '-' + cb.value + '-' + (cb.trump||'NT');
+}
+
+function ordinalSuffix(n){
+  const s = ['th','st','nd','rd'];
+  const v = n % 100;
+  return s[(v-20)%10] || s[v] || s[0];
+}
+let sideOpen = false;
+
+// ---------- storage helpers ----------
+// Primary: window.storage (works when opened as a live Claude artifact — syncs across
+//          different people/devices).
+// Fallback: localStorage + BroadcastChannel (works when opened as a plain downloaded
+//          file in a regular browser — only syncs between TABS ON THE SAME BROWSER/DEVICE,
+//          useful for solo testing, not for real cross-device multiplayer).
+const usingFallbackStorage = !(window.storage && typeof window.storage.get === 'function');
+let fallbackChannel = null;
+if(usingFallbackStorage){
+  try{ fallbackChannel = new BroadcastChannel('56game-fallback'); }catch(e){ fallbackChannel = null; }
+}
+
+function stateKey(){ return '56game:' + roomCode; }
+
+async function loadState(){
+  if(usingFallbackStorage){
+    try{
+      const raw = localStorage.getItem(stateKey());
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
+  }
+  try{
+    const res = await window.storage.get(stateKey(), true);
+    return res ? JSON.parse(res.value) : null;
+  }catch(e){ return null; }
+}
+async function saveState(state){
+  state.updatedAt = Date.now();
+  if(usingFallbackStorage){
+    try{
+      localStorage.setItem(stateKey(), JSON.stringify(state));
+      if(fallbackChannel) fallbackChannel.postMessage({room: roomCode, at: state.updatedAt});
+    }catch(e){ console.error('fallback save failed', e); }
+    return state;
+  }
+  try{
+    await window.storage.set(stateKey(), JSON.stringify(state), true);
+  }catch(e){ console.error('save failed', e); }
+  return state;
+}
+
+// ---------- deck ----------
+function freshDeck(){
+  const deck = [];
+  let id = 0;
+  for(let copy=0; copy<2; copy++){
+    for(const s of SUITS){
+      for(const r of RANKS){
+        deck.push({r, s, id: 'c'+(id++)});
+      }
+    }
+  }
+  return deck;
+}
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function dealHands(startSeat){
+  const start = startSeat || 0;
+  const deck = shuffle(freshDeck());
+  const hands = [[],[],[],[],[],[]];
+  for(let i=0;i<deck.length;i++){
+    hands[(start + i) % 6].push(deck[i]);
+  }
+  return hands;
+}
+
+// ---------- scoring bands ----------
+function bandFor(value){
+  if(value>=28 && value<=39) return {win:1, lose:2};
+  if(value>=40 && value<=47) return {win:2, lose:3};
+  if(value>=48 && value<=55) return {win:3, lose:4};
+  if(value===56) return {win:4, lose:5};
+  return {win:1, lose:2};
+}
+
+// ---------- initial state ----------
+function newRoomState(){
+  return {
+    roomCode,
+    seats: [null,null,null,null,null,null],
+    phase: 'lobby', // lobby | bidding | playing | handEnd
+    dealer: 0,
+    turn: null,
+    hands: [[],[],[],[],[],[]],
+    bidHistory: [],
+    currentBid: null, // {value, trump, seat}
+    doubled: 0, // 0 none, 1 doubled, 2 redoubled
+    doubledBySeat: null,
+    passedSeats: [],
+    forcedSeat: null,
+    openerSeat: null,
+    openerSuit: null,
+    nsBySeat: {},
+    lastActionBySeat: {},
+    revealedVoidBySeat: {},
+    suitBidBySeat: {},
+    table: [], // [{seat, card}]
+    leadSuit: null,
+    pendingTrick: null,
+    tricksLog: [],
+    teamPoints: {A:0, B:0},
+    matchScore: {A:12, B:12}, // "tables" — each team starts with 12, paid/received zero-sum; match ends at 0
+    matchOver: false,
+    matchWinner: null,
+    handNumber: 1,
+    themeIndex: 0,
+    sessionWins: {A:0, B:0}, // matches won this session — persists across 'Start New Match'
+    reviewHold: false,
+    log: [],
+    lastNote: null,
+    updatedAt: Date.now()
+  };
+}
+
+function addLog(state, text){
+  state.log.unshift({text, ts: Date.now()});
+  if(state.log.length > 60) state.log.length = 60;
+}
+
+// ============================================================
+// JOIN FLOW
+// ============================================================
+document.getElementById('joinBtn').addEventListener('click', joinTable);
+document.getElementById('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') joinTable(); });
+document.getElementById('roomInput').addEventListener('keydown', e=>{ if(e.key==='Enter') joinTable(); });
+
+async function joinTable(){
+  if(usingFallbackStorage && !window.__fallbackWarned){
+    window.__fallbackWarned = true;
+    alert(
+      "Heads up: this page isn't running as a live Claude artifact, so it's using local " +
+      "browser storage instead of the real shared backend.\n\n" +
+      "This means it will only sync between tabs open on THIS browser/device — great for " +
+      "testing the game solo across several tabs, but it will NOT sync with other players " +
+      "on other phones. For real multiplayer, open this through Claude on each player's device."
+    );
+  }
+  const room = document.getElementById('roomInput').value.trim().toUpperCase();
+  const name = document.getElementById('nameInput').value.trim();
+  if(!room || !name){
+    alert('Please enter both a room code and your name.');
+    return;
+  }
+  roomCode = room;
+  myName = name;
+
+  let state = await loadState();
+  if(!state){
+    state = newRoomState();
+  }
+
+  // reclaim seat if same name already seated
+  let seatIdx = state.seats.findIndex(s => s && !s.bot && s.name === myName);
+  if(seatIdx === -1){
+    seatIdx = state.seats.findIndex(s => s === null);
+    if(seatIdx === -1 && state.phase === 'lobby'){
+      // table full of humans/bots — let a human claim a bot seat before the game starts
+      const botSeatIdx = state.seats.findIndex(s => s && s.bot);
+      if(botSeatIdx !== -1){
+        addLog(state, `${myName} took over ${state.seats[botSeatIdx].name}'s seat.`);
+        state.seats[botSeatIdx] = {name: myName};
+        seatIdx = botSeatIdx;
+      }
+    }
+    if(seatIdx === -1){
+      alert('This table is full. Try a different room code.');
+      return;
+    }
+    if(state.seats[seatIdx] === null){
+      state.seats[seatIdx] = {name: myName};
+      addLog(state, myName + ' took seat ' + (seatIdx+1) + '.');
+    }
+  }
+  mySeat = seatIdx;
+
+  await saveState(state);
+
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('gameHeader').classList.remove('hidden');
+  document.getElementById('game').style.display = 'flex';
+  const roomLabelEl = document.getElementById('roomLabel');
+  roomLabelEl.textContent = roomCode;
+  roomLabelEl.parentElement.title = usingFallbackStorage
+    ? 'Local test mode — only syncs between tabs on this browser, not across devices'
+    : '';
+  document.getElementById('sideToggle').classList.remove('hidden');
+  document.getElementById('revealToggle').classList.remove('hidden');
+  syncHeaderHeight();
+  const headerEl = document.getElementById('gameHeader');
+  if(window.ResizeObserver){
+    new ResizeObserver(syncHeaderHeight).observe(headerEl);
+  } else {
+    window.addEventListener('resize', syncHeaderHeight);
+    setTimeout(syncHeaderHeight, 500);
+  }
+
+  if(fallbackChannel){
+    fallbackChannel.onmessage = (ev) => {
+      if(ev.data && ev.data.room === roomCode) pollLoop();
+    };
+  }
+
+  render(state);
+  pollTimer = setInterval(pollLoop, 2200);
+}
+
+function syncHeaderHeight(){
+  const h = document.getElementById('gameHeader').offsetHeight;
+  document.documentElement.style.setProperty('--header-h', h + 'px');
+}
+
+async function pollLoop(){
+  const state = await loadState();
+  if(!state) return;
+  if(state.updatedAt === lastRenderedStamp) return;
+  render(state);
+}
+
+// ============================================================
+// SEAT LAYOUT (rotate so mySeat is always at bottom)
+// ============================================================
+// angle positions around the oval, index 0 = bottom (me)
+const SEAT_POS = [
+  {x:50, y:99},   // bottom (me)
+  {x:95, y:80},   // bottom-right
+  {x:95, y:18},   // top-right
+  {x:50, y:1},    // top
+  {x:5,  y:18},   // top-left
+  {x:5,  y:80},   // bottom-left
+];
+
+// Where each seat's played card lands in the trick area — hand-tuned as its own
+// evenly-spaced hexagon (not scaled from SEAT_POS) so cards never crowd or
+// overlap each other regardless of the table's non-square aspect ratio.
+const TRICK_SLOT_POS = [
+  {x:50, y:68},   // bottom
+  {x:70, y:60},   // bottom-right
+  {x:70, y:40},   // top-right
+  {x:50, y:32},   // top
+  {x:30, y:40},   // top-left
+  {x:30, y:60},   // bottom-left
+];
+
+function displaySlot(seat){
+  return (seat - mySeat + 6) % 6;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render(state){
+  lastRenderedStamp = state.updatedAt;
+  latestState = state;
+  applyTheme(state.themeIndex || 0);
+
+  const myTeamLetter = mySeat !== null ? TEAM_OF(mySeat) : 'A';
+  const oppTeamLetter = myTeamLetter === 'A' ? 'B' : 'A';
+  animateScoreTo('scoreYou', state.matchScore[myTeamLetter]);
+  animateScoreTo('scoreOpp', state.matchScore[oppTeamLetter]);
+  applyScoreMoodColor(state.matchScore[myTeamLetter], state.matchScore[oppTeamLetter]);
+  document.getElementById('handNum').textContent = state.handNumber;
+  const sw = state.sessionWins || {A:0, B:0};
+  const myTeamForWL = mySeat !== null ? TEAM_OF(mySeat) : 'A';
+  const oppTeamForWL = myTeamForWL === 'A' ? 'B' : 'A';
+  document.getElementById('sessionWL').textContent = `W${sw[myTeamForWL]||0} L${sw[oppTeamForWL]||0}`;
+
+  renderTable(state);
+  renderSide(state);
+  renderHandInfoBar(state);
+  renderTableTalk(state);
+
+  if(state.phase === 'lobby'){
+    renderLobbyOverlay(state);
+    document.getElementById('waitingStrip').classList.add('hidden');
+    hideBidPanel();
+  } else if(state.phase === 'bidding'){
+    hideOverlay();
+    renderBidPanel(state);
+    renderHand(state, false);
+    renderWaiting(state);
+  } else if(state.phase === 'auctionClosed'){
+    hideBidPanel();
+    renderAuctionClosedOverlay(state);
+    renderHand(state, false);
+    document.getElementById('waitingStrip').classList.add('hidden');
+  } else if(state.phase === 'playing'){
+    hideBidPanel();
+    if(debugRevealAll && reviewDismissedKey !== biddingReviewKey(state)){
+      renderBidWonReview(state);
+      document.getElementById('waitingStrip').classList.add('hidden');
+    } else {
+      hideOverlay();
+      renderHand(state, true);
+      renderWaiting(state);
+    }
+  } else if(state.phase === 'handEnd'){
+    hideBidPanel();
+    renderHandEndOverlay(state);
+    renderHand(state, false);
+    document.getElementById('waitingStrip').classList.add('hidden');
+  }
+
+  const reviewShowing = debugRevealAll && state.phase === 'playing' && reviewDismissedKey !== biddingReviewKey(state);
+  if(!reviewShowing) maybeDriveBots(state);
+  if(reviewShowing && !state.reviewHold) setReviewHold(true);
+  maybeClearPendingTrick(state);
+  scheduleCollectAnimation(state);
+  maybeAdvanceFromAuctionResult(state);
+}
+
+async function setReviewHold(value){
+  const fresh = await loadState();
+  if(!fresh || fresh.reviewHold === value) return;
+  fresh.reviewHold = value;
+  await saveState(fresh);
+}
+
+function renderHandInfoBar(state){
+  const bar = document.getElementById('handInfoBar');
+  if(state.phase !== 'bidding' && state.phase !== 'auctionClosed' && state.phase !== 'playing' && state.phase !== 'handEnd'){
+    bar.classList.add('hidden');
+    return;
+  }
+  bar.classList.remove('hidden');
+  const dealerName = state.seats[state.dealer] ? state.seats[state.dealer].name : '';
+  const dealerTxt = `<i>Dealer</i> <b>${escapeHtml(dealerName)}</b>`;
+
+  let html;
+  if(state.phase === 'bidding' || !state.currentBid){
+    html = dealerTxt;
+  } else {
+    const cb = state.currentBid;
+    const trumpTxt = cb.trump ? SUIT_SYM[cb.trump] + ' Trump' : 'No Trump';
+    const bidderName = state.seats[cb.seat] ? state.seats[cb.seat].name : '';
+    html = `${dealerTxt} &nbsp;·&nbsp; <span class="nowrap-chunk"><b>${escapeHtml(bidderName)}</b> (Team ${TEAM_OF(cb.seat)}) <b>${cb.value}</b> ${trumpTxt}</span>` +
+      (state.doubled===1?' · Doubled':state.doubled===2?' · Redoubled':'') +
+      ` &nbsp;·&nbsp; <span class="nowrap-chunk">Team A <b>${state.teamPoints.A}</b> — Team B <b>${state.teamPoints.B}</b></span>`;
+  }
+  setBarHtml(bar, html);
+}
+
+function setBarHtml(bar, html){
+  if(bar.dataset.content === html) return;
+  bar.dataset.content = html;
+  bar.innerHTML = html;
+  bar.style.animation = 'none';
+  void bar.offsetWidth;
+  bar.style.animation = 'fadeSlideDown .25s ease';
+}
+
+function renderTableTalk(state){
+  const bar = document.getElementById('tableTalk');
+  if(!state.lastNote || (state.phase !== 'bidding' && state.phase !== 'playing')){
+    bar.classList.add('hidden');
+    return;
+  }
+  const speaker = state.seats[state.lastNote.seat] ? state.seats[state.lastNote.seat].name : '';
+  bar.classList.remove('hidden');
+  setBarHtml(bar, `<b>${escapeHtml(speaker)}:</b> "${escapeHtml(state.lastNote.text)}"`);
+}
+
+function hideOverlay(){ const o=document.getElementById('overlay'); o.classList.add('hidden'); o.innerHTML=''; }
+function hideBidPanel(){
+  document.getElementById('bid-panel-overlay').classList.add('hidden');
+}
+
+let seatEls = null; // 6 persistent seat divs, created once
+let centerEl = null; // persistent center-trick container, created once
+let lastTrickCardCount = -1;
+
+function ensureTableSkeleton(){
+  const table = document.getElementById('table');
+  if(seatEls && centerEl && table.contains(centerEl)) return;
+
+  table.innerHTML = '';
+  seatEls = [];
+  for(let seat=0; seat<6; seat++){
+    const div = document.createElement('div');
+    table.appendChild(div);
+    seatEls.push(div);
+  }
+  centerEl = document.createElement('div');
+  centerEl.className = 'center-trick';
+  table.appendChild(centerEl);
+  lastTrickCardCount = -1;
+}
+
+function renderTable(state){
+  ensureTableSkeleton();
+
+  for(let seat=0; seat<6; seat++){
+    const slot = displaySlot(seat);
+    const pos = SEAT_POS[slot];
+    const occ = state.seats[seat];
+    const div = seatEls[seat];
+    const isDealer = seat===state.dealer && state.phase!=='lobby';
+    const newClass = 'seat ' + (occ ? 'team-' + TEAM_OF(seat) : 'empty') +
+      (state.turn === seat && (state.phase==='bidding'||state.phase==='playing') ? ' active' : '') +
+      (isDealer ? ' is-dealer' : '');
+    if(div.className !== newClass) div.className = newClass;
+    div.style.left = pos.x + '%';
+    div.style.top = pos.y + '%';
+    const handCount = (state.hands[seat]||[]).length;
+    const avatarContent = occ ? botFace(occ, seat, state) : '·';
+    const lastAction = (state.phase === 'bidding' && state.lastActionBySeat) ? state.lastActionBySeat[seat] : null;
+    const newHtml = `
+      ${lastAction ? `<div class="last-action-badge">${escapeHtml(lastAction)}</div>` : ''}
+      <div class="avatar-wrap">
+        <div class="avatar">${avatarContent}</div>
+        ${isDealer ? '<div class="dealer-chip" title="Dealer">D</div>' : ''}
+        ${occ && occ.bot ? '<div class="bot-tag" title="Bot">AI</div>' : ''}
+      </div>
+      <div class="pod">
+        <div class="name">${occ ? escapeHtml(occ.name) : 'Empty seat ' + (seat+1)}${seat===mySeat?' (you)':''}</div>
+        <div class="role">
+          <span class="team-tag ${TEAM_OF(seat)}">Team ${TEAM_OF(seat)}</span>
+        </div>
+        ${state.phase!=='lobby' ? `<div class="mini-stack" title="${handCount} card${handCount!==1?'s':''}">${Array.from({length: Math.min(handCount,8)}).map(()=>`<div class="mini-back"></div>`).join('')}</div>` : ''}
+      </div>
+    `;
+    // Only touch the DOM if the content actually changed, so unrelated seats
+    // don't replay their avatar/pulse animation on every single render.
+    if(div.dataset.content !== newHtml){
+      div.dataset.content = newHtml;
+      div.innerHTML = newHtml;
+    }
+  }
+
+  // Center trick — each card placed near the seat that played it. Cards already
+  // on the table stay untouched (no re-animation); only a newly-played card gets
+  // added fresh, so this doesn't "blink" every time someone plays.
+  const tableCards = state.table || [];
+  if(tableCards.length < lastTrickCardCount){
+    // trick was cleared/reset — start fresh
+    centerEl.querySelectorAll('.trick-card').forEach(el => el.remove());
+  }
+  lastTrickCardCount = tableCards.length;
+
+  const existingCount = centerEl.querySelectorAll('.trick-card').length;
+  tableCards.forEach((play, i) => {
+    if(i < existingCount) return; // already rendered, leave it alone
+    const slot = displaySlot(play.seat);
+    const pos = TRICK_SLOT_POS[slot];
+    const c = document.createElement('div');
+    c.className = 'trick-card' + (SUIT_RED[play.card.s] ? ' red' : '');
+    c.style.left = pos.x + '%'; c.style.top = pos.y + '%';
+    c.innerHTML = `<div>${play.card.r}</div><div>${SUIT_SYM[play.card.s]}</div>`;
+    centerEl.appendChild(c);
+  });
+
+  const existingToast = centerEl.querySelector('.trick-winner-toast');
+  if(state.pendingTrick && !existingToast){
+    const toast = document.createElement('div');
+    toast.className = 'trick-winner-toast';
+    const winnerName = state.seats[state.pendingTrick.winnerSeat] ? state.seats[state.pendingTrick.winnerSeat].name : '';
+    toast.textContent = `${winnerName} wins the trick · +${state.pendingTrick.points} pts to Team ${state.pendingTrick.team}`;
+    centerEl.appendChild(toast);
+  } else if(!state.pendingTrick && existingToast){
+    existingToast.remove();
+  }
+}
+
+let lastRenderedHandIds = new Set();
+let lastRenderedHandNumber = null;
+
+function renderHand(state, playable){
+  const strip = document.getElementById('hand-strip');
+  strip.innerHTML = '';
+  if(state.handNumber !== lastRenderedHandNumber){
+    lastRenderedHandIds = new Set();
+    lastRenderedHandNumber = state.handNumber;
+  }
+  const hand = state.hands[mySeat] || [];
+  const sorted = hand.slice().sort((a,b)=>{
+    if(a.s !== b.s) return HAND_SORT_ORDER.indexOf(a.s) - HAND_SORT_ORDER.indexOf(b.s);
+    return RANKS.indexOf(a.r) - RANKS.indexOf(b.r);
+  });
+
+  const myTurn = state.turn === mySeat;
+  const legal = legalCardIds(state);
+  const currentIds = new Set();
+
+  sorted.forEach(card => {
+    currentIds.add(card.id);
+    const el = document.createElement('div');
+    const isLegal = playable && myTurn && legal.has(card.id);
+    const isNew = !lastRenderedHandIds.has(card.id);
+    el.className = 'card' + (SUIT_RED[card.s] ? ' red' : '') + ((playable && myTurn && !isLegal) ? ' disabled' : '') + (isNew ? ' card-new' : '');
+    el.innerHTML = `<div class="corner tl"><div>${card.r}</div><div class="csuit">${SUIT_SYM[card.s]}</div></div><div class="rank">${card.r}</div><div class="suit">${SUIT_SYM[card.s]}</div><div class="corner br"><div>${card.r}</div><div class="csuit">${SUIT_SYM[card.s]}</div></div><div class="pts">${RANK_PTS[card.r]}pt</div>`;
+    if(playable && myTurn && isLegal){
+      el.addEventListener('click', () => playCard(card));
+    }
+    strip.appendChild(el);
+  });
+  lastRenderedHandIds = currentIds;
+
+  requestAnimationFrame(() => {
+    const handArea = document.getElementById('hand-area');
+    const overflowing = strip.scrollWidth > strip.clientWidth + 4;
+    handArea.classList.toggle('can-scroll', overflowing);
+    strip.style.justifyContent = overflowing ? 'flex-start' : 'center';
+  });
+}
+
+function legalCardsForSeat(state, seat){
+  const hand = state.hands[seat] || [];
+  const set = new Set();
+  if(!state.leadSuit){
+    hand.forEach(c => set.add(c.id));
+    return set;
+  }
+  const followers = hand.filter(c => c.s === state.leadSuit);
+  if(followers.length > 0){
+    followers.forEach(c => set.add(c.id));
+  } else {
+    hand.forEach(c => set.add(c.id));
+  }
+  return set;
+}
+function legalCardIds(state){
+  return legalCardsForSeat(state, mySeat);
+}
+
+function renderWaiting(state){
+  const strip = document.getElementById('waitingStrip');
+  const handArea = document.getElementById('hand-area');
+  if(state.pendingTrick){
+    strip.classList.remove('hidden');
+    strip.textContent = 'Trick complete — next lead coming up…';
+    adjustHandAreaFor(strip, handArea);
+    return;
+  }
+  if(state.turn === mySeat){
+    strip.classList.add('hidden');
+    handArea.style.paddingBottom = '';
+    return;
+  }
+  strip.classList.remove('hidden');
+  const occ = state.seats[state.turn];
+  let text = `Waiting for ${occ ? occ.name : 'seat ' + (state.turn+1)} to ${state.phase==='bidding'?'bid':'play'}...`;
+  if(state.phase === 'bidding' && state.log.length){
+    text += `  ·  last: ${state.log[0].text}`;
+  }
+  strip.textContent = text;
+  adjustHandAreaFor(strip, handArea);
+}
+
+function adjustHandAreaFor(fixedEl, handArea){
+  requestAnimationFrame(() => {
+    const h = fixedEl.getBoundingClientRect().height;
+    handArea.style.paddingBottom = (h + 20) + 'px';
+  });
+}
+
+function renderSide(state){
+  const body = document.getElementById('sideBody');
+  body.innerHTML = '';
+
+  if(debugRevealAll && state.phase !== 'lobby'){
+    const box = document.createElement('div');
+    box.style.cssText = 'margin-bottom:16px;padding:10px 12px;background:rgba(201,162,39,0.1);border:1px solid var(--line);border-radius:8px;';
+    box.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--gold-soft);margin-bottom:8px;">⚠️ All hands (testing only)</div>' +
+      state.seats.map((s,i) => {
+        if(!s) return '';
+        const chips = handChipsForSeat(state, i);
+        const summary = getSeatBidSummary(state, i);
+        return `<div style="margin-bottom:8px;"><div style="font-size:11.5px;color:var(--gold-soft);margin-bottom:3px;">${escapeHtml(s.name)}${i===mySeat?' (you)':''} — Team ${TEAM_OF(i)}</div>` +
+          (summary ? `<div style="font-size:11px;opacity:0.75;margin-bottom:4px;">${escapeHtml(summary)}</div>` : '') +
+          `<div class="mini-hand">${chips || '<span style=\"opacity:0.5;font-size:11px;\">no cards</span>'}</div></div>`;
+      }).join('');
+    body.appendChild(box);
+  }
+
+  const items = state.log.slice(0, 40);
+  items.forEach(item => {
+    const d = document.createElement('div');
+    d.className = 'log-line';
+    d.textContent = item.text;
+    body.appendChild(d);
+  });
+  if(items.length===0){
+    body.innerHTML += '<div class="log-line">Table log will appear here.</div>';
+  }
+}
+
+function renderLobbyOverlay(state){
+  const o = document.getElementById('overlay');
+  o.classList.remove('hidden');
+  const seated = state.seats.filter(s=>s).length;
+  const names = state.seats.map((s,i)=> s ? `${i+1}. ${botFace(s, i, state)} ${escapeHtml(s.name)} <span class="team-tag ${TEAM_OF(i)}">Team ${TEAM_OF(i)}</span>` : `${i+1}. <span style="opacity:0.4">empty</span>`).join('<br>');
+  const canStart = seated === 6;
+  const hasEmpty = seated < 6;
+  o.innerHTML = `
+    <div class="box">
+      <h2>Waiting for players</h2>
+      <p style="text-align:left; margin:14px 0;">${names}</p>
+      <p>${seated}/6 seated. Seats 1‑3‑5 form Team A, seats 2‑4‑6 form Team B.</p>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap;">
+        ${hasEmpty ? '<button class="btn btn-ghost" id="fillBotsBtn">Fill Empty Seats with Bots</button>' : ''}
+        <button class="btn btn-gold" id="startBtn" ${canStart?'':'disabled'}>Deal Cards &amp; Start</button>
+      </div>
+      <p class="hint" style="margin-top:16px;">Bots bid and play automatically using simple hand-strength heuristics. A human seat can still join and take over any 🤖 seat before the game starts.</p>
+    </div>
+  `;
+  if(canStart){
+    document.getElementById('startBtn').addEventListener('click', startGame);
+  }
+  if(hasEmpty){
+    document.getElementById('fillBotsBtn').addEventListener('click', fillEmptySeatsWithBots);
+  }
+}
+
+const BOT_NAME_POOL = [
+  {name:'Charlie', gender:'m'}, {name:'Roby', gender:'m'}, {name:'Johny', gender:'m'},
+  {name:'Koshy', gender:'m'}, {name:'Nate', gender:'m'}, {name:'Neha', gender:'f'},
+  {name:'Rajan', gender:'m'}, {name:'Charis', gender:'f'}, {name:'Hali', gender:'f'},
+  {name:'Yaya', gender:'f'}, {name:'Ezra', gender:'m'}, {name:'Benson', gender:'m'},
+  {name:'Sam', gender:'m'}, {name:'Babu', gender:'m'}, {name:'Niya', gender:'f'},
+  {name:'Alex', gender:'m'}
+];
+
+// Mood-based faces: the bot's expression reflects how their team is currently doing,
+// re-evaluated every render from the live match score. Neutral at 0-0, happier the
+// further ahead their team is, sadder the further behind.
+const MOOD_FACES = {
+  f: {veryHappy:'💁\u200d♀️', happy:'🙆\u200d♀️', neutral:'🤷\u200d♀️', sad:'🙅\u200d♀️', verySad:'🤦\u200d♀️'},
+  m: {veryHappy:'💁\u200d♂️', happy:'🙆\u200d♂️', neutral:'🤷\u200d♂️', sad:'🙅\u200d♂️', verySad:'🤦\u200d♂️'}
+};
+
+function pickRandomBotIdentities(count){
+  const pool = shuffle(BOT_NAME_POOL);
+  return pool.slice(0, count).map(p => ({name: p.name, gender: p.gender}));
+}
+
+function simpleHash(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
+  return Math.abs(h);
+}
+
+// Mood face for ANY occupied seat — bot or human, including the viewer's own
+// seat. Everyone's expression reflects their team's live standing the same
+// way. Humans don't have a declared gender, so we derive a stable one from
+// their name (consistent every render, just for visual variety).
+function botFace(seatObj, seatIdx, state){
+  if(!seatObj) return '';
+  const gender = seatObj.gender || (simpleHash(seatObj.name || '') % 2 === 0 ? 'm' : 'f');
+  const faces = MOOD_FACES[gender] || MOOD_FACES.m;
+  if(!state || !state.matchScore || state.phase === 'lobby') return faces.neutral;
+  const myTeam = TEAM_OF(seatIdx);
+  const oppTeam = myTeam === 'A' ? 'B' : 'A';
+  const matchDiff = (state.matchScore[myTeam]||0) - (state.matchScore[oppTeam]||0);
+  // Also react live to how the current hand's tricks are going, not just the
+  // finalized match score — weighted down since trick points (0-56) swing much
+  // bigger than match points (1-5), so this nudges the mood without letting one
+  // early trick completely dominate the read.
+  const trickDiff = state.teamPoints ? ((state.teamPoints[myTeam]||0) - (state.teamPoints[oppTeam]||0)) : 0;
+  const diff = matchDiff * 2 + Math.round(trickDiff / 5);
+  if(diff >= 4) return faces.veryHappy;
+  if(diff >= 1) return faces.happy;
+  if(diff === 0) return faces.neutral;
+  if(diff >= -3) return faces.sad;
+  return faces.verySad;
+}
+
+async function fillEmptySeatsWithBots(){
+  let state = await loadState();
+  if(!state || state.phase !== 'lobby') return;
+  const emptySeats = [];
+  for(let i=0;i<6;i++){ if(!state.seats[i]) emptySeats.push(i); }
+  const identities = pickRandomBotIdentities(emptySeats.length);
+  emptySeats.forEach((seatIdx, k) => {
+    const id = identities[k] || {name: 'Bot ' + (seatIdx+1), gender: 'm'};
+    state.seats[seatIdx] = {name: id.name, bot: true, gender: id.gender};
+  });
+  addLog(state, 'Empty seats filled with bots.');
+  await saveState(state);
+  render(state);
+}
+
+function renderBidWonReview(state){
+  const o = document.getElementById('overlay');
+  const prevScroll = o.querySelector('.review-scroll');
+  const prevScrollTop = prevScroll ? prevScroll.scrollTop : 0;
+  o.classList.remove('hidden');
+  const cb = state.currentBid;
+  const winnerName = state.seats[cb.seat] ? state.seats[cb.seat].name : '';
+
+  const allEntries = getCurrentHandLog(state);
+  const actionEntries = allEntries.filter(l => !(l.text.includes('dealt') && l.text.includes('opens the bidding')));
+  const sequenceHtml = actionEntries.length
+    ? actionEntries.map((l, idx) => `<div class="hist-line"><b style="color:var(--gold-soft);">${idx+1}${ordinalSuffix(idx+1)}:</b> ${escapeHtml(l.text)}</div>`).join('')
+    : '<div class="hist-line" style="opacity:0.5;">No calls recorded.</div>';
+
+  const handsHtml = state.seats.map((s,i) => {
+    if(!s) return '';
+    const chips = handChipsForSeat(state, i);
+    const summary = getSeatBidSummary(state, i);
+    return `<div style="margin-bottom:10px; text-align:left;"><div style="font-size:11.5px;color:var(--gold-soft);margin-bottom:3px;">${escapeHtml(s.name)}${i===mySeat?' (you)':''} — Team ${TEAM_OF(i)}${i===cb.seat?' 🏆':''}</div>` +
+      (summary ? `<div style="font-size:11px;opacity:0.75;margin-bottom:4px;">${escapeHtml(summary)}</div>` : '') +
+      `<div class="mini-hand">${chips}</div></div>`;
+  }).join('');
+
+  const leaderSeat = (state.dealer + 1) % 6;
+  const leaderName = state.seats[leaderSeat] ? state.seats[leaderSeat].name : '';
+  o.innerHTML = `
+    <div class="box review-box" style="width:min(480px,92vw); max-width:none; max-height:calc(90vh - var(--header-h,52px));">
+      <div class="review-pinned-top">
+        <h2 style="text-align:center; margin:0 0 6px;">Bidding closed</h2>
+        <p style="text-align:center; margin:0;">${escapeHtml(winnerName)} won with ${formatBidLabel(cb)}. ${escapeHtml(leaderName)} leads the first trick.</p>
+      </div>
+      <div class="review-scroll">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.6; margin:10px 0 8px;">Bidding sequence</div>
+        <div class="hist-box">${sequenceHtml}</div>
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.6; margin:16px 0 8px;">⚠️ All hands (testing only)</div>
+        ${handsHtml}
+      </div>
+      <div class="review-pinned-bottom">
+        <button class="btn btn-gold" id="reviewContinueBtn" style="width:100%;">OK, Continue</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('reviewContinueBtn').addEventListener('click', () => {
+    reviewDismissedKey = biddingReviewKey(state);
+    setReviewHold(false);
+    render(state);
+  });
+
+  const newScroll = o.querySelector('.review-scroll');
+  if(newScroll) newScroll.scrollTop = prevScrollTop;
+}
+
+function renderAuctionClosedOverlay(state){
+  const o = document.getElementById('overlay');
+  o.classList.remove('hidden');
+  const cb = state.currentBid;
+  const winnerName = state.seats[cb.seat] ? state.seats[cb.seat].name : '';
+  const leaderSeat = (state.dealer + 1) % 6;
+  const leaderName = state.seats[leaderSeat] ? state.seats[leaderSeat].name : '';
+  o.innerHTML = `
+    <div class="box">
+      <h2>Bidding closed</h2>
+      <p style="font-size:16px;">
+        <b style="color:var(--gold-soft);">${escapeHtml(winnerName)}</b> (Team ${TEAM_OF(cb.seat)}) won with
+        <b>${formatBidLabel(cb)}</b>${state.doubled===1?' · Doubled':state.doubled===2?' · Redoubled':''}
+      </p>
+      <p style="margin-top:8px; opacity:0.75; font-size:13px;"><b>${escapeHtml(leaderName)}</b> (seat right of the dealer) leads the first card — starting shortly…</p>
+    </div>
+  `;
+}
+
+function renderHandEndOverlay(state){
+  const o = document.getElementById('overlay');
+  o.classList.remove('hidden');
+  const bid = state.currentBid;
+  const biddingTeam = TEAM_OF(bid.seat);
+  const oppTeam = biddingTeam==='A'?'B':'A';
+  const made = state.teamPoints[biddingTeam] >= bid.value;
+
+  if(state.matchOver){
+    o.innerHTML = `
+      <div class="box">
+        <h2>🏆 Team ${state.matchWinner} wins the match!</h2>
+        <p>
+          Team ${biddingTeam} bid <b>${bid.value}</b> (${bid.trump?SUIT_SYM[bid.trump]+' trump':'No Trump'})${state.doubled?', '+(state.doubled===2?'redoubled':'doubled'):''}
+          and collected <b>${state.teamPoints[biddingTeam]}</b> points.<br>
+          Team ${oppTeam} collected <b>${state.teamPoints[oppTeam]}</b> points.
+        </p>
+        <p style="margin-top:10px;">Tables &mdash; Team A: <b>${state.matchScore.A}</b> &nbsp;|&nbsp; Team B: <b>${state.matchScore.B}</b></p>
+        <p style="margin-top:6px; opacity:0.75; font-size:13px;">Team ${state.matchWinner === 'A' ? 'B' : 'A'} is out of tables — the match is over.</p>
+        <button class="btn btn-gold" id="newMatchBtn" style="margin-top:16px;">Start New Match</button>
+      </div>
+    `;
+    document.getElementById('newMatchBtn').addEventListener('click', () => startNewMatch(state));
+    return;
+  }
+
+  o.innerHTML = `
+    <div class="box">
+      <h2>${made ? 'Bid made!' : 'Bid failed'}</h2>
+      <p>
+        Team ${biddingTeam} bid <b>${bid.value}</b> (${bid.trump?SUIT_SYM[bid.trump]+' trump':'No Trump'})${state.doubled?', '+(state.doubled===2?'redoubled':'doubled'):''}
+        and collected <b>${state.teamPoints[biddingTeam]}</b> points.<br>
+        Team ${oppTeam} collected <b>${state.teamPoints[oppTeam]}</b> points.
+      </p>
+      <p style="margin-top:10px;">Tables remaining &mdash; Team A: <b>${state.matchScore.A}</b> &nbsp;|&nbsp; Team B: <b>${state.matchScore.B}</b></p>
+      <button class="btn btn-gold" id="nextHandBtn" style="margin-top:16px;">Deal Next Hand</button>
+    </div>
+  `;
+  document.getElementById('nextHandBtn').addEventListener('click', () => nextHand(state));
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ============================================================
+// GAME ACTIONS
+// ============================================================
+async function startGame(){
+  let state = await loadState();
+  if(!state || state.phase !== 'lobby') return;
+  state.dealer = Math.floor(Math.random() * 6);
+  state.turn = (state.dealer + 1) % 6;
+  state.themeIndex = (function(){ let i; do{ i = Math.floor(Math.random()*THEMES.length); } while(i === state.themeIndex && THEMES.length>1); return i; })();
+  state.hands = dealHands(state.turn); // deal starts with the opening bidder, traditional order
+  state.phase = 'bidding';
+  state.currentBid = null;
+  state.doubled = 0;
+  state.doubledBySeat = null;
+  state.passedSeats = [];
+  state.forcedSeat = null;
+  state.openerSeat = null;
+  state.openerSuit = null;
+  state.nsBySeat = {};
+  state.lastActionBySeat = {};
+  state.revealedVoidBySeat = {};
+  state.reviewHold = false;
+  state.suitBidBySeat = {};
+  state.bidHistory = [];
+  state.table = [];
+  state.leadSuit = null;
+  state.pendingTrick = null;
+  state.tricksLog = [];
+  state.teamPoints = {A:0, B:0};
+  state.lastNote = null;
+  addLog(state, `Cards dealt for hand ${state.handNumber}. ${state.seats[state.dealer].name} is dealer. ${state.seats[state.turn].name} opens the bidding.`);
+  await saveState(state);
+  render(state);
+}
+
+async function nextHand(prevState){
+  let state = await loadState();
+  if(!state) return;
+  state.dealer = (state.dealer + 1) % 6;
+  state.handNumber += 1;
+  state.turn = (state.dealer + 1) % 6;
+  state.themeIndex = (function(){ let i; do{ i = Math.floor(Math.random()*THEMES.length); } while(i === state.themeIndex && THEMES.length>1); return i; })();
+  state.hands = dealHands(state.turn); // deal starts with the opening bidder, traditional order
+  state.phase = 'bidding';
+  state.currentBid = null;
+  state.doubled = 0;
+  state.doubledBySeat = null;
+  state.passedSeats = [];
+  state.forcedSeat = null;
+  state.openerSeat = null;
+  state.openerSuit = null;
+  state.nsBySeat = {};
+  state.lastActionBySeat = {};
+  state.revealedVoidBySeat = {};
+  state.reviewHold = false;
+  state.suitBidBySeat = {};
+  state.bidHistory = [];
+  state.table = [];
+  state.leadSuit = null;
+  state.pendingTrick = null;
+  state.tricksLog = [];
+  state.teamPoints = {A:0, B:0};
+  state.lastNote = null;
+  addLog(state, `Hand ${state.handNumber} dealt. ${state.seats[state.turn].name} opens the bidding.`);
+  await saveState(state);
+  render(state);
+}
+
+async function startNewMatch(prevState){
+  let state = await loadState();
+  if(!state) return;
+  state.matchScore = {A:12, B:12};
+  state.matchOver = false;
+  state.matchWinner = null;
+  state.handNumber = 1;
+  state.dealer = Math.floor(Math.random() * 6);
+  state.turn = (state.dealer + 1) % 6;
+  state.themeIndex = Math.floor(Math.random()*THEMES.length);
+  state.hands = dealHands(state.turn);
+  state.phase = 'bidding';
+  state.currentBid = null;
+  state.doubled = 0;
+  state.doubledBySeat = null;
+  state.passedSeats = [];
+  state.forcedSeat = null;
+  state.openerSeat = null;
+  state.openerSuit = null;
+  state.nsBySeat = {};
+  state.lastActionBySeat = {};
+  state.revealedVoidBySeat = {};
+  state.reviewHold = false;
+  state.suitBidBySeat = {};
+  state.bidHistory = [];
+  state.table = [];
+  state.leadSuit = null;
+  state.pendingTrick = null;
+  state.tricksLog = [];
+  state.teamPoints = {A:0, B:0};
+  state.lastNote = null;
+  addLog(state, `New match started — each team back to 12 tables. Hand 1 dealt.`);
+  await saveState(state);
+  render(state);
+}
+
+// ---------- bidding UI state ----------
+let bidMode = 'set'; // 'set' | 'inc'
+let bidNumber = 28;
+let bidTrumpKind = 'suit'; // 'suit' | 'nt' | 'ns'
+let bidSuit = 'S';
+let bidOrder = 'forward'; // 'forward' (has the Jack) | 'reverse' (no Jack, 4+ cards)
+
+let noteDraft = '';
+
+// Formats a stored bid {value, trump, kind, order} into the traditional notation.
+function formatBidLabel(cb){
+  if(!cb) return '';
+  if(cb.kind === 'nt') return cb.value + ' NT';
+  if(cb.kind === 'ns') return cb.value + ' NS';
+  const sym = SUIT_SYM[cb.trump];
+  return cb.order === 'reverse' ? `${sym} ${cb.value}` : `${cb.value} ${sym}`;
+}
+
+// Used only in the table log / history — shows the +N raise notation for a
+// same-suit support/reassertion, since the jump size itself is the signal.
+// The absolute number (formatBidLabel) is still what you need elsewhere,
+// e.g. to know the actual target to beat.
+function formatBidLogLabel(cb){
+  if(!cb) return '';
+  if(cb.kind === 'nt' || cb.kind === 'ns') return formatBidLabel(cb);
+  if(cb.increment){
+    const sym = SUIT_SYM[cb.trump];
+    const inc = cb.order === 'reverse' ? `${sym} +${cb.increment}` : `+${cb.increment} ${sym}`;
+    return `${inc} (${cb.value})`;
+  }
+  return formatBidLabel(cb);
+}
+
+function getCurrentHandLog(state){
+  // log is newest-first; find the boundary marker for this hand's deal and
+  // return everything since then, oldest first (readable order).
+  const idx = state.log.findIndex(l => l.text.includes('dealt for hand') || l.text.includes('Hand ') && l.text.includes('dealt'));
+  const slice = idx === -1 ? state.log : state.log.slice(0, idx + 1);
+  return slice.slice().reverse();
+}
+
+function seatIndexFromLogText(state, text){
+  for(let i=0;i<6;i++){
+    if(state.seats[i] && text.indexOf(state.seats[i].name) === 0) return i;
+  }
+  return null;
+}
+
+function handChipsForSeat(state, seatIdx){
+  const hand = (state.hands[seatIdx]||[]).slice().sort((a,b)=>{
+    if(a.s !== b.s) return HAND_SORT_ORDER.indexOf(a.s) - HAND_SORT_ORDER.indexOf(b.s);
+    return RANKS.indexOf(a.r) - RANKS.indexOf(b.r);
+  });
+  return hand.map(c => `<span class="mini-card${SUIT_RED[c.s]?' red':''}">${c.r}${SUIT_SYM[c.s]}</span>`).join(' ');
+}
+
+// Builds a short "1st: bid 28♠ → 2nd: passed → 3rd: bid 34♠ (won)" style summary
+// of everything this specific seat did during this hand's bidding, in order.
+function getSeatBidSummary(state, seatIdx){
+  const entries = getCurrentHandLog(state);
+  const actionEntries = entries.filter(l => !(l.text.includes('dealt') && l.text.includes('opens the bidding')));
+  const name = state.seats[seatIdx] ? state.seats[seatIdx].name : null;
+  if(!name) return '';
+  const mine = [];
+  actionEntries.forEach((l, idx) => {
+    if(seatIndexFromLogText(state, l.text) === seatIdx){
+      let action = l.text.slice(name.length).trim().replace(/^—\s*/,'').replace(/\.$/,'');
+      action = action.replace(/\s*—\s*".*"$/,'');
+      mine.push({order: idx+1, action});
+    }
+  });
+  if(mine.length === 0) return '';
+  const cb = state.currentBid;
+  const wonTag = (cb && cb.seat === seatIdx) ? ' 🏆 won the bid' : '';
+  return mine.map(m => `${m.order}${ordinalSuffix(m.order)}: ${m.action}`).join(' → ') + wonTag;
+}
+
+function renderBidPanel(state){
+  const overlayWrap = document.getElementById('bid-panel-overlay');
+  const panel = document.getElementById('bid-panel');
+  const myTurn = state.turn === mySeat;
+
+  if(!myTurn){
+    overlayWrap.classList.add('hidden');
+    return;
+  }
+  overlayWrap.classList.remove('hidden');
+
+  const cb = state.currentBid;
+  const minVal = cb ? cb.value + 1 : 28;
+  if(bidMode==='set' && bidNumber < minVal) bidNumber = Math.min(56, minVal);
+
+  // The actual value that would be submitted right now, given the current
+  // Set-to/Increase-by mode and number — used to show a real preview on the
+  // order-toggle buttons instead of a generic label.
+  let previewValue = bidMode === 'set' ? bidNumber : (cb ? cb.value : 27) + bidNumber;
+  if(previewValue > 56) previewValue = 56;
+
+  const iAmOpposing = cb && TEAM_OF(cb.seat) !== TEAM_OF(mySeat);
+  const iAmBidder = cb && TEAM_OF(cb.seat) === TEAM_OF(mySeat);
+  const canDouble = iAmOpposing && state.doubled === 0;
+  const canRedouble = iAmBidder && state.doubled === 1;
+  const isForcedOpener = state.forcedSeat === mySeat && !cb;
+
+  const myHand = (state.hands[mySeat] || []).slice().sort((a,b)=>{
+    if(a.s !== b.s) return HAND_SORT_ORDER.indexOf(a.s) - HAND_SORT_ORDER.indexOf(b.s);
+    return RANKS.indexOf(a.r) - RANKS.indexOf(b.r);
+  });
+  const handHtml = myHand.map(c => `<span class="mini-card${SUIT_RED[c.s]?' red':''}">${c.r}${SUIT_SYM[c.s]}</span>`).join('');
+
+  const historyEntries = getCurrentHandLog(state);
+  const historyHtml = historyEntries.length
+    ? historyEntries.map(l => {
+        const seatIdx = debugRevealAll ? seatIndexFromLogText(state, l.text) : null;
+        const chips = (seatIdx !== null && seatIdx !== mySeat) ? handChipsForSeat(state, seatIdx) : '';
+        return `<div class="hist-line">${escapeHtml(l.text)}${chips ? `<div class="mini-hand" style="margin-top:4px;">${chips}</div>` : ''}</div>`;
+      }).join('')
+    : '<div class="hist-line" style="opacity:0.5;">No calls yet — you\'re first to speak.</div>';
+
+  const myTeam = TEAM_OF(mySeat);
+  const teammates = state.seats
+    .map((s,i) => s ? {i, name:s.name} : null)
+    .filter(x => x && x.i !== mySeat && TEAM_OF(x.i) === myTeam);
+  const opponents = state.seats
+    .map((s,i) => s ? {i, name:s.name} : null)
+    .filter(x => x && TEAM_OF(x.i) !== myTeam);
+  const seatingHtml = `
+    <div class="seating-box">
+      <div>You are <b>Seat ${mySeat+1}</b>, <span class="team-tag ${myTeam}">Team ${myTeam}</span></div>
+      <div style="margin-top:6px;"><span style="opacity:0.7;">Teammates:</span> ${teammates.map(t=>escapeHtml(t.name)+' (seat '+(t.i+1)+')').join(', ') || '—'}</div>
+      <div style="margin-top:2px;"><span style="opacity:0.7;">Opponents:</span> ${opponents.map(o=>escapeHtml(o.name)+' (seat '+(o.i+1)+')').join(', ') || '—'}</div>
+    </div>
+  `;
+
+  const prevScrollTop = panel.scrollTop;
+
+  panel.innerHTML = `
+    <h3 style="margin:0 0 10px; font-size:19px;">Your bid</h3>
+    ${seatingHtml}
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.6; margin-bottom:6px;">Your hand</div>
+    <div class="mini-hand">${handHtml}</div>
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.6; margin:14px 0 6px;">Calls so far this hand</div>
+    <div class="hist-box">${historyHtml}</div>
+    <div class="bidline" style="margin-top:20px;">
+      <div class="current-bid-display">${cb ? formatBidLabel(cb) : 'No bid yet'}</div>
+      <div style="font-size:12px; opacity:0.7;">${cb ? 'held by ' + (state.seats[cb.seat]?state.seats[cb.seat].name:'') : 'opening bid: 28'}</div>
+    </div>
+    <div class="row">
+      <div class="segmented" id="modeSeg">
+        <button data-mode="set" class="${bidMode==='set'?'sel':''}">Set to</button>
+        <button data-mode="inc" class="${bidMode==='inc'?'sel':''}">Increase by</button>
+      </div>
+      <div class="numstep" id="numstep">
+        <button data-d="-1">−</button>
+        <input id="bidNumInput" type="text" inputmode="numeric" value="${bidNumber}">
+        <button data-d="1">+</button>
+      </div>
+    </div>
+    ${bidMode==='inc' ? `<div style="font-size:11px; opacity:0.55; margin:-6px 0 10px;">Convention: the jump size signals extra strength — e.g. +2 often means two Jacks, +3 means two Jacks and a 9. The game doesn't enforce this, it's just for your partner.</div>` : ''}
+    <div class="row">
+      <div class="suitpick" id="suitpick">
+        ${SUITS.map(s=>`<button data-suit="${s}" class="${(SUIT_RED[s])?'red':''} ${bidTrumpKind==='suit'&&bidSuit===s?'sel':''}">${SUIT_SYM[s]}</button>`).join('')}
+        <button data-suit="NT" class="${bidTrumpKind==='nt'?'sel':''}" style="width:auto;padding:0 10px;">NT</button>
+        <button data-suit="NS" class="${bidTrumpKind==='ns'?'sel':''}" style="width:auto;padding:0 10px;">NS</button>
+      </div>
+    </div>
+    ${bidTrumpKind==='nt' ? `<div class="explain-box">NT — No Trump. Signals 3+ Jacks spread across different suits, not concentrated in one. If this wins, the hand is played with no trump suit.</div>` : ''}
+    ${bidTrumpKind==='ns' ? `<div class="explain-box">NS — No Suit. Signals you have zero cards in whatever suit was just bid — a void, not a spread of Jacks. If this ends up winning, it plays out just like No Trump.</div>` : ''}
+    ${bidTrumpKind==='suit' ? `
+      <div class="row">
+        <div class="segmented" id="orderSeg">
+          <button data-order="forward" class="${bidOrder==='forward'?'sel':''}"><span class="order-preview">${previewValue} ${SUIT_SYM[bidSuit]}</span><span class="order-caption">With Jack</span></button>
+          <button data-order="reverse" class="${bidOrder==='reverse'?'sel':''}"><span class="order-preview">${SUIT_SYM[bidSuit]} ${previewValue}</span><span class="order-caption">Without Jack</span></button>
+        </div>
+      </div>
+      <div style="font-size:11px; opacity:0.55; margin:-6px 0 12px;">Order matters: number-first means you hold the Jack of this suit; suit-first (reverse) means no Jack, but 4 or more cards in it.</div>
+    ` : ''}
+    <div class="row">
+      <input class="note-input" id="bidNote" placeholder="Note to the whole table (e.g. +1♥)" maxlength="60" value="${escapeHtml(noteDraft)}">
+    </div>
+    <div style="font-size:11px; opacity:0.55; margin:-6px 0 12px;">Visible to every player at the table, whichever action you take.</div>
+    ${isForcedOpener ? `<div style="font-size:12px; color:#e8a6b4; background:rgba(124,35,52,0.2); border:1px solid var(--maroon); border-radius:8px; padding:8px 10px; margin-bottom:12px;">Everyone else passed — you're required to open the bidding. You can't pass here.</div>` : ''}
+    <div class="row" style="justify-content:space-between;">
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-gold btn-small" id="submitBid">Submit Bid</button>
+        ${isForcedOpener ? '' : '<button class="btn btn-ghost btn-small" id="passBtn">Pass</button>'}
+      </div>
+      <div style="display:flex; gap:8px;">
+        ${canDouble ? '<button class="btn btn-maroon btn-small" id="doubleBtn">Double</button>' : ''}
+        ${canRedouble ? '<button class="btn btn-maroon btn-small" id="redoubleBtn">Redouble</button>' : ''}
+      </div>
+    </div>
+  `;
+
+  const orderSeg = panel.querySelector('#orderSeg');
+  if(orderSeg){
+    orderSeg.querySelectorAll('button').forEach(b=>{
+      b.addEventListener('click', ()=>{ bidOrder = b.dataset.order; renderBidPanel(state); });
+    });
+  }
+
+  panel.querySelectorAll('#modeSeg button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const newMode = b.dataset.mode;
+      if(newMode !== bidMode){
+        // Switching modes: the number means something totally different in each
+        // (an absolute target vs. a small increment), so don't carry the old
+        // value over — it's confusing (e.g. showing "+33" instead of "+1").
+        bidMode = newMode;
+        bidNumber = newMode === 'inc' ? 1 : minVal;
+      }
+      renderBidPanel(state);
+    });
+  });
+  panel.querySelectorAll('#numstep button[data-d]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const d = parseInt(b.dataset.d,10);
+      bidNumber = Math.max(1, bidNumber + d);
+      renderBidPanel(state);
+    });
+  });
+  const numInput = document.getElementById('bidNumInput');
+  numInput.addEventListener('change', ()=>{
+    const v = parseInt(numInput.value,10);
+    if(!isNaN(v)) bidNumber = v;
+    renderBidPanel(state);
+  });
+  panel.querySelectorAll('#suitpick button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const v = b.dataset.suit;
+      if(v==='NT'){ bidTrumpKind='nt'; }
+      else if(v==='NS'){ bidTrumpKind='ns'; }
+      else { bidTrumpKind='suit'; bidSuit = v; }
+      renderBidPanel(state);
+    });
+  });
+  document.getElementById('bidNote').addEventListener('input', (e) => { noteDraft = e.target.value; });
+  document.getElementById('submitBid').addEventListener('click', ()=>submitBid());
+  const passBtnEl = document.getElementById('passBtn');
+  if(passBtnEl) passBtnEl.addEventListener('click', ()=>passBid());
+  const dbtn = document.getElementById('doubleBtn');
+  if(dbtn) dbtn.addEventListener('click', ()=>doubleBid());
+  const rbtn = document.getElementById('redoubleBtn');
+  if(rbtn) rbtn.addEventListener('click', ()=>redoubleBid());
+
+  panel.scrollTop = prevScrollTop;
+}
+
+function takeNoteDraft(state, seat){
+  const text = noteDraft.trim();
+  noteDraft = '';
+  if(text){
+    state.lastNote = {seat, text, ts: Date.now()};
+  }
+  return text;
+}
+
+async function submitBid(){
+  let state = await loadState();
+  if(!state || state.turn !== mySeat || state.phase !== 'bidding') return;
+
+  const cb = state.currentBid;
+  let value;
+  if(bidMode === 'set'){
+    value = bidNumber;
+  } else {
+    value = (cb ? cb.value : 27) + bidNumber;
+  }
+  if(value > 56) value = 56;
+  const minAllowed = cb ? cb.value + 1 : 28;
+  if(value < minAllowed){
+    alert(`Your bid must be higher than the current bid (at least ${minAllowed}).`);
+    return;
+  }
+
+  const trump = bidTrumpKind === 'suit' ? bidSuit : null;
+  const newBid = {value, trump, seat: mySeat, kind: bidTrumpKind, order: bidTrumpKind==='suit' ? bidOrder : null};
+  if(bidTrumpKind === 'suit' && cb && cb.trump === trump){
+    newBid.increment = value - cb.value;
+  }
+  const label = formatBidLogLabel(newBid);
+
+  if(!cb){
+    // This is the opening bid of the hand — remember who opened and with what suit,
+    // so if the whole team ends up unable to support it (only NS/passes), the
+    // opener gets a chance to reassert their own suit rather than let it fizzle to NT.
+    state.openerSeat = mySeat;
+    state.openerSuit = trump;
+  }
+  if(bidTrumpKind === 'ns'){
+    state.nsBySeat = state.nsBySeat || {};
+    state.nsBySeat[mySeat] = cb ? cb.trump : true; // which suit they're void in
+  }
+  if(bidTrumpKind === 'suit'){
+    state.suitBidBySeat = state.suitBidBySeat || {};
+    state.suitBidBySeat[mySeat + '-' + trump] = bidOrder; // 'forward' = claimed the Jack, 'reverse' = no Jack
+  }
+
+  state.currentBid = newBid;
+  state.doubled = 0;
+  state.doubledBySeat = null;
+  state.passedSeats = [];
+
+  const note = takeNoteDraft(state, mySeat);
+  state.lastActionBySeat = state.lastActionBySeat || {};
+  state.lastActionBySeat[mySeat] = label;
+  addLog(state, `${state.seats[mySeat].name} bid ${label}${note ? ' — "'+note+'"' : ''}`);
+
+  advanceBiddingTurn(state);
+  await saveState(state);
+  render(state);
+}
+
+async function passBid(){
+  let state = await loadState();
+  if(!state || state.turn !== mySeat || state.phase !== 'bidding') return;
+  if(state.forcedSeat === mySeat && !state.currentBid){
+    alert("Everyone else passed — as the opening bidder you're required to open the bidding, you can't pass here.");
+    return;
+  }
+
+  if(!state.passedSeats.includes(mySeat)) state.passedSeats.push(mySeat);
+  const note = takeNoteDraft(state, mySeat);
+  state.lastActionBySeat = state.lastActionBySeat || {};
+  state.lastActionBySeat[mySeat] = 'Pass';
+  addLog(state, `${state.seats[mySeat].name} passed.${note ? ' — "'+note+'"' : ''}`);
+
+  if(!state.currentBid && state.passedSeats.length >= 6){
+    // Everyone passed with nobody opening — force the original opener to bid
+    // rather than silently redealing.
+    state.forcedSeat = (state.dealer + 1) % 6;
+    state.passedSeats = [];
+    state.turn = state.forcedSeat;
+    addLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
+    await saveState(state);
+    render(state);
+    return;
+  }
+
+  if(state.currentBid && state.passedSeats.length >= 5){
+    closeBidding(state);
+    await saveState(state);
+    render(state);
+    return;
+  }
+
+  advanceBiddingTurn(state);
+  await saveState(state);
+  render(state);
+}
+
+async function doubleBid(){
+  let state = await loadState();
+  if(!state || state.turn !== mySeat || state.phase !== 'bidding' || !state.currentBid) return;
+  state.doubled = 1;
+  state.doubledBySeat = mySeat;
+  const note = takeNoteDraft(state, mySeat);
+  state.lastActionBySeat = state.lastActionBySeat || {};
+  state.lastActionBySeat[mySeat] = 'Double';
+  addLog(state, `${state.seats[mySeat].name} doubled!${note ? ' — "'+note+'"' : ''}`);
+  advanceBiddingTurn(state);
+  await saveState(state);
+  render(state);
+}
+
+async function redoubleBid(){
+  let state = await loadState();
+  if(!state || state.turn !== mySeat || state.phase !== 'bidding' || state.doubled !== 1) return;
+  state.doubled = 2;
+  const note = takeNoteDraft(state, mySeat);
+  state.lastActionBySeat = state.lastActionBySeat || {};
+  state.lastActionBySeat[mySeat] = 'Redouble';
+  addLog(state, `${state.seats[mySeat].name} redoubled!${note ? ' — "'+note+'"' : ''}`);
+  advanceBiddingTurn(state);
+  await saveState(state);
+  render(state);
+}
+
+function advanceBiddingTurn(state){
+  let next = (state.turn + 1) % 6;
+  let guard = 0;
+  while(state.passedSeats.includes(next) && guard < 6){
+    next = (next + 1) % 6;
+    guard++;
+  }
+  state.turn = next;
+}
+
+function closeBidding(state){
+  const cb = state.currentBid;
+  state.phase = 'auctionClosed';
+  state.auctionClosedAt = Date.now();
+  state.turn = null;
+  state.leadSuit = null;
+  state.table = [];
+  state.forcedSeat = null;
+  const trumpTxt = cb.trump ? SUIT_SYM[cb.trump] + ' trump' : 'No Trump';
+  const leaderSeat = (state.dealer + 1) % 6;
+  addLog(state, `Bidding closed. ${state.seats[cb.seat].name} won with ${cb.value} (${trumpTxt}). ${state.seats[leaderSeat].name} leads the first trick.`);
+}
+
+const AUCTION_RESULT_MS = 3000;
+let auctionAdvanceTimer = null;
+let auctionAdvanceFor = null;
+
+function maybeAdvanceFromAuctionResult(state){
+  if(state.phase !== 'auctionClosed') return;
+  const humanSeats = state.seats
+    .map((s,i) => (s && !s.bot) ? i : null)
+    .filter(i => i !== null);
+  if(humanSeats.length === 0) return;
+  const driverSeat = Math.min(...humanSeats);
+  if(driverSeat !== mySeat) return;
+
+  const key = 'auction:' + state.auctionClosedAt;
+  if(auctionAdvanceFor === key) return;
+  auctionAdvanceFor = key;
+  if(auctionAdvanceTimer) clearTimeout(auctionAdvanceTimer);
+
+  const elapsed = Date.now() - state.auctionClosedAt;
+  const remaining = Math.max(0, AUCTION_RESULT_MS - elapsed);
+  auctionAdvanceTimer = setTimeout(async () => {
+    const fresh = await loadState();
+    if(!fresh || fresh.phase !== 'auctionClosed' || fresh.auctionClosedAt !== state.auctionClosedAt) return;
+    fresh.phase = 'playing';
+    fresh.turn = (fresh.dealer + 1) % 6;
+    await saveState(fresh);
+    render(fresh);
+  }, remaining);
+}
+
+// ---------- card play ----------
+async function playCard(card){
+  let state = await loadState();
+  if(!state || state.turn !== mySeat || state.phase !== 'playing') return;
+
+  const legal = legalCardIds(state);
+  if(!legal.has(card.id)){
+    alert('You must follow suit if you can.');
+    return;
+  }
+
+  // remove from hand
+  const hand = state.hands[mySeat];
+  const idx = hand.findIndex(c => c.id === card.id);
+  if(idx === -1) return;
+  hand.splice(idx, 1);
+
+  // If there's already a suit led and this card doesn't match it, the rules
+  // forced this — it's proof positive they have zero cards of that suit left.
+  if(state.leadSuit && card.s !== state.leadSuit){
+    state.revealedVoidBySeat = state.revealedVoidBySeat || {};
+    if(!state.revealedVoidBySeat[mySeat]) state.revealedVoidBySeat[mySeat] = [];
+    if(!state.revealedVoidBySeat[mySeat].includes(state.leadSuit)){
+      state.revealedVoidBySeat[mySeat].push(state.leadSuit);
+    }
+  }
+  if(!state.leadSuit){
+    state.leadSuit = card.s;
+  }
+  state.table.push({seat: mySeat, card});
+  addLog(state, `${state.seats[mySeat].name} played ${card.r}${SUIT_SYM[card.s]}.`);
+
+  if(state.table.length === 6){
+    resolveTrick(state);
+  } else {
+    state.turn = (state.turn + 1) % 6;
+  }
+
+  await saveState(state);
+  render(state);
+}
+
+function cardPower(card, state){
+  const isTrump = state.currentBid.trump && card.s === state.currentBid.trump;
+  const rankIdx = RANKS.indexOf(card.r); // lower index = higher power
+  return {isTrump, rankIdx};
+}
+
+function resolveTrick(state){
+  const trump = state.currentBid.trump;
+  let winner = state.table[0];
+  let winPow = cardPower(winner.card, state);
+
+  for(let i=1;i<state.table.length;i++){
+    const play = state.table[i];
+    const pow = cardPower(play.card, state);
+    let better = false;
+    if(pow.isTrump && !winPow.isTrump){
+      better = true;
+    } else if(pow.isTrump === winPow.isTrump){
+      if(pow.isTrump){
+        better = pow.rankIdx < winPow.rankIdx;
+      } else if(play.card.s === state.leadSuit && winner.card.s === state.leadSuit){
+        better = pow.rankIdx < winPow.rankIdx;
+      } else if(play.card.s === state.leadSuit && winner.card.s !== state.leadSuit){
+        better = true;
+      }
+    }
+    if(better){ winner = play; winPow = pow; }
+  }
+
+  const points = state.table.reduce((sum, p) => sum + RANK_PTS[p.card.r], 0);
+  const winTeam = TEAM_OF(winner.seat);
+  state.teamPoints[winTeam] += points;
+  state.tricksLog.push({cards: state.table, winnerSeat: winner.seat, points});
+  addLog(state, `${state.seats[winner.seat].name} wins the trick (+${points} pts) for Team ${winTeam}.`);
+
+  // Keep the trick visible on the table for a moment instead of clearing immediately.
+  // state.table / state.leadSuit are left as-is; state.turn is nulled so nobody can act
+  // until settlePendingTrick() runs.
+  state.pendingTrick = {winnerSeat: winner.seat, points, team: winTeam, ts: Date.now()};
+  state.turn = null;
+}
+
+function settlePendingTrick(state){
+  if(!state.pendingTrick) return;
+  const winnerSeat = state.pendingTrick.winnerSeat;
+  state.table = [];
+  state.leadSuit = null;
+  state.turn = winnerSeat;
+  state.pendingTrick = null;
+
+  const cardsLeft = state.hands.reduce((a,h)=>a+h.length,0);
+  if(cardsLeft === 0){
+    finishHand(state);
+  }
+}
+
+function finishHand(state){
+  const cb = state.currentBid;
+  const biddingTeam = TEAM_OF(cb.seat);
+  const oppTeam = biddingTeam === 'A' ? 'B' : 'A';
+  const made = state.teamPoints[biddingTeam] >= cb.value;
+  const band = bandFor(cb.value);
+  // Doubled = 2x, redoubled = 4x tables paid/received.
+  const mult = state.doubled === 2 ? 4 : state.doubled === 1 ? 2 : 1;
+
+  if(made){
+    const amt = Math.min(band.win * mult, state.matchScore[oppTeam]);
+    state.matchScore[biddingTeam] += amt;
+    state.matchScore[oppTeam] -= amt;
+    addLog(state, `Team ${biddingTeam} made their bid of ${cb.value}. Receive ${amt} table${amt!==1?'s':''} from Team ${oppTeam}.`);
+  } else {
+    const amt = Math.min(band.lose * mult, state.matchScore[biddingTeam]);
+    state.matchScore[biddingTeam] -= amt;
+    state.matchScore[oppTeam] += amt;
+    addLog(state, `Team ${biddingTeam} fell short of ${cb.value}. Pay ${amt} table${amt!==1?'s':''} to Team ${oppTeam}.`);
+  }
+
+  if(state.matchScore.A <= 0 || state.matchScore.B <= 0){
+    state.matchOver = true;
+    state.matchWinner = state.matchScore.A <= 0 ? 'B' : 'A';
+    state.sessionWins = state.sessionWins || {A:0, B:0};
+    state.sessionWins[state.matchWinner] = (state.sessionWins[state.matchWinner] || 0) + 1;
+    addLog(state, `Team ${state.matchWinner} wins the match — Team ${state.matchWinner === 'A' ? 'B' : 'A'} is out of tables!`);
+  }
+
+  state.phase = 'handEnd';
+}
+
+// ============================================================
+// PENDING TRICK DISPLAY
+// ============================================================
+// After the 6th card of a trick is played, resolveTrick() computes the
+// winner but leaves the cards on the table (state.pendingTrick set, state.turn
+// nulled). This clears it after a short delay so players can actually see
+// the last card and who won, instead of the table wiping instantly.
+let trickClearTimer = null;
+let trickClearFor = null;
+const TRICK_DISPLAY_MS = 3000;
+
+function maybeClearPendingTrick(state){
+  if(!state.pendingTrick) return;
+  const humanSeats = state.seats
+    .map((s,i) => (s && !s.bot) ? i : null)
+    .filter(i => i !== null);
+  if(humanSeats.length === 0) return;
+  const driverSeat = Math.min(...humanSeats);
+  if(driverSeat !== mySeat) return;
+
+  const key = 'trick:' + state.pendingTrick.ts;
+  if(trickClearFor === key) return;
+  trickClearFor = key;
+  if(trickClearTimer) clearTimeout(trickClearTimer);
+
+  const elapsed = Date.now() - state.pendingTrick.ts;
+  const remaining = Math.max(0, TRICK_DISPLAY_MS - elapsed);
+  trickClearTimer = setTimeout(async () => {
+    const fresh = await loadState();
+    if(!fresh || !fresh.pendingTrick || fresh.pendingTrick.ts !== state.pendingTrick.ts) return;
+    settlePendingTrick(fresh);
+    await saveState(fresh);
+    render(fresh);
+  }, remaining);
+}
+
+// Purely visual: every client (not just the driver) sweeps the trick cards
+// toward the winner's seat shortly before the trick actually clears, so it
+// feels like the trick is being "collected" rather than just vanishing.
+let collectTimer = null;
+let collectFor = null;
+const COLLECT_LEAD_MS = 550;
+
+function scheduleCollectAnimation(state){
+  if(!state.pendingTrick){ return; }
+  const key = 'collect:' + state.pendingTrick.ts;
+  if(collectFor === key) return;
+  collectFor = key;
+  if(collectTimer) clearTimeout(collectTimer);
+
+  const elapsed = Date.now() - state.pendingTrick.ts;
+  const fireAt = Math.max(0, TRICK_DISPLAY_MS - COLLECT_LEAD_MS - elapsed);
+  collectTimer = setTimeout(() => {
+    const tableEl = document.getElementById('table');
+    const center = document.querySelector('.center-trick');
+    if(!tableEl || !center || !state.pendingTrick) return;
+    const rect = tableEl.getBoundingClientRect();
+    const slot = displaySlot(state.pendingTrick.winnerSeat);
+    const target = SEAT_POS[slot]; // winner's actual avatar position, full scale
+
+    center.querySelectorAll('.trick-card').forEach(el => {
+      const cx = parseFloat(el.style.left) || 50;
+      const cy = parseFloat(el.style.top) || 50;
+      // Delta from this specific card's own position to the winner's seat,
+      // in pixels — every card gets its own path, but they all converge on
+      // the exact same destination point.
+      const dx = (target.x - cx) / 100 * rect.width;
+      const dy = (target.y - cy) / 100 * rect.height;
+      el.style.transition = `transform ${COLLECT_LEAD_MS-100}ms cubic-bezier(.4,.1,.6,1), opacity ${COLLECT_LEAD_MS-100}ms ease-in`;
+      el.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.3)`;
+      el.style.opacity = '0';
+    });
+  }, fireAt);
+}
+
+// ============================================================
+// BOTS
+// ============================================================
+// Only ONE connected client "drives" the bots — the human seated at the
+// lowest seat index currently present. This avoids two clients both trying
+// to act for the same bot turn. That human's tab needs to stay open for
+// bots to keep playing.
+let botTimer = null;
+let botTimerFor = null;
+
+function maybeDriveBots(state){
+  if(state.phase !== 'bidding' && state.phase !== 'playing') return;
+  if(state.reviewHold) return; // someone, somewhere, is mid-review — hold off regardless of who's driving
+  const turnSeat = state.turn;
+  if(turnSeat === null || turnSeat === undefined) return;
+  const occ = state.seats[turnSeat];
+  if(!occ || !occ.bot) return;
+
+  const humanSeats = state.seats
+    .map((s,i) => (s && !s.bot) ? i : null)
+    .filter(i => i !== null);
+  if(humanSeats.length === 0) return;
+  const driverSeat = Math.min(...humanSeats);
+  if(driverSeat !== mySeat) return;
+
+  const key = state.phase + ':' + turnSeat + ':' + state.updatedAt;
+  if(botTimerFor === key) return;
+  botTimerFor = key;
+  if(botTimer) clearTimeout(botTimer);
+
+  // Deliberate pause only makes sense during bidding (time to read the hand and
+  // the calls so far). Card play within a trick should move quickly — the one
+  // real pause players see is the pendingTrick display after the full trick
+  // (all 6 cards) is complete, not after every individual card.
+  const delay = state.phase === 'bidding'
+    ? 1400 + Math.random() * 1400
+    : 250 + Math.random() * 350;
+  botTimer = setTimeout(async () => {
+    const fresh = await loadState();
+    if(!fresh) return;
+    if(fresh.phase !== state.phase || fresh.turn !== turnSeat) return; // stale, someone else already acted
+    if(fresh.phase === 'bidding') await runBotBid(fresh, turnSeat);
+    else if(fresh.phase === 'playing') await runBotPlay(fresh, turnSeat);
+  }, delay);
+}
+
+function suitStats(hand){
+  const jacks = {S:0,H:0,D:0,C:0}, nines = {S:0,H:0,D:0,C:0}, count = {S:0,H:0,D:0,C:0};
+  hand.forEach(c => {
+    count[c.s]++;
+    if(c.r === 'J') jacks[c.s]++;
+    if(c.r === '9') nines[c.s]++;
+  });
+  return {jacks, nines, count};
+}
+
+// Opening value: 1 Jack + 3 support cards = the baseline 28. Every additional
+// Jack (a second copy, since two decks are in play) or supporting 9 pushes the
+// opening number up by 1, e.g. 2 Jacks = 29, 2 Jacks + a 9 = 30, 2 Jacks + two 9s = 31.
+function suitOpenValue(jacksN, ninesN){
+  // 1 Jack + support cards = flat baseline of 28, no matter how many 9s come with it.
+  // Only once you hold BOTH copies of the Jack (2, since two decks are in play) do
+  // extra 9s start pushing the opening number up: 2 Jacks = 29, +1 per supporting 9.
+  if(jacksN >= 2) return 28 + 1 + ninesN;
+  return 28;
+}
+
+function botDecideBid(state, seat){
+  const hand = state.hands[seat] || [];
+  const cb = state.currentBid;
+  const minAllowed = cb ? cb.value + 1 : 28;
+  const {jacks, nines, count} = suitStats(hand);
+  const isForced = state.forcedSeat === seat && !cb;
+
+  // A suit is only "biddable" (openable) if this hand holds at least one Jack
+  // of it plus 3 or more supporting cards in the same suit — a weak hand with
+  // no Jack anchor should just pass, never open.
+  const biddableSuits = SUITS.filter(s => jacks[s] >= 1 && count[s] >= 4);
+  const bestOf = (suits) => {
+    let best = null, bestVal = -1;
+    suits.forEach(s => {
+      const v = suitOpenValue(jacks[s], nines[s]);
+      if(v > bestVal){ bestVal = v; best = s; }
+    });
+    return {suit: best, value: bestVal};
+  };
+
+  // Double / redouble
+  if(cb && TEAM_OF(cb.seat) !== TEAM_OF(seat) && state.doubled === 0 && cb.value >= 44 && Math.random() < 0.25){
+    return {action:'double'};
+  }
+  if(cb && TEAM_OF(cb.seat) === TEAM_OF(seat) && state.doubled === 1 && cb.trump && jacks[cb.trump] >= 1 && Math.random() < 0.3){
+    return {action:'redouble'};
+  }
+
+  // ---- Reassert my own opening suit ----
+  // If I opened this hand's bidding and the bid currently held by my own team
+  // has drifted away from my suit (a teammate could only offer NS, or nobody
+  // has supported it), I still have the real strength there — bump it back up
+  // by 1 rather than letting the contract fizzle into No Trump.
+  if(cb && state.openerSeat === seat && state.openerSuit && cb.trump !== state.openerSuit &&
+     TEAM_OF(cb.seat) === TEAM_OF(seat) && jacks[state.openerSuit] >= 1 && count[state.openerSuit] >= 4){
+    const value = Math.min(56, cb.value + 1);
+    if(value >= minAllowed) return {action:'bid', value, trump: state.openerSuit, kind:'suit', order:'forward'};
+  }
+
+  // ---- No bid yet: this is an opening decision ----
+  if(!cb){
+    if(biddableSuits.length > 0){
+      const {suit, value} = bestOf(biddableSuits);
+      return {action:'bid', value: Math.min(56, value), trump: suit, kind:'suit', order:'forward'};
+    }
+    if(isForced){
+      // Forced to open even with a weak hand — pick the longest suit at the minimum.
+      const longest = SUITS.reduce((a,b) => count[b] > count[a] ? b : a, SUITS[0]);
+      return {action:'bid', value:28, trump: longest, kind:'suit', order: jacks[longest]>=1 ? 'forward':'reverse'};
+    }
+    return {action:'pass'};
+  }
+
+  // ---- Partner already has the bid: support or redirect ----
+  const isPartnerBid = TEAM_OF(cb.seat) === TEAM_OF(seat);
+  if(isPartnerBid && cb.trump){
+    const s = cb.trump;
+    const alreadySaidVoid = state.nsBySeat && state.nsBySeat[seat];
+    const alreadyBidThisSuit = state.suitBidBySeat && state.suitBidBySeat[seat + '-' + s];
+    if(count[s] === 0 && !alreadySaidVoid){
+      // Void in partner's suit — signal it with NS instead of blind support.
+      if(minAllowed <= 56) return {action:'bid', value: minAllowed, trump:null, kind:'ns', order:null};
+      return {action:'pass'};
+    }
+    if(count[s] > 0 && jacks[s] >= 1 && !alreadyBidThisSuit){
+      const supportBump = jacks[s] + nines[s];
+      const value = Math.min(56, cb.value + supportBump);
+      if(value >= minAllowed) return {action:'bid', value, trump: s, kind:'suit', order:'forward'};
+    }
+    // No Jack to support partner's suit, I already told them I'm void once, or
+    // I already bid this exact suit myself before (my own strength is already
+    // priced into the auction — re-raising with the same cards adds nothing,
+    // especially with no opponent contesting). Offer a different genuinely
+    // strong suit if I have one, otherwise pass rather than repeat myself.
+    const others = biddableSuits.filter(x => x !== s);
+    if(others.length > 0){
+      const {suit, value} = bestOf(others);
+      if(value >= minAllowed && value <= 56) return {action:'bid', value, trump: suit, kind:'suit', order:'forward'};
+    }
+    return {action:'pass'};
+  }
+
+  // ---- Opponent has the bid: only contest with a genuine suit of our own ----
+  if(biddableSuits.length > 0){
+    const contested = cb.trump;
+    let candidates = biddableSuits.filter(s => s !== contested);
+    if(candidates.length === 0) candidates = biddableSuits; // only option is the contested suit itself
+    const {suit, value} = bestOf(candidates);
+    if(value >= minAllowed && value <= 56){
+      return {action:'bid', value, trump: suit, kind:'suit', order: jacks[suit]>=1 ? 'forward':'reverse'};
+    }
+  }
+  return {action:'pass'};
+}
+
+async function runBotBid(state, seat){
+  const decision = botDecideBid(state, seat);
+  const botName = state.seats[seat].name;
+  state.lastActionBySeat = state.lastActionBySeat || {};
+
+  if(decision.action === 'pass'){
+    if(!state.passedSeats.includes(seat)) state.passedSeats.push(seat);
+    state.lastActionBySeat[seat] = 'Pass';
+    addLog(state, `${botName} passed.`);
+    if(!state.currentBid && state.passedSeats.length >= 6){
+      state.forcedSeat = (state.dealer + 1) % 6;
+      state.passedSeats = [];
+      state.turn = state.forcedSeat;
+      addLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
+    } else if(state.currentBid && state.passedSeats.length >= 5){
+      closeBidding(state);
+    } else {
+      advanceBiddingTurn(state);
+    }
+  } else if(decision.action === 'double'){
+    state.doubled = 1;
+    state.doubledBySeat = seat;
+    state.lastActionBySeat[seat] = 'Double';
+    addLog(state, `${botName} doubled!`);
+    advanceBiddingTurn(state);
+  } else if(decision.action === 'redouble'){
+    state.doubled = 2;
+    state.lastActionBySeat[seat] = 'Redouble';
+    addLog(state, `${botName} redoubled!`);
+    advanceBiddingTurn(state);
+  } else {
+    const newBid = {value: decision.value, trump: decision.trump, seat, kind: decision.kind, order: decision.order};
+    if(decision.kind === 'suit' && state.currentBid && state.currentBid.trump === decision.trump){
+      newBid.increment = decision.value - state.currentBid.value;
+    }
+    if(!state.currentBid){
+      state.openerSeat = seat;
+      state.openerSuit = decision.trump;
+    }
+    if(decision.kind === 'ns'){
+      state.nsBySeat = state.nsBySeat || {};
+      state.nsBySeat[seat] = state.currentBid ? state.currentBid.trump : true; // which suit they're void in
+    }
+    if(decision.kind === 'suit'){
+      state.suitBidBySeat = state.suitBidBySeat || {};
+      state.suitBidBySeat[seat + '-' + decision.trump] = decision.order; // 'forward' = claimed the Jack
+    }
+    state.currentBid = newBid;
+    state.doubled = 0;
+    state.doubledBySeat = null;
+    state.passedSeats = [];
+    state.lastActionBySeat[seat] = formatBidLogLabel(newBid);
+    addLog(state, `${botName} bid ${formatBidLogLabel(newBid)}.`);
+    advanceBiddingTurn(state);
+  }
+  await saveState(state);
+  render(state);
+}
+
+// ---- The "brain": combines card-counting with bidding memory ----
+
+// Every card (rank+suit) that has definitely already fallen this hand, across
+// all completed tricks plus whatever's currently on the table.
+function getPlayedCardsThisHand(state){
+  const played = [];
+  (state.tricksLog || []).forEach(t => t.cards.forEach(p => played.push(p.card)));
+  (state.table || []).forEach(p => played.push(p.card));
+  return played;
+}
+
+// For a given seat, which suits can their team safely lead — either because
+// both Jacks of that suit are already accounted for (played, or claimed by a
+// forward-order bid from a teammate during the auction), and no opponent ever
+// claimed a Jack there themselves.
+function suitLeadSafety(state, seat){
+  const myTeam = TEAM_OF(seat);
+  const oppSeats = [0,1,2,3,4,5].filter(s => TEAM_OF(s) !== myTeam);
+  const played = getPlayedCardsThisHand(state);
+  const safe = new Set();
+  SUITS.forEach(s => {
+    const jacksPlayed = played.filter(c => c.s === s && c.r === 'J').length;
+    let jacksMyTeam = 0, jacksOpponent = 0;
+    for(let sIdx=0; sIdx<6; sIdx++){
+      const claim = state.suitBidBySeat ? state.suitBidBySeat[sIdx + '-' + s] : null;
+      if(claim === 'forward'){
+        if(TEAM_OF(sIdx) === myTeam) jacksMyTeam++;
+        else jacksOpponent++;
+      }
+    }
+    // Hard proof from actual play: if every opponent has already been caught
+    // unable to follow this suit, they can't possibly hold a Jack of it either
+    // — no guessing needed, the follow-suit rule already forced their hand.
+    const allOppsRevealedVoid = oppSeats.length > 0 && oppSeats.every(os =>
+      state.revealedVoidBySeat && state.revealedVoidBySeat[os] && state.revealedVoidBySeat[os].includes(s));
+    if(jacksOpponent === 0 && ((jacksPlayed + jacksMyTeam) >= 2 || allOppsRevealedVoid)){
+      safe.add(s);
+    }
+  });
+  return safe;
+}
+
+function botChooseCard(state, seat, legalCards){
+  if(state.table.length === 0){
+    // Leading: prefer a suit our team is known to control (from bidding
+    // signals + what's already fallen), falling back to the usual
+    // strongest-card approach if nothing stands out as clearly safe.
+    const safeSuits = suitLeadSafety(state, seat);
+    const bySuit = {};
+    legalCards.forEach(c => { (bySuit[c.s] = bySuit[c.s] || []).push(c); });
+    const candidateSuits = Object.keys(bySuit).filter(s => safeSuits.has(s));
+    const pool = candidateSuits.length > 0
+      ? candidateSuits.flatMap(s => bySuit[s])
+      : legalCards;
+    const sorted = pool.slice().sort((a,b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
+    return sorted[0];
+  }
+
+  let winner = state.table[0];
+  let winPow = cardPower(winner.card, state);
+  for(let i=1;i<state.table.length;i++){
+    const p = state.table[i];
+    const pow = cardPower(p.card, state);
+    let better = false;
+    if(pow.isTrump && !winPow.isTrump) better = true;
+    else if(pow.isTrump === winPow.isTrump){
+      if(pow.isTrump) better = pow.rankIdx < winPow.rankIdx;
+      else if(p.card.s === state.leadSuit && winner.card.s === state.leadSuit) better = pow.rankIdx < winPow.rankIdx;
+      else if(p.card.s === state.leadSuit && winner.card.s !== state.leadSuit) better = true;
+    }
+    if(better){ winner = p; winPow = pow; }
+  }
+
+  const partnerWinning = TEAM_OF(winner.seat) === TEAM_OF(seat);
+  if(partnerWinning){
+    // Partner's already winning this trick — dump the least useful card,
+    // preferring to shed from a suit we don't control anyway.
+    return chooseDiscard(state, seat, legalCards);
+  }
+
+  const winners = legalCards.filter(c => {
+    const pow = cardPower(c, state);
+    if(pow.isTrump && !winPow.isTrump) return true;
+    if(pow.isTrump === winPow.isTrump){
+      if(pow.isTrump) return pow.rankIdx < winPow.rankIdx;
+      if(c.s === state.leadSuit && winner.card.s === state.leadSuit) return pow.rankIdx < winPow.rankIdx;
+      if(c.s === state.leadSuit && winner.card.s !== state.leadSuit) return true;
+    }
+    return false;
+  });
+  if(winners.length > 0){
+    const sortedAsc = winners.slice().sort((a,b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
+    return sortedAsc[sortedAsc.length - 1]; // weakest card that still wins
+  }
+  // Can't win this trick — this is where the "if only low cards, look at what's
+  // been signaled/played" case applies: dump from a suit the opponents are
+  // known to control (per bidding + card count) rather than an arbitrary low
+  // card, keeping our own strong suits intact for when it actually matters.
+  return chooseDiscard(state, seat, legalCards);
+}
+
+// Picks the least costly card to throw away when we can't win the trick —
+// prefers a suit we don't control (per bidding signals + what's already
+// fallen), only falling back to plain lowest-point-value if every option is
+// from a suit we still have some claim to.
+function chooseDiscard(state, seat, legalCards){
+  const safeSuits = suitLeadSafety(state, seat);
+  const unsafeCards = legalCards.filter(c => !safeSuits.has(c.s));
+  const pool = unsafeCards.length > 0 ? unsafeCards : legalCards;
+  const sorted = pool.slice().sort((a,b) => RANK_PTS[a.r] - RANK_PTS[b.r]);
+  return sorted[0];
+}
+
+async function runBotPlay(state, seat){
+  const legal = legalCardsForSeat(state, seat);
+  const hand = state.hands[seat];
+  const legalCards = hand.filter(c => legal.has(c.id));
+  if(legalCards.length === 0) return;
+  const card = botChooseCard(state, seat, legalCards);
+  const botName = state.seats[seat].name;
+
+  const idx = hand.findIndex(c => c.id === card.id);
+  hand.splice(idx, 1);
+  if(state.leadSuit && card.s !== state.leadSuit){
+    state.revealedVoidBySeat = state.revealedVoidBySeat || {};
+    if(!state.revealedVoidBySeat[seat]) state.revealedVoidBySeat[seat] = [];
+    if(!state.revealedVoidBySeat[seat].includes(state.leadSuit)){
+      state.revealedVoidBySeat[seat].push(state.leadSuit);
+    }
+  }
+  if(!state.leadSuit) state.leadSuit = card.s;
+  state.table.push({seat, card});
+  addLog(state, `${botName} played ${card.r}${SUIT_SYM[card.s]}.`);
+
+  if(state.table.length === 6){
+    resolveTrick(state);
+  } else {
+    state.turn = (state.turn + 1) % 6;
+  }
+  await saveState(state);
+  render(state);
+}
+
+
+document.getElementById('revealToggle').addEventListener('click', ()=>{
+  debugRevealAll = !debugRevealAll;
+  const btn = document.getElementById('revealToggle');
+  btn.classList.toggle('on', debugRevealAll);
+  btn.title = debugRevealAll ? 'Hands revealed (tap to hide)' : 'Reveal all hands (testing)';
+  if(latestState) render(latestState);
+});
+document.getElementById('sideToggle').addEventListener('click', ()=>{
+  sideOpen = !sideOpen;
+  document.getElementById('side').classList.toggle('open', sideOpen);
+});
+document.getElementById('sideClose').addEventListener('click', ()=>{
+  sideOpen = false;
+  document.getElementById('side').classList.remove('open');
+});
+
+</script>
+</body>
+</html>
