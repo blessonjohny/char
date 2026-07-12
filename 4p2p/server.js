@@ -44,7 +44,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store, must-revalidate'); }
 }));
 app.get('/status', (req, res) => {
-  res.send('28 Kerala Gulan — Authoritative Server running ✅ | ' + Object.keys(tables).length + ' active table(s)');
+  res.send('28 Kerala Gulan — Authoritative Server running ✅ | ' + totalActiveRooms() + ' active table(s) across all games');
 });
 
 // ============================================================
@@ -125,7 +125,7 @@ const pendingSeatChoice = {};
 // to a seat they already hold. This only throttles NEW room creation.
 let roomCapEnabled = false;
 let roomCapMax = 3;
-function totalActiveRooms() { return Object.keys(tables).length + Object.keys(sixpTables).length; }
+function totalActiveRooms() { return Object.keys(tables).length + Object.keys(sixpTables).length + Object.keys(c56Tables).length; }
 
 // Matches the client's ADMIN_PASSWORD default (0000) — that's the panel
 // this lock feature actually lives in — so it works out of the box, but
@@ -1270,6 +1270,414 @@ io.on('connection', (socket) => {
       sixpScheduleNoHumanShutdown(t, sixpTableId);
     }
     io.emit('sixp_roomList', sixpPublicTableList());
+  });
+});
+
+// ============================================================
+// 56 — completely separate table registry, separate socket connection
+// handler, separate (c56_-prefixed) event names. Same isolation
+// guarantee as the 6-player 28 block above: nothing in here touches
+// the other two games' state, and nothing in them touches this.
+// ============================================================
+const { GameEngine56 } = require('./game-engine-56');
+
+const c56Tables = {};
+const c56PlayerIndex = {};
+const c56PendingSeatChoice = {};
+
+function newC56TableId() { return 'F' + crypto.randomBytes(4).toString('hex').toUpperCase(); }
+
+function c56JoinableSeats(t) {
+  const botSeats = [];
+  const disconnectedSeats = [];
+  t.engine.seats.forEach((s, i) => {
+    if (!s) return;
+    if (s.isBot) botSeats.push(i);
+    else if (!s.connected) disconnectedSeats.push({ pos: i, name: s.name });
+  });
+  return { botSeats, disconnectedSeats };
+}
+
+function c56SeatSnapshot(t) {
+  return t.engine.seats.map((s, i) => s ? { pos: i, name: s.name, isBot: s.isBot, connected: s.connected, isHost: s.playerId === t.hostPlayerId } : null);
+}
+
+function c56HasAnyHuman(t) { return t.engine.seats.some(s => s && !s.isBot); }
+
+function c56PublicTableList() {
+  return Object.values(c56Tables)
+    .filter(t => t.engine.seats.some(Boolean))
+    .map(t => {
+      const openSeats = t.engine.emptySeats().length;
+      const botSeats = t.engine.seats.filter(s => s && s.isBot).length;
+      return {
+        tableId: t.engine.tableId, name: t.name,
+        players: t.engine.seats.filter(Boolean).length,
+        isPlaying: t.engine.phase !== 'lobby',
+        openSeats, botSeats,
+        canJoinSeat: openSeats > 0 || botSeats > 0
+      };
+    });
+}
+
+function c56BroadcastTable(t) {
+  for (const [socketId, info] of t.sockets) {
+    const sock = io.sockets.sockets.get(socketId);
+    if (!sock) continue;
+    const state = t.engine.stateFor(info.pos);
+    state.isHost = (info.playerId === t.hostPlayerId);
+    sock.emit('c56_state', state);
+  }
+  io.emit('c56_roomList', c56PublicTableList());
+}
+
+function c56Touch(t) {
+  t.lastActivityAt = Date.now();
+  if (t.stillPlayingTimer) {
+    clearTimeout(t.stillPlayingTimer);
+    t.stillPlayingTimer = null;
+    if (t.id) io.to('c56_' + t.id).emit('c56_stillPlayingResolved');
+  }
+}
+
+const C56_NO_HUMAN_GRACE_MS = 60 * 1000;
+function c56ScheduleNoHumanShutdown(t, id) {
+  if (t.noHumanShutdownTimer) { clearTimeout(t.noHumanShutdownTimer); t.noHumanShutdownTimer = null; }
+  if (c56HasAnyHuman(t)) return;
+  t.noHumanShutdownTimer = setTimeout(() => {
+    const stillThere = c56Tables[id];
+    if (!stillThere || c56HasAnyHuman(stillThere)) return;
+    console.log(`[56 cleanup] Closing table ${id} — no humans left`);
+    for (const s of stillThere.engine.seats) if (s && s.playerId) delete c56PlayerIndex[s.playerId];
+    delete c56Tables[id];
+    io.emit('c56_roomList', c56PublicTableList());
+  }, C56_NO_HUMAN_GRACE_MS);
+}
+
+const C56_IDLE_LIMIT_MS = 5 * 60 * 1000;
+const C56_STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
+function c56StartStillPlayingCheck(t, id) {
+  if (t.stillPlayingTimer) return;
+  io.to('c56_' + id).emit('c56_stillPlayingCheck', { seconds: C56_STILL_PLAYING_COUNTDOWN_MS / 1000 });
+  t.stillPlayingTimer = setTimeout(() => {
+    const stillThere = c56Tables[id];
+    if (!stillThere) return;
+    stillThere.stillPlayingTimer = null;
+    console.log(`[56 idle] Closing table ${id} — nobody confirmed still playing`);
+    io.to('c56_' + id).emit('c56_tableClosed', { reason: 'idle' });
+    for (const s of stillThere.engine.seats) if (s && s.playerId) delete c56PlayerIndex[s.playerId];
+    delete c56Tables[id];
+    io.emit('c56_roomList', c56PublicTableList());
+  }, C56_STILL_PLAYING_COUNTDOWN_MS);
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const id of Object.keys(c56Tables)) {
+    const t = c56Tables[id];
+    const anyoneConnected = t.engine.seats.some(s => s && s.connected);
+    if (!anyoneConnected && now - t.lastActivityAt > C56_IDLE_LIMIT_MS) {
+      console.log(`[56 cleanup] Closing idle table ${id}`);
+      for (const s of t.engine.seats) if (s && s.playerId) delete c56PlayerIndex[s.playerId];
+      delete c56Tables[id];
+    } else if (anyoneConnected && now - t.lastActivityAt > C56_IDLE_LIMIT_MS) {
+      c56StartStillPlayingCheck(t, id);
+    }
+  }
+  io.emit('c56_roomList', c56PublicTableList());
+}, 30000);
+
+io.on('connection', (socket) => {
+  let c56PlayerId = null;
+  let c56TableId = null;
+
+  socket.on('c56_listRooms', () => { socket.emit('c56_roomList', c56PublicTableList()); });
+
+  socket.on('c56_createTable', ({ name }) => {
+    if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
+      socket.emit('createBlocked', { maxRooms: roomCapMax });
+      return;
+    }
+    const id = newC56TableId();
+    const engine = new GameEngine56(id);
+    c56PlayerId = newId();
+    engine.seatHuman(0, name || 'Player', c56PlayerId);
+    const t = {
+      id, engine, name: name || 'Player', hostPlayerId: c56PlayerId,
+      botFill: 5, createdAt: Date.now(), lastActivityAt: Date.now(),
+      sockets: new Map()
+    };
+    engine.onChange = () => { c56Touch(t); c56BroadcastTable(t); };
+    c56Tables[id] = t;
+    c56TableId = id;
+    c56PlayerIndex[c56PlayerId] = { tableId: id, pos: 0 };
+    t.sockets.set(socket.id, { playerId: c56PlayerId, pos: 0 });
+    socket.join('c56_' + id);
+    socket.emit('c56_joined', { tableId: id, playerId: c56PlayerId, pos: 0, isHost: true });
+    c56BroadcastTable(t);
+    c56ScheduleNoHumanShutdown(t, id);
+    io.emit('c56_roomList', c56PublicTableList());
+    console.log(`[56 table ${id}] created by ${name}`);
+  });
+
+  socket.on('c56_joinTable', ({ tableId: reqTableId, name, playerId: existingPlayerId }) => {
+    if (existingPlayerId && c56PlayerIndex[existingPlayerId]) {
+      const idx = c56PlayerIndex[existingPlayerId];
+      const t = c56Tables[idx.tableId];
+      if (t && t.engine.seats[idx.pos] && t.engine.seats[idx.pos].playerId === existingPlayerId) {
+        c56PlayerId = existingPlayerId;
+        c56TableId = idx.tableId;
+        t.engine.markConnected(idx.pos, true);
+        if (name) t.engine.seats[idx.pos].name = name;
+        t.sockets.set(socket.id, { playerId: c56PlayerId, pos: idx.pos });
+        socket.join('c56_' + c56TableId);
+        socket.emit('c56_joined', { tableId: c56TableId, playerId: c56PlayerId, pos: idx.pos, isHost: t.hostPlayerId === c56PlayerId });
+        c56Touch(t);
+        c56BroadcastTable(t);
+        c56ScheduleNoHumanShutdown(t, c56TableId);
+        return;
+      }
+    }
+    const t = c56Tables[reqTableId];
+    if (!t) { socket.emit('c56_joinError', { reason: 'table_not_found' }); return; }
+    const openSeats = t.engine.emptySeats();
+    const { botSeats, disconnectedSeats } = c56JoinableSeats(t);
+    if (openSeats.length === 0 && botSeats.length === 0 && disconnectedSeats.length === 0) {
+      socket.emit('c56_joinError', { reason: 'table_full' });
+      return;
+    }
+    c56PendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player' };
+    socket.emit('c56_chooseSeat', { tableId: reqTableId, openSeats, botSeats, disconnectedSeats, seats: c56SeatSnapshot(t) });
+  });
+
+  socket.on('c56_claimSeat', ({ choice }) => {
+    const pending = c56PendingSeatChoice[socket.id];
+    if (!pending) return;
+    const t = c56Tables[pending.tableId];
+    if (!t) { socket.emit('c56_joinError', { reason: 'table_not_found' }); return; }
+    delete c56PendingSeatChoice[socket.id];
+
+    let pos = -1;
+    if (choice === 'bot' || choice === undefined) {
+      const { botSeats } = c56JoinableSeats(t);
+      pos = botSeats[0];
+      if (pos === undefined) { socket.emit('c56_joinError', { reason: 'not_a_bot_seat' }); return; }
+      if (!t.engine.replaceBot(pos, newId(), pending.name)) { socket.emit('c56_joinError', { reason: 'replace_failed' }); return; }
+      c56PlayerId = t.engine.seats[pos].playerId;
+    } else if (typeof choice === 'number') {
+      pos = choice;
+      const seat = t.engine.seats[pos];
+      if (!seat) {
+        c56PlayerId = newId();
+        t.engine.seatHuman(pos, pending.name, c56PlayerId);
+      } else if (seat.isBot) {
+        c56PlayerId = newId();
+        if (!t.engine.replaceBot(pos, c56PlayerId, pending.name)) { socket.emit('c56_joinError', { reason: 'replace_failed' }); return; }
+      } else if (!seat.connected) {
+        c56PlayerId = newId();
+        if (!t.engine.takeOverSeat(pos, c56PlayerId, pending.name)) { socket.emit('c56_joinError', { reason: 'seat_taken' }); return; }
+      } else {
+        socket.emit('c56_joinError', { reason: 'seat_taken' });
+        return;
+      }
+    }
+    c56TableId = pending.tableId;
+    c56PlayerIndex[c56PlayerId] = { tableId: c56TableId, pos };
+    t.sockets.set(socket.id, { playerId: c56PlayerId, pos });
+    socket.join('c56_' + c56TableId);
+    socket.emit('c56_joined', { tableId: c56TableId, playerId: c56PlayerId, pos, isHost: t.hostPlayerId === c56PlayerId });
+    c56Touch(t);
+    c56BroadcastTable(t);
+    c56ScheduleNoHumanShutdown(t, c56TableId);
+    io.emit('c56_roomList', c56PublicTableList());
+  });
+
+  function withC56Table(fn) {
+    const t = c56Tables[c56TableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info) return;
+    fn(t, info.pos);
+  }
+
+  socket.on('c56_chat', ({ msg }) => {
+    withC56Table((t, pos) => {
+      const trimmed = String(msg || '').slice(0, 300).trim();
+      if (!trimmed) return;
+      const seat = t.engine.seats[pos];
+      if (!seat) return;
+      io.to('c56_' + c56TableId).emit('c56_chat', { from: seat.name, msg: trimmed, senderId: socket.id });
+      c56Touch(t);
+    });
+  });
+
+  socket.on('c56_stillPlaying', () => { withC56Table((t) => { c56Touch(t); }); });
+
+  socket.on('c56_fillBots', ({ count }) => {
+    withC56Table((t) => {
+      if (t.hostPlayerId !== c56PlayerId) return;
+      t.botFill = Math.max(0, Math.min(5, count));
+    });
+  });
+
+  socket.on('c56_startGame', () => {
+    withC56Table((t) => {
+      if (t.hostPlayerId !== c56PlayerId) return;
+      if (t.engine.phase !== 'lobby') return;
+      const empties = t.engine.emptySeats();
+      const botNamePool = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya', 'Sanjay', 'Johny', 'Vinod', 'Jean', 'Randall', 'Rajesh', 'Stev', 'Alok', 'Jerin', 'Binchu', 'Ajai', 'Peter', 'Shyam', 'Appu', 'Anup', 'Arun', 'Vilphy', 'Roji'];
+      const shuffled = [...botNamePool].sort(() => Math.random() - 0.5);
+      let botNum = 0;
+      const toFill = Math.min(t.botFill, empties.length);
+      for (let i = 0; i < toFill; i++) {
+        t.engine.seatBot(empties[i], shuffled[botNum % shuffled.length]);
+        botNum++;
+      }
+      if (!t.engine.canStart()) return;
+      t.engine.startRound();
+      c56Touch(t);
+      c56BroadcastTable(t);
+      io.emit('c56_roomList', c56PublicTableList());
+    });
+  });
+
+  socket.on('c56_placeBid', ({ bid }) => {
+    withC56Table((t, pos) => {
+      const result = t.engine.placeBid(pos, bid);
+      if (!result.ok) socket.emit('c56_actionError', result);
+      c56Touch(t);
+    });
+  });
+
+  socket.on('c56_passBid', () => {
+    withC56Table((t, pos) => {
+      const result = t.engine.passBid(pos);
+      if (!result.ok) socket.emit('c56_actionError', result);
+      c56Touch(t);
+    });
+  });
+
+  socket.on('c56_doubleBid', () => {
+    withC56Table((t, pos) => {
+      const result = t.engine.doubleBid(pos);
+      if (!result.ok) socket.emit('c56_actionError', result);
+      c56Touch(t);
+    });
+  });
+
+  socket.on('c56_redoubleBid', () => {
+    withC56Table((t, pos) => {
+      const result = t.engine.redoubleBid(pos);
+      if (!result.ok) socket.emit('c56_actionError', result);
+      c56Touch(t);
+    });
+  });
+
+  socket.on('c56_playCard', ({ card }) => {
+    withC56Table((t, pos) => {
+      const result = t.engine.playCard(pos, card);
+      if (!result.ok) socket.emit('c56_actionError', result);
+      c56Touch(t);
+    });
+  });
+
+  socket.on('c56_continueRound', () => {
+    withC56Table((t) => {
+      if (t.hostPlayerId !== c56PlayerId) return;
+      if (t.engine.phase !== 'handEnd') return;
+      if (t.engine.matchOver) return;
+      t.engine.startRound();
+      c56Touch(t);
+      c56BroadcastTable(t);
+    });
+  });
+
+  socket.on('c56_restartGame', () => {
+    withC56Table((t) => {
+      if (t.hostPlayerId !== c56PlayerId) return;
+      t.engine.restartGame();
+      c56Touch(t);
+      c56BroadcastTable(t);
+    });
+  });
+
+  socket.on('c56_restartRound', () => {
+    withC56Table((t) => {
+      if (t.hostPlayerId !== c56PlayerId) return;
+      t.engine.restartRound();
+      c56Touch(t);
+      c56BroadcastTable(t);
+    });
+  });
+
+  socket.on('c56_kickPlayer', ({ pos }) => {
+    withC56Table((t) => {
+      if (t.hostPlayerId !== c56PlayerId) return;
+      const seat = t.engine.seats[pos];
+      const kickedPlayerId = seat ? seat.playerId : null;
+      t.engine.kickPlayer(pos);
+      if (kickedPlayerId) {
+        for (const [sockId, info] of t.sockets) {
+          if (info.playerId === kickedPlayerId) {
+            const kickedSocket = io.sockets.sockets.get(sockId);
+            if (kickedSocket) kickedSocket.emit('c56_kicked');
+            t.sockets.delete(sockId);
+          }
+        }
+        delete c56PlayerIndex[kickedPlayerId];
+      }
+      c56Touch(t);
+      c56BroadcastTable(t);
+    });
+  });
+
+  socket.on('c56_changeBotName', ({ pos, newName }) => {
+    withC56Table((t) => {
+      if (t.hostPlayerId !== c56PlayerId) return;
+      const result = t.engine.renameBotSeat(pos, newName);
+      if (!result.ok) { socket.emit('c56_actionError', result); return; }
+      c56Touch(t);
+      c56BroadcastTable(t);
+    });
+  });
+
+  socket.on('c56_leaveTable', () => {
+    withC56Table((t, pos) => {
+      t.sockets.delete(socket.id);
+      t.engine.markConnected(pos, false);
+      c56Touch(t);
+      c56BroadcastTable(t);
+      if (!t.engine.seats.some(Boolean)) delete c56Tables[c56TableId];
+      else c56ScheduleNoHumanShutdown(t, c56TableId);
+      io.emit('c56_roomList', c56PublicTableList());
+    });
+    c56TableId = null;
+  });
+
+  socket.on('disconnect', () => {
+    const t = c56Tables[c56TableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info) return;
+    t.sockets.delete(socket.id);
+    if (t.engine.seats[info.pos]) {
+      t.engine.markConnected(info.pos, false);
+      if (t.hostPlayerId === info.playerId) {
+        const newHostSeat = t.engine.seats.find(s => s && !s.isBot && s.connected && s.playerId !== info.playerId);
+        if (newHostSeat) {
+          t.hostPlayerId = newHostSeat.playerId;
+          t.engine.addLog(`${newHostSeat.name} is now the host.`);
+        }
+      }
+      c56Touch(t);
+      c56BroadcastTable(t);
+    }
+    if (!t.engine.seats.some(Boolean)) {
+      delete c56Tables[c56TableId];
+    } else {
+      c56ScheduleNoHumanShutdown(t, c56TableId);
+    }
+    io.emit('c56_roomList', c56PublicTableList());
   });
 });
 
