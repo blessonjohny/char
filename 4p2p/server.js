@@ -1306,6 +1306,25 @@ setInterval(() => {
 
 function sync56Room(code) { return 'sync56_' + code; }
 
+// Global, admin-controlled: whether the 👁 "reveal all hands" testing
+// button shows up at all in the 56 game. Not per-room — this is a single
+// site-wide switch, same pattern as the existing room cap. Broadcast to
+// every connected socket (across every page) the moment it changes, plus
+// sent unprompted to each new connection so a freshly-loaded 56.html
+// always starts out knowing the current policy.
+let reveal56Disabled = false;
+
+io.on('connection', (socket) => {
+  socket.emit('reveal56Policy', { disabled: reveal56Disabled });
+
+  socket.on('admin56SetRevealDisabled', ({ adminPassword, disabled }) => {
+    if (adminPassword !== ADMIN_SECRET) return;
+    reveal56Disabled = !!disabled;
+    io.emit('reveal56Policy', { disabled: reveal56Disabled });
+    console.log(`[admin] 56 reveal button ${reveal56Disabled ? 'disabled' : 'enabled'}`);
+  });
+});
+
 io.on('connection', (socket) => {
   socket.on('sync56_join', ({ room }) => {
     if (!room || typeof room !== 'string') return;
