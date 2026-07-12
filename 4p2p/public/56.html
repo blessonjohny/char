@@ -369,6 +369,14 @@
     display:flex;align-items:center;justify-content:center;z-index:30;text-align:center;padding:24px;box-sizing:border-box;
   }
   .overlay-msg .box{max-width:460px; animation:popupIn .22s ease;}
+  .room-row{
+    display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.25);border:1px solid var(--line);
+    border-radius:10px;padding:8px 12px;margin-bottom:8px;
+  }
+  .room-row .rn{flex:1;text-align:left;font-weight:700;font-size:13.5px}
+  .room-row .rmeta{font-size:11px;opacity:0.75}
+  .room-row button{flex-shrink:0}
+  #joinPendingOverlay, #joinRequestOverlay, #seatPicker56Overlay, #stillPlaying56Overlay{ z-index:45; }
   .review-box{
     display:flex; flex-direction:column; text-align:left; overflow:hidden;
     background:rgba(10,30,23,0.98); border:1px solid var(--line); border-radius:14px;
@@ -420,18 +428,59 @@
   <div class="tag">Six players. Two teams of three. One target: 56 points.</div>
 
   <div class="field">
-    <label for="roomInput">Room code (share this with your table)</label>
-    <input id="roomInput" placeholder="e.g. KOCHI7" autocomplete="off" maxlength="20">
-  </div>
-  <div class="field">
     <label for="nameInput">Your name</label>
     <input id="nameInput" placeholder="e.g. Anju" autocomplete="off" maxlength="18">
   </div>
-  <button class="btn btn-gold" id="joinBtn">Join Table</button>
+  <button class="btn btn-gold" id="createTableBtn" style="width:100%">🏠 Create a Table</button>
+
+  <div class="field" style="margin-top:20px;text-align:left">
+    <label>🌐 Public tables</label>
+    <div id="l56RoomList" style="margin-top:6px"></div>
+    <div id="l56RoomListEmpty" class="hint" style="margin-top:6px">No tables running right now — create one!</div>
+  </div>
+
   <div class="hint">
-    Everyone at the table opens this same page and enters the same room code.
-    Seats fill in order &mdash; seats 1‑3‑5 are one team, seats 2‑4‑6 are the other, alternating around the table.<br><br>
-    <b>Honesty note:</b> this runs on shared storage with no private server, so in theory anyone could inspect the page and see all hands. Play like it's a real table &mdash; nobody peeks. 🙏
+    Seats fill in order &mdash; seats 1‑3‑5 are one team, seats 2‑4‑6 are the other, alternating around the table.
+    Whoever creates a table is the host and can approve who joins, fill/replace bots, and kick seats; if the host
+    leaves, the next connected player automatically becomes host.
+  </div>
+</div>
+
+<!-- ======================= JOIN-REQUEST PENDING (shown to the joiner) ======================= -->
+<div id="joinPendingOverlay" class="overlay-msg hidden">
+  <div class="box">
+    <h2>⏳ Asking the host...</h2>
+    <p>Waiting for the host to let you in.</p>
+    <button class="btn btn-ghost" id="cancelJoinPendingBtn" style="margin-top:14px">Cancel</button>
+  </div>
+</div>
+
+<!-- ======================= HOST APPROVAL POPUP (shown to the host) ======================= -->
+<div id="joinRequestOverlay" class="overlay-msg hidden">
+  <div class="box">
+    <h2>🚪 Someone wants in</h2>
+    <p id="joinRequestText"></p>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:14px">
+      <button class="btn btn-ghost" id="denyJoinBtn">Not now</button>
+      <button class="btn btn-gold" id="approveJoinBtn">Let them in</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= SEAT PICKER (shown after approval) ======================= -->
+<div id="seatPicker56Overlay" class="overlay-msg hidden">
+  <div class="box">
+    <h2>🪑 Choose a seat</h2>
+    <div id="seatPicker56Options" style="display:flex;flex-direction:column;gap:8px;margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- ======================= STILL PLAYING? ======================= -->
+<div id="stillPlaying56Overlay" class="overlay-msg hidden">
+  <div class="box">
+    <h2>👋 Still there?</h2>
+    <p>Nothing's happened at this table in a while. It'll close in <b id="stillPlaying56Countdown">60</b>s if nobody's around.</p>
+    <button class="btn btn-gold" id="stillPlaying56Btn" style="width:100%;margin-top:10px">Yes, I'm here!</button>
   </div>
 </div>
 
@@ -615,6 +664,7 @@ function ensureSyncSocket(){
   syncSocket = io();
   syncSocket.on('connect', () => {
     if(roomCode) syncSocket.emit('sync56_join', {room: roomCode});
+    syncSocket.emit('l56_listRooms');
   });
   syncSocket.on('sync56_state', ({room, state}) => {
     if(room !== roomCode || !state) return;
@@ -639,6 +689,72 @@ function ensureSyncSocket(){
       // joinTable() is what normally un-hides it.
       btn.classList.remove('hidden');
     }
+  });
+
+  // ---------------- Lobby / table discovery ----------------
+  syncSocket.on('l56_roomList', renderRoomList);
+
+  syncSocket.on('l56_created', async ({code, playerId, pos, isHost: hostFlag}) => {
+    roomCode = code;
+    MY_PLAYER_ID = playerId;
+    try{ localStorage.setItem('k56_player_token', playerId); }catch(e){}
+    isHost = hostFlag;
+    document.getElementById('joinPendingOverlay').classList.add('hidden');
+    let state = await loadState();
+    if(!state){
+      state = newRoomState();
+      state.seats[pos] = {name: myName, playerId: MY_PLAYER_ID, connected: true};
+      state.hostPlayerId = MY_PLAYER_ID;
+      addLog(state, myName + ' created the table.');
+      await saveState(state);
+    }
+    enterTableAsSeat(pos, state);
+  });
+
+  syncSocket.on('l56_joinDenied', ({reason}) => {
+    document.getElementById('joinPendingOverlay').classList.add('hidden');
+    const msgs = {
+      full: 'That table is full.',
+      host_declined: 'The host declined to let you in.',
+      not_found: "That table doesn't exist anymore."
+    };
+    alert(msgs[reason] || 'Could not join that table.');
+  });
+
+  syncSocket.on('l56_joinApproved', ({code, openSeats, botSeats}) => {
+    document.getElementById('joinPendingOverlay').classList.add('hidden');
+    roomCode = code;
+    showSeatPicker56(openSeats, botSeats);
+  });
+
+  syncSocket.on('l56_joinRequest', ({reqId, code, name}) => {
+    document.getElementById('joinRequestText').textContent = `${name} wants to join your table.`;
+    const overlay = document.getElementById('joinRequestOverlay');
+    overlay.classList.remove('hidden');
+    document.getElementById('approveJoinBtn').onclick = () => {
+      syncSocket.emit('l56_respondJoinRequest', {code, reqId, approved: true});
+      overlay.classList.add('hidden');
+    };
+    document.getElementById('denyJoinBtn').onclick = () => {
+      syncSocket.emit('l56_respondJoinRequest', {code, reqId, approved: false});
+      overlay.classList.add('hidden');
+    };
+  });
+
+  syncSocket.on('l56_kicked', () => {
+    alert('You were removed from the table by the host.');
+    location.reload();
+  });
+
+  syncSocket.on('l56_tableClosed', ({reason}) => {
+    alert(reason === 'idle' ? "This table closed because nobody was active for a while." : 'This table closed.');
+    location.reload();
+  });
+
+  syncSocket.on('l56_stillPlayingCheck', ({seconds}) => showStillPlaying56(seconds));
+  syncSocket.on('l56_stillPlayingResolved', () => {
+    document.getElementById('stillPlaying56Overlay').classList.add('hidden');
+    clearInterval(stillPlaying56Interval);
   });
 }
 ensureSyncSocket(); // connect right away so admin policy (e.g. reveal button disabled) is known before anyone joins a table
@@ -711,6 +827,7 @@ function bandFor(value){
 function newRoomState(){
   return {
     roomCode,
+    hostPlayerId: null,
     seats: [null,null,null,null,null,null],
     phase: 'lobby', // lobby | bidding | playing | handEnd
     dealer: 0,
@@ -752,55 +869,94 @@ function addLog(state, text){
 }
 
 // ============================================================
-// JOIN FLOW
+// LOBBY / CONNECTION FLOW
 // ============================================================
-document.getElementById('joinBtn').addEventListener('click', joinTable);
-document.getElementById('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') joinTable(); });
-document.getElementById('roomInput').addEventListener('keydown', e=>{ if(e.key==='Enter') joinTable(); });
+// Player identity persists across a reload so a reconnect (or a host
+// migration check) can recognize "this is the same person" -- this is
+// purely a connection detail, same idea as every other table in this
+// project already uses; it has no bearing on hands/bids/scoring.
+let MY_PLAYER_ID = null;
+try { MY_PLAYER_ID = localStorage.getItem('k56_player_token'); } catch(e){}
+if(!MY_PLAYER_ID){
+  MY_PLAYER_ID = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2);
+  try{ localStorage.setItem('k56_player_token', MY_PLAYER_ID); }catch(e){}
+}
+let isHost = false;
 
-async function joinTable(){
-  const room = document.getElementById('roomInput').value.trim().toUpperCase();
+function requireName(){
   const name = document.getElementById('nameInput').value.trim();
-  if(!room || !name){
-    alert('Please enter both a room code and your name.');
-    return;
-  }
-  roomCode = room;
+  if(!name){ alert('Please enter your name first.'); return null; }
+  return name;
+}
+
+document.getElementById('createTableBtn').addEventListener('click', createTable);
+document.getElementById('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') createTable(); });
+document.getElementById('cancelJoinPendingBtn').addEventListener('click', () => {
+  document.getElementById('joinPendingOverlay').classList.add('hidden');
+});
+
+function createTable(){
+  const name = requireName();
+  if(!name) return;
   myName = name;
   ensureSyncSocket();
-  if(syncSocket.connected) syncSocket.emit('sync56_join', {room: roomCode});
+  syncSocket.emit('l56_createTable', {name});
+}
 
+function requestJoinRoom(code){
+  const name = requireName();
+  if(!name) return;
+  myName = name;
+  ensureSyncSocket();
+  syncSocket.emit('l56_requestJoin', {code, name});
+  document.getElementById('joinPendingOverlay').classList.remove('hidden');
+}
+
+function renderRoomList(rooms){
+  const wrap = document.getElementById('l56RoomList');
+  const empty = document.getElementById('l56RoomListEmpty');
+  if(!wrap) return;
+  if(!rooms || rooms.length === 0){
+    wrap.innerHTML = '';
+    if(empty) empty.style.display = 'block';
+    return;
+  }
+  if(empty) empty.style.display = 'none';
+  wrap.innerHTML = rooms.map(r => `
+    <div class="room-row">
+      <div><div class="rn">${escapeHtml(r.name)}'s table</div><div class="rmeta">${r.players}/6 · ${r.isPlaying ? 'In progress' : 'Lobby'}</div></div>
+      <button class="btn btn-gold btn-small" onclick="requestJoinRoom('${r.code}')">Join</button>
+    </div>
+  `).join('');
+}
+
+function showSeatPicker56(openSeats, botSeats){
+  const wrap = document.getElementById('seatPicker56Options');
+  let html = '';
+  (openSeats||[]).forEach(pos => {
+    html += `<button class="btn btn-gold" onclick="claimSeat56(${pos})">Take seat ${pos+1} (Team ${TEAM_OF(pos)})</button>`;
+  });
+  (botSeats||[]).forEach(pos => {
+    html += `<button class="btn btn-ghost" onclick="claimSeat56(${pos})">🤖 Replace bot in seat ${pos+1}</button>`;
+  });
+  wrap.innerHTML = html || '<p>This table is full.</p>';
+  document.getElementById('seatPicker56Overlay').classList.remove('hidden');
+}
+
+async function claimSeat56(pos){
+  document.getElementById('seatPicker56Overlay').classList.add('hidden');
   let state = await loadState();
-  if(!state){
-    state = newRoomState();
-  }
-
-  // reclaim seat if same name already seated
-  let seatIdx = state.seats.findIndex(s => s && !s.bot && s.name === myName);
-  if(seatIdx === -1){
-    seatIdx = state.seats.findIndex(s => s === null);
-    if(seatIdx === -1 && state.phase === 'lobby'){
-      // table full of humans/bots — let a human claim a bot seat before the game starts
-      const botSeatIdx = state.seats.findIndex(s => s && s.bot);
-      if(botSeatIdx !== -1){
-        addLog(state, `${myName} took over ${state.seats[botSeatIdx].name}'s seat.`);
-        state.seats[botSeatIdx] = {name: myName};
-        seatIdx = botSeatIdx;
-      }
-    }
-    if(seatIdx === -1){
-      alert('This table is full. Try a different room code.');
-      return;
-    }
-    if(state.seats[seatIdx] === null){
-      state.seats[seatIdx] = {name: myName};
-      addLog(state, myName + ' took seat ' + (seatIdx+1) + '.');
-    }
-  }
-  mySeat = seatIdx;
-
+  if(!state){ alert('That table just closed.'); location.reload(); return; }
+  state.seats[pos] = {name: myName, playerId: MY_PLAYER_ID, connected: true};
+  addLog(state, myName + ' took seat ' + (pos+1) + '.');
   await saveState(state);
+  ensureSyncSocket();
+  syncSocket.emit('l56_claimSeat', {code: roomCode, pos, playerId: MY_PLAYER_ID, name: myName});
+  enterTableAsSeat(pos, state);
+}
 
+function enterTableAsSeat(pos, state){
+  mySeat = pos;
   document.getElementById('landing').style.display = 'none';
   document.getElementById('gameHeader').classList.remove('hidden');
   document.getElementById('game').style.display = 'flex';
@@ -821,6 +977,27 @@ async function joinTable(){
   render(state);
   pollTimer = setInterval(pollLoop, 2200);
 }
+
+let stillPlaying56Interval = null;
+function showStillPlaying56(seconds){
+  const overlay = document.getElementById('stillPlaying56Overlay');
+  const countEl = document.getElementById('stillPlaying56Countdown');
+  let remaining = seconds || 60;
+  countEl.textContent = remaining;
+  overlay.classList.remove('hidden');
+  clearInterval(stillPlaying56Interval);
+  stillPlaying56Interval = setInterval(() => {
+    remaining--;
+    countEl.textContent = Math.max(0, remaining);
+    if(remaining <= 0) clearInterval(stillPlaying56Interval);
+  }, 1000);
+}
+document.getElementById('stillPlaying56Btn').addEventListener('click', () => {
+  ensureSyncSocket();
+  syncSocket.emit('l56_stillPlaying', {code: roomCode});
+  document.getElementById('stillPlaying56Overlay').classList.add('hidden');
+  clearInterval(stillPlaying56Interval);
+});
 
 function syncHeaderHeight(){
   const h = document.getElementById('gameHeader').offsetHeight;
@@ -869,6 +1046,7 @@ function displaySlot(seat){
 function render(state){
   lastRenderedStamp = state.updatedAt;
   latestState = state;
+  isHost = !!state.hostPlayerId && state.hostPlayerId === MY_PLAYER_ID;
   applyTheme(state.themeIndex || 0);
 
   const myTeamLetter = mySeat !== null ? TEAM_OF(mySeat) : 'A';
@@ -1174,6 +1352,18 @@ function renderSide(state){
   const body = document.getElementById('sideBody');
   body.innerHTML = '';
 
+  if(isHost && state.phase !== 'lobby'){
+    const box = document.createElement('div');
+    box.style.cssText = 'margin-bottom:16px;padding:10px 12px;background:rgba(201,162,39,0.1);border:1px solid var(--line);border-radius:8px;';
+    box.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--gold-soft);margin-bottom:8px;">👑 Host controls</div>' +
+      state.seats.map((s,i) => {
+        if(!s) return '';
+        return `<div class="room-row" style="margin-bottom:6px"><div class="rn" style="font-size:12px">${i+1}. ${escapeHtml(s.name)}${s.bot ? ' 🤖' : ''}${i===mySeat?' (you)':''}</div>` +
+          (i===mySeat ? '' : `<button class="btn btn-ghost btn-small" onclick="kickSeat56(${i})">Kick</button>`) + `</div>`;
+      }).join('');
+    body.appendChild(box);
+  }
+
   if(debugRevealAll && state.phase !== 'lobby'){
     const box = document.createElement('div');
     box.style.cssText = 'margin-bottom:16px;padding:10px 12px;background:rgba(201,162,39,0.1);border:1px solid var(--line);border-radius:8px;';
@@ -1204,28 +1394,45 @@ function renderSide(state){
 function renderLobbyOverlay(state){
   const o = document.getElementById('overlay');
   o.classList.remove('hidden');
+  const amHost = !!state.hostPlayerId && state.hostPlayerId === MY_PLAYER_ID;
+  isHost = amHost;
   const seated = state.seats.filter(s=>s).length;
-  const names = state.seats.map((s,i)=> s ? `${i+1}. ${botFace(s, i, state)} ${escapeHtml(s.name)} <span class="team-tag ${TEAM_OF(i)}">Team ${TEAM_OF(i)}</span>` : `${i+1}. <span style="opacity:0.4">empty</span>`).join('<br>');
+  const rows = state.seats.map((s,i)=>{
+    if(!s) return `<div class="room-row"><div class="rn" style="opacity:0.4">${i+1}. empty</div></div>`;
+    const hostTag = state.hostPlayerId && s.playerId === state.hostPlayerId ? ' 👑' : '';
+    const kickBtn = amHost ? `<button class="btn btn-ghost btn-small" onclick="kickSeat56(${i})">Kick</button>` : '';
+    return `<div class="room-row"><div class="rn">${i+1}. ${botFace(s, i, state)} ${escapeHtml(s.name)}${hostTag} <span class="team-tag ${TEAM_OF(i)}">Team ${TEAM_OF(i)}</span></div>${kickBtn}</div>`;
+  }).join('');
   const canStart = seated === 6;
   const hasEmpty = seated < 6;
   o.innerHTML = `
     <div class="box">
       <h2>Waiting for players</h2>
-      <p style="text-align:left; margin:14px 0;">${names}</p>
+      <div style="text-align:left; margin:14px 0;">${rows}</div>
       <p>${seated}/6 seated. Seats 1‑3‑5 form Team A, seats 2‑4‑6 form Team B.</p>
-      <div style="display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap;">
-        ${hasEmpty ? '<button class="btn btn-ghost" id="fillBotsBtn">Fill Empty Seats with Bots</button>' : ''}
-        <button class="btn btn-gold" id="startBtn" ${canStart?'':'disabled'}>Deal Cards &amp; Start</button>
-      </div>
-      <p class="hint" style="margin-top:16px;">Bots bid and play automatically using simple hand-strength heuristics. A human seat can still join and take over any 🤖 seat before the game starts.</p>
+      ${amHost ? `
+        <div style="display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap;">
+          ${hasEmpty ? '<button class="btn btn-ghost" id="fillBotsBtn">Fill Empty Seats with Bots</button>' : ''}
+          <button class="btn btn-gold" id="startBtn" ${canStart?'':'disabled'}>Deal Cards &amp; Start</button>
+        </div>
+        <p class="hint" style="margin-top:16px;">You're the host 👑 — bots bid and play automatically. Kick a seat to remove a bot or a player; if you leave, the next connected player becomes host.</p>
+      ` : `
+        <p class="hint" style="margin-top:16px;">Waiting for the host to start the game.</p>
+      `}
     </div>
   `;
-  if(canStart){
+  if(amHost && canStart){
     document.getElementById('startBtn').addEventListener('click', startGame);
   }
-  if(hasEmpty){
+  if(amHost && hasEmpty){
     document.getElementById('fillBotsBtn').addEventListener('click', fillEmptySeatsWithBots);
   }
+}
+
+async function kickSeat56(pos){
+  if(!confirm('Remove this seat? A human will be kicked from the table; a bot seat will be cleared.')) return;
+  ensureSyncSocket();
+  syncSocket.emit('l56_kick', {code: roomCode, pos});
 }
 
 const BOT_NAME_POOL = [
@@ -1282,6 +1489,7 @@ function botFace(seatObj, seatIdx, state){
 }
 
 async function fillEmptySeatsWithBots(){
+  if(!isHost){ alert('Only the host can do that.'); return; }
   let state = await loadState();
   if(!state || state.phase !== 'lobby') return;
   const emptySeats = [];
@@ -1418,6 +1626,7 @@ function escapeHtml(s){
 // GAME ACTIONS
 // ============================================================
 async function startGame(){
+  if(!isHost){ alert('Only the host can start the game.'); return; }
   let state = await loadState();
   if(!state || state.phase !== 'lobby') return;
   state.dealer = Math.floor(Math.random() * 6);
