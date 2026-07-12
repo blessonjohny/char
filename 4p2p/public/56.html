@@ -609,6 +609,7 @@ let sideOpen = false;
 // localStorage/BroadcastChannel fallback, so different people on
 // different devices actually see the same table.
 let syncSocket = null;
+let reveal56DisabledByAdmin = false;
 function ensureSyncSocket(){
   if(syncSocket) return;
   syncSocket = io();
@@ -622,7 +623,25 @@ function ensureSyncSocket(){
     // no-ops if this is a state we've already rendered.
     pollLoop();
   });
+  syncSocket.on('reveal56Policy', ({disabled}) => {
+    reveal56DisabledByAdmin = !!disabled;
+    const btn = document.getElementById('revealToggle');
+    if(!btn) return;
+    if(reveal56DisabledByAdmin){
+      // Force it off and hide it outright, even if a game is already in
+      // progress and someone currently has it toggled on.
+      debugRevealAll = false;
+      btn.classList.remove('on');
+      btn.classList.add('hidden');
+      if(latestState) render(latestState);
+    } else if(roomCode){
+      // Only reveal the button again if we're actually in a table --
+      // joinTable() is what normally un-hides it.
+      btn.classList.remove('hidden');
+    }
+  });
 }
+ensureSyncSocket(); // connect right away so admin policy (e.g. reveal button disabled) is known before anyone joins a table
 
 function stateKey(){ return '56game:' + roomCode; }
 
@@ -789,7 +808,7 @@ async function joinTable(){
   roomLabelEl.textContent = roomCode;
   roomLabelEl.parentElement.title = '';
   document.getElementById('sideToggle').classList.remove('hidden');
-  document.getElementById('revealToggle').classList.remove('hidden');
+  if(!reveal56DisabledByAdmin) document.getElementById('revealToggle').classList.remove('hidden');
   syncHeaderHeight();
   const headerEl = document.getElementById('gameHeader');
   if(window.ResizeObserver){
@@ -2501,6 +2520,7 @@ async function runBotPlay(state, seat){
 
 
 document.getElementById('revealToggle').addEventListener('click', ()=>{
+  if(reveal56DisabledByAdmin) return;
   debugRevealAll = !debugRevealAll;
   const btn = document.getElementById('revealToggle');
   btn.classList.toggle('on', debugRevealAll);

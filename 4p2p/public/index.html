@@ -2373,6 +2373,15 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       </div>
       <button class="counter-unlock-btn" id="btnAdminClearLock" style="width:100%;margin-top:8px;background:var(--success);font-size:0.7rem">♾️ Remove Cap</button>
     </div>
+    <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;text-align:left">
+      <div style="font-size:0.68rem;color:var(--text-secondary);margin-bottom:6px">👁 56 — Reveal Button</div>
+      <div style="font-size:0.75rem;color:#fff;margin-bottom:8px">
+        Status: <b id="admin56RevealStatus" style="color:var(--success)">Enabled</b>
+        <div style="opacity:0.7;font-size:0.68rem;margin-top:2px">The 👁 "reveal all hands" testing button on the 56 game page. Disabling it removes it for everyone, site-wide, immediately — including anyone already at a table.</div>
+      </div>
+      <button class="counter-unlock-btn" id="btnAdmin56DisableReveal" style="width:100%;background:var(--danger);font-size:0.7rem">🚫 Disable Reveal Button</button>
+      <button class="counter-unlock-btn" id="btnAdmin56EnableReveal" style="width:100%;margin-top:8px;background:var(--success);font-size:0.7rem;display:none">✅ Re-enable Reveal Button</button>
+    </div>
     <button class="counter-unlock-btn" id="btnCloseAdmin" style="margin-top:16px;background:var(--danger)">✕ Close</button>
   </div>
 </div>
@@ -9865,6 +9874,7 @@ function updateAdminDisplay() {
   if (loadsEl) loadsEl.textContent = pageLoadCount;
 
   updateAdminLockDisplay();
+  updateAdmin56RevealDisplay();
 
   try {
     const stats = JSON.parse(localStorage.getItem('kerala28_visitor_stats') || '{}');
@@ -9913,6 +9923,28 @@ function hideAdminPanel() {
     overlay.classList.add('hidden');
     setTimeout(() => { overlay.style.display = 'none'; }, 600);
   }
+}
+
+let SERVER_56_REVEAL_DISABLED = false;
+function updateAdmin56RevealDisplay() {
+  const statusEl = document.getElementById('admin56RevealStatus');
+  const disableBtn = document.getElementById('btnAdmin56DisableReveal');
+  const enableBtn = document.getElementById('btnAdmin56EnableReveal');
+  if (!statusEl) return;
+  statusEl.textContent = SERVER_56_REVEAL_DISABLED ? 'Disabled' : 'Enabled';
+  statusEl.style.color = SERVER_56_REVEAL_DISABLED ? 'var(--danger)' : 'var(--success)';
+  if (disableBtn) disableBtn.style.display = SERVER_56_REVEAL_DISABLED ? 'none' : 'block';
+  if (enableBtn) enableBtn.style.display = SERVER_56_REVEAL_DISABLED ? 'block' : 'none';
+}
+function admin56DisableReveal() {
+  connectGameSocket();
+  gameSocket.emit('admin56SetRevealDisabled', { adminPassword: ADMIN_PASSWORD, disabled: true });
+  showToast('🚫 56 reveal button disabled site-wide', 'lose', 3000);
+}
+function admin56EnableReveal() {
+  connectGameSocket();
+  gameSocket.emit('admin56SetRevealDisabled', { adminPassword: ADMIN_PASSWORD, disabled: false });
+  showToast('✅ 56 reveal button re-enabled', 'win', 2500);
 }
 
 function setupAdminTrigger() {
@@ -10493,6 +10525,10 @@ window.addEventListener('DOMContentLoaded', () => {
   if (setLockBtn) setLockBtn.addEventListener('click', adminSetServerLock);
   const clearLockBtn = document.getElementById('btnAdminClearLock');
   if (clearLockBtn) clearLockBtn.addEventListener('click', adminClearServerLock);
+  const disable56RevealBtn = document.getElementById('btnAdmin56DisableReveal');
+  if (disable56RevealBtn) disable56RevealBtn.addEventListener('click', admin56DisableReveal);
+  const enable56RevealBtn = document.getElementById('btnAdmin56EnableReveal');
+  if (enable56RevealBtn) enable56RevealBtn.addEventListener('click', admin56EnableReveal);
   const cancelReconnectBtn = document.getElementById('btnCancelReconnect');
   if (cancelReconnectBtn) cancelReconnectBtn.addEventListener('click', () => {
     hideReconnectingOverlay();
@@ -12581,6 +12617,14 @@ function connectGameSocket() {
     SERVER_IS_LOCKED = !!capped;
     if (maxRooms) SERVER_ROOM_CAP_MAX = maxRooms;
     updateAdminLockDisplay();
+  });
+
+  // Same idea as lockStatus, but for the 56 game's 👁 reveal-hands
+  // testing button — arrives unprompted on every connection so the
+  // admin panel always shows the real current state.
+  gameSocket.on('reveal56Policy', ({ disabled }) => {
+    SERVER_56_REVEAL_DISABLED = !!disabled;
+    updateAdmin56RevealDisplay();
   });
 
   gameSocket.on('tableBrains', ({ brains }) => {
