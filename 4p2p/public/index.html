@@ -2376,11 +2376,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;text-align:left">
       <div style="font-size:0.68rem;color:var(--text-secondary);margin-bottom:6px">👁 56 — Reveal Button</div>
       <div style="font-size:0.75rem;color:#fff;margin-bottom:8px">
-        Status: <b id="admin56RevealStatus" style="color:var(--success)">Enabled</b>
+        Status: <b id="admin56RevealStatus" style="color:var(--danger)">Disabled</b>
         <div style="opacity:0.7;font-size:0.68rem;margin-top:2px">The 👁 "reveal all hands" testing button on the 56 game page. Disabling it removes it for everyone, site-wide, immediately — including anyone already at a table.</div>
       </div>
-      <button class="counter-unlock-btn" id="btnAdmin56DisableReveal" style="width:100%;background:var(--danger);font-size:0.7rem">🚫 Disable Reveal Button</button>
-      <button class="counter-unlock-btn" id="btnAdmin56EnableReveal" style="width:100%;margin-top:8px;background:var(--success);font-size:0.7rem;display:none">✅ Re-enable Reveal Button</button>
+      <button class="counter-unlock-btn" id="btnAdmin56DisableReveal" style="width:100%;background:var(--danger);font-size:0.7rem;display:none">🚫 Disable Reveal Button</button>
+      <button class="counter-unlock-btn" id="btnAdmin56EnableReveal" style="width:100%;margin-top:8px;background:var(--success);font-size:0.7rem">✅ Enable Reveal Button</button>
     </div>
     <button class="counter-unlock-btn" id="btnCloseAdmin" style="margin-top:16px;background:var(--danger)">✕ Close</button>
   </div>
@@ -9925,7 +9925,7 @@ function hideAdminPanel() {
   }
 }
 
-let SERVER_56_REVEAL_DISABLED = false;
+let SERVER_56_REVEAL_DISABLED = true;
 function updateAdmin56RevealDisplay() {
   const statusEl = document.getElementById('admin56RevealStatus');
   const disableBtn = document.getElementById('btnAdmin56DisableReveal');

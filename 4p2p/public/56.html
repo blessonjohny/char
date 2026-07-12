@@ -658,7 +658,7 @@ let sideOpen = false;
 // localStorage/BroadcastChannel fallback, so different people on
 // different devices actually see the same table.
 let syncSocket = null;
-let reveal56DisabledByAdmin = false;
+let reveal56DisabledByAdmin = true; // matches the server default; corrected instantly by reveal56Policy on connect
 function ensureSyncSocket(){
   if(syncSocket) return;
   syncSocket = io();
