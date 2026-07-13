@@ -131,7 +131,11 @@ function totalActiveRooms() { return Object.keys(tables).length + Object.keys(si
 // this lock feature actually lives in — so it works out of the box, but
 // can be overridden per-deployment via an environment variable without
 // touching either file.
-const ADMIN_SECRET = process.env.ADMIN_SECRET || '0000';
+let ADMIN_SECRET = process.env.ADMIN_SECRET || '0000';
+// In-memory only, on purpose -- resets to the env var/default on every
+// server restart or redeploy. That's the honest tradeoff of a password
+// you can change without editing files: there's no persistent store
+// backing it here, same as the room cap and other admin toggles.
 
 function newId() { return crypto.randomBytes(8).toString('hex'); }
 function newTableId() { return crypto.randomBytes(4).toString('hex').toUpperCase(); }
@@ -314,6 +318,15 @@ io.on('connection', (socket) => {
     roomCapEnabled = false;
     io.emit('lockStatus', { capped: false, maxRooms: roomCapMax, currentRooms: totalActiveRooms() });
     console.log('[admin] room cap disabled');
+  });
+
+  socket.on('adminChangePassword', ({ adminPassword, newPassword }) => {
+    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminPasswordChangeResult', { ok: false, reason: 'wrong_current' }); return; }
+    const trimmed = String(newPassword || '').trim();
+    if (trimmed.length < 4) { socket.emit('adminPasswordChangeResult', { ok: false, reason: 'too_short' }); return; }
+    ADMIN_SECRET = trimmed;
+    console.log('[admin] password changed');
+    socket.emit('adminPasswordChangeResult', { ok: true, newPassword: trimmed });
   });
 
   socket.on('createTable', ({ name }) => {
