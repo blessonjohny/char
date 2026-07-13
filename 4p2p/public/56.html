@@ -365,7 +365,8 @@
   .segmented button:last-child{border-right:none;}
   .segmented button.sel{background:var(--gold);color:#241a12;font-weight:700;}
   #orderSeg button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 8px;}
-  #orderSeg .order-preview{font-family:'Fraunces',serif;font-size:19px;font-weight:700;}
+  #orderSeg .order-preview{font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--cream);}
+  #orderSeg .order-preview.red{color:#e08a9a;}
   #orderSeg .order-caption{font-size:10px;opacity:0.8;text-transform:uppercase;letter-spacing:0.3px;}
   #orderSeg button.sel .order-caption{opacity:0.85;}
   .numstep{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
@@ -2350,8 +2351,8 @@ function renderBidPanel(state){
     ${bidTrumpKind==='suit' ? `
       <div class="row">
         <div class="segmented" id="orderSeg">
-          <button data-order="forward" class="${bidOrder==='forward'?'sel':''}"><span class="order-preview">${previewValue} ${SUIT_SYM[bidSuit]}</span><span class="order-caption">With Jack</span></button>
-          <button data-order="reverse" class="${bidOrder==='reverse'?'sel':''}"><span class="order-preview">${SUIT_SYM[bidSuit]} ${previewValue}</span><span class="order-caption">Without Jack</span></button>
+          <button data-order="forward" class="${bidOrder==='forward'?'sel':''}"><span class="order-preview${SUIT_RED[bidSuit]?' red':''}">${previewValue} ${SUIT_SYM[bidSuit]}</span><span class="order-caption">With Jack</span></button>
+          <button data-order="reverse" class="${bidOrder==='reverse'?'sel':''}"><span class="order-preview${SUIT_RED[bidSuit]?' red':''}">${SUIT_SYM[bidSuit]} ${previewValue}</span><span class="order-caption">Without Jack</span></button>
         </div>
       </div>
       <div style="font-size:11px; opacity:0.55; margin:-6px 0 12px;">Order matters: number-first means you hold the Jack of this suit; suit-first (reverse) means no Jack, but 4 or more cards in it.</div>
@@ -2456,7 +2457,7 @@ async function submitBid(){
 
   const trump = bidTrumpKind === 'suit' ? bidSuit : null;
   const newBid = {value, trump, seat: mySeat, kind: bidTrumpKind, order: bidTrumpKind==='suit' ? bidOrder : null};
-  if(bidTrumpKind === 'suit' && cb && cb.trump === trump){
+  if(bidTrumpKind === 'suit' && cb && cb.trump === trump && bidMode === 'inc'){
     newBid.increment = value - cb.value;
   }
   const label = formatBidLogLabel(newBid);
