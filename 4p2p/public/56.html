@@ -182,8 +182,11 @@
   #trickWinnerBanner{
     text-align:center;font-size:12px;color:var(--gold-soft);font-family:'Fraunces',serif;
     padding:5px 12px;border-bottom:1px solid var(--line);background:rgba(201,162,39,0.12);
-    flex:0 0 auto;font-weight:700;animation:toastIn .25s cubic-bezier(.2,.9,.3,1.2);
+    flex:0 0 auto;font-weight:700;
+    height:24px;line-height:14px;box-sizing:content-box;overflow:hidden;
+    opacity:0;transition:opacity .2s ease;
   }
+  #trickWinnerBanner.showing{opacity:1;animation:toastIn .25s cubic-bezier(.2,.9,.3,1.2);}
   .toast56{
     background:rgba(15,42,32,0.96);border:1px solid var(--line);color:var(--cream);
     padding:8px 16px;border-radius:20px;font-size:12.5px;box-shadow:0 4px 16px rgba(0,0,0,0.4);
@@ -566,7 +569,7 @@
 <div id="game">
   <div id="handInfoBar" class="hidden"></div>
   <div id="tableTalk" class="hidden"></div>
-  <div id="trickWinnerBanner" class="hidden"></div>
+  <div id="trickWinnerBanner"></div>
 
   <div id="table-wrap">
     <div id="table"></div>
@@ -1599,10 +1602,11 @@ function renderTable(state){
   const winnerBanner = document.getElementById('trickWinnerBanner');
   if(state.pendingTrick){
     const winnerName = state.seats[state.pendingTrick.winnerSeat] ? state.seats[state.pendingTrick.winnerSeat].name : '';
-    winnerBanner.innerHTML = `<b>${escapeHtml(winnerName)}</b> wins the trick · +${state.pendingTrick.points} pts to Team ${state.pendingTrick.team}`;
-    winnerBanner.classList.remove('hidden');
+    const teamLabel = RELTEAM(state.pendingTrick.winnerSeat);
+    winnerBanner.innerHTML = `<b>${escapeHtml(winnerName)}</b> wins the trick · +${state.pendingTrick.points} pts to ${teamLabel}`;
+    winnerBanner.classList.add('showing');
   } else {
-    winnerBanner.classList.add('hidden');
+    winnerBanner.classList.remove('showing');
   }
 }
 
