@@ -844,6 +844,8 @@ function newRoomState(){
     forcedSeat: null,
     openerSeat: null,
     openerSuit: null,
+    openerReassertCount: 0,
+    openerProbeSuit: null,
     nsBySeat: {},
     lastActionBySeat: {},
     revealedVoidBySeat: {},
@@ -1659,6 +1661,8 @@ async function startGame(){
   state.forcedSeat = null;
   state.openerSeat = null;
   state.openerSuit = null;
+  state.openerReassertCount = 0;
+  state.openerProbeSuit = null;
   state.nsBySeat = {};
   state.lastActionBySeat = {};
   state.revealedVoidBySeat = {};
@@ -1692,6 +1696,8 @@ async function nextHand(prevState){
   state.forcedSeat = null;
   state.openerSeat = null;
   state.openerSuit = null;
+  state.openerReassertCount = 0;
+  state.openerProbeSuit = null;
   state.nsBySeat = {};
   state.lastActionBySeat = {};
   state.revealedVoidBySeat = {};
@@ -1728,6 +1734,8 @@ async function startNewMatch(prevState){
   state.forcedSeat = null;
   state.openerSeat = null;
   state.openerSuit = null;
+  state.openerReassertCount = 0;
+  state.openerProbeSuit = null;
   state.nsBySeat = {};
   state.lastActionBySeat = {};
   state.revealedVoidBySeat = {};
@@ -1757,8 +1765,8 @@ let noteDraft = '';
 // Formats a stored bid {value, trump, kind, order} into the traditional notation.
 function formatBidLabel(cb){
   if(!cb) return '';
-  if(cb.kind === 'nt') return cb.value + ' NT';
-  if(cb.kind === 'ns') return cb.value + ' NS';
+  if(cb.kind === 'nt') return cb.value + ' No Trump';
+  if(cb.kind === 'ns') return cb.value + ' NOS';
   const sym = SUIT_SYM[cb.trump];
   return cb.order === 'reverse' ? `${sym} ${cb.value}` : `${cb.value} ${sym}`;
 }
@@ -1907,12 +1915,12 @@ function renderBidPanel(state){
     <div class="row">
       <div class="suitpick" id="suitpick">
         ${SUITS.map(s=>`<button data-suit="${s}" class="${(SUIT_RED[s])?'red':''} ${bidTrumpKind==='suit'&&bidSuit===s?'sel':''}">${SUIT_SYM[s]}</button>`).join('')}
-        <button data-suit="NT" class="${bidTrumpKind==='nt'?'sel':''}" style="width:auto;padding:0 10px;">NT</button>
-        <button data-suit="NS" class="${bidTrumpKind==='ns'?'sel':''}" style="width:auto;padding:0 10px;">NS</button>
+        <button data-suit="NT" class="${bidTrumpKind==='nt'?'sel':''}" style="width:auto;padding:0 10px;font-size:0.78em;">No Trump</button>
+        <button data-suit="NS" class="${bidTrumpKind==='ns'?'sel':''}" style="width:auto;padding:0 10px;">NOS</button>
       </div>
     </div>
-    ${bidTrumpKind==='nt' ? `<div class="explain-box">NT — No Trump. Signals 3+ Jacks spread across different suits, not concentrated in one. If this wins, the hand is played with no trump suit.</div>` : ''}
-    ${bidTrumpKind==='ns' ? `<div class="explain-box">NS — No Suit. Signals you have zero cards in whatever suit was just bid — a void, not a spread of Jacks. If this ends up winning, it plays out just like No Trump.</div>` : ''}
+    ${bidTrumpKind==='nt' ? `<div class="explain-box">No Trump. Signals 3+ Jacks spread across different suits, not concentrated in one. If this wins, the hand is played with no trump suit.</div>` : ''}
+    ${bidTrumpKind==='ns' ? `<div class="explain-box">NOS — No Suit. Signals you have zero cards in whatever suit was just bid — a void, not a spread of Jacks. If this ends up winning, it plays out just like No Trump.</div>` : ''}
     ${bidTrumpKind==='suit' ? `
       <div class="row">
         <div class="segmented" id="orderSeg">
@@ -2041,6 +2049,13 @@ async function submitBid(){
   if(bidTrumpKind === 'suit'){
     state.suitBidBySeat = state.suitBidBySeat || {};
     state.suitBidBySeat[mySeat + '-' + trump] = bidOrder; // 'forward' = claimed the Jack, 'reverse' = no Jack
+  }
+  if(cb && mySeat === state.openerSeat && bidTrumpKind === 'suit'){
+    if(trump === state.openerSuit){
+      state.openerReassertCount = (state.openerReassertCount || 0) + 1;
+    } else if(!state.openerProbeSuit){
+      state.openerProbeSuit = trump;
+    }
   }
 
   state.currentBid = newBid;
@@ -2476,15 +2491,53 @@ function botDecideBid(state, seat){
     return {action:'redouble'};
   }
 
-  // ---- Reassert my own opening suit ----
+  // ---- Reassert my own opening suit (or probe a second one) ----
   // If I opened this hand's bidding and the bid currently held by my own team
-  // has drifted away from my suit (a teammate could only offer NS, or nobody
+  // has drifted away from my suit (a teammate could only offer NOS, or nobody
   // has supported it), I still have the real strength there — bump it back up
   // by 1 rather than letting the contract fizzle into No Trump.
+  //
+  // But if I've already done that reassertion twice with nothing new coming
+  // back, and I hold a genuinely different strong suit too, probe THAT instead
+  // of reasserting a third time — the aim is to find out if a partner can back
+  // a second suit, which is worth pushing much higher for. If the probe also
+  // gets no support, this same branch naturally "kicks it back" to my original
+  // suit next time around, since openerProbeSuit will already be set.
   if(cb && state.openerSeat === seat && state.openerSuit && cb.trump !== state.openerSuit &&
      TEAM_OF(cb.seat) === TEAM_OF(seat) && jacks[state.openerSuit] >= 1 && count[state.openerSuit] >= 4){
+    if(state.openerReassertCount >= 2 && !state.openerProbeSuit){
+      const probeCandidates = biddableSuits.filter(s => s !== state.openerSuit);
+      if(probeCandidates.length > 0){
+        const {suit, value: probeVal} = bestOf(probeCandidates);
+        const value = Math.max(minAllowed, Math.min(56, probeVal));
+        if(value <= 56) return {action:'bid', value, trump: suit, kind:'suit', order:'forward', isProbe:true};
+      }
+    }
     const value = Math.min(56, cb.value + 1);
-    if(value >= minAllowed) return {action:'bid', value, trump: state.openerSuit, kind:'suit', order:'forward'};
+    if(value >= minAllowed) return {action:'bid', value, trump: state.openerSuit, kind:'suit', order:'forward', isReassert:true};
+  }
+
+  // ---- Last chance before it returns to the opener ----
+  // If I'm seated right before the opener's own turn, and the current bid is
+  // the opener's own probe-suit attempt with nobody having backed it yet, make
+  // one last effort to offer something useful rather than just passing — my
+  // own best suit if I have one, or NT if I've got scattered Jacks but nothing
+  // concentrated in one place.
+  if(cb && state.openerProbeSuit && cb.trump === state.openerProbeSuit && cb.seat === state.openerSeat &&
+     TEAM_OF(cb.seat) === TEAM_OF(seat) && seat === (state.openerSeat - 1 + 6) % 6){
+    const s = cb.trump;
+    const canSupportProbe = count[s] > 0 && jacks[s] >= 1;
+    if(!canSupportProbe){
+      if(biddableSuits.length > 0){
+        const {suit, value: lastVal} = bestOf(biddableSuits);
+        const value = Math.max(minAllowed, Math.min(56, lastVal));
+        if(value <= 56) return {action:'bid', value, trump: suit, kind:'suit', order:'forward'};
+      }
+      const totalJacks = SUITS.reduce((sum,s2) => sum + jacks[s2], 0);
+      if(totalJacks >= 3 && minAllowed <= 56){
+        return {action:'bid', value: minAllowed, trump: null, kind:'nt', order: null};
+      }
+    }
   }
 
   // ---- No bid yet: this is an opening decision ----
@@ -2589,6 +2642,12 @@ async function runBotBid(state, seat){
     if(decision.kind === 'suit'){
       state.suitBidBySeat = state.suitBidBySeat || {};
       state.suitBidBySeat[seat + '-' + decision.trump] = decision.order; // 'forward' = claimed the Jack
+    }
+    if(decision.isReassert){
+      state.openerReassertCount = (state.openerReassertCount || 0) + 1;
+    }
+    if(decision.isProbe){
+      state.openerProbeSuit = decision.trump;
     }
     state.currentBid = newBid;
     state.doubled = 0;
