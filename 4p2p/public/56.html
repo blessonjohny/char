@@ -111,11 +111,11 @@
     height:calc(100vh - var(--header-h,52px));height:calc(100dvh - var(--header-h,52px));
   }
   header.bar{
-    display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden;
+    display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;
     padding:6px 10px;border-bottom:1px solid var(--line);
     background:rgba(10,30,23,0.98);
     position:fixed;top:0;left:0;right:0;z-index:41;
-    justify-content:flex-end;
+    justify-content:space-between;
   }
   header.bar .hdr-room{
     font-family:'Fraunces',serif;font-weight:700;font-size:13px;color:var(--gold-soft);
@@ -124,7 +124,7 @@
   header.bar .hdr-room b{color:var(--cream);}
   header.bar .hdr-scores{
     display:flex;align-items:center;gap:8px;font-size:12px;font-family:'Fraunces',serif;
-    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);white-space:nowrap;
+    white-space:nowrap;flex-shrink:0;
   }
   header.bar .hdr-team{display:flex;align-items:center;font-weight:700;gap:3px;}
   header.bar .hdr-team .lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.4px;opacity:0.75;}
@@ -1979,6 +1979,24 @@ function renderAuctionClosedOverlay(state){
   `;
 }
 
+// "Team" won this hand if they were the bidder and made it, or the
+// defender and the bid failed -- either way their side came out ahead.
+function handResultTitle(bidLabel, made){
+  const iWonHand = (bidLabel === 'Team' && made) || (bidLabel === 'Opp' && !made);
+  return iWonHand ? '🎉 You Won!' : '😔 You Lost';
+}
+function handResultAnalysis(state, bid, biddingTeamLetter, made){
+  const margin = made ? state.teamPoints[biddingTeamLetter] - bid.value : bid.value - state.teamPoints[biddingTeamLetter];
+  if(made){
+    if(margin >= 10) return 'Dominant round — plenty of points to spare.';
+    if(margin >= 4) return 'A comfortable, well-controlled round.';
+    return 'A nail-biter — just scraped it home.';
+  }
+  if(margin >= 10) return 'Strong defense — never really in doubt.';
+  if(margin >= 4) return 'A solid defensive stand.';
+  return 'So close — defense held on by a thread.';
+}
+
 function renderHandEndOverlay(state){
   const o = document.getElementById('overlay');
   o.classList.remove('hidden');
@@ -2013,7 +2031,8 @@ function renderHandEndOverlay(state){
 
   o.innerHTML = `
     <div class="box">
-      <h2>${made ? 'Bid made!' : 'Bid failed'}</h2>
+      <h2>${handResultTitle(bidLabel, made)}</h2>
+      <p style="opacity:0.85;font-size:13px;margin-bottom:2px;">${handResultAnalysis(state, bid, biddingTeamLetter, made)}</p>
       <p>
         ${bidLabel} bid <b>${bid.value}</b> (${bid.trump?SUIT_SYM[bid.trump]+' trump':'No Trump'})${state.doubled?', '+(state.doubled===2?'redoubled':'doubled'):''}
         and collected <b style="color:${bidColor}">${state.teamPoints[biddingTeamLetter]}</b> points.<br>
