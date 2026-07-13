@@ -9953,10 +9953,13 @@ function updateAdminLockDisplay() {
 
 function adminSetServerLock() {
   const input = document.getElementById('adminLockCodeInput');
-  const maxRooms = input ? parseInt(input.value, 10) || 3 : 3;
+  const parsed = input ? parseInt(input.value, 10) : NaN;
+  const maxRooms = Number.isFinite(parsed) && parsed >= 0 ? parsed : 3;
   connectGameSocket();
   gameSocket.emit('adminSetLock', { adminPassword: ADMIN_PASSWORD, maxRooms });
-  showToast(`🚧 Room cap set to ${maxRooms} — new "Create Room" attempts beyond that will be turned away, joining/watching stays open`, 'win', 4000);
+  showToast(maxRooms === 0
+    ? '🚧 Room cap set to 0 — ALL new table creation is blocked until you raise or remove the cap.'
+    : `🚧 Room cap set to ${maxRooms} — new "Create Room" attempts beyond that will be turned away, joining/watching stays open`, 'win', 4000);
 }
 
 function adminClearServerLock() {
@@ -10006,6 +10009,26 @@ function adminChangePassword() {
   gameSocket.emit('adminChangePassword', { adminPassword: ADMIN_PASSWORD, newPassword });
 }
 
+function tryAdminPassword(pwd) {
+  if (pwd === null) return; // cancelled the prompt
+  connectGameSocket();
+  gameSocket.emit('adminVerifyPassword', { password: pwd });
+  gameSocket.once('adminVerifyResult', ({ ok }) => {
+    if (ok) {
+      // Keep the client and server in agreement from this point on -- this
+      // is what actually fixes "I'm already in the panel, why do I need a
+      // password again": once verified here, every action taken inside
+      // (Cap it, reveal toggle, etc.) reuses this same confirmed-correct
+      // value automatically, no further prompts.
+      ADMIN_PASSWORD = pwd;
+      try { localStorage.setItem('kerala28_admin_pwd', pwd); } catch (e) {}
+      showAdminPanel();
+    } else {
+      showToast('❌ Wrong password', 'lose', 1500);
+    }
+  });
+}
+
 function setupAdminTrigger() {
   const trigger = document.getElementById('adminTrigger');
   if (!trigger) return;
@@ -10022,13 +10045,7 @@ function setupAdminTrigger() {
     if (clickCount >= 3) {
       clearTimeout(clickTimer);
       clickCount = 0;
-      // Show password prompt
-      const pwd = prompt('🔐 Enter Admin Password:');
-      if (pwd === ADMIN_PASSWORD) {
-        showAdminPanel();
-      } else if (pwd !== null) {
-        showToast('❌ Wrong password', 'lose', 1500);
-      }
+      tryAdminPassword(prompt('🔐 Enter Admin Password:'));
     }
   });
 
@@ -10036,12 +10053,7 @@ function setupAdminTrigger() {
   let pressTimer;
   trigger.addEventListener('touchstart', (e) => {
     pressTimer = setTimeout(() => {
-      const pwd = prompt('🔐 Enter Admin Password:');
-      if (pwd === ADMIN_PASSWORD) {
-        showAdminPanel();
-      } else if (pwd !== null) {
-        showToast('❌ Wrong password', 'lose', 1500);
-      }
+      tryAdminPassword(prompt('🔐 Enter Admin Password:'));
     }, 2000);
   });
   trigger.addEventListener('touchend', () => {
@@ -12686,7 +12698,7 @@ function connectGameSocket() {
   // password prompt, since there's no code to enter anymore.
   gameSocket.on('lockStatus', ({ capped, maxRooms }) => {
     SERVER_IS_LOCKED = !!capped;
-    if (maxRooms) SERVER_ROOM_CAP_MAX = maxRooms;
+    if (Number.isFinite(maxRooms) && maxRooms >= 0) SERVER_ROOM_CAP_MAX = maxRooms;
     updateAdminLockDisplay();
   });
 
