@@ -1363,7 +1363,7 @@ function l56Touch(r) {
 // the room is left without a host until someone (re)connects — kick
 // and approval actions just have no effect until then, nothing crashes.
 function l56ReassignHost(r) {
-  if (!r.state || !r.state.seats) { r.hostPlayerId = null; return; }
+  if (!r.state || !r.state.seats) { r.hostPlayerId = null; l56CheckNoHumanTimer(r); return; }
   let best = null;
   for (const [, info] of r.sockets) {
     if (info.pos == null || info.pos < 0) continue;
@@ -1373,6 +1373,30 @@ function l56ReassignHost(r) {
   }
   r.hostPlayerId = best ? best.playerId : null;
   if (r.state) r.state.hostPlayerId = r.hostPlayerId;
+  l56CheckNoHumanTimer(r);
+}
+
+const L56_NO_HUMAN_TIMEOUT_MS = 3 * 60 * 1000;
+// A table with no connected human host is just bots playing each other for
+// no one -- give a real person 3 minutes to claim a seat (which makes them
+// host automatically) before the table closes itself.
+function l56CheckNoHumanTimer(r) {
+  if (r.hostPlayerId) {
+    if (r.noHumanTimer) { clearTimeout(r.noHumanTimer); r.noHumanTimer = null; }
+    return;
+  }
+  if (r.noHumanTimer) return; // already counting down
+  const code = r.code;
+  r.noHumanTimer = setTimeout(() => {
+    const stillThere = l56Rooms[code];
+    if (!stillThere) return;
+    stillThere.noHumanTimer = null;
+    if (stillThere.hostPlayerId) return; // someone claimed it in the meantime
+    console.log(`[56 lobby] closing table ${code} — no human host within 3 minutes`);
+    io.to(l56SocketRoom(code)).emit('l56_tableClosed', { reason: 'no_host' });
+    delete l56Rooms[code];
+    io.emit('l56_roomList', l56PublicList());
+  }, L56_NO_HUMAN_TIMEOUT_MS);
 }
 
 const L56_IDLE_LIMIT_MS = 5 * 60 * 1000;
@@ -1449,6 +1473,8 @@ io.on('connection', (socket) => {
     const seats = (r.state && r.state.seats) || [];
     const openSeats = seats.map((s, i) => s ? null : i).filter(i => i !== null);
     const botSeats = seats.map((s, i) => (s && s.bot) ? i : null).filter(i => i !== null);
+    const hostSeat = seats.findIndex(s => s && s.playerId === r.hostPlayerId);
+    const hostName = hostSeat !== -1 ? seats[hostSeat].name : null;
     if (openSeats.length === 0 && botSeats.length === 0) {
       socket.emit('l56_joinDenied', { reason: 'full' });
       return;
@@ -1462,7 +1488,7 @@ io.on('connection', (socket) => {
       // for a popup nobody can answer; let them straight through to the
       // seat picker instead.
       r.pendingRequests.delete(reqId);
-      socket.emit('l56_joinApproved', { code, openSeats, botSeats });
+      socket.emit('l56_joinApproved', { code, openSeats, botSeats, hostSeat, hostName });
       return;
     }
     const hostSocket = io.sockets.sockets.get(hostSocketId);
@@ -1483,7 +1509,9 @@ io.on('connection', (socket) => {
     const seats = (r.state && r.state.seats) || [];
     const openSeats = seats.map((s, i) => s ? null : i).filter(i => i !== null);
     const botSeats = seats.map((s, i) => (s && s.bot) ? i : null).filter(i => i !== null);
-    reqSocket.emit('l56_joinApproved', { code, openSeats, botSeats });
+    const hostSeat = seats.findIndex(s => s && s.playerId === r.hostPlayerId);
+    const hostName = hostSeat !== -1 ? seats[hostSeat].name : null;
+    reqSocket.emit('l56_joinApproved', { code, openSeats, botSeats, hostSeat, hostName });
   });
 
   // Purely for lobby bookkeeping (who's connected, at which seat) -- the
@@ -1495,8 +1523,13 @@ io.on('connection', (socket) => {
     r.sockets.set(socket.id, { playerId, pos, name });
     socket.join(l56SocketRoom(code));
     socket.data.l56 = { code, playerId, pos };
-    if (!r.hostPlayerId) l56ReassignHost(r);
+    const hadHost = !!r.hostPlayerId;
+    if (!hadHost) l56ReassignHost(r);
     l56Touch(r);
+    // If this claim just made someone the new host, everyone (including
+    // the joiner, whose own optimistic save happened before the server
+    // could react) needs the corrected state pushed to them right away.
+    if (!hadHost && r.hostPlayerId) l56Broadcast(code);
   });
 
   socket.on('l56_kick', ({ code, pos }) => {
