@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>56 · Six-Hand Kerala Card Game</title>
 <script src="/socket.io/socket.io.js"></script>
+<script src="/voice.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,600&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -134,6 +135,27 @@
   .hdr-icon-btn:active{transform:scale(0.94);}
   .hdr-icon-btn.on{background:var(--gold);color:#241a12;border-color:var(--gold);}
   .team-a-dot,.team-b-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;}
+
+  /* ---------- Chat (ported from six.html, same behavior) ---------- */
+  .chat-overlay{position:fixed;inset:0;z-index:600;display:none;pointer-events:none}
+  .chat-overlay.on{display:block}
+  .chat-panel{position:fixed;background:linear-gradient(135deg,#0f2a20,#0a1f18);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.55);display:flex;flex-direction:column;overflow:hidden;pointer-events:auto;min-width:220px;min-height:180px}
+  .chat-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);flex-shrink:0;cursor:grab;touch-action:none;user-select:none}
+  .chat-hdr:active{cursor:grabbing}
+  .chat-hdr h3{color:var(--gold);font-size:0.9rem;margin:0;pointer-events:none}
+  .chat-messages{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-height:40px}
+  .chat-msg{font-size:0.75rem;line-height:1.4;padding:6px 10px;border-radius:8px;max-width:85%;word-break:break-word}
+  .chat-msg.mine{background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.2);align-self:flex-end;color:var(--cream)}
+  .chat-msg.theirs{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);align-self:flex-start;color:rgba(246,238,221,0.7)}
+  .chat-msg .chat-from{font-size:0.6rem;color:var(--gold);font-weight:700;margin-bottom:2px}
+  .chat-input-row{display:flex;gap:8px;padding:10px 12px;flex-shrink:0;border-top:1px solid var(--line);padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+  .chat-input{flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,0.05);color:var(--cream);font-size:0.85rem;font-family:inherit;outline:none;min-width:0}
+  .chat-input:focus{border-color:var(--gold)}
+  .chat-send-btn{padding:8px 14px;border-radius:8px;border:none;background:var(--gold);color:#241a12;font-weight:800;font-size:0.8rem;cursor:pointer;flex-shrink:0}
+  .chat-resize-handle{position:absolute;right:0;bottom:0;width:26px;height:26px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg, transparent 0 calc(50% - 1px), rgba(201,162,39,0.55) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px) 100%),linear-gradient(135deg, transparent 0 calc(70% - 1px), rgba(201,162,39,0.35) calc(70% - 1px) calc(70% + 1px), transparent calc(70% + 1px) 100%)}
+  .chat-badge{position:absolute;top:-4px;right:-4px;background:#ff5c5c;color:#fff;font-size:0.5rem;font-weight:800;border-radius:50%;width:14px;height:14px;display:none;align-items:center;justify-content:center}
+  .chat-badge.on{display:flex}
+  #btnChat56{position:relative}
   .team-a-dot{background:var(--gold);}
   .team-b-dot{background:var(--maroon);}
 
@@ -481,6 +503,22 @@
   </div>
 </div>
 
+<!-- ======================= CHAT ======================= -->
+<div class="chat-overlay" id="chatOverlay56">
+  <div class="chat-panel" id="chatPanel56">
+    <div class="chat-hdr" id="chatHdr56">
+      <h3>💬 Table Chat</h3>
+      <button style="width:28px;height:28px;background:transparent;border:none;color:var(--cream);font-size:1rem;cursor:pointer" id="btnCloseChat56">✕</button>
+    </div>
+    <div class="chat-messages" id="chatMessages56"></div>
+    <div class="chat-input-row">
+      <input type="text" class="chat-input" id="chatInput56" placeholder="Say something..." maxlength="80" autocomplete="off">
+      <button class="chat-send-btn" id="btnSendChat56">Send</button>
+    </div>
+    <div class="chat-resize-handle" id="chatResizeHandle56"></div>
+  </div>
+</div>
+
 <!-- ======================= STILL PLAYING? ======================= -->
 <div id="stillPlaying56Overlay" class="overlay-msg hidden">
   <div class="box">
@@ -498,6 +536,7 @@
     <span class="hdr-team"><span class="lbl">Opp</span><span class="val" id="scoreOpp">0</span></span>
     <span class="hdr-round">R<span id="handNum">1</span> · <span id="sessionWL">W0 L0</span></span>
   </span>
+  <button class="hdr-icon-btn hidden" id="btnChat56" title="Table Chat">💬<span class="chat-badge" id="chatBadge56"></span></button>
   <button class="hdr-icon-btn hidden" id="revealToggle" title="Reveal all hands (testing)">👁</button>
   <button class="hdr-icon-btn hidden" id="sideToggle" title="Log &amp; Bids">☰</button>
 </header>
@@ -765,6 +804,10 @@ function ensureSyncSocket(){
     document.getElementById('stillPlaying56Overlay').classList.add('hidden');
     clearInterval(stillPlaying56Interval);
   });
+
+  syncSocket.on('l56_chat', ({from, msg, senderId}) => {
+    addChatMessage56(from, msg, senderId === syncSocket.id);
+  });
 }
 ensureSyncSocket(); // connect right away so admin policy (e.g. reveal button disabled) is known before anyone joins a table
 
@@ -975,7 +1018,12 @@ function enterTableAsSeat(pos, state){
   roomLabelEl.textContent = roomCode;
   roomLabelEl.parentElement.title = '';
   document.getElementById('sideToggle').classList.remove('hidden');
+  document.getElementById('btnChat56').classList.remove('hidden');
   if(!reveal56DisabledByAdmin) document.getElementById('revealToggle').classList.remove('hidden');
+  if(window.K28Voice){
+    K28Voice.attach(syncSocket, {getName: () => myName || 'Player'});
+    K28Voice.showButton();
+  }
   syncHeaderHeight();
   const headerEl = document.getElementById('gameHeader');
   if(window.ResizeObserver){
@@ -1030,6 +1078,137 @@ function syncHeaderHeight(){
   document.documentElement.style.setProperty('--header-h', h + 'px');
 }
 
+// ============================================================
+// CHAT (ported from six.html/six.js — same drag/resize floating panel,
+// same behavior, just renamed to the l56_ event and element-id namespace
+// so it can't collide with anything else on the page)
+// ============================================================
+let chatUnread56 = 0;
+let chatPanel56Inited = false;
+function initChatPanel56Position(){
+  const panel = document.getElementById('chatPanel56');
+  if(!panel) return;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const w = Math.min(340, vw - 20);
+  const h = Math.min(420, vh - 100);
+  panel.style.width = w + 'px';
+  panel.style.height = h + 'px';
+  panel.style.left = Math.max(8, vw - w - 12) + 'px';
+  panel.style.top = Math.max(8, vh - h - 90) + 'px';
+  chatPanel56Inited = true;
+}
+function clampChatPanel56ToViewport(){
+  const panel = document.getElementById('chatPanel56');
+  if(!panel) return;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const rect = panel.getBoundingClientRect();
+  let left = rect.left, top = rect.top;
+  left = Math.min(Math.max(left, -rect.width + 60), vw - 60);
+  top = Math.min(Math.max(top, 0), vh - 44);
+  panel.style.left = left + 'px';
+  panel.style.top = top + 'px';
+}
+function openChat56(){
+  document.getElementById('chatOverlay56').classList.add('on');
+  if(!chatPanel56Inited) initChatPanel56Position();
+  else clampChatPanel56ToViewport();
+  chatUnread56 = 0;
+  const badge = document.getElementById('chatBadge56');
+  if(badge){ badge.textContent = ''; badge.classList.remove('on'); }
+  const msgs = document.getElementById('chatMessages56');
+  if(msgs) msgs.scrollTop = msgs.scrollHeight;
+  setTimeout(() => { const inp = document.getElementById('chatInput56'); if(inp) inp.focus(); }, 100);
+}
+function closeChat56(){ document.getElementById('chatOverlay56').classList.remove('on'); }
+
+(function setupChat56DragResize(){
+  const panel = document.getElementById('chatPanel56');
+  const hdr = document.getElementById('chatHdr56');
+  const grip = document.getElementById('chatResizeHandle56');
+  if(!panel || !hdr || !grip) return;
+
+  let dragging = false, dragStartX = 0, dragStartY = 0, panelStartLeft = 0, panelStartTop = 0;
+  hdr.addEventListener('pointerdown', (e) => {
+    if(e.target.closest('#btnCloseChat56')) return;
+    dragging = true;
+    hdr.setPointerCapture(e.pointerId);
+    const rect = panel.getBoundingClientRect();
+    dragStartX = e.clientX; dragStartY = e.clientY;
+    panelStartLeft = rect.left; panelStartTop = rect.top;
+  });
+  hdr.addEventListener('pointermove', (e) => {
+    if(!dragging) return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const rect = panel.getBoundingClientRect();
+    let newLeft = panelStartLeft + (e.clientX - dragStartX);
+    let newTop = panelStartTop + (e.clientY - dragStartY);
+    newLeft = Math.min(Math.max(newLeft, -rect.width + 60), vw - 60);
+    newTop = Math.min(Math.max(newTop, 0), vh - 44);
+    panel.style.left = newLeft + 'px';
+    panel.style.top = newTop + 'px';
+  });
+  const endDrag = (e) => { dragging = false; try{ hdr.releasePointerCapture(e.pointerId); }catch(err){} };
+  hdr.addEventListener('pointerup', endDrag);
+  hdr.addEventListener('pointercancel', endDrag);
+
+  let resizing = false, resizeStartX = 0, resizeStartY = 0, panelStartW = 0, panelStartH = 0;
+  grip.addEventListener('pointerdown', (e) => {
+    resizing = true;
+    grip.setPointerCapture(e.pointerId);
+    const rect = panel.getBoundingClientRect();
+    resizeStartX = e.clientX; resizeStartY = e.clientY;
+    panelStartW = rect.width; panelStartH = rect.height;
+    e.stopPropagation();
+  });
+  grip.addEventListener('pointermove', (e) => {
+    if(!resizing) return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const rect = panel.getBoundingClientRect();
+    let newW = panelStartW + (e.clientX - resizeStartX);
+    let newH = panelStartH + (e.clientY - resizeStartY);
+    newW = Math.min(Math.max(newW, 220), vw - rect.left - 8);
+    newH = Math.min(Math.max(newH, 180), vh - rect.top - 8);
+    panel.style.width = newW + 'px';
+    panel.style.height = newH + 'px';
+    e.stopPropagation();
+  });
+  const endResize = (e) => { resizing = false; try{ grip.releasePointerCapture(e.pointerId); }catch(err){} };
+  grip.addEventListener('pointerup', endResize);
+  grip.addEventListener('pointercancel', endResize);
+
+  window.addEventListener('resize', () => { if(chatPanel56Inited) clampChatPanel56ToViewport(); });
+})();
+
+function addChatMessage56(from, msg, isMine){
+  const container = document.getElementById('chatMessages56');
+  if(!container) return;
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + (isMine ? 'mine' : 'theirs');
+  div.innerHTML = '<div class="chat-from">' + (isMine ? 'You' : escapeHtml(from)) + '</div>' + escapeHtml(msg);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  if(!document.getElementById('chatOverlay56').classList.contains('on') && !isMine){
+    chatUnread56++;
+    const badge = document.getElementById('chatBadge56');
+    if(badge){ badge.textContent = chatUnread56 > 9 ? '9+' : chatUnread56; badge.classList.add('on'); }
+  }
+}
+
+function sendChat56(){
+  const inp = document.getElementById('chatInput56');
+  if(!inp || !syncSocket) return;
+  const msg = inp.value.trim();
+  if(!msg) return;
+  inp.value = '';
+  syncSocket.emit('l56_chat', {msg: msg});
+}
+
+document.getElementById('btnChat56').addEventListener('click', openChat56);
+document.getElementById('btnCloseChat56').addEventListener('click', closeChat56);
+document.getElementById('chatOverlay56').addEventListener('click', function(e){ if(e.target === this) closeChat56(); });
+document.getElementById('btnSendChat56').addEventListener('click', sendChat56);
+document.getElementById('chatInput56').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); sendChat56(); } });
+
 async function pollLoop(){
   const state = await loadState();
   if(!state) return;
@@ -1074,6 +1253,12 @@ function render(state){
   latestState = state;
   isHost = !!state.hostPlayerId && state.hostPlayerId === MY_PLAYER_ID;
   applyTheme(state.themeIndex || 0);
+  // Same rule six.js uses: voice only makes sense once you're actually
+  // seated and playing, not while still in the lobby waiting on others.
+  if(window.K28Voice){
+    if(state.phase === 'lobby') K28Voice.hideButton();
+    else K28Voice.showButton();
+  }
 
   const myTeamLetter = mySeat !== null ? TEAM_OF(mySeat) : 'A';
   const oppTeamLetter = myTeamLetter === 'A' ? 'B' : 'A';
