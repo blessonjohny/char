@@ -517,6 +517,9 @@
     <button class="btn btn-ghost btn-small" id="sideClose">Close</button>
   </div>
   <div class="side-body" id="sideBody"></div>
+  <div style="padding:12px 16px;border-top:1px solid var(--line)">
+    <button class="btn btn-ghost" id="exitToHomeBtn" style="width:100%;color:#ff8888;border-color:rgba(255,90,90,0.4)">🚪 Exit to Home</button>
+  </div>
 </div>
 
 <div id="bid-panel-overlay" class="overlay-msg hidden">
@@ -998,6 +1001,21 @@ document.getElementById('stillPlaying56Btn').addEventListener('click', () => {
   document.getElementById('stillPlaying56Overlay').classList.add('hidden');
   clearInterval(stillPlaying56Interval);
 });
+
+document.getElementById('exitToHomeBtn').addEventListener('click', exitToHome);
+function exitToHome(){
+  if(!confirm('Leave this table and go back to the home menu?')) return;
+  if(pollTimer) clearInterval(pollTimer);
+  if(syncSocket && roomCode){
+    syncSocket.emit('l56_leaveTable', {code: roomCode});
+    syncSocket.emit('sync56_leave', {room: roomCode});
+  }
+  // Full reload rather than just swapping screens back -- guarantees a
+  // completely clean slate (no leftover polling, stale seat/host state,
+  // or open modals) instead of trying to unwind every bit of in-game UI
+  // state by hand.
+  location.reload();
+}
 
 function syncHeaderHeight(){
   const h = document.getElementById('gameHeader').offsetHeight;
