@@ -166,7 +166,10 @@
     text-align:center;font-size:12px;color:var(--gold-soft);font-family:'Fraunces',serif;
     padding:5px 12px;border-bottom:1px solid var(--line);background:rgba(0,0,0,0.15);
     flex:0 0 auto;
+    min-height:32px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+    opacity:0;transition:opacity .15s ease;
   }
+  #handInfoBar.showing{opacity:1;}
   #handInfoBar b{color:var(--cream);font-weight:700;}
   #handInfoBar i{font-style:normal;color:var(--gold-soft);font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.5px;margin-right:3px;}
 
@@ -176,7 +179,10 @@
     text-align:center;font-size:12.5px;font-style:italic;color:var(--cream);
     padding:6px 16px;background:rgba(201,162,39,0.12);border-bottom:1px solid var(--line);
     flex:0 0 auto;
+    min-height:28px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+    opacity:0;transition:opacity .15s ease;
   }
+  #tableTalk.showing{opacity:1;}
   #tableTalk b{font-style:normal;color:var(--gold-soft);}
 
   #trickWinnerBanner{
@@ -568,8 +574,8 @@
 </header>
 
 <div id="game">
-  <div id="handInfoBar" class="hidden"></div>
-  <div id="tableTalk" class="hidden"></div>
+  <div id="handInfoBar"></div>
+  <div id="tableTalk"></div>
   <div id="trickWinnerBanner"></div>
 
   <div id="table-wrap">
@@ -1466,10 +1472,10 @@ async function setReviewHold(value){
 function renderHandInfoBar(state){
   const bar = document.getElementById('handInfoBar');
   if(state.phase !== 'bidding' && state.phase !== 'auctionClosed' && state.phase !== 'playing' && state.phase !== 'handEnd'){
-    bar.classList.add('hidden');
+    bar.classList.remove('showing');
     return;
   }
-  bar.classList.remove('hidden');
+  bar.classList.add('showing');
   const dealerName = state.seats[state.dealer] ? state.seats[state.dealer].name : '';
   const dealerTxt = `<i>Dealer</i> <b>${escapeHtml(dealerName)}</b>`;
 
@@ -1503,11 +1509,11 @@ function setBarHtml(bar, html){
 function renderTableTalk(state){
   const bar = document.getElementById('tableTalk');
   if(!state.lastNote || (state.phase !== 'bidding' && state.phase !== 'playing')){
-    bar.classList.add('hidden');
+    bar.classList.remove('showing');
     return;
   }
   const speaker = state.seats[state.lastNote.seat] ? state.seats[state.lastNote.seat].name : '';
-  bar.classList.remove('hidden');
+  bar.classList.add('showing');
   setBarHtml(bar, `<b>${escapeHtml(speaker)}:</b> "${escapeHtml(state.lastNote.text)}"`);
 }
 
@@ -1537,6 +1543,24 @@ function ensureTableSkeleton(){
   lastTrickCardCount = -1;
 }
 
+function ensureSeatSkeleton(div){
+  if(div.dataset.skeletonBuilt) return;
+  div.dataset.skeletonBuilt = '1';
+  div.innerHTML = `
+    <div class="last-action-badge" style="display:none;"></div>
+    <div class="avatar-wrap">
+      <div class="avatar"></div>
+      <div class="dealer-chip" title="Dealer" style="display:none;">D</div>
+      <div class="bot-tag" title="Bot" style="display:none;">AI</div>
+    </div>
+    <div class="pod">
+      <div class="name"></div>
+      <div class="role"><span class="team-tag"></span></div>
+      <div class="mini-stack" style="display:none;"></div>
+    </div>
+  `;
+}
+
 function renderTable(state){
   ensureTableSkeleton();
 
@@ -1545,6 +1569,7 @@ function renderTable(state){
     const pos = SEAT_POS[slot];
     const occ = state.seats[seat];
     const div = seatEls[seat];
+    ensureSeatSkeleton(div);
     const isDealer = seat===state.dealer && state.phase!=='lobby';
     const newClass = 'seat ' + (occ ? 'team-' + TEAM_OF(seat) : 'empty') +
       (state.turn === seat && (state.phase==='bidding'||state.phase==='playing') ? ' active' : '') +
@@ -1552,29 +1577,55 @@ function renderTable(state){
     if(div.className !== newClass) div.className = newClass;
     div.style.left = pos.x + '%';
     div.style.top = pos.y + '%';
-    const handCount = (state.hands[seat]||[]).length;
+
+    // Each sub-element only gets touched if its own specific content
+    // changed -- critically, this means the .avatar node itself is never
+    // recreated just because e.g. the mini-stack dot count changed on a
+    // card play, so its idle-bob CSS animation keeps running smoothly
+    // instead of restarting (which was reading as a visible glitch/jump
+    // on the table every time anyone played a card).
     const avatarContent = occ ? botFace(occ, seat, state) : '·';
+    const avatarEl = div.querySelector('.avatar');
+    if(avatarEl.dataset.v !== avatarContent){ avatarEl.dataset.v = avatarContent; avatarEl.innerHTML = avatarContent; }
+
+    const dealerChip = div.querySelector('.dealer-chip');
+    dealerChip.style.display = isDealer ? '' : 'none';
+
+    const botTag = div.querySelector('.bot-tag');
+    botTag.style.display = (occ && occ.bot) ? '' : 'none';
+
+    const nameText = occ ? escapeHtml(occ.name) : 'Empty seat ' + (seat+1);
+    const nameSuffix = seat===mySeat ? ' (you)' : '';
+    const nameEl = div.querySelector('.name');
+    if(nameEl.dataset.v !== nameText+nameSuffix){ nameEl.dataset.v = nameText+nameSuffix; nameEl.innerHTML = nameText+nameSuffix; }
+
+    const teamTag = div.querySelector('.team-tag');
+    const teamCls = 'team-tag ' + TEAM_OF(seat);
+    const teamText = RELTEAM(seat);
+    if(teamTag.className !== teamCls) teamTag.className = teamCls;
+    if(teamTag.dataset.v !== teamText){ teamTag.dataset.v = teamText; teamTag.textContent = teamText; }
+
     const lastAction = (state.phase === 'bidding' && state.lastActionBySeat) ? state.lastActionBySeat[seat] : null;
-    const newHtml = `
-      ${lastAction ? `<div class="last-action-badge">${escapeHtml(lastAction)}</div>` : ''}
-      <div class="avatar-wrap">
-        <div class="avatar">${avatarContent}</div>
-        ${isDealer ? '<div class="dealer-chip" title="Dealer">D</div>' : ''}
-        ${occ && occ.bot ? '<div class="bot-tag" title="Bot">AI</div>' : ''}
-      </div>
-      <div class="pod">
-        <div class="name">${occ ? escapeHtml(occ.name) : 'Empty seat ' + (seat+1)}${seat===mySeat?' (you)':''}</div>
-        <div class="role">
-          <span class="team-tag ${TEAM_OF(seat)}">${RELTEAM(seat)}</span>
-        </div>
-        ${state.phase!=='lobby' ? `<div class="mini-stack" title="${handCount} card${handCount!==1?'s':''}">${Array.from({length: Math.min(handCount,8)}).map(()=>`<div class="mini-back"></div>`).join('')}</div>` : ''}
-      </div>
-    `;
-    // Only touch the DOM if the content actually changed, so unrelated seats
-    // don't replay their avatar/pulse animation on every single render.
-    if(div.dataset.content !== newHtml){
-      div.dataset.content = newHtml;
-      div.innerHTML = newHtml;
+    const badgeEl = div.querySelector('.last-action-badge');
+    if(lastAction){
+      badgeEl.style.display = '';
+      if(badgeEl.dataset.v !== lastAction){ badgeEl.dataset.v = lastAction; badgeEl.textContent = lastAction; }
+    } else {
+      badgeEl.style.display = 'none';
+    }
+
+    const handCount = (state.hands[seat]||[]).length;
+    const miniStack = div.querySelector('.mini-stack');
+    if(state.phase !== 'lobby'){
+      const stackKey = handCount + '';
+      miniStack.style.display = '';
+      miniStack.title = `${handCount} card${handCount!==1?'s':''}`;
+      if(miniStack.dataset.v !== stackKey){
+        miniStack.dataset.v = stackKey;
+        miniStack.innerHTML = Array.from({length: Math.min(handCount,8)}).map(()=>`<div class="mini-back"></div>`).join('');
+      }
+    } else {
+      miniStack.style.display = 'none';
     }
   }
 
