@@ -1379,9 +1379,15 @@ function l56ReassignHost(r) {
 const L56_NO_HUMAN_TIMEOUT_MS = 3 * 60 * 1000;
 // A table with no connected human host is just bots playing each other for
 // no one -- give a real person 3 minutes to claim a seat (which makes them
-// host automatically) before the table closes itself.
+// host automatically) before the table closes itself. IMPORTANT: this only
+// applies in the lobby, before anything valuable is at stake. Once a game
+// is actually underway, a disconnected host might just be a backgrounded
+// mobile tab (very common) rather than someone who's actually left --
+// closing their live game out from under them is worse than leaving a
+// hostless table running for a while. Mid-game, the existing 5-minute
+// general idle timer (which warns everyone first) is the backstop instead.
 function l56CheckNoHumanTimer(r) {
-  if (r.hostPlayerId) {
+  if (r.hostPlayerId || (r.state && r.state.phase && r.state.phase !== 'lobby')) {
     if (r.noHumanTimer) { clearTimeout(r.noHumanTimer); r.noHumanTimer = null; }
     return;
   }
@@ -1392,6 +1398,7 @@ function l56CheckNoHumanTimer(r) {
     if (!stillThere) return;
     stillThere.noHumanTimer = null;
     if (stillThere.hostPlayerId) return; // someone claimed it in the meantime
+    if (stillThere.state && stillThere.state.phase && stillThere.state.phase !== 'lobby') return; // a game started while we waited -- leave it alone
     console.log(`[56 lobby] closing table ${code} — no human host within 3 minutes`);
     io.to(l56SocketRoom(code)).emit('l56_tableClosed', { reason: 'no_host' });
     delete l56Rooms[code];
