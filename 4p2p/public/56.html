@@ -404,9 +404,10 @@
 
   .overlay-msg{
     position:fixed;top:var(--header-h,52px);left:0;width:100%;height:calc(100% - var(--header-h,52px));background:rgba(4,14,10,0.88);
-    display:flex;align-items:center;justify-content:center;z-index:30;text-align:center;padding:24px;box-sizing:border-box;
+    display:flex;align-items:flex-start;justify-content:center;z-index:30;text-align:center;padding:24px;box-sizing:border-box;
+    overflow-y:auto;
   }
-  .overlay-msg .box{max-width:460px; animation:popupIn .22s ease;}
+  .overlay-msg .box{max-width:460px; animation:popupIn .22s ease; margin:auto 0;}
   .room-row{
     display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.25);border:1px solid var(--line);
     border-radius:10px;padding:8px 12px;margin-bottom:8px;
@@ -750,7 +751,30 @@ function ensureSyncSocket(){
   syncSocket = io();
   syncSocket.on('connect', () => {
     if(roomCode) syncSocket.emit('sync56_join', {room: roomCode});
+    // Rejoining the state-sync room keeps game state flowing, but it does
+    // NOT by itself tell the server "this socket belongs to seat N" --
+    // that's a separate registration (l56_reconnect) the server needs so
+    // host status, kick permissions, and the no-human-host closer all
+    // still recognize a real person is here. Missing this was the actual
+    // bug: a background tab getting suspended (very common switching
+    // apps on mobile) drops the socket, the server correctly no longer
+    // sees a host, and without this re-registration a still-present
+    // human reopening the tab never got their host status back --
+    // eventually the no-human-host timer would close their live table
+    // out from under them.
+    if(roomCode && MY_PLAYER_ID && mySeat !== null){
+      syncSocket.emit('l56_reconnect', {code: roomCode, playerId: MY_PLAYER_ID, name: myName});
+    }
     syncSocket.emit('l56_listRooms');
+  });
+  syncSocket.on('l56_reconnectFailed', () => {
+    // The seat we thought we had is gone (kicked while away, or the
+    // table closed) -- nothing to silently recover from, let the player
+    // know instead of leaving them stuck looking at a stale screen.
+    if(roomCode && mySeat !== null){
+      alert("Couldn't reconnect you to your seat — it may have been given up while you were away.");
+      location.reload();
+    }
   });
   syncSocket.on('sync56_state', ({room, state}) => {
     if(room !== roomCode || !state) return;
