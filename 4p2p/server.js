@@ -31,9 +31,16 @@ const crypto = require('crypto');
 const { Server } = require('socket.io');
 const { GameEngine } = require('./game-engine');
 const brain = require('./bot-brain');
+const geoip = require('geoip-lite');
 
 const app = express();
 const PORT = process.env.PORT || 9000;
+
+// Render (and most hosts) sit behind a proxy/load balancer -- without this,
+// every connection looks like it's coming from the proxy's internal IP
+// instead of the actual visitor, which would make the location tracking
+// below useless.
+app.set('trust proxy', true);
 
 // Browsers (especially mobile) cache static files aggressively by default,
 // which means a redeploy can silently NOT reach a returning player — they
@@ -95,6 +102,53 @@ app.delete('/api/comments/:id', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
+// ---------------- Visitor location log (admin-only, anti-cheat visibility) ----------------
+// The previous "visitor stats" in the admin panel were purely client-side
+// (localStorage on whoever's viewing the dashboard), so they only ever
+// reflected that one person's own browsing history -- not real traffic.
+// This is the actual server-side version: every socket connection gets its
+// real IP resolved to a rough location (country/region/city) via a local
+// GeoIP database, no external calls, no per-request latency. Kept as a
+// short rolling log in memory (not persisted -- resets on server restart,
+// like everything else here without a real database behind it).
+const VISITOR_LOG_MAX = 200;
+const visitorLog = [];
+
+function clientIpFor(socket) {
+  // x-forwarded-for can be a comma-separated chain (proxy hops) -- the
+  // first entry is the original client.
+  const xff = socket.handshake.headers['x-forwarded-for'];
+  if (xff) return String(xff).split(',')[0].trim();
+  return socket.handshake.address || '';
+}
+
+function logVisitor(socket) {
+  const ip = clientIpFor(socket);
+  const geo = ip ? geoip.lookup(ip) : null;
+  const entry = {
+    ip,
+    country: geo ? geo.country : null,
+    region: geo ? geo.region : null,
+    city: geo ? geo.city : null,
+    timezone: geo ? geo.timezone : null,
+    ts: Date.now(),
+    socketId: socket.id
+  };
+  visitorLog.unshift(entry);
+  if (visitorLog.length > VISITOR_LOG_MAX) visitorLog.length = VISITOR_LOG_MAX;
+  return entry;
+}
+
+io.on('connection', (socket) => {
+  const entry = logVisitor(socket);
+  console.log(`[visitor] ${entry.ip} — ${entry.city || '?'}, ${entry.region || '?'}, ${entry.country || '?'}`);
+
+  socket.on('adminGetVisitorLog', ({ adminPassword }) => {
+    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'visitorLog', reason: 'wrong_password' }); return; }
+    socket.emit('adminVisitorLog', { entries: visitorLog });
+  });
+});
+
 // ---------------- Table registry ----------------
 // tableId -> {
 //   engine: GameEngine,
@@ -125,7 +179,7 @@ const pendingSeatChoice = {};
 // to a seat they already hold. This only throttles NEW room creation.
 let roomCapEnabled = false;
 let roomCapMax = 3;
-function totalActiveRooms() { return Object.keys(tables).length + Object.keys(sixpTables).length; }
+function totalActiveRooms() { return Object.keys(tables).length + Object.keys(sixpTables).length + Object.keys(l56Rooms).length; }
 
 // Matches the client's ADMIN_PASSWORD default (0000) — that's the panel
 // this lock feature actually lives in — so it works out of the box, but
@@ -305,18 +359,20 @@ io.on('connection', (socket) => {
   // anyone who noticed the event name — the client's own password prompt
   // is a convenience, not the actual security boundary.
   socket.on('adminSetLock', ({ adminPassword, maxRooms }) => {
-    if (adminPassword !== ADMIN_SECRET) return;
+    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'setLock', reason: 'wrong_password' }); return; }
     const n = parseInt(maxRooms, 10);
     roomCapMax = Number.isFinite(n) && n > 0 ? Math.min(n, 50) : 3;
     roomCapEnabled = true;
     io.emit('lockStatus', { capped: true, maxRooms: roomCapMax, currentRooms: totalActiveRooms() });
+    socket.emit('adminActionResult', { ok: true, action: 'setLock' });
     console.log(`[admin] room cap enabled — max ${roomCapMax} concurrent rooms`);
   });
 
   socket.on('adminClearLock', ({ adminPassword }) => {
-    if (adminPassword !== ADMIN_SECRET) return;
+    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'clearLock', reason: 'wrong_password' }); return; }
     roomCapEnabled = false;
     io.emit('lockStatus', { capped: false, maxRooms: roomCapMax, currentRooms: totalActiveRooms() });
+    socket.emit('adminActionResult', { ok: true, action: 'clearLock' });
     console.log('[admin] room cap disabled');
   });
 
@@ -1432,15 +1488,20 @@ io.on('connection', (socket) => {
 
   socket.emit('reveal56Policy', { disabled: reveal56Disabled });
   socket.on('admin56SetRevealDisabled', ({ adminPassword, disabled }) => {
-    if (adminPassword !== ADMIN_SECRET) return;
+    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'reveal56', reason: 'wrong_password' }); return; }
     reveal56Disabled = !!disabled;
     io.emit('reveal56Policy', { disabled: reveal56Disabled });
+    socket.emit('adminActionResult', { ok: true, action: 'reveal56' });
     console.log(`[admin] 56 reveal button ${reveal56Disabled ? 'disabled' : 'enabled'}`);
   });
 
   socket.on('l56_listRooms', () => { socket.emit('l56_roomList', l56PublicList()); });
 
   socket.on('l56_createTable', ({ name }) => {
+    if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
+      socket.emit('createBlocked', { maxRooms: roomCapMax });
+      return;
+    }
     const code = newL56Id();
     const playerId = newId();
     const r = {
