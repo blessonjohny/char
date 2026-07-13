@@ -813,6 +813,9 @@ function ensureSyncSocket(){
 
   // ---------------- Lobby / table discovery ----------------
   syncSocket.on('l56_roomList', renderRoomList);
+  syncSocket.on('createBlocked', ({maxRooms}) => {
+    alert(`🚧 Table creation is temporarily capped at ${maxRooms} total tables across the whole site. Try again in a bit, or join an existing table instead.`);
+  });
 
   syncSocket.on('l56_created', async ({code, playerId, pos, isHost: hostFlag}) => {
     roomCode = code;

@@ -2387,7 +2387,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <div style="font-size:0.68rem;color:var(--text-secondary);margin-bottom:6px">🚧 Room Cap</div>
       <div style="font-size:0.75rem;color:#fff;margin-bottom:8px">
         Status: <b id="adminLockStatus" style="color:var(--success)">Unlimited</b>
-        <div style="opacity:0.7;font-size:0.68rem;margin-top:2px">Caps total open tables (4p + 6p). Joining/watching existing tables is never affected — this only stops brand new "Create Room" attempts once the cap is hit.</div>
+        <div style="opacity:0.7;font-size:0.68rem;margin-top:2px">Caps total open tables (4p + 6p + 56). Joining/watching existing tables is never affected — this only stops brand new "Create Room"/"Create Table" attempts once the cap is hit.</div>
       </div>
       <div style="display:flex;gap:6px">
         <input type="number" id="adminLockCodeInput" placeholder="Max rooms" value="3" min="1" max="50" style="flex:1;min-width:0;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.8rem">
@@ -2408,6 +2408,12 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <div style="font-size:0.68rem;color:var(--text-secondary);margin-bottom:6px">💌 Messages</div>
       <div style="opacity:0.7;font-size:0.68rem;margin-bottom:8px">Comments people have left from the welcome screen — opens in a new tab, uses this same admin password.</div>
       <button class="counter-unlock-btn" id="btnAdminViewMessages" style="width:100%;background:var(--gold, #f4c430);color:#241a12;font-size:0.7rem">📨 View Messages</button>
+    </div>
+    <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;text-align:left">
+      <div style="font-size:0.68rem;color:var(--text-secondary);margin-bottom:6px">🌍 Visitor Locations</div>
+      <div style="opacity:0.7;font-size:0.68rem;margin-bottom:8px">Real server-side connection log — IP, rough city/region/country, and when. Useful for spotting the same IP showing up as two different "players." Resets on server restart; only the most recent 200 connections are kept.</div>
+      <button class="counter-unlock-btn" id="btnAdminLoadVisitorLog" style="width:100%;background:var(--gold, #f4c430);color:#241a12;font-size:0.7rem">🌍 Load Visitor Log</button>
+      <div id="visitorLogList" style="margin-top:8px;max-height:260px;overflow-y:auto;font-size:0.68rem;text-align:left"></div>
     </div>
     <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;text-align:left">
       <div style="font-size:0.68rem;color:var(--text-secondary);margin-bottom:6px">🔑 Admin Password</div>
@@ -9933,10 +9939,16 @@ let SERVER_ROOM_CAP_MAX = 3;
 function updateAdminLockDisplay() {
   const statusEl = document.getElementById('adminLockStatus');
   const clearBtn = document.getElementById('btnAdminClearLock');
+  const input = document.getElementById('adminLockCodeInput');
   if (!statusEl) return;
   statusEl.textContent = SERVER_IS_LOCKED ? `Capped at ${SERVER_ROOM_CAP_MAX}` : 'Unlimited';
   statusEl.style.color = SERVER_IS_LOCKED ? 'var(--danger)' : 'var(--success)';
   if (clearBtn) clearBtn.style.display = SERVER_IS_LOCKED ? 'block' : 'none';
+  // This was the actual bug: the input always showed its static HTML
+  // default and never reflected what the server actually had set, so a
+  // page refresh made it LOOK like the cap reset even when it hadn't
+  // (or hid it when it genuinely had reset after a server restart).
+  if (input && document.activeElement !== input) input.value = SERVER_ROOM_CAP_MAX;
 }
 
 function adminSetServerLock() {
@@ -10578,6 +10590,11 @@ window.addEventListener('DOMContentLoaded', () => {
   if (enable56RevealBtn) enable56RevealBtn.addEventListener('click', admin56EnableReveal);
   const viewMessagesBtn = document.getElementById('btnAdminViewMessages');
   if (viewMessagesBtn) viewMessagesBtn.addEventListener('click', () => window.open('/admin.html', '_blank'));
+  const loadVisitorLogBtn = document.getElementById('btnAdminLoadVisitorLog');
+  if (loadVisitorLogBtn) loadVisitorLogBtn.addEventListener('click', () => {
+    connectGameSocket();
+    gameSocket.emit('adminGetVisitorLog', { adminPassword: ADMIN_PASSWORD });
+  });
   const changePwdBtn = document.getElementById('btnAdminChangePassword');
   if (changePwdBtn) changePwdBtn.addEventListener('click', adminChangePassword);
   const cancelReconnectBtn = document.getElementById('btnCancelReconnect');
@@ -12692,6 +12709,45 @@ function connectGameSocket() {
       const msgs = { wrong_current: 'Current session password is stale — close and reopen the admin panel', too_short: 'Password needs to be at least 4 characters' };
       showToast('❌ ' + (msgs[reason] || 'Could not change password'), 'lose', 3000);
     }
+  });
+
+  // These used to fail completely silently on a stale/wrong admin
+  // password — you'd click the button and genuinely nothing would
+  // happen, no error, nothing. That silent failure was very likely
+  // exactly what made the room cap look broken/not-persisting.
+  gameSocket.on('adminActionResult', ({ ok, action, reason }) => {
+    if (ok) return; // the specific action's own success path already gives feedback
+    const actionNames = { setLock: 'Set room cap', clearLock: 'Remove room cap', reveal56: '56 reveal toggle', visitorLog: 'Load visitor log' };
+    const name = actionNames[action] || 'Admin action';
+    if (reason === 'wrong_password') {
+      showToast(`❌ ${name} failed — your admin session's password doesn't match the server's current one. Close and reopen the admin panel to refresh it, or re-enter the password.`, 'lose', 5000);
+    } else {
+      showToast(`❌ ${name} failed.`, 'lose', 3000);
+    }
+  });
+
+  gameSocket.on('adminVisitorLog', ({ entries }) => {
+    const list = document.getElementById('visitorLogList');
+    if (!list) return;
+    if (!entries || entries.length === 0) { list.innerHTML = '<div style="opacity:0.6">No connections logged yet.</div>'; return; }
+    // Same IP appearing more than once in the log is exactly the signal
+    // worth flagging -- could be one person with two tabs/devices in the
+    // same table, could just be the same person visiting twice. Either
+    // way it's what makes this useful for a quick eyeball-check, so
+    // duplicates get a highlight instead of making the admin cross-check
+    // every row by hand.
+    const ipCounts = {};
+    entries.forEach(e => { if (e.ip) ipCounts[e.ip] = (ipCounts[e.ip] || 0) + 1; });
+    list.innerHTML = entries.map(e => {
+      const dup = e.ip && ipCounts[e.ip] > 1;
+      const where = [e.city, e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+      const when = new Date(e.ts).toLocaleString();
+      return `<div style="padding:6px 8px;margin-bottom:4px;border-radius:6px;background:${dup ? 'rgba(255,80,80,0.18)' : 'rgba(255,255,255,0.04)'};border:1px solid ${dup ? 'rgba(255,80,80,0.4)' : 'rgba(255,255,255,0.08)'}">
+        <div style="font-weight:700;color:${dup ? 'var(--danger)' : 'var(--gold, #f4c430)'}">${escapeHtml(e.ip || 'unknown IP')}${dup ? ' ⚠️ seen ' + ipCounts[e.ip] + '×' : ''}</div>
+        <div>${escapeHtml(where)}</div>
+        <div style="opacity:0.6">${escapeHtml(when)}</div>
+      </div>`;
+    }).join('');
   });
 
   gameSocket.on('tableBrains', ({ brains }) => {
