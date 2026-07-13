@@ -140,8 +140,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .welcome-hero{padding:40px 20px 20px;width:100%;max-width:500px;margin:0 auto;display:flex;flex-direction:column;align-items:center;text-align:center}
 .welcome-logo-wrap{margin-bottom:8px;display:flex;flex-direction:column;align-items:center;text-align:center;width:100%}
 .welcome-logo{font-size:3.2rem;line-height:1;margin-bottom:4px}
-.welcome-card-badge{width:118px;height:auto;border-radius:10px;margin-bottom:14px;box-shadow:0 10px 30px rgba(0,0,0,0.55),0 0 0 1px rgba(230,200,107,0.4),0 0 24px rgba(230,200,107,0.15);display:block;animation:cardBadgeFloat 4s ease-in-out infinite}
-@keyframes cardBadgeFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.welcome-hero-plaque{
+  position:relative;width:100%;max-width:320px;margin:0 auto 6px;
+  padding:24px 22px 18px;border-radius:18px;
+  background:radial-gradient(ellipse at 50% 0%, rgba(124,35,52,0.55) 0%, rgba(90,25,38,0.35) 45%, rgba(90,25,38,0) 78%);
+}
+.welcome-card-badge{
+  width:100px;height:auto;border-radius:7px;margin:0 auto 12px;display:block;
+  border:1.5px solid rgba(230,200,107,0.6);
+  box-shadow:0 0 0 5px rgba(10,22,40,0.55),0 0 22px rgba(230,200,107,0.2),0 6px 18px rgba(0,0,0,0.5);
+}
 .welcome-title-gold{
   font-family:'Cinzel Decorative','Fraunces',serif;font-weight:700;font-size:2.1rem;line-height:1.15;
   margin-bottom:8px;letter-spacing:1px;
@@ -2422,9 +2430,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <div class="welcome-screen" id="welcomeScreen">
   <div class="welcome-hero">
     <div class="welcome-logo-wrap">
-      <img class="welcome-card-badge" src="/images/jack-card.jpg" alt="Jack of Spades — 28 Kerala Gulan">
-      <div class="welcome-title-gold">28 Kerala Gulan</div>
-      <div class="welcome-gold-rule"></div>
+      <div class="welcome-hero-plaque">
+        <img class="welcome-card-badge" src="/images/jack-card.jpg" alt="Jack of Spades — 28 Kerala Gulan">
+        <div class="welcome-title-gold">28 Kerala Gulan</div>
+        <div class="welcome-gold-rule"></div>
+      </div>
       <div class="welcome-sub">The Classic Indian Card Game — Play 28 / Gulan / Eripathettu Online</div>
       <div class="welcome-tagline">Bid smart. Play smarter. Become the King.</div>
     </div>
@@ -10722,9 +10732,11 @@ window.addEventListener('DOMContentLoaded', () => {
 <div class="welcome-screen" id="authScreen" style="display:none;z-index:2500">
   <div class="welcome-hero">
     <div class="welcome-logo-wrap">
-      <img class="welcome-card-badge" src="/images/jack-card.jpg" alt="Jack of Spades — 28 Kerala Gulan">
-      <div class="welcome-title-gold">28 Kerala Gulan</div>
-      <div class="welcome-gold-rule"></div>
+      <div class="welcome-hero-plaque">
+        <img class="welcome-card-badge" src="/images/jack-card.jpg" alt="Jack of Spades — 28 Kerala Gulan">
+        <div class="welcome-title-gold">28 Kerala Gulan</div>
+        <div class="welcome-gold-rule"></div>
+      </div>
       <div class="welcome-sub">The Classic Indian Card Game</div>
       <div class="welcome-tagline">Choose how you want to play</div>
     </div>
