@@ -115,18 +115,21 @@
     padding:6px 10px;border-bottom:1px solid var(--line);
     background:rgba(10,30,23,0.98);
     position:fixed;top:0;left:0;right:0;z-index:41;
+    justify-content:flex-end;
   }
   header.bar .hdr-room{
     font-family:'Fraunces',serif;font-weight:700;font-size:13px;color:var(--gold-soft);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0;
   }
   header.bar .hdr-room b{color:var(--cream);}
-  header.bar .hdr-scores{display:flex;align-items:center;gap:8px;font-size:12px;flex-shrink:0;font-family:'Fraunces',serif;}
+  header.bar .hdr-scores{
+    display:flex;align-items:center;gap:8px;font-size:12px;font-family:'Fraunces',serif;
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);white-space:nowrap;
+  }
   header.bar .hdr-team{display:flex;align-items:center;font-weight:700;gap:3px;}
   header.bar .hdr-team .lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.4px;opacity:0.75;}
   header.bar .hdr-team .val{font-size:15px;transition:color .4s ease;}
   header.bar .hdr-round{opacity:0.6;font-size:10.5px;margin-left:1px;}
-  header.bar #revealToggle{margin-left:auto;}
   .hdr-icon-btn{
     flex-shrink:0;width:29px;height:29px;border-radius:8px;border:1px solid var(--line);
     background:transparent;color:var(--cream);font-size:14px;cursor:pointer;
@@ -640,6 +643,22 @@ function lerpColor(a, b, t){
   const bl = Math.round(a[2] + (b[2]-a[2])*t);
   return `rgb(${r},${g},${bl})`;
 }
+// How close the bidding team is to actually making their bid, right now,
+// mid-hand -- white when nothing's decided yet, shading toward full dark
+// green for the bidding side (and full red for the defending side) as the
+// bidding team's captured points approach/pass the target they called.
+function handProgressColors(state){
+  const cream = [246,238,221];
+  const cb = state.currentBid;
+  if(!cb || !state.teamPoints) return {bidColor:'var(--cream)', defColor:'var(--cream)'};
+  const bidTeam = TEAM_OF(cb.seat), defTeam = bidTeam === 'A' ? 'B' : 'A';
+  const progress = Math.max(0, Math.min(1, (state.teamPoints[bidTeam]||0) / cb.value));
+  const deepGreen = [20,140,70], deepRed = [200,50,60];
+  return {
+    bidColor: lerpColor(cream, deepGreen, progress),
+    defColor: lerpColor(cream, deepRed, progress)
+  };
+}
 function applyScoreMoodColor(myScore, oppScore){
   const youEl = document.getElementById('scoreYou');
   const oppEl = document.getElementById('scoreOpp');
@@ -788,10 +807,10 @@ function ensureSyncSocket(){
     alert(msgs[reason] || 'Could not join that table.');
   });
 
-  syncSocket.on('l56_joinApproved', ({code, openSeats, botSeats}) => {
+  syncSocket.on('l56_joinApproved', ({code, openSeats, botSeats, hostSeat, hostName}) => {
     document.getElementById('joinPendingOverlay').classList.add('hidden');
     roomCode = code;
-    showSeatPicker56(openSeats, botSeats);
+    showSeatPicker56(openSeats, botSeats, hostSeat, hostName);
   });
 
   syncSocket.on('l56_joinRequest', ({reqId, code, name}) => {
@@ -814,7 +833,11 @@ function ensureSyncSocket(){
   });
 
   syncSocket.on('l56_tableClosed', ({reason}) => {
-    alert(reason === 'idle' ? "This table closed because nobody was active for a while." : 'This table closed.');
+    const msgs = {
+      idle: "This table closed because nobody was active for a while.",
+      no_host: "This table closed — no human host was present within 3 minutes."
+    };
+    alert(msgs[reason] || 'This table closed.');
     location.reload();
   });
 
@@ -936,9 +959,24 @@ function newRoomState(){
   };
 }
 
-function addLog(state, text){
-  state.log.unshift({text, ts: Date.now()});
+function addLog(state, text, seat){
+  state.log.unshift({text, ts: Date.now(), seat: (seat !== undefined ? seat : null)});
   if(state.log.length > 60) state.log.length = 60;
+}
+
+// Display-only relative labeling: every player sees THEIR OWN team as
+// "Team" and the other side as "Opp", instead of everyone seeing the same
+// absolute "Team A"/"Team B" regardless of who they are. Never used for
+// actual scoring/rules -- TEAM_OF (A/B) stays the source of truth there.
+function RELTEAM(seat){
+  if(mySeat === null || mySeat === undefined) return 'Team ' + TEAM_OF(seat);
+  return TEAM_OF(seat) === TEAM_OF(mySeat) ? 'Team' : 'Opp';
+}
+// Same idea but relative to an arbitrary reference seat -- used by the seat
+// picker, before a joiner has a seat of their own to be relative to (there,
+// "relative to the host" is what actually helps someone choose a seat).
+function RELTEAM_TO(seat, refSeat){
+  return TEAM_OF(seat) === TEAM_OF(refSeat) ? 'Team' : 'Opp';
 }
 
 // ============================================================
@@ -1050,14 +1088,21 @@ function renderRoomList(rooms){
   `).join('');
 }
 
-function showSeatPicker56(openSeats, botSeats){
+function showSeatPicker56(openSeats, botSeats, hostSeat, hostName){
   const wrap = document.getElementById('seatPicker56Options');
+  const haveHost = hostSeat !== undefined && hostSeat !== null && hostSeat >= 0;
+  const label = pos => {
+    if(!haveHost) return '';
+    const rel = RELTEAM_TO(pos, hostSeat);
+    const withWho = hostName ? (rel === 'Team' ? `with ${escapeHtml(hostName)}` : `against ${escapeHtml(hostName)}`) : '';
+    return ` — ${rel}${withWho ? ' (' + withWho + ')' : ''}`;
+  };
   let html = '';
   (openSeats||[]).forEach(pos => {
-    html += `<button class="btn btn-gold" onclick="claimSeat56(${pos})">Take seat ${pos+1} (Team ${TEAM_OF(pos)})</button>`;
+    html += `<button class="btn btn-gold" onclick="claimSeat56(${pos})">Take seat ${pos+1}${label(pos)}</button>`;
   });
   (botSeats||[]).forEach(pos => {
-    html += `<button class="btn btn-ghost" onclick="claimSeat56(${pos})">🤖 Replace bot in seat ${pos+1}</button>`;
+    html += `<button class="btn btn-ghost" onclick="claimSeat56(${pos})">🤖 Replace bot in seat ${pos+1}${label(pos)}</button>`;
   });
   wrap.innerHTML = html || '<p>This table is full.</p>';
   document.getElementById('seatPicker56Overlay').classList.remove('hidden');
@@ -1407,9 +1452,13 @@ function renderHandInfoBar(state){
     const cb = state.currentBid;
     const trumpTxt = cb.trump ? SUIT_SYM[cb.trump] + ' Trump' : 'No Trump';
     const bidderName = state.seats[cb.seat] ? state.seats[cb.seat].name : '';
-    html = `${dealerTxt} &nbsp;·&nbsp; <span class="nowrap-chunk"><b>${escapeHtml(bidderName)}</b> (Team ${TEAM_OF(cb.seat)}) <b>${cb.value}</b> ${trumpTxt}</span>` +
+    const bidTeamLetter = TEAM_OF(cb.seat), defTeamLetter = bidTeamLetter === 'A' ? 'B' : 'A';
+    const {bidColor, defColor} = handProgressColors(state);
+    const bidPts = state.teamPoints[bidTeamLetter], defPts = state.teamPoints[defTeamLetter];
+    const bidLabel = RELTEAM(cb.seat), defLabel = bidLabel === 'Team' ? 'Opp' : 'Team';
+    html = `${dealerTxt} &nbsp;·&nbsp; <span class="nowrap-chunk"><b>${escapeHtml(bidderName)}</b> (${bidLabel}) <b>${cb.value}</b> ${trumpTxt}</span>` +
       (state.doubled===1?' · Doubled':state.doubled===2?' · Redoubled':'') +
-      ` &nbsp;·&nbsp; <span class="nowrap-chunk">Team A <b>${state.teamPoints.A}</b> — Team B <b>${state.teamPoints.B}</b></span>`;
+      ` &nbsp;·&nbsp; <span class="nowrap-chunk">${bidLabel} <b style="color:${bidColor}">${bidPts}</b> — ${defLabel} <b style="color:${defColor}">${defPts}</b></span>`;
   }
   setBarHtml(bar, html);
 }
@@ -1488,7 +1537,7 @@ function renderTable(state){
       <div class="pod">
         <div class="name">${occ ? escapeHtml(occ.name) : 'Empty seat ' + (seat+1)}${seat===mySeat?' (you)':''}</div>
         <div class="role">
-          <span class="team-tag ${TEAM_OF(seat)}">Team ${TEAM_OF(seat)}</span>
+          <span class="team-tag ${TEAM_OF(seat)}">${RELTEAM(seat)}</span>
         </div>
         ${state.phase!=='lobby' ? `<div class="mini-stack" title="${handCount} card${handCount!==1?'s':''}">${Array.from({length: Math.min(handCount,8)}).map(()=>`<div class="mini-back"></div>`).join('')}</div>` : ''}
       </div>
@@ -1679,7 +1728,7 @@ function renderSide(state){
     box.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--gold-soft);margin-bottom:8px;">👑 Host controls</div>' +
       state.seats.map((s,i) => {
         if(!s) return '';
-        return `<div class="room-row" style="margin-bottom:6px"><div class="rn" style="font-size:12px">${i+1}. ${escapeHtml(s.name)}${s.bot ? ' 🤖' : ''}${i===mySeat?' (you)':''}</div>` +
+        return `<div class="room-row" style="margin-bottom:6px"><div class="rn" style="font-size:12px">${i+1}. ${escapeHtml(s.name)}${s.bot ? ' 🤖' : ''}${i===mySeat?' (you)':''} <span class="team-tag ${TEAM_OF(i)}" style="margin-left:4px">${RELTEAM(i)}</span></div>` +
           (i===mySeat ? '' : `<button class="btn btn-ghost btn-small" onclick="kickSeat56(${i})">Kick</button>`) + `</div>`;
       }).join('') +
       '<div style="display:flex;gap:6px;margin-top:10px">' +
@@ -1698,7 +1747,7 @@ function renderSide(state){
         if(!s) return '';
         const chips = handChipsForSeat(state, i);
         const summary = getSeatBidSummary(state, i);
-        return `<div style="margin-bottom:8px;"><div style="font-size:11.5px;color:var(--gold-soft);margin-bottom:3px;">${escapeHtml(s.name)}${i===mySeat?' (you)':''} — Team ${TEAM_OF(i)}</div>` +
+        return `<div style="margin-bottom:8px;"><div style="font-size:11.5px;color:var(--gold-soft);margin-bottom:3px;">${escapeHtml(s.name)}${i===mySeat?' (you)':''} — ${RELTEAM(i)}</div>` +
           (summary ? `<div style="font-size:11px;opacity:0.75;margin-bottom:4px;">${escapeHtml(summary)}</div>` : '') +
           `<div class="mini-hand">${chips || '<span style=\"opacity:0.5;font-size:11px;\">no cards</span>'}</div></div>`;
       }).join('');
@@ -1727,7 +1776,7 @@ function renderLobbyOverlay(state){
     if(!s) return `<div class="room-row"><div class="rn" style="opacity:0.4">${i+1}. empty</div></div>`;
     const hostTag = state.hostPlayerId && s.playerId === state.hostPlayerId ? ' 👑' : '';
     const kickBtn = amHost ? `<button class="btn btn-ghost btn-small" onclick="kickSeat56(${i})">Kick</button>` : '';
-    return `<div class="room-row"><div class="rn">${i+1}. ${botFace(s, i, state)} ${escapeHtml(s.name)}${hostTag} <span class="team-tag ${TEAM_OF(i)}">Team ${TEAM_OF(i)}</span></div>${kickBtn}</div>`;
+    return `<div class="room-row"><div class="rn">${i+1}. ${botFace(s, i, state)} ${escapeHtml(s.name)}${hostTag} <span class="team-tag ${TEAM_OF(i)}">${RELTEAM(i)}</span></div>${kickBtn}</div>`;
   }).join('');
   const canStart = seated === 6;
   const hasEmpty = seated < 6;
@@ -1843,14 +1892,17 @@ function renderBidWonReview(state){
   const allEntries = getCurrentHandLog(state);
   const actionEntries = allEntries.filter(l => !(l.text.includes('dealt') && l.text.includes('opens the bidding')));
   const sequenceHtml = actionEntries.length
-    ? actionEntries.map((l, idx) => `<div class="hist-line"><b style="color:var(--gold-soft);">${idx+1}${ordinalSuffix(idx+1)}:</b> ${escapeHtml(l.text)}</div>`).join('')
+    ? actionEntries.map((l, idx) => {
+        const teamTag = (l.seat !== null && l.seat !== undefined) ? ` <span class="team-tag ${TEAM_OF(l.seat)}" style="font-size:9px;padding:1px 6px;">${RELTEAM(l.seat)}</span>` : '';
+        return `<div class="hist-line"><b style="color:var(--gold-soft);">${idx+1}${ordinalSuffix(idx+1)}:</b> ${escapeHtml(l.text)}${teamTag}</div>`;
+      }).join('')
     : '<div class="hist-line" style="opacity:0.5;">No calls recorded.</div>';
 
   const handsHtml = state.seats.map((s,i) => {
     if(!s) return '';
     const chips = handChipsForSeat(state, i);
     const summary = getSeatBidSummary(state, i);
-    return `<div style="margin-bottom:10px; text-align:left;"><div style="font-size:11.5px;color:var(--gold-soft);margin-bottom:3px;">${escapeHtml(s.name)}${i===mySeat?' (you)':''} — Team ${TEAM_OF(i)}${i===cb.seat?' 🏆':''}</div>` +
+    return `<div style="margin-bottom:10px; text-align:left;"><div style="font-size:11.5px;color:var(--gold-soft);margin-bottom:3px;">${escapeHtml(s.name)}${i===mySeat?' (you)':''} — ${RELTEAM(i)}${i===cb.seat?' 🏆':''}</div>` +
       (summary ? `<div style="font-size:11px;opacity:0.75;margin-bottom:4px;">${escapeHtml(summary)}</div>` : '') +
       `<div class="mini-hand">${chips}</div></div>`;
   }).join('');
@@ -1895,7 +1947,7 @@ function renderAuctionClosedOverlay(state){
     <div class="box">
       <h2>Bidding closed</h2>
       <p style="font-size:16px;">
-        <b style="color:var(--gold-soft);">${escapeHtml(winnerName)}</b> (Team ${TEAM_OF(cb.seat)}) won with
+        <b style="color:var(--gold-soft);">${escapeHtml(winnerName)}</b> (${RELTEAM(cb.seat)}) won with
         <b>${formatBidLabel(cb)}</b>${state.doubled===1?' · Doubled':state.doubled===2?' · Redoubled':''}
       </p>
       <p style="margin-top:8px; opacity:0.75; font-size:13px;"><b>${escapeHtml(leaderName)}</b> (seat right of the dealer) leads the first card — starting shortly…</p>
@@ -1907,21 +1959,27 @@ function renderHandEndOverlay(state){
   const o = document.getElementById('overlay');
   o.classList.remove('hidden');
   const bid = state.currentBid;
-  const biddingTeam = TEAM_OF(bid.seat);
-  const oppTeam = biddingTeam==='A'?'B':'A';
-  const made = state.teamPoints[biddingTeam] >= bid.value;
+  const biddingTeamLetter = TEAM_OF(bid.seat);
+  const oppTeamLetter = biddingTeamLetter==='A'?'B':'A';
+  const made = state.teamPoints[biddingTeamLetter] >= bid.value;
+  const bidLabel = RELTEAM(bid.seat), oppLabel = bidLabel === 'Team' ? 'Opp' : 'Team';
+  const bidColor = made ? '#14c876' : '#c83c3c';
+  const oppColor = made ? '#c83c3c' : '#14c876';
+  const myMatchScore = mySeat !== null ? state.matchScore[TEAM_OF(mySeat)] : state.matchScore.A;
+  const oppMatchScore = mySeat !== null ? state.matchScore[TEAM_OF(mySeat)==='A'?'B':'A'] : state.matchScore.B;
 
   if(state.matchOver){
+    const iWon = mySeat !== null && state.matchWinner === TEAM_OF(mySeat);
     o.innerHTML = `
       <div class="box">
-        <h2>🏆 Team ${state.matchWinner} wins the match!</h2>
+        <h2>🏆 ${iWon ? 'Your team' : 'Opp'} wins the match!</h2>
         <p>
-          Team ${biddingTeam} bid <b>${bid.value}</b> (${bid.trump?SUIT_SYM[bid.trump]+' trump':'No Trump'})${state.doubled?', '+(state.doubled===2?'redoubled':'doubled'):''}
-          and collected <b>${state.teamPoints[biddingTeam]}</b> points.<br>
-          Team ${oppTeam} collected <b>${state.teamPoints[oppTeam]}</b> points.
+          ${bidLabel} bid <b>${bid.value}</b> (${bid.trump?SUIT_SYM[bid.trump]+' trump':'No Trump'})${state.doubled?', '+(state.doubled===2?'redoubled':'doubled'):''}
+          and collected <b style="color:${bidColor}">${state.teamPoints[biddingTeamLetter]}</b> points.<br>
+          ${oppLabel} collected <b style="color:${oppColor}">${state.teamPoints[oppTeamLetter]}</b> points.
         </p>
-        <p style="margin-top:10px;">Tables &mdash; Team A: <b>${state.matchScore.A}</b> &nbsp;|&nbsp; Team B: <b>${state.matchScore.B}</b></p>
-        <p style="margin-top:6px; opacity:0.75; font-size:13px;">Team ${state.matchWinner === 'A' ? 'B' : 'A'} is out of tables — the match is over.</p>
+        <p style="margin-top:10px;">Tables &mdash; Team <b>${myMatchScore}</b> &nbsp;|&nbsp; Opp <b>${oppMatchScore}</b></p>
+        <p style="margin-top:6px; opacity:0.75; font-size:13px;">${iWon ? 'Opp is' : 'Your team is'} out of tables — the match is over.</p>
         <button class="btn btn-gold" id="newMatchBtn" style="margin-top:16px;">Start New Match</button>
       </div>
     `;
@@ -1933,11 +1991,11 @@ function renderHandEndOverlay(state){
     <div class="box">
       <h2>${made ? 'Bid made!' : 'Bid failed'}</h2>
       <p>
-        Team ${biddingTeam} bid <b>${bid.value}</b> (${bid.trump?SUIT_SYM[bid.trump]+' trump':'No Trump'})${state.doubled?', '+(state.doubled===2?'redoubled':'doubled'):''}
-        and collected <b>${state.teamPoints[biddingTeam]}</b> points.<br>
-        Team ${oppTeam} collected <b>${state.teamPoints[oppTeam]}</b> points.
+        ${bidLabel} bid <b>${bid.value}</b> (${bid.trump?SUIT_SYM[bid.trump]+' trump':'No Trump'})${state.doubled?', '+(state.doubled===2?'redoubled':'doubled'):''}
+        and collected <b style="color:${bidColor}">${state.teamPoints[biddingTeamLetter]}</b> points.<br>
+        ${oppLabel} collected <b style="color:${oppColor}">${state.teamPoints[oppTeamLetter]}</b> points.
       </p>
-      <p style="margin-top:10px;">Tables remaining &mdash; Team A: <b>${state.matchScore.A}</b> &nbsp;|&nbsp; Team B: <b>${state.matchScore.B}</b></p>
+      <p style="margin-top:10px;">Tables remaining &mdash; Team <b>${myMatchScore}</b> &nbsp;|&nbsp; Opp <b>${oppMatchScore}</b></p>
       <button class="btn btn-gold" id="nextHandBtn" style="margin-top:16px;">Deal Next Hand</button>
     </div>
   `;
@@ -2188,7 +2246,8 @@ function renderBidPanel(state){
     ? historyEntries.map(l => {
         const seatIdx = debugRevealAll ? seatIndexFromLogText(state, l.text) : null;
         const chips = (seatIdx !== null && seatIdx !== mySeat) ? handChipsForSeat(state, seatIdx) : '';
-        return `<div class="hist-line">${escapeHtml(l.text)}${chips ? `<div class="mini-hand" style="margin-top:4px;">${chips}</div>` : ''}</div>`;
+        const teamTag = (l.seat !== null && l.seat !== undefined) ? ` <span class="team-tag ${TEAM_OF(l.seat)}" style="font-size:9px;padding:1px 6px;">${RELTEAM(l.seat)}</span>` : '';
+        return `<div class="hist-line">${escapeHtml(l.text)}${teamTag}${chips ? `<div class="mini-hand" style="margin-top:4px;">${chips}</div>` : ''}</div>`;
       }).join('')
     : '<div class="hist-line" style="opacity:0.5;">No calls yet — you\'re first to speak.</div>';
 
@@ -2201,7 +2260,7 @@ function renderBidPanel(state){
     .filter(x => x && TEAM_OF(x.i) !== myTeam);
   const seatingHtml = `
     <div class="seating-box">
-      <div>You are <b>Seat ${mySeat+1}</b>, <span class="team-tag ${myTeam}">Team ${myTeam}</span></div>
+      <div>You are <b>Seat ${mySeat+1}</b>, <span class="team-tag ${myTeam}">Team</span></div>
       <div style="margin-top:6px;"><span style="opacity:0.7;">Teammates:</span> ${teammates.map(t=>escapeHtml(t.name)+' (seat '+(t.i+1)+')').join(', ') || '—'}</div>
       <div style="margin-top:2px;"><span style="opacity:0.7;">Opponents:</span> ${opponents.map(o=>escapeHtml(o.name)+' (seat '+(o.i+1)+')').join(', ') || '—'}</div>
     </div>
@@ -2386,7 +2445,7 @@ async function submitBid(){
   const note = takeNoteDraft(state, mySeat);
   state.lastActionBySeat = state.lastActionBySeat || {};
   state.lastActionBySeat[mySeat] = label;
-  addLog(state, `${state.seats[mySeat].name} bid ${label}${note ? ' — "'+note+'"' : ''}`);
+  addLog(state, `${state.seats[mySeat].name} bid ${label}${note ? ' — "'+note+'"' : ''}`, mySeat);
 
   advanceBiddingTurn(state);
   await saveState(state);
@@ -2405,7 +2464,7 @@ async function passBid(){
   const note = takeNoteDraft(state, mySeat);
   state.lastActionBySeat = state.lastActionBySeat || {};
   state.lastActionBySeat[mySeat] = 'Pass';
-  addLog(state, `${state.seats[mySeat].name} passed.${note ? ' — "'+note+'"' : ''}`);
+  addLog(state, `${state.seats[mySeat].name} passed.${note ? ' — "'+note+'"' : ''}`, mySeat);
 
   if(!state.currentBid && state.passedSeats.length >= 6){
     // Everyone passed with nobody opening — force the original opener to bid
@@ -2439,7 +2498,7 @@ async function doubleBid(){
   const note = takeNoteDraft(state, mySeat);
   state.lastActionBySeat = state.lastActionBySeat || {};
   state.lastActionBySeat[mySeat] = 'Double';
-  addLog(state, `${state.seats[mySeat].name} doubled!${note ? ' — "'+note+'"' : ''}`);
+  addLog(state, `${state.seats[mySeat].name} doubled!${note ? ' — "'+note+'"' : ''}`, mySeat);
   advanceBiddingTurn(state);
   await saveState(state);
   render(state);
@@ -2452,7 +2511,7 @@ async function redoubleBid(){
   const note = takeNoteDraft(state, mySeat);
   state.lastActionBySeat = state.lastActionBySeat || {};
   state.lastActionBySeat[mySeat] = 'Redouble';
-  addLog(state, `${state.seats[mySeat].name} redoubled!${note ? ' — "'+note+'"' : ''}`);
+  addLog(state, `${state.seats[mySeat].name} redoubled!${note ? ' — "'+note+'"' : ''}`, mySeat);
   advanceBiddingTurn(state);
   await saveState(state);
   render(state);
@@ -2924,7 +2983,7 @@ async function runBotBid(state, seat){
   if(decision.action === 'pass'){
     if(!state.passedSeats.includes(seat)) state.passedSeats.push(seat);
     state.lastActionBySeat[seat] = 'Pass';
-    addLog(state, `${botName} passed.`);
+    addLog(state, `${botName} passed.`, seat);
     if(!state.currentBid && state.passedSeats.length >= 6){
       state.forcedSeat = (state.dealer + 1) % 6;
       state.passedSeats = [];
@@ -2939,12 +2998,12 @@ async function runBotBid(state, seat){
     state.doubled = 1;
     state.doubledBySeat = seat;
     state.lastActionBySeat[seat] = 'Double';
-    addLog(state, `${botName} doubled!`);
+    addLog(state, `${botName} doubled!`, seat);
     advanceBiddingTurn(state);
   } else if(decision.action === 'redouble'){
     state.doubled = 2;
     state.lastActionBySeat[seat] = 'Redouble';
-    addLog(state, `${botName} redoubled!`);
+    addLog(state, `${botName} redoubled!`, seat);
     advanceBiddingTurn(state);
   } else {
     const newBid = {value: decision.value, trump: decision.trump, seat, kind: decision.kind, order: decision.order};
@@ -2974,7 +3033,7 @@ async function runBotBid(state, seat){
     state.doubledBySeat = null;
     state.passedSeats = [];
     state.lastActionBySeat[seat] = formatBidLogLabel(newBid);
-    addLog(state, `${botName} bid ${formatBidLogLabel(newBid)}.`);
+    addLog(state, `${botName} bid ${formatBidLogLabel(newBid)}.`, seat);
     advanceBiddingTurn(state);
   }
   await saveState(state);
