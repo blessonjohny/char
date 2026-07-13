@@ -176,6 +176,17 @@
   }
   #tableTalk b{font-style:normal;color:var(--gold-soft);}
 
+  #trickWinnerBanner{
+    text-align:center;font-size:12px;color:var(--gold-soft);font-family:'Fraunces',serif;
+    padding:5px 12px;border-bottom:1px solid var(--line);background:rgba(201,162,39,0.12);
+    flex:0 0 auto;font-weight:700;animation:toastIn .25s cubic-bezier(.2,.9,.3,1.2);
+  }
+  .toast56{
+    background:rgba(15,42,32,0.96);border:1px solid var(--line);color:var(--cream);
+    padding:8px 16px;border-radius:20px;font-size:12.5px;box-shadow:0 4px 16px rgba(0,0,0,0.4);
+    animation:toastIn .25s cubic-bezier(.2,.9,.3,1.2);
+  }
+
   #table-wrap{
     position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;
     padding:30px 18px;overflow:hidden;
@@ -453,10 +464,15 @@
   <h1>56 &mdash; The Kerala Card Game</h1>
   <div class="tag">Six players. Two teams of three. One target: 56 points.</div>
 
+  <div id="inviteBanner56" class="hidden" style="background:linear-gradient(160deg,#5FA8F5,#2E63D6);border-radius:12px;padding:14px;margin-bottom:16px;text-align:center;font-size:0.85rem">
+    🎉 You've been invited to a table! Enter your name below, then tap Join.
+  </div>
+
   <div class="field">
     <label for="nameInput">Your name</label>
     <input id="nameInput" placeholder="e.g. Anju" autocomplete="off" maxlength="18">
   </div>
+  <button class="btn btn-gold hidden" id="btnJoinInvite56" style="width:100%;margin-bottom:8px">💌 Join This Table</button>
   <button class="btn btn-gold" id="createTableBtn" style="width:100%">🏠 Create a Table</button>
 
   <div class="field" style="margin-top:20px;text-align:left">
@@ -520,6 +536,8 @@
 </div>
 
 <!-- ======================= STILL PLAYING? ======================= -->
+<div id="toastHost56" style="position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:700;pointer-events:none;display:flex;flex-direction:column;gap:6px;align-items:center"></div>
+
 <div id="stillPlaying56Overlay" class="overlay-msg hidden">
   <div class="box">
     <h2>👋 Still there?</h2>
@@ -536,6 +554,7 @@
     <span class="hdr-team"><span class="lbl">Opp</span><span class="val" id="scoreOpp">0</span></span>
     <span class="hdr-round">R<span id="handNum">1</span> · <span id="sessionWL">W0 L0</span></span>
   </span>
+  <button class="hdr-icon-btn hidden" id="btnInvite56" title="Invite a Friend">💌</button>
   <button class="hdr-icon-btn hidden" id="btnChat56" title="Table Chat">💬<span class="chat-badge" id="chatBadge56"></span></button>
   <button class="hdr-icon-btn hidden" id="revealToggle" title="Reveal all hands (testing)">👁</button>
   <button class="hdr-icon-btn hidden" id="sideToggle" title="Log &amp; Bids">☰</button>
@@ -544,6 +563,7 @@
 <div id="game">
   <div id="handInfoBar" class="hidden"></div>
   <div id="tableTalk" class="hidden"></div>
+  <div id="trickWinnerBanner" class="hidden"></div>
 
   <div id="table-wrap">
     <div id="table"></div>
@@ -943,8 +963,55 @@ function requireName(){
   return name;
 }
 
+function showToast(msg, ms){
+  const host = document.getElementById('toastHost56');
+  if(!host) { console.log(msg); return; }
+  const el = document.createElement('div');
+  el.className = 'toast56';
+  el.textContent = msg;
+  host.appendChild(el);
+  setTimeout(() => el.remove(), ms || 2500);
+}
+
+// ---------------- Invite links (ported from six.html) ----------------
+let pendingInviteCode56 = null;
+(function checkForInviteLink(){
+  const inviteCode = new URLSearchParams(window.location.search).get('invite');
+  if(!inviteCode) return;
+  history.replaceState({}, '', window.location.pathname); // don't re-trigger on refresh
+  pendingInviteCode56 = inviteCode.trim().toUpperCase();
+  document.getElementById('inviteBanner56').classList.remove('hidden');
+  document.getElementById('btnJoinInvite56').classList.remove('hidden');
+})();
+
+document.getElementById('btnJoinInvite56').addEventListener('click', () => {
+  if(!pendingInviteCode56) return;
+  requestJoinRoom(pendingInviteCode56);
+});
+
+async function shareInviteLink56(){
+  if(!roomCode){ showToast('Join a table first'); return; }
+  const link = window.location.origin + window.location.pathname + '?invite=' + encodeURIComponent(roomCode);
+  const text = `Join my 56 table! Room code: ${roomCode}`;
+  if(navigator.share){
+    try{ await navigator.share({title: '56 — The Kerala Card Game', text, url: link}); return; }
+    catch(e){ /* cancelled the share sheet -- fall through to copy */ }
+  }
+  try{
+    await navigator.clipboard.writeText(link);
+    showToast('🔗 Invite link copied — send it to a friend!', 2800);
+  }catch(e){
+    showToast(`Room code: ${roomCode} — share this with a friend`, 3500);
+  }
+}
+document.getElementById('btnInvite56').addEventListener('click', shareInviteLink56);
+
 document.getElementById('createTableBtn').addEventListener('click', createTable);
-document.getElementById('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') createTable(); });
+document.getElementById('nameInput').addEventListener('keydown', e=>{
+  if(e.key !== 'Enter') return;
+  if(pendingInviteCode56) requestJoinRoom(pendingInviteCode56);
+  else createTable();
+});
 document.getElementById('cancelJoinPendingBtn').addEventListener('click', () => {
   document.getElementById('joinPendingOverlay').classList.add('hidden');
 });
@@ -1019,6 +1086,7 @@ function enterTableAsSeat(pos, state){
   roomLabelEl.parentElement.title = '';
   document.getElementById('sideToggle').classList.remove('hidden');
   document.getElementById('btnChat56').classList.remove('hidden');
+  document.getElementById('btnInvite56').classList.remove('hidden');
   if(!reveal56DisabledByAdmin) document.getElementById('revealToggle').classList.remove('hidden');
   if(window.K28Voice){
     K28Voice.attach(syncSocket, {getName: () => myName || 'Player'});
@@ -1259,6 +1327,10 @@ function render(state){
     if(state.phase === 'lobby') K28Voice.hideButton();
     else K28Voice.showButton();
   }
+  // The "All Games" pin overlaps the in-game header once a hand is
+  // underway -- six.js has the exact same rule for the same reason.
+  const linkBackEl = document.querySelector('.link-back');
+  if(linkBackEl) linkBackEl.style.display = (state.phase === 'lobby') ? 'block' : 'none';
 
   const myTeamLetter = mySeat !== null ? TEAM_OF(mySeat) : 'A';
   const oppTeamLetter = myTeamLetter === 'A' ? 'B' : 'A';
@@ -1455,15 +1527,13 @@ function renderTable(state){
     centerEl.appendChild(c);
   });
 
-  const existingToast = centerEl.querySelector('.trick-winner-toast');
-  if(state.pendingTrick && !existingToast){
-    const toast = document.createElement('div');
-    toast.className = 'trick-winner-toast';
+  const winnerBanner = document.getElementById('trickWinnerBanner');
+  if(state.pendingTrick){
     const winnerName = state.seats[state.pendingTrick.winnerSeat] ? state.seats[state.pendingTrick.winnerSeat].name : '';
-    toast.textContent = `${winnerName} wins the trick · +${state.pendingTrick.points} pts to Team ${state.pendingTrick.team}`;
-    centerEl.appendChild(toast);
-  } else if(!state.pendingTrick && existingToast){
-    existingToast.remove();
+    winnerBanner.innerHTML = `<b>${escapeHtml(winnerName)}</b> wins the trick · +${state.pendingTrick.points} pts to Team ${state.pendingTrick.team}`;
+    winnerBanner.classList.remove('hidden');
+  } else {
+    winnerBanner.classList.add('hidden');
   }
 }
 
@@ -1559,6 +1629,50 @@ function adjustHandAreaFor(fixedEl, handArea){
   });
 }
 
+async function restartRound56(){
+  if(!isHost){ alert('Only the host can restart the round.'); return; }
+  if(!confirm('Restart this hand? Everyone gets a fresh deal for hand ' + (latestState ? latestState.handNumber : '') + '; the match score stays as-is.')) return;
+  let state = await loadState();
+  if(!state) return;
+  // Same reset list as nextHand(), minus the parts that actually advance
+  // the match (dealer stays put, handNumber doesn't increment) -- this
+  // hand gets redealt fresh, not replaced by the next one.
+  state.turn = (state.dealer + 1) % 6;
+  state.themeIndex = (function(){ let i; do{ i = Math.floor(Math.random()*THEMES.length); } while(i === state.themeIndex && THEMES.length>1); return i; })();
+  state.hands = dealHands(state.turn);
+  state.phase = 'bidding';
+  state.currentBid = null;
+  state.doubled = 0;
+  state.doubledBySeat = null;
+  state.passedSeats = [];
+  state.forcedSeat = null;
+  state.openerSeat = null;
+  state.openerSuit = null;
+  state.openerReassertCount = 0;
+  state.openerProbeSuit = null;
+  state.nsBySeat = {};
+  state.lastActionBySeat = {};
+  state.revealedVoidBySeat = {};
+  state.reviewHold = false;
+  state.suitBidBySeat = {};
+  state.bidHistory = [];
+  state.table = [];
+  state.leadSuit = null;
+  state.pendingTrick = null;
+  state.tricksLog = [];
+  state.teamPoints = {A:0, B:0};
+  state.lastNote = null;
+  addLog(state, `Host restarted hand ${state.handNumber} — fresh deal.`);
+  await saveState(state);
+  render(state);
+}
+
+async function restartGame56(){
+  if(!isHost){ alert('Only the host can restart the game.'); return; }
+  if(!confirm('Restart the whole game? Both teams go back to 12, and a new hand 1 is dealt for everyone.')) return;
+  await startNewMatch();
+}
+
 function renderSide(state){
   const body = document.getElementById('sideBody');
   body.innerHTML = '';
@@ -1571,7 +1685,12 @@ function renderSide(state){
         if(!s) return '';
         return `<div class="room-row" style="margin-bottom:6px"><div class="rn" style="font-size:12px">${i+1}. ${escapeHtml(s.name)}${s.bot ? ' 🤖' : ''}${i===mySeat?' (you)':''}</div>` +
           (i===mySeat ? '' : `<button class="btn btn-ghost btn-small" onclick="kickSeat56(${i})">Kick</button>`) + `</div>`;
-      }).join('');
+      }).join('') +
+      '<div style="display:flex;gap:6px;margin-top:10px">' +
+        '<button class="btn btn-ghost btn-small" style="flex:1" onclick="restartRound56()">🔄 Restart Round</button>' +
+        '<button class="btn btn-ghost btn-small" style="flex:1" onclick="restartGame56()">🔁 Restart Game</button>' +
+      '</div>' +
+      '<div style="font-size:10px;color:rgba(246,238,221,0.55);margin-top:6px">Restart Round redeals this hand fresh (score untouched). Restart Game resets both to 12 and starts over from hand 1 &mdash; handy right after someone new takes a seat.</div>';
     body.appendChild(box);
   }
 
@@ -1621,6 +1740,7 @@ function renderLobbyOverlay(state){
       <h2>Waiting for players</h2>
       <div style="text-align:left; margin:14px 0;">${rows}</div>
       <p>${seated}/6 seated. Seats 1‑3‑5 form Team A, seats 2‑4‑6 form Team B.</p>
+      <button class="btn btn-gold" id="btnInviteFromLobby56" style="width:100%;margin-top:8px">💌 Invite a Friend</button>
       ${amHost ? `
         <div style="display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap;">
           ${hasEmpty ? '<button class="btn btn-ghost" id="fillBotsBtn">Fill Empty Seats with Bots</button>' : ''}
@@ -1632,6 +1752,7 @@ function renderLobbyOverlay(state){
       `}
     </div>
   `;
+  document.getElementById('btnInviteFromLobby56').addEventListener('click', shareInviteLink56);
   if(amHost && canStart){
     document.getElementById('startBtn').addEventListener('click', startGame);
   }
