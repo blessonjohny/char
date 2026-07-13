@@ -470,7 +470,7 @@
 
   <div class="field">
     <label for="nameInput">Your name</label>
-    <input id="nameInput" placeholder="e.g. Anju" autocomplete="off" maxlength="18">
+    <input id="nameInput" placeholder="" autocomplete="off" maxlength="18">
   </div>
   <button class="btn btn-gold hidden" id="btnJoinInvite56" style="width:100%;margin-bottom:8px">💌 Join This Table</button>
   <button class="btn btn-gold" id="createTableBtn" style="width:100%">🏠 Create a Table</button>
@@ -548,7 +548,6 @@
 
 <!-- ======================= GAME ======================= -->
 <header class="bar hidden" id="gameHeader">
-  <span class="hdr-room mono">Room <b id="roomLabel"></b></span>
   <span class="hdr-scores" id="hdrScores">
     <span class="hdr-team"><span class="lbl">You</span><span class="val" id="scoreYou">0</span></span>
     <span class="hdr-team"><span class="lbl">Opp</span><span class="val" id="scoreOpp">0</span></span>
@@ -1081,9 +1080,6 @@ function enterTableAsSeat(pos, state){
   document.getElementById('landing').style.display = 'none';
   document.getElementById('gameHeader').classList.remove('hidden');
   document.getElementById('game').style.display = 'flex';
-  const roomLabelEl = document.getElementById('roomLabel');
-  roomLabelEl.textContent = roomCode;
-  roomLabelEl.parentElement.title = '';
   document.getElementById('sideToggle').classList.remove('hidden');
   document.getElementById('btnChat56').classList.remove('hidden');
   document.getElementById('btnInvite56').classList.remove('hidden');
@@ -1743,7 +1739,7 @@ function renderLobbyOverlay(state){
       <button class="btn btn-gold" id="btnInviteFromLobby56" style="width:100%;margin-top:8px">💌 Invite a Friend</button>
       ${amHost ? `
         <div style="display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap;">
-          ${hasEmpty ? '<button class="btn btn-ghost" id="fillBotsBtn">Fill Empty Seats with Bots</button>' : ''}
+          ${hasEmpty ? '<button class="btn btn-maroon" id="fillBotsBtn">Fill Empty Seats with Bots</button>' : ''}
           <button class="btn btn-gold" id="startBtn" ${canStart?'':'disabled'}>Deal Cards &amp; Start</button>
         </div>
         <p class="hint" style="margin-top:16px;">You're the host 👑 — bots bid and play automatically. Kick a seat to remove a bot or a player; if you leave, the next connected player becomes host.</p>

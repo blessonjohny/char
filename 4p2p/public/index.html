@@ -116,7 +116,7 @@ html,body{height:100%;overflow:hidden}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0a1628 0%,#0d1b2a 50%,#111d2e 100%);color:var(--text-primary);touch-action:manipulation;user-select:none;-webkit-user-select:none}
 
 /* ===== COUNTER OVERLAY ===== */
-.counter-overlay{position:fixed;inset:0;background:rgba(10,22,40,0.98);z-index:2100;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;transition:opacity 0.6s ease}
+.counter-overlay{position:fixed;inset:0;background:rgba(10,22,40,0.98);z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px;text-align:center;transition:opacity 0.6s ease;overflow-y:auto}
 .counter-overlay.hidden{opacity:0;pointer-events:none}
 .counter-box{background:linear-gradient(135deg,#111d2e,#0d1b2a);border:2px solid rgba(255,215,0,0.3);border-radius:20px;padding:32px 28px;width:100%;max-width:340px;box-shadow:0 0 40px rgba(255,215,0,0.1)}
 .counter-title{font-size:1.4rem;font-weight:800;color:#fff;margin-bottom:6px}
@@ -137,6 +137,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .welcome-hero{padding:40px 20px 20px;width:100%;max-width:500px;margin:0 auto;display:flex;flex-direction:column;align-items:center;text-align:center}
 .welcome-logo-wrap{margin-bottom:8px;display:flex;flex-direction:column;align-items:center;text-align:center;width:100%}
 .welcome-logo{font-size:3.2rem;line-height:1;margin-bottom:4px}
+.welcome-hero-banner{width:100%;max-width:460px;height:auto;border-radius:14px;margin-bottom:14px;box-shadow:0 8px 40px rgba(0,0,0,0.5),0 0 0 1px rgba(255,215,0,0.25);display:block}
 .welcome-title{font-size:2.2rem;font-weight:800;color:#fff;text-shadow:0 2px 20px rgba(255,215,0,0.15),0 4px 40px rgba(0,0,0,0.4);margin-bottom:6px;letter-spacing:2px}
 .welcome-sub{font-size:0.78rem;color:var(--text-secondary);margin-bottom:6px;letter-spacing:4px;text-transform:uppercase;font-weight:500}
 .welcome-tagline{font-size:0.85rem;color:rgba(255,215,0,0.7);margin-bottom:28px;font-weight:500;letter-spacing:1px}
@@ -2382,6 +2383,17 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <button class="counter-unlock-btn" id="btnAdmin56DisableReveal" style="width:100%;background:var(--danger);font-size:0.7rem;display:none">🚫 Disable Reveal Button</button>
       <button class="counter-unlock-btn" id="btnAdmin56EnableReveal" style="width:100%;margin-top:8px;background:var(--success);font-size:0.7rem">✅ Enable Reveal Button</button>
     </div>
+    <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;text-align:left">
+      <div style="font-size:0.68rem;color:var(--text-secondary);margin-bottom:6px">💌 Messages</div>
+      <div style="opacity:0.7;font-size:0.68rem;margin-bottom:8px">Comments people have left from the welcome screen — opens in a new tab, uses this same admin password.</div>
+      <button class="counter-unlock-btn" id="btnAdminViewMessages" style="width:100%;background:var(--gold, #f4c430);color:#241a12;font-size:0.7rem">📨 View Messages</button>
+    </div>
+    <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;text-align:left">
+      <div style="font-size:0.68rem;color:var(--text-secondary);margin-bottom:6px">🔑 Admin Password</div>
+      <div style="opacity:0.7;font-size:0.68rem;margin-bottom:8px">Changes immediately for every admin action site-wide (this panel, the comments page, everything). Resets to the default on server restart unless set via the ADMIN_SECRET environment variable on Render.</div>
+      <input type="password" id="adminNewPasswordInput" placeholder="New password (min 4 characters)" autocomplete="off" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.85rem;margin-bottom:8px;box-sizing:border-box">
+      <button class="counter-unlock-btn" id="btnAdminChangePassword" style="width:100%;font-size:0.7rem">🔑 Change Password</button>
+    </div>
     <button class="counter-unlock-btn" id="btnCloseAdmin" style="margin-top:16px;background:var(--danger)">✕ Close</button>
   </div>
 </div>
@@ -2396,8 +2408,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <div class="welcome-screen" id="welcomeScreen">
   <div class="welcome-hero">
     <div class="welcome-logo-wrap">
-      <div class="welcome-logo">🎴</div>
-      <h1 class="welcome-title">28 Kerala Gulan</h1>
+      <img class="welcome-hero-banner" src="/images/hero-banner.jpg" alt="28 Kerala Gulan">
       <div class="welcome-sub">The Classic Indian Card Game — Play 28 / Gulan / Eripathettu Online</div>
       <div class="welcome-tagline">Bid smart. Play smarter. Become the King.</div>
     </div>
@@ -9820,7 +9831,7 @@ document.getElementById('btnManageSeats').addEventListener('click', () => { open
 let visitorCount = 0;
 let pageLoadCount = 0;
 let uniqueVisitors = 0;
-const ADMIN_PASSWORD = '0000';
+let ADMIN_PASSWORD = (function(){ try{ return localStorage.getItem('kerala28_admin_pwd') || '0000'; }catch(e){ return '0000'; } })();
 
 function loadVisitorStats() {
   try {
@@ -9945,6 +9956,17 @@ function admin56EnableReveal() {
   connectGameSocket();
   gameSocket.emit('admin56SetRevealDisabled', { adminPassword: ADMIN_PASSWORD, disabled: false });
   showToast('✅ 56 reveal button re-enabled', 'win', 2500);
+}
+
+function adminChangePassword() {
+  const input = document.getElementById('adminNewPasswordInput');
+  const newPassword = input ? input.value.trim() : '';
+  if (newPassword.length < 4) {
+    showToast('❌ Password needs to be at least 4 characters', 'lose', 2500);
+    return;
+  }
+  connectGameSocket();
+  gameSocket.emit('adminChangePassword', { adminPassword: ADMIN_PASSWORD, newPassword });
 }
 
 function setupAdminTrigger() {
@@ -10529,6 +10551,10 @@ window.addEventListener('DOMContentLoaded', () => {
   if (disable56RevealBtn) disable56RevealBtn.addEventListener('click', admin56DisableReveal);
   const enable56RevealBtn = document.getElementById('btnAdmin56EnableReveal');
   if (enable56RevealBtn) enable56RevealBtn.addEventListener('click', admin56EnableReveal);
+  const viewMessagesBtn = document.getElementById('btnAdminViewMessages');
+  if (viewMessagesBtn) viewMessagesBtn.addEventListener('click', () => window.open('/admin.html', '_blank'));
+  const changePwdBtn = document.getElementById('btnAdminChangePassword');
+  if (changePwdBtn) changePwdBtn.addEventListener('click', adminChangePassword);
   const cancelReconnectBtn = document.getElementById('btnCancelReconnect');
   if (cancelReconnectBtn) cancelReconnectBtn.addEventListener('click', () => {
     hideReconnectingOverlay();
@@ -12625,6 +12651,19 @@ function connectGameSocket() {
   gameSocket.on('reveal56Policy', ({ disabled }) => {
     SERVER_56_REVEAL_DISABLED = !!disabled;
     updateAdmin56RevealDisplay();
+  });
+
+  gameSocket.on('adminPasswordChangeResult', ({ ok, reason, newPassword }) => {
+    if (ok) {
+      ADMIN_PASSWORD = newPassword;
+      try { localStorage.setItem('kerala28_admin_pwd', newPassword); } catch (e) {}
+      const input = document.getElementById('adminNewPasswordInput');
+      if (input) input.value = '';
+      showToast('✅ Admin password changed', 'win', 3000);
+    } else {
+      const msgs = { wrong_current: 'Current session password is stale — close and reopen the admin panel', too_short: 'Password needs to be at least 4 characters' };
+      showToast('❌ ' + (msgs[reason] || 'Could not change password'), 'lose', 3000);
+    }
   });
 
   gameSocket.on('tableBrains', ({ brains }) => {
