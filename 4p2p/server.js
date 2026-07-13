@@ -361,7 +361,7 @@ io.on('connection', (socket) => {
   socket.on('adminSetLock', ({ adminPassword, maxRooms }) => {
     if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'setLock', reason: 'wrong_password' }); return; }
     const n = parseInt(maxRooms, 10);
-    roomCapMax = Number.isFinite(n) && n > 0 ? Math.min(n, 50) : 3;
+    roomCapMax = Number.isFinite(n) && n >= 0 ? Math.min(n, 50) : 3;
     roomCapEnabled = true;
     io.emit('lockStatus', { capped: true, maxRooms: roomCapMax, currentRooms: totalActiveRooms() });
     socket.emit('adminActionResult', { ok: true, action: 'setLock' });
@@ -374,6 +374,15 @@ io.on('connection', (socket) => {
     io.emit('lockStatus', { capped: false, maxRooms: roomCapMax, currentRooms: totalActiveRooms() });
     socket.emit('adminActionResult', { ok: true, action: 'clearLock' });
     console.log('[admin] room cap disabled');
+  });
+
+  // Verifies a password against the real server-side secret -- used right
+  // when the admin panel is opened, so a stale cached password (e.g. after
+  // a server restart reset it back to default, or someone changed it from
+  // another device) gets caught and corrected up front, instead of
+  // silently failing on every single action taken inside the panel.
+  socket.on('adminVerifyPassword', ({ password }) => {
+    socket.emit('adminVerifyResult', { ok: password === ADMIN_SECRET });
   });
 
   socket.on('adminChangePassword', ({ adminPassword, newPassword }) => {
