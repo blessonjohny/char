@@ -1516,6 +1516,19 @@ io.on('connection', (socket) => {
     if (r) l56Touch(r);
   });
 
+  socket.on('l56_chat', ({ msg }) => {
+    const info = socket.data.l56;
+    if (!info) return;
+    const r = l56Rooms[info.code];
+    if (!r) return;
+    const trimmed = String(msg || '').slice(0, 300).trim();
+    if (!trimmed) return;
+    const seat = r.state && r.state.seats && r.state.seats[info.pos];
+    const name = seat ? seat.name : 'Player';
+    io.to(l56SocketRoom(info.code)).emit('l56_chat', { from: name, msg: trimmed, senderId: socket.id });
+    l56Touch(r);
+  });
+
   socket.on('l56_leaveTable', ({ code }) => {
     const r = l56Rooms[code];
     if (!r) return;
