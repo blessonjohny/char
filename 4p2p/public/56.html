@@ -98,6 +98,7 @@
   .btn-maroon{background:var(--maroon);color:var(--cream);}
   .btn-small{padding:7px 12px;font-size:13px;border-radius:6px;}
   #landing .btn{width:100%;}
+  #landing #l56RoomList .btn{width:auto;flex-shrink:0;}
   .hint{font-size:12px;color:rgba(246,238,221,0.55);margin-top:20px;line-height:1.5;}
 
   /* ---------- Game shell ---------- */
@@ -330,7 +331,7 @@
   .numstep{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
   .numstep button{background:transparent;color:var(--cream);border:none;padding:8px 14px;font-size:16px;cursor:pointer;}
   .numstep input{width:52px;text-align:center;background:transparent;border:none;color:var(--cream);font-size:16px;font-family:'Space Mono',monospace;}
-  .suitpick{display:flex;gap:6px;}
+  .suitpick{display:flex;gap:6px;flex-wrap:wrap;row-gap:8px;}
   .suitpick button{
     width:38px;height:38px;border-radius:8px;border:1px solid var(--line);background:transparent;
     font-size:18px;cursor:pointer;color:var(--cream);
@@ -1758,6 +1759,7 @@ let bidMode = 'set'; // 'set' | 'inc'
 let bidNumber = 28;
 let bidTrumpKind = 'suit'; // 'suit' | 'nt' | 'ns'
 let bidSuit = 'S';
+let lastBidPanelSignature = null; // detects a fresh bidding opportunity so the number field doesn't carry over a stale value from a previous hand/turn
 let bidOrder = 'forward'; // 'forward' (has the Jack) | 'reverse' (no Jack, 4+ cards)
 
 let noteDraft = '';
@@ -1843,6 +1845,17 @@ function renderBidPanel(state){
 
   const cb = state.currentBid;
   const minVal = cb ? cb.value + 1 : 28;
+  // A "fresh" bidding opportunity is a new hand, or the current bid having
+  // moved on since the last time this panel was up for me (someone else
+  // bid/raised in between). Only reset on those transitions -- not on
+  // every re-render while it's continuously my turn, or it'd fight
+  // whatever the player is actively typing.
+  const bidPanelSignature = state.handNumber + ':' + (cb ? cb.seat + '-' + cb.value : 'none');
+  if(bidPanelSignature !== lastBidPanelSignature){
+    bidNumber = minVal;
+    bidMode = 'set';
+    lastBidPanelSignature = bidPanelSignature;
+  }
   if(bidMode==='set' && bidNumber < minVal) bidNumber = Math.min(56, minVal);
 
   // The actual value that would be submitted right now, given the current
