@@ -957,6 +957,8 @@ class GameEngine {
     // heuristic forever. The bidder learns specifically from whether
     // their bid succeeded; every bot (bidding team or not) logs a round
     // outcome based on whether their own team came out ahead.
+    const bidderSeat = this.seats[this.bidder];
+    const bidderIsHuman = bidderSeat && !bidderSeat.isBot;
     for (let i = 0; i < 4; i++) {
       const seatI = this.seats[i];
       if (!seatI || !seatI.isBot) continue;
@@ -965,6 +967,13 @@ class GameEngine {
         brain.recordBidOutcome(seatI.name, this._bidderHandProfileForLearning, this.highestBid, made, wonRound);
         this.learningPulseCount++;
         this.lastLearningBotName = seatI.name;
+      }
+      // Every OTHER bot at the table (not the bidder itself, that's a
+      // different bot's own outcome above) builds its own read on this
+      // specific human if the bidder was one -- as a partner if same
+      // team, as an opponent otherwise.
+      if (bidderIsHuman && i !== this.bidder) {
+        brain.recordHumanBidObservation(seatI.name, bidderSeat.playerId, getTeam(i) === bT, this.highestBid, made);
       }
       brain.recordRound(seatI.name, wonRound);
       this.learningPulseCount++;
@@ -1107,9 +1116,16 @@ class GameEngine {
       }
 
       // Partner already winning the bidding is worth leaning into a
-      // little further, same spirit as before.
+      // little further, same spirit as before -- and if that partner is
+      // a specific human this bot has a track record with, lean in
+      // further still for a proven partner or pull back slightly for one
+      // who's often missed (see bot-brain's partnerTrustMultiplier).
       let pb = 0;
-      if (this.bidder >= 0 && getTeam(this.bidder) === getTeam(pos)) pb = 1 * b.bidWeights.partnerSupport;
+      if (this.bidder >= 0 && getTeam(this.bidder) === getTeam(pos)) {
+        const partnerSeat = this.seats[this.bidder];
+        const trust = (partnerSeat && !partnerSeat.isBot) ? brain.partnerTrustMultiplier(b, partnerSeat.playerId) : 1.0;
+        pb = 1 * b.bidWeights.partnerSupport * trust;
+      }
       target = Math.min(28, Math.round(target + pb));
 
       // Pattern memory: has this bot seen a similar hand work out before?
@@ -1325,6 +1341,7 @@ class GameEngine {
   // Faithful port of the reference's chooseBotCardBase — the actual card-
   // selection strategy (leading, following suit, trumping in, discarding).
   _chooseBotCardBase(pos, hand, myTeam, bidTeam, isBT, isLast, cw, wt, cwc, tPts) {
+    const b = brain.getBrain(this.seats[pos].name);
     const isBidder = pos === this.bidder;
     if (this.trickSuit === '') {
       const isEarly = this.tricksPlayed < 4;
@@ -1366,6 +1383,12 @@ class GameEngine {
           if (p === pos || getTeam(p) === myTeam) continue;
           if (this.voidSuits[p].has(s)) { voidOpponentPenalty = this.trumpExposed ? 20 : 10; break; }
         }
+        // A higher learned risk tolerance makes this specific penalty
+        // sting a little less (more willing to lead into it anyway); a
+        // more risk-averse bot weighs it a little more heavily. Bounded
+        // to a mild +/-20% either side of the base penalty on purpose —
+        // this is flavor on top of the tuned heuristic, not a new rule.
+        voidOpponentPenalty = Math.round(voidOpponentPenalty * (1.2 - b.playWeights.riskTaking * 0.4));
         // The flip side of the same idea: a PARTNER known to be void in
         // this suit can trump straight in and win it for the team once
         // trump is exposed — leading into that is a genuine team tactic
@@ -1483,7 +1506,13 @@ class GameEngine {
       // reasonably justify spending more to keep tricks away from the
       // defense even when the immediate point value is small.
       const suitRepeat = this.suitLeadCount[this.trickSuit] || 0;
-      const worthTrumping = tPts >= 2 || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
+      // At the default, never-yet-learned weight (1.0) this is exactly
+      // "tPts >= 2", unchanged. A bot whose trump calls have actually
+      // gone well learns to be a little pickier (higher bar); one whose
+      // calls have gone poorly stays looser, same as before it learned
+      // anything at all.
+      const trumpPtsThreshold = Math.round(2 * b.playWeights.trumpManagement);
+      const worthTrumping = tPts >= trumpPtsThreshold || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {

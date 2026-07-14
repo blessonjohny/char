@@ -108,11 +108,52 @@ const io = new Server(server, { cors: { origin: '*' } });
 // reflected that one person's own browsing history -- not real traffic.
 // This is the actual server-side version: every socket connection gets its
 // real IP resolved to a rough location (country/region/city) via a local
-// GeoIP database, no external calls, no per-request latency. Kept as a
-// short rolling log in memory (not persisted -- resets on server restart,
-// like everything else here without a real database behind it).
-const VISITOR_LOG_MAX = 200;
-const visitorLog = [];
+// GeoIP database, no external calls, no per-request latency.
+//
+// Persisted to disk (same pattern as bot-brain.js) so history survives a
+// normal server restart, not just kept in memory. Worth knowing: Render's
+// free tier disk isn't guaranteed to survive an actual redeploy (a new
+// container can start from a clean filesystem) -- this protects against
+// the much more common case (idle spin-down/wake, a crash restart) but
+// isn't a real database. Capped at 5000 entries with anything older than
+// 90 days pruned automatically, so the file can't grow forever.
+const fs2 = require('fs');
+const VISITOR_LOG_FILE = path.join(__dirname, 'visitor-log-data.json');
+const VISITOR_LOG_MAX = 5000;
+const VISITOR_LOG_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+let visitorLog = [];
+let visitorLogDirty = false;
+
+function loadVisitorLog() {
+  try {
+    if (fs2.existsSync(VISITOR_LOG_FILE)) {
+      visitorLog = JSON.parse(fs2.readFileSync(VISITOR_LOG_FILE, 'utf8'));
+      console.log(`[visitor] Loaded ${visitorLog.length} logged visit(s) from disk.`);
+    }
+  } catch (e) {
+    console.error('[visitor] Failed to load visitor log, starting fresh:', e.message);
+    visitorLog = [];
+  }
+}
+function saveVisitorLog() {
+  if (!visitorLogDirty) return;
+  try {
+    fs2.writeFileSync(VISITOR_LOG_FILE, JSON.stringify(visitorLog));
+    visitorLogDirty = false;
+  } catch (e) {
+    console.error('[visitor] Failed to save visitor log:', e.message);
+  }
+}
+setInterval(saveVisitorLog, 10000);
+loadVisitorLog();
+
+// Consolidated graceful shutdown -- every module with something to save
+// (bot brains, visitor log, anything added later) registers its own
+// SIGTERM/SIGINT listener that just saves, without exiting; this is the
+// one place that actually calls process.exit(), after everyone's had a
+// chance to flush to disk.
+process.on('SIGTERM', () => { saveVisitorLog(); process.exit(0); });
+process.on('SIGINT', () => { saveVisitorLog(); process.exit(0); });
 
 function clientIpFor(socket) {
   // x-forwarded-for can be a comma-separated chain (proxy hops) -- the
@@ -135,17 +176,36 @@ function logVisitor(socket) {
     socketId: socket.id
   };
   visitorLog.unshift(entry);
+  const cutoff = Date.now() - VISITOR_LOG_MAX_AGE_MS;
+  visitorLog = visitorLog.filter(e => e.ts >= cutoff);
   if (visitorLog.length > VISITOR_LOG_MAX) visitorLog.length = VISITOR_LOG_MAX;
+  visitorLogDirty = true;
   return entry;
+}
+
+function visitorLogFilteredAndSummary(filter) {
+  const now = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+  const cutoffs = { today: now - DAY, week: now - 7 * DAY, month: now - 30 * DAY, all: 0 };
+  const cutoff = cutoffs[filter] !== undefined ? cutoffs[filter] : 0;
+  const entries = visitorLog.filter(e => e.ts >= cutoff);
+  const summary = {
+    today: visitorLog.filter(e => e.ts >= cutoffs.today).length,
+    week: visitorLog.filter(e => e.ts >= cutoffs.week).length,
+    month: visitorLog.filter(e => e.ts >= cutoffs.month).length,
+    all: visitorLog.length
+  };
+  return { entries, summary };
 }
 
 io.on('connection', (socket) => {
   const entry = logVisitor(socket);
   console.log(`[visitor] ${entry.ip} — ${entry.city || '?'}, ${entry.region || '?'}, ${entry.country || '?'}`);
 
-  socket.on('adminGetVisitorLog', ({ adminPassword }) => {
+  socket.on('adminGetVisitorLog', ({ adminPassword, filter }) => {
     if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'visitorLog', reason: 'wrong_password' }); return; }
-    socket.emit('adminVisitorLog', { entries: visitorLog });
+    const { entries, summary } = visitorLogFilteredAndSummary(filter || 'all');
+    socket.emit('adminVisitorLog', { entries, summary, filter: filter || 'all' });
   });
 });
 
