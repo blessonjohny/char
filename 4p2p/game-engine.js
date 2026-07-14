@@ -1467,7 +1467,20 @@ class GameEngine {
       if (canWin) {
         const hasJ = follow.some(c => c.rank === 'J'), has9 = follow.some(c => c.rank === '9');
         if (hasJ) return follow.find(c => c.rank === 'J');
-        if (has9) return follow.find(c => c.rank === '9');
+        if (has9) {
+          // A 9 beats everything else in this suit — but not the Jack.
+          // If the Jack hasn't shown up yet and someone still acts after
+          // us this trick, spending the 9 here risks exactly the mistake
+          // reported: winning the trick only for a later opponent's
+          // unseen Jack to steal it right back, for nothing. Worth the
+          // risk once it's genuinely the last word (isLast), the Jack's
+          // already accounted for, or the trick carries enough points to
+          // justify it regardless — same threshold already used for this
+          // same tradeoff elsewhere in this file (trump cut-in).
+          const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
+          if (jackRisk && tPts < 3) return follow[follow.length - 1];
+          return follow.find(c => c.rank === '9');
+        }
         let winner = follow[0];
         if (cwc && cwc.suit === this.trickSuit) {
           for (let i = follow.length - 1; i >= 0; i--) {

@@ -110,50 +110,143 @@ const io = new Server(server, { cors: { origin: '*' } });
 // real IP resolved to a rough location (country/region/city) via a local
 // GeoIP database, no external calls, no per-request latency.
 //
-// Persisted to disk (same pattern as bot-brain.js) so history survives a
-// normal server restart, not just kept in memory. Worth knowing: Render's
-// free tier disk isn't guaranteed to survive an actual redeploy (a new
-// container can start from a clean filesystem) -- this protects against
-// the much more common case (idle spin-down/wake, a crash restart) but
-// isn't a real database. Capped at 5000 entries with anything older than
-// 90 days pruned automatically, so the file can't grow forever.
+// Persistence: Render's free tier wipes the local disk on every spin-down
+// (confirmed in their own docs — restarts happen after just 15 minutes of
+// no traffic), so a plain local file doesn't actually survive in practice.
+// Instead this uses the GitHub repo this project already lives in as the
+// durable store — a small JSON file, updated via the GitHub API. That
+// repo isn't going anywhere on a restart. The local file is kept too, as
+// a fast in-between cache so every single visitor doesn't trigger its own
+// GitHub commit; only a periodic sync (and a best-effort one on shutdown)
+// actually pushes to GitHub.
+//
+// Requires two environment variables set on Render for this to activate:
+//   GITHUB_TOKEN — a personal access token with "repo" (or fine-grained
+//     "Contents: read and write") permission on the repo below.
+//   GITHUB_REPO  — "owner/repo-name", e.g. "yourname/28-kerala-gulan".
+// Without them, this quietly falls back to local-file-only (same
+// unreliable-on-restart behavior as before) rather than crashing.
 const fs2 = require('fs');
 const VISITOR_LOG_FILE = path.join(__dirname, 'visitor-log-data.json');
-const VISITOR_LOG_MAX = 5000;
+const VISITOR_LOG_MAX = 500;
 const VISITOR_LOG_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
+const GITHUB_REPO = process.env.GITHUB_REPO || '';
+const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
+const GITHUB_VISITOR_LOG_PATH = 'data/visitor-log.json';
+const GITHUB_ENABLED = !!(GITHUB_TOKEN && GITHUB_REPO);
 let visitorLog = [];
 let visitorLogDirty = false;
+let githubFileSha = null; // required by GitHub's API to update an existing file
 
-function loadVisitorLog() {
+function githubApiUrl() {
+  return `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_VISITOR_LOG_PATH}`;
+}
+async function githubFetchVisitorLog() {
+  if (!GITHUB_ENABLED) return null;
+  try {
+    const res = await fetch(`${githubApiUrl()}?ref=${GITHUB_BRANCH}`, {
+      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+    });
+    if (res.status === 404) { console.log('[visitor] No existing visitor-log.json in the repo yet — starting fresh.'); return []; }
+    if (!res.ok) { console.error('[visitor] GitHub fetch failed:', res.status, await res.text()); return null; }
+    const json = await res.json();
+    githubFileSha = json.sha;
+    const decoded = Buffer.from(json.content, 'base64').toString('utf8');
+    return JSON.parse(decoded);
+  } catch (e) {
+    console.error('[visitor] GitHub fetch error:', e.message);
+    return null;
+  }
+}
+async function githubPushVisitorLog() {
+  if (!GITHUB_ENABLED) return;
+  try {
+    const body = {
+      message: `Update visitor log (${visitorLog.length} entries)`,
+      content: Buffer.from(JSON.stringify(visitorLog)).toString('base64'),
+      branch: GITHUB_BRANCH
+    };
+    if (githubFileSha) body.sha = githubFileSha;
+    const res = await fetch(githubApiUrl(), {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) { console.error('[visitor] GitHub push failed:', res.status, await res.text()); return; }
+    const json = await res.json();
+    githubFileSha = json.content.sha;
+    console.log(`[visitor] Synced ${visitorLog.length} visits to GitHub.`);
+  } catch (e) {
+    console.error('[visitor] GitHub push error:', e.message);
+  }
+}
+
+async function loadVisitorLog() {
+  if (GITHUB_ENABLED) {
+    const fromGithub = await githubFetchVisitorLog();
+    if (fromGithub) {
+      visitorLog = fromGithub;
+      console.log(`[visitor] Loaded ${visitorLog.length} logged visit(s) from GitHub.`);
+      return;
+    }
+    console.log('[visitor] Falling back to local file for this boot (GitHub fetch failed).');
+  } else {
+    console.log('[visitor] GITHUB_TOKEN/GITHUB_REPO not set — visitor log will only persist locally, which Render\'s free tier does not keep across a spin-down.');
+  }
   try {
     if (fs2.existsSync(VISITOR_LOG_FILE)) {
       visitorLog = JSON.parse(fs2.readFileSync(VISITOR_LOG_FILE, 'utf8'));
-      console.log(`[visitor] Loaded ${visitorLog.length} logged visit(s) from disk.`);
+      console.log(`[visitor] Loaded ${visitorLog.length} logged visit(s) from local disk.`);
     }
   } catch (e) {
-    console.error('[visitor] Failed to load visitor log, starting fresh:', e.message);
+    console.error('[visitor] Failed to load local visitor log, starting fresh:', e.message);
     visitorLog = [];
   }
 }
-function saveVisitorLog() {
+function saveVisitorLogLocal() {
   if (!visitorLogDirty) return;
   try {
     fs2.writeFileSync(VISITOR_LOG_FILE, JSON.stringify(visitorLog));
     visitorLogDirty = false;
   } catch (e) {
-    console.error('[visitor] Failed to save visitor log:', e.message);
+    console.error('[visitor] Failed to save local visitor log:', e.message);
   }
 }
-setInterval(saveVisitorLog, 10000);
+// Local save is cheap and frequent (matches every other module's pattern
+// here). The GitHub sync is deliberately much less frequent — it's a real
+// network call and a real commit, so hammering it on every visitor would
+// both spam the repo's history and risk GitHub's rate limits for no
+// benefit; a few minutes of possible loss on an ungraceful crash is an
+// acceptable tradeoff for "actually survives a normal restart" at all.
+setInterval(saveVisitorLogLocal, 10000);
+let lastGithubSyncCount = 0;
+setInterval(() => {
+  if (GITHUB_ENABLED && visitorLog.length !== lastGithubSyncCount) {
+    lastGithubSyncCount = visitorLog.length;
+    githubPushVisitorLog();
+  }
+}, 3 * 60 * 1000);
 loadVisitorLog();
 
 // Consolidated graceful shutdown -- every module with something to save
 // (bot brains, visitor log, anything added later) registers its own
 // SIGTERM/SIGINT listener that just saves, without exiting; this is the
 // one place that actually calls process.exit(), after everyone's had a
-// chance to flush to disk.
-process.on('SIGTERM', () => { saveVisitorLog(); process.exit(0); });
-process.on('SIGINT', () => { saveVisitorLog(); process.exit(0); });
+// chance to flush to disk. The GitHub push is a real network round trip,
+// so it gets a bounded grace window rather than blocking shutdown forever
+// if GitHub is slow or unreachable right at that moment.
+async function finalVisitorLogFlush() {
+  saveVisitorLogLocal();
+  if (GITHUB_ENABLED) {
+    await Promise.race([
+      githubPushVisitorLog(),
+      new Promise(resolve => setTimeout(resolve, 4000))
+    ]);
+  }
+}
+process.on('SIGTERM', async () => { await finalVisitorLogFlush(); process.exit(0); });
+process.on('SIGINT', async () => { await finalVisitorLogFlush(); process.exit(0); });
 
 function clientIpFor(socket) {
   // x-forwarded-for can be a comma-separated chain (proxy hops) -- the

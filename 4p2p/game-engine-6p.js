@@ -780,7 +780,17 @@ class GameEngine6P {
       if (canWin) {
         const hasJ = follow.some(c => c.rank === 'J'), has9 = follow.some(c => c.rank === '9');
         if (hasJ) return follow.find(c => c.rank === 'J');
-        if (has9) return follow.find(c => c.rank === '9');
+        if (has9) {
+          // Same fix as the 4-player engine: don't automatically spend
+          // the 9 to win a small trick when the Jack of this suit hasn't
+          // been seen yet and someone still acts after us -- that's
+          // exactly the "wins the trick, then a later Jack steals it
+          // back for nothing" mistake. Safe once it's the last word,
+          // the Jack's accounted for, or the trick's worth the risk.
+          const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
+          if (jackRisk && tPts < 3) return follow[follow.length - 1];
+          return follow.find(c => c.rank === '9');
+        }
         let winner = follow[0];
         if (cwc && cwc.suit === this.trickSuit) {
           for (let i = follow.length - 1; i >= 0; i--) {
