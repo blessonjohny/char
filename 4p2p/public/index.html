@@ -13839,8 +13839,28 @@ let trickHoldGen = 0; // bumped whenever a staggered catch-up reveal is supersed
 // exactly as it looks: "Call Trump popped up before I ever saw the bots'
 // cards, even though the modal's own card list was correct" — the data
 // was always right, the panel was just jumping the queue on the display.
-function afterTrickRevealSettles(fn) {
-  if (trickRevealBusy || trickRevealQueue.length > 0) { setTimeout(() => afterTrickRevealSettles(fn), 150); return; }
+function afterTrickRevealSettles(fn, _startedAt) {
+  const startedAt = _startedAt || Date.now();
+  if (trickRevealBusy || trickRevealQueue.length > 0) {
+    // Hard ceiling: this used to poll forever with no escape hatch. If
+    // trickRevealBusy or the queue ever got stuck for any reason (a rare
+    // timing edge case is enough), NOTHING downstream would ever run —
+    // not the crown animation, not even ITS OWN safety net, since both
+    // are nested inside this callback. That's exactly the reported bug:
+    // a table stuck after the last trick, needing a manual restart.
+    // Now, after 8s of waiting, force forward regardless — better to
+    // show the round-end panel slightly early/out of sync than to leave
+    // the table stuck requiring a refresh.
+    if (Date.now() - startedAt > 8000) {
+      console.warn('[afterTrickRevealSettles] gave up waiting after 8s — forcing forward. trickRevealBusy:', trickRevealBusy, 'queueLen:', trickRevealQueue.length);
+      trickRevealBusy = false;
+      trickRevealQueue = [];
+      fn();
+      return;
+    }
+    setTimeout(() => afterTrickRevealSettles(fn, startedAt), 150);
+    return;
+  }
   fn();
 }
 

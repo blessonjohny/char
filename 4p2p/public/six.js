@@ -897,16 +897,42 @@ function applyState(state) {
     // The round can end right on the last trick, whose own 2s-hold +
     // fly-to-winner animation (~3.2s total) may still be playing. Wait for
     // it to actually finish instead of popping the round summary over it.
+    // Hard ceiling: this used to poll forever with no escape hatch — if
+    // trickHoldBusy or the queue ever got stuck for any reason, the round
+    // summary would just never appear, leaving the table stuck needing a
+    // manual restart. Now it force-proceeds after 8s regardless.
+    const waitStartedAt = Date.now();
     (function waitThenShowRoundEnd() {
-      if (trickHoldBusy || sixpTrickRevealQueue.length > 0) { setTimeout(waitThenShowRoundEnd, 150); return; }
+      if (trickHoldBusy || sixpTrickRevealQueue.length > 0) {
+        if (Date.now() - waitStartedAt > 8000) {
+          console.warn('[waitThenShowRoundEnd] gave up waiting after 8s — forcing forward');
+          trickHoldBusy = false;
+          sixpTrickRevealQueue = [];
+          showRoundEnd(state);
+          return;
+        }
+        setTimeout(waitThenShowRoundEnd, 150);
+        return;
+      }
       showRoundEnd(state);
     })();
   }
 
   if (state.gameOver && !gameOverShownFor) {
     gameOverShownFor = true;
+    const waitStartedAt2 = Date.now();
     (function waitThenShowGameOver() {
-      if (trickHoldBusy || sixpTrickRevealQueue.length > 0) { setTimeout(waitThenShowGameOver, 150); return; }
+      if (trickHoldBusy || sixpTrickRevealQueue.length > 0) {
+        if (Date.now() - waitStartedAt2 > 8000) {
+          console.warn('[waitThenShowGameOver] gave up waiting after 8s — forcing forward');
+          trickHoldBusy = false;
+          sixpTrickRevealQueue = [];
+          showGameOver(state);
+          return;
+        }
+        setTimeout(waitThenShowGameOver, 150);
+        return;
+      }
       showGameOver(state);
     })();
   }
