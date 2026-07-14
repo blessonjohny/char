@@ -1047,7 +1047,10 @@ class GameEngine {
       // as "gone for good" meant a hiccup at exactly the wrong moment could
       // make a one-time decision like choosing trump get made for them
       // before they even noticed anything happened.
-      const delay = seat.isBot ? 900 : 10000;
+      // Same reasoning as the 6-player engine: 10s was too tight to
+      // absorb a brief mobile connectivity blip before a bot takes over
+      // an actively-present human's seat.
+      const delay = seat.isBot ? 900 : 35000;
       setTimeout(() => {
         // Re-check everything at fire-time, not just at schedule-time:
         // - the round hasn't moved on

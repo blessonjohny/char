@@ -560,7 +560,15 @@ class GameEngine6P {
     if (seat.isBot || !seat.connected) {
       const capturedPos = this.currentPlayer;
       const capturedRound = this.round;
-      const delay = seat.isBot ? 900 : 10000;
+      // Bots pace themselves at a natural ~900ms. A disconnected HUMAN
+      // seat gets a much longer grace window before a bot steps in for
+      // them — 10s turned out to be too tight: a brief mobile network
+      // blip (tunnel, elevator, a few seconds of spotty signal) can flip
+      // a seat to disconnected, and since this timer isn't reset on
+      // reconnect (only re-checked once, right when it fires), someone
+      // who reconnects with only a couple seconds left doesn't get a
+      // real chance to notice and act before the bot takes over anyway.
+      const delay = seat.isBot ? 900 : 35000;
       setTimeout(() => {
         if (this.round !== capturedRound) return;
         if (this.currentPlayer !== capturedPos) return;
