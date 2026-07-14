@@ -694,31 +694,47 @@ function escapeHtml(s) { const d = document.createElement('div'); d.textContent 
 
 function showSeatPicker(info) {
   const body = $('seatPickerBody');
-  const seatsHtml = info.seats.filter(Boolean).map(s => `🟢 Seat ${s.pos + 1}: ${escapeHtml(s.name)}${s.isHost ? ' (Host)' : ''}`).join('<br>');
-  body.innerHTML = 'Currently at the table:<br>' + (seatsHtml || '<i>Nobody yet</i>');
+  body.innerHTML = '';
   const opts = $('seatPickerOptions');
-  opts.innerHTML = '';
-  for (const pos of info.openSeats) {
-    const btn = document.createElement('button');
-    btn.className = 'btn btn-outline'; btn.style.margin = '0';
-    btn.textContent = '🪑 Take Seat ' + (pos + 1);
-    btn.addEventListener('click', () => socket.emit('sixp_claimSeat', { choice: pos }));
-    opts.appendChild(btn);
+
+  const openSet = new Set(info.openSeats);
+  const botSet = new Set(info.botSeats);
+  const discMap = new Map(info.disconnectedSeats.map(d => [d.pos, d.name]));
+  const seatsByPos = info.seats;
+
+  function kindFor(pos) {
+    if (openSet.has(pos)) return 'open';
+    if (discMap.has(pos)) return 'disconnected';
+    if (botSet.has(pos)) return 'bot';
+    return 'taken';
   }
-  for (const pos of info.botSeats) {
-    const btn = document.createElement('button');
-    btn.className = 'btn btn-outline'; btn.style.margin = '0';
-    btn.textContent = '🤖 Replace Bot at Seat ' + (pos + 1);
-    btn.addEventListener('click', () => socket.emit('sixp_claimSeat', { choice: pos }));
-    opts.appendChild(btn);
+
+  // Same absolute oval layout the real table uses (SLOT_POS), just not
+  // rotated to any particular viewer yet since you're not seated —
+  // seat 1 at the bottom working clockwise, exactly like it'll look
+  // once you're actually playing.
+  let diagram = '<div class="mini-table-wrap"><div class="mini-table-surface"></div>';
+  for (let pos = 0; pos < 6; pos++) {
+    const p = SLOT_POS[pos];
+    const seat = seatsByPos[pos];
+    const kind = kindFor(pos);
+    const clickable = kind !== 'taken';
+    const team = (pos % 2 === 0) ? 'A' : 'B';
+    const label = kind === 'open' ? 'Open'
+      : kind === 'bot' ? `🤖 ${escapeHtml(seat ? seat.name : 'Bot')}`
+      : kind === 'disconnected' ? `🔌 ${escapeHtml(discMap.get(pos))}`
+      : (seat ? escapeHtml(seat.name) : '');
+    const hostTag = seat && seat.isHost ? ' 👑' : '';
+    diagram += `<div class="mini-seat six team-${team} ${clickable ? 'clickable' : 'blocked'}" style="left:${p.left};top:${p.top}" ${clickable ? `onclick="socket.emit('sixp_claimSeat',{choice:${pos}})"` : ''}>
+      <div class="mini-seat-num">Seat ${pos + 1}</div>
+      <div class="mini-seat-label">${label}${hostTag}</div>
+    </div>`;
   }
-  for (const d of info.disconnectedSeats) {
-    const btn = document.createElement('button');
-    btn.className = 'btn btn-outline'; btn.style.margin = '0';
-    btn.textContent = '🔌 Take Over ' + escapeHtml(d.name) + "'s Seat";
-    btn.addEventListener('click', () => socket.emit('sixp_claimSeat', { choice: d.pos }));
-    opts.appendChild(btn);
-  }
+  diagram += '</div>';
+  diagram += '<div class="mini-table-legend"><span><i class="dot open"></i>Open</span><span><i class="dot bot"></i>Replace bot</span><span><i class="dot disc"></i>Reclaim</span><span><i class="dot taken"></i>Taken</span></div>';
+  diagram += '<div style="font-size:0.7rem;opacity:0.7;margin-top:6px">Seats 1‑3‑5 are one team, 2‑4‑6 are the other.</div>';
+
+  opts.innerHTML = diagram;
   $('seatPickerOverlay').classList.add('on');
 }
 
@@ -1573,7 +1589,20 @@ function addChatMessage(from, msg, isMine) {
     chatUnread++;
     const badge = $('chatBadge');
     if (badge) { badge.textContent = chatUnread > 9 ? '9+' : chatUnread; badge.classList.add('on'); }
+    showComicChatPopup(from, msg);
   }
+}
+
+// A brief, old-comic-book-style speech bubble so a new message is
+// impossible to miss even with the chat panel closed, without forcing
+// it open. Auto-dismisses on its own after 3 seconds.
+function showComicChatPopup(from, msg) {
+  document.querySelectorAll('.comic-chat-popup').forEach(el => el.remove());
+  const el = document.createElement('div');
+  el.className = 'comic-chat-popup';
+  el.innerHTML = '<div class="comic-from">' + escapeHtml(from) + '</div>' + escapeHtml(msg);
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
 }
 
 function sendChat() {

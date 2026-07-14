@@ -88,6 +88,10 @@
       #k28vBtn.live{background:linear-gradient(135deg,#e74040,#c93030);animation:k28vPulse 1.8s ease-in-out infinite}
       #k28vBtn.speaking{box-shadow:0 0 0 4px rgba(61,220,132,0.55),0 4px 14px rgba(0,0,0,0.4)}
       @keyframes k28vPulse{0%,100%{box-shadow:0 4px 14px rgba(231,64,64,0.5)}50%{box-shadow:0 4px 22px rgba(231,64,64,0.9)}}
+      #k28vActiveLight{position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;
+        background:#3ddc84;border:2px solid #0a1628;display:none;animation:k28vBlink 1.3s ease-in-out infinite}
+      #k28vBtn.has-active-light #k28vActiveLight{display:block}
+      @keyframes k28vBlink{0%,100%{opacity:1;box-shadow:0 0 6px #3ddc84}50%{opacity:0.35;box-shadow:0 0 2px #3ddc84}}
       #k28vPanel{position:fixed;left:10px;top:106px;width:118px;max-height:150px;overflow-y:auto;
         background:rgba(15,25,40,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
         border:1px solid rgba(255,255,255,0.12);border-radius:10px;
@@ -108,6 +112,9 @@
     btn.id = 'k28vBtn';
     btn.title = 'Voice chat';
     btn.textContent = '🎙️';
+    const activeLight = document.createElement('span');
+    activeLight.id = 'k28vActiveLight';
+    btn.appendChild(activeLight);
     document.body.appendChild(btn);
 
     const panel = document.createElement('div');
@@ -135,6 +142,19 @@
 
     ui = { btn, panel, list: panel.querySelector('#k28vList'), soundBanner };
     return ui;
+  }
+
+  // Deliberately the ONLY thing a non-participant ever learns about voice
+  // activity: that at least one person is currently in the call. No
+  // names, no speaking status, no count — just a generic "someone's on"
+  // signal, same spirit as the rest of this file's privacy stance. Shown
+  // whenever there's anyone in the call besides (or including) yourself;
+  // once you've joined, your own button already shows the red "live"
+  // pulse, so this light only really matters for people who haven't.
+  function updateActiveLight() {
+    if (!ui) return;
+    const someoneActive = inCall || names.size > 0;
+    ui.btn.classList.toggle('has-active-light', someoneActive);
   }
 
   function renderList() {
@@ -239,6 +259,7 @@
     names.delete(id);
     renderList();
     updateSoundBanner();
+    updateActiveLight();
   }
 
   async function handleSignal(from, signal) {
@@ -267,6 +288,7 @@
     }
     inCall = true;
     socket.emit('voiceJoin', { name: getName() });
+    updateActiveLight();
     return true;
   }
 
@@ -279,6 +301,7 @@
     analysers.delete('me');
     blockedAudio.clear();
     updateSoundBanner();
+    updateActiveLight();
   }
 
   function positionTopLeft() {
@@ -308,8 +331,8 @@
     buildUI();
     if (attached) return;
     attached = true;
-    socket.on('voicePeers', (list) => { list.forEach(p => { names.set(p.id, p.name); makePeer(p.id, true); }); renderList(); });
-    socket.on('voicePeerJoined', (p) => { names.set(p.id, p.name); renderList(); });
+    socket.on('voicePeers', (list) => { list.forEach(p => { names.set(p.id, p.name); makePeer(p.id, true); }); renderList(); updateActiveLight(); });
+    socket.on('voicePeerJoined', (p) => { names.set(p.id, p.name); renderList(); updateActiveLight(); });
     socket.on('voicePeerLeft', ({ id }) => removePeer(id));
     socket.on('voiceSignal', ({ from, signal }) => handleSignal(from, signal));
     document.addEventListener('click', retryBlockedAudio, { passive: true });
