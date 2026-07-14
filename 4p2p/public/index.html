@@ -2411,8 +2411,15 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </div>
     <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;text-align:left">
       <div style="font-size:0.68rem;color:var(--text-secondary);margin-bottom:6px">🌍 Visitor Locations</div>
-      <div style="opacity:0.7;font-size:0.68rem;margin-bottom:8px">Real server-side connection log — IP, rough city/region/country, and when. Useful for spotting the same IP showing up as two different "players." Resets on server restart; only the most recent 200 connections are kept.</div>
+      <div style="opacity:0.7;font-size:0.68rem;margin-bottom:8px">Real server-side connection log — IP, rough city/region/country, and when. Useful for spotting the same IP showing up as two different "players." Saved to disk (survives a normal restart, not necessarily a full redeploy) — keeps up to 5000 visits, anything older than 90 days is dropped automatically.</div>
       <button class="counter-unlock-btn" id="btnAdminLoadVisitorLog" style="width:100%;background:var(--gold, #f4c430);color:#241a12;font-size:0.7rem">🌍 Load Visitor Log</button>
+      <div id="visitorLogSummary" style="display:none;justify-content:space-between;gap:6px;margin-top:8px;font-size:0.62rem;text-align:center"></div>
+      <div id="visitorLogFilters" style="display:none;gap:6px;margin-top:8px">
+        <button class="counter-unlock-btn visitor-filter-btn" data-filter="today" style="flex:1;font-size:0.62rem;padding:6px">Today</button>
+        <button class="counter-unlock-btn visitor-filter-btn" data-filter="week" style="flex:1;font-size:0.62rem;padding:6px">Week</button>
+        <button class="counter-unlock-btn visitor-filter-btn" data-filter="month" style="flex:1;font-size:0.62rem;padding:6px">Month</button>
+        <button class="counter-unlock-btn visitor-filter-btn" data-filter="all" style="flex:1;font-size:0.62rem;padding:6px">All</button>
+      </div>
       <div id="visitorLogList" style="margin-top:8px;max-height:260px;overflow-y:auto;font-size:0.68rem;text-align:left"></div>
     </div>
     <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;text-align:left">
@@ -10603,9 +10610,19 @@ window.addEventListener('DOMContentLoaded', () => {
   const viewMessagesBtn = document.getElementById('btnAdminViewMessages');
   if (viewMessagesBtn) viewMessagesBtn.addEventListener('click', () => window.open('/admin.html', '_blank'));
   const loadVisitorLogBtn = document.getElementById('btnAdminLoadVisitorLog');
-  if (loadVisitorLogBtn) loadVisitorLogBtn.addEventListener('click', () => {
+  let currentVisitorFilter = 'all';
+  function requestVisitorLog(filter) {
+    currentVisitorFilter = filter;
     connectGameSocket();
-    gameSocket.emit('adminGetVisitorLog', { adminPassword: ADMIN_PASSWORD });
+    gameSocket.emit('adminGetVisitorLog', { adminPassword: ADMIN_PASSWORD, filter });
+  }
+  if (loadVisitorLogBtn) loadVisitorLogBtn.addEventListener('click', () => requestVisitorLog('all'));
+  document.querySelectorAll('.visitor-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.visitor-filter-btn').forEach(b => b.style.opacity = '0.6');
+      btn.style.opacity = '1';
+      requestVisitorLog(btn.dataset.filter);
+    });
   });
   const changePwdBtn = document.getElementById('btnAdminChangePassword');
   if (changePwdBtn) changePwdBtn.addEventListener('click', adminChangePassword);
@@ -12738,10 +12755,29 @@ function connectGameSocket() {
     }
   });
 
-  gameSocket.on('adminVisitorLog', ({ entries }) => {
+  gameSocket.on('adminVisitorLog', ({ entries, summary, filter }) => {
     const list = document.getElementById('visitorLogList');
+    const summaryEl = document.getElementById('visitorLogSummary');
+    const filtersEl = document.getElementById('visitorLogFilters');
     if (!list) return;
-    if (!entries || entries.length === 0) { list.innerHTML = '<div style="opacity:0.6">No connections logged yet.</div>'; return; }
+
+    if (summary && summaryEl) {
+      summaryEl.style.display = 'flex';
+      summaryEl.innerHTML = `
+        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.today}</b><br>today</div>
+        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.week}</b><br>this week</div>
+        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.month}</b><br>this month</div>
+        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.all}</b><br>all time</div>
+      `;
+    }
+    if (filtersEl) {
+      filtersEl.style.display = 'flex';
+      document.querySelectorAll('.visitor-filter-btn').forEach(b => {
+        b.style.opacity = (b.dataset.filter === (filter || 'all')) ? '1' : '0.6';
+      });
+    }
+
+    if (!entries || entries.length === 0) { list.innerHTML = '<div style="opacity:0.6">No connections logged for this period.</div>'; return; }
     // Same IP appearing more than once in the log is exactly the signal
     // worth flagging -- could be one person with two tabs/devices in the
     // same table, could just be the same person visiting twice. Either
