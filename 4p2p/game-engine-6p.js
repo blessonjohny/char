@@ -104,6 +104,13 @@ class GameEngine6P {
     this.round = 0;
     this.gameScore = [6, 6];
     this.gameOver = null; // {winningTeam, finalScore} once the match ends
+    // "Q" penalty marks: same rule as the 4-player game. This engine has
+    // no automatic championship-to-championship continuation (a match
+    // just ends outright and needs an explicit restartGame() to begin
+    // the next one) -- that restart is treated as "the next championship
+    // starting" for the first-hand partner-bonus exception.
+    this.qMarks = {};
+    this.isFirstHandOfChampionship = true;
     this.dealer = Math.floor(Math.random() * SEATS);
     this.resetRoundState();
     this.phase = 'lobby'; // lobby | bidding1 | choosingTrump | play | roundEnd
@@ -220,6 +227,13 @@ class GameEngine6P {
     this.gameOver = null;
     this.round = 0;
     this.dealer = Math.floor(Math.random() * SEATS);
+    // Q marks deliberately NOT cleared here -- this is the only path to
+    // a new match in this engine (there's no automatic continuation
+    // like the 4-player game has), so clearing on every restart would
+    // mean a Q could never actually survive into "the next
+    // championship" at all. It carries over; only the first-hand flag
+    // resets for the fresh match.
+    this.isFirstHandOfChampionship = true;
     this.addLog('Host restarted the game — starting a fresh match.');
     this.startRound();
   }
@@ -525,6 +539,35 @@ class GameEngine6P {
     this.phase = 'roundEnd';
     this.addLog(`Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
 
+    // Q-mark removal: same rule as the 4-player game — personally
+    // calling and winning a bid sheds one Q from yourself; on the very
+    // first hand of a new match specifically, your partner sheds one
+    // too (if they're carrying any). Self-only every hand after that.
+    if (made) {
+      const bidderSeat = this.seats[this.bidder];
+      if (bidderSeat && this.qMarks[bidderSeat.name] > 0) {
+        this.qMarks[bidderSeat.name]--;
+        if (this.qMarks[bidderSeat.name] <= 0) delete this.qMarks[bidderSeat.name];
+        this.addLog(`${bidderSeat.name} shed a Q by calling and winning the bid.`);
+      }
+      if (this.isFirstHandOfChampionship) {
+        // No single "partner" here — teams are 3-a-side (even seats vs
+        // odd seats), so the first-hand bonus generalizes to "every
+        // teammate," not just one designated partner.
+        const myTeam = getTeam(this.bidder);
+        for (let i = 0; i < SEATS; i++) {
+          if (i === this.bidder || getTeam(i) !== myTeam) continue;
+          const teammateSeat = this.seats[i];
+          if (teammateSeat && this.qMarks[teammateSeat.name] > 0) {
+            this.qMarks[teammateSeat.name]--;
+            if (this.qMarks[teammateSeat.name] <= 0) delete this.qMarks[teammateSeat.name];
+            this.addLog(`${teammateSeat.name} also shed a Q — first hand of the match, teammate's bid came through.`);
+          }
+        }
+      }
+    }
+    this.isFirstHandOfChampionship = false;
+
     for (let i = 0; i < SEATS; i++) {
       const seatI = this.seats[i];
       if (!seatI || !seatI.isBot) continue;
@@ -545,8 +588,17 @@ class GameEngine6P {
     // ends outright the moment either team hits 12 or drops to 0.
     if (this.gameScore[0] >= 12 || this.gameScore[1] >= 12 || this.gameScore[0] <= 0 || this.gameScore[1] <= 0) {
       const winningTeam = this.gameScore[0] > this.gameScore[1] ? 0 : 1;
+      const losingTeam = 1 - winningTeam;
       this.gameOver = { winningTeam, finalScore: this.gameScore.slice() };
       this.addLog(`Match over — team ${winningTeam} wins ${this.gameScore[winningTeam]}-${this.gameScore[1 - winningTeam]}.`);
+      // Zero-sum scoring means this is always a shutout — every player
+      // on the losing side picks up a Q.
+      for (let i = 0; i < SEATS; i++) {
+        const s = this.seats[i];
+        if (!s || getTeam(i) !== losingTeam) continue;
+        this.qMarks[s.name] = (this.qMarks[s.name] || 0) + 1;
+      }
+      this.addLog(`Team ${losingTeam} shut out — every player picks up a Q.`);
     }
 
     this._notify();
@@ -911,6 +963,7 @@ class GameEngine6P {
       trickSuit: this.trickSuit,
       teamPoints: this.teamPoints,
       gameScore: this.gameScore,
+      qMarks: this.qMarks,
       gameOver: this.gameOver,
       lastTrick: this.lastTrick,
       roundWinnerAnnounced: this.roundWinnerAnnounced,

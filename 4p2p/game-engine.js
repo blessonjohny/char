@@ -253,6 +253,16 @@ class GameEngine {
     this.gameScore = [6, 6]; // match score, team 0 / team 1 (mirrors client default)
     this.championshipNumber = 1;
     this.kingStreak = [0, 0]; // consecutive championships won by each team
+    // "Q" penalty marks: a shame counter that sticks to a player (by
+    // name) across championships within this table's lifetime, not just
+    // within one match. Every loss (this scoring system is zero-sum, so
+    // every championship literally ends 12-0/0-12 — there's no partial
+    // loss) adds one Q to everyone on the losing side. Comes off only by
+    // personally calling and winning a bid — see _endRound() for the
+    // exact rule, including the first-hand-of-a-new-championship
+    // exception where a successful bidder's partner can shed one too.
+    this.qMarks = {};
+    this.isFirstHandOfChampionship = true;
     this.KING_TARGET = 10; // win 10 championships in a row to be crowned King of the Table
     this.lastChampionshipResult = null; // set only on the round that just decided a championship
     // Dealer starts at a genuinely random seat for a fresh table, then
@@ -461,6 +471,8 @@ class GameEngine {
     this.gameScore = [6, 6];
     this.championshipNumber = 1;
     this.kingStreak = [0, 0];
+    this.qMarks = {};
+    this.isFirstHandOfChampionship = true;
     this.lastChampionshipResult = null;
     this.round = 0;
     this.dealer = Math.floor(Math.random() * 4);
@@ -952,6 +964,31 @@ class GameEngine {
     this.phase = 'roundEnd';
     this.addLog(`Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
 
+    // Q-mark removal: personally calling and winning a bid sheds one Q
+    // from yourself, if you're carrying any. On the very first hand of a
+    // new championship specifically, a successful bidder ALSO sheds one
+    // Q from their partner (if the partner has one) — everywhere else,
+    // it's strictly self-service only. Never more than one Q removed per
+    // player per hand, however many they're carrying.
+    if (made) {
+      const bidderSeat = this.seats[this.bidder];
+      if (bidderSeat && this.qMarks[bidderSeat.name] > 0) {
+        this.qMarks[bidderSeat.name]--;
+        if (this.qMarks[bidderSeat.name] <= 0) delete this.qMarks[bidderSeat.name];
+        this.addLog(`${bidderSeat.name} shed a Q by calling and winning the bid.`);
+      }
+      if (this.isFirstHandOfChampionship) {
+        const partnerPos = this.bidder === 0 ? 3 : this.bidder === 3 ? 0 : this.bidder === 1 ? 2 : 1;
+        const partnerSeat = this.seats[partnerPos];
+        if (partnerSeat && this.qMarks[partnerSeat.name] > 0) {
+          this.qMarks[partnerSeat.name]--;
+          if (this.qMarks[partnerSeat.name] <= 0) delete this.qMarks[partnerSeat.name];
+          this.addLog(`${partnerSeat.name} also shed a Q — first hand of the championship, partner's bid came through.`);
+        }
+      }
+    }
+    this.isFirstHandOfChampionship = false;
+
     // Feed every bot's brain the outcome — this is what makes them
     // actually improve over time instead of repeating the same static
     // heuristic forever. The bidder learns specifically from whether
@@ -1004,6 +1041,16 @@ class GameEngine {
         kingStreak: this.kingStreak.slice(), isKing
       };
       this.addLog(`Championship ${this.championshipNumber} won by team ${winningTeam} (streak: ${this.kingStreak[winningTeam]})${isKing ? ' — KING OF THE TABLE!' : ''}.`);
+      // This scoring system is zero-sum (every point gained by one team
+      // is lost by the other), so every championship necessarily ends
+      // 12-0/0-12 — there's no such thing as a "close" loss here. Every
+      // player on the losing side picks up a Q.
+      for (let i = 0; i < 4; i++) {
+        const s = this.seats[i];
+        if (!s || getTeam(i) !== losingTeam) continue;
+        this.qMarks[s.name] = (this.qMarks[s.name] || 0) + 1;
+      }
+      this.addLog(`Team ${losingTeam} shut out — every player picks up a Q.`);
       // Start the next championship: reset the match score, keep everyone
       // seated exactly as they are, and keep counting. If someone just
       // became King, the streak naturally starts back at 0 next time
@@ -1011,6 +1058,7 @@ class GameEngine {
       // starts building a fresh streak, it doesn't lock the table).
       this.gameScore = [6, 6];
       this.championshipNumber++;
+      this.isFirstHandOfChampionship = true;
     }
 
     this._notify();
@@ -1627,6 +1675,7 @@ class GameEngine {
       trickSuit: this.trickSuit,
       teamPoints: this.teamPoints,
       gameScore: this.gameScore,
+      qMarks: this.qMarks,
       championshipNumber: this.championshipNumber,
       kingStreak: this.kingStreak,
       lastChampionshipResult: this.lastChampionshipResult,
