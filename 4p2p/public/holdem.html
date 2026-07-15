@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Texas Hold'em — 28 Kerala Gulan</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root{
+  --felt:#0b6b3a; --felt-2:#084d2a; --gold:#f4c430; --gold-soft:#e6c86b;
+  --cream:#fdf6e3; --danger:#e74040; --accent:#4aa3ff; --panel:#12202a;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#0a1420;color:var(--cream);overflow-x:hidden}
+.hidden{display:none !important}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;background:linear-gradient(160deg,#0a1420,#0d2416);overflow-y:auto}
+h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
+.subtitle{opacity:0.7;font-size:0.85rem;margin-bottom:20px}
+.text-input{width:100%;max-width:320px;padding:14px;border-radius:10px;border:2px solid rgba(244,196,48,0.3);background:rgba(255,255,255,0.06);color:#fff;font-size:1rem;margin-bottom:12px;text-align:center}
+.btn{padding:14px 24px;border-radius:12px;border:none;font-weight:700;font-size:0.95rem;cursor:pointer;margin:6px;min-height:48px}
+.btn-gold{background:linear-gradient(135deg,var(--gold),#c99a1e);color:#241a12}
+.btn-outline{background:rgba(255,255,255,0.06);color:var(--cream);border:1px solid rgba(255,255,255,0.2)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.opts-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:360px;margin-bottom:10px}
+.opt-btn{padding:8px 14px;border-radius:20px;border:1px solid rgba(244,196,48,0.35);background:rgba(244,196,48,0.08);color:var(--cream);font-size:0.8rem;cursor:pointer}
+.opt-btn.active{background:var(--gold);color:#241a12;font-weight:800}
+.field-label{font-size:0.7rem;opacity:0.6;margin:8px 0 4px;text-transform:uppercase;letter-spacing:1px}
+.table-list{width:100%;max-width:360px;margin-top:10px}
+.table-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:6px;font-size:0.82rem}
+
+/* ---- Game screen ---- */
+#gameScreen{padding:0;justify-content:flex-start}
+.topbar{width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(0,0,0,0.35);flex-shrink:0}
+.topbar-btn{background:rgba(255,255,255,0.08);border:none;color:var(--cream);border-radius:8px;padding:6px 10px;font-size:0.75rem;cursor:pointer}
+.table-wrap{position:relative;width:100%;max-width:520px;aspect-ratio:1/1.15;margin:10px auto;flex-shrink:0}
+.felt{position:absolute;inset:8% 4%;border-radius:50%;background:radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-2) 100%);border:10px solid #3d2510;box-shadow:0 10px 30px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.4)}
+.board-area{position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);display:flex;gap:4px;z-index:5}
+.pot-display{position:absolute;top:26%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap}
+.card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0}
+.card.red{color:#c8302f}
+.card.black{color:#1a1a1a}
+.card.back{background:linear-gradient(135deg,#1a3a6b,#0d2038);border:2px solid var(--gold-soft)}
+.card.mini{width:26px;height:37px;font-size:0.65rem}
+
+.seat{position:absolute;width:82px;text-align:center;z-index:4}
+.seat-avatar-wrap{position:relative;width:46px;height:46px;margin:0 auto}
+.seat-avatar{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#2a3f5f,#101d2e);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:2.5px solid rgba(255,255,255,0.15)}
+.seat.active .seat-avatar{border-color:var(--gold);box-shadow:0 0 14px rgba(244,196,48,0.7);animation:seatPulse 1.1s ease-in-out infinite}
+@keyframes seatPulse{0%,100%{box-shadow:0 0 14px rgba(244,196,48,0.7)}50%{box-shadow:0 0 22px rgba(244,196,48,1)}}
+.seat.folded .seat-avatar{opacity:0.35;filter:grayscale(1)}
+.seat-name{font-size:0.62rem;font-weight:700;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seat-chips{font-size:0.6rem;color:var(--gold);font-weight:800}
+.seat-cards{display:flex;gap:2px;justify-content:center;margin-top:3px}
+.seat-bet{position:absolute;background:rgba(0,0,0,0.6);border:1px solid var(--gold);border-radius:10px;padding:2px 8px;font-size:0.6rem;color:var(--gold);font-weight:800;white-space:nowrap}
+.dealer-chip{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#241a12;font-size:0.55rem;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #241a12}
+.allin-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}
+
+.hand-strip{display:flex;justify-content:center;gap:6px;padding:6px 0}
+.hand-strip .card{width:44px;height:62px;font-size:1rem}
+
+.action-bar{width:100%;max-width:520px;margin:0 auto;padding:10px 14px 18px;flex-shrink:0}
+.action-row{display:flex;gap:8px;margin-bottom:8px}
+.action-btn{flex:1;padding:14px 6px;border-radius:12px;border:none;font-weight:800;font-size:0.85rem;cursor:pointer}
+.action-fold{background:rgba(231,64,64,0.85);color:#fff}
+.action-check{background:rgba(255,255,255,0.15);color:#fff}
+.action-call{background:var(--accent);color:#fff}
+.action-bet{background:linear-gradient(135deg,var(--gold),#c99a1e);color:#241a12}
+.amount-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.06);border-radius:12px;padding:8px 10px}
+.amount-row input[type=range]{flex:1}
+.amount-val{font-weight:800;color:var(--gold);min-width:60px;text-align:right;font-size:0.9rem}
+.stepper-btn{background:rgba(255,255,255,0.1);border:none;color:#fff;width:30px;height:30px;border-radius:8px;font-size:1rem;cursor:pointer}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center;z-index:2000;padding:20px}
+.overlay.on{display:flex}
+.overlay-box{background:#12202a;border:1px solid rgba(244,196,48,0.3);border-radius:16px;padding:22px;max-width:400px;width:100%;text-align:center;max-height:85vh;overflow-y:auto}
+.showdown-hand-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,255,255,0.05);border-radius:8px;margin-bottom:5px;font-size:0.75rem}
+.showdown-hand-row.winner{background:rgba(244,196,48,0.18);border:1px solid var(--gold)}
+
+.log-panel{position:fixed;top:0;right:0;bottom:0;width:280px;max-width:80vw;background:rgba(8,15,22,0.97);z-index:1500;transform:translateX(100%);transition:transform .25s ease;padding:14px;overflow-y:auto}
+.log-panel.on{transform:translateX(0)}
+.log-entry{font-size:0.72rem;opacity:0.8;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(20,20,30,0.95);border:1px solid var(--gold);border-radius:10px;padding:10px 18px;font-size:0.82rem;z-index:3000;animation:toastIn .25s ease}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+</style>
+</head>
+<body>
+
+<a href="/" class="topbar-btn" style="position:fixed;top:10px;left:10px;z-index:100;text-decoration:none">⬅ All Games</a>
+
+<!-- ============ LANDING ============ -->
+<div class="screen" id="landingScreen">
+  <h1>♠️ Texas Hold'em</h1>
+  <div class="subtitle">9-Player Table — Zynga Style</div>
+  <input class="text-input" id="nameInput" maxlength="18" placeholder="Your name">
+  <button class="btn btn-gold" id="btnShowCreate">Create Table</button>
+  <button class="btn btn-outline" id="btnShowJoin">Join with Code</button>
+  <div class="table-list" id="publicTableList"></div>
+</div>
+
+<!-- ============ CREATE TABLE OPTIONS ============ -->
+<div class="screen hidden" id="createScreen">
+  <h1>Create Table</h1>
+  <div class="field-label">Mode</div>
+  <div class="opts-row" id="modeOpts">
+    <div class="opt-btn active" data-val="cash">Cash Game</div>
+    <div class="opt-btn" data-val="tournament">Tournament</div>
+  </div>
+  <div class="field-label">Betting</div>
+  <div class="opts-row" id="buyInOpts">
+    <div class="opt-btn active" data-val="nolimit">No Limit</div>
+    <div class="opt-btn" data-val="fixed">Fixed Limit</div>
+  </div>
+  <div class="field-label">Blinds</div>
+  <div class="opts-row" id="blindOpts">
+    <div class="opt-btn" data-sb="1" data-bb="2">1/2</div>
+    <div class="opt-btn active" data-sb="5" data-bb="10">5/10</div>
+    <div class="opt-btn" data-sb="25" data-bb="50">25/50</div>
+  </div>
+  <div class="field-label">Starting Chips</div>
+  <div class="opts-row" id="chipsOpts">
+    <div class="opt-btn active" data-val="1000">1000</div>
+    <div class="opt-btn" data-val="2000">2000</div>
+    <div class="opt-btn" data-val="5000">5000</div>
+  </div>
+  <button class="btn btn-gold" id="btnCreateConfirm">Create</button>
+  <button class="btn btn-outline" id="btnCreateBack">Back</button>
+</div>
+
+<!-- ============ JOIN BY CODE ============ -->
+<div class="screen hidden" id="joinScreen">
+  <h1>Join a Table</h1>
+  <input class="text-input" id="joinCodeInput" maxlength="12" placeholder="Table code" style="text-transform:uppercase">
+  <button class="btn btn-gold" id="btnJoinConfirm">Join</button>
+  <button class="btn btn-outline" id="btnJoinBack">Back</button>
+</div>
+
+<!-- ============ LOBBY (seated, waiting for hand) ============ -->
+<div class="screen hidden" id="lobbyScreen">
+  <h1>Table Lobby</h1>
+  <div class="subtitle">Code: <b id="lobbyCode" style="color:var(--gold)"></b></div>
+  <div id="lobbySeatList" style="width:100%;max-width:360px;margin-bottom:16px"></div>
+  <div id="hostControls" class="hidden">
+    <div class="field-label">Fill empty seats with bots</div>
+    <div class="opts-row" id="botFillOpts"></div>
+    <button class="btn btn-gold" id="btnStartHand">▶ Start Hand</button>
+  </div>
+  <div id="waitingNote" class="subtitle"></div>
+</div>
+
+<!-- ============ GAME TABLE ============ -->
+<div class="screen hidden" id="gameScreen">
+  <div class="topbar">
+    <div style="font-size:0.75rem"><span id="handNumDisplay">Hand 1</span> · <span id="blindsDisplay"></span></div>
+    <div>
+      <button class="topbar-btn" id="btnShowLog">📜 Log</button>
+      <button class="topbar-btn" id="btnLeaveTable">🚪 Leave</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <div class="felt"></div>
+    <div class="pot-display" id="potDisplay">Pot: 0</div>
+    <div class="board-area" id="boardArea"></div>
+    <div id="seatsContainer"></div>
+  </div>
+  <div class="hand-strip" id="myHandStrip"></div>
+  <div class="action-bar" id="actionBar"></div>
+</div>
+
+<!-- ============ SHOWDOWN / HAND END OVERLAY ============ -->
+<div class="overlay" id="handEndOverlay">
+  <div class="overlay-box">
+    <h2 id="handEndTitle" style="color:var(--gold)">Hand Complete</h2>
+    <div id="handEndBody"></div>
+  </div>
+</div>
+
+<div class="log-panel" id="logPanel">
+  <h3 style="color:var(--gold)">Hand Log</h3>
+  <div id="logEntries"></div>
+</div>
+
+<script>
+const socket = io();
+let myPos = null, myPlayerId = null, myTableId = null, isHost = false;
+let latestState = null;
+let createOpts = { mode: 'cash', buyInType: 'nolimit', smallBlind: 5, bigBlind: 10, startingChips: 1000 };
+
+function $(id) { return document.getElementById(id); }
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  $(id).classList.remove('hidden');
+}
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function cardHtml(card, mini) {
+  if (!card) return `<div class="card back${mini ? ' mini' : ''}"></div>`;
+  const isRed = card.suit === '♥' || card.suit === '♦';
+  return `<div class="card${mini ? ' mini' : ''} ${isRed ? 'red' : 'black'}"><div>${card.rank}</div><div>${card.suit}</div></div>`;
+}
+
+// ---------------- Landing ----------------
+$('btnShowCreate').addEventListener('click', () => showScreen('createScreen'));
+$('btnShowJoin').addEventListener('click', () => showScreen('joinScreen'));
+$('btnCreateBack').addEventListener('click', () => showScreen('landingScreen'));
+$('btnJoinBack').addEventListener('click', () => showScreen('landingScreen'));
+
+function wireOptRow(rowId, onPick) {
+  $(rowId).querySelectorAll('.opt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $(rowId).querySelectorAll('.opt-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      onPick(btn);
+    });
+  });
+}
+wireOptRow('modeOpts', btn => createOpts.mode = btn.dataset.val);
+wireOptRow('buyInOpts', btn => createOpts.buyInType = btn.dataset.val);
+wireOptRow('blindOpts', btn => { createOpts.smallBlind = Number(btn.dataset.sb); createOpts.bigBlind = Number(btn.dataset.bb); });
+wireOptRow('chipsOpts', btn => createOpts.startingChips = Number(btn.dataset.val));
+
+$('btnCreateConfirm').addEventListener('click', () => {
+  const name = $('nameInput').value.trim() || 'Player';
+  socket.emit('poker_createTable', { name, ...createOpts, reloadChips: Math.round(createOpts.startingChips / 2) });
+});
+$('btnJoinConfirm').addEventListener('click', () => {
+  const code = $('joinCodeInput').value.trim().toUpperCase();
+  const name = $('nameInput').value.trim() || 'Player';
+  if (!code) return;
+  socket.emit('poker_joinTable', { tableId: code, name });
+});
+
+socket.on('poker_roomList', (list) => {
+  const el = $('publicTableList');
+  if (!list.length) { el.innerHTML = ''; return; }
+  el.innerHTML = list.map(t => `
+    <div class="table-row">
+      <span>${escapeHtml(t.name)} · ${t.players}/9 · ${t.smallBlind}/${t.bigBlind}${t.isPlaying ? ' · 🔴 live' : ''}</span>
+      <button class="opt-btn" onclick="joinPublicTable('${t.tableId}')">Join</button>
+    </div>`).join('');
+});
+function joinPublicTable(tableId) {
+  const name = $('nameInput').value.trim() || 'Player';
+  socket.emit('poker_joinTable', { tableId, name });
+}
+socket.emit('poker_listRooms');
+setInterval(() => { if (!myTableId) socket.emit('poker_listRooms'); }, 4000);
+
+socket.on('poker_joinFailed', (info) => toast('❌ Could not join: ' + (info.reason || 'unknown')));
+
+socket.on('poker_joined', (info) => {
+  myPos = info.pos; myPlayerId = info.playerId; myTableId = info.tableId; isHost = info.isHost;
+  try {
+    localStorage.setItem('poker_session_' + info.tableId, JSON.stringify({ playerId: info.playerId, tableId: info.tableId }));
+  } catch (e) {}
+});
+
+// ---------------- State rendering ----------------
+socket.on('poker_state', (state) => {
+  latestState = state;
+  isHost = !!state.isHost;
+  if (state.phase === 'lobby') renderLobby(state);
+  else renderGameTable(state);
+});
+
+function renderLobby(state) {
+  showScreen('lobbyScreen');
+  $('lobbyCode').textContent = state.tableId;
+  const seats = state.seats.map((s, i) => s ? `<div class="table-row"><span>${i + 1}. ${escapeHtml(s.name)}${s.isBot ? ' 🤖' : ''}${i === myPos ? ' (you)' : ''}</span><span style="color:var(--gold)">${s.chips}</span></div>` : `<div class="table-row" style="opacity:0.4"><span>${i + 1}. Empty</span></div>`).join('');
+  $('lobbySeatList').innerHTML = seats;
+  $('hostControls').classList.toggle('hidden', !isHost);
+  if (isHost) {
+    const openCount = state.seats.filter(s => !s).length;
+    $('botFillOpts').innerHTML = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter(n => n <= openCount).map(n => `<div class="opt-btn${n === Math.min(3, openCount) ? ' active' : ''}" data-n="${n}">${n}</div>`).join('');
+    $('botFillOpts').querySelectorAll('.opt-btn').forEach(b => b.addEventListener('click', () => {
+      $('botFillOpts').querySelectorAll('.opt-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    }));
+  }
+  const occupied = state.seats.filter(Boolean).length;
+  $('waitingNote').textContent = isHost ? '' : `Waiting for host to start — ${occupied}/9 seated.`;
+}
+$('btnStartHand').addEventListener('click', () => {
+  const activeBtn = document.querySelector('#botFillOpts .opt-btn.active');
+  const n = activeBtn ? Number(activeBtn.dataset.n) : 0;
+  socket.emit('poker_fillBots', { count: n });
+  setTimeout(() => socket.emit('poker_startHand'), 250);
+});
+
+// Layout 9 seats evenly around an oval, seat 0 (or "my seat" rotated to
+// bottom) at the bottom-center, same viewer-relative convention the
+// other tables in this project use.
+function seatPositions() {
+  const positions = [];
+  const cx = 50, cy = 50, rx = 42, ry = 40;
+  for (let i = 0; i < 9; i++) {
+    const angle = (Math.PI / 2) + (i * 2 * Math.PI / 9);
+    positions.push({ x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) });
+  }
+  return positions;
+}
+function slotFor(pos) { return myPos === null ? pos : (pos - myPos + 9) % 9; }
+
+function renderGameTable(state) {
+  showScreen('gameScreen');
+  $('handNumDisplay').textContent = 'Hand ' + state.handNumber;
+  $('blindsDisplay').textContent = state.smallBlind + '/' + state.bigBlind + (state.buyInType === 'fixed' ? ' fixed' : ' NL');
+  $('potDisplay').textContent = 'Pot: ' + state.pots.reduce((s, p) => s + p.amount, 0) + (state.currentBet > 0 ? ` · Bet: ${state.currentBet}` : '');
+  $('boardArea').innerHTML = state.board.map(c => cardHtml(c, false)).join('') || '<span style="opacity:0.4;font-size:0.7rem">— waiting for flop —</span>';
+
+  const positions = seatPositions();
+  const seatsEl = $('seatsContainer');
+  seatsEl.innerHTML = state.seats.map((s, pos) => {
+    if (!s) return '';
+    const slot = slotFor(pos);
+    const p = positions[slot];
+    const isActive = state.currentPlayer === pos && state.phase !== 'handEnd';
+    const cardsHtml = pos === myPos
+      ? s.hand.map(c => cardHtml(c, true)).join('')
+      : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true)).join('') : '');
+    return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
+      <div class="seat-avatar-wrap">
+        <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
+        ${pos === state.dealerSeat ? '<div class="dealer-chip">D</div>' : ''}
+        ${s.allIn ? '<div class="allin-tag">ALL-IN</div>' : ''}
+      </div>
+      <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
+      <div class="seat-chips">${s.chips}${s.bustedAt ? ' ⏳' : ''}</div>
+      <div class="seat-cards">${cardsHtml}</div>
+      ${s.bettedThisRound > 0 ? `<div class="seat-bet">${s.bettedThisRound}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  const mySeat = state.seats[myPos];
+  $('myHandStrip').innerHTML = mySeat && mySeat.hand.length ? mySeat.hand.map(c => cardHtml(c, false)).join('') : '';
+
+  renderActionBar(state);
+  renderLogPanel(state);
+
+  if (state.phase === 'handEnd' && state.showdownResult) {
+    renderHandEnd(state);
+  } else {
+    $('handEndOverlay').classList.remove('on');
+  }
+}
+
+function renderActionBar(state) {
+  const bar = $('actionBar');
+  const mySeat = state.seats[myPos];
+  if (!mySeat || mySeat.folded || state.currentPlayer !== myPos || state.phase === 'handEnd') {
+    bar.innerHTML = `<div style="text-align:center;opacity:0.6;font-size:0.8rem;padding:10px">${state.currentPlayer !== myPos && state.phase !== 'handEnd' ? 'Waiting for ' + (state.seats[state.currentPlayer] ? escapeHtml(state.seats[state.currentPlayer].name) : '...') : ''}</div>`;
+    return;
+  }
+  const toCall = state.currentBet - mySeat.bettedThisRound;
+  const canCheck = toCall <= 0;
+  const maxBet = mySeat.chips + mySeat.bettedThisRound;
+  const minBet = Math.min(maxBet, state.currentBet + Math.max(state.minRaise, state.bigBlind));
+
+  let html = '<div class="action-row">';
+  html += `<button class="action-btn action-fold" onclick="sendAction('fold')">Fold</button>`;
+  html += canCheck
+    ? `<button class="action-btn action-check" onclick="sendAction('check')">Check</button>`
+    : `<button class="action-btn action-call" onclick="sendAction('call')">Call ${Math.min(toCall, mySeat.chips)}</button>`;
+  html += `<button class="action-btn action-bet" onclick="sendAction('allin')">All-In</button>`;
+  html += '</div>';
+
+  if (state.buyInType === 'fixed') {
+    html += `<button class="action-btn action-bet" style="width:100%" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}')">${state.currentBet > 0 ? 'Raise to ' + (state.currentBet + state.bigBlind) : 'Bet ' + state.bigBlind}</button>`;
+  } else if (maxBet > minBet) {
+    html += `<div class="amount-row">
+      <button class="stepper-btn" onclick="adjustBetAmount(-${state.bigBlind})">−</button>
+      <input type="range" id="betSlider" min="${minBet}" max="${maxBet}" step="${state.bigBlind}" value="${minBet}">
+      <button class="stepper-btn" onclick="adjustBetAmount(${state.bigBlind})">+</button>
+      <span class="amount-val" id="betAmountVal">${minBet}</span>
+    </div>
+    <button class="action-btn action-bet" style="width:100%;margin-top:8px" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}', Number(document.getElementById('betSlider').value))">${state.currentBet > 0 ? 'Raise' : 'Bet'}</button>`;
+  }
+  bar.innerHTML = html;
+  const slider = $('betSlider');
+  if (slider) slider.addEventListener('input', () => { $('betAmountVal').textContent = slider.value; });
+}
+function adjustBetAmount(delta) {
+  const slider = $('betSlider');
+  if (!slider) return;
+  slider.value = Math.max(Number(slider.min), Math.min(Number(slider.max), Number(slider.value) + delta));
+  $('betAmountVal').textContent = slider.value;
+}
+function sendAction(action, amount) {
+  socket.emit('poker_act', { action, amount });
+}
+socket.on('poker_actionError', (info) => toast('❌ ' + (info.reason || 'action failed').replace(/_/g, ' ')));
+
+function renderHandEnd(state) {
+  const r = state.showdownResult;
+  $('handEndOverlay').classList.add('on');
+  if (!r.boardShown) {
+    const w = r.winners[0];
+    $('handEndTitle').textContent = '🏆 ' + (state.seats[w.seat] ? state.seats[w.seat].name : 'Someone') + ' wins!';
+    $('handEndBody').innerHTML = `<p>Everyone else folded. Won <b style="color:var(--gold)">${w.amount}</b> chips.</p>`;
+  } else {
+    $('handEndTitle').textContent = '🏆 Showdown';
+    const rows = (r.allHands || []).map(h => {
+      const isWinner = r.winners.some(w => w.seat === h.seat);
+      const seatInfo = state.seats[h.seat];
+      return `<div class="showdown-hand-row${isWinner ? ' winner' : ''}">
+        <span>${seatInfo ? escapeHtml(seatInfo.name) : ''}</span>
+        <span>${h.hand.map(c => cardHtml(c, true)).join('')}</span>
+        <span>${h.handName}</span>
+      </div>`;
+    }).join('');
+    const winnerSummary = r.winners.map(w => `${state.seats[w.seat] ? state.seats[w.seat].name : ''} +${w.amount}`).join(', ');
+    $('handEndBody').innerHTML = `<div style="margin-bottom:8px">${rows}</div><p style="color:var(--gold);font-weight:800">${escapeHtml(winnerSummary)}</p>`;
+  }
+  setTimeout(() => $('handEndOverlay').classList.remove('on'), 4500);
+}
+
+function renderLogPanel(state) {
+  $('logEntries').innerHTML = state.log.map(l => `<div class="log-entry">${escapeHtml(l.text)}</div>`).join('');
+}
+$('btnShowLog').addEventListener('click', () => $('logPanel').classList.toggle('on'));
+
+$('btnLeaveTable').addEventListener('click', () => {
+  socket.emit('poker_leaveTable');
+  myTableId = null; myPos = null;
+  showScreen('landingScreen');
+  socket.emit('poker_listRooms');
+});
+</script>
+</body>
+</html>

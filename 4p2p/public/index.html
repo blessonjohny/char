@@ -2523,6 +2523,9 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <a class="welcome-btn primary" href="/56.html" style="background:linear-gradient(135deg,#2a9d8f,#1d6f65);border-color:transparent;color:#fff;text-decoration:none">
       <span class="icon">🂮</span> Play 56 Online <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">6 players, 2 teams of 3 — bid 28 to 56, with doubling</span>
     </a>
+    <a class="welcome-btn primary" href="/holdem.html" style="background:linear-gradient(135deg,#0b6b3a,#084d2a);border-color:transparent;color:#fff;text-decoration:none">
+      <span class="icon">♠️</span> Play Texas Hold'em <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">9-player table — cash game or tournament, no-limit or fixed</span>
+    </a>
     <button class="welcome-btn primary" id="btnPlayLocal" style="background:linear-gradient(135deg,#2a3f5f,#1a2942);border-color:transparent;color:#fff">
       <span class="icon">🎮</span> Play vs Bots <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🧠 Teach them your moves — each bot learns your strategy over time</span>
     </button>
@@ -13739,7 +13742,7 @@ let postRoundAutoContinueTimer = null;
 let postRoundAutoContinueInterval = null;
 function startPostRoundAutoContinueTimer(onAutoContinue) {
   clearPostRoundAutoContinueTimer();
-  let secondsLeft = 3;
+  let secondsLeft = 8;
   const noteEl = document.getElementById('postRoundAutoContinueNote');
   function updateNote() {
     if (noteEl) noteEl.textContent = `Continuing automatically in ${secondsLeft}s — tap "Analyze Last Round" to review first.`;
@@ -13752,7 +13755,7 @@ function startPostRoundAutoContinueTimer(onAutoContinue) {
   postRoundAutoContinueTimer = setTimeout(() => {
     clearPostRoundAutoContinueTimer();
     onAutoContinue();
-  }, 3000);
+  }, 8000);
 }
 function clearPostRoundAutoContinueTimer() {
   if (postRoundAutoContinueTimer) { clearTimeout(postRoundAutoContinueTimer); postRoundAutoContinueTimer = null; }
