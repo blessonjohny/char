@@ -1014,6 +1014,25 @@ function bandFor(value){
 }
 
 // ---------- initial state ----------
+// A human telling their teammates how to approach the next hand's
+// bidding -- same, more aggressive, or less aggressive. Sent to every
+// teammate at once (3-a-side teams, no single "partner").
+function sendPartnerSignal56(state, fromSeat, signal){
+  if(!['same','higher','lower'].includes(signal)) return {ok:false, reason:'bad_signal'};
+  const fromSeatInfo = state.seats[fromSeat];
+  if(!fromSeatInfo) return {ok:false, reason:'no_seat'};
+  const myTeam = TEAM_OF(fromSeat);
+  state.partnerSignals = state.partnerSignals || {};
+  const toSeats = [];
+  for(let i=0;i<6;i++){
+    if(i === fromSeat || TEAM_OF(i) !== myTeam) continue;
+    state.partnerSignals[i] = {signal, fromSeat, fromName: fromSeatInfo.name, forHand: (state.handNumber||1) + 1};
+    toSeats.push(i);
+  }
+  addLog(state, `${fromSeatInfo.name} signaled their team: bid ${signal==='same'?'the same':signal==='higher'?'more aggressively':'less aggressively'} next hand.`);
+  return {ok:true, toSeats};
+}
+
 function newRoomState(){
   return {
     roomCode,
@@ -1057,6 +1076,13 @@ function newRoomState(){
     // sessionWins does, above.
     qMarks: {},
     isFirstHandOfChampionship: true,
+    // Partner bidding signals: a human tells their teammates how to
+    // approach the NEXT hand's bidding — same, more aggressive, or less
+    // aggressive. One-shot, tagged with the hand it's meant for so an
+    // unused one just quietly expires. For a bot teammate this nudges
+    // their final bid value slightly; for a human it's just delivered
+    // as a message.
+    partnerSignals: {}, // seat -> {signal, fromSeat, fromName, forHand}
     reviewHold: false,
     log: [],
     lastNote: null,
@@ -1502,6 +1528,23 @@ function displaySlot(seat){
 // several overlapping popups. The very first render after loading never
 // animates — that would just be existing Q's syncing in, not a new event.
 let lastSeenQMarks56 = null;
+let lastShownPartnerSignalKey56 = null;
+// Human-recipient notification for a partner bidding signal — shows
+// exactly once per new signal, same pattern as the Q-mark/void-message
+// detectors elsewhere in this file. A bot recipient doesn't need this;
+// it just quietly uses the signal in its own bid calculation.
+function detectPartnerSignal56(state){
+  if(mySeat === null) return;
+  const mySignal = state.partnerSignals && state.partnerSignals[mySeat];
+  const key = mySignal ? (mySignal.fromSeat + ':' + mySignal.signal + ':' + mySignal.forHand) : null;
+  if(key && key !== lastShownPartnerSignalKey56){
+    lastShownPartnerSignalKey56 = key;
+    const label = mySignal.signal === 'same' ? 'bid the same as usual' : mySignal.signal === 'higher' ? 'bid more aggressively' : 'bid less aggressively';
+    showToast(`💬 ${mySignal.fromName} signals: ${label} next hand`, 4000);
+  } else if(!key){
+    lastShownPartnerSignalKey56 = null;
+  }
+}
 function detectQMarkChanges(state){
   const newMarks = state.qMarks || {};
   if(lastSeenQMarks56 === null){ lastSeenQMarks56 = {...newMarks}; return; }
@@ -1537,6 +1580,7 @@ function render(state){
   isHost = !!state.hostPlayerId && state.hostPlayerId === MY_PLAYER_ID;
   applyTheme(state.themeIndex || 0);
   detectQMarkChanges(state);
+  detectPartnerSignal56(state);
   // Same rule six.js uses: voice only makes sense once you're actually
   // seated and playing, not while still in the lobby waiting on others.
   if(window.K28Voice){
@@ -2250,10 +2294,36 @@ function renderHandEndOverlay(state){
         ${oppLabel} collected <b style="color:${oppColor}">${state.teamPoints[oppTeamLetter]}</b> points.
       </p>
       <p style="margin-top:10px;">Tables remaining &mdash; Team <b>${myMatchScore}</b> &nbsp;|&nbsp; Opp <b>${oppMatchScore}</b></p>
+      ${mySeat !== null ? `
+      <div style="margin:12px 0;padding:10px;background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.25);border-radius:10px;text-align:left">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">💬 Signal your team for next hand</div>
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-ghost" style="flex:1;padding:7px 3px;font-size:11px" id="signalSameBtn">🔁 Same</button>
+          <button class="btn btn-ghost" style="flex:1;padding:7px 3px;font-size:11px" id="signalHigherBtn">⬆️ More</button>
+          <button class="btn btn-ghost" style="flex:1;padding:7px 3px;font-size:11px" id="signalLowerBtn">⬇️ Less</button>
+        </div>
+        <div id="partnerSignalSentNote56" style="font-size:10px;color:#14c876;margin-top:5px;display:none"></div>
+      </div>` : ''}
       <button class="btn btn-gold" id="nextHandBtn" style="margin-top:16px;">Deal Next Hand</button>
     </div>
   `;
   document.getElementById('nextHandBtn').addEventListener('click', () => nextHand(state));
+  if(mySeat !== null){
+    const note = document.getElementById('partnerSignalSentNote56');
+    function wireSignal(id, signal, label){
+      const btn = document.getElementById(id);
+      if(!btn) return;
+      btn.addEventListener('click', async () => {
+        let fresh = await loadState();
+        sendPartnerSignal56(fresh, mySeat, signal);
+        await saveState(fresh);
+        if(note){ note.textContent = `✓ Signaled: ${label}`; note.style.display = 'block'; }
+      });
+    }
+    wireSignal('signalSameBtn', 'same', 'bid the same');
+    wireSignal('signalHigherBtn', 'higher', 'bid more aggressively');
+    wireSignal('signalLowerBtn', 'lower', 'bid less aggressively');
+  }
 }
 
 function escapeHtml(s){
@@ -3266,6 +3336,19 @@ async function runBotBid(state, seat){
   const decision = botDecideBid(state, seat);
   const botName = state.seats[seat].name;
   state.lastActionBySeat = state.lastActionBySeat || {};
+
+  // Partner bidding signal from last hand: a lightweight nudge on top of
+  // whatever the normal decision tree already landed on, not woven into
+  // it — safer than touching the many specific thresholds above, and
+  // still respects the legal minimum/maximum either way.
+  const mySignal = state.partnerSignals && state.partnerSignals[seat];
+  if(mySignal && mySignal.forHand === (state.handNumber||1) && decision.action === 'bid' && typeof decision.value === 'number'){
+    const cb = state.currentBid;
+    const minAllowed = cb ? cb.value + 1 : 28;
+    if(mySignal.signal === 'higher') decision.value = Math.min(56, decision.value + 2);
+    else if(mySignal.signal === 'lower') decision.value = Math.max(minAllowed, decision.value - 2);
+  }
+  if(mySignal) delete state.partnerSignals[seat]; // one-shot: consumed the moment this seat actually bids
 
   if(decision.action === 'pass'){
     if(!state.passedSeats.includes(seat)) state.passedSeats.push(seat);

@@ -520,6 +520,7 @@ let latestState = null;
 let lastAnnouncedTrumpExposed = false;
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired
 let lastShownRoundVoidMessage = null;
+let lastShownPartnerSignalKey6p = null;
 let lastSeenTricksPlayed = -1; // detects exactly when a new trick has just completed
 let trickHoldBusy = false;     // a trick is currently mid-reveal (its full pause hasn't elapsed yet)
 let sixpTrickRevealQueue = []; // completed tricks still waiting their turn — nothing in here is ever dropped
@@ -788,6 +789,16 @@ function applyState(state) {
     showToast('🚫 ' + state.roundVoidMessage, 'lose', 3500);
   } else if (!state.roundVoidMessage) {
     lastShownRoundVoidMessage = null;
+  }
+
+  const mySignal6p = state.partnerSignals && state.partnerSignals[MY_POS];
+  const mySignalKey6p = mySignal6p ? (mySignal6p.fromSeat + ':' + mySignal6p.signal + ':' + mySignal6p.forRound) : null;
+  if (mySignalKey6p && mySignalKey6p !== lastShownPartnerSignalKey6p) {
+    lastShownPartnerSignalKey6p = mySignalKey6p;
+    const label = mySignal6p.signal === 'same' ? 'bid the same as usual' : mySignal6p.signal === 'higher' ? 'bid more aggressively' : 'bid less aggressively';
+    showToast(`💬 ${mySignal6p.fromName} signals: ${label} next hand`, 'info', 4000);
+  } else if (!mySignalKey6p) {
+    lastShownPartnerSignalKey6p = null;
   }
 
   if (state.phase === 'lobby') {
@@ -1500,12 +1511,29 @@ function showRoundEnd(state) {
   }
   $('roundEndBody').innerHTML = body;
   $('btnContinueRound').style.display = IS_HOST ? 'flex' : 'none';
+  const signalNote6p = $('partnerSignalSentNote6p');
+  if (signalNote6p) signalNote6p.style.display = 'none';
   $('roundEndOverlay').classList.add('on');
 }
 $('btnContinueRound').addEventListener('click', () => {
   $('roundEndOverlay').classList.remove('on');
   socket.emit('sixp_continueRound');
 });
+// Partner bidding signal — tell your teammates how to approach next
+// hand's bidding. Doesn't close the round-end modal, just a quick tap
+// with a brief confirmation.
+function wireSignalBtn6p(id, signal, label) {
+  const btn = $(id);
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    socket.emit('sixp_sendPartnerSignal', { signal });
+    const note = $('partnerSignalSentNote6p');
+    if (note) { note.textContent = `✓ Signaled: ${label}`; note.style.display = 'block'; }
+  });
+}
+wireSignalBtn6p('btnSignalSame6p', 'same', 'bid the same');
+wireSignalBtn6p('btnSignalHigher6p', 'higher', 'bid more aggressively');
+wireSignalBtn6p('btnSignalLower6p', 'lower', 'bid less aggressively');
 
 function showGameOver(state) {
   $('roundEndOverlay').classList.remove('on');

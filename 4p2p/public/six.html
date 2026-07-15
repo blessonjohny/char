@@ -567,6 +567,15 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
   <div class="modal-box">
     <h1 id="roundEndTitle" style="font-size:1.3rem">Round Over</h1>
     <div id="roundEndBody" style="color:var(--text-secondary);font-size:0.85rem;margin:12px 0"></div>
+    <div style="margin:12px 0;padding:10px;background:rgba(96,165,250,0.06);border:1px solid rgba(96,165,250,0.2);border-radius:10px">
+      <div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:6px">💬 Signal your team for next hand</div>
+      <div style="display:flex;gap:5px">
+        <button class="btn btn-outline" style="flex:1;padding:7px 3px;font-size:0.66rem" id="btnSignalSame6p">🔁 Same</button>
+        <button class="btn btn-outline" style="flex:1;padding:7px 3px;font-size:0.66rem" id="btnSignalHigher6p">⬆️ More</button>
+        <button class="btn btn-outline" style="flex:1;padding:7px 3px;font-size:0.66rem" id="btnSignalLower6p">⬇️ Less</button>
+      </div>
+      <div id="partnerSignalSentNote6p" style="font-size:0.65rem;color:var(--success);margin-top:5px;display:none"></div>
+    </div>
     <button class="btn btn-success" id="btnContinueRound">Continue</button>
   </div>
 </div>

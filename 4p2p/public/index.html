@@ -3160,6 +3160,15 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   <div class="modal" id="postRoundModal">
     <h3 id="postRoundTitle">Round Complete!</h3>
     <p id="postRoundText"></p>
+    <div id="partnerSignalWrap" style="margin:14px 0;padding:12px;background:rgba(96,165,250,0.06);border:1px solid rgba(96,165,250,0.2);border-radius:10px">
+      <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:8px">💬 Signal your partner for next hand</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline" style="flex:1;padding:8px 4px;font-size:0.72rem" id="btnSignalSame">🔁 Same</button>
+        <button class="btn btn-outline" style="flex:1;padding:8px 4px;font-size:0.72rem" id="btnSignalHigher">⬆️ More Aggressive</button>
+        <button class="btn btn-outline" style="flex:1;padding:8px 4px;font-size:0.72rem" id="btnSignalLower">⬇️ Less Aggressive</button>
+      </div>
+      <div id="partnerSignalSentNote" style="font-size:0.7rem;color:var(--success);margin-top:6px;display:none"></div>
+    </div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
       <button class="btn btn-primary" style="width:100%;padding:14px 20px;min-height:52px;font-size:1rem" id="btnContinueGame">▶ Continue</button>
       <button class="btn btn-info" style="width:100%;padding:14px 20px;min-height:52px;font-size:1rem" id="btnAnalyzeRound">📊 Analyze Last Round</button>
@@ -8536,6 +8545,11 @@ function showPostRoundOptions(bidderWon, made, bT, oT, yourTeam, isYourBid) {
     '</div>';
 
   overlay.classList.add('on');
+  // Partner signaling needs a server-side engine to actually act on it
+  // (for a bot partner) or another connected player to receive it (for
+  // a human one) — neither exists in offline/local mode.
+  const signalWrapOffline = document.getElementById('partnerSignalWrap');
+  if (signalWrapOffline) signalWrapOffline.style.display = 'none';
 
   const btnContinue = document.getElementById('btnContinueGame');
   const btnAnalyze = document.getElementById('btnAnalyzeRound');
@@ -12568,6 +12582,7 @@ let serverRoundEndShown = -1; // which round number we've already shown the summ
 let serverLastAnnouncedTrumpExposed = false; // tracks trumpExposed so the announcement toast fires exactly once per exposure, not on every render
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired, so it shows exactly once per round
 let lastShownRoundVoidMessage = null; // tracks the defending-team-has-no-trump void message so it shows exactly once per occurrence
+let lastShownPartnerSignalKey = null; // tracks the last partner bidding signal shown to this player so it shows exactly once per occurrence
 
 // A full page reload wipes every JS variable but leaves localStorage
 // intact — MY_PLAYER_TOKEN, MY_TABLE_ID, and MY_NAME are all restored from
@@ -13424,6 +13439,20 @@ function applyServerState(state) {
     lastShownRoundVoidMessage = null;
   }
 
+  // Partner bidding signal received — same "show exactly once" pattern
+  // as the void message above. Only meaningful to show if I'M the human
+  // on the receiving end; a bot partner just quietly uses it in their
+  // own bid calculation, no notification needed.
+  const mySignal = state.partnerSignals && state.partnerSignals[MY_POS];
+  const mySignalKey = mySignal ? (mySignal.fromSeat + ':' + mySignal.signal + ':' + mySignal.forRound) : null;
+  if (mySignalKey && mySignalKey !== lastShownPartnerSignalKey) {
+    lastShownPartnerSignalKey = mySignalKey;
+    const label = mySignal.signal === 'same' ? 'bid the same as usual' : mySignal.signal === 'higher' ? 'bid more aggressively' : 'bid less aggressively';
+    showToast(`💬 ${mySignal.fromName} signals: ${label} next hand`, 'info', 4000);
+  } else if (!mySignalKey) {
+    lastShownPartnerSignalKey = null;
+  }
+
   // Online bots learn server-side via the exact same persistent brain
   // system as local mode (see bot-brain.js) — this was already real, it
   // just had no visible feedback. learningPulseCount ticks up every time
@@ -13761,6 +13790,8 @@ function proceedAfterCrownAnimationServerMode(bidderWon, made, bT, oT, yourTeam,
     '<div style="background:rgba(248,113,113,0.1);border:1px solid var(--danger);border-radius:8px;padding:8px"><div style="font-size:0.65rem;color:var(--text-secondary)">Opponents</div><div style="font-size:1.1rem;font-weight:800;color:var(--danger)">' + oppScore + '</div><div style="font-size:0.6rem;color:var(--text-secondary)">Round: ' + oppRoundPts + ' pts</div></div>' +
     '</div></div>';
   overlay.classList.add('on');
+  const signalWrapServer = document.getElementById('partnerSignalWrap');
+  if (signalWrapServer) signalWrapServer.style.display = '';
 
   const btnContinue = document.getElementById('btnContinueGame');
   const btnAnalyze = document.getElementById('btnAnalyzeRound');
@@ -13786,6 +13817,28 @@ function proceedAfterCrownAnimationServerMode(bidderWon, made, bT, oT, yourTeam,
     };
   }
   if (btnQuit) { btnQuit.onclick = function () { clearPostRoundAutoContinueTimer(); overlay.classList.remove('on'); leaveServerTable(); }; }
+
+  // Partner bidding signal — tell your partner (bot or human) how to
+  // approach next hand's bidding. Doesn't close the modal or interrupt
+  // the auto-continue countdown; just a quick tap with a brief
+  // confirmation, same spirit as a real-table hand signal.
+  const signalNote = document.getElementById('partnerSignalSentNote');
+  function wireSignalBtn(id, signal, label) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.onclick = function () {
+      gameSocket.emit('sendPartnerSignal', { signal });
+      if (signalNote) {
+        signalNote.textContent = `✓ Signaled: ${label}`;
+        signalNote.style.display = 'block';
+      }
+    };
+  }
+  wireSignalBtn('btnSignalSame', 'same', 'bid the same');
+  wireSignalBtn('btnSignalHigher', 'higher', 'bid more aggressively');
+  wireSignalBtn('btnSignalLower', 'lower', 'bid less aggressively');
+  if (signalNote) signalNote.style.display = 'none';
+
   if (btnContinue) startPostRoundAutoContinueTimer(() => btnContinue.click());
 }
 
