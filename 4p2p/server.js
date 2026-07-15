@@ -56,25 +56,95 @@ app.get('/status', (req, res) => {
 
 // ============================================================
 // COMMENT BOX — lets a player leave a message from the welcome screen
-// without needing any email server. Stored as a plain JSON file on disk
-// (same durable-across-restarts approach as bot-brains-data.json), and
-// readable only through /api/comments with the admin password — that's
-// the "admin panel" this feeds; see public/admin.html.
+// without needing any email server. Readable only through /api/comments
+// with the admin password -- that's the "admin panel" this feeds; see
+// public/admin.html.
+//
+// This used to just be a local JSON file, with a comment here claiming
+// that was "durable across restarts" -- that claim was wrong. Render's
+// free tier wipes the local disk on every restart AND on every routine
+// spin-down after 15 minutes idle (confirmed directly from Render's own
+// docs earlier), so a plain local file quietly loses everything on a
+// normal day of nobody using the site for a bit. Same fix as the
+// visitor log: back it up to this project's own GitHub repo, which
+// isn't going anywhere. Local file kept too, as a fast cache so every
+// single comment doesn't trigger its own GitHub commit.
 // ============================================================
 app.use(express.json({ limit: '32kb' }));
 
 const COMMENTS_FILE = path.join(__dirname, 'comments-data.json');
+const GITHUB_COMMENTS_PATH = '4p2p/data/comments.json';
 let comments = [];
-try {
-  if (fs.existsSync(COMMENTS_FILE)) comments = JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf8'));
-} catch (e) {
-  console.error('[comments] failed to load comments file, starting fresh:', e.message);
-  comments = [];
+let commentsDirty = false;
+let githubCommentsFileSha = null;
+
+async function githubFetchComments() {
+  if (!GITHUB_ENABLED) return null;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_COMMENTS_PATH}?ref=${GITHUB_BRANCH}`, {
+      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+    });
+    if (res.status === 404) { console.log('[comments] No existing comments.json in the repo yet — starting fresh.'); return []; }
+    if (!res.ok) { console.error('[comments] GitHub fetch failed:', res.status, await res.text()); return null; }
+    const json = await res.json();
+    githubCommentsFileSha = json.sha;
+    return JSON.parse(Buffer.from(json.content, 'base64').toString('utf8'));
+  } catch (e) {
+    console.error('[comments] GitHub fetch error:', e.message);
+    return null;
+  }
 }
-function saveComments() {
-  try { fs.writeFileSync(COMMENTS_FILE, JSON.stringify(comments)); }
-  catch (e) { console.error('[comments] failed to save comments file:', e.message); }
+async function githubPushComments() {
+  if (!GITHUB_ENABLED) return;
+  try {
+    const body = {
+      message: `Update comments (${comments.length} entries)`,
+      content: Buffer.from(JSON.stringify(comments)).toString('base64'),
+      branch: GITHUB_BRANCH
+    };
+    if (githubCommentsFileSha) body.sha = githubCommentsFileSha;
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_COMMENTS_PATH}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) { console.error('[comments] GitHub push failed:', res.status, await res.text()); return; }
+    const json = await res.json();
+    githubCommentsFileSha = json.content.sha;
+    console.log(`[comments] Synced ${comments.length} comments to GitHub.`);
+  } catch (e) {
+    console.error('[comments] GitHub push error:', e.message);
+  }
 }
+async function loadComments() {
+  if (GITHUB_ENABLED) {
+    const fromGithub = await githubFetchComments();
+    if (fromGithub) { comments = fromGithub; console.log(`[comments] Loaded ${comments.length} comment(s) from GitHub.`); return; }
+    console.log('[comments] Falling back to local file for this boot (GitHub fetch failed).');
+  }
+  try {
+    if (fs.existsSync(COMMENTS_FILE)) {
+      comments = JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf8'));
+      console.log(`[comments] Loaded ${comments.length} comment(s) from local disk.`);
+    }
+  } catch (e) {
+    console.error('[comments] failed to load local comments file, starting fresh:', e.message);
+    comments = [];
+  }
+}
+function saveCommentsLocal() {
+  if (!commentsDirty) return;
+  try { fs.writeFileSync(COMMENTS_FILE, JSON.stringify(comments)); commentsDirty = false; }
+  catch (e) { console.error('[comments] failed to save local comments file:', e.message); }
+}
+setInterval(saveCommentsLocal, 10000);
+let lastGithubCommentsSyncCount = 0;
+setInterval(() => {
+  if (GITHUB_ENABLED && comments.length !== lastGithubCommentsSyncCount) {
+    lastGithubCommentsSyncCount = comments.length;
+    githubPushComments();
+  }
+}, 3 * 60 * 1000);
 
 app.post('/api/comments', (req, res) => {
   const name = String((req.body && req.body.name) || 'Anonymous').slice(0, 40).trim() || 'Anonymous';
@@ -82,7 +152,8 @@ app.post('/api/comments', (req, res) => {
   if (!message) return res.status(400).json({ ok: false, error: 'empty_message' });
   comments.unshift({ id: crypto.randomBytes(6).toString('hex'), name, message, time: Date.now() });
   if (comments.length > 500) comments.length = 500; // cap growth — this is a comment box, not a database
-  saveComments();
+  commentsDirty = true;
+  saveCommentsLocal();
   console.log(`[comments] new message from ${name}`);
   res.json({ ok: true });
 });
@@ -95,7 +166,8 @@ app.get('/api/comments', (req, res) => {
 app.delete('/api/comments/:id', (req, res) => {
   if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
   comments = comments.filter(c => c.id !== req.params.id);
-  saveComments();
+  commentsDirty = true;
+  saveCommentsLocal();
   res.json({ ok: true });
 });
 
@@ -133,7 +205,7 @@ const VISITOR_LOG_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 const GITHUB_REPO = process.env.GITHUB_REPO || '';
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
-const GITHUB_VISITOR_LOG_PATH = 'data/visitor-log.json';
+const GITHUB_VISITOR_LOG_PATH = '4p2p/data/visitor-log.json';
 const GITHUB_ENABLED = !!(GITHUB_TOKEN && GITHUB_REPO);
 let visitorLog = [];
 let visitorLogDirty = false;
@@ -228,6 +300,7 @@ setInterval(() => {
   }
 }, 3 * 60 * 1000);
 loadVisitorLog();
+loadComments();
 
 // Consolidated graceful shutdown -- every module with something to save
 // (bot brains, visitor log, anything added later) registers its own
@@ -238,9 +311,10 @@ loadVisitorLog();
 // if GitHub is slow or unreachable right at that moment.
 async function finalVisitorLogFlush() {
   saveVisitorLogLocal();
+  saveCommentsLocal();
   if (GITHUB_ENABLED) {
     await Promise.race([
-      githubPushVisitorLog(),
+      Promise.all([githubPushVisitorLog(), githubPushComments()]),
       new Promise(resolve => setTimeout(resolve, 4000))
     ]);
   }
