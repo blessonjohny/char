@@ -439,16 +439,23 @@ function renderGameTable(state) {
   renderStreetBanner(state);
   renderTurnBanner(state);
 
-  // The showdown popup is shown exactly once per hand and then left
-  // alone -- the server may keep dealing further hands in the
-  // background (bots don't need to click anything to keep the table
-  // moving), but the human's popup stays up with THAT hand's result
-  // until they explicitly dismiss it, not on a timer and not just
-  // because the underlying state moved on.
+  // A real showdown plays out on the table itself first -- cards are
+  // already flipping face-up right now (handled above, in the seat
+  // rendering), and the pot is about to fly to the winner. The summary
+  // popup deliberately waits a beat instead of covering all that up
+  // instantly; it's still shown exactly once per hand and left alone
+  // afterward, same as before, just not on top of the reveal itself.
   if (state.phase === 'handEnd' && state.showdownResult && state.handNumber !== lastShownHandEndFor) {
     lastShownHandEndFor = state.handNumber;
-    renderHandEnd(state);
-    animateChipsToWinners(state);
+    setTimeout(() => animateChipsToWinners(state), 900);
+    setTimeout(() => {
+      // Don't reopen a now-stale popup if it's already become the
+      // player's real turn in a later hand by the time this fires --
+      // that would silently recreate the exact "popup blocks my actual
+      // turn" bug this file already had to fix once.
+      if (latestState && latestState.currentPlayer === myPos && latestState.phase !== 'handEnd') return;
+      renderHandEnd(state);
+    }, 2200);
   }
 
   // The one case that DOES force it closed: it's now genuinely this
