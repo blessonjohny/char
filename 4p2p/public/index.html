@@ -1974,57 +1974,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   position: fixed;
   inset: 0;
   z-index: 950;
-  background: rgba(0,0,0,0.35);
+  background: rgba(0,0,0,0);
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: all;
+  animation: roundResultBackdropIn 0.3s ease forwards;
 }
-.crown-anim-overlay .result-text {
-  position: absolute;
-  top: 8%;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 1.4rem;
-  font-weight: 800;
+.crown-anim-overlay.leaving { animation: roundResultBackdropOut 0.4s ease forwards; }
+@keyframes roundResultBackdropIn { from{background:rgba(0,0,0,0);} to{background:rgba(0,0,0,0.6);} }
+@keyframes roundResultBackdropOut { from{background:rgba(0,0,0,0.6);} to{background:rgba(0,0,0,0);} }
+
+.round-result-card {
   text-align: center;
-  text-shadow: 0 0 20px currentColor, 0 2px 8px rgba(0,0,0,0.5);
-  animation: modalPop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.2s both;
-  white-space: normal;
-  max-width: 90vw;
-  width: max-content;
-  line-height: 1.2;
-  padding: 0 10px;
-  word-break: break-word;
+  padding: 30px 36px;
+  border-radius: 20px;
+  max-width: 88vw;
+  animation: roundResultCardIn 0.45s cubic-bezier(0.22,1.4,0.4,1) both;
 }
+.crown-anim-overlay.leaving .round-result-card { animation: roundResultCardOut 0.35s ease both; }
+@keyframes roundResultCardIn { 0%{opacity:0;transform:scale(0.75) translateY(14px);} 100%{opacity:1;transform:scale(1) translateY(0);} }
+@keyframes roundResultCardOut { 0%{opacity:1;transform:scale(1);} 100%{opacity:0;transform:scale(0.92) translateY(-10px);} }
+.round-result-card.win { background: radial-gradient(ellipse at center, rgba(20,72,46,0.97), rgba(6,26,17,0.98)); border: 2px solid #3ddc84; box-shadow: 0 0 50px rgba(61,220,132,0.4); }
+.round-result-card.lose { background: radial-gradient(ellipse at center, rgba(92,26,32,0.97), rgba(40,10,13,0.98)); border: 2px solid #e0616f; box-shadow: 0 0 50px rgba(224,97,111,0.35); }
+.round-result-icon { font-size: 2.6rem; line-height: 1; animation: roundResultIconPop 0.5s cubic-bezier(0.22,1.6,0.4,1) 0.15s both; }
+@keyframes roundResultIconPop { 0%{transform:scale(0);} 70%{transform:scale(1.15);} 100%{transform:scale(1);} }
+.round-result-title { font-size: 1.3rem; font-weight: 800; letter-spacing: 0.4px; margin-top: 12px; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+.round-result-sub { font-size: 0.85rem; margin-top: 6px; color: rgba(255,255,255,0.75); }
 @media (max-width: 480px) {
-  .crown-anim-overlay .result-text {
-    font-size: 1.1rem;
-    top: 6%;
-    max-width: 95vw;
-  }
+  .round-result-card { padding: 24px 26px; }
+  .round-result-icon { font-size: 2.2rem; }
+  .round-result-title { font-size: 1.1rem; }
 }
-.crown-animator {
-  position: fixed;
-  z-index: 951;
-  pointer-events: none;
-  font-size: 2.2rem;
-  filter: drop-shadow(0 0 12px rgba(255,215,0,0.8));
-  will-change: transform, left, top;
-}
-.crown-animator .crown-emoji {
-  font-size: inherit;
-  display: block;
-}
-.crown-animator .tear {
-  position: absolute;
-  font-size: 0.9rem;
-  top: 70%;
-  animation: tearDrop 0.6s ease-in infinite;
-}
-.crown-animator .tear.t1 { left: 15%; animation-delay: 0s; }
-.crown-animator .tear.t2 { right: 15%; animation-delay: 0.25s; }
-.crown-animator .tear.t3 { left: 40%; animation-delay: 0.5s; }
 .fw-particle {
   position: fixed;
   width: 6px;
@@ -3184,6 +3165,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <button class="btn btn-info" style="width:100%;padding:14px 20px;min-height:52px;font-size:1rem" id="btnAnalyzeRound">📊 Analyze Last Round</button>
       <button class="btn btn-outline" style="width:100%;padding:12px 20px;min-height:48px;font-size:0.9rem" id="btnQuitToHome">🏠 Quit to Home</button>
     </div>
+    <div id="postRoundAutoContinueNote" style="margin-top:10px;font-size:0.75rem;color:var(--text-secondary);text-align:center"></div>
   </div>
 </div>
 
@@ -8142,157 +8124,55 @@ function botReact(p, isPartner, won) {
 
 
 // ==================== CROWN ANIMATION SYSTEM ====================
-function animateCrownRoundEnd(bidderWon, callback) {
-  const bidderAv = document.getElementById('av' + slotForPlayer(bidder));
-  if (!bidderAv) { if (callback) callback(); return; }
-
-  // Get bidder avatar position (starting point)
-  const avRect = bidderAv.getBoundingClientRect();
-  const startX = avRect.left + avRect.width / 2;
-  const startY = avRect.top + avRect.height / 2;
-
-  // Center of the table (cross area) - the target
-  const cross = document.querySelector('.cross');
-  let targetX, targetY;
-  if (cross) {
-    const crossRect = cross.getBoundingClientRect();
-    targetX = crossRect.left + crossRect.width / 2;
-    targetY = crossRect.top + crossRect.height / 2;
-  } else {
-    targetX = window.innerWidth / 2;
-    targetY = window.innerHeight / 2;
-  }
-
-  // Create overlay blocker
+function animateCrownRoundEnd(bidderWon, callback, isYourBid) {
   const overlay = document.createElement('div');
   overlay.className = 'crown-anim-overlay';
+
+  // Personalized outcome, not a generic "the bidder won/lost" message —
+  // what matters to whoever's watching is what happened to THEIR team.
+  // isYourBid tells us whether the bidder was on the viewer's own side;
+  // from that we work out whether the viewer's team actually came out
+  // ahead this round, regardless of who did the bidding. Every player
+  // at the table sees their own correct version of this at the same
+  // moment — "made the bid" for the bidder's side, "defended" for the
+  // other side, never a flat "bidder wins/loses" that doesn't say
+  // whose side that was.
+  let didMyTeamSucceed, title, sub;
+  if (typeof isYourBid === 'boolean') {
+    didMyTeamSucceed = isYourBid ? bidderWon : !bidderWon;
+    if (isYourBid) {
+      title = bidderWon ? 'Your Team Made It!' : 'Your Team Fell Short';
+      sub = bidderWon ? 'The bid came through.' : "Couldn't reach the bid.";
+    } else {
+      title = bidderWon ? 'Opponents Made It' : 'Your Team Defended!';
+      sub = bidderWon ? 'They reached their bid.' : 'You held them off.';
+    }
+  } else {
+    // Fallback if a caller ever doesn't pass viewer context.
+    didMyTeamSucceed = bidderWon;
+    title = bidderWon ? 'Bid Made!' : 'Bid Failed';
+    sub = '';
+  }
+
+  const card = document.createElement('div');
+  card.className = 'round-result-card ' + (didMyTeamSucceed ? 'win' : 'lose');
+  card.innerHTML =
+    '<div class="round-result-icon">' + (didMyTeamSucceed ? '🏆' : '💔') + '</div>' +
+    '<div class="round-result-title">' + title + '</div>' +
+    (sub ? '<div class="round-result-sub">' + sub + '</div>' : '');
+  overlay.appendChild(card);
   document.body.appendChild(overlay);
 
-  // Create result text
-  const resultText = document.createElement('div');
-  resultText.className = 'result-text';
-  if (bidderWon) {
-    resultText.textContent = '🎉 BIDDER WINS! 🎉';
-    resultText.style.color = 'var(--success)';
-  } else {
-    resultText.textContent = '😢 BIDDER LOSES...';
-    resultText.style.color = 'var(--danger)';
-  }
-  overlay.appendChild(resultText);
-
-  // Create crown at the bidder's avatar position (starting point)
-  const crown = document.createElement('div');
-  crown.className = 'crown-animator';
-  crown.style.left = startX + 'px';
-  crown.style.top = startY + 'px';
-  crown.style.transform = 'translate(-50%, -50%) scale(0.3)';
-  crown.style.opacity = '0';
-  crown.innerHTML = '<span class="crown-emoji">👑</span>';
-  document.body.appendChild(crown);
-
-  // PHASE 1: Appear at bidder position then FLY to center
-  // First make it appear
-  crown.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-  requestAnimationFrame(() => {
-    crown.style.opacity = '1';
-    crown.style.transform = 'translate(-50%, -50%) scale(0.8)';
-  });
-
-  // Brief pause at start, then FLY to center
+  // Hold, then fade out and hand control back — matches the original's
+  // overall pacing so nothing downstream (the round-end panel, the
+  // safety-net watchdog) needs to change.
   setTimeout(() => {
-    // Now FLY to the center of the table
-    crown.style.transition = 'left 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94), top 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.9s cubic-bezier(0.34, 1.56, 0.64, 1)';
-
-    requestAnimationFrame(() => {
-      crown.style.left = targetX + 'px';
-      crown.style.top = targetY + 'px';
-      crown.style.transform = 'translate(-50%, -50%) scale(1)';
-    });
-
-    // PHASE 2: After arriving at center, grow bigger
+    overlay.classList.add('leaving');
     setTimeout(() => {
-      crown.style.transition = 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.5s ease';
-
-      if (bidderWon) {
-        // WIN: Grow to 1.5x with gold glow
-        crown.style.transform = 'translate(-50%, -50%) scale(1.5)';
-        crown.style.filter = 'brightness(1.3) drop-shadow(0 0 20px gold)';
-
-        // Fireworks!
-        setTimeout(() => {
-          createCrownFireworks(targetX, targetY);
-        }, 200);
-
-        // PHASE 3: Burst and fade
-        setTimeout(() => {
-          crown.style.transition = 'transform 1.2s ease-in-out, opacity 1.2s ease-in-out';
-          crown.style.transform = 'translate(-50%, -50%) scale(2) rotate(8deg)';
-          crown.style.filter = 'brightness(1.8) drop-shadow(0 0 50px gold)';
-
-          setTimeout(() => {
-            crown.style.opacity = '0';
-            crown.style.transform = 'translate(-50%, -50%) scale(0)';
-          }, 600);
-
-          setTimeout(() => {
-            crown.remove();
-            overlay.remove();
-            if (callback) callback();
-          }, 1200);
-        }, 1000);
-
-      } else {
-        // LOSE: Grow to 1.4x but turn sad
-        crown.style.transform = 'translate(-50%, -50%) scale(1.4)';
-        crown.style.filter = 'grayscale(0.5) drop-shadow(0 0 10px rgba(100,100,100,0.3))';
-
-        // Add tears
-        const tear1 = document.createElement('span');
-        tear1.className = 'tear t1';
-        tear1.textContent = '💧';
-        crown.appendChild(tear1);
-
-        const tear2 = document.createElement('span');
-        tear2.className = 'tear t2';
-        tear2.textContent = '💧';
-        crown.appendChild(tear2);
-
-        const tear3 = document.createElement('span');
-        tear3.className = 'tear t3';
-        tear3.textContent = '💧';
-        crown.appendChild(tear3);
-
-        // Shake (cry)
-        setTimeout(() => {
-          crown.style.transition = 'transform 0.1s ease';
-          let shake = 0;
-          const shaker = setInterval(() => {
-            shake++;
-            const rot = Math.sin(shake * 0.8) * 5;
-            crown.style.transform = 'translate(-50%, -50%) scale(1.4) rotate(' + rot + 'deg)';
-            if (shake >= 16) {
-              clearInterval(shaker);
-              crown.style.transform = 'translate(-50%, -50%) scale(1.4)';
-            }
-          }, 100);
-
-          // Fade out
-          setTimeout(() => {
-            clearInterval(shaker);
-            crown.style.transition = 'transform 1s ease-in, opacity 1s ease-in';
-            crown.style.transform = 'translate(-50%, -50%) scale(1.2)';
-            crown.style.opacity = '0';
-
-            setTimeout(() => {
-              crown.remove();
-              overlay.remove();
-              if (callback) callback();
-            }, 1000);
-          }, 1600);
-        }, 500);
-      }
-    }, 900);
-  }, 300);
+      overlay.remove();
+      if (callback) callback();
+    }, 400);
+  }, 1800);
 }
 
 function createCrownFireworks(cx, cy) {
@@ -8449,7 +8329,7 @@ function endRoundWithLearning() {
   animateCrownRoundEnd(bidderWon, function() {
     // This callback runs ONLY after crown animation is fully complete
     proceedAfterCrownAnimation(bidderWon, made, bT, oT, yourTeam, isYourBid);
-  });
+  }, isYourBid);
 }
 
 function proceedAfterCrownAnimation(bidderWon, made, bT, oT, yourTeam, isYourBid) {
@@ -8663,6 +8543,7 @@ function showPostRoundOptions(bidderWon, made, bT, oT, yourTeam, isYourBid) {
 
   if (btnContinue) {
     btnContinue.onclick = function() {
+      clearPostRoundAutoContinueTimer();
       overlay.classList.remove('on');
       if (!IS_ONLINE || IS_HOST) {
         continueNextRound();
@@ -8674,6 +8555,7 @@ function showPostRoundOptions(bidderWon, made, bT, oT, yourTeam, isYourBid) {
 
   if (btnAnalyze) {
     btnAnalyze.onclick = function() {
+      clearPostRoundAutoContinueTimer();
       overlay.classList.remove('on');
       showRoundAnalysis();
     };
@@ -8681,10 +8563,13 @@ function showPostRoundOptions(bidderWon, made, bT, oT, yourTeam, isYourBid) {
 
   if (btnQuit) {
     btnQuit.onclick = function() {
+      clearPostRoundAutoContinueTimer();
       overlay.classList.remove('on');
       goHome();
     };
   }
+
+  if (btnContinue) startPostRoundAutoContinueTimer(() => btnContinue.click());
 }
 
 function continueNextRound() {
@@ -13800,7 +13685,7 @@ function applyServerState(state) {
         animateCrownRoundEnd(r.bidderWon, function () {
           roundEndPanelShown = true;
           proceedAfterCrownAnimationServerMode(r.bidderWon, r.made, bT, oT, yourTeam, isYourBid, champResult);
-        });
+        }, isYourBid);
       }, 400);
       // Safety net: if the crown animation's callback chain never actually
       // fires for any reason, the game must not be able to get stuck
@@ -13815,6 +13700,36 @@ function applyServerState(state) {
       }, 3000);
     });
   }
+}
+
+// Post-round modal auto-continue: gives the player 3 visible seconds to
+// tap "Analyze Last Round" before the game just moves on for them, same
+// spirit as a stream countdown -- if you don't jump on it, next round.
+// Any of the three buttons being tapped manually cancels this immediately.
+let postRoundAutoContinueTimer = null;
+let postRoundAutoContinueInterval = null;
+function startPostRoundAutoContinueTimer(onAutoContinue) {
+  clearPostRoundAutoContinueTimer();
+  let secondsLeft = 3;
+  const noteEl = document.getElementById('postRoundAutoContinueNote');
+  function updateNote() {
+    if (noteEl) noteEl.textContent = `Continuing automatically in ${secondsLeft}s — tap "Analyze Last Round" to review first.`;
+  }
+  updateNote();
+  postRoundAutoContinueInterval = setInterval(() => {
+    secondsLeft--;
+    if (secondsLeft > 0) updateNote();
+  }, 1000);
+  postRoundAutoContinueTimer = setTimeout(() => {
+    clearPostRoundAutoContinueTimer();
+    onAutoContinue();
+  }, 3000);
+}
+function clearPostRoundAutoContinueTimer() {
+  if (postRoundAutoContinueTimer) { clearTimeout(postRoundAutoContinueTimer); postRoundAutoContinueTimer = null; }
+  if (postRoundAutoContinueInterval) { clearInterval(postRoundAutoContinueInterval); postRoundAutoContinueInterval = null; }
+  const noteEl = document.getElementById('postRoundAutoContinueNote');
+  if (noteEl) noteEl.textContent = '';
 }
 
 // Round-end panel for server mode: same visual panel as local/old-online
@@ -13852,6 +13767,7 @@ function proceedAfterCrownAnimationServerMode(bidderWon, made, bT, oT, yourTeam,
   const btnQuit = document.getElementById('btnQuitToHome');
   if (btnContinue) {
     btnContinue.onclick = function () {
+      clearPostRoundAutoContinueTimer();
       overlay.classList.remove('on');
       if (champResult) {
         showChampionshipResultServerMode(champResult, yourTeam);
@@ -13864,11 +13780,13 @@ function proceedAfterCrownAnimationServerMode(bidderWon, made, bT, oT, yourTeam,
   }
   if (btnAnalyze) {
     btnAnalyze.onclick = function () {
+      clearPostRoundAutoContinueTimer();
       overlay.classList.remove('on');
       showRoundAnalysis();
     };
   }
-  if (btnQuit) { btnQuit.onclick = function () { overlay.classList.remove('on'); leaveServerTable(); }; }
+  if (btnQuit) { btnQuit.onclick = function () { clearPostRoundAutoContinueTimer(); overlay.classList.remove('on'); leaveServerTable(); }; }
+  if (btnContinue) startPostRoundAutoContinueTimer(() => btnContinue.click());
 }
 
 // Shown once per championship decided — either a regular "Championship
