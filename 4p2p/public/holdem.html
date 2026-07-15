@@ -368,6 +368,17 @@ function renderGameTable(state) {
     lastShownHandEndFor = state.handNumber;
     renderHandEnd(state);
   }
+
+  // The one case that DOES force it closed: it's now genuinely this
+  // player's turn to act in active play. The server is actually
+  // waiting on their real input here -- a stale popup from an earlier
+  // hand covering the action bar would leave them unable to act at all
+  // while looking "stuck," even though the table itself is fine. This
+  // is what was actually happening: nothing was broken, the popup was
+  // just still up from a previous hand while a later one needed them.
+  if (state.phase !== 'handEnd' && state.currentPlayer === myPos) {
+    $('handEndOverlay').classList.remove('on');
+  }
 }
 
 let lastShownHandEndFor = null;

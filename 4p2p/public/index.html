@@ -12120,8 +12120,22 @@ function showRoundAnalysis() {
   const content = document.getElementById('analyzeContent');
   if (!overlay || !content) return;
 
-  content.innerHTML = generateRoundAnalysisHTML();
-  overlay.classList.add('on');
+  // This used to be able to leave the player genuinely stuck: if
+  // generateRoundAnalysisHTML() threw for any reason (e.g. the round
+  // snapshot data wasn't captured yet due to a timing edge case), the
+  // exception happened AFTER the post-round options were already hidden
+  // and their auto-continue timer already cleared -- nothing left
+  // visible, nothing left to click, no way forward short of a refresh.
+  // Now it degrades gracefully instead: on any failure, fall back to a
+  // simple message and let the player continue from there.
+  try {
+    content.innerHTML = generateRoundAnalysisHTML();
+    overlay.classList.add('on');
+  } catch (e) {
+    console.error('[showRoundAnalysis] failed to generate analysis, falling back:', e);
+    content.innerHTML = '<p style="color:var(--text-secondary);padding:20px;text-align:center">Analysis isn\'t available for this round.</p>';
+    overlay.classList.add('on');
+  }
 }
 
 function closeRoundAnalysis() {
@@ -12130,9 +12144,19 @@ function closeRoundAnalysis() {
   // Show post-round options again so user can choose Continue/Analyze/Home
   const postOverlay = document.getElementById('postRoundOverlay');
   if (postOverlay) postOverlay.classList.add('on');
+  // Re-arm the auto-continue countdown -- without this, a player who
+  // steps away right after checking the analysis has no path forward
+  // except manually tapping Continue themselves.
+  const btnContinue = document.getElementById('btnContinueGame');
+  if (btnContinue && typeof startPostRoundAutoContinueTimer === 'function') {
+    startPostRoundAutoContinueTimer(() => btnContinue.click());
+  }
 }
 
 function generateRoundAnalysisHTML() {
+  if (!roundBidSnapshot) {
+    return '<p style="color:var(--text-secondary);padding:20px;text-align:center">Round details weren\'t captured in time for this one — should be available next round.</p>';
+  }
   const yourTeam = getTeam(MY_POS);
   const bT = getTeam(bidder);
   const isYourBid = (bT === yourTeam);
