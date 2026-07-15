@@ -156,6 +156,13 @@ app.post('/api/comments', (req, res) => {
   saveCommentsLocal();
   console.log(`[comments] new message from ${name}`);
   res.json({ ok: true });
+  // Push to GitHub right away rather than waiting for the periodic
+  // sync -- a comment is a rare enough event (unlike the visitor log,
+  // which could fire constantly) that pushing on every single one is
+  // completely safe and won't come close to any rate limit, and it
+  // closes the real gap where a free-tier spin-down between periodic
+  // syncs could wipe a comment that was never actually backed up yet.
+  if (GITHUB_ENABLED) { lastGithubCommentsSyncCount = comments.length; githubPushComments(); }
 });
 
 app.get('/api/comments', (req, res) => {
@@ -168,6 +175,7 @@ app.delete('/api/comments/:id', (req, res) => {
   comments = comments.filter(c => c.id !== req.params.id);
   commentsDirty = true;
   saveCommentsLocal();
+  if (GITHUB_ENABLED) { lastGithubCommentsSyncCount = comments.length; githubPushComments(); }
   res.json({ ok: true });
 });
 
