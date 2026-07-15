@@ -2011,10 +2011,10 @@ io.on('connection', (socket) => {
     const engine = new PokerEngine(tableId, {
       mode: mode === 'tournament' ? 'tournament' : 'cash',
       buyInType: buyInType === 'fixed' ? 'fixed' : 'nolimit',
-      smallBlind: Math.max(1, Math.min(1000, Number(smallBlind) || 5)),
-      bigBlind: Math.max(2, Math.min(2000, Number(bigBlind) || 10)),
-      startingChips: Math.max(100, Math.min(1000000, Number(startingChips) || 1000)),
-      reloadChips: Math.max(0, Math.min(1000000, Number(reloadChips) || 500))
+      smallBlind: Math.max(1, Math.min(1000, Number.isFinite(Number(smallBlind)) && smallBlind !== undefined ? Number(smallBlind) : 5)),
+      bigBlind: Math.max(2, Math.min(2000, Number.isFinite(Number(bigBlind)) && bigBlind !== undefined ? Number(bigBlind) : 10)),
+      startingChips: Math.max(100, Math.min(1000000, Number.isFinite(Number(startingChips)) && startingChips !== undefined ? Number(startingChips) : 1000)),
+      reloadChips: Math.max(0, Math.min(1000000, Number.isFinite(Number(reloadChips)) && reloadChips !== undefined ? Number(reloadChips) : 500))
     });
     const playerId = crypto.randomBytes(8).toString('hex');
     engine.seatHuman(0, String(name || 'Host').slice(0, 20), playerId);

@@ -30,11 +30,11 @@ class PokerEngine {
     this.tableId = tableId;
     this.mode = (opts && opts.mode) || 'cash';
     this.buyInType = (opts && opts.buyInType) || 'nolimit';
-    this.smallBlind = (opts && opts.smallBlind) || 5;
-    this.bigBlind = (opts && opts.bigBlind) || 10;
-    this.startingChips = (opts && opts.startingChips) || 1000;
-    this.reloadChips = (opts && opts.reloadChips) || 500;
-    this.reloadWaitMs = (opts && opts.reloadWaitMs) || 60 * 1000;
+    this.smallBlind = (opts && opts.smallBlind) ?? 5;
+    this.bigBlind = (opts && opts.bigBlind) ?? 10;
+    this.startingChips = (opts && opts.startingChips) ?? 1000;
+    this.reloadChips = (opts && opts.reloadChips) ?? 500;
+    this.reloadWaitMs = (opts && opts.reloadWaitMs) ?? 60 * 1000;
 
     this.seats = new Array(SEATS).fill(null);
     this.phase = 'lobby';
@@ -75,7 +75,7 @@ class PokerEngine {
       chips: this.startingChips, hand: [],
       folded: false, allIn: false, sittingOut: false,
       bettedThisRound: 0, totalBetThisHand: 0, hasActed: false,
-      bustedAt: null
+      bustedAt: null, rebuysUsed: 0, eliminated: false
     };
   }
   removeSeat(pos) {
@@ -358,11 +358,41 @@ class PokerEngine {
     this.markBustedPlayers();
   }
 
+  // Reload/rebuy rules are genuinely different between the two modes,
+  // not just a cosmetic label:
+  //  - Cash game: anyone (human or bot) can keep reloading indefinitely
+  //    after the wait, at reloadChips each time -- an ordinary cash
+  //    table where you can always buy back in.
+  //  - Tournament: humans get exactly ONE rebuy, for the SAME amount
+  //    they originally started with (not half, not double) -- standard
+  //    single-rebuy tournament rules. Bots get none at all; once a bot
+  //    busts in a tournament it's simply eliminated and sits out for
+  //    the rest of the table, same as it would be in a real one.
   checkReloads() {
     const now = Date.now();
     for (const p of this.occupiedSeats()) {
       const s = this.seats[p];
-      if (s.chips <= 0 && !s.sittingOut && s.bustedAt && (now - s.bustedAt) >= this.reloadWaitMs) {
+      if (s.chips > 0 || s.sittingOut || !s.bustedAt) continue;
+      if (now - s.bustedAt < this.reloadWaitMs) continue;
+
+      if (this.mode === 'tournament') {
+        if (s.isBot) {
+          s.sittingOut = true;
+          s.eliminated = true;
+          s.bustedAt = null;
+          this.addLog(`${s.name} is eliminated from the tournament.`);
+        } else if (s.rebuysUsed < 1) {
+          s.chips = this.startingChips;
+          s.rebuysUsed++;
+          s.bustedAt = null;
+          this.addLog(`${s.name} rebuys for ${this.startingChips} (1 rebuy used).`);
+        } else {
+          s.sittingOut = true;
+          s.eliminated = true;
+          s.bustedAt = null;
+          this.addLog(`${s.name} is eliminated from the tournament (rebuy already used).`);
+        }
+      } else {
         s.chips = this.reloadChips;
         s.bustedAt = null;
         this.addLog(`${s.name} reloaded with ${this.reloadChips} chips after the wait.`);
@@ -372,7 +402,7 @@ class PokerEngine {
   markBustedPlayers() {
     for (const p of this.occupiedSeats()) {
       const s = this.seats[p];
-      if (s.chips <= 0 && !s.bustedAt) s.bustedAt = Date.now();
+      if (s.chips <= 0 && !s.bustedAt && !s.eliminated) s.bustedAt = Date.now();
     }
   }
 
@@ -392,7 +422,7 @@ class PokerEngine {
           name: s.name, isBot: s.isBot, connected: s.connected, chips: s.chips,
           folded: s.folded, allIn: s.allIn, sittingOut: s.sittingOut,
           bettedThisRound: s.bettedThisRound, totalBetThisHand: s.totalBetThisHand,
-          bustedAt: s.bustedAt,
+          bustedAt: s.bustedAt, eliminated: s.eliminated, rebuysUsed: s.rebuysUsed,
           hand: revealHand ? s.hand : (s.hand.length ? s.hand.map(() => null) : [])
         };
       }),
