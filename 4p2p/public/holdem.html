@@ -35,8 +35,8 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 .topbar-btn{background:rgba(255,255,255,0.08);border:none;color:var(--cream);border-radius:8px;padding:6px 10px;font-size:0.75rem;cursor:pointer}
 .table-wrap{position:relative;width:100%;max-width:520px;aspect-ratio:1/1.15;margin:10px auto;flex-shrink:0}
 .felt{position:absolute;inset:8% 4%;border-radius:50%;background:radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-2) 100%);border:10px solid #3d2510;box-shadow:0 10px 30px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.4)}
-.board-area{position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);display:flex;gap:4px;z-index:5}
-.pot-display{position:absolute;top:26%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.board-area{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);display:flex;gap:4px;z-index:5}
+.pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
 
 /* ---- Visual poker chips ---- */
 .chip{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.7);box-shadow:0 2px 4px rgba(0,0,0,0.5);flex-shrink:0}
@@ -51,8 +51,8 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 
 /* ---- Flying chip pot-payout animation ---- */
 .flying-chip{position:fixed;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.8);box-shadow:0 3px 8px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.7s cubic-bezier(.3,.6,.4,1), opacity 0.7s ease;}
-.turn-banner{position:absolute;top:4%;left:50%;transform:translate(-50%,0);background:rgba(0,0,0,0.55);border:1px solid rgba(244,196,48,0.5);border-radius:14px;padding:5px 14px;font-size:0.72rem;font-weight:700;color:var(--cream);z-index:6;white-space:nowrap;display:none}
-.turn-banner.on{display:block}
+.winner-banner{position:absolute;top:16%;left:50%;transform:translate(-50%,0);background:rgba(0,0,0,0.7);border:2px solid var(--gold);border-radius:14px;padding:8px 16px;font-size:0.78rem;font-weight:800;color:var(--gold);z-index:8;white-space:nowrap;display:none;max-width:88%;overflow:hidden;text-overflow:ellipsis;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
+.winner-banner.on{display:block}
 .street-banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);border:2px solid var(--gold);border-radius:16px;padding:14px 28px;font-size:1.4rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 10px rgba(244,196,48,0.6);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
 .street-banner.on{display:block}
 @keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
@@ -64,6 +64,8 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 
 .seat{position:absolute;width:82px;text-align:center;z-index:4}
 .seat-avatar-wrap{position:relative;width:46px;height:46px;margin:0 auto}
+.turn-tag{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px;background:var(--gold);color:#241a12;font-size:0.5rem;font-weight:900;letter-spacing:0.5px;padding:2px 6px;border-radius:8px;white-space:nowrap;animation:turnTagPulse 1s ease-in-out infinite}
+@keyframes turnTagPulse{0%,100%{transform:translateX(-50%) scale(1);}50%{transform:translateX(-50%) scale(1.08);}}
 .seat-avatar{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#2a3f5f,#101d2e);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:2.5px solid rgba(255,255,255,0.15)}
 .seat.active .seat-avatar{border-color:var(--gold);box-shadow:0 0 14px rgba(244,196,48,0.7);animation:seatPulse 1.1s ease-in-out infinite}
 @keyframes seatPulse{0%,100%{box-shadow:0 0 14px rgba(244,196,48,0.7)}50%{box-shadow:0 0 22px rgba(244,196,48,1)}}
@@ -180,23 +182,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   </div>
   <div class="table-wrap">
     <div class="felt"></div>
-    <div class="turn-banner" id="turnBanner"></div>
     <div class="street-banner" id="streetBanner"></div>
-    <div class="pot-display" id="potDisplay">Pot: 0</div>
+    <div class="winner-banner" id="winnerBanner"></div>
     <div class="board-area" id="boardArea"></div>
+    <div class="pot-display" id="potDisplay">Pot: 0</div>
     <div id="seatsContainer"></div>
   </div>
   <div class="hand-strip" id="myHandStrip"></div>
   <div class="action-bar" id="actionBar"></div>
-</div>
-
-<!-- ============ SHOWDOWN / HAND END OVERLAY ============ -->
-<div class="overlay" id="handEndOverlay">
-  <div class="overlay-box">
-    <h2 id="handEndTitle" style="color:var(--gold)">Hand Complete</h2>
-    <div id="handEndBody"></div>
-    <button class="btn btn-gold" id="btnCloseHandEnd" style="width:100%;margin-top:14px">Continue ▶</button>
-  </div>
 </div>
 
 <div class="log-panel" id="logPanel">
@@ -419,6 +412,7 @@ function renderGameTable(state) {
         : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
     return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}" data-pos="${pos}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
       <div class="seat-avatar-wrap">
+        ${isActive ? `<div class="turn-tag">${pos === myPos ? 'YOUR TURN' : 'TURN'}</div>` : ''}
         <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
         ${pos === state.dealerSeat ? '<div class="dealer-chip">D</div>' : ''}
         ${s.allIn ? '<div class="allin-tag">ALL-IN</div>' : ''}
@@ -437,43 +431,29 @@ function renderGameTable(state) {
   renderActionBar(state);
   renderLogPanel(state);
   renderStreetBanner(state);
-  renderTurnBanner(state);
 
-  // A real showdown plays out on the table itself first -- cards are
-  // already flipping face-up right now (handled above, in the seat
-  // rendering), and the pot is about to fly to the winner. The summary
-  // popup deliberately waits a beat instead of covering all that up
-  // instantly; it's still shown exactly once per hand and left alone
-  // afterward, same as before, just not on top of the reveal itself.
-  if (state.phase === 'handEnd' && state.showdownResult && state.handNumber !== lastShownHandEndFor) {
-    lastShownHandEndFor = state.handNumber;
+  // The table already shows the real showdown -- cards flip face-up at
+  // each seat, chips fly to the winner. No separate popup needed on
+  // top of that; just a small on-table banner naming the winner and
+  // why, same non-blocking style as the street-transition banner.
+  if (state.phase === 'handEnd' && state.showdownResult && state.handNumber !== lastShownWinnerBannerFor) {
+    lastShownWinnerBannerFor = state.handNumber;
     setTimeout(() => animateChipsToWinners(state), 900);
-    setTimeout(() => {
-      // Don't reopen a now-stale popup if it's already become the
-      // player's real turn in a later hand by the time this fires --
-      // that would silently recreate the exact "popup blocks my actual
-      // turn" bug this file already had to fix once.
-      if (latestState && latestState.currentPlayer === myPos && latestState.phase !== 'handEnd') return;
-      renderHandEnd(state);
-    }, 2200);
-  }
-
-  // The one case that DOES force it closed: it's now genuinely this
-  // player's turn to act in active play. The server is actually
-  // waiting on their real input here -- a stale popup from an earlier
-  // hand covering the action bar would leave them unable to act at all
-  // while looking "stuck," even though the table itself is fine. This
-  // is what was actually happening: nothing was broken, the popup was
-  // just still up from a previous hand while a later one needed them.
-  if (state.phase !== 'handEnd' && state.currentPlayer === myPos) {
-    $('handEndOverlay').classList.remove('on');
+    setTimeout(() => showWinnerBanner(state), 1000);
   }
 }
 
-let lastShownHandEndFor = null;
-$('btnCloseHandEnd').addEventListener('click', () => {
-  $('handEndOverlay').classList.remove('on');
-});
+let lastShownWinnerBannerFor = null;
+function showWinnerBanner(state) {
+  const r = state.showdownResult;
+  const el = $('winnerBanner');
+  if (!el || !r || !r.winners || !r.winners.length) return;
+  const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+  const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
+  const handPart = r.boardShown ? ` with ${r.winners[0].handName}` : ' — everyone else folded';
+  el.textContent = `🏆 ${names} wins ${totalWon}${handPart}`;
+  el.classList.add('on');
+}
 
 function renderActionBar(state) {
   const bar = $('actionBar');
@@ -520,42 +500,6 @@ function sendAction(action, amount) {
   socket.emit('poker_act', { action, amount });
 }
 socket.on('poker_actionError', (info) => toast('❌ ' + (info.reason || 'action failed').replace(/_/g, ' ')));
-
-function renderHandEnd(state) {
-  const r = state.showdownResult;
-  $('handEndOverlay').classList.add('on');
-  if (!r.boardShown) {
-    const w = r.winners[0];
-    $('handEndTitle').textContent = '🏆 ' + (state.seats[w.seat] ? state.seats[w.seat].name : 'Someone') + ' wins!';
-    $('handEndBody').innerHTML = `<p>Everyone else folded. Won <b style="color:var(--gold)">${w.amount}</b> chips.</p>`;
-  } else {
-    $('handEndTitle').textContent = '🏆 Showdown';
-    const rows = (r.allHands || []).map(h => {
-      const isWinner = r.winners.some(w => w.seat === h.seat);
-      const seatInfo = state.seats[h.seat];
-      return `<div class="showdown-hand-row${isWinner ? ' winner' : ''}">
-        <span>${seatInfo ? escapeHtml(seatInfo.name) : ''}</span>
-        <span style="display:flex;gap:2px">${h.hand.map(c => cardHtml(c, true)).join('')}</span>
-        <span>${h.handName}</span>
-      </div>`;
-    }).join('');
-    const winnerSummary = r.winners.map(w => `${state.seats[w.seat] ? state.seats[w.seat].name : ''} +${w.amount}`).join(', ');
-    $('handEndBody').innerHTML = `<div style="margin-bottom:8px">${rows}</div><p style="color:var(--gold);font-weight:800">${escapeHtml(winnerSummary)}</p>`;
-  }
-}
-
-// Always-visible "whose turn" banner so it's never ambiguous who the
-// table is waiting on, separate from the action bar (which only shows
-// controls when it's YOUR turn).
-function renderTurnBanner(state) {
-  const el = $('turnBanner');
-  if (state.phase === 'handEnd' || state.currentPlayer === -1) { el.classList.remove('on'); return; }
-  const cur = state.seats[state.currentPlayer];
-  if (!cur) { el.classList.remove('on'); return; }
-  const label = state.currentPlayer === myPos ? '▶ Your turn' : `▶ ${escapeHtml(cur.name)}'s turn${cur.isBot ? ' 🤖' : ''}`;
-  el.textContent = label;
-  el.classList.add('on');
-}
 
 // A brief, unmistakable "FLOP! / TURN! / RIVER!" banner whenever new
 // community cards are revealed -- deliberately NOT on a fixed timer.
