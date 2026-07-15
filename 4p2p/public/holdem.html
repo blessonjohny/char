@@ -51,7 +51,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 
 /* ---- Flying chip pot-payout animation ---- */
 .flying-chip{position:fixed;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.8);box-shadow:0 3px 8px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.7s cubic-bezier(.3,.6,.4,1), opacity 0.7s ease;}
-.winner-banner{position:absolute;top:16%;left:50%;transform:translate(-50%,0);background:rgba(0,0,0,0.7);border:2px solid var(--gold);border-radius:14px;padding:8px 16px;font-size:0.78rem;font-weight:800;color:var(--gold);z-index:8;white-space:nowrap;display:none;max-width:88%;overflow:hidden;text-overflow:ellipsis;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
+.winner-banner{position:absolute;top:2%;left:2%;background:rgba(0,0,0,0.75);border:2px solid var(--gold);border-radius:10px;padding:6px 10px;font-size:0.62rem;font-weight:800;color:var(--gold);z-index:8;max-width:44%;line-height:1.3;display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
 .winner-banner.on{display:block}
 .street-banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);border:2px solid var(--gold);border-radius:16px;padding:14px 28px;font-size:1.4rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 10px rgba(244,196,48,0.6);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
 .street-banner.on{display:block}
@@ -203,6 +203,18 @@ let myPos = null, myPlayerId = null, myTableId = null, isHost = false;
 let latestState = null;
 let createOpts = { mode: 'cash', buyInType: 'nolimit', smallBlind: 5, bigBlind: 10, startingChips: 1000 };
 
+// Free-tier hosts (Render, etc.) put the whole server to sleep after a
+// stretch of no HTTP traffic -- and since every table lives in that
+// process's memory, waking it back up wipes them all out. As long as
+// this tab is open, keep pinging a lightweight endpoint so the server
+// counts as "active" and never gets put to sleep out from under an
+// actual, in-progress table. Same fix index.html already had.
+if (!window.__holdemKeepAlive) {
+  window.__holdemKeepAlive = setInterval(() => {
+    fetch('/status').catch(() => {});
+  }, 4 * 60 * 1000);
+}
+
 // This was the actual cause of the reported "freeze after waiting a
 // while, works fine if I continue right away" -- mobile browsers
 // commonly suspend/drop a socket connection after a tab sits idle or
@@ -221,6 +233,29 @@ socket.on('connect', () => {
 });
 socket.on('disconnect', () => {
   if (myTableId) toast('⚠️ Connection lost — reconnecting...');
+});
+
+// The connect handler above only fires if Socket.IO's own reconnection
+// timers get a chance to run at all -- but mobile browsers routinely
+// fully suspend JavaScript execution in a backgrounded tab, meaning
+// those timers can simply never fire while the tab is away, no matter
+// how long it's been. This is what "switch browsers, come back, never
+// reconnects" actually was: not a failure to reconnect, but Socket.IO
+// never even getting a chance to try. Checking explicitly the instant
+// the tab becomes visible again catches this immediately instead of
+// waiting on a timer that was never going to run.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && myTableId && myPlayerId) {
+    if (!socket.connected) {
+      socket.connect();
+    } else {
+      // Even if the transport itself looks connected, re-announce our
+      // seat -- a long suspension can leave the server-side socket
+      // registration stale without the transport ever actually
+      // dropping, so this is cheap insurance either way.
+      socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
+    }
+  }
 });
 
 function $(id) { return document.getElementById(id); }
@@ -333,7 +368,20 @@ function joinPublicTable(tableId) {
 socket.emit('poker_listRooms');
 setInterval(() => { if (!myTableId) socket.emit('poker_listRooms'); }, 4000);
 
-socket.on('poker_joinFailed', (info) => toast('❌ Could not join: ' + (info.reason || 'unknown')));
+socket.on('poker_joinFailed', (info) => {
+  toast('❌ Could not join: ' + (info.reason || 'unknown'));
+  // If this happened while we were already seated at a table (i.e. this
+  // was a reconnect attempt, not an initial join from the landing
+  // screen), the table is genuinely gone server-side -- leaving the
+  // player stuck looking at a frozen table they can no longer interact
+  // with is worse than just taking them home with an explanation.
+  if (myTableId) {
+    myTableId = null; myPos = null; myPlayerId = null; latestState = null;
+    showScreen('landingScreen');
+    socket.emit('poker_listRooms');
+    toast('⚠️ That table is no longer available — it may have closed or the server restarted.');
+  }
+});
 
 socket.on('poker_joined', (info) => {
   myPos = info.pos; myPlayerId = info.playerId; myTableId = info.tableId; isHost = info.isHost;
@@ -518,6 +566,10 @@ function renderStreetBanner(state) {
       el.classList.add('on');
       streetBannerShownAtLogText = (state.log[0] && state.log[0].text) || null;
     }
+    // The last-hand winner display's whole purpose is to stay up as a
+    // reminder while a new hand deals -- once the flop actually lands,
+    // that reminder has served its purpose and the felt needs the room.
+    if (boardLen === 3) $('winnerBanner').classList.remove('on');
   }
   lastBoardLenForBanner = boardLen;
   if (boardLen === 0) { el.classList.remove('on'); streetBannerShownAtLogText = null; }

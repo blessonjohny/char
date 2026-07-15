@@ -553,6 +553,17 @@ function connectSocket() {
   socket = io();
   if (window.K28Voice) K28Voice.attach(socket, { getName: () => MY_NAME || 'Player' });
 
+  // Free-tier hosts (Render, etc.) put the whole server to sleep after a
+  // stretch of no HTTP traffic -- and since every table lives in that
+  // process's memory, waking it back up wipes them all out. Keep pinging
+  // a lightweight endpoint so the server counts as "active" while this
+  // tab is open. Same fix index.html already had.
+  if (!window.__sixpKeepAlive) {
+    window.__sixpKeepAlive = setInterval(() => {
+      fetch('/status').catch(() => {});
+    }, 4 * 60 * 1000);
+  }
+
   socket.on('sixp_roomList', (rooms) => renderRoomList(rooms));
 
   // A real network drop can happen mid-hold or mid-staggered-reveal —
@@ -575,6 +586,22 @@ function connectSocket() {
   });
   socket.on('disconnect', () => {
     showToast('⚠️ Lost connection to server — trying to reconnect...', 'lose', 3000);
+  });
+
+  // The connect handler above only fires if Socket.IO's own reconnection
+  // timers get a chance to run at all -- but mobile browsers routinely
+  // fully suspend JavaScript execution in a backgrounded tab, meaning
+  // those timers can simply never fire while the tab is away. Checking
+  // explicitly the instant the tab becomes visible again catches this
+  // immediately instead of waiting on a timer that was never going to run.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      if (!socket.connected) {
+        socket.connect();
+      } else if (MY_TABLE_ID && MY_PLAYER_ID) {
+        socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
+      }
+    }
   });
 
   socket.on('sixp_joined', (info) => {

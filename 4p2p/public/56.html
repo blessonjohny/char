@@ -818,6 +818,18 @@ let reveal56DisabledByAdmin = true; // matches the server default; corrected ins
 function ensureSyncSocket(){
   if(syncSocket) return;
   syncSocket = io();
+
+  // Free-tier hosts (Render, etc.) put the whole server to sleep after a
+  // stretch of no HTTP traffic -- and since every table lives in that
+  // process's memory, waking it back up wipes them all out. Keep pinging
+  // a lightweight endpoint so the server counts as "active" while this
+  // tab is open. Same fix index.html already had.
+  if(!window.__l56KeepAlive){
+    window.__l56KeepAlive = setInterval(() => {
+      fetch('/status').catch(() => {});
+    }, 4 * 60 * 1000);
+  }
+
   syncSocket.on('connect', () => {
     if(roomCode) syncSocket.emit('sync56_join', {room: roomCode});
     // Rejoining the state-sync room keeps game state flowing, but it does
@@ -948,6 +960,27 @@ function ensureSyncSocket(){
   });
 }
 ensureSyncSocket(); // connect right away so admin policy (e.g. reveal button disabled) is known before anyone joins a table
+
+// The connect handler above only fires if Socket.IO's own reconnection
+// timers get a chance to run at all -- but mobile browsers routinely
+// fully suspend JavaScript execution in a backgrounded tab, meaning
+// those timers can simply never fire while the tab is away, no matter
+// how long it's been. Checking explicitly the instant the tab becomes
+// visible again catches this immediately instead of waiting on a timer
+// that was never going to run.
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && syncSocket){
+    if(!syncSocket.connected){
+      syncSocket.connect();
+    } else if(roomCode && MY_PLAYER_ID && mySeat !== null){
+      // Even if the transport itself looks connected, re-announce our
+      // seat -- a long suspension can leave the server-side
+      // registration stale without the transport ever actually
+      // dropping, so this is cheap insurance either way.
+      syncSocket.emit('l56_reconnect', {code: roomCode, playerId: MY_PLAYER_ID, name: myName});
+    }
+  }
+});
 
 function stateKey(){ return '56game:' + roomCode; }
 
