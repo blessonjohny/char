@@ -410,7 +410,7 @@ function renderGameTable(state) {
       : (pos === myPos
         ? s.hand.map(c => cardHtml(c, true)).join('')
         : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
-    return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}" data-pos="${pos}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
+    return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
       <div class="seat-avatar-wrap">
         ${isActive ? `<div class="turn-tag">${pos === myPos ? 'YOUR TURN' : 'TURN'}</div>` : ''}
         <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
@@ -418,7 +418,7 @@ function renderGameTable(state) {
         ${s.allIn ? '<div class="allin-tag">ALL-IN</div>' : ''}
       </div>
       <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
-      <div class="seat-chips">${s.chips}${s.bustedAt ? ' ⏳' : ''}</div>
+      <div class="seat-chips">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
       <div class="seat-cards">${s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml}</div>
       ${s.bettedThisRound > 0 && !s.folded ? `<div class="seat-bet"><span class="chip small"></span>${s.bettedThisRound}</div>` : ''}
     </div>`;
