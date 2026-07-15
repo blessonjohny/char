@@ -3187,24 +3187,17 @@ function botDecideBid(state, seat){
 
   // ---- Last chance before it returns to the opener ----
   // If I'm seated right before the opener's own turn, and the current bid is
-  // the opener's own probe-suit attempt with nobody having backed it yet, make
-  // one last effort to offer something useful rather than just passing — my
-  // own best suit if I have one, or NT if I've got scattered Jacks but nothing
-  // concentrated in one place.
+  // the opener's own probe-suit attempt with nobody having backed it yet, and
+  // I can't properly support it either (no Jack there, even if I hold a few
+  // cards of it) — call NOS specifically. Not a redirect to a third suit, not
+  // a plain pass: NOS is the clean, unambiguous signal that tells the opener
+  // "nobody's got this one, kick it back to your original suit."
   if(cb && state.openerProbeSuit && cb.trump === state.openerProbeSuit && cb.seat === state.openerSeat &&
      TEAM_OF(cb.seat) === TEAM_OF(seat) && seat === (state.openerSeat - 1 + 6) % 6){
     const s = cb.trump;
     const canSupportProbe = count[s] > 0 && jacks[s] >= 1;
-    if(!canSupportProbe){
-      if(biddableSuits.length > 0){
-        const {suit, value: lastVal} = bestOf(biddableSuits);
-        const value = Math.max(minAllowed, Math.min(56, lastVal));
-        if(value <= 56) return {action:'bid', value, trump: suit, kind:'suit', order:'forward'};
-      }
-      const totalJacks = SUITS.reduce((sum,s2) => sum + jacks[s2], 0);
-      if(totalJacks >= 3 && minAllowed <= 56){
-        return {action:'bid', value: minAllowed, trump: null, kind:'nt', order: null};
-      }
+    if(!canSupportProbe && minAllowed <= 56){
+      return {action:'bid', value: minAllowed, trump: null, kind:'ns', order: null};
     }
   }
 
@@ -3242,11 +3235,16 @@ function botDecideBid(state, seat){
     // I already bid this exact suit myself before (my own strength is already
     // priced into the auction — re-raising with the same cards adds nothing,
     // especially with no opponent contesting). Offer a different genuinely
-    // strong suit if I have one, otherwise pass rather than repeat myself.
-    const others = biddableSuits.filter(x => x !== s);
-    if(others.length > 0){
-      const {suit, value} = bestOf(others);
-      if(value >= minAllowed && value <= 56) return {action:'bid', value, trump: suit, kind:'suit', order:'forward'};
+    // strong suit if I have one — but not while we're discussing the opener's
+    // probe suit specifically, since that's meant to stay a clean two-suit
+    // question (support it or don't), not spiral into a third suit.
+    const isProbeSuit = state.openerProbeSuit && s === state.openerProbeSuit;
+    if(!isProbeSuit){
+      const others = biddableSuits.filter(x => x !== s);
+      if(others.length > 0){
+        const {suit, value} = bestOf(others);
+        if(value >= minAllowed && value <= 56) return {action:'bid', value, trump: suit, kind:'suit', order:'forward'};
+      }
     }
     return {action:'pass'};
   }
