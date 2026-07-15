@@ -988,6 +988,18 @@ function renderSeats(state) {
       if (!bdgEl) { bdgEl = document.createElement('div'); bdgEl.className = 'bdg'; av.appendChild(bdgEl); }
       bdgEl.textContent = badge;
     } else if (bdgEl) { bdgEl.remove(); }
+
+    // "Q" penalty marks — a running shame counter, separate from the
+    // dealer/bidder badge above (opposite corner) so it never overlaps
+    // it, deliberately subdued rather than loud since it's a persistent
+    // tally, not an in-the-moment alert.
+    const qCount = (state.qMarks && state.qMarks[seat.name]) || 0;
+    let qEl = wrap.querySelector('.bdg-q');
+    if (qCount > 0) {
+      if (!qEl) { qEl = document.createElement('div'); qEl.className = 'bdg-q'; av.appendChild(qEl); }
+      qEl.textContent = qCount + 'Q';
+      qEl.title = qCount + ' Q — must personally call and win a bid to shed one';
+    } else if (qEl) { qEl.remove(); }
   }
 }
 

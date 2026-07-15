@@ -292,6 +292,11 @@
     display:flex;align-items:center;justify-content:center;
     border:2px solid var(--felt-2);box-shadow:0 2px 4px rgba(0,0,0,0.4);
   }
+  .q-badge{
+    position:absolute;bottom:-3px;left:-3px;
+    background:rgba(180,60,80,0.35);color:#e08a9a;border:1.5px solid rgba(224,138,154,0.65);
+    border-radius:8px;font-size:9px;font-weight:800;padding:1px 4px;line-height:1.3;
+  }
 
   .center-trick{
     position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;
@@ -1021,6 +1026,15 @@ function newRoomState(){
     handNumber: 1,
     themeIndex: 0,
     sessionWins: {A:0, B:0}, // matches won this session — persists across 'Start New Match'
+    // "Q" penalty marks: same rule as the 4p/6p games — every player on
+    // a team that gets shut out (loses a whole match) picks up a Q,
+    // shed only by personally calling and winning a bid (or, on the
+    // very first hand of the next match, by any teammate's successful
+    // bid — this is a 3-a-side game like the 6-player one, no single
+    // "partner"). Persists across 'Start New Match' the same way
+    // sessionWins does, above.
+    qMarks: {},
+    isFirstHandOfChampionship: true,
     reviewHold: false,
     log: [],
     lastNote: null,
@@ -1619,6 +1633,7 @@ function ensureSeatSkeleton(div){
       <div class="avatar"></div>
       <div class="dealer-chip" title="Dealer" style="display:none;">D</div>
       <div class="bot-tag" title="Bot" style="display:none;">AI</div>
+      <div class="q-badge" style="display:none;"></div>
     </div>
     <div class="pod">
       <div class="name"></div>
@@ -1660,6 +1675,16 @@ function renderTable(state){
 
     const botTag = div.querySelector('.bot-tag');
     botTag.style.display = (occ && occ.bot) ? '' : 'none';
+
+    const qBadge = div.querySelector('.q-badge');
+    const qCount = (occ && state.qMarks && state.qMarks[occ.name]) || 0;
+    if(qCount > 0){
+      qBadge.style.display = '';
+      const qText = qCount + 'Q';
+      if(qBadge.dataset.v !== qText){ qBadge.dataset.v = qText; qBadge.textContent = qText; qBadge.title = qCount + ' Q — must personally call and win a bid to shed one'; }
+    } else {
+      qBadge.style.display = 'none';
+    }
 
     const nameText = occ ? escapeHtml(occ.name) : 'Empty seat ' + (seat+1);
     const nameSuffix = seat===mySeat ? ' (you)' : '';
@@ -2280,6 +2305,7 @@ async function startNewMatch(prevState){
   state.tricksLog = [];
   state.teamPoints = {A:0, B:0};
   state.lastNote = null;
+  state.isFirstHandOfChampionship = true;
   addLog(state, `New match started — each team back to 12 tables. Hand 1 dealt.`);
   await saveState(state);
   render(state);
@@ -2855,12 +2881,46 @@ function finishHand(state){
     addLog(state, `Team ${biddingTeam} fell short of ${cb.value}. Pay ${amt} table${amt!==1?'s':''} to Team ${oppTeam}.`);
   }
 
+  // Q-mark removal: personally calling and winning a bid sheds one Q
+  // from yourself. On the very first hand of a new match specifically,
+  // every teammate (this is 3-a-side, no single "partner") also sheds
+  // one Q each, if they're carrying any. Self-only every hand after that.
+  if(!state.qMarks) state.qMarks = {};
+  if(made){
+    const bidderSeatInfo = state.seats[cb.seat];
+    if(bidderSeatInfo && state.qMarks[bidderSeatInfo.name] > 0){
+      state.qMarks[bidderSeatInfo.name]--;
+      if(state.qMarks[bidderSeatInfo.name] <= 0) delete state.qMarks[bidderSeatInfo.name];
+      addLog(state, `${bidderSeatInfo.name} shed a Q by calling and winning the bid.`);
+    }
+    if(state.isFirstHandOfChampionship){
+      for(let i=0;i<6;i++){
+        if(i === cb.seat || TEAM_OF(i) !== biddingTeam) continue;
+        const teammateInfo = state.seats[i];
+        if(teammateInfo && state.qMarks[teammateInfo.name] > 0){
+          state.qMarks[teammateInfo.name]--;
+          if(state.qMarks[teammateInfo.name] <= 0) delete state.qMarks[teammateInfo.name];
+          addLog(state, `${teammateInfo.name} also shed a Q — first hand of the match, teammate's bid came through.`);
+        }
+      }
+    }
+  }
+  state.isFirstHandOfChampionship = false;
+
   if(state.matchScore.A <= 0 || state.matchScore.B <= 0){
     state.matchOver = true;
     state.matchWinner = state.matchScore.A <= 0 ? 'B' : 'A';
     state.sessionWins = state.sessionWins || {A:0, B:0};
     state.sessionWins[state.matchWinner] = (state.sessionWins[state.matchWinner] || 0) + 1;
     addLog(state, `Team ${state.matchWinner} wins the match — Team ${state.matchWinner === 'A' ? 'B' : 'A'} is out of tables!`);
+    // Every player on the losing side picks up a Q.
+    const losingTeam = state.matchWinner === 'A' ? 'B' : 'A';
+    for(let i=0;i<6;i++){
+      const s = state.seats[i];
+      if(!s || TEAM_OF(i) !== losingTeam) continue;
+      state.qMarks[s.name] = (state.qMarks[s.name] || 0) + 1;
+    }
+    addLog(state, `Team ${losingTeam} shut out — every player picks up a Q.`);
   }
 
   state.phase = 'handEnd';

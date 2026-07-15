@@ -649,6 +649,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .bdg-d{background:rgba(96,165,250,0.2);color:var(--info);border:1px solid var(--info)}
 .bdg-b{background:rgba(255,215,0,0.2);color:var(--accent);border:1px solid var(--accent)}
 .bdg-d{background:rgba(100,181,246,0.2);color:#64b5f6;border:1px solid #64b5f6}
+.bdg-q{background:rgba(180,60,80,0.22);color:#e08a9a;border:1px solid rgba(224,138,154,0.55)}
 .avatar.on{animation:glow2 1.5s ease infinite;border-color:var(--accent)}
 
 .card-float{transition:transform 0.8s cubic-bezier(0.4,0,0.2,1),opacity 0.8s ease;pointer-events:none;z-index:500}
@@ -4508,6 +4509,15 @@ function updateBadges() {
       // badge is the dependable one, visible the whole round regardless.
       if (playerPos === dealer) b.push("<span class='bdg bdg-d'>D</span>");
       if (playerPos === bidder && bidder >= 0) b.push("<span class='bdg bdg-b'>B" + highestBid + '</span>');
+      // "Q" penalty marks: a shame counter that sticks to a player across
+      // championships until they personally call and win a bid. Kept in
+      // the same badges row the dealer/bidder chips already use (so it
+      // never overlaps anything), and deliberately subdued/translucent
+      // rather than loud, since this is a running tally, not an
+      // in-the-moment alert like the other two badges.
+      const seatAtSlot = latestServerState && latestServerState.seats && latestServerState.seats[playerPos];
+      const qCount = (latestServerState && latestServerState.qMarks && seatAtSlot) ? (latestServerState.qMarks[seatAtSlot.name] || 0) : 0;
+      if (qCount > 0) b.push("<span class='bdg bdg-q' title='" + qCount + " Q — must personally call and win a bid to shed one'>" + qCount + "Q</span>");
       bc.innerHTML = b.join('');
     }
 
