@@ -210,6 +210,26 @@ let myPos = null, myPlayerId = null, myTableId = null, isHost = false;
 let latestState = null;
 let createOpts = { mode: 'cash', buyInType: 'nolimit', smallBlind: 5, bigBlind: 10, startingChips: 1000 };
 
+// This was the actual cause of the reported "freeze after waiting a
+// while, works fine if I continue right away" -- mobile browsers
+// commonly suspend/drop a socket connection after a tab sits idle or
+// backgrounded for a stretch. Socket.IO auto-reconnects the underlying
+// transport on its own, but without explicitly re-joining the table
+// here, the reconnected socket is a blank slate the server has never
+// heard of -- every subsequent action (including just clicking
+// Continue, if anything after it needed the connection) would silently
+// go nowhere. This re-establishes the seat the instant the transport
+// comes back, using the same playerId, so nothing about the table
+// state needs to change on the server side at all.
+socket.on('connect', () => {
+  if (myTableId && myPlayerId) {
+    socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
+  }
+});
+socket.on('disconnect', () => {
+  if (myTableId) toast('⚠️ Connection lost — reconnecting...');
+});
+
 function $(id) { return document.getElementById(id); }
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
@@ -508,7 +528,7 @@ function renderHandEnd(state) {
       const seatInfo = state.seats[h.seat];
       return `<div class="showdown-hand-row${isWinner ? ' winner' : ''}">
         <span>${seatInfo ? escapeHtml(seatInfo.name) : ''}</span>
-        <span>${h.hand.map(c => cardHtml(c, true)).join('')}</span>
+        <span style="display:flex;gap:2px">${h.hand.map(c => cardHtml(c, true)).join('')}</span>
         <span>${h.handName}</span>
       </div>`;
     }).join('');
