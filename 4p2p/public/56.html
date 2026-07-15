@@ -293,9 +293,9 @@
     border:2px solid var(--felt-2);box-shadow:0 2px 4px rgba(0,0,0,0.4);
   }
   .q-badge{
-    position:absolute;bottom:-3px;left:-3px;
-    background:rgba(180,60,80,0.35);color:#e08a9a;border:1.5px solid rgba(224,138,154,0.65);
-    border-radius:8px;font-size:9px;font-weight:800;padding:1px 4px;line-height:1.3;
+    position:absolute;bottom:-3px;left:-3px;white-space:nowrap;z-index:5;
+    background:rgba(180,60,80,0.55);color:#ffd0d8;border:1.5px solid rgba(224,138,154,0.75);
+    border-radius:8px;font-size:9px;font-weight:800;padding:1px 5px;line-height:1.3;
   }
 
   .center-trick{
@@ -1666,7 +1666,11 @@ function renderTable(state){
     // card play, so its idle-bob CSS animation keeps running smoothly
     // instead of restarting (which was reading as a visible glitch/jump
     // on the table every time anyone played a card).
-    const avatarContent = occ ? botFace(occ, seat, state) : '·';
+    const qCount = (occ && state.qMarks && state.qMarks[occ.name]) || 0;
+    // Carrying a Q swaps the avatar itself to a loser face until it's
+    // shed — a much more visible, constant reminder than a small corner
+    // badge alone.
+    const avatarContent = occ ? (qCount > 0 ? '😭' : botFace(occ, seat, state)) : '·';
     const avatarEl = div.querySelector('.avatar');
     if(avatarEl.dataset.v !== avatarContent){ avatarEl.dataset.v = avatarContent; avatarEl.innerHTML = avatarContent; }
 
@@ -1677,11 +1681,10 @@ function renderTable(state){
     botTag.style.display = (occ && occ.bot) ? '' : 'none';
 
     const qBadge = div.querySelector('.q-badge');
-    const qCount = (occ && state.qMarks && state.qMarks[occ.name]) || 0;
     if(qCount > 0){
       qBadge.style.display = '';
-      const qText = qCount + 'Q';
-      if(qBadge.dataset.v !== qText){ qBadge.dataset.v = qText; qBadge.textContent = qText; qBadge.title = qCount + ' Q — must personally call and win a bid to shed one'; }
+      const qText = qCount + ' Qunique' + (qCount > 1 ? 's' : '');
+      if(qBadge.dataset.v !== qText){ qBadge.dataset.v = qText; qBadge.textContent = qText; qBadge.title = qCount + ' Qunique — must personally call and win a bid to shed one'; }
     } else {
       qBadge.style.display = 'none';
     }

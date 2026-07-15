@@ -976,7 +976,8 @@ function renderSeats(state) {
     const av = $('av' + slot), nm = $('nm' + slot), cc = $('cc' + slot), wrap = $('seatWrap' + slot);
     if (!seat) { av.textContent = ''; nm.textContent = ''; cc.textContent = ''; wrap.style.opacity = '0.25'; continue; }
     wrap.style.opacity = '1';
-    av.textContent = seat.isBot ? '🤖' : (pos === MY_POS ? '😊' : '👤');
+    const qCount = (state.qMarks && state.qMarks[seat.name]) || 0;
+    av.textContent = qCount > 0 ? '😭' : (seat.isBot ? '🤖' : (pos === MY_POS ? '😊' : '👤'));
     nm.textContent = seat.name + (pos === MY_POS ? ' (You)' : '');
     cc.textContent = seat.cardCount + 'c';
     wrap.classList.toggle('on', state.currentPlayer === pos && (state.phase === 'bidding1' || state.phase === 'play' || state.phase === 'choosingTrump'));
@@ -991,14 +992,13 @@ function renderSeats(state) {
 
     // "Q" penalty marks — a running shame counter, separate from the
     // dealer/bidder badge above (opposite corner) so it never overlaps
-    // it, deliberately subdued rather than loud since it's a persistent
-    // tally, not an in-the-moment alert.
-    const qCount = (state.qMarks && state.qMarks[seat.name]) || 0;
+    // it. The avatar itself already swapped to a loser face above; this
+    // badge spells out the actual count.
     let qEl = wrap.querySelector('.bdg-q');
     if (qCount > 0) {
       if (!qEl) { qEl = document.createElement('div'); qEl.className = 'bdg-q'; av.appendChild(qEl); }
-      qEl.textContent = qCount + 'Q';
-      qEl.title = qCount + ' Q — must personally call and win a bid to shed one';
+      qEl.textContent = qCount + ' Qunique' + (qCount > 1 ? 's' : '');
+      qEl.title = qCount + ' Qunique — must personally call and win a bid to shed one';
     } else if (qEl) { qEl.remove(); }
   }
 }
