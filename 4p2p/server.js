@@ -1897,6 +1897,266 @@ io.on('connection', (socket) => {
   });
 });
 
+// ============================================================
+// TEXAS HOLD'EM (9-seat, Zynga-style) -- fully isolated from every
+// other game in this file, same spirit as the 6-player/56 sections:
+// nothing in here can affect any other table type, and nothing
+// elsewhere can affect this.
+// ============================================================
+const { PokerEngine, SEATS: POKER_SEATS } = require('./poker-engine');
+const { botAct: pokerBotAct } = require('./poker-bot');
+
+const pokerTables = {};
+
+function newPokerTableId() { return 'P' + crypto.randomBytes(4).toString('hex').toUpperCase(); }
+
+function pokerPublicTableList() {
+  return Object.values(pokerTables)
+    .filter(t => t.engine.seats.some(Boolean))
+    .map(t => ({
+      tableId: t.engine.tableId, name: t.name, mode: t.engine.mode,
+      smallBlind: t.engine.smallBlind, bigBlind: t.engine.bigBlind,
+      players: t.engine.occupiedSeats().length,
+      openSeats: POKER_SEATS - t.engine.occupiedSeats().length,
+      isPlaying: t.engine.phase !== 'lobby'
+    }));
+}
+
+function pokerBroadcast(t) {
+  for (const [socketId, info] of t.sockets) {
+    const sock = io.sockets.sockets.get(socketId);
+    if (!sock) continue;
+    const state = t.engine.getStateFor(info.pos);
+    state.isHost = (info.playerId === t.hostPlayerId);
+    sock.emit('poker_state', state);
+  }
+  io.emit('poker_roomList', pokerPublicTableList());
+}
+
+function pokerTouch(t) { t.lastActivityAt = Date.now(); }
+
+// Bots act on a short, human-feeling delay, same pacing pattern as the
+// other games. Re-arms itself after every broadcast as long as it's
+// still a bot's turn -- if a human's turn comes up, it naturally stops
+// and waits for their actual input instead.
+function pokerMaybeBotAct(t) {
+  const p = t.engine.currentPlayer;
+  if (p === -1) return;
+  const seat = t.engine.seats[p];
+  if (!seat || !seat.isBot || t.engine.phase === 'handEnd' || t.engine.phase === 'lobby') return;
+  setTimeout(() => {
+    if (!pokerTables[t.engine.tableId]) return; // table closed in the meantime
+    if (t.engine.currentPlayer !== p) return; // already moved on somehow
+    pokerBotAct(t.engine, p);
+    pokerTouch(t);
+    pokerBroadcast(t);
+    pokerMaybeBotAct(t);
+  }, 900 + Math.random() * 700);
+}
+
+// Auto-deals the next hand a couple seconds after one ends, as long as
+// there are still at least 2 players with chips (or waiting to reload)
+// -- keeps the table moving without needing a manual "continue" click
+// every single hand, the way a real cash game would just keep going.
+function pokerMaybeAutoDeal(t) {
+  if (t.engine.phase !== 'handEnd') return;
+  setTimeout(() => {
+    if (!pokerTables[t.engine.tableId]) return;
+    if (t.engine.phase !== 'handEnd') return;
+    t.engine.checkReloads();
+    t.engine.startHand();
+    pokerTouch(t);
+    pokerBroadcast(t);
+    pokerMaybeBotAct(t);
+  }, 3000);
+}
+
+// Background reload-timer sweep -- catches a player whose 1-minute wait
+// finished while nobody happened to trigger a state change in the
+// meantime (e.g. everyone else stepped away too).
+setInterval(() => {
+  for (const t of Object.values(pokerTables)) {
+    const before = JSON.stringify(t.engine.seats.map(s => s && s.chips));
+    t.engine.checkReloads();
+    const after = JSON.stringify(t.engine.seats.map(s => s && s.chips));
+    if (before !== after) { pokerTouch(t); pokerBroadcast(t); }
+  }
+}, 5000);
+
+io.on('connection', (socket) => {
+  let pokerTableId = null;
+  let pokerPlayerId = null;
+
+  function withPokerTable(fn) {
+    const t = pokerTables[pokerTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info) return;
+    fn(t, info.pos);
+  }
+
+  socket.on('poker_listRooms', () => socket.emit('poker_roomList', pokerPublicTableList()));
+
+  socket.on('poker_createTable', ({ name, mode, buyInType, smallBlind, bigBlind, startingChips, reloadChips }) => {
+    const tableId = newPokerTableId();
+    const engine = new PokerEngine(tableId, {
+      mode: mode === 'tournament' ? 'tournament' : 'cash',
+      buyInType: buyInType === 'fixed' ? 'fixed' : 'nolimit',
+      smallBlind: Math.max(1, Math.min(1000, Number(smallBlind) || 5)),
+      bigBlind: Math.max(2, Math.min(2000, Number(bigBlind) || 10)),
+      startingChips: Math.max(100, Math.min(1000000, Number(startingChips) || 1000)),
+      reloadChips: Math.max(0, Math.min(1000000, Number(reloadChips) || 500))
+    });
+    const playerId = crypto.randomBytes(8).toString('hex');
+    engine.seatHuman(0, String(name || 'Host').slice(0, 20), playerId);
+    const t = {
+      engine, name: `${name || 'Host'}'s table`, hostPlayerId: playerId,
+      sockets: new Map(), lastActivityAt: Date.now()
+    };
+    pokerTables[tableId] = t;
+    t.sockets.set(socket.id, { pos: 0, playerId });
+    pokerTableId = tableId; pokerPlayerId = playerId;
+    socket.join('poker_' + tableId);
+    socket.emit('poker_joined', { tableId, pos: 0, playerId, isHost: true });
+    pokerBroadcast(t);
+  });
+
+  socket.on('poker_joinTable', ({ tableId, name, playerId: existingPlayerId, pos: requestedPos }) => {
+    const t = pokerTables[tableId];
+    if (!t) { socket.emit('poker_joinFailed', { reason: 'not_found' }); return; }
+
+    // Reconnect: same playerId claiming their existing seat back.
+    if (existingPlayerId) {
+      const existingPos = t.engine.seats.findIndex(s => s && s.playerId === existingPlayerId);
+      if (existingPos >= 0) {
+        t.engine.seats[existingPos].connected = true;
+        t.sockets.set(socket.id, { pos: existingPos, playerId: existingPlayerId });
+        pokerTableId = tableId; pokerPlayerId = existingPlayerId;
+        socket.join('poker_' + tableId);
+        socket.emit('poker_joined', { tableId, pos: existingPos, playerId: existingPlayerId, isHost: existingPlayerId === t.hostPlayerId });
+        pokerTouch(t);
+        pokerBroadcast(t);
+        return;
+      }
+    }
+
+    const openSeats = t.engine.seats.map((s, i) => s ? null : i).filter(i => i !== null);
+    const botSeats = t.engine.seats.map((s, i) => (s && s.isBot) ? i : null).filter(i => i !== null);
+    let pos = (typeof requestedPos === 'number' && openSeats.includes(requestedPos)) ? requestedPos
+      : (openSeats.length > 0 ? openSeats[0]
+        : (typeof requestedPos === 'number' && botSeats.includes(requestedPos)) ? requestedPos
+          : botSeats[0]);
+    if (pos === undefined) { socket.emit('poker_joinFailed', { reason: 'table_full' }); return; }
+
+    // Taking over a bot seat -- the bot is simply replaced, keeping its
+    // chip stack (matches "host can kick bots out if a human joins").
+    if (t.engine.seats[pos] && t.engine.seats[pos].isBot) {
+      const existingChips = t.engine.seats[pos].chips;
+      t.engine.removeSeat(pos);
+      t.engine.seatHuman(pos, String(name || 'Player').slice(0, 20), null);
+      t.engine.seats[pos].chips = existingChips;
+    } else {
+      t.engine.seatHuman(pos, String(name || 'Player').slice(0, 20), null);
+    }
+    const newPlayerId = crypto.randomBytes(8).toString('hex');
+    t.engine.seats[pos].playerId = newPlayerId;
+    t.sockets.set(socket.id, { pos, playerId: newPlayerId });
+    pokerTableId = tableId; pokerPlayerId = newPlayerId;
+    socket.join('poker_' + tableId);
+    socket.emit('poker_joined', { tableId, pos, playerId: newPlayerId, isHost: newPlayerId === t.hostPlayerId });
+    pokerTouch(t);
+    pokerBroadcast(t);
+  });
+
+  socket.on('poker_fillBots', ({ count }) => {
+    withPokerTable((t, pos) => {
+      if (t.hostPlayerId !== pokerPlayerId) return;
+      const openSeats = t.engine.seats.map((s, i) => s ? null : i).filter(i => i !== null);
+      const n = Math.max(0, Math.min(openSeats.length, Number(count) || 0));
+      for (let i = 0; i < n; i++) t.engine.seatBot(openSeats[i], `Bot ${openSeats[i] + 1}`);
+      pokerTouch(t);
+      pokerBroadcast(t);
+    });
+  });
+
+  socket.on('poker_startHand', () => {
+    withPokerTable((t) => {
+      if (t.hostPlayerId !== pokerPlayerId) return;
+      if (t.engine.phase !== 'lobby' && t.engine.phase !== 'handEnd') return;
+      t.engine.startHand();
+      pokerTouch(t);
+      pokerBroadcast(t);
+      pokerMaybeBotAct(t);
+    });
+  });
+
+  socket.on('poker_act', ({ action, amount }) => {
+    withPokerTable((t, pos) => {
+      const result = t.engine.act(pos, action, amount);
+      if (!result.ok) { socket.emit('poker_actionError', result); return; }
+      pokerTouch(t);
+      pokerBroadcast(t);
+      if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
+      else pokerMaybeBotAct(t);
+    });
+  });
+
+  // Host can kick anyone, but per the design it only actually applies
+  // once the current hand finishes -- the engine itself enforces this
+  // timing, this handler just exposes request/cancel.
+  socket.on('poker_requestKick', ({ pos: kickPos }) => {
+    withPokerTable((t, pos) => {
+      if (t.hostPlayerId !== pokerPlayerId) return;
+      t.engine.requestKick(kickPos, pokerPlayerId);
+      pokerTouch(t);
+      pokerBroadcast(t);
+    });
+  });
+  socket.on('poker_cancelKick', ({ pos: kickPos }) => {
+    withPokerTable((t) => {
+      if (t.hostPlayerId !== pokerPlayerId) return;
+      t.engine.cancelKick(kickPos);
+      pokerTouch(t);
+      pokerBroadcast(t);
+    });
+  });
+
+  socket.on('poker_leaveTable', () => {
+    withPokerTable((t, pos) => {
+      t.engine.removeSeat(pos);
+      t.sockets.delete(socket.id);
+      socket.leave('poker_' + pokerTableId);
+      pokerTouch(t);
+      pokerBroadcast(t);
+    });
+    pokerTableId = null; pokerPlayerId = null;
+  });
+
+  socket.on('disconnect', () => {
+    if (!pokerTableId) return;
+    const t = pokerTables[pokerTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    t.sockets.delete(socket.id);
+    if (info && t.engine.seats[info.pos] && t.engine.seats[info.pos].playerId === info.playerId) {
+      // Keep the seat (reconnect-friendly, same as the other tables),
+      // just mark it disconnected.
+      t.engine.seats[info.pos].connected = false;
+    }
+    pokerTouch(t);
+    pokerBroadcast(t);
+  });
+});
+
+// Idle poker tables get cleaned up the same way the other games do.
+setInterval(() => {
+  const now = Date.now();
+  for (const id of Object.keys(pokerTables)) {
+    const t = pokerTables[id];
+    if (now - t.lastActivityAt > 30 * 60 * 1000) delete pokerTables[id];
+  }
+}, 5 * 60 * 1000);
+
 server.listen(PORT, () => {
   console.log(`28 Kerala Gulan authoritative server running on port ${PORT}`);
 });
