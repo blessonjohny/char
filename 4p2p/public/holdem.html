@@ -37,6 +37,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 .felt{position:absolute;inset:8% 4%;border-radius:50%;background:radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-2) 100%);border:10px solid #3d2510;box-shadow:0 10px 30px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.4)}
 .board-area{position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);display:flex;gap:4px;z-index:5}
 .pot-display{position:absolute;top:26%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap}
+.turn-banner{position:absolute;top:4%;left:50%;transform:translate(-50%,0);background:rgba(0,0,0,0.55);border:1px solid rgba(244,196,48,0.5);border-radius:14px;padding:5px 14px;font-size:0.72rem;font-weight:700;color:var(--cream);z-index:6;white-space:nowrap;display:none}
+.turn-banner.on{display:block}
+.street-banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);border:2px solid var(--gold);border-radius:16px;padding:14px 28px;font-size:1.4rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 10px rgba(244,196,48,0.6);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
+.street-banner.on{display:block}
+@keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
 .card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0}
 .card.red{color:#c8302f}
 .card.black{color:#1a1a1a}
@@ -55,6 +60,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 .seat-bet{position:absolute;background:rgba(0,0,0,0.6);border:1px solid var(--gold);border-radius:10px;padding:2px 8px;font-size:0.6rem;color:var(--gold);font-weight:800;white-space:nowrap}
 .dealer-chip{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#241a12;font-size:0.55rem;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #241a12}
 .allin-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}
+.folded-tag{display:inline-block;background:rgba(0,0,0,0.5);color:rgba(255,255,255,0.55);font-size:0.6rem;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15)}
 
 .hand-strip{display:flex;justify-content:center;gap:6px;padding:6px 0}
 .hand-strip .card{width:44px;height:62px;font-size:1rem}
@@ -160,6 +166,8 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   </div>
   <div class="table-wrap">
     <div class="felt"></div>
+    <div class="turn-banner" id="turnBanner"></div>
+    <div class="street-banner" id="streetBanner"></div>
     <div class="pot-display" id="potDisplay">Pot: 0</div>
     <div class="board-area" id="boardArea"></div>
     <div id="seatsContainer"></div>
@@ -173,6 +181,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   <div class="overlay-box">
     <h2 id="handEndTitle" style="color:var(--gold)">Hand Complete</h2>
     <div id="handEndBody"></div>
+    <button class="btn btn-gold" id="btnCloseHandEnd" style="width:100%;margin-top:14px">Continue ▶</button>
   </div>
 </div>
 
@@ -323,9 +332,11 @@ function renderGameTable(state) {
     const slot = slotFor(pos);
     const p = positions[slot];
     const isActive = state.currentPlayer === pos && state.phase !== 'handEnd';
-    const cardsHtml = pos === myPos
-      ? s.hand.map(c => cardHtml(c, true)).join('')
-      : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true)).join('') : '');
+    const cardsHtml = s.folded
+      ? '' // no cards shown at all once folded -- the FOLDED tag below says why
+      : (pos === myPos
+        ? s.hand.map(c => cardHtml(c, true)).join('')
+        : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true)).join('') : ''));
     return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
       <div class="seat-avatar-wrap">
         <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
@@ -334,8 +345,8 @@ function renderGameTable(state) {
       </div>
       <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
       <div class="seat-chips">${s.chips}${s.bustedAt ? ' ⏳' : ''}</div>
-      <div class="seat-cards">${cardsHtml}</div>
-      ${s.bettedThisRound > 0 ? `<div class="seat-bet">${s.bettedThisRound}</div>` : ''}
+      <div class="seat-cards">${s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml}</div>
+      ${s.bettedThisRound > 0 && !s.folded ? `<div class="seat-bet">${s.bettedThisRound}</div>` : ''}
     </div>`;
   }).join('');
 
@@ -344,13 +355,25 @@ function renderGameTable(state) {
 
   renderActionBar(state);
   renderLogPanel(state);
+  renderStreetBanner(state);
+  renderTurnBanner(state);
 
-  if (state.phase === 'handEnd' && state.showdownResult) {
+  // The showdown popup is shown exactly once per hand and then left
+  // alone -- the server may keep dealing further hands in the
+  // background (bots don't need to click anything to keep the table
+  // moving), but the human's popup stays up with THAT hand's result
+  // until they explicitly dismiss it, not on a timer and not just
+  // because the underlying state moved on.
+  if (state.phase === 'handEnd' && state.showdownResult && state.handNumber !== lastShownHandEndFor) {
+    lastShownHandEndFor = state.handNumber;
     renderHandEnd(state);
-  } else {
-    $('handEndOverlay').classList.remove('on');
   }
 }
+
+let lastShownHandEndFor = null;
+$('btnCloseHandEnd').addEventListener('click', () => {
+  $('handEndOverlay').classList.remove('on');
+});
 
 function renderActionBar(state) {
   const bar = $('actionBar');
@@ -419,7 +442,51 @@ function renderHandEnd(state) {
     const winnerSummary = r.winners.map(w => `${state.seats[w.seat] ? state.seats[w.seat].name : ''} +${w.amount}`).join(', ');
     $('handEndBody').innerHTML = `<div style="margin-bottom:8px">${rows}</div><p style="color:var(--gold);font-weight:800">${escapeHtml(winnerSummary)}</p>`;
   }
-  setTimeout(() => $('handEndOverlay').classList.remove('on'), 4500);
+}
+
+// Always-visible "whose turn" banner so it's never ambiguous who the
+// table is waiting on, separate from the action bar (which only shows
+// controls when it's YOUR turn).
+function renderTurnBanner(state) {
+  const el = $('turnBanner');
+  if (state.phase === 'handEnd' || state.currentPlayer === -1) { el.classList.remove('on'); return; }
+  const cur = state.seats[state.currentPlayer];
+  if (!cur) { el.classList.remove('on'); return; }
+  const label = state.currentPlayer === myPos ? '▶ Your turn' : `▶ ${escapeHtml(cur.name)}'s turn${cur.isBot ? ' 🤖' : ''}`;
+  el.textContent = label;
+  el.classList.add('on');
+}
+
+// A brief, unmistakable "FLOP! / TURN! / RIVER!" banner whenever new
+// community cards are revealed -- deliberately NOT on a fixed timer.
+// It stays up until something else actually happens (the next logged
+// action), same "stays till the next thing happens" rule as the
+// hand-end popup, just applied to street transitions instead.
+let lastBoardLenForBanner = 0;
+let streetBannerShownAtLogText = null;
+function renderStreetBanner(state) {
+  const el = $('streetBanner');
+  const boardLen = state.board.length;
+  if (boardLen > lastBoardLenForBanner) {
+    const label = boardLen === 3 ? '🂡 FLOP!' : boardLen === 4 ? '🂡 TURN!' : boardLen === 5 ? '🂡 RIVER!' : null;
+    if (label) {
+      el.textContent = label;
+      el.classList.add('on');
+      streetBannerShownAtLogText = (state.log[0] && state.log[0].text) || null;
+    }
+  }
+  lastBoardLenForBanner = boardLen;
+  if (boardLen === 0) { el.classList.remove('on'); streetBannerShownAtLogText = null; }
+
+  // Hide once a genuinely new action has happened since the banner
+  // appeared (the top of the log has moved on from what it was then).
+  if (streetBannerShownAtLogText !== null) {
+    const currentTop = (state.log[0] && state.log[0].text) || null;
+    if (currentTop !== streetBannerShownAtLogText) {
+      el.classList.remove('on');
+      streetBannerShownAtLogText = null;
+    }
+  }
 }
 
 function renderLogPanel(state) {
