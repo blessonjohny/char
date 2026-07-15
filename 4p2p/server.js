@@ -1950,7 +1950,16 @@ function pokerMaybeBotAct(t) {
     pokerBotAct(t.engine, p);
     pokerTouch(t);
     pokerBroadcast(t);
-    pokerMaybeBotAct(t);
+    // This was the actual bug behind "table freezes after a few rounds":
+    // if THIS bot action is what ends the hand (e.g. it's the fold that
+    // leaves one player standing, or the call that completes the last
+    // betting round into showdown), nothing was scheduling the next
+    // deal -- that only ever happened from the human poker_act handler.
+    // Whenever a bot happened to be the one whose action closed out a
+    // hand, the table would sit at handEnd forever. Same handling as
+    // poker_act now applies here too.
+    if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
+    else pokerMaybeBotAct(t);
   }, 900 + Math.random() * 700);
 }
 
