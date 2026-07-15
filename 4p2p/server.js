@@ -894,6 +894,17 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Any seated player can signal their partner between rounds -- not
+  // host-restricted like the controls below, since this is between two
+  // teammates, not a table-admin action.
+  socket.on('sendPartnerSignal', ({ signal }) => {
+    withTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      if (t.engine.phase !== 'roundEnd') return;
+      t.engine.sendPartnerSignal(pos, signal);
+    });
+  });
+
   // Host controls, available at any point in the game (not just at round
   // end) — restarting reshuffles and redeals regardless of what phase the
   // table is currently in.
@@ -1408,6 +1419,19 @@ io.on('connection', (socket) => {
       if (t.engine.phase !== 'roundEnd') return;
       if (t.engine.gameOver) return;
       t.engine.startRound();
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+    });
+  });
+
+  // Any seated player can signal their teammates between rounds -- not
+  // host-restricted, since this is between teammates, not a table-admin
+  // action.
+  socket.on('sixp_sendPartnerSignal', ({ signal }) => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      if (t.engine.phase !== 'roundEnd') return;
+      t.engine.sendPartnerSignal(pos, signal);
       sixpTouch(t);
       sixpBroadcastTable(t);
     });

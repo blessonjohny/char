@@ -111,6 +111,9 @@ class GameEngine6P {
     // starting" for the first-hand partner-bonus exception.
     this.qMarks = {};
     this.isFirstHandOfChampionship = true;
+    // Partner bidding signals: same rule as the 4-player game, but sent
+    // to every teammate at once since teams are 3-a-side here.
+    this.partnerSignals = {}; // seat -> {signal:'same'|'higher'|'lower', fromSeat, fromName, forRound}
     this.dealer = Math.floor(Math.random() * SEATS);
     this.resetRoundState();
     this.phase = 'lobby'; // lobby | bidding1 | choosingTrump | play | roundEnd
@@ -281,6 +284,25 @@ class GameEngine6P {
 
   isFirstBidder(pos) {
     return this.highestBid === 0 && this.passes === 0 && pos === nextPos(this.dealer);
+  }
+
+  // A human telling their teammates how to approach the next hand's
+  // bidding -- same, more aggressive, or less aggressive. Sent to every
+  // teammate at once (3-a-side teams here, no single "partner").
+  sendPartnerSignal(fromSeat, signal) {
+    if (!['same', 'higher', 'lower'].includes(signal)) return { ok: false, reason: 'bad_signal' };
+    const fromSeatInfo = this.seats[fromSeat];
+    if (!fromSeatInfo) return { ok: false, reason: 'no_seat' };
+    const myTeam = getTeam(fromSeat);
+    const toSeats = [];
+    for (let i = 0; i < SEATS; i++) {
+      if (i === fromSeat || getTeam(i) !== myTeam) continue;
+      this.partnerSignals[i] = { signal, fromSeat, fromName: fromSeatInfo.name, forRound: this.round + 1 };
+      toSeats.push(i);
+    }
+    this.addLog(`${fromSeatInfo.name} signaled their team: bid ${signal === 'same' ? 'the same' : signal === 'higher' ? 'more aggressively' : 'less aggressively'} next hand.`);
+    this._notify();
+    return { ok: true, toSeats };
   }
 
   placeBid(pos, bid) {
@@ -651,6 +673,16 @@ class GameEngine6P {
         else break;
       }
       if (ev.defensive > ev.offensive * 1.3) target = Math.max(16, target - 3);
+
+      // Partner bidding signal from last round -- same rule as the
+      // 4-player game, just sent to ALL teammates at once here since
+      // teams are 3-a-side, not a single designated partner.
+      if (this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round) {
+        const sig = this.partnerSignals[pos].signal;
+        if (sig === 'higher') target = Math.min(28, target + 3);
+        else if (sig === 'lower') target = Math.max(16, target - 3);
+      }
+
       let pb = 0;
       if (this.bidder >= 0 && getTeam(this.bidder) === getTeam(pos)) pb = 1 * b.bidWeights.partnerSupport;
       target = Math.min(28, Math.round(target + pb));
@@ -665,6 +697,7 @@ class GameEngine6P {
 
       const result = this.placeBid(pos, bid);
       if (!result.ok) this.placeBid(pos, 0);
+      delete this.partnerSignals[pos]; // one-shot: consumed the moment this seat actually bids
     } else if (this.phase === 'choosingTrump' && this.currentPlayer === pos) {
       const hand = this.seats[pos].hand;
       const bySuit = {};
@@ -964,6 +997,7 @@ class GameEngine6P {
       teamPoints: this.teamPoints,
       gameScore: this.gameScore,
       qMarks: this.qMarks,
+      partnerSignals: this.partnerSignals,
       gameOver: this.gameOver,
       lastTrick: this.lastTrick,
       roundWinnerAnnounced: this.roundWinnerAnnounced,

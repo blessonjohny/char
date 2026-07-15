@@ -263,6 +263,13 @@ class GameEngine {
     // exception where a successful bidder's partner can shed one too.
     this.qMarks = {};
     this.isFirstHandOfChampionship = true;
+    // Partner bidding signals: a human tells their partner (bot or
+    // human) how to approach the NEXT hand's bidding relative to normal
+    // -- same, more aggressive, or less aggressive. For a bot partner
+    // this actually nudges their bid target; for a human partner it's
+    // just delivered as a message, never enforced. One-shot: consumed
+    // (or expires) after that one hand's bidding.
+    this.partnerSignals = {}; // seat -> {signal:'same'|'higher'|'lower', fromSeat, fromName}
     this.KING_TARGET = 10; // win 10 championships in a row to be crowned King of the Table
     this.lastChampionshipResult = null; // set only on the round that just decided a championship
     // Dealer starts at a genuinely random seat for a fresh table, then
@@ -541,6 +548,21 @@ class GameEngine {
 
   isFirstBidder(pos) {
     return this.highestBid === 0 && this.passes === 0 && pos === nextPos(this.dealer);
+  }
+
+  // A human telling their partner how to approach the next hand's
+  // bidding -- same, more aggressive, or less aggressive than usual.
+  // Only meaningful between the seat that just finished a round and
+  // its partner; validated here rather than trusted from the client.
+  sendPartnerSignal(fromSeat, signal) {
+    if (!['same', 'higher', 'lower'].includes(signal)) return { ok: false, reason: 'bad_signal' };
+    const fromSeatInfo = this.seats[fromSeat];
+    if (!fromSeatInfo) return { ok: false, reason: 'no_seat' };
+    const toSeat = fromSeat === 0 ? 3 : fromSeat === 3 ? 0 : fromSeat === 1 ? 2 : 1;
+    this.partnerSignals[toSeat] = { signal, fromSeat, fromName: fromSeatInfo.name, forRound: this.round + 1 };
+    this.addLog(`${fromSeatInfo.name} signaled their partner: bid ${signal === 'same' ? 'the same' : signal === 'higher' ? 'more aggressively' : 'less aggressively'} next hand.`);
+    this._notify();
+    return { ok: true, toSeat };
   }
 
   placeBid(pos, bid) {
@@ -1166,6 +1188,18 @@ class GameEngine {
         target = Math.max(14, target - 3);
       }
 
+      // Partner bidding signal from last round: a lightweight nudge, not
+      // a hard override — still bounded by the normal 14-28 range so a
+      // signal can't push a truly hopeless hand into a bid it has no
+      // business making. Tagged with the round it's meant for, so a
+      // signal that never got used (e.g. this seat never got to bid)
+      // just quietly expires instead of leaking into a later round.
+      if (this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round) {
+        const sig = this.partnerSignals[pos].signal;
+        if (sig === 'higher') target = Math.min(28, target + 3);
+        else if (sig === 'lower') target = Math.max(14, target - 3);
+      }
+
       // Partner already winning the bidding is worth leaning into a
       // little further, same spirit as before -- and if that partner is
       // a specific human this bot has a track record with, lean in
@@ -1206,6 +1240,7 @@ class GameEngine {
 
       const result = this.placeBid(pos, bid);
       if (!result.ok) this.placeBid(pos, 0); // never leave the table stuck on a rejected bid
+      delete this.partnerSignals[pos]; // one-shot: consumed the moment this seat actually bids
     } else if (this.phase === 'choosingTrump' && pos === this.bidder) {
       // Faithful port of the reference's botChooseTrumpWithBrain.
       const b = brain.getBrain(this.seats[pos].name);
@@ -1676,6 +1711,7 @@ class GameEngine {
       teamPoints: this.teamPoints,
       gameScore: this.gameScore,
       qMarks: this.qMarks,
+      partnerSignals: this.partnerSignals,
       championshipNumber: this.championshipNumber,
       kingStreak: this.kingStreak,
       lastChampionshipResult: this.lastChampionshipResult,
