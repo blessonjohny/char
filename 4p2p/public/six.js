@@ -969,7 +969,41 @@ function ensureSeatPositions() {
 }
 ensureSeatPositions();
 
+// Same detection scheme as the other two games: compares incoming
+// qMarks to what was last seen, throws a big combined event banner for
+// whoever changed. First-ever call just syncs the baseline silently.
+let lastSeenQMarksSix = null;
+function detectQMarkChangesSix(state) {
+  const newMarks = state.qMarks || {};
+  if (lastSeenQMarksSix === null) { lastSeenQMarksSix = { ...newMarks }; return; }
+  const gained = [], lost = [];
+  const allNames = new Set([...Object.keys(lastSeenQMarksSix), ...Object.keys(newMarks)]);
+  for (const name of allNames) {
+    const before = lastSeenQMarksSix[name] || 0;
+    const after = newMarks[name] || 0;
+    if (after > before) gained.push(name);
+    else if (after < before) lost.push(name);
+  }
+  lastSeenQMarksSix = { ...newMarks };
+  if (gained.length > 0) showQMarkEventSix(gained, 'gained');
+  if (lost.length > 0) showQMarkEventSix(lost, 'lost');
+}
+function showQMarkEventSix(names, direction) {
+  const overlay = document.createElement('div');
+  overlay.className = 'qmark-event-overlay ' + direction;
+  const title = direction === 'gained' ? '😭 QUNIQUE!' : '🎉 QUNIQUE SHED!';
+  const namesText = names.map(escapeHtml).join(', ');
+  const subtitle = direction === 'gained'
+    ? `${namesText} ${names.length > 1 ? 'each get' : 'gets'} a Qunique — shut out!`
+    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Qunique!`;
+  overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${direction === 'gained' ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.classList.add('leaving'), 2200);
+  setTimeout(() => overlay.remove(), 2700);
+}
+
 function renderSeats(state) {
+  detectQMarkChangesSix(state);
   for (let pos = 0; pos < 6; pos++) {
     const slot = slotFor(pos);
     const seat = state.seats[pos];

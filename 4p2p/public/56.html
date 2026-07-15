@@ -298,6 +298,28 @@
     border-radius:8px;font-size:9px;font-weight:800;padding:1px 5px;line-height:1.3;
   }
 
+  /* ---- Big Qunique event banner (gain/shed) ---- */
+  .qmark-event-overlay{
+    position:fixed;inset:0;z-index:900;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0);pointer-events:none;animation:qmarkBackdropIn .3s ease forwards;
+  }
+  .qmark-event-overlay.leaving{animation:qmarkBackdropOut .5s ease forwards;}
+  @keyframes qmarkBackdropIn{from{background:rgba(0,0,0,0);}to{background:rgba(0,0,0,0.55);}}
+  @keyframes qmarkBackdropOut{from{background:rgba(0,0,0,0.55);}to{background:rgba(0,0,0,0);}}
+  .qmark-event-box{
+    text-align:center;padding:28px 32px;border-radius:20px;max-width:88vw;
+    animation:qmarkBoxIn .5s cubic-bezier(.2,1.6,.4,1) both;
+  }
+  .qmark-event-overlay.leaving .qmark-event-box{animation:qmarkBoxOut .4s ease both;}
+  @keyframes qmarkBoxIn{0%{opacity:0;transform:scale(0.3) rotate(-8deg);}60%{transform:scale(1.12) rotate(2deg);}100%{opacity:1;transform:scale(1) rotate(0);}}
+  @keyframes qmarkBoxOut{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(0.7) translateY(-20px);}}
+  .qmark-event-overlay.gained .qmark-event-box{background:radial-gradient(ellipse at center, rgba(120,20,35,0.96), rgba(50,8,15,0.98));border:3px solid #e08a9a;box-shadow:0 0 60px rgba(200,40,70,0.6);}
+  .qmark-event-overlay.lost .qmark-event-box{background:radial-gradient(ellipse at center, rgba(120,90,15,0.96), rgba(50,35,5,0.98));border:3px solid var(--gold);box-shadow:0 0 60px rgba(230,200,80,0.6);}
+  .qmark-event-emoji{font-size:3.2rem;line-height:1;animation:qmarkEmojiShake 0.6s ease-in-out 0.3s 2;}
+  @keyframes qmarkEmojiShake{0%,100%{transform:rotate(0);}25%{transform:rotate(-12deg) scale(1.1);}75%{transform:rotate(12deg) scale(1.1);}}
+  .qmark-event-title{font-family:'Fraunces',serif;font-size:1.6rem;font-weight:800;letter-spacing:1px;margin-top:10px;color:var(--cream);text-shadow:0 2px 8px rgba(0,0,0,0.6);}
+  .qmark-event-sub{font-size:0.9rem;margin-top:8px;color:var(--gold-soft);max-width:280px;margin-left:auto;margin-right:auto;}
+
   .center-trick{
     position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;
   }
@@ -1472,11 +1494,49 @@ function displaySlot(seat){
 // ============================================================
 // RENDER
 // ============================================================
+// Detects when anyone's Qunique count actually changes between renders
+// and throws up a big, hard-to-miss event banner for it — gaining one is
+// a real moment (a whole team just got shut out), shedding one is worth
+// celebrating too. Multiple people changing in the same update (a whole
+// team shut out together) get combined into one banner rather than
+// several overlapping popups. The very first render after loading never
+// animates — that would just be existing Q's syncing in, not a new event.
+let lastSeenQMarks56 = null;
+function detectQMarkChanges(state){
+  const newMarks = state.qMarks || {};
+  if(lastSeenQMarks56 === null){ lastSeenQMarks56 = {...newMarks}; return; }
+  const gained = [], lost = [];
+  const allNames = new Set([...Object.keys(lastSeenQMarks56), ...Object.keys(newMarks)]);
+  for(const name of allNames){
+    const before = lastSeenQMarks56[name] || 0;
+    const after = newMarks[name] || 0;
+    if(after > before) gained.push(name);
+    else if(after < before) lost.push(name);
+  }
+  lastSeenQMarks56 = {...newMarks};
+  if(gained.length > 0) showQMarkEvent56(gained, 'gained');
+  if(lost.length > 0) showQMarkEvent56(lost, 'lost');
+}
+function showQMarkEvent56(names, direction){
+  const overlay = document.createElement('div');
+  overlay.className = 'qmark-event-overlay ' + direction;
+  const title = direction === 'gained' ? '😭 QUNIQUE!' : '🎉 QUNIQUE SHED!';
+  const namesText = names.map(escapeHtml).join(', ');
+  const subtitle = direction === 'gained'
+    ? `${namesText} ${names.length>1 ? 'each get' : 'gets'} a Qunique — shut out!`
+    : `${namesText} ${names.length>1 ? 'shed' : 'sheds'} a Qunique!`;
+  overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${direction==='gained'?'😭':'🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.classList.add('leaving'), 2200);
+  setTimeout(() => overlay.remove(), 2700);
+}
+
 function render(state){
   lastRenderedStamp = state.updatedAt;
   latestState = state;
   isHost = !!state.hostPlayerId && state.hostPlayerId === MY_PLAYER_ID;
   applyTheme(state.themeIndex || 0);
+  detectQMarkChanges(state);
   // Same rule six.js uses: voice only makes sense once you're actually
   // seated and playing, not while still in the lobby waiting on others.
   if(window.K28Voice){

@@ -656,6 +656,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .bdg-b{background:rgba(255,215,0,0.2);color:var(--accent);border:1px solid var(--accent)}
 .bdg-d{background:rgba(100,181,246,0.2);color:#64b5f6;border:1px solid #64b5f6}
 .bdg-q{background:rgba(180,60,80,0.22);color:#e08a9a;border:1px solid rgba(224,138,154,0.55)}
+
+/* ---- Big Qunique event banner (gain/shed) ---- */
+.qmark-event-overlay{
+  position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0);pointer-events:none;animation:qmarkBackdropIn .3s ease forwards;
+}
+.qmark-event-overlay.leaving{animation:qmarkBackdropOut .5s ease forwards;}
+@keyframes qmarkBackdropIn{from{background:rgba(0,0,0,0);}to{background:rgba(0,0,0,0.55);}}
+@keyframes qmarkBackdropOut{from{background:rgba(0,0,0,0.55);}to{background:rgba(0,0,0,0);}}
+.qmark-event-box{
+  text-align:center;padding:28px 32px;border-radius:20px;max-width:88vw;
+  animation:qmarkBoxIn .5s cubic-bezier(.2,1.6,.4,1) both;
+}
+.qmark-event-overlay.leaving .qmark-event-box{animation:qmarkBoxOut .4s ease both;}
+@keyframes qmarkBoxIn{0%{opacity:0;transform:scale(0.3) rotate(-8deg);}60%{transform:scale(1.12) rotate(2deg);}100%{opacity:1;transform:scale(1) rotate(0);}}
+@keyframes qmarkBoxOut{0%{opacity:1;transform:scale(1);}100%{opacity:0;transform:scale(0.7) translateY(-20px);}}
+.qmark-event-overlay.gained .qmark-event-box{background:radial-gradient(ellipse at center, rgba(120,20,35,0.96), rgba(50,8,15,0.98));border:3px solid #e08a9a;box-shadow:0 0 60px rgba(200,40,70,0.6);}
+.qmark-event-overlay.lost .qmark-event-box{background:radial-gradient(ellipse at center, rgba(120,90,15,0.96), rgba(50,35,5,0.98));border:3px solid #E9B949;box-shadow:0 0 60px rgba(230,200,80,0.6);}
+.qmark-event-emoji{font-size:3.2rem;line-height:1;animation:qmarkEmojiShake 0.6s ease-in-out 0.3s 2;}
+@keyframes qmarkEmojiShake{0%,100%{transform:rotate(0);}25%{transform:rotate(-12deg) scale(1.1);}75%{transform:rotate(12deg) scale(1.1);}}
+.qmark-event-title{font-size:1.6rem;font-weight:800;letter-spacing:1px;margin-top:10px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,0.6);}
+.qmark-event-sub{font-size:0.9rem;margin-top:8px;color:#E9B949;max-width:280px;margin-left:auto;margin-right:auto;}
 .avatar.on{animation:glow2 1.5s ease infinite;border-color:var(--accent)}
 
 .card-float{transition:transform 0.8s cubic-bezier(0.4,0,0.2,1),opacity 0.8s ease;pointer-events:none;z-index:500}
@@ -4499,7 +4521,43 @@ function updateCardCounts() {
   }
 }
 
+// Same detection scheme as the 56 game: compares the incoming qMarks to
+// what was last seen, throws a big combined event banner for whoever
+// changed (gained a Qunique from a shutout, or shed one from a
+// successful bid). First-ever call just syncs the baseline silently.
+let lastSeenQMarks4p = null;
+function detectQMarkChanges4p() {
+  if (!latestServerState) return;
+  const newMarks = latestServerState.qMarks || {};
+  if (lastSeenQMarks4p === null) { lastSeenQMarks4p = { ...newMarks }; return; }
+  const gained = [], lost = [];
+  const allNames = new Set([...Object.keys(lastSeenQMarks4p), ...Object.keys(newMarks)]);
+  for (const name of allNames) {
+    const before = lastSeenQMarks4p[name] || 0;
+    const after = newMarks[name] || 0;
+    if (after > before) gained.push(name);
+    else if (after < before) lost.push(name);
+  }
+  lastSeenQMarks4p = { ...newMarks };
+  if (gained.length > 0) showQMarkEvent4p(gained, 'gained');
+  if (lost.length > 0) showQMarkEvent4p(lost, 'lost');
+}
+function showQMarkEvent4p(names, direction) {
+  const overlay = document.createElement('div');
+  overlay.className = 'qmark-event-overlay ' + direction;
+  const title = direction === 'gained' ? '😭 QUNIQUE!' : '🎉 QUNIQUE SHED!';
+  const namesText = names.map(escapeHtml).join(', ');
+  const subtitle = direction === 'gained'
+    ? `${namesText} ${names.length > 1 ? 'each get' : 'gets'} a Qunique — shut out!`
+    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Qunique!`;
+  overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${direction === 'gained' ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.classList.add('leaving'), 2200);
+  setTimeout(() => overlay.remove(), 2700);
+}
+
 function updateBadges() {
+  detectQMarkChanges4p();
   for (let slot = 0; slot < 4; slot++) {
     const bc = document.getElementById('badges' + slot);
     const nameEl = document.getElementById('name' + slot);
