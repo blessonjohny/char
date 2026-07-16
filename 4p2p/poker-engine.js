@@ -1,4 +1,4 @@
-const { rankPlayers } = require('./poker-hand-eval');
+const { rankPlayers, evaluateBest } = require('./poker-hand-eval');
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
@@ -407,12 +407,17 @@ class PokerEngine {
   }
 
   getStateFor(viewerPos) {
+    let myHandName = null;
+    const viewerSeat = this.seats[viewerPos];
+    if (viewerSeat && viewerSeat.hand.length === 2 && this.board.length >= 3 && !viewerSeat.folded) {
+      myHandName = evaluateBest([...viewerSeat.hand, ...this.board]).handName;
+    }
     return {
       tableId: this.tableId, mode: this.mode, buyInType: this.buyInType,
       smallBlind: this.smallBlind, bigBlind: this.bigBlind,
       phase: this.phase, dealerSeat: this.dealerSeat, currentPlayer: this.currentPlayer,
       board: this.board, pots: this.pots, currentBet: this.currentBet, minRaise: this.minRaise,
-      handNumber: this.handNumber, showdownResult: this.showdownResult,
+      handNumber: this.handNumber, showdownResult: this.showdownResult, myHandName,
       kickRequests: this.kickRequests,
       seats: this.seats.map((s, i) => {
         if (!s) return null;
