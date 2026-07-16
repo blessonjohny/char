@@ -76,7 +76,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 .allin-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}
 .folded-tag{display:inline-block;background:rgba(0,0,0,0.5);color:rgba(255,255,255,0.55);font-size:0.6rem;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15)}
 
-.winner-popup{position:fixed;background:linear-gradient(160deg,#1a2f1c,#0d1f10);border:3px solid var(--gold);border-radius:18px;padding:18px 22px;z-index:1900;text-align:center;box-shadow:0 0 40px rgba(244,196,48,0.5),0 10px 30px rgba(0,0,0,0.7);pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(0.15);transition:transform 0.5s cubic-bezier(.2,1.4,.3,1),opacity 0.35s ease;max-width:86vw}
+.winner-popup{position:fixed;background:linear-gradient(160deg,rgba(26,47,28,0.82),rgba(13,31,16,0.82));backdrop-filter:blur(3px);border:3px solid var(--gold);border-radius:18px;padding:18px 22px;z-index:1900;text-align:center;box-shadow:0 0 40px rgba(244,196,48,0.5),0 10px 30px rgba(0,0,0,0.7);pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(0.15);transition:transform 0.5s cubic-bezier(.2,1.4,.3,1),opacity 0.35s ease;max-width:86vw}
 .winner-popup.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
 .winner-popup-title{color:var(--gold);font-size:1.1rem;font-weight:900;margin-bottom:6px;text-shadow:0 0 10px rgba(244,196,48,0.6)}
 .winner-popup-sub{color:var(--cream);font-size:0.8rem;margin-bottom:10px}
@@ -203,6 +203,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     <div class="winner-popup-title" id="winnerPopupTitle"></div>
     <div class="winner-popup-sub" id="winnerPopupSub"></div>
     <div class="winner-popup-cards" id="winnerPopupCards"></div>
+    <button class="btn btn-gold" id="btnAckWinnerPopup" style="width:100%;margin-top:14px;pointer-events:auto">OK</button>
   </div>
   <div class="action-bar" id="actionBar"></div>
 </div>
@@ -619,9 +620,10 @@ function showWinnerPopup(state) {
   const originY = potY - popupRect.top;
   popup.style.transformOrigin = `${originX}px ${originY}px`;
   popup.classList.add('on');
-
-  setTimeout(() => popup.classList.remove('on'), 3200);
 }
+$('btnAckWinnerPopup').addEventListener('click', () => {
+  $('winnerPopup').classList.remove('on');
+});
 function showWinnerBanner(state) {
   const r = state.showdownResult;
   const el = $('winnerBanner');

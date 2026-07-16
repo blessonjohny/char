@@ -930,6 +930,17 @@ function applyState(state) {
     $('trumpOverlay').classList.remove('on');
   }
 
+  // The round-end overlay should only ever be showing while the phase
+  // genuinely IS roundEnd -- if the host has already advanced (or a
+  // reconnect landed mid-way through a later phase), force it closed
+  // for everyone here rather than leaving a non-host player stuck
+  // looking at a stale summary with a real turn now waiting on them
+  // underneath it. Same fix already applied to the Hold'em table for
+  // the identical class of bug.
+  if (state.phase !== 'roundEnd') {
+    $('roundEndOverlay').classList.remove('on');
+  }
+
   if (state.phase === 'roundEnd' && state.round !== lastRoundSeen) {
     lastRoundSeen = state.round;
     // The round can end right on the last trick, whose own 2s-hold +
@@ -1538,6 +1549,7 @@ function showRoundEnd(state) {
   }
   $('roundEndBody').innerHTML = body;
   $('btnContinueRound').style.display = IS_HOST ? 'flex' : 'none';
+  $('btnAckRoundEnd').style.display = IS_HOST ? 'none' : 'flex';
   const signalNote6p = $('partnerSignalSentNote6p');
   if (signalNote6p) signalNote6p.style.display = 'none';
   $('roundEndOverlay').classList.add('on');
@@ -1545,6 +1557,15 @@ function showRoundEnd(state) {
 $('btnContinueRound').addEventListener('click', () => {
   $('roundEndOverlay').classList.remove('on');
   socket.emit('sixp_continueRound');
+});
+// Non-host players can't actually advance the round themselves -- only
+// the host can do that server-side -- but they had nothing at all to
+// click before, just a passive wait message. This acknowledges they've
+// seen the result and dismisses their own view; if the host advances
+// the round in the meantime, the next state broadcast replaces this
+// screen for everyone regardless, so nothing is lost either way.
+$('btnAckRoundEnd').addEventListener('click', () => {
+  $('roundEndOverlay').classList.remove('on');
 });
 // Partner bidding signal — tell your teammates how to approach next
 // hand's bidding. Doesn't close the round-end modal, just a quick tap

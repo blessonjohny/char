@@ -194,7 +194,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .trump-pick button{width:56px;height:56px;border-radius:14px;border:2px solid var(--border);background:#fff;font-size:1.6rem}
 .trump-pick button.on{border-color:var(--accent);box-shadow:0 0 12px rgba(244,196,48,0.6);transform:scale(1.08)}
 
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:400;padding:20px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;z-index:400;padding:20px;opacity:0;transition:opacity 0.25s ease}
 
 /* ---- Mini-table seat picker diagram (6-player oval) ---- */
 .mini-table-wrap{position:relative;width:100%;max-width:300px;height:300px;margin:14px auto 8px}
@@ -213,8 +213,9 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .mini-table-legend .dot.bot{background:#f4c430}
 .mini-table-legend .dot.disc{background:#60a5fa}
 .mini-table-legend .dot.taken{background:#666}
-.modal-overlay.on{display:flex}
-.modal-box{background:var(--panel);border-radius:18px;padding:24px;max-width:360px;width:100%;text-align:center}
+.modal-overlay.on{display:flex;opacity:1}
+.modal-box{background:var(--panel);border-radius:18px;padding:24px;max-width:360px;width:100%;text-align:center;transform:scale(0.85);transition:transform 0.3s cubic-bezier(.2,1.4,.3,1)}
+.modal-overlay.on .modal-box{transform:scale(1)}
 
 /* ===== CHAT PANEL ===== */
 .chat-overlay{position:fixed;inset:0;z-index:600;display:none;pointer-events:none}
@@ -577,6 +578,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
       <div id="partnerSignalSentNote6p" style="font-size:0.65rem;color:var(--success);margin-top:5px;display:none"></div>
     </div>
     <button class="btn btn-success" id="btnContinueRound">Continue</button>
+    <button class="btn btn-outline" id="btnAckRoundEnd" style="display:none">OK</button>
   </div>
 </div>
 
