@@ -26,6 +26,14 @@
   .card .del{margin-top:10px;background:transparent;border:1px solid rgba(255,92,92,0.4);color:var(--danger);border-radius:8px;padding:6px 10px;font-size:0.72rem}
   .empty{color:var(--text2);text-align:center;padding:40px 10px;font-size:0.85rem}
   .err{color:var(--danger);font-size:0.8rem;text-align:center;margin-top:8px;display:none}
+  .tabs{display:flex;gap:8px;margin-bottom:14px}
+  .tab{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-weight:700;font-size:0.82rem}
+  .tab.on{background:linear-gradient(135deg,#f4c430,#e6a817);color:#0a1628;border-color:transparent}
+  .live-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .live-card .who{font-weight:800;color:#fff;font-size:0.88rem}
+  .live-card .where{color:var(--text2);font-size:0.72rem;margin-top:2px}
+  .live-card .game-badge{background:rgba(244,196,48,0.15);color:var(--accent);font-size:0.68rem;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap}
+  .live-card.disconnected{opacity:0.5}
 </style>
 </head>
 <body>
@@ -40,10 +48,23 @@
   </div>
 
   <div id="panel" style="display:none">
-    <div class="toolbar">
-      <button class="btn ghost" id="btnRefresh">🔄 Refresh</button>
+    <div class="tabs">
+      <button class="tab on" id="tabComments">💌 Comments</button>
+      <button class="tab" id="tabLive">🟢 Live Players</button>
     </div>
-    <div id="list"></div>
+    <div id="commentsView">
+      <div class="toolbar">
+        <button class="btn ghost" id="btnRefresh">🔄 Refresh</button>
+      </div>
+      <div id="list"></div>
+    </div>
+    <div id="liveView" style="display:none">
+      <div class="toolbar">
+        <span class="sub" id="liveCount" style="margin:0;align-self:center">—</span>
+        <button class="btn ghost" id="btnRefreshLive">🔄 Refresh</button>
+      </div>
+      <div id="liveList"></div>
+    </div>
   </div>
 </div>
 
@@ -101,6 +122,51 @@ function render(list) {
 document.getElementById('btnEnter').addEventListener('click', unlock);
 document.getElementById('pwd').addEventListener('keydown', (e) => { if (e.key === 'Enter') unlock(); });
 document.getElementById('btnRefresh').addEventListener('click', refresh);
+
+// ---------------- Live players (who's currently connected, and where from) ----------------
+let liveRefreshInterval = null;
+
+function switchTab(tab) {
+  document.getElementById('tabComments').classList.toggle('on', tab === 'comments');
+  document.getElementById('tabLive').classList.toggle('on', tab === 'live');
+  document.getElementById('commentsView').style.display = tab === 'comments' ? 'block' : 'none';
+  document.getElementById('liveView').style.display = tab === 'live' ? 'block' : 'none';
+  if (tab === 'live') {
+    refreshLivePlayers();
+    if (!liveRefreshInterval) liveRefreshInterval = setInterval(refreshLivePlayers, 5000);
+  } else if (liveRefreshInterval) {
+    clearInterval(liveRefreshInterval);
+    liveRefreshInterval = null;
+  }
+}
+
+async function refreshLivePlayers() {
+  const res = await fetch('/api/live-players?password=' + encodeURIComponent(PASSWORD));
+  if (!res.ok) return;
+  const data = await res.json();
+  renderLivePlayers(data.players || []);
+}
+
+function renderLivePlayers(players) {
+  const el = document.getElementById('liveList');
+  const countEl = document.getElementById('liveCount');
+  const connectedCount = players.filter(p => p.connected).length;
+  countEl.textContent = `${connectedCount} connected · ${players.length} seated`;
+  if (!players.length) { el.innerHTML = '<div class="empty">Nobody seated at any table right now.</div>'; return; }
+  el.innerHTML = players.map(p => `
+    <div class="live-card${p.connected ? '' : ' disconnected'}">
+      <div>
+        <div class="who">${esc(p.name)}${p.connected ? '' : ' (disconnected)'}</div>
+        <div class="where">📍 ${esc(p.location)} · table ${esc(p.tableId)}</div>
+      </div>
+      <span class="game-badge">${esc(p.game)}</span>
+    </div>
+  `).join('');
+}
+
+document.getElementById('tabComments').addEventListener('click', () => switchTab('comments'));
+document.getElementById('tabLive').addEventListener('click', () => switchTab('live'));
+document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
 </script>
 </body>
 </html>

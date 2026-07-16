@@ -4297,6 +4297,41 @@ document.getElementById('btnCloseComment').addEventListener('click', closeCommen
 document.getElementById('commentOverlay').addEventListener('click', (e) => { if (e.target.id === 'commentOverlay') closeCommentBox(); });
 document.getElementById('btnSendComment').addEventListener('click', sendComment);
 
+// A friendly, one-time nudge toward the comment box -- but only for a
+// genuinely new visit (first time ever, or coming back after actually
+// closing the tab/browser), never on a plain refresh. sessionStorage is
+// exactly the right tool here: it survives a refresh within the same
+// tab, but clears the moment the tab or browser closes, so "have I
+// already shown this in this browsing session" is a single, reliable
+// check rather than needing to guess at timing.
+function maybeShowCommentInviteToast() {
+  try {
+    if (sessionStorage.getItem('k28_seenCommentInvite')) return;
+    sessionStorage.setItem('k28_seenCommentInvite', '1');
+  } catch (e) { return; }
+  setTimeout(() => {
+    const el = document.createElement('div');
+    el.id = 'commentInviteToast';
+    el.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;max-width:340px;width:calc(100% - 32px);background:rgba(20,20,30,0.97);border:1px solid rgba(244,196,48,0.5);border-radius:14px;padding:14px 16px;z-index:2500;box-shadow:0 8px 24px rgba(0,0,0,0.5);transition:opacity 0.35s ease,transform 0.35s ease;text-align:left';
+    el.innerHTML = `
+      <div style="font-size:0.85rem;color:#fff;margin-bottom:10px;line-height:1.4">👋 Working on improving things like the bidding table connection — if you run into anything or have ideas, we'd love to hear it!</div>
+      <div style="display:flex;gap:8px">
+        <button id="commentInviteYes" style="flex:1;padding:9px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--gold,#f4c430),#c99a1e);color:#241a12;font-weight:700;font-size:0.8rem;cursor:pointer">💌 Leave a Comment</button>
+        <button id="commentInviteDismiss" style="padding:9px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.7);font-size:0.8rem;cursor:pointer">Not now</button>
+      </div>`;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'translateX(-50%) translateY(0)'; });
+    function dismiss() {
+      el.style.opacity = '0'; el.style.transform = 'translateX(-50%) translateY(20px)';
+      setTimeout(() => el.remove(), 350);
+    }
+    document.getElementById('commentInviteYes').addEventListener('click', () => { dismiss(); openCommentBox(); });
+    document.getElementById('commentInviteDismiss').addEventListener('click', dismiss);
+    setTimeout(dismiss, 12000); // don't linger forever if ignored
+  }, 3500); // let the page settle first rather than greeting them instantly
+}
+maybeShowCommentInviteToast();
+
 // ==================== STILL PLAYING? (idle check) ====================
 let stillPlayingInterval = null;
 function showStillPlayingPopup(seconds) {
