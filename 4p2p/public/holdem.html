@@ -263,8 +263,20 @@ socket.on('connect', () => {
     socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
   }
 });
-socket.on('disconnect', () => {
-  if (myTableId) toast('⚠️ Connection lost — reconnecting...');
+socket.on('disconnect', (reason) => {
+  // Socket.IO tells us exactly why: 'ping timeout' (client didn't
+  // answer in time), 'transport close' (network genuinely dropped),
+  // 'transport error', 'io server disconnect' (server explicitly
+  // closed it), etc. Surfacing this directly instead of a generic
+  // message turns "it disconnected again" into an actual diagnosis.
+  console.log('[holdem] disconnected, reason:', reason);
+  if (myTableId) toast(`⚠️ Connection lost (${reason}) — reconnecting...`);
+});
+socket.io.on('error', (err) => {
+  console.log('[holdem] transport error:', err && err.message);
+});
+socket.io.on('reconnect_attempt', (attempt) => {
+  console.log('[holdem] reconnect attempt #' + attempt);
 });
 
 // The connect handler above only fires if Socket.IO's own reconnection
