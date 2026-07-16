@@ -76,6 +76,13 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 .allin-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}
 .folded-tag{display:inline-block;background:rgba(0,0,0,0.5);color:rgba(255,255,255,0.55);font-size:0.6rem;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15)}
 
+.winner-popup{position:fixed;background:linear-gradient(160deg,#1a2f1c,#0d1f10);border:3px solid var(--gold);border-radius:18px;padding:18px 22px;z-index:1900;text-align:center;box-shadow:0 0 40px rgba(244,196,48,0.5),0 10px 30px rgba(0,0,0,0.7);pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(0.15);transition:transform 0.5s cubic-bezier(.2,1.4,.3,1),opacity 0.35s ease;max-width:86vw}
+.winner-popup.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.winner-popup-title{color:var(--gold);font-size:1.1rem;font-weight:900;margin-bottom:6px;text-shadow:0 0 10px rgba(244,196,48,0.6)}
+.winner-popup-sub{color:var(--cream);font-size:0.8rem;margin-bottom:10px}
+.winner-popup-cards{display:flex;justify-content:center;gap:4px}
+.winner-popup-cards .card{animation:cardFlipReveal .45s ease both}
+.winner-popup-cards .card:nth-child(2){animation-delay:0.08s}
 .hand-strip{display:flex;justify-content:center;gap:6px;padding:4px 0;flex-shrink:0}
 .hand-strip .card{width:44px;height:62px;font-size:1rem}
 
@@ -192,6 +199,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   </div>
   <div class="hand-strip" id="myHandStrip"></div>
   <div id="myHandLabel" style="text-align:center;color:var(--gold);font-weight:800;font-size:0.72rem;min-height:1em;margin-bottom:2px"></div>
+  <div class="winner-popup" id="winnerPopup">
+    <div class="winner-popup-title" id="winnerPopupTitle"></div>
+    <div class="winner-popup-sub" id="winnerPopupSub"></div>
+    <div class="winner-popup-cards" id="winnerPopupCards"></div>
+  </div>
   <div class="action-bar" id="actionBar"></div>
 </div>
 
@@ -552,17 +564,64 @@ function renderGameTable(state) {
   renderStreetBanner(state);
 
   // The table already shows the real showdown -- cards flip face-up at
-  // each seat, chips fly to the winner. No separate popup needed on
-  // top of that; just a small on-table banner naming the winner and
-  // why, same non-blocking style as the street-transition banner.
+  // each seat, chips fly to the winner. A popup then grows directly out
+  // of the pot's own position to announce the winner, so the whole
+  // sequence reads as one connected moment instead of separate effects,
+  // plus a small persistent on-table reminder that stays up longer.
   if (state.phase === 'handEnd' && state.showdownResult && state.handNumber !== lastShownWinnerBannerFor) {
     lastShownWinnerBannerFor = state.handNumber;
     setTimeout(() => animateChipsToWinners(state), 900);
+    setTimeout(() => showWinnerPopup(state), 1500);
     setTimeout(() => showWinnerBanner(state), 1000);
   }
 }
 
 let lastShownWinnerBannerFor = null;
+
+// Grows directly out of the pot's actual on-screen position, so the
+// announcement reads as a continuation of the chips that just flew
+// there rather than a separate, disconnected effect.
+function showWinnerPopup(state) {
+  const r = state.showdownResult;
+  const popup = $('winnerPopup');
+  const potEl = $('potDisplay');
+  if (!popup || !r || !r.winners || !r.winners.length) return;
+
+  const potRect = potEl.getBoundingClientRect();
+  const potX = potRect.left + potRect.width / 2;
+  const potY = potRect.top + potRect.height / 2;
+
+  const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+  const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
+  $('winnerPopupTitle').textContent = `🏆 ${names} wins!`;
+  $('winnerPopupSub').textContent = r.boardShown
+    ? `${totalWon} chips with ${r.winners[0].handName}`
+    : `${totalWon} chips — everyone else folded`;
+  $('winnerPopupCards').innerHTML = (r.boardShown && r.winners[0].hand)
+    ? r.winners[0].hand.map(c => cardHtml(c, false)).join('')
+    : '';
+
+  // Position the popup at a fixed, readable spot (screen center-ish),
+  // then set its transform-origin to wherever the pot actually is
+  // relative to that -- the scale-up animation then visibly emerges
+  // from the pot's exact position no matter where it sits on any given
+  // screen size. Only left/top/transform-origin are set inline here --
+  // transform itself is left entirely to the CSS class below, since an
+  // inline transform would permanently override the class's own
+  // transform rule and the popup would never actually animate.
+  popup.style.left = '50%';
+  popup.style.top = '38%';
+  popup.classList.remove('on');
+  // Force layout so the browser registers the reset before measuring.
+  void popup.offsetWidth;
+  const popupRect = popup.getBoundingClientRect();
+  const originX = potX - popupRect.left;
+  const originY = potY - popupRect.top;
+  popup.style.transformOrigin = `${originX}px ${originY}px`;
+  popup.classList.add('on');
+
+  setTimeout(() => popup.classList.remove('on'), 3200);
+}
 function showWinnerBanner(state) {
   const r = state.showdownResult;
   const el = $('winnerBanner');
