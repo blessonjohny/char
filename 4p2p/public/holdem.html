@@ -487,7 +487,7 @@ function renderGameTable(state) {
     const cardsHtml = s.folded
       ? '' // no cards shown at all once folded -- the FOLDED tag below says why
       : (pos === myPos
-        ? s.hand.map(c => cardHtml(c, true)).join('')
+        ? '' // full-size cards already shown in the hand strip below -- no need to duplicate them here too
         : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
     return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
       <div class="seat-avatar-wrap">
