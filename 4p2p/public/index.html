@@ -14192,6 +14192,48 @@ function serverBotPlayForMe() {
   serverPlayCard({ suit: legal[0].suit, rank: legal[0].rank, points: legal[0].points });
 }
 
+// The other games (6-player, 56, Hold'em) each live on their own page,
+// so the browser's back button naturally has a real history entry to
+// return to -- the "All Games" menu page. This game is different: the
+// lobby and the actual table are both just different UI states inside
+// this one single page, with the URL never changing. That means the
+// browser has no intermediate history entry of its own here, so
+// pressing back while at the table wasn't returning to the menu the
+// way it does for the other games -- it was exiting the site entirely,
+// straight to whatever page the player was on before arriving here.
+// This polls for the moment the lobby or game table actually becomes
+// visible (rather than trying to hook every single code path that can
+// lead into a game -- creating a room, joining one, playing vs bots,
+// reconnecting, etc. -- which would be easy to miss one of) and pushes
+// a real history entry right then, giving the back button somewhere to
+// land. Popping back out of that state re-shows the menu in place,
+// exactly matching how the other games already behave.
+(function () {
+  let inGameHistoryPushed = false;
+  try { history.replaceState({ k28Screen: 'menu' }, '', location.href); } catch (e) {}
+  setInterval(() => {
+    const gameWrap = document.getElementById('gameWrap');
+    const lobbyEl = document.getElementById('lobbyScreen');
+    const inGame = (gameWrap && getComputedStyle(gameWrap).display !== 'none') ||
+                   (lobbyEl && getComputedStyle(lobbyEl).display !== 'none');
+    if (inGame && !inGameHistoryPushed) {
+      inGameHistoryPushed = true;
+      try { history.pushState({ k28Screen: 'game' }, '', location.href); } catch (e) {}
+    } else if (!inGame && inGameHistoryPushed) {
+      inGameHistoryPushed = false;
+    }
+  }, 400);
+  window.addEventListener('popstate', (e) => {
+    if (!e.state || e.state.k28Screen !== 'game') {
+      // Popped back out of the game state -- make sure the UI actually
+      // reflects the menu (covers pressing the physical/browser back
+      // button directly, not just tapping an in-app Leave/Home button).
+      if (typeof goHome === 'function') goHome();
+      inGameHistoryPushed = false;
+    }
+  });
+})();
+
 
 </script>
 </body>
