@@ -2133,15 +2133,28 @@ io.on('connection', (socket) => {
 
     const openSeats = t.engine.seats.map((s, i) => s ? null : i).filter(i => i !== null);
     const botSeats = t.engine.seats.map((s, i) => (s && s.isBot) ? i : null).filter(i => i !== null);
+    // A seat left behind by a human who disconnected and never came back
+    // is neither "open" (the seat object is still there) nor a "bot
+    // seat" -- without this, that seat was simply unreachable forever,
+    // and once every seat at a table had been through this once, no new
+    // player could ever join even though half the table might be
+    // sitting there abandoned. Offered as a fallback the same way a bot
+    // seat already was, same spirit as the 4p/6p tables' handling of
+    // reclaiming a disconnected player's seat.
+    const ghostSeats = t.engine.seats.map((s, i) => (s && !s.isBot && !s.connected) ? i : null).filter(i => i !== null);
     let pos = (typeof requestedPos === 'number' && openSeats.includes(requestedPos)) ? requestedPos
       : (openSeats.length > 0 ? openSeats[0]
         : (typeof requestedPos === 'number' && botSeats.includes(requestedPos)) ? requestedPos
-          : botSeats[0]);
+          : botSeats.length > 0 ? botSeats[0]
+            : (typeof requestedPos === 'number' && ghostSeats.includes(requestedPos)) ? requestedPos
+              : ghostSeats[0]);
     if (pos === undefined) { socket.emit('poker_joinFailed', { reason: 'table_full' }); return; }
 
     // Taking over a bot seat -- the bot is simply replaced, keeping its
     // chip stack (matches "host can kick bots out if a human joins").
-    if (t.engine.seats[pos] && t.engine.seats[pos].isBot) {
+    // Taking over a ghost (disconnected human) seat works the same way,
+    // keeping whatever chip stack that seat had.
+    if (t.engine.seats[pos] && (t.engine.seats[pos].isBot || !t.engine.seats[pos].connected)) {
       const existingChips = t.engine.seats[pos].chips;
       t.engine.removeSeat(pos);
       t.engine.seatHuman(pos, String(name || 'Player').slice(0, 20), null);
