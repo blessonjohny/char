@@ -1975,11 +1975,12 @@ io.on('connection', (socket) => {
     socket.leave(l56SocketRoom(room.trim().toUpperCase().slice(0, 20)));
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', (reason) => {
     const info = socket.data.l56;
     if (!info) return;
     const r = l56Rooms[info.code];
     if (!r) return;
+    console.log(`[56] socket ${socket.id} disconnected from table ${info.code} (seat ${info.pos}), reason: ${reason}`);
     r.sockets.delete(socket.id);
     if (r.state && r.state.seats && r.state.seats[info.pos] && r.state.seats[info.pos].playerId === info.playerId) {
       // Silent drop: keep the seat (same reconnect-friendly behavior as
