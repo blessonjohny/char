@@ -33,6 +33,33 @@ const { GameEngine } = require('./game-engine');
 const brain = require('./bot-brain');
 const geoip = require('geoip-lite');
 
+// ============================================================
+// GLOBAL CRASH PROTECTION — this is not optional polish, it's the
+// actual fix for tables intermittently disappearing across every game
+// at once. Without this, Node's default behavior is: any single
+// uncaught exception, anywhere -- one bad socket event, one edge case
+// in one specific table's state, one null reference nobody hit before
+// -- kills the ENTIRE process immediately. Every table in every game
+// currently in memory is gone the instant that happens, and whatever
+// auto-restarts the process (Render, a process manager, etc.) comes
+// back up with nothing. That matches exactly "all tables disappearing,
+// not always though" -- it only takes ONE rare bug anywhere to lose
+// everything, so it looks random even though each individual crash has
+// a real, specific cause.
+//
+// Node's own docs caution that "resuming normal operation after an
+// uncaught exception" can leave things in an inconsistent state, and
+// that's true in general -- but for this application, the alternative
+// (losing every single active table across every game on any isolated
+// bug) is unambiguously worse. A logged, contained failure in whatever
+// one action triggered it is far better than a silent, total outage.
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL-CAUGHT] Uncaught exception (server stayed up):', err && err.stack || err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL-CAUGHT] Unhandled promise rejection (server stayed up):', reason && reason.stack || reason);
+});
+
 const app = express();
 const PORT = process.env.PORT || 9000;
 
