@@ -180,7 +180,21 @@ app.delete('/api/comments/:id', (req, res) => {
 });
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+// Mobile browsers routinely throttle JavaScript timers even in a tab
+// that's still technically foreground -- screen dimming, brief loss of
+// focus, aggressive power management -- and Socket.IO's own defaults
+// (ping every 25s, 20s to respond before giving up) only allow about a
+// 45-second window for the client to answer a ping before it's
+// considered dead and disconnected. That's close enough to "around a
+// minute or under" to be the actual cause: not a real network drop,
+// just the client's JS being briefly too throttled to answer in time.
+// Longer, more forgiving values give a throttled tab room to catch up
+// instead of losing the connection over a momentary stall.
+const io = new Server(server, {
+  cors: { origin: '*' },
+  pingInterval: 25000,
+  pingTimeout: 60000
+});
 
 // ---------------- Visitor location log (admin-only, anti-cheat visibility) ----------------
 // The previous "visitor stats" in the admin panel were purely client-side
@@ -2236,11 +2250,12 @@ io.on('connection', (socket) => {
     pokerTableId = null; pokerPlayerId = null;
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', (reason) => {
     if (!pokerTableId) return;
     const t = pokerTables[pokerTableId];
     if (!t) return;
     const info = t.sockets.get(socket.id);
+    console.log(`[poker] socket ${socket.id} disconnected from table ${pokerTableId} (seat ${info ? info.pos : '?'}), reason: ${reason}`);
     t.sockets.delete(socket.id);
     if (info && t.engine.seats[info.pos] && t.engine.seats[info.pos].playerId === info.playerId) {
       // Keep the seat (reconnect-friendly, same as the other tables),
