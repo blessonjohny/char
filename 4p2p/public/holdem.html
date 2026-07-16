@@ -51,8 +51,6 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 
 /* ---- Flying chip pot-payout animation ---- */
 .flying-chip{position:fixed;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.8);box-shadow:0 3px 8px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.7s cubic-bezier(.3,.6,.4,1), opacity 0.7s ease;}
-.winner-banner{position:absolute;top:2%;left:2%;background:rgba(0,0,0,0.75);border:2px solid var(--gold);border-radius:10px;padding:6px 10px;font-size:0.62rem;font-weight:800;color:var(--gold);z-index:8;max-width:44%;line-height:1.3;display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
-.winner-banner.on{display:block}
 .street-banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);border:2px solid var(--gold);border-radius:16px;padding:14px 28px;font-size:1.4rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 10px rgba(244,196,48,0.6);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
 .street-banner.on{display:block}
 @keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
@@ -109,7 +107,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 </head>
 <body>
 
-<a href="/" class="topbar-btn" style="position:fixed;top:10px;left:10px;z-index:100;text-decoration:none">⬅ All Games</a>
+<a href="/" class="topbar-btn" id="allGamesLink" style="position:fixed;top:10px;left:10px;z-index:100;text-decoration:none">⬅ All Games</a>
 
 <!-- ============ LANDING ============ -->
 <div class="screen" id="landingScreen">
@@ -174,8 +172,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 <!-- ============ GAME TABLE ============ -->
 <div class="screen hidden" id="gameScreen">
   <div class="topbar">
-    <div style="font-size:0.75rem"><span id="handNumDisplay">Hand 1</span> · <span id="blindsDisplay"></span></div>
-    <div>
+    <div style="font-size:0.75rem;min-width:0;overflow:hidden">
+      <div><span id="handNumDisplay">Hand 1</span> · <span id="blindsDisplay"></span></div>
+      <div id="winnerBanner" style="display:none;color:var(--gold);font-weight:800;font-size:0.66rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+    </div>
+    <div style="flex-shrink:0">
       <button class="topbar-btn" id="btnShowLog">📜 Log</button>
       <button class="topbar-btn" id="btnLeaveTable">🚪 Leave</button>
     </div>
@@ -183,7 +184,6 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   <div class="table-wrap">
     <div class="felt"></div>
     <div class="street-banner" id="streetBanner"></div>
-    <div class="winner-banner" id="winnerBanner"></div>
     <div class="board-area" id="boardArea"></div>
     <div class="pot-display" id="potDisplay">Pot: 0</div>
     <div id="seatsContainer"></div>
@@ -262,6 +262,8 @@ function $(id) { return document.getElementById(id); }
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   $(id).classList.remove('hidden');
+  const allGamesLink = $('allGamesLink');
+  if (allGamesLink) allGamesLink.style.display = (id === 'gameScreen') ? 'none' : '';
 }
 function toast(msg) {
   const el = document.createElement('div');
@@ -500,7 +502,7 @@ function showWinnerBanner(state) {
   const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
   const handPart = r.boardShown ? ` with ${r.winners[0].handName}` : ' — everyone else folded';
   el.textContent = `🏆 ${names} wins ${totalWon}${handPart}`;
-  el.classList.add('on');
+  el.style.display = 'block';
 }
 
 function renderActionBar(state) {
@@ -569,7 +571,7 @@ function renderStreetBanner(state) {
     // The last-hand winner display's whole purpose is to stay up as a
     // reminder while a new hand deals -- once the flop actually lands,
     // that reminder has served its purpose and the felt needs the room.
-    if (boardLen === 3) $('winnerBanner').classList.remove('on');
+    if (boardLen === 3) $('winnerBanner').style.display = 'none';
   }
   lastBoardLenForBanner = boardLen;
   if (boardLen === 0) { el.classList.remove('on'); streetBannerShownAtLogText = null; }
