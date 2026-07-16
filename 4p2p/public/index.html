@@ -11099,6 +11099,22 @@ async function showAuthScreen() {
     return;
   }
 
+  // A guest who already got past this screen once (including someone
+  // arriving back here via the browser's back button from 6-player,
+  // 56, or Hold'em, each of which live on their own separate page)
+  // shouldn't have to click "Play as Guest" again -- that's the exact
+  // "goes one step further than it should" behavior this is fixing.
+  // Straight to the game picker for them.
+  let alreadyChoseGuest = false;
+  try { alreadyChoseGuest = localStorage.getItem('k28_guestModeChosen') === '1'; } catch (e) {}
+  if (alreadyChoseGuest) {
+    currentUser = null;
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('welcomeScreen').style.display = 'flex';
+    enhanceWelcomeScreen();
+    return;
+  }
+
   // Not logged in - show auth screen
   document.getElementById('welcomeScreen').style.display = 'none';
   document.getElementById('authScreen').style.display = 'flex';
@@ -11348,6 +11364,7 @@ document.getElementById('btnEmailSignIn').addEventListener('click', () => {
 
 document.getElementById('btnGuestPlay').addEventListener('click', () => {
   currentUser = null;
+  try { localStorage.setItem('k28_guestModeChosen', '1'); } catch (e) {}
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('welcomeScreen').style.display = 'flex';
   enhanceWelcomeScreen();
@@ -12097,12 +12114,20 @@ showModal = function(title, text) {
 // ==================== INIT ====================
 window.addEventListener('DOMContentLoaded', async () => {
   const hasAuth = await initAuth0();
-  if (!hasAuth) {
+  let alreadyChoseGuest = false;
+  try { alreadyChoseGuest = localStorage.getItem('k28_guestModeChosen') === '1'; } catch (e) {}
+  if (!hasAuth && !alreadyChoseGuest) {
     setTimeout(() => {
       document.getElementById('welcomeScreen').style.display = 'none';
       document.getElementById('authScreen').style.display = 'flex';
     }, 100);
   } else {
+    // Either genuinely authenticated, or a guest who already got past
+    // this screen once before (including arriving back here via the
+    // browser's back button from 6-player, 56, or Hold'em, each on
+    // their own separate page) -- straight to the game picker either
+    // way, not the initial auth screen again.
+    currentUser = hasAuth ? currentUser : null;
     enhanceWelcomeScreen();
     updateWelcomeForUser();
   }
