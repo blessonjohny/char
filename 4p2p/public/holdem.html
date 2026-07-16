@@ -210,6 +210,31 @@ let myPos = null, myPlayerId = null, myTableId = null, isHost = false;
 let latestState = null;
 let createOpts = { mode: 'cash', buyInType: 'nolimit', smallBlind: 5, bigBlind: 10, startingChips: 1000 };
 
+// A full page reload (not just a background tab suspending) wipes every
+// JS variable but leaves localStorage intact -- this is what actually
+// lets the player find their way back to the table on the very first
+// connection attempt after that happens, not just on later in-session
+// reconnects. Same mechanism index.html already uses (MY_PLAYER_TOKEN /
+// MY_TABLE_ID read back at the top of the script) -- this was the real
+// difference: holdem.html was saving a session on join but never once
+// reading it back, so it had zero memory of anything after a real reload.
+try { myPlayerId = localStorage.getItem('holdem_player_id') || null; } catch (e) {}
+try { myTableId = localStorage.getItem('holdem_table_id') || null; } catch (e) {}
+// A stale session shouldn't be retried forever -- if it's been sitting
+// unused for a long stretch, the table has very likely moved on or
+// closed; same 90-minute cutoff spirit as the other games' session
+// handling, so an old browser tab doesn't keep trying to resurrect a
+// table from days ago.
+try {
+  const savedAt = parseInt(localStorage.getItem('holdem_session_time') || '0', 10);
+  if (!savedAt || (Date.now() - savedAt) > 90 * 60 * 1000) {
+    myPlayerId = null; myTableId = null;
+    localStorage.removeItem('holdem_player_id');
+    localStorage.removeItem('holdem_table_id');
+    localStorage.removeItem('holdem_session_time');
+  }
+} catch (e) {}
+
 // Free-tier hosts (Render, etc.) put the whole server to sleep after a
 // stretch of no HTTP traffic -- and since every table lives in that
 // process's memory, waking it back up wipes them all out. As long as
@@ -417,7 +442,9 @@ socket.on('poker_joinFailed', (info) => {
 socket.on('poker_joined', (info) => {
   myPos = info.pos; myPlayerId = info.playerId; myTableId = info.tableId; isHost = info.isHost;
   try {
-    localStorage.setItem('poker_session_' + info.tableId, JSON.stringify({ playerId: info.playerId, tableId: info.tableId }));
+    localStorage.setItem('holdem_player_id', info.playerId);
+    localStorage.setItem('holdem_table_id', info.tableId);
+    localStorage.setItem('holdem_session_time', String(Date.now()));
   } catch (e) {}
 });
 
@@ -635,7 +662,12 @@ $('logPanelBackdrop').addEventListener('click', () => {
 
 $('btnLeaveTable').addEventListener('click', () => {
   socket.emit('poker_leaveTable');
-  myTableId = null; myPos = null;
+  myTableId = null; myPos = null; myPlayerId = null;
+  try {
+    localStorage.removeItem('holdem_player_id');
+    localStorage.removeItem('holdem_table_id');
+    localStorage.removeItem('holdem_session_time');
+  } catch (e) {}
   showScreen('landingScreen');
   socket.emit('poker_listRooms');
 });
