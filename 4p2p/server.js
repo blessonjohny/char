@@ -390,12 +390,64 @@ function visitorLogFilteredAndSummary(filter) {
 io.on('connection', (socket) => {
   const entry = logVisitor(socket);
   console.log(`[visitor] ${entry.ip} — ${entry.city || '?'}, ${entry.region || '?'}, ${entry.country || '?'}`);
+  // Kept around for as long as the socket is connected so the admin
+  // panel's live-players view can show "where from" for anyone
+  // currently seated at any table, without needing every single game
+  // to independently do its own geo lookup.
+  socketLocations.set(socket.id, { ip: entry.ip, city: entry.city, region: entry.region, country: entry.country });
+  socket.on('disconnect', () => socketLocations.delete(socket.id));
 
   socket.on('adminGetVisitorLog', ({ adminPassword, filter }) => {
     if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'visitorLog', reason: 'wrong_password' }); return; }
     const { entries, summary } = visitorLogFilteredAndSummary(filter || 'all');
     socket.emit('adminVisitorLog', { entries, summary, filter: filter || 'all' });
   });
+});
+
+const socketLocations = new Map(); // socket.id -> {ip, city, region, country}, for as long as connected
+
+// Walks every game's table registry and returns a flat list of
+// currently-connected human players -- who they are, which game and
+// table, and where they're connecting from. Deliberately reads each
+// registry directly rather than needing every game to separately
+// publish this, since the shape (a Map of socket.id -> seat info,
+// plus named seats) is already consistent across all four games.
+function getAllLivePlayers() {
+  const rows = [];
+  function addFromSocketsMap(socketsMap, gameLabel, tableId, seatLookup) {
+    if (!socketsMap) return;
+    for (const [socketId, info] of socketsMap) {
+      const seat = seatLookup(info);
+      if (!seat || seat.isBot) continue;
+      const loc = socketLocations.get(socketId);
+      rows.push({
+        name: seat.name || 'Player',
+        game: gameLabel,
+        tableId,
+        connected: seat.connected !== false,
+        location: loc ? [loc.city, loc.region, loc.country].filter(Boolean).join(', ') || loc.ip : '?',
+        ip: loc ? loc.ip : '?'
+      });
+    }
+  }
+  for (const t of Object.values(tables)) {
+    addFromSocketsMap(t.sockets, '4-Player', t.id, (info) => t.engine.seats[info.pos]);
+  }
+  for (const t of Object.values(sixpTables)) {
+    addFromSocketsMap(t.sockets, '6-Player', t.id, (info) => t.engine.seats[info.pos]);
+  }
+  for (const r of Object.values(l56Rooms)) {
+    addFromSocketsMap(r.sockets, '56', r.code, (info) => r.state && r.state.seats && r.state.seats[info.pos]);
+  }
+  for (const t of Object.values(pokerTables)) {
+    addFromSocketsMap(t.sockets, "Hold'em", t.engine.tableId, (info) => t.engine.seats[info.pos]);
+  }
+  return rows;
+}
+
+app.get('/api/live-players', (req, res) => {
+  if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  res.json({ ok: true, players: getAllLivePlayers() });
 });
 
 // ---------------- Table registry ----------------
