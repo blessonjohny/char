@@ -33,7 +33,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 #gameScreen{padding:0;justify-content:flex-start}
 .topbar{width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(0,0,0,0.35);flex-shrink:0}
 .topbar-btn{background:rgba(255,255,255,0.08);border:none;color:var(--cream);border-radius:8px;padding:6px 10px;font-size:0.75rem;cursor:pointer}
-.table-wrap{position:relative;width:100%;max-width:520px;aspect-ratio:1/1.15;margin:10px auto;flex-shrink:0}
+.table-wrap{position:relative;width:100%;max-width:520px;aspect-ratio:1/1.15;max-height:44vh;margin:6px auto;flex:0 1 auto;min-height:0}
 .felt{position:absolute;inset:8% 4%;border-radius:50%;background:radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-2) 100%);border:10px solid #3d2510;box-shadow:0 10px 30px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.4)}
 .board-area{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);display:flex;gap:4px;z-index:5}
 .pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
@@ -76,7 +76,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 .allin-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}
 .folded-tag{display:inline-block;background:rgba(0,0,0,0.5);color:rgba(255,255,255,0.55);font-size:0.6rem;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15)}
 
-.hand-strip{display:flex;justify-content:center;gap:6px;padding:6px 0}
+.hand-strip{display:flex;justify-content:center;gap:6px;padding:4px 0;flex-shrink:0}
 .hand-strip .card{width:44px;height:62px;font-size:1rem}
 
 .action-bar{width:100%;max-width:520px;margin:0 auto;padding:10px 14px 18px;flex-shrink:0}
@@ -99,6 +99,8 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 
 .log-panel{position:fixed;top:0;right:0;bottom:0;width:280px;max-width:80vw;background:rgba(8,15,22,0.97);z-index:1500;transform:translateX(100%);transition:transform .25s ease;padding:14px;overflow-y:auto}
 .log-panel.on{transform:translateX(0)}
+.log-panel-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1400;display:none}
+.log-panel-backdrop.on{display:block}
 .log-entry{font-size:0.72rem;opacity:0.8;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
 
 .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(20,20,30,0.95);border:1px solid var(--gold);border-radius:10px;padding:10px 18px;font-size:0.82rem;z-index:3000;animation:toastIn .25s ease}
@@ -189,11 +191,16 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     <div id="seatsContainer"></div>
   </div>
   <div class="hand-strip" id="myHandStrip"></div>
+  <div id="myHandLabel" style="text-align:center;color:var(--gold);font-weight:800;font-size:0.72rem;min-height:1em;margin-bottom:2px"></div>
   <div class="action-bar" id="actionBar"></div>
 </div>
 
+<div class="log-panel-backdrop" id="logPanelBackdrop"></div>
 <div class="log-panel" id="logPanel">
-  <h3 style="color:var(--gold)">Hand Log</h3>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h3 style="color:var(--gold);margin:0">Hand Log</h3>
+    <button class="topbar-btn" id="btnCloseLog">✕ Close</button>
+  </div>
   <div id="logEntries"></div>
 </div>
 
@@ -274,6 +281,27 @@ function toast(msg) {
 }
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+// Real poker chips are colored by denomination so a player can read a
+// stack at a glance instead of counting -- same idea here, mapped to
+// this table's typical bet sizes rather than literal casino values.
+const CHIP_COLOR_STOPS = [
+  { max: 4, colors: ['#fdfdfd', '#c9c9c9', '#8f8f8f'] },      // white
+  { max: 9, colors: ['#ff8a8a', '#d13a3a', '#7a1414'] },      // red
+  { max: 24, colors: ['#7ec1ff', '#2a6fd1', '#123a70'] },     // blue
+  { max: 49, colors: ['#7be08a', '#1f9e3e', '#0d5620'] },     // green
+  { max: 99, colors: ['#4a4a52', '#1a1a1f', '#000000'] },     // black
+  { max: 249, colors: ['#c98aff', '#7c2fcf', '#3d1466'] },    // purple
+  { max: Infinity, colors: ['#ffd76b', '#c9922b', '#8a611c'] } // gold, top tier
+];
+function chipGradientForValue(value) {
+  const tier = CHIP_COLOR_STOPS.find(t => value <= t.max) || CHIP_COLOR_STOPS[CHIP_COLOR_STOPS.length - 1];
+  const [a, b, c] = tier.colors;
+  return `radial-gradient(circle at 35% 30%, ${a}, ${b} 70%, ${c})`;
+}
+function chipHtml(value, small) {
+  return `<span class="chip${small ? ' small' : ''}" style="background:${chipGradientForValue(value)}"></span>`;
+}
+
 function cardHtml(card, mini, revealFlip) {
   if (!card) return `<div class="card back${mini ? ' mini' : ''}"></div>`;
   const isRed = card.suit === '♥' || card.suit === '♦';
@@ -306,6 +334,7 @@ function animateChipsToWinners(state) {
     for (let i = 0; i < chipCount; i++) {
       const chip = document.createElement('div');
       chip.className = 'flying-chip';
+      chip.style.background = chipGradientForValue(w.amount);
       chip.style.left = startX + 'px';
       chip.style.top = startY + 'px';
       chip.style.transform = 'translate(-50%,-50%)';
@@ -443,7 +472,7 @@ function renderGameTable(state) {
   $('handNumDisplay').textContent = 'Hand ' + state.handNumber;
   $('blindsDisplay').textContent = state.smallBlind + '/' + state.bigBlind + (state.buyInType === 'fixed' ? ' fixed' : ' NL');
   const potTotal = state.pots.reduce((s, p) => s + p.amount, 0);
-  $('potDisplay').innerHTML = (potTotal > 0 ? '<span class="chip"></span>' : '') + 'Pot: ' + potTotal + (state.currentBet > 0 ? ` · Bet: ${state.currentBet}` : '');
+  $('potDisplay').innerHTML = (potTotal > 0 ? chipHtml(potTotal) : '') + 'Pot: ' + potTotal + (state.currentBet > 0 ? ` · Bet: ${state.currentBet}` : '');
   $('boardArea').innerHTML = state.board.map(c => cardHtml(c, false)).join('') || '<span style="opacity:0.4;font-size:0.7rem">— waiting for flop —</span>';
 
   const positions = seatPositions();
@@ -470,13 +499,14 @@ function renderGameTable(state) {
       <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
       <div class="seat-chips">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
       <div class="seat-cards">${s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml}</div>
-      ${s.bettedThisRound > 0 && !s.folded ? `<div class="seat-bet"><span class="chip small"></span>${s.bettedThisRound}</div>` : ''}
+      ${s.bettedThisRound > 0 && !s.folded ? `<div class="seat-bet">${chipHtml(s.bettedThisRound, true)}${s.bettedThisRound}</div>` : ''}
     </div>`;
   }).join('');
   if (isNewShowdownReveal) lastCardRevealAnimatedFor = state.handNumber;
 
   const mySeat = state.seats[myPos];
   $('myHandStrip').innerHTML = mySeat && mySeat.hand.length ? mySeat.hand.map(c => cardHtml(c, false)).join('') : '';
+  $('myHandLabel').textContent = state.myHandName ? `You have: ${state.myHandName}` : '';
 
   renderActionBar(state);
   renderLogPanel(state);
@@ -590,7 +620,18 @@ function renderStreetBanner(state) {
 function renderLogPanel(state) {
   $('logEntries').innerHTML = state.log.map(l => `<div class="log-entry">${escapeHtml(l.text)}</div>`).join('');
 }
-$('btnShowLog').addEventListener('click', () => $('logPanel').classList.toggle('on'));
+$('btnShowLog').addEventListener('click', () => {
+  $('logPanel').classList.add('on');
+  $('logPanelBackdrop').classList.add('on');
+});
+$('btnCloseLog').addEventListener('click', () => {
+  $('logPanel').classList.remove('on');
+  $('logPanelBackdrop').classList.remove('on');
+});
+$('logPanelBackdrop').addEventListener('click', () => {
+  $('logPanel').classList.remove('on');
+  $('logPanelBackdrop').classList.remove('on');
+});
 
 $('btnLeaveTable').addEventListener('click', () => {
   socket.emit('poker_leaveTable');
