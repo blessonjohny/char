@@ -857,6 +857,13 @@ function ensureSyncSocket(){
       location.reload();
     }
   });
+  syncSocket.on('disconnect', (reason) => {
+    // Socket.IO tells us exactly why: 'ping timeout', 'transport close',
+    // 'transport error', 'io server disconnect', etc. Surfacing this
+    // directly turns "it disconnected again" into an actual diagnosis
+    // instead of a guess.
+    console.log('[56] disconnected, reason:', reason);
+  });
   syncSocket.on('sync56_state', ({room, state}) => {
     if(room !== roomCode || !state) return;
     // Someone (possibly us) just saved a change -- refresh right away
