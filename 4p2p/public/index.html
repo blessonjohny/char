@@ -2363,6 +2363,14 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   .overlay{left:50%!important;right:auto!important;transform:translateX(-50%);
     width:min(560px,100vw)!important;max-width:560px}
   #serverNotice{right:calc(50vw - min(560px,100vw)/2 + 10px)}
+  /* flex-grow:1 on the table is exactly right on a real phone (height
+     naturally proportionate to width), but on a desktop window the
+     width is capped here while height stays full-viewport, so it has
+     far more room to expand into than intended and pushes the hand of
+     cards below the bottom of the screen. Capping it keeps the table a
+     sensible, phone-like size regardless of how tall the browser
+     window actually is. */
+  #tableArea{max-height:620px}
 }
 </style>
 </head>
@@ -12749,6 +12757,7 @@ function connectGameSocket() {
   const notice = document.getElementById('serverNotice');
   if (notice) { notice.textContent = '⏳ Connecting to server...'; notice.style.display = 'block'; }
 
+  let hasDisconnectedOnce4p = false;
   gameSocket.on('connect', () => {
     console.log('[server] connected, socket id', gameSocket.id);
     if (notice) notice.style.display = 'none';
@@ -12770,6 +12779,7 @@ function connectGameSocket() {
   });
 
   gameSocket.on('disconnect', () => {
+    hasDisconnectedOnce4p = true;
     if (notice) { notice.textContent = '⚠️ Reconnecting...'; notice.style.display = 'block'; }
     showToast('⚠️ Lost connection to server — trying to reconnect...', 'lose', 3000);
   });
@@ -12788,7 +12798,16 @@ function connectGameSocket() {
     IS_ONLINE = true;
     IS_HOST = false; // no player has game authority anymore — see SERVER_IS_HOST for lobby-only permissions
     IS_SPECTATOR = false;
-    const wasReconnecting = hideReconnectingOverlay();
+    const wasReconnecting = hideReconnectingOverlay() || hasDisconnectedOnce4p;
+    // hasDisconnectedOnce4p covers the case this whole fix was actually
+    // for: a brief connection drop WHILE already active in a game
+    // (exactly what "connection goes in and out while traveling"
+    // means), as opposed to hideReconnectingOverlay()'s page-load-time
+    // reconnect. Without this, that scenario showed "🏠 Table
+    // created!" -- which reads as a brand new table, not "you're back
+    // in your existing game" -- right when the player most needed
+    // reassurance nothing was actually broken.
+    hasDisconnectedOnce4p = false;
     showToast(wasReconnecting ? '✅ Back in your game!' : (info.isHost ? '🏠 Table created!' : '✅ Joined table!'), 'win', 1800);
     showServerLobbyWaiting();
     showServerRoomCode();
@@ -14258,6 +14277,23 @@ function serverBotPlayForMe() {
     }
   });
 })();
+
+// The desktop breakpoint above (min-width:700px) deliberately pins the
+// whole app to a fixed 560px-wide "phone-proportioned" column instead
+// of stretching edge-to-edge -- that part is intentional and looks
+// right. The actual bug: #tableArea (the card table itself) has
+// flex-grow:1, which is exactly correct on a real phone (its height is
+// naturally proportionate to its width, so the table settles at a
+// sensible size) but breaks down on a desktop window, where the width
+// is capped at 560px while the height stays full-viewport -- flex-grow
+// has far more room to expand into than a phone would ever have, so
+// the table balloons past 800px tall and pushes the player's own hand
+// of cards below the visible viewport entirely. Capping the table's
+// max-height at the same desktop breakpoint keeps it at a reasonable,
+// phone-like proportion no matter how tall the actual browser window
+// is, guaranteeing the hand area (and everything else below the
+// table) always has room. Scoped entirely inside the existing
+// min-width:700px query, so mobile is completely untouched.
 
 
 </script>

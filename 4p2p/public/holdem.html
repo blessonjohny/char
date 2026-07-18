@@ -271,9 +271,17 @@ if (!window.__holdemKeepAlive) {
 // go nowhere. This re-establishes the seat the instant the transport
 // comes back, using the same playerId, so nothing about the table
 // state needs to change on the server side at all.
+let hasDisconnectedOnceHoldem = false;
 socket.on('connect', () => {
   if (myTableId && myPlayerId) {
     socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
+  }
+  // The "connection lost" toast never had a matching "you're back"
+  // confirmation -- meaning even a perfectly successful reconnect gave
+  // the player no positive signal anything actually recovered. Only
+  // shown for a real recovery, not the very first page load.
+  if (hasDisconnectedOnceHoldem && myTableId) {
+    toast('✅ Reconnected!');
   }
 });
 socket.on('disconnect', (reason) => {
@@ -283,6 +291,7 @@ socket.on('disconnect', (reason) => {
   // closed it), etc. Surfacing this directly instead of a generic
   // message turns "it disconnected again" into an actual diagnosis.
   console.log('[holdem] disconnected, reason:', reason);
+  hasDisconnectedOnceHoldem = true;
   if (myTableId) toast(`⚠️ Connection lost (${reason}) — reconnecting...`);
 });
 socket.io.on('error', (err) => {

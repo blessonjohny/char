@@ -575,6 +575,7 @@ function connectSocket() {
   // purposes — the very next 'state' broadcast will draw the table
   // correctly from scratch regardless of whatever was happening before
   // the drop.
+  let hasDisconnectedOnce6p = false;
   socket.on('connect', () => {
     trickHoldBusy = false;
     sixpTrickRevealQueue = [];
@@ -583,8 +584,16 @@ function connectSocket() {
     if (MY_TABLE_ID && MY_PLAYER_ID) {
       socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
     }
+    // The "connection lost" toast never had a matching "you're back"
+    // confirmation -- meaning even a perfectly successful reconnect
+    // gave the player no positive signal anything actually recovered.
+    // Only shown for a real recovery, not the very first page load.
+    if (hasDisconnectedOnce6p) {
+      showToast('✅ Reconnected!', 'win', 2000);
+    }
   });
   socket.on('disconnect', () => {
+    hasDisconnectedOnce6p = true;
     showToast('⚠️ Lost connection to server — trying to reconnect...', 'lose', 3000);
   });
 

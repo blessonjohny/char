@@ -830,6 +830,7 @@ function ensureSyncSocket(){
     }, 4 * 60 * 1000);
   }
 
+  let hasDisconnectedOnce56 = false;
   syncSocket.on('connect', () => {
     if(roomCode) syncSocket.emit('sync56_join', {room: roomCode});
     // Rejoining the state-sync room keeps game state flowing, but it does
@@ -847,6 +848,14 @@ function ensureSyncSocket(){
       syncSocket.emit('l56_reconnect', {code: roomCode, playerId: MY_PLAYER_ID, name: myName});
     }
     syncSocket.emit('l56_listRooms');
+    // The "connection lost" toast never had a matching "you're back"
+    // confirmation -- meaning even a perfectly successful reconnect
+    // gave the player no positive signal anything actually recovered,
+    // which reads as "the game is stuck" even when it genuinely isn't.
+    // Only shown for a real recovery, not the very first page load.
+    if(hasDisconnectedOnce56 && roomCode){
+      showToast('✅ Reconnected!', 2500);
+    }
   });
   syncSocket.on('l56_reconnectFailed', () => {
     // The seat we thought we had is gone (kicked while away, or the
@@ -863,6 +872,16 @@ function ensureSyncSocket(){
     // directly turns "it disconnected again" into an actual diagnosis
     // instead of a guess.
     console.log('[56] disconnected, reason:', reason);
+    hasDisconnectedOnce56 = true;
+    // This was the actual gap: the other three games (4-player,
+    // 6-player, Hold'em) all show a visible "reconnecting" toast the
+    // instant the connection drops. 56 only logged to the console --
+    // which no real player ever sees -- so a dropped connection here
+    // looked exactly like a frozen, broken game instead of what it
+    // actually was: normally reconnecting.
+    if(roomCode){
+      showToast('⚠️ Connection lost — reconnecting...', 3000);
+    }
   });
   syncSocket.on('sync56_state', ({room, state}) => {
     if(room !== roomCode || !state) return;
