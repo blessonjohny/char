@@ -604,11 +604,14 @@ function touch(t) {
 }
 
 // If a table has zero real humans left (everyone who's left is a bot, or
-// the table is just empty), don't let it sit around playing bot-vs-bot for
-// the full 5-minute idle window — give a short grace period in case someone
-// reconnects quickly, then close it. Called after every disconnect/leave;
-// cancelled automatically the moment a human is present again.
-const NO_HUMAN_GRACE_MS = 60 * 1000;
+// the table is just empty), don't let it sit around playing bot-vs-bot
+// forever -- give a real window in case someone (the original player, or
+// anyone else) comes back, then close it. Called after every
+// disconnect/leave; cancelled automatically the moment a human is
+// present again. 30 minutes so a traveling player with spotty signal, or
+// someone just stepping away for a bit, doesn't lose their table to a
+// timer that was really meant for "actually abandoned."
+const NO_HUMAN_GRACE_MS = 30 * 60 * 1000;
 function scheduleNoHumanShutdown(t, id) {
   if (t.noHumanShutdownTimer) { clearTimeout(t.noHumanShutdownTimer); t.noHumanShutdownTimer = null; }
   if (hasAnyHuman(t)) return; // someone's still here — nothing to schedule
@@ -616,7 +619,7 @@ function scheduleNoHumanShutdown(t, id) {
   t.noHumanShutdownTimer = setTimeout(() => {
     const stillThere = tables[id];
     if (!stillThere || hasAnyHuman(stillThere)) return; // a human came back in the meantime
-    console.log(`[cleanup] Closing table ${id} — no humans left, only bots (60s grace period elapsed)`);
+    console.log(`[cleanup] Closing table ${id} — no humans left, only bots (30min grace period elapsed)`);
     for (const s of stillThere.engine.seats) if (s && s.playerId) delete playerIndex[s.playerId];
     delete tables[id];
     io.emit('roomList', publicTableList());
@@ -634,7 +637,7 @@ function scheduleNoHumanShutdown(t, id) {
 // sit there forever either: ask. Everyone gets a 60-second countdown to
 // tap "Still here" — any real game action, or that tap, cancels it and
 // resets the clock. Nobody answering closes the table.
-const IDLE_LIMIT_MS = 5 * 60 * 1000;
+const IDLE_LIMIT_MS = 30 * 60 * 1000;
 const STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
 
 function startStillPlayingCheck(t, id) {
@@ -766,6 +769,16 @@ io.on('connection', (socket) => {
         if (name) t.engine.seats[idx.pos].name = name;
         t.sockets.set(socket.id, { playerId, pos: idx.pos });
         socket.join(tableId);
+        // A vacant host slot (nobody connected to hold it) goes to
+        // whoever's the first human to actually show up -- doesn't
+        // matter if it's the original host coming back or someone else
+        // entirely; the table shouldn't sit unusable waiting on one
+        // specific person.
+        if (!t.hostPlayerId) {
+          t.hostPlayerId = playerId;
+          t.engine.addLog(`${t.engine.seats[idx.pos].name} is now the host.`);
+          console.log(`[table ${tableId}] ${name} reconnected and took the vacant host slot`);
+        }
         socket.emit('joined', { tableId, playerId, pos: idx.pos, isHost: t.hostPlayerId === playerId });
         touch(t);
         broadcastTable(t);
@@ -791,6 +804,18 @@ io.on('connection', (socket) => {
       // Table hasn't started — no approval needed, straight to picking a seat.
       pendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player' };
       socket.emit('chooseSeat', { tableId: reqTableId, openSeats, botSeats, disconnectedSeats, seats: seatSnapshot(t), canWatch: false, needsApproval: false });
+      return;
+    }
+
+    // A vacant host slot means there's genuinely nobody left who could
+    // ever approve a join request -- waiting for one would mean waiting
+    // forever. Skip straight to seat selection the same way a
+    // not-yet-started table already works; whichever seat they take,
+    // they'll become host automatically once they're actually seated.
+    if (!t.hostPlayerId) {
+      pendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player' };
+      socket.emit('chooseSeat', { tableId: reqTableId, openSeats, botSeats, disconnectedSeats, seats: seatSnapshot(t), canWatch: false, needsApproval: false });
+      console.log(`[table ${reqTableId}] ${name} joining directly — host slot was vacant, no approval needed`);
       return;
     }
 
@@ -935,6 +960,13 @@ io.on('connection', (socket) => {
     playerIndex[playerId] = { tableId, pos };
     t.sockets.set(socket.id, { playerId, pos });
     socket.join(tableId);
+    // A vacant host slot goes to whoever's the first human to actually
+    // take a seat -- same reasoning as the reconnect path above.
+    if (!t.hostPlayerId) {
+      t.hostPlayerId = playerId;
+      t.engine.addLog(`${pending.name} is now the host.`);
+      console.log(`[table ${tableId}] ${pending.name} took the vacant host slot`);
+    }
     socket.emit('joined', { tableId, playerId, pos, isHost: t.hostPlayerId === playerId });
     touch(t);
     broadcastTable(t);
@@ -1218,12 +1250,23 @@ io.on('connection', (socket) => {
       // Hand it to another currently-connected human, by seat order — a
       // one-way transfer, not a temporary delegation, so it doesn't flip
       // back and forth if the original host's connection is just flaky.
+      // If nobody else is connected right now (bots fill the rest of the
+      // table, or everyone else already dropped too), the host slot goes
+      // vacant rather than staying stuck pointing at someone who can no
+      // longer act -- a vacant slot is what lets ANY human who shows up
+      // next (the same player reconnecting, or someone brand new) become
+      // host automatically instead of the table being unusable until
+      // that one specific person comes back.
       if (t.hostPlayerId === info.playerId) {
         const newHostSeat = t.engine.seats.find(s => s && !s.isBot && s.connected && s.playerId !== info.playerId);
         if (newHostSeat) {
           t.hostPlayerId = newHostSeat.playerId;
           t.engine.addLog(`${newHostSeat.name} is now the host.`);
           console.log(`[table ${tableId}] host left — ${newHostSeat.name} is now host`);
+        } else {
+          t.hostPlayerId = null;
+          t.engine.addLog(`The host disconnected — the table is being kept open, and whoever joins next becomes host.`);
+          console.log(`[table ${tableId}] host left — no other human present, host slot vacant`);
         }
       }
       touch(t);
@@ -1361,7 +1404,7 @@ function sixpTouch(t) {
   }
 }
 
-const SIXP_NO_HUMAN_GRACE_MS = 60 * 1000;
+const SIXP_NO_HUMAN_GRACE_MS = 30 * 60 * 1000;
 function sixpScheduleNoHumanShutdown(t, id) {
   if (t.noHumanShutdownTimer) { clearTimeout(t.noHumanShutdownTimer); t.noHumanShutdownTimer = null; }
   if (sixpHasAnyHuman(t)) return;
@@ -1375,7 +1418,7 @@ function sixpScheduleNoHumanShutdown(t, id) {
   }, SIXP_NO_HUMAN_GRACE_MS);
 }
 
-const SIXP_IDLE_LIMIT_MS = 5 * 60 * 1000;
+const SIXP_IDLE_LIMIT_MS = 30 * 60 * 1000;
 const SIXP_STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
 function sixpStartStillPlayingCheck(t, id) {
   if (t.stillPlayingTimer) return;
@@ -1452,6 +1495,12 @@ io.on('connection', (socket) => {
         if (name) t.engine.seats[idx.pos].name = name;
         t.sockets.set(socket.id, { playerId: sixpPlayerId, pos: idx.pos });
         socket.join('sixp_' + sixpTableId);
+        // A vacant host slot (nobody connected to hold it) goes to
+        // whoever's the first human to actually show up.
+        if (!t.hostPlayerId) {
+          t.hostPlayerId = sixpPlayerId;
+          t.engine.addLog(`${t.engine.seats[idx.pos].name} is now the host.`);
+        }
         socket.emit('sixp_joined', { tableId: sixpTableId, playerId: sixpPlayerId, pos: idx.pos, isHost: t.hostPlayerId === sixpPlayerId });
         sixpTouch(t);
         sixpBroadcastTable(t);
@@ -1508,6 +1557,12 @@ io.on('connection', (socket) => {
     sixpPlayerIndex[sixpPlayerId] = { tableId: sixpTableId, pos };
     t.sockets.set(socket.id, { playerId: sixpPlayerId, pos });
     socket.join('sixp_' + sixpTableId);
+    // A vacant host slot goes to whoever's the first human to actually
+    // take a seat.
+    if (!t.hostPlayerId) {
+      t.hostPlayerId = sixpPlayerId;
+      t.engine.addLog(`${pending.name} is now the host.`);
+    }
     socket.emit('sixp_joined', { tableId: sixpTableId, playerId: sixpPlayerId, pos, isHost: t.hostPlayerId === sixpPlayerId });
     sixpTouch(t);
     sixpBroadcastTable(t);
@@ -1689,6 +1744,9 @@ io.on('connection', (socket) => {
         if (newHostSeat) {
           t.hostPlayerId = newHostSeat.playerId;
           t.engine.addLog(`${newHostSeat.name} is now the host.`);
+        } else {
+          t.hostPlayerId = null;
+          t.engine.addLog(`The host disconnected — the table is being kept open, and whoever joins next becomes host.`);
         }
       }
       sixpTouch(t);
@@ -1793,16 +1851,17 @@ function l56ReassignHost(r) {
   l56CheckNoHumanTimer(r);
 }
 
-const L56_NO_HUMAN_TIMEOUT_MS = 3 * 60 * 1000;
+const L56_NO_HUMAN_TIMEOUT_MS = 30 * 60 * 1000;
 // A table with no connected human host is just bots playing each other for
-// no one -- give a real person 3 minutes to claim a seat (which makes them
-// host automatically) before the table closes itself. IMPORTANT: this only
-// applies in the lobby, before anything valuable is at stake. Once a game
-// is actually underway, a disconnected host might just be a backgrounded
-// mobile tab (very common) rather than someone who's actually left --
-// closing their live game out from under them is worse than leaving a
-// hostless table running for a while. Mid-game, the existing 5-minute
-// general idle timer (which warns everyone first) is the backstop instead.
+// no one -- give a real person 30 minutes to claim a seat (which makes
+// them host automatically) before the table closes itself. IMPORTANT:
+// this only applies in the lobby, before anything valuable is at stake.
+// Once a game is actually underway, a disconnected host might just be a
+// backgrounded mobile tab (very common) rather than someone who's
+// actually left -- closing their live game out from under them is worse
+// than leaving a hostless table running for a while. Mid-game, the
+// existing general idle timer (which warns everyone first) is the
+// backstop instead.
 function l56CheckNoHumanTimer(r) {
   if (r.hostPlayerId || (r.state && r.state.phase && r.state.phase !== 'lobby')) {
     if (r.noHumanTimer) { clearTimeout(r.noHumanTimer); r.noHumanTimer = null; }
@@ -1816,14 +1875,14 @@ function l56CheckNoHumanTimer(r) {
     stillThere.noHumanTimer = null;
     if (stillThere.hostPlayerId) return; // someone claimed it in the meantime
     if (stillThere.state && stillThere.state.phase && stillThere.state.phase !== 'lobby') return; // a game started while we waited -- leave it alone
-    console.log(`[56 lobby] closing table ${code} — no human host within 3 minutes`);
+    console.log(`[56 lobby] closing table ${code} — no human host within 30 minutes`);
     io.to(l56SocketRoom(code)).emit('l56_tableClosed', { reason: 'no_host' });
     delete l56Rooms[code];
     io.emit('l56_roomList', l56PublicList());
   }, L56_NO_HUMAN_TIMEOUT_MS);
 }
 
-const L56_IDLE_LIMIT_MS = 5 * 60 * 1000;
+const L56_IDLE_LIMIT_MS = 30 * 60 * 1000;
 const L56_STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
 setInterval(() => {
   const now = Date.now();
@@ -2218,6 +2277,12 @@ io.on('connection', (socket) => {
         t.sockets.set(socket.id, { pos: existingPos, playerId: existingPlayerId });
         pokerTableId = tableId; pokerPlayerId = existingPlayerId;
         socket.join('poker_' + tableId);
+        // A vacant host slot goes to whoever's the first human to
+        // actually show up.
+        if (!t.hostPlayerId) {
+          t.hostPlayerId = existingPlayerId;
+          t.engine.addLog(`${t.engine.seats[existingPos].name} is now the host.`);
+        }
         socket.emit('poker_joined', { tableId, pos: existingPos, playerId: existingPlayerId, isHost: existingPlayerId === t.hostPlayerId });
         pokerTouch(t);
         pokerBroadcast(t);
@@ -2261,6 +2326,12 @@ io.on('connection', (socket) => {
     t.sockets.set(socket.id, { pos, playerId: newPlayerId });
     pokerTableId = tableId; pokerPlayerId = newPlayerId;
     socket.join('poker_' + tableId);
+    // A vacant host slot goes to whoever's the first human to actually
+    // take a seat.
+    if (!t.hostPlayerId) {
+      t.hostPlayerId = newPlayerId;
+      t.engine.addLog(`${t.engine.seats[pos].name} is now the host.`);
+    }
     socket.emit('poker_joined', { tableId, pos, playerId: newPlayerId, isHost: newPlayerId === t.hostPlayerId });
     pokerTouch(t);
     pokerBroadcast(t);
@@ -2341,6 +2412,23 @@ io.on('connection', (socket) => {
       // Keep the seat (reconnect-friendly, same as the other tables),
       // just mark it disconnected.
       t.engine.seats[info.pos].connected = false;
+      // Host migration: hand it to another connected human if one
+      // exists, one-way (not a temporary delegation). If nobody else is
+      // connected, the slot goes vacant rather than staying stuck
+      // pointing at someone who can no longer act -- a vacant slot lets
+      // any human who shows up next (the same player, or someone brand
+      // new) become host automatically instead of the table being
+      // unusable until that one specific person comes back.
+      if (t.hostPlayerId === info.playerId) {
+        const newHostSeat = t.engine.seats.find(s => s && !s.isBot && s.connected && s.playerId !== info.playerId);
+        if (newHostSeat) {
+          t.hostPlayerId = newHostSeat.playerId;
+          t.engine.addLog(`${newHostSeat.name} is now the host.`);
+        } else {
+          t.hostPlayerId = null;
+          t.engine.addLog(`The host disconnected — the table is being kept open, and whoever joins next becomes host.`);
+        }
+      }
     }
     pokerTouch(t);
     pokerBroadcast(t);
