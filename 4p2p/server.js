@@ -577,6 +577,31 @@ function hasAnyHuman(t) {
 // NOT getting host back because the slot still pointed at their own old
 // disconnected identity or another absent player, leaving host-only
 // controls dead even though a real person was right there.
+// One socket may only ever be registered at ONE table at a time. Called
+// before any create/join/claim registers a socket somewhere new: removes
+// it from every 4P and 6P table's sockets map (and their broadcast
+// rooms). Without this, a socket that auto-reconnected to an old table
+// after a refresh and then started/joined a different game stayed
+// registered at BOTH — the old table kept pushing its states (old cards
+// over the new game, wrong hand counts) and its lifecycle events could
+// even kick the player out of the game they were actually in.
+function detachSocketFromAllTables(socket, exceptTableId) {
+  for (const [id, t] of Object.entries(tables)) {
+    if (id === exceptTableId) continue;
+    if (t.sockets && t.sockets.delete(socket.id)) {
+      try { socket.leave(id); } catch (e) {}
+      console.log(`[detach] socket ${socket.id} detached from old table ${id}`);
+    }
+  }
+  for (const [id, t] of Object.entries(sixpTables)) {
+    if (id === exceptTableId) continue;
+    if (t.sockets && t.sockets.delete(socket.id)) {
+      try { socket.leave('sixp_' + id); } catch (e) {}
+      console.log(`[detach] socket ${socket.id} detached from old 6p table ${id}`);
+    }
+  }
+}
+
 function ensureHumanHost(t, preferPlayerId) {
   const hostSeat = t.engine.seats.find(s => s && s.playerId === t.hostPlayerId);
   const hostIsConnectedHuman = !!(hostSeat && !hostSeat.isBot && hostSeat.connected);
@@ -615,6 +640,15 @@ function broadcastTable(t) {
     if (!sock) continue;
     const state = t.engine.stateFor(info.pos);
     state.isHost = (info.playerId === t.hostPlayerId);
+    // Every state names its table so the client can reject strays. A
+    // socket that reconnected to an old table and then joined a new one
+    // was still registered in the old table's sockets map (nothing ever
+    // removed it), so the old table kept pushing ITS states at this
+    // client forever — old cards rendering over the new game, hand
+    // counts flickering wrong. Belt: detachSocketFromAllTables below
+    // removes the stale registration; braces: this id lets the client
+    // drop anything that still slips through.
+    state.tableId = t.id;
     sock.emit('state', state);
   }
   if (t.spectators) {
@@ -774,6 +808,7 @@ io.on('connection', (socket) => {
     tables[id] = t;
     tableId = id;
     playerIndex[playerId] = { tableId: id, pos: 3 };
+    detachSocketFromAllTables(socket, id);
     t.sockets.set(socket.id, { playerId, pos: 3 });
     socket.join(id);
     socket.emit('joined', { tableId: id, playerId, pos: 3, isHost: true });
@@ -793,6 +828,7 @@ io.on('connection', (socket) => {
         tableId = idx.tableId;
         t.engine.markConnected(idx.pos, true);
         if (name) t.engine.seats[idx.pos].name = name;
+        detachSocketFromAllTables(socket, idx.tableId);
         t.sockets.set(socket.id, { playerId, pos: idx.pos });
         socket.join(tableId);
         // Strong host-recovery rule: whenever a human rejoins, if the
@@ -1020,6 +1056,7 @@ io.on('connection', (socket) => {
     }
     tableId = pending.tableId;
     playerIndex[playerId] = { tableId, pos };
+    detachSocketFromAllTables(socket, pending.tableId);
     t.sockets.set(socket.id, { playerId, pos });
     socket.join(tableId);
     // Strong host-recovery rule, same as the reconnect path above.
@@ -1460,6 +1497,7 @@ function sixpBroadcastTable(t) {
     if (!sock) continue;
     const state = t.engine.stateFor(info.pos);
     state.isHost = (info.playerId === t.hostPlayerId);
+    state.tableId = t.id; // lets the client reject strays from an old table
     sock.emit('sixp_state', state);
   }
   io.emit('sixp_roomList', sixpPublicTableList());
@@ -1531,6 +1569,7 @@ io.on('connection', (socket) => {
     sixpTables[id] = t;
     sixpTableId = id;
     sixpPlayerIndex[sixpPlayerId] = { tableId: id, pos: 0 };
+    detachSocketFromAllTables(socket, sixpTableId);
     t.sockets.set(socket.id, { playerId: sixpPlayerId, pos: 0 });
     socket.join('sixp_' + id);
     socket.emit('sixp_joined', { tableId: id, playerId: sixpPlayerId, pos: 0, isHost: true });
@@ -1549,6 +1588,7 @@ io.on('connection', (socket) => {
         sixpTableId = idx.tableId;
         t.engine.markConnected(idx.pos, true);
         if (name) t.engine.seats[idx.pos].name = name;
+        detachSocketFromAllTables(socket, idx.tableId);
         t.sockets.set(socket.id, { playerId: sixpPlayerId, pos: idx.pos });
         socket.join('sixp_' + sixpTableId);
         // Strong host-recovery rule (same as the 4-player table): a
@@ -1609,6 +1649,7 @@ io.on('connection', (socket) => {
     }
     sixpTableId = pending.tableId;
     sixpPlayerIndex[sixpPlayerId] = { tableId: sixpTableId, pos };
+    detachSocketFromAllTables(socket, pending.tableId);
     t.sockets.set(socket.id, { playerId: sixpPlayerId, pos });
     socket.join('sixp_' + sixpTableId);
     // Strong host-recovery rule, same as the reconnect path.
