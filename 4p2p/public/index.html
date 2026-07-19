@@ -6160,7 +6160,14 @@ function restoreGameState(data) {
 }
 
 function autoSaveGame() {
-  if (IS_ONLINE) return; // never autosave online P2P games
+  // Autosave exists ONLY for local "play vs bots" games. Never for any
+  // online table of any kind — not the old P2P mode (IS_ONLINE), not the
+  // server-authoritative mode (SERVER_MODE), and not while seated at any
+  // server table (MY_TABLE_ID). Online games live on the server and
+  // reconnect from there; a local save of one is at best meaningless and
+  // at worst gets offered back later as a confusing "resume?" on top of
+  // a real online session.
+  if (IS_ONLINE || SERVER_MODE || MY_TABLE_ID) return;
   if (!phase) return;
   // Only autosave during bidding phases where a fresh deal makes sense on restore.
   // During play phases, state is too complex to restore mid-trick cleanly.
@@ -6199,7 +6206,22 @@ function clearAutoSave() {
 setInterval(autoSaveGame, 15000);
 
 // ==================== SAVE/LOAD EVENT LISTENERS ====================
-document.getElementById('btnSaveGame').addEventListener('click', saveGameToFile);
+document.getElementById('btnSaveGame').addEventListener('click', () => {
+  // Saving is strictly a local bot-vs-mode feature. Online games live on
+  // the server and reconnect from there — a local save file of one is
+  // meaningless and confusing, so the button refuses (and is hidden for
+  // online tables anyway, belt and suspenders).
+  if (IS_ONLINE || SERVER_MODE || MY_TABLE_ID) {
+    showToast('Online games are saved on the server automatically — no file save needed.', 'info', 2500);
+    return;
+  }
+  saveGameToFile();
+});
+// Keep the save button visible only in local bot-vs games.
+setInterval(() => {
+  const b = document.getElementById('btnSaveGame');
+  if (b) b.style.display = (IS_ONLINE || SERVER_MODE || MY_TABLE_ID) ? 'none' : '';
+}, 1000);
 
 document.getElementById('btnLoadGame').addEventListener('click', function() {
   document.getElementById('loadGameInput').click();
@@ -10729,11 +10751,20 @@ window.addEventListener('DOMContentLoaded', () => {
   // Check for auto-save recovery — but never while an online reconnect is
   // in progress (or was just attempted). This is a purely LOCAL "play vs
   // bots" save; showing it on top of an online game/reconnect is exactly
-  // the confusing overlap that got reported — a generic Round 1 / 6-vs-6
-  // local save (the default starting numbers for ANY game) looking like
-  // it was "saving the online game" when it was really just an old,
-  // barely-started local save with coincidentally identical defaults.
-  const autoSave = MY_TABLE_ID ? null : checkAutoSave();
+  // the confusing overlap that got reported. CRITICAL: the check must use
+  // the PERSISTED pending session (localStorage), not just the in-memory
+  // MY_TABLE_ID — on a reloaded tab (mobile browsers discard tabs during
+  // airplane mode all the time), MY_TABLE_ID is still null at this point
+  // because the reconnect hasn't landed yet, but the saved session in
+  // localStorage is there the whole time and is the honest signal that an
+  // online game is pending. Acting on the local save in that window
+  // (either button) reset/hijacked state the reconnect depended on.
+  function hasPendingOnlineSession() {
+    if (MY_TABLE_ID || SERVER_MODE || IS_ONLINE) return true;
+    try { if (localStorage.getItem('k28_table_id')) return true; } catch (e) {}
+    return false;
+  }
+  const autoSave = hasPendingOnlineSession() ? null : checkAutoSave();
   if (autoSave) {
     setTimeout(() => {
       // Re-check right now, not just at the moment this was scheduled —
@@ -10742,7 +10773,7 @@ window.addEventListener('DOMContentLoaded', () => {
       // and showing this on top of THAT is exactly the bug that got
       // reported: the check passing 800ms ago doesn't mean it still
       // should now.
-      if (MY_TABLE_ID || SERVER_MODE || IS_ONLINE) return;
+      if (hasPendingOnlineSession()) return;
       showModal('💾 Resume Saved Game?', 
         'A saved game was found from ' + new Date(autoSave.timestamp).toLocaleTimeString() + '.<br><br>' +
         '<b>Round:</b> ' + autoSave.round + '<br>' +
@@ -10767,7 +10798,7 @@ window.addEventListener('DOMContentLoaded', () => {
         // what left people stuck with a blank hand needing a hard reload
         // to recover, since neither button was ever safe to run in that
         // situation — this was true for both Resume AND Start Fresh.
-        if (SERVER_MODE || IS_ONLINE || MY_TABLE_ID) {
+        if (hasPendingOnlineSession()) {
           clearAutoSave();
           showToast('You\u2019re already in an online game — that saved game was left as-is.', 'info', 2500);
           return;
@@ -10801,7 +10832,7 @@ window.addEventListener('DOMContentLoaded', () => {
         // too, since server mode reuses these same variables. Running it
         // on top of a live game is exactly what left people staring at a
         // blank hand with no bid panel until they hard-refreshed.
-        if (SERVER_MODE || IS_ONLINE || MY_TABLE_ID) {
+        if (hasPendingOnlineSession()) {
           showToast('You\u2019re already in an online game — that saved game has been cleared.', 'info', 2500);
           return;
         }
@@ -12807,6 +12838,19 @@ function connectGameSocket() {
         try { localStorage.setItem('k28_session_time', String(Date.now())); } catch (e) {}
       }
     }, 30000);
+  }
+
+  // Room heartbeat: while actually seated at a server table, ping the
+  // table itself so its activity clock stays fresh. This guarantees the
+  // idle/"still playing?" timers can never count down against a table
+  // that has a genuinely connected player, no matter how quiet the game
+  // is — the timers are strictly for tables nobody is really at.
+  if (!window.__k28TableHeartbeat) {
+    window.__k28TableHeartbeat = setInterval(() => {
+      if (MY_TABLE_ID && gameSocket && gameSocket.connected) {
+        gameSocket.emit('tableHeartbeat');
+      }
+    }, 2 * 60 * 1000);
   }
 
   const notice = document.getElementById('serverNotice');
