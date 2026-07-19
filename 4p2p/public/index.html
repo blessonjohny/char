@@ -12208,6 +12208,20 @@ window.addEventListener('DOMContentLoaded', async () => {
       }
       try { localStorage.setItem('k28_known_server_start', String(data.serverStartTime)); } catch (e) {}
     }
+    // Deploy-mismatch tripwire: the footer stamp only ever proves THIS
+    // page file deployed — server.js is a separate file and can lag
+    // behind it (exactly the situation that produced "footer says new
+    // build, but the old kicks/old-cards behavior is still happening":
+    // every one of those symptoms lives server-side). Make the mismatch
+    // an unmissable on-screen fact instead of something to infer.
+    const serverTag = data && data.buildTag;
+    if (serverTag !== window.K28_BUILD_TAG) {
+      const b = document.createElement('div');
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#a11;color:#fff;font-size:0.75rem;font-weight:700;padding:8px 10px;text-align:center;line-height:1.4';
+      b.textContent = `⚠️ DEPLOY INCOMPLETE: the game page is build "${window.K28_BUILD_TAG}" but the server is running "${serverTag || 'an older build (no buildTag)'}" — update server.js in the repo and redeploy. Fixes will NOT work until both match.`;
+      document.body.appendChild(b);
+      console.warn('[build-mismatch]', { page: window.K28_BUILD_TAG, server: serverTag });
+    }
   }).catch(() => {});
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('room');
