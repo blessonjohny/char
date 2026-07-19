@@ -844,6 +844,27 @@ io.on('connection', (socket) => {
       }
     }
     console.log(`[table ${reqTableId}] ${name} requested to join a table already in progress — awaiting host approval`);
+    // If the host never actually responds -- AFK, didn't notice the
+    // popup, or their connection is flaky but hasn't hit the ping
+    // timeout yet so the server still thinks they're there -- the
+    // joining player was stuck on "waiting for the host" forever, with
+    // no timeout and no way to give up and get in anyway. This is what
+    // "the table looks open but joining just doesn't respond" actually
+    // was. Auto-admit after a reasonable wait, same spirit as a vacant
+    // host slot: don't leave someone locked out indefinitely over one
+    // person's unresponsiveness.
+    setTimeout(() => {
+      const stillT = tables[reqTableId];
+      if (!stillT || !stillT.pendingJoinRequests || !stillT.pendingJoinRequests.has(reqId)) return; // already resolved one way or another
+      stillT.pendingJoinRequests.delete(reqId);
+      const joinerSocket = io.sockets.sockets.get(socket.id);
+      if (!joinerSocket) return; // they gave up and left already
+      console.log(`[table ${reqTableId}] host did not respond to ${name}'s join request within 30s — auto-admitting`);
+      const freshOpenSeats = stillT.engine.emptySeats();
+      const { botSeats: freshBotSeats, disconnectedSeats: freshDisconnectedSeats } = joinableSeats(stillT);
+      pendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player' };
+      joinerSocket.emit('chooseSeat', { tableId: reqTableId, openSeats: freshOpenSeats, botSeats: freshBotSeats, disconnectedSeats: freshDisconnectedSeats, seats: seatSnapshot(stillT), canWatch: false, needsApproval: false });
+    }, 30000);
   });
 
   // An existing spectator asking to convert to a player — reuses the same
@@ -874,6 +895,20 @@ io.on('connection', (socket) => {
       }
     }
     console.log(`[table ${tableId}] spectator ${spec.name} asked the host for a seat`);
+    // Same fix as the fresh-join path above: don't leave a spectator
+    // waiting forever if the host never actually responds.
+    setTimeout(() => {
+      const stillT = tables[tableId];
+      if (!stillT || !stillT.pendingJoinRequests || !stillT.pendingJoinRequests.has(reqId)) return;
+      stillT.pendingJoinRequests.delete(reqId);
+      const specSocket = io.sockets.sockets.get(socket.id);
+      if (!specSocket || !stillT.spectators || !stillT.spectators.has(socket.id)) return;
+      console.log(`[table ${tableId}] host did not respond to spectator ${spec.name}'s seat request within 30s — auto-admitting`);
+      const freshOpenSeats = stillT.engine.emptySeats();
+      const { botSeats: freshBotSeats, disconnectedSeats: freshDisconnectedSeats } = joinableSeats(stillT);
+      pendingSeatChoice[socket.id] = { tableId, name: spec.name };
+      specSocket.emit('chooseSeat', { tableId, openSeats: freshOpenSeats, botSeats: freshBotSeats, disconnectedSeats: freshDisconnectedSeats, seats: seatSnapshot(stillT), canWatch: false, needsApproval: false });
+    }, 30000);
   });
 
   socket.on('respondJoinRequest', ({ reqId, approved }) => {
@@ -1990,6 +2025,25 @@ io.on('connection', (socket) => {
     const hostSocket = io.sockets.sockets.get(hostSocketId);
     if (hostSocket) hostSocket.emit('l56_joinRequest', { reqId, code, name: name || 'Player', openSeats, botSeats });
     socket.emit('l56_joinPending');
+    // Same fix as the 4-player table: a host who's technically still
+    // connected (hasn't hit the ping timeout) but genuinely
+    // unresponsive -- AFK, didn't see the popup, background app not
+    // actually processing anything -- was leaving the joiner stuck on
+    // "waiting for the host" forever, with no timeout and no fallback.
+    setTimeout(() => {
+      const stillR = l56Rooms[code];
+      if (!stillR || !stillR.pendingRequests.has(reqId)) return; // already resolved
+      stillR.pendingRequests.delete(reqId);
+      const joinerSocket = io.sockets.sockets.get(socket.id);
+      if (!joinerSocket) return;
+      console.log(`[56] host did not respond to ${name}'s join request for table ${code} within 30s — auto-admitting`);
+      const freshSeats = stillR.state && stillR.state.seats ? stillR.state.seats : [];
+      const freshOpenSeats = freshSeats.map((s, i) => s ? null : i).filter(i => i !== null);
+      const freshBotSeats = freshSeats.map((s, i) => (s && s.bot) ? i : null).filter(i => i !== null);
+      const freshHostSeat = freshSeats.findIndex(s => s && s.playerId === stillR.hostPlayerId);
+      const freshHostName = freshHostSeat !== -1 ? freshSeats[freshHostSeat].name : null;
+      joinerSocket.emit('l56_joinApproved', { code, openSeats: freshOpenSeats, botSeats: freshBotSeats, hostSeat: freshHostSeat, hostName: freshHostName });
+    }, 30000);
   });
 
   socket.on('l56_respondJoinRequest', ({ code, reqId, approved }) => {
