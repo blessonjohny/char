@@ -12691,12 +12691,15 @@ function attemptAutoReconnect() {
   if (!MY_TABLE_ID || !MY_PLAYER_TOKEN) return;
 
   // Reconnect is for "the tab just crashed/reloaded mid-game" — a real
-  // accidental interruption, which is always a short gap. It is NOT for
-  // "I closed this a while ago and now I'm opening the app to start
-  // something new", which should always just be the normal, fresh
-  // welcome screen. A stale timestamp (or none at all, from before this
-  // existed) means treat it as abandoned rather than resume it.
-  const RECENT_WINDOW_MS = 3 * 60 * 1000; // 3 minutes
+  // accidental interruption. It is NOT for "I closed this a while ago
+  // and now I'm opening the app to start something new", which should
+  // always just be the normal, fresh welcome screen. A stale timestamp
+  // (or none at all, from before this existed) means treat it as
+  // abandoned rather than resume it. This matches the server's own
+  // 30-minute grace period for keeping a table alive with no human
+  // connected -- there's no point being far more conservative
+  // client-side than the server already is about the exact same table.
+  const RECENT_WINDOW_MS = 30 * 60 * 1000; // 30 minutes, matching server.js
   let sessionTime = 0;
   try { sessionTime = parseInt(localStorage.getItem('k28_session_time') || '0', 10); } catch (e) {}
   if (!sessionTime || Date.now() - sessionTime > RECENT_WINDOW_MS) {
@@ -12752,6 +12755,21 @@ function connectGameSocket() {
     window.__k28KeepAlive = setInterval(() => {
       fetch('/status').catch(() => {});
     }, 4 * 60 * 1000);
+  }
+
+  // The reconnect-staleness timestamp (see RECENT_WINDOW_MS above) was
+  // only ever refreshed when a new server state actually arrived --
+  // which mostly tracks real activity, but a quiet stretch (someone
+  // thinking through a bid, a slow round) with no state changes could
+  // let it go stale even while genuinely, continuously connected the
+  // whole time. A steady heartbeat while actually seated at a table
+  // keeps it honest regardless of how quiet the game itself gets.
+  if (!window.__k28SessionHeartbeat) {
+    window.__k28SessionHeartbeat = setInterval(() => {
+      if (MY_TABLE_ID) {
+        try { localStorage.setItem('k28_session_time', String(Date.now())); } catch (e) {}
+      }
+    }, 30000);
   }
 
   const notice = document.getElementById('serverNotice');
