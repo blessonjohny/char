@@ -569,6 +569,28 @@ function hasAnyHuman(t) {
   return t.engine.seats.some(s => s && !s.isBot);
 }
 
+// Guarantees the host is always a CONNECTED human whenever one exists.
+// Called on every human reconnect/seat-claim: if the current host slot is
+// vacant OR points at someone who is disconnected (or somehow not a
+// human), host passes to the given player. This is the strong version of
+// the old "only if vacant" rule — the reported gap was a rejoining human
+// NOT getting host back because the slot still pointed at their own old
+// disconnected identity or another absent player, leaving host-only
+// controls dead even though a real person was right there.
+function ensureHumanHost(t, preferPlayerId) {
+  const hostSeat = t.engine.seats.find(s => s && s.playerId === t.hostPlayerId);
+  const hostIsConnectedHuman = !!(hostSeat && !hostSeat.isBot && hostSeat.connected);
+  if (hostIsConnectedHuman) return false;
+  const preferred = t.engine.seats.find(s => s && s.playerId === preferPlayerId && !s.isBot);
+  const fallback = t.engine.seats.find(s => s && !s.isBot && s.connected);
+  const newHost = preferred || fallback;
+  if (!newHost) return false;
+  t.hostPlayerId = newHost.playerId;
+  t.engine.addLog(`${newHost.name} is now the host.`);
+  console.log(`[host] host slot was vacant/absent — ${newHost.name} is now host`);
+  return true;
+}
+
 function publicTableList() {
   return Object.values(tables)
     .filter(t => t.engine.seats.some(Boolean))
@@ -654,32 +676,22 @@ function scheduleNoHumanShutdown(t, id) {
 const IDLE_LIMIT_MS = 30 * 60 * 1000;
 const STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
 
-function startStillPlayingCheck(t, id) {
-  if (t.stillPlayingTimer) return; // already asking
-  io.to(id).emit('stillPlayingCheck', { seconds: STILL_PLAYING_COUNTDOWN_MS / 1000 });
-  t.stillPlayingTimer = setTimeout(() => {
-    const stillThere = tables[id];
-    if (!stillThere) return;
-    stillThere.stillPlayingTimer = null;
-    console.log(`[idle] Closing table ${id} — nobody confirmed still playing`);
-    io.to(id).emit('tableClosed', { reason: 'idle' });
-    for (const s of stillThere.engine.seats) if (s && s.playerId) delete playerIndex[s.playerId];
-    delete tables[id];
-    io.emit('roomList', publicTableList());
-  }, STILL_PLAYING_COUNTDOWN_MS);
-}
-
+// The old "still playing?" warning + auto-close is GONE, deliberately.
+// It was capable of kicking people who were actively at the table (the
+// exact reported bug: playing normally after a reconnect, then thrown
+// back to the main page by 'tableClosed'). A table with ANY connected
+// player now stays open, period — no warnings, no countdowns. The only
+// automatic cleanup left is for tables with genuinely NOBODY connected,
+// after the 30-minute no-human window.
 setInterval(() => {
   const now = Date.now();
   for (const id of Object.keys(tables)) {
     const t = tables[id];
     const anyoneConnected = t.engine.seats.some(s => s && s.connected);
     if (!anyoneConnected && now - t.lastActivityAt > IDLE_LIMIT_MS) {
-      console.log(`[cleanup] Closing idle table ${id} (${now - t.lastActivityAt}ms since last activity)`);
+      console.log(`[cleanup] Closing idle table ${id} (${now - t.lastActivityAt}ms since last activity, nobody connected)`);
       for (const s of t.engine.seats) if (s && s.playerId) delete playerIndex[s.playerId];
       delete tables[id];
-    } else if (anyoneConnected && now - t.lastActivityAt > IDLE_LIMIT_MS) {
-      startStillPlayingCheck(t, id);
     }
   }
   io.emit('roomList', publicTableList());
@@ -783,16 +795,13 @@ io.on('connection', (socket) => {
         if (name) t.engine.seats[idx.pos].name = name;
         t.sockets.set(socket.id, { playerId, pos: idx.pos });
         socket.join(tableId);
-        // A vacant host slot (nobody connected to hold it) goes to
-        // whoever's the first human to actually show up -- doesn't
-        // matter if it's the original host coming back or someone else
-        // entirely; the table shouldn't sit unusable waiting on one
-        // specific person.
-        if (!t.hostPlayerId) {
-          t.hostPlayerId = playerId;
-          t.engine.addLog(`${t.engine.seats[idx.pos].name} is now the host.`);
-          console.log(`[table ${tableId}] ${name} reconnected and took the vacant host slot`);
-        }
+        // Strong host-recovery rule: whenever a human rejoins, if the
+        // current host isn't a CONNECTED human (vacant slot, or stuck
+        // pointing at someone who's gone), this human takes host. This
+        // replaces the old vacant-only check, which left a rejoining
+        // player without host rights even when they were the only human
+        // present — the exact reported bug.
+        ensureHumanHost(t, playerId);
         socket.emit('joined', { tableId, playerId, pos: idx.pos, isHost: t.hostPlayerId === playerId });
         touch(t);
         broadcastTable(t);
@@ -1013,13 +1022,8 @@ io.on('connection', (socket) => {
     playerIndex[playerId] = { tableId, pos };
     t.sockets.set(socket.id, { playerId, pos });
     socket.join(tableId);
-    // A vacant host slot goes to whoever's the first human to actually
-    // take a seat -- same reasoning as the reconnect path above.
-    if (!t.hostPlayerId) {
-      t.hostPlayerId = playerId;
-      t.engine.addLog(`${pending.name} is now the host.`);
-      console.log(`[table ${tableId}] ${pending.name} took the vacant host slot`);
-    }
+    // Strong host-recovery rule, same as the reconnect path above.
+    ensureHumanHost(t, playerId);
     socket.emit('joined', { tableId, playerId, pos, isHost: t.hostPlayerId === playerId });
     touch(t);
     broadcastTable(t);
@@ -1486,32 +1490,18 @@ function sixpScheduleNoHumanShutdown(t, id) {
 
 const SIXP_IDLE_LIMIT_MS = 30 * 60 * 1000;
 const SIXP_STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
-function sixpStartStillPlayingCheck(t, id) {
-  if (t.stillPlayingTimer) return;
-  io.to('sixp_' + id).emit('sixp_stillPlayingCheck', { seconds: SIXP_STILL_PLAYING_COUNTDOWN_MS / 1000 });
-  t.stillPlayingTimer = setTimeout(() => {
-    const stillThere = sixpTables[id];
-    if (!stillThere) return;
-    stillThere.stillPlayingTimer = null;
-    console.log(`[6p idle] Closing table ${id} — nobody confirmed still playing`);
-    io.to('sixp_' + id).emit('sixp_tableClosed', { reason: 'idle' });
-    for (const s of stillThere.engine.seats) if (s && s.playerId) delete sixpPlayerIndex[s.playerId];
-    delete sixpTables[id];
-    io.emit('sixp_roomList', sixpPublicTableList());
-  }, SIXP_STILL_PLAYING_COUNTDOWN_MS);
-}
-
+// The "still playing?" warning + auto-close is deleted here too, same as
+// the 4-player table — a table with ANY connected player stays open.
+// Only tables with genuinely nobody connected get cleaned up.
 setInterval(() => {
   const now = Date.now();
   for (const id of Object.keys(sixpTables)) {
     const t = sixpTables[id];
     const anyoneConnected = t.engine.seats.some(s => s && s.connected);
     if (!anyoneConnected && now - t.lastActivityAt > SIXP_IDLE_LIMIT_MS) {
-      console.log(`[6p cleanup] Closing idle table ${id}`);
+      console.log(`[6p cleanup] Closing idle table ${id} (nobody connected)`);
       for (const s of t.engine.seats) if (s && s.playerId) delete sixpPlayerIndex[s.playerId];
       delete sixpTables[id];
-    } else if (anyoneConnected && now - t.lastActivityAt > SIXP_IDLE_LIMIT_MS) {
-      sixpStartStillPlayingCheck(t, id);
     }
   }
   io.emit('sixp_roomList', sixpPublicTableList());
@@ -1561,12 +1551,10 @@ io.on('connection', (socket) => {
         if (name) t.engine.seats[idx.pos].name = name;
         t.sockets.set(socket.id, { playerId: sixpPlayerId, pos: idx.pos });
         socket.join('sixp_' + sixpTableId);
-        // A vacant host slot (nobody connected to hold it) goes to
-        // whoever's the first human to actually show up.
-        if (!t.hostPlayerId) {
-          t.hostPlayerId = sixpPlayerId;
-          t.engine.addLog(`${t.engine.seats[idx.pos].name} is now the host.`);
-        }
+        // Strong host-recovery rule (same as the 4-player table): a
+        // rejoining human takes host whenever the current host isn't a
+        // connected human.
+        ensureHumanHost(t, sixpPlayerId);
         socket.emit('sixp_joined', { tableId: sixpTableId, playerId: sixpPlayerId, pos: idx.pos, isHost: t.hostPlayerId === sixpPlayerId });
         sixpTouch(t);
         sixpBroadcastTable(t);
@@ -1623,12 +1611,8 @@ io.on('connection', (socket) => {
     sixpPlayerIndex[sixpPlayerId] = { tableId: sixpTableId, pos };
     t.sockets.set(socket.id, { playerId: sixpPlayerId, pos });
     socket.join('sixp_' + sixpTableId);
-    // A vacant host slot goes to whoever's the first human to actually
-    // take a seat.
-    if (!t.hostPlayerId) {
-      t.hostPlayerId = sixpPlayerId;
-      t.engine.addLog(`${pending.name} is now the host.`);
-    }
+    // Strong host-recovery rule, same as the reconnect path.
+    ensureHumanHost(t, sixpPlayerId);
     socket.emit('sixp_joined', { tableId: sixpTableId, playerId: sixpPlayerId, pos, isHost: t.hostPlayerId === sixpPlayerId });
     sixpTouch(t);
     sixpBroadcastTable(t);
@@ -1950,22 +1934,19 @@ function l56CheckNoHumanTimer(r) {
 
 const L56_IDLE_LIMIT_MS = 30 * 60 * 1000;
 const L56_STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
+// The "still playing?" warning + auto-close is deleted here too, same as
+// the other tables — a room with ANY connected player stays open. Only
+// rooms with genuinely nobody connected get cleaned up after the idle
+// window.
 setInterval(() => {
   const now = Date.now();
   for (const code of Object.keys(l56Rooms)) {
     const r = l56Rooms[code];
-    if (r.stillPlayingTimer) continue; // already mid-countdown
+    if (r.sockets.size > 0) continue; // someone is connected — never close
     if (now - r.lastActivityAt <= L56_IDLE_LIMIT_MS) continue;
-    io.to(l56SocketRoom(code)).emit('l56_stillPlayingCheck', { seconds: L56_STILL_PLAYING_COUNTDOWN_MS / 1000 });
-    r.stillPlayingTimer = setTimeout(() => {
-      const stillThere = l56Rooms[code];
-      if (!stillThere) return;
-      stillThere.stillPlayingTimer = null;
-      console.log(`[56 lobby] closing idle table ${code} — nobody confirmed still playing`);
-      io.to(l56SocketRoom(code)).emit('l56_tableClosed', { reason: 'idle' });
-      delete l56Rooms[code];
-      io.emit('l56_roomList', l56PublicList());
-    }, L56_STILL_PLAYING_COUNTDOWN_MS);
+    console.log(`[56] closing idle table ${code} — nobody connected for 30+ minutes`);
+    delete l56Rooms[code];
+    io.emit('l56_roomList', l56PublicList());
   }
 }, 30 * 1000);
 
@@ -2362,12 +2343,8 @@ io.on('connection', (socket) => {
         t.sockets.set(socket.id, { pos: existingPos, playerId: existingPlayerId });
         pokerTableId = tableId; pokerPlayerId = existingPlayerId;
         socket.join('poker_' + tableId);
-        // A vacant host slot goes to whoever's the first human to
-        // actually show up.
-        if (!t.hostPlayerId) {
-          t.hostPlayerId = existingPlayerId;
-          t.engine.addLog(`${t.engine.seats[existingPos].name} is now the host.`);
-        }
+        // Strong host-recovery rule (same as the 4-player table).
+        ensureHumanHost(t, existingPlayerId);
         socket.emit('poker_joined', { tableId, pos: existingPos, playerId: existingPlayerId, isHost: existingPlayerId === t.hostPlayerId });
         pokerTouch(t);
         pokerBroadcast(t);
@@ -2411,12 +2388,8 @@ io.on('connection', (socket) => {
     t.sockets.set(socket.id, { pos, playerId: newPlayerId });
     pokerTableId = tableId; pokerPlayerId = newPlayerId;
     socket.join('poker_' + tableId);
-    // A vacant host slot goes to whoever's the first human to actually
-    // take a seat.
-    if (!t.hostPlayerId) {
-      t.hostPlayerId = newPlayerId;
-      t.engine.addLog(`${t.engine.seats[pos].name} is now the host.`);
-    }
+    // Strong host-recovery rule, same as the reconnect path.
+    ensureHumanHost(t, newPlayerId);
     socket.emit('poker_joined', { tableId, pos, playerId: newPlayerId, isHost: newPlayerId === t.hostPlayerId });
     pokerTouch(t);
     pokerBroadcast(t);
