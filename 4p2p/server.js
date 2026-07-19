@@ -794,7 +794,11 @@ io.on('connection', (socket) => {
     // room cap only throttles brand new CREATE requests — joining or
     // watching a table that already exists is always allowed, cap or not.
     const t = tables[reqTableId];
-    if (!t) { socket.emit('joinError', { reason: 'table_not_found' }); return; }
+    if (!t) {
+      console.log(`[join-diag] table_not_found for tableId="${reqTableId}" existingPlayerId="${existingPlayerId}" name="${name}" — playerIndex has this player: ${!!(existingPlayerId && playerIndex[existingPlayerId])} — currently live table IDs: [${Object.keys(tables).join(', ')}]`);
+      socket.emit('joinError', { reason: 'table_not_found' });
+      return;
+    }
     const openSeats = t.engine.emptySeats();
     const { botSeats, disconnectedSeats } = joinableSeats(t);
     const isPlaying = t.engine.phase !== 'lobby';
@@ -1218,6 +1222,7 @@ io.on('connection', (socket) => {
     t.sockets.delete(socket.id);
     if (!info) return;
     if (info.pos >= 0 && t.engine.seats[info.pos]) {
+      let alreadyReclaimed = false;
       if (explicitLeave) {
         // Deliberate leave: free the seat immediately rather than holding
         // it for a reconnect that was never going to come.
@@ -1239,7 +1244,7 @@ io.on('connection', (socket) => {
         // an actively-connected player as abandoned and auto-play their
         // seat forever, even though they're right there. Only mark
         // disconnected if nothing newer has already taken this seat over.
-        const alreadyReclaimed = [...t.sockets.values()].some(v => v.pos === info.pos);
+        alreadyReclaimed = [...t.sockets.values()].some(v => v.pos === info.pos);
         if (!alreadyReclaimed) {
           t.engine.markConnected(info.pos, false);
         }
@@ -1247,17 +1252,20 @@ io.on('connection', (socket) => {
       // Host migration: whoever was hosting just left/dropped, so every
       // host-only control (start, kick, restart, approve joins) would
       // otherwise be permanently stuck waiting on someone who's gone.
-      // Hand it to another currently-connected human, by seat order — a
-      // one-way transfer, not a temporary delegation, so it doesn't flip
-      // back and forth if the original host's connection is just flaky.
-      // If nobody else is connected right now (bots fill the rest of the
-      // table, or everyone else already dropped too), the host slot goes
-      // vacant rather than staying stuck pointing at someone who can no
-      // longer act -- a vacant slot is what lets ANY human who shows up
-      // next (the same player reconnecting, or someone brand new) become
+      // Runs for both an explicit leave and a silent drop -- but for a
+      // silent drop specifically, only if this disconnect event isn't
+      // stale (see alreadyReclaimed above): a faster reconnect may have
+      // already correctly re-claimed the host slot, and acting on a
+      // late-arriving disconnect at that point would incorrectly undo
+      // an assignment that already happened correctly. If nobody else
+      // is connected right now (bots fill the rest of the table, or
+      // everyone else already dropped too), the host slot goes vacant
+      // rather than staying stuck pointing at someone who can no longer
+      // act -- a vacant slot is what lets ANY human who shows up next
+      // (the same player reconnecting, or someone brand new) become
       // host automatically instead of the table being unusable until
       // that one specific person comes back.
-      if (t.hostPlayerId === info.playerId) {
+      if (!alreadyReclaimed && t.hostPlayerId === info.playerId) {
         const newHostSeat = t.engine.seats.find(s => s && !s.isBot && s.connected && s.playerId !== info.playerId);
         if (newHostSeat) {
           t.hostPlayerId = newHostSeat.playerId;
