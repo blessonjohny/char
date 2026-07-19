@@ -181,12 +181,21 @@ function saveCommentsLocal() {
 }
 setInterval(saveCommentsLocal, 10000);
 let lastGithubCommentsSyncCount = 0;
+// Deliberately NOT 3 minutes: a reported disconnect pattern recurred at
+// almost exactly 3-minute marks, and these were the only 3-minute clocks
+// in the codebase. They tested clean, but moving them off that timing
+// removes the coincidence entirely — and makes any recurrence
+// diagnostic: a kick still at 3 min provably isn't this file; a kick
+// that MOVES to ~10 min catches this red-handed. Staggered vs the
+// visitor sync below so the two never fire together.
 setInterval(() => {
   if (GITHUB_ENABLED && comments.length !== lastGithubCommentsSyncCount) {
     lastGithubCommentsSyncCount = comments.length;
-    githubPushComments();
+    const t0 = Date.now();
+    Promise.resolve(githubPushComments()).finally(() =>
+      console.log(`[comments] GitHub sync took ${Date.now() - t0}ms`));
   }
-}, 3 * 60 * 1000);
+}, 10 * 60 * 1000);
 
 app.post('/api/comments', (req, res) => {
   const name = String((req.body && req.body.name) || 'Anonymous').slice(0, 40).trim() || 'Anonymous';
@@ -357,12 +366,15 @@ function saveVisitorLogLocal() {
 // acceptable tradeoff for "actually survives a normal restart" at all.
 setInterval(saveVisitorLogLocal, 10000);
 let lastGithubSyncCount = 0;
+// 11 minutes, staggered vs the comments sync above — see the note there.
 setInterval(() => {
   if (GITHUB_ENABLED && visitorLog.length !== lastGithubSyncCount) {
     lastGithubSyncCount = visitorLog.length;
-    githubPushVisitorLog();
+    const t0 = Date.now();
+    Promise.resolve(githubPushVisitorLog()).finally(() =>
+      console.log(`[visitor] GitHub sync took ${Date.now() - t0}ms`));
   }
-}, 3 * 60 * 1000);
+}, 11 * 60 * 1000);
 loadVisitorLog();
 loadComments();
 
