@@ -60,6 +60,15 @@ process.on('unhandledRejection', (reason) => {
   console.error('[FATAL-CAUGHT] Unhandled promise rejection (server stayed up):', reason && reason.stack || reason);
 });
 
+// Recorded once, at process start -- lets the client (or anyone reading
+// logs) tell definitively whether a "table not found" was because the
+// table genuinely closed, or because the whole server process actually
+// restarted since the player's session began (a real restart wipes
+// every table in memory at once, which no per-table game-logic fix can
+// prevent -- this is what actually lets us tell the difference instead
+// of continuing to guess whether the app or the platform is at fault).
+const SERVER_START_TIME = Date.now();
+
 const app = express();
 const PORT = process.env.PORT || 9000;
 
@@ -78,7 +87,12 @@ app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store, must-revalidate'); }
 }));
 app.get('/status', (req, res) => {
-  res.send('28 Kerala Gulan — Authoritative Server running ✅ | ' + totalActiveRooms() + ' active table(s) across all games');
+  res.json({
+    ok: true,
+    message: '28 Kerala Gulan — Authoritative Server running',
+    activeTables: totalActiveRooms(),
+    serverStartTime: SERVER_START_TIME
+  });
 });
 
 // ============================================================
@@ -1029,6 +1043,15 @@ io.on('connection', (socket) => {
     if (!t || !info || info.pos < 0) return;
     fn(t, info.pos);
   }
+
+  // Room heartbeat from a seated, connected client (every ~2 minutes).
+  // Touching the table's activity clock here guarantees the idle /
+  // "still playing?" timers can never count down against a table that
+  // has a real connected player at it, no matter how quiet the actual
+  // game gets — those timers exist strictly for tables nobody is at.
+  socket.on('tableHeartbeat', () => {
+    withTable((t) => { touch(t); });
+  });
 
   socket.on('fillBots', ({ count }) => {
     withTable((t, pos) => {
@@ -2508,4 +2531,5 @@ setInterval(() => {
 
 server.listen(PORT, () => {
   console.log(`28 Kerala Gulan authoritative server running on port ${PORT}`);
+  console.log(`[startup] Server process started at ${new Date(SERVER_START_TIME).toISOString()} — every table currently in memory was created after this moment. If a "table not found" happens for a table that should still be alive, check whether this startup line is newer than when that table was created; if so, the whole process restarted in between (crash, deploy, or platform-level restart), not a game-logic bug.`);
 });
