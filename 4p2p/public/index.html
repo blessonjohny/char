@@ -12135,12 +12135,49 @@ window.addEventListener('DOMContentLoaded', async () => {
     // browser's back button from 6-player, 56, or Hold'em, each on
     // their own separate page) -- straight to the game picker either
     // way, not the initial auth screen again.
-    currentUser = hasAuth ? currentUser : null;
-    enhanceWelcomeScreen();
-    updateWelcomeForUser();
+    //
+    // BUT — attemptAutoReconnect() (registered on an earlier
+    // DOMContentLoaded handler, so it already ran by this point) may
+    // have just put up the reconnecting overlay because this looks like
+    // a mid-game reload. Showing the welcome screen here would silently
+    // override that and abandon the reconnect attempt before it ever
+    // got a chance to reach the server -- for any returning guest
+    // (which is most real users), this was quietly breaking reconnect
+    // entirely, always dumping them back to the welcome screen instead.
+    const reconnectInProgress = document.getElementById('reconnectingOverlay') &&
+      getComputedStyle(document.getElementById('reconnectingOverlay')).display !== 'none';
+    if (!reconnectInProgress) {
+      currentUser = hasAuth ? currentUser : null;
+      enhanceWelcomeScreen();
+      updateWelcomeForUser();
+    }
   }
   initMobileEnhancements();
   loadAllBrains();
+  // Baseline for the server-restart detection used in joinError above --
+  // fetched on every fresh page load too, not just after a successful
+  // reconnect, so there's always something to compare against even on a
+  // brand new tab. CRITICAL ORDER FIX: compare against the previously
+  // stored value BEFORE overwriting it. The old version overwrote first,
+  // which destroyed the evidence -- if the server restarted while this
+  // tab was away (airplane mode + the mobile browser reloading the tab,
+  // exactly the reported scenario), the later joinError check compared
+  // the new value against itself, matched, and showed the misleading
+  // generic "room code doesn't exist" instead of the true cause.
+  fetch('/status').then(r => r.json()).then(data => {
+    if (data && data.serverStartTime) {
+      let prev = null;
+      try { prev = localStorage.getItem('k28_known_server_start'); } catch (e) {}
+      if (prev && String(data.serverStartTime) !== prev) {
+        // The server restarted while this tab was away. Remember that
+        // fact for this browsing session so a failed rejoin can report
+        // the real cause instead of a misleading generic error.
+        try { sessionStorage.setItem('k28_restart_detected', '1'); } catch (e) {}
+        console.log(`[restart-detected-on-load] server start changed ${prev} -> ${data.serverStartTime}`);
+      }
+      try { localStorage.setItem('k28_known_server_start', String(data.serverStartTime)); } catch (e) {}
+    }
+  }).catch(() => {});
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('room');
   const hostPeerId = urlParams.get('host');
@@ -12802,6 +12839,38 @@ function connectGameSocket() {
     showToast('⚠️ Lost connection to server — trying to reconnect...', 'lose', 3000);
   });
 
+  // The connect handler above only fires if Socket.IO's own reconnection
+  // timers get a chance to run at all -- but mobile browsers routinely
+  // fully suspend JavaScript execution in a backgrounded or network-less
+  // tab (airplane mode is exactly this), meaning those timers can simply
+  // never fire while the tab is suspended, no matter how long it's been.
+  // This was the actual, previously-missing piece for 4-player: the
+  // other three games (6-player, 56, Hold'em) already had this exact
+  // fix, but it was never applied here. Checking explicitly the instant
+  // the tab becomes visible/network-restored again catches this
+  // immediately instead of waiting on a timer that may never have run.
+  if (!window.__k28VisibilityReconnect) {
+    window.__k28VisibilityReconnect = true;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && MY_TABLE_ID && MY_PLAYER_TOKEN) {
+        if (!gameSocket.connected) {
+          gameSocket.connect();
+        } else {
+          // Even if the transport itself looks connected, re-announce
+          // our seat -- a long suspension can leave the server-side
+          // registration stale without the transport ever actually
+          // dropping, so this is cheap insurance either way.
+          gameSocket.emit('joinTable', { tableId: MY_TABLE_ID, name: MY_NAME, playerId: MY_PLAYER_TOKEN });
+        }
+      }
+    });
+    window.addEventListener('online', () => {
+      if (MY_TABLE_ID && MY_PLAYER_TOKEN && !gameSocket.connected) {
+        gameSocket.connect();
+      }
+    });
+  }
+
   gameSocket.on('joined', (info) => {
     MY_TABLE_ID = info.tableId;
     MY_PLAYER_TOKEN = info.playerId;
@@ -12832,26 +12901,71 @@ function connectGameSocket() {
   });
 
   gameSocket.on('joinError', (err) => {
-    const wasReconnecting = hideReconnectingOverlay();
-    if (wasReconnecting) {
-      // Whatever we were trying to get back to is gone (table expired,
-      // etc.) — the stored session is stale, so drop it rather than
-      // trying again next load, and just show the normal welcome screen.
-      try { localStorage.removeItem('k28_table_id'); localStorage.removeItem('k28_session_time'); } catch (e) {}
-      MY_TABLE_ID = null;
-      document.getElementById('welcomeScreen').style.display = 'flex';
-      showToast('Your previous game is no longer available', 'info', 3000);
-      return;
-    }
-    const messages = {
-      table_not_found: 'That room code doesn\u2019t exist — check it and try again.',
-      table_full: 'That table is already full.',
-      seat_taken: 'Someone just took that seat — pick another.',
-      not_a_bot_seat: 'That seat isn\u2019t a bot anymore — pick another.',
-      replace_failed: 'Could not take over that seat — pick another.'
-    };
-    showToast('❌ ' + (messages[err.reason] || 'Could not join that table.'), 'lose', 3000);
+    // Before showing any message, check whether the server itself
+    // actually restarted since we were last talking to it -- that's a
+    // fundamentally different situation from "this table genuinely
+    // closed" or "this code was never valid", and deserves an accurate
+    // message instead of a generic one that makes it sound like a
+    // typo or a bug in how long tables stay open.
+    checkForServerRestartThen(() => {
+      const wasReconnecting = hideReconnectingOverlay();
+      if (wasReconnecting) {
+        // Whatever we were trying to get back to is gone (table expired,
+        // etc.) — the stored session is stale, so drop it rather than
+        // trying again next load, and just show the normal welcome screen.
+        try { localStorage.removeItem('k28_table_id'); localStorage.removeItem('k28_session_time'); } catch (e) {}
+        MY_TABLE_ID = null;
+        document.getElementById('welcomeScreen').style.display = 'flex';
+        showToast('Your previous game is no longer available', 'info', 3000);
+        return;
+      }
+      const messages = {
+        table_not_found: 'That room code doesn\u2019t exist — check it and try again.',
+        table_full: 'That table is already full.',
+        seat_taken: 'Someone just took that seat — pick another.',
+        not_a_bot_seat: 'That seat isn\u2019t a bot anymore — pick another.',
+        replace_failed: 'Could not take over that seat — pick another.'
+      };
+      showToast('❌ ' + (messages[err.reason] || 'Could not join that table.'), 'lose', 3000);
+    });
   });
+
+  // Compares the server's current start time against the last one we
+  // successfully recorded. If they differ, the whole process restarted
+  // since we were last connected -- every table in memory was wiped at
+  // once, which is a platform-level event (a crash, a redeploy, a host
+  // restarting the instance), not a bug in how long any one table is
+  // supposed to stay alive. Runs the given callback with the accurate
+  // message already shown if a restart is detected, or just runs it
+  // directly (for the normal message) if not.
+  function checkForServerRestartThen(fallbackFn) {
+    // A restart may have already been detected at page load (see the
+    // baseline fetch in DOMContentLoaded) -- the live comparison below
+    // can't catch that case itself because the baseline necessarily gets
+    // refreshed on load, so the load-time check preserves its finding in
+    // sessionStorage for us to use here.
+    let restartSeenOnLoad = false;
+    try { restartSeenOnLoad = sessionStorage.getItem('k28_restart_detected') === '1'; } catch (e) {}
+    fetch('/status').then(r => r.json()).then(data => {
+      let knownStart = null;
+      try { knownStart = localStorage.getItem('k28_known_server_start'); } catch (e) {}
+      const restartedLive = data && data.serverStartTime && knownStart && String(data.serverStartTime) !== knownStart;
+      if (restartedLive || restartSeenOnLoad) {
+        console.log(`[restart-detected] restartSeenOnLoad=${restartSeenOnLoad} restartedLive=${restartedLive} — the server process restarted; every table it had in memory is gone`);
+        showToast('⚠️ The server restarted while you were away — your table is gone. Sorry about that!', 'lose', 5000);
+        try { sessionStorage.removeItem('k28_restart_detected'); } catch (e) {}
+        if (data && data.serverStartTime) {
+          try { localStorage.setItem('k28_known_server_start', String(data.serverStartTime)); } catch (e) {}
+        }
+        MY_TABLE_ID = null;
+        try { localStorage.removeItem('k28_table_id'); localStorage.removeItem('k28_session_time'); } catch (e) {}
+        hideReconnectingOverlay();
+        document.getElementById('welcomeScreen').style.display = 'flex';
+      } else {
+        fallbackFn();
+      }
+    }).catch(() => fallbackFn());
+  }
 
   gameSocket.on('actionError', (err) => {
     // Illegal move rejected by the server (e.g. tapped a card that breaks
