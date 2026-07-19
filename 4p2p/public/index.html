@@ -13207,6 +13207,16 @@ function connectGameSocket() {
   });
 
   gameSocket.on('state', (state) => {
+    // Reject any state that isn't for the table we're actually at. A
+    // stale registration on an old table (pre-detach-fix builds, or any
+    // future regression) meant the old table's states kept rendering
+    // over the new game — old cards appearing, hand counts wrong. The
+    // server now stamps every state with its tableId precisely so this
+    // check is possible.
+    if (state && state.tableId && MY_TABLE_ID && state.tableId !== MY_TABLE_ID) {
+      console.log('[state-filter] dropped stray state for table', state.tableId, '— we are at', MY_TABLE_ID);
+      return;
+    }
     applyServerState(state);
   });
 }

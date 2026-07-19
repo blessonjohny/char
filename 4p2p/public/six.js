@@ -653,7 +653,12 @@ function connectSocket() {
     leaveToWelcome();
   });
 
-  socket.on('sixp_state', (state) => applyState(state));
+  socket.on('sixp_state', (state) => {
+    // Same stray-state rejection as the 4-player table: only render
+    // states for the table we're actually at.
+    if (state && state.tableId && MY_TABLE_ID && state.tableId !== MY_TABLE_ID) return;
+    applyState(state);
+  });
 
   socket.on('sixp_chat', ({ from, msg, senderId }) => {
     addChatMessage(from, msg, senderId === socket.id);
