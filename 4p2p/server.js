@@ -92,7 +92,7 @@ app.get('/status', (req, res) => {
     message: '28 Kerala Gulan — Authoritative Server running',
     activeTables: totalActiveRooms(),
     serverStartTime: SERVER_START_TIME,
-    buildTag: 'stable-hostfix · 2026-07-19'
+    buildTag: 'stable-hostfix · 2026-07-20'
   });
 });
 
