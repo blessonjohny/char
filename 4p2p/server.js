@@ -194,23 +194,41 @@ app.post('/api/comments', (req, res) => {
   const name = String((req.body && req.body.name) || 'Anonymous').slice(0, 40).trim() || 'Anonymous';
   const message = String((req.body && req.body.message) || '').slice(0, 2000).trim();
   if (!message) return res.status(400).json({ ok: false, error: 'empty_message' });
-  comments.unshift({ id: crypto.randomBytes(6).toString('hex'), name, message, time: Date.now() });
+  comments.unshift({ id: crypto.randomBytes(6).toString('hex'), name, message, time: Date.now(), replies: [] });
   if (comments.length > 500) comments.length = 500; // cap growth — this is a comment box, not a database
   commentsDirty = true;
   saveCommentsLocal();
   console.log(`[comments] new message from ${name}`);
   res.json({ ok: true });
-  // Push to GitHub right away rather than waiting for the periodic
-  // sync -- a comment is a rare enough event (unlike the visitor log,
-  // which could fire constantly) that pushing on every single one is
-  // completely safe and won't come close to any rate limit, and it
-  // closes the real gap where a free-tier spin-down between periodic
-  // syncs could wipe a comment that was never actually backed up yet.
   if (GITHUB_ENABLED) { lastGithubCommentsSyncCount = comments.length; githubPushComments(); }
 });
 
+// A reply is a lightweight child of one specific top-level comment —
+// keeps the whole thing a simple, publicly-readable conversation rather
+// than a full nested-comment system, which is more than a feedback box
+// on a card game site actually needs.
+app.post('/api/comments/:id/reply', (req, res) => {
+  const parent = comments.find(c => c.id === req.params.id);
+  if (!parent) return res.status(404).json({ ok: false, error: 'comment_not_found' });
+  const name = String((req.body && req.body.name) || 'Anonymous').slice(0, 40).trim() || 'Anonymous';
+  const message = String((req.body && req.body.message) || '').slice(0, 2000).trim();
+  if (!message) return res.status(400).json({ ok: false, error: 'empty_message' });
+  if (!parent.replies) parent.replies = [];
+  if (parent.replies.length >= 100) return res.status(400).json({ ok: false, error: 'too_many_replies' }); // sane per-thread cap
+  parent.replies.push({ id: crypto.randomBytes(6).toString('hex'), name, message, time: Date.now() });
+  commentsDirty = true;
+  saveCommentsLocal();
+  console.log(`[comments] new reply from ${name} on comment ${parent.id}`);
+  res.json({ ok: true });
+  if (GITHUB_ENABLED) { lastGithubCommentsSyncCount = comments.length; githubPushComments(); }
+});
+
+// Publicly readable, deliberately — the whole point of this endpoint is
+// a shared feedback wall everyone can see and reply to, not an
+// admin-only inbox. No password needed to READ; deleting still is (see
+// below), so the public can view and add to the conversation but can't
+// remove anyone else's words.
 app.get('/api/comments', (req, res) => {
-  if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
   res.json({ ok: true, comments });
 });
 
@@ -2597,6 +2615,44 @@ function scheduleDailyClose() {
 }
 scheduleDailyClose();
 console.log(`[daily-reset] scheduled — next run in ${Math.round(msUntilNext5amEastern() / 60000)} minutes (5am US Eastern Time)`);
+
+// Warns everyone connected, anywhere, before the 5am reset actually
+// hits — a 30/10/5-minute heads up, then a minute-by-minute countdown,
+// then second-by-second in the final minute, so nobody is surprised by
+// their table vanishing without warning. Checks every second (cheap)
+// and fires a broadcast only at the specific thresholds that matter.
+const FIVE_AM_WARNING_MARKS_MS = [30 * 60 * 1000, 10 * 60 * 1000, 5 * 60 * 1000, 4 * 60 * 1000, 3 * 60 * 1000, 2 * 60 * 1000, 1 * 60 * 1000];
+let firedWarningMarks = new Set();
+setInterval(() => {
+  const msLeft = msUntilNext5amEastern();
+  // Reset the "already fired" tracking once we're freshly past a reset
+  // (msLeft jumps back up close to 24h) so tomorrow's warnings can fire
+  // again.
+  if (msLeft > 31 * 60 * 1000) firedWarningMarks.clear();
+
+  for (const mark of FIVE_AM_WARNING_MARKS_MS) {
+    if (firedWarningMarks.has(mark)) continue;
+    if (msLeft <= mark) {
+      firedWarningMarks.add(mark);
+      const minutes = Math.round(mark / 60000);
+      const payload = { secondsLeft: Math.round(msLeft / 1000), minutesLeft: minutes };
+      io.emit('dailyResetWarning', payload);
+      io.emit('sixp_dailyResetWarning', payload);
+      io.emit('l56_dailyResetWarning', payload);
+      io.emit('poker_dailyResetWarning', payload);
+      console.log(`[daily-reset] warning broadcast — ${minutes} minute(s) until reset`);
+    }
+  }
+
+  // Final minute: second-by-second countdown, broadcast every second.
+  if (msLeft <= 60000 && msLeft > 0) {
+    const payload = { secondsLeft: Math.round(msLeft / 1000), minutesLeft: 0 };
+    io.emit('dailyResetWarning', payload);
+    io.emit('sixp_dailyResetWarning', payload);
+    io.emit('l56_dailyResetWarning', payload);
+    io.emit('poker_dailyResetWarning', payload);
+  }
+}, 1000);
 
 server.listen(PORT, () => {
   console.log(`28 Kerala Gulan authoritative server running on port ${PORT}`);
