@@ -707,7 +707,7 @@ function broadcastTable(t) {
     const sock = io.sockets.sockets.get(socketId);
     if (!sock) continue;
     const state = t.engine.stateFor(info.pos);
-    state.isHost = (info.playerId === t.hostPlayerId);
+    state.isHost = isEffectiveHost(t, info.playerId);
     // Every state names its table so the client can reject strays. A
     // socket that reconnected to an old table and then joined a new one
     // was still registered in the old table's sockets map (nothing ever
@@ -891,7 +891,7 @@ io.on('connection', (socket) => {
         // player without host rights even when they were the only human
         // present — the exact reported bug.
         ensureHumanHost(t, playerId);
-        socket.emit('joined', { tableId, playerId, pos: idx.pos, isHost: t.hostPlayerId === playerId });
+        socket.emit('joined', { tableId, playerId, pos: idx.pos, isHost: isEffectiveHost(t, playerId) });
         // A bot's (or another disconnected seat's) turn can stall while
         // this player was away — nothing else was guaranteed to re-check
         // it. Re-kicking here means reconnecting always un-sticks the
@@ -1051,7 +1051,7 @@ io.on('connection', (socket) => {
     socket.join(tableId);
     // Strong host-recovery rule, same as the reconnect path above.
     ensureHumanHost(t, playerId);
-    socket.emit('joined', { tableId, playerId, pos, isHost: t.hostPlayerId === playerId });
+    socket.emit('joined', { tableId, playerId, pos, isHost: isEffectiveHost(t, playerId) });
     touch(t);
     broadcastTable(t);
     scheduleNoHumanShutdown(t, tableId);
@@ -1516,7 +1516,7 @@ function sixpBroadcastTable(t) {
     const sock = io.sockets.sockets.get(socketId);
     if (!sock) continue;
     const state = t.engine.stateFor(info.pos);
-    state.isHost = (info.playerId === t.hostPlayerId);
+    state.isHost = isEffectiveHost(t, info.playerId);
     state.tableId = t.id; // lets the client reject strays from an old table
     sock.emit('sixp_state', state);
   }
@@ -1596,7 +1596,7 @@ io.on('connection', (socket) => {
         // rejoining human takes host whenever the current host isn't a
         // connected human.
         ensureHumanHost(t, sixpPlayerId);
-        socket.emit('sixp_joined', { tableId: sixpTableId, playerId: sixpPlayerId, pos: idx.pos, isHost: t.hostPlayerId === sixpPlayerId });
+        socket.emit('sixp_joined', { tableId: sixpTableId, playerId: sixpPlayerId, pos: idx.pos, isHost: isEffectiveHost(t, sixpPlayerId) });
         sixpTouch(t);
         sixpBroadcastTable(t);
         sixpScheduleNoHumanShutdown(t, sixpTableId);
@@ -1655,7 +1655,7 @@ io.on('connection', (socket) => {
     socket.join('sixp_' + sixpTableId);
     // Strong host-recovery rule, same as the reconnect path.
     ensureHumanHost(t, sixpPlayerId);
-    socket.emit('sixp_joined', { tableId: sixpTableId, playerId: sixpPlayerId, pos, isHost: t.hostPlayerId === sixpPlayerId });
+    socket.emit('sixp_joined', { tableId: sixpTableId, playerId: sixpPlayerId, pos, isHost: isEffectiveHost(t, sixpPlayerId) });
     sixpTouch(t);
     sixpBroadcastTable(t);
     sixpScheduleNoHumanShutdown(t, sixpTableId);
@@ -2269,7 +2269,7 @@ function pokerBroadcast(t) {
     const sock = io.sockets.sockets.get(socketId);
     if (!sock) continue;
     const state = t.engine.getStateFor(info.pos);
-    state.isHost = (info.playerId === t.hostPlayerId);
+    state.isHost = isEffectiveHost(t, info.playerId);
     sock.emit('poker_state', state);
   }
   io.emit('poker_roomList', pokerPublicTableList());
@@ -2386,7 +2386,7 @@ io.on('connection', (socket) => {
         socket.join('poker_' + tableId);
         // Strong host-recovery rule (same as the 4-player table).
         ensureHumanHost(t, existingPlayerId);
-        socket.emit('poker_joined', { tableId, pos: existingPos, playerId: existingPlayerId, isHost: existingPlayerId === t.hostPlayerId });
+        socket.emit('poker_joined', { tableId, pos: existingPos, playerId: existingPlayerId, isHost: isEffectiveHost(t, existingPlayerId) });
         pokerTouch(t);
         pokerBroadcast(t);
         return;
@@ -2431,7 +2431,7 @@ io.on('connection', (socket) => {
     socket.join('poker_' + tableId);
     // Strong host-recovery rule, same as the reconnect path.
     ensureHumanHost(t, newPlayerId);
-    socket.emit('poker_joined', { tableId, pos, playerId: newPlayerId, isHost: newPlayerId === t.hostPlayerId });
+    socket.emit('poker_joined', { tableId, pos, playerId: newPlayerId, isHost: isEffectiveHost(t, newPlayerId) });
     pokerTouch(t);
     pokerBroadcast(t);
   });
