@@ -504,6 +504,40 @@ app.get('/api/live-players', (req, res) => {
   res.json({ ok: true, players: getAllLivePlayers() });
 });
 
+// Admin: force-close ANY table in ANY of the four games, no matter what
+// state it's in — active game, human present, doesn't matter. This is
+// the explicit override the regular auto-close removal above doesn't
+// otherwise allow for. tableId is checked against all four registries
+// in turn since the admin panel doesn't need to know which game a given
+// ID belongs to.
+app.post('/api/admin/close-table', (req, res) => {
+  if (req.body.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  const id = String(req.body.tableId || '').trim();
+  if (!id) return res.status(400).json({ ok: false, error: 'missing_table_id' });
+  let closed = null;
+  if (tables[id]) {
+    io.to(id).emit('tableClosed', { reason: 'admin' });
+    for (const s of tables[id].engine.seats) if (s && s.playerId) delete playerIndex[s.playerId];
+    delete tables[id]; closed = '4-Player';
+    io.emit('roomList', publicTableList());
+  } else if (sixpTables[id]) {
+    io.to('sixp_' + id).emit('sixp_tableClosed', { reason: 'admin' });
+    for (const s of sixpTables[id].engine.seats) if (s && s.playerId) delete sixpPlayerIndex[s.playerId];
+    delete sixpTables[id]; closed = '6-Player';
+    io.emit('sixp_roomList', sixpPublicTableList());
+  } else if (l56Rooms[id]) {
+    io.to(l56SocketRoom(id)).emit('l56_tableClosed', { reason: 'admin' });
+    delete l56Rooms[id]; closed = '56';
+    io.emit('l56_roomList', l56PublicList());
+  } else if (pokerTables[id]) {
+    io.to('poker_' + id).emit('poker_tableClosed', { reason: 'admin' });
+    delete pokerTables[id]; closed = "Hold'em";
+  }
+  if (!closed) return res.status(404).json({ ok: false, error: 'table_not_found' });
+  console.log(`[admin] force-closed ${closed} table ${id}`);
+  res.json({ ok: true, game: closed, tableId: id });
+});
+
 // ---------------- Table registry ----------------
 // tableId -> {
 //   engine: GameEngine,
@@ -694,19 +728,15 @@ function touch(t) {
 // present again. 30 minutes so a traveling player with spotty signal, or
 // someone just stepping away for a bit, doesn't lose their table to a
 // timer that was really meant for "actually abandoned."
-const NO_HUMAN_GRACE_MS = 30 * 60 * 1000;
+// Per explicit instruction: no idle-based auto-closing of ANY kind,
+// human present or not. A table only ever closes via the 5am daily
+// reset (below) or when its very last occupied seat is explicitly
+// vacated. scheduleNoHumanShutdown is now a no-op kept only so its
+// call sites elsewhere don't need to be hunted down and deleted one by
+// one; it clears any stray timer left over from before this change and
+// does nothing else.
 function scheduleNoHumanShutdown(t, id) {
   if (t.noHumanShutdownTimer) { clearTimeout(t.noHumanShutdownTimer); t.noHumanShutdownTimer = null; }
-  if (hasAnyHuman(t)) return; // someone's still here — nothing to schedule
-  console.log(`[cleanup] Table ${id} has no humans left — closing in ${NO_HUMAN_GRACE_MS / 1000}s unless someone reconnects`);
-  t.noHumanShutdownTimer = setTimeout(() => {
-    const stillThere = tables[id];
-    if (!stillThere || hasAnyHuman(stillThere)) return; // a human came back in the meantime
-    console.log(`[cleanup] Closing table ${id} — no humans left, only bots (30min grace period elapsed)`);
-    for (const s of stillThere.engine.seats) if (s && s.playerId) delete playerIndex[s.playerId];
-    delete tables[id];
-    io.emit('roomList', publicTableList());
-  }, NO_HUMAN_GRACE_MS);
 }
 
 // Reap tables that have had no real (human) activity for 5 minutes AND
@@ -720,27 +750,16 @@ function scheduleNoHumanShutdown(t, id) {
 // sit there forever either: ask. Everyone gets a 60-second countdown to
 // tap "Still here" — any real game action, or that tap, cancels it and
 // resets the clock. Nobody answering closes the table.
-const IDLE_LIMIT_MS = 30 * 60 * 1000;
+const IDLE_LIMIT_MS = 30 * 60 * 1000; // kept only as a value some legacy log lines still reference; the sweep that used it is gone
 const STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
 
-// The old "still playing?" warning + auto-close is GONE, deliberately.
-// It was capable of kicking people who were actively at the table (the
-// exact reported bug: playing normally after a reconnect, then thrown
-// back to the main page by 'tableClosed'). A table with ANY connected
-// player now stays open, period — no warnings, no countdowns. The only
-// automatic cleanup left is for tables with genuinely NOBODY connected,
-// after the 30-minute no-human window.
+// Per explicit instruction: NO time-based auto-closing of any table, in
+// any of the four games, human present or not. A table only ever closes
+// two ways now: the 5am daily reset (see dailyCloseAllTables below), or
+// someone explicitly leaving the very last occupied seat. The periodic
+// sweep that used to close idle tables here is deleted, not just
+// disabled — this interval now only keeps the public room list fresh.
 setInterval(() => {
-  const now = Date.now();
-  for (const id of Object.keys(tables)) {
-    const t = tables[id];
-    const anyoneConnected = t.engine.seats.some(s => s && s.connected);
-    if (!anyoneConnected && now - t.lastActivityAt > IDLE_LIMIT_MS) {
-      console.log(`[cleanup] Closing idle table ${id} (${now - t.lastActivityAt}ms since last activity, nobody connected)`);
-      for (const s of t.engine.seats) if (s && s.playerId) delete playerIndex[s.playerId];
-      delete tables[id];
-    }
-  }
   io.emit('roomList', publicTableList());
 }, 30000);
 
@@ -883,65 +902,23 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // A vacant host slot means there's genuinely nobody left who could
-    // ever approve a join request -- waiting for one would mean waiting
-    // forever. Skip straight to seat selection the same way a
-    // not-yet-started table already works; whichever seat they take,
-    // they'll become host automatically once they're actually seated.
-    if (!t.hostPlayerId) {
-      pendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player' };
-      socket.emit('chooseSeat', { tableId: reqTableId, openSeats, botSeats, disconnectedSeats, seats: seatSnapshot(t), canWatch: false, needsApproval: false });
-      console.log(`[table ${reqTableId}] ${name} joining directly — host slot was vacant, no approval needed`);
-      return;
-    }
-
-    // Table is already playing — the host must approve this join before
-    // any seat/watch choice is even offered.
-    if (openSeats.length === 0 && botSeats.length === 0 && disconnectedSeats.length === 0 && !canWatch) {
+    // Per explicit instruction: joining an already-started table never
+    // needs the host's permission anymore, connected host or not — same
+    // treatment as a table that hasn't started yet. If a seat is
+    // available (open, bot-controlled, or a disconnected human's), the
+    // new player goes straight to picking one; an empty table with no
+    // available seats at all is the only thing that still blocks a join.
+    if (openSeats.length === 0 && botSeats.length === 0 && disconnectedSeats.length === 0) {
       socket.emit('joinError', { reason: 'table_full' });
       return;
     }
-    const reqId = newId();
-    t.pendingJoinRequests = t.pendingJoinRequests || new Map();
-    t.pendingJoinRequests.set(reqId, { socketId: socket.id, name: name || 'Player' });
-    socket.emit('joinPending', { tableId: reqTableId, message: 'Waiting for the host to let you in...' });
-    for (const [hostSockId, info] of t.sockets) {
-      if (info.playerId !== t.hostPlayerId) continue;
-      const hostSocket = io.sockets.sockets.get(hostSockId);
-      if (hostSocket) {
-        hostSocket.emit('joinRequest', {
-          reqId, name: name || 'Player', openSeats, botSeats, disconnectedSeats,
-          tableFull: openSeats.length === 0 && botSeats.length === 0 && disconnectedSeats.length === 0
-        });
-      }
-    }
-    console.log(`[table ${reqTableId}] ${name} requested to join a table already in progress — awaiting host approval`);
-    // If the host never actually responds -- AFK, didn't notice the
-    // popup, or their connection is flaky but hasn't hit the ping
-    // timeout yet so the server still thinks they're there -- the
-    // joining player was stuck on "waiting for the host" forever, with
-    // no timeout and no way to give up and get in anyway. This is what
-    // "the table looks open but joining just doesn't respond" actually
-    // was. Auto-admit after a reasonable wait, same spirit as a vacant
-    // host slot: don't leave someone locked out indefinitely over one
-    // person's unresponsiveness.
-    setTimeout(() => {
-      const stillT = tables[reqTableId];
-      if (!stillT || !stillT.pendingJoinRequests || !stillT.pendingJoinRequests.has(reqId)) return; // already resolved one way or another
-      stillT.pendingJoinRequests.delete(reqId);
-      const joinerSocket = io.sockets.sockets.get(socket.id);
-      if (!joinerSocket) return; // they gave up and left already
-      console.log(`[table ${reqTableId}] host did not respond to ${name}'s join request within 30s — auto-admitting`);
-      const freshOpenSeats = stillT.engine.emptySeats();
-      const { botSeats: freshBotSeats, disconnectedSeats: freshDisconnectedSeats } = joinableSeats(stillT);
-      pendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player' };
-      joinerSocket.emit('chooseSeat', { tableId: reqTableId, openSeats: freshOpenSeats, botSeats: freshBotSeats, disconnectedSeats: freshDisconnectedSeats, seats: seatSnapshot(stillT), canWatch: false, needsApproval: false });
-    }, 30000);
+    pendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player' };
+    socket.emit('chooseSeat', { tableId: reqTableId, openSeats, botSeats, disconnectedSeats, seats: seatSnapshot(t), canWatch: false, needsApproval: false });
+    console.log(`[table ${reqTableId}] ${name} joined a table already in progress — no approval needed`);
   });
 
-  // An existing spectator asking to convert to a player — reuses the same
-  // approval pipeline as a fresh joiner arriving at a live table, just
-  // entered from "already watching" instead of "just connected".
+  // An existing spectator asking to convert to a player — no host
+  // approval needed, per the same instruction as the fresh-join path.
   socket.on('requestSeat', () => {
     const t = tables[tableId];
     if (!t || !t.spectators || !t.spectators.has(socket.id)) return;
@@ -952,35 +929,9 @@ io.on('connection', (socket) => {
       socket.emit('joinError', { reason: 'table_full' });
       return;
     }
-    const reqId = newId();
-    t.pendingJoinRequests = t.pendingJoinRequests || new Map();
-    t.pendingJoinRequests.set(reqId, { socketId: socket.id, name: spec.name, fromSpectator: true });
-    socket.emit('seatRequestSent', { message: 'Seat request sent — waiting for the host...' });
-    for (const [hostSockId, info] of t.sockets) {
-      if (info.playerId !== t.hostPlayerId) continue;
-      const hostSocket = io.sockets.sockets.get(hostSockId);
-      if (hostSocket) {
-        hostSocket.emit('joinRequest', {
-          reqId, name: spec.name, openSeats, botSeats, disconnectedSeats,
-          fromSpectator: true, tableFull: false
-        });
-      }
-    }
-    console.log(`[table ${tableId}] spectator ${spec.name} asked the host for a seat`);
-    // Same fix as the fresh-join path above: don't leave a spectator
-    // waiting forever if the host never actually responds.
-    setTimeout(() => {
-      const stillT = tables[tableId];
-      if (!stillT || !stillT.pendingJoinRequests || !stillT.pendingJoinRequests.has(reqId)) return;
-      stillT.pendingJoinRequests.delete(reqId);
-      const specSocket = io.sockets.sockets.get(socket.id);
-      if (!specSocket || !stillT.spectators || !stillT.spectators.has(socket.id)) return;
-      console.log(`[table ${tableId}] host did not respond to spectator ${spec.name}'s seat request within 30s — auto-admitting`);
-      const freshOpenSeats = stillT.engine.emptySeats();
-      const { botSeats: freshBotSeats, disconnectedSeats: freshDisconnectedSeats } = joinableSeats(stillT);
-      pendingSeatChoice[socket.id] = { tableId, name: spec.name };
-      specSocket.emit('chooseSeat', { tableId, openSeats: freshOpenSeats, botSeats: freshBotSeats, disconnectedSeats: freshDisconnectedSeats, seats: seatSnapshot(stillT), canWatch: false, needsApproval: false });
-    }, 30000);
+    pendingSeatChoice[socket.id] = { tableId, name: spec.name };
+    socket.emit('chooseSeat', { tableId, openSeats, botSeats, disconnectedSeats, seats: seatSnapshot(t), canWatch: false, needsApproval: false });
+    console.log(`[table ${tableId}] spectator ${spec.name} took a seat — no approval needed`);
   });
 
   socket.on('respondJoinRequest', ({ reqId, approved }) => {
@@ -1111,6 +1062,25 @@ io.on('connection', (socket) => {
     withTable((t, pos) => {
       if (t.hostPlayerId !== playerId) return; // lobby-only permission
       t.botFill = Math.max(0, Math.min(3, count | 0));
+    });
+  });
+
+  // Host can add a bot to any currently open seat, at any time — lobby
+  // or mid-game, not just via the lobby's "fill with N bots" setting.
+  // Per explicit instruction: hosts get direct control over filling
+  // empty seats with bots whenever they want, not only before the game
+  // starts.
+  socket.on('hostAddBot', ({ pos }) => {
+    withTable((t) => {
+      if (t.hostPlayerId !== playerId) return;
+      if (typeof pos !== 'number' || pos < 0 || pos >= t.engine.seats.length) return;
+      if (t.engine.seats[pos]) return; // only genuinely empty seats
+      const botNamePool = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya'];
+      const usedNames = new Set(t.engine.seats.filter(Boolean).map(s => s.name));
+      const name = botNamePool.find(n => !usedNames.has(n)) || `Bot${pos}`;
+      t.engine.seatBot(pos, name);
+      t.engine.addLog(`${name} (bot) was added by the host.`);
+      touch(t); broadcastTable(t);
     });
   });
 
@@ -1336,9 +1306,17 @@ io.on('connection', (socket) => {
     if (info.pos >= 0 && t.engine.seats[info.pos]) {
       let alreadyReclaimed = false;
       if (explicitLeave) {
-        // Deliberate leave: free the seat immediately rather than holding
-        // it for a reconnect that was never going to come.
-        t.engine.removeSeat(info.pos);
+        // Deliberate leave: in the lobby (nothing at stake yet), free the
+        // seat immediately so someone else can take it. Mid-game, per
+        // explicit instruction, the table keeps running — the seat
+        // becomes bot-controlled instead of disappearing, exact current
+        // hand and state intact, rather than leaving a hole or forcing
+        // the round to stop.
+        if (t.engine.phase === 'lobby') {
+          t.engine.removeSeat(info.pos);
+        } else {
+          t.engine.convertToBot(info.pos);
+        }
         delete playerIndex[info.playerId];
       } else {
         // Silent drop (crash, lost signal, closed tab): keep the seat and
@@ -1525,36 +1503,17 @@ function sixpTouch(t) {
   }
 }
 
-const SIXP_NO_HUMAN_GRACE_MS = 30 * 60 * 1000;
+// Per explicit instruction: no idle-based auto-closing, human present
+// or not. Kept as a no-op only so its many call sites elsewhere don't
+// need to be hunted down individually; it just clears any stray timer.
 function sixpScheduleNoHumanShutdown(t, id) {
   if (t.noHumanShutdownTimer) { clearTimeout(t.noHumanShutdownTimer); t.noHumanShutdownTimer = null; }
-  if (sixpHasAnyHuman(t)) return;
-  t.noHumanShutdownTimer = setTimeout(() => {
-    const stillThere = sixpTables[id];
-    if (!stillThere || sixpHasAnyHuman(stillThere)) return;
-    console.log(`[6p cleanup] Closing table ${id} — no humans left`);
-    for (const s of stillThere.engine.seats) if (s && s.playerId) delete sixpPlayerIndex[s.playerId];
-    delete sixpTables[id];
-    io.emit('sixp_roomList', sixpPublicTableList());
-  }, SIXP_NO_HUMAN_GRACE_MS);
 }
 
-const SIXP_IDLE_LIMIT_MS = 30 * 60 * 1000;
+const SIXP_IDLE_LIMIT_MS = 30 * 60 * 1000; // legacy value, the sweep that used it is gone
 const SIXP_STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
-// The "still playing?" warning + auto-close is deleted here too, same as
-// the 4-player table — a table with ANY connected player stays open.
-// Only tables with genuinely nobody connected get cleaned up.
+// No time-based auto-closing at all now — only the room-list refresh.
 setInterval(() => {
-  const now = Date.now();
-  for (const id of Object.keys(sixpTables)) {
-    const t = sixpTables[id];
-    const anyoneConnected = t.engine.seats.some(s => s && s.connected);
-    if (!anyoneConnected && now - t.lastActivityAt > SIXP_IDLE_LIMIT_MS) {
-      console.log(`[6p cleanup] Closing idle table ${id} (nobody connected)`);
-      for (const s of t.engine.seats) if (s && s.playerId) delete sixpPlayerIndex[s.playerId];
-      delete sixpTables[id];
-    }
-  }
   io.emit('sixp_roomList', sixpPublicTableList());
 }, 30000);
 
@@ -1704,6 +1663,21 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Host can add a bot to any open seat at any time, same as 4-player.
+  socket.on('sixp_hostAddBot', ({ pos }) => {
+    withSixpTable((t) => {
+      if (t.hostPlayerId !== sixpPlayerId) return;
+      if (typeof pos !== 'number' || pos < 0 || pos >= t.engine.seats.length) return;
+      if (t.engine.seats[pos]) return;
+      const botNamePool = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya', 'Sanjay', 'Johny'];
+      const usedNames = new Set(t.engine.seats.filter(Boolean).map(s => s.name));
+      const name = botNamePool.find(n => !usedNames.has(n)) || `Bot${pos}`;
+      t.engine.seatBot(pos, name);
+      t.engine.addLog(`${name} (bot) was added by the host.`);
+      sixpTouch(t); sixpBroadcastTable(t);
+    });
+  });
+
   socket.on('sixp_startGame', () => {
     withSixpTable((t) => {
       if (t.hostPlayerId !== sixpPlayerId) return;
@@ -1825,11 +1799,22 @@ io.on('connection', (socket) => {
   socket.on('sixp_leaveTable', () => {
     withSixpTable((t, pos) => {
       t.sockets.delete(socket.id);
-      t.engine.markConnected(pos, false);
+      const leavingPlayerId = t.engine.seats[pos] && t.engine.seats[pos].playerId;
+      // In the lobby (nothing at stake), free the seat for someone else.
+      // Mid-game, per explicit instruction, the table keeps running --
+      // convert to a bot-controlled seat (exact current hand/state
+      // intact) rather than just marking it disconnected, which is a
+      // clean, permanent handoff instead of a seat that still looks like
+      // it's "theirs" waiting for a reconnect that was never coming.
+      if (t.engine.phase === 'lobby') {
+        t.engine.removeSeat(pos);
+      } else {
+        t.engine.convertToBot(pos);
+      }
+      if (leavingPlayerId) delete sixpPlayerIndex[leavingPlayerId];
       sixpTouch(t);
       sixpBroadcastTable(t);
       if (!t.engine.seats.some(Boolean)) delete sixpTables[sixpTableId];
-      else sixpScheduleNoHumanShutdown(t, sixpTableId);
       io.emit('sixp_roomList', sixpPublicTableList());
     });
     sixpTableId = null;
@@ -1955,54 +1940,16 @@ function l56ReassignHost(r) {
   l56CheckNoHumanTimer(r);
 }
 
-const L56_NO_HUMAN_TIMEOUT_MS = 30 * 60 * 1000;
-// A table with no connected human host is just bots playing each other for
-// no one -- give a real person 30 minutes to claim a seat (which makes
-// them host automatically) before the table closes itself. IMPORTANT:
-// this only applies in the lobby, before anything valuable is at stake.
-// Once a game is actually underway, a disconnected host might just be a
-// backgrounded mobile tab (very common) rather than someone who's
-// actually left -- closing their live game out from under them is worse
-// than leaving a hostless table running for a while. Mid-game, the
-// existing general idle timer (which warns everyone first) is the
-// backstop instead.
+// Per explicit instruction: no idle-based auto-closing at all, human
+// present or not. Kept as a no-op so its call sites elsewhere don't
+// need hunting down individually; it just clears any stray timer.
 function l56CheckNoHumanTimer(r) {
-  if (r.hostPlayerId || (r.state && r.state.phase && r.state.phase !== 'lobby')) {
-    if (r.noHumanTimer) { clearTimeout(r.noHumanTimer); r.noHumanTimer = null; }
-    return;
-  }
-  if (r.noHumanTimer) return; // already counting down
-  const code = r.code;
-  r.noHumanTimer = setTimeout(() => {
-    const stillThere = l56Rooms[code];
-    if (!stillThere) return;
-    stillThere.noHumanTimer = null;
-    if (stillThere.hostPlayerId) return; // someone claimed it in the meantime
-    if (stillThere.state && stillThere.state.phase && stillThere.state.phase !== 'lobby') return; // a game started while we waited -- leave it alone
-    console.log(`[56 lobby] closing table ${code} — no human host within 30 minutes`);
-    io.to(l56SocketRoom(code)).emit('l56_tableClosed', { reason: 'no_host' });
-    delete l56Rooms[code];
-    io.emit('l56_roomList', l56PublicList());
-  }, L56_NO_HUMAN_TIMEOUT_MS);
+  if (r.noHumanTimer) { clearTimeout(r.noHumanTimer); r.noHumanTimer = null; }
 }
 
-const L56_IDLE_LIMIT_MS = 30 * 60 * 1000;
+const L56_IDLE_LIMIT_MS = 30 * 60 * 1000; // legacy value, the sweep that used it is gone
 const L56_STILL_PLAYING_COUNTDOWN_MS = 60 * 1000;
-// The "still playing?" warning + auto-close is deleted here too, same as
-// the other tables — a room with ANY connected player stays open. Only
-// rooms with genuinely nobody connected get cleaned up after the idle
-// window.
-setInterval(() => {
-  const now = Date.now();
-  for (const code of Object.keys(l56Rooms)) {
-    const r = l56Rooms[code];
-    if (r.sockets.size > 0) continue; // someone is connected — never close
-    if (now - r.lastActivityAt <= L56_IDLE_LIMIT_MS) continue;
-    console.log(`[56] closing idle table ${code} — nobody connected for 30+ minutes`);
-    delete l56Rooms[code];
-    io.emit('l56_roomList', l56PublicList());
-  }
-}, 30 * 1000);
+// No time-based auto-closing at all now.
 
 io.on('connection', (socket) => {
   socket.data.l56 = null; // { code, playerId, pos }
@@ -2547,14 +2494,43 @@ io.on('connection', (socket) => {
   });
 });
 
-// Idle poker tables get cleaned up the same way the other games do.
-setInterval(() => {
-  const now = Date.now();
-  for (const id of Object.keys(pokerTables)) {
-    const t = pokerTables[id];
-    if (now - t.lastActivityAt > 30 * 60 * 1000) delete pokerTables[id];
-  }
-}, 5 * 60 * 1000);
+// Per explicit instruction: the ONLY automatic table-closing left in the
+// entire server. Every table in every game closes once a day, at 5am
+// server time, no matter what's happening at it — active game, human
+// present, doesn't matter. This is a hard daily reset, not an idle
+// check. NOTE: "5am" here is 5am in whatever timezone the server
+// process itself is running in (Render defaults to UTC unless a TZ
+// environment variable is set) — if 5am India time specifically is
+// what's wanted, set TZ=Asia/Kolkata in Render's environment variables
+// and this will follow it automatically without any code change.
+function dailyCloseAllTables() {
+  const counts = { fourP: Object.keys(tables).length, sixP: Object.keys(sixpTables).length, l56: Object.keys(l56Rooms).length, poker: Object.keys(pokerTables).length };
+  for (const k of Object.keys(tables)) delete tables[k];
+  for (const k of Object.keys(sixpTables)) delete sixpTables[k];
+  for (const k of Object.keys(l56Rooms)) delete l56Rooms[k];
+  for (const k of Object.keys(pokerTables)) delete pokerTables[k];
+  for (const k of Object.keys(playerIndex)) delete playerIndex[k];
+  for (const k of Object.keys(sixpPlayerIndex)) delete sixpPlayerIndex[k];
+  console.log(`[daily-reset] 5am — closed all tables: ${JSON.stringify(counts)}`);
+  io.emit('roomList', publicTableList());
+  io.emit('sixp_roomList', sixpPublicTableList());
+  io.emit('l56_roomList', l56PublicList());
+  io.emit('dailyReset'); // every connected client gets a clear, honest reason instead of a silent kick
+}
+function msUntilNext5am() {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 5, 0, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  return next - now;
+}
+function scheduleDailyClose() {
+  setTimeout(() => {
+    dailyCloseAllTables();
+    setInterval(dailyCloseAllTables, 24 * 60 * 60 * 1000);
+  }, msUntilNext5am());
+}
+scheduleDailyClose();
+console.log(`[daily-reset] scheduled — next run in ${Math.round(msUntilNext5am() / 60000)} minutes (server local time)`);
 
 server.listen(PORT, () => {
   console.log(`28 Kerala Gulan authoritative server running on port ${PORT}`);

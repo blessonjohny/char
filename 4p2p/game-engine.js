@@ -386,6 +386,21 @@ class GameEngine {
     this.seats[pos] = null;
   }
 
+  // A human explicitly exiting mid-game (not just disconnecting) — the
+  // reverse of replaceBot below. Rather than nulling the seat out (which
+  // would leave a hole an engine built for a fixed player count can't
+  // sensibly play around), the seat keeps its exact current hand and
+  // state and simply becomes bot-controlled, so the table keeps running
+  // exactly as before instead of breaking or needing to stop.
+  convertToBot(pos) {
+    const seat = this.seats[pos];
+    if (!seat || seat.isBot) return false;
+    seat.isBot = true;
+    seat.connected = true;
+    seat.playerId = null;
+    return true;
+  }
+
   // A human taking over a bot's seat mid-game — inherits the bot's exact
   // current hand and state rather than starting fresh, since the round
   // may already be well underway. Fails if that seat isn't currently a bot.

@@ -175,6 +175,18 @@ class GameEngine6P {
 
   removeSeat(pos) { this.seats[pos] = null; }
 
+  // A human explicitly exiting mid-game — the reverse of replaceBot
+  // below. Keeps the seat's exact current hand/state and simply makes
+  // it bot-controlled, so the table keeps running instead of breaking
+  // or leaving a hole. Same as game-engine.js's version, needed here
+  // too since 6-player uses this entirely separate engine file.
+  convertToBot(pos) {
+    const seat = this.seats[pos];
+    if (!seat || seat.isBot) return false;
+    seat.isBot = true; seat.connected = true; seat.playerId = null;
+    return true;
+  }
+
   replaceBot(pos, playerId, name) {
     const seat = this.seats[pos];
     if (!seat || !seat.isBot) return false;
