@@ -649,29 +649,11 @@ function detachSocketFromAllTables(socket, exceptTableId) {
   }
 }
 
-// A table that just became fully empty (last human disconnected, or
-// explicitly left an empty-otherwise lobby) doesn't get deleted right
-// away — a 10-minute window in case that was a network drop and they
-// come back. If the table still exists and is still genuinely empty
-// when the timer fires, NOW it's deleted; if anyone rejoined in the
-// meantime, this is a no-op. Registry-agnostic so 4-player and
-// 6-player can share it.
-const EMPTY_TABLE_GRACE_MS = 10 * 60 * 1000;
-function scheduleEmptyTableGrace(registry, tableId, listEventName, listFn) {
-  const t = registry[tableId];
-  if (!t) return;
-  if (t.emptyGraceTimer) return; // already counting down
-  console.log(`[empty-grace] table ${tableId} is empty — closing in 10 minutes unless someone rejoins`);
-  t.emptyGraceTimer = setTimeout(() => {
-    const stillThere = registry[tableId];
-    if (!stillThere) return;
-    stillThere.emptyGraceTimer = null;
-    if (stillThere.engine.seats.some(Boolean)) return; // someone rejoined — leave it alone
-    console.log(`[empty-grace] closing table ${tableId} — still empty after 10 minutes`);
-    delete registry[tableId];
-    io.emit(listEventName, listFn());
-  }, EMPTY_TABLE_GRACE_MS);
-}
+// Per explicit instruction: tables never auto-close for being empty
+// anymore either — the ONLY closure left anywhere is the 5am daily
+// reset below. Kept as a no-op so its call sites elsewhere don't need
+// to be hunted down individually.
+function scheduleEmptyTableGrace() {}
 
 // Per explicit instruction: host-level control isn't limited to one
 // designated person. ANY connected human actually seated at the table
@@ -2553,14 +2535,13 @@ io.on('connection', (socket) => {
 });
 
 // Per explicit instruction: the ONLY automatic table-closing left in the
-// entire server. Every table in every game closes once a day, at 5am
-// server time, no matter what's happening at it — active game, human
-// present, doesn't matter. This is a hard daily reset, not an idle
-// check. NOTE: "5am" here is 5am in whatever timezone the server
-// process itself is running in (Render defaults to UTC unless a TZ
-// environment variable is set) — if 5am India time specifically is
-// what's wanted, set TZ=Asia/Kolkata in Render's environment variables
-// and this will follow it automatically without any code change.
+// entire server, and tables never close for any other reason now (not
+// idle, not empty) — active game, human present, doesn't matter, this
+// is a hard daily reset. Always 5am US Eastern Time specifically,
+// regardless of what timezone the server process itself happens to be
+// running in (Render defaults to UTC) — computed properly against the
+// America/New_York timezone database entry, which correctly handles
+// the EST/EDT daylight-saving switch on its own.
 function dailyCloseAllTables() {
   const counts = { fourP: Object.keys(tables).length, sixP: Object.keys(sixpTables).length, l56: Object.keys(l56Rooms).length, poker: Object.keys(pokerTables).length };
   for (const k of Object.keys(tables)) delete tables[k];
@@ -2569,26 +2550,46 @@ function dailyCloseAllTables() {
   for (const k of Object.keys(pokerTables)) delete pokerTables[k];
   for (const k of Object.keys(playerIndex)) delete playerIndex[k];
   for (const k of Object.keys(sixpPlayerIndex)) delete sixpPlayerIndex[k];
-  console.log(`[daily-reset] 5am — closed all tables: ${JSON.stringify(counts)}`);
+  console.log(`[daily-reset] 5am Eastern — closed all tables: ${JSON.stringify(counts)}`);
   io.emit('roomList', publicTableList());
   io.emit('sixp_roomList', sixpPublicTableList());
   io.emit('l56_roomList', l56PublicList());
   io.emit('dailyReset'); // every connected client gets a clear, honest reason instead of a silent kick
 }
-function msUntilNext5am() {
+// Reads the current wall-clock date/time as it actually is in Eastern
+// right now, independent of the server's own timezone.
+function easternTimeParts(date) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+  const parts = {};
+  for (const p of fmt.formatToParts(date)) if (p.type !== 'literal') parts[p.type] = parseInt(p.value, 10);
+  if (parts.hour === 24) parts.hour = 0; // some ICU builds report midnight as 24 with hour12:false
+  return parts;
+}
+function msUntilNext5amEastern() {
   const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 5, 0, 0, 0);
-  if (next <= now) next.setDate(next.getDate() + 1);
-  return next - now;
+  const p = easternTimeParts(now);
+  // Treat Eastern's own wall-clock components as if they were UTC, purely
+  // as a calculation trick — this lets "add 24 hours for tomorrow" work
+  // correctly without needing to know today's actual EST/EDT UTC offset
+  // at all, since both timestamps below are shifted by the exact same
+  // (irrelevant, cancels out) amount.
+  const nowAsIfUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  let targetAsIfUTC = Date.UTC(p.year, p.month - 1, p.day, 5, 0, 0, 0);
+  if (targetAsIfUTC <= nowAsIfUTC) targetAsIfUTC += 24 * 60 * 60 * 1000;
+  return targetAsIfUTC - nowAsIfUTC;
 }
 function scheduleDailyClose() {
   setTimeout(() => {
     dailyCloseAllTables();
-    setInterval(dailyCloseAllTables, 24 * 60 * 60 * 1000);
-  }, msUntilNext5am());
+    scheduleDailyClose(); // reschedule fresh off the real clock each time, rather than a fixed 24h interval, so it can never drift across a DST transition
+  }, msUntilNext5amEastern());
 }
 scheduleDailyClose();
-console.log(`[daily-reset] scheduled — next run in ${Math.round(msUntilNext5am() / 60000)} minutes (server local time)`);
+console.log(`[daily-reset] scheduled — next run in ${Math.round(msUntilNext5amEastern() / 60000)} minutes (5am US Eastern Time)`);
 
 server.listen(PORT, () => {
   console.log(`28 Kerala Gulan authoritative server running on port ${PORT}`);
