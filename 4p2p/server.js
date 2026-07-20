@@ -180,22 +180,15 @@ function saveCommentsLocal() {
   catch (e) { console.error('[comments] failed to save local comments file:', e.message); }
 }
 setInterval(saveCommentsLocal, 10000);
-let lastGithubCommentsSyncCount = 0;
-// Deliberately NOT 3 minutes: a reported disconnect pattern recurred at
-// almost exactly 3-minute marks, and these were the only 3-minute clocks
-// in the codebase. They tested clean, but moving them off that timing
-// removes the coincidence entirely — and makes any recurrence
-// diagnostic: a kick still at 3 min provably isn't this file; a kick
-// that MOVES to ~10 min catches this red-handed. Staggered vs the
-// visitor sync below so the two never fire together.
-setInterval(() => {
-  if (GITHUB_ENABLED && comments.length !== lastGithubCommentsSyncCount) {
-    lastGithubCommentsSyncCount = comments.length;
-    const t0 = Date.now();
-    Promise.resolve(githubPushComments()).finally(() =>
-      console.log(`[comments] GitHub sync took ${Date.now() - t0}ms`));
-  }
-}, 10 * 60 * 1000);
+// The periodic 10-minute GitHub comments sync that used to be here is
+// REMOVED, not just retimed. It was redundant to begin with -- comments
+// already push to GitHub immediately on every post and delete (see the
+// two call sites elsewhere in this file) -- so this interval added risk
+// with zero actual benefit. It's also the only mechanism in the entire
+// codebase that matched a reported "kicked at almost exactly 10
+// minutes" pattern precisely, which is too strong a coincidence to
+// leave in place on a hunch it's unrelated. Confirmed unnecessary,
+// removed rather than merely retimed again.
 
 app.post('/api/comments', (req, res) => {
   const name = String((req.body && req.body.name) || 'Anonymous').slice(0, 40).trim() || 'Anonymous';
@@ -313,11 +306,25 @@ async function githubPushVisitorLog() {
       branch: GITHUB_BRANCH
     };
     if (githubFileSha) body.sha = githubFileSha;
-    const res = await fetch(githubApiUrl(), {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+    // Hard timeout — this fetch previously had none at all, meaning a
+    // slow or hanging GitHub API response could block this in-flight
+    // request indefinitely with no way to recover until the process
+    // itself did something about it. 10 seconds is generous for what's
+    // a small JSON PUT; if GitHub hasn't responded by then, treat it as
+    // failed for this cycle and let the next one try again.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    let res;
+    try {
+      res = await fetch(githubApiUrl(), {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!res.ok) { console.error('[visitor] GitHub push failed:', res.status, await res.text()); return; }
     const json = await res.json();
     githubFileSha = json.content.sha;
