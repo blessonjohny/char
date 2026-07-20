@@ -366,22 +366,22 @@ function saveVisitorLogLocal() {
   }
 }
 // Local save is cheap and frequent (matches every other module's pattern
-// here). The GitHub sync is deliberately much less frequent — it's a real
-// network call and a real commit, so hammering it on every visitor would
-// both spam the repo's history and risk GitHub's rate limits for no
-// benefit; a few minutes of possible loss on an ungraceful crash is an
-// acceptable tradeoff for "actually survives a normal restart" at all.
+// here). The periodic GitHub sync that used to run every 11 minutes is
+// REMOVED, not just hardened. Reasoning: a second, separate ~10-minute
+// disconnect report came in even after the comments sync (a confirmed,
+// different mechanism) was already removed and this one was hardened
+// with a timeout -- this is now the only periodic ~10-minute-class timer
+// left anywhere in the codebase, and continuing to keep it "just in
+// case it's unrelated" isn't worth the risk against two independent
+// reports at the same mark. The local save every 10 seconds still
+// happens; GitHub sync now happens on every genuine save-to-GitHub
+// trigger already in the file (server start, and the SIGTERM-triggered
+// flush on a graceful restart/deploy) rather than on its own clock. The
+// earlier global crash-protection (uncaughtException/unhandledRejection
+// handlers) already substantially reduced the "ungraceful crash loses
+// recent visitors" risk this periodic sync existed to cover in the
+// first place.
 setInterval(saveVisitorLogLocal, 10000);
-let lastGithubSyncCount = 0;
-// 11 minutes, staggered vs the comments sync above — see the note there.
-setInterval(() => {
-  if (GITHUB_ENABLED && visitorLog.length !== lastGithubSyncCount) {
-    lastGithubSyncCount = visitorLog.length;
-    const t0 = Date.now();
-    Promise.resolve(githubPushVisitorLog()).finally(() =>
-      console.log(`[visitor] GitHub sync took ${Date.now() - t0}ms`));
-  }
-}, 11 * 60 * 1000);
 loadVisitorLog();
 loadComments();
 
