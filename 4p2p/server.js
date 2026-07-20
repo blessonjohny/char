@@ -2275,6 +2275,217 @@ const { botAct: pokerBotAct } = require('./poker-bot');
 
 const pokerTables = {};
 
+// ============================================================
+// CARROM — 2-seat (1v1) or 4-seat (2v2 teams) online table. The actual
+// physics simulation stays entirely client-side, exactly as the
+// original single-player build works — this table only tracks WHO is
+// in which seat, and relays each completed shot's resulting state
+// (coin positions, score, whose turn) from whoever just took the shot
+// to everyone else at the table. Nobody re-simulates anyone else's
+// shot; they just render the result they're sent.
+const carromTables = {};
+const carromPlayerIndex = {}; // playerId -> { tableId, pos }
+
+function carromSeatOrder(playerCount) {
+  return playerCount === 4 ? ['bottom', 'right', 'top', 'left'] : ['bottom', 'top'];
+}
+
+function carromSeatSnapshot(t) {
+  return t.seats.map(s => s ? { name: s.name, isBot: !!s.isBot, connected: !!s.connected, side: s.side } : null);
+}
+
+function carromIsEffectiveHost(t, playerId) {
+  if (t.hostPlayerId === playerId) return true;
+  const seat = t.seats.find(s => s && s.playerId === playerId);
+  return !!(seat && !seat.isBot && seat.connected);
+}
+
+function carromEnsureHumanHost(t, preferPlayerId) {
+  const hostSeat = t.seats.find(s => s && s.playerId === t.hostPlayerId);
+  if (hostSeat && !hostSeat.isBot && hostSeat.connected) return;
+  const preferred = t.seats.find(s => s && s.playerId === preferPlayerId && !s.isBot);
+  const fallback = t.seats.find(s => s && !s.isBot && s.connected);
+  const newHost = preferred || fallback;
+  t.hostPlayerId = newHost ? newHost.playerId : null;
+}
+
+function carromPublicList() {
+  return Object.values(carromTables)
+    .filter(t => t.seats.some(Boolean))
+    .map(t => ({
+      id: t.id,
+      playerCount: t.playerCount,
+      openSeats: t.seats.filter(s => !s).length,
+      phase: t.phase,
+      hostName: (t.seats.find(s => s && s.playerId === t.hostPlayerId) || {}).name || '?'
+    }));
+}
+
+function carromBroadcast(t) {
+  const payload = {
+    tableId: t.id,
+    playerCount: t.playerCount,
+    seats: carromSeatSnapshot(t),
+    phase: t.phase,
+    hostPlayerId: t.hostPlayerId,
+    boardState: t.boardState || null
+  };
+  for (const [socketId, info] of t.sockets) {
+    const sock = io.sockets.sockets.get(socketId);
+    if (!sock) continue;
+    sock.emit('carrom_state', { ...payload, myPos: info.pos, isHost: carromIsEffectiveHost(t, info.playerId) });
+  }
+  io.emit('carrom_roomList', carromPublicList());
+}
+
+io.on('connection', (socket) => {
+  let carromTableId = null;
+
+  socket.on('carrom_createTable', ({ name, playerCount }) => {
+    const pc = playerCount === 4 ? 4 : 2;
+    const id = 'C' + crypto.randomBytes(4).toString('hex').toUpperCase();
+    const playerId = crypto.randomBytes(8).toString('hex');
+    const seats = new Array(pc).fill(null);
+    const sides = carromSeatOrder(pc);
+    seats[0] = { side: sides[0], playerId, name: name || 'Player', isBot: false, connected: true };
+    const t = { id, playerCount: pc, seats, hostPlayerId: playerId, phase: 'lobby', boardState: null, sockets: new Map(), lastActivityAt: Date.now() };
+    carromTables[id] = t;
+    carromPlayerIndex[playerId] = { tableId: id, pos: 0 };
+    t.sockets.set(socket.id, { playerId, pos: 0 });
+    socket.join('carrom_' + id);
+    carromTableId = id;
+    socket.emit('carrom_joined', { tableId: id, playerId, pos: 0, isHost: true });
+    carromBroadcast(t);
+    console.log(`[carrom] table ${id} created by ${name} (${pc}-seat)`);
+  });
+
+  socket.on('carrom_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
+    // Reconnect via saved token first.
+    if (existingPlayerId && carromPlayerIndex[existingPlayerId]) {
+      const idx = carromPlayerIndex[existingPlayerId];
+      const t = carromTables[idx.tableId];
+      if (t && t.seats[idx.pos] && t.seats[idx.pos].playerId === existingPlayerId) {
+        t.seats[idx.pos].connected = true;
+        if (name) t.seats[idx.pos].name = name;
+        t.sockets.set(socket.id, { playerId: existingPlayerId, pos: idx.pos });
+        socket.join('carrom_' + idx.tableId);
+        carromTableId = idx.tableId;
+        carromEnsureHumanHost(t, existingPlayerId);
+        socket.emit('carrom_joined', { tableId: idx.tableId, playerId: existingPlayerId, pos: idx.pos, isHost: carromIsEffectiveHost(t, existingPlayerId) });
+        t.lastActivityAt = Date.now();
+        carromBroadcast(t);
+        return;
+      }
+    }
+    // Fresh join: take the first open seat.
+    const t = carromTables[tableId];
+    if (!t) { socket.emit('carrom_joinError', { reason: 'table_not_found' }); return; }
+    const pos = t.seats.findIndex(s => !s || (s.isBot));
+    if (pos === -1) { socket.emit('carrom_joinError', { reason: 'table_full' }); return; }
+    const playerId = crypto.randomBytes(8).toString('hex');
+    const side = t.seats[pos] ? t.seats[pos].side : carromSeatOrder(t.playerCount)[pos];
+    t.seats[pos] = { side, playerId, name: name || 'Player', isBot: false, connected: true };
+    carromPlayerIndex[playerId] = { tableId, pos };
+    t.sockets.set(socket.id, { playerId, pos });
+    socket.join('carrom_' + tableId);
+    carromTableId = tableId;
+    carromEnsureHumanHost(t, playerId);
+    socket.emit('carrom_joined', { tableId, playerId, pos, isHost: carromIsEffectiveHost(t, playerId) });
+    t.lastActivityAt = Date.now();
+    carromBroadcast(t);
+    console.log(`[carrom] ${name} joined table ${tableId} at seat ${pos}`);
+  });
+
+  socket.on('carrom_fillBots', () => {
+    const t = carromTables[carromTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info || !carromIsEffectiveHost(t, info.playerId)) return;
+    const sides = carromSeatOrder(t.playerCount);
+    const botNames = ['Bot A', 'Bot B', 'Bot C'];
+    let n = 0;
+    for (let i = 0; i < t.playerCount; i++) {
+      if (!t.seats[i]) {
+        t.seats[i] = { side: sides[i], playerId: null, name: botNames[n++] || `Bot ${i}`, isBot: true, connected: true };
+      }
+    }
+    t.lastActivityAt = Date.now();
+    carromBroadcast(t);
+  });
+
+  socket.on('carrom_startGame', () => {
+    const t = carromTables[carromTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info || !carromIsEffectiveHost(t, info.playerId)) return;
+    if (t.seats.some(s => !s)) return; // every seat must be filled (human or bot) before starting
+    t.phase = 'playing';
+    t.lastActivityAt = Date.now();
+    carromBroadcast(t);
+    console.log(`[carrom] table ${t.id} started`);
+  });
+
+  // The core sync point: whoever's turn it was just finished a shot
+  // locally (their own browser ran the exact same physics the original
+  // single-player build always used) and sends the RESULT here — final
+  // coin positions, updated scores, whose turn is next. This does not
+  // re-simulate anything; it just relays the outcome to every other
+  // seat at the table, who apply it directly to their own board.
+  socket.on('carrom_shotResult', ({ boardState }) => {
+    const t = carromTables[carromTableId];
+    if (!t || t.phase !== 'playing') return;
+    const info = t.sockets.get(socket.id);
+    if (!info) return;
+    // Trust boundary: only the seat whose turn it currently is (per the
+    // last broadcast board state) may submit a result. Casual-game
+    // trust model, same spirit as the rest of this platform — not
+    // meant to survive a determined cheater, meant to stop accidental
+    // cross-talk between seats.
+    if (t.boardState && typeof t.boardState.turnPos === 'number' && t.boardState.turnPos !== info.pos) return;
+    t.boardState = boardState;
+    t.lastActivityAt = Date.now();
+    carromBroadcast(t);
+  });
+
+  socket.on('carrom_leaveTable', () => {
+    const t = carromTables[carromTableId];
+    if (t) {
+      const info = t.sockets.get(socket.id);
+      t.sockets.delete(socket.id);
+      if (info && t.seats[info.pos] && t.seats[info.pos].playerId === info.playerId) {
+        if (t.phase === 'lobby') {
+          t.seats[info.pos] = null;
+        } else {
+          t.seats[info.pos].isBot = true;
+          t.seats[info.pos].connected = true;
+          t.seats[info.pos].playerId = null;
+        }
+        if (info.playerId) delete carromPlayerIndex[info.playerId];
+      }
+      carromEnsureHumanHost(t);
+      if (!t.seats.some(Boolean)) delete carromTables[carromTableId];
+      else carromBroadcast(t);
+    }
+    carromTableId = null;
+  });
+
+  socket.on('disconnect', () => {
+    const t = carromTables[carromTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    t.sockets.delete(socket.id);
+    if (info && t.seats[info.pos] && t.seats[info.pos].playerId === info.playerId) {
+      // Keep the seat (reconnect-friendly), just mark it disconnected —
+      // same pattern as every other table on this platform.
+      t.seats[info.pos].connected = false;
+      carromEnsureHumanHost(t);
+    }
+    if (!t.seats.some(Boolean)) delete carromTables[carromTableId];
+    else carromBroadcast(t);
+  });
+});
+
+
 function newPokerTableId() { return 'P' + crypto.randomBytes(4).toString('hex').toUpperCase(); }
 
 function pokerPublicTableList() {
@@ -2573,6 +2784,8 @@ function dailyCloseAllTables() {
   for (const k of Object.keys(sixpTables)) delete sixpTables[k];
   for (const k of Object.keys(l56Rooms)) delete l56Rooms[k];
   for (const k of Object.keys(pokerTables)) delete pokerTables[k];
+  for (const k of Object.keys(carromTables)) delete carromTables[k];
+  for (const k of Object.keys(carromPlayerIndex)) delete carromPlayerIndex[k];
   for (const k of Object.keys(playerIndex)) delete playerIndex[k];
   for (const k of Object.keys(sixpPlayerIndex)) delete sixpPlayerIndex[k];
   console.log(`[daily-reset] 5am Eastern — closed all tables: ${JSON.stringify(counts)}`);
@@ -2580,6 +2793,7 @@ function dailyCloseAllTables() {
   io.emit('sixp_roomList', sixpPublicTableList());
   io.emit('l56_roomList', l56PublicList());
   io.emit('dailyReset'); // every connected client gets a clear, honest reason instead of a silent kick
+  io.emit('carrom_dailyReset');
 }
 // Reads the current wall-clock date/time as it actually is in Eastern
 // right now, independent of the server's own timezone.
@@ -2640,6 +2854,7 @@ setInterval(() => {
       io.emit('sixp_dailyResetWarning', payload);
       io.emit('l56_dailyResetWarning', payload);
       io.emit('poker_dailyResetWarning', payload);
+      io.emit('carrom_dailyResetWarning', payload);
       console.log(`[daily-reset] warning broadcast — ${minutes} minute(s) until reset`);
     }
   }
@@ -2651,6 +2866,7 @@ setInterval(() => {
     io.emit('sixp_dailyResetWarning', payload);
     io.emit('l56_dailyResetWarning', payload);
     io.emit('poker_dailyResetWarning', payload);
+    io.emit('carrom_dailyResetWarning', payload);
   }
 }, 1000);
 
