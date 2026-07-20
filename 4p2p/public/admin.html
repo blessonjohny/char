@@ -153,15 +153,34 @@ function renderLivePlayers(players) {
   const connectedCount = players.filter(p => p.connected).length;
   countEl.textContent = `${connectedCount} connected · ${players.length} seated`;
   if (!players.length) { el.innerHTML = '<div class="empty">Nobody seated at any table right now.</div>'; return; }
-  el.innerHTML = players.map(p => `
-    <div class="live-card${p.connected ? '' : ' disconnected'}">
-      <div>
-        <div class="who">${esc(p.name)}${p.connected ? '' : ' (disconnected)'}</div>
-        <div class="where">📍 ${esc(p.location)} · table ${esc(p.tableId)}</div>
+  // De-duplicate to one row per table (players array is per-seat) so the
+  // close button appears once per table, not once per person at it.
+  const byTable = new Map();
+  for (const p of players) {
+    if (!byTable.has(p.tableId)) byTable.set(p.tableId, { game: p.game, tableId: p.tableId, people: [] });
+    byTable.get(p.tableId).people.push(p);
+  }
+  el.innerHTML = Array.from(byTable.values()).map(t => `
+    <div class="live-card" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="game-badge">${esc(t.game)} · table ${esc(t.tableId)}</span>
+        <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem" onclick="closeTable('${esc(t.tableId)}')">✕ Close table</button>
       </div>
-      <span class="game-badge">${esc(p.game)}</span>
+      ${t.people.map(p => `<div class="who" style="font-size:0.8rem">${esc(p.name)}${p.connected ? '' : ' (disconnected)'} — 📍 ${esc(p.location)}</div>`).join('')}
     </div>
   `).join('');
+}
+
+async function closeTable(tableId) {
+  if (!confirm(`Force-close table ${tableId}? Everyone there gets sent home immediately, no matter what's happening.`)) return;
+  const res = await fetch('/api/admin/close-table', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: PASSWORD, tableId })
+  });
+  const data = await res.json();
+  if (data.ok) { alert(`Closed ${data.game} table ${data.tableId}.`); refreshLivePlayers(); }
+  else alert('Could not close that table: ' + (data.error || 'unknown error'));
 }
 
 document.getElementById('tabComments').addEventListener('click', () => switchTab('comments'));
