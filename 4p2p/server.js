@@ -673,6 +673,21 @@ function scheduleEmptyTableGrace(registry, tableId, listEventName, listFn) {
   }, EMPTY_TABLE_GRACE_MS);
 }
 
+// Per explicit instruction: host-level control isn't limited to one
+// designated person. ANY connected human actually seated at the table
+// has host privileges — this is what lets a table with 2 (or more)
+// humans present have all of them able to fill bots, start the game,
+// kick, etc., rather than only whoever happens to hold the
+// hostPlayerId flag at that moment. hostPlayerId itself still exists
+// and still matters for display ("X is the host") and for who a
+// reconnecting/joining player displaces (see ensureHumanHost above),
+// but it no longer GATES these actions on its own.
+function isEffectiveHost(t, playerId) {
+  if (t.hostPlayerId === playerId) return true;
+  const seat = t.engine.seats.find(s => s && s.playerId === playerId);
+  return !!(seat && !seat.isBot && seat.connected);
+}
+
 function ensureHumanHost(t, preferPlayerId) {
   const hostSeat = t.engine.seats.find(s => s && s.playerId === t.hostPlayerId);
   const hostIsConnectedHuman = !!(hostSeat && !hostSeat.isBot && hostSeat.connected);
@@ -895,6 +910,11 @@ io.on('connection', (socket) => {
         // present — the exact reported bug.
         ensureHumanHost(t, playerId);
         socket.emit('joined', { tableId, playerId, pos: idx.pos, isHost: t.hostPlayerId === playerId });
+        // A bot's (or another disconnected seat's) turn can stall while
+        // this player was away — nothing else was guaranteed to re-check
+        // it. Re-kicking here means reconnecting always un-sticks the
+        // table regardless of what actually caused the stall.
+        t.engine.maybeAutoAct();
         touch(t);
         broadcastTable(t);
         scheduleNoHumanShutdown(t, tableId);
@@ -960,7 +980,7 @@ io.on('connection', (socket) => {
 
   socket.on('respondJoinRequest', ({ reqId, approved }) => {
     const t = tables[tableId];
-    if (!t || t.hostPlayerId !== playerId || !t.pendingJoinRequests) return;
+    if (!t || !isEffectiveHost(t, playerId) || !t.pendingJoinRequests) return;
     const reqInfo = t.pendingJoinRequests.get(reqId);
     if (!reqInfo) return;
     t.pendingJoinRequests.delete(reqId);
@@ -1084,7 +1104,7 @@ io.on('connection', (socket) => {
 
   socket.on('fillBots', ({ count }) => {
     withTable((t, pos) => {
-      if (t.hostPlayerId !== playerId) return; // lobby-only permission
+      if (!isEffectiveHost(t, playerId)) return; // lobby-only permission
       t.botFill = Math.max(0, Math.min(3, count | 0));
     });
   });
@@ -1096,7 +1116,7 @@ io.on('connection', (socket) => {
   // starts.
   socket.on('hostAddBot', ({ pos }) => {
     withTable((t) => {
-      if (t.hostPlayerId !== playerId) return;
+      if (!isEffectiveHost(t, playerId)) return;
       if (typeof pos !== 'number' || pos < 0 || pos >= t.engine.seats.length) return;
       if (t.engine.seats[pos]) return; // only genuinely empty seats
       const botNamePool = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya'];
@@ -1110,7 +1130,7 @@ io.on('connection', (socket) => {
 
   socket.on('startGame', () => {
     withTable((t, pos) => {
-      if (t.hostPlayerId !== playerId) return;
+      if (!isEffectiveHost(t, playerId)) return;
       if (t.engine.phase !== 'lobby') return;
       const open = t.engine.emptySeats();
       const botNamePool = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya', 'Sanjay', 'Johny', 'Vinod', 'Jean', 'Randall', 'Rajesh', 'Stev', 'Alok', 'Jerin', 'Binchu', 'Ajai', 'Peter', 'Shyam', 'Appu', 'Anup', 'Arun', 'Vilphy', 'Roji'];
@@ -1205,7 +1225,7 @@ io.on('connection', (socket) => {
 
   socket.on('continueRound', () => {
     withTable((t, pos) => {
-      if (t.hostPlayerId !== playerId) return;
+      if (!isEffectiveHost(t, playerId)) return;
       if (t.engine.phase !== 'roundEnd') return;
       t.engine.startRound();
     });
@@ -1227,7 +1247,7 @@ io.on('connection', (socket) => {
   // table is currently in.
   socket.on('restartGame', () => {
     withTable((t, pos) => {
-      if (t.hostPlayerId !== playerId) return;
+      if (!isEffectiveHost(t, playerId)) return;
       if (t.engine.phase === 'lobby') return; // nothing to restart yet
       t.engine.restartGame();
       console.log(`[table ${tableId}] host restarted the game`);
@@ -1236,7 +1256,7 @@ io.on('connection', (socket) => {
 
   socket.on('restartRound', () => {
     withTable((t, pos) => {
-      if (t.hostPlayerId !== playerId) return;
+      if (!isEffectiveHost(t, playerId)) return;
       if (t.engine.phase === 'lobby') return;
       t.engine.restartRound();
       console.log(`[table ${tableId}] host restarted round ${t.engine.round}`);
@@ -1245,7 +1265,7 @@ io.on('connection', (socket) => {
 
   socket.on('kickPlayer', ({ pos }) => {
     withTable((t, myPos) => {
-      if (t.hostPlayerId !== playerId) return;
+      if (!isEffectiveHost(t, playerId)) return;
       const target = t.engine.seats[pos];
       if (!target || target.isBot) return;
       if (target.playerId === t.hostPlayerId) return; // can't kick yourself
@@ -1270,7 +1290,7 @@ io.on('connection', (socket) => {
   // renameBotSeat in game-engine.js), never touches cards or turn state.
   socket.on('changeBotName', ({ pos, newName }) => {
     withTable((t) => {
-      if (t.hostPlayerId !== playerId) return;
+      if (!isEffectiveHost(t, playerId)) return;
       const result = t.engine.renameBotSeat(pos, newName);
       if (!result.ok) socket.emit('actionError', result);
       else console.log(`[table ${tableId}] host renamed bot at seat ${pos} to ${newName}`);
@@ -1685,7 +1705,7 @@ io.on('connection', (socket) => {
 
   socket.on('sixp_fillBots', ({ count }) => {
     withSixpTable((t, pos) => {
-      if (t.hostPlayerId !== sixpPlayerId) return;
+      if (!isEffectiveHost(t, sixpPlayerId)) return;
       t.botFill = Math.max(0, Math.min(5, count));
     });
   });
@@ -1693,7 +1713,7 @@ io.on('connection', (socket) => {
   // Host can add a bot to any open seat at any time, same as 4-player.
   socket.on('sixp_hostAddBot', ({ pos }) => {
     withSixpTable((t) => {
-      if (t.hostPlayerId !== sixpPlayerId) return;
+      if (!isEffectiveHost(t, sixpPlayerId)) return;
       if (typeof pos !== 'number' || pos < 0 || pos >= t.engine.seats.length) return;
       if (t.engine.seats[pos]) return;
       const botNamePool = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya', 'Sanjay', 'Johny'];
@@ -1707,7 +1727,7 @@ io.on('connection', (socket) => {
 
   socket.on('sixp_startGame', () => {
     withSixpTable((t) => {
-      if (t.hostPlayerId !== sixpPlayerId) return;
+      if (!isEffectiveHost(t, sixpPlayerId)) return;
       if (t.engine.phase !== 'lobby') return;
       const empties = t.engine.emptySeats();
       const botNamePool = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya', 'Sanjay', 'Johny', 'Vinod', 'Jean', 'Randall', 'Rajesh', 'Stev', 'Alok', 'Jerin', 'Binchu', 'Ajai', 'Peter', 'Shyam', 'Appu', 'Anup', 'Arun', 'Vilphy', 'Roji'];
@@ -1750,7 +1770,7 @@ io.on('connection', (socket) => {
 
   socket.on('sixp_continueRound', () => {
     withSixpTable((t) => {
-      if (t.hostPlayerId !== sixpPlayerId) return;
+      if (!isEffectiveHost(t, sixpPlayerId)) return;
       if (t.engine.phase !== 'roundEnd') return;
       if (t.engine.gameOver) return;
       t.engine.startRound();
@@ -1774,7 +1794,7 @@ io.on('connection', (socket) => {
 
   socket.on('sixp_restartGame', () => {
     withSixpTable((t) => {
-      if (t.hostPlayerId !== sixpPlayerId) return;
+      if (!isEffectiveHost(t, sixpPlayerId)) return;
       t.engine.restartGame();
       sixpTouch(t);
       sixpBroadcastTable(t);
@@ -1783,7 +1803,7 @@ io.on('connection', (socket) => {
 
   socket.on('sixp_restartRound', () => {
     withSixpTable((t) => {
-      if (t.hostPlayerId !== sixpPlayerId) return;
+      if (!isEffectiveHost(t, sixpPlayerId)) return;
       t.engine.restartRound();
       sixpTouch(t);
       sixpBroadcastTable(t);
@@ -1792,7 +1812,7 @@ io.on('connection', (socket) => {
 
   socket.on('sixp_kickPlayer', ({ pos }) => {
     withSixpTable((t) => {
-      if (t.hostPlayerId !== sixpPlayerId) return;
+      if (!isEffectiveHost(t, sixpPlayerId)) return;
       const seat = t.engine.seats[pos];
       const kickedPlayerId = seat ? seat.playerId : null;
       t.engine.kickPlayer(pos);
@@ -1815,7 +1835,7 @@ io.on('connection', (socket) => {
   // guarantee as the 4-player version — only the name string changes.
   socket.on('sixp_changeBotName', ({ pos, newName }) => {
     withSixpTable((t) => {
-      if (t.hostPlayerId !== sixpPlayerId) return;
+      if (!isEffectiveHost(t, sixpPlayerId)) return;
       const result = t.engine.renameBotSeat(pos, newName);
       if (!result.ok) { socket.emit('sixp_actionError', result); return; }
       sixpTouch(t);
@@ -1955,6 +1975,15 @@ function l56Touch(r) {
 // seat index that's a currently-connected human. If nobody qualifies,
 // the room is left without a host until someone (re)connects — kick
 // and approval actions just have no effect until then, nothing crashes.
+// Same rule as isEffectiveHost above, adapted to 56's client-driven
+// state shape (r.state.seats instead of an engine's own seats array).
+function l56IsEffectiveHost(r, playerId) {
+  if (r.hostPlayerId === playerId) return true;
+  if (!r.state || !r.state.seats) return false;
+  const seat = r.state.seats.find(s => s && s.playerId === playerId);
+  return !!(seat && !seat.bot && r.sockets && [...r.sockets.values()].some(v => v.playerId === playerId));
+}
+
 function l56ReassignHost(r) {
   if (!r.state || !r.state.seats) { r.hostPlayerId = null; l56CheckNoHumanTimer(r); return; }
   let best = null;
@@ -2084,7 +2113,7 @@ io.on('connection', (socket) => {
     const r = l56Rooms[code];
     if (!r || !r.pendingRequests.has(reqId)) return;
     const info = socket.data.l56;
-    if (!info || info.code !== code || r.hostPlayerId !== info.playerId) return; // only the host may respond
+    if (!info || info.code !== code || !l56IsEffectiveHost(r, info.playerId)) return; // any connected human present, not just the designated host
     const reqInfo = r.pendingRequests.get(reqId);
     r.pendingRequests.delete(reqId);
     const reqSocket = io.sockets.sockets.get(reqInfo.socketId);
@@ -2120,7 +2149,7 @@ io.on('connection', (socket) => {
     const r = l56Rooms[code];
     if (!r || !r.state || !r.state.seats) return;
     const info = socket.data.l56;
-    if (!info || info.code !== code || r.hostPlayerId !== info.playerId) return; // host-only
+    if (!info || info.code !== code || !l56IsEffectiveHost(r, info.playerId)) return; // any connected human present
     const seat = r.state.seats[pos];
     if (!seat) return;
     const kickedPlayerId = seat.playerId;
@@ -2427,7 +2456,7 @@ io.on('connection', (socket) => {
 
   socket.on('poker_fillBots', ({ count }) => {
     withPokerTable((t, pos) => {
-      if (t.hostPlayerId !== pokerPlayerId) return;
+      if (!isEffectiveHost(t, pokerPlayerId)) return;
       const openSeats = t.engine.seats.map((s, i) => s ? null : i).filter(i => i !== null);
       const n = Math.max(0, Math.min(openSeats.length, Number(count) || 0));
       for (let i = 0; i < n; i++) t.engine.seatBot(openSeats[i], `Bot ${openSeats[i] + 1}`);
@@ -2438,7 +2467,7 @@ io.on('connection', (socket) => {
 
   socket.on('poker_startHand', () => {
     withPokerTable((t) => {
-      if (t.hostPlayerId !== pokerPlayerId) return;
+      if (!isEffectiveHost(t, pokerPlayerId)) return;
       if (t.engine.phase !== 'lobby' && t.engine.phase !== 'handEnd') return;
       t.engine.startHand();
       pokerTouch(t);
@@ -2463,7 +2492,7 @@ io.on('connection', (socket) => {
   // timing, this handler just exposes request/cancel.
   socket.on('poker_requestKick', ({ pos: kickPos }) => {
     withPokerTable((t, pos) => {
-      if (t.hostPlayerId !== pokerPlayerId) return;
+      if (!isEffectiveHost(t, pokerPlayerId)) return;
       t.engine.requestKick(kickPos, pokerPlayerId);
       pokerTouch(t);
       pokerBroadcast(t);
@@ -2471,7 +2500,7 @@ io.on('connection', (socket) => {
   });
   socket.on('poker_cancelKick', ({ pos: kickPos }) => {
     withPokerTable((t) => {
-      if (t.hostPlayerId !== pokerPlayerId) return;
+      if (!isEffectiveHost(t, pokerPlayerId)) return;
       t.engine.cancelKick(kickPos);
       pokerTouch(t);
       pokerBroadcast(t);
