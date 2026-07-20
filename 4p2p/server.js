@@ -649,6 +649,30 @@ function detachSocketFromAllTables(socket, exceptTableId) {
   }
 }
 
+// A table that just became fully empty (last human disconnected, or
+// explicitly left an empty-otherwise lobby) doesn't get deleted right
+// away — a 10-minute window in case that was a network drop and they
+// come back. If the table still exists and is still genuinely empty
+// when the timer fires, NOW it's deleted; if anyone rejoined in the
+// meantime, this is a no-op. Registry-agnostic so 4-player and
+// 6-player can share it.
+const EMPTY_TABLE_GRACE_MS = 10 * 60 * 1000;
+function scheduleEmptyTableGrace(registry, tableId, listEventName, listFn) {
+  const t = registry[tableId];
+  if (!t) return;
+  if (t.emptyGraceTimer) return; // already counting down
+  console.log(`[empty-grace] table ${tableId} is empty — closing in 10 minutes unless someone rejoins`);
+  t.emptyGraceTimer = setTimeout(() => {
+    const stillThere = registry[tableId];
+    if (!stillThere) return;
+    stillThere.emptyGraceTimer = null;
+    if (stillThere.engine.seats.some(Boolean)) return; // someone rejoined — leave it alone
+    console.log(`[empty-grace] closing table ${tableId} — still empty after 10 minutes`);
+    delete registry[tableId];
+    io.emit(listEventName, listFn());
+  }, EMPTY_TABLE_GRACE_MS);
+}
+
 function ensureHumanHost(t, preferPlayerId) {
   const hostSeat = t.engine.seats.find(s => s && s.playerId === t.hostPlayerId);
   const hostIsConnectedHuman = !!(hostSeat && !hostSeat.isBot && hostSeat.connected);
@@ -1371,9 +1395,12 @@ io.on('connection', (socket) => {
       broadcastTable(t);
     }
     if (!t.engine.seats.some(Boolean)) {
-      // Nobody left at all (everyone explicitly left) — no reason to keep
-      // an empty table around waiting for the 5-minute idle sweep.
-      delete tables[tableId];
+      // Table just became fully empty (last occupant disconnected, or
+      // explicitly left the lobby). Per explicit instruction, don't
+      // delete it immediately -- give a real 10-minute window in case
+      // that was a network drop and they come back, rather than losing
+      // the table outright the instant it happens.
+      scheduleEmptyTableGrace(tables, tableId, 'roomList', publicTableList);
     } else {
       scheduleNoHumanShutdown(t, tableId);
     }
@@ -1814,7 +1841,9 @@ io.on('connection', (socket) => {
       if (leavingPlayerId) delete sixpPlayerIndex[leavingPlayerId];
       sixpTouch(t);
       sixpBroadcastTable(t);
-      if (!t.engine.seats.some(Boolean)) delete sixpTables[sixpTableId];
+      if (!t.engine.seats.some(Boolean)) {
+        scheduleEmptyTableGrace(sixpTables, sixpTableId, 'sixp_roomList', sixpPublicTableList);
+      }
       io.emit('sixp_roomList', sixpPublicTableList());
     });
     sixpTableId = null;
@@ -1842,7 +1871,7 @@ io.on('connection', (socket) => {
       sixpBroadcastTable(t);
     }
     if (!t.engine.seats.some(Boolean)) {
-      delete sixpTables[sixpTableId];
+      scheduleEmptyTableGrace(sixpTables, sixpTableId, 'sixp_roomList', sixpPublicTableList);
     } else {
       sixpScheduleNoHumanShutdown(t, sixpTableId);
     }
