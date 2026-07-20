@@ -12919,17 +12919,33 @@ function connectGameSocket() {
   // immediately instead of waiting on a timer that may never have run.
   if (!window.__k28VisibilityReconnect) {
     window.__k28VisibilityReconnect = true;
+    let hiddenAt = null;
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && MY_TABLE_ID && MY_PLAYER_TOKEN) {
-        if (!gameSocket.connected) {
-          gameSocket.connect();
-        } else {
-          // Even if the transport itself looks connected, re-announce
-          // our seat -- a long suspension can leave the server-side
-          // registration stale without the transport ever actually
-          // dropping, so this is cheap insurance either way.
-          gameSocket.emit('joinTable', { tableId: MY_TABLE_ID, name: MY_NAME, playerId: MY_PLAYER_TOKEN });
-        }
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
+      }
+      if (document.visibilityState !== 'visible' || !MY_TABLE_ID || !MY_PLAYER_TOKEN) return;
+      const hiddenForMs = hiddenAt ? (Date.now() - hiddenAt) : 0;
+      hiddenAt = null;
+      // A long suspension can leave gameSocket.connected reporting
+      // stale/wrong info -- the browser paused this tab's JS before it
+      // ever got to process the real disconnect event, even though the
+      // server's own ping-timeout (60s) already gave up on the
+      // connection long ago server-side. Trusting that flag here meant
+      // re-emitting joinTable on a connection that LOOKED alive
+      // client-side but was actually dead -- the emit would never reach
+      // the server, and the client would sit there thinking it's live
+      // while receiving nothing. Past the ping-timeout window, force a
+      // genuinely fresh connection rather than trusting a flag that can
+      // lie after exactly this kind of suspension.
+      if (!gameSocket.connected || hiddenForMs > 70000) {
+        try { gameSocket.disconnect(); } catch (e) {}
+        gameSocket.connect();
+      } else {
+        // Hidden only briefly -- the transport is genuinely still likely
+        // alive, so a lightweight re-announce is enough insurance.
+        gameSocket.emit('joinTable', { tableId: MY_TABLE_ID, name: MY_NAME, playerId: MY_PLAYER_TOKEN });
       }
     });
     window.addEventListener('online', () => {
