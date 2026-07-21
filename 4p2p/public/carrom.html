@@ -791,19 +791,31 @@
   function carromRenderOpenTables(rooms) {
     const el = document.getElementById('carromOpenTablesList');
     if (!el) return;
-    // Only show tables that are still in the lobby (not already playing)
-    // and actually have a free seat — nothing to join otherwise.
-    const joinable = (rooms || []).filter(r => r.phase === 'lobby' && r.openSeats > 0);
+    // Two kinds of joinable table: a lobby table with a genuinely empty
+    // seat, or ANY table (lobby or already in progress) with a bot seat
+    // that can be taken over -- the server already supports joining
+    // either case with no restriction on phase, so the list should
+    // surface both instead of only ever showing empty-seat lobbies.
+    const joinable = (rooms || []).filter(r => r.openSeats > 0 || r.botSeats > 0);
     if (!joinable.length) {
       el.innerHTML = '<div style="text-align:center;color:var(--brass-dim);font-size:0.8rem;padding:6px 0">No open tables right now — create one!</div>';
       return;
     }
-    el.innerHTML = joinable.map(r => `
+    el.innerHTML = joinable.map(r => {
+      const parts = [];
+      if (r.openSeats > 0) parts.push(`${r.openSeats} open`);
+      if (r.botSeats > 0) {
+        const seatNums = (r.botSeatIndices || []).map(i => i+1).join(', ');
+        parts.push(`replace bot (seat ${seatNums})`);
+      }
+      const statusLabel = r.phase === 'playing' ? ' · in progress' : '';
+      return `
       <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.04);border:1px solid var(--brass-dim);border-radius:8px;padding:8px 12px;margin-bottom:6px">
-        <span style="font-size:0.82rem">${r.playerCount===4?'2v2':'1v1'} · hosted by <b>${r.hostName}</b> · ${r.openSeats} open</span>
+        <span style="font-size:0.82rem">${r.playerCount===4?'2v2':'1v1'} · hosted by <b>${r.hostName}</b> · ${parts.join(' · ')}${statusLabel}</span>
         <button class="ctrl-btn" style="padding:5px 12px;font-size:0.75rem" onclick="carromJoinFromList('${r.id}')">Join</button>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
   function carromJoinFromList(tableId) {
     carromConnect();
