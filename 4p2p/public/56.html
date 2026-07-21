@@ -528,6 +528,24 @@
 </style>
 </head>
 <body>
+<script>
+  // Build marker + deploy-mismatch check -- lets a bug report be settled
+  // against this exact code instead of guessing whether the server has
+  // actually picked up the latest deploy yet. If the server's own
+  // buildTag doesn't match this page's, an unmissable banner says so
+  // instead of leaving "why don't I see the fix" as a silent mystery.
+  window.K28_BUILD_TAG = 'multi-game-platform · 2026-07-21';
+  fetch('/status').then(r => r.json()).then(data => {
+    const serverTag = data && data.buildTag;
+    if (serverTag !== window.K28_BUILD_TAG) {
+      const b = document.createElement('div');
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#a11;color:#fff;font-size:0.75rem;font-weight:700;padding:8px 10px;text-align:center;line-height:1.4';
+      b.textContent = `⚠️ DEPLOY INCOMPLETE: this page is build "${window.K28_BUILD_TAG}" but the server is running "${serverTag || 'an older build (no buildTag)'}" — redeploy so both match. Fixes will NOT work until they do.`;
+      document.body.appendChild(b);
+      console.warn('[build-mismatch]', { page: window.K28_BUILD_TAG, server: serverTag });
+    }
+  }).catch(() => {});
+</script>
 
 <a class="link-back" href="/">⬅ All Games</a>
 

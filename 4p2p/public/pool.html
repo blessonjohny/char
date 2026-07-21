@@ -172,6 +172,24 @@
 </style>
 </head>
 <body>
+<script>
+  // Build marker + deploy-mismatch check -- lets a bug report be settled
+  // against this exact code instead of guessing whether the server has
+  // actually picked up the latest deploy yet. If the server's own
+  // buildTag doesn't match this page's, an unmissable banner says so
+  // instead of leaving "why don't I see the fix" as a silent mystery.
+  window.K28_BUILD_TAG = 'multi-game-platform · 2026-07-21';
+  fetch('/status').then(r => r.json()).then(data => {
+    const serverTag = data && data.buildTag;
+    if (serverTag !== window.K28_BUILD_TAG) {
+      const b = document.createElement('div');
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#a11;color:#fff;font-size:0.75rem;font-weight:700;padding:8px 10px;text-align:center;line-height:1.4';
+      b.textContent = `⚠️ DEPLOY INCOMPLETE: this page is build "${window.K28_BUILD_TAG}" but the server is running "${serverTag || 'an older build (no buildTag)'}" — redeploy so both match. Fixes will NOT work until they do.`;
+      document.body.appendChild(b);
+      console.warn('[build-mismatch]', { page: window.K28_BUILD_TAG, server: serverTag });
+    }
+  }).catch(() => {});
+</script>
 <div class="app">
   <h1>8-Ball Pool</h1>
   <div style="width:100%;max-width:460px;background:rgba(230,140,50,0.12);border:1px solid rgba(230,140,50,0.4);border-radius:10px;padding:10px 14px;margin-bottom:10px;text-align:center;font-size:12.5px;color:#f0c896;line-height:1.5">
@@ -473,9 +491,17 @@
         shotState.spinApplied = true;
         const { spinX: sx, spinY: sy, aimDirX, aimDirY } = shotState;
         if (Math.abs(sx) > 0.05 || Math.abs(sy) > 0.05) {
-          const speed = Math.hypot(cueBall.vx, cueBall.vy);
-          const followAmt = -sy * speed * 1.1; // sy<0 (top spin, dragged up) -> positive follow
-          const sideAmt = sx * speed * 0.75;
+          // Use the cue ball's speed BEFORE the collision, not after --
+          // spin is stored energy independent of how much forward
+          // momentum transferred to the target. A dead-straight,
+          // dead-center hit transfers nearly ALL of the cue ball's
+          // forward speed to the target (correct physics), leaving
+          // almost nothing left for a post-collision formula to work
+          // with -- which is exactly why a draw shot "just sat there"
+          // instead of coming back.
+          const speed = Math.hypot(prevVx, prevVy);
+          const followAmt = -sy * speed * 0.42; // sy<0 (top spin, dragged up) -> positive follow
+          const sideAmt = sx * speed * 0.28;
           const perpX = -aimDirY, perpY = aimDirX;
           cueBall.vx += aimDirX*followAmt + perpX*sideAmt;
           cueBall.vy += aimDirY*followAmt + perpY*sideAmt;
@@ -874,6 +900,8 @@
     startNewGame();
   });
   document.getElementById('menuBtn').addEventListener('click', () => {
+    const activeGameInProgress = GAME_WRAP.classList.contains('show') && !gameOver;
+    if (activeGameInProgress && !confirm('Leave this game? Your progress will be lost.')) return;
     GAME_WRAP.classList.remove('show');
     MENU.style.display = 'block';
   });

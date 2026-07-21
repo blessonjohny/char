@@ -32,6 +32,15 @@
   const WALL_RESTITUTION = 0.86;
   const BALL_RESTITUTION = 0.98;
   const MAX_SHOT_SPEED = 32;
+  // Spin (English) physics constants. spinTop/spinBack and spinSide are
+  // tracked as their own decaying quantities, separate from the ball's
+  // straight-line velocity -- this is what makes spin act like real
+  // rolling friction gradually converting spin into motion, rather than
+  // a single instant nudge. SPIN_DECAY controls how many frames the
+  // spin lasts before fully converting/dissipating; SPIN_RATE controls
+  // how strongly it pushes the ball each frame while it's active.
+  const SPIN_DECAY = 0.965;
+  const SPIN_RATE = 0.42;
 
   // ==================== BALL SETUP ====================
   const BALL_COLORS = {
@@ -96,8 +105,28 @@
 
     balls.forEach(b => {
       if (b.potted) return;
-      if (Math.abs(b.vx) < MIN_SPEED && Math.abs(b.vy) < MIN_SPEED) { b.vx = 0; b.vy = 0; return; }
+      const hasSpin = (b.spinTop && Math.abs(b.spinTop) > 0.01) || (b.spinSide && Math.abs(b.spinSide) > 0.01);
+      if (!hasSpin && Math.abs(b.vx) < MIN_SPEED && Math.abs(b.vy) < MIN_SPEED) { b.vx = 0; b.vy = 0; return; }
       stillMoving = true;
+      // Spin (English): a decaying push along the ball's fixed original
+      // shot-direction axis, not its current (possibly deflected)
+      // velocity direction -- topspin/backspin keep pulling the ball
+      // forward/backward along the line it was actually struck on,
+      // exactly the same before AND after it hits another ball, since
+      // this just runs every single frame regardless of what else
+      // happened. This naturally produces follow (top spin continuing
+      // the ball onward after contact) and draw (back spin pulling it
+      // back) without any special-casing at the moment of collision.
+      if (b.spinTop || b.spinSide) {
+        const sdx = b.spinDirX || 0, sdy = b.spinDirY || 1;
+        const perpX = -sdy, perpY = sdx;
+        b.vx += sdx*(b.spinTop||0)*SPIN_RATE + perpX*(b.spinSide||0)*SPIN_RATE;
+        b.vy += sdy*(b.spinTop||0)*SPIN_RATE + perpY*(b.spinSide||0)*SPIN_RATE;
+        b.spinTop = (b.spinTop||0) * SPIN_DECAY;
+        b.spinSide = (b.spinSide||0) * SPIN_DECAY;
+        if (Math.abs(b.spinTop) < 0.01) b.spinTop = 0;
+        if (Math.abs(b.spinSide) < 0.01) b.spinSide = 0;
+      }
       b.x += b.vx; b.y += b.vy;
       b.vx *= FRICTION; b.vy *= FRICTION;
 
