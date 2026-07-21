@@ -217,10 +217,27 @@
         <span id="powerFillVal">0%</span>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-        <div id="spinSelector" style="position:relative;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fdf8ee, #d8cdb8);border:1.5px solid rgba(230,184,79,0.5);touch-action:none;cursor:pointer">
-          <div id="spinDot" style="position:absolute;width:8px;height:8px;border-radius:50%;background:#c0392b;border:1px solid rgba(0,0,0,0.4);left:50%;top:50%;transform:translate(-50%,-50%)"></div>
+        <button id="spinBtn" style="position:relative;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fdf8ee, #d8cdb8);border:2px solid var(--gold);cursor:pointer;padding:0">
+          <div id="spinBtnDot" style="position:absolute;width:7px;height:7px;border-radius:50%;background:#c0392b;border:1px solid rgba(0,0,0,0.4);left:50%;top:50%;transform:translate(-50%,-50%)"></div>
+        </button>
+        <span style="font-size:9px;color:var(--gold-dim);font-weight:700">SPIN</span>
+      </div>
+    </div>
+
+    <div id="spinModalBackdrop" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(5,10,8,0.85);align-items:center;justify-content:center">
+      <div style="background:linear-gradient(160deg,var(--rail),var(--rail-dark));border-radius:18px;padding:24px;text-align:center;border:1px solid rgba(230,184,79,0.3)">
+        <div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:4px;letter-spacing:1px">SET SPIN</div>
+        <div style="font-size:11px;color:var(--ink-dim);margin-bottom:16px;max-width:200px">Tap where the cue tip strikes the ball. Center = no spin.</div>
+        <div id="spinSelector" style="position:relative;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fdf8ee, #d8cdb8);border:3px solid var(--gold);touch-action:none;cursor:pointer;margin:0 auto">
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:1px;height:100%;background:rgba(0,0,0,0.12)"></div>
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:100%;height:1px;background:rgba(0,0,0,0.12)"></div>
+          <div id="spinDot" style="position:absolute;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #e8544a, #a8261c);border:2px solid rgba(0,0,0,0.4);left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>
         </div>
-        <span style="font-size:9px;color:var(--gold-dim)">Spin</span>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--gold-dim);margin-top:6px;width:150px;margin-left:auto;margin-right:auto">
+          <span>TOP SPIN</span>
+        </div>
+        <button id="spinDoneBtn" class="start-btn" style="margin-top:18px;width:150px">Done</button>
+        <button id="spinResetBtn" class="ctrl-btn" style="margin-top:8px;width:150px">Reset to Center</button>
       </div>
     </div>
 
@@ -290,6 +307,9 @@
   (function setupSpinSelector(){
     const el = document.getElementById('spinSelector');
     const dot = document.getElementById('spinDot');
+    const btn = document.getElementById('spinBtn');
+    const btnDot = document.getElementById('spinBtnDot');
+    const backdrop = document.getElementById('spinModalBackdrop');
     let dragging = false;
     function setFromEvent(evt) {
       const rect = el.getBoundingClientRect();
@@ -299,8 +319,14 @@
       const dist = Math.hypot(dx,dy);
       if (dist > 1) { dx /= dist; dy /= dist; }
       spinX = dx; spinY = dy;
-      dot.style.left = (50 + dx*38) + '%';
-      dot.style.top = (50 + dy*38) + '%';
+      updateSpinDots();
+    }
+    function updateSpinDots() {
+      dot.style.left = (50 + spinX*38) + '%';
+      dot.style.top = (50 + spinY*38) + '%';
+      btnDot.style.left = (50 + spinX*32) + '%';
+      btnDot.style.top = (50 + spinY*32) + '%';
+      btn.style.borderColor = (Math.abs(spinX) > 0.05 || Math.abs(spinY) > 0.05) ? '#ff8a3c' : 'var(--gold)';
     }
     el.addEventListener('mousedown', e => { dragging = true; setFromEvent(e); });
     el.addEventListener('touchstart', e => { dragging = true; setFromEvent(e); e.preventDefault(); }, {passive:false});
@@ -308,6 +334,12 @@
     window.addEventListener('touchmove', e => { if (dragging) { setFromEvent(e); e.preventDefault(); } }, {passive:false});
     window.addEventListener('mouseup', () => dragging = false);
     window.addEventListener('touchend', () => dragging = false);
+
+    btn.addEventListener('click', () => { backdrop.style.display = 'flex'; });
+    document.getElementById('spinDoneBtn').addEventListener('click', () => { backdrop.style.display = 'none'; });
+    document.getElementById('spinResetBtn').addEventListener('click', () => { spinX = 0; spinY = 0; updateSpinDots(); });
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) backdrop.style.display = 'none'; });
+    window.updateSpinDots = updateSpinDots;
   })();
 
   let ballInHand = false;
@@ -320,8 +352,7 @@
     gestureMode = null; dragCurrent = null; liveAimDir = null; lockedDir = null;
     powerPercent = 0; setPowerMeter(0);
     spinX = 0; spinY = 0;
-    const dot = document.getElementById('spinDot');
-    if (dot) { dot.style.left = '50%'; dot.style.top = '50%'; }
+    if (window.updateSpinDots) updateSpinDots();
   }
   function setPowerMeter(pct) {
     document.getElementById('powerFill').style.width = pct + '%';
@@ -404,6 +435,7 @@
   // ==================== PHYSICS LOOP ====================
   function loop() {
     if (phase === 'moving') {
+      const prevVx = cueBall.vx, prevVy = cueBall.vy;
       const r = PE.stepPhysics(balls, shotState);
       if (r.potted.length) shotState.pottedThisShot = (shotState.pottedThisShot||[]).concat(r.potted);
       // The instant the cue ball makes its first contact, apply a
@@ -422,6 +454,22 @@
           const perpX = -aimDirY, perpY = aimDirX;
           cueBall.vx += aimDirX*followAmt + perpX*sideAmt;
           cueBall.vy += aimDirY*followAmt + perpY*sideAmt;
+        }
+      }
+      // Side (left/right) spin "grabs" a cushion and alters the rebound
+      // angle -- detected as a sign flip in the cue ball's velocity
+      // along one axis (a bounce just happened), and only while side
+      // spin from this shot is still meaningfully present.
+      if (Math.abs(shotState.spinX) > 0.05) {
+        const bouncedX = (prevVx > 0.3 && cueBall.vx < -0.3) || (prevVx < -0.3 && cueBall.vx > 0.3);
+        const bouncedY = (prevVy > 0.3 && cueBall.vy < -0.3) || (prevVy < -0.3 && cueBall.vy > 0.3);
+        if (bouncedX || bouncedY) {
+          const rebSpeed = Math.hypot(cueBall.vx, cueBall.vy);
+          const rebAng = Math.atan2(cueBall.vy, cueBall.vx);
+          const grab = shotState.spinX * 0.35; // radians of deflection from the rail "grabbing" the spin
+          const newAng = rebAng + grab;
+          cueBall.vx = Math.cos(newAng) * rebSpeed;
+          cueBall.vy = Math.sin(newAng) * rebSpeed;
         }
       }
       if (!r.stillMoving) {
