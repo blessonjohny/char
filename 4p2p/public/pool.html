@@ -149,7 +149,7 @@
     box-shadow:0 12px 40px rgba(0,0,0,0.55), inset 0 0 0 2px rgba(230,184,79,0.2);
     max-width:100%;
   }
-  canvas{display:block; max-width:100%; height:auto; border-radius:4px; touch-action:none}
+  canvas{display:block; max-width:100%; max-height:78vh; width:auto; height:auto; margin:0 auto; border-radius:4px; touch-action:none}
   .msg-log{
     text-align:center; font-size:12.5px; color:var(--ink-dim);
     margin:10px 0; min-height:18px;
@@ -208,7 +208,7 @@
     </div>
 
     <div class="table-frame">
-      <canvas id="board" width="900" height="450"></canvas>
+      <canvas id="board" width="450" height="900"></canvas>
     </div>
 
     <div class="msg-log" id="msgLog">Drag the cue ball to line up, then aim and strike.</div>
@@ -523,7 +523,7 @@
     if (shotStage==='aim' && liveAimDir) { dirX=liveAimDir.x; dirY=liveAimDir.y; }
     else if (shotStage==='power' && lockedDir) { dirX=lockedDir.x; dirY=lockedDir.y; }
     else return;
-    const len = 700;
+    const len = 950;
     ctx.save();
     ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 2; ctx.setLineDash([6,5]);
     ctx.beginPath(); ctx.moveTo(cueBall.x,cueBall.y);
@@ -572,16 +572,16 @@
   window.POOL_DEBUG = {
     get balls() { return balls.map(b=>({num:b.num,x:Math.round(b.x),y:Math.round(b.y),potted:b.potted})); },
     setupPocketShot(ballNum) {
-      const pocket = PE.pocketCenters()[2]; // top-right corner
+      const pocket = PE.pocketCenters()[5]; // bottom-right corner, room up-and-left for the test setup
       const target = balls.find(b => b.num === ballNum);
-      target.x = pocket.x - 60; target.y = pocket.y + 15;
-      cueBall.x = pocket.x - 200; cueBall.y = pocket.y + 15;
+      target.x = pocket.x - 60; target.y = pocket.y - 15;
+      cueBall.x = pocket.x - 200; cueBall.y = pocket.y - 15;
       const dx = target.x - cueBall.x, dy = target.y - cueBall.y;
       const len = Math.hypot(dx,dy);
       return { dirX: dx/len, dirY: dy/len };
     },
     setupScratchShot() {
-      const pocket = PE.pocketCenters()[2];
+      const pocket = PE.pocketCenters()[5];
       cueBall.x = pocket.x - 150; cueBall.y = pocket.y;
       const dx = pocket.x - cueBall.x, dy = pocket.y - cueBall.y;
       const len = Math.hypot(dx,dy);
