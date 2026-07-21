@@ -405,10 +405,12 @@
     <div class="menu-note" id="playersNote">You play from the bottom, your opponent sits opposite at the top.</div>
 
     <h2 id="diffLabel">Bot difficulty</h2>
-    <div class="opt-row" id="diffRow">
+    <div class="opt-row" id="diffRow" style="flex-wrap:wrap">
+      <button class="opt-btn" data-diff="beginner">Beginner</button>
       <button class="opt-btn" data-diff="easy">Easy</button>
       <button class="opt-btn active" data-diff="medium">Medium</button>
       <button class="opt-btn" data-diff="hard">Hard</button>
+      <button class="opt-btn" data-diff="perfect">Perfect</button>
     </div>
 
     <button class="start-btn" id="startBtn">Set Up Board</button>
@@ -1525,6 +1527,7 @@
     get phase() { return phase; },
     get shotStage() { return shotStage; },
     get gestureMode() { return gestureMode; },
+    get liveAimDir() { return liveAimDir; },
     testApplyRemoteState(state) {
       const strikerBefore = { x: striker.x, y: striker.y };
       const phaseBefore = phase;
@@ -2119,9 +2122,11 @@
         // it already planned — hard fires the exact calculated shot, medium
         // and easy add real aim/power error (and occasional bigger slips)
         const DIFF_SETTINGS = {
-          hard:   { aimJitter: 0,     powerJitter: 0,    missChance: 0    },
-          medium: { aimJitter: 0.035, powerJitter: 0.08, missChance: 0.12 },
-          easy:   { aimJitter: 0.09,  powerJitter: 0.18, missChance: 0.30 }
+          beginner: { aimJitter: 0.14,  powerJitter: 0.28, missChance: 0.45 },
+          easy:     { aimJitter: 0.09,  powerJitter: 0.18, missChance: 0.30 },
+          medium:   { aimJitter: 0.035, powerJitter: 0.08, missChance: 0.12 },
+          hard:     { aimJitter: 0.012, powerJitter: 0.03, missChance: 0.02 },
+          perfect:  { aimJitter: 0,     powerJitter: 0,    missChance: 0    }
         };
         const diffCfg = DIFF_SETTINGS[difficulty] || DIFF_SETTINGS.medium;
 
@@ -2144,10 +2149,18 @@
         const dist = Math.hypot(dx,dy) || 1;
         const dirx = dx/dist, diry = dy/dist;
 
-        let speed = Math.min(MAX_SHOT_SPEED, dist * 0.05 + 10);
+        // Deliberately its own cap, independent of MAX_SHOT_SPEED -- that
+        // constant was raised (26 -> 34) specifically so a full-power
+        // HUMAN shot travels further after cushion bounces, and was
+        // never meant to also raise how hard bots hit. Using it directly
+        // here meant every bot shot got proportionally more powerful
+        // too, the moment that change landed, without anyone deciding
+        // bots should hit harder.
+        const BOT_MAX_SPEED = 26;
+        let speed = Math.min(BOT_MAX_SPEED, dist * 0.05 + 10);
         if(diffCfg.powerJitter > 0){
           speed *= 1 + (Math.random()*2 - 1) * diffCfg.powerJitter;
-          speed = Math.max(4, Math.min(MAX_SHOT_SPEED, speed));
+          speed = Math.max(4, Math.min(BOT_MAX_SPEED, speed));
         }
 
         fireStriker(dirx*speed, diry*speed);
@@ -2162,6 +2175,7 @@
   let touchStart = null;
   let strikerStartAlong = null;
   let dragCurrent = null;
+  let aimTouchAnchor = null;    // {x,y} — wherever the finger first touched down for aiming; the "zero" point drag direction is measured against, not the striker's own position
   let lockedDir = null;         // {x,y} unit vector once aim is locked
   let liveAimDir = null;        // {x,y} smoothed unit vector while actively dragging to aim
   let aimSoftLocked = false;    // true once you've held still long enough to freeze the aim
@@ -2279,6 +2293,7 @@
     } else if(shotStage === 'aim'){
       gestureMode = 'aim';
       dragCurrent = pos;
+      aimTouchAnchor = pos;
       liveAimDir = null;
       aimSoftLocked = false;
       dwellAnchor = null;
@@ -2312,7 +2327,7 @@
 
       // Soft-lock: hold still to freeze aim direction
       if(!aimSoftLocked){
-        const dx = striker.x - pos.x, dy = striker.y - pos.y;
+        const dx = aimTouchAnchor.x - pos.x, dy = aimTouchAnchor.y - pos.y;
         const rawDist = Math.hypot(dx,dy);
         if(rawDist > 4){
           liveAimDir = { x: dx/rawDist, y: dy/rawDist };
@@ -2328,7 +2343,7 @@
           aimSoftLocked = false;
           dwellAnchor = { x: pos.x, y: pos.y, time: now };
           // Update direction immediately on unlock
-          const dx = striker.x - pos.x, dy = striker.y - pos.y;
+          const dx = aimTouchAnchor.x - pos.x, dy = aimTouchAnchor.y - pos.y;
           const rawDist = Math.hypot(dx,dy);
           if(rawDist > 4){
             liveAimDir = { x: dx/rawDist, y: dy/rawDist };
@@ -2342,10 +2357,14 @@
       if(Math.abs(dy) > 6) powerMoved = true;
       powerPercent = Math.max(0, Math.min(100, powerBaseValue + dy/2));
       setPowerMeter(powerPercent);
-      if(!powerStartTime) powerStartTime = performance.now();
-      if(performance.now() - powerStartTime > 3000){
-        resetShotStage();
-        setMsg('<span class="warn">Power held too long — shot reset.</span>');
+      if(powerPercent >= 100){
+        if(!powerStartTime) powerStartTime = performance.now();
+        if(performance.now() - powerStartTime > 3000){
+          resetShotStage();
+          setMsg('<span class="warn">Held at full power too long — shot reset.</span>');
+        }
+      } else {
+        powerStartTime = 0; // dropped below max -- the "held too long" clock only counts time actually spent at full power
       }
     }
     evt.preventDefault();
