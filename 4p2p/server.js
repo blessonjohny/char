@@ -2373,7 +2373,39 @@ io.on('connection', (socket) => {
     socket.emit('carrom_roomList', carromPublicList());
   });
 
+  // Cleanly removes this socket from whatever table it's currently
+  // registered at, if any -- shared by the explicit "leave table"
+  // handler below AND by create/join, which must call this first.
+  // Without this, a socket that ends up registered at table A (say,
+  // from a stale auto-rejoin on connect) and then creates or joins a
+  // different table B would leave a ghost registration behind in A:
+  // still counted as a connected human there, so A never properly
+  // closes even though nobody is actually using it anymore.
+  function carromLeaveCurrentTableIfAny() {
+    const t = carromTables[carromTableId];
+    if (t) {
+      const info = t.sockets.get(socket.id);
+      t.sockets.delete(socket.id);
+      if (info && t.seats[info.pos] && t.seats[info.pos].playerId === info.playerId) {
+        if (t.phase === 'lobby') {
+          t.seats[info.pos] = null;
+        } else {
+          t.seats[info.pos].isBot = true;
+          t.seats[info.pos].connected = true;
+          t.seats[info.pos].playerId = null;
+        }
+        if (info.playerId) delete carromPlayerIndex[info.playerId];
+      }
+      carromEnsureHumanHost(t);
+      const anyHumanLeft = t.seats.some(s => s && !s.isBot);
+      if (!t.seats.some(Boolean) || !anyHumanLeft) delete carromTables[carromTableId];
+      else carromBroadcast(t);
+    }
+    carromTableId = null;
+  }
+
   socket.on('carrom_createTable', ({ name, playerCount }) => {
+    carromLeaveCurrentTableIfAny();
     const pc = playerCount === 4 ? 4 : 2;
     const id = 'C' + crypto.randomBytes(4).toString('hex').toUpperCase();
     const playerId = crypto.randomBytes(8).toString('hex');
@@ -2392,6 +2424,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('carrom_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
+    carromLeaveCurrentTableIfAny();
     // Reconnect via saved token first.
     if (existingPlayerId && carromPlayerIndex[existingPlayerId]) {
       const idx = carromPlayerIndex[existingPlayerId];
