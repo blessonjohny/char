@@ -2335,13 +2335,18 @@ function carromEnsureHumanHost(t, preferPlayerId) {
 function carromPublicList() {
   return Object.values(carromTables)
     .filter(t => t.seats.some(Boolean))
-    .map(t => ({
-      id: t.id,
-      playerCount: t.playerCount,
-      openSeats: t.seats.filter(s => !s).length,
-      phase: t.phase,
-      hostName: (t.seats.find(s => s && s.playerId === t.hostPlayerId) || {}).name || '?'
-    }));
+    .map(t => {
+      const botSeatIndices = t.seats.map((s,i) => (s && s.isBot) ? i : null).filter(i => i !== null);
+      return {
+        id: t.id,
+        playerCount: t.playerCount,
+        openSeats: t.seats.filter(s => !s).length,
+        botSeats: botSeatIndices.length,
+        botSeatIndices,
+        phase: t.phase,
+        hostName: (t.seats.find(s => s && s.playerId === t.hostPlayerId) || {}).name || '?'
+      };
+    });
 }
 
 function carromBroadcast(t) {
@@ -2488,6 +2493,26 @@ io.on('connection', (socket) => {
     t.lastActivityAt = Date.now();
     carromBroadcast(t);
     console.log(`[carrom] table ${t.id} started`);
+  });
+
+  // Restart used to only reset whoever clicked it locally -- everyone
+  // else at the table stayed on the old board, then immediately went
+  // out of sync the moment a new shot's result got broadcast against a
+  // board state they never actually had. This makes restart a real
+  // sync point: only the effective host can trigger it, and every
+  // player's client resets together, at the same signal, at once.
+  socket.on('carrom_restartMatch', () => {
+    const t = carromTables[carromTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info || !carromIsEffectiveHost(t, info.playerId)) return;
+    t.boardState = null; // the old board is no longer valid for anyone
+    t.lastActivityAt = Date.now();
+    for (const [socketId] of t.sockets) {
+      const sock = io.sockets.sockets.get(socketId);
+      if (sock) sock.emit('carrom_restartMatch');
+    }
+    console.log(`[carrom] table ${t.id} restarted by host`);
   });
 
   // The core sync point: whoever's turn it was just finished a shot
