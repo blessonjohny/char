@@ -32,7 +32,7 @@
   .app{
     max-width:920px;
     margin:0 auto;
-    padding:18px 14px 40px;
+    padding:14px 6px 32px;
     min-height:100vh;
     display:flex;
     flex-direction:column;
@@ -272,7 +272,7 @@
   .board-frame{
     position:relative;
     width:100%;
-    max-width:640px;
+    max-width:880px;
     aspect-ratio:1/1;
     touch-action:none;
   }
@@ -443,7 +443,7 @@
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
   const SIZE = 800;
-  const MARGIN = 40; // was 58 -- the rail only needs to clear the pocket holes (outer edge sits at MARGIN-24) plus a small buffer; this gives the playing surface substantially more room without crowding the pockets
+  const MARGIN = 28; // was 40 -- thinner still, leaving the pocket holes (outer edge at MARGIN-24) just a small 4px clean buffer instead of a more generous gap
   const PLAY_MIN = MARGIN, PLAY_MAX = SIZE - MARGIN;
   const PLAY_SIZE = PLAY_MAX - PLAY_MIN;
   const CENTER = SIZE / 2;
@@ -2412,27 +2412,27 @@
       ctx.shadowBlur = 1.5;
       ctx.shadowOffsetY = 1;
       ctx.fillStyle = 'rgba(210,175,120,0.55)';
-      ctx.font = '700 15px Georgia, "Times New Roman", serif';
+      ctx.font = '700 11px Georgia, "Times New Roman", serif';
       ctx.fillText('TARO', 0, 0);
       ctx.shadowBlur = 0.5;
       ctx.fillStyle = 'rgba(210,175,120,0.4)';
-      ctx.font = '600 6.5px Georgia, "Times New Roman", serif';
-      ctx.fillText('B O A R D S', 0, 10);
+      ctx.font = '600 4.5px Georgia, "Times New Roman", serif';
+      ctx.fillText('B O A R D S', 0, 7);
       ctx.restore();
     }
     // top and bottom rails: text sits upright, centered horizontally
-    brandAt(CENTER, railMid + 4);
-    brandAt(CENTER, SIZE - railMid + 4);
+    brandAt(CENTER, railMid + 3);
+    brandAt(CENTER, SIZE - railMid + 3);
     // left and right rails: rotated 90 degrees to run along the edge
     ctx.save();
     ctx.translate(railMid, CENTER);
     ctx.rotate(-Math.PI/2);
-    brandAt(0, 4);
+    brandAt(0, 3);
     ctx.restore();
     ctx.save();
     ctx.translate(SIZE - railMid, CENTER);
     ctx.rotate(Math.PI/2);
-    brandAt(0, 4);
+    brandAt(0, 3);
     ctx.restore();
   }
 
