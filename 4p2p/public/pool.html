@@ -199,15 +199,29 @@
   <div class="game-wrap" id="gameWrap">
     <div class="foul-banner" id="foulBanner"></div>
     <div class="hud">
-      <div class="player-badge" id="badgeP1"><span class="group-dot none" id="dotP1"></span> <span id="p1Name">You</span></div>
-      <div class="player-badge" id="badgeP2"><span class="group-dot none" id="dotP2"></span> <span id="p2Name">Bot</span></div>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
+        <div class="player-badge" id="badgeP1"><span class="group-dot none" id="dotP1"></span> <span id="p1Name">You</span></div>
+        <div id="pottedP1" style="display:flex;gap:2px;flex-wrap:wrap;max-width:140px"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+        <div class="player-badge" id="badgeP2"><span class="group-dot none" id="dotP2"></span> <span id="p2Name">Bot</span></div>
+        <div id="pottedP2" style="display:flex;gap:2px;flex-wrap:wrap;max-width:140px;justify-content:flex-end"></div>
+      </div>
     </div>
     <div class="turn-label" id="turnLabel">Your turn — break!</div>
 
-    <div class="power-meter">
-      <span>Power</span>
-      <div class="power-meter-track"><div class="power-meter-fill" id="powerFill"></div></div>
-      <span id="powerFillVal">0%</span>
+    <div style="display:flex;align-items:center;gap:14px;width:100%;max-width:900px;margin-bottom:6px">
+      <div class="power-meter" style="flex:1;margin-bottom:0">
+        <span>Power</span>
+        <div class="power-meter-track"><div class="power-meter-fill" id="powerFill"></div></div>
+        <span id="powerFillVal">0%</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div id="spinSelector" style="position:relative;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fdf8ee, #d8cdb8);border:1.5px solid rgba(230,184,79,0.5);touch-action:none;cursor:pointer">
+          <div id="spinDot" style="position:absolute;width:8px;height:8px;border-radius:50%;background:#c0392b;border:1px solid rgba(0,0,0,0.4);left:50%;top:50%;transform:translate(-50%,-50%)"></div>
+        </div>
+        <span style="font-size:9px;color:var(--gold-dim)">Spin</span>
+      </div>
     </div>
 
     <div class="table-frame">
@@ -269,6 +283,33 @@
 
   // ==================== CUE INTERACTION (position -> aim -> power -> fire) ====================
   let shotStage = 'aim'; // cue ball position is fixed except right after a scratch (ball-in-hand)
+  let spinX = 0, spinY = 0; // normalized -1..1, where on the cue ball the tip strikes (0,0 = dead center, no spin)
+
+  // Spin selector widget: drag the red dot anywhere within the circle
+  // to choose top/bottom/left/right (or anywhere in between) spin.
+  (function setupSpinSelector(){
+    const el = document.getElementById('spinSelector');
+    const dot = document.getElementById('spinDot');
+    let dragging = false;
+    function setFromEvent(evt) {
+      const rect = el.getBoundingClientRect();
+      const t = evt.touches ? evt.touches[0] : evt;
+      const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+      let dx = (t.clientX - cx) / (rect.width/2), dy = (t.clientY - cy) / (rect.height/2);
+      const dist = Math.hypot(dx,dy);
+      if (dist > 1) { dx /= dist; dy /= dist; }
+      spinX = dx; spinY = dy;
+      dot.style.left = (50 + dx*38) + '%';
+      dot.style.top = (50 + dy*38) + '%';
+    }
+    el.addEventListener('mousedown', e => { dragging = true; setFromEvent(e); });
+    el.addEventListener('touchstart', e => { dragging = true; setFromEvent(e); e.preventDefault(); }, {passive:false});
+    window.addEventListener('mousemove', e => { if (dragging) setFromEvent(e); });
+    window.addEventListener('touchmove', e => { if (dragging) { setFromEvent(e); e.preventDefault(); } }, {passive:false});
+    window.addEventListener('mouseup', () => dragging = false);
+    window.addEventListener('touchend', () => dragging = false);
+  })();
+
   let ballInHand = false;
   let gestureMode = null;
   let dragCurrent = null, liveAimDir = null;
@@ -278,6 +319,9 @@
     shotStage = ballInHand ? 'position' : 'aim';
     gestureMode = null; dragCurrent = null; liveAimDir = null; lockedDir = null;
     powerPercent = 0; setPowerMeter(0);
+    spinX = 0; spinY = 0;
+    const dot = document.getElementById('spinDot');
+    if (dot) { dot.style.left = '50%'; dot.style.top = '50%'; }
   }
   function setPowerMeter(pct) {
     document.getElementById('powerFill').style.width = pct + '%';
@@ -352,7 +396,7 @@
 
   function fireCue(dx, dy, speed) {
     cueBall.vx = dx*speed; cueBall.vy = dy*speed;
-    shotState = { firstContact: null, actingPlayer: turn };
+    shotState = { firstContact: null, actingPlayer: turn, spinX, spinY, spinApplied: false, aimDirX: dx, aimDirY: dy };
     phase = 'moving';
     document.getElementById('foulBanner').textContent = '';
   }
@@ -362,6 +406,24 @@
     if (phase === 'moving') {
       const r = PE.stepPhysics(balls, shotState);
       if (r.potted.length) shotState.pottedThisShot = (shotState.pottedThisShot||[]).concat(r.potted);
+      // The instant the cue ball makes its first contact, apply a
+      // simplified spin effect on top of the engine's own (spin-free)
+      // collision physics -- top spin ("follow") pushes the cue ball
+      // onward in its original direction after impact, bottom spin
+      // ("draw"/screw) pulls it back the opposite way, and left/right
+      // spin deflects it sideways.
+      if (shotState.firstContact !== null && !shotState.spinApplied) {
+        shotState.spinApplied = true;
+        const { spinX: sx, spinY: sy, aimDirX, aimDirY } = shotState;
+        if (Math.abs(sx) > 0.05 || Math.abs(sy) > 0.05) {
+          const speed = Math.hypot(cueBall.vx, cueBall.vy);
+          const followAmt = -sy * speed * 0.55; // sy<0 (top spin, dragged up) -> positive follow
+          const sideAmt = sx * speed * 0.35;
+          const perpX = -aimDirY, perpY = aimDirX;
+          cueBall.vx += aimDirX*followAmt + perpX*sideAmt;
+          cueBall.vy += aimDirY*followAmt + perpY*sideAmt;
+        }
+      }
       if (!r.stillMoving) {
         resolveShot();
       }
@@ -484,6 +546,19 @@
     document.getElementById('dotP2').className = 'group-dot ' + dot(groups[1]);
     document.getElementById('badgeP1').classList.toggle('active', turn===0);
     document.getElementById('badgeP2').classList.toggle('active', turn===1);
+    renderPottedTrackers();
+  }
+
+  function pottedBallIcon(num) {
+    const color = PE.BALL_COLORS[num];
+    const isStripe = num > 8;
+    return `<div style="width:16px;height:16px;border-radius:50%;background:${isStripe ? `linear-gradient(180deg,#f4ede0 0 25%, ${color} 25% 75%, #f4ede0 75%)` : color};border:1px solid rgba(0,0,0,0.35);box-shadow:inset 0 -1px 1px rgba(0,0,0,0.3)"></div>`;
+  }
+  function renderPottedTrackers() {
+    const pottedNums = balls.filter(b => b.potted && b.num !== 0 && b.num !== 8).map(b => b.num);
+    const forGroup = (g) => g ? pottedNums.filter(n => PE.ballType(n) === g).sort((a,b)=>a-b) : [];
+    document.getElementById('pottedP1').innerHTML = forGroup(groups[0]).map(pottedBallIcon).join('');
+    document.getElementById('pottedP2').innerHTML = forGroup(groups[1]).map(pottedBallIcon).join('');
   }
 
   // ==================== SIMPLE BOT ====================
@@ -524,6 +599,20 @@
   }
   function drawBall(b) {
     const color = b.num===0 ? '#f4ede0' : PE.BALL_COLORS[b.num];
+    // Turn highlight: a soft pulsing glow around the cue ball whenever
+    // it's the human player's turn to strike, so it's obvious at a
+    // glance without having to read the turn label.
+    if (b.num === 0 && canPlayerAct()) {
+      const pulse = 0.6 + Math.sin(performance.now()/300) * 0.4;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 5, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(255,215,80,${0.5 + pulse*0.4})`;
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = 'rgba(255,215,80,0.8)';
+      ctx.shadowBlur = 8 + pulse*10;
+      ctx.stroke();
+      ctx.restore();
+    }
     ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
     ctx.fillStyle = color; ctx.fill();
     if (b.num > 8) {
@@ -567,6 +656,39 @@
     return { t: closestT, hitBall };
   }
 
+  function drawCueStick(dirX, dirY) {
+    // The cue is drawn BEHIND the ball, pointing opposite the aim
+    // direction (a real cue pushes the ball forward from behind it).
+    // Pulls back further from the ball as power increases, simulating
+    // the draw-back motion before striking.
+    const pullBack = cueBall.r + 14 + (powerPercent/100) * 55;
+    const stickLen = 260;
+    const tipX = cueBall.x - dirX*pullBack, tipY = cueBall.y - dirY*pullBack;
+    const buttX = cueBall.x - dirX*(pullBack+stickLen), buttY = cueBall.y - dirY*(pullBack+stickLen);
+    const perpX = -dirY, perpY = dirX;
+    const tipW = 3, buttW = 9;
+    ctx.save();
+    // shaft body: tapered, dark polished wood with a lighter wood-grain gradient
+    ctx.beginPath();
+    ctx.moveTo(tipX + perpX*tipW/2, tipY + perpY*tipW/2);
+    ctx.lineTo(buttX + perpX*buttW/2, buttY + perpY*buttW/2);
+    ctx.lineTo(buttX - perpX*buttW/2, buttY - perpY*buttW/2);
+    ctx.lineTo(tipX - perpX*tipW/2, tipY - perpY*tipW/2);
+    ctx.closePath();
+    const woodGrad = ctx.createLinearGradient(tipX,tipY,buttX,buttY);
+    woodGrad.addColorStop(0, '#e8c896');
+    woodGrad.addColorStop(0.15, '#c99a5e');
+    woodGrad.addColorStop(1, '#5a3a20');
+    ctx.fillStyle = woodGrad;
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.75; ctx.stroke();
+    ctx.restore();
+    // cue tip: small pale leather-blue tip right at the front
+    ctx.beginPath(); ctx.arc(tipX, tipY, tipW*0.7, 0, Math.PI*2);
+    ctx.fillStyle = '#7fa8c9'; ctx.fill();
+  }
+
   function drawCueAid() {
     if (!canPlayerAct()) return;
     let dirX, dirY;
@@ -576,46 +698,95 @@
 
     const { t, hitBall } = raycastCueAim(dirX, dirY);
     const contactX = cueBall.x + dirX*t, contactY = cueBall.y + dirY*t;
+    const pulse = 0.75 + Math.sin(performance.now()/220) * 0.25;
 
-    // Main aim line — stops at the true contact point (where the cue
-    // ball's CENTER would be at impact), not drawn straight through.
+    drawCueStick(dirX, dirY);
+
+    // Main aim line — tapered filled shape (thick near the cue ball,
+    // narrowing to the contact point), dark outline underneath so it
+    // stays visible against the felt, matching Carrom's aim line style.
+    const perpX = -dirY, perpY = dirX;
+    const widthNear = 7 * (0.85+pulse*0.3), widthFar = 1.5;
+    function shaftPolygon(extra) {
+      const nw = widthNear+extra, fw = widthFar+extra;
+      ctx.beginPath();
+      ctx.moveTo(cueBall.x + perpX*nw/2, cueBall.y + perpY*nw/2);
+      ctx.lineTo(contactX + perpX*fw/2, contactY + perpY*fw/2);
+      ctx.lineTo(contactX - perpX*fw/2, contactY - perpY*fw/2);
+      ctx.lineTo(cueBall.x - perpX*nw/2, cueBall.y - perpY*nw/2);
+      ctx.closePath();
+    }
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2.5; ctx.setLineDash([6,5]);
-    ctx.lineDashOffset = -(performance.now()/45 % 11);
-    ctx.beginPath(); ctx.moveTo(cueBall.x,cueBall.y);
-    ctx.lineTo(contactX, contactY);
-    ctx.stroke();
+    shaftPolygon(2.5); ctx.fillStyle = 'rgba(10,20,15,0.5)'; ctx.fill();
+    shaftPolygon(0);
+    const shaftGrad = ctx.createLinearGradient(cueBall.x,cueBall.y,contactX,contactY);
+    shaftGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
+    shaftGrad.addColorStop(1, 'rgba(255,255,255,0.4)');
+    ctx.fillStyle = shaftGrad;
+    ctx.shadowColor = 'rgba(255,255,255,0.5)'; ctx.shadowBlur = 6;
+    ctx.fill();
     ctx.restore();
+    ctx.beginPath(); ctx.arc(contactX, contactY, 3, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fill();
 
     if (hitBall) {
       // Prediction "ghost" line: the target ball travels along the line
-      // from the CUE BALL's center through the TARGET ball's own
-      // center, extended onward — the standard aiming-aid technique,
-      // same idea as Carrom's prediction line for a struck coin.
-      const tdx = hitBall.x - cueBall.x, tdy = hitBall.y - cueBall.y;
+      // from the CONTACT POINT (where the cue ball's own center
+      // actually sits at the moment of impact — NOT the cue ball's
+      // starting position, which is only the same thing for a
+      // perfectly straight shot and wrong for any angled/cut shot)
+      // through the target ball's center, extended onward.
+      const tdx = hitBall.x - contactX, tdy = hitBall.y - contactY;
       const tlen = Math.hypot(tdx,tdy) || 1;
       const tux = tdx/tlen, tuy = tdy/tlen;
-      const predictLen = 140;
+      const predictLen = 150;
       const tex = hitBall.x + tux*predictLen, tey = hitBall.y + tuy*predictLen;
+
+      // Tapered shaft matching Carrom's prediction-line treatment —
+      // thick at the struck ball, narrowing toward the endpoint, dark
+      // outline first, cyan glow with a gentle pulse on top.
+      const tperpX = -tuy, tperpY = tux;
+      const twNear = 6*(0.85+pulse*0.3), twFar = 1.3;
+      function predPolygon(extra) {
+        const nw = twNear+extra, fw = twFar+extra;
+        ctx.beginPath();
+        ctx.moveTo(hitBall.x + tperpX*nw/2, hitBall.y + tperpY*nw/2);
+        ctx.lineTo(tex + tperpX*fw/2, tey + tperpY*fw/2);
+        ctx.lineTo(tex - tperpX*fw/2, tey - tperpY*fw/2);
+        ctx.lineTo(hitBall.x - tperpX*nw/2, hitBall.y - tperpY*nw/2);
+        ctx.closePath();
+      }
       ctx.save();
-      ctx.strokeStyle = 'rgba(120,220,255,0.75)'; ctx.lineWidth = 2; ctx.setLineDash([5,4]);
-      ctx.shadowColor = 'rgba(120,220,255,0.6)'; ctx.shadowBlur = 6;
-      ctx.beginPath(); ctx.moveTo(hitBall.x,hitBall.y);
-      ctx.lineTo(tex,tey);
-      ctx.stroke();
+      predPolygon(2); ctx.fillStyle = 'rgba(10,20,15,0.45)'; ctx.fill();
+      predPolygon(0);
+      ctx.fillStyle = 'rgba(120,220,255,0.8)';
+      ctx.shadowColor = 'rgba(120,220,255,0.75)'; ctx.shadowBlur = 8 + pulse*8;
+      ctx.fill();
       ctx.restore();
-      // A faint outline showing exactly where the target ball sits at
-      // the moment of contact, so it's clear which ball is being aimed at.
+
+      // Small arrowhead at the predicted endpoint.
+      const predAng = Math.atan2(tuy,tux);
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(tex, tey);
+      ctx.lineTo(tex - 10*Math.cos(predAng-0.4), tey - 10*Math.sin(predAng-0.4));
+      ctx.lineTo(tex - 5.5*Math.cos(predAng), tey - 5.5*Math.sin(predAng));
+      ctx.lineTo(tex - 10*Math.cos(predAng+0.4), tey - 10*Math.sin(predAng+0.4));
+      ctx.closePath();
+      ctx.shadowColor = 'rgba(120,220,255,0.75)'; ctx.shadowBlur = 8;
+      ctx.fillStyle = 'rgba(120,220,255,0.85)';
+      ctx.fill();
+      ctx.restore();
+
+      // Glowing outline showing exactly where the target ball sits at
+      // the moment of contact, pulsing in sync with the rest.
       ctx.save();
       ctx.beginPath(); ctx.arc(hitBall.x, hitBall.y, hitBall.r+2, 0, Math.PI*2);
-      ctx.strokeStyle = 'rgba(120,220,255,0.85)'; ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(120,220,255,0.9)'; ctx.lineWidth = 2 + pulse*1.5;
+      ctx.shadowColor = 'rgba(120,220,255,0.7)'; ctx.shadowBlur = 6 + pulse*6;
       ctx.stroke();
       ctx.restore();
     }
-
-    // Small marker at the contact point itself.
-    ctx.beginPath(); ctx.arc(contactX, contactY, 3, 0, Math.PI*2);
-    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill();
   }
 
   // ==================== EVENT WIRING ====================
@@ -658,12 +829,33 @@
   window.POOL_DEBUG = {
     get balls() { return balls.map(b=>({num:b.num,x:Math.round(b.x),y:Math.round(b.y),potted:b.potted})); },
     get shotStage() { return shotStage; },
+    get shotState() { return shotState; },
     get liveAimDir() { return liveAimDir; },
     get phase() { return phase; },
     testRaycast(dx, dy) {
       const len = Math.hypot(dx,dy);
       const r = raycastCueAim(dx/len, dy/len);
       return { t: r.t, hitBallNum: r.hitBall ? r.hitBall.num : null };
+    },
+    testPredictedDirection(dx, dy) {
+      const len = Math.hypot(dx,dy);
+      const ndx = dx/len, ndy = dy/len;
+      const { t, hitBall } = raycastCueAim(ndx, ndy);
+      if (!hitBall) return null;
+      const contactX = cueBall.x + ndx*t, contactY = cueBall.y + ndy*t;
+      // The CORRECT physics: direction from the contact point (ghost
+      // ball position at impact) through the target's center.
+      const correctDx = hitBall.x - contactX, correctDy = hitBall.y - contactY;
+      const correctLen = Math.hypot(correctDx, correctDy);
+      // The OLD, buggy calculation: direction from the cue ball's
+      // starting position instead -- only matches the correct one for
+      // a perfectly straight shot.
+      const buggyDx = hitBall.x - cueBall.x, buggyDy = hitBall.y - cueBall.y;
+      const buggyLen = Math.hypot(buggyDx, buggyDy);
+      return {
+        correct: { x: correctDx/correctLen, y: correctDy/correctLen },
+        buggy: { x: buggyDx/buggyLen, y: buggyDy/buggyLen }
+      };
     },
     setupPocketShot(ballNum) {
       const pocket = PE.pocketCenters()[5]; // bottom-right corner, room up-and-left for the test setup
