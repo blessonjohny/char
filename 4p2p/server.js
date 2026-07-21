@@ -593,7 +593,7 @@ const pendingSeatChoice = {};
 // to a seat they already hold. This only throttles NEW room creation.
 let roomCapEnabled = false;
 let roomCapMax = 3;
-function totalActiveRooms() { return Object.keys(tables).length + Object.keys(sixpTables).length + Object.keys(l56Rooms).length; }
+function totalActiveRooms() { return Object.keys(tables).length + Object.keys(sixpTables).length + Object.keys(l56Rooms).length + Object.keys(pokerTables).length + Object.keys(carromTables).length; }
 
 // Matches the client's ADMIN_PASSWORD default (0000) — that's the panel
 // this lock feature actually lives in — so it works out of the box, but
@@ -1421,12 +1421,21 @@ io.on('connection', (socket) => {
       touch(t);
       broadcastTable(t);
     }
-    if (!t.engine.seats.some(Boolean)) {
-      // Table just became fully empty (last occupant disconnected, or
-      // explicitly left the lobby). Per explicit instruction, don't
-      // delete it immediately -- give a real 10-minute window in case
-      // that was a network drop and they come back, rather than losing
-      // the table outright the instant it happens.
+    const anyHumanLeft = t.engine.seats.some(s => s && !s.isBot);
+    if (explicitLeave && (!t.engine.seats.some(Boolean) || !anyHumanLeft)) {
+      // The player who just explicitly left was the last human at this
+      // table -- any remaining "seats" are bot-filled, not human-owned,
+      // so there's nothing left this table is for. This is a direct
+      // result of their own deliberate exit action, not a background
+      // idle timer, so closing it here doesn't conflict with the
+      // separate "never auto-close on idle/disconnect" rule below.
+      delete tables[tableId];
+    } else if (!t.engine.seats.some(Boolean)) {
+      // Table just became fully empty via a SILENT drop (network flap,
+      // closed tab) rather than an explicit leave -- don't delete it,
+      // give a real window in case that was temporary and they come
+      // back, rather than losing the table outright the instant it
+      // happens.
       scheduleEmptyTableGrace(tables, tableId, 'roomList', publicTableList);
     } else {
       scheduleNoHumanShutdown(t, tableId);
@@ -1868,8 +1877,13 @@ io.on('connection', (socket) => {
       if (leavingPlayerId) delete sixpPlayerIndex[leavingPlayerId];
       sixpTouch(t);
       sixpBroadcastTable(t);
-      if (!t.engine.seats.some(Boolean)) {
-        scheduleEmptyTableGrace(sixpTables, sixpTableId, 'sixp_roomList', sixpPublicTableList);
+      const anyHumanLeft = t.engine.seats.some(s => s && !s.isBot);
+      if (!t.engine.seats.some(Boolean) || !anyHumanLeft) {
+        // This was a deliberate, explicit leave (this handler only runs
+        // for that, never a silent disconnect) and no human remains --
+        // any leftover "seats" are bot-filled, not human-owned. Close
+        // the table now as a direct result of that exit action.
+        delete sixpTables[sixpTableId];
       }
       io.emit('sixp_roomList', sixpPublicTableList());
     });
@@ -2204,7 +2218,16 @@ io.on('connection', (socket) => {
     if (info && r.hostPlayerId === info.playerId) l56ReassignHost(r);
     socket.data.l56 = null;
     l56Touch(r);
-    l56Broadcast(code);
+    if (r.sockets.size === 0) {
+      // Explicit, deliberate leave (this handler only fires for that,
+      // never a silent disconnect) and nobody else is connected to this
+      // table anymore -- close it now as a direct result of that exit,
+      // rather than leaving an empty room hanging around indefinitely.
+      delete l56Rooms[code];
+      io.emit('l56_roomList', l56PublicList());
+    } else {
+      l56Broadcast(code);
+    }
   });
 
   // ---------------- Shared state blob sync (unchanged mechanics) ----------------
@@ -2472,7 +2495,16 @@ io.on('connection', (socket) => {
         if (info.playerId) delete carromPlayerIndex[info.playerId];
       }
       carromEnsureHumanHost(t);
-      if (!t.seats.some(Boolean)) delete carromTables[carromTableId];
+      // A seat converting to a bot (the branch above, for a mid-game
+      // leave) still counts as "a seat exists" for the old check below,
+      // which meant a table with zero actual humans left -- everyone
+      // having explicitly exited -- never actually closed; it just sat
+      // there indefinitely with only bots in it. This is the player's
+      // own deliberate exit action causing this, not an idle timer, so
+      // closing it here is safe and expected: if no seat is still
+      // owned by a real human, there is nothing left this table is for.
+      const anyHumanLeft = t.seats.some(s => s && !s.isBot);
+      if (!t.seats.some(Boolean) || !anyHumanLeft) delete carromTables[carromTableId];
       else carromBroadcast(t);
     }
     carromTableId = null;
@@ -2740,7 +2772,16 @@ io.on('connection', (socket) => {
       t.sockets.delete(socket.id);
       socket.leave('poker_' + pokerTableId);
       pokerTouch(t);
-      pokerBroadcast(t);
+      const anyHumanLeft = t.engine.seats.some(s => s && !s.isBot);
+      if (!t.engine.seats.some(Boolean) || !anyHumanLeft) {
+        // Deliberate, explicit leave and no human remains -- any
+        // leftover seats are bot-filled, not human-owned. Close the
+        // table now as a direct result of this exit action.
+        delete pokerTables[pokerTableId];
+        io.emit('poker_roomList', pokerPublicTableList());
+      } else {
+        pokerBroadcast(t);
+      }
     });
     pokerTableId = null; pokerPlayerId = null;
   });
