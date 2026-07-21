@@ -2341,6 +2341,15 @@ function carromBroadcast(t) {
 io.on('connection', (socket) => {
   let carromTableId = null;
 
+  // A client that just connected (selected "Play Online" but hasn't
+  // created or joined anything yet) needs the CURRENT list immediately
+  // -- the broadcast-on-change model alone means they'd only see
+  // updates from things that happen AFTER they connect, missing any
+  // table that already existed.
+  socket.on('carrom_listRooms', () => {
+    socket.emit('carrom_roomList', carromPublicList());
+  });
+
   socket.on('carrom_createTable', ({ name, playerCount }) => {
     const pc = playerCount === 4 ? 4 : 2;
     const id = 'C' + crypto.randomBytes(4).toString('hex').toUpperCase();
