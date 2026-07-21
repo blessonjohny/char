@@ -528,7 +528,10 @@
       const pocket = pockets[i];
       // point on the hook circle nearest the pocket (the "top" facing home)
       const nx = hx - dirx*hookR, ny = hy - diry*hookR;
-      return { pocket, hook:{x:hx,y:hy,r:hookR}, from:{x:nx,y:ny}, sides:c.sides };
+      // point on the OPPOSITE side of the circle -- the inner edge
+      // facing the board center, away from the pocket
+      const fx = hx + dirx*hookR, fy = hy + diry*hookR;
+      return { pocket, hook:{x:hx,y:hy,r:hookR}, from:{x:nx,y:ny}, farInner:{x:fx,y:fy}, sides:c.sides };
     });
   }
   function distToSegment(px,py,ax,ay,bx,by){
@@ -572,10 +575,11 @@
         // coin radius + a small tolerance) of the arc's own center.
         const dh = Math.hypot(coin.x-lane.hook.x, coin.y-lane.hook.y);
         if (dh <= lane.hook.r + tol) return true;
-        // The 45-degree lane line from the arc's edge (the point on the
-        // circle nearest the pocket) straight to the pocket's center --
-        // also protected the whole way, same as the arc.
-        return distToSegment(coin.x,coin.y, lane.from.x,lane.from.y, lane.pocket.x,lane.pocket.y) <= tol;
+        // The 45-degree lane line, extended to start from the INNER edge
+        // of the arc (the side facing the board center, opposite the
+        // pocket) straight through to the pocket's center -- protected
+        // the whole way, same as the arc itself.
+        return distToSegment(coin.x,coin.y, lane.farInner.x,lane.farInner.y, lane.pocket.x,lane.pocket.y) <= tol;
       });
   }
 
@@ -589,7 +593,7 @@
     for (const lane of getCornerLanes().filter(l=>l.sides.includes(seat.side))) {
       const dh = Math.hypot(coin.x-lane.hook.x, coin.y-lane.hook.y);
       if (dh <= lane.hook.r + tol) return { hookX: lane.hook.x, hookY: lane.hook.y, part: 'arc' };
-      if (distToSegment(coin.x,coin.y, lane.from.x,lane.from.y, lane.pocket.x,lane.pocket.y) <= tol) return { hookX: lane.hook.x, hookY: lane.hook.y, part: 'line' };
+      if (distToSegment(coin.x,coin.y, lane.farInner.x,lane.farInner.y, lane.pocket.x,lane.pocket.y) <= tol) return { hookX: lane.hook.x, hookY: lane.hook.y, part: 'line' };
     }
     return null;
   }
@@ -2336,7 +2340,7 @@
 
   function drawCornerLane(lane, highlightPart){
     const hx = lane.hook.x, hy = lane.hook.y, hr = lane.hook.r;
-    const fx = lane.from.x, fy = lane.from.y;
+    const fx = lane.farInner.x, fy = lane.farInner.y;
     const tx = lane.pocket.x, ty = lane.pocket.y;
 
     // 270-degree hook, opening faces the pocket — the combined visual
@@ -2364,9 +2368,11 @@
     ctx.stroke();
     ctx.restore();
 
-    // The 45-degree lane line, from the arc's edge nearest the pocket
-    // straight to the pocket's center — also a protected boundary, same
-    // orange highlight treatment as the arc when a coin is touching it.
+    // The 45-degree lane line, extended to start from the arc's INNER
+    // edge (facing the board center, opposite the pocket) so it passes
+    // straight through the arc and continues to the pocket's center —
+    // a protected boundary the whole way, same orange highlight
+    // treatment as the arc when a coin is touching it.
     ctx.save();
     if (highlightPart === 'line') {
       ctx.strokeStyle = 'rgba(255,90,60,0.95)';

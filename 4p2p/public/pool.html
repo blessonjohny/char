@@ -174,6 +174,9 @@
 <body>
 <div class="app">
   <h1>8-Ball Pool</h1>
+  <div style="width:100%;max-width:460px;background:rgba(230,140,50,0.12);border:1px solid rgba(230,140,50,0.4);border-radius:10px;padding:10px 14px;margin-bottom:10px;text-align:center;font-size:12.5px;color:#f0c896;line-height:1.5">
+    🚧 Still under construction — physics and visuals are actively being fixed. Things may look or behave a bit rough for now.
+  </div>
   <div class="subtitle">Gulan — Strike, Pocket, Win</div>
 
   <div class="menu" id="menu">
@@ -517,19 +520,84 @@
       ctx.fillText(b.num, b.x, b.y+0.5);
     }
   }
+  // Finds the first ball (if any) the cue ball would actually hit along
+  // a given direction, accounting for both balls' radii (a proper
+  // ray-vs-circle test, not just checking distance to each center) --
+  // and how far the cue ball travels before that contact happens.
+  function raycastCueAim(dirX, dirY) {
+    let closestT = Infinity, hitBall = null;
+    balls.forEach(b => {
+      if (b.potted || b === cueBall) return;
+      const ocx = cueBall.x - b.x, ocy = cueBall.y - b.y;
+      const combinedR = cueBall.r + b.r;
+      const bCoef = 2 * (ocx*dirX + ocy*dirY);
+      const cCoef = ocx*ocx + ocy*ocy - combinedR*combinedR;
+      const disc = bCoef*bCoef - 4*cCoef;
+      if (disc < 0) return;
+      const t = (-bCoef - Math.sqrt(disc)) / 2;
+      if (t > 0 && t < closestT) { closestT = t; hitBall = b; }
+    });
+    // Also cap the line at whichever cushion it would reach first, so it
+    // never gets drawn past the table edge when nothing is in the way.
+    const cushionTs = [];
+    if (dirX > 0) cushionTs.push((PE.PLAY_R - cueBall.r - cueBall.x) / dirX);
+    if (dirX < 0) cushionTs.push((PE.PLAY_L + cueBall.r - cueBall.x) / dirX);
+    if (dirY > 0) cushionTs.push((PE.PLAY_B - cueBall.r - cueBall.y) / dirY);
+    if (dirY < 0) cushionTs.push((PE.PLAY_T + cueBall.r - cueBall.y) / dirY);
+    const cushionT = Math.min(...cushionTs.filter(t => t > 0));
+    if (cushionT < closestT) { closestT = cushionT; hitBall = null; }
+    return { t: closestT, hitBall };
+  }
+
   function drawCueAid() {
     if (!canPlayerAct()) return;
     let dirX, dirY;
     if (shotStage==='aim' && liveAimDir) { dirX=liveAimDir.x; dirY=liveAimDir.y; }
     else if (shotStage==='power' && lockedDir) { dirX=lockedDir.x; dirY=lockedDir.y; }
     else return;
-    const len = 950;
+
+    const { t, hitBall } = raycastCueAim(dirX, dirY);
+    const contactX = cueBall.x + dirX*t, contactY = cueBall.y + dirY*t;
+
+    // Main aim line — stops at the true contact point (where the cue
+    // ball's CENTER would be at impact), not drawn straight through.
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 2; ctx.setLineDash([6,5]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2.5; ctx.setLineDash([6,5]);
+    ctx.lineDashOffset = -(performance.now()/45 % 11);
     ctx.beginPath(); ctx.moveTo(cueBall.x,cueBall.y);
-    ctx.lineTo(cueBall.x+dirX*len, cueBall.y+dirY*len);
+    ctx.lineTo(contactX, contactY);
     ctx.stroke();
     ctx.restore();
+
+    if (hitBall) {
+      // Prediction "ghost" line: the target ball travels along the line
+      // from the CUE BALL's center through the TARGET ball's own
+      // center, extended onward — the standard aiming-aid technique,
+      // same idea as Carrom's prediction line for a struck coin.
+      const tdx = hitBall.x - cueBall.x, tdy = hitBall.y - cueBall.y;
+      const tlen = Math.hypot(tdx,tdy) || 1;
+      const tux = tdx/tlen, tuy = tdy/tlen;
+      const predictLen = 140;
+      const tex = hitBall.x + tux*predictLen, tey = hitBall.y + tuy*predictLen;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(120,220,255,0.75)'; ctx.lineWidth = 2; ctx.setLineDash([5,4]);
+      ctx.shadowColor = 'rgba(120,220,255,0.6)'; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.moveTo(hitBall.x,hitBall.y);
+      ctx.lineTo(tex,tey);
+      ctx.stroke();
+      ctx.restore();
+      // A faint outline showing exactly where the target ball sits at
+      // the moment of contact, so it's clear which ball is being aimed at.
+      ctx.save();
+      ctx.beginPath(); ctx.arc(hitBall.x, hitBall.y, hitBall.r+2, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(120,220,255,0.85)'; ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Small marker at the contact point itself.
+    ctx.beginPath(); ctx.arc(contactX, contactY, 3, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill();
   }
 
   // ==================== EVENT WIRING ====================
@@ -571,6 +639,14 @@
 
   window.POOL_DEBUG = {
     get balls() { return balls.map(b=>({num:b.num,x:Math.round(b.x),y:Math.round(b.y),potted:b.potted})); },
+    get shotStage() { return shotStage; },
+    get liveAimDir() { return liveAimDir; },
+    get phase() { return phase; },
+    testRaycast(dx, dy) {
+      const len = Math.hypot(dx,dy);
+      const r = raycastCueAim(dx/len, dy/len);
+      return { t: r.t, hitBallNum: r.hitBall ? r.hitBall.num : null };
+    },
     setupPocketShot(ballNum) {
       const pocket = PE.pocketCenters()[5]; // bottom-right corner, room up-and-left for the test setup
       const target = balls.find(b => b.num === ballNum);
