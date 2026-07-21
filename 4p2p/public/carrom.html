@@ -792,6 +792,7 @@
     carromConnect();
     carromSocket.emit('carrom_joinTable', { tableId, name: carromNameOrDefault() });
   }
+  window.carromJoinFromList = carromJoinFromList; // called from an inline onclick= attribute, which runs in global scope -- inaccessible without this, throwing a silent error on every click
 
   function carromNameOrDefault() {
     const v = document.getElementById('carromNameInput').value.trim();
