@@ -451,11 +451,11 @@
   const QUEEN_R = 15.5;
   const STRIKER_R = 18.5;
   const POCKET_R = 30;
-  const FRICTION = 0.9865;
+  const FRICTION = 0.989; // was 0.9865 -- less per-frame decay, so a hard shot carries its energy further
   const MIN_SPEED = 0.06;
-  const WALL_RESTITUTION = 0.82;
+  const WALL_RESTITUTION = 0.86; // was 0.82 -- bouncier cushions, closer to a real carrom board's rebound
   const MAX_PULL = 150;
-  const MAX_SHOT_SPEED = 26;
+  const MAX_SHOT_SPEED = 34; // was 26 -- a full-power straight shot now travels far enough to cross the board, bounce off the far cushion, cross back and bounce off the shooter's own cushion, and still reach the far side a second time (verified numerically: ~23 -> ~13 -> ~5 speed remaining at each of the three cushion touches)
 
   const BASE_INSET = 46;
   const CHANNEL_DEPTH = 22;
@@ -791,22 +791,27 @@
       // a bot's shot, floating-point/timing differences between
       // devices could make the boards diverge. Everyone else treats a
       // bot seat as 'remote' too, waiting for the host's relay.
-      // Rotate the seat->side mapping so MY OWN seat always lands on
-      // 'bottom' visually, regardless of which seat index the server
-      // actually assigned me. Previously this used a fixed mapping
-      // (seat index 0 always drawn at bottom), which meant a player
-      // seated at index 1/2/3 would see themselves on the wrong side of
-      // the board instead of the standard "you're always at the
-      // bottom" view every other seat gets.
+      //
+      // IMPORTANT: this mapping is FIXED (seat index -> side), identical
+      // on every client, matching the server's actual seat assignment.
+      // Coin and striker positions are shared between clients as
+      // absolute (x,y) canvas coordinates via the server relay -- if
+      // each client relabeled which seat is "bottom" differently (as an
+      // earlier version of this did), the same absolute coordinates
+      // would land in the wrong visual spot for whichever client didn't
+      // match the shooter's own labeling, exactly the "coins in the
+      // same spot, striker on the wrong side" bug that produced. The
+      // "you always see yourself at the bottom" experience is instead
+      // handled by rotating the CANVAS ITSELF per-client (see
+      // displayRotationDeg below) -- a pure visual transform that never
+      // touches what any coordinate actually means.
       const sides = carromOnlinePlayerCount === 4 ? ['bottom','right','top','left'] : ['bottom','top'];
-      const pc = carromOnlinePlayerCount;
-      const sideFor = (i) => sides[((i - carromMyPos) % pc + pc) % pc];
       const colorFor = (i) => carromOnlinePlayerCount === 4 ? (i % 2 === 0 ? c1 : c2) : (i === 0 ? c1 : c2);
       return carromOnlineSeats.map((s, i) => {
         const isMe = i === carromMyPos;
         const isBot = s && s.isBot;
         const kind = isMe ? 'human' : (isBot && carromIsHost ? 'ai' : 'remote');
-        return { side: sideFor(i), color: colorFor(i), kind, name: s ? s.name : ('Seat ' + (i+1)) };
+        return { side: sides[i], color: colorFor(i), kind, name: s ? s.name : ('Seat ' + (i+1)) };
       });
     }
     if(playerCount === 2){
@@ -866,7 +871,18 @@
   }
 
   function displayRotationDeg(){
-    return 0; // board never rotates, in any mode
+    // Online mode: rotate the CANVAS DISPLAY ONLY so each player visually
+    // sees their own seat at the bottom, without changing what any
+    // coordinate actually means underneath (coins/striker stay in the
+    // same shared absolute coordinate system for every client, which is
+    // required since positions are relayed between clients as plain
+    // (x,y) values). getPos() below applies the matching inverse
+    // rotation to touch/mouse input, so dragging/aiming still lines up
+    // exactly with what's drawn on screen.
+    if (mode === 'online' && carromMyPos >= 0 && carromOnlinePlayerCount) {
+      return (carromMyPos * 360 / carromOnlinePlayerCount) % 360;
+    }
+    return 0; // local/vs-bot modes: board never rotates
   }
 
   function positionOverlapsCoin(x, y){
@@ -1390,6 +1406,10 @@
     get seatKinds() { return seats.map(s => s.kind); },
     get seats() { return seats.map(s => ({side:s.side, kind:s.kind, name:s.name})); },
     get coinsSample() { return coins.slice(0,3).map(c => ({x: Math.round(c.x), y: Math.round(c.y)})); },
+    get displayRotation() { return displayRotationDeg(); },
+    get canvasTransform() { return canvas.style.transform; },
+    testGetPos(clientX, clientY) { return getPos({ clientX, clientY }); },
+    testClearCoinsFromPath() { coins.forEach(c => { c.x = 55; c.y = 55; }); },
     get phase() { return phase; },
     get shotStage() { return shotStage; },
     get powerPercent() { return powerPercent; },
@@ -2030,10 +2050,23 @@
     const t = evt.touches ? evt.touches[0] : evt;
     const scaleX = SIZE / rect.width;
     const scaleY = SIZE / rect.height;
-    return {
-      x: (t.clientX - rect.left) * scaleX,
-      y: (t.clientY - rect.top) * scaleY
-    };
+    let x = (t.clientX - rect.left) * scaleX;
+    let y = (t.clientY - rect.top) * scaleY;
+    const rot = displayRotationDeg();
+    if (rot) {
+      // Un-rotate the touch point back into the canvas's own internal
+      // coordinate space -- the canvas is visually rotated via CSS, but
+      // every coordinate the game logic works with (coin positions,
+      // striker position, seat baselines) stays in the original,
+      // unrotated space. Without this, a visually-rotated board would
+      // make dragging/aiming land in the wrong spot entirely.
+      const cx = SIZE/2, cy = SIZE/2;
+      const rad = -rot * Math.PI/180;
+      const dx = x - cx, dy = y - cy;
+      x = cx + dx*Math.cos(rad) - dy*Math.sin(rad);
+      y = cy + dx*Math.sin(rad) + dy*Math.cos(rad);
+    }
+    return { x, y };
   }
 
   function canPlayerAct(){
