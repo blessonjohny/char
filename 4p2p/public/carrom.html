@@ -443,7 +443,7 @@
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
   const SIZE = 800;
-  const MARGIN = 58;
+  const MARGIN = 40; // was 58 -- the rail only needs to clear the pocket holes (outer edge sits at MARGIN-24) plus a small buffer; this gives the playing surface substantially more room without crowding the pockets
   const PLAY_MIN = MARGIN, PLAY_MAX = SIZE - MARGIN;
   const PLAY_SIZE = PLAY_MAX - PLAY_MIN;
   const CENTER = SIZE / 2;
@@ -2401,7 +2401,7 @@
   // wooden rails. Drawn once per side, rotated for the left/right rails
   // so the text reads correctly along that edge instead of sideways.
   function drawBoardBranding(){
-    const railMid = MARGIN / 2; // center of the 58px dark rail
+    const railMid = MARGIN / 2; // center of the dark rail
     function brandAt(cx, cy){
       ctx.save();
       ctx.translate(cx, cy);
@@ -2409,30 +2409,30 @@
       ctx.textBaseline = 'alphabetic';
       // subtle engraved look: a soft dark shadow behind lighter brass-gold text
       ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = 2;
+      ctx.shadowBlur = 1.5;
       ctx.shadowOffsetY = 1;
       ctx.fillStyle = 'rgba(210,175,120,0.55)';
-      ctx.font = '700 22px Georgia, "Times New Roman", serif';
-      ctx.fillText('TARO', 0, 2);
-      ctx.shadowBlur = 1;
+      ctx.font = '700 15px Georgia, "Times New Roman", serif';
+      ctx.fillText('TARO', 0, 0);
+      ctx.shadowBlur = 0.5;
       ctx.fillStyle = 'rgba(210,175,120,0.4)';
-      ctx.font = '600 9px Georgia, "Times New Roman", serif';
-      ctx.fillText('B O A R D S', 0, 16);
+      ctx.font = '600 6.5px Georgia, "Times New Roman", serif';
+      ctx.fillText('B O A R D S', 0, 10);
       ctx.restore();
     }
     // top and bottom rails: text sits upright, centered horizontally
-    brandAt(CENTER, railMid + 6);
-    brandAt(CENTER, SIZE - railMid + 6);
+    brandAt(CENTER, railMid + 4);
+    brandAt(CENTER, SIZE - railMid + 4);
     // left and right rails: rotated 90 degrees to run along the edge
     ctx.save();
     ctx.translate(railMid, CENTER);
     ctx.rotate(-Math.PI/2);
-    brandAt(0, 6);
+    brandAt(0, 4);
     ctx.restore();
     ctx.save();
     ctx.translate(SIZE - railMid, CENTER);
     ctx.rotate(Math.PI/2);
-    brandAt(0, 6);
+    brandAt(0, 4);
     ctx.restore();
   }
 
