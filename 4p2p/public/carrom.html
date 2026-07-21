@@ -791,11 +791,15 @@
     const pc = parseInt(document.querySelector('#onlinePlayerCountRow .opt-btn.active').dataset.onlinePlayers, 10);
     carromSocket.emit('carrom_createTable', { name: carromNameOrDefault(), playerCount: pc });
   });
-  document.getElementById('carromJoinBtn').addEventListener('click', () => {
+  function carromDoJoin() {
     const code = document.getElementById('carromJoinCodeInput').value.trim().toUpperCase();
     if (!code) return;
     carromConnect();
     carromSocket.emit('carrom_joinTable', { tableId: code, name: carromNameOrDefault() });
+  }
+  document.getElementById('carromJoinBtn').addEventListener('click', carromDoJoin);
+  document.getElementById('carromJoinCodeInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); carromDoJoin(); }
   });
   document.getElementById('carromFillBotsBtn').addEventListener('click', () => {
     carromSocket.emit('carrom_fillBots');
@@ -1406,6 +1410,13 @@
   function carromApplyRemoteState(state) {
     if (!state || phase !== 'aiming') return; // never stomp on a shot the LOCAL player has in progress
     if (state.replay && state.replay.preShotCoins) {
+      // If the acting seat in this replay is MY OWN seat, this is my
+      // own shot's broadcast echoing back from the server after I
+      // already simulated and watched it play out live -- not an
+      // opponent's shot I need to replay. My local state is already
+      // correct and authoritative for a shot I just made; replaying it
+      // again here is exactly what caused shots to visibly play twice.
+      if (state.replay.actingPos === carromMyPos) return;
       // Restore to the pre-shot position, then fire the SAME shot
       // locally so the real physics loop animates it -- this is a true
       // replay, not an instant snap. The shooter's captured final state
@@ -1486,6 +1497,31 @@
     get phase() { return phase; },
     get shotStage() { return shotStage; },
     get gestureMode() { return gestureMode; },
+    testApplyRemoteState(state) {
+      const strikerBefore = { x: striker.x, y: striker.y };
+      const phaseBefore = phase;
+      phase = 'aiming';
+      carromApplyRemoteState(state);
+      return { strikerBefore, strikerAfter: { x: striker.x, y: striker.y }, phaseAfter: phase };
+    },
+    setMyPos(p) { carromMyPos = p; },
+    testPowerDelta(rotationDeg, screenDy) {
+      // Simulates the power-drag delta calculation for a given rotation
+      // and screen-space Y movement, bypassing onDown's canvas-bounds
+      // check (which a synthetic off-canvas coordinate would fail) by
+      // setting the gesture state directly instead.
+      const origRot = displayRotationDeg;
+      displayRotationDeg = () => rotationDeg;
+      shotStage = 'power'; gestureMode = 'power';
+      powerDragStartY = getRawScreenY({ clientX: 0, clientY: 100 });
+      powerBaseValue = 0; powerMoved = false; powerStartTime = 0;
+      const moveEvt = { clientX: 0, clientY: 100 + screenDy, preventDefault(){} };
+      onMove(moveEvt);
+      const result = powerPercent;
+      displayRotationDeg = origRot;
+      resetShotStage();
+      return result;
+    },
     get powerPercent() { return powerPercent; },
     get hasLastShotSnapshot() { return !!lastShotSnapshot; },
     get isReplaying() { return carromReplayFinalState !== null; },
@@ -2143,6 +2179,21 @@
     return { x, y };
   }
 
+  // Raw screen-space Y, deliberately WITHOUT the rotation inversion
+  // getPos() applies. Aiming and positioning need the un-rotated
+  // internal coordinates (so a touch lands on the right coin/spot in
+  // game-world space) but the power drag is a pure gesture -- "drag up
+  // on my screen = more power" should feel identical for every player
+  // no matter how their board is visually rotated. Using the rotated
+  // coordinate here was the bug: for a 180-degree rotated view, that
+  // inversion is a full point reflection, so the exact same upward
+  // screen drag came out with the opposite sign, making power feel
+  // backwards specifically for whichever seat sees a rotated board.
+  function getRawScreenY(evt){
+    const t = evt.touches ? evt.touches[0] : evt;
+    return t.clientY;
+  }
+
   function canPlayerAct(){
     if(gameOver || phase!=='aiming' || isReviewing) return false;
     return currentSeat().kind === 'human';
@@ -2199,7 +2250,7 @@
       dwellAnchor = null;
     } else if(shotStage === 'power'){
       gestureMode = 'power';
-      powerDragStartY = pos.y;
+      powerDragStartY = getRawScreenY(evt);
       powerBaseValue = powerPercent;
       powerMoved = false;
     }
@@ -2253,7 +2304,7 @@
 
       if(shotStage === 'aim'){ setPowerMeter(0); }
     } else if(gestureMode === 'power'){
-      const dy = pos.y - powerDragStartY;
+      const dy = getRawScreenY(evt) - powerDragStartY;
       if(Math.abs(dy) > 6) powerMoved = true;
       powerPercent = Math.max(0, Math.min(100, powerBaseValue + dy/2));
       setPowerMeter(powerPercent);
