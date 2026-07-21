@@ -1,0 +1,2750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Carrom — Strike & Pocket</title>
+<script src="/socket.io/socket.io.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --wood-dark:#1c130c;
+    --brass:#c39a5b;
+    --brass-dim:#8a6a3c;
+    --cream:#f1e6d3;
+    --black-coin:#17171a;
+    --white-coin:#f2e8d6;
+    --ink:#efe6d6;
+    --ink-dim:#c9b696;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:
+      radial-gradient(ellipse at 50% -10%, #3a2716 0%, var(--wood-dark) 55%),
+      var(--wood-dark);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    overflow-x:hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .app{
+    max-width:920px;
+    margin:0 auto;
+    padding:18px 14px 40px;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:clamp(28px,6vw,42px);
+    letter-spacing:0.5px;
+    margin:4px 0 2px;
+    color:var(--cream);
+    text-align:center;
+  }
+  .subtitle{
+    font-size:12px;
+    letter-spacing:2.5px;
+    text-transform:uppercase;
+    color:var(--brass);
+    margin-bottom:18px;
+    text-align:center;
+  }
+  .menu{
+    width:100%;
+    max-width:460px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.15));
+    border:1px solid rgba(195,154,91,0.25);
+    border-radius:16px;
+    padding:26px 24px 28px;
+    margin-top:10px;
+  }
+  .menu h2{
+    font-family:'Fraunces',serif;
+    font-size:18px;
+    font-weight:600;
+    margin:0 0 14px;
+    color:var(--ink);
+  }
+  .opt-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:18px;
+    flex-wrap:wrap;
+  }
+  .opt-btn{
+    flex:1;
+    min-width:120px;
+    padding:12px 10px;
+    border-radius:10px;
+    border:1px solid rgba(195,154,91,0.35);
+    background:rgba(0,0,0,0.2);
+    color:var(--ink-dim);
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    cursor:pointer;
+    transition:all .15s ease;
+    text-align:center;
+  }
+  .opt-btn:hover{ border-color:var(--brass); color:var(--cream); }
+  .opt-btn.active{
+    background:linear-gradient(180deg,#c39a5b,#a67e45);
+    color:#241708;
+    border-color:#c39a5b;
+    box-shadow:0 2px 10px rgba(195,154,91,0.35);
+  }
+  .menu-note{
+    font-size:12px;
+    color:var(--ink-dim);
+    margin:-10px 0 18px;
+    line-height:1.5;
+  }
+  .start-btn{
+    width:100%;
+    padding:15px;
+    margin-top:6px;
+    border-radius:10px;
+    border:none;
+    background:linear-gradient(180deg,#b52a2a,#8f1f1f);
+    color:#fff2e6;
+    font-family:'Fraunces',serif;
+    font-size:17px;
+    font-weight:700;
+    letter-spacing:0.5px;
+    cursor:pointer;
+    box-shadow:0 4px 14px rgba(181,42,42,0.35);
+  }
+  .start-btn:active{ transform:translateY(1px); }
+  .game-wrap{
+    display:none;
+    width:100%;
+    flex-direction:column;
+    align-items:center;
+  }
+  .game-wrap.show{ display:flex; }
+  .foul-banner{
+    width:100%;
+    max-width:640px;
+    text-align:center;
+    font-size:13.5px;
+    font-weight:700;
+    color:#ffdcc8;
+    min-height:0;
+  }
+  .foul-banner.show{
+    padding:9px 14px;
+    margin-bottom:10px;
+    border-radius:10px;
+    background:rgba(181,42,42,0.28);
+    border:1px solid rgba(235,140,40,0.55);
+  }
+  .hud{
+    width:100%;
+    max-width:640px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    margin-bottom:6px;
+    flex-wrap:wrap;
+  }
+  .player-badge{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 14px;
+    border-radius:999px;
+    background:rgba(0,0,0,0.25);
+    border:1px solid rgba(195,154,91,0.2);
+    font-size:14px;
+    font-weight:600;
+    transition:all .2s ease;
+  }
+  .player-badge.turn{
+    border-color:var(--brass);
+    background:rgba(195,154,91,0.15);
+    box-shadow:0 0 0 1px rgba(195,154,91,0.3) inset;
+  }
+  .dot{ width:13px; height:13px; border-radius:50%; box-shadow:inset 0 -2px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(255,255,255,0.15);}
+  .dot.white{ background:var(--white-coin); }
+  .dot.black{ background:var(--black-coin); }
+  .score-num{
+    font-family:'JetBrains Mono',monospace;
+    color:var(--cream);
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:0.3px;
+    text-shadow:0 1px 2px rgba(0,0,0,0.4);
+  }
+  .turn-label{
+    width:100%;
+    max-width:640px;
+    text-align:center;
+    font-size:12.5px;
+    letter-spacing:0.5px;
+    color:var(--brass);
+    font-weight:600;
+    margin-bottom:10px;
+  }
+  .match-score{
+    width:100%;
+    max-width:640px;
+    text-align:center;
+    font-size:14px;
+    letter-spacing:0.3px;
+    color:var(--cream);
+    font-weight:700;
+    font-family:'JetBrains Mono',monospace;
+    margin-bottom:12px;
+    text-shadow:0 1px 2px rgba(0,0,0,0.4);
+  }
+  .queen-status{
+    width:100%;
+    max-width:640px;
+    text-align:center;
+    font-size:13px;
+    letter-spacing:0.3px;
+    color:#b52a2a;
+    font-weight:700;
+    margin-bottom:10px;
+    min-height:0;
+  }
+  .queen-status.show{
+    padding:6px 10px;
+    border-radius:8px;
+    background:rgba(181,42,42,0.12);
+    border:1px solid rgba(181,42,42,0.35);
+  }
+  .power-meter{
+    width:100%;
+    max-width:640px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:12px;
+    padding:10px 16px;
+    border-radius:10px;
+    background:rgba(0,0,0,0.22);
+    border:1px solid rgba(195,154,91,0.25);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .power-meter.active{
+    border-color: rgba(195,154,91,0.6);
+    box-shadow: 0 0 12px rgba(195,154,91,0.15);
+  }
+  .power-meter-label{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--brass);
+    text-transform:uppercase;
+    letter-spacing:1px;
+    white-space:nowrap;
+  }
+  .power-meter-track{
+    flex:1;
+    height:12px;
+    border-radius:999px;
+    background:rgba(0,0,0,0.35);
+    border:1px solid rgba(195,154,91,0.2);
+    overflow:hidden;
+  }
+  .power-meter-fill{
+    height:100%;
+    width:0%;
+    border-radius:999px;
+    background:linear-gradient(90deg, #2f9e4f, #c39a5b 60%, #b52a2a);
+    transition:width 0.08s ease-out, background 0.15s ease;
+    box-shadow: 0 0 8px rgba(195,154,91,0.3);
+  }
+  .power-meter-val{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    color:var(--cream);
+    width:42px;
+    text-align:right;
+  }
+  .board-frame{
+    position:relative;
+    width:100%;
+    max-width:640px;
+    aspect-ratio:1/1;
+    touch-action:none;
+  }
+  canvas{
+    width:100%;
+    height:100%;
+    display:block;
+    border-radius:18px;
+    box-shadow:0 12px 32px rgba(0,0,0,0.55), 0 0 0 1px rgba(195,154,91,0.15);
+    transition: transform 0.4s ease;
+  }
+  .msg-log{
+    width:100%;
+    max-width:640px;
+    margin-top:12px;
+    min-height:20px;
+    font-size:13px;
+    color:var(--ink-dim);
+    text-align:center;
+    letter-spacing:0.2px;
+  }
+  .msg-log b{ color:var(--brass); font-weight:600; }
+  .msg-log .warn{ color:#e07b4f; font-weight:700; }
+  .controls-row{
+    width:100%;
+    max-width:640px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:16px;
+  }
+  .ctrl-btn{
+    flex:1;
+    min-width:120px;
+    padding:11px;
+    border-radius:10px;
+    border:1px solid rgba(195,154,91,0.3);
+    background:rgba(0,0,0,0.2);
+    color:var(--ink-dim);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .ctrl-btn:hover{ color:var(--cream); border-color:var(--brass); }
+  .hint{
+    margin-top:10px;
+    font-size:11.5px;
+    color:var(--brass-dim);
+    text-align:center;
+    letter-spacing:0.3px;
+    line-height:1.6;
+  }
+  .win-overlay{
+    position:fixed; inset:0;
+    background:rgba(10,6,3,0.82);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    flex-direction:column;
+    text-align:center;
+    padding:20px;
+  }
+  .win-overlay.show{ display:flex; }
+  .win-overlay h2{
+    font-family:'Fraunces',serif;
+    font-size:clamp(30px,7vw,46px);
+    color:var(--brass);
+    margin:0 0 8px;
+  }
+  .win-overlay p{ color:var(--ink-dim); margin:0 0 20px; font-size:14px; max-width:340px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="menu" id="menu">
+    <h2>Opponent</h2>
+    <div class="opt-row" id="modeRow">
+      <button class="opt-btn active" data-mode="ai">Vs Bot</button>
+      <button class="opt-btn" data-mode="local">Pass &amp; Play</button>
+      <button class="opt-btn" data-mode="online">Play Online</button>
+    </div>
+
+    <div id="onlineLobby" style="display:none">
+      <input type="text" id="carromNameInput" placeholder="Your name" maxlength="20" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--brass-dim);background:rgba(255,255,255,0.05);color:var(--ink);font-size:0.9rem;margin:10px 0;font-family:inherit;box-sizing:border-box">
+      <div class="opt-row" id="onlinePlayerCountRow">
+        <button class="opt-btn active" data-online-players="2">2 Players</button>
+        <button class="opt-btn" data-online-players="4">4 Players (2v2)</button>
+      </div>
+      <button class="start-btn" id="carromCreateBtn" style="margin-top:10px">Create Table</button>
+      <div style="text-align:center;margin:10px 0;color:var(--brass-dim);font-size:0.8rem">— or —</div>
+      <input type="text" id="carromJoinCodeInput" placeholder="Enter table code" maxlength="12" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--brass-dim);background:rgba(255,255,255,0.05);color:var(--ink);font-size:0.9rem;margin-bottom:10px;font-family:inherit;box-sizing:border-box;text-transform:uppercase">
+      <button class="start-btn" id="carromJoinBtn" style="background:linear-gradient(135deg,#8a6a3c,#5e4726)">Join Table</button>
+      <div id="carromLobbyStatus" style="display:none;margin-top:14px">
+        <div style="text-align:center;font-size:0.85rem;color:var(--brass);margin-bottom:8px">Table code: <b id="carromLobbyCode" style="letter-spacing:2px"></b></div>
+        <div id="carromLobbySeats" style="margin-bottom:12px"></div>
+        <button class="ctrl-btn" id="carromFillBotsBtn" style="display:none;width:100%;margin-bottom:8px">Fill empty seats with bots</button>
+        <button class="start-btn" id="carromStartOnlineBtn" style="display:none">Start Game</button>
+        <div id="carromWaitingNote" style="text-align:center;color:var(--brass-dim);font-size:0.8rem"></div>
+      </div>
+    </div>
+
+    <h2>Players</h2>
+    <div class="opt-row" id="playersRow">
+      <button class="opt-btn active" data-players="2">2 Players</button>
+      <button class="opt-btn" data-players="4">4 Players (2v2 Teams)</button>
+    </div>
+    <div class="menu-note" id="playersNote">You play from the bottom, your opponent sits opposite at the top.</div>
+
+    <h2 id="diffLabel">Bot difficulty</h2>
+    <div class="opt-row" id="diffRow">
+      <button class="opt-btn" data-diff="easy">Easy</button>
+      <button class="opt-btn active" data-diff="medium">Medium</button>
+      <button class="opt-btn" data-diff="hard">Hard</button>
+    </div>
+
+    <button class="start-btn" id="startBtn">Set Up Board</button>
+  </div>
+
+  <div class="game-wrap" id="gameWrap">
+    <div class="foul-banner" id="foulBanner"></div>
+    <button class="ctrl-btn" id="forceMoveBtn" style="display:none; margin-bottom:10px; border-color:#e07b4f; color:#ffdcc8;">⚠ Bot seems stuck — tap to force its move</button>
+    <div class="hud">
+      <div class="player-badge" id="badgeP1"><span class="dot white"></span> <span id="p1Name">You</span> <span class="score-num" id="scoreP1">0/9</span></div>
+      <div class="player-badge" id="badgeP2"><span class="dot black"></span> <span id="p2Name">Bot</span> <span class="score-num" id="scoreP2">0/9</span></div>
+    </div>
+    <div class="turn-label" id="turnLabel">Your turn</div>
+    <div class="match-score" id="matchScoreLabel">Match: White 0 — 0 Black (first to 30, win by 2)</div>
+    <div class="queen-status" id="queenStatusLabel"></div>
+
+    <div class="power-meter">
+      <span class="power-meter-label">Power</span>
+      <div class="power-meter-track"><div class="power-meter-fill" id="powerFill"></div></div>
+      <span class="power-meter-val" id="powerFillVal">0%</span>
+    </div>
+
+    <div class="board-frame">
+      <canvas id="board" width="800" height="800"></canvas>
+    </div>
+
+    <div class="msg-log" id="msgLog">Touch the striker and drag to line up, then release.</div>
+
+    <div class="controls-row">
+      <button class="ctrl-btn" id="reviewBtn">Review Last Move</button>
+      <button class="ctrl-btn" id="slowMoBtn">Slow-Mo: Off</button>
+      <button class="ctrl-btn" id="restartBtn">Restart</button>
+      <button class="ctrl-btn" id="menuBtn">Change Mode</button>
+    </div>
+    <div class="hint">Step 1: drag the striker to line up. Step 2: drag to aim, release to lock the direction. Step 3: drag up/down to set power, release to fire. Double-tap anytime to start the shot over. A coin touching your own baseline line, or one of the 2 hook circles/lanes nearest your side, can't be potted directly — bank it off a cushion instead. Neither can a direct shot into either of the 2 pockets nearest your own side. Opponent coins always need a bank shot too. Touching any illegal coin as your very first contact (before you've bounced off a cushion or bumped a legal coin) forfeits your turn.</div>
+  </div>
+</div>
+
+<div class="win-overlay" id="winOverlay">
+  <h2 id="winTitle">You Win!</h2>
+  <p id="winSub">All coins pocketed.</p>
+  <button class="start-btn" id="playAgainBtn" style="max-width:240px;">Next Board</button>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const MENU = document.getElementById('menu');
+  const GAME_WRAP = document.getElementById('gameWrap');
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const SIZE = 800;
+  const MARGIN = 58;
+  const PLAY_MIN = MARGIN, PLAY_MAX = SIZE - MARGIN;
+  const PLAY_SIZE = PLAY_MAX - PLAY_MIN;
+  const CENTER = SIZE / 2;
+  const COIN_R = 15.5;
+  const QUEEN_R = 15.5;
+  const STRIKER_R = 18.5;
+  const POCKET_R = 30;
+  const FRICTION = 0.9865;
+  const MIN_SPEED = 0.06;
+  const WALL_RESTITUTION = 0.82;
+  const MAX_PULL = 150;
+  const MAX_SHOT_SPEED = 26;
+
+  const BASE_INSET = 46;
+  const CHANNEL_DEPTH = 22;
+  const BASE_HALF = 130;       // half-length of the decorative baseline box (art only)
+  const LINE_MARGIN = 42;      // keep the striker shy of the diagonal, and keep adjacent corners' anchors from overlapping
+
+  const SEAT_DEFS = {
+    bottom: { axis:'x', outer: PLAY_MAX-BASE_INSET, dir:-1 },
+    top:    { axis:'x', outer: PLAY_MIN+BASE_INSET, dir: 1 },
+    right:  { axis:'y', outer: PLAY_MAX-BASE_INSET, dir:-1 },
+    left:   { axis:'y', outer: PLAY_MIN+BASE_INSET, dir: 1 },
+  };
+  const ROTATION = { bottom:0, top:180, right:90, left:270 };
+
+  function baselineRange(){ return [CENTER-BASE_HALF, CENTER+BASE_HALF]; }
+  // the striker's real travel range: extends almost to the 45-degree diagonal (never touching it)
+  function strikeRange(side){
+    const outer = SEAT_DEFS[side].outer;
+    const half = Math.abs(outer - CENTER) - LINE_MARGIN;
+    return [CENTER-half, CENTER+half];
+  }
+  function seatPoint(side, along){
+    const d = SEAT_DEFS[side];
+    return d.axis==='x' ? {x:along, y:d.outer} : {x:d.outer, y:along};
+  }
+  // direction pointing "into" the board from each seat's baseline
+  const SEAT_FORWARD = {
+    bottom: {x:0, y:-1},
+    top:    {x:0, y: 1},
+    right:  {x:-1, y:0},
+    left:   {x: 1, y:0},
+  };
+  const MAX_AIM_ANGLE_FROM_FORWARD = 90; // degrees; beyond this it's along or behind your own baseline
+  function isAimDirectionAllowed(dirX, dirY, side){
+    const f = SEAT_FORWARD[side];
+    const dot = Math.max(-1, Math.min(1, dirX*f.x + dirY*f.y));
+    const angle = Math.acos(dot) * 180/Math.PI;
+    return angle <= MAX_AIM_ANGLE_FROM_FORWARD;
+  }
+
+  const CORNER_DEFS = [
+    { x:PLAY_MIN, y:PLAY_MIN, dirx:1,  diry:1,  sides:['top','left']    },
+    { x:PLAY_MAX, y:PLAY_MIN, dirx:-1, diry:1,  sides:['top','right']   },
+    { x:PLAY_MIN, y:PLAY_MAX, dirx:1,  diry:-1, sides:['bottom','left'] },
+    { x:PLAY_MAX, y:PLAY_MAX, dirx:-1, diry:-1, sides:['bottom','right']},
+  ];
+  // the 2 pockets nearest a given seat's own baseline — same corner-to-side
+  // mapping already used for the hooks, just returning the pocket instead
+  function ownPocketsFor(side){
+    const pockets = pocketCenters();
+    return CORNER_DEFS
+      .map((c,i) => c.sides.includes(side) ? pockets[i] : null)
+      .filter(Boolean);
+  }
+  function isOwnPocket(pocket, side){
+    return ownPocketsFor(side).some(p => p.x===pocket.x && p.y===pocket.y);
+  }
+
+  // for each corner: the hook circle sitting along the diagonal, and the lane
+  // (line + arrow) running from the hook down to that corner's pocket
+  function getCornerLanes(){
+    const pockets = pocketCenters(); // same TL,TR,BL,BR order as CORNER_DEFS
+    return CORNER_DEFS.map((c,i)=>{
+      const len = Math.hypot(c.dirx,c.diry) || 1;
+      const dirx = c.dirx/len, diry = c.diry/len;
+      const fullDist = Math.hypot(CENTER-c.x, CENTER-c.y);
+      const hookDist = fullDist * 0.55;
+      const hookR = 46;
+      const hx = c.x + dirx*hookDist, hy = c.y + diry*hookDist;
+      const pocket = pockets[i];
+      // point on the hook circle nearest the pocket (the "top" facing home)
+      const nx = hx - dirx*hookR, ny = hy - diry*hookR;
+      return { pocket, hook:{x:hx,y:hy,r:hookR}, from:{x:nx,y:ny}, sides:c.sides };
+    });
+  }
+  function distToSegment(px,py,ax,ay,bx,by){
+    const abx=bx-ax, aby=by-ay;
+    const t = Math.max(0, Math.min(1, ((px-ax)*abx+(py-ay)*aby)/((abx*abx+aby*aby)||1)));
+    const cx=ax+abx*t, cy=ay+aby*t;
+    return Math.hypot(px-cx, py-cy);
+  }
+  // the two lines of one side's baseline box
+  function baselineSegmentsFor(side){
+    const a0 = PLAY_MIN, a1 = PLAY_MAX; // full corner-to-corner width
+    const d = SEAT_DEFS[side];
+    const inner = d.outer + d.dir*CHANNEL_DEPTH;
+    if(d.axis==='x'){
+      return [[a0,d.outer,a1,d.outer],[a0,inner,a1,inner]];
+    }
+    return [[d.outer,a0,d.outer,a1],[inner,a0,inner,a1]];
+  }
+
+  // true if a coin is anywhere inside the baseline channel's filled area
+  // (not just touching one of its two boundary lines)
+  function inBaselineBox(coin, side){
+    const d = SEAT_DEFS[side];
+    // the striking line closer to the board center (the "top" line the coin
+    // must be behind to be protected), and the player's own wall behind them
+    const nearLine = d.outer + d.dir*STRIKER_R;
+    const wallCoord = d.outer - d.dir*BASE_INSET;
+    const lo = Math.min(nearLine, wallCoord) - coin.r - 1.5;
+    const hi = Math.max(nearLine, wallCoord) + coin.r + 1.5;
+    if(d.axis==='x'){
+      return coin.y >= lo && coin.y <= hi;
+    }
+    return coin.x >= lo && coin.x <= hi;
+  }
+
+  // a coin is protected, for the current shooter, only if it's touching THEIR OWN
+  // baseline box, or one of the 2 hook lanes nearest their own baseline —
+  // not the far side of the board, and each seat sees their own version of this.
+  function touchingProtectedLines(coin, seat){
+    const tol = coin.r + 1.5;
+    if(inBaselineBox(coin, seat.side)) return true;
+    return getCornerLanes()
+      .filter(lane=>lane.sides.includes(seat.side))
+      .some(lane=>{
+        const dh = Math.hypot(coin.x-lane.hook.x, coin.y-lane.hook.y);
+        if(dh <= lane.hook.r + tol) return true;
+        return distToSegment(coin.x,coin.y, lane.hook.x,lane.hook.y, lane.pocket.x,lane.pocket.y) <= tol;
+      });
+  }
+
+  let mode = 'ai';
+  let difficulty = 'medium';
+  let playerCount = 2;
+
+  document.getElementById('modeRow').addEventListener('click', e => {
+    const btn = e.target.closest('.opt-btn'); if(!btn) return;
+    [...document.getElementById('modeRow').children].forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+    document.getElementById('diffLabel').style.display = mode==='ai' ? 'block':'none';
+    document.getElementById('diffRow').style.display = mode==='ai' ? 'flex':'none';
+    document.getElementById('playersRow').parentElement && null;
+    document.getElementById('onlineLobby').style.display = mode==='online' ? 'block':'none';
+    document.getElementById('playersRow').style.display = mode==='online' ? 'none':'flex';
+    document.getElementById('startBtn').style.display = mode==='online' ? 'none':'block';
+    if (mode !== 'online') carromLeaveLobbyIfAny();
+    updatePlayersNote();
+  });
+  document.getElementById('diffRow').addEventListener('click', e => {
+    const btn = e.target.closest('.opt-btn'); if(!btn) return;
+    [...document.getElementById('diffRow').children].forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    difficulty = btn.dataset.diff;
+  });
+  document.getElementById('playersRow').addEventListener('click', e => {
+    const btn = e.target.closest('.opt-btn'); if(!btn) return;
+    [...document.getElementById('playersRow').children].forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    playerCount = parseInt(btn.dataset.players, 10);
+    updatePlayersNote();
+  });
+  function updatePlayersNote(){
+    const note = document.getElementById('playersNote');
+    if(playerCount === 2){
+      note.textContent = 'You play from the bottom, your opponent sits opposite at the top.';
+    } else if(mode === 'ai'){
+      note.textContent = 'You + a bot partner (Team White, bottom & top) vs two bots (Team Black, left & right).';
+    } else {
+      note.textContent = 'Pass the device around 4 sides — opposite seats are teammates and share a color.';
+    }
+  }
+  document.getElementById('startBtn').addEventListener('click', () => {
+    MENU.style.display = 'none';
+    GAME_WRAP.classList.add('show');
+    startNewMatch();
+  });
+  document.getElementById('menuBtn').addEventListener('click', () => {
+    GAME_WRAP.classList.remove('show');
+    MENU.style.display = 'block';
+  });
+  document.getElementById('restartBtn').addEventListener('click', startNewMatch);
+  document.getElementById('reviewBtn').addEventListener('click', reviewLastShot);
+  document.getElementById('slowMoBtn').addEventListener('click', () => {
+    reviewSlowMo = !reviewSlowMo;
+    document.getElementById('slowMoBtn').textContent = reviewSlowMo ? 'Slow-Mo: On' : 'Slow-Mo: Off';
+  });
+  document.getElementById('playAgainBtn').addEventListener('click', () => {
+    document.getElementById('winOverlay').classList.remove('show');
+    if(matchOver){ startNewMatch(); } else { startNewBoard(); }
+  });
+
+  let seats = [];
+  let turnPos = 0;
+  function currentSeat(){ return seats[turnPos]; }
+
+  // ==================== ONLINE MULTIPLAYER ====================
+  // The physics simulation itself is untouched — whoever's turn it is
+  // runs the exact same local simulation the single-player build always
+  // used. This layer only handles: who's at the table, and relaying
+  // each completed shot's resulting state to everyone else once it's
+  // fully resolved.
+  let carromSocket = null;
+  let carromMyTableId = null, carromMyPlayerId = null, carromMyPos = -1, carromIsHost = false;
+  let carromOnlineSeats = [], carromOnlinePlayerCount = 2, carromOnlinePhase = 'lobby';
+  try { carromMyPlayerId = localStorage.getItem('carrom_player_token'); } catch(e) {}
+
+  function carromConnect() {
+    if (carromSocket) return;
+    carromSocket = io();
+    carromSocket.on('connect', () => {
+      const savedTable = (() => { try { return localStorage.getItem('carrom_table_id'); } catch(e) { return null; } })();
+      if (savedTable && carromMyPlayerId) {
+        carromSocket.emit('carrom_joinTable', { tableId: savedTable, name: carromNameOrDefault(), playerId: carromMyPlayerId });
+      }
+    });
+    carromSocket.on('carrom_joined', (info) => {
+      carromMyTableId = info.tableId; carromMyPlayerId = info.playerId; carromMyPos = info.pos; carromIsHost = info.isHost;
+      try {
+        localStorage.setItem('carrom_player_token', info.playerId);
+        localStorage.setItem('carrom_table_id', info.tableId);
+      } catch(e) {}
+      document.getElementById('carromLobbyStatus').style.display = 'block';
+      document.getElementById('carromLobbyCode').textContent = info.tableId;
+    });
+    carromSocket.on('carrom_joinError', ({ reason }) => {
+      alert(reason === 'table_full' ? 'That table is already full.' : 'That table code doesn\u2019t exist.');
+    });
+    carromSocket.on('carrom_state', (state) => {
+      carromOnlineSeats = state.seats; carromOnlinePlayerCount = state.playerCount; carromOnlinePhase = state.phase;
+      carromMyPos = state.myPos; carromIsHost = state.isHost;
+      carromRenderLobbySeats();
+      if (state.phase === 'playing' && MENU.style.display !== 'none') {
+        // Game just started (host pressed Start, or we joined one already
+        // in progress) — leave the menu and build the board from the
+        // server's seat assignments.
+        playerCount = state.playerCount;
+        MENU.style.display = 'none';
+        GAME_WRAP.classList.add('show');
+        startNewMatch();
+      }
+      if (state.boardState && typeof carromApplyRemoteState === 'function') {
+        carromApplyRemoteState(state.boardState);
+      }
+    });
+  }
+
+  function carromNameOrDefault() {
+    const v = document.getElementById('carromNameInput').value.trim();
+    return v || 'Player';
+  }
+  function carromLeaveLobbyIfAny() {
+    if (carromSocket && carromMyTableId) {
+      carromSocket.emit('carrom_leaveTable');
+      carromMyTableId = null;
+      try { localStorage.removeItem('carrom_table_id'); } catch(e) {}
+    }
+    document.getElementById('carromLobbyStatus').style.display = 'none';
+  }
+
+  document.getElementById('onlinePlayerCountRow').addEventListener('click', e => {
+    const btn = e.target.closest('.opt-btn'); if(!btn) return;
+    [...document.getElementById('onlinePlayerCountRow').children].forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+  document.getElementById('carromCreateBtn').addEventListener('click', () => {
+    carromConnect();
+    const pc = parseInt(document.querySelector('#onlinePlayerCountRow .opt-btn.active').dataset.onlinePlayers, 10);
+    carromSocket.emit('carrom_createTable', { name: carromNameOrDefault(), playerCount: pc });
+  });
+  document.getElementById('carromJoinBtn').addEventListener('click', () => {
+    const code = document.getElementById('carromJoinCodeInput').value.trim().toUpperCase();
+    if (!code) return;
+    carromConnect();
+    carromSocket.emit('carrom_joinTable', { tableId: code, name: carromNameOrDefault() });
+  });
+  document.getElementById('carromFillBotsBtn').addEventListener('click', () => {
+    carromSocket.emit('carrom_fillBots');
+  });
+  document.getElementById('carromStartOnlineBtn').addEventListener('click', () => {
+    carromSocket.emit('carrom_startGame');
+  });
+
+  function carromRenderLobbySeats() {
+    const el = document.getElementById('carromLobbySeats');
+    el.innerHTML = carromOnlineSeats.map((s, i) => {
+      if (!s) return `<div style="padding:6px 0;color:var(--brass-dim);font-size:0.85rem">Seat ${i+1} (${carromSeatSideLabel(i)}): open</div>`;
+      return `<div style="padding:6px 0;font-size:0.85rem">Seat ${i+1} (${carromSeatSideLabel(i)}): <b>${s.name}</b>${s.isBot?' 🤖':''}${(!s.isBot && !s.connected)?' (disconnected)':''}</div>`;
+    }).join('');
+    const allFilled = carromOnlineSeats.every(Boolean);
+    document.getElementById('carromFillBotsBtn').style.display = (carromIsHost && !allFilled && carromOnlinePhase === 'lobby') ? 'block' : 'none';
+    document.getElementById('carromStartOnlineBtn').style.display = (carromIsHost && allFilled && carromOnlinePhase === 'lobby') ? 'block' : 'none';
+    document.getElementById('carromWaitingNote').textContent = carromOnlinePhase === 'lobby'
+      ? (carromIsHost ? (allFilled ? 'Ready — tap Start Game.' : 'Fill remaining seats with bots, or share the table code above.') : 'Waiting for the host to start...')
+      : '';
+  }
+  function carromSeatSideLabel(i) {
+    const sides2 = ['bottom (you start here)', 'top'];
+    const sides4 = ['bottom', 'right', 'top', 'left'];
+    return (carromOnlinePlayerCount === 4 ? sides4 : sides2)[i] || '?';
+  }
+
+  function buildSeats(){
+    const flip = boardNumber % 2 === 1; // every other round, colors swap sides
+    const c1 = flip ? 'black' : 'white', c2 = flip ? 'white' : 'black';
+    if (mode === 'online') {
+      // Seat kinds for online: MY seat is 'human' (locally interactive
+      // when it's my turn). Other human seats are 'remote' -- not
+      // locally interactive; their shot's resulting state arrives from
+      // the server instead of being simulated here. Bot seats only run
+      // their physics locally on the HOST's browser and get relayed
+      // like any other shot -- if every client independently simulated
+      // a bot's shot, floating-point/timing differences between
+      // devices could make the boards diverge. Everyone else treats a
+      // bot seat as 'remote' too, waiting for the host's relay.
+      const sides = carromOnlinePlayerCount === 4 ? ['bottom','right','top','left'] : ['bottom','top'];
+      const colorFor = (i) => carromOnlinePlayerCount === 4 ? (i % 2 === 0 ? c1 : c2) : (i === 0 ? c1 : c2);
+      return carromOnlineSeats.map((s, i) => {
+        const isMe = i === carromMyPos;
+        const isBot = s && s.isBot;
+        const kind = isMe ? 'human' : (isBot && carromIsHost ? 'ai' : 'remote');
+        return { side: sides[i], color: colorFor(i), kind, name: s ? s.name : ('Seat ' + (i+1)) };
+      });
+    }
+    if(playerCount === 2){
+      return [
+        { side:'bottom', color:c1, kind:'human', name:'You' },
+        { side:'top',    color:c2, kind: mode==='ai'?'ai':'human', name: mode==='ai'?'Bot':'Player 2' },
+      ];
+    }
+    return [
+      { side:'bottom', color:c1, kind:'human', name:'You' },
+      { side:'right',  color:c2, kind: mode==='ai'?'ai':'human', name: mode==='ai'?'Bot A':'Player 2' },
+      { side:'top',    color:c1, kind: mode==='ai'?'ai':'human', name: mode==='ai'?'Partner Bot':'Player 3' },
+      { side:'left',   color:c2, kind: mode==='ai'?'ai':'human', name: mode==='ai'?'Bot B':'Player 4' },
+    ];
+  }
+
+  let coins = [];
+  let striker = null;
+  let phase = 'aiming';
+  let pottedThisTurn = [];
+  let strikerPottedThisTurn = false;
+  let strikerBounced = false;
+  let touchedIllegalFirst = false;
+  let shotUnlocked = false; // once true, nothing is dimmed/blocked for the rest of this shot
+  let illegalDirectSet = new Set();
+  let invalidPots = [];
+  let queenCoveredBy = null;
+  let queenPendingCoverBy = null; // set when the queen was potted last shot, awaiting the cover attempt
+  let skipPending = {}; // per-side flag: their next turn in rotation gets skipped, as a foul penalty
+  let lastShotSnapshot = null; // pre-shot state, for Review Last Move
+  let isReviewing = false;
+  let reviewSavedState = null;
+  let turnStartStrikerPos = null; // striker's position before any left/right positioning this turn
+  let reviewSlowMo = false;
+  let reviewPhysicsSkip = 0;
+  let scores = { white:0, black:0 };
+  let gameOver = false;
+  let matchScore = { teamA:0, teamB:0 };
+  let boardNumber = 0;
+  let matchOver = false;
+  const MATCH_TARGET = 30;
+
+  function hexLayout(){
+    const list = [];
+    list.push({dx:0, dy:0, color:'red'});
+    const r1 = COIN_R * 2.02;
+    for(let i=0;i<6;i++){
+      const a = Math.PI/180 * (60*i - 90);
+      list.push({dx:Math.cos(a)*r1, dy:Math.sin(a)*r1, color: i%2===0?'black':'white'});
+    }
+    const r2 = COIN_R * 3.98;
+    for(let i=0;i<12;i++){
+      const a = Math.PI/180 * (30*i - 90 + 22);
+      list.push({dx:Math.cos(a)*r2, dy:Math.sin(a)*r2, color: i%2===0?'white':'black'});
+    }
+    return list;
+  }
+
+  function displayRotationDeg(){
+    return 0; // board never rotates, in any mode
+  }
+
+  function positionOverlapsCoin(x, y){
+    return coins.some(c=>!c.potted && Math.hypot(c.x-x, c.y-y) < (STRIKER_R + c.r + 1));
+  }
+
+  function spawnStrikerForCurrentSeat(){
+    const side = currentSeat().side;
+    const [a0,a1] = strikeRange(side);
+    let along = CENTER;
+    let p = seatPoint(side, along);
+    if(positionOverlapsCoin(p.x, p.y)){
+      // nudge along the baseline until we find a clear spot
+      let found = false;
+      for(let step=8; step<=(a1-a0)/2; step+=8){
+        for(const dir of [1,-1]){
+          const testAlong = Math.max(a0, Math.min(a1, CENTER + dir*step));
+          const tp = seatPoint(side, testAlong);
+          if(!positionOverlapsCoin(tp.x, tp.y)){ along = testAlong; p = tp; found = true; break; }
+        }
+        if(found) break;
+      }
+    }
+    striker = { x:p.x, y:p.y, vx:0, vy:0, r:STRIKER_R, active:true };
+    turnStartStrikerPos = { x:p.x, y:p.y };
+    canvas.style.transform = `rotate(${displayRotationDeg()}deg)`;
+  }
+
+  function startNewMatch(){
+    matchScore = { teamA:0, teamB:0 };
+    boardNumber = 0;
+    matchOver = false;
+    seats = buildSeats();
+    startNewBoard();
+  }
+
+  function startNewBoard(){
+    try{
+      gameOver = false;
+      phase = 'aiming'; // CRITICAL: finishGame left this as 'over' — without this reset, AI scheduling, the watchdog, and human input are ALL blocked on the new board
+      document.getElementById('winOverlay').classList.remove('show');
+      seats = buildSeats();
+      turnPos = boardNumber % seats.length; // alternate who breaks each board
+      coins = hexLayout().map(p => ({
+        x: CENTER + p.dx, y: CENTER + p.dy, vx:0, vy:0,
+        r: p.color==='red' ? QUEEN_R : COIN_R,
+        color: p.color, potted:false
+      }));
+      scores = { white:0, black:0 };
+      queenCoveredBy = null;
+      queenPendingCoverBy = null;
+      skipPending = {};
+      lastShotSnapshot = null;
+      isReviewing = false;
+      reviewSavedState = null;
+      pottedThisTurn = []; strikerPottedThisTurn = false; strikerBounced = false;
+      illegalDirectSet = new Set(); invalidPots = [];
+      shotStage = 'position'; gestureMode = null; dragCurrent = null; lockedDir = null; powerPercent = 0;
+      setPowerMeter(0);
+      document.getElementById('foulBanner').textContent = '';
+      document.getElementById('foulBanner').classList.remove('show');
+      spawnStrikerForCurrentSeat();
+      updateHUD();
+      const seat = currentSeat();
+      const whoLabel = seat.name==='You' ? 'Your' : seat.name + "'s";
+      setMsg(`Board ${boardNumber+1} — ${whoLabel} turn, drag the striker to line up.`);
+    } catch(e){
+      // even if some setup step above failed, make sure the game isn't left
+      // in a dead state — force phase back to aiming so the AI trigger below
+      // (or the watchdog) can still recover it
+      phase = 'aiming';
+      gameOver = false;
+    }
+    requestAnimationFrame(loop);
+    try{
+      const seat = currentSeat();
+      if(seat && seat.kind==='ai'){ scheduleAiTurn(900); }
+    } catch(e){ /* the independent watchdog will still catch this */ }
+  }
+
+  function setMsg(text){ document.getElementById('msgLog').innerHTML = text; }
+
+  function teamLabel(color){
+    return playerCount === 4 ? ('Team ' + (color==='white'?'White':'Black')) :
+      seats.find(s=>s.color===color).name;
+  }
+
+  // teams are fixed to seat position (even seats = teamA, odd = teamB) — this stays
+  // stable across rounds even though which COLOR each seat plays keeps rotating
+  function teamKeyForColor(color){
+    const idx = seats.findIndex(s=>s.color===color);
+    return idx % 2 === 0 ? 'teamA' : 'teamB';
+  }
+  function teamDisplayName(teamKey){
+    if(playerCount === 2){
+      const idx = teamKey==='teamA' ? 0 : 1;
+      return seats[idx] ? seats[idx].name : (teamKey==='teamA' ? 'You' : 'Opponent');
+    }
+    return teamKey==='teamA' ? 'Your Team' : 'Opponent Team';
+  }
+
+  function updateHUD(){
+    document.getElementById('scoreP1').textContent = scores.white + '/9';
+    document.getElementById('scoreP2').textContent = scores.black + '/9';
+    document.getElementById('p1Name').textContent = teamLabel('white');
+    document.getElementById('p2Name').textContent = teamLabel('black');
+    const seat = currentSeat();
+    document.getElementById('badgeP1').classList.toggle('turn', seat.color==='white');
+    document.getElementById('badgeP2').classList.toggle('turn', seat.color==='black');
+    const who = seat.name==='You' ? 'Your turn' : seat.name + "'s turn";
+    document.getElementById('turnLabel').textContent = who + (playerCount===4 ? ` · Team ${seat.color==='white'?'White':'Black'}` : '');
+    document.getElementById('matchScoreLabel').textContent =
+      `Match: ${teamDisplayName('teamA')} ${matchScore.teamA} — ${matchScore.teamB} ${teamDisplayName('teamB')} (first to ${MATCH_TARGET}, win by 2)`;
+
+    const queenEl = document.getElementById('queenStatusLabel');
+    if(queenCoveredBy){
+      const opponentColor = queenCoveredBy==='white' ? 'black' : 'white';
+      const opponentLeft = coins.filter(c=>!c.potted && c.color===opponentColor).length;
+      const coveredByName = teamLabel(queenCoveredBy);
+      queenEl.textContent = `👑 Queen covered by ${coveredByName} — bonus so far: +5 + ${opponentLeft} = ${5+opponentLeft}`;
+      queenEl.classList.add('show');
+    } else {
+      queenEl.textContent = '';
+      queenEl.classList.remove('show');
+    }
+  }
+
+  function pocketCenters(){
+    const inset = 6;
+    return [
+      {x:PLAY_MIN+inset, y:PLAY_MIN+inset},
+      {x:PLAY_MAX-inset, y:PLAY_MIN+inset},
+      {x:PLAY_MIN+inset, y:PLAY_MAX-inset},
+      {x:PLAY_MAX-inset, y:PLAY_MAX-inset},
+    ];
+  }
+
+  function allObjects(){
+    const objs = coins.filter(c=>!c.potted).slice();
+    if(striker.active) objs.push(striker);
+    return objs;
+  }
+
+  function step(){
+    const SUBSTEPS = 16; // ZERO TOLERANCE: higher substeps for exact physics
+    const objs = allObjects();
+
+    // friction/decay applied once per frame, so overall deceleration feel is unchanged
+    objs.forEach(o=>{
+      o.vx *= FRICTION; o.vy *= FRICTION;
+      if(Math.hypot(o.vx,o.vy) < MIN_SPEED){ o.vx=0; o.vy=0; }
+    });
+
+    for(let s=0; s<SUBSTEPS; s++){
+      objs.forEach(o=>{
+        o.x += o.vx/SUBSTEPS;
+        o.y += o.vy/SUBSTEPS;
+      });
+
+      objs.forEach(o=>{
+        let bounced = false;
+        if(o.x - o.r < PLAY_MIN){ o.x = PLAY_MIN + o.r; o.vx = -o.vx*WALL_RESTITUTION; bounced=true; }
+        if(o.x + o.r > PLAY_MAX){ o.x = PLAY_MAX - o.r; o.vx = -o.vx*WALL_RESTITUTION; bounced=true; }
+        if(o.y - o.r < PLAY_MIN){ o.y = PLAY_MIN + o.r; o.vy = -o.vy*WALL_RESTITUTION; bounced=true; }
+        if(o.y + o.r > PLAY_MAX){ o.y = PLAY_MAX - o.r; o.vy = -o.vy*WALL_RESTITUTION; bounced=true; }
+        if(bounced && o===striker){ strikerBounced = true; shotUnlocked = true; }
+      });
+
+      // resolve the striker's own collisions first, in order of which coin it's
+      // actually closest to — this matters because within one sub-step, hitting
+      // two coins at once must still be judged in their real contact order,
+      // not whatever order they happen to sit in the array
+      if(striker.active){
+        const strikerHits = objs
+          .filter(o => o !== striker)
+          .map(o => ({ o, dist: Math.hypot(o.x-striker.x, o.y-striker.y) }))
+          .filter(({o,dist}) => dist < striker.r + o.r)
+          .sort((a,b) => a.dist - b.dist);
+
+        strikerHits.forEach(({o})=>{
+          const hit = resolveCollision(striker, o);
+          if(hit && o.color){
+            const otherIllegal = illegalDirectSet.has(o);
+            if(otherIllegal && !shotUnlocked){
+              touchedIllegalFirst = true;
+            }
+            if(!otherIllegal){
+              shotUnlocked = true;
+            }
+          }
+        });
+      }
+
+      // remaining coin-coin collisions (order doesn't matter for foul rules)
+      for(let i=0;i<objs.length;i++){
+        for(let j=i+1;j<objs.length;j++){
+          if(objs[i]===striker || objs[j]===striker) continue;
+          resolveCollision(objs[i], objs[j]);
+        }
+      }
+    }
+
+    const pockets = pocketCenters();
+    coins.forEach(c=>{
+      if(c.potted) return;
+      for(const p of pockets){
+        if(Math.hypot(c.x-p.x, c.y-p.y) < POCKET_R){
+          c.potted = true; c.vx=0; c.vy=0;
+          onCoinPotted(c, p);
+          break;
+        }
+      }
+    });
+    if(striker.active){
+      for(const p of pockets){
+        if(Math.hypot(striker.x-p.x, striker.y-p.y) < POCKET_R){
+          striker.active = false;
+          strikerPottedThisTurn = true;
+          break;
+        }
+      }
+    }
+
+    return objs.some(o=> Math.hypot(o.vx,o.vy) > 0.01);
+  }
+
+  function resolveCollision(a,b){
+    const dx=b.x-a.x, dy=b.y-a.y;
+    const dist = Math.hypot(dx,dy);
+    const minDist = a.r+b.r;
+    if(dist===0 || dist>=minDist) return false;
+    const nx=dx/dist, ny=dy/dist;
+    const overlap = (minDist-dist)/2;
+    a.x -= nx*overlap; a.y -= ny*overlap;
+    b.x += nx*overlap; b.y += ny*overlap;
+    const rvx=b.vx-a.vx, rvy=b.vy-a.vy;
+    const rel = rvx*nx+rvy*ny;
+    if(rel>0) return true;
+    const restitution = 1.0; // ZERO TOLERANCE: perfect elastic, no energy loss
+    const imp = -(1+restitution)*rel/2;
+    a.vx -= imp*nx; a.vy -= imp*ny;
+    b.vx += imp*nx; b.vy += imp*ny;
+    return true;
+  }
+
+  function onCoinPotted(c, pocket){
+    pottedThisTurn.push(c);
+    const ownPocketDirect = pocket && !shotUnlocked && isOwnPocket(pocket, currentSeat().side);
+    if((illegalDirectSet.has(c) || ownPocketDirect) && !shotUnlocked){
+      invalidPots.push(c);
+      return;
+    }
+    if(c.color==='red') return;
+    scores[c.color] += 1;
+  }
+
+  // opponent-colored coins can never be potted directly, from anywhere.
+  // your own color and the queen are fine to pot directly UNLESS they're touching
+  // YOUR OWN baseline or the 2 hook lanes nearest you — then they need a bank shot.
+  function isPotLegalDirect(coin, seat){
+    if(coin.color !== 'red' && coin.color !== seat.color) return false;
+    return !touchingProtectedLines(coin, seat);
+  }
+
+  // a stripped-down copy of step() with no scoring/foul/turn side effects —
+  // purely visual, for replaying the last shot
+  function stepVisualOnly(){
+    const SUBSTEPS = 16; // ZERO TOLERANCE: higher substeps for exact physics
+    const objs = coins.filter(c=>!c.potted).concat(striker.active ? [striker] : []);
+
+    objs.forEach(o=>{
+      o.vx *= FRICTION; o.vy *= FRICTION;
+      if(Math.hypot(o.vx,o.vy) < MIN_SPEED){ o.vx=0; o.vy=0; }
+    });
+
+    for(let s=0; s<SUBSTEPS; s++){
+      objs.forEach(o=>{ o.x += o.vx/SUBSTEPS; o.y += o.vy/SUBSTEPS; });
+      objs.forEach(o=>{
+        if(o.x - o.r < PLAY_MIN){ o.x = PLAY_MIN + o.r; o.vx = -o.vx*WALL_RESTITUTION; }
+        if(o.x + o.r > PLAY_MAX){ o.x = PLAY_MAX - o.r; o.vx = -o.vx*WALL_RESTITUTION; }
+        if(o.y - o.r < PLAY_MIN){ o.y = PLAY_MIN + o.r; o.vy = -o.vy*WALL_RESTITUTION; }
+        if(o.y + o.r > PLAY_MAX){ o.y = PLAY_MAX - o.r; o.vy = -o.vy*WALL_RESTITUTION; }
+      });
+      for(let i=0;i<objs.length;i++){
+        for(let j=i+1;j<objs.length;j++){
+          resolveCollision(objs[i], objs[j]);
+        }
+      }
+    }
+
+    const pockets = pocketCenters();
+    coins.forEach(c=>{
+      if(c.potted) return;
+      for(const p of pockets){
+        if(Math.hypot(c.x-p.x, c.y-p.y) < POCKET_R){ c.potted = true; c.vx=0; c.vy=0; break; }
+      }
+    });
+    if(striker.active){
+      for(const p of pockets){
+        if(Math.hypot(striker.x-p.x, striker.y-p.y) < POCKET_R){ striker.active = false; break; }
+      }
+    }
+
+    return objs.some(o=> Math.hypot(o.vx,o.vy) > 0.01);
+  }
+
+  function reviewLastShot(){
+    if(!lastShotSnapshot || isReviewing || phase !== 'aiming' || gameOver) return;
+
+    reviewSavedState = {
+      coins: coins.map(c => ({ x:c.x, y:c.y, potted:c.potted })),
+      strikerX: striker.x, strikerY: striker.y, strikerActive: striker.active,
+    };
+
+    coins.forEach((c,i)=>{
+      const s = lastShotSnapshot.coins[i];
+      c.x = s.x; c.y = s.y; c.potted = s.potted; c.vx = 0; c.vy = 0;
+    });
+    striker.x = lastShotSnapshot.startStrikerX;
+    striker.y = lastShotSnapshot.startStrikerY;
+    striker.active = true;
+    striker.vx = 0; striker.vy = 0;
+
+    isReviewing = true;
+    reviewPhysicsSkip = 0;
+    setMsg('Replaying: lining up...');
+
+    const moveDuration = reviewSlowMo ? 1500 : 500;
+    animateStrikerTo(lastShotSnapshot.finalStrikerX, lastShotSnapshot.finalStrikerY, moveDuration, () => {
+      if(!isReviewing) return; // cancelled by finishReview already
+      setMsg('Replaying: the shot...');
+      striker.vx = lastShotSnapshot.vx;
+      striker.vy = lastShotSnapshot.vy;
+      phase = 'moving';
+    });
+  }
+
+  function finishReview(){
+    const s = reviewSavedState;
+    if(s){
+      coins.forEach((c,i)=>{
+        c.x = s.coins[i].x; c.y = s.coins[i].y; c.potted = s.coins[i].potted;
+        c.vx = 0; c.vy = 0;
+      });
+      striker.x = s.strikerX; striker.y = s.strikerY; striker.active = s.strikerActive;
+      striker.vx = 0; striker.vy = 0;
+    }
+    reviewSavedState = null;
+    isReviewing = false;
+    phase = 'aiming';
+    updateHUD();
+    setMsg('Back to the current position.');
+  }
+
+  function fireStriker(vx,vy){
+    // snapshot the exact pre-shot state, for the Review Last Move feature
+    lastShotSnapshot = {
+      coins: coins.map(c => ({ x:c.x, y:c.y, potted:c.potted })),
+      startStrikerX: (turnStartStrikerPos ? turnStartStrikerPos.x : striker.x),
+      startStrikerY: (turnStartStrikerPos ? turnStartStrikerPos.y : striker.y),
+      finalStrikerX: striker.x, finalStrikerY: striker.y,
+      vx, vy
+    };
+
+    striker.vx = vx; striker.vy = vy;
+    const seat = currentSeat();
+    illegalDirectSet = new Set(coins.filter(c=>!c.potted && !isPotLegalDirect(c, seat)));
+    coins.forEach(c=>{ c._revert = {x:c.x, y:c.y}; });
+    invalidPots = [];
+    strikerBounced = false;
+    touchedIllegalFirst = false;
+    shotUnlocked = false;
+    const foulBanner = document.getElementById('foulBanner');
+    foulBanner.textContent = '';
+    foulBanner.classList.remove('show');
+    phase = 'moving';
+    shotStage = 'position';
+  }
+
+  function placeNear(coin, tx, ty){
+    const spots = [{x:tx,y:ty}];
+    for(let a=0;a<360;a+=30){
+      const rad=a*Math.PI/180;
+      spots.push({x:tx+Math.cos(rad)*32, y:ty+Math.sin(rad)*32});
+    }
+    for(const s of spots){
+      const inBounds = s.x>PLAY_MIN+coin.r+2 && s.x<PLAY_MAX-coin.r-2 && s.y>PLAY_MIN+coin.r+2 && s.y<PLAY_MAX-coin.r-2;
+      const clash = coins.some(c=>!c.potted && c!==coin && Math.hypot(c.x-s.x,c.y-s.y) < coin.r*2+2);
+      if(!clash && inBounds){ coin.x=s.x; coin.y=s.y; coin.vx=0; coin.vy=0; return; }
+    }
+    coin.x=CENTER; coin.y=CENTER; coin.vx=0; coin.vy=0;
+  }
+
+  function endShotResolve(){
+    try{
+      endShotResolveInner();
+    } catch(e){
+      // whatever failed above, don't leave the game dead — force back to a
+      // resolvable state and still give the AI (or watchdog) a chance to act
+      phase = 'aiming';
+      try{
+        const s = currentSeat();
+        if(s && s.kind==='ai' && !gameOver){ scheduleAiTurn(950); }
+      } catch(e2){ /* the independent watchdog will still catch this */ }
+    }
+  }
+
+  // Online relay: wraps endShotResolve without touching its internals at
+  // all. Captures who was acting before the shot resolves, then — only
+  // if that was MY seat (or a bot seat only *I* (the host) am running
+  // locally) — sends the resulting board state to the server, which
+  // relays it to every other seat. A non-invasive wrap was deliberately
+  // chosen over editing endShotResolve itself, to leave the actual game
+  // logic completely untouched.
+  const _carromOrigEndShotResolve = endShotResolve;
+  endShotResolve = function() {
+    const actingPos = turnPos;
+    _carromOrigEndShotResolve();
+    if (mode === 'online' && carromSocket && carromMyTableId) {
+      const iWasActing = (actingPos === carromMyPos) || (carromIsHost && seats[actingPos] && seats[actingPos].kind === 'ai');
+      if (iWasActing) {
+        carromSocket.emit('carrom_shotResult', { boardState: carromCaptureState() });
+      }
+    }
+  };
+
+  function carromCaptureState() {
+    return {
+      turnPos, gameOver, boardNumber,
+      scores: { ...scores },
+      matchScore: { ...matchScore },
+      queenCoveredBy,
+      skipPending: { ...skipPending },
+      coins: coins.map(c => ({ x:c.x, y:c.y, vx:c.vx, vy:c.vy, color:c.color, r:c.r, potted:!!c.potted })),
+      striker: striker ? { x:striker.x, y:striker.y, vx:striker.vx, vy:striker.vy, r:striker.r, potted:!!striker.potted } : null
+    };
+  }
+
+  function carromApplyRemoteState(state) {
+    if (!state || phase !== 'aiming') return; // never stomp on a shot the LOCAL player has in progress
+    turnPos = state.turnPos; gameOver = state.gameOver; boardNumber = state.boardNumber;
+    scores = { ...state.scores };
+    matchScore = { ...state.matchScore };
+    queenCoveredBy = state.queenCoveredBy;
+    skipPending = { ...state.skipPending };
+    coins.forEach((c, i) => { if (state.coins[i]) Object.assign(c, state.coins[i]); });
+    if (striker && state.striker) Object.assign(striker, state.striker);
+    updateHUD();
+    if (currentSeat() && currentSeat().kind === 'ai' && carromIsHost && !gameOver) {
+      scheduleAiTurn(900);
+    }
+  }
+
+  // Read-only debug interface for troubleshooting — the game's own
+  // variables are intentionally scoped inside this IIFE (good practice,
+  // keeps them off the global namespace); this exposes a few of them
+  // read-only rather than changing that.
+  window.CARROM_DEBUG = {
+    get myPos() { return carromMyPos; },
+    get turnPos() { return turnPos; },
+    get isHost() { return carromIsHost; },
+    get scores() { return { ...scores }; },
+    get seatKinds() { return seats.map(s => s.kind); },
+    get phase() { return phase; },
+    // Test-only: simulates a shot completing with the given score
+    // change, then runs it through the real endShotResolve wrapper —
+    // exercises the actual relay path without needing a real drag/aim/
+    // fire interaction on the canvas.
+    simulateShotResult(newWhite, newBlack) {
+      scores.white = newWhite; scores.black = newBlack;
+      phase = 'moving';
+      phase = 'aiming';
+      endShotResolve();
+    }
+  };
+
+  function endShotResolveInner(){
+    phase = 'aiming';
+    const seat = currentSeat();
+    const ownColor = seat.color;
+    let messages = [];
+    let foulReasons = [];
+
+    if(invalidPots.length){
+      invalidPots.forEach(c=>{
+        c.potted = false;
+        placeNear(c, c._revert.x, c._revert.y);
+      });
+      messages.push('<span class="warn">No direct pot there!</span> Coin returned — bank it off a cushion instead.');
+      foulReasons.push('No direct pot from a protected line/lane — coin returned to the board.');
+    }
+
+    // touching an illegal coin as the very first contact voids the ENTIRE shot —
+    // even coins that would otherwise have been a legal pot later in the same
+    // chain get returned, since the shot itself was already fouled from the start
+    // touching an illegal coin as the very first contact voids the shot for your
+    // OWN color and the queen — any of those pots get returned. Anything of the
+    // opponent's color that fell in still counts for them, as it normally would.
+    if(touchedIllegalFirst){
+      pottedThisTurn.forEach(c=>{
+        if(c.potted && !invalidPots.includes(c) && (c.color===ownColor || c.color==='red')){
+          c.potted = false;
+          placeNear(c, CENTER, CENTER);
+          if(c.color !== 'red'){
+            scores[c.color] = Math.max(0, scores[c.color]-1);
+          }
+        }
+      });
+      messages.push('<span class="warn">Touched an illegal coin first!</span> Your pots are voided — turn forfeited.');
+      foulReasons.push('Touched an illegal coin as your first contact — your own pots voided, turn forfeited.');
+    }
+
+    // striker pocketed is always a foul, no exceptions — and it voids your own
+    // color/queen pots from this same shot too (opponent color still counts for them)
+    if(strikerPottedThisTurn){
+      pottedThisTurn.forEach(c=>{
+        if(c.potted && !invalidPots.includes(c) && (c.color===ownColor || c.color==='red')){
+          c.potted = false;
+          placeNear(c, CENTER, CENTER);
+          if(c.color !== 'red'){
+            scores[c.color] = Math.max(0, scores[c.color]-1);
+          }
+        }
+      });
+      messages.push('Striker pocketed — foul, your pots are voided.');
+      foulReasons.push('Striker pocketed — foul, your own pots voided, turn forfeited.');
+    }
+
+    let pottedOwn = pottedThisTurn.some(c=>c.color===ownColor && !invalidPots.includes(c) && c.potted);
+    let pottedQueenLegal = pottedThisTurn.some(c=>c.color==='red' && !invalidPots.includes(c) && c.potted);
+    let pottedAnyNormal = pottedThisTurn.some(c=>c.color!=='red' && !invalidPots.includes(c) && c.potted);
+
+    // resolve a queen-cover attempt pending from the previous shot: pot ANY coin
+    // (your color or the opponent's) on this immediate next shot to cover her
+    if(queenPendingCoverBy){
+      if(pottedAnyNormal && !strikerPottedThisTurn){
+        queenCoveredBy = queenPendingCoverBy;
+        messages.push('<b>Queen covered!</b>');
+      } else {
+        const redCoin = coins.find(c=>c.color==='red');
+        redCoin.potted = false;
+        placeNear(redCoin, CENTER, CENTER);
+        messages.push('Queen not covered in time — returned to center.');
+        foulReasons.push('Queen not covered in time — returned to center.');
+      }
+      queenPendingCoverBy = null;
+    }
+
+    // a fresh queen pot this shot opens the one-shot cover window
+    if(pottedQueenLegal){
+      queenPendingCoverBy = ownColor;
+      messages.push('Queen pocketed — pot any coin next to cover it.');
+    }
+
+    // can't finish off your own coins before the queen has been covered
+    const ownLeftNow = coins.filter(c=>!c.potted && c.color===ownColor).length;
+    if(ownLeftNow===0 && pottedOwn && !queenCoveredBy){
+      pottedThisTurn.filter(c=>c.color===ownColor && !invalidPots.includes(c)).forEach(c=>{
+        c.potted = false;
+        placeNear(c, CENTER, CENTER);
+        scores[ownColor] = Math.max(0, scores[ownColor]-1);
+      });
+      pottedOwn = false;
+      messages.push('<span class="warn">Can\'t finish before covering the queen!</span> Coin returned to the board.');
+      foulReasons.push('Can\'t finish your coins before covering the queen — last coin returned.');
+    }
+
+    let continues = (pottedOwn || pottedQueenLegal) && !strikerPottedThisTurn && invalidPots.length===0 && !touchedIllegalFirst;
+
+    const whiteLeft = coins.filter(c=>!c.potted && c.color==='white').length;
+    const blackLeft = coins.filter(c=>!c.potted && c.color==='black').length;
+    if(whiteLeft===0){ finishGame('white'); return; }
+    if(blackLeft===0){ finishGame('black'); return; }
+
+    strikerPottedThisTurn = false;
+    touchedIllegalFirst = false;
+    pottedThisTurn = [];
+    illegalDirectSet = new Set(); invalidPots = [];
+    shotStage = 'position'; gestureMode = null; dragCurrent = null; lockedDir = null; powerPercent = 0;
+    setPowerMeter(0);
+
+    // a foul marks the fouling seat's OWN next turn to be skipped when the
+    // rotation comes back around to them — not a bonus for whoever's next
+    if(foulReasons.length){
+      skipPending[seat.side] = true;
+    }
+
+    let skippedSeatNames = [];
+    if(!continues){
+      turnPos = (turnPos + 1) % seats.length;
+      // keep advancing past any seat whose turn is currently marked to be skipped
+      while(skipPending[currentSeat().side]){
+        skipPending[currentSeat().side] = false;
+        skippedSeatNames.push(currentSeat().name);
+        turnPos = (turnPos + 1) % seats.length;
+      }
+    }
+
+    spawnStrikerForCurrentSeat();
+    updateHUD();
+
+    const nextSeat = currentSeat();
+    const whoLabel = nextSeat.name==='You' ? 'Your' : nextSeat.name + "'s";
+
+    const foulBanner = document.getElementById('foulBanner');
+    if(foulReasons.length){
+      const shooterLabel = seat.name==='You' ? 'You' : seat.name;
+      const consequence = continues
+        ? `${shooterLabel} still ${seat.name==='You'?'get':'gets'} another shot.`
+        : `${shooterLabel}'s next turn in rotation will be skipped.`;
+      foulBanner.textContent = `⚠ FOUL — ${shooterLabel}: ${foulReasons.join(' ')} ${consequence}`;
+      foulBanner.classList.add('show');
+    } else {
+      foulBanner.textContent = '';
+      foulBanner.classList.remove('show');
+    }
+
+    if(messages.length===0){
+      messages.push(continues ? 'Nice pot — go again.' : 'Turn passed.');
+    }
+    if(skippedSeatNames.length){
+      messages.push(`${skippedSeatNames.join(', ')} skipped (foul penalty).`);
+    }
+    setMsg(messages.join(' ') + ' &mdash; ' + whoLabel + ' turn.');
+
+    if(nextSeat.kind==='ai' && !gameOver){
+      scheduleAiTurn(950);
+    }
+  }
+
+  function finishGame(winnerColor){
+    gameOver = true;
+    phase = 'over';
+    const overlay = document.getElementById('winOverlay');
+    const title = document.getElementById('winTitle');
+    const sub = document.getElementById('winSub');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const winnerSeats = seats.filter(s=>s.color===winnerColor);
+    const humanWon = winnerSeats.some(s=>s.kind==='human');
+    const loserColor = winnerColor==='white' ? 'black' : 'white';
+    const loserLeft = coins.filter(c=>!c.potted && c.color===loserColor).length;
+    const queenWasCovered = queenCoveredBy === winnerColor;
+    const bonus = queenWasCovered ? 5 : 0;
+    const boardPoints = bonus + loserLeft;
+
+    const winnerTeam = teamKeyForColor(winnerColor);
+    const loserTeam = winnerTeam === 'teamA' ? 'teamB' : 'teamA';
+
+    matchScore[winnerTeam] += boardPoints;
+    boardNumber += 1;
+    updateHUD();
+
+    const lead = matchScore[winnerTeam] - matchScore[loserTeam];
+    matchOver = matchScore[winnerTeam] >= MATCH_TARGET && lead >= 2;
+
+    let titleText, subText;
+    const boardWinnerName = teamDisplayName(winnerTeam);
+
+    if(matchOver){
+      titleText = boardWinnerName + (humanWon ? ' Win the Match!' : ' Wins the Match!');
+      subText = `Final match score — ${teamDisplayName('teamA')} ${matchScore.teamA}, ${teamDisplayName('teamB')} ${matchScore.teamB}.`;
+      playAgainBtn.textContent = 'New Match';
+    } else {
+      titleText = boardWinnerName + (humanWon ? ' Win This Board' : ' Wins This Board');
+      subText = `+${boardPoints} point${boardPoints===1?'':'s'} this board` +
+        (queenWasCovered
+          ? ` (queen covered: +5, plus ${loserLeft} leftover coin${loserLeft===1?'':'s'}).`
+          : ` (${loserLeft} leftover coin${loserLeft===1?'':'s'} — no queen bonus).`) +
+        ` Match score — ${teamDisplayName('teamA')} ${matchScore.teamA}, ${teamDisplayName('teamB')} ${matchScore.teamB} (first to ${MATCH_TARGET}, win by 2).`;
+      playAgainBtn.textContent = 'Next Board';
+    }
+    title.textContent = titleText;
+    sub.textContent = subText;
+    overlay.classList.add('show');
+  }
+
+
+  // is the straight segment from (x1,y1) to (x2,y2) blocked by any other coin?
+  function isPathBlocked(x1,y1,x2,y2, excludeCoin, movingRadius){
+    const dx=x2-x1, dy=y2-y1;
+    const len = Math.hypot(dx,dy) || 1;
+    const dirx=dx/len, diry=dy/len;
+    return coins.some(c=>{
+      if(c.potted || c===excludeCoin) return false;
+      const toX=c.x-x1, toY=c.y-y1;
+      const proj = toX*dirx + toY*diry;
+      if(proj <= 0 || proj >= len - c.r) return false;
+      const closeX = x1+dirx*proj, closeY = y1+diry*proj;
+      const dist = Math.hypot(c.x-closeX, c.y-closeY);
+      return dist < (movingRadius + c.r); // ZERO TOLERANCE: exact radius
+    });
+  }
+
+  // which coin (if any) the striker would genuinely hit first along a straight
+  // segment — used to hard-reject shots whose real first contact is illegal
+  function firstCoinAlong(x1,y1,x2,y2, excludeCoin, movingRadius){
+    const dx=x2-x1, dy=y2-y1;
+    const len = Math.hypot(dx,dy) || 1;
+    const dirx=dx/len, diry=dy/len;
+    let best = null, bestProj = Infinity;
+    coins.forEach(c=>{
+      if(c.potted || c===excludeCoin) return;
+      const toX=c.x-x1, toY=c.y-y1;
+      const proj = toX*dirx + toY*diry;
+      if(proj <= 0 || proj >= len - c.r) return;
+      const closeX = x1+dirx*proj, closeY = y1+diry*proj;
+      const dist = Math.hypot(c.x-closeX, c.y-closeY);
+      if(dist < (movingRadius + c.r) && proj < bestProj){ // ZERO TOLERANCE: exact radius
+        bestProj = proj; best = c;
+      }
+    });
+    return best;
+  }
+
+  // find a single-cushion bank shot: reflects the contact point across each wall
+  // and checks whether a straight aim from the striker to that mirror point
+  // actually bounces, within bounds, with a clear path on both legs.
+  const OWN_WALL_FOR_SIDE = {
+    bottom: { axis:'y', value:PLAY_MAX },
+    top:    { axis:'y', value:PLAY_MIN },
+    left:   { axis:'x', value:PLAY_MIN },
+    right:  { axis:'x', value:PLAY_MAX },
+  };
+
+  function findBankShot(sPos, contactPoint, target, seatSide){
+    const ownWall = OWN_WALL_FOR_SIDE[seatSide];
+    const walls = [
+      { axis:'x', value:PLAY_MIN, mirror:p=>({x:2*PLAY_MIN-p.x, y:p.y}) },
+      { axis:'x', value:PLAY_MAX, mirror:p=>({x:2*PLAY_MAX-p.x, y:p.y}) },
+      { axis:'y', value:PLAY_MIN, mirror:p=>({x:p.x, y:2*PLAY_MIN-p.y}) },
+      { axis:'y', value:PLAY_MAX, mirror:p=>({x:p.x, y:2*PLAY_MAX-p.y}) },
+    ].filter(w => !(w.axis===ownWall.axis && w.value===ownWall.value));
+    let best = null;
+    walls.forEach(w=>{
+      const mirrored = w.mirror(contactPoint);
+      let t, hitX, hitY;
+      if(w.axis==='x'){
+        if(mirrored.x===sPos.x) return;
+        t = (w.value - sPos.x)/(mirrored.x - sPos.x);
+        if(t<=0.02 || t>=0.98) return;
+        hitY = sPos.y + t*(mirrored.y-sPos.y);
+        hitX = w.value;
+        if(hitY < PLAY_MIN+15 || hitY > PLAY_MAX-15) return;
+      } else {
+        if(mirrored.y===sPos.y) return;
+        t = (w.value - sPos.y)/(mirrored.y - sPos.y);
+        if(t<=0.02 || t>=0.98) return;
+        hitX = sPos.x + t*(mirrored.x-sPos.x);
+        hitY = w.value;
+        if(hitX < PLAY_MIN+15 || hitX > PLAY_MAX-15) return;
+      }
+      // the leg BEFORE the bounce must never be allowed to clip the target (or
+      // anything else) directly — that would be an illegal direct hit, not a bank
+      if(isPathBlocked(sPos.x,sPos.y, hitX,hitY, null, STRIKER_R)) return;
+      // the leg AFTER the bounce is where hitting the target is the whole point
+      if(isPathBlocked(hitX,hitY, contactPoint.x,contactPoint.y, target, STRIKER_R)) return;
+
+      const dist = Math.hypot(mirrored.x-sPos.x, mirrored.y-sPos.y);
+      if(!best || dist < best.dist){
+        best = { aimPoint: mirrored, wallHit:{x:hitX,y:hitY}, dist };
+      }
+    });
+    return best;
+  }
+
+  function animateStrikerTo(targetX, targetY, duration, onDone){
+    const startX = striker.x, startY = striker.y;
+    const t0 = performance.now();
+    function tick(now){
+      const t = Math.min(1, (now - t0) / duration);
+      const ease = t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2; // ease-in-out
+      striker.x = startX + (targetX-startX)*ease;
+      striker.y = startY + (targetY-startY)*ease;
+      if(t < 1){ requestAnimationFrame(tick); }
+      else { striker.x = targetX; striker.y = targetY; onDone(); }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // guaranteed-safe minimal action: used if the full planner ever throws or
+  // otherwise fails to produce a shot, so the bot can never get permanently stuck
+  function aiEmergencyFire(){
+    try{
+      const seat = currentSeat();
+      if(!seat || seat.kind!=='ai' || phase!=='aiming' || gameOver) return;
+      const sPos = seatPoint(seat.side, CENTER);
+      striker.x = sPos.x; striker.y = sPos.y;
+      const legalAnywhere = coins.filter(c=>!c.potted && isPotLegalDirect(c, seat));
+      const pool = legalAnywhere.length ? legalAnywhere : coins.filter(c=>!c.potted);
+      const sorted = pool.slice().sort((a,b)=>
+        Math.hypot(a.x-sPos.x,a.y-sPos.y) - Math.hypot(b.x-sPos.x,b.y-sPos.y));
+      const target = sorted.find(c=>{
+        const dx=c.x-sPos.x, dy=c.y-sPos.y;
+        const d = Math.hypot(dx,dy) || 1;
+        return isAimDirectionAllowed(dx/d, dy/d, seat.side);
+      }) || sorted[0];
+      if(!target){
+        // absolute last resort: a safe, straight-ahead tap
+        const f = SEAT_FORWARD[seat.side];
+        fireStriker(f.x*8, f.y*8);
+        return;
+      }
+      const dx=target.x-sPos.x, dy=target.y-sPos.y;
+      const dist = Math.hypot(dx,dy) || 1;
+      let dirX = dx/dist, dirY = dy/dist;
+      if(!isAimDirectionAllowed(dirX, dirY, seat.side)){
+        const f = SEAT_FORWARD[seat.side];
+        dirX = f.x; dirY = f.y;
+      }
+      fireStriker(dirX*10, dirY*10);
+      setMsg(seat.name + ' takes a safe shot.');
+    } catch(e){ /* nothing more we can do — the watchdog will retry next turn */ }
+  }
+
+  let aiTurnToken = 0;
+  function scheduleAiTurn(delay){
+    const myToken = ++aiTurnToken;
+    setTimeout(()=>{
+      if(myToken!==aiTurnToken || gameOver || phase!=='aiming') return;
+      const s = currentSeat();
+      if(!s || s.kind!=='ai') return;
+      try{ aiTakeShot(); } catch(e){ aiEmergencyFire(); }
+
+      // watchdog: if it's STILL this bot's unfired turn a few seconds later,
+      // force a safe shot rather than leaving the game stuck
+      setTimeout(()=>{
+        if(myToken!==aiTurnToken || gameOver || phase==='moving') return;
+        const s2 = currentSeat();
+        if(!s2 || s2.kind!=='ai') return;
+        aiEmergencyFire();
+      }, 4500);
+    }, delay);
+  }
+
+  function aiTakeShot(){
+    if(gameOver) return;
+    const seat = currentSeat();
+    const ownColor = seat.color;
+    const myCoins = coins.filter(c=>!c.potted && c.color===ownColor);
+    const queenCoin = coins.find(c=>!c.potted && c.color==='red');
+    let candidates;
+    if(myCoins.length===1 && queenCoveredBy!==ownColor && queenCoin){
+      // potting the last coin now would just get voided (can't finish before
+      // covering the queen) — don't waste the shot, go for the queen instead
+      candidates = [queenCoin];
+    } else {
+      candidates = queenCoin ? [...myCoins, queenCoin] : myCoins.slice();
+    }
+    if(!candidates.length){ return; }
+
+    // sample several positions along the AI's own baseline, like a human sliding the striker
+    const [a0,a1] = strikeRange(seat.side);
+    const POSITION_SAMPLES = 9;
+    const strikerSpots = [];
+    for(let i=0;i<POSITION_SAMPLES;i++){
+      const along = a0 + (i/(POSITION_SAMPLES-1))*(a1-a0);
+      const p = seatPoint(seat.side, along);
+      if(!positionOverlapsCoin(p.x, p.y)) strikerSpots.push(p);
+    }
+    if(!strikerSpots.length) strikerSpots.push(seatPoint(seat.side, CENTER));
+
+    let best = null, bestScore = -Infinity;
+
+    strikerSpots.forEach(sPos=>{
+      candidates.forEach(target=>{
+        const basePositionLegal = isPotLegalDirect(target, seat);
+        pocketCenters().forEach(pocket=>{
+          const legal = basePositionLegal && !isOwnPocket(pocket, seat.side);
+          const toPocket = { x: pocket.x-target.x, y: pocket.y-target.y };
+          const distToPocket = Math.hypot(toPocket.x,toPocket.y) || 1;
+          const dirToPocket = { x: toPocket.x/distToPocket, y: toPocket.y/distToPocket };
+          const contactPoint = {
+            x: target.x - dirToPocket.x*(target.r+STRIKER_R),
+            y: target.y - dirToPocket.y*(target.r+STRIKER_R)
+          };
+          const distToContact = Math.hypot(contactPoint.x-sPos.x, contactPoint.y-sPos.y) || 1;
+
+          // heavily penalize (rather than outright reject) shots where something
+          // sits in the way — guarantees the AI always picks the least-bad option
+          // instead of falling through to a blind default when the board is tight
+          const leg2Blocked = isPathBlocked(target.x, target.y, pocket.x, pocket.y, null, target.r);
+
+          // angle quality: how "square" the contact is vs a glancing blow
+          const angleQualityFor = (fromX,fromY) => {
+            const d = Math.hypot(contactPoint.x-fromX, contactPoint.y-fromY) || 1;
+            const strikeDir = { x:(contactPoint.x-fromX)/d, y:(contactPoint.y-fromY)/d };
+            return Math.max(0, strikeDir.x*dirToPocket.x + strikeDir.y*dirToPocket.y);
+          };
+
+          if(legal){
+            // never fire in a direction that would be illegal for a human either —
+            // can't aim along or behind your own baseline
+            const dxDir = contactPoint.x - sPos.x, dyDir = contactPoint.y - sPos.y;
+            const dDir = Math.hypot(dxDir,dyDir) || 1;
+            if(!isAimDirectionAllowed(dxDir/dDir, dyDir/dDir, seat.side)) return;
+
+            // verify what the striker would REALLY hit first — if some other
+            // coin sits in the way and it's illegal, this shot is a hard reject,
+            // not just a penalty, since firing it would foul on first contact
+            const realFirstHit = firstCoinAlong(sPos.x, sPos.y, contactPoint.x, contactPoint.y, target, STRIKER_R);
+            if(realFirstHit && !isPotLegalDirect(realFirstHit, seat)) return;
+
+            const leg1Blocked = isPathBlocked(sPos.x, sPos.y, contactPoint.x, contactPoint.y, target, STRIKER_R);
+            let score = 600 - distToPocket*0.6 - distToContact*0.25 + angleQualityFor(sPos.x,sPos.y)*160;
+            if(leg1Blocked) score -= 450;
+            if(leg2Blocked) score -= 450;
+            // the queen is worth prioritizing, not discounting — reward a genuinely
+            // clean, unblocked shot at her; only lightly favor own coins otherwise
+            if(target.color==='red'){
+              score += (!leg1Blocked && !leg2Blocked) ? 90 : -20;
+            }
+            if(score > bestScore){ bestScore = score; best = { sPos, target, pocket, contactPoint }; }
+          } else {
+            // illegal to hit directly — look for a single-cushion bank shot instead.
+            // if no bank exists either, this option is simply not considered — the
+            // bot must never choose to touch an illegal coin as its first contact.
+            const bank = findBankShot(sPos, contactPoint, target, seat.side);
+            if(bank){
+              // the initial fire direction (toward the cushion) must also respect
+              // the same 90-degree own-baseline restriction human input follows
+              const bdx = bank.wallHit.x - sPos.x, bdy = bank.wallHit.y - sPos.y;
+              const bd = Math.hypot(bdx,bdy) || 1;
+              if(!isAimDirectionAllowed(bdx/bd, bdy/bd, seat.side)) return;
+
+              // check the real first leg (striker -> cushion) doesn't clip an illegal coin either
+              const realFirstHit = firstCoinAlong(sPos.x, sPos.y, bank.wallHit.x, bank.wallHit.y, null, STRIKER_R);
+              if(realFirstHit && !isPotLegalDirect(realFirstHit, seat)) return;
+
+              let score = 480 - distToPocket*0.6 - bank.dist*0.25 + angleQualityFor(bank.wallHit.x,bank.wallHit.y)*140;
+              if(leg2Blocked) score -= 450;
+              if(target.color==='red') score += (!leg2Blocked) ? 60 : -20;
+              if(score > bestScore){ bestScore = score; best = { sPos, target, pocket, contactPoint: bank.aimPoint }; }
+            }
+          }
+        });
+      });
+    });
+
+    if(!best){
+      // the main search found nothing — go through every remaining coin in
+      // order of proximity and genuinely try direct-if-legal, then bank-if-not,
+      // for EACH one, instead of ever defaulting straight to an illegal direct hit
+      const sPos = seatPoint(seat.side, CENTER);
+      const sorted = coins.filter(c=>!c.potted).sort((a,b)=>
+        Math.hypot(a.x-sPos.x,a.y-sPos.y) - Math.hypot(b.x-sPos.x,b.y-sPos.y));
+
+      for(const target of sorted){
+        const pocket = pocketCenters().slice().sort((a,b)=>
+          Math.hypot(target.x-a.x,target.y-a.y) - Math.hypot(target.x-b.x,target.y-b.y))[0];
+        const toPocket = { x: pocket.x-target.x, y: pocket.y-target.y };
+        const tpLen = Math.hypot(toPocket.x,toPocket.y) || 1;
+        const dirToPocket = { x: toPocket.x/tpLen, y: toPocket.y/tpLen };
+        const contactPoint = {
+          x: target.x - dirToPocket.x*(target.r+STRIKER_R),
+          y: target.y - dirToPocket.y*(target.r+STRIKER_R)
+        };
+        const legal = isPotLegalDirect(target, seat) && !isOwnPocket(pocket, seat.side);
+
+        if(legal){
+          const dx=contactPoint.x-sPos.x, dy=contactPoint.y-sPos.y;
+          const d=Math.hypot(dx,dy)||1;
+          if(!isAimDirectionAllowed(dx/d,dy/d,seat.side)) continue;
+          const firstHit = firstCoinAlong(sPos.x,sPos.y,contactPoint.x,contactPoint.y,target,STRIKER_R);
+          if(firstHit && !isPotLegalDirect(firstHit,seat)) continue;
+          best = { sPos, target, pocket, contactPoint };
+          break;
+        } else {
+          const bank = findBankShot(sPos, contactPoint, target, seat.side);
+          if(!bank) continue;
+          const bdx=bank.wallHit.x-sPos.x, bdy=bank.wallHit.y-sPos.y;
+          const bd=Math.hypot(bdx,bdy)||1;
+          if(!isAimDirectionAllowed(bdx/bd,bdy/bd,seat.side)) continue;
+          const firstHit = firstCoinAlong(sPos.x,sPos.y,bank.wallHit.x,bank.wallHit.y,null,STRIKER_R);
+          if(firstHit && !isPotLegalDirect(firstHit,seat)) continue;
+          best = { sPos, target, pocket, contactPoint: bank.aimPoint };
+          break;
+        }
+      }
+
+      if(!best){
+        // an extreme edge case: nothing works for any coin on the board at all.
+        // take a neutral straight-ahead tap rather than ever knowingly aiming at an illegal coin.
+        const f = SEAT_FORWARD[seat.side];
+        best = {
+          sPos, target: sorted[0], pocket: pocketCenters()[0],
+          contactPoint: { x: sPos.x + f.x*100, y: sPos.y + f.y*100 }
+        };
+      }
+    }
+
+    setMsg(seat.name + ' is lining up...');
+
+    // visibly slide to the chosen spot first, then pause briefly, then fire —
+    // instead of teleporting the striker there in a single frame
+    animateStrikerTo(best.sPos.x, best.sPos.y, 500, () => {
+      if(gameOver || phase!=='aiming') return;
+      setTimeout(() => {
+        if(gameOver || phase!=='aiming') return;
+
+        // difficulty now actually changes how well the bot executes the shot
+        // it already planned — hard fires the exact calculated shot, medium
+        // and easy add real aim/power error (and occasional bigger slips)
+        const DIFF_SETTINGS = {
+          hard:   { aimJitter: 0,     powerJitter: 0,    missChance: 0    },
+          medium: { aimJitter: 0.035, powerJitter: 0.08, missChance: 0.12 },
+          easy:   { aimJitter: 0.09,  powerJitter: 0.18, missChance: 0.30 }
+        };
+        const diffCfg = DIFF_SETTINGS[difficulty] || DIFF_SETTINGS.medium;
+
+        let aimX = best.contactPoint.x;
+        let aimY = best.contactPoint.y;
+
+        if(diffCfg.aimJitter > 0){
+          let jitterAngle = (Math.random()*2 - 1) * diffCfg.aimJitter;
+          if(Math.random() < diffCfg.missChance){
+            // an occasional bigger slip, on top of the usual small wobble
+            jitterAngle += (Math.random()*2 - 1) * diffCfg.aimJitter * 2.5;
+          }
+          const dxr = aimX - striker.x, dyr = aimY - striker.y;
+          const cosA = Math.cos(jitterAngle), sinA = Math.sin(jitterAngle);
+          aimX = striker.x + (dxr*cosA - dyr*sinA);
+          aimY = striker.y + (dxr*sinA + dyr*cosA);
+        }
+
+        const dx = aimX - striker.x, dy = aimY - striker.y;
+        const dist = Math.hypot(dx,dy) || 1;
+        const dirx = dx/dist, diry = dy/dist;
+
+        let speed = Math.min(MAX_SHOT_SPEED, dist * 0.05 + 10);
+        if(diffCfg.powerJitter > 0){
+          speed *= 1 + (Math.random()*2 - 1) * diffCfg.powerJitter;
+          speed = Math.max(4, Math.min(MAX_SHOT_SPEED, speed));
+        }
+
+        fireStriker(dirx*speed, diry*speed);
+        setMsg(seat.name + ' is taking aim...');
+      }, 350);
+    });
+  }
+
+  // ---------------- INPUT: 3-stage (position -> aim -> power) ----------------
+  let shotStage = 'position';   // 'position' | 'aim' | 'power'
+  let gestureMode = null;       // null | 'position' | 'aim' | 'power'
+  let touchStart = null;
+  let strikerStartAlong = null;
+  let dragCurrent = null;
+  let lockedDir = null;         // {x,y} unit vector once aim is locked
+  let liveAimDir = null;        // {x,y} smoothed unit vector while actively dragging to aim
+  let aimSoftLocked = false;    // true once you've held still long enough to freeze the aim
+  let dwellAnchor = null;       // {x,y,time} — tracks how long the finger has held near one spot
+  let powerPercent = 0;
+  let powerDragStartY = null;
+  let powerBaseValue = null;
+  let powerMoved = false;
+  let powerTimer = null;
+  let powerStartTime = 0;
+
+  const powerFill = document.getElementById('powerFill');
+  const powerFillVal = document.getElementById('powerFillVal');
+
+  function setPowerMeter(pct){
+    const clamped = Math.max(0, Math.min(100, pct));
+    powerFill.style.width = clamped + '%';
+    powerFillVal.textContent = Math.round(clamped) + '%';
+    if(clamped < 33){
+      powerFill.style.background = 'linear-gradient(90deg, #2f9e4f, #4bc46a)';
+    } else if(clamped < 66){
+      powerFill.style.background = 'linear-gradient(90deg, #4bc46a, #c39a5b, #d4a84a)';
+    } else {
+      powerFill.style.background = 'linear-gradient(90deg, #d4a84a, #c39a5b 40%, #b52a2a)';
+    }
+  }
+
+  function getPos(evt){
+    const rect = canvas.getBoundingClientRect();
+    const t = evt.touches ? evt.touches[0] : evt;
+    const scaleX = SIZE / rect.width;
+    const scaleY = SIZE / rect.height;
+    return {
+      x: (t.clientX - rect.left) * scaleX,
+      y: (t.clientY - rect.top) * scaleY
+    };
+  }
+
+  function canPlayerAct(){
+    if(gameOver || phase!=='aiming' || isReviewing) return false;
+    return currentSeat().kind === 'human';
+  }
+
+  function axisValue(side, obj){ return SEAT_DEFS[side].axis==='x' ? obj.x : obj.y; }
+
+  function resetShotStage(silent){
+    shotStage = 'position';
+    gestureMode = null;
+    dragCurrent = null;
+    lockedDir = null;
+    liveAimDir = null;
+    aimSoftLocked = false;
+    dwellAnchor = null;
+    powerPercent = 0;
+    powerMoved = false;
+    powerStartTime = 0;
+    if(powerTimer){ clearTimeout(powerTimer); powerTimer = null; }
+    setPowerMeter(0);
+    if(!silent) setMsg('<span class="warn">Shot reset.</span> Drag the striker to line up again.');
+  }
+
+  let lastTapTime = 0;
+  const DOUBLE_TAP_MS = 320;
+
+  function onDown(evt){
+    if(!canPlayerAct()) return;
+    const pos = getPos(evt);
+
+    const now = Date.now();
+    const isDoubleTap = (now - lastTapTime) < DOUBLE_TAP_MS;
+    lastTapTime = now;
+    if(isDoubleTap){
+      resetShotStage();
+      evt.preventDefault();
+      return;
+    }
+
+    if(shotStage === 'position'){
+      gestureMode = 'position';
+      touchStart = pos;
+      strikerStartAlong = axisValue(currentSeat().side, striker);
+    } else if(shotStage === 'aim'){
+      gestureMode = 'aim';
+      dragCurrent = pos;
+      liveAimDir = null;
+      aimSoftLocked = false;
+      dwellAnchor = null;
+    } else if(shotStage === 'power'){
+      gestureMode = 'power';
+      powerDragStartY = pos.y;
+      powerBaseValue = powerPercent;
+      powerMoved = false;
+    }
+    evt.preventDefault();
+  }
+
+  function onMove(evt){
+    if(!gestureMode) return;
+    const pos = getPos(evt);
+    const seat = currentSeat();
+
+    if(gestureMode === 'position'){
+      const [a0,a1] = strikeRange(seat.side);
+      const axis = SEAT_DEFS[seat.side].axis;
+      const delta = axis==='x' ? (pos.x - touchStart.x) : (pos.y - touchStart.y);
+      let along = Math.max(a0, Math.min(a1, strikerStartAlong + delta));
+      const p = seatPoint(seat.side, along);
+      if(!positionOverlapsCoin(p.x, p.y)){
+        striker.x = p.x; striker.y = p.y;
+      }
+    } else if(gestureMode === 'aim'){
+      dragCurrent = pos;
+      const DWELL_RADIUS = 3, DWELL_MS = 950, UNLOCK_RADIUS = 24;
+      const now = performance.now();
+
+      // Soft-lock: hold still to freeze aim direction
+      if(!aimSoftLocked){
+        const dx = striker.x - pos.x, dy = striker.y - pos.y;
+        const rawDist = Math.hypot(dx,dy);
+        if(rawDist > 4){
+          liveAimDir = { x: dx/rawDist, y: dy/rawDist };
+        }
+        if(!dwellAnchor || Math.hypot(pos.x-dwellAnchor.x, pos.y-dwellAnchor.y) > DWELL_RADIUS){
+          dwellAnchor = { x: pos.x, y: pos.y, time: now };
+        } else if(now - dwellAnchor.time > DWELL_MS){
+          aimSoftLocked = true;
+        }
+      } else {
+        // LOCKED: aim direction is frozen, only check for unlock
+        if(Math.hypot(pos.x-dwellAnchor.x, pos.y-dwellAnchor.y) > UNLOCK_RADIUS){
+          aimSoftLocked = false;
+          dwellAnchor = { x: pos.x, y: pos.y, time: now };
+          // Update direction immediately on unlock
+          const dx = striker.x - pos.x, dy = striker.y - pos.y;
+          const rawDist = Math.hypot(dx,dy);
+          if(rawDist > 4){
+            liveAimDir = { x: dx/rawDist, y: dy/rawDist };
+          }
+        }
+      }
+
+      if(shotStage === 'aim'){ setPowerMeter(0); }
+    } else if(gestureMode === 'power'){
+      const dy = pos.y - powerDragStartY;
+      if(Math.abs(dy) > 6) powerMoved = true;
+      powerPercent = Math.max(0, Math.min(100, powerBaseValue + dy/2));
+      setPowerMeter(powerPercent);
+      if(!powerStartTime) powerStartTime = performance.now();
+      if(performance.now() - powerStartTime > 3000){
+        resetShotStage();
+        setMsg('<span class="warn">Power held too long — shot reset.</span>');
+      }
+    }
+    evt.preventDefault();
+  }
+
+  function onUp(evt){
+    if(!gestureMode) return;
+
+    if(gestureMode === 'position'){
+      shotStage = 'aim';
+      setMsg('Now drag to aim — release to lock the direction. (Double-tap anytime to reset.)');
+    } else if(gestureMode === 'aim' && dragCurrent){
+      const dx = striker.x - dragCurrent.x;
+      const dy = striker.y - dragCurrent.y;
+      const dist = Math.hypot(dx,dy);
+      if(dist > 10){
+        // if the dwell-lock engaged, honor the frozen locked direction exactly.
+        // otherwise (a normal continuous drag-and-release) use the RAW direction
+        // from the exact release point — not the smoothed preview value, which
+        // can lag slightly behind your true final position and cause a miss.
+        let dirX, dirY;
+        if(aimSoftLocked && liveAimDir){
+          dirX = liveAimDir.x; dirY = liveAimDir.y;
+        } else {
+          dirX = dx/dist; dirY = dy/dist;
+        }
+        if(!isAimDirectionAllowed(dirX, dirY, currentSeat().side)){
+          setMsg('<span class="warn">Too shallow — you can\'t aim along your own baseline.</span> Try a steeper angle.');
+        } else {
+          lockedDir = { x: dirX, y: dirY };
+          shotStage = 'power';
+          powerPercent = 0;
+          setPowerMeter(0);
+          setMsg('Direction locked. Drag up/down to set power, release to fire. (Double-tap anytime to reset.)');
+        }
+      }
+    } else if(gestureMode === 'power' && lockedDir){
+      powerStartTime = 0;
+      if(powerMoved && powerPercent > 0){
+        const speed = Math.max(2, (powerPercent/100) * MAX_SHOT_SPEED);
+        fireStriker(lockedDir.x*speed, lockedDir.y*speed);
+        lockedDir = null;
+        setMsg('Shot away!');
+      }
+    }
+    gestureMode = null;
+    dragCurrent = null;
+    if(shotStage === 'position') setPowerMeter(0);
+  }
+
+  canvas.addEventListener('mousedown', onDown);
+  canvas.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  canvas.addEventListener('touchstart', onDown, {passive:false});
+  canvas.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('touchend', onUp);
+
+  // ---------------- RENDER ----------------
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function drawAnchor(x,y){
+    ctx.beginPath();
+    ctx.arc(x,y,STRIKER_R+1.5,0,Math.PI*2);
+    ctx.strokeStyle = 'rgba(60,20,10,0.7)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(x,y,STRIKER_R,0,Math.PI*2);
+    ctx.fillStyle = '#b52a2a';
+    ctx.fill();
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(80,15,15,0.5)';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(x,y,STRIKER_R*0.12,0,Math.PI*2);
+    ctx.fillStyle = 'rgba(120,40,30,0.5)';
+    ctx.fill();
+  }
+
+  function drawBaselineBox(side){
+    const [a0,a1] = strikeRange(side);
+    const d = SEAT_DEFS[side];
+    // both lines exactly tangent to the anchor circles (±STRIKER_R from center) —
+    // circles stay in their exact position, perfectly centered between the two lines
+    const lineNear = d.outer - STRIKER_R;
+    const lineFar  = d.outer + STRIKER_R;
+    ctx.strokeStyle = 'rgba(50,30,10,0.55)';
+    ctx.lineWidth = 2;
+    if(d.axis==='x'){
+      ctx.beginPath(); ctx.moveTo(a0,lineNear); ctx.lineTo(a1,lineNear); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(a0,lineFar); ctx.lineTo(a1,lineFar); ctx.stroke();
+      drawAnchor(a0,d.outer); drawAnchor(a1,d.outer);
+    } else {
+      ctx.beginPath(); ctx.moveTo(lineNear,a0); ctx.lineTo(lineNear,a1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lineFar,a0); ctx.lineTo(lineFar,a1); ctx.stroke();
+      drawAnchor(d.outer,a0); drawAnchor(d.outer,a1);
+    }
+  }
+
+  function drawCornerLane(lane){
+    const hx = lane.hook.x, hy = lane.hook.y, hr = lane.hook.r;
+    const fx = lane.from.x, fy = lane.from.y;
+    const tx = lane.pocket.x, ty = lane.pocket.y;
+
+    // 270-degree hook, opening faces the pocket
+    const baseAng = Math.atan2(ty-hy, tx-hx);
+    const gapHalf = Math.PI * 0.25; // 90-degree gap -> 270-degree drawn arc
+    ctx.strokeStyle = 'rgba(50,30,10,0.6)';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(hx, hy, hr, baseAng+gapHalf, baseAng+Math.PI*2-gapHalf);
+    ctx.stroke();
+
+    // line starts at the far edge of the circle (the side facing the board center),
+    // passes straight through the circle, and continues all the way to the pocket
+    const farX = hx - Math.cos(baseAng)*hr, farY = hy - Math.sin(baseAng)*hr;
+    ctx.beginPath();
+    ctx.moveTo(farX,farY); ctx.lineTo(tx,ty); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(tx,ty);
+    ctx.lineTo(tx-Math.cos(baseAng-0.4)*13, ty-Math.sin(baseAng-0.4)*13);
+    ctx.lineTo(tx-Math.cos(baseAng+0.4)*13, ty-Math.sin(baseAng+0.4)*13);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(50,30,10,0.6)';
+    ctx.fill();
+  }
+
+  function drawBoard(){
+    ctx.clearRect(0,0,SIZE,SIZE);
+
+    const frameGrad = ctx.createLinearGradient(0,0,SIZE,SIZE);
+    frameGrad.addColorStop(0,'#3a260f');
+    frameGrad.addColorStop(0.5,'#241608');
+    frameGrad.addColorStop(1,'#170d04');
+    ctx.fillStyle = frameGrad;
+    roundRect(ctx,0,0,SIZE,SIZE,26); ctx.fill();
+
+    ctx.strokeStyle = 'rgba(195,154,91,0.35)';
+    ctx.lineWidth = 2;
+    roundRect(ctx,10,10,SIZE-20,SIZE-20,20); ctx.stroke();
+
+    const feltGrad = ctx.createRadialGradient(CENTER,CENTER,60,CENTER,CENTER,PLAY_SIZE*0.75);
+    feltGrad.addColorStop(0, '#e2b164');
+    feltGrad.addColorStop(1, '#c68f43');
+    ctx.fillStyle = feltGrad;
+    ctx.fillRect(PLAY_MIN,PLAY_MIN,PLAY_SIZE,PLAY_SIZE);
+
+    ctx.strokeStyle = 'rgba(60,35,10,0.55)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(PLAY_MIN,PLAY_MIN,PLAY_SIZE,PLAY_SIZE);
+
+    // the two board diagonals: these are the "45 degree lines" that split
+    // the board into each player's wedge
+    ctx.strokeStyle = 'rgba(50,30,10,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(PLAY_MIN,PLAY_MIN); ctx.lineTo(PLAY_MAX,PLAY_MAX); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PLAY_MAX,PLAY_MIN); ctx.lineTo(PLAY_MIN,PLAY_MAX); ctx.stroke();
+
+    ['bottom','top','left','right'].forEach(drawBaselineBox);
+
+    getCornerLanes().forEach(drawCornerLane);
+
+    ctx.save();
+    ctx.translate(CENTER,CENTER);
+    ctx.strokeStyle = 'rgba(60,35,10,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(0,0,60,0,Math.PI*2); ctx.stroke();
+    for(let i=0;i<8;i++){
+      const a = i*Math.PI/4;
+      const rOuter = i%2===0 ? 58 : 34;
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(Math.cos(a)*rOuter, Math.sin(a)*rOuter);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    pocketCenters().forEach(p=>{
+      ctx.fillStyle = '#080502';
+      ctx.beginPath(); ctx.arc(p.x,p.y,POCKET_R,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(195,154,91,0.5)';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(p.x,p.y,POCKET_R,0,Math.PI*2); ctx.stroke();
+    });
+  }
+
+  function drawCoin(c, dimmed){
+    ctx.save();
+    if(dimmed) ctx.globalAlpha = 0.35;
+
+    const r = c.r;
+    const x = c.x;
+    const y = c.y;
+
+    // drop shadow — a touch bigger/softer so the coin reads as "lifted" off the felt
+    ctx.beginPath();
+    ctx.arc(x+2, y+3.5, r, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.filter = 'blur(2.5px)';
+    ctx.fill();
+    ctx.filter = 'none';
+
+    // outer contrast halo — a dark ring that sits behind everything so the coin
+    // has a crisp silhouette against the gold felt no matter its own color
+    ctx.beginPath();
+    ctx.arc(x, y, r + 1.6, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(10,7,4,0.55)';
+    ctx.fill();
+
+    let bodyStops, rimColor, innerRimColor, grooveBase, dotColor, highlightColor;
+    if(c.color==='black'){
+      bodyStops = ['#3a3a42', '#151519', '#050506'];
+      rimColor = '#e8dcc0';
+      innerRimColor = 'rgba(235,220,190,0.55)';
+      grooveBase = [40,40,48];
+      dotColor = '#e8dcc0';
+      highlightColor = 'rgba(255,255,255,0.5)';
+    } else if(c.color==='white'){
+      bodyStops = ['#fffaf0', '#f3e6c9', '#d9c393'];
+      rimColor = '#2f6b45';
+      innerRimColor = 'rgba(60,110,70,0.6)';
+      grooveBase = [110,90,50];
+      dotColor = '#2f6b45';
+      highlightColor = 'rgba(255,255,255,0.85)';
+    } else {
+      bodyStops = ['#ff6b6b', '#e0202f', '#8f0f1a'];
+      rimColor = '#fff3d6';
+      innerRimColor = 'rgba(255,235,190,0.6)';
+      grooveBase = [180,20,40];
+      dotColor = '#fff3d6';
+      highlightColor = 'rgba(255,255,255,0.7)';
+    }
+
+    // glossy radial body — gives real depth instead of a flat disc
+    const bodyGrad = ctx.createRadialGradient(
+      x - r*0.32, y - r*0.35, r*0.08,
+      x, y, r
+    );
+    bodyGrad.addColorStop(0, bodyStops[0]);
+    bodyGrad.addColorStop(0.55, bodyStops[1]);
+    bodyGrad.addColorStop(1, bodyStops[2]);
+    ctx.beginPath();
+    ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+
+    // bold outer rim — thick and high-contrast so the edge never blends into the board
+    ctx.beginPath();
+    ctx.arc(x, y, r - 1, 0, Math.PI*2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = rimColor;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(x, y, r - 2.6, 0, Math.PI*2);
+    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = innerRimColor;
+    ctx.stroke();
+
+    const grooveCount = 5;
+    for(let i = 1; i <= grooveCount; i++){
+      const gr = r * (0.2 + i * 0.13);
+      if(gr >= r - 3) break;
+      ctx.beginPath();
+      ctx.arc(x, y, gr, 0, Math.PI*2);
+      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = `rgba(${grooveBase[0]},${grooveBase[1]},${grooveBase[2]},${0.35 + i*0.08})`;
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.09, 0, Math.PI*2);
+    ctx.fillStyle = dotColor;
+    ctx.fill();
+
+    // gloss highlight — small crescent, upper-left, to sell the "polished disc" look
+    ctx.beginPath();
+    ctx.ellipse(x - r*0.35, y - r*0.4, r*0.28, r*0.16, -0.6, 0, Math.PI*2);
+    ctx.fillStyle = highlightColor;
+    ctx.globalAlpha = (dimmed ? 0.35 : 1) * 0.35;
+    ctx.fill();
+    ctx.globalAlpha = dimmed ? 0.35 : 1;
+
+    if(dimmed){
+      ctx.beginPath();
+      ctx.arc(x,y,r+3,0,Math.PI*2);
+      ctx.strokeStyle = 'rgba(220,70,70,0.7)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4,4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
+  // which coins can't be legally struck directly right now (dimmed in the UI)
+  function currentBlockedSet(){
+    if(gameOver) return new Set();
+    if(phase === 'moving'){
+      return shotUnlocked ? new Set() : illegalDirectSet;
+    }
+    if(!currentSeat()) return new Set();
+    const seat = currentSeat();
+    return new Set(coins.filter(c=>!c.potted && !isPotLegalDirect(c, seat)));
+  }
+
+  function drawStriker(){
+    if(!striker.active) return;
+    ctx.save();
+
+    const r = striker.r;
+    const x = striker.x;
+    const y = striker.y;
+
+    // bigger, softer drop shadow so it visibly sits above the felt
+    ctx.beginPath();
+    ctx.arc(x+2.5, y+4, r, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.filter = 'blur(3px)';
+    ctx.fill();
+    ctx.filter = 'none';
+
+    // dark contrast halo behind the body — keeps the edge crisp on any felt color
+    ctx.beginPath();
+    ctx.arc(x, y, r + 2, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(8,20,14,0.5)';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI*2);
+    const bodyGrad = ctx.createRadialGradient(
+      x - r*0.32, y - r*0.35, r*0.08,
+      x, y, r
+    );
+    bodyGrad.addColorStop(0, '#e8fff2');
+    bodyGrad.addColorStop(0.4, '#8fe0b3');
+    bodyGrad.addColorStop(0.75, '#4fae7d');
+    bodyGrad.addColorStop(1, '#2f7d54');
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+
+    // bold cream rim — high-contrast edge, echoes the coin styling
+    ctx.beginPath();
+    ctx.arc(x, y, r - 1, 0, Math.PI*2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#f1e6d3';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(x, y, r - 2.8, 0, Math.PI*2);
+    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = 'rgba(60,140,100,0.7)';
+    ctx.stroke();
+
+    const grooveCount = 4;
+    for(let i = 1; i <= grooveCount; i++){
+      const gr = r * (0.18 + i * 0.15);
+      if(gr >= r - 3) break;
+      ctx.beginPath();
+      ctx.arc(x, y, gr, 0, Math.PI*2);
+      ctx.lineWidth = 0.6;
+      ctx.strokeStyle = `rgba(30,90,60,${0.35 + i*0.1})`;
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.12, 0, Math.PI*2);
+    ctx.fillStyle = '#f1e6d3';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.12, 0, Math.PI*2);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#2f7d54';
+    ctx.stroke();
+
+    const crossLen = r * 0.08;
+    ctx.beginPath();
+    ctx.moveTo(x - crossLen, y);
+    ctx.lineTo(x + crossLen, y);
+    ctx.moveTo(x, y - crossLen);
+    ctx.lineTo(x, y + crossLen);
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(20,60,40,0.95)';
+    ctx.stroke();
+
+    // gloss highlight crescent to match the coins' polished look
+    ctx.beginPath();
+    ctx.ellipse(x - r*0.35, y - r*0.4, r*0.26, r*0.15, -0.6, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.globalAlpha = 0.4;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+  }
+
+  function raycastAim(dirX, dirY){
+    let wallT = 2000;
+    if(dirX>0) wallT = Math.min(wallT, (PLAY_MAX-striker.r-striker.x)/dirX);
+    if(dirX<0) wallT = Math.min(wallT, (PLAY_MIN+striker.r-striker.x)/dirX);
+    if(dirY>0) wallT = Math.min(wallT, (PLAY_MAX-striker.r-striker.y)/dirY);
+    if(dirY<0) wallT = Math.min(wallT, (PLAY_MIN+striker.r-striker.y)/dirY);
+    wallT = Math.max(0, wallT);
+
+    let bestT = wallT;
+    let hitCoin = null;
+
+    coins.forEach(c=>{
+      if(c.potted) return;
+      const toX = c.x-striker.x, toY = c.y-striker.y;
+      const projT = toX*dirX + toY*dirY;
+      if(projT <= 0) return;
+      const closeX = striker.x + dirX*projT, closeY = striker.y + dirY*projT;
+      const perpDist = Math.hypot(c.x-closeX, c.y-closeY);
+      const sumR = striker.r + c.r; // ZERO TOLERANCE: exact radius sum
+      if(perpDist < sumR){
+        const backT = Math.sqrt(Math.max(0, sumR*sumR - perpDist*perpDist));
+        const hitT = projT - backT;
+        if(hitT > 0 && hitT < bestT){
+          bestT = hitT;
+          hitCoin = c;
+        }
+      }
+    });
+
+    return { t: bestT, coin: hitCoin };
+  }
+
+  function drawAimLine(){
+    let dirX, dirY, powerRatio;
+    if(shotStage === 'aim' && gestureMode === 'aim' && dragCurrent && liveAimDir){
+      const pull = Math.hypot(striker.x-dragCurrent.x, striker.y-dragCurrent.y);
+      dirX = liveAimDir.x; dirY = liveAimDir.y;
+      powerRatio = 0;
+    } else if(shotStage === 'power' && lockedDir){
+      dirX = lockedDir.x; dirY = lockedDir.y;
+      powerRatio = powerPercent / 100;
+    } else {
+      return;
+    }
+
+    const { t, coin: hitCoin } = raycastAim(dirX, dirY);
+    const contactX = striker.x + dirX*t, contactY = striker.y + dirY*t;
+    const angleOk = isAimDirectionAllowed(dirX, dirY, currentSeat().side);
+    if(!angleOk){ return; }
+
+    ctx.save();
+
+    const aimLen = Math.hypot(contactX-striker.x, contactY-striker.y) || 1;
+    const aimNx = (contactX-striker.x)/aimLen, aimNy = (contactY-striker.y)/aimLen;
+    // pull the visible line back from the arrowhead tip so it doesn't poke through it
+    const shaftEndX = contactX - aimNx*10, shaftEndY = contactY - aimNy*10;
+
+    // thin, tapered shaft — bright near the striker, fading toward the target,
+    // with slow-marching dashes for a subtle "live" feel instead of a static bar
+    ctx.save();
+    ctx.lineCap = 'round';
+    const lineGrad = ctx.createLinearGradient(striker.x, striker.y, contactX, contactY);
+    lineGrad.addColorStop(0, 'rgba(255,225,225,0.95)');
+    lineGrad.addColorStop(1, 'rgba(181,42,42,0.3)');
+    ctx.strokeStyle = lineGrad;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8,6]);
+    ctx.lineDashOffset = -(performance.now()/45 % 14);
+    ctx.shadowColor = 'rgba(181,42,42,0.55)';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.moveTo(striker.x, striker.y);
+    ctx.lineTo(shaftEndX, shaftEndY);
+    ctx.stroke();
+    ctx.restore();
+    ctx.setLineDash([]);
+
+    // small origin dot right at the striker
+    ctx.beginPath();
+    ctx.arc(striker.x, striker.y, 2.6, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fill();
+
+    // slim arrowhead — replaces the old blunt round-tipped bar
+    const aimAng = Math.atan2(aimNy, aimNx);
+    const aimHeadLen = 11, aimHeadSpread = 0.42;
+    ctx.beginPath();
+    ctx.moveTo(contactX, contactY);
+    ctx.lineTo(contactX - aimHeadLen*Math.cos(aimAng-aimHeadSpread), contactY - aimHeadLen*Math.sin(aimAng-aimHeadSpread));
+    ctx.lineTo(contactX - aimHeadLen*0.55*Math.cos(aimAng), contactY - aimHeadLen*0.55*Math.sin(aimAng));
+    ctx.lineTo(contactX - aimHeadLen*Math.cos(aimAng+aimHeadSpread), contactY - aimHeadLen*Math.sin(aimAng+aimHeadSpread));
+    ctx.closePath();
+    ctx.save();
+    ctx.shadowColor = 'rgba(181,42,42,0.7)';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = 'rgba(255,90,90,0.95)';
+    ctx.fill();
+    ctx.restore();
+
+    if(shotStage === 'power'){
+      ctx.beginPath();
+      ctx.arc(striker.x, striker.y, striker.r+8 + powerRatio*8, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(195,154,91,${0.2 + 0.8*powerRatio})`;
+      ctx.lineWidth = 3 + powerRatio*5;
+      ctx.stroke();
+      ctx.save();
+      ctx.shadowColor = `rgba(195,154,91,${0.3 + 0.7*powerRatio})`;
+      ctx.shadowBlur = 8 + powerRatio*20;
+      ctx.beginPath();
+      ctx.arc(striker.x, striker.y, striker.r+8 + powerRatio*8, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(195,154,91,${0.15 + 0.6*powerRatio})`;
+      ctx.lineWidth = 2 + powerRatio*3;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if(hitCoin){
+      const legal = isPotLegalDirect(hitCoin, currentSeat());
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(hitCoin.x, hitCoin.y, hitCoin.r+8, 0, Math.PI*2);
+      ctx.strokeStyle = legal ? 'rgba(126,224,140,0.95)' : 'rgba(220,70,70,0.95)';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.save();
+      ctx.shadowColor = legal ? 'rgba(126,224,140,0.7)' : 'rgba(220,70,70,0.7)';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(hitCoin.x, hitCoin.y, hitCoin.r+8, 0, Math.PI*2);
+      ctx.strokeStyle = legal ? 'rgba(126,224,140,0.5)' : 'rgba(220,70,70,0.5)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      if(!legal){
+        ctx.restore();
+        return;
+      }
+
+      let tdx = hitCoin.x - contactX, tdy = hitCoin.y - contactY;
+      const tlen = Math.hypot(tdx,tdy) || 1;
+      tdx/=tlen; tdy/=tlen;
+
+      const distToTarget = Math.hypot(hitCoin.x - striker.x, hitCoin.y - striker.y);
+
+      let nearestPocketDist = Infinity;
+      let nearestPocket = null;
+      pocketCenters().forEach(p=>{
+        const d = Math.hypot(p.x-hitCoin.x, p.y-hitCoin.y);
+        if(d < nearestPocketDist){ nearestPocketDist = d; nearestPocket = p; }
+      });
+
+      const pocketDifficulty = Math.max(0, Math.min(1, 1 - (nearestPocketDist - 80) / 170));
+
+      let angleDifficulty = 0.5;
+      if(nearestPocket){
+        const toPocketX = nearestPocket.x - hitCoin.x;
+        const toPocketY = nearestPocket.y - hitCoin.y;
+        const toPocketLen = Math.hypot(toPocketX, toPocketY) || 1;
+        const alignment = (toPocketX*tdx + toPocketY*tdy) / toPocketLen;
+        angleDifficulty = Math.max(0, Math.min(1, (alignment + 1) / 2));
+      }
+
+      const overallDifficulty = pocketDifficulty * 0.6 + angleDifficulty * 0.4;
+
+      let predictLen = 60 + overallDifficulty * 240;
+
+      const easyColor = { r: 92, g: 242, b: 255 };
+      const hardColor = { r: 255, g: 179, b: 71 };
+      const interpR = Math.round(hardColor.r + (easyColor.r - hardColor.r) * overallDifficulty);
+      const interpG = Math.round(hardColor.g + (easyColor.g - hardColor.g) * overallDifficulty);
+      const interpB = Math.round(hardColor.b + (easyColor.b - hardColor.b) * overallDifficulty);
+      const predictColor = `rgb(${interpR},${interpG},${interpB})`;
+
+      let reachesPocket = false;
+      let exactPocket = null;
+      pocketCenters().forEach(p=>{
+        const toPx = p.x-hitCoin.x, toPy = p.y-hitCoin.y;
+        const distP = Math.hypot(toPx,toPy) || 1;
+        const alignment = (toPx*tdx + toPy*tdy) / distP;
+        if(alignment > 0.999 && distP < 350){
+          predictLen = distP;
+          exactPocket = p;
+          reachesPocket = true;
+        }
+      });
+
+      const tex = hitCoin.x + tdx*predictLen, tey = hitCoin.y + tdy*predictLen;
+
+      const predGrad = ctx.createLinearGradient(hitCoin.x, hitCoin.y, tex, tey);
+      predGrad.addColorStop(0, predictColor);
+      predGrad.addColorStop(1, `rgba(${interpR},${interpG},${interpB},0.25)`);
+
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.setLineDash([7,5]);
+      ctx.lineDashOffset = -(performance.now()/45 % 12);
+      ctx.shadowColor = predictColor;
+      ctx.shadowBlur = 8 + overallDifficulty * 10;
+      ctx.strokeStyle = predGrad;
+      ctx.lineWidth = 1.8 + overallDifficulty * 1.4;
+      ctx.beginPath();
+      ctx.moveTo(hitCoin.x, hitCoin.y);
+      ctx.lineTo(tex - tdx*8, tey - tdy*8);
+      ctx.stroke();
+      ctx.restore();
+      ctx.setLineDash([]);
+
+      const headAng = Math.atan2(tdy,tdx);
+      const headSize = 8 + overallDifficulty * 6;
+      ctx.save();
+      ctx.shadowColor = predictColor;
+      ctx.shadowBlur = 8 + overallDifficulty * 10;
+      ctx.beginPath();
+      ctx.moveTo(tex, tey);
+      ctx.lineTo(tex - headSize*Math.cos(headAng-0.42), tey - headSize*Math.sin(headAng-0.42));
+      ctx.lineTo(tex - headSize*0.55*Math.cos(headAng), tey - headSize*0.55*Math.sin(headAng));
+      ctx.lineTo(tex - headSize*Math.cos(headAng+0.42), tey - headSize*Math.sin(headAng+0.42));
+      ctx.closePath();
+      ctx.fillStyle = predictColor;
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  function render(){
+    drawBoard();
+    const blocked = currentBlockedSet();
+    coins.forEach(c=>{ if(!c.potted) drawCoin(c, blocked.has(c)); });
+    drawStriker();
+    drawAimLine();
+  }
+
+  let loopStuckRecoveryScheduled = false;
+
+  function loop(){
+    try{
+      if(phase==='moving'){
+        let stillMoving;
+        if(isReviewing){
+          if(reviewSlowMo){
+            reviewPhysicsSkip = (reviewPhysicsSkip + 1) % 3;
+            stillMoving = reviewPhysicsSkip===0 ? stepVisualOnly() : true;
+          } else {
+            stillMoving = stepVisualOnly();
+          }
+        } else {
+          stillMoving = step();
+        }
+        if(!stillMoving){
+          if(isReviewing){ finishReview(); } else { endShotResolve(); }
+        }
+      }
+      render();
+    } catch(e){
+      // never let an error anywhere in physics/rendering permanently kill the
+      // game loop — force back to a safe, resolvable state and keep going
+      try{
+        if(isReviewing){ finishReview(); }
+        else if(phase==='moving'){ phase='aiming'; endShotResolve(); }
+      } catch(e2){ phase = 'aiming'; }
+    }
+    if(!gameOver){
+      requestAnimationFrame(loop);
+    } else {
+      try{ render(); } catch(e){}
+    }
+  }
+
+  // an INDEPENDENT watchdog (setInterval, not requestAnimationFrame) so it
+  // keeps checking even in the unlikely case the main loop itself stalls —
+  // guarantees the player always has a manual way to unstick the game
+  let aiIdleSince = null;
+  document.getElementById('forceMoveBtn').addEventListener('click', () => {
+    document.getElementById('forceMoveBtn').style.display = 'none';
+    aiIdleSince = null;
+    try{
+      if(phase==='moving' && !isReviewing){
+        // physics seems stuck mid-shot — force-resolve it
+        phase = 'aiming';
+        try{ endShotResolve(); } catch(e){ phase='aiming'; }
+      }
+      const s = currentSeat();
+      if(s && s.kind==='ai' && phase==='aiming' && !gameOver){
+        aiEmergencyFire();
+      }
+    } catch(e){ /* ignore — button stays available to try again */ }
+  });
+
+  setInterval(() => {
+    try{
+      if(gameOver || !seats || !seats.length){ 
+        document.getElementById('forceMoveBtn').style.display = 'none';
+        aiIdleSince = null;
+        return;
+      }
+      const s = currentSeat();
+      const idle = s && s.kind==='ai' && phase==='aiming' && !isReviewing;
+      if(idle){
+        if(aiIdleSince===null) aiIdleSince = Date.now();
+        else if(Date.now() - aiIdleSince > 6000){
+          document.getElementById('forceMoveBtn').style.display = 'block';
+        }
+      } else {
+        aiIdleSince = null;
+        document.getElementById('forceMoveBtn').style.display = 'none';
+      }
+    } catch(e){ /* watchdog itself must never throw */ }
+  }, 1000);
+
+  updatePlayersNote();
+})();
+</script>
+</body>
+</html>
