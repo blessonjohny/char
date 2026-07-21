@@ -2396,6 +2396,46 @@
     ctx.restore();
   }
 
+  // Board branding: "TARO" (large, bold) with "BOARDS" (small, spaced
+  // out like a subtitle) beneath it, centered on each of the four dark
+  // wooden rails. Drawn once per side, rotated for the left/right rails
+  // so the text reads correctly along that edge instead of sideways.
+  function drawBoardBranding(){
+    const railMid = MARGIN / 2; // center of the 58px dark rail
+    function brandAt(cx, cy){
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      // subtle engraved look: a soft dark shadow behind lighter brass-gold text
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 2;
+      ctx.shadowOffsetY = 1;
+      ctx.fillStyle = 'rgba(210,175,120,0.55)';
+      ctx.font = '700 22px Georgia, "Times New Roman", serif';
+      ctx.fillText('TARO', 0, 2);
+      ctx.shadowBlur = 1;
+      ctx.fillStyle = 'rgba(210,175,120,0.4)';
+      ctx.font = '600 9px Georgia, "Times New Roman", serif';
+      ctx.fillText('B O A R D S', 0, 16);
+      ctx.restore();
+    }
+    // top and bottom rails: text sits upright, centered horizontally
+    brandAt(CENTER, railMid + 6);
+    brandAt(CENTER, SIZE - railMid + 6);
+    // left and right rails: rotated 90 degrees to run along the edge
+    ctx.save();
+    ctx.translate(railMid, CENTER);
+    ctx.rotate(-Math.PI/2);
+    brandAt(0, 6);
+    ctx.restore();
+    ctx.save();
+    ctx.translate(SIZE - railMid, CENTER);
+    ctx.rotate(Math.PI/2);
+    brandAt(0, 6);
+    ctx.restore();
+  }
+
   function drawBoard(){
     ctx.clearRect(0,0,SIZE,SIZE);
 
@@ -2409,6 +2449,8 @@
     ctx.strokeStyle = 'rgba(195,154,91,0.35)';
     ctx.lineWidth = 2;
     roundRect(ctx,10,10,SIZE-20,SIZE-20,20); ctx.stroke();
+
+    drawBoardBranding();
 
     const feltGrad = ctx.createRadialGradient(CENTER,CENTER,60,CENTER,CENTER,PLAY_SIZE*0.75);
     feltGrad.addColorStop(0, '#e2b164');
