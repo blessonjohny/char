@@ -2463,6 +2463,23 @@ io.on('connection', (socket) => {
   // coin positions, updated scores, whose turn is next. This does not
   // re-simulate anything; it just relays the outcome to every other
   // seat at the table, who apply it directly to their own board.
+  // Live, in-progress shot positions -- fires many times per second while
+  // a shot is animating, so this is deliberately as cheap as possible: no
+  // per-seat payload construction, no room-list broadcast, just a direct
+  // relay of ephemeral visual data to every other socket at the table.
+  // The authoritative result still comes from carrom_shotResult above;
+  // this only makes the shot visible AS it happens instead of only after
+  // it's already fully resolved.
+  socket.on('carrom_liveShot', (snapshot) => {
+    const t = carromTables[carromTableId];
+    if (!t || t.phase !== 'playing') return;
+    for (const [socketId] of t.sockets) {
+      if (socketId === socket.id) continue;
+      const sock = io.sockets.sockets.get(socketId);
+      if (sock) sock.emit('carrom_liveShot', snapshot);
+    }
+  });
+
   socket.on('carrom_shotResult', ({ boardState }) => {
     const t = carromTables[carromTableId];
     if (!t || t.phase !== 'playing') return;
