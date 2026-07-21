@@ -436,40 +436,49 @@
   function loop() {
     if (phase === 'moving') {
       const prevVx = cueBall.vx, prevVy = cueBall.vy;
+      const wasFirstContactNull = shotState.firstContact === null;
       const r = PE.stepPhysics(balls, shotState);
       if (r.potted.length) shotState.pottedThisShot = (shotState.pottedThisShot||[]).concat(r.potted);
+      const justHadFirstContact = wasFirstContactNull && shotState.firstContact !== null;
+
+      // Cushion "grab": side spin alters the rebound angle off a rail.
+      // Checked BEFORE the follow/draw adjustment below (which itself
+      // modifies velocity and could otherwise be mistaken for a bounce
+      // by a naive velocity-sign-flip check), and only counts as a real
+      // cushion bounce if the ball is actually near a rail boundary --
+      // a ball-ball collision happens out in the open table and should
+      // never trigger this.
+      if (Math.abs(shotState.spinX) > 0.05 && !justHadFirstContact) {
+        const nearRail = cueBall.x < PE.PLAY_L + cueBall.r + 3 || cueBall.x > PE.PLAY_R - cueBall.r - 3 ||
+                          cueBall.y < PE.PLAY_T + cueBall.r + 3 || cueBall.y > PE.PLAY_B - cueBall.r - 3;
+        const bouncedX = (prevVx > 0.3 && cueBall.vx < -0.3) || (prevVx < -0.3 && cueBall.vx > 0.3);
+        const bouncedY = (prevVy > 0.3 && cueBall.vy < -0.3) || (prevVy < -0.3 && cueBall.vy > 0.3);
+        if (nearRail && (bouncedX || bouncedY)) {
+          const rebSpeed = Math.hypot(cueBall.vx, cueBall.vy);
+          const rebAng = Math.atan2(cueBall.vy, cueBall.vx);
+          const grab = shotState.spinX * 0.55; // radians of deflection from the rail "grabbing" the spin
+          const newAng = rebAng + grab;
+          cueBall.vx = Math.cos(newAng) * rebSpeed;
+          cueBall.vy = Math.sin(newAng) * rebSpeed;
+        }
+      }
+
       // The instant the cue ball makes its first contact, apply a
       // simplified spin effect on top of the engine's own (spin-free)
       // collision physics -- top spin ("follow") pushes the cue ball
       // onward in its original direction after impact, bottom spin
       // ("draw"/screw) pulls it back the opposite way, and left/right
       // spin deflects it sideways.
-      if (shotState.firstContact !== null && !shotState.spinApplied) {
+      if (justHadFirstContact && !shotState.spinApplied) {
         shotState.spinApplied = true;
         const { spinX: sx, spinY: sy, aimDirX, aimDirY } = shotState;
         if (Math.abs(sx) > 0.05 || Math.abs(sy) > 0.05) {
           const speed = Math.hypot(cueBall.vx, cueBall.vy);
-          const followAmt = -sy * speed * 0.55; // sy<0 (top spin, dragged up) -> positive follow
-          const sideAmt = sx * speed * 0.35;
+          const followAmt = -sy * speed * 1.1; // sy<0 (top spin, dragged up) -> positive follow
+          const sideAmt = sx * speed * 0.75;
           const perpX = -aimDirY, perpY = aimDirX;
           cueBall.vx += aimDirX*followAmt + perpX*sideAmt;
           cueBall.vy += aimDirY*followAmt + perpY*sideAmt;
-        }
-      }
-      // Side (left/right) spin "grabs" a cushion and alters the rebound
-      // angle -- detected as a sign flip in the cue ball's velocity
-      // along one axis (a bounce just happened), and only while side
-      // spin from this shot is still meaningfully present.
-      if (Math.abs(shotState.spinX) > 0.05) {
-        const bouncedX = (prevVx > 0.3 && cueBall.vx < -0.3) || (prevVx < -0.3 && cueBall.vx > 0.3);
-        const bouncedY = (prevVy > 0.3 && cueBall.vy < -0.3) || (prevVy < -0.3 && cueBall.vy > 0.3);
-        if (bouncedX || bouncedY) {
-          const rebSpeed = Math.hypot(cueBall.vx, cueBall.vy);
-          const rebAng = Math.atan2(cueBall.vy, cueBall.vx);
-          const grab = shotState.spinX * 0.35; // radians of deflection from the rail "grabbing" the spin
-          const newAng = rebAng + grab;
-          cueBall.vx = Math.cos(newAng) * rebSpeed;
-          cueBall.vy = Math.sin(newAng) * rebSpeed;
         }
       }
       if (!r.stillMoving) {
