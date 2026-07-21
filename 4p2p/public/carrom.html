@@ -364,7 +364,9 @@
         <button class="opt-btn" data-online-players="4">4 Players (2v2)</button>
       </div>
       <button class="start-btn" id="carromCreateBtn" style="margin-top:10px">Create Table</button>
-      <div style="text-align:center;margin:10px 0;color:var(--brass-dim);font-size:0.8rem">— or —</div>
+      <div style="text-align:center;margin:10px 0;color:var(--brass-dim);font-size:0.8rem">— or join an open table —</div>
+      <div id="carromOpenTablesList" style="margin-bottom:10px"></div>
+      <div style="text-align:center;margin:10px 0;color:var(--brass-dim);font-size:0.8rem">— or enter a code —</div>
       <input type="text" id="carromJoinCodeInput" placeholder="Enter table code" maxlength="12" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--brass-dim);background:rgba(255,255,255,0.05);color:var(--ink);font-size:0.9rem;margin-bottom:10px;font-family:inherit;box-sizing:border-box;text-transform:uppercase">
       <button class="start-btn" id="carromJoinBtn" style="background:linear-gradient(135deg,#8a6a3c,#5e4726)">Join Table</button>
       <div id="carromLobbyStatus" style="display:none;margin-top:14px">
@@ -592,6 +594,7 @@
     document.getElementById('onlineLobby').style.display = mode==='online' ? 'block':'none';
     document.getElementById('playersRow').style.display = mode==='online' ? 'none':'flex';
     document.getElementById('startBtn').style.display = mode==='online' ? 'none':'block';
+    if (mode === 'online') carromConnect();
     if (mode !== 'online') carromLeaveLobbyIfAny();
     updatePlayersNote();
   });
@@ -660,6 +663,8 @@
       const savedTable = (() => { try { return localStorage.getItem('carrom_table_id'); } catch(e) { return null; } })();
       if (savedTable && carromMyPlayerId) {
         carromSocket.emit('carrom_joinTable', { tableId: savedTable, name: carromNameOrDefault(), playerId: carromMyPlayerId });
+      } else {
+        carromSocket.emit('carrom_listRooms');
       }
     });
     carromSocket.on('carrom_joined', (info) => {
@@ -673,6 +678,9 @@
     });
     carromSocket.on('carrom_joinError', ({ reason }) => {
       alert(reason === 'table_full' ? 'That table is already full.' : 'That table code doesn\u2019t exist.');
+    });
+    carromSocket.on('carrom_roomList', (rooms) => {
+      carromRenderOpenTables(rooms);
     });
     carromSocket.on('carrom_state', (state) => {
       carromOnlineSeats = state.seats; carromOnlinePlayerCount = state.playerCount; carromOnlinePhase = state.phase;
@@ -691,6 +699,28 @@
         carromApplyRemoteState(state.boardState);
       }
     });
+  }
+
+  function carromRenderOpenTables(rooms) {
+    const el = document.getElementById('carromOpenTablesList');
+    if (!el) return;
+    // Only show tables that are still in the lobby (not already playing)
+    // and actually have a free seat — nothing to join otherwise.
+    const joinable = (rooms || []).filter(r => r.phase === 'lobby' && r.openSeats > 0);
+    if (!joinable.length) {
+      el.innerHTML = '<div style="text-align:center;color:var(--brass-dim);font-size:0.8rem;padding:6px 0">No open tables right now — create one!</div>';
+      return;
+    }
+    el.innerHTML = joinable.map(r => `
+      <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.04);border:1px solid var(--brass-dim);border-radius:8px;padding:8px 12px;margin-bottom:6px">
+        <span style="font-size:0.82rem">${r.playerCount===4?'2v2':'1v1'} · hosted by <b>${r.hostName}</b> · ${r.openSeats} open</span>
+        <button class="ctrl-btn" style="padding:5px 12px;font-size:0.75rem" onclick="carromJoinFromList('${r.id}')">Join</button>
+      </div>
+    `).join('');
+  }
+  function carromJoinFromList(tableId) {
+    carromConnect();
+    carromSocket.emit('carrom_joinTable', { tableId, name: carromNameOrDefault() });
   }
 
   function carromNameOrDefault() {
@@ -761,13 +791,22 @@
       // a bot's shot, floating-point/timing differences between
       // devices could make the boards diverge. Everyone else treats a
       // bot seat as 'remote' too, waiting for the host's relay.
+      // Rotate the seat->side mapping so MY OWN seat always lands on
+      // 'bottom' visually, regardless of which seat index the server
+      // actually assigned me. Previously this used a fixed mapping
+      // (seat index 0 always drawn at bottom), which meant a player
+      // seated at index 1/2/3 would see themselves on the wrong side of
+      // the board instead of the standard "you're always at the
+      // bottom" view every other seat gets.
       const sides = carromOnlinePlayerCount === 4 ? ['bottom','right','top','left'] : ['bottom','top'];
+      const pc = carromOnlinePlayerCount;
+      const sideFor = (i) => sides[((i - carromMyPos) % pc + pc) % pc];
       const colorFor = (i) => carromOnlinePlayerCount === 4 ? (i % 2 === 0 ? c1 : c2) : (i === 0 ? c1 : c2);
       return carromOnlineSeats.map((s, i) => {
         const isMe = i === carromMyPos;
         const isBot = s && s.isBot;
         const kind = isMe ? 'human' : (isBot && carromIsHost ? 'ai' : 'remote');
-        return { side: sides[i], color: colorFor(i), kind, name: s ? s.name : ('Seat ' + (i+1)) };
+        return { side: sideFor(i), color: colorFor(i), kind, name: s ? s.name : ('Seat ' + (i+1)) };
       });
     }
     if(playerCount === 2){
@@ -1242,19 +1281,44 @@
   // relays it to every other seat. A non-invasive wrap was deliberately
   // chosen over editing endShotResolve itself, to leave the actual game
   // logic completely untouched.
+  //
+  // Also handles the receiving side of a REPLAY (see carromApplyRemoteState
+  // below): when carromReplayFinalState is set, this call is the replay
+  // animation finishing locally, not a real local shot -- apply the
+  // shooter's captured final state directly as a consistency correction
+  // rather than independently recomputing fouls/scoring, which could
+  // diverge slightly between devices.
+  let carromReplayFinalState = null;
   const _carromOrigEndShotResolve = endShotResolve;
   endShotResolve = function() {
+    if (carromReplayFinalState) {
+      const finalState = carromReplayFinalState;
+      carromReplayFinalState = null;
+      phase = 'aiming';
+      turnPos = finalState.turnPos; gameOver = finalState.gameOver; boardNumber = finalState.boardNumber;
+      scores = { ...finalState.scores };
+      matchScore = { ...finalState.matchScore };
+      queenCoveredBy = finalState.queenCoveredBy;
+      skipPending = { ...finalState.skipPending };
+      coins.forEach((c, i) => { if (finalState.coins[i]) Object.assign(c, finalState.coins[i]); });
+      if (striker && finalState.striker) Object.assign(striker, finalState.striker);
+      updateHUD();
+      if (currentSeat() && currentSeat().kind === 'ai' && carromIsHost && !gameOver) {
+        scheduleAiTurn(900);
+      }
+      return;
+    }
     const actingPos = turnPos;
     _carromOrigEndShotResolve();
     if (mode === 'online' && carromSocket && carromMyTableId) {
       const iWasActing = (actingPos === carromMyPos) || (carromIsHost && seats[actingPos] && seats[actingPos].kind === 'ai');
       if (iWasActing) {
-        carromSocket.emit('carrom_shotResult', { boardState: carromCaptureState() });
+        carromSocket.emit('carrom_shotResult', { boardState: carromCaptureState(actingPos) });
       }
     }
   };
 
-  function carromCaptureState() {
+  function carromCaptureState(actingPosForCapture) {
     return {
       turnPos, gameOver, boardNumber,
       scores: { ...scores },
@@ -1262,12 +1326,45 @@
       queenCoveredBy,
       skipPending: { ...skipPending },
       coins: coins.map(c => ({ x:c.x, y:c.y, vx:c.vx, vy:c.vy, color:c.color, r:c.r, potted:!!c.potted })),
-      striker: striker ? { x:striker.x, y:striker.y, vx:striker.vx, vy:striker.vy, r:striker.r, potted:!!striker.potted } : null
+      striker: striker ? { x:striker.x, y:striker.y, vx:striker.vx, vy:striker.vy, r:striker.r, potted:!!striker.potted } : null,
+      // Replay data: lets the receiving client run the SAME shot through
+      // its own local physics, so it actually SEES the shot happen
+      // (striker moving, coins colliding, scattering) instead of the
+      // coins silently teleporting to their final spots with zero
+      // visible action.
+      replay: lastShotSnapshot ? {
+        preShotCoins: lastShotSnapshot.coins,
+        startStrikerX: lastShotSnapshot.startStrikerX,
+        startStrikerY: lastShotSnapshot.startStrikerY,
+        vx: lastShotSnapshot.vx, vy: lastShotSnapshot.vy,
+        actingPos: actingPosForCapture
+      } : null
     };
   }
 
   function carromApplyRemoteState(state) {
     if (!state || phase !== 'aiming') return; // never stomp on a shot the LOCAL player has in progress
+    if (state.replay && state.replay.preShotCoins) {
+      // Restore to the pre-shot position, then fire the SAME shot
+      // locally so the real physics loop animates it -- this is a true
+      // replay, not an instant snap. The shooter's captured final state
+      // is held and applied the moment this local replay settles (see
+      // the endShotResolve wrapper above), so any tiny physics
+      // divergence between devices never actually shows.
+      coins.forEach((c, i) => { if (state.replay.preShotCoins[i]) { c.x = state.replay.preShotCoins[i].x; c.y = state.replay.preShotCoins[i].y; c.potted = state.replay.preShotCoins[i].potted; c.vx = 0; c.vy = 0; } });
+      if (striker) {
+        striker.x = state.replay.startStrikerX;
+        striker.y = state.replay.startStrikerY;
+        striker.potted = false;
+      }
+      turnPos = state.replay.actingPos; // must be the SHOOTER's seat during the replay (fireStriker/currentSeat need this), not who's up next
+      carromReplayFinalState = state;
+      fireStriker(state.replay.vx, state.replay.vy);
+      return;
+    }
+    // No replay data available (e.g. an older client, or the very first
+    // state before any shot has happened) -- fall back to an instant
+    // apply so the game never gets stuck.
     turnPos = state.turnPos; gameOver = state.gameOver; boardNumber = state.boardNumber;
     scores = { ...state.scores };
     matchScore = { ...state.matchScore };
@@ -1291,16 +1388,43 @@
     get isHost() { return carromIsHost; },
     get scores() { return { ...scores }; },
     get seatKinds() { return seats.map(s => s.kind); },
+    get seats() { return seats.map(s => ({side:s.side, kind:s.kind, name:s.name})); },
+    get coinsSample() { return coins.slice(0,3).map(c => ({x: Math.round(c.x), y: Math.round(c.y)})); },
     get phase() { return phase; },
-    // Test-only: simulates a shot completing with the given score
-    // change, then runs it through the real endShotResolve wrapper —
-    // exercises the actual relay path without needing a real drag/aim/
-    // fire interaction on the canvas.
-    simulateShotResult(newWhite, newBlack) {
-      scores.white = newWhite; scores.black = newBlack;
-      phase = 'moving';
-      phase = 'aiming';
-      endShotResolve();
+    get shotStage() { return shotStage; },
+    get powerPercent() { return powerPercent; },
+    get hasLastShotSnapshot() { return !!lastShotSnapshot; },
+    get isReplaying() { return carromReplayFinalState !== null; },
+    // Test-only: forces the power stage directly with a given power
+    // level, bypassing the need to replicate the exact valid drag angle
+    // through simulated pointer events.
+    get strikerPos() { return striker ? { x: striker.x, y: striker.y } : null; },
+    forcePowerStage(pct) {
+      lockedDir = { x: 0, y: -1 };
+      shotStage = 'power';
+      powerPercent = pct;
+      setPowerMeter(pct);
+    },
+    // Test-only: fires a REAL shot with the given velocity through the
+    // actual fireStriker() entry point (populates lastShotSnapshot
+    // exactly like a real drag/aim/fire interaction would), then lets
+    // the normal physics loop settle it naturally and relay the result.
+    fireTestShot(vx, vy) {
+      fireStriker(vx, vy);
+    },
+    // Test-only: isolates the RECEIVING side of the replay mechanism on
+    // a single page. Call this once a real shot has already settled
+    // locally (so lastShotSnapshot and the current final state both
+    // reflect a genuine completed shot), and it feeds that same data
+    // back through the real carromApplyRemoteState() exactly as if it
+    // had just arrived from the server -- lets the replay logic be
+    // verified without needing two simultaneous live connections.
+    testReplayFromLastShot() {
+      if (!lastShotSnapshot) return 'NO_SNAPSHOT';
+      const capturedFinal = carromCaptureState(turnPos);
+      phase = 'aiming'; // must look like we're idle for carromApplyRemoteState to accept it
+      carromApplyRemoteState(capturedFinal);
+      return 'REPLAY_STARTED';
     }
   };
 
@@ -2488,19 +2612,21 @@
     // pull the visible line back from the arrowhead tip so it doesn't poke through it
     const shaftEndX = contactX - aimNx*10, shaftEndY = contactY - aimNy*10;
 
-    // thin, tapered shaft — bright near the striker, fading toward the target,
-    // with slow-marching dashes for a subtle "live" feel instead of a static bar
+    // thicker, more dynamic shaft — bright near the striker, fading toward the
+    // target, with slow-marching dashes AND a gentle width pulse for a more
+    // alive, less static feel
     ctx.save();
     ctx.lineCap = 'round';
     const lineGrad = ctx.createLinearGradient(striker.x, striker.y, contactX, contactY);
     lineGrad.addColorStop(0, 'rgba(255,225,225,0.95)');
-    lineGrad.addColorStop(1, 'rgba(181,42,42,0.3)');
+    lineGrad.addColorStop(1, 'rgba(181,42,42,0.35)');
     ctx.strokeStyle = lineGrad;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([8,6]);
-    ctx.lineDashOffset = -(performance.now()/45 % 14);
-    ctx.shadowColor = 'rgba(181,42,42,0.55)';
-    ctx.shadowBlur = 6;
+    const shaftPulse = 1 + Math.sin(performance.now()/220) * 0.12; // gentle breathing, not jittery
+    ctx.lineWidth = 5 * shaftPulse;
+    ctx.setLineDash([10,7]);
+    ctx.lineDashOffset = -(performance.now()/40 % 17);
+    ctx.shadowColor = 'rgba(181,42,42,0.65)';
+    ctx.shadowBlur = 10;
     ctx.beginPath();
     ctx.moveTo(striker.x, striker.y);
     ctx.lineTo(shaftEndX, shaftEndY);
@@ -2514,9 +2640,9 @@
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.fill();
 
-    // slim arrowhead — replaces the old blunt round-tipped bar
+    // wider, more prominent arrowhead
     const aimAng = Math.atan2(aimNy, aimNx);
-    const aimHeadLen = 11, aimHeadSpread = 0.42;
+    const aimHeadLen = 18, aimHeadSpread = 0.52;
     ctx.beginPath();
     ctx.moveTo(contactX, contactY);
     ctx.lineTo(contactX - aimHeadLen*Math.cos(aimAng-aimHeadSpread), contactY - aimHeadLen*Math.sin(aimAng-aimHeadSpread));
@@ -2524,27 +2650,50 @@
     ctx.lineTo(contactX - aimHeadLen*Math.cos(aimAng+aimHeadSpread), contactY - aimHeadLen*Math.sin(aimAng+aimHeadSpread));
     ctx.closePath();
     ctx.save();
-    ctx.shadowColor = 'rgba(181,42,42,0.7)';
-    ctx.shadowBlur = 8;
+    ctx.shadowColor = 'rgba(181,42,42,0.75)';
+    ctx.shadowBlur = 12;
     ctx.fillStyle = 'rgba(255,90,90,0.95)';
     ctx.fill();
     ctx.restore();
 
     if(shotStage === 'power'){
+      // Color sweeps across a real spectrum as power climbs, instead of
+      // staying one static brass tone: green (low) -> yellow -> orange
+      // -> red (max power). Computed as an HSL hue sweep so the
+      // transition is smooth at every point, not just a few fixed steps.
+      const powerHue = 130 - powerRatio*130; // 130=green -> 0=red
+      const ringColor = (alpha) => `hsla(${powerHue}, 85%, ${58 - powerRatio*8}%, ${alpha})`;
+      // Small at 0%, dramatically bigger at 100% — a real "growing"
+      // feel instead of the previous barely-noticeable 8px range.
+      const ringRadius = striker.r + 8 + powerRatio*32;
       ctx.beginPath();
-      ctx.arc(striker.x, striker.y, striker.r+8 + powerRatio*8, 0, Math.PI*2);
-      ctx.strokeStyle = `rgba(195,154,91,${0.2 + 0.8*powerRatio})`;
-      ctx.lineWidth = 3 + powerRatio*5;
+      ctx.arc(striker.x, striker.y, ringRadius, 0, Math.PI*2);
+      ctx.strokeStyle = ringColor(0.25 + 0.7*powerRatio);
+      ctx.lineWidth = 3 + powerRatio*9;
       ctx.stroke();
       ctx.save();
-      ctx.shadowColor = `rgba(195,154,91,${0.3 + 0.7*powerRatio})`;
-      ctx.shadowBlur = 8 + powerRatio*20;
+      ctx.shadowColor = ringColor(0.4 + 0.6*powerRatio);
+      ctx.shadowBlur = 10 + powerRatio*28;
       ctx.beginPath();
-      ctx.arc(striker.x, striker.y, striker.r+8 + powerRatio*8, 0, Math.PI*2);
-      ctx.strokeStyle = `rgba(195,154,91,${0.15 + 0.6*powerRatio})`;
-      ctx.lineWidth = 2 + powerRatio*3;
+      ctx.arc(striker.x, striker.y, ringRadius, 0, Math.PI*2);
+      ctx.strokeStyle = ringColor(0.2 + 0.6*powerRatio);
+      ctx.lineWidth = 2 + powerRatio*5;
       ctx.stroke();
       ctx.restore();
+      // A second, faster-spinning inner ring at higher power for extra
+      // "charging up" energy right when it matters most.
+      if (powerRatio > 0.4) {
+        const spinT = performance.now()/260;
+        ctx.save();
+        ctx.translate(striker.x, striker.y);
+        ctx.rotate(spinT % (Math.PI*2));
+        ctx.beginPath();
+        ctx.arc(0, 0, ringRadius*0.62, 0, Math.PI*1.3);
+        ctx.strokeStyle = ringColor(0.5 + 0.4*powerRatio);
+        ctx.lineWidth = 2 + powerRatio*3;
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     if(hitCoin){
