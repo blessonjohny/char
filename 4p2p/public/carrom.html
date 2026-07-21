@@ -573,9 +573,19 @@
     return getCornerLanes()
       .filter(lane=>lane.sides.includes(seat.side))
       .some(lane=>{
+        // Only the ARC of the semicircle counts, not its whole interior --
+        // a coin sitting inside the hook without touching the curved line
+        // itself is a completely legal target. This checks distance FROM
+        // the arc boundary (how far the coin's edge is from the circle's
+        // edge), not distance from the center, which was catching every
+        // coin anywhere inside the hook, not just ones touching its line.
         const dh = Math.hypot(coin.x-lane.hook.x, coin.y-lane.hook.y);
-        if(dh <= lane.hook.r + tol) return true;
-        return distToSegment(coin.x,coin.y, lane.hook.x,lane.hook.y, lane.pocket.x,lane.pocket.y) <= tol;
+        if(Math.abs(dh - lane.hook.r) <= tol) return true;
+        // The lane line runs from the semicircle's EDGE nearest the
+        // pocket (lane.from) to the pocket itself -- not from the
+        // semicircle's center, which would extend the protected line
+        // further back than it should actually start.
+        return distToSegment(coin.x,coin.y, lane.from.x,lane.from.y, lane.pocket.x,lane.pocket.y) <= tol;
       });
   }
 
@@ -1414,6 +1424,17 @@
       liveAimDir = { x: dx/len, y: dy/len };
       dragCurrent = { x: striker.x - dx*50, y: striker.y - dy*50 };
       aimSoftLocked = true;
+    },
+    testCoinLegality(x, y) {
+      const testCoin = { x, y, r: COIN_R, potted: false };
+      return {
+        protected: touchingProtectedLines(testCoin, currentSeat()),
+        cornerLanes: getCornerLanes().filter(l => l.sides.includes(currentSeat().side)).map(l => ({
+          hookCenter: {x: Math.round(l.hook.x), y: Math.round(l.hook.y)}, hookR: l.hook.r,
+          from: {x: Math.round(l.from.x), y: Math.round(l.from.y)},
+          pocket: {x: Math.round(l.pocket.x), y: Math.round(l.pocket.y)}
+        }))
+      };
     },
     testAimTarget() {
       let dirX, dirY;
