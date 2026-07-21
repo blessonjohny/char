@@ -727,6 +727,16 @@
     carromSocket.on('carrom_roomList', (rooms) => {
       carromRenderOpenTables(rooms);
     });
+    carromSocket.on('carrom_liveShot', (snapshot) => {
+      // Renders the shot AS it's happening on the sender's screen --
+      // just applies the streamed positions directly, no local physics
+      // involved. Skipped only if this client is itself mid-shot (never
+      // stomp your own in-progress local physics), which shouldn't
+      // normally happen since only the acting seat's client streams.
+      if (phase === 'moving' && (turnPos === carromMyPos)) return;
+      if (snapshot.coins) coins.forEach((c, i) => { if (snapshot.coins[i]) { c.x = snapshot.coins[i].x; c.y = snapshot.coins[i].y; c.potted = snapshot.coins[i].potted; } });
+      if (snapshot.striker && striker) { striker.x = snapshot.striker.x; striker.y = snapshot.striker.y; striker.potted = snapshot.striker.potted; }
+    });
     carromSocket.on('carrom_state', (state) => {
       carromOnlineSeats = state.seats; carromOnlinePlayerCount = state.playerCount; carromOnlinePhase = state.phase;
       carromMyPos = state.myPos; carromIsHost = state.isHost;
@@ -932,6 +942,26 @@
       return (carromMyPos * 360 / carromOnlinePlayerCount) % 360;
     }
     return 0; // local/vs-bot modes: board never rotates
+  }
+
+  // Given a desired SCREEN-relative visual offset (e.g. "always appear
+  // as if lit from the upper-left, on my own screen"), returns the
+  // internal-coordinate offset that produces that same screen
+  // appearance once the canvas's CSS rotation is applied. Without this,
+  // a coin/striker's highlight and drop shadow -- both baked as fixed
+  // offsets in the unrotated internal coordinate space -- visually
+  // flip to the opposite corner for any player whose view is rotated,
+  // since the whole canvas (including those offsets) rotates as one
+  // piece. Uses the exact same rotation math getPos() already uses to
+  // un-rotate touch input, just applied to a visual offset instead.
+  function screenConsistentOffset(baseDx, baseDy){
+    const rot = displayRotationDeg();
+    if (!rot) return { dx: baseDx, dy: baseDy };
+    const rad = -rot * Math.PI/180;
+    return {
+      dx: baseDx*Math.cos(rad) - baseDy*Math.sin(rad),
+      dy: baseDx*Math.sin(rad) + baseDy*Math.cos(rad)
+    };
   }
 
   function positionOverlapsCoin(x, y){
@@ -1346,33 +1376,8 @@
   // relays it to every other seat. A non-invasive wrap was deliberately
   // chosen over editing endShotResolve itself, to leave the actual game
   // logic completely untouched.
-  //
-  // Also handles the receiving side of a REPLAY (see carromApplyRemoteState
-  // below): when carromReplayFinalState is set, this call is the replay
-  // animation finishing locally, not a real local shot -- apply the
-  // shooter's captured final state directly as a consistency correction
-  // rather than independently recomputing fouls/scoring, which could
-  // diverge slightly between devices.
-  let carromReplayFinalState = null;
   const _carromOrigEndShotResolve = endShotResolve;
   endShotResolve = function() {
-    if (carromReplayFinalState) {
-      const finalState = carromReplayFinalState;
-      carromReplayFinalState = null;
-      phase = 'aiming';
-      turnPos = finalState.turnPos; gameOver = finalState.gameOver; boardNumber = finalState.boardNumber;
-      scores = { ...finalState.scores };
-      matchScore = { ...finalState.matchScore };
-      queenCoveredBy = finalState.queenCoveredBy;
-      skipPending = { ...finalState.skipPending };
-      coins.forEach((c, i) => { if (finalState.coins[i]) Object.assign(c, finalState.coins[i]); });
-      if (striker && finalState.striker) Object.assign(striker, finalState.striker);
-      updateHUD();
-      if (currentSeat() && currentSeat().kind === 'ai' && carromIsHost && !gameOver) {
-        scheduleAiTurn(900);
-      }
-      return;
-    }
     const actingPos = turnPos;
     _carromOrigEndShotResolve();
     if (mode === 'online' && carromSocket && carromMyTableId) {
@@ -1409,34 +1414,15 @@
 
   function carromApplyRemoteState(state) {
     if (!state || phase !== 'aiming') return; // never stomp on a shot the LOCAL player has in progress
-    if (state.replay && state.replay.preShotCoins) {
-      // If the acting seat in this replay is MY OWN seat, this is my
-      // own shot's broadcast echoing back from the server after I
-      // already simulated and watched it play out live -- not an
-      // opponent's shot I need to replay. My local state is already
-      // correct and authoritative for a shot I just made; replaying it
-      // again here is exactly what caused shots to visibly play twice.
-      if (state.replay.actingPos === carromMyPos) return;
-      // Restore to the pre-shot position, then fire the SAME shot
-      // locally so the real physics loop animates it -- this is a true
-      // replay, not an instant snap. The shooter's captured final state
-      // is held and applied the moment this local replay settles (see
-      // the endShotResolve wrapper above), so any tiny physics
-      // divergence between devices never actually shows.
-      coins.forEach((c, i) => { if (state.replay.preShotCoins[i]) { c.x = state.replay.preShotCoins[i].x; c.y = state.replay.preShotCoins[i].y; c.potted = state.replay.preShotCoins[i].potted; c.vx = 0; c.vy = 0; } });
-      if (striker) {
-        striker.x = state.replay.startStrikerX;
-        striker.y = state.replay.startStrikerY;
-        striker.potted = false;
-      }
-      turnPos = state.replay.actingPos; // must be the SHOOTER's seat during the replay (fireStriker/currentSeat need this), not who's up next
-      carromReplayFinalState = state;
-      fireStriker(state.replay.vx, state.replay.vy);
-      return;
-    }
-    // No replay data available (e.g. an older client, or the very first
-    // state before any shot has happened) -- fall back to an instant
-    // apply so the game never gets stuck.
+    if (state.replay && state.replay.actingPos === carromMyPos) return; // my own shot's broadcast echoing back -- already correct locally, ignore
+    // Instant snap to the final, authoritative result. The shot itself
+    // was already visible live via carrom_liveShot streaming while it
+    // was happening; there's no reason to make the receiver sit through
+    // an entire second replay of the same shot just to catch up to a
+    // result they already watched unfold in near-real-time. This also
+    // corrects any tiny physics divergence between devices, same as
+    // the old replay's final-state application did, just without the
+    // added delay of re-running the whole animation first.
     turnPos = state.turnPos; gameOver = state.gameOver; boardNumber = state.boardNumber;
     scores = { ...state.scores };
     matchScore = { ...state.matchScore };
@@ -1505,6 +1491,12 @@
       return { strikerBefore, strikerAfter: { x: striker.x, y: striker.y }, phaseAfter: phase };
     },
     setMyPos(p) { carromMyPos = p; },
+    testForceRotationRender(rotationDeg) {
+      const origRot = displayRotationDeg;
+      displayRotationDeg = () => rotationDeg;
+      render();
+      displayRotationDeg = origRot;
+    },
     testPowerDelta(rotationDeg, screenDy) {
       // Simulates the power-drag delta calculation for a given rotation
       // and screen-space Y movement, bypassing onDown's canvas-bounds
@@ -1524,7 +1516,7 @@
     },
     get powerPercent() { return powerPercent; },
     get hasLastShotSnapshot() { return !!lastShotSnapshot; },
-    get isReplaying() { return carromReplayFinalState !== null; },
+    get isReplaying() { return false; }, // the old replay-animation mechanism was replaced by live position streaming
     // Test-only: forces the power stage directly with a given power
     // level, bypassing the need to replicate the exact valid drag angle
     // through simulated pointer events.
@@ -2608,8 +2600,9 @@
     const y = c.y;
 
     // drop shadow — a touch bigger/softer so the coin reads as "lifted" off the felt
+    const coinShadowOff = screenConsistentOffset(2, 3.5);
     ctx.beginPath();
-    ctx.arc(x+2, y+3.5, r, 0, Math.PI*2);
+    ctx.arc(x+coinShadowOff.dx, y+coinShadowOff.dy, r, 0, Math.PI*2);
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.filter = 'blur(2.5px)';
     ctx.fill();
@@ -2647,8 +2640,9 @@
     }
 
     // glossy radial body — gives real depth instead of a flat disc
+    const coinHiOff = screenConsistentOffset(-r*0.32, -r*0.35);
     const bodyGrad = ctx.createRadialGradient(
-      x - r*0.32, y - r*0.35, r*0.08,
+      x + coinHiOff.dx, y + coinHiOff.dy, r*0.08,
       x, y, r
     );
     bodyGrad.addColorStop(0, bodyStops[0]);
@@ -2689,8 +2683,9 @@
     ctx.fill();
 
     // gloss highlight — small crescent, upper-left, to sell the "polished disc" look
+    const coinGlossOff = screenConsistentOffset(-r*0.35, -r*0.4);
     ctx.beginPath();
-    ctx.ellipse(x - r*0.35, y - r*0.4, r*0.28, r*0.16, -0.6, 0, Math.PI*2);
+    ctx.ellipse(x + coinGlossOff.dx, y + coinGlossOff.dy, r*0.28, r*0.16, -0.6 - displayRotationDeg()*Math.PI/180, 0, Math.PI*2);
     ctx.fillStyle = highlightColor;
     ctx.globalAlpha = (dimmed ? 0.35 : 1) * 0.35;
     ctx.fill();
@@ -2728,8 +2723,9 @@
     const y = striker.y;
 
     // bigger, softer drop shadow so it visibly sits above the felt
+    const strikerShadowOff = screenConsistentOffset(2.5, 4);
     ctx.beginPath();
-    ctx.arc(x+2.5, y+4, r, 0, Math.PI*2);
+    ctx.arc(x+strikerShadowOff.dx, y+strikerShadowOff.dy, r, 0, Math.PI*2);
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.filter = 'blur(3px)';
     ctx.fill();
@@ -2743,8 +2739,9 @@
 
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI*2);
+    const strikerHiOff = screenConsistentOffset(-r*0.32, -r*0.35);
     const bodyGrad = ctx.createRadialGradient(
-      x - r*0.32, y - r*0.35, r*0.08,
+      x + strikerHiOff.dx, y + strikerHiOff.dy, r*0.08,
       x, y, r
     );
     bodyGrad.addColorStop(0, '#e8fff2');
@@ -2799,8 +2796,9 @@
     ctx.stroke();
 
     // gloss highlight crescent to match the coins' polished look
+    const strikerGlossOff = screenConsistentOffset(-r*0.35, -r*0.4);
     ctx.beginPath();
-    ctx.ellipse(x - r*0.35, y - r*0.4, r*0.26, r*0.15, -0.6, 0, Math.PI*2);
+    ctx.ellipse(x + strikerGlossOff.dx, y + strikerGlossOff.dy, r*0.26, r*0.15, -0.6 - displayRotationDeg()*Math.PI/180, 0, Math.PI*2);
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.globalAlpha = 0.4;
     ctx.fill();
@@ -3117,6 +3115,20 @@
 
   let loopStuckRecoveryScheduled = false;
 
+  let carromLastLiveBroadcast = 0;
+  function carromBroadcastLivePositions() {
+    if (mode !== 'online' || !carromSocket || !carromMyTableId) return;
+    const iAmActing = (turnPos === carromMyPos) || (carromIsHost && seats[turnPos] && seats[turnPos].kind === 'ai');
+    if (!iAmActing) return; // only the person whose shot this actually is should stream it
+    const now = performance.now();
+    if (now - carromLastLiveBroadcast < 70) return; // ~14/sec is plenty smooth without flooding the socket
+    carromLastLiveBroadcast = now;
+    carromSocket.emit('carrom_liveShot', {
+      coins: coins.map(c => ({ x: Math.round(c.x), y: Math.round(c.y), potted: c.potted })),
+      striker: striker ? { x: Math.round(striker.x), y: Math.round(striker.y), potted: striker.potted } : null
+    });
+  }
+
   function loop(){
     try{
       if(phase==='moving'){
@@ -3130,6 +3142,7 @@
           }
         } else {
           stillMoving = step();
+          carromBroadcastLivePositions();
         }
         if(!stillMoving){
           if(isReviewing){ finishReview(); } else { endShotResolve(); }
