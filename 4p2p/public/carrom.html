@@ -548,44 +548,32 @@
     return [[d.outer,a0,d.outer,a1],[inner,a0,inner,a1]];
   }
 
-  // true if a coin is anywhere inside the baseline channel's filled area
-  // (not just touching one of its two boundary lines)
-  function inBaselineBox(coin, side){
-    const d = SEAT_DEFS[side];
-    // the striking line closer to the board center (the "top" line the coin
-    // must be behind to be protected), and the player's own wall behind them
-    const nearLine = d.outer + d.dir*STRIKER_R;
-    const wallCoord = d.outer - d.dir*BASE_INSET;
-    const lo = Math.min(nearLine, wallCoord) - coin.r - 1.5;
-    const hi = Math.max(nearLine, wallCoord) + coin.r + 1.5;
-    if(d.axis==='x'){
-      return coin.y >= lo && coin.y <= hi;
-    }
-    return coin.x >= lo && coin.x <= hi;
-  }
-
   // a coin is protected, for the current shooter, only if it's touching THEIR OWN
   // baseline box, or one of the 2 hook lanes nearest their own baseline —
   // not the far side of the board, and each seat sees their own version of this.
+  // Per the official tournament baseline rules: a coin is protected
+  // (illegal for a direct hit) ONLY if any part of its edge touches or
+  // crosses one of the quarter-circle arcs at the ends of the player's
+  // own baseline. That is the complete rule -- nothing else makes a
+  // coin protected. The baseline lines themselves only ever make a coin
+  // ELIGIBLE (a positive rule, not a restriction), so there is
+  // deliberately no "inside the baseline channel" check here anymore --
+  // that used to flag coins nowhere near either arc as fouls, which
+  // matches exactly what was reported ("a ball not on top was taken as
+  // a foul").
   function touchingProtectedLines(coin, seat){
     const tol = coin.r + 1.5;
-    if(inBaselineBox(coin, seat.side)) return true;
     return getCornerLanes()
       .filter(lane=>lane.sides.includes(seat.side))
       .some(lane=>{
-        // Only the ARC of the semicircle counts, not its whole interior --
-        // a coin sitting inside the hook without touching the curved line
-        // itself is a completely legal target. This checks distance FROM
-        // the arc boundary (how far the coin's edge is from the circle's
-        // edge), not distance from the center, which was catching every
-        // coin anywhere inside the hook, not just ones touching its line.
+        // "Touches or crosses" the arc means anywhere from the coin's
+        // edge reaching the arc boundary through to being fully inside
+        // it -- i.e. the coin's center is within (arc radius + coin
+        // radius + a small tolerance) of the arc's own center. This is
+        // deliberately NOT an arc-boundary-only check; the official
+        // rule explicitly protects the interior too.
         const dh = Math.hypot(coin.x-lane.hook.x, coin.y-lane.hook.y);
-        if(Math.abs(dh - lane.hook.r) <= tol) return true;
-        // The lane line runs from the semicircle's EDGE nearest the
-        // pocket (lane.from) to the pocket itself -- not from the
-        // semicircle's center, which would extend the protected line
-        // further back than it should actually start.
-        return distToSegment(coin.x,coin.y, lane.from.x,lane.from.y, lane.pocket.x,lane.pocket.y) <= tol;
+        return dh <= lane.hook.r + tol;
       });
   }
 
@@ -1447,6 +1435,7 @@
     },
     testGetPos(clientX, clientY) { return getPos({ clientX, clientY }); },
     testClearCoinsFromPath() { coins.forEach(c => { c.x = 55; c.y = 55; }); },
+    testMoveCoin(idx, x, y) { coins[idx].x = x; coins[idx].y = y; },
     get phase() { return phase; },
     get shotStage() { return shotStage; },
     get powerPercent() { return powerPercent; },
@@ -2328,32 +2317,34 @@
     }
   }
 
-  function drawCornerLane(lane){
+  function drawCornerLane(lane, isHighlighted){
     const hx = lane.hook.x, hy = lane.hook.y, hr = lane.hook.r;
-    const fx = lane.from.x, fy = lane.from.y;
     const tx = lane.pocket.x, ty = lane.pocket.y;
 
-    // 270-degree hook, opening faces the pocket
+    // 270-degree hook, opening faces the pocket — the combined visual
+    // of the two adjacent 90-degree arcs at each end of the two
+    // baselines meeting at this corner, per the official "anchor/
+    // umbrella shape" description.
     const baseAng = Math.atan2(ty-hy, tx-hx);
-    const gapHalf = Math.PI * 0.25; // 90-degree gap -> 270-degree drawn arc
-    ctx.strokeStyle = 'rgba(50,30,10,0.6)';
-    ctx.lineWidth = 3.5;
+    const gapHalf = Math.PI * 0.25;
+    ctx.save();
+    if (isHighlighted) {
+      // Debugging aid: whenever a coin is currently protected by this
+      // arc, draw it brighter and glowing so it's obvious exactly which
+      // boundary is responsible, instead of it looking identical to
+      // the always-legal state.
+      ctx.strokeStyle = 'rgba(255,90,60,0.95)';
+      ctx.lineWidth = 5;
+      ctx.shadowColor = 'rgba(255,90,60,0.8)';
+      ctx.shadowBlur = 14;
+    } else {
+      ctx.strokeStyle = 'rgba(50,30,10,0.6)';
+      ctx.lineWidth = 3.5;
+    }
     ctx.beginPath();
     ctx.arc(hx, hy, hr, baseAng+gapHalf, baseAng+Math.PI*2-gapHalf);
     ctx.stroke();
-
-    // line starts at the far edge of the circle (the side facing the board center),
-    // passes straight through the circle, and continues all the way to the pocket
-    const farX = hx - Math.cos(baseAng)*hr, farY = hy - Math.sin(baseAng)*hr;
-    ctx.beginPath();
-    ctx.moveTo(farX,farY); ctx.lineTo(tx,ty); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(tx,ty);
-    ctx.lineTo(tx-Math.cos(baseAng-0.4)*13, ty-Math.sin(baseAng-0.4)*13);
-    ctx.lineTo(tx-Math.cos(baseAng+0.4)*13, ty-Math.sin(baseAng+0.4)*13);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(50,30,10,0.6)';
-    ctx.fill();
+    ctx.restore();
   }
 
   function drawBoard(){
@@ -2389,7 +2380,16 @@
 
     ['bottom','top','left','right'].forEach(drawBaselineBox);
 
-    getCornerLanes().forEach(drawCornerLane);
+    getCornerLanes().forEach(lane => {
+      // Debugging aid: highlight whenever ANY coin on the table is
+      // currently protected by this specific arc, for the current
+      // shooter's seat.
+      const seat = currentSeat();
+      const isRelevant = lane.sides.includes(seat.side);
+      const isHighlighted = isRelevant && coins.some(c => !c.potted &&
+        Math.hypot(c.x-lane.hook.x, c.y-lane.hook.y) <= lane.hook.r + c.r + 1.5);
+      drawCornerLane(lane, isHighlighted);
+    });
 
     ctx.save();
     ctx.translate(CENTER,CENTER);
