@@ -566,15 +566,32 @@
     return getCornerLanes()
       .filter(lane=>lane.sides.includes(seat.side))
       .some(lane=>{
-        // "Touches or crosses" the arc means anywhere from the coin's
-        // edge reaching the arc boundary through to being fully inside
-        // it -- i.e. the coin's center is within (arc radius + coin
-        // radius + a small tolerance) of the arc's own center. This is
-        // deliberately NOT an arc-boundary-only check; the official
-        // rule explicitly protects the interior too.
+        // The arc itself: "touches or crosses" means anywhere from the
+        // coin's edge reaching the arc boundary through to being fully
+        // inside it -- i.e. the coin's center is within (arc radius +
+        // coin radius + a small tolerance) of the arc's own center.
         const dh = Math.hypot(coin.x-lane.hook.x, coin.y-lane.hook.y);
-        return dh <= lane.hook.r + tol;
+        if (dh <= lane.hook.r + tol) return true;
+        // The 45-degree lane line from the arc's edge (the point on the
+        // circle nearest the pocket) straight to the pocket's center --
+        // also protected the whole way, same as the arc.
+        return distToSegment(coin.x,coin.y, lane.from.x,lane.from.y, lane.pocket.x,lane.pocket.y) <= tol;
       });
+  }
+
+  // Which specific lane, and which specific part of it (the arc or the
+  // line to the pocket), is currently protecting a given coin -- used
+  // only for the debug highlight, kept separate from the plain
+  // true/false check above so the highlight can light up the exact
+  // right piece instead of the whole lane at once.
+  function protectionDetailFor(coin, seat){
+    const tol = coin.r + 1.5;
+    for (const lane of getCornerLanes().filter(l=>l.sides.includes(seat.side))) {
+      const dh = Math.hypot(coin.x-lane.hook.x, coin.y-lane.hook.y);
+      if (dh <= lane.hook.r + tol) return { hookX: lane.hook.x, hookY: lane.hook.y, part: 'arc' };
+      if (distToSegment(coin.x,coin.y, lane.from.x,lane.from.y, lane.pocket.x,lane.pocket.y) <= tol) return { hookX: lane.hook.x, hookY: lane.hook.y, part: 'line' };
+    }
+    return null;
   }
 
   let mode = 'ai';
@@ -2317,8 +2334,9 @@
     }
   }
 
-  function drawCornerLane(lane, isHighlighted){
+  function drawCornerLane(lane, highlightPart){
     const hx = lane.hook.x, hy = lane.hook.y, hr = lane.hook.r;
+    const fx = lane.from.x, fy = lane.from.y;
     const tx = lane.pocket.x, ty = lane.pocket.y;
 
     // 270-degree hook, opening faces the pocket — the combined visual
@@ -2327,16 +2345,16 @@
     // umbrella shape" description.
     const baseAng = Math.atan2(ty-hy, tx-hx);
     const gapHalf = Math.PI * 0.25;
+    // Gentle pulse on the highlight glow so it reads as "live" rather
+    // than a flat static color change.
+    const pulse = 0.75 + Math.sin(performance.now()/260) * 0.25;
+
     ctx.save();
-    if (isHighlighted) {
-      // Debugging aid: whenever a coin is currently protected by this
-      // arc, draw it brighter and glowing so it's obvious exactly which
-      // boundary is responsible, instead of it looking identical to
-      // the always-legal state.
+    if (highlightPart === 'arc') {
       ctx.strokeStyle = 'rgba(255,90,60,0.95)';
       ctx.lineWidth = 5;
-      ctx.shadowColor = 'rgba(255,90,60,0.8)';
-      ctx.shadowBlur = 14;
+      ctx.shadowColor = 'rgba(255,90,60,0.85)';
+      ctx.shadowBlur = 10 + pulse*10;
     } else {
       ctx.strokeStyle = 'rgba(50,30,10,0.6)';
       ctx.lineWidth = 3.5;
@@ -2344,6 +2362,31 @@
     ctx.beginPath();
     ctx.arc(hx, hy, hr, baseAng+gapHalf, baseAng+Math.PI*2-gapHalf);
     ctx.stroke();
+    ctx.restore();
+
+    // The 45-degree lane line, from the arc's edge nearest the pocket
+    // straight to the pocket's center — also a protected boundary, same
+    // orange highlight treatment as the arc when a coin is touching it.
+    ctx.save();
+    if (highlightPart === 'line') {
+      ctx.strokeStyle = 'rgba(255,90,60,0.95)';
+      ctx.lineWidth = 4.5;
+      ctx.shadowColor = 'rgba(255,90,60,0.85)';
+      ctx.shadowBlur = 10 + pulse*10;
+    } else {
+      ctx.strokeStyle = 'rgba(50,30,10,0.6)';
+      ctx.lineWidth = 3;
+    }
+    ctx.beginPath();
+    ctx.moveTo(fx,fy); ctx.lineTo(tx,ty); ctx.stroke();
+    // small arrowhead at the pocket end
+    ctx.beginPath();
+    ctx.moveTo(tx,ty);
+    ctx.lineTo(tx-Math.cos(baseAng-0.4)*13, ty-Math.sin(baseAng-0.4)*13);
+    ctx.lineTo(tx-Math.cos(baseAng+0.4)*13, ty-Math.sin(baseAng+0.4)*13);
+    ctx.closePath();
+    ctx.fillStyle = highlightPart === 'line' ? 'rgba(255,90,60,0.95)' : 'rgba(50,30,10,0.6)';
+    ctx.fill();
     ctx.restore();
   }
 
@@ -2380,16 +2423,26 @@
 
     ['bottom','top','left','right'].forEach(drawBaselineBox);
 
-    getCornerLanes().forEach(lane => {
-      // Debugging aid: highlight whenever ANY coin on the table is
-      // currently protected by this specific arc, for the current
-      // shooter's seat.
+    {
       const seat = currentSeat();
-      const isRelevant = lane.sides.includes(seat.side);
-      const isHighlighted = isRelevant && coins.some(c => !c.potted &&
-        Math.hypot(c.x-lane.hook.x, c.y-lane.hook.y) <= lane.hook.r + c.r + 1.5);
-      drawCornerLane(lane, isHighlighted);
-    });
+      const relevantLanes = getCornerLanes().filter(lane => lane.sides.includes(seat.side));
+      relevantLanes.forEach(lane => {
+        // Check every non-potted coin for whether ITS protection detail
+        // points specifically at THIS lane, and if so which part of it
+        // (arc or line) -- checked per-lane so two coins protected by
+        // two different lanes at once both correctly highlight.
+        let part = null;
+        for (const c of coins) {
+          if (c.potted) continue;
+          const detail = protectionDetailFor(c, seat);
+          if (detail && detail.hookX === lane.hook.x && detail.hookY === lane.hook.y) { part = detail.part; break; }
+        }
+        drawCornerLane(lane, part);
+      });
+      // Draw the two lanes on the FAR side too (never highlighted, since
+      // protection is always relative to the current shooter's own side).
+      getCornerLanes().filter(lane => !lane.sides.includes(seat.side)).forEach(lane => drawCornerLane(lane, null));
+    }
 
     ctx.save();
     ctx.translate(CENTER,CENTER);
