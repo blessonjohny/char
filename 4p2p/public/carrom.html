@@ -676,7 +676,14 @@
     GAME_WRAP.classList.remove('show');
     MENU.style.display = 'block';
   });
-  document.getElementById('restartBtn').addEventListener('click', startNewMatch);
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    if (mode === 'online' && carromSocket && carromMyTableId) {
+      if (!confirm('Restart this match? This resets the board for both players.')) return;
+      carromSocket.emit('carrom_restartMatch');
+      return;
+    }
+    startNewMatch();
+  });
   document.getElementById('reviewBtn').addEventListener('click', reviewLastShot);
   document.getElementById('slowMoBtn').addEventListener('click', () => {
     reviewSlowMo = !reviewSlowMo;
@@ -752,6 +759,9 @@
       if (snapshot.coins) coins.forEach((c, i) => { if (snapshot.coins[i]) { c.x = snapshot.coins[i].x; c.y = snapshot.coins[i].y; c.potted = snapshot.coins[i].potted; } });
       if (snapshot.striker && striker) { striker.x = snapshot.striker.x; striker.y = snapshot.striker.y; striker.potted = snapshot.striker.potted; }
     });
+    carromSocket.on('carrom_restartMatch', () => {
+      startNewMatch();
+    });
     carromSocket.on('carrom_state', (state) => {
       carromOnlineSeats = state.seats; carromOnlinePlayerCount = state.playerCount; carromOnlinePhase = state.phase;
       carromMyPos = state.myPos; carromIsHost = state.isHost;
@@ -759,11 +769,16 @@
       if (state.phase === 'playing' && MENU.style.display !== 'none') {
         // Game just started (host pressed Start, or we joined one already
         // in progress) — leave the menu and build the board from the
-        // server's seat assignments.
+        // server's seat assignments. If a boardState already exists,
+        // this is a genuine mid-game join (not a fresh start): the
+        // board built here is only scaffolding, about to be immediately
+        // overwritten below by carromApplyRemoteState, so AI scheduling
+        // must be skipped here -- it would otherwise act on the wrong,
+        // about-to-be-replaced turn a moment later.
         playerCount = state.playerCount;
         MENU.style.display = 'none';
         GAME_WRAP.classList.add('show');
-        startNewMatch();
+        startNewMatch(!!state.boardState);
       }
       if (state.boardState && typeof carromApplyRemoteState === 'function') {
         carromApplyRemoteState(state.boardState);
@@ -1014,15 +1029,15 @@
     canvas.style.transform = `rotate(${displayRotationDeg()}deg)`;
   }
 
-  function startNewMatch(){
+  function startNewMatch(skipAiSchedule){
     matchScore = { teamA:0, teamB:0 };
     boardNumber = 0;
     matchOver = false;
     seats = buildSeats();
-    startNewBoard();
+    startNewBoard(skipAiSchedule);
   }
 
-  function startNewBoard(){
+  function startNewBoard(skipAiSchedule){
     try{
       gameOver = false;
       phase = 'aiming'; // CRITICAL: finishGame left this as 'over' — without this reset, AI scheduling, the watchdog, and human input are ALL blocked on the new board
@@ -1060,11 +1075,13 @@
       gameOver = false;
     }
     requestAnimationFrame(loop);
+    if (skipAiSchedule) return; // this board is scaffolding about to be overwritten by the real synced state -- scheduling AI now would act on the wrong (fresh-board) turn
     try{
       const seat = currentSeat();
       if(seat && seat.kind==='ai'){ scheduleAiTurn(900); }
     } catch(e){ /* the independent watchdog will still catch this */ }
   }
+
 
   function setMsg(text){ document.getElementById('msgLog').innerHTML = text; }
 
@@ -1465,6 +1482,7 @@
   // keeps them off the global namespace); this exposes a few of them
   // read-only rather than changing that.
   window.CARROM_DEBUG = {
+    get boardNumber() { return boardNumber; },
     get myPos() { return carromMyPos; },
     get turnPos() { return turnPos; },
     get isHost() { return carromIsHost; },
