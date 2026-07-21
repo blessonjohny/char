@@ -2645,27 +2645,41 @@
     // pull the visible line back from the arrowhead tip so it doesn't poke through it
     const shaftEndX = contactX - aimNx*10, shaftEndY = contactY - aimNy*10;
 
-    // thicker, more dynamic shaft — bright near the striker, fading toward the
-    // target, with slow-marching dashes AND a gentle width pulse for a more
-    // alive, less static feel
+    // Tapered shaft, drawn as a filled shape (wide near the striker,
+    // narrowing to a point at the target) rather than a single-width
+    // stroked line -- gives a real "thick to thin" funnel toward the
+    // coin/pocket instead of a uniform bar. A dark outline is drawn
+    // first underneath everything so the line stays clearly visible
+    // against the wood-colored board at every color it can be,
+    // including the yellow tone it passes through at mid-power.
     ctx.save();
-    ctx.lineCap = 'round';
-    const lineGrad = ctx.createLinearGradient(striker.x, striker.y, contactX, contactY);
-    lineGrad.addColorStop(0, 'rgba(255,225,225,0.95)');
-    lineGrad.addColorStop(1, 'rgba(181,42,42,0.35)');
-    ctx.strokeStyle = lineGrad;
     const shaftPulse = 1 + Math.sin(performance.now()/220) * 0.12; // gentle breathing, not jittery
-    ctx.lineWidth = 5 * shaftPulse;
-    ctx.setLineDash([10,7]);
-    ctx.lineDashOffset = -(performance.now()/40 % 17);
+    const widthNear = 11 * shaftPulse, widthFar = 2.5;
+    const perpX = -aimNy, perpY = aimNx; // perpendicular to the aim direction
+    function shaftPolygon(extraWidth) {
+      const nw = widthNear + extraWidth, fw = widthFar + extraWidth;
+      ctx.beginPath();
+      ctx.moveTo(striker.x + perpX*nw/2, striker.y + perpY*nw/2);
+      ctx.lineTo(shaftEndX + perpX*fw/2, shaftEndY + perpY*fw/2);
+      ctx.lineTo(shaftEndX - perpX*fw/2, shaftEndY - perpY*fw/2);
+      ctx.lineTo(striker.x - perpX*nw/2, striker.y - perpY*nw/2);
+      ctx.closePath();
+    }
+    // Dark outline pass first -- keeps the shaft readable against the
+    // board no matter what color comes next.
+    shaftPolygon(4);
+    ctx.fillStyle = 'rgba(20,10,5,0.55)';
+    ctx.fill();
+    // Colored fill on top
+    const lineGrad = ctx.createLinearGradient(striker.x, striker.y, contactX, contactY);
+    lineGrad.addColorStop(0, 'rgba(255,235,225,0.98)');
+    lineGrad.addColorStop(1, 'rgba(255,100,80,0.75)');
+    shaftPolygon(0);
+    ctx.fillStyle = lineGrad;
     ctx.shadowColor = 'rgba(181,42,42,0.65)';
-    ctx.shadowBlur = 10;
-    ctx.beginPath();
-    ctx.moveTo(striker.x, striker.y);
-    ctx.lineTo(shaftEndX, shaftEndY);
-    ctx.stroke();
+    ctx.shadowBlur = 12;
+    ctx.fill();
     ctx.restore();
-    ctx.setLineDash([]);
 
     // small origin dot right at the striker
     ctx.beginPath();
@@ -2673,16 +2687,23 @@
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.fill();
 
-    // wider, more prominent arrowhead
+    // wider, more prominent arrowhead, with a dark outline so it never
+    // blends into the board either
     const aimAng = Math.atan2(aimNy, aimNx);
-    const aimHeadLen = 18, aimHeadSpread = 0.52;
-    ctx.beginPath();
-    ctx.moveTo(contactX, contactY);
-    ctx.lineTo(contactX - aimHeadLen*Math.cos(aimAng-aimHeadSpread), contactY - aimHeadLen*Math.sin(aimAng-aimHeadSpread));
-    ctx.lineTo(contactX - aimHeadLen*0.55*Math.cos(aimAng), contactY - aimHeadLen*0.55*Math.sin(aimAng));
-    ctx.lineTo(contactX - aimHeadLen*Math.cos(aimAng+aimHeadSpread), contactY - aimHeadLen*Math.sin(aimAng+aimHeadSpread));
-    ctx.closePath();
+    const aimHeadLen = 20, aimHeadSpread = 0.55;
+    function arrowheadPath() {
+      ctx.beginPath();
+      ctx.moveTo(contactX, contactY);
+      ctx.lineTo(contactX - aimHeadLen*Math.cos(aimAng-aimHeadSpread), contactY - aimHeadLen*Math.sin(aimAng-aimHeadSpread));
+      ctx.lineTo(contactX - aimHeadLen*0.55*Math.cos(aimAng), contactY - aimHeadLen*0.55*Math.sin(aimAng));
+      ctx.lineTo(contactX - aimHeadLen*Math.cos(aimAng+aimHeadSpread), contactY - aimHeadLen*Math.sin(aimAng+aimHeadSpread));
+      ctx.closePath();
+    }
     ctx.save();
+    arrowheadPath();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(20,10,5,0.6)';
+    ctx.stroke();
     ctx.shadowColor = 'rgba(181,42,42,0.75)';
     ctx.shadowBlur = 12;
     ctx.fillStyle = 'rgba(255,90,90,0.95)';
@@ -2695,22 +2716,31 @@
       // -> red (max power). Computed as an HSL hue sweep so the
       // transition is smooth at every point, not just a few fixed steps.
       const powerHue = 130 - powerRatio*130; // 130=green -> 0=red
-      const ringColor = (alpha) => `hsla(${powerHue}, 85%, ${58 - powerRatio*8}%, ${alpha})`;
+      const ringColor = (alpha) => `hsla(${powerHue}, 90%, ${62 - powerRatio*10}%, ${alpha})`;
       // Small at 0%, dramatically bigger at 100% — a real "growing"
       // feel instead of the previous barely-noticeable 8px range.
       const ringRadius = striker.r + 8 + powerRatio*32;
+      // Dark outline pass FIRST, underneath the colored ring -- without
+      // this, the ring's yellow tone (right in the middle of its color
+      // sweep) reads as nearly the same color as the wood board and
+      // all but disappears. This keeps it visible at every hue.
       ctx.beginPath();
       ctx.arc(striker.x, striker.y, ringRadius, 0, Math.PI*2);
-      ctx.strokeStyle = ringColor(0.25 + 0.7*powerRatio);
-      ctx.lineWidth = 3 + powerRatio*9;
+      ctx.strokeStyle = 'rgba(15,8,4,0.6)';
+      ctx.lineWidth = 5 + powerRatio*12;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(striker.x, striker.y, ringRadius, 0, Math.PI*2);
+      ctx.strokeStyle = ringColor(0.35 + 0.65*powerRatio);
+      ctx.lineWidth = 4 + powerRatio*10;
       ctx.stroke();
       ctx.save();
       ctx.shadowColor = ringColor(0.4 + 0.6*powerRatio);
       ctx.shadowBlur = 10 + powerRatio*28;
       ctx.beginPath();
       ctx.arc(striker.x, striker.y, ringRadius, 0, Math.PI*2);
-      ctx.strokeStyle = ringColor(0.2 + 0.6*powerRatio);
-      ctx.lineWidth = 2 + powerRatio*5;
+      ctx.strokeStyle = ringColor(0.25 + 0.65*powerRatio);
+      ctx.lineWidth = 2 + powerRatio*6;
       ctx.stroke();
       ctx.restore();
       // A second, faster-spinning inner ring at higher power for extra
