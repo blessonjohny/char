@@ -7,7 +7,7 @@
   // landscape layout that scaled down to nearly nothing on a narrow
   // screen. Still a standard 2:1 pool-table ratio, just rotated 90°.
   const W = 450, H = 900;
-  const RAIL = 26; // cushion inset from canvas edge
+  const RAIL = 23; // was 26 -- thinner still, close to the minimum that keeps the pocket holes (radius 21) from clipping the canvas edge, giving the playing surface more room
   const PLAY_L = RAIL, PLAY_R = W - RAIL, PLAY_T = RAIL, PLAY_B = H - RAIL;
   const BALL_R = 11;
   const POCKET_R = 21; // mouth radius a ball's center must reach to fall

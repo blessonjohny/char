@@ -274,7 +274,7 @@
     width:100%;
     max-width:880px;
     aspect-ratio:1/1;
-    touch-action:none;
+    touch-action:pan-y;
   }
   canvas{
     width:100%;
@@ -1459,6 +1459,7 @@
     testMoveCoin(idx, x, y) { coins[idx].x = x; coins[idx].y = y; },
     get phase() { return phase; },
     get shotStage() { return shotStage; },
+    get gestureMode() { return gestureMode; },
     get powerPercent() { return powerPercent; },
     get hasLastShotSnapshot() { return !!lastShotSnapshot; },
     get isReplaying() { return carromReplayFinalState !== null; },
@@ -2145,6 +2146,11 @@
   function onDown(evt){
     if(!canPlayerAct()) return;
     const pos = getPos(evt);
+    // A touch landing on the dark wooden rail (outside the playing
+    // surface) isn't a game gesture at all -- let it fall through to
+    // the browser's normal scroll handling instead of capturing it,
+    // so the rail can be used to drag the whole page up and down.
+    if (pos.x < PLAY_MIN || pos.x > PLAY_MAX || pos.y < PLAY_MIN || pos.y > PLAY_MAX) return;
 
     const now = Date.now();
     const isDoubleTap = (now - lastTapTime) < DOUBLE_TAP_MS;

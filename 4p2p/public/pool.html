@@ -33,7 +33,7 @@
   .app{
     max-width:960px;
     margin:0 auto;
-    padding:18px 14px 40px;
+    padding:14px 6px 32px;
     min-height:100vh;
     display:flex;
     flex-direction:column;
@@ -145,11 +145,11 @@
   .table-frame{
     background:linear-gradient(160deg, var(--rail), var(--rail-dark));
     border-radius:18px;
-    padding:22px;
+    padding:10px;
     box-shadow:0 12px 40px rgba(0,0,0,0.55), inset 0 0 0 2px rgba(230,184,79,0.2);
     max-width:100%;
   }
-  canvas{display:block; max-width:100%; max-height:78vh; width:auto; height:auto; margin:0 auto; border-radius:4px; touch-action:none}
+  canvas{display:block; max-width:100%; max-height:78vh; width:auto; height:auto; margin:0 auto; border-radius:4px; touch-action:pan-y}
   .msg-log{
     text-align:center; font-size:12.5px; color:var(--ink-dim);
     margin:10px 0; min-height:18px;
@@ -295,6 +295,10 @@
   function onDown(evt) {
     if (!canPlayerAct()) return;
     const pos = getPos(evt);
+    // A touch on the rail (outside the playing surface) isn't a game
+    // gesture -- let it fall through to normal browser scroll handling
+    // so the rail can be used to drag the page up and down.
+    if (pos.x < PE.PLAY_L || pos.x > PE.PLAY_R || pos.y < PE.PLAY_T || pos.y > PE.PLAY_B) return;
     if (shotStage === 'position') {
       gestureMode = 'position';
     } else if (shotStage === 'aim') {
@@ -442,6 +446,20 @@
     if (foul) {
       banner.textContent = '⚠ Foul — ' + foulReason + ' Ball in hand.';
       ballInHand = true;
+      // If the cue ball itself was the thing that got fouled in (a
+      // scratch), it's still marked "potted" from the physics engine's
+      // pocket detection -- which meant it stayed permanently invisible
+      // from here on, since the render loop always skips drawing
+      // potted balls. Un-pot it and give it a sane on-table position
+      // (its last position was literally inside a pocket, not
+      // somewhere valid to reposition from) so it's visible again for
+      // the next player to place it.
+      if (cueBall.potted) {
+        cueBall.potted = false;
+        cueBall.vx = 0; cueBall.vy = 0;
+        cueBall.x = PE.PLAY_L + (PE.PLAY_R-PE.PLAY_L)*0.25;
+        cueBall.y = (PE.PLAY_T+PE.PLAY_B)/2;
+      }
       turn = 1 - turn;
     } else {
       banner.textContent = '';
