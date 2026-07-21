@@ -1408,6 +1408,22 @@
     get coinsSample() { return coins.slice(0,3).map(c => ({x: Math.round(c.x), y: Math.round(c.y)})); },
     get displayRotation() { return displayRotationDeg(); },
     get canvasTransform() { return canvas.style.transform; },
+    testForceAim(dx, dy) {
+      shotStage = 'aim'; gestureMode = 'aim';
+      const len = Math.hypot(dx, dy) || 1;
+      liveAimDir = { x: dx/len, y: dy/len };
+      dragCurrent = { x: striker.x - dx*50, y: striker.y - dy*50 };
+      aimSoftLocked = true;
+    },
+    testAimTarget() {
+      let dirX, dirY;
+      if (shotStage === 'aim' && dragCurrent && liveAimDir) { dirX = liveAimDir.x; dirY = liveAimDir.y; }
+      else if (shotStage === 'power' && lockedDir) { dirX = lockedDir.x; dirY = lockedDir.y; }
+      else return { stage: shotStage, noDir: true };
+      const { coin } = raycastAim(dirX, dirY);
+      if (!coin) return { stage: shotStage, hitCoin: false };
+      return { stage: shotStage, hitCoin: true, legal: isPotLegalDirect(coin, currentSeat()), coinPos: {x: Math.round(coin.x), y: Math.round(coin.y)} };
+    },
     testGetPos(clientX, clientY) { return getPos({ clientX, clientY }); },
     testClearCoinsFromPath() { coins.forEach(c => { c.x = 55; c.y = 55; }); },
     get phase() { return phase; },
@@ -2832,36 +2848,52 @@
 
       const tex = hitCoin.x + tdx*predictLen, tey = hitCoin.y + tdy*predictLen;
 
+      // Tapered, outlined shaft matching the main aim line's new style —
+      // thick right where the coin gets struck, narrowing toward the
+      // predicted endpoint, with the same dark underlay so it stays
+      // visible against the board at every difficulty color.
+      const predPerpX = -tdy, predPerpY = tdx;
+      const predWidthNear = (7 + overallDifficulty * 5), predWidthFar = 1.5;
+      const predEndX = tex - tdx*8, predEndY = tey - tdy*8;
+      function predShaftPolygon(extra) {
+        const nw = predWidthNear + extra, fw = predWidthFar + extra;
+        ctx.beginPath();
+        ctx.moveTo(hitCoin.x + predPerpX*nw/2, hitCoin.y + predPerpY*nw/2);
+        ctx.lineTo(predEndX + predPerpX*fw/2, predEndY + predPerpY*fw/2);
+        ctx.lineTo(predEndX - predPerpX*fw/2, predEndY - predPerpY*fw/2);
+        ctx.lineTo(hitCoin.x - predPerpX*nw/2, hitCoin.y - predPerpY*nw/2);
+        ctx.closePath();
+      }
+      ctx.save();
+      // dark outline first
+      predShaftPolygon(3.5);
+      ctx.fillStyle = 'rgba(15,8,4,0.5)';
+      ctx.fill();
+      // colored fill on top
       const predGrad = ctx.createLinearGradient(hitCoin.x, hitCoin.y, tex, tey);
       predGrad.addColorStop(0, predictColor);
-      predGrad.addColorStop(1, `rgba(${interpR},${interpG},${interpB},0.25)`);
-
-      ctx.save();
-      ctx.lineCap = 'round';
-      ctx.setLineDash([7,5]);
-      ctx.lineDashOffset = -(performance.now()/45 % 12);
+      predGrad.addColorStop(1, `rgba(${interpR},${interpG},${interpB},0.3)`);
+      predShaftPolygon(0);
+      ctx.fillStyle = predGrad;
       ctx.shadowColor = predictColor;
       ctx.shadowBlur = 8 + overallDifficulty * 10;
-      ctx.strokeStyle = predGrad;
-      ctx.lineWidth = 1.8 + overallDifficulty * 1.4;
-      ctx.beginPath();
-      ctx.moveTo(hitCoin.x, hitCoin.y);
-      ctx.lineTo(tex - tdx*8, tey - tdy*8);
-      ctx.stroke();
+      ctx.fill();
       ctx.restore();
-      ctx.setLineDash([]);
 
       const headAng = Math.atan2(tdy,tdx);
-      const headSize = 8 + overallDifficulty * 6;
+      const headSize = 12 + overallDifficulty * 8;
       ctx.save();
-      ctx.shadowColor = predictColor;
-      ctx.shadowBlur = 8 + overallDifficulty * 10;
       ctx.beginPath();
       ctx.moveTo(tex, tey);
       ctx.lineTo(tex - headSize*Math.cos(headAng-0.42), tey - headSize*Math.sin(headAng-0.42));
       ctx.lineTo(tex - headSize*0.55*Math.cos(headAng), tey - headSize*0.55*Math.sin(headAng));
       ctx.lineTo(tex - headSize*Math.cos(headAng+0.42), tey - headSize*Math.sin(headAng+0.42));
       ctx.closePath();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(15,8,4,0.55)';
+      ctx.stroke();
+      ctx.shadowColor = predictColor;
+      ctx.shadowBlur = 8 + overallDifficulty * 10;
       ctx.fillStyle = predictColor;
       ctx.fill();
       ctx.restore();
