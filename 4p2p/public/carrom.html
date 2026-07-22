@@ -2447,8 +2447,14 @@
       // runs in the main loop below (which runs every frame regardless
       // of input), since a truly motionless hold never fires a single
       // move event at all -- checking only here would never catch it.
-      const HOLD_RADIUS = 12; // was 4 -- far tighter than natural hand/finger tremor, so almost any attempt to hold still reset the clock before the 1-second threshold was ever reached
-      if(!aimHoldAnchor || Math.abs(rawY - aimHoldAnchor.y) > HOLD_RADIUS){
+      // Compares against the PREVIOUS event's position, not a fixed
+      // anchor -- a fixed-anchor radius let slow, continuous dragging
+      // (many small steps that individually never exceed the radius)
+      // falsely accumulate hold-time despite genuinely, continuously
+      // moving. Comparing frame-to-frame means any real movement, however
+      // slow, keeps resetting the clock; only true stillness lets it run.
+      const MOVE_TOLERANCE = 4; // small enough to catch a slow deliberate drag, large enough to tolerate natural hand tremor between events while actually holding still
+      if(!aimHoldAnchor || Math.abs(rawY - aimHoldAnchor.y) > MOVE_TOLERANCE){
         aimHoldAnchor = { y: rawY, time: performance.now() };
       }
 
