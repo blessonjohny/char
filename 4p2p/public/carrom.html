@@ -609,10 +609,17 @@
     // entirely and never actually catching anything.
     const coinVal = d.axis === 'x' ? coin.y : coin.x;
     const tol = coin.r + 1.5;
+    // The boundary is the NEAR edge of the striker's own slot (the line
+    // closer to the board center that the striker's own near side rests
+    // against), not the striker's center point -- this way the
+    // striker's entire body sits on the far/rail side of the line,
+    // never straddling it, matching "my striker should be below that
+    // line" exactly.
+    const lineNear = d.outer + d.dir*STRIKER_R;
     // dir points "into" the board (toward the center) from the strike
     // line; "behind" is the opposite direction, toward the shooter's
     // own rail.
-    return d.dir > 0 ? (coinVal < d.outer + tol) : (coinVal > d.outer - tol);
+    return d.dir > 0 ? (coinVal < lineNear + tol) : (coinVal > lineNear - tol);
   }
 
   function touchingProtectedLines(coin, seat){
@@ -642,6 +649,7 @@
   // right piece instead of the whole lane at once.
   function protectionDetailFor(coin, seat){
     const tol = coin.r + 1.5;
+    if (behindOwnStrikeZone(coin, seat)) return { part: 'strikeline' };
     for (const lane of getCornerLanes().filter(l=>l.sides.includes(seat.side))) {
       const dh = Math.hypot(coin.x-lane.hook.x, coin.y-lane.hook.y);
       if (dh <= lane.hook.r + tol) return { hookX: lane.hook.x, hookY: lane.hook.y, part: 'arc' };
@@ -1571,6 +1579,15 @@
           from: {x: Math.round(l.from.x), y: Math.round(l.from.y)},
           pocket: {x: Math.round(l.pocket.x), y: Math.round(l.pocket.y)}
         }))
+      };
+    },
+    testStrikeLineFouled() {
+      const seat = currentSeat();
+      return {
+        side: seat.side,
+        outer: SEAT_DEFS[seat.side].outer,
+        anyCoinFoulsIt: coins.some(c => !c.potted && behindOwnStrikeZone(c, seat)),
+        coinPositions: coins.filter(c=>!c.potted).map(c => ({x: Math.round(c.x), y: Math.round(c.y), behind: behindOwnStrikeZone(c, seat)}))
       };
     },
     testAimTarget() {
@@ -2701,6 +2718,27 @@
       // Draw the two lanes on the FAR side too (never highlighted, since
       // protection is always relative to the current shooter's own side).
       getCornerLanes().filter(lane => !lane.sides.includes(seat.side)).forEach(lane => drawCornerLane(lane, null));
+
+      // Zone 1: the strike-zone line itself, extended the FULL width of
+      // the board both ways -- this matches what the rule actually
+      // checks (behindOwnStrikeZone never restricts along the line, only
+      // perpendicular to it), which is wider than the short decorative
+      // segment drawBaselineBox draws around the striker's own slot.
+      // Without this, a coin fouled by this rule had zero visual
+      // explanation for why -- the shot would just get blocked with no
+      // highlight anywhere, looking like an arbitrary call.
+      const strikeLineFouled = coins.some(c => !c.potted && behindOwnStrikeZone(c, seat));
+      const d = SEAT_DEFS[seat.side];
+      const zone1LineY = d.outer + d.dir*STRIKER_R; // the near edge of the striker's own slot -- matches behindOwnStrikeZone's boundary exactly
+      ctx.save();
+      ctx.strokeStyle = strikeLineFouled ? '#ff8c1a' : 'rgba(50,30,10,0.28)';
+      ctx.lineWidth = strikeLineFouled ? 3 : 1.5;
+      if (strikeLineFouled) { ctx.shadowColor = '#ff8c1a'; ctx.shadowBlur = 10; }
+      ctx.beginPath();
+      if (d.axis === 'x') { ctx.moveTo(PLAY_MIN, zone1LineY); ctx.lineTo(PLAY_MAX, zone1LineY); }
+      else { ctx.moveTo(zone1LineY, PLAY_MIN); ctx.lineTo(zone1LineY, PLAY_MAX); }
+      ctx.stroke();
+      ctx.restore();
     }
 
     ctx.save();
