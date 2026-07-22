@@ -2447,7 +2447,7 @@
       // runs in the main loop below (which runs every frame regardless
       // of input), since a truly motionless hold never fires a single
       // move event at all -- checking only here would never catch it.
-      const HOLD_RADIUS = 4;
+      const HOLD_RADIUS = 12; // was 4 -- far tighter than natural hand/finger tremor, so almost any attempt to hold still reset the clock before the 1-second threshold was ever reached
       if(!aimHoldAnchor || Math.abs(rawY - aimHoldAnchor.y) > HOLD_RADIUS){
         aimHoldAnchor = { y: rawY, time: performance.now() };
       }
@@ -3047,7 +3047,7 @@
     // including the yellow tone it passes through at mid-power.
     ctx.save();
     const shaftPulse = 1 + Math.sin(performance.now()/220) * 0.12; // gentle breathing, not jittery
-    const widthNear = 11 * shaftPulse, widthFar = 2.5;
+    const widthNear = 7 * shaftPulse, widthFar = 1.5; // was 11/2.5 -- thinner shaft, same tapered style
     const perpX = -aimNy, perpY = aimNx; // perpendicular to the aim direction
     function shaftPolygon(extraWidth) {
       const nw = widthNear + extraWidth, fw = widthFar + extraWidth;
@@ -3060,7 +3060,7 @@
     }
     // Dark outline pass first -- keeps the shaft readable against the
     // board no matter what color comes next.
-    shaftPolygon(4);
+    shaftPolygon(2.5);
     ctx.fillStyle = 'rgba(20,10,5,0.55)';
     ctx.fill();
     // Colored fill on top
@@ -3083,7 +3083,7 @@
     // wider, more prominent arrowhead, with a dark outline so it never
     // blends into the board either
     const aimAng = Math.atan2(aimNy, aimNx);
-    const aimHeadLen = 20, aimHeadSpread = 0.55;
+    const aimHeadLen = 16, aimHeadSpread = 0.55; // was 20 -- proportional to the thinner shaft
     function arrowheadPath() {
       ctx.beginPath();
       ctx.moveTo(contactX, contactY);
