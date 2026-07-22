@@ -817,6 +817,8 @@
   let carromIsAutoRejoinAttempt = false;
   let carromWasDisconnected = false; // true once we've seen a real disconnect this session, so a later successful (re)join can distinguish "reconnected" from "connected fresh"
   let carromReannounceToken = 0; // per-attempt generation counter for the lightweight re-announce path's safety timer, so a stale timer from a superseded attempt can never fire against a newer one
+  let carromPongPending = false;
+  let carromWatchdogTimer = null;
   let carromConnStatusHideTimer = null;
   function carromSetConnStatus(text, bg) {
     const el = document.getElementById('carromConnStatus');
@@ -832,10 +834,36 @@
     if (carromConnStatusHideTimer) clearTimeout(carromConnStatusHideTimer);
     carromConnStatusHideTimer = setTimeout(() => { el.style.display = 'none'; carromConnStatusHideTimer = null; }, delay || 0);
   }
+  function carromStartWatchdog() {
+    if (carromWatchdogTimer) return;
+    carromWatchdogTimer = setInterval(() => {
+      if (!carromMyTableId || !carromSocket) return;
+      if (carromPongPending) {
+        // The PREVIOUS ping, sent a full cycle ago, never got a
+        // response -- not a fluke, a genuinely dead connection. This is
+        // the primary defense against a real disconnect now: it never
+        // depends on visibilitychange or the 'online' window event
+        // firing at all, both of which have proven unreliable on real
+        // mobile devices specifically for airplane-mode toggles. This
+        // runs on its own clock and finds out for itself.
+        carromPongPending = false;
+        carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+        try { carromSocket.disconnect(); } catch(e) {}
+        carromSocket.connect();
+        return;
+      }
+      carromPongPending = true;
+      carromSocket.emit('carrom_ping');
+    }, 8000);
+  }
+
   function carromConnect() {
     if (carromSocket) return;
     carromSocket = io();
+    carromStartWatchdog();
+    carromSocket.on('carrom_pong', () => { carromPongPending = false; });
     carromSocket.on('connect', () => {
+      carromPongPending = false;
       if (carromWasDisconnected) carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
       const savedTable = (() => { try { return localStorage.getItem('carrom_table_id'); } catch(e) { return null; } })();
       if (savedTable && carromMyPlayerId) {
