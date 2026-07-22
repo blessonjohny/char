@@ -862,13 +862,37 @@
     });
     carromSocket.on('carrom_joinError', ({ reason }) => {
       if (carromIsAutoRejoinAttempt) {
+        carromIsAutoRejoinAttempt = false;
+        try { localStorage.removeItem('carrom_table_id'); } catch(e) {}
+        if (carromWasDisconnected) {
+          // This was a genuine reconnect attempt after a real
+          // disconnect (not just the silent fresh-visit stale-table
+          // check) -- the user was actively mid-game and is watching
+          // this banner, waiting to resume. Leaving it stuck on
+          // "Reconnecting..." forever with no resolution, silently
+          // failing in the background, is exactly the bug: it must
+          // clearly say the reconnect failed, not hang indefinitely.
+          carromWasDisconnected = false;
+          carromSetConnStatus('❌ Couldn\u2019t reconnect — this table is no longer available.', '#a11');
+          carromHideConnStatus(6000);
+          // Don't leave them staring at a frozen, dead game board --
+          // return to the online lobby where they can see other open
+          // tables or start a fresh one.
+          if (GAME_WRAP.classList.contains('show')) {
+            GAME_WRAP.classList.remove('show');
+            MENU.style.display = 'block';
+          }
+          document.getElementById('menuStepName').style.display = 'none';
+          document.getElementById('menuStepMode').style.display = 'none';
+          document.getElementById('menuStepLocalSetup').style.display = 'none';
+          document.getElementById('onlineLobby').style.display = 'block';
+          document.getElementById('carromLobbyStatus').style.display = 'none';
+        }
         // Silent, automatic background attempt to resume a session from
         // a previous visit -- not something the user clicked. A stale
         // or closed table here is completely normal, not something
         // worth alarming them about. Clear the dead reference and fall
         // through quietly to the regular lobby.
-        carromIsAutoRejoinAttempt = false;
-        try { localStorage.removeItem('carrom_table_id'); } catch(e) {}
         carromSocket.emit('carrom_listRooms');
         return;
       }
@@ -1759,6 +1783,13 @@
         carromSocket.emit('carrom_joinTable', { tableId: carromMyTableId, name: carromNameOrDefault(), playerId: carromMyPlayerId });
       }
     },
+    testSimulateFailedReconnect() {
+      carromWasDisconnected = true;
+      carromIsAutoRejoinAttempt = true;
+      carromSocket.emit('carrom_joinTable', { tableId: 'CBOGUSNONEXISTENT', name: carromNameOrDefault(), playerId: 'bogus-nonexistent-player-id' });
+    },
+    get connStatusText() { const el = document.getElementById('carromConnStatus'); return el ? el.textContent : null; },
+    get connStatusVisible() { const el = document.getElementById('carromConnStatus'); return el ? getComputedStyle(el).display !== 'none' : null; },
     get socketConnected() { return carromSocket ? carromSocket.connected : null; },
     testSetAimState(msSinceLastMove) {
       gestureMode = 'aim'; shotStage = 'aim';
