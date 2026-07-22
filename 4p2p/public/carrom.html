@@ -399,15 +399,45 @@
 <div class="app">
 
   <div class="menu" id="menu">
-    <h2>Opponent</h2>
-    <div class="opt-row" id="modeRow">
-      <button class="opt-btn active" data-mode="ai">Vs Bot</button>
-      <button class="opt-btn" data-mode="local">Pass &amp; Play</button>
-      <button class="opt-btn" data-mode="online">Play Online</button>
+    <div id="menuStepName">
+      <h2>What's your name?</h2>
+      <input type="text" id="carromNameInput" placeholder="Your name" maxlength="20" style="width:100%;padding:12px 14px;border-radius:8px;border:1.5px solid var(--brass-dim);background:rgba(255,255,255,0.05);color:var(--ink);font-size:1rem;margin-bottom:16px;font-family:inherit;box-sizing:border-box">
+      <button class="start-btn" id="menuNameContinueBtn">Continue</button>
+    </div>
+
+    <div id="menuStepMode" style="display:none">
+      <h2>Choose how to play</h2>
+      <div class="opt-row" id="modeRow" style="flex-direction:column">
+        <button class="opt-btn active" data-mode="ai" style="padding:16px;text-align:left">🤖&nbsp; Vs Bot</button>
+        <button class="opt-btn" data-mode="local" style="padding:16px;text-align:left">👥&nbsp; Pass &amp; Play</button>
+        <button class="opt-btn" data-mode="online" style="padding:16px;text-align:left">🌐&nbsp; Play Online</button>
+      </div>
+      <button class="ctrl-btn" id="menuBackFromModeBtn" style="width:100%">← Back</button>
+    </div>
+
+    <div id="menuStepLocalSetup" style="display:none">
+      <h2>Players</h2>
+      <div class="opt-row" id="playersRow">
+        <button class="opt-btn active" data-players="2">2 Players</button>
+        <button class="opt-btn" data-players="4">4 Players (2v2 Teams)</button>
+      </div>
+      <div class="menu-note" id="playersNote">You play from the bottom, your opponent sits opposite at the top.</div>
+
+      <h2 id="diffLabel">Bot difficulty</h2>
+      <div class="opt-row" id="diffRow" style="flex-wrap:wrap">
+        <button class="opt-btn" data-diff="beginner">Beginner</button>
+        <button class="opt-btn" data-diff="easy">Easy</button>
+        <button class="opt-btn active" data-diff="medium">Medium</button>
+        <button class="opt-btn" data-diff="hard">Hard</button>
+        <button class="opt-btn" data-diff="perfect">Perfect</button>
+      </div>
+
+      <button class="start-btn" id="startBtn">Set Up Board</button>
+      <button class="ctrl-btn" id="menuBackFromLocalBtn" style="width:100%;margin-top:10px">← Back</button>
     </div>
 
     <div id="onlineLobby" style="display:none">
-      <input type="text" id="carromNameInput" placeholder="Your name" maxlength="20" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--brass-dim);background:rgba(255,255,255,0.05);color:var(--ink);font-size:0.9rem;margin:10px 0;font-family:inherit;box-sizing:border-box">
+      <h2>Play Online</h2>
       <div class="opt-row" id="onlinePlayerCountRow">
         <button class="opt-btn active" data-online-players="2">2 Players</button>
         <button class="opt-btn" data-online-players="4">4 Players (2v2)</button>
@@ -426,26 +456,10 @@
         <div id="carromWaitingNote" style="text-align:center;color:var(--brass-dim);font-size:0.8rem"></div>
         <button class="ctrl-btn" id="carromLeaveLobbyBtn" style="width:100%;margin-top:10px;color:#ff8888;border-color:rgba(255,90,90,0.4)">Leave Table</button>
       </div>
+      <button class="ctrl-btn" id="menuBackFromOnlineBtn" style="width:100%;margin-top:10px">← Back</button>
     </div>
-
-    <h2>Players</h2>
-    <div class="opt-row" id="playersRow">
-      <button class="opt-btn active" data-players="2">2 Players</button>
-      <button class="opt-btn" data-players="4">4 Players (2v2 Teams)</button>
-    </div>
-    <div class="menu-note" id="playersNote">You play from the bottom, your opponent sits opposite at the top.</div>
-
-    <h2 id="diffLabel">Bot difficulty</h2>
-    <div class="opt-row" id="diffRow" style="flex-wrap:wrap">
-      <button class="opt-btn" data-diff="beginner">Beginner</button>
-      <button class="opt-btn" data-diff="easy">Easy</button>
-      <button class="opt-btn active" data-diff="medium">Medium</button>
-      <button class="opt-btn" data-diff="hard">Hard</button>
-      <button class="opt-btn" data-diff="perfect">Perfect</button>
-    </div>
-
-    <button class="start-btn" id="startBtn">Set Up Board</button>
   </div>
+
 
   <div class="game-wrap" id="gameWrap">
     <div class="foul-banner" id="foulBanner"></div>
@@ -698,13 +712,33 @@
     mode = btn.dataset.mode;
     document.getElementById('diffLabel').style.display = mode==='ai' ? 'block':'none';
     document.getElementById('diffRow').style.display = mode==='ai' ? 'flex':'none';
-    document.getElementById('playersRow').parentElement && null;
-    document.getElementById('onlineLobby').style.display = mode==='online' ? 'block':'none';
-    document.getElementById('playersRow').style.display = mode==='online' ? 'none':'flex';
-    document.getElementById('startBtn').style.display = mode==='online' ? 'none':'block';
-    if (mode === 'online') carromConnect();
-    if (mode !== 'online') carromLeaveLobbyIfAny();
+    document.getElementById('menuStepMode').style.display = 'none';
+    if (mode === 'online') {
+      document.getElementById('onlineLobby').style.display = 'block';
+      carromConnect();
+    } else {
+      document.getElementById('menuStepLocalSetup').style.display = 'block';
+      carromLeaveLobbyIfAny();
+    }
     updatePlayersNote();
+  });
+
+  document.getElementById('menuNameContinueBtn').addEventListener('click', () => {
+    document.getElementById('menuStepName').style.display = 'none';
+    document.getElementById('menuStepMode').style.display = 'block';
+  });
+  document.getElementById('menuBackFromModeBtn').addEventListener('click', () => {
+    document.getElementById('menuStepMode').style.display = 'none';
+    document.getElementById('menuStepName').style.display = 'block';
+  });
+  document.getElementById('menuBackFromLocalBtn').addEventListener('click', () => {
+    document.getElementById('menuStepLocalSetup').style.display = 'none';
+    document.getElementById('menuStepMode').style.display = 'block';
+  });
+  document.getElementById('menuBackFromOnlineBtn').addEventListener('click', () => {
+    carromLeaveLobbyIfAny();
+    document.getElementById('onlineLobby').style.display = 'none';
+    document.getElementById('menuStepMode').style.display = 'block';
   });
   document.getElementById('diffRow').addEventListener('click', e => {
     const btn = e.target.closest('.opt-btn'); if(!btn) return;
@@ -3518,11 +3552,10 @@
       onlineBtn.classList.add('active');
     }
     mode = 'online';
-    document.getElementById('diffLabel').style.display = 'none';
-    document.getElementById('diffRow').style.display = 'none';
+    document.getElementById('menuStepName').style.display = 'none';
+    document.getElementById('menuStepMode').style.display = 'none';
+    document.getElementById('menuStepLocalSetup').style.display = 'none';
     document.getElementById('onlineLobby').style.display = 'block';
-    document.getElementById('playersRow').style.display = 'none';
-    document.getElementById('startBtn').style.display = 'none';
     carromConnect();
   })();
 })();
