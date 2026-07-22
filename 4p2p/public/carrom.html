@@ -720,6 +720,7 @@
     } else {
       document.getElementById('menuStepLocalSetup').style.display = 'block';
       carromLeaveLobbyIfAny();
+      carromTeardownOnlineConnection();
     }
     updatePlayersNote();
   });
@@ -738,6 +739,7 @@
   });
   document.getElementById('menuBackFromOnlineBtn').addEventListener('click', () => {
     carromLeaveLobbyIfAny();
+    carromTeardownOnlineConnection();
     document.getElementById('onlineLobby').style.display = 'none';
     document.getElementById('menuStepMode').style.display = 'block';
   });
@@ -1058,6 +1060,29 @@
       try { localStorage.removeItem('carrom_table_id'); } catch(e) {}
     }
     document.getElementById('carromLobbyStatus').style.display = 'none';
+  }
+
+  function carromTeardownOnlineConnection() {
+    // A page-load auto-reconnect attempt (or a still-pending/already-
+    // failed one) leaves a socket and watchdog running in the
+    // background even if the user never actually gets seated anywhere
+    // -- carromLeaveLobbyIfAny above only ever handled the "already
+    // successfully joined" case, so that orphaned connection just kept
+    // running forever, eventually failing its own reconnect attempt on
+    // its own schedule and surfacing a confusing "disconnected" banner
+    // during a completely unrelated local game. Called whenever the
+    // user explicitly leaves online mode, so nothing keeps running for
+    // a session they're not even in anymore.
+    if (carromWatchdogTimer) { clearInterval(carromWatchdogTimer); carromWatchdogTimer = null; }
+    if (carromConnStatusHideTimer) { clearTimeout(carromConnStatusHideTimer); carromConnStatusHideTimer = null; }
+    carromHideConnStatus(0);
+    if (carromSocket) {
+      try { carromSocket.disconnect(); } catch(e) {}
+      carromSocket = null;
+    }
+    carromMyTableId = null;
+    carromWasDisconnected = false;
+    carromIsAutoRejoinAttempt = false;
   }
 
   document.getElementById('onlinePlayerCountRow').addEventListener('click', e => {
