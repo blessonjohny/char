@@ -1728,6 +1728,14 @@
       updateHUD();
     },
     get aimTimeSinceLastMove() { return aimLastMoveTime ? performance.now() - aimLastMoveTime : null; },
+    testSocketDisconnect() { if (carromSocket) carromSocket.disconnect(); },
+    testSocketReconnect() { if (carromSocket) carromSocket.connect(); },
+    testReannounce() {
+      if (carromSocket && carromMyTableId && carromMyPlayerId) {
+        carromSocket.emit('carrom_joinTable', { tableId: carromMyTableId, name: carromNameOrDefault(), playerId: carromMyPlayerId });
+      }
+    },
+    get socketConnected() { return carromSocket ? carromSocket.connected : null; },
     testSetAimState(msSinceLastMove) {
       gestureMode = 'aim'; shotStage = 'aim';
       liveAimDir = { x: 0, y: -1 };
@@ -3558,6 +3566,45 @@
     document.getElementById('onlineLobby').style.display = 'block';
     carromConnect();
   })();
+
+  // Fixes the specific "phone locked, came back, frozen" failure: a
+  // phone screen lock (or backgrounding the app/switching tabs for a
+  // while) suspends this page's JS entirely -- timers, the render
+  // loop, and the socket's own internal bookkeeping all pause. The
+  // socket's own .connected flag can come out of that suspension still
+  // reporting true, even though the connection actually died and the
+  // server's own ping-timeout gave up on it long ago server-side --
+  // the browser paused this tab before it ever got to process the real
+  // disconnect event. Trusting that flag and doing nothing meant the
+  // client would just sit there looking alive while receiving nothing,
+  // permanently, with no further trigger to ever notice. Checking
+  // explicitly the instant the tab becomes visible/network-restored
+  // again catches this immediately instead of waiting on a timer that
+  // may never have run during the suspension. Same proven pattern
+  // already used on the 4-player table.
+  let carromHiddenAt = null;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      carromHiddenAt = Date.now();
+      return;
+    }
+    if (document.visibilityState !== 'visible' || !carromMyTableId || !carromMyPlayerId || !carromSocket) return;
+    const hiddenForMs = carromHiddenAt ? (Date.now() - carromHiddenAt) : 0;
+    carromHiddenAt = null;
+    if (!carromSocket.connected || hiddenForMs > 70000) {
+      try { carromSocket.disconnect(); } catch(e) {}
+      carromSocket.connect();
+    } else {
+      // Hidden only briefly -- the transport is genuinely still likely
+      // alive, so a lightweight re-announce is enough insurance.
+      carromSocket.emit('carrom_joinTable', { tableId: carromMyTableId, name: carromNameOrDefault(), playerId: carromMyPlayerId });
+    }
+  });
+  window.addEventListener('online', () => {
+    if (carromMyTableId && carromMyPlayerId && carromSocket && !carromSocket.connected) {
+      carromSocket.connect();
+    }
+  });
 })();
 </script>
 </body>
