@@ -817,8 +817,8 @@
   let carromIsAutoRejoinAttempt = false;
   let carromWasDisconnected = false; // true once we've seen a real disconnect this session, so a later successful (re)join can distinguish "reconnected" from "connected fresh"
   let carromReannounceToken = 0; // per-attempt generation counter for the lightweight re-announce path's safety timer, so a stale timer from a superseded attempt can never fire against a newer one
-  let carromPongPending = false;
   let carromWatchdogTimer = null;
+  let carromLastAliveAt = Date.now(); // updated only by a genuine pong or fresh connect event, never by merely sending a new ping
   let carromConnStatusHideTimer = null;
   function carromSetConnStatus(text, bg) {
     const el = document.getElementById('carromConnStatus');
@@ -838,32 +838,37 @@
     if (carromWatchdogTimer) return;
     carromWatchdogTimer = setInterval(() => {
       if (!carromMyTableId || !carromSocket) return;
-      if (carromPongPending) {
-        // The PREVIOUS ping, sent a full cycle ago, never got a
-        // response -- not a fluke, a genuinely dead connection. This is
-        // the primary defense against a real disconnect now: it never
-        // depends on visibilitychange or the 'online' window event
-        // firing at all, both of which have proven unreliable on real
-        // mobile devices specifically for airplane-mode toggles. This
-        // runs on its own clock and finds out for itself.
-        carromPongPending = false;
-        carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
-        try { carromSocket.disconnect(); } catch(e) {}
-        carromSocket.connect();
-        return;
-      }
-      carromPongPending = true;
+      // Checks whether carromLastAliveAt has moved forward past THIS
+      // specific ping's send time -- not whether a newer ping merely
+      // exists. An earlier version incremented the same counter both
+      // when sending a new ping AND when checking an old one's timeout,
+      // which meant the watchdog's own continuous retries perpetually
+      // invalidated each prior ping's pending check before it could
+      // ever actually fire: it could never trigger a reconnect as long
+      // as it kept retrying, which is always. This never depends on
+      // visibilitychange or the 'online' window event firing at all,
+      // both proven unreliable on real mobile devices specifically for
+      // airplane-mode toggles -- it runs on its own clock and finds out
+      // for itself, quickly.
+      const sentAt = Date.now();
       carromSocket.emit('carrom_ping');
-    }, 8000);
+      setTimeout(() => {
+        if (carromLastAliveAt < sentAt) {
+          carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+          try { carromSocket.disconnect(); } catch(e) {}
+          carromSocket.connect();
+        }
+      }, 4000);
+    }, 4000);
   }
 
   function carromConnect() {
     if (carromSocket) return;
     carromSocket = io();
     carromStartWatchdog();
-    carromSocket.on('carrom_pong', () => { carromPongPending = false; });
+    carromSocket.on('carrom_pong', () => { carromLastAliveAt = Date.now(); });
     carromSocket.on('connect', () => {
-      carromPongPending = false;
+      carromLastAliveAt = Date.now();
       if (carromWasDisconnected) carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
       const savedTable = (() => { try { return localStorage.getItem('carrom_table_id'); } catch(e) { return null; } })();
       if (savedTable && carromMyPlayerId) {
@@ -1731,6 +1736,8 @@
   // keeps them off the global namespace); this exposes a few of them
   // read-only rather than changing that.
   window.CARROM_DEBUG = {
+    get lastAliveAt() { return carromLastAliveAt; },
+    get msSinceLastAlive() { return Date.now() - carromLastAliveAt; },
     get boardNumber() { return boardNumber; },
     get myPos() { return carromMyPos; },
     get turnPos() { return turnPos; },
