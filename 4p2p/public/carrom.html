@@ -1581,6 +1581,17 @@
         }))
       };
     },
+    get aimHoldSamplesDebug() {
+      if (!aimHoldSamples) return null;
+      const ys = aimHoldSamples.map(s => s.y);
+      return { count: aimHoldSamples.length, range: Math.max(...ys) - Math.min(...ys), oldestAge: performance.now() - aimHoldSamples[0].t };
+    },
+    testInjectHoldSamples(relativeTimesMs, yValues) {
+      const now = performance.now();
+      aimHoldSamples = relativeTimesMs.map((rt, i) => ({ y: yValues[i], t: now - rt }));
+      gestureMode = 'aim'; shotStage = 'aim';
+      liveAimDir = { x: 0, y: -1 };
+    },
     testStrikeLineFouled() {
       const seat = currentSeat();
       return {
@@ -2259,7 +2270,7 @@
   let liveAimDir = null;        // {x,y} unit vector for the current aim, always the single source of truth
   let aimBaseAngle = 0;         // the smart-default starting angle (toward the nearest legal coin, or pocket) that vertical drag rotates away from
   let aimDragStartY = 0;        // screen-space Y where the aim drag began, for the single-axis rotation control
-  let aimHoldAnchor = null;     // {y, time} — tracks how long the finger has held still, to auto-commit the aim without needing to lift
+  let aimHoldSamples = null;    // [{y,t}] — recent aim positions, used to check if the finger has stayed within a small band for a full second (sliding window), to auto-commit the aim without needing to lift
   let powerPercent = 0;
   let powerDragStartY = null;
   let powerBaseValue = null;
@@ -2335,7 +2346,7 @@
     dragCurrent = null;
     lockedDir = null;
     liveAimDir = null;
-    aimHoldAnchor = null;
+    aimHoldSamples = null;
     powerPercent = 0;
     powerMoved = false;
     powerStartTime = 0;
@@ -2405,7 +2416,7 @@
       liveAimDir = defaultDir;
       aimBaseAngle = Math.atan2(defaultDir.y, defaultDir.x);
       aimDragStartY = getRawScreenY(evt);
-      aimHoldAnchor = { y: aimDragStartY, time: performance.now() };
+      aimHoldSamples = [{ y: aimDragStartY, t: performance.now() }];
     } else if(shotStage === 'power'){
       gestureMode = 'power';
       powerDragStartY = getRawScreenY(evt);
@@ -2443,20 +2454,20 @@
       const angle = aimBaseAngle + dy * ROTATION_SENSITIVITY;
       liveAimDir = { x: Math.cos(angle), y: Math.sin(angle) };
 
-      // Hold-to-lock tracking: the actual "has it been a second" check
-      // runs in the main loop below (which runs every frame regardless
-      // of input), since a truly motionless hold never fires a single
-      // move event at all -- checking only here would never catch it.
-      // Compares against the PREVIOUS event's position, not a fixed
-      // anchor -- a fixed-anchor radius let slow, continuous dragging
-      // (many small steps that individually never exceed the radius)
-      // falsely accumulate hold-time despite genuinely, continuously
-      // moving. Comparing frame-to-frame means any real movement, however
-      // slow, keeps resetting the clock; only true stillness lets it run.
-      const MOVE_TOLERANCE = 4; // small enough to catch a slow deliberate drag, large enough to tolerate natural hand tremor between events while actually holding still
-      if(!aimHoldAnchor || Math.abs(rawY - aimHoldAnchor.y) > MOVE_TOLERANCE){
-        aimHoldAnchor = { y: rawY, time: performance.now() };
-      }
+      // Hold-to-lock tracking: just record this position/time. The
+      // actual "has it stayed within a small band for a full second"
+      // check runs in the main loop below (which runs every frame
+      // regardless of input, since a truly motionless hold never fires
+      // a single move event at all) and looks at the WHOLE trailing
+      // window at once -- not just the delta from the last event or a
+      // single fixed anchor. That distinction matters: smooth,
+      // continuous dragging fires many small per-event updates that
+      // could each individually look like "barely moved," even while
+      // genuinely, continuously in motion the whole time. Only checking
+      // the full window's total range (oldest sample to newest, and
+      // everything between) correctly catches that as real movement.
+      if(!aimHoldSamples) aimHoldSamples = [];
+      aimHoldSamples.push({ y: rawY, t: performance.now() });
 
       if(shotStage === 'aim'){ setPowerMeter(0); }
     } else if(gestureMode === 'power'){
@@ -3311,24 +3322,34 @@
 
   function loop(){
     try{
-      // Hold-to-lock: if actively aiming and the finger has held
-      // essentially still for a full second, commit the current aim
+      // Hold-to-lock: if actively aiming and the finger has stayed
+      // within a small band for a full second, commit the current aim
       // direction automatically, without waiting for a lift. This has
       // to live in the main loop (not the move handler) because a
       // truly motionless hold never fires a single move event at all --
       // checking only in onMove would never catch that case.
-      if(gestureMode === 'aim' && shotStage === 'aim' && aimHoldAnchor && liveAimDir){
-        if(performance.now() - aimHoldAnchor.time > 1000){
-          if(isAimDirectionAllowed(liveAimDir.x, liveAimDir.y, currentSeat().side)){
-            lockedDir = { x: liveAimDir.x, y: liveAimDir.y };
-            shotStage = 'power';
-            powerPercent = 0;
-            setPowerMeter(0);
-            setMsg('Direction locked (held steady). Drag up/down to set power, release to fire.');
+      if(gestureMode === 'aim' && shotStage === 'aim' && aimHoldSamples && liveAimDir){
+        const now = performance.now();
+        // prune anything older than the window needs, so this array
+        // never grows unbounded across a long, active aiming session
+        aimHoldSamples = aimHoldSamples.filter(s => now - s.t <= 1200);
+        const oldest = aimHoldSamples[0];
+        if(oldest && now - oldest.t >= 1000){
+          const ys = aimHoldSamples.map(s => s.y);
+          const range = Math.max(...ys) - Math.min(...ys);
+          const HOLD_TOLERANCE = 8; // total drift allowed across the WHOLE second, not per-event -- generous enough for natural tremor, tight enough that any real continuous drag exceeds it well before the second is up
+          if(range <= HOLD_TOLERANCE){
+            if(isAimDirectionAllowed(liveAimDir.x, liveAimDir.y, currentSeat().side)){
+              lockedDir = { x: liveAimDir.x, y: liveAimDir.y };
+              shotStage = 'power';
+              powerPercent = 0;
+              setPowerMeter(0);
+              setMsg('Direction locked (held steady). Drag up/down to set power, release to fire.');
+            }
+            gestureMode = null; // end this touch's aim gesture cleanly -- a lift afterward does nothing further, and the next touch starts a fresh power drag
+            dragCurrent = null;
+            aimHoldSamples = null;
           }
-          gestureMode = null; // end this touch's aim gesture cleanly -- a lift afterward does nothing further, and the next touch starts a fresh power drag
-          dragCurrent = null;
-          aimHoldAnchor = null;
         }
       }
       if(phase==='moving'){
