@@ -816,6 +816,7 @@
 
   let carromIsAutoRejoinAttempt = false;
   let carromWasDisconnected = false; // true once we've seen a real disconnect this session, so a later successful (re)join can distinguish "reconnected" from "connected fresh"
+  let carromReannounceToken = 0; // per-attempt generation counter for the lightweight re-announce path's safety timer, so a stale timer from a superseded attempt can never fire against a newer one
   let carromConnStatusHideTimer = null;
   function carromSetConnStatus(text, bg) {
     const el = document.getElementById('carromConnStatus');
@@ -850,7 +851,7 @@
     });
     carromSocket.on('carrom_joined', (info) => {
       carromIsAutoRejoinAttempt = false;
-      carromReannouncePending = false;
+      carromReannounceToken++; // this join succeeded -- supersede any still-pending lightweight attempt's stale timer
       carromMyTableId = info.tableId; carromMyPlayerId = info.playerId; carromMyPos = info.pos; carromIsHost = info.isHost;
       try {
         localStorage.setItem('carrom_player_token', info.playerId);
@@ -1825,18 +1826,45 @@
       // Simulates the exact bug: .connected reports true (stale) but
       // the emit actually goes nowhere, by targeting a bogus table so
       // the server never sends back a carrom_joined confirmation.
-      carromReannouncePending = true;
+      const myToken = ++carromReannounceToken;
       carromSocket.emit('carrom_joinTable', { tableId: 'CBOGUS_NO_RESPONSE', name: carromNameOrDefault(), playerId: 'bogus-id-no-match' });
       setTimeout(() => {
-        if (carromReannouncePending) {
-          carromReannouncePending = false;
+        if (carromReannounceToken === myToken) {
           carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
           try { carromSocket.disconnect(); } catch(e) {}
           carromSocket.connect();
         }
       }, 3000);
     },
-    get reannouncePending() { return carromReannouncePending; },
+    testSimulateOverlappingCycles() {
+      // Simulates the exact race this fix targets: a first lightweight
+      // re-announce that never gets a response, superseded by a second
+      // one that starts before the first's 3s safety timer has fired.
+      // Without the token fix, the first (stale) timer would still
+      // fire, see a shared flag still true, and force an unrelated
+      // disconnect right in the middle of the second attempt.
+      const token1 = ++carromReannounceToken;
+      carromSocket.emit('carrom_joinTable', { tableId: 'CBOGUS_FIRST', name: carromNameOrDefault(), playerId: 'bogus-first' });
+      setTimeout(() => {
+        if (carromReannounceToken === token1) {
+          carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+          try { carromSocket.disconnect(); } catch(e) {}
+          carromSocket.connect();
+        }
+      }, 3000);
+      setTimeout(() => {
+        const token2 = ++carromReannounceToken;
+        carromSocket.emit('carrom_joinTable', { tableId: carromMyTableId, name: carromNameOrDefault(), playerId: carromMyPlayerId });
+        setTimeout(() => {
+          if (carromReannounceToken === token2) {
+            carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+            try { carromSocket.disconnect(); } catch(e) {}
+            carromSocket.connect();
+          }
+        }, 3000);
+      }, 1000); // second cycle starts 1s in, well before the first's 3s timer fires
+    },
+    get reannounceToken() { return carromReannounceToken; },
     get socketConnected() { return carromSocket ? carromSocket.connected : null; },
     testSetAimState(msSinceLastMove) {
       gestureMode = 'aim'; shotStage = 'aim';
@@ -3685,7 +3713,6 @@
   // may never have run during the suspension. Same proven pattern
   // already used on the 4-player table.
   let carromHiddenAt = null;
-  let carromReannouncePending = false;
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       carromHiddenAt = Date.now();
@@ -3695,6 +3722,7 @@
     const hiddenForMs = carromHiddenAt ? (Date.now() - carromHiddenAt) : 0;
     carromHiddenAt = null;
     if (!carromSocket.connected || hiddenForMs > 70000) {
+      carromReannounceToken++; // supersede any still-pending lightweight attempt's stale timer
       try { carromSocket.disconnect(); } catch(e) {}
       carromSocket.connect();
     } else {
@@ -3706,11 +3734,23 @@
       // transport was actually already dead and this quiet emit went
       // nowhere -- escalate to a full forced reconnect rather than
       // leaving the client stuck with no second attempt ever coming.
-      carromReannouncePending = true;
+      //
+      // Uses a per-attempt token, not a shared boolean: a second
+      // visibility cycle (another quick tab/app switch) can easily
+      // start before the first attempt's 3-second safety window has
+      // elapsed. With a single shared flag, that first attempt's stale
+      // timer would still fire, see the flag still true (because the
+      // SECOND attempt's own re-announce hasn't been confirmed yet
+      // either), and force an unrelated disconnect right in the middle
+      // of the second attempt actually working -- exactly the "first
+      // time fine, second time the table's gone" failure. Each attempt
+      // now gets its own token; a timer only acts if its token is still
+      // the current one, so an outdated timer from a superseded attempt
+      // can never interfere with whatever attempt actually followed it.
+      const myToken = ++carromReannounceToken;
       carromSocket.emit('carrom_joinTable', { tableId: carromMyTableId, name: carromNameOrDefault(), playerId: carromMyPlayerId });
       setTimeout(() => {
-        if (carromReannouncePending) {
-          carromReannouncePending = false;
+        if (carromReannounceToken === myToken) {
           carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
           try { carromSocket.disconnect(); } catch(e) {}
           carromSocket.connect();
@@ -3719,8 +3759,27 @@
     }
   });
   window.addEventListener('online', () => {
-    if (carromMyTableId && carromMyPlayerId && carromSocket && !carromSocket.connected) {
+    if (!carromMyTableId || !carromMyPlayerId || !carromSocket) return;
+    // This handler is the ONLY reconnect trigger available when the app
+    // stayed foregrounded the entire time (airplane mode toggled
+    // without switching apps or locking the screen) -- visibilitychange
+    // never fires at all in that case, since visibility genuinely never
+    // changed. Trusting .connected here unconditionally, with no
+    // fallback if it's wrong, meant this handler could do nothing at
+    // all on exactly the scenario it exists for: a real, longer
+    // disconnect where the flag never got the chance to update itself.
+    if (!carromSocket.connected) {
       carromSocket.connect();
+    } else {
+      const myToken = ++carromReannounceToken;
+      carromSocket.emit('carrom_joinTable', { tableId: carromMyTableId, name: carromNameOrDefault(), playerId: carromMyPlayerId });
+      setTimeout(() => {
+        if (carromReannounceToken === myToken) {
+          carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+          try { carromSocket.disconnect(); } catch(e) {}
+          carromSocket.connect();
+        }
+      }, 3000);
     }
   });
 })();
