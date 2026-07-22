@@ -1640,6 +1640,31 @@
         }))
       };
     },
+    testFindBankShot(targetX, targetY, seatSide) {
+      const seat = seats.find(s => s.side === seatSide) || seats[0];
+      const sPos = seatPoint(seat.side, CENTER);
+      const target = { x: targetX, y: targetY, r: COIN_R };
+      const pocket = pocketCenters().slice().sort((a,b) =>
+        Math.hypot(target.x-a.x,target.y-a.y) - Math.hypot(target.x-b.x,target.y-b.y))[0];
+      const toPocket = { x: pocket.x-target.x, y: pocket.y-target.y };
+      const tpLen = Math.hypot(toPocket.x,toPocket.y) || 1;
+      const dirToPocket = { x: toPocket.x/tpLen, y: toPocket.y/tpLen };
+      const contactPoint = {
+        x: target.x - dirToPocket.x*(target.r+STRIKER_R),
+        y: target.y - dirToPocket.y*(target.r+STRIKER_R)
+      };
+      const bank = findBankShot(sPos, contactPoint, target, seat.side);
+      const ownWall = OWN_WALL_FOR_SIDE[seat.side];
+      return {
+        sPos, contactPoint, ownWall,
+        bankFound: !!bank,
+        wallHit: bank ? bank.wallHit : null,
+        isOppositeWall: bank ? (
+          (ownWall.axis==='y' && bank.wallHit.y === (ownWall.value===PLAY_MAX ? PLAY_MIN : PLAY_MAX)) ||
+          (ownWall.axis==='x' && bank.wallHit.x === (ownWall.value===PLAY_MAX ? PLAY_MIN : PLAY_MAX))
+        ) : null
+      };
+    },
     testStrikeLineFouled() {
       const seat = currentSeat();
       return {
@@ -1993,12 +2018,20 @@
 
   function findBankShot(sPos, contactPoint, target, seatSide){
     const ownWall = OWN_WALL_FOR_SIDE[seatSide];
+    // The wall directly across the board from the shooter's own wall --
+    // same axis, opposite value. Banking off this one (straight down
+    // the board and back) is the standard carrom "bang shot" and
+    // should be tried first; the two side walls are only a fallback
+    // when the opposite wall itself doesn't produce a clear, legal shot.
+    const oppositeValue = ownWall.value === PLAY_MAX ? PLAY_MIN : PLAY_MAX;
     const walls = [
       { axis:'x', value:PLAY_MIN, mirror:p=>({x:2*PLAY_MIN-p.x, y:p.y}) },
       { axis:'x', value:PLAY_MAX, mirror:p=>({x:2*PLAY_MAX-p.x, y:p.y}) },
       { axis:'y', value:PLAY_MIN, mirror:p=>({x:p.x, y:2*PLAY_MIN-p.y}) },
       { axis:'y', value:PLAY_MAX, mirror:p=>({x:p.x, y:2*PLAY_MAX-p.y}) },
-    ].filter(w => !(w.axis===ownWall.axis && w.value===ownWall.value));
+    ]
+      .filter(w => !(w.axis===ownWall.axis && w.value===ownWall.value))
+      .map(w => ({ ...w, isOpposite: w.axis===ownWall.axis && w.value===oppositeValue }));
     let best = null;
     walls.forEach(w=>{
       const mirrored = w.mirror(contactPoint);
@@ -2025,8 +2058,15 @@
       if(isPathBlocked(hitX,hitY, contactPoint.x,contactPoint.y, target, STRIKER_R)) return;
 
       const dist = Math.hypot(mirrored.x-sPos.x, mirrored.y-sPos.y);
-      if(!best || dist < best.dist){
-        best = { aimPoint: mirrored, wallHit:{x:hitX,y:hitY}, dist };
+      // The opposite wall always wins over a side wall when both produce
+      // a valid shot, regardless of which is geometrically shorter --
+      // this is what makes the bot actually prefer the standard bang
+      // shot instead of picking whichever wall happens to be closest.
+      const better = !best
+        || (w.isOpposite && !best.isOpposite)
+        || (w.isOpposite === best.isOpposite && dist < best.dist);
+      if(better){
+        best = { aimPoint: mirrored, wallHit:{x:hitX,y:hitY}, dist, isOpposite: w.isOpposite };
       }
     });
     return best;
