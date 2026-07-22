@@ -1453,6 +1453,15 @@
     phase = 'aiming';
     updateHUD();
     setMsg('Back to the current position.');
+    // If it's currently a bot's turn, its scheduled action may have
+    // silently died while the review was playing (that timer checks
+    // phase==='aiming' when it fires, and gives up for good if the
+    // review had phase set to 'moving' at that exact moment) -- without
+    // this, the game would be stuck here with nobody ever acting.
+    try{
+      const seat = currentSeat();
+      if(seat && seat.kind==='ai'){ scheduleAiTurn(600); }
+    } catch(e){ /* the independent watchdog will still catch this */ }
   }
 
   function fireStriker(vx,vy){
@@ -1599,6 +1608,16 @@
     testForceAiTurn(seatIdx) {
       turnPos = seatIdx; phase = 'aiming';
       scheduleAiTurn(50);
+    },
+    testReproduceStuckAfterReview(seatIdx) {
+      // Reproduces the exact precondition: it's a bot's turn, phase is
+      // 'aiming', but NO timer is pending for it (simulating one that
+      // silently died mid-review) -- then calls finishReview directly
+      // to test whether it correctly notices and reschedules the bot.
+      turnPos = seatIdx; phase = 'aiming';
+      aiTurnToken++; // invalidate any real pending timer so only finishReview's own rescheduling can possibly fire the bot
+      isReviewing = true; reviewSavedState = { coins: coins.map(c=>({x:c.x,y:c.y,potted:c.potted})), strikerX:striker.x, strikerY:striker.y, strikerActive:striker.active };
+      finishReview();
     },
     get seats() { return seats.map(s => ({side:s.side, kind:s.kind, name:s.name})); },
     get coinsSample() { return coins.slice(0,3).map(c => ({x: Math.round(c.x), y: Math.round(c.y)})); },
