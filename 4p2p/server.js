@@ -384,21 +384,16 @@ function saveVisitorLogLocal() {
   }
 }
 // Local save is cheap and frequent (matches every other module's pattern
-// here). The periodic GitHub sync that used to run every 11 minutes is
-// REMOVED, not just hardened. Reasoning: a second, separate ~10-minute
-// disconnect report came in even after the comments sync (a confirmed,
-// different mechanism) was already removed and this one was hardened
-// with a timeout -- this is now the only periodic ~10-minute-class timer
-// left anywhere in the codebase, and continuing to keep it "just in
-// case it's unrelated" isn't worth the risk against two independent
-// reports at the same mark. The local save every 10 seconds still
-// happens; GitHub sync now happens on every genuine save-to-GitHub
-// trigger already in the file (server start, and the SIGTERM-triggered
-// flush on a graceful restart/deploy) rather than on its own clock. The
-// earlier global crash-protection (uncaughtException/unhandledRejection
-// handlers) already substantially reduced the "ungraceful crash loses
-// recent visitors" risk this periodic sync existed to cover in the
-// first place.
+// here). The original periodic GitHub sync that ran every 11 minutes on
+// a fixed clock was removed after two independent disconnect reports at
+// that same ~10-minute mark. Relying on graceful-shutdown-only sync
+// after that turned out to have a real gap, though: an ungraceful
+// restart or platform-initiated redeploy has no SIGTERM grace window at
+// all, so anything logged since the last clean shutdown could be lost.
+// scheduleVisitorLogPush below covers that gap while staying
+// activity-triggered (debounced off actual new visitors, capped at
+// 60s) rather than clock-based, so it doesn't reintroduce the original
+// fixed-interval timer that caused the disconnects in the first place.
 setInterval(saveVisitorLogLocal, 10000);
 loadVisitorLog();
 loadComments();
@@ -448,7 +443,32 @@ function logVisitor(socket) {
   visitorLog = visitorLog.filter(e => e.ts >= cutoff);
   if (visitorLog.length > VISITOR_LOG_MAX) visitorLog.length = VISITOR_LOG_MAX;
   visitorLogDirty = true;
+  scheduleVisitorLogPush();
   return entry;
+}
+
+// Debounced GitHub push, triggered by actual new visitors rather than a
+// fixed clock -- this is what replaces the old ~11-minute periodic timer
+// that was removed for causing disconnects. Only syncing on graceful
+// shutdown turned out to be too fragile: an ungraceful restart, crash,
+// or platform-initiated redeploy loses everything logged since the last
+// clean shutdown. Waits 15s after the most recent new visitor (so a
+// lone visit still gets pushed quickly) but never delays past 60s even
+// under a steady stream, so data is never more than a minute stale.
+let visitorPushDebounceTimer = null;
+let visitorPushMaxWaitTimer = null;
+function scheduleVisitorLogPush() {
+  if (!GITHUB_ENABLED) return;
+  if (visitorPushDebounceTimer) clearTimeout(visitorPushDebounceTimer);
+  visitorPushDebounceTimer = setTimeout(runScheduledVisitorLogPush, 15000);
+  if (!visitorPushMaxWaitTimer) {
+    visitorPushMaxWaitTimer = setTimeout(runScheduledVisitorLogPush, 60000);
+  }
+}
+function runScheduledVisitorLogPush() {
+  if (visitorPushDebounceTimer) { clearTimeout(visitorPushDebounceTimer); visitorPushDebounceTimer = null; }
+  if (visitorPushMaxWaitTimer) { clearTimeout(visitorPushMaxWaitTimer); visitorPushMaxWaitTimer = null; }
+  githubPushVisitorLog().catch(e => console.error('[visitor] Scheduled GitHub push failed:', e.message));
 }
 
 function visitorLogFilteredAndSummary(filter) {
@@ -527,6 +547,12 @@ function getAllLivePlayers() {
 app.get('/api/live-players', (req, res) => {
   if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
   res.json({ ok: true, players: getAllLivePlayers() });
+});
+
+app.get('/api/visitor-log', (req, res) => {
+  if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  const { entries, summary } = visitorLogFilteredAndSummary(req.query.filter || 'all');
+  res.json({ ok: true, entries, summary });
 });
 
 // Admin: force-close ANY table in ANY of the four games, no matter what
