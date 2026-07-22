@@ -51,6 +51,7 @@
     <div class="tabs">
       <button class="tab on" id="tabComments">💌 Comments</button>
       <button class="tab" id="tabLive">🟢 Live Players</button>
+      <button class="tab" id="tabVisitors">📊 Visitor Log</button>
     </div>
     <div id="commentsView">
       <div class="toolbar">
@@ -64,6 +65,19 @@
         <button class="btn ghost" id="btnRefreshLive">🔄 Refresh</button>
       </div>
       <div id="liveList"></div>
+    </div>
+    <div id="visitorsView" style="display:none">
+      <div class="toolbar">
+        <button class="btn ghost" id="btnRefreshVisitors">🔄 Refresh</button>
+      </div>
+      <div id="visitorSummary" style="display:flex;gap:8px;margin-bottom:12px"></div>
+      <div id="visitorFilters" class="tabs" style="margin-bottom:12px">
+        <button class="tab on" data-filter="today">Today</button>
+        <button class="tab" data-filter="week">This Week</button>
+        <button class="tab" data-filter="month">This Month</button>
+        <button class="tab" data-filter="all">All Time</button>
+      </div>
+      <div id="visitorList"></div>
     </div>
   </div>
 </div>
@@ -129,8 +143,10 @@ let liveRefreshInterval = null;
 function switchTab(tab) {
   document.getElementById('tabComments').classList.toggle('on', tab === 'comments');
   document.getElementById('tabLive').classList.toggle('on', tab === 'live');
+  document.getElementById('tabVisitors').classList.toggle('on', tab === 'visitors');
   document.getElementById('commentsView').style.display = tab === 'comments' ? 'block' : 'none';
   document.getElementById('liveView').style.display = tab === 'live' ? 'block' : 'none';
+  document.getElementById('visitorsView').style.display = tab === 'visitors' ? 'block' : 'none';
   if (tab === 'live') {
     refreshLivePlayers();
     if (!liveRefreshInterval) liveRefreshInterval = setInterval(refreshLivePlayers, 5000);
@@ -138,6 +154,7 @@ function switchTab(tab) {
     clearInterval(liveRefreshInterval);
     liveRefreshInterval = null;
   }
+  if (tab === 'visitors') refreshVisitorLog();
 }
 
 async function refreshLivePlayers() {
@@ -185,7 +202,63 @@ async function closeTable(tableId) {
 
 document.getElementById('tabComments').addEventListener('click', () => switchTab('comments'));
 document.getElementById('tabLive').addEventListener('click', () => switchTab('live'));
+document.getElementById('tabVisitors').addEventListener('click', () => switchTab('visitors'));
 document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
+
+// ---------------- Visitor log (everyone who's ever visited, with location and time) ----------------
+let visitorFilter = 'today';
+
+async function refreshVisitorLog() {
+  const res = await fetch('/api/visitor-log?password=' + encodeURIComponent(PASSWORD) + '&filter=' + encodeURIComponent(visitorFilter));
+  if (!res.ok) return;
+  const data = await res.json();
+  renderVisitorLog(data.entries || [], data.summary || {});
+}
+
+function renderVisitorLog(entries, summary) {
+  const summaryEl = document.getElementById('visitorSummary');
+  summaryEl.innerHTML = `
+    <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
+      <span class="who" style="font-size:1.1rem">${summary.today ?? 0}</span>
+      <span class="where">today</span>
+    </div>
+    <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
+      <span class="who" style="font-size:1.1rem">${summary.week ?? 0}</span>
+      <span class="where">this week</span>
+    </div>
+    <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
+      <span class="who" style="font-size:1.1rem">${summary.month ?? 0}</span>
+      <span class="where">this month</span>
+    </div>
+    <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
+      <span class="who" style="font-size:1.1rem">${summary.all ?? 0}</span>
+      <span class="where">all time</span>
+    </div>
+  `;
+  const listEl = document.getElementById('visitorList');
+  if (!entries.length) { listEl.innerHTML = '<div class="empty">No visits logged for this period.</div>'; return; }
+  listEl.innerHTML = entries.map(e => {
+    const location = [e.city, e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+    return `
+      <div class="live-card">
+        <div>
+          <div class="who">${esc(e.ip || 'unknown IP')}</div>
+          <div class="where">📍 ${esc(location)}</div>
+        </div>
+        <div class="time">${esc(fmtTime(e.ts))}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+document.getElementById('btnRefreshVisitors').addEventListener('click', refreshVisitorLog);
+document.getElementById('visitorFilters').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-filter]');
+  if (!btn) return;
+  visitorFilter = btn.dataset.filter;
+  [...document.getElementById('visitorFilters').children].forEach(b => b.classList.toggle('on', b === btn));
+  refreshVisitorLog();
+});
 </script>
 </body>
 </html>
