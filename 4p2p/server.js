@@ -2428,9 +2428,7 @@ io.on('connection', (socket) => {
         if (info.playerId) delete carromPlayerIndex[info.playerId];
       }
       carromEnsureHumanHost(t);
-      const anyHumanLeft = t.seats.some(s => s && !s.isBot);
-      if (!t.seats.some(Boolean) || !anyHumanLeft) delete carromTables[carromTableId];
-      else carromBroadcast(t);
+      carromBroadcast(t);
     }
     carromTableId = null;
   }
@@ -2596,17 +2594,7 @@ io.on('connection', (socket) => {
         if (info.playerId) delete carromPlayerIndex[info.playerId];
       }
       carromEnsureHumanHost(t);
-      // A seat converting to a bot (the branch above, for a mid-game
-      // leave) still counts as "a seat exists" for the old check below,
-      // which meant a table with zero actual humans left -- everyone
-      // having explicitly exited -- never actually closed; it just sat
-      // there indefinitely with only bots in it. This is the player's
-      // own deliberate exit action causing this, not an idle timer, so
-      // closing it here is safe and expected: if no seat is still
-      // owned by a real human, there is nothing left this table is for.
-      const anyHumanLeft = t.seats.some(s => s && !s.isBot);
-      if (!t.seats.some(Boolean) || !anyHumanLeft) delete carromTables[carromTableId];
-      else carromBroadcast(t);
+      carromBroadcast(t);
     }
     carromTableId = null;
   });
@@ -2618,12 +2606,22 @@ io.on('connection', (socket) => {
     t.sockets.delete(socket.id);
     if (info && t.seats[info.pos] && t.seats[info.pos].playerId === info.playerId) {
       // Keep the seat (reconnect-friendly), just mark it disconnected —
-      // same pattern as every other table on this platform.
-      t.seats[info.pos].connected = false;
+      // same pattern as every other table on this platform. BUT — a
+      // brief network flap can mean the client's new socket already
+      // reconnected and re-marked this seat connected BEFORE this old
+      // socket's disconnect event finished processing (event ordering
+      // isn't guaranteed). If that's already happened, some other
+      // socket is now registered for this exact seat — leaving it
+      // stuck marked disconnected here would make the server treat an
+      // actively-connected player as abandoned. Only mark disconnected
+      // if nothing newer has already taken this seat over.
+      const alreadyReclaimed = [...t.sockets.values()].some(v => v.pos === info.pos);
+      if (!alreadyReclaimed) {
+        t.seats[info.pos].connected = false;
+      }
       carromEnsureHumanHost(t);
     }
-    if (!t.seats.some(Boolean)) delete carromTables[carromTableId];
-    else carromBroadcast(t);
+    carromBroadcast(t);
   });
 });
 
