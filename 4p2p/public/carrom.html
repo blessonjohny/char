@@ -816,9 +816,11 @@
 
   let carromIsAutoRejoinAttempt = false;
   let carromWasDisconnected = false; // true once we've seen a real disconnect this session, so a later successful (re)join can distinguish "reconnected" from "connected fresh"
+  let carromConnStatusHideTimer = null;
   function carromSetConnStatus(text, bg) {
     const el = document.getElementById('carromConnStatus');
     if (!el) return;
+    if (carromConnStatusHideTimer) { clearTimeout(carromConnStatusHideTimer); carromConnStatusHideTimer = null; }
     el.textContent = text;
     el.style.background = bg;
     el.style.display = 'block';
@@ -826,7 +828,8 @@
   function carromHideConnStatus(delay) {
     const el = document.getElementById('carromConnStatus');
     if (!el) return;
-    setTimeout(() => { el.style.display = 'none'; }, delay || 0);
+    if (carromConnStatusHideTimer) clearTimeout(carromConnStatusHideTimer);
+    carromConnStatusHideTimer = setTimeout(() => { el.style.display = 'none'; carromConnStatusHideTimer = null; }, delay || 0);
   }
   function carromConnect() {
     if (carromSocket) return;
@@ -847,11 +850,15 @@
     });
     carromSocket.on('carrom_joined', (info) => {
       carromIsAutoRejoinAttempt = false;
+      carromReannouncePending = false;
       carromMyTableId = info.tableId; carromMyPlayerId = info.playerId; carromMyPos = info.pos; carromIsHost = info.isHost;
       try {
         localStorage.setItem('carrom_player_token', info.playerId);
         localStorage.setItem('carrom_table_id', info.tableId);
       } catch(e) {}
+      fetch('/status').then(r => r.json()).then(data => {
+        if (data && data.serverStartTime) { try { localStorage.setItem('carrom_known_server_start', String(data.serverStartTime)); } catch(e) {} }
+      }).catch(() => {});
       if (carromWasDisconnected) {
         carromWasDisconnected = false;
         carromSetConnStatus('✅ Connected', '#1c7a3c');
@@ -873,8 +880,32 @@
           // failing in the background, is exactly the bug: it must
           // clearly say the reconnect failed, not hang indefinitely.
           carromWasDisconnected = false;
-          carromSetConnStatus('❌ Couldn\u2019t reconnect — this table is no longer available.', '#a11');
-          carromHideConnStatus(6000);
+          // Check whether the server process itself actually
+          // restarted (or, on a load-balanced host, this request
+          // landed on a different instance than the one that had the
+          // table) -- comparing against the start-time baseline
+          // captured on our last successful connection tells us this
+          // for certain, rather than leaving it a permanent guess.
+          let knownStart = null;
+          try { knownStart = localStorage.getItem('carrom_known_server_start'); } catch(e) {}
+          fetch('/status').then(r => r.json()).then(data => {
+            const restarted = data && data.serverStartTime && knownStart && String(data.serverStartTime) !== knownStart;
+            if (data && data.serverStartTime) { try { localStorage.setItem('carrom_known_server_start', String(data.serverStartTime)); } catch(e) {} }
+            // Deliberately NOT auto-hidden: a failure message that's
+            // reliably still there when you look is worth more than
+            // one that vanishes on its own after some delay. It clears
+            // itself naturally the next time you actually do something
+            // (create or join a table), since that calls
+            // carromSetConnStatus again and replaces it.
+            carromSetConnStatus(
+              restarted
+                ? '⚠️ The server restarted while you were away — your table is gone. Sorry about that!'
+                : '❌ Couldn\u2019t reconnect — this table is no longer available.',
+              '#a11'
+            );
+          }).catch(() => {
+            carromSetConnStatus('❌ Couldn\u2019t reconnect — this table is no longer available.', '#a11');
+          });
           // Don't leave them staring at a frozen, dead game board --
           // return to the online lobby where they can see other open
           // tables or start a fresh one.
@@ -1790,6 +1821,22 @@
     },
     get connStatusText() { const el = document.getElementById('carromConnStatus'); return el ? el.textContent : null; },
     get connStatusVisible() { const el = document.getElementById('carromConnStatus'); return el ? getComputedStyle(el).display !== 'none' : null; },
+    testSimulateStaleFlagReannounce() {
+      // Simulates the exact bug: .connected reports true (stale) but
+      // the emit actually goes nowhere, by targeting a bogus table so
+      // the server never sends back a carrom_joined confirmation.
+      carromReannouncePending = true;
+      carromSocket.emit('carrom_joinTable', { tableId: 'CBOGUS_NO_RESPONSE', name: carromNameOrDefault(), playerId: 'bogus-id-no-match' });
+      setTimeout(() => {
+        if (carromReannouncePending) {
+          carromReannouncePending = false;
+          carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+          try { carromSocket.disconnect(); } catch(e) {}
+          carromSocket.connect();
+        }
+      }, 3000);
+    },
+    get reannouncePending() { return carromReannouncePending; },
     get socketConnected() { return carromSocket ? carromSocket.connected : null; },
     testSetAimState(msSinceLastMove) {
       gestureMode = 'aim'; shotStage = 'aim';
@@ -3638,6 +3685,7 @@
   // may never have run during the suspension. Same proven pattern
   // already used on the 4-player table.
   let carromHiddenAt = null;
+  let carromReannouncePending = false;
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       carromHiddenAt = Date.now();
@@ -3650,9 +3698,24 @@
       try { carromSocket.disconnect(); } catch(e) {}
       carromSocket.connect();
     } else {
-      // Hidden only briefly -- the transport is genuinely still likely
-      // alive, so a lightweight re-announce is enough insurance.
+      // Hidden only briefly -- the transport is LIKELY still alive, so
+      // try the lightweight re-announce first. But "likely" isn't
+      // certain: the .connected flag itself can be stale after exactly
+      // this kind of suspension, so this can't just be fire-and-forget.
+      // If no confirmation comes back within a few seconds, the
+      // transport was actually already dead and this quiet emit went
+      // nowhere -- escalate to a full forced reconnect rather than
+      // leaving the client stuck with no second attempt ever coming.
+      carromReannouncePending = true;
       carromSocket.emit('carrom_joinTable', { tableId: carromMyTableId, name: carromNameOrDefault(), playerId: carromMyPlayerId });
+      setTimeout(() => {
+        if (carromReannouncePending) {
+          carromReannouncePending = false;
+          carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+          try { carromSocket.disconnect(); } catch(e) {}
+          carromSocket.connect();
+        }
+      }, 3000);
     }
   });
   window.addEventListener('online', () => {
