@@ -836,6 +836,7 @@
   }
   function carromStartWatchdog() {
     if (carromWatchdogTimer) return;
+    let carromReconnectingUntil = 0; // suppresses a newer ping's timeout from firing a second, overlapping reconnect attempt while one is already in flight
     carromWatchdogTimer = setInterval(() => {
       if (!carromMyTableId || !carromSocket) return;
       // Checks whether carromLastAliveAt has moved forward past THIS
@@ -844,22 +845,30 @@
       // when sending a new ping AND when checking an old one's timeout,
       // which meant the watchdog's own continuous retries perpetually
       // invalidated each prior ping's pending check before it could
-      // ever actually fire: it could never trigger a reconnect as long
-      // as it kept retrying, which is always. This never depends on
-      // visibilitychange or the 'online' window event firing at all,
-      // both proven unreliable on real mobile devices specifically for
-      // airplane-mode toggles -- it runs on its own clock and finds out
-      // for itself, quickly.
+      // ever actually fire.
+      //
+      // 5s ping / 5s timeout -- ~10s worst-case detection, comfortably
+      // under every real-world failure window reported so far (15-30+
+      // seconds), while still generous enough to avoid a false-positive
+      // reconnect from ordinary network jitter or browser timer
+      // throttling that a sandbox test can't fully replicate. Runs
+      // independently of visibilitychange or the 'online' window event
+      // firing at all, both proven unreliable on real mobile devices
+      // specifically for airplane-mode toggles, and still catches a
+      // genuinely dead connection well under the server's own 60s
+      // ping-timeout that it's meant to preempt.
       const sentAt = Date.now();
       carromSocket.emit('carrom_ping');
       setTimeout(() => {
         if (carromLastAliveAt < sentAt) {
+          if (Date.now() < carromReconnectingUntil) return; // a reconnect from an earlier, overlapping ping is already in flight -- let it finish rather than interrupting it with another one
+          carromReconnectingUntil = Date.now() + 4000;
           carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
           try { carromSocket.disconnect(); } catch(e) {}
           carromSocket.connect();
         }
-      }, 4000);
-    }, 4000);
+      }, 5000);
+    }, 5000);
   }
 
   function carromConnect() {
@@ -3790,7 +3799,7 @@
           try { carromSocket.disconnect(); } catch(e) {}
           carromSocket.connect();
         }
-      }, 3000);
+      }, 10000);
     }
   });
   window.addEventListener('online', () => {
@@ -3814,7 +3823,7 @@
           try { carromSocket.disconnect(); } catch(e) {}
           carromSocket.connect();
         }
-      }, 3000);
+      }, 10000);
     }
   });
 })();
