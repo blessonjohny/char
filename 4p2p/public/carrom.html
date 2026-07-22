@@ -488,7 +488,7 @@
   const MAX_PULL = 150;
   const MAX_SHOT_SPEED = 34; // was 26 -- a full-power straight shot now travels far enough to cross the board, bounce off the far cushion, cross back and bounce off the shooter's own cushion, and still reach the far side a second time (verified numerically: ~23 -> ~13 -> ~5 speed remaining at each of the three cushion touches)
 
-  const BASE_INSET = 46;
+  const BASE_INSET = 52; // was 46 -- gives ~33.5px of clearance behind the striker, just over one full coin diameter (~31px), instead of the old 27.5px which was less than a coin could fit in
   const CHANNEL_DEPTH = 22;
   const BASE_HALF = 130;       // half-length of the decorative baseline box (art only)
   const LINE_MARGIN = 42;      // keep the striker shy of the diagonal, and keep adjacent corners' anchors from overlapping
@@ -595,8 +595,29 @@
   // that used to flag coins nowhere near either arc as fouls, which
   // matches exactly what was reported ("a ball not on top was taken as
   // a foul").
+  // True if a coin sits anywhere in the channel between the shooter's
+  // own strike-zone line (where the striker itself gets placed) and
+  // their own back rail -- the whole band, not just touching the line
+  // itself. This is the shooter's own "dead zone" right behind where
+  // they stand; a coin resting there is foul to hit directly.
+  function behindOwnStrikeZone(coin, seat){
+    const d = SEAT_DEFS[seat.side];
+    // d.outer is a coordinate on the axis PERPENDICULAR to the one the
+    // striker slides along -- if the striker moves along x (a
+    // horizontal baseline), outer is a y-value, and vice versa. This
+    // was inverted before, comparing against the wrong coordinate
+    // entirely and never actually catching anything.
+    const coinVal = d.axis === 'x' ? coin.y : coin.x;
+    const tol = coin.r + 1.5;
+    // dir points "into" the board (toward the center) from the strike
+    // line; "behind" is the opposite direction, toward the shooter's
+    // own rail.
+    return d.dir > 0 ? (coinVal < d.outer + tol) : (coinVal > d.outer - tol);
+  }
+
   function touchingProtectedLines(coin, seat){
     const tol = coin.r + 1.5;
+    if(behindOwnStrikeZone(coin, seat)) return true;
     return getCornerLanes()
       .filter(lane=>lane.sides.includes(seat.side))
       .some(lane=>{
@@ -2221,6 +2242,7 @@
   let liveAimDir = null;        // {x,y} unit vector for the current aim, always the single source of truth
   let aimBaseAngle = 0;         // the smart-default starting angle (toward the nearest legal coin, or pocket) that vertical drag rotates away from
   let aimDragStartY = 0;        // screen-space Y where the aim drag began, for the single-axis rotation control
+  let aimHoldAnchor = null;     // {y, time} — tracks how long the finger has held still, to auto-commit the aim without needing to lift
   let powerPercent = 0;
   let powerDragStartY = null;
   let powerBaseValue = null;
@@ -2296,6 +2318,7 @@
     dragCurrent = null;
     lockedDir = null;
     liveAimDir = null;
+    aimHoldAnchor = null;
     powerPercent = 0;
     powerMoved = false;
     powerStartTime = 0;
@@ -2365,6 +2388,7 @@
       liveAimDir = defaultDir;
       aimBaseAngle = Math.atan2(defaultDir.y, defaultDir.x);
       aimDragStartY = getRawScreenY(evt);
+      aimHoldAnchor = { y: aimDragStartY, time: performance.now() };
     } else if(shotStage === 'power'){
       gestureMode = 'power';
       powerDragStartY = getRawScreenY(evt);
@@ -2402,6 +2426,15 @@
       const angle = aimBaseAngle + dy * ROTATION_SENSITIVITY;
       liveAimDir = { x: Math.cos(angle), y: Math.sin(angle) };
 
+      // Hold-to-lock tracking: the actual "has it been a second" check
+      // runs in the main loop below (which runs every frame regardless
+      // of input), since a truly motionless hold never fires a single
+      // move event at all -- checking only here would never catch it.
+      const HOLD_RADIUS = 4;
+      if(!aimHoldAnchor || Math.abs(rawY - aimHoldAnchor.y) > HOLD_RADIUS){
+        aimHoldAnchor = { y: rawY, time: performance.now() };
+      }
+
       if(shotStage === 'aim'){ setPowerMeter(0); }
     } else if(gestureMode === 'power'){
       const dy = getRawScreenY(evt) - powerDragStartY;
@@ -2421,6 +2454,20 @@
     evt.preventDefault();
   }
 
+  function commitAimDirection(){
+    const dirX = liveAimDir.x, dirY = liveAimDir.y;
+    if(!isAimDirectionAllowed(dirX, dirY, currentSeat().side)){
+      setMsg('<span class="warn">Too shallow — you can\'t aim along your own baseline.</span> Try a steeper angle.');
+      return false;
+    }
+    lockedDir = { x: dirX, y: dirY };
+    shotStage = 'power';
+    powerPercent = 0;
+    setPowerMeter(0);
+    setMsg('Direction locked. Drag up/down to set power, release to fire. (Double-tap anytime to reset.)');
+    return true;
+  }
+
   function onUp(evt){
     if(!gestureMode) return;
 
@@ -2428,16 +2475,7 @@
       shotStage = 'aim';
       setMsg('Now drag to aim — release to lock the direction. (Double-tap anytime to reset.)');
     } else if(gestureMode === 'aim' && liveAimDir){
-      const dirX = liveAimDir.x, dirY = liveAimDir.y;
-      if(!isAimDirectionAllowed(dirX, dirY, currentSeat().side)){
-        setMsg('<span class="warn">Too shallow — you can\'t aim along your own baseline.</span> Try a steeper angle.');
-      } else {
-        lockedDir = { x: dirX, y: dirY };
-        shotStage = 'power';
-        powerPercent = 0;
-        setPowerMeter(0);
-        setMsg('Direction locked. Drag up/down to set power, release to fire. (Double-tap anytime to reset.)');
-      }
+      commitAimDirection();
     } else if(gestureMode === 'power' && lockedDir){
       powerStartTime = 0;
       if(powerMoved && powerPercent > 0){
@@ -3229,6 +3267,26 @@
 
   function loop(){
     try{
+      // Hold-to-lock: if actively aiming and the finger has held
+      // essentially still for a full second, commit the current aim
+      // direction automatically, without waiting for a lift. This has
+      // to live in the main loop (not the move handler) because a
+      // truly motionless hold never fires a single move event at all --
+      // checking only in onMove would never catch that case.
+      if(gestureMode === 'aim' && shotStage === 'aim' && aimHoldAnchor && liveAimDir){
+        if(performance.now() - aimHoldAnchor.time > 1000){
+          if(isAimDirectionAllowed(liveAimDir.x, liveAimDir.y, currentSeat().side)){
+            lockedDir = { x: liveAimDir.x, y: liveAimDir.y };
+            shotStage = 'power';
+            powerPercent = 0;
+            setPowerMeter(0);
+            setMsg('Direction locked (held steady). Drag up/down to set power, release to fire.');
+          }
+          gestureMode = null; // end this touch's aim gesture cleanly -- a lift afterward does nothing further, and the next touch starts a fresh power drag
+          dragCurrent = null;
+          aimHoldAnchor = null;
+        }
+      }
       if(phase==='moving'){
         let stillMoving;
         if(isReviewing){
