@@ -3498,6 +3498,33 @@
   }, 1000);
 
   updatePlayersNote();
+
+  // Automatic reconnect on page load, matching the 4-player table's
+  // attemptAutoReconnect pattern -- without this, a player whose
+  // connection dropped mid-game had no way back in except manually
+  // re-navigating to "Play Online" themselves first, since carromConnect
+  // (and the rejoin attempt inside it) was previously only ever
+  // triggered by that button, never automatically. If we have a saved
+  // table, switch straight to the online mode UI state and connect;
+  // carromConnect's own rejoin logic (and the carrom_state handler's
+  // existing "if we're now in a game, show it" logic) does the rest.
+  (function carromAttemptAutoReconnect(){
+    let savedTable = null;
+    try { savedTable = localStorage.getItem('carrom_table_id'); } catch(e) {}
+    if (!savedTable || !carromMyPlayerId) return;
+    const onlineBtn = document.querySelector('#modeRow .opt-btn[data-mode="online"]');
+    if (onlineBtn) {
+      [...document.getElementById('modeRow').children].forEach(b=>b.classList.remove('active'));
+      onlineBtn.classList.add('active');
+    }
+    mode = 'online';
+    document.getElementById('diffLabel').style.display = 'none';
+    document.getElementById('diffRow').style.display = 'none';
+    document.getElementById('onlineLobby').style.display = 'block';
+    document.getElementById('playersRow').style.display = 'none';
+    document.getElementById('startBtn').style.display = 'none';
+    carromConnect();
+  })();
 })();
 </script>
 </body>
