@@ -462,6 +462,7 @@
 
 
   <div class="game-wrap" id="gameWrap">
+    <div id="carromConnStatus" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;padding:8px 10px;text-align:center;font-size:0.8rem;font-weight:700;color:#fff"></div>
     <div class="foul-banner" id="foulBanner"></div>
     <button class="ctrl-btn" id="forceMoveBtn" style="display:none; margin-bottom:10px; border-color:#e07b4f; color:#ffdcc8;">⚠ Bot seems stuck — tap to force its move</button>
     <div class="hud">
@@ -814,10 +815,24 @@
   try { carromMyPlayerId = localStorage.getItem('carrom_player_token'); } catch(e) {}
 
   let carromIsAutoRejoinAttempt = false;
+  let carromWasDisconnected = false; // true once we've seen a real disconnect this session, so a later successful (re)join can distinguish "reconnected" from "connected fresh"
+  function carromSetConnStatus(text, bg) {
+    const el = document.getElementById('carromConnStatus');
+    if (!el) return;
+    el.textContent = text;
+    el.style.background = bg;
+    el.style.display = 'block';
+  }
+  function carromHideConnStatus(delay) {
+    const el = document.getElementById('carromConnStatus');
+    if (!el) return;
+    setTimeout(() => { el.style.display = 'none'; }, delay || 0);
+  }
   function carromConnect() {
     if (carromSocket) return;
     carromSocket = io();
     carromSocket.on('connect', () => {
+      if (carromWasDisconnected) carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
       const savedTable = (() => { try { return localStorage.getItem('carrom_table_id'); } catch(e) { return null; } })();
       if (savedTable && carromMyPlayerId) {
         carromIsAutoRejoinAttempt = true;
@@ -826,6 +841,10 @@
         carromSocket.emit('carrom_listRooms');
       }
     });
+    carromSocket.on('disconnect', () => {
+      carromWasDisconnected = true;
+      carromSetConnStatus('⚠️ Connection lost — reconnecting...', '#a11');
+    });
     carromSocket.on('carrom_joined', (info) => {
       carromIsAutoRejoinAttempt = false;
       carromMyTableId = info.tableId; carromMyPlayerId = info.playerId; carromMyPos = info.pos; carromIsHost = info.isHost;
@@ -833,6 +852,11 @@
         localStorage.setItem('carrom_player_token', info.playerId);
         localStorage.setItem('carrom_table_id', info.tableId);
       } catch(e) {}
+      if (carromWasDisconnected) {
+        carromWasDisconnected = false;
+        carromSetConnStatus('✅ Connected', '#1c7a3c');
+        carromHideConnStatus(2000);
+      }
       document.getElementById('carromLobbyStatus').style.display = 'block';
       document.getElementById('carromLobbyCode').textContent = info.tableId;
     });
