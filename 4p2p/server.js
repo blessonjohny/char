@@ -2564,6 +2564,15 @@ io.on('connection', (socket) => {
   // The authoritative result still comes from carrom_shotResult above;
   // this only makes the shot visible AS it happens instead of only after
   // it's already fully resolved.
+  // Deliberately trivial -- the client-side watchdog uses this purely
+  // to confirm THIS socket can genuinely round-trip a message right
+  // now, which is the one thing a local .connected flag can't reliably
+  // tell it after a real network interruption. No table lookup, no
+  // state, just an immediate echo back.
+  socket.on('carrom_ping', () => {
+    socket.emit('carrom_pong');
+  });
+
   socket.on('carrom_liveShot', (snapshot) => {
     const t = carromTables[carromTableId];
     if (!t || t.phase !== 'playing') return;
