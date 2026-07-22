@@ -488,7 +488,7 @@
   const MAX_PULL = 150;
   const MAX_SHOT_SPEED = 34; // was 26 -- a full-power straight shot now travels far enough to cross the board, bounce off the far cushion, cross back and bounce off the shooter's own cushion, and still reach the far side a second time (verified numerically: ~23 -> ~13 -> ~5 speed remaining at each of the three cushion touches)
 
-  const BASE_INSET = 52; // was 46 -- gives ~33.5px of clearance behind the striker, just over one full coin diameter (~31px), instead of the old 27.5px which was less than a coin could fit in
+  const BASE_INSET = 65; // was 52 -- gives ~46.5px of clearance behind the striker, 1.5 full coin diameters (~31px each), instead of the previous ~1 coin diameter. Strike zone width shrinks slightly left-to-right as a direct, expected consequence of pushing it further from the rail toward the 45-degree diagonal boundaries.
   const CHANNEL_DEPTH = 22;
   const BASE_HALF = 130;       // half-length of the decorative baseline box (art only)
   const LINE_MARGIN = 42;      // keep the striker shy of the diagonal, and keep adjacent corners' anchors from overlapping
