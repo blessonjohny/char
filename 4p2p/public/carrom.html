@@ -150,67 +150,75 @@
     display:flex;
     justify-content:space-between;
     align-items:center;
-    gap:10px;
-    margin-bottom:6px;
-    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:4px;
   }
   .player-badge{
     display:flex;
     align-items:center;
-    gap:8px;
-    padding:8px 14px;
+    gap:6px;
+    padding:6px 12px;
     border-radius:999px;
-    background:rgba(0,0,0,0.25);
-    border:1px solid rgba(195,154,91,0.2);
-    font-size:14px;
+    background:linear-gradient(160deg, rgba(255,255,255,0.06), rgba(0,0,0,0.3));
+    border:1px solid rgba(195,154,91,0.22);
+    font-size:12.5px;
     font-weight:600;
+    box-shadow:0 2px 6px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04);
     transition:all .2s ease;
+    flex:1;
+    min-width:0;
+    justify-content:center;
   }
   .player-badge.turn{
     border-color:var(--brass);
-    background:rgba(195,154,91,0.15);
-    box-shadow:0 0 0 1px rgba(195,154,91,0.3) inset;
+    background:linear-gradient(160deg, rgba(195,154,91,0.25), rgba(195,154,91,0.08));
+    box-shadow:0 0 0 1px rgba(195,154,91,0.4) inset, 0 0 12px rgba(195,154,91,0.35);
   }
-  .dot{ width:13px; height:13px; border-radius:50%; box-shadow:inset 0 -2px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(255,255,255,0.15);}
+  .dot{ width:11px; height:11px; border-radius:50%; box-shadow:inset 0 -2px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(255,255,255,0.15); flex-shrink:0; }
   .dot.white{ background:var(--white-coin); }
   .dot.black{ background:var(--black-coin); }
+  .dot.red{ background:#c92e2e; }
   .score-num{
     font-family:'JetBrains Mono',monospace;
     color:var(--cream);
     font-weight:700;
-    font-size:15px;
-    letter-spacing:0.3px;
+    font-size:13px;
+    letter-spacing:0.2px;
     text-shadow:0 1px 2px rgba(0,0,0,0.4);
   }
+  .hud-center{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:1px;
+    flex-shrink:0;
+    padding:0 4px;
+  }
   .turn-label{
-    width:100%;
-    max-width:640px;
     text-align:center;
-    font-size:12.5px;
-    letter-spacing:0.5px;
+    font-size:10.5px;
+    letter-spacing:0.4px;
     color:var(--brass);
-    font-weight:600;
-    margin-bottom:10px;
+    font-weight:700;
+    text-transform:uppercase;
   }
   .match-score{
-    width:100%;
-    max-width:640px;
     text-align:center;
-    font-size:14px;
-    letter-spacing:0.3px;
+    font-size:12px;
+    letter-spacing:0.2px;
     color:var(--cream);
     font-weight:700;
     font-family:'JetBrains Mono',monospace;
-    margin-bottom:12px;
     text-shadow:0 1px 2px rgba(0,0,0,0.4);
+    white-space:nowrap;
   }
   .queen-status{
     width:100%;
     max-width:640px;
     text-align:center;
-    font-size:13px;
-    letter-spacing:0.3px;
-    color:#b52a2a;
+    font-size:11.5px;
+    letter-spacing:0.2px;
+    color:#e05555;
     font-weight:700;
     margin-bottom:10px;
     min-height:0;
@@ -420,11 +428,13 @@
     <div class="foul-banner" id="foulBanner"></div>
     <button class="ctrl-btn" id="forceMoveBtn" style="display:none; margin-bottom:10px; border-color:#e07b4f; color:#ffdcc8;">⚠ Bot seems stuck — tap to force its move</button>
     <div class="hud">
-      <div class="player-badge" id="badgeP1"><span class="dot white"></span> <span id="p1Name">You</span> <span class="score-num" id="scoreP1">0/9</span></div>
-      <div class="player-badge" id="badgeP2"><span class="dot black"></span> <span id="p2Name">Bot</span> <span class="score-num" id="scoreP2">0/9</span></div>
+      <div class="player-badge" id="badgeP1"><span class="dot white"></span> <span id="p1Name">You</span> <span class="score-num" id="scoreP1">0/9</span> <span class="dot red" id="queenDotP1" style="display:none" title="Queen covered"></span></div>
+      <div class="hud-center">
+        <div class="turn-label" id="turnLabel">Your turn</div>
+        <div class="match-score" id="matchScoreLabel">White 0—0 Black</div>
+      </div>
+      <div class="player-badge" id="badgeP2"><span class="dot black"></span> <span id="p2Name">Bot</span> <span class="score-num" id="scoreP2">0/9</span> <span class="dot red" id="queenDotP2" style="display:none" title="Queen covered"></span></div>
     </div>
-    <div class="turn-label" id="turnLabel">Your turn</div>
-    <div class="match-score" id="matchScoreLabel">Match: White 0 — 0 Black (first to 30, win by 2)</div>
     <div class="queen-status" id="queenStatusLabel"></div>
 
     <div class="power-meter">
@@ -1129,18 +1139,23 @@
     const who = seat.name==='You' ? 'Your turn' : seat.name + "'s turn";
     document.getElementById('turnLabel').textContent = who + (playerCount===4 ? ` · Team ${seat.color==='white'?'White':'Black'}` : '');
     document.getElementById('matchScoreLabel').textContent =
-      `Match: ${teamDisplayName('teamA')} ${matchScore.teamA} — ${matchScore.teamB} ${teamDisplayName('teamB')} (first to ${MATCH_TARGET}, win by 2)`;
+      `${teamDisplayName('teamA')} ${matchScore.teamA}—${matchScore.teamB} ${teamDisplayName('teamB')}`;
 
     const queenEl = document.getElementById('queenStatusLabel');
+    const queenDotP1 = document.getElementById('queenDotP1'), queenDotP2 = document.getElementById('queenDotP2');
     if(queenCoveredBy){
       const opponentColor = queenCoveredBy==='white' ? 'black' : 'white';
       const opponentLeft = coins.filter(c=>!c.potted && c.color===opponentColor).length;
       const coveredByName = teamLabel(queenCoveredBy);
       queenEl.textContent = `👑 Queen covered by ${coveredByName} — bonus so far: +5 + ${opponentLeft} = ${5+opponentLeft}`;
       queenEl.classList.add('show');
+      if(queenDotP1) queenDotP1.style.display = queenCoveredBy==='white' ? 'inline-block' : 'none';
+      if(queenDotP2) queenDotP2.style.display = queenCoveredBy==='black' ? 'inline-block' : 'none';
     } else {
       queenEl.textContent = '';
       queenEl.classList.remove('show');
+      if(queenDotP1) queenDotP1.style.display = 'none';
+      if(queenDotP2) queenDotP2.style.display = 'none';
     }
   }
 
@@ -1502,6 +1517,20 @@
     get isHost() { return carromIsHost; },
     get scores() { return { ...scores }; },
     get seatKinds() { return seats.map(s => s.kind); },
+    testPottAllExcept(keepNum) {
+      coins.forEach((c,i) => { if (i !== keepNum) c.potted = true; });
+    },
+    testMoveCoinToOwnHook(seatIdx) {
+      const seat = seats[seatIdx];
+      const lane = getCornerLanes().find(l => l.sides.includes(seat.side));
+      const target = coins.find(c => !c.potted);
+      if (target && lane) { target.x = lane.hook.x; target.y = lane.hook.y; }
+      return target ? { x: Math.round(target.x), y: Math.round(target.y) } : null;
+    },
+    testForceAiTurn(seatIdx) {
+      turnPos = seatIdx; phase = 'aiming';
+      scheduleAiTurn(50);
+    },
     get seats() { return seats.map(s => ({side:s.side, kind:s.kind, name:s.name})); },
     get coinsSample() { return coins.slice(0,3).map(c => ({x: Math.round(c.x), y: Math.round(c.y)})); },
     get displayRotation() { return displayRotationDeg(); },
@@ -1511,7 +1540,6 @@
       const len = Math.hypot(dx, dy) || 1;
       liveAimDir = { x: dx/len, y: dy/len };
       dragCurrent = { x: striker.x - dx*50, y: striker.y - dy*50 };
-      aimSoftLocked = true;
     },
     testCoinLegality(x, y) {
       const testCoin = { x, y, r: COIN_R, potted: false };
@@ -1548,6 +1576,7 @@
       return { strikerBefore, strikerAfter: { x: striker.x, y: striker.y }, phaseAfter: phase };
     },
     setMyPos(p) { carromMyPos = p; },
+    testSetQueenCovered(color) { queenCoveredBy = color; updateHUD(); },
     testForceRotationRender(rotationDeg) {
       const origRot = displayRotationDeg;
       displayRotationDeg = () => rotationDeg;
@@ -1577,7 +1606,7 @@
     // Test-only: forces the power stage directly with a given power
     // level, bypassing the need to replicate the exact valid drag angle
     // through simulated pointer events.
-    get strikerPos() { return striker ? { x: striker.x, y: striker.y } : null; },
+    get strikerPos() { return striker ? { x: striker.x, y: striker.y, vx: striker.vx, vy: striker.vy } : null; },
     forcePowerStage(pct) {
       lockedDir = { x: 0, y: -1 };
       shotStage = 'power';
@@ -2187,11 +2216,11 @@
   let touchStart = null;
   let strikerStartAlong = null;
   let dragCurrent = null;
-  let aimTouchAnchor = null;    // {x,y} — wherever the finger first touched down for aiming; the "zero" point drag direction is measured against, not the striker's own position
+  let aimTouchAnchor = null;    // {x,y} — wherever the finger first touched down for aiming (used only for the "did you actually drag" distance check)
   let lockedDir = null;         // {x,y} unit vector once aim is locked
-  let liveAimDir = null;        // {x,y} smoothed unit vector while actively dragging to aim
-  let aimSoftLocked = false;    // true once you've held still long enough to freeze the aim
-  let dwellAnchor = null;       // {x,y,time} — tracks how long the finger has held near one spot
+  let liveAimDir = null;        // {x,y} unit vector for the current aim, always the single source of truth
+  let aimBaseAngle = 0;         // the smart-default starting angle (toward the nearest legal coin, or pocket) that vertical drag rotates away from
+  let aimDragStartY = 0;        // screen-space Y where the aim drag began, for the single-axis rotation control
   let powerPercent = 0;
   let powerDragStartY = null;
   let powerBaseValue = null;
@@ -2267,8 +2296,6 @@
     dragCurrent = null;
     lockedDir = null;
     liveAimDir = null;
-    aimSoftLocked = false;
-    dwellAnchor = null;
     powerPercent = 0;
     powerMoved = false;
     powerStartTime = 0;
@@ -2279,6 +2306,34 @@
 
   let lastTapTime = 0;
   const DOUBLE_TAP_MS = 320;
+
+  // Smart default aim direction: point toward the nearest LEGAL coin (the
+  // same legality check the bot AI already uses), so the player starts
+  // from a sensible angle instead of a blank slate every time. Falls
+  // back to the nearest pocket if no legal coin exists at all.
+  function computeDefaultAimDir(seat){
+    const sPos = striker;
+    let target = null, minDist = Infinity;
+    coins.forEach(c => {
+      if(c.potted || !isPotLegalDirect(c, seat)) return;
+      const d = Math.hypot(c.x-sPos.x, c.y-sPos.y);
+      if(d < minDist){ minDist = d; target = c; }
+    });
+    let tx, ty;
+    if(target){ tx = target.x; ty = target.y; }
+    else {
+      const pockets = pocketCenters();
+      let pocket = pockets[0], minPd = Infinity;
+      pockets.forEach(p => {
+        const d = Math.hypot(p.x-sPos.x, p.y-sPos.y);
+        if(d < minPd){ minPd = d; pocket = p; }
+      });
+      tx = pocket.x; ty = pocket.y;
+    }
+    const dx = tx - sPos.x, dy = ty - sPos.y;
+    const len = Math.hypot(dx,dy) || 1;
+    return { x: dx/len, y: dy/len };
+  }
 
   function onDown(evt){
     if(!canPlayerAct()) return;
@@ -2306,9 +2361,10 @@
       gestureMode = 'aim';
       dragCurrent = pos;
       aimTouchAnchor = pos;
-      liveAimDir = null;
-      aimSoftLocked = false;
-      dwellAnchor = null;
+      const defaultDir = computeDefaultAimDir(currentSeat());
+      liveAimDir = defaultDir;
+      aimBaseAngle = Math.atan2(defaultDir.y, defaultDir.x);
+      aimDragStartY = getRawScreenY(evt);
     } else if(shotStage === 'power'){
       gestureMode = 'power';
       powerDragStartY = getRawScreenY(evt);
@@ -2334,34 +2390,17 @@
       }
     } else if(gestureMode === 'aim'){
       dragCurrent = pos;
-      const DWELL_RADIUS = 3, DWELL_MS = 950, UNLOCK_RADIUS = 24;
-      const now = performance.now();
-
-      // Soft-lock: hold still to freeze aim direction
-      if(!aimSoftLocked){
-        const dx = aimTouchAnchor.x - pos.x, dy = aimTouchAnchor.y - pos.y;
-        const rawDist = Math.hypot(dx,dy);
-        if(rawDist > 4){
-          liveAimDir = { x: dx/rawDist, y: dy/rawDist };
-        }
-        if(!dwellAnchor || Math.hypot(pos.x-dwellAnchor.x, pos.y-dwellAnchor.y) > DWELL_RADIUS){
-          dwellAnchor = { x: pos.x, y: pos.y, time: now };
-        } else if(now - dwellAnchor.time > DWELL_MS){
-          aimSoftLocked = true;
-        }
-      } else {
-        // LOCKED: aim direction is frozen, only check for unlock
-        if(Math.hypot(pos.x-dwellAnchor.x, pos.y-dwellAnchor.y) > UNLOCK_RADIUS){
-          aimSoftLocked = false;
-          dwellAnchor = { x: pos.x, y: pos.y, time: now };
-          // Update direction immediately on unlock
-          const dx = aimTouchAnchor.x - pos.x, dy = aimTouchAnchor.y - pos.y;
-          const rawDist = Math.hypot(dx,dy);
-          if(rawDist > 4){
-            liveAimDir = { x: dx/rawDist, y: dy/rawDist };
-          }
-        }
-      }
+      // Single-axis rotation: only the vertical drag distance matters,
+      // not horizontal position at all -- this is deliberately the whole
+      // point. A narrow phone has very little side-to-side room but
+      // plenty of vertical room, so dragging up/down sweeps the full
+      // range of aim angles instead of requiring the finger to reach
+      // sideways to hit a precise 2D position.
+      const rawY = getRawScreenY(evt);
+      const dy = rawY - aimDragStartY;
+      const ROTATION_SENSITIVITY = 0.007; // radians per pixel -- a full screen-height drag sweeps roughly a full circle
+      const angle = aimBaseAngle + dy * ROTATION_SENSITIVITY;
+      liveAimDir = { x: Math.cos(angle), y: Math.sin(angle) };
 
       if(shotStage === 'aim'){ setPowerMeter(0); }
     } else if(gestureMode === 'power'){
@@ -2388,30 +2427,16 @@
     if(gestureMode === 'position'){
       shotStage = 'aim';
       setMsg('Now drag to aim — release to lock the direction. (Double-tap anytime to reset.)');
-    } else if(gestureMode === 'aim' && dragCurrent){
-      const dx = striker.x - dragCurrent.x;
-      const dy = striker.y - dragCurrent.y;
-      const dist = Math.hypot(dx,dy);
-      if(dist > 10){
-        // if the dwell-lock engaged, honor the frozen locked direction exactly.
-        // otherwise (a normal continuous drag-and-release) use the RAW direction
-        // from the exact release point — not the smoothed preview value, which
-        // can lag slightly behind your true final position and cause a miss.
-        let dirX, dirY;
-        if(aimSoftLocked && liveAimDir){
-          dirX = liveAimDir.x; dirY = liveAimDir.y;
-        } else {
-          dirX = dx/dist; dirY = dy/dist;
-        }
-        if(!isAimDirectionAllowed(dirX, dirY, currentSeat().side)){
-          setMsg('<span class="warn">Too shallow — you can\'t aim along your own baseline.</span> Try a steeper angle.');
-        } else {
-          lockedDir = { x: dirX, y: dirY };
-          shotStage = 'power';
-          powerPercent = 0;
-          setPowerMeter(0);
-          setMsg('Direction locked. Drag up/down to set power, release to fire. (Double-tap anytime to reset.)');
-        }
+    } else if(gestureMode === 'aim' && liveAimDir){
+      const dirX = liveAimDir.x, dirY = liveAimDir.y;
+      if(!isAimDirectionAllowed(dirX, dirY, currentSeat().side)){
+        setMsg('<span class="warn">Too shallow — you can\'t aim along your own baseline.</span> Try a steeper angle.');
+      } else {
+        lockedDir = { x: dirX, y: dirY };
+        shotStage = 'power';
+        powerPercent = 0;
+        setPowerMeter(0);
+        setMsg('Direction locked. Drag up/down to set power, release to fire. (Double-tap anytime to reset.)');
       }
     } else if(gestureMode === 'power' && lockedDir){
       powerStartTime = 0;
