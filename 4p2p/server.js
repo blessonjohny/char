@@ -2453,7 +2453,19 @@ io.on('connection', (socket) => {
   });
 
   socket.on('carrom_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
-    carromLeaveCurrentTableIfAny();
+    // If this exact socket is already registered with this exact
+    // playerId, it's re-announcing itself (e.g. a lightweight
+    // re-confirm after the tab was briefly hidden), not actually
+    // switching tables. Calling carromLeaveCurrentTableIfAny() here
+    // would destructively bot-convert this socket's own seat before
+    // the reconnect-via-token check below ever runs, since that check
+    // depends on carromPlayerIndex, which the leave step deletes as
+    // part of its own cleanup -- kicking a still-connected player out
+    // of their own seat via what was meant to be a harmless re-confirm.
+    const currentTable = carromTables[carromTableId];
+    if (!(currentTable && currentTable.sockets.get(socket.id)?.playerId === existingPlayerId)) {
+      carromLeaveCurrentTableIfAny();
+    }
     // Reconnect via saved token first.
     if (existingPlayerId && carromPlayerIndex[existingPlayerId]) {
       const idx = carromPlayerIndex[existingPlayerId];
