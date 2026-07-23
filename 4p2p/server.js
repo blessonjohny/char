@@ -2357,7 +2357,22 @@ const GITHUB_CARROM_TABLES_PATH = '4p2p/data/carrom-tables.json';
 let carromTablesFileSha = null;
 let carromTablesDirty = false;
 
-function carromMarkDirty() { carromTablesDirty = true; }
+let carromPushDebounceTimer = null;
+let carromPushMaxWaitTimer = null;
+function carromMarkDirty() {
+  carromTablesDirty = true;
+  if (!GITHUB_ENABLED) return;
+  if (carromPushDebounceTimer) clearTimeout(carromPushDebounceTimer);
+  carromPushDebounceTimer = setTimeout(runScheduledCarromPush, 20000);
+  if (!carromPushMaxWaitTimer) {
+    carromPushMaxWaitTimer = setTimeout(runScheduledCarromPush, 60000);
+  }
+}
+function runScheduledCarromPush() {
+  if (carromPushDebounceTimer) { clearTimeout(carromPushDebounceTimer); carromPushDebounceTimer = null; }
+  if (carromPushMaxWaitTimer) { clearTimeout(carromPushMaxWaitTimer); carromPushMaxWaitTimer = null; }
+  githubPushCarromTables().catch(e => console.error('[carrom] Scheduled GitHub push failed:', e.message));
+}
 
 function githubCarromTablesUrl() {
   return `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_CARROM_TABLES_PATH}`;
@@ -2460,15 +2475,18 @@ async function loadCarromTables() {
   }
 }
 // Local save every 10s if dirty (cheap, matches the visitor-log
-// pattern). GitHub push every 20s if dirty -- table state changes far
-// more frequently than the visitor log or comments (every shot, every
-// seat change), so this deliberately runs on its own steady clock
-// rather than a debounced/activity-triggered scheme like the visitor
-// log uses; batching every real change into a push every 20s is a
-// reasonable balance between staying current and not hammering the
-// GitHub API during an active, fast-moving game.
+// Local save every 10s if dirty (cheap, matches the visitor-log
+// pattern, no network call). GitHub push is debounced off actual table
+// activity via carromMarkDirty -> scheduleCarromPush, NOT a fixed
+// interval -- the exact fixed-interval GitHub-sync pattern this project
+// already learned, the hard way, causes real disconnects: see the
+// comment above finalVisitorLogFlush describing two independent
+// disconnect reports traced to a periodic GitHub sync running on a
+// fixed clock, since removed for the visitor log. Reusing that same
+// pattern here, at a much more frequent 20s instead of 11 minutes,
+// most likely reintroduced that exact class of bug -- for every game
+// sharing this process, not just Carrom.
 setInterval(saveCarromTablesLocal, 10000);
-setInterval(() => { if (carromTablesDirty) githubPushCarromTables(); }, 20000);
 loadCarromTables();
 
 function carromSeatOrder(playerCount) {
