@@ -375,6 +375,33 @@
     margin:0 0 8px;
   }
   .win-overlay p{ color:var(--ink-dim); margin:0 0 20px; font-size:14px; max-width:340px; }
+  .confirm-overlay{
+    position:fixed; inset:0;
+    background:rgba(10,6,3,0.82);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:99998;
+    padding:20px;
+  }
+  .confirm-overlay.show{ display:flex; }
+  .confirm-box{
+    background:var(--wood-dark,#2a1a10);
+    border:1px solid var(--brass,#c9a24b);
+    border-radius:14px;
+    padding:24px 20px;
+    max-width:360px;
+    width:100%;
+    text-align:center;
+  }
+  .confirm-box p{ color:#f0e6d8; margin:0 0 20px; font-size:15px; line-height:1.5; }
+  .confirm-box button{
+    width:100%; padding:12px; margin-top:8px;
+    border-radius:8px; border:none; font-size:15px; font-weight:700;
+    cursor:pointer;
+  }
+  .confirm-box .confirm-yes{ background:#a11; color:#fff; }
+  .confirm-box .confirm-cancel{ background:transparent; border:1px solid #666; color:#ddd; }
 </style>
 </head>
 <body>
@@ -493,6 +520,14 @@
   <button class="start-btn" id="playAgainBtn" style="max-width:240px;">Next Board</button>
 </div>
 
+<div class="confirm-overlay" id="carromConfirmOverlay">
+  <div class="confirm-box">
+    <p id="carromConfirmText"></p>
+    <button class="confirm-yes" id="carromConfirmYesBtn">Yes</button>
+    <button class="confirm-cancel" id="carromConfirmCancelBtn">Cancel</button>
+  </div>
+</div>
+
 <script>
 (() => {
   "use strict";
@@ -508,6 +543,27 @@
   const CARROM_SERVER_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
     ? 'http://localhost:9001'
     : 'https://carromkerala-server.onrender.com';
+
+  // Replaces native browser confirm() dialogs (which show the site's
+  // own URL/domain, an unstyled, jarring interruption) with an in-app
+  // styled prompt matching the rest of the game. Async by nature since
+  // it waits for a real button click, so callers pass a callback to run
+  // only if the person actually confirms, rather than the old
+  // "if (!confirm(...)) return;" synchronous pattern.
+  function carromConfirm(message, onConfirm) {
+    const overlay = document.getElementById('carromConfirmOverlay');
+    document.getElementById('carromConfirmText').textContent = message;
+    overlay.classList.add('show');
+    const yesBtn = document.getElementById('carromConfirmYesBtn');
+    const cancelBtn = document.getElementById('carromConfirmCancelBtn');
+    function cleanup() {
+      overlay.classList.remove('show');
+      yesBtn.onclick = null;
+      cancelBtn.onclick = null;
+    }
+    yesBtn.onclick = () => { cleanup(); onConfirm(); };
+    cancelBtn.onclick = () => { cleanup(); };
+  }
 
   const MENU = document.getElementById('menu');
   const GAME_WRAP = document.getElementById('gameWrap');
@@ -769,20 +825,25 @@
   });
   document.getElementById('menuBtn').addEventListener('click', () => {
     const activeGameInProgress = GAME_WRAP.classList.contains('show') && !matchOver && !gameOver;
+    function doMenuExit() {
+      if (mode === 'online') carromLeaveLobbyIfAny();
+      GAME_WRAP.classList.remove('show');
+      MENU.style.display = 'block';
+    }
     if (activeGameInProgress) {
       const msg = mode === 'online'
         ? 'Leave this table? Your seat will open up for someone else, and any progress in this match will be lost.'
         : 'Leave this game? Your progress will be lost.';
-      if (!confirm(msg)) return;
+      carromConfirm(msg, doMenuExit);
+    } else {
+      doMenuExit();
     }
-    if (mode === 'online') carromLeaveLobbyIfAny();
-    GAME_WRAP.classList.remove('show');
-    MENU.style.display = 'block';
   });
   document.getElementById('restartBtn').addEventListener('click', () => {
     if (mode === 'online' && carromSocket && carromMyTableId) {
-      if (!confirm('Restart this match? This resets the board for both players.')) return;
-      carromSocket.emit('carrom_restartMatch');
+      carromConfirm('Restart this match? This resets the board for both players.', () => {
+        carromSocket.emit('carrom_restartMatch');
+      });
       return;
     }
     startNewMatch();
@@ -1113,8 +1174,7 @@
     const msg = otherSeatFilled
       ? 'Leave this table? The other player will lose their seat too.'
       : 'Leave this table?';
-    if (!confirm(msg)) return;
-    carromLeaveLobbyIfAny();
+    carromConfirm(msg, () => { carromLeaveLobbyIfAny(); });
   });
 
   function carromRenderLobbySeats() {

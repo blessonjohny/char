@@ -4476,25 +4476,47 @@ function closeModal() {
 
 // ==================== HOME / QUIT WARNING ====================
 function showHomeWarning() {
-  showModal('🏠 Leave Game?', 
-    'You are in the middle of a game.<br><br>' +
-    '<b>Round:</b> ' + round + '<br>' +
-    '<b>Score:</b> ' + gameScore[getTeam(MY_POS)] + ' vs ' + gameScore[1-getTeam(MY_POS)] + '<br><br>' +
-    'What would you like to do?'
+  const online = SERVER_MODE || IS_ONLINE;
+  showModal('🏠 Leave Game?',
+    online
+      ? ('You are in the middle of a game.<br><br>' +
+         '<b>Round:</b> ' + round + '<br>' +
+         '<b>Score:</b> ' + gameScore[getTeam(MY_POS)] + ' vs ' + gameScore[1-getTeam(MY_POS)] + '<br><br>' +
+         'Leaving now will free up your seat. What would you like to do?')
+      : ('You are in the middle of a game.<br><br>' +
+         '<b>Round:</b> ' + round + '<br>' +
+         '<b>Score:</b> ' + gameScore[getTeam(MY_POS)] + ' vs ' + gameScore[1-getTeam(MY_POS)] + '<br><br>' +
+         'What would you like to do?')
   );
 
   const okBtn = document.getElementById('modalOkBtn');
-  okBtn.textContent = '💾 Save & Go Home';
-  okBtn.style.background = 'var(--success)';
   const oldOk = okBtn.onclick;
-  okBtn.onclick = function() {
-    closeModal();
-    okBtn.textContent = 'OK';
-    okBtn.style.background = '';
-    okBtn.onclick = oldOk;
-    saveGameToFile();
-    setTimeout(function() { exitToHome(); }, 500);
-  };
+  if (online) {
+    // Nothing to "save" for an online table -- the game lives on the
+    // server, not a local file, so this is a direct, single-purpose
+    // leave action rather than the save-vs-don't-save choice below,
+    // which only makes sense for local bot-vs-bot/pass-and-play games.
+    okBtn.textContent = '🚪 Leave Table';
+    okBtn.style.background = 'var(--danger)';
+    okBtn.onclick = function() {
+      closeModal();
+      okBtn.textContent = 'OK';
+      okBtn.style.background = '';
+      okBtn.onclick = oldOk;
+      exitToHome();
+    };
+  } else {
+    okBtn.textContent = '💾 Save & Go Home';
+    okBtn.style.background = 'var(--success)';
+    okBtn.onclick = function() {
+      closeModal();
+      okBtn.textContent = 'OK';
+      okBtn.style.background = '';
+      okBtn.onclick = oldOk;
+      saveGameToFile();
+      setTimeout(function() { exitToHome(); }, 500);
+    };
+  }
 
   let noBtn = document.getElementById('modalNoBtn');
   if (!noBtn) {
@@ -4504,6 +4526,11 @@ function showHomeWarning() {
     noBtn.style.cssText = 'width:100%;margin-top:8px';
     document.getElementById('modalBox').appendChild(noBtn);
   }
+  if (online) {
+    // No "without saving" alternate makes sense online -- the primary
+    // button above already is the direct leave action.
+    noBtn.style.display = 'none';
+  } else {
   noBtn.textContent = '⚠️ Go Home Without Saving';
   noBtn.style.display = 'block';
   noBtn.style.borderColor = 'var(--danger)';
@@ -4518,6 +4545,7 @@ function showHomeWarning() {
     okBtn.onclick = oldOk;
     exitToHome();
   };
+  }
 
   // Add a third button for "Continue Playing"
   let continueBtn = document.getElementById('modalContinueBtn');
@@ -10012,17 +10040,7 @@ function watchOnlyMidGame() {
 document.getElementById('btnLog').addEventListener('click', openLog);
 document.getElementById('btnCloseLog').addEventListener('click', closeLog);
 document.getElementById('btnHome').addEventListener('click', () => {
-  // Online games have nothing to "save" -- the game lives on the
-  // server, not in a local file, and offering to save it here was both
-  // meaningless and actively confusing (the "Save & Go Home" flow was
-  // built for local bot-vs games and shouldn't have applied here at
-  // all). For any online table, exiting should be exactly what it says:
-  // instant, no prompt, no save step, no delay.
-  if (SERVER_MODE || IS_ONLINE) {
-    exitToHome();
-  } else {
-    showHomeWarning();
-  }
+  showHomeWarning();
 });
 function backToRoomLobby() {
   leaveCurrentTableCleanup();
