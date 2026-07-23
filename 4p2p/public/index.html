@@ -2537,9 +2537,6 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <a class="welcome-btn primary" href="/carrom.html" style="background:linear-gradient(135deg,#8a6a3c,#5e4726);border-color:transparent;color:#fff;text-decoration:none">
       <span class="icon">🎯</span> Play Carrom <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">1v1 or 2v2 teams — strike, bank, and pocket the coins</span>
     </a>
-    <a class="welcome-btn primary" href="/pool.html" style="background:linear-gradient(135deg,#0f5c42,#0a3d2e);border-color:transparent;color:#fff;text-decoration:none">
-      <span class="icon">🎱</span> Play 8-Ball Pool <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">Vs Bot or Pass &amp; Play — classic 8-ball rules</span>
-    </a>
     <button class="welcome-btn primary" id="btnPlayLocal" style="background:linear-gradient(135deg,#2a3f5f,#1a2942);border-color:transparent;color:#fff">
       <span class="icon">🎮</span> Play vs Bots <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🧠 Teach them your moves — each bot learns your strategy over time</span>
     </button>
@@ -3298,14 +3295,14 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   // as a tiny corner tag on the welcome screen. This exists purely so we
   // can settle, with certainty, whether a bug report is against this
   // exact code or a stale deployment — no more guessing.
-  window.K28_BUILD_TAG = 'multi-game-platform · 2026-07-21';
+  window.K28_BUILD_TAG = 'stable-hostfix · 2026-07-20';
   // Human-readable version of the same "when was this last touched"
   // fact, used in the comment-invite toast so a returning player can see
   // at a glance that the site is actively maintained. Deliberately a
   // separate constant from K28_BUILD_TAG (not derived from it) so this
   // page's own deploy-mismatch check above always compares two build
   // identifiers exactly, never a human-formatted string.
-  window.SITE_LAST_UPDATED = 'Jul 21, 2026';
+  window.SITE_LAST_UPDATED = 'Jul 20, 2026';
   console.log('[28 Kerala Gulan] build:', window.K28_BUILD_TAG);
   window.addEventListener('DOMContentLoaded', () => {
     const tag = document.createElement('div');
@@ -10016,14 +10013,13 @@ document.getElementById('btnLog').addEventListener('click', openLog);
 document.getElementById('btnCloseLog').addEventListener('click', closeLog);
 document.getElementById('btnHome').addEventListener('click', () => {
   // Online games have nothing to "save" -- the game lives on the
-  // server, not in a local file, so the full "Save & Go Home" flow
-  // built for local bot-vs games doesn't apply here. But exiting mid-
-  // game should still ask for confirmation either way, so a stray tap
-  // doesn't drop you out of an active table without warning.
+  // server, not in a local file, and offering to save it here was both
+  // meaningless and actively confusing (the "Save & Go Home" flow was
+  // built for local bot-vs games and shouldn't have applied here at
+  // all). For any online table, exiting should be exactly what it says:
+  // instant, no prompt, no save step, no delay.
   if (SERVER_MODE || IS_ONLINE) {
-    if (confirm('Leave this table? Your seat will open up for someone else, and any progress in this hand will be lost.')) {
-      exitToHome();
-    }
+    exitToHome();
   } else {
     showHomeWarning();
   }
@@ -10859,19 +10855,17 @@ window.addEventListener('DOMContentLoaded', () => {
   //   }
   // });
 
-  // Local "resume saved game" prompt -- this used to run automatically
-  // right after attemptAutoReconnect() on every page load, which meant
-  // it could fire before that reconnect attempt (itself async) had
-  // actually finished setting MY_TABLE_ID/SERVER_MODE/IS_ONLINE. An
-  // 800ms delay plus a re-check was added to paper over that timing gap,
-  // but timing guards are never fully reliable, and this kept coming
-  // back as "the save is messing up online games." The definitive fix:
-  // don't run this automatically at all. It's a purely LOCAL "play vs
-  // bots" feature with nothing to do with online play or reconnecting,
-  // so it's called only from the explicit "Play vs Bots" button click
-  // below -- at that exact moment, the user has already deliberately
-  // chosen local play, so there is no online session to possibly step on.
-  function checkForSavedGameResume() {
+  // Check for auto-save recovery — but never while an online reconnect is
+  // in progress (or was just attempted). This is a purely LOCAL "play vs
+  // bots" save; showing it on top of an online game/reconnect is exactly
+  // the confusing overlap that got reported. CRITICAL: the check must use
+  // the PERSISTED pending session (localStorage), not just the in-memory
+  // MY_TABLE_ID — on a reloaded tab (mobile browsers discard tabs during
+  // airplane mode all the time), MY_TABLE_ID is still null at this point
+  // because the reconnect hasn't landed yet, but the saved session in
+  // localStorage is there the whole time and is the honest signal that an
+  // online game is pending. Acting on the local save in that window
+  // (either button) reset/hijacked state the reconnect depended on.
   function hasPendingOnlineSession() {
     if (MY_TABLE_ID || SERVER_MODE || IS_ONLINE) return true;
     try { if (localStorage.getItem('k28_table_id')) return true; } catch (e) {}
@@ -10969,8 +10963,6 @@ window.addEventListener('DOMContentLoaded', () => {
       };
     }, 800);
   }
-  }
-  window.checkForSavedGameResume = checkForSavedGameResume;
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('room');
   const hostPeerId = urlParams.get('host');
@@ -12053,7 +12045,6 @@ if (originalBtnPlayLocal) {
     document.getElementById('welcomeScreen').style.display = 'none';
     document.getElementById('pickerScreen').style.display = 'flex';
     renderPicker();
-    checkForSavedGameResume();
   });
 }
 

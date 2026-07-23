@@ -513,6 +513,18 @@
 (() => {
   "use strict";
 
+  // Carrom now runs as its own, fully separate server process (see
+  // carrom-server.js) -- deliberately isolated after a bug in Carrom's
+  // own code once destabilized the shared card-game server too. All
+  // socket/API traffic for this page targets THIS server, not the one
+  // that serves this HTML file (which may be the same host or a
+  // completely different one, depending on deployment).
+  // CHANGE THIS after deploying carrom-server.js as its own service:
+  // replace the placeholder below with that service's actual URL.
+  const CARROM_SERVER_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:9001'
+    : 'https://carromkerala-server.onrender.com';
+
   const MENU = document.getElementById('menu');
   const GAME_WRAP = document.getElementById('gameWrap');
   const canvas = document.getElementById('board');
@@ -875,7 +887,7 @@
 
   function carromConnect() {
     if (carromSocket) return;
-    carromSocket = io();
+    carromSocket = io(CARROM_SERVER_URL);
     carromStartWatchdog();
     carromSocket.on('carrom_pong', () => { carromLastAliveAt = Date.now(); });
     carromSocket.on('connect', () => {
@@ -901,7 +913,7 @@
         localStorage.setItem('carrom_player_token', info.playerId);
         localStorage.setItem('carrom_table_id', info.tableId);
       } catch(e) {}
-      fetch('/status').then(r => r.json()).then(data => {
+      fetch(CARROM_SERVER_URL + '/status').then(r => r.json()).then(data => {
         if (data && data.serverStartTime) { try { localStorage.setItem('carrom_known_server_start', String(data.serverStartTime)); } catch(e) {} }
       }).catch(() => {});
       if (carromWasDisconnected) {
@@ -933,7 +945,7 @@
           // for certain, rather than leaving it a permanent guess.
           let knownStart = null;
           try { knownStart = localStorage.getItem('carrom_known_server_start'); } catch(e) {}
-          fetch('/status').then(r => r.json()).then(data => {
+          fetch(CARROM_SERVER_URL + '/status').then(r => r.json()).then(data => {
             const restarted = data && data.serverStartTime && knownStart && String(data.serverStartTime) !== knownStart;
             if (data && data.serverStartTime) { try { localStorage.setItem('carrom_known_server_start', String(data.serverStartTime)); } catch(e) {} }
             // Deliberately NOT auto-hidden: a failure message that's
