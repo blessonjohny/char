@@ -408,9 +408,10 @@ loadComments();
 async function finalVisitorLogFlush() {
   saveVisitorLogLocal();
   saveCommentsLocal();
+  saveCarromTablesLocal();
   if (GITHUB_ENABLED) {
     await Promise.race([
-      Promise.all([githubPushVisitorLog(), githubPushComments()]),
+      Promise.all([githubPushVisitorLog(), githubPushComments(), githubPushCarromTables()]),
       new Promise(resolve => setTimeout(resolve, 4000))
     ]);
   }
