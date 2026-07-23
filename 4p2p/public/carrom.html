@@ -1772,6 +1772,16 @@
   window.CARROM_DEBUG = {
     get lastAliveAt() { return carromLastAliveAt; },
     get msSinceLastAlive() { return Date.now() - carromLastAliveAt; },
+    testForceSettleShot() {
+      // Zeroes every velocity directly, letting the next normal
+      // physics tick detect the settled state and run its usual
+      // end-of-shot logic (including the carrom_shotResult emit) --
+      // works around the headless-browser frame-rate throttling that
+      // makes waiting for real-time physics decay impractical in this
+      // test environment (~5fps here vs ~60fps on a real browser tab).
+      coins.forEach(c => { c.vx = 0; c.vy = 0; });
+      if (striker) { striker.vx = 0; striker.vy = 0; }
+    },
     get boardNumber() { return boardNumber; },
     get myPos() { return carromMyPos; },
     get turnPos() { return turnPos; },
