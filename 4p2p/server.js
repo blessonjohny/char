@@ -92,7 +92,7 @@ app.get('/status', (req, res) => {
     message: '28 Kerala Gulan — Authoritative Server running',
     activeTables: totalActiveRooms(),
     serverStartTime: SERVER_START_TIME,
-    buildTag: 'stable-hostfix · 2026-07-20'
+    buildTag: 'multi-game-platform · 2026-07-21'
   });
 });
 
@@ -384,21 +384,16 @@ function saveVisitorLogLocal() {
   }
 }
 // Local save is cheap and frequent (matches every other module's pattern
-// here). The periodic GitHub sync that used to run every 11 minutes is
-// REMOVED, not just hardened. Reasoning: a second, separate ~10-minute
-// disconnect report came in even after the comments sync (a confirmed,
-// different mechanism) was already removed and this one was hardened
-// with a timeout -- this is now the only periodic ~10-minute-class timer
-// left anywhere in the codebase, and continuing to keep it "just in
-// case it's unrelated" isn't worth the risk against two independent
-// reports at the same mark. The local save every 10 seconds still
-// happens; GitHub sync now happens on every genuine save-to-GitHub
-// trigger already in the file (server start, and the SIGTERM-triggered
-// flush on a graceful restart/deploy) rather than on its own clock. The
-// earlier global crash-protection (uncaughtException/unhandledRejection
-// handlers) already substantially reduced the "ungraceful crash loses
-// recent visitors" risk this periodic sync existed to cover in the
-// first place.
+// here). The original periodic GitHub sync that ran every 11 minutes on
+// a fixed clock was removed after two independent disconnect reports at
+// that same ~10-minute mark. Relying on graceful-shutdown-only sync
+// after that turned out to have a real gap, though: an ungraceful
+// restart or platform-initiated redeploy has no SIGTERM grace window at
+// all, so anything logged since the last clean shutdown could be lost.
+// scheduleVisitorLogPush below covers that gap while staying
+// activity-triggered (debounced off actual new visitors, capped at
+// 60s) rather than clock-based, so it doesn't reintroduce the original
+// fixed-interval timer that caused the disconnects in the first place.
 setInterval(saveVisitorLogLocal, 10000);
 loadVisitorLog();
 loadComments();
@@ -413,9 +408,10 @@ loadComments();
 async function finalVisitorLogFlush() {
   saveVisitorLogLocal();
   saveCommentsLocal();
+  saveCarromTablesLocal();
   if (GITHUB_ENABLED) {
     await Promise.race([
-      Promise.all([githubPushVisitorLog(), githubPushComments()]),
+      Promise.all([githubPushVisitorLog(), githubPushComments(), githubPushCarromTables()]),
       new Promise(resolve => setTimeout(resolve, 4000))
     ]);
   }
@@ -448,7 +444,32 @@ function logVisitor(socket) {
   visitorLog = visitorLog.filter(e => e.ts >= cutoff);
   if (visitorLog.length > VISITOR_LOG_MAX) visitorLog.length = VISITOR_LOG_MAX;
   visitorLogDirty = true;
+  scheduleVisitorLogPush();
   return entry;
+}
+
+// Debounced GitHub push, triggered by actual new visitors rather than a
+// fixed clock -- this is what replaces the old ~11-minute periodic timer
+// that was removed for causing disconnects. Only syncing on graceful
+// shutdown turned out to be too fragile: an ungraceful restart, crash,
+// or platform-initiated redeploy loses everything logged since the last
+// clean shutdown. Waits 15s after the most recent new visitor (so a
+// lone visit still gets pushed quickly) but never delays past 60s even
+// under a steady stream, so data is never more than a minute stale.
+let visitorPushDebounceTimer = null;
+let visitorPushMaxWaitTimer = null;
+function scheduleVisitorLogPush() {
+  if (!GITHUB_ENABLED) return;
+  if (visitorPushDebounceTimer) clearTimeout(visitorPushDebounceTimer);
+  visitorPushDebounceTimer = setTimeout(runScheduledVisitorLogPush, 15000);
+  if (!visitorPushMaxWaitTimer) {
+    visitorPushMaxWaitTimer = setTimeout(runScheduledVisitorLogPush, 60000);
+  }
+}
+function runScheduledVisitorLogPush() {
+  if (visitorPushDebounceTimer) { clearTimeout(visitorPushDebounceTimer); visitorPushDebounceTimer = null; }
+  if (visitorPushMaxWaitTimer) { clearTimeout(visitorPushMaxWaitTimer); visitorPushMaxWaitTimer = null; }
+  githubPushVisitorLog().catch(e => console.error('[visitor] Scheduled GitHub push failed:', e.message));
 }
 
 function visitorLogFilteredAndSummary(filter) {
@@ -529,6 +550,12 @@ app.get('/api/live-players', (req, res) => {
   res.json({ ok: true, players: getAllLivePlayers() });
 });
 
+app.get('/api/visitor-log', (req, res) => {
+  if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  const { entries, summary } = visitorLogFilteredAndSummary(req.query.filter || 'all');
+  res.json({ ok: true, entries, summary });
+});
+
 // Admin: force-close ANY table in ANY of the four games, no matter what
 // state it's in — active game, human present, doesn't matter. This is
 // the explicit override the regular auto-close removal above doesn't
@@ -593,7 +620,7 @@ const pendingSeatChoice = {};
 // to a seat they already hold. This only throttles NEW room creation.
 let roomCapEnabled = false;
 let roomCapMax = 3;
-function totalActiveRooms() { return Object.keys(tables).length + Object.keys(sixpTables).length + Object.keys(l56Rooms).length; }
+function totalActiveRooms() { return Object.keys(tables).length + Object.keys(sixpTables).length + Object.keys(l56Rooms).length + Object.keys(pokerTables).length + Object.keys(carromTables).length; }
 
 // Matches the client's ADMIN_PASSWORD default (0000) — that's the panel
 // this lock feature actually lives in — so it works out of the box, but
@@ -1421,12 +1448,21 @@ io.on('connection', (socket) => {
       touch(t);
       broadcastTable(t);
     }
-    if (!t.engine.seats.some(Boolean)) {
-      // Table just became fully empty (last occupant disconnected, or
-      // explicitly left the lobby). Per explicit instruction, don't
-      // delete it immediately -- give a real 10-minute window in case
-      // that was a network drop and they come back, rather than losing
-      // the table outright the instant it happens.
+    const anyHumanLeft = t.engine.seats.some(s => s && !s.isBot);
+    if (explicitLeave && (!t.engine.seats.some(Boolean) || !anyHumanLeft)) {
+      // The player who just explicitly left was the last human at this
+      // table -- any remaining "seats" are bot-filled, not human-owned,
+      // so there's nothing left this table is for. This is a direct
+      // result of their own deliberate exit action, not a background
+      // idle timer, so closing it here doesn't conflict with the
+      // separate "never auto-close on idle/disconnect" rule below.
+      delete tables[tableId];
+    } else if (!t.engine.seats.some(Boolean)) {
+      // Table just became fully empty via a SILENT drop (network flap,
+      // closed tab) rather than an explicit leave -- don't delete it,
+      // give a real window in case that was temporary and they come
+      // back, rather than losing the table outright the instant it
+      // happens.
       scheduleEmptyTableGrace(tables, tableId, 'roomList', publicTableList);
     } else {
       scheduleNoHumanShutdown(t, tableId);
@@ -1868,8 +1904,13 @@ io.on('connection', (socket) => {
       if (leavingPlayerId) delete sixpPlayerIndex[leavingPlayerId];
       sixpTouch(t);
       sixpBroadcastTable(t);
-      if (!t.engine.seats.some(Boolean)) {
-        scheduleEmptyTableGrace(sixpTables, sixpTableId, 'sixp_roomList', sixpPublicTableList);
+      const anyHumanLeft = t.engine.seats.some(s => s && !s.isBot);
+      if (!t.engine.seats.some(Boolean) || !anyHumanLeft) {
+        // This was a deliberate, explicit leave (this handler only runs
+        // for that, never a silent disconnect) and no human remains --
+        // any leftover "seats" are bot-filled, not human-owned. Close
+        // the table now as a direct result of that exit action.
+        delete sixpTables[sixpTableId];
       }
       io.emit('sixp_roomList', sixpPublicTableList());
     });
@@ -2204,7 +2245,16 @@ io.on('connection', (socket) => {
     if (info && r.hostPlayerId === info.playerId) l56ReassignHost(r);
     socket.data.l56 = null;
     l56Touch(r);
-    l56Broadcast(code);
+    if (r.sockets.size === 0) {
+      // Explicit, deliberate leave (this handler only fires for that,
+      // never a silent disconnect) and nobody else is connected to this
+      // table anymore -- close it now as a direct result of that exit,
+      // rather than leaving an empty room hanging around indefinitely.
+      delete l56Rooms[code];
+      io.emit('l56_roomList', l56PublicList());
+    } else {
+      l56Broadcast(code);
+    }
   });
 
   // ---------------- Shared state blob sync (unchanged mechanics) ----------------
@@ -2286,6 +2336,159 @@ const pokerTables = {};
 const carromTables = {};
 const carromPlayerIndex = {}; // playerId -> { tableId, pos }
 
+// ---------------- Carrom table persistence ----------------
+// Every reconnect-logic fix so far, however solid, is powerless against
+// the actual root cause behind tables vanishing on their own: they only
+// ever existed in this process's memory, with zero backup. A server
+// restart -- a crash, a redeploy, routine host maintenance, anything --
+// wipes every table instantly, completely bypassing every disconnect/
+// reconnect code path, since a process restart doesn't run through any
+// application-level cleanup logic at all. This mirrors the same GitHub-
+// backed persistence already proven for the visitor log and comments,
+// so a restart no longer means every in-progress game is gone.
+// Only the `sockets` Map is deliberately excluded from what's saved --
+// live socket connections are never valid after any restart regardless
+// of persistence, so there's nothing worth saving there; reconnecting
+// clients repopulate it themselves through the normal join flow.
+// carromPlayerIndex isn't saved separately either, since it's fully
+// derivable from the restored seats and gets rebuilt from them on load.
+const CARROM_TABLES_FILE = path.join(__dirname, 'carrom-tables-data.json');
+const GITHUB_CARROM_TABLES_PATH = '4p2p/data/carrom-tables.json';
+let carromTablesFileSha = null;
+let carromTablesDirty = false;
+
+let carromPushDebounceTimer = null;
+let carromPushMaxWaitTimer = null;
+function carromMarkDirty() {
+  carromTablesDirty = true;
+  if (!GITHUB_ENABLED) return;
+  if (carromPushDebounceTimer) clearTimeout(carromPushDebounceTimer);
+  carromPushDebounceTimer = setTimeout(runScheduledCarromPush, 20000);
+  if (!carromPushMaxWaitTimer) {
+    carromPushMaxWaitTimer = setTimeout(runScheduledCarromPush, 60000);
+  }
+}
+function runScheduledCarromPush() {
+  if (carromPushDebounceTimer) { clearTimeout(carromPushDebounceTimer); carromPushDebounceTimer = null; }
+  if (carromPushMaxWaitTimer) { clearTimeout(carromPushMaxWaitTimer); carromPushMaxWaitTimer = null; }
+  githubPushCarromTables().catch(e => console.error('[carrom] Scheduled GitHub push failed:', e.message));
+}
+
+function githubCarromTablesUrl() {
+  return `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_CARROM_TABLES_PATH}`;
+}
+async function githubFetchCarromTables() {
+  if (!GITHUB_ENABLED) return null;
+  try {
+    const res = await fetch(`${githubCarromTablesUrl()}?ref=${GITHUB_BRANCH}`, {
+      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+    });
+    if (res.status === 404) { console.log('[carrom] No existing carrom-tables.json in the repo yet — starting fresh.'); return {}; }
+    if (!res.ok) { console.error('[carrom] GitHub fetch failed:', res.status, await res.text()); return null; }
+    const json = await res.json();
+    carromTablesFileSha = json.sha;
+    const decoded = Buffer.from(json.content, 'base64').toString('utf8');
+    return JSON.parse(decoded);
+  } catch (e) {
+    console.error('[carrom] GitHub fetch error:', e.message);
+    return null;
+  }
+}
+async function githubPushCarromTables() {
+  if (!GITHUB_ENABLED) return;
+  try {
+    const serializable = {};
+    for (const [id, t] of Object.entries(carromTables)) {
+      const { sockets, ...rest } = t;
+      serializable[id] = rest;
+    }
+    const body = {
+      message: `Update carrom tables (${Object.keys(serializable).length} active)`,
+      content: Buffer.from(JSON.stringify(serializable)).toString('base64'),
+      branch: GITHUB_BRANCH
+    };
+    if (carromTablesFileSha) body.sha = carromTablesFileSha;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    let res;
+    try {
+      res = await fetch(githubCarromTablesUrl(), {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (!res.ok) { console.error('[carrom] GitHub push failed:', res.status, await res.text()); return; }
+    const json = await res.json();
+    carromTablesFileSha = json.content.sha;
+    console.log(`[carrom] Synced ${Object.keys(serializable).length} table(s) to GitHub.`);
+  } catch (e) {
+    console.error('[carrom] GitHub push error:', e.message);
+  }
+}
+function saveCarromTablesLocal() {
+  if (!carromTablesDirty) return;
+  try {
+    const serializable = {};
+    for (const [id, t] of Object.entries(carromTables)) {
+      const { sockets, ...rest } = t;
+      serializable[id] = rest;
+    }
+    fs2.writeFileSync(CARROM_TABLES_FILE, JSON.stringify(serializable));
+    carromTablesDirty = false;
+  } catch (e) {
+    console.error('[carrom] Failed to save local carrom tables:', e.message);
+  }
+}
+function carromRestoreFromData(data) {
+  for (const [id, t] of Object.entries(data)) {
+    t.sockets = new Map(); // no live connections survive a restart regardless; reconnecting clients repopulate this themselves
+    carromTables[id] = t;
+    (t.seats || []).forEach((seat, pos) => {
+      if (seat && seat.playerId) carromPlayerIndex[seat.playerId] = { tableId: id, pos };
+    });
+  }
+}
+async function loadCarromTables() {
+  if (GITHUB_ENABLED) {
+    const fromGithub = await githubFetchCarromTables();
+    if (fromGithub) {
+      carromRestoreFromData(fromGithub);
+      console.log(`[carrom] Restored ${Object.keys(fromGithub).length} table(s) from GitHub.`);
+      return;
+    }
+    console.log('[carrom] Falling back to local file for this boot (GitHub fetch failed).');
+  } else {
+    console.log('[carrom] GITHUB_TOKEN/GITHUB_REPO not set — carrom tables will only persist locally, which Render\'s free tier does not keep across a spin-down.');
+  }
+  try {
+    if (fs2.existsSync(CARROM_TABLES_FILE)) {
+      const data = JSON.parse(fs2.readFileSync(CARROM_TABLES_FILE, 'utf8'));
+      carromRestoreFromData(data);
+      console.log(`[carrom] Restored ${Object.keys(data).length} table(s) from local disk.`);
+    }
+  } catch (e) {
+    console.error('[carrom] Failed to load local carrom tables, starting fresh:', e.message);
+  }
+}
+// Local save every 10s if dirty (cheap, matches the visitor-log
+// Local save every 10s if dirty (cheap, matches the visitor-log
+// pattern, no network call). GitHub push is debounced off actual table
+// activity via carromMarkDirty -> scheduleCarromPush, NOT a fixed
+// interval -- the exact fixed-interval GitHub-sync pattern this project
+// already learned, the hard way, causes real disconnects: see the
+// comment above finalVisitorLogFlush describing two independent
+// disconnect reports traced to a periodic GitHub sync running on a
+// fixed clock, since removed for the visitor log. Reusing that same
+// pattern here, at a much more frequent 20s instead of 11 minutes,
+// most likely reintroduced that exact class of bug -- for every game
+// sharing this process, not just Carrom.
+setInterval(saveCarromTablesLocal, 10000);
+loadCarromTables();
+
 function carromSeatOrder(playerCount) {
   return playerCount === 4 ? ['bottom', 'right', 'top', 'left'] : ['bottom', 'top'];
 }
@@ -2312,16 +2515,22 @@ function carromEnsureHumanHost(t, preferPlayerId) {
 function carromPublicList() {
   return Object.values(carromTables)
     .filter(t => t.seats.some(Boolean))
-    .map(t => ({
-      id: t.id,
-      playerCount: t.playerCount,
-      openSeats: t.seats.filter(s => !s).length,
-      phase: t.phase,
-      hostName: (t.seats.find(s => s && s.playerId === t.hostPlayerId) || {}).name || '?'
-    }));
+    .map(t => {
+      const botSeatIndices = t.seats.map((s,i) => (s && s.isBot) ? i : null).filter(i => i !== null);
+      return {
+        id: t.id,
+        playerCount: t.playerCount,
+        openSeats: t.seats.filter(s => !s).length,
+        botSeats: botSeatIndices.length,
+        botSeatIndices,
+        phase: t.phase,
+        hostName: (t.seats.find(s => s && s.playerId === t.hostPlayerId) || {}).name || '?'
+      };
+    });
 }
 
 function carromBroadcast(t) {
+  carromMarkDirty();
   const payload = {
     tableId: t.id,
     playerCount: t.playerCount,
@@ -2350,7 +2559,37 @@ io.on('connection', (socket) => {
     socket.emit('carrom_roomList', carromPublicList());
   });
 
+  // Cleanly removes this socket from whatever table it's currently
+  // registered at, if any -- shared by the explicit "leave table"
+  // handler below AND by create/join, which must call this first.
+  // Without this, a socket that ends up registered at table A (say,
+  // from a stale auto-rejoin on connect) and then creates or joins a
+  // different table B would leave a ghost registration behind in A:
+  // still counted as a connected human there, so A never properly
+  // closes even though nobody is actually using it anymore.
+  function carromLeaveCurrentTableIfAny() {
+    const t = carromTables[carromTableId];
+    if (t) {
+      const info = t.sockets.get(socket.id);
+      t.sockets.delete(socket.id);
+      if (info && t.seats[info.pos] && t.seats[info.pos].playerId === info.playerId) {
+        if (t.phase === 'lobby') {
+          t.seats[info.pos] = null;
+        } else {
+          t.seats[info.pos].isBot = true;
+          t.seats[info.pos].connected = true;
+          t.seats[info.pos].playerId = null;
+        }
+        if (info.playerId) delete carromPlayerIndex[info.playerId];
+      }
+      carromEnsureHumanHost(t);
+      carromBroadcast(t);
+    }
+    carromTableId = null;
+  }
+
   socket.on('carrom_createTable', ({ name, playerCount }) => {
+    carromLeaveCurrentTableIfAny();
     const pc = playerCount === 4 ? 4 : 2;
     const id = 'C' + crypto.randomBytes(4).toString('hex').toUpperCase();
     const playerId = crypto.randomBytes(8).toString('hex');
@@ -2369,6 +2608,19 @@ io.on('connection', (socket) => {
   });
 
   socket.on('carrom_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
+    // If this exact socket is already registered with this exact
+    // playerId, it's re-announcing itself (e.g. a lightweight
+    // re-confirm after the tab was briefly hidden), not actually
+    // switching tables. Calling carromLeaveCurrentTableIfAny() here
+    // would destructively bot-convert this socket's own seat before
+    // the reconnect-via-token check below ever runs, since that check
+    // depends on carromPlayerIndex, which the leave step deletes as
+    // part of its own cleanup -- kicking a still-connected player out
+    // of their own seat via what was meant to be a harmless re-confirm.
+    const currentTable = carromTables[carromTableId];
+    if (!(currentTable && currentTable.sockets.get(socket.id)?.playerId === existingPlayerId)) {
+      carromLeaveCurrentTableIfAny();
+    }
     // Reconnect via saved token first.
     if (existingPlayerId && carromPlayerIndex[existingPlayerId]) {
       const idx = carromPlayerIndex[existingPlayerId];
@@ -2434,12 +2686,58 @@ io.on('connection', (socket) => {
     console.log(`[carrom] table ${t.id} started`);
   });
 
+  // Restart used to only reset whoever clicked it locally -- everyone
+  // else at the table stayed on the old board, then immediately went
+  // out of sync the moment a new shot's result got broadcast against a
+  // board state they never actually had. This makes restart a real
+  // sync point: only the effective host can trigger it, and every
+  // player's client resets together, at the same signal, at once.
+  socket.on('carrom_restartMatch', () => {
+    const t = carromTables[carromTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info || !carromIsEffectiveHost(t, info.playerId)) return;
+    t.boardState = null; // the old board is no longer valid for anyone
+    t.lastActivityAt = Date.now();
+    for (const [socketId] of t.sockets) {
+      const sock = io.sockets.sockets.get(socketId);
+      if (sock) sock.emit('carrom_restartMatch');
+    }
+    console.log(`[carrom] table ${t.id} restarted by host`);
+  });
+
   // The core sync point: whoever's turn it was just finished a shot
   // locally (their own browser ran the exact same physics the original
   // single-player build always used) and sends the RESULT here — final
   // coin positions, updated scores, whose turn is next. This does not
   // re-simulate anything; it just relays the outcome to every other
   // seat at the table, who apply it directly to their own board.
+  // Live, in-progress shot positions -- fires many times per second while
+  // a shot is animating, so this is deliberately as cheap as possible: no
+  // per-seat payload construction, no room-list broadcast, just a direct
+  // relay of ephemeral visual data to every other socket at the table.
+  // The authoritative result still comes from carrom_shotResult above;
+  // this only makes the shot visible AS it happens instead of only after
+  // it's already fully resolved.
+  // Deliberately trivial -- the client-side watchdog uses this purely
+  // to confirm THIS socket can genuinely round-trip a message right
+  // now, which is the one thing a local .connected flag can't reliably
+  // tell it after a real network interruption. No table lookup, no
+  // state, just an immediate echo back.
+  socket.on('carrom_ping', () => {
+    socket.emit('carrom_pong');
+  });
+
+  socket.on('carrom_liveShot', (snapshot) => {
+    const t = carromTables[carromTableId];
+    if (!t || t.phase !== 'playing') return;
+    for (const [socketId] of t.sockets) {
+      if (socketId === socket.id) continue;
+      const sock = io.sockets.sockets.get(socketId);
+      if (sock) sock.emit('carrom_liveShot', snapshot);
+    }
+  });
+
   socket.on('carrom_shotResult', ({ boardState }) => {
     const t = carromTables[carromTableId];
     if (!t || t.phase !== 'playing') return;
@@ -2472,8 +2770,7 @@ io.on('connection', (socket) => {
         if (info.playerId) delete carromPlayerIndex[info.playerId];
       }
       carromEnsureHumanHost(t);
-      if (!t.seats.some(Boolean)) delete carromTables[carromTableId];
-      else carromBroadcast(t);
+      carromBroadcast(t);
     }
     carromTableId = null;
   });
@@ -2485,12 +2782,22 @@ io.on('connection', (socket) => {
     t.sockets.delete(socket.id);
     if (info && t.seats[info.pos] && t.seats[info.pos].playerId === info.playerId) {
       // Keep the seat (reconnect-friendly), just mark it disconnected —
-      // same pattern as every other table on this platform.
-      t.seats[info.pos].connected = false;
+      // same pattern as every other table on this platform. BUT — a
+      // brief network flap can mean the client's new socket already
+      // reconnected and re-marked this seat connected BEFORE this old
+      // socket's disconnect event finished processing (event ordering
+      // isn't guaranteed). If that's already happened, some other
+      // socket is now registered for this exact seat — leaving it
+      // stuck marked disconnected here would make the server treat an
+      // actively-connected player as abandoned. Only mark disconnected
+      // if nothing newer has already taken this seat over.
+      const alreadyReclaimed = [...t.sockets.values()].some(v => v.pos === info.pos);
+      if (!alreadyReclaimed) {
+        t.seats[info.pos].connected = false;
+      }
       carromEnsureHumanHost(t);
     }
-    if (!t.seats.some(Boolean)) delete carromTables[carromTableId];
-    else carromBroadcast(t);
+    carromBroadcast(t);
   });
 });
 
@@ -2740,7 +3047,16 @@ io.on('connection', (socket) => {
       t.sockets.delete(socket.id);
       socket.leave('poker_' + pokerTableId);
       pokerTouch(t);
-      pokerBroadcast(t);
+      const anyHumanLeft = t.engine.seats.some(s => s && !s.isBot);
+      if (!t.engine.seats.some(Boolean) || !anyHumanLeft) {
+        // Deliberate, explicit leave and no human remains -- any
+        // leftover seats are bot-filled, not human-owned. Close the
+        // table now as a direct result of this exit action.
+        delete pokerTables[pokerTableId];
+        io.emit('poker_roomList', pokerPublicTableList());
+      } else {
+        pokerBroadcast(t);
+      }
     });
     pokerTableId = null; pokerPlayerId = null;
   });
