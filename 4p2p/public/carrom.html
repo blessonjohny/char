@@ -720,7 +720,7 @@
     } else {
       document.getElementById('menuStepLocalSetup').style.display = 'block';
       carromLeaveLobbyIfAny();
-      carromTeardownOnlineConnection();
+      setTimeout(carromTeardownOnlineConnection, 200);
     }
     updatePlayersNote();
   });
@@ -739,7 +739,7 @@
   });
   document.getElementById('menuBackFromOnlineBtn').addEventListener('click', () => {
     carromLeaveLobbyIfAny();
-    carromTeardownOnlineConnection();
+    setTimeout(carromTeardownOnlineConnection, 200);
     document.getElementById('onlineLobby').style.display = 'none';
     document.getElementById('menuStepMode').style.display = 'block';
   });
@@ -975,6 +975,7 @@
       alert(reason === 'table_full' ? 'That table is already full.' : 'That table code doesn\u2019t exist.');
     });
     carromSocket.on('carrom_roomList', (rooms) => {
+      window.__carromLastRoomList = rooms;
       carromRenderOpenTables(rooms);
     });
     carromSocket.on('carrom_liveShot', (snapshot) => {
@@ -1771,6 +1772,7 @@
   // read-only rather than changing that.
   window.CARROM_DEBUG = {
     get lastAliveAt() { return carromLastAliveAt; },
+    get onlineSeats() { return carromOnlineSeats.map(s => s ? { isBot: s.isBot, name: s.name, connected: s.connected } : null); },
     get msSinceLastAlive() { return Date.now() - carromLastAliveAt; },
     testForceSettleShot() {
       // Zeroes every velocity directly, letting the next normal
