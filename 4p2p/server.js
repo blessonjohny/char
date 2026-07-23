@@ -2335,6 +2335,141 @@ const pokerTables = {};
 const carromTables = {};
 const carromPlayerIndex = {}; // playerId -> { tableId, pos }
 
+// ---------------- Carrom table persistence ----------------
+// Every reconnect-logic fix so far, however solid, is powerless against
+// the actual root cause behind tables vanishing on their own: they only
+// ever existed in this process's memory, with zero backup. A server
+// restart -- a crash, a redeploy, routine host maintenance, anything --
+// wipes every table instantly, completely bypassing every disconnect/
+// reconnect code path, since a process restart doesn't run through any
+// application-level cleanup logic at all. This mirrors the same GitHub-
+// backed persistence already proven for the visitor log and comments,
+// so a restart no longer means every in-progress game is gone.
+// Only the `sockets` Map is deliberately excluded from what's saved --
+// live socket connections are never valid after any restart regardless
+// of persistence, so there's nothing worth saving there; reconnecting
+// clients repopulate it themselves through the normal join flow.
+// carromPlayerIndex isn't saved separately either, since it's fully
+// derivable from the restored seats and gets rebuilt from them on load.
+const CARROM_TABLES_FILE = path.join(__dirname, 'carrom-tables-data.json');
+const GITHUB_CARROM_TABLES_PATH = '4p2p/data/carrom-tables.json';
+let carromTablesFileSha = null;
+let carromTablesDirty = false;
+
+function carromMarkDirty() { carromTablesDirty = true; }
+
+function githubCarromTablesUrl() {
+  return `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_CARROM_TABLES_PATH}`;
+}
+async function githubFetchCarromTables() {
+  if (!GITHUB_ENABLED) return null;
+  try {
+    const res = await fetch(`${githubCarromTablesUrl()}?ref=${GITHUB_BRANCH}`, {
+      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+    });
+    if (res.status === 404) { console.log('[carrom] No existing carrom-tables.json in the repo yet — starting fresh.'); return {}; }
+    if (!res.ok) { console.error('[carrom] GitHub fetch failed:', res.status, await res.text()); return null; }
+    const json = await res.json();
+    carromTablesFileSha = json.sha;
+    const decoded = Buffer.from(json.content, 'base64').toString('utf8');
+    return JSON.parse(decoded);
+  } catch (e) {
+    console.error('[carrom] GitHub fetch error:', e.message);
+    return null;
+  }
+}
+async function githubPushCarromTables() {
+  if (!GITHUB_ENABLED) return;
+  try {
+    const serializable = {};
+    for (const [id, t] of Object.entries(carromTables)) {
+      const { sockets, ...rest } = t;
+      serializable[id] = rest;
+    }
+    const body = {
+      message: `Update carrom tables (${Object.keys(serializable).length} active)`,
+      content: Buffer.from(JSON.stringify(serializable)).toString('base64'),
+      branch: GITHUB_BRANCH
+    };
+    if (carromTablesFileSha) body.sha = carromTablesFileSha;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    let res;
+    try {
+      res = await fetch(githubCarromTablesUrl(), {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (!res.ok) { console.error('[carrom] GitHub push failed:', res.status, await res.text()); return; }
+    const json = await res.json();
+    carromTablesFileSha = json.content.sha;
+    console.log(`[carrom] Synced ${Object.keys(serializable).length} table(s) to GitHub.`);
+  } catch (e) {
+    console.error('[carrom] GitHub push error:', e.message);
+  }
+}
+function saveCarromTablesLocal() {
+  if (!carromTablesDirty) return;
+  try {
+    const serializable = {};
+    for (const [id, t] of Object.entries(carromTables)) {
+      const { sockets, ...rest } = t;
+      serializable[id] = rest;
+    }
+    fs2.writeFileSync(CARROM_TABLES_FILE, JSON.stringify(serializable));
+    carromTablesDirty = false;
+  } catch (e) {
+    console.error('[carrom] Failed to save local carrom tables:', e.message);
+  }
+}
+function carromRestoreFromData(data) {
+  for (const [id, t] of Object.entries(data)) {
+    t.sockets = new Map(); // no live connections survive a restart regardless; reconnecting clients repopulate this themselves
+    carromTables[id] = t;
+    (t.seats || []).forEach((seat, pos) => {
+      if (seat && seat.playerId) carromPlayerIndex[seat.playerId] = { tableId: id, pos };
+    });
+  }
+}
+async function loadCarromTables() {
+  if (GITHUB_ENABLED) {
+    const fromGithub = await githubFetchCarromTables();
+    if (fromGithub) {
+      carromRestoreFromData(fromGithub);
+      console.log(`[carrom] Restored ${Object.keys(fromGithub).length} table(s) from GitHub.`);
+      return;
+    }
+    console.log('[carrom] Falling back to local file for this boot (GitHub fetch failed).');
+  } else {
+    console.log('[carrom] GITHUB_TOKEN/GITHUB_REPO not set — carrom tables will only persist locally, which Render\'s free tier does not keep across a spin-down.');
+  }
+  try {
+    if (fs2.existsSync(CARROM_TABLES_FILE)) {
+      const data = JSON.parse(fs2.readFileSync(CARROM_TABLES_FILE, 'utf8'));
+      carromRestoreFromData(data);
+      console.log(`[carrom] Restored ${Object.keys(data).length} table(s) from local disk.`);
+    }
+  } catch (e) {
+    console.error('[carrom] Failed to load local carrom tables, starting fresh:', e.message);
+  }
+}
+// Local save every 10s if dirty (cheap, matches the visitor-log
+// pattern). GitHub push every 20s if dirty -- table state changes far
+// more frequently than the visitor log or comments (every shot, every
+// seat change), so this deliberately runs on its own steady clock
+// rather than a debounced/activity-triggered scheme like the visitor
+// log uses; batching every real change into a push every 20s is a
+// reasonable balance between staying current and not hammering the
+// GitHub API during an active, fast-moving game.
+setInterval(saveCarromTablesLocal, 10000);
+setInterval(() => { if (carromTablesDirty) githubPushCarromTables(); }, 20000);
+loadCarromTables();
+
 function carromSeatOrder(playerCount) {
   return playerCount === 4 ? ['bottom', 'right', 'top', 'left'] : ['bottom', 'top'];
 }
@@ -2376,6 +2511,7 @@ function carromPublicList() {
 }
 
 function carromBroadcast(t) {
+  carromMarkDirty();
   const payload = {
     tableId: t.id,
     playerCount: t.playerCount,
