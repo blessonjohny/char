@@ -660,6 +660,13 @@ function poolConnect() {
 function createRoom() {
   myName = document.getElementById('hostName').value.trim() || 'Host';
   isHost = true;
+  // Explicit, fresh action -- clear any stale table/player data from a
+  // previous session first, so poolConnect's own auto-rejoin logic
+  // (triggered by its 'connect' handler) can't race against this and
+  // try to rejoin some old, unrelated table instead of creating this
+  // brand new one.
+  try { localStorage.removeItem('pool_table_id'); localStorage.removeItem('pool_player_token'); } catch(e) {}
+  poolMyTableId = null; poolMyPlayerId = null;
   document.getElementById('createRoomBtn').style.display = 'none';
   document.getElementById('hostCodeBox').style.display = 'block';
   document.getElementById('hostLobby').style.display = 'block';
@@ -683,6 +690,11 @@ function joinRoom() {
   const code = document.getElementById('joinCode').value.trim().toUpperCase();
   if (code.length !== 4) { alert('Please enter a valid 4-digit room code'); return; }
   isHost = false;
+  // Same fix as createRoom -- an explicit, fresh join to a SPECIFIC
+  // room code must never be raced or overridden by a stale auto-rejoin
+  // attempt left over from a previous session.
+  try { localStorage.removeItem('pool_table_id'); localStorage.removeItem('pool_player_token'); } catch(e) {}
+  poolMyTableId = null; poolMyPlayerId = null;
   setConnectionStatus('connecting', 'Connecting...');
   poolConnect();
   poolSocket.emit('pool_joinTable', { tableId: code, name: myName });
