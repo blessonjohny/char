@@ -72,6 +72,26 @@ const GITHUB_ENABLED = !!(GITHUB_TOKEN && GITHUB_REPO);
 const carromTables = {};
 const carromPlayerIndex = {}; // playerId -> { tableId, pos }
 
+// ---------------- Pool (2-seat, server-relay) ----------------
+// Pool used to be true peer-to-peer (PeerJS, direct browser-to-browser)
+// with no way to recover from a dropped connection at all. Moved onto
+// this same server so it gets the same real reconnect path Carrom has
+// -- the server here is a pure relay, not authoritative: each shot's
+// INPUT (angle/power/spin) is relayed, not a final result, and both
+// clients simulate the same deterministic physics independently from
+// that same input, exactly like the original P2P version did. Much
+// lighter than Carrom's tables since there's no board state to persist
+// server-side at all -- just who's in which seat.
+const poolTables = {};
+const poolPlayerIndex = {}; // playerId -> { tableId, pos }
+
+function poolNewTableId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
 // ---------------- Carrom table persistence ----------------
 // Every reconnect-logic fix so far, however solid, is powerless against
 // the actual root cause behind tables vanishing on their own: they only
@@ -285,6 +305,7 @@ function carromBroadcast(t) {
 
 io.on('connection', (socket) => {
   let carromTableId = null;
+  let poolTableId = null;
 
   // A client that just connected (selected "Play Online" but hasn't
   // created or joined anything yet) needs the CURRENT list immediately
@@ -511,9 +532,103 @@ io.on('connection', (socket) => {
     carromTableId = null;
   });
 
+  // ---------------- Pool handlers ----------------
+  socket.on('pool_ping', () => { socket.emit('pool_pong'); });
+
+  socket.on('pool_createTable', ({ name }, ack) => {
+    const id = poolNewTableId();
+    const playerId = crypto.randomBytes(8).toString('hex');
+    const t = {
+      id,
+      seats: [{ playerId, name: name || 'Host', connected: true }, null],
+      hostPlayerId: playerId,
+      phase: 'lobby',
+      lastActivityAt: Date.now(),
+      sockets: new Map()
+    };
+    t.sockets.set(socket.id, { playerId, pos: 0 });
+    poolTables[id] = t;
+    poolPlayerIndex[playerId] = { tableId: id, pos: 0 };
+    poolTableId = id;
+    socket.emit('pool_joined', { tableId: id, playerId, pos: 0 });
+    if (typeof ack === 'function') ack({ tableId: id });
+  });
+
+  socket.on('pool_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
+    // Reconnect via saved token first, same pattern as Carrom.
+    if (existingPlayerId && poolPlayerIndex[existingPlayerId]) {
+      const idx = poolPlayerIndex[existingPlayerId];
+      const t = poolTables[idx.tableId];
+      if (t && t.seats[idx.pos] && t.seats[idx.pos].playerId === existingPlayerId) {
+        t.seats[idx.pos].connected = true;
+        t.sockets.set(socket.id, { playerId: existingPlayerId, pos: idx.pos });
+        poolTableId = idx.tableId;
+        const otherSeat = t.seats[1 - idx.pos];
+        socket.emit('pool_joined', { tableId: idx.tableId, playerId: existingPlayerId, pos: idx.pos, opponentName: otherSeat ? otherSeat.name : null });
+        for (const [sid, info] of t.sockets) {
+          if (sid === socket.id) continue;
+          const sock = io.sockets.sockets.get(sid);
+          if (sock) sock.emit('pool_opponentJoined', { name: t.seats[idx.pos].name });
+        }
+        return;
+      }
+    }
+    // Fresh join into an existing table's open seat.
+    const t = poolTables[tableId];
+    if (!t) { socket.emit('pool_joinError', { reason: 'not_found' }); return; }
+    const openPos = t.seats.findIndex(s => !s);
+    if (openPos === -1) { socket.emit('pool_joinError', { reason: 'table_full' }); return; }
+    const playerId = crypto.randomBytes(8).toString('hex');
+    t.seats[openPos] = { playerId, name: name || 'Guest', connected: true };
+    t.sockets.set(socket.id, { playerId, pos: openPos });
+    poolPlayerIndex[playerId] = { tableId, pos: openPos };
+    poolTableId = tableId;
+    t.lastActivityAt = Date.now();
+    socket.emit('pool_joined', { tableId, playerId, pos: openPos });
+    for (const [sid] of t.sockets) {
+      if (sid === socket.id) continue;
+      const sock = io.sockets.sockets.get(sid);
+      if (sock) sock.emit('pool_opponentJoined', { name: t.seats[openPos].name });
+    }
+  });
+
+  socket.on('pool_leaveTable', () => {
+    const t = poolTables[poolTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    t.sockets.delete(socket.id);
+    if (info && t.seats[info.pos]) {
+      delete poolPlayerIndex[info.playerId];
+      t.seats[info.pos] = null;
+    }
+    for (const [sid] of t.sockets) {
+      const sock = io.sockets.sockets.get(sid);
+      if (sock) sock.emit('pool_opponentLeft');
+    }
+    if (!t.seats.some(Boolean)) delete poolTables[poolTableId];
+    poolTableId = null;
+  });
+
+  // Pure relay -- the server never simulates or validates any of these,
+  // it just forwards to the other seat, exactly matching what the
+  // direct P2P connection used to do.
+  function poolRelay(eventName, data) {
+    const t = poolTables[poolTableId];
+    if (!t) return;
+    for (const [sid] of t.sockets) {
+      if (sid === socket.id) continue;
+      const sock = io.sockets.sockets.get(sid);
+      if (sock) sock.emit(eventName, data);
+    }
+  }
+  socket.on('pool_start', (data) => { const t = poolTables[poolTableId]; if (t) t.phase = 'playing'; poolRelay('pool_start', data); });
+  socket.on('pool_shot', (data) => poolRelay('pool_shot', data));
+  socket.on('pool_cuePlace', (data) => poolRelay('pool_cuePlace', data));
+  socket.on('pool_rematch', () => poolRelay('pool_rematch', {}));
+
   socket.on('disconnect', () => {
     const t = carromTables[carromTableId];
-    if (!t) return;
+    if (t) {
     const info = t.sockets.get(socket.id);
     t.sockets.delete(socket.id);
     if (info && t.seats[info.pos] && t.seats[info.pos].playerId === info.playerId) {
@@ -534,6 +649,23 @@ io.on('connection', (socket) => {
       carromEnsureHumanHost(t);
     }
     carromBroadcast(t);
+    }
+
+    const pt = poolTables[poolTableId];
+    if (pt) {
+      const pinfo = pt.sockets.get(socket.id);
+      pt.sockets.delete(socket.id);
+      if (pinfo && pt.seats[pinfo.pos] && pt.seats[pinfo.pos].playerId === pinfo.playerId) {
+        const alreadyReclaimed = [...pt.sockets.values()].some(v => v.pos === pinfo.pos);
+        if (!alreadyReclaimed) {
+          pt.seats[pinfo.pos].connected = false;
+          for (const [sid] of pt.sockets) {
+            const sock = io.sockets.sockets.get(sid);
+            if (sock) sock.emit('pool_opponentLeft');
+          }
+        }
+      }
+    }
   });
 });
 
@@ -556,6 +688,50 @@ process.on('unhandledRejection', (reason) => {
 // happens to catch. The GitHub push gets a bounded grace window rather
 // than blocking shutdown forever if GitHub is slow or unreachable
 // right at that moment.
+// ---------------- Daily 5am Eastern reset ----------------
+// Same pattern already proven on the card-game server: reschedules
+// itself fresh off the real clock each time rather than a fixed 24h
+// interval, so it can never drift across a DST transition.
+function dailyCloseAllTables() {
+  const counts = { carrom: Object.keys(carromTables).length, pool: Object.keys(poolTables).length };
+  for (const k of Object.keys(carromTables)) delete carromTables[k];
+  for (const k of Object.keys(carromPlayerIndex)) delete carromPlayerIndex[k];
+  for (const k of Object.keys(poolTables)) delete poolTables[k];
+  for (const k of Object.keys(poolPlayerIndex)) delete poolPlayerIndex[k];
+  console.log(`[daily-reset] 5am Eastern — closed all tables: ${JSON.stringify(counts)}`);
+  io.emit('carrom_dailyReset');
+  io.emit('pool_dailyReset');
+  carromMarkDirty();
+  saveCarromTablesLocal();
+}
+function easternTimeParts(date) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+  const parts = {};
+  for (const p of fmt.formatToParts(date)) if (p.type !== 'literal') parts[p.type] = parseInt(p.value, 10);
+  if (parts.hour === 24) parts.hour = 0;
+  return parts;
+}
+function msUntilNext5amEastern() {
+  const now = new Date();
+  const p = easternTimeParts(now);
+  const nowAsIfUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  let targetAsIfUTC = Date.UTC(p.year, p.month - 1, p.day, 5, 0, 0, 0);
+  if (targetAsIfUTC <= nowAsIfUTC) targetAsIfUTC += 24 * 60 * 60 * 1000;
+  return targetAsIfUTC - nowAsIfUTC;
+}
+function scheduleDailyClose() {
+  setTimeout(() => {
+    dailyCloseAllTables();
+    scheduleDailyClose();
+  }, msUntilNext5amEastern());
+}
+scheduleDailyClose();
+console.log(`[daily-reset] scheduled — next run in ${Math.round(msUntilNext5amEastern() / 60000)} minutes (5am US Eastern Time)`);
+
 async function finalCarromFlush() {
   saveCarromTablesLocal();
   if (GITHUB_ENABLED) {
