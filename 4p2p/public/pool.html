@@ -198,7 +198,7 @@
 </div>
 
 <div id="hostScreen" class="screen">
-  <button class="back-btn" onclick="showScreen('menuScreen')">Back</button>
+  <button class="back-btn" onclick="poolLeaveLobbyIfAny(); setTimeout(poolTeardownOnlineConnection, 200); showScreen('menuScreen')">Back</button>
   <div class="logo" style="font-size:26px;margin-bottom:6px">Host Game</div>
   <div class="subtitle">Create a room and invite friends</div>
   <div class="input-group">
@@ -220,7 +220,7 @@
 </div>
 
 <div id="joinScreen" class="screen">
-  <button class="back-btn" onclick="showScreen('menuScreen')">Back</button>
+  <button class="back-btn" onclick="poolLeaveLobbyIfAny(); setTimeout(poolTeardownOnlineConnection, 200); showScreen('menuScreen')">Back</button>
   <div class="logo" style="font-size:26px;margin-bottom:6px">Join Game</div>
   <div class="subtitle">Enter a room code to join</div>
   <div class="input-group">
@@ -753,6 +753,37 @@ function poolJoinFromList(tableId) {
   poolConnect();
   poolSocket.emit('pool_joinTable', { tableId, name: myName });
 }
+function poolLeaveLobbyIfAny() {
+  if (poolSocket && poolMyTableId) {
+    poolSocket.emit('pool_leaveTable');
+    poolMyTableId = null;
+    try { localStorage.removeItem('pool_table_id'); } catch(e) {}
+  }
+}
+
+function poolTeardownOnlineConnection() {
+  // A page-load auto-reconnect attempt (or a still-pending/already-
+  // failed one) leaves a socket and watchdog running in the background
+  // even if the user never actually gets seated anywhere --
+  // poolLeaveLobbyIfAny above only ever handles the "already
+  // successfully joined" case, so an orphaned connection could keep
+  // running forever, eventually failing its own reconnect attempt on
+  // its own schedule and getting the player stuck. Called whenever the
+  // user explicitly leaves online mode (any Back button off the host
+  // or join screens), matching Carrom's exact same fix for the exact
+  // same class of bug, so nothing keeps running for a session the
+  // player isn't even in anymore.
+  if (poolWatchdogTimer) { clearInterval(poolWatchdogTimer); poolWatchdogTimer = null; }
+  setConnectionStatus('connected', ''); // clears the small badge without leaving it stuck showing a stale state
+  document.getElementById('connStatus').classList.remove('show');
+  if (poolSocket) {
+    try { poolSocket.disconnect(); } catch(e) {}
+    poolSocket = null;
+  }
+  poolMyTableId = null;
+  poolWasDisconnected = false;
+}
+
 function joinRoom() {
   myName = document.getElementById('joinName').value.trim() || 'Guest';
   const code = document.getElementById('joinCode').value.trim().toUpperCase();
