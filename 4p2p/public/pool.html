@@ -507,11 +507,15 @@ window.addEventListener('orientationchange', checkOrientation);
 
 // ==================== P2P NETWORKING ====================
 let poolSocket = null, isHost = false, roomCode = '', gameMode = 'p2p';
+let poolMyShotInProgress = false;
 let myName = 'Player', opponentName = 'Opponent';
 let botDifficulty = 'easy';
 let matchTally = { me: 0, opp: 0 };
 let poolMyTableId = null, poolMyPlayerId = null, poolMyPos = null;
 let poolWasDisconnected = false;
+let opponentAimAngle = null, opponentPower = 0, opponentAiming = false;
+let poolReceivingLiveShot = false; // true while actively receiving streamed ball positions for the opponent's in-progress shot, so local physics stays out of the way rather than fighting the incoming stream
+let poolLastAimEmitAt = 0;
 let poolLastAliveAt = Date.now();
 let poolWatchdogTimer = null;
 try { poolMyPlayerId = localStorage.getItem('pool_player_token'); } catch(e) {}
@@ -606,7 +610,49 @@ function poolConnect() {
     if (gameState.phase !== 'menu') showOverlay('disconnectOverlay');
   });
   poolSocket.on('pool_start', (data) => { opponentName = data.opponentName || 'Opponent'; startGame(false); });
-  poolSocket.on('pool_shot', (data) => { applyRemoteShot(data); });
+  poolSocket.on('pool_liveAim', (data) => {
+    opponentAiming = data.aiming;
+    opponentAimAngle = data.angle;
+    opponentPower = data.power || 0;
+  });
+  poolSocket.on('pool_shot', () => {
+    // Signals a shot has started -- no initial velocity applied here.
+    // The actual motion arrives via the pool_liveShot stream below,
+    // straight from the shooter's own real physics, not a guess
+    // independently simulated from a single starting input.
+    opponentAiming = false;
+    poolReceivingLiveShot = true;
+    gameState.ballsMoving = true;
+    gameState.justPocketed = [];
+  });
+  poolSocket.on('pool_liveShot', (data) => {
+    if (!data.balls) return;
+    for (let i = 0; i < balls.length && i < data.balls.length; i++) {
+      const src = data.balls[i];
+      balls[i].x = src.x; balls[i].y = src.y;
+      balls[i].vx = src.vx; balls[i].vy = src.vy;
+      balls[i].pocketed = src.pocketed;
+      if (typeof src.rotAngle === 'number') balls[i].rotAngle = src.rotAngle;
+    }
+  });
+  poolSocket.on('pool_shotResult', (data) => {
+    // Authoritative final state once the shooter's own shot has fully
+    // settled -- guarantees exact sync regardless of anything the live
+    // stream above may have missed (a dropped packet, a late join
+    // mid-shot, etc).
+    poolReceivingLiveShot = false;
+    if (data.balls) {
+      for (let i = 0; i < balls.length && i < data.balls.length; i++) {
+        const src = data.balls[i];
+        balls[i].x = src.x; balls[i].y = src.y;
+        balls[i].vx = 0; balls[i].vy = 0;
+        balls[i].pocketed = src.pocketed;
+      }
+    }
+    gameState.ballsMoving = false;
+    if (typeof data.myTurn === 'boolean') gameState.myTurn = data.myTurn;
+    endTurn(true);
+  });
   poolSocket.on('pool_cuePlace', (data) => { const cb = balls[0]; cb.pocketed = false; cb.x = data.x; cb.y = data.y; cb.vx = 0; cb.vy = 0; });
   poolSocket.on('pool_rematch', () => { initGame(); gameState.myTurn = !isHost; startTurn(); });
 }
@@ -960,6 +1006,14 @@ function updateAimFromTouch(pos) {
   while (gameState.aimAngle < 0) gameState.aimAngle += Math.PI * 2;
   while (gameState.aimAngle >= Math.PI * 2) gameState.aimAngle -= Math.PI * 2;
   gameState.lastAimAngle = gameState.aimAngle;
+  poolEmitLiveAim();
+}
+function poolEmitLiveAim() {
+  if (!poolSocket || !poolMyTableId || gameMode === 'bot' || !gameState.myTurn) return;
+  const now = performance.now();
+  if (now - poolLastAimEmitAt < 80) return; // throttled to a smooth-enough, bandwidth-reasonable rate
+  poolLastAimEmitAt = now;
+  poolSocket.emit('pool_liveAim', { aiming: true, angle: gameState.aimAngle, power: gameState.power || 0 });
 }
 function handleTouchMove(e) {
   if (e.touches.length === 2) {
@@ -1019,6 +1073,7 @@ function updatePowerFromPull(pos) {
   const maxPull = 150;
   gameState.power = Math.max(0, Math.min(100, (dist / maxPull) * 100));
   updatePowerUI();
+  poolEmitLiveAim();
 }
 function handleTouchEnd(e) {
   if (isPlacingDrag) { isPlacingDrag = false; return; }
@@ -1055,19 +1110,11 @@ function shoot(power) {
   resetSpinUI();
   updatePowerUI(); document.getElementById('powerHud').classList.remove('show');
   if (poolSocket && poolMyTableId && gameMode !== 'bot') {
-    poolSocket.emit('pool_shot', { angle: angle, power: power, aimFromButt: gameState.aimFromButt, spin: {x: cueBall.spinX, y: cueBall.spinY}, cueBall: { x: cueBall.x, y: cueBall.y } });
+    poolMyShotInProgress = true;
+    poolSocket.emit('pool_shot', {});
   }
   updateMessage();
 }
-function applyRemoteShot(data) {
-  const cueBall = balls[0];
-  cueBall.x = data.cueBall.x; cueBall.y = data.cueBall.y;
-  cueBall.vx = Math.cos(data.angle) * data.power; cueBall.vy = Math.sin(data.angle) * data.power;
-  if (data.spin) { cueBall.spinX = data.spin.x; cueBall.spinY = data.spin.y; }
-  else { cueBall.spinX = 0; cueBall.spinY = 0; }
-  gameState.ballsMoving = true; gameState.justPocketed = [];
-}
-
 function resetAim() {
   isAiming = false; aimTouchId = null; gameState.aiming = false; gameState.pulling = false;
   gameState.power = 0; gameState.aimPhase = true; gameState.aimLocked = false; gameState.powerPhase = false;
@@ -1165,7 +1212,9 @@ function isNearPocketOpening(ball, wall) {
   return false;
 }
 
+let poolLastLiveShotEmitAt = 0;
 function updatePhysics() {
+  if (poolReceivingLiveShot) return; // opponent's shot -- pool_liveShot already set positions directly, nothing to simulate locally
   // At high speed a ball can travel further in one frame than its own diameter, which lets it
   // skip clean past another ball between two frames without the overlap check ever catching it
   // (tunneling). Substep so no single step ever moves a ball more than ~0.9x its radius.
@@ -1185,6 +1234,43 @@ function updatePhysics() {
   let moving = false;
   for (let step = 0; step < substeps; step++) {
     moving = updatePhysicsStep(subFriction, subSpinDecay) || moving;
+  }
+
+  if (poolMyShotInProgress && poolSocket && poolMyTableId) {
+    if (moving) {
+      // Streamed at a fixed rate (~30/s), not every frame -- this is
+      // real physics happening once, on the shooter's own machine, just
+      // broadcast out; the opponent renders it directly rather than
+      // re-simulating their own independent guess from a single
+      // starting input, which is what let their view desync/lag from
+      // what the shooter actually saw.
+      const now = performance.now();
+      if (now - poolLastLiveShotEmitAt > 33) {
+        poolLastLiveShotEmitAt = now;
+        poolSocket.emit('pool_liveShot', { balls: balls.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, pocketed: b.pocketed, rotAngle: b.rotAngle })) });
+      }
+    } else if (gameState.ballsMoving) {
+      // Just settled -- run the real local turn-resolution logic first
+      // (scratch/foul/group-assignment/game-over, all the state only
+      // the shooter's own simulation actually knows), THEN broadcast
+      // the fully-resolved outcome as ground truth.
+      gameState.ballsMoving = false;
+      endTurn();
+      poolMyShotInProgress = false;
+      poolSocket.emit('pool_shotResult', {
+        balls: balls.map(b => ({ x: b.x, y: b.y, pocketed: b.pocketed })),
+        myTurn: !gameState.myTurn, // inverted: whoever's turn it is for me is the opposite for them
+        scratch: gameState.scratch,
+        foul: gameState.foul,
+        gameOver: gameState.gameOver,
+        groupAssigned: gameState.groupAssigned,
+        myGroup: gameState.opponentGroup, // swapped: my group is their opponent's group
+        opponentGroup: gameState.myGroup,
+        placingCueBall: gameState.placingCueBall,
+        placementKitchenOnly: gameState.placementKitchenOnly
+      });
+      return;
+    }
   }
 
   if (gameState.ballsMoving && !moving) { gameState.ballsMoving = false; endTurn(); }
@@ -2255,6 +2341,8 @@ function render() {
   if (!gameState.ballsMoving && !gameState.gameOver) {
     if (cueBall && !cueBall.pocketed && (gameState.myTurn || gameMode === 'bot')) {
       renderAmericanCueStick(cueBall);
+    } else if (cueBall && !cueBall.pocketed && gameMode === 'p2p' && !gameState.myTurn && opponentAiming && opponentAimAngle !== null) {
+      renderAmericanCueStick(cueBall, opponentAimAngle, opponentPower, opponentPower > 0);
     }
   }
 
@@ -2473,10 +2561,12 @@ function darkenColor(hex, percent) {
 }
 
 // ==================== AMERICAN POOL CUE STICK ====================
-function renderAmericanCueStick(cueBall) {
-  const angle = gameState.aimAngle;
+function renderAmericanCueStick(cueBall, overrideAngle, overridePower, overridePowerPhase) {
+  const angle = typeof overrideAngle === 'number' ? overrideAngle : gameState.aimAngle;
+  const powerPhaseActive = typeof overridePowerPhase === 'boolean' ? overridePowerPhase : gameState.powerPhase;
+  const powerVal = typeof overridePower === 'number' ? overridePower : gameState.power;
   const stickLen = 240;
-  const pullBack = gameState.powerPhase ? (gameState.power / 100) * 140 : 0;
+  const pullBack = powerPhaseActive ? (powerVal / 100) * 140 : 0;
 
   // Stick ALWAYS behind cue ball, pointing in aimAngle direction
   // aimAngle = direction cue ball will travel
@@ -2488,8 +2578,8 @@ function renderAmericanCueStick(cueBall) {
   const buttY = tipY - Math.sin(angle) * stickLen;
 
   let shakeX = 0, shakeY = 0;
-  if (gameState.powerPhase && gameState.power > 30) {
-    const shakeIntensity = (gameState.power - 30) / 70 * 1.5;
+  if (powerPhaseActive && powerVal > 30) {
+    const shakeIntensity = (powerVal - 30) / 70 * 1.5;
     shakeX = (Math.random() - 0.5) * shakeIntensity;
     shakeY = (Math.random() - 0.5) * shakeIntensity;
   }
