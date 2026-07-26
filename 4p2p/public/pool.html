@@ -214,6 +214,15 @@
     <div style="font-size:11px;color:#888;margin-bottom:7px">PLAYERS IN ROOM</div>
     <div id="hostPlayerList"></div>
   </div>
+  <div id="hostBotSection" style="display:none;width:min(340px,92vw);margin-top:10px">
+    <div style="font-size:12px;color:#999;margin-bottom:6px;text-align:center">Or play against a bot while you wait:</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:8px">
+      <button class="btn btn-dark" style="width:auto;padding:6px 12px;font-size:12px" onclick="poolFillBot('easy')">Easy</button>
+      <button class="btn btn-dark" style="width:auto;padding:6px 12px;font-size:12px" onclick="poolFillBot('medium')">Medium</button>
+      <button class="btn btn-dark" style="width:auto;padding:6px 12px;font-size:12px" onclick="poolFillBot('hard')">Hard</button>
+      <button class="btn btn-dark" style="width:auto;padding:6px 12px;font-size:12px" onclick="poolFillBot('pro')">Pro</button>
+    </div>
+  </div>
   <button class="btn btn-gold" id="createRoomBtn" onclick="createRoom()">Create Room</button>
   <button class="btn btn-green" id="startGameBtn" style="display:none" onclick="hostStartGame()">Start Game</button>
   <button class="btn btn-dark" onclick="poolGoToJoinScreen()" style="margin-top:6px">Join a Room Instead</button>
@@ -444,7 +453,10 @@ window.POOL_DEBUG = {
   get socketConnected() { return poolSocket ? poolSocket.connected : null; },
   get myPos() { return typeof poolMyPos !== 'undefined' ? poolMyPos : null; },
   get myTableId() { return poolMyTableId; },
-  get opponentName() { return opponentName; }
+  get opponentName() { return opponentName; },
+  get receivingLiveShot() { return poolReceivingLiveShot; },
+  get myShotInProgress() { return poolMyShotInProgress; },
+  get ballsVelocity() { return balls.map(b => ({vx: b.vx, vy: b.vy, pocketed: b.pocketed})); }
 };
 
 function poolConfirm(message, onConfirm) {
@@ -514,6 +526,7 @@ let matchTally = { me: 0, opp: 0 };
 let poolMyTableId = null, poolMyPlayerId = null, poolMyPos = null;
 let poolWasDisconnected = false;
 let opponentAimAngle = null, opponentPower = 0, opponentAiming = false;
+let opponentIsBot = false, opponentBotDifficulty = 'easy';
 let poolReceivingLiveShot = false; // true while actively receiving streamed ball positions for the opponent's in-progress shot, so local physics stays out of the way rather than fighting the incoming stream
 let poolLastAimEmitAt = 0;
 let poolLastAliveAt = Date.now();
@@ -588,10 +601,13 @@ function poolConnect() {
       poolWasDisconnected = false;
       setConnectionStatus('connected', 'Reconnected!');
     }
-    if (info.opponentName) {
-      opponentName = info.opponentName;
+    if (info.opponentName || info.opponentIsBot) {
+      opponentName = info.opponentIsBot ? (BOT_CONFIG[info.opponentBotDifficulty || 'easy'].name) : info.opponentName;
+      opponentIsBot = !!info.opponentIsBot;
+      opponentBotDifficulty = info.opponentBotDifficulty || 'easy';
       updateHostLobby();
       document.getElementById('startGameBtn').style.display = 'flex';
+      document.getElementById('hostBotSection').style.display = 'none';
       setConnectionStatus('connected', 'Player joined!');
     }
   });
@@ -599,11 +615,14 @@ function poolConnect() {
     setConnectionStatus('disconnected', 'That room code doesn\u2019t exist');
     try { localStorage.removeItem('pool_table_id'); } catch(e) {}
   });
-  poolSocket.on('pool_opponentJoined', ({ name }) => {
-    opponentName = name || 'Player 2';
-    setConnectionStatus('connected', 'Player joined!');
+  poolSocket.on('pool_opponentJoined', ({ name, isBot, botDifficulty }) => {
+    opponentIsBot = !!isBot;
+    opponentBotDifficulty = botDifficulty || 'easy';
+    opponentName = opponentIsBot ? BOT_CONFIG[opponentBotDifficulty].name : (name || 'Player 2');
+    setConnectionStatus('connected', opponentIsBot ? 'Bot added!' : 'Player joined!');
     updateHostLobby();
     document.getElementById('startGameBtn').style.display = 'flex';
+    document.getElementById('hostBotSection').style.display = 'none';
   });
   poolSocket.on('pool_opponentLeft', () => {
     setConnectionStatus('disconnected', 'Opponent reconnecting...');
@@ -704,6 +723,7 @@ function createRoom() {
   document.getElementById('createRoomBtn').style.display = 'none';
   document.getElementById('hostCodeBox').style.display = 'block';
   document.getElementById('hostLobby').style.display = 'block';
+  document.getElementById('hostBotSection').style.display = 'block';
   setConnectionStatus('connecting', 'Creating room...');
   updateHostLobby();
   poolConnect();
@@ -778,6 +798,11 @@ function poolTeardownOnlineConnection() {
   }
   poolMyTableId = null;
   poolWasDisconnected = false;
+}
+
+function poolFillBot(difficulty) {
+  if (!poolSocket || !poolMyTableId) return;
+  poolSocket.emit('pool_fillBot', { difficulty });
 }
 
 function joinRoom() {
@@ -1216,7 +1241,7 @@ function shoot(power) {
   gameState.spin = {x: 0, y: 0};
   resetSpinUI();
   updatePowerUI(); document.getElementById('powerHud').classList.remove('show');
-  if (poolSocket && poolMyTableId && gameMode !== 'bot') {
+  if (poolSocket && poolMyTableId && gameMode !== 'bot' && gameState.myTurn) {
     poolMyShotInProgress = true;
     poolSocket.emit('pool_shot', {});
   }
@@ -1606,7 +1631,7 @@ function endTurn() {
     gameState.scratch = false; switchTurn();
     if (gameState.myTurn) {
       enterCuePlacement(false); // ball-in-hand: anywhere on the table
-    } else if (gameMode === 'bot') {
+    } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
       autoPlaceCueBallForBot();
     }
     startTurn(); return;
@@ -1730,7 +1755,7 @@ function autoPlaceCueBallForBot() {
 function startTurn() {
   updateUI(); updateMessage();
   lastSimAngle = null; // ball layout may have changed since the last aim - force a fresh preview
-  if (!gameState.myTurn && gameMode === 'bot') {
+  if (!gameState.myTurn && (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot))) {
     if (!gameState.botTurnPending) {
       gameState.botTurnPending = true;
       setTimeout(() => {
@@ -2458,7 +2483,7 @@ function render() {
   }
   // === CUE STICK (visible on both the player's and the bot's turn, so bot shots are visible) ===
   if (!gameState.ballsMoving && !gameState.gameOver) {
-    if (cueBall && !cueBall.pocketed && (gameState.myTurn || gameMode === 'bot')) {
+    if (cueBall && !cueBall.pocketed && (gameState.myTurn || gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot && !gameState.myTurn))) {
       renderAmericanCueStick(cueBall);
     } else if (cueBall && !cueBall.pocketed && gameMode === 'p2p' && !gameState.myTurn && opponentAiming && opponentAimAngle !== null) {
       renderAmericanCueStick(cueBall, opponentAimAngle, opponentPower, opponentPower > 0);
