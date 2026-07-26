@@ -91,6 +91,16 @@ function poolNewTableId() {
   for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
   return code;
 }
+function poolPublicList() {
+  return Object.values(poolTables)
+    .filter(t => t.seats.some(Boolean) && t.phase === 'lobby' && t.seats.some(s => !s))
+    .map(t => ({
+      id: t.id,
+      hostName: (t.seats.find(s => s && s.playerId === t.hostPlayerId) || {}).name || '?',
+      openSeats: t.seats.filter(s => !s).length
+    }));
+}
+function poolBroadcastList() { io.emit('pool_roomList', poolPublicList()); }
 
 // ---------------- Carrom table persistence ----------------
 // Every reconnect-logic fix so far, however solid, is powerless against
@@ -560,6 +570,10 @@ io.on('connection', (socket) => {
   // ---------------- Pool handlers ----------------
   socket.on('pool_ping', () => { socket.emit('pool_pong'); });
 
+  socket.on('pool_listRooms', () => {
+    socket.emit('pool_roomList', poolPublicList());
+  });
+
   socket.on('pool_createTable', ({ name }, ack) => {
     const id = poolNewTableId();
     const playerId = crypto.randomBytes(8).toString('hex');
@@ -577,6 +591,7 @@ io.on('connection', (socket) => {
     poolTableId = id;
     socket.emit('pool_joined', { tableId: id, playerId, pos: 0 });
     if (typeof ack === 'function') ack({ tableId: id });
+    poolBroadcastList();
   });
 
   socket.on('pool_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
@@ -615,6 +630,7 @@ io.on('connection', (socket) => {
       const sock = io.sockets.sockets.get(sid);
       if (sock) sock.emit('pool_opponentJoined', { name: t.seats[openPos].name });
     }
+    poolBroadcastList();
   });
 
   socket.on('pool_leaveTable', () => {
@@ -632,6 +648,7 @@ io.on('connection', (socket) => {
     }
     if (!t.seats.some(Boolean)) delete poolTables[poolTableId];
     poolTableId = null;
+    poolBroadcastList();
   });
 
   // Pure relay -- the server never simulates or validates any of these,
@@ -646,7 +663,7 @@ io.on('connection', (socket) => {
       if (sock) sock.emit(eventName, data);
     }
   }
-  socket.on('pool_start', (data) => { const t = poolTables[poolTableId]; if (t) t.phase = 'playing'; poolRelay('pool_start', data); });
+  socket.on('pool_start', (data) => { const t = poolTables[poolTableId]; if (t) t.phase = 'playing'; poolRelay('pool_start', data); poolBroadcastList(); });
   socket.on('pool_shot', (data) => poolRelay('pool_shot', data));
   // Live streams while the shooter is still aiming/adjusting power (not
   // fired yet) so the opponent can watch the actual cue stick move in
