@@ -118,6 +118,21 @@ const COMMENTS_FILE = path.join(__dirname, 'comments-data.json');
 const GITHUB_COMMENTS_PATH = '4p2p/data/comments.json';
 let comments = [];
 let commentsDirty = false;
+let commentsGithubPushDebounceTimer = null;
+let commentsGithubPushMaxWaitTimer = null;
+function markCommentsDirtyForGithub() {
+  if (!GITHUB_ENABLED) return;
+  if (commentsGithubPushDebounceTimer) clearTimeout(commentsGithubPushDebounceTimer);
+  commentsGithubPushDebounceTimer = setTimeout(runScheduledCommentsGithubPush, 20000);
+  if (!commentsGithubPushMaxWaitTimer) {
+    commentsGithubPushMaxWaitTimer = setTimeout(runScheduledCommentsGithubPush, 60000);
+  }
+}
+function runScheduledCommentsGithubPush() {
+  if (commentsGithubPushDebounceTimer) { clearTimeout(commentsGithubPushDebounceTimer); commentsGithubPushDebounceTimer = null; }
+  if (commentsGithubPushMaxWaitTimer) { clearTimeout(commentsGithubPushMaxWaitTimer); commentsGithubPushMaxWaitTimer = null; }
+  githubPushComments().catch(e => console.error('[comments] Scheduled GitHub push failed:', e.message));
+}
 let githubCommentsFileSha = null;
 
 async function githubFetchComments() {
@@ -232,6 +247,7 @@ app.post('/api/comments', (req, res) => {
   comments.unshift({ id: crypto.randomBytes(6).toString('hex'), name, message, time: Date.now(), replies: [] });
   if (comments.length > 500) comments.length = 500; // cap growth — this is a comment box, not a database
   commentsDirty = true;
+  markCommentsDirtyForGithub();
   saveCommentsLocal();
   console.log(`[comments] new message from ${name}`);
   res.json({ ok: true });
@@ -252,6 +268,7 @@ app.post('/api/comments/:id/reply', (req, res) => {
   if (parent.replies.length >= 100) return res.status(400).json({ ok: false, error: 'too_many_replies' }); // sane per-thread cap
   parent.replies.push({ id: crypto.randomBytes(6).toString('hex'), name, message, time: Date.now() });
   commentsDirty = true;
+  markCommentsDirtyForGithub();
   saveCommentsLocal();
   console.log(`[comments] new reply from ${name} on comment ${parent.id}`);
   res.json({ ok: true });
@@ -271,6 +288,7 @@ app.delete('/api/comments/:id', (req, res) => {
   if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
   comments = comments.filter(c => c.id !== req.params.id);
   commentsDirty = true;
+  markCommentsDirtyForGithub();
   saveCommentsLocal();
   if (GITHUB_ENABLED) { lastGithubCommentsSyncCount = comments.length; githubPushComments(); }
   res.json({ ok: true });
@@ -328,6 +346,29 @@ const GITHUB_VISITOR_LOG_PATH = '4p2p/data/visitor-log.json';
 const GITHUB_ENABLED = !!(GITHUB_TOKEN && GITHUB_REPO);
 let visitorLog = [];
 let visitorLogDirty = false;
+let visitorGithubPushDebounceTimer = null;
+let visitorGithubPushMaxWaitTimer = null;
+function markVisitorLogDirtyForGithub() {
+  if (!GITHUB_ENABLED) return;
+  // Same proven pattern already used for Carrom/Pool table persistence:
+  // debounced off real activity, not a fixed recurring clock. The
+  // earlier periodic ~11-minute GitHub sync was removed because it ran
+  // on its own independent timer regardless of what was happening,
+  // which caused disconnects. This only ever fires in response to an
+  // actual new visitor, settling 20s after the last one so a burst of
+  // visits doesn't trigger a separate push per visitor, capped at 60s
+  // so a steady trickle can't push it back indefinitely.
+  if (visitorGithubPushDebounceTimer) clearTimeout(visitorGithubPushDebounceTimer);
+  visitorGithubPushDebounceTimer = setTimeout(runScheduledVisitorGithubPush, 20000);
+  if (!visitorGithubPushMaxWaitTimer) {
+    visitorGithubPushMaxWaitTimer = setTimeout(runScheduledVisitorGithubPush, 60000);
+  }
+}
+function runScheduledVisitorGithubPush() {
+  if (visitorGithubPushDebounceTimer) { clearTimeout(visitorGithubPushDebounceTimer); visitorGithubPushDebounceTimer = null; }
+  if (visitorGithubPushMaxWaitTimer) { clearTimeout(visitorGithubPushMaxWaitTimer); visitorGithubPushMaxWaitTimer = null; }
+  githubPushVisitorLog().catch(e => console.error('[visitor] Scheduled GitHub push failed:', e.message));
+}
 let githubFileSha = null; // required by GitHub's API to update an existing file
 
 function githubApiUrl() {
@@ -531,6 +572,7 @@ function logVisitor(socket) {
   visitorLog = visitorLog.filter(e => e.ts >= cutoff);
   if (visitorLog.length > VISITOR_LOG_MAX) visitorLog.length = VISITOR_LOG_MAX;
   visitorLogDirty = true;
+  markVisitorLogDirtyForGithub();
   return entry;
 }
 
