@@ -588,7 +588,7 @@ io.on('connection', (socket) => {
     const playerId = crypto.randomBytes(8).toString('hex');
     const t = {
       id,
-      seats: [{ playerId, name: name || 'Host', connected: true }, null],
+      seats: [{ playerId, name: name || 'Host', connected: true, isBot: false }, null],
       hostPlayerId: playerId,
       phase: 'lobby',
       lastActivityAt: Date.now(),
@@ -603,6 +603,32 @@ io.on('connection', (socket) => {
     poolBroadcastList();
   });
 
+  function poolIsEffectiveHost(t, pos) {
+    const seat0 = t.seats[0];
+    if (seat0 && !seat0.isBot && seat0.connected) return pos === 0;
+    const seat1 = t.seats[1];
+    if (seat1 && !seat1.isBot && seat1.connected) return pos === 1;
+    return false;
+  }
+
+  socket.on('pool_fillBot', ({ difficulty }) => {
+    // Same idea as Carrom's carrom_fillBots -- only the effective host
+    // (the connected, non-bot occupant of seat 0, or whoever's left if
+    // that seat is now open) can add a bot, and only into a genuinely
+    // open seat.
+    const t = poolTables[poolTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info || !poolIsEffectiveHost(t, info.pos)) return;
+    const openPos = t.seats.findIndex(s => !s);
+    if (openPos === -1) return;
+    const diff = ['easy', 'medium', 'hard', 'pro'].includes(difficulty) ? difficulty : 'easy';
+    t.seats[openPos] = { playerId: null, name: null, connected: true, isBot: true, botDifficulty: diff };
+    t.lastActivityAt = Date.now();
+    socket.emit('pool_opponentJoined', { name: null, isBot: true, botDifficulty: diff });
+    poolBroadcastList();
+  });
+
   socket.on('pool_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
     // Reconnect via saved token first, same pattern as Carrom.
     if (existingPlayerId && poolPlayerIndex[existingPlayerId]) {
@@ -613,7 +639,7 @@ io.on('connection', (socket) => {
         t.sockets.set(socket.id, { playerId: existingPlayerId, pos: idx.pos });
         poolTableId = idx.tableId;
         const otherSeat = t.seats[1 - idx.pos];
-        socket.emit('pool_joined', { tableId: idx.tableId, playerId: existingPlayerId, pos: idx.pos, opponentName: otherSeat ? otherSeat.name : null });
+        socket.emit('pool_joined', { tableId: idx.tableId, playerId: existingPlayerId, pos: idx.pos, opponentName: otherSeat ? otherSeat.name : null, opponentIsBot: !!(otherSeat && otherSeat.isBot), opponentBotDifficulty: otherSeat ? otherSeat.botDifficulty : null });
         for (const [sid, info] of t.sockets) {
           if (sid === socket.id) continue;
           const sock = io.sockets.sockets.get(sid);
@@ -622,18 +648,27 @@ io.on('connection', (socket) => {
         return;
       }
     }
-    // Fresh join into an existing table's open seat.
+    // Fresh join into an existing table's open seat -- an "open" seat
+    // is an empty one, OR a bot's seat (replacing it with a real
+    // opponent), OR a seat whose human occupant has disconnected and
+    // never came back (abandoned, not just mid-reconnect), matching
+    // exactly what was asked for: someone can join and take over a
+    // bot's spot, and a table with nobody actively connected to it
+    // stays open rather than becoming a dead end.
     const t = poolTables[tableId];
     if (!t) { socket.emit('pool_joinError', { reason: 'not_found' }); return; }
-    const openPos = t.seats.findIndex(s => !s);
+    const openPos = t.seats.findIndex(s => !s || s.isBot || !s.connected);
     if (openPos === -1) { socket.emit('pool_joinError', { reason: 'table_full' }); return; }
+    const replacedSeat = t.seats[openPos];
+    if (replacedSeat && replacedSeat.playerId) delete poolPlayerIndex[replacedSeat.playerId]; // replacing an abandoned human -- their old token can no longer reclaim this seat
     const playerId = crypto.randomBytes(8).toString('hex');
-    t.seats[openPos] = { playerId, name: name || 'Guest', connected: true };
+    t.seats[openPos] = { playerId, name: name || 'Guest', connected: true, isBot: false };
     t.sockets.set(socket.id, { playerId, pos: openPos });
     poolPlayerIndex[playerId] = { tableId, pos: openPos };
     poolTableId = tableId;
     t.lastActivityAt = Date.now();
-    socket.emit('pool_joined', { tableId, playerId, pos: openPos });
+    const otherSeat = t.seats[1 - openPos];
+    socket.emit('pool_joined', { tableId, playerId, pos: openPos, opponentName: otherSeat ? otherSeat.name : null, opponentIsBot: !!(otherSeat && otherSeat.isBot), opponentBotDifficulty: otherSeat ? otherSeat.botDifficulty : null });
     for (const [sid] of t.sockets) {
       if (sid === socket.id) continue;
       const sock = io.sockets.sockets.get(sid);
@@ -672,7 +707,14 @@ io.on('connection', (socket) => {
       if (sock) sock.emit(eventName, data);
     }
   }
-  socket.on('pool_start', (data) => { const t = poolTables[poolTableId]; if (t) t.phase = 'playing'; poolRelay('pool_start', data); poolBroadcastList(); });
+  socket.on('pool_start', (data) => {
+    const t = poolTables[poolTableId];
+    if (!t) return;
+    if (t.seats.some(s => !s)) return; // every seat must be filled (human or bot) before starting, matching Carrom
+    t.phase = 'playing';
+    poolRelay('pool_start', data);
+    poolBroadcastList();
+  });
   socket.on('pool_shot', (data) => poolRelay('pool_shot', data));
   // Live streams while the shooter is still aiming/adjusting power (not
   // fired yet) so the opponent can watch the actual cue stick move in
