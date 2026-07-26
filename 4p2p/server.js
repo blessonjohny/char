@@ -136,7 +136,29 @@ async function githubFetchComments() {
     return null;
   }
 }
-async function githubPushComments() {
+async function githubRefreshCommentsSha() {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    let res;
+    try {
+      res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_COMMENTS_PATH}?ref=${GITHUB_BRANCH}`, {
+        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' },
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (res.status === 404) { githubCommentsFileSha = null; return true; }
+    if (!res.ok) return false;
+    const json = await res.json();
+    githubCommentsFileSha = json.sha;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+async function githubPushComments(isRetry) {
   if (!GITHUB_ENABLED) return;
   try {
     const body = {
@@ -145,11 +167,24 @@ async function githubPushComments() {
       branch: GITHUB_BRANCH
     };
     if (githubCommentsFileSha) body.sha = githubCommentsFileSha;
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_COMMENTS_PATH}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    let res;
+    try {
+      res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_COMMENTS_PATH}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (res.status === 409 && !isRetry) {
+      console.log('[comments] GitHub push got a 409 (stale SHA) -- refreshing and retrying once.');
+      const refreshed = await githubRefreshCommentsSha();
+      if (refreshed) { await githubPushComments(true); return; }
+    }
     if (!res.ok) { console.error('[comments] GitHub push failed:', res.status, await res.text()); return; }
     const json = await res.json();
     githubCommentsFileSha = json.content.sha;
@@ -315,7 +350,34 @@ async function githubFetchVisitorLog() {
     return null;
   }
 }
-async function githubPushVisitorLog() {
+async function githubRefreshVisitorLogSha() {
+  // Lightweight - just need the current SHA to retry a rejected push,
+  // not the full file content again. Bounded the same way as the push
+  // itself - this runs as part of the same shutdown-flush sequence, so
+  // an unbounded GET here could eat the whole shutdown budget on its
+  // own and leave nothing for the retry PUT that follows it.
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    let res;
+    try {
+      res = await fetch(`${githubApiUrl()}?ref=${GITHUB_BRANCH}`, {
+        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' },
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (res.status === 404) { githubFileSha = null; return true; } // file doesn't exist yet -- fine, next push creates it fresh
+    if (!res.ok) return false;
+    const json = await res.json();
+    githubFileSha = json.sha;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+async function githubPushVisitorLog(isRetry) {
   if (!GITHUB_ENABLED) return;
   try {
     const body = {
@@ -324,14 +386,13 @@ async function githubPushVisitorLog() {
       branch: GITHUB_BRANCH
     };
     if (githubFileSha) body.sha = githubFileSha;
-    // Hard timeout — this fetch previously had none at all, meaning a
-    // slow or hanging GitHub API response could block this in-flight
-    // request indefinitely with no way to recover until the process
-    // itself did something about it. 10 seconds is generous for what's
-    // a small JSON PUT; if GitHub hasn't responded by then, treat it as
-    // failed for this cycle and let the next one try again.
+    // Bounded to 4s, not 10s - this can now run up to twice in a
+    // single shutdown-flush cycle (original attempt + retry, with a
+    // refresh GET in between), and all of it has to fit inside the
+    // outer 12-second shutdown budget with room to spare. 3 * 4s = 12s
+    // worst case, well inside that.
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
     let res;
     try {
       res = await fetch(githubApiUrl(), {
@@ -342,6 +403,17 @@ async function githubPushVisitorLog() {
       });
     } finally {
       clearTimeout(timeoutId);
+    }
+    if (res.status === 409 && !isRetry) {
+      // The server's cached SHA no longer matches what's actually on
+      // GitHub right now (the file changed some other way since this
+      // process last knew about it). Refetch the real current SHA and
+      // retry exactly once with it -- this is what actually recovers
+      // from the "push failed: 409, does not match" failure that used
+      // to just log and give up permanently until the next restart.
+      console.log('[visitor] GitHub push got a 409 (stale SHA) -- refreshing and retrying once.');
+      const refreshed = await githubRefreshVisitorLogSha();
+      if (refreshed) { await githubPushVisitorLog(true); return; }
     }
     if (!res.ok) { console.error('[visitor] GitHub push failed:', res.status, await res.text()); return; }
     const json = await res.json();
@@ -414,9 +486,20 @@ async function finalVisitorLogFlush() {
   saveVisitorLogLocal();
   saveCommentsLocal();
   if (GITHUB_ENABLED) {
+    // Each individual GitHub network call is bounded to 3s, and a
+    // single push can involve up to 3 sequential calls in the worst
+    // case (failed push -> refresh -> retry push) = 9s worst case per
+    // push. Without this, a slow response or the 409-retry path could
+    // silently abandon the push mid-flight when process.exit runs (the
+    // race just resolves via the timeout branch, no error logged at
+    // all). 11s gives margin over that 9s worst case. Kept
+    // conservative since the platform's own grace period before it
+    // force-kills the process isn't precisely known -- better to
+    // finish comfortably early than race right up against an unknown
+    // outer deadline.
     await Promise.race([
       Promise.all([githubPushVisitorLog(), githubPushComments()]),
-      new Promise(resolve => setTimeout(resolve, 4000))
+      new Promise(resolve => setTimeout(resolve, 11000))
     ]);
   }
 }
