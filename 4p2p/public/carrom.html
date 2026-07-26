@@ -484,6 +484,7 @@
       <div class="hud-center">
         <div class="turn-label" id="turnLabel">Your turn</div>
         <div class="match-score" id="matchScoreLabel">White 0—0 Black</div>
+        <div class="board-round-label" id="boardRoundLabel" style="font-size:0.65rem;opacity:0.75;margin-top:1px">Round 1</div>
       </div>
       <div class="player-column">
         <div class="player-badge" id="badgeP2"><span class="dot black"></span> <span id="p2Name">Bot</span> <span class="score-num" id="scoreP2">0/9</span> <span class="dot red" id="queenDotP2" style="display:none" title="Queen covered"></span></div>
@@ -1455,6 +1456,7 @@
     document.getElementById('turnLabel').textContent = who + (playerCount===4 ? ` · Team ${seat.color==='white'?'White':'Black'}` : '');
     document.getElementById('matchScoreLabel').textContent =
       `${teamDisplayName('teamA')} ${matchScore.teamA}—${matchScore.teamB} ${teamDisplayName('teamB')}`;
+    document.getElementById('boardRoundLabel').textContent = `Round ${boardNumber + 1}`;
 
     const queenEl = document.getElementById('queenStatusLabel');
     const queenDotP1 = document.getElementById('queenDotP1'), queenDotP2 = document.getElementById('queenDotP2');
@@ -1890,6 +1892,14 @@
       carromLastAimBroadcast = 0; // bypass the throttle for this direct test call
       carromEmitLiveAim();
     },
+    testMoveStrikerPlacement(dx) {
+      shotStage = 'position'; gestureMode = 'position';
+      striker.x += dx;
+      carromLastLiveBroadcast = 0; // bypass the throttle for this direct test call
+      carromBroadcastLivePositions();
+    },
+    get strikerX() { return striker ? Math.round(striker.x) : null; },
+    get strikerY() { return striker ? Math.round(striker.y) : null; },
     testCoinLegality(x, y) {
       const testCoin = { x, y, r: COIN_R, potted: false };
       return {
@@ -2859,6 +2869,7 @@
       if(!positionOverlapsCoin(p.x, p.y)){
         striker.x = p.x; striker.y = p.y;
       }
+      carromBroadcastLivePositions();
     } else if(gestureMode === 'aim'){
       dragCurrent = pos;
       // Single-axis rotation: only the vertical drag distance matters,
