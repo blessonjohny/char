@@ -1045,6 +1045,14 @@
       if (snapshot.coins) coins.forEach((c, i) => { if (snapshot.coins[i]) { c.x = snapshot.coins[i].x; c.y = snapshot.coins[i].y; c.potted = snapshot.coins[i].potted; } });
       if (snapshot.striker && striker) { striker.x = snapshot.striker.x; striker.y = snapshot.striker.y; striker.potted = snapshot.striker.potted; }
     });
+    carromSocket.on('carrom_liveAim', (data) => {
+      // Same idea as carrom_liveShot but for BEFORE the shot fires --
+      // lets the opponent watch the striker actually being aimed
+      // (rotating toward its target) rather than only ever seeing it
+      // jump straight to the final locked angle.
+      if (turnPos === carromMyPos) return; // never apply this to my own striker
+      opponentLiveAimDir = { x: data.x, y: data.y };
+    });
     carromSocket.on('carrom_restartMatch', () => {
       startNewMatch();
     });
@@ -1879,6 +1887,8 @@
       const len = Math.hypot(dx, dy) || 1;
       liveAimDir = { x: dx/len, y: dy/len };
       dragCurrent = { x: striker.x - dx*50, y: striker.y - dy*50 };
+      carromLastAimBroadcast = 0; // bypass the throttle for this direct test call
+      carromEmitLiveAim();
     },
     testCoinLegality(x, y) {
       const testCoin = { x, y, r: COIN_R, potted: false };
@@ -2009,6 +2019,7 @@
       aimLastMoveTime = performance.now() - msSinceLastMove;
     },
     get liveAimDir() { return liveAimDir; },
+    get opponentLiveAimDir() { return opponentLiveAimDir; },
     testApplyRemoteState(state) {
       const strikerBefore = { x: striker.x, y: striker.y };
       const phaseBefore = phase;
@@ -2675,6 +2686,7 @@
   let aimTouchAnchor = null;    // {x,y} — wherever the finger first touched down for aiming (used only for the "did you actually drag" distance check)
   let lockedDir = null;         // {x,y} unit vector once aim is locked
   let liveAimDir = null;        // {x,y} unit vector for the current aim, always the single source of truth
+  let opponentLiveAimDir = null; // {x,y} unit vector for the OPPONENT's current aim, streamed from their side while it's their turn
   let aimBaseAngle = 0;         // the smart-default starting angle (toward the nearest legal coin, or pocket) that vertical drag rotates away from
   let aimDragStartY = 0;        // screen-space Y where the aim drag began, for the single-axis rotation control
   let aimLastMoveTime = 0;      // performance.now() of the most recent aim move -- the lock fires 2s after THIS, always restarted by any new movement, never counted from the original touch or an earlier target
@@ -2861,6 +2873,7 @@
       const angle = aimBaseAngle + dy * ROTATION_SENSITIVITY;
       liveAimDir = { x: Math.cos(angle), y: Math.sin(angle) };
       aimLastMoveTime = performance.now();
+      carromEmitLiveAim();
 
       if(shotStage === 'aim'){ setPowerMeter(0); }
     } else if(gestureMode === 'power'){
@@ -3432,6 +3445,13 @@
     } else if(shotStage === 'power' && lockedDir){
       dirX = lockedDir.x; dirY = lockedDir.y;
       powerRatio = powerPercent / 100;
+    } else if(mode === 'online' && turnPos !== carromMyPos && opponentLiveAimDir){
+      // Not my turn -- show the OPPONENT's live-streamed aim instead,
+      // so their striker is actually seen rotating toward its target
+      // in real time rather than the turn just silently sitting there
+      // until the shot fires.
+      dirX = opponentLiveAimDir.x; dirY = opponentLiveAimDir.y;
+      powerRatio = 0;
     } else {
       return;
     }
@@ -3705,12 +3725,23 @@
     const iAmActing = (turnPos === carromMyPos) || (carromIsHost && seats[turnPos] && seats[turnPos].kind === 'ai');
     if (!iAmActing) return; // only the person whose shot this actually is should stream it
     const now = performance.now();
-    if (now - carromLastLiveBroadcast < 70) return; // ~14/sec is plenty smooth without flooding the socket
+    if (now - carromLastLiveBroadcast < 33) return; // ~30/sec, matching Pool's smoother rate
     carromLastLiveBroadcast = now;
     carromSocket.emit('carrom_liveShot', {
       coins: coins.map(c => ({ x: Math.round(c.x), y: Math.round(c.y), potted: c.potted })),
       striker: striker ? { x: Math.round(striker.x), y: Math.round(striker.y), potted: striker.potted } : null
     });
+  }
+
+  let carromLastAimBroadcast = 0;
+  function carromEmitLiveAim() {
+    if (mode !== 'online' || !carromSocket || !carromMyTableId) return;
+    if (turnPos !== carromMyPos) return; // never stream another seat's aim, including a bot's
+    const now = performance.now();
+    if (now - carromLastAimBroadcast < 80) return; // matches Pool's aim-throttle rate -- smooth enough for a stick, cheaper than the full 30/sec shot rate since nothing is actually moving yet
+    carromLastAimBroadcast = now;
+    if (!liveAimDir) return;
+    carromSocket.emit('carrom_liveAim', { x: liveAimDir.x, y: liveAimDir.y });
   }
 
   function loop(){
