@@ -1712,7 +1712,7 @@ function startTurn() {
       }, 900);
     }
   }
-  else if (!gameState.myTurn && gameMode === 'p2p') showOverlay('waitingOverlay');
+  else if (!gameState.myTurn && gameMode === 'p2p') { /* opponent's turn -- watch it happen live, never block the view */ }
   else closeOverlay('waitingOverlay');
   gameState.firstShot = false;
 }
