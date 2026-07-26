@@ -529,6 +529,15 @@ io.on('connection', (socket) => {
       if (sock) sock.emit('carrom_liveShot', snapshot);
     }
   });
+  socket.on('carrom_liveAim', (data) => {
+    const t = carromTables[carromTableId];
+    if (!t || t.phase !== 'playing') return;
+    for (const [socketId] of t.sockets) {
+      if (socketId === socket.id) continue;
+      const sock = io.sockets.sockets.get(socketId);
+      if (sock) sock.emit('carrom_liveAim', data);
+    }
+  });
 
   socket.on('carrom_shotResult', ({ boardState }) => {
     const t = carromTables[carromTableId];
