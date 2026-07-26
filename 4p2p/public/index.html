@@ -2537,6 +2537,9 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <a class="welcome-btn primary" href="/carrom.html" style="background:linear-gradient(135deg,#8a6a3c,#5e4726);border-color:transparent;color:#fff;text-decoration:none">
       <span class="icon">🎯</span> Play Carrom <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">1v1 or 2v2 teams — strike, bank, and pocket the coins</span>
     </a>
+    <a class="welcome-btn primary" href="/pool.html" style="background:linear-gradient(135deg,#0d5c4d,#083d33);border-color:transparent;color:#fff;text-decoration:none">
+      <span class="icon">🎱</span> Play Pool <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">1v1 — 8-ball, solids vs stripes, sink the 8 ball to win</span>
+    </a>
     <button class="welcome-btn primary" id="btnPlayLocal" style="background:linear-gradient(135deg,#2a3f5f,#1a2942);border-color:transparent;color:#fff">
       <span class="icon">🎮</span> Play vs Bots <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🧠 Teach them your moves — each bot learns your strategy over time</span>
     </button>
@@ -12332,20 +12335,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         console.log(`[restart-detected-on-load] server start changed ${prev} -> ${data.serverStartTime}`);
       }
       try { localStorage.setItem('k28_known_server_start', String(data.serverStartTime)); } catch (e) {}
-    }
-    // Deploy-mismatch tripwire: the footer stamp only ever proves THIS
-    // page file deployed — server.js is a separate file and can lag
-    // behind it (exactly the situation that produced "footer says new
-    // build, but the old kicks/old-cards behavior is still happening":
-    // every one of those symptoms lives server-side). Make the mismatch
-    // an unmissable on-screen fact instead of something to infer.
-    const serverTag = data && data.buildTag;
-    if (serverTag !== window.K28_BUILD_TAG) {
-      const b = document.createElement('div');
-      b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#a11;color:#fff;font-size:0.75rem;font-weight:700;padding:8px 10px;text-align:center;line-height:1.4';
-      b.textContent = `⚠️ DEPLOY INCOMPLETE: the game page is build "${window.K28_BUILD_TAG}" but the server is running "${serverTag || 'an older build (no buildTag)'}" — update server.js in the repo and redeploy. Fixes will NOT work until both match.`;
-      document.body.appendChild(b);
-      console.warn('[build-mismatch]', { page: window.K28_BUILD_TAG, server: serverTag });
     }
   }).catch(() => {});
   const urlParams = new URLSearchParams(window.location.search);
