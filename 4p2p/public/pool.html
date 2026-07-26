@@ -473,11 +473,7 @@ function handlePoolExit() {
   }
 }
 
-function launchFullscreen() {
-  const el = document.documentElement;
-  if (el.requestFullscreen) el.requestFullscreen().catch(()=>{});
-  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-  else if (el.msRequestFullscreen) el.msRequestFullscreen();
+function lockLandscapeOrientation() {
   if (screen.orientation && screen.orientation.lock) {
     screen.orientation.lock('landscape').catch(()=>{});
   }
@@ -925,7 +921,7 @@ function initGame() {
 function startGame(host) {
   showScreen('gameScreen');
   checkOrientation();
-  launchFullscreen();
+  lockLandscapeOrientation();
   initCanvas();
   matchTally = { me: 0, opp: 0 };
   initGame();
