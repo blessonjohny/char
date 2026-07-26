@@ -651,6 +651,12 @@ function poolConnect() {
     // receiver it's always empty/false, so re-deriving from it here
     // would silently flip myTurn back to the wrong value right after
     // this correctly set it from the shooter's real outcome.
+    //
+    // Derives myTurn/myGroup/opponentGroup by looking up its OWN seat's
+    // value from the absolute seat-based data (turnPos, seat0Group/
+    // seat1Group) rather than trusting a pre-inverted/swapped field --
+    // exactly matching how Carrom's receiver works. A lookup by seat
+    // number can't be gotten backwards; a manual inversion can.
     poolReceivingLiveShot = false;
     if (data.balls) {
       for (let i = 0; i < balls.length && i < data.balls.length; i++) {
@@ -662,10 +668,12 @@ function poolConnect() {
     }
     gameState.ballsMoving = false;
     gameState.justPocketed = [];
-    if (typeof data.myTurn === 'boolean') gameState.myTurn = data.myTurn;
+    if (typeof data.turnPos === 'number') gameState.myTurn = (data.turnPos === poolMyPos);
     if (typeof data.groupAssigned === 'boolean') gameState.groupAssigned = data.groupAssigned;
-    if (data.myGroup !== undefined) gameState.myGroup = data.myGroup;
-    if (data.opponentGroup !== undefined) gameState.opponentGroup = data.opponentGroup;
+    if (data.seat0Group !== undefined) {
+      gameState.myGroup = poolMyPos === 0 ? data.seat0Group : data.seat1Group;
+      gameState.opponentGroup = poolMyPos === 0 ? data.seat1Group : data.seat0Group;
+    }
     gameState.scratch = false;
     gameState.foul = false;
     if (data.gameOver) {
@@ -675,7 +683,8 @@ function poolConnect() {
     }
     if (data.placingCueBall) {
       // A scratch happened on the shooter's side -- whoever's turn it
-      // now is (per data.myTurn above) gets ball-in-hand.
+      // now is (per gameState.myTurn, just derived above) gets
+      // ball-in-hand.
       if (gameState.myTurn) {
         enterCuePlacement(!!data.placementKitchenOnly);
       } else if (gameMode === 'bot') {
@@ -1327,18 +1336,30 @@ function updatePhysics() {
       // (scratch/foul/group-assignment/game-over, all the state only
       // the shooter's own simulation actually knows), THEN broadcast
       // the fully-resolved outcome as ground truth.
+      //
+      // Uses absolute, seat-based values (turnPos, seat0Group/
+      // seat1Group) rather than relative ones (myTurn, myGroup/
+      // opponentGroup) that have to be manually inverted/swapped for
+      // whoever's receiving them -- exactly matching Carrom's proven
+      // turnPos pattern. A seat number means the same thing to both
+      // players; a per-player "my turn" boolean requires getting the
+      // inversion exactly right every single time it's sent, and any
+      // mistake there (or any other code path that touches it
+      // afterward) silently breaks the whole game.
       gameState.ballsMoving = false;
       endTurn();
       poolMyShotInProgress = false;
+      const myTurnPos = gameState.myTurn ? poolMyPos : (1 - poolMyPos);
+      const seat0Group = poolMyPos === 0 ? gameState.myGroup : gameState.opponentGroup;
+      const seat1Group = poolMyPos === 0 ? gameState.opponentGroup : gameState.myGroup;
       poolSocket.emit('pool_shotResult', {
         balls: balls.map(b => ({ x: b.x, y: b.y, pocketed: b.pocketed })),
-        myTurn: !gameState.myTurn, // inverted: whoever's turn it is for me is the opposite for them
+        turnPos: myTurnPos,
         scratch: gameState.scratch,
         foul: gameState.foul,
         gameOver: gameState.gameOver,
         groupAssigned: gameState.groupAssigned,
-        myGroup: gameState.opponentGroup, // swapped: my group is their opponent's group
-        opponentGroup: gameState.myGroup,
+        seat0Group, seat1Group,
         placingCueBall: gameState.placingCueBall,
         placementKitchenOnly: gameState.placementKitchenOnly
       });
