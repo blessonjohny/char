@@ -214,6 +214,7 @@ async function loadCarromTables() {
     if (fromGithub) {
       carromRestoreFromData(fromGithub);
       console.log(`[carrom] Restored ${Object.keys(fromGithub).length} table(s) from GitHub.`);
+      await checkForMissedDailyReset();
       return;
     }
     console.log('[carrom] Falling back to local file for this boot (GitHub fetch failed).');
@@ -229,8 +230,32 @@ async function loadCarromTables() {
   } catch (e) {
     console.error('[carrom] Failed to load local carrom tables, starting fresh:', e.message);
   }
+  await checkForMissedDailyReset();
 }
-// Local save every 10s if dirty (cheap, matches the visitor-log
+// A setTimeout-based schedule only fires while the process is actually
+// running. If this service spins down from inactivity (common on
+// Render's free/lower tiers) and happens to be asleep at the exact
+// moment 5am arrives, the scheduled reset simply never fires -- there's
+// no process alive to fire it. The next scheduleDailyClose() call on
+// startup would then just target tomorrow's 5am, silently skipping an
+// entire day and leaving yesterday's tables running well past when
+// they should have closed. Catches that here: if any restored table
+// predates the most recent 5am boundary that's already passed, at
+// least one reset was missed, and it runs immediately instead of
+// waiting for the next scheduled one.
+async function checkForMissedDailyReset() {
+  const allTables = [...Object.values(carromTables), ...Object.values(poolTables)];
+  if (allTables.length === 0) return;
+  const p = easternTimeParts(new Date());
+  let mostRecent5amAsIfUTC = Date.UTC(p.year, p.month - 1, p.day, 5, 0, 0, 0);
+  const nowAsIfUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  if (mostRecent5amAsIfUTC > nowAsIfUTC) mostRecent5amAsIfUTC -= 24 * 60 * 60 * 1000; // most recent 5am hasn't happened yet today -- use yesterday's
+  const missedAny = allTables.some(t => (t.lastActivityAt || 0) < mostRecent5amAsIfUTC);
+  if (missedAny) {
+    console.log('[daily-reset] Restored table(s) predate the most recent 5am Eastern boundary -- a scheduled reset was missed (likely a spin-down asleep at the moment it should have fired). Running it now.');
+    await dailyCloseAllTables();
+  }
+}
 // Local save every 10s if dirty (cheap, matches the visitor-log
 // pattern, no network call). GitHub push is debounced off actual table
 // activity via carromMarkDirty -> scheduleCarromPush, NOT a fixed
@@ -623,6 +648,15 @@ io.on('connection', (socket) => {
   }
   socket.on('pool_start', (data) => { const t = poolTables[poolTableId]; if (t) t.phase = 'playing'; poolRelay('pool_start', data); });
   socket.on('pool_shot', (data) => poolRelay('pool_shot', data));
+  // Live streams while the shooter is still aiming/adjusting power (not
+  // fired yet) so the opponent can watch the actual cue stick move in
+  // real time, and while a shot is actively in motion so the opponent
+  // sees the shooter's own real ball positions directly rather than an
+  // independently-simulated guess -- same principle as Carrom's live
+  // shot streaming: nobody re-simulates, they just render what's sent.
+  socket.on('pool_liveAim', (data) => poolRelay('pool_liveAim', data));
+  socket.on('pool_liveShot', (data) => poolRelay('pool_liveShot', data));
+  socket.on('pool_shotResult', (data) => poolRelay('pool_shotResult', data));
   socket.on('pool_cuePlace', (data) => poolRelay('pool_cuePlace', data));
   socket.on('pool_rematch', () => poolRelay('pool_rematch', {}));
 
@@ -692,7 +726,7 @@ process.on('unhandledRejection', (reason) => {
 // Same pattern already proven on the card-game server: reschedules
 // itself fresh off the real clock each time rather than a fixed 24h
 // interval, so it can never drift across a DST transition.
-function dailyCloseAllTables() {
+async function dailyCloseAllTables() {
   const counts = { carrom: Object.keys(carromTables).length, pool: Object.keys(poolTables).length };
   for (const k of Object.keys(carromTables)) delete carromTables[k];
   for (const k of Object.keys(carromPlayerIndex)) delete carromPlayerIndex[k];
@@ -701,8 +735,14 @@ function dailyCloseAllTables() {
   console.log(`[daily-reset] 5am Eastern — closed all tables: ${JSON.stringify(counts)}`);
   io.emit('carrom_dailyReset');
   io.emit('pool_dailyReset');
-  carromMarkDirty();
   saveCarromTablesLocal();
+  // Push immediately, not through the debounced scheduler -- a restart
+  // landing in that 20-60s debounce window would reload from GitHub
+  // before the push ever went out, bringing every "closed" table right
+  // back and silently undoing the reset. This closes that window.
+  if (GITHUB_ENABLED) {
+    try { await githubPushCarromTables(); } catch (e) { console.error('[daily-reset] GitHub push failed:', e.message); }
+  }
 }
 function easternTimeParts(date) {
   const fmt = new Intl.DateTimeFormat('en-US', {
@@ -724,8 +764,8 @@ function msUntilNext5amEastern() {
   return targetAsIfUTC - nowAsIfUTC;
 }
 function scheduleDailyClose() {
-  setTimeout(() => {
-    dailyCloseAllTables();
+  setTimeout(async () => {
+    await dailyCloseAllTables();
     scheduleDailyClose();
   }, msUntilNext5amEastern());
 }
