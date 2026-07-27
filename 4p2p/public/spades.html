@@ -417,6 +417,7 @@ function rAll(){
   uScore();
 }
 function renderTrick(){
+  if (trkFlyAwayInProgress) return;
   const slotMap=getSM();
   const slotNames=['sl-top','sl-right','sl-bottom','sl-left'];
   for(let slot=0;slot<4;slot++){
@@ -457,7 +458,7 @@ function rHand(){
   row.innerHTML=html;
 }
 function canPlayCard(c){
-  if(trkCards.length===0){
+  if(trkCardsReal.length===0){
   if(c.suit===0&&!spdBroken){
   const hasNonSpade=hands[MYPOS].some(h=>h.suit!==0);
   return !hasNonSpade;
@@ -671,7 +672,9 @@ function avatarCenter(gamePos) {
   const r = av.getBoundingClientRect();
   return { x: r.left + r.width/2, y: r.top + r.height/2 };
 }
+let trkFlyAwayInProgress = false;
 function animateTrickToWinner(winnerPos) {
+  trkFlyAwayInProgress = true;
   const dest = avatarCenter(winnerPos);
   const slotEls = [0, 1, 2, 3].map(s => document.getElementById('slot' + s)).filter(el => el && el.querySelector('.card'));
   slotEls.forEach((slotEl, i) => {
@@ -689,6 +692,7 @@ function animateTrickToWinner(winnerPos) {
     });
     setTimeout(() => clone.remove(), 560 + i * 20);
   });
+  setTimeout(() => { trkFlyAwayInProgress = false; }, 560);
 }
 document.getElementById('nextRoundBtn').addEventListener('click', () => {
   document.getElementById('scoreModal').classList.remove('on');
@@ -1121,11 +1125,13 @@ function spadesJoinFromList(tableId) {
 }
 
 let trkCardsHoldTimer = null;
+let trkCardsReal = []; // always the true, current server trick state - never held, unlike trkCards which is used for display
 let trkCardsPending = null;
 function applySpadesState(state) {
   const prev = spadesPrevState;
   bids = state.bids; trkTaken = state.trkTaken;
   trkSuit = state.trkSuit; spdBroken = state.spdBroken; curP = state.curP;
+  trkCardsReal = state.trkCards;
   phase = state.phase; dealer = state.dealer; handN = state.handN;
   tScore = state.tScore; tBags = state.tBags; lastTrk = state.lastTrick;
 
@@ -1136,7 +1142,9 @@ function applySpadesState(state) {
   // actually observes an intermediate "4 cards" state to hold onto --
   // lastTrick.cards is populated with the complete set of 4 cards
   // before that clear happens, so that's the correct source to hold.
-  const newLastTrick = state.lastTrick && (!prev || !prev.lastTrick || prev.lastTrick.winner !== state.lastTrick.winner || prev.handN !== state.handN);
+  const trkTotal = state.trkTaken.reduce((a,b) => a+b, 0);
+  const prevTrkTotal = prev ? prev.trkTaken.reduce((a,b) => a+b, 0) : -1;
+  const newLastTrick = state.lastTrick && (!prev || !prev.lastTrick || trkTotal !== prevTrkTotal || prev.handN !== state.handN);
   if (newLastTrick && !trkCardsHoldTimer) {
     trkCards = state.lastTrick.cards;
     trkCardsPending = state.trkCards;
@@ -1206,8 +1214,8 @@ function applySpadesState(state) {
       showBanner(label, 'rgba(30,48,96,.95)', '#e9c84a', 1100);
     }
     // A new card just landed in the trick -- fly it in
-    if (trkCards.length > (prev.trkCards ? prev.trkCards.length : 0)) {
-      const justPlayed = trkCards[trkCards.length - 1];
+    if (trkCardsReal.length > (prev.trkCards ? prev.trkCards.length : 0)) {
+      const justPlayed = trkCardsReal[trkCardsReal.length - 1];
       const slotEl = document.getElementById('slot' + gSlot(justPlayed.player));
       setTimeout(() => animateCardFlyIn(slotEl), 20);
     }
@@ -1218,7 +1226,7 @@ function applySpadesState(state) {
       showBanner('♠ Spades Broken!', 'rgba(10,30,60,.95)', '#4fc3f7', 1300);
     }
     // A trick just resolved (server cleared trkCards and set a new lastTrick)
-    if (lastTrk && (!prev.lastTrick || prev.lastTrick.winner !== lastTrk.winner || (prev.trkCards && prev.trkCards.length === 4 && trkCards.length === 0))) {
+    if (lastTrk && (!prev.lastTrick || trkTotal !== prevTrkTotal || (prev.trkCards && prev.trkCards.length === 4 && trkCardsReal.length === 0))) {
       const winnerPos = lastTrk.winner;
       const isMyTeam = team(winnerPos) === team(MYPOS);
       const winnerName = (PLR[winnerPos] && PLR[winnerPos].name) || '?';
