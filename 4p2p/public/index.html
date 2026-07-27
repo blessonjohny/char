@@ -2527,10 +2527,10 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 
   <div class="welcome-btn-wrap welcome-btn-grid">
     <button class="welcome-btn primary" id="btnPlayOnline">
-      <span class="icon">🌐</span> 4 Player <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🎙️ live voice chat</span>
+      <span class="icon">🌐</span> 28 4 Player <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🎙️ live voice chat</span>
     </button>
     <a class="welcome-btn primary" href="/six.html" style="background:linear-gradient(135deg,#9b59b6,#8e44ad);border-color:transparent;color:#fff;text-decoration:none">
-      <span class="icon">👥</span> 6 Player <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🎙️ 2 teams of 3</span>
+      <span class="icon">👥</span> 28 6 Player <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🎙️ 2 teams of 3</span>
     </a>
     <a class="welcome-btn primary" href="/56.html" style="background:linear-gradient(135deg,#2a9d8f,#1d6f65);border-color:transparent;color:#fff;text-decoration:none">
       <span class="icon">🂮</span> 56 <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">bid 28 to 56, with doubling</span>
@@ -2548,7 +2548,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <span class="icon">🎱</span> Pool <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">1v1, 8-ball</span>
     </a>
     <button class="welcome-btn primary" id="btnPlayLocal" style="background:linear-gradient(135deg,#2a3f5f,#1a2942);border-color:transparent;color:#fff">
-      <span class="icon">🎮</span> Play vs Bots <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🧠 learns your strategy</span>
+      <span class="icon">🎮</span> 28 PLAY vs AI <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🧠 learns your strategy</span>
     </button>
   </div>
 
@@ -12064,7 +12064,7 @@ function startLocalGameWithPosition(yourPos) {
 // ==================== ENHANCED WELCOME ====================
 const originalBtnPlayLocal = document.getElementById('btnPlayLocal');
 if (originalBtnPlayLocal) {
-  originalBtnPlayLocal.innerHTML = '<span class="icon">🎮</span> Play vs Bots';
+  originalBtnPlayLocal.innerHTML = '<span class="icon">🎮</span> 28 PLAY vs AI';
   originalBtnPlayLocal.addEventListener('click', () => {
     // Allow guest play - no auth required
     IS_ONLINE = false;
