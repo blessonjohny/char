@@ -344,7 +344,7 @@ function showBid(){
   let html=`<div style="position:relative;width:${totalW}px;height:80px;margin:0 auto">`;
   hand.forEach((c,i)=>{
   const rs=RS[c.rank],su=SUITS[c.suit];
-  const col=c.color==='red'?'#c0001a':'#111';
+  const col=(c.suit===1||c.suit===2)?'#c0001a':'#111';
   html+=`<div style="position:absolute;left:${i*step}px;bottom:0;z-index:${i}; width:46px;height:70px;border-radius:7px;background:#fff;border:1.5px solid #ccc; box-shadow:0 3px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;flex-direction:column;color:${col}"> <div style="position:absolute;top:2px;left:4px;font-size:.72rem;font-weight:900;line-height:1">${rs}</div> <div style="font-size:1.35rem;line-height:1">${su}</div> <div style="position:absolute;bottom:2px;right:4px;font-size:.72rem;font-weight:900;line-height:1;transform:rotate(180deg)">${rs}</div> </div>`;
   });
   html+='</div>';
