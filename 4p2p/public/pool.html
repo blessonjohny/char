@@ -2197,6 +2197,18 @@ function renderAimGuidance(cueBall) {
       }
     }
 
+    if (targetBall && ballStatus === 'wrong') {
+      ctx.save();
+      ctx.fillStyle = 'rgba(155,89,182,0.95)';
+      ctx.font = 'bold 11px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.fillText('WRONG BALL', targetBall.x, targetBall.y - BALL_RADIUS - 10);
+      ctx.restore();
+    }
+
     let targetColor, targetGlow, targetWidth;
     if (ballStatus === 'wrong') {
       targetColor = 'rgba(155,89,182,0.85)';
@@ -2267,7 +2279,7 @@ function renderAimGuidance(cueBall) {
       ctx.restore();
     }
 
-    if (targetPath.length > 1 && targetBall && !targetBall.pocketed) {
+    if (targetPath.length > 1 && targetBall && !targetBall.pocketed && ballStatus !== 'wrong') {
       ctx.save();
       ctx.shadowBlur = targetInPocket ? 16 : 8;
       ctx.shadowColor = targetGlow;
@@ -2305,21 +2317,6 @@ function renderAimGuidance(cueBall) {
         ctx.fill();
         ctx.restore();
       }
-
-      if (ballStatus === 'wrong') {
-        const midIdx = Math.floor(targetPath.length / 2);
-        const mid = targetPath[Math.min(midIdx, targetPath.length - 1)];
-        ctx.save();
-        ctx.fillStyle = 'rgba(155,89,182,0.95)';
-        ctx.font = 'bold 11px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.shadowBlur = 4;
-        ctx.shadowColor = 'rgba(0,0,0,0.8)';
-        ctx.fillText('WRONG BALL', mid.x, mid.y - 14);
-        ctx.restore();
-      }
-
     }
   } catch (e) {
     console.error('renderAimGuidance error:', e);
