@@ -103,6 +103,7 @@
       <div class="record-pill" id="recordPill"><span class="rw">0</span>–<span class="rl">0</span></div>
     </div>
     <button id="chatToggleBtn" title="Chat" style="display:none">💬<div class="chat-badge" id="chatBadge2"></div></button>
+    <button id="exitGameBtn" title="Exit" style="background:none;border:none;color:var(--dim);font-size:1.1rem;cursor:pointer;padding:4px 6px;line-height:1">✕</button>
     <div class="score-pill" id="scoreThem">
       <span>Them</span><b id="scoreThemVal">0</b><span class="bags" id="bagsThem"></span>
     </div>
@@ -286,7 +287,8 @@ function shuffle(arr){
 function cardVal(c){ return c.suit*100+c.rank; }
 function cHTML(c,cls=''){
   const rs=RS[c.rank], su=SUITS[c.suit];
-  return `<div class="card ${c.color} ${cls}" data-suit="${c.suit}" data-rank="${c.rank}"> <div class="card-rank">${rs}</div> <div class="card-suit-top">${su}</div> <div class="card-suit">${su}</div> <div class="card-rank-br">${rs}</div> <div class="card-suit-br">${su}</div> </div>`;
+  const color = (c.suit===1||c.suit===2) ? 'red' : 'black';
+  return `<div class="card ${color} ${cls}" data-suit="${c.suit}" data-rank="${c.rank}"> <div class="card-rank">${rs}</div> <div class="card-suit-top">${su}</div> <div class="card-suit">${su}</div> <div class="card-rank-br">${rs}</div> <div class="card-suit-br">${su}</div> </div>`;
 }
 function cardBackHTML(){ return `<div class="card back"></div>`; }
 function samC(a,b){ return a.suit===b.suit && a.rank===b.rank; }
@@ -1068,12 +1070,36 @@ function spadesJoinFromList(tableId) {
   spadesSocket.emit('spades_joinTable', { tableId, name: MYNAME });
 }
 
+let trkCardsHoldTimer = null;
+let trkCardsPending = null;
 function applySpadesState(state) {
   const prev = spadesPrevState;
-  bids = state.bids; trkTaken = state.trkTaken; trkCards = state.trkCards;
+  bids = state.bids; trkTaken = state.trkTaken;
   trkSuit = state.trkSuit; spdBroken = state.spdBroken; curP = state.curP;
   phase = state.phase; dealer = state.dealer; handN = state.handN;
   tScore = state.tScore; tBags = state.tBags; lastTrk = state.lastTrick;
+
+  // A trick just completed and cleared server-side -- hold the finished,
+  // full trick on screen for a moment instead of letting it vanish the
+  // instant the winner is decided. The server clears trkCards
+  // synchronously before ever broadcasting, so the client never
+  // actually observes an intermediate "4 cards" state to hold onto --
+  // lastTrick.cards is populated with the complete set of 4 cards
+  // before that clear happens, so that's the correct source to hold.
+  const newLastTrick = state.lastTrick && (!prev || !prev.lastTrick || prev.lastTrick.winner !== state.lastTrick.winner || prev.handN !== state.handN);
+  if (newLastTrick && !trkCardsHoldTimer) {
+    trkCards = state.lastTrick.cards;
+    trkCardsPending = state.trkCards;
+    trkCardsHoldTimer = setTimeout(() => {
+      trkCards = trkCardsPending;
+      trkCardsHoldTimer = null;
+      renderTrick();
+    }, 1400);
+  } else if (trkCardsHoldTimer) {
+    trkCardsPending = state.trkCards;
+  } else {
+    trkCards = state.trkCards;
+  }
 
   PLR = state.seats.map((s, i) => s ? { name: s.name, bg: BCOLS[i], isBot: s.isBot, connected: s.connected, pos: i } : null);
   const mySeat = state.seats[MYPOS];
@@ -1220,6 +1246,14 @@ document.getElementById('btnFillBots').addEventListener('click', () => {
 document.getElementById('btnStartGame').addEventListener('click', () => {
   if (!spadesIsHost) { toast('Only the host can start the game', 'lose', 1500); return; }
   spadesSocket.emit('spades_startGame');
+});
+document.getElementById('exitGameBtn').addEventListener('click', () => {
+  if (!confirm('Leave this game? The table will stay open — you can come back and rejoin later, but for now your seat will be taken over by a bot so the other players can keep playing.')) return;
+  if (spadesSocket && spadesTableId) spadesSocket.emit('spades_leaveTable');
+  spadesTableId = null;
+  try { localStorage.removeItem('spades_table_id'); } catch(e) {}
+  if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  location.reload();
 });
 document.getElementById('btnLeave').addEventListener('click', () => {
   if (spadesSocket && spadesTableId) spadesSocket.emit('spades_leaveTable');
