@@ -1996,6 +1996,40 @@ function findBestCushionPath(sx, sy, tx, ty, excludeId, bounces) {
   return bestPath;
 }
 
+// Finds a 1-cushion bank shot for the OBJECT ball itself: ball travels to
+// a rail, rebounds, and drops into the pocket - as opposed to
+// findBestCushionPath above, which only ever bounces the CUE ball on its
+// way to the object ball. Mirrors the pocket across each rail (the
+// classic construction for a bank shot angle), checks that path is
+// actually clear, and returns the ghost-ball position needed for the
+// cue ball to send the object ball in that direction.
+function findBankShotToPocket(ball, pocket, excludeId) {
+  const walls = ['left', 'right', 'top', 'bottom'];
+  let best = null, bestDist = Infinity;
+  for (const wall of walls) {
+    let mx = pocket.x, my = pocket.y;
+    if (wall === 'left') mx = 2 * MARGIN - mx;
+    else if (wall === 'right') mx = 2 * (TABLE_WIDTH - MARGIN) - mx;
+    else if (wall === 'top') my = 2 * MARGIN - my;
+    else my = 2 * (TABLE_HEIGHT - MARGIN) - my;
+
+    const angle = Math.atan2(my - ball.y, mx - ball.x);
+    const hit = findCushionHit(ball.x, ball.y, angle);
+    if (!hit || hit.wall !== wall) continue;
+    if (!isPathClear(ball.x, ball.y, hit.x, hit.y, excludeId)) continue;
+    if (!isPathClear(hit.x, hit.y, pocket.x, pocket.y, excludeId)) continue;
+
+    const totalDist = Math.hypot(hit.x - ball.x, hit.y - ball.y) + Math.hypot(pocket.x - hit.x, pocket.y - hit.y);
+    if (totalDist < bestDist) {
+      bestDist = totalDist;
+      const ghostX = ball.x - Math.cos(angle) * (BALL_RADIUS * 2);
+      const ghostY = ball.y - Math.sin(angle) * (BALL_RADIUS * 2);
+      best = { ghostX, ghostY, pathLength: totalDist, isBank: true };
+    }
+  }
+  return best;
+}
+
 function pointLineDistance(px, py, x1, y1, x2, y2) {
   const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
   const dot = A * C + B * D, lenSq = C * C + D * D;
@@ -3017,17 +3051,34 @@ function botTurn() {
       const pocketAngle = Math.atan2(pocket.y - ball.y, pocket.x - ball.x);
       const ghostX = ball.x - Math.cos(pocketAngle) * (BALL_RADIUS * 2);
       const ghostY = ball.y - Math.sin(pocketAngle) * (BALL_RADIUS * 2);
-      if (ghostX < MARGIN + BALL_RADIUS || ghostX > TABLE_WIDTH - MARGIN - BALL_RADIUS || ghostY < MARGIN + BALL_RADIUS || ghostY > TABLE_HEIGHT - MARGIN - BALL_RADIUS) continue;
-      const path = tracePath(cueBall.x, cueBall.y, ghostX, ghostY, ball.id, 2);
+      let path = null, isBank = false, finalGhostX = ghostX, finalGhostY = ghostY;
+      if (ghostX >= MARGIN + BALL_RADIUS && ghostX <= TABLE_WIDTH - MARGIN - BALL_RADIUS && ghostY >= MARGIN + BALL_RADIUS && ghostY <= TABLE_HEIGHT - MARGIN - BALL_RADIUS) {
+        path = tracePath(cueBall.x, cueBall.y, ghostX, ghostY, ball.id, 2);
+      }
+      if (!path) {
+        // No direct line for this ball to this pocket -- try banking the
+        // object ball itself off a rail into the pocket before giving up
+        // on this ball/pocket combination entirely.
+        const bank = findBankShotToPocket(ball, pocket, ball.id);
+        if (bank && bank.ghostX >= MARGIN + BALL_RADIUS && bank.ghostX <= TABLE_WIDTH - MARGIN - BALL_RADIUS && bank.ghostY >= MARGIN + BALL_RADIUS && bank.ghostY <= TABLE_HEIGHT - MARGIN - BALL_RADIUS) {
+          path = tracePath(cueBall.x, cueBall.y, bank.ghostX, bank.ghostY, ball.id, 2);
+          if (path) { isBank = true; finalGhostX = bank.ghostX; finalGhostY = bank.ghostY; }
+        }
+      }
       if (!path) continue;
       const finalSeg = path[path.length - 1];
       const aimAngle = Math.atan2(finalSeg.y2 - finalSeg.y1, finalSeg.x2 - finalSeg.x1);
       let pathLength = 0;
       for (const seg of path) pathLength += Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1);
       const pocketDist = Math.hypot(pocket.x - ball.x, pocket.y - ball.y);
-      const powerPct = Math.max(config.powerMinPct, Math.min(config.powerMaxPct, estimateShotPowerPct(pathLength, pocketDist)));
+      // Bank shots on the object ball cover roughly double the real
+      // distance (ball to rail, then rail to pocket) but pocketDist above
+      // is still just the straight-line distance, so the power estimate
+      // would undershoot a bank badly without this adjustment.
+      const effectivePocketDist = isBank ? pocketDist * 1.9 : pocketDist;
+      const powerPct = Math.max(config.powerMinPct, Math.min(config.powerMaxPct, estimateShotPowerPct(pathLength, effectivePocketDist)));
       let basePower = pctToPower(powerPct);
-      candidates.push({ ball, pocket, aimAngle, basePower, pathLength, pocketDist, ghostX, ghostY });
+      candidates.push({ ball, pocket, aimAngle, basePower, pathLength, pocketDist, ghostX: finalGhostX, ghostY: finalGhostY, isBank });
     }
   }
 
@@ -3086,6 +3137,7 @@ function botTurn() {
     }
     if (cand.ball.number === 8 && botBallsLeft === 0) score += 3000;
     score -= cand.pathLength * 0.2;
+    if (cand.isBank) score -= 400;
     if (score > bestScore) { bestScore = score; bestShot = { ...cand, spinX, spinY }; }
   }
 
