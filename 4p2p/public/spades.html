@@ -233,6 +233,17 @@
 </div>
 
 <!-- SCORE MODAL -->
+<div class="modal-overlay" id="exitConfirmModal">
+  <div class="modal">
+    <h2>Leave this game?</h2>
+    <div style="text-align:center;font-size:.85rem;color:var(--text);line-height:1.5;margin-bottom:18px">
+      The table will stay open — come back and rejoin later. For now, your seat will be taken over by a bot so the other players can keep playing.
+    </div>
+    <button class="modal-btn" id="exitConfirmYesBtn" style="background:var(--lose);color:#fff">Yes, Leave</button>
+    <button class="modal-btn" id="exitConfirmNoBtn" style="background:transparent;border:1.5px solid var(--border);color:var(--text);margin-top:8px">Cancel</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="scoreModal">
   <div class="modal">
     <h2 id="scoreModalTitle">Hand Complete</h2>
@@ -1040,7 +1051,19 @@ function spadesConnect() {
     document.getElementById('roomCard').style.display = 'block';
   });
   spadesSocket.on('spades_joinError', ({ reason }) => {
-    toast(reason === 'table_full' ? 'That room is full' : 'Room not found', 'lose', 2500);
+    toast(reason === 'table_full' ? 'That room is full' : 'That table no longer exists', 'lose', 3000);
+    // Clear any stale saved session so we don't just try (and fail) the
+    // same reconnect again on the next page load, and fall back to a
+    // screen the player can actually do something with instead of
+    // being stuck wherever the failed reconnect left them.
+    spadesTableId = null;
+    try { localStorage.removeItem('spades_table_id'); } catch(e) {}
+    setSpadesConnStatus(null);
+    showScr('lobbyScreen');
+    document.getElementById('nameCard').style.display = MYNAME && MYNAME !== 'You' ? 'none' : 'block';
+    document.getElementById('hostJoinCard').style.display = MYNAME && MYNAME !== 'You' ? 'block' : 'none';
+    document.getElementById('publicRoomsCard').style.display = MYNAME && MYNAME !== 'You' ? 'block' : 'none';
+    if (MYNAME && MYNAME !== 'You') spadesSocket.emit('spades_listRooms');
   });
   spadesSocket.on('spades_roomList', (rooms) => renderSpadesRoomList(rooms));
   spadesSocket.on('spades_chatMsg', ({ from, msg, isEmote, pos }) => {
@@ -1248,7 +1271,13 @@ document.getElementById('btnStartGame').addEventListener('click', () => {
   spadesSocket.emit('spades_startGame');
 });
 document.getElementById('exitGameBtn').addEventListener('click', () => {
-  if (!confirm('Leave this game? The table will stay open — you can come back and rejoin later, but for now your seat will be taken over by a bot so the other players can keep playing.')) return;
+  document.getElementById('exitConfirmModal').classList.add('on');
+});
+document.getElementById('exitConfirmNoBtn').addEventListener('click', () => {
+  document.getElementById('exitConfirmModal').classList.remove('on');
+});
+document.getElementById('exitConfirmYesBtn').addEventListener('click', () => {
+  document.getElementById('exitConfirmModal').classList.remove('on');
   if (spadesSocket && spadesTableId) spadesSocket.emit('spades_leaveTable');
   spadesTableId = null;
   try { localStorage.removeItem('spades_table_id'); } catch(e) {}
