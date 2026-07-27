@@ -3030,7 +3030,12 @@ setInterval(() => {
 const spadesTables = {};
 const spadesPlayerIndex = {}; // playerId -> { tableId, pos }
 
-function newSpadesTableId() { return crypto.randomBytes(4).toString('hex').toUpperCase(); }
+function newSpadesTableId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/0/1 -- avoids visual confusion
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
 function spadesSocketRoom(id) { return 'spades_' + id; }
 
 function spadesPublicList() {
@@ -3064,6 +3069,7 @@ io.on('connection', (socket) => {
   let spadesPlayerId = null;
 
   socket.on('spades_listRooms', () => socket.emit('spades_roomList', spadesPublicList()));
+  socket.on('spades_ping', () => socket.emit('spades_pong'));
 
   socket.on('spades_createTable', ({ name }, ack) => {
     const id = newSpadesTableId();
@@ -3106,7 +3112,11 @@ io.on('connection', (socket) => {
     // Fresh join: an open seat, a bot's seat, or a disconnected human's
     // abandoned seat are all fair game, same as Pool.
     const t = spadesTables[tableId];
-    if (!t) { socket.emit('spades_joinError', { reason: 'not_found' }); return; }
+    if (!t) {
+      console.log(`[spades-diag] table_not_found for tableId="${tableId}" name="${name}" — currently live spades table IDs: [${Object.keys(spadesTables).join(', ')}]`);
+      socket.emit('spades_joinError', { reason: 'not_found' });
+      return;
+    }
     const openPos = t.engine.seats.findIndex(s => !s || s.isBot || !s.connected);
     if (openPos === -1) { socket.emit('spades_joinError', { reason: 'table_full' }); return; }
     const replaced = t.engine.seats[openPos];
