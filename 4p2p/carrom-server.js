@@ -598,7 +598,7 @@ io.on('connection', (socket) => {
     poolTables[id] = t;
     poolPlayerIndex[playerId] = { tableId: id, pos: 0 };
     poolTableId = id;
-    socket.emit('pool_joined', { tableId: id, playerId, pos: 0 });
+    socket.emit('pool_joined', { tableId: id, playerId, pos: 0, phase: t.phase });
     if (typeof ack === 'function') ack({ tableId: id });
     poolBroadcastList();
   });
@@ -639,7 +639,7 @@ io.on('connection', (socket) => {
         t.sockets.set(socket.id, { playerId: existingPlayerId, pos: idx.pos });
         poolTableId = idx.tableId;
         const otherSeat = t.seats[1 - idx.pos];
-        socket.emit('pool_joined', { tableId: idx.tableId, playerId: existingPlayerId, pos: idx.pos, opponentName: otherSeat ? otherSeat.name : null, opponentIsBot: !!(otherSeat && otherSeat.isBot), opponentBotDifficulty: otherSeat ? otherSeat.botDifficulty : null });
+        socket.emit('pool_joined', { tableId: idx.tableId, playerId: existingPlayerId, pos: idx.pos, opponentName: otherSeat ? otherSeat.name : null, opponentIsBot: !!(otherSeat && otherSeat.isBot), opponentBotDifficulty: otherSeat ? otherSeat.botDifficulty : null, phase: t.phase });
         for (const [sid, info] of t.sockets) {
           if (sid === socket.id) continue;
           const sock = io.sockets.sockets.get(sid);
@@ -668,7 +668,7 @@ io.on('connection', (socket) => {
     poolTableId = tableId;
     t.lastActivityAt = Date.now();
     const otherSeat = t.seats[1 - openPos];
-    socket.emit('pool_joined', { tableId, playerId, pos: openPos, opponentName: otherSeat ? otherSeat.name : null, opponentIsBot: !!(otherSeat && otherSeat.isBot), opponentBotDifficulty: otherSeat ? otherSeat.botDifficulty : null });
+    socket.emit('pool_joined', { tableId, playerId, pos: openPos, opponentName: otherSeat ? otherSeat.name : null, opponentIsBot: !!(otherSeat && otherSeat.isBot), opponentBotDifficulty: otherSeat ? otherSeat.botDifficulty : null, phase: t.phase });
     for (const [sid] of t.sockets) {
       if (sid === socket.id) continue;
       const sock = io.sockets.sockets.get(sid);
@@ -724,6 +724,8 @@ io.on('connection', (socket) => {
   // shot streaming: nobody re-simulates, they just render what's sent.
   socket.on('pool_liveAim', (data) => poolRelay('pool_liveAim', data));
   socket.on('pool_liveShot', (data) => poolRelay('pool_liveShot', data));
+  socket.on('pool_requestBoardSync', () => poolRelay('pool_requestBoardSync', {}));
+  socket.on('pool_boardSync', (data) => poolRelay('pool_boardSync', data));
   socket.on('pool_shotResult', (data) => poolRelay('pool_shotResult', data));
   socket.on('pool_cuePlace', (data) => poolRelay('pool_cuePlace', data));
   socket.on('pool_rematch', () => poolRelay('pool_rematch', {}));

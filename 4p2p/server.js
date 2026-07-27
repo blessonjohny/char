@@ -30,6 +30,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { Server } = require('socket.io');
 const { GameEngine } = require('./game-engine');
+const { SpadesEngine } = require('./spades-engine');
 const brain = require('./bot-brain');
 const geoip = require('geoip-lite');
 
@@ -2925,7 +2926,7 @@ io.on('connection', (socket) => {
 // America/New_York timezone database entry, which correctly handles
 // the EST/EDT daylight-saving switch on its own.
 function dailyCloseAllTables() {
-  const counts = { fourP: Object.keys(tables).length, sixP: Object.keys(sixpTables).length, l56: Object.keys(l56Rooms).length, poker: Object.keys(pokerTables).length };
+  const counts = { fourP: Object.keys(tables).length, sixP: Object.keys(sixpTables).length, l56: Object.keys(l56Rooms).length, poker: Object.keys(pokerTables).length, spades: Object.keys(spadesTables).length };
   for (const k of Object.keys(tables)) delete tables[k];
   for (const k of Object.keys(sixpTables)) delete sixpTables[k];
   for (const k of Object.keys(l56Rooms)) delete l56Rooms[k];
@@ -2934,12 +2935,16 @@ function dailyCloseAllTables() {
   for (const k of Object.keys(carromPlayerIndex)) delete carromPlayerIndex[k];
   for (const k of Object.keys(playerIndex)) delete playerIndex[k];
   for (const k of Object.keys(sixpPlayerIndex)) delete sixpPlayerIndex[k];
+  for (const k of Object.keys(spadesTables)) delete spadesTables[k];
+  for (const k of Object.keys(spadesPlayerIndex)) delete spadesPlayerIndex[k];
   console.log(`[daily-reset] 5am Eastern — closed all tables: ${JSON.stringify(counts)}`);
   io.emit('roomList', publicTableList());
   io.emit('sixp_roomList', sixpPublicTableList());
   io.emit('l56_roomList', l56PublicList());
   io.emit('dailyReset'); // every connected client gets a clear, honest reason instead of a silent kick
   io.emit('carrom_dailyReset');
+  io.emit('spades_roomList', spadesPublicList());
+  io.emit('spades_dailyReset');
 }
 // Reads the current wall-clock date/time as it actually is in Eastern
 // right now, independent of the server's own timezone.
@@ -3015,6 +3020,197 @@ setInterval(() => {
     io.emit('carrom_dailyResetWarning', payload);
   }
 }, 1000);
+
+// ============================================================
+// Spades — table/socket layer. The engine (spades-engine.js) is fully
+// authoritative; this section only ever does table bookkeeping and
+// wires socket events to engine methods, same division of
+// responsibility as the 4-player game's engine/server split.
+// ============================================================
+const spadesTables = {};
+const spadesPlayerIndex = {}; // playerId -> { tableId, pos }
+
+function newSpadesTableId() { return crypto.randomBytes(4).toString('hex').toUpperCase(); }
+function spadesSocketRoom(id) { return 'spades_' + id; }
+
+function spadesPublicList() {
+  return Object.values(spadesTables)
+    .filter(t => t.engine.seats.some(Boolean) && t.engine.phase === 'lobby')
+    .map(t => ({
+      id: t.id,
+      hostName: (t.engine.seats.find(s => s && s.playerId === t.hostPlayerId) || {}).name || '?',
+      openSeats: t.engine.emptySeats().length
+    }));
+}
+function spadesBroadcastList() { io.emit('spades_roomList', spadesPublicList()); }
+
+function spadesBroadcast(t) {
+  for (const [socketId, info] of t.sockets) {
+    const sock = io.sockets.sockets.get(socketId);
+    if (sock) sock.emit('spades_state', t.engine.stateFor(info.pos));
+  }
+  spadesBroadcastList();
+}
+function spadesTouch(t) { t.lastActivityAt = Date.now(); }
+
+function spadesIsEffectiveHost(t, playerId) {
+  if (t.hostPlayerId === playerId) return true;
+  const seat = t.engine.seats.find(s => s && s.playerId === playerId);
+  return !!(seat && !seat.isBot && seat.connected);
+}
+
+io.on('connection', (socket) => {
+  let spadesTableId = null;
+  let spadesPlayerId = null;
+
+  socket.on('spades_listRooms', () => socket.emit('spades_roomList', spadesPublicList()));
+
+  socket.on('spades_createTable', ({ name }, ack) => {
+    const id = newSpadesTableId();
+    const engine = new SpadesEngine(id);
+    spadesPlayerId = crypto.randomBytes(8).toString('hex');
+    engine.seatHuman(0, name || 'Player', spadesPlayerId);
+    const t = { id, engine, hostPlayerId: spadesPlayerId, createdAt: Date.now(), lastActivityAt: Date.now(), sockets: new Map() };
+    engine.onChange = () => { spadesTouch(t); spadesBroadcast(t); };
+    spadesTables[id] = t;
+    spadesTableId = id;
+    spadesPlayerIndex[spadesPlayerId] = { tableId: id, pos: 0 };
+    t.sockets.set(socket.id, { playerId: spadesPlayerId, pos: 0 });
+    socket.join(spadesSocketRoom(id));
+    socket.emit('spades_joined', { tableId: id, playerId: spadesPlayerId, pos: 0 });
+    if (typeof ack === 'function') ack({ tableId: id });
+    spadesBroadcast(t);
+    console.log(`[spades] table ${id} created by ${name}`);
+  });
+
+  socket.on('spades_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
+    // Reconnect via saved token first, same pattern as every other game.
+    if (existingPlayerId && spadesPlayerIndex[existingPlayerId]) {
+      const idx = spadesPlayerIndex[existingPlayerId];
+      const t = spadesTables[idx.tableId];
+      if (t && t.engine.seats[idx.pos] && t.engine.seats[idx.pos].playerId === existingPlayerId) {
+        spadesPlayerId = existingPlayerId;
+        spadesTableId = idx.tableId;
+        t.engine.markConnected(idx.pos, true);
+        if (name) t.engine.seats[idx.pos].name = name;
+        t.sockets.set(socket.id, { playerId: existingPlayerId, pos: idx.pos });
+        socket.join(spadesSocketRoom(idx.tableId));
+        socket.emit('spades_joined', { tableId: idx.tableId, playerId: existingPlayerId, pos: idx.pos });
+        t.engine.maybeAutoAct(); // un-stick the table if it stalled on this seat while away
+        spadesTouch(t);
+        spadesBroadcast(t);
+        console.log(`[spades] ${name} reconnected to table ${idx.tableId} seat ${idx.pos}`);
+        return;
+      }
+    }
+    // Fresh join: an open seat, a bot's seat, or a disconnected human's
+    // abandoned seat are all fair game, same as Pool.
+    const t = spadesTables[tableId];
+    if (!t) { socket.emit('spades_joinError', { reason: 'not_found' }); return; }
+    const openPos = t.engine.seats.findIndex(s => !s || s.isBot || !s.connected);
+    if (openPos === -1) { socket.emit('spades_joinError', { reason: 'table_full' }); return; }
+    const replaced = t.engine.seats[openPos];
+    if (replaced && replaced.playerId) delete spadesPlayerIndex[replaced.playerId];
+    spadesPlayerId = crypto.randomBytes(8).toString('hex');
+    if (replaced && replaced.isBot) t.engine.replaceBot(openPos, spadesPlayerId, name || 'Player');
+    else if (replaced) t.engine.takeOverSeat(openPos, spadesPlayerId, name || 'Player');
+    else t.engine.seatHuman(openPos, name || 'Player', spadesPlayerId);
+    spadesTableId = tableId;
+    spadesPlayerIndex[spadesPlayerId] = { tableId, pos: openPos };
+    t.sockets.set(socket.id, { playerId: spadesPlayerId, pos: openPos });
+    socket.join(spadesSocketRoom(tableId));
+    socket.emit('spades_joined', { tableId, playerId: spadesPlayerId, pos: openPos });
+    spadesTouch(t);
+    spadesBroadcast(t);
+  });
+
+  socket.on('spades_fillBots', () => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info || !spadesIsEffectiveHost(t, info.playerId)) return;
+    const botNames = ['Bot A', 'Bot B', 'Bot C'];
+    let n = 0;
+    for (let i = 0; i < 4; i++) if (!t.engine.seats[i]) t.engine.seatBot(i, botNames[n++] || `Bot ${i}`);
+    spadesTouch(t);
+    spadesBroadcast(t);
+  });
+
+  socket.on('spades_startGame', () => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info || !spadesIsEffectiveHost(t, info.playerId)) return;
+    if (!t.engine.canStart()) return;
+    t.engine.startRound();
+    spadesTouch(t);
+    spadesBroadcast(t);
+  });
+
+  socket.on('spades_placeBid', ({ bid }) => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info) return;
+    t.engine.placeBid(info.pos, bid);
+  });
+
+  socket.on('spades_playCard', ({ card }) => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info) return;
+    t.engine.playCard(info.pos, card);
+  });
+
+  socket.on('spades_nextHand', () => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info || !spadesIsEffectiveHost(t, info.playerId)) return;
+    t.engine.nextHand();
+  });
+
+  socket.on('spades_chat', ({ msg, isEmote }) => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info) return;
+    const seat = t.engine.seats[info.pos];
+    if (!seat) return;
+    io.to(spadesSocketRoom(spadesTableId)).except(socket.id).emit('spades_chatMsg', { from: seat.name, msg: String(msg || '').slice(0, 300), isEmote: !!isEmote, pos: info.pos });
+  });
+
+  socket.on('spades_leaveTable', () => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    t.sockets.delete(socket.id);
+    if (info) {
+      delete spadesPlayerIndex[info.playerId];
+      if (t.engine.phase === 'lobby') t.engine.removeSeat(info.pos);
+      else t.engine.convertToBot(info.pos); // mid-game: keep the table running rather than leaving a hole
+    }
+    if (!t.engine.seats.some(Boolean)) delete spadesTables[spadesTableId];
+    else { spadesTouch(t); spadesBroadcast(t); t.engine.maybeAutoAct(); }
+    spadesTableId = null;
+  });
+
+  socket.on('disconnect', () => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    t.sockets.delete(socket.id);
+    if (info && t.engine.seats[info.pos] && t.engine.seats[info.pos].playerId === info.playerId) {
+      const alreadyReclaimed = [...t.sockets.values()].some(v => v.pos === info.pos);
+      if (!alreadyReclaimed) {
+        t.engine.markConnected(info.pos, false);
+        t.engine.maybeAutoAct(); // don't let the table stall on a seat that just went quiet
+      }
+    }
+    spadesBroadcast(t);
+  });
+});
 
 server.listen(PORT, () => {
   console.log(`28 Kerala Gulan authoritative server running on port ${PORT}`);
