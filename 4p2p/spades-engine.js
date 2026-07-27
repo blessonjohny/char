@@ -101,7 +101,10 @@ class SpadesEngine {
     const deck = shuffle(freshDeck());
     const hands = [[], [], [], []];
     for (let i = 0; i < 52; i++) hands[(this.dealer + 1 + i) % 4].push(deck[i]);
-    for (const h of hands) h.sort((a, b) => (a.suit !== b.suit ? a.suit - b.suit : b.rank - a.rank));
+    // Display order left-to-right: hearts, clubs, diamonds, spades (suit
+    // indices are 0=spades, 1=hearts, 2=diamonds, 3=clubs).
+    const suitDisplayOrder = { 1: 0, 3: 1, 2: 2, 0: 3 };
+    for (const h of hands) h.sort((a, b) => (a.suit !== b.suit ? suitDisplayOrder[a.suit] - suitDisplayOrder[b.suit] : b.rank - a.rank));
     for (let i = 0; i < 4; i++) if (this.seats[i]) this.seats[i].hand = hands[i];
     this.phase = 'bidding';
     this.bids = [null, null, null, null];
