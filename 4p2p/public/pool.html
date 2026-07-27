@@ -490,6 +490,11 @@ function lockLandscapeOrientation() {
     screen.orientation.lock('landscape').catch(()=>{});
   }
 }
+function requestPoolFullscreen() {
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if (req) { try { req.call(el).catch(() => {}); } catch(e) {} }
+}
 function exitFullscreen() {
   if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
   else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
@@ -871,6 +876,7 @@ function joinRoom() {
   const code = document.getElementById('joinCode').value.trim().toUpperCase();
   if (code.length !== 4) { alert('Please enter a valid 4-digit room code'); return; }
   isHost = false;
+  requestPoolFullscreen();
   // Same fix as createRoom -- an explicit, fresh join to a SPECIFIC
   // room code must never be raced or overridden by a stale auto-rejoin
   // attempt left over from a previous session.
@@ -882,10 +888,11 @@ function joinRoom() {
 }
 function hostStartGame() {
   if (!poolSocket || opponentName === 'Opponent') { alert('No opponent connected yet!'); return; }
+  requestPoolFullscreen();
   poolSocket.emit('pool_start', { opponentName: myName });
   startGame(true);
 }
-function fallbackToLocal() { gameMode = 'bot'; opponentName = 'Bot'; startGame(true); }
+function fallbackToLocal() { requestPoolFullscreen(); gameMode = 'bot'; opponentName = 'Bot'; startGame(true); }
 function reconnect() { closeOverlay('disconnectOverlay'); if (poolSocket) poolSocket.connect(); }
 
 // ==================== GAME PHYSICS ====================

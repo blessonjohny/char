@@ -1011,7 +1011,7 @@ function spadesConnect() {
       }, 5000);
     }, 5000);
   }
-  spadesSocket.on('pong_unused', () => {});
+  spadesSocket.on('spades_pong', () => { spadesLastAliveAt = Date.now(); });
   spadesSocket.on('connect', () => {
     spadesLastAliveAt = Date.now();
     if (spadesWasDisconnected) setSpadesConnStatus('Reconnecting…');
