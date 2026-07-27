@@ -37,7 +37,7 @@
 </style>
 </head>
 <body>
-<a id="homeBtn" href="../index.html" title="Home">🏠</a>
+<a id="homeBtn" href="../index.html" title="Home" onclick="return spadesHandleHomeClick(event)">🏠</a>
 
 <!-- WELCOME -->
 <div class="screen on" id="welcomeScreen">
@@ -1270,7 +1270,16 @@ document.getElementById('btnStartGame').addEventListener('click', () => {
   if (!spadesIsHost) { toast('Only the host can start the game', 'lose', 1500); return; }
   spadesSocket.emit('spades_startGame');
 });
+let spadesExitDestination = 'reload';
+function spadesHandleHomeClick(event) {
+  if (!spadesTableId) return true; // no active table -- nothing to warn about, let the link navigate normally
+  event.preventDefault();
+  spadesExitDestination = 'home';
+  document.getElementById('exitConfirmModal').classList.add('on');
+  return false;
+}
 document.getElementById('exitGameBtn').addEventListener('click', () => {
+  spadesExitDestination = 'reload';
   document.getElementById('exitConfirmModal').classList.add('on');
 });
 document.getElementById('exitConfirmNoBtn').addEventListener('click', () => {
@@ -1282,7 +1291,8 @@ document.getElementById('exitConfirmYesBtn').addEventListener('click', () => {
   spadesTableId = null;
   try { localStorage.removeItem('spades_table_id'); } catch(e) {}
   if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
-  location.reload();
+  if (spadesExitDestination === 'home') window.location.href = '../index.html';
+  else location.reload();
 });
 document.getElementById('btnLeave').addEventListener('click', () => {
   if (spadesSocket && spadesTableId) spadesSocket.emit('spades_leaveTable');
