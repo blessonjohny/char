@@ -654,6 +654,18 @@ app.get('/api/live-players', (req, res) => {
   res.json({ ok: true, players: getAllLivePlayers() });
 });
 
+// admin.html's "Visitor Log" tab fetches this directly -- it was
+// missing entirely, only the socket-based adminGetVisitorLog event
+// (used by the OTHER admin panel embedded in index.html) existed. Same
+// underlying data, same visitorLogFilteredAndSummary helper, just
+// exposed as a REST endpoint too since that's what this page actually
+// calls.
+app.get('/api/visitor-log', (req, res) => {
+  if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  const { entries, summary } = visitorLogFilteredAndSummary(req.query.filter || 'all');
+  res.json({ ok: true, entries, summary });
+});
+
 // Admin: force-close ANY table in ANY of the four games, no matter what
 // state it's in — active game, human present, doesn't matter. This is
 // the explicit override the regular auto-close removal above doesn't
