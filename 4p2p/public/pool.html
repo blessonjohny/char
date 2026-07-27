@@ -806,6 +806,8 @@ function updateHostLobby() {
   list.innerHTML = '<div class="lobby-player-row host"><div class="lobby-player-avatar" style="background:linear-gradient(135deg,var(--gold),var(--accent))">H</div><div class="lobby-player-name">' + myName + ' (Host)</div><div class="lobby-player-status">Ready</div></div>' + (opponentName !== 'Opponent' ? '<div class="lobby-player-row"><div class="lobby-player-avatar">G</div><div class="lobby-player-name">' + opponentName + '</div><div class="lobby-player-status">Ready</div></div>' : '');
 }
 function poolGoToJoinScreen() {
+  const alreadyTypedName = document.getElementById('hostName').value.trim();
+  if (alreadyTypedName && alreadyTypedName !== 'Player 1') document.getElementById('joinName').value = alreadyTypedName;
   showScreen('joinScreen');
   poolConnect();
   // Give the connection a moment to actually establish before asking
