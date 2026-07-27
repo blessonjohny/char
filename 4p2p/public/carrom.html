@@ -1882,6 +1882,13 @@
     },
     get seats() { return seats.map(s => ({side:s.side, kind:s.kind, name:s.name})); },
     get coinsSample() { return coins.slice(0,3).map(c => ({x: Math.round(c.x), y: Math.round(c.y)})); },
+    testMoveCoinAndSaveState(index, dx, dy) {
+      if (!coins[index]) return;
+      coins[index].x += dx; coins[index].y += dy;
+      if (mode === 'online' && carromSocket && carromMyTableId) {
+        carromSocket.emit('carrom_shotResult', { boardState: carromCaptureState(carromMyPos) });
+      }
+    },
     get displayRotation() { return displayRotationDeg(); },
     get canvasTransform() { return canvas.style.transform; },
     testForceAim(dx, dy) {

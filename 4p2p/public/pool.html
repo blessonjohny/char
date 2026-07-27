@@ -601,6 +601,29 @@ function poolConnect() {
       poolWasDisconnected = false;
       setConnectionStatus('connected', 'Reconnected!');
     }
+    if (info.phase === 'playing' && document.getElementById('gameScreen').classList.contains('active') === false) {
+      // Reconnected into a game already in progress (most commonly: the
+      // page was refreshed mid-match). Pool never persists exact ball
+      // positions anywhere but the shooter's own browser memory, so a
+      // real human opponent is the only other place that data could
+      // possibly still exist -- ask them to resend it rather than
+      // silently restarting the match, which would look exactly like
+      // the game had reset even though nothing was actually lost. A
+      // bot opponent has no such memory of its own to fall back on
+      // (its "brain" only ever existed in this same browser too), so
+      // there's genuinely nothing to recover there and restarting is
+      // the only honest option.
+      opponentName = info.opponentIsBot ? (BOT_CONFIG[info.opponentBotDifficulty || 'easy'].name) : (info.opponentName || 'Opponent');
+      opponentIsBot = !!info.opponentIsBot;
+      opponentBotDifficulty = info.opponentBotDifficulty || 'easy';
+      if (opponentIsBot) {
+        startGame(isHost);
+        setConnectionStatus('connected', 'Reconnected — bot match restarted (no way to recover the exact table state after a refresh).');
+      } else {
+        poolResumeGameAwaitingSync();
+      }
+      return;
+    }
     if (info.opponentName || info.opponentIsBot) {
       opponentName = info.opponentIsBot ? (BOT_CONFIG[info.opponentBotDifficulty || 'easy'].name) : info.opponentName;
       opponentIsBot = !!info.opponentIsBot;
@@ -707,6 +730,44 @@ function poolConnect() {
     startTurn();
   });
   poolSocket.on('pool_cuePlace', (data) => { const cb = balls[0]; cb.pocketed = false; cb.x = data.x; cb.y = data.y; cb.vx = 0; cb.vy = 0; });
+  poolSocket.on('pool_requestBoardSync', () => {
+    // My opponent just reconnected and has no idea what the table
+    // currently looks like -- I'm the only remaining source of truth
+    // for it, so send my own real, current state directly.
+    if (!balls || !balls.length || gameState.phase !== 'playing') return;
+    const myTurnPos = gameState.myTurn ? poolMyPos : (1 - poolMyPos);
+    const seat0Group = poolMyPos === 0 ? gameState.myGroup : gameState.opponentGroup;
+    const seat1Group = poolMyPos === 0 ? gameState.opponentGroup : gameState.myGroup;
+    poolSocket.emit('pool_boardSync', {
+      balls: balls.map(b => ({ x: b.x, y: b.y, pocketed: b.pocketed })),
+      turnPos: myTurnPos,
+      groupAssigned: gameState.groupAssigned,
+      seat0Group, seat1Group,
+      myScore: gameState.opponentScore, opponentScore: gameState.myScore, // swapped: my score is their opponent's score
+      matchMe: matchTally.opp, matchOpp: matchTally.me // swapped the same way
+    });
+  });
+  poolSocket.on('pool_boardSync', (data) => {
+    if (!data.balls) return;
+    for (let i = 0; i < balls.length && i < data.balls.length; i++) {
+      const src = data.balls[i];
+      balls[i].x = src.x; balls[i].y = src.y; balls[i].vx = 0; balls[i].vy = 0;
+      balls[i].pocketed = src.pocketed;
+    }
+    if (typeof data.turnPos === 'number') gameState.myTurn = (data.turnPos === poolMyPos);
+    if (typeof data.groupAssigned === 'boolean') gameState.groupAssigned = data.groupAssigned;
+    if (data.seat0Group !== undefined) {
+      gameState.myGroup = poolMyPos === 0 ? data.seat0Group : data.seat1Group;
+      gameState.opponentGroup = poolMyPos === 0 ? data.seat1Group : data.seat0Group;
+    }
+    if (typeof data.myScore === 'number') gameState.myScore = data.myScore;
+    if (typeof data.opponentScore === 'number') gameState.opponentScore = data.opponentScore;
+    if (typeof data.matchMe === 'number') matchTally.me = data.matchMe;
+    if (typeof data.matchOpp === 'number') matchTally.opp = data.matchOpp;
+    closeOverlay('waitingOverlay');
+    startTurn();
+    updateUI();
+  });
   poolSocket.on('pool_rematch', () => { initGame(); gameState.myTurn = !isHost; startTurn(); });
 }
 
@@ -943,6 +1004,23 @@ function initGame() {
   };
   updateUI();
 }
+function poolResumeGameAwaitingSync() {
+  showScreen('gameScreen');
+  checkOrientation();
+  lockLandscapeOrientation();
+  initCanvas();
+  initGame(); // needed for the data structures to exist at all, but immediately hidden and overwritten below -- the player never actually sees this placeholder state
+  document.getElementById('p1Name').textContent = myName;
+  document.getElementById('p2Name').textContent = opponentName;
+  document.getElementById('p1Avatar').textContent = myName.substring(0, 2).toUpperCase();
+  document.getElementById('p2Avatar').textContent = opponentName.substring(0, 2).toUpperCase();
+  document.getElementById('waitingText').textContent = 'Reconnecting to your match — syncing table with your opponent...';
+  showOverlay('waitingOverlay');
+  lastTime = performance.now();
+  gameLoop();
+  poolSocket.emit('pool_requestBoardSync');
+}
+
 function startGame(host) {
   showScreen('gameScreen');
   checkOrientation();
@@ -3228,6 +3306,20 @@ function gameLoop() {
 }
 
 // ==================== INIT ====================
+(function poolAttemptAutoReconnect(){
+  let savedTable = null;
+  try { savedTable = localStorage.getItem('pool_table_id'); } catch(e) {}
+  if (!savedTable || !poolMyPlayerId) return;
+  // Show the host screen in a "reconnecting" state rather than the
+  // default menu -- matches Carrom's exact same fix for the exact same
+  // problem: without this, a refresh with valid saved credentials still
+  // silently sat at the menu forever, since nothing ever automatically
+  // attempted to use them.
+  showScreen('hostScreen');
+  setConnectionStatus('connecting', 'Reconnecting to your table...');
+  poolConnect();
+})();
+
 window.onload = function() {
   setupSpinControl();
   initPowerLever();
