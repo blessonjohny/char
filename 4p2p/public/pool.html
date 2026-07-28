@@ -193,7 +193,7 @@
   <button class="btn btn-blue" onclick="showScreen('howToScreen')">How to Play</button>
   <div class="how-to-play">
     <h3>Quick Tips</h3>
-    <p><b>Controls:</b> <span style="color:var(--gold)">Touch the TABLE</span> to aim from the guide-line side. <span style="color:var(--gold)">Touch near the STICK/CUE BALL</span> to aim from the butt side. Release to lock aim. Then <span style="color:var(--gold)">pull back</span> for POWER. Release to shoot! Hold finger still for 1 second to reset.</p>
+    <p><b>Controls:</b> <span style="color:var(--gold)">Touch the TABLE</span> to aim from the guide-line side. <span style="color:var(--gold)">Touch anywhere on the STICK</span> to aim from the butt side. Release to lock aim. Then <span style="color:var(--gold)">pull back</span> for POWER. Release to shoot! Hold finger still for 1 second to reset.</p>
   </div>
 </div>
 
@@ -256,7 +256,7 @@
   </div>
   <div class="how-to-play" style="width:min(340px,92vw);margin-bottom:10px">
     <h3>Controls</h3>
-    <p><b>Phase 1 - AIM:</b> <span style="color:var(--gold)">Touch the TABLE</span> to aim from the guide-line side (stick tip points to your finger). <span style="color:var(--gold)">Touch near the CUE BALL/STICK</span> to aim from the butt side (stick follows your finger from behind). Move your finger to fine-tune. <span style="color:var(--gold)">Release to lock aim.</span><br><br>
+    <p><b>Phase 1 - AIM:</b> <span style="color:var(--gold)">Touch the TABLE</span> to aim from the guide-line side (stick tip points to your finger). <span style="color:var(--gold)">Touch anywhere on the STICK</span> to aim from the butt side (stick follows your finger from behind). Move your finger to fine-tune. <span style="color:var(--gold)">Release to lock aim.</span><br><br>
     <b>Phase 2 - POWER:</b> <span style="color:var(--gold)">Touch anywhere</span> and pull back. The further you pull, the harder you hit. <span style="color:var(--gold)">Release to shoot!</span><br><br>
     <b>Reset:</b> Hold your finger still for <span style="color:var(--gold)">1 second</span> to reset aim.<br>
     <b>Spin:</b> Tap the Spin button, then drag the cue ball icon for english (top, back, sides).<br>
@@ -1195,7 +1195,16 @@ let longPressActive = false;
 const LONG_PRESS_DURATION = 1000;
 const LONG_PRESS_THRESHOLD = 12;
 const POWER_TOUCH_RADIUS = 100;
-const AIM_BUTT_RADIUS = 130;
+const STICK_TOUCH_WIDTH = 30; // how close (in table units) a touch needs to be to the stick's actual line to count as touching it
+function isTouchOnStick(pos, cueBall) {
+  const angle = gameState.aimAngle;
+  const tipDist = BALL_RADIUS + 2;
+  const tipX = cueBall.x - Math.cos(angle) * tipDist;
+  const tipY = cueBall.y - Math.sin(angle) * tipDist;
+  const buttX = tipX - Math.cos(angle) * 240;
+  const buttY = tipY - Math.sin(angle) * 240;
+  return pointLineDistance(pos.x, pos.y, tipX, tipY, buttX, buttY) < STICK_TOUCH_WIDTH;
+}
 const HEAD_STRING_X = 225; // kitchen boundary - matches the break-line drawn on the table
 
 function startLongPress(pos) {
@@ -1269,8 +1278,7 @@ function handleTouchStart(e) {
   if (gameState.aimPhase && !gameState.aimLocked) {
     isAiming = true; aimTouchId = e.touches[0].identifier;
     gameState.aiming = true; gameState.power = 0;
-    const distToCueStart = Math.hypot(pos.x - cueBall.x, pos.y - cueBall.y);
-    gameState.aimFromButt = distToCueStart < AIM_BUTT_RADIUS;
+    gameState.aimFromButt = isTouchOnStick(pos, cueBall);
     gameState.lastAimAngle = undefined;
     updatePowerUI(); startLongPress(pos); updateAimFromTouch(pos);
   } else if (gameState.aimLocked && !gameState.powerPhase) {
@@ -1295,8 +1303,7 @@ function handleMouseDown(e) {
   }
   if (gameState.aimPhase && !gameState.aimLocked) {
     isAiming = true; gameState.aiming = true; gameState.power = 0;
-    const distToCueStart = Math.hypot(pos.x - cueBall.x, pos.y - cueBall.y);
-    gameState.aimFromButt = distToCueStart < AIM_BUTT_RADIUS;
+    gameState.aimFromButt = isTouchOnStick(pos, cueBall);
     gameState.lastAimAngle = undefined;
     updatePowerUI(); startLongPress(pos); updateAimFromTouch(pos);
   } else if (gameState.aimLocked && !gameState.powerPhase) {
@@ -2432,7 +2439,20 @@ function renderAimGuidance(cueBall) {
       for (let i = 1; i < preEnd; i++) {
         ctx.lineTo(cuePath[i].x, cuePath[i].y);
       }
-      if (targetBall) ctx.lineTo(targetBall.x, targetBall.y);
+      if (targetBall && collisionFrame < cuePath.length) {
+        const impactPos = cuePath[collisionFrame];
+        // The actual point where the two ball surfaces touch. The
+        // simulation's frame sampling can overshoot the exact collision
+        // moment, so rather than trust cuePath[collisionFrame]'s precise
+        // distance, use its direction toward the target (still
+        // reliable) and place the contact point at exactly one radius
+        // from the target ball's own center along that direction.
+        const dx = targetBall.x - impactPos.x, dy = targetBall.y - impactPos.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const contactX = targetBall.x - (dx / dist) * BALL_RADIUS;
+        const contactY = targetBall.y - (dy / dist) * BALL_RADIUS;
+        ctx.lineTo(contactX, contactY);
+      }
       ctx.strokeStyle = 'rgba(255,255,255,0.9)';
       ctx.lineWidth = 2.4;
       ctx.setLineDash([10, 5]);
