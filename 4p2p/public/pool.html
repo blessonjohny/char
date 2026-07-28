@@ -1549,6 +1549,15 @@ function isNearPocketOpening(ball, wall) {
 let poolLastLiveShotEmitAt = 0;
 function updatePhysics() {
   if (poolReceivingLiveShot) return; // opponent's shot -- pool_liveShot already set positions directly, nothing to simulate locally
+  // Capture each ball's position from the end of the previous frame,
+  // before this frame's movement is applied - purely for the renderer's
+  // motion-blur trail on fast shots, doesn't affect the simulation at all.
+  for (const ball of balls) {
+    if (ball.pocketed) continue;
+    if (!ball.posHistory) ball.posHistory = [];
+    ball.posHistory.push({ x: ball.x, y: ball.y });
+    if (ball.posHistory.length > 5) ball.posHistory.shift();
+  }
   // At high speed a ball can travel further in one frame than its own diameter, which lets it
   // skip clean past another ball between two frames without the overlap check ever catching it
   // (tunneling). Substep so no single step ever moves a ball more than ~0.9x its radius.
@@ -2482,6 +2491,25 @@ function renderAimGuidance(cueBall) {
 }
 
 // ==================== AMERICAN 8-BALL POOL TABLE RENDERING ====================
+function drawMotionTrail(ball) {
+  if (!ball.posHistory || ball.posHistory.length < 2) return;
+  const speed = Math.hypot(ball.vx, ball.vy);
+  if (speed < 6) return; // only kicks in for genuinely fast motion, not normal rolling
+  const color = ball.number === 0 ? '#f2f2f2' : (ball.color || '#ccc');
+  const hist = ball.posHistory;
+  for (let i = 0; i < hist.length; i++) {
+    const age = hist.length - i; // 1 = most recent history entry, older = larger
+    const t = age / (hist.length + 1);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 0.22 - t * 0.22) * Math.min(1, speed / 18);
+    ctx.beginPath();
+    ctx.arc(hist[i].x, hist[i].y, ball.r * (1 - t * 0.3), 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
 function render() {
   ctx.clearRect(0, 0, TABLE_WIDTH, TABLE_HEIGHT);
 
@@ -2735,6 +2763,7 @@ function render() {
       }
       continue;
     }
+    drawMotionTrail(ball);
     drawAmericanBall(ball);
   }
 
@@ -2753,6 +2782,7 @@ function render() {
 
   // === CUE BALL ON TOP ===
   if (cueBall && !cueBall.pocketed) {
+    drawMotionTrail(cueBall);
     drawAmericanBall(cueBall);
     if (gameState.placingCueBall && gameState.myTurn) {
       const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 200);
