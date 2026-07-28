@@ -672,7 +672,6 @@ function avatarCenter(gamePos) {
   const r = av.getBoundingClientRect();
   return { x: r.left + r.width/2, y: r.top + r.height/2 };
 }
-let trkFlyAwayInProgress = false;
 function animateTrickToWinner(winnerPos) {
   trkFlyAwayInProgress = true;
   const dest = avatarCenter(winnerPos);
@@ -692,7 +691,6 @@ function animateTrickToWinner(winnerPos) {
     });
     setTimeout(() => clone.remove(), 560 + i * 20);
   });
-  setTimeout(() => { trkFlyAwayInProgress = false; }, 560);
 }
 document.getElementById('nextRoundBtn').addEventListener('click', () => {
   document.getElementById('scoreModal').classList.remove('on');
@@ -1126,6 +1124,7 @@ function spadesJoinFromList(tableId) {
 
 let trkCardsHoldTimer = null;
 let trkCardsReal = []; // always the true, current server trick state - never held, unlike trkCards which is used for display
+let trkFlyAwayInProgress = false;
 let trkCardsPending = null;
 function applySpadesState(state) {
   const prev = spadesPrevState;
@@ -1154,6 +1153,7 @@ function applySpadesState(state) {
       setTimeout(() => {
         trkCards = trkCardsPending;
         trkCardsHoldTimer = null;
+        trkFlyAwayInProgress = false;
         renderTrick();
       }, 550);
     }, 1700);

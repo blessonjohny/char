@@ -906,7 +906,7 @@ const POCKET_RADIUS = 26;
 const FRICTION = 0.99;      // Realistic cloth roll-off - lets a hard-hit cue ball carry speed across the whole table
 const WALL_BOUNCE = 0.86;   // Realistic cushion restitution - rails absorb some energy but don't kill the shot
 const BALL_BOUNCE = 0.95;   // Near-elastic ball-to-ball transfer, like real phenolic resin balls
-const MAX_POWER = 38;       // A full 100% pull = a firm, watchable break - fast enough to feel powerful, slow enough to actually see the ball reach the pocket instead of it flashing by
+const MAX_POWER = 32;       // A full 100% pull travels roughly 5 rail-lengths before friction stops it
 const STOP_THRESHOLD = 0.12; // Snap to rest once a ball is essentially crawling, instead of an endless imperceptible creep
 
 // Authentic American pool ball colors (phenolic resin standard)
@@ -2953,12 +2953,12 @@ const BOT_CONFIG = {
 function pctToPower(pct) { return (pct / 100) * MAX_POWER; }
 
 // Estimates how much power (as a %) a shot needs. Calibrated directly against the real
-// physics: at FRICTION=0.99 and MAX_POWER=38, each 1% of power carries a ball roughly 37.7
+// physics: at FRICTION=0.99 and MAX_POWER=32, each 1% of power carries a ball roughly 31.7
 // units before friction stops it - so this targets about 3x the raw distance (cue-ball travel
 // plus pocket carry), enough pace to confidently drop the ball without blasting every shot.
 function estimateShotPowerPct(pathLength, pocketDist) {
   const totalDist = pathLength + pocketDist * 0.6;
-  return totalDist * 0.0849;
+  return totalDist * 0.1008;
 }
 
 function simulateBotShot(cueBallX, cueBallY, angle, power, spinX, spinY) {
