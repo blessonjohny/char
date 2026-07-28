@@ -272,6 +272,7 @@
   <div class="game-hud">
     <div class="top-bar">
       <button class="zoom-btn" onclick="handlePoolExit()" title="Exit" style="font-size:14px">✕</button>
+      <button class="zoom-btn" id="poolMuteBtn" onclick="poolToggleMute()" title="Mute sounds" style="font-size:14px">🔊</button>
       <div class="player-info" id="p1Info">
         <div class="player-avatar" id="p1Avatar">P1</div>
         <div>
@@ -393,6 +394,13 @@
   </div>
 </div>
 
+<div id="poolFullscreenResumeOverlay" class="overlay" style="z-index:9998;cursor:pointer" onclick="poolResumeFullscreenTap()">
+  <div class="overlay-box">
+    <div class="overlay-title">Tap to Resume</div>
+    <div class="overlay-text">Tap anywhere to return to full screen</div>
+  </div>
+</div>
+
 <div id="disconnectOverlay" class="overlay">
   <div class="overlay-box">
     <div class="overlay-title" style="color:var(--danger)">Disconnected</div>
@@ -494,6 +502,10 @@ function requestPoolFullscreen() {
   const el = document.documentElement;
   const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
   if (req) { try { req.call(el).catch(() => {}); } catch(e) {} }
+}
+function poolResumeFullscreenTap() {
+  requestPoolFullscreen();
+  closeOverlay('poolFullscreenResumeOverlay');
 }
 function exitFullscreen() {
   if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
@@ -907,6 +919,108 @@ const FRICTION = 0.99;      // Realistic cloth roll-off - lets a hard-hit cue ba
 const WALL_BOUNCE = 0.86;   // Realistic cushion restitution - rails absorb some energy but don't kill the shot
 const BALL_BOUNCE = 0.95;   // Near-elastic ball-to-ball transfer, like real phenolic resin balls
 const MAX_POWER = 32;       // A full 100% pull travels roughly 5 rail-lengths before friction stops it
+
+// ==================== SOUND SYSTEM ====================
+// Synthesized SFX via Web Audio API -- no external audio files needed,
+// so there's nothing to fail to load. Muting is persisted so it stays
+// off (or on) across visits.
+let poolAudioCtx = null;
+let poolSoundMuted = false;
+try { poolSoundMuted = localStorage.getItem('pool_sound_muted') === '1'; } catch(e) {}
+
+function poolGetAudioCtx() {
+  if (!poolAudioCtx) {
+    try { poolAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return null; }
+  }
+  if (poolAudioCtx.state === 'suspended') poolAudioCtx.resume().catch(()=>{});
+  return poolAudioCtx;
+}
+
+function poolToggleMute() {
+  poolSoundMuted = !poolSoundMuted;
+  try { localStorage.setItem('pool_sound_muted', poolSoundMuted ? '1' : '0'); } catch(e) {}
+  const btn = document.getElementById('poolMuteBtn');
+  if (btn) btn.textContent = poolSoundMuted ? '🔇' : '🔊';
+}
+
+// A short, percussive "click" - used for both the cue strike and
+// ball-to-ball collisions, with intensity controlling pitch/volume so a
+// soft tap sounds different from a hard break shot.
+function poolPlayClack(intensity) {
+  if (poolSoundMuted) return;
+  const ctx = poolGetAudioCtx();
+  if (!ctx) return;
+  const vol = Math.min(0.5, 0.08 + intensity * 0.35);
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(900 + intensity * 500, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.06);
+  gain.gain.setValueAtTime(vol, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 0.1);
+}
+
+function poolPlayClackForBall(ball, intensity) {
+  const now = performance.now();
+  if (ball.lastClackSoundAt && now - ball.lastClackSoundAt < 60) return;
+  ball.lastClackSoundAt = now;
+  poolPlayClack(intensity);
+}
+
+// A soft, low "thud" for a ball bouncing off a rail cushion.
+function poolPlayRailThud(intensity) {
+  if (poolSoundMuted) return;
+  const ctx = poolGetAudioCtx();
+  if (!ctx) return;
+  const vol = Math.min(0.25, 0.04 + intensity * 0.15);
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(120, ctx.currentTime);
+  gain.gain.setValueAtTime(vol, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 0.09);
+}
+// Throttled wrapper - the physics loop runs several substeps per
+// rendered frame, so without this a single real bounce could trigger
+// a rapid burst of overlapping sounds instead of one clean thud.
+function poolPlayRailThudForBall(ball, intensity) {
+  const now = performance.now();
+  if (ball.lastRailSoundAt && now - ball.lastRailSoundAt < 80) return;
+  ball.lastRailSoundAt = now;
+  poolPlayRailThud(intensity);
+}
+
+// A satisfying "plop" with a bit of white-noise texture for a ball
+// dropping into a pocket.
+function poolPlayPocketSound() {
+  if (poolSoundMuted) return;
+  const ctx = poolGetAudioCtx();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(500, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.22);
+  gain.gain.setValueAtTime(0.35, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.24);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 0.25);
+
+  const bufferSize = ctx.sampleRate * 0.12;
+  const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer;
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(0.12, ctx.currentTime);
+  noise.connect(noiseGain); noiseGain.connect(ctx.destination);
+  noise.start();
+}
 const STOP_THRESHOLD = 0.12; // Snap to rest once a ball is essentially crawling, instead of an endless imperceptible creep
 
 // Authentic American pool ball colors (phenolic resin standard)
@@ -1322,6 +1436,7 @@ function shoot(power) {
   cueBall.vy = Math.sin(angle) * power;
   cueBall.spinX = gameState.spin.x;
   cueBall.spinY = gameState.spin.y;
+  poolPlayClack(Math.min(1, power / MAX_POWER));
   gameState.aiming = false; gameState.power = 0;
   gameState.ballsMoving = true; gameState.justPocketed = [];
   gameState.aimPhase = true; gameState.aimLocked = false; gameState.powerPhase = false;
@@ -1555,6 +1670,10 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
       const dx = ball.x - pocket.x, dy = ball.y - pocket.y;
       if (Math.sqrt(dx * dx + dy * dy) < POCKET_RADIUS - 2) {
         ball.pocketed = true; ball.vx = 0; ball.vy = 0; ball.spinX = 0; ball.spinY = 0;
+        ball.pocketAnimStart = performance.now();
+        ball.pocketAnimFromX = ball.x; ball.pocketAnimFromY = ball.y;
+        ball.pocketAnimToX = pocket.x; ball.pocketAnimToY = pocket.y;
+        poolPlayPocketSound();
         handlePocket(ball);
         pocketedThisFrame = true;
         break;
@@ -1566,6 +1685,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
       if (!isNearPocketOpening(ball, 'left')) {
         ball.x = MARGIN + ball.r;
         ball.vx = Math.abs(ball.vx) * WALL_BOUNCE;
+        poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vx *= carry;
@@ -1580,6 +1700,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
       if (!isNearPocketOpening(ball, 'right')) {
         ball.x = TABLE_WIDTH - MARGIN - ball.r;
         ball.vx = -Math.abs(ball.vx) * WALL_BOUNCE;
+        poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vx *= carry;
@@ -1594,6 +1715,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
       if (!isNearPocketOpening(ball, 'top')) {
         ball.y = MARGIN + ball.r;
         ball.vy = Math.abs(ball.vy) * WALL_BOUNCE;
+        poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vy *= carry;
@@ -1608,6 +1730,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
       if (!isNearPocketOpening(ball, 'bottom')) {
         ball.y = TABLE_HEIGHT - MARGIN - ball.r;
         ball.vy = -Math.abs(ball.vy) * WALL_BOUNCE;
+        poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vy *= carry;
@@ -1645,6 +1768,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
 
         b1.vx -= impulseX; b1.vy -= impulseY;
         b2.vx += impulseX; b2.vy += impulseY;
+        poolPlayClackForBall(b1, Math.min(1, Math.abs(velAlongNormal) / MAX_POWER));
 
         if (b1.number === 0 && (Math.abs(b1.spinX) > 0.01 || Math.abs(b1.spinY) > 0.01)) {
           const powerFactor = Math.min(1, preCollisionSpeed / SPIN_SATURATION_SPEED);
@@ -2591,7 +2715,26 @@ function render() {
 
   // === DRAW ALL OBJECT BALLS (behind cue ball, on top of pockets) ===
   for (const ball of balls) {
-    if (ball.pocketed || ball.number === 0) continue;
+    if (ball.number === 0) continue; // cue ball is always rendered by its own separate path, not here
+    if (ball.pocketed) {
+      const elapsed = performance.now() - (ball.pocketAnimStart || 0);
+      const dur = 320;
+      if (elapsed < dur && ball.pocketAnimFromX !== undefined) {
+        const t = Math.min(1, elapsed / dur);
+        const ease = 1 - Math.pow(1 - t, 3); // ease-out, so it accelerates into the hole
+        const bx = ball.pocketAnimFromX + (ball.pocketAnimToX - ball.pocketAnimFromX) * ease;
+        const by = ball.pocketAnimFromY + (ball.pocketAnimToY - ball.pocketAnimFromY) * ease;
+        const scale = 1 - ease * 0.85;
+        ctx.save();
+        ctx.globalAlpha = 1 - ease * 0.7;
+        ctx.translate(bx, by);
+        ctx.scale(scale, scale);
+        ctx.translate(-ball.x, -ball.y);
+        drawAmericanBall(ball);
+        ctx.restore();
+      }
+      continue;
+    }
     drawAmericanBall(ball);
   }
 
@@ -3375,12 +3518,15 @@ function gameLoop() {
   // attempted to use them.
   showScreen('hostScreen');
   setConnectionStatus('connecting', 'Reconnecting to your table...');
+  showOverlay('poolFullscreenResumeOverlay');
   poolConnect();
 })();
 
 window.onload = function() {
   setupSpinControl();
   initPowerLever();
+  const muteBtn = document.getElementById('poolMuteBtn');
+  if (muteBtn && poolSoundMuted) muteBtn.textContent = '🔇';
 };
 </script>
 </body>
