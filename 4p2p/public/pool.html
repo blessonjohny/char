@@ -3282,6 +3282,8 @@ function botTurn() {
     }
   }
 
+  if (candidates.some(c => !c.isBank)) candidates = candidates.filter(c => !c.isBank);
+
   if (candidates.length === 0) {
     const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
     if (onEightBall) {
