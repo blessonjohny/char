@@ -1277,6 +1277,7 @@ function handleTouchStart(e) {
     const distToCue = Math.hypot(pos.x - cueBall.x, pos.y - cueBall.y);
     if (distToCue < POWER_TOUCH_RADIUS) {
       gameState.powerPhase = true; gameState.pulling = true; gameState.power = 0;
+      gameState.powerHistory = []; // fresh for this gesture
       updatePowerUI(); document.getElementById('powerHud').classList.add('show'); startLongPress(pos);
     }
   }
@@ -1302,6 +1303,7 @@ function handleMouseDown(e) {
     const distToCue = Math.hypot(pos.x - cueBall.x, pos.y - cueBall.y);
     if (distToCue < POWER_TOUCH_RADIUS) {
       gameState.powerPhase = true; gameState.pulling = true; gameState.power = 0;
+      gameState.powerHistory = []; // fresh for this gesture
       updatePowerUI(); document.getElementById('powerHud').classList.add('show'); startLongPress(pos);
     }
   }
@@ -3484,6 +3486,7 @@ function leverStart(e) {
   else clientY = e.clientY;
   leverActive = true; leverStartY = clientY;
   gameState.powerPhase = true; gameState.pulling = true; gameState.power = 0;
+  gameState.powerHistory = []; // fresh for this gesture -- a stale reading left over from a different power-input method must never linger and override this one
   updatePowerUI();
   document.getElementById('powerHud').classList.add('show');
   document.getElementById('powerLever').classList.add('active');
@@ -3498,6 +3501,9 @@ function leverMove(e) {
   e.preventDefault();
   const delta = Math.max(0, clientY - leverStartY);
   gameState.power = Math.max(0, Math.min(100, (delta / LEVER_MAX_PULL) * 100));
+  if (!gameState.powerHistory) gameState.powerHistory = [];
+  gameState.powerHistory.push({ value: gameState.power, time: performance.now() });
+  if (gameState.powerHistory.length > 12) gameState.powerHistory.shift();
   updatePowerUI();
 }
 function leverEnd(e) {
