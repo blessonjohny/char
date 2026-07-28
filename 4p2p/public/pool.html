@@ -1340,6 +1340,9 @@ function updateAimFromTouch(pos) {
   while (gameState.aimAngle < 0) gameState.aimAngle += Math.PI * 2;
   while (gameState.aimAngle >= Math.PI * 2) gameState.aimAngle -= Math.PI * 2;
   gameState.lastAimAngle = gameState.aimAngle;
+  if (!gameState.aimAngleHistory) gameState.aimAngleHistory = [];
+  gameState.aimAngleHistory.push({ value: gameState.aimAngle, time: performance.now() });
+  if (gameState.aimAngleHistory.length > 12) gameState.aimAngleHistory.shift();
   poolEmitLiveAim();
 }
 function poolEmitLiveAim() {
@@ -1406,6 +1409,9 @@ function updatePowerFromPull(pos) {
 
   const maxPull = 150;
   gameState.power = Math.max(0, Math.min(100, (dist / maxPull) * 100));
+  if (!gameState.powerHistory) gameState.powerHistory = [];
+  gameState.powerHistory.push({ value: gameState.power, time: performance.now() });
+  if (gameState.powerHistory.length > 12) gameState.powerHistory.shift();
   updatePowerUI();
   poolEmitLiveAim();
 }
@@ -1418,12 +1424,32 @@ function handleTouchEnd(e) {
 }
 function handleMouseUp(e) { if (isPlacingDrag) { isPlacingDrag = false; return; } if (isAiming || gameState.powerPhase) finishInput(); }
 
+// A finger lifting off a touchscreen almost always causes a small,
+// involuntary lateral shift in the instant right before actual liftoff,
+// which shows up as the very last touchmove reading. Rather than lock
+// in that exact last reading, look back a short distance in the recent
+// history and use whatever had already settled by then - this still
+// fully respects any real, sustained aim or pull motion, since it only
+// ever discards the last ~70ms of readings, not the drag as a whole.
+function getSettledValue(history, fallback, lookbackMs) {
+  if (!history || !history.length) return fallback;
+  const now = performance.now();
+  let best = history[history.length - 1].value;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (now - history[i].time >= lookbackMs) return history[i].value;
+    best = history[i].value;
+  }
+  return best;
+}
+
 function finishInput() {
   cancelLongPress();
   if (gameState.aimPhase && !gameState.aimLocked && isAiming) {
+    gameState.aimAngle = getSettledValue(gameState.aimAngleHistory, gameState.aimAngle, 70);
     isAiming = false; aimTouchId = null; gameState.aiming = false; gameState.aimLocked = true;
     updateMessage();
   } else if (gameState.powerPhase) {
+    gameState.power = getSettledValue(gameState.powerHistory, gameState.power, 70);
     gameState.powerPhase = false; gameState.pulling = false;
     const power = (gameState.power / 100) * MAX_POWER;
     if (power >= 0.8) shoot(power);

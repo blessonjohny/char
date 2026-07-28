@@ -1496,6 +1496,15 @@
     const SUBSTEPS = 16; // ZERO TOLERANCE: higher substeps for exact physics
     const objs = allObjects();
 
+    // Capture each object's position from the end of the previous frame,
+    // before this frame's movement is applied - purely for the
+    // renderer's motion-blur trail on fast shots.
+    objs.forEach(o=>{
+      if(!o.posHistory) o.posHistory = [];
+      o.posHistory.push({ x: o.x, y: o.y });
+      if(o.posHistory.length > 5) o.posHistory.shift();
+    });
+
     // friction/decay applied once per frame, so overall deceleration feel is unchanged
     objs.forEach(o=>{
       o.vx *= FRICTION; o.vy *= FRICTION;
@@ -1840,6 +1849,28 @@
     get lastAliveAt() { return carromLastAliveAt; },
     get onlineSeats() { return carromOnlineSeats.map(s => s ? { isBot: s.isBot, name: s.name, connected: s.connected } : null); },
     get msSinceLastAlive() { return Date.now() - carromLastAliveAt; },
+    async testJitterFix(settledAngle, jitteredAngle) {
+      aimAngleHistory = [];
+      for (let i = 0; i < 6; i++) {
+        aimAngleHistory.push({ value: settledAngle, time: performance.now() });
+        if (aimAngleHistory.length > 12) aimAngleHistory.shift();
+        await new Promise(r => setTimeout(r, 20));
+      }
+      aimAngleHistory.push({ value: jitteredAngle, time: performance.now() });
+      return getSettledValue(aimAngleHistory, jitteredAngle, 70);
+    },
+    testMotionTrail() {
+      if (!striker) return { error: 'no striker' };
+      striker.vx = 30; striker.vy = 2;
+      let threw = false;
+      try { step(); render(); } catch(e) { threw = e.message; }
+      return {
+        hasHistory: !!striker.posHistory,
+        historyLength: striker.posHistory ? striker.posHistory.length : 0,
+        speed: Math.hypot(striker.vx, striker.vy),
+        renderThrew: threw
+      };
+    },
     testForceSettleShot() {
       // Zeroes every velocity directly, letting the next normal
       // physics tick detect the settled state and run its usual
@@ -2713,6 +2744,18 @@
   let powerMoved = false;
   let powerTimer = null;
   let powerStartTime = 0;
+  let aimAngleHistory = []; // {value, time} - lets the lock-in use a slightly earlier, settled reading instead of the exact last touch position, which is exactly where a finger-lift jitter shows up
+  let powerHistory = [];
+  function getSettledValue(history, fallback, lookbackMs) {
+    if (!history || !history.length) return fallback;
+    const now = performance.now();
+    let best = history[history.length - 1].value;
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (now - history[i].time >= lookbackMs) return history[i].value;
+      best = history[i].value;
+    }
+    return best;
+  }
 
   const powerFill = document.getElementById('powerFill');
   const powerFillVal = document.getElementById('powerFillVal');
@@ -2846,6 +2889,7 @@
       strikerStartAlong = axisValue(currentSeat().side, striker);
     } else if(shotStage === 'aim'){
       gestureMode = 'aim';
+      aimAngleHistory = [];
       dragCurrent = pos;
       aimTouchAnchor = pos;
       const defaultDir = computeDefaultAimDir(currentSeat());
@@ -2855,6 +2899,7 @@
       aimLastMoveTime = performance.now();
     } else if(shotStage === 'power'){
       gestureMode = 'power';
+      powerHistory = [];
       powerDragStartY = getRawScreenY(evt);
       powerBaseValue = powerPercent;
       powerMoved = false;
@@ -2890,6 +2935,8 @@
       const ROTATION_SENSITIVITY = 0.007; // radians per pixel -- a full screen-height drag sweeps roughly a full circle
       const angle = aimBaseAngle + dy * ROTATION_SENSITIVITY;
       liveAimDir = { x: Math.cos(angle), y: Math.sin(angle) };
+      aimAngleHistory.push({ value: angle, time: performance.now() });
+      if (aimAngleHistory.length > 12) aimAngleHistory.shift();
       aimLastMoveTime = performance.now();
       carromEmitLiveAim();
 
@@ -2898,6 +2945,8 @@
       const dy = getRawScreenY(evt) - powerDragStartY;
       if(Math.abs(dy) > 6) powerMoved = true;
       powerPercent = Math.max(0, Math.min(100, powerBaseValue + dy/2));
+      powerHistory.push({ value: powerPercent, time: performance.now() });
+      if (powerHistory.length > 12) powerHistory.shift();
       setPowerMeter(powerPercent);
       if(powerPercent >= 100){
         if(!powerStartTime) powerStartTime = performance.now();
@@ -2913,7 +2962,9 @@
   }
 
   function commitAimDirection(){
-    const dirX = liveAimDir.x, dirY = liveAimDir.y;
+    const settledAngle = getSettledValue(aimAngleHistory, null, 70);
+    const dirX = settledAngle !== null ? Math.cos(settledAngle) : liveAimDir.x;
+    const dirY = settledAngle !== null ? Math.sin(settledAngle) : liveAimDir.y;
     if(!isAimDirectionAllowed(dirX, dirY, currentSeat().side)){
       setMsg('<span class="warn">Too shallow — you can\'t aim along your own baseline.</span> Try a steeper angle.');
       return false;
@@ -2936,8 +2987,9 @@
       commitAimDirection();
     } else if(gestureMode === 'power' && lockedDir){
       powerStartTime = 0;
-      if(powerMoved && powerPercent > 0){
-        const speed = Math.max(2, (powerPercent/100) * MAX_SHOT_SPEED);
+      const settledPower = getSettledValue(powerHistory, powerPercent, 70);
+      if(powerMoved && settledPower > 0){
+        const speed = Math.max(2, (settledPower/100) * MAX_SHOT_SPEED);
         fireStriker(lockedDir.x*speed, lockedDir.y*speed);
         lockedDir = null;
         setMsg('Shot away!');
@@ -3727,10 +3779,29 @@
     ctx.restore();
   }
 
+  function drawMotionTrail(o, color) {
+    if (!o.posHistory || o.posHistory.length < 2) return;
+    const speed = Math.hypot(o.vx, o.vy);
+    if (speed < 6) return; // only kicks in for genuinely fast motion, not normal rolling
+    const hist = o.posHistory;
+    for (let i = 0; i < hist.length; i++) {
+      const age = hist.length - i;
+      const t = age / (hist.length + 1);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 0.22 - t * 0.22) * Math.min(1, speed / 18);
+      ctx.beginPath();
+      ctx.arc(hist[i].x, hist[i].y, o.r * (1 - t * 0.3), 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   function render(){
     drawBoard();
     const blocked = currentBlockedSet();
-    coins.forEach(c=>{ if(!c.potted) drawCoin(c, blocked.has(c)); });
+    coins.forEach(c=>{ if(!c.potted){ drawMotionTrail(c, c.color==='red' ? '#c0392b' : (c.color||'#ccc')); drawCoin(c, blocked.has(c)); } });
+    if (striker) drawMotionTrail(striker, '#f2f2f2');
     drawStriker();
     drawAimLine();
   }
