@@ -3439,6 +3439,20 @@ function updatePocketedTray() {
   const solidsContainer = document.getElementById('solidsBalls');
   const stripesContainer = document.getElementById('stripesBalls');
   if (!solidsContainer || !stripesContainer) return;
+  // My own group always shows first/left, regardless of which physical
+  // group (solids or stripes) it happens to be - this is per-viewer, so
+  // host and joiner each see their own balls first on their own screen.
+  const solidsTray = document.getElementById('solidsTray');
+  const stripesTray = document.getElementById('stripesTray');
+  if (solidsTray && stripesTray) {
+    if (gameState.myGroup === 'stripes') {
+      stripesTray.style.order = '0';
+      solidsTray.style.order = '1';
+    } else {
+      solidsTray.style.order = '0';
+      stripesTray.style.order = '1';
+    }
+  }
   let solidsHTML = '';
   for (let n = 1; n <= 7; n++) {
     const pocketed = balls.find(b => b.number === n && b.pocketed);
