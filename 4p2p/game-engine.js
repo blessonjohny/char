@@ -1388,8 +1388,11 @@ class GameEngine {
             // trick a King or 7 would have won just as well is exactly the
             // waste reported — a bidder doing this on their own last turn
             // with cheaper trump sitting right there in hand.
-            const zeroPt = trumps.filter(c => c.points === 0);
-            let cutCard = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1] : trumps[trumps.length - 1];
+            const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+            const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+            let cutCard = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+              : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+              : trumps[trumps.length - 1];
             // Still respect real overtake risk: if other players still
             // act after us in this same trick and the trump Jack hasn't
             // been seen yet, a big enough trick is worth committing our
@@ -1526,8 +1529,13 @@ class GameEngine {
           // The Jack is the single most valuable card in the game — if
           // this hand actually holds it, leading it is close to a free
           // trick (nothing beats it barring trump) and should be strongly
-          // preferred over anything else on offer.
-          if (iHoldJ) {
+          // preferred over anything else on offer. But only if this bot
+          // actually has legitimate knowledge that this suit is (or
+          // isn't) trump - a non-bidder doesn't know trump until it's
+          // exposed, so confidently leading what happens to be the trump
+          // Jack here would be playing on information this seat
+          // shouldn't have yet.
+          if (iHoldJ && (s !== this.trumpSuit || isBidder || this.trumpExposed)) {
             candidates.push({ card: bySuit[s].find(c => c.rank === 'J'), score: 60 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
             continue;
           }
@@ -1655,8 +1663,11 @@ class GameEngine {
           // have won exactly as well is a real, common waste. Use the
           // cheapest trump we have, preferring a zero-point one so we're
           // not even giving up bonus points to do it.
-          const zeroPt = trumps.filter(c => c.points === 0);
-          wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1] : trumps[trumps.length - 1];
+          const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+          const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+          wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+            : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+            : trumps[trumps.length - 1];
         }
         return wtr;
       }
