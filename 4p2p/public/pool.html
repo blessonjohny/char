@@ -951,16 +951,26 @@ function poolPlayClack(intensity) {
   if (poolSoundMuted) return;
   const ctx = poolGetAudioCtx();
   if (!ctx) return;
-  const vol = Math.min(0.5, 0.08 + intensity * 0.35);
-  const osc = ctx.createOscillator();
+  const vol = Math.min(0.4, 0.06 + intensity * 0.28);
+  const dur = 0.045;
+  const bufferSize = Math.ceil(ctx.sampleRate * dur);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    const t = i / bufferSize;
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 3.5); // sharp attack, fast decay
+  }
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 1800 + intensity * 1400;
+  filter.Q.value = 1.1;
   const gain = ctx.createGain();
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(900 + intensity * 500, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.06);
   gain.gain.setValueAtTime(vol, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
-  osc.connect(gain); gain.connect(ctx.destination);
-  osc.start(); osc.stop(ctx.currentTime + 0.1);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+  noise.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+  noise.start(); noise.stop(ctx.currentTime + dur);
 }
 
 function poolPlayClackForBall(ball, intensity) {
@@ -975,15 +985,31 @@ function poolPlayRailThud(intensity) {
   if (poolSoundMuted) return;
   const ctx = poolGetAudioCtx();
   if (!ctx) return;
-  const vol = Math.min(0.25, 0.04 + intensity * 0.15);
+  const vol = Math.min(0.22, 0.035 + intensity * 0.13);
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(120, ctx.currentTime);
+  osc.frequency.setValueAtTime(100, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(70, ctx.currentTime + 0.07);
   gain.gain.setValueAtTime(vol, ctx.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
   osc.connect(gain); gain.connect(ctx.destination);
   osc.start(); osc.stop(ctx.currentTime + 0.09);
+
+  // A touch of soft, low-passed noise adds texture so it doesn't read as a pure electronic beep
+  const bufferSize = Math.ceil(ctx.sampleRate * 0.05);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 500;
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(vol * 0.4, ctx.currentTime);
+  noise.connect(filter); filter.connect(noiseGain); noiseGain.connect(ctx.destination);
+  noise.start(); noise.stop(ctx.currentTime + 0.05);
 }
 // Throttled wrapper - the physics loop runs several substeps per
 // rendered frame, so without this a single real bounce could trigger
@@ -995,8 +1021,9 @@ function poolPlayRailThudForBall(ball, intensity) {
   poolPlayRailThud(intensity);
 }
 
-// A satisfying "plop" with a bit of white-noise texture for a ball
-// dropping into a pocket.
+// A duller, shorter "thunk" for a ball dropping into a pocket, plus a
+// soft settling noise - a plain descending tone read as too dramatic
+// and synthetic, so this keeps the pitch drop small and quick.
 function poolPlayPocketSound() {
   if (poolSoundMuted) return;
   const ctx = poolGetAudioCtx();
@@ -1004,23 +1031,26 @@ function poolPlayPocketSound() {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(500, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.22);
-  gain.gain.setValueAtTime(0.35, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.24);
+  osc.frequency.setValueAtTime(160, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(85, ctx.currentTime + 0.1);
+  gain.gain.setValueAtTime(0.3, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
   osc.connect(gain); gain.connect(ctx.destination);
-  osc.start(); osc.stop(ctx.currentTime + 0.25);
+  osc.start(); osc.stop(ctx.currentTime + 0.17);
 
-  const bufferSize = ctx.sampleRate * 0.12;
+  const bufferSize = Math.ceil(ctx.sampleRate * 0.1);
   const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
   const data = noiseBuffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
   const noise = ctx.createBufferSource();
   noise.buffer = noiseBuffer;
+  const noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = 'lowpass';
+  noiseFilter.frequency.value = 900;
   const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(0.12, ctx.currentTime);
-  noise.connect(noiseGain); noiseGain.connect(ctx.destination);
-  noise.start();
+  noiseGain.gain.setValueAtTime(0.1, ctx.currentTime);
+  noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(ctx.destination);
+  noise.start(); noise.stop(ctx.currentTime + 0.1);
 }
 const STOP_THRESHOLD = 0.12; // Snap to rest once a ball is essentially crawling, instead of an endless imperceptible creep
 
@@ -3288,8 +3318,8 @@ function botTurn() {
         }
       }
       if (!path) continue;
-      const finalSeg = path[path.length - 1];
-      const aimAngle = Math.atan2(finalSeg.y2 - finalSeg.y1, finalSeg.x2 - finalSeg.x1);
+      const firstSeg = path[0];
+      const aimAngle = Math.atan2(firstSeg.y2 - firstSeg.y1, firstSeg.x2 - firstSeg.x1);
       let pathLength = 0;
       for (const seg of path) pathLength += Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1);
       const pocketDist = Math.hypot(pocket.x - ball.x, pocket.y - ball.y);
