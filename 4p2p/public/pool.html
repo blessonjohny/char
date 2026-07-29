@@ -1505,6 +1505,8 @@ function shoot(power) {
   poolPlayClack(Math.min(1, power / MAX_POWER));
   gameState.aiming = false; gameState.power = 0;
   gameState.ballsMoving = true; gameState.justPocketed = [];
+  gameState.firstContactBall = null; // which ball number the cue ball hits first this shot - null until contact happens
+  gameState.railContactedThisShot = false; // any ball touching a cushion after legal first contact - required or it's a foul
   gameState.aimPhase = true; gameState.aimLocked = false; gameState.powerPhase = false;
   gameState.spin = {x: 0, y: 0};
   resetSpinUI();
@@ -1674,6 +1676,7 @@ function updatePhysics() {
       // mistake there (or any other code path that touches it
       // afterward) silently breaks the whole game.
       gameState.ballsMoving = false;
+      checkShootingFouls();
       endTurn();
       poolMyShotInProgress = false;
       const myTurnPos = gameState.myTurn ? poolMyPos : (1 - poolMyPos);
@@ -1694,7 +1697,11 @@ function updatePhysics() {
     }
   }
 
-  if (gameState.ballsMoving && !moving) { gameState.ballsMoving = false; endTurn(); }
+  if (gameState.ballsMoving && !moving) {
+    gameState.ballsMoving = false;
+    checkShootingFouls();
+    endTurn();
+  }
   gameState.ballsMoving = moving;
 }
 
@@ -1761,6 +1768,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
         ball.x = MARGIN + ball.r;
         ball.vx = Math.abs(ball.vx) * WALL_BOUNCE;
         poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
+        gameState.railContactedThisShot = true;
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vx *= carry;
@@ -1776,6 +1784,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
         ball.x = TABLE_WIDTH - MARGIN - ball.r;
         ball.vx = -Math.abs(ball.vx) * WALL_BOUNCE;
         poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
+        gameState.railContactedThisShot = true;
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vx *= carry;
@@ -1791,6 +1800,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
         ball.y = MARGIN + ball.r;
         ball.vy = Math.abs(ball.vy) * WALL_BOUNCE;
         poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
+        gameState.railContactedThisShot = true;
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vy *= carry;
@@ -1806,6 +1816,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
         ball.y = TABLE_HEIGHT - MARGIN - ball.r;
         ball.vy = -Math.abs(ball.vy) * WALL_BOUNCE;
         poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
+        gameState.railContactedThisShot = true;
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vy *= carry;
@@ -1830,6 +1841,14 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
         const nx = dx / dist, ny = dy / dist;
         b1.x -= nx * overlap * 0.5; b1.y -= ny * overlap * 0.5;
         b2.x += nx * overlap * 0.5; b2.y += ny * overlap * 0.5;
+        // Record which ball the cue ball hits FIRST this shot - the
+        // foundation for the "wrong ball first" foul rule. Only the very
+        // first contact counts, so this is a no-op on every collision
+        // after that.
+        if (gameState.firstContactBall === null) {
+          if (b1.number === 0) gameState.firstContactBall = b2.number;
+          else if (b2.number === 0) gameState.firstContactBall = b1.number;
+        }
         // Capture the cue ball's speed the instant BEFORE momentum transfer. This is what
         // determines how much spin/English is available to act with - not whatever speed
         // happens to be left over afterward. A straight stun/draw shot can leave the cue
@@ -1910,6 +1929,27 @@ function handlePocket(ball) {
   }
 }
 
+function checkShootingFouls() {
+  if (gameState.foul) return; // a pocket-based foul (scratch, early 8-ball) already settled this
+  if (gameState.firstContactBall === null) {
+    gameState.foul = true; // cue ball never touched any other ball
+    return;
+  }
+  if (gameState.groupAssigned) {
+    const shooterGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
+    const ballsLeftForShooter = shooterGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : (7 - gameState.ballsPocketed.stripes);
+    if (gameState.firstContactBall === 8) {
+      if (ballsLeftForShooter !== 0) { gameState.foul = true; return; } // hit the 8-ball first before clearing your own group
+    } else {
+      const contactedGroup = gameState.firstContactBall <= 7 ? 'solids' : 'stripes';
+      if (contactedGroup !== shooterGroup) { gameState.foul = true; return; } // hit the opponent's ball first
+    }
+  }
+  if (!gameState.railContactedThisShot && gameState.justPocketed.length === 0) {
+    gameState.foul = true; // legal contact, but nothing pocketed and nothing reached a rail afterward
+  }
+}
+
 function endTurn() {
   const cueBall = balls[0];
   if (gameState.scratch) {
@@ -1924,7 +1964,13 @@ function endTurn() {
   }
   if (gameState.gameOver) { showGameOver(); return; }
   if (gameState.foul) {
-    gameState.foul = false; switchTurn(); startTurn(); return;
+    gameState.foul = false; switchTurn();
+    if (gameState.myTurn) {
+      enterCuePlacement(false); // any foul grants ball-in-hand, anywhere on the table - not just a scratch
+    } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
+      autoPlaceCueBallForBot();
+    }
+    startTurn(); return;
   }
   const currentPlayerGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
   let pocketedCurrentPlayerBall = false;
@@ -2009,7 +2055,8 @@ function autoPlaceCueBallForBot() {
   const cueBall = balls[0];
   cueBall.pocketed = false; cueBall.vx = 0; cueBall.vy = 0; cueBall.spinX = 0; cueBall.spinY = 0;
   const botGroup = gameState.groupAssigned ? gameState.opponentGroup : null;
-  const cols = 7, rows = 5;
+  const botBallsLeft = botGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : botGroup === 'stripes' ? (7 - gameState.ballsPocketed.stripes) : 999;
+  const cols = 9, rows = 6;
   const minX = MARGIN + BALL_RADIUS + 8, maxX = TABLE_WIDTH - MARGIN - BALL_RADIUS - 8;
   const minY = MARGIN + BALL_RADIUS + 8, maxY = TABLE_HEIGHT - MARGIN - BALL_RADIUS - 8;
   let best = null, bestScore = -Infinity;
@@ -2023,18 +2070,68 @@ function autoPlaceCueBallForBot() {
         if (Math.hypot(cx - b.x, cy - b.y) < BALL_RADIUS * 2 + 2) { overlap = true; break; }
       }
       if (overlap) continue;
-      let score = 0;
+
+      // Find the single best genuinely makeable shot from this position -
+      // a real ghost-ball-to-pocket line that's actually clear, not just
+      // "can see the ball". Also count how many other decent options
+      // exist here, as a rough stand-in for follow-up setup potential.
+      let bestShotQuality = -Infinity;
+      let makeableCount = 0;
       for (const b of balls) {
         if (b === cueBall || b.pocketed || b.number === 0) continue;
         const group = b.number === 8 ? null : (b.number <= 7 ? 'solids' : 'stripes');
         if (botGroup && group && group !== botGroup) continue;
-        if (isPathClear(cx, cy, b.x, b.y, b.id)) score += 1;
+        if (b.number === 8 && botBallsLeft !== 0) continue;
+        for (const pocket of pockets) {
+          const pocketAngle = Math.atan2(pocket.y - b.y, pocket.x - b.x);
+          const ghostX = b.x - Math.cos(pocketAngle) * (BALL_RADIUS * 2);
+          const ghostY = b.y - Math.sin(pocketAngle) * (BALL_RADIUS * 2);
+          if (ghostX < MARGIN + BALL_RADIUS || ghostX > TABLE_WIDTH - MARGIN - BALL_RADIUS ||
+              ghostY < MARGIN + BALL_RADIUS || ghostY > TABLE_HEIGHT - MARGIN - BALL_RADIUS) continue;
+          if (!isPathClear(cx, cy, ghostX, ghostY, b.id)) continue;
+          const cueToGhostDist = Math.hypot(ghostX - cx, ghostY - cy);
+          const pocketDist = Math.hypot(pocket.x - b.x, pocket.y - b.y);
+          // Shorter, more direct shots score higher - this is the
+          // "prefer a straight shot" behavior.
+          const quality = 1000 - cueToGhostDist * 0.5 - pocketDist * 0.8;
+          if (quality > bestShotQuality) bestShotQuality = quality;
+          makeableCount++;
+        }
       }
+      if (bestShotQuality === -Infinity) continue; // no genuinely makeable shot exists from here at all
+      const score = bestShotQuality + makeableCount * 15;
       if (score > bestScore) { bestScore = score; best = { x: cx, y: cy }; }
     }
   }
   if (best) { cueBall.x = best.x; cueBall.y = best.y; }
-  else { cueBall.x = TABLE_WIDTH / 2; cueBall.y = TABLE_HEIGHT / 2; }
+  else {
+    // No fully makeable shot exists anywhere on the table - fall back to
+    // the old "most balls visible" placement so the bot at least isn't
+    // snookered on everything, rather than defaulting to dead center.
+    let fallback = null, fallbackScore = -Infinity;
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++) {
+        const cx = minX + (i / (cols - 1)) * (maxX - minX);
+        const cy = minY + (j / (rows - 1)) * (maxY - minY);
+        let overlap = false;
+        for (const b of balls) {
+          if (b === cueBall || b.pocketed) continue;
+          if (Math.hypot(cx - b.x, cy - b.y) < BALL_RADIUS * 2 + 2) { overlap = true; break; }
+        }
+        if (overlap) continue;
+        let visCount = 0;
+        for (const b of balls) {
+          if (b === cueBall || b.pocketed || b.number === 0) continue;
+          const group = b.number === 8 ? null : (b.number <= 7 ? 'solids' : 'stripes');
+          if (botGroup && group && group !== botGroup) continue;
+          if (isPathClear(cx, cy, b.x, b.y, b.id)) visCount++;
+        }
+        if (visCount > fallbackScore) { fallbackScore = visCount; fallback = { x: cx, y: cy }; }
+      }
+    }
+    if (fallback) { cueBall.x = fallback.x; cueBall.y = fallback.y; }
+    else { cueBall.x = TABLE_WIDTH / 2; cueBall.y = TABLE_HEIGHT / 2; }
+  }
 }
 
 
