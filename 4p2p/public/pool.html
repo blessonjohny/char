@@ -786,7 +786,17 @@ function poolConnect() {
     startTurn();
     updateUI();
   });
-  poolSocket.on('pool_rematch', (data) => { initGame(); gameState.myTurn = !(data && data.winnerBreaksFirst); startTurn(); });
+  poolSocket.on('pool_rematch', (data) => {
+    initGame();
+    gameState.myTurn = !(data && data.winnerBreaksFirst);
+    if (gameState.myTurn) {
+      enterCuePlacement(true);
+    } else {
+      const btn = document.getElementById('placeBallBtn');
+      if (btn) btn.style.display = 'none';
+    }
+    startTurn();
+  });
 }
 
 function createRoom() {
@@ -1194,7 +1204,12 @@ function startGame(host, breaksFirst) {
   }
   lastTime = performance.now();
   gameLoop();
-  if (gameState.myTurn) enterCuePlacement(true);
+  if (gameState.myTurn) {
+    enterCuePlacement(true);
+  } else {
+    const btn = document.getElementById('placeBallBtn');
+    if (btn) btn.style.display = 'none';
+  }
   startTurn();
   const tut = document.getElementById('tutorialHint');
   const tutText = document.getElementById('tutorialText');
@@ -3729,7 +3744,12 @@ function rematch() {
   if (gameMode === 'p2p' && poolSocket && poolMyTableId) poolSocket.emit('pool_rematch', { winnerBreaksFirst });
   initGame();
   gameState.myTurn = winnerBreaksFirst; // the winner of the last game always breaks next
-  if (gameState.myTurn) enterCuePlacement(true);
+  if (gameState.myTurn) {
+    enterCuePlacement(true);
+  } else {
+    const btn = document.getElementById('placeBallBtn');
+    if (btn) btn.style.display = 'none'; // may still be visually showing from an earlier game where this player did place the ball
+  }
   startTurn();
 }
 
