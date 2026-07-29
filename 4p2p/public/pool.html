@@ -1165,7 +1165,8 @@ function initGame() {
     power: 0, aimAngle: 0, lastAimAngle: undefined, spin: { x: 0, y: 0 }, ballsMoving: false, gameOver: false,
     winner: null, firstShot: true, groupAssigned: false, justPocketed: [],
     aimPhase: true, aimLocked: false, powerPhase: false,
-    botTurnPending: false, placingCueBall: false, placementKitchenOnly: false
+    botTurnPending: false, placingCueBall: false, placementKitchenOnly: false,
+    foulMessageActive: false, lastFoulReason: null
   };
   updateUI();
 }
@@ -1279,6 +1280,11 @@ function updateMessage() {
   const msg = document.getElementById('messageText');
   if (gameState.gameOver) { badge.style.display = 'none'; msg.textContent = 'Game Over!'; return; }
   if (gameState.ballsMoving) { badge.style.display = 'none'; msg.textContent = 'Balls rolling...'; return; }
+  if (gameState.foulMessageActive && gameState.lastFoulReason) {
+    badge.className = 'phase-badge power'; badge.style.display = 'inline-block'; badge.textContent = 'FOUL';
+    msg.textContent = gameState.lastFoulReason + (gameState.myTurn ? ' — you have ball in hand' : '');
+    return;
+  }
   if (!gameState.myTurn) { badge.style.display = 'none'; msg.textContent = gameMode === 'bot' ? 'Bot is thinking...' : 'Waiting for opponent...'; return; }
   if (gameState.placingCueBall) {
     badge.className = 'phase-badge aim'; badge.style.display = 'inline-block'; badge.textContent = 'PLACE BALL';
@@ -1313,6 +1319,7 @@ function handleTouchStart(e) {
   }
   if (e.touches.length !== 1) return;
   if (!gameState.myTurn || gameState.ballsMoving || gameState.gameOver) return;
+  gameState.foulMessageActive = false;
   const pos = getCanvasPos(e);
   const cueBall = balls[0];
   if (!cueBall || cueBall.pocketed) return;
@@ -1340,6 +1347,7 @@ function handleTouchStart(e) {
 }
 function handleMouseDown(e) {
   if (!gameState.myTurn || gameState.ballsMoving || gameState.gameOver) return;
+  gameState.foulMessageActive = false;
   const pos = getCanvasPos(e);
   const cueBall = balls[0];
   if (!cueBall || cueBall.pocketed) return;
@@ -1924,9 +1932,9 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
 }
 
 function handlePocket(ball) {
-  if (ball.number === 0) { gameState.scratch = true; gameState.foul = true; }
+  if (ball.number === 0) { gameState.scratch = true; gameState.foul = true; gameState.lastFoulReason = 'Scratch — cue ball went in'; }
   else if (ball.number === 8) {
-    if (!gameState.groupAssigned) { gameState.foul = true; }
+    if (!gameState.groupAssigned) { gameState.foul = true; gameState.lastFoulReason = 'Foul — 8-ball pocketed too early'; }
     else {
       const currentPlayerGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
       const currentBallsLeft = currentPlayerGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : (7 - gameState.ballsPocketed.stripes);
@@ -1950,20 +1958,22 @@ function checkShootingFouls() {
   if (gameState.foul) return; // a pocket-based foul (scratch, early 8-ball) already settled this
   if (gameState.firstContactBall === null) {
     gameState.foul = true; // cue ball never touched any other ball
+    gameState.lastFoulReason = 'Foul — cue ball didn\u2019t touch any ball';
     return;
   }
   if (gameState.groupAssigned) {
     const shooterGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
     const ballsLeftForShooter = shooterGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : (7 - gameState.ballsPocketed.stripes);
     if (gameState.firstContactBall === 8) {
-      if (ballsLeftForShooter !== 0) { gameState.foul = true; return; } // hit the 8-ball first before clearing your own group
+      if (ballsLeftForShooter !== 0) { gameState.foul = true; gameState.lastFoulReason = 'Foul — hit the 8-ball first'; return; } // hit the 8-ball first before clearing your own group
     } else {
       const contactedGroup = gameState.firstContactBall <= 7 ? 'solids' : 'stripes';
-      if (contactedGroup !== shooterGroup) { gameState.foul = true; return; } // hit the opponent's ball first
+      if (contactedGroup !== shooterGroup) { gameState.foul = true; gameState.lastFoulReason = 'Foul — hit the wrong ball first'; return; } // hit the opponent's ball first
     }
   }
   if (!gameState.railContactedThisShot && gameState.justPocketed.length === 0) {
     gameState.foul = true; // legal contact, but nothing pocketed and nothing reached a rail afterward
+    gameState.lastFoulReason = 'Foul — no ball reached a rail';
   }
 }
 
@@ -1971,7 +1981,7 @@ function endTurn() {
   const cueBall = balls[0];
   if (gameState.scratch) {
     cueBall.pocketed = false; cueBall.vx = 0; cueBall.vy = 0; cueBall.spinX = 0; cueBall.spinY = 0;
-    gameState.scratch = false; switchTurn();
+    gameState.scratch = false; gameState.foulMessageActive = true; switchTurn();
     if (gameState.myTurn) {
       enterCuePlacement(false); // ball-in-hand: anywhere on the table
     } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
@@ -1981,7 +1991,7 @@ function endTurn() {
   }
   if (gameState.gameOver) { showGameOver(); return; }
   if (gameState.foul) {
-    gameState.foul = false; switchTurn();
+    gameState.foul = false; gameState.foulMessageActive = true; switchTurn();
     if (gameState.myTurn) {
       enterCuePlacement(false); // any foul grants ball-in-hand, anywhere on the table - not just a scratch
     } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
