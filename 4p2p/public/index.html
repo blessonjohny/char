@@ -12936,6 +12936,16 @@ function hideReconnectingOverlay() {
   const wasShowing = overlay && overlay.style.display !== 'none';
   if (overlay) overlay.style.display = 'none';
   if (reconnectFallbackTimer) { clearTimeout(reconnectFallbackTimer); reconnectFallbackTimer = null; }
+  // A failed reconnect must always fall back to a genuinely usable welcome
+  // screen, not just hide the spinner and leave nothing visible -
+  // attemptAutoReconnect() sets welcomeScreen to display:none, and
+  // nothing else was ever restoring it if the reconnect didn't pan out.
+  const welcome = document.getElementById('welcomeScreen');
+  if (welcome && welcome.style.display === 'none' && !IS_ONLINE) {
+    welcome.style.display = 'flex';
+    enhanceWelcomeScreen();
+    updateWelcomeForUser();
+  }
   return wasShowing;
 }
 
