@@ -1413,7 +1413,7 @@ io.on('connection', (socket) => {
       if (!isEffectiveHost(t, playerId)) return;
       const target = t.engine.seats[pos];
       if (!target || target.isBot) return;
-      if (target.playerId === t.hostPlayerId) return; // can't kick yourself
+      if (target.playerId === playerId) return; // can't kick yourself
       // If they're currently connected, tell their client directly and
       // disconnect their seat mapping before touching the engine, so a
       // stray action from them can't land mid-kick.
