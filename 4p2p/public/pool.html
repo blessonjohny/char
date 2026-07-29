@@ -668,7 +668,7 @@ function poolConnect() {
   poolSocket.on('pool_opponentLeft', () => {
     setConnectionStatus('disconnected', 'Opponent reconnecting...');
   });
-  poolSocket.on('pool_start', (data) => { opponentName = data.opponentName || 'Opponent'; startGame(false); });
+  poolSocket.on('pool_start', (data) => { opponentName = data.opponentName || 'Opponent'; startGame(false, !data.hostBreaksFirst); });
   poolSocket.on('pool_liveAim', (data) => {
     opponentAiming = data.aiming;
     opponentAimAngle = data.angle;
@@ -786,7 +786,7 @@ function poolConnect() {
     startTurn();
     updateUI();
   });
-  poolSocket.on('pool_rematch', () => { initGame(); gameState.myTurn = !isHost; startTurn(); });
+  poolSocket.on('pool_rematch', (data) => { initGame(); gameState.myTurn = !(data && data.winnerBreaksFirst); startTurn(); });
 }
 
 function createRoom() {
@@ -904,8 +904,9 @@ function joinRoom() {
 function hostStartGame() {
   if (!poolSocket || opponentName === 'Opponent') { alert('No opponent connected yet!'); return; }
   requestPoolFullscreen();
-  poolSocket.emit('pool_start', { opponentName: myName });
-  startGame(true);
+  const hostBreaksFirst = Math.random() < 0.5;
+  poolSocket.emit('pool_start', { opponentName: myName, hostBreaksFirst });
+  startGame(true, hostBreaksFirst);
 }
 function fallbackToLocal() { requestPoolFullscreen(); gameMode = 'bot'; opponentName = 'Bot'; startGame(true); }
 function reconnect() { closeOverlay('disconnectOverlay'); if (poolSocket) poolSocket.connect(); }
@@ -1175,19 +1176,20 @@ function poolResumeGameAwaitingSync() {
   poolSocket.emit('pool_requestBoardSync');
 }
 
-function startGame(host) {
+function startGame(host, breaksFirst) {
   showScreen('gameScreen');
   checkOrientation();
   lockLandscapeOrientation();
   initCanvas();
   matchTally = { me: 0, opp: 0 };
   initGame();
+  if (typeof breaksFirst === 'boolean') gameState.myTurn = breaksFirst;
   document.getElementById('p1Name').textContent = myName;
   document.getElementById('p2Name').textContent = opponentName;
   document.getElementById('p1Avatar').textContent = myName.substring(0, 2).toUpperCase();
   document.getElementById('p2Avatar').textContent = opponentName.substring(0, 2).toUpperCase();
   if (gameMode === 'bot') {
-    gameState.myTurn = true;
+    if (typeof breaksFirst !== 'boolean') gameState.myTurn = Math.random() < 0.5;
     isHost = true;
   }
   lastTime = performance.now();
@@ -3723,10 +3725,10 @@ function backToMenu() {
 
 function rematch() {
   closeOverlay('gameOverOverlay');
-  if (gameMode === 'p2p' && poolSocket && poolMyTableId) poolSocket.emit('pool_rematch');
+  const winnerBreaksFirst = gameState.winner === myName;
+  if (gameMode === 'p2p' && poolSocket && poolMyTableId) poolSocket.emit('pool_rematch', { winnerBreaksFirst });
   initGame();
-  if (gameMode === 'bot') gameState.myTurn = true;
-  else gameState.myTurn = isHost;
+  gameState.myTurn = winnerBreaksFirst; // the winner of the last game always breaks next
   if (gameState.myTurn) enterCuePlacement(true);
   startTurn();
 }
