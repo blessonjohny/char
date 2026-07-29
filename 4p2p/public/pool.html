@@ -730,6 +730,10 @@ function poolConnect() {
     }
     gameState.scratch = false;
     gameState.foul = false;
+    if (data.foul) {
+      gameState.foulMessageActive = true;
+      if (data.lastFoulReason) gameState.lastFoulReason = data.lastFoulReason;
+    }
     if (data.gameOver) {
       gameState.gameOver = true;
       showGameOver();
@@ -1166,7 +1170,7 @@ function initGame() {
     winner: null, firstShot: true, groupAssigned: false, justPocketed: [],
     aimPhase: true, aimLocked: false, powerPhase: false,
     botTurnPending: false, placingCueBall: false, placementKitchenOnly: false,
-    foulMessageActive: false, lastFoulReason: null
+    foulMessageActive: false, lastFoulReason: null, groupAssignedBeforeThisShot: false
   };
   updateUI();
 }
@@ -1529,9 +1533,11 @@ function shoot(power) {
   cueBall.spinY = gameState.spin.y;
   poolPlayClack(Math.min(1, power / MAX_POWER));
   gameState.aiming = false; gameState.power = 0;
+  gameState.foulMessageActive = false; // the shot is happening now - whatever foul/scratch reason was being shown has been acted on
   gameState.ballsMoving = true; gameState.justPocketed = [];
   gameState.firstContactBall = null; // which ball number the cue ball hits first this shot - null until contact happens
   gameState.railContactedThisShot = false; // any ball touching a cushion after legal first contact - required or it's a foul
+  gameState.groupAssignedBeforeThisShot = gameState.groupAssigned; // the table's real group state at the moment this shot begins, not whatever this same shot might assign mid-flight
   gameState.aimPhase = true; gameState.aimLocked = false; gameState.powerPhase = false;
   gameState.spin = {x: 0, y: 0};
   resetSpinUI();
@@ -1711,12 +1717,17 @@ function updatePhysics() {
         balls: balls.map(b => ({ x: b.x, y: b.y, pocketed: b.pocketed })),
         turnPos: myTurnPos,
         scratch: gameState.scratch,
-        foul: gameState.foul,
+        foul: gameState.foulMessageActive,
+        lastFoulReason: gameState.lastFoulReason,
         gameOver: gameState.gameOver,
         groupAssigned: gameState.groupAssigned,
         seat0Group, seat1Group,
-        placingCueBall: gameState.placingCueBall,
-        placementKitchenOnly: gameState.placementKitchenOnly
+        // Any foul/scratch this shot grants ball-in-hand to whoever's
+        // turn it now is - NOT whatever the shooter's own placingCueBall
+        // happens to be (that's correctly false on their own side, since
+        // it's their opponent who gets it, not them).
+        placingCueBall: gameState.foulMessageActive,
+        placementKitchenOnly: false
       });
       return;
     }
@@ -1961,7 +1972,7 @@ function checkShootingFouls() {
     gameState.lastFoulReason = 'Foul — cue ball didn\u2019t touch any ball';
     return;
   }
-  if (gameState.groupAssigned) {
+  if (gameState.groupAssignedBeforeThisShot) {
     const shooterGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
     const ballsLeftForShooter = shooterGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : (7 - gameState.ballsPocketed.stripes);
     if (gameState.firstContactBall === 8) {
