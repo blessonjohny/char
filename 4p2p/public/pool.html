@@ -3270,7 +3270,13 @@ function evaluateCuePosition(cueX, cueY, botGroup, botBallsLeft) {
 
 function botTurn() {
   if (gameState.gameOver) return;
-  const config = BOT_CONFIG[botDifficulty] || BOT_CONFIG.easy;
+  // botDifficulty is only ever set by the local "Play vs Bots" flow.
+  // The separate online-room "Add Bot Opponent" flow syncs the real
+  // selected difficulty into opponentBotDifficulty instead - without
+  // this branch, an online-room bot always silently played on Easy's
+  // config regardless of what difficulty was actually picked in the UI.
+  const effectiveDifficulty = (gameMode === 'p2p' && opponentIsBot) ? opponentBotDifficulty : botDifficulty;
+  const config = BOT_CONFIG[effectiveDifficulty] || BOT_CONFIG.easy;
   opponentName = config.name;
   document.getElementById('p2Name').textContent = config.name;
   const cueBall = balls[0];
