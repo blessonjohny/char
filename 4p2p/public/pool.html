@@ -1174,7 +1174,7 @@ function initGame() {
     winner: null, firstShot: true, groupAssigned: false, justPocketed: [],
     aimPhase: true, aimLocked: false, powerPhase: false,
     botTurnPending: false, placingCueBall: false, placementKitchenOnly: false,
-    foulMessageActive: false, lastFoulReason: null, groupAssignedBeforeThisShot: false, eightBallPocketedThisShot: false, gameOverReason: null
+    foulMessageActive: false, lastFoulReason: null, eightBallPocketedThisShot: false, gameOverReason: null
   };
   updateUI();
 }
@@ -1542,7 +1542,6 @@ function shoot(power) {
   gameState.firstContactBall = null; // which ball number the cue ball hits first this shot - null until contact happens
   gameState.eightBallPocketedThisShot = false; // whether the 8-ball went in this shot, resolved once the whole shot (incl. scratch) is known
   gameState.railContactedThisShot = false; // any ball touching a cushion after legal first contact - required or it's a foul
-  gameState.groupAssignedBeforeThisShot = gameState.groupAssigned; // the table's real group state at the moment this shot begins, not whatever this same shot might assign mid-flight
   gameState.aimPhase = true; gameState.aimLocked = false; gameState.powerPhase = false;
   gameState.spin = {x: 0, y: 0};
   resetSpinUI();
@@ -1712,8 +1711,7 @@ function updatePhysics() {
       // mistake there (or any other code path that touches it
       // afterward) silently breaks the whole game.
       gameState.ballsMoving = false;
-      resolveEightBallOutcome();
-      checkShootingFouls();
+      resolveShotOutcome();
       endTurn();
       poolMyShotInProgress = false;
       const myTurnPos = gameState.myTurn ? poolMyPos : (1 - poolMyPos);
@@ -1741,8 +1739,7 @@ function updatePhysics() {
 
   if (gameState.ballsMoving && !moving) {
     gameState.ballsMoving = false;
-    resolveEightBallOutcome();
-    checkShootingFouls();
+    resolveShotOutcome();
     endTurn();
   }
   gameState.ballsMoving = moving;
@@ -1949,106 +1946,117 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
   return moving;
 }
 
+// Pure bookkeeping only - records what physically happened as balls drop
+// during the shot. No rules decisions are made here; those all happen once,
+// after the shot fully settles, in resolveShotOutcome() below.
 function handlePocket(ball) {
-  if (ball.number === 0) { gameState.scratch = true; gameState.foul = true; gameState.lastFoulReason = 'Scratch — cue ball went in'; }
-  else if (ball.number === 8) {
-    gameState.eightBallPocketedThisShot = true; // win/loss determined once the whole shot (incl. scratch) is fully known
+  if (ball.number === 0) {
+    gameState.scratch = true;
+  } else if (ball.number === 8) {
+    gameState.eightBallPocketedThisShot = true;
   } else {
     const group = ball.number <= 7 ? 'solids' : 'stripes';
     gameState.ballsPocketed[group]++;
     gameState.justPocketed.push(ball.number);
-    if (!gameState.groupAssigned) {
-      // Determine group from whichever ball the cue ball actually
-      // contacted FIRST this shot, not from whichever ball this physics
-      // loop happens to be processing right now. When only one
-      // object ball goes in, these are the same thing - but when
-      // several pocket in the same shot (very common on the break),
-      // iterating balls in array/number order would let an
-      // essentially arbitrary one decide the group, regardless of
-      // which ball the player's shot actually made first contact
-      // with. Falls back to this pocketed ball's own group for the
-      // rare case where the first-contacted ball wasn't itself the
-      // one pocketed (e.g. a combo shot).
-      const fcb = gameState.firstContactBall;
-      const decidingGroup = (fcb !== null && fcb !== 0 && fcb !== 8) ? (fcb <= 7 ? 'solids' : 'stripes') : group;
-      if (gameState.myTurn) { gameState.myGroup = decidingGroup; gameState.opponentGroup = decidingGroup === 'solids' ? 'stripes' : 'solids'; }
-      else { gameState.opponentGroup = decidingGroup; gameState.myGroup = decidingGroup === 'solids' ? 'stripes' : 'solids'; }
-      gameState.groupAssigned = true;
-    }
   }
 }
 
-function resolveEightBallOutcome() {
-  if (!gameState.eightBallPocketedThisShot) return;
-  gameState.eightBallPocketedThisShot = false;
-  const shooterWasMyTurn = gameState.myTurn;
-  const shooterName = shooterWasMyTurn ? myName : opponentName;
-  const opponentPlayerName = shooterWasMyTurn ? opponentName : myName;
-  if (gameState.scratch) {
-    // Scratching on the same shot that pockets the 8-ball is an
-    // immediate loss for the shooter, regardless of whether their group
-    // was actually cleared.
-    gameState.winner = opponentPlayerName;
-    gameState.gameOverReason = shooterName + ' scratched while pocketing the 8-ball';
-  } else if (!gameState.groupAssignedBeforeThisShot) {
-    // The 8-ball went in before groups were even assigned - can't have
-    // cleared a group that doesn't exist yet, so this is an immediate
-    // loss for the shooter, not just a foul.
-    gameState.winner = opponentPlayerName;
-    gameState.gameOverReason = shooterName + ' pocketed the 8-ball too early';
-  } else {
-    const shooterGroup = shooterWasMyTurn ? gameState.myGroup : gameState.opponentGroup;
-    const shooterBallsLeft = shooterGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : (7 - gameState.ballsPocketed.stripes);
-    const contactWasLegal = shooterBallsLeft === 0
-      ? gameState.firstContactBall === 8 // only the 8-ball is a legal first contact once the shooter's group is cleared
-      : (gameState.firstContactBall != null && (gameState.firstContactBall <= 7 ? 'solids' : 'stripes') === shooterGroup);
-    if (shooterBallsLeft === 0 && contactWasLegal) {
-      gameState.winner = shooterName;
-      gameState.gameOverReason = shooterName + ' legally pocketed the 8-ball to win';
-    } else {
+// ==================== SHOT OUTCOME - single source of truth ====================
+// Runs exactly once, right after a shot fully settles (called from both the
+// local physics-settle point and the p2p resolution point - there is no
+// other place in the codebase that decides fouls, group assignment, or
+// 8-ball win/loss). Everything about "what this shot meant" lives here and
+// only here.
+//
+// American 8-ball rules, in the order actually applied below:
+//  1. Break / open table: any ball is a legal first contact. The group of
+//     whichever ball the cue ball hit FIRST this shot becomes the
+//     shooter's group, the instant any ball from a group is legally
+//     pocketed. (Using first CONTACT rather than whichever ball happened
+//     to physically drop is deliberate: several balls can pocket in the
+//     same shot, especially on the break, and contact is the one
+//     unambiguous signal for which group the player actually played.)
+//  2. Once groups are assigned: a foul is ONLY hitting the wrong ball
+//     first (opponent's group, or the 8-ball before your own group is
+//     cleared) or making no legal contact at all.
+//  3. Touching your own group first and then either pocketing a ball or
+//     reaching a rail is always legal - never a foul.
+//  4. Pocketing the cue ball is a scratch (always a foul; ball-in-hand
+//     for the other player).
+//  5. Pocketing the 8-ball before finishing your own group is an
+//     immediate loss, not just a foul - regardless of the rest of the
+//     shot.
+//  6. The winner of a game breaks the next one.
+function resolveShotOutcome() {
+  const tableWasOpen = !gameState.groupAssigned;
+
+  // Step 1: assign the group, if this shot is the one that does it.
+  if (tableWasOpen && gameState.justPocketed.length > 0) {
+    const fcb = gameState.firstContactBall;
+    const decidingBall = (fcb !== null && fcb !== 0 && fcb !== 8) ? fcb : gameState.justPocketed[0];
+    const decidingGroup = decidingBall <= 7 ? 'solids' : 'stripes';
+    if (gameState.myTurn) { gameState.myGroup = decidingGroup; gameState.opponentGroup = decidingGroup === 'solids' ? 'stripes' : 'solids'; }
+    else { gameState.opponentGroup = decidingGroup; gameState.myGroup = decidingGroup === 'solids' ? 'stripes' : 'solids'; }
+    gameState.groupAssigned = true;
+  }
+
+  const shooterGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
+  const shooterBallsLeft = shooterGroup === 'solids' ? (7 - gameState.ballsPocketed.solids)
+    : shooterGroup === 'stripes' ? (7 - gameState.ballsPocketed.stripes) : 999;
+
+  // Step 2: the 8-ball ends the game outright, if it went in this shot -
+  // checked before general fouls since it overrides everything else.
+  if (gameState.eightBallPocketedThisShot) {
+    gameState.eightBallPocketedThisShot = false;
+    const shooterWasMyTurn = gameState.myTurn;
+    const shooterName = shooterWasMyTurn ? myName : opponentName;
+    const opponentPlayerName = shooterWasMyTurn ? opponentName : myName;
+    if (gameState.scratch) {
       gameState.winner = opponentPlayerName;
-      gameState.gameOverReason = shooterBallsLeft === 0
-        ? shooterName + ' pocketed the 8-ball off an illegal shot'
-        : shooterName + ' pocketed the 8-ball before clearing their group';
+      gameState.gameOverReason = shooterName + ' scratched while pocketing the 8-ball';
+    } else if (tableWasOpen) {
+      gameState.winner = opponentPlayerName;
+      gameState.gameOverReason = shooterName + ' pocketed the 8-ball too early';
+    } else {
+      const contactWasLegal = shooterBallsLeft === 0
+        ? gameState.firstContactBall === 8
+        : (gameState.firstContactBall != null && (gameState.firstContactBall <= 7 ? 'solids' : 'stripes') === shooterGroup);
+      if (shooterBallsLeft === 0 && contactWasLegal) {
+        gameState.winner = shooterName;
+        gameState.gameOverReason = shooterName + ' legally pocketed the 8-ball to win';
+      } else {
+        gameState.winner = opponentPlayerName;
+        gameState.gameOverReason = shooterBallsLeft === 0
+          ? shooterName + ' pocketed the 8-ball off an illegal shot'
+          : shooterName + ' pocketed the 8-ball before clearing their group';
+      }
     }
-  }
-  gameState.gameOver = true;
-}
-
-function checkShootingFouls() {
-  if (gameState.foul) return; // a pocket-based foul (scratch, early 8-ball) already settled this
-  gameState.lastFoulReason = null; // clear any stale reason from an earlier shot before evaluating this one
-  const __foulDebugShooter = gameState.myTurn ? 'me' : 'opponent';
-  const __foulDebugShooterGroup = gameState.groupAssignedBeforeThisShot ? (gameState.myTurn ? gameState.myGroup : gameState.opponentGroup) : '(table was open)';
-  const __logFoulDecision = (foul, reason) => {
-    console.log('[pool-foul-check] shooter=' + __foulDebugShooter, 'shooterGroup=' + __foulDebugShooterGroup,
-      'firstContact=' + gameState.firstContactBall, 'groupWasAssignedBeforeShot=' + gameState.groupAssignedBeforeThisShot,
-      'pocketed=' + JSON.stringify(gameState.justPocketed), 'railTouched=' + gameState.railContactedThisShot,
-      '=>', foul ? ('FOUL: ' + reason) : 'legal');
-  };
-  if (gameState.firstContactBall === null) {
-    gameState.foul = true; // cue ball never touched any other ball
-    gameState.lastFoulReason = 'Foul — cue ball didn\u2019t touch any ball';
-    __logFoulDecision(true, gameState.lastFoulReason);
+    gameState.gameOver = true;
     return;
   }
-  if (gameState.groupAssignedBeforeThisShot) {
-    const shooterGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
-    const ballsLeftForShooter = shooterGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : (7 - gameState.ballsPocketed.stripes);
+
+  // Step 3: general fouls. Scratch is always a foul regardless of
+  // anything else about the shot.
+  let foul = false, reason = null;
+  if (gameState.scratch) {
+    foul = true; reason = 'Scratch — cue ball went in';
+  } else if (gameState.firstContactBall === null) {
+    foul = true; reason = 'Foul — cue ball didn\u2019t touch any ball';
+  } else if (!tableWasOpen) {
+    // Groups were already set before this shot began - wrong-ball-first
+    // only applies once there's an actual group to be wrong about.
     if (gameState.firstContactBall === 8) {
-      if (ballsLeftForShooter !== 0) { gameState.foul = true; gameState.lastFoulReason = 'Foul — hit the 8-ball first'; __logFoulDecision(true, gameState.lastFoulReason); return; } // hit the 8-ball first before clearing your own group
+      if (shooterBallsLeft !== 0) { foul = true; reason = 'Foul — hit the 8-ball first'; }
     } else {
       const contactedGroup = gameState.firstContactBall <= 7 ? 'solids' : 'stripes';
-      if (contactedGroup !== shooterGroup) { gameState.foul = true; gameState.lastFoulReason = 'Foul — hit the wrong ball first'; __logFoulDecision(true, gameState.lastFoulReason); return; } // hit the opponent's ball first
+      if (contactedGroup !== shooterGroup) { foul = true; reason = 'Foul — hit the wrong ball first'; }
     }
   }
-  if (!gameState.railContactedThisShot && gameState.justPocketed.length === 0) {
-    gameState.foul = true; // legal contact, but nothing pocketed and nothing reached a rail afterward
-    gameState.lastFoulReason = 'Foul — no ball reached a rail';
-    __logFoulDecision(true, gameState.lastFoulReason);
-    return;
+  if (!foul && !gameState.railContactedThisShot && gameState.justPocketed.length === 0) {
+    foul = true; reason = 'Foul — no ball reached a rail';
   }
-  __logFoulDecision(false, null);
+  gameState.foul = foul;
+  gameState.lastFoulReason = reason;
 }
 
 function endTurn() {
