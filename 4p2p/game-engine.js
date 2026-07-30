@@ -808,6 +808,15 @@ class GameEngine {
     }
     const hasSuit = hand.some(c => c.suit === this.trickSuit);
     if (hasSuit && card.suit !== this.trickSuit) return false;
+    // Same restriction as the leading case above, but for following while
+    // void: the hidden-trump owner can't discard from the trump suit
+    // before it's properly exposed, even when they're not leading -
+    // unless trump is genuinely their only option left (every card they
+    // hold outside the led suit is trump).
+    if (!hasSuit && pos === this.hiddenTrumpOwner && !this.trumpExposed && card.suit === this.trumpSuit) {
+      const hasOtherOption = hand.some(c => c.suit !== this.trumpSuit && c.suit !== this.trickSuit);
+      if (hasOtherOption) return false;
+    }
     // If this player just ASKED for the trump to be opened (callTrump),
     // they're bound by the classic rule: having demanded the reveal, they
     // must play a trump card this trick if they're holding one.
@@ -1481,6 +1490,16 @@ class GameEngine {
         if (callTrump) {
           const goodOutcome = wt !== myTeam; // calling trump to steal back a trick the other team was winning
           brain.recordTrumpExposure(this.seats[pos].name, { trickLen: this.trickCards.length }, true, goodOutcome);
+          if (pos === this.hiddenTrumpOwner && this.hiddenTrump) {
+            // The hidden-trump owner reveals by playing their specific
+            // hidden card, not an arbitrary trump card from their open
+            // hand - that's the whole point of it being hidden. Any
+            // other trump cards this bot happens to also be holding
+            // openly stay subject to the normal incidental-discard /
+            // now-illegal-until-exposed rules, same as anyone else's.
+            this.playHiddenTrump(pos);
+            return;
+          }
           this.exposeTrump();
           if (trumps.length > 0) {
             trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
@@ -1818,7 +1837,8 @@ class GameEngine {
       // win with a King or 7 just as easily is the same unnecessary
       // waste, not a special case just because exposing trump is also
       // happening here.
-      const cutForWin = (isLast && wt !== myTeam && tPts >= 2) || (isBidder && wt !== myTeam && tPts >= 3);
+      const cutForWin = pos !== this.hiddenTrumpOwner &&
+        ((isLast && wt !== myTeam && tPts >= 2) || (isBidder && wt !== myTeam && tPts >= 3));
       if (cutForWin) {
         trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
         const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
