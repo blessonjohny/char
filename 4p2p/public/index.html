@@ -13129,6 +13129,15 @@ function connectGameSocket() {
     // reassurance nothing was actually broken.
     hasDisconnectedOnce4p = false;
     showToast(wasReconnecting ? '✅ Back in your game!' : (info.isHost ? '🏠 Table created!' : '✅ Joined table!'), 'win', 1800);
+    if (info.phase && info.phase !== 'lobby') {
+      // The game's already underway - never show the "waiting for
+      // players/host" lobby screen for a game that's mid-play. The
+      // 'state' broadcast that follows this event (sent right after on
+      // the server side) is what actually renders the real game table;
+      // this just gets out of its way instead of racing it with a
+      // screen that's about to be immediately replaced anyway.
+      return;
+    }
     showServerLobbyWaiting();
     showServerRoomCode();
   });
