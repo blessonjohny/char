@@ -1258,16 +1258,22 @@ class GameEngine {
         target = Math.max(14, target - 3);
       }
 
-      // Partner bidding signal from last round: a lightweight nudge, not
-      // a hard override — still bounded by the normal 14-28 range so a
-      // signal can't push a truly hopeless hand into a bid it has no
-      // business making. Tagged with the round it's meant for, so a
-      // signal that never got used (e.g. this seat never got to bid)
-      // just quietly expires instead of leaking into a later round.
+      // Partner bidding signal from last round. "higher" stays a light
+      // nudge here, folded in with everything else below. "lower" is
+      // handled separately, much later (see after pattern memory) - a
+      // small nudge this early was getting overridden by the partner-
+      // support bonus and pattern-memory blend that both run afterward,
+      // so a human explicitly asking their bot partner to stay
+      // cautious could still end up watching it bid high anyway,
+      // especially with a high-confidence bot on a winning streak. A
+      // deliberate "stay low" ask from the human deserves to actually
+      // hold, not get quietly walked back up by the bot's own
+      // enthusiasm a few lines later.
+      const wantsLower = this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round &&
+        this.partnerSignals[pos].signal === 'lower';
       if (this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round) {
         const sig = this.partnerSignals[pos].signal;
         if (sig === 'higher') target = Math.min(28, target + 3);
-        else if (sig === 'lower') target = Math.max(14, target - 3);
       }
 
       // Partner already winning the bidding is worth leaning into a
@@ -1297,6 +1303,14 @@ class GameEngine {
         const avgBid = similarBids.reduce((s, sb) => s + sb.bid, 0) / similarBids.length;
         target = Math.round((target + avgBid) / 2);
       }
+
+      // "Stay low" is the deliberate last word on this bid, applied
+      // after every other adjustment above (partner-support bonus,
+      // pattern memory) so nothing downstream of the signal can walk
+      // the target back up again. Capped low enough that a non-first
+      // bidder will correctly pass rather than still committing to
+      // something well above what the human explicitly asked for.
+      if (wantsLower) target = Math.min(target, 16);
 
       let bid = 0;
       if (first) {

@@ -720,16 +720,24 @@ class GameEngine6P {
 
       // Partner bidding signal from last round -- same rule as the
       // 4-player game, just sent to ALL teammates at once here since
-      // teams are 3-a-side, not a single designated partner.
+      // teams are 3-a-side, not a single designated partner. "lower" is
+      // applied later as a hard cap (see below, after the partner-
+      // support bonus) rather than here, so the bonus can't quietly
+      // walk the target back up past what was explicitly asked for.
+      const wantsLower = this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round &&
+        this.partnerSignals[pos].signal === 'lower';
       if (this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round) {
         const sig = this.partnerSignals[pos].signal;
         if (sig === 'higher') target = Math.min(28, target + 3);
-        else if (sig === 'lower') target = Math.max(16, target - 3);
       }
 
       let pb = 0;
       if (this.bidder >= 0 && getTeam(this.bidder) === getTeam(pos)) pb = 1 * b.bidWeights.partnerSupport;
       target = Math.min(28, Math.round(target + pb));
+
+      // Deliberate last word on this bid - see the 4-player game's
+      // identical comment for the full reasoning.
+      if (wantsLower) target = Math.min(target, 18);
 
       let bid = 0;
       if (first) {
