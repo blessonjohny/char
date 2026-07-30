@@ -1174,7 +1174,7 @@ function initGame() {
     winner: null, firstShot: true, groupAssigned: false, justPocketed: [],
     aimPhase: true, aimLocked: false, powerPhase: false,
     botTurnPending: false, placingCueBall: false, placementKitchenOnly: false,
-    foulMessageActive: false, lastFoulReason: null, eightBallPocketedThisShot: false, gameOverReason: null
+    foulMessageActive: false, lastFoulReason: null, eightBallPocketedThisShot: false, gameOverReason: null, groupJustAssignedThisShot: false
   };
   updateUI();
 }
@@ -1989,6 +1989,7 @@ function handlePocket(ball) {
 //  6. The winner of a game breaks the next one.
 function resolveShotOutcome() {
   const tableWasOpen = !gameState.groupAssigned;
+  gameState.groupJustAssignedThisShot = false;
 
   // Step 1: assign the group, if this shot is the one that does it.
   if (tableWasOpen && gameState.justPocketed.length > 0) {
@@ -1998,6 +1999,7 @@ function resolveShotOutcome() {
     if (gameState.myTurn) { gameState.myGroup = decidingGroup; gameState.opponentGroup = decidingGroup === 'solids' ? 'stripes' : 'solids'; }
     else { gameState.opponentGroup = decidingGroup; gameState.myGroup = decidingGroup === 'solids' ? 'stripes' : 'solids'; }
     gameState.groupAssigned = true;
+    gameState.groupJustAssignedThisShot = true;
   }
 
   const shooterGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
@@ -2083,7 +2085,16 @@ function endTurn() {
   }
   const currentPlayerGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
   let pocketedCurrentPlayerBall = false;
-  if (currentPlayerGroup && gameState.justPocketed.length > 0) {
+  if (gameState.groupJustAssignedThisShot) {
+    // This shot is what just turned the open table into an assigned one -
+    // any legal pot on it continues the turn, regardless of whether the
+    // specific ball(s) that dropped happen to match the group that same
+    // shot just established (a combo can pocket a ball from the OTHER
+    // group while still making contact with, and thereby assigning, this
+    // one - the group determination and "did they make their ball" are
+    // the same event here, not two independent checks).
+    pocketedCurrentPlayerBall = gameState.justPocketed.length > 0;
+  } else if (currentPlayerGroup && gameState.justPocketed.length > 0) {
     for (const num of gameState.justPocketed) { const ballGroup = num <= 7 ? 'solids' : 'stripes'; if (ballGroup === currentPlayerGroup) { pocketedCurrentPlayerBall = true; break; } }
   }
   if (gameState.groupAssigned) {
