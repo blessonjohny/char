@@ -1170,7 +1170,7 @@ function initGame() {
     winner: null, firstShot: true, groupAssigned: false, justPocketed: [],
     aimPhase: true, aimLocked: false, powerPhase: false,
     botTurnPending: false, placingCueBall: false, placementKitchenOnly: false,
-    foulMessageActive: false, lastFoulReason: null, groupAssignedBeforeThisShot: false
+    foulMessageActive: false, lastFoulReason: null, groupAssignedBeforeThisShot: false, eightBallPocketedThisShot: false, gameOverReason: null
   };
   updateUI();
 }
@@ -1536,6 +1536,7 @@ function shoot(power) {
   gameState.foulMessageActive = false; // the shot is happening now - whatever foul/scratch reason was being shown has been acted on
   gameState.ballsMoving = true; gameState.justPocketed = [];
   gameState.firstContactBall = null; // which ball number the cue ball hits first this shot - null until contact happens
+  gameState.eightBallPocketedThisShot = false; // whether the 8-ball went in this shot, resolved once the whole shot (incl. scratch) is known
   gameState.railContactedThisShot = false; // any ball touching a cushion after legal first contact - required or it's a foul
   gameState.groupAssignedBeforeThisShot = gameState.groupAssigned; // the table's real group state at the moment this shot begins, not whatever this same shot might assign mid-flight
   gameState.aimPhase = true; gameState.aimLocked = false; gameState.powerPhase = false;
@@ -1707,6 +1708,7 @@ function updatePhysics() {
       // mistake there (or any other code path that touches it
       // afterward) silently breaks the whole game.
       gameState.ballsMoving = false;
+      resolveEightBallOutcome();
       checkShootingFouls();
       endTurn();
       poolMyShotInProgress = false;
@@ -1735,6 +1737,7 @@ function updatePhysics() {
 
   if (gameState.ballsMoving && !moving) {
     gameState.ballsMoving = false;
+    resolveEightBallOutcome();
     checkShootingFouls();
     endTurn();
   }
@@ -1945,14 +1948,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
 function handlePocket(ball) {
   if (ball.number === 0) { gameState.scratch = true; gameState.foul = true; gameState.lastFoulReason = 'Scratch — cue ball went in'; }
   else if (ball.number === 8) {
-    if (!gameState.groupAssigned) { gameState.foul = true; gameState.lastFoulReason = 'Foul — 8-ball pocketed too early'; }
-    else {
-      const currentPlayerGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
-      const currentBallsLeft = currentPlayerGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : (7 - gameState.ballsPocketed.stripes);
-      if (currentBallsLeft === 0) gameState.winner = gameState.myTurn ? myName : opponentName;
-      else gameState.winner = gameState.myTurn ? opponentName : myName;
-      gameState.gameOver = true;
-    }
+    gameState.eightBallPocketedThisShot = true; // win/loss determined once the whole shot (incl. scratch) is fully known
   } else {
     const group = ball.number <= 7 ? 'solids' : 'stripes';
     gameState.ballsPocketed[group]++;
@@ -1963,6 +1959,43 @@ function handlePocket(ball) {
       gameState.groupAssigned = true;
     }
   }
+}
+
+function resolveEightBallOutcome() {
+  if (!gameState.eightBallPocketedThisShot) return;
+  gameState.eightBallPocketedThisShot = false;
+  const shooterWasMyTurn = gameState.myTurn;
+  const shooterName = shooterWasMyTurn ? myName : opponentName;
+  const opponentPlayerName = shooterWasMyTurn ? opponentName : myName;
+  if (gameState.scratch) {
+    // Scratching on the same shot that pockets the 8-ball is an
+    // immediate loss for the shooter, regardless of whether their group
+    // was actually cleared.
+    gameState.winner = opponentPlayerName;
+    gameState.gameOverReason = shooterName + ' scratched while pocketing the 8-ball';
+  } else if (!gameState.groupAssignedBeforeThisShot) {
+    // The 8-ball went in before groups were even assigned - can't have
+    // cleared a group that doesn't exist yet, so this is an immediate
+    // loss for the shooter, not just a foul.
+    gameState.winner = opponentPlayerName;
+    gameState.gameOverReason = shooterName + ' pocketed the 8-ball too early';
+  } else {
+    const shooterGroup = shooterWasMyTurn ? gameState.myGroup : gameState.opponentGroup;
+    const shooterBallsLeft = shooterGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : (7 - gameState.ballsPocketed.stripes);
+    const contactWasLegal = shooterBallsLeft === 0
+      ? gameState.firstContactBall === 8 // only the 8-ball is a legal first contact once the shooter's group is cleared
+      : (gameState.firstContactBall != null && (gameState.firstContactBall <= 7 ? 'solids' : 'stripes') === shooterGroup);
+    if (shooterBallsLeft === 0 && contactWasLegal) {
+      gameState.winner = shooterName;
+      gameState.gameOverReason = shooterName + ' legally pocketed the 8-ball to win';
+    } else {
+      gameState.winner = opponentPlayerName;
+      gameState.gameOverReason = shooterBallsLeft === 0
+        ? shooterName + ' pocketed the 8-ball off an illegal shot'
+        : shooterName + ' pocketed the 8-ball before clearing their group';
+    }
+  }
+  gameState.gameOver = true;
 }
 
 function checkShootingFouls() {
@@ -1990,6 +2023,7 @@ function checkShootingFouls() {
 
 function endTurn() {
   const cueBall = balls[0];
+  if (gameState.gameOver) { showGameOver(); return; }
   if (gameState.scratch) {
     cueBall.pocketed = false; cueBall.vx = 0; cueBall.vy = 0; cueBall.spinX = 0; cueBall.spinY = 0;
     gameState.scratch = false; gameState.foulMessageActive = true; switchTurn();
@@ -2000,7 +2034,6 @@ function endTurn() {
     }
     startTurn(); return;
   }
-  if (gameState.gameOver) { showGameOver(); return; }
   if (gameState.foul) {
     gameState.foul = false; gameState.foulMessageActive = true; switchTurn();
     if (gameState.myTurn) {
@@ -3739,7 +3772,8 @@ function showGameOver() {
   if (iWon) matchTally.me++; else matchTally.opp++;
   document.getElementById('gameOverTitle').textContent = iWon ? 'You Win!' : 'You Lose!';
   document.getElementById('gameOverTitle').style.color = iWon ? 'var(--success)' : 'var(--danger)';
-  document.getElementById('gameOverText').textContent = gameState.winner + ' wins this game! Score: ' + matchTally.me + ' - ' + matchTally.opp;
+  const reasonSuffix = gameState.gameOverReason ? ' — ' + gameState.gameOverReason : '';
+  document.getElementById('gameOverText').textContent = gameState.winner + ' wins this game' + reasonSuffix + '! Score: ' + matchTally.me + ' - ' + matchTally.opp;
   updateUI();
   showOverlay('gameOverOverlay');
 }
