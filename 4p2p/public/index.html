@@ -13925,7 +13925,8 @@ document.getElementById('btnPlayerJoinedOk') && document.getElementById('btnPlay
 });
 
 function applyServerState(state) {
-  const wasInLobby = document.getElementById('lobbyScreen').style.display !== 'none';
+  const gwDisplay = document.getElementById('gameWrap').style.display;
+  const gameWrapAlreadyShowing = !!gwDisplay && gwDisplay !== 'none';
   latestServerState = state;
   logClientDebug(state);
   // Keeps the auto-reconnect staleness check (see attemptAutoReconnect)
@@ -14094,8 +14095,10 @@ function applyServerState(state) {
   else if (state.phase === 'play') { phase = trumpExposed ? 'play2' : 'play1'; }
   else if (state.phase === 'roundEnd') { phase = 'play2'; }
 
-  if (state.phase !== 'lobby' && wasInLobby) {
+  if (state.phase !== 'lobby' && !gameWrapAlreadyShowing) {
     document.getElementById('lobbyScreen').style.display = 'none';
+    document.getElementById('reconnectingOverlay').style.display = 'none';
+    document.getElementById('welcomeScreen').style.display = 'none';
     document.getElementById('topBar').style.display = 'flex';
     syncGameWrapTop();
     document.getElementById('gameWrap').style.display = 'flex';
