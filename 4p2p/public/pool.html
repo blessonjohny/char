@@ -1958,8 +1958,21 @@ function handlePocket(ball) {
     gameState.ballsPocketed[group]++;
     gameState.justPocketed.push(ball.number);
     if (!gameState.groupAssigned) {
-      if (gameState.myTurn) { gameState.myGroup = group; gameState.opponentGroup = group === 'solids' ? 'stripes' : 'solids'; }
-      else { gameState.opponentGroup = group; gameState.myGroup = group === 'solids' ? 'stripes' : 'solids'; }
+      // Determine group from whichever ball the cue ball actually
+      // contacted FIRST this shot, not from whichever ball this physics
+      // loop happens to be processing right now. When only one
+      // object ball goes in, these are the same thing - but when
+      // several pocket in the same shot (very common on the break),
+      // iterating balls in array/number order would let an
+      // essentially arbitrary one decide the group, regardless of
+      // which ball the player's shot actually made first contact
+      // with. Falls back to this pocketed ball's own group for the
+      // rare case where the first-contacted ball wasn't itself the
+      // one pocketed (e.g. a combo shot).
+      const fcb = gameState.firstContactBall;
+      const decidingGroup = (fcb !== null && fcb !== 0 && fcb !== 8) ? (fcb <= 7 ? 'solids' : 'stripes') : group;
+      if (gameState.myTurn) { gameState.myGroup = decidingGroup; gameState.opponentGroup = decidingGroup === 'solids' ? 'stripes' : 'solids'; }
+      else { gameState.opponentGroup = decidingGroup; gameState.myGroup = decidingGroup === 'solids' ? 'stripes' : 'solids'; }
       gameState.groupAssigned = true;
     }
   }
