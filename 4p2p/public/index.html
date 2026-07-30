@@ -13314,11 +13314,27 @@ function connectGameSocket() {
     if (panel && panel.classList.contains('on')) renderBrainSlots();
   });
 
-  // Fresh join (not a reconnect): the server always makes us pick exactly
-  // how we're joining — an open seat, taking over a bot, or watching —
-  // rather than silently auto-assigning a seat.
-  gameSocket.on('chooseSeat', (info) => {
-    if (hideReconnectingOverlay()) document.getElementById('welcomeScreen').style.display = 'flex';
+// Same overlay-dismissal as hideReconnectingOverlay(), but WITHOUT its
+// welcome-screen fallback - for use when the server just responded with a
+// real next step (seat picker, pending-approval) rather than an actual
+// failure. Showing the welcome screen underneath one of those was the
+// actual cause of "reconnect kicked me to the main page even though the
+// table kept running in the background": the silent auto-reconnect
+// attempt correctly fell through to a fresh join here (its stored seat no
+// longer matched), and the old code showed the welcome screen as if that
+// counted as a failure, right as - or just before - the seat picker
+// opened on top of it.
+function dismissReconnectSpinnerOnly() {
+  const overlay = document.getElementById('reconnectingOverlay');
+  if (overlay) overlay.style.display = 'none';
+  if (reconnectFallbackTimer) { clearTimeout(reconnectFallbackTimer); reconnectFallbackTimer = null; }
+}
+
+// Fresh join (not a reconnect): the server always makes us pick exactly
+// how we're joining — an open seat, taking over a bot, or watching —
+// rather than silently auto-assigning a seat.
+gameSocket.on('chooseSeat', (info) => {
+    dismissReconnectSpinnerOnly();
     document.getElementById('joinPendingOverlay').classList.remove('on');
     showSeatPicker(info);
   });
@@ -13326,7 +13342,7 @@ function connectGameSocket() {
   // Only reaches us if the table was already playing — the host has to
   // approve before we even get to the seat-choice step.
   gameSocket.on('joinPending', (info) => {
-    if (hideReconnectingOverlay()) document.getElementById('welcomeScreen').style.display = 'flex';
+    dismissReconnectSpinnerOnly();
     document.getElementById('joinPendingOverlay').classList.add('on');
   });
 
