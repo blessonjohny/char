@@ -2018,25 +2018,37 @@ function resolveEightBallOutcome() {
 function checkShootingFouls() {
   if (gameState.foul) return; // a pocket-based foul (scratch, early 8-ball) already settled this
   gameState.lastFoulReason = null; // clear any stale reason from an earlier shot before evaluating this one
+  const __foulDebugShooter = gameState.myTurn ? 'me' : 'opponent';
+  const __foulDebugShooterGroup = gameState.groupAssignedBeforeThisShot ? (gameState.myTurn ? gameState.myGroup : gameState.opponentGroup) : '(table was open)';
+  const __logFoulDecision = (foul, reason) => {
+    console.log('[pool-foul-check] shooter=' + __foulDebugShooter, 'shooterGroup=' + __foulDebugShooterGroup,
+      'firstContact=' + gameState.firstContactBall, 'groupWasAssignedBeforeShot=' + gameState.groupAssignedBeforeThisShot,
+      'pocketed=' + JSON.stringify(gameState.justPocketed), 'railTouched=' + gameState.railContactedThisShot,
+      '=>', foul ? ('FOUL: ' + reason) : 'legal');
+  };
   if (gameState.firstContactBall === null) {
     gameState.foul = true; // cue ball never touched any other ball
     gameState.lastFoulReason = 'Foul — cue ball didn\u2019t touch any ball';
+    __logFoulDecision(true, gameState.lastFoulReason);
     return;
   }
   if (gameState.groupAssignedBeforeThisShot) {
     const shooterGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
     const ballsLeftForShooter = shooterGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : (7 - gameState.ballsPocketed.stripes);
     if (gameState.firstContactBall === 8) {
-      if (ballsLeftForShooter !== 0) { gameState.foul = true; gameState.lastFoulReason = 'Foul — hit the 8-ball first'; return; } // hit the 8-ball first before clearing your own group
+      if (ballsLeftForShooter !== 0) { gameState.foul = true; gameState.lastFoulReason = 'Foul — hit the 8-ball first'; __logFoulDecision(true, gameState.lastFoulReason); return; } // hit the 8-ball first before clearing your own group
     } else {
       const contactedGroup = gameState.firstContactBall <= 7 ? 'solids' : 'stripes';
-      if (contactedGroup !== shooterGroup) { gameState.foul = true; gameState.lastFoulReason = 'Foul — hit the wrong ball first'; return; } // hit the opponent's ball first
+      if (contactedGroup !== shooterGroup) { gameState.foul = true; gameState.lastFoulReason = 'Foul — hit the wrong ball first'; __logFoulDecision(true, gameState.lastFoulReason); return; } // hit the opponent's ball first
     }
   }
   if (!gameState.railContactedThisShot && gameState.justPocketed.length === 0) {
     gameState.foul = true; // legal contact, but nothing pocketed and nothing reached a rail afterward
     gameState.lastFoulReason = 'Foul — no ball reached a rail';
+    __logFoulDecision(true, gameState.lastFoulReason);
+    return;
   }
+  __logFoulDecision(false, null);
 }
 
 function endTurn() {
