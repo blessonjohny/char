@@ -91,7 +91,7 @@ function evaluateHand(hand) {
   const probByBid = {};
   for (let bid = 16; bid <= 28; bid++) {
     const margin = ceiling - bid;
-    let p = margin >= 0 ? 0.97 - 0.25 * Math.exp(-margin / 3) : 0.97 * Math.exp(margin / 3);
+    let p = margin >= 0 ? 0.97 - 0.25 * Math.exp(-margin / 3) : 0.72 * Math.exp(margin / 3);
     probByBid[bid] = Math.max(0.02, Math.min(0.97, p));
   }
   return { offensive, defensive, bestSuit, ceiling, probByBid };

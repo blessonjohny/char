@@ -145,7 +145,7 @@ function evaluatePhase1Hand(hand) {
     const margin = ceiling - bid; // positive = comfortably within range, negative = stretching past it
     let p = margin >= 0
       ? 0.97 - 0.25 * Math.exp(-margin / 3)   // approaches ~97% the more comfortable margin there is
-      : 0.97 * Math.exp(margin / 3);          // decays smoothly the further past the ceiling
+      : 0.72 * Math.exp(margin / 3);          // starts from the SAME ~0.72 the positive branch reaches at margin=0 (0.97-0.25), then decays smoothly the further past the ceiling - previously jumped to ~0.97 here instead, creating a false confidence spike right at each hand's own ceiling
     return Math.max(0.02, Math.min(0.97, p));
   };
   const probByBid = {};
@@ -1244,7 +1244,7 @@ class GameEngine {
       // ordinary bar doesn't get pulled up here.
       let target = 14;
       for (let bidLevel = 14; bidLevel <= 28; bidLevel++) {
-        const honorsPremium = bidLevel >= 28 ? 0.08 : bidLevel >= 20 ? 0.05 : 0;
+        const honorsPremium = bidLevel >= 28 ? 0.08 : bidLevel >= 20 ? 0.05 : bidLevel >= 18 ? 0.03 : 0;
         if (ev.probByBid[bidLevel] >= comfortThreshold + honorsPremium) target = bidLevel;
         else break;
       }
@@ -1301,7 +1301,9 @@ class GameEngine {
       });
       if (similarBids.length > 0 && Math.random() < 0.3 * b.level) {
         const avgBid = similarBids.reduce((s, sb) => s + sb.bid, 0) / similarBids.length;
-        target = Math.round((target + avgBid) / 2);
+        // Only ever pull DOWN toward a more conservative memory, never up -
+        // see the comment above this block for why.
+        target = Math.min(target, Math.round((target + avgBid) / 2));
       }
 
       // "Stay low" is the deliberate last word on this bid, applied
@@ -1376,7 +1378,7 @@ class GameEngine {
         const margin = ownEstimate - lvl; // positive = own hand comfortably covers this bid already
         let p = margin >= 0
           ? 0.95 - 0.2 * Math.exp(-margin / 3.5)
-          : 0.95 * Math.exp(margin / 3.5);
+          : 0.75 * Math.exp(margin / 3.5); // continues smoothly from the ~0.75 the positive branch reaches at margin=0 (0.95-0.2), not a jump to ~0.95
         probByBid[lvl] = Math.max(0.03, Math.min(0.97, p));
       }
 
