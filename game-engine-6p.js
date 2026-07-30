@@ -91,7 +91,7 @@ function evaluateHand(hand) {
   const probByBid = {};
   for (let bid = 16; bid <= 28; bid++) {
     const margin = ceiling - bid;
-    let p = margin >= 0 ? 0.97 - 0.25 * Math.exp(-margin / 3) : 0.97 * Math.exp(margin / 3);
+    let p = margin >= 0 ? 0.97 - 0.25 * Math.exp(-margin / 3) : 0.72 * Math.exp(margin / 3);
     probByBid[bid] = Math.max(0.02, Math.min(0.97, p));
   }
   return { offensive, defensive, bestSuit, ceiling, probByBid };
@@ -104,6 +104,16 @@ class GameEngine6P {
     this.round = 0;
     this.gameScore = [6, 6];
     this.gameOver = null; // {winningTeam, finalScore} once the match ends
+    // "Q" penalty marks: same rule as the 4-player game. This engine has
+    // no automatic championship-to-championship continuation (a match
+    // just ends outright and needs an explicit restartGame() to begin
+    // the next one) -- that restart is treated as "the next championship
+    // starting" for the first-hand partner-bonus exception.
+    this.qMarks = {};
+    this.isFirstHandOfChampionship = true;
+    // Partner bidding signals: same rule as the 4-player game, but sent
+    // to every teammate at once since teams are 3-a-side here.
+    this.partnerSignals = {}; // seat -> {signal:'same'|'higher'|'lower', fromSeat, fromName, forRound}
     this.dealer = Math.floor(Math.random() * SEATS);
     this.resetRoundState();
     this.phase = 'lobby'; // lobby | bidding1 | choosingTrump | play | roundEnd
@@ -130,6 +140,7 @@ class GameEngine6P {
     this.mustPlayTrumpBy = -1;
     this.trickCards = [];
     this.trickSuit = '';
+    this.suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
     this.playedCardsThisRound = [];
     this.voidSuits = Array.from({ length: SEATS }, () => new Set());
     this.tricksPlayed = 0;
@@ -163,6 +174,18 @@ class GameEngine6P {
   }
 
   removeSeat(pos) { this.seats[pos] = null; }
+
+  // A human explicitly exiting mid-game — the reverse of replaceBot
+  // below. Keeps the seat's exact current hand/state and simply makes
+  // it bot-controlled, so the table keeps running instead of breaking
+  // or leaving a hole. Same as game-engine.js's version, needed here
+  // too since 6-player uses this entirely separate engine file.
+  convertToBot(pos) {
+    const seat = this.seats[pos];
+    if (!seat || seat.isBot) return false;
+    seat.isBot = true; seat.connected = true; seat.playerId = null;
+    return true;
+  }
 
   replaceBot(pos, playerId, name) {
     const seat = this.seats[pos];
@@ -219,6 +242,13 @@ class GameEngine6P {
     this.gameOver = null;
     this.round = 0;
     this.dealer = Math.floor(Math.random() * SEATS);
+    // Q marks deliberately NOT cleared here -- this is the only path to
+    // a new match in this engine (there's no automatic continuation
+    // like the 4-player game has), so clearing on every restart would
+    // mean a Q could never actually survive into "the next
+    // championship" at all. It carries over; only the first-hand flag
+    // resets for the fresh match.
+    this.isFirstHandOfChampionship = true;
     this.addLog('Host restarted the game — starting a fresh match.');
     this.startRound();
   }
@@ -266,6 +296,25 @@ class GameEngine6P {
 
   isFirstBidder(pos) {
     return this.highestBid === 0 && this.passes === 0 && pos === nextPos(this.dealer);
+  }
+
+  // A human telling their teammates how to approach the next hand's
+  // bidding -- same, more aggressive, or less aggressive. Sent to every
+  // teammate at once (3-a-side teams here, no single "partner").
+  sendPartnerSignal(fromSeat, signal) {
+    if (!['same', 'higher', 'lower'].includes(signal)) return { ok: false, reason: 'bad_signal' };
+    const fromSeatInfo = this.seats[fromSeat];
+    if (!fromSeatInfo) return { ok: false, reason: 'no_seat' };
+    const myTeam = getTeam(fromSeat);
+    const toSeats = [];
+    for (let i = 0; i < SEATS; i++) {
+      if (i === fromSeat || getTeam(i) !== myTeam) continue;
+      this.partnerSignals[i] = { signal, fromSeat, fromName: fromSeatInfo.name, forRound: this.round + 1 };
+      toSeats.push(i);
+    }
+    this.addLog(`${fromSeatInfo.name} signaled their team: bid ${signal === 'same' ? 'the same' : signal === 'higher' ? 'more aggressively' : 'less aggressively'} next hand.`);
+    this._notify();
+    return { ok: true, toSeats };
   }
 
   placeBid(pos, bid) {
@@ -356,6 +405,7 @@ class GameEngine6P {
     this.trumpExposed = false;
     this.trickCards = [];
     this.trickSuit = '';
+    this.suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
     this.currentPlayer = nextPos(this.dealer); // dealer's right always leads
     this.addLog(`Play begins. Seat ${this.currentPlayer} leads.`);
     this._notify();
@@ -403,7 +453,7 @@ class GameEngine6P {
     const idx = hand.findIndex(c => cardEq(c, card));
     const played = hand.splice(idx, 1)[0];
     if (this.mustPlayTrumpBy === pos) this.mustPlayTrumpBy = -1;
-    if (this.trickSuit === '') this.trickSuit = played.suit;
+    if (this.trickSuit === '') { this.trickSuit = played.suit; this.suitLeadCount[played.suit]++; }
 
     // Same rule as the 4-player game: a trump-suited card played as an
     // ordinary discard (couldn't follow suit, never explicitly called
@@ -433,7 +483,7 @@ class GameEngine6P {
     this.hiddenTrump = null; this.hiddenTrumpOwner = -1;
     if (this.mustPlayTrumpBy === pos) this.mustPlayTrumpBy = -1;
     if (!this.trumpExposed) this.exposeTrump();
-    if (this.trickSuit === '') this.trickSuit = card.suit;
+    if (this.trickSuit === '') { this.trickSuit = card.suit; this.suitLeadCount[card.suit]++; }
     this.trickCards.push({ pos, card });
     this.addLog(`Seat ${pos} played the hidden trump ${card.rank}${card.suit}!`);
     if (this.trickCards.length === SEATS) this._resolveTrick();
@@ -511,16 +561,46 @@ class GameEngine6P {
     const made = this.teamPoints[bT] >= this.highestBid;
     let pts;
     if (this.highestBid >= 28) pts = made ? 3 : 4;
-    else if (this.highestBid >= 18) pts = made ? 2 : 3;
+    else if (this.highestBid >= 20) pts = made ? 2 : 3;
     else pts = made ? 1 : 2;
+    const isHonors = this.highestBid >= 20;
     if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
     else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
     this.roundWinnerAnnounced = {
       bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
-      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT
+      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors
     };
     this.phase = 'roundEnd';
     this.addLog(`Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
+
+    // Q-mark removal: same rule as the 4-player game — personally
+    // calling and winning a bid sheds one Q from yourself; on the very
+    // first hand of a new match specifically, your partner sheds one
+    // too (if they're carrying any). Self-only every hand after that.
+    if (made) {
+      const bidderSeat = this.seats[this.bidder];
+      if (bidderSeat && this.qMarks[bidderSeat.name] > 0) {
+        this.qMarks[bidderSeat.name]--;
+        if (this.qMarks[bidderSeat.name] <= 0) delete this.qMarks[bidderSeat.name];
+        this.addLog(`${bidderSeat.name} shed a Q by calling and winning the bid.`);
+      }
+      if (this.isFirstHandOfChampionship) {
+        // No single "partner" here — teams are 3-a-side (even seats vs
+        // odd seats), so the first-hand bonus generalizes to "every
+        // teammate," not just one designated partner.
+        const myTeam = getTeam(this.bidder);
+        for (let i = 0; i < SEATS; i++) {
+          if (i === this.bidder || getTeam(i) !== myTeam) continue;
+          const teammateSeat = this.seats[i];
+          if (teammateSeat && this.qMarks[teammateSeat.name] > 0) {
+            this.qMarks[teammateSeat.name]--;
+            if (this.qMarks[teammateSeat.name] <= 0) delete this.qMarks[teammateSeat.name];
+            this.addLog(`${teammateSeat.name} also shed a Q — first hand of the match, teammate's bid came through.`);
+          }
+        }
+      }
+    }
+    this.isFirstHandOfChampionship = false;
 
     for (let i = 0; i < SEATS; i++) {
       const seatI = this.seats[i];
@@ -542,8 +622,17 @@ class GameEngine6P {
     // ends outright the moment either team hits 12 or drops to 0.
     if (this.gameScore[0] >= 12 || this.gameScore[1] >= 12 || this.gameScore[0] <= 0 || this.gameScore[1] <= 0) {
       const winningTeam = this.gameScore[0] > this.gameScore[1] ? 0 : 1;
+      const losingTeam = 1 - winningTeam;
       this.gameOver = { winningTeam, finalScore: this.gameScore.slice() };
       this.addLog(`Match over — team ${winningTeam} wins ${this.gameScore[winningTeam]}-${this.gameScore[1 - winningTeam]}.`);
+      // Zero-sum scoring means this is always a shutout — every player
+      // on the losing side picks up a Q.
+      for (let i = 0; i < SEATS; i++) {
+        const s = this.seats[i];
+        if (!s || getTeam(i) !== losingTeam) continue;
+        this.qMarks[s.name] = (this.qMarks[s.name] || 0) + 1;
+      }
+      this.addLog(`Team ${losingTeam} shut out — every player picks up a Q.`);
     }
 
     this._notify();
@@ -557,7 +646,15 @@ class GameEngine6P {
     if (seat.isBot || !seat.connected) {
       const capturedPos = this.currentPlayer;
       const capturedRound = this.round;
-      const delay = seat.isBot ? 900 : 10000;
+      // Bots pace themselves at a natural ~900ms. A disconnected HUMAN
+      // seat gets a much longer grace window before a bot steps in for
+      // them — 10s turned out to be too tight: a brief mobile network
+      // blip (tunnel, elevator, a few seconds of spotty signal) can flip
+      // a seat to disconnected, and since this timer isn't reset on
+      // reconnect (only re-checked once, right when it fires), someone
+      // who reconnects with only a couple seconds left doesn't get a
+      // real chance to notice and act before the bot takes over anyway.
+      const delay = seat.isBot ? 900 : 35000;
       setTimeout(() => {
         if (this.round !== capturedRound) return;
         if (this.currentPlayer !== capturedPos) return;
@@ -569,22 +666,78 @@ class GameEngine6P {
   }
 
   _botAct(pos) {
+    try {
+      this._botActInner(pos);
+    } catch (e) {
+      console.error(`[bot-safety] _botAct threw for seat ${pos} in phase ${this.phase} (round ${this.round}) - falling back to a safe default action:`, e && e.stack || e);
+      try {
+        if (this.phase === 'bidding1' && this.currentPlayer === pos) {
+          const bid = this.isFirstBidder(pos) ? 16 : 0;
+          const result = this.placeBid(pos, bid);
+          if (!result.ok) this.placeBid(pos, 0);
+        } else if (this.phase === 'choosingTrump' && this.currentPlayer === pos) {
+          this.chooseTrump(pos, SUITS[0], null);
+        } else if (this.phase === 'play' && this.currentPlayer === pos) {
+          const hand = this.seats[pos].hand;
+          if (hand.length === 0 && this.hiddenTrump && pos === this.hiddenTrumpOwner) {
+            this.playHiddenTrump(pos);
+          } else {
+            const legal = hand.find(c => this.canPlayCard(pos, c));
+            if (legal) this.playCard(pos, legal);
+          }
+        }
+      } catch (e2) {
+        console.error(`[bot-safety] fallback action ALSO threw for seat ${pos}:`, e2 && e2.stack || e2);
+      }
+    }
+  }
+
+  _botActInner(pos) {
     if (this.phase === 'bidding1' && this.currentPlayer === pos) {
       const b = brain.getBrain(this.seats[pos].name);
       const hand = this.seats[pos].hand;
       const first = this.isFirstBidder(pos);
       const minBid = this.highestBid > 0 ? this.highestBid + 1 : 16;
       const ev = evaluateHand(hand);
-      const comfortThreshold = Math.max(0.45, 0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1);
+      const totalDecidedBids = b.stats.bidsWon + b.stats.bidsLost;
+      const performanceAdjustment = totalDecidedBids >= 5
+        ? Math.max(0, 0.5 - (b.stats.bidsWon / totalDecidedBids)) * 0.6
+        : 0;
+      const comfortThreshold = Math.min(0.9, Math.max(0.45,
+        0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1 + performanceAdjustment));
       let target = 16;
       for (let bidLevel = 16; bidLevel <= 28; bidLevel++) {
-        if (ev.probByBid[bidLevel] >= comfortThreshold) target = bidLevel;
+        // Bids of 20+ ("Honors") pay and cost more per point than
+        // sub-20 bids — a bad guess up there is a bigger absolute swing
+        // on the scoreboard, so crossing into that territory (and again
+        // into 28) needs a bit more confidence than the plain curve
+        // alone would ask for, on top of the ordinary comfort bar.
+        const honorsPremium = bidLevel >= 28 ? 0.08 : bidLevel >= 20 ? 0.05 : 0;
+        if (ev.probByBid[bidLevel] >= comfortThreshold + honorsPremium) target = bidLevel;
         else break;
       }
       if (ev.defensive > ev.offensive * 1.3) target = Math.max(16, target - 3);
+
+      // Partner bidding signal from last round -- same rule as the
+      // 4-player game, just sent to ALL teammates at once here since
+      // teams are 3-a-side, not a single designated partner. "lower" is
+      // applied later as a hard cap (see below, after the partner-
+      // support bonus) rather than here, so the bonus can't quietly
+      // walk the target back up past what was explicitly asked for.
+      const wantsLower = this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round &&
+        this.partnerSignals[pos].signal === 'lower';
+      if (this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round) {
+        const sig = this.partnerSignals[pos].signal;
+        if (sig === 'higher') target = Math.min(28, target + 3);
+      }
+
       let pb = 0;
       if (this.bidder >= 0 && getTeam(this.bidder) === getTeam(pos)) pb = 1 * b.bidWeights.partnerSupport;
       target = Math.min(28, Math.round(target + pb));
+
+      // Deliberate last word on this bid - see the 4-player game's
+      // identical comment for the full reasoning.
+      if (wantsLower) target = Math.min(target, 18);
 
       let bid = 0;
       if (first) {
@@ -596,6 +749,7 @@ class GameEngine6P {
 
       const result = this.placeBid(pos, bid);
       if (!result.ok) this.placeBid(pos, 0);
+      delete this.partnerSignals[pos]; // one-shot: consumed the moment this seat actually bids
     } else if (this.phase === 'choosingTrump' && this.currentPlayer === pos) {
       const hand = this.seats[pos].hand;
       const bySuit = {};
@@ -621,16 +775,30 @@ class GameEngine6P {
 
       if (!hasSuit && !this.trumpExposed && this.trickSuit !== '' && trumps.length >= 0) {
         let callTrumpNow = false;
-        if (pos === this.bidder) callTrumpNow = true;
-        else if (isLast && wt !== myTeam && tPts > 0) callTrumpNow = true;
-        else if (wt !== myTeam && tPts >= 2) callTrumpNow = true;
-        else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) callTrumpNow = true;
-        else if (this.trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) callTrumpNow = true;
+        // None of these reasons justify exposing trump and cutting in if
+        // our OWN partner already has this trick won for free — pure
+        // waste of a trump card and revealed information for nothing.
+        if (wt !== myTeam) {
+          if (pos === this.bidder) callTrumpNow = true;
+          else if (isLast && tPts > 0) callTrumpNow = true;
+          else if (tPts >= 2) callTrumpNow = true;
+          else if ((this.suitLeadCount[this.trickSuit] || 0) >= 2 && tPts >= 1) callTrumpNow = true;
+          else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) callTrumpNow = true;
+          else if (this.trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) callTrumpNow = true;
+        }
         if (callTrumpNow) {
           this.exposeTrump();
           if (trumps.length > 0) {
             trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
-            this.playCard(pos, trumps[0]);
+            // Always a FIRST cut — any trump we hold wins this outright,
+            // so reflexively playing our best one (often the Jack) is
+            // pure waste when a King or 7 would win it just as well.
+            const zeroPt = trumps.filter(c => c.points === 0);
+            let cutCard = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1] : trumps[trumps.length - 1];
+            if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && cutCard.rank !== 'J' && tPts >= 3) {
+              cutCard = trumps[0];
+            }
+            this.playCard(pos, cutCard);
           } else {
             const allCards = [...hand].sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
             this.playCard(pos, allCards[0]);
@@ -698,10 +866,19 @@ class GameEngine6P {
           if (p === pos || getTeam(p) === myTeam) continue;
           if (this.voidSuits[p].has(s)) { voidOpponentPenalty = this.trumpExposed ? 20 : 10; break; }
         }
-        let sc = -voidOpponentPenalty;
+        // The flip side: a PARTNER known to be void in this suit can
+        // trump straight in and win it for the team once trump is
+        // exposed — leading into that is a genuine team tactic ("what
+        // can my partner cut"), not just a read on this bot's own hand.
+        let partnerVoidBonus = 0;
+        for (let p = 0; p < SEATS; p++) {
+          if (p === pos || getTeam(p) !== myTeam) continue;
+          if (this.voidSuits[p].has(s) && this.trumpExposed) { partnerVoidBonus = 18; break; }
+        }
+        let sc = -voidOpponentPenalty + partnerVoidBonus;
         if (isEarly) {
           if (low.rank === 'J' || low.rank === '9') {
-            if (bySuit[s].length > 1) { candidates.push({ card: bySuit[s][1], score: bySuit[s].length * 5 - voidOpponentPenalty, suit: s }); continue; }
+            if (bySuit[s].length > 1) { candidates.push({ card: bySuit[s][1], score: bySuit[s].length * 5 - voidOpponentPenalty + partnerVoidBonus, suit: s }); continue; }
             // A lone 9 with no second card of that suit to lead instead —
             // this is exactly the risky "leading a point card into a suit
             // where the opponent may still hold the Jack" case if that
@@ -748,7 +925,17 @@ class GameEngine6P {
       if (canWin) {
         const hasJ = follow.some(c => c.rank === 'J'), has9 = follow.some(c => c.rank === '9');
         if (hasJ) return follow.find(c => c.rank === 'J');
-        if (has9) return follow.find(c => c.rank === '9');
+        if (has9) {
+          // Same fix as the 4-player engine: don't automatically spend
+          // the 9 to win a small trick when the Jack of this suit hasn't
+          // been seen yet and someone still acts after us -- that's
+          // exactly the "wins the trick, then a later Jack steals it
+          // back for nothing" mistake. Safe once it's the last word,
+          // the Jack's accounted for, or the trick's worth the risk.
+          const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
+          if (jackRisk && tPts < 3) return follow[follow.length - 1];
+          return follow.find(c => c.rank === '9');
+        }
         let winner = follow[0];
         if (cwc && cwc.suit === this.trickSuit) {
           for (let i = follow.length - 1; i >= 0; i--) {
@@ -775,22 +962,59 @@ class GameEngine6P {
       if (!cwc) trumpWinning = true;
       else if (cwc.suit !== this.trumpSuit) trumpWinning = true;
       else trumpWinning = RANK_ORDER[trumps[0].rank] > RANK_ORDER[cwc.rank];
-      const worthTrumping = tPts >= 2 || isLast || (isBidder && tPts >= 1);
+      const suitRepeat = this.suitLeadCount[this.trickSuit] || 0;
+      const worthTrumping = tPts >= 2 || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
       if (trumpWinning && wt !== myTeam && worthTrumping) {
-        let wtr = trumps[0];
+        let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {
+          // Over-cutting another trump that's currently winning — find the
+          // minimal trump that still beats it, not necessarily our best.
+          wtr = trumps[0];
           for (let i = trumps.length - 1; i >= 0; i--) {
             if (RANK_ORDER[trumps[i].rank] > RANK_ORDER[cwc.rank]) { wtr = trumps[i]; break; }
           }
+          // The minimal sufficient trump is only safe if no one still to
+          // act in this trick can hold a bigger one — in practice, whether
+          // the trump Jack is still unaccounted for. Spending our only
+          // realistic winner into a trick a live Jack can still take away
+          // is exactly the waste this was meant to avoid.
+          if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && wtr.rank !== 'J' && tPts >= 3) {
+            wtr = trumps[0];
+          }
+        } else {
+          // The FIRST cut in this trick — nothing on the table is trump
+          // yet, so literally any trump wins it. Reflexively reaching for
+          // our best trump (often the Jack) to win a trick a King or 7
+          // would have won exactly as well is a real, common waste. Use
+          // the cheapest trump we have, preferring a zero-point one.
+          const zeroPt = trumps.filter(c => c.points === 0);
+          wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1] : trumps[trumps.length - 1];
         }
         return wtr;
       }
-      return trumps[trumps.length - 1];
+      // Not spending trump to win this one — most commonly because our
+      // OWN partner is already winning it (wt === myTeam), where cutting
+      // in over our own teammate would just waste a trump for nothing. A
+      // trump card is not automatically the right thing to throw away
+      // just because we're void in the led suit — a non-trump discard
+      // (ideally a point card, feeding our own partner the same way the
+      // follow-suit logic above does) preserves trump for later.
+      const nonTrumpDiscard = hand.filter(c => c.suit !== this.trumpSuit);
+      if (nonTrumpDiscard.length > 0) {
+        const feedablePts = nonTrumpDiscard.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+        if (wt === myTeam && feedablePts.length > 0) {
+          feedablePts.sort((a, c) => c.points - a.points);
+          return feedablePts[0];
+        }
+        nonTrumpDiscard.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+        return nonTrumpDiscard[0];
+      }
+      return trumps[trumps.length - 1]; // genuinely nothing else left to throw
     }
 
     if (!this.trumpExposed && trumps.length > 0 && this.trickSuit !== this.trumpSuit) {
       if (isLast && wt !== myTeam && tPts >= 2) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
-      if (isBidder && tPts >= 3) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
+      if (isBidder && wt !== myTeam && tPts >= 3) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
     }
 
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
@@ -824,6 +1048,8 @@ class GameEngine6P {
       trickSuit: this.trickSuit,
       teamPoints: this.teamPoints,
       gameScore: this.gameScore,
+      qMarks: this.qMarks,
+      partnerSignals: this.partnerSignals,
       gameOver: this.gameOver,
       lastTrick: this.lastTrick,
       roundWinnerAnnounced: this.roundWinnerAnnounced,

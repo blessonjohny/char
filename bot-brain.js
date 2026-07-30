@@ -49,14 +49,17 @@ function saveBrains() {
 // tiny update would be wasteful. Every 10s is plenty for learning that
 // only needs to survive a restart, not every individual decision.
 setInterval(saveBrains, 10000);
-// Also save on process exit (e.g. a deploy restarting the service).
-process.on('SIGTERM', () => { saveBrains(); process.exit(0); });
-process.on('SIGINT', () => { saveBrains(); process.exit(0); });
+// Also save on process exit (e.g. a deploy restarting the service) --
+// exiting itself is left to server.js's consolidated shutdown handler,
+// so every module (this one, the visitor log, anything else added
+// later) actually gets to save before the process actually terminates.
+process.on('SIGTERM', () => { saveBrains(); });
+process.on('SIGINT', () => { saveBrains(); });
 
 function createDefaultBrain(botName) {
   return {
     name: botName,
-    version: 2,
+    version: 3,
     created: Date.now(),
     lastPlayed: Date.now(),
     totalGames: 0,
@@ -96,15 +99,86 @@ function createDefaultBrain(botName) {
       pointsCaptured: 0, pointsGiven: 0,
       trumpCallsGood: 0, trumpCallsBad: 0
     },
-    championshipHistory: []
+    championshipHistory: [],
+    // Per-human tendencies, keyed by playerId (stable across name changes/
+    // reconnects). Separate from everything above, which is the bot's own
+    // generic outcome history regardless of who it played with.
+    humanProfiles: {}
   };
+}
+
+function defaultHumanProfile() {
+  return {
+    gamesWith: 0,
+    lastPlayed: Date.now(),
+    partnerBidsTotal: 0, partnerBidsWon: 0, // this human bid, and THIS bot was their partner
+    opponentBidSum: 0, opponentBidCount: 0   // this human bid while opposing this bot
+  };
+}
+
+// Fills in any fields a brain saved by an older version of this file is
+// missing, without touching a single field it already has. Called on
+// every getBrain() so this is automatic and invisible -- an existing
+// save like the one already sitting in bot-brains-data.json just quietly
+// gains humanProfiles: {} the next time it's loaded, XP/level/patterns/
+// everything else exactly as they were.
+function ensureBrainShape(brain) {
+  const defaults = createDefaultBrain(brain.name);
+  if (!brain.humanProfiles) brain.humanProfiles = {};
+  if (!brain.playWeights) brain.playWeights = defaults.playWeights;
+  else for (const k of Object.keys(defaults.playWeights)) if (brain.playWeights[k] === undefined) brain.playWeights[k] = defaults.playWeights[k];
+  if (!brain.bidWeights) brain.bidWeights = defaults.bidWeights;
+  else for (const k of Object.keys(defaults.bidWeights)) if (brain.bidWeights[k] === undefined) brain.bidWeights[k] = defaults.bidWeights[k];
+  brain.version = defaults.version;
+  return brain;
+}
+
+function getHumanProfile(brain, playerId) {
+  if (!playerId) return null;
+  if (!brain.humanProfiles[playerId]) brain.humanProfiles[playerId] = defaultHumanProfile();
+  return brain.humanProfiles[playerId];
 }
 
 function getBrain(botName) {
   if (!botBrains[botName]) {
     botBrains[botName] = createDefaultBrain(botName);
   }
-  return botBrains[botName];
+  return ensureBrainShape(botBrains[botName]);
+}
+
+// Called whenever a bid closes: if the bidder had a human partner, that
+// human's "as partner" track record updates; if the bidder was a human
+// opposing this bot, that human's "as opponent" bid average updates.
+// Both are per (bot, human) pair -- Neha's read on a specific person is
+// her own, independent of what Koshy has learned about that same person.
+function recordHumanBidObservation(botName, humanPlayerId, wasPartner, bidValue, madeIt) {
+  if (!humanPlayerId) return;
+  const brain = getBrain(botName);
+  const hp = getHumanProfile(brain, humanPlayerId);
+  hp.gamesWith++;
+  hp.lastPlayed = Date.now();
+  if (wasPartner) {
+    hp.partnerBidsTotal++;
+    if (madeIt) hp.partnerBidsWon++;
+  } else {
+    hp.opponentBidSum += bidValue;
+    hp.opponentBidCount++;
+  }
+  dirty = true;
+}
+
+// A trust multiplier for how much to lean into supporting THIS specific
+// human partner's bidding, derived from their actual track record with
+// this bot. No data yet -> neutral (1.0, i.e. don't change behavior).
+// Comfortably proven partner -> lean in further. Repeatedly-missed
+// partner -> pull back a little. Deliberately mild (0.75-1.25) so a
+// short losing/winning streak can't swing behavior wildly.
+function partnerTrustMultiplier(brain, humanPlayerId) {
+  if (!humanPlayerId) return 1.0;
+  const hp = brain.humanProfiles[humanPlayerId];
+  if (!hp || hp.partnerBidsTotal < 3) return 1.0; // not enough history to trust yet
+  const rate = hp.partnerBidsWon / hp.partnerBidsTotal;
+  return 0.75 + rate * 0.5; // 0% success -> 0.75x, 100% success -> 1.25x
 }
 
 function calculateLevel(brain) {
@@ -174,12 +248,14 @@ function recordTrickOutcome(botName, situation, cardPlayed, won, points) {
     brain.patterns.successfulPlays.push({ situation, cardPlayed, points, timestamp: Date.now() });
     if (brain.patterns.successfulPlays.length > 100) brain.patterns.successfulPlays.shift();
     addExperience(brain, 20 + points * 5);
+    brain.playWeights.trickWinning = Math.min(1.4, brain.playWeights.trickWinning + 0.01);
   } else {
     brain.stats.tricksLost++;
     brain.stats.pointsGiven += points;
     brain.patterns.failedPlays.push({ situation, cardPlayed, timestamp: Date.now() });
     if (brain.patterns.failedPlays.length > 100) brain.patterns.failedPlays.shift();
     addExperience(brain, 5);
+    brain.playWeights.trickWinning = Math.max(0.7, brain.playWeights.trickWinning - 0.005);
   }
   dirty = true;
 }
@@ -188,8 +264,15 @@ function recordTrumpExposure(botName, situation, exposed, goodOutcome) {
   const brain = getBrain(botName);
   brain.patterns.trumpExposures.push({ situation, exposed, goodOutcome, timestamp: Date.now() });
   if (brain.patterns.trumpExposures.length > 50) brain.patterns.trumpExposures.shift();
-  if (goodOutcome) { brain.stats.trumpCallsGood++; addExperience(brain, 30); }
-  else { brain.stats.trumpCallsBad++; addExperience(brain, 10); }
+  if (goodOutcome) {
+    brain.stats.trumpCallsGood++;
+    addExperience(brain, 30);
+    brain.playWeights.trumpManagement = Math.min(1.4, brain.playWeights.trumpManagement + 0.015);
+  } else {
+    brain.stats.trumpCallsBad++;
+    addExperience(brain, 10);
+    brain.playWeights.trumpManagement = Math.max(0.7, brain.playWeights.trumpManagement - 0.01);
+  }
   dirty = true;
 }
 
@@ -202,5 +285,6 @@ function recordRound(botName, won) {
 
 module.exports = {
   loadBrains, saveBrains, getBrain, getHandProfile,
-  recordBidOutcome, recordTrickOutcome, recordTrumpExposure, recordRound
+  recordBidOutcome, recordTrickOutcome, recordTrumpExposure, recordRound,
+  recordHumanBidObservation, partnerTrustMultiplier, getHumanProfile
 };
