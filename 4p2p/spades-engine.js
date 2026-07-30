@@ -325,10 +325,29 @@ class SpadesEngine {
       if (this.curP !== capturedPos) return;
       const seatNow = this.seats[capturedPos];
       if (!seatNow || (!seatNow.isBot && seatNow.connected)) return;
-      if (this.phase === 'bidding') this.placeBid(capturedPos, this._botBid(capturedPos));
-      else if (this.phase === 'playing') {
-        const card = this._botPlay(capturedPos);
-        if (card) this.playCard(capturedPos, card);
+      if (this.phase === 'bidding') {
+        try {
+          this.placeBid(capturedPos, this._botBid(capturedPos));
+        } catch (e) {
+          console.error(`[bot-safety] spades bid threw for seat ${capturedPos} (hand ${this.handN}):`, e && e.stack || e);
+          try { this.placeBid(capturedPos, 0); } catch (e2) { console.error('[bot-safety] fallback bid ALSO threw:', e2 && e2.stack || e2); }
+        }
+      } else if (this.phase === 'playing') {
+        let card = null;
+        try {
+          card = this._botPlay(capturedPos);
+        } catch (e) {
+          console.error(`[bot-safety] spades play threw for seat ${capturedPos} (hand ${this.handN}):`, e && e.stack || e);
+        }
+        if (!card) {
+          try {
+            const seatNow2 = this.seats[capturedPos];
+            card = seatNow2 && seatNow2.hand.find(c => this.canPlayCard ? this.canPlayCard(capturedPos, c) : true);
+          } catch (e2) { console.error('[bot-safety] fallback card lookup ALSO threw:', e2 && e2.stack || e2); }
+        }
+        if (card) {
+          try { this.playCard(capturedPos, card); } catch (e3) { console.error('[bot-safety] fallback playCard ALSO threw:', e3 && e3.stack || e3); }
+        }
       }
     }, seat.isBot ? 900 : 20000); // bots act at a watchable pace; a disconnected human gets a real grace period for a brief network blip before anything is played for them
     return true;

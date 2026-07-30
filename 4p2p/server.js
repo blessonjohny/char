@@ -1027,7 +1027,7 @@ io.on('connection', (socket) => {
     detachSocketFromAllTables(socket, id);
     t.sockets.set(socket.id, { playerId, pos: 3 });
     socket.join(id);
-    socket.emit('joined', { tableId: id, playerId, pos: 3, isHost: true });
+    socket.emit('joined', { tableId: id, playerId, pos: 3, isHost: true, phase: engine.phase });
     broadcastTable(t);
     scheduleNoHumanShutdown(t, id);
     io.emit('roomList', publicTableList());
@@ -1054,7 +1054,7 @@ io.on('connection', (socket) => {
         // player without host rights even when they were the only human
         // present — the exact reported bug.
         ensureHumanHost(t, playerId);
-        socket.emit('joined', { tableId, playerId, pos: idx.pos, isHost: isEffectiveHost(t, playerId) });
+        socket.emit('joined', { tableId, playerId, pos: idx.pos, isHost: isEffectiveHost(t, playerId), phase: t.engine.phase });
         // A bot's (or another disconnected seat's) turn can stall while
         // this player was away — nothing else was guaranteed to re-check
         // it. Re-kicking here means reconnecting always un-sticks the
@@ -1214,7 +1214,7 @@ io.on('connection', (socket) => {
     socket.join(tableId);
     // Strong host-recovery rule, same as the reconnect path above.
     ensureHumanHost(t, playerId);
-    socket.emit('joined', { tableId, playerId, pos, isHost: isEffectiveHost(t, playerId) });
+    socket.emit('joined', { tableId, playerId, pos, isHost: isEffectiveHost(t, playerId), phase: t.engine.phase });
     touch(t);
     broadcastTable(t);
     scheduleNoHumanShutdown(t, tableId);

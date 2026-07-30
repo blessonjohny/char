@@ -1155,6 +1155,45 @@ class GameEngine {
   }
 
   _botAct(pos) {
+    try {
+      this._botActInner(pos);
+    } catch (e) {
+      // Never let a bad bot decision permanently freeze the table. The
+      // server's global uncaughtException handler keeps the PROCESS alive
+      // on an unhandled throw here, but it does nothing to un-stick THIS
+      // seat's turn - nothing else was going to retry it, so the table
+      // would otherwise wait forever for an action that will never come.
+      // Fall back to the simplest guaranteed-legal action for whatever
+      // phase we're actually in, so the round always keeps moving even
+      // when the "smart" logic above hits something it didn't expect.
+      console.error(`[bot-safety] _botAct threw for seat ${pos} in phase ${this.phase} (round ${this.round}) - falling back to a safe default action:`, e && e.stack || e);
+      try {
+        if (this.phase === 'bidding1' && this.currentPlayer === pos) {
+          const bid = this.isFirstBidder(pos) ? 14 : 0;
+          const result = this.placeBid(pos, bid);
+          if (!result.ok) this.placeBid(pos, 0);
+        } else if (this.phase === 'choosingTrump' && pos === this.bidder) {
+          this.chooseTrump(pos, SUITS[0], null);
+        } else if (this.phase === 'bidding2' && this.currentPlayer === pos) {
+          this.passPhase2(pos);
+        } else if (this.phase === 'play' && this.currentPlayer === pos) {
+          const hand = this.seats[pos].hand;
+          if (hand.length === 0 && this.hiddenTrump && pos === this.hiddenTrumpOwner) {
+            this.playHiddenTrump(pos);
+          } else {
+            const legal = hand.find(c => this.canPlayCard(pos, c));
+            if (legal) this.playCard(pos, legal);
+          }
+        }
+      } catch (e2) {
+        // If even the fallback fails, log it clearly rather than throwing
+        // again silently - at minimum this gives a concrete trace to chase.
+        console.error(`[bot-safety] fallback action ALSO threw for seat ${pos}:`, e2 && e2.stack || e2);
+      }
+    }
+  }
+
+  _botActInner(pos) {
     if (this.phase === 'bidding1' && this.currentPlayer === pos) {
       const botName = this.seats[pos].name;
       const b = brain.getBrain(botName);
