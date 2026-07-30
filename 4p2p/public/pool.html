@@ -733,6 +733,9 @@ function poolConnect() {
     if (data.foul) {
       gameState.foulMessageActive = true;
       if (data.lastFoulReason) gameState.lastFoulReason = data.lastFoulReason;
+    } else {
+      gameState.foulMessageActive = false;
+      gameState.lastFoulReason = null;
     }
     if (data.gameOver) {
       gameState.gameOver = true;
@@ -2000,6 +2003,7 @@ function resolveEightBallOutcome() {
 
 function checkShootingFouls() {
   if (gameState.foul) return; // a pocket-based foul (scratch, early 8-ball) already settled this
+  gameState.lastFoulReason = null; // clear any stale reason from an earlier shot before evaluating this one
   if (gameState.firstContactBall === null) {
     gameState.foul = true; // cue ball never touched any other ball
     gameState.lastFoulReason = 'Foul — cue ball didn\u2019t touch any ball';
