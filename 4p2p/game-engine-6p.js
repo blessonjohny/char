@@ -643,9 +643,18 @@ class GameEngine6P {
   maybeAutoAct() {
     const seat = this.seats[this.currentPlayer];
     if (!seat) return;
-    if (seat.isBot || !seat.connected) {
+    if (this._turnTrackedPlayer !== this.currentPlayer || this._turnTrackedRound !== this.round) {
+      this._turnTrackedPlayer = this.currentPlayer;
+      this._turnTrackedRound = this.round;
+      this.turnStartedAt = Date.now();
+    }
+    const turnAgeMs = Date.now() - (this.turnStartedAt || Date.now());
+    const CONNECTED_BUT_STUCK_MS = 120000;
+    const treatAsStuck = seat.isBot || !seat.connected || turnAgeMs >= CONNECTED_BUT_STUCK_MS;
+    if (treatAsStuck) {
       const capturedPos = this.currentPlayer;
       const capturedRound = this.round;
+      const capturedTurnStartedAt = this.turnStartedAt;
       // Bots pace themselves at a natural ~900ms. A disconnected HUMAN
       // seat gets a much longer grace window before a bot steps in for
       // them — 10s turned out to be too tight: a brief mobile network
@@ -654,12 +663,16 @@ class GameEngine6P {
       // reconnect (only re-checked once, right when it fires), someone
       // who reconnects with only a couple seconds left doesn't get a
       // real chance to notice and act before the bot takes over anyway.
-      const delay = seat.isBot ? 900 : 35000;
+      // A seat already past the connected-but-stuck threshold has used
+      // up its grace period - act promptly instead of waiting a fresh 35s.
+      const delay = seat.isBot ? 900 : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         if (this.round !== capturedRound) return;
         if (this.currentPlayer !== capturedPos) return;
         const seatNow = this.seats[capturedPos];
-        if (!seatNow || (!seatNow.isBot && seatNow.connected)) return;
+        if (!seatNow) return;
+        const stillStuck = seatNow.isBot || !seatNow.connected || (Date.now() - (capturedTurnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
+        if (!stillStuck) return;
         this._botAct(capturedPos);
       }, delay);
     }

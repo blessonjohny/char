@@ -1110,7 +1110,27 @@ class GameEngine {
   maybeAutoAct() {
     const seat = this.seats[this.currentPlayer];
     if (!seat) return; // truly empty seat — caller must fill or skip
-    if (seat.isBot || !seat.connected) {
+    // Track how long the current seat has actually been on the clock,
+    // not how long ago maybeAutoAct() happened to last be called (which
+    // can be re-invoked many times for the same turn, e.g. once per
+    // reconnect) - only a genuine turn change resets this.
+    if (this._turnTrackedPlayer !== this.currentPlayer || this._turnTrackedRound !== this.round) {
+      this._turnTrackedPlayer = this.currentPlayer;
+      this._turnTrackedRound = this.round;
+      this.turnStartedAt = Date.now();
+    }
+    const turnAgeMs = Date.now() - (this.turnStartedAt || Date.now());
+    // A seat that LOOKS connected but hasn't actually acted in a very
+    // long time is almost certainly a zombie connection (a network
+    // transition the socket layer never cleanly detected as a
+    // disconnect) rather than a human genuinely still thinking - no
+    // real turn takes 2 minutes. Once past that, treat it exactly like
+    // an explicitly disconnected seat so the table can recover on its
+    // own instead of staying stuck until someone happens to reconnect
+    // in a way that coincidentally un-sticks it.
+    const CONNECTED_BUT_STUCK_MS = 120000;
+    const treatAsStuck = seat.isBot || !seat.connected || turnAgeMs >= CONNECTED_BUT_STUCK_MS;
+    if (treatAsStuck) {
       // A disconnected human gets covered the same way a bot seat does —
       // otherwise their turn just freezes the whole table indefinitely
       // waiting for them to come back. The moment they reconnect, control
@@ -1125,6 +1145,7 @@ class GameEngine {
       // correct, the human just never got a chance to see the steps.
       const capturedPos = this.currentPlayer;
       const capturedRound = this.round;
+      const capturedTurnStartedAt = this.turnStartedAt;
       // Bots always act at a comfortable, watchable pace. A disconnected
       // HUMAN gets a real grace period instead — brief network hiccups are
       // common and often invisible to the person experiencing them (their
@@ -1135,19 +1156,27 @@ class GameEngine {
       // Same reasoning as the 6-player engine: 10s was too tight to
       // absorb a brief mobile connectivity blip before a bot takes over
       // an actively-present human's seat.
-      const delay = seat.isBot ? 900 : 35000;
+      // A seat that's already past the connected-but-stuck threshold has
+      // used up its grace period already - act promptly rather than
+      // making the table wait out a full fresh 35s on top of the 2
+      // minutes it's already been stuck.
+      const delay = seat.isBot ? 900 : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         // Re-check everything at fire-time, not just at schedule-time:
         // - the round hasn't moved on
         // - it's still actually this seat's turn
-        // - this seat is STILL a bot or STILL disconnected — if a human
-        //   reconnected during this delay, they should get to act
-        //   themselves now, not have a card auto-played out from under
-        //   them the moment they came back.
+        // - this seat is STILL a bot, STILL disconnected, or STILL past
+        //   the connected-but-stuck threshold (re-derived fresh here,
+        //   not reused from schedule-time) — if a human reconnected AND
+        //   genuinely resumed play during this delay, they should get
+        //   to act themselves now, not have a card auto-played out from
+        //   under them the moment they came back.
         if (this.round !== capturedRound) return;
         if (this.currentPlayer !== capturedPos) return;
         const seatNow = this.seats[capturedPos];
-        if (!seatNow || (!seatNow.isBot && seatNow.connected)) return;
+        if (!seatNow) return;
+        const stillStuck = seatNow.isBot || !seatNow.connected || (Date.now() - (capturedTurnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
+        if (!stillStuck) return;
         this._botAct(capturedPos);
       }, delay);
     }
