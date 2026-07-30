@@ -1214,8 +1214,24 @@ class GameEngine {
       // Raised from 0.75 after real-game reports of bots committing to
       // bids their actual hand didn't support and losing badly — even a
       // confident, high-level bot should want real odds before bidding.
-      const comfortThreshold = Math.max(0.45,
-        0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1);
+      // Leveling up (and the aggression increase that comes with it) is
+      // driven purely by accumulated experience, which grows from EVERY
+      // bid outcome including failures - so on its own this had no way
+      // to ever pull a bot back toward caution, only push it further
+      // toward confidence the more it played, regardless of whether its
+      // bids were actually working. This performance term is the missing
+      // other half: once there's enough real history to judge (5+
+      // decided bids), an actual success rate running below break-even
+      // raises the threshold back up, proportional to how badly it's
+      // missing - a bot that's been failing most of its bids gets
+      // meaningfully more cautious here, not just plateaued at whatever
+      // aggression its level happened to unlock.
+      const totalDecidedBids = b.stats.bidsWon + b.stats.bidsLost;
+      const performanceAdjustment = totalDecidedBids >= 5
+        ? Math.max(0, 0.5 - (b.stats.bidsWon / totalDecidedBids)) * 0.6
+        : 0;
+      const comfortThreshold = Math.min(0.9, Math.max(0.45,
+        0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1 + performanceAdjustment));
 
       // Walk the dynamically-computed probability curve and take the
       // highest bid level that still clears this bot's comfort bar. Bids
@@ -1357,7 +1373,12 @@ class GameEngine {
       // (not already on their team) is a bigger commitment than merely
       // extending your own side's existing bid, so it needs a clearly
       // higher bar.
-      const baseThreshold = Math.max(0.48, 0.86 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1);
+      const totalDecidedBids2 = b.stats.bidsWon + b.stats.bidsLost;
+      const performanceAdjustment2 = totalDecidedBids2 >= 5
+        ? Math.max(0, 0.5 - (b.stats.bidsWon / totalDecidedBids2)) * 0.6
+        : 0;
+      const baseThreshold = Math.min(0.92, Math.max(0.48,
+        0.86 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1 + performanceAdjustment2));
       const riskThreshold = isBT ? baseThreshold : baseThreshold + 0.15;
 
       const minRaise = Math.max(20, this.highestBid + 1);

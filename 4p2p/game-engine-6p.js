@@ -699,7 +699,12 @@ class GameEngine6P {
       const first = this.isFirstBidder(pos);
       const minBid = this.highestBid > 0 ? this.highestBid + 1 : 16;
       const ev = evaluateHand(hand);
-      const comfortThreshold = Math.max(0.45, 0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1);
+      const totalDecidedBids = b.stats.bidsWon + b.stats.bidsLost;
+      const performanceAdjustment = totalDecidedBids >= 5
+        ? Math.max(0, 0.5 - (b.stats.bidsWon / totalDecidedBids)) * 0.6
+        : 0;
+      const comfortThreshold = Math.min(0.9, Math.max(0.45,
+        0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1 + performanceAdjustment));
       let target = 16;
       for (let bidLevel = 16; bidLevel <= 28; bidLevel++) {
         // Bids of 20+ ("Honors") pay and cost more per point than
