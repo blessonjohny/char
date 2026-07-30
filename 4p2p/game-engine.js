@@ -1452,6 +1452,20 @@ class GameEngine {
       const bySuit = {};
       for (const s of SUITS) bySuit[s] = [];
       for (const c of hand) bySuit[c.suit].push(c);
+      // Absolute rule, not a scored preference: if this bot holds a Jack
+      // it's legitimately allowed to lead, it leads it - full stop,
+      // before any other leading logic (including the bidder's own
+      // trump-concealment strategy below) even runs. The Jack is
+      // unbeatable in its own suit barring trump, and this should never
+      // lose out to some other candidate happening to score higher, or
+      // get skipped because some other special case returned first.
+      for (const s of SUITS) {
+        if (bySuit[s].length === 0) continue;
+        const holdsJackHere = bySuit[s].some(c => c.rank === 'J');
+        if (holdsJackHere && (s !== this.trumpSuit || this.trumpExposed)) {
+          return bySuit[s].find(c => c.rank === 'J');
+        }
+      }
       if (!this.trumpExposed && isBidder) {
         const nt = hand.filter(c => c.suit !== this.trumpSuit);
         if (nt.length > 0) {
@@ -1473,7 +1487,6 @@ class GameEngine {
         const low = bySuit[s][0], high = bySuit[s][bySuit[s].length - 1];
         const jSeen = this._isRankSeen(s, 'J');
         const nineSeen = this._isRankSeen(s, '9');
-        const iHoldJ = bySuit[s].some(c => c.rank === 'J');
         const iHold9 = bySuit[s].some(c => c.rank === '9');
         // A known opponent (not partner — partner being void isn't a
         // threat to us) already out of this suit can trump straight over
@@ -1526,17 +1539,17 @@ class GameEngine {
           if (s === this.trumpSuit) sc -= 30;
           candidates.push({ card: low, score: sc, suit: s });
         } else {
-          // The Jack is the single most valuable card in the game — if
-          // this hand actually holds it, leading it is close to a free
-          // trick (nothing beats it barring trump) and should be strongly
-          // preferred over anything else on offer. But only if this bot
-          // actually has legitimate knowledge that this suit is (or
-          // isn't) trump - a non-bidder doesn't know trump until it's
-          // exposed, so confidently leading what happens to be the trump
-          // Jack here would be playing on information this seat
-          // shouldn't have yet.
-          if (iHoldJ && (s !== this.trumpSuit || isBidder || this.trumpExposed)) {
-            candidates.push({ card: bySuit[s].find(c => c.rank === 'J'), score: 60 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
+          const trumpIneligibleHere = s === this.trumpSuit && !this.trumpExposed;
+          if (trumpIneligibleHere && high.rank === 'J') {
+            // The generic "lead your best card in a suit" scoring below
+            // would otherwise offer the Jack anyway just because it's
+            // this suit's highest card - even though this bot isn't
+            // actually eligible to know this suit is trump. Fall back to
+            // a lower card from the same suit if one exists; otherwise
+            // this suit isn't a safe option to lead from at all here.
+            if (bySuit[s].length > 1) {
+              candidates.push({ card: bySuit[s][bySuit[s].length - 2], score: sc + bySuit[s].length * 2, suit: s });
+            }
             continue;
           }
           // Holding the 9 without the Jack is only a safe, strong lead
