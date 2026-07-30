@@ -1812,8 +1812,21 @@ class GameEngine {
     }
 
     if (!this.trumpExposed && trumps.length > 0 && this.trickSuit !== this.trumpSuit) {
-      if (isLast && wt !== myTeam && tPts >= 2) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
-      if (isBidder && wt !== myTeam && tPts >= 3) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
+      // Same reasoning as the other "first cut" spots above: trump isn't
+      // exposed yet, so literally any trump card wins this trick outright
+      // - reflexively reaching for the highest one (often the Jack) to
+      // win with a King or 7 just as easily is the same unnecessary
+      // waste, not a special case just because exposing trump is also
+      // happening here.
+      const cutForWin = (isLast && wt !== myTeam && tPts >= 2) || (isBidder && wt !== myTeam && tPts >= 3);
+      if (cutForWin) {
+        trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+        const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+        const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+        return zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+          : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+          : trumps[trumps.length - 1];
+      }
     }
 
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
