@@ -1585,6 +1585,7 @@ function shoot(power) {
   poolPlayClack(Math.min(1, power / MAX_POWER));
   gameState.aiming = false; gameState.power = 0;
   gameState.foulMessageActive = false; // the shot is happening now - whatever foul/scratch reason was being shown has been acted on
+  gameState.scratch = false; // defensive reset - every other per-shot flag below is explicitly cleared here too; this one should never carry stale state into a new shot regardless of which other path was supposed to clear it
   gameState.ballsMoving = true; gameState.justPocketed = [];
   gameState.firstContactBall = null; // which ball number the cue ball hits first this shot - null until contact happens
   gameState.eightBallPocketedThisShot = false; // whether the 8-ball went in this shot, resolved once the whole shot (incl. scratch) is known
