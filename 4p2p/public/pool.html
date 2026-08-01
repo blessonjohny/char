@@ -723,6 +723,7 @@ function poolConnect() {
     }
     gameState.ballsMoving = false;
     gameState.justPocketed = [];
+    gameState.breakTaken = true; // once any shot result arrives, the break has definitely already happened
     if (typeof data.turnPos === 'number') gameState.myTurn = (data.turnPos === poolMyPos);
     if (typeof data.groupAssigned === 'boolean') gameState.groupAssigned = data.groupAssigned;
     if (data.seat0Group !== undefined) {
@@ -775,6 +776,7 @@ function poolConnect() {
   });
   poolSocket.on('pool_boardSync', (data) => {
     if (!data.balls) return;
+    gameState.breakTaken = true; // this only ever fires for a game already in progress - the break has definitely already happened
     for (let i = 0; i < balls.length && i < data.balls.length; i++) {
       const src = data.balls[i];
       balls[i].x = src.x; balls[i].y = src.y; balls[i].vx = 0; balls[i].vy = 0;
@@ -3120,6 +3122,42 @@ function render() {
     ctx.restore();
   }
 
+  // === CALLED SHOT HIGHLIGHT === (the pocket the player has called for this shot)
+  if (gameState.calledPocket !== null && gameState.myTurn) {
+    const p = pockets[gameState.calledPocket];
+    if (p) {
+      ctx.save();
+      const pulse = 0.5 + 0.35 * Math.sin(performance.now() / 220);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, POCKET_RADIUS + 10, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,215,0,' + pulse.toFixed(3) + ')';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, POCKET_RADIUS + 4, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Guide line from the called ball's current position to the called
+      // pocket, so it's unambiguous what's actually been called rather
+      // than two separate highlights the player has to connect mentally.
+      if (gameState.calledBall !== null) {
+        const cb = balls.find(b => b.number === gameState.calledBall && !b.pocketed);
+        if (cb) {
+          ctx.beginPath();
+          ctx.setLineDash([6, 6]);
+          ctx.moveTo(cb.x, cb.y);
+          ctx.lineTo(p.x, p.y);
+          ctx.strokeStyle = 'rgba(255,215,0,0.5)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+      ctx.restore();
+    }
+  }
+
   // === DRAW ALL OBJECT BALLS (behind cue ball, on top of pockets) ===
   for (const ball of balls) {
     if (ball.number === 0) continue; // cue ball is always rendered by its own separate path, not here
@@ -3144,6 +3182,16 @@ function render() {
     }
     drawMotionTrail(ball);
     drawAmericanBall(ball);
+    if (gameState.calledBall === ball.number && gameState.myTurn) {
+      ctx.save();
+      const pulse = 0.5 + 0.35 * Math.sin(performance.now() / 220);
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, BALL_RADIUS + 6, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,215,0,' + pulse.toFixed(3) + ')';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   // === AIM GUIDANCE (player-only trajectory assist) ===
