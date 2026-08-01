@@ -728,6 +728,7 @@ io.on('connection', (socket) => {
   socket.on('pool_boardSync', (data) => poolRelay('pool_boardSync', data));
   socket.on('pool_shotResult', (data) => poolRelay('pool_shotResult', data));
   socket.on('pool_cuePlace', (data) => poolRelay('pool_cuePlace', data));
+  socket.on('pool_callShot', (data) => poolRelay('pool_callShot', data));
   socket.on('pool_rematch', (data) => poolRelay('pool_rematch', data || {}));
 
   socket.on('disconnect', () => {
