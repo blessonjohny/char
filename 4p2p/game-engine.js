@@ -94,6 +94,58 @@ function evaluatePhase1Hand(hand) {
   for (const s of SUITS) bySuit[s] = [];
   for (const c of hand) bySuit[c.suit].push(c);
 
+  // Hard ceiling based on actual cards held, not a probability curve.
+  // Real-game feedback: bots kept bidding well past what their hand
+  // could support because a continuous "confidence" estimate can always
+  // be nudged a little further by aggression, learned patterns, or a
+  // partner bonus. A structural ceiling tied directly to concrete card
+  // composition can't be talked past that way - it's an actual cap, not
+  // a starting point.
+  let eligibleToRaise = false;
+  let jSuitCeiling = 14;
+  let jPlusOneCompanionSuits = 0;
+  for (const s of SUITS) {
+    const cards = bySuit[s];
+    if (cards.length === 0) continue;
+    const hasJ = cards.some(c => c.rank === 'J');
+    const has9 = cards.some(c => c.rank === '9');
+    const hasA = cards.some(c => c.rank === 'A');
+    if (!hasJ) {
+      // No Jack in this suit: only justifies raising at all if it's a
+      // real 3+ card suit that also includes the 9 - a genuine strong
+      // suit, not just a pile of low cards.
+      if (cards.length >= 3 && has9) { eligibleToRaise = true; jSuitCeiling = Math.max(jSuitCeiling, 15); }
+      continue;
+    }
+    eligibleToRaise = true;
+    const companions = cards.filter(c => c.rank !== 'J');
+    let suitCeiling;
+    if (companions.length === 0) {
+      suitCeiling = 14; // a lone Jack, no companion - not enough to raise on its own
+    } else if (has9 && hasA) {
+      // Jack+9+Ace (with or without the 10 too) is command of the suit's
+      // whole point structure - technically the 10 as well is worth
+      // even more, but nothing past 20 actually buys anything extra
+      // ("Honors" territory is flat from there up), so this doesn't
+      // scale any higher just because the 10 is also held.
+      suitCeiling = 20;
+    } else if (companions.length >= 2) {
+      const hasPointCompanion = companions.some(c => c.points > 0);
+      suitCeiling = hasPointCompanion ? 18 : 16;
+    } else {
+      suitCeiling = 15;
+      jPlusOneCompanionSuits++;
+    }
+    jSuitCeiling = Math.max(jSuitCeiling, suitCeiling);
+  }
+  // Two separate suits each with a Jack + one companion reads as
+  // slightly more than either alone, even though neither individually
+  // clears the next tier up.
+  if (jPlusOneCompanionSuits >= 2) jSuitCeiling = Math.max(jSuitCeiling, 16);
+  const hardCeiling = eligibleToRaise ? jSuitCeiling : 14;
+
+  // Suit-dominance scoring retained for the existing defensive-vs-
+  // offensive read elsewhere - no longer drives the bid ceiling itself.
   let bestSuit = null, bestSuitScore = -1, bestSuitCount = 0;
   for (const s of SUITS) {
     const cards = bySuit[s];
@@ -102,12 +154,7 @@ function evaluatePhase1Hand(hand) {
     const has9 = cards.some(c => c.rank === '9');
     const hasA = cards.some(c => c.rank === 'A');
     const has10 = cards.some(c => c.rank === '10');
-    // Raw rank strength of what's held in this suit...
     let score = cards.reduce((s2, c) => s2 + RANK_ORDER[c.rank], 0);
-    // ...plus a CONTROL bonus that compounds the more of the suit's top
-    // end you hold together — owning J+9+A+10 of one suit isn't just
-    // "4 good cards", it's near-total command of that suit, which is
-    // worth far more than the individual card values suggest.
     if (hasJ) score += 4;
     if (hasJ && has9) score += 6;
     if (hasJ && has9 && hasA) score += 8;
@@ -118,42 +165,15 @@ function evaluatePhase1Hand(hand) {
 
   const jacks = hand.filter(c => c.rank === 'J');
   const jackSuits = new Set(jacks.map(c => c.suit));
-  // Jacks scattered one-per-suit contribute almost nothing to suit
-  // control (each is an island), even though they're individually the
-  // highest card of their own suit.
   const jacksScattered = jacks.length >= 2 && jackSuits.size === jacks.length;
-
   const highCardCount = hand.filter(c => ['J', '9', 'A', '10'].includes(c.rank)).length;
-
-  // Offensive score: mostly driven by how dominant the single best suit
-  // is, with a modest allowance for genuine uncertainty about the 4
-  // still-unseen cards (more high cards already in hand -> more likely
-  // the rest helps too, but this is capped since it's still a guess).
   let offensive = bestSuitScore * 3 + Math.min(6, highCardCount * 1.5);
-  if (jacksScattered) offensive -= (jacks.length - 1) * 4; // scattered Jacks don't buy suit control
-
-  // Defensive score: raw stopping power — every Jack is a guaranteed
-  // trick-stopper regardless of suit, and low filler cards are safe
-  // discards while waiting to spring them.
+  if (jacksScattered) offensive -= (jacks.length - 1) * 4;
   const defensive = jacks.length * 10 + hand.filter(c => c.points === 0).length * 2;
-
-  // Convert the offensive score into a "comfortable ceiling" bid, then a
-  // full probability curve around it — smooth and continuous, not a
-  // lookup table, so it genuinely reflects THESE cards.
-  const ceiling = 14 + offensive / 8;
-  const winProbAtBid = (bid) => {
-    const margin = ceiling - bid; // positive = comfortably within range, negative = stretching past it
-    let p = margin >= 0
-      ? 0.97 - 0.25 * Math.exp(-margin / 3)   // approaches ~97% the more comfortable margin there is
-      : 0.72 * Math.exp(margin / 3);          // starts from the SAME ~0.72 the positive branch reaches at margin=0 (0.97-0.25), then decays smoothly the further past the ceiling - previously jumped to ~0.97 here instead, creating a false confidence spike right at each hand's own ceiling
-    return Math.max(0.02, Math.min(0.97, p));
-  };
-  const probByBid = {};
-  for (let bid = 14; bid <= 28; bid++) probByBid[bid] = winProbAtBid(bid);
 
   return {
     offensive, defensive, bestSuit, bestSuitScore, bestSuitCount,
-    jacksScattered, jackCount: jacks.length, highCardCount, ceiling, probByBid
+    jacksScattered, jackCount: jacks.length, highCardCount, hardCeiling, eligibleToRaise
   };
 }
 
@@ -1248,7 +1268,7 @@ class GameEngine {
 
       // How comfortable this particular bot is committing depends on its
       // brain's personality: a cautious/low-level bot wants a much safer
-      // win probability before bidding than a confident, aggressive one.
+      // margin before bidding than a confident, aggressive one.
       // Raised from 0.75 after real-game reports of bots committing to
       // bids their actual hand didn't support and losing badly — even a
       // confident, high-level bot should want real odds before bidding.
@@ -1271,25 +1291,27 @@ class GameEngine {
       const comfortThreshold = Math.min(0.9, Math.max(0.45,
         0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1 + performanceAdjustment));
 
-      // Walk the dynamically-computed probability curve and take the
-      // highest bid level that still clears this bot's comfort bar. Bids
-      // of 20+ ("Honors") pay and cost more per point than sub-20 bids —
-      // a bad guess up there is a bigger absolute swing on the
-      // scoreboard, not just a bigger number, so the bar to cross into
-      // that territory (and again into 28) is a bit higher than the
-      // plain curve alone would ask for. This is on top of the comfort
-      // bar, not instead of it — a hand that wasn't going to clear the
-      // ordinary bar doesn't get pulled up here.
-      let target = 14;
-      for (let bidLevel = 14; bidLevel <= 28; bidLevel++) {
-        const honorsPremium = bidLevel >= 28 ? 0.08 : bidLevel >= 20 ? 0.05 : bidLevel >= 18 ? 0.03 : 0;
-        if (ev.probByBid[bidLevel] >= comfortThreshold + honorsPremium) target = bidLevel;
-        else break;
-      }
+      // The hand itself sets a hard ceiling (see evaluatePhase1Hand) -
+      // confidence only decides how close to it this bot actually
+      // commits, never past it. A high comfortThreshold (cautious/
+      // unproven bot) holds back a little even on a strong hand; a low
+      // one (confident, proven bot) commits to the full ceiling the
+      // cards support. Real-game reports of bots bidding well past what
+      // their hand justified were exactly this: a confidence estimate
+      // that could keep climbing on its own, disconnected from what was
+      // actually in hand. Now the cards decide the ceiling; confidence
+      // only ever pulls back from it, never past it.
+      const confidenceFactor = Math.max(0, Math.min(1, (0.9 - comfortThreshold) / (0.9 - 0.45)));
+      // Modest pullback (at most 2) for a cautious/unproven bot, not a
+      // full rescale of the whole range - the hand's own composition is
+      // the dominant factor here, personality is a small nudge around
+      // it, not something that can swamp what the cards actually support.
+      const pullback = Math.round((1 - confidenceFactor) * 2);
+      let target = ev.eligibleToRaise ? Math.max(14, ev.hardCeiling - pullback) : 14;
 
       // A hand that reads as much better for DEFENSE than OFFENSE — the
       // classic "scattered Jacks, no suit control" case — should pull the
-      // bot back from committing high even if the raw curve alone looked
+      // bot back from committing high even if the ceiling itself looked
       // OK, mirroring the real distinction between a good bidding hand
       // and a good defending hand.
       if (ev.defensive > ev.offensive * 1.3) {
@@ -1311,7 +1333,7 @@ class GameEngine {
         this.partnerSignals[pos].signal === 'lower';
       if (this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round) {
         const sig = this.partnerSignals[pos].signal;
-        if (sig === 'higher') target = Math.min(28, target + 3);
+        if (sig === 'higher') target = Math.min(ev.hardCeiling, target + 3);
       }
 
       // Partner already winning the bidding is worth leaning into a
@@ -1325,7 +1347,7 @@ class GameEngine {
         const trust = (partnerSeat && !partnerSeat.isBot) ? brain.partnerTrustMultiplier(b, partnerSeat.playerId) : 1.0;
         pb = 1 * b.bidWeights.partnerSupport * trust;
       }
-      target = Math.min(28, Math.round(target + pb));
+      target = Math.min(ev.hardCeiling, Math.round(target + pb));
 
       // Pattern memory: has this bot seen a similar hand work out before?
       // Blended with (rather than fully overriding) the principled target
