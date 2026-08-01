@@ -761,7 +761,6 @@ function poolConnect() {
     // The opponent just finished calling their shot - mirror it locally
     // so it's visible on this screen too, live, before they even take
     // the shot, not just after the fact.
-    gameState.calledBall = data.calledBall;
     gameState.calledPocket = data.calledPocket;
   });
   poolSocket.on('pool_requestBoardSync', () => {
@@ -1184,7 +1183,7 @@ function initGame() {
     aimPhase: true, aimLocked: false, powerPhase: false,
     botTurnPending: false, placingCueBall: false, placementKitchenOnly: false,
     foulMessageActive: false, lastFoulReason: null, eightBallPocketedThisShot: false, gameOverReason: null, groupJustAssignedThisShot: false,
-    calledBall: null, calledPocket: null, calledShotMade: false, callingShot: false, breakTaken: false
+    calledPocket: null, calledShotMade: false, callingShot: false, breakTaken: false, pocketedInto: {}
   };
   updateUI();
 }
@@ -1313,9 +1312,7 @@ function updateMessage() {
   }
   if (gameState.callingShot) {
     badge.className = 'phase-badge aim'; badge.style.display = 'inline-block'; badge.textContent = 'CALL SHOT';
-    msg.textContent = gameState.calledBall === null
-      ? 'Tap the ball you\u2019re shooting for'
-      : 'Now tap the pocket you\u2019re calling';
+    msg.textContent = 'Tap the pocket you\u2019re calling';
     return;
   }
   badge.style.display = 'inline-block';
@@ -1335,57 +1332,28 @@ function updateMessage() {
   }
 }
 
-// Handles one tap/click during the pre-shot calling phase. First tap
-// picks a ball still on the table (not the cue, not already pocketed);
-// second tap picks one of the 6 pockets. Returns true if this tap was
-// consumed by the calling flow (caller should stop processing it as an
-// aim/shoot gesture), false if it missed everything and should be
-// ignored entirely (not treated as anything else either - calling is
-// mandatory, there's no fallback interpretation for a stray tap).
+// Handles one tap/click during the pre-shot calling phase. Only a pocket
+// is called, not a specific ball - any ball from the shooter's own group
+// landing in the called pocket counts as legal. Returns true if this tap
+// was consumed by the calling flow (caller should stop processing it as
+// an aim/shoot gesture), false if it missed everything.
 function handleCallShotTap(pos) {
   if (!gameState.callingShot) return false;
-  const tapRadiusBall = BALL_RADIUS * 2.2;
-  const tapRadiusPocket = POCKET_RADIUS * 1.5;
-
-  // Always check for a ball tap first, regardless of what's already
-  // selected - this lets the player change their mind about which ball
-  // right up until they start aiming, rather than being locked in after
-  // one tap with no way to correct a mis-tap.
-  let pickedBall = null, pickedBallDist = Infinity;
-  for (const b of balls) {
-    if (b.number === 0 || b.pocketed) continue;
-    const d = Math.hypot(pos.x - b.x, pos.y - b.y);
-    if (d < tapRadiusBall && d < pickedBallDist) { pickedBall = b; pickedBallDist = d; }
+  const tapRadiusPocket = POCKET_RADIUS * 1.8;
+  let pickedPocket = null, pickedPocketDist = Infinity;
+  for (let i = 0; i < pockets.length; i++) {
+    const p = pockets[i];
+    const d = Math.hypot(pos.x - p.x, pos.y - p.y);
+    if (d < tapRadiusPocket && d < pickedPocketDist) { pickedPocket = i; pickedPocketDist = d; }
   }
-  if (pickedBall) {
-    gameState.calledBall = pickedBall.number;
-    // Changing the ball after a pocket was already picked clears that
-    // pocket choice too - it was chosen relative to the old ball, so it
-    // doesn't carry over automatically to a different one.
-    gameState.calledPocket = null;
+  if (pickedPocket !== null) {
+    gameState.calledPocket = pickedPocket;
+    gameState.callingShot = false;
+    if (poolSocket && poolMyTableId && gameMode === 'p2p' && gameState.myTurn) {
+      poolSocket.emit('pool_callShot', { calledPocket: gameState.calledPocket });
+    }
     updateMessage();
     return true;
-  }
-
-  // No ball at this tap location - check for a pocket tap instead, but
-  // only once a ball has actually been called (calling the pocket first
-  // doesn't make sense without knowing which ball it's for).
-  if (gameState.calledBall !== null) {
-    let pickedPocket = null, pickedPocketDist = Infinity;
-    for (let i = 0; i < pockets.length; i++) {
-      const p = pockets[i];
-      const d = Math.hypot(pos.x - p.x, pos.y - p.y);
-      if (d < tapRadiusPocket && d < pickedPocketDist) { pickedPocket = i; pickedPocketDist = d; }
-    }
-    if (pickedPocket !== null) {
-      gameState.calledPocket = pickedPocket;
-      gameState.callingShot = false;
-      if (poolSocket && poolMyTableId && gameMode === 'p2p' && gameState.myTurn) {
-        poolSocket.emit('pool_callShot', { calledBall: gameState.calledBall, calledPocket: gameState.calledPocket });
-      }
-      updateMessage();
-      return true;
-    }
   }
   return true; // tap missed everything - ignored, calling is mandatory so there's no other interpretation for it
 }
@@ -1621,7 +1589,8 @@ function shoot(power) {
   gameState.firstContactBall = null; // which ball number the cue ball hits first this shot - null until contact happens
   gameState.eightBallPocketedThisShot = false; // whether the 8-ball went in this shot, resolved once the whole shot (incl. scratch) is known
   gameState.railContactedThisShot = false; // any ball touching a cushion after legal first contact - required or it's a foul
-  gameState.calledShotMade = false; // whether the specifically called ball went into the specifically called pocket this shot
+  gameState.calledShotMade = false; // whether any ball from the shooter's own group went into the called pocket this shot
+  gameState.pocketedInto = {}; // ball number -> pocket index, for whichever balls actually drop this shot
   gameState.aimPhase = true; gameState.aimLocked = false; gameState.powerPhase = false;
   gameState.spin = {x: 0, y: 0};
   resetSpinUI();
@@ -2031,9 +2000,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
 // during the shot. No rules decisions are made here; those all happen once,
 // after the shot fully settles, in resolveShotOutcome() below.
 function handlePocket(ball, pocketIdx) {
-  if (gameState.calledBall !== null && ball.number === gameState.calledBall && pocketIdx === gameState.calledPocket) {
-    gameState.calledShotMade = true;
-  }
+  gameState.pocketedInto[ball.number] = pocketIdx;
   if (ball.number === 0) {
     gameState.scratch = true;
   } else if (ball.number === 8) {
@@ -2093,6 +2060,23 @@ function resolveShotOutcome() {
   const shooterBallsLeft = shooterGroup === 'solids' ? (7 - gameState.ballsPocketed.solids)
     : shooterGroup === 'stripes' ? (7 - gameState.ballsPocketed.stripes) : 999;
 
+  // Pocket-only calling: any ball from the shooter's own group that
+  // actually dropped into the called pocket this shot counts, regardless
+  // of which specific ball it was - there's no pre-named ball anymore,
+  // just a pocket. On an open table (group not yet assigned before this
+  // shot), any pocketed ball counts, since the group itself is only
+  // being decided by this same shot.
+  if (gameState.calledPocket !== null) {
+    for (const num of gameState.justPocketed) {
+      const ballGroup = num <= 7 ? 'solids' : 'stripes';
+      const countsForShooter = tableWasOpen || ballGroup === shooterGroup;
+      if (countsForShooter && gameState.pocketedInto[num] === gameState.calledPocket) {
+        gameState.calledShotMade = true;
+        break;
+      }
+    }
+  }
+
   // Step 2: the 8-ball ends the game outright, if it went in this shot -
   // checked before general fouls since it overrides everything else.
   if (gameState.eightBallPocketedThisShot) {
@@ -2108,7 +2092,7 @@ function resolveShotOutcome() {
       gameState.gameOverReason = shooterName + ' pocketed the 8-ball too early';
     } else {
       const contactWasLegal = shooterBallsLeft === 0
-        ? gameState.firstContactBall === 8 && (isBreakShot || (gameState.calledBall === 8 && gameState.calledShotMade))
+        ? gameState.firstContactBall === 8 && (isBreakShot || (gameState.calledPocket !== null && gameState.pocketedInto[8] === gameState.calledPocket))
         : (gameState.firstContactBall != null && (gameState.firstContactBall <= 7 ? 'solids' : 'stripes') === shooterGroup);
       if (shooterBallsLeft === 0 && contactWasLegal) {
         gameState.winner = shooterName;
@@ -2197,7 +2181,7 @@ function endTurn() {
   } else {
     if (gameState.justPocketed.length === 0) switchTurn();
   }
-  gameState.calledBall = null; gameState.calledPocket = null; gameState.calledShotMade = false;
+  gameState.calledPocket = null; gameState.calledShotMade = false;
   startTurn();
 }
 
@@ -2352,11 +2336,10 @@ function autoPlaceCueBallForBot() {
 
 
 function startTurn() {
-  // Every shot except the break needs a called ball+pocket before aiming
-  // can begin - checked here, before firstShot flips to false below, so
-  // the break itself is correctly exempt.
+  // Every shot except the break needs a called pocket before aiming can
+  // begin - checked here, before firstShot flips to false below, so the
+  // break itself is correctly exempt.
   if (gameState.myTurn && gameState.breakTaken && !gameState.placingCueBall && !gameState.gameOver) {
-    gameState.calledBall = null;
     gameState.calledPocket = null;
     gameState.callingShot = true;
   } else {
@@ -3160,22 +3143,6 @@ function render() {
       ctx.strokeStyle = 'rgba(255,255,255,0.9)';
       ctx.lineWidth = 2;
       ctx.stroke();
-      // Guide line from the called ball's current position to the called
-      // pocket, so it's unambiguous what's actually been called rather
-      // than two separate highlights the player has to connect mentally.
-      if (gameState.calledBall !== null) {
-        const cb = balls.find(b => b.number === gameState.calledBall && !b.pocketed);
-        if (cb) {
-          ctx.beginPath();
-          ctx.setLineDash([6, 6]);
-          ctx.moveTo(cb.x, cb.y);
-          ctx.lineTo(p.x, p.y);
-          ctx.strokeStyle = 'rgba(255,215,0,0.5)';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-      }
       ctx.restore();
     }
   }
@@ -3204,16 +3171,6 @@ function render() {
     }
     drawMotionTrail(ball);
     drawAmericanBall(ball);
-    if (gameState.calledBall === ball.number) {
-      ctx.save();
-      const pulse = 0.5 + 0.35 * Math.sin(performance.now() / 220);
-      ctx.beginPath();
-      ctx.arc(ball.x, ball.y, BALL_RADIUS + 6, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,215,0,' + pulse.toFixed(3) + ')';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      ctx.restore();
-    }
   }
 
   // === AIM GUIDANCE (player-only trajectory assist) ===
@@ -3689,7 +3646,7 @@ function botTurn() {
     const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
     if (gameState.breakTaken) {
       const fb = pickFallbackCall(botGroup, botBallsLeft);
-      if (fb) { gameState.calledBall = fb.ball; gameState.calledPocket = fb.pocket; }
+      if (fb) { gameState.calledPocket = fb.pocket; }
     }
     botAnimateAndShoot(gameState.aimAngle, power, {x:0,y:0}, thinkTime);
     return;
@@ -3747,7 +3704,6 @@ function botTurn() {
       if (fallback) {
         const powerPct = Math.max(config.powerMinPct, Math.min(config.powerMaxPct, estimateShotPowerPct(fallback.dist, fallback.pocketDist)));
         if (gameState.breakTaken) {
-          gameState.calledBall = 8;
           gameState.calledPocket = pockets.indexOf(fallback.pocket);
         }
         botAnimateAndShoot(fallback.aimAngle, pctToPower(powerPct), {x:0,y:0}, thinkTime);
@@ -3758,7 +3714,7 @@ function botTurn() {
     const powerPct = config.powerMinPct + Math.random() * (config.powerMaxPct - config.powerMinPct);
     if (gameState.breakTaken) {
       const fb = pickFallbackCall(botGroup, botBallsLeft);
-      if (fb) { gameState.calledBall = fb.ball; gameState.calledPocket = fb.pocket; }
+      if (fb) { gameState.calledPocket = fb.pocket; }
     }
     botAnimateAndShoot(gameState.aimAngle, pctToPower(powerPct), {x:0,y:0}, thinkTime);
     return;
@@ -3813,7 +3769,6 @@ function botTurn() {
       if (fallback) {
         const powerPct = Math.max(config.powerMinPct, Math.min(config.powerMaxPct, estimateShotPowerPct(fallback.dist, fallback.pocketDist)));
         if (gameState.breakTaken) {
-          gameState.calledBall = 8;
           gameState.calledPocket = pockets.indexOf(fallback.pocket);
         }
         botAnimateAndShoot(fallback.aimAngle, pctToPower(powerPct), {x:0,y:0}, config.thinkTimeMin);
@@ -3824,7 +3779,7 @@ function botTurn() {
     const powerPct = config.powerMinPct + Math.random() * (config.powerMaxPct - config.powerMinPct);
     if (gameState.breakTaken) {
       const fb = pickFallbackCall(botGroup, botBallsLeft);
-      if (fb) { gameState.calledBall = fb.ball; gameState.calledPocket = fb.pocket; }
+      if (fb) { gameState.calledPocket = fb.pocket; }
     }
     botAnimateAndShoot(gameState.aimAngle, pctToPower(powerPct), {x:0,y:0}, config.thinkTimeMin);
     return;
@@ -3839,7 +3794,6 @@ function botTurn() {
   const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
   const spin = config.useSpin ? { x: bestShot.spinX, y: bestShot.spinY } : { x: 0, y: 0 };
   if (gameState.breakTaken) {
-    gameState.calledBall = bestShot.ball.number;
     gameState.calledPocket = pockets.indexOf(bestShot.pocket);
   }
   botAnimateAndShoot(gameState.aimAngle, power, spin, thinkTime);
