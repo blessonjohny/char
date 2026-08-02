@@ -426,6 +426,16 @@
   </div>
 </div>
 
+<div id="poolFoulOverlay" class="overlay">
+  <div class="overlay-box">
+    <div class="overlay-title" id="poolFoulTitle">Foul</div>
+    <div class="overlay-text" id="poolFoulText"></div>
+    <div class="overlay-btns">
+      <button class="btn btn-gold" id="poolFoulOkBtn">OK</button>
+    </div>
+  </div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
@@ -2168,12 +2178,25 @@ function resolveShotOutcome() {
   gameState.lastFoulReason = reason;
 }
 
+function poolShowFoulNotification(title, detail) {
+  document.getElementById('poolFoulTitle').textContent = title;
+  document.getElementById('poolFoulText').textContent = detail;
+  showOverlay('poolFoulOverlay');
+  const okBtn = document.getElementById('poolFoulOkBtn');
+  function cleanup() {
+    closeOverlay('poolFoulOverlay');
+    okBtn.onclick = null;
+  }
+  okBtn.onclick = () => { cleanup(); };
+}
 function endTurn() {
   const cueBall = balls[0];
   if (gameState.gameOver) { showGameOver(); return; }
   if (gameState.scratch) {
+    const wasMyOwnShot = gameState.myTurn;
     cueBall.pocketed = false; cueBall.vx = 0; cueBall.vy = 0; cueBall.spinX = 0; cueBall.spinY = 0;
     gameState.scratch = false; gameState.foulMessageActive = true; switchTurn();
+    if (wasMyOwnShot) poolShowFoulNotification('Scratch', 'The cue ball was pocketed. Your opponent gets ball in hand.');
     if (gameState.myTurn) {
       enterCuePlacement(false); // ball-in-hand: anywhere on the table
     } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
@@ -2182,7 +2205,17 @@ function endTurn() {
     startTurn(); return;
   }
   if (gameState.foul) {
+    const wasMyOwnShot = gameState.myTurn;
+    const reason = gameState.lastFoulReason || '';
     gameState.foul = false; gameState.foulMessageActive = true; switchTurn();
+    if (wasMyOwnShot) {
+      let detail = 'Your opponent gets ball in hand.';
+      if (reason.includes('wrong ball')) detail = 'You hit your opponent\u2019s ball first. ' + detail;
+      else if (reason.includes('8-ball')) detail = 'You hit the 8-ball first, out of turn. ' + detail;
+      else if (reason.includes('didn\u2019t touch')) detail = 'The cue ball didn\u2019t touch any ball. ' + detail;
+      else if (reason.includes('no ball reached')) detail = 'No ball reached a rail or pocket after contact. ' + detail;
+      poolShowFoulNotification('Foul', detail);
+    }
     if (gameState.myTurn) {
       enterCuePlacement(false); // any foul grants ball-in-hand, anywhere on the table - not just a scratch
     } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
