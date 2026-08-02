@@ -273,6 +273,7 @@
   <div class="game-hud">
     <div class="top-bar">
       <button class="zoom-btn" onclick="handlePoolExit()" title="Exit" style="font-size:14px;background:#c0392b;border-color:#e74c3c;color:#fff">✕</button>
+      <button class="zoom-btn" onclick="handlePoolRestart()" title="Restart Game" style="font-size:14px;background:#c0392b;border-color:#e74c3c;color:#fff">↻</button>
       <button class="zoom-btn" onclick="requestPoolFullscreen()" title="Full Screen" style="font-size:14px">⛶</button>
       <button class="zoom-btn" id="poolMuteBtn" onclick="poolToggleMute()" title="Mute sounds" style="font-size:14px">🔊</button>
       <div class="player-info" id="p1Info">
@@ -805,6 +806,17 @@ function poolConnect() {
     closeOverlay('waitingOverlay');
     startTurn();
     updateUI();
+  });
+  poolSocket.on('pool_restart', (data) => {
+    initGame();
+    gameState.myTurn = isHost ? !!(data && data.hostBreaksFirst) : !(data && data.hostBreaksFirst);
+    if (gameState.myTurn) {
+      enterCuePlacement(true);
+    } else {
+      const btn = document.getElementById('placeBallBtn');
+      if (btn) btn.style.display = 'none';
+    }
+    startTurn();
   });
   poolSocket.on('pool_rematch', (data) => {
     initGame();
@@ -4018,6 +4030,27 @@ function backToMenu() {
   exitFullscreen();
 }
 
+function handlePoolRestart() {
+  const activeGameInProgress = gameState && gameState.phase === 'playing';
+  const msg = gameMode === 'p2p' && activeGameInProgress
+    ? 'Restart this game? Both players will start over from scratch with a new random break.'
+    : 'Restart this game? Your current progress will be lost.';
+  poolConfirm(msg, restartGame);
+}
+function restartGame() {
+  closeOverlay('gameOverOverlay');
+  const iBreakFirst = Math.random() < 0.5;
+  if (gameMode === 'p2p' && poolSocket && poolMyTableId) poolSocket.emit('pool_restart', { hostBreaksFirst: isHost ? iBreakFirst : !iBreakFirst });
+  initGame();
+  gameState.myTurn = iBreakFirst;
+  if (gameState.myTurn) {
+    enterCuePlacement(true);
+  } else {
+    const btn = document.getElementById('placeBallBtn');
+    if (btn) btn.style.display = 'none';
+  }
+  startTurn();
+}
 function rematch() {
   closeOverlay('gameOverOverlay');
   const winnerBreaksFirst = gameState.winner === myName;
