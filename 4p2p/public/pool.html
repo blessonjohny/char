@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-break-simplified</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-visible-diag</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -2151,7 +2151,10 @@ function resolveShotOutcome() {
   let foul = false, reason = null;
   if (gameState.scratch) {
     foul = true; reason = 'Scratch — cue ball went in';
-  } else if (gameState.firstContactBall === null) {
+  } else if (gameState.firstContactBall === null && gameState.justPocketed.length === 0) {
+    // If a ball was actually pocketed, the cue ball definitely made
+    // contact with something - that's physically necessary regardless
+    // of whether firstContactBall happened to get recorded correctly.
     foul = true; reason = 'Foul — cue ball didn\u2019t touch any ball';
   } else if (!tableWasOpen && !isBreakShot) {
     // Groups were already set before this shot began - wrong-ball-first
@@ -2258,6 +2261,9 @@ function endTurn() {
     } else {
       why = wasMyShotThisResolution ? 'You missed your called shot.' : 'Your opponent missed their called shot.';
     }
+    // Diagnostic info appended directly into the visible popup text -
+    // no devtools/console needed to read it and report it back.
+    why += ' [diag: shot#' + gameState.shotCounter + ' break=' + isBreak + ' bt=' + gameState.breakTaken + ']';
     poolShowFoulNotification('Turn Passed', why);
   }
   gameState.calledPocket = null; gameState.calledShotMade = false;
