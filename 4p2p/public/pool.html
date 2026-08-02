@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-decision-log</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-ROOTCAUSE-FIXED</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -2707,8 +2707,10 @@ function simulateAim(cueBall, angle, power, spin) {
   const savedEndTurn = endTurn;
   const savedHandlePocket = handlePocket;
   const savedBallsMoving = gameState.ballsMoving;
+  const savedResolveShotOutcome = resolveShotOutcome;
 
   endTurn = () => {};
+  resolveShotOutcome = () => {};
   handlePocket = (ball) => {
     ball.pocketed = true;
     ball.vx = 0; ball.vy = 0;
@@ -2784,6 +2786,7 @@ function simulateAim(cueBall, angle, power, spin) {
 
   balls = savedBalls;
   endTurn = savedEndTurn;
+  resolveShotOutcome = savedResolveShotOutcome;
   handlePocket = savedHandlePocket;
   gameState.ballsMoving = savedBallsMoving;
 
