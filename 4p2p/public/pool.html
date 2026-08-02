@@ -2337,9 +2337,12 @@ function autoPlaceCueBallForBot() {
 
 
 function startTurn() {
-  // Every shot except the break needs a called pocket before aiming can
-  // begin - checked here, before firstShot flips to false below, so the
-  // break itself is correctly exempt.
+  // Only the literal break shot itself is exempt from calling. If it
+  // misses and the table stays open (no group established yet), calling
+  // becomes required starting the very next shot regardless - the group
+  // can still get assigned by whichever ball is contacted first on that
+  // called shot, but the exemption itself is strictly the one break shot,
+  // not "however long the table happens to stay open."
   if (gameState.myTurn && gameState.breakTaken && !gameState.placingCueBall && !gameState.gameOver) {
     gameState.calledPocket = null;
     gameState.callingShot = true;
