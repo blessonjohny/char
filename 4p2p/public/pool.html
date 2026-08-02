@@ -775,6 +775,7 @@ function poolConnect() {
       balls: balls.map(b => ({ x: b.x, y: b.y, pocketed: b.pocketed })),
       turnPos: myTurnPos,
       groupAssigned: gameState.groupAssigned,
+      breakTaken: gameState.breakTaken,
       seat0Group, seat1Group,
       myScore: gameState.opponentScore, opponentScore: gameState.myScore, // swapped: my score is their opponent's score
       matchMe: matchTally.opp, matchOpp: matchTally.me // swapped the same way
@@ -782,7 +783,13 @@ function poolConnect() {
   });
   poolSocket.on('pool_boardSync', (data) => {
     if (!data.balls) return;
-    gameState.breakTaken = true; // this only ever fires for a game already in progress - the break has definitely already happened
+    // Use the sender's actual breakTaken value - the game phase being
+    // "playing" doesn't guarantee the break has actually happened yet
+    // (e.g. a reconnect landing right during cue placement, before
+    // either player has taken the break shot at all). Assuming true
+    // unconditionally here would make the real, still-upcoming break
+    // get incorrectly treated as a regular shot requiring a call.
+    gameState.breakTaken = !!data.breakTaken;
     for (let i = 0; i < balls.length && i < data.balls.length; i++) {
       const src = data.balls[i];
       balls[i].x = src.x; balls[i].y = src.y; balls[i].vx = 0; balls[i].vy = 0;
@@ -2131,9 +2138,12 @@ function resolveShotOutcome() {
     foul = true; reason = 'Scratch — cue ball went in';
   } else if (gameState.firstContactBall === null) {
     foul = true; reason = 'Foul — cue ball didn\u2019t touch any ball';
-  } else if (!tableWasOpen) {
+  } else if (!tableWasOpen && !isBreakShot) {
     // Groups were already set before this shot began - wrong-ball-first
-    // only applies once there's an actual group to be wrong about.
+    // only applies once there's an actual group to be wrong about. The
+    // break is independently exempted here too (not just via
+    // tableWasOpen/groupAssigned) so it can never be flagged for this
+    // even if group state were ever stale for some other reason.
     if (gameState.firstContactBall === 8) {
       if (shooterBallsLeft !== 0) { foul = true; reason = 'Foul — hit the 8-ball first'; }
     } else {
