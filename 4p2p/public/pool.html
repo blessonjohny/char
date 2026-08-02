@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-shot-history</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-copyable-popup</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -419,8 +419,9 @@
 <div id="poolFoulOverlay" class="overlay">
   <div class="overlay-box">
     <div class="overlay-title" id="poolFoulTitle">Foul</div>
-    <div class="overlay-text" id="poolFoulText"></div>
+    <div class="overlay-text" id="poolFoulText" style="user-select:text;-webkit-user-select:text"></div>
     <div class="overlay-btns">
+      <button class="btn btn-dark" id="poolFoulCopyBtn">Copy Text</button>
       <button class="btn btn-gold" id="poolFoulOkBtn">OK</button>
     </div>
   </div>
@@ -2183,11 +2184,29 @@ function poolShowFoulNotification(title, detail) {
   document.getElementById('poolFoulText').textContent = detail;
   showOverlay('poolFoulOverlay');
   const okBtn = document.getElementById('poolFoulOkBtn');
+  const copyBtn = document.getElementById('poolFoulCopyBtn');
   function cleanup() {
     closeOverlay('poolFoulOverlay');
     okBtn.onclick = null;
+    copyBtn.onclick = null;
   }
   okBtn.onclick = () => { cleanup(); };
+  copyBtn.onclick = () => {
+    const text = title + ': ' + detail;
+    const done = () => { copyBtn.textContent = 'Copied!'; setTimeout(() => { copyBtn.textContent = 'Copy Text'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else {
+      fallbackCopy(text, done);
+    }
+  };
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try { document.execCommand('copy'); done(); } catch(e) {}
+  document.body.removeChild(ta);
 }
 function endTurn() {
   const cueBall = balls[0];
