@@ -32,7 +32,7 @@
   .app{
     max-width:920px;
     margin:0 auto;
-    padding:18px 14px 40px;
+    padding:14px 6px 32px;
     min-height:100vh;
     display:flex;
     flex-direction:column;
@@ -150,67 +150,98 @@
     display:flex;
     justify-content:space-between;
     align-items:center;
-    gap:10px;
-    margin-bottom:6px;
+    gap:8px;
+    margin-bottom:4px;
+  }
+  .player-column{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:3px;
+    flex:1;
+    min-width:0;
+  }
+  .coin-tally{
+    display:flex;
     flex-wrap:wrap;
+    justify-content:center;
+    gap:2.5px;
+    max-width:100%;
+    min-height:8px;
+  }
+  .coin-tally .tally-dot{
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    box-shadow:inset 0 -1px 1px rgba(0,0,0,0.4), 0 1px 1px rgba(255,255,255,0.15);
+    flex-shrink:0;
   }
   .player-badge{
     display:flex;
     align-items:center;
-    gap:8px;
-    padding:8px 14px;
+    gap:6px;
+    padding:6px 12px;
     border-radius:999px;
-    background:rgba(0,0,0,0.25);
-    border:1px solid rgba(195,154,91,0.2);
-    font-size:14px;
+    background:linear-gradient(160deg, rgba(255,255,255,0.06), rgba(0,0,0,0.3));
+    border:1px solid rgba(195,154,91,0.22);
+    font-size:12.5px;
     font-weight:600;
+    box-shadow:0 2px 6px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04);
     transition:all .2s ease;
+    min-width:0;
+    justify-content:center;
+    width:100%;
   }
   .player-badge.turn{
     border-color:var(--brass);
-    background:rgba(195,154,91,0.15);
-    box-shadow:0 0 0 1px rgba(195,154,91,0.3) inset;
+    background:linear-gradient(160deg, rgba(195,154,91,0.25), rgba(195,154,91,0.08));
+    box-shadow:0 0 0 1px rgba(195,154,91,0.4) inset, 0 0 12px rgba(195,154,91,0.35);
   }
-  .dot{ width:13px; height:13px; border-radius:50%; box-shadow:inset 0 -2px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(255,255,255,0.15);}
+  .dot{ width:11px; height:11px; border-radius:50%; box-shadow:inset 0 -2px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(255,255,255,0.15); flex-shrink:0; }
   .dot.white{ background:var(--white-coin); }
   .dot.black{ background:var(--black-coin); }
+  .dot.red{ background:#c92e2e; }
   .score-num{
     font-family:'JetBrains Mono',monospace;
     color:var(--cream);
     font-weight:700;
-    font-size:15px;
-    letter-spacing:0.3px;
+    font-size:13px;
+    letter-spacing:0.2px;
     text-shadow:0 1px 2px rgba(0,0,0,0.4);
   }
+  .hud-center{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:1px;
+    flex-shrink:0;
+    padding:0 4px;
+  }
   .turn-label{
-    width:100%;
-    max-width:640px;
     text-align:center;
-    font-size:12.5px;
-    letter-spacing:0.5px;
+    font-size:10.5px;
+    letter-spacing:0.4px;
     color:var(--brass);
-    font-weight:600;
-    margin-bottom:10px;
+    font-weight:700;
+    text-transform:uppercase;
   }
   .match-score{
-    width:100%;
-    max-width:640px;
     text-align:center;
-    font-size:14px;
-    letter-spacing:0.3px;
+    font-size:12px;
+    letter-spacing:0.2px;
     color:var(--cream);
     font-weight:700;
     font-family:'JetBrains Mono',monospace;
-    margin-bottom:12px;
     text-shadow:0 1px 2px rgba(0,0,0,0.4);
+    white-space:nowrap;
   }
   .queen-status{
     width:100%;
     max-width:640px;
     text-align:center;
-    font-size:13px;
-    letter-spacing:0.3px;
-    color:#b52a2a;
+    font-size:11.5px;
+    letter-spacing:0.2px;
+    color:#e05555;
     font-weight:700;
     margin-bottom:10px;
     min-height:0;
@@ -272,9 +303,9 @@
   .board-frame{
     position:relative;
     width:100%;
-    max-width:640px;
+    max-width:880px;
     aspect-ratio:1/1;
-    touch-action:none;
+    touch-action:pan-y;
   }
   canvas{
     width:100%;
@@ -344,21 +375,80 @@
     margin:0 0 8px;
   }
   .win-overlay p{ color:var(--ink-dim); margin:0 0 20px; font-size:14px; max-width:340px; }
+  .confirm-overlay{
+    position:fixed; inset:0;
+    background:rgba(10,6,3,0.82);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:99998;
+    padding:20px;
+  }
+  .confirm-overlay.show{ display:flex; }
+  .confirm-box{
+    background:var(--wood-dark,#2a1a10);
+    border:1px solid var(--brass,#c9a24b);
+    border-radius:14px;
+    padding:24px 20px;
+    max-width:360px;
+    width:100%;
+    text-align:center;
+  }
+  .confirm-box p{ color:#f0e6d8; margin:0 0 20px; font-size:15px; line-height:1.5; }
+  .confirm-box button{
+    width:100%; padding:12px; margin-top:8px;
+    border-radius:8px; border:none; font-size:15px; font-weight:700;
+    cursor:pointer;
+  }
+  .confirm-box .confirm-yes{ background:#a11; color:#fff; }
+  .confirm-box .confirm-cancel{ background:transparent; border:1px solid #666; color:#ddd; }
 </style>
 </head>
 <body>
+<script>
+</script>
 <div class="app">
 
   <div class="menu" id="menu">
-    <h2>Opponent</h2>
-    <div class="opt-row" id="modeRow">
-      <button class="opt-btn active" data-mode="ai">Vs Bot</button>
-      <button class="opt-btn" data-mode="local">Pass &amp; Play</button>
-      <button class="opt-btn" data-mode="online">Play Online</button>
+    <div id="menuStepName">
+      <h2>What's your name?</h2>
+      <input type="text" id="carromNameInput" placeholder="Your name" maxlength="20" style="width:100%;padding:12px 14px;border-radius:8px;border:1.5px solid var(--brass-dim);background:rgba(255,255,255,0.05);color:var(--ink);font-size:1rem;margin-bottom:16px;font-family:inherit;box-sizing:border-box">
+      <button class="start-btn" id="menuNameContinueBtn">Continue</button>
+    </div>
+
+    <div id="menuStepMode" style="display:none">
+      <h2>Choose how to play</h2>
+      <div class="opt-row" id="modeRow" style="flex-direction:column">
+        <button class="opt-btn active" data-mode="ai" style="padding:16px;text-align:left">🤖&nbsp; Vs Bot</button>
+        <button class="opt-btn" data-mode="local" style="padding:16px;text-align:left">👥&nbsp; Pass &amp; Play</button>
+        <button class="opt-btn" data-mode="online" style="padding:16px;text-align:left">🌐&nbsp; Play Online</button>
+      </div>
+      <button class="ctrl-btn" id="menuBackFromModeBtn" style="width:100%">← Back</button>
+    </div>
+
+    <div id="menuStepLocalSetup" style="display:none">
+      <h2>Players</h2>
+      <div class="opt-row" id="playersRow">
+        <button class="opt-btn active" data-players="2">2 Players</button>
+        <button class="opt-btn" data-players="4">4 Players (2v2 Teams)</button>
+      </div>
+      <div class="menu-note" id="playersNote">You play from the bottom, your opponent sits opposite at the top.</div>
+
+      <h2 id="diffLabel">Bot difficulty</h2>
+      <div class="opt-row" id="diffRow" style="flex-wrap:wrap">
+        <button class="opt-btn" data-diff="beginner">Beginner</button>
+        <button class="opt-btn" data-diff="easy">Easy</button>
+        <button class="opt-btn active" data-diff="medium">Medium</button>
+        <button class="opt-btn" data-diff="hard">Hard</button>
+        <button class="opt-btn" data-diff="perfect">Perfect</button>
+      </div>
+
+      <button class="start-btn" id="startBtn">Set Up Board</button>
+      <button class="ctrl-btn" id="menuBackFromLocalBtn" style="width:100%;margin-top:10px">← Back</button>
     </div>
 
     <div id="onlineLobby" style="display:none">
-      <input type="text" id="carromNameInput" placeholder="Your name" maxlength="20" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--brass-dim);background:rgba(255,255,255,0.05);color:var(--ink);font-size:0.9rem;margin:10px 0;font-family:inherit;box-sizing:border-box">
+      <h2>Play Online</h2>
       <div class="opt-row" id="onlinePlayerCountRow">
         <button class="opt-btn active" data-online-players="2">2 Players</button>
         <button class="opt-btn" data-online-players="4">4 Players (2v2)</button>
@@ -375,35 +465,32 @@
         <button class="ctrl-btn" id="carromFillBotsBtn" style="display:none;width:100%;margin-bottom:8px">Fill empty seats with bots</button>
         <button class="start-btn" id="carromStartOnlineBtn" style="display:none">Start Game</button>
         <div id="carromWaitingNote" style="text-align:center;color:var(--brass-dim);font-size:0.8rem"></div>
+        <button class="ctrl-btn" id="carromLeaveLobbyBtn" style="width:100%;margin-top:10px;color:#ff8888;border-color:rgba(255,90,90,0.4)">Leave Table</button>
       </div>
+      <button class="ctrl-btn" id="menuBackFromOnlineBtn" style="width:100%;margin-top:10px">← Back</button>
     </div>
-
-    <h2>Players</h2>
-    <div class="opt-row" id="playersRow">
-      <button class="opt-btn active" data-players="2">2 Players</button>
-      <button class="opt-btn" data-players="4">4 Players (2v2 Teams)</button>
-    </div>
-    <div class="menu-note" id="playersNote">You play from the bottom, your opponent sits opposite at the top.</div>
-
-    <h2 id="diffLabel">Bot difficulty</h2>
-    <div class="opt-row" id="diffRow">
-      <button class="opt-btn" data-diff="easy">Easy</button>
-      <button class="opt-btn active" data-diff="medium">Medium</button>
-      <button class="opt-btn" data-diff="hard">Hard</button>
-    </div>
-
-    <button class="start-btn" id="startBtn">Set Up Board</button>
   </div>
 
+
   <div class="game-wrap" id="gameWrap">
+    <div id="carromConnStatus" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;padding:8px 10px;text-align:center;font-size:0.8rem;font-weight:700;color:#fff"></div>
     <div class="foul-banner" id="foulBanner"></div>
     <button class="ctrl-btn" id="forceMoveBtn" style="display:none; margin-bottom:10px; border-color:#e07b4f; color:#ffdcc8;">⚠ Bot seems stuck — tap to force its move</button>
     <div class="hud">
-      <div class="player-badge" id="badgeP1"><span class="dot white"></span> <span id="p1Name">You</span> <span class="score-num" id="scoreP1">0/9</span></div>
-      <div class="player-badge" id="badgeP2"><span class="dot black"></span> <span id="p2Name">Bot</span> <span class="score-num" id="scoreP2">0/9</span></div>
+      <div class="player-column">
+        <div class="player-badge" id="badgeP1"><span class="dot white"></span> <span id="p1Name">You</span> <span class="score-num" id="scoreP1">0/9</span> <span class="dot red" id="queenDotP1" style="display:none" title="Queen covered"></span></div>
+        <div class="coin-tally" id="tallyP1"></div>
+      </div>
+      <div class="hud-center">
+        <div class="turn-label" id="turnLabel">Your turn</div>
+        <div class="match-score" id="matchScoreLabel">White 0—0 Black</div>
+        <div class="board-round-label" id="boardRoundLabel" style="font-size:0.65rem;opacity:0.75;margin-top:1px">Round 1</div>
+      </div>
+      <div class="player-column">
+        <div class="player-badge" id="badgeP2"><span class="dot black"></span> <span id="p2Name">Bot</span> <span class="score-num" id="scoreP2">0/9</span> <span class="dot red" id="queenDotP2" style="display:none" title="Queen covered"></span></div>
+        <div class="coin-tally" id="tallyP2"></div>
+      </div>
     </div>
-    <div class="turn-label" id="turnLabel">Your turn</div>
-    <div class="match-score" id="matchScoreLabel">Match: White 0 — 0 Black (first to 30, win by 2)</div>
     <div class="queen-status" id="queenStatusLabel"></div>
 
     <div class="power-meter">
@@ -416,7 +503,7 @@
       <canvas id="board" width="800" height="800"></canvas>
     </div>
 
-    <div class="msg-log" id="msgLog">Touch the striker and drag to line up, then release.</div>
+    <div class="msg-log" id="msgLog" style="display:none">Touch the striker and drag to line up, then release.</div>
 
     <div class="controls-row">
       <button class="ctrl-btn" id="reviewBtn">Review Last Move</button>
@@ -434,16 +521,57 @@
   <button class="start-btn" id="playAgainBtn" style="max-width:240px;">Next Board</button>
 </div>
 
+<div class="confirm-overlay" id="carromConfirmOverlay">
+  <div class="confirm-box">
+    <p id="carromConfirmText"></p>
+    <button class="confirm-yes" id="carromConfirmYesBtn">Yes</button>
+    <button class="confirm-cancel" id="carromConfirmCancelBtn">Cancel</button>
+  </div>
+</div>
+
 <script>
 (() => {
   "use strict";
+
+  // Carrom now runs as its own, fully separate server process (see
+  // carrom-server.js) -- deliberately isolated after a bug in Carrom's
+  // own code once destabilized the shared card-game server too. All
+  // socket/API traffic for this page targets THIS server, not the one
+  // that serves this HTML file (which may be the same host or a
+  // completely different one, depending on deployment).
+  // CHANGE THIS after deploying carrom-server.js as its own service:
+  // replace the placeholder below with that service's actual URL.
+  const CARROM_SERVER_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:9001'
+    : 'https://carromkerala-server.onrender.com';
+
+  // Replaces native browser confirm() dialogs (which show the site's
+  // own URL/domain, an unstyled, jarring interruption) with an in-app
+  // styled prompt matching the rest of the game. Async by nature since
+  // it waits for a real button click, so callers pass a callback to run
+  // only if the person actually confirms, rather than the old
+  // "if (!confirm(...)) return;" synchronous pattern.
+  function carromConfirm(message, onConfirm) {
+    const overlay = document.getElementById('carromConfirmOverlay');
+    document.getElementById('carromConfirmText').textContent = message;
+    overlay.classList.add('show');
+    const yesBtn = document.getElementById('carromConfirmYesBtn');
+    const cancelBtn = document.getElementById('carromConfirmCancelBtn');
+    function cleanup() {
+      overlay.classList.remove('show');
+      yesBtn.onclick = null;
+      cancelBtn.onclick = null;
+    }
+    yesBtn.onclick = () => { cleanup(); onConfirm(); };
+    cancelBtn.onclick = () => { cleanup(); };
+  }
 
   const MENU = document.getElementById('menu');
   const GAME_WRAP = document.getElementById('gameWrap');
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
   const SIZE = 800;
-  const MARGIN = 58;
+  const MARGIN = 28; // was 40 -- thinner still, leaving the pocket holes (outer edge at MARGIN-24) just a small 4px clean buffer instead of a more generous gap
   const PLAY_MIN = MARGIN, PLAY_MAX = SIZE - MARGIN;
   const PLAY_SIZE = PLAY_MAX - PLAY_MIN;
   const CENTER = SIZE / 2;
@@ -457,7 +585,7 @@
   const MAX_PULL = 150;
   const MAX_SHOT_SPEED = 34; // was 26 -- a full-power straight shot now travels far enough to cross the board, bounce off the far cushion, cross back and bounce off the shooter's own cushion, and still reach the far side a second time (verified numerically: ~23 -> ~13 -> ~5 speed remaining at each of the three cushion touches)
 
-  const BASE_INSET = 46;
+  const BASE_INSET = 65; // was 52 -- gives ~46.5px of clearance behind the striker, 1.5 full coin diameters (~31px each), instead of the previous ~1 coin diameter. Strike zone width shrinks slightly left-to-right as a direct, expected consequence of pushing it further from the rail toward the 45-degree diagonal boundaries.
   const CHANNEL_DEPTH = 22;
   const BASE_HALF = 130;       // half-length of the decorative baseline box (art only)
   const LINE_MARGIN = 42;      // keep the striker shy of the diagonal, and keep adjacent corners' anchors from overlapping
@@ -528,7 +656,10 @@
       const pocket = pockets[i];
       // point on the hook circle nearest the pocket (the "top" facing home)
       const nx = hx - dirx*hookR, ny = hy - diry*hookR;
-      return { pocket, hook:{x:hx,y:hy,r:hookR}, from:{x:nx,y:ny}, sides:c.sides };
+      // point on the OPPOSITE side of the circle -- the inner edge
+      // facing the board center, away from the pocket
+      const fx = hx + dirx*hookR, fy = hy + diry*hookR;
+      return { pocket, hook:{x:hx,y:hy,r:hookR}, from:{x:nx,y:ny}, farInner:{x:fx,y:fy}, sides:c.sides };
     });
   }
   function distToSegment(px,py,ax,ay,bx,by){
@@ -561,20 +692,67 @@
   // that used to flag coins nowhere near either arc as fouls, which
   // matches exactly what was reported ("a ball not on top was taken as
   // a foul").
+  // True if a coin sits anywhere in the channel between the shooter's
+  // own strike-zone line (where the striker itself gets placed) and
+  // their own back rail -- the whole band, not just touching the line
+  // itself. This is the shooter's own "dead zone" right behind where
+  // they stand; a coin resting there is foul to hit directly.
+  function behindOwnStrikeZone(coin, seat){
+    const d = SEAT_DEFS[seat.side];
+    // d.outer is a coordinate on the axis PERPENDICULAR to the one the
+    // striker slides along -- if the striker moves along x (a
+    // horizontal baseline), outer is a y-value, and vice versa. This
+    // was inverted before, comparing against the wrong coordinate
+    // entirely and never actually catching anything.
+    const coinVal = d.axis === 'x' ? coin.y : coin.x;
+    const tol = coin.r + 1.5;
+    // The boundary is the NEAR edge of the striker's own slot (the line
+    // closer to the board center that the striker's own near side rests
+    // against), not the striker's center point -- this way the
+    // striker's entire body sits on the far/rail side of the line,
+    // never straddling it, matching "my striker should be below that
+    // line" exactly.
+    const lineNear = d.outer + d.dir*STRIKER_R;
+    // dir points "into" the board (toward the center) from the strike
+    // line; "behind" is the opposite direction, toward the shooter's
+    // own rail.
+    return d.dir > 0 ? (coinVal < lineNear + tol) : (coinVal > lineNear - tol);
+  }
+
   function touchingProtectedLines(coin, seat){
     const tol = coin.r + 1.5;
+    if(behindOwnStrikeZone(coin, seat)) return true;
     return getCornerLanes()
       .filter(lane=>lane.sides.includes(seat.side))
       .some(lane=>{
-        // "Touches or crosses" the arc means anywhere from the coin's
-        // edge reaching the arc boundary through to being fully inside
-        // it -- i.e. the coin's center is within (arc radius + coin
-        // radius + a small tolerance) of the arc's own center. This is
-        // deliberately NOT an arc-boundary-only check; the official
-        // rule explicitly protects the interior too.
+        // The arc itself: "touches or crosses" means anywhere from the
+        // coin's edge reaching the arc boundary through to being fully
+        // inside it -- i.e. the coin's center is within (arc radius +
+        // coin radius + a small tolerance) of the arc's own center.
         const dh = Math.hypot(coin.x-lane.hook.x, coin.y-lane.hook.y);
-        return dh <= lane.hook.r + tol;
+        if (dh <= lane.hook.r + tol) return true;
+        // The 45-degree lane line, extended to start from the INNER edge
+        // of the arc (the side facing the board center, opposite the
+        // pocket) straight through to the pocket's center -- protected
+        // the whole way, same as the arc itself.
+        return distToSegment(coin.x,coin.y, lane.farInner.x,lane.farInner.y, lane.pocket.x,lane.pocket.y) <= tol;
       });
+  }
+
+  // Which specific lane, and which specific part of it (the arc or the
+  // line to the pocket), is currently protecting a given coin -- used
+  // only for the debug highlight, kept separate from the plain
+  // true/false check above so the highlight can light up the exact
+  // right piece instead of the whole lane at once.
+  function protectionDetailFor(coin, seat){
+    const tol = coin.r + 1.5;
+    if (behindOwnStrikeZone(coin, seat)) return { part: 'strikeline' };
+    for (const lane of getCornerLanes().filter(l=>l.sides.includes(seat.side))) {
+      const dh = Math.hypot(coin.x-lane.hook.x, coin.y-lane.hook.y);
+      if (dh <= lane.hook.r + tol) return { hookX: lane.hook.x, hookY: lane.hook.y, part: 'arc' };
+      if (distToSegment(coin.x,coin.y, lane.farInner.x,lane.farInner.y, lane.pocket.x,lane.pocket.y) <= tol) return { hookX: lane.hook.x, hookY: lane.hook.y, part: 'line' };
+    }
+    return null;
   }
 
   let mode = 'ai';
@@ -588,13 +766,35 @@
     mode = btn.dataset.mode;
     document.getElementById('diffLabel').style.display = mode==='ai' ? 'block':'none';
     document.getElementById('diffRow').style.display = mode==='ai' ? 'flex':'none';
-    document.getElementById('playersRow').parentElement && null;
-    document.getElementById('onlineLobby').style.display = mode==='online' ? 'block':'none';
-    document.getElementById('playersRow').style.display = mode==='online' ? 'none':'flex';
-    document.getElementById('startBtn').style.display = mode==='online' ? 'none':'block';
-    if (mode === 'online') carromConnect();
-    if (mode !== 'online') carromLeaveLobbyIfAny();
+    document.getElementById('menuStepMode').style.display = 'none';
+    if (mode === 'online') {
+      document.getElementById('onlineLobby').style.display = 'block';
+      carromConnect();
+    } else {
+      document.getElementById('menuStepLocalSetup').style.display = 'block';
+      carromLeaveLobbyIfAny();
+      setTimeout(carromTeardownOnlineConnection, 200);
+    }
     updatePlayersNote();
+  });
+
+  document.getElementById('menuNameContinueBtn').addEventListener('click', () => {
+    document.getElementById('menuStepName').style.display = 'none';
+    document.getElementById('menuStepMode').style.display = 'block';
+  });
+  document.getElementById('menuBackFromModeBtn').addEventListener('click', () => {
+    document.getElementById('menuStepMode').style.display = 'none';
+    document.getElementById('menuStepName').style.display = 'block';
+  });
+  document.getElementById('menuBackFromLocalBtn').addEventListener('click', () => {
+    document.getElementById('menuStepLocalSetup').style.display = 'none';
+    document.getElementById('menuStepMode').style.display = 'block';
+  });
+  document.getElementById('menuBackFromOnlineBtn').addEventListener('click', () => {
+    carromLeaveLobbyIfAny();
+    setTimeout(carromTeardownOnlineConnection, 200);
+    document.getElementById('onlineLobby').style.display = 'none';
+    document.getElementById('menuStepMode').style.display = 'block';
   });
   document.getElementById('diffRow').addEventListener('click', e => {
     const btn = e.target.closest('.opt-btn'); if(!btn) return;
@@ -625,10 +825,30 @@
     startNewMatch();
   });
   document.getElementById('menuBtn').addEventListener('click', () => {
-    GAME_WRAP.classList.remove('show');
-    MENU.style.display = 'block';
+    const activeGameInProgress = GAME_WRAP.classList.contains('show') && !matchOver && !gameOver;
+    function doMenuExit() {
+      if (mode === 'online') carromLeaveLobbyIfAny();
+      GAME_WRAP.classList.remove('show');
+      MENU.style.display = 'block';
+    }
+    if (activeGameInProgress) {
+      const msg = mode === 'online'
+        ? 'Leave this table? Your seat will open up for someone else, and any progress in this match will be lost.'
+        : 'Leave this game? Your progress will be lost.';
+      carromConfirm(msg, doMenuExit);
+    } else {
+      doMenuExit();
+    }
   });
-  document.getElementById('restartBtn').addEventListener('click', startNewMatch);
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    if (mode === 'online' && carromSocket && carromMyTableId) {
+      carromConfirm('Restart this match? This resets the board for both players.', () => {
+        carromSocket.emit('carrom_restartMatch');
+      });
+      return;
+    }
+    startNewMatch();
+  });
   document.getElementById('reviewBtn').addEventListener('click', reviewLastShot);
   document.getElementById('slowMoBtn').addEventListener('click', () => {
     reviewSlowMo = !reviewSlowMo;
@@ -654,31 +874,188 @@
   let carromOnlineSeats = [], carromOnlinePlayerCount = 2, carromOnlinePhase = 'lobby';
   try { carromMyPlayerId = localStorage.getItem('carrom_player_token'); } catch(e) {}
 
+  let carromIsAutoRejoinAttempt = false;
+  let carromWasDisconnected = false; // true once we've seen a real disconnect this session, so a later successful (re)join can distinguish "reconnected" from "connected fresh"
+  let carromReannounceToken = 0; // per-attempt generation counter for the lightweight re-announce path's safety timer, so a stale timer from a superseded attempt can never fire against a newer one
+  let carromWatchdogTimer = null;
+  let carromLastAliveAt = Date.now(); // updated only by a genuine pong or fresh connect event, never by merely sending a new ping
+  let carromConnStatusHideTimer = null;
+  function carromSetConnStatus(text, bg) {
+    const el = document.getElementById('carromConnStatus');
+    if (!el) return;
+    if (carromConnStatusHideTimer) { clearTimeout(carromConnStatusHideTimer); carromConnStatusHideTimer = null; }
+    el.textContent = text;
+    el.style.background = bg;
+    el.style.display = 'block';
+  }
+  function carromHideConnStatus(delay) {
+    const el = document.getElementById('carromConnStatus');
+    if (!el) return;
+    if (carromConnStatusHideTimer) clearTimeout(carromConnStatusHideTimer);
+    carromConnStatusHideTimer = setTimeout(() => { el.style.display = 'none'; carromConnStatusHideTimer = null; }, delay || 0);
+  }
+  function carromStartWatchdog() {
+    if (carromWatchdogTimer) return;
+    let carromReconnectingUntil = 0; // suppresses a newer ping's timeout from firing a second, overlapping reconnect attempt while one is already in flight
+    carromWatchdogTimer = setInterval(() => {
+      if (!carromMyTableId || !carromSocket) return;
+      // Checks whether carromLastAliveAt has moved forward past THIS
+      // specific ping's send time -- not whether a newer ping merely
+      // exists. An earlier version incremented the same counter both
+      // when sending a new ping AND when checking an old one's timeout,
+      // which meant the watchdog's own continuous retries perpetually
+      // invalidated each prior ping's pending check before it could
+      // ever actually fire.
+      //
+      // 5s ping / 5s timeout -- ~10s worst-case detection, comfortably
+      // under every real-world failure window reported so far (15-30+
+      // seconds), while still generous enough to avoid a false-positive
+      // reconnect from ordinary network jitter or browser timer
+      // throttling that a sandbox test can't fully replicate. Runs
+      // independently of visibilitychange or the 'online' window event
+      // firing at all, both proven unreliable on real mobile devices
+      // specifically for airplane-mode toggles, and still catches a
+      // genuinely dead connection well under the server's own 60s
+      // ping-timeout that it's meant to preempt.
+      const sentAt = Date.now();
+      carromSocket.emit('carrom_ping');
+      setTimeout(() => {
+        if (carromLastAliveAt < sentAt) {
+          if (Date.now() < carromReconnectingUntil) return; // a reconnect from an earlier, overlapping ping is already in flight -- let it finish rather than interrupting it with another one
+          carromReconnectingUntil = Date.now() + 4000;
+          carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+          try { carromSocket.disconnect(); } catch(e) {}
+          carromSocket.connect();
+        }
+      }, 5000);
+    }, 5000);
+  }
+
   function carromConnect() {
     if (carromSocket) return;
-    carromSocket = io();
+    carromSocket = io(CARROM_SERVER_URL);
+    carromStartWatchdog();
+    carromSocket.on('carrom_pong', () => { carromLastAliveAt = Date.now(); });
     carromSocket.on('connect', () => {
+      carromLastAliveAt = Date.now();
+      if (carromWasDisconnected) carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
       const savedTable = (() => { try { return localStorage.getItem('carrom_table_id'); } catch(e) { return null; } })();
       if (savedTable && carromMyPlayerId) {
+        carromIsAutoRejoinAttempt = true;
         carromSocket.emit('carrom_joinTable', { tableId: savedTable, name: carromNameOrDefault(), playerId: carromMyPlayerId });
       } else {
         carromSocket.emit('carrom_listRooms');
       }
     });
+    carromSocket.on('disconnect', () => {
+      carromWasDisconnected = true;
+      carromSetConnStatus('⚠️ Connection lost — reconnecting...', '#a11');
+    });
     carromSocket.on('carrom_joined', (info) => {
+      carromIsAutoRejoinAttempt = false;
+      carromReannounceToken++; // this join succeeded -- supersede any still-pending lightweight attempt's stale timer
       carromMyTableId = info.tableId; carromMyPlayerId = info.playerId; carromMyPos = info.pos; carromIsHost = info.isHost;
       try {
         localStorage.setItem('carrom_player_token', info.playerId);
         localStorage.setItem('carrom_table_id', info.tableId);
       } catch(e) {}
+      fetch(CARROM_SERVER_URL + '/status').then(r => r.json()).then(data => {
+        if (data && data.serverStartTime) { try { localStorage.setItem('carrom_known_server_start', String(data.serverStartTime)); } catch(e) {} }
+      }).catch(() => {});
+      if (carromWasDisconnected) {
+        carromWasDisconnected = false;
+        carromSetConnStatus('✅ Connected', '#1c7a3c');
+        carromHideConnStatus(2000);
+      }
       document.getElementById('carromLobbyStatus').style.display = 'block';
       document.getElementById('carromLobbyCode').textContent = info.tableId;
     });
     carromSocket.on('carrom_joinError', ({ reason }) => {
+      if (carromIsAutoRejoinAttempt) {
+        carromIsAutoRejoinAttempt = false;
+        try { localStorage.removeItem('carrom_table_id'); } catch(e) {}
+        if (carromWasDisconnected) {
+          // This was a genuine reconnect attempt after a real
+          // disconnect (not just the silent fresh-visit stale-table
+          // check) -- the user was actively mid-game and is watching
+          // this banner, waiting to resume. Leaving it stuck on
+          // "Reconnecting..." forever with no resolution, silently
+          // failing in the background, is exactly the bug: it must
+          // clearly say the reconnect failed, not hang indefinitely.
+          carromWasDisconnected = false;
+          // Check whether the server process itself actually
+          // restarted (or, on a load-balanced host, this request
+          // landed on a different instance than the one that had the
+          // table) -- comparing against the start-time baseline
+          // captured on our last successful connection tells us this
+          // for certain, rather than leaving it a permanent guess.
+          let knownStart = null;
+          try { knownStart = localStorage.getItem('carrom_known_server_start'); } catch(e) {}
+          fetch(CARROM_SERVER_URL + '/status').then(r => r.json()).then(data => {
+            const restarted = data && data.serverStartTime && knownStart && String(data.serverStartTime) !== knownStart;
+            if (data && data.serverStartTime) { try { localStorage.setItem('carrom_known_server_start', String(data.serverStartTime)); } catch(e) {} }
+            // Deliberately NOT auto-hidden: a failure message that's
+            // reliably still there when you look is worth more than
+            // one that vanishes on its own after some delay. It clears
+            // itself naturally the next time you actually do something
+            // (create or join a table), since that calls
+            // carromSetConnStatus again and replaces it.
+            carromSetConnStatus(
+              restarted
+                ? '⚠️ The server restarted while you were away — your table is gone. Sorry about that!'
+                : '❌ Couldn\u2019t reconnect — this table is no longer available.',
+              '#a11'
+            );
+          }).catch(() => {
+            carromSetConnStatus('❌ Couldn\u2019t reconnect — this table is no longer available.', '#a11');
+          });
+          // Don't leave them staring at a frozen, dead game board --
+          // return to the online lobby where they can see other open
+          // tables or start a fresh one.
+          if (GAME_WRAP.classList.contains('show')) {
+            GAME_WRAP.classList.remove('show');
+            MENU.style.display = 'block';
+          }
+          document.getElementById('menuStepName').style.display = 'none';
+          document.getElementById('menuStepMode').style.display = 'none';
+          document.getElementById('menuStepLocalSetup').style.display = 'none';
+          document.getElementById('onlineLobby').style.display = 'block';
+          document.getElementById('carromLobbyStatus').style.display = 'none';
+        }
+        // Silent, automatic background attempt to resume a session from
+        // a previous visit -- not something the user clicked. A stale
+        // or closed table here is completely normal, not something
+        // worth alarming them about. Clear the dead reference and fall
+        // through quietly to the regular lobby.
+        carromSocket.emit('carrom_listRooms');
+        return;
+      }
       alert(reason === 'table_full' ? 'That table is already full.' : 'That table code doesn\u2019t exist.');
     });
     carromSocket.on('carrom_roomList', (rooms) => {
+      window.__carromLastRoomList = rooms;
       carromRenderOpenTables(rooms);
+    });
+    carromSocket.on('carrom_liveShot', (snapshot) => {
+      // Renders the shot AS it's happening on the sender's screen --
+      // just applies the streamed positions directly, no local physics
+      // involved. Skipped only if this client is itself mid-shot (never
+      // stomp your own in-progress local physics), which shouldn't
+      // normally happen since only the acting seat's client streams.
+      if (phase === 'moving' && (turnPos === carromMyPos)) return;
+      if (snapshot.coins) coins.forEach((c, i) => { if (snapshot.coins[i]) { c.x = snapshot.coins[i].x; c.y = snapshot.coins[i].y; c.potted = snapshot.coins[i].potted; } });
+      if (snapshot.striker && striker) { striker.x = snapshot.striker.x; striker.y = snapshot.striker.y; striker.potted = snapshot.striker.potted; }
+    });
+    carromSocket.on('carrom_liveAim', (data) => {
+      // Same idea as carrom_liveShot but for BEFORE the shot fires --
+      // lets the opponent watch the striker actually being aimed
+      // (rotating toward its target) rather than only ever seeing it
+      // jump straight to the final locked angle.
+      if (turnPos === carromMyPos) return; // never apply this to my own striker
+      opponentLiveAimDir = { x: data.x, y: data.y };
+    });
+    carromSocket.on('carrom_restartMatch', () => {
+      startNewMatch();
     });
     carromSocket.on('carrom_state', (state) => {
       carromOnlineSeats = state.seats; carromOnlinePlayerCount = state.playerCount; carromOnlinePhase = state.phase;
@@ -687,11 +1064,16 @@
       if (state.phase === 'playing' && MENU.style.display !== 'none') {
         // Game just started (host pressed Start, or we joined one already
         // in progress) — leave the menu and build the board from the
-        // server's seat assignments.
+        // server's seat assignments. If a boardState already exists,
+        // this is a genuine mid-game join (not a fresh start): the
+        // board built here is only scaffolding, about to be immediately
+        // overwritten below by carromApplyRemoteState, so AI scheduling
+        // must be skipped here -- it would otherwise act on the wrong,
+        // about-to-be-replaced turn a moment later.
         playerCount = state.playerCount;
         MENU.style.display = 'none';
         GAME_WRAP.classList.add('show');
-        startNewMatch();
+        startNewMatch(!!state.boardState);
       }
       if (state.boardState && typeof carromApplyRemoteState === 'function') {
         carromApplyRemoteState(state.boardState);
@@ -702,24 +1084,37 @@
   function carromRenderOpenTables(rooms) {
     const el = document.getElementById('carromOpenTablesList');
     if (!el) return;
-    // Only show tables that are still in the lobby (not already playing)
-    // and actually have a free seat — nothing to join otherwise.
-    const joinable = (rooms || []).filter(r => r.phase === 'lobby' && r.openSeats > 0);
+    // Two kinds of joinable table: a lobby table with a genuinely empty
+    // seat, or ANY table (lobby or already in progress) with a bot seat
+    // that can be taken over -- the server already supports joining
+    // either case with no restriction on phase, so the list should
+    // surface both instead of only ever showing empty-seat lobbies.
+    const joinable = (rooms || []).filter(r => r.openSeats > 0 || r.botSeats > 0);
     if (!joinable.length) {
       el.innerHTML = '<div style="text-align:center;color:var(--brass-dim);font-size:0.8rem;padding:6px 0">No open tables right now — create one!</div>';
       return;
     }
-    el.innerHTML = joinable.map(r => `
+    el.innerHTML = joinable.map(r => {
+      const parts = [];
+      if (r.openSeats > 0) parts.push(`${r.openSeats} open`);
+      if (r.botSeats > 0) {
+        const seatNums = (r.botSeatIndices || []).map(i => i+1).join(', ');
+        parts.push(`replace bot (seat ${seatNums})`);
+      }
+      const statusLabel = r.phase === 'playing' ? ' · in progress' : '';
+      return `
       <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.04);border:1px solid var(--brass-dim);border-radius:8px;padding:8px 12px;margin-bottom:6px">
-        <span style="font-size:0.82rem">${r.playerCount===4?'2v2':'1v1'} · hosted by <b>${r.hostName}</b> · ${r.openSeats} open</span>
+        <span style="font-size:0.82rem">${r.playerCount===4?'2v2':'1v1'} · hosted by <b>${r.hostName}</b> · ${parts.join(' · ')}${statusLabel}</span>
         <button class="ctrl-btn" style="padding:5px 12px;font-size:0.75rem" onclick="carromJoinFromList('${r.id}')">Join</button>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
   function carromJoinFromList(tableId) {
     carromConnect();
     carromSocket.emit('carrom_joinTable', { tableId, name: carromNameOrDefault() });
   }
+  window.carromJoinFromList = carromJoinFromList; // called from an inline onclick= attribute, which runs in global scope -- inaccessible without this, throwing a silent error on every click
 
   function carromNameOrDefault() {
     const v = document.getElementById('carromNameInput').value.trim();
@@ -734,6 +1129,29 @@
     document.getElementById('carromLobbyStatus').style.display = 'none';
   }
 
+  function carromTeardownOnlineConnection() {
+    // A page-load auto-reconnect attempt (or a still-pending/already-
+    // failed one) leaves a socket and watchdog running in the
+    // background even if the user never actually gets seated anywhere
+    // -- carromLeaveLobbyIfAny above only ever handled the "already
+    // successfully joined" case, so that orphaned connection just kept
+    // running forever, eventually failing its own reconnect attempt on
+    // its own schedule and surfacing a confusing "disconnected" banner
+    // during a completely unrelated local game. Called whenever the
+    // user explicitly leaves online mode, so nothing keeps running for
+    // a session they're not even in anymore.
+    if (carromWatchdogTimer) { clearInterval(carromWatchdogTimer); carromWatchdogTimer = null; }
+    if (carromConnStatusHideTimer) { clearTimeout(carromConnStatusHideTimer); carromConnStatusHideTimer = null; }
+    carromHideConnStatus(0);
+    if (carromSocket) {
+      try { carromSocket.disconnect(); } catch(e) {}
+      carromSocket = null;
+    }
+    carromMyTableId = null;
+    carromWasDisconnected = false;
+    carromIsAutoRejoinAttempt = false;
+  }
+
   document.getElementById('onlinePlayerCountRow').addEventListener('click', e => {
     const btn = e.target.closest('.opt-btn'); if(!btn) return;
     [...document.getElementById('onlinePlayerCountRow').children].forEach(b=>b.classList.remove('active'));
@@ -744,17 +1162,28 @@
     const pc = parseInt(document.querySelector('#onlinePlayerCountRow .opt-btn.active').dataset.onlinePlayers, 10);
     carromSocket.emit('carrom_createTable', { name: carromNameOrDefault(), playerCount: pc });
   });
-  document.getElementById('carromJoinBtn').addEventListener('click', () => {
+  function carromDoJoin() {
     const code = document.getElementById('carromJoinCodeInput').value.trim().toUpperCase();
     if (!code) return;
     carromConnect();
     carromSocket.emit('carrom_joinTable', { tableId: code, name: carromNameOrDefault() });
+  }
+  document.getElementById('carromJoinBtn').addEventListener('click', carromDoJoin);
+  document.getElementById('carromJoinCodeInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); carromDoJoin(); }
   });
   document.getElementById('carromFillBotsBtn').addEventListener('click', () => {
     carromSocket.emit('carrom_fillBots');
   });
   document.getElementById('carromStartOnlineBtn').addEventListener('click', () => {
     carromSocket.emit('carrom_startGame');
+  });
+  document.getElementById('carromLeaveLobbyBtn').addEventListener('click', () => {
+    const otherSeatFilled = carromOnlineSeats.some((s, i) => s && !s.isBot && i !== carromMyPos);
+    const msg = otherSeatFilled
+      ? 'Leave this table? The other player will lose their seat too.'
+      : 'Leave this table?';
+    carromConfirm(msg, () => { carromLeaveLobbyIfAny(); });
   });
 
   function carromRenderLobbySeats() {
@@ -883,6 +1312,26 @@
     return 0; // local/vs-bot modes: board never rotates
   }
 
+  // Given a desired SCREEN-relative visual offset (e.g. "always appear
+  // as if lit from the upper-left, on my own screen"), returns the
+  // internal-coordinate offset that produces that same screen
+  // appearance once the canvas's CSS rotation is applied. Without this,
+  // a coin/striker's highlight and drop shadow -- both baked as fixed
+  // offsets in the unrotated internal coordinate space -- visually
+  // flip to the opposite corner for any player whose view is rotated,
+  // since the whole canvas (including those offsets) rotates as one
+  // piece. Uses the exact same rotation math getPos() already uses to
+  // un-rotate touch input, just applied to a visual offset instead.
+  function screenConsistentOffset(baseDx, baseDy){
+    const rot = displayRotationDeg();
+    if (!rot) return { dx: baseDx, dy: baseDy };
+    const rad = -rot * Math.PI/180;
+    return {
+      dx: baseDx*Math.cos(rad) - baseDy*Math.sin(rad),
+      dy: baseDx*Math.sin(rad) + baseDy*Math.cos(rad)
+    };
+  }
+
   function positionOverlapsCoin(x, y){
     return coins.some(c=>!c.potted && Math.hypot(c.x-x, c.y-y) < (STRIKER_R + c.r + 1));
   }
@@ -909,15 +1358,15 @@
     canvas.style.transform = `rotate(${displayRotationDeg()}deg)`;
   }
 
-  function startNewMatch(){
+  function startNewMatch(skipAiSchedule){
     matchScore = { teamA:0, teamB:0 };
     boardNumber = 0;
     matchOver = false;
     seats = buildSeats();
-    startNewBoard();
+    startNewBoard(skipAiSchedule);
   }
 
-  function startNewBoard(){
+  function startNewBoard(skipAiSchedule){
     try{
       gameOver = false;
       phase = 'aiming'; // CRITICAL: finishGame left this as 'over' — without this reset, AI scheduling, the watchdog, and human input are ALL blocked on the new board
@@ -955,11 +1404,13 @@
       gameOver = false;
     }
     requestAnimationFrame(loop);
+    if (skipAiSchedule) return; // this board is scaffolding about to be overwritten by the real synced state -- scheduling AI now would act on the wrong (fresh-board) turn
     try{
       const seat = currentSeat();
       if(seat && seat.kind==='ai'){ scheduleAiTurn(900); }
     } catch(e){ /* the independent watchdog will still catch this */ }
   }
+
 
   function setMsg(text){ document.getElementById('msgLog').innerHTML = text; }
 
@@ -982,29 +1433,46 @@
     return teamKey==='teamA' ? 'Your Team' : 'Opponent Team';
   }
 
+  function renderCoinTally(elId, count, color, gotQueen){
+    const el = document.getElementById(elId);
+    if(!el) return;
+    let html = '';
+    for(let i=0;i<count;i++) html += `<span class="tally-dot" style="background:${color==='white'?'var(--white-coin)':'var(--black-coin)'}"></span>`;
+    if(gotQueen) html += `<span class="tally-dot" style="background:#c92e2e"></span>`;
+    el.innerHTML = html;
+  }
+
   function updateHUD(){
     document.getElementById('scoreP1').textContent = scores.white + '/9';
     document.getElementById('scoreP2').textContent = scores.black + '/9';
     document.getElementById('p1Name').textContent = teamLabel('white');
     document.getElementById('p2Name').textContent = teamLabel('black');
+    renderCoinTally('tallyP1', scores.white, 'white', queenCoveredBy==='white');
+    renderCoinTally('tallyP2', scores.black, 'black', queenCoveredBy==='black');
     const seat = currentSeat();
     document.getElementById('badgeP1').classList.toggle('turn', seat.color==='white');
     document.getElementById('badgeP2').classList.toggle('turn', seat.color==='black');
     const who = seat.name==='You' ? 'Your turn' : seat.name + "'s turn";
     document.getElementById('turnLabel').textContent = who + (playerCount===4 ? ` · Team ${seat.color==='white'?'White':'Black'}` : '');
     document.getElementById('matchScoreLabel').textContent =
-      `Match: ${teamDisplayName('teamA')} ${matchScore.teamA} — ${matchScore.teamB} ${teamDisplayName('teamB')} (first to ${MATCH_TARGET}, win by 2)`;
+      `${teamDisplayName('teamA')} ${matchScore.teamA}—${matchScore.teamB} ${teamDisplayName('teamB')}`;
+    document.getElementById('boardRoundLabel').textContent = `Round ${boardNumber + 1}`;
 
     const queenEl = document.getElementById('queenStatusLabel');
+    const queenDotP1 = document.getElementById('queenDotP1'), queenDotP2 = document.getElementById('queenDotP2');
     if(queenCoveredBy){
       const opponentColor = queenCoveredBy==='white' ? 'black' : 'white';
       const opponentLeft = coins.filter(c=>!c.potted && c.color===opponentColor).length;
       const coveredByName = teamLabel(queenCoveredBy);
       queenEl.textContent = `👑 Queen covered by ${coveredByName} — bonus so far: +5 + ${opponentLeft} = ${5+opponentLeft}`;
       queenEl.classList.add('show');
+      if(queenDotP1) queenDotP1.style.display = queenCoveredBy==='white' ? 'inline-block' : 'none';
+      if(queenDotP2) queenDotP2.style.display = queenCoveredBy==='black' ? 'inline-block' : 'none';
     } else {
       queenEl.textContent = '';
       queenEl.classList.remove('show');
+      if(queenDotP1) queenDotP1.style.display = 'none';
+      if(queenDotP2) queenDotP2.style.display = 'none';
     }
   }
 
@@ -1027,6 +1495,15 @@
   function step(){
     const SUBSTEPS = 16; // ZERO TOLERANCE: higher substeps for exact physics
     const objs = allObjects();
+
+    // Capture each object's position from the end of the previous frame,
+    // before this frame's movement is applied - purely for the
+    // renderer's motion-blur trail on fast shots.
+    objs.forEach(o=>{
+      if(!o.posHistory) o.posHistory = [];
+      o.posHistory.push({ x: o.x, y: o.y });
+      if(o.posHistory.length > 5) o.posHistory.shift();
+    });
 
     // friction/decay applied once per frame, so overall deceleration feel is unchanged
     objs.forEach(o=>{
@@ -1233,6 +1710,15 @@
     phase = 'aiming';
     updateHUD();
     setMsg('Back to the current position.');
+    // If it's currently a bot's turn, its scheduled action may have
+    // silently died while the review was playing (that timer checks
+    // phase==='aiming' when it fires, and gives up for good if the
+    // review had phase set to 'moving' at that exact moment) -- without
+    // this, the game would be stuck here with nobody ever acting.
+    try{
+      const seat = currentSeat();
+      if(seat && seat.kind==='ai'){ scheduleAiTurn(600); }
+    } catch(e){ /* the independent watchdog will still catch this */ }
   }
 
   function fireStriker(vx,vy){
@@ -1295,33 +1781,8 @@
   // relays it to every other seat. A non-invasive wrap was deliberately
   // chosen over editing endShotResolve itself, to leave the actual game
   // logic completely untouched.
-  //
-  // Also handles the receiving side of a REPLAY (see carromApplyRemoteState
-  // below): when carromReplayFinalState is set, this call is the replay
-  // animation finishing locally, not a real local shot -- apply the
-  // shooter's captured final state directly as a consistency correction
-  // rather than independently recomputing fouls/scoring, which could
-  // diverge slightly between devices.
-  let carromReplayFinalState = null;
   const _carromOrigEndShotResolve = endShotResolve;
   endShotResolve = function() {
-    if (carromReplayFinalState) {
-      const finalState = carromReplayFinalState;
-      carromReplayFinalState = null;
-      phase = 'aiming';
-      turnPos = finalState.turnPos; gameOver = finalState.gameOver; boardNumber = finalState.boardNumber;
-      scores = { ...finalState.scores };
-      matchScore = { ...finalState.matchScore };
-      queenCoveredBy = finalState.queenCoveredBy;
-      skipPending = { ...finalState.skipPending };
-      coins.forEach((c, i) => { if (finalState.coins[i]) Object.assign(c, finalState.coins[i]); });
-      if (striker && finalState.striker) Object.assign(striker, finalState.striker);
-      updateHUD();
-      if (currentSeat() && currentSeat().kind === 'ai' && carromIsHost && !gameOver) {
-        scheduleAiTurn(900);
-      }
-      return;
-    }
     const actingPos = turnPos;
     _carromOrigEndShotResolve();
     if (mode === 'online' && carromSocket && carromMyTableId) {
@@ -1358,27 +1819,15 @@
 
   function carromApplyRemoteState(state) {
     if (!state || phase !== 'aiming') return; // never stomp on a shot the LOCAL player has in progress
-    if (state.replay && state.replay.preShotCoins) {
-      // Restore to the pre-shot position, then fire the SAME shot
-      // locally so the real physics loop animates it -- this is a true
-      // replay, not an instant snap. The shooter's captured final state
-      // is held and applied the moment this local replay settles (see
-      // the endShotResolve wrapper above), so any tiny physics
-      // divergence between devices never actually shows.
-      coins.forEach((c, i) => { if (state.replay.preShotCoins[i]) { c.x = state.replay.preShotCoins[i].x; c.y = state.replay.preShotCoins[i].y; c.potted = state.replay.preShotCoins[i].potted; c.vx = 0; c.vy = 0; } });
-      if (striker) {
-        striker.x = state.replay.startStrikerX;
-        striker.y = state.replay.startStrikerY;
-        striker.potted = false;
-      }
-      turnPos = state.replay.actingPos; // must be the SHOOTER's seat during the replay (fireStriker/currentSeat need this), not who's up next
-      carromReplayFinalState = state;
-      fireStriker(state.replay.vx, state.replay.vy);
-      return;
-    }
-    // No replay data available (e.g. an older client, or the very first
-    // state before any shot has happened) -- fall back to an instant
-    // apply so the game never gets stuck.
+    if (state.replay && state.replay.actingPos === carromMyPos) return; // my own shot's broadcast echoing back -- already correct locally, ignore
+    // Instant snap to the final, authoritative result. The shot itself
+    // was already visible live via carrom_liveShot streaming while it
+    // was happening; there's no reason to make the receiver sit through
+    // an entire second replay of the same shot just to catch up to a
+    // result they already watched unfold in near-real-time. This also
+    // corrects any tiny physics divergence between devices, same as
+    // the old replay's final-state application did, just without the
+    // added delay of re-running the whole animation first.
     turnPos = state.turnPos; gameOver = state.gameOver; boardNumber = state.boardNumber;
     scores = { ...state.scores };
     matchScore = { ...state.matchScore };
@@ -1397,13 +1846,80 @@
   // keeps them off the global namespace); this exposes a few of them
   // read-only rather than changing that.
   window.CARROM_DEBUG = {
+    get lastAliveAt() { return carromLastAliveAt; },
+    get onlineSeats() { return carromOnlineSeats.map(s => s ? { isBot: s.isBot, name: s.name, connected: s.connected } : null); },
+    get msSinceLastAlive() { return Date.now() - carromLastAliveAt; },
+    async testJitterFix(settledAngle, jitteredAngle) {
+      aimAngleHistory = [];
+      for (let i = 0; i < 6; i++) {
+        aimAngleHistory.push({ value: settledAngle, time: performance.now() });
+        if (aimAngleHistory.length > 12) aimAngleHistory.shift();
+        await new Promise(r => setTimeout(r, 20));
+      }
+      aimAngleHistory.push({ value: jitteredAngle, time: performance.now() });
+      return getSettledValue(aimAngleHistory, jitteredAngle, 70);
+    },
+    testMotionTrail() {
+      if (!striker) return { error: 'no striker' };
+      striker.vx = 30; striker.vy = 2;
+      let threw = false;
+      try { step(); render(); } catch(e) { threw = e.message; }
+      return {
+        hasHistory: !!striker.posHistory,
+        historyLength: striker.posHistory ? striker.posHistory.length : 0,
+        speed: Math.hypot(striker.vx, striker.vy),
+        renderThrew: threw
+      };
+    },
+    testForceSettleShot() {
+      // Zeroes every velocity directly, letting the next normal
+      // physics tick detect the settled state and run its usual
+      // end-of-shot logic (including the carrom_shotResult emit) --
+      // works around the headless-browser frame-rate throttling that
+      // makes waiting for real-time physics decay impractical in this
+      // test environment (~5fps here vs ~60fps on a real browser tab).
+      coins.forEach(c => { c.vx = 0; c.vy = 0; });
+      if (striker) { striker.vx = 0; striker.vy = 0; }
+    },
+    get boardNumber() { return boardNumber; },
     get myPos() { return carromMyPos; },
     get turnPos() { return turnPos; },
     get isHost() { return carromIsHost; },
     get scores() { return { ...scores }; },
     get seatKinds() { return seats.map(s => s.kind); },
+    testPottAllExcept(keepNum) {
+      coins.forEach((c,i) => { if (i !== keepNum) c.potted = true; });
+    },
+    testMoveCoinToOwnHook(seatIdx) {
+      const seat = seats[seatIdx];
+      const lane = getCornerLanes().find(l => l.sides.includes(seat.side));
+      const target = coins.find(c => !c.potted);
+      if (target && lane) { target.x = lane.hook.x; target.y = lane.hook.y; }
+      return target ? { x: Math.round(target.x), y: Math.round(target.y) } : null;
+    },
+    testForceAiTurn(seatIdx) {
+      turnPos = seatIdx; phase = 'aiming';
+      scheduleAiTurn(50);
+    },
+    testReproduceStuckAfterReview(seatIdx) {
+      // Reproduces the exact precondition: it's a bot's turn, phase is
+      // 'aiming', but NO timer is pending for it (simulating one that
+      // silently died mid-review) -- then calls finishReview directly
+      // to test whether it correctly notices and reschedules the bot.
+      turnPos = seatIdx; phase = 'aiming';
+      aiTurnToken++; // invalidate any real pending timer so only finishReview's own rescheduling can possibly fire the bot
+      isReviewing = true; reviewSavedState = { coins: coins.map(c=>({x:c.x,y:c.y,potted:c.potted})), strikerX:striker.x, strikerY:striker.y, strikerActive:striker.active };
+      finishReview();
+    },
     get seats() { return seats.map(s => ({side:s.side, kind:s.kind, name:s.name})); },
     get coinsSample() { return coins.slice(0,3).map(c => ({x: Math.round(c.x), y: Math.round(c.y)})); },
+    testMoveCoinAndSaveState(index, dx, dy) {
+      if (!coins[index]) return;
+      coins[index].x += dx; coins[index].y += dy;
+      if (mode === 'online' && carromSocket && carromMyTableId) {
+        carromSocket.emit('carrom_shotResult', { boardState: carromCaptureState(carromMyPos) });
+      }
+    },
     get displayRotation() { return displayRotationDeg(); },
     get canvasTransform() { return canvas.style.transform; },
     testForceAim(dx, dy) {
@@ -1411,8 +1927,17 @@
       const len = Math.hypot(dx, dy) || 1;
       liveAimDir = { x: dx/len, y: dy/len };
       dragCurrent = { x: striker.x - dx*50, y: striker.y - dy*50 };
-      aimSoftLocked = true;
+      carromLastAimBroadcast = 0; // bypass the throttle for this direct test call
+      carromEmitLiveAim();
     },
+    testMoveStrikerPlacement(dx) {
+      shotStage = 'position'; gestureMode = 'position';
+      striker.x += dx;
+      carromLastLiveBroadcast = 0; // bypass the throttle for this direct test call
+      carromBroadcastLivePositions();
+    },
+    get strikerX() { return striker ? Math.round(striker.x) : null; },
+    get strikerY() { return striker ? Math.round(striker.y) : null; },
     testCoinLegality(x, y) {
       const testCoin = { x, y, r: COIN_R, potted: false };
       return {
@@ -1422,6 +1947,40 @@
           from: {x: Math.round(l.from.x), y: Math.round(l.from.y)},
           pocket: {x: Math.round(l.pocket.x), y: Math.round(l.pocket.y)}
         }))
+      };
+    },
+    testFindBankShot(targetX, targetY, seatSide) {
+      const seat = seats.find(s => s.side === seatSide) || seats[0];
+      const sPos = seatPoint(seat.side, CENTER);
+      const target = { x: targetX, y: targetY, r: COIN_R };
+      const pocket = pocketCenters().slice().sort((a,b) =>
+        Math.hypot(target.x-a.x,target.y-a.y) - Math.hypot(target.x-b.x,target.y-b.y))[0];
+      const toPocket = { x: pocket.x-target.x, y: pocket.y-target.y };
+      const tpLen = Math.hypot(toPocket.x,toPocket.y) || 1;
+      const dirToPocket = { x: toPocket.x/tpLen, y: toPocket.y/tpLen };
+      const contactPoint = {
+        x: target.x - dirToPocket.x*(target.r+STRIKER_R),
+        y: target.y - dirToPocket.y*(target.r+STRIKER_R)
+      };
+      const bank = findBankShot(sPos, contactPoint, target, seat.side);
+      const ownWall = OWN_WALL_FOR_SIDE[seat.side];
+      return {
+        sPos, contactPoint, ownWall,
+        bankFound: !!bank,
+        wallHit: bank ? bank.wallHit : null,
+        isOppositeWall: bank ? (
+          (ownWall.axis==='y' && bank.wallHit.y === (ownWall.value===PLAY_MAX ? PLAY_MIN : PLAY_MAX)) ||
+          (ownWall.axis==='x' && bank.wallHit.x === (ownWall.value===PLAY_MAX ? PLAY_MIN : PLAY_MAX))
+        ) : null
+      };
+    },
+    testStrikeLineFouled() {
+      const seat = currentSeat();
+      return {
+        side: seat.side,
+        outer: SEAT_DEFS[seat.side].outer,
+        anyCoinFoulsIt: coins.some(c => !c.potted && behindOwnStrikeZone(c, seat)),
+        coinPositions: coins.filter(c=>!c.potted).map(c => ({x: Math.round(c.x), y: Math.round(c.y), behind: behindOwnStrikeZone(c, seat)}))
       };
     },
     testAimTarget() {
@@ -1438,13 +1997,116 @@
     testMoveCoin(idx, x, y) { coins[idx].x = x; coins[idx].y = y; },
     get phase() { return phase; },
     get shotStage() { return shotStage; },
+    get gestureMode() { return gestureMode; },
+    testSetScores(white, black, queenColor) {
+      scores.white = white; scores.black = black; queenCoveredBy = queenColor;
+      updateHUD();
+    },
+    get aimTimeSinceLastMove() { return aimLastMoveTime ? performance.now() - aimLastMoveTime : null; },
+    testSocketDisconnect() { if (carromSocket) carromSocket.disconnect(); },
+    testSocketReconnect() { if (carromSocket) carromSocket.connect(); },
+    testReannounce() {
+      if (carromSocket && carromMyTableId && carromMyPlayerId) {
+        carromSocket.emit('carrom_joinTable', { tableId: carromMyTableId, name: carromNameOrDefault(), playerId: carromMyPlayerId });
+      }
+    },
+    testSimulateFailedReconnect() {
+      carromWasDisconnected = true;
+      carromIsAutoRejoinAttempt = true;
+      carromSocket.emit('carrom_joinTable', { tableId: 'CBOGUSNONEXISTENT', name: carromNameOrDefault(), playerId: 'bogus-nonexistent-player-id' });
+    },
+    get connStatusText() { const el = document.getElementById('carromConnStatus'); return el ? el.textContent : null; },
+    get connStatusVisible() { const el = document.getElementById('carromConnStatus'); return el ? getComputedStyle(el).display !== 'none' : null; },
+    testSimulateStaleFlagReannounce() {
+      // Simulates the exact bug: .connected reports true (stale) but
+      // the emit actually goes nowhere, by targeting a bogus table so
+      // the server never sends back a carrom_joined confirmation.
+      const myToken = ++carromReannounceToken;
+      carromSocket.emit('carrom_joinTable', { tableId: 'CBOGUS_NO_RESPONSE', name: carromNameOrDefault(), playerId: 'bogus-id-no-match' });
+      setTimeout(() => {
+        if (carromReannounceToken === myToken) {
+          carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+          try { carromSocket.disconnect(); } catch(e) {}
+          carromSocket.connect();
+        }
+      }, 3000);
+    },
+    testSimulateOverlappingCycles() {
+      // Simulates the exact race this fix targets: a first lightweight
+      // re-announce that never gets a response, superseded by a second
+      // one that starts before the first's 3s safety timer has fired.
+      // Without the token fix, the first (stale) timer would still
+      // fire, see a shared flag still true, and force an unrelated
+      // disconnect right in the middle of the second attempt.
+      const token1 = ++carromReannounceToken;
+      carromSocket.emit('carrom_joinTable', { tableId: 'CBOGUS_FIRST', name: carromNameOrDefault(), playerId: 'bogus-first' });
+      setTimeout(() => {
+        if (carromReannounceToken === token1) {
+          carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+          try { carromSocket.disconnect(); } catch(e) {}
+          carromSocket.connect();
+        }
+      }, 3000);
+      setTimeout(() => {
+        const token2 = ++carromReannounceToken;
+        carromSocket.emit('carrom_joinTable', { tableId: carromMyTableId, name: carromNameOrDefault(), playerId: carromMyPlayerId });
+        setTimeout(() => {
+          if (carromReannounceToken === token2) {
+            carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+            try { carromSocket.disconnect(); } catch(e) {}
+            carromSocket.connect();
+          }
+        }, 3000);
+      }, 1000); // second cycle starts 1s in, well before the first's 3s timer fires
+    },
+    get reannounceToken() { return carromReannounceToken; },
+    get socketConnected() { return carromSocket ? carromSocket.connected : null; },
+    testSetAimState(msSinceLastMove) {
+      gestureMode = 'aim'; shotStage = 'aim';
+      liveAimDir = { x: 0, y: -1 };
+      aimLastMoveTime = performance.now() - msSinceLastMove;
+    },
+    get liveAimDir() { return liveAimDir; },
+    get opponentLiveAimDir() { return opponentLiveAimDir; },
+    testApplyRemoteState(state) {
+      const strikerBefore = { x: striker.x, y: striker.y };
+      const phaseBefore = phase;
+      phase = 'aiming';
+      carromApplyRemoteState(state);
+      return { strikerBefore, strikerAfter: { x: striker.x, y: striker.y }, phaseAfter: phase };
+    },
+    setMyPos(p) { carromMyPos = p; },
+    testSetQueenCovered(color) { queenCoveredBy = color; updateHUD(); },
+    testForceRotationRender(rotationDeg) {
+      const origRot = displayRotationDeg;
+      displayRotationDeg = () => rotationDeg;
+      render();
+      displayRotationDeg = origRot;
+    },
+    testPowerDelta(rotationDeg, screenDy) {
+      // Simulates the power-drag delta calculation for a given rotation
+      // and screen-space Y movement, bypassing onDown's canvas-bounds
+      // check (which a synthetic off-canvas coordinate would fail) by
+      // setting the gesture state directly instead.
+      const origRot = displayRotationDeg;
+      displayRotationDeg = () => rotationDeg;
+      shotStage = 'power'; gestureMode = 'power';
+      powerDragStartY = getRawScreenY({ clientX: 0, clientY: 100 });
+      powerBaseValue = 0; powerMoved = false; powerStartTime = 0;
+      const moveEvt = { clientX: 0, clientY: 100 + screenDy, preventDefault(){} };
+      onMove(moveEvt);
+      const result = powerPercent;
+      displayRotationDeg = origRot;
+      resetShotStage();
+      return result;
+    },
     get powerPercent() { return powerPercent; },
     get hasLastShotSnapshot() { return !!lastShotSnapshot; },
-    get isReplaying() { return carromReplayFinalState !== null; },
+    get isReplaying() { return false; }, // the old replay-animation mechanism was replaced by live position streaming
     // Test-only: forces the power stage directly with a given power
     // level, bypassing the need to replicate the exact valid drag angle
     // through simulated pointer events.
-    get strikerPos() { return striker ? { x: striker.x, y: striker.y } : null; },
+    get strikerPos() { return striker ? { x: striker.x, y: striker.y, vx: striker.vx, vy: striker.vy } : null; },
     forcePowerStage(pct) {
       lockedDir = { x: 0, y: -1 };
       shotStage = 'power';
@@ -1724,12 +2386,20 @@
 
   function findBankShot(sPos, contactPoint, target, seatSide){
     const ownWall = OWN_WALL_FOR_SIDE[seatSide];
+    // The wall directly across the board from the shooter's own wall --
+    // same axis, opposite value. Banking off this one (straight down
+    // the board and back) is the standard carrom "bang shot" and
+    // should be tried first; the two side walls are only a fallback
+    // when the opposite wall itself doesn't produce a clear, legal shot.
+    const oppositeValue = ownWall.value === PLAY_MAX ? PLAY_MIN : PLAY_MAX;
     const walls = [
       { axis:'x', value:PLAY_MIN, mirror:p=>({x:2*PLAY_MIN-p.x, y:p.y}) },
       { axis:'x', value:PLAY_MAX, mirror:p=>({x:2*PLAY_MAX-p.x, y:p.y}) },
       { axis:'y', value:PLAY_MIN, mirror:p=>({x:p.x, y:2*PLAY_MIN-p.y}) },
       { axis:'y', value:PLAY_MAX, mirror:p=>({x:p.x, y:2*PLAY_MAX-p.y}) },
-    ].filter(w => !(w.axis===ownWall.axis && w.value===ownWall.value));
+    ]
+      .filter(w => !(w.axis===ownWall.axis && w.value===ownWall.value))
+      .map(w => ({ ...w, isOpposite: w.axis===ownWall.axis && w.value===oppositeValue }));
     let best = null;
     walls.forEach(w=>{
       const mirrored = w.mirror(contactPoint);
@@ -1756,8 +2426,15 @@
       if(isPathBlocked(hitX,hitY, contactPoint.x,contactPoint.y, target, STRIKER_R)) return;
 
       const dist = Math.hypot(mirrored.x-sPos.x, mirrored.y-sPos.y);
-      if(!best || dist < best.dist){
-        best = { aimPoint: mirrored, wallHit:{x:hitX,y:hitY}, dist };
+      // The opposite wall always wins over a side wall when both produce
+      // a valid shot, regardless of which is geometrically shorter --
+      // this is what makes the bot actually prefer the standard bang
+      // shot instead of picking whichever wall happens to be closest.
+      const better = !best
+        || (w.isOpposite && !best.isOpposite)
+        || (w.isOpposite === best.isOpposite && dist < best.dist);
+      if(better){
+        best = { aimPoint: mirrored, wallHit:{x:hitX,y:hitY}, dist, isOpposite: w.isOpposite };
       }
     });
     return best;
@@ -2001,9 +2678,11 @@
         // it already planned — hard fires the exact calculated shot, medium
         // and easy add real aim/power error (and occasional bigger slips)
         const DIFF_SETTINGS = {
-          hard:   { aimJitter: 0,     powerJitter: 0,    missChance: 0    },
-          medium: { aimJitter: 0.035, powerJitter: 0.08, missChance: 0.12 },
-          easy:   { aimJitter: 0.09,  powerJitter: 0.18, missChance: 0.30 }
+          beginner: { aimJitter: 0.14,  powerJitter: 0.28, missChance: 0.45 },
+          easy:     { aimJitter: 0.09,  powerJitter: 0.18, missChance: 0.30 },
+          medium:   { aimJitter: 0.035, powerJitter: 0.08, missChance: 0.12 },
+          hard:     { aimJitter: 0.012, powerJitter: 0.03, missChance: 0.02 },
+          perfect:  { aimJitter: 0,     powerJitter: 0,    missChance: 0    }
         };
         const diffCfg = DIFF_SETTINGS[difficulty] || DIFF_SETTINGS.medium;
 
@@ -2026,10 +2705,18 @@
         const dist = Math.hypot(dx,dy) || 1;
         const dirx = dx/dist, diry = dy/dist;
 
-        let speed = Math.min(MAX_SHOT_SPEED, dist * 0.05 + 10);
+        // Deliberately its own cap, independent of MAX_SHOT_SPEED -- that
+        // constant was raised (26 -> 34) specifically so a full-power
+        // HUMAN shot travels further after cushion bounces, and was
+        // never meant to also raise how hard bots hit. Using it directly
+        // here meant every bot shot got proportionally more powerful
+        // too, the moment that change landed, without anyone deciding
+        // bots should hit harder.
+        const BOT_MAX_SPEED = 26;
+        let speed = Math.min(BOT_MAX_SPEED, dist * 0.05 + 10);
         if(diffCfg.powerJitter > 0){
           speed *= 1 + (Math.random()*2 - 1) * diffCfg.powerJitter;
-          speed = Math.max(4, Math.min(MAX_SHOT_SPEED, speed));
+          speed = Math.max(4, Math.min(BOT_MAX_SPEED, speed));
         }
 
         fireStriker(dirx*speed, diry*speed);
@@ -2044,16 +2731,31 @@
   let touchStart = null;
   let strikerStartAlong = null;
   let dragCurrent = null;
+  let aimTouchAnchor = null;    // {x,y} — wherever the finger first touched down for aiming (used only for the "did you actually drag" distance check)
   let lockedDir = null;         // {x,y} unit vector once aim is locked
-  let liveAimDir = null;        // {x,y} smoothed unit vector while actively dragging to aim
-  let aimSoftLocked = false;    // true once you've held still long enough to freeze the aim
-  let dwellAnchor = null;       // {x,y,time} — tracks how long the finger has held near one spot
+  let liveAimDir = null;        // {x,y} unit vector for the current aim, always the single source of truth
+  let opponentLiveAimDir = null; // {x,y} unit vector for the OPPONENT's current aim, streamed from their side while it's their turn
+  let aimBaseAngle = 0;         // the smart-default starting angle (toward the nearest legal coin, or pocket) that vertical drag rotates away from
+  let aimDragStartY = 0;        // screen-space Y where the aim drag began, for the single-axis rotation control
+  let aimLastMoveTime = 0;      // performance.now() of the most recent aim move -- the lock fires 2s after THIS, always restarted by any new movement, never counted from the original touch or an earlier target
   let powerPercent = 0;
   let powerDragStartY = null;
   let powerBaseValue = null;
   let powerMoved = false;
   let powerTimer = null;
   let powerStartTime = 0;
+  let aimAngleHistory = []; // {value, time} - lets the lock-in use a slightly earlier, settled reading instead of the exact last touch position, which is exactly where a finger-lift jitter shows up
+  let powerHistory = [];
+  function getSettledValue(history, fallback, lookbackMs) {
+    if (!history || !history.length) return fallback;
+    const now = performance.now();
+    let best = history[history.length - 1].value;
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (now - history[i].time >= lookbackMs) return history[i].value;
+      best = history[i].value;
+    }
+    return best;
+  }
 
   const powerFill = document.getElementById('powerFill');
   const powerFillVal = document.getElementById('powerFillVal');
@@ -2095,6 +2797,21 @@
     return { x, y };
   }
 
+  // Raw screen-space Y, deliberately WITHOUT the rotation inversion
+  // getPos() applies. Aiming and positioning need the un-rotated
+  // internal coordinates (so a touch lands on the right coin/spot in
+  // game-world space) but the power drag is a pure gesture -- "drag up
+  // on my screen = more power" should feel identical for every player
+  // no matter how their board is visually rotated. Using the rotated
+  // coordinate here was the bug: for a 180-degree rotated view, that
+  // inversion is a full point reflection, so the exact same upward
+  // screen drag came out with the opposite sign, making power feel
+  // backwards specifically for whichever seat sees a rotated board.
+  function getRawScreenY(evt){
+    const t = evt.touches ? evt.touches[0] : evt;
+    return t.clientY;
+  }
+
   function canPlayerAct(){
     if(gameOver || phase!=='aiming' || isReviewing) return false;
     return currentSeat().kind === 'human';
@@ -2108,8 +2825,7 @@
     dragCurrent = null;
     lockedDir = null;
     liveAimDir = null;
-    aimSoftLocked = false;
-    dwellAnchor = null;
+    aimLastMoveTime = 0;
     powerPercent = 0;
     powerMoved = false;
     powerStartTime = 0;
@@ -2121,9 +2837,42 @@
   let lastTapTime = 0;
   const DOUBLE_TAP_MS = 320;
 
+  // Smart default aim direction: point toward the nearest LEGAL coin (the
+  // same legality check the bot AI already uses), so the player starts
+  // from a sensible angle instead of a blank slate every time. Falls
+  // back to the nearest pocket if no legal coin exists at all.
+  function computeDefaultAimDir(seat){
+    const sPos = striker;
+    let target = null, minDist = Infinity;
+    coins.forEach(c => {
+      if(c.potted || !isPotLegalDirect(c, seat)) return;
+      const d = Math.hypot(c.x-sPos.x, c.y-sPos.y);
+      if(d < minDist){ minDist = d; target = c; }
+    });
+    let tx, ty;
+    if(target){ tx = target.x; ty = target.y; }
+    else {
+      const pockets = pocketCenters();
+      let pocket = pockets[0], minPd = Infinity;
+      pockets.forEach(p => {
+        const d = Math.hypot(p.x-sPos.x, p.y-sPos.y);
+        if(d < minPd){ minPd = d; pocket = p; }
+      });
+      tx = pocket.x; ty = pocket.y;
+    }
+    const dx = tx - sPos.x, dy = ty - sPos.y;
+    const len = Math.hypot(dx,dy) || 1;
+    return { x: dx/len, y: dy/len };
+  }
+
   function onDown(evt){
     if(!canPlayerAct()) return;
     const pos = getPos(evt);
+    // A touch landing on the dark wooden rail (outside the playing
+    // surface) isn't a game gesture at all -- let it fall through to
+    // the browser's normal scroll handling instead of capturing it,
+    // so the rail can be used to drag the whole page up and down.
+    if (pos.x < PLAY_MIN || pos.x > PLAY_MAX || pos.y < PLAY_MIN || pos.y > PLAY_MAX) return;
 
     const now = Date.now();
     const isDoubleTap = (now - lastTapTime) < DOUBLE_TAP_MS;
@@ -2140,13 +2889,18 @@
       strikerStartAlong = axisValue(currentSeat().side, striker);
     } else if(shotStage === 'aim'){
       gestureMode = 'aim';
+      aimAngleHistory = [];
       dragCurrent = pos;
-      liveAimDir = null;
-      aimSoftLocked = false;
-      dwellAnchor = null;
+      aimTouchAnchor = pos;
+      const defaultDir = computeDefaultAimDir(currentSeat());
+      liveAimDir = defaultDir;
+      aimBaseAngle = Math.atan2(defaultDir.y, defaultDir.x);
+      aimDragStartY = getRawScreenY(evt);
+      aimLastMoveTime = performance.now();
     } else if(shotStage === 'power'){
       gestureMode = 'power';
-      powerDragStartY = pos.y;
+      powerHistory = [];
+      powerDragStartY = getRawScreenY(evt);
       powerBaseValue = powerPercent;
       powerMoved = false;
     }
@@ -2167,50 +2921,60 @@
       if(!positionOverlapsCoin(p.x, p.y)){
         striker.x = p.x; striker.y = p.y;
       }
+      carromBroadcastLivePositions();
     } else if(gestureMode === 'aim'){
       dragCurrent = pos;
-      const DWELL_RADIUS = 3, DWELL_MS = 950, UNLOCK_RADIUS = 24;
-      const now = performance.now();
-
-      // Soft-lock: hold still to freeze aim direction
-      if(!aimSoftLocked){
-        const dx = striker.x - pos.x, dy = striker.y - pos.y;
-        const rawDist = Math.hypot(dx,dy);
-        if(rawDist > 4){
-          liveAimDir = { x: dx/rawDist, y: dy/rawDist };
-        }
-        if(!dwellAnchor || Math.hypot(pos.x-dwellAnchor.x, pos.y-dwellAnchor.y) > DWELL_RADIUS){
-          dwellAnchor = { x: pos.x, y: pos.y, time: now };
-        } else if(now - dwellAnchor.time > DWELL_MS){
-          aimSoftLocked = true;
-        }
-      } else {
-        // LOCKED: aim direction is frozen, only check for unlock
-        if(Math.hypot(pos.x-dwellAnchor.x, pos.y-dwellAnchor.y) > UNLOCK_RADIUS){
-          aimSoftLocked = false;
-          dwellAnchor = { x: pos.x, y: pos.y, time: now };
-          // Update direction immediately on unlock
-          const dx = striker.x - pos.x, dy = striker.y - pos.y;
-          const rawDist = Math.hypot(dx,dy);
-          if(rawDist > 4){
-            liveAimDir = { x: dx/rawDist, y: dy/rawDist };
-          }
-        }
-      }
+      // Single-axis rotation: only the vertical drag distance matters,
+      // not horizontal position at all -- this is deliberately the whole
+      // point. A narrow phone has very little side-to-side room but
+      // plenty of vertical room, so dragging up/down sweeps the full
+      // range of aim angles instead of requiring the finger to reach
+      // sideways to hit a precise 2D position.
+      const rawY = getRawScreenY(evt);
+      const dy = rawY - aimDragStartY;
+      const ROTATION_SENSITIVITY = 0.007; // radians per pixel -- a full screen-height drag sweeps roughly a full circle
+      const angle = aimBaseAngle + dy * ROTATION_SENSITIVITY;
+      liveAimDir = { x: Math.cos(angle), y: Math.sin(angle) };
+      aimAngleHistory.push({ value: angle, time: performance.now() });
+      if (aimAngleHistory.length > 12) aimAngleHistory.shift();
+      aimLastMoveTime = performance.now();
+      carromEmitLiveAim();
 
       if(shotStage === 'aim'){ setPowerMeter(0); }
     } else if(gestureMode === 'power'){
-      const dy = pos.y - powerDragStartY;
+      const dy = getRawScreenY(evt) - powerDragStartY;
       if(Math.abs(dy) > 6) powerMoved = true;
       powerPercent = Math.max(0, Math.min(100, powerBaseValue + dy/2));
+      powerHistory.push({ value: powerPercent, time: performance.now() });
+      if (powerHistory.length > 12) powerHistory.shift();
       setPowerMeter(powerPercent);
-      if(!powerStartTime) powerStartTime = performance.now();
-      if(performance.now() - powerStartTime > 3000){
-        resetShotStage();
-        setMsg('<span class="warn">Power held too long — shot reset.</span>');
+      if(powerPercent >= 100){
+        if(!powerStartTime) powerStartTime = performance.now();
+        if(performance.now() - powerStartTime > 3000){
+          resetShotStage();
+          setMsg('<span class="warn">Held at full power too long — shot reset.</span>');
+        }
+      } else {
+        powerStartTime = 0; // dropped below max -- the "held too long" clock only counts time actually spent at full power
       }
     }
     evt.preventDefault();
+  }
+
+  function commitAimDirection(){
+    const settledAngle = getSettledValue(aimAngleHistory, null, 70);
+    const dirX = settledAngle !== null ? Math.cos(settledAngle) : liveAimDir.x;
+    const dirY = settledAngle !== null ? Math.sin(settledAngle) : liveAimDir.y;
+    if(!isAimDirectionAllowed(dirX, dirY, currentSeat().side)){
+      setMsg('<span class="warn">Too shallow — you can\'t aim along your own baseline.</span> Try a steeper angle.');
+      return false;
+    }
+    lockedDir = { x: dirX, y: dirY };
+    shotStage = 'power';
+    powerPercent = 0;
+    setPowerMeter(0);
+    setMsg('Direction locked. Drag up/down to set power, release to fire. (Double-tap anytime to reset.)');
+    return true;
   }
 
   function onUp(evt){
@@ -2219,35 +2983,13 @@
     if(gestureMode === 'position'){
       shotStage = 'aim';
       setMsg('Now drag to aim — release to lock the direction. (Double-tap anytime to reset.)');
-    } else if(gestureMode === 'aim' && dragCurrent){
-      const dx = striker.x - dragCurrent.x;
-      const dy = striker.y - dragCurrent.y;
-      const dist = Math.hypot(dx,dy);
-      if(dist > 10){
-        // if the dwell-lock engaged, honor the frozen locked direction exactly.
-        // otherwise (a normal continuous drag-and-release) use the RAW direction
-        // from the exact release point — not the smoothed preview value, which
-        // can lag slightly behind your true final position and cause a miss.
-        let dirX, dirY;
-        if(aimSoftLocked && liveAimDir){
-          dirX = liveAimDir.x; dirY = liveAimDir.y;
-        } else {
-          dirX = dx/dist; dirY = dy/dist;
-        }
-        if(!isAimDirectionAllowed(dirX, dirY, currentSeat().side)){
-          setMsg('<span class="warn">Too shallow — you can\'t aim along your own baseline.</span> Try a steeper angle.');
-        } else {
-          lockedDir = { x: dirX, y: dirY };
-          shotStage = 'power';
-          powerPercent = 0;
-          setPowerMeter(0);
-          setMsg('Direction locked. Drag up/down to set power, release to fire. (Double-tap anytime to reset.)');
-        }
-      }
+    } else if(gestureMode === 'aim' && liveAimDir){
+      commitAimDirection();
     } else if(gestureMode === 'power' && lockedDir){
       powerStartTime = 0;
-      if(powerMoved && powerPercent > 0){
-        const speed = Math.max(2, (powerPercent/100) * MAX_SHOT_SPEED);
+      const settledPower = getSettledValue(powerHistory, powerPercent, 70);
+      if(powerMoved && settledPower > 0){
+        const speed = Math.max(2, (settledPower/100) * MAX_SHOT_SPEED);
         fireStriker(lockedDir.x*speed, lockedDir.y*speed);
         lockedDir = null;
         setMsg('Shot away!');
@@ -2317,8 +3059,9 @@
     }
   }
 
-  function drawCornerLane(lane, isHighlighted){
+  function drawCornerLane(lane, highlightPart){
     const hx = lane.hook.x, hy = lane.hook.y, hr = lane.hook.r;
+    const fx = lane.farInner.x, fy = lane.farInner.y;
     const tx = lane.pocket.x, ty = lane.pocket.y;
 
     // 270-degree hook, opening faces the pocket — the combined visual
@@ -2327,16 +3070,16 @@
     // umbrella shape" description.
     const baseAng = Math.atan2(ty-hy, tx-hx);
     const gapHalf = Math.PI * 0.25;
+    // Gentle pulse on the highlight glow so it reads as "live" rather
+    // than a flat static color change.
+    const pulse = 0.75 + Math.sin(performance.now()/260) * 0.25;
+
     ctx.save();
-    if (isHighlighted) {
-      // Debugging aid: whenever a coin is currently protected by this
-      // arc, draw it brighter and glowing so it's obvious exactly which
-      // boundary is responsible, instead of it looking identical to
-      // the always-legal state.
+    if (highlightPart === 'arc') {
       ctx.strokeStyle = 'rgba(255,90,60,0.95)';
       ctx.lineWidth = 5;
-      ctx.shadowColor = 'rgba(255,90,60,0.8)';
-      ctx.shadowBlur = 14;
+      ctx.shadowColor = 'rgba(255,90,60,0.85)';
+      ctx.shadowBlur = 10 + pulse*10;
     } else {
       ctx.strokeStyle = 'rgba(50,30,10,0.6)';
       ctx.lineWidth = 3.5;
@@ -2344,6 +3087,73 @@
     ctx.beginPath();
     ctx.arc(hx, hy, hr, baseAng+gapHalf, baseAng+Math.PI*2-gapHalf);
     ctx.stroke();
+    ctx.restore();
+
+    // The 45-degree lane line, extended to start from the arc's INNER
+    // edge (facing the board center, opposite the pocket) so it passes
+    // straight through the arc and continues to the pocket's center —
+    // a protected boundary the whole way, same orange highlight
+    // treatment as the arc when a coin is touching it.
+    ctx.save();
+    if (highlightPart === 'line') {
+      ctx.strokeStyle = 'rgba(255,90,60,0.95)';
+      ctx.lineWidth = 4.5;
+      ctx.shadowColor = 'rgba(255,90,60,0.85)';
+      ctx.shadowBlur = 10 + pulse*10;
+    } else {
+      ctx.strokeStyle = 'rgba(50,30,10,0.6)';
+      ctx.lineWidth = 3;
+    }
+    ctx.beginPath();
+    ctx.moveTo(fx,fy); ctx.lineTo(tx,ty); ctx.stroke();
+    // small arrowhead at the pocket end
+    ctx.beginPath();
+    ctx.moveTo(tx,ty);
+    ctx.lineTo(tx-Math.cos(baseAng-0.4)*13, ty-Math.sin(baseAng-0.4)*13);
+    ctx.lineTo(tx-Math.cos(baseAng+0.4)*13, ty-Math.sin(baseAng+0.4)*13);
+    ctx.closePath();
+    ctx.fillStyle = highlightPart === 'line' ? 'rgba(255,90,60,0.95)' : 'rgba(50,30,10,0.6)';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Board branding: "TARO" (large, bold) with "BOARDS" (small, spaced
+  // out like a subtitle) beneath it, centered on each of the four dark
+  // wooden rails. Drawn once per side, rotated for the left/right rails
+  // so the text reads correctly along that edge instead of sideways.
+  function drawBoardBranding(){
+    const railMid = MARGIN / 2; // center of the dark rail
+    function brandAt(cx, cy){
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      // subtle engraved look: a soft dark shadow behind lighter brass-gold text
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 1.5;
+      ctx.shadowOffsetY = 1;
+      ctx.fillStyle = 'rgba(210,175,120,0.55)';
+      ctx.font = '700 11px Georgia, "Times New Roman", serif';
+      ctx.fillText('TARO', 0, 0);
+      ctx.shadowBlur = 0.5;
+      ctx.fillStyle = 'rgba(210,175,120,0.4)';
+      ctx.font = '600 4.5px Georgia, "Times New Roman", serif';
+      ctx.fillText('B O A R D S', 0, 7);
+      ctx.restore();
+    }
+    // top and bottom rails: text sits upright, centered horizontally
+    brandAt(CENTER, railMid + 3);
+    brandAt(CENTER, SIZE - railMid + 3);
+    // left and right rails: rotated 90 degrees to run along the edge
+    ctx.save();
+    ctx.translate(railMid, CENTER);
+    ctx.rotate(-Math.PI/2);
+    brandAt(0, 3);
+    ctx.restore();
+    ctx.save();
+    ctx.translate(SIZE - railMid, CENTER);
+    ctx.rotate(Math.PI/2);
+    brandAt(0, 3);
     ctx.restore();
   }
 
@@ -2360,6 +3170,8 @@
     ctx.strokeStyle = 'rgba(195,154,91,0.35)';
     ctx.lineWidth = 2;
     roundRect(ctx,10,10,SIZE-20,SIZE-20,20); ctx.stroke();
+
+    drawBoardBranding();
 
     const feltGrad = ctx.createRadialGradient(CENTER,CENTER,60,CENTER,CENTER,PLAY_SIZE*0.75);
     feltGrad.addColorStop(0, '#e2b164');
@@ -2380,16 +3192,47 @@
 
     ['bottom','top','left','right'].forEach(drawBaselineBox);
 
-    getCornerLanes().forEach(lane => {
-      // Debugging aid: highlight whenever ANY coin on the table is
-      // currently protected by this specific arc, for the current
-      // shooter's seat.
+    {
       const seat = currentSeat();
-      const isRelevant = lane.sides.includes(seat.side);
-      const isHighlighted = isRelevant && coins.some(c => !c.potted &&
-        Math.hypot(c.x-lane.hook.x, c.y-lane.hook.y) <= lane.hook.r + c.r + 1.5);
-      drawCornerLane(lane, isHighlighted);
-    });
+      const relevantLanes = getCornerLanes().filter(lane => lane.sides.includes(seat.side));
+      relevantLanes.forEach(lane => {
+        // Check every non-potted coin for whether ITS protection detail
+        // points specifically at THIS lane, and if so which part of it
+        // (arc or line) -- checked per-lane so two coins protected by
+        // two different lanes at once both correctly highlight.
+        let part = null;
+        for (const c of coins) {
+          if (c.potted) continue;
+          const detail = protectionDetailFor(c, seat);
+          if (detail && detail.hookX === lane.hook.x && detail.hookY === lane.hook.y) { part = detail.part; break; }
+        }
+        drawCornerLane(lane, part);
+      });
+      // Draw the two lanes on the FAR side too (never highlighted, since
+      // protection is always relative to the current shooter's own side).
+      getCornerLanes().filter(lane => !lane.sides.includes(seat.side)).forEach(lane => drawCornerLane(lane, null));
+
+      // Zone 1: the strike-zone line itself, extended the FULL width of
+      // the board both ways -- this matches what the rule actually
+      // checks (behindOwnStrikeZone never restricts along the line, only
+      // perpendicular to it), which is wider than the short decorative
+      // segment drawBaselineBox draws around the striker's own slot.
+      // Without this, a coin fouled by this rule had zero visual
+      // explanation for why -- the shot would just get blocked with no
+      // highlight anywhere, looking like an arbitrary call.
+      const strikeLineFouled = coins.some(c => !c.potted && behindOwnStrikeZone(c, seat));
+      const d = SEAT_DEFS[seat.side];
+      const zone1LineY = d.outer + d.dir*STRIKER_R; // the near edge of the striker's own slot -- matches behindOwnStrikeZone's boundary exactly
+      ctx.save();
+      ctx.strokeStyle = strikeLineFouled ? '#ff8c1a' : 'rgba(50,30,10,0.28)';
+      ctx.lineWidth = strikeLineFouled ? 3 : 1.5;
+      if (strikeLineFouled) { ctx.shadowColor = '#ff8c1a'; ctx.shadowBlur = 10; }
+      ctx.beginPath();
+      if (d.axis === 'x') { ctx.moveTo(PLAY_MIN, zone1LineY); ctx.lineTo(PLAY_MAX, zone1LineY); }
+      else { ctx.moveTo(zone1LineY, PLAY_MIN); ctx.lineTo(zone1LineY, PLAY_MAX); }
+      ctx.stroke();
+      ctx.restore();
+    }
 
     ctx.save();
     ctx.translate(CENTER,CENTER);
@@ -2424,8 +3267,9 @@
     const y = c.y;
 
     // drop shadow — a touch bigger/softer so the coin reads as "lifted" off the felt
+    const coinShadowOff = screenConsistentOffset(2, 3.5);
     ctx.beginPath();
-    ctx.arc(x+2, y+3.5, r, 0, Math.PI*2);
+    ctx.arc(x+coinShadowOff.dx, y+coinShadowOff.dy, r, 0, Math.PI*2);
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.filter = 'blur(2.5px)';
     ctx.fill();
@@ -2463,8 +3307,9 @@
     }
 
     // glossy radial body — gives real depth instead of a flat disc
+    const coinHiOff = screenConsistentOffset(-r*0.32, -r*0.35);
     const bodyGrad = ctx.createRadialGradient(
-      x - r*0.32, y - r*0.35, r*0.08,
+      x + coinHiOff.dx, y + coinHiOff.dy, r*0.08,
       x, y, r
     );
     bodyGrad.addColorStop(0, bodyStops[0]);
@@ -2505,8 +3350,9 @@
     ctx.fill();
 
     // gloss highlight — small crescent, upper-left, to sell the "polished disc" look
+    const coinGlossOff = screenConsistentOffset(-r*0.35, -r*0.4);
     ctx.beginPath();
-    ctx.ellipse(x - r*0.35, y - r*0.4, r*0.28, r*0.16, -0.6, 0, Math.PI*2);
+    ctx.ellipse(x + coinGlossOff.dx, y + coinGlossOff.dy, r*0.28, r*0.16, -0.6 - displayRotationDeg()*Math.PI/180, 0, Math.PI*2);
     ctx.fillStyle = highlightColor;
     ctx.globalAlpha = (dimmed ? 0.35 : 1) * 0.35;
     ctx.fill();
@@ -2544,8 +3390,9 @@
     const y = striker.y;
 
     // bigger, softer drop shadow so it visibly sits above the felt
+    const strikerShadowOff = screenConsistentOffset(2.5, 4);
     ctx.beginPath();
-    ctx.arc(x+2.5, y+4, r, 0, Math.PI*2);
+    ctx.arc(x+strikerShadowOff.dx, y+strikerShadowOff.dy, r, 0, Math.PI*2);
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.filter = 'blur(3px)';
     ctx.fill();
@@ -2559,8 +3406,9 @@
 
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI*2);
+    const strikerHiOff = screenConsistentOffset(-r*0.32, -r*0.35);
     const bodyGrad = ctx.createRadialGradient(
-      x - r*0.32, y - r*0.35, r*0.08,
+      x + strikerHiOff.dx, y + strikerHiOff.dy, r*0.08,
       x, y, r
     );
     bodyGrad.addColorStop(0, '#e8fff2');
@@ -2615,8 +3463,9 @@
     ctx.stroke();
 
     // gloss highlight crescent to match the coins' polished look
+    const strikerGlossOff = screenConsistentOffset(-r*0.35, -r*0.4);
     ctx.beginPath();
-    ctx.ellipse(x - r*0.35, y - r*0.4, r*0.26, r*0.15, -0.6, 0, Math.PI*2);
+    ctx.ellipse(x + strikerGlossOff.dx, y + strikerGlossOff.dy, r*0.26, r*0.15, -0.6 - displayRotationDeg()*Math.PI/180, 0, Math.PI*2);
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.globalAlpha = 0.4;
     ctx.fill();
@@ -2666,6 +3515,13 @@
     } else if(shotStage === 'power' && lockedDir){
       dirX = lockedDir.x; dirY = lockedDir.y;
       powerRatio = powerPercent / 100;
+    } else if(mode === 'online' && turnPos !== carromMyPos && opponentLiveAimDir){
+      // Not my turn -- show the OPPONENT's live-streamed aim instead,
+      // so their striker is actually seen rotating toward its target
+      // in real time rather than the turn just silently sitting there
+      // until the shot fires.
+      dirX = opponentLiveAimDir.x; dirY = opponentLiveAimDir.y;
+      powerRatio = 0;
     } else {
       return;
     }
@@ -2691,7 +3547,7 @@
     // including the yellow tone it passes through at mid-power.
     ctx.save();
     const shaftPulse = 1 + Math.sin(performance.now()/220) * 0.12; // gentle breathing, not jittery
-    const widthNear = 11 * shaftPulse, widthFar = 2.5;
+    const widthNear = 7 * shaftPulse, widthFar = 1.5; // was 11/2.5 -- thinner shaft, same tapered style
     const perpX = -aimNy, perpY = aimNx; // perpendicular to the aim direction
     function shaftPolygon(extraWidth) {
       const nw = widthNear + extraWidth, fw = widthFar + extraWidth;
@@ -2704,7 +3560,7 @@
     }
     // Dark outline pass first -- keeps the shaft readable against the
     // board no matter what color comes next.
-    shaftPolygon(4);
+    shaftPolygon(2.5);
     ctx.fillStyle = 'rgba(20,10,5,0.55)';
     ctx.fill();
     // Colored fill on top
@@ -2727,7 +3583,7 @@
     // wider, more prominent arrowhead, with a dark outline so it never
     // blends into the board either
     const aimAng = Math.atan2(aimNy, aimNx);
-    const aimHeadLen = 20, aimHeadSpread = 0.55;
+    const aimHeadLen = 16, aimHeadSpread = 0.55; // was 20 -- proportional to the thinner shaft
     function arrowheadPath() {
       ctx.beginPath();
       ctx.moveTo(contactX, contactY);
@@ -2923,18 +3779,79 @@
     ctx.restore();
   }
 
+  function drawMotionTrail(o, color) {
+    if (!o.posHistory || o.posHistory.length < 2) return;
+    const speed = Math.hypot(o.vx, o.vy);
+    if (speed < 6) return; // only kicks in for genuinely fast motion, not normal rolling
+    const hist = o.posHistory;
+    for (let i = 0; i < hist.length; i++) {
+      const age = hist.length - i;
+      const t = age / (hist.length + 1);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 0.22 - t * 0.22) * Math.min(1, speed / 18);
+      ctx.beginPath();
+      ctx.arc(hist[i].x, hist[i].y, o.r * (1 - t * 0.3), 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   function render(){
     drawBoard();
     const blocked = currentBlockedSet();
-    coins.forEach(c=>{ if(!c.potted) drawCoin(c, blocked.has(c)); });
+    coins.forEach(c=>{ if(!c.potted){ drawMotionTrail(c, c.color==='red' ? '#c0392b' : (c.color||'#ccc')); drawCoin(c, blocked.has(c)); } });
+    if (striker) drawMotionTrail(striker, '#f2f2f2');
     drawStriker();
     drawAimLine();
   }
 
   let loopStuckRecoveryScheduled = false;
 
+  let carromLastLiveBroadcast = 0;
+  function carromBroadcastLivePositions() {
+    if (mode !== 'online' || !carromSocket || !carromMyTableId) return;
+    const iAmActing = (turnPos === carromMyPos) || (carromIsHost && seats[turnPos] && seats[turnPos].kind === 'ai');
+    if (!iAmActing) return; // only the person whose shot this actually is should stream it
+    const now = performance.now();
+    if (now - carromLastLiveBroadcast < 33) return; // ~30/sec, matching Pool's smoother rate
+    carromLastLiveBroadcast = now;
+    carromSocket.emit('carrom_liveShot', {
+      coins: coins.map(c => ({ x: Math.round(c.x), y: Math.round(c.y), potted: c.potted })),
+      striker: striker ? { x: Math.round(striker.x), y: Math.round(striker.y), potted: striker.potted } : null
+    });
+  }
+
+  let carromLastAimBroadcast = 0;
+  function carromEmitLiveAim() {
+    if (mode !== 'online' || !carromSocket || !carromMyTableId) return;
+    if (turnPos !== carromMyPos) return; // never stream another seat's aim, including a bot's
+    const now = performance.now();
+    if (now - carromLastAimBroadcast < 80) return; // matches Pool's aim-throttle rate -- smooth enough for a stick, cheaper than the full 30/sec shot rate since nothing is actually moving yet
+    carromLastAimBroadcast = now;
+    if (!liveAimDir) return;
+    carromSocket.emit('carrom_liveAim', { x: liveAimDir.x, y: liveAimDir.y });
+  }
+
   function loop(){
     try{
+      // Lock the aim 2 seconds after the most recent move -- simple and
+      // literal: any movement at all restarts the clock, so it's always
+      // counted from your LAST move, never from the original touch or
+      // an earlier target you passed over while sweeping the angle.
+      if(gestureMode === 'aim' && shotStage === 'aim' && liveAimDir && aimLastMoveTime){
+        if(performance.now() - aimLastMoveTime >= 2000){
+          if(isAimDirectionAllowed(liveAimDir.x, liveAimDir.y, currentSeat().side)){
+            lockedDir = { x: liveAimDir.x, y: liveAimDir.y };
+            shotStage = 'power';
+            powerPercent = 0;
+            setPowerMeter(0);
+            setMsg('Direction locked (2s since your last move). Drag up/down to set power, release to fire.');
+          }
+          gestureMode = null; // end this touch's aim gesture cleanly -- a lift afterward does nothing further, and the next touch starts a fresh power drag
+          dragCurrent = null;
+        }
+      }
       if(phase==='moving'){
         let stillMoving;
         if(isReviewing){
@@ -2946,6 +3863,7 @@
           }
         } else {
           stillMoving = step();
+          carromBroadcastLivePositions();
         }
         if(!stillMoving){
           if(isReviewing){ finishReview(); } else { endShotResolve(); }
@@ -3009,6 +3927,118 @@
   }, 1000);
 
   updatePlayersNote();
+
+  // Automatic reconnect on page load, matching the 4-player table's
+  // attemptAutoReconnect pattern -- without this, a player whose
+  // connection dropped mid-game had no way back in except manually
+  // re-navigating to "Play Online" themselves first, since carromConnect
+  // (and the rejoin attempt inside it) was previously only ever
+  // triggered by that button, never automatically. If we have a saved
+  // table, switch straight to the online mode UI state and connect;
+  // carromConnect's own rejoin logic (and the carrom_state handler's
+  // existing "if we're now in a game, show it" logic) does the rest.
+  (function carromAttemptAutoReconnect(){
+    let savedTable = null;
+    try { savedTable = localStorage.getItem('carrom_table_id'); } catch(e) {}
+    if (!savedTable || !carromMyPlayerId) return;
+    const onlineBtn = document.querySelector('#modeRow .opt-btn[data-mode="online"]');
+    if (onlineBtn) {
+      [...document.getElementById('modeRow').children].forEach(b=>b.classList.remove('active'));
+      onlineBtn.classList.add('active');
+    }
+    mode = 'online';
+    document.getElementById('menuStepName').style.display = 'none';
+    document.getElementById('menuStepMode').style.display = 'none';
+    document.getElementById('menuStepLocalSetup').style.display = 'none';
+    document.getElementById('onlineLobby').style.display = 'block';
+    carromConnect();
+  })();
+
+  // Fixes the specific "phone locked, came back, frozen" failure: a
+  // phone screen lock (or backgrounding the app/switching tabs for a
+  // while) suspends this page's JS entirely -- timers, the render
+  // loop, and the socket's own internal bookkeeping all pause. The
+  // socket's own .connected flag can come out of that suspension still
+  // reporting true, even though the connection actually died and the
+  // server's own ping-timeout gave up on it long ago server-side --
+  // the browser paused this tab before it ever got to process the real
+  // disconnect event. Trusting that flag and doing nothing meant the
+  // client would just sit there looking alive while receiving nothing,
+  // permanently, with no further trigger to ever notice. Checking
+  // explicitly the instant the tab becomes visible/network-restored
+  // again catches this immediately instead of waiting on a timer that
+  // may never have run during the suspension. Same proven pattern
+  // already used on the 4-player table.
+  let carromHiddenAt = null;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      carromHiddenAt = Date.now();
+      return;
+    }
+    if (document.visibilityState !== 'visible' || !carromMyTableId || !carromMyPlayerId || !carromSocket) return;
+    const hiddenForMs = carromHiddenAt ? (Date.now() - carromHiddenAt) : 0;
+    carromHiddenAt = null;
+    if (!carromSocket.connected || hiddenForMs > 70000) {
+      carromReannounceToken++; // supersede any still-pending lightweight attempt's stale timer
+      try { carromSocket.disconnect(); } catch(e) {}
+      carromSocket.connect();
+    } else {
+      // Hidden only briefly -- the transport is LIKELY still alive, so
+      // try the lightweight re-announce first. But "likely" isn't
+      // certain: the .connected flag itself can be stale after exactly
+      // this kind of suspension, so this can't just be fire-and-forget.
+      // If no confirmation comes back within a few seconds, the
+      // transport was actually already dead and this quiet emit went
+      // nowhere -- escalate to a full forced reconnect rather than
+      // leaving the client stuck with no second attempt ever coming.
+      //
+      // Uses a per-attempt token, not a shared boolean: a second
+      // visibility cycle (another quick tab/app switch) can easily
+      // start before the first attempt's 3-second safety window has
+      // elapsed. With a single shared flag, that first attempt's stale
+      // timer would still fire, see the flag still true (because the
+      // SECOND attempt's own re-announce hasn't been confirmed yet
+      // either), and force an unrelated disconnect right in the middle
+      // of the second attempt actually working -- exactly the "first
+      // time fine, second time the table's gone" failure. Each attempt
+      // now gets its own token; a timer only acts if its token is still
+      // the current one, so an outdated timer from a superseded attempt
+      // can never interfere with whatever attempt actually followed it.
+      const myToken = ++carromReannounceToken;
+      carromSocket.emit('carrom_joinTable', { tableId: carromMyTableId, name: carromNameOrDefault(), playerId: carromMyPlayerId });
+      setTimeout(() => {
+        if (carromReannounceToken === myToken) {
+          carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+          try { carromSocket.disconnect(); } catch(e) {}
+          carromSocket.connect();
+        }
+      }, 10000);
+    }
+  });
+  window.addEventListener('online', () => {
+    if (!carromMyTableId || !carromMyPlayerId || !carromSocket) return;
+    // This handler is the ONLY reconnect trigger available when the app
+    // stayed foregrounded the entire time (airplane mode toggled
+    // without switching apps or locking the screen) -- visibilitychange
+    // never fires at all in that case, since visibility genuinely never
+    // changed. Trusting .connected here unconditionally, with no
+    // fallback if it's wrong, meant this handler could do nothing at
+    // all on exactly the scenario it exists for: a real, longer
+    // disconnect where the flag never got the chance to update itself.
+    if (!carromSocket.connected) {
+      carromSocket.connect();
+    } else {
+      const myToken = ++carromReannounceToken;
+      carromSocket.emit('carrom_joinTable', { tableId: carromMyTableId, name: carromNameOrDefault(), playerId: carromMyPlayerId });
+      setTimeout(() => {
+        if (carromReannounceToken === myToken) {
+          carromSetConnStatus('🔄 Reconnecting to your table...', '#8a6a1c');
+          try { carromSocket.disconnect(); } catch(e) {}
+          carromSocket.connect();
+        }
+      }, 10000);
+    }
+  });
 })();
 </script>
 </body>
