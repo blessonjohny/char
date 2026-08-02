@@ -2168,16 +2168,13 @@ function endTurn() {
     }
     startTurn(); return;
   }
-  const currentPlayerGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
   let pocketedCurrentPlayerBall = false;
   if (gameState.thisShotWasBreak) {
-    // The break is exempt from calling - any legal pot (per the group-
-    // assignment rules already applied above) continues the turn.
-    if (gameState.groupJustAssignedThisShot) {
-      pocketedCurrentPlayerBall = gameState.justPocketed.length > 0;
-    } else if (currentPlayerGroup && gameState.justPocketed.length > 0) {
-      for (const num of gameState.justPocketed) { const ballGroup = num <= 7 ? 'solids' : 'stripes'; if (ballGroup === currentPlayerGroup) { pocketedCurrentPlayerBall = true; break; } }
-    }
+    // The break rule, as simple and direct as it gets: whoever breaks -
+    // human or bot, online or not - keeps playing if they pocketed
+    // ANYTHING at all, no scratch. Doesn't matter which ball, which
+    // group, or how many. No calling, no other conditions.
+    pocketedCurrentPlayerBall = gameState.justPocketed.length > 0;
   } else {
     // Every shot after the break must be called: the specifically called
     // ball has to go into the specifically called pocket for the turn to
