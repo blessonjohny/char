@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-guard-count</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-switch-log</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -2300,14 +2300,20 @@ function endTurn() {
     }
     // Diagnostic info appended directly into the visible popup text -
     // no devtools/console needed to read it and report it back.
-    why += ' [diag: shot#' + gameState.shotCounter + ' break=' + isBreak + ' bt=' + gameState.breakTaken + ' guardBlocks=' + (gameState.turnGuardBlockCount || 0) + ' botPending=' + gameState.botTurnPending + ' hist=' + (gameState.shotHistory || []).join('|') + ']';
+    why += ' [diag: shot#' + gameState.shotCounter + ' break=' + isBreak + ' bt=' + gameState.breakTaken + ' guardBlocks=' + (gameState.turnGuardBlockCount || 0) + ' botPending=' + gameState.botTurnPending + ' switchLog=' + (gameState.switchTurnLog || []).join(',') + ' hist=' + (gameState.shotHistory || []).join('|') + ']';
     poolShowFoulNotification('Turn Passed', why);
   }
   gameState.calledPocket = null; gameState.calledShotMade = false;
   startTurn();
 }
 
-function switchTurn() { gameState.myTurn = !gameState.myTurn; }
+function switchTurn() {
+  gameState.switchTurnCallCount = (gameState.switchTurnCallCount || 0) + 1;
+  const before = gameState.myTurn;
+  gameState.myTurn = !gameState.myTurn;
+  if (!gameState.switchTurnLog) gameState.switchTurnLog = [];
+  gameState.switchTurnLog.push(before + '>' + gameState.myTurn);
+}
 
 // ==================== BALL-IN-HAND PLACEMENT ====================
 // Used both for the opening break (kitchen-only) and after any scratch (anywhere on table).
