@@ -179,16 +179,6 @@
   <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-break-simplified</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
-    <div class="mode-btn" data-mode="bot" onclick="selectMode('bot')">VS Bot</div>
-  </div>
-  <div id="botLevelSelect" style="display:none;width:min(300px,85vw);margin-bottom:14px">
-    <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Select AI Difficulty</div>
-    <div class="difficulty-select">
-      <div class="diff-btn active" data-level="easy" onclick="selectDifficulty('easy')">Easy</div>
-      <div class="diff-btn" data-level="medium" onclick="selectDifficulty('medium')">Medium</div>
-      <div class="diff-btn" data-level="hard" onclick="selectDifficulty('hard')">Hard</div>
-      <div class="diff-btn" data-level="pro" onclick="selectDifficulty('pro')">Pro</div>
-    </div>
   </div>
   <button class="btn btn-gold" id="playBtn" onclick="handlePlay()">PLAY</button>
   <button class="btn btn-blue" onclick="showScreen('howToScreen')">How to Play</button>
@@ -449,7 +439,6 @@ function selectMode(mode) {
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
   document.querySelector('[data-mode="' + mode + '"]').classList.add('active');
   gameMode = mode;
-  document.getElementById('botLevelSelect').style.display = mode === 'bot' ? 'block' : 'none';
 }
 function selectDifficulty(level) {
   document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
@@ -457,13 +446,7 @@ function selectDifficulty(level) {
   botDifficulty = level;
 }
 function handlePlay() {
-  if (gameMode === 'bot') {
-    myName = 'Player';
-    opponentName = BOT_CONFIG[botDifficulty].name;
-    startGame(true);
-  } else {
-    showScreen('hostScreen');
-  }
+  showScreen('hostScreen');
 }
 function closeOverlay(id) { document.getElementById(id).classList.remove('active'); }
 function showOverlay(id) { document.getElementById(id).classList.add('active'); }
@@ -960,7 +943,6 @@ function hostStartGame() {
   poolSocket.emit('pool_start', { opponentName: myName, hostBreaksFirst });
   startGame(true, hostBreaksFirst);
 }
-function fallbackToLocal() { requestPoolFullscreen(); gameMode = 'bot'; opponentName = 'Bot'; startGame(true); }
 function reconnect() { closeOverlay('disconnectOverlay'); if (poolSocket) poolSocket.connect(); }
 
 // ==================== GAME PHYSICS ====================
@@ -2196,7 +2178,9 @@ function endTurn() {
     const wasMyOwnShot = gameState.myTurn;
     cueBall.pocketed = false; cueBall.vx = 0; cueBall.vy = 0; cueBall.spinX = 0; cueBall.spinY = 0;
     gameState.scratch = false; gameState.foulMessageActive = true; switchTurn();
-    if (wasMyOwnShot) poolShowFoulNotification('Scratch', 'The cue ball was pocketed. Your opponent gets ball in hand.');
+    poolShowFoulNotification('Scratch', wasMyOwnShot
+      ? 'The cue ball was pocketed. Your opponent gets ball in hand.'
+      : 'Your opponent\u2019s cue ball was pocketed. You get ball in hand.');
     if (gameState.myTurn) {
       enterCuePlacement(false); // ball-in-hand: anywhere on the table
     } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
@@ -2208,14 +2192,13 @@ function endTurn() {
     const wasMyOwnShot = gameState.myTurn;
     const reason = gameState.lastFoulReason || '';
     gameState.foul = false; gameState.foulMessageActive = true; switchTurn();
-    if (wasMyOwnShot) {
-      let detail = 'Your opponent gets ball in hand.';
-      if (reason.includes('wrong ball')) detail = 'You hit your opponent\u2019s ball first. ' + detail;
-      else if (reason.includes('8-ball')) detail = 'You hit the 8-ball first, out of turn. ' + detail;
-      else if (reason.includes('didn\u2019t touch')) detail = 'The cue ball didn\u2019t touch any ball. ' + detail;
-      else if (reason.includes('no ball reached')) detail = 'No ball reached a rail or pocket after contact. ' + detail;
-      poolShowFoulNotification('Foul', detail);
-    }
+    let cause = 'A foul occurred';
+    if (reason.includes('wrong ball')) cause = wasMyOwnShot ? 'You hit your opponent\u2019s ball first' : 'Your opponent hit your ball first';
+    else if (reason.includes('8-ball')) cause = wasMyOwnShot ? 'You hit the 8-ball first, out of turn' : 'Your opponent hit the 8-ball first, out of turn';
+    else if (reason.includes('didn\u2019t touch')) cause = wasMyOwnShot ? 'The cue ball didn\u2019t touch any ball' : 'Your opponent\u2019s cue ball didn\u2019t touch any ball';
+    else if (reason.includes('no ball reached')) cause = wasMyOwnShot ? 'No ball reached a rail or pocket after contact' : 'No ball reached a rail or pocket on your opponent\u2019s shot';
+    const detail = cause + '. ' + (wasMyOwnShot ? 'Your opponent gets ball in hand.' : 'You get ball in hand.');
+    poolShowFoulNotification('Foul', detail);
     if (gameState.myTurn) {
       enterCuePlacement(false); // any foul grants ball-in-hand, anywhere on the table - not just a scratch
     } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
@@ -2237,10 +2220,23 @@ function endTurn() {
     // ball-in-hand for a plain miss, the turn just passes.
     pocketedCurrentPlayerBall = gameState.calledShotMade;
   }
+  const wasMyShotThisResolution = gameState.myTurn;
+  let turnIsPassing = false;
   if (gameState.groupAssigned) {
-    if (!pocketedCurrentPlayerBall) switchTurn();
+    if (!pocketedCurrentPlayerBall) { switchTurn(); turnIsPassing = true; }
   } else {
-    if (gameState.justPocketed.length === 0) switchTurn();
+    if (gameState.justPocketed.length === 0) { switchTurn(); turnIsPassing = true; }
+  }
+  if (turnIsPassing) {
+    let why;
+    if (gameState.thisShotWasBreak) {
+      why = wasMyShotThisResolution ? 'You didn\u2019t pocket anything on the break.' : 'Your opponent didn\u2019t pocket anything on the break.';
+    } else if (gameState.justPocketed.length > 0) {
+      why = wasMyShotThisResolution ? 'You pocketed a ball, but not the one you called.' : 'Your opponent pocketed a ball, but not the one they called.';
+    } else {
+      why = wasMyShotThisResolution ? 'You missed your called shot.' : 'Your opponent missed their called shot.';
+    }
+    poolShowFoulNotification('Turn Passed', why);
   }
   gameState.calledPocket = null; gameState.calledShotMade = false;
   startTurn();
