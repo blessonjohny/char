@@ -3463,6 +3463,8 @@ function simulateBotShot(cueBallX, cueBallY, angle, power, spinX, spinY) {
   const savedEndTurn = endTurn;
   const savedHandlePocket = handlePocket;
   const savedBallsMoving = gameState.ballsMoving;
+  const savedResolveShotOutcome = resolveShotOutcome;
+  resolveShotOutcome = () => {};
   endTurn = () => {};
   handlePocket = (ball) => { ball.pocketed = true; ball.vx = 0; ball.vy = 0; ball.spinX = 0; ball.spinY = 0; };
   gameState.ballsMoving = true;
@@ -3489,7 +3491,7 @@ function simulateBotShot(cueBallX, cueBallY, angle, power, spinX, spinY) {
     }
     if (allStopped) break;
   }
-  balls = savedBalls; endTurn = savedEndTurn; handlePocket = savedHandlePocket; gameState.ballsMoving = savedBallsMoving;
+  balls = savedBalls; endTurn = savedEndTurn; handlePocket = savedHandlePocket; resolveShotOutcome = savedResolveShotOutcome; gameState.ballsMoving = savedBallsMoving;
   return { pocketedBalls, cueBallEnd, cueBallPocketed };
 }
 
