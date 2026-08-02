@@ -1208,7 +1208,7 @@ function poolResumeGameAwaitingSync() {
   document.getElementById('waitingText').textContent = 'Reconnecting to your match — syncing table with your opponent...';
   showOverlay('waitingOverlay');
   lastTime = performance.now();
-  gameLoop();
+  poolStartGameLoop();
   poolSocket.emit('pool_requestBoardSync');
 }
 
@@ -1229,7 +1229,7 @@ function startGame(host, breaksFirst) {
     isHost = true;
   }
   lastTime = performance.now();
-  gameLoop();
+  poolStartGameLoop();
   if (gameState.myTurn) {
     enterCuePlacement(true);
   } else {
@@ -4109,6 +4109,17 @@ function gameLoop() {
   updatePhysics();
   render();
   animationId = requestAnimationFrame(gameLoop);
+}
+// Ensures exactly one gameLoop is ever running, no matter how many times
+// or from how many different entry points (fresh start, reconnect,
+// restart, rematch) this gets called - starting a second one without
+// cancelling the first would mean two independent physics loops running
+// concurrently against the same shared ball state, each calling
+// resolveShotOutcome/endTurn on their own, which can corrupt state in
+// ways that are very hard to trace after the fact.
+function poolStartGameLoop() {
+  if (animationId !== null) { cancelAnimationFrame(animationId); animationId = null; }
+  gameLoop();
 }
 
 // ==================== INIT ====================
