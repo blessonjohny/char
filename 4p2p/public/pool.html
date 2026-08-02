@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-visible-diag</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-shot-history</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -1193,7 +1193,7 @@ function initGame() {
     aimPhase: true, aimLocked: false, powerPhase: false,
     botTurnPending: false, placingCueBall: false, placementKitchenOnly: false,
     foulMessageActive: false, lastFoulReason: null, eightBallPocketedThisShot: false, gameOverReason: null, groupJustAssignedThisShot: false,
-    breakTaken: false, shotStartedAt: null, calledPocket: null, callingShot: false, calledShotMade: false, pocketedInto: {}, shotCounter: 0
+    breakTaken: false, shotStartedAt: null, calledPocket: null, callingShot: false, calledShotMade: false, pocketedInto: {}, shotCounter: 0, shotHistory: []
   };
   updateUI();
 }
@@ -2065,11 +2065,13 @@ function handlePocket(ball, pocketIdx) {
 //  6. The winner of a game breaks the next one.
 function resolveShotOutcome() {
   gameState.shotCounter = (gameState.shotCounter || 0) + 1;
+  if (!gameState.shotHistory) gameState.shotHistory = [];
   // Independent of breakTaken (which network sync handlers can also
   // set): the very first time THIS shot-resolution function itself
   // actually runs for this game session is unconditionally the break,
   // regardless of what any other flag says by this point.
   const isBreakShot = gameState.shotCounter === 1 || !gameState.breakTaken;
+  gameState.shotHistory.push('#' + gameState.shotCounter + ':pk=' + gameState.justPocketed.length + ':mt=' + gameState.myTurn + ':gm=' + gameMode);
   if (!isBreakShot && !gameState.groupAssigned) {
     console.warn('[pool-diag] shot resolving as NOT the break, but no group is assigned yet - this combination should be rare/impossible for a genuine post-break shot', {
       breakTaken: gameState.breakTaken, shotCounter: gameState.shotCounter, myTurn: gameState.myTurn, justPocketed: gameState.justPocketed.slice(),
@@ -2263,7 +2265,7 @@ function endTurn() {
     }
     // Diagnostic info appended directly into the visible popup text -
     // no devtools/console needed to read it and report it back.
-    why += ' [diag: shot#' + gameState.shotCounter + ' break=' + isBreak + ' bt=' + gameState.breakTaken + ']';
+    why += ' [diag: shot#' + gameState.shotCounter + ' break=' + isBreak + ' bt=' + gameState.breakTaken + ' hist=' + (gameState.shotHistory || []).join('|') + ']';
     poolShowFoulNotification('Turn Passed', why);
   }
   gameState.calledPocket = null; gameState.calledShotMade = false;
