@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-turn-guard</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-guard-count</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -1586,6 +1586,7 @@ function finishInput() {
     // actually this player's turn, no matter how aimPhase/powerPhase
     // got set - this is the last line of defense against ever taking
     // a shot that belongs to the opponent.
+    gameState.turnGuardBlockCount = (gameState.turnGuardBlockCount || 0) + 1;
     isAiming = false; aimTouchId = null; gameState.aiming = false;
     gameState.aimPhase = false; gameState.aimLocked = false; gameState.powerPhase = false; gameState.power = 0;
     return;
@@ -2299,7 +2300,7 @@ function endTurn() {
     }
     // Diagnostic info appended directly into the visible popup text -
     // no devtools/console needed to read it and report it back.
-    why += ' [diag: shot#' + gameState.shotCounter + ' break=' + isBreak + ' bt=' + gameState.breakTaken + ' hist=' + (gameState.shotHistory || []).join('|') + ']';
+    why += ' [diag: shot#' + gameState.shotCounter + ' break=' + isBreak + ' bt=' + gameState.breakTaken + ' guardBlocks=' + (gameState.turnGuardBlockCount || 0) + ' botPending=' + gameState.botTurnPending + ' hist=' + (gameState.shotHistory || []).join('|') + ']';
     poolShowFoulNotification('Turn Passed', why);
   }
   gameState.calledPocket = null; gameState.calledShotMade = false;
