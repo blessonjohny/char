@@ -1297,6 +1297,10 @@ function cancelLongPress() {
 }
 
 function updateMessage() {
+  if (gameState.breakTaken !== true) {
+    gameState.calledPocket = null;
+    gameState.callingShot = false;
+  }
   const badge = document.getElementById('phaseBadge');
   const msg = document.getElementById('messageText');
   if (gameState.gameOver) { badge.style.display = 'none'; msg.textContent = 'Game Over!'; return; }
@@ -2061,9 +2065,11 @@ function resolveShotOutcome() {
   gameState.groupJustAssignedThisShot = false;
 
   // Step 1: assign the group, if this shot is the one that does it.
+  // Decided by whichever ball actually goes IN first, not which ball
+  // the cue merely touches first - those are different things, and the
+  // group is determined by the pocketing, not the contact.
   if (tableWasOpen && gameState.justPocketed.length > 0) {
-    const fcb = gameState.firstContactBall;
-    const decidingBall = (fcb !== null && fcb !== 0 && fcb !== 8) ? fcb : gameState.justPocketed[0];
+    const decidingBall = gameState.justPocketed[0];
     const decidingGroup = decidingBall <= 7 ? 'solids' : 'stripes';
     if (gameState.myTurn) { gameState.myGroup = decidingGroup; gameState.opponentGroup = decidingGroup === 'solids' ? 'stripes' : 'solids'; }
     else { gameState.opponentGroup = decidingGroup; gameState.myGroup = decidingGroup === 'solids' ? 'stripes' : 'solids'; }
@@ -2906,6 +2912,15 @@ function drawMotionTrail(ball) {
 }
 
 function render() {
+  // Absolute guard: until the break has strictly, definitively happened
+  // (checked every single frame, not just at specific setters), the
+  // calling system cannot be active - self-corrects any stray state
+  // from anywhere, rather than trusting individual setters to always
+  // get this right.
+  if (gameState && gameState.breakTaken !== true) {
+    gameState.calledPocket = null;
+    gameState.callingShot = false;
+  }
   ctx.clearRect(0, 0, TABLE_WIDTH, TABLE_HEIGHT);
 
   // === TABLE FELT - Tournament Blue ===
