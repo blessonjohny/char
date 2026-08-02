@@ -1183,7 +1183,7 @@ function initGame() {
     aimPhase: true, aimLocked: false, powerPhase: false,
     botTurnPending: false, placingCueBall: false, placementKitchenOnly: false,
     foulMessageActive: false, lastFoulReason: null, eightBallPocketedThisShot: false, gameOverReason: null, groupJustAssignedThisShot: false,
-    calledPocket: null, calledShotMade: false, callingShot: false, breakTaken: false, pocketedInto: {}
+    calledPocket: null, calledShotMade: false, callingShot: false, breakTaken: false, pocketedInto: {}, shotStartedAt: null
   };
   updateUI();
 }
@@ -1596,6 +1596,7 @@ function shoot(power) {
   gameState.spin = {x: 0, y: 0};
   resetSpinUI();
   updatePowerUI(); document.getElementById('powerHud').classList.remove('show');
+  gameState.shotStartedAt = performance.now(); // for the settle-timeout watchdog below - a real shot never takes anywhere near this long
   if (poolSocket && poolMyTableId && gameMode !== 'bot' && gameState.myTurn) {
     poolMyShotInProgress = true;
     poolSocket.emit('pool_shot', {});
@@ -1730,6 +1731,18 @@ function updatePhysics() {
   let moving = false;
   for (let step = 0; step < substeps; step++) {
     moving = updatePhysicsStep(subFriction, subSpinDecay) || moving;
+  }
+
+  // Settle-timeout watchdog: a real shot never takes anywhere near this
+  // long to finish. If one has been "in progress" this long, something
+  // has gone wrong (most likely a dropped network connection mid-shot)
+  // and forcing it to resolve now is far better than leaving the
+  // player's turn permanently stuck waiting for something that will
+  // never happen on its own.
+  if (moving && gameState.shotStartedAt && performance.now() - gameState.shotStartedAt > 20000) {
+    console.error('[pool-watchdog] shot never settled after 20s - forcing resolution');
+    moving = false;
+    for (const ball of balls) { ball.vx = 0; ball.vy = 0; ball.spinX = 0; ball.spinY = 0; }
   }
 
   if (poolMyShotInProgress && poolSocket && poolMyTableId) {
@@ -3132,7 +3145,11 @@ function render() {
 
   // === CALLED SHOT HIGHLIGHT === (whoever's turn it is, shown so the
   // other player can see what's been called too - not just your own calls)
-  if (gameState.calledPocket !== null) {
+  // Hard guard: this can never draw before the break has actually
+  // happened, full stop, regardless of what set calledPocket or why -
+  // every setter is already gated on breakTaken, but this is a second,
+  // independent backstop right at the point of drawing.
+  if (gameState.breakTaken && gameState.calledPocket !== null) {
     const p = pockets[gameState.calledPocket];
     if (p) {
       ctx.save();
@@ -3625,6 +3642,12 @@ function pickFallbackCall(botGroup, botBallsLeft) {
 }
 function botTurn() {
   if (gameState.gameOver) return;
+  // Defensive: clear any call before this turn's own logic decides
+  // whether one is needed. On the break specifically (breakTaken still
+  // false), this guarantees nothing carries into the highlight no matter
+  // what set it - the bot's own logic further down only ever re-sets it
+  // when breakTaken is actually true.
+  gameState.calledPocket = null;
   // botDifficulty is only ever set by the local "Play vs Bots" flow.
   // The separate online-room "Add Bot Opponent" flow syncs the real
   // selected difficulty into opponentBotDifficulty instead - without
