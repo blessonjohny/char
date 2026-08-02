@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-copyable-popup</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-session-track</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -1222,6 +1222,12 @@ function startGame(host, breaksFirst) {
   initCanvas();
   matchTally = { me: 0, opp: 0 };
   initGame();
+  // Explicit, redundant reset - these must never survive into a new
+  // game under any circumstances, regardless of what else initGame()
+  // does or doesn't fully reset.
+  gameState.shotCounter = 0;
+  gameState.shotHistory = [];
+  gameState.breakTaken = false;
   if (typeof breaksFirst === 'boolean') gameState.myTurn = breaksFirst;
   document.getElementById('p1Name').textContent = myName;
   document.getElementById('p2Name').textContent = opponentName;
@@ -2072,7 +2078,7 @@ function resolveShotOutcome() {
   // actually runs for this game session is unconditionally the break,
   // regardless of what any other flag says by this point.
   const isBreakShot = gameState.shotCounter === 1 || !gameState.breakTaken;
-  gameState.shotHistory.push('#' + gameState.shotCounter + ':pk=' + gameState.justPocketed.length + ':mt=' + gameState.myTurn + ':gm=' + gameMode);
+  gameState.shotHistory.push('#' + gameState.shotCounter + ':pk=' + gameState.justPocketed.length + ':mt=' + gameState.myTurn + ':gm=' + gameMode + ':sess=' + (poolGameSessionId ? poolGameSessionId.slice(-6) : 'none'));
   if (!isBreakShot && !gameState.groupAssigned) {
     console.warn('[pool-diag] shot resolving as NOT the break, but no group is assigned yet - this combination should be rare/impossible for a genuine post-break shot', {
       breakTaken: gameState.breakTaken, shotCounter: gameState.shotCounter, myTurn: gameState.myTurn, justPocketed: gameState.justPocketed.slice(),
