@@ -2206,8 +2206,9 @@ function endTurn() {
     }
     startTurn(); return;
   }
+  const isBreak = gameState.thisShotWasBreak === true;
   let pocketedCurrentPlayerBall = false;
-  if (gameState.thisShotWasBreak) {
+  if (isBreak) {
     // The break rule, as simple and direct as it gets: whoever breaks -
     // human or bot, online or not - keeps playing if they pocketed
     // ANYTHING at all, no scratch. Doesn't matter which ball, which
@@ -2229,8 +2230,16 @@ function endTurn() {
   }
   if (turnIsPassing) {
     let why;
-    if (gameState.thisShotWasBreak) {
+    if (isBreak) {
+      // The break can never be described as a "called shot" miss, full
+      // stop, regardless of any other state - it never had a call to
+      // begin with, so this branch is the only one it can ever reach.
       why = wasMyShotThisResolution ? 'You didn\u2019t pocket anything on the break.' : 'Your opponent didn\u2019t pocket anything on the break.';
+    } else if (gameState.calledPocket === null) {
+      // No call was ever actually made for this shot - a distinct
+      // situation from "called X, got Y", which would otherwise show
+      // a misleading message implying a call existed when it didn't.
+      why = wasMyShotThisResolution ? 'No pocket was called for this shot.' : 'Your opponent didn\u2019t call a pocket for this shot.';
     } else if (gameState.justPocketed.length > 0) {
       why = wasMyShotThisResolution ? 'You pocketed a ball, but not the one you called.' : 'Your opponent pocketed a ball, but not the one they called.';
     } else {
