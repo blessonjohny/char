@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-07-30-rules-rewrite</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-02-break-simplified</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
     <div class="mode-btn" data-mode="bot" onclick="selectMode('bot')">VS Bot</div>
@@ -2079,8 +2079,10 @@ function resolveShotOutcome() {
   // of which specific ball it was - there's no pre-named ball anymore,
   // just a pocket. On an open table (group not yet assigned before this
   // shot), any pocketed ball counts, since the group itself is only
-  // being decided by this same shot.
-  if (gameState.calledPocket !== null) {
+  // being decided by this same shot. Irrelevant on the break itself,
+  // which never has a called pocket and is judged purely on whether
+  // anything was pocketed - this only ever applies to shots after it.
+  if (!isBreakShot && gameState.calledPocket !== null) {
     for (const num of gameState.justPocketed) {
       const ballGroup = num <= 7 ? 'solids' : 'stripes';
       const countsForShooter = tableWasOpen || ballGroup === shooterGroup;
