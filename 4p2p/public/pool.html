@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-longpress-fix</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-power-reset</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -2467,6 +2467,23 @@ function autoPlaceCueBallForBot() {
 
 
 function startTurn() {
+  // Hard reset of every aim/power-related piece of state, every single
+  // turn, no exceptions - guarantees nothing left over from the
+  // previous shot (a stuck power pull, a lingering power-meter sound
+  // or visual, a stale power history reading) can ever carry into the
+  // next turn, regardless of how the previous shot actually ended.
+  isAiming = false; aimTouchId = null;
+  leverActive = false;
+  gameState.aiming = false;
+  gameState.pulling = false;
+  gameState.powerPhase = false;
+  gameState.power = 0;
+  gameState.powerHistory = [];
+  const powerHudEl = document.getElementById('powerHud');
+  if (powerHudEl) powerHudEl.classList.remove('show');
+  const leverEl = document.getElementById('powerLever');
+  if (leverEl) leverEl.classList.remove('active');
+
   // Only the literal break shot is exempt from calling - every shot
   // after it, regardless of table/group state, requires tapping a
   // pocket first, matching Miniclip's actual mechanic.
@@ -3315,6 +3332,24 @@ function render() {
   // === AIM GUIDANCE (player-only trajectory assist) ===
   if (gameState.myTurn && !gameState.ballsMoving && !gameState.gameOver) {
     if (cueBall && !cueBall.pocketed) renderAimGuidance(cueBall);
+    // Temporary visible debug readout - shows exactly what the game's
+    // internal aiming state is, in real time, no devtools needed. Meant
+    // to catch the exact moment the guide line disappears so the cause
+    // is directly visible rather than guessed at.
+    if (gameState.aimPhase) {
+      ctx.save();
+      ctx.font = '9px monospace';
+      ctx.fillStyle = 'rgba(255,255,0,0.9)';
+      ctx.textAlign = 'left';
+      const dbg = 'aim=' + (gameState.aimAngle || 0).toFixed(2)
+        + ' isAiming=' + isAiming
+        + ' locked=' + gameState.aimLocked
+        + ' pwr=' + gameState.powerPhase
+        + ' cache=' + (!!simCache)
+        + ' touchId=' + aimTouchId;
+      ctx.fillText(dbg, 4, 12);
+      ctx.restore();
+    }
   }
   // === CUE STICK (visible on both the player's and the bot's turn, so bot shots are visible) ===
   if (!gameState.ballsMoving && !gameState.gameOver) {
