@@ -2809,11 +2809,18 @@ function renderAimGuidance(cueBall) {
 
     if (angle !== lastSimAngle || power !== lastSimPower ||
         spin.x !== lastSimSpinX || spin.y !== lastSimSpinY) {
-      lastSimAngle = angle;
-      lastSimPower = power;
-      lastSimSpinX = spin.x;
-      lastSimSpinY = spin.y;
-      simCache = simulateAim(cueBall, angle, power, spin);
+      const result = simulateAim(cueBall, angle, power, spin);
+      if (result) {
+        // Only mark the cache as current once the computation actually
+        // succeeded - if simulateAim ever throws or returns nothing,
+        // leaving these unset means the very next frame retries instead
+        // of getting permanently stuck on a failed angle.
+        lastSimAngle = angle;
+        lastSimPower = power;
+        lastSimSpinX = spin.x;
+        lastSimSpinY = spin.y;
+        simCache = result;
+      }
     }
 
     if (!simCache) return;

@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /admin.html
 
-Sitemap: https://YOURDOMAIN.com/sitemap.xml
+Sitemap: https://28gulan.com/sitemap.xml
