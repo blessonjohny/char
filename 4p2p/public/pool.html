@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-guide-deflection</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-physics-restored</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -2718,97 +2718,115 @@ function isAimPerfectForPocket(cueBall, targetBall, pocket, aimAngle) {
 }
 
 function simulateAim(cueBall, angle, power, spin) {
-  // Pure geometry, nothing else. No physics engine, no shared
-  // functions, no sound, no game state touched in any way - this
-  // cannot leak sound, cannot leak turn state, and cannot throw from
-  // deep inside a physics substep, because it doesn't call into any of
-  // that code at all. It just traces a straight line and finds the
-  // first thing it would hit.
-  const dx = Math.cos(angle), dy = Math.sin(angle);
-  const ox = cueBall.x, oy = cueBall.y;
-  const railXMin = MARGIN + BALL_RADIUS, railXMax = TABLE_WIDTH - MARGIN - BALL_RADIUS;
-  const railYMin = MARGIN + BALL_RADIUS, railYMax = TABLE_HEIGHT - MARGIN - BALL_RADIUS;
+  const savedBalls = balls;
+  const savedEndTurn = endTurn;
+  const savedHandlePocket = handlePocket;
+  const savedBallsMoving = gameState.ballsMoving;
+  const savedResolveShotOutcome = resolveShotOutcome;
+  // The trajectory preview runs the real physics engine internally to
+  // compute where the balls would actually go - which means it also
+  // runs through every real collision-detection codepath, including
+  // the ones that play sound effects. These must be isolated too, or
+  // every single frame of simply aiming (not shooting) would play a
+  // real clack/thud/pocket sound for each simulated collision.
+  const savedPoolPlayClack = poolPlayClack;
+  const savedPoolPlayClackForBall = poolPlayClackForBall;
+  const savedPoolPlayRailThud = poolPlayRailThud;
+  const savedPoolPlayRailThudForBall = poolPlayRailThudForBall;
+  const savedPoolPlayPocketSound = poolPlayPocketSound;
+  poolPlayClack = () => {};
+  poolPlayClackForBall = () => {};
+  poolPlayRailThud = () => {};
+  poolPlayRailThudForBall = () => {};
+  poolPlayPocketSound = () => {};
 
-  // How far the projected lines extend scales with how hard the shot
-  // is - a light tap shows short lines, a full pull shows long ones,
-  // same as pulling back further would actually send the balls
-  // further in real play.
-  const powerRatio = Math.max(0, Math.min(1, power / MAX_POWER));
-  const previewLength = 50 + powerRatio * 260;
+  endTurn = () => {};
+  resolveShotOutcome = () => {};
+  handlePocket = (ball) => {
+    ball.pocketed = true;
+    ball.vx = 0; ball.vy = 0;
+    ball.spinX = 0; ball.spinY = 0;
+  };
+  gameState.ballsMoving = true;
 
-  // Casts a straight ray from a point and returns how far it travels
-  // before hitting a rail, capped at maxDist - reused for both the
-  // target ball's path and the cue ball's own post-collision path.
-  function castToRail(px, py, ndx, ndy, maxDist) {
-    let t = maxDist;
-    if (ndx > 0.0001) t = Math.min(t, (railXMax - px) / ndx);
-    if (ndx < -0.0001) t = Math.min(t, (railXMin - px) / ndx);
-    if (ndy > 0.0001) t = Math.min(t, (railYMax - py) / ndy);
-    if (ndy < -0.0001) t = Math.min(t, (railYMin - py) / ndy);
-    return Math.max(0, t);
+  balls = savedBalls.map(b => ({
+    id: b.id, number: b.number,
+    x: b.x, y: b.y,
+    vx: b.vx, vy: b.vy,
+    r: b.r, color: b.color,
+    spinX: b.spinX, spinY: b.spinY,
+    orient: defaultOrient(),
+    pocketed: b.pocketed
+  }));
+
+  const simCue = balls.find(b => b.number === 0);
+  if (simCue) {
+    simCue.vx = Math.cos(angle) * power;
+    simCue.vy = Math.sin(angle) * power;
+    simCue.spinX = spin.x;
+    simCue.spinY = spin.y;
   }
 
-  let bestT = Infinity;
+  const cuePath = [];
+  const targetPath = [];
   let targetBallId = null;
+  let collisionFrame = -1;
+  const maxFrames = 250;
 
-  // Check every other ball on the table for a collision along this ray.
-  for (const ball of balls) {
-    if (ball.pocketed || ball.number === 0) continue;
-    const lx = ox - ball.x, ly = oy - ball.y;
-    const b = 2 * (lx * dx + ly * dy);
-    const c = (lx * lx + ly * ly) - (2 * BALL_RADIUS) * (2 * BALL_RADIUS);
-    const disc = b * b - 4 * c;
-    if (disc < 0) continue;
-    const sq = Math.sqrt(disc);
-    const t = (-b - sq) / 2;
-    if (t > 0.01 && t < bestT) { bestT = t; targetBallId = ball.id; }
-  }
-
-  // Check the four rail boundaries.
-  if (dx > 0.0001) { const t = (railXMax - ox) / dx; if (t > 0.01 && t < bestT) { bestT = t; targetBallId = null; } }
-  if (dx < -0.0001) { const t = (railXMin - ox) / dx; if (t > 0.01 && t < bestT) { bestT = t; targetBallId = null; } }
-  if (dy > 0.0001) { const t = (railYMax - oy) / dy; if (t > 0.01 && t < bestT) { bestT = t; targetBallId = null; } }
-  if (dy < -0.0001) { const t = (railYMin - oy) / dy; if (t > 0.01 && t < bestT) { bestT = t; targetBallId = null; } }
-
-  if (!isFinite(bestT)) return { cuePath: [{x: ox, y: oy}], targetPath: [], targetBallId: null, collisionFrame: -1 };
-
-  const hitX = ox + dx * bestT, hitY = oy + dy * bestT;
-  const cuePath = [{x: ox, y: oy}, {x: hitX, y: hitY}];
-  let targetPath = [];
-
-  if (targetBallId !== null) {
-    const targetBall = balls.find(b => b.id === targetBallId);
-    if (targetBall) {
-      // Collision normal: the direction from the contact point straight
-      // through the target ball's center - this is the direction the
-      // struck ball travels (real pool physics: for a stun shot, the
-      // impulse transfers entirely along this line).
-      const ndx = targetBall.x - hitX, ndy = targetBall.y - hitY;
-      const nlen = Math.hypot(ndx, ndy) || 1;
-      const nx = ndx / nlen, ny = ndy / nlen;
-      const targetDist = castToRail(targetBall.x, targetBall.y, nx, ny, previewLength);
-      targetPath = [
-        {x: targetBall.x, y: targetBall.y},
-        {x: targetBall.x + nx * targetDist, y: targetBall.y + ny * targetDist}
-      ];
-
-      // Cue ball's own deflection after the hit: the classic pool
-      // "90-degree rule" for a stun shot (no follow/draw spin) - the
-      // cue ball continues along whatever part of its incoming
-      // direction was NOT transferred into the target ball, which is
-      // the component perpendicular to the collision normal above.
-      const proj = dx * nx + dy * ny;
-      let tdx = dx - proj * nx, tdy = dy - proj * ny;
-      const tlen = Math.hypot(tdx, tdy);
-      if (tlen > 0.001) {
-        tdx /= tlen; tdy /= tlen;
-        const cueDeflectDist = castToRail(hitX, hitY, tdx, tdy, previewLength * (1 - Math.abs(proj)) + 20);
-        cuePath.push({x: hitX + tdx * cueDeflectDist, y: hitY + tdy * cueDeflectDist});
+  for (let frame = 0; frame < maxFrames; frame++) {
+    for (const ball of balls) {
+      if (ball.pocketed) continue;
+      if (ball.number === 0) {
+        cuePath.push({x: ball.x, y: ball.y});
       }
+    }
+
+    updatePhysics();
+
+    if (targetBallId === null) {
+      for (const ball of balls) {
+        if (ball.number === 0) continue;
+        if (!ball.pocketed && (Math.abs(ball.vx) > 0.05 || Math.abs(ball.vy) > 0.05)) {
+          targetBallId = ball.id;
+          collisionFrame = frame;
+          targetPath.push({x: ball.x, y: ball.y});
+          break;
+        }
+      }
+    } else {
+      const targetBall = balls.find(b => b.id === targetBallId);
+      if (targetBall) {
+        targetPath.push({x: targetBall.x, y: targetBall.y});
+      }
+    }
+
+    let allStopped = true;
+    for (const ball of balls) {
+      if (ball.pocketed) continue;
+      if (Math.abs(ball.vx) >= STOP_THRESHOLD || Math.abs(ball.vy) >= STOP_THRESHOLD) {
+        allStopped = false;
+        break;
+      }
+    }
+    if (allStopped) break;
+
+    if (collisionFrame < 0 && simCue && Math.abs(simCue.vx) < STOP_THRESHOLD && Math.abs(simCue.vy) < STOP_THRESHOLD) {
+      break;
     }
   }
 
-  return { cuePath, targetPath, targetBallId, collisionFrame: targetBallId !== null ? 1 : -1 };
+  balls = savedBalls;
+  endTurn = savedEndTurn;
+  resolveShotOutcome = savedResolveShotOutcome;
+  handlePocket = savedHandlePocket;
+  poolPlayClack = savedPoolPlayClack;
+  poolPlayClackForBall = savedPoolPlayClackForBall;
+  poolPlayRailThud = savedPoolPlayRailThud;
+  poolPlayRailThudForBall = savedPoolPlayRailThudForBall;
+  poolPlayPocketSound = savedPoolPlayPocketSound;
+  gameState.ballsMoving = savedBallsMoving;
+
+  return { cuePath, targetPath, targetBallId, collisionFrame };
 }
 
 let simCache = null;
