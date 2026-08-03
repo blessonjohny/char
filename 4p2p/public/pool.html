@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-power-reset</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-sound-isolated</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -2723,6 +2723,23 @@ function simulateAim(cueBall, angle, power, spin) {
   const savedHandlePocket = handlePocket;
   const savedBallsMoving = gameState.ballsMoving;
   const savedResolveShotOutcome = resolveShotOutcome;
+  // The trajectory preview runs the real physics engine internally to
+  // compute where the balls would go - which means it also runs
+  // through every real collision-detection codepath, including the
+  // ones that play sound effects. Without isolating these too, every
+  // single frame of simply aiming (not shooting) would play a real
+  // clack/thud/pocket sound for each simulated collision, repeating
+  // continuously for as long as the player keeps aiming.
+  const savedPoolPlayClack = poolPlayClack;
+  const savedPoolPlayClackForBall = poolPlayClackForBall;
+  const savedPoolPlayRailThud = poolPlayRailThud;
+  const savedPoolPlayRailThudForBall = poolPlayRailThudForBall;
+  const savedPoolPlayPocketSound = poolPlayPocketSound;
+  poolPlayClack = () => {};
+  poolPlayClackForBall = () => {};
+  poolPlayRailThud = () => {};
+  poolPlayRailThudForBall = () => {};
+  poolPlayPocketSound = () => {};
 
   endTurn = () => {};
   resolveShotOutcome = () => {};
@@ -2803,6 +2820,11 @@ function simulateAim(cueBall, angle, power, spin) {
   endTurn = savedEndTurn;
   resolveShotOutcome = savedResolveShotOutcome;
   handlePocket = savedHandlePocket;
+  poolPlayClack = savedPoolPlayClack;
+  poolPlayClackForBall = savedPoolPlayClackForBall;
+  poolPlayRailThud = savedPoolPlayRailThud;
+  poolPlayRailThudForBall = savedPoolPlayRailThudForBall;
+  poolPlayPocketSound = savedPoolPlayPocketSound;
   gameState.ballsMoving = savedBallsMoving;
 
   return { cuePath, targetPath, targetBallId, collisionFrame };
@@ -3720,6 +3742,16 @@ function simulateBotShot(cueBallX, cueBallY, angle, power, spinX, spinY) {
   const savedHandlePocket = handlePocket;
   const savedBallsMoving = gameState.ballsMoving;
   const savedResolveShotOutcome = resolveShotOutcome;
+  const savedPoolPlayClack = poolPlayClack;
+  const savedPoolPlayClackForBall = poolPlayClackForBall;
+  const savedPoolPlayRailThud = poolPlayRailThud;
+  const savedPoolPlayRailThudForBall = poolPlayRailThudForBall;
+  const savedPoolPlayPocketSound = poolPlayPocketSound;
+  poolPlayClack = () => {};
+  poolPlayClackForBall = () => {};
+  poolPlayRailThud = () => {};
+  poolPlayRailThudForBall = () => {};
+  poolPlayPocketSound = () => {};
   resolveShotOutcome = () => {};
   endTurn = () => {};
   handlePocket = (ball) => { ball.pocketed = true; ball.vx = 0; ball.vy = 0; ball.spinX = 0; ball.spinY = 0; };
@@ -3748,6 +3780,9 @@ function simulateBotShot(cueBallX, cueBallY, angle, power, spinX, spinY) {
     if (allStopped) break;
   }
   balls = savedBalls; endTurn = savedEndTurn; handlePocket = savedHandlePocket; resolveShotOutcome = savedResolveShotOutcome; gameState.ballsMoving = savedBallsMoving;
+  poolPlayClack = savedPoolPlayClack; poolPlayClackForBall = savedPoolPlayClackForBall;
+  poolPlayRailThud = savedPoolPlayRailThud; poolPlayRailThudForBall = savedPoolPlayRailThudForBall;
+  poolPlayPocketSound = savedPoolPlayPocketSound;
   return { pocketedBalls, cueBallEnd, cueBallPocketed };
 }
 
