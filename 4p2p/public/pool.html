@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-cueball-reset-3s</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-aimguide-diagnostic</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -2854,7 +2854,12 @@ let lastSimAngle = null, lastSimPower = null, lastSimSpinX = null, lastSimSpinY 
 function renderAimGuidance(cueBall) {
   try {
     const angle = gameState.aimAngle || 0;
-    if (!isFinite(angle)) return;
+    if (!isFinite(angle)) {
+      if (isAiming || gameState.aimPhase) {
+        poolShowFoulNotification('Aim Guide Disappeared', 'Reason: aimAngle is not a finite number (value=' + gameState.aimAngle + '). [isAiming=' + isAiming + ' aimPhase=' + gameState.aimPhase + ']');
+      }
+      return;
+    }
 
     const power = gameState.powerPhase ? (gameState.power / 100) * MAX_POWER : MAX_POWER * 0.5;
     const spin = gameState.spin || {x: 0, y: 0};
@@ -2868,7 +2873,12 @@ function renderAimGuidance(cueBall) {
       simCache = simulateAim(cueBall, angle, power, spin);
     }
 
-    if (!simCache) return;
+    if (!simCache) {
+      if (isAiming || gameState.aimPhase) {
+        poolShowFoulNotification('Aim Guide Disappeared', 'Reason: simulateAim() returned nothing (simCache is empty right after a recompute). [angle=' + angle.toFixed(3) + ' power=' + power.toFixed(1) + ' isAiming=' + isAiming + ' aimPhase=' + gameState.aimPhase + ']');
+      }
+      return;
+    }
     const { cuePath, targetPath, targetBallId, collisionFrame } = simCache;
     const targetBall = targetBallId !== null ? balls.find(b => b.id === targetBallId) : null;
 
@@ -3059,6 +3069,9 @@ function renderAimGuidance(cueBall) {
     }
   } catch (e) {
     console.error('renderAimGuidance error:', e);
+    if (isAiming || gameState.aimPhase) {
+      poolShowFoulNotification('Aim Guide Disappeared', 'Reason: an error was thrown while rendering: ' + e.message + '. [isAiming=' + isAiming + ' aimPhase=' + gameState.aimPhase + ']');
+    }
   }
 }
 
@@ -3370,9 +3383,25 @@ function render() {
   }
 
   // === AIM GUIDANCE (player-only trajectory assist) ===
-  if (gameState.myTurn && !gameState.ballsMoving && !gameState.gameOver) {
-    if (cueBall && !cueBall.pocketed) renderAimGuidance(cueBall);
+  const aimGuideShouldShow = gameState.myTurn && !gameState.ballsMoving && !gameState.gameOver && cueBall && !cueBall.pocketed;
+  if (aimGuideShouldShow) {
+    renderAimGuidance(cueBall);
   }
+  // Detect the exact moment the guide disappears while the player still
+  // seems to be actively aiming - shows a popup with precisely which
+  // condition changed, since this has been extremely hard to catch any
+  // other way.
+  if (window.__aimGuideWasShowing && !aimGuideShouldShow && (isAiming || gameState.aimPhase)) {
+    const reasons = [];
+    if (!gameState.myTurn) reasons.push('myTurn became false');
+    if (gameState.ballsMoving) reasons.push('ballsMoving became true');
+    if (gameState.gameOver) reasons.push('gameOver became true');
+    if (!cueBall) reasons.push('cueBall reference is missing');
+    else if (cueBall.pocketed) reasons.push('cueBall.pocketed became true');
+    if (reasons.length === 0) reasons.push('unknown - none of the tracked conditions changed');
+    poolShowFoulNotification('Aim Guide Disappeared', 'Reason: ' + reasons.join(', ') + '. [isAiming=' + isAiming + ' aimPhase=' + gameState.aimPhase + ' aimLocked=' + gameState.aimLocked + ' powerPhase=' + gameState.powerPhase + ' shotCounter=' + gameState.shotCounter + ']');
+  }
+  window.__aimGuideWasShowing = aimGuideShouldShow;
   // === CUE STICK (visible on both the player's and the bot's turn, so bot shots are visible) ===
   if (!gameState.ballsMoving && !gameState.gameOver) {
     if (cueBall && !cueBall.pocketed && (gameState.myTurn || gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot && !gameState.myTurn))) {
