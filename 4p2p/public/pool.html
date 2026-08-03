@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-botturn-guard</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-longpress-fix</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -1276,7 +1276,7 @@ let longPressTimer = null;
 let longPressStartTime = 0;
 let longPressPos = null;
 let longPressActive = false;
-const LONG_PRESS_DURATION = 1000;
+const LONG_PRESS_DURATION = 6000;
 const LONG_PRESS_THRESHOLD = 12;
 const POWER_TOUCH_RADIUS = 100;
 const STICK_TOUCH_WIDTH = 30; // how close (in table units) a touch needs to be to the stick's actual line to count as touching it
@@ -2372,7 +2372,6 @@ function confirmCuePlacement() {
   if (!gameState.placingCueBall || !gameState.myTurn) return;
   gameState.placingCueBall = false;
   gameState.aimPhase = true; gameState.aimLocked = false; gameState.powerPhase = false;
-  lastSimAngle = null; // cue ball just moved to a new spot - force a fresh preview
   const btn = document.getElementById('placeBallBtn');
   if (btn) btn.style.display = 'none';
   if (gameMode === 'p2p' && poolSocket && poolMyTableId) {
@@ -2478,7 +2477,6 @@ function startTurn() {
     gameState.callingShot = false;
   }
   updateUI(); updateMessage();
-  lastSimAngle = null; // ball layout may have changed since the last aim - force a fresh preview
   if (!gameState.myTurn && (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot))) {
     if (!gameState.botTurnPending) {
       gameState.botTurnPending = true;
@@ -2793,10 +2791,6 @@ function simulateAim(cueBall, angle, power, spin) {
   return { cuePath, targetPath, targetBallId, collisionFrame };
 }
 
-let lastSimAngle = null;
-let lastSimPower = null;
-let lastSimSpinX = null;
-let lastSimSpinY = null;
 let simCache = null;
 
 function renderAimGuidance(cueBall) {
@@ -2807,21 +2801,15 @@ function renderAimGuidance(cueBall) {
     const power = gameState.powerPhase ? (gameState.power / 100) * MAX_POWER : MAX_POWER * 0.5;
     const spin = gameState.spin || {x: 0, y: 0};
 
-    if (angle !== lastSimAngle || power !== lastSimPower ||
-        spin.x !== lastSimSpinX || spin.y !== lastSimSpinY) {
-      const result = simulateAim(cueBall, angle, power, spin);
-      if (result) {
-        // Only mark the cache as current once the computation actually
-        // succeeded - if simulateAim ever throws or returns nothing,
-        // leaving these unset means the very next frame retries instead
-        // of getting permanently stuck on a failed angle.
-        lastSimAngle = angle;
-        lastSimPower = power;
-        lastSimSpinX = spin.x;
-        lastSimSpinY = spin.y;
-        simCache = result;
-      }
-    }
+    // Recomputed fresh every single frame - no caching. This used to
+    // only recompute when the angle/power/spin changed, which saved
+    // some CPU but repeatedly caused the guide to get stuck showing
+    // stale or missing data whenever the cached computation failed or
+    // fell out of sync with the player's actual live input. A full
+    // recompute here is cheap enough that the reliability is worth far
+    // more than the saved cycles.
+    const result = simulateAim(cueBall, angle, power, spin);
+    if (result) simCache = result;
 
     if (!simCache) return;
     const { cuePath, targetPath, targetBallId, collisionFrame } = simCache;
