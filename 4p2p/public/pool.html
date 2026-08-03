@@ -2239,6 +2239,22 @@ function simulateAim(cueBall, angle, power, spin) {
   const savedEndTurn = endTurn;
   const savedHandlePocket = handlePocket;
   const savedBallsMoving = gameState.ballsMoving;
+  // The only addition to this file: the trajectory preview runs the
+  // real physics engine internally, which means it also runs through
+  // every real collision-detection codepath, including the ones that
+  // play sound effects. These need to be isolated too, or every single
+  // frame of simply aiming (not shooting) plays a real clack/thud/
+  // pocket sound for each simulated collision.
+  const savedPoolPlayClack = poolPlayClack;
+  const savedPoolPlayClackForBall = poolPlayClackForBall;
+  const savedPoolPlayRailThud = poolPlayRailThud;
+  const savedPoolPlayRailThudForBall = poolPlayRailThudForBall;
+  const savedPoolPlayPocketSound = poolPlayPocketSound;
+  poolPlayClack = () => {};
+  poolPlayClackForBall = () => {};
+  poolPlayRailThud = () => {};
+  poolPlayRailThudForBall = () => {};
+  poolPlayPocketSound = () => {};
 
   endTurn = () => {};
   handlePocket = (ball) => {
@@ -2317,6 +2333,11 @@ function simulateAim(cueBall, angle, power, spin) {
   balls = savedBalls;
   endTurn = savedEndTurn;
   handlePocket = savedHandlePocket;
+  poolPlayClack = savedPoolPlayClack;
+  poolPlayClackForBall = savedPoolPlayClackForBall;
+  poolPlayRailThud = savedPoolPlayRailThud;
+  poolPlayRailThudForBall = savedPoolPlayRailThudForBall;
+  poolPlayPocketSound = savedPoolPlayPocketSound;
   gameState.ballsMoving = savedBallsMoving;
 
   return { cuePath, targetPath, targetBallId, collisionFrame };
