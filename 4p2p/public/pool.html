@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-midgesture-fix</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-cueball-reset-3s</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -1276,7 +1276,7 @@ let longPressTimer = null;
 let longPressStartTime = 0;
 let longPressPos = null;
 let longPressActive = false;
-const LONG_PRESS_DURATION = 6000;
+const LONG_PRESS_DURATION = 3000;
 const LONG_PRESS_THRESHOLD = 12;
 const POWER_TOUCH_RADIUS = 100;
 const STICK_TOUCH_WIDTH = 30; // how close (in table units) a touch needs to be to the stick's actual line to count as touching it
@@ -1291,7 +1291,16 @@ function isTouchOnStick(pos, cueBall) {
 }
 const HEAD_STRING_X = 225; // kitchen boundary - matches the break-line drawn on the table
 
-function startLongPress(pos) {
+function startLongPress(pos, cueBall) {
+  // Only counts as the reset gesture if the touch is directly on the
+  // cue ball itself - touching anywhere else on the table to aim
+  // never arms this timer at all, so normal aiming can never trigger
+  // it by accident, no matter how long the player holds still.
+  if (!cueBall || Math.hypot(pos.x - cueBall.x, pos.y - cueBall.y) > BALL_RADIUS * 2) {
+    longPressPos = null;
+    longPressActive = false;
+    return;
+  }
   longPressPos = { x: pos.x, y: pos.y };
   longPressStartTime = Date.now();
   longPressActive = false;
@@ -1405,13 +1414,13 @@ function handleTouchStart(e) {
     gameState.aiming = true; gameState.power = 0;
     gameState.aimFromButt = isTouchOnStick(pos, cueBall);
     gameState.lastAimAngle = undefined;
-    updatePowerUI(); startLongPress(pos); updateAimFromTouch(pos);
+    updatePowerUI(); startLongPress(pos, cueBall); updateAimFromTouch(pos);
   } else if (gameState.aimLocked && !gameState.powerPhase) {
     const distToCue = Math.hypot(pos.x - cueBall.x, pos.y - cueBall.y);
     if (distToCue < POWER_TOUCH_RADIUS) {
       gameState.powerPhase = true; gameState.pulling = true; gameState.power = 0;
       gameState.powerHistory = []; // fresh for this gesture
-      updatePowerUI(); document.getElementById('powerHud').classList.add('show'); startLongPress(pos);
+      updatePowerUI(); document.getElementById('powerHud').classList.add('show'); startLongPress(pos, cueBall);
     }
   }
   updateMessage();
@@ -1435,13 +1444,13 @@ function handleMouseDown(e) {
     isAiming = true; gameState.aiming = true; gameState.power = 0;
     gameState.aimFromButt = isTouchOnStick(pos, cueBall);
     gameState.lastAimAngle = undefined;
-    updatePowerUI(); startLongPress(pos); updateAimFromTouch(pos);
+    updatePowerUI(); startLongPress(pos, cueBall); updateAimFromTouch(pos);
   } else if (gameState.aimLocked && !gameState.powerPhase) {
     const distToCue = Math.hypot(pos.x - cueBall.x, pos.y - cueBall.y);
     if (distToCue < POWER_TOUCH_RADIUS) {
       gameState.powerPhase = true; gameState.pulling = true; gameState.power = 0;
       gameState.powerHistory = []; // fresh for this gesture
-      updatePowerUI(); document.getElementById('powerHud').classList.add('show'); startLongPress(pos);
+      updatePowerUI(); document.getElementById('powerHud').classList.add('show'); startLongPress(pos, cueBall);
     }
   }
   updateMessage();
