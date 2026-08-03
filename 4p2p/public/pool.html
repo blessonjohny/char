@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-sound-isolated</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-guide-resilient</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -2833,24 +2833,28 @@ function simulateAim(cueBall, angle, power, spin) {
 let simCache = null;
 
 function renderAimGuidance(cueBall) {
+  const angle = gameState.aimAngle || 0;
+  if (!isFinite(angle)) return;
+
+  const power = gameState.powerPhase ? (gameState.power / 100) * MAX_POWER : MAX_POWER * 0.5;
+  const spin = gameState.spin || {x: 0, y: 0};
+
+  // Recomputed fresh every single frame - no caching of "should I
+  // bother recomputing" logic. Isolated in its own try/catch, entirely
+  // separate from the drawing code below: if this computation ever
+  // throws on a single frame, it must never suppress drawing the guide
+  // using whatever simCache is already available (fresh or from the
+  // last successful frame) - a single bad frame must never blank the
+  // entire line.
   try {
-    const angle = gameState.aimAngle || 0;
-    if (!isFinite(angle)) return;
-
-    const power = gameState.powerPhase ? (gameState.power / 100) * MAX_POWER : MAX_POWER * 0.5;
-    const spin = gameState.spin || {x: 0, y: 0};
-
-    // Recomputed fresh every single frame - no caching. This used to
-    // only recompute when the angle/power/spin changed, which saved
-    // some CPU but repeatedly caused the guide to get stuck showing
-    // stale or missing data whenever the cached computation failed or
-    // fell out of sync with the player's actual live input. A full
-    // recompute here is cheap enough that the reliability is worth far
-    // more than the saved cycles.
     const result = simulateAim(cueBall, angle, power, spin);
     if (result) simCache = result;
+  } catch (e) {
+    console.error('simulateAim computation error (drawing continues with last-known data):', e);
+  }
 
-    if (!simCache) return;
+  if (!simCache) return;
+  try {
     const { cuePath, targetPath, targetBallId, collisionFrame } = simCache;
     const targetBall = targetBallId !== null ? balls.find(b => b.id === targetBallId) : null;
 
@@ -3354,24 +3358,6 @@ function render() {
   // === AIM GUIDANCE (player-only trajectory assist) ===
   if (gameState.myTurn && !gameState.ballsMoving && !gameState.gameOver) {
     if (cueBall && !cueBall.pocketed) renderAimGuidance(cueBall);
-    // Temporary visible debug readout - shows exactly what the game's
-    // internal aiming state is, in real time, no devtools needed. Meant
-    // to catch the exact moment the guide line disappears so the cause
-    // is directly visible rather than guessed at.
-    if (gameState.aimPhase) {
-      ctx.save();
-      ctx.font = '9px monospace';
-      ctx.fillStyle = 'rgba(255,255,0,0.9)';
-      ctx.textAlign = 'left';
-      const dbg = 'aim=' + (gameState.aimAngle || 0).toFixed(2)
-        + ' isAiming=' + isAiming
-        + ' locked=' + gameState.aimLocked
-        + ' pwr=' + gameState.powerPhase
-        + ' cache=' + (!!simCache)
-        + ' touchId=' + aimTouchId;
-      ctx.fillText(dbg, 4, 12);
-      ctx.restore();
-    }
   }
   // === CUE STICK (visible on both the player's and the bot's turn, so bot shots are visible) ===
   if (!gameState.ballsMoving && !gameState.gameOver) {
