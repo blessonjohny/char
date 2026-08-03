@@ -176,9 +176,18 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-aimguide-diagnostic</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
+    <div class="mode-btn" data-mode="bot" onclick="selectMode('bot')">VS Bot</div>
+  </div>
+  <div id="botLevelSelect" style="display:none;width:min(300px,85vw);margin-bottom:14px">
+    <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Select AI Difficulty</div>
+    <div class="difficulty-select">
+      <div class="diff-btn active" data-level="easy" onclick="selectDifficulty('easy')">Easy</div>
+      <div class="diff-btn" data-level="medium" onclick="selectDifficulty('medium')">Medium</div>
+      <div class="diff-btn" data-level="hard" onclick="selectDifficulty('hard')">Hard</div>
+      <div class="diff-btn" data-level="pro" onclick="selectDifficulty('pro')">Pro</div>
+    </div>
   </div>
   <button class="btn btn-gold" id="playBtn" onclick="handlePlay()">PLAY</button>
   <button class="btn btn-blue" onclick="showScreen('howToScreen')">How to Play</button>
@@ -263,7 +272,6 @@
   <div class="game-hud">
     <div class="top-bar">
       <button class="zoom-btn" onclick="handlePoolExit()" title="Exit" style="font-size:14px;background:#c0392b;border-color:#e74c3c;color:#fff">✕</button>
-      <button class="zoom-btn" onclick="handlePoolRestart()" title="Restart Game" style="font-size:14px;background:#c0392b;border-color:#e74c3c;color:#fff">↻</button>
       <button class="zoom-btn" onclick="requestPoolFullscreen()" title="Full Screen" style="font-size:14px">⛶</button>
       <button class="zoom-btn" id="poolMuteBtn" onclick="poolToggleMute()" title="Mute sounds" style="font-size:14px">🔊</button>
       <div class="player-info" id="p1Info">
@@ -416,17 +424,6 @@
   </div>
 </div>
 
-<div id="poolFoulOverlay" class="overlay">
-  <div class="overlay-box">
-    <div class="overlay-title" id="poolFoulTitle">Foul</div>
-    <div class="overlay-text" id="poolFoulText" style="user-select:text;-webkit-user-select:text"></div>
-    <div class="overlay-btns">
-      <button class="btn btn-dark" id="poolFoulCopyBtn">Copy Text</button>
-      <button class="btn btn-gold" id="poolFoulOkBtn">OK</button>
-    </div>
-  </div>
-</div>
-
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
@@ -440,6 +437,7 @@ function selectMode(mode) {
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
   document.querySelector('[data-mode="' + mode + '"]').classList.add('active');
   gameMode = mode;
+  document.getElementById('botLevelSelect').style.display = mode === 'bot' ? 'block' : 'none';
 }
 function selectDifficulty(level) {
   document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
@@ -447,7 +445,13 @@ function selectDifficulty(level) {
   botDifficulty = level;
 }
 function handlePlay() {
-  showScreen('hostScreen');
+  if (gameMode === 'bot') {
+    myName = 'Player';
+    opponentName = BOT_CONFIG[botDifficulty].name;
+    startGame(true);
+  } else {
+    showScreen('hostScreen');
+  }
 }
 function closeOverlay(id) { document.getElementById(id).classList.remove('active'); }
 function showOverlay(id) { document.getElementById(id).classList.add('active'); }
@@ -664,7 +668,7 @@ function poolConnect() {
   poolSocket.on('pool_opponentLeft', () => {
     setConnectionStatus('disconnected', 'Opponent reconnecting...');
   });
-  poolSocket.on('pool_start', (data) => { opponentName = data.opponentName || 'Opponent'; startGame(false, !data.hostBreaksFirst); });
+  poolSocket.on('pool_start', (data) => { opponentName = data.opponentName || 'Opponent'; startGame(false); });
   poolSocket.on('pool_liveAim', (data) => {
     opponentAiming = data.aiming;
     opponentAimAngle = data.angle;
@@ -691,7 +695,6 @@ function poolConnect() {
     }
   });
   poolSocket.on('pool_shotResult', (data) => {
-    if (!gameState || gameState.phase !== 'playing') return; // ignore anything that arrives before this client's own game has actually started, or after it's ended
     // Authoritative final state once the shooter's own shot has fully
     // settled -- guarantees exact sync regardless of anything the live
     // stream above may have missed (a dropped packet, a late join
@@ -719,7 +722,6 @@ function poolConnect() {
     }
     gameState.ballsMoving = false;
     gameState.justPocketed = [];
-    gameState.breakTaken = true; // once any shot result arrives, the break has definitely already happened
     if (typeof data.turnPos === 'number') gameState.myTurn = (data.turnPos === poolMyPos);
     if (typeof data.groupAssigned === 'boolean') gameState.groupAssigned = data.groupAssigned;
     if (data.seat0Group !== undefined) {
@@ -728,13 +730,6 @@ function poolConnect() {
     }
     gameState.scratch = false;
     gameState.foul = false;
-    if (data.foul) {
-      gameState.foulMessageActive = true;
-      if (data.lastFoulReason) gameState.lastFoulReason = data.lastFoulReason;
-    } else {
-      gameState.foulMessageActive = false;
-      gameState.lastFoulReason = null;
-    }
     if (data.gameOver) {
       gameState.gameOver = true;
       showGameOver();
@@ -753,9 +748,6 @@ function poolConnect() {
     startTurn();
   });
   poolSocket.on('pool_cuePlace', (data) => { const cb = balls[0]; cb.pocketed = false; cb.x = data.x; cb.y = data.y; cb.vx = 0; cb.vy = 0; });
-  poolSocket.on('pool_callShot', (data) => {
-    gameState.calledPocket = data.calledPocket;
-  });
   poolSocket.on('pool_requestBoardSync', () => {
     // My opponent just reconnected and has no idea what the table
     // currently looks like -- I'm the only remaining source of truth
@@ -768,7 +760,6 @@ function poolConnect() {
       balls: balls.map(b => ({ x: b.x, y: b.y, pocketed: b.pocketed })),
       turnPos: myTurnPos,
       groupAssigned: gameState.groupAssigned,
-      breakTaken: gameState.breakTaken,
       seat0Group, seat1Group,
       myScore: gameState.opponentScore, opponentScore: gameState.myScore, // swapped: my score is their opponent's score
       matchMe: matchTally.opp, matchOpp: matchTally.me // swapped the same way
@@ -776,13 +767,6 @@ function poolConnect() {
   });
   poolSocket.on('pool_boardSync', (data) => {
     if (!data.balls) return;
-    // Use the sender's actual breakTaken value - the game phase being
-    // "playing" doesn't guarantee the break has actually happened yet
-    // (e.g. a reconnect landing right during cue placement, before
-    // either player has taken the break shot at all). Assuming true
-    // unconditionally here would make the real, still-upcoming break
-    // get incorrectly treated as a regular shot requiring a call.
-    gameState.breakTaken = !!data.breakTaken;
     for (let i = 0; i < balls.length && i < data.balls.length; i++) {
       const src = data.balls[i];
       balls[i].x = src.x; balls[i].y = src.y; balls[i].vx = 0; balls[i].vy = 0;
@@ -802,28 +786,7 @@ function poolConnect() {
     startTurn();
     updateUI();
   });
-  poolSocket.on('pool_restart', (data) => {
-    initGame();
-    gameState.myTurn = isHost ? !!(data && data.hostBreaksFirst) : !(data && data.hostBreaksFirst);
-    if (gameState.myTurn) {
-      enterCuePlacement(true);
-    } else {
-      const btn = document.getElementById('placeBallBtn');
-      if (btn) btn.style.display = 'none';
-    }
-    startTurn();
-  });
-  poolSocket.on('pool_rematch', (data) => {
-    initGame();
-    gameState.myTurn = !(data && data.winnerBreaksFirst);
-    if (gameState.myTurn) {
-      enterCuePlacement(true);
-    } else {
-      const btn = document.getElementById('placeBallBtn');
-      if (btn) btn.style.display = 'none';
-    }
-    startTurn();
-  });
+  poolSocket.on('pool_rematch', () => { initGame(); gameState.myTurn = !isHost; startTurn(); });
 }
 
 function createRoom() {
@@ -941,10 +904,10 @@ function joinRoom() {
 function hostStartGame() {
   if (!poolSocket || opponentName === 'Opponent') { alert('No opponent connected yet!'); return; }
   requestPoolFullscreen();
-  const hostBreaksFirst = Math.random() < 0.5;
-  poolSocket.emit('pool_start', { opponentName: myName, hostBreaksFirst });
-  startGame(true, hostBreaksFirst);
+  poolSocket.emit('pool_start', { opponentName: myName });
+  startGame(true);
 }
+function fallbackToLocal() { requestPoolFullscreen(); gameMode = 'bot'; opponentName = 'Bot'; startGame(true); }
 function reconnect() { closeOverlay('disconnectOverlay'); if (poolSocket) poolSocket.connect(); }
 
 // ==================== GAME PHYSICS ====================
@@ -988,26 +951,16 @@ function poolPlayClack(intensity) {
   if (poolSoundMuted) return;
   const ctx = poolGetAudioCtx();
   if (!ctx) return;
-  const vol = Math.min(0.4, 0.06 + intensity * 0.28);
-  const dur = 0.045;
-  const bufferSize = Math.ceil(ctx.sampleRate * dur);
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    const t = i / bufferSize;
-    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 3.5); // sharp attack, fast decay
-  }
-  const noise = ctx.createBufferSource();
-  noise.buffer = buffer;
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'bandpass';
-  filter.frequency.value = 1800 + intensity * 1400;
-  filter.Q.value = 1.1;
+  const vol = Math.min(0.5, 0.08 + intensity * 0.35);
+  const osc = ctx.createOscillator();
   const gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(900 + intensity * 500, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.06);
   gain.gain.setValueAtTime(vol, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-  noise.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
-  noise.start(); noise.stop(ctx.currentTime + dur);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 0.1);
 }
 
 function poolPlayClackForBall(ball, intensity) {
@@ -1022,31 +975,15 @@ function poolPlayRailThud(intensity) {
   if (poolSoundMuted) return;
   const ctx = poolGetAudioCtx();
   if (!ctx) return;
-  const vol = Math.min(0.22, 0.035 + intensity * 0.13);
+  const vol = Math.min(0.25, 0.04 + intensity * 0.15);
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(100, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(70, ctx.currentTime + 0.07);
+  osc.frequency.setValueAtTime(120, ctx.currentTime);
   gain.gain.setValueAtTime(vol, ctx.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
   osc.connect(gain); gain.connect(ctx.destination);
   osc.start(); osc.stop(ctx.currentTime + 0.09);
-
-  // A touch of soft, low-passed noise adds texture so it doesn't read as a pure electronic beep
-  const bufferSize = Math.ceil(ctx.sampleRate * 0.05);
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
-  const noise = ctx.createBufferSource();
-  noise.buffer = buffer;
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = 500;
-  const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(vol * 0.4, ctx.currentTime);
-  noise.connect(filter); filter.connect(noiseGain); noiseGain.connect(ctx.destination);
-  noise.start(); noise.stop(ctx.currentTime + 0.05);
 }
 // Throttled wrapper - the physics loop runs several substeps per
 // rendered frame, so without this a single real bounce could trigger
@@ -1058,9 +995,8 @@ function poolPlayRailThudForBall(ball, intensity) {
   poolPlayRailThud(intensity);
 }
 
-// A duller, shorter "thunk" for a ball dropping into a pocket, plus a
-// soft settling noise - a plain descending tone read as too dramatic
-// and synthetic, so this keeps the pitch drop small and quick.
+// A satisfying "plop" with a bit of white-noise texture for a ball
+// dropping into a pocket.
 function poolPlayPocketSound() {
   if (poolSoundMuted) return;
   const ctx = poolGetAudioCtx();
@@ -1068,26 +1004,23 @@ function poolPlayPocketSound() {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(160, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(85, ctx.currentTime + 0.1);
-  gain.gain.setValueAtTime(0.3, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
+  osc.frequency.setValueAtTime(500, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.22);
+  gain.gain.setValueAtTime(0.35, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.24);
   osc.connect(gain); gain.connect(ctx.destination);
-  osc.start(); osc.stop(ctx.currentTime + 0.17);
+  osc.start(); osc.stop(ctx.currentTime + 0.25);
 
-  const bufferSize = Math.ceil(ctx.sampleRate * 0.1);
+  const bufferSize = ctx.sampleRate * 0.12;
   const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
   const data = noiseBuffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
   const noise = ctx.createBufferSource();
   noise.buffer = noiseBuffer;
-  const noiseFilter = ctx.createBiquadFilter();
-  noiseFilter.type = 'lowpass';
-  noiseFilter.frequency.value = 900;
   const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(0.1, ctx.currentTime);
-  noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(ctx.destination);
-  noise.start(); noise.stop(ctx.currentTime + 0.1);
+  noiseGain.gain.setValueAtTime(0.12, ctx.currentTime);
+  noise.connect(noiseGain); noiseGain.connect(ctx.destination);
+  noise.start();
 }
 const STOP_THRESHOLD = 0.12; // Snap to rest once a ball is essentially crawling, instead of an endless imperceptible creep
 
@@ -1113,7 +1046,7 @@ const COLORS = {
 
 const MARGIN = 52;  // Thick American pool rails
 
-let canvas, ctx, scale = 1, balls = [], gameState = {}, animationId = null, lastTime = 0, poolGameSessionId = null;
+let canvas, ctx, scale = 1, balls = [], gameState = {}, animationId = null, lastTime = 0;
 let ballRasterCanvas = null, ballRasterCtx = null, ballRasterSize = 0;
 
 // Pocket positions for American pool table
@@ -1167,7 +1100,6 @@ function defaultOrient() {
   return [ {x:0,y:0,z:1}, {x:1,y:0,z:0}, {x:0,y:1,z:0} ]; // pole, axis1, axis2 - all orthonormal
 }
 function initGame() {
-  poolGameSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2);
   balls = [];
   // Cue ball - placed behind head string (1/4 from left)
   balls.push({ id: 0, x: 225, y: 225, vx: 0, vy: 0, spinX: 0, spinY: 0, orient: defaultOrient(),
@@ -1192,9 +1124,7 @@ function initGame() {
     power: 0, aimAngle: 0, lastAimAngle: undefined, spin: { x: 0, y: 0 }, ballsMoving: false, gameOver: false,
     winner: null, firstShot: true, groupAssigned: false, justPocketed: [],
     aimPhase: true, aimLocked: false, powerPhase: false,
-    botTurnPending: false, placingCueBall: false, placementKitchenOnly: false,
-    foulMessageActive: false, lastFoulReason: null, eightBallPocketedThisShot: false, gameOverReason: null, groupJustAssignedThisShot: false,
-    breakTaken: false, shotStartedAt: null, calledPocket: null, callingShot: false, calledShotMade: false, pocketedInto: {}, shotCounter: 0, shotHistory: []
+    botTurnPending: false, placingCueBall: false, placementKitchenOnly: false
   };
   updateUI();
 }
@@ -1211,42 +1141,28 @@ function poolResumeGameAwaitingSync() {
   document.getElementById('waitingText').textContent = 'Reconnecting to your match — syncing table with your opponent...';
   showOverlay('waitingOverlay');
   lastTime = performance.now();
-  poolStartGameLoop();
+  gameLoop();
   poolSocket.emit('pool_requestBoardSync');
 }
 
-function startGame(host, breaksFirst) {
+function startGame(host) {
   showScreen('gameScreen');
   checkOrientation();
   lockLandscapeOrientation();
   initCanvas();
   matchTally = { me: 0, opp: 0 };
   initGame();
-  // Explicit, redundant reset - these must never survive into a new
-  // game under any circumstances, regardless of what else initGame()
-  // does or doesn't fully reset.
-  gameState.shotCounter = 0;
-  gameState.shotHistory = [];
-  gameState.turnDecisionLog = [];
-  gameState.switchTurnLog = [];
-  gameState.breakTaken = false;
-  if (typeof breaksFirst === 'boolean') gameState.myTurn = breaksFirst;
   document.getElementById('p1Name').textContent = myName;
   document.getElementById('p2Name').textContent = opponentName;
   document.getElementById('p1Avatar').textContent = myName.substring(0, 2).toUpperCase();
   document.getElementById('p2Avatar').textContent = opponentName.substring(0, 2).toUpperCase();
   if (gameMode === 'bot') {
-    if (typeof breaksFirst !== 'boolean') gameState.myTurn = Math.random() < 0.5;
+    gameState.myTurn = true;
     isHost = true;
   }
   lastTime = performance.now();
-  poolStartGameLoop();
-  if (gameState.myTurn) {
-    enterCuePlacement(true);
-  } else {
-    const btn = document.getElementById('placeBallBtn');
-    if (btn) btn.style.display = 'none';
-  }
+  gameLoop();
+  if (gameState.myTurn) enterCuePlacement(true);
   startTurn();
   const tut = document.getElementById('tutorialHint');
   const tutText = document.getElementById('tutorialText');
@@ -1276,7 +1192,7 @@ let longPressTimer = null;
 let longPressStartTime = 0;
 let longPressPos = null;
 let longPressActive = false;
-const LONG_PRESS_DURATION = 3000;
+const LONG_PRESS_DURATION = 1000;
 const LONG_PRESS_THRESHOLD = 12;
 const POWER_TOUCH_RADIUS = 100;
 const STICK_TOUCH_WIDTH = 30; // how close (in table units) a touch needs to be to the stick's actual line to count as touching it
@@ -1291,16 +1207,7 @@ function isTouchOnStick(pos, cueBall) {
 }
 const HEAD_STRING_X = 225; // kitchen boundary - matches the break-line drawn on the table
 
-function startLongPress(pos, cueBall) {
-  // Only counts as the reset gesture if the touch is directly on the
-  // cue ball itself - touching anywhere else on the table to aim
-  // never arms this timer at all, so normal aiming can never trigger
-  // it by accident, no matter how long the player holds still.
-  if (!cueBall || Math.hypot(pos.x - cueBall.x, pos.y - cueBall.y) > BALL_RADIUS * 2) {
-    longPressPos = null;
-    longPressActive = false;
-    return;
-  }
+function startLongPress(pos) {
   longPressPos = { x: pos.x, y: pos.y };
   longPressStartTime = Date.now();
   longPressActive = false;
@@ -1321,30 +1228,16 @@ function cancelLongPress() {
 }
 
 function updateMessage() {
-  if (gameState.breakTaken !== true) {
-    gameState.calledPocket = null;
-    gameState.callingShot = false;
-  }
   const badge = document.getElementById('phaseBadge');
   const msg = document.getElementById('messageText');
   if (gameState.gameOver) { badge.style.display = 'none'; msg.textContent = 'Game Over!'; return; }
   if (gameState.ballsMoving) { badge.style.display = 'none'; msg.textContent = 'Balls rolling...'; return; }
-  if (gameState.foulMessageActive && gameState.lastFoulReason) {
-    badge.className = 'phase-badge power'; badge.style.display = 'inline-block'; badge.textContent = 'FOUL';
-    msg.textContent = gameState.lastFoulReason + (gameState.myTurn ? ' — you have ball in hand' : '');
-    return;
-  }
   if (!gameState.myTurn) { badge.style.display = 'none'; msg.textContent = gameMode === 'bot' ? 'Bot is thinking...' : 'Waiting for opponent...'; return; }
   if (gameState.placingCueBall) {
     badge.className = 'phase-badge aim'; badge.style.display = 'inline-block'; badge.textContent = 'PLACE BALL';
     msg.textContent = gameState.placementKitchenOnly
       ? 'Drag the cue ball behind the line, then tap Place Ball'
       : 'Ball in hand - drag anywhere, then tap Place Ball';
-    return;
-  }
-  if (gameState.callingShot) {
-    badge.className = 'phase-badge aim'; badge.style.display = 'inline-block'; badge.textContent = 'CALL SHOT';
-    msg.textContent = 'Tap the pocket you\u2019re calling';
     return;
   }
   badge.style.display = 'inline-block';
@@ -1364,28 +1257,6 @@ function updateMessage() {
   }
 }
 
-// Handles one tap/click during the pre-shot calling phase - tap the
-// pocket you're calling, that's the whole interaction (matches
-// Miniclip's actual mechanic). Returns true if consumed.
-function handleCallShotTap(pos) {
-  if (!gameState.callingShot) return false;
-  const tapRadius = POCKET_RADIUS * 1.8;
-  let picked = null, pickedDist = Infinity;
-  for (let i = 0; i < pockets.length; i++) {
-    const p = pockets[i];
-    const d = Math.hypot(pos.x - p.x, pos.y - p.y);
-    if (d < tapRadius && d < pickedDist) { picked = i; pickedDist = d; }
-  }
-  if (picked !== null) {
-    gameState.calledPocket = picked;
-    gameState.callingShot = false;
-    if (poolSocket && poolMyTableId && gameMode === 'p2p' && gameState.myTurn) {
-      poolSocket.emit('pool_callShot', { calledPocket: picked });
-    }
-    updateMessage();
-  }
-  return true;
-}
 function handleTouchStart(e) {
   if (e.touches.length === 2) {
     e.preventDefault();
@@ -1395,7 +1266,6 @@ function handleTouchStart(e) {
   }
   if (e.touches.length !== 1) return;
   if (!gameState.myTurn || gameState.ballsMoving || gameState.gameOver) return;
-  gameState.foulMessageActive = false;
   const pos = getCanvasPos(e);
   const cueBall = balls[0];
   if (!cueBall || cueBall.pocketed) return;
@@ -1405,29 +1275,24 @@ function handleTouchStart(e) {
     placeCueBallAt(pos.x, pos.y);
     return;
   }
-  if (gameState.callingShot) {
-    handleCallShotTap(pos);
-    return;
-  }
   if (gameState.aimPhase && !gameState.aimLocked) {
     isAiming = true; aimTouchId = e.touches[0].identifier;
     gameState.aiming = true; gameState.power = 0;
     gameState.aimFromButt = isTouchOnStick(pos, cueBall);
     gameState.lastAimAngle = undefined;
-    updatePowerUI(); startLongPress(pos, cueBall); updateAimFromTouch(pos);
+    updatePowerUI(); startLongPress(pos); updateAimFromTouch(pos);
   } else if (gameState.aimLocked && !gameState.powerPhase) {
     const distToCue = Math.hypot(pos.x - cueBall.x, pos.y - cueBall.y);
     if (distToCue < POWER_TOUCH_RADIUS) {
       gameState.powerPhase = true; gameState.pulling = true; gameState.power = 0;
       gameState.powerHistory = []; // fresh for this gesture
-      updatePowerUI(); document.getElementById('powerHud').classList.add('show'); startLongPress(pos, cueBall);
+      updatePowerUI(); document.getElementById('powerHud').classList.add('show'); startLongPress(pos);
     }
   }
   updateMessage();
 }
 function handleMouseDown(e) {
   if (!gameState.myTurn || gameState.ballsMoving || gameState.gameOver) return;
-  gameState.foulMessageActive = false;
   const pos = getCanvasPos(e);
   const cueBall = balls[0];
   if (!cueBall || cueBall.pocketed) return;
@@ -1436,21 +1301,17 @@ function handleMouseDown(e) {
     placeCueBallAt(pos.x, pos.y);
     return;
   }
-  if (gameState.callingShot) {
-    handleCallShotTap(pos);
-    return;
-  }
   if (gameState.aimPhase && !gameState.aimLocked) {
     isAiming = true; gameState.aiming = true; gameState.power = 0;
     gameState.aimFromButt = isTouchOnStick(pos, cueBall);
     gameState.lastAimAngle = undefined;
-    updatePowerUI(); startLongPress(pos, cueBall); updateAimFromTouch(pos);
+    updatePowerUI(); startLongPress(pos); updateAimFromTouch(pos);
   } else if (gameState.aimLocked && !gameState.powerPhase) {
     const distToCue = Math.hypot(pos.x - cueBall.x, pos.y - cueBall.y);
     if (distToCue < POWER_TOUCH_RADIUS) {
       gameState.powerPhase = true; gameState.pulling = true; gameState.power = 0;
       gameState.powerHistory = []; // fresh for this gesture
-      updatePowerUI(); document.getElementById('powerHud').classList.add('show'); startLongPress(pos, cueBall);
+      updatePowerUI(); document.getElementById('powerHud').classList.add('show'); startLongPress(pos);
     }
   }
   updateMessage();
@@ -1592,16 +1453,6 @@ function getSettledValue(history, fallback, lookbackMs) {
 
 function finishInput() {
   cancelLongPress();
-  if (!gameState.myTurn) {
-    // Hard stop: never let a shot fire on this client if it isn't
-    // actually this player's turn, no matter how aimPhase/powerPhase
-    // got set - this is the last line of defense against ever taking
-    // a shot that belongs to the opponent.
-    gameState.turnGuardBlockCount = (gameState.turnGuardBlockCount || 0) + 1;
-    isAiming = false; aimTouchId = null; gameState.aiming = false;
-    gameState.aimPhase = false; gameState.aimLocked = false; gameState.powerPhase = false; gameState.power = 0;
-    return;
-  }
   if (gameState.aimPhase && !gameState.aimLocked && isAiming) {
     gameState.aimAngle = getSettledValue(gameState.aimAngleHistory, gameState.aimAngle, 70);
     isAiming = false; aimTouchId = null; gameState.aiming = false; gameState.aimLocked = true;
@@ -1623,19 +1474,11 @@ function shoot(power) {
   cueBall.spinY = gameState.spin.y;
   poolPlayClack(Math.min(1, power / MAX_POWER));
   gameState.aiming = false; gameState.power = 0;
-  gameState.foulMessageActive = false; // the shot is happening now - whatever foul/scratch reason was being shown has been acted on
-  gameState.calledShotMade = false; // whether any ball from the shooter's own group went into the called pocket this shot
-  gameState.pocketedInto = {}; // ball number -> pocket index, for whichever balls actually drop this shot
-  gameState.scratch = false; // defensive reset - every other per-shot flag below is explicitly cleared here too; this one should never carry stale state into a new shot regardless of which other path was supposed to clear it
   gameState.ballsMoving = true; gameState.justPocketed = [];
-  gameState.firstContactBall = null; // which ball number the cue ball hits first this shot - null until contact happens
-  gameState.eightBallPocketedThisShot = false; // whether the 8-ball went in this shot, resolved once the whole shot (incl. scratch) is known
-  gameState.railContactedThisShot = false; // any ball touching a cushion after legal first contact - required or it's a foul
   gameState.aimPhase = true; gameState.aimLocked = false; gameState.powerPhase = false;
   gameState.spin = {x: 0, y: 0};
   resetSpinUI();
   updatePowerUI(); document.getElementById('powerHud').classList.remove('show');
-  gameState.shotStartedAt = performance.now(); // for the settle-timeout watchdog below - a real shot never takes anywhere near this long
   if (poolSocket && poolMyTableId && gameMode !== 'bot' && gameState.myTurn) {
     poolMyShotInProgress = true;
     poolSocket.emit('pool_shot', {});
@@ -1772,18 +1615,6 @@ function updatePhysics() {
     moving = updatePhysicsStep(subFriction, subSpinDecay) || moving;
   }
 
-  // Settle-timeout watchdog: a real shot never takes anywhere near this
-  // long to finish. If one has been "in progress" this long, something
-  // has gone wrong (most likely a dropped network connection mid-shot)
-  // and forcing it to resolve now is far better than leaving the
-  // player's turn permanently stuck waiting for something that will
-  // never happen on its own.
-  if (moving && gameState.shotStartedAt && performance.now() - gameState.shotStartedAt > 20000) {
-    console.error('[pool-watchdog] shot never settled after 20s - forcing resolution');
-    moving = false;
-    for (const ball of balls) { ball.vx = 0; ball.vy = 0; ball.spinX = 0; ball.spinY = 0; }
-  }
-
   if (poolMyShotInProgress && poolSocket && poolMyTableId) {
     if (moving) {
       // Streamed at a fixed rate (~30/s), not every frame -- this is
@@ -1813,7 +1644,6 @@ function updatePhysics() {
       // mistake there (or any other code path that touches it
       // afterward) silently breaks the whole game.
       gameState.ballsMoving = false;
-      resolveShotOutcome();
       endTurn();
       poolMyShotInProgress = false;
       const myTurnPos = gameState.myTurn ? poolMyPos : (1 - poolMyPos);
@@ -1823,27 +1653,18 @@ function updatePhysics() {
         balls: balls.map(b => ({ x: b.x, y: b.y, pocketed: b.pocketed })),
         turnPos: myTurnPos,
         scratch: gameState.scratch,
-        foul: gameState.foulMessageActive,
-        lastFoulReason: gameState.lastFoulReason,
+        foul: gameState.foul,
         gameOver: gameState.gameOver,
         groupAssigned: gameState.groupAssigned,
         seat0Group, seat1Group,
-        // Any foul/scratch this shot grants ball-in-hand to whoever's
-        // turn it now is - NOT whatever the shooter's own placingCueBall
-        // happens to be (that's correctly false on their own side, since
-        // it's their opponent who gets it, not them).
-        placingCueBall: gameState.foulMessageActive,
-        placementKitchenOnly: false
+        placingCueBall: gameState.placingCueBall,
+        placementKitchenOnly: gameState.placementKitchenOnly
       });
       return;
     }
   }
 
-  if (gameState.ballsMoving && !moving) {
-    gameState.ballsMoving = false;
-    resolveShotOutcome();
-    endTurn();
-  }
+  if (gameState.ballsMoving && !moving) { gameState.ballsMoving = false; endTurn(); }
   gameState.ballsMoving = moving;
 }
 
@@ -1890,8 +1711,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
     if (ball.vx !== 0 || ball.vy !== 0) moving = true;
 
     let pocketedThisFrame = false;
-    for (let pocketIdx = 0; pocketIdx < pockets.length; pocketIdx++) {
-      const pocket = pockets[pocketIdx];
+    for (const pocket of pockets) {
       const dx = ball.x - pocket.x, dy = ball.y - pocket.y;
       if (Math.sqrt(dx * dx + dy * dy) < POCKET_RADIUS - 2) {
         ball.pocketed = true; ball.vx = 0; ball.vy = 0; ball.spinX = 0; ball.spinY = 0;
@@ -1899,7 +1719,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
         ball.pocketAnimFromX = ball.x; ball.pocketAnimFromY = ball.y;
         ball.pocketAnimToX = pocket.x; ball.pocketAnimToY = pocket.y;
         poolPlayPocketSound();
-        handlePocket(ball, pocketIdx);
+        handlePocket(ball);
         pocketedThisFrame = true;
         break;
       }
@@ -1911,7 +1731,6 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
         ball.x = MARGIN + ball.r;
         ball.vx = Math.abs(ball.vx) * WALL_BOUNCE;
         poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
-        gameState.railContactedThisShot = true;
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vx *= carry;
@@ -1927,7 +1746,6 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
         ball.x = TABLE_WIDTH - MARGIN - ball.r;
         ball.vx = -Math.abs(ball.vx) * WALL_BOUNCE;
         poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
-        gameState.railContactedThisShot = true;
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vx *= carry;
@@ -1943,7 +1761,6 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
         ball.y = MARGIN + ball.r;
         ball.vy = Math.abs(ball.vy) * WALL_BOUNCE;
         poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
-        gameState.railContactedThisShot = true;
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vy *= carry;
@@ -1959,7 +1776,6 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
         ball.y = TABLE_HEIGHT - MARGIN - ball.r;
         ball.vy = -Math.abs(ball.vy) * WALL_BOUNCE;
         poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
-        gameState.railContactedThisShot = true;
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vy *= carry;
@@ -1984,14 +1800,6 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
         const nx = dx / dist, ny = dy / dist;
         b1.x -= nx * overlap * 0.5; b1.y -= ny * overlap * 0.5;
         b2.x += nx * overlap * 0.5; b2.y += ny * overlap * 0.5;
-        // Record which ball the cue ball hits FIRST this shot - the
-        // foundation for the "wrong ball first" foul rule. Only the very
-        // first contact counts, so this is a no-op on every collision
-        // after that.
-        if (gameState.firstContactBall === null) {
-          if (b1.number === 0) gameState.firstContactBall = b2.number;
-          else if (b2.number === 0) gameState.firstContactBall = b1.number;
-        }
         // Capture the cue ball's speed the instant BEFORE momentum transfer. This is what
         // determines how much spin/English is available to act with - not whatever speed
         // happens to be left over afterward. A straight stun/draw shot can leave the cue
@@ -2049,202 +1857,34 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
   return moving;
 }
 
-// Pure bookkeeping only - records what physically happened as balls drop
-// during the shot. No rules decisions are made here; those all happen once,
-// after the shot fully settles, in resolveShotOutcome() below.
-function handlePocket(ball, pocketIdx) {
-  gameState.pocketedInto[ball.number] = pocketIdx;
-  if (ball.number === 0) {
-    gameState.scratch = true;
-  } else if (ball.number === 8) {
-    gameState.eightBallPocketedThisShot = true;
+function handlePocket(ball) {
+  if (ball.number === 0) { gameState.scratch = true; gameState.foul = true; }
+  else if (ball.number === 8) {
+    if (!gameState.groupAssigned) { gameState.foul = true; }
+    else {
+      const currentPlayerGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
+      const currentBallsLeft = currentPlayerGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : (7 - gameState.ballsPocketed.stripes);
+      if (currentBallsLeft === 0) gameState.winner = gameState.myTurn ? myName : opponentName;
+      else gameState.winner = gameState.myTurn ? opponentName : myName;
+      gameState.gameOver = true;
+    }
   } else {
     const group = ball.number <= 7 ? 'solids' : 'stripes';
     gameState.ballsPocketed[group]++;
     gameState.justPocketed.push(ball.number);
+    if (!gameState.groupAssigned) {
+      if (gameState.myTurn) { gameState.myGroup = group; gameState.opponentGroup = group === 'solids' ? 'stripes' : 'solids'; }
+      else { gameState.opponentGroup = group; gameState.myGroup = group === 'solids' ? 'stripes' : 'solids'; }
+      gameState.groupAssigned = true;
+    }
   }
 }
 
-// ==================== SHOT OUTCOME - single source of truth ====================
-// Runs exactly once, right after a shot fully settles (called from both the
-// local physics-settle point and the p2p resolution point - there is no
-// other place in the codebase that decides fouls, group assignment, or
-// 8-ball win/loss). Everything about "what this shot meant" lives here and
-// only here.
-//
-// American 8-ball rules, in the order actually applied below:
-//  1. Break / open table: any ball is a legal first contact. The group of
-//     whichever ball the cue ball hit FIRST this shot becomes the
-//     shooter's group, the instant any ball from a group is legally
-//     pocketed. (Using first CONTACT rather than whichever ball happened
-//     to physically drop is deliberate: several balls can pocket in the
-//     same shot, especially on the break, and contact is the one
-//     unambiguous signal for which group the player actually played.)
-//  2. Once groups are assigned: a foul is ONLY hitting the wrong ball
-//     first (opponent's group, or the 8-ball before your own group is
-//     cleared) or making no legal contact at all.
-//  3. Touching your own group first and then either pocketing a ball or
-//     reaching a rail is always legal - never a foul.
-//  4. Pocketing the cue ball is a scratch (always a foul; ball-in-hand
-//     for the other player).
-//  5. Pocketing the 8-ball before finishing your own group is an
-//     immediate loss, not just a foul - regardless of the rest of the
-//     shot.
-//  6. The winner of a game breaks the next one.
-function resolveShotOutcome() {
-  gameState.shotCounter = (gameState.shotCounter || 0) + 1;
-  if (!gameState.shotHistory) gameState.shotHistory = [];
-  // Independent of breakTaken (which network sync handlers can also
-  // set): the very first time THIS shot-resolution function itself
-  // actually runs for this game session is unconditionally the break,
-  // regardless of what any other flag says by this point.
-  const isBreakShot = gameState.shotCounter === 1 || !gameState.breakTaken;
-  gameState.shotHistory.push('#' + gameState.shotCounter + ':pk=' + gameState.justPocketed.length + ':mt=' + gameState.myTurn + ':gm=' + gameMode + ':sess=' + (poolGameSessionId ? poolGameSessionId.slice(-6) : 'none'));
-  if (!isBreakShot && !gameState.groupAssigned) {
-    console.warn('[pool-diag] shot resolving as NOT the break, but no group is assigned yet - this combination should be rare/impossible for a genuine post-break shot', {
-      breakTaken: gameState.breakTaken, shotCounter: gameState.shotCounter, myTurn: gameState.myTurn, justPocketed: gameState.justPocketed.slice(),
-      calledPocket: gameState.calledPocket, phase: gameState.phase, gameMode: gameMode
-    });
-  }
-  gameState.breakTaken = true;
-  gameState.thisShotWasBreak = isBreakShot;
-  const tableWasOpen = !gameState.groupAssigned;
-  gameState.groupJustAssignedThisShot = false;
-
-  // Step 1: assign the group, if this shot is the one that does it.
-  // Decided by whichever ball actually goes IN first, not which ball
-  // the cue merely touches first - those are different things, and the
-  // group is determined by the pocketing, not the contact.
-  if (tableWasOpen && gameState.justPocketed.length > 0) {
-    const decidingBall = gameState.justPocketed[0];
-    const decidingGroup = decidingBall <= 7 ? 'solids' : 'stripes';
-    if (gameState.myTurn) { gameState.myGroup = decidingGroup; gameState.opponentGroup = decidingGroup === 'solids' ? 'stripes' : 'solids'; }
-    else { gameState.opponentGroup = decidingGroup; gameState.myGroup = decidingGroup === 'solids' ? 'stripes' : 'solids'; }
-    gameState.groupAssigned = true;
-    gameState.groupJustAssignedThisShot = true;
-  }
-
-  const shooterGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
-  const shooterBallsLeft = shooterGroup === 'solids' ? (7 - gameState.ballsPocketed.solids)
-    : shooterGroup === 'stripes' ? (7 - gameState.ballsPocketed.stripes) : 999;
-
-  // Pocket-only calling: any ball from the shooter's own group that
-  // actually dropped into the called pocket this shot counts, regardless
-  // of which specific ball it was. On an open table (group not yet
-  // assigned before this shot), any pocketed ball counts, since the
-  // group itself is only being decided by this same shot. Never
-  // relevant on the break, which has no called pocket at all.
-  if (!isBreakShot && gameState.calledPocket !== null) {
-    for (const num of gameState.justPocketed) {
-      const ballGroup = num <= 7 ? 'solids' : 'stripes';
-      const countsForShooter = tableWasOpen || ballGroup === shooterGroup;
-      if (countsForShooter && gameState.pocketedInto[num] === gameState.calledPocket) {
-        gameState.calledShotMade = true;
-        break;
-      }
-    }
-  }
-
-  // Step 2: the 8-ball ends the game outright, if it went in this shot -
-  // checked before general fouls since it overrides everything else.
-  if (gameState.eightBallPocketedThisShot) {
-    gameState.eightBallPocketedThisShot = false;
-    const shooterWasMyTurn = gameState.myTurn;
-    const shooterName = shooterWasMyTurn ? myName : opponentName;
-    const opponentPlayerName = shooterWasMyTurn ? opponentName : myName;
-    if (gameState.scratch) {
-      gameState.winner = opponentPlayerName;
-      gameState.gameOverReason = shooterName + ' scratched while pocketing the 8-ball';
-    } else if (tableWasOpen) {
-      gameState.winner = opponentPlayerName;
-      gameState.gameOverReason = shooterName + ' pocketed the 8-ball too early';
-    } else {
-      const contactWasLegal = shooterBallsLeft === 0
-        ? gameState.firstContactBall === 8 && gameState.calledPocket !== null && gameState.pocketedInto[8] === gameState.calledPocket
-        : (gameState.firstContactBall != null && (gameState.firstContactBall <= 7 ? 'solids' : 'stripes') === shooterGroup);
-      if (shooterBallsLeft === 0 && contactWasLegal) {
-        gameState.winner = shooterName;
-        gameState.gameOverReason = shooterName + ' legally pocketed the 8-ball to win';
-      } else {
-        gameState.winner = opponentPlayerName;
-        gameState.gameOverReason = shooterBallsLeft === 0
-          ? shooterName + ' pocketed the 8-ball off an illegal shot'
-          : shooterName + ' pocketed the 8-ball before clearing their group';
-      }
-    }
-    gameState.gameOver = true;
-    return;
-  }
-
-  // Step 3: general fouls. Scratch is always a foul regardless of
-  // anything else about the shot.
-  let foul = false, reason = null;
-  if (gameState.scratch) {
-    foul = true; reason = 'Scratch — cue ball went in';
-  } else if (gameState.firstContactBall === null && gameState.justPocketed.length === 0) {
-    // If a ball was actually pocketed, the cue ball definitely made
-    // contact with something - that's physically necessary regardless
-    // of whether firstContactBall happened to get recorded correctly.
-    foul = true; reason = 'Foul — cue ball didn\u2019t touch any ball';
-  } else if (!tableWasOpen && !isBreakShot) {
-    // Groups were already set before this shot began - wrong-ball-first
-    // only applies once there's an actual group to be wrong about. The
-    // break is independently exempted here too (not just via
-    // tableWasOpen/groupAssigned) so it can never be flagged for this
-    // even if group state were ever stale for some other reason.
-    if (gameState.firstContactBall === 8) {
-      if (shooterBallsLeft !== 0) { foul = true; reason = 'Foul — hit the 8-ball first'; }
-    } else {
-      const contactedGroup = gameState.firstContactBall <= 7 ? 'solids' : 'stripes';
-      if (contactedGroup !== shooterGroup) { foul = true; reason = 'Foul — hit the wrong ball first'; }
-    }
-  }
-  if (!foul && !gameState.railContactedThisShot && gameState.justPocketed.length === 0) {
-    foul = true; reason = 'Foul — no ball reached a rail';
-  }
-  gameState.foul = foul;
-  gameState.lastFoulReason = reason;
-}
-
-function poolShowFoulNotification(title, detail) {
-  document.getElementById('poolFoulTitle').textContent = title;
-  document.getElementById('poolFoulText').textContent = detail;
-  showOverlay('poolFoulOverlay');
-  const okBtn = document.getElementById('poolFoulOkBtn');
-  const copyBtn = document.getElementById('poolFoulCopyBtn');
-  function cleanup() {
-    closeOverlay('poolFoulOverlay');
-    okBtn.onclick = null;
-    copyBtn.onclick = null;
-  }
-  okBtn.onclick = () => { cleanup(); };
-  copyBtn.onclick = () => {
-    const text = title + ': ' + detail;
-    const done = () => { copyBtn.textContent = 'Copied!'; setTimeout(() => { copyBtn.textContent = 'Copy Text'; }, 1500); };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
-    } else {
-      fallbackCopy(text, done);
-    }
-  };
-}
-function fallbackCopy(text, done) {
-  const ta = document.createElement('textarea');
-  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-  document.body.appendChild(ta); ta.focus(); ta.select();
-  try { document.execCommand('copy'); done(); } catch(e) {}
-  document.body.removeChild(ta);
-}
 function endTurn() {
   const cueBall = balls[0];
-  if (gameState.gameOver) { showGameOver(); return; }
   if (gameState.scratch) {
-    const wasMyOwnShot = gameState.myTurn;
     cueBall.pocketed = false; cueBall.vx = 0; cueBall.vy = 0; cueBall.spinX = 0; cueBall.spinY = 0;
-    gameState.scratch = false; gameState.foulMessageActive = true; switchTurn();
-    poolShowFoulNotification('Scratch', wasMyOwnShot
-      ? 'The cue ball was pocketed. Your opponent gets ball in hand.'
-      : 'Your opponent\u2019s cue ball was pocketed. You get ball in hand.');
+    gameState.scratch = false; switchTurn();
     if (gameState.myTurn) {
       enterCuePlacement(false); // ball-in-hand: anywhere on the table
     } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
@@ -2252,81 +1892,24 @@ function endTurn() {
     }
     startTurn(); return;
   }
+  if (gameState.gameOver) { showGameOver(); return; }
   if (gameState.foul) {
-    const wasMyOwnShot = gameState.myTurn;
-    const reason = gameState.lastFoulReason || '';
-    gameState.foul = false; gameState.foulMessageActive = true; switchTurn();
-    let cause = 'A foul occurred';
-    if (reason.includes('wrong ball')) cause = wasMyOwnShot ? 'You hit your opponent\u2019s ball first' : 'Your opponent hit your ball first';
-    else if (reason.includes('8-ball')) cause = wasMyOwnShot ? 'You hit the 8-ball first, out of turn' : 'Your opponent hit the 8-ball first, out of turn';
-    else if (reason.includes('didn\u2019t touch')) cause = wasMyOwnShot ? 'The cue ball didn\u2019t touch any ball' : 'Your opponent\u2019s cue ball didn\u2019t touch any ball';
-    else if (reason.includes('no ball reached')) cause = wasMyOwnShot ? 'No ball reached a rail or pocket after contact' : 'No ball reached a rail or pocket on your opponent\u2019s shot';
-    const detail = cause + '. ' + (wasMyOwnShot ? 'Your opponent gets ball in hand.' : 'You get ball in hand.');
-    poolShowFoulNotification('Foul', detail);
-    if (gameState.myTurn) {
-      enterCuePlacement(false); // any foul grants ball-in-hand, anywhere on the table - not just a scratch
-    } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
-      autoPlaceCueBallForBot();
-    }
-    startTurn(); return;
+    gameState.foul = false; switchTurn(); startTurn(); return;
   }
-  const isBreak = gameState.thisShotWasBreak === true;
+  const currentPlayerGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
   let pocketedCurrentPlayerBall = false;
-  if (isBreak) {
-    // The break rule, as simple and direct as it gets: whoever breaks -
-    // human or bot, online or not - keeps playing if they pocketed
-    // ANYTHING at all, no scratch. Doesn't matter which ball, which
-    // group, or how many.
-    pocketedCurrentPlayerBall = gameState.justPocketed.length > 0;
-  } else {
-    // Every shot after the break must be called: the specifically
-    // called pocket has to be where the shooter's own ball actually
-    // went, or it doesn't earn another shot - a miss is a miss, no
-    // ball-in-hand for a plain miss, the turn just passes.
-    pocketedCurrentPlayerBall = gameState.calledShotMade;
+  if (currentPlayerGroup && gameState.justPocketed.length > 0) {
+    for (const num of gameState.justPocketed) { const ballGroup = num <= 7 ? 'solids' : 'stripes'; if (ballGroup === currentPlayerGroup) { pocketedCurrentPlayerBall = true; break; } }
   }
-  const wasMyShotThisResolution = gameState.myTurn;
-  let turnIsPassing = false;
   if (gameState.groupAssigned) {
-    if (!pocketedCurrentPlayerBall) { switchTurn(); turnIsPassing = true; }
+    if (!pocketedCurrentPlayerBall) switchTurn();
   } else {
-    if (gameState.justPocketed.length === 0) { switchTurn(); turnIsPassing = true; }
+    if (gameState.justPocketed.length === 0) switchTurn();
   }
-  if (!gameState.turnDecisionLog) gameState.turnDecisionLog = [];
-  gameState.turnDecisionLog.push('#' + gameState.shotCounter + ':br=' + isBreak + ':pk=' + gameState.justPocketed.length + ':ga=' + gameState.groupAssigned + ':pcb=' + pocketedCurrentPlayerBall + ':csm=' + gameState.calledShotMade + ':pass=' + turnIsPassing);
-  if (turnIsPassing) {
-    let why;
-    if (isBreak) {
-      // The break can never be described as a "called shot" miss, full
-      // stop, regardless of any other state - it never had a call to
-      // begin with, so this branch is the only one it can ever reach.
-      why = wasMyShotThisResolution ? 'You didn\u2019t pocket anything on the break.' : 'Your opponent didn\u2019t pocket anything on the break.';
-    } else if (gameState.calledPocket === null) {
-      // No call was ever actually made for this shot - a distinct
-      // situation from "called X, got Y", which would otherwise show
-      // a misleading message implying a call existed when it didn't.
-      why = wasMyShotThisResolution ? 'No pocket was called for this shot.' : 'Your opponent didn\u2019t call a pocket for this shot.';
-    } else if (gameState.justPocketed.length > 0) {
-      why = wasMyShotThisResolution ? 'You pocketed a ball, but not the one you called.' : 'Your opponent pocketed a ball, but not the one they called.';
-    } else {
-      why = wasMyShotThisResolution ? 'You missed your called shot.' : 'Your opponent missed their called shot.';
-    }
-    // Diagnostic info appended directly into the visible popup text -
-    // no devtools/console needed to read it and report it back.
-    why += ' [diag: shot#' + gameState.shotCounter + ' break=' + isBreak + ' bt=' + gameState.breakTaken + ' guardBlocks=' + (gameState.turnGuardBlockCount || 0) + ' botPending=' + gameState.botTurnPending + ' switchLog=' + (gameState.switchTurnLog || []).join(',') + ' decisions=' + (gameState.turnDecisionLog || []).join('|') + ']';
-    poolShowFoulNotification('Turn Passed', why);
-  }
-  gameState.calledPocket = null; gameState.calledShotMade = false;
   startTurn();
 }
 
-function switchTurn() {
-  gameState.switchTurnCallCount = (gameState.switchTurnCallCount || 0) + 1;
-  const before = gameState.myTurn;
-  gameState.myTurn = !gameState.myTurn;
-  if (!gameState.switchTurnLog) gameState.switchTurnLog = [];
-  gameState.switchTurnLog.push(before + '>' + gameState.myTurn);
-}
+function switchTurn() { gameState.myTurn = !gameState.myTurn; }
 
 // ==================== BALL-IN-HAND PLACEMENT ====================
 // Used both for the opening break (kitchen-only) and after any scratch (anywhere on table).
@@ -2396,8 +1979,7 @@ function autoPlaceCueBallForBot() {
   const cueBall = balls[0];
   cueBall.pocketed = false; cueBall.vx = 0; cueBall.vy = 0; cueBall.spinX = 0; cueBall.spinY = 0;
   const botGroup = gameState.groupAssigned ? gameState.opponentGroup : null;
-  const botBallsLeft = botGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : botGroup === 'stripes' ? (7 - gameState.ballsPocketed.stripes) : 999;
-  const cols = 9, rows = 6;
+  const cols = 7, rows = 5;
   const minX = MARGIN + BALL_RADIUS + 8, maxX = TABLE_WIDTH - MARGIN - BALL_RADIUS - 8;
   const minY = MARGIN + BALL_RADIUS + 8, maxY = TABLE_HEIGHT - MARGIN - BALL_RADIUS - 8;
   let best = null, bestScore = -Infinity;
@@ -2411,107 +1993,24 @@ function autoPlaceCueBallForBot() {
         if (Math.hypot(cx - b.x, cy - b.y) < BALL_RADIUS * 2 + 2) { overlap = true; break; }
       }
       if (overlap) continue;
-
-      // Find the single best genuinely makeable shot from this position -
-      // a real ghost-ball-to-pocket line that's actually clear, not just
-      // "can see the ball". Also count how many other decent options
-      // exist here, as a rough stand-in for follow-up setup potential.
-      let bestShotQuality = -Infinity;
-      let makeableCount = 0;
+      let score = 0;
       for (const b of balls) {
         if (b === cueBall || b.pocketed || b.number === 0) continue;
         const group = b.number === 8 ? null : (b.number <= 7 ? 'solids' : 'stripes');
         if (botGroup && group && group !== botGroup) continue;
-        if (b.number === 8 && botBallsLeft !== 0) continue;
-        for (const pocket of pockets) {
-          const pocketAngle = Math.atan2(pocket.y - b.y, pocket.x - b.x);
-          const ghostX = b.x - Math.cos(pocketAngle) * (BALL_RADIUS * 2);
-          const ghostY = b.y - Math.sin(pocketAngle) * (BALL_RADIUS * 2);
-          if (ghostX < MARGIN + BALL_RADIUS || ghostX > TABLE_WIDTH - MARGIN - BALL_RADIUS ||
-              ghostY < MARGIN + BALL_RADIUS || ghostY > TABLE_HEIGHT - MARGIN - BALL_RADIUS) continue;
-          if (!isPathClear(cx, cy, ghostX, ghostY, b.id)) continue;
-          const cueToGhostDist = Math.hypot(ghostX - cx, ghostY - cy);
-          const pocketDist = Math.hypot(pocket.x - b.x, pocket.y - b.y);
-          // Shorter, more direct shots score higher - this is the
-          // "prefer a straight shot" behavior.
-          const quality = 1000 - cueToGhostDist * 0.5 - pocketDist * 0.8;
-          if (quality > bestShotQuality) bestShotQuality = quality;
-          makeableCount++;
-        }
+        if (isPathClear(cx, cy, b.x, b.y, b.id)) score += 1;
       }
-      if (bestShotQuality === -Infinity) continue; // no genuinely makeable shot exists from here at all
-      const score = bestShotQuality + makeableCount * 15;
       if (score > bestScore) { bestScore = score; best = { x: cx, y: cy }; }
     }
   }
   if (best) { cueBall.x = best.x; cueBall.y = best.y; }
-  else {
-    // No fully makeable shot exists anywhere on the table - fall back to
-    // the old "most balls visible" placement so the bot at least isn't
-    // snookered on everything, rather than defaulting to dead center.
-    let fallback = null, fallbackScore = -Infinity;
-    for (let i = 0; i < cols; i++) {
-      for (let j = 0; j < rows; j++) {
-        const cx = minX + (i / (cols - 1)) * (maxX - minX);
-        const cy = minY + (j / (rows - 1)) * (maxY - minY);
-        let overlap = false;
-        for (const b of balls) {
-          if (b === cueBall || b.pocketed) continue;
-          if (Math.hypot(cx - b.x, cy - b.y) < BALL_RADIUS * 2 + 2) { overlap = true; break; }
-        }
-        if (overlap) continue;
-        let visCount = 0;
-        for (const b of balls) {
-          if (b === cueBall || b.pocketed || b.number === 0) continue;
-          const group = b.number === 8 ? null : (b.number <= 7 ? 'solids' : 'stripes');
-          if (botGroup && group && group !== botGroup) continue;
-          if (isPathClear(cx, cy, b.x, b.y, b.id)) visCount++;
-        }
-        if (visCount > fallbackScore) { fallbackScore = visCount; fallback = { x: cx, y: cy }; }
-      }
-    }
-    if (fallback) { cueBall.x = fallback.x; cueBall.y = fallback.y; }
-    else { cueBall.x = TABLE_WIDTH / 2; cueBall.y = TABLE_HEIGHT / 2; }
-  }
+  else { cueBall.x = TABLE_WIDTH / 2; cueBall.y = TABLE_HEIGHT / 2; }
 }
 
 
 function startTurn() {
-  // Hard reset of every aim/power-related piece of state - but only
-  // when this is genuinely a new turn beginning, never when the player
-  // is still actively mid-gesture on what is still their own turn. A
-  // redundant or late-arriving call to startTurn() (a duplicate network
-  // sync event, for example) must never be able to interrupt an
-  // in-progress aim or power pull - doing so would freeze the aim
-  // guide mid-drag (since finger movement would stop updating it once
-  // isAiming was forced false) and make it look like it silently
-  // disappeared a moment later.
-  const isMidGestureOnOwnTurn = gameState.myTurn && (isAiming || gameState.powerPhase);
-  if (!isMidGestureOnOwnTurn) {
-    isAiming = false; aimTouchId = null;
-    leverActive = false;
-    gameState.aiming = false;
-    gameState.pulling = false;
-    gameState.powerPhase = false;
-    gameState.power = 0;
-    gameState.powerHistory = [];
-    lastSimAngle = null; // ball layout may have changed since the last aim - force a fresh preview
-    const powerHudEl = document.getElementById('powerHud');
-    if (powerHudEl) powerHudEl.classList.remove('show');
-    const leverEl = document.getElementById('powerLever');
-    if (leverEl) leverEl.classList.remove('active');
-  }
-
-  // Only the literal break shot is exempt from calling - every shot
-  // after it, regardless of table/group state, requires tapping a
-  // pocket first, matching Miniclip's actual mechanic.
-  if (gameState.myTurn && gameState.breakTaken && !gameState.placingCueBall && !gameState.gameOver) {
-    gameState.calledPocket = null;
-    gameState.callingShot = true;
-  } else {
-    gameState.callingShot = false;
-  }
   updateUI(); updateMessage();
+  lastSimAngle = null; // ball layout may have changed since the last aim - force a fresh preview
   if (!gameState.myTurn && (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot))) {
     if (!gameState.botTurnPending) {
       gameState.botTurnPending = true;
@@ -2740,26 +2239,8 @@ function simulateAim(cueBall, angle, power, spin) {
   const savedEndTurn = endTurn;
   const savedHandlePocket = handlePocket;
   const savedBallsMoving = gameState.ballsMoving;
-  const savedResolveShotOutcome = resolveShotOutcome;
-  // The trajectory preview runs the real physics engine internally to
-  // compute where the balls would actually go - which means it also
-  // runs through every real collision-detection codepath, including
-  // the ones that play sound effects. These must be isolated too, or
-  // every single frame of simply aiming (not shooting) would play a
-  // real clack/thud/pocket sound for each simulated collision.
-  const savedPoolPlayClack = poolPlayClack;
-  const savedPoolPlayClackForBall = poolPlayClackForBall;
-  const savedPoolPlayRailThud = poolPlayRailThud;
-  const savedPoolPlayRailThudForBall = poolPlayRailThudForBall;
-  const savedPoolPlayPocketSound = poolPlayPocketSound;
-  poolPlayClack = () => {};
-  poolPlayClackForBall = () => {};
-  poolPlayRailThud = () => {};
-  poolPlayRailThudForBall = () => {};
-  poolPlayPocketSound = () => {};
 
   endTurn = () => {};
-  resolveShotOutcome = () => {};
   handlePocket = (ball) => {
     ball.pocketed = true;
     ball.vx = 0; ball.vy = 0;
@@ -2835,31 +2316,22 @@ function simulateAim(cueBall, angle, power, spin) {
 
   balls = savedBalls;
   endTurn = savedEndTurn;
-  resolveShotOutcome = savedResolveShotOutcome;
   handlePocket = savedHandlePocket;
-  poolPlayClack = savedPoolPlayClack;
-  poolPlayClackForBall = savedPoolPlayClackForBall;
-  poolPlayRailThud = savedPoolPlayRailThud;
-  poolPlayRailThudForBall = savedPoolPlayRailThudForBall;
-  poolPlayPocketSound = savedPoolPlayPocketSound;
   gameState.ballsMoving = savedBallsMoving;
 
   return { cuePath, targetPath, targetBallId, collisionFrame };
 }
 
+let lastSimAngle = null;
+let lastSimPower = null;
+let lastSimSpinX = null;
+let lastSimSpinY = null;
 let simCache = null;
-
-let lastSimAngle = null, lastSimPower = null, lastSimSpinX = null, lastSimSpinY = null;
 
 function renderAimGuidance(cueBall) {
   try {
     const angle = gameState.aimAngle || 0;
-    if (!isFinite(angle)) {
-      if (isAiming || gameState.aimPhase) {
-        poolShowFoulNotification('Aim Guide Disappeared', 'Reason: aimAngle is not a finite number (value=' + gameState.aimAngle + '). [isAiming=' + isAiming + ' aimPhase=' + gameState.aimPhase + ']');
-      }
-      return;
-    }
+    if (!isFinite(angle)) return;
 
     const power = gameState.powerPhase ? (gameState.power / 100) * MAX_POWER : MAX_POWER * 0.5;
     const spin = gameState.spin || {x: 0, y: 0};
@@ -2873,12 +2345,7 @@ function renderAimGuidance(cueBall) {
       simCache = simulateAim(cueBall, angle, power, spin);
     }
 
-    if (!simCache) {
-      if (isAiming || gameState.aimPhase) {
-        poolShowFoulNotification('Aim Guide Disappeared', 'Reason: simulateAim() returned nothing (simCache is empty right after a recompute). [angle=' + angle.toFixed(3) + ' power=' + power.toFixed(1) + ' isAiming=' + isAiming + ' aimPhase=' + gameState.aimPhase + ']');
-      }
-      return;
-    }
+    if (!simCache) return;
     const { cuePath, targetPath, targetBallId, collisionFrame } = simCache;
     const targetBall = targetBallId !== null ? balls.find(b => b.id === targetBallId) : null;
 
@@ -3069,9 +2536,6 @@ function renderAimGuidance(cueBall) {
     }
   } catch (e) {
     console.error('renderAimGuidance error:', e);
-    if (isAiming || gameState.aimPhase) {
-      poolShowFoulNotification('Aim Guide Disappeared', 'Reason: an error was thrown while rendering: ' + e.message + '. [isAiming=' + isAiming + ' aimPhase=' + gameState.aimPhase + ']');
-    }
   }
 }
 
@@ -3096,15 +2560,6 @@ function drawMotionTrail(ball) {
 }
 
 function render() {
-  // Absolute guard: until the break has strictly, definitively happened
-  // (checked every single frame, not just at specific setters), the
-  // calling system cannot be active - self-corrects any stray state
-  // from anywhere, rather than trusting individual setters to always
-  // get this right.
-  if (gameState && gameState.breakTaken !== true) {
-    gameState.calledPocket = null;
-    gameState.callingShot = false;
-  }
   ctx.clearRect(0, 0, TABLE_WIDTH, TABLE_HEIGHT);
 
   // === TABLE FELT - Tournament Blue ===
@@ -3335,27 +2790,6 @@ function render() {
     ctx.restore();
   }
 
-  // === CALLED SHOT HIGHLIGHT === hard-guarded: can never draw before
-  // the break has actually happened, regardless of what set calledPocket.
-  if (gameState.breakTaken && gameState.calledPocket !== null) {
-    const p = pockets[gameState.calledPocket];
-    if (p) {
-      ctx.save();
-      const pulse = 0.5 + 0.35 * Math.sin(performance.now() / 220);
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, POCKET_RADIUS + 10, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,215,0,' + pulse.toFixed(3) + ')';
-      ctx.lineWidth = 4;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, POCKET_RADIUS + 4, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-
   // === DRAW ALL OBJECT BALLS (behind cue ball, on top of pockets) ===
   for (const ball of balls) {
     if (ball.number === 0) continue; // cue ball is always rendered by its own separate path, not here
@@ -3383,25 +2817,9 @@ function render() {
   }
 
   // === AIM GUIDANCE (player-only trajectory assist) ===
-  const aimGuideShouldShow = gameState.myTurn && !gameState.ballsMoving && !gameState.gameOver && cueBall && !cueBall.pocketed;
-  if (aimGuideShouldShow) {
-    renderAimGuidance(cueBall);
+  if (gameState.myTurn && !gameState.ballsMoving && !gameState.gameOver) {
+    if (cueBall && !cueBall.pocketed) renderAimGuidance(cueBall);
   }
-  // Detect the exact moment the guide disappears while the player still
-  // seems to be actively aiming - shows a popup with precisely which
-  // condition changed, since this has been extremely hard to catch any
-  // other way.
-  if (window.__aimGuideWasShowing && !aimGuideShouldShow && (isAiming || gameState.aimPhase)) {
-    const reasons = [];
-    if (!gameState.myTurn) reasons.push('myTurn became false');
-    if (gameState.ballsMoving) reasons.push('ballsMoving became true');
-    if (gameState.gameOver) reasons.push('gameOver became true');
-    if (!cueBall) reasons.push('cueBall reference is missing');
-    else if (cueBall.pocketed) reasons.push('cueBall.pocketed became true');
-    if (reasons.length === 0) reasons.push('unknown - none of the tracked conditions changed');
-    poolShowFoulNotification('Aim Guide Disappeared', 'Reason: ' + reasons.join(', ') + '. [isAiming=' + isAiming + ' aimPhase=' + gameState.aimPhase + ' aimLocked=' + gameState.aimLocked + ' powerPhase=' + gameState.powerPhase + ' shotCounter=' + gameState.shotCounter + ']');
-  }
-  window.__aimGuideWasShowing = aimGuideShouldShow;
   // === CUE STICK (visible on both the player's and the bot's turn, so bot shots are visible) ===
   if (!gameState.ballsMoving && !gameState.gameOver) {
     if (cueBall && !cueBall.pocketed && (gameState.myTurn || gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot && !gameState.myTurn))) {
@@ -3770,18 +3188,6 @@ function simulateBotShot(cueBallX, cueBallY, angle, power, spinX, spinY) {
   const savedEndTurn = endTurn;
   const savedHandlePocket = handlePocket;
   const savedBallsMoving = gameState.ballsMoving;
-  const savedResolveShotOutcome = resolveShotOutcome;
-  const savedPoolPlayClack = poolPlayClack;
-  const savedPoolPlayClackForBall = poolPlayClackForBall;
-  const savedPoolPlayRailThud = poolPlayRailThud;
-  const savedPoolPlayRailThudForBall = poolPlayRailThudForBall;
-  const savedPoolPlayPocketSound = poolPlayPocketSound;
-  poolPlayClack = () => {};
-  poolPlayClackForBall = () => {};
-  poolPlayRailThud = () => {};
-  poolPlayRailThudForBall = () => {};
-  poolPlayPocketSound = () => {};
-  resolveShotOutcome = () => {};
   endTurn = () => {};
   handlePocket = (ball) => { ball.pocketed = true; ball.vx = 0; ball.vy = 0; ball.spinX = 0; ball.spinY = 0; };
   gameState.ballsMoving = true;
@@ -3808,10 +3214,7 @@ function simulateBotShot(cueBallX, cueBallY, angle, power, spinX, spinY) {
     }
     if (allStopped) break;
   }
-  balls = savedBalls; endTurn = savedEndTurn; handlePocket = savedHandlePocket; resolveShotOutcome = savedResolveShotOutcome; gameState.ballsMoving = savedBallsMoving;
-  poolPlayClack = savedPoolPlayClack; poolPlayClackForBall = savedPoolPlayClackForBall;
-  poolPlayRailThud = savedPoolPlayRailThud; poolPlayRailThudForBall = savedPoolPlayRailThudForBall;
-  poolPlayPocketSound = savedPoolPlayPocketSound;
+  balls = savedBalls; endTurn = savedEndTurn; handlePocket = savedHandlePocket; gameState.ballsMoving = savedBallsMoving;
   return { pocketedBalls, cueBallEnd, cueBallPocketed };
 }
 
@@ -3835,44 +3238,9 @@ function evaluateCuePosition(cueX, cueY, botGroup, botBallsLeft) {
   return bestNextScore;
 }
 
-// Best-effort call for a blind/desperate shot where the bot's own
-// targeting logic found no real candidate - picks whichever of the
-// bot's own legal balls is closest to any pocket.
-function pickFallbackCall(botGroup, botBallsLeft) {
-  const onEight = botGroup !== null && botBallsLeft === 0;
-  let legalBalls = balls.filter(b => !b.pocketed && b.number !== 0 && (
-    onEight ? b.number === 8
-      : botGroup === null ? true
-      : botGroup === 'solids' ? b.number <= 7
-      : b.number > 7 || b.number === 8
-  ));
-  if (legalBalls.length === 0) legalBalls = balls.filter(b => !b.pocketed && b.number !== 0);
-  if (legalBalls.length === 0) return null;
-  let best = null, bestDist = Infinity, bestPocketIdx = 0;
-  for (const b of legalBalls) {
-    for (let i = 0; i < pockets.length; i++) {
-      const d = Math.hypot(pockets[i].x - b.x, pockets[i].y - b.y);
-      if (d < bestDist) { bestDist = d; best = b; bestPocketIdx = i; }
-    }
-  }
-  return best ? { ball: best.number, pocket: bestPocketIdx } : null;
-}
 function botTurn() {
   if (gameState.gameOver) return;
-  if (gameState.myTurn) {
-    // Hard stop: this must never run unless it's genuinely the
-    // opponent's turn, no matter what caused this to be invoked - it
-    // must never be able to choose a pocket or take any action on the
-    // human player's behalf.
-    return;
-  }
-  // botDifficulty is only ever set by the local "Play vs Bots" flow.
-  // The separate online-room "Add Bot Opponent" flow syncs the real
-  // selected difficulty into opponentBotDifficulty instead - without
-  // this branch, an online-room bot always silently played on Easy's
-  // config regardless of what difficulty was actually picked in the UI.
-  const effectiveDifficulty = (gameMode === 'p2p' && opponentIsBot) ? opponentBotDifficulty : botDifficulty;
-  const config = BOT_CONFIG[effectiveDifficulty] || BOT_CONFIG.easy;
+  const config = BOT_CONFIG[botDifficulty] || BOT_CONFIG.easy;
   opponentName = config.name;
   document.getElementById('p2Name').textContent = config.name;
   const cueBall = balls[0];
@@ -3889,10 +3257,6 @@ function botTurn() {
     const powerPct = config.powerMinPct + Math.random() * (config.powerMaxPct - config.powerMinPct);
     const power = pctToPower(powerPct);
     const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
-    if (gameState.breakTaken) {
-      const fb = pickFallbackCall(botGroup, botBallsLeft);
-      if (fb) gameState.calledPocket = fb.pocket;
-    }
     botAnimateAndShoot(gameState.aimAngle, power, {x:0,y:0}, thinkTime);
     return;
   }
@@ -3924,8 +3288,8 @@ function botTurn() {
         }
       }
       if (!path) continue;
-      const firstSeg = path[0];
-      const aimAngle = Math.atan2(firstSeg.y2 - firstSeg.y1, firstSeg.x2 - firstSeg.x1);
+      const finalSeg = path[path.length - 1];
+      const aimAngle = Math.atan2(finalSeg.y2 - finalSeg.y1, finalSeg.x2 - finalSeg.x1);
       let pathLength = 0;
       for (const seg of path) pathLength += Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1);
       const pocketDist = Math.hypot(pocket.x - ball.x, pocket.y - ball.y);
@@ -3948,17 +3312,12 @@ function botTurn() {
       const fallback = findEightBallDirectShot(cueBall);
       if (fallback) {
         const powerPct = Math.max(config.powerMinPct, Math.min(config.powerMaxPct, estimateShotPowerPct(fallback.dist, fallback.pocketDist)));
-        if (gameState.breakTaken) gameState.calledPocket = pockets.indexOf(fallback.pocket);
         botAnimateAndShoot(fallback.aimAngle, pctToPower(powerPct), {x:0,y:0}, thinkTime);
         return;
       }
     }
     gameState.aimAngle = Math.random() * Math.PI * 2;
     const powerPct = config.powerMinPct + Math.random() * (config.powerMaxPct - config.powerMinPct);
-    if (gameState.breakTaken) {
-      const fb = pickFallbackCall(botGroup, botBallsLeft);
-      if (fb) gameState.calledPocket = fb.pocket;
-    }
     botAnimateAndShoot(gameState.aimAngle, pctToPower(powerPct), {x:0,y:0}, thinkTime);
     return;
   }
@@ -4011,17 +3370,12 @@ function botTurn() {
       const fallback = findEightBallDirectShot(cueBall);
       if (fallback) {
         const powerPct = Math.max(config.powerMinPct, Math.min(config.powerMaxPct, estimateShotPowerPct(fallback.dist, fallback.pocketDist)));
-        if (gameState.breakTaken) gameState.calledPocket = pockets.indexOf(fallback.pocket);
         botAnimateAndShoot(fallback.aimAngle, pctToPower(powerPct), {x:0,y:0}, config.thinkTimeMin);
         return;
       }
     }
     gameState.aimAngle = Math.random() * Math.PI * 2;
     const powerPct = config.powerMinPct + Math.random() * (config.powerMaxPct - config.powerMinPct);
-    if (gameState.breakTaken) {
-      const fb = pickFallbackCall(botGroup, botBallsLeft);
-      if (fb) gameState.calledPocket = fb.pocket;
-    }
     botAnimateAndShoot(gameState.aimAngle, pctToPower(powerPct), {x:0,y:0}, config.thinkTimeMin);
     return;
   }
@@ -4034,9 +3388,6 @@ function botTurn() {
   power = Math.max(pctToPower(Math.max(5, config.powerMinPct * 0.5)), Math.min(pctToPower(config.powerMaxPct), power));
   const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
   const spin = config.useSpin ? { x: bestShot.spinX, y: bestShot.spinY } : { x: 0, y: 0 };
-  if (gameState.breakTaken) {
-    gameState.calledPocket = pockets.indexOf(bestShot.pocket);
-  }
   botAnimateAndShoot(gameState.aimAngle, power, spin, thinkTime);
 }
 
@@ -4217,8 +3568,7 @@ function showGameOver() {
   if (iWon) matchTally.me++; else matchTally.opp++;
   document.getElementById('gameOverTitle').textContent = iWon ? 'You Win!' : 'You Lose!';
   document.getElementById('gameOverTitle').style.color = iWon ? 'var(--success)' : 'var(--danger)';
-  const reasonSuffix = gameState.gameOverReason ? ' — ' + gameState.gameOverReason : '';
-  document.getElementById('gameOverText').textContent = gameState.winner + ' wins this game' + reasonSuffix + '! Score: ' + matchTally.me + ' - ' + matchTally.opp;
+  document.getElementById('gameOverText').textContent = gameState.winner + ' wins this game! Score: ' + matchTally.me + ' - ' + matchTally.opp;
   updateUI();
   showOverlay('gameOverOverlay');
 }
@@ -4238,39 +3588,13 @@ function backToMenu() {
   exitFullscreen();
 }
 
-function handlePoolRestart() {
-  const activeGameInProgress = gameState && gameState.phase === 'playing';
-  const msg = gameMode === 'p2p' && activeGameInProgress
-    ? 'Restart this game? Both players will start over from scratch with a new random break.'
-    : 'Restart this game? Your current progress will be lost.';
-  poolConfirm(msg, restartGame);
-}
-function restartGame() {
-  closeOverlay('gameOverOverlay');
-  const iBreakFirst = Math.random() < 0.5;
-  if (gameMode === 'p2p' && poolSocket && poolMyTableId) poolSocket.emit('pool_restart', { hostBreaksFirst: isHost ? iBreakFirst : !iBreakFirst });
-  initGame();
-  gameState.myTurn = iBreakFirst;
-  if (gameState.myTurn) {
-    enterCuePlacement(true);
-  } else {
-    const btn = document.getElementById('placeBallBtn');
-    if (btn) btn.style.display = 'none';
-  }
-  startTurn();
-}
 function rematch() {
   closeOverlay('gameOverOverlay');
-  const winnerBreaksFirst = gameState.winner === myName;
-  if (gameMode === 'p2p' && poolSocket && poolMyTableId) poolSocket.emit('pool_rematch', { winnerBreaksFirst });
+  if (gameMode === 'p2p' && poolSocket && poolMyTableId) poolSocket.emit('pool_rematch');
   initGame();
-  gameState.myTurn = winnerBreaksFirst; // the winner of the last game always breaks next
-  if (gameState.myTurn) {
-    enterCuePlacement(true);
-  } else {
-    const btn = document.getElementById('placeBallBtn');
-    if (btn) btn.style.display = 'none'; // may still be visually showing from an earlier game where this player did place the ball
-  }
+  if (gameMode === 'bot') gameState.myTurn = true;
+  else gameState.myTurn = isHost;
+  if (gameState.myTurn) enterCuePlacement(true);
   startTurn();
 }
 
@@ -4279,17 +3603,6 @@ function gameLoop() {
   updatePhysics();
   render();
   animationId = requestAnimationFrame(gameLoop);
-}
-// Ensures exactly one gameLoop is ever running, no matter how many times
-// or from how many different entry points (fresh start, reconnect,
-// restart, rematch) this gets called - starting a second one without
-// cancelling the first would mean two independent physics loops running
-// concurrently against the same shared ball state, each calling
-// resolveShotOutcome/endTurn on their own, which can corrupt state in
-// ways that are very hard to trace after the fact.
-function poolStartGameLoop() {
-  if (animationId !== null) { cancelAnimationFrame(animationId); animationId = null; }
-  gameLoop();
 }
 
 // ==================== INIT ====================
