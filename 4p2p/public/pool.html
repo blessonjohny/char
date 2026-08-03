@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-exact-reference-match</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-midgesture-fix</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -2468,23 +2468,30 @@ function autoPlaceCueBallForBot() {
 
 
 function startTurn() {
-  // Hard reset of every aim/power-related piece of state, every single
-  // turn, no exceptions - guarantees nothing left over from the
-  // previous shot (a stuck power pull, a lingering power-meter sound
-  // or visual, a stale power history reading) can ever carry into the
-  // next turn, regardless of how the previous shot actually ended.
-  isAiming = false; aimTouchId = null;
-  leverActive = false;
-  gameState.aiming = false;
-  gameState.pulling = false;
-  gameState.powerPhase = false;
-  gameState.power = 0;
-  gameState.powerHistory = [];
-  lastSimAngle = null; // ball layout may have changed since the last aim - force a fresh preview
-  const powerHudEl = document.getElementById('powerHud');
-  if (powerHudEl) powerHudEl.classList.remove('show');
-  const leverEl = document.getElementById('powerLever');
-  if (leverEl) leverEl.classList.remove('active');
+  // Hard reset of every aim/power-related piece of state - but only
+  // when this is genuinely a new turn beginning, never when the player
+  // is still actively mid-gesture on what is still their own turn. A
+  // redundant or late-arriving call to startTurn() (a duplicate network
+  // sync event, for example) must never be able to interrupt an
+  // in-progress aim or power pull - doing so would freeze the aim
+  // guide mid-drag (since finger movement would stop updating it once
+  // isAiming was forced false) and make it look like it silently
+  // disappeared a moment later.
+  const isMidGestureOnOwnTurn = gameState.myTurn && (isAiming || gameState.powerPhase);
+  if (!isMidGestureOnOwnTurn) {
+    isAiming = false; aimTouchId = null;
+    leverActive = false;
+    gameState.aiming = false;
+    gameState.pulling = false;
+    gameState.powerPhase = false;
+    gameState.power = 0;
+    gameState.powerHistory = [];
+    lastSimAngle = null; // ball layout may have changed since the last aim - force a fresh preview
+    const powerHudEl = document.getElementById('powerHud');
+    if (powerHudEl) powerHudEl.classList.remove('show');
+    const leverEl = document.getElementById('powerLever');
+    if (leverEl) leverEl.classList.remove('active');
+  }
 
   // Only the literal break shot is exempt from calling - every shot
   // after it, regardless of table/group state, requires tapping a
