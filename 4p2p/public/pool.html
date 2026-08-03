@@ -176,7 +176,7 @@
   <a href="/" style="position:absolute;top:14px;left:14px;color:#aaa;text-decoration:none;font-size:13px;z-index:5">⬅ Home</a>
   <div class="logo">8-BALL POOL</div>
   <div class="subtitle">Online - Real Physics - Mobile Ready</div>
-  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-guide-rewrite</div>
+  <div style="font-size:9px;color:#555;margin-top:-8px;margin-bottom:8px">build 2026-08-03-guide-deflection</div>
   <div class="mode-select">
     <div class="mode-btn active" data-mode="p2p" onclick="selectMode('p2p')">Online P2P</div>
   </div>
@@ -2729,6 +2729,25 @@ function simulateAim(cueBall, angle, power, spin) {
   const railXMin = MARGIN + BALL_RADIUS, railXMax = TABLE_WIDTH - MARGIN - BALL_RADIUS;
   const railYMin = MARGIN + BALL_RADIUS, railYMax = TABLE_HEIGHT - MARGIN - BALL_RADIUS;
 
+  // How far the projected lines extend scales with how hard the shot
+  // is - a light tap shows short lines, a full pull shows long ones,
+  // same as pulling back further would actually send the balls
+  // further in real play.
+  const powerRatio = Math.max(0, Math.min(1, power / MAX_POWER));
+  const previewLength = 50 + powerRatio * 260;
+
+  // Casts a straight ray from a point and returns how far it travels
+  // before hitting a rail, capped at maxDist - reused for both the
+  // target ball's path and the cue ball's own post-collision path.
+  function castToRail(px, py, ndx, ndy, maxDist) {
+    let t = maxDist;
+    if (ndx > 0.0001) t = Math.min(t, (railXMax - px) / ndx);
+    if (ndx < -0.0001) t = Math.min(t, (railXMin - px) / ndx);
+    if (ndy > 0.0001) t = Math.min(t, (railYMax - py) / ndy);
+    if (ndy < -0.0001) t = Math.min(t, (railYMin - py) / ndy);
+    return Math.max(0, t);
+  }
+
   let bestT = Infinity;
   let targetBallId = null;
 
@@ -2760,16 +2779,32 @@ function simulateAim(cueBall, angle, power, spin) {
   if (targetBallId !== null) {
     const targetBall = balls.find(b => b.id === targetBallId);
     if (targetBall) {
-      // Simple ghost-ball direction: the target ball travels away from
-      // the cue ball's contact point, straight through the target
-      // ball's own center, for a fixed visual distance.
-      const tdx = targetBall.x - hitX, tdy = targetBall.y - hitY;
-      const tlen = Math.hypot(tdx, tdy) || 1;
-      const nx = tdx / tlen, ny = tdy / tlen;
+      // Collision normal: the direction from the contact point straight
+      // through the target ball's center - this is the direction the
+      // struck ball travels (real pool physics: for a stun shot, the
+      // impulse transfers entirely along this line).
+      const ndx = targetBall.x - hitX, ndy = targetBall.y - hitY;
+      const nlen = Math.hypot(ndx, ndy) || 1;
+      const nx = ndx / nlen, ny = ndy / nlen;
+      const targetDist = castToRail(targetBall.x, targetBall.y, nx, ny, previewLength);
       targetPath = [
         {x: targetBall.x, y: targetBall.y},
-        {x: targetBall.x + nx * 120, y: targetBall.y + ny * 120}
+        {x: targetBall.x + nx * targetDist, y: targetBall.y + ny * targetDist}
       ];
+
+      // Cue ball's own deflection after the hit: the classic pool
+      // "90-degree rule" for a stun shot (no follow/draw spin) - the
+      // cue ball continues along whatever part of its incoming
+      // direction was NOT transferred into the target ball, which is
+      // the component perpendicular to the collision normal above.
+      const proj = dx * nx + dy * ny;
+      let tdx = dx - proj * nx, tdy = dy - proj * ny;
+      const tlen = Math.hypot(tdx, tdy);
+      if (tlen > 0.001) {
+        tdx /= tlen; tdy /= tlen;
+        const cueDeflectDist = castToRail(hitX, hitY, tdx, tdy, previewLength * (1 - Math.abs(proj)) + 20);
+        cuePath.push({x: hitX + tdx * cueDeflectDist, y: hitY + tdy * cueDeflectDist});
+      }
     }
   }
 
