@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>28 Card Game Online Free – Play Kerala Gulan (Eripathettu, Thuruppu Gulan)</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <meta name="description" content="28 — also called Gulan, Twenty Eight, Kerala 28, Eripathettu, Thuruppu Gulan or Irupathiyettu — is Kerala's classic trick-taking card game. Learn the rules, the history, and play 28 online free with live voice chat, no download needed.">
 <meta name="keywords" content="28, 28 gulan, 28gulan, kerala gulan, thuruppu gulan, play 28 online, 28 card game, play cards online, gulan, gulan online, play gulan online, indian card game, kerala card game, kerala 28, 28 kerala, eripathettu, twenty eight, twentyeight, irupathiyettu, 28 online multiplayer, card game kerala, play 28 offline, learn 28">
 <meta name="robots" content="index, follow, max-image-preview:large">
@@ -156,28 +160,10 @@ a{color:inherit}
 .btn-secondary:hover{border-color:var(--gold-light)}
 
 /* ---------- the jack card, signature element ---------- */
-.jack-card{
-  width:200px;aspect-ratio:5/7;margin:0 auto;
-  background:var(--cream);
-  border-radius:10px;
-  box-shadow:0 30px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(201,162,39,0.4);
-  position:relative;
-  transform:rotate(-4deg);
-  padding:16px;
-  display:flex;flex-direction:column;justify-content:space-between;
-}
-.jack-corner{font-family:'Fraunces',serif;font-weight:700;color:var(--terracotta);line-height:0.95}
-.jack-corner .letter{font-size:1.7rem;display:block}
-.jack-corner .suit{font-size:1.3rem}
-.jack-corner.bottom{align-self:flex-end;transform:rotate(180deg)}
-.jack-center{
-  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  text-align:center;
-}
-.jack-center .big-suit{font-size:3.4rem;color:var(--terracotta);display:block;line-height:1}
-.jack-center .gulan-label{
-  font-family:'Karla',sans-serif;font-weight:700;font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;
-  color:var(--gold);margin-top:6px;display:block;
+.jack-card-img{
+  width:100%;max-width:320px;display:block;margin:0 auto;
+  filter:drop-shadow(0 30px 60px rgba(0,0,0,0.5));
+  transform:rotate(-2deg);
 }
 .jack-glow{
   position:absolute;inset:-40px;
@@ -244,7 +230,7 @@ footer a{color:var(--gold-light);text-decoration:none}
   .hero-grid{grid-template-columns:1fr;text-align:center}
   .hero-sub{margin-left:auto;margin-right:auto}
   .hero-ctas{justify-content:center}
-  .jack-card{margin-top:20px}
+  .jack-card-img{margin-top:20px;max-width:240px}
 }
 </style>
 </head>
@@ -268,14 +254,7 @@ footer a{color:var(--gold-light);text-decoration:none}
     </div>
     <div style="position:relative">
       <div class="jack-glow"></div>
-      <div class="jack-card">
-        <div class="jack-corner"><span class="letter">J</span><span class="suit">♠</span></div>
-        <div class="jack-center">
-          <span class="big-suit">♠</span>
-          <span class="gulan-label">The Gulan</span>
-        </div>
-        <div class="jack-corner bottom"><span class="letter">J</span><span class="suit">♠</span></div>
-      </div>
+      <img src="/images/jack-card.png" alt="Jack of Spades — the Gulan — 28 Kerala Gulan card game" class="jack-card-img">
     </div>
   </div>
 </section>
