@@ -5081,8 +5081,8 @@ function updateInfo() {
     }
     const yourQEl = document.getElementById('yourQTotal');
     const oppQEl = document.getElementById('oppQTotal');
-    if (yourQEl) { yourQEl.style.display = yourQTotal > 0 ? 'inline-flex' : 'none'; yourQEl.textContent = yourQTotal + 'Q'; }
-    if (oppQEl) { oppQEl.style.display = oppQTotal > 0 ? 'inline-flex' : 'none'; oppQEl.textContent = oppQTotal + 'Q'; }
+    if (yourQEl) { yourQEl.style.display = 'inline-flex'; yourQEl.textContent = yourQTotal + 'Q'; }
+    if (oppQEl) { oppQEl.style.display = 'inline-flex'; oppQEl.textContent = oppQTotal + 'Q'; }
   }
 
   const yourDiff = yScore - oScore;
