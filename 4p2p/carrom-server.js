@@ -723,6 +723,7 @@ io.on('connection', (socket) => {
   // independently-simulated guess -- same principle as Carrom's live
   // shot streaming: nobody re-simulates, they just render what's sent.
   socket.on('pool_liveAim', (data) => poolRelay('pool_liveAim', data));
+  socket.on('pool_callShot', (data) => poolRelay('pool_callShot', data));
   socket.on('pool_liveShot', (data) => poolRelay('pool_liveShot', data));
   socket.on('pool_requestBoardSync', () => poolRelay('pool_requestBoardSync', {}));
   socket.on('pool_boardSync', (data) => poolRelay('pool_boardSync', data));

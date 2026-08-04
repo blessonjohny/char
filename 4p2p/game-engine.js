@@ -282,6 +282,12 @@ class GameEngine {
     // exact rule, including the first-hand-of-a-new-championship
     // exception where a successful bidder's partner can shed one too.
     this.qMarks = {};
+    // Cumulative running total of Qunique marks ever acquired, per
+    // player, for this table's whole lifetime - unlike qMarks above,
+    // this NEVER decreases when a Q gets shed by winning a bid. Only
+    // resets on a genuine new game (constructor or restartGame()), not
+    // on shedding a Q or starting a new championship.
+    this.qTotalEver = {};
     this.isFirstHandOfChampionship = true;
     // Partner bidding signals: a human tells their partner (bot or
     // human) how to approach the NEXT hand's bidding relative to normal
@@ -514,6 +520,7 @@ class GameEngine {
     this.championshipNumber = 1;
     this.kingStreak = [0, 0];
     this.qMarks = {};
+    this.qTotalEver = {};
     this.isFirstHandOfChampionship = true;
     this.lastChampionshipResult = null;
     this.round = 0;
@@ -1115,6 +1122,7 @@ class GameEngine {
         const s = this.seats[i];
         if (!s || getTeam(i) !== losingTeam) continue;
         this.qMarks[s.name] = (this.qMarks[s.name] || 0) + 1;
+        this.qTotalEver[s.name] = (this.qTotalEver[s.name] || 0) + 1;
       }
       this.addLog(`Team ${losingTeam} shut out — every player picks up a Q.`);
       // Start the next championship: reset the match score, keep everyone
@@ -1910,6 +1918,7 @@ class GameEngine {
       teamPoints: this.teamPoints,
       gameScore: this.gameScore,
       qMarks: this.qMarks,
+      qTotalEver: this.qTotalEver,
       partnerSignals: this.partnerSignals,
       championshipNumber: this.championshipNumber,
       kingStreak: this.kingStreak,
