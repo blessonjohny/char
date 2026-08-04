@@ -4,7 +4,13 @@
     <loc>https://28gulan.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-08-04</lastmod>
+  </url>
+  <url>
+    <loc>https://28gulan.com/kerala-28-gulan-guide.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <lastmod>2026-08-04</lastmod>
   </url>
   <url>
     <loc>https://28gulan.com/six.html</loc>
