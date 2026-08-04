@@ -674,6 +674,9 @@ function poolConnect() {
     opponentAimAngle = data.angle;
     opponentPower = data.power || 0;
   });
+  poolSocket.on('pool_callShot', (data) => {
+    gameState.calledPocket = data.calledPocket;
+  });
   poolSocket.on('pool_shot', () => {
     // Signals a shot has started -- no initial velocity applied here.
     // The actual motion arrives via the pool_liveShot stream below,
@@ -1124,7 +1127,8 @@ function initGame() {
     power: 0, aimAngle: 0, lastAimAngle: undefined, spin: { x: 0, y: 0 }, ballsMoving: false, gameOver: false,
     winner: null, firstShot: true, groupAssigned: false, justPocketed: [],
     aimPhase: true, aimLocked: false, powerPhase: false,
-    botTurnPending: false, placingCueBall: false, placementKitchenOnly: false
+    botTurnPending: false, placingCueBall: false, placementKitchenOnly: false,
+    breakTaken: false, thisShotIsBreak: false, calledPocket: null, callingShot: false, calledShotMade: false, pocketedInto: {}
   };
   updateUI();
 }
@@ -1233,6 +1237,11 @@ function updateMessage() {
   if (gameState.gameOver) { badge.style.display = 'none'; msg.textContent = 'Game Over!'; return; }
   if (gameState.ballsMoving) { badge.style.display = 'none'; msg.textContent = 'Balls rolling...'; return; }
   if (!gameState.myTurn) { badge.style.display = 'none'; msg.textContent = gameMode === 'bot' ? 'Bot is thinking...' : 'Waiting for opponent...'; return; }
+  if (gameState.callingShot) {
+    badge.className = 'phase-badge aim'; badge.style.display = 'inline-block'; badge.textContent = 'CALL SHOT';
+    msg.textContent = 'Tap the pocket you\u2019re calling';
+    return;
+  }
   if (gameState.placingCueBall) {
     badge.className = 'phase-badge aim'; badge.style.display = 'inline-block'; badge.textContent = 'PLACE BALL';
     msg.textContent = gameState.placementKitchenOnly
@@ -1257,6 +1266,28 @@ function updateMessage() {
   }
 }
 
+// Handles one tap/click during the pre-shot calling phase - tap the
+// pocket you're calling, that's the whole interaction.
+function handleCallShotTap(pos) {
+  if (!gameState.callingShot) return false;
+  const tapRadius = POCKET_RADIUS * 1.8;
+  let picked = null, pickedDist = Infinity;
+  for (let i = 0; i < pockets.length; i++) {
+    const p = pockets[i];
+    const d = Math.hypot(pos.x - p.x, pos.y - p.y);
+    if (d < tapRadius && d < pickedDist) { picked = i; pickedDist = d; }
+  }
+  if (picked !== null) {
+    gameState.calledPocket = picked;
+    gameState.callingShot = false;
+    if (poolSocket && poolMyTableId && gameMode === 'p2p' && gameState.myTurn) {
+      poolSocket.emit('pool_callShot', { calledPocket: picked });
+    }
+    updateMessage();
+    return true;
+  }
+  return false;
+}
 function handleTouchStart(e) {
   if (e.touches.length === 2) {
     e.preventDefault();
@@ -1273,6 +1304,10 @@ function handleTouchStart(e) {
   if (gameState.placingCueBall) {
     isPlacingDrag = true; aimTouchId = e.touches[0].identifier;
     placeCueBallAt(pos.x, pos.y);
+    return;
+  }
+  if (gameState.callingShot) {
+    handleCallShotTap(pos);
     return;
   }
   if (gameState.aimPhase && !gameState.aimLocked) {
@@ -1299,6 +1334,10 @@ function handleMouseDown(e) {
   if (gameState.placingCueBall) {
     isPlacingDrag = true;
     placeCueBallAt(pos.x, pos.y);
+    return;
+  }
+  if (gameState.callingShot) {
+    handleCallShotTap(pos);
     return;
   }
   if (gameState.aimPhase && !gameState.aimLocked) {
@@ -1468,6 +1507,11 @@ function finishInput() {
 
 function shoot(power) {
   const cueBall = balls[0], angle = gameState.aimAngle;
+  // Captured once, right as the shot actually fires - stays correct
+  // and stable for this entire shot's physics settling, no matter how
+  // long it takes or what handlePocket sees mid-simulation.
+  gameState.thisShotIsBreak = !gameState.breakTaken;
+  gameState.breakTaken = true;
   cueBall.vx = Math.cos(angle) * power;
   cueBall.vy = Math.sin(angle) * power;
   cueBall.spinX = gameState.spin.x;
@@ -1711,7 +1755,8 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
     if (ball.vx !== 0 || ball.vy !== 0) moving = true;
 
     let pocketedThisFrame = false;
-    for (const pocket of pockets) {
+    for (let pocketIdx = 0; pocketIdx < pockets.length; pocketIdx++) {
+      const pocket = pockets[pocketIdx];
       const dx = ball.x - pocket.x, dy = ball.y - pocket.y;
       if (Math.sqrt(dx * dx + dy * dy) < POCKET_RADIUS - 2) {
         ball.pocketed = true; ball.vx = 0; ball.vy = 0; ball.spinX = 0; ball.spinY = 0;
@@ -1719,7 +1764,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
         ball.pocketAnimFromX = ball.x; ball.pocketAnimFromY = ball.y;
         ball.pocketAnimToX = pocket.x; ball.pocketAnimToY = pocket.y;
         poolPlayPocketSound();
-        handlePocket(ball);
+        handlePocket(ball, pocketIdx);
         pocketedThisFrame = true;
         break;
       }
@@ -1857,14 +1902,21 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
   return moving;
 }
 
-function handlePocket(ball) {
+function handlePocket(ball, pocketIdx) {
+  if (typeof pocketIdx === 'number') gameState.pocketedInto[ball.number] = pocketIdx;
   if (ball.number === 0) { gameState.scratch = true; gameState.foul = true; }
   else if (ball.number === 8) {
     if (!gameState.groupAssigned) { gameState.foul = true; }
     else {
       const currentPlayerGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
       const currentBallsLeft = currentPlayerGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : (7 - gameState.ballsPocketed.stripes);
-      if (currentBallsLeft === 0) gameState.winner = gameState.myTurn ? myName : opponentName;
+      // The break is fully exempt from calling, so the 8-ball can only
+      // ever legitimately go in in the same shot as the break if the
+      // group also got assigned in that very shot - in every other
+      // case, winning legitimately with the 8-ball requires it to have
+      // gone into the pocket that was actually called.
+      const calledHonored = gameState.thisShotIsBreak || (gameState.calledPocket !== null && pocketIdx === gameState.calledPocket);
+      if (currentBallsLeft === 0 && calledHonored) gameState.winner = gameState.myTurn ? myName : opponentName;
       else gameState.winner = gameState.myTurn ? opponentName : myName;
       gameState.gameOver = true;
     }
@@ -1885,6 +1937,7 @@ function endTurn() {
   if (gameState.scratch) {
     cueBall.pocketed = false; cueBall.vx = 0; cueBall.vy = 0; cueBall.spinX = 0; cueBall.spinY = 0;
     gameState.scratch = false; switchTurn();
+    gameState.calledPocket = null; gameState.calledShotMade = false;
     if (gameState.myTurn) {
       enterCuePlacement(false); // ball-in-hand: anywhere on the table
     } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
@@ -1894,18 +1947,37 @@ function endTurn() {
   }
   if (gameState.gameOver) { showGameOver(); return; }
   if (gameState.foul) {
-    gameState.foul = false; switchTurn(); startTurn(); return;
+    gameState.foul = false; switchTurn();
+    gameState.calledPocket = null; gameState.calledShotMade = false;
+    startTurn(); return;
   }
   const currentPlayerGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
   let pocketedCurrentPlayerBall = false;
-  if (currentPlayerGroup && gameState.justPocketed.length > 0) {
-    for (const num of gameState.justPocketed) { const ballGroup = num <= 7 ? 'solids' : 'stripes'; if (ballGroup === currentPlayerGroup) { pocketedCurrentPlayerBall = true; break; } }
+  if (gameState.thisShotIsBreak) {
+    // The break, and only the break, is fully exempt from calling -
+    // touch any ball, pocket any ball or balls, and the turn simply
+    // continues if anything at all went in, exactly like it always did
+    // before calling existed.
+    pocketedCurrentPlayerBall = gameState.justPocketed.length > 0;
+  } else if (currentPlayerGroup && gameState.justPocketed.length > 0) {
+    // Every shot after the break must be called: one of the player's
+    // own balls has to have actually gone into the specific pocket
+    // that was called, or it doesn't count, no matter how many balls
+    // went in or which pocket they fell into.
+    for (const num of gameState.justPocketed) {
+      const ballGroup = num <= 7 ? 'solids' : 'stripes';
+      if (ballGroup === currentPlayerGroup && gameState.calledPocket !== null && gameState.pocketedInto[num] === gameState.calledPocket) {
+        pocketedCurrentPlayerBall = true; break;
+      }
+    }
   }
+  gameState.calledShotMade = pocketedCurrentPlayerBall;
   if (gameState.groupAssigned) {
     if (!pocketedCurrentPlayerBall) switchTurn();
   } else {
     if (gameState.justPocketed.length === 0) switchTurn();
   }
+  gameState.calledPocket = null; gameState.calledShotMade = false;
   startTurn();
 }
 
@@ -2009,6 +2081,14 @@ function autoPlaceCueBallForBot() {
 
 
 function startTurn() {
+  // Every shot after the break must be called first - the break
+  // itself is the one and only exemption.
+  if (gameState.myTurn && gameState.breakTaken && !gameState.placingCueBall && !gameState.gameOver) {
+    gameState.calledPocket = null;
+    gameState.callingShot = true;
+  } else {
+    gameState.callingShot = false;
+  }
   updateUI(); updateMessage();
   lastSimAngle = null; // ball layout may have changed since the last aim - force a fresh preview
   if (!gameState.myTurn && (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot))) {
@@ -3278,6 +3358,7 @@ function botTurn() {
     const powerPct = config.powerMinPct + Math.random() * (config.powerMaxPct - config.powerMinPct);
     const power = pctToPower(powerPct);
     const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
+    if (gameState.breakTaken) gameState.calledPocket = Math.floor(Math.random() * pockets.length);
     botAnimateAndShoot(gameState.aimAngle, power, {x:0,y:0}, thinkTime);
     return;
   }
@@ -3333,12 +3414,14 @@ function botTurn() {
       const fallback = findEightBallDirectShot(cueBall);
       if (fallback) {
         const powerPct = Math.max(config.powerMinPct, Math.min(config.powerMaxPct, estimateShotPowerPct(fallback.dist, fallback.pocketDist)));
+        if (gameState.breakTaken) gameState.calledPocket = pockets.indexOf(fallback.pocket);
         botAnimateAndShoot(fallback.aimAngle, pctToPower(powerPct), {x:0,y:0}, thinkTime);
         return;
       }
     }
     gameState.aimAngle = Math.random() * Math.PI * 2;
     const powerPct = config.powerMinPct + Math.random() * (config.powerMaxPct - config.powerMinPct);
+    if (gameState.breakTaken) gameState.calledPocket = Math.floor(Math.random() * pockets.length);
     botAnimateAndShoot(gameState.aimAngle, pctToPower(powerPct), {x:0,y:0}, thinkTime);
     return;
   }
@@ -3391,12 +3474,14 @@ function botTurn() {
       const fallback = findEightBallDirectShot(cueBall);
       if (fallback) {
         const powerPct = Math.max(config.powerMinPct, Math.min(config.powerMaxPct, estimateShotPowerPct(fallback.dist, fallback.pocketDist)));
+        if (gameState.breakTaken) gameState.calledPocket = pockets.indexOf(fallback.pocket);
         botAnimateAndShoot(fallback.aimAngle, pctToPower(powerPct), {x:0,y:0}, config.thinkTimeMin);
         return;
       }
     }
     gameState.aimAngle = Math.random() * Math.PI * 2;
     const powerPct = config.powerMinPct + Math.random() * (config.powerMaxPct - config.powerMinPct);
+    if (gameState.breakTaken) gameState.calledPocket = Math.floor(Math.random() * pockets.length);
     botAnimateAndShoot(gameState.aimAngle, pctToPower(powerPct), {x:0,y:0}, config.thinkTimeMin);
     return;
   }
@@ -3409,6 +3494,7 @@ function botTurn() {
   power = Math.max(pctToPower(Math.max(5, config.powerMinPct * 0.5)), Math.min(pctToPower(config.powerMaxPct), power));
   const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
   const spin = config.useSpin ? { x: bestShot.spinX, y: bestShot.spinY } : { x: 0, y: 0 };
+  if (gameState.breakTaken) gameState.calledPocket = pockets.indexOf(bestShot.pocket);
   botAnimateAndShoot(gameState.aimAngle, power, spin, thinkTime);
 }
 
