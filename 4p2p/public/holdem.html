@@ -127,6 +127,8 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   <input class="text-input" id="nameInput" maxlength="18" placeholder="Your name">
   <button class="btn btn-gold" id="btnShowCreate">Create Table</button>
   <button class="btn btn-outline" id="btnShowJoin">Join with Code</button>
+  <button class="btn btn-outline hidden" id="btnContinuePrevious" style="display:none">▶ Continue with Previous</button>
+  <button class="btn btn-outline" id="btnBackToRooms">⬅ Back to Rooms</button>
   <div class="table-list" id="publicTableList"></div>
 </div>
 
@@ -416,6 +418,22 @@ function animateChipsToWinners(state) {
 // ---------------- Landing ----------------
 $('btnShowCreate').addEventListener('click', () => showScreen('createScreen'));
 $('btnShowJoin').addEventListener('click', () => showScreen('joinScreen'));
+// Only shown when a saved session actually exists - this is a visible,
+// explicit way to retry the rejoin (the same thing already attempted
+// silently on connect) in case that first automatic attempt didn't
+// land, without the player needing to know that's even a thing.
+if (myTableId && myPlayerId) {
+  const btnContinuePrevious = $('btnContinuePrevious');
+  btnContinuePrevious.style.display = '';
+  btnContinuePrevious.classList.remove('hidden');
+  btnContinuePrevious.addEventListener('click', () => {
+    socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
+  });
+}
+$('btnBackToRooms').addEventListener('click', () => {
+  showScreen('landingScreen');
+  socket.emit('poker_listRooms');
+});
 $('btnCreateBack').addEventListener('click', () => showScreen('landingScreen'));
 $('btnJoinBack').addEventListener('click', () => showScreen('landingScreen'));
 

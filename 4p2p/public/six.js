@@ -675,6 +675,7 @@ function connectSocket() {
     showToast(`🚧 Room Restricted for now to ${maxRooms} — will reopen in a few.`, 'lose', 4000);
   });
 }
+connectSocket(); // connect right away so every landing on this page gets logged as a visitor, not just the ones who go on to create/join a table
 
 // ---------------- Welcome / name / create / join flow ----------------
 

@@ -1105,6 +1105,7 @@ function spadesConnect() {
   });
   spadesSocket.on('spades_state', (state) => applySpadesState(state));
 }
+spadesConnect(); // connect right away so every landing on this page gets logged as a visitor, not just the ones who go on to create/join a table
 
 function renderSpadesRoomList(rooms) {
   const el = document.getElementById('publicRoomsList');
