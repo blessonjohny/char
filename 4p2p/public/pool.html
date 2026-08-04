@@ -2855,7 +2855,8 @@ function render() {
   // === POCKETS (drawn BEFORE balls, as part of the table surface - pocketing in this engine
   // is instant with no gradual sink animation, so drawing pockets on top of balls only caused
   // any ball merely resting near a pocket's corner to look permanently clipped/bitten) ===
-  for (const pocket of pockets) {
+  for (let pocketIdx = 0; pocketIdx < pockets.length; pocketIdx++) {
+    const pocket = pockets[pocketIdx];
     ctx.save();
     ctx.beginPath();
     ctx.arc(pocket.x, pocket.y, POCKET_RADIUS, 0, Math.PI * 2);
@@ -2889,6 +2890,21 @@ function render() {
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fill();
     ctx.restore();
+
+    // Called-pocket highlight - visible to both players regardless of
+    // whose turn it is, since this loop and gameState.calledPocket are
+    // both unconditional/synced.
+    if (gameState.calledPocket === pocketIdx) {
+      ctx.save();
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = 'rgba(255,215,0,0.9)';
+      ctx.beginPath();
+      ctx.arc(pocket.x, pocket.y, POCKET_RADIUS + 5, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,215,0,0.95)';
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   // === DRAW ALL OBJECT BALLS (behind cue ball, on top of pockets) ===

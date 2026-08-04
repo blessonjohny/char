@@ -660,6 +660,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .bdg-b{background:rgba(255,215,0,0.2);color:var(--accent);border:1px solid var(--accent)}
 .bdg-d{background:rgba(100,181,246,0.2);color:#64b5f6;border:1px solid #64b5f6}
 .bdg-q{background:rgba(180,60,80,0.22);color:#e08a9a;border:1px solid rgba(224,138,154,0.55)}
+.q-total-badge{display:inline-flex;align-items:center;justify-content:center;font-size:0.42rem;font-weight:800;padding:1px 3px;border-radius:3px;margin-left:3px;white-space:nowrap;background:rgba(180,60,80,0.22);color:#e08a9a;border:1px solid rgba(224,138,154,0.55);vertical-align:middle}
 
 /* ---- Big Qunique event banner (gain/shed) ---- */
 .qmark-event-overlay{
@@ -2736,9 +2737,9 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <!-- ===== TOPBAR ===== -->
 <div class="topbar" id="topBar">
   <div class="topbar-main">
-    <div class="score-box compact" id="yourScoreBox" style="justify-self:start"><span class="slabel">YOU</span><span class="sval" id="yourScore">6</span></div>
+    <div class="score-box compact" id="yourScoreBox" style="justify-self:start"><span class="slabel">YOU</span><span class="sval" id="yourScore">6</span><span class="q-total-badge" id="yourQTotal" style="display:none" title="Total Qunique acquired this game (never decreases when shed)">0Q</span></div>
     <div class="trump-chip" id="trumpReveal" style="justify-self:center">🎯 Hidden</div>
-    <div class="score-box compact" id="oppScoreBox" style="justify-self:end"><span class="slabel">OPP</span><span class="sval" id="oppScore">6</span></div>
+    <div class="score-box compact" id="oppScoreBox" style="justify-self:end"><span class="slabel">OPP</span><span class="sval" id="oppScore">6</span><span class="q-total-badge" id="oppQTotal" style="display:none" title="Total Qunique acquired this game (never decreases when shed)">0Q</span></div>
     <div class="topbar-actions" style="grid-column:1/-1">
       <button class="icon-btn" id="btnLog">📋</button>
       <button class="icon-btn" id="btnHome" title="Go Home">🏠</button>
@@ -5063,6 +5064,25 @@ function updateInfo() {
       os.classList.add('pop-anim');
       setTimeout(() => os.classList.remove('pop-anim'), 500);
     }
+  }
+
+  // Cumulative Qunique totals, summed per team to match the team score
+  // shown right next to them - this count only ever grows across the
+  // whole game, even after a Q gets shed by winning a bid.
+  {
+    const qTotals = (latestServerState && latestServerState.qTotalEver) || {};
+    const seatsNow = (latestServerState && latestServerState.seats) || [];
+    let yourQTotal = 0, oppQTotal = 0;
+    for (let p = 0; p < 4; p++) {
+      const seat = seatsNow[p];
+      if (!seat) continue;
+      const q = qTotals[seat.name] || 0;
+      if (getTeam(p) === yourTeam) yourQTotal += q; else oppQTotal += q;
+    }
+    const yourQEl = document.getElementById('yourQTotal');
+    const oppQEl = document.getElementById('oppQTotal');
+    if (yourQEl) { yourQEl.style.display = yourQTotal > 0 ? 'inline-flex' : 'none'; yourQEl.textContent = yourQTotal + 'Q'; }
+    if (oppQEl) { oppQEl.style.display = oppQTotal > 0 ? 'inline-flex' : 'none'; oppQEl.textContent = oppQTotal + 'Q'; }
   }
 
   const yourDiff = yScore - oScore;
