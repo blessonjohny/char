@@ -2403,7 +2403,7 @@ io.on('connection', (socket) => {
 });
 
 // ============================================================
-// TEXAS HOLD'EM (9-seat, Zynga-style) -- fully isolated from every
+// TEXAS HOLD'EM (9-seat) -- fully isolated from every
 // other game in this file, same spirit as the 6-player/56 sections:
 // nothing in here can affect any other table type, and nothing
 // elsewhere can affect this.
