@@ -431,8 +431,7 @@ if (myTableId && myPlayerId) {
   });
 }
 $('btnBackToRooms').addEventListener('click', () => {
-  showScreen('landingScreen');
-  socket.emit('poker_listRooms');
+  window.location.href = '/';
 });
 $('btnCreateBack').addEventListener('click', () => showScreen('landingScreen'));
 $('btnJoinBack').addEventListener('click', () => showScreen('landingScreen'));
