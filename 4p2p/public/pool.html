@@ -3,9 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="description" content="8-Ball Pool - Play online P2P pool against friends or bots. Real physics, mobile optimized.">
-<meta name="keywords" content="pool, 8 ball, online pool, p2p pool, multiplayer pool, mobile pool game">
+<meta name="description" content="Play 8-Ball Pool online free — real physics, P2P multiplayer against friends, or play offline against smart AI bots. No download, mobile optimized, play pool online or offline instantly.">
+<meta name="keywords" content="pool, 8 ball pool, play pool online, play pool offline, online pool, p2p pool, multiplayer pool, mobile pool game, free pool game, billiards online, play cards online, play games online">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://28gulan.com/pool.html">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://28gulan.com/pool.html">
+<meta property="og:title" content="8-Ball Pool Online Free — 28 Kerala Gulan">
+<meta property="og:description" content="Play 8-Ball Pool online free — real physics, P2P multiplayer or offline vs AI bots.">
+<meta property="og:site_name" content="28 Kerala Gulan">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="8-Ball Pool Online Free">
+<meta name="twitter:description" content="Play 8-Ball Pool online free — real physics, P2P multiplayer or offline vs AI bots.">
 <title>8-Ball Pool Online - P2P Multiplayer</title>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Game",
+  "name": "8-Ball Pool",
+  "url": "https://28gulan.com/pool.html",
+  "description": "Play 8-Ball Pool online free with real physics, P2P multiplayer against friends, or offline against AI bots.",
+  "genre": "Sports Game",
+  "playMode": "MultiPlayer",
+  "isAccessibleForFree": true
+}
+</script>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
@@ -3410,6 +3432,15 @@ function botTurn() {
         }
       }
       if (!path) continue;
+      // tracePath() will also happily return a path where the CUE BALL
+      // itself has to bounce off a cushion to reach the ghost-ball spot
+      // (a kick shot) whenever the straight line is blocked - and this
+      // was never being flagged as anything other than a normal direct
+      // shot, since isBank only tracks the OBJECT ball banking. A kick
+      // shot is exactly as avoidable as a bank shot when a fully-direct
+      // shot on some other ball exists, so both now count the same way.
+      const requiresCueKick = path.length > 1;
+      const requiresBounce = isBank || requiresCueKick;
       const finalSeg = path[path.length - 1];
       const aimAngle = Math.atan2(finalSeg.y2 - finalSeg.y1, finalSeg.x2 - finalSeg.x1);
       let pathLength = 0;
@@ -3418,15 +3449,17 @@ function botTurn() {
       // Bank shots on the object ball cover roughly double the real
       // distance (ball to rail, then rail to pocket) but pocketDist above
       // is still just the straight-line distance, so the power estimate
-      // would undershoot a bank badly without this adjustment.
+      // would undershoot a bank badly without this adjustment. A cue-ball
+      // kick doesn't need this adjustment since pathLength above already
+      // sums every segment of the cue ball's own actual travel distance.
       const effectivePocketDist = isBank ? pocketDist * 1.9 : pocketDist;
       const powerPct = Math.max(config.powerMinPct, Math.min(config.powerMaxPct, estimateShotPowerPct(pathLength, effectivePocketDist)));
       let basePower = pctToPower(powerPct);
-      candidates.push({ ball, pocket, aimAngle, basePower, pathLength, pocketDist, ghostX: finalGhostX, ghostY: finalGhostY, isBank });
+      candidates.push({ ball, pocket, aimAngle, basePower, pathLength, pocketDist, ghostX: finalGhostX, ghostY: finalGhostY, isBank, requiresCueKick, requiresBounce });
     }
   }
 
-  if (candidates.some(c => !c.isBank)) candidates = candidates.filter(c => !c.isBank);
+  if (candidates.some(c => !c.requiresBounce)) candidates = candidates.filter(c => !c.requiresBounce);
 
   if (candidates.length === 0) {
     const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
@@ -3485,7 +3518,7 @@ function botTurn() {
     }
     if (cand.ball.number === 8 && botBallsLeft === 0) score += 3000;
     score -= cand.pathLength * 0.2;
-    if (cand.isBank) score -= 400;
+    if (cand.requiresBounce) score -= 400;
     if (score > bestScore) { bestScore = score; bestShot = { ...cand, spinX, spinY }; }
   }
 
