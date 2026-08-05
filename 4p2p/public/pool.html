@@ -950,6 +950,18 @@ const WALL_BOUNCE = 0.86;   // Realistic cushion restitution - rails absorb some
 const BALL_BOUNCE = 0.95;   // Near-elastic ball-to-ball transfer, like real phenolic resin balls
 const MAX_POWER = 32;       // A full 100% pull travels roughly 5 rail-lengths before friction stops it
 
+// Real pool balls slide (skid) right after a hard hit, before true rolling
+// friction takes over - this sliding phase has noticeably higher friction
+// than smooth rolling, which is why a hard-hit ball settles down faster
+// than the raw "hit harder, travels proportionally further" math would
+// suggest. The single flat FRICTION rate above never modeled this, so
+// hard shots felt unrealistically fast/uncontrolled compared to normal
+// ones. This threshold-based extra deceleration only ever applies above
+// genuinely fast shot speeds - anything at or below normal shot speed is
+// completely unaffected by these two constants.
+const FAST_SHOT_SPEED_THRESHOLD = 15;  // units/frame - below this, behavior is 100% unchanged from before
+const FAST_SHOT_EXTRA_DECEL = 0.07;    // extra per-frame speed loss per unit above the threshold
+
 // ==================== SOUND SYSTEM ====================
 // Synthesized SFX via Web Audio API -- no external audio files needed,
 // so there's nothing to fail to load. Muting is persisted so it stays
@@ -1679,10 +1691,13 @@ function updatePhysics() {
   // frame-level decay, regardless of how many substeps a given frame happens to need.
   const subFriction = substeps > 1 ? Math.pow(FRICTION, 1 / substeps) : FRICTION;
   const subSpinDecay = substeps > 1 ? Math.pow(SPIN_DECAY, 1 / substeps) : SPIN_DECAY;
+  // This one is additive (a flat extra speed loss), not multiplicative, so
+  // it scales down by simple division across substeps rather than Math.pow.
+  const subFastShotDecel = substeps > 1 ? FAST_SHOT_EXTRA_DECEL / substeps : FAST_SHOT_EXTRA_DECEL;
 
   let moving = false;
   for (let step = 0; step < substeps; step++) {
-    moving = updatePhysicsStep(subFriction, subSpinDecay) || moving;
+    moving = updatePhysicsStep(subFriction, subSpinDecay, subFastShotDecel) || moving;
   }
 
   if (poolMyShotInProgress && poolSocket && poolMyTableId) {
@@ -1738,7 +1753,7 @@ function updatePhysics() {
   gameState.ballsMoving = moving;
 }
 
-function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
+function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP, FAST_SHOT_DECEL_STEP) {
   let moving = false;
   for (const ball of balls) {
     if (ball.pocketed) continue;
@@ -1749,6 +1764,22 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP) {
 
     ball.vx *= FRICTION_STEP;
     ball.vy *= FRICTION_STEP;
+
+    // Extra deceleration for genuinely fast-moving balls, modeling the
+    // higher-friction slide phase a real ball goes through right after a
+    // hard hit, before it settles into smooth rolling. Only ever active
+    // above the threshold speed, so normal shots are completely
+    // unaffected - this only reins in the genuinely fast ones.
+    if (FAST_SHOT_DECEL_STEP > 0) {
+      const speed = Math.hypot(ball.vx, ball.vy);
+      if (speed > FAST_SHOT_SPEED_THRESHOLD) {
+        const extraLoss = (speed - FAST_SHOT_SPEED_THRESHOLD) * FAST_SHOT_DECEL_STEP;
+        const newSpeed = Math.max(FAST_SHOT_SPEED_THRESHOLD, speed - extraLoss);
+        const scale = newSpeed / speed;
+        ball.vx *= scale;
+        ball.vy *= scale;
+      }
+    }
 
     ball.spinX *= SPIN_DECAY_STEP;
     ball.spinY *= SPIN_DECAY_STEP;
@@ -3321,6 +3352,36 @@ function pctToPower(pct) { return (pct / 100) * MAX_POWER; }
 // physics: at FRICTION=0.99 and MAX_POWER=32, each 1% of power carries a ball roughly 31.7
 // units before friction stops it - so this targets about 3x the raw distance (cue-ball travel
 // plus pocket carry), enough pace to confidently drop the ball without blasting every shot.
+function planSafetyShot(cueBall, candidates, botGroup) {
+  // The nearest ball the bot is legally allowed to hit first - contact is
+  // mandatory to avoid a foul, so this constrains every safety option.
+  const legalBalls = [...new Set(candidates.map(c => c.ball))];
+  let nearestBall = null, nearestDist = Infinity;
+  for (const ball of legalBalls) {
+    const d = Math.hypot(ball.x - cueBall.x, ball.y - cueBall.y);
+    if (d < nearestDist) { nearestDist = d; nearestBall = ball; }
+  }
+  if (!nearestBall) return null;
+  const aimAngle = Math.atan2(nearestBall.y - cueBall.y, nearestBall.x - cueBall.x);
+
+  // Try a handful of gentle power levels and keep whichever one leaves the
+  // cue ball furthest from every pocket, since that's what actually makes
+  // a safety effective - a weak, aimless tap can still accidentally leave
+  // an easy return shot sitting right next to a pocket.
+  const powerLevels = [pctToPower(18), pctToPower(24), pctToPower(30), pctToPower(38)];
+  let bestPower = powerLevels[0], bestMinPocketDist = -1;
+  for (const pwr of powerLevels) {
+    const result = simulateBotShot(cueBall.x, cueBall.y, aimAngle, pwr, 0, 0);
+    if (result.cueBallPocketed) continue;
+    if (result.pocketedBalls.length > 0) continue; // a safety shouldn't accidentally pot something
+    let minPocketDist = Infinity;
+    for (const p of pockets) minPocketDist = Math.min(minPocketDist, Math.hypot(p.x - result.cueBallEnd.x, p.y - result.cueBallEnd.y));
+    if (minPocketDist > bestMinPocketDist) { bestMinPocketDist = minPocketDist; bestPower = pwr; }
+  }
+  if (bestMinPocketDist < 0) return null; // every option above risked a scratch or accidental pot - don't force it
+  return { aimAngle, power: bestPower };
+}
+
 function estimateShotPowerPct(pathLength, pocketDist) {
   const totalDist = pathLength + pocketDist * 0.6;
   return totalDist * 0.1008;
@@ -3446,6 +3507,21 @@ function botTurn() {
       let pathLength = 0;
       for (const seg of path) pathLength += Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1);
       const pocketDist = Math.hypot(pocket.x - ball.x, pocket.y - ball.y);
+      // The cut angle - how far off-center the cue ball has to strike the
+      // object ball to send it toward this pocket. This is THE thing that
+      // actually determines how hard a real shot is: a straight-in shot
+      // (0 degrees) is nearly automatic even from distance, while a thin
+      // cut at a steep angle is genuinely difficult even up close. This
+      // is the difficulty signal a real player's decision-making runs on,
+      // not just raw distance.
+      const approachDx = finalSeg.x2 - finalSeg.x1, approachDy = finalSeg.y2 - finalSeg.y1;
+      const toPocketDx = pocket.x - ball.x, toPocketDy = pocket.y - ball.y;
+      const approachMag = Math.hypot(approachDx, approachDy), pocketMag = Math.hypot(toPocketDx, toPocketDy);
+      let cutAngle = 0;
+      if (approachMag > 0.01 && pocketMag > 0.01) {
+        const dot = (approachDx * toPocketDx + approachDy * toPocketDy) / (approachMag * pocketMag);
+        cutAngle = Math.acos(Math.max(-1, Math.min(1, dot)));
+      }
       // Bank shots on the object ball cover roughly double the real
       // distance (ball to rail, then rail to pocket) but pocketDist above
       // is still just the straight-line distance, so the power estimate
@@ -3455,7 +3531,7 @@ function botTurn() {
       const effectivePocketDist = isBank ? pocketDist * 1.9 : pocketDist;
       const powerPct = Math.max(config.powerMinPct, Math.min(config.powerMaxPct, estimateShotPowerPct(pathLength, effectivePocketDist)));
       let basePower = pctToPower(powerPct);
-      candidates.push({ ball, pocket, aimAngle, basePower, pathLength, pocketDist, ghostX: finalGhostX, ghostY: finalGhostY, isBank, requiresCueKick, requiresBounce });
+      candidates.push({ ball, pocket, aimAngle, basePower, pathLength, pocketDist, ghostX: finalGhostX, ghostY: finalGhostY, isBank, requiresCueKick, requiresBounce, cutAngle });
     }
   }
 
@@ -3484,6 +3560,12 @@ function botTurn() {
   for (const cand of candidates) {
     let score = 0;
     let spinX = 0, spinY = 0;
+    const cutAngleDeg = cand.cutAngle * 180 / Math.PI;
+    // A real player's confidence in a shot drops off sharply as the cut
+    // angle gets steeper, especially combined with distance - a thin cut
+    // from far away is genuinely low-percentage even for a pro, while the
+    // same cut angle up close is much more makeable.
+    const difficultyPenalty = Math.pow(cutAngleDeg / 90, 1.8) * (400 + cand.pocketDist * 0.6);
     if (config.useSim) {
       const powerLevels = config.useSpin ? [cand.basePower * 0.85, cand.basePower, cand.basePower * 1.15] : [cand.basePower];
       const spinOptions = config.useSpin ? [{x:0,y:0},{x:0,y:0.4},{x:0,y:-0.4},{x:0.3,y:0},{x:-0.3,y:0}] : [{x:0,y:0}];
@@ -3506,12 +3588,12 @@ function botTurn() {
           if (simScore > bestSimScore) { bestSimScore = simScore; bestSimResult = result; bestSimPower = pwr; bestSimSpin = sp; }
         }
       }
-      score = bestSimScore;
+      score = bestSimScore - difficultyPenalty;
       cand.basePower = bestSimPower;
       spinX = bestSimSpin.x;
       spinY = bestSimSpin.y;
     } else {
-      score = 1000 - cand.pathLength * 0.3 - cand.pocketDist * 1.5;
+      score = 1000 - cand.pathLength * 0.3 - cand.pocketDist * 1.5 - difficultyPenalty;
       if (cand.ball.number === 8) { if (botBallsLeft === 0) score += 5000; else score -= 1000; }
       const ghostToCenter = Math.hypot(cand.ghostX - TABLE_WIDTH/2, cand.ghostY - TABLE_HEIGHT/2);
       score -= ghostToCenter * 0.05;
@@ -3519,7 +3601,26 @@ function botTurn() {
     if (cand.ball.number === 8 && botBallsLeft === 0) score += 3000;
     score -= cand.pathLength * 0.2;
     if (cand.requiresBounce) score -= 400;
-    if (score > bestScore) { bestScore = score; bestShot = { ...cand, spinX, spinY }; }
+    if (score > bestScore) { bestScore = score; bestShot = { ...cand, spinX, spinY, cutAngleDeg }; }
+  }
+
+  // Genuine safety play: if even the best shot found is too difficult to
+  // reasonably expect to make, and the bot has more than one legal ball
+  // to choose from (so it isn't forced into this shot regardless), a real
+  // player plays defense instead of gambling on a low-percentage attempt.
+  // This is limited to the higher difficulty tiers - "smart" decision
+  // making is exactly what should separate a pro bot from an easy one.
+  const hasMultipleOptions = candidates.length > 1;
+  const shotIsVeryDifficult = bestShot && bestShot.cutAngleDeg > 68 && bestShot.pocketDist > 220;
+  if (config.useSim && bestShot && !onEightBall && hasMultipleOptions && shotIsVeryDifficult) {
+    const safety = planSafetyShot(cueBall, candidates, botGroup);
+    if (safety) {
+      const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
+      gameState.aimAngle = safety.aimAngle;
+      if (gameState.breakTaken) gameState.calledPocket = null; // a safety isn't an attempt to pot into a specific pocket
+      botAnimateAndShoot(safety.aimAngle, safety.power, {x:0,y:0}, thinkTime);
+      return;
+    }
   }
 
   if (!bestShot) {
