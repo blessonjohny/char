@@ -3308,10 +3308,10 @@ function renderAmericanCueStick(cueBall, overrideAngle, overridePower, overrideP
 }
 // ==================== BOT AI ====================
 const BOT_CONFIG = {
-  easy:   { aimAccuracy: 0.10,  powerMinPct: 30, powerMaxPct: 65,  powerJitterPct: 18, thinkTimeMin: 1200, thinkTimeMax: 2500, missChance: 0.40, randomShotChance: 0.35, name: 'Easy Bot',   useSpin: false, useSim: false },
-  medium: { aimAccuracy: 0.04,  powerMinPct: 40, powerMaxPct: 85,  powerJitterPct: 10, thinkTimeMin: 800,  thinkTimeMax: 1800, missChance: 0.18, randomShotChance: 0.12, name: 'Medium Bot', useSpin: false, useSim: false },
-  hard:   { aimAccuracy: 0.008, powerMinPct: 50, powerMaxPct: 95,  powerJitterPct: 5,  thinkTimeMin: 600,  thinkTimeMax: 1200, missChance: 0.06, randomShotChance: 0.03, name: 'Hard Bot',   useSpin: true,  useSim: true  },
-  pro:    { aimAccuracy: 0.0003, powerMinPct: 0, powerMaxPct: 100, powerJitterPct: 0,  thinkTimeMin: 400,  thinkTimeMax: 900,  missChance: 0.0,  randomShotChance: 0.0,  name: 'Pro Bot',    useSpin: true,  useSim: true  }
+  easy:   { aimAccuracy: 0.06,  powerMinPct: 35, powerMaxPct: 70,  powerJitterPct: 12, thinkTimeMin: 1200, thinkTimeMax: 2500, missChance: 0.15, randomShotChance: 0.10, name: 'Easy Bot',   useSpin: false, useSim: false },
+  medium: { aimAccuracy: 0.025, powerMinPct: 40, powerMaxPct: 85,  powerJitterPct: 7,  thinkTimeMin: 800,  thinkTimeMax: 1800, missChance: 0.08, randomShotChance: 0.04, name: 'Medium Bot', useSpin: false, useSim: false },
+  hard:   { aimAccuracy: 0.006, powerMinPct: 50, powerMaxPct: 95,  powerJitterPct: 4,  thinkTimeMin: 600,  thinkTimeMax: 1200, missChance: 0.03, randomShotChance: 0.0,  name: 'Hard Bot',   useSpin: true,  useSim: true  },
+  pro:    { aimAccuracy: 0.0002,powerMinPct: 0, powerMaxPct: 100, powerJitterPct: 0,  thinkTimeMin: 400,  thinkTimeMax: 900,  missChance: 0.0,  randomShotChance: 0.0,  name: 'Pro Bot',    useSpin: true,  useSim: true  }
 };
 
 // Converts a 0-100 power percentage into the game's absolute speed unit.
@@ -3547,7 +3547,32 @@ function botTurn() {
   power = Math.max(pctToPower(Math.max(5, config.powerMinPct * 0.5)), Math.min(pctToPower(config.powerMaxPct), power));
   const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
   const spin = config.useSpin ? { x: bestShot.spinX, y: bestShot.spinY } : { x: 0, y: 0 };
-  if (gameState.breakTaken) gameState.calledPocket = pockets.indexOf(bestShot.pocket);
+  if (gameState.breakTaken) {
+    // Call whichever pocket the target ball is ACTUALLY headed toward
+    // given the bot's final, error-adjusted aim - found by running the
+    // same real physics simulation already used for the aim guide,
+    // rather than a simple geometric approximation. The bot's own
+    // injected imprecision can send the ball somewhere other than the
+    // original ideal target, and calling the pocket that matches where
+    // it's really going is what keeps a genuinely successful shot from
+    // being wrongly ruled as not honoring the call.
+    let bestPocketIdx = pockets.indexOf(bestShot.pocket);
+    try {
+      const simResult = simulateAim(cueBall, gameState.aimAngle, power, spin);
+      if (simResult && simResult.targetBallId === bestShot.ball.id && simResult.targetPath && simResult.targetPath.length > 0) {
+        const finalPos = simResult.targetPath[simResult.targetPath.length - 1];
+        let bestDist = Infinity;
+        for (let i = 0; i < pockets.length; i++) {
+          const d = Math.hypot(pockets[i].x - finalPos.x, pockets[i].y - finalPos.y);
+          if (d < bestDist) { bestDist = d; bestPocketIdx = i; }
+        }
+      }
+    } catch (e) {
+      // If the simulation fails for any reason, fall back to the
+      // originally intended pocket rather than leaving it unset.
+    }
+    gameState.calledPocket = bestPocketIdx;
+  }
   botAnimateAndShoot(gameState.aimAngle, power, spin, thinkTime);
 }
 
