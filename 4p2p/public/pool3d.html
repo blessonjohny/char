@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pool 3D - 28 Kerala Gulan</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #050505; touch-action: none; }
+  #canvas3d { display: block; width: 100vw; height: 100vh; }
+  #loadingScreen {
+    position: fixed; inset: 0; background: #0a0a0a; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; z-index: 1000; color: #d4af37;
+    font-family: Georgia, serif;
+  }
+  #loadingScreen .title { font-size: 28px; letter-spacing: 3px; margin-bottom: 20px; }
+  #loadingBar { width: 240px; height: 3px; background: rgba(212,175,55,0.2); border-radius: 2px; overflow: hidden; }
+  #loadingFill { width: 0%; height: 100%; background: linear-gradient(90deg,#d4af37,#f4d03f); transition: width 0.2s; }
+  #loadingScreen .sub { margin-top: 14px; font-size: 12px; letter-spacing: 2px; opacity: 0.5; text-transform: uppercase; }
+  #powerMeter {
+    position: fixed; right: 18px; top: 50%; transform: translateY(-50%);
+    width: 26px; height: 220px; background: rgba(0,0,0,0.4); border: 1px solid rgba(212,175,55,0.4);
+    border-radius: 13px; overflow: hidden; z-index: 50; display: flex; align-items: flex-end;
+  }
+  #powerFillBar { width: 100%; height: 0%; background: linear-gradient(180deg,#ff4444,#ffaa00,#44dd66); transition: height 0.05s linear; }
+
+  #topBar {
+    position: fixed; top: 0; left: 0; right: 0; padding: 14px 16px; display: flex; justify-content: space-between;
+    align-items: center; z-index: 50; font-family: Georgia, serif; color: #f0e6cc;
+    background: linear-gradient(180deg, rgba(0,0,0,0.55), transparent);
+  }
+  #turnIndicator { font-size: 17px; font-weight: bold; letter-spacing: 0.5px; }
+  #groupIndicator { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+  #muteBtn { background: none; border: none; font-size: 22px; cursor: pointer; padding: 6px; }
+
+  #spinCueWrap {
+    position: fixed; left: 16px; bottom: 20px; z-index: 50;
+  }
+  #spinCue {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #fefefe, #d8d0c0 70%, #a89878);
+    border: 2px solid rgba(212,175,55,0.6); position: relative; touch-action: none;
+  }
+  #spinDot {
+    width: 10px; height: 10px; border-radius: 50%; background: #c0392b;
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    box-shadow: 0 0 4px rgba(0,0,0,0.5); pointer-events: none;
+  }
+  #spinLabel { color: #d4af37; font-size: 10px; text-align: center; margin-top: 4px; letter-spacing: 1px; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+
+<div id="loadingScreen">
+  <div class="title">POOL 3D</div>
+  <div id="loadingBar"><div id="loadingFill"></div></div>
+  <div class="sub">Loading table...</div>
+</div>
+
+<div id="topBar">
+  <div>
+    <div id="turnIndicator">Your Turn</div>
+    <div id="groupIndicator">Table Open</div>
+  </div>
+  <button id="muteBtn" onclick="toggleMute()">\uD83D\uDD0A</button>
+</div>
+
+<div id="powerMeter"><div id="powerFillBar"></div></div>
+
+<div id="spinCueWrap">
+  <div id="spinCue"><div id="spinDot"></div></div>
+  <div id="spinLabel">SPIN</div>
+</div>
+
+<canvas id="canvas3d"></canvas>
+
+<script src="/vendor/three.min.js"></script>
+<script>
+// ==================== THREE.JS SCENE SETUP ====================
+let scene, camera, renderer;
+let clock;
+
+function initScene() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0a0a);
+  scene.fog = new THREE.Fog(0x0a0a0a, 400, 1400);
+
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 3000);
+
+  renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas3d'), antialias: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  if (renderer.outputColorSpace !== undefined) renderer.outputColorSpace = THREE.SRGBColorSpace;
+  if (renderer.toneMapping !== undefined) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; }
+
+  clock = new THREE.Clock();
+
+  window.addEventListener('resize', onWindowResize);
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// ==================== TABLE GEOMETRY ====================
+// Table dimensions in world units - a real 9-foot table is roughly
+// 100" x 50" playing surface; scaled here to convenient scene units
+// (1 unit ~= 1 inch) so ball radius (1.125" real) and other proportions
+// stay realistic relative to the table.
+const TABLE = {
+  playW: 100,   // playing surface width (long axis, x)
+  playH: 50,    // playing surface depth (short axis, z)
+  railH: 2.2,   // rail cushion height above cloth
+  railW: 5,     // rail width
+  legH: 30,     // table height off the ground
+  ballR: 1.125,
+  pocketR: 2.6,
+};
+
+let tableGroup, feltMesh, cushionMeshes = [], pocketMeshes = [];
+
+function buildTable() {
+  tableGroup = new THREE.Group();
+
+  // ---- Cloth (felt) ----
+  const feltColor = 0x0d5c3f; // deep tournament green
+  const feltGeo = new THREE.PlaneGeometry(TABLE.playW, TABLE.playH, 40, 20);
+  const feltMat = new THREE.MeshStandardMaterial({ color: feltColor, roughness: 0.92, metalness: 0.0 });
+  feltMesh = new THREE.Mesh(feltGeo, feltMat);
+  feltMesh.rotation.x = -Math.PI / 2;
+  feltMesh.position.y = TABLE.legH;
+  feltMesh.receiveShadow = true;
+  tableGroup.add(feltMesh);
+
+  // ---- Subtle diamond markers on the rail top (sighting marks) ----
+  const markerMat = new THREE.MeshBasicMaterial({ color: 0xe8dcae });
+  for (let i = 1; i < 8; i++) {
+    if (i === 4) continue; // center gets the side pocket, not a diamond
+    const mx = -TABLE.playW/2 + (i / 8) * TABLE.playW;
+    for (const mz of [-TABLE.playH/2 - TABLE.railW/2, TABLE.playH/2 + TABLE.railW/2]) {
+      const dot = new THREE.Mesh(new THREE.CircleGeometry(0.35, 8), markerMat);
+      dot.rotation.x = -Math.PI/2;
+      dot.position.set(mx, TABLE.legH + TABLE.railH + 0.01, mz);
+      tableGroup.add(dot);
+    }
+  }
+
+  // ---- Rail cushions (wood, angled boxes around the perimeter) ----
+  const railColor = 0x3d2317; // dark walnut wood
+  const railMat = new THREE.MeshStandardMaterial({ color: railColor, roughness: 0.45, metalness: 0.15 });
+  const cushionMat = new THREE.MeshStandardMaterial({ color: feltColor, roughness: 0.85 });
+
+  function addRailSegment(x, z, w, d, isVertical) {
+    const outerGeo = new THREE.BoxGeometry(w, TABLE.railH * 1.8, d);
+    const rail = new THREE.Mesh(outerGeo, railMat);
+    rail.position.set(x, TABLE.legH + TABLE.railH * 0.9, z);
+    rail.castShadow = true; rail.receiveShadow = true;
+    tableGroup.add(rail);
+    cushionMeshes.push(rail);
+  }
+
+  const half = TABLE.playW / 2, halfD = TABLE.playH / 2;
+  const rw = TABLE.railW;
+  const pocketGap = TABLE.pocketR * 1.7;
+
+  // Long rails (top/bottom in z), split around the side pockets
+  const segLen = (TABLE.playW - pocketGap * 3) / 2;
+  addRailSegment(-half + rw/2 + segLen/2, -halfD - rw/2, segLen + rw, rw, false);
+  addRailSegment(half - rw/2 - segLen/2, -halfD - rw/2, segLen + rw, rw, false);
+  addRailSegment(-half + rw/2 + segLen/2, halfD + rw/2, segLen + rw, rw, false);
+  addRailSegment(half - rw/2 - segLen/2, halfD + rw/2, segLen + rw, rw, false);
+  // Short rails (left/right in x)
+  const shortLen = TABLE.playH - pocketGap * 2;
+  addRailSegment(-half - rw/2, 0, rw, shortLen + rw, true);
+  addRailSegment(half + rw/2, 0, rw, shortLen + rw, true);
+
+  // ---- Pocket openings (dark cylindrical holes with leather-look jaws) ----
+  const pocketMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.9 });
+  const jawMat = new THREE.MeshStandardMaterial({ color: 0x1a0f08, roughness: 0.6, metalness: 0.1 });
+  const pocketPositions = [
+    { x: -half, z: -halfD }, { x: half, z: -halfD },
+    { x: -half, z: halfD }, { x: half, z: halfD },
+    { x: 0, z: -halfD }, { x: 0, z: halfD },
+  ];
+  for (const p of pocketPositions) {
+    const jaw = new THREE.Mesh(new THREE.TorusGeometry(TABLE.pocketR * 0.9, TABLE.pocketR * 0.35, 10, 20), jawMat);
+    jaw.rotation.x = Math.PI / 2;
+    jaw.position.set(p.x, TABLE.legH + 0.05, p.z);
+    tableGroup.add(jaw);
+    const hole = new THREE.Mesh(new THREE.CylinderGeometry(TABLE.pocketR * 0.85, TABLE.pocketR * 0.85, 6, 20), pocketMat);
+    hole.position.set(p.x, TABLE.legH - 2.5, p.z);
+    tableGroup.add(hole);
+    pocketMeshes.push({ mesh: hole, x: p.x, z: p.z });
+  }
+
+  // ---- Table apron/skirt below the rails ----
+  const apronMat = new THREE.MeshStandardMaterial({ color: 0x2a1810, roughness: 0.5, metalness: 0.1 });
+  const apronGeo = new THREE.BoxGeometry(TABLE.playW + rw * 2 + 4, 8, TABLE.playH + rw * 2 + 4);
+  const apron = new THREE.Mesh(apronGeo, apronMat);
+  apron.position.set(0, TABLE.legH - 5, 0);
+  apron.castShadow = true; apron.receiveShadow = true;
+  tableGroup.add(apron);
+
+  // ---- Legs ----
+  const legMat = new THREE.MeshStandardMaterial({ color: 0x241408, roughness: 0.5, metalness: 0.1 });
+  const legPositions = [
+    [-half + 8, -halfD + 6], [half - 8, -halfD + 6], [-half + 8, halfD - 6], [half - 8, halfD - 6]
+  ];
+  for (const [lx, lz] of legPositions) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, TABLE.legH - 8, 8), legMat);
+    leg.position.set(lx, (TABLE.legH - 8) / 2, lz);
+    leg.castShadow = true;
+    tableGroup.add(leg);
+  }
+
+  // ---- Floor ----
+  const floorGeo = new THREE.PlaneGeometry(2000, 2000);
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.95 });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = 0;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  scene.add(tableGroup);
+}
+
+// ==================== LIGHTING ====================
+function buildLighting() {
+  const ambient = new THREE.AmbientLight(0x404050, 0.55);
+  scene.add(ambient);
+
+  // Main overhead "hanging lamp" light, warm and focused over the table
+  const lamp = new THREE.SpotLight(0xfff2d8, 2.2, 500, Math.PI / 4.2, 0.4, 1.2);
+  lamp.position.set(0, TABLE.legH + 120, 0);
+  lamp.target.position.set(0, TABLE.legH, 0);
+  lamp.castShadow = true;
+  lamp.shadow.mapSize.set(2048, 2048);
+  lamp.shadow.camera.near = 20;
+  lamp.shadow.camera.far = 300;
+  lamp.shadow.bias = -0.0015;
+  scene.add(lamp);
+  scene.add(lamp.target);
+
+  // Soft fill lights from the sides so cushions aren't pitch black
+  const fill1 = new THREE.PointLight(0x6688aa, 0.5, 400);
+  fill1.position.set(-150, 80, -100);
+  scene.add(fill1);
+  const fill2 = new THREE.PointLight(0x6688aa, 0.5, 400);
+  fill2.position.set(150, 80, 100);
+  scene.add(fill2);
+
+  // Visible lamp fixture mesh (simple shade) so the light source itself looks intentional
+  const shadeMat = new THREE.MeshStandardMaterial({ color: 0x1a1108, roughness: 0.4, metalness: 0.3, emissive: 0x332200, emissiveIntensity: 0.3 });
+  const shade = new THREE.Mesh(new THREE.CylinderGeometry(22, 30, 6, 24, 1, true), shadeMat);
+  shade.material.side = THREE.DoubleSide;
+  shade.position.set(0, TABLE.legH + 118, 0);
+  scene.add(shade);
+  const shadeBottom = new THREE.Mesh(new THREE.CircleGeometry(22, 24), new THREE.MeshStandardMaterial({ color: 0xfff2d8, emissive: 0xfff2d8, emissiveIntensity: 0.6 }));
+  shadeBottom.rotation.x = Math.PI/2;
+  shadeBottom.position.set(0, TABLE.legH + 115, 0);
+  scene.add(shadeBottom);
+}
+
+// ==================== PHYSICS ENGINE (ported from the tested 2D pool.html) ====================
+// Physics runs in 2D "table space" (x, z) exactly as before - this is
+// the proven, extensively-debugged simulation. The 3D layer only ever
+// reads ball.x/ball.z (renamed from x/y) and ball.orient to place and
+// rotate the 3D meshes; it never influences the physics itself.
+const BALL_R = TABLE.ballR;
+const PLAY_W = TABLE.playW, PLAY_D = TABLE.playH;
+const POCKET_R = TABLE.pocketR;
+const FRICTION = 0.99;
+const WALL_BOUNCE = 0.86;
+const BALL_BOUNCE = 0.95;
+const MAX_POWER = 32 * (TABLE.playW / 900) * 7.8; // scaled to this table's real-world unit size
+const STOP_THRESHOLD = MAX_POWER * 0.00375; // same threshold-to-max-power ratio as the proven 2D physics
+const SPIN_DECAY = 0.998;
+const RAIL_SPIN_EFFECT = 0.22;
+const RAIL_FOLLOW_CARRY = 0.18;
+const THROW_EFFECT = 0.18;
+const FOLLOW_DRAW_STRENGTH = 0.3;
+const MAX_SPIN_EFFECT = 1.0;
+const SPIN_SATURATION_SPEED = MAX_POWER * 0.875;
+const FAST_SHOT_SPEED_THRESHOLD = MAX_POWER * 0.47;
+const FAST_SHOT_EXTRA_DECEL = 0.07;
+
+const half = PLAY_W / 2, halfD = PLAY_D / 2;
+const POCKETS = [
+  { x: -half, z: -halfD }, { x: half, z: -halfD },
+  { x: -half, z: halfD }, { x: half, z: halfD },
+  { x: 0, z: -halfD }, { x: 0, z: halfD },
+];
+
+const BALL_COLORS = {
+  0: 0xf5f5f0,
+  1: '#e8b923', 2: '#1b4fd6', 3: '#d62b2b', 4: '#7a1fb0', 5: '#e8720f',
+  6: '#0f8a3c', 7: '#8a1f1f', 8: '#141414',
+  9: '#e8b923', 10: '#1b4fd6', 11: '#d62b2b', 12: '#7a1fb0', 13: '#e8720f',
+  14: '#0f8a3c', 15: '#8a1f1f'
+};
+
+let balls = [];
+
+function defaultOrient() { return [ {x:0,y:0,z:1}, {x:1,y:0,z:0}, {x:0,y:1,z:0} ]; }
+function rotateOrient(vecs, ax, ay, az, angle) {
+  if (!vecs) return;
+  const cosA = Math.cos(angle), sinA = Math.sin(angle);
+  for (const v of vecs) {
+    const dot = ax * v.x + ay * v.y + az * v.z;
+    const cx = ay * v.z - az * v.y, cy = az * v.x - ax * v.z, cz = ax * v.y - ay * v.x;
+    const nx = v.x * cosA + cx * sinA + ax * dot * (1 - cosA);
+    const ny = v.y * cosA + cy * sinA + ay * dot * (1 - cosA);
+    const nz = v.z * cosA + cz * sinA + az * dot * (1 - cosA);
+    const len = Math.hypot(nx, ny, nz) || 1;
+    v.x = nx / len; v.y = ny / len; v.z = nz / len;
+  }
+}
+
+function isNearPocketOpening(ball) {
+  const speed = Math.hypot(ball.vx, ball.vz);
+  const buffer = POCKET_R * 1.25 + Math.min(POCKET_R * 2, speed * 0.5);
+  for (const p of POCKETS) {
+    if (Math.hypot(ball.x - p.x, ball.z - p.z) < buffer) return true;
+  }
+  return false;
+}
+
+function rackBalls() {
+  balls = [];
+  balls.push({ number: 0, x: -PLAY_W * 0.25, z: 0, vx: 0, vz: 0, spinX: 0, spinY: 0, orient: defaultOrient(), r: BALL_R, pocketed: false });
+  const rackX = PLAY_W * 0.28, rackZ = 0, spacing = BALL_R * 2 + 0.06;
+  const ballNums = [1, 9, 2, 10, 8, 3, 11, 7, 14, 4, 12, 15, 6, 13, 5];
+  let idx = 0;
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col <= row; col++) {
+      const x = rackX + row * spacing * 0.866;
+      const z = rackZ + (col - row / 2) * spacing;
+      const num = ballNums[idx++];
+      balls.push({ number: num, x, z, vx: 0, vz: 0, spinX: 0, spinY: 0, orient: defaultOrient(), r: BALL_R, pocketed: false });
+    }
+  }
+}
+
+let gameState = {
+  ballsMoving: false, spin: { x: 0, y: 0 }, aimAngle: 0,
+  firstContactBall: null, railContactedThisShot: false,
+  justPocketed: [], scratch: false, foul: false,
+};
+
+function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP, FAST_SHOT_DECEL_STEP) {
+  let moving = false;
+  for (const ball of balls) {
+    if (ball.pocketed) continue;
+    if (!ball.orient) ball.orient = defaultOrient();
+    const prevX = ball.x, prevZ = ball.z;
+    ball.x += ball.vx; ball.z += ball.vz;
+    ball.vx *= FRICTION_STEP; ball.vz *= FRICTION_STEP;
+
+    if (FAST_SHOT_DECEL_STEP > 0) {
+      const speed = Math.hypot(ball.vx, ball.vz);
+      if (speed > FAST_SHOT_SPEED_THRESHOLD) {
+        const extraLoss = (speed - FAST_SHOT_SPEED_THRESHOLD) * FAST_SHOT_DECEL_STEP;
+        const newSpeed = Math.max(FAST_SHOT_SPEED_THRESHOLD, speed - extraLoss);
+        const scale = newSpeed / speed;
+        ball.vx *= scale; ball.vz *= scale;
+      }
+    }
+
+    ball.spinX *= SPIN_DECAY_STEP; ball.spinY *= SPIN_DECAY_STEP;
+    if (Math.abs(ball.spinX) < 0.0005) ball.spinX = 0;
+    if (Math.abs(ball.spinY) < 0.0005) ball.spinY = 0;
+
+    const rollSpeed = Math.hypot(ball.vx, ball.vz);
+    if (rollSpeed > 0.002) {
+      const travelAngle = Math.atan2(ball.vz, ball.vx);
+      const ax = -Math.sin(travelAngle), ay = Math.cos(travelAngle), az = 0;
+      let rollAngle = rollSpeed / ball.r;
+      if (ball.number === 0) rollAngle *= (1 - ball.spinY * 0.9);
+      rotateOrient(ball.orient, ax, ay, az, rollAngle);
+    }
+    if (ball.number === 0 && Math.abs(ball.spinX) > 0.001) {
+      rotateOrient(ball.orient, 0, 0, 1, ball.spinX * 0.05);
+    }
+
+    if (Math.abs(ball.vx) < STOP_THRESHOLD) ball.vx = 0;
+    if (Math.abs(ball.vz) < STOP_THRESHOLD) ball.vz = 0;
+    if (ball.vx !== 0 || ball.vz !== 0) moving = true;
+
+    let pocketedThisFrame = false;
+    for (let pi = 0; pi < POCKETS.length; pi++) {
+      const p = POCKETS[pi];
+      const segDx = ball.x - prevX, segDz = ball.z - prevZ;
+      const segLenSq = segDx * segDx + segDz * segDz;
+      let closestX = ball.x, closestZ = ball.z;
+      if (segLenSq > 0.0001) {
+        let t = ((p.x - prevX) * segDx + (p.z - prevZ) * segDz) / segLenSq;
+        t = Math.max(0, Math.min(1, t));
+        closestX = prevX + segDx * t; closestZ = prevZ + segDz * t;
+      }
+      const dx = closestX - p.x, dz = closestZ - p.z;
+      if (Math.sqrt(dx*dx + dz*dz) < POCKET_R - 0.15) {
+        ball.pocketed = true; ball.vx = 0; ball.vz = 0; ball.spinX = 0; ball.spinY = 0;
+        ball.pocketAnimStart = clock.getElapsedTime();
+        ball.pocketAnimFromX = ball.x; ball.pocketAnimFromZ = ball.z;
+        ball.pocketAnimToX = p.x; ball.pocketAnimToZ = p.z;
+        playPocketSound();
+        onBallPocketed(ball, pi);
+        pocketedThisFrame = true;
+        break;
+      }
+    }
+    if (pocketedThisFrame) continue;
+
+    if (ball.x - ball.r < -half) {
+      if (!isNearPocketOpening(ball)) {
+        ball.x = -half + ball.r; ball.vx = Math.abs(ball.vx) * WALL_BOUNCE;
+        playRailSound(Math.abs(ball.vx) / MAX_POWER);
+        gameState.railContactedThisShot = true;
+        if (Math.abs(ball.spinY) > 0.01) ball.vx *= Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
+        if (Math.abs(ball.spinX) > 0.01) ball.vz += ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vx);
+        ball.spinX *= 0.55; ball.spinY *= 0.75;
+      }
+    }
+    if (ball.x + ball.r > half) {
+      if (!isNearPocketOpening(ball)) {
+        ball.x = half - ball.r; ball.vx = -Math.abs(ball.vx) * WALL_BOUNCE;
+        playRailSound(Math.abs(ball.vx) / MAX_POWER);
+        gameState.railContactedThisShot = true;
+        if (Math.abs(ball.spinY) > 0.01) ball.vx *= Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
+        if (Math.abs(ball.spinX) > 0.01) ball.vz -= ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vx);
+        ball.spinX *= 0.55; ball.spinY *= 0.75;
+      }
+    }
+    if (ball.z - ball.r < -halfD) {
+      if (!isNearPocketOpening(ball)) {
+        ball.z = -halfD + ball.r; ball.vz = Math.abs(ball.vz) * WALL_BOUNCE;
+        playRailSound(Math.abs(ball.vz) / MAX_POWER);
+        gameState.railContactedThisShot = true;
+        if (Math.abs(ball.spinY) > 0.01) ball.vz *= Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
+        if (Math.abs(ball.spinX) > 0.01) ball.vx += ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vz);
+        ball.spinX *= 0.55; ball.spinY *= 0.75;
+      }
+    }
+    if (ball.z + ball.r > halfD) {
+      if (!isNearPocketOpening(ball)) {
+        ball.z = halfD - ball.r; ball.vz = -Math.abs(ball.vz) * WALL_BOUNCE;
+        playRailSound(Math.abs(ball.vz) / MAX_POWER);
+        gameState.railContactedThisShot = true;
+        if (Math.abs(ball.spinY) > 0.01) ball.vz *= Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
+        if (Math.abs(ball.spinX) > 0.01) ball.vx -= ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vz);
+        ball.spinX *= 0.55; ball.spinY *= 0.75;
+      }
+    }
+  }
+
+  for (let i = 0; i < balls.length; i++) {
+    for (let j = i + 1; j < balls.length; j++) {
+      const b1 = balls[i], b2 = balls[j];
+      if (b1.pocketed || b2.pocketed) continue;
+      const dx = b2.x - b1.x, dz = b2.z - b1.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      const minDist = b1.r + b2.r;
+      if (dist < minDist && dist > 0.01) {
+        const overlap = minDist - dist;
+        const nx = dx / dist, nz = dz / dist;
+        b1.x -= nx * overlap * 0.5; b1.z -= nz * overlap * 0.5;
+        b2.x += nx * overlap * 0.5; b2.z += nz * overlap * 0.5;
+        if (gameState.firstContactBall === null || gameState.firstContactBall === undefined) {
+          if (b1.number === 0) gameState.firstContactBall = b2.number;
+          else if (b2.number === 0) gameState.firstContactBall = b1.number;
+        }
+        const preCollisionSpeed = Math.hypot(b1.vx, b1.vz);
+        const dvx = b2.vx - b1.vx, dvz = b2.vz - b1.vz;
+        const velAlongNormal = dvx * nx + dvz * nz;
+        if (velAlongNormal > 0) continue;
+        const jVal = -(1 + BALL_BOUNCE) * velAlongNormal / 2;
+        const impulseX = jVal * nx, impulseZ = jVal * nz;
+        b1.vx -= impulseX; b1.vz -= impulseZ;
+        b2.vx += impulseX; b2.vz += impulseZ;
+        playClackSound(Math.min(1, Math.abs(velAlongNormal) / MAX_POWER));
+
+        if (b1.number === 0 && (Math.abs(b1.spinX) > 0.01 || Math.abs(b1.spinY) > 0.01)) {
+          const powerFactor = Math.min(1, preCollisionSpeed / SPIN_SATURATION_SPEED);
+          const tx = -nz, tz = nx;
+          if (Math.abs(b1.spinX) > 0.01) {
+            const sideEffect = b1.spinX * THROW_EFFECT * powerFactor;
+            b1.vx += tx * sideEffect * preCollisionSpeed;
+            b1.vz += tz * sideEffect * preCollisionSpeed;
+          }
+          if (Math.abs(b1.spinY) > 0.01) {
+            const spinEffect = b1.spinY * FOLLOW_DRAW_STRENGTH * powerFactor;
+            b1.vx -= nx * spinEffect * preCollisionSpeed;
+            b1.vz -= nz * spinEffect * preCollisionSpeed;
+          }
+          const capMag = MAX_SPIN_EFFECT * preCollisionSpeed;
+          const maxVx = Math.abs(b1.vx), maxVz = Math.abs(b1.vz);
+          if (maxVx > capMag && maxVx > 0) b1.vx = (b1.vx / maxVx) * capMag;
+          if (maxVz > capMag && maxVz > 0) b1.vz = (b1.vz / maxVz) * capMag;
+          if (Math.abs(b1.spinX) > 0.05) {
+            const throwAmount = b1.spinX * 0.03 * powerFactor;
+            b2.vx += tx * throwAmount * preCollisionSpeed;
+            b2.vz += tz * throwAmount * preCollisionSpeed;
+          }
+          b1.spinX *= 0.55; b1.spinY *= 0.55;
+        }
+      }
+    }
+  }
+  return moving;
+}
+
+function updatePhysics(dt) {
+  let maxSpeed = 0;
+  for (const ball of balls) {
+    if (ball.pocketed) continue;
+    const s = Math.hypot(ball.vx, ball.vz);
+    if (s > maxSpeed) maxSpeed = s;
+  }
+  const maxSafeStep = BALL_R * 0.9;
+  const substeps = maxSpeed > maxSafeStep ? Math.min(8, Math.ceil(maxSpeed / maxSafeStep)) : 1;
+  const subFriction = substeps > 1 ? Math.pow(FRICTION, 1/substeps) : FRICTION;
+  const subSpinDecay = substeps > 1 ? Math.pow(SPIN_DECAY, 1/substeps) : SPIN_DECAY;
+  const subFastDecel = substeps > 1 ? FAST_SHOT_EXTRA_DECEL / substeps : FAST_SHOT_EXTRA_DECEL;
+  let moving = false;
+  for (let s = 0; s < substeps; s++) moving = updatePhysicsStep(subFriction, subSpinDecay, subFastDecel) || moving;
+  if (gameState.ballsMoving && !moving) { gameState.ballsMoving = false; onShotSettled(); }
+  gameState.ballsMoving = moving;
+  return moving;
+}
+
+function shoot(power) {
+  const cueBall = balls[0];
+  const angle = gameState.aimAngle;
+  cueBall.vx = Math.cos(angle) * power;
+  cueBall.vz = Math.sin(angle) * power;
+  cueBall.spinX = gameState.spin.x;
+  cueBall.spinY = gameState.spin.y;
+  playStrikeSound(Math.min(1, power / MAX_POWER));
+  gameState.ballsMoving = true;
+  gameState.justPocketed = [];
+  gameState.firstContactBall = null;
+  gameState.railContactedThisShot = false;
+  gameState.spin = { x: 0, y: 0 };
+  onShotFired();
+}
+
+// ==================== BALL TEXTURES (procedural, original) ====================
+function makeBallTexture(num) {
+  const size = 256;
+  const cnv = document.createElement('canvas');
+  cnv.width = size; cnv.height = size;
+  const ctx = cnv.getContext('2d');
+  const color = '#' + (typeof BALL_COLORS[num] === 'number' ? BALL_COLORS[num].toString(16).padStart(6,'0') : BALL_COLORS[num].replace('#',''));
+
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, size, size);
+
+  if (num === 0) {
+    // Cue ball - subtle texture only, no numbers/stripes
+  } else if (num >= 9) {
+    // Stripe: white band top/bottom, color band through the middle
+    ctx.fillStyle = '#f5f0e6';
+    ctx.fillRect(0, 0, size, size * 0.28);
+    ctx.fillRect(0, size * 0.72, size, size * 0.28);
+  }
+
+  if (num > 0) {
+    // Number disc
+    const cx = size/2, cy = size/2, discR = size * 0.19;
+    ctx.beginPath(); ctx.arc(cx, cy, discR, 0, Math.PI*2);
+    ctx.fillStyle = '#f5f0e6'; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#151515';
+    ctx.font = 'bold ' + Math.floor(discR*1.15) + 'px Arial';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(num), cx, cy + 2);
+  }
+
+  const tex = new THREE.CanvasTexture(cnv);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+let ballMeshes = [];
+function buildBalls() {
+  for (const m of ballMeshes) tableGroup.remove(m.mesh);
+  ballMeshes = [];
+  const geo = new THREE.SphereGeometry(BALL_R, 32, 32);
+  for (const ball of balls) {
+    const tex = makeBallTexture(ball.number);
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.15, metalness: 0.05, envMapIntensity: 1.2 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    mesh.position.set(ball.x, TABLE.legH + TABLE.railH + BALL_R, ball.z);
+    tableGroup.add(mesh);
+    ballMeshes.push({ mesh, ball });
+  }
+}
+
+function syncBallMeshes() {
+  for (const { mesh, ball } of ballMeshes) {
+    if (ball.pocketed) {
+      // Animate a quick drop-and-fade into the pocket, then hide
+      const t = clock.getElapsedTime() - (ball.pocketAnimStart || 0);
+      if (t < 0.35 && ball.pocketAnimFromX !== undefined) {
+        const p = Math.min(1, t / 0.35);
+        mesh.position.x = ball.pocketAnimFromX + (ball.pocketAnimToX - ball.pocketAnimFromX) * p;
+        mesh.position.z = ball.pocketAnimFromZ + (ball.pocketAnimToZ - ball.pocketAnimFromZ) * p;
+        mesh.position.y = TABLE.legH + TABLE.railH + BALL_R * (1 - p) - p * 3;
+        mesh.visible = true;
+      } else {
+        mesh.visible = false;
+      }
+      continue;
+    }
+    mesh.visible = true;
+    mesh.position.set(ball.x, TABLE.legH + TABLE.railH + BALL_R, ball.z);
+    if (ball.orient) {
+      const [pole, a1, a2] = ball.orient;
+      const m = new THREE.Matrix4();
+      m.makeBasis(
+        new THREE.Vector3(a1.x, a1.y, a1.z),
+        new THREE.Vector3(a2.x, a2.y, a2.z),
+        new THREE.Vector3(pole.x, pole.y, pole.z)
+      );
+      mesh.quaternion.setFromRotationMatrix(m);
+    }
+  }
+}
+
+// ==================== CUE STICK ====================
+let cueGroup, cueStickMesh;
+function buildCue() {
+  cueGroup = new THREE.Group();
+  const shaftLen = 60;
+  // Tapered cue: thicker "butt" end, thinner tip - built from two cylinders joined
+  const buttGeo = new THREE.CylinderGeometry(0.55, 0.32, shaftLen * 0.7, 16);
+  const buttMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.35, metalness: 0.1 });
+  const butt = new THREE.Mesh(buttGeo, buttMat);
+  butt.rotation.z = Math.PI / 2;
+  butt.position.x = shaftLen * 0.35 + shaftLen * 0.3;
+  cueGroup.add(butt);
+
+  const tipShaftGeo = new THREE.CylinderGeometry(0.32, 0.18, shaftLen * 0.3, 16);
+  const tipShaftMat = new THREE.MeshStandardMaterial({ color: 0xd9c19a, roughness: 0.4, metalness: 0.05 });
+  const tipShaft = new THREE.Mesh(tipShaftGeo, tipShaftMat);
+  tipShaft.rotation.z = Math.PI / 2;
+  tipShaft.position.x = shaftLen * 0.15;
+  cueGroup.add(tipShaft);
+
+  const ferruleGeo = new THREE.CylinderGeometry(0.19, 0.19, 0.6, 12);
+  const ferruleMat = new THREE.MeshStandardMaterial({ color: 0xf0ead6, roughness: 0.3 });
+  const ferrule = new THREE.Mesh(ferruleGeo, ferruleMat);
+  ferrule.rotation.z = Math.PI / 2;
+  ferrule.position.x = -0.3;
+  cueGroup.add(ferrule);
+
+  const tipGeo = new THREE.CylinderGeometry(0.19, 0.17, 0.25, 12);
+  const tipMat = new THREE.MeshStandardMaterial({ color: 0x2255aa, roughness: 0.6 });
+  cueStickMesh = new THREE.Mesh(tipGeo, tipMat);
+  cueStickMesh.rotation.z = Math.PI / 2;
+  cueStickMesh.position.x = -0.65;
+  cueGroup.add(cueStickMesh);
+
+  cueGroup.traverse(o => { if (o.isMesh) { o.castShadow = true; } });
+  scene.add(cueGroup);
+}
+
+// Input / aiming state
+const input = {
+  aimAngle: 0,          // radians, in table-space (x,z)
+  power: 0,              // 0..1
+  phase: 'aim',           // 'aim' | 'pulling' | 'firing' | 'settling'
+  pullDistance: 0,        // 0..1, how far cue is pulled back
+  dragStartX: 0, dragStartY: 0,
+  dragging: false,
+  cameraOrbitAngle: Math.PI, // extra manual orbit offset while aiming
+};
+
+const CUE_REST_GAP = 0.6; // gap between ball surface and cue tip at rest
+const CUE_MAX_PULLBACK = 22;
+
+function updateCueTransform() {
+  const cueBall = balls[0];
+  if (!cueBall || cueBall.pocketed) { cueGroup.visible = false; return; }
+  cueGroup.visible = (input.phase !== 'firing_settled');
+  const angle = input.aimAngle;
+  const dx = Math.cos(angle), dz = Math.sin(angle);
+  const pullback = CUE_REST_GAP + BALL_R + input.pullDistance * CUE_MAX_PULLBACK;
+  const cx = cueBall.x - dx * pullback;
+  const cz = cueBall.z - dz * pullback;
+  const cy = TABLE.legH + TABLE.railH + BALL_R;
+  cueGroup.position.set(cx, cy, cz);
+  cueGroup.rotation.y = -angle;
+}
+
+function ballScreenPos(ball) {
+  const v = new THREE.Vector3(ball.x, TABLE.legH + TABLE.railH + BALL_R, ball.z);
+  v.project(camera);
+  return { x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight };
+}
+
+// ==================== CAMERA CONTROLLER ====================
+const camState = {
+  mode: 'aim', // 'aim' | 'follow' | 'settle'
+  targetPos: new THREE.Vector3(),
+  targetLook: new THREE.Vector3(),
+  curPos: new THREE.Vector3(),
+  curLook: new THREE.Vector3(),
+};
+
+function computeAimCamera() {
+  const cueBall = balls[0];
+  const angle = input.aimAngle;
+  const dx = Math.cos(angle), dz = Math.sin(angle);
+  const behind = 26;
+  const height = 13;
+  const pos = new THREE.Vector3(
+    cueBall.x - dx * behind,
+    TABLE.legH + TABLE.railH + height,
+    cueBall.z - dz * behind
+  );
+  const look = new THREE.Vector3(cueBall.x + dx * 30, TABLE.legH + TABLE.railH + 2, cueBall.z + dz * 30);
+  return { pos, look };
+}
+
+function computeFollowCamera() {
+  const cueBall = balls[0];
+  const speed = Math.hypot(cueBall.vx, cueBall.vz);
+  const angle = speed > 0.05 ? Math.atan2(cueBall.vz, cueBall.vx) : input.aimAngle;
+  const pos = new THREE.Vector3(
+    cueBall.x - Math.cos(angle) * 24,
+    TABLE.legH + TABLE.railH + 20,
+    cueBall.z - Math.sin(angle) * 24
+  );
+  const look = new THREE.Vector3(cueBall.x, TABLE.legH + TABLE.railH, cueBall.z);
+  return { pos, look };
+}
+
+function computeSettleCamera() {
+  return {
+    pos: new THREE.Vector3(0, TABLE.legH + 95, 105),
+    look: new THREE.Vector3(0, TABLE.legH, 0),
+  };
+}
+
+function updateCamera(dt) {
+  let target;
+  if (input.phase === 'aim' || input.phase === 'pulling') { camState.mode = 'aim'; target = computeAimCamera(); }
+  else if (gameState.ballsMoving) { camState.mode = 'follow'; target = computeFollowCamera(); }
+  else { camState.mode = 'settle'; target = computeSettleCamera(); }
+
+  const posLerp = camState.mode === 'aim' ? 0.14 : (camState.mode === 'follow' ? 0.08 : 0.035);
+  const lookLerp = camState.mode === 'aim' ? 0.16 : (camState.mode === 'follow' ? 0.1 : 0.04);
+
+  camState.curPos.lerp(target.pos, Math.min(1, posLerp));
+  camState.curLook.lerp(target.look, Math.min(1, lookLerp));
+  camera.position.copy(camState.curPos);
+  camera.lookAt(camState.curLook);
+}
+
+// ==================== INPUT HANDLING ====================
+function screenToAimDelta(dx) {
+  // Horizontal drag rotates the aim angle; sensitivity tuned so a full
+  // screen-width drag is roughly 1.4 full radians for fine control.
+  return dx * (1.4 / window.innerWidth);
+}
+
+function onPointerDown(x, y) {
+  if (gameState.ballsMoving || !ruleState.myTurn) return;
+  input.dragStartX = x; input.dragStartY = y;
+  input.dragging = true;
+  input.dragStartAngle = input.aimAngle;
+}
+function onPointerMove(x, y) {
+  if (!input.dragging || gameState.ballsMoving || !ruleState.myTurn) return;
+  const dx = x - input.dragStartX;
+  const dy = y - input.dragStartY;
+  if (input.phase === 'aim') {
+    input.aimAngle = input.dragStartAngle - screenToAimDelta(dx);
+  } else if (input.phase === 'pulling') {
+    // Pull the cue back by dragging away from the cue ball (in the
+    // opposite direction of the aim line, on screen) - vertical drag
+    // down/back increases pull distance.
+    const pull = Math.max(0, Math.min(1, dy / 220));
+    input.pullDistance = pull;
+    input.power = pull;
+    updatePowerUI();
+  }
+}
+function onPointerUp() {
+  if (!input.dragging) return;
+  input.dragging = false;
+  if (input.phase === 'pulling' && input.power > 0.03) {
+    fireShotFromPower();
+  } else if (input.phase === 'pulling') {
+    input.phase = 'aim'; input.pullDistance = 0; input.power = 0; updatePowerUI();
+  }
+}
+
+function fireShotFromPower() {
+  gameState.aimAngle = input.aimAngle;
+  const power = Math.max(0.06, input.power) * MAX_POWER;
+  input.phase = 'firing';
+  shoot(power);
+  input.pullDistance = 0; input.power = 0; updatePowerUI();
+  setTimeout(() => { input.phase = 'aim'; }, 150);
+}
+
+function setupInput() {
+  const el = renderer.domElement;
+  el.addEventListener('pointerdown', (e) => {
+    if (gameState.ballsMoving || !ruleState.myTurn) return;
+    if (input.phase === 'aim') { input.phase = 'pulling'; input.pullDistance = 0; }
+    onPointerDown(e.clientX, e.clientY);
+  });
+  el.addEventListener('pointermove', (e) => onPointerMove(e.clientX, e.clientY));
+  window.addEventListener('pointerup', () => onPointerUp());
+  window.addEventListener('pointercancel', () => onPointerUp());
+}
+
+function updatePowerUI() {
+  const bar = document.getElementById('powerFillBar');
+  if (bar) bar.style.height = (input.power * 100) + '%';
+}
+
+// ==================== SOUND (ported from pool.html - synthesized, no files) ====================
+let audioCtx = null;
+let soundMuted = false;
+try { soundMuted = localStorage.getItem('pool3d_sound_muted') === '1'; } catch(e) {}
+
+function getAudioCtx() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return null; }
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+  return audioCtx;
+}
+function toggleMute() {
+  soundMuted = !soundMuted;
+  try { localStorage.setItem('pool3d_sound_muted', soundMuted ? '1' : '0'); } catch(e) {}
+  const btn = document.getElementById('muteBtn');
+  if (btn) btn.textContent = soundMuted ? '\uD83D\uDD07' : '\uD83D\uDD0A';
+}
+
+function playClackSound(intensity) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx(); if (!ctx) return;
+  const vol = Math.min(0.5, 0.08 + intensity * 0.35);
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(900 + intensity * 500, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.06);
+  gain.gain.setValueAtTime(vol, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 0.1);
+}
+function playStrikeSound(intensity) { playClackSound(intensity); }
+
+let lastRailSoundAt = 0;
+function playRailSound(intensity) {
+  const now = performance.now();
+  if (now - lastRailSoundAt < 80) return;
+  lastRailSoundAt = now;
+  if (soundMuted) return;
+  const ctx = getAudioCtx(); if (!ctx) return;
+  const vol = Math.min(0.25, 0.04 + intensity * 0.15);
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(120, ctx.currentTime);
+  gain.gain.setValueAtTime(vol, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 0.09);
+}
+
+function playPocketSound() {
+  if (soundMuted) return;
+  const ctx = getAudioCtx(); if (!ctx) return;
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(500, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.22);
+  gain.gain.setValueAtTime(0.35, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.24);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 0.25);
+
+  const bufferSize = ctx.sampleRate * 0.12;
+  const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer;
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(0.12, ctx.currentTime);
+  noise.connect(noiseGain); noiseGain.connect(ctx.destination);
+  noise.start();
+}
+
+// ==================== SPIN / ENGLISH SELECTOR ====================
+function setupSpinControl() {
+  const cue = document.getElementById('spinCue');
+  const dot = document.getElementById('spinDot');
+  if (!cue || !dot) return;
+  let draggingSpin = false;
+  function updateSpin(clientX, clientY) {
+    const rect = cue.getBoundingClientRect();
+    let x = (clientX - rect.left - rect.width/2) / (rect.width/2);
+    let y = (clientY - rect.top - rect.height/2) / (rect.height/2);
+    const dist = Math.hypot(x, y);
+    if (dist > 1) { x /= dist; y /= dist; }
+    gameState.spin.x = x * 2;
+    gameState.spin.y = y * 2;
+    dot.style.transform = 'translate(calc(-50% + ' + (x*16) + 'px), calc(-50% + ' + (y*16) + 'px))';
+  }
+  cue.addEventListener('pointerdown', (e) => { draggingSpin = true; updateSpin(e.clientX, e.clientY); e.stopPropagation(); });
+  cue.addEventListener('pointermove', (e) => { if (draggingSpin) { updateSpin(e.clientX, e.clientY); e.stopPropagation(); } });
+  window.addEventListener('pointerup', () => draggingSpin = false);
+}
+function resetSpinUI() {
+  const dot = document.getElementById('spinDot');
+  if (dot) dot.style.transform = 'translate(-50%, -50%)';
+}
+
+// ==================== GAME RULES (8-ball, ported/simplified from pool.html) ====================
+let ruleState = {
+  myTurn: true, groupAssigned: false, myGroup: null, botGroup: null,
+  ballsPocketed: { solids: 0, stripes: 0 },
+  breakTaken: false, thisShotIsBreak: false,
+  calledPocket: null, callingShot: false,
+  winner: null, gameOver: false,
+  justPocketedThisShot: [],
+};
+
+function switchTurn() { ruleState.myTurn = !ruleState.myTurn; }
+
+function resolvePocketedBall(ball, pocketIdx) {
+  ruleState.justPocketedThisShot.push(ball.number);
+  if (ball.number === 0) { gameState.scratch = true; return; }
+  if (ball.number === 8) {
+    if (!ruleState.groupAssigned) { gameState.foul = true; return; }
+    const shooterGroup = ruleState.myTurn ? ruleState.myGroup : ruleState.botGroup;
+    const shooterBallsLeft = shooterGroup === 'solids' ? (7 - ruleState.ballsPocketed.solids) : (7 - ruleState.ballsPocketed.stripes);
+    // V1 simplification: the human doesn't have a call-shot UI yet, so
+    // their 8-ball pocket is always treated as honored. The bot still
+    // genuinely calls its pocket via ruleState.calledPocket, and that
+    // real check still applies to bot shots. A tap-to-call UI for the
+    // human is a follow-up, not done here.
+    let honored;
+    if (ruleState.thisShotIsBreak) honored = true;
+    else if (ruleState.myTurn) honored = true; // human - V1 auto-honor
+    else honored = (ruleState.calledPocket !== null && pocketIdx === ruleState.calledPocket);
+    if (shooterBallsLeft === 0 && honored) ruleState.winner = ruleState.myTurn ? 'you' : 'bot';
+    else ruleState.winner = ruleState.myTurn ? 'bot' : 'you';
+    ruleState.gameOver = true;
+    return;
+  }
+  const group = ball.number <= 7 ? 'solids' : 'stripes';
+  ruleState.ballsPocketed[group]++;
+  if (!ruleState.groupAssigned) {
+    if (ruleState.myTurn) { ruleState.myGroup = group; ruleState.botGroup = group === 'solids' ? 'stripes' : 'solids'; }
+    else { ruleState.botGroup = group; ruleState.myGroup = group === 'solids' ? 'stripes' : 'solids'; }
+    ruleState.groupAssigned = true;
+  }
+}
+
+function onBallPocketed(ball, pocketIdx) { resolvePocketedBall(ball, pocketIdx); }
+
+function onShotFired() {
+  ruleState.thisShotIsBreak = !ruleState.breakTaken;
+  ruleState.breakTaken = true;
+  ruleState.justPocketedThisShot = [];
+  gameState.scratch = false; gameState.foul = false;
+}
+
+function onShotSettled() {
+  if (ruleState.gameOver) { showGameOverUI(); return; }
+
+  if (gameState.scratch) {
+    const cueBall = balls[0];
+    cueBall.pocketed = false; cueBall.vx = 0; cueBall.vz = 0; cueBall.spinX = 0; cueBall.spinY = 0;
+    cueBall.x = -PLAY_W * 0.25; cueBall.z = 0;
+    switchTurn();
+    ruleState.calledPocket = null;
+    afterTurnSwitch();
+    return;
+  }
+
+  if (!ruleState.thisShotIsBreak) {
+    const shooterGroup = ruleState.myTurn ? ruleState.myGroup : ruleState.botGroup;
+    let legalFirstContact = true;
+    if (gameState.firstContactBall === null) legalFirstContact = false;
+    else if (ruleState.groupAssigned && shooterGroup) {
+      const shooterBallsLeft = shooterGroup === 'solids' ? (7 - ruleState.ballsPocketed.solids) : (7 - ruleState.ballsPocketed.stripes);
+      const contactedGroup = gameState.firstContactBall <= 7 ? 'solids' : (gameState.firstContactBall === 8 ? '8ball' : 'stripes');
+      legalFirstContact = shooterBallsLeft === 0 ? (gameState.firstContactBall === 8) : (contactedGroup === shooterGroup);
+    }
+    const noRailNoPocket = ruleState.justPocketedThisShot.length === 0 && !gameState.railContactedThisShot;
+    if (!legalFirstContact || noRailNoPocket) {
+      switchTurn();
+      ruleState.calledPocket = null;
+      afterTurnSwitch();
+      return;
+    }
+  }
+
+  if (ruleState.justPocketedThisShot.length === 0) switchTurn();
+  afterTurnSwitch();
+}
+
+// ==================== BOT AI (simplified, same core geometry as pool.html) ====================
+function ballLineClear(x1, z1, x2, z2, excludeNum) {
+  const dx = x2 - x1, dz = z2 - z1;
+  const len = Math.hypot(dx, dz);
+  if (len < 0.001) return true;
+  const nx = dx / len, nz = dz / len;
+  for (const b of balls) {
+    if (b.pocketed || b.number === excludeNum || b.number === 0) continue;
+    const toX = b.x - x1, toZ = b.z - z1;
+    const proj = toX * nx + toZ * nz;
+    if (proj <= 0 || proj >= len) continue;
+    const perpX = toX - proj * nx, perpZ = toZ - proj * nz;
+    if (Math.hypot(perpX, perpZ) < BALL_R * 1.9) return false;
+  }
+  return true;
+}
+
+function findBotShot() {
+  const cueBall = balls[0];
+  const botGroup = ruleState.groupAssigned ? ruleState.botGroup : null;
+  const botBallsLeft = botGroup === 'solids' ? (7 - ruleState.ballsPocketed.solids) : botGroup === 'stripes' ? (7 - ruleState.ballsPocketed.stripes) : 99;
+  const onEightBall = ruleState.groupAssigned && botBallsLeft === 0;
+
+  let best = null, bestScore = -Infinity;
+  for (const ball of balls) {
+    if (ball.pocketed || ball.number === 0) continue;
+    if (ruleState.groupAssigned) {
+      if (botGroup === 'solids' && ball.number > 7) continue;
+      if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+    }
+    if (ball.number === 8 && !onEightBall) continue;
+
+    for (let pi = 0; pi < POCKETS.length; pi++) {
+      const p = POCKETS[pi];
+      const pocketAngle = Math.atan2(p.z - ball.z, p.x - ball.x);
+      const ghostX = ball.x - Math.cos(pocketAngle) * (BALL_R * 2);
+      const ghostZ = ball.z - Math.sin(pocketAngle) * (BALL_R * 2);
+      if (Math.abs(ghostX) > half - BALL_R || Math.abs(ghostZ) > halfD - BALL_R) continue;
+      if (!ballLineClear(cueBall.x, cueBall.z, ghostX, ghostZ, ball.number)) continue;
+      if (!ballLineClear(ball.x, ball.z, p.x, p.z, -1)) continue;
+
+      const approachDx = ghostX - cueBall.x, approachDz = ghostZ - cueBall.z;
+      const toPocketDx = p.x - ball.x, toPocketDz = p.z - ball.z;
+      const approachMag = Math.hypot(approachDx, approachDz), pocketMag = Math.hypot(toPocketDx, toPocketDz);
+      let cutAngle = 0;
+      if (approachMag > 0.01 && pocketMag > 0.01) {
+        const dot = (approachDx*toPocketDx + approachDz*toPocketDz) / (approachMag*pocketMag);
+        cutAngle = Math.acos(Math.max(-1, Math.min(1, dot)));
+      }
+      if (cutAngle > 1.48) continue; // ~85 degrees - physically unmakeable
+      const cutDeg = cutAngle * 180 / Math.PI;
+      const dist = approachMag + pocketMag;
+      const score = 1000 - cutDeg * 6 - dist * 1.2;
+      if (score > bestScore) {
+        bestScore = score;
+        best = { ball, pocketIdx: pi, aimAngle: Math.atan2(ghostZ - cueBall.z, ghostX - cueBall.x), dist };
+      }
+    }
+  }
+  return best;
+}
+
+function botTakeTurn() {
+  if (ruleState.gameOver) return;
+  const shot = findBotShot();
+  let angle, power;
+  if (shot) {
+    angle = shot.aimAngle;
+    power = Math.max(0.28, Math.min(0.85, shot.dist / (PLAY_W * 1.3))) * MAX_POWER;
+    ruleState.calledPocket = ruleState.breakTaken ? shot.pocketIdx : null;
+  } else {
+    // No clean shot - aim at the nearest legal ball to guarantee contact
+    const cueBall = balls[0];
+    const botGroup = ruleState.groupAssigned ? ruleState.botGroup : null;
+    let nearest = null, nearestDist = Infinity;
+    for (const b of balls) {
+      if (b.pocketed || b.number === 0) continue;
+      if (ruleState.groupAssigned) {
+        if (botGroup === 'solids' && b.number > 7) continue;
+        if (botGroup === 'stripes' && b.number <= 7 && b.number !== 8) continue;
+      }
+      const d = Math.hypot(b.x - cueBall.x, b.z - cueBall.z);
+      if (d < nearestDist) { nearestDist = d; nearest = b; }
+    }
+    if (nearest) angle = Math.atan2(nearest.z - cueBall.z, nearest.x - cueBall.x);
+    else angle = Math.random() * Math.PI * 2;
+    power = 0.35 * MAX_POWER;
+    ruleState.calledPocket = null;
+  }
+  gameState.aimAngle = angle;
+  input.aimAngle = angle;
+  shoot(power);
+}
+
+function afterTurnSwitch() {
+  updateTurnUI();
+  if (!ruleState.myTurn && !ruleState.gameOver) {
+    setTimeout(() => botTakeTurn(), 700 + Math.random() * 500);
+  }
+}
+
+function updateTurnUI() {
+  const el = document.getElementById('turnIndicator');
+  if (el) el.textContent = ruleState.gameOver ? (ruleState.winner === 'you' ? 'You Win!' : 'Bot Wins') : (ruleState.myTurn ? 'Your Turn' : "Bot's Turn");
+  const groupEl = document.getElementById('groupIndicator');
+  if (groupEl) {
+    if (!ruleState.groupAssigned) groupEl.textContent = 'Table Open';
+    else groupEl.textContent = 'You: ' + (ruleState.myGroup === 'solids' ? 'Solids' : 'Stripes');
+  }
+}
+function showGameOverUI() {
+  const el = document.getElementById('turnIndicator');
+  if (el) el.textContent = ruleState.winner === 'you' ? '\uD83C\uDFC6 You Win!' : 'Bot Wins';
+}
+
+function loadingProgress(pct, label) {
+  document.getElementById('loadingFill').style.width = pct + '%';
+  if (label) document.querySelector('#loadingScreen .sub').textContent = label;
+}
+
+let physicsAccumulator = 0;
+const PHYSICS_STEP_DT = 1 / 60;
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(2.0, clock.getDelta());
+  if (gameState.ballsMoving) {
+    physicsAccumulator += dt;
+    // Fixed-timestep accumulator: physics always advances at a real,
+    // consistent 60 steps/second regardless of how fast this particular
+    // device can actually render frames - a slow device just renders
+    // fewer frames per physics-second, it never sees the simulation
+    // itself run in slow motion or fast-forward.
+    let stepsThisFrame = 0;
+    while (physicsAccumulator >= PHYSICS_STEP_DT && stepsThisFrame < 240) {
+      updatePhysics(PHYSICS_STEP_DT);
+      physicsAccumulator -= PHYSICS_STEP_DT;
+      stepsThisFrame++;
+    }
+    if (stepsThisFrame >= 240) physicsAccumulator = 0; // truly extreme stall - avoid a permanent catch-up spiral
+  } else {
+    physicsAccumulator = 0;
+  }
+  syncBallMeshes();
+  updateCueTransform();
+  updateCamera(dt);
+  renderer.render(scene, camera);
+}
+
+function init() {
+  loadingProgress(20, 'Building scene...');
+  initScene();
+  loadingProgress(40, 'Setting up table...');
+  buildTable();
+  loadingProgress(55, 'Lighting...');
+  buildLighting();
+  loadingProgress(70, 'Racking balls...');
+  rackBalls();
+  buildBalls();
+  loadingProgress(85, 'Cue stick...');
+  buildCue();
+  input.aimAngle = 0;
+  camState.curPos.set(0, TABLE.legH + 95, 105);
+  camState.curLook.set(0, TABLE.legH, 0);
+  setupInput();
+  setupSpinControl();
+  updateTurnUI();
+  loadingProgress(100, 'Ready');
+  setTimeout(() => { document.getElementById('loadingScreen').style.display = 'none'; }, 200);
+  animate();
+}
+
+init();
+</script>
+</body>
+</html>
