@@ -3,26 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="description" content="Play 8-Ball Pool online free — real physics, P2P multiplayer against friends, or play offline against smart AI bots. No download, mobile optimized, play pool online or offline instantly.">
-<meta name="keywords" content="pool, 8 ball pool, play pool online, play pool offline, online pool, p2p pool, multiplayer pool, mobile pool game, free pool game, billiards online, play cards online, play games online">
+<meta name="description" content="Play 8-Ball Pool or 9-Ball Pool online free — real physics, P2P multiplayer against friends, or play offline against smart AI bots. No download, mobile optimized, play pool online or offline instantly.">
+<meta name="keywords" content="pool, 8 ball pool, 9 ball pool, play pool online, play pool offline, online pool, p2p pool, multiplayer pool, mobile pool game, free pool game, billiards online, play 9 ball online, 9 ball rules, play cards online, play games online">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="https://28gulan.com/pool.html">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://28gulan.com/pool.html">
-<meta property="og:title" content="8-Ball Pool Online Free — 28 Kerala Gulan">
-<meta property="og:description" content="Play 8-Ball Pool online free — real physics, P2P multiplayer or offline vs AI bots.">
+<meta property="og:title" content="8-Ball &amp; 9-Ball Pool Online Free — 28 Kerala Gulan">
+<meta property="og:description" content="Play 8-Ball or 9-Ball Pool online free — real physics, P2P multiplayer or offline vs AI bots.">
 <meta property="og:site_name" content="28 Kerala Gulan">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="8-Ball Pool Online Free">
-<meta name="twitter:description" content="Play 8-Ball Pool online free — real physics, P2P multiplayer or offline vs AI bots.">
-<title>8-Ball Pool Online - P2P Multiplayer</title>
+<meta name="twitter:title" content="8-Ball &amp; 9-Ball Pool Online Free">
+<meta name="twitter:description" content="Play 8-Ball or 9-Ball Pool online free — real physics, P2P multiplayer or offline vs AI bots.">
+<title>8-Ball & 9-Ball Pool Online - P2P Multiplayer</title>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "Game",
-  "name": "8-Ball Pool",
+  "name": "8-Ball & 9-Ball Pool",
+  "alternateName": ["8-Ball Pool", "9-Ball Pool", "9 Ball"],
   "url": "https://28gulan.com/pool.html",
-  "description": "Play 8-Ball Pool online free with real physics, P2P multiplayer against friends, or offline against AI bots.",
+  "description": "Play 8-Ball Pool or 9-Ball Pool online free with real physics, P2P multiplayer against friends, or offline against AI bots.",
   "genre": "Sports Game",
   "playMode": "MultiPlayer",
   "isAccessibleForFree": true
@@ -3637,7 +3638,7 @@ function botTurn() {
 
   if (!onEightBall && Math.random() < config.randomShotChance) {
     gameState.aimAngle = Math.random() * Math.PI * 2;
-    const powerPct = config.powerMinPct + Math.random() * (config.powerMaxPct - config.powerMinPct);
+    const powerPct = Math.max(30, config.powerMinPct) + Math.random() * (config.powerMaxPct - Math.max(30, config.powerMinPct));
     const power = pctToPower(powerPct);
     const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
     if (gameState.breakTaken) gameState.calledPocket = Math.floor(Math.random() * pockets.length);
@@ -3744,8 +3745,36 @@ function botTurn() {
         return;
       }
     }
+    // No pocket-able shot exists for any ball (every candidate had too
+    // extreme a cut angle to legally send anything in) - rather than
+    // firing at a completely random compass direction and gambling on
+    // whether anything gets touched at all, aim at whichever legal ball
+    // is actually closest. This guarantees real contact and a legal
+    // shot, which is always better than a shot that might hit nothing
+    // on the entire table.
+    let nearestLegalBall = null, nearestDist = Infinity;
+    for (const ball of balls) {
+      if (ball.pocketed || ball.number === 0) continue;
+      if (gameState.groupAssigned) {
+        if (botGroup === 'solids' && ball.number > 7) continue;
+        if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+      }
+      if (ball.number === 8 && botBallsLeft !== 0) continue;
+      const d = Math.hypot(ball.x - cueBall.x, ball.y - cueBall.y);
+      if (d < nearestDist) { nearestDist = d; nearestLegalBall = ball; }
+    }
+    if (nearestLegalBall) {
+      gameState.aimAngle = Math.atan2(nearestLegalBall.y - cueBall.y, nearestLegalBall.x - cueBall.x);
+      const powerPct = Math.max(30, config.powerMinPct) + Math.random() * 15;
+      if (gameState.breakTaken) gameState.calledPocket = Math.floor(Math.random() * pockets.length);
+      botAnimateAndShoot(gameState.aimAngle, pctToPower(powerPct), {x:0,y:0}, thinkTime);
+      return;
+    }
+    // Truly no legal ball exists anywhere on the table - should be
+    // essentially impossible, but fall back to something rather than
+    // nothing at all.
     gameState.aimAngle = Math.random() * Math.PI * 2;
-    const powerPct = config.powerMinPct + Math.random() * (config.powerMaxPct - config.powerMinPct);
+    const powerPct = Math.max(30, config.powerMinPct) + Math.random() * (config.powerMaxPct - Math.max(30, config.powerMinPct));
     if (gameState.breakTaken) gameState.calledPocket = Math.floor(Math.random() * pockets.length);
     botAnimateAndShoot(gameState.aimAngle, pctToPower(powerPct), {x:0,y:0}, thinkTime);
     return;
@@ -3836,8 +3865,30 @@ function botTurn() {
         return;
       }
     }
+    // Same situation as the earlier "no candidates" fallback: every
+    // candidate that did exist failed simulation verification, so
+    // rather than gambling on a random direction, aim at the nearest
+    // legal ball to guarantee real, legal contact.
+    let nearestLegalBall2 = null, nearestDist2 = Infinity;
+    for (const ball of balls) {
+      if (ball.pocketed || ball.number === 0) continue;
+      if (gameState.groupAssigned) {
+        if (botGroup === 'solids' && ball.number > 7) continue;
+        if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+      }
+      if (ball.number === 8 && botBallsLeft !== 0) continue;
+      const d = Math.hypot(ball.x - cueBall.x, ball.y - cueBall.y);
+      if (d < nearestDist2) { nearestDist2 = d; nearestLegalBall2 = ball; }
+    }
+    if (nearestLegalBall2) {
+      gameState.aimAngle = Math.atan2(nearestLegalBall2.y - cueBall.y, nearestLegalBall2.x - cueBall.x);
+      const powerPct = Math.max(30, config.powerMinPct) + Math.random() * 15;
+      if (gameState.breakTaken) gameState.calledPocket = Math.floor(Math.random() * pockets.length);
+      botAnimateAndShoot(gameState.aimAngle, pctToPower(powerPct), {x:0,y:0}, config.thinkTimeMin);
+      return;
+    }
     gameState.aimAngle = Math.random() * Math.PI * 2;
-    const powerPct = config.powerMinPct + Math.random() * (config.powerMaxPct - config.powerMinPct);
+    const powerPct = Math.max(30, config.powerMinPct) + Math.random() * (config.powerMaxPct - Math.max(30, config.powerMinPct));
     if (gameState.breakTaken) gameState.calledPocket = Math.floor(Math.random() * pockets.length);
     botAnimateAndShoot(gameState.aimAngle, pctToPower(powerPct), {x:0,y:0}, config.thinkTimeMin);
     return;
@@ -3848,7 +3899,7 @@ function botTurn() {
   if (Math.random() < config.missChance) gameState.aimAngle += (Math.random() - 0.5) * 0.2;
   let power = bestShot.basePower;
   if (config.powerJitterPct > 0) power += (Math.random() - 0.5) * 2 * pctToPower(config.powerJitterPct);
-  power = Math.max(pctToPower(Math.max(5, config.powerMinPct * 0.5)), Math.min(pctToPower(config.powerMaxPct), power));
+  power = Math.max(pctToPower(Math.max(25, config.powerMinPct * 0.5)), Math.min(pctToPower(config.powerMaxPct), power));
   const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
   const spin = config.useSpin ? { x: bestShot.spinX, y: bestShot.spinY } : { x: 0, y: 0 };
   if (gameState.gameType === '8ball' && gameState.breakTaken) {
