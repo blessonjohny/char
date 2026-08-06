@@ -240,6 +240,13 @@
     <div style="font-size:11px;color:#888;margin-bottom:7px">PLAYERS IN ROOM</div>
     <div id="hostPlayerList"></div>
   </div>
+  <div style="width:min(340px,92vw);margin-top:10px">
+    <div style="font-size:12px;color:#999;margin-bottom:6px;text-align:center">Game type:</div>
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px">
+      <button class="btn btn-gold" id="gameType8BallBtn" style="width:auto;padding:6px 16px;font-size:12px" onclick="poolSetGameType('8ball')">8-Ball</button>
+      <button class="btn btn-dark" id="gameType9BallBtn" style="width:auto;padding:6px 16px;font-size:12px" onclick="poolSetGameType('9ball')">9-Ball</button>
+    </div>
+  </div>
   <div id="hostBotSection" style="display:none;width:min(340px,92vw);margin-top:10px">
     <div style="font-size:12px;color:#999;margin-bottom:6px;text-align:center">Or play against a bot while you wait:</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:8px">
@@ -563,6 +570,14 @@ window.addEventListener('orientationchange', checkOrientation);
 
 // ==================== P2P NETWORKING ====================
 let poolSocket = null, isHost = false, roomCode = '', gameMode = 'p2p';
+let poolGameType = '8ball'; // '8ball' or '9ball'
+function poolSetGameType(type) {
+  poolGameType = type;
+  const btn8 = document.getElementById('gameType8BallBtn');
+  const btn9 = document.getElementById('gameType9BallBtn');
+  if (btn8) btn8.className = type === '8ball' ? 'btn btn-gold' : 'btn btn-dark';
+  if (btn9) btn9.className = type === '9ball' ? 'btn btn-gold' : 'btn btn-dark';
+}
 let poolMyShotInProgress = false;
 let myName = 'Player', opponentName = 'Opponent';
 let botDifficulty = 'easy';
@@ -1146,16 +1161,48 @@ function initGame() {
   balls.push({ id: 0, x: 225, y: 225, vx: 0, vy: 0, spinX: 0, spinY: 0, orient: defaultOrient(),
     r: BALL_RADIUS, color: COLORS[0], number: 0, pocketed: false });
 
-  // Rack position - 2/3 from left, centered vertically
   const rackX = 650, rackY = 225, spacing = BALL_RADIUS * 2 + 0.5;
-  const ballNums = [1, 9, 2, 10, 8, 3, 11, 7, 14, 4, 12, 15, 6, 13, 5];
-  let idx = 0;
-  for (let row = 0; row < 5; row++) {
-    for (let col = 0; col <= row; col++) {
-      const x = rackX + row * spacing * 0.866;
-      const y = rackY + (col - row / 2) * spacing;
-      const num = ballNums[idx++];
-      balls.push({ id: num, x: x, y: y, vx: 0, vy: 0, spinX: 0, spinY: 0, orient: defaultOrient(), r: BALL_RADIUS, color: COLORS[num], number: num, pocketed: false });
+  if (poolGameType === '9ball') {
+    // Diamond rack: rows of 1,2,3,2,1 balls - the 1-ball at the apex
+    // (closest to the cue ball, where the break comes from), the 9-ball
+    // dead center of the middle row, everything else shuffled randomly
+    // into the remaining six spots.
+    const others = [2,3,4,5,6,7,8];
+    for (let i = others.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [others[i], others[j]] = [others[j], others[i]];
+    }
+    const rowSizes = [1, 2, 3, 2, 1];
+    const positions = [];
+    for (let row = 0; row < rowSizes.length; row++) {
+      for (let col = 0; col < rowSizes[row]; col++) {
+        const x = rackX + row * spacing * 0.866;
+        const y = rackY + (col - (rowSizes[row] - 1) / 2) * spacing;
+        positions.push({ x, y, row, col });
+      }
+    }
+    // Position index 0 is the apex (1-ball). The middle row is row 2,
+    // which spans position indices 3,4,5 - index 4 is its center slot.
+    let otherIdx = 0;
+    for (let i = 0; i < positions.length; i++) {
+      const p = positions[i];
+      let num;
+      if (i === 0) num = 1;
+      else if (p.row === 2 && p.col === 1) num = 9;
+      else num = others[otherIdx++];
+      balls.push({ id: num, x: p.x, y: p.y, vx: 0, vy: 0, spinX: 0, spinY: 0, orient: defaultOrient(), r: BALL_RADIUS, color: COLORS[num], number: num, pocketed: false });
+    }
+  } else {
+    // Rack position - 2/3 from left, centered vertically
+    const ballNums = [1, 9, 2, 10, 8, 3, 11, 7, 14, 4, 12, 15, 6, 13, 5];
+    let idx = 0;
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col <= row; col++) {
+        const x = rackX + row * spacing * 0.866;
+        const y = rackY + (col - row / 2) * spacing;
+        const num = ballNums[idx++];
+        balls.push({ id: num, x: x, y: y, vx: 0, vy: 0, spinX: 0, spinY: 0, orient: defaultOrient(), r: BALL_RADIUS, color: COLORS[num], number: num, pocketed: false });
+      }
     }
   }
   gameState = {
@@ -1166,7 +1213,8 @@ function initGame() {
     winner: null, firstShot: true, groupAssigned: false, justPocketed: [],
     aimPhase: true, aimLocked: false, powerPhase: false,
     botTurnPending: false, placingCueBall: false, placementKitchenOnly: false,
-    breakTaken: false, thisShotIsBreak: false, calledPocket: null, callingShot: false, calledShotMade: false, pocketedInto: {}
+    breakTaken: false, thisShotIsBreak: false, calledPocket: null, callingShot: false, calledShotMade: false, pocketedInto: {},
+    gameType: poolGameType
   };
   updateUI();
 }
@@ -1557,6 +1605,15 @@ function shoot(power) {
   poolPlayClack(Math.min(1, power / MAX_POWER));
   gameState.aiming = false; gameState.power = 0;
   gameState.ballsMoving = true; gameState.justPocketed = [];
+  gameState.firstContactBall = null; gameState.railContactedThisShot = false;
+  if (gameState.gameType === '9ball') {
+    let lowest = null;
+    for (const b of balls) {
+      if (b.pocketed || b.number === 0) continue;
+      if (lowest === null || b.number < lowest) lowest = b.number;
+    }
+    gameState.lowestBallThisShot = lowest;
+  }
   gameState.aimPhase = true; gameState.aimLocked = false; gameState.powerPhase = false;
   gameState.spin = {x: 0, y: 0};
   resetSpinUI();
@@ -1833,6 +1890,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP, FAST_SHOT_DECEL_STEP)
         ball.x = MARGIN + ball.r;
         ball.vx = Math.abs(ball.vx) * WALL_BOUNCE;
         poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
+        gameState.railContactedThisShot = true;
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vx *= carry;
@@ -1848,6 +1906,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP, FAST_SHOT_DECEL_STEP)
         ball.x = TABLE_WIDTH - MARGIN - ball.r;
         ball.vx = -Math.abs(ball.vx) * WALL_BOUNCE;
         poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
+        gameState.railContactedThisShot = true;
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vx *= carry;
@@ -1863,6 +1922,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP, FAST_SHOT_DECEL_STEP)
         ball.y = MARGIN + ball.r;
         ball.vy = Math.abs(ball.vy) * WALL_BOUNCE;
         poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
+        gameState.railContactedThisShot = true;
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vy *= carry;
@@ -1878,6 +1938,7 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP, FAST_SHOT_DECEL_STEP)
         ball.y = TABLE_HEIGHT - MARGIN - ball.r;
         ball.vy = -Math.abs(ball.vy) * WALL_BOUNCE;
         poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
+        gameState.railContactedThisShot = true;
         if (Math.abs(ball.spinY) > 0.01) {
           const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
           ball.vy *= carry;
@@ -1902,6 +1963,13 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP, FAST_SHOT_DECEL_STEP)
         const nx = dx / dist, ny = dy / dist;
         b1.x -= nx * overlap * 0.5; b1.y -= ny * overlap * 0.5;
         b2.x += nx * overlap * 0.5; b2.y += ny * overlap * 0.5;
+        // Records only the very first ball the cue ball touches this shot -
+        // needed for 9-ball's "must contact the lowest ball on the table
+        // first" rule. Irrelevant for 8-ball, which doesn't use this field.
+        if (gameState.firstContactBall === null || gameState.firstContactBall === undefined) {
+          if (b1.number === 0) gameState.firstContactBall = b2.number;
+          else if (b2.number === 0) gameState.firstContactBall = b1.number;
+        }
         // Capture the cue ball's speed the instant BEFORE momentum transfer. This is what
         // determines how much spin/English is available to act with - not whatever speed
         // happens to be left over afterward. A straight stun/draw shot can leave the cue
@@ -1961,6 +2029,26 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP, FAST_SHOT_DECEL_STEP)
 
 function handlePocket(ball, pocketIdx) {
   if (typeof pocketIdx === 'number') gameState.pocketedInto[ball.number] = pocketIdx;
+
+  if (gameState.gameType === '9ball') {
+    if (ball.number === 0) { gameState.scratch = true; gameState.foul = true; return; }
+    gameState.justPocketed.push(ball.number);
+    if (ball.number === 9) {
+      // Winning requires the contact-order rule to have actually been
+      // honored on this shot - the lowest ball on the table struck
+      // first. Pocketing the 9 without that just means it gets spotted
+      // back and this shot is scored as a normal foul instead of a win.
+      const legalContact = gameState.firstContactBall === gameState.lowestBallThisShot;
+      if (legalContact) {
+        gameState.winner = gameState.myTurn ? myName : opponentName;
+        gameState.gameOver = true;
+      } else {
+        gameState.nineBallRespot = true;
+      }
+    }
+    return;
+  }
+
   if (ball.number === 0) { gameState.scratch = true; gameState.foul = true; }
   else if (ball.number === 8) {
     if (!gameState.groupAssigned) { gameState.foul = true; }
@@ -2003,11 +2091,67 @@ function endTurn() {
     startTurn(); return;
   }
   if (gameState.gameOver) { showGameOver(); return; }
+
+  if (gameState.gameType === '9ball') {
+    const wrongBallFirst = gameState.firstContactBall !== null && gameState.firstContactBall !== gameState.lowestBallThisShot;
+    const noContactAtAll = gameState.firstContactBall === null;
+    const noRailNoPocket = gameState.justPocketed.length === 0 && !gameState.railContactedThisShot;
+    const isFoul = wrongBallFirst || noContactAtAll || noRailNoPocket;
+
+    if (gameState.nineBallRespot) {
+      const nineBall = balls.find(b => b.number === 9);
+      if (nineBall) {
+        nineBall.pocketed = false;
+        nineBall.x = TABLE_WIDTH * 0.75; nineBall.y = TABLE_HEIGHT / 2;
+        nineBall.vx = 0; nineBall.vy = 0;
+      }
+      gameState.nineBallRespot = false;
+    }
+
+    if (isFoul) {
+      switchTurn();
+      enterCuePlacement(false); // ball-in-hand, anywhere on the table, same as a scratch
+      startTurn(); return;
+    }
+    // Legal shot: turn continues only if something was actually pocketed.
+    if (gameState.justPocketed.length === 0) switchTurn();
+    startTurn(); return;
+  }
+
   if (gameState.foul) {
     gameState.foul = false; switchTurn();
     gameState.calledPocket = null; gameState.calledShotMade = false;
     startTurn(); return;
   }
+
+  // Standard 8-ball fouls that were missing entirely: hitting the wrong
+  // ball first, making no contact at all, and legal contact that sends
+  // nothing to a rail or a pocket. None of these care how many cushions
+  // the cue ball bounced off on its way to that first contact - only
+  // which ball it actually hit first matters, exactly like real 8-ball.
+  if (!gameState.thisShotIsBreak) {
+    const currentGroupForFoulCheck = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
+    const currentBallsLeftForFoulCheck = currentGroupForFoulCheck === 'solids' ? (7 - gameState.ballsPocketed.solids) : currentGroupForFoulCheck === 'stripes' ? (7 - gameState.ballsPocketed.stripes) : null;
+    let legalFirstContact = true;
+    if (gameState.firstContactBall === null) {
+      legalFirstContact = false; // total whiff, no contact at all
+    } else if (gameState.groupAssigned && currentGroupForFoulCheck) {
+      const contactedGroup = gameState.firstContactBall <= 7 ? 'solids' : (gameState.firstContactBall === 8 ? '8ball' : 'stripes');
+      if (currentBallsLeftForFoulCheck === 0) {
+        legalFirstContact = (gameState.firstContactBall === 8);
+      } else {
+        legalFirstContact = (contactedGroup === currentGroupForFoulCheck);
+      }
+    }
+    const noRailNoPocketForFoulCheck = gameState.justPocketed.length === 0 && !gameState.railContactedThisShot;
+    if (!legalFirstContact || noRailNoPocketForFoulCheck) {
+      switchTurn();
+      enterCuePlacement(false); // ball-in-hand, anywhere on the table, same as any other foul
+      gameState.calledPocket = null; gameState.calledShotMade = false;
+      startTurn(); return;
+    }
+  }
+
   const currentPlayerGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
   let pocketedCurrentPlayerBall = false;
   if (gameState.thisShotIsBreak) {
@@ -2139,8 +2283,9 @@ function autoPlaceCueBallForBot() {
 
 function startTurn() {
   // Every shot after the break must be called first - the break
-  // itself is the one and only exemption.
-  if (gameState.myTurn && gameState.breakTaken && !gameState.placingCueBall && !gameState.gameOver) {
+  // itself is the one and only exemption. 9-ball has no calling system
+  // at all - any legal pocket on any ball counts, so this never applies.
+  if (gameState.gameType === '8ball' && gameState.myTurn && gameState.breakTaken && !gameState.placingCueBall && !gameState.gameOver) {
     gameState.calledPocket = null;
     gameState.callingShot = true;
   } else {
@@ -3449,6 +3594,40 @@ function botTurn() {
   document.getElementById('p2Name').textContent = config.name;
   const cueBall = balls[0];
   if (!cueBall || cueBall.pocketed) return;
+
+  // The break gets its own dedicated logic, completely separate from the
+  // normal shot-simulation system below. A break isn't "pick a ball, pick
+  // a pocket, verify with simulation" - the target ball is buried inside
+  // a tightly packed rack, and the ball-to-ball collision chaos of a real
+  // break means even a tiny simulation/reality mismatch compounds into a
+  // wildly different real outcome than what got simulated and approved.
+  // A break just needs to strike the rack squarely, hard, and consistently
+  // - exactly what a real player actually does.
+  if (!gameState.breakTaken) {
+    let headBall = null, headBallDist = Infinity;
+    for (const ball of balls) {
+      if (ball.pocketed || ball.number === 0) continue;
+      const d = Math.hypot(ball.x - cueBall.x, ball.y - cueBall.y);
+      if (d < headBallDist) { headBallDist = d; headBall = ball; }
+    }
+    const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
+    if (headBall) {
+      const aimAngle = Math.atan2(headBall.y - cueBall.y, headBall.x - cueBall.x);
+      // A hard, dead-center hit on the head ball, full pace but not
+      // literally max power (which risks an uncontrolled scratch) -
+      // realistic, consistent break pace, the same for every difficulty
+      // since a break's mechanics don't get "harder" at lower skill.
+      const breakPower = pctToPower(88);
+      botAnimateAndShoot(aimAngle, breakPower, {x:0,y:0}, thinkTime);
+    } else {
+      // Should never happen (no balls left to break into), but fall back
+      // to something reasonable rather than doing nothing at all.
+      gameState.aimAngle = Math.random() * Math.PI * 2;
+      botAnimateAndShoot(gameState.aimAngle, pctToPower(60), {x:0,y:0}, thinkTime);
+    }
+    return;
+  }
+
   let botGroup = gameState.opponentGroup;
   if (!gameState.groupAssigned) botGroup = null;
   const botBallsLeft = botGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) : botGroup === 'stripes' ? (7 - gameState.ballsPocketed.stripes) : 999;
@@ -3466,9 +3645,19 @@ function botTurn() {
     return;
   }
 
+  let lowestBallOnTable = null;
+  if (gameState.gameType === '9ball') {
+    for (const ball of balls) {
+      if (ball.pocketed || ball.number === 0) continue;
+      if (lowestBallOnTable === null || ball.number < lowestBallOnTable) lowestBallOnTable = ball.number;
+    }
+  }
   let candidates = [];
   for (const ball of balls) {
     if (ball.pocketed || ball.number === 0) continue;
+    // 9-ball: the lowest ball on the table is the only legal first
+    // contact, so it's the only real target to aim directly at.
+    if (gameState.gameType === '9ball' && ball.number !== lowestBallOnTable) continue;
     if (gameState.groupAssigned) {
       if (botGroup === 'solids' && ball.number > 7) continue;
       if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
@@ -3522,6 +3711,13 @@ function botTurn() {
         const dot = (approachDx * toPocketDx + approachDy * toPocketDy) / (approachMag * pocketMag);
         cutAngle = Math.acos(Math.max(-1, Math.min(1, dot)));
       }
+      // A cut angle beyond ~90 degrees is not just difficult, it's
+      // physically impossible - the collision at that approach angle
+      // drives the object ball AWAY from the pocket, not toward it. This
+      // was never a real, pocketable shot at all, and letting it through
+      // (even penalized) meant the scoring could still end up choosing a
+      // shot that literally cannot work as intended.
+      if (cutAngle > 1.53) continue; // ~87.7 degrees, leaves a small safety margin below the true 90-degree physical limit
       // Bank shots on the object ball cover roughly double the real
       // distance (ball to rail, then rail to pocket) but pocketDist above
       // is still just the straight-line distance, so the power estimate
@@ -3611,7 +3807,14 @@ function botTurn() {
   // This is limited to the higher difficulty tiers - "smart" decision
   // making is exactly what should separate a pro bot from an easy one.
   const hasMultipleOptions = candidates.length > 1;
-  const shotIsVeryDifficult = bestShot && bestShot.cutAngleDeg > 68 && bestShot.pocketDist > 220;
+  // A bot with near-perfect aim should confidently attempt much harder
+  // shots than one with real execution error - the actual risk of missing
+  // a given cut angle is genuinely lower the more precise the bot's own
+  // aim is, so the threshold for "too risky, play safe instead" scales
+  // with how accurate the bot actually is rather than using one fixed
+  // difficulty bar for every tier.
+  const cutAngleSafetyThreshold = config.aimAccuracy < 0.001 ? 82 : 68;
+  const shotIsVeryDifficult = bestShot && bestShot.cutAngleDeg > cutAngleSafetyThreshold && bestShot.pocketDist > 220;
   if (config.useSim && bestShot && !onEightBall && hasMultipleOptions && shotIsVeryDifficult) {
     const safety = planSafetyShot(cueBall, candidates, botGroup);
     if (safety) {
@@ -3648,7 +3851,7 @@ function botTurn() {
   power = Math.max(pctToPower(Math.max(5, config.powerMinPct * 0.5)), Math.min(pctToPower(config.powerMaxPct), power));
   const thinkTime = config.thinkTimeMin + Math.random() * (config.thinkTimeMax - config.thinkTimeMin);
   const spin = config.useSpin ? { x: bestShot.spinX, y: bestShot.spinY } : { x: 0, y: 0 };
-  if (gameState.breakTaken) {
+  if (gameState.gameType === '8ball' && gameState.breakTaken) {
     // Call whichever pocket the target ball is ACTUALLY headed toward
     // given the bot's final, error-adjusted aim - found by running the
     // same real physics simulation already used for the aim guide,
