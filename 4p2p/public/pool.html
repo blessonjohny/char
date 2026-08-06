@@ -3633,7 +3633,14 @@ function evaluateCuePosition(cueX, cueY, botGroup, botBallsLeft) {
 
 function botTurn() {
   if (gameState.gameOver) return;
-  const config = BOT_CONFIG[botDifficulty] || BOT_CONFIG.easy;
+  // botDifficulty only ever gets set by the OFFLINE bot-mode UI - a P2P
+  // game with a bot opponent tracks its difficulty separately, in
+  // opponentBotDifficulty, since that's set by the room/server flow
+  // instead. Using the wrong one here meant a P2P bot silently always
+  // played at whatever botDifficulty's leftover default was (Easy),
+  // regardless of what difficulty was actually selected for it.
+  const effectiveDifficulty = (gameMode === 'p2p' && opponentIsBot) ? opponentBotDifficulty : botDifficulty;
+  const config = BOT_CONFIG[effectiveDifficulty] || BOT_CONFIG.easy;
   opponentName = config.name;
   document.getElementById('p2Name').textContent = config.name;
   const cueBall = balls[0];
