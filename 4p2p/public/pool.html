@@ -2084,6 +2084,7 @@ function endTurn() {
     cueBall.pocketed = false; cueBall.vx = 0; cueBall.vy = 0; cueBall.spinX = 0; cueBall.spinY = 0;
     gameState.scratch = false; switchTurn();
     gameState.calledPocket = null; gameState.calledShotMade = false;
+    gameState.placingCueBall = false; // clean slate before deciding who places next
     if (gameState.myTurn) {
       enterCuePlacement(false); // ball-in-hand: anywhere on the table
     } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
@@ -2111,7 +2112,12 @@ function endTurn() {
 
     if (isFoul) {
       switchTurn();
-      enterCuePlacement(false); // ball-in-hand, anywhere on the table, same as a scratch
+      gameState.placingCueBall = false;
+      if (gameState.myTurn) {
+        enterCuePlacement(false); // ball-in-hand, anywhere on the table, same as a scratch
+      } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
+        autoPlaceCueBallForBot();
+      }
       startTurn(); return;
     }
     // Legal shot: turn continues only if something was actually pocketed.
@@ -2147,7 +2153,12 @@ function endTurn() {
     const noRailNoPocketForFoulCheck = gameState.justPocketed.length === 0 && !gameState.railContactedThisShot;
     if (!legalFirstContact || noRailNoPocketForFoulCheck) {
       switchTurn();
-      enterCuePlacement(false); // ball-in-hand, anywhere on the table, same as any other foul
+      gameState.placingCueBall = false;
+      if (gameState.myTurn) {
+        enterCuePlacement(false); // ball-in-hand, anywhere on the table, same as any other foul
+      } else if (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot)) {
+        autoPlaceCueBallForBot();
+      }
       gameState.calledPocket = null; gameState.calledShotMade = false;
       startTurn(); return;
     }
@@ -2279,6 +2290,16 @@ function autoPlaceCueBallForBot() {
   }
   if (best) { cueBall.x = best.x; cueBall.y = best.y; }
   else { cueBall.x = TABLE_WIDTH / 2; cueBall.y = TABLE_HEIGHT / 2; }
+  // The bot's own placement never needs the human-facing popup - make
+  // sure it's fully cleared here, the same way confirmCuePlacement()
+  // clears it for the human's own placement. Without this, a stale
+  // placingCueBall=true from an earlier state could leave the "place
+  // ball" popup visibly stuck on screen while the bot went ahead and
+  // played its turn right underneath it.
+  gameState.placingCueBall = false;
+  gameState.placementKitchenOnly = false;
+  const placeBtn = document.getElementById('placeBallBtn');
+  if (placeBtn) placeBtn.style.display = 'none';
 }
 
 
@@ -3789,8 +3810,13 @@ function botTurn() {
     // A real player's confidence in a shot drops off sharply as the cut
     // angle gets steeper, especially combined with distance - a thin cut
     // from far away is genuinely low-percentage even for a pro, while the
-    // same cut angle up close is much more makeable.
-    const difficultyPenalty = Math.pow(cutAngleDeg / 90, 1.8) * (400 + cand.pocketDist * 0.6);
+    // same cut angle up close is much more makeable. But how much that
+    // should scare a given bot off is itself a function of how precise
+    // that bot's own execution actually is - a near-perfect bot can
+    // reliably make a moderate cut, so it shouldn't avoid one nearly as
+    // hard as a bot with real, substantial aim error would need to.
+    const penaltyMultiplier = Math.max(0.15, Math.min(1.0, 0.15 + (config.aimAccuracy / 0.06) * 0.85));
+    const difficultyPenalty = Math.pow(cutAngleDeg / 90, 1.8) * (400 + cand.pocketDist * 0.6) * penaltyMultiplier;
     if (config.useSim) {
       const powerLevels = config.useSpin ? [cand.basePower * 0.85, cand.basePower, cand.basePower * 1.15] : [cand.basePower];
       const spinOptions = config.useSpin ? [{x:0,y:0},{x:0,y:0.4},{x:0,y:-0.4},{x:0.3,y:0},{x:-0.3,y:0}] : [{x:0,y:0}];
