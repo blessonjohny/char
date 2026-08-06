@@ -48,6 +48,32 @@
     box-shadow: 0 0 4px rgba(0,0,0,0.5); pointer-events: none;
   }
   #spinLabel { color: #d4af37; font-size: 10px; text-align: center; margin-top: 4px; letter-spacing: 1px; font-family: Georgia, serif; }
+
+  #callShotBtn {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50;
+    background: rgba(0,0,0,0.5); border: 1.5px solid rgba(212,175,55,0.6); color: #d4af37;
+    font-family: Georgia, serif; font-size: 13px; letter-spacing: 1px; padding: 9px 18px;
+    border-radius: 20px; cursor: pointer;
+  }
+  #callShotBtn.active { background: #d4af37; color: #1a1108; border-color: #f4d03f; }
+  #callShotHint {
+    position: fixed; left: 50%; bottom: 66px; transform: translateX(-50%); z-index: 50;
+    color: #f4d03f; font-family: Georgia, serif; font-size: 12px; letter-spacing: 0.5px;
+    display: none; text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  }
+
+  #gameOverOverlay {
+    position: fixed; inset: 0; background: rgba(5,5,5,0.82); z-index: 200;
+    display: none; align-items: center; justify-content: center; flex-direction: column;
+    font-family: Georgia, serif; color: #f0e6cc;
+  }
+  #gameOverTitle { font-size: 34px; color: #d4af37; letter-spacing: 1px; margin-bottom: 8px; }
+  #gameOverSub { font-size: 15px; opacity: 0.75; margin-bottom: 28px; }
+  #playAgainBtn {
+    background: linear-gradient(180deg,#d4af37,#b8912a); color: #1a1108; border: none;
+    font-family: Georgia, serif; font-size: 16px; font-weight: bold; letter-spacing: 0.5px;
+    padding: 13px 32px; border-radius: 24px; cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -56,6 +82,12 @@
   <div class="title">POOL 3D</div>
   <div id="loadingBar"><div id="loadingFill"></div></div>
   <div class="sub">Loading table...</div>
+</div>
+
+<div id="gameOverOverlay">
+  <div id="gameOverTitle">You Win!</div>
+  <div id="gameOverSub">Nice shooting.</div>
+  <button id="playAgainBtn" onclick="playAgain()">Play Again</button>
 </div>
 
 <div id="topBar">
@@ -72,6 +104,9 @@
   <div id="spinCue"><div id="spinDot"></div></div>
   <div id="spinLabel">SPIN</div>
 </div>
+
+<div id="callShotHint">Tap a pocket to call it</div>
+<button id="callShotBtn" onclick="toggleCallMode()">Call Pocket</button>
 
 <canvas id="canvas3d"></canvas>
 
@@ -681,6 +716,7 @@ const input = {
   dragStartX: 0, dragStartY: 0,
   dragging: false,
   cameraOrbitAngle: Math.PI, // extra manual orbit offset while aiming
+  callMode: false,        // true while the player is picking a pocket to call
 };
 
 const CUE_REST_GAP = 0.6; // gap between ball surface and cue tip at rest
@@ -701,6 +737,7 @@ function updateCueTransform() {
 }
 
 function ballScreenPos(ball) {
+  camera.updateMatrixWorld();
   const v = new THREE.Vector3(ball.x, TABLE.legH + TABLE.railH + BALL_R, ball.z);
   v.project(camera);
   return { x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight };
@@ -752,12 +789,13 @@ function computeSettleCamera() {
 
 function updateCamera(dt) {
   let target;
-  if (input.phase === 'aim' || input.phase === 'pulling') { camState.mode = 'aim'; target = computeAimCamera(); }
+  if (input.callMode) { camState.mode = 'call'; target = computeSettleCamera(); }
+  else if (input.phase === 'aim' || input.phase === 'pulling') { camState.mode = 'aim'; target = computeAimCamera(); }
   else if (gameState.ballsMoving) { camState.mode = 'follow'; target = computeFollowCamera(); }
   else { camState.mode = 'settle'; target = computeSettleCamera(); }
 
-  const posLerp = camState.mode === 'aim' ? 0.14 : (camState.mode === 'follow' ? 0.08 : 0.035);
-  const lookLerp = camState.mode === 'aim' ? 0.16 : (camState.mode === 'follow' ? 0.1 : 0.04);
+  const posLerp = camState.mode === 'aim' ? 0.14 : (camState.mode === 'follow' ? 0.08 : (camState.mode === 'call' ? 0.12 : 0.035));
+  const lookLerp = camState.mode === 'aim' ? 0.16 : (camState.mode === 'follow' ? 0.1 : (camState.mode === 'call' ? 0.14 : 0.04));
 
   camState.curPos.lerp(target.pos, Math.min(1, posLerp));
   camState.curLook.lerp(target.look, Math.min(1, lookLerp));
@@ -773,13 +811,14 @@ function screenToAimDelta(dx) {
 }
 
 function onPointerDown(x, y) {
-  if (gameState.ballsMoving || !ruleState.myTurn) return;
+  if (gameState.ballsMoving || !ruleState.myTurn || ruleState.gameOver) return;
+  if (input.callMode) { tryCallPocketAt(x, y); return; }
   input.dragStartX = x; input.dragStartY = y;
   input.dragging = true;
   input.dragStartAngle = input.aimAngle;
 }
 function onPointerMove(x, y) {
-  if (!input.dragging || gameState.ballsMoving || !ruleState.myTurn) return;
+  if (!input.dragging || gameState.ballsMoving || !ruleState.myTurn || input.callMode) return;
   const dx = x - input.dragStartX;
   const dy = y - input.dragStartY;
   if (input.phase === 'aim') {
@@ -804,6 +843,54 @@ function onPointerUp() {
   }
 }
 
+// ==================== CALL SHOT ====================
+let pocketHighlightMeshes = [];
+function buildPocketHighlights() {
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xffd700, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+  for (const p of POCKETS) {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(TABLE.pocketR * 0.95, TABLE.pocketR * 1.25, 24), ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(p.x, TABLE.legH + 0.15, p.z);
+    ring.visible = false;
+    tableGroup.add(ring);
+    pocketHighlightMeshes.push(ring);
+  }
+}
+function updateCalledPocketHighlight() {
+  for (let i = 0; i < pocketHighlightMeshes.length; i++) {
+    pocketHighlightMeshes[i].visible = (ruleState.calledPocket === i);
+  }
+}
+
+function toggleCallMode() {
+  input.callMode = !input.callMode;
+  const btn = document.getElementById('callShotBtn');
+  if (btn) btn.classList.toggle('active', input.callMode);
+  const hint = document.getElementById('callShotHint');
+  if (hint) hint.style.display = input.callMode ? 'block' : 'none';
+  if (input.callMode) {
+    const cam = computeSettleCamera();
+    camState.curPos.copy(cam.pos);
+    camState.curLook.copy(cam.look);
+    camera.position.copy(cam.pos);
+    camera.lookAt(cam.look);
+  }
+}
+
+function tryCallPocketAt(x, y) {
+  let closestIdx = -1, closestDist = Infinity;
+  for (let i = 0; i < POCKETS.length; i++) {
+    const p = ballScreenPos({ x: POCKETS[i].x, z: POCKETS[i].z, pocketed: false });
+    const d = Math.hypot(p.x - x, p.y - y);
+    if (d < closestDist) { closestDist = d; closestIdx = i; }
+  }
+  if (closestIdx >= 0 && closestDist < 70) {
+    ruleState.calledPocket = closestIdx;
+    updateCalledPocketHighlight();
+    toggleCallMode(); // auto-exit call mode once a pocket is picked
+  }
+}
+
 function fireShotFromPower() {
   gameState.aimAngle = input.aimAngle;
   const power = Math.max(0.06, input.power) * MAX_POWER;
@@ -816,8 +903,8 @@ function fireShotFromPower() {
 function setupInput() {
   const el = renderer.domElement;
   el.addEventListener('pointerdown', (e) => {
-    if (gameState.ballsMoving || !ruleState.myTurn) return;
-    if (input.phase === 'aim') { input.phase = 'pulling'; input.pullDistance = 0; }
+    if (gameState.ballsMoving || !ruleState.myTurn || ruleState.gameOver) return;
+    if (!input.callMode && input.phase === 'aim') { input.phase = 'pulling'; input.pullDistance = 0; }
     onPointerDown(e.clientX, e.clientY);
   });
   el.addEventListener('pointermove', (e) => onPointerMove(e.clientX, e.clientY));
@@ -949,15 +1036,7 @@ function resolvePocketedBall(ball, pocketIdx) {
     if (!ruleState.groupAssigned) { gameState.foul = true; return; }
     const shooterGroup = ruleState.myTurn ? ruleState.myGroup : ruleState.botGroup;
     const shooterBallsLeft = shooterGroup === 'solids' ? (7 - ruleState.ballsPocketed.solids) : (7 - ruleState.ballsPocketed.stripes);
-    // V1 simplification: the human doesn't have a call-shot UI yet, so
-    // their 8-ball pocket is always treated as honored. The bot still
-    // genuinely calls its pocket via ruleState.calledPocket, and that
-    // real check still applies to bot shots. A tap-to-call UI for the
-    // human is a follow-up, not done here.
-    let honored;
-    if (ruleState.thisShotIsBreak) honored = true;
-    else if (ruleState.myTurn) honored = true; // human - V1 auto-honor
-    else honored = (ruleState.calledPocket !== null && pocketIdx === ruleState.calledPocket);
+    const honored = ruleState.thisShotIsBreak || (ruleState.calledPocket !== null && pocketIdx === ruleState.calledPocket);
     if (shooterBallsLeft === 0 && honored) ruleState.winner = ruleState.myTurn ? 'you' : 'bot';
     else ruleState.winner = ruleState.myTurn ? 'bot' : 'you';
     ruleState.gameOver = true;
@@ -1105,12 +1184,15 @@ function botTakeTurn() {
     power = 0.35 * MAX_POWER;
     ruleState.calledPocket = null;
   }
+  updateCalledPocketHighlight();
   gameState.aimAngle = angle;
   input.aimAngle = angle;
   shoot(power);
 }
 
 function afterTurnSwitch() {
+  ruleState.calledPocket = null;
+  updateCalledPocketHighlight();
   updateTurnUI();
   if (!ruleState.myTurn && !ruleState.gameOver) {
     setTimeout(() => botTakeTurn(), 700 + Math.random() * 500);
@@ -1127,8 +1209,39 @@ function updateTurnUI() {
   }
 }
 function showGameOverUI() {
+  const overlay = document.getElementById('gameOverOverlay');
+  const title = document.getElementById('gameOverTitle');
+  const sub = document.getElementById('gameOverSub');
+  if (title) title.textContent = ruleState.winner === 'you' ? 'You Win!' : 'Bot Wins';
+  if (sub) sub.textContent = ruleState.winner === 'you' ? 'Nice shooting.' : 'Better luck next rack.';
+  if (overlay) overlay.style.display = 'flex';
   const el = document.getElementById('turnIndicator');
   if (el) el.textContent = ruleState.winner === 'you' ? '\uD83C\uDFC6 You Win!' : 'Bot Wins';
+}
+
+function playAgain() {
+  const overlay = document.getElementById('gameOverOverlay');
+  if (overlay) overlay.style.display = 'none';
+  ruleState = {
+    myTurn: true, groupAssigned: false, myGroup: null, botGroup: null,
+    ballsPocketed: { solids: 0, stripes: 0 },
+    breakTaken: false, thisShotIsBreak: false,
+    calledPocket: null, callingShot: false,
+    winner: null, gameOver: false,
+    justPocketedThisShot: [],
+  };
+  gameState.ballsMoving = false; gameState.spin = {x:0,y:0};
+  gameState.firstContactBall = null; gameState.railContactedThisShot = false;
+  gameState.scratch = false; gameState.foul = false;
+  rackBalls();
+  buildBalls();
+  updateCalledPocketHighlight();
+  input.phase = 'aim'; input.pullDistance = 0; input.power = 0;
+  updatePowerUI();
+  const startCam = computeAimCamera();
+  camState.curPos.copy(startCam.pos);
+  camState.curLook.copy(startCam.look);
+  updateTurnUI();
 }
 
 function loadingProgress(pct, label) {
@@ -1176,9 +1289,11 @@ function init() {
   buildBalls();
   loadingProgress(85, 'Cue stick...');
   buildCue();
+  buildPocketHighlights();
   input.aimAngle = 0;
-  camState.curPos.set(0, TABLE.legH + 95, 105);
-  camState.curLook.set(0, TABLE.legH, 0);
+  const startCam = computeAimCamera();
+  camState.curPos.copy(startCam.pos);
+  camState.curLook.copy(startCam.look);
   setupInput();
   setupSpinControl();
   updateTurnUI();
