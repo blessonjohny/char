@@ -335,12 +335,12 @@
 
     <div class="pocketed-tray" id="pocketedTray">
       <div class="pocketed-group" id="solidsTray">
-        <div class="pocketed-label">SOLIDS</div>
+        <div class="pocketed-label" id="solidsLabel">SOLIDS</div>
         <div class="pocketed-balls" id="solidsBalls"></div>
       </div>
-      <div class="pocketed-divider"></div>
+      <div class="pocketed-divider" id="pocketedDivider"></div>
       <div class="pocketed-group" id="stripesTray">
-        <div class="pocketed-label">STRIPES</div>
+        <div class="pocketed-label" id="stripesLabel">STRIPES</div>
         <div class="pocketed-balls" id="stripesBalls"></div>
       </div>
     </div>
@@ -1709,28 +1709,33 @@ function rotateOrient(vecs, ax, ay, az, angle) {
 
 
 function isNearPocketOpening(ball, wall) {
-  // This buffer only needs to be a hair bigger than the actual capture radius (so a ball can
-  // cross the nominal wall line and reach the pocket on the very next check without an
-  // artificial bounce first) - it must NOT be much bigger than that, or a ball passing near
-  // but not into the pocket can have its rail bounce disabled without ever being captured,
-  // letting it sail straight through what looks like solid rail before a late, wrong-looking
-  // correction snaps it back. Matches the visible rail cutout radius (POCKET_RADIUS + 4).
+  // A pure "how close is the ball to the pocket right now" radius check is fundamentally
+  // broken: any ball merely PASSING NEAR a pocket (not actually heading into it) gets its
+  // rail bounce cancelled, then sails straight through the rail with nothing to stop it once
+  // it's outside the real capture radius used below (POCKET_RADIUS - 2). That's the "ball
+  // tunnels through solid rail near a pocket" bug - no fixed buffer size can avoid this,
+  // since there will always be balls whose raw distance is inside the buffer but whose
+  // actual path never reaches the pocket mouth.
   //
-  // Physics substepping (see updatePhysics) already caps every single step to at most
-  // BALL_RADIUS * 0.9, regardless of the ball's overall speed, so tunneling past the capture
-  // zone in one step is already impossible without any extra help here. A buffer that grows
-  // with speed on top of that just opens a much wider hole than the pocket actually is -
-  // wide enough that a fast ball can skim right along what looks like solid rail near a
-  // pocket without ever bouncing, which is exactly the "phantom" bounce/pass-through bug.
-  // Keeping this fixed and tight to the visual opening (POCKET_RADIUS + 4) plus a small
-  // margin for the substep itself is enough to reliably capture a genuine pot with no
-  // premature bounce, without ever disabling collision outside the pocket mouth.
-  const pocketBuffer = POCKET_RADIUS + 4 + BALL_RADIUS;
+  // The real fix: only skip the bounce if the ball's CURRENT straight-line direction is
+  // actually heading into the pocket - i.e. the closest point its path will pass by a pocket
+  // (projected forward from here) falls within the true capture radius, and that point is
+  // close ahead (not some other pocket further down the same rail). A ball merely grazing
+  // past a pocket still bounces normally, exactly like it would off any other point on the
+  // rail - only a ball truly on course to drop in gets let through to be captured next tick.
+  const speed = Math.hypot(ball.vx, ball.vy);
+  if (speed < 0.001) return false;
+  const dirX = ball.vx / speed, dirY = ball.vy / speed;
+  const captureRadius = POCKET_RADIUS - 1; // matches the real pocket-capture check, plus a hair of margin
+  const lookahead = POCKET_RADIUS + BALL_RADIUS * 2 + 10; // only a pocket genuinely just ahead, not one far down the rail
   for (const pocket of pockets) {
-    const dx = Math.abs(ball.x - pocket.x);
-    const dy = Math.abs(ball.y - pocket.y);
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < pocketBuffer) return true;
+    const toPocketX = pocket.x - ball.x, toPocketY = pocket.y - ball.y;
+    const t = toPocketX * dirX + toPocketY * dirY; // forward distance to the closest approach point
+    if (t < -BALL_RADIUS || t > lookahead) continue;
+    const closestX = ball.x + dirX * Math.max(0, t);
+    const closestY = ball.y + dirY * Math.max(0, t);
+    const dist = Math.hypot(closestX - pocket.x, closestY - pocket.y);
+    if (dist < captureRadius) return true;
   }
   return false;
 }
@@ -2704,7 +2709,16 @@ function renderAimGuidance(cueBall) {
 
     let ballStatus = 'neutral';
     if (targetBall) {
-      if (targetBall.number === 8) {
+      if (gameState.gameType === '9ball') {
+        // 9-ball has no groups or "your ball" concept - the only legal target on any
+        // shot is whichever numbered ball is currently lowest on the table.
+        let lowestBallOnTable = null;
+        for (const b of balls) {
+          if (b.pocketed || b.number === 0) continue;
+          if (lowestBallOnTable === null || b.number < lowestBallOnTable) lowestBallOnTable = b.number;
+        }
+        ballStatus = targetBall.number === lowestBallOnTable ? 'mine' : 'wrong';
+      } else if (targetBall.number === 8) {
         const myBallsLeft = gameState.myGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) :
                             gameState.myGroup === 'stripes' ? (7 - gameState.ballsPocketed.stripes) : 999;
         ballStatus = myBallsLeft === 0 ? 'mine' : 'wrong';
@@ -3621,7 +3635,16 @@ function evaluateCuePosition(cueX, cueY, botGroup, botBallsLeft) {
   let bestNextScore = -9999;
   for (const ball of balls) {
     if (ball.pocketed || ball.number === 0) continue;
-    if (ball.number === 8) { if (botBallsLeft !== 0) continue; }
+    if (gameState.gameType === '9ball') {
+      // Same as shot selection: the only legal next-target in 9-ball is whichever ball is
+      // lowest-numbered on the table, not a "group" or "cleared the group" concept.
+      let lowestBallOnTable = null;
+      for (const b of balls) {
+        if (b.pocketed || b.number === 0) continue;
+        if (lowestBallOnTable === null || b.number < lowestBallOnTable) lowestBallOnTable = b.number;
+      }
+      if (ball.number !== lowestBallOnTable) continue;
+    } else if (ball.number === 8) { if (botBallsLeft !== 0) continue; }
     else { const ballGroup = ball.number <= 7 ? 'solids' : 'stripes'; if (gameState.groupAssigned && ballGroup !== botGroup) continue; }
     for (const pocket of pockets) {
       const pocketAngle = Math.atan2(pocket.y - ball.y, pocket.x - ball.x);
@@ -3715,11 +3738,16 @@ function botTurn() {
     // 9-ball: the lowest ball on the table is the only legal first
     // contact, so it's the only real target to aim directly at.
     if (gameState.gameType === '9ball' && ball.number !== lowestBallOnTable) continue;
-    if (gameState.groupAssigned) {
-      if (botGroup === 'solids' && ball.number > 7) continue;
-      if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+    // The group/8-ball checks below are 8-ball-only concepts (solids vs. stripes, "must clear
+    // your group before the 8"); 9-ball has neither, and the lowest-ball filter just above is
+    // the entire legality rule for it, so skip straight past both checks in that mode.
+    if (gameState.gameType !== '9ball') {
+      if (gameState.groupAssigned) {
+        if (botGroup === 'solids' && ball.number > 7) continue;
+        if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+      }
+      if (ball.number === 8) { if (botBallsLeft !== 0) continue; }
     }
-    if (ball.number === 8) { if (botBallsLeft !== 0) continue; }
     for (const pocket of pockets) {
       const pocketAngle = Math.atan2(pocket.y - ball.y, pocket.x - ball.x);
       const ghostX = ball.x - Math.cos(pocketAngle) * (BALL_RADIUS * 2);
@@ -4044,7 +4072,14 @@ function updateUI() {
   document.getElementById('matchScore').textContent = matchTally.me + ' - ' + matchTally.opp;
   document.getElementById('p1Turn').classList.toggle('active', gameState.myTurn);
   document.getElementById('p2Turn').classList.toggle('active', !gameState.myTurn);
-  if (gameState.groupAssigned) {
+  if (gameState.gameType === '9ball') {
+    // 9-ball has no solids/stripes groups to assign or display - the sub-name line under
+    // each player's name just isn't meaningful here, so leave it blank instead of showing
+    // a permanent leftover "Waiting..." (which never resolves, since nothing ever assigns
+    // a group in this mode).
+    document.getElementById('p1Group').textContent = '';
+    document.getElementById('p2Group').textContent = '';
+  } else if (gameState.groupAssigned) {
     const myGroupText = gameState.myGroup === 'solids' ? 'Solids' : 'Stripes';
     const oppGroupText = gameState.opponentGroup === 'solids' ? 'Solids' : 'Stripes';
     document.getElementById('p1Group').innerHTML = myGroupText + ' <span class="group-badge ' + gameState.myGroup + '">' + gameState.myGroup + '</span>';
@@ -4060,11 +4095,38 @@ function updatePocketedTray() {
   const solidsContainer = document.getElementById('solidsBalls');
   const stripesContainer = document.getElementById('stripesBalls');
   if (!solidsContainer || !stripesContainer) return;
+  const solidsTray = document.getElementById('solidsTray');
+  const stripesTray = document.getElementById('stripesTray');
+  const solidsLabel = document.getElementById('solidsLabel');
+  const stripesLabel = document.getElementById('stripesLabel');
+  const divider = document.getElementById('pocketedDivider');
+
+  if (gameState.gameType === '9ball') {
+    // No groups in 9-ball - one single row showing all 9 balls in order, each marked
+    // pocketed or not, instead of the 8-ball solids/stripes split (which doesn't apply
+    // and was misleadingly showing balls 10-15, which don't even exist on this table).
+    if (stripesTray) stripesTray.style.display = 'none';
+    if (divider) divider.style.display = 'none';
+    if (solidsTray) solidsTray.style.order = '0';
+    if (solidsLabel) solidsLabel.textContent = 'BALLS';
+    let html = '';
+    for (let n = 1; n <= 9; n++) {
+      const pocketed = balls.find(b => b.number === n && b.pocketed);
+      const cls = n <= 7 ? 'solid-' + n : 'stripe-' + n;
+      html += '<div class="pocketed-ball ' + cls + (pocketed ? ' in' : '') + '">' + n + '</div>';
+    }
+    solidsContainer.innerHTML = html;
+    stripesContainer.innerHTML = '';
+    return;
+  }
+
+  if (stripesTray) stripesTray.style.display = '';
+  if (divider) divider.style.display = '';
+  if (solidsLabel) solidsLabel.textContent = 'SOLIDS';
+  if (stripesLabel) stripesLabel.textContent = 'STRIPES';
   // My own group always shows first/left, regardless of which physical
   // group (solids or stripes) it happens to be - this is per-viewer, so
   // host and joiner each see their own balls first on their own screen.
-  const solidsTray = document.getElementById('solidsTray');
-  const stripesTray = document.getElementById('stripesTray');
   if (solidsTray && stripesTray) {
     if (gameState.myGroup === 'stripes') {
       stripesTray.style.order = '0';
