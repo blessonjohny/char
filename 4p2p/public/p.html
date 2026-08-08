@@ -1119,14 +1119,21 @@ const COLORS = {
 let canvas, ctx, scale = 1, balls = [], gameState = {}, animationId = null, lastTime = 0;
 let ballRasterCanvas = null, ballRasterCtx = null, ballRasterSize = 0;
 
-// Pocket positions for American pool table
+// Pocket positions for American pool table. Side pockets get a smaller visual radius (`r`)
+// than corner pockets: a corner pocket naturally sits at the join of two rails, so a generous
+// circular cutout there matches how a real corner pocket looks. A side pocket sits on a single
+// straight rail with no corner to "absorb" that same cutout size into - at the same radius as
+// a corner, it renders as a full circle ballooning deep into the open felt instead of a
+// contained mouth opening, which is exactly the "way inside the playing area" look this fixes.
+// The physics capture radius (how close a ball needs to get to actually fall in) is unchanged
+// for every pocket - only how far the visible hole reaches into the felt is different.
 const pockets = [
-  { x: MARGIN, y: MARGIN },                              // Top-left corner
-  { x: TABLE_WIDTH / 2, y: MARGIN - 10 },                 // Top side (slightly inset)
-  { x: TABLE_WIDTH - MARGIN, y: MARGIN },                 // Top-right corner
-  { x: MARGIN, y: TABLE_HEIGHT - MARGIN },                // Bottom-left corner
-  { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT - MARGIN + 10 },  // Bottom side (slightly inset)
-  { x: TABLE_WIDTH - MARGIN, y: TABLE_HEIGHT - MARGIN }   // Bottom-right corner
+  { x: MARGIN, y: MARGIN, r: POCKET_RADIUS },                              // Top-left corner
+  { x: TABLE_WIDTH / 2, y: MARGIN - 10, r: 18 },                           // Top side (slightly inset)
+  { x: TABLE_WIDTH - MARGIN, y: MARGIN, r: POCKET_RADIUS },                // Top-right corner
+  { x: MARGIN, y: TABLE_HEIGHT - MARGIN, r: POCKET_RADIUS },               // Bottom-left corner
+  { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT - MARGIN + 10, r: 18 },            // Bottom side (slightly inset)
+  { x: TABLE_WIDTH - MARGIN, y: TABLE_HEIGHT - MARGIN, r: POCKET_RADIUS }  // Bottom-right corner
 ];
 
 // Real cushion geometry, not one continuous wall with exemption logic bolted on: each rail is
@@ -2355,7 +2362,7 @@ function placeCueBallAt(px, py) {
   for (const pocket of pockets) {
     const dx = px - pocket.x, dy = py - pocket.y;
     const dist = Math.hypot(dx, dy);
-    const minDist = POCKET_RADIUS + BALL_RADIUS + 4;
+    const minDist = pocket.r + BALL_RADIUS + 4;
     if (dist < minDist) {
       if (dist > 0.01) { px = pocket.x + (dx / dist) * minDist; py = pocket.y + (dy / dist) * minDist; }
       else { px = pocket.x + minDist; py = pocket.y; }
@@ -2988,7 +2995,7 @@ function renderAimGuidance(cueBall) {
         ctx.shadowBlur = 14;
         ctx.shadowColor = 'rgba(46,204,113,0.4)';
         ctx.beginPath();
-        ctx.arc(targetInPocket.x, targetInPocket.y, POCKET_RADIUS - 2, 0, Math.PI * 2);
+        ctx.arc(targetInPocket.x, targetInPocket.y, targetInPocket.r - 2, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(46,204,113,0.9)';
         ctx.lineWidth = 2.8;
         ctx.stroke();
@@ -3142,10 +3149,10 @@ function render() {
   for (const pocket of pockets) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(pocket.x, pocket.y, POCKET_RADIUS + 4, 0, Math.PI * 2);
+    ctx.arc(pocket.x, pocket.y, pocket.r + 4, 0, Math.PI * 2);
     ctx.clip();
-    ctx.clearRect(pocket.x - POCKET_RADIUS - 8, pocket.y - POCKET_RADIUS - 8, 
-                  POCKET_RADIUS * 2 + 16, POCKET_RADIUS * 2 + 16);
+    ctx.clearRect(pocket.x - pocket.r - 8, pocket.y - pocket.r - 8,
+                  pocket.r * 2 + 16, pocket.r * 2 + 16);
     ctx.restore();
   }
 
@@ -3221,10 +3228,10 @@ function render() {
     const pocket = pockets[pocketIdx];
     ctx.save();
     ctx.beginPath();
-    ctx.arc(pocket.x, pocket.y, POCKET_RADIUS, 0, Math.PI * 2);
+    ctx.arc(pocket.x, pocket.y, pocket.r, 0, Math.PI * 2);
     const pocketGrad = ctx.createRadialGradient(
       pocket.x - 4, pocket.y - 4, 3,
-      pocket.x, pocket.y, POCKET_RADIUS
+      pocket.x, pocket.y, pocket.r
     );
     pocketGrad.addColorStop(0, '#0d0d0d');
     pocketGrad.addColorStop(0.5, '#050505');
@@ -3234,21 +3241,21 @@ function render() {
 
     // Pocket leather/rubber rim - dark brown leather look
     ctx.beginPath();
-    ctx.arc(pocket.x, pocket.y, POCKET_RADIUS, 0, Math.PI * 2);
+    ctx.arc(pocket.x, pocket.y, pocket.r, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(60,40,25,0.8)';
     ctx.lineWidth = 3;
     ctx.stroke();
 
     // Inner leather ring
     ctx.beginPath();
-    ctx.arc(pocket.x, pocket.y, POCKET_RADIUS - 4, 0, Math.PI * 2);
+    ctx.arc(pocket.x, pocket.y, pocket.r - 4, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(40,25,15,0.6)';
     ctx.lineWidth = 2;
     ctx.stroke();
 
     // Pocket depth shadow
     ctx.beginPath();
-    ctx.arc(pocket.x, pocket.y, POCKET_RADIUS - 6, 0, Math.PI * 2);
+    ctx.arc(pocket.x, pocket.y, pocket.r - 6, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fill();
     ctx.restore();
@@ -3261,7 +3268,7 @@ function render() {
       ctx.shadowBlur = 18;
       ctx.shadowColor = 'rgba(255,215,0,0.9)';
       ctx.beginPath();
-      ctx.arc(pocket.x, pocket.y, POCKET_RADIUS + 5, 0, Math.PI * 2);
+      ctx.arc(pocket.x, pocket.y, pocket.r + 5, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(255,215,0,0.95)';
       ctx.lineWidth = 3.5;
       ctx.stroke();
