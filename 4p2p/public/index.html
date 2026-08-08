@@ -3477,6 +3477,27 @@ let trumpSuit='', hiddenTrump=null, trumpExposed=false, trumpExplicitlyCalled=fa
 let trickCards=[], trickSuit='', teamPoints=[0,0], gameScore=[6,6];
 let phase='bidding1', passes=0;
 let bidHistory = []; // [{pos, bid}] — bid===0 means pass. Used to render "who's bid/passed so far" in the bid sheet.
+// Phase 1 bidding flow (mirrors game-engine.js's server-side implementation
+// exactly, for offline mode and host-authoritative P2P where this client's
+// own JS is the one actually running the bidding logic, not the server).
+let firstBidderPos = -1;
+let partnerTurnDeferred = false;
+let partnerTurnRestrictedWhenReached = false;
+let partnerTurnWasDelayed = false;
+let p1SeatsActed = {};
+function partnerOfSeat(pos) { return pos === 0 ? 3 : pos === 3 ? 0 : pos === 1 ? 2 : 1; }
+function resetPhase1BiddingFlowState() {
+  firstBidderPos = -1;
+  partnerTurnDeferred = false;
+  partnerTurnRestrictedWhenReached = false;
+  partnerTurnWasDelayed = false;
+  p1SeatsActed = {};
+}
+function isBidRestrictedToHonors(pos) {
+  if (p1SeatsActed[pos]) return true;
+  if (pos === partnerOfSeat(firstBidderPos) && partnerTurnRestrictedWhenReached) return true;
+  return false;
+}
 // True between a bidder winning phase-1 bidding and them actually choosing a
 // trump suit. currentPlayer is set to the bidder during this window while
 // phase is still 'bidding1' (unchanged), so this flag is the only reliable
@@ -6192,6 +6213,7 @@ function restoreGameState(data) {
   bidder = -1;
   bidHistory = [];
   highestBid = 0;
+  resetPhase1BiddingFlowState();
   trumpSuit = '';
   hiddenTrump = null;
   trumpExposed = false;
@@ -6300,6 +6322,7 @@ function restoreGameState(data) {
   bidder = -1;
   bidHistory = [];
   highestBid = 0;
+  resetPhase1BiddingFlowState();
   trumpSuit = '';
   hiddenTrump = null;
   trumpExposed = false;
@@ -6574,7 +6597,8 @@ function botBid1WithBrain(p) {
   const brain = getBrain(botName);
   const hand = players[p];
   const isFirst = (highestBid === 0 && passes === 0 && p === nextPlayer(dealer));
-  const minBid = highestBid > 0 ? highestBid + 1 : 14;
+  const botRestricted = isBidRestrictedToHonors(p);
+  const minBid = botRestricted ? Math.max(20, highestBid + 1) : (highestBid > 0 ? highestBid + 1 : 14);
 
   // Suit-dominance based evaluation (see evaluatePhase1Hand above) —
   // replaces flat point-counting, which badly overrated hands like four
@@ -6986,14 +7010,16 @@ function doBidding1() {
 function showBidPanel1() {
   const learnBtn = document.getElementById('btnLearnBid');
   if (learnBtn) learnBtn.style.display = (!IS_ONLINE) ? 'block' : 'none';
-  const minBid = highestBid > 0 ? highestBid + 1 : 14;
+  const restricted = (typeof window._p1CurrentTurnRestricted === 'boolean' && SERVER_MODE) ? window._p1CurrentTurnRestricted : isBidRestrictedToHonors(currentPlayer);
+  const minBid = (typeof window._p1MinBid === 'number' && SERVER_MODE) ? window._p1MinBid : (restricted ? Math.max(20, highestBid + 1) : (highestBid > 0 ? highestBid + 1 : 14));
   const isFirst = (highestBid === 0 && passes === 0 && currentPlayer === nextPlayer(dealer));
   document.getElementById('bidTitle').textContent = 'Your Bid';
   let highText = '';
   if (highestBid > 0 && bidder >= 0) {
     highText = '<br><b style="color:var(--accent)">👑 Highest: ' + highestBid + ' by ' + relLabel(bidder) + '</b>';
   }
-  document.getElementById('bidText').innerHTML = '<b>Dealer:</b> ' + relLabel(dealer) + ' | <b>Your Turn</b> | Min: ' + minBid + highText + (isFirst ? "<br><b style='color:var(--danger)'>⚠️ First bidder — must bid at least 14!</b>" : '') + renderBidHistoryList(bidHistory);
+  const restrictedText = restricted ? "<br><b style='color:var(--accent)'>⭐ Your bid must be Honors — 20 or higher (or pass)</b>" : '';
+  document.getElementById('bidText').innerHTML = '<b>Dealer:</b> ' + relLabel(dealer) + ' | <b>Your Turn</b> | Min: ' + minBid + highText + (isFirst ? "<br><b style='color:var(--danger)'>⚠️ First bidder — must bid at least 14!</b>" : '') + restrictedText + renderBidHistoryList(bidHistory);
   const btns = document.getElementById('bidButtons');
   btns.innerHTML = '';
   btns.className = 'bid-grid';
@@ -7033,6 +7059,10 @@ function showBidPanel1() {
 function processBid(p, bid) {
   if (SERVER_MODE) { serverPlaceBid(bid); return; }
   const isFirst = (highestBid === 0 && passes === 0 && p === nextPlayer(dealer));
+  if (isFirst) {
+    firstBidderPos = p;
+    partnerTurnDeferred = true;
+  }
   if (bid === 0 && isFirst) { bid = 14; }
   // In online mode, a client must NOT mutate shared bidding state locally --
   // only the host is authoritative. Send the action and wait; the bid text,
@@ -7047,7 +7077,13 @@ function processBid(p, bid) {
   }
   if (p === MY_POS) markHumanActivity(); // host's own bid/pass is a genuine human decision
   const myPos = MY_POS;
+  const wasABid = bid > 0;
   if (bid > 0) {
+    // Enforce the correct minimum here too - this function never actually
+    // validated the bid amount before, trusting the caller entirely.
+    const restricted = isBidRestrictedToHonors(p);
+    const minBid = restricted ? Math.max(20, highestBid + 1) : (highestBid > 0 ? highestBid + 1 : 14);
+    if (bid < minBid) bid = minBid; // clamp rather than silently accept an invalid amount
     highestBid = bid;
     bidder = p;
     passes = 0;
@@ -7065,13 +7101,38 @@ function processBid(p, bid) {
     const name = playerAt(p) ? playerAt(p).name : 'Player';
     log((p === myPos ? 'You' : name) + ' passed');
   }
+  p1SeatsActed[p] = true;
   if ((passes >= 3 && highestBid > 0) || passes >= 4) { endBidding1(); return; }
-  // Local mode or host: advance normally
-  currentPlayer = nextPlayer(currentPlayer);
-  let safety = 0;
-  while (safety < 6 && document.getElementById('bid' + slotForPlayer(currentPlayer)) && document.getElementById('bid' + slotForPlayer(currentPlayer)).textContent === 'Pass') {
-    currentPlayer = nextPlayer(currentPlayer);
-    safety++;
+  // Local mode or host: advance following the Phase 1 flow - the first
+  // bidder's partner is deferred until the seat right before them has
+  // acted, and depending on how that plays out their eventual turn is
+  // either completely normal or pre-restricted to Honors (20) or higher.
+  const partnerSeat = partnerOfSeat(firstBidderPos);
+  const p2Seat = nextPlayer(firstBidderPos);
+  const p4Seat = nextPlayer(nextPlayer(p2Seat));
+  if (p === partnerSeat && partnerTurnWasDelayed) {
+    partnerTurnWasDelayed = false;
+    currentPlayer = firstBidderPos;
+  } else if (partnerTurnDeferred) {
+    if (p === firstBidderPos) {
+      currentPlayer = nextPlayer(p);
+    } else if (p === p2Seat) {
+      if (wasABid) {
+        partnerTurnDeferred = false;
+        currentPlayer = partnerSeat;
+      } else {
+        currentPlayer = p4Seat;
+      }
+    } else if (p === p4Seat) {
+      partnerTurnDeferred = false;
+      partnerTurnWasDelayed = true;
+      partnerTurnRestrictedWhenReached = !wasABid;
+      currentPlayer = partnerSeat;
+    } else {
+      currentPlayer = nextPlayer(p);
+    }
+  } else {
+    currentPlayer = nextPlayer(p);
   }
   // Broadcast here so the host's OWN bid/pass (via its own UI, not a bot and
   // not relayed from a client) reaches connected clients too. Without this,
@@ -8885,6 +8946,7 @@ function continueNextRound() {
     bidder = -1;
     bidHistory = [];
     highestBid = 0;
+    resetPhase1BiddingFlowState();
     trumpSuit = '';
     hiddenTrump = null;
     trumpExposed = false;
@@ -9087,6 +9149,7 @@ function startNextChampionship() {
   bidder = -1;
   bidHistory = [];
   highestBid = 0;
+  resetPhase1BiddingFlowState();
   trumpSuit = '';
   hiddenTrump = null;
   trumpExposed = false;
@@ -9264,6 +9327,7 @@ function startGame() {
   bidder = -1;
   bidHistory = [];
   highestBid = 0;
+  resetPhase1BiddingFlowState();
   trumpSuit = '';
   hiddenTrump = null;
   trumpExposed = false;
@@ -9844,6 +9908,7 @@ function resetAllGameState() {
   bidder = -1;
   bidHistory = [];
   highestBid = 0;
+  resetPhase1BiddingFlowState();
   trumpSuit = '';
   hiddenTrump = null;
   trumpExposed = false;
@@ -14152,6 +14217,8 @@ function applyServerState(state) {
   highestBid = state.highestBid;
   passes = state.passes;
   bidHistory = state.bidHistory || [];
+  window._p1MinBid = (typeof state.p1MinBid === 'number') ? state.p1MinBid : null;
+  window._p1CurrentTurnRestricted = !!state.p1CurrentTurnRestricted;
   window._p2History = state.p2History || [];
   trumpSuit = state.trumpSuit || '';
   trumpExposed = state.trumpExposed;

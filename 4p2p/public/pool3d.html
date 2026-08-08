@@ -756,8 +756,8 @@ function computeAimCamera() {
   const cueBall = balls[0];
   const angle = input.aimAngle;
   const dx = Math.cos(angle), dz = Math.sin(angle);
-  const behind = 26;
-  const height = 13;
+  const behind = 52;
+  const height = 30;
   const pos = new THREE.Vector3(
     cueBall.x - dx * behind,
     TABLE.legH + TABLE.railH + height,
@@ -816,18 +816,24 @@ function onPointerDown(x, y) {
   input.dragStartX = x; input.dragStartY = y;
   input.dragging = true;
   input.dragStartAngle = input.aimAngle;
+  input.phase = 'aim'; // every new drag starts as a pure aim adjustment
 }
 function onPointerMove(x, y) {
   if (!input.dragging || gameState.ballsMoving || !ruleState.myTurn || input.callMode) return;
   const dx = x - input.dragStartX;
   const dy = y - input.dragStartY;
-  if (input.phase === 'aim') {
-    input.aimAngle = input.dragStartAngle - screenToAimDelta(dx);
-  } else if (input.phase === 'pulling') {
-    // Pull the cue back by dragging away from the cue ball (in the
-    // opposite direction of the aim line, on screen) - vertical drag
-    // down/back increases pull distance.
-    const pull = Math.max(0, Math.min(1, dy / 220));
+  // Horizontal movement always adjusts aim, for the entire gesture -
+  // the player can keep fine-tuning aim even while pulling back for
+  // power, exactly like a real cue stroke.
+  input.aimAngle = input.dragStartAngle - screenToAimDelta(dx);
+  // Vertical downward movement (dragging toward the bottom of the
+  // screen - back toward the player, away from the object balls) pulls
+  // the cue back and sets power. Only start actually treating this as a
+  // pull-back once it's a clear, deliberate movement, so a small
+  // horizontal-only aim adjustment never accidentally fires a shot.
+  const pull = Math.max(0, Math.min(1, dy / 220));
+  if (pull > 0.02 || input.phase === 'pulling') {
+    input.phase = 'pulling';
     input.pullDistance = pull;
     input.power = pull;
     updatePowerUI();
@@ -838,7 +844,7 @@ function onPointerUp() {
   input.dragging = false;
   if (input.phase === 'pulling' && input.power > 0.03) {
     fireShotFromPower();
-  } else if (input.phase === 'pulling') {
+  } else {
     input.phase = 'aim'; input.pullDistance = 0; input.power = 0; updatePowerUI();
   }
 }
@@ -904,7 +910,6 @@ function setupInput() {
   const el = renderer.domElement;
   el.addEventListener('pointerdown', (e) => {
     if (gameState.ballsMoving || !ruleState.myTurn || ruleState.gameOver) return;
-    if (!input.callMode && input.phase === 'aim') { input.phase = 'pulling'; input.pullDistance = 0; }
     onPointerDown(e.clientX, e.clientY);
   });
   el.addEventListener('pointermove', (e) => onPointerMove(e.clientX, e.clientY));
