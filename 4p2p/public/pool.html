@@ -228,12 +228,16 @@
 </div>
 
 <div id="hostScreen" class="screen">
-  <button class="back-btn" onclick="poolLeaveLobbyIfAny(); setTimeout(poolTeardownOnlineConnection, 200); showScreen('menuScreen')">Back</button>
+  <button class="back-btn" onclick="poolStopLobbyListPolling(); poolLeaveLobbyIfAny(); setTimeout(poolTeardownOnlineConnection, 200); showScreen('menuScreen')">Back</button>
   <div class="logo" style="font-size:26px;margin-bottom:6px">Host Game</div>
   <div class="subtitle">Create a room and invite friends</div>
   <div class="input-group">
     <label>Your Name</label>
     <input type="text" id="hostName" placeholder="Enter your name" value="Player 1" maxlength="12">
+  </div>
+  <div id="hostOpenTablesSection" style="width:min(340px,92vw);margin-top:4px">
+    <div style="font-size:12px;color:#999;margin-bottom:6px;text-align:center">Open tables — tap to join one instead:</div>
+    <div id="poolOpenTablesListHost" style="max-height:150px;overflow-y:auto"></div>
   </div>
   <div class="room-code-box" id="hostCodeBox" style="display:none">
     <div class="room-code-label">ROOM CODE</div>
@@ -488,6 +492,15 @@ function handlePlay() {
     startGame(true);
   } else {
     showScreen('hostScreen');
+    // Reset to the fresh "choosing" state in case they previously created a
+    // room, left, and are now re-entering online mode from scratch.
+    document.getElementById('createRoomBtn').style.display = 'block';
+    document.getElementById('hostOpenTablesSection').style.display = 'block';
+    document.getElementById('hostCodeBox').style.display = 'none';
+    document.getElementById('hostLobby').style.display = 'none';
+    document.getElementById('hostBotSection').style.display = 'none';
+    document.getElementById('startGameBtn').style.display = 'none';
+    poolStartLobbyListPolling(); // so a second player sees open tables immediately, before choosing to create or join
   }
 }
 function closeOverlay(id) { document.getElementById(id).classList.remove('active'); }
@@ -840,6 +853,7 @@ function poolConnect() {
 function createRoom() {
   myName = document.getElementById('hostName').value.trim() || 'Host';
   isHost = true;
+  poolStopLobbyListPolling(); // they've committed to hosting, not browsing - no need to keep refreshing the list underneath them
   // Explicit, fresh action -- clear any stale table/player data from a
   // previous session first, so poolConnect's own auto-rejoin logic
   // (triggered by its 'connect' handler) can't race against this and
@@ -848,6 +862,7 @@ function createRoom() {
   try { localStorage.removeItem('pool_table_id'); localStorage.removeItem('pool_player_token'); } catch(e) {}
   poolMyTableId = null; poolMyPlayerId = null;
   document.getElementById('createRoomBtn').style.display = 'none';
+  document.getElementById('hostOpenTablesSection').style.display = 'none';
   document.getElementById('hostCodeBox').style.display = 'block';
   document.getElementById('hostLobby').style.display = 'block';
   document.getElementById('hostBotSection').style.display = 'block';
@@ -872,26 +887,52 @@ function poolGoToJoinScreen() {
   showScreen('joinScreen');
   poolConnect();
   // Give the connection a moment to actually establish before asking
-  // for the list, matching the same pattern Carrom uses.
+  // for the list, matching the same pattern Carrom uses. Harmless if
+  // polling from the host screen is already running - this just forces
+  // one immediate refresh rather than waiting for the next tick.
   setTimeout(() => { if (poolSocket) poolSocket.emit('pool_listRooms'); }, 300);
 }
+let poolLobbyListInterval = null;
+// Starts as soon as a player enters online mode at all - not gated behind
+// choosing "create" or "join" first - so a second player sees whatever
+// tables already exist right away, on the very first screen they land on.
+// Kept polling (not just a one-off fetch) since a player may sit on this
+// screen deciding for a while, during which other tables can open or fill.
+function poolStartLobbyListPolling() {
+  poolConnect();
+  const refresh = () => { if (poolSocket) poolSocket.emit('pool_listRooms'); };
+  setTimeout(refresh, 300); // let the connection actually establish first
+  if (poolLobbyListInterval) clearInterval(poolLobbyListInterval);
+  poolLobbyListInterval = setInterval(refresh, 4000);
+}
+function poolStopLobbyListPolling() {
+  if (poolLobbyListInterval) { clearInterval(poolLobbyListInterval); poolLobbyListInterval = null; }
+}
 function poolRenderOpenTables(rooms) {
-  const el = document.getElementById('poolOpenTablesList');
-  if (!el) return;
-  if (!rooms || !rooms.length) {
-    el.innerHTML = '<div style="text-align:center;color:#888;font-size:12px;padding:6px 0">No open tables right now</div>';
-    return;
-  }
-  el.innerHTML = rooms.map(r => `
+  // Both the host screen and the join screen can each have their own copy
+  // of this list visible at different times - keep whichever is present
+  // in sync on every update rather than assuming only one exists.
+  const containers = [document.getElementById('poolOpenTablesList'), document.getElementById('poolOpenTablesListHost')].filter(Boolean);
+  if (!containers.length) return;
+  const html = (!rooms || !rooms.length)
+    ? '<div style="text-align:center;color:#888;font-size:12px;padding:6px 0">No open tables right now</div>'
+    : rooms.map(r => `
     <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.05);border:1px solid #444;border-radius:8px;padding:8px 12px;margin-bottom:6px">
-      <span style="font-size:13px;color:#eee">Hosted by <b>${r.hostName}</b></span>
-      <button class="btn btn-green" style="width:auto;padding:6px 14px;font-size:12px" onclick="poolJoinFromList('${r.id}')">Join</button>
+      <span style="font-size:13px;color:#eee">Hosted by <b>${r.hostName}</b>${r.opponentIsBot ? ` <span style="color:#f4c430;font-size:11px">· vs ${r.botDifficulty ? r.botDifficulty[0].toUpperCase()+r.botDifficulty.slice(1) : ''} Bot</span>` : ''}</span>
+      <button class="btn btn-green" style="width:auto;padding:6px 14px;font-size:12px" onclick="poolJoinFromList('${r.id}')">${r.opponentIsBot ? 'Challenge' : 'Join'}</button>
     </div>
   `).join('');
+  containers.forEach(el => { el.innerHTML = html; });
 }
 function poolJoinFromList(tableId) {
-  myName = document.getElementById('joinName').value.trim() || 'Guest';
+  // Pick up whichever name field the player was actually looking at -
+  // they may click "Join" straight from the host screen without ever
+  // visiting the dedicated join screen at all.
+  const hostScreenActive = document.getElementById('hostScreen').classList.contains('active');
+  const nameField = hostScreenActive ? document.getElementById('hostName') : document.getElementById('joinName');
+  myName = (nameField && nameField.value.trim()) || 'Guest';
   isHost = false;
+  poolStopLobbyListPolling();
   try { localStorage.removeItem('pool_table_id'); localStorage.removeItem('pool_player_token'); } catch(e) {}
   poolMyTableId = null; poolMyPlayerId = null;
   setConnectionStatus('connecting', 'Connecting...');
