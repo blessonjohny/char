@@ -3388,9 +3388,12 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   console.log('[28 Kerala Gulan] build:', window.K28_BUILD_TAG);
   window.addEventListener('DOMContentLoaded', () => {
     const tag = document.createElement('div');
-    tag.textContent = window.K28_BUILD_TAG;
+    tag.textContent = window.K28_BUILD_TAG; // replaced below once the real deploy date is back, this is just the instant-paint fallback
     tag.style.cssText = 'position:fixed;bottom:2px;left:2px;font-size:8px;color:rgba(255,255,255,0.25);z-index:9999;pointer-events:none;font-family:monospace';
     document.body.appendChild(tag);
+    fetch('/api/last-updated').then(r => r.json()).then(d => {
+      if (d && d.iso) tag.textContent = `stable-hostfix · ${d.iso}`;
+    }).catch(() => {});
   });
 </script>
 <script src="/socket.io/socket.io.js"></script>
