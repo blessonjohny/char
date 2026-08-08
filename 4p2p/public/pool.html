@@ -1454,6 +1454,7 @@ function handleTouchStart(e) {
   const cueBall = balls[0];
   if (!cueBall || cueBall.pocketed) return;
   e.preventDefault();
+  gameState.showNextBallHint = false; // they've started interacting with their shot - the hint has done its job
   if (gameState.placingCueBall) {
     isPlacingDrag = true; aimTouchId = e.touches[0].identifier;
     placeCueBallAt(pos.x, pos.y);
@@ -1484,6 +1485,7 @@ function handleMouseDown(e) {
   const pos = getCanvasPos(e);
   const cueBall = balls[0];
   if (!cueBall || cueBall.pocketed) return;
+  gameState.showNextBallHint = false; // they've started interacting with their shot - the hint has done its job
   if (gameState.placingCueBall) {
     isPlacingDrag = true;
     placeCueBallAt(pos.x, pos.y);
@@ -2385,6 +2387,7 @@ function confirmCuePlacement() {
   if (!gameState.placingCueBall || !gameState.myTurn) return;
   gameState.placingCueBall = false;
   gameState.aimPhase = true; gameState.aimLocked = false; gameState.powerPhase = false;
+  gameState.showNextBallHint = true; // placement just finished - show the legal target until they start aiming
   lastSimAngle = null; // cue ball just moved to a new spot - force a fresh preview
   const btn = document.getElementById('placeBallBtn');
   if (btn) btn.style.display = 'none';
@@ -2451,6 +2454,12 @@ function startTurn() {
   }
   updateUI(); updateMessage();
   lastSimAngle = null; // ball layout may have changed since the last aim - force a fresh preview
+  // Show which ball is legal to hit next as soon as it's actually the player's turn to shoot,
+  // whether their previous shot potted something or missed entirely - and leave it showing
+  // until they actually start their next shot (first touch/click), not just until the turn
+  // technically starts, since that's when the information stops being useful and starts being
+  // in the way of aiming.
+  gameState.showNextBallHint = gameState.myTurn && !gameState.placingCueBall && !gameState.gameOver;
   if (!gameState.myTurn && (gameMode === 'bot' || (gameMode === 'p2p' && opponentIsBot))) {
     if (!gameState.botTurnPending) {
       gameState.botTurnPending = true;
@@ -2724,8 +2733,10 @@ function simulateAim(cueBall, angle, power, spin) {
 
   const cuePath = [];
   const targetPath = [];
+  const targetBounces = []; // indices into targetPath where the tracked ball actually bounced off something
   let targetBallId = null;
   let collisionFrame = -1;
+  let lastTargetVx = null, lastTargetVy = null;
   const maxFrames = 250;
 
   for (let frame = 0; frame < maxFrames; frame++) {
@@ -2745,13 +2756,28 @@ function simulateAim(cueBall, angle, power, spin) {
           targetBallId = ball.id;
           collisionFrame = frame;
           targetPath.push({x: ball.x, y: ball.y});
+          lastTargetVx = ball.vx; lastTargetVy = ball.vy;
           break;
         }
       }
     } else {
       const targetBall = balls.find(b => b.id === targetBallId);
       if (targetBall) {
+        // A real bounce (cushion, jaw, or another ball) sharply changes this ball's own
+        // direction of travel between one frame and the next - a big enough angle swing here
+        // is a genuine physical event, not a rendering artifact, so mark exactly where it
+        // happened. Without this, a shot with two bounces close together (e.g. clipping a
+        // rail then almost immediately clipping another) draws as one unbroken line with no
+        // visual distinction between "travelling" and "just bounced", which is exactly what
+        // makes a perfectly correct path look like an impossible glide around the table edge.
+        const speed = Math.hypot(targetBall.vx, targetBall.vy);
+        const lastSpeed = Math.hypot(lastTargetVx, lastTargetVy);
+        if (speed > 0.3 && lastSpeed > 0.3) {
+          const dot = (targetBall.vx * lastTargetVx + targetBall.vy * lastTargetVy) / (speed * lastSpeed);
+          if (dot < 0.85) targetBounces.push(targetPath.length);
+        }
         targetPath.push({x: targetBall.x, y: targetBall.y});
+        lastTargetVx = targetBall.vx; lastTargetVy = targetBall.vy;
       }
     }
 
@@ -2780,7 +2806,7 @@ function simulateAim(cueBall, angle, power, spin) {
   poolPlayPocketSound = savedPoolPlayPocketSound;
   gameState.ballsMoving = savedBallsMoving;
 
-  return { cuePath, targetPath, targetBallId, collisionFrame };
+  return { cuePath, targetPath, targetBallId, collisionFrame, targetBounces };
 }
 
 let lastSimAngle = null;
@@ -2788,6 +2814,34 @@ let lastSimPower = null;
 let lastSimSpinX = null;
 let lastSimSpinY = null;
 let simCache = null;
+
+// Which balls are actually legal to hit first right now, under whichever ruleset is active -
+// shared by the aim-guide ball-status check and the next-ball hint, so both always agree.
+function getLegalTargetBalls() {
+  const targets = [];
+  if (gameState.gameType === '9ball') {
+    let lowest = null;
+    for (const b of balls) {
+      if (b.pocketed || b.number === 0) continue;
+      if (lowest === null || b.number < lowest.number) lowest = b;
+    }
+    if (lowest) targets.push(lowest);
+    return targets;
+  }
+  // 8-ball
+  const myGroup = gameState.myTurn ? gameState.myGroup : gameState.opponentGroup;
+  const ballsPocketedForGroup = myGroup === 'solids' ? gameState.ballsPocketed.solids
+                                : myGroup === 'stripes' ? gameState.ballsPocketed.stripes : 0;
+  const groupCleared = gameState.groupAssigned && ballsPocketedForGroup >= 7;
+  for (const b of balls) {
+    if (b.pocketed || b.number === 0) continue;
+    if (!gameState.groupAssigned) { targets.push(b); continue; } // open table - anything is legal
+    if (b.number === 8) { if (groupCleared) targets.push(b); continue; }
+    const ballGroup = b.number <= 7 ? 'solids' : 'stripes';
+    if (ballGroup === myGroup) targets.push(b);
+  }
+  return targets;
+}
 
 function renderAimGuidance(cueBall) {
   try {
@@ -2807,7 +2861,7 @@ function renderAimGuidance(cueBall) {
     }
 
     if (!simCache) return;
-    const { cuePath, targetPath, targetBallId, collisionFrame } = simCache;
+    const { cuePath, targetPath, targetBallId, collisionFrame, targetBounces } = simCache;
     const targetBall = targetBallId !== null ? balls.find(b => b.id === targetBallId) : null;
 
     let ballStatus = 'neutral';
@@ -2978,6 +3032,26 @@ function renderAimGuidance(cueBall) {
       ctx.lineWidth = targetWidth;
       ctx.stroke();
       ctx.restore();
+
+      // Mark every real bounce along this path with a small ring - without this, a shot that
+      // clips two rails close together (or a rail then another ball) draws as one unbroken
+      // line with no visual distinction between "still travelling" and "just bounced here",
+      // which makes an entirely correct path look like an impossible glide around the cushion.
+      if (targetBounces && targetBounces.length) {
+        ctx.save();
+        for (const bIdx of targetBounces) {
+          const bp = targetPath[bIdx];
+          if (!bp) continue;
+          ctx.beginPath();
+          ctx.arc(bp.x, bp.y, 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255,255,255,0.95)';
+          ctx.fill();
+          ctx.strokeStyle = targetColor;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
 
       const last = targetPath[targetPath.length - 1];
       ctx.save();
@@ -3272,6 +3346,26 @@ function render() {
       ctx.strokeStyle = 'rgba(255,215,0,0.95)';
       ctx.lineWidth = 3.5;
       ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // === NEXT-BALL HINT (persists from the moment it becomes the player's turn until they
+  // actually start their next shot, regardless of whether the previous shot potted or missed) ===
+  if (gameState.showNextBallHint && gameState.myTurn && !gameState.ballsMoving && !gameState.gameOver && !gameState.placingCueBall) {
+    const legalTargets = getLegalTargetBalls();
+    if (legalTargets.length) {
+      const pulse = 0.55 + 0.45 * Math.sin(performance.now() / 320);
+      ctx.save();
+      ctx.shadowBlur = 16;
+      ctx.shadowColor = `rgba(255,215,0,${0.55 * pulse})`;
+      for (const ball of legalTargets) {
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.r + 6, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255,215,0,${0.75 * pulse})`;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
       ctx.restore();
     }
   }
