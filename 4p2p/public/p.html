@@ -1708,37 +1708,7 @@ function rotateOrient(vecs, ax, ay, az, angle) {
 }
 
 
-function isNearPocketOpening(ball, wall) {
-  // A pure "how close is the ball to the pocket right now" radius check is fundamentally
-  // broken: any ball merely PASSING NEAR a pocket (not actually heading into it) gets its
-  // rail bounce cancelled, then sails straight through the rail with nothing to stop it once
-  // it's outside the real capture radius used below (POCKET_RADIUS - 2). That's the "ball
-  // tunnels through solid rail near a pocket" bug - no fixed buffer size can avoid this,
-  // since there will always be balls whose raw distance is inside the buffer but whose
-  // actual path never reaches the pocket mouth.
-  //
-  // The real fix: only skip the bounce if the ball's CURRENT straight-line direction is
-  // actually heading into the pocket - i.e. the closest point its path will pass by a pocket
-  // (projected forward from here) falls within the true capture radius, and that point is
-  // close ahead (not some other pocket further down the same rail). A ball merely grazing
-  // past a pocket still bounces normally, exactly like it would off any other point on the
-  // rail - only a ball truly on course to drop in gets let through to be captured next tick.
-  const speed = Math.hypot(ball.vx, ball.vy);
-  if (speed < 0.001) return false;
-  const dirX = ball.vx / speed, dirY = ball.vy / speed;
-  const captureRadius = POCKET_RADIUS - 1; // matches the real pocket-capture check, plus a hair of margin
-  const lookahead = POCKET_RADIUS + BALL_RADIUS * 2 + 10; // only a pocket genuinely just ahead, not one far down the rail
-  for (const pocket of pockets) {
-    const toPocketX = pocket.x - ball.x, toPocketY = pocket.y - ball.y;
-    const t = toPocketX * dirX + toPocketY * dirY; // forward distance to the closest approach point
-    if (t < -BALL_RADIUS || t > lookahead) continue;
-    const closestX = ball.x + dirX * Math.max(0, t);
-    const closestY = ball.y + dirY * Math.max(0, t);
-    const dist = Math.hypot(closestX - pocket.x, closestY - pocket.y);
-    if (dist < captureRadius) return true;
-  }
-  return false;
-}
+
 
 let poolLastLiveShotEmitAt = 0;
 function updatePhysics() {
@@ -1888,100 +1858,119 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP, FAST_SHOT_DECEL_STEP)
     if (Math.abs(ball.vy) < STOP_THRESHOLD) ball.vy = 0;
     if (ball.vx !== 0 || ball.vy !== 0) moving = true;
 
+    // Real fix, not another patch on the buffer: rather than approximating "is the ball near
+    // enough to a pocket that it MIGHT be going in" with a fuzzy radius (which always has
+    // either a dead zone where balls tunnel through solid rail, or a zone that swallows balls
+    // that were only ever grazing past), directly solve the actual geometry question: does the
+    // path the ball travels THIS substep - a real line segment from where it started to where
+    // it ends up - genuinely pass through the pocket's true capture circle? That's a standard
+    // segment/circle intersection (solving where |point-on-segment - pocketCenter| = radius),
+    // not a guess. If it does, the ball is entering the pocket mouth for real, so it's captured
+    // - the earliest pocket it actually reaches, if its path happens to cross more than one.
+    // If it doesn't, there is no exemption of any kind: the ball bounces off the cushion
+    // completely normally, exactly like it would anywhere else on the rail. This is what
+    // finally removes the whole "phantom pass-through" and "bounces then impossibly still
+    // pockets" class of bug, rather than continuing to narrow a buffer that can't ever be
+    // exactly right.
     let pocketedThisFrame = false;
-    for (let pocketIdx = 0; pocketIdx < pockets.length; pocketIdx++) {
-      const pocket = pockets[pocketIdx];
-      // Closest point on the segment the ball actually traveled this
-      // substep (prevX,prevY) -> (ball.x,ball.y) to the pocket center -
-      // not just the ball's final position, which can otherwise let a
-      // fast-moving ball step clean over the capture zone without ever
-      // registering as close enough.
+    {
       const segDx = ball.x - prevX, segDy = ball.y - prevY;
       const segLenSq = segDx * segDx + segDy * segDy;
-      let closestX = ball.x, closestY = ball.y;
-      if (segLenSq > 0.0001) {
-        let t = ((pocket.x - prevX) * segDx + (pocket.y - prevY) * segDy) / segLenSq;
-        t = Math.max(0, Math.min(1, t));
-        closestX = prevX + segDx * t;
-        closestY = prevY + segDy * t;
+      const captureRadius = POCKET_RADIUS - 2;
+      let capturedPocketIdx = null, capturedT = Infinity;
+      for (let pocketIdx = 0; pocketIdx < pockets.length; pocketIdx++) {
+        const pocket = pockets[pocketIdx];
+        const fx = prevX - pocket.x, fy = prevY - pocket.y;
+        let t = null;
+        if (segLenSq < 0.0001) {
+          if (fx * fx + fy * fy < captureRadius * captureRadius) t = 0;
+        } else {
+          const c = fx * fx + fy * fy - captureRadius * captureRadius;
+          if (c <= 0) {
+            t = 0; // already inside the capture circle at the start of this substep
+          } else {
+            const a = segLenSq;
+            const b = 2 * (fx * segDx + fy * segDy);
+            const disc = b * b - 4 * a * c;
+            if (disc >= 0) {
+              const sqrtDisc = Math.sqrt(disc);
+              const t1 = (-b - sqrtDisc) / (2 * a);
+              const t2 = (-b + sqrtDisc) / (2 * a);
+              if (t1 >= 0 && t1 <= 1) t = t1;
+              else if (t2 >= 0 && t2 <= 1) t = t2;
+            }
+          }
+        }
+        if (t !== null && t < capturedT) { capturedT = t; capturedPocketIdx = pocketIdx; }
       }
-      const dx = closestX - pocket.x, dy = closestY - pocket.y;
-      if (Math.sqrt(dx * dx + dy * dy) < POCKET_RADIUS - 2) {
+      if (capturedPocketIdx !== null) {
+        const pocket = pockets[capturedPocketIdx];
         ball.pocketed = true; ball.vx = 0; ball.vy = 0; ball.spinX = 0; ball.spinY = 0;
         ball.pocketAnimStart = performance.now();
         ball.pocketAnimFromX = ball.x; ball.pocketAnimFromY = ball.y;
         ball.pocketAnimToX = pocket.x; ball.pocketAnimToY = pocket.y;
         poolPlayPocketSound();
-        handlePocket(ball, pocketIdx);
+        handlePocket(ball, capturedPocketIdx);
         pocketedThisFrame = true;
-        break;
       }
     }
     if (pocketedThisFrame) continue;
 
     if (ball.x - ball.r < MARGIN) {
-      if (!isNearPocketOpening(ball, 'left')) {
-        ball.x = MARGIN + ball.r;
-        ball.vx = Math.abs(ball.vx) * WALL_BOUNCE;
-        poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
-        gameState.railContactedThisShot = true;
-        if (Math.abs(ball.spinY) > 0.01) {
-          const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
-          ball.vx *= carry;
-        }
-        if (Math.abs(ball.spinX) > 0.01) {
-          ball.vy += ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vx);
-        }
-        ball.spinX *= 0.55; ball.spinY *= 0.75;
+      ball.x = MARGIN + ball.r;
+      ball.vx = Math.abs(ball.vx) * WALL_BOUNCE;
+      poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
+      gameState.railContactedThisShot = true;
+      if (Math.abs(ball.spinY) > 0.01) {
+        const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
+        ball.vx *= carry;
       }
+      if (Math.abs(ball.spinX) > 0.01) {
+        ball.vy += ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vx);
+      }
+      ball.spinX *= 0.55; ball.spinY *= 0.75;
     }
     if (ball.x + ball.r > TABLE_WIDTH - MARGIN) {
-      if (!isNearPocketOpening(ball, 'right')) {
-        ball.x = TABLE_WIDTH - MARGIN - ball.r;
-        ball.vx = -Math.abs(ball.vx) * WALL_BOUNCE;
-        poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
-        gameState.railContactedThisShot = true;
-        if (Math.abs(ball.spinY) > 0.01) {
-          const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
-          ball.vx *= carry;
-        }
-        if (Math.abs(ball.spinX) > 0.01) {
-          ball.vy -= ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vx);
-        }
-        ball.spinX *= 0.55; ball.spinY *= 0.75;
+      ball.x = TABLE_WIDTH - MARGIN - ball.r;
+      ball.vx = -Math.abs(ball.vx) * WALL_BOUNCE;
+      poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
+      gameState.railContactedThisShot = true;
+      if (Math.abs(ball.spinY) > 0.01) {
+        const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
+        ball.vx *= carry;
       }
+      if (Math.abs(ball.spinX) > 0.01) {
+        ball.vy -= ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vx);
+      }
+      ball.spinX *= 0.55; ball.spinY *= 0.75;
     }
     if (ball.y - ball.r < MARGIN) {
-      if (!isNearPocketOpening(ball, 'top')) {
-        ball.y = MARGIN + ball.r;
-        ball.vy = Math.abs(ball.vy) * WALL_BOUNCE;
-        poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
-        gameState.railContactedThisShot = true;
-        if (Math.abs(ball.spinY) > 0.01) {
-          const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
-          ball.vy *= carry;
-        }
-        if (Math.abs(ball.spinX) > 0.01) {
-          ball.vx += ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vy);
-        }
-        ball.spinX *= 0.55; ball.spinY *= 0.75;
+      ball.y = MARGIN + ball.r;
+      ball.vy = Math.abs(ball.vy) * WALL_BOUNCE;
+      poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
+      gameState.railContactedThisShot = true;
+      if (Math.abs(ball.spinY) > 0.01) {
+        const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
+        ball.vy *= carry;
       }
+      if (Math.abs(ball.spinX) > 0.01) {
+        ball.vx += ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vy);
+      }
+      ball.spinX *= 0.55; ball.spinY *= 0.75;
     }
     if (ball.y + ball.r > TABLE_HEIGHT - MARGIN) {
-      if (!isNearPocketOpening(ball, 'bottom')) {
-        ball.y = TABLE_HEIGHT - MARGIN - ball.r;
-        ball.vy = -Math.abs(ball.vy) * WALL_BOUNCE;
-        poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
-        gameState.railContactedThisShot = true;
-        if (Math.abs(ball.spinY) > 0.01) {
-          const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
-          ball.vy *= carry;
-        }
-        if (Math.abs(ball.spinX) > 0.01) {
-          ball.vx -= ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vy);
-        }
-        ball.spinX *= 0.55; ball.spinY *= 0.75;
+      ball.y = TABLE_HEIGHT - MARGIN - ball.r;
+      ball.vy = -Math.abs(ball.vy) * WALL_BOUNCE;
+      poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
+      gameState.railContactedThisShot = true;
+      if (Math.abs(ball.spinY) > 0.01) {
+        const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
+        ball.vy *= carry;
       }
+      if (Math.abs(ball.spinX) > 0.01) {
+        ball.vx -= ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vy);
+      }
+      ball.spinX *= 0.55; ball.spinY *= 0.75;
     }
   }
 
