@@ -3548,10 +3548,25 @@ function renderAmericanCueStick(cueBall, overrideAngle, overridePower, overrideP
 }
 // ==================== BOT AI ====================
 const BOT_CONFIG = {
-  easy:   { aimAccuracy: 0.06,  powerMinPct: 35, powerMaxPct: 70,  powerJitterPct: 12, thinkTimeMin: 1200, thinkTimeMax: 2500, missChance: 0.15, randomShotChance: 0.10, name: 'Easy Bot',   useSpin: false, useSim: false },
-  medium: { aimAccuracy: 0.025, powerMinPct: 40, powerMaxPct: 85,  powerJitterPct: 7,  thinkTimeMin: 800,  thinkTimeMax: 1800, missChance: 0.08, randomShotChance: 0.04, name: 'Medium Bot', useSpin: false, useSim: false },
-  hard:   { aimAccuracy: 0.006, powerMinPct: 50, powerMaxPct: 95,  powerJitterPct: 4,  thinkTimeMin: 600,  thinkTimeMax: 1200, missChance: 0.03, randomShotChance: 0.0,  name: 'Hard Bot',   useSpin: true,  useSim: true  },
-  pro:    { aimAccuracy: 0.0002,powerMinPct: 0, powerMaxPct: 100, powerJitterPct: 0,  thinkTimeMin: 400,  thinkTimeMax: 900,  missChance: 0.0,  randomShotChance: 0.0,  name: 'Pro Bot',    useSpin: true,  useSim: true  }
+  easy:   { aimAccuracy: 0.06,  powerMinPct: 35, powerMaxPct: 70,  powerJitterPct: 12, thinkTimeMin: 1200, thinkTimeMax: 2500, missChance: 0.15, randomShotChance: 0.10, name: 'Easy Bot',   useSpin: false, useSim: false,
+    powerSearchMultipliers: [1], spinOptions: [{x:0,y:0}], positionWeight: 0 },
+  medium: { aimAccuracy: 0.025, powerMinPct: 40, powerMaxPct: 85,  powerJitterPct: 7,  thinkTimeMin: 800,  thinkTimeMax: 1800, missChance: 0.08, randomShotChance: 0.04, name: 'Medium Bot', useSpin: false, useSim: false,
+    powerSearchMultipliers: [1], spinOptions: [{x:0,y:0}], positionWeight: 0 },
+  hard:   { aimAccuracy: 0.006, powerMinPct: 50, powerMaxPct: 95,  powerJitterPct: 4,  thinkTimeMin: 600,  thinkTimeMax: 1200, missChance: 0.03, randomShotChance: 0.0,  name: 'Hard Bot',   useSpin: true,  useSim: true,
+    powerSearchMultipliers: [0.85, 1, 1.15], spinOptions: [{x:0,y:0},{x:0,y:0.4},{x:0,y:-0.4},{x:0.3,y:0},{x:-0.3,y:0}], positionWeight: 0.3 },
+  pro:    { aimAccuracy: 0.0002,powerMinPct: 0, powerMaxPct: 100, powerJitterPct: 0,  thinkTimeMin: 400,  thinkTimeMax: 900,  missChance: 0.0,  randomShotChance: 0.0,  name: 'Pro Bot',    useSpin: true,  useSim: true,
+    // A real pro doesn't just find a way to pot the ball in front of them - they control HOW
+    // the cue ball dies after contact, so the table is set up for an easy follow-on shot (or
+    // a deliberate safety) rather than leaving themselves a hard next shot or nothing at all.
+    // That means searching a genuinely wider range of pace and spin than a light nudge around
+    // the bare "just enough to reach the pocket" estimate, and weighing the result heavily
+    // enough that good position actually wins out over merely potting the ball. (Kept to a
+    // modest grid size, not a huge one - every extra combination re-runs the full physics
+    // simulation, and an oversized grid turns "pro thinks a little longer" into a multi-second
+    // freeze before every single shot, which would be its own new bug.)
+    powerSearchMultipliers: [0.75, 0.95, 1.1, 1.35],
+    spinOptions: [{x:0,y:0}, {x:0,y:0.5}, {x:0,y:-0.6}, {x:0.35,y:0}, {x:-0.35,y:0}, {x:0.3,y:0.3}],
+    positionWeight: 0.85 }
 };
 
 // Converts a 0-100 power percentage into the game's absolute speed unit.
@@ -3896,27 +3911,51 @@ function botTurn() {
     return;
   }
 
-  let bestShot = null;
-  let bestScore = -999999;
-  for (const cand of candidates) {
-    let score = 0;
-    let spinX = 0, spinY = 0;
+  // A full power/spin grid search is expensive (each combination re-runs the whole physics
+  // simulation), so running it on every single candidate would make "pro thinks it through"
+  // take several real seconds before every shot. Instead: do one cheap pass (bare estimated
+  // power, no spin) to rank every candidate roughly, then only spend the expensive full grid
+  // search refining the handful of candidates that were actually competitive - the ones far
+  // down the list were never going to be picked anyway, so there's nothing to gain by
+  // grid-searching their power/spin too.
+  function quickScoreCandidate(cand) {
     const cutAngleDeg = cand.cutAngle * 180 / Math.PI;
-    // A real player's confidence in a shot drops off sharply as the cut
-    // angle gets steeper, especially combined with distance - a thin cut
-    // from far away is genuinely low-percentage even for a pro, while the
-    // same cut angle up close is much more makeable. But how much that
-    // should scare a given bot off is itself a function of how precise
-    // that bot's own execution actually is - a near-perfect bot can
-    // reliably make a moderate cut, so it shouldn't avoid one nearly as
-    // hard as a bot with real, substantial aim error would need to.
     const penaltyMultiplier = Math.max(0.15, Math.min(1.0, 0.15 + (config.aimAccuracy / 0.06) * 0.85));
     const difficultyPenalty = Math.pow(cutAngleDeg / 90, 1.8) * (400 + cand.pocketDist * 0.6) * penaltyMultiplier;
+    let score;
     if (config.useSim) {
-      const powerLevels = config.useSpin ? [cand.basePower * 0.85, cand.basePower, cand.basePower * 1.15] : [cand.basePower];
-      const spinOptions = config.useSpin ? [{x:0,y:0},{x:0,y:0.4},{x:0,y:-0.4},{x:0.3,y:0},{x:-0.3,y:0}] : [{x:0,y:0}];
+      const result = simulateBotShot(cueBall.x, cueBall.y, cand.aimAngle, cand.basePower, 0, 0);
+      score = (result.pocketedBalls.includes(cand.ball.number) ? 5000 : (result.pocketedBalls.length > 0 ? -2000 : -500));
+      if (result.cueBallPocketed) score -= 10000;
+      score -= difficultyPenalty;
+    } else {
+      score = 1000 - cand.pathLength * 0.3 - cand.pocketDist * 1.5 - difficultyPenalty;
+      if (cand.ball.number === 8) { if (botBallsLeft === 0) score += 5000; else score -= 1000; }
+      const ghostToCenter = Math.hypot(cand.ghostX - TABLE_WIDTH/2, cand.ghostY - TABLE_HEIGHT/2);
+      score -= ghostToCenter * 0.05;
+    }
+    if (cand.ball.number === 8 && botBallsLeft === 0) score += 3000;
+    score -= cand.pathLength * 0.2;
+    if (cand.requiresBounce) score -= 400;
+    return { cand, score, cutAngleDeg, difficultyPenalty };
+  }
+
+  const quickScored = candidates.map(quickScoreCandidate).sort((a, b) => b.score - a.score);
+  const REFINE_COUNT = config.useSim ? 3 : 0; // only the top few get the full power/spin search
+  const toRefine = new Set(quickScored.slice(0, REFINE_COUNT).map(q => q.cand));
+
+  let bestShot = null;
+  let bestScore = -999999;
+  for (const q of quickScored) {
+    const cand = q.cand;
+    let score = q.score;
+    let spinX = 0, spinY = 0;
+    const cutAngleDeg = q.cutAngleDeg;
+    const difficultyPenalty = q.difficultyPenalty;
+    if (config.useSim && toRefine.has(cand)) {
+      const powerLevels = config.useSpin ? config.powerSearchMultipliers.map(m => Math.min(MAX_POWER, cand.basePower * m)) : [cand.basePower];
+      const spinOptions = config.useSpin ? config.spinOptions : [{x:0,y:0}];
       let bestSimScore = -999999;
-      let bestSimResult = null;
       let bestSimPower = cand.basePower;
       let bestSimSpin = {x:0,y:0};
       for (const pwr of powerLevels) {
@@ -3927,26 +3966,21 @@ function botTurn() {
           if (!result.cueBallPocketed && result.pocketedBalls.includes(cand.ball.number)) {
             const posScore = evaluateCuePosition(result.cueBallEnd.x, result.cueBallEnd.y, botGroup,
               botGroup === 'solids' ? Math.max(0, 7 - gameState.ballsPocketed.solids - 1) : botGroup === 'stripes' ? Math.max(0, 7 - gameState.ballsPocketed.stripes - 1) : 999);
-            simScore += posScore * 0.3;
+            simScore += posScore * config.positionWeight;
           }
           const centerDist = Math.hypot(result.cueBallEnd.x - TABLE_WIDTH/2, result.cueBallEnd.y - TABLE_HEIGHT/2);
           simScore -= centerDist * 0.1;
-          if (simScore > bestSimScore) { bestSimScore = simScore; bestSimResult = result; bestSimPower = pwr; bestSimSpin = sp; }
+          if (simScore > bestSimScore) { bestSimScore = simScore; bestSimPower = pwr; bestSimSpin = sp; }
         }
       }
       score = bestSimScore - difficultyPenalty;
+      if (cand.ball.number === 8 && botBallsLeft === 0) score += 3000;
+      score -= cand.pathLength * 0.2;
+      if (cand.requiresBounce) score -= 400;
       cand.basePower = bestSimPower;
       spinX = bestSimSpin.x;
       spinY = bestSimSpin.y;
-    } else {
-      score = 1000 - cand.pathLength * 0.3 - cand.pocketDist * 1.5 - difficultyPenalty;
-      if (cand.ball.number === 8) { if (botBallsLeft === 0) score += 5000; else score -= 1000; }
-      const ghostToCenter = Math.hypot(cand.ghostX - TABLE_WIDTH/2, cand.ghostY - TABLE_HEIGHT/2);
-      score -= ghostToCenter * 0.05;
     }
-    if (cand.ball.number === 8 && botBallsLeft === 0) score += 3000;
-    score -= cand.pathLength * 0.2;
-    if (cand.requiresBounce) score -= 400;
     if (score > bestScore) { bestScore = score; bestShot = { ...cand, spinX, spinY, cutAngleDeg }; }
   }
 
