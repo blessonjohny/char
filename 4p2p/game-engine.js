@@ -56,6 +56,7 @@ brain.loadBrains();
 const SEAT_ROTATION = [3, 2, 0, 1];
 function getTeam(pos) { return (pos === 0 || pos === 3) ? 1 : 0; }
 function nextPos(p) { return SEAT_ROTATION[(SEAT_ROTATION.indexOf(p) + 1) % 4]; }
+function partnerOf(pos) { return pos === 0 ? 3 : pos === 3 ? 0 : pos === 1 ? 2 : 1; }
 
 function freshDeck() {
   const deck = [];
@@ -334,6 +335,17 @@ class GameEngine {
     this.passes = 0;
     this.bidHistory = []; // [{pos, bid}]
     this.p2History = []; // [{pos, bid}] — phase 2 raises/passes, reset again when phase 2 actually starts
+    // Phase 1 bidding flow: the first bidder's partner doesn't get their
+    // turn in the normal seating order — it's deferred until the seat
+    // right before them (going around the table) has actually acted,
+    // and depending on how that plays out, their eventual turn is either
+    // completely normal or pre-restricted to Honors (20) or higher. See
+    // _afterBidAction() for the full flow this supports.
+    this.partnerTurnDeferred = false; // true from the first forced bid until the partner actually gets a turn
+    this.partnerTurnRestrictedWhenReached = false; // true only in the "both opponents passed" branch
+    this._partnerTurnWasDelayed = false; // true only between partner's delayed turn finishing and the redirect back to the first bidder
+    this.firstBidderPos = -1;
+    this.p1SeatsActed = {}; // {seatPos: true} - anyone who's had a genuine turn already this phase 1 round
     this.trumpSuit = '';
     this.trumpExposed = false;
     this.roundVoidMessage = null;
@@ -592,6 +604,17 @@ class GameEngine {
     return this.highestBid === 0 && this.passes === 0 && pos === nextPos(this.dealer);
   }
 
+  // Whether pos's NEXT bid must be Honors (20) or higher rather than a
+  // normal one-higher-than-the-current-bid raise - true for anyone
+  // who's already had a genuine turn this phase 1 round and is now
+  // cycling back, and also for the first bidder's partner specifically
+  // when their delayed turn was reached via both opponents passing.
+  _isBidRestrictedToHonors(pos) {
+    if (this.p1SeatsActed[pos]) return true;
+    if (pos === partnerOf(this.firstBidderPos) && this.partnerTurnRestrictedWhenReached) return true;
+    return false;
+  }
+
   // A human telling their partner how to approach the next hand's
   // bidding -- same, more aggressive, or less aggressive than usual.
   // Only meaningful between the seat that just finished a round and
@@ -611,29 +634,36 @@ class GameEngine {
     if (this.phase !== 'bidding1') return { ok: false, reason: 'not_bidding' };
     if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
     const first = this.isFirstBidder(pos);
+    if (first) {
+      this.firstBidderPos = pos;
+      this.partnerTurnDeferred = true;
+    }
+    const restricted = this._isBidRestrictedToHonors(pos);
     if (bid === 0) {
       if (first) bid = 14; // first bidder cannot pass
       else {
         this.passes++;
+        this.p1SeatsActed[pos] = true;
         this.bidHistory.push({ pos, bid: 0 });
         this.addLog(`Seat ${pos} passed.`);
-        return this._afterBidAction();
+        return this._afterBidAction(pos, false);
       }
     }
-    const minBid = this.highestBid > 0 ? this.highestBid + 1 : 14;
+    const minBid = restricted ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 14);
     if (bid < minBid || bid > 28) return { ok: false, reason: 'invalid_bid_amount' };
     this.highestBid = bid;
     this.bidder = pos;
     this.passes = 0;
+    this.p1SeatsActed[pos] = true;
     this.bidHistory.push({ pos, bid });
     // Snapshot the hand profile now, at bid-time — by round end this
     // hand will be empty, too late to learn anything from it.
     if (this.seats[pos]) this._bidderHandProfileForLearning = brain.getHandProfile(this.seats[pos].hand);
     this.addLog(`Seat ${pos} bid ${bid}.`);
-    return this._afterBidAction();
+    return this._afterBidAction(pos, true);
   }
 
-  _afterBidAction() {
+  _afterBidAction(actingPos, wasABid) {
     if ((this.passes >= 3 && this.highestBid > 0) || this.passes >= 4) {
       this.phase = 'choosingTrump';
       this.currentPlayer = this.bidder;
@@ -642,7 +672,44 @@ class GameEngine {
       this.maybeAutoAct();
       return { ok: true };
     }
-    this.currentPlayer = nextPos(this.currentPlayer);
+
+    const partnerSeat = partnerOf(this.firstBidderPos);
+    const p2Seat = nextPos(this.firstBidderPos);
+    const p4Seat = nextPos(nextPos(p2Seat));
+
+    if (actingPos === partnerSeat && this._partnerTurnWasDelayed) {
+      // Partner's delayed turn (normal or Honors-restricted) just
+      // finished. The natural continuation is back to the very start
+      // of the round - not the seat that would come next in an
+      // uninterrupted rotation, since in this branch that seat (P4)
+      // already had its own turn just before partner's delayed one.
+      this._partnerTurnWasDelayed = false;
+      this.currentPlayer = this.firstBidderPos;
+    } else if (this.partnerTurnDeferred) {
+      if (actingPos === this.firstBidderPos) {
+        this.currentPlayer = nextPos(actingPos); // -> P2, normal
+      } else if (actingPos === p2Seat) {
+        if (wasABid) {
+          // P2 bid - partner gets a completely normal, in-sequence turn.
+          this.partnerTurnDeferred = false;
+          this.currentPlayer = partnerSeat;
+        } else {
+          // P2 passed - skip partner entirely, straight to P4.
+          this.currentPlayer = p4Seat;
+        }
+      } else if (actingPos === p4Seat) {
+        // Only reached when P2 passed (partner still deferred).
+        this.partnerTurnDeferred = false;
+        this._partnerTurnWasDelayed = true;
+        this.partnerTurnRestrictedWhenReached = !wasABid; // true only if P4 also passed
+        this.currentPlayer = partnerSeat;
+      } else {
+        this.currentPlayer = nextPos(actingPos);
+      }
+    } else {
+      this.currentPlayer = nextPos(actingPos);
+    }
+
     this._notify();
     this.maybeAutoAct();
     return { ok: true };
@@ -1265,7 +1332,8 @@ class GameEngine {
       const b = brain.getBrain(botName);
       const hand = this.seats[pos].hand;
       const first = this.isFirstBidder(pos);
-      const minBid = this.highestBid > 0 ? this.highestBid + 1 : 14;
+      const restricted = this._isBidRestrictedToHonors(pos);
+      const minBid = restricted ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 14);
 
       // Suit-dominance based evaluation (see evaluatePhase1Hand above) —
       // replaces flat point-counting, which badly overrated hands like
@@ -1905,6 +1973,8 @@ class GameEngine {
       p2History: this.p2History,
       p2LastRaiser: this.p2LastRaiser,
       p2MinRaise: this.phase === 'bidding2' ? Math.max(20, this.highestBid + 1) : null,
+      p1MinBid: this.phase === 'bidding1' ? (this._isBidRestrictedToHonors(this.currentPlayer) ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 14)) : null,
+      p1CurrentTurnRestricted: this.phase === 'bidding1' ? this._isBidRestrictedToHonors(this.currentPlayer) : false,
       learningPulseCount: this.learningPulseCount,
       lastLearningBotName: this.lastLearningBotName,
       trumpSuit: this.trumpSuit, // the chosen SUIT is known to everyone once picked — only the specific hidden CARD stays secret until exposure
