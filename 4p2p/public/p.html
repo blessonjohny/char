@@ -960,9 +960,20 @@ function reconnect() { closeOverlay('disconnectOverlay'); if (poolSocket) poolSo
 
 // ==================== GAME PHYSICS ====================
 // AMERICAN 8-BALL POOL TABLE DIMENSIONS
+//
+// Sized to real-world regulation proportions, not arbitrary round numbers: a standard 9-foot
+// table's PLAYING surface (cushion to cushion, not the outer rail footprint) is a 2:1 rectangle
+// roughly 22 ball-diameters across the short rail (100" x 50" playing surface, 2.25" balls).
+// The previous table was proportioned closer to a table half that size relative to the ball
+// (~14 ball-diameters across), which is exactly why the pockets looked oversized and cut angles
+// felt tighter/different than real pool - everything was correct in isolation, just scaled
+// against each other wrong. BALL_RADIUS is the fixed unit everything else is sized against.
 const BALL_RADIUS = 12;
-const TABLE_WIDTH = 900;
-const TABLE_HEIGHT = 450;
+const PLAYING_HEIGHT = BALL_RADIUS * 2 * 22; // short rail, ~22 ball-diameters, matches a real 9-ft table
+const PLAYING_WIDTH = PLAYING_HEIGHT * 2;    // true 2:1 playing-surface ratio
+const MARGIN = 50;                           // rail thickness - about 2x ball diameter, matching real rail proportions
+const TABLE_WIDTH = PLAYING_WIDTH + MARGIN * 2;
+const TABLE_HEIGHT = PLAYING_HEIGHT + MARGIN * 2;
 const POCKET_RADIUS = 26;
 const FRICTION = 0.99;      // Realistic cloth roll-off - lets a hard-hit cue ball carry speed across the whole table
 const WALL_BOUNCE = 0.86;   // Realistic cushion restitution - rails absorb some energy but don't kill the shot
@@ -1104,19 +1115,18 @@ const COLORS = {
   15: '#800000'      // Maroon stripe
 };
 
-const MARGIN = 52;  // Thick American pool rails
 
 let canvas, ctx, scale = 1, balls = [], gameState = {}, animationId = null, lastTime = 0;
 let ballRasterCanvas = null, ballRasterCtx = null, ballRasterSize = 0;
 
 // Pocket positions for American pool table
 const pockets = [
-  { x: 52, y: 52 },       // Top-left corner
-  { x: 450, y: 42 },      // Top side (slightly inset)
-  { x: 848, y: 52 },      // Top-right corner
-  { x: 52, y: 398 },      // Bottom-left corner
-  { x: 450, y: 408 },     // Bottom side (slightly inset)
-  { x: 848, y: 398 }      // Bottom-right corner
+  { x: MARGIN, y: MARGIN },                              // Top-left corner
+  { x: TABLE_WIDTH / 2, y: MARGIN - 10 },                 // Top side (slightly inset)
+  { x: TABLE_WIDTH - MARGIN, y: MARGIN },                 // Top-right corner
+  { x: MARGIN, y: TABLE_HEIGHT - MARGIN },                // Bottom-left corner
+  { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT - MARGIN + 10 },  // Bottom side (slightly inset)
+  { x: TABLE_WIDTH - MARGIN, y: TABLE_HEIGHT - MARGIN }   // Bottom-right corner
 ];
 
 // Real cushion geometry, not one continuous wall with exemption logic bolted on: each rail is
@@ -1139,6 +1149,30 @@ const CUSHION_SEGMENTS = [
   { axis: 'x', pos: MARGIN, from: MARGIN + CORNER_GAP_HALF, to: TABLE_HEIGHT - MARGIN - CORNER_GAP_HALF, dir: 1 },
   // Right rail: same.
   { axis: 'x', pos: TABLE_WIDTH - MARGIN, from: MARGIN + CORNER_GAP_HALF, to: TABLE_HEIGHT - MARGIN - CORNER_GAP_HALF, dir: -1 },
+];
+
+// Real pocket jaws, not a circular backstop: on an actual table, a pocket mouth isn't just a
+// bare gap in the cushion - two straight angled facets taper the cushion ends into the hole.
+// A circle's bounce direction varies continuously all the way around it, so a ball clipping it
+// off-center can come off at an angle a real jaw would never produce; a flat facet has one
+// fixed, predictable normal, which is what actually gives a jaw-rattle its familiar, sane look.
+function jawFacet(x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+  return { x1, y1, x2, y2, nx: -dy / len, ny: dx / len };
+}
+const JAW_FACETS = [
+  // Corner pockets: a single diagonal facet cutting across the corner, connecting where the
+  // two adjoining rails' cushions end.
+  jawFacet(MARGIN + CORNER_GAP_HALF, MARGIN, MARGIN, MARGIN + CORNER_GAP_HALF),                                                    // top-left
+  jawFacet(TABLE_WIDTH - MARGIN - CORNER_GAP_HALF, MARGIN, TABLE_WIDTH - MARGIN, MARGIN + CORNER_GAP_HALF),                          // top-right
+  jawFacet(MARGIN, TABLE_HEIGHT - MARGIN - CORNER_GAP_HALF, MARGIN + CORNER_GAP_HALF, TABLE_HEIGHT - MARGIN),                        // bottom-left
+  jawFacet(TABLE_WIDTH - MARGIN, TABLE_HEIGHT - MARGIN - CORNER_GAP_HALF, TABLE_WIDTH - MARGIN - CORNER_GAP_HALF, TABLE_HEIGHT - MARGIN), // bottom-right
+  // Side pockets: two facets, one per side, from where that half of the rail's cushion ends
+  // to the (slightly inset) pocket mouth itself.
+  jawFacet(TABLE_WIDTH / 2 - SIDE_GAP_HALF, MARGIN, pockets[1].x, pockets[1].y),
+  jawFacet(pockets[1].x, pockets[1].y, TABLE_WIDTH / 2 + SIDE_GAP_HALF, MARGIN),
+  jawFacet(TABLE_WIDTH / 2 - SIDE_GAP_HALF, TABLE_HEIGHT - MARGIN, pockets[4].x, pockets[4].y),
+  jawFacet(pockets[4].x, pockets[4].y, TABLE_WIDTH / 2 + SIDE_GAP_HALF, TABLE_HEIGHT - MARGIN),
 ];
 
 function initCanvas() {
@@ -1184,10 +1218,10 @@ function defaultOrient() {
 function initGame() {
   balls = [];
   // Cue ball - placed behind head string (1/4 from left)
-  balls.push({ id: 0, x: 225, y: 225, vx: 0, vy: 0, spinX: 0, spinY: 0, orient: defaultOrient(),
+  balls.push({ id: 0, x: TABLE_WIDTH * 0.25, y: TABLE_HEIGHT / 2, vx: 0, vy: 0, spinX: 0, spinY: 0, orient: defaultOrient(),
     r: BALL_RADIUS, color: COLORS[0], number: 0, pocketed: false });
 
-  const rackX = 650, rackY = 225, spacing = BALL_RADIUS * 2 + 0.5;
+  const rackX = TABLE_WIDTH * 0.75, rackY = TABLE_HEIGHT / 2, spacing = BALL_RADIUS * 2 + 0.5;
   if (poolGameType === '9ball') {
     // Diamond rack: rows of 1,2,3,2,1 balls - the 1-ball at the apex
     // (closest to the cue ball, where the break comes from), the 9-ball
@@ -1321,7 +1355,7 @@ function isTouchOnStick(pos, cueBall) {
   const buttY = tipY - Math.sin(angle) * 240;
   return pointLineDistance(pos.x, pos.y, tipX, tipY, buttX, buttY) < STICK_TOUCH_WIDTH;
 }
-const HEAD_STRING_X = 225; // kitchen boundary - matches the break-line drawn on the table
+const HEAD_STRING_X = TABLE_WIDTH * 0.25; // kitchen boundary - matches the break-line drawn on the table
 
 function startLongPress(pos) {
   longPressPos = { x: pos.x, y: pos.y };
@@ -1995,50 +2029,53 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP, FAST_SHOT_DECEL_STEP)
         ball.spinX *= 0.55; ball.spinY *= 0.75;
       } else {
         // No cushion here - this crossing is inside a pocket's gap, and the pocket-capture
-        // check above already determined this substep didn't actually drop it in. Rather than
-        // let it drift on into open space past the corner with nothing to stop it (unrealistic
-        // - real pocket jaws would catch it), treat the pocket's own mouth as a soft circular
-        // backstop: a ball that rattles the rim without falling bounces back off it, the same
-        // way it would off an angled jaw on a real table.
+        // check above already determined this substep didn't actually drop it in. Bounce off
+        // whichever angled jaw facet the ball's path actually crosses, exactly like a real
+        // pocket mouth - not a circular backstop (see JAW_FACETS above for why that produced
+        // unrealistic-looking bounce angles).
         //
-        // Checked against the full substep path (closest approach of the segment, not just
-        // the ball's end-of-substep point) for the same reason the pocket capture check needs
-        // it: the rim band is narrow enough that a fast ball can otherwise skip clean over it
-        // between two sampled positions without ever registering as having touched it.
+        // Checked against the full substep path (closest approach of the segment to the facet's
+        // line, not just the ball's end-of-substep point) for the same reason the pocket capture
+        // check needs it: the jaw band is narrow enough that a fast ball can otherwise skip
+        // clean over it between two sampled positions without ever registering as having
+        // touched it.
         const segDx2 = ball.x - prevX, segDy2 = ball.y - prevY;
         const segLenSq2 = segDx2 * segDx2 + segDy2 * segDy2;
-        for (const pocket of pockets) {
-          const rimRadius = (POCKET_RADIUS - 2) + ball.r * 0.7;
-          let closestT2 = 1;
-          if (segLenSq2 > 0.0001) {
-            closestT2 = Math.max(0, Math.min(1, ((pocket.x - prevX) * segDx2 + (pocket.y - prevY) * segDy2) / segLenSq2));
+        for (const jaw of JAW_FACETS) {
+          // Distance from the ball's swept path to the facet's LINE (not segment - the facet
+          // is short, and a ball can legitimately clip it near either end), then confirm the
+          // closest point actually falls within the facet's own finite extent.
+          const fdx = jaw.x2 - jaw.x1, fdy = jaw.y2 - jaw.y1, flenSq = fdx * fdx + fdy * fdy;
+          // Parametrize the ball's path by t, project onto the facet's normal direction to find
+          // where (if anywhere) the swept path crosses within one ball radius of the facet line.
+          const startOff = (prevX - jaw.x1) * jaw.nx + (prevY - jaw.y1) * jaw.ny;
+          const endOff = (ball.x - jaw.x1) * jaw.nx + (ball.y - jaw.y1) * jaw.ny;
+          let hitT = null;
+          if (Math.abs(startOff) <= ball.r) {
+            hitT = 0; // already touching at the start of this substep
+          } else if ((startOff > ball.r) !== (endOff > ball.r) || (startOff < -ball.r) !== (endOff < -ball.r)) {
+            // Crossed the +r or -r threshold somewhere in this substep - find exactly where.
+            const target = startOff > 0 ? ball.r : -ball.r;
+            const denom = endOff - startOff;
+            if (Math.abs(denom) > 1e-6) hitT = Math.max(0, Math.min(1, (target - startOff) / denom));
           }
-          const cx = prevX + segDx2 * closestT2, cy = prevY + segDy2 * closestT2;
-          const dist = Math.hypot(cx - pocket.x, cy - pocket.y);
-          // No directional gating here on purpose: a ball grazing the pocket mouth at a
-          // shallow angle can have a velocity whose dominant component points "away" from
-          // the pocket center even while it's genuinely still clipping the rim (the radial
-          // normal from a single center point isn't a perfect stand-in for the angled jaw
-          // facets a real corner pocket has). Rather than risk it slipping through on that
-          // technicality, treat this purely as a hard boundary: nothing gets to end a substep
-          // closer to a pocket center than the rim, unless it was captured outright above.
-          // A ball truly at rest here (near-zero speed) is left alone so it doesn't get
-          // perpetually nudged.
+          if (hitT === null) continue;
+          const hitX = prevX + segDx2 * hitT, hitY = prevY + segDy2 * hitT;
+          // Confirm the contact point projects onto the facet's actual finite length, not
+          // beyond either end of it.
+          const along = flenSq > 0.0001 ? (((hitX - jaw.x1) * fdx + (hitY - jaw.y1) * fdy) / flenSq) : 0;
+          if (along < -0.15 || along > 1.15) continue; // small allowance for the ball's own radius rounding the corner
           const speed = Math.hypot(ball.vx, ball.vy);
-          if (dist > 0.01 && dist < rimRadius && speed > STOP_THRESHOLD * 3) {
-            const nx = (ball.x - pocket.x) / (Math.hypot(ball.x - pocket.x, ball.y - pocket.y) || 1);
-            const ny = (ball.y - pocket.y) / (Math.hypot(ball.x - pocket.x, ball.y - pocket.y) || 1);
-            ball.x = pocket.x + nx * rimRadius;
-            ball.y = pocket.y + ny * rimRadius;
-            const vDotN = ball.vx * nx + ball.vy * ny;
-            if (vDotN < 0) {
-              ball.vx -= 2 * vDotN * nx * WALL_BOUNCE;
-              ball.vy -= 2 * vDotN * ny * WALL_BOUNCE;
-            }
-            gameState.railContactedThisShot = true;
-            poolPlayRailThudForBall(ball, speed / MAX_POWER);
-            break;
-          }
+          if (speed <= STOP_THRESHOLD * 3) continue; // leave a genuinely resting ball alone
+          const vDotN = ball.vx * jaw.nx + ball.vy * jaw.ny;
+          if (vDotN >= 0) continue; // already moving away from this facet, nothing to do
+          ball.x = hitX + jaw.nx * ball.r * (startOff >= 0 ? 1 : -1);
+          ball.y = hitY + jaw.ny * ball.r * (startOff >= 0 ? 1 : -1);
+          ball.vx -= 2 * vDotN * jaw.nx * WALL_BOUNCE;
+          ball.vy -= 2 * vDotN * jaw.ny * WALL_BOUNCE;
+          gameState.railContactedThisShot = true;
+          poolPlayRailThudForBall(ball, speed / MAX_POWER);
+          break;
         }
       }
     }
@@ -2298,7 +2335,7 @@ function enterCuePlacement(kitchenOnly) {
   gameState.placementKitchenOnly = kitchenOnly;
   gameState.aimPhase = false; gameState.aimLocked = false; gameState.powerPhase = false;
   // Sensible default starting spot so the ball isn't invisible before the player drags it
-  const defaultX = kitchenOnly ? 180 : TABLE_WIDTH / 2;
+  const defaultX = kitchenOnly ? HEAD_STRING_X * 0.8 : TABLE_WIDTH / 2;
   const defaultY = TABLE_HEIGHT / 2;
   placeCueBallAt(defaultX, defaultY);
   updateUI(); updateMessage();
@@ -3017,8 +3054,8 @@ function render() {
   ctx.lineWidth = 1;
   ctx.setLineDash([8, 6]);
   ctx.beginPath();
-  ctx.moveTo(225, MARGIN);
-  ctx.lineTo(225, TABLE_HEIGHT - MARGIN);
+  ctx.moveTo(HEAD_STRING_X, MARGIN);
+  ctx.lineTo(HEAD_STRING_X, TABLE_HEIGHT - MARGIN);
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
