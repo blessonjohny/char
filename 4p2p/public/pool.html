@@ -335,12 +335,12 @@
 
     <div class="pocketed-tray" id="pocketedTray">
       <div class="pocketed-group" id="solidsTray">
-        <div class="pocketed-label">SOLIDS</div>
+        <div class="pocketed-label" id="solidsLabel">SOLIDS</div>
         <div class="pocketed-balls" id="solidsBalls"></div>
       </div>
-      <div class="pocketed-divider"></div>
+      <div class="pocketed-divider" id="pocketedDivider"></div>
       <div class="pocketed-group" id="stripesTray">
-        <div class="pocketed-label">STRIPES</div>
+        <div class="pocketed-label" id="stripesLabel">STRIPES</div>
         <div class="pocketed-balls" id="stripesBalls"></div>
       </div>
     </div>
@@ -960,9 +960,20 @@ function reconnect() { closeOverlay('disconnectOverlay'); if (poolSocket) poolSo
 
 // ==================== GAME PHYSICS ====================
 // AMERICAN 8-BALL POOL TABLE DIMENSIONS
+//
+// Sized to real-world regulation proportions, not arbitrary round numbers: a standard 9-foot
+// table's PLAYING surface (cushion to cushion, not the outer rail footprint) is a 2:1 rectangle
+// roughly 22 ball-diameters across the short rail (100" x 50" playing surface, 2.25" balls).
+// The previous table was proportioned closer to a table half that size relative to the ball
+// (~14 ball-diameters across), which is exactly why the pockets looked oversized and cut angles
+// felt tighter/different than real pool - everything was correct in isolation, just scaled
+// against each other wrong. BALL_RADIUS is the fixed unit everything else is sized against.
 const BALL_RADIUS = 12;
-const TABLE_WIDTH = 900;
-const TABLE_HEIGHT = 450;
+const PLAYING_HEIGHT = BALL_RADIUS * 2 * 22; // short rail, ~22 ball-diameters, matches a real 9-ft table
+const PLAYING_WIDTH = PLAYING_HEIGHT * 2;    // true 2:1 playing-surface ratio
+const MARGIN = 50;                           // rail thickness - about 2x ball diameter, matching real rail proportions
+const TABLE_WIDTH = PLAYING_WIDTH + MARGIN * 2;
+const TABLE_HEIGHT = PLAYING_HEIGHT + MARGIN * 2;
 const POCKET_RADIUS = 26;
 const FRICTION = 0.99;      // Realistic cloth roll-off - lets a hard-hit cue ball carry speed across the whole table
 const WALL_BOUNCE = 0.86;   // Realistic cushion restitution - rails absorb some energy but don't kill the shot
@@ -1104,19 +1115,71 @@ const COLORS = {
   15: '#800000'      // Maroon stripe
 };
 
-const MARGIN = 52;  // Thick American pool rails
 
 let canvas, ctx, scale = 1, balls = [], gameState = {}, animationId = null, lastTime = 0;
 let ballRasterCanvas = null, ballRasterCtx = null, ballRasterSize = 0;
 
-// Pocket positions for American pool table
+// Pocket positions for American pool table. Side pockets get a smaller visual radius (`r`)
+// than corner pockets: a corner pocket naturally sits at the join of two rails, so a generous
+// circular cutout there matches how a real corner pocket looks. A side pocket sits on a single
+// straight rail with no corner to "absorb" that same cutout size into - at the same radius as
+// a corner, it renders as a full circle ballooning deep into the open felt instead of a
+// contained mouth opening, which is exactly the "way inside the playing area" look this fixes.
+// The physics capture radius (how close a ball needs to get to actually fall in) is unchanged
+// for every pocket - only how far the visible hole reaches into the felt is different.
 const pockets = [
-  { x: 52, y: 52 },       // Top-left corner
-  { x: 450, y: 42 },      // Top side (slightly inset)
-  { x: 848, y: 52 },      // Top-right corner
-  { x: 52, y: 398 },      // Bottom-left corner
-  { x: 450, y: 408 },     // Bottom side (slightly inset)
-  { x: 848, y: 398 }      // Bottom-right corner
+  { x: MARGIN, y: MARGIN, r: POCKET_RADIUS },                              // Top-left corner
+  { x: TABLE_WIDTH / 2, y: MARGIN - 10, r: 18 },                           // Top side (slightly inset)
+  { x: TABLE_WIDTH - MARGIN, y: MARGIN, r: POCKET_RADIUS },                // Top-right corner
+  { x: MARGIN, y: TABLE_HEIGHT - MARGIN, r: POCKET_RADIUS },               // Bottom-left corner
+  { x: TABLE_WIDTH / 2, y: TABLE_HEIGHT - MARGIN + 10, r: 18 },            // Bottom side (slightly inset)
+  { x: TABLE_WIDTH - MARGIN, y: TABLE_HEIGHT - MARGIN, r: POCKET_RADIUS }  // Bottom-right corner
+];
+
+// Real cushion geometry, not one continuous wall with exemption logic bolted on: each rail is
+// a set of actual straight cushion faces with a genuine GAP only where a pocket mouth actually
+// is - exactly like a real table. A ball only ever bounces where a cushion segment truly exists
+// under it; anywhere else (a pocket gap) there's nothing to bounce off, so whether it falls in
+// is decided purely by the pocket-capture geometry, with the rim backstop below catching a
+// near-miss the same way a real pocket's jaws would, instead of leaving a ball that grazes but
+// doesn't quite drop with nothing to stop it from drifting past the corner.
+const CORNER_GAP_HALF = 26; // how far the cushion is pulled back from each corner pocket's center
+const SIDE_GAP_HALF = 22;   // same, for the side pockets (slightly tighter mouth, like a real table)
+const CUSHION_SEGMENTS = [
+  // Top rail: two faces, split by the top-middle pocket's gap.
+  { axis: 'y', pos: MARGIN, from: MARGIN + CORNER_GAP_HALF, to: TABLE_WIDTH / 2 - SIDE_GAP_HALF, dir: 1 },
+  { axis: 'y', pos: MARGIN, from: TABLE_WIDTH / 2 + SIDE_GAP_HALF, to: TABLE_WIDTH - MARGIN - CORNER_GAP_HALF, dir: 1 },
+  // Bottom rail: same split.
+  { axis: 'y', pos: TABLE_HEIGHT - MARGIN, from: MARGIN + CORNER_GAP_HALF, to: TABLE_WIDTH / 2 - SIDE_GAP_HALF, dir: -1 },
+  { axis: 'y', pos: TABLE_HEIGHT - MARGIN, from: TABLE_WIDTH / 2 + SIDE_GAP_HALF, to: TABLE_WIDTH - MARGIN - CORNER_GAP_HALF, dir: -1 },
+  // Left rail: one face, gaps only at its two corner pockets.
+  { axis: 'x', pos: MARGIN, from: MARGIN + CORNER_GAP_HALF, to: TABLE_HEIGHT - MARGIN - CORNER_GAP_HALF, dir: 1 },
+  // Right rail: same.
+  { axis: 'x', pos: TABLE_WIDTH - MARGIN, from: MARGIN + CORNER_GAP_HALF, to: TABLE_HEIGHT - MARGIN - CORNER_GAP_HALF, dir: -1 },
+];
+
+// Real pocket jaws, not a circular backstop: on an actual table, a pocket mouth isn't just a
+// bare gap in the cushion - two straight angled facets taper the cushion ends into the hole.
+// A circle's bounce direction varies continuously all the way around it, so a ball clipping it
+// off-center can come off at an angle a real jaw would never produce; a flat facet has one
+// fixed, predictable normal, which is what actually gives a jaw-rattle its familiar, sane look.
+function jawFacet(x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+  return { x1, y1, x2, y2, nx: -dy / len, ny: dx / len };
+}
+const JAW_FACETS = [
+  // Corner pockets: a single diagonal facet cutting across the corner, connecting where the
+  // two adjoining rails' cushions end.
+  jawFacet(MARGIN + CORNER_GAP_HALF, MARGIN, MARGIN, MARGIN + CORNER_GAP_HALF),                                                    // top-left
+  jawFacet(TABLE_WIDTH - MARGIN - CORNER_GAP_HALF, MARGIN, TABLE_WIDTH - MARGIN, MARGIN + CORNER_GAP_HALF),                          // top-right
+  jawFacet(MARGIN, TABLE_HEIGHT - MARGIN - CORNER_GAP_HALF, MARGIN + CORNER_GAP_HALF, TABLE_HEIGHT - MARGIN),                        // bottom-left
+  jawFacet(TABLE_WIDTH - MARGIN, TABLE_HEIGHT - MARGIN - CORNER_GAP_HALF, TABLE_WIDTH - MARGIN - CORNER_GAP_HALF, TABLE_HEIGHT - MARGIN), // bottom-right
+  // Side pockets: two facets, one per side, from where that half of the rail's cushion ends
+  // to the (slightly inset) pocket mouth itself.
+  jawFacet(TABLE_WIDTH / 2 - SIDE_GAP_HALF, MARGIN, pockets[1].x, pockets[1].y),
+  jawFacet(pockets[1].x, pockets[1].y, TABLE_WIDTH / 2 + SIDE_GAP_HALF, MARGIN),
+  jawFacet(TABLE_WIDTH / 2 - SIDE_GAP_HALF, TABLE_HEIGHT - MARGIN, pockets[4].x, pockets[4].y),
+  jawFacet(pockets[4].x, pockets[4].y, TABLE_WIDTH / 2 + SIDE_GAP_HALF, TABLE_HEIGHT - MARGIN),
 ];
 
 function initCanvas() {
@@ -1162,10 +1225,10 @@ function defaultOrient() {
 function initGame() {
   balls = [];
   // Cue ball - placed behind head string (1/4 from left)
-  balls.push({ id: 0, x: 225, y: 225, vx: 0, vy: 0, spinX: 0, spinY: 0, orient: defaultOrient(),
+  balls.push({ id: 0, x: TABLE_WIDTH * 0.25, y: TABLE_HEIGHT / 2, vx: 0, vy: 0, spinX: 0, spinY: 0, orient: defaultOrient(),
     r: BALL_RADIUS, color: COLORS[0], number: 0, pocketed: false });
 
-  const rackX = 650, rackY = 225, spacing = BALL_RADIUS * 2 + 0.5;
+  const rackX = TABLE_WIDTH * 0.75, rackY = TABLE_HEIGHT / 2, spacing = BALL_RADIUS * 2 + 0.5;
   if (poolGameType === '9ball') {
     // Diamond rack: rows of 1,2,3,2,1 balls - the 1-ball at the apex
     // (closest to the cue ball, where the break comes from), the 9-ball
@@ -1299,7 +1362,7 @@ function isTouchOnStick(pos, cueBall) {
   const buttY = tipY - Math.sin(angle) * 240;
   return pointLineDistance(pos.x, pos.y, tipX, tipY, buttX, buttY) < STICK_TOUCH_WIDTH;
 }
-const HEAD_STRING_X = 225; // kitchen boundary - matches the break-line drawn on the table
+const HEAD_STRING_X = TABLE_WIDTH * 0.25; // kitchen boundary - matches the break-line drawn on the table
 
 function startLongPress(pos) {
   longPressPos = { x: pos.x, y: pos.y };
@@ -1708,29 +1771,7 @@ function rotateOrient(vecs, ax, ay, az, angle) {
 }
 
 
-function isNearPocketOpening(ball, wall) {
-  // This buffer only needs to be a hair bigger than the actual capture radius (so a ball can
-  // cross the nominal wall line and reach the pocket on the very next check without an
-  // artificial bounce first) - it must NOT be much bigger than that, or a ball passing near
-  // but not into the pocket can have its rail bounce disabled without ever being captured,
-  // letting it sail straight through what looks like solid rail before a late, wrong-looking
-  // correction snaps it back. Matches the visible rail cutout radius (POCKET_RADIUS + 4).
-  //
-  // At real shot speed a ball can move well over a dozen units in a single physics step -
-  // enough to jump from "outside this buffer" straight past where a normal rail bounce would
-  // trigger, without its trajectory ever getting the chance to reach the actual capture zone.
-  // Scaling the buffer with the ball's current speed keeps it tight (and precise) at low speed,
-  // while giving a fast ball enough margin to actually reach a pocket it's genuinely heading for.
-  const speed = Math.hypot(ball.vx, ball.vy);
-  const pocketBuffer = POCKET_RADIUS + 3 + Math.min(50, speed * 3);
-  for (const pocket of pockets) {
-    const dx = Math.abs(ball.x - pocket.x);
-    const dy = Math.abs(ball.y - pocket.y);
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < pocketBuffer) return true;
-  }
-  return false;
-}
+
 
 let poolLastLiveShotEmitAt = 0;
 function updatePhysics() {
@@ -1880,99 +1921,169 @@ function updatePhysicsStep(FRICTION_STEP, SPIN_DECAY_STEP, FAST_SHOT_DECEL_STEP)
     if (Math.abs(ball.vy) < STOP_THRESHOLD) ball.vy = 0;
     if (ball.vx !== 0 || ball.vy !== 0) moving = true;
 
+    // Real fix, not another patch on the buffer: rather than approximating "is the ball near
+    // enough to a pocket that it MIGHT be going in" with a fuzzy radius (which always has
+    // either a dead zone where balls tunnel through solid rail, or a zone that swallows balls
+    // that were only ever grazing past), directly solve the actual geometry question: does the
+    // path the ball travels THIS substep - a real line segment from where it started to where
+    // it ends up - genuinely pass through the pocket's true capture circle? That's a standard
+    // segment/circle intersection (solving where |point-on-segment - pocketCenter| = radius),
+    // not a guess.
+    //
+    // That alone isn't quite enough, though: a ball that's merely RESTING near a pocket after
+    // an earlier shot (in the outer jaws, close but not fallen in - completely normal, happens
+    // constantly in real play) starts every subsequent substep already inside that capture
+    // circle. Auto-capturing purely because the start point is inside the circle meant that
+    // ball would vanish into the pocket the very next time it was touched at all, in ANY
+    // direction - including straight away from the pocket. So capture near the true mouth
+    // requires a genuine crossing from outside; only once a ball is deep enough in (a tight
+    // inner radius, roughly its own size) is it committed and falls regardless of the
+    // direction it's currently moving, matching how an actual pocket works.
     let pocketedThisFrame = false;
-    for (let pocketIdx = 0; pocketIdx < pockets.length; pocketIdx++) {
-      const pocket = pockets[pocketIdx];
-      // Closest point on the segment the ball actually traveled this
-      // substep (prevX,prevY) -> (ball.x,ball.y) to the pocket center -
-      // not just the ball's final position, which can otherwise let a
-      // fast-moving ball step clean over the capture zone without ever
-      // registering as close enough.
+    {
       const segDx = ball.x - prevX, segDy = ball.y - prevY;
       const segLenSq = segDx * segDx + segDy * segDy;
-      let closestX = ball.x, closestY = ball.y;
-      if (segLenSq > 0.0001) {
-        let t = ((pocket.x - prevX) * segDx + (pocket.y - prevY) * segDy) / segLenSq;
-        t = Math.max(0, Math.min(1, t));
-        closestX = prevX + segDx * t;
-        closestY = prevY + segDy * t;
+      const captureRadius = POCKET_RADIUS - 2;
+      const deepRadius = BALL_RADIUS + 2;
+      let capturedPocketIdx = null, capturedT = Infinity;
+      for (let pocketIdx = 0; pocketIdx < pockets.length; pocketIdx++) {
+        const pocket = pockets[pocketIdx];
+        const fx = prevX - pocket.x, fy = prevY - pocket.y;
+        let t = null;
+
+        // Deep capture: closest point of this substep's path to the pocket center, checked
+        // regardless of which direction the ball is currently travelling or where it started.
+        let closestT = 0;
+        if (segLenSq > 0.0001) {
+          closestT = Math.max(0, Math.min(1, -(fx * segDx + fy * segDy) / segLenSq));
+        }
+        const closestX = prevX + segDx * closestT, closestY = prevY + segDy * closestT;
+        const closestDistSq = (closestX - pocket.x) * (closestX - pocket.x) + (closestY - pocket.y) * (closestY - pocket.y);
+        if (closestDistSq < deepRadius * deepRadius) {
+          t = closestT;
+        } else if (segLenSq >= 0.0001) {
+          // Outer-band capture: only a genuine entry from outside the true capture radius -
+          // a ball already resting inside the outer band does not auto-capture here.
+          const cStart = fx * fx + fy * fy - captureRadius * captureRadius;
+          if (cStart > 0) {
+            const a = segLenSq;
+            const b = 2 * (fx * segDx + fy * segDy);
+            const disc = b * b - 4 * a * cStart;
+            if (disc >= 0) {
+              const sqrtDisc = Math.sqrt(disc);
+              const t1 = (-b - sqrtDisc) / (2 * a);
+              const t2 = (-b + sqrtDisc) / (2 * a);
+              if (t1 >= 0 && t1 <= 1) t = t1;
+              else if (t2 >= 0 && t2 <= 1) t = t2;
+            }
+          }
+        }
+        if (t !== null && t < capturedT) { capturedT = t; capturedPocketIdx = pocketIdx; }
       }
-      const dx = closestX - pocket.x, dy = closestY - pocket.y;
-      if (Math.sqrt(dx * dx + dy * dy) < POCKET_RADIUS - 2) {
+      if (capturedPocketIdx !== null) {
+        const pocket = pockets[capturedPocketIdx];
         ball.pocketed = true; ball.vx = 0; ball.vy = 0; ball.spinX = 0; ball.spinY = 0;
         ball.pocketAnimStart = performance.now();
         ball.pocketAnimFromX = ball.x; ball.pocketAnimFromY = ball.y;
         ball.pocketAnimToX = pocket.x; ball.pocketAnimToY = pocket.y;
         poolPlayPocketSound();
-        handlePocket(ball, pocketIdx);
+        handlePocket(ball, capturedPocketIdx);
         pocketedThisFrame = true;
-        break;
       }
     }
     if (pocketedThisFrame) continue;
 
-    if (ball.x - ball.r < MARGIN) {
-      if (!isNearPocketOpening(ball, 'left')) {
-        ball.x = MARGIN + ball.r;
-        ball.vx = Math.abs(ball.vx) * WALL_BOUNCE;
-        poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
-        gameState.railContactedThisShot = true;
-        if (Math.abs(ball.spinY) > 0.01) {
-          const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
-          ball.vx *= carry;
+    if (ball.x - ball.r < MARGIN || ball.x + ball.r > TABLE_WIDTH - MARGIN ||
+        ball.y - ball.r < MARGIN || ball.y + ball.r > TABLE_HEIGHT - MARGIN) {
+      // Only bounce where a cushion segment genuinely exists under this crossing - not in a
+      // pocket's gap, where by definition there's no cushion there to bounce off.
+      let hitSeg = null;
+      for (const seg of CUSHION_SEGMENTS) {
+        if (seg.axis === 'y') {
+          const crossing = seg.dir > 0 ? (ball.y - ball.r < seg.pos) : (ball.y + ball.r > seg.pos);
+          if (crossing && ball.x >= seg.from && ball.x <= seg.to) { hitSeg = seg; break; }
+        } else {
+          const crossing = seg.dir > 0 ? (ball.x - ball.r < seg.pos) : (ball.x + ball.r > seg.pos);
+          if (crossing && ball.y >= seg.from && ball.y <= seg.to) { hitSeg = seg; break; }
         }
-        if (Math.abs(ball.spinX) > 0.01) {
-          ball.vy += ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vx);
-        }
-        ball.spinX *= 0.55; ball.spinY *= 0.75;
       }
-    }
-    if (ball.x + ball.r > TABLE_WIDTH - MARGIN) {
-      if (!isNearPocketOpening(ball, 'right')) {
-        ball.x = TABLE_WIDTH - MARGIN - ball.r;
-        ball.vx = -Math.abs(ball.vx) * WALL_BOUNCE;
-        poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
-        gameState.railContactedThisShot = true;
-        if (Math.abs(ball.spinY) > 0.01) {
-          const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
-          ball.vx *= carry;
-        }
-        if (Math.abs(ball.spinX) > 0.01) {
-          ball.vy -= ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vx);
-        }
-        ball.spinX *= 0.55; ball.spinY *= 0.75;
-      }
-    }
-    if (ball.y - ball.r < MARGIN) {
-      if (!isNearPocketOpening(ball, 'top')) {
-        ball.y = MARGIN + ball.r;
-        ball.vy = Math.abs(ball.vy) * WALL_BOUNCE;
-        poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
-        gameState.railContactedThisShot = true;
-        if (Math.abs(ball.spinY) > 0.01) {
-          const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
-          ball.vy *= carry;
-        }
-        if (Math.abs(ball.spinX) > 0.01) {
-          ball.vx += ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vy);
+      if (hitSeg) {
+        if (hitSeg.axis === 'y') {
+          ball.y = hitSeg.pos + hitSeg.dir * ball.r;
+          ball.vy = hitSeg.dir * Math.abs(ball.vy) * WALL_BOUNCE;
+          poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
+          gameState.railContactedThisShot = true;
+          if (Math.abs(ball.spinY) > 0.01) {
+            const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
+            ball.vy *= carry;
+          }
+          if (Math.abs(ball.spinX) > 0.01) {
+            ball.vx += hitSeg.dir * ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vy);
+          }
+        } else {
+          ball.x = hitSeg.pos + hitSeg.dir * ball.r;
+          ball.vx = hitSeg.dir * Math.abs(ball.vx) * WALL_BOUNCE;
+          poolPlayRailThudForBall(ball, Math.abs(ball.vx) / MAX_POWER);
+          gameState.railContactedThisShot = true;
+          if (Math.abs(ball.spinY) > 0.01) {
+            const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
+            ball.vx *= carry;
+          }
+          if (Math.abs(ball.spinX) > 0.01) {
+            ball.vy += hitSeg.dir * ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vx);
+          }
         }
         ball.spinX *= 0.55; ball.spinY *= 0.75;
-      }
-    }
-    if (ball.y + ball.r > TABLE_HEIGHT - MARGIN) {
-      if (!isNearPocketOpening(ball, 'bottom')) {
-        ball.y = TABLE_HEIGHT - MARGIN - ball.r;
-        ball.vy = -Math.abs(ball.vy) * WALL_BOUNCE;
-        poolPlayRailThudForBall(ball, Math.abs(ball.vy) / MAX_POWER);
-        gameState.railContactedThisShot = true;
-        if (Math.abs(ball.spinY) > 0.01) {
-          const carry = Math.max(0.35, Math.min(1.6, 1 - ball.spinY * RAIL_FOLLOW_CARRY));
-          ball.vy *= carry;
+      } else {
+        // No cushion here - this crossing is inside a pocket's gap, and the pocket-capture
+        // check above already determined this substep didn't actually drop it in. Bounce off
+        // whichever angled jaw facet the ball's path actually crosses, exactly like a real
+        // pocket mouth - not a circular backstop (see JAW_FACETS above for why that produced
+        // unrealistic-looking bounce angles).
+        //
+        // Checked against the full substep path (closest approach of the segment to the facet's
+        // line, not just the ball's end-of-substep point) for the same reason the pocket capture
+        // check needs it: the jaw band is narrow enough that a fast ball can otherwise skip
+        // clean over it between two sampled positions without ever registering as having
+        // touched it.
+        const segDx2 = ball.x - prevX, segDy2 = ball.y - prevY;
+        const segLenSq2 = segDx2 * segDx2 + segDy2 * segDy2;
+        for (const jaw of JAW_FACETS) {
+          // Distance from the ball's swept path to the facet's LINE (not segment - the facet
+          // is short, and a ball can legitimately clip it near either end), then confirm the
+          // closest point actually falls within the facet's own finite extent.
+          const fdx = jaw.x2 - jaw.x1, fdy = jaw.y2 - jaw.y1, flenSq = fdx * fdx + fdy * fdy;
+          // Parametrize the ball's path by t, project onto the facet's normal direction to find
+          // where (if anywhere) the swept path crosses within one ball radius of the facet line.
+          const startOff = (prevX - jaw.x1) * jaw.nx + (prevY - jaw.y1) * jaw.ny;
+          const endOff = (ball.x - jaw.x1) * jaw.nx + (ball.y - jaw.y1) * jaw.ny;
+          let hitT = null;
+          if (Math.abs(startOff) <= ball.r) {
+            hitT = 0; // already touching at the start of this substep
+          } else if ((startOff > ball.r) !== (endOff > ball.r) || (startOff < -ball.r) !== (endOff < -ball.r)) {
+            // Crossed the +r or -r threshold somewhere in this substep - find exactly where.
+            const target = startOff > 0 ? ball.r : -ball.r;
+            const denom = endOff - startOff;
+            if (Math.abs(denom) > 1e-6) hitT = Math.max(0, Math.min(1, (target - startOff) / denom));
+          }
+          if (hitT === null) continue;
+          const hitX = prevX + segDx2 * hitT, hitY = prevY + segDy2 * hitT;
+          // Confirm the contact point projects onto the facet's actual finite length, not
+          // beyond either end of it.
+          const along = flenSq > 0.0001 ? (((hitX - jaw.x1) * fdx + (hitY - jaw.y1) * fdy) / flenSq) : 0;
+          if (along < -0.15 || along > 1.15) continue; // small allowance for the ball's own radius rounding the corner
+          const speed = Math.hypot(ball.vx, ball.vy);
+          if (speed <= STOP_THRESHOLD * 3) continue; // leave a genuinely resting ball alone
+          const vDotN = ball.vx * jaw.nx + ball.vy * jaw.ny;
+          if (vDotN >= 0) continue; // already moving away from this facet, nothing to do
+          ball.x = hitX + jaw.nx * ball.r * (startOff >= 0 ? 1 : -1);
+          ball.y = hitY + jaw.ny * ball.r * (startOff >= 0 ? 1 : -1);
+          ball.vx -= 2 * vDotN * jaw.nx * WALL_BOUNCE;
+          ball.vy -= 2 * vDotN * jaw.ny * WALL_BOUNCE;
+          gameState.railContactedThisShot = true;
+          poolPlayRailThudForBall(ball, speed / MAX_POWER);
+          break;
         }
-        if (Math.abs(ball.spinX) > 0.01) {
-          ball.vx -= ball.spinX * RAIL_SPIN_EFFECT * Math.abs(ball.vy);
-        }
-        ball.spinX *= 0.55; ball.spinY *= 0.75;
       }
     }
   }
@@ -2231,7 +2342,7 @@ function enterCuePlacement(kitchenOnly) {
   gameState.placementKitchenOnly = kitchenOnly;
   gameState.aimPhase = false; gameState.aimLocked = false; gameState.powerPhase = false;
   // Sensible default starting spot so the ball isn't invisible before the player drags it
-  const defaultX = kitchenOnly ? 180 : TABLE_WIDTH / 2;
+  const defaultX = kitchenOnly ? HEAD_STRING_X * 0.8 : TABLE_WIDTH / 2;
   const defaultY = TABLE_HEIGHT / 2;
   placeCueBallAt(defaultX, defaultY);
   updateUI(); updateMessage();
@@ -2251,7 +2362,7 @@ function placeCueBallAt(px, py) {
   for (const pocket of pockets) {
     const dx = px - pocket.x, dy = py - pocket.y;
     const dist = Math.hypot(dx, dy);
-    const minDist = POCKET_RADIUS + BALL_RADIUS + 4;
+    const minDist = pocket.r + BALL_RADIUS + 4;
     if (dist < minDist) {
       if (dist > 0.01) { px = pocket.x + (dx / dist) * minDist; py = pocket.y + (dy / dist) * minDist; }
       else { px = pocket.x + minDist; py = pocket.y; }
@@ -2522,7 +2633,7 @@ function findBankShotToPocket(ball, pocket, excludeId) {
       bestDist = totalDist;
       const ghostX = ball.x - Math.cos(angle) * (BALL_RADIUS * 2);
       const ghostY = ball.y - Math.sin(angle) * (BALL_RADIUS * 2);
-      best = { ghostX, ghostY, pathLength: totalDist, isBank: true };
+      best = { ghostX, ghostY, pathLength: totalDist, isBank: true, departAngle: angle };
     }
   }
   return best;
@@ -2701,7 +2812,16 @@ function renderAimGuidance(cueBall) {
 
     let ballStatus = 'neutral';
     if (targetBall) {
-      if (targetBall.number === 8) {
+      if (gameState.gameType === '9ball') {
+        // 9-ball has no groups or "your ball" concept - the only legal target on any
+        // shot is whichever numbered ball is currently lowest on the table.
+        let lowestBallOnTable = null;
+        for (const b of balls) {
+          if (b.pocketed || b.number === 0) continue;
+          if (lowestBallOnTable === null || b.number < lowestBallOnTable) lowestBallOnTable = b.number;
+        }
+        ballStatus = targetBall.number === lowestBallOnTable ? 'mine' : 'wrong';
+      } else if (targetBall.number === 8) {
         const myBallsLeft = gameState.myGroup === 'solids' ? (7 - gameState.ballsPocketed.solids) :
                             gameState.myGroup === 'stripes' ? (7 - gameState.ballsPocketed.stripes) : 999;
         ballStatus = myBallsLeft === 0 ? 'mine' : 'wrong';
@@ -2875,7 +2995,7 @@ function renderAimGuidance(cueBall) {
         ctx.shadowBlur = 14;
         ctx.shadowColor = 'rgba(46,204,113,0.4)';
         ctx.beginPath();
-        ctx.arc(targetInPocket.x, targetInPocket.y, POCKET_RADIUS - 2, 0, Math.PI * 2);
+        ctx.arc(targetInPocket.x, targetInPocket.y, targetInPocket.r - 2, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(46,204,113,0.9)';
         ctx.lineWidth = 2.8;
         ctx.stroke();
@@ -2941,8 +3061,8 @@ function render() {
   ctx.lineWidth = 1;
   ctx.setLineDash([8, 6]);
   ctx.beginPath();
-  ctx.moveTo(225, MARGIN);
-  ctx.lineTo(225, TABLE_HEIGHT - MARGIN);
+  ctx.moveTo(HEAD_STRING_X, MARGIN);
+  ctx.lineTo(HEAD_STRING_X, TABLE_HEIGHT - MARGIN);
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
@@ -3029,10 +3149,10 @@ function render() {
   for (const pocket of pockets) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(pocket.x, pocket.y, POCKET_RADIUS + 4, 0, Math.PI * 2);
+    ctx.arc(pocket.x, pocket.y, pocket.r + 4, 0, Math.PI * 2);
     ctx.clip();
-    ctx.clearRect(pocket.x - POCKET_RADIUS - 8, pocket.y - POCKET_RADIUS - 8, 
-                  POCKET_RADIUS * 2 + 16, POCKET_RADIUS * 2 + 16);
+    ctx.clearRect(pocket.x - pocket.r - 8, pocket.y - pocket.r - 8,
+                  pocket.r * 2 + 16, pocket.r * 2 + 16);
     ctx.restore();
   }
 
@@ -3108,10 +3228,10 @@ function render() {
     const pocket = pockets[pocketIdx];
     ctx.save();
     ctx.beginPath();
-    ctx.arc(pocket.x, pocket.y, POCKET_RADIUS, 0, Math.PI * 2);
+    ctx.arc(pocket.x, pocket.y, pocket.r, 0, Math.PI * 2);
     const pocketGrad = ctx.createRadialGradient(
       pocket.x - 4, pocket.y - 4, 3,
-      pocket.x, pocket.y, POCKET_RADIUS
+      pocket.x, pocket.y, pocket.r
     );
     pocketGrad.addColorStop(0, '#0d0d0d');
     pocketGrad.addColorStop(0.5, '#050505');
@@ -3121,21 +3241,21 @@ function render() {
 
     // Pocket leather/rubber rim - dark brown leather look
     ctx.beginPath();
-    ctx.arc(pocket.x, pocket.y, POCKET_RADIUS, 0, Math.PI * 2);
+    ctx.arc(pocket.x, pocket.y, pocket.r, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(60,40,25,0.8)';
     ctx.lineWidth = 3;
     ctx.stroke();
 
     // Inner leather ring
     ctx.beginPath();
-    ctx.arc(pocket.x, pocket.y, POCKET_RADIUS - 4, 0, Math.PI * 2);
+    ctx.arc(pocket.x, pocket.y, pocket.r - 4, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(40,25,15,0.6)';
     ctx.lineWidth = 2;
     ctx.stroke();
 
     // Pocket depth shadow
     ctx.beginPath();
-    ctx.arc(pocket.x, pocket.y, POCKET_RADIUS - 6, 0, Math.PI * 2);
+    ctx.arc(pocket.x, pocket.y, pocket.r - 6, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fill();
     ctx.restore();
@@ -3148,7 +3268,7 @@ function render() {
       ctx.shadowBlur = 18;
       ctx.shadowColor = 'rgba(255,215,0,0.9)';
       ctx.beginPath();
-      ctx.arc(pocket.x, pocket.y, POCKET_RADIUS + 5, 0, Math.PI * 2);
+      ctx.arc(pocket.x, pocket.y, pocket.r + 5, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(255,215,0,0.95)';
       ctx.lineWidth = 3.5;
       ctx.stroke();
@@ -3531,10 +3651,25 @@ function renderAmericanCueStick(cueBall, overrideAngle, overridePower, overrideP
 }
 // ==================== BOT AI ====================
 const BOT_CONFIG = {
-  easy:   { aimAccuracy: 0.06,  powerMinPct: 35, powerMaxPct: 70,  powerJitterPct: 12, thinkTimeMin: 1200, thinkTimeMax: 2500, missChance: 0.15, randomShotChance: 0.10, name: 'Easy Bot',   useSpin: false, useSim: false },
-  medium: { aimAccuracy: 0.025, powerMinPct: 40, powerMaxPct: 85,  powerJitterPct: 7,  thinkTimeMin: 800,  thinkTimeMax: 1800, missChance: 0.08, randomShotChance: 0.04, name: 'Medium Bot', useSpin: false, useSim: false },
-  hard:   { aimAccuracy: 0.006, powerMinPct: 50, powerMaxPct: 95,  powerJitterPct: 4,  thinkTimeMin: 600,  thinkTimeMax: 1200, missChance: 0.03, randomShotChance: 0.0,  name: 'Hard Bot',   useSpin: true,  useSim: true  },
-  pro:    { aimAccuracy: 0.0002,powerMinPct: 0, powerMaxPct: 100, powerJitterPct: 0,  thinkTimeMin: 400,  thinkTimeMax: 900,  missChance: 0.0,  randomShotChance: 0.0,  name: 'Pro Bot',    useSpin: true,  useSim: true  }
+  easy:   { aimAccuracy: 0.06,  powerMinPct: 35, powerMaxPct: 70,  powerJitterPct: 12, thinkTimeMin: 1200, thinkTimeMax: 2500, missChance: 0.15, randomShotChance: 0.10, name: 'Easy Bot',   useSpin: false, useSim: false,
+    powerSearchMultipliers: [1], spinOptions: [{x:0,y:0}], positionWeight: 0 },
+  medium: { aimAccuracy: 0.025, powerMinPct: 40, powerMaxPct: 85,  powerJitterPct: 7,  thinkTimeMin: 800,  thinkTimeMax: 1800, missChance: 0.08, randomShotChance: 0.04, name: 'Medium Bot', useSpin: false, useSim: false,
+    powerSearchMultipliers: [1], spinOptions: [{x:0,y:0}], positionWeight: 0 },
+  hard:   { aimAccuracy: 0.006, powerMinPct: 50, powerMaxPct: 95,  powerJitterPct: 4,  thinkTimeMin: 600,  thinkTimeMax: 1200, missChance: 0.03, randomShotChance: 0.0,  name: 'Hard Bot',   useSpin: true,  useSim: true,
+    powerSearchMultipliers: [0.85, 1, 1.15], spinOptions: [{x:0,y:0},{x:0,y:0.4},{x:0,y:-0.4},{x:0.3,y:0},{x:-0.3,y:0}], positionWeight: 0.3 },
+  pro:    { aimAccuracy: 0.0002,powerMinPct: 0, powerMaxPct: 100, powerJitterPct: 0,  thinkTimeMin: 400,  thinkTimeMax: 900,  missChance: 0.0,  randomShotChance: 0.0,  name: 'Pro Bot',    useSpin: true,  useSim: true,
+    // A real pro doesn't just find a way to pot the ball in front of them - they control HOW
+    // the cue ball dies after contact, so the table is set up for an easy follow-on shot (or
+    // a deliberate safety) rather than leaving themselves a hard next shot or nothing at all.
+    // That means searching a genuinely wider range of pace and spin than a light nudge around
+    // the bare "just enough to reach the pocket" estimate, and weighing the result heavily
+    // enough that good position actually wins out over merely potting the ball. (Kept to a
+    // modest grid size, not a huge one - every extra combination re-runs the full physics
+    // simulation, and an oversized grid turns "pro thinks a little longer" into a multi-second
+    // freeze before every single shot, which would be its own new bug.)
+    powerSearchMultipliers: [0.75, 0.95, 1.1, 1.35],
+    spinOptions: [{x:0,y:0}, {x:0,y:0.5}, {x:0,y:-0.6}, {x:0.35,y:0}, {x:-0.35,y:0}, {x:0.3,y:0.3}],
+    positionWeight: 0.85 }
 };
 
 // Converts a 0-100 power percentage into the game's absolute speed unit.
@@ -3544,16 +3679,20 @@ function pctToPower(pct) { return (pct / 100) * MAX_POWER; }
 // physics: at FRICTION=0.99 and MAX_POWER=32, each 1% of power carries a ball roughly 31.7
 // units before friction stops it - so this targets about 3x the raw distance (cue-ball travel
 // plus pocket carry), enough pace to confidently drop the ball without blasting every shot.
-function planSafetyShot(cueBall, candidates, botGroup) {
+function planSafetyShot(cueBall, candidates, botGroup, fallbackBalls) {
   // The nearest ball the bot is legally allowed to hit first - contact is
   // mandatory to avoid a foul, so this constrains every safety option.
-  const legalBalls = [...new Set(candidates.map(c => c.ball))];
+  // Candidates only exist for balls with an already-found pocketing path, so when there's no
+  // potting option at all (candidates is empty) - exactly when a safety is needed most -
+  // fall back to whatever legal-ball list the caller already worked out from the real rules.
+  const legalBalls = candidates.length > 0 ? [...new Set(candidates.map(c => c.ball))] : (fallbackBalls || []);
   let nearestBall = null, nearestDist = Infinity;
   for (const ball of legalBalls) {
     const d = Math.hypot(ball.x - cueBall.x, ball.y - cueBall.y);
     if (d < nearestDist) { nearestDist = d; nearestBall = ball; }
   }
   if (!nearestBall) return null;
+  if (!isPathClear(cueBall.x, cueBall.y, nearestBall.x, nearestBall.y, nearestBall.id)) return null; // can't even safely reach it without banking - not a safe, reliable tap
   const aimAngle = Math.atan2(nearestBall.y - cueBall.y, nearestBall.x - cueBall.x);
 
   // Try a handful of gentle power levels and keep whichever one leaves the
@@ -3618,7 +3757,16 @@ function evaluateCuePosition(cueX, cueY, botGroup, botBallsLeft) {
   let bestNextScore = -9999;
   for (const ball of balls) {
     if (ball.pocketed || ball.number === 0) continue;
-    if (ball.number === 8) { if (botBallsLeft !== 0) continue; }
+    if (gameState.gameType === '9ball') {
+      // Same as shot selection: the only legal next-target in 9-ball is whichever ball is
+      // lowest-numbered on the table, not a "group" or "cleared the group" concept.
+      let lowestBallOnTable = null;
+      for (const b of balls) {
+        if (b.pocketed || b.number === 0) continue;
+        if (lowestBallOnTable === null || b.number < lowestBallOnTable) lowestBallOnTable = b.number;
+      }
+      if (ball.number !== lowestBallOnTable) continue;
+    } else if (ball.number === 8) { if (botBallsLeft !== 0) continue; }
     else { const ballGroup = ball.number <= 7 ? 'solids' : 'stripes'; if (gameState.groupAssigned && ballGroup !== botGroup) continue; }
     for (const pocket of pockets) {
       const pocketAngle = Math.atan2(pocket.y - ball.y, pocket.x - ball.x);
@@ -3712,16 +3860,21 @@ function botTurn() {
     // 9-ball: the lowest ball on the table is the only legal first
     // contact, so it's the only real target to aim directly at.
     if (gameState.gameType === '9ball' && ball.number !== lowestBallOnTable) continue;
-    if (gameState.groupAssigned) {
-      if (botGroup === 'solids' && ball.number > 7) continue;
-      if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+    // The group/8-ball checks below are 8-ball-only concepts (solids vs. stripes, "must clear
+    // your group before the 8"); 9-ball has neither, and the lowest-ball filter just above is
+    // the entire legality rule for it, so skip straight past both checks in that mode.
+    if (gameState.gameType !== '9ball') {
+      if (gameState.groupAssigned) {
+        if (botGroup === 'solids' && ball.number > 7) continue;
+        if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+      }
+      if (ball.number === 8) { if (botBallsLeft !== 0) continue; }
     }
-    if (ball.number === 8) { if (botBallsLeft !== 0) continue; }
     for (const pocket of pockets) {
       const pocketAngle = Math.atan2(pocket.y - ball.y, pocket.x - ball.x);
       const ghostX = ball.x - Math.cos(pocketAngle) * (BALL_RADIUS * 2);
       const ghostY = ball.y - Math.sin(pocketAngle) * (BALL_RADIUS * 2);
-      let path = null, isBank = false, finalGhostX = ghostX, finalGhostY = ghostY;
+      let path = null, isBank = false, finalGhostX = ghostX, finalGhostY = ghostY, bankDepartAngle = 0;
       if (ghostX >= MARGIN + BALL_RADIUS && ghostX <= TABLE_WIDTH - MARGIN - BALL_RADIUS && ghostY >= MARGIN + BALL_RADIUS && ghostY <= TABLE_HEIGHT - MARGIN - BALL_RADIUS) {
         path = tracePath(cueBall.x, cueBall.y, ghostX, ghostY, ball.id, 2);
       }
@@ -3732,7 +3885,7 @@ function botTurn() {
         const bank = findBankShotToPocket(ball, pocket, ball.id);
         if (bank && bank.ghostX >= MARGIN + BALL_RADIUS && bank.ghostX <= TABLE_WIDTH - MARGIN - BALL_RADIUS && bank.ghostY >= MARGIN + BALL_RADIUS && bank.ghostY <= TABLE_HEIGHT - MARGIN - BALL_RADIUS) {
           path = tracePath(cueBall.x, cueBall.y, bank.ghostX, bank.ghostY, ball.id, 2);
-          if (path) { isBank = true; finalGhostX = bank.ghostX; finalGhostY = bank.ghostY; }
+          if (path) { isBank = true; finalGhostX = bank.ghostX; finalGhostY = bank.ghostY; bankDepartAngle = bank.departAngle; }
         }
       }
       if (!path) continue;
@@ -3758,7 +3911,14 @@ function botTurn() {
       // is the difficulty signal a real player's decision-making runs on,
       // not just raw distance.
       const approachDx = finalSeg.x2 - finalSeg.x1, approachDy = finalSeg.y2 - finalSeg.y1;
-      const toPocketDx = pocket.x - ball.x, toPocketDy = pocket.y - ball.y;
+      // For a straight shot the object ball needs to depart toward the pocket; for a bank,
+      // it needs to depart toward the rail contact point the bank geometry already solved
+      // for (bank.departAngle) - measuring against the pocket instead, for a bank, compares
+      // the cue ball's approach to the WRONG target direction and wildly overstates the cut
+      // angle (often past the 87.7-degree cutoff), which was silently discarding legitimate,
+      // makeable bank shots as if they were physically impossible.
+      const toPocketDx = isBank ? Math.cos(bankDepartAngle) : pocket.x - ball.x;
+      const toPocketDy = isBank ? Math.sin(bankDepartAngle) : pocket.y - ball.y;
       const approachMag = Math.hypot(approachDx, approachDy), pocketMag = Math.hypot(toPocketDx, toPocketDy);
       let cutAngle = 0;
       if (approachMag > 0.01 && pocketMag > 0.01) {
@@ -3798,6 +3958,33 @@ function botTurn() {
         return;
       }
     }
+    // No pocket-able shot exists for any ball, direct or banked. Rather than resorting
+    // straight to a blind tap, this is exactly the situation a safety shot exists for: hit
+    // the legal ball gently and leave the cue ball buried away from every pocket, rather
+    // than gambling with a random-power poke that can easily scratch or hand the opponent
+    // an easy runout. The legal-ball list has to be built fresh here, the same way it is
+    // everywhere else - crucially including the 9-ball "lowest ball only" rule, which this
+    // fallback path was previously ignoring entirely (letting it aim at ANY ball in 9-ball,
+    // an automatic foul).
+    let legalBalls = [];
+    for (const ball of balls) {
+      if (ball.pocketed || ball.number === 0) continue;
+      if (gameState.gameType === '9ball') {
+        if (ball.number !== lowestBallOnTable) continue;
+      } else {
+        if (gameState.groupAssigned) {
+          if (botGroup === 'solids' && ball.number > 7) continue;
+          if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+        }
+        if (ball.number === 8 && botBallsLeft !== 0) continue;
+      }
+      legalBalls.push(ball);
+    }
+    const safety = planSafetyShot(cueBall, [], botGroup, legalBalls);
+    if (safety) {
+      botAnimateAndShoot(safety.aimAngle, safety.power, {x:0,y:0}, thinkTime);
+      return;
+    }
     // No pocket-able shot exists for any ball (every candidate had too
     // extreme a cut angle to legally send anything in) - rather than
     // firing at a completely random compass direction and gambling on
@@ -3806,13 +3993,7 @@ function botTurn() {
     // shot, which is always better than a shot that might hit nothing
     // on the entire table.
     let nearestLegalBall = null, nearestDist = Infinity;
-    for (const ball of balls) {
-      if (ball.pocketed || ball.number === 0) continue;
-      if (gameState.groupAssigned) {
-        if (botGroup === 'solids' && ball.number > 7) continue;
-        if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
-      }
-      if (ball.number === 8 && botBallsLeft !== 0) continue;
+    for (const ball of legalBalls) {
       const d = Math.hypot(ball.x - cueBall.x, ball.y - cueBall.y);
       if (d < nearestDist) { nearestDist = d; nearestLegalBall = ball; }
     }
@@ -3833,27 +4014,51 @@ function botTurn() {
     return;
   }
 
-  let bestShot = null;
-  let bestScore = -999999;
-  for (const cand of candidates) {
-    let score = 0;
-    let spinX = 0, spinY = 0;
+  // A full power/spin grid search is expensive (each combination re-runs the whole physics
+  // simulation), so running it on every single candidate would make "pro thinks it through"
+  // take several real seconds before every shot. Instead: do one cheap pass (bare estimated
+  // power, no spin) to rank every candidate roughly, then only spend the expensive full grid
+  // search refining the handful of candidates that were actually competitive - the ones far
+  // down the list were never going to be picked anyway, so there's nothing to gain by
+  // grid-searching their power/spin too.
+  function quickScoreCandidate(cand) {
     const cutAngleDeg = cand.cutAngle * 180 / Math.PI;
-    // A real player's confidence in a shot drops off sharply as the cut
-    // angle gets steeper, especially combined with distance - a thin cut
-    // from far away is genuinely low-percentage even for a pro, while the
-    // same cut angle up close is much more makeable. But how much that
-    // should scare a given bot off is itself a function of how precise
-    // that bot's own execution actually is - a near-perfect bot can
-    // reliably make a moderate cut, so it shouldn't avoid one nearly as
-    // hard as a bot with real, substantial aim error would need to.
     const penaltyMultiplier = Math.max(0.15, Math.min(1.0, 0.15 + (config.aimAccuracy / 0.06) * 0.85));
     const difficultyPenalty = Math.pow(cutAngleDeg / 90, 1.8) * (400 + cand.pocketDist * 0.6) * penaltyMultiplier;
+    let score;
     if (config.useSim) {
-      const powerLevels = config.useSpin ? [cand.basePower * 0.85, cand.basePower, cand.basePower * 1.15] : [cand.basePower];
-      const spinOptions = config.useSpin ? [{x:0,y:0},{x:0,y:0.4},{x:0,y:-0.4},{x:0.3,y:0},{x:-0.3,y:0}] : [{x:0,y:0}];
+      const result = simulateBotShot(cueBall.x, cueBall.y, cand.aimAngle, cand.basePower, 0, 0);
+      score = (result.pocketedBalls.includes(cand.ball.number) ? 5000 : (result.pocketedBalls.length > 0 ? -2000 : -500));
+      if (result.cueBallPocketed) score -= 10000;
+      score -= difficultyPenalty;
+    } else {
+      score = 1000 - cand.pathLength * 0.3 - cand.pocketDist * 1.5 - difficultyPenalty;
+      if (cand.ball.number === 8) { if (botBallsLeft === 0) score += 5000; else score -= 1000; }
+      const ghostToCenter = Math.hypot(cand.ghostX - TABLE_WIDTH/2, cand.ghostY - TABLE_HEIGHT/2);
+      score -= ghostToCenter * 0.05;
+    }
+    if (cand.ball.number === 8 && botBallsLeft === 0) score += 3000;
+    score -= cand.pathLength * 0.2;
+    if (cand.requiresBounce) score -= 400;
+    return { cand, score, cutAngleDeg, difficultyPenalty };
+  }
+
+  const quickScored = candidates.map(quickScoreCandidate).sort((a, b) => b.score - a.score);
+  const REFINE_COUNT = config.useSim ? 3 : 0; // only the top few get the full power/spin search
+  const toRefine = new Set(quickScored.slice(0, REFINE_COUNT).map(q => q.cand));
+
+  let bestShot = null;
+  let bestScore = -999999;
+  for (const q of quickScored) {
+    const cand = q.cand;
+    let score = q.score;
+    let spinX = 0, spinY = 0;
+    const cutAngleDeg = q.cutAngleDeg;
+    const difficultyPenalty = q.difficultyPenalty;
+    if (config.useSim && toRefine.has(cand)) {
+      const powerLevels = config.useSpin ? config.powerSearchMultipliers.map(m => Math.min(MAX_POWER, cand.basePower * m)) : [cand.basePower];
+      const spinOptions = config.useSpin ? config.spinOptions : [{x:0,y:0}];
       let bestSimScore = -999999;
-      let bestSimResult = null;
       let bestSimPower = cand.basePower;
       let bestSimSpin = {x:0,y:0};
       for (const pwr of powerLevels) {
@@ -3864,26 +4069,21 @@ function botTurn() {
           if (!result.cueBallPocketed && result.pocketedBalls.includes(cand.ball.number)) {
             const posScore = evaluateCuePosition(result.cueBallEnd.x, result.cueBallEnd.y, botGroup,
               botGroup === 'solids' ? Math.max(0, 7 - gameState.ballsPocketed.solids - 1) : botGroup === 'stripes' ? Math.max(0, 7 - gameState.ballsPocketed.stripes - 1) : 999);
-            simScore += posScore * 0.3;
+            simScore += posScore * config.positionWeight;
           }
           const centerDist = Math.hypot(result.cueBallEnd.x - TABLE_WIDTH/2, result.cueBallEnd.y - TABLE_HEIGHT/2);
           simScore -= centerDist * 0.1;
-          if (simScore > bestSimScore) { bestSimScore = simScore; bestSimResult = result; bestSimPower = pwr; bestSimSpin = sp; }
+          if (simScore > bestSimScore) { bestSimScore = simScore; bestSimPower = pwr; bestSimSpin = sp; }
         }
       }
       score = bestSimScore - difficultyPenalty;
+      if (cand.ball.number === 8 && botBallsLeft === 0) score += 3000;
+      score -= cand.pathLength * 0.2;
+      if (cand.requiresBounce) score -= 400;
       cand.basePower = bestSimPower;
       spinX = bestSimSpin.x;
       spinY = bestSimSpin.y;
-    } else {
-      score = 1000 - cand.pathLength * 0.3 - cand.pocketDist * 1.5 - difficultyPenalty;
-      if (cand.ball.number === 8) { if (botBallsLeft === 0) score += 5000; else score -= 1000; }
-      const ghostToCenter = Math.hypot(cand.ghostX - TABLE_WIDTH/2, cand.ghostY - TABLE_HEIGHT/2);
-      score -= ghostToCenter * 0.05;
     }
-    if (cand.ball.number === 8 && botBallsLeft === 0) score += 3000;
-    score -= cand.pathLength * 0.2;
-    if (cand.requiresBounce) score -= 400;
     if (score > bestScore) { bestScore = score; bestShot = { ...cand, spinX, spinY, cutAngleDeg }; }
   }
 
@@ -3924,17 +4124,29 @@ function botTurn() {
       }
     }
     // Same situation as the earlier "no candidates" fallback: every
-    // candidate that did exist failed simulation verification, so
-    // rather than gambling on a random direction, aim at the nearest
-    // legal ball to guarantee real, legal contact.
-    let nearestLegalBall2 = null, nearestDist2 = Infinity;
+    // candidate that did exist failed simulation verification, so try
+    // a genuine safety before resorting to a blind, riskier tap.
+    let legalBalls2 = [];
     for (const ball of balls) {
       if (ball.pocketed || ball.number === 0) continue;
-      if (gameState.groupAssigned) {
-        if (botGroup === 'solids' && ball.number > 7) continue;
-        if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+      if (gameState.gameType === '9ball') {
+        if (ball.number !== lowestBallOnTable) continue;
+      } else {
+        if (gameState.groupAssigned) {
+          if (botGroup === 'solids' && ball.number > 7) continue;
+          if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+        }
+        if (ball.number === 8 && botBallsLeft !== 0) continue;
       }
-      if (ball.number === 8 && botBallsLeft !== 0) continue;
+      legalBalls2.push(ball);
+    }
+    const safety2 = planSafetyShot(cueBall, [], botGroup, legalBalls2);
+    if (safety2) {
+      botAnimateAndShoot(safety2.aimAngle, safety2.power, {x:0,y:0}, config.thinkTimeMin);
+      return;
+    }
+    let nearestLegalBall2 = null, nearestDist2 = Infinity;
+    for (const ball of legalBalls2) {
       const d = Math.hypot(ball.x - cueBall.x, ball.y - cueBall.y);
       if (d < nearestDist2) { nearestDist2 = d; nearestLegalBall2 = ball; }
     }
@@ -4041,7 +4253,14 @@ function updateUI() {
   document.getElementById('matchScore').textContent = matchTally.me + ' - ' + matchTally.opp;
   document.getElementById('p1Turn').classList.toggle('active', gameState.myTurn);
   document.getElementById('p2Turn').classList.toggle('active', !gameState.myTurn);
-  if (gameState.groupAssigned) {
+  if (gameState.gameType === '9ball') {
+    // 9-ball has no solids/stripes groups to assign or display - the sub-name line under
+    // each player's name just isn't meaningful here, so leave it blank instead of showing
+    // a permanent leftover "Waiting..." (which never resolves, since nothing ever assigns
+    // a group in this mode).
+    document.getElementById('p1Group').textContent = '';
+    document.getElementById('p2Group').textContent = '';
+  } else if (gameState.groupAssigned) {
     const myGroupText = gameState.myGroup === 'solids' ? 'Solids' : 'Stripes';
     const oppGroupText = gameState.opponentGroup === 'solids' ? 'Solids' : 'Stripes';
     document.getElementById('p1Group').innerHTML = myGroupText + ' <span class="group-badge ' + gameState.myGroup + '">' + gameState.myGroup + '</span>';
@@ -4057,11 +4276,38 @@ function updatePocketedTray() {
   const solidsContainer = document.getElementById('solidsBalls');
   const stripesContainer = document.getElementById('stripesBalls');
   if (!solidsContainer || !stripesContainer) return;
+  const solidsTray = document.getElementById('solidsTray');
+  const stripesTray = document.getElementById('stripesTray');
+  const solidsLabel = document.getElementById('solidsLabel');
+  const stripesLabel = document.getElementById('stripesLabel');
+  const divider = document.getElementById('pocketedDivider');
+
+  if (gameState.gameType === '9ball') {
+    // No groups in 9-ball - one single row showing all 9 balls in order, each marked
+    // pocketed or not, instead of the 8-ball solids/stripes split (which doesn't apply
+    // and was misleadingly showing balls 10-15, which don't even exist on this table).
+    if (stripesTray) stripesTray.style.display = 'none';
+    if (divider) divider.style.display = 'none';
+    if (solidsTray) solidsTray.style.order = '0';
+    if (solidsLabel) solidsLabel.textContent = 'BALLS';
+    let html = '';
+    for (let n = 1; n <= 9; n++) {
+      const pocketed = balls.find(b => b.number === n && b.pocketed);
+      const cls = n <= 7 ? 'solid-' + n : 'stripe-' + n;
+      html += '<div class="pocketed-ball ' + cls + (pocketed ? ' in' : '') + '">' + n + '</div>';
+    }
+    solidsContainer.innerHTML = html;
+    stripesContainer.innerHTML = '';
+    return;
+  }
+
+  if (stripesTray) stripesTray.style.display = '';
+  if (divider) divider.style.display = '';
+  if (solidsLabel) solidsLabel.textContent = 'SOLIDS';
+  if (stripesLabel) stripesLabel.textContent = 'STRIPES';
   // My own group always shows first/left, regardless of which physical
   // group (solids or stripes) it happens to be - this is per-viewer, so
   // host and joiner each see their own balls first on their own screen.
-  const solidsTray = document.getElementById('solidsTray');
-  const stripesTray = document.getElementById('stripesTray');
   if (solidsTray && stripesTray) {
     if (gameState.myGroup === 'stripes') {
       stripesTray.style.order = '0';
