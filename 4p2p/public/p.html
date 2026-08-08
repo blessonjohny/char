@@ -2530,7 +2530,7 @@ function findBankShotToPocket(ball, pocket, excludeId) {
       bestDist = totalDist;
       const ghostX = ball.x - Math.cos(angle) * (BALL_RADIUS * 2);
       const ghostY = ball.y - Math.sin(angle) * (BALL_RADIUS * 2);
-      best = { ghostX, ghostY, pathLength: totalDist, isBank: true };
+      best = { ghostX, ghostY, pathLength: totalDist, isBank: true, departAngle: angle };
     }
   }
   return best;
@@ -3561,16 +3561,20 @@ function pctToPower(pct) { return (pct / 100) * MAX_POWER; }
 // physics: at FRICTION=0.99 and MAX_POWER=32, each 1% of power carries a ball roughly 31.7
 // units before friction stops it - so this targets about 3x the raw distance (cue-ball travel
 // plus pocket carry), enough pace to confidently drop the ball without blasting every shot.
-function planSafetyShot(cueBall, candidates, botGroup) {
+function planSafetyShot(cueBall, candidates, botGroup, fallbackBalls) {
   // The nearest ball the bot is legally allowed to hit first - contact is
   // mandatory to avoid a foul, so this constrains every safety option.
-  const legalBalls = [...new Set(candidates.map(c => c.ball))];
+  // Candidates only exist for balls with an already-found pocketing path, so when there's no
+  // potting option at all (candidates is empty) - exactly when a safety is needed most -
+  // fall back to whatever legal-ball list the caller already worked out from the real rules.
+  const legalBalls = candidates.length > 0 ? [...new Set(candidates.map(c => c.ball))] : (fallbackBalls || []);
   let nearestBall = null, nearestDist = Infinity;
   for (const ball of legalBalls) {
     const d = Math.hypot(ball.x - cueBall.x, ball.y - cueBall.y);
     if (d < nearestDist) { nearestDist = d; nearestBall = ball; }
   }
   if (!nearestBall) return null;
+  if (!isPathClear(cueBall.x, cueBall.y, nearestBall.x, nearestBall.y, nearestBall.id)) return null; // can't even safely reach it without banking - not a safe, reliable tap
   const aimAngle = Math.atan2(nearestBall.y - cueBall.y, nearestBall.x - cueBall.x);
 
   // Try a handful of gentle power levels and keep whichever one leaves the
@@ -3752,7 +3756,7 @@ function botTurn() {
       const pocketAngle = Math.atan2(pocket.y - ball.y, pocket.x - ball.x);
       const ghostX = ball.x - Math.cos(pocketAngle) * (BALL_RADIUS * 2);
       const ghostY = ball.y - Math.sin(pocketAngle) * (BALL_RADIUS * 2);
-      let path = null, isBank = false, finalGhostX = ghostX, finalGhostY = ghostY;
+      let path = null, isBank = false, finalGhostX = ghostX, finalGhostY = ghostY, bankDepartAngle = 0;
       if (ghostX >= MARGIN + BALL_RADIUS && ghostX <= TABLE_WIDTH - MARGIN - BALL_RADIUS && ghostY >= MARGIN + BALL_RADIUS && ghostY <= TABLE_HEIGHT - MARGIN - BALL_RADIUS) {
         path = tracePath(cueBall.x, cueBall.y, ghostX, ghostY, ball.id, 2);
       }
@@ -3763,7 +3767,7 @@ function botTurn() {
         const bank = findBankShotToPocket(ball, pocket, ball.id);
         if (bank && bank.ghostX >= MARGIN + BALL_RADIUS && bank.ghostX <= TABLE_WIDTH - MARGIN - BALL_RADIUS && bank.ghostY >= MARGIN + BALL_RADIUS && bank.ghostY <= TABLE_HEIGHT - MARGIN - BALL_RADIUS) {
           path = tracePath(cueBall.x, cueBall.y, bank.ghostX, bank.ghostY, ball.id, 2);
-          if (path) { isBank = true; finalGhostX = bank.ghostX; finalGhostY = bank.ghostY; }
+          if (path) { isBank = true; finalGhostX = bank.ghostX; finalGhostY = bank.ghostY; bankDepartAngle = bank.departAngle; }
         }
       }
       if (!path) continue;
@@ -3789,7 +3793,14 @@ function botTurn() {
       // is the difficulty signal a real player's decision-making runs on,
       // not just raw distance.
       const approachDx = finalSeg.x2 - finalSeg.x1, approachDy = finalSeg.y2 - finalSeg.y1;
-      const toPocketDx = pocket.x - ball.x, toPocketDy = pocket.y - ball.y;
+      // For a straight shot the object ball needs to depart toward the pocket; for a bank,
+      // it needs to depart toward the rail contact point the bank geometry already solved
+      // for (bank.departAngle) - measuring against the pocket instead, for a bank, compares
+      // the cue ball's approach to the WRONG target direction and wildly overstates the cut
+      // angle (often past the 87.7-degree cutoff), which was silently discarding legitimate,
+      // makeable bank shots as if they were physically impossible.
+      const toPocketDx = isBank ? Math.cos(bankDepartAngle) : pocket.x - ball.x;
+      const toPocketDy = isBank ? Math.sin(bankDepartAngle) : pocket.y - ball.y;
       const approachMag = Math.hypot(approachDx, approachDy), pocketMag = Math.hypot(toPocketDx, toPocketDy);
       let cutAngle = 0;
       if (approachMag > 0.01 && pocketMag > 0.01) {
@@ -3829,6 +3840,33 @@ function botTurn() {
         return;
       }
     }
+    // No pocket-able shot exists for any ball, direct or banked. Rather than resorting
+    // straight to a blind tap, this is exactly the situation a safety shot exists for: hit
+    // the legal ball gently and leave the cue ball buried away from every pocket, rather
+    // than gambling with a random-power poke that can easily scratch or hand the opponent
+    // an easy runout. The legal-ball list has to be built fresh here, the same way it is
+    // everywhere else - crucially including the 9-ball "lowest ball only" rule, which this
+    // fallback path was previously ignoring entirely (letting it aim at ANY ball in 9-ball,
+    // an automatic foul).
+    let legalBalls = [];
+    for (const ball of balls) {
+      if (ball.pocketed || ball.number === 0) continue;
+      if (gameState.gameType === '9ball') {
+        if (ball.number !== lowestBallOnTable) continue;
+      } else {
+        if (gameState.groupAssigned) {
+          if (botGroup === 'solids' && ball.number > 7) continue;
+          if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+        }
+        if (ball.number === 8 && botBallsLeft !== 0) continue;
+      }
+      legalBalls.push(ball);
+    }
+    const safety = planSafetyShot(cueBall, [], botGroup, legalBalls);
+    if (safety) {
+      botAnimateAndShoot(safety.aimAngle, safety.power, {x:0,y:0}, thinkTime);
+      return;
+    }
     // No pocket-able shot exists for any ball (every candidate had too
     // extreme a cut angle to legally send anything in) - rather than
     // firing at a completely random compass direction and gambling on
@@ -3837,13 +3875,7 @@ function botTurn() {
     // shot, which is always better than a shot that might hit nothing
     // on the entire table.
     let nearestLegalBall = null, nearestDist = Infinity;
-    for (const ball of balls) {
-      if (ball.pocketed || ball.number === 0) continue;
-      if (gameState.groupAssigned) {
-        if (botGroup === 'solids' && ball.number > 7) continue;
-        if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
-      }
-      if (ball.number === 8 && botBallsLeft !== 0) continue;
+    for (const ball of legalBalls) {
       const d = Math.hypot(ball.x - cueBall.x, ball.y - cueBall.y);
       if (d < nearestDist) { nearestDist = d; nearestLegalBall = ball; }
     }
@@ -3955,17 +3987,29 @@ function botTurn() {
       }
     }
     // Same situation as the earlier "no candidates" fallback: every
-    // candidate that did exist failed simulation verification, so
-    // rather than gambling on a random direction, aim at the nearest
-    // legal ball to guarantee real, legal contact.
-    let nearestLegalBall2 = null, nearestDist2 = Infinity;
+    // candidate that did exist failed simulation verification, so try
+    // a genuine safety before resorting to a blind, riskier tap.
+    let legalBalls2 = [];
     for (const ball of balls) {
       if (ball.pocketed || ball.number === 0) continue;
-      if (gameState.groupAssigned) {
-        if (botGroup === 'solids' && ball.number > 7) continue;
-        if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+      if (gameState.gameType === '9ball') {
+        if (ball.number !== lowestBallOnTable) continue;
+      } else {
+        if (gameState.groupAssigned) {
+          if (botGroup === 'solids' && ball.number > 7) continue;
+          if (botGroup === 'stripes' && ball.number <= 7 && ball.number !== 8) continue;
+        }
+        if (ball.number === 8 && botBallsLeft !== 0) continue;
       }
-      if (ball.number === 8 && botBallsLeft !== 0) continue;
+      legalBalls2.push(ball);
+    }
+    const safety2 = planSafetyShot(cueBall, [], botGroup, legalBalls2);
+    if (safety2) {
+      botAnimateAndShoot(safety2.aimAngle, safety2.power, {x:0,y:0}, config.thinkTimeMin);
+      return;
+    }
+    let nearestLegalBall2 = null, nearestDist2 = Infinity;
+    for (const ball of legalBalls2) {
       const d = Math.hypot(ball.x - cueBall.x, ball.y - cueBall.y);
       if (d < nearestDist2) { nearestDist2 = d; nearestLegalBall2 = ball; }
     }
