@@ -97,6 +97,15 @@ app.get('/status', (req, res) => {
   });
 });
 
+// Powers the "🆕 UPDATED <date>" badge in the comment-invite toast on the welcome screen.
+// Deliberately derived from SERVER_START_TIME rather than the current date/time: a real
+// deploy always restarts this process, so this date only ever changes on an actual update,
+// not on every page load or every day that passes without one.
+app.get('/api/last-updated', (req, res) => {
+  const date = new Date(SERVER_START_TIME).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  res.json({ date });
+});
+
 // ============================================================
 // COMMENT BOX — lets a player leave a message from the welcome screen
 // without needing any email server. Readable only through /api/comments
