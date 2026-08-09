@@ -7161,7 +7161,13 @@ function processBid(p, bid) {
   // if the host silently rejected the action, leaving it stuck forever with
   // no way to tell what actually happened.
   if (IS_ONLINE && !IS_HOST) {
-    clientSendAction(bid > 0 ? 'bid' : 'pass', { bid: bid });
+    if (typeof clientSendAction === 'function') {
+      clientSendAction(bid > 0 ? 'bid' : 'pass', { bid: bid });
+    } else {
+      console.error('[processBid] clientSendAction is not available - this P2P path is not currently functional. Re-showing bid panel instead of leaving the game stuck.');
+      showToast('⚠️ Connection issue — please try again', 'lose', 2500);
+      if (phase === 'bidding1' && currentPlayer === MY_POS) showBidPanel1();
+    }
     return;
   }
   if (p === MY_POS) markHumanActivity(); // host's own bid/pass is a genuine human decision
@@ -7299,6 +7305,22 @@ function showBidConfirmation(bid, isPass) {
     confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Bid ' + bid + '</span>';
   }
   confirmBtn.addEventListener('click', () => {
+    if (!isPass) {
+      // Re-check against the freshest possible minimum right before actually
+      // submitting - the button itself was built against whatever state was
+      // current when the panel was drawn, which could have gone stale in the
+      // window between then and this click (e.g. a state update that just
+      // arrived). Catching it here avoids ever sending a bid the server
+      // would reject, rather than relying solely on that rejection to
+      // eventually recover.
+      const freshRestricted = (typeof window._p1CurrentTurnRestricted === 'boolean' && SERVER_MODE) ? window._p1CurrentTurnRestricted : isBidRestrictedToHonors(currentPlayer);
+      const freshMinBid = (typeof window._p1MinBid === 'number' && SERVER_MODE) ? window._p1MinBid : (freshRestricted ? Math.max(20, highestBid + 1) : (highestBid > 0 ? highestBid + 1 : 14));
+      if (bid < freshMinBid) {
+        showToast('⚠️ Minimum bid just changed to ' + freshMinBid + ' — please pick again', 'lose', 2500);
+        showBidPanel1();
+        return;
+      }
+    }
     document.getElementById('bidOverlay').classList.remove('on');
     processBid(currentPlayer, pendingBid);
   });
@@ -13455,11 +13477,21 @@ function connectGameSocket() {
   }
 
   gameSocket.on('actionError', (err) => {
-    // Illegal move rejected by the server (e.g. tapped a card that breaks
-    // suit-following). Quiet by design — the hand re-render after the next
-    // state already shows what's actually playable; this is just a safety
-    // net against desyncs, not something that should need to shout.
+    // Illegal move rejected by the server. For card plays, the next state
+    // broadcast already shows what's actually playable, so no recovery is
+    // needed there. But bidding/trump/raise actions are different: the
+    // panel gets hidden the instant the player confirms, BEFORE knowing
+    // whether the server will accept it - and if it's rejected, nothing
+    // ever changed server-side, so no new state broadcast follows either.
+    // Without this, a rejected bid left the player staring at a game with
+    // no panel, no error, and genuinely no way to act - indistinguishable
+    // from the game being stuck.
     console.log('[server] action rejected:', err.reason);
+    if (err.reason === 'invalid_bid_amount' || err.reason === 'not_your_turn' || err.reason === 'not_bidding') {
+      showToast('⚠️ That bid is no longer valid — showing your current options', 'lose', 2500);
+      if (phase === 'bidding1' && currentPlayer === MY_POS) showBidPanel1();
+      else if (phase === 'bidding2' && currentPlayer === MY_POS) showRaisePanel();
+    }
   });
 
   // Room cap: only throttles brand new "Create Room" attempts once the
