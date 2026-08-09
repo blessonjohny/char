@@ -7947,7 +7947,7 @@ function showCallTrumpPanel() {
     '<div style="color:var(--text-secondary);font-size:0.65rem">(Must play trump if you have it)</div></div>' +
     '<div style="background:rgba(248,113,113,0.08);border:1px solid var(--danger);border-radius:8px;padding:8px;text-align:center">' +
     '<div style="font-weight:800;color:var(--danger);margin-bottom:4px">NO ✕</div>' +
-    '<div style="color:var(--text-secondary)">Discard any card</div>' +
+    '<div style="color:var(--text-secondary)">Discard any card except J</div>' +
     '<div style="color:var(--text-secondary);font-size:0.65rem">(Trump stays hidden)</div></div>' +
     '</div>' +
     (!IS_ONLINE ? '<button class="btn btn-outline" id="btnLearnCallTrump" style="width:100%;margin-top:4px">💡 What should I do?</button>' : ''));
@@ -8109,16 +8109,32 @@ function showDiscardPanel(nonT, trumps) {
   const msg = document.getElementById('callTrumpMsg');
   if (msg) msg.textContent = 'You cannot follow suit. Choose a card to discard.';
 
-  // Show ALL cards as discardable since you don't know what's trump
+  // Show ALL cards as discardable since you don't know what's trump. Every
+  // card here is a plain discard - there's no "cutting with trump" concept
+  // in this screen at all, whether because trump stayed hidden (you truly
+  // don't know which suit it is) or because you called trump but hold none
+  // to cut with anyway. Either way, the same rule applies uniformly: a Jack
+  // can never be one of these discards, unless it's genuinely the only
+  // card left in your hand.
   let allCards = [...nonT, ...trumps];
+  const nonJackCards = allCards.filter(c => c.rank !== 'J');
+  const onlyJacksLeft = allCards.length > 0 && nonJackCards.length === 0;
   let dh = '';
   for (let card of allCards) {
-    dh += `<div class='card' onclick="discardAnyCard('${card.suit}','${card.rank}')" style='cursor:pointer;flex-shrink:0'><span class='cr' style='color:${card.color}'>${card.rank}</span><span class='cs' style='color:${card.color}'>${card.suit}</span><span class='crb' style='color:${card.color}'>${card.rank}</span></div>`;
+    const isBlockedJack = card.rank === 'J' && !onlyJacksLeft;
+    if (isBlockedJack) {
+      dh += `<div class='card disabled' style='cursor:not-allowed;flex-shrink:0' title="Can't discard a Jack while another card is available"><span class='cr' style='color:${card.color}'>${card.rank}</span><span class='cs' style='color:${card.color}'>${card.suit}</span><span class='crb' style='color:${card.color}'>${card.rank}</span></div>`;
+    } else {
+      dh += `<div class='card' onclick="discardAnyCard('${card.suit}','${card.rank}')" style='cursor:pointer;flex-shrink:0'><span class='cr' style='color:${card.color}'>${card.rank}</span><span class='cs' style='color:${card.color}'>${card.suit}</span><span class='crb' style='color:${card.color}'>${card.rank}</span></div>`;
+    }
   }
   // Hide the Trump Cards section entirely - you don't know trump
   document.getElementById('callTrumpCards').innerHTML = '';
   document.getElementById('callTrumpCards').style.display = 'none';
-  document.getElementById('discardCards').innerHTML = '<div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px">🗑️ Discard any card:</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:4px 0">' + (dh || "<span style='color:var(--text-secondary);font-size:0.75rem'>No cards</span>") + '</div>';
+  const ruleNote = onlyJacksLeft
+    ? '<div style="font-size:0.7rem;color:var(--accent);margin-bottom:6px">⭐ Only Jack(s) left — no other card to discard, so a Jack is allowed here.</div>'
+    : '<div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:6px">Rule: any card except a Jack (J is grayed out below).</div>';
+  document.getElementById('discardCards').innerHTML = '<div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px">🗑️ Discard any card:</div>' + ruleNote + '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:4px 0">' + (dh || "<span style='color:var(--text-secondary);font-size:0.75rem'>No cards</span>") + '</div>';
   document.getElementById('callTrumpOverlay').classList.add('on');
 }
 
