@@ -733,6 +733,9 @@ function poolConnect() {
     // side builds its own rack locally from its own poolGameType and nothing had ever told
     // the joiner's client what the host selected.
     if (data.gameType === '8ball' || data.gameType === '9ball') poolGameType = data.gameType;
+    // Same idea for who breaks first - the host already flipped this coin once and is telling
+    // us the result, so both sides agree, rather than each side deciding independently.
+    poolHostBreaksFirst = (typeof data.hostBreaksFirst === 'boolean') ? data.hostBreaksFirst : true;
     startGame(false);
   });
   poolSocket.on('pool_liveAim', (data) => {
@@ -865,7 +868,16 @@ function poolConnect() {
     startTurn();
     updateUI();
   });
-  poolSocket.on('pool_rematch', () => { initGame(); gameState.myTurn = !isHost; startTurn(); });
+  poolSocket.on('pool_rematch', () => {
+    // Same fix as rematch() above, for the side receiving the challenge rather than sending
+    // it: capture who won before initGame() resets gameState.winner, and use that directly -
+    // both sides independently land on the same, correct answer this way.
+    const iWonLastGame = gameState.winner === myName;
+    initGame();
+    gameState.myTurn = iWonLastGame;
+    if (gameState.myTurn) enterCuePlacement(true);
+    startTurn();
+  });
 }
 
 function createRoom() {
@@ -1008,10 +1020,15 @@ function joinRoom() {
   poolConnect();
   poolSocket.emit('pool_joinTable', { tableId: code, name: myName });
 }
+let poolHostBreaksFirst = true; // who actually goes first in THIS match - see hostStartGame/pool_start for how it's decided
 function hostStartGame() {
   if (!poolSocket || opponentName === 'Opponent') { alert('No opponent connected yet!'); return; }
   requestPoolFullscreen();
-  poolSocket.emit('pool_start', { opponentName: myName, gameType: poolGameType });
+  // Randomized once, here, by whichever side is actually initiating the match (the host) -
+  // and sent to the other side rather than each client flipping its own independent coin,
+  // which could easily disagree and leave both players (or neither) thinking it's their turn.
+  poolHostBreaksFirst = Math.random() < 0.5;
+  poolSocket.emit('pool_start', { opponentName: myName, gameType: poolGameType, hostBreaksFirst: poolHostBreaksFirst });
   startGame(true);
 }
 function fallbackToLocal() { requestPoolFullscreen(); gameMode = 'bot'; opponentName = 'Bot'; startGame(true); }
@@ -1375,6 +1392,9 @@ function startGame(host) {
   if (gameMode === 'bot') {
     gameState.myTurn = true;
     isHost = true;
+  } else {
+    // Whoever the coin flip picked, not just "the host always breaks" - see hostStartGame.
+    gameState.myTurn = isHost ? poolHostBreaksFirst : !poolHostBreaksFirst;
   }
   lastTime = performance.now();
   gameLoop();
@@ -4588,9 +4608,16 @@ function backToMenu() {
 function rematch() {
   closeOverlay('gameOverOverlay');
   if (gameMode === 'p2p' && poolSocket && poolMyTableId) poolSocket.emit('pool_rematch');
+  // Capture who actually won BEFORE initGame() wipes gameState.winner clean for the new game.
+  const iWonLastGame = gameState.winner === myName;
   initGame();
   if (gameMode === 'bot') gameState.myTurn = true;
-  else gameState.myTurn = isHost;
+  // The loser of the last game challenging to a rematch, and the winner of the last game
+  // receiving that challenge, both independently know the exact same fact (who actually won),
+  // so both sides reach the same answer without needing to send it over the wire - no chance
+  // of the two sides disagreeing about whose turn it is, unlike the old isHost/!isHost split
+  // that could leave both players (or neither) thinking it was their turn.
+  else gameState.myTurn = iWonLastGame;
   if (gameState.myTurn) enterCuePlacement(true);
   startTurn();
 }

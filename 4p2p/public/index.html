@@ -236,6 +236,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .welcome-stat-num{font-size:1.3rem;font-weight:800;color:var(--accent);line-height:1}
 .welcome-stat-label{font-size:0.55rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
 .welcome-footer{font-size:0.6rem;color:rgba(139,164,190,0.5);padding:0 20px 20px;text-align:center;letter-spacing:1px;width:100%;max-width:500px;margin:0 auto}
+.last-updated-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  margin-top:12px;padding:6px 14px;
+  background:linear-gradient(135deg,rgba(255,215,0,0.16),rgba(255,215,0,0.06));
+  border:1px solid rgba(255,215,0,0.4);
+  border-radius:999px;
+  font-size:0.78rem;font-weight:600;letter-spacing:0.3px;
+  color:#ffd700;
+  box-shadow:0 0 14px rgba(255,215,0,0.15);
+}
+.last-updated-badge b{color:#fff2c2;font-weight:700}
+.last-updated-dot{
+  width:7px;height:7px;border-radius:50%;background:#ffd700;
+  box-shadow:0 0 6px 1px rgba(255,215,0,0.8);
+  animation:lastUpdatedPulse 1.8s ease-in-out infinite;
+  flex-shrink:0;
+}
+@keyframes lastUpdatedPulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:0.5;transform:scale(0.7)}
+}
 .welcome-rules{display:none}
 
 /* ===== BRAIN SAVE/LOAD PANEL ===== */
@@ -2699,7 +2720,10 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 
   <div class="welcome-footer">
     Made with ♥ for card game lovers · Auto-saves every 15 seconds · Works offline
-    <div id="homeVersionTag" style="margin-top:6px;opacity:0.6;font-size:0.7rem;letter-spacing:0.5px">v7</div>
+    <div id="homeVersionTag" class="last-updated-badge">
+      <span class="last-updated-dot"></span>
+      <span>Updated <b id="homeUpdatedDate">Aug 8, 2026</b></span>
+    </div>
   </div>
   <!-- Hidden admin trigger - long-press or triple-click the logo to open admin -->
   <div id="adminTrigger" style="position:fixed;bottom:4px;right:4px;width:30px;height:30px;z-index:2001;opacity:0;cursor:pointer" title="Admin"></div>
@@ -3387,6 +3411,18 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   window.SITE_LAST_UPDATED = 'Aug 8, 2026';
   console.log('[28 Kerala Gulan] build:', window.K28_BUILD_TAG);
   window.addEventListener('DOMContentLoaded', () => {
+    fetch('/api/last-updated').then(r => r.json()).then(d => {
+      const dateStr = (d && d.date) ? d.date : window.SITE_LAST_UPDATED;
+      const homeEl = document.getElementById('homeUpdatedDate');
+      const authEl = document.getElementById('authUpdatedDate');
+      if (homeEl) homeEl.textContent = dateStr;
+      if (authEl) authEl.textContent = dateStr;
+    }).catch(() => {
+      const homeEl = document.getElementById('homeUpdatedDate');
+      const authEl = document.getElementById('authUpdatedDate');
+      if (homeEl) homeEl.textContent = window.SITE_LAST_UPDATED;
+      if (authEl) authEl.textContent = window.SITE_LAST_UPDATED;
+    });
     const tag = document.createElement('div');
     tag.textContent = window.K28_BUILD_TAG; // replaced below once the real deploy date is back, this is just the instant-paint fallback
     tag.style.cssText = 'position:fixed;bottom:2px;left:2px;font-size:8px;color:rgba(255,255,255,0.25);z-index:9999;pointer-events:none;font-family:monospace';
@@ -4527,12 +4563,12 @@ function maybeShowCommentInviteToast() {
     if (!document.getElementById('k28PopBounceStyle')) {
       const style = document.createElement('style');
       style.id = 'k28PopBounceStyle';
-      style.textContent = '@keyframes k28PopBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}';
+      style.textContent = '@keyframes k28PopBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}} @keyframes k28UpdatedGlow{0%,100%{box-shadow:0 0 18px rgba(244,196,48,0.5)}50%{box-shadow:0 0 28px rgba(244,196,48,0.85)}}';
       document.head.appendChild(style);
     }
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-        <span style="background:rgba(244,196,48,0.22);color:var(--gold,#f4c430);font-size:0.78rem;font-weight:800;padding:4px 11px;border-radius:20px;letter-spacing:0.03em;box-shadow:0 0 12px rgba(244,196,48,0.35)">🆕 UPDATED ${lastUpdated}</span>
+        <span style="background:rgba(244,196,48,0.24);color:var(--gold,#f4c430);font-size:0.98rem;font-weight:800;padding:7px 16px;border-radius:22px;letter-spacing:0.03em;box-shadow:0 0 18px rgba(244,196,48,0.5);animation:k28UpdatedGlow 1.8s ease-in-out infinite">🆕 UPDATED ${lastUpdated}</span>
       </div>
       <div style="font-size:0.88rem;color:#fff;margin-bottom:12px;line-height:1.45">🔄 Updated <b style="color:var(--gold,#f4c430);display:inline-block;animation:k28PopBounce 1.3s ease-in-out infinite">Bidding Turns</b> — more soon! Next up: discard.</div>
       <div style="display:flex;gap:8px">
@@ -6747,6 +6783,16 @@ function canPlayCard(p, card) {
   if (trickSuit === '') return true;
   const hasSuit = hand.some(c => c.suit === trickSuit);
   if (hasSuit && card.suit !== trickSuit) return false;
+  // New rule: void in the led suit, a player may cut with trump or
+  // discard - but a discard (anything that isn't trump) can never be a
+  // Jack of any suit. Cutting with the trump Jack is still completely
+  // legal since that's a cut, not a discard. Falls back to allowing it
+  // only if there's truly no other legal option (no trump to cut with,
+  // and every other card outside the led suit is also a Jack).
+  if (!hasSuit && card.suit !== trumpSuit && card.rank === 'J') {
+    const hasAlternative = hand.some(c => c.suit === trumpSuit || (c.suit !== trickSuit && c.rank !== 'J'));
+    if (hasAlternative) return false;
+  }
   return true;
 }
 
@@ -6910,6 +6956,19 @@ function chooseBotCardBase(p, hand, myTeam, bidTeam, isBidder, isBT, numInTrick,
 
   let disc = hand.filter(c => c.suit !== trumpSuit);
   if (!disc.length) disc = hand;
+  // A Jack can never be played as a plain discard (see canPlayCard) -
+  // exclude it from consideration here too, same as the server-side bot,
+  // unless there's truly no other legal option.
+  const nonJackDisc = disc.filter(c => c.rank !== 'J');
+  if (nonJackDisc.length > 0) {
+    disc = nonJackDisc;
+  } else if (trumps.length > 0) {
+    // Every remaining non-trump card is a Jack, but trump is still
+    // available as a legal alternative - cut with it instead of
+    // attempting an illegal Jack discard.
+    trumps.sort((a, b) => RANK_ORDER[b.rank] - RANK_ORDER[a.rank]);
+    return trumps[trumps.length - 1];
+  }
   disc.sort((a, b) => { if (a.points !== b.points) return a.points - b.points; return RANK_ORDER[a.rank] - RANK_ORDER[b.rank]; });
   return disc[0];
 }
@@ -11223,7 +11282,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   <div class="welcome-footer">
     Made with ♥ for card game lovers · Auto-saves every 15 seconds · Works offline
-    <div id="authVersionTag" style="margin-top:6px;opacity:0.6;font-size:0.7rem;letter-spacing:0.5px">v7</div>
+    <div id="authVersionTag" class="last-updated-badge">
+      <span class="last-updated-dot"></span>
+      <span>Updated <b id="authUpdatedDate">Aug 8, 2026</b></span>
+    </div>
   </div>
   <!-- Hidden admin trigger - long-press or triple-click the logo to open admin -->
   <div id="adminTrigger" style="position:fixed;bottom:4px;right:4px;width:30px;height:30px;z-index:2001;opacity:0;cursor:pointer" title="Admin"></div>
