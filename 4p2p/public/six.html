@@ -14,9 +14,6 @@
 <link rel="canonical" href="https://28gulan.com/six.html">
 <meta property="og:title" content="Play 28 Card Game Online – 6 Player Kerala Gulan">
 <meta property="og:description" content="Play 6-player 28 (Gulan) online free, 2 teams of 3, with live voice chat.">
-<meta property="og:image" content="https://28gulan.com/og-image.jpg">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://28gulan.com/og-image.jpg">
 <meta property="og:url" content="https://28gulan.com/six.html">
 <meta property="og:type" content="website">
 <script src="/socket.io/socket.io.js"></script>
@@ -257,42 +254,10 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 @keyframes comicPopOut{0%{opacity:1;}100%{opacity:0;transform:scale(0.92) translateY(-6px);}}
 .chat-badge.on{display:flex}
 #btnChat{position:relative}
-.last-updated-badge{
-  display:inline-flex;align-items:center;gap:6px;
-  margin-top:14px;padding:6px 14px;
-  background:linear-gradient(135deg,rgba(255,215,0,0.16),rgba(255,215,0,0.06));
-  border:1px solid rgba(255,215,0,0.4);
-  border-radius:999px;
-  font-size:0.78rem;font-weight:600;letter-spacing:0.3px;
-  color:#ffd700;
-  box-shadow:0 0 14px rgba(255,215,0,0.15);
-}
-.last-updated-badge b{color:#fff2c2;font-weight:700}
-.last-updated-dot{
-  width:7px;height:7px;border-radius:50%;background:#ffd700;
-  box-shadow:0 0 6px 1px rgba(255,215,0,0.8);
-  animation:lastUpdatedPulse 1.8s ease-in-out infinite;
-  flex-shrink:0;
-}
-@keyframes lastUpdatedPulse{
-  0%,100%{opacity:1;transform:scale(1)}
-  50%{opacity:0.5;transform:scale(0.7)}
-}
 </style>
 </head>
 <body>
 <script>
-window.SITE_LAST_UPDATED = 'Aug 8, 2026';
-window.addEventListener('DOMContentLoaded', () => {
-  fetch('/api/last-updated').then(r => r.json()).then(d => {
-    const dateStr = (d && d.date) ? d.date : window.SITE_LAST_UPDATED;
-    const el = document.getElementById('sixpUpdatedDate');
-    if (el) el.textContent = dateStr;
-  }).catch(() => {
-    const el = document.getElementById('sixpUpdatedDate');
-    if (el) el.textContent = window.SITE_LAST_UPDATED;
-  });
-});
 </script>
 
 <a class="link-back" href="/">⬅ 4 Player Table</a>
@@ -305,10 +270,6 @@ window.addEventListener('DOMContentLoaded', () => {
   <button class="btn btn-outline" id="btnShowJoin">🔑 Join Table</button>
   <button class="btn btn-outline" id="btnRules">📖 How to Play</button>
   <a href="/" class="btn btn-outline" style="text-decoration:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box">⬅️ Back to Main Menu</a>
-  <div id="sixpUpdatedBadge" class="last-updated-badge">
-    <span class="last-updated-dot"></span>
-    <span>Updated <b id="sixpUpdatedDate">Aug 8, 2026</b></span>
-  </div>
 </div>
 
 <!-- ============ NAME ENTRY ============ -->
