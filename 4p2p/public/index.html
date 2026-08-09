@@ -5473,8 +5473,16 @@ function canPlay(card) {
     if (phase === 'play1' && bidder === youPos && card.suit === trumpSuit && players[youPos].filter(c => c.suit !== trumpSuit).length > 0) return false;
     return true;
   }
-  const hasSuit = players[youPos].some(c => c.suit === trickSuit);
+  const hand = players[youPos];
+  const hasSuit = hand.some(c => c.suit === trickSuit);
   if (hasSuit && card.suit !== trickSuit) return false;
+  // Same Jack-discard restriction as canPlayCard: void in the led suit, a
+  // Jack can never be played as a plain discard - only as a trump cut, or
+  // as a genuine last resort when there's truly no other legal card.
+  if (!hasSuit && card.suit !== trumpSuit && card.rank === 'J') {
+    const hasAlternative = hand.some(c => c.suit === trumpSuit || (c.suit !== trickSuit && c.rank !== 'J'));
+    if (hasAlternative) return false;
+  }
   return true;
 }
 
