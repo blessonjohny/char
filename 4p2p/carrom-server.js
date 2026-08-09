@@ -92,24 +92,13 @@ function poolNewTableId() {
   return code;
 }
 function poolPublicList() {
-  // A bot-occupied seat counts as "open" here on purpose - pool_joinTable below already
-  // fully supports a real player walking in and taking over a bot's seat (has for a while),
-  // but this list was still filtering those tables out entirely, making that already-working
-  // feature invisible. Surfacing opponentIsBot/botDifficulty per room lets the client show
-  // "Playing vs Bot" so a browsing player can see and choose to challenge it.
   return Object.values(poolTables)
-    .filter(t => t.seats.some(Boolean) && t.phase === 'lobby' && t.seats.some(s => !s || s.isBot))
-    .map(t => {
-      const hostSeat = t.seats.find(s => s && s.playerId === t.hostPlayerId) || {};
-      const otherSeat = t.seats.find(s => s && s.playerId !== t.hostPlayerId) || null;
-      return {
-        id: t.id,
-        hostName: hostSeat.name || '?',
-        openSeats: t.seats.filter(s => !s).length,
-        opponentIsBot: !!(otherSeat && otherSeat.isBot),
-        botDifficulty: (otherSeat && otherSeat.isBot) ? otherSeat.botDifficulty : null
-      };
-    });
+    .filter(t => t.seats.some(Boolean) && t.phase === 'lobby' && t.seats.some(s => !s))
+    .map(t => ({
+      id: t.id,
+      hostName: (t.seats.find(s => s && s.playerId === t.hostPlayerId) || {}).name || '?',
+      openSeats: t.seats.filter(s => !s).length
+    }));
 }
 function poolBroadcastList() { io.emit('pool_roomList', poolPublicList()); }
 

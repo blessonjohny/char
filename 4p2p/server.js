@@ -93,19 +93,8 @@ app.get('/status', (req, res) => {
     message: '28 Kerala Gulan — Authoritative Server running',
     activeTables: totalActiveRooms(),
     serverStartTime: SERVER_START_TIME,
-    buildTag: `stable-hostfix · ${new Date(SERVER_START_TIME).toISOString().slice(0, 10)}`
+    buildTag: 'stable-hostfix · 2026-07-20'
   });
-});
-
-// Powers the "🆕 UPDATED <date>" badge in the comment-invite toast, and the tiny build-tag
-// corner marker on the welcome screen - both derived from SERVER_START_TIME so they only
-// change on an actual deploy (a real deploy always restarts this process), never just because
-// a day passed with no update.
-app.get('/api/last-updated', (req, res) => {
-  const d = new Date(SERVER_START_TIME);
-  const friendly = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const iso = d.toISOString().slice(0, 10);
-  res.json({ date: friendly, iso });
 });
 
 // ============================================================

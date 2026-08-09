@@ -908,8 +908,7 @@ class GameEngine {
     // completely fine, since that's a cut, not a discard. Falls back to
     // allowing it only if there's truly no other legal option (no trump
     // to cut with, and every other card outside the led suit is also a
-    // Jack) - matches the same falls-back-when-it's-the-only-option
-    // pattern already used for the hidden-trump-owner restriction below.
+    // Jack).
     if (!hasSuit && card.suit !== this.trumpSuit && card.rank === 'J') {
       const hasAlternative = hand.some(c => c.suit === this.trumpSuit || (c.suit !== this.trickSuit && c.rank !== 'J'));
       if (hasAlternative) return false;
