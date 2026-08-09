@@ -13220,10 +13220,7 @@ function connectGameSocket() {
     // Treat every reconnect as a clean slate for rendering purposes; the
     // very next 'state' broadcast draws the table correctly from
     // scratch regardless of what was happening before the drop.
-    trickRevealBusy = false;
-    trickRevealQueue = [];
-    lastRenderedSlotContent = [null, null, null, null];
-    trickHoldGen++;
+    resetTrickAndRoundTracking();
     // A reconnect after a real network drop: if we already have a table,
     // ask to rejoin it with our saved token so we reclaim our seat.
     if (MY_TABLE_ID && MY_PLAYER_TOKEN) {
@@ -14272,6 +14269,17 @@ function applyServerState(state) {
     if (staleModal) staleModal.classList.remove('on');
   }
   round = state.round;
+  // A host-triggered restart (whole game or just the round) broadcasts a
+  // fresh state directly - there's no client-side "moving to the next
+  // round" trigger involved like there is for normal advancement, so
+  // nothing else resets these tracking variables in that path. If they're
+  // left stale from the previous game/round, tricksPlayed here will never
+  // again exceed what was already seen, meaning "a trick just resolved"
+  // silently never fires for the rest of that round - including its very
+  // last trick, right through to the round-end popup.
+  if (typeof state.tricksPlayed === 'number' && state.tricksPlayed < lastSeenTricksPlayed) {
+    resetTrickAndRoundTracking();
+  }
   if (round !== roundSnapshotTakenForRound && state.phase !== 'lobby' && state.phase !== 'bidding1') {
     roundSnapshotTakenForRound = round;
     roundHandSnapshot = (players[MY_POS] || []).map(c => ({ suit: c.suit, rank: c.rank, points: c.points, color: c.color }));
@@ -14456,7 +14464,7 @@ function applyServerState(state) {
         if (overlay && overlay.classList.contains('on')) return;
         console.log('[server-mode] round-end panel never appeared on its own — forcing it open');
         proceedAfterCrownAnimationServerMode(r.bidderWon, r.made, bT, oT, yourTeam, isYourBid, champResult);
-      }, 3000);
+      }, 1200);
     });
   }
 }
@@ -14614,6 +14622,23 @@ function showChampionshipResultServerMode(champResult, yourTeam) {
 // Trick-in-progress card display — mirrors the old clientApplyState's slot
 // rendering, driven directly by the server's trickCards.
 let lastSeenTricksPlayed = -1;
+// Resets every piece of client-side tracking state that's scoped to "this
+// particular round's trick-by-trick progress" - anything left stale here
+// after a restart or reconnect can silently break the "a trick just
+// resolved" detection for the rest of that round, since the new round's
+// real progress would never again exceed old, leftover high-water marks.
+function resetTrickAndRoundTracking() {
+  lastSeenTricksPlayed = -1;
+  trickRevealBusy = false;
+  trickRevealQueue = [];
+  serverRoundEndShown = -1;
+  roundSnapshotTakenForRound = -1;
+  lastRenderedSlotContent = [null, null, null, null];
+  lastAnnouncedHonorsRound = -1;
+  lastShownRoundVoidMessage = null;
+  lastShownPartnerSignalKey = null;
+  trickHoldGen++;
+}
 let trickRevealQueue = [];  // queued completed tricks still waiting to be shown
 let trickRevealBusy = false; // a trick is currently mid-reveal (its full pause hasn't elapsed yet)
 let trickHoldGen = 0; // bumped whenever a staggered catch-up reveal is superseded by a newer one
@@ -14638,7 +14663,7 @@ function afterTrickRevealSettles(fn, _startedAt) {
     // Now, after 8s of waiting, force forward regardless — better to
     // show the round-end panel slightly early/out of sync than to leave
     // the table stuck requiring a refresh.
-    if (Date.now() - startedAt > 8000) {
+    if (Date.now() - startedAt > 2500) {
       console.warn('[afterTrickRevealSettles] gave up waiting after 8s — forcing forward. trickRevealBusy:', trickRevealBusy, 'queueLen:', trickRevealQueue.length);
       trickRevealBusy = false;
       trickRevealQueue = [];
