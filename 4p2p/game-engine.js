@@ -902,6 +902,18 @@ class GameEngine {
     }
     const hasSuit = hand.some(c => c.suit === this.trickSuit);
     if (hasSuit && card.suit !== this.trickSuit) return false;
+    // New rule: void in the led suit, a player may cut with trump or
+    // discard - but a discard (anything that isn't trump) can never be
+    // a Jack of any suit. Cutting with the trump Jack itself is still
+    // completely fine, since that's a cut, not a discard. Falls back to
+    // allowing it only if there's truly no other legal option (no trump
+    // to cut with, and every other card outside the led suit is also a
+    // Jack) - matches the same falls-back-when-it's-the-only-option
+    // pattern already used for the hidden-trump-owner restriction below.
+    if (!hasSuit && card.suit !== this.trumpSuit && card.rank === 'J') {
+      const hasAlternative = hand.some(c => c.suit === this.trumpSuit || (c.suit !== this.trickSuit && c.rank !== 'J'));
+      if (hasAlternative) return false;
+    }
     // Same restriction as the leading case above, but for following while
     // void: the hidden-trump owner can't discard from the trump suit
     // before it's properly exposed, even when they're not leading -
@@ -1922,6 +1934,20 @@ class GameEngine {
           feedablePts.sort((a, c) => c.points - a.points);
           return feedablePts[0];
         }
+        // A Jack can never be played as a plain discard (see canPlayCard) -
+        // exclude it from consideration here the same way, so the bot
+        // doesn't pick one and then have it rejected as illegal.
+        const nonJackDiscard = nonTrumpDiscard.filter(c => c.rank !== 'J');
+        if (nonJackDiscard.length > 0) {
+          nonJackDiscard.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+          return nonJackDiscard[0];
+        }
+        // Every remaining non-trump card is a Jack. If trump is still
+        // available, cutting with it is the legal alternative (canPlayCard
+        // would reject a Jack discard here) - only fall through to
+        // actually playing the Jack when there's genuinely no trump left
+        // either, matching canPlayCard's own last-resort exception.
+        if (trumps.length > 0) return trumps[trumps.length - 1];
         nonTrumpDiscard.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
         return nonTrumpDiscard[0];
       }
