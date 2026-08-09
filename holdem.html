@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Texas Hold'em — 28 Kerala Gulan</title>
+<meta name="description" content="Play Texas Hold'em Poker online free — 9-player tables, cash games, live multiplayer, no download. Play poker online with friends or strangers, straight from your browser.">
+<meta name="keywords" content="texas holdem, play poker online, poker online free, holdem online, play cards online, free poker, multiplayer poker, online poker rooms, poker no download">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://28gulan.com/holdem.html">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://28gulan.com/holdem.html">
+<meta property="og:title" content="Texas Hold'em Poker Online Free — 28 Kerala Gulan">
+<meta property="og:description" content="Play Texas Hold'em Poker online free — 9-player tables, live multiplayer, no download needed.">
+<meta property="og:site_name" content="28 Kerala Gulan">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Texas Hold'em Poker Online Free">
+<meta name="twitter:description" content="Play Texas Hold'em Poker online free — 9-player tables, live multiplayer, no download needed.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Game",
+  "name": "Texas Hold'em Poker",
+  "url": "https://28gulan.com/holdem.html",
+  "description": "Play Texas Hold'em Poker online free with up to 9 players, live multiplayer, no download required.",
+  "genre": "Card Game",
+  "playMode": "MultiPlayer",
+  "isAccessibleForFree": true
+}
+</script>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root{
+  --felt:#0b6b3a; --felt-2:#084d2a; --gold:#f4c430; --gold-soft:#e6c86b;
+  --cream:#fdf6e3; --danger:#e74040; --accent:#4aa3ff; --panel:#12202a;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#0a1420;color:var(--cream);overflow-x:hidden}
+.hidden{display:none !important}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;background:linear-gradient(160deg,#0a1420,#0d2416);overflow-y:auto}
+h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
+.subtitle{opacity:0.7;font-size:0.85rem;margin-bottom:20px}
+.text-input{width:100%;max-width:320px;padding:14px;border-radius:10px;border:2px solid rgba(244,196,48,0.3);background:rgba(255,255,255,0.06);color:#fff;font-size:1rem;margin-bottom:12px;text-align:center}
+.btn{padding:14px 24px;border-radius:12px;border:none;font-weight:700;font-size:0.95rem;cursor:pointer;margin:6px;min-height:48px}
+.btn-gold{background:linear-gradient(135deg,var(--gold),#c99a1e);color:#241a12}
+.btn-outline{background:rgba(255,255,255,0.06);color:var(--cream);border:1px solid rgba(255,255,255,0.2)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.opts-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:360px;margin-bottom:10px}
+.opt-btn{padding:8px 14px;border-radius:20px;border:1px solid rgba(244,196,48,0.35);background:rgba(244,196,48,0.08);color:var(--cream);font-size:0.8rem;cursor:pointer}
+.opt-btn.active{background:var(--gold);color:#241a12;font-weight:800}
+.field-label{font-size:0.7rem;opacity:0.6;margin:8px 0 4px;text-transform:uppercase;letter-spacing:1px}
+.table-list{width:100%;max-width:360px;margin-top:10px}
+.table-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:6px;font-size:0.82rem}
+
+/* ---- Game screen ---- */
+#gameScreen{padding:0;justify-content:flex-start}
+.topbar{width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(0,0,0,0.35);flex-shrink:0}
+.topbar-btn{background:rgba(255,255,255,0.08);border:none;color:var(--cream);border-radius:8px;padding:6px 10px;font-size:0.75rem;cursor:pointer}
+.table-wrap{position:relative;width:100%;max-width:520px;aspect-ratio:1/1.15;max-height:44vh;margin:6px auto;flex:0 1 auto;min-height:0}
+.felt{position:absolute;inset:8% 4%;border-radius:50%;background:radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-2) 100%);border:10px solid #3d2510;box-shadow:0 10px 30px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.4)}
+.board-area{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);display:flex;gap:4px;z-index:5}
+.pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
+
+/* ---- Visual poker chips ---- */
+.chip{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.7);box-shadow:0 2px 4px rgba(0,0,0,0.5);flex-shrink:0}
+.chip.small{width:14px;height:14px;border-width:1.5px}
+.chip-stack{display:flex}
+.chip-stack .chip{margin-left:-10px}
+.chip-stack .chip:first-child{margin-left:0}
+
+/* ---- Showdown card reveal flip ---- */
+.card.reveal-flip{animation:cardFlipReveal .5s ease both}
+@keyframes cardFlipReveal{0%{transform:rotateY(90deg) scale(0.85);opacity:0.3;}60%{transform:rotateY(-12deg) scale(1.05);opacity:1;}100%{transform:rotateY(0) scale(1);opacity:1;}}
+
+/* ---- Flying chip pot-payout animation ---- */
+.flying-chip{position:fixed;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.8);box-shadow:0 3px 8px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.7s cubic-bezier(.3,.6,.4,1), opacity 0.7s ease;}
+.street-banner{position:absolute;top:72%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);border:2px solid var(--gold);border-radius:16px;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 10px rgba(244,196,48,0.6);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
+.street-banner.on{display:block}
+@keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
+.card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0}
+.card.red{color:#c8302f}
+.card.black{color:#1a1a1a}
+.card.back{background:linear-gradient(135deg,#1a3a6b,#0d2038);border:2px solid var(--gold-soft)}
+.card.mini{width:26px;height:37px;font-size:0.65rem}
+
+.seat{position:absolute;width:82px;text-align:center;z-index:4}
+.seat-avatar-wrap{position:relative;width:46px;height:46px;margin:0 auto}
+.turn-tag{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px;background:var(--gold);color:#241a12;font-size:0.5rem;font-weight:900;letter-spacing:0.5px;padding:2px 6px;border-radius:8px;white-space:nowrap;animation:turnTagPulse 1s ease-in-out infinite}
+@keyframes turnTagPulse{0%,100%{transform:translateX(-50%) scale(1);}50%{transform:translateX(-50%) scale(1.08);}}
+.seat-avatar{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#2a3f5f,#101d2e);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:2.5px solid rgba(255,255,255,0.15)}
+.seat.active .seat-avatar{border-color:var(--gold);box-shadow:0 0 14px rgba(244,196,48,0.7);animation:seatPulse 1.1s ease-in-out infinite}
+@keyframes seatPulse{0%,100%{box-shadow:0 0 14px rgba(244,196,48,0.7)}50%{box-shadow:0 0 22px rgba(244,196,48,1)}}
+.seat.folded .seat-avatar{opacity:0.35;filter:grayscale(1)}
+.seat-name{font-size:0.62rem;font-weight:700;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seat-chips{font-size:0.6rem;color:var(--gold);font-weight:800}
+.seat-cards{display:flex;gap:2px;justify-content:center;margin-top:3px}
+.seat-bet{position:absolute;background:rgba(0,0,0,0.6);border:1px solid var(--gold);border-radius:10px;padding:2px 8px 2px 4px;font-size:0.6rem;color:var(--gold);font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:3px}
+.dealer-chip{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#241a12;font-size:0.55rem;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #241a12}
+.allin-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}
+.folded-tag{display:inline-block;background:rgba(0,0,0,0.5);color:rgba(255,255,255,0.55);font-size:0.6rem;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15)}
+
+.winner-popup{position:fixed;background:linear-gradient(160deg,rgba(26,47,28,0.82),rgba(13,31,16,0.82));backdrop-filter:blur(3px);border:3px solid var(--gold);border-radius:18px;padding:18px 22px;z-index:1900;text-align:center;box-shadow:0 0 40px rgba(244,196,48,0.5),0 10px 30px rgba(0,0,0,0.7);pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(0.15);transition:transform 0.5s cubic-bezier(.2,1.4,.3,1),opacity 0.35s ease;max-width:86vw}
+.winner-popup.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.winner-popup-title{color:var(--gold);font-size:1.1rem;font-weight:900;margin-bottom:6px;text-shadow:0 0 10px rgba(244,196,48,0.6)}
+.winner-popup-sub{color:var(--cream);font-size:0.8rem;margin-bottom:10px}
+.winner-popup-cards{display:flex;justify-content:center;gap:4px}
+.winner-popup-cards .card{animation:cardFlipReveal .45s ease both}
+.winner-popup-cards .card:nth-child(2){animation-delay:0.08s}
+.hand-strip{display:flex;justify-content:center;gap:6px;padding:4px 0;flex-shrink:0}
+.hand-strip .card{width:44px;height:62px;font-size:1rem}
+
+.action-bar{width:100%;max-width:520px;margin:0 auto;padding:10px 14px 18px;flex-shrink:0}
+.action-row{display:flex;gap:8px;margin-bottom:8px}
+.action-btn{flex:1;padding:14px 6px;border-radius:12px;border:none;font-weight:800;font-size:0.85rem;cursor:pointer}
+.action-fold{background:rgba(231,64,64,0.85);color:#fff}
+.action-check{background:rgba(255,255,255,0.15);color:#fff}
+.action-call{background:var(--accent);color:#fff}
+.action-bet{background:linear-gradient(135deg,var(--gold),#c99a1e);color:#241a12}
+.amount-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.06);border-radius:12px;padding:8px 10px}
+.amount-row input[type=range]{flex:1}
+.amount-val{font-weight:800;color:var(--gold);min-width:60px;text-align:right;font-size:0.9rem}
+.stepper-btn{background:rgba(255,255,255,0.1);border:none;color:#fff;width:30px;height:30px;border-radius:8px;font-size:1rem;cursor:pointer}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center;z-index:2000;padding:20px}
+.overlay.on{display:flex}
+.overlay-box{background:#12202a;border:1px solid rgba(244,196,48,0.3);border-radius:16px;padding:22px;max-width:400px;width:100%;text-align:center;max-height:85vh;overflow-y:auto}
+.showdown-hand-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,255,255,0.05);border-radius:8px;margin-bottom:5px;font-size:0.75rem}
+.showdown-hand-row.winner{background:rgba(244,196,48,0.18);border:1px solid var(--gold)}
+
+.log-panel{position:fixed;top:0;right:0;bottom:0;width:280px;max-width:80vw;background:rgba(8,15,22,0.97);z-index:1500;transform:translateX(100%);transition:transform .25s ease;padding:14px;overflow-y:auto}
+.log-panel.on{transform:translateX(0)}
+.log-panel-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1400;display:none}
+.log-panel-backdrop.on{display:block}
+.log-entry{font-size:0.72rem;opacity:0.8;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(20,20,30,0.95);border:1px solid var(--gold);border-radius:10px;padding:10px 18px;font-size:0.82rem;z-index:3000;animation:toastIn .25s ease}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+</style>
+</head>
+<body>
+<script>
+</script>
+
+<a href="/" class="topbar-btn" id="allGamesLink" style="position:fixed;top:10px;left:10px;z-index:100;text-decoration:none">⬅ All Games</a>
+
+<!-- ============ LANDING ============ -->
+<div class="screen" id="landingScreen">
+  <h1>♠️ Texas Hold'em</h1>
+  <div class="subtitle">9-Player Table</div>
+  <input class="text-input" id="nameInput" maxlength="18" placeholder="Your name">
+  <button class="btn btn-gold" id="btnShowCreate">Create Table</button>
+  <button class="btn btn-outline" id="btnShowJoin">Join with Code</button>
+  <button class="btn btn-outline hidden" id="btnContinuePrevious" style="display:none">▶ Continue with Previous</button>
+  <button class="btn btn-outline" id="btnBackToRooms">⬅ Back to Rooms</button>
+  <div class="table-list" id="publicTableList"></div>
+</div>
+
+<!-- ============ CREATE TABLE OPTIONS ============ -->
+<div class="screen hidden" id="createScreen">
+  <h1>Create Table</h1>
+  <div class="field-label">Mode</div>
+  <div class="opts-row" id="modeOpts">
+    <div class="opt-btn active" data-val="cash">Cash Game</div>
+    <div class="opt-btn" data-val="tournament">Tournament</div>
+  </div>
+  <div class="field-label">Betting</div>
+  <div class="opts-row" id="buyInOpts">
+    <div class="opt-btn active" data-val="nolimit">No Limit</div>
+    <div class="opt-btn" data-val="fixed">Fixed Limit</div>
+  </div>
+  <div class="field-label">Blinds</div>
+  <div class="opts-row" id="blindOpts">
+    <div class="opt-btn" data-sb="1" data-bb="2">1/2</div>
+    <div class="opt-btn active" data-sb="5" data-bb="10">5/10</div>
+    <div class="opt-btn" data-sb="25" data-bb="50">25/50</div>
+  </div>
+  <div class="field-label">Starting Chips</div>
+  <div class="opts-row" id="chipsOpts">
+    <div class="opt-btn active" data-val="1000">1000</div>
+    <div class="opt-btn" data-val="2000">2000</div>
+    <div class="opt-btn" data-val="5000">5000</div>
+  </div>
+  <button class="btn btn-gold" id="btnCreateConfirm">Create</button>
+  <button class="btn btn-outline" id="btnCreateBack">Back</button>
+</div>
+
+<!-- ============ JOIN BY CODE ============ -->
+<div class="screen hidden" id="joinScreen">
+  <h1>Join a Table</h1>
+  <input class="text-input" id="joinCodeInput" maxlength="12" placeholder="Table code" style="text-transform:uppercase">
+  <button class="btn btn-gold" id="btnJoinConfirm">Join</button>
+  <button class="btn btn-outline" id="btnJoinBack">Back</button>
+</div>
+
+<!-- ============ LOBBY (seated, waiting for hand) ============ -->
+<div class="screen hidden" id="lobbyScreen">
+  <h1>Table Lobby</h1>
+  <div class="subtitle">Code: <b id="lobbyCode" style="color:var(--gold)"></b></div>
+  <div id="lobbySeatList" style="width:100%;max-width:360px;margin-bottom:16px"></div>
+  <div id="hostControls" class="hidden">
+    <div class="field-label">Fill empty seats with bots</div>
+    <div class="opts-row" id="botFillOpts"></div>
+    <button class="btn btn-gold" id="btnStartHand">▶ Start Hand</button>
+  </div>
+  <div id="waitingNote" class="subtitle"></div>
+</div>
+
+<!-- ============ GAME TABLE ============ -->
+<div class="screen hidden" id="gameScreen">
+  <div class="topbar">
+    <div style="font-size:0.75rem;min-width:0;overflow:hidden">
+      <div><span id="handNumDisplay">Hand 1</span> · <span id="blindsDisplay"></span></div>
+      <div id="winnerBanner" style="display:none;color:var(--gold);font-weight:800;font-size:0.66rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+    </div>
+    <div style="flex-shrink:0">
+      <button class="topbar-btn" id="btnShowLog">📜 Log</button>
+      <button class="topbar-btn" id="btnLeaveTable">🚪 Leave</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <div class="felt"></div>
+    <div class="street-banner" id="streetBanner"></div>
+    <div class="board-area" id="boardArea"></div>
+    <div class="pot-display" id="potDisplay">Pot: 0</div>
+    <div id="seatsContainer"></div>
+  </div>
+  <div class="hand-strip" id="myHandStrip"></div>
+  <div id="myHandLabel" style="text-align:center;color:var(--gold);font-weight:800;font-size:0.72rem;min-height:1em;margin-bottom:2px"></div>
+  <div class="winner-popup" id="winnerPopup">
+    <div class="winner-popup-title" id="winnerPopupTitle"></div>
+    <div class="winner-popup-sub" id="winnerPopupSub"></div>
+    <div class="winner-popup-cards" id="winnerPopupCards"></div>
+    <button class="btn btn-gold" id="btnAckWinnerPopup" style="width:100%;margin-top:14px;pointer-events:auto">OK</button>
+  </div>
+  <div class="action-bar" id="actionBar"></div>
+</div>
+
+<div class="log-panel-backdrop" id="logPanelBackdrop"></div>
+<div class="log-panel" id="logPanel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h3 style="color:var(--gold);margin:0">Hand Log</h3>
+    <button class="topbar-btn" id="btnCloseLog">✕ Close</button>
+  </div>
+  <div id="logEntries"></div>
+</div>
+
+<script>
+const socket = io();
+let myPos = null, myPlayerId = null, myTableId = null, isHost = false;
+let latestState = null;
+let createOpts = { mode: 'cash', buyInType: 'nolimit', smallBlind: 5, bigBlind: 10, startingChips: 1000 };
+
+// A full page reload (not just a background tab suspending) wipes every
+// JS variable but leaves localStorage intact -- this is what actually
+// lets the player find their way back to the table on the very first
+// connection attempt after that happens, not just on later in-session
+// reconnects. Same mechanism index.html already uses (MY_PLAYER_TOKEN /
+// MY_TABLE_ID read back at the top of the script) -- this was the real
+// difference: holdem.html was saving a session on join but never once
+// reading it back, so it had zero memory of anything after a real reload.
+try { myPlayerId = localStorage.getItem('holdem_player_id') || null; } catch (e) {}
+try { myTableId = localStorage.getItem('holdem_table_id') || null; } catch (e) {}
+// A stale session shouldn't be retried forever -- if it's been sitting
+// unused for a long stretch, the table has very likely moved on or
+// closed; same 90-minute cutoff spirit as the other games' session
+// handling, so an old browser tab doesn't keep trying to resurrect a
+// table from days ago.
+try {
+  const savedAt = parseInt(localStorage.getItem('holdem_session_time') || '0', 10);
+  if (!savedAt || (Date.now() - savedAt) > 90 * 60 * 1000) {
+    myPlayerId = null; myTableId = null;
+    localStorage.removeItem('holdem_player_id');
+    localStorage.removeItem('holdem_table_id');
+    localStorage.removeItem('holdem_session_time');
+  }
+} catch (e) {}
+
+// Free-tier hosts (Render, etc.) put the whole server to sleep after a
+// stretch of no HTTP traffic -- and since every table lives in that
+// process's memory, waking it back up wipes them all out. As long as
+// this tab is open, keep pinging a lightweight endpoint so the server
+// counts as "active" and never gets put to sleep out from under an
+// actual, in-progress table. Same fix index.html already had.
+if (!window.__holdemKeepAlive) {
+  window.__holdemKeepAlive = setInterval(() => {
+    fetch('/status').catch(() => {});
+  }, 4 * 60 * 1000);
+}
+
+// This was the actual cause of the reported "freeze after waiting a
+// while, works fine if I continue right away" -- mobile browsers
+// commonly suspend/drop a socket connection after a tab sits idle or
+// backgrounded for a stretch. Socket.IO auto-reconnects the underlying
+// transport on its own, but without explicitly re-joining the table
+// here, the reconnected socket is a blank slate the server has never
+// heard of -- every subsequent action (including just clicking
+// Continue, if anything after it needed the connection) would silently
+// go nowhere. This re-establishes the seat the instant the transport
+// comes back, using the same playerId, so nothing about the table
+// state needs to change on the server side at all.
+let hasDisconnectedOnceHoldem = false;
+socket.on('connect', () => {
+  if (myTableId && myPlayerId) {
+    socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
+  }
+  // The "connection lost" toast never had a matching "you're back"
+  // confirmation -- meaning even a perfectly successful reconnect gave
+  // the player no positive signal anything actually recovered. Only
+  // shown for a real recovery, not the very first page load.
+  if (hasDisconnectedOnceHoldem && myTableId) {
+    toast('✅ Reconnected!');
+  }
+});
+socket.on('disconnect', (reason) => {
+  // Socket.IO tells us exactly why: 'ping timeout' (client didn't
+  // answer in time), 'transport close' (network genuinely dropped),
+  // 'transport error', 'io server disconnect' (server explicitly
+  // closed it), etc. Surfacing this directly instead of a generic
+  // message turns "it disconnected again" into an actual diagnosis.
+  console.log('[holdem] disconnected, reason:', reason);
+  hasDisconnectedOnceHoldem = true;
+  if (myTableId) toast(`⚠️ Connection lost (${reason}) — reconnecting...`);
+});
+socket.io.on('error', (err) => {
+  console.log('[holdem] transport error:', err && err.message);
+});
+socket.io.on('reconnect_attempt', (attempt) => {
+  console.log('[holdem] reconnect attempt #' + attempt);
+});
+
+// The connect handler above only fires if Socket.IO's own reconnection
+// timers get a chance to run at all -- but mobile browsers routinely
+// fully suspend JavaScript execution in a backgrounded tab, meaning
+// those timers can simply never fire while the tab is away, no matter
+// how long it's been. This is what "switch browsers, come back, never
+// reconnects" actually was: not a failure to reconnect, but Socket.IO
+// never even getting a chance to try. Checking explicitly the instant
+// the tab becomes visible again catches this immediately instead of
+// waiting on a timer that was never going to run.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && myTableId && myPlayerId) {
+    if (!socket.connected) {
+      socket.connect();
+    } else {
+      // Even if the transport itself looks connected, re-announce our
+      // seat -- a long suspension can leave the server-side socket
+      // registration stale without the transport ever actually
+      // dropping, so this is cheap insurance either way.
+      socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
+    }
+  }
+});
+
+function $(id) { return document.getElementById(id); }
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  $(id).classList.remove('hidden');
+  const allGamesLink = $('allGamesLink');
+  if (allGamesLink) allGamesLink.style.display = (id === 'gameScreen') ? 'none' : '';
+}
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// Real poker chips are colored by denomination so a player can read a
+// stack at a glance instead of counting -- same idea here, mapped to
+// this table's typical bet sizes rather than literal casino values.
+const CHIP_COLOR_STOPS = [
+  { max: 4, colors: ['#fdfdfd', '#c9c9c9', '#8f8f8f'] },      // white
+  { max: 9, colors: ['#ff8a8a', '#d13a3a', '#7a1414'] },      // red
+  { max: 24, colors: ['#7ec1ff', '#2a6fd1', '#123a70'] },     // blue
+  { max: 49, colors: ['#7be08a', '#1f9e3e', '#0d5620'] },     // green
+  { max: 99, colors: ['#4a4a52', '#1a1a1f', '#000000'] },     // black
+  { max: 249, colors: ['#c98aff', '#7c2fcf', '#3d1466'] },    // purple
+  { max: Infinity, colors: ['#ffd76b', '#c9922b', '#8a611c'] } // gold, top tier
+];
+function chipGradientForValue(value) {
+  const tier = CHIP_COLOR_STOPS.find(t => value <= t.max) || CHIP_COLOR_STOPS[CHIP_COLOR_STOPS.length - 1];
+  const [a, b, c] = tier.colors;
+  return `radial-gradient(circle at 35% 30%, ${a}, ${b} 70%, ${c})`;
+}
+function chipHtml(value, small) {
+  return `<span class="chip${small ? ' small' : ''}" style="background:${chipGradientForValue(value)}"></span>`;
+}
+
+function cardHtml(card, mini, revealFlip) {
+  if (!card) return `<div class="card back${mini ? ' mini' : ''}"></div>`;
+  const isRed = card.suit === '♥' || card.suit === '♦';
+  return `<div class="card${mini ? ' mini' : ''} ${isRed ? 'red' : 'black'}${revealFlip ? ' reveal-flip' : ''}"><div>${card.rank}</div><div>${card.suit}</div></div>`;
+}
+let lastCardRevealAnimatedFor = null;
+
+// Animates a small handful of chips visually flying from the pot to
+// each winner's seat when a hand resolves -- purely a visual flourish
+// on top of the chip counts (which already update correctly regardless
+// of whether this animation runs or not).
+function animateChipsToWinners(state) {
+  const potEl = $('potDisplay');
+  const winners = (state.showdownResult && state.showdownResult.winners) || [];
+  if (!potEl || winners.length === 0) return;
+  const potRect = potEl.getBoundingClientRect();
+  const startX = potRect.left + potRect.width / 2;
+  const startY = potRect.top + potRect.height / 2;
+
+  for (const w of winners) {
+    const seatEl = document.querySelector(`.seat[data-pos="${w.seat}"]`);
+    if (!seatEl) continue;
+    const seatRect = seatEl.getBoundingClientRect();
+    const endX = seatRect.left + seatRect.width / 2;
+    const endY = seatRect.top + seatRect.height / 2;
+
+    // A few chips per winner, slightly staggered, rather than one flat
+    // token -- reads much more like an actual pot payout.
+    const chipCount = Math.min(5, Math.max(2, Math.round(w.amount / Math.max(1, state.bigBlind))));
+    for (let i = 0; i < chipCount; i++) {
+      const chip = document.createElement('div');
+      chip.className = 'flying-chip';
+      chip.style.background = chipGradientForValue(w.amount);
+      chip.style.left = startX + 'px';
+      chip.style.top = startY + 'px';
+      chip.style.transform = 'translate(-50%,-50%)';
+      chip.style.opacity = '1';
+      document.body.appendChild(chip);
+      const delay = i * 70;
+      const jitterX = (Math.random() - 0.5) * 16;
+      const jitterY = (Math.random() - 0.5) * 16;
+      setTimeout(() => {
+        chip.style.transform = `translate(${endX - startX + jitterX}px, ${endY - startY + jitterY}px)`;
+      }, delay + 20);
+      setTimeout(() => { chip.style.opacity = '0'; }, delay + 600);
+      setTimeout(() => { chip.remove(); }, delay + 750);
+    }
+  }
+}
+
+// ---------------- Landing ----------------
+$('btnShowCreate').addEventListener('click', () => showScreen('createScreen'));
+$('btnShowJoin').addEventListener('click', () => showScreen('joinScreen'));
+// Only shown when a saved session actually exists - this is a visible,
+// explicit way to retry the rejoin (the same thing already attempted
+// silently on connect) in case that first automatic attempt didn't
+// land, without the player needing to know that's even a thing.
+if (myTableId && myPlayerId) {
+  const btnContinuePrevious = $('btnContinuePrevious');
+  btnContinuePrevious.style.display = '';
+  btnContinuePrevious.classList.remove('hidden');
+  btnContinuePrevious.addEventListener('click', () => {
+    socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
+  });
+}
+$('btnBackToRooms').addEventListener('click', () => {
+  window.location.href = '/';
+});
+$('btnCreateBack').addEventListener('click', () => showScreen('landingScreen'));
+$('btnJoinBack').addEventListener('click', () => showScreen('landingScreen'));
+
+function wireOptRow(rowId, onPick) {
+  $(rowId).querySelectorAll('.opt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $(rowId).querySelectorAll('.opt-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      onPick(btn);
+    });
+  });
+}
+wireOptRow('modeOpts', btn => createOpts.mode = btn.dataset.val);
+wireOptRow('buyInOpts', btn => createOpts.buyInType = btn.dataset.val);
+wireOptRow('blindOpts', btn => { createOpts.smallBlind = Number(btn.dataset.sb); createOpts.bigBlind = Number(btn.dataset.bb); });
+wireOptRow('chipsOpts', btn => createOpts.startingChips = Number(btn.dataset.val));
+
+$('btnCreateConfirm').addEventListener('click', () => {
+  const name = $('nameInput').value.trim() || 'Player';
+  socket.emit('poker_createTable', { name, ...createOpts, reloadChips: Math.round(createOpts.startingChips / 2) });
+});
+$('btnJoinConfirm').addEventListener('click', () => {
+  const code = $('joinCodeInput').value.trim().toUpperCase();
+  const name = $('nameInput').value.trim() || 'Player';
+  if (!code) return;
+  socket.emit('poker_joinTable', { tableId: code, name });
+});
+
+socket.on('poker_roomList', (list) => {
+  const el = $('publicTableList');
+  if (!list.length) { el.innerHTML = ''; return; }
+  el.innerHTML = list.map(t => `
+    <div class="table-row">
+      <span>${escapeHtml(t.name)} · ${t.players}/9 · ${t.smallBlind}/${t.bigBlind}${t.isPlaying ? ' · 🔴 live' : ''}</span>
+      <button class="opt-btn" onclick="joinPublicTable('${t.tableId}')">Join</button>
+    </div>`).join('');
+});
+function joinPublicTable(tableId) {
+  const name = $('nameInput').value.trim() || 'Player';
+  socket.emit('poker_joinTable', { tableId, name });
+}
+socket.emit('poker_listRooms');
+setInterval(() => { if (!myTableId) socket.emit('poker_listRooms'); }, 4000);
+
+socket.on('poker_joinFailed', (info) => {
+  toast('❌ Could not join: ' + (info.reason || 'unknown'));
+  // If this happened while we were already seated at a table (i.e. this
+  // was a reconnect attempt, not an initial join from the landing
+  // screen), the table is genuinely gone server-side -- leaving the
+  // player stuck looking at a frozen table they can no longer interact
+  // with is worse than just taking them home with an explanation.
+  if (myTableId) {
+    myTableId = null; myPos = null; myPlayerId = null; latestState = null;
+    showScreen('landingScreen');
+    socket.emit('poker_listRooms');
+    toast('⚠️ That table is no longer available — it may have closed or the server restarted.');
+  }
+});
+
+socket.on('poker_joined', (info) => {
+  myPos = info.pos; myPlayerId = info.playerId; myTableId = info.tableId; isHost = info.isHost;
+  try {
+    localStorage.setItem('holdem_player_id', info.playerId);
+    localStorage.setItem('holdem_table_id', info.tableId);
+    localStorage.setItem('holdem_session_time', String(Date.now()));
+  } catch (e) {}
+});
+
+// ---------------- State rendering ----------------
+socket.on('poker_state', (state) => {
+  latestState = state;
+  isHost = !!state.isHost;
+  if (state.phase === 'lobby') renderLobby(state);
+  else renderGameTable(state);
+});
+
+function renderLobby(state) {
+  showScreen('lobbyScreen');
+  $('lobbyCode').textContent = state.tableId;
+  const seats = state.seats.map((s, i) => s ? `<div class="table-row"><span>${i + 1}. ${escapeHtml(s.name)}${s.isBot ? ' 🤖' : ''}${i === myPos ? ' (you)' : ''}</span><span style="color:var(--gold)">${s.chips}</span></div>` : `<div class="table-row" style="opacity:0.4"><span>${i + 1}. Empty</span></div>`).join('');
+  $('lobbySeatList').innerHTML = seats;
+  $('hostControls').classList.toggle('hidden', !isHost);
+  if (isHost) {
+    const openCount = state.seats.filter(s => !s).length;
+    $('botFillOpts').innerHTML = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter(n => n <= openCount).map(n => `<div class="opt-btn${n === Math.min(3, openCount) ? ' active' : ''}" data-n="${n}">${n}</div>`).join('');
+    $('botFillOpts').querySelectorAll('.opt-btn').forEach(b => b.addEventListener('click', () => {
+      $('botFillOpts').querySelectorAll('.opt-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    }));
+  }
+  const occupied = state.seats.filter(Boolean).length;
+  $('waitingNote').textContent = isHost ? '' : `Waiting for host to start — ${occupied}/9 seated.`;
+}
+$('btnStartHand').addEventListener('click', () => {
+  const activeBtn = document.querySelector('#botFillOpts .opt-btn.active');
+  const n = activeBtn ? Number(activeBtn.dataset.n) : 0;
+  socket.emit('poker_fillBots', { count: n });
+  setTimeout(() => socket.emit('poker_startHand'), 250);
+});
+
+// Layout 9 seats evenly around an oval, seat 0 (or "my seat" rotated to
+// bottom) at the bottom-center, same viewer-relative convention the
+// other tables in this project use.
+function seatPositions() {
+  const positions = [];
+  const cx = 50, cy = 50, rx = 42, ry = 40;
+  for (let i = 0; i < 9; i++) {
+    const angle = (Math.PI / 2) + (i * 2 * Math.PI / 9);
+    positions.push({ x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) });
+  }
+  return positions;
+}
+function slotFor(pos) { return myPos === null ? pos : (pos - myPos + 9) % 9; }
+
+function renderGameTable(state) {
+  showScreen('gameScreen');
+  $('handNumDisplay').textContent = 'Hand ' + state.handNumber;
+  $('blindsDisplay').textContent = state.smallBlind + '/' + state.bigBlind + (state.buyInType === 'fixed' ? ' fixed' : ' NL');
+  const potTotal = state.pots.reduce((s, p) => s + p.amount, 0);
+  $('potDisplay').innerHTML = (potTotal > 0 ? chipHtml(potTotal) : '') + 'Pot: ' + potTotal + (state.currentBet > 0 ? ` · Bet: ${state.currentBet}` : '');
+  $('boardArea').innerHTML = state.board.map(c => cardHtml(c, false)).join('') || '<span style="opacity:0.4;font-size:0.7rem">— waiting for flop —</span>';
+
+  const positions = seatPositions();
+  const seatsEl = $('seatsContainer');
+  const isNewShowdownReveal = state.phase === 'handEnd' && state.showdownResult && state.showdownResult.boardShown && state.handNumber !== lastCardRevealAnimatedFor;
+  seatsEl.innerHTML = state.seats.map((s, pos) => {
+    if (!s) return '';
+    const slot = slotFor(pos);
+    const p = positions[slot];
+    const isActive = state.currentPlayer === pos && state.phase !== 'handEnd';
+    const revealingNow = isNewShowdownReveal && pos !== myPos && !s.folded && s.hand.length && s.hand[0] && s.hand[0].rank;
+    const cardsHtml = s.folded
+      ? '' // no cards shown at all once folded -- the FOLDED tag below says why
+      : (pos === myPos
+        ? '' // full-size cards already shown in the hand strip below -- no need to duplicate them here too
+        : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
+    return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
+      <div class="seat-avatar-wrap">
+        ${isActive ? `<div class="turn-tag">${pos === myPos ? 'YOUR TURN' : 'TURN'}</div>` : ''}
+        <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
+        ${pos === state.dealerSeat ? '<div class="dealer-chip">D</div>' : ''}
+        ${s.allIn ? '<div class="allin-tag">ALL-IN</div>' : ''}
+      </div>
+      <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
+      <div class="seat-chips">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
+      <div class="seat-cards">${s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml}</div>
+      ${s.bettedThisRound > 0 && !s.folded ? `<div class="seat-bet">${chipHtml(s.bettedThisRound, true)}${s.bettedThisRound}</div>` : ''}
+    </div>`;
+  }).join('');
+  if (isNewShowdownReveal) lastCardRevealAnimatedFor = state.handNumber;
+
+  const mySeat = state.seats[myPos];
+  $('myHandStrip').innerHTML = mySeat && mySeat.hand.length ? mySeat.hand.map(c => cardHtml(c, false)).join('') : '';
+  $('myHandLabel').textContent = state.myHandName ? `You have: ${state.myHandName}` : '';
+
+  renderActionBar(state);
+  renderLogPanel(state);
+  renderStreetBanner(state);
+
+  // The table already shows the real showdown -- cards flip face-up at
+  // each seat, chips fly to the winner. A popup then grows directly out
+  // of the pot's own position to announce the winner, so the whole
+  // sequence reads as one connected moment instead of separate effects,
+  // plus a small persistent on-table reminder that stays up longer.
+  if (state.phase === 'handEnd' && state.showdownResult && state.handNumber !== lastShownWinnerBannerFor) {
+    lastShownWinnerBannerFor = state.handNumber;
+    setTimeout(() => animateChipsToWinners(state), 900);
+    setTimeout(() => showWinnerPopup(state), 1500);
+    setTimeout(() => showWinnerBanner(state), 1000);
+  }
+}
+
+let lastShownWinnerBannerFor = null;
+
+// Grows directly out of the pot's actual on-screen position, so the
+// announcement reads as a continuation of the chips that just flew
+// there rather than a separate, disconnected effect.
+function showWinnerPopup(state) {
+  const r = state.showdownResult;
+  const popup = $('winnerPopup');
+  const potEl = $('potDisplay');
+  if (!popup || !r || !r.winners || !r.winners.length) return;
+
+  const potRect = potEl.getBoundingClientRect();
+  const potX = potRect.left + potRect.width / 2;
+  const potY = potRect.top + potRect.height / 2;
+
+  const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+  const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
+  $('winnerPopupTitle').textContent = `🏆 ${names} wins!`;
+  $('winnerPopupSub').textContent = r.boardShown
+    ? `${totalWon} chips with ${r.winners[0].handName}`
+    : `${totalWon} chips — everyone else folded`;
+  $('winnerPopupCards').innerHTML = (r.boardShown && r.winners[0].hand)
+    ? r.winners[0].hand.map(c => cardHtml(c, false)).join('')
+    : '';
+
+  // Position the popup at a fixed, readable spot (screen center-ish),
+  // then set its transform-origin to wherever the pot actually is
+  // relative to that -- the scale-up animation then visibly emerges
+  // from the pot's exact position no matter where it sits on any given
+  // screen size. Only left/top/transform-origin are set inline here --
+  // transform itself is left entirely to the CSS class below, since an
+  // inline transform would permanently override the class's own
+  // transform rule and the popup would never actually animate.
+  popup.style.left = '50%';
+  popup.style.top = '38%';
+  popup.classList.remove('on');
+  // Force layout so the browser registers the reset before measuring.
+  void popup.offsetWidth;
+  const popupRect = popup.getBoundingClientRect();
+  const originX = potX - popupRect.left;
+  const originY = potY - popupRect.top;
+  popup.style.transformOrigin = `${originX}px ${originY}px`;
+  popup.classList.add('on');
+}
+$('btnAckWinnerPopup').addEventListener('click', () => {
+  $('winnerPopup').classList.remove('on');
+});
+function showWinnerBanner(state) {
+  const r = state.showdownResult;
+  const el = $('winnerBanner');
+  if (!el || !r || !r.winners || !r.winners.length) return;
+  const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+  const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
+  const handPart = r.boardShown ? ` with ${r.winners[0].handName}` : ' — everyone else folded';
+  el.textContent = `🏆 ${names} wins ${totalWon}${handPart}`;
+  el.style.display = 'block';
+}
+
+function renderActionBar(state) {
+  const bar = $('actionBar');
+  const mySeat = state.seats[myPos];
+  if (!mySeat || mySeat.folded || state.currentPlayer !== myPos || state.phase === 'handEnd') {
+    bar.innerHTML = `<div style="text-align:center;opacity:0.6;font-size:0.8rem;padding:10px">${state.currentPlayer !== myPos && state.phase !== 'handEnd' ? 'Waiting for ' + (state.seats[state.currentPlayer] ? escapeHtml(state.seats[state.currentPlayer].name) : '...') : ''}</div>`;
+    return;
+  }
+  const toCall = state.currentBet - mySeat.bettedThisRound;
+  const canCheck = toCall <= 0;
+  const maxBet = mySeat.chips + mySeat.bettedThisRound;
+  const minBet = Math.min(maxBet, state.currentBet + Math.max(state.minRaise, state.bigBlind));
+
+  let html = '<div class="action-row">';
+  html += `<button class="action-btn action-fold" onclick="sendAction('fold')">Fold</button>`;
+  html += canCheck
+    ? `<button class="action-btn action-check" onclick="sendAction('check')">Check</button>`
+    : `<button class="action-btn action-call" onclick="sendAction('call')">Call ${Math.min(toCall, mySeat.chips)}</button>`;
+  html += `<button class="action-btn action-bet" onclick="sendAction('allin')">All-In</button>`;
+  html += '</div>';
+
+  if (state.buyInType === 'fixed') {
+    html += `<button class="action-btn action-bet" style="width:100%" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}')">${state.currentBet > 0 ? 'Raise to ' + (state.currentBet + state.bigBlind) : 'Bet ' + state.bigBlind}</button>`;
+  } else if (maxBet > minBet) {
+    html += `<div class="amount-row">
+      <button class="stepper-btn" onclick="adjustBetAmount(-${state.bigBlind})">−</button>
+      <input type="range" id="betSlider" min="${minBet}" max="${maxBet}" step="${state.bigBlind}" value="${minBet}">
+      <button class="stepper-btn" onclick="adjustBetAmount(${state.bigBlind})">+</button>
+      <span class="amount-val" id="betAmountVal">${minBet}</span>
+    </div>
+    <button class="action-btn action-bet" style="width:100%;margin-top:8px" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}', Number(document.getElementById('betSlider').value))">${state.currentBet > 0 ? 'Raise' : 'Bet'}</button>`;
+  }
+  bar.innerHTML = html;
+  const slider = $('betSlider');
+  if (slider) slider.addEventListener('input', () => { $('betAmountVal').textContent = slider.value; });
+}
+function adjustBetAmount(delta) {
+  const slider = $('betSlider');
+  if (!slider) return;
+  slider.value = Math.max(Number(slider.min), Math.min(Number(slider.max), Number(slider.value) + delta));
+  $('betAmountVal').textContent = slider.value;
+}
+function sendAction(action, amount) {
+  socket.emit('poker_act', { action, amount });
+}
+socket.on('poker_actionError', (info) => toast('❌ ' + (info.reason || 'action failed').replace(/_/g, ' ')));
+
+// A brief, unmistakable "FLOP! / TURN! / RIVER!" banner whenever new
+// community cards are revealed -- deliberately NOT on a fixed timer.
+// It stays up until something else actually happens (the next logged
+// action), same "stays till the next thing happens" rule as the
+// hand-end popup, just applied to street transitions instead.
+let lastBoardLenForBanner = 0;
+let streetBannerShownAtLogText = null;
+function renderStreetBanner(state) {
+  const el = $('streetBanner');
+  const boardLen = state.board.length;
+  if (boardLen > lastBoardLenForBanner) {
+    const label = boardLen === 3 ? '🂡 FLOP!' : boardLen === 4 ? '🂡 TURN!' : boardLen === 5 ? '🂡 RIVER!' : null;
+    if (label) {
+      el.textContent = label;
+      el.classList.add('on');
+      streetBannerShownAtLogText = (state.log[0] && state.log[0].text) || null;
+    }
+    // The last-hand winner display's whole purpose is to stay up as a
+    // reminder while a new hand deals -- once the flop actually lands,
+    // that reminder has served its purpose and the felt needs the room.
+    if (boardLen === 3) $('winnerBanner').style.display = 'none';
+  }
+  lastBoardLenForBanner = boardLen;
+  if (boardLen === 0) { el.classList.remove('on'); streetBannerShownAtLogText = null; }
+
+  // Hide once a genuinely new action has happened since the banner
+  // appeared (the top of the log has moved on from what it was then).
+  if (streetBannerShownAtLogText !== null) {
+    const currentTop = (state.log[0] && state.log[0].text) || null;
+    if (currentTop !== streetBannerShownAtLogText) {
+      el.classList.remove('on');
+      streetBannerShownAtLogText = null;
+    }
+  }
+}
+
+function renderLogPanel(state) {
+  $('logEntries').innerHTML = state.log.map(l => `<div class="log-entry">${escapeHtml(l.text)}</div>`).join('');
+}
+$('btnShowLog').addEventListener('click', () => {
+  $('logPanel').classList.add('on');
+  $('logPanelBackdrop').classList.add('on');
+});
+$('btnCloseLog').addEventListener('click', () => {
+  $('logPanel').classList.remove('on');
+  $('logPanelBackdrop').classList.remove('on');
+});
+$('logPanelBackdrop').addEventListener('click', () => {
+  $('logPanel').classList.remove('on');
+  $('logPanelBackdrop').classList.remove('on');
+});
+
+$('btnLeaveTable').addEventListener('click', () => {
+  if (!confirm('Leave this table? Your seat will open up for someone else, and any progress in this hand will be lost.')) return;
+  socket.emit('poker_leaveTable');
+  myTableId = null; myPos = null; myPlayerId = null;
+  try {
+    localStorage.removeItem('holdem_player_id');
+    localStorage.removeItem('holdem_table_id');
+    localStorage.removeItem('holdem_session_time');
+  } catch (e) {}
+  showScreen('landingScreen');
+  socket.emit('poker_listRooms');
+});
+</script>
+</body>
+</html>

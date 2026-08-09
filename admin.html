@@ -26,6 +26,14 @@
   .card .del{margin-top:10px;background:transparent;border:1px solid rgba(255,92,92,0.4);color:var(--danger);border-radius:8px;padding:6px 10px;font-size:0.72rem}
   .empty{color:var(--text2);text-align:center;padding:40px 10px;font-size:0.85rem}
   .err{color:var(--danger);font-size:0.8rem;text-align:center;margin-top:8px;display:none}
+  .tabs{display:flex;gap:8px;margin-bottom:14px}
+  .tab{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-weight:700;font-size:0.82rem}
+  .tab.on{background:linear-gradient(135deg,#f4c430,#e6a817);color:#0a1628;border-color:transparent}
+  .live-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .live-card .who{font-weight:800;color:#fff;font-size:0.88rem}
+  .live-card .where{color:var(--text2);font-size:0.72rem;margin-top:2px}
+  .live-card .game-badge{background:rgba(244,196,48,0.15);color:var(--accent);font-size:0.68rem;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap}
+  .live-card.disconnected{opacity:0.5}
 </style>
 </head>
 <body>
@@ -40,10 +48,37 @@
   </div>
 
   <div id="panel" style="display:none">
-    <div class="toolbar">
-      <button class="btn ghost" id="btnRefresh">🔄 Refresh</button>
+    <div class="tabs">
+      <button class="tab on" id="tabComments">💌 Comments</button>
+      <button class="tab" id="tabLive">🟢 Live Players</button>
+      <button class="tab" id="tabVisitors">📊 Visitor Log</button>
     </div>
-    <div id="list"></div>
+    <div id="commentsView">
+      <div class="toolbar">
+        <button class="btn ghost" id="btnRefresh">🔄 Refresh</button>
+      </div>
+      <div id="list"></div>
+    </div>
+    <div id="liveView" style="display:none">
+      <div class="toolbar">
+        <span class="sub" id="liveCount" style="margin:0;align-self:center">—</span>
+        <button class="btn ghost" id="btnRefreshLive">🔄 Refresh</button>
+      </div>
+      <div id="liveList"></div>
+    </div>
+    <div id="visitorsView" style="display:none">
+      <div class="toolbar">
+        <button class="btn ghost" id="btnRefreshVisitors">🔄 Refresh</button>
+      </div>
+      <div id="visitorSummary" style="display:flex;gap:8px;margin-bottom:12px"></div>
+      <div id="visitorFilters" class="tabs" style="margin-bottom:12px">
+        <button class="tab on" data-filter="today">Today</button>
+        <button class="tab" data-filter="week">This Week</button>
+        <button class="tab" data-filter="month">This Month</button>
+        <button class="tab" data-filter="all">All Time</button>
+      </div>
+      <div id="visitorList"></div>
+    </div>
   </div>
 </div>
 
@@ -101,6 +136,129 @@ function render(list) {
 document.getElementById('btnEnter').addEventListener('click', unlock);
 document.getElementById('pwd').addEventListener('keydown', (e) => { if (e.key === 'Enter') unlock(); });
 document.getElementById('btnRefresh').addEventListener('click', refresh);
+
+// ---------------- Live players (who's currently connected, and where from) ----------------
+let liveRefreshInterval = null;
+
+function switchTab(tab) {
+  document.getElementById('tabComments').classList.toggle('on', tab === 'comments');
+  document.getElementById('tabLive').classList.toggle('on', tab === 'live');
+  document.getElementById('tabVisitors').classList.toggle('on', tab === 'visitors');
+  document.getElementById('commentsView').style.display = tab === 'comments' ? 'block' : 'none';
+  document.getElementById('liveView').style.display = tab === 'live' ? 'block' : 'none';
+  document.getElementById('visitorsView').style.display = tab === 'visitors' ? 'block' : 'none';
+  if (tab === 'live') {
+    refreshLivePlayers();
+    if (!liveRefreshInterval) liveRefreshInterval = setInterval(refreshLivePlayers, 5000);
+  } else if (liveRefreshInterval) {
+    clearInterval(liveRefreshInterval);
+    liveRefreshInterval = null;
+  }
+  if (tab === 'visitors') refreshVisitorLog();
+}
+
+async function refreshLivePlayers() {
+  const res = await fetch('/api/live-players?password=' + encodeURIComponent(PASSWORD));
+  if (!res.ok) return;
+  const data = await res.json();
+  renderLivePlayers(data.players || []);
+}
+
+function renderLivePlayers(players) {
+  const el = document.getElementById('liveList');
+  const countEl = document.getElementById('liveCount');
+  const connectedCount = players.filter(p => p.connected).length;
+  countEl.textContent = `${connectedCount} connected · ${players.length} seated`;
+  if (!players.length) { el.innerHTML = '<div class="empty">Nobody seated at any table right now.</div>'; return; }
+  // De-duplicate to one row per table (players array is per-seat) so the
+  // close button appears once per table, not once per person at it.
+  const byTable = new Map();
+  for (const p of players) {
+    if (!byTable.has(p.tableId)) byTable.set(p.tableId, { game: p.game, tableId: p.tableId, people: [] });
+    byTable.get(p.tableId).people.push(p);
+  }
+  el.innerHTML = Array.from(byTable.values()).map(t => `
+    <div class="live-card" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="game-badge">${esc(t.game)} · table ${esc(t.tableId)}</span>
+        <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem" onclick="closeTable('${esc(t.tableId)}')">✕ Close table</button>
+      </div>
+      ${t.people.map(p => `<div class="who" style="font-size:0.8rem">${esc(p.name)}${p.connected ? '' : ' (disconnected)'} — 📍 ${esc(p.location)}</div>`).join('')}
+    </div>
+  `).join('');
+}
+
+async function closeTable(tableId) {
+  if (!confirm(`Force-close table ${tableId}? Everyone there gets sent home immediately, no matter what's happening.`)) return;
+  const res = await fetch('/api/admin/close-table', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: PASSWORD, tableId })
+  });
+  const data = await res.json();
+  if (data.ok) { alert(`Closed ${data.game} table ${data.tableId}.`); refreshLivePlayers(); }
+  else alert('Could not close that table: ' + (data.error || 'unknown error'));
+}
+
+document.getElementById('tabComments').addEventListener('click', () => switchTab('comments'));
+document.getElementById('tabLive').addEventListener('click', () => switchTab('live'));
+document.getElementById('tabVisitors').addEventListener('click', () => switchTab('visitors'));
+document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
+
+// ---------------- Visitor log (everyone who's ever visited, with location and time) ----------------
+let visitorFilter = 'today';
+
+async function refreshVisitorLog() {
+  const res = await fetch('/api/visitor-log?password=' + encodeURIComponent(PASSWORD) + '&filter=' + encodeURIComponent(visitorFilter));
+  if (!res.ok) return;
+  const data = await res.json();
+  renderVisitorLog(data.entries || [], data.summary || {});
+}
+
+function renderVisitorLog(entries, summary) {
+  const summaryEl = document.getElementById('visitorSummary');
+  summaryEl.innerHTML = `
+    <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
+      <span class="who" style="font-size:1.1rem">${summary.today ?? 0}</span>
+      <span class="where">today</span>
+    </div>
+    <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
+      <span class="who" style="font-size:1.1rem">${summary.week ?? 0}</span>
+      <span class="where">this week</span>
+    </div>
+    <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
+      <span class="who" style="font-size:1.1rem">${summary.month ?? 0}</span>
+      <span class="where">this month</span>
+    </div>
+    <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
+      <span class="who" style="font-size:1.1rem">${summary.all ?? 0}</span>
+      <span class="where">all time</span>
+    </div>
+  `;
+  const listEl = document.getElementById('visitorList');
+  if (!entries.length) { listEl.innerHTML = '<div class="empty">No visits logged for this period.</div>'; return; }
+  listEl.innerHTML = entries.map(e => {
+    const location = [e.city, e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+    return `
+      <div class="live-card">
+        <div>
+          <div class="who">${esc(e.ip || 'unknown IP')}</div>
+          <div class="where">📍 ${esc(location)}</div>
+        </div>
+        <div class="time">${esc(fmtTime(e.ts))}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+document.getElementById('btnRefreshVisitors').addEventListener('click', refreshVisitorLog);
+document.getElementById('visitorFilters').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-filter]');
+  if (!btn) return;
+  visitorFilter = btn.dataset.filter;
+  [...document.getElementById('visitorFilters').children].forEach(b => b.classList.toggle('on', b === btn));
+  refreshVisitorLog();
+});
 </script>
 </body>
 </html>
