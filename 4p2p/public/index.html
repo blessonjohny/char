@@ -955,6 +955,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   animation: infoPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* Round=gold, Dealer=green, Bidder=orange, Team=green, Opp=red — both the
+   label word and its live value take the color; pop-anim / glow animations
+   above are untouched since they only animate transform/text-shadow. */
+#roundLabel, #roundNum { color: #ffd700; }
+#dealerLabel, #dealerDisplay { color: #4ade80; }
+#bidderLabel, #bidderDisplay { color: #ffa64d; }
+#yourTricksLabel, #yourTricks { color: #4ade80; }
+#oppTricksLabel, #oppTricks { color: #f87171; }
+
 .info-val.bid-team-green {
   color: var(--success) !important;
   animation: infoGlowGreen 2s ease-in-out infinite;
@@ -2836,11 +2845,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <div class="game-wrap" id="gameWrap">
   <div class="info-bar" id="infoBar">
     <div class="info-row info-main">
-      <span class="info-item"><span class="info-label">Round</span><span class="info-val" id="roundNum">1</span></span>
+      <span class="info-item"><span class="info-label" id="roundLabel">Round</span><span class="info-val" id="roundNum">1</span></span>
       <span class="info-sep">·</span>
-      <span class="info-item"><span class="info-label">Dealer</span><span class="info-val" id="dealerDisplay">—</span></span>
+      <span class="info-item"><span class="info-label" id="dealerLabel">Dealer</span><span class="info-val" id="dealerDisplay">—</span></span>
       <span class="info-sep">·</span>
-      <span class="info-item"><span class="info-label">Bidder</span><span class="info-val" id="bidderDisplay">—</span></span>
+      <span class="info-item"><span class="info-label" id="bidderLabel">Bidder</span><span class="info-val" id="bidderDisplay">—</span></span>
       <span class="info-sep">·</span>
       <span class="info-item"><span class="info-label" id="yourTricksLabel">Team</span><span class="info-val" id="yourTricks">0</span></span>
       <span class="info-sep">·</span>
