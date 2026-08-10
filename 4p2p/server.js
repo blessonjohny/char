@@ -1559,6 +1559,25 @@ io.on('connection', (socket) => {
       touch(t);
       broadcastTable(t);
     }
+    // Deliberate leave (the actual 'leaveTable' event, sent only by the
+    // in-app red X / "Leave Table" confirmation) AND, after the seat
+    // handling above, not a single real (non-bot) player is left seated
+    // anywhere at this table -- only bots or empty seats remain. This is
+    // the ONE case that actually closes the table right now: an explicit
+    // leave is an unambiguous "I'm done", not a network blip, so there is
+    // no reconnect window worth preserving. A silent disconnect (lost
+    // signal, closed tab, backgrounding) NEVER reaches this branch --
+    // explicitLeave is only true for a real 'leaveTable' emit, never for
+    // the plain socket 'disconnect' handler -- so losing connection still
+    // leaves the table exactly as-is for a reconnect, same as before,
+    // regardless of whether other real players remain.
+    if (explicitLeave && !t.engine.seats.some(s => s && !s.isBot)) {
+      io.to(tableId).emit('tableClosed', { reason: 'lastPlayerLeft' });
+      delete tables[tableId];
+      io.emit('roomList', publicTableList());
+      console.log(`[table ${tableId}] closed — last real player explicitly left via Leave Table`);
+      return;
+    }
     if (!t.engine.seats.some(Boolean)) {
       // Table just became fully empty (last occupant disconnected, or
       // explicitly left the lobby). Per explicit instruction, don't
@@ -2006,6 +2025,23 @@ io.on('connection', (socket) => {
       if (leavingPlayerId) delete sixpPlayerIndex[leavingPlayerId];
       sixpTouch(t);
       sixpBroadcastTable(t);
+      // Deliberate leave (this handler only fires for the actual
+      // 'sixp_leaveTable' emit, sent by the red X / "Leave Table"
+      // confirmation -- never by a silent disconnect, see the separate
+      // 'disconnect' handler below) AND, after the seat handling above,
+      // not a single real (non-bot) player is left seated anywhere at
+      // this table. Mirrors the identical 4-player fix: this is the one
+      // case that closes the table right now, since an explicit leave
+      // means there's nothing left worth keeping a reconnect window open
+      // for. A network drop still preserves the table exactly as before,
+      // regardless of how many real players remain.
+      if (!t.engine.seats.some(s => s && !s.isBot)) {
+        io.to('sixp_' + sixpTableId).emit('sixp_tableClosed', { reason: 'lastPlayerLeft' });
+        delete sixpTables[sixpTableId];
+        io.emit('sixp_roomList', sixpPublicTableList());
+        console.log(`[6p table ${sixpTableId}] closed — last real player explicitly left via Leave Table`);
+        return;
+      }
       if (!t.engine.seats.some(Boolean)) {
         scheduleEmptyTableGrace(sixpTables, sixpTableId, 'sixp_roomList', sixpPublicTableList);
       }
