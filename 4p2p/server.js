@@ -684,6 +684,21 @@ function parseUserAgent(ua) {
   return { device, os, browser };
 }
 
+// geoip-lite returns region as a short subdivision code ("CA", "ON", not
+// "California"/"Ontario") -- this spells out the common ones so the
+// dashboard reads like a place, not an abbreviation. Anything not in here
+// (most of the world) just falls back to showing the raw code as-is,
+// rather than guessing -- better an honest "TX" than a wrong guess.
+const REGION_NAMES = {
+  US: { AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',PR:'Puerto Rico' },
+  CA: { AB:'Alberta',BC:'British Columbia',MB:'Manitoba',NB:'New Brunswick',NL:'Newfoundland and Labrador',NS:'Nova Scotia',NT:'Northwest Territories',NU:'Nunavut',ON:'Ontario',PE:'Prince Edward Island',QC:'Quebec',SK:'Saskatchewan',YT:'Yukon' },
+};
+function fullRegionName(countryCode, regionCode) {
+  if (!regionCode) return null;
+  const table = REGION_NAMES[countryCode];
+  return (table && table[regionCode]) || regionCode;
+}
+
 function logVisitor(socket) {
   const ip = clientIpFor(socket);
   const geo = ip ? geoip.lookup(ip) : null;
@@ -700,8 +715,15 @@ function logVisitor(socket) {
     ip,
     country: geo ? geo.country : null,
     region: geo ? geo.region : null,
+    regionName: geo ? fullRegionName(geo.country, geo.region) : null,
     city: geo ? geo.city : null,
     timezone: geo ? geo.timezone : null,
+    // Approximate coordinates from the IP lookup -- this is a rough,
+    // often city-center-level estimate, not the person's exact location.
+    // geoip-lite returns [null, null] when it has no location at all for
+    // that IP, so that case is normalized to just leaving both out.
+    lat: (geo && geo.ll && geo.ll[0] != null) ? geo.ll[0] : null,
+    lon: (geo && geo.ll && geo.ll[1] != null) ? geo.ll[1] : null,
     device, os, browser,
     language,
     referrer,
