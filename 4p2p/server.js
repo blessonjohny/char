@@ -24,6 +24,7 @@
 // ============================================================
 
 const express = require('express');
+const helmet = require('helmet');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
@@ -78,6 +79,95 @@ const PORT = process.env.PORT || 9000;
 // instead of the actual visitor, which would make the location tracking
 // below useless.
 app.set('trust proxy', true);
+
+// Adds a batch of standard protective HTTP headers (clickjacking
+// protection, MIME-sniffing protection, hiding the "X-Powered-By:
+// Express" fingerprint, etc). Content-Security-Policy and
+// Cross-Origin-Embedder-Policy are turned off deliberately -- this app
+// is one big HTML file relying heavily on inline <script> tags and
+// inline onclick="..." handlers throughout, plus cross-origin sockets
+// (the separate Carrom server). Helmet's default CSP blocks inline
+// scripts and would break the entire game; COEP can block legitimate
+// cross-origin connections. Every other protection Helmet adds stays on.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+// Reads the admin password from the 'x-admin-password' request header
+// instead of a URL query string (?password=...). A URL is the wrong place
+// for a secret: it commonly ends up written into server access logs,
+// proxy logs, and browser history in plain text, all just from loading
+// the page normally. A header is never included in any of those by
+// default. req.query.password is still accepted as a fallback purely so
+// an old cached copy of admin.html (or any other client) doesn't
+// instantly break the moment this deploys -- new requests should use the
+// header, and this fallback can be deleted later once nothing old is
+// left calling these endpoints the previous way.
+function adminPasswordFrom(req) {
+  return req.get('x-admin-password') || req.query.password || (req.body && req.body.password);
+}
+
+// ============================================================
+// ADMIN RATE LIMITING — 5 wrong password attempts within 15 minutes from
+// the same IP blocks that IP from even trying again for 15 minutes.
+// Resets itself automatically; nothing to unlock manually. A correct
+// password immediately clears an IP's attempt count. Shared by every
+// admin check below, both the REST endpoints and the Socket.IO admin
+// events -- there's no accounts/sessions here, so IP is the only thing
+// to key attempts on.
+// ============================================================
+const ADMIN_RATE_LIMIT_MAX = 5;
+const ADMIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const adminAttempts = new Map(); // ip -> { count, firstAttemptAt, blockedUntil }
+
+function adminBlockedMsRemaining(ip) {
+  const rec = adminAttempts.get(ip);
+  if (!rec || !rec.blockedUntil) return 0;
+  const remaining = rec.blockedUntil - Date.now();
+  if (remaining <= 0) { adminAttempts.delete(ip); return 0; }
+  return remaining;
+}
+
+function recordAdminAttempt(ip, success) {
+  if (success) { adminAttempts.delete(ip); return; }
+  const now = Date.now();
+  let rec = adminAttempts.get(ip);
+  if (!rec || now - rec.firstAttemptAt > ADMIN_RATE_LIMIT_WINDOW_MS) {
+    rec = { count: 0, firstAttemptAt: now, blockedUntil: null };
+  }
+  rec.count++;
+  if (rec.count >= ADMIN_RATE_LIMIT_MAX) rec.blockedUntil = now + ADMIN_RATE_LIMIT_WINDOW_MS;
+  adminAttempts.set(ip, rec);
+}
+
+// REST version: checks the rate limit, then the password, records the
+// attempt either way, and writes the HTTP response itself on failure.
+// Returns true only when the caller should proceed.
+function checkAdminAuth(req, res) {
+  const ip = req.ip;
+  const blockedMs = adminBlockedMsRemaining(ip);
+  if (blockedMs > 0) {
+    res.status(429).json({ ok: false, error: 'too_many_attempts', retryAfterMs: blockedMs });
+    return false;
+  }
+  const ok = adminPasswordFrom(req) === ADMIN_SECRET;
+  recordAdminAttempt(ip, ok);
+  if (!ok) res.status(401).json({ ok: false, error: 'bad_password' });
+  return ok;
+}
+
+// Socket.IO version: same rate limit/attempt recording, but returns a
+// small {ok, reason} result instead of writing a response, since each
+// admin socket event has its own ack event name/shape to emit back.
+function checkAdminAuthSocket(socket, password) {
+  const ip = socket.handshake.address;
+  const blockedMs = adminBlockedMsRemaining(ip);
+  if (blockedMs > 0) return { ok: false, reason: 'too_many_attempts' };
+  const ok = password === ADMIN_SECRET;
+  recordAdminAttempt(ip, ok);
+  return { ok, reason: ok ? null : 'wrong_password' };
+}
 
 // Browsers (especially mobile) cache static files aggressively by default,
 // which means a redeploy can silently NOT reach a returning player — they
@@ -286,7 +376,7 @@ app.get('/api/comments', (req, res) => {
 });
 
 app.delete('/api/comments/:id', (req, res) => {
-  if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  if (!checkAdminAuth(req, res)) return;
   comments = comments.filter(c => c.id !== req.params.id);
   commentsDirty = true;
   markCommentsDirtyForGithub();
@@ -603,7 +693,8 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => socketLocations.delete(socket.id));
 
   socket.on('adminGetVisitorLog', ({ adminPassword, filter }) => {
-    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'visitorLog', reason: 'wrong_password' }); return; }
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) { socket.emit('adminActionResult', { ok: false, action: 'visitorLog', reason: auth.reason }); return; }
     const { entries, summary } = visitorLogFilteredAndSummary(filter || 'all');
     socket.emit('adminVisitorLog', { entries, summary, filter: filter || 'all' });
   });
@@ -651,7 +742,7 @@ function getAllLivePlayers() {
 }
 
 app.get('/api/live-players', (req, res) => {
-  if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  if (!checkAdminAuth(req, res)) return;
   res.json({ ok: true, players: getAllLivePlayers() });
 });
 
@@ -662,7 +753,7 @@ app.get('/api/live-players', (req, res) => {
 // exposed as a REST endpoint too since that's what this page actually
 // calls.
 app.get('/api/visitor-log', (req, res) => {
-  if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  if (!checkAdminAuth(req, res)) return;
   const { entries, summary } = visitorLogFilteredAndSummary(req.query.filter || 'all');
   res.json({ ok: true, entries, summary });
 });
@@ -674,7 +765,7 @@ app.get('/api/visitor-log', (req, res) => {
 // in turn since the admin panel doesn't need to know which game a given
 // ID belongs to.
 app.post('/api/admin/close-table', (req, res) => {
-  if (req.body.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  if (!checkAdminAuth(req, res)) return;
   const id = String(req.body.tableId || '').trim();
   if (!id) return res.status(400).json({ ok: false, error: 'missing_table_id' });
   let closed = null;
@@ -737,7 +828,7 @@ function totalActiveRooms() { return Object.keys(tables).length + Object.keys(si
 // this lock feature actually lives in — so it works out of the box, but
 // can be overridden per-deployment via an environment variable without
 // touching either file.
-let ADMIN_SECRET = process.env.ADMIN_SECRET || '0000';
+let ADMIN_SECRET = process.env.ADMIN_SECRET || '5252';
 // In-memory only, on purpose -- resets to the env var/default on every
 // server restart or redeploy. That's the honest tradeoff of a password
 // you can change without editing files: there's no persistent store
@@ -966,7 +1057,8 @@ io.on('connection', (socket) => {
   // anyone who noticed the event name — the client's own password prompt
   // is a convenience, not the actual security boundary.
   socket.on('adminSetLock', ({ adminPassword, maxRooms }) => {
-    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'setLock', reason: 'wrong_password' }); return; }
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) { socket.emit('adminActionResult', { ok: false, action: 'setLock', reason: auth.reason }); return; }
     const n = parseInt(maxRooms, 10);
     roomCapMax = Number.isFinite(n) && n >= 0 ? Math.min(n, 50) : 3;
     roomCapEnabled = true;
@@ -976,7 +1068,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('adminClearLock', ({ adminPassword }) => {
-    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'clearLock', reason: 'wrong_password' }); return; }
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) { socket.emit('adminActionResult', { ok: false, action: 'clearLock', reason: auth.reason }); return; }
     roomCapEnabled = false;
     io.emit('lockStatus', { capped: false, maxRooms: roomCapMax, currentRooms: totalActiveRooms() });
     socket.emit('adminActionResult', { ok: true, action: 'clearLock' });
@@ -993,7 +1086,15 @@ io.on('connection', (socket) => {
   });
 
   socket.on('adminChangePassword', ({ adminPassword, newPassword }) => {
-    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminPasswordChangeResult', { ok: false, reason: 'wrong_current' }); return; }
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) {
+      // This event's existing contract uses 'wrong_current' specifically
+      // for a bad password (see the client's message map) -- translate
+      // checkAdminAuthSocket's generic reason to match that, but pass a
+      // rate-limit block through as-is.
+      socket.emit('adminPasswordChangeResult', { ok: false, reason: auth.reason === 'too_many_attempts' ? 'too_many_attempts' : 'wrong_current' });
+      return;
+    }
     const trimmed = String(newPassword || '').trim();
     if (trimmed.length < 4) { socket.emit('adminPasswordChangeResult', { ok: false, reason: 'too_short' }); return; }
     ADMIN_SECRET = trimmed;
@@ -2195,7 +2296,8 @@ io.on('connection', (socket) => {
 
   socket.emit('reveal56Policy', { disabled: reveal56Disabled });
   socket.on('admin56SetRevealDisabled', ({ adminPassword, disabled }) => {
-    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'reveal56', reason: 'wrong_password' }); return; }
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) { socket.emit('adminActionResult', { ok: false, action: 'reveal56', reason: auth.reason }); return; }
     reveal56Disabled = !!disabled;
     io.emit('reveal56Policy', { disabled: reveal56Disabled });
     socket.emit('adminActionResult', { ok: true, action: 'reveal56' });
