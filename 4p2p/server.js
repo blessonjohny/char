@@ -655,15 +655,57 @@ function clientIpFor(socket) {
   return socket.handshake.address || '';
 }
 
+// Lightweight, dependency-free User-Agent parsing -- just enough to show
+// "iPhone, Safari, mobile" instead of a raw UA string in the admin
+// dashboard. Not meant to be exhaustive (a real UA-parsing library would
+// catch far more edge cases), just enough for a quick human read.
+function parseUserAgent(ua) {
+  ua = ua || '';
+  let device = 'Desktop';
+  if (/iPad|Tablet(?!.*Mobile)/i.test(ua)) device = 'Tablet';
+  else if (/Mobi|Android|iPhone/i.test(ua)) device = 'Mobile';
+
+  let os = 'Unknown';
+  if (/Windows/i.test(ua)) os = 'Windows';
+  else if (/Android/i.test(ua)) os = 'Android';
+  else if (/iPhone|iPad|iPod/i.test(ua)) os = 'iOS';
+  else if (/Mac OS X/i.test(ua)) os = 'macOS';
+  else if (/Linux/i.test(ua)) os = 'Linux';
+
+  let browser = 'Unknown';
+  if (/Edg\//i.test(ua)) browser = 'Edge';
+  else if (/OPR\/|Opera/i.test(ua)) browser = 'Opera';
+  else if (/CriOS\//i.test(ua)) browser = 'Chrome (iOS)';
+  else if (/FxiOS\//i.test(ua)) browser = 'Firefox (iOS)';
+  else if (/Chrome\//i.test(ua) && !/Chromium/i.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+  else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+
+  return { device, os, browser };
+}
+
 function logVisitor(socket) {
   const ip = clientIpFor(socket);
   const geo = ip ? geoip.lookup(ip) : null;
+  const headers = socket.handshake.headers || {};
+  const { device, os, browser } = parseUserAgent(headers['user-agent']);
+  const language = (headers['accept-language'] || '').split(',')[0].trim() || null;
+  const referrer = headers['referer'] || headers['referrer'] || null;
+  // Best-effort "have we seen this IP before" -- checked against
+  // whatever's currently in the (capped, 90-day) log, not literally
+  // forever. Good enough to eyeball "is this a new person or someone
+  // who's been here before" without needing real accounts/cookies.
+  const returning = ip ? visitorLog.some(e => e.ip === ip) : false;
   const entry = {
     ip,
     country: geo ? geo.country : null,
     region: geo ? geo.region : null,
     city: geo ? geo.city : null,
     timezone: geo ? geo.timezone : null,
+    device, os, browser,
+    language,
+    referrer,
+    returning,
     ts: Date.now(),
     socketId: socket.id
   };
@@ -676,17 +718,29 @@ function logVisitor(socket) {
   return entry;
 }
 
+// Counts distinct IPs in a set of entries -- this is what "unique
+// visitors" should actually mean, as opposed to raw connection count
+// (which double-, triple-, etc-counts anyone who just refreshed the page
+// or opened a second tab, since each is a brand new socket connection).
+function uniqueIpCount(entries) {
+  const seen = new Set();
+  for (const e of entries) { if (e.ip) seen.add(e.ip); }
+  return seen.size;
+}
+
 function visitorLogFilteredAndSummary(filter) {
   const now = Date.now();
   const DAY = 24 * 60 * 60 * 1000;
   const cutoffs = { today: now - DAY, week: now - 7 * DAY, month: now - 30 * DAY, all: 0 };
   const cutoff = cutoffs[filter] !== undefined ? cutoffs[filter] : 0;
   const entries = visitorLog.filter(e => e.ts >= cutoff);
+  const bucket = (c) => visitorLog.filter(e => e.ts >= c);
+  const summarize = (list) => ({ visits: list.length, unique: uniqueIpCount(list) });
   const summary = {
-    today: visitorLog.filter(e => e.ts >= cutoffs.today).length,
-    week: visitorLog.filter(e => e.ts >= cutoffs.week).length,
-    month: visitorLog.filter(e => e.ts >= cutoffs.month).length,
-    all: visitorLog.length
+    today: summarize(bucket(cutoffs.today)),
+    week: summarize(bucket(cutoffs.week)),
+    month: summarize(bucket(cutoffs.month)),
+    all: summarize(visitorLog)
   };
   return { entries, summary };
 }
