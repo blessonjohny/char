@@ -5878,6 +5878,7 @@ let LEARNING_MODE_ENABLED = true;
 let sessionRoundXP = 0;
 let lastSeenLearningPulse = -1; // tracks the server's learningPulseCount so online mode can trigger the same visible feedback
 let lastSeenRoundForLearning = -1;
+let lastSeenServerTableTheme = -1; // tracks state.tableTheme so we only re-apply/pulse on an actual change
 const LEARNING_BAR_TARGET = 150; // a full bar represents a solid round's worth of learning
 let learningDotTimeout = null;
 
@@ -14195,6 +14196,13 @@ function applyServerState(state) {
   if (typeof state.round === 'number' && state.round !== lastSeenRoundForLearning) {
     lastSeenRoundForLearning = state.round;
     resetLearningProgressBar();
+  }
+  // Server picks the round's table felt color (see game-engine.js) and
+  // broadcasts it so every seat sees the same theme; apply it here the
+  // same way local/offline mode does, only when it actually changes.
+  if (typeof state.tableTheme === 'number' && state.tableTheme !== lastSeenServerTableTheme) {
+    lastSeenServerTableTheme = state.tableTheme;
+    applyTableThemeByIndex(state.tableTheme);
   }
   if (typeof state.round === 'number' && state.round !== lastAnnouncedHonorsRound) {
     lastAnnouncedHonorsRound = -1; // allow a fresh announcement once this round's bidding actually concludes
