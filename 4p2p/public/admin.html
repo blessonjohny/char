@@ -104,18 +104,22 @@ function adminFetch(url, pwd, options) {
 
 async function unlock() {
   const pwd = document.getElementById('pwd').value;
-  const res = await adminFetch('/api/comments', pwd);
+  // Checks the password against /api/live-players (properly
+  // password-protected) rather than /api/comments -- /api/comments is
+  // deliberately public (it's also the game's public comment wall on the
+  // welcome screen), so it was never actually validating anything here.
+  // Any typed password, even a wrong one, used to silently "log in".
+  const res = await adminFetch('/api/live-players', pwd);
   if (!res.ok) {
     const errEl = document.getElementById('gateErr');
     errEl.textContent = res.status === 429 ? 'Too many wrong attempts — try again in a few minutes.' : 'Wrong password.';
     errEl.style.display = 'block';
     return;
   }
-  const data = await res.json();
   PASSWORD = pwd;
   document.getElementById('gate').style.display = 'none';
   document.getElementById('panel').style.display = 'block';
-  render(data.comments || []);
+  refresh();
 }
 
 async function refresh() {
