@@ -372,6 +372,15 @@ app.post('/api/comments/:id/reply', (req, res) => {
 // below), so the public can view and add to the conversation but can't
 // remove anyone else's words.
 app.get('/api/comments', (req, res) => {
+  // Deliberately public, no password check -- this doubles as the public
+  // comment wall every player sees on the welcome screen (see
+  // public/index.html's loadComments()/around line 4344), not just an
+  // admin view. The actual bug was admin.html's unlock() using THIS
+  // endpoint to validate the login gate -- since it was never
+  // password-protected, ANY typed password (even a wrong one) silently
+  // "worked" for the initial screen. Fixed there instead: unlock() now
+  // checks the password against a properly-protected endpoint
+  // (/api/live-players) rather than this public one.
   res.json({ ok: true, comments });
 });
 
