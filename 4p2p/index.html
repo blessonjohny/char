@@ -265,6 +265,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .lobby-card:hover{border-color:rgba(255,215,0,0.2)}
 .lobby-card h3{color:var(--accent);font-size:1rem;margin-bottom:8px}
 .lobby-card p{font-size:0.75rem;color:var(--text-secondary);margin-bottom:12px;line-height:1.5}
+/* Host a Room's tagline: bolder + a warm gold-to-white gradient so it
+   reads as inviting/appealing rather than plain gray instructional text,
+   matching the royal-gold accent used elsewhere. Scoped to just this one
+   paragraph by id, so Join a Room / Your Name captions are unaffected. */
+#hostCardTagline{
+  font-weight:700;
+  font-size:0.8rem;
+  line-height:1.55;
+  background:linear-gradient(90deg,#ffd700,#fff3c4 45%,#ffd700);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 1px 2px rgba(0,0,0,0.35);
+}
 .name-input{width:100%;padding:12px 14px;border-radius:10px;border:2px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text-primary);font-size:1rem;text-align:center;margin-bottom:10px;font-family:inherit}
 .name-input:focus{outline:none;border-color:var(--accent)}
 .room-link-box{background:rgba(0,0,0,0.5);border:1.5px dashed var(--accent);border-radius:10px;padding:10px;font-size:0.72rem;color:var(--accent);word-break:break-all;margin-bottom:10px;cursor:pointer;transition:all 0.2s}
@@ -2767,7 +2779,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </div>
     <div class="lobby-card" id="hostCard" style="display:none">
       <h3>🏠 Host a Room</h3>
-      <p>Create a room and share the link with friends</p>
+      <p id="hostCardTagline">Create a table and invite friends — or fill empty seats with bots and start right away</p>
       <button type="button" class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btnCreateRoom">Create Room</button>
       <div class="connection-status" id="hostStatus"><div class="status-dot"></div>Waiting for players...</div>
     </div>
@@ -12980,7 +12992,10 @@ gameSocket.on('chooseSeat', (info) => {
   gameSocket.on('stillPlayingResolved', () => hideStillPlayingPopup());
   gameSocket.on('tableClosed', ({ reason }) => {
     hideStillPlayingPopup();
-    showToast(reason === 'idle' ? '⏱️ Table closed — nobody confirmed they were still there' : 'Table closed', 'lose', 4000);
+    const msg = reason === 'idle' ? '⏱️ Table closed — nobody confirmed they were still there'
+      : reason === 'lastPlayerLeft' ? '🚪 Table closed — no real players left'
+      : 'Table closed';
+    showToast(msg, 'lose', 4000);
     leaveServerTable();
   });
 

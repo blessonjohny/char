@@ -668,7 +668,10 @@ function connectSocket() {
   socket.on('sixp_stillPlayingResolved', () => hideStillPlayingPopup());
   socket.on('sixp_tableClosed', ({ reason }) => {
     hideStillPlayingPopup();
-    showToast(reason === 'idle' ? '⏱️ Table closed — nobody confirmed they were still there' : 'Table closed', 'lose', 4000);
+    const msg = reason === 'idle' ? '⏱️ Table closed — nobody confirmed they were still there'
+      : reason === 'lastPlayerLeft' ? '🚪 Table closed — no real players left'
+      : 'Table closed';
+    showToast(msg, 'lose', 4000);
     leaveToWelcome();
   });
   socket.on('createBlocked', ({ maxRooms }) => {
