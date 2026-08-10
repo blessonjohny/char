@@ -80,7 +80,7 @@
     if (ui) return ui;
     const style = document.createElement('style');
     style.textContent = `
-      #k28vBtn{position:fixed;left:10px;top:60px;width:44px;height:44px;border-radius:50%;
+      #k28vBtn{position:fixed;left:10px;bottom:40px;width:44px;height:44px;border-radius:50%;
         background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);
         color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;
         z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
@@ -92,7 +92,7 @@
         background:#3ddc84;border:2px solid #0a1628;display:none;animation:k28vBlink 1.3s ease-in-out infinite}
       #k28vBtn.has-active-light #k28vActiveLight{display:block}
       @keyframes k28vBlink{0%,100%{opacity:1;box-shadow:0 0 6px #3ddc84}50%{opacity:0.35;box-shadow:0 0 2px #3ddc84}}
-      #k28vPanel{position:fixed;left:10px;top:106px;width:118px;max-height:150px;overflow-y:auto;
+      #k28vPanel{position:fixed;left:10px;bottom:92px;width:118px;max-height:150px;overflow-y:auto;
         background:rgba(15,25,40,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
         border:1px solid rgba(255,255,255,0.12);border-radius:10px;
         padding:6px;z-index:150;display:none;font-family:inherit}
@@ -304,17 +304,27 @@
     updateActiveLight();
   }
 
+  // Anchors the mic button/panel to the bottom-left of the game table
+  // (#tableArea) instead of the viewport, so it sits next to the felt
+  // rather than under the topbar. Falls back to a fixed corner spot if
+  // the table isn't on screen yet (e.g. still in the lobby).
   function positionTopLeft() {
     if (!ui) return;
-    const topbar = document.getElementById('topBar') || document.querySelector('.topbar');
-    let top = 60;
-    if (topbar) {
-      const rect = topbar.getBoundingClientRect();
-      if (rect.height > 0 && getComputedStyle(topbar).display !== 'none') top = rect.bottom + 8;
+    const table = document.getElementById('tableArea');
+    let left = 10, bottomOffset = 40;
+    if (table) {
+      const rect = table.getBoundingClientRect();
+      if (rect.width > 0 && getComputedStyle(table).display !== 'none') {
+        left = rect.left + 8;
+        bottomOffset = Math.max(8, window.innerHeight - rect.bottom) + 32;
+      }
     }
-    ui.btn.style.top = top + 'px';
-    ui.panel.style.top = (top + 58) + 'px';
-    if (ui.soundBanner) ui.soundBanner.style.top = top + 'px';
+    ui.btn.style.left = left + 'px';
+    ui.btn.style.top = 'auto';
+    ui.btn.style.bottom = bottomOffset + 'px';
+    ui.panel.style.left = left + 'px';
+    ui.panel.style.top = 'auto';
+    ui.panel.style.bottom = (bottomOffset + 52) + 'px';
   }
   window.addEventListener('resize', positionTopLeft);
 

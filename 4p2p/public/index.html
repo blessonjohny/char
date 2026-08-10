@@ -401,6 +401,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .phase-bar.on{display:block}
 
 /* ===== ROYAL RED TABLE ===== */
+/* position:relative here (not left/top-scoped, so it applies in every
+   mode: 2p/4p and 6p) just gives absolutely-positioned direct children —
+   the chip stacks and the relocated chat button below — something to
+   anchor to. It has no visual effect of its own. */
+#tableArea{position:relative}
 .table:not(.mode6){
   display:grid;
   grid-template-areas:"t t t" "l c r" "b b b" "h h h";
@@ -1452,6 +1457,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .chip-stack .c3{position:absolute;bottom:10px;left:0;width:16px;height:6px;border-radius:50%;background:repeating-conic-gradient(#60a5fa 0deg 30deg, #14213d 30deg 60deg);border:1px solid rgba(255,215,0,0.5);box-shadow:0 1px 2px rgba(0,0,0,0.6)}
 .table:not(.mode6) .chip-stack.cs-bl{bottom:6px;left:6px}
 .table:not(.mode6) .chip-stack.cs-br{bottom:6px;right:6px}
+/* Chat button, relocated from the topbar into the table's bottom-right
+   corner (mirrors the mic button's bottom-left spot, see voice.js) so
+   both sit next to the felt instead of up in the icon row. */
+.table-corner-btn{position:absolute;bottom:32px;right:8px;z-index:6;width:32px;height:32px;font-size:0.9rem}
 /* Center racetrack - where cards are played */
 .center{
   position:relative;
@@ -2811,7 +2820,6 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       </div>
       <button class="icon-btn" id="btnSaveGame" title="Save Game">💾</button>
       <button class="icon-btn" id="btnLoadGame" title="Load Game">📂</button>
-      <button class="icon-btn" id="btnChat" title="Chat" style="display:none">💬<span class="chat-badge" id="chatBadge"></span></button>
       <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none;width:auto;padding:0 6px;gap:3px;white-space:nowrap">💌 Invite</button>
       <button class="icon-btn" id="btnRequestSeat" title="Ask for a Seat" style="display:none">🪑</button>
       <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none">👑</button>
@@ -2848,6 +2856,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   </div><div class="table" id="tableArea">
     <div class="chip-stack cs-bl"><div class="c3"></div></div>
     <div class="chip-stack cs-br"><div class="c3"></div></div>
+    <button class="icon-btn table-corner-btn" id="btnChat" title="Chat" style="display:none">💬<span class="chat-badge" id="chatBadge"></span></button>
     <div class="bid-predictor" id="bidPredictor" style="display:none">
       <h6><span class="pulse-dot"></span>Smart Predictor</h6>
       <div class="predictor-section">
