@@ -1485,9 +1485,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    precisely by voice.js's positionButtons() -- which keeps it just above
    the actual card row on any screen size -- these are just sane fallback
    values for the instant before that JS runs. */
-/* .table-corner-btn (the relocated chat button) is fully styled at the
-   very end of the stylesheet now, matching the mic button's look -- see
-   the comment there for why it has to live at the end. */
+.table-corner-btn{position:fixed;bottom:110px;right:8px;z-index:150;width:32px;height:32px;font-size:0.9rem}
 /* Center racetrack - where cards are played */
 .center{
   position:relative;
@@ -2466,24 +2464,6 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 @media (prefers-reduced-motion: reduce){
   #btnCreateRoom{animation:none}
 }
-/* Chat button (.table-corner-btn / #btnChat), styled to match the mic
-   button (#k28vBtn in voice.js) exactly -- same 44px circle, gradient,
-   border, shadow, press animation -- since it now sits right next to it
-   at the opposite corner of the table. Placed here, at the very end of
-   the stylesheet, for the same reason #btnCreateRoom above is: the
-   .icon-btn base class gets resized/reshaped at several phone-width
-   breakpoints earlier in this file, and being last in the cascade is
-   what makes this reliably win over all of them instead of getting
-   silently squashed back to a small square on some screen sizes. */
-.table-corner-btn{
-  width:44px!important;height:44px!important;border-radius:50%!important;
-  background:linear-gradient(135deg,#2a3f5f,#1a2942)!important;
-  border:2px solid rgba(255,255,255,0.15)!important;
-  color:#fff!important;font-size:1.15rem!important;
-  box-shadow:0 4px 14px rgba(0,0,0,0.4)!important;
-  transition:transform 0.15s;
-}
-.table-corner-btn:active{transform:scale(0.92)}
 </style>
 </head>
 <body>
