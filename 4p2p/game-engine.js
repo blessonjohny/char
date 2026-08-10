@@ -265,12 +265,20 @@ function bestPhase2Evaluation(hand) {
   return best;
 }
 
+// Must match the length of TABLE_THEMES in public/index.html (Royal Red,
+// Royal Blue, Emerald Green, Royal Purple, Onyx & Gold, Sapphire Teal) —
+// the server just picks an index each round, the client owns the colors.
+const TABLE_THEME_COUNT = 6;
+
 class GameEngine {
   constructor(tableId) {
     this.tableId = tableId;
     // seats[i] = { name, isBot, connected, hand: [cards] } for i in 0..3
     this.seats = [null, null, null, null];
     this.round = 0;
+    // Random table felt theme, rerolled once per round (see startRound()),
+    // synced to every client via stateFor() so everyone sees the same color.
+    this.tableTheme = Math.floor(Math.random() * TABLE_THEME_COUNT);
     this.gameScore = [6, 6]; // match score, team 0 / team 1 (mirrors client default)
     this.championshipNumber = 1;
     this.kingStreak = [0, 0]; // consecutive championships won by each team
@@ -488,6 +496,7 @@ class GameEngine {
 
   startRound() {
     this.round++;
+    this.tableTheme = Math.floor(Math.random() * TABLE_THEME_COUNT);
     this.resetRoundState();
     this.dealer = nextPos(this.dealer);
     this.currentPlayer = nextPos(this.dealer);
@@ -1987,6 +1996,7 @@ class GameEngine {
     return {
       tableId: this.tableId,
       round: this.round,
+      tableTheme: this.tableTheme,
       phase: this.phase,
       dealer: this.dealer,
       tricksPlayed: this.tricksPlayed,
