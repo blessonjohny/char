@@ -2424,6 +2424,26 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
      window actually is. */
   #tableArea{max-height:620px}
 }
+/* Create Room button on the "host or join" screen: flashes gold/red so
+   it's obviously the next step after setting your name. Scoped to just
+   this one button by id (not by class), so every other button sharing
+   .btn-primary -- Set Name, Join Room, etc -- is unaffected. Placed here,
+   at the very end of the stylesheet (after the phone-width override above
+   that recolors #btnCreateRoom blue with !important), so this wins the
+   cascade on every screen size instead of being silently defeated by it. */
+#btnCreateRoom{
+  background:linear-gradient(135deg,#ffd700,#c0392b)!important;
+  color:#fff!important;
+  border:2px solid rgba(255,255,255,0.35)!important;
+  animation: createRoomFlash 1.3s ease-in-out infinite;
+}
+@keyframes createRoomFlash{
+  0%,100%{filter:brightness(1) saturate(1);box-shadow:0 0 8px rgba(255,215,0,0.5)}
+  50%{filter:brightness(1.35) saturate(1.3);box-shadow:0 0 20px rgba(192,57,43,0.85)}
+}
+@media (prefers-reduced-motion: reduce){
+  #btnCreateRoom{animation:none}
+}
 </style>
 </head>
 <body>
@@ -7850,8 +7870,10 @@ function showTrumpPlayPanel(trumps, nonT) {
   // Update title to reflect calling trump
   const title = document.getElementById('callTrumpTitle');
   if (title) title.textContent = 'Call Trump — Play Trump Card';
+  const trumpColor = (trumpSuit === '♥' || trumpSuit === '♦') ? '#e04141' : '#2a2a2a';
   const msg = document.getElementById('callTrumpMsg');
-  if (msg) msg.textContent = 'Trump is now exposed! You must play a trump card if you have one.';
+  if (msg) msg.innerHTML = 'Trump is now exposed! You must play a trump card if you have one.<br>' +
+    '<b>Trump suit: <span style="color:' + trumpColor + ';text-shadow:0 0 1px rgba(255,255,255,0.4)">' + trumpSuit + ' ' + suitName(trumpSuit) + '</span></b>';
 
   // Include hidden trump card if it exists and belongs to player
   let allTrumps = [...trumps];
@@ -7869,9 +7891,14 @@ function showTrumpPlayPanel(trumps, nonT) {
     const hiddenLabel = isHidden ? '<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--bg-dark);font-size:0.55rem;font-weight:800;padding:1px 6px;border-radius:4px;white-space:nowrap">HIDDEN</div>' : '';
     th += `<div class='card' onclick="callTrumpAndPlay('${card.suit}','${card.rank}')" style='cursor:pointer;position:relative;flex-shrink:0'>${hiddenLabel}<span class='cr' style='color:${card.color}'>${card.rank}</span><span class='cs' style='color:${card.color}'>${card.suit}</span><span class='crb' style='color:${card.color}'>${card.rank}</span></div>`;
   }
-  // Show the Trump Cards section (since YES was chosen, trump is now exposed)
+  // Show the Trump Cards section (since YES was chosen, trump is now exposed).
+  // If allTrumps is empty (no trump in hand and no hidden trump belonging to
+  // this player), say so explicitly instead of leaving a blank row -- the
+  // trump suit line above already told them which suit it is, so an empty
+  // hand of trump here reads as "confirmed, you have none" rather than a
+  // blank/broken-looking panel.
   document.getElementById('callTrumpCards').style.display = 'block';
-  document.getElementById('callTrumpCards').innerHTML = '<div style="font-size:0.75rem;color:var(--accent);margin-bottom:6px">🃏 You CALLED TRUMP — play a trump card:</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:4px 0">' + th + '</div>';
+  document.getElementById('callTrumpCards').innerHTML = '<div style="font-size:0.75rem;color:var(--accent);margin-bottom:6px">🃏 You CALLED TRUMP — play a trump card:</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:4px 0">' + (th || "<span style='color:var(--text-secondary);font-size:0.75rem'>You have no " + suitName(trumpSuit) + " (trump) — you'll discard instead.</span>") + '</div>';
   document.getElementById('discardCards').innerHTML = '<div style="font-size:0.65rem;color:var(--text-secondary)">Non-trump cards (cannot play now)</div>';
   document.getElementById('callTrumpOverlay').classList.add('on');
 }
