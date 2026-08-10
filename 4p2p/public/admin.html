@@ -236,31 +236,46 @@ function renderVisitorLog(entries, summary) {
   const summaryEl = document.getElementById('visitorSummary');
   summaryEl.innerHTML = `
     <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
-      <span class="who" style="font-size:1.1rem">${summary.today ?? 0}</span>
-      <span class="where">today</span>
+      <span class="who" style="font-size:1.1rem">${summary.today?.unique ?? 0}</span>
+      <span class="where">unique today (${summary.today?.visits ?? 0} visits)</span>
     </div>
     <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
-      <span class="who" style="font-size:1.1rem">${summary.week ?? 0}</span>
-      <span class="where">this week</span>
+      <span class="who" style="font-size:1.1rem">${summary.week?.unique ?? 0}</span>
+      <span class="where">unique this week (${summary.week?.visits ?? 0} visits)</span>
     </div>
     <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
-      <span class="who" style="font-size:1.1rem">${summary.month ?? 0}</span>
-      <span class="where">this month</span>
+      <span class="who" style="font-size:1.1rem">${summary.month?.unique ?? 0}</span>
+      <span class="where">unique this month (${summary.month?.visits ?? 0} visits)</span>
     </div>
     <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
-      <span class="who" style="font-size:1.1rem">${summary.all ?? 0}</span>
-      <span class="where">all time</span>
+      <span class="who" style="font-size:1.1rem">${summary.all?.unique ?? 0}</span>
+      <span class="where">unique all time (${summary.all?.visits ?? 0} visits)</span>
     </div>
   `;
   const listEl = document.getElementById('visitorList');
   if (!entries.length) { listEl.innerHTML = '<div class="empty">No visits logged for this period.</div>'; return; }
+  // Same IP appearing more than once in the currently-loaded entries is
+  // exactly the "refreshed the page" / "opened two tabs" signal worth
+  // flagging visually, since the header numbers above already fix the
+  // headline unique-vs-total confusion.
+  const ipCounts = {};
+  entries.forEach(e => { if (e.ip) ipCounts[e.ip] = (ipCounts[e.ip] || 0) + 1; });
   listEl.innerHTML = entries.map(e => {
+    const dup = e.ip && ipCounts[e.ip] > 1;
     const location = [e.city, e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+    const deviceLine = [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
+    const badges = [
+      e.returning ? '🔁 returning' : '✨ new',
+      dup ? `⚠️ seen ${ipCounts[e.ip]}× in this view` : ''
+    ].filter(Boolean).join(' &middot; ');
     return `
-      <div class="live-card">
+      <div class="live-card" style="${dup ? 'background:rgba(255,80,80,0.12);border-color:rgba(255,80,80,0.35)' : ''}">
         <div>
           <div class="who">${esc(e.ip || 'unknown IP')}</div>
           <div class="where">📍 ${esc(location)}</div>
+          <div class="where">📱 ${esc(deviceLine)}${e.language ? ' · 🌐 ' + esc(e.language) : ''}</div>
+          ${e.referrer ? `<div class="where">↪️ from ${esc(e.referrer)}</div>` : ''}
+          <div class="where" style="opacity:0.8">${badges}</div>
         </div>
         <div class="time">${esc(fmtTime(e.ts))}</div>
       </div>

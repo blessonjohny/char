@@ -12870,10 +12870,10 @@ function connectGameSocket() {
     if (summary && summaryEl) {
       summaryEl.style.display = 'flex';
       summaryEl.innerHTML = `
-        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.today}</b><br>today</div>
-        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.week}</b><br>this week</div>
-        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.month}</b><br>this month</div>
-        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.all}</b><br>all time</div>
+        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.today?.unique ?? 0}</b><br>unique today<br><span style="opacity:0.6;font-size:0.68rem">${summary.today?.visits ?? 0} visits</span></div>
+        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.week?.unique ?? 0}</b><br>unique week<br><span style="opacity:0.6;font-size:0.68rem">${summary.week?.visits ?? 0} visits</span></div>
+        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.month?.unique ?? 0}</b><br>unique month<br><span style="opacity:0.6;font-size:0.68rem">${summary.month?.visits ?? 0} visits</span></div>
+        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.all?.unique ?? 0}</b><br>unique all-time<br><span style="opacity:0.6;font-size:0.68rem">${summary.all?.visits ?? 0} visits</span></div>
       `;
     }
     if (filtersEl) {
@@ -12896,10 +12896,17 @@ function connectGameSocket() {
       const dup = e.ip && ipCounts[e.ip] > 1;
       const where = [e.city, e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
       const when = new Date(e.ts).toLocaleString();
+      const deviceLine = [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
+      const badges = [
+        e.returning ? '🔁 returning' : '✨ new',
+        dup ? '⚠️ seen ' + ipCounts[e.ip] + '× in this view' : ''
+      ].filter(Boolean).join(' &middot; ');
       return `<div style="padding:6px 8px;margin-bottom:4px;border-radius:6px;background:${dup ? 'rgba(255,80,80,0.18)' : 'rgba(255,255,255,0.04)'};border:1px solid ${dup ? 'rgba(255,80,80,0.4)' : 'rgba(255,255,255,0.08)'}">
-        <div style="font-weight:700;color:${dup ? 'var(--danger)' : 'var(--gold, #f4c430)'}">${escapeHtml(e.ip || 'unknown IP')}${dup ? ' ⚠️ seen ' + ipCounts[e.ip] + '×' : ''}</div>
+        <div style="font-weight:700;color:${dup ? 'var(--danger)' : 'var(--gold, #f4c430)'}">${escapeHtml(e.ip || 'unknown IP')}</div>
         <div>${escapeHtml(where)}</div>
-        <div style="opacity:0.6">${escapeHtml(when)}</div>
+        <div style="opacity:0.75">📱 ${escapeHtml(deviceLine)}${e.language ? ' · 🌐 ' + escapeHtml(e.language) : ''}</div>
+        ${e.referrer ? `<div style="opacity:0.75">↪️ from ${escapeHtml(e.referrer)}</div>` : ''}
+        <div style="opacity:0.6">${when} &middot; ${badges}</div>
       </div>`;
     }).join('');
   });
