@@ -9890,11 +9890,10 @@ function openChat() {
   // Scroll to bottom
   const msgs = document.getElementById('chatMessages');
   if (msgs) msgs.scrollTop = msgs.scrollHeight;
-  // Focus input
-  setTimeout(() => {
-    const inp = document.getElementById('chatInput');
-    if (inp) inp.focus();
-  }, 100);
+  // Deliberately NOT auto-focusing #chatInput here anymore -- that used to
+  // pop the mobile keyboard the instant chat opened, even when someone
+  // just wanted to read messages. Now the keyboard only appears once they
+  // actually tap the input field themselves, same as any other text box.
 }
 
 function closeChat() {
