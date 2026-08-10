@@ -4395,6 +4395,16 @@ document.getElementById('btnStillPlaying').addEventListener('click', () => {
 function showModal(title, text) {
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modalText').innerHTML = text;
+  // Reset any extra buttons a previous modal may have added to this shared
+  // modal box (showHomeWarning's "Leave Game?" dialog adds Continue
+  // Playing / Go Home Without Saving / Back to Lobby) -- otherwise they
+  // linger visible underneath a later, unrelated modal like the Call Trump
+  // "Cannot Follow Suit" popup. showHomeWarning() re-shows the ones it
+  // wants right after calling showModal(), so this only clears stale state.
+  ['modalNoBtn', 'modalContinueBtn', 'modalLobbyBtn'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
   document.getElementById('modalOverlay').classList.add('on');
 }
 function closeModal() {
@@ -4500,8 +4510,11 @@ function showHomeWarning() {
     okBtn.onclick = oldOk;
   };
 
-  // Online games get a fourth option: duck back to the room lobby (see
-  // other players, chat, seats) without fully quitting to the main menu.
+  // "Back to Room Lobby" was a fourth option for online games, but the
+  // simplified exit dialog only wants two buttons in that case (Leave
+  // Table + Continue Playing), so this stays permanently hidden now.
+  // backToRoomLobby() itself is untouched/still callable if this ever
+  // needs to come back — only the button that surfaces it here is off.
   let lobbyBtn = document.getElementById('modalLobbyBtn');
   if (!lobbyBtn) {
     lobbyBtn = document.createElement('button');
@@ -4510,24 +4523,7 @@ function showHomeWarning() {
     lobbyBtn.style.cssText = 'width:100%;margin-top:8px';
     document.getElementById('modalBox').appendChild(lobbyBtn);
   }
-  if (IS_ONLINE) {
-    lobbyBtn.textContent = '🔙 Back to Room Lobby';
-    lobbyBtn.style.display = 'block';
-    lobbyBtn.onclick = function() {
-      closeModal();
-      lobbyBtn.style.display = 'none';
-      continueBtn.style.display = 'none';
-      noBtn.style.display = 'none';
-      noBtn.style.borderColor = '';
-      noBtn.style.color = '';
-      okBtn.textContent = 'OK';
-      okBtn.style.background = '';
-      okBtn.onclick = oldOk;
-      backToRoomLobby();
-    };
-  } else {
-    lobbyBtn.style.display = 'none';
-  }
+  lobbyBtn.style.display = 'none';
 }
 
 function goHome() {
@@ -10510,97 +10506,20 @@ window.addEventListener('DOMContentLoaded', () => {
     try { if (localStorage.getItem('k28_table_id')) return true; } catch (e) {}
     return false;
   }
-  const autoSave = hasPendingOnlineSession() ? null : checkAutoSave();
-  if (autoSave) {
-    setTimeout(() => {
-      // Re-check right now, not just at the moment this was scheduled —
-      // 800ms is plenty of time for an online reconnect to land (or for
-      // the person to have already tapped into an online game manually),
-      // and showing this on top of THAT is exactly the bug that got
-      // reported: the check passing 800ms ago doesn't mean it still
-      // should now.
-      if (hasPendingOnlineSession()) return;
-      showModal('💾 Resume Saved Game?', 
-        'A saved game was found from ' + new Date(autoSave.timestamp).toLocaleTimeString() + '.<br><br>' +
-        '<b>Round:</b> ' + autoSave.round + '<br>' +
-        '<b>Score:</b> ' + autoSave.gameScore[autoSave.myPos !== undefined ? getTeam(autoSave.myPos) : 0] + ' vs ' + 
-        autoSave.gameScore[autoSave.myPos !== undefined ? 1-getTeam(autoSave.myPos) : 1] + '<br><br>' +
-        'Would you like to resume where you left off?'
-      );
-      const okBtn = document.getElementById('modalOkBtn');
-      okBtn.textContent = '✅ Resume Game';
-      okBtn.style.padding = '14px 20px';
-      okBtn.style.minHeight = '52px';
-      okBtn.style.fontSize = '1rem';
-      const oldOk = okBtn.onclick;
-      okBtn.onclick = function() {
-        closeModal();
-        okBtn.textContent = 'OK';
-        okBtn.onclick = oldOk;
-        // Re-check right now, not just whenever this popup first appeared
-        // — an online reconnect can complete in the background while this
-        // sits on screen waiting for a tap. Resuming (or resetting) LOCAL
-        // state on top of a now-genuinely-active online game is exactly
-        // what left people stuck with a blank hand needing a hard reload
-        // to recover, since neither button was ever safe to run in that
-        // situation — this was true for both Resume AND Start Fresh.
-        if (hasPendingOnlineSession()) {
-          clearAutoSave();
-          showToast('You\u2019re already in an online game — that saved game was left as-is.', 'info', 2500);
-          return;
-        }
-        restoreGameState(autoSave);
-        showToast('🎮 Game resumed!', 'win', 2000);
-      };
-      let noBtn = document.getElementById('modalNoBtn');
-      if (!noBtn) {
-        noBtn = document.createElement('button');
-        noBtn.id = 'modalNoBtn';
-        noBtn.className = 'btn btn-outline';
-        noBtn.style.cssText = 'width:100%;margin-top:8px';
-        document.getElementById('modalBox').appendChild(noBtn);
-      }
-      noBtn.textContent = '😊 Start Fresh';
-      noBtn.style.padding = '14px 20px';
-      noBtn.style.minHeight = '52px';
-      noBtn.style.fontSize = '1rem';
-      noBtn.style.display = 'block';
-      noBtn.onclick = function() {
-        closeModal();
-        noBtn.style.display = 'none';
-        okBtn.textContent = 'OK';
-        okBtn.onclick = oldOk;
-        clearAutoSave();
-        // Same re-check as Resume Game above — if an online game is
-        // actually active by now, there is nothing local to "start
-        // fresh" from. resetAllGameState() wipes MY_POS, players, hand
-        // DOM, and phase — all state the ACTIVE online game depends on
-        // too, since server mode reuses these same variables. Running it
-        // on top of a live game is exactly what left people staring at a
-        // blank hand with no bid panel until they hard-refreshed.
-        if (hasPendingOnlineSession()) {
-          showToast('You\u2019re already in an online game — that saved game has been cleared.', 'info', 2500);
-          return;
-        }
-        // Close any overlays left over from previous session
-        ['bidOverlay','trumpOverlay','callTrumpOverlay','roundOverlay'].forEach(function(id) {
-          var el = document.getElementById(id);
-          if (el) el.classList.remove('on');
-        });
-        // FULLY reset all game state to prevent any old data from leaking
-        resetAllGameState();
-        // resetAllGameState() only clears variables — it was never
-        // actually followed by anything that deals cards or starts
-        // bidding (that only happens inside startGame(), which nothing
-        // here calls). Left as-is, this stranded people on the game
-        // screen with every seat showing 0 cards and bidding stuck at
-        // "—" forever, with no way forward except a hard refresh.
-        // Sending them back to the welcome screen lets them actually set
-        // up and start a real new game, the same as choosing "Play vs
-        // Bots" fresh would.
-        goHome();
-      };
-    }, 800);
+  // "Resume Saved Game?" popup removed on request — it's a purely local
+  // "vs bots" save (see autoSaveGame()/checkAutoSave(), both already gated
+  // off for any online/server game) that was popping up right as people
+  // were in the middle of joining/hosting an online table, where tapping
+  // either button did nothing useful since an online session was already
+  // taking over by the time they tapped. Rather than show it, just quietly
+  // clear any stale local save so it doesn't linger — checkAutoSave(),
+  // hasPendingOnlineSession(), clearAutoSave(), and restoreGameState() are
+  // all left fully intact/untouched below, so local save/resume can come
+  // back easily later if wanted, and none of the online reconnect logic
+  // (which relies on these same helpers) is affected.
+  if (!hasPendingOnlineSession()) {
+    const autoSave = checkAutoSave();
+    if (autoSave) clearAutoSave();
   }
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('room');
