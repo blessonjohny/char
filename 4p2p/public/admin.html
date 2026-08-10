@@ -262,7 +262,10 @@ function renderVisitorLog(entries, summary) {
   entries.forEach(e => { if (e.ip) ipCounts[e.ip] = (ipCounts[e.ip] || 0) + 1; });
   listEl.innerHTML = entries.map(e => {
     const dup = e.ip && ipCounts[e.ip] > 1;
-    const location = [e.city, e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+    const location = [e.city, e.regionName || e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+    const mapLink = (e.lat != null && e.lon != null)
+      ? ` <a href="https://www.google.com/maps?q=${e.lat},${e.lon}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">(map)</a>`
+      : '';
     const deviceLine = [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
     const badges = [
       e.returning ? '🔁 returning' : '✨ new',
@@ -272,7 +275,7 @@ function renderVisitorLog(entries, summary) {
       <div class="live-card" style="${dup ? 'background:rgba(255,80,80,0.12);border-color:rgba(255,80,80,0.35)' : ''}">
         <div>
           <div class="who">${esc(e.ip || 'unknown IP')}</div>
-          <div class="where">📍 ${esc(location)}</div>
+          <div class="where">📍 ${esc(location)}${mapLink}</div>
           <div class="where">📱 ${esc(deviceLine)}${e.language ? ' · 🌐 ' + esc(e.language) : ''}</div>
           ${e.referrer ? `<div class="where">↪️ from ${esc(e.referrer)}</div>` : ''}
           <div class="where" style="opacity:0.8">${badges}</div>

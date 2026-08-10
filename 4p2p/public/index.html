@@ -12894,7 +12894,10 @@ function connectGameSocket() {
     entries.forEach(e => { if (e.ip) ipCounts[e.ip] = (ipCounts[e.ip] || 0) + 1; });
     list.innerHTML = entries.map(e => {
       const dup = e.ip && ipCounts[e.ip] > 1;
-      const where = [e.city, e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+      const where = [e.city, e.regionName || e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+      const mapLink = (e.lat != null && e.lon != null)
+        ? ` <a href="https://www.google.com/maps?q=${e.lat},${e.lon}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">(map)</a>`
+        : '';
       const when = new Date(e.ts).toLocaleString();
       const deviceLine = [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
       const badges = [
@@ -12903,7 +12906,7 @@ function connectGameSocket() {
       ].filter(Boolean).join(' &middot; ');
       return `<div style="padding:6px 8px;margin-bottom:4px;border-radius:6px;background:${dup ? 'rgba(255,80,80,0.18)' : 'rgba(255,255,255,0.04)'};border:1px solid ${dup ? 'rgba(255,80,80,0.4)' : 'rgba(255,255,255,0.08)'}">
         <div style="font-weight:700;color:${dup ? 'var(--danger)' : 'var(--gold, #f4c430)'}">${escapeHtml(e.ip || 'unknown IP')}</div>
-        <div>${escapeHtml(where)}</div>
+        <div>${escapeHtml(where)}${mapLink}</div>
         <div style="opacity:0.75">📱 ${escapeHtml(deviceLine)}${e.language ? ' · 🌐 ' + escapeHtml(e.language) : ''}</div>
         ${e.referrer ? `<div style="opacity:0.75">↪️ from ${escapeHtml(e.referrer)}</div>` : ''}
         <div style="opacity:0.6">${when} &middot; ${badges}</div>
