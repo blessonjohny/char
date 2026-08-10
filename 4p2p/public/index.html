@@ -1460,7 +1460,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* Chat button, relocated from the topbar into the table's bottom-right
    corner (mirrors the mic button's bottom-left spot, see voice.js) so
    both sit next to the felt instead of up in the icon row. */
-.table-corner-btn{position:absolute;bottom:32px;right:8px;z-index:6;width:32px;height:32px;font-size:0.9rem}
+/* Chat button, relocated from the topbar to sit next to the felt (mirrors
+   the mic button on the opposite corner). Positioned fixed and placed
+   precisely by voice.js's positionButtons() -- which keeps it just above
+   the actual card row on any screen size -- these are just sane fallback
+   values for the instant before that JS runs. */
+.table-corner-btn{position:fixed;bottom:110px;right:8px;z-index:150;width:32px;height:32px;font-size:0.9rem}
 /* Center racetrack - where cards are played */
 .center{
   position:relative;
@@ -2168,7 +2173,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @keyframes comicPopIn{0%{opacity:0;transform:scale(0.5) rotate(-4deg);}60%{transform:scale(1.06) rotate(1deg);}100%{opacity:1;transform:scale(1) rotate(-1deg);}}
 @keyframes comicPopOut{0%{opacity:1;}100%{opacity:0;transform:scale(0.92) translateY(-6px);}}
 .chat-badge.on{display:flex}
-#btnChat{position:relative}
+/* #btnChat now lives fixed at the table's bottom-right corner (see
+   .table-corner-btn / voice.js positionButtons()) instead of inline in
+   the topbar -- position:fixed still gives .chat-badge above the same
+   containing-block it always needed to sit correctly on the button. */
+#btnChat{position:fixed}
 
 #serverNotice{position:fixed;top:10px;right:10px;left:auto;transform:none;z-index:9999;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;color:var(--accent);text-align:center;padding:6px 12px;border-radius:999px;border:1px solid rgba(255,215,0,0.3);box-shadow:none;text-shadow:0 1px 4px rgba(0,0,0,0.9),0 0 8px rgba(0,0,0,0.7);font-size:0.65rem;font-weight:700;display:none;white-space:nowrap;animation:serverNoticeIn 0.35s ease;pointer-events:none}
 @keyframes serverNoticeIn{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}

@@ -304,31 +304,58 @@
     updateActiveLight();
   }
 
-  // Anchors the mic button/panel to the bottom-left of the game table
-  // (#tableArea) instead of the viewport, so it sits next to the felt
-  // rather than under the topbar. Falls back to a fixed corner spot if
-  // the table isn't on screen yet (e.g. still in the lobby).
-  function positionTopLeft() {
+  // Anchors the mic button (bottom-left) and the chat button (bottom-right,
+  // see #btnChat in index.html) just ABOVE the actual card row. Earlier
+  // this measured from #tableArea's own bottom edge, but the hand-area
+  // (the cards) is the last row INSIDE #tableArea, not below it -- so that
+  // measurement landed right at the cards instead of above them, and the
+  // buttons overlapped the hand. Measuring from #handArea's own top edge
+  // (with a real clearance buffer for the cards that visually poke up
+  // above their row) fixes that regardless of screen size or how tall the
+  // card row currently is.
+  function positionButtons() {
     if (!ui) return;
     const table = document.getElementById('tableArea');
-    let left = 10, bottomOffset = 40;
+    const hand = document.getElementById('handArea');
+    let leftEdge = 8, rightEdge = 8, bottomOffset = 40;
     if (table) {
-      const rect = table.getBoundingClientRect();
-      if (rect.width > 0 && getComputedStyle(table).display !== 'none') {
-        left = rect.left + 8;
-        bottomOffset = Math.max(8, window.innerHeight - rect.bottom) + 32;
+      const tRect = table.getBoundingClientRect();
+      if (tRect.width > 0 && getComputedStyle(table).display !== 'none') {
+        leftEdge = tRect.left + 6;
+        rightEdge = window.innerWidth - tRect.right + 6;
+        // Default clearance off the table's own bottom, used only if the
+        // hand-area can't be measured (e.g. not dealt yet).
+        bottomOffset = Math.max(8, window.innerHeight - tRect.bottom) + 32;
       }
     }
-    ui.btn.style.left = left + 'px';
+    if (hand) {
+      const hRect = hand.getBoundingClientRect();
+      if (hRect.height > 0) {
+        // 44px clears a fanned card poking up above the hand-area's own
+        // box, plus an 10px gap so the button doesn't touch the card tips.
+        bottomOffset = Math.max(8, window.innerHeight - hRect.top) + 44;
+      }
+    }
+    ui.btn.style.left = leftEdge + 'px';
+    ui.btn.style.right = 'auto';
     ui.btn.style.top = 'auto';
     ui.btn.style.bottom = bottomOffset + 'px';
-    ui.panel.style.left = left + 'px';
+    ui.panel.style.left = leftEdge + 'px';
     ui.panel.style.top = 'auto';
     ui.panel.style.bottom = (bottomOffset + 52) + 'px';
-  }
-  window.addEventListener('resize', positionTopLeft);
 
-  function showButton() { buildUI().btn.style.display = 'flex'; positionTopLeft(); setTimeout(positionTopLeft, 300); }
+    const chatBtn = document.getElementById('btnChat');
+    if (chatBtn) {
+      chatBtn.style.position = 'fixed';
+      chatBtn.style.right = rightEdge + 'px';
+      chatBtn.style.left = 'auto';
+      chatBtn.style.top = 'auto';
+      chatBtn.style.bottom = bottomOffset + 'px';
+    }
+  }
+  window.addEventListener('resize', positionButtons);
+
+  function showButton() { buildUI().btn.style.display = 'flex'; positionButtons(); setTimeout(positionButtons, 300); }
   function hideButton() {
     leave();
     if (ui) { ui.btn.style.display = 'none'; ui.panel.classList.remove('on'); ui.btn.classList.remove('live', 'speaking'); }
