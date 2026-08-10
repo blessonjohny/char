@@ -2424,6 +2424,26 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
      window actually is. */
   #tableArea{max-height:620px}
 }
+/* Create Room button on the "host or join" screen: flashes gold/red so
+   it's obviously the next step after setting your name. Scoped to just
+   this one button by id (not by class), so every other button sharing
+   .btn-primary -- Set Name, Join Room, etc -- is unaffected. Placed here,
+   at the very end of the stylesheet (after the phone-width override above
+   that recolors #btnCreateRoom blue with !important), so this wins the
+   cascade on every screen size instead of being silently defeated by it. */
+#btnCreateRoom{
+  background:linear-gradient(135deg,#ffd700,#c0392b)!important;
+  color:#fff!important;
+  border:2px solid rgba(255,255,255,0.35)!important;
+  animation: createRoomFlash 1.3s ease-in-out infinite;
+}
+@keyframes createRoomFlash{
+  0%,100%{filter:brightness(1) saturate(1);box-shadow:0 0 8px rgba(255,215,0,0.5)}
+  50%{filter:brightness(1.35) saturate(1.3);box-shadow:0 0 20px rgba(192,57,43,0.85)}
+}
+@media (prefers-reduced-motion: reduce){
+  #btnCreateRoom{animation:none}
+}
 </style>
 </head>
 <body>
