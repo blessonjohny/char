@@ -4,6 +4,34 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Texas Hold'em — 28 Kerala Gulan</title>
+<meta name="description" content="Play Texas Hold'em Poker online free — 9-player tables, cash games, live multiplayer, no download. Play poker online with friends or strangers, straight from your browser.">
+<meta name="keywords" content="texas holdem, play poker online, poker online free, holdem online, play cards online, free poker, multiplayer poker, online poker rooms, poker no download">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://28gulan.com/holdem.html">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://28gulan.com/holdem.html">
+<meta property="og:title" content="Texas Hold'em Poker Online Free — 28 Kerala Gulan">
+<meta property="og:description" content="Play Texas Hold'em Poker online free — 9-player tables, live multiplayer, no download needed.">
+<meta property="og:site_name" content="28 Kerala Gulan">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Texas Hold'em Poker Online Free">
+<meta name="twitter:description" content="Play Texas Hold'em Poker online free — 9-player tables, live multiplayer, no download needed.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Game",
+  "name": "Texas Hold'em Poker",
+  "url": "https://28gulan.com/holdem.html",
+  "description": "Play Texas Hold'em Poker online free with up to 9 players, live multiplayer, no download required.",
+  "genre": "Card Game",
+  "playMode": "MultiPlayer",
+  "isAccessibleForFree": true
+}
+</script>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <script src="/socket.io/socket.io.js"></script>
 <style>
 :root{
@@ -123,10 +151,12 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 <!-- ============ LANDING ============ -->
 <div class="screen" id="landingScreen">
   <h1>♠️ Texas Hold'em</h1>
-  <div class="subtitle">9-Player Table — Zynga Style</div>
+  <div class="subtitle">9-Player Table</div>
   <input class="text-input" id="nameInput" maxlength="18" placeholder="Your name">
   <button class="btn btn-gold" id="btnShowCreate">Create Table</button>
   <button class="btn btn-outline" id="btnShowJoin">Join with Code</button>
+  <button class="btn btn-outline hidden" id="btnContinuePrevious" style="display:none">▶ Continue with Previous</button>
+  <button class="btn btn-outline" id="btnBackToRooms">⬅ Back to Rooms</button>
   <div class="table-list" id="publicTableList"></div>
 </div>
 
@@ -416,6 +446,21 @@ function animateChipsToWinners(state) {
 // ---------------- Landing ----------------
 $('btnShowCreate').addEventListener('click', () => showScreen('createScreen'));
 $('btnShowJoin').addEventListener('click', () => showScreen('joinScreen'));
+// Only shown when a saved session actually exists - this is a visible,
+// explicit way to retry the rejoin (the same thing already attempted
+// silently on connect) in case that first automatic attempt didn't
+// land, without the player needing to know that's even a thing.
+if (myTableId && myPlayerId) {
+  const btnContinuePrevious = $('btnContinuePrevious');
+  btnContinuePrevious.style.display = '';
+  btnContinuePrevious.classList.remove('hidden');
+  btnContinuePrevious.addEventListener('click', () => {
+    socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
+  });
+}
+$('btnBackToRooms').addEventListener('click', () => {
+  window.location.href = '/';
+});
 $('btnCreateBack').addEventListener('click', () => showScreen('landingScreen'));
 $('btnJoinBack').addEventListener('click', () => showScreen('landingScreen'));
 

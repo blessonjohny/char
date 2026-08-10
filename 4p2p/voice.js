@@ -80,7 +80,7 @@
     if (ui) return ui;
     const style = document.createElement('style');
     style.textContent = `
-      #k28vBtn{position:fixed;left:10px;top:60px;width:44px;height:44px;border-radius:50%;
+      #k28vBtn{position:fixed;left:10px;bottom:40px;width:44px;height:44px;border-radius:50%;
         background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);
         color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;
         z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
@@ -92,7 +92,7 @@
         background:#3ddc84;border:2px solid #0a1628;display:none;animation:k28vBlink 1.3s ease-in-out infinite}
       #k28vBtn.has-active-light #k28vActiveLight{display:block}
       @keyframes k28vBlink{0%,100%{opacity:1;box-shadow:0 0 6px #3ddc84}50%{opacity:0.35;box-shadow:0 0 2px #3ddc84}}
-      #k28vPanel{position:fixed;left:10px;top:106px;width:118px;max-height:150px;overflow-y:auto;
+      #k28vPanel{position:fixed;left:10px;bottom:92px;width:118px;max-height:150px;overflow-y:auto;
         background:rgba(15,25,40,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
         border:1px solid rgba(255,255,255,0.12);border-radius:10px;
         padding:6px;z-index:150;display:none;font-family:inherit}
@@ -304,21 +304,58 @@
     updateActiveLight();
   }
 
-  function positionTopLeft() {
+  // Anchors the mic button (bottom-left) and the chat button (bottom-right,
+  // see #btnChat in index.html) just ABOVE the actual card row. Earlier
+  // this measured from #tableArea's own bottom edge, but the hand-area
+  // (the cards) is the last row INSIDE #tableArea, not below it -- so that
+  // measurement landed right at the cards instead of above them, and the
+  // buttons overlapped the hand. Measuring from #handArea's own top edge
+  // (with a real clearance buffer for the cards that visually poke up
+  // above their row) fixes that regardless of screen size or how tall the
+  // card row currently is.
+  function positionButtons() {
     if (!ui) return;
-    const topbar = document.getElementById('topBar') || document.querySelector('.topbar');
-    let top = 60;
-    if (topbar) {
-      const rect = topbar.getBoundingClientRect();
-      if (rect.height > 0 && getComputedStyle(topbar).display !== 'none') top = rect.bottom + 8;
+    const table = document.getElementById('tableArea');
+    const hand = document.getElementById('handArea');
+    let leftEdge = 8, rightEdge = 8, bottomOffset = 40;
+    if (table) {
+      const tRect = table.getBoundingClientRect();
+      if (tRect.width > 0 && getComputedStyle(table).display !== 'none') {
+        leftEdge = tRect.left + 6;
+        rightEdge = window.innerWidth - tRect.right + 6;
+        // Default clearance off the table's own bottom, used only if the
+        // hand-area can't be measured (e.g. not dealt yet).
+        bottomOffset = Math.max(8, window.innerHeight - tRect.bottom) + 32;
+      }
     }
-    ui.btn.style.top = top + 'px';
-    ui.panel.style.top = (top + 58) + 'px';
-    if (ui.soundBanner) ui.soundBanner.style.top = top + 'px';
-  }
-  window.addEventListener('resize', positionTopLeft);
+    if (hand) {
+      const hRect = hand.getBoundingClientRect();
+      if (hRect.height > 0) {
+        // 44px clears a fanned card poking up above the hand-area's own
+        // box, plus an 10px gap so the button doesn't touch the card tips.
+        bottomOffset = Math.max(8, window.innerHeight - hRect.top) + 44;
+      }
+    }
+    ui.btn.style.left = leftEdge + 'px';
+    ui.btn.style.right = 'auto';
+    ui.btn.style.top = 'auto';
+    ui.btn.style.bottom = bottomOffset + 'px';
+    ui.panel.style.left = leftEdge + 'px';
+    ui.panel.style.top = 'auto';
+    ui.panel.style.bottom = (bottomOffset + 52) + 'px';
 
-  function showButton() { buildUI().btn.style.display = 'flex'; positionTopLeft(); setTimeout(positionTopLeft, 300); }
+    const chatBtn = document.getElementById('btnChat');
+    if (chatBtn) {
+      chatBtn.style.position = 'fixed';
+      chatBtn.style.right = rightEdge + 'px';
+      chatBtn.style.left = 'auto';
+      chatBtn.style.top = 'auto';
+      chatBtn.style.bottom = bottomOffset + 'px';
+    }
+  }
+  window.addEventListener('resize', positionButtons);
+
+  function showButton() { buildUI().btn.style.display = 'flex'; positionButtons(); setTimeout(positionButtons, 300); }
   function hideButton() {
     leave();
     if (ui) { ui.btn.style.display = 'none'; ui.panel.classList.remove('on'); ui.btn.classList.remove('live', 'speaking'); }
