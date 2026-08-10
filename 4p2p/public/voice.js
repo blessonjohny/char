@@ -331,9 +331,11 @@
     if (hand) {
       const hRect = hand.getBoundingClientRect();
       if (hRect.height > 0) {
-        // 44px clears a fanned card poking up above the hand-area's own
-        // box, plus an 10px gap so the button doesn't touch the card tips.
-        bottomOffset = Math.max(8, window.innerHeight - hRect.top) + 44;
+        // Clears a fanned card poking up above the hand-area's own box,
+        // plus a gap so the buttons sit up nearer the player's own
+        // avatar row (the "b" grid row just above the hand of cards)
+        // instead of hovering right at the top edge of the cards.
+        bottomOffset = Math.max(8, window.innerHeight - hRect.top) + 60;
       }
     }
     ui.btn.style.left = leftEdge + 'px';
