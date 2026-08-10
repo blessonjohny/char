@@ -1831,11 +1831,20 @@ $('chatInput').addEventListener('keydown', function (e) { if (e.key === 'Enter')
 
 // ==================== HOME / LEAVE MID-GAME ====================
 // There was previously no way to exit once a game had actually started —
-// "Leave Table" only existed on the pre-game lobby screen.
+// "Leave Table" only existed on the pre-game lobby screen. Uses a proper
+// rendered warning overlay (leaveConfirmOverlay, see six.html) instead of
+// the native browser confirm() this used to show, matching the same
+// simplified two-button exit dialog (Leave Table / Continue Playing) the
+// 4-player table already uses.
 $('btnGameHome').addEventListener('click', () => {
-  if (confirm('Leave this table? You can rejoin with the room code if the table is still running.')) {
-    leaveToWelcome();
-  }
+  $('leaveConfirmOverlay').classList.add('on');
+});
+$('btnLeaveConfirmCancel').addEventListener('click', () => {
+  $('leaveConfirmOverlay').classList.remove('on');
+});
+$('btnLeaveConfirmOk').addEventListener('click', () => {
+  $('leaveConfirmOverlay').classList.remove('on');
+  leaveToWelcome();
 });
 
 // ==================== HOST MENU ====================
