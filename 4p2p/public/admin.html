@@ -91,11 +91,24 @@ function fmtTime(ms) {
   return d.toLocaleString();
 }
 
+// Sends the admin password as a header instead of a URL query string
+// (?password=...) -- a URL is the wrong place for a secret since it
+// commonly ends up in server access logs and browser history just from
+// normal use. `pwd` is only passed explicitly by unlock() below, before
+// PASSWORD is actually set yet; everything else just uses PASSWORD.
+function adminFetch(url, pwd, options) {
+  options = options || {};
+  options.headers = Object.assign({}, options.headers, { 'x-admin-password': pwd !== undefined ? pwd : PASSWORD });
+  return fetch(url, options);
+}
+
 async function unlock() {
   const pwd = document.getElementById('pwd').value;
-  const res = await fetch('/api/comments?password=' + encodeURIComponent(pwd));
+  const res = await adminFetch('/api/comments', pwd);
   if (!res.ok) {
-    document.getElementById('gateErr').style.display = 'block';
+    const errEl = document.getElementById('gateErr');
+    errEl.textContent = res.status === 429 ? 'Too many wrong attempts — try again in a few minutes.' : 'Wrong password.';
+    errEl.style.display = 'block';
     return;
   }
   const data = await res.json();
@@ -106,7 +119,7 @@ async function unlock() {
 }
 
 async function refresh() {
-  const res = await fetch('/api/comments?password=' + encodeURIComponent(PASSWORD));
+  const res = await adminFetch('/api/comments');
   if (!res.ok) { document.getElementById('panel').style.display = 'none'; document.getElementById('gate').style.display = 'block'; return; }
   const data = await res.json();
   render(data.comments || []);
@@ -114,7 +127,7 @@ async function refresh() {
 
 async function del(id) {
   if (!confirm('Delete this comment?')) return;
-  await fetch('/api/comments/' + id + '?password=' + encodeURIComponent(PASSWORD), { method: 'DELETE' });
+  await adminFetch('/api/comments/' + id, undefined, { method: 'DELETE' });
   refresh();
 }
 
@@ -158,7 +171,7 @@ function switchTab(tab) {
 }
 
 async function refreshLivePlayers() {
-  const res = await fetch('/api/live-players?password=' + encodeURIComponent(PASSWORD));
+  const res = await adminFetch('/api/live-players');
   if (!res.ok) return;
   const data = await res.json();
   renderLivePlayers(data.players || []);
@@ -190,10 +203,10 @@ function renderLivePlayers(players) {
 
 async function closeTable(tableId) {
   if (!confirm(`Force-close table ${tableId}? Everyone there gets sent home immediately, no matter what's happening.`)) return;
-  const res = await fetch('/api/admin/close-table', {
+  const res = await adminFetch('/api/admin/close-table', undefined, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password: PASSWORD, tableId })
+    body: JSON.stringify({ tableId })
   });
   const data = await res.json();
   if (data.ok) { alert(`Closed ${data.game} table ${data.tableId}.`); refreshLivePlayers(); }
@@ -209,7 +222,7 @@ document.getElementById('btnRefreshLive').addEventListener('click', refreshLiveP
 let visitorFilter = 'today';
 
 async function refreshVisitorLog() {
-  const res = await fetch('/api/visitor-log?password=' + encodeURIComponent(PASSWORD) + '&filter=' + encodeURIComponent(visitorFilter));
+  const res = await adminFetch('/api/visitor-log?filter=' + encodeURIComponent(visitorFilter));
   if (!res.ok) return;
   const data = await res.json();
   renderVisitorLog(data.entries || [], data.summary || {});

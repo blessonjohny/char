@@ -12839,7 +12839,7 @@ function connectGameSocket() {
       if (input) input.value = '';
       showToast('✅ Admin password changed', 'win', 3000);
     } else {
-      const msgs = { wrong_current: 'Current session password is stale — close and reopen the admin panel', too_short: 'Password needs to be at least 4 characters' };
+      const msgs = { wrong_current: 'Current session password is stale — close and reopen the admin panel', too_short: 'Password needs to be at least 4 characters', too_many_attempts: 'Too many attempts — try again in a few minutes' };
       showToast('❌ ' + (msgs[reason] || 'Could not change password'), 'lose', 3000);
     }
   });
@@ -12854,6 +12854,8 @@ function connectGameSocket() {
     const name = actionNames[action] || 'Admin action';
     if (reason === 'wrong_password') {
       showToast(`❌ ${name} failed — your admin session's password doesn't match the server's current one. Close and reopen the admin panel to refresh it, or re-enter the password.`, 'lose', 5000);
+    } else if (reason === 'too_many_attempts') {
+      showToast(`⏱️ Too many wrong password attempts — locked out for a few minutes.`, 'lose', 5000);
     } else {
       showToast(`❌ ${name} failed.`, 'lose', 3000);
     }
