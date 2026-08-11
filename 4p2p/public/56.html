@@ -228,7 +228,13 @@
     text-align:center;font-size:12px;color:var(--gold-soft);font-family:'Fraunces',serif;
     padding:5px 12px;border-bottom:1px solid var(--line);background:rgba(0,0,0,0.15);
     flex:0 0 auto;
-    min-height:32px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+    min-height:32px;box-sizing:border-box;
+    /* 3-zone layout: dealer info on the left, the actual Team/Opp score
+       dead-centered, bidder+trump+doubled info on the right -- instead
+       of one long flowing centered string with the score buried at the
+       end of it. See renderHandInfoBar()'s JS, which now builds each
+       zone separately instead of one combined HTML string. */
+    display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
     opacity:0;transition:opacity .15s ease;
   }
   #handInfoBar.showing{opacity:1;}
@@ -684,7 +690,11 @@
 </header>
 
 <div id="game">
-  <div id="handInfoBar"></div>
+  <div id="handInfoBar">
+    <div id="handInfoLeft" style="display:flex;justify-content:flex-start;overflow:hidden"></div>
+    <div id="handInfoCenter" style="display:flex;justify-content:center;white-space:nowrap;padding:0 6px"></div>
+    <div id="handInfoRight" style="display:flex;justify-content:flex-end;overflow:hidden"></div>
+  </div>
   <div id="tableTalk"></div>
   <div id="trickWinnerBanner"></div>
 
@@ -1883,6 +1893,9 @@ async function setReviewHold(value){
 
 function renderHandInfoBar(state){
   const bar = document.getElementById('handInfoBar');
+  const leftEl = document.getElementById('handInfoLeft');
+  const centerEl = document.getElementById('handInfoCenter');
+  const rightEl = document.getElementById('handInfoRight');
   if(state.phase !== 'bidding' && state.phase !== 'auctionClosed' && state.phase !== 'playing' && state.phase !== 'handEnd'){
     bar.classList.remove('showing');
     return;
@@ -1891,10 +1904,12 @@ function renderHandInfoBar(state){
   const dealerName = state.seats[state.dealer] ? state.seats[state.dealer].name : '';
   const dealerTxt = `<i>Dealer</i> <b>${escapeHtml(dealerName)}</b>`;
 
-  let html;
-  if(state.phase === 'bidding' || !state.currentBid){
-    html = dealerTxt;
-  } else {
+  // 3 separate zones instead of one long centered string: dealer info on
+  // the left, the actual Team/Opp score dead-centered (previously it was
+  // buried at the very end of the combined line), bidder+bid+trump info
+  // on the right.
+  let leftHtml = dealerTxt, centerHtml = '', rightHtml = '';
+  if(state.phase !== 'bidding' && state.currentBid){
     const cb = state.currentBid;
     const trumpTxt = cb.trump ? SUIT_SYM[cb.trump] + ' Trump' : 'No Trump';
     const bidderName = state.seats[cb.seat] ? state.seats[cb.seat].name : '';
@@ -1902,11 +1917,13 @@ function renderHandInfoBar(state){
     const {bidColor, defColor} = handProgressColors(state);
     const bidPts = state.teamPoints[bidTeamLetter], defPts = state.teamPoints[defTeamLetter];
     const bidLabel = RELTEAM(cb.seat), defLabel = bidLabel === 'Team' ? 'Opp' : 'Team';
-    html = `${dealerTxt} &nbsp;·&nbsp; <span class="nowrap-chunk"><b>${escapeHtml(bidderName)}</b> (${bidLabel}) <b>${cb.value}</b> ${trumpTxt}</span>` +
-      (state.doubled===1?' · Doubled':state.doubled===2?' · Redoubled':'') +
-      ` &nbsp;·&nbsp; <span class="nowrap-chunk">${bidLabel} <b style="color:${bidColor}">${bidPts}</b> — ${defLabel} <b style="color:${defColor}">${defPts}</b></span>`;
+    centerHtml = `<span class="nowrap-chunk">${bidLabel} <b style="color:${bidColor}">${bidPts}</b> — ${defLabel} <b style="color:${defColor}">${defPts}</b></span>`;
+    rightHtml = `<span class="nowrap-chunk"><b>${escapeHtml(bidderName)}</b> (${bidLabel}) <b>${cb.value}</b> ${trumpTxt}</span>` +
+      (state.doubled===1?' · Doubled':state.doubled===2?' · Redoubled':'');
   }
-  setBarHtml(bar, html);
+  setBarHtml(leftEl, leftHtml);
+  setBarHtml(centerEl, centerHtml);
+  setBarHtml(rightEl, rightHtml);
 }
 
 function setBarHtml(bar, html){

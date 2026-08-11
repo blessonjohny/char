@@ -2886,16 +2886,20 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <!-- ===== GAME WRAP ===== -->
 <div class="game-wrap" id="gameWrap">
   <div class="info-bar" id="infoBar">
-    <div class="info-row info-main">
-      <span class="info-item"><span class="info-label" id="roundLabel">Round</span><span class="info-val" id="roundNum">1</span></span>
-      <span class="info-sep">·</span>
-      <span class="info-item"><span class="info-label" id="dealerLabel">Dealer</span><span class="info-val" id="dealerDisplay">—</span></span>
-      <span class="info-sep">·</span>
-      <span class="info-item"><span class="info-label" id="bidderLabel">Bidder</span><span class="info-val" id="bidderDisplay">—</span></span>
-      <span class="info-sep">·</span>
-      <span class="info-item"><span class="info-label" id="yourTricksLabel">Team</span><span class="info-val" id="yourTricks">0</span></span>
-      <span class="info-sep">·</span>
-      <span class="info-item"><span class="info-label" id="oppTricksLabel">Opp</span><span class="info-val" id="oppTricks">0</span></span>
+    <div class="info-row info-main" style="display:grid;grid-template-columns:1fr auto 1fr;justify-content:stretch;align-items:center">
+      <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:flex-start;overflow:hidden">
+        <span class="info-item"><span class="info-label" id="roundLabel">Round</span><span class="info-val" id="roundNum">1</span></span>
+        <span class="info-sep">·</span>
+        <span class="info-item"><span class="info-label" id="dealerLabel">Dealer</span><span class="info-val" id="dealerDisplay">—</span></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:center;white-space:nowrap;padding:0 6px">
+        <span class="info-item"><span class="info-label" id="yourTricksLabel">Team</span><span class="info-val" id="yourTricks">0</span></span>
+        <span class="info-sep">·</span>
+        <span class="info-item"><span class="info-label" id="oppTricksLabel">Opp</span><span class="info-val" id="oppTricks">0</span></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:flex-end;overflow:hidden">
+        <span class="info-item"><span class="info-label" id="bidderLabel">Bidder</span><span class="info-val" id="bidderDisplay">—</span></span>
+      </div>
     </div>
     <div class="info-row info-king" id="kingRow" style="display:none" title="Win championships back-to-back to level up: 2 wins in a row = Level 1, and so on up to 10 wins in a row = 👑 King.">
       <span class="info-item"><span class="info-label"><span class="king-fire">🔥</span> Streak</span><span class="info-val" id="kingStreakVal">0</span></span>
