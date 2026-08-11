@@ -12479,6 +12479,7 @@ let serverRoundEndShown = -1; // which round number we've already shown the summ
 let serverLastAnnouncedTrumpExposed = false; // tracks trumpExposed so the announcement toast fires exactly once per exposure, not on every render
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired, so it shows exactly once per round
 let lastShownRoundVoidMessage = null; // tracks the defending-team-has-no-trump void message so it shows exactly once per occurrence
+let lastShownReshuffleReasonTs = null; // same "show exactly once" pattern for the 3 auto-reshuffle popups below
 let lastShownPartnerSignalKey = null; // tracks the last partner bidding signal shown to this player so it shows exactly once per occurrence
 
 // A full page reload wipes every JS variable but leaves localStorage
@@ -13581,15 +13582,36 @@ function applyServerState(state) {
   // updates (tab closed/crashed) lets the timestamp actually go stale.
   try { localStorage.setItem('k28_session_time', String(Date.now())); } catch (e) {}
 
-  // Defending-team-has-no-trump round void — show this exactly once per
-  // occurrence, not on every subsequent broadcast while the server's
-  // short delay before redealing is still running.
+  // Defending-team-has-no-trump round void: kept for the permanent game
+  // log entry, but no longer also shown as a toast — the reshuffleReason
+  // popup right below covers this same event with clearer, per-viewer
+  // wording ("Your team" vs "Opponent team"), so a toast on top of that
+  // popup would just be a redundant second notification for one event.
   if (state.roundVoidMessage && state.roundVoidMessage !== lastShownRoundVoidMessage) {
     lastShownRoundVoidMessage = state.roundVoidMessage;
-    showToast('🚫 ' + state.roundVoidMessage, 'lose', 3500);
     log(state.roundVoidMessage, 'lose');
   } else if (!state.roundVoidMessage) {
     lastShownRoundVoidMessage = null;
+  }
+
+  // The 3 auto-reshuffle popups (unplayable all-7s/8s forced hand, a
+  // player dealt all four Jacks, or the defending team having zero
+  // trump) — each one gets a real popup (showModal), not just a toast,
+  // shown to every player once per occurrence. ts makes each event
+  // unique even if the exact same player/situation happens to repeat.
+  if (state.reshuffleReason && state.reshuffleReason.ts !== lastShownReshuffleReasonTs) {
+    lastShownReshuffleReasonTs = state.reshuffleReason.ts;
+    const r = state.reshuffleReason;
+    let msg;
+    if (r.type === 'all78') {
+      msg = `🔄 <b>Reshuffling</b><br><br>${escapeHtml(r.name)} was forced to bid with a hand of nothing but 7s and 8s — unplayable. Same dealer, fresh deal.`;
+    } else if (r.type === 'allJacks') {
+      msg = `🔄 <b>Reshuffling</b><br><br>${escapeHtml(r.name)} was dealt all four Jacks! Same dealer, fresh deal.`;
+    } else if (r.type === 'noTrump') {
+      const onThatTeam = getTeam(MY_POS) === r.team;
+      msg = `😮 <b>${onThatTeam ? 'Your team' : 'Opponent team'} has no trump</b><br><br>${onThatTeam ? 'Your team' : 'The opponent team'} has zero ${r.suit} between both hands — nothing to contest. Same dealer, fresh deal.`;
+    }
+    if (msg) showModal('Reshuffling', msg);
   }
 
   // Partner bidding signal received — same "show exactly once" pattern
@@ -14073,6 +14095,7 @@ function resetTrickAndRoundTracking() {
   lastRenderedSlotContent = [null, null, null, null];
   lastAnnouncedHonorsRound = -1;
   lastShownRoundVoidMessage = null;
+  lastShownReshuffleReasonTs = null;
   lastShownPartnerSignalKey = null;
   trickHoldGen++;
 }
