@@ -340,7 +340,7 @@
       if (header) {
         const hdrRect = header.getBoundingClientRect();
         if (hdrRect.height > 0 && getComputedStyle(header).display !== 'none') {
-          topY = hdrRect.bottom + 10;
+          topY = hdrRect.bottom + 40;
         }
         // 56's header (and possibly others) has a second row -- dealer,
         // trump, score -- that only expands once an actual hand starts,
