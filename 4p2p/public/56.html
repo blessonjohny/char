@@ -1949,6 +1949,12 @@ function renderTable(state){
     const pos = TRICK_SLOT_POS[slot];
     const c = document.createElement('div');
     c.className = 'trick-card' + (SUIT_RED[play.card.s] ? ' red' : '');
+    // Tags which trick this card belongs to (how many tricks had already
+    // resolved at the moment it was played) so the "collect" animation
+    // below can tell an old, already-finished trick's cards apart from a
+    // brand new trick's cards that happen to already be on screen by the
+    // time its leftover timer fires -- see scheduleCollectAnimation().
+    c.dataset.trickIdx = String(state.tricksLog ? state.tricksLog.length : 0);
     c.style.left = pos.x + '%'; c.style.top = pos.y + '%';
     c.innerHTML = `<div>${play.card.r}</div><div>${SUIT_SYM[play.card.s]}</div>`;
     centerEl.appendChild(c);
@@ -3222,6 +3228,15 @@ function scheduleCollectAnimation(state){
   collectFor = key;
   if(collectTimer) clearTimeout(collectTimer);
 
+  // The trick that just resolved is whatever was the LAST entry pushed to
+  // tricksLog (resolveTrick() pushes there right as it sets pendingTrick)
+  // -- so length-1 matches the trickIdx tag its own 6 cards were given
+  // while they were still being played, before this resolution bumped
+  // the length. Captured now, at schedule time, so it stays correct even
+  // though several more tricks (and a fresh set of tagged cards) might
+  // come and go for real before this fires.
+  const trickIdx = String((state.tricksLog ? state.tricksLog.length : 1) - 1);
+
   const elapsed = Date.now() - state.pendingTrick.ts;
   const fireAt = Math.max(0, TRICK_DISPLAY_MS - COLLECT_LEAD_MS - elapsed);
   collectTimer = setTimeout(() => {
@@ -3233,6 +3248,12 @@ function scheduleCollectAnimation(state){
     const target = SEAT_POS[slot]; // winner's actual avatar position, full scale
 
     center.querySelectorAll('.trick-card').forEach(el => {
+      // A newer trick's cards can already be sitting in the DOM by the
+      // time this fires (guest-side polling can render the next trick's
+      // opening card before this old timer catches up) -- skip anything
+      // that isn't actually part of the trick this animation is for,
+      // instead of blindly fading every .trick-card currently on screen.
+      if(el.dataset.trickIdx !== trickIdx) return;
       const cx = parseFloat(el.style.left) || 50;
       const cy = parseFloat(el.style.top) || 50;
       // Delta from this specific card's own position to the winner's seat,
