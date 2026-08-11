@@ -3246,8 +3246,39 @@ io.on('connection', (socket) => {
     const info = r.sockets.get(socket.id);
     r.sockets.delete(socket.id);
     socket.leave(l56SocketRoom(code));
-    if (info && r.hostPlayerId === info.playerId) l56ReassignHost(r);
     socket.data.l56 = null;
+
+    // In the lobby (nothing at stake), free the seat for someone else.
+    // Mid-game, hand it to a bot instead -- a clean, permanent handoff,
+    // same as every other table here does on an explicit leave.
+    if (info && info.pos != null && info.pos >= 0 && r.state && r.state.seats && r.state.seats[info.pos] && r.state.seats[info.pos].playerId === info.playerId) {
+      if (r.state.phase === 'lobby') {
+        r.state.seats[info.pos] = null;
+      } else {
+        r.state.seats[info.pos] = { name: r.state.seats[info.pos].name, bot: true };
+      }
+    }
+    if (info && r.hostPlayerId === info.playerId) l56ReassignHost(r);
+
+    // Deliberate leave (this handler only fires for the actual
+    // 'l56_leaveTable' emit, sent by the red X / "Leave Table"
+    // confirmation -- never by a silent disconnect, see the separate
+    // 'disconnect' handler below) AND, after the seat handling above,
+    // not a single real (non-bot) player is left seated anywhere at
+    // this table. Mirrors the identical fix already in place for the
+    // 4-player and 6-player tables: this is the one case that closes
+    // the table right now, since an explicit leave means there's
+    // nothing left worth keeping a reconnect window open for. A network
+    // drop still preserves the table exactly as before, regardless of
+    // how many real players remain.
+    if (r.state && r.state.seats && !r.state.seats.some(s => s && !s.bot)) {
+      io.to(l56SocketRoom(code)).emit('l56_tableClosed', { reason: 'lastPlayerLeft' });
+      delete l56Rooms[code];
+      io.emit('l56_roomList', l56PublicList());
+      console.log(`[56 table ${code}] closed — last real player explicitly left via Leave Table`);
+      return;
+    }
+
     l56Touch(r);
     l56Broadcast(code);
   });

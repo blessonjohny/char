@@ -551,9 +551,50 @@ class GameEngine {
     }
     this.dealCards(4);
     this.phase = 'bidding1';
+    // Silently redeals (no intermediate notify) until neither
+    // auto-reshuffle condition holds, so clients only ever see ONE clean
+    // final state -- with reshuffleReason explaining what happened, if
+    // anything did. Same dealer throughout, per round of edits.
+    this.reshuffleReason = this._dealSameHandUntilValid();
     this.addLog(`Round ${this.round} started. Dealer seat ${this.dealer}.`);
     this._notify();
     this.maybeAutoAct();
+  }
+
+  // Redeals (same dealer, no notify/side effects per attempt) until
+  // neither auto-reshuffle condition is true: the forced first bidder
+  // holding nothing but 7s/8s (an unplayable hand they'd otherwise be
+  // forced to bid on), or any single seat holding all four Jacks.
+  // Returns the reason for the FIRST bad deal hit in the chain (or null
+  // if the original deal was already fine) -- that first reason is the
+  // one actually worth telling players about; anything after it is just
+  // this same safety net doing its job again on the replacement deal.
+  _dealSameHandUntilValid() {
+    let reason = null;
+    let guard = 0;
+    while (guard++ < 100) { // effectively unbounded in practice; just a hard safety cap
+      const firstBidderSeat = nextPos(this.dealer);
+      const firstBidderHand = this.seats[firstBidderSeat] ? this.seats[firstBidderSeat].hand : [];
+      const isAll78 = firstBidderHand.length === 4 && firstBidderHand.every(c => c.rank === '7' || c.rank === '8');
+      let allJacksSeat = -1;
+      if (!isAll78) {
+        for (let i = 0; i < 4; i++) {
+          const hand = this.seats[i] ? this.seats[i].hand : [];
+          if (hand.filter(c => c.rank === 'J').length === 4) { allJacksSeat = i; break; }
+        }
+      }
+      if (!isAll78 && allJacksSeat === -1) break; // this deal is fine, stop here
+      if (!reason) {
+        reason = isAll78
+          ? { type: 'all78', seat: firstBidderSeat, name: this.seats[firstBidderSeat] ? this.seats[firstBidderSeat].name : ('Seat ' + firstBidderSeat), round: this.round, ts: Date.now() }
+          : { type: 'allJacks', seat: allJacksSeat, name: this.seats[allJacksSeat].name, round: this.round, ts: Date.now() };
+        this.addLog(`Reshuffling — ${reason.name} ${reason.type === 'all78' ? "was forced to bid with a hand of only 7s and 8s" : "was dealt all four Jacks"}. Same dealer, fresh deal.`);
+      }
+      for (let i = 0; i < 4; i++) { if (this.seats[i]) this.seats[i].hand = []; }
+      this.deck = freshDeck();
+      this.dealCards(4);
+    }
+    return reason;
   }
 
   // Host control: reshuffle and redeal the CURRENT round from scratch —
@@ -573,7 +614,13 @@ class GameEngine {
     }
     this.dealCards(4);
     this.phase = 'bidding1';
-    this.addLog(`Round ${this.round} restarted by the host — fresh shuffle.`);
+    // Always reflects what happened during THIS specific redeal -- never
+    // left stale from an earlier, unrelated trigger. _startPlay()'s
+    // no-trump check already broadcasts its OWN reshuffleReason once,
+    // directly, right before calling this -- so resetting it here based
+    // on this fresh deal (null if it's clean) is correct, not a loss.
+    this.reshuffleReason = this._dealSameHandUntilValid();
+    this.addLog(`Round ${this.round} restarted — fresh shuffle.`);
     this._notify();
     this.maybeAutoAct();
   }
@@ -899,17 +946,20 @@ class GameEngine {
   _startPlay() {
     // Rule: if NEITHER player on the defending team (the team that didn't
     // win the bid) holds even a single card of the trump suit, they have
-    // no way to ever contest trump at all — the round is void. Redeal
-    // with the next dealer rather than playing out something that was
-    // never really contestable. (The bidder's own hidden trump card
-    // doesn't count here — this check is specifically about the
+    // no way to ever contest trump at all — the round is void. Reshuffle
+    // with the SAME dealer (matching the other two auto-reshuffle rules
+    // in _checkAndHandleBadDeal()) rather than playing out something
+    // that was never really contestable. (The bidder's own hidden trump
+    // card doesn't count here — this check is specifically about the
     // DEFENDING side having zero trump between them.)
     const bidTeam = getTeam(this.bidder);
+    const defendingTeam = bidTeam === 0 ? 1 : 0;
     const defendingHasTrump = this.seats.some((s, i) => s && getTeam(i) !== bidTeam && s.hand.some(c => c.suit === this.trumpSuit));
     if (!defendingHasTrump) {
-      this.roundVoidMessage = `The defending team has no ${this.trumpSuit} at all this round — nothing to contest. Round voided, moving to the next dealer.`;
+      this.roundVoidMessage = `The defending team has no ${this.trumpSuit} at all this round — nothing to contest. Reshuffling with the same dealer.`;
+      this.reshuffleReason = { type: 'noTrump', team: defendingTeam, suit: this.trumpSuit, round: this.round, ts: Date.now() };
       this.addLog(this.roundVoidMessage);
-      // Broadcast the void message FIRST — startRound() immediately
+      // Broadcast the void message FIRST — restartRound() immediately
       // clears it again as part of resetting for the new deal, so
       // without this explicit notify the client would never actually
       // see it before it's already gone.
@@ -920,7 +970,7 @@ class GameEngine {
       // play well with synchronous testing either. The client's toast
       // for this message already stays up for a few seconds on its own,
       // which is what actually gives players time to read it.
-      this.startRound();
+      this.restartRound();
       return;
     }
 
@@ -2073,6 +2123,7 @@ class GameEngine {
       trumpSuit: this.trumpSuit, // the chosen SUIT is known to everyone once picked — only the specific hidden CARD stays secret until exposure
       trumpExposed: this.trumpExposed,
       roundVoidMessage: this.roundVoidMessage,
+      reshuffleReason: this.reshuffleReason || null,
       mustPlayTrump: this.mustPlayTrumpBy === viewerPos, // viewer just asked for the reveal and owes a trump card this trick if holding one
       hasHiddenTrump: !!this.hiddenTrump,
       myHiddenTrumpCard: (this.hiddenTrump && viewerPos === this.hiddenTrumpOwner) ? this.hiddenTrump : null,
