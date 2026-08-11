@@ -313,6 +313,9 @@
   // (with a real clearance buffer for the cards that visually poke up
   // above their row) fixes that regardless of screen size or how tall the
   // card row currently is.
+  let headerWatchedEl = null;
+  let headerResizeObserver = null;
+
   function positionButtons() {
     if (!ui) return;
     const table = document.getElementById('tableArea');
@@ -337,7 +340,24 @@
       if (header) {
         const hdrRect = header.getBoundingClientRect();
         if (hdrRect.height > 0 && getComputedStyle(header).display !== 'none') {
-          topY = hdrRect.bottom + 6;
+          topY = hdrRect.bottom + 10;
+        }
+        // 56's header (and possibly others) has a second row -- dealer,
+        // trump, score -- that only expands once an actual hand starts,
+        // which can easily happen well after this first ran (it depends
+        // on game state loading over the network, not a fixed delay).
+        // Positioning once/twice on a timer isn't enough to catch that
+        // later height change, which is exactly why the mic ended up
+        // overlapping that second row. Watching the header itself keeps
+        // this correct no matter when or how many times its height
+        // actually changes.
+        if (headerWatchedEl !== header) {
+          if (headerResizeObserver) headerResizeObserver.disconnect();
+          if (window.ResizeObserver) {
+            headerResizeObserver = new ResizeObserver(positionButtons);
+            headerResizeObserver.observe(header);
+            headerWatchedEl = header;
+          }
         }
       }
       ui.btn.style.left = '8px';
