@@ -2,7 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- viewport-fit=cover + the safe-area padding in CSS below (search
+     "safe-area-inset") keep the header/topbar and bottom controls clear
+     of the iPhone notch/Dynamic Island and the home-indicator bar,
+     instead of content sitting underneath them. -->
+<meta name="theme-color" content="#0a1628">
+<!-- Lets this be added to an iPhone's home screen as a proper
+     chrome-free app (apple-mobile-web-app-capable) -- the standard
+     Fullscreen API used elsewhere on this page genuinely cannot hide
+     Safari's own browser chrome on iPhone (Apple restricts that), so
+     "Add to Home Screen" is the only real way anyone on iOS gets the
+     same no-browser-bars experience Android already gets in-tab. See
+     maybeShowIosInstallHint() further down. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="56 Kerala">
+<meta name="mobile-web-app-capable" content="yes">
 <title>56 · Six-Hand Kerala Card Game</title>
 <meta name="description" content="Play 56 online free — the six-hand Kerala card game, a bigger cousin of 28 Gulan. Live multiplayer, no download, play cards online instantly in your browser.">
 <meta name="keywords" content="56 card game, play 56 online, kerala 56, 56 online free, six hand card game, kerala card game, play cards online, 28 gulan family games">
@@ -140,7 +156,12 @@
   }
   header.bar{
     display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;
-    padding:6px 10px;border-bottom:1px solid var(--line);
+    /* max(6px, ...) keeps the original 6px padding on ordinary screens,
+       and only grows it on phones with a notch/Dynamic Island (iPhone)
+       so the header's own content never sits underneath it. Left/right
+       matter too in landscape, where the notch can be on either side. */
+    padding:max(6px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 6px max(10px, env(safe-area-inset-left));
+    border-bottom:1px solid var(--line);
     background:rgba(10,30,23,0.98);
     position:fixed;top:0;left:0;right:0;z-index:41;
     justify-content:space-between;
@@ -372,7 +393,7 @@
     100%{opacity:1; transform:translate(-50%,-50%) scale(1);}
   }
 
-  #hand-area{padding:4px 12px 6px;flex:0 0 auto;}
+  #hand-area{padding:4px 12px calc(6px + env(safe-area-inset-bottom));flex:0 0 auto;}
   #hand-strip{
     display:flex;justify-content:flex-start;flex-wrap:nowrap;align-items:flex-end;
     overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;
@@ -915,10 +936,18 @@ function ensureSyncSocket(){
   });
   syncSocket.on('sync56_state', ({room, state}) => {
     if(room !== roomCode || !state) return;
-    // Someone (possibly us) just saved a change -- refresh right away
-    // instead of waiting for the next poll tick. pollLoop() already
-    // no-ops if this is a state we've already rendered.
-    pollLoop();
+    // This push already IS the full current state -- 4-player and
+    // 6-player tables apply a pushed state directly the instant it
+    // arrives, they never go fetch it separately afterward. 56 used to
+    // call pollLoop() here instead, which threw away the state that was
+    // just handed to it and opened a brand new network round-trip on
+    // TOP of it -- and since the periodic poll timer could ALSO have a
+    // fetch in flight at the very same moment, that was the actual
+    // source of the out-of-order-response races (cards flashing and
+    // vanishing, guests stuck on stale data). Rendering what was already
+    // pushed removes that extra round-trip -- and the race it opened up
+    // -- entirely for the normal case.
+    render(state);
   });
   syncSocket.on('reveal56Policy', ({disabled}) => {
     reveal56DisabledByAdmin = !!disabled;
@@ -1273,9 +1302,68 @@ document.getElementById('cancelJoinPendingBtn').addEventListener('click', () => 
   document.getElementById('joinPendingOverlay').classList.add('hidden');
 });
 
+// Requests fullscreen -- hides the browser's own address bar and nav
+// bars on mobile -- the moment someone actually creates or joins a 56
+// table. This only works when called synchronously from within a real
+// tap (createTable()/requestJoinRoom() below both qualify); calling it
+// from anywhere else, like after an async response comes back, would
+// get silently ignored by the browser. Tries every vendor-prefixed
+// version (standard, then Safari/older-Chrome, Firefox, old Edge/IE) so
+// this actually works across Android, Windows, and desktop browsers,
+// not just whichever one happens to support the unprefixed API.
+// Wrapped in try/catch either way -- if none of them are available
+// (this is genuinely the case for Safari on iPhone specifically, see
+// maybeShowIosInstallHint() below for why and what actually helps
+// there), the game still works completely normally, just without the
+// chrome-hiding effect.
+function requestFullscreen56(){
+  try {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (fn) {
+      const result = fn.call(el);
+      if (result && result.catch) result.catch(() => {});
+    }
+  } catch (e) { /* not available here -- fine, just skip it */ }
+}
+
+// iOS Safari does not let ANY web page hide its own browser chrome via
+// JavaScript, on principle -- Apple restricts the Fullscreen API on
+// iPhone specifically, so requestFullscreen56() above silently does
+// nothing there no matter what. The one real way to get the same
+// chrome-free, full-screen feel on iPhone is "Add to Home Screen" (the
+// apple-mobile-web-app-capable meta tag in <head> makes that launch
+// standalone, with no Safari bars at all) -- so rather than stay silent
+// about a feature that just doesn't work for them, this shows a single,
+// dismissible, one-time tip pointing at the actual fix. Only shown to
+// genuine iPhone/iPad Safari visitors who haven't already installed it
+// (standalone mode is detectable) and haven't seen the tip before.
+function maybeShowIosInstallHint(){
+  try {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+    if (!isIOS || !isSafari || isStandalone) return;
+    if (sessionStorage.getItem('k56_seenIosInstallHint')) return;
+    sessionStorage.setItem('k56_seenIosInstallHint', '1');
+  } catch (e) { return; }
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);max-width:320px;width:calc(100% - 32px);background:rgba(20,20,30,0.97);border:1px solid rgba(244,196,48,0.5);border-radius:14px;padding:14px 16px;z-index:3000;box-shadow:0 8px 24px rgba(0,0,0,0.5);text-align:left;color:#fff;font-size:0.85rem;line-height:1.4';
+  el.innerHTML = `📱 For a full-screen, app-like table with no Safari bars: tap <b>Share</b> ⬆️ then <b>Add to Home Screen</b>.
+    <div style="text-align:right;margin-top:8px"><button id="iosHintDismiss" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.8);font-size:0.8rem">Got it</button></div>`;
+  document.body.appendChild(el);
+  document.getElementById('iosHintDismiss').addEventListener('click', () => el.remove());
+}
+// Runs once, right away, same as the other top-level setup calls in
+// this script -- shows the "Add to Home Screen" tip on the landing
+// screen itself, before someone even starts a game, so iPhone users get
+// pointed at the real fullscreen fix as early as possible.
+maybeShowIosInstallHint();
+
 function createTable(){
   const name = requireName();
   if(!name) return;
+  requestFullscreen56();
   myName = name;
   ensureSyncSocket();
   syncSocket.emit('l56_createTable', {name});
@@ -1284,6 +1372,7 @@ function createTable(){
 function requestJoinRoom(code){
   const name = requireName();
   if(!name) return;
+  requestFullscreen56();
   myName = name;
   ensureSyncSocket();
   syncSocket.emit('l56_requestJoin', {code, name});
