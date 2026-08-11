@@ -1678,7 +1678,15 @@ function render(state){
   // already on screen closes that race for every render() call site,
   // not just pollLoop(), while still allowing every real update through
   // (each one always carries a fresh Date.now() timestamp).
-  if(lastRenderedStamp !== null && state.updatedAt <= lastRenderedStamp) return;
+  // Uses < rather than <= on purpose: Date.now() only has millisecond
+  // resolution, and two genuinely different states saved back-to-back
+  // (e.g. a fast chain of bot moves) can end up with the EXACT same
+  // timestamp. <= would silently drop the second one as "not newer",
+  // permanently stalling this client on stale data with no future
+  // update ever able to look "new enough" to get through. < still
+  // rejects anything truly older (the actual bug this was fixing) while
+  // no longer punishing a same-millisecond tie.
+  if(lastRenderedStamp !== null && state.updatedAt < lastRenderedStamp) return;
   lastRenderedStamp = state.updatedAt;
   latestState = state;
   isHost = !!state.hostPlayerId && state.hostPlayerId === MY_PLAYER_ID;
@@ -2990,12 +2998,14 @@ let auctionAdvanceFor = null;
 
 function maybeAdvanceFromAuctionResult(state){
   if(state.phase !== 'auctionClosed') return;
-  const humanSeats = state.seats
-    .map((s,i) => (s && !s.bot) ? i : null)
-    .filter(i => i !== null);
-  if(humanSeats.length === 0) return;
-  const driverSeat = Math.min(...humanSeats);
-  if(driverSeat !== mySeat) return;
+  // Same fix as maybeDriveBots/maybeClearPendingTrick: any visible
+  // seated human can advance from the auction-result screen now,
+  // instead of it being stuck on one fixed person's tab staying open.
+  // The fresh.auctionClosedAt check just below already guarantees only
+  // one of them actually does it if more than one tries at once.
+  if(mySeat === null || mySeat === undefined) return;
+  if(!state.seats[mySeat] || state.seats[mySeat].bot) return;
+  if(typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
 
   const key = 'auction:' + state.auctionClosedAt;
   if(auctionAdvanceFor === key) return;
@@ -3191,12 +3201,16 @@ const TRICK_DISPLAY_MS = 3000;
 
 function maybeClearPendingTrick(state){
   if(!state.pendingTrick) return;
-  const humanSeats = state.seats
-    .map((s,i) => (s && !s.bot) ? i : null)
-    .filter(i => i !== null);
-  if(humanSeats.length === 0) return;
-  const driverSeat = Math.min(...humanSeats);
-  if(driverSeat !== mySeat) return;
+  // Same fix as maybeDriveBots below: used to be locked to whichever
+  // human sat at the lowest seat index, so if THAT one person's tab got
+  // backgrounded, a finished trick would just sit on screen forever,
+  // never clearing, since nobody else was allowed to do it. Any visible
+  // seated human can clear it now -- the fresh.pendingTrick.ts check
+  // just below already guarantees only one of them actually does it if
+  // more than one tries around the same moment.
+  if(mySeat === null || mySeat === undefined) return;
+  if(!state.seats[mySeat] || state.seats[mySeat].bot) return;
+  if(typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
 
   const key = 'trick:' + state.pendingTrick.ts;
   if(trickClearFor === key) return;
@@ -3271,10 +3285,18 @@ function scheduleCollectAnimation(state){
 // ============================================================
 // BOTS
 // ============================================================
-// Only ONE connected client "drives" the bots — the human seated at the
-// lowest seat index currently present. This avoids two clients both trying
-// to act for the same bot turn. That human's tab needs to stay open for
-// bots to keep playing.
+// Used to be: only ONE connected client "drives" the bots — the human
+// seated at the lowest seat index, permanently, no matter what. That
+// meant if THAT ONE person's tab got backgrounded (switched apps, locked
+// their phone), the browser throttles JS timers in background tabs to
+// save battery — so the timer that would've made the next bot act just
+// silently stopped firing, and the WHOLE TABLE froze waiting on a bot
+// that could never move, until that one specific person came back.
+// Now, any currently-VISIBLE seated human tab is eligible to drive
+// instead — safe even with several eligible clients at once, since the
+// re-check inside the timeout below (fresh.turn !== turnSeat) already
+// guarantees only one of them actually ends up acting for any given bot
+// turn, whichever gets there first.
 let botTimer = null;
 let botTimerFor = null;
 
@@ -3286,12 +3308,12 @@ function maybeDriveBots(state){
   const occ = state.seats[turnSeat];
   if(!occ || !occ.bot) return;
 
-  const humanSeats = state.seats
-    .map((s,i) => (s && !s.bot) ? i : null)
-    .filter(i => i !== null);
-  if(humanSeats.length === 0) return;
-  const driverSeat = Math.min(...humanSeats);
-  if(driverSeat !== mySeat) return;
+  // Spectators (no seat) never drive bots, and a backgrounded/hidden tab
+  // doesn't even try -- its timers would just get throttled anyway, so
+  // there's no point racing a client that can't reliably fire on time.
+  if(mySeat === null || mySeat === undefined) return;
+  if(!state.seats[mySeat] || state.seats[mySeat].bot) return;
+  if(typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
 
   const key = state.phase + ':' + turnSeat + ':' + state.updatedAt;
   if(botTimerFor === key) return;
