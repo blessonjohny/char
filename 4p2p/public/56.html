@@ -2705,7 +2705,7 @@ function renderBidPanel(state){
     <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.6; margin:14px 0 6px;">Calls so far this hand</div>
     <div class="hist-box">${historyHtml}</div>
     <div class="bidline" style="margin-top:20px;">
-      <div class="current-bid-display">${cb ? formatBidLabel(cb) : 'No bid yet'}</div>
+      <div class="current-bid-display">${cb ? formatBidLogLabel(cb) : 'No bid yet'}</div>
       <div style="font-size:12px; opacity:0.7;">${cb ? 'held by ' + (state.seats[cb.seat]?state.seats[cb.seat].name:'') : 'opening bid: 28'}</div>
     </div>
     <div class="row">
@@ -2732,11 +2732,12 @@ function renderBidPanel(state){
     ${bidTrumpKind==='suit' ? `
       <div class="row">
         <div class="segmented" id="orderSeg">
-          <button data-order="forward" class="${bidOrder==='forward'?'sel':''}"><span class="order-preview${SUIT_RED[bidSuit]?' red':''}">${previewValue} ${SUIT_SYM[bidSuit]}</span><span class="order-caption">With Jack</span></button>
-          <button data-order="reverse" class="${bidOrder==='reverse'?'sel':''}"><span class="order-preview${SUIT_RED[bidSuit]?' red':''}">${SUIT_SYM[bidSuit]} ${previewValue}</span><span class="order-caption">Without Jack</span></button>
+          <button data-order="forward" class="${bidOrder==='forward'?'sel':''}"><span class="order-preview${SUIT_RED[bidSuit]?' red':''}">${bidMode==='inc' ? `+${bidNumber} ${SUIT_SYM[bidSuit]}` : `${previewValue} ${SUIT_SYM[bidSuit]}`}</span><span class="order-caption">With Jack</span></button>
+          <button data-order="reverse" class="${bidOrder==='reverse'?'sel':''}"><span class="order-preview${SUIT_RED[bidSuit]?' red':''}">${bidMode==='inc' ? `${SUIT_SYM[bidSuit]} +${bidNumber}` : `${SUIT_SYM[bidSuit]} ${previewValue}`}</span><span class="order-caption">Without Jack</span></button>
         </div>
       </div>
       <div style="font-size:11px; opacity:0.55; margin:-6px 0 12px;">Order matters: number-first means you hold the Jack of this suit; suit-first (reverse) means no Jack, but 4 or more cards in it.</div>
+      ${bidMode==='inc' ? `<div style="font-size:11px; opacity:0.55; margin:-6px 0 12px;">Actual bid this submits: <b>${previewValue}</b></div>` : ''}
     ` : ''}
     <div class="row">
       <input class="note-input" id="bidNote" placeholder="Note to the whole table (e.g. +1♥)" maxlength="60" value="${escapeHtml(noteDraft)}">
@@ -2838,8 +2839,16 @@ async function submitBid(){
 
   const trump = bidTrumpKind === 'suit' ? bidSuit : null;
   const newBid = {value, trump, seat: mySeat, kind: bidTrumpKind, order: bidTrumpKind==='suit' ? bidOrder : null};
-  if(bidTrumpKind === 'suit' && cb && cb.trump === trump && bidMode === 'inc'){
-    newBid.increment = value - cb.value;
+  // Records the increment for the "+N suit" log/display notation
+  // whenever "Increase by" mode was actually used -- not just when
+  // raising on top of an existing same-suit bid, but also the opening
+  // bid of the hand (cb is null then; "Increase by" still works there,
+  // relative to the implicit 27 baseline a few lines up) and holding
+  // your ground on a suit switch. Without this, an opening bid made via
+  // "Increase by" silently lost its increment and fell back to showing
+  // only the absolute number everywhere it's displayed.
+  if(bidTrumpKind === 'suit' && bidMode === 'inc' && (!cb || cb.trump === trump)){
+    newBid.increment = value - (cb ? cb.value : 27);
   }
   const label = formatBidLogLabel(newBid);
 
