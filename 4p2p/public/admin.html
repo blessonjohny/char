@@ -90,6 +90,18 @@ function fmtTime(ms) {
   const d = new Date(ms);
   return d.toLocaleString();
 }
+// Formats a session length (ms) as "2h 14m", "5m 32s", or "12s" --
+// whichever units are actually meaningful, never showing "0h 0m".
+function fmtDuration(ms) {
+  if (ms == null || ms < 0) return '—';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
 
 // Sends the admin password as a header instead of a URL query string
 // (?password=...) -- a URL is the wrong place for a secret since it
@@ -267,6 +279,12 @@ function renderVisitorLog(entries, summary) {
       ? ` <a href="https://www.google.com/maps?q=${e.lat},${e.lon}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">(map)</a>`
       : '';
     const deviceLine = [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
+    // sessionMs is only set once the connection actually ends (see the
+    // 'disconnect' handler in server.js) -- a visit still in progress
+    // shows as "still connected" rather than a fake/zero duration.
+    const durationLine = e.sessionMs != null
+      ? `⏱️ Logged in ${fmtDuration(e.sessionMs)}`
+      : '🟢 Still connected';
     const badges = [
       e.returning ? '🔁 returning' : '✨ new',
       dup ? `⚠️ seen ${ipCounts[e.ip]}× in this view` : ''
@@ -277,6 +295,7 @@ function renderVisitorLog(entries, summary) {
           <div class="who">${esc(e.ip || 'unknown IP')}</div>
           <div class="where">📍 ${esc(location)}${mapLink}</div>
           <div class="where">📱 ${esc(deviceLine)}${e.language ? ' · 🌐 ' + esc(e.language) : ''}</div>
+          <div class="where">${durationLine}</div>
           ${e.referrer ? `<div class="where">↪️ from ${esc(e.referrer)}</div>` : ''}
           <div class="where" style="opacity:0.8">${badges}</div>
         </div>

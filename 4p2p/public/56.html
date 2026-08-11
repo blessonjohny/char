@@ -732,6 +732,7 @@ let roomCode = null;
 let myName = null;
 let mySeat = null;
 let pollTimer = null;
+let headerResizeObserver = null; // see enterTableAsSeat() -- disconnected/recreated together with pollTimer, same reasoning
 let lastRenderedStamp = null;
 const _scoreState = {};
 
@@ -1461,8 +1462,25 @@ function enterTableAsSeat(pos, state){
   }
   syncHeaderHeight();
   const headerEl = document.getElementById('gameHeader');
+  // enterTableAsSeat() runs again on every reconnect (see the 'connect'
+  // handler above) -- even a brief, often-unnoticed network blip on
+  // mobile (switching wifi/cellular, backgrounding the app for a
+  // second) re-triggers it. Both the poll timer and this resize
+  // observer used to just get created fresh each time WITHOUT clearing
+  // the previous one first, so a session with several such blips would
+  // quietly accumulate multiple overlapping poll timers all firing
+  // independently and out of sync with each other. That's what was
+  // actually causing screens like the hand-end result to flicker
+  // between two versions -- not a real conflict in the data, just
+  // several redundant renders landing on top of each other from
+  // leftover timers nobody ever cleaned up. Clearing/disconnecting the
+  // previous one before making a new one -- exactly like exitToHome()
+  // already correctly does for pollTimer -- stops the pile-up.
+  if(pollTimer) clearInterval(pollTimer);
+  if(headerResizeObserver) headerResizeObserver.disconnect();
   if(window.ResizeObserver){
-    new ResizeObserver(syncHeaderHeight).observe(headerEl);
+    headerResizeObserver = new ResizeObserver(syncHeaderHeight);
+    headerResizeObserver.observe(headerEl);
   } else {
     window.addEventListener('resize', syncHeaderHeight);
     setTimeout(syncHeaderHeight, 500);

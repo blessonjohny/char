@@ -12912,6 +12912,12 @@ function connectGameSocket() {
         : '';
       const when = new Date(e.ts).toLocaleString();
       const deviceLine = [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
+      // sessionMs is only set once the connection actually ends (see
+      // the 'disconnect' handler in server.js) -- a visit still in
+      // progress shows as "still connected" rather than a fake duration.
+      const durationLine = e.sessionMs != null
+        ? '⏱️ Logged in ' + fmtDuration(e.sessionMs)
+        : '🟢 Still connected';
       const badges = [
         e.returning ? '🔁 returning' : '✨ new',
         dup ? '⚠️ seen ' + ipCounts[e.ip] + '× in this view' : ''
@@ -12920,6 +12926,7 @@ function connectGameSocket() {
         <div style="font-weight:700;color:${dup ? 'var(--danger)' : 'var(--gold, #f4c430)'}">${escapeHtml(e.ip || 'unknown IP')}</div>
         <div>${escapeHtml(where)}${mapLink}</div>
         <div style="opacity:0.75">📱 ${escapeHtml(deviceLine)}${e.language ? ' · 🌐 ' + escapeHtml(e.language) : ''}</div>
+        <div style="opacity:0.75">${durationLine}</div>
         ${e.referrer ? `<div style="opacity:0.75">↪️ from ${escapeHtml(e.referrer)}</div>` : ''}
         <div style="opacity:0.6">${when} &middot; ${badges}</div>
       </div>`;
@@ -13117,6 +13124,19 @@ function exitToHome() {
 // "take over this bot", and "just watch" actually apply right now.
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Formats a visitor-log session length (ms) as "2h 14m", "5m 32s", or
+// "12s" -- whichever units are actually meaningful, never "0h 0m".
+function fmtDuration(ms) {
+  if (ms == null || ms < 0) return '—';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 // 28 is partnered: seats 0&3 are one team, 1&2 are the other. Used so a
