@@ -12913,11 +12913,16 @@ function connectGameSocket() {
       const when = new Date(e.ts).toLocaleString();
       const deviceLine = [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
       // sessionMs is only set once the connection actually ends (see
-      // the 'disconnect' handler in server.js) -- a visit still in
-      // progress shows as "still connected" rather than a fake duration.
+      // the 'disconnect' handler in server.js). endedByRestart marks a
+      // session still open when a PREVIOUS server process stopped -- its
+      // real socket is gone, so exactly when it ended is unknowable;
+      // shown distinctly rather than faking a duration or leaving it
+      // looking like it's still connected days later.
       const durationLine = e.sessionMs != null
         ? '⏱️ Logged in ' + fmtDuration(e.sessionMs)
-        : '🟢 Still connected';
+        : e.endedByRestart
+          ? '🔌 Ended (server restarted) — duration unknown'
+          : '🟢 Still connected';
       const badges = [
         e.returning ? '🔁 returning' : '✨ new',
         dup ? '⚠️ seen ' + ipCounts[e.ip] + '× in this view' : ''
