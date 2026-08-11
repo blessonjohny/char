@@ -572,6 +572,7 @@ async function loadVisitorLog() {
     if (fromGithub) {
       visitorLog = fromGithub;
       console.log(`[visitor] Loaded ${visitorLog.length} logged visit(s) from GitHub.`);
+      closeOutStaleVisitorSessions();
       return;
     }
     console.log('[visitor] Falling back to local file for this boot (GitHub fetch failed).');
@@ -586,6 +587,37 @@ async function loadVisitorLog() {
   } catch (e) {
     console.error('[visitor] Failed to load local visitor log, starting fresh:', e.message);
     visitorLog = [];
+  }
+  closeOutStaleVisitorSessions();
+}
+// Any entry still missing disconnectedAt at the moment the log is loaded
+// belongs to a connection from a PREVIOUS server process -- that
+// process's actual socket is long gone, so a real 'disconnect' event for
+// it can never fire in this one. Left alone, it would show "still
+// connected" forever, even days later, which is exactly what looked
+// wrong in the visitor log. This doesn't touch how connections work at
+// all -- it only runs once, right after loading old data at startup, and
+// only ever closes out entries that genuinely can't be closed out any
+// other way. The exact moment it actually ended is unknowable (anywhere
+// between the last save and this restart), so this is marked distinctly
+// (endedByRestart: true) rather than faking a real-looking duration --
+// the display below shows "ended (server restarted)" for these instead
+// of a specific length of time, so nothing here overstates what's
+// actually known.
+function closeOutStaleVisitorSessions() {
+  const now = Date.now();
+  let closedCount = 0;
+  for (const entry of visitorLog) {
+    if (entry.disconnectedAt == null) {
+      entry.disconnectedAt = now;
+      entry.sessionMs = null;
+      entry.endedByRestart = true;
+      closedCount++;
+    }
+  }
+  if (closedCount > 0) {
+    console.log(`[visitor] Closed out ${closedCount} stale "still connected" entr${closedCount === 1 ? 'y' : 'ies'} left over from a previous server process.`);
+    visitorLogDirty = true;
   }
 }
 function saveVisitorLogLocal() {
