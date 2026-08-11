@@ -14,7 +14,7 @@
 //  - 32-card deck (7,8,9,10,J,Q,K,A x 4 suits). J=3pts, 9=2pts, A=1pt,
 //    10=1pt, everything else 0pts. 28 points in the deck total.
 //  - Teams are fixed by seat: seats 0 & 2 vs seats 1 & 3.
-//  - Bidding: 4 cards dealt first. First bidder (dealer's left) must bid
+//  - Bidding: 4 cards dealt first. First bidder (dealer's right) must bid
 //    at least 14 and cannot pass. Bids strictly increase. Bidding ends
 //    once 3 players in a row have passed after some bid exists.
 //  - Bid winner picks a trump suit and sets aside ("hides") one trump
@@ -859,7 +859,7 @@ class GameEngine {
 
   // ---------------- Phase 2: the "second chance to raise" round ----------------
   // Once trump is picked, everyone gets dealt up to their full 8 cards, then
-  // starting from the dealer's left again, each player may either raise the
+  // starting from the dealer's right again, each player may either raise the
   // bid (becoming the new bidder — the trump already chosen stays as-is) or
   // pass. Ends once everyone's passed with no raise at all, or 3 straight
   // passes follow whoever raised last.
@@ -979,7 +979,7 @@ class GameEngine {
     this.trickCards = [];
     this.trickSuit = '';
     this.suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
-    // Play is always led by the dealer's left — the same seat phase-1
+    // Play is always led by the dealer's right — the same seat phase-1
     // bidding started with — regardless of who ended up winning the bid.
     this.currentPlayer = nextPos(this.dealer);
     this.addLog(`Play begins. Seat ${this.currentPlayer} leads.`);
