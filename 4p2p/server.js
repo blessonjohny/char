@@ -776,7 +776,20 @@ io.on('connection', (socket) => {
   // currently seated at any table, without needing every single game
   // to independently do its own geo lookup.
   socketLocations.set(socket.id, { ip: entry.ip, city: entry.city, region: entry.region, country: entry.country });
-  socket.on('disconnect', () => socketLocations.delete(socket.id));
+  socket.on('disconnect', () => {
+    socketLocations.delete(socket.id);
+    // How long this particular connection lasted, start to finish --
+    // `entry` is the exact same object already sitting in visitorLog
+    // (logVisitor() returned it, this is a closure over that reference),
+    // so updating it here updates it in place; no need to search the
+    // array again. sessionMs stays null/absent for a visit still in
+    // progress -- the admin views below show that as "still connected"
+    // rather than a real, final duration.
+    entry.disconnectedAt = Date.now();
+    entry.sessionMs = entry.disconnectedAt - entry.ts;
+    visitorLogDirty = true;
+    markVisitorLogDirtyForGithub();
+  });
 
   socket.on('adminGetVisitorLog', ({ adminPassword, filter }) => {
     const auth = checkAdminAuthSocket(socket, adminPassword);
