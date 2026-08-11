@@ -2338,6 +2338,279 @@ function l56Touch(r) {
   }
 }
 
+// ============================================================
+// 56 SERVER-SIDE BOT FALLBACK
+// ============================================================
+// 56's real game logic normally runs entirely inside whichever player's
+// browser currently has the room open (see public/56.html) -- the
+// server is just a relay storing/broadcasting whatever state blob it's
+// given. That's fine for the common case (some tab is almost always
+// open), but if EVERY connected player's tab is backgrounded at once
+// (switched apps, phone locked), nobody is left to drive a bot's turn,
+// clear a finished trick, or advance past the auction-result screen --
+// and the table would stall forever with no client able to fix it,
+// since backgrounded tabs have their timers throttled by the browser.
+//
+// This is a safety net, not a smart player: it only ever touches a room
+// that's gone quiet for a while (see L56_STALL_MS), and always makes
+// the simplest always-legal move (pass, or the first legal card) rather
+// than anything strategic -- the real, smart client-side bot AI is what
+// actually plays in every normal case. This exists purely so the game
+// can never truly deadlock, the same guarantee the fully
+// server-authoritative 4-player and 6-player tables already have.
+const L56_STALL_MS = 20000; // a bot's turn/pending screen sitting this long with no client update -> server steps in
+const L56_TRICK_DISPLAY_MS = 3000;
+const L56_AUCTION_RESULT_MS = 3000;
+const L56_TEAM_OF = seat => (seat % 2 === 0 ? 'A' : 'B');
+const L56_RANKS = ['J', '9', 'A', '10', 'K', 'Q']; // power order, highest first
+const L56_RANK_PTS = { J: 3, '9': 2, A: 1, '10': 1, K: 0, Q: 0 };
+const L56_SUIT_SYM = { S: '♠', H: '♥', D: '♦', C: '♣' };
+
+function l56BandFor(value) {
+  if (value >= 28 && value <= 39) return { win: 1, lose: 2 };
+  if (value >= 40 && value <= 47) return { win: 2, lose: 3 };
+  if (value >= 48 && value <= 55) return { win: 3, lose: 4 };
+  if (value === 56) return { win: 4, lose: 5 };
+  return { win: 1, lose: 2 };
+}
+function l56AddLog(state, text, seat) {
+  state.log = state.log || [];
+  state.log.unshift({ text, ts: Date.now(), seat: (seat !== undefined ? seat : null) });
+  if (state.log.length > 60) state.log.length = 60;
+}
+function l56LegalCardsForSeat(state, seat) {
+  const hand = state.hands[seat] || [];
+  if (!state.leadSuit) return hand.slice();
+  const followers = hand.filter(c => c.s === state.leadSuit);
+  return followers.length > 0 ? followers : hand.slice();
+}
+function l56CardPower(card, state) {
+  const isTrump = state.currentBid.trump && card.s === state.currentBid.trump;
+  return { isTrump, rankIdx: L56_RANKS.indexOf(card.r) };
+}
+// Faithful port of the client's resolveTrick() (public/56.html) -- same
+// trick-winner/points logic, just without touching the DOM.
+function l56ResolveTrick(state) {
+  let winner = state.table[0];
+  let winPow = l56CardPower(winner.card, state);
+  for (let i = 1; i < state.table.length; i++) {
+    const play = state.table[i];
+    const pow = l56CardPower(play.card, state);
+    let better = false;
+    if (pow.isTrump && !winPow.isTrump) {
+      better = true;
+    } else if (pow.isTrump === winPow.isTrump) {
+      if (pow.isTrump) {
+        better = pow.rankIdx < winPow.rankIdx;
+      } else if (play.card.s === state.leadSuit && winner.card.s === state.leadSuit) {
+        better = pow.rankIdx < winPow.rankIdx;
+      } else if (play.card.s === state.leadSuit && winner.card.s !== state.leadSuit) {
+        better = true;
+      }
+    }
+    if (better) { winner = play; winPow = pow; }
+  }
+  const points = state.table.reduce((sum, p) => sum + L56_RANK_PTS[p.card.r], 0);
+  const winTeam = L56_TEAM_OF(winner.seat);
+  state.teamPoints[winTeam] += points;
+  state.tricksLog = state.tricksLog || [];
+  state.tricksLog.push({ cards: state.table, winnerSeat: winner.seat, points });
+  l56AddLog(state, `${state.seats[winner.seat].name} wins the trick (+${points} pts) for Team ${winTeam}.`);
+  state.pendingTrick = { winnerSeat: winner.seat, points, team: winTeam, ts: Date.now() };
+  state.turn = null;
+}
+// Faithful port of settlePendingTrick() + finishHand() from public/56.html.
+function l56SettlePendingTrick(state) {
+  if (!state.pendingTrick) return;
+  const winnerSeat = state.pendingTrick.winnerSeat;
+  state.table = [];
+  state.leadSuit = null;
+  state.turn = winnerSeat;
+  state.pendingTrick = null;
+  const cardsLeft = state.hands.reduce((a, h) => a + h.length, 0);
+  if (cardsLeft === 0) l56FinishHand(state);
+}
+function l56FinishHand(state) {
+  const cb = state.currentBid;
+  const biddingTeam = L56_TEAM_OF(cb.seat);
+  const oppTeam = biddingTeam === 'A' ? 'B' : 'A';
+  const made = state.teamPoints[biddingTeam] >= cb.value;
+  const band = l56BandFor(cb.value);
+  const mult = state.doubled === 2 ? 4 : state.doubled === 1 ? 2 : 1;
+  if (made) {
+    const amt = Math.min(band.win * mult, state.matchScore[oppTeam]);
+    state.matchScore[biddingTeam] += amt;
+    state.matchScore[oppTeam] -= amt;
+    l56AddLog(state, `Team ${biddingTeam} made their bid of ${cb.value}. Receive ${amt} table${amt !== 1 ? 's' : ''} from Team ${oppTeam}.`);
+  } else {
+    const amt = Math.min(band.lose * mult, state.matchScore[biddingTeam]);
+    state.matchScore[biddingTeam] -= amt;
+    state.matchScore[oppTeam] += amt;
+    l56AddLog(state, `Team ${biddingTeam} fell short of ${cb.value}. Pay ${amt} table${amt !== 1 ? 's' : ''} to Team ${oppTeam}.`);
+  }
+  state.qMarks = state.qMarks || {};
+  if (made) {
+    const bidderSeatInfo = state.seats[cb.seat];
+    if (bidderSeatInfo && state.qMarks[bidderSeatInfo.name] > 0) {
+      state.qMarks[bidderSeatInfo.name]--;
+      if (state.qMarks[bidderSeatInfo.name] <= 0) delete state.qMarks[bidderSeatInfo.name];
+      l56AddLog(state, `${bidderSeatInfo.name} shed a Q by calling and winning the bid.`);
+    }
+    if (state.isFirstHandOfChampionship) {
+      for (let i = 0; i < 6; i++) {
+        if (i === cb.seat || L56_TEAM_OF(i) !== biddingTeam) continue;
+        const teammateInfo = state.seats[i];
+        if (teammateInfo && state.qMarks[teammateInfo.name] > 0) {
+          state.qMarks[teammateInfo.name]--;
+          if (state.qMarks[teammateInfo.name] <= 0) delete state.qMarks[teammateInfo.name];
+          l56AddLog(state, `${teammateInfo.name} also shed a Q — first hand of the match, teammate's bid came through.`);
+        }
+      }
+    }
+  }
+  state.isFirstHandOfChampionship = false;
+  if (state.matchScore.A <= 0 || state.matchScore.B <= 0) {
+    state.matchOver = true;
+    state.matchWinner = state.matchScore.A <= 0 ? 'B' : 'A';
+    state.sessionWins = state.sessionWins || { A: 0, B: 0 };
+    state.sessionWins[state.matchWinner] = (state.sessionWins[state.matchWinner] || 0) + 1;
+    l56AddLog(state, `Team ${state.matchWinner} wins the match — Team ${state.matchWinner === 'A' ? 'B' : 'A'} is out of tables!`);
+    const losingTeam = state.matchWinner === 'A' ? 'B' : 'A';
+    for (let i = 0; i < 6; i++) {
+      const s = state.seats[i];
+      if (!s || L56_TEAM_OF(i) !== losingTeam) continue;
+      state.qMarks[s.name] = (state.qMarks[s.name] || 0) + 1;
+    }
+    l56AddLog(state, `Team ${losingTeam} shut out — every player picks up a Q.`);
+  }
+  state.phase = 'handEnd';
+}
+function l56AdvanceBiddingTurn(state) {
+  let next = (state.turn + 1) % 6;
+  let guard = 0;
+  while (state.passedSeats.includes(next) && guard < 6) {
+    next = (next + 1) % 6;
+    guard++;
+  }
+  state.turn = next;
+}
+function l56CloseBidding(state) {
+  const cb = state.currentBid;
+  state.phase = 'auctionClosed';
+  state.auctionClosedAt = Date.now();
+  state.turn = null;
+  state.leadSuit = null;
+  state.table = [];
+  state.forcedSeat = null;
+  const trumpTxt = cb.trump ? L56_SUIT_SYM[cb.trump] + ' trump' : 'No Trump';
+  const leaderSeat = (state.dealer + 1) % 6;
+  l56AddLog(state, `Bidding closed. ${state.seats[cb.seat].name} won with ${cb.value} (${trumpTxt}). ${state.seats[leaderSeat].name} leads the first trick.`);
+}
+
+// Attempts one fallback nudge for a room that's gone quiet. Returns true
+// only if it actually changed something (caller saves + broadcasts then,
+// and only then -- an untouched room shouldn't get its activity clock
+// bumped or trigger a pointless broadcast).
+function l56TryNudge(r) {
+  const state = r.state;
+  if (!state) return false;
+  const now = Date.now();
+
+  // A finished trick still sitting on screen past its display time.
+  if (state.pendingTrick && (now - state.pendingTrick.ts) >= L56_TRICK_DISPLAY_MS) {
+    l56SettlePendingTrick(state);
+    state.updatedAt = now;
+    return true;
+  }
+  // The auction-result screen sitting past its display time.
+  if (state.phase === 'auctionClosed' && state.auctionClosedAt && (now - state.auctionClosedAt) >= L56_AUCTION_RESULT_MS) {
+    state.phase = 'playing';
+    state.turn = (state.dealer + 1) % 6;
+    state.updatedAt = now;
+    return true;
+  }
+  // A bot's turn that's gone stale.
+  if ((state.phase === 'bidding' || state.phase === 'playing') && state.turn !== null && state.turn !== undefined) {
+    const occ = state.seats[state.turn];
+    if (occ && occ.bot && state.updatedAt && (now - state.updatedAt) >= L56_STALL_MS) {
+      if (state.phase === 'bidding') {
+        const seat = state.turn;
+        if (state.forcedSeat === seat && !state.currentBid) {
+          // Forced to open, can't pass -- simplest safe opening bid.
+          state.currentBid = { value: 28, trump: null, seat, kind: 'nt', order: null };
+          state.doubled = 0;
+          state.doubledBySeat = null;
+          state.passedSeats = [];
+          state.openerSeat = seat;
+          state.openerSuit = null;
+          state.lastActionBySeat = state.lastActionBySeat || {};
+          state.lastActionBySeat[seat] = '28 No Trump';
+          l56AddLog(state, `${state.seats[seat].name} bid 28 No Trump.`, seat);
+          l56AdvanceBiddingTurn(state);
+        } else {
+          state.passedSeats = state.passedSeats || [];
+          if (!state.passedSeats.includes(seat)) state.passedSeats.push(seat);
+          state.lastActionBySeat = state.lastActionBySeat || {};
+          state.lastActionBySeat[seat] = 'Pass';
+          l56AddLog(state, `${state.seats[seat].name} passed.`, seat);
+          if (!state.currentBid && state.passedSeats.length >= 6) {
+            state.forcedSeat = (state.dealer + 1) % 6;
+            state.passedSeats = [];
+            state.turn = state.forcedSeat;
+            l56AddLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
+          } else if (state.currentBid && state.passedSeats.length >= 5) {
+            l56CloseBidding(state);
+          } else {
+            l56AdvanceBiddingTurn(state);
+          }
+        }
+        state.updatedAt = now;
+        return true;
+      }
+      if (state.phase === 'playing') {
+        const seat = state.turn;
+        const legal = l56LegalCardsForSeat(state, seat);
+        if (legal.length === 0) return false; // shouldn't happen, but don't crash a room over it
+        const card = legal[0];
+        const hand = state.hands[seat];
+        const idx = hand.findIndex(c => c.id === card.id);
+        if (idx === -1) return false;
+        hand.splice(idx, 1);
+        if (state.leadSuit && card.s !== state.leadSuit) {
+          state.revealedVoidBySeat = state.revealedVoidBySeat || {};
+          if (!state.revealedVoidBySeat[seat]) state.revealedVoidBySeat[seat] = [];
+          if (!state.revealedVoidBySeat[seat].includes(state.leadSuit)) state.revealedVoidBySeat[seat].push(state.leadSuit);
+        }
+        if (!state.leadSuit) state.leadSuit = card.s;
+        state.table = state.table || [];
+        state.table.push({ seat, card });
+        l56AddLog(state, `${state.seats[seat].name} played ${card.r}${L56_SUIT_SYM[card.s]}.`);
+        if (state.table.length === 6) l56ResolveTrick(state);
+        else state.turn = (state.turn + 1) % 6;
+        state.updatedAt = now;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function l56RunFallbackSweep() {
+  for (const code of Object.keys(l56Rooms)) {
+    const r = l56Rooms[code];
+    if (!r || !r.state) continue;
+    try {
+      if (l56TryNudge(r)) {
+        l56Touch(r);
+        io.to(l56SocketRoom(code)).emit('sync56_state', { room: code, state: r.state });
+      }
+    } catch (e) {
+      console.error(`[l56-fallback] room ${code} nudge failed:`, e && e.stack || e);
+    }
+  }
+}
+setInterval(l56RunFallbackSweep, 5000);
+
 // Picks the next host when the current one disconnects/leaves: lowest
 // seat index that's a currently-connected human. If nobody qualifies,
 // the room is left without a host until someone (re)connects — kick
