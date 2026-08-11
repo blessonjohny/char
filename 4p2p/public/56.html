@@ -1841,11 +1841,18 @@ function render(state){
   }
 
   const reviewShowing = debugRevealAll && state.phase === 'playing' && reviewDismissedKey !== biddingReviewKey(state);
-  if(!reviewShowing) maybeDriveBots(state);
+  // maybeDriveBots/maybeClearPendingTrick/maybeAdvanceFromAuctionResult
+  // are no longer called here -- the server is now the sole authority
+  // for all three (bot turns, clearing a finished trick, advancing past
+  // the auction-result screen -- see l56ScheduleNext() in server.js).
+  // Leaving these client-side calls active too would mean both the
+  // server AND whichever client happened to be looking were trying to
+  // drive the same game forward at once, exactly the kind of double-
+  // processing that used to cause stuck/desynced games. The three
+  // functions themselves are left defined below, untouched, in case
+  // they're ever needed for reference -- they're just never invoked now.
   if(reviewShowing && !state.reviewHold) setReviewHold(true);
-  maybeClearPendingTrick(state);
   scheduleCollectAnimation(state);
-  maybeAdvanceFromAuctionResult(state);
 }
 
 async function setReviewHold(value){
@@ -2163,39 +2170,7 @@ function adjustHandAreaFor(fixedEl, handArea){
 async function restartRound56(){
   if(!isHost){ alert('Only the host can restart the round.'); return; }
   if(!confirm('Restart this hand? Everyone gets a fresh deal for hand ' + (latestState ? latestState.handNumber : '') + '; the match score stays as-is.')) return;
-  let state = await loadState();
-  if(!state) return;
-  // Same reset list as nextHand(), minus the parts that actually advance
-  // the match (dealer stays put, handNumber doesn't increment) -- this
-  // hand gets redealt fresh, not replaced by the next one.
-  state.turn = (state.dealer + 1) % 6;
-  state.themeIndex = (function(){ let i; do{ i = Math.floor(Math.random()*THEMES.length); } while(i === state.themeIndex && THEMES.length>1); return i; })();
-  state.hands = dealHands(state.turn);
-  state.phase = 'bidding';
-  state.currentBid = null;
-  state.doubled = 0;
-  state.doubledBySeat = null;
-  state.passedSeats = [];
-  state.forcedSeat = null;
-  state.openerSeat = null;
-  state.openerSuit = null;
-  state.openerReassertCount = 0;
-  state.openerProbeSuit = null;
-  state.nsBySeat = {};
-  state.lastActionBySeat = {};
-  state.revealedVoidBySeat = {};
-  state.reviewHold = false;
-  state.suitBidBySeat = {};
-  state.bidHistory = [];
-  state.table = [];
-  state.leadSuit = null;
-  state.pendingTrick = null;
-  state.tricksLog = [];
-  state.teamPoints = {A:0, B:0};
-  state.lastNote = null;
-  addLog(state, `Host restarted hand ${state.handNumber} — fresh deal.`);
-  await saveState(state);
-  render(state);
+  syncSocket.emit('l56_restartRound', {code: roomCode});
 }
 
 async function restartGame56(){
@@ -2544,111 +2519,19 @@ function escapeHtml(s){
 // ============================================================
 async function startGame(){
   if(!isHost){ alert('Only the host can start the game.'); return; }
-  let state = await loadState();
-  if(!state || state.phase !== 'lobby') return;
-  state.dealer = Math.floor(Math.random() * 6);
-  state.turn = (state.dealer + 1) % 6;
-  state.themeIndex = (function(){ let i; do{ i = Math.floor(Math.random()*THEMES.length); } while(i === state.themeIndex && THEMES.length>1); return i; })();
-  state.hands = dealHands(state.turn); // deal starts with the opening bidder, traditional order
-  state.phase = 'bidding';
-  state.currentBid = null;
-  state.doubled = 0;
-  state.doubledBySeat = null;
-  state.passedSeats = [];
-  state.forcedSeat = null;
-  state.openerSeat = null;
-  state.openerSuit = null;
-  state.openerReassertCount = 0;
-  state.openerProbeSuit = null;
-  state.nsBySeat = {};
-  state.lastActionBySeat = {};
-  state.revealedVoidBySeat = {};
-  state.reviewHold = false;
-  state.suitBidBySeat = {};
-  state.bidHistory = [];
-  state.table = [];
-  state.leadSuit = null;
-  state.pendingTrick = null;
-  state.tricksLog = [];
-  state.teamPoints = {A:0, B:0};
-  state.lastNote = null;
-  addLog(state, `Cards dealt for hand ${state.handNumber}. ${state.seats[state.dealer].name} is dealer. ${state.seats[state.turn].name} opens the bidding.`);
-  await saveState(state);
-  render(state);
+  // Dealing, bot AI, and every phase transition now happen on the
+  // server (see l56-engine.js / server.js) -- this just asks for it and
+  // renders whatever comes back via the normal sync56_state push,
+  // exactly like the 4-player table's placeBid/playCard etc already work.
+  syncSocket.emit('l56_startGame', {code: roomCode});
 }
 
 async function nextHand(prevState){
-  let state = await loadState();
-  if(!state) return;
-  state.dealer = (state.dealer + 1) % 6;
-  state.handNumber += 1;
-  state.turn = (state.dealer + 1) % 6;
-  state.themeIndex = (function(){ let i; do{ i = Math.floor(Math.random()*THEMES.length); } while(i === state.themeIndex && THEMES.length>1); return i; })();
-  state.hands = dealHands(state.turn); // deal starts with the opening bidder, traditional order
-  state.phase = 'bidding';
-  state.currentBid = null;
-  state.doubled = 0;
-  state.doubledBySeat = null;
-  state.passedSeats = [];
-  state.forcedSeat = null;
-  state.openerSeat = null;
-  state.openerSuit = null;
-  state.openerReassertCount = 0;
-  state.openerProbeSuit = null;
-  state.nsBySeat = {};
-  state.lastActionBySeat = {};
-  state.revealedVoidBySeat = {};
-  state.reviewHold = false;
-  state.suitBidBySeat = {};
-  state.bidHistory = [];
-  state.table = [];
-  state.leadSuit = null;
-  state.pendingTrick = null;
-  state.tricksLog = [];
-  state.teamPoints = {A:0, B:0};
-  state.lastNote = null;
-  addLog(state, `Hand ${state.handNumber} dealt. ${state.seats[state.turn].name} opens the bidding.`);
-  await saveState(state);
-  render(state);
+  syncSocket.emit('l56_nextHand', {code: roomCode});
 }
 
 async function startNewMatch(prevState){
-  let state = await loadState();
-  if(!state) return;
-  state.matchScore = {A:12, B:12};
-  state.matchOver = false;
-  state.matchWinner = null;
-  state.handNumber = 1;
-  state.dealer = Math.floor(Math.random() * 6);
-  state.turn = (state.dealer + 1) % 6;
-  state.themeIndex = Math.floor(Math.random()*THEMES.length);
-  state.hands = dealHands(state.turn);
-  state.phase = 'bidding';
-  state.currentBid = null;
-  state.doubled = 0;
-  state.doubledBySeat = null;
-  state.passedSeats = [];
-  state.forcedSeat = null;
-  state.openerSeat = null;
-  state.openerSuit = null;
-  state.openerReassertCount = 0;
-  state.openerProbeSuit = null;
-  state.nsBySeat = {};
-  state.lastActionBySeat = {};
-  state.revealedVoidBySeat = {};
-  state.reviewHold = false;
-  state.suitBidBySeat = {};
-  state.bidHistory = [];
-  state.table = [];
-  state.leadSuit = null;
-  state.pendingTrick = null;
-  state.tricksLog = [];
-  state.teamPoints = {A:0, B:0};
-  state.lastNote = null;
-  state.isFirstHandOfChampionship = true;
-  addLog(state, `New match started — each team back to 12 tables. Hand 1 dealt.`);
-  await saveState(state);
-  render(state);
+  syncSocket.emit('l56_startNewMatch', {code: roomCode});
 }
 
 // ---------- bidding UI state ----------
@@ -2923,10 +2806,7 @@ function takeNoteDraft(state, seat){
 }
 
 async function submitBid(){
-  let state = await loadState();
-  if(!state || state.turn !== mySeat || state.phase !== 'bidding') return;
-
-  const cb = state.currentBid;
+  const cb = latestState ? latestState.currentBid : null;
   let value;
   if(bidMode === 'set'){
     value = bidNumber;
@@ -2939,123 +2819,36 @@ async function submitBid(){
     alert(`Your bid must be higher than the current bid (at least ${minAllowed}).`);
     return;
   }
-
   const trump = bidTrumpKind === 'suit' ? bidSuit : null;
-  const newBid = {value, trump, seat: mySeat, kind: bidTrumpKind, order: bidTrumpKind==='suit' ? bidOrder : null};
-  // Records the increment for the "+N suit" log/display notation
-  // whenever "Increase by" mode was actually used -- not just when
-  // raising on top of an existing same-suit bid, but also the opening
-  // bid of the hand (cb is null then; "Increase by" still works there,
-  // relative to the implicit 27 baseline a few lines up) and holding
-  // your ground on a suit switch. Without this, an opening bid made via
-  // "Increase by" silently lost its increment and fell back to showing
-  // only the absolute number everywhere it's displayed.
-  if(bidTrumpKind === 'suit' && bidMode === 'inc' && (!cb || cb.trump === trump)){
-    newBid.increment = value - (cb ? cb.value : 27);
-  }
-  const label = formatBidLogLabel(newBid);
-
-  if(!cb){
-    // This is the opening bid of the hand — remember who opened and with what suit,
-    // so if the whole team ends up unable to support it (only NS/passes), the
-    // opener gets a chance to reassert their own suit rather than let it fizzle to NT.
-    state.openerSeat = mySeat;
-    state.openerSuit = trump;
-  }
-  if(bidTrumpKind === 'ns'){
-    state.nsBySeat = state.nsBySeat || {};
-    state.nsBySeat[mySeat] = cb ? cb.trump : true; // which suit they're void in
-  }
-  if(bidTrumpKind === 'suit'){
-    state.suitBidBySeat = state.suitBidBySeat || {};
-    state.suitBidBySeat[mySeat + '-' + trump] = bidOrder; // 'forward' = claimed the Jack, 'reverse' = no Jack
-  }
-  if(cb && mySeat === state.openerSeat && bidTrumpKind === 'suit'){
-    if(trump === state.openerSuit){
-      state.openerReassertCount = (state.openerReassertCount || 0) + 1;
-    } else if(!state.openerProbeSuit){
-      state.openerProbeSuit = trump;
-    }
-  }
-
-  state.currentBid = newBid;
-  state.doubled = 0;
-  state.doubledBySeat = null;
-  state.passedSeats = [];
-
-  const note = takeNoteDraft(state, mySeat);
-  state.lastActionBySeat = state.lastActionBySeat || {};
-  state.lastActionBySeat[mySeat] = label;
-  addLog(state, `${state.seats[mySeat].name} bid ${label}${note ? ' — "'+note+'"' : ''}`, mySeat);
-
-  advanceBiddingTurn(state);
-  await saveState(state);
-  render(state);
+  const note = noteDraft.trim();
+  noteDraft = '';
+  // Validation and every field of the actual bid (increment, opener
+  // tracking, NS/suit-claim bookkeeping, turn advancement) now happen
+  // server-side (see server.js's l56_placeBid handler + l56-engine.js) --
+  // this just sends what was chosen and renders whatever comes back.
+  syncSocket.emit('l56_placeBid', {code: roomCode, value, trump, kind: bidTrumpKind, order: bidTrumpKind==='suit' ? bidOrder : null, note});
 }
 
 async function passBid(){
-  let state = await loadState();
-  if(!state || state.turn !== mySeat || state.phase !== 'bidding') return;
-  if(state.forcedSeat === mySeat && !state.currentBid){
+  if(latestState && latestState.forcedSeat === mySeat && !latestState.currentBid){
     alert("Everyone else passed — as the opening bidder you're required to open the bidding, you can't pass here.");
     return;
   }
-
-  if(!state.passedSeats.includes(mySeat)) state.passedSeats.push(mySeat);
-  const note = takeNoteDraft(state, mySeat);
-  state.lastActionBySeat = state.lastActionBySeat || {};
-  state.lastActionBySeat[mySeat] = 'Pass';
-  addLog(state, `${state.seats[mySeat].name} passed.${note ? ' — "'+note+'"' : ''}`, mySeat);
-
-  if(!state.currentBid && state.passedSeats.length >= 6){
-    // Everyone passed with nobody opening — force the original opener to bid
-    // rather than silently redealing.
-    state.forcedSeat = (state.dealer + 1) % 6;
-    state.passedSeats = [];
-    state.turn = state.forcedSeat;
-    addLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
-    await saveState(state);
-    render(state);
-    return;
-  }
-
-  if(state.currentBid && state.passedSeats.length >= 5){
-    closeBidding(state);
-    await saveState(state);
-    render(state);
-    return;
-  }
-
-  advanceBiddingTurn(state);
-  await saveState(state);
-  render(state);
+  const note = noteDraft.trim();
+  noteDraft = '';
+  syncSocket.emit('l56_pass', {code: roomCode, note});
 }
 
 async function doubleBid(){
-  let state = await loadState();
-  if(!state || state.turn !== mySeat || state.phase !== 'bidding' || !state.currentBid) return;
-  state.doubled = 1;
-  state.doubledBySeat = mySeat;
-  const note = takeNoteDraft(state, mySeat);
-  state.lastActionBySeat = state.lastActionBySeat || {};
-  state.lastActionBySeat[mySeat] = 'Double';
-  addLog(state, `${state.seats[mySeat].name} doubled!${note ? ' — "'+note+'"' : ''}`, mySeat);
-  advanceBiddingTurn(state);
-  await saveState(state);
-  render(state);
+  const note = noteDraft.trim();
+  noteDraft = '';
+  syncSocket.emit('l56_double', {code: roomCode, note});
 }
 
 async function redoubleBid(){
-  let state = await loadState();
-  if(!state || state.turn !== mySeat || state.phase !== 'bidding' || state.doubled !== 1) return;
-  state.doubled = 2;
-  const note = takeNoteDraft(state, mySeat);
-  state.lastActionBySeat = state.lastActionBySeat || {};
-  state.lastActionBySeat[mySeat] = 'Redouble';
-  addLog(state, `${state.seats[mySeat].name} redoubled!${note ? ' — "'+note+'"' : ''}`, mySeat);
-  advanceBiddingTurn(state);
-  await saveState(state);
-  render(state);
+  const note = noteDraft.trim();
+  noteDraft = '';
+  syncSocket.emit('l56_redouble', {code: roomCode, note});
 }
 
 function advanceBiddingTurn(state){
@@ -3115,44 +2908,16 @@ function maybeAdvanceFromAuctionResult(state){
 
 // ---------- card play ----------
 async function playCard(card){
-  let state = await loadState();
-  if(!state || state.turn !== mySeat || state.phase !== 'playing') return;
-
-  const legal = legalCardIds(state);
+  if(!latestState || latestState.turn !== mySeat || latestState.phase !== 'playing') return;
+  const legal = legalCardIds(latestState);
   if(!legal.has(card.id)){
     alert('You must follow suit if you can.');
     return;
   }
-
-  // remove from hand
-  const hand = state.hands[mySeat];
-  const idx = hand.findIndex(c => c.id === card.id);
-  if(idx === -1) return;
-  hand.splice(idx, 1);
-
-  // If there's already a suit led and this card doesn't match it, the rules
-  // forced this — it's proof positive they have zero cards of that suit left.
-  if(state.leadSuit && card.s !== state.leadSuit){
-    state.revealedVoidBySeat = state.revealedVoidBySeat || {};
-    if(!state.revealedVoidBySeat[mySeat]) state.revealedVoidBySeat[mySeat] = [];
-    if(!state.revealedVoidBySeat[mySeat].includes(state.leadSuit)){
-      state.revealedVoidBySeat[mySeat].push(state.leadSuit);
-    }
-  }
-  if(!state.leadSuit){
-    state.leadSuit = card.s;
-  }
-  state.table.push({seat: mySeat, card});
-  addLog(state, `${state.seats[mySeat].name} played ${card.r}${SUIT_SYM[card.s]}.`);
-
-  if(state.table.length === 6){
-    resolveTrick(state);
-  } else {
-    state.turn = (state.turn + 1) % 6;
-  }
-
-  await saveState(state);
-  render(state);
+  // Legality is re-checked authoritatively server-side too (see
+  // server.js's l56_playCard handler) -- this local check is just for
+  // an instant, friendly error message instead of waiting on a round trip.
+  syncSocket.emit('l56_playCard', {code: roomCode, cardId: card.id});
 }
 
 function cardPower(card, state){
