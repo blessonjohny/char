@@ -3263,14 +3263,14 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   // as a tiny corner tag on the welcome screen. This exists purely so we
   // can settle, with certainty, whether a bug report is against this
   // exact code or a stale deployment — no more guessing.
-  window.K28_BUILD_TAG = 'stable-hostfix · 2026-07-20';
+  window.K28_BUILD_TAG = 'stable-hostfix · 2026-08-10';
   // Human-readable version of the same "when was this last touched"
   // fact, used in the comment-invite toast so a returning player can see
   // at a glance that the site is actively maintained. Deliberately a
   // separate constant from K28_BUILD_TAG (not derived from it) so this
   // page's own deploy-mismatch check above always compares two build
   // identifiers exactly, never a human-formatted string.
-  window.SITE_LAST_UPDATED = 'Jul 20, 2026';
+  window.SITE_LAST_UPDATED = 'Aug 10, 2026';
   console.log('[28 Kerala Gulan] build:', window.K28_BUILD_TAG);
   window.addEventListener('DOMContentLoaded', () => {
     const tag = document.createElement('div');
@@ -4406,7 +4406,7 @@ function maybeShowCommentInviteToast() {
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
         <span style="background:rgba(244,196,48,0.18);color:var(--gold,#f4c430);font-size:0.66rem;font-weight:800;padding:2px 8px;border-radius:20px;letter-spacing:0.02em">🆕 UPDATED ${window.SITE_LAST_UPDATED}</span>
       </div>
-      <div style="font-size:0.85rem;color:#fff;margin-bottom:10px;line-height:1.4">👋 Working on improving things like the bidding table connection — if you run into anything or have ideas, we'd love to hear it!</div>
+      <div style="font-size:0.85rem;color:#fff;margin-bottom:10px;line-height:1.4">👋 Sorry for any disconnects or hiccups lately — we're actively updating the server to make it better. If you run into anything or have ideas, we'd love to hear it!</div>
       <div style="display:flex;gap:8px">
         <button id="commentInviteYes" style="flex:1;padding:9px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--gold,#f4c430),#c99a1e);color:#241a12;font-weight:700;font-size:0.8rem;cursor:pointer">💌 Leave a Comment</button>
         <button id="commentInviteDismiss" style="padding:9px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.7);font-size:0.8rem;cursor:pointer">Not now</button>

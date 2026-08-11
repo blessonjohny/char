@@ -1573,7 +1573,9 @@ document.getElementById('chatInput56').addEventListener('keydown', function(e){ 
 async function pollLoop(){
   const state = await loadState();
   if(!state) return;
-  if(state.updatedAt === lastRenderedStamp) return;
+  // render() itself now guards against stale/out-of-order responses (see
+  // its comment), so this just hands off whatever came back -- no need
+  // to duplicate that check here too.
   render(state);
 }
 
@@ -1664,6 +1666,19 @@ function showQMarkEvent56(names, direction){
 }
 
 function render(state){
+  // Guest-side sync is poll-based: a periodic timer AND a "someone just
+  // saved, refresh now" poke can both have a loadState() fetch in flight
+  // at the same time, and their network responses can land out of order.
+  // The old check here only skipped an EXACT duplicate timestamp, so a
+  // straggling response carrying an OLDER snapshot (e.g. from just
+  // before the trick's first card was played) could still render AFTER
+  // a fresher one already showed that card -- which is exactly what
+  // made a just-played card flash in and then vanish again on the other
+  // player's screen. Skipping anything not strictly newer than what's
+  // already on screen closes that race for every render() call site,
+  // not just pollLoop(), while still allowing every real update through
+  // (each one always carries a fresh Date.now() timestamp).
+  if(lastRenderedStamp !== null && state.updatedAt <= lastRenderedStamp) return;
   lastRenderedStamp = state.updatedAt;
   latestState = state;
   isHost = !!state.hostPlayerId && state.hostPlayerId === MY_PLAYER_ID;
