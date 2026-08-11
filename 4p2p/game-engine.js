@@ -105,6 +105,10 @@ function evaluatePhase1Hand(hand) {
   let eligibleToRaise = false;
   let jSuitCeiling = 14;
   let jPlusOneCompanionSuits = 0;
+  // Suits where this hand holds ONLY a lone Jack (no companion at all in
+  // that suit) -- tracked for the 9-A-10-no-Jack rule further below,
+  // which needs to know about a genuinely separate bonus Jack elsewhere.
+  const loneJackSuits = [];
   for (const s of SUITS) {
     const cards = bySuit[s];
     if (cards.length === 0) continue;
@@ -123,16 +127,18 @@ function evaluatePhase1Hand(hand) {
     let suitCeiling;
     if (companions.length === 0) {
       suitCeiling = 14; // a lone Jack, no companion - not enough to raise on its own
+      loneJackSuits.push(s);
     } else if (has9 && hasA) {
-      // Jack+9+Ace (with or without the 10 too) is command of the suit's
-      // whole point structure - technically the 10 as well is worth
-      // even more, but nothing past 20 actually buys anything extra
-      // ("Honors" territory is flat from there up), so this doesn't
-      // scale any higher just because the 10 is also held.
-      suitCeiling = 20;
+      // Jack+9+Ace (with or without the 10 too) is the single strongest
+      // hand type here - full command of the suit's point structure PLUS
+      // the Jack itself locking the suit down. Raised from 20 to 23 per
+      // updated tuning; still a real ceiling, not a starting point, so
+      // the confidence/pullback logic elsewhere still decides how close
+      // to it a given bot actually commits.
+      suitCeiling = 23;
     } else if (companions.length >= 2) {
       const hasPointCompanion = companions.some(c => c.points > 0);
-      suitCeiling = hasPointCompanion ? 18 : 16;
+      suitCeiling = hasPointCompanion ? 20 : 18;
     } else {
       suitCeiling = 15;
       jPlusOneCompanionSuits++;
@@ -143,6 +149,44 @@ function evaluatePhase1Hand(hand) {
   // slightly more than either alone, even though neither individually
   // clears the next tier up.
   if (jPlusOneCompanionSuits >= 2) jSuitCeiling = Math.max(jSuitCeiling, 16);
+
+  // Three of a kind (same rank, spread across three different suits) is
+  // its own real signal, independent of the same-suit Jack reasoning
+  // above -- a trio of 10s/Aces/9s isn't captured by anything above,
+  // since none of those individually needs a Jack of its own suit.
+  const rankCounts = {};
+  for (const c of hand) rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1;
+  if ((rankCounts['10'] || 0) >= 3 || (rankCounts['A'] || 0) >= 3) {
+    eligibleToRaise = true;
+    jSuitCeiling = Math.max(jSuitCeiling, 16);
+  }
+  if ((rankCounts['9'] || 0) >= 3) {
+    eligibleToRaise = true;
+    jSuitCeiling = Math.max(jSuitCeiling, 18);
+  }
+
+  // 9-A-10 of one suit, with NO Jack of that suit, plus a separate bonus
+  // Jack sitting alone in a different suit. Deliberately kept just under
+  // the J+9+A ceiling above (19 vs 23) -- this hand has full command of
+  // the suit's points but no Jack to actually lock the suit itself, so
+  // it reads as very strong rather than the single best hand type.
+  // suggestedTrumpSuit tells the bot's trump-suit choice (a separate
+  // function) which suit to actually call, rather than leaving it to
+  // fall back on generic point-counting.
+  let suggestedTrumpSuit = null;
+  for (const s of SUITS) {
+    const cards = bySuit[s];
+    const hasJ = cards.some(c => c.rank === 'J');
+    const has9 = cards.some(c => c.rank === '9');
+    const hasA = cards.some(c => c.rank === 'A');
+    const has10 = cards.some(c => c.rank === '10');
+    if (!hasJ && has9 && hasA && has10 && loneJackSuits.some(js => js !== s)) {
+      eligibleToRaise = true;
+      jSuitCeiling = Math.max(jSuitCeiling, 19);
+      suggestedTrumpSuit = s;
+    }
+  }
+
   const hardCeiling = eligibleToRaise ? jSuitCeiling : 14;
 
   // Suit-dominance scoring retained for the existing defensive-vs-
@@ -174,7 +218,8 @@ function evaluatePhase1Hand(hand) {
 
   return {
     offensive, defensive, bestSuit, bestSuitScore, bestSuitCount,
-    jacksScattered, jackCount: jacks.length, highCardCount, hardCeiling, eligibleToRaise
+    jacksScattered, jackCount: jacks.length, highCardCount, hardCeiling, eligibleToRaise,
+    suggestedTrumpSuit
   };
 }
 
@@ -1487,6 +1532,19 @@ class GameEngine {
       // Faithful port of the reference's botChooseTrumpWithBrain.
       const b = brain.getBrain(this.seats[pos].name);
       const hand = this.seats[pos].hand;
+      // The hand is still the original 4 cards here -- the second batch
+      // of 4 isn't dealt until after trump is chosen (see the rules
+      // comment at the top of this file) -- so this is the exact same
+      // hand evaluatePhase1Hand already scored during bidding. If it
+      // flagged a specific suit (9-A-10 of one suit, no Jack of that
+      // suit, plus a separate bonus Jack elsewhere), that's a strong
+      // enough signal to just call it directly rather than leave the
+      // choice to the generic point-counting below.
+      const ev = evaluatePhase1Hand(hand);
+      if (ev.suggestedTrumpSuit) {
+        this.chooseTrump(pos, ev.suggestedTrumpSuit, null);
+        return;
+      }
       const ss = {};
       for (const s of SUITS) ss[s] = { points: 0, hasJ: false, has9: false, hasK: false, hasQ: false, count: 0 };
       for (const c of hand) {
