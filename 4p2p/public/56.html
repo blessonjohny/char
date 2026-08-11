@@ -1029,7 +1029,8 @@ function ensureSyncSocket(){
   syncSocket.on('l56_tableClosed', ({reason}) => {
     const msgs = {
       idle: "This table closed because nobody was active for a while.",
-      no_host: "This table closed — no human host was present within 3 minutes."
+      no_host: "This table closed — no human host was present within 3 minutes.",
+      lastPlayerLeft: "This table closed — no real players left."
     };
     alert(msgs[reason] || 'This table closed.');
     location.reload();
