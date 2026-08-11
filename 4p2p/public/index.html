@@ -190,8 +190,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   filter:drop-shadow(0 6px 16px rgba(0,0,0,0.55)) drop-shadow(0 0 18px rgba(230,200,107,0.25));
 }
 .welcome-title-gold{
-  font-family:'Cinzel Decorative','Fraunces',serif;font-weight:700;font-size:2.1rem;line-height:1.15;
-  margin-bottom:8px;letter-spacing:1px;
+  font-family:'Cinzel Decorative','Fraunces',serif;font-weight:700;
+  /* "28GULAN.COM" is more than double the length "Gulan" used to be --
+     clamp() scales the size down on narrow phones so it stays on one
+     line and never overflows the 320px-max plaque, without touching any
+     of the actual gold gradient/shadow styling below. */
+  font-size:clamp(1.35rem, 8vw, 2.1rem);line-height:1.15;
+  margin-bottom:8px;letter-spacing:0.5px;white-space:nowrap;
   background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
   text-shadow:0 2px 18px rgba(230,200,107,0.35),0 1px 0 rgba(0,0,0,0.3);
@@ -2586,7 +2591,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <div class="welcome-logo-wrap">
       <div class="welcome-hero-plaque">
         <img class="welcome-card-badge" src="/images/jack-card.png" alt="Jack of Spades — 28 Kerala Gulan">
-        <div class="welcome-title-gold">Gulan</div>
+        <div class="welcome-title-gold">28GULAN.COM</div>
         <div class="welcome-gold-rule"></div>
       </div>
       <div class="welcome-sub">Gulan · 56 · Hold'em · Carrom — Classic Indian Card &amp; Board Games Online</div>
