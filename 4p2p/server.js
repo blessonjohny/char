@@ -33,6 +33,7 @@ const { Server } = require('socket.io');
 const { GameEngine } = require('./game-engine');
 const { SpadesEngine } = require('./spades-engine');
 const brain = require('./bot-brain');
+const l56Engine = require('./l56-engine');
 const geoip = require('geoip-lite');
 
 // ============================================================
@@ -2329,6 +2330,183 @@ function l56Broadcast(code) {
   io.emit('l56_roomList', l56PublicList());
 }
 
+// ============================================================
+// 56 — AUTHORITATIVE GAMEPLAY ACTIONS
+// ============================================================
+// This is the real fix for "guest gets stuck" -- everything that
+// touches bidding, card play, or hand/match transitions now happens
+// HERE, on the server, exactly once, the moment it's asked for, using
+// the tested engine in l56-engine.js. The client no longer runs any of
+// this itself; it sends an action (l56_placeBid, l56_playCard, etc.)
+// and renders whatever state comes back. Bot turns, a finished trick
+// clearing, and the auction-result screen advancing are all scheduled
+// HERE too (l56ScheduleNext, below) with real setTimeout calls that
+// belong to the server process itself -- not to any player's browser
+// tab -- so none of it depends on anyone's phone being awake. This is
+// the same guarantee the 4-player table already has.
+//
+// Lobby/seat-management (creating a table, claiming a seat, chat,
+// partner signals, the reveal-toggle) deliberately still use the
+// original saveState()-from-the-client blob mechanism -- those were
+// never the source of a stuck game, and leaving them alone keeps this
+// change scoped to the actual problem.
+
+function l56SeatFor(socket, code) {
+  const r = l56Rooms[code];
+  if (!r || !r.state) return null;
+  const info = r.sockets.get(socket.id);
+  if (!info || info.pos == null || info.pos < 0) return null;
+  return { r, pos: info.pos };
+}
+
+// After ANY action changes state.turn/phase/pendingTrick/auctionClosedAt,
+// this looks at what the game needs next and schedules exactly one
+// thing: either the next bot's move, clearing a finished trick, or
+// advancing past the auction-result screen. Safe to call after every
+// single action -- the per-room "already scheduled for this exact
+// moment" keys below prevent duplicate/overlapping timers the same way
+// the old client-side version did.
+function l56ScheduleNext(code) {
+  const r = l56Rooms[code];
+  if (!r || !r.state) return;
+  const state = r.state;
+
+  if (state.pendingTrick) {
+    const key = 'trick:' + state.pendingTrick.ts;
+    if (r.l56TrickKey === key) return;
+    r.l56TrickKey = key;
+    if (r.l56TrickTimer) clearTimeout(r.l56TrickTimer);
+    const elapsed = Date.now() - state.pendingTrick.ts;
+    const remaining = Math.max(0, 3000 - elapsed);
+    r.l56TrickTimer = setTimeout(() => {
+      const rr = l56Rooms[code];
+      if (!rr || !rr.state || !rr.state.pendingTrick || rr.state.pendingTrick.ts !== state.pendingTrick.ts) return;
+      l56Engine.settlePendingTrick(rr.state);
+      l56Broadcast(code);
+      l56ScheduleNext(code);
+    }, remaining);
+    return;
+  }
+
+  if (state.phase === 'auctionClosed') {
+    const key = 'auction:' + state.auctionClosedAt;
+    if (r.l56AuctionKey === key) return;
+    r.l56AuctionKey = key;
+    if (r.l56AuctionTimer) clearTimeout(r.l56AuctionTimer);
+    const elapsed = Date.now() - state.auctionClosedAt;
+    const remaining = Math.max(0, 3000 - elapsed);
+    r.l56AuctionTimer = setTimeout(() => {
+      const rr = l56Rooms[code];
+      if (!rr || !rr.state || rr.state.phase !== 'auctionClosed' || rr.state.auctionClosedAt !== state.auctionClosedAt) return;
+      rr.state.phase = 'playing';
+      rr.state.turn = (rr.state.dealer + 1) % 6;
+      l56Broadcast(code);
+      l56ScheduleNext(code);
+    }, remaining);
+    return;
+  }
+
+  if ((state.phase === 'bidding' || state.phase === 'playing') && state.turn !== null && state.turn !== undefined) {
+    const occ = state.seats[state.turn];
+    if (!occ || !occ.bot) return; // a human's turn -- nothing to schedule, we wait for their action
+    const key = state.phase + ':' + state.turn + ':' + state.updatedAt;
+    if (r.l56BotKey === key) return;
+    r.l56BotKey = key;
+    if (r.l56BotTimer) clearTimeout(r.l56BotTimer);
+    const delay = state.phase === 'bidding' ? (1400 + Math.random() * 1400) : (250 + Math.random() * 350);
+    r.l56BotTimer = setTimeout(() => {
+      const rr = l56Rooms[code];
+      if (!rr || !rr.state) return;
+      const s = rr.state;
+      if (s.phase !== state.phase || s.turn !== state.turn) return; // stale, something else already happened
+      if (s.phase === 'bidding') l56RunBotBid(s, state.turn);
+      else if (s.phase === 'playing') l56RunBotPlay(s, state.turn);
+      l56Broadcast(code);
+      l56ScheduleNext(code);
+    }, delay);
+  }
+}
+
+function l56RunBotBid(state, seat) {
+  const decision = l56Engine.botDecideBid(state, seat);
+  const botName = state.seats[seat].name;
+  state.lastActionBySeat = state.lastActionBySeat || {};
+
+  const mySignal = state.partnerSignals && state.partnerSignals[seat];
+  if (mySignal && mySignal.forHand === (state.handNumber || 1) && decision.action === 'bid' && typeof decision.value === 'number') {
+    const cb = state.currentBid;
+    const minAllowed = cb ? cb.value + 1 : 28;
+    if (mySignal.signal === 'higher') decision.value = Math.min(56, decision.value + 2);
+    else if (mySignal.signal === 'lower') decision.value = Math.max(minAllowed, decision.value - 2);
+  }
+  if (mySignal) delete state.partnerSignals[seat];
+
+  if (decision.action === 'pass') {
+    if (!state.passedSeats.includes(seat)) state.passedSeats.push(seat);
+    state.lastActionBySeat[seat] = 'Pass';
+    l56Engine.addLog(state, `${botName} passed.`, seat);
+    if (!state.currentBid && state.passedSeats.length >= 6) {
+      state.forcedSeat = (state.dealer + 1) % 6;
+      state.passedSeats = [];
+      state.turn = state.forcedSeat;
+      l56Engine.addLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
+    } else if (state.currentBid && state.passedSeats.length >= 5) {
+      l56Engine.closeBidding(state);
+    } else {
+      l56Engine.advanceBiddingTurn(state);
+    }
+  } else if (decision.action === 'double') {
+    state.doubled = 1;
+    state.doubledBySeat = seat;
+    state.lastActionBySeat[seat] = 'Double';
+    l56Engine.addLog(state, `${botName} doubled!`, seat);
+    l56Engine.advanceBiddingTurn(state);
+  } else if (decision.action === 'redouble') {
+    state.doubled = 2;
+    state.lastActionBySeat[seat] = 'Redouble';
+    l56Engine.addLog(state, `${botName} redoubled!`, seat);
+    l56Engine.advanceBiddingTurn(state);
+  } else {
+    const newBid = { value: decision.value, trump: decision.trump, seat, kind: decision.kind, order: decision.order };
+    if (decision.kind === 'suit' && state.currentBid && state.currentBid.trump === decision.trump) {
+      newBid.increment = decision.value - state.currentBid.value;
+    }
+    if (!state.currentBid) { state.openerSeat = seat; state.openerSuit = decision.trump; }
+    if (decision.kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[seat] = state.currentBid ? state.currentBid.trump : true; }
+    if (decision.kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[seat + '-' + decision.trump] = decision.order; }
+    if (decision.isReassert) state.openerReassertCount = (state.openerReassertCount || 0) + 1;
+    if (decision.isProbe) state.openerProbeSuit = decision.trump;
+    state.currentBid = newBid;
+    state.doubled = 0;
+    state.doubledBySeat = null;
+    state.passedSeats = [];
+    state.lastActionBySeat[seat] = l56Engine.formatBidLogLabel(newBid);
+    l56Engine.addLog(state, `${botName} bid ${l56Engine.formatBidLogLabel(newBid)}.`, seat);
+    l56Engine.advanceBiddingTurn(state);
+  }
+}
+
+function l56RunBotPlay(state, seat) {
+  const legal = l56Engine.legalCardsForSeat(state, seat);
+  const hand = state.hands[seat];
+  const legalCards = hand.filter(c => legal.some(l => l.id === c.id));
+  if (legalCards.length === 0) return;
+  const card = l56Engine.botChooseCard(state, seat, legalCards);
+  const botName = state.seats[seat].name;
+  const idx = hand.findIndex(c => c.id === card.id);
+  hand.splice(idx, 1);
+  if (state.leadSuit && card.s !== state.leadSuit) {
+    state.revealedVoidBySeat = state.revealedVoidBySeat || {};
+    if (!state.revealedVoidBySeat[seat]) state.revealedVoidBySeat[seat] = [];
+    if (!state.revealedVoidBySeat[seat].includes(state.leadSuit)) state.revealedVoidBySeat[seat].push(state.leadSuit);
+  }
+  if (!state.leadSuit) state.leadSuit = card.s;
+  state.table.push({ seat, card });
+  l56Engine.addLog(state, `${botName} played ${card.r}${l56Engine.SUIT_SYM[card.s]}.`);
+  if (state.table.length === 6) l56Engine.resolveTrick(state);
+  else state.turn = (state.turn + 1) % 6;
+}
+
 function l56Touch(r) {
   r.lastActivityAt = Date.now();
   if (r.stillPlayingTimer) {
@@ -2784,6 +2962,194 @@ io.on('connection', (socket) => {
     // the joiner, whose own optimistic save happened before the server
     // could react) needs the corrected state pushed to them right away.
     if (!hadHost && r.hostPlayerId) l56Broadcast(code);
+  });
+
+  // ---------------- Authoritative gameplay actions ----------------
+  // Each of these: validates it's actually this seat's turn, applies the
+  // change using the tested engine, broadcasts the result, then checks
+  // what needs to happen next (another bot's turn, a trick clearing,
+  // etc). See l56ScheduleNext() above for why this is what actually
+  // fixes "guest gets stuck" -- the game keeps moving on its own from
+  // here, it doesn't need anyone's browser to push it forward.
+
+  socket.on('l56_startGame', ({ code }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r } = seatInfo;
+    if (!l56IsEffectiveHost(r, socket.data.l56 && socket.data.l56.playerId)) return;
+    if (r.state.phase !== 'lobby') return;
+    l56Engine.startGame(r.state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_nextHand', ({ code }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r } = seatInfo;
+    if (r.state.phase !== 'handEnd' || r.state.matchOver) return;
+    l56Engine.nextHand(r.state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_restartRound', ({ code }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r } = seatInfo;
+    if (!l56IsEffectiveHost(r, socket.data.l56 && socket.data.l56.playerId)) return;
+    l56Engine.restartRound(r.state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_startNewMatch', ({ code }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r } = seatInfo;
+    if (r.state.phase !== 'handEnd' || !r.state.matchOver) return;
+    l56Engine.startNewMatch(r.state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_placeBid', ({ code, value, trump, kind, order, note }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r, pos } = seatInfo;
+    const state = r.state;
+    if (state.phase !== 'bidding' || state.turn !== pos) return;
+    const minAllowed = state.currentBid ? state.currentBid.value + 1 : 28;
+    if (typeof value !== 'number' || value < minAllowed || value > 56) return;
+    if (!['suit', 'nt', 'ns'].includes(kind)) return;
+    if (kind === 'suit' && !l56Engine.SUITS.includes(trump)) return;
+
+    const newBid = { value, trump: kind === 'suit' ? trump : null, seat: pos, kind, order: kind === 'suit' ? order : null };
+    if (kind === 'suit' && state.currentBid && state.currentBid.trump === trump) {
+      newBid.increment = value - state.currentBid.value;
+    } else if (kind === 'suit' && !state.currentBid) {
+      newBid.increment = value - 27;
+    }
+    if (!state.currentBid) { state.openerSeat = pos; state.openerSuit = newBid.trump; }
+    if (kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[pos] = state.currentBid ? state.currentBid.trump : true; }
+    if (kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[pos + '-' + trump] = order; }
+    if (state.openerSeat === pos && state.openerSuit && trump === state.openerSuit && state.currentBid) {
+      state.openerReassertCount = (state.openerReassertCount || 0) + 1;
+    }
+    state.currentBid = newBid;
+    state.doubled = 0;
+    state.doubledBySeat = null;
+    state.passedSeats = [];
+    const label = l56Engine.formatBidLogLabel(newBid);
+    state.lastActionBySeat = state.lastActionBySeat || {};
+    state.lastActionBySeat[pos] = label;
+    const noteText = (typeof note === 'string' ? note.trim() : '').slice(0, 200);
+    if (noteText) state.lastNote = { seat: pos, text: noteText, ts: Date.now() };
+    l56Engine.addLog(state, `${state.seats[pos].name} bid ${label}${noteText ? ' — "' + noteText + '"' : ''}`, pos);
+    l56Engine.advanceBiddingTurn(state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_pass', ({ code, note }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r, pos } = seatInfo;
+    const state = r.state;
+    if (state.phase !== 'bidding' || state.turn !== pos) return;
+    if (state.forcedSeat === pos && !state.currentBid) return; // forced opener can't pass
+    if (!state.passedSeats.includes(pos)) state.passedSeats.push(pos);
+    state.lastActionBySeat = state.lastActionBySeat || {};
+    state.lastActionBySeat[pos] = 'Pass';
+    const noteText = (typeof note === 'string' ? note.trim() : '').slice(0, 200);
+    if (noteText) state.lastNote = { seat: pos, text: noteText, ts: Date.now() };
+    l56Engine.addLog(state, `${state.seats[pos].name} passed.${noteText ? ' — "' + noteText + '"' : ''}`, pos);
+    if (!state.currentBid && state.passedSeats.length >= 6) {
+      state.forcedSeat = (state.dealer + 1) % 6;
+      state.passedSeats = [];
+      state.turn = state.forcedSeat;
+      l56Engine.addLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
+    } else if (state.currentBid && state.passedSeats.length >= 5) {
+      l56Engine.closeBidding(state);
+    } else {
+      l56Engine.advanceBiddingTurn(state);
+    }
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_double', ({ code, note }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r, pos } = seatInfo;
+    const state = r.state;
+    if (state.phase !== 'bidding' || state.turn !== pos || !state.currentBid) return;
+    if (l56Engine.TEAM_OF(state.currentBid.seat) === l56Engine.TEAM_OF(pos) || state.doubled !== 0) return;
+    state.doubled = 1;
+    state.doubledBySeat = pos;
+    state.lastActionBySeat = state.lastActionBySeat || {};
+    state.lastActionBySeat[pos] = 'Double';
+    const noteText = (typeof note === 'string' ? note.trim() : '').slice(0, 200);
+    if (noteText) state.lastNote = { seat: pos, text: noteText, ts: Date.now() };
+    l56Engine.addLog(state, `${state.seats[pos].name} doubled!${noteText ? ' — "' + noteText + '"' : ''}`, pos);
+    l56Engine.advanceBiddingTurn(state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_redouble', ({ code, note }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r, pos } = seatInfo;
+    const state = r.state;
+    if (state.phase !== 'bidding' || state.turn !== pos || state.doubled !== 1) return;
+    if (l56Engine.TEAM_OF(state.currentBid.seat) !== l56Engine.TEAM_OF(pos)) return;
+    state.doubled = 2;
+    state.lastActionBySeat = state.lastActionBySeat || {};
+    state.lastActionBySeat[pos] = 'Redouble';
+    const noteText = (typeof note === 'string' ? note.trim() : '').slice(0, 200);
+    if (noteText) state.lastNote = { seat: pos, text: noteText, ts: Date.now() };
+    l56Engine.addLog(state, `${state.seats[pos].name} redoubled!${noteText ? ' — "' + noteText + '"' : ''}`, pos);
+    l56Engine.advanceBiddingTurn(state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_playCard', ({ code, cardId }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r, pos } = seatInfo;
+    const state = r.state;
+    if (state.phase !== 'playing' || state.turn !== pos) return;
+    const legal = l56Engine.legalCardsForSeat(state, pos);
+    if (!legal.some(c => c.id === cardId)) return;
+    const hand = state.hands[pos];
+    const idx = hand.findIndex(c => c.id === cardId);
+    if (idx === -1) return;
+    const card = hand[idx];
+    hand.splice(idx, 1);
+    if (state.leadSuit && card.s !== state.leadSuit) {
+      state.revealedVoidBySeat = state.revealedVoidBySeat || {};
+      if (!state.revealedVoidBySeat[pos]) state.revealedVoidBySeat[pos] = [];
+      if (!state.revealedVoidBySeat[pos].includes(state.leadSuit)) state.revealedVoidBySeat[pos].push(state.leadSuit);
+    }
+    if (!state.leadSuit) state.leadSuit = card.s;
+    state.table = state.table || [];
+    state.table.push({ seat: pos, card });
+    l56Engine.addLog(state, `${state.seats[pos].name} played ${card.r}${l56Engine.SUIT_SYM[card.s]}.`);
+    if (state.table.length === 6) l56Engine.resolveTrick(state);
+    else state.turn = (state.turn + 1) % 6;
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
   });
 
   socket.on('l56_kick', ({ code, pos }) => {
