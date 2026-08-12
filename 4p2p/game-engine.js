@@ -13,7 +13,8 @@
 // Rules implemented, ported from the original client's engine:
 //  - 32-card deck (7,8,9,10,J,Q,K,A x 4 suits). J=3pts, 9=2pts, A=1pt,
 //    10=1pt, everything else 0pts. 28 points in the deck total.
-//  - Teams are fixed by seat: seats 0 & 2 vs seats 1 & 3.
+//  - Teams are fixed by seat: seats 0 & 3 vs seats 1 & 2 (partners sit
+//    directly across the table from each other, not next to each other).
 //  - Bidding: 4 cards dealt first. First bidder (dealer's right) must bid
 //    at least 14 and cannot pass. Bids strictly increase. Bidding ends
 //    once 3 players in a row have passed after some bid exists.
