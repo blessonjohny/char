@@ -12694,6 +12694,25 @@ function connectGameSocket() {
       if (document.visibilityState !== 'visible' || !MY_TABLE_ID || !MY_PLAYER_TOKEN) return;
       const hiddenForMs = hiddenAt ? (Date.now() - hiddenAt) : 0;
       hiddenAt = null;
+      // The trick-reveal animation lock (trickRevealBusy/trickRevealQueue,
+      // reset together with related round-tracking state by
+      // resetTrickAndRoundTracking()) is normally cleared by a chain of
+      // setTimeout calls (2000ms, 3200ms, plus a staggered per-card
+      // sequence) -- if the tab gets backgrounded or suspended while ANY
+      // of those is still pending, mobile browsers can throttle or fully
+      // drop them, leaving trickRevealBusy stuck true forever. That flag
+      // isn't just cosmetic: the main render path
+      // (renderTrickSlotsWithWinnerPause) silently skips ALL future table
+      // updates while it's true, with no timeout of its own — so a stuck
+      // flag here means the whole table visually freezes even though the
+      // server's actual game state keeps moving forward correctly. This
+      // was reported exactly as it looks: reconnect succeeds, but the
+      // table stays stuck until a manual refresh. gameSocket's own
+      // 'connect' handler already calls this same reset, but only fires
+      // on a genuine reconnect -- a brief hide/show where the transport
+      // never actually drops (the "else" branch below, just a
+      // re-announce) would skip it entirely without this explicit call.
+      resetTrickAndRoundTracking();
       // A long suspension can leave gameSocket.connected reporting
       // stale/wrong info -- the browser paused this tab's JS before it
       // ever got to process the real disconnect event, even though the
@@ -14278,6 +14297,28 @@ function renderTrickSlotsWithWinnerPause(state) {
 function processTrickRevealQueue() {
   if (trickRevealBusy || trickRevealQueue.length === 0) return;
   trickRevealBusy = true;
+  // Independent hard-cap safety net: the normal chain that's supposed to
+  // clear trickRevealBusy (a 2000ms + 3200ms setTimeout chain below,
+  // possibly followed by a staggered per-card reveal) can get stuck if
+  // the tab is backgrounded/suspended partway through -- mobile browsers
+  // throttle or drop pending timers in that state. The visibilitychange
+  // handler elsewhere already clears this the instant the tab becomes
+  // visible again, but this is a second, independent guarantee in case
+  // that path is ever missed for any reason: after 10s (generously
+  // longer than the normal ~3.2s+stagger chain ever takes), force it
+  // clear and render whatever's actually current, rather than risk the
+  // table staying frozen indefinitely waiting on a timer that may never
+  // fire. myGenAtStart + the trickHoldGen check means this correctly
+  // no-ops if the normal chain already resolved things by then.
+  const myGenAtStart = trickHoldGen;
+  setTimeout(() => {
+    if (!trickRevealBusy || trickHoldGen !== myGenAtStart) return; // already resolved normally
+    console.warn('[processTrickRevealQueue] trickRevealBusy stuck for 10s — forcing clear.');
+    trickRevealBusy = false;
+    trickRevealQueue = [];
+    trickHoldGen++;
+    if (latestServerState) renderTrickSlots(latestServerState);
+  }, 10000);
   const lastTrick = trickRevealQueue.shift();
 
   for (let i = 0; i < 4; i++) {
