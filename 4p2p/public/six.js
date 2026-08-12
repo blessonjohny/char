@@ -13,6 +13,51 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
+
+// Requests fullscreen -- hides the browser's own address bar and nav
+// bars on mobile -- the moment someone actually creates or joins a
+// table. Only works when called synchronously from within a real tap
+// (btnNameContinue's click handler below qualifies). Tries every
+// vendor-prefixed version for broad browser coverage. Wrapped in
+// try/catch either way -- if none are available (genuinely the case for
+// Safari on iPhone specifically, see maybeShowIosInstallHint() below),
+// the game still works completely normally, just without the
+// chrome-hiding effect.
+function requestFullscreen6p(){
+  try {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (fn) {
+      const result = fn.call(el);
+      if (result && result.catch) result.catch(() => {});
+    }
+  } catch (e) { /* not available here -- fine, just skip it */ }
+}
+
+// iOS Safari does not let ANY web page hide its own browser chrome via
+// JavaScript -- Apple restricts the Fullscreen API on iPhone
+// specifically, so requestFullscreen6p() above silently does nothing
+// there. "Add to Home Screen" (the apple-mobile-web-app-capable meta
+// tag in <head> makes that launch standalone, no Safari bars at all) is
+// the one real fix -- shown once, dismissible, only to genuine
+// iPhone/iPad Safari visitors who haven't already installed it.
+function maybeShowIosInstallHint6p(){
+  try {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+    if (!isIOS || !isSafari || isStandalone) return;
+    if (sessionStorage.getItem('k28six_seenIosInstallHint')) return;
+    sessionStorage.setItem('k28six_seenIosInstallHint', '1');
+  } catch (e) { return; }
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);max-width:320px;width:calc(100% - 32px);background:rgba(20,20,30,0.97);border:1px solid rgba(244,196,48,0.5);border-radius:14px;padding:14px 16px;z-index:3000;box-shadow:0 8px 24px rgba(0,0,0,0.5);text-align:left;color:#fff;font-size:0.85rem;line-height:1.4';
+  el.innerHTML = `📱 For a full-screen, app-like table with no Safari bars: tap <b>Share</b> ⬆️ then <b>Add to Home Screen</b>.
+    <div style="text-align:right;margin-top:8px"><button id="iosHintDismiss6p" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.8);font-size:0.8rem">Got it</button></div>`;
+  document.body.appendChild(el);
+  document.getElementById('iosHintDismiss6p').addEventListener('click', () => el.remove());
+}
+maybeShowIosInstallHint6p();
 // Matches game-engine-6p.js's getTeam() exactly: even seats vs odd seats.
 function sixpGetTeam(pos) { return pos % 2 === 0 ? 0 : 1; }
 
@@ -697,6 +742,7 @@ $('btnNameContinue').addEventListener('click', () => {
     return;
   }
   MY_NAME = name;
+  requestFullscreen6p();
   connectSocket();
   if (pendingAction === 'create') {
     socket.emit('sixp_createTable', { name });
@@ -799,6 +845,13 @@ function leaveToWelcome() {
   document.querySelectorAll('.modal-overlay,.overlay').forEach(o => o.classList.remove('on'));
   $('gameScreen').style.display = 'none';
   showScreen('welcomeScreen');
+  // Leaving doesn't reload the page here (unlike some other tables in
+  // this app), so fullscreen wouldn't otherwise drop on its own --
+  // exit it explicitly instead of leaving someone stuck in it back on
+  // the welcome screen. Safe no-op if fullscreen was never entered.
+  try {
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  } catch (e) {}
 }
 
 const botSelect = $('botFillSelect');

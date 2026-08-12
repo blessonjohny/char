@@ -2,7 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<!-- Lets this be added to an iPhone's home screen as a proper chrome-free
+     app (apple-mobile-web-app-capable) -- the Fullscreen API used below
+     genuinely cannot hide Safari's own browser chrome on iPhone (Apple
+     restricts that), so "Add to Home Screen" is the only real way
+     anyone on iOS gets the same no-browser-bars experience Android
+     already gets in-tab. See maybeShowIosInstallHint() further down. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="28 Kerala Gulan">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Play 28 Card Game Online Free | Kerala Gulan – Indian Card Game (Eripathettu)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1575,6 +1585,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     radial-gradient(circle at 25% 78%, rgba(255,215,0,0.05) 0%, transparent 6%),
     radial-gradient(circle at 80% 75%, rgba(96,165,250,0.04) 0%, transparent 5%);
   background-size:140px 140px, auto, auto, auto, auto, auto, auto;
+}
+.center .felt::after{
+  /* Subtle centered branding watermark, low-key enough not to compete
+     with the cards played on top of it (z-index:-1 on .felt itself
+     already keeps this well behind everything else on the table). Gold
+     at low opacity reads cleanly against every felt color theme (Royal
+     Red/Blue/Purple/etc — see applyTableThemeByIndex()) rather than
+     trying to match each one individually. */
+  content:"28GULAN.COM";
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  font-family:'Cinzel Decorative','Fraunces',serif;
+  font-weight:700;
+  font-size:clamp(0.7rem, 3.2vw, 1.15rem);
+  letter-spacing:2px;
+  color:rgba(255,215,0,0.14);
+  white-space:nowrap;
+  pointer-events:none;
+  user-select:none;
 }
 /* Cards cast realistic shadow on the felt */
 .card{
@@ -11531,6 +11561,7 @@ document.getElementById('btnConfirmStartPos').addEventListener('click', () => {
       selectedPlayerIdx = 0; // Default to first player
     }
   }
+  requestFullscreen28();
   startLocalGameWithPosition(selectedStartPos);
 });
 
@@ -11752,6 +11783,7 @@ document.getElementById('btnSetName').addEventListener('click', async () => {
 // Create Room button
 
 document.getElementById('btnCreateRoom').addEventListener('click', () => {
+  requestFullscreen28();
   createTableOnServer(MY_NAME);
 });
 
@@ -11769,6 +11801,7 @@ document.getElementById('btnCreateRoom').addEventListener('click', () => {
 document.getElementById('btnJoinRoom').addEventListener('click', () => {
   const roomIdOrPeer = document.getElementById('joinRoomId').value.trim();
   if (!roomIdOrPeer) { showToast('Enter a table code', 'lose', 1500); return; }
+  requestFullscreen28();
   joinTableOnServer(roomIdOrPeer, MY_NAME);
 });
 
@@ -13124,6 +13157,13 @@ function leaveServerTable() {
 // (this was the bug behind Home appearing to silently do nothing, or
 // Leave/Play acting like the old table was still current).
 function exitToHome() {
+  // Neither goHome() nor leaveServerTable() reload the page, so
+  // fullscreen wouldn't otherwise drop on its own -- exit it explicitly
+  // instead of leaving someone stuck in it back on the welcome screen.
+  // Safe no-op if fullscreen was never entered.
+  try {
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  } catch (e) {}
   if (SERVER_MODE || IS_ONLINE) leaveServerTable();
   else goHome();
 }
@@ -13135,6 +13175,57 @@ function exitToHome() {
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+
+// Requests fullscreen -- hides the browser's own address bar and nav
+// bars on mobile -- the moment someone actually starts a game (Create
+// Room, Join Room, or Play vs Bots). Only works when called
+// synchronously from within a real tap, which all three call sites
+// below are. Tries every vendor-prefixed version (standard, then
+// Safari/older-Chrome, Firefox, old Edge/IE) for broad browser coverage.
+// Wrapped in try/catch either way -- if none are available (genuinely
+// the case for Safari on iPhone specifically, see
+// maybeShowIosInstallHint() below for why and what actually helps
+// there), the game still works completely normally, just without the
+// chrome-hiding effect.
+function requestFullscreen28(){
+  try {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (fn) {
+      const result = fn.call(el);
+      if (result && result.catch) result.catch(() => {});
+    }
+  } catch (e) { /* not available here -- fine, just skip it */ }
+}
+
+// iOS Safari does not let ANY web page hide its own browser chrome via
+// JavaScript, on principle -- Apple restricts the Fullscreen API on
+// iPhone specifically, so requestFullscreen28() above silently does
+// nothing there no matter what. The one real way to get the same
+// chrome-free, full-screen feel on iPhone is "Add to Home Screen" (the
+// apple-mobile-web-app-capable meta tag in <head> makes that launch
+// standalone, with no Safari bars at all) -- so rather than stay silent
+// about a feature that just doesn't work for them, this shows a single,
+// dismissible, one-time tip pointing at the actual fix. Only shown to
+// genuine iPhone/iPad Safari visitors who haven't already installed it
+// (standalone mode is detectable) and haven't seen the tip before.
+function maybeShowIosInstallHint(){
+  try {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+    if (!isIOS || !isSafari || isStandalone) return;
+    if (sessionStorage.getItem('k28_seenIosInstallHint')) return;
+    sessionStorage.setItem('k28_seenIosInstallHint', '1');
+  } catch (e) { return; }
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);max-width:320px;width:calc(100% - 32px);background:rgba(20,20,30,0.97);border:1px solid rgba(244,196,48,0.5);border-radius:14px;padding:14px 16px;z-index:3000;box-shadow:0 8px 24px rgba(0,0,0,0.5);text-align:left;color:#fff;font-size:0.85rem;line-height:1.4';
+  el.innerHTML = `📱 For a full-screen, app-like table with no Safari bars: tap <b>Share</b> ⬆️ then <b>Add to Home Screen</b>.
+    <div style="text-align:right;margin-top:8px"><button id="iosHintDismiss28" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.8);font-size:0.8rem">Got it</button></div>`;
+  document.body.appendChild(el);
+  document.getElementById('iosHintDismiss28').addEventListener('click', () => el.remove());
+}
+maybeShowIosInstallHint();
 
 // Formats a visitor-log session length (ms) as "2h 14m", "5m 32s", or
 // "12s" -- whichever units are actually meaningful, never "0h 0m".

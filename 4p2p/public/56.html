@@ -285,6 +285,23 @@
       inset 0 0 70px rgba(0,0,0,0.55),
       inset 0 2px 0 rgba(255,255,255,0.08);
   }
+  #table::after{
+    /* Subtle centered branding watermark -- low-key enough not to
+       compete with the trick cards played on top of it (z-index:0 by
+       default here, well below .center-trick's z-index:1). */
+    content:"28GULAN.COM";
+    position:absolute;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:clamp(0.65rem, 3vw, 1.05rem);
+    letter-spacing:2px;
+    color:rgba(255,215,0,0.14);
+    white-space:nowrap;
+    pointer-events:none;
+    user-select:none;
+  }
   .seat{
     position:absolute;width:110px;transform:translate(-50%,-50%);text-align:center;
     z-index:2;transition:transform .2s ease;
