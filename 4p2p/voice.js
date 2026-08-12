@@ -313,10 +313,64 @@
   // (with a real clearance buffer for the cards that visually poke up
   // above their row) fixes that regardless of screen size or how tall the
   // card row currently is.
+  let headerWatchedEl = null;
+  let headerResizeObserver = null;
+
   function positionButtons() {
     if (!ui) return;
     const table = document.getElementById('tableArea');
     const hand = document.getElementById('handArea');
+
+    if (!table && !hand) {
+      // #tableArea/#handArea only exist on the 4-player page. The
+      // 6-player and 56 tables don't have them, so the code below used
+      // to silently fall through to a generic hardcoded bottom-left
+      // spot with no idea where those pages' actual cards are -- which
+      // is exactly why the mic ended up sitting on top of the hand
+      // there. Rather than guess at each page's differently-shaped
+      // hand-of-cards layout, anchor just below whichever header/topbar
+      // element that page actually has instead -- every game page has
+      // one, in some form, and it's never near the cards. This also
+      // means #btnChat is left completely untouched on these pages
+      // (see the early return below) -- unlike the 4-player page, it
+      // already lives correctly docked in that page's own topbar/header
+      // and was never meant to float in a corner there.
+      const header = document.querySelector('.topbar') || document.getElementById('gameHeader') || document.querySelector('header');
+      let topY = 60;
+      if (header) {
+        const hdrRect = header.getBoundingClientRect();
+        if (hdrRect.height > 0 && getComputedStyle(header).display !== 'none') {
+          topY = hdrRect.bottom + 40;
+        }
+        // 56's header (and possibly others) has a second row -- dealer,
+        // trump, score -- that only expands once an actual hand starts,
+        // which can easily happen well after this first ran (it depends
+        // on game state loading over the network, not a fixed delay).
+        // Positioning once/twice on a timer isn't enough to catch that
+        // later height change, which is exactly why the mic ended up
+        // overlapping that second row. Watching the header itself keeps
+        // this correct no matter when or how many times its height
+        // actually changes.
+        if (headerWatchedEl !== header) {
+          if (headerResizeObserver) headerResizeObserver.disconnect();
+          if (window.ResizeObserver) {
+            headerResizeObserver = new ResizeObserver(positionButtons);
+            headerResizeObserver.observe(header);
+            headerWatchedEl = header;
+          }
+        }
+      }
+      ui.btn.style.left = '8px';
+      ui.btn.style.right = 'auto';
+      ui.btn.style.top = topY + 'px';
+      ui.btn.style.bottom = 'auto';
+      ui.panel.style.left = '8px';
+      ui.panel.style.right = 'auto';
+      ui.panel.style.top = (topY + 52) + 'px';
+      ui.panel.style.bottom = 'auto';
+      return;
+    }
+
     let leftEdge = 8, rightEdge = 8, bottomOffset = 40;
     if (table) {
       const tRect = table.getBoundingClientRect();
@@ -332,7 +386,7 @@
       const hRect = hand.getBoundingClientRect();
       if (hRect.height > 0) {
         // 44px clears a fanned card poking up above the hand-area's own
-        // box, plus an 10px gap so the button doesn't touch the card tips.
+        // box, plus a 10px gap so the button doesn't touch the card tips.
         bottomOffset = Math.max(8, window.innerHeight - hRect.top) + 44;
       }
     }

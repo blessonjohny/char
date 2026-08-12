@@ -2,7 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<!-- Lets this be added to an iPhone's home screen as a proper chrome-free
+     app (apple-mobile-web-app-capable) -- the Fullscreen API used below
+     genuinely cannot hide Safari's own browser chrome on iPhone (Apple
+     restricts that), so "Add to Home Screen" is the only real way
+     anyone on iOS gets the same no-browser-bars experience Android
+     already gets in-tab. See maybeShowIosInstallHint() further down. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="28 · 6 Player">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Play 28 Card Game Online – 6 Player Kerala Gulan (2 Teams of 3)</title>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -73,6 +83,35 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .topbar{position:absolute;top:0;left:0;right:0;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:0.75rem;background:rgba(0,0,0,0.25);z-index:10}
 .topbar .score{font-weight:800;color:var(--accent)}
 .table-oval{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(calc(clamp(116px,27.5vh,210px) + 150px),54%);height:min(calc(clamp(116px,27.5vh,210px) + 70px),44%);border:5px solid rgba(244,196,48,0.32);border-radius:50%;box-shadow:0 0 16px rgba(244,196,48,0.12),inset 0 0 20px rgba(0,0,0,0.35);}
+.table-oval::after{
+  /* Centered branding watermark. Six-player doesn't have a rotating felt
+     color theme (unlike the 4-player and 56 tables), so this uses the
+     site's own fixed gold accent color rather than a live theme
+     variable -- chosen for real contrast against this table's actual
+     dark navy background (see #gameScreen above). The dark outline
+     (text-shadow, several directions) is what actually defines the
+     letter edges; opacity is on the whole element so the outline fades
+     evenly with the fill instead of staying starker than it. */
+  content:"28GULAN.COM";
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  font-family:'Cinzel Decorative','Fraunces',serif;
+  font-weight:700;
+  font-size:clamp(0.65rem, 3vw, 1.05rem);
+  letter-spacing:2px;
+  color:var(--accent, #f4c430);
+  text-shadow:
+    -1.5px -1.5px 0 rgba(0,0,0,0.7),
+    1.5px -1.5px 0 rgba(0,0,0,0.7),
+    -1.5px 1.5px 0 rgba(0,0,0,0.7),
+    1.5px 1.5px 0 rgba(0,0,0,0.7),
+    0 0 10px rgba(0,0,0,0.5);
+  opacity:0.42;
+  white-space:nowrap;
+  pointer-events:none;
+  user-select:none;
+}
 .table-clock{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(110px,26vh,200px);height:clamp(110px,26vh,200px);z-index:0;pointer-events:none;filter:drop-shadow(0 6px 5px rgba(0,0,0,0.5)) drop-shadow(0 14px 24px rgba(0,0,0,0.55))}
 .table-clock-rim{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:clamp(116px,27.5vh,210px);height:clamp(116px,27.5vh,210px);border-radius:50%;border:2px solid rgba(244,196,48,0.4);box-shadow:0 0 18px rgba(244,196,48,0.15)}
 #vclk6Svg{width:100% !important;height:100% !important}
@@ -329,18 +368,22 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
         <div class="score-box" id="scoreBoxOpp" style="padding:2px 5px;min-width:0"><span class="slabel" style="font-size:0.42rem">OPP</span><span class="sval" id="scoreB" style="font-size:0.8rem">6</span></div>
       </div>
       <div style="display:flex;gap:2px;align-items:center;flex-shrink:0">
-      <button class="btn-outline" id="btnGameHome" title="Leave Table" style="padding:3px 7px;border-radius:7px;font-size:0.68rem">🏠</button>
-      <button class="btn-outline" id="btnHostMenu" style="display:none;padding:3px 7px;border-radius:7px;font-size:0.68rem">👑</button>
+      <button class="btn-outline" id="btnHostMenu" style="display:none;padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">Admin</button>
       <button class="btn-outline" id="btnChat" title="Chat" style="padding:3px 7px;border-radius:7px;font-size:0.68rem;position:relative">💬<span class="chat-badge" id="chatBadge"></span></button>
       <button class="btn-outline" id="btnInvite" title="Invite a Friend" style="padding:3px 7px;border-radius:7px;font-size:0.68rem;white-space:nowrap">💌</button>
+      <button class="btn-outline" id="btnGameHome" title="Leave Table" style="margin-left:6px;padding:3px 9px;border-radius:6px;font-size:0.75rem;background:#c0392b;border-color:#c0392b;color:#fff;font-weight:800">✕</button>
       </div>
     </div>
-    <div style="display:flex;justify-content:center;gap:5px;font-size:0.62rem;color:var(--text-secondary);flex-wrap:wrap">
-      <span>Dealer: <b style="color:#fff" id="dealerDisplay">—</b></span>
-      <span>·</span>
-      <span>Bidder: <b style="color:var(--accent);font-size:0.85em;text-shadow:0 0 6px rgba(244,196,48,0.5)" id="bidderDisplay">—</b></span>
-      <span>·</span>
-      <span>Points: <b style="color:var(--accent);font-size:0.95em" id="teamPointsDisplay">0 - 0</b></span>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;font-size:0.62rem;color:var(--text-secondary)">
+      <div style="display:flex;justify-content:flex-start;overflow:hidden">
+        <span>Dealer: <b style="color:#fff" id="dealerDisplay">—</b></span>
+      </div>
+      <div style="display:flex;justify-content:center;white-space:nowrap;padding:0 6px">
+        <span>Points: <b style="color:var(--accent);font-size:0.95em" id="teamPointsDisplay">0 - 0</b></span>
+      </div>
+      <div style="display:flex;justify-content:flex-end;overflow:hidden">
+        <span>Bidder: <b style="color:var(--accent);font-size:0.85em;text-shadow:0 0 6px rgba(244,196,48,0.5)" id="bidderDisplay">—</b></span>
+      </div>
     </div>
   </div>
   <div class="trumpchip" id="trumpChip">🎯 Trump: Hidden</div>
@@ -654,6 +697,22 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
     <div style="display:flex;gap:10px">
       <button class="btn btn-outline" style="flex:1" id="btnRestartConfirmCancel">Cancel</button>
       <button class="btn btn-primary" style="flex:1" id="btnRestartConfirmOk">Yes, Restart</button>
+    </div>
+  </div>
+</div>
+
+<!-- Leave Table warning, opened by the red X in the game topbar. Just two
+     options on purpose (Leave Table / Continue Playing) -- no save prompt,
+     no separate "back to lobby" option -- matching the same simplified
+     exit dialog the 4-player table already uses. -->
+<div class="modal-overlay" id="leaveConfirmOverlay">
+  <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid rgba(255,215,0,0.3);border-radius:16px;padding:20px;width:100%;max-width:340px;text-align:center">
+    <div style="font-size:1.4rem;margin-bottom:6px">🏠</div>
+    <div style="color:#fff;font-size:0.95rem;font-weight:700;margin-bottom:6px">Leave This Table?</div>
+    <div style="color:var(--text-secondary);font-size:0.8rem;margin-bottom:16px">You can rejoin with the room code if the table is still running.</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-primary" style="width:100%" id="btnLeaveConfirmOk">🚪 Leave Table</button>
+      <button class="btn btn-outline" style="width:100%" id="btnLeaveConfirmCancel">▶ Continue Playing</button>
     </div>
   </div>
 </div>

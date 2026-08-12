@@ -2,7 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<!-- Lets this be added to an iPhone's home screen as a proper chrome-free
+     app (apple-mobile-web-app-capable) -- the Fullscreen API used below
+     genuinely cannot hide Safari's own browser chrome on iPhone (Apple
+     restricts that), so "Add to Home Screen" is the only real way
+     anyone on iOS gets the same no-browser-bars experience Android
+     already gets in-tab. See maybeShowIosInstallHint() further down. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="28 Kerala Gulan">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Play 28 Card Game Online Free | Kerala Gulan – Indian Card Game (Eripathettu)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -190,8 +200,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   filter:drop-shadow(0 6px 16px rgba(0,0,0,0.55)) drop-shadow(0 0 18px rgba(230,200,107,0.25));
 }
 .welcome-title-gold{
-  font-family:'Cinzel Decorative','Fraunces',serif;font-weight:700;font-size:2.1rem;line-height:1.15;
-  margin-bottom:8px;letter-spacing:1px;
+  font-family:'Cinzel Decorative','Fraunces',serif;font-weight:700;
+  /* "28GULAN.COM" is more than double the length "Gulan" used to be --
+     clamp() scales the size down on narrow phones so it stays on one
+     line and never overflows the 320px-max plaque, without touching any
+     of the actual gold gradient/shadow styling below. */
+  font-size:clamp(1.35rem, 8vw, 2.1rem);line-height:1.15;
+  margin-bottom:8px;letter-spacing:0.5px;white-space:nowrap;
   background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
   text-shadow:0 2px 18px rgba(230,200,107,0.35),0 1px 0 rgba(0,0,0,0.3);
@@ -265,17 +280,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .lobby-card:hover{border-color:rgba(255,215,0,0.2)}
 .lobby-card h3{color:var(--accent);font-size:1rem;margin-bottom:8px}
 .lobby-card p{font-size:0.75rem;color:var(--text-secondary);margin-bottom:12px;line-height:1.5}
-/* Host a Room's tagline: bolder + a warm gold-to-white gradient so it
-   reads as inviting/appealing rather than plain gray instructional text,
-   matching the royal-gold accent used elsewhere. Scoped to just this one
-   paragraph by id, so Join a Room / Your Name captions are unaffected. */
+/* Host a Room's tagline: bolder + warm gold with a soft glow so it reads
+   as inviting rather than plain gray instructional text, matching the
+   royal-gold accent used elsewhere. Scoped to just this one paragraph by
+   id, so Join a Room / Your Name captions are unaffected. Plain solid
+   color (not a background-clip gradient-text trick) so it renders
+   reliably on every browser/WebView instead of risking invisible text. */
 #hostCardTagline{
   font-weight:700;
   font-size:0.8rem;
   line-height:1.55;
-  background:linear-gradient(90deg,#ffd700,#fff3c4 45%,#ffd700);
-  -webkit-background-clip:text;background-clip:text;color:transparent;
-  text-shadow:0 1px 2px rgba(0,0,0,0.35);
+  color:#ffd700;
+  text-shadow:0 0 8px rgba(255,215,0,0.45),0 1px 2px rgba(0,0,0,0.5);
 }
 .name-input{width:100%;padding:12px 14px;border-radius:10px;border:2px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text-primary);font-size:1rem;text-align:center;margin-bottom:10px;font-family:inherit}
 .name-input:focus{outline:none;border-color:var(--accent)}
@@ -972,14 +988,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   animation: infoPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Round=gold, Dealer=green, Bidder=orange, Team=green, Opp=red — both the
-   label word and its live value take the color; pop-anim / glow animations
-   above are untouched since they only animate transform/text-shadow. */
+/* Round=gold, Dealer=green, Bidder=orange, Team=green, Opp=red — just the
+   label word takes a static color. The VALUE next to Team/Opp is left
+   alone here on purpose: updateTrickColor() below dynamically colors it
+   (white by default, shifting green/red only when a team is actually on
+   track to win or has mathematically locked in winning/losing the round)
+   via .bid-team-green/.bid-team-red/.round-won/.round-lost -- an earlier
+   version of this rule also colored the value permanently, which fought
+   that system and left it stuck green/red all the time instead of only
+   when it actually meant something. Round/Dealer/Bidder don't have an
+   equivalent dynamic system, so their values keep their static color. */
 #roundLabel, #roundNum { color: #ffd700; }
 #dealerLabel, #dealerDisplay { color: #4ade80; }
 #bidderLabel, #bidderDisplay { color: #ffa64d; }
-#yourTricksLabel, #yourTricks { color: #4ade80; }
-#oppTricksLabel, #oppTricks { color: #f87171; }
+#yourTricksLabel { color: #4ade80; }
+#oppTricksLabel { color: #f87171; }
 
 .info-val.bid-team-green {
   color: var(--success) !important;
@@ -1562,6 +1585,37 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     radial-gradient(circle at 25% 78%, rgba(255,215,0,0.05) 0%, transparent 6%),
     radial-gradient(circle at 80% 75%, rgba(96,165,250,0.04) 0%, transparent 5%);
   background-size:140px 140px, auto, auto, auto, auto, auto, auto;
+}
+.center .felt::after{
+  /* Centered branding watermark. Uses --info-accent -- the SAME live
+     contrast color applyTableThemeByIndex() already picks per theme for
+     the Round/Dealer/Bidder bar (see there) -- so this automatically
+     updates to a color chosen to read well against whatever felt is
+     currently active, instead of one fixed color that could wash out
+     against some themes and clash with others. The dark outline
+     (text-shadow, several directions) is what actually defines the
+     letter edges regardless of felt color; opacity is on the whole
+     element rather than baked into the color so the outline fades
+     evenly with the fill instead of staying starker than it. */
+  content:"28GULAN.COM";
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  font-family:'Cinzel Decorative','Fraunces',serif;
+  font-weight:700;
+  font-size:clamp(0.7rem, 3.2vw, 1.15rem);
+  letter-spacing:2px;
+  color:var(--info-accent, #ffd700);
+  text-shadow:
+    -1.5px -1.5px 0 rgba(0,0,0,0.7),
+    1.5px -1.5px 0 rgba(0,0,0,0.7),
+    -1.5px 1.5px 0 rgba(0,0,0,0.7),
+    1.5px 1.5px 0 rgba(0,0,0,0.7),
+    0 0 10px rgba(0,0,0,0.5);
+  opacity:0.42;
+  white-space:nowrap;
+  pointer-events:none;
+  user-select:none;
 }
 /* Cards cast realistic shadow on the felt */
 .card{
@@ -2578,7 +2632,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <div class="welcome-logo-wrap">
       <div class="welcome-hero-plaque">
         <img class="welcome-card-badge" src="/images/jack-card.png" alt="Jack of Spades — 28 Kerala Gulan">
-        <div class="welcome-title-gold">Gulan</div>
+        <div class="welcome-title-gold">28GULAN.COM</div>
         <div class="welcome-gold-rule"></div>
       </div>
       <div class="welcome-sub">Gulan · 56 · Hold'em · Carrom — Classic Indian Card &amp; Board Games Online</div>
@@ -2863,7 +2917,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <button class="icon-btn" id="btnLoadGame" title="Load Game">📂</button>
       <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none;width:auto;padding:0 6px;gap:3px;white-space:nowrap">💌 Invite</button>
       <button class="icon-btn" id="btnRequestSeat" title="Ask for a Seat" style="display:none">🪑</button>
-      <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none">👑</button>
+      <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none;width:auto;padding:0 8px;white-space:nowrap;font-weight:800">Admin</button>
       <button class="icon-btn" id="btnRoomManage" title="Manage Room (Host)" style="display:none">🎛️</button>
       <button class="icon-btn" id="btnHome" title="Go Home" style="margin-left:auto;background:#c0392b;border-color:#c0392b;color:#fff;border-radius:4px;font-weight:800">✕</button>
     </div>
@@ -2873,16 +2927,20 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <!-- ===== GAME WRAP ===== -->
 <div class="game-wrap" id="gameWrap">
   <div class="info-bar" id="infoBar">
-    <div class="info-row info-main">
-      <span class="info-item"><span class="info-label" id="roundLabel">Round</span><span class="info-val" id="roundNum">1</span></span>
-      <span class="info-sep">·</span>
-      <span class="info-item"><span class="info-label" id="dealerLabel">Dealer</span><span class="info-val" id="dealerDisplay">—</span></span>
-      <span class="info-sep">·</span>
-      <span class="info-item"><span class="info-label" id="bidderLabel">Bidder</span><span class="info-val" id="bidderDisplay">—</span></span>
-      <span class="info-sep">·</span>
-      <span class="info-item"><span class="info-label" id="yourTricksLabel">Team</span><span class="info-val" id="yourTricks">0</span></span>
-      <span class="info-sep">·</span>
-      <span class="info-item"><span class="info-label" id="oppTricksLabel">Opp</span><span class="info-val" id="oppTricks">0</span></span>
+    <div class="info-row info-main" style="display:grid;grid-template-columns:1fr auto 1fr;justify-content:stretch;align-items:center">
+      <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:flex-start;overflow:hidden">
+        <span class="info-item"><span class="info-label" id="roundLabel">Round</span><span class="info-val" id="roundNum">1</span></span>
+        <span class="info-sep">·</span>
+        <span class="info-item"><span class="info-label" id="dealerLabel">Dealer</span><span class="info-val" id="dealerDisplay">—</span></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:center;white-space:nowrap;padding:0 6px">
+        <span class="info-item"><span class="info-label" id="yourTricksLabel">Team</span><span class="info-val" id="yourTricks">0</span></span>
+        <span class="info-sep">·</span>
+        <span class="info-item"><span class="info-label" id="oppTricksLabel">Opp</span><span class="info-val" id="oppTricks">0</span></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:flex-end;overflow:hidden">
+        <span class="info-item"><span class="info-label" id="bidderLabel">Bidder</span><span class="info-val" id="bidderDisplay">—</span></span>
+      </div>
     </div>
     <div class="info-row info-king" id="kingRow" style="display:none" title="Win championships back-to-back to level up: 2 wins in a row = Level 1, and so on up to 10 wins in a row = 👑 King.">
       <span class="info-item"><span class="info-label"><span class="king-fire">🔥</span> Streak</span><span class="info-val" id="kingStreakVal">0</span></span>
@@ -3255,14 +3313,14 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   // as a tiny corner tag on the welcome screen. This exists purely so we
   // can settle, with certainty, whether a bug report is against this
   // exact code or a stale deployment — no more guessing.
-  window.K28_BUILD_TAG = 'stable-hostfix · 2026-07-20';
+  window.K28_BUILD_TAG = 'stable-hostfix · 2026-08-11';
   // Human-readable version of the same "when was this last touched"
   // fact, used in the comment-invite toast so a returning player can see
   // at a glance that the site is actively maintained. Deliberately a
   // separate constant from K28_BUILD_TAG (not derived from it) so this
   // page's own deploy-mismatch check above always compares two build
   // identifiers exactly, never a human-formatted string.
-  window.SITE_LAST_UPDATED = 'Jul 20, 2026';
+  window.SITE_LAST_UPDATED = 'Aug 11, 2026';
   console.log('[28 Kerala Gulan] build:', window.K28_BUILD_TAG);
   window.addEventListener('DOMContentLoaded', () => {
     const tag = document.createElement('div');
@@ -4398,7 +4456,7 @@ function maybeShowCommentInviteToast() {
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
         <span style="background:rgba(244,196,48,0.18);color:var(--gold,#f4c430);font-size:0.66rem;font-weight:800;padding:2px 8px;border-radius:20px;letter-spacing:0.02em">🆕 UPDATED ${window.SITE_LAST_UPDATED}</span>
       </div>
-      <div style="font-size:0.85rem;color:#fff;margin-bottom:10px;line-height:1.4">👋 Working on improving things like the bidding table connection — if you run into anything or have ideas, we'd love to hear it!</div>
+      <div style="font-size:0.85rem;color:#fff;margin-bottom:10px;line-height:1.4">👋 Just updated: refined the bidding order, and the Jack can no longer be discarded. If you run into anything or have ideas, we'd love to hear it!</div>
       <div style="display:flex;gap:8px">
         <button id="commentInviteYes" style="flex:1;padding:9px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--gold,#f4c430),#c99a1e);color:#241a12;font-weight:700;font-size:0.8rem;cursor:pointer">💌 Leave a Comment</button>
         <button id="commentInviteDismiss" style="padding:9px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.7);font-size:0.8rem;cursor:pointer">Not now</button>
@@ -7440,7 +7498,7 @@ function showRaisePanel() {
   const learnBtn = document.getElementById('btnLearnBid');
   if (learnBtn) learnBtn.style.display = (!IS_ONLINE) ? 'block' : 'none';
   document.getElementById('bidTitle').textContent = 'Phase 2: Raise?';
-  const minBid = Math.max(20, highestBid + 1);
+  const minBid = Math.max(24, highestBid + 1);
   let highText = '';
   if (highestBid > 0 && bidder >= 0) {
     highText = '<br><b style="color:var(--accent)">👑 Highest: ' + highestBid + ' by ' + relLabel(bidder) + '</b>';
@@ -11514,6 +11572,7 @@ document.getElementById('btnConfirmStartPos').addEventListener('click', () => {
       selectedPlayerIdx = 0; // Default to first player
     }
   }
+  requestFullscreen28();
   startLocalGameWithPosition(selectedStartPos);
 });
 
@@ -11735,6 +11794,7 @@ document.getElementById('btnSetName').addEventListener('click', async () => {
 // Create Room button
 
 document.getElementById('btnCreateRoom').addEventListener('click', () => {
+  requestFullscreen28();
   createTableOnServer(MY_NAME);
 });
 
@@ -11752,6 +11812,7 @@ document.getElementById('btnCreateRoom').addEventListener('click', () => {
 document.getElementById('btnJoinRoom').addEventListener('click', () => {
   const roomIdOrPeer = document.getElementById('joinRoomId').value.trim();
   if (!roomIdOrPeer) { showToast('Enter a table code', 'lose', 1500); return; }
+  requestFullscreen28();
   joinTableOnServer(roomIdOrPeer, MY_NAME);
 });
 
@@ -12466,6 +12527,7 @@ let serverRoundEndShown = -1; // which round number we've already shown the summ
 let serverLastAnnouncedTrumpExposed = false; // tracks trumpExposed so the announcement toast fires exactly once per exposure, not on every render
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired, so it shows exactly once per round
 let lastShownRoundVoidMessage = null; // tracks the defending-team-has-no-trump void message so it shows exactly once per occurrence
+let lastShownReshuffleReasonTs = null; // same "show exactly once" pattern for the 3 auto-reshuffle popups below
 let lastShownPartnerSignalKey = null; // tracks the last partner bidding signal shown to this player so it shows exactly once per occurrence
 
 // A full page reload wipes every JS variable but leaves localStorage
@@ -12838,7 +12900,7 @@ function connectGameSocket() {
       if (input) input.value = '';
       showToast('✅ Admin password changed', 'win', 3000);
     } else {
-      const msgs = { wrong_current: 'Current session password is stale — close and reopen the admin panel', too_short: 'Password needs to be at least 4 characters' };
+      const msgs = { wrong_current: 'Current session password is stale — close and reopen the admin panel', too_short: 'Password needs to be at least 4 characters', too_many_attempts: 'Too many attempts — try again in a few minutes' };
       showToast('❌ ' + (msgs[reason] || 'Could not change password'), 'lose', 3000);
     }
   });
@@ -12853,6 +12915,8 @@ function connectGameSocket() {
     const name = actionNames[action] || 'Admin action';
     if (reason === 'wrong_password') {
       showToast(`❌ ${name} failed — your admin session's password doesn't match the server's current one. Close and reopen the admin panel to refresh it, or re-enter the password.`, 'lose', 5000);
+    } else if (reason === 'too_many_attempts') {
+      showToast(`⏱️ Too many wrong password attempts — locked out for a few minutes.`, 'lose', 5000);
     } else {
       showToast(`❌ ${name} failed.`, 'lose', 3000);
     }
@@ -12867,10 +12931,10 @@ function connectGameSocket() {
     if (summary && summaryEl) {
       summaryEl.style.display = 'flex';
       summaryEl.innerHTML = `
-        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.today}</b><br>today</div>
-        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.week}</b><br>this week</div>
-        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.month}</b><br>this month</div>
-        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.all}</b><br>all time</div>
+        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.today?.unique ?? 0}</b><br>unique today<br><span style="opacity:0.6;font-size:0.68rem">${summary.today?.visits ?? 0} visits</span></div>
+        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.week?.unique ?? 0}</b><br>unique week<br><span style="opacity:0.6;font-size:0.68rem">${summary.week?.visits ?? 0} visits</span></div>
+        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.month?.unique ?? 0}</b><br>unique month<br><span style="opacity:0.6;font-size:0.68rem">${summary.month?.visits ?? 0} visits</span></div>
+        <div style="flex:1"><b style="color:var(--gold, #f4c430);font-size:0.9rem">${summary.all?.unique ?? 0}</b><br>unique all-time<br><span style="opacity:0.6;font-size:0.68rem">${summary.all?.visits ?? 0} visits</span></div>
       `;
     }
     if (filtersEl) {
@@ -12891,12 +12955,34 @@ function connectGameSocket() {
     entries.forEach(e => { if (e.ip) ipCounts[e.ip] = (ipCounts[e.ip] || 0) + 1; });
     list.innerHTML = entries.map(e => {
       const dup = e.ip && ipCounts[e.ip] > 1;
-      const where = [e.city, e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+      const where = [e.city, e.regionName || e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+      const mapLink = (e.lat != null && e.lon != null)
+        ? ` <a href="https://www.google.com/maps?q=${e.lat},${e.lon}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">(map)</a>`
+        : '';
       const when = new Date(e.ts).toLocaleString();
+      const deviceLine = [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
+      // sessionMs is only set once the connection actually ends (see
+      // the 'disconnect' handler in server.js). endedByRestart marks a
+      // session still open when a PREVIOUS server process stopped -- its
+      // real socket is gone, so exactly when it ended is unknowable;
+      // shown distinctly rather than faking a duration or leaving it
+      // looking like it's still connected days later.
+      const durationLine = e.sessionMs != null
+        ? '⏱️ Logged in ' + fmtDuration(e.sessionMs)
+        : e.endedByRestart
+          ? '🔌 Ended (server restarted) — duration unknown'
+          : '🟢 Still connected';
+      const badges = [
+        e.returning ? '🔁 returning' : '✨ new',
+        dup ? '⚠️ seen ' + ipCounts[e.ip] + '× in this view' : ''
+      ].filter(Boolean).join(' &middot; ');
       return `<div style="padding:6px 8px;margin-bottom:4px;border-radius:6px;background:${dup ? 'rgba(255,80,80,0.18)' : 'rgba(255,255,255,0.04)'};border:1px solid ${dup ? 'rgba(255,80,80,0.4)' : 'rgba(255,255,255,0.08)'}">
-        <div style="font-weight:700;color:${dup ? 'var(--danger)' : 'var(--gold, #f4c430)'}">${escapeHtml(e.ip || 'unknown IP')}${dup ? ' ⚠️ seen ' + ipCounts[e.ip] + '×' : ''}</div>
-        <div>${escapeHtml(where)}</div>
-        <div style="opacity:0.6">${escapeHtml(when)}</div>
+        <div style="font-weight:700;color:${dup ? 'var(--danger)' : 'var(--gold, #f4c430)'}">${escapeHtml(e.ip || 'unknown IP')}</div>
+        <div>${escapeHtml(where)}${mapLink}</div>
+        <div style="opacity:0.75">📱 ${escapeHtml(deviceLine)}${e.language ? ' · 🌐 ' + escapeHtml(e.language) : ''}</div>
+        <div style="opacity:0.75">${durationLine}</div>
+        ${e.referrer ? `<div style="opacity:0.75">↪️ from ${escapeHtml(e.referrer)}</div>` : ''}
+        <div style="opacity:0.6">${when} &middot; ${badges}</div>
       </div>`;
     }).join('');
   });
@@ -13082,6 +13168,13 @@ function leaveServerTable() {
 // (this was the bug behind Home appearing to silently do nothing, or
 // Leave/Play acting like the old table was still current).
 function exitToHome() {
+  // Neither goHome() nor leaveServerTable() reload the page, so
+  // fullscreen wouldn't otherwise drop on its own -- exit it explicitly
+  // instead of leaving someone stuck in it back on the welcome screen.
+  // Safe no-op if fullscreen was never entered.
+  try {
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  } catch (e) {}
   if (SERVER_MODE || IS_ONLINE) leaveServerTable();
   else goHome();
 }
@@ -13092,6 +13185,70 @@ function exitToHome() {
 // "take over this bot", and "just watch" actually apply right now.
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Requests fullscreen -- hides the browser's own address bar and nav
+// bars on mobile -- the moment someone actually starts a game (Create
+// Room, Join Room, or Play vs Bots). Only works when called
+// synchronously from within a real tap, which all three call sites
+// below are. Tries every vendor-prefixed version (standard, then
+// Safari/older-Chrome, Firefox, old Edge/IE) for broad browser coverage.
+// Wrapped in try/catch either way -- if none are available (genuinely
+// the case for Safari on iPhone specifically, see
+// maybeShowIosInstallHint() below for why and what actually helps
+// there), the game still works completely normally, just without the
+// chrome-hiding effect.
+function requestFullscreen28(){
+  try {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (fn) {
+      const result = fn.call(el);
+      if (result && result.catch) result.catch(() => {});
+    }
+  } catch (e) { /* not available here -- fine, just skip it */ }
+}
+
+// iOS Safari does not let ANY web page hide its own browser chrome via
+// JavaScript, on principle -- Apple restricts the Fullscreen API on
+// iPhone specifically, so requestFullscreen28() above silently does
+// nothing there no matter what. The one real way to get the same
+// chrome-free, full-screen feel on iPhone is "Add to Home Screen" (the
+// apple-mobile-web-app-capable meta tag in <head> makes that launch
+// standalone, with no Safari bars at all) -- so rather than stay silent
+// about a feature that just doesn't work for them, this shows a single,
+// dismissible, one-time tip pointing at the actual fix. Only shown to
+// genuine iPhone/iPad Safari visitors who haven't already installed it
+// (standalone mode is detectable) and haven't seen the tip before.
+function maybeShowIosInstallHint(){
+  try {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+    if (!isIOS || !isSafari || isStandalone) return;
+    if (sessionStorage.getItem('k28_seenIosInstallHint')) return;
+    sessionStorage.setItem('k28_seenIosInstallHint', '1');
+  } catch (e) { return; }
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);max-width:320px;width:calc(100% - 32px);background:rgba(20,20,30,0.97);border:1px solid rgba(244,196,48,0.5);border-radius:14px;padding:14px 16px;z-index:3000;box-shadow:0 8px 24px rgba(0,0,0,0.5);text-align:left;color:#fff;font-size:0.85rem;line-height:1.4';
+  el.innerHTML = `📱 For a full-screen, app-like table with no Safari bars: tap <b>Share</b> ⬆️ then <b>Add to Home Screen</b>.
+    <div style="text-align:right;margin-top:8px"><button id="iosHintDismiss28" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.8);font-size:0.8rem">Got it</button></div>`;
+  document.body.appendChild(el);
+  document.getElementById('iosHintDismiss28').addEventListener('click', () => el.remove());
+}
+maybeShowIosInstallHint();
+
+// Formats a visitor-log session length (ms) as "2h 14m", "5m 32s", or
+// "12s" -- whichever units are actually meaningful, never "0h 0m".
+function fmtDuration(ms) {
+  if (ms == null || ms < 0) return '—';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 // 28 is partnered: seats 0&3 are one team, 1&2 are the other. Used so a
@@ -13531,15 +13688,36 @@ function applyServerState(state) {
   // updates (tab closed/crashed) lets the timestamp actually go stale.
   try { localStorage.setItem('k28_session_time', String(Date.now())); } catch (e) {}
 
-  // Defending-team-has-no-trump round void — show this exactly once per
-  // occurrence, not on every subsequent broadcast while the server's
-  // short delay before redealing is still running.
+  // Defending-team-has-no-trump round void: kept for the permanent game
+  // log entry, but no longer also shown as a toast — the reshuffleReason
+  // popup right below covers this same event with clearer, per-viewer
+  // wording ("Your team" vs "Opponent team"), so a toast on top of that
+  // popup would just be a redundant second notification for one event.
   if (state.roundVoidMessage && state.roundVoidMessage !== lastShownRoundVoidMessage) {
     lastShownRoundVoidMessage = state.roundVoidMessage;
-    showToast('🚫 ' + state.roundVoidMessage, 'lose', 3500);
     log(state.roundVoidMessage, 'lose');
   } else if (!state.roundVoidMessage) {
     lastShownRoundVoidMessage = null;
+  }
+
+  // The 3 auto-reshuffle popups (unplayable all-7s/8s forced hand, a
+  // player dealt all four Jacks, or the defending team having zero
+  // trump) — each one gets a real popup (showModal), not just a toast,
+  // shown to every player once per occurrence. ts makes each event
+  // unique even if the exact same player/situation happens to repeat.
+  if (state.reshuffleReason && state.reshuffleReason.ts !== lastShownReshuffleReasonTs) {
+    lastShownReshuffleReasonTs = state.reshuffleReason.ts;
+    const r = state.reshuffleReason;
+    let msg;
+    if (r.type === 'all78') {
+      msg = `🔄 <b>Reshuffling</b><br><br>${escapeHtml(r.name)} was forced to bid with a hand of nothing but 7s and 8s — unplayable. Same dealer, fresh deal.`;
+    } else if (r.type === 'allJacks') {
+      msg = `🔄 <b>Reshuffling</b><br><br>${escapeHtml(r.name)} was dealt all four Jacks! Same dealer, fresh deal.`;
+    } else if (r.type === 'noTrump') {
+      const onThatTeam = getTeam(MY_POS) === r.team;
+      msg = `😮 <b>${onThatTeam ? 'Your team' : 'Opponent team'} has no trump</b><br><br>${onThatTeam ? 'Your team' : 'The opponent team'} has zero ${r.suit} between both hands — nothing to contest. Same dealer, fresh deal.`;
+    }
+    if (msg) showModal('Reshuffling', msg);
   }
 
   // Partner bidding signal received — same "show exactly once" pattern
@@ -14023,6 +14201,7 @@ function resetTrickAndRoundTracking() {
   lastRenderedSlotContent = [null, null, null, null];
   lastAnnouncedHonorsRound = -1;
   lastShownRoundVoidMessage = null;
+  lastShownReshuffleReasonTs = null;
   lastShownPartnerSignalKey = null;
   trickHoldGen++;
 }

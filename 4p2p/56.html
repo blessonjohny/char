@@ -2,7 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- viewport-fit=cover + the safe-area padding in CSS below (search
+     "safe-area-inset") keep the header/topbar and bottom controls clear
+     of the iPhone notch/Dynamic Island and the home-indicator bar,
+     instead of content sitting underneath them. -->
+<meta name="theme-color" content="#0a1628">
+<!-- Lets this be added to an iPhone's home screen as a proper
+     chrome-free app (apple-mobile-web-app-capable) -- the standard
+     Fullscreen API used elsewhere on this page genuinely cannot hide
+     Safari's own browser chrome on iPhone (Apple restricts that), so
+     "Add to Home Screen" is the only real way anyone on iOS gets the
+     same no-browser-bars experience Android already gets in-tab. See
+     maybeShowIosInstallHint() further down. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="56 Kerala">
+<meta name="mobile-web-app-capable" content="yes">
 <title>56 · Six-Hand Kerala Card Game</title>
 <meta name="description" content="Play 56 online free — the six-hand Kerala card game, a bigger cousin of 28 Gulan. Live multiplayer, no download, play cards online instantly in your browser.">
 <meta name="keywords" content="56 card game, play 56 online, kerala 56, 56 online free, six hand card game, kerala card game, play cards online, 28 gulan family games">
@@ -140,7 +156,12 @@
   }
   header.bar{
     display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;
-    padding:6px 10px;border-bottom:1px solid var(--line);
+    /* max(6px, ...) keeps the original 6px padding on ordinary screens,
+       and only grows it on phones with a notch/Dynamic Island (iPhone)
+       so the header's own content never sits underneath it. Left/right
+       matter too in landscape, where the notch can be on either side. */
+    padding:max(6px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 6px max(10px, env(safe-area-inset-left));
+    border-bottom:1px solid var(--line);
     background:rgba(10,30,23,0.98);
     position:fixed;top:0;left:0;right:0;z-index:41;
     justify-content:space-between;
@@ -207,7 +228,13 @@
     text-align:center;font-size:12px;color:var(--gold-soft);font-family:'Fraunces',serif;
     padding:5px 12px;border-bottom:1px solid var(--line);background:rgba(0,0,0,0.15);
     flex:0 0 auto;
-    min-height:32px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+    min-height:32px;box-sizing:border-box;
+    /* 3-zone layout: dealer info on the left, the actual Team/Opp score
+       dead-centered, bidder+trump+doubled info on the right -- instead
+       of one long flowing centered string with the score buried at the
+       end of it. See renderHandInfoBar()'s JS, which now builds each
+       zone separately instead of one combined HTML string. */
+    display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
     opacity:0;transition:opacity .15s ease;
   }
   #handInfoBar.showing{opacity:1;}
@@ -257,6 +284,36 @@
       0 18px 40px rgba(0,0,0,0.55),
       inset 0 0 70px rgba(0,0,0,0.55),
       inset 0 2px 0 rgba(255,255,255,0.08);
+  }
+  #table::after{
+    /* Centered branding watermark. Uses --gold -- the SAME live theme
+       accent color applyTheme() already picks per curated color theme
+       (Violet/Indigo/Blue/Green/etc — see THEMES array) -- so this
+       automatically updates to a color chosen to read well against
+       whatever felt is currently active. The dark outline (text-shadow,
+       several directions) is what actually defines the letter edges
+       regardless of felt color; opacity is on the whole element so the
+       outline fades evenly with the fill instead of staying starker
+       than it. */
+    content:"28GULAN.COM";
+    position:absolute;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:clamp(0.65rem, 3vw, 1.05rem);
+    letter-spacing:2px;
+    color:var(--gold, #ffd700);
+    text-shadow:
+      -1.5px -1.5px 0 rgba(0,0,0,0.7),
+      1.5px -1.5px 0 rgba(0,0,0,0.7),
+      -1.5px 1.5px 0 rgba(0,0,0,0.7),
+      1.5px 1.5px 0 rgba(0,0,0,0.7),
+      0 0 10px rgba(0,0,0,0.5);
+    opacity:0.42;
+    white-space:nowrap;
+    pointer-events:none;
+    user-select:none;
   }
   .seat{
     position:absolute;width:110px;transform:translate(-50%,-50%);text-align:center;
@@ -372,7 +429,7 @@
     100%{opacity:1; transform:translate(-50%,-50%) scale(1);}
   }
 
-  #hand-area{padding:4px 12px 6px;flex:0 0 auto;}
+  #hand-area{padding:4px 12px calc(6px + env(safe-area-inset-bottom));flex:0 0 auto;}
   #hand-strip{
     display:flex;justify-content:flex-start;flex-wrap:nowrap;align-items:flex-end;
     overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;
@@ -663,7 +720,11 @@
 </header>
 
 <div id="game">
-  <div id="handInfoBar"></div>
+  <div id="handInfoBar">
+    <div id="handInfoLeft" style="display:flex;justify-content:flex-start;overflow:hidden"></div>
+    <div id="handInfoCenter" style="display:flex;justify-content:center;white-space:nowrap;padding:0 6px"></div>
+    <div id="handInfoRight" style="display:flex;justify-content:flex-end;overflow:hidden"></div>
+  </div>
   <div id="tableTalk"></div>
   <div id="trickWinnerBanner"></div>
 
@@ -711,6 +772,7 @@ let roomCode = null;
 let myName = null;
 let mySeat = null;
 let pollTimer = null;
+let headerResizeObserver = null; // see enterTableAsSeat() -- disconnected/recreated together with pollTimer, same reasoning
 let lastRenderedStamp = null;
 const _scoreState = {};
 
@@ -915,10 +977,18 @@ function ensureSyncSocket(){
   });
   syncSocket.on('sync56_state', ({room, state}) => {
     if(room !== roomCode || !state) return;
-    // Someone (possibly us) just saved a change -- refresh right away
-    // instead of waiting for the next poll tick. pollLoop() already
-    // no-ops if this is a state we've already rendered.
-    pollLoop();
+    // This push already IS the full current state -- 4-player and
+    // 6-player tables apply a pushed state directly the instant it
+    // arrives, they never go fetch it separately afterward. 56 used to
+    // call pollLoop() here instead, which threw away the state that was
+    // just handed to it and opened a brand new network round-trip on
+    // TOP of it -- and since the periodic poll timer could ALSO have a
+    // fetch in flight at the very same moment, that was the actual
+    // source of the out-of-order-response races (cards flashing and
+    // vanishing, guests stuck on stale data). Rendering what was already
+    // pushed removes that extra round-trip -- and the race it opened up
+    // -- entirely for the normal case.
+    render(state);
   });
   syncSocket.on('reveal56Policy', ({disabled}) => {
     reveal56DisabledByAdmin = !!disabled;
@@ -999,7 +1069,8 @@ function ensureSyncSocket(){
   syncSocket.on('l56_tableClosed', ({reason}) => {
     const msgs = {
       idle: "This table closed because nobody was active for a while.",
-      no_host: "This table closed — no human host was present within 3 minutes."
+      no_host: "This table closed — no human host was present within 3 minutes.",
+      lastPlayerLeft: "This table closed — no real players left."
     };
     alert(msgs[reason] || 'This table closed.');
     location.reload();
@@ -1273,9 +1344,68 @@ document.getElementById('cancelJoinPendingBtn').addEventListener('click', () => 
   document.getElementById('joinPendingOverlay').classList.add('hidden');
 });
 
+// Requests fullscreen -- hides the browser's own address bar and nav
+// bars on mobile -- the moment someone actually creates or joins a 56
+// table. This only works when called synchronously from within a real
+// tap (createTable()/requestJoinRoom() below both qualify); calling it
+// from anywhere else, like after an async response comes back, would
+// get silently ignored by the browser. Tries every vendor-prefixed
+// version (standard, then Safari/older-Chrome, Firefox, old Edge/IE) so
+// this actually works across Android, Windows, and desktop browsers,
+// not just whichever one happens to support the unprefixed API.
+// Wrapped in try/catch either way -- if none of them are available
+// (this is genuinely the case for Safari on iPhone specifically, see
+// maybeShowIosInstallHint() below for why and what actually helps
+// there), the game still works completely normally, just without the
+// chrome-hiding effect.
+function requestFullscreen56(){
+  try {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (fn) {
+      const result = fn.call(el);
+      if (result && result.catch) result.catch(() => {});
+    }
+  } catch (e) { /* not available here -- fine, just skip it */ }
+}
+
+// iOS Safari does not let ANY web page hide its own browser chrome via
+// JavaScript, on principle -- Apple restricts the Fullscreen API on
+// iPhone specifically, so requestFullscreen56() above silently does
+// nothing there no matter what. The one real way to get the same
+// chrome-free, full-screen feel on iPhone is "Add to Home Screen" (the
+// apple-mobile-web-app-capable meta tag in <head> makes that launch
+// standalone, with no Safari bars at all) -- so rather than stay silent
+// about a feature that just doesn't work for them, this shows a single,
+// dismissible, one-time tip pointing at the actual fix. Only shown to
+// genuine iPhone/iPad Safari visitors who haven't already installed it
+// (standalone mode is detectable) and haven't seen the tip before.
+function maybeShowIosInstallHint(){
+  try {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+    if (!isIOS || !isSafari || isStandalone) return;
+    if (sessionStorage.getItem('k56_seenIosInstallHint')) return;
+    sessionStorage.setItem('k56_seenIosInstallHint', '1');
+  } catch (e) { return; }
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);max-width:320px;width:calc(100% - 32px);background:rgba(20,20,30,0.97);border:1px solid rgba(244,196,48,0.5);border-radius:14px;padding:14px 16px;z-index:3000;box-shadow:0 8px 24px rgba(0,0,0,0.5);text-align:left;color:#fff;font-size:0.85rem;line-height:1.4';
+  el.innerHTML = `📱 For a full-screen, app-like table with no Safari bars: tap <b>Share</b> ⬆️ then <b>Add to Home Screen</b>.
+    <div style="text-align:right;margin-top:8px"><button id="iosHintDismiss" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.8);font-size:0.8rem">Got it</button></div>`;
+  document.body.appendChild(el);
+  document.getElementById('iosHintDismiss').addEventListener('click', () => el.remove());
+}
+// Runs once, right away, same as the other top-level setup calls in
+// this script -- shows the "Add to Home Screen" tip on the landing
+// screen itself, before someone even starts a game, so iPhone users get
+// pointed at the real fullscreen fix as early as possible.
+maybeShowIosInstallHint();
+
 function createTable(){
   const name = requireName();
   if(!name) return;
+  requestFullscreen56();
   myName = name;
   ensureSyncSocket();
   syncSocket.emit('l56_createTable', {name});
@@ -1284,6 +1414,7 @@ function createTable(){
 function requestJoinRoom(code){
   const name = requireName();
   if(!name) return;
+  requestFullscreen56();
   myName = name;
   ensureSyncSocket();
   syncSocket.emit('l56_requestJoin', {code, name});
@@ -1372,8 +1503,25 @@ function enterTableAsSeat(pos, state){
   }
   syncHeaderHeight();
   const headerEl = document.getElementById('gameHeader');
+  // enterTableAsSeat() runs again on every reconnect (see the 'connect'
+  // handler above) -- even a brief, often-unnoticed network blip on
+  // mobile (switching wifi/cellular, backgrounding the app for a
+  // second) re-triggers it. Both the poll timer and this resize
+  // observer used to just get created fresh each time WITHOUT clearing
+  // the previous one first, so a session with several such blips would
+  // quietly accumulate multiple overlapping poll timers all firing
+  // independently and out of sync with each other. That's what was
+  // actually causing screens like the hand-end result to flicker
+  // between two versions -- not a real conflict in the data, just
+  // several redundant renders landing on top of each other from
+  // leftover timers nobody ever cleaned up. Clearing/disconnecting the
+  // previous one before making a new one -- exactly like exitToHome()
+  // already correctly does for pollTimer -- stops the pile-up.
+  if(pollTimer) clearInterval(pollTimer);
+  if(headerResizeObserver) headerResizeObserver.disconnect();
   if(window.ResizeObserver){
-    new ResizeObserver(syncHeaderHeight).observe(headerEl);
+    headerResizeObserver = new ResizeObserver(syncHeaderHeight);
+    headerResizeObserver.observe(headerEl);
   } else {
     window.addEventListener('resize', syncHeaderHeight);
     setTimeout(syncHeaderHeight, 500);
@@ -1573,7 +1721,9 @@ document.getElementById('chatInput56').addEventListener('keydown', function(e){ 
 async function pollLoop(){
   const state = await loadState();
   if(!state) return;
-  if(state.updatedAt === lastRenderedStamp) return;
+  // render() itself now guards against stale/out-of-order responses (see
+  // its comment), so this just hands off whatever came back -- no need
+  // to duplicate that check here too.
   render(state);
 }
 
@@ -1664,6 +1814,27 @@ function showQMarkEvent56(names, direction){
 }
 
 function render(state){
+  // Guest-side sync is poll-based: a periodic timer AND a "someone just
+  // saved, refresh now" poke can both have a loadState() fetch in flight
+  // at the same time, and their network responses can land out of order.
+  // The old check here only skipped an EXACT duplicate timestamp, so a
+  // straggling response carrying an OLDER snapshot (e.g. from just
+  // before the trick's first card was played) could still render AFTER
+  // a fresher one already showed that card -- which is exactly what
+  // made a just-played card flash in and then vanish again on the other
+  // player's screen. Skipping anything not strictly newer than what's
+  // already on screen closes that race for every render() call site,
+  // not just pollLoop(), while still allowing every real update through
+  // (each one always carries a fresh Date.now() timestamp).
+  // Uses < rather than <= on purpose: Date.now() only has millisecond
+  // resolution, and two genuinely different states saved back-to-back
+  // (e.g. a fast chain of bot moves) can end up with the EXACT same
+  // timestamp. <= would silently drop the second one as "not newer",
+  // permanently stalling this client on stale data with no future
+  // update ever able to look "new enough" to get through. < still
+  // rejects anything truly older (the actual bug this was fixing) while
+  // no longer punishing a same-millisecond tie.
+  if(lastRenderedStamp !== null && state.updatedAt < lastRenderedStamp) return;
   lastRenderedStamp = state.updatedAt;
   latestState = state;
   isHost = !!state.hostPlayerId && state.hostPlayerId === MY_PLAYER_ID;
@@ -1729,11 +1900,18 @@ function render(state){
   }
 
   const reviewShowing = debugRevealAll && state.phase === 'playing' && reviewDismissedKey !== biddingReviewKey(state);
-  if(!reviewShowing) maybeDriveBots(state);
+  // maybeDriveBots/maybeClearPendingTrick/maybeAdvanceFromAuctionResult
+  // are no longer called here -- the server is now the sole authority
+  // for all three (bot turns, clearing a finished trick, advancing past
+  // the auction-result screen -- see l56ScheduleNext() in server.js).
+  // Leaving these client-side calls active too would mean both the
+  // server AND whichever client happened to be looking were trying to
+  // drive the same game forward at once, exactly the kind of double-
+  // processing that used to cause stuck/desynced games. The three
+  // functions themselves are left defined below, untouched, in case
+  // they're ever needed for reference -- they're just never invoked now.
   if(reviewShowing && !state.reviewHold) setReviewHold(true);
-  maybeClearPendingTrick(state);
   scheduleCollectAnimation(state);
-  maybeAdvanceFromAuctionResult(state);
 }
 
 async function setReviewHold(value){
@@ -1745,6 +1923,9 @@ async function setReviewHold(value){
 
 function renderHandInfoBar(state){
   const bar = document.getElementById('handInfoBar');
+  const leftEl = document.getElementById('handInfoLeft');
+  const centerEl = document.getElementById('handInfoCenter');
+  const rightEl = document.getElementById('handInfoRight');
   if(state.phase !== 'bidding' && state.phase !== 'auctionClosed' && state.phase !== 'playing' && state.phase !== 'handEnd'){
     bar.classList.remove('showing');
     return;
@@ -1753,10 +1934,12 @@ function renderHandInfoBar(state){
   const dealerName = state.seats[state.dealer] ? state.seats[state.dealer].name : '';
   const dealerTxt = `<i>Dealer</i> <b>${escapeHtml(dealerName)}</b>`;
 
-  let html;
-  if(state.phase === 'bidding' || !state.currentBid){
-    html = dealerTxt;
-  } else {
+  // 3 separate zones instead of one long centered string: dealer info on
+  // the left, the actual Team/Opp score dead-centered (previously it was
+  // buried at the very end of the combined line), bidder+bid+trump info
+  // on the right.
+  let leftHtml = dealerTxt, centerHtml = '', rightHtml = '';
+  if(state.phase !== 'bidding' && state.currentBid){
     const cb = state.currentBid;
     const trumpTxt = cb.trump ? SUIT_SYM[cb.trump] + ' Trump' : 'No Trump';
     const bidderName = state.seats[cb.seat] ? state.seats[cb.seat].name : '';
@@ -1764,11 +1947,13 @@ function renderHandInfoBar(state){
     const {bidColor, defColor} = handProgressColors(state);
     const bidPts = state.teamPoints[bidTeamLetter], defPts = state.teamPoints[defTeamLetter];
     const bidLabel = RELTEAM(cb.seat), defLabel = bidLabel === 'Team' ? 'Opp' : 'Team';
-    html = `${dealerTxt} &nbsp;·&nbsp; <span class="nowrap-chunk"><b>${escapeHtml(bidderName)}</b> (${bidLabel}) <b>${cb.value}</b> ${trumpTxt}</span>` +
-      (state.doubled===1?' · Doubled':state.doubled===2?' · Redoubled':'') +
-      ` &nbsp;·&nbsp; <span class="nowrap-chunk">${bidLabel} <b style="color:${bidColor}">${bidPts}</b> — ${defLabel} <b style="color:${defColor}">${defPts}</b></span>`;
+    centerHtml = `<span class="nowrap-chunk">${bidLabel} <b style="color:${bidColor}">${bidPts}</b> — ${defLabel} <b style="color:${defColor}">${defPts}</b></span>`;
+    rightHtml = `<span class="nowrap-chunk"><b>${escapeHtml(bidderName)}</b> (${bidLabel}) <b>${cb.value}</b> ${trumpTxt}</span>` +
+      (state.doubled===1?' · Doubled':state.doubled===2?' · Redoubled':'');
   }
-  setBarHtml(bar, html);
+  setBarHtml(leftEl, leftHtml);
+  setBarHtml(centerEl, centerHtml);
+  setBarHtml(rightEl, rightHtml);
 }
 
 function setBarHtml(bar, html){
@@ -1934,6 +2119,12 @@ function renderTable(state){
     const pos = TRICK_SLOT_POS[slot];
     const c = document.createElement('div');
     c.className = 'trick-card' + (SUIT_RED[play.card.s] ? ' red' : '');
+    // Tags which trick this card belongs to (how many tricks had already
+    // resolved at the moment it was played) so the "collect" animation
+    // below can tell an old, already-finished trick's cards apart from a
+    // brand new trick's cards that happen to already be on screen by the
+    // time its leftover timer fires -- see scheduleCollectAnimation().
+    c.dataset.trickIdx = String(state.tricksLog ? state.tricksLog.length : 0);
     c.style.left = pos.x + '%'; c.style.top = pos.y + '%';
     c.innerHTML = `<div>${play.card.r}</div><div>${SUIT_SYM[play.card.s]}</div>`;
     centerEl.appendChild(c);
@@ -2045,39 +2236,7 @@ function adjustHandAreaFor(fixedEl, handArea){
 async function restartRound56(){
   if(!isHost){ alert('Only the host can restart the round.'); return; }
   if(!confirm('Restart this hand? Everyone gets a fresh deal for hand ' + (latestState ? latestState.handNumber : '') + '; the match score stays as-is.')) return;
-  let state = await loadState();
-  if(!state) return;
-  // Same reset list as nextHand(), minus the parts that actually advance
-  // the match (dealer stays put, handNumber doesn't increment) -- this
-  // hand gets redealt fresh, not replaced by the next one.
-  state.turn = (state.dealer + 1) % 6;
-  state.themeIndex = (function(){ let i; do{ i = Math.floor(Math.random()*THEMES.length); } while(i === state.themeIndex && THEMES.length>1); return i; })();
-  state.hands = dealHands(state.turn);
-  state.phase = 'bidding';
-  state.currentBid = null;
-  state.doubled = 0;
-  state.doubledBySeat = null;
-  state.passedSeats = [];
-  state.forcedSeat = null;
-  state.openerSeat = null;
-  state.openerSuit = null;
-  state.openerReassertCount = 0;
-  state.openerProbeSuit = null;
-  state.nsBySeat = {};
-  state.lastActionBySeat = {};
-  state.revealedVoidBySeat = {};
-  state.reviewHold = false;
-  state.suitBidBySeat = {};
-  state.bidHistory = [];
-  state.table = [];
-  state.leadSuit = null;
-  state.pendingTrick = null;
-  state.tricksLog = [];
-  state.teamPoints = {A:0, B:0};
-  state.lastNote = null;
-  addLog(state, `Host restarted hand ${state.handNumber} — fresh deal.`);
-  await saveState(state);
-  render(state);
+  syncSocket.emit('l56_restartRound', {code: roomCode});
 }
 
 async function restartGame56(){
@@ -2426,111 +2585,19 @@ function escapeHtml(s){
 // ============================================================
 async function startGame(){
   if(!isHost){ alert('Only the host can start the game.'); return; }
-  let state = await loadState();
-  if(!state || state.phase !== 'lobby') return;
-  state.dealer = Math.floor(Math.random() * 6);
-  state.turn = (state.dealer + 1) % 6;
-  state.themeIndex = (function(){ let i; do{ i = Math.floor(Math.random()*THEMES.length); } while(i === state.themeIndex && THEMES.length>1); return i; })();
-  state.hands = dealHands(state.turn); // deal starts with the opening bidder, traditional order
-  state.phase = 'bidding';
-  state.currentBid = null;
-  state.doubled = 0;
-  state.doubledBySeat = null;
-  state.passedSeats = [];
-  state.forcedSeat = null;
-  state.openerSeat = null;
-  state.openerSuit = null;
-  state.openerReassertCount = 0;
-  state.openerProbeSuit = null;
-  state.nsBySeat = {};
-  state.lastActionBySeat = {};
-  state.revealedVoidBySeat = {};
-  state.reviewHold = false;
-  state.suitBidBySeat = {};
-  state.bidHistory = [];
-  state.table = [];
-  state.leadSuit = null;
-  state.pendingTrick = null;
-  state.tricksLog = [];
-  state.teamPoints = {A:0, B:0};
-  state.lastNote = null;
-  addLog(state, `Cards dealt for hand ${state.handNumber}. ${state.seats[state.dealer].name} is dealer. ${state.seats[state.turn].name} opens the bidding.`);
-  await saveState(state);
-  render(state);
+  // Dealing, bot AI, and every phase transition now happen on the
+  // server (see l56-engine.js / server.js) -- this just asks for it and
+  // renders whatever comes back via the normal sync56_state push,
+  // exactly like the 4-player table's placeBid/playCard etc already work.
+  syncSocket.emit('l56_startGame', {code: roomCode});
 }
 
 async function nextHand(prevState){
-  let state = await loadState();
-  if(!state) return;
-  state.dealer = (state.dealer + 1) % 6;
-  state.handNumber += 1;
-  state.turn = (state.dealer + 1) % 6;
-  state.themeIndex = (function(){ let i; do{ i = Math.floor(Math.random()*THEMES.length); } while(i === state.themeIndex && THEMES.length>1); return i; })();
-  state.hands = dealHands(state.turn); // deal starts with the opening bidder, traditional order
-  state.phase = 'bidding';
-  state.currentBid = null;
-  state.doubled = 0;
-  state.doubledBySeat = null;
-  state.passedSeats = [];
-  state.forcedSeat = null;
-  state.openerSeat = null;
-  state.openerSuit = null;
-  state.openerReassertCount = 0;
-  state.openerProbeSuit = null;
-  state.nsBySeat = {};
-  state.lastActionBySeat = {};
-  state.revealedVoidBySeat = {};
-  state.reviewHold = false;
-  state.suitBidBySeat = {};
-  state.bidHistory = [];
-  state.table = [];
-  state.leadSuit = null;
-  state.pendingTrick = null;
-  state.tricksLog = [];
-  state.teamPoints = {A:0, B:0};
-  state.lastNote = null;
-  addLog(state, `Hand ${state.handNumber} dealt. ${state.seats[state.turn].name} opens the bidding.`);
-  await saveState(state);
-  render(state);
+  syncSocket.emit('l56_nextHand', {code: roomCode});
 }
 
 async function startNewMatch(prevState){
-  let state = await loadState();
-  if(!state) return;
-  state.matchScore = {A:12, B:12};
-  state.matchOver = false;
-  state.matchWinner = null;
-  state.handNumber = 1;
-  state.dealer = Math.floor(Math.random() * 6);
-  state.turn = (state.dealer + 1) % 6;
-  state.themeIndex = Math.floor(Math.random()*THEMES.length);
-  state.hands = dealHands(state.turn);
-  state.phase = 'bidding';
-  state.currentBid = null;
-  state.doubled = 0;
-  state.doubledBySeat = null;
-  state.passedSeats = [];
-  state.forcedSeat = null;
-  state.openerSeat = null;
-  state.openerSuit = null;
-  state.openerReassertCount = 0;
-  state.openerProbeSuit = null;
-  state.nsBySeat = {};
-  state.lastActionBySeat = {};
-  state.revealedVoidBySeat = {};
-  state.reviewHold = false;
-  state.suitBidBySeat = {};
-  state.bidHistory = [];
-  state.table = [];
-  state.leadSuit = null;
-  state.pendingTrick = null;
-  state.tricksLog = [];
-  state.teamPoints = {A:0, B:0};
-  state.lastNote = null;
-  state.isFirstHandOfChampionship = true;
-  addLog(state, `New match started — each team back to 12 tables. Hand 1 dealt.`);
-  await saveState(state);
-  render(state);
+  syncSocket.emit('l56_startNewMatch', {code: roomCode});
 }
 
 // ---------- bidding UI state ----------
@@ -2690,7 +2757,7 @@ function renderBidPanel(state){
     <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.6; margin:14px 0 6px;">Calls so far this hand</div>
     <div class="hist-box">${historyHtml}</div>
     <div class="bidline" style="margin-top:20px;">
-      <div class="current-bid-display">${cb ? formatBidLabel(cb) : 'No bid yet'}</div>
+      <div class="current-bid-display">${cb ? formatBidLogLabel(cb) : 'No bid yet'}</div>
       <div style="font-size:12px; opacity:0.7;">${cb ? 'held by ' + (state.seats[cb.seat]?state.seats[cb.seat].name:'') : 'opening bid: 28'}</div>
     </div>
     <div class="row">
@@ -2717,11 +2784,12 @@ function renderBidPanel(state){
     ${bidTrumpKind==='suit' ? `
       <div class="row">
         <div class="segmented" id="orderSeg">
-          <button data-order="forward" class="${bidOrder==='forward'?'sel':''}"><span class="order-preview${SUIT_RED[bidSuit]?' red':''}">${previewValue} ${SUIT_SYM[bidSuit]}</span><span class="order-caption">With Jack</span></button>
-          <button data-order="reverse" class="${bidOrder==='reverse'?'sel':''}"><span class="order-preview${SUIT_RED[bidSuit]?' red':''}">${SUIT_SYM[bidSuit]} ${previewValue}</span><span class="order-caption">Without Jack</span></button>
+          <button data-order="forward" class="${bidOrder==='forward'?'sel':''}"><span class="order-preview${SUIT_RED[bidSuit]?' red':''}">${bidMode==='inc' ? `+${bidNumber} ${SUIT_SYM[bidSuit]}` : `${previewValue} ${SUIT_SYM[bidSuit]}`}</span><span class="order-caption">With Jack</span></button>
+          <button data-order="reverse" class="${bidOrder==='reverse'?'sel':''}"><span class="order-preview${SUIT_RED[bidSuit]?' red':''}">${bidMode==='inc' ? `${SUIT_SYM[bidSuit]} +${bidNumber}` : `${SUIT_SYM[bidSuit]} ${previewValue}`}</span><span class="order-caption">Without Jack</span></button>
         </div>
       </div>
       <div style="font-size:11px; opacity:0.55; margin:-6px 0 12px;">Order matters: number-first means you hold the Jack of this suit; suit-first (reverse) means no Jack, but 4 or more cards in it.</div>
+      ${bidMode==='inc' ? `<div style="font-size:11px; opacity:0.55; margin:-6px 0 12px;">Actual bid this submits: <b>${previewValue}</b></div>` : ''}
     ` : ''}
     <div class="row">
       <input class="note-input" id="bidNote" placeholder="Note to the whole table (e.g. +1♥)" maxlength="60" value="${escapeHtml(noteDraft)}">
@@ -2804,10 +2872,7 @@ function takeNoteDraft(state, seat){
 }
 
 async function submitBid(){
-  let state = await loadState();
-  if(!state || state.turn !== mySeat || state.phase !== 'bidding') return;
-
-  const cb = state.currentBid;
+  const cb = latestState ? latestState.currentBid : null;
   let value;
   if(bidMode === 'set'){
     value = bidNumber;
@@ -2820,115 +2885,36 @@ async function submitBid(){
     alert(`Your bid must be higher than the current bid (at least ${minAllowed}).`);
     return;
   }
-
   const trump = bidTrumpKind === 'suit' ? bidSuit : null;
-  const newBid = {value, trump, seat: mySeat, kind: bidTrumpKind, order: bidTrumpKind==='suit' ? bidOrder : null};
-  if(bidTrumpKind === 'suit' && cb && cb.trump === trump && bidMode === 'inc'){
-    newBid.increment = value - cb.value;
-  }
-  const label = formatBidLogLabel(newBid);
-
-  if(!cb){
-    // This is the opening bid of the hand — remember who opened and with what suit,
-    // so if the whole team ends up unable to support it (only NS/passes), the
-    // opener gets a chance to reassert their own suit rather than let it fizzle to NT.
-    state.openerSeat = mySeat;
-    state.openerSuit = trump;
-  }
-  if(bidTrumpKind === 'ns'){
-    state.nsBySeat = state.nsBySeat || {};
-    state.nsBySeat[mySeat] = cb ? cb.trump : true; // which suit they're void in
-  }
-  if(bidTrumpKind === 'suit'){
-    state.suitBidBySeat = state.suitBidBySeat || {};
-    state.suitBidBySeat[mySeat + '-' + trump] = bidOrder; // 'forward' = claimed the Jack, 'reverse' = no Jack
-  }
-  if(cb && mySeat === state.openerSeat && bidTrumpKind === 'suit'){
-    if(trump === state.openerSuit){
-      state.openerReassertCount = (state.openerReassertCount || 0) + 1;
-    } else if(!state.openerProbeSuit){
-      state.openerProbeSuit = trump;
-    }
-  }
-
-  state.currentBid = newBid;
-  state.doubled = 0;
-  state.doubledBySeat = null;
-  state.passedSeats = [];
-
-  const note = takeNoteDraft(state, mySeat);
-  state.lastActionBySeat = state.lastActionBySeat || {};
-  state.lastActionBySeat[mySeat] = label;
-  addLog(state, `${state.seats[mySeat].name} bid ${label}${note ? ' — "'+note+'"' : ''}`, mySeat);
-
-  advanceBiddingTurn(state);
-  await saveState(state);
-  render(state);
+  const note = noteDraft.trim();
+  noteDraft = '';
+  // Validation and every field of the actual bid (increment, opener
+  // tracking, NS/suit-claim bookkeeping, turn advancement) now happen
+  // server-side (see server.js's l56_placeBid handler + l56-engine.js) --
+  // this just sends what was chosen and renders whatever comes back.
+  syncSocket.emit('l56_placeBid', {code: roomCode, value, trump, kind: bidTrumpKind, order: bidTrumpKind==='suit' ? bidOrder : null, note});
 }
 
 async function passBid(){
-  let state = await loadState();
-  if(!state || state.turn !== mySeat || state.phase !== 'bidding') return;
-  if(state.forcedSeat === mySeat && !state.currentBid){
+  if(latestState && latestState.forcedSeat === mySeat && !latestState.currentBid){
     alert("Everyone else passed — as the opening bidder you're required to open the bidding, you can't pass here.");
     return;
   }
-
-  if(!state.passedSeats.includes(mySeat)) state.passedSeats.push(mySeat);
-  const note = takeNoteDraft(state, mySeat);
-  state.lastActionBySeat = state.lastActionBySeat || {};
-  state.lastActionBySeat[mySeat] = 'Pass';
-  addLog(state, `${state.seats[mySeat].name} passed.${note ? ' — "'+note+'"' : ''}`, mySeat);
-
-  if(!state.currentBid && state.passedSeats.length >= 6){
-    // Everyone passed with nobody opening — force the original opener to bid
-    // rather than silently redealing.
-    state.forcedSeat = (state.dealer + 1) % 6;
-    state.passedSeats = [];
-    state.turn = state.forcedSeat;
-    addLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
-    await saveState(state);
-    render(state);
-    return;
-  }
-
-  if(state.currentBid && state.passedSeats.length >= 5){
-    closeBidding(state);
-    await saveState(state);
-    render(state);
-    return;
-  }
-
-  advanceBiddingTurn(state);
-  await saveState(state);
-  render(state);
+  const note = noteDraft.trim();
+  noteDraft = '';
+  syncSocket.emit('l56_pass', {code: roomCode, note});
 }
 
 async function doubleBid(){
-  let state = await loadState();
-  if(!state || state.turn !== mySeat || state.phase !== 'bidding' || !state.currentBid) return;
-  state.doubled = 1;
-  state.doubledBySeat = mySeat;
-  const note = takeNoteDraft(state, mySeat);
-  state.lastActionBySeat = state.lastActionBySeat || {};
-  state.lastActionBySeat[mySeat] = 'Double';
-  addLog(state, `${state.seats[mySeat].name} doubled!${note ? ' — "'+note+'"' : ''}`, mySeat);
-  advanceBiddingTurn(state);
-  await saveState(state);
-  render(state);
+  const note = noteDraft.trim();
+  noteDraft = '';
+  syncSocket.emit('l56_double', {code: roomCode, note});
 }
 
 async function redoubleBid(){
-  let state = await loadState();
-  if(!state || state.turn !== mySeat || state.phase !== 'bidding' || state.doubled !== 1) return;
-  state.doubled = 2;
-  const note = takeNoteDraft(state, mySeat);
-  state.lastActionBySeat = state.lastActionBySeat || {};
-  state.lastActionBySeat[mySeat] = 'Redouble';
-  addLog(state, `${state.seats[mySeat].name} redoubled!${note ? ' — "'+note+'"' : ''}`, mySeat);
-  advanceBiddingTurn(state);
-  await saveState(state);
-  render(state);
+  const note = noteDraft.trim();
+  noteDraft = '';
+  syncSocket.emit('l56_redouble', {code: roomCode, note});
 }
 
 function advanceBiddingTurn(state){
@@ -2960,12 +2946,14 @@ let auctionAdvanceFor = null;
 
 function maybeAdvanceFromAuctionResult(state){
   if(state.phase !== 'auctionClosed') return;
-  const humanSeats = state.seats
-    .map((s,i) => (s && !s.bot) ? i : null)
-    .filter(i => i !== null);
-  if(humanSeats.length === 0) return;
-  const driverSeat = Math.min(...humanSeats);
-  if(driverSeat !== mySeat) return;
+  // Same fix as maybeDriveBots/maybeClearPendingTrick: any visible
+  // seated human can advance from the auction-result screen now,
+  // instead of it being stuck on one fixed person's tab staying open.
+  // The fresh.auctionClosedAt check just below already guarantees only
+  // one of them actually does it if more than one tries at once.
+  if(mySeat === null || mySeat === undefined) return;
+  if(!state.seats[mySeat] || state.seats[mySeat].bot) return;
+  if(typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
 
   const key = 'auction:' + state.auctionClosedAt;
   if(auctionAdvanceFor === key) return;
@@ -2986,44 +2974,16 @@ function maybeAdvanceFromAuctionResult(state){
 
 // ---------- card play ----------
 async function playCard(card){
-  let state = await loadState();
-  if(!state || state.turn !== mySeat || state.phase !== 'playing') return;
-
-  const legal = legalCardIds(state);
+  if(!latestState || latestState.turn !== mySeat || latestState.phase !== 'playing') return;
+  const legal = legalCardIds(latestState);
   if(!legal.has(card.id)){
     alert('You must follow suit if you can.');
     return;
   }
-
-  // remove from hand
-  const hand = state.hands[mySeat];
-  const idx = hand.findIndex(c => c.id === card.id);
-  if(idx === -1) return;
-  hand.splice(idx, 1);
-
-  // If there's already a suit led and this card doesn't match it, the rules
-  // forced this — it's proof positive they have zero cards of that suit left.
-  if(state.leadSuit && card.s !== state.leadSuit){
-    state.revealedVoidBySeat = state.revealedVoidBySeat || {};
-    if(!state.revealedVoidBySeat[mySeat]) state.revealedVoidBySeat[mySeat] = [];
-    if(!state.revealedVoidBySeat[mySeat].includes(state.leadSuit)){
-      state.revealedVoidBySeat[mySeat].push(state.leadSuit);
-    }
-  }
-  if(!state.leadSuit){
-    state.leadSuit = card.s;
-  }
-  state.table.push({seat: mySeat, card});
-  addLog(state, `${state.seats[mySeat].name} played ${card.r}${SUIT_SYM[card.s]}.`);
-
-  if(state.table.length === 6){
-    resolveTrick(state);
-  } else {
-    state.turn = (state.turn + 1) % 6;
-  }
-
-  await saveState(state);
-  render(state);
+  // Legality is re-checked authoritatively server-side too (see
+  // server.js's l56_playCard handler) -- this local check is just for
+  // an instant, friendly error message instead of waiting on a round trip.
+  syncSocket.emit('l56_playCard', {code: roomCode, cardId: card.id});
 }
 
 function cardPower(card, state){
@@ -3161,12 +3121,16 @@ const TRICK_DISPLAY_MS = 3000;
 
 function maybeClearPendingTrick(state){
   if(!state.pendingTrick) return;
-  const humanSeats = state.seats
-    .map((s,i) => (s && !s.bot) ? i : null)
-    .filter(i => i !== null);
-  if(humanSeats.length === 0) return;
-  const driverSeat = Math.min(...humanSeats);
-  if(driverSeat !== mySeat) return;
+  // Same fix as maybeDriveBots below: used to be locked to whichever
+  // human sat at the lowest seat index, so if THAT one person's tab got
+  // backgrounded, a finished trick would just sit on screen forever,
+  // never clearing, since nobody else was allowed to do it. Any visible
+  // seated human can clear it now -- the fresh.pendingTrick.ts check
+  // just below already guarantees only one of them actually does it if
+  // more than one tries around the same moment.
+  if(mySeat === null || mySeat === undefined) return;
+  if(!state.seats[mySeat] || state.seats[mySeat].bot) return;
+  if(typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
 
   const key = 'trick:' + state.pendingTrick.ts;
   if(trickClearFor === key) return;
@@ -3198,6 +3162,15 @@ function scheduleCollectAnimation(state){
   collectFor = key;
   if(collectTimer) clearTimeout(collectTimer);
 
+  // The trick that just resolved is whatever was the LAST entry pushed to
+  // tricksLog (resolveTrick() pushes there right as it sets pendingTrick)
+  // -- so length-1 matches the trickIdx tag its own 6 cards were given
+  // while they were still being played, before this resolution bumped
+  // the length. Captured now, at schedule time, so it stays correct even
+  // though several more tricks (and a fresh set of tagged cards) might
+  // come and go for real before this fires.
+  const trickIdx = String((state.tricksLog ? state.tricksLog.length : 1) - 1);
+
   const elapsed = Date.now() - state.pendingTrick.ts;
   const fireAt = Math.max(0, TRICK_DISPLAY_MS - COLLECT_LEAD_MS - elapsed);
   collectTimer = setTimeout(() => {
@@ -3209,6 +3182,12 @@ function scheduleCollectAnimation(state){
     const target = SEAT_POS[slot]; // winner's actual avatar position, full scale
 
     center.querySelectorAll('.trick-card').forEach(el => {
+      // A newer trick's cards can already be sitting in the DOM by the
+      // time this fires (guest-side polling can render the next trick's
+      // opening card before this old timer catches up) -- skip anything
+      // that isn't actually part of the trick this animation is for,
+      // instead of blindly fading every .trick-card currently on screen.
+      if(el.dataset.trickIdx !== trickIdx) return;
       const cx = parseFloat(el.style.left) || 50;
       const cy = parseFloat(el.style.top) || 50;
       // Delta from this specific card's own position to the winner's seat,
@@ -3226,10 +3205,18 @@ function scheduleCollectAnimation(state){
 // ============================================================
 // BOTS
 // ============================================================
-// Only ONE connected client "drives" the bots — the human seated at the
-// lowest seat index currently present. This avoids two clients both trying
-// to act for the same bot turn. That human's tab needs to stay open for
-// bots to keep playing.
+// Used to be: only ONE connected client "drives" the bots — the human
+// seated at the lowest seat index, permanently, no matter what. That
+// meant if THAT ONE person's tab got backgrounded (switched apps, locked
+// their phone), the browser throttles JS timers in background tabs to
+// save battery — so the timer that would've made the next bot act just
+// silently stopped firing, and the WHOLE TABLE froze waiting on a bot
+// that could never move, until that one specific person came back.
+// Now, any currently-VISIBLE seated human tab is eligible to drive
+// instead — safe even with several eligible clients at once, since the
+// re-check inside the timeout below (fresh.turn !== turnSeat) already
+// guarantees only one of them actually ends up acting for any given bot
+// turn, whichever gets there first.
 let botTimer = null;
 let botTimerFor = null;
 
@@ -3241,12 +3228,12 @@ function maybeDriveBots(state){
   const occ = state.seats[turnSeat];
   if(!occ || !occ.bot) return;
 
-  const humanSeats = state.seats
-    .map((s,i) => (s && !s.bot) ? i : null)
-    .filter(i => i !== null);
-  if(humanSeats.length === 0) return;
-  const driverSeat = Math.min(...humanSeats);
-  if(driverSeat !== mySeat) return;
+  // Spectators (no seat) never drive bots, and a backgrounded/hidden tab
+  // doesn't even try -- its timers would just get throttled anyway, so
+  // there's no point racing a client that can't reliably fire on time.
+  if(mySeat === null || mySeat === undefined) return;
+  if(!state.seats[mySeat] || state.seats[mySeat].bot) return;
+  if(typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
 
   const key = state.phase + ':' + turnSeat + ':' + state.updatedAt;
   if(botTimerFor === key) return;

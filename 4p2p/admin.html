@@ -90,23 +90,52 @@ function fmtTime(ms) {
   const d = new Date(ms);
   return d.toLocaleString();
 }
+// Formats a session length (ms) as "2h 14m", "5m 32s", or "12s" --
+// whichever units are actually meaningful, never showing "0h 0m".
+function fmtDuration(ms) {
+  if (ms == null || ms < 0) return '—';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+// Sends the admin password as a header instead of a URL query string
+// (?password=...) -- a URL is the wrong place for a secret since it
+// commonly ends up in server access logs and browser history just from
+// normal use. `pwd` is only passed explicitly by unlock() below, before
+// PASSWORD is actually set yet; everything else just uses PASSWORD.
+function adminFetch(url, pwd, options) {
+  options = options || {};
+  options.headers = Object.assign({}, options.headers, { 'x-admin-password': pwd !== undefined ? pwd : PASSWORD });
+  return fetch(url, options);
+}
 
 async function unlock() {
   const pwd = document.getElementById('pwd').value;
-  const res = await fetch('/api/comments?password=' + encodeURIComponent(pwd));
+  // Checks the password against /api/live-players (properly
+  // password-protected) rather than /api/comments -- /api/comments is
+  // deliberately public (it's also the game's public comment wall on the
+  // welcome screen), so it was never actually validating anything here.
+  // Any typed password, even a wrong one, used to silently "log in".
+  const res = await adminFetch('/api/live-players', pwd);
   if (!res.ok) {
-    document.getElementById('gateErr').style.display = 'block';
+    const errEl = document.getElementById('gateErr');
+    errEl.textContent = res.status === 429 ? 'Too many wrong attempts — try again in a few minutes.' : 'Wrong password.';
+    errEl.style.display = 'block';
     return;
   }
-  const data = await res.json();
   PASSWORD = pwd;
   document.getElementById('gate').style.display = 'none';
   document.getElementById('panel').style.display = 'block';
-  render(data.comments || []);
+  refresh();
 }
 
 async function refresh() {
-  const res = await fetch('/api/comments?password=' + encodeURIComponent(PASSWORD));
+  const res = await adminFetch('/api/comments');
   if (!res.ok) { document.getElementById('panel').style.display = 'none'; document.getElementById('gate').style.display = 'block'; return; }
   const data = await res.json();
   render(data.comments || []);
@@ -114,7 +143,7 @@ async function refresh() {
 
 async function del(id) {
   if (!confirm('Delete this comment?')) return;
-  await fetch('/api/comments/' + id + '?password=' + encodeURIComponent(PASSWORD), { method: 'DELETE' });
+  await adminFetch('/api/comments/' + id, undefined, { method: 'DELETE' });
   refresh();
 }
 
@@ -158,7 +187,7 @@ function switchTab(tab) {
 }
 
 async function refreshLivePlayers() {
-  const res = await fetch('/api/live-players?password=' + encodeURIComponent(PASSWORD));
+  const res = await adminFetch('/api/live-players');
   if (!res.ok) return;
   const data = await res.json();
   renderLivePlayers(data.players || []);
@@ -190,10 +219,10 @@ function renderLivePlayers(players) {
 
 async function closeTable(tableId) {
   if (!confirm(`Force-close table ${tableId}? Everyone there gets sent home immediately, no matter what's happening.`)) return;
-  const res = await fetch('/api/admin/close-table', {
+  const res = await adminFetch('/api/admin/close-table', undefined, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password: PASSWORD, tableId })
+    body: JSON.stringify({ tableId })
   });
   const data = await res.json();
   if (data.ok) { alert(`Closed ${data.game} table ${data.tableId}.`); refreshLivePlayers(); }
@@ -209,7 +238,7 @@ document.getElementById('btnRefreshLive').addEventListener('click', refreshLiveP
 let visitorFilter = 'today';
 
 async function refreshVisitorLog() {
-  const res = await fetch('/api/visitor-log?password=' + encodeURIComponent(PASSWORD) + '&filter=' + encodeURIComponent(visitorFilter));
+  const res = await adminFetch('/api/visitor-log?filter=' + encodeURIComponent(visitorFilter));
   if (!res.ok) return;
   const data = await res.json();
   renderVisitorLog(data.entries || [], data.summary || {});
@@ -219,31 +248,61 @@ function renderVisitorLog(entries, summary) {
   const summaryEl = document.getElementById('visitorSummary');
   summaryEl.innerHTML = `
     <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
-      <span class="who" style="font-size:1.1rem">${summary.today ?? 0}</span>
-      <span class="where">today</span>
+      <span class="who" style="font-size:1.1rem">${summary.today?.unique ?? 0}</span>
+      <span class="where">unique today (${summary.today?.visits ?? 0} visits)</span>
     </div>
     <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
-      <span class="who" style="font-size:1.1rem">${summary.week ?? 0}</span>
-      <span class="where">this week</span>
+      <span class="who" style="font-size:1.1rem">${summary.week?.unique ?? 0}</span>
+      <span class="where">unique this week (${summary.week?.visits ?? 0} visits)</span>
     </div>
     <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
-      <span class="who" style="font-size:1.1rem">${summary.month ?? 0}</span>
-      <span class="where">this month</span>
+      <span class="who" style="font-size:1.1rem">${summary.month?.unique ?? 0}</span>
+      <span class="where">unique this month (${summary.month?.visits ?? 0} visits)</span>
     </div>
     <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
-      <span class="who" style="font-size:1.1rem">${summary.all ?? 0}</span>
-      <span class="where">all time</span>
+      <span class="who" style="font-size:1.1rem">${summary.all?.unique ?? 0}</span>
+      <span class="where">unique all time (${summary.all?.visits ?? 0} visits)</span>
     </div>
   `;
   const listEl = document.getElementById('visitorList');
   if (!entries.length) { listEl.innerHTML = '<div class="empty">No visits logged for this period.</div>'; return; }
+  // Same IP appearing more than once in the currently-loaded entries is
+  // exactly the "refreshed the page" / "opened two tabs" signal worth
+  // flagging visually, since the header numbers above already fix the
+  // headline unique-vs-total confusion.
+  const ipCounts = {};
+  entries.forEach(e => { if (e.ip) ipCounts[e.ip] = (ipCounts[e.ip] || 0) + 1; });
   listEl.innerHTML = entries.map(e => {
-    const location = [e.city, e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+    const dup = e.ip && ipCounts[e.ip] > 1;
+    const location = [e.city, e.regionName || e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+    const mapLink = (e.lat != null && e.lon != null)
+      ? ` <a href="https://www.google.com/maps?q=${e.lat},${e.lon}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">(map)</a>`
+      : '';
+    const deviceLine = [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
+    // sessionMs is only set once the connection actually ends (see the
+    // 'disconnect' handler in server.js). endedByRestart marks a session
+    // that was still open when a PREVIOUS server process stopped -- its
+    // real socket is gone, so exactly when it ended is unknowable; shown
+    // distinctly rather than faking a duration or leaving it looking
+    // like it's still connected days later.
+    const durationLine = e.sessionMs != null
+      ? `⏱️ Logged in ${fmtDuration(e.sessionMs)}`
+      : e.endedByRestart
+        ? '🔌 Ended (server restarted) — duration unknown'
+        : '🟢 Still connected';
+    const badges = [
+      e.returning ? '🔁 returning' : '✨ new',
+      dup ? `⚠️ seen ${ipCounts[e.ip]}× in this view` : ''
+    ].filter(Boolean).join(' &middot; ');
     return `
-      <div class="live-card">
+      <div class="live-card" style="${dup ? 'background:rgba(255,80,80,0.12);border-color:rgba(255,80,80,0.35)' : ''}">
         <div>
           <div class="who">${esc(e.ip || 'unknown IP')}</div>
-          <div class="where">📍 ${esc(location)}</div>
+          <div class="where">📍 ${esc(location)}${mapLink}</div>
+          <div class="where">📱 ${esc(deviceLine)}${e.language ? ' · 🌐 ' + esc(e.language) : ''}</div>
+          <div class="where">${durationLine}</div>
+          ${e.referrer ? `<div class="where">↪️ from ${esc(e.referrer)}</div>` : ''}
+          <div class="where" style="opacity:0.8">${badges}</div>
         </div>
         <div class="time">${esc(fmtTime(e.ts))}</div>
       </div>
