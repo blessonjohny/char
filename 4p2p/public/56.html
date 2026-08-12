@@ -286,9 +286,15 @@
       inset 0 2px 0 rgba(255,255,255,0.08);
   }
   #table::after{
-    /* Subtle centered branding watermark -- low-key enough not to
-       compete with the trick cards played on top of it (z-index:0 by
-       default here, well below .center-trick's z-index:1). */
+    /* Centered branding watermark. Uses --gold -- the SAME live theme
+       accent color applyTheme() already picks per curated color theme
+       (Violet/Indigo/Blue/Green/etc — see THEMES array) -- so this
+       automatically updates to a color chosen to read well against
+       whatever felt is currently active. The dark outline (text-shadow,
+       several directions) is what actually defines the letter edges
+       regardless of felt color; opacity is on the whole element so the
+       outline fades evenly with the fill instead of staying starker
+       than it. */
     content:"28GULAN.COM";
     position:absolute;
     top:50%;left:50%;
@@ -297,7 +303,14 @@
     font-weight:700;
     font-size:clamp(0.65rem, 3vw, 1.05rem);
     letter-spacing:2px;
-    color:rgba(255,215,0,0.14);
+    color:var(--gold, #ffd700);
+    text-shadow:
+      -1.5px -1.5px 0 rgba(0,0,0,0.7),
+      1.5px -1.5px 0 rgba(0,0,0,0.7),
+      -1.5px 1.5px 0 rgba(0,0,0,0.7),
+      1.5px 1.5px 0 rgba(0,0,0,0.7),
+      0 0 10px rgba(0,0,0,0.5);
+    opacity:0.42;
     white-space:nowrap;
     pointer-events:none;
     user-select:none;

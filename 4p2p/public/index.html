@@ -1587,12 +1587,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   background-size:140px 140px, auto, auto, auto, auto, auto, auto;
 }
 .center .felt::after{
-  /* Subtle centered branding watermark, low-key enough not to compete
-     with the cards played on top of it (z-index:-1 on .felt itself
-     already keeps this well behind everything else on the table). Gold
-     at low opacity reads cleanly against every felt color theme (Royal
-     Red/Blue/Purple/etc — see applyTableThemeByIndex()) rather than
-     trying to match each one individually. */
+  /* Centered branding watermark. Uses --info-accent -- the SAME live
+     contrast color applyTableThemeByIndex() already picks per theme for
+     the Round/Dealer/Bidder bar (see there) -- so this automatically
+     updates to a color chosen to read well against whatever felt is
+     currently active, instead of one fixed color that could wash out
+     against some themes and clash with others. The dark outline
+     (text-shadow, several directions) is what actually defines the
+     letter edges regardless of felt color; opacity is on the whole
+     element rather than baked into the color so the outline fades
+     evenly with the fill instead of staying starker than it. */
   content:"28GULAN.COM";
   position:absolute;
   top:50%;left:50%;
@@ -1601,7 +1605,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   font-weight:700;
   font-size:clamp(0.7rem, 3.2vw, 1.15rem);
   letter-spacing:2px;
-  color:rgba(255,215,0,0.14);
+  color:var(--info-accent, #ffd700);
+  text-shadow:
+    -1.5px -1.5px 0 rgba(0,0,0,0.7),
+    1.5px -1.5px 0 rgba(0,0,0,0.7),
+    -1.5px 1.5px 0 rgba(0,0,0,0.7),
+    1.5px 1.5px 0 rgba(0,0,0,0.7),
+    0 0 10px rgba(0,0,0,0.5);
+  opacity:0.42;
   white-space:nowrap;
   pointer-events:none;
   user-select:none;

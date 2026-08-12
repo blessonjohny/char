@@ -84,8 +84,14 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .topbar .score{font-weight:800;color:var(--accent)}
 .table-oval{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(calc(clamp(116px,27.5vh,210px) + 150px),54%);height:min(calc(clamp(116px,27.5vh,210px) + 70px),44%);border:5px solid rgba(244,196,48,0.32);border-radius:50%;box-shadow:0 0 16px rgba(244,196,48,0.12),inset 0 0 20px rgba(0,0,0,0.35);}
 .table-oval::after{
-  /* Subtle centered branding watermark -- low-key enough not to compete
-     with the trick cards played on top of it. */
+  /* Centered branding watermark. Six-player doesn't have a rotating felt
+     color theme (unlike the 4-player and 56 tables), so this uses the
+     site's own fixed gold accent color rather than a live theme
+     variable -- chosen for real contrast against this table's actual
+     dark navy background (see #gameScreen above). The dark outline
+     (text-shadow, several directions) is what actually defines the
+     letter edges; opacity is on the whole element so the outline fades
+     evenly with the fill instead of staying starker than it. */
   content:"28GULAN.COM";
   position:absolute;
   top:50%;left:50%;
@@ -94,7 +100,14 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
   font-weight:700;
   font-size:clamp(0.65rem, 3vw, 1.05rem);
   letter-spacing:2px;
-  color:rgba(255,215,0,0.14);
+  color:var(--accent, #f4c430);
+  text-shadow:
+    -1.5px -1.5px 0 rgba(0,0,0,0.7),
+    1.5px -1.5px 0 rgba(0,0,0,0.7),
+    -1.5px 1.5px 0 rgba(0,0,0,0.7),
+    1.5px 1.5px 0 rgba(0,0,0,0.7),
+    0 0 10px rgba(0,0,0,0.5);
+  opacity:0.42;
   white-space:nowrap;
   pointer-events:none;
   user-select:none;
