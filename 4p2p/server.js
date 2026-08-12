@@ -1737,6 +1737,13 @@ io.on('connection', (socket) => {
           t.engine.removeSeat(info.pos);
         } else {
           t.engine.convertToBot(info.pos);
+          // Same gap as the silent-disconnect path below: if this was
+          // this seat's turn right now, nothing else was ever going to
+          // call maybeAutoAct() again on its own -- the bot conversion
+          // itself doesn't start play, it just changes what the seat IS.
+          // Without this, leaving via the X button mid-turn would freeze
+          // the table exactly the same way a silent disconnect could.
+          if (t.engine.currentPlayer === info.pos) t.engine.maybeAutoAct();
         }
         delete playerIndex[info.playerId];
       } else {
@@ -1758,6 +1765,20 @@ io.on('connection', (socket) => {
         alreadyReclaimed = [...t.sockets.values()].some(v => v.pos === info.pos);
         if (!alreadyReclaimed) {
           t.engine.markConnected(info.pos, false);
+          // If this seat's turn is happening RIGHT NOW, nothing else was
+          // ever going to call maybeAutoAct() again -- every other place
+          // it's called runs as a result of some NEW action, and if
+          // everyone's waiting on the person who JUST disconnected,
+          // there is no new action coming. Without this, the grace
+          // period + auto-act safety net that already exists inside
+          // maybeAutoAct() (35s for a disconnected human, then it plays
+          // for them) never actually gets armed for exactly this case --
+          // the table would freeze permanently, not even recovering on
+          // a refresh, since a fresh page load just re-fetches this same
+          // stuck server state. This is what was reported exactly as it
+          // looks: reconnecting doesn't help, refreshing doesn't help,
+          // because the server itself was the one waiting forever.
+          if (t.engine.currentPlayer === info.pos) t.engine.maybeAutoAct();
         }
       }
       // Host migration: whoever was hosting just left/dropped, so every
@@ -2253,6 +2274,11 @@ io.on('connection', (socket) => {
         t.engine.removeSeat(pos);
       } else {
         t.engine.convertToBot(pos);
+        // Same gap as the silent-disconnect path: if this was this
+        // seat's turn right now, nothing else was ever going to call
+        // maybeAutoAct() again on its own -- converting to a bot only
+        // changes what the seat IS, it doesn't start play.
+        if (t.engine.currentPlayer === pos) t.engine.maybeAutoAct();
       }
       if (leavingPlayerId) delete sixpPlayerIndex[leavingPlayerId];
       sixpTouch(t);
@@ -2290,6 +2316,15 @@ io.on('connection', (socket) => {
     t.sockets.delete(socket.id);
     if (t.engine.seats[info.pos]) {
       t.engine.markConnected(info.pos, false);
+      // If this seat's turn is happening RIGHT NOW, nothing else was
+      // ever going to call maybeAutoAct() again -- every other place
+      // it's called runs as a result of some NEW action, and if
+      // everyone's waiting on the person who JUST disconnected, there
+      // is no new action coming. Same exact fix as the 4-player table:
+      // without this, the table would freeze permanently, not even
+      // recovering on a refresh, since a fresh page load just re-fetches
+      // this same stuck server state.
+      if (t.engine.currentPlayer === info.pos) t.engine.maybeAutoAct();
       if (t.hostPlayerId === info.playerId) {
         const newHostSeat = t.engine.seats.find(s => s && !s.isBot && s.connected && s.playerId !== info.playerId);
         if (newHostSeat) {
@@ -2582,6 +2617,7 @@ function l56Touch(r) {
 // can never truly deadlock, the same guarantee the fully
 // server-authoritative 4-player and 6-player tables already have.
 const L56_STALL_MS = 20000; // a bot's turn/pending screen sitting this long with no client update -> server steps in
+const L56_HUMAN_GRACE_MS = 35000; // a DISCONNECTED human's own turn gets a longer grace period than a bot -- brief blips are common and often invisible to them; matches the same 35s grace period the 4-player/6-player engines use
 const L56_TRICK_DISPLAY_MS = 3000;
 const L56_AUCTION_RESULT_MS = 3000;
 const L56_TEAM_OF = seat => (seat % 2 === 0 ? 'A' : 'B');
@@ -2752,10 +2788,23 @@ function l56TryNudge(r) {
     state.updatedAt = now;
     return true;
   }
-  // A bot's turn that's gone stale.
+  // A bot's turn that's gone stale, OR a disconnected HUMAN's turn that's
+  // gone unanswered for a real grace period. Bots get the short
+  // L56_STALL_MS threshold (they're already bots, no reason to wait).
+  // A disconnected human gets a genuine 35s grace period first -- brief
+  // network blips are common and often invisible to the person
+  // experiencing them -- before this treats them the same way a bot
+  // seat already was. Without this second condition, a human who
+  // disconnects mid-turn was NEVER covered by this sweep at all (the
+  // bot-only check skips right past them), which is exactly what left a
+  // table frozen permanently: nobody -- not the periodic sweep, not a
+  // fresh page reload, nothing -- was ever going to act for them.
   if ((state.phase === 'bidding' || state.phase === 'playing') && state.turn !== null && state.turn !== undefined) {
     const occ = state.seats[state.turn];
-    if (occ && occ.bot && state.updatedAt && (now - state.updatedAt) >= L56_STALL_MS) {
+    const ageMs = state.updatedAt ? (now - state.updatedAt) : 0;
+    const isStuckBot = occ && occ.bot && ageMs >= L56_STALL_MS;
+    const isStuckDisconnectedHuman = occ && !occ.bot && occ.connected === false && ageMs >= L56_HUMAN_GRACE_MS;
+    if (isStuckBot || isStuckDisconnectedHuman) {
       if (state.phase === 'bidding') {
         const seat = state.turn;
         if (state.forcedSeat === seat && !state.currentBid) {
@@ -3259,6 +3308,12 @@ io.on('connection', (socket) => {
       }
     }
     if (info && r.hostPlayerId === info.playerId) l56ReassignHost(r);
+    // The seat is now a bot (if this wasn't the lobby), but nothing else
+    // was going to make it actually act -- without this, if it's their
+    // turn right now, the table just sits there until the periodic
+    // fallback sweep eventually notices in up to ~20-25s, instead of
+    // responding immediately the way the 4-player/6-player tables do.
+    if (info && r.state && r.state.turn === info.pos) l56ScheduleNext(code);
 
     // Deliberate leave (this handler only fires for the actual
     // 'l56_leaveTable' emit, sent by the red X / "Leave Table"
