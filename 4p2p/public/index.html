@@ -2599,6 +2599,15 @@ body.tilted-view .game-wrap{
   margin:0!important;z-index:500;
 }
 #btnTiltView.tilt-active{background:rgba(244,196,48,0.35)!important;border-color:#f4c430!important}
+/* The rotated .game-wrap above (z-index:500) was visually covering the
+   topbar entirely -- topbar's own z-index is only 100, so the rotated,
+   opaque game view rendered right on top of it, hiding Admin, Invite,
+   and the 🔄 button itself with no way to reach any of them to switch
+   back. Bumping it above the rotated view (scoped to only when tilted
+   -- its normal z-index:100 elsewhere is untouched) keeps it visible
+   and reachable the entire time the view is rotated, which was the
+   whole point of leaving it unrotated in the first place. */
+body.tilted-view .topbar{z-index:600!important}
 /* Create Room button on the "host or join" screen: flashes gold/red so
    it's obviously the next step after setting your name. Scoped to just
    this one button by id (not by class), so every other button sharing
