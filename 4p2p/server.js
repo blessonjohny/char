@@ -808,6 +808,22 @@ io.on('connection', (socket) => {
   // currently seated at any table, without needing every single game
   // to independently do its own geo lookup.
   socketLocations.set(socket.id, { ip: entry.ip, city: entry.city, region: entry.region, country: entry.country });
+
+  // A pure connection-liveness check -- no game logic, no table lookup,
+  // touches nothing except acknowledging that THIS specific socket is
+  // actually still able to complete a round trip right now. Used by
+  // every game's client on the page-visibility handler instead of
+  // trusting a time-based guess or the socket's own .connected flag,
+  // both of which can be WRONG after a real device suspension: a phone
+  // can pause a tab's JS entirely before it ever processes the actual
+  // disconnect event, even though the server's own ping-timeout already
+  // gave up on that connection long ago -- the client is left believing
+  // it's live while receiving nothing. This gives every client a
+  // definitive, direct answer instead of guessing from a flag or a timer.
+  socket.on('healthPing', (ack) => {
+    if (typeof ack === 'function') ack({ ok: true, ts: Date.now() });
+  });
+
   socket.on('disconnect', () => {
     socketLocations.delete(socket.id);
     // How long this particular connection lasted, start to finish --
