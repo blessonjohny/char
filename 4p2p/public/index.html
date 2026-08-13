@@ -417,7 +417,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .king-progress-fill.king-maxed{background:linear-gradient(90deg,var(--accent),#ffd700,var(--accent));animation:kingBarPulse 1.2s ease-in-out infinite}
 
 /* ===== GAME WRAP ===== */
-.game-wrap{position:fixed;top:40px;left:0;right:0;bottom:0;display:none;flex-direction:column;overflow:hidden;background:linear-gradient(180deg,#0a1628 0%,#0d1b2a 100%)}
+.game-wrap{position:fixed;top:40px;left:0;right:0;bottom:0;display:none;flex-direction:column;
+  /* overflow:hidden here meant anything that computed too tall for the
+     viewport -- for ANY reason, including things impossible to reliably
+     detect from CSS alone, like Chrome's "Desktop site" mode on a phone,
+     which can affect far more than just which media query matches --
+     was PERMANENTLY clipped with literally no way to reach it, not even
+     by scrolling. That's the actual pattern behind this recurring
+     report: several different fix attempts targeting specific sizing
+     causes, each one solving that particular case while remaining
+     fragile to the next unpredictable one. overflow-y:auto is the
+     actual guarantee instead of another guess -- whatever the exact
+     cause on any given device, the player can now always scroll down to
+     reach the rest of their hand, no matter what. Horizontal scroll
+     stays off since nothing here is ever meant to extend sideways. */
+  overflow-y:auto;overflow-x:hidden;
+  background:linear-gradient(180deg,#0a1628 0%,#0d1b2a 100%)}
 .status-bar{background:rgba(10,22,40,0.85);padding:4px 8px;display:flex;align-items:center;gap:8px;font-size:0.65rem;overflow-x:auto;scrollbar-width:none;flex-shrink:0;white-space:nowrap;border-bottom:1px solid rgba(255,215,0,0.05)}
 .status-bar .bot-info{display:inline-flex;align-items:center;gap:4px;margin-left:auto;padding-left:6px;border-left:1px solid rgba(255,255,255,0.1)}
 .status-bar::-webkit-scrollbar{display:none}
