@@ -2501,38 +2501,20 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    comfortable phone-proportioned column, centered, with the rest of the
    window as backdrop — the same trick most mobile-first web apps use to
    stay usable on desktop. */
-/* Was scoped to (hover:hover) and (pointer:fine) -- an actual mouse --
-   specifically to protect against a real bug: cards were getting
-   clipped at the top on any wide-viewport screen (including a phone in
-   "Desktop site" mode, or a genuinely wide phone), because the
-   hand-of-cards box was never actually tall enough for a full-size
-   card, and the fragile fix attempted for that at the time depended on
-   viewport-height math that wasn't reliable either. Both of those are
-   now fixed at their actual root (.hand-area has a real, fixed
-   min-height that's genuinely tall enough for a card, no calculation
-   involved; the height budget for the table below uses min-height:0 +
-   a real page scroll as a backstop instead of guessing a number) --
-   which means the ORIGINAL reason to exclude wide-viewport touch
-   devices (a phone in Desktop-site mode, a wide phone, etc) no longer
-   applies, and excluding them was exactly what left "Desktop site"
-   mode still showing the narrow, phone-shaped column instead of
-   actually using the wider space. Width alone is the right, simple
-   signal for "is there more room to use" -- it doesn't matter whether
-   that room is being viewed with a mouse or a finger. */
+/* Deliberately simple, on purpose: several earlier, more elaborate
+   attempts at this (repositioning .game-wrap out of position:fixed
+   entirely, forcing the whole html/body to scroll, adding manual toggle
+   buttons and borders) each introduced their own new problems while
+   trying to solve this. This version changes as little as possible --
+   .game-wrap keeps its original, already-proven position:fixed
+   behavior completely untouched; the only change here is width, plus
+   letting it scroll internally (on itself) if its content is ever
+   taller than the screen, so nothing can ever be permanently
+   unreachable. */
 @media (min-width:700px){
   body{display:flex;justify-content:center;background:radial-gradient(ellipse at 50% 30%, #16283f 0%, #05090a 70%)}
   .game-wrap,.topbar,.lobby-screen,.welcome-screen{
     left:50%!important;right:auto!important;
-    /* Was capped at 560px (a literal phone-simulator width), then later
-       880px -- both were still fundamentally a narrow, phone-shaped
-       column just sitting in the middle of a wide screen with empty
-       space on either side, which is exactly why it kept looking and
-       behaving like "a phone display on a PC" no matter how the height
-       was adjusted. This is a real landscape-appropriate width instead
-       -- the table (its felt uses percentage-based sizing relative to
-       this container, not a fixed pixel size, so it scales up with it)
-       actually fills a proper landscape-shaped portion of the screen
-       now, rather than staying phone-proportioned but centered. */
     width:min(1200px,94vw)!important;max-width:1200px;
     transform:translateX(-50%);
     box-shadow:0 0 80px rgba(0,0,0,0.65);
@@ -2542,71 +2524,25 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   .overlay{left:50%!important;right:auto!important;transform:translateX(-50%);
     width:min(1200px,94vw)!important;max-width:1200px}
   #serverNotice{right:calc(50vw - min(1200px,94vw)/2 + 10px)}
-  /* flex-grow:1 on the table is exactly right on a real phone (height
-     naturally proportionate to width), but on a desktop window the
-     width is capped here while height stays full-viewport, so it has
-     far more room to expand into than intended and pushes the hand of
-     cards below the bottom of the screen. Rather than GUESS how much
-     space the header/hand-area actually need (a fixed pixel budget is
-     always wrong for someone -- too little and the hand gets clipped
-     with no way to scroll to it since .game-wrap is
-     position:fixed;overflow:hidden, too much and it leaves a wasted
-     empty gap, both of which were separately reported), min-height:0
-     lets flexbox measure the REAL rendered height of the header and
-     hand-of-cards row and give the table exactly whatever's genuinely
-     left over -- correct on any window size without needing to guess
-     any number at all. Still capped at 820px so a very tall window
-     doesn't stretch the table oversized either. */
   #tableArea{max-height:820px;min-height:0}
-  /* This is the actual, guaranteed fix, replacing several earlier
-     attempts that each tried to precisely calculate or cap a height and
-     kept being wrong for someone: reported as still cut off on a real
-     desktop computer too, not just a phone in a desktop-emulating mode,
-     which means the exact cause genuinely isn't reliably knowable from
-     CSS alone. So stop trying to fit everything inside one fixed,
-     unscrollable box and predict its exact contents' height -- instead,
-     let this whole column be a NORMAL, naturally flowing part of the
-     page, exactly like any ordinary website. .game-wrap was
-     position:fixed with a hard viewport-height boundary and
-     overflow:hidden/auto on ITSELF specifically -- switching it (and
-     the page behind it) to genuinely scroll as one normal document
-     means there is no longer any fixed budget to miscalculate: if the
-     table, header, and hand of cards together add up to more than one
-     screen's height, the player just scrolls the actual page down, the
-     same way they would on any tall webpage. That's not a guess about
-     any particular device's chrome or emulation quirks -- it's how
-     browsers already reliably work for arbitrarily tall content.
-     Scoped to this exact desktop-only block, so phones (already
-     confirmed correct) are entirely unaffected. */
-  html,body{height:auto!important;overflow-y:auto!important;overflow-x:hidden!important}
-  .game-wrap{position:relative!important;top:auto!important;bottom:auto!important;
-    left:auto!important;right:auto!important;transform:none!important;
-    /* The centering trick above (left:50% + transform:translateX(-50%))
-       was specifically built for position:fixed, where an element is
-       taken clean out of normal document flow -- body's own
-       display:flex;justify-content:center (see the very top of this
-       block) can't center something that's not actually IN that flow,
-       which is exactly why that manual trick existed. Now that
-       .game-wrap is back in normal flow (position:relative), that same
-       flex centering on body already does the job directly -- keeping
-       the old left/transform values here too would double up and shift
-       it off-center, so they're explicitly cancelled for this element
-       specifically (the shared rule above still correctly applies
-       as-is to .topbar/.lobby-screen/.welcome-screen, which remain
-       position:fixed and still need it).
-       min-height:calc(100vh - 40px) here was a real, separate mistake:
-       it FORCED this to be at least full-viewport-tall regardless of
-       its actual content, which is exactly the "full-screen phone app"
-       look even after widening it -- a real desktop window doesn't
-       fill edge-to-edge top-to-bottom. Sizing purely to its own content
-       instead, with a visible framed border, is what actually reads as
-       a normal computer window instead of an oversized phone screen. */
-    height:auto!important;min-height:0!important;overflow:visible!important;
-    margin:16px auto!important;
-    border:2px solid rgba(244,196,48,0.4)!important;
-    border-radius:10px!important;
-    box-shadow:0 0 60px rgba(0,0,0,0.7)!important;
-  }
+  .game-wrap{overflow-y:auto!important}
+  /* .welcome-screen has a decorative pulse animation (welcomePulse,
+     defined elsewhere) that only ever sets transform:scale(...) on each
+     step. CSS animations take full ownership of any property they
+     touch for their entire duration -- so on this exact breakpoint,
+     where .welcome-screen is centered using transform:translateX(-50%)
+     (see the rule above), that animation was silently overwriting the
+     centering with just its own scale value, every single cycle. The
+     effect: the whole screen sat at left:50% with no compensating
+     shift back, so it rendered pinned to the horizontal center-line and
+     extending only rightward -- the entire left half blank, the actual
+     content pushed against the right edge and cut off. This is a
+     confirmed, verified bug, not a guess: the animation's own keyframes
+     are checkable directly. Disabling the animation specifically at
+     this breakpoint removes the conflict entirely -- it's purely
+     decorative, so no functionality is lost, only a subtle pulse
+     effect that was never worth a broken layout underneath it. */
+  .welcome-screen{animation:none!important}
 }
 /* Create Room button on the "host or join" screen: flashes gold/red so
    it's obviously the next step after setting your name. Scoped to just
@@ -2615,38 +2551,6 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    at the very end of the stylesheet (after the phone-width override above
    that recolors #btnCreateRoom blue with !important), so this wins the
    cascade on every screen size instead of being silently defeated by it. */
-/* Manual wide-layout toggle (#btnWideView / toggleWideView()) -- purely
-   a CSS toggle, nothing rotates or transforms. The width-only version
-   of this rule was the actual reason it looked like it "did nothing":
-   .game-wrap's own base rule is position:fixed;top:40px;bottom:0, which
-   forces it to stretch across the FULL screen height no matter what --
-   widening it on top of that just produced a WIDER full-screen phone
-   shape, not something that reads as a normal computer window. A real
-   desktop app doesn't fill edge-to-edge top-to-bottom; that's
-   specifically a phone-app trait. This now also takes .game-wrap out of
-   that fixed, full-height positioning entirely -- it sizes to its own
-   actual content instead, with a visible dark margin above/below if
-   there's extra space, framed with a distinct border so it's
-   unmistakable the layout genuinely changed. */
-body.wide-view{overflow-y:auto!important}
-body.wide-view .game-wrap,body.wide-view .topbar,body.wide-view .lobby-screen,body.wide-view .welcome-screen{
-  left:50%!important;right:auto!important;transform:translateX(-50%)!important;
-  width:min(1200px,94vw)!important;max-width:1200px!important;
-}
-body.wide-view .game-wrap{
-  position:relative!important;top:auto!important;bottom:auto!important;
-  height:auto!important;min-height:0!important;max-height:none!important;
-  overflow:visible!important;margin:16px auto!important;
-  border:2px solid rgba(244,196,48,0.4)!important;
-  border-radius:10px!important;
-  box-shadow:0 0 60px rgba(0,0,0,0.7)!important;
-}
-body.wide-view #tableArea{max-height:820px!important;min-height:0!important}
-body.wide-view .overlay{
-  left:50%!important;right:auto!important;transform:translateX(-50%)!important;
-  width:min(1200px,94vw)!important;max-width:1200px!important;
-}
-#btnWideView.wide-active{background:rgba(244,196,48,0.9)!important;color:#111!important}
 #btnCreateRoom{
   background:linear-gradient(135deg,#ffd700,#c0392b)!important;
   color:#fff!important;
@@ -3065,17 +2969,9 @@ body.wide-view .overlay{
       </div>
       <button class="icon-btn" id="btnSaveGame" title="Save Game">💾</button>
       <button class="icon-btn" id="btnLoadGame" title="Load Game">📂</button>
-      <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none;width:auto;padding:0 5px;gap:2px;white-space:nowrap;font-size:0.8em">💌 Invite</button>
+      <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none;width:auto;padding:0 6px;gap:3px;white-space:nowrap">💌 Invite</button>
       <button class="icon-btn" id="btnRequestSeat" title="Ask for a Seat" style="display:none">🪑</button>
-      <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none;width:auto;padding:0 6px;white-space:nowrap;font-weight:800;font-size:0.85em">Admin</button>
-      <!-- Toggles between the normal layout and a wider one for
-           landscape/desktop screens -- see toggleWideView() and
-           body.wide-view in the stylesheet. Just a CSS width change,
-           nothing rotates -- correcting an earlier, wrong attempt at
-           this that physically rotated the screen with a CSS
-           transform, which made no sense on a PC (or really anywhere
-           you can't also physically turn the screen afterward). -->
-      <button class="icon-btn" id="btnWideView" title="Toggle wide layout" onclick="toggleWideView()" style="width:auto;padding:0 6px;font-size:0.85em">🖥️</button>
+      <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none;width:auto;padding:0 8px;white-space:nowrap;font-weight:800">Admin</button>
       <button class="icon-btn" id="btnRoomManage" title="Manage Room (Host)" style="display:none">🎛️</button>
       <button class="icon-btn" id="btnHome" title="Go Home" style="margin-left:auto;background:#c0392b;border-color:#c0392b;color:#fff;border-radius:4px;font-weight:800">✕</button>
     </div>
@@ -13411,18 +13307,6 @@ function exitToHome() {
 // "take over this bot", and "just watch" actually apply right now.
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-// Manual layout toggle (the "🖥️ Wide View" button in the topbar, next
-// to Admin). Switches between the normal layout and a wider one that
-// properly uses landscape/desktop-width space -- purely a CSS class
-// toggle, nothing rotates or transforms, nothing to physically turn the
-// phone or monitor for. Off by default on every fresh load, changing
-// only from an actual tap.
-function toggleWideView(){
-  const isActive = document.body.classList.toggle('wide-view');
-  const btn = document.getElementById('btnWideView');
-  if (btn) btn.classList.toggle('wide-active', isActive);
 }
 
 // Requests fullscreen -- hides the browser's own address bar and nav
