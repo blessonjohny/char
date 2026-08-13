@@ -2537,6 +2537,44 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
      any number at all. Still capped at 820px so a very tall window
      doesn't stretch the table oversized either. */
   #tableArea{max-height:820px;min-height:0}
+  /* This is the actual, guaranteed fix, replacing several earlier
+     attempts that each tried to precisely calculate or cap a height and
+     kept being wrong for someone: reported as still cut off on a real
+     desktop computer too, not just a phone in a desktop-emulating mode,
+     which means the exact cause genuinely isn't reliably knowable from
+     CSS alone. So stop trying to fit everything inside one fixed,
+     unscrollable box and predict its exact contents' height -- instead,
+     let this whole column be a NORMAL, naturally flowing part of the
+     page, exactly like any ordinary website. .game-wrap was
+     position:fixed with a hard viewport-height boundary and
+     overflow:hidden/auto on ITSELF specifically -- switching it (and
+     the page behind it) to genuinely scroll as one normal document
+     means there is no longer any fixed budget to miscalculate: if the
+     table, header, and hand of cards together add up to more than one
+     screen's height, the player just scrolls the actual page down, the
+     same way they would on any tall webpage. That's not a guess about
+     any particular device's chrome or emulation quirks -- it's how
+     browsers already reliably work for arbitrarily tall content.
+     Scoped to this exact desktop-only block, so phones (already
+     confirmed correct) are entirely unaffected. */
+  html,body{height:auto!important;overflow-y:auto!important;overflow-x:hidden!important}
+  .game-wrap{position:relative!important;top:auto!important;bottom:auto!important;
+    left:auto!important;right:auto!important;transform:none!important;
+    /* The centering trick above (left:50% + transform:translateX(-50%))
+       was specifically built for position:fixed, where an element is
+       taken clean out of normal document flow -- body's own
+       display:flex;justify-content:center (see the very top of this
+       block) can't center something that's not actually IN that flow,
+       which is exactly why that manual trick existed. Now that
+       .game-wrap is back in normal flow (position:relative), that same
+       flex centering on body already does the job directly -- keeping
+       the old left/transform values here too would double up and shift
+       it off-center, so they're explicitly cancelled for this element
+       specifically (the shared rule above still correctly applies
+       as-is to .topbar/.lobby-screen/.welcome-screen, which remain
+       position:fixed and still need it). */
+    height:auto!important;min-height:calc(100vh - 40px);overflow:visible!important;
+    margin-top:40px}
 }
 /* Create Room button on the "host or join" screen: flashes gold/red so
    it's obviously the next step after setting your name. Scoped to just
