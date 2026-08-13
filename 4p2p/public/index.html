@@ -2468,7 +2468,24 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    comfortable phone-proportioned column, centered, with the rest of the
    window as backdrop — the same trick most mobile-first web apps use to
    stay usable on desktop. */
-@media (min-width:700px){
+/* Scoped to genuine mouse-driven desktop/laptop computers ONLY, not just
+   "wide viewport" -- (hover:hover) and (pointer:fine) together are the
+   standard, reliable way to detect an actual mouse, since plenty of
+   phones (and virtually all iPads/tablets) have CSS viewport widths
+   just as wide as a real desktop browser window despite being
+   touch-only. The earlier version of this block used min-width alone,
+   which is exactly what let it wrongly catch some of those wide-viewport
+   touch devices too -- reported as: a phone screenshot showing this
+   "desktop" layout, with a large empty gap left under the cards, because
+   the fixed reserved-space guess below (originally 230px, assuming real
+   desktop browser chrome eating into the height) was simply wrong for a
+   device that has no such chrome eating into its own 100vh. Touch
+   devices, phones and iPads alike, now always fall through to the
+   normal flex-grow sizing further up the stylesheet -- confirmed
+   already correct on real mobile ("mobile view no one plays vertical",
+   i.e. it just works) -- instead of ever getting this desktop-specific
+   override, regardless of how wide their viewport happens to be. */
+@media (min-width:700px) and (hover:hover) and (pointer:fine){
   body{display:flex;justify-content:center;background:radial-gradient(ellipse at 50% 30%, #16283f 0%, #05090a 70%)}
   .game-wrap,.topbar,.lobby-screen,.welcome-screen{
     left:50%!important;right:auto!important;
@@ -2479,9 +2496,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
        Widened so it actually fills a comfortable portion of a real
        screen. Still capped (not full-bleed edge-to-edge, which was the
        original worry), just at a size that looks intentional on a
-       real monitor instead of tiny. Scoped to this same min-width:700px
-       block only -- phones never hit this breakpoint, so the upright/
-       portrait view is completely unaffected either way. */
+       real monitor instead of tiny. */
     width:min(880px,94vw)!important;max-width:880px;
     transform:translateX(-50%);
     box-shadow:0 0 80px rgba(0,0,0,0.65);
@@ -2495,24 +2510,18 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
      naturally proportionate to width), but on a desktop window the
      width is capped here while height stays full-viewport, so it has
      far more room to expand into than intended and pushes the hand of
-     cards below the bottom of the screen. A FIXED cap (originally
-     820px) helped on tall desktop windows but not shorter ones -- a
-     real desktop browser window is wide-but-often-short (address bar,
-     tabs, bookmarks bar, OS taskbar all eat into actual visible height
-     in a way a phone's own screen doesn't), and .game-wrap is
-     position:fixed with overflow:hidden, so anything that doesn't fit
-     is silently CLIPPED, not scrollable -- this was reported exactly as
-     it looks: the bottom of the hand of cards cut off, invisible, with
-     no way to scroll down to it. Using the ACTUAL available height
-     (100vh minus the 40px .game-wrap is offset by, minus a reserved
-     budget for the header rows above and the hand-of-cards row below)
-     instead of a flat number means the table now correctly shrinks to
-     fit on any real desktop window size, tall or short, guaranteeing
-     the hand of cards always stays fully visible. Still capped at 820px
-     too, so a very tall window doesn't stretch the table oversized
-     either. Scoped to this exact same min-width:700px block only --
-     nothing here can ever apply to a phone. */
-  #tableArea{max-height:min(820px, calc(100vh - 40px - 230px))}
+     cards below the bottom of the screen. Rather than GUESS how much
+     space the header/hand-area actually need (a fixed pixel budget is
+     always wrong for someone -- too little and the hand gets clipped
+     with no way to scroll to it since .game-wrap is
+     position:fixed;overflow:hidden, too much and it leaves a wasted
+     empty gap, both of which were separately reported), min-height:0
+     lets flexbox measure the REAL rendered height of the header and
+     hand-of-cards row and give the table exactly whatever's genuinely
+     left over -- correct on any window size without needing to guess
+     any number at all. Still capped at 820px so a very tall window
+     doesn't stretch the table oversized either. */
+  #tableArea{max-height:820px;min-height:0}
 }
 /* Create Room button on the "host or join" screen: flashes gold/red so
    it's obviously the next step after setting your name. Scoped to just
@@ -14607,24 +14616,16 @@ function serverBotPlayForMe() {
   });
 })();
 
-// The desktop breakpoint above (min-width:700px) deliberately pins the
-// whole app to a fixed-width "phone-proportioned" column (880px, widened
-// from an original 560px that looked too cramped/squeezed on an actual
-// desktop monitor) instead of stretching edge-to-edge -- that part is
-// intentional and looks right. The actual bug this comment originally
-// described: #tableArea (the card table itself) has flex-grow:1, which
-// is exactly correct on a real phone (its height is naturally
-// proportionate to its width, so the table settles at a sensible size)
-// but breaks down on a desktop window, where the width is capped while
-// the height stays full-viewport -- flex-grow has far more room to
-// expand into than a phone would ever have, so the table balloons past
-// 800px tall and pushes the player's own hand of cards below the
-// visible viewport entirely. Capping the table's max-height at the same
-// desktop breakpoint keeps it at a reasonable, phone-like proportion no
-// matter how tall the actual browser window is, guaranteeing the hand
-// area (and everything else below the table) always has room. Scoped
-// entirely inside the existing min-width:700px query, so mobile is
-// completely untouched.
+// The desktop breakpoint above (min-width:700px, AND hover:hover AND
+// pointer:fine -- a real mouse, not just a wide viewport, see the actual
+// rule for why) deliberately pins the whole app to a fixed-width
+// "phone-proportioned" column (880px) instead of stretching edge-to-edge
+// on a real desktop monitor, and gives #tableArea a max-height + 
+// min-height:0 so flexbox sizes it to whatever's actually left over
+// after the header and hand-of-cards row, rather than guessing a fixed
+// number. See the rule itself, right above the button-flash CSS below,
+// for the full reasoning -- this comment previously duplicated it here,
+// separately, and had gone stale.
 
 
 </script>
