@@ -2597,25 +2597,6 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    at the very end of the stylesheet (after the phone-width override above
    that recolors #btnCreateRoom blue with !important), so this wins the
    cascade on every screen size instead of being silently defeated by it. */
-/* Manual tilt toggle (#btnTiltToggle) -- simulates landscape without
-   physically turning the phone, the classic technique: rotate the
-   whole thing 90° and resize it to fill the ORIGINAL screen dimensions
-   (swapped), rather than trying to build and maintain a genuinely
-   separate landscape-specific layout. Applying the transform up here,
-   on the shared wrapper, is deliberate -- a transformed ancestor
-   creates a new positioning context for any position:fixed descendant,
-   so .topbar and .game-wrap (both already position:fixed internally)
-   automatically rotate and resize together as one correctly-stacked
-   unit without needing to touch either of their own CSS at all. No
-   auto-restoring a previous choice on page load -- always starts off,
-   only a real tap turns it on. */
-body.tilted-view #rotatableContent{
-  position:fixed;top:0;left:100%;
-  width:100vh;height:100vw;
-  transform:rotate(90deg);transform-origin:0 0;
-  overflow-y:auto;overflow-x:hidden;
-}
-#btnTiltToggle.tilt-active{background:rgba(244,196,48,0.9)!important;color:#111!important}
 #btnCreateRoom{
   background:linear-gradient(135deg,#ffd700,#c0392b)!important;
   color:#fff!important;
@@ -3015,18 +2996,6 @@ body.tilted-view #rotatableContent{
 </div>
 
 <!-- ===== TOPBAR ===== -->
-<!-- Wraps .topbar and .game-wrap together as ONE unit so the tilt
-     toggle below can rotate them together, consistently, instead of
-     each element needing its own separate rotation math (which is what
-     went wrong last time -- rotating .game-wrap alone while leaving
-     .topbar in its normal position looked inconsistent and, worse, the
-     rotated content visually covered the topbar entirely with no way
-     to reach the toggle button to switch back). The actual toggle
-     button (#btnTiltToggle, further below) is deliberately OUTSIDE this
-     wrapper, as a sibling, so it is never subject to whatever rotation
-     is applied in here -- it always renders normally, always in the
-     same fixed spot, regardless of tilt state. -->
-<div id="rotatableContent">
 <div class="topbar" id="topBar">
   <div class="topbar-main">
     <div class="score-box compact" id="yourScoreBox" style="justify-self:start"><span class="slabel">YOU</span><span class="sval" id="yourScore">6</span><span class="q-total-badge" id="yourQTotal" style="display:none" title="Total Qunique acquired this game (never decreases when shed)">0Q</span></div>
@@ -3192,22 +3161,6 @@ body.tilted-view #rotatableContent{
     <button class="btn btn-outline btn-sm" id="newGameBtn" style="display:none">New Game</button>
   </div>
 </div>
-</div>
-<!-- Deliberately OUTSIDE #rotatableContent (a sibling, not a child) --
-     this button is never subject to whatever rotation is applied to
-     that wrapper, so it always renders normally, always in this exact
-     spot, whether tilted or not. Fixed position + very high z-index
-     over everything, always available (not tied to game state), so
-     there's never a scenario where it becomes unreachable -- that
-     exact failure is what went wrong with the first attempt at this.
-     No auto-restoring a previous tilt choice on page load either --
-     that surprised more than it helped last time; this always starts
-     off, every fresh load, only ever changing from an actual tap. -->
-<button id="btnTiltToggle" onclick="toggleTiltView()" title="Simulate landscape without turning your phone"
-  style="position:fixed;top:8px;right:8px;z-index:99999;width:40px;height:40px;border-radius:50%;
-  background:rgba(20,20,30,0.85);border:2px solid rgba(244,196,48,0.6);color:#f4c430;
-  font-size:1.1rem;display:flex;align-items:center;justify-content:center;
-  box-shadow:0 2px 10px rgba(0,0,0,0.5);cursor:pointer;padding:0">🔄</button>
 
 <!-- ===== LEARN MODE ADVICE (local vs-bots play only) ===== -->
 <div class="modal-overlay" id="learnAdviceOverlay">
@@ -13400,19 +13353,6 @@ function exitToHome() {
 // "take over this bot", and "just watch" actually apply right now.
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-// Manual tilt toggle (the always-visible 🔄 button, top-right of the
-// screen, deliberately outside #rotatableContent -- see the HTML and
-// the body.tilted-view CSS rule for why). Simulates a landscape display
-// without needing to physically turn the phone -- no auto-restoring a
-// previous session's choice, this always starts off on a fresh load,
-// changing only from an actual tap, since silently applying it on its
-// own was confusing last time.
-function toggleTiltView(){
-  const isActive = document.body.classList.toggle('tilted-view');
-  const btn = document.getElementById('btnTiltToggle');
-  if (btn) btn.classList.toggle('tilt-active', isActive);
 }
 
 // Requests fullscreen -- hides the browser's own address bar and nav
