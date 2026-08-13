@@ -599,7 +599,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @keyframes handTurnGlow{0%,100%{box-shadow:inset 0 3px 0 var(--accent),0 0 14px rgba(255,215,0,0.35)}50%{box-shadow:inset 0 3px 0 var(--accent),0 0 22px rgba(255,215,0,0.6)}}
 .hand-area.my-turn-glow{animation:handTurnGlow 1.6s ease-in-out infinite;border-top-color:var(--accent)}
 .hand-area .card.playable-now{box-shadow:0 0 0 2px rgba(255,215,0,0.55),0 3px 10px rgba(0,0,0,0.25)}
-.hand-area{display:flex;justify-content:center;align-items:flex-end;padding:6px 8px 4px;background:rgba(0,0,0,0.35);border-top:1px solid var(--border);min-height:86px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.hand-area{display:flex;justify-content:center;align-items:flex-end;padding:6px 8px 4px;background:rgba(0,0,0,0.35);border-top:1px solid var(--border);min-height:150px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
 .hand-area .card:hover:not(.disabled){transform:translateY(-12px) scale(1.05) rotateX(-3deg);z-index:40;box-shadow:0 10px 30px rgba(0,0,0,0.35),0 3px 10px rgba(0,0,0,0.2),0 0 15px rgba(255,215,0,0.12),inset 0 1px 0 rgba(255,255,255,0.9);animation:none}
 .hand-area::-webkit-scrollbar{height:4px}.hand-area::-webkit-scrollbar-track{background:transparent}.hand-area::-webkit-scrollbar-thumb{background:var(--accent);border-radius:2px}
 .hand-area .card{margin-left:-6px;transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);box-shadow:0 3px 10px rgba(0,0,0,0.35),0 1px 4px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.85);}
@@ -1652,6 +1652,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .hand-area{
   position:relative;
   z-index:3;
+  /* Explicit margin-top here, on top of the existing border-top
+     separator just below -- a direct, guaranteed gap between the table
+     above and the cards here, so there is no scenario where the two
+     visually crowd into or appear to slide under one another,
+     regardless of exactly how tall the table itself renders on any
+     given screen. */
+  margin-top:14px;
   background:
     linear-gradient(to top, rgba(6,14,26,0.95) 0%, rgba(13,27,42,0.8) 40%, rgba(17,29,46,0.6) 100%) !important;
   border-top:3px solid rgba(255,215,0,0.15) !important;
@@ -2411,19 +2418,18 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   box-shadow:0 3px 10px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.9)}
 /* Fan the hand: enough overlap that all 8 cards always fit the screen
    with no horizontal scrolling; the card you can play lifts clear.
-   overflow-y:visible here is NOT decorative -- without explicitly
-   setting it, the CSS spec quietly upgrades an unset overflow-y to act
-   like overflow-x:hidden's clipping too, the instant only ONE axis gets
-   set explicitly (which is exactly what overflow-x:hidden just above
-   does on its own). Base cards are 140px tall (see .card above), but
-   .hand-area's own min-height is only 86px -- on any screen that
-   doesn't get the mobile-specific SMALLER card size (that only kicks in
-   under max-width:480px; a real desktop window never matches that),
-   the full 140px-tall cards were getting silently clipped at the top by
-   that implicit vertical clipping, with no scrollbar or visible sign
-   anything was cut off. This is what "only seeing half my card on PC"
-   actually was. */
-.hand-area{overflow-x:hidden!important;overflow-y:visible!important;justify-content:center!important;padding-top:10px!important}
+   Cards are 140px tall (see .card above); .hand-area's min-height is
+   now 150px specifically to comfortably contain that -- an earlier fix
+   here tried setting overflow-y:visible instead of fixing the actual
+   height, reasoning that overflow-x:hidden was implicitly making
+   overflow-y clip too (a real CSS rule), but that reasoning had a real
+   error in it: explicitly setting overflow-y to visible while
+   overflow-x is anything else does NOT keep it visible -- the spec
+   computes it to auto regardless the moment the two axes disagree, so
+   that fix never actually stopped the clipping despite looking like it
+   should. Giving the box a real height that's actually tall enough
+   sidesteps the whole question -- there's nothing left to overflow. */
+.hand-area{overflow-x:hidden!important;justify-content:center!important;padding-top:10px!important}
 .hand-area .card{flex-shrink:1!important;min-width:0;margin-left:-30px}
 .hand-area .card:first-child{margin-left:0}
 @media (max-width:480px){
@@ -2495,24 +2501,25 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    comfortable phone-proportioned column, centered, with the rest of the
    window as backdrop — the same trick most mobile-first web apps use to
    stay usable on desktop. */
-/* Scoped to genuine mouse-driven desktop/laptop computers ONLY, not just
-   "wide viewport" -- (hover:hover) and (pointer:fine) together are the
-   standard, reliable way to detect an actual mouse, since plenty of
-   phones (and virtually all iPads/tablets) have CSS viewport widths
-   just as wide as a real desktop browser window despite being
-   touch-only. The earlier version of this block used min-width alone,
-   which is exactly what let it wrongly catch some of those wide-viewport
-   touch devices too -- reported as: a phone screenshot showing this
-   "desktop" layout, with a large empty gap left under the cards, because
-   the fixed reserved-space guess below (originally 230px, assuming real
-   desktop browser chrome eating into the height) was simply wrong for a
-   device that has no such chrome eating into its own 100vh. Touch
-   devices, phones and iPads alike, now always fall through to the
-   normal flex-grow sizing further up the stylesheet -- confirmed
-   already correct on real mobile ("mobile view no one plays vertical",
-   i.e. it just works) -- instead of ever getting this desktop-specific
-   override, regardless of how wide their viewport happens to be. */
-@media (min-width:700px) and (hover:hover) and (pointer:fine){
+/* Was scoped to (hover:hover) and (pointer:fine) -- an actual mouse --
+   specifically to protect against a real bug: cards were getting
+   clipped at the top on any wide-viewport screen (including a phone in
+   "Desktop site" mode, or a genuinely wide phone), because the
+   hand-of-cards box was never actually tall enough for a full-size
+   card, and the fragile fix attempted for that at the time depended on
+   viewport-height math that wasn't reliable either. Both of those are
+   now fixed at their actual root (.hand-area has a real, fixed
+   min-height that's genuinely tall enough for a card, no calculation
+   involved; the height budget for the table below uses min-height:0 +
+   a real page scroll as a backstop instead of guessing a number) --
+   which means the ORIGINAL reason to exclude wide-viewport touch
+   devices (a phone in Desktop-site mode, a wide phone, etc) no longer
+   applies, and excluding them was exactly what left "Desktop site"
+   mode still showing the narrow, phone-shaped column instead of
+   actually using the wider space. Width alone is the right, simple
+   signal for "is there more room to use" -- it doesn't matter whether
+   that room is being viewed with a mouse or a finger. */
+@media (min-width:700px){
   body{display:flex;justify-content:center;background:radial-gradient(ellipse at 50% 30%, #16283f 0%, #05090a 70%)}
   .game-wrap,.topbar,.lobby-screen,.welcome-screen{
     left:50%!important;right:auto!important;
@@ -2586,9 +2593,20 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
        it off-center, so they're explicitly cancelled for this element
        specifically (the shared rule above still correctly applies
        as-is to .topbar/.lobby-screen/.welcome-screen, which remain
-       position:fixed and still need it). */
-    height:auto!important;min-height:calc(100vh - 40px);overflow:visible!important;
-    margin-top:40px}
+       position:fixed and still need it).
+       min-height:calc(100vh - 40px) here was a real, separate mistake:
+       it FORCED this to be at least full-viewport-tall regardless of
+       its actual content, which is exactly the "full-screen phone app"
+       look even after widening it -- a real desktop window doesn't
+       fill edge-to-edge top-to-bottom. Sizing purely to its own content
+       instead, with a visible framed border, is what actually reads as
+       a normal computer window instead of an oversized phone screen. */
+    height:auto!important;min-height:0!important;overflow:visible!important;
+    margin:16px auto!important;
+    border:2px solid rgba(244,196,48,0.4)!important;
+    border-radius:10px!important;
+    box-shadow:0 0 60px rgba(0,0,0,0.7)!important;
+  }
 }
 /* Create Room button on the "host or join" screen: flashes gold/red so
    it's obviously the next step after setting your name. Scoped to just
@@ -2597,17 +2615,33 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    at the very end of the stylesheet (after the phone-width override above
    that recolors #btnCreateRoom blue with !important), so this wins the
    cascade on every screen size instead of being silently defeated by it. */
-/* Manual wide-layout toggle (#btnWideView / toggleWideView()) -- a plain
-   width change, nothing rotates or transforms. Works identically on a
-   phone or a PC, purely from an actual tap, completely independent of
-   the automatic hover/pointer-based desktop widening a few rules above
-   -- that one still only kicks in automatically for a genuine mouse-
-   driven computer; this is the SAME width, just also reachable manually
-   by anyone, on any device, whether that auto-detection applies or not. */
+/* Manual wide-layout toggle (#btnWideView / toggleWideView()) -- purely
+   a CSS toggle, nothing rotates or transforms. The width-only version
+   of this rule was the actual reason it looked like it "did nothing":
+   .game-wrap's own base rule is position:fixed;top:40px;bottom:0, which
+   forces it to stretch across the FULL screen height no matter what --
+   widening it on top of that just produced a WIDER full-screen phone
+   shape, not something that reads as a normal computer window. A real
+   desktop app doesn't fill edge-to-edge top-to-bottom; that's
+   specifically a phone-app trait. This now also takes .game-wrap out of
+   that fixed, full-height positioning entirely -- it sizes to its own
+   actual content instead, with a visible dark margin above/below if
+   there's extra space, framed with a distinct border so it's
+   unmistakable the layout genuinely changed. */
+body.wide-view{overflow-y:auto!important}
 body.wide-view .game-wrap,body.wide-view .topbar,body.wide-view .lobby-screen,body.wide-view .welcome-screen{
   left:50%!important;right:auto!important;transform:translateX(-50%)!important;
   width:min(1200px,94vw)!important;max-width:1200px!important;
 }
+body.wide-view .game-wrap{
+  position:relative!important;top:auto!important;bottom:auto!important;
+  height:auto!important;min-height:0!important;max-height:none!important;
+  overflow:visible!important;margin:16px auto!important;
+  border:2px solid rgba(244,196,48,0.4)!important;
+  border-radius:10px!important;
+  box-shadow:0 0 60px rgba(0,0,0,0.7)!important;
+}
+body.wide-view #tableArea{max-height:820px!important;min-height:0!important}
 body.wide-view .overlay{
   left:50%!important;right:auto!important;transform:translateX(-50%)!important;
   width:min(1200px,94vw)!important;max-width:1200px!important;
