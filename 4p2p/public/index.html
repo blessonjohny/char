@@ -12588,6 +12588,26 @@ function attemptAutoReconnect() {
 
   document.getElementById('welcomeScreen').style.display = 'none';
   document.getElementById('reconnectingOverlay').style.display = 'flex';
+  // This was the actual bug behind "refresh freezes the game, cards stop
+  // responding, the Admin button vanishes": SERVER_MODE only ever got set
+  // to true inside the "Set Name" button's own click handler -- the
+  // normal, manually-driven path into a game. This auto-reconnect path
+  // (running automatically on page load whenever there's a stored
+  // session) never went through that button at all, so SERVER_MODE
+  // stayed stuck at its default false FOREVER after a refresh, even
+  // though the reconnect itself succeeded correctly and the server
+  // properly reported this player as still connected and even still
+  // host. Dozens of places in this file gate real behavior on
+  // SERVER_MODE specifically -- most critically, submitting a bid or
+  // playing a card (serverPlaceBid/server-mode card play) silently do
+  // NOT happen without it true, falling through to unrelated local-game
+  // logic instead. That's why it looked like cards had stopped moving:
+  // every tap was quietly going nowhere, not reaching the server at all,
+  // even though the underlying connection and game state were fine the
+  // entire time -- exactly why kicking the stuck session from elsewhere
+  // "fixed" it (a fresh join always sets this correctly) while nothing
+  // about reconnecting on the SAME tab ever did.
+  SERVER_MODE = true;
   connectGameSocket();
   // A cold server (free-tier hosts sleep after inactivity) can take a real
   // while to wake back up — generous but not infinite before giving up and

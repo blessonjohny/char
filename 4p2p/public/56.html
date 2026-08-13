@@ -659,6 +659,14 @@
   </div>
 </div>
 
+<!-- ======================= BOOT-TIME RECONNECT (a fresh page load/refresh recovering a recent session) ======================= -->
+<div id="reconnecting56Overlay" class="overlay-msg hidden">
+  <div class="box">
+    <h2>🔄 Reconnecting...</h2>
+    <p>Getting you back to your table.</p>
+  </div>
+</div>
+
 <!-- ======================= HOST APPROVAL POPUP (shown to the host) ======================= -->
 <div id="joinRequestOverlay" class="overlay-msg hidden">
   <div class="box">
@@ -772,6 +780,7 @@ let roomCode = null;
 let myName = null;
 let mySeat = null;
 let pollTimer = null;
+let sessionHeartbeat = null; // see enterTableAsSeat() -- keeps k56_session_time honest during a long, active session
 let headerResizeObserver = null; // see enterTableAsSeat() -- disconnected/recreated together with pollTimer, same reasoning
 let lastRenderedStamp = null;
 const _scoreState = {};
@@ -950,6 +959,23 @@ function ensureSyncSocket(){
     }
   });
   syncSocket.on('l56_reconnectFailed', () => {
+    // Fresh-boot attempt (a refresh/browser restart recovering a stored
+    // session, see maybeAutoReconnect56()) failing is a totally
+    // different situation from an already-active game losing its seat:
+    // there's no game screen showing yet to be "stuck" on, so alerting
+    // and reloading would just loop straight back into another failed
+    // attempt. Clear the stale session and drop back to the normal
+    // landing screen instead.
+    if(isFreshBootReconnectAttempt56){
+      isFreshBootReconnectAttempt56 = false;
+      document.getElementById('reconnecting56Overlay').classList.add('hidden');
+      try {
+        localStorage.removeItem('k56_room_code');
+        localStorage.removeItem('k56_session_time');
+      } catch(e) {}
+      showToast('Your previous table is no longer available', 3000);
+      return;
+    }
     // The seat we thought we had is gone (kicked while away, or the
     // table closed) -- nothing to silently recover from, let the player
     // know instead of leaving them stuck looking at a stale screen.
@@ -1015,11 +1041,25 @@ function ensureSyncSocket(){
   });
 
   syncSocket.on('l56_created', async ({code, playerId, pos, isHost: hostFlag}) => {
+    isFreshBootReconnectAttempt56 = false;
     roomCode = code;
     MY_PLAYER_ID = playerId;
-    try{ localStorage.setItem('k56_player_token', playerId); }catch(e){}
+    try{
+      localStorage.setItem('k56_player_token', playerId);
+      // Enables recovering this exact session on a genuinely fresh page
+      // load (refresh, browser restart) -- until now, 56 had no way to
+      // do this at all: roomCode only ever got set by an active
+      // create/join action, so refreshing mid-game lost the session
+      // completely on the client side, even though the server was still
+      // holding the seat open the whole time (see l56RunFallbackSweep /
+      // the disconnect-grace-period logic in server.js). Matches the
+      // same pattern the 4-player and 6-player tables already use.
+      localStorage.setItem('k56_room_code', code);
+      localStorage.setItem('k56_session_time', String(Date.now()));
+    }catch(e){}
     isHost = hostFlag;
     document.getElementById('joinPendingOverlay').classList.add('hidden');
+    document.getElementById('reconnecting56Overlay').classList.add('hidden');
     let state = await loadState();
     if(!state){
       state = newRoomState();
@@ -1429,6 +1469,55 @@ function maybeShowIosInstallHint(){
 // pointed at the real fullscreen fix as early as possible.
 maybeShowIosInstallHint();
 
+// Fresh page load / refresh recovering a recent session -- until now, 56
+// had NO way to do this at all: roomCode only ever got set by an active
+// create/join action, so refreshing mid-game lost the session
+// completely on the client side, even though the server was still
+// holding the seat open the whole time. Matches the same 30-minute
+// recent-session window the 4-player table uses (see RECENT_WINDOW_MS
+// there) -- long enough to comfortably cover a phone screen timing out
+// for a few minutes, short enough not to try reviving a session from
+// hours or days ago that's realistically been abandoned.
+let isFreshBootReconnectAttempt56 = false;
+function maybeAutoReconnect56(){
+  let storedRoomCode = null, storedToken = null, sessionTime = 0;
+  try {
+    storedRoomCode = localStorage.getItem('k56_room_code');
+    storedToken = localStorage.getItem('k56_player_token');
+    sessionTime = parseInt(localStorage.getItem('k56_session_time') || '0', 10);
+  } catch(e) {}
+  const RECENT_WINDOW_MS = 30 * 60 * 1000;
+  if(!storedRoomCode || !storedToken || !sessionTime || (Date.now() - sessionTime) > RECENT_WINDOW_MS){
+    try {
+      localStorage.removeItem('k56_room_code');
+      localStorage.removeItem('k56_session_time');
+    } catch(e) {}
+    return;
+  }
+  isFreshBootReconnectAttempt56 = true;
+  roomCode = storedRoomCode;
+  MY_PLAYER_ID = storedToken;
+  document.getElementById('reconnecting56Overlay').classList.remove('hidden');
+  ensureSyncSocket();
+  syncSocket.emit('l56_reconnect', {code: roomCode, playerId: MY_PLAYER_ID, name: myName});
+  // A cold server (free-tier hosts sleep after inactivity) can take a
+  // real while to wake back up -- generous but not infinite before
+  // giving up and just showing the normal landing screen instead of
+  // leaving someone stuck on a spinner forever.
+  setTimeout(() => {
+    if(isFreshBootReconnectAttempt56 && mySeat === null){
+      isFreshBootReconnectAttempt56 = false;
+      document.getElementById('reconnecting56Overlay').classList.add('hidden');
+      try {
+        localStorage.removeItem('k56_room_code');
+        localStorage.removeItem('k56_session_time');
+      } catch(e) {}
+      showToast('Could not reconnect to your previous table', 4000);
+    }
+  }, 12000);
+}
+maybeAutoReconnect56();
+
 function createTable(){
   const name = requireName();
   if(!name) return;
@@ -1556,6 +1645,18 @@ function enterTableAsSeat(pos, state){
 
   render(state);
   pollTimer = setInterval(pollLoop, 2200);
+  // Keeps k56_session_time honest so a boot-time reconnect attempt (see
+  // maybeAutoReconnect56() near the bottom of this file) doesn't
+  // wrongly treat a long but genuinely active session as "abandoned" --
+  // without this, that timestamp would only ever update once, at the
+  // moment of joining, and go stale during any quiet stretch (a slow
+  // round, someone thinking through a bid) even while actually still
+  // playing the entire time. Same fix 4-player already needed for the
+  // identical trap.
+  if(sessionHeartbeat) clearInterval(sessionHeartbeat);
+  sessionHeartbeat = setInterval(() => {
+    if(roomCode){ try{ localStorage.setItem('k56_session_time', String(Date.now())); }catch(e){} }
+  }, 30000);
 }
 
 let stillPlaying56Interval = null;
@@ -1583,10 +1684,18 @@ document.getElementById('exitToHomeBtn').addEventListener('click', exitToHome);
 function exitToHome(){
   if(!confirm('Leave this table and go back to the home menu?')) return;
   if(pollTimer) clearInterval(pollTimer);
+  if(sessionHeartbeat) clearInterval(sessionHeartbeat);
   if(syncSocket && roomCode){
     syncSocket.emit('l56_leaveTable', {code: roomCode});
     syncSocket.emit('sync56_leave', {room: roomCode});
   }
+  // A deliberate leave means there's nothing to recover on the next
+  // page load -- without this, refreshing right after leaving would
+  // try to reconnect straight back into the table just left.
+  try{
+    localStorage.removeItem('k56_room_code');
+    localStorage.removeItem('k56_session_time');
+  }catch(e){}
   // Full reload rather than just swapping screens back -- guarantees a
   // completely clean slate (no leftover polling, stale seat/host state,
   // or open modals) instead of trying to unwind every bit of in-game UI
