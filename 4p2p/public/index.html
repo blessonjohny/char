@@ -2504,23 +2504,25 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   body{display:flex;justify-content:center;background:radial-gradient(ellipse at 50% 30%, #16283f 0%, #05090a 70%)}
   .game-wrap,.topbar,.lobby-screen,.welcome-screen{
     left:50%!important;right:auto!important;
-    /* Was capped at 560px (a literal phone-simulator width) -- on an
-       actual desktop monitor that read as a cramped, squeezed-looking
-       sliver with the dark backdrop barely distinguishable from the
-       photo/monitor bezel around it, not a nicely framed phone view.
-       Widened so it actually fills a comfortable portion of a real
-       screen. Still capped (not full-bleed edge-to-edge, which was the
-       original worry), just at a size that looks intentional on a
-       real monitor instead of tiny. */
-    width:min(880px,94vw)!important;max-width:880px;
+    /* Was capped at 560px (a literal phone-simulator width), then later
+       880px -- both were still fundamentally a narrow, phone-shaped
+       column just sitting in the middle of a wide screen with empty
+       space on either side, which is exactly why it kept looking and
+       behaving like "a phone display on a PC" no matter how the height
+       was adjusted. This is a real landscape-appropriate width instead
+       -- the table (its felt uses percentage-based sizing relative to
+       this container, not a fixed pixel size, so it scales up with it)
+       actually fills a proper landscape-shaped portion of the screen
+       now, rather than staying phone-proportioned but centered. */
+    width:min(1200px,94vw)!important;max-width:1200px;
     transform:translateX(-50%);
     box-shadow:0 0 80px rgba(0,0,0,0.65);
     border-left:1px solid rgba(233,185,73,0.12);
     border-right:1px solid rgba(233,185,73,0.12)
   }
   .overlay{left:50%!important;right:auto!important;transform:translateX(-50%);
-    width:min(880px,94vw)!important;max-width:880px}
-  #serverNotice{right:calc(50vw - min(880px,94vw)/2 + 10px)}
+    width:min(1200px,94vw)!important;max-width:1200px}
+  #serverNotice{right:calc(50vw - min(1200px,94vw)/2 + 10px)}
   /* flex-grow:1 on the table is exactly right on a real phone (height
      naturally proportionate to width), but on a desktop window the
      width is capped here while height stays full-viewport, so it has
@@ -14671,14 +14673,14 @@ function serverBotPlayForMe() {
 
 // The desktop breakpoint above (min-width:700px, AND hover:hover AND
 // pointer:fine -- a real mouse, not just a wide viewport, see the actual
-// rule for why) deliberately pins the whole app to a fixed-width
-// "phone-proportioned" column (880px) instead of stretching edge-to-edge
-// on a real desktop monitor, and gives #tableArea a max-height + 
-// min-height:0 so flexbox sizes it to whatever's actually left over
-// after the header and hand-of-cards row, rather than guessing a fixed
-// number. See the rule itself, right above the button-flash CSS below,
-// for the full reasoning -- this comment previously duplicated it here,
-// separately, and had gone stale.
+// rule for why) pins the whole app to a landscape-appropriate fixed-width
+// column (1200px) instead of stretching edge-to-edge on a real desktop
+// monitor, and gives #tableArea a max-height + min-height:0 so flexbox
+// sizes it to whatever's actually left over after the header and
+// hand-of-cards row, rather than guessing a fixed number. See the rule
+// itself, right above the button-flash CSS below, for the full
+// reasoning -- this comment previously duplicated it here, separately,
+// and had gone stale.
 
 
 </script>
