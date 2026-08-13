@@ -497,7 +497,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .table:not(.mode6) .s-left{left:0;top:50%;transform:translateY(-50%)}
 .table:not(.mode6) .s-right{right:0;top:50%;transform:translateY(-50%)}
 .table:not(.mode6) .s-bot{bottom:0;left:50%;transform:translateX(-50%)}
-.table:not(.mode6) .hand-area{grid-area:h;display:flex;align-items:flex-end;justify-content:center;padding:6px 10px 4px;background:#1a0505;border-top:2px solid var(--accent);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--accent) transparent;min-height:80px;max-height:100px}
+.table:not(.mode6) .hand-area{grid-area:h;display:flex;align-items:flex-end;justify-content:center;padding:6px 10px 4px;background:#1a0505;border-top:2px solid var(--accent);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--accent) transparent;min-height:150px;max-height:160px}
 .table:not(.mode6) .pspot.pos4{display:none !important}
 .table:not(.mode6) .pspot.pos5{display:none !important}
 .table:not(.mode6) .pslot.s-pos4{display:none !important}
@@ -2526,6 +2526,19 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   #serverNotice{right:calc(50vw - min(1200px,94vw)/2 + 10px)}
   #tableArea{max-height:820px;min-height:0}
   .game-wrap{overflow-y:auto!important}
+  /* Direct, explicit, and impossible-to-lose-the-cascade fix, added
+     right in this exact breakpoint on purpose: reported specifically on
+     a screen wide enough to hit this block (Chrome's "Desktop site"
+     mode on a phone reports a wide virtual viewport and scales the
+     WHOLE page down to fit the real screen, which is consistent with
+     everything -- header, icons, text -- all rendering uniformly
+     smaller in that mode) where the top of each card was still getting
+     cut off despite .hand-area's base min-height already being raised
+     to 150px elsewhere. Re-declaring it here, with !important, at this
+     exact breakpoint removes any possible ambiguity about which rule
+     wins -- this one does, guaranteed, specifically where it was still
+     being reported as wrong. */
+  .hand-area{min-height:150px!important}
   /* .welcome-screen has a decorative pulse animation (welcomePulse,
      defined elsewhere) that only ever sets transform:scale(...) on each
      step. CSS animations take full ownership of any property they
