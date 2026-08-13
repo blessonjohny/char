@@ -650,11 +650,39 @@ function connectSocket() {
   // immediately instead of waiting on a timer that was never going to run.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
+      // Trusting socket.connected alone here was the actual gap:
+      // repeatedly switching apps ("in and out of network a few times")
+      // was reported to leave a tab permanently zombied -- looking
+      // connected client-side, receiving nothing -- even though the SAME
+      // table was completely fine and playable from a different
+      // browser/session at the same time, proof the server-side game was
+      // never actually stuck. A single hidden stretch or a flag that can
+      // lie isn't a reliable enough signal on its own. This asks the
+      // server directly instead: a real round-trip acknowledgment
+      // (healthPing, handled in the shared connection block in
+      // server.js -- works the same for every game on this server), with
+      // a short timeout. Only a genuine, current response counts as
+      // "still connected"; no ack in time means force a fresh connection.
       if (!socket.connected) {
         socket.connect();
-      } else if (MY_TABLE_ID && MY_PLAYER_ID) {
-        socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
+        return;
       }
+      let settled = false;
+      const forceReconnect = () => {
+        if (settled) return;
+        settled = true;
+        try { socket.disconnect(); } catch (e) {}
+        socket.connect();
+      };
+      const healthCheckTimeout = setTimeout(forceReconnect, 3000);
+      socket.emit('healthPing', () => {
+        if (settled) return; // the 3s timeout already fired and force-reconnected
+        settled = true;
+        clearTimeout(healthCheckTimeout);
+        if (MY_TABLE_ID && MY_PLAYER_ID) {
+          socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
+        }
+      });
     }
   });
 

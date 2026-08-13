@@ -2472,23 +2472,35 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   body{display:flex;justify-content:center;background:radial-gradient(ellipse at 50% 30%, #16283f 0%, #05090a 70%)}
   .game-wrap,.topbar,.lobby-screen,.welcome-screen{
     left:50%!important;right:auto!important;
-    width:min(560px,100vw)!important;max-width:560px;
+    /* Was capped at 560px (a literal phone-simulator width) -- on an
+       actual desktop monitor that read as a cramped, squeezed-looking
+       sliver with the dark backdrop barely distinguishable from the
+       photo/monitor bezel around it, not a nicely framed phone view.
+       Widened so it actually fills a comfortable portion of a real
+       screen. Still capped (not full-bleed edge-to-edge, which was the
+       original worry), just at a size that looks intentional on a
+       real monitor instead of tiny. Scoped to this same min-width:700px
+       block only -- phones never hit this breakpoint, so the upright/
+       portrait view is completely unaffected either way. */
+    width:min(880px,94vw)!important;max-width:880px;
     transform:translateX(-50%);
     box-shadow:0 0 80px rgba(0,0,0,0.65);
     border-left:1px solid rgba(233,185,73,0.12);
     border-right:1px solid rgba(233,185,73,0.12)
   }
   .overlay{left:50%!important;right:auto!important;transform:translateX(-50%);
-    width:min(560px,100vw)!important;max-width:560px}
-  #serverNotice{right:calc(50vw - min(560px,100vw)/2 + 10px)}
+    width:min(880px,94vw)!important;max-width:880px}
+  #serverNotice{right:calc(50vw - min(880px,94vw)/2 + 10px)}
   /* flex-grow:1 on the table is exactly right on a real phone (height
      naturally proportionate to width), but on a desktop window the
      width is capped here while height stays full-viewport, so it has
      far more room to expand into than intended and pushes the hand of
      cards below the bottom of the screen. Capping it keeps the table a
      sensible, phone-like size regardless of how tall the browser
-     window actually is. */
-  #tableArea{max-height:620px}
+     window actually is. Raised proportionally along with the column
+     width above, so the table doesn't end up looking small/squat
+     relative to the now-wider frame around it. */
+  #tableArea{max-height:820px}
 }
 /* Create Room button on the "host or join" screen: flashes gold/red so
    it's obviously the next step after setting your name. Scoped to just
@@ -12724,14 +12736,43 @@ function connectGameSocket() {
       // while receiving nothing. Past the ping-timeout window, force a
       // genuinely fresh connection rather than trusting a flag that can
       // lie after exactly this kind of suspension.
-      if (!gameSocket.connected || hiddenForMs > 70000) {
+      //
+      // A single long hidden stretch isn't the only way this happens
+      // though -- repeatedly switching apps (several short hide/show
+      // cycles in a row, "in and out of network a few times") was
+      // reported to leave a tab permanently zombied even though the
+      // SAME table was completely fine and playable from a different
+      // browser/session at the same time -- proof the server-side game
+      // was never actually stuck, only this one specific connection was.
+      // A single hiddenForMs threshold can't reliably catch that
+      // pattern, since any one individual cycle might look short even
+      // though the connection is already dead. Rather than keep
+      // guessing from time elapsed or a flag that can lie, this now
+      // asks the server directly, every time: a real round-trip
+      // acknowledgment (healthPing), with a short timeout. Only a
+      // genuine, current response counts as "still connected" -- no ack
+      // in time means force a fresh connection, no matter what
+      // gameSocket.connected claims or how long the tab was hidden for.
+      let settled = false;
+      const forceReconnect = () => {
+        if (settled) return;
+        settled = true;
         try { gameSocket.disconnect(); } catch (e) {}
         gameSocket.connect();
-      } else {
-        // Hidden only briefly -- the transport is genuinely still likely
-        // alive, so a lightweight re-announce is enough insurance.
-        gameSocket.emit('joinTable', { tableId: MY_TABLE_ID, name: MY_NAME, playerId: MY_PLAYER_TOKEN });
+      };
+      if (!gameSocket.connected) {
+        forceReconnect();
+        return;
       }
+      const healthCheckTimeout = setTimeout(forceReconnect, 3000);
+      gameSocket.emit('healthPing', () => {
+        if (settled) return; // the 3s timeout already fired and force-reconnected
+        settled = true;
+        clearTimeout(healthCheckTimeout);
+        // The round trip genuinely worked just now -- this connection is
+        // real, not zombied. A lightweight re-announce is enough.
+        gameSocket.emit('joinTable', { tableId: MY_TABLE_ID, name: MY_NAME, playerId: MY_PLAYER_TOKEN });
+      });
     });
     window.addEventListener('online', () => {
       if (MY_TABLE_ID && MY_PLAYER_TOKEN && !gameSocket.connected) {
@@ -14535,21 +14576,23 @@ function serverBotPlayForMe() {
 })();
 
 // The desktop breakpoint above (min-width:700px) deliberately pins the
-// whole app to a fixed 560px-wide "phone-proportioned" column instead
-// of stretching edge-to-edge -- that part is intentional and looks
-// right. The actual bug: #tableArea (the card table itself) has
-// flex-grow:1, which is exactly correct on a real phone (its height is
-// naturally proportionate to its width, so the table settles at a
-// sensible size) but breaks down on a desktop window, where the width
-// is capped at 560px while the height stays full-viewport -- flex-grow
-// has far more room to expand into than a phone would ever have, so
-// the table balloons past 800px tall and pushes the player's own hand
-// of cards below the visible viewport entirely. Capping the table's
-// max-height at the same desktop breakpoint keeps it at a reasonable,
-// phone-like proportion no matter how tall the actual browser window
-// is, guaranteeing the hand area (and everything else below the
-// table) always has room. Scoped entirely inside the existing
-// min-width:700px query, so mobile is completely untouched.
+// whole app to a fixed-width "phone-proportioned" column (880px, widened
+// from an original 560px that looked too cramped/squeezed on an actual
+// desktop monitor) instead of stretching edge-to-edge -- that part is
+// intentional and looks right. The actual bug this comment originally
+// described: #tableArea (the card table itself) has flex-grow:1, which
+// is exactly correct on a real phone (its height is naturally
+// proportionate to its width, so the table settles at a sensible size)
+// but breaks down on a desktop window, where the width is capped while
+// the height stays full-viewport -- flex-grow has far more room to
+// expand into than a phone would ever have, so the table balloons past
+// 800px tall and pushes the player's own hand of cards below the
+// visible viewport entirely. Capping the table's max-height at the same
+// desktop breakpoint keeps it at a reasonable, phone-like proportion no
+// matter how tall the actual browser window is, guaranteeing the hand
+// area (and everything else below the table) always has room. Scoped
+// entirely inside the existing min-width:700px query, so mobile is
+// completely untouched.
 
 
 </script>

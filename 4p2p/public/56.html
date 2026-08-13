@@ -1097,15 +1097,42 @@ ensureSyncSocket(); // connect right away so admin policy (e.g. reveal button di
 // that was never going to run.
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible' && syncSocket){
+    // Trusting syncSocket.connected alone here was the actual gap:
+    // repeatedly switching apps ("in and out of network a few times")
+    // was reported to leave a tab permanently zombied -- looking
+    // connected client-side, receiving nothing -- even though the SAME
+    // table was completely fine and playable from a different
+    // browser/session at the same time, proof the server-side game was
+    // never actually stuck. This asks the server directly instead: a
+    // real round-trip acknowledgment (healthPing, handled in the shared
+    // connection block in server.js -- works the same for every game on
+    // this server), with a short timeout. Only a genuine, current
+    // response counts as "still connected"; no ack in time means force
+    // a fresh connection, no matter what .connected claims.
     if(!syncSocket.connected){
       syncSocket.connect();
-    } else if(roomCode && MY_PLAYER_ID && mySeat !== null){
-      // Even if the transport itself looks connected, re-announce our
-      // seat -- a long suspension can leave the server-side
-      // registration stale without the transport ever actually
-      // dropping, so this is cheap insurance either way.
-      syncSocket.emit('l56_reconnect', {code: roomCode, playerId: MY_PLAYER_ID, name: myName});
+      return;
     }
+    let settled = false;
+    const forceReconnect = () => {
+      if(settled) return;
+      settled = true;
+      try { syncSocket.disconnect(); } catch (e) {}
+      syncSocket.connect();
+    };
+    const healthCheckTimeout = setTimeout(forceReconnect, 3000);
+    syncSocket.emit('healthPing', () => {
+      if(settled) return; // the 3s timeout already fired and force-reconnected
+      settled = true;
+      clearTimeout(healthCheckTimeout);
+      if(roomCode && MY_PLAYER_ID && mySeat !== null){
+        // Even if the transport itself looks connected, re-announce our
+        // seat -- a long suspension can leave the server-side
+        // registration stale without the transport ever actually
+        // dropping, so this is cheap insurance either way.
+        syncSocket.emit('l56_reconnect', {code: roomCode, playerId: MY_PLAYER_ID, name: myName});
+      }
+    });
   }
 });
 
