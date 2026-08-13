@@ -2576,6 +2576,29 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     height:auto!important;min-height:calc(100vh - 40px);overflow:visible!important;
     margin-top:40px}
 }
+/* Manual "Tilt" toggle (btnTiltView) -- see toggleTiltView() in the main
+   script for the JS side. Rotates #gameWrap as ONE single unit (it
+   already contains the info bar, table, AND hand of cards together --
+   confirmed directly in the HTML, not assumed), NOT .topbar, so the
+   toggle button itself (and Admin, Invite, the home X) always stays
+   reachable in its normal place to turn this back off, rather than risk
+   rotating itself out of easy reach too. !important throughout so this
+   correctly wins regardless of which other layout rules (phone, or the
+   hover/pointer desktop block above) happen to be active underneath it
+   -- this toggle works identically no matter what's causing the
+   underlying layout to not fit right for someone, which is the whole
+   point of it existing instead of yet another attempt to auto-detect
+   the exact cause. */
+body.tilted-view{overflow:hidden!important}
+body.tilted-view .game-wrap{
+  position:fixed!important;top:0!important;left:100%!important;right:auto!important;bottom:auto!important;
+  width:100vh!important;height:100vw!important;max-width:none!important;
+  transform:rotate(90deg)!important;transform-origin:0 0!important;
+  display:flex!important;flex-direction:column!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+  margin:0!important;z-index:500;
+}
+#btnTiltView.tilt-active{background:rgba(244,196,48,0.35)!important;border-color:#f4c430!important}
 /* Create Room button on the "host or join" screen: flashes gold/red so
    it's obviously the next step after setting your name. Scoped to just
    this one button by id (not by class), so every other button sharing
@@ -3001,9 +3024,20 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       </div>
       <button class="icon-btn" id="btnSaveGame" title="Save Game">💾</button>
       <button class="icon-btn" id="btnLoadGame" title="Load Game">📂</button>
-      <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none;width:auto;padding:0 6px;gap:3px;white-space:nowrap">💌 Invite</button>
+      <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none;width:auto;padding:0 5px;gap:2px;white-space:nowrap;font-size:0.78em">💌 Invite</button>
       <button class="icon-btn" id="btnRequestSeat" title="Ask for a Seat" style="display:none">🪑</button>
-      <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none;width:auto;padding:0 8px;white-space:nowrap;font-weight:800">Admin</button>
+      <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none;width:auto;padding:0 6px;white-space:nowrap;font-weight:800;font-size:0.85em">Admin</button>
+      <!-- A computer has no real orientation sensor to rotate, and
+           trying to auto-detect "this needs a different layout" from CSS
+           alone (viewport width, hover/pointer, etc) kept being wrong for
+           someone -- a real PC, a phone in a desktop-emulating mode, an
+           iPad, each behaving unpredictably differently. This puts the
+           choice directly in the player's own hands instead: tap it,
+           the view rotates 90°, exactly like turning a phone would.
+           Always available (not gated to any particular device
+           detection), remembered per-device via localStorage so it
+           doesn't need re-tapping every reload. See toggleTiltView(). -->
+      <button class="icon-btn" id="btnTiltView" title="Rotate view 90°" onclick="toggleTiltView()" style="width:auto;padding:0 6px;font-size:0.9em">🔄</button>
       <button class="icon-btn" id="btnRoomManage" title="Manage Room (Host)" style="display:none">🎛️</button>
       <button class="icon-btn" id="btnHome" title="Go Home" style="margin-left:auto;background:#c0392b;border-color:#c0392b;color:#fff;border-radius:4px;font-weight:800">✕</button>
     </div>
@@ -13343,6 +13377,33 @@ function escapeHtml(str) {
 
 // Requests fullscreen -- hides the browser's own address bar and nav
 // bars on mobile -- the moment someone actually starts a game (Create
+// Manual "Tilt" toggle (the 🔄 button next to Admin/Invite): rotates the
+// whole game view 90° via CSS (see body.tilted-view rules near the end
+// of the stylesheet). A computer has no real orientation sensor to
+// rotate the way a phone does, and trying to auto-detect "this layout
+// doesn't fit right" purely from CSS (viewport width, hover/pointer,
+// etc) kept being wrong for someone in a different way each time -- a
+// real desktop, a phone in a desktop-emulating mode, an iPad, all
+// behaving differently and unpredictably. This puts the choice directly
+// in the player's hands instead, working identically regardless of
+// what's actually causing their layout to look wrong. Remembered
+// per-device via localStorage so it doesn't need re-tapping every reload.
+function toggleTiltView(){
+  const isActive = document.body.classList.toggle('tilted-view');
+  const btn = document.getElementById('btnTiltView');
+  if (btn) btn.classList.toggle('tilt-active', isActive);
+  try { localStorage.setItem('k28_tilted_view', isActive ? '1' : '0'); } catch(e) {}
+}
+(function(){
+  try {
+    if (localStorage.getItem('k28_tilted_view') === '1') {
+      document.body.classList.add('tilted-view');
+      const btn = document.getElementById('btnTiltView');
+      if (btn) btn.classList.add('tilt-active');
+    }
+  } catch(e) {}
+})();
+
 // Room, Join Room, or Play vs Bots). Only works when called
 // synchronously from within a real tap, which all three call sites
 // below are. Tries every vendor-prefixed version (standard, then
