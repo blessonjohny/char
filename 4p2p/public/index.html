@@ -2597,6 +2597,22 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    at the very end of the stylesheet (after the phone-width override above
    that recolors #btnCreateRoom blue with !important), so this wins the
    cascade on every screen size instead of being silently defeated by it. */
+/* Manual wide-layout toggle (#btnWideView / toggleWideView()) -- a plain
+   width change, nothing rotates or transforms. Works identically on a
+   phone or a PC, purely from an actual tap, completely independent of
+   the automatic hover/pointer-based desktop widening a few rules above
+   -- that one still only kicks in automatically for a genuine mouse-
+   driven computer; this is the SAME width, just also reachable manually
+   by anyone, on any device, whether that auto-detection applies or not. */
+body.wide-view .game-wrap,body.wide-view .topbar,body.wide-view .lobby-screen,body.wide-view .welcome-screen{
+  left:50%!important;right:auto!important;transform:translateX(-50%)!important;
+  width:min(1200px,94vw)!important;max-width:1200px!important;
+}
+body.wide-view .overlay{
+  left:50%!important;right:auto!important;transform:translateX(-50%)!important;
+  width:min(1200px,94vw)!important;max-width:1200px!important;
+}
+#btnWideView.wide-active{background:rgba(244,196,48,0.9)!important;color:#111!important}
 #btnCreateRoom{
   background:linear-gradient(135deg,#ffd700,#c0392b)!important;
   color:#fff!important;
@@ -3015,9 +3031,17 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       </div>
       <button class="icon-btn" id="btnSaveGame" title="Save Game">💾</button>
       <button class="icon-btn" id="btnLoadGame" title="Load Game">📂</button>
-      <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none;width:auto;padding:0 6px;gap:3px;white-space:nowrap">💌 Invite</button>
+      <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none;width:auto;padding:0 5px;gap:2px;white-space:nowrap;font-size:0.8em">💌 Invite</button>
       <button class="icon-btn" id="btnRequestSeat" title="Ask for a Seat" style="display:none">🪑</button>
-      <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none;width:auto;padding:0 8px;white-space:nowrap;font-weight:800">Admin</button>
+      <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none;width:auto;padding:0 6px;white-space:nowrap;font-weight:800;font-size:0.85em">Admin</button>
+      <!-- Toggles between the normal layout and a wider one for
+           landscape/desktop screens -- see toggleWideView() and
+           body.wide-view in the stylesheet. Just a CSS width change,
+           nothing rotates -- correcting an earlier, wrong attempt at
+           this that physically rotated the screen with a CSS
+           transform, which made no sense on a PC (or really anywhere
+           you can't also physically turn the screen afterward). -->
+      <button class="icon-btn" id="btnWideView" title="Toggle wide layout" onclick="toggleWideView()" style="width:auto;padding:0 6px;font-size:0.85em">🖥️</button>
       <button class="icon-btn" id="btnRoomManage" title="Manage Room (Host)" style="display:none">🎛️</button>
       <button class="icon-btn" id="btnHome" title="Go Home" style="margin-left:auto;background:#c0392b;border-color:#c0392b;color:#fff;border-radius:4px;font-weight:800">✕</button>
     </div>
@@ -13353,6 +13377,18 @@ function exitToHome() {
 // "take over this bot", and "just watch" actually apply right now.
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Manual layout toggle (the "🖥️ Wide View" button in the topbar, next
+// to Admin). Switches between the normal layout and a wider one that
+// properly uses landscape/desktop-width space -- purely a CSS class
+// toggle, nothing rotates or transforms, nothing to physically turn the
+// phone or monitor for. Off by default on every fresh load, changing
+// only from an actual tap.
+function toggleWideView(){
+  const isActive = document.body.classList.toggle('wide-view');
+  const btn = document.getElementById('btnWideView');
+  if (btn) btn.classList.toggle('wide-active', isActive);
 }
 
 // Requests fullscreen -- hides the browser's own address bar and nav
