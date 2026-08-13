@@ -2422,13 +2422,24 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    the full 140px-tall cards were getting silently clipped at the top by
    that implicit vertical clipping, with no scrollbar or visible sign
    anything was cut off. This is what "only seeing half my card on PC"
-   actually was. */
-.hand-area{overflow-x:hidden!important;overflow-y:visible!important;justify-content:center!important;padding-top:10px!important}
-.hand-area .card{flex-shrink:1!important;min-width:0;margin-left:-30px}
+   actually was.
+   Separately: the "shrink to fit, no scroll" approach this comment used
+   to describe was itself the cause of a DIFFERENT, worse problem --
+   flex-shrink:1 with no minimum meant a full hand (up to 8 cards) on a
+   narrow phone could shrink cards down far smaller than the FIXED
+   -30px/-16px overlap below ever accounted for, so a card thinner than
+   its own overlap ended up almost entirely hidden behind the one before
+   it -- not clipped, not a stacking bug, just buried. Cards no longer
+   shrink at all now (flex-shrink:0) -- they always render at their
+   real, legible size, and overflow-x:auto lets you scroll sideways to
+   reach the rest of a big hand instead of everything being silently
+   squeezed into near-invisibility trying to avoid that scroll. */
+.hand-area{overflow-x:auto!important;overflow-y:visible!important;justify-content:flex-start!important;padding-top:10px!important}
+.hand-area .card{flex-shrink:0!important;margin-left:-20px}
 .hand-area .card:first-child{margin-left:0}
 @media (max-width:480px){
   .card{width:52px !important;height:74px !important;border-radius:9px !important}
-  .hand-area .card{margin-left:-16px !important}
+  .hand-area .card{margin-left:-12px !important}
   .hand-area .card:first-child{margin-left:0 !important}
   .hand-area{min-height:86px !important;max-height:100px !important}
 }
