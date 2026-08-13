@@ -2410,8 +2410,20 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   border:1px solid rgba(120,104,60,0.35);
   box-shadow:0 3px 10px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.9)}
 /* Fan the hand: enough overlap that all 8 cards always fit the screen
-   with no horizontal scrolling; the card you can play lifts clear. */
-.hand-area{overflow-x:hidden!important;justify-content:center!important;padding-top:10px!important}
+   with no horizontal scrolling; the card you can play lifts clear.
+   overflow-y:visible here is NOT decorative -- without explicitly
+   setting it, the CSS spec quietly upgrades an unset overflow-y to act
+   like overflow-x:hidden's clipping too, the instant only ONE axis gets
+   set explicitly (which is exactly what overflow-x:hidden just above
+   does on its own). Base cards are 140px tall (see .card above), but
+   .hand-area's own min-height is only 86px -- on any screen that
+   doesn't get the mobile-specific SMALLER card size (that only kicks in
+   under max-width:480px; a real desktop window never matches that),
+   the full 140px-tall cards were getting silently clipped at the top by
+   that implicit vertical clipping, with no scrollbar or visible sign
+   anything was cut off. This is what "only seeing half my card on PC"
+   actually was. */
+.hand-area{overflow-x:hidden!important;overflow-y:visible!important;justify-content:center!important;padding-top:10px!important}
 .hand-area .card{flex-shrink:1!important;min-width:0;margin-left:-30px}
 .hand-area .card:first-child{margin-left:0}
 @media (max-width:480px){
