@@ -2495,12 +2495,24 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
      naturally proportionate to width), but on a desktop window the
      width is capped here while height stays full-viewport, so it has
      far more room to expand into than intended and pushes the hand of
-     cards below the bottom of the screen. Capping it keeps the table a
-     sensible, phone-like size regardless of how tall the browser
-     window actually is. Raised proportionally along with the column
-     width above, so the table doesn't end up looking small/squat
-     relative to the now-wider frame around it. */
-  #tableArea{max-height:820px}
+     cards below the bottom of the screen. A FIXED cap (originally
+     820px) helped on tall desktop windows but not shorter ones -- a
+     real desktop browser window is wide-but-often-short (address bar,
+     tabs, bookmarks bar, OS taskbar all eat into actual visible height
+     in a way a phone's own screen doesn't), and .game-wrap is
+     position:fixed with overflow:hidden, so anything that doesn't fit
+     is silently CLIPPED, not scrollable -- this was reported exactly as
+     it looks: the bottom of the hand of cards cut off, invisible, with
+     no way to scroll down to it. Using the ACTUAL available height
+     (100vh minus the 40px .game-wrap is offset by, minus a reserved
+     budget for the header rows above and the hand-of-cards row below)
+     instead of a flat number means the table now correctly shrinks to
+     fit on any real desktop window size, tall or short, guaranteeing
+     the hand of cards always stays fully visible. Still capped at 820px
+     too, so a very tall window doesn't stretch the table oversized
+     either. Scoped to this exact same min-width:700px block only --
+     nothing here can ever apply to a phone. */
+  #tableArea{max-height:min(820px, calc(100vh - 40px - 230px))}
 }
 /* Create Room button on the "host or join" screen: flashes gold/red so
    it's obviously the next step after setting your name. Scoped to just
