@@ -1631,9 +1631,9 @@ io.on('connection', (socket) => {
 
   // Quote: a pure declaration, not a card play -- the same player still
   // plays their card normally afterward via the usual playCard above.
-  // Only valid for the exact player/moment the engine is currently
-  // offering it to (see declareQuote() in the engine for the full
-  // validation).
+  // Any player, either team, can call it on their own turn as long as
+  // their team is still clean (see declareQuote() / _isQuoteEligibleFor()
+  // in the engine for the full validation).
   socket.on('declareQuote', () => {
     withTable((t, pos) => {
       if (pos === null || pos === undefined) return;
@@ -2243,10 +2243,10 @@ io.on('connection', (socket) => {
   });
 
   // Quote: a pure declaration, not a card play -- the same player still
-  // plays their card normally afterward via sixp_playCard above. Only
-  // valid for the exact player/moment the engine is currently offering
-  // it to (3 cards left each, not 2 -- this variant deals 6 cards per
-  // hand instead of 8). See declareQuote() in game-engine-6p.js.
+  // plays their card normally afterward via sixp_playCard above. Any
+  // player, either team, can call it on their own turn as long as
+  // their team is still clean. See declareQuote() /
+  // _isQuoteEligibleFor() in game-engine-6p.js.
   socket.on('sixp_declareQuote', () => {
     withSixpTable((t, pos) => {
       if (pos === null || pos === undefined) return;

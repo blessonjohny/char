@@ -148,17 +148,17 @@ class GameEngine6P {
     this.lastTrick = null;
     this.roundWinnerAnnounced = null;
     // "Already won" early-round-end and Quote -- see game-engine.js
-    // (the 4-player engine) for the full reasoning behind both; ported
-    // here with only the numbers changed for a 6-card hand instead of
-    // 8: Quote triggers with 2 cards left each (tricksPlayed===4, not
-    // 5), and a full sweep is all 6 tricks (tricksPlayed>=6, not 8).
-    // The 28-point full-sweep total is unchanged -- confirmed this
-    // variant's 36-card deck still totals 28 points, the extra four 6s
-    // are worth 0 each.
+    // (the 4-player engine) for the full reasoning behind both, now
+    // redesigned there to be always-live rather than tied to a fixed
+    // trick number: available to WHICHEVER team is currently clean
+    // (hasn't lost a trick yet, true for both teams from the start),
+    // for any player on that team on their own turn, as long as the bid
+    // was <=19. Ported here identically -- only the full-sweep total
+    // matters for success (28, confirmed unchanged for this variant's
+    // 36-card deck), not any trick-count trigger.
     this.pendingEarlyWinChoice = null;
     this.earlyWinDeclined = false;
-    this.biddingTeamCleanSweep = true;
-    this.quoteEligible = false;
+    this.teamStillClean = [true, true];
     this.quoteState = null;
   }
 
@@ -514,6 +514,16 @@ class GameEngine6P {
     }
   }
 
+  // See game-engine.js for the full reasoning -- identical helper here.
+  _isQuoteEligibleFor(pos) {
+    if (pos === null || pos === undefined || !this.seats[pos]) return false;
+    if (this.quoteState) return false;
+    if (this.phase !== 'play') return false;
+    if (this.highestBid > 19) return false;
+    if (this.pendingEarlyWinChoice) return false;
+    return !!this.teamStillClean[getTeam(pos)];
+  }
+
   _trickWinner() {
     const isRealTrump = (tc) => this.trumpExposed && tc.card.suit === this.trumpSuit && !tc.powerless;
     let w = this.trickCards[0];
@@ -535,10 +545,10 @@ class GameEngine6P {
     this.lastTrick = { cards: this.trickCards.slice(), winner: winner.pos, points, team };
     this.addLog(`Seat ${winner.pos} won the trick (+${points}pts).`);
 
-    // Clean-sweep tracking for Quote eligibility -- see game-engine.js
-    // for the full reasoning, identical logic here.
+    // Per-team clean tracking for Quote eligibility -- see
+    // game-engine.js for the full reasoning, identical logic here.
     const bidTeamThisRound = getTeam(this.bidder);
-    if (team !== bidTeamThisRound) this.biddingTeamCleanSweep = false;
+    this.teamStillClean[1 - team] = false;
 
     if (this.trickSuit) {
       for (const tc of this.trickCards) {
@@ -559,18 +569,12 @@ class GameEngine6P {
     this.trickSuit = '';
     this.mustPlayTrumpBy = -1;
 
-    // Quote resolution -- a 6-card hand means 6 total tricks, so the
-    // full sweep completes at tricksPlayed===6 (not 8 like the 4-player
-    // game's 8-card hand).
-    if (this.quoteState) {
-      if (team !== this.quoteState.team) {
-        this._endRound(); // quote team lost a trick they needed -- fails immediately
-        return;
-      } else if (this.tricksPlayed >= 6) {
-        this._endRound(); // quote team just won the 6th and final trick -- full sweep, succeeds
-        return;
-      }
-      // else: still mid-sweep, quote team won this one as needed -- fall through, more tricks to go
+    // Quote resolution -- see game-engine.js for the full reasoning,
+    // identical logic here: fails immediately on losing any trick,
+    // success just falls through to the normal cardsLeft===0 ending.
+    if (this.quoteState && team !== this.quoteState.team) {
+      this._endRound();
+      return;
     }
 
     const cardsLeft = this.seats.reduce((s, seat) => s + (seat ? seat.hand.length : 0), 0);
@@ -581,33 +585,24 @@ class GameEngine6P {
     } else if (cardsLeft === 0) {
       this._endRound();
     } else {
-      // Quote offer -- 2 cards left each (tricksPlayed===4 out of 6
-      // total, not 5 out of 8 like the 4-player game -- the 4p/6p
-      // trigger points are deliberately swapped, not just scaled by
-      // hand size), same win-every-trick-so-far and bid<=19
-      // requirements otherwise.
-      const seatsHaveTwoLeft = this.seats[winner.pos] && this.seats[winner.pos].hand.length === 2;
-      this.quoteEligible = !!(
-        this.tricksPlayed === 4 && seatsHaveTwoLeft && this.biddingTeamCleanSweep &&
-        team === bidTeamThisRound && this.highestBid <= 19
-      );
-
-      if (!this.quoteEligible) {
-        const oT = 1 - bidTeamThisRound;
-        const bidderClinched = this.teamPoints[bidTeamThisRound] >= this.highestBid;
-        const defenseClinched = this.teamPoints[oT] > (28 - this.highestBid);
-        if (!this.earlyWinDeclined && (bidderClinched || defenseClinched)) {
-          const winningTeam = bidderClinched ? bidTeamThisRound : oT;
-          const hasHuman = Array.from({ length: SEATS }, (_, p) => p).some(p => getTeam(p) === winningTeam && this.seats[p] && !this.seats[p].isBot);
-          if (hasHuman) {
-            this.pendingEarlyWinChoice = { team: winningTeam, made: bidderClinched };
-            this.currentPlayer = winner.pos;
-            this._notify();
-            return;
-          }
-          this._endRound();
+      // See game-engine.js for the full reasoning -- identical logic
+      // here: early-win suppressed while the winning team (whichever
+      // one it is) is still clean and their bid qualifies for Quote.
+      const oT = 1 - bidTeamThisRound;
+      const bidderClinched = this.teamPoints[bidTeamThisRound] >= this.highestBid;
+      const defenseClinched = this.teamPoints[oT] > (28 - this.highestBid);
+      const winningTeam = bidderClinched ? bidTeamThisRound : oT;
+      const stillQuoteCandidate = this.teamStillClean[winningTeam] && this.highestBid <= 19;
+      if (!stillQuoteCandidate && !this.earlyWinDeclined && (bidderClinched || defenseClinched)) {
+        const hasHuman = Array.from({ length: SEATS }, (_, p) => p).some(p => getTeam(p) === winningTeam && this.seats[p] && !this.seats[p].isBot);
+        if (hasHuman) {
+          this.pendingEarlyWinChoice = { team: winningTeam, made: bidderClinched };
+          this.currentPlayer = winner.pos;
+          this._notify();
           return;
         }
+        this._endRound();
+        return;
       }
 
       this.currentPlayer = winner.pos;
@@ -633,13 +628,11 @@ class GameEngine6P {
   }
 
   declareQuote(pos) {
-    if (!this.quoteEligible) return false;
     if (pos !== this.currentPlayer) return false;
-    if (getTeam(pos) !== getTeam(this.bidder)) return false;
-    this.quoteEligible = false;
+    if (!this._isQuoteEligibleFor(pos)) return false;
     this.quoteState = { team: getTeam(pos) };
     const seat = this.seats[pos];
-    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared QUOTE — betting on a full sweep of the last two tricks!`);
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared QUOTE — betting on a full sweep of all 6 tricks!`);
     this._notify();
     return true;
   }
@@ -1194,7 +1187,8 @@ class GameEngine6P {
       lastTrick: this.lastTrick,
       roundWinnerAnnounced: this.roundWinnerAnnounced,
       pendingEarlyWinChoice: this.pendingEarlyWinChoice,
-      quoteEligible: this.quoteEligible,
+      quoteEligible: this._isQuoteEligibleFor(this.currentPlayer),
+      teamStillClean: this.teamStillClean,
       quoteState: this.quoteState,
       phase: this.phase,
       seats: this.seats.map((s, i) => {

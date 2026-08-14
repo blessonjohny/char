@@ -442,18 +442,21 @@ class GameEngine {
     // respondToEarlyWin().
     this.pendingEarlyWinChoice = null; // {team, made} while awaiting a human choice
     this.earlyWinDeclined = false; // true once the winning team has chosen "keep playing" -- suppresses re-prompting every subsequent trick this round
-    // Quote: a bidding-team-only declaration, only valid when the
-    // original bid was <=19, offered specifically to the bidding-team
-    // player about to lead the 6th trick (3 cards left each) IF the
-    // bidding team has won every single trick so far this round (a
-    // clean sweep through 5 tricks). Declaring it is a bet on
-    // completing a full 8-trick sweep (all 28 points): success replaces
-    // normal scoring with a flat +2 for the bidding team; failing to
-    // sweep the last 3 tricks replaces it with a flat -3 against them,
-    // even if they'd already technically made their original bid. See
-    // the quote checks in _resolveTrick() and declareQuote()/_endRound().
-    this.biddingTeamCleanSweep = true; // tracks "has the bidding team won every trick so far" -- flips false the instant any trick goes to the other team
-    this.quoteEligible = false; // true exactly when the right player CAN declare quote right now (exposed to the client to show the prompt)
+    // Quote: available to WHICHEVER team is currently "clean" (hasn't
+    // lost a single trick yet this round -- trivially true for BOTH
+    // teams before the first trick, so it's live from the very start),
+    // valid for ANY player on that team on their own turn (leading or
+    // following), as long as the bid was <=19. Declaring it is a bet on
+    // the FULL 8-trick, 28-point sweep, evaluated as an absolute fact
+    // regardless of when it's declared -- calling it on trick 1 is a
+    // much bigger bet than calling it on trick 7, since either way the
+    // requirement is the same: every single trick, no exceptions.
+    // Success replaces normal scoring with a flat +2 for the declaring
+    // team; losing even one trick afterward replaces it with a flat -3
+    // against them, however many points they'd already banked. See
+    // _isQuoteEligibleFor(), the quote checks in _resolveTrick(), and
+    // declareQuote()/_endRound().
+    this.teamStillClean = [true, true]; // per-team: has this team won every trick so far (both start true, at most one stays true past trick 1)
     this.quoteState = null; // {team} once quote has actually been declared this round
     // Phase 2 (the "second chance to raise" round after trump is chosen,
     // once everyone's holding their full 8 cards). p2LastRaiser stays -1
@@ -1150,6 +1153,23 @@ class GameEngine {
     }
   }
 
+  // Reusable, always-computed-fresh check (never a stored flag that
+  // could go stale) -- true iff Quote is genuinely available for THIS
+  // exact player, right now: their team is still clean (hasn't lost a
+  // trick), it's actually the play phase (not bidding, not between
+  // rounds), the bid qualifies, nobody's already declared it this
+  // round, and there isn't a paused early-win decision blocking normal
+  // play at this exact moment (declaring into that pause would create
+  // two simultaneous, conflicting decisions).
+  _isQuoteEligibleFor(pos) {
+    if (pos === null || pos === undefined || !this.seats[pos]) return false;
+    if (this.quoteState) return false;
+    if (this.phase !== 'play') return false;
+    if (this.highestBid > 19) return false;
+    if (this.pendingEarlyWinChoice) return false;
+    return !!this.teamStillClean[getTeam(pos)];
+  }
+
   _trickWinner() {
     // A card only has genuine trump-beating power if it's actually the
     // trump suit AND wasn't just an incidental discard played before
@@ -1182,12 +1202,13 @@ class GameEngine {
     };
     this.addLog(`Seat ${winner.pos} won the trick (+${points}pts).`);
 
-    // Clean-sweep tracking for Quote eligibility -- flips false the
-    // instant any trick goes to the non-bidding team, and stays false
-    // for the rest of the round (a bidding team that's lost even one
-    // trick can never retroactively have "won all so far" again).
+    // Per-team clean tracking for Quote eligibility -- whichever team
+    // did NOT win this trick permanently loses their "still clean"
+    // status for the rest of the round (it can never come back once
+    // lost). At most one team can remain clean past trick 1, since a
+    // trick always goes to exactly one side.
     const bidTeamThisRound = getTeam(this.bidder);
-    if (team !== bidTeamThisRound) this.biddingTeamCleanSweep = false;
+    this.teamStillClean[1 - team] = false;
 
     // Anyone who didn't follow the led suit just proved they're out of
     // it entirely (following suit is mandatory whenever you can) — a
@@ -1215,22 +1236,17 @@ class GameEngine {
     this.trickSuit = '';
     this.mustPlayTrumpBy = -1; // never carries across tricks
 
-    // Quote resolution: if quote is already active and this was one of
-    // the last 3 tricks, its outcome is decided the instant either the
-    // bidding team loses a trick (fails immediately, no need to wait for
-    // trick 8) or wins all 3 remaining tricks (trick 8 just resolved in
-    // their favor). This check has to happen BEFORE the normal
-    // cardsLeft===0 end-of-round check below, since it replaces that
-    // round's scoring entirely rather than using the normal path.
-    if (this.quoteState) {
-      if (team !== this.quoteState.team) {
-        this._endRound(); // quote team lost a trick they needed -- fails now, don't wait for trick 8
-        return;
-      } else if (this.tricksPlayed >= 8) {
-        this._endRound(); // quote team just won the 8th and final trick -- full sweep, succeeds
-        return;
-      }
-      // else: still the 7th trick, quote team won it as needed -- fall through to normal flow, one more trick to go
+    // Quote resolution: if quote is already active, its outcome is
+    // decided the instant the declaring team loses ANY trick (fails
+    // immediately -- no reason to keep playing out a bet that's already
+    // lost). Success isn't specially checked here at all -- it just
+    // falls through to the normal cardsLeft===0 path below like any
+    // other round ending, since _endRound() already correctly checks
+    // "did the declaring team capture all 28 points" regardless of
+    // whether quote was ever involved.
+    if (this.quoteState && team !== this.quoteState.team) {
+      this._endRound();
+      return;
     }
 
     const cardsLeft = this.seats.reduce((s, seat) => s + (seat ? seat.hand.length : 0), 0);
@@ -1244,51 +1260,43 @@ class GameEngine {
     } else if (cardsLeft === 0) {
       this._endRound();
     } else {
-      // Quote offer: exactly the moment the bidding team's own leader is
-      // about to open the 6th trick (3 cards left each -- the bet is on
-      // sweeping the final 3 tricks, not 2), the bid was <=19, and
-      // they've won every trick so far. Takes priority over the
-      // early-win prompt below for this same transition -- it's the
-      // more specific option, and if they decline it (just play
-      // normally instead of declaring), the early-win check will
-      // naturally re-run on the NEXT trick anyway.
-      const seatsHaveThreeLeft = this.seats[winner.pos] && this.seats[winner.pos].hand.length === 3;
-      this.quoteEligible = !!(
-        this.tricksPlayed === 5 && seatsHaveThreeLeft && this.biddingTeamCleanSweep &&
-        team === bidTeamThisRound && this.highestBid <= 19
-      );
-
-      if (!this.quoteEligible) {
-        // Early-win offer: the outcome of this round just became
-        // mathematically certain -- either the bidding team has already
-        // captured enough to have made their bid regardless of what's
-        // left, or the defense has captured enough that the bidder can
-        // no longer reach their bid even by winning every remaining
-        // point. Only offered once per round (earlyWinDeclined).
-        const oT = 1 - bidTeamThisRound;
-        const bidderClinched = this.teamPoints[bidTeamThisRound] >= this.highestBid;
-        const defenseClinched = this.teamPoints[oT] > (28 - this.highestBid);
-        if (!this.earlyWinDeclined && (bidderClinched || defenseClinched)) {
-          const winningTeam = bidderClinched ? bidTeamThisRound : oT;
-          const hasHuman = [0, 1, 2, 3].some(p => getTeam(p) === winningTeam && this.seats[p] && !this.seats[p].isBot);
-          if (hasHuman) {
-            // A real person is on the winning team -- offer them the
-            // choice and wait, however long it takes, for an actual
-            // answer (see respondToEarlyWin()).
-            this.pendingEarlyWinChoice = { team: winningTeam, made: bidderClinched };
-            this.currentPlayer = winner.pos;
-            this._notify();
-            return;
-          }
-          // Nobody who'd need to see the remaining tricks is even
-          // watching -- skip straight to ending the round instead of
-          // pointlessly playing out an outcome that's already decided
-          // with no one around who needs it. _endRound()'s scoring is a
-          // pure threshold check either way, so this is exactly as
-          // correct as playing it all the way out would have been.
-          this._endRound();
+      // Early-win offer: the outcome of this round just became
+      // mathematically certain -- either the bidding team has already
+      // captured enough to have made their bid regardless of what's
+      // left, or the defense has captured enough that the bidder can
+      // no longer reach their bid even by winning every remaining
+      // point. Only offered once per round (earlyWinDeclined).
+      const oT = 1 - bidTeamThisRound;
+      const bidderClinched = this.teamPoints[bidTeamThisRound] >= this.highestBid;
+      const defenseClinched = this.teamPoints[oT] > (28 - this.highestBid);
+      const winningTeam = bidderClinched ? bidTeamThisRound : oT;
+      // If the winning team (whichever one it is -- Quote is no longer
+      // bidder-only) is STILL clean and their bid qualifies, don't
+      // interrupt them with this popup -- Quote is available to them
+      // right now (or will be the instant it's their turn), and forcing
+      // the early-win choice first would cut across that. Once their
+      // sweep actually breaks, this stops applying and the popup fires
+      // normally.
+      const stillQuoteCandidate = this.teamStillClean[winningTeam] && this.highestBid <= 19;
+      if (!stillQuoteCandidate && !this.earlyWinDeclined && (bidderClinched || defenseClinched)) {
+        const hasHuman = [0, 1, 2, 3].some(p => getTeam(p) === winningTeam && this.seats[p] && !this.seats[p].isBot);
+        if (hasHuman) {
+          // A real person is on the winning team -- offer them the
+          // choice and wait, however long it takes, for an actual
+          // answer (see respondToEarlyWin()).
+          this.pendingEarlyWinChoice = { team: winningTeam, made: bidderClinched };
+          this.currentPlayer = winner.pos;
+          this._notify();
           return;
         }
+        // Nobody who'd need to see the remaining tricks is even
+        // watching -- skip straight to ending the round instead of
+        // pointlessly playing out an outcome that's already decided
+        // with no one around who needs it. _endRound()'s scoring is a
+        // pure threshold check either way, so this is exactly as
+        // correct as playing it all the way out would have been.
+        this._endRound();
+        return;
       }
 
       this.currentPlayer = winner.pos;
@@ -1322,17 +1330,15 @@ class GameEngine {
 
   // Declares Quote -- a pure declaration, not a card play. The player
   // still plays their card normally afterward via the usual playCard()
-  // flow; this just locks in the bet before they do. Only the exact
-  // player the offer is currently for can call it, at exactly the
-  // moment it's valid.
+  // flow; this just locks in the bet before they do. Any player, on
+  // either team, can call it on their own turn as long as their team is
+  // still clean -- see _isQuoteEligibleFor() for the full check.
   declareQuote(pos) {
-    if (!this.quoteEligible) return false;
     if (pos !== this.currentPlayer) return false;
-    if (getTeam(pos) !== getTeam(this.bidder)) return false;
-    this.quoteEligible = false;
+    if (!this._isQuoteEligibleFor(pos)) return false;
     this.quoteState = { team: getTeam(pos) };
     const seat = this.seats[pos];
-    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared QUOTE — betting on a full sweep of the last three tricks!`);
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared QUOTE — betting on a full sweep of all 8 tricks!`);
     this._notify();
     return true;
   }
@@ -2313,7 +2319,14 @@ class GameEngine {
       lastTrick: this.lastTrick,
       roundWinnerAnnounced: this.roundWinnerAnnounced,
       pendingEarlyWinChoice: this.pendingEarlyWinChoice,
-      quoteEligible: this.quoteEligible,
+      // Computed fresh every time (never a stored flag) -- true iff
+      // it's genuinely valid for whoever's turn it currently is to
+      // declare Quote right now. The client combines this with its own
+      // currentPlayer===MY_POS check to decide whether ITS OWN quote
+      // button should be enabled -- the button itself stays visible to
+      // everyone at the table regardless, per how this was designed.
+      quoteEligible: this._isQuoteEligibleFor(this.currentPlayer),
+      teamStillClean: this.teamStillClean,
       quoteState: this.quoteState,
       seats: this.seats.map((s, i) => s ? {
         name: s.name, isBot: s.isBot, connected: s.connected,
