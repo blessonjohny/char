@@ -147,6 +147,19 @@ class GameEngine6P {
     this.teamPoints = [0, 0];
     this.lastTrick = null;
     this.roundWinnerAnnounced = null;
+    // "Already won" early-round-end and Quote -- see game-engine.js
+    // (the 4-player engine) for the full reasoning behind both; ported
+    // here with only the numbers changed for a 6-card hand instead of
+    // 8: Quote triggers with 3 cards left each (tricksPlayed===3, not
+    // 6), and a full sweep is all 6 tricks (tricksPlayed>=6, not 8).
+    // The 28-point full-sweep total is unchanged -- confirmed this
+    // variant's 36-card deck still totals 28 points, the extra four 6s
+    // are worth 0 each.
+    this.pendingEarlyWinChoice = null;
+    this.earlyWinDeclined = false;
+    this.biddingTeamCleanSweep = true;
+    this.quoteEligible = false;
+    this.quoteState = null;
   }
 
   addLog(msg) {
@@ -522,6 +535,11 @@ class GameEngine6P {
     this.lastTrick = { cards: this.trickCards.slice(), winner: winner.pos, points, team };
     this.addLog(`Seat ${winner.pos} won the trick (+${points}pts).`);
 
+    // Clean-sweep tracking for Quote eligibility -- see game-engine.js
+    // for the full reasoning, identical logic here.
+    const bidTeamThisRound = getTeam(this.bidder);
+    if (team !== bidTeamThisRound) this.biddingTeamCleanSweep = false;
+
     if (this.trickSuit) {
       for (const tc of this.trickCards) {
         if (tc.card.suit !== this.trickSuit) this.voidSuits[tc.pos].add(this.trickSuit);
@@ -541,6 +559,20 @@ class GameEngine6P {
     this.trickSuit = '';
     this.mustPlayTrumpBy = -1;
 
+    // Quote resolution -- a 6-card hand means 6 total tricks, so the
+    // full sweep completes at tricksPlayed===6 (not 8 like the 4-player
+    // game's 8-card hand).
+    if (this.quoteState) {
+      if (team !== this.quoteState.team) {
+        this._endRound(); // quote team lost a trick they needed -- fails immediately
+        return;
+      } else if (this.tricksPlayed >= 6) {
+        this._endRound(); // quote team just won the 6th and final trick -- full sweep, succeeds
+        return;
+      }
+      // else: still mid-sweep, quote team won this one as needed -- fall through, more tricks to go
+    }
+
     const cardsLeft = this.seats.reduce((s, seat) => s + (seat ? seat.hand.length : 0), 0);
     if (cardsLeft === 0 && this.hiddenTrump) {
       this.currentPlayer = this.hiddenTrumpOwner;
@@ -549,29 +581,97 @@ class GameEngine6P {
     } else if (cardsLeft === 0) {
       this._endRound();
     } else {
+      // Quote offer -- 3 cards left each (tricksPlayed===3 out of 6
+      // total, not 6 out of 8 like the 4-player game), same win-every-
+      // trick-so-far and bid<=19 requirements otherwise.
+      const seatsHaveThreeLeft = this.seats[winner.pos] && this.seats[winner.pos].hand.length === 3;
+      this.quoteEligible = !!(
+        this.tricksPlayed === 3 && seatsHaveThreeLeft && this.biddingTeamCleanSweep &&
+        team === bidTeamThisRound && this.highestBid <= 19
+      );
+
+      if (!this.quoteEligible) {
+        const oT = 1 - bidTeamThisRound;
+        const bidderClinched = this.teamPoints[bidTeamThisRound] >= this.highestBid;
+        const defenseClinched = this.teamPoints[oT] > (28 - this.highestBid);
+        if (!this.earlyWinDeclined && (bidderClinched || defenseClinched)) {
+          const winningTeam = bidderClinched ? bidTeamThisRound : oT;
+          const hasHuman = Array.from({ length: SEATS }, (_, p) => p).some(p => getTeam(p) === winningTeam && this.seats[p] && !this.seats[p].isBot);
+          if (hasHuman) {
+            this.pendingEarlyWinChoice = { team: winningTeam, made: bidderClinched };
+            this.currentPlayer = winner.pos;
+            this._notify();
+            return;
+          }
+          this._endRound();
+          return;
+        }
+      }
+
       this.currentPlayer = winner.pos;
       this._notify();
       this.maybeAutoAct();
     }
   }
 
+  // See game-engine.js for the full reasoning -- identical logic here,
+  // just using SEATS (6) instead of the 4-player game's hardcoded 4.
+  respondToEarlyWin(pos, continuePlay) {
+    if (!this.pendingEarlyWinChoice) return false;
+    if (getTeam(pos) !== this.pendingEarlyWinChoice.team) return false;
+    this.pendingEarlyWinChoice = null;
+    if (continuePlay) {
+      this.earlyWinDeclined = true;
+      this._notify();
+      this.maybeAutoAct();
+    } else {
+      this._endRound();
+    }
+    return true;
+  }
+
+  declareQuote(pos) {
+    if (!this.quoteEligible) return false;
+    if (pos !== this.currentPlayer) return false;
+    if (getTeam(pos) !== getTeam(this.bidder)) return false;
+    this.quoteEligible = false;
+    this.quoteState = { team: getTeam(pos) };
+    const seat = this.seats[pos];
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared QUOTE — betting on a full sweep of the last three tricks!`);
+    this._notify();
+    return true;
+  }
+
   _endRound() {
     const bT = getTeam(this.bidder);
     const oT = 1 - bT;
-    const made = this.teamPoints[bT] >= this.highestBid;
-    let pts;
-    if (this.highestBid >= 28) pts = made ? 3 : 4;
-    else if (this.highestBid >= 20) pts = made ? 2 : 3;
-    else pts = made ? 1 : 2;
+    const isQuote = !!this.quoteState;
+    let made, pts;
+    if (isQuote) {
+      // Quote replaces normal scoring entirely -- see game-engine.js for
+      // the full reasoning, identical logic here. Full sweep = all 28
+      // points (confirmed this variant's 36-card deck still totals 28,
+      // same as the 4-player game).
+      made = this.teamPoints[bT] >= 28;
+      pts = made ? 2 : 3;
+    } else {
+      made = this.teamPoints[bT] >= this.highestBid;
+      if (this.highestBid >= 28) pts = made ? 3 : 4;
+      else if (this.highestBid >= 20) pts = made ? 2 : 3;
+      else pts = made ? 1 : 2;
+    }
     const isHonors = this.highestBid >= 20;
     if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
     else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
     this.roundWinnerAnnounced = {
       bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
-      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors
+      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
+      quote: isQuote, quoteSuccess: isQuote ? made : undefined
     };
     this.phase = 'roundEnd';
-    this.addLog(`Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
+    this.addLog(isQuote
+      ? `Round ${this.round} over. Quote ${made ? 'succeeded — full sweep!' : 'failed'} (${made ? '+' : '-'}${pts}).`
+      : `Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
 
     // Q-mark removal: same rule as the 4-player game — personally
     // calling and winning a bid sheds one Q from yourself; on the very
@@ -641,6 +741,20 @@ class GameEngine6P {
   // ---------------- Bots ----------------
 
   maybeAutoAct() {
+    // See game-engine.js for the full reasoning -- identical guard here.
+    // If literally everyone on the winning team is now a bot or
+    // disconnected (can change after the prompt was first shown),
+    // auto-resolve with "keep playing" rather than risk the table
+    // waiting forever for an answer that's never coming.
+    if (this.pendingEarlyWinChoice) {
+      const team = this.pendingEarlyWinChoice.team;
+      const stillHasHuman = Array.from({ length: SEATS }, (_, p) => p).some(p => getTeam(p) === team && this.seats[p] && !this.seats[p].isBot && this.seats[p].connected);
+      if (!stillHasHuman) {
+        const anyPosOnTeam = Array.from({ length: SEATS }, (_, p) => p).find(p => getTeam(p) === team);
+        this.respondToEarlyWin(anyPosOnTeam, true);
+      }
+      return;
+    }
     const seat = this.seats[this.currentPlayer];
     if (!seat) return;
     if (this._turnTrackedPlayer !== this.currentPlayer || this._turnTrackedRound !== this.round) {
@@ -1077,6 +1191,9 @@ class GameEngine6P {
       gameOver: this.gameOver,
       lastTrick: this.lastTrick,
       roundWinnerAnnounced: this.roundWinnerAnnounced,
+      pendingEarlyWinChoice: this.pendingEarlyWinChoice,
+      quoteEligible: this.quoteEligible,
+      quoteState: this.quoteState,
       phase: this.phase,
       seats: this.seats.map((s, i) => {
         if (!s) return null;

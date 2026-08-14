@@ -1616,6 +1616,32 @@ io.on('connection', (socket) => {
     });
   });
 
+  // "Already won" early-round-end: whoever's on the winning team answers
+  // for their whole team (either partner can respond, see
+  // respondToEarlyWin() in the engine itself for why). continuePlay=true
+  // keeps playing normally; false ends the round right now using the
+  // already-decided point totals.
+  socket.on('respondToEarlyWin', ({ continuePlay }) => {
+    withTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.respondToEarlyWin(pos, !!continuePlay);
+      if (!r) socket.emit('actionError', { ok: false, reason: 'not your team\'s decision to make right now' });
+    });
+  });
+
+  // Quote: a pure declaration, not a card play -- the same player still
+  // plays their card normally afterward via the usual playCard above.
+  // Only valid for the exact player/moment the engine is currently
+  // offering it to (see declareQuote() in the engine for the full
+  // validation).
+  socket.on('declareQuote', () => {
+    withTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.declareQuote(pos);
+      if (!r) socket.emit('actionError', { ok: false, reason: 'quote is not available right now' });
+    });
+  });
+
   socket.on('continueRound', () => {
     withTable((t, pos) => {
       if (!isEffectiveHost(t, playerId)) return;
@@ -2199,6 +2225,36 @@ io.on('connection', (socket) => {
 
   socket.on('sixp_playHiddenTrump', () => {
     withSixpTable((t, pos) => { t.engine.playHiddenTrump(pos); sixpTouch(t); });
+  });
+
+  // "Already won" early-round-end: whoever's on the winning team answers
+  // for their whole team (either teammate can respond). continuePlay=true
+  // keeps playing normally; false ends the round right now using the
+  // already-decided point totals. See respondToEarlyWin() in
+  // game-engine-6p.js for the full validation.
+  socket.on('sixp_respondToEarlyWin', ({ continuePlay }) => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.respondToEarlyWin(pos, !!continuePlay);
+      if (!r) { socket.emit('sixp_actionError', { reason: 'not your team\'s decision to make right now' }); return; }
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+    });
+  });
+
+  // Quote: a pure declaration, not a card play -- the same player still
+  // plays their card normally afterward via sixp_playCard above. Only
+  // valid for the exact player/moment the engine is currently offering
+  // it to (3 cards left each, not 2 -- this variant deals 6 cards per
+  // hand instead of 8). See declareQuote() in game-engine-6p.js.
+  socket.on('sixp_declareQuote', () => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.declareQuote(pos);
+      if (!r) { socket.emit('sixp_actionError', { reason: 'quote is not available right now' }); return; }
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+    });
   });
 
   socket.on('sixp_continueRound', () => {
