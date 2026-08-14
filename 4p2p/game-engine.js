@@ -444,12 +444,12 @@ class GameEngine {
     this.earlyWinDeclined = false; // true once the winning team has chosen "keep playing" -- suppresses re-prompting every subsequent trick this round
     // Quote: a bidding-team-only declaration, only valid when the
     // original bid was <=19, offered specifically to the bidding-team
-    // player about to lead the 7th trick (2 cards left each) IF the
+    // player about to lead the 6th trick (3 cards left each) IF the
     // bidding team has won every single trick so far this round (a
-    // clean sweep through 6 tricks). Declaring it is a bet on
+    // clean sweep through 5 tricks). Declaring it is a bet on
     // completing a full 8-trick sweep (all 28 points): success replaces
     // normal scoring with a flat +2 for the bidding team; failing to
-    // sweep the last 2 tricks replaces it with a flat -3 against them,
+    // sweep the last 3 tricks replaces it with a flat -3 against them,
     // even if they'd already technically made their original bid. See
     // the quote checks in _resolveTrick() and declareQuote()/_endRound().
     this.biddingTeamCleanSweep = true; // tracks "has the bidding team won every trick so far" -- flips false the instant any trick goes to the other team
@@ -1216,9 +1216,9 @@ class GameEngine {
     this.mustPlayTrumpBy = -1; // never carries across tricks
 
     // Quote resolution: if quote is already active and this was one of
-    // the last 2 tricks, its outcome is decided the instant either the
+    // the last 3 tricks, its outcome is decided the instant either the
     // bidding team loses a trick (fails immediately, no need to wait for
-    // trick 8) or wins both remaining tricks (trick 8 just resolved in
+    // trick 8) or wins all 3 remaining tricks (trick 8 just resolved in
     // their favor). This check has to happen BEFORE the normal
     // cardsLeft===0 end-of-round check below, since it replaces that
     // round's scoring entirely rather than using the normal path.
@@ -1245,15 +1245,16 @@ class GameEngine {
       this._endRound();
     } else {
       // Quote offer: exactly the moment the bidding team's own leader is
-      // about to open the 7th trick (2 cards left each), the bid was
-      // <=19, and they've won every trick so far. Takes priority over
-      // the early-win prompt below for this same transition -- it's the
+      // about to open the 6th trick (3 cards left each -- the bet is on
+      // sweeping the final 3 tricks, not 2), the bid was <=19, and
+      // they've won every trick so far. Takes priority over the
+      // early-win prompt below for this same transition -- it's the
       // more specific option, and if they decline it (just play
       // normally instead of declaring), the early-win check will
       // naturally re-run on the NEXT trick anyway.
-      const seatsHaveTwoLeft = this.seats[winner.pos] && this.seats[winner.pos].hand.length === 2;
+      const seatsHaveThreeLeft = this.seats[winner.pos] && this.seats[winner.pos].hand.length === 3;
       this.quoteEligible = !!(
-        this.tricksPlayed === 6 && seatsHaveTwoLeft && this.biddingTeamCleanSweep &&
+        this.tricksPlayed === 5 && seatsHaveThreeLeft && this.biddingTeamCleanSweep &&
         team === bidTeamThisRound && this.highestBid <= 19
       );
 
@@ -1331,7 +1332,7 @@ class GameEngine {
     this.quoteEligible = false;
     this.quoteState = { team: getTeam(pos) };
     const seat = this.seats[pos];
-    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared QUOTE — betting on a full sweep of the last two tricks!`);
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared QUOTE — betting on a full sweep of the last three tricks!`);
     this._notify();
     return true;
   }

@@ -150,8 +150,8 @@ class GameEngine6P {
     // "Already won" early-round-end and Quote -- see game-engine.js
     // (the 4-player engine) for the full reasoning behind both; ported
     // here with only the numbers changed for a 6-card hand instead of
-    // 8: Quote triggers with 3 cards left each (tricksPlayed===3, not
-    // 6), and a full sweep is all 6 tricks (tricksPlayed>=6, not 8).
+    // 8: Quote triggers with 2 cards left each (tricksPlayed===4, not
+    // 5), and a full sweep is all 6 tricks (tricksPlayed>=6, not 8).
     // The 28-point full-sweep total is unchanged -- confirmed this
     // variant's 36-card deck still totals 28 points, the extra four 6s
     // are worth 0 each.
@@ -581,12 +581,14 @@ class GameEngine6P {
     } else if (cardsLeft === 0) {
       this._endRound();
     } else {
-      // Quote offer -- 3 cards left each (tricksPlayed===3 out of 6
-      // total, not 6 out of 8 like the 4-player game), same win-every-
-      // trick-so-far and bid<=19 requirements otherwise.
-      const seatsHaveThreeLeft = this.seats[winner.pos] && this.seats[winner.pos].hand.length === 3;
+      // Quote offer -- 2 cards left each (tricksPlayed===4 out of 6
+      // total, not 5 out of 8 like the 4-player game -- the 4p/6p
+      // trigger points are deliberately swapped, not just scaled by
+      // hand size), same win-every-trick-so-far and bid<=19
+      // requirements otherwise.
+      const seatsHaveTwoLeft = this.seats[winner.pos] && this.seats[winner.pos].hand.length === 2;
       this.quoteEligible = !!(
-        this.tricksPlayed === 3 && seatsHaveThreeLeft && this.biddingTeamCleanSweep &&
+        this.tricksPlayed === 4 && seatsHaveTwoLeft && this.biddingTeamCleanSweep &&
         team === bidTeamThisRound && this.highestBid <= 19
       );
 
@@ -637,7 +639,7 @@ class GameEngine6P {
     this.quoteEligible = false;
     this.quoteState = { team: getTeam(pos) };
     const seat = this.seats[pos];
-    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared QUOTE — betting on a full sweep of the last three tricks!`);
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared QUOTE — betting on a full sweep of the last two tricks!`);
     this._notify();
     return true;
   }
