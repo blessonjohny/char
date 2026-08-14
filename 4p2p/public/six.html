@@ -71,6 +71,11 @@ h1{font-size:1.7rem;margin:0 0 4px;background:linear-gradient(135deg,#f4c430,#e6
 .btn{padding:14px 20px;border-radius:12px;border:none;font-weight:700;font-size:0.95rem;width:100%;max-width:320px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px}
 .btn-primary{background:linear-gradient(135deg,#9b59b6,#8e44ad);color:#fff}
 .btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--text-primary)}
+/* Quote button states -- see #btnQuoteDeclare. Visible to everyone the
+   whole time; only "active" is genuinely clickable. */
+#btnQuoteDeclare.quote-btn-active{background:linear-gradient(135deg,#f4c430,#c99a1e)!important;border-color:#f4c430!important;color:#241a12!important;box-shadow:0 0 10px rgba(244,196,48,0.6);animation:quoteBtnPulse6p 1.6s ease-in-out infinite}
+#btnQuoteDeclare.quote-btn-disabled{opacity:0.45;filter:grayscale(0.4);cursor:default;pointer-events:none}
+@keyframes quoteBtnPulse6p{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 .btn-success{background:linear-gradient(135deg,#3ddc84,#2bb673);color:#04241a}
 .btn-danger{background:linear-gradient(135deg,#ff5c5c,#e74040);color:#fff}
 input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:1rem;margin-bottom:14px;text-align:center}
@@ -369,6 +374,13 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
       </div>
       <div style="display:flex;gap:2px;align-items:center;flex-shrink:0">
       <button class="btn-outline" id="btnHostMenu" style="display:none;padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">Admin</button>
+      <!-- Quote button -- see updateQuoteButton()/declareQuote in
+           six.js and _isQuoteEligibleFor() in game-engine-6p.js.
+           Persistent and visible to everyone during play, only
+           enabled/clickable when it's genuinely valid for whoever's
+           looking at it: their own turn, and their team hasn't lost a
+           trick yet this round. -->
+      <button class="btn-outline" id="btnQuoteDeclare" title="Declare Quote" style="display:none;padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">🎯 Quote</button>
       <button class="btn-outline" id="btnChat" title="Chat" style="padding:3px 7px;border-radius:7px;font-size:0.68rem;position:relative">💬<span class="chat-badge" id="chatBadge"></span></button>
       <button class="btn-outline" id="btnInvite" title="Invite a Friend" style="padding:3px 7px;border-radius:7px;font-size:0.68rem;white-space:nowrap">💌</button>
       <button class="btn-outline" id="btnGameHome" title="Leave Table" style="margin-left:6px;padding:3px 9px;border-radius:6px;font-size:0.75rem;background:#c0392b;border-color:#c0392b;color:#fff;font-weight:800">✕</button>
@@ -739,24 +751,6 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
       <button class="btn btn-primary" style="width:100%" id="btnEarlyWinKeepPlaying">▶️ Keep Playing</button>
       <button class="btn btn-outline" style="width:100%" id="btnEarlyWinNextRound">⏭️ Start Next Round</button>
       <button class="btn btn-primary" style="width:100%;display:none" id="btnEarlyWinOk">OK</button>
-    </div>
-  </div>
-</div>
-
-<!-- Quote offer -- shown ONLY to the exact player it's currently being
-     offered to (2 cards left each -- the 4-player table's trigger is 3
-     cards left; these are deliberately swapped, not just scaled by hand
-     size), a plain Yes/No with no timer. Bots never see this at all --
-     nothing ever calls sixp_declareQuote on their behalf. -->
-<div class="modal-overlay" id="quoteOfferOverlay" style="z-index:2200">
-  <div class="modal-box" style="text-align:center">
-    <h3>🎯 Declare Quote?</h3>
-    <p>Your team has won every trick so far, with 2 cards left each.<br><br>
-      Declare <b>Quote</b> to bet on sweeping both remaining tricks:
-      <b>+2</b> if you win everything, <b>-3</b> if you don't — even if you've already made your bid.</p>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn btn-primary" style="width:100%" id="btnQuoteYes">🎯 Yes, Declare Quote!</button>
-      <button class="btn btn-outline" style="width:100%" id="btnQuoteNo">No, Play Normally</button>
     </div>
   </div>
 </div>

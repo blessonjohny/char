@@ -567,7 +567,6 @@ let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toas
 let lastShownRoundVoidMessage = null;
 let lastShownPartnerSignalKey6p = null;
 let lastShownEarlyWinChoice6p = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
-let lastShownQuoteOffer6p = false; // true while a popup is already showing for the CURRENT quote-eligible moment
 let lastShownQuoteDeclaredForTeam6p = null; // which team's quote declaration has already been announced this round
 let lastSeenTricksPlayed = -1; // detects exactly when a new trick has just completed
 let trickHoldBusy = false;     // a trick is currently mid-reveal (its full pause hasn't elapsed yet)
@@ -931,7 +930,8 @@ function applyState(state) {
   }
 
   handleEarlyWinPopup(state);
-  handleQuotePopups(state);
+  updateQuoteButton(state);
+  handleQuoteDeclaredToast(state);
 
   if (state.phase === 'lobby') {
     $('gameScreen').style.display = 'none';
@@ -1935,37 +1935,48 @@ $('btnEarlyWinOk').addEventListener('click', () => {
   $('earlyWinOverlay').classList.remove('on');
 });
 
-// Quote offer -- shown ONLY to the exact player currently being offered
-// it, plain Yes/No, no timer. Bots never see this (nothing calls
-// sixp_declareQuote on their behalf, so they always effectively
-// "decline" just by never being asked). Quote declared is a simple
-// one-time toast to the whole table.
-function handleQuotePopups(state) {
-  if (state.quoteEligible && state.currentPlayer === MY_POS && !lastShownQuoteOffer6p) {
-    lastShownQuoteOffer6p = true;
-    $('quoteOfferOverlay').classList.add('on');
-  } else if (!state.quoteEligible) {
-    lastShownQuoteOffer6p = false;
-    $('quoteOfferOverlay').classList.remove('on');
+// Quote button -- persistent, visible to everyone at the table during
+// play, but only genuinely clickable ("active") when it's this exact
+// viewer's turn and their team hasn't lost a trick yet this round. See
+// declareQuote() / _isQuoteEligibleFor() in game-engine-6p.js for the
+// authoritative rule -- this is purely a reflection of server state.
+function updateQuoteButton(state) {
+  const btn = $('btnQuoteDeclare');
+  if (!btn) return;
+  if (state.phase !== 'play' && !state.quoteState) {
+    btn.style.display = 'none';
+    return;
   }
+  btn.style.display = '';
+  if (state.quoteState) {
+    const onThatTeam = sixpGetTeam(MY_POS) === state.quoteState.team;
+    btn.textContent = onThatTeam ? '🎯 Quote (yours!)' : '🎯 Quote (active)';
+    btn.classList.remove('quote-btn-active');
+    btn.classList.add('quote-btn-disabled');
+    return;
+  }
+  btn.textContent = '🎯 Quote';
+  const iAmEligible = !!(state.quoteEligible && state.currentPlayer === MY_POS);
+  btn.classList.toggle('quote-btn-active', iAmEligible);
+  btn.classList.toggle('quote-btn-disabled', !iAmEligible);
+}
+$('btnQuoteDeclare').addEventListener('click', () => {
+  if (!latestState || !latestState.quoteEligible || latestState.currentPlayer !== MY_POS) return;
+  if (!confirm('Declare Quote?\n\nYour team hasn\'t lost a single trick yet this round. This bets on sweeping EVERY remaining trick: +2 if you win everything, -3 if you lose even one trick from here -- even if you\'ve already made your bid.')) return;
+  socket.emit('sixp_declareQuote');
+});
 
+// Quote declared -- a one-time announcement to the whole table, tracked
+// by team so it only fires once per declaration.
+function handleQuoteDeclaredToast(state) {
   if (state.quoteState && lastShownQuoteDeclaredForTeam6p !== state.quoteState.team) {
     lastShownQuoteDeclaredForTeam6p = state.quoteState.team;
     const onThatTeam = sixpGetTeam(MY_POS) === state.quoteState.team;
-    showToast(`🎯 ${onThatTeam ? 'Your team' : 'The bidding team'} declared Quote! +2 if they sweep, -3 if not.`, 'info', 4500);
+    showToast(`🎯 ${onThatTeam ? 'Your team' : 'The other team'} declared Quote! +2 if they sweep everything, -3 if not.`, 'info', 4500);
   } else if (!state.quoteState) {
     lastShownQuoteDeclaredForTeam6p = null;
   }
 }
-$('btnQuoteYes').addEventListener('click', () => {
-  $('quoteOfferOverlay').classList.remove('on');
-  socket.emit('sixp_declareQuote');
-});
-$('btnQuoteNo').addEventListener('click', () => {
-  $('quoteOfferOverlay').classList.remove('on');
-  // Declining just means playing a card normally -- nothing to send,
-  // quoteEligible naturally clears server-side the moment they do.
-});
 async function shareInviteLink() {
   if (!MY_TABLE_ID) { showToast('Join a table first', 'lose', 1500); return; }
   const link = window.location.origin + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);

@@ -1516,6 +1516,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    the actual card row on any screen size -- these are just sane fallback
    values for the instant before that JS runs. */
 .table-corner-btn{position:fixed;bottom:110px;right:8px;z-index:150;width:32px;height:32px;font-size:0.9rem}
+/* Quote button states -- see #btnQuoteDeclare above. Visible to
+   everyone at the table the whole time (so nobody's surprised when a
+   quote actually gets declared), but only the "active" state is
+   genuinely clickable -- disabled just means it's not your moment for
+   it right now (not your turn, or your team's already lost a trick
+   this round), not that quote is unavailable to the table at all. */
+#btnQuoteDeclare.quote-btn-active{background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;box-shadow:0 0 12px rgba(244,196,48,0.6);animation:quoteBtnPulse 1.6s ease-in-out infinite}
+#btnQuoteDeclare.quote-btn-disabled{opacity:0.45;filter:grayscale(0.4);cursor:default;pointer-events:none}
+@keyframes quoteBtnPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 /* Center racetrack - where cards are played */
 .center{
   position:relative;
@@ -3033,6 +3042,16 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <div class="chip-stack cs-bl"><div class="c3"></div></div>
     <div class="chip-stack cs-br"><div class="c3"></div></div>
     <button class="icon-btn table-corner-btn" id="btnChat" title="Chat" style="display:none">💬<span class="chat-badge" id="chatBadge"></span></button>
+    <!-- Quote button -- see toggleQuoteDeclare()/updateQuoteButton() in
+         the main script and _isQuoteEligibleFor() in game-engine.js.
+         Persistent and visible to every player at the table at all
+         times during play (not just whoever's currently eligible), but
+         only enabled/clickable when it's genuinely valid for the
+         person looking at it right now: their own turn, and their
+         team hasn't lost a trick yet this round. Positioned just to the
+         left of the chat button, right of where the player's own
+         avatar sits at the bottom of the table. -->
+    <button class="icon-btn table-corner-btn" id="btnQuoteDeclare" title="Declare Quote" style="display:none;right:48px;width:auto;padding:0 8px;font-weight:800;font-size:0.8rem">🎯 Quote</button>
     <div class="bid-predictor" id="bidPredictor" style="display:none">
       <h6><span class="pulse-dot"></span>Smart Predictor</h6>
       <div class="predictor-section">
@@ -12606,7 +12625,6 @@ let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toas
 let lastShownRoundVoidMessage = null; // tracks the defending-team-has-no-trump void message so it shows exactly once per occurrence
 let lastShownReshuffleReasonTs = null; // same "show exactly once" pattern for the 3 auto-reshuffle popups below
 let lastShownEarlyWinChoice = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
-let lastShownQuoteOffer = false; // true while a popup is already showing for the CURRENT quote-eligible moment
 let lastShownQuoteDeclaredForTeam = null; // which team's quote declaration has already been announced this round
 let lastShownPartnerSignalKey = null; // tracks the last partner bidding signal shown to this player so it shows exactly once per occurrence
 
@@ -13397,20 +13415,21 @@ maybeShowIosInstallHint();
 // new announcement at all, since they'd already be marked as having
 // "seen" that exact version string.
 // ============================================================
-const K28_UPDATE_VERSION = '2026-08-14-quote';
+const K28_UPDATE_VERSION = '2026-08-14-welcome-quote';
 const K28_UPDATE_HTML = `
-  <div style="font-size:1.6rem;margin-bottom:4px">📢</div>
-  <div style="color:#f4c430;font-size:1.05rem;font-weight:800;margin-bottom:4px">What's New — Aug 14, 2026</div>
+  <div style="font-size:1.6rem;margin-bottom:4px">🌍</div>
+  <div style="color:#f4c430;font-size:1.05rem;font-weight:800;margin-bottom:4px">Welcome to 28GULAN.COM</div>
   <div style="color:var(--text-secondary);font-size:0.8rem;line-height:1.6;text-align:left;margin:14px 0">
-    <b style="color:#fff">🎯 New rule: Quote</b> — if your team has swept every trick so far (bid ≤19),
-    you can declare Quote with a few cards left: bet on sweeping everything for a bonus, or risk a bigger
-    penalty if you don't complete it.<br><br>
-    <b style="color:#fff">🏆 "Already won" popup</b> — once a round's outcome is mathematically decided,
-    the winning team can skip straight to the next round instead of playing out tricks that no longer matter.<br><br>
-    These are brand new — if anything looks or behaves unexpectedly, please let us know using the button below.
+    This site is built for people who love <b style="color:#fff">28 and 56</b> — the goal is simple:
+    play with fellow card lovers from around the world you've never met, and have a genuinely good time
+    together. Building a community around these games, one hand at a time.<br><br>
+    <b style="color:#fff">🎯 New rule: Quote</b> (Aug 14) — sweep every trick so far on a bid ≤19, and with
+    a few cards left you can bet on sweeping everything for a bonus, or risk a bigger penalty if you don't.<br><br>
+    Got ideas for what this place should become, or spotted something that felt off? We'd genuinely love
+    to hear it.
   </div>
   <div style="display:flex;flex-direction:column;gap:8px">
-    <button id="btnUpdateAnnounceComment" class="btn btn-outline" style="width:100%">💌 Report Something Unexpected</button>
+    <button id="btnUpdateAnnounceComment" class="btn btn-outline" style="width:100%">💌 Share Ideas & Comments</button>
     <button id="btnUpdateAnnounceOk" class="btn btn-primary" style="width:100%">Got it, let's play!</button>
   </div>
 `;
@@ -13977,57 +13996,22 @@ function applyServerState(state) {
     lastShownEarlyWinChoice = false;
   }
 
-  // Quote offer -- shown ONLY to the exact player it's currently being
-  // offered to, a plain Yes/No with no timer (bots never see this at
-  // all, since nothing ever calls declareQuote() on their behalf --
-  // they always effectively "decline" just by never being asked).
-  if (state.quoteEligible && state.currentPlayer === MY_POS && !lastShownQuoteOffer) {
-    lastShownQuoteOffer = true;
-    showModal('🎯 Declare Quote?',
-      'Your team has won every trick so far, with 3 cards left each.<br><br>' +
-      'Declare <b>Quote</b> to bet on sweeping all 3 remaining tricks: ' +
-      '<b>+2</b> if you win everything, <b>-3</b> if you don\'t — even if you\'ve already made your bid.');
-    const okBtn = document.getElementById('modalOkBtn');
-    const oldOk = okBtn.onclick;
-    let noBtn = document.getElementById('modalNoBtn');
-    if (!noBtn) {
-      noBtn = document.createElement('button');
-      noBtn.id = 'modalNoBtn';
-      noBtn.className = 'btn btn-outline';
-      noBtn.style.cssText = 'width:100%;margin-top:8px';
-      document.getElementById('modalBox').appendChild(noBtn);
-    }
-    const oldNoClick = noBtn.onclick;
-    const oldNoDisplay = noBtn.style.display;
-    okBtn.textContent = '🎯 Yes, Declare Quote!';
-    okBtn.onclick = function() {
-      closeModal();
-      okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
-      noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
-      gameSocket.emit('declareQuote');
-    };
-    noBtn.textContent = 'No, Play Normally';
-    noBtn.style.display = '';
-    noBtn.onclick = function() {
-      closeModal();
-      okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
-      noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
-      // Declining just means playing a card normally -- nothing to
-      // send, quoteEligible naturally clears the moment they do.
-    };
-  } else if (!state.quoteEligible) {
-    lastShownQuoteOffer = false;
-  }
+  // Quote button -- persistent and visible to everyone, updated on
+  // every state push (see updateQuoteButton() near the bottom of this
+  // file). No popup anymore; the button's own enabled/disabled state
+  // IS the offer.
+  updateQuoteButton(state);
 
   // Quote declared -- a one-time announcement to the whole table,
   // tracked by team so it only fires once per declaration (quoteState
-  // stays set for the rest of the round once declared).
+  // stays set for the rest of the round once declared). No longer
+  // bidder-specific -- either team can be the one declaring now.
   if (state.quoteState && lastShownQuoteDeclaredForTeam !== state.quoteState.team) {
     lastShownQuoteDeclaredForTeam = state.quoteState.team;
     const onThatTeam = getTeam(MY_POS) === state.quoteState.team;
     showModal('🎯 Quote Declared!',
-      `${onThatTeam ? 'Your team' : 'The bidding team'} just declared <b>Quote</b> — betting on sweeping all 3 remaining tricks. ` +
-      `+2 if they win everything, -3 if they don't.`);
+      `${onThatTeam ? 'Your team' : 'The other team'} just declared <b>Quote</b> — betting on sweeping every single trick this round. ` +
+      `+2 if they win everything, -3 if they lose even one trick from here.`);
   } else if (!state.quoteState) {
     lastShownQuoteDeclaredForTeam = null;
   }
@@ -14504,6 +14488,67 @@ let lastSeenTricksPlayed = -1;
 // after a restart or reconnect can silently break the "a trick just
 // resolved" detection for the rest of that round, since the new round's
 // real progress would never again exceed old, leftover high-water marks.
+// Quote button -- persistent, visible to everyone at the table during
+// play, but only genuinely clickable ("active") when it's this exact
+// viewer's turn and their team hasn't lost a trick yet this round. See
+// declareQuote() / _isQuoteEligibleFor() in game-engine.js for the
+// authoritative rule -- this is purely a reflection of server state,
+// never a local decision about whether it should be allowed.
+function updateQuoteButton(state) {
+  const btn = document.getElementById('btnQuoteDeclare');
+  if (!btn) return;
+  if (state.phase !== 'play' && !state.quoteState) {
+    btn.style.display = 'none';
+    return;
+  }
+  btn.style.display = '';
+  if (state.quoteState) {
+    // Already declared this round -- informational only from here on.
+    const onThatTeam = getTeam(MY_POS) === state.quoteState.team;
+    btn.textContent = onThatTeam ? '🎯 Quote (yours!)' : '🎯 Quote (active)';
+    btn.classList.remove('quote-btn-active');
+    btn.classList.add('quote-btn-disabled');
+    return;
+  }
+  btn.textContent = '🎯 Quote';
+  const iAmEligible = !!(state.quoteEligible && state.currentPlayer === MY_POS);
+  btn.classList.toggle('quote-btn-active', iAmEligible);
+  btn.classList.toggle('quote-btn-disabled', !iAmEligible);
+}
+document.getElementById('btnQuoteDeclare').addEventListener('click', () => {
+  if (!latestServerState || !latestServerState.quoteEligible || latestServerState.currentPlayer !== MY_POS) return;
+  showModal('🎯 Declare Quote?',
+    'Your team hasn\'t lost a single trick yet this round.<br><br>' +
+    'Declare <b>Quote</b> to bet on sweeping <b>every single trick</b> the rest of this round: ' +
+    '<b>+2</b> if you win everything, <b>-3</b> if you lose even one trick from here — even if you\'ve already made your bid.');
+  const okBtn = document.getElementById('modalOkBtn');
+  const oldOk = okBtn.onclick;
+  let noBtn = document.getElementById('modalNoBtn');
+  if (!noBtn) {
+    noBtn = document.createElement('button');
+    noBtn.id = 'modalNoBtn';
+    noBtn.className = 'btn btn-outline';
+    noBtn.style.cssText = 'width:100%;margin-top:8px';
+    document.getElementById('modalBox').appendChild(noBtn);
+  }
+  const oldNoClick = noBtn.onclick;
+  const oldNoDisplay = noBtn.style.display;
+  okBtn.textContent = '🎯 Yes, Declare Quote!';
+  okBtn.onclick = function() {
+    closeModal();
+    okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
+    noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+    gameSocket.emit('declareQuote');
+  };
+  noBtn.textContent = 'Not Yet';
+  noBtn.style.display = '';
+  noBtn.onclick = function() {
+    closeModal();
+    okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
+    noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+  };
+});
+
 function resetTrickAndRoundTracking() {
   lastSeenTricksPlayed = -1;
   trickRevealBusy = false;
@@ -14516,7 +14561,6 @@ function resetTrickAndRoundTracking() {
   lastShownReshuffleReasonTs = null;
   lastShownPartnerSignalKey = null;
   lastShownEarlyWinChoice = false;
-  lastShownQuoteOffer = false;
   lastShownQuoteDeclaredForTeam = null;
   trickHoldGen++;
 }
