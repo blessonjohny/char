@@ -3390,14 +3390,14 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   // as a tiny corner tag on the welcome screen. This exists purely so we
   // can settle, with certainty, whether a bug report is against this
   // exact code or a stale deployment — no more guessing.
-  window.K28_BUILD_TAG = 'stable-hostfix · 2026-08-11';
+  window.K28_BUILD_TAG = 'stable-quote · 2026-08-14';
   // Human-readable version of the same "when was this last touched"
   // fact, used in the comment-invite toast so a returning player can see
   // at a glance that the site is actively maintained. Deliberately a
   // separate constant from K28_BUILD_TAG (not derived from it) so this
   // page's own deploy-mismatch check above always compares two build
   // identifiers exactly, never a human-formatted string.
-  window.SITE_LAST_UPDATED = 'Aug 11, 2026';
+  window.SITE_LAST_UPDATED = 'Aug 14, 2026';
   console.log('[28 Kerala Gulan] build:', window.K28_BUILD_TAG);
   window.addEventListener('DOMContentLoaded', () => {
     const tag = document.createElement('div');
@@ -13386,6 +13386,57 @@ function maybeShowIosInstallHint(){
 }
 maybeShowIosInstallHint();
 
+// ============================================================
+// "WHAT'S NEW" OPENING ANNOUNCEMENT
+// ------------------------------------------------------------
+// TO POST A NEW UPDATE: bump K28_UPDATE_VERSION to a new unique string
+// (anything different from before — the date alone is fine) and edit
+// K28_UPDATE_HTML below. Bumping the version is what makes it show
+// again to everyone, including people who already dismissed an older
+// one — matching it to the OLD version would mean nobody ever sees the
+// new announcement at all, since they'd already be marked as having
+// "seen" that exact version string.
+// ============================================================
+const K28_UPDATE_VERSION = '2026-08-14-quote';
+const K28_UPDATE_HTML = `
+  <div style="font-size:1.6rem;margin-bottom:4px">📢</div>
+  <div style="color:#f4c430;font-size:1.05rem;font-weight:800;margin-bottom:4px">What's New — Aug 14, 2026</div>
+  <div style="color:var(--text-secondary);font-size:0.8rem;line-height:1.6;text-align:left;margin:14px 0">
+    <b style="color:#fff">🎯 New rule: Quote</b> — if your team has swept every trick so far (bid ≤19),
+    you can declare Quote with a few cards left: bet on sweeping everything for a bonus, or risk a bigger
+    penalty if you don't complete it.<br><br>
+    <b style="color:#fff">🏆 "Already won" popup</b> — once a round's outcome is mathematically decided,
+    the winning team can skip straight to the next round instead of playing out tricks that no longer matter.<br><br>
+    These are brand new — if anything looks or behaves unexpectedly, please let us know using the button below.
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <button id="btnUpdateAnnounceComment" class="btn btn-outline" style="width:100%">💌 Report Something Unexpected</button>
+    <button id="btnUpdateAnnounceOk" class="btn btn-primary" style="width:100%">Got it, let's play!</button>
+  </div>
+`;
+function maybeShowUpdateAnnouncement(){
+  try {
+    if (localStorage.getItem('k28_seenUpdateVersion') === K28_UPDATE_VERSION) return;
+  } catch (e) { return; }
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:3500;display:flex;align-items:center;justify-content:center;padding:20px';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:linear-gradient(135deg,#151f30,#0a1628);border:2px solid rgba(244,196,48,0.55);border-radius:18px;padding:24px 22px;width:100%;max-width:420px;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,0.6),0 0 0 1px rgba(244,196,48,0.15)';
+  box.innerHTML = K28_UPDATE_HTML;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  const dismiss = () => {
+    try { localStorage.setItem('k28_seenUpdateVersion', K28_UPDATE_VERSION); } catch (e) {}
+    overlay.remove();
+  };
+  document.getElementById('btnUpdateAnnounceOk').addEventListener('click', dismiss);
+  document.getElementById('btnUpdateAnnounceComment').addEventListener('click', () => {
+    dismiss();
+    openCommentBox();
+  });
+}
+maybeShowUpdateAnnouncement();
+
 // Formats a visitor-log session length (ms) as "2h 14m", "5m 32s", or
 // "12s" -- whichever units are actually meaningful, never "0h 0m".
 function fmtDuration(ms) {
@@ -13933,8 +13984,8 @@ function applyServerState(state) {
   if (state.quoteEligible && state.currentPlayer === MY_POS && !lastShownQuoteOffer) {
     lastShownQuoteOffer = true;
     showModal('🎯 Declare Quote?',
-      'Your team has won every trick so far, with 2 cards left each.<br><br>' +
-      'Declare <b>Quote</b> to bet on sweeping both remaining tricks: ' +
+      'Your team has won every trick so far, with 3 cards left each.<br><br>' +
+      'Declare <b>Quote</b> to bet on sweeping all 3 remaining tricks: ' +
       '<b>+2</b> if you win everything, <b>-3</b> if you don\'t — even if you\'ve already made your bid.');
     const okBtn = document.getElementById('modalOkBtn');
     const oldOk = okBtn.onclick;
@@ -13975,7 +14026,7 @@ function applyServerState(state) {
     lastShownQuoteDeclaredForTeam = state.quoteState.team;
     const onThatTeam = getTeam(MY_POS) === state.quoteState.team;
     showModal('🎯 Quote Declared!',
-      `${onThatTeam ? 'Your team' : 'The bidding team'} just declared <b>Quote</b> — betting on sweeping both remaining tricks. ` +
+      `${onThatTeam ? 'Your team' : 'The bidding team'} just declared <b>Quote</b> — betting on sweeping all 3 remaining tricks. ` +
       `+2 if they win everything, -3 if they don't.`);
   } else if (!state.quoteState) {
     lastShownQuoteDeclaredForTeam = null;

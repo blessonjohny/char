@@ -744,15 +744,15 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 </div>
 
 <!-- Quote offer -- shown ONLY to the exact player it's currently being
-     offered to (3 cards left each, this variant's version of the
-     4-player table's 2-cards-left trigger), a plain Yes/No with no
-     timer. Bots never see this at all -- nothing ever calls
-     sixp_declareQuote on their behalf. -->
+     offered to (2 cards left each -- the 4-player table's trigger is 3
+     cards left; these are deliberately swapped, not just scaled by hand
+     size), a plain Yes/No with no timer. Bots never see this at all --
+     nothing ever calls sixp_declareQuote on their behalf. -->
 <div class="modal-overlay" id="quoteOfferOverlay" style="z-index:2200">
   <div class="modal-box" style="text-align:center">
     <h3>🎯 Declare Quote?</h3>
-    <p>Your team has won every trick so far, with 3 cards left each.<br><br>
-      Declare <b>Quote</b> to bet on sweeping all 3 remaining tricks:
+    <p>Your team has won every trick so far, with 2 cards left each.<br><br>
+      Declare <b>Quote</b> to bet on sweeping both remaining tricks:
       <b>+2</b> if you win everything, <b>-3</b> if you don't — even if you've already made your bid.</p>
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-primary" style="width:100%" id="btnQuoteYes">🎯 Yes, Declare Quote!</button>
