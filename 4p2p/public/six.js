@@ -566,6 +566,9 @@ let lastAnnouncedTrumpExposed = false;
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired
 let lastShownRoundVoidMessage = null;
 let lastShownPartnerSignalKey6p = null;
+let lastShownEarlyWinChoice6p = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
+let lastShownQuoteOffer6p = false; // true while a popup is already showing for the CURRENT quote-eligible moment
+let lastShownQuoteDeclaredForTeam6p = null; // which team's quote declaration has already been announced this round
 let lastSeenTricksPlayed = -1; // detects exactly when a new trick has just completed
 let trickHoldBusy = false;     // a trick is currently mid-reveal (its full pause hasn't elapsed yet)
 let sixpTrickRevealQueue = []; // completed tricks still waiting their turn — nothing in here is ever dropped
@@ -926,6 +929,9 @@ function applyState(state) {
   } else if (!mySignalKey6p) {
     lastShownPartnerSignalKey6p = null;
   }
+
+  handleEarlyWinPopup(state);
+  handleQuotePopups(state);
 
   if (state.phase === 'lobby') {
     $('gameScreen').style.display = 'none';
@@ -1889,6 +1895,76 @@ function hideStillPlayingPopup() {
 $('btnStillPlaying').addEventListener('click', () => {
   if (socket) socket.emit('sixp_stillPlaying');
   hideStillPlayingPopup();
+});
+
+// "Already won" early-round-end. Shown to everyone the moment it appears
+// (so the whole table knows why things paused), but only the winning
+// team gets real action buttons -- everyone else gets an informational
+// dismiss. Mirrors the 4-player table's equivalent popup exactly, just
+// using this file's own static-overlay pattern (see leaveConfirmOverlay
+// for the same style) instead of a dynamically-built modal.
+function handleEarlyWinPopup(state) {
+  if (state.pendingEarlyWinChoice && !lastShownEarlyWinChoice6p) {
+    lastShownEarlyWinChoice6p = true;
+    const ew = state.pendingEarlyWinChoice;
+    const onWinningTeam = sixpGetTeam(MY_POS) === ew.team;
+    const iAmWinner = onWinningTeam ? 'Your team' : 'The other team';
+    const outcome = ew.made ? 'already reached the bid' : 'made the bid impossible to reach';
+    $('earlyWinText').innerHTML = `${iAmWinner} has ${outcome} — the outcome of this round is already decided.` +
+      (onWinningTeam
+        ? '<br><br>Keep playing out the remaining tricks, or skip straight to the next round?'
+        : '<br><br>Waiting for the winning team to decide whether to keep playing or move on.');
+    $('btnEarlyWinKeepPlaying').style.display = onWinningTeam ? '' : 'none';
+    $('btnEarlyWinNextRound').style.display = onWinningTeam ? '' : 'none';
+    $('btnEarlyWinOk').style.display = onWinningTeam ? 'none' : '';
+    $('earlyWinOverlay').classList.add('on');
+  } else if (!state.pendingEarlyWinChoice) {
+    lastShownEarlyWinChoice6p = false;
+    $('earlyWinOverlay').classList.remove('on');
+  }
+}
+$('btnEarlyWinKeepPlaying').addEventListener('click', () => {
+  $('earlyWinOverlay').classList.remove('on');
+  socket.emit('sixp_respondToEarlyWin', { continuePlay: true });
+});
+$('btnEarlyWinNextRound').addEventListener('click', () => {
+  $('earlyWinOverlay').classList.remove('on');
+  socket.emit('sixp_respondToEarlyWin', { continuePlay: false });
+});
+$('btnEarlyWinOk').addEventListener('click', () => {
+  $('earlyWinOverlay').classList.remove('on');
+});
+
+// Quote offer -- shown ONLY to the exact player currently being offered
+// it, plain Yes/No, no timer. Bots never see this (nothing calls
+// sixp_declareQuote on their behalf, so they always effectively
+// "decline" just by never being asked). Quote declared is a simple
+// one-time toast to the whole table.
+function handleQuotePopups(state) {
+  if (state.quoteEligible && state.currentPlayer === MY_POS && !lastShownQuoteOffer6p) {
+    lastShownQuoteOffer6p = true;
+    $('quoteOfferOverlay').classList.add('on');
+  } else if (!state.quoteEligible) {
+    lastShownQuoteOffer6p = false;
+    $('quoteOfferOverlay').classList.remove('on');
+  }
+
+  if (state.quoteState && lastShownQuoteDeclaredForTeam6p !== state.quoteState.team) {
+    lastShownQuoteDeclaredForTeam6p = state.quoteState.team;
+    const onThatTeam = sixpGetTeam(MY_POS) === state.quoteState.team;
+    showToast(`🎯 ${onThatTeam ? 'Your team' : 'The bidding team'} declared Quote! +2 if they sweep, -3 if not.`, 'info', 4500);
+  } else if (!state.quoteState) {
+    lastShownQuoteDeclaredForTeam6p = null;
+  }
+}
+$('btnQuoteYes').addEventListener('click', () => {
+  $('quoteOfferOverlay').classList.remove('on');
+  socket.emit('sixp_declareQuote');
+});
+$('btnQuoteNo').addEventListener('click', () => {
+  $('quoteOfferOverlay').classList.remove('on');
+  // Declining just means playing a card normally -- nothing to send,
+  // quoteEligible naturally clears server-side the moment they do.
 });
 async function shareInviteLink() {
   if (!MY_TABLE_ID) { showToast('Join a table first', 'lose', 1500); return; }

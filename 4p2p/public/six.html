@@ -725,6 +725,42 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
   </div>
 </div>
 
+<!-- "Already won" early-round-end. Shown to everyone the moment it
+     happens (so the whole table knows why things paused), but only the
+     winning team gets real action buttons -- everyone else gets an
+     informational dismiss. Content and which buttons show is set
+     dynamically in JS (see handleEarlyWinPopup in six.js), matching the
+     4-player table's equivalent behavior. -->
+<div class="modal-overlay" id="earlyWinOverlay" style="z-index:2200">
+  <div class="modal-box" id="earlyWinBox" style="text-align:center">
+    <h3>🏆 Already Won This Round</h3>
+    <p id="earlyWinText"></p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-primary" style="width:100%" id="btnEarlyWinKeepPlaying">▶️ Keep Playing</button>
+      <button class="btn btn-outline" style="width:100%" id="btnEarlyWinNextRound">⏭️ Start Next Round</button>
+      <button class="btn btn-primary" style="width:100%;display:none" id="btnEarlyWinOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quote offer -- shown ONLY to the exact player it's currently being
+     offered to (3 cards left each, this variant's version of the
+     4-player table's 2-cards-left trigger), a plain Yes/No with no
+     timer. Bots never see this at all -- nothing ever calls
+     sixp_declareQuote on their behalf. -->
+<div class="modal-overlay" id="quoteOfferOverlay" style="z-index:2200">
+  <div class="modal-box" style="text-align:center">
+    <h3>🎯 Declare Quote?</h3>
+    <p>Your team has won every trick so far, with 3 cards left each.<br><br>
+      Declare <b>Quote</b> to bet on sweeping all 3 remaining tricks:
+      <b>+2</b> if you win everything, <b>-3</b> if you don't — even if you've already made your bid.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-primary" style="width:100%" id="btnQuoteYes">🎯 Yes, Declare Quote!</button>
+      <button class="btn btn-outline" style="width:100%" id="btnQuoteNo">No, Play Normally</button>
+    </div>
+  </div>
+</div>
+
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <defs>
 <symbol id="suit-spade" viewBox="0 0 100 100"><path fill="currentColor" d="M50,8 C35,28 8,48 8,68 C8,85 22,95 37,90 C42,88.5 46,85 48.5,80.5 C47,90 42,98 30,100 L70,100 C58,98 53,90 51.5,80.5 C54,85 58,88.5 63,90 C78,95 92,85 92,68 C92,48 65,28 50,8 Z"/></symbol>

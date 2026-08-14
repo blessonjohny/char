@@ -12605,6 +12605,9 @@ let serverLastAnnouncedTrumpExposed = false; // tracks trumpExposed so the annou
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired, so it shows exactly once per round
 let lastShownRoundVoidMessage = null; // tracks the defending-team-has-no-trump void message so it shows exactly once per occurrence
 let lastShownReshuffleReasonTs = null; // same "show exactly once" pattern for the 3 auto-reshuffle popups below
+let lastShownEarlyWinChoice = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
+let lastShownQuoteOffer = false; // true while a popup is already showing for the CURRENT quote-eligible moment
+let lastShownQuoteDeclaredForTeam = null; // which team's quote declaration has already been announced this round
 let lastShownPartnerSignalKey = null; // tracks the last partner bidding signal shown to this player so it shows exactly once per occurrence
 
 // A full page reload wipes every JS variable but leaves localStorage
@@ -13865,6 +13868,119 @@ function applyServerState(state) {
     if (msg) showModal('Reshuffling', msg);
   }
 
+  // "Already won" early-round-end popup. Shown to EVERYONE as soon as it
+  // appears (so the whole table knows why things paused), but only the
+  // winning team gets real action buttons -- everyone else just gets an
+  // informational dismiss. lastShownEarlyWinChoice tracks "have I already
+  // shown a popup for this specific pending choice" so it doesn't re-pop
+  // on every subsequent state push while still waiting on an answer.
+  if (state.pendingEarlyWinChoice && !lastShownEarlyWinChoice) {
+    lastShownEarlyWinChoice = true;
+    const ew = state.pendingEarlyWinChoice;
+    const onWinningTeam = getTeam(MY_POS) === ew.team;
+    const iAmWinner = onWinningTeam ? 'Your team' : 'The other team';
+    const outcome = ew.made ? 'already reached the bid' : 'made the bid impossible to reach';
+    showModal('🏆 Already Won This Round',
+      `${iAmWinner} has ${outcome} — the outcome of this round is already decided.` +
+      (onWinningTeam
+        ? '<br><br>Keep playing out the remaining tricks, or skip straight to the next round?'
+        : '<br><br>Waiting for the winning team to decide whether to keep playing or move on.'));
+    const okBtn = document.getElementById('modalOkBtn');
+    const oldOk = okBtn.onclick;
+    let noBtn = document.getElementById('modalNoBtn');
+    if (!noBtn) {
+      noBtn = document.createElement('button');
+      noBtn.id = 'modalNoBtn';
+      noBtn.className = 'btn btn-outline';
+      noBtn.style.cssText = 'width:100%;margin-top:8px';
+      document.getElementById('modalBox').appendChild(noBtn);
+    }
+    const oldNoClick = noBtn.onclick;
+    const oldNoDisplay = noBtn.style.display;
+    if (onWinningTeam) {
+      okBtn.textContent = '▶️ Keep Playing';
+      okBtn.onclick = function() {
+        closeModal();
+        okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
+        noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+        gameSocket.emit('respondToEarlyWin', { continuePlay: true });
+      };
+      noBtn.textContent = '⏭️ Start Next Round';
+      noBtn.style.display = '';
+      noBtn.onclick = function() {
+        closeModal();
+        okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
+        noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+        gameSocket.emit('respondToEarlyWin', { continuePlay: false });
+      };
+    } else {
+      okBtn.textContent = 'OK';
+      okBtn.onclick = function() {
+        closeModal();
+        okBtn.onclick = oldOk;
+        noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+      };
+      noBtn.style.display = 'none';
+    }
+  } else if (!state.pendingEarlyWinChoice) {
+    lastShownEarlyWinChoice = false;
+  }
+
+  // Quote offer -- shown ONLY to the exact player it's currently being
+  // offered to, a plain Yes/No with no timer (bots never see this at
+  // all, since nothing ever calls declareQuote() on their behalf --
+  // they always effectively "decline" just by never being asked).
+  if (state.quoteEligible && state.currentPlayer === MY_POS && !lastShownQuoteOffer) {
+    lastShownQuoteOffer = true;
+    showModal('🎯 Declare Quote?',
+      'Your team has won every trick so far, with 2 cards left each.<br><br>' +
+      'Declare <b>Quote</b> to bet on sweeping both remaining tricks: ' +
+      '<b>+2</b> if you win everything, <b>-3</b> if you don\'t — even if you\'ve already made your bid.');
+    const okBtn = document.getElementById('modalOkBtn');
+    const oldOk = okBtn.onclick;
+    let noBtn = document.getElementById('modalNoBtn');
+    if (!noBtn) {
+      noBtn = document.createElement('button');
+      noBtn.id = 'modalNoBtn';
+      noBtn.className = 'btn btn-outline';
+      noBtn.style.cssText = 'width:100%;margin-top:8px';
+      document.getElementById('modalBox').appendChild(noBtn);
+    }
+    const oldNoClick = noBtn.onclick;
+    const oldNoDisplay = noBtn.style.display;
+    okBtn.textContent = '🎯 Yes, Declare Quote!';
+    okBtn.onclick = function() {
+      closeModal();
+      okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
+      noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+      gameSocket.emit('declareQuote');
+    };
+    noBtn.textContent = 'No, Play Normally';
+    noBtn.style.display = '';
+    noBtn.onclick = function() {
+      closeModal();
+      okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
+      noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+      // Declining just means playing a card normally -- nothing to
+      // send, quoteEligible naturally clears the moment they do.
+    };
+  } else if (!state.quoteEligible) {
+    lastShownQuoteOffer = false;
+  }
+
+  // Quote declared -- a one-time announcement to the whole table,
+  // tracked by team so it only fires once per declaration (quoteState
+  // stays set for the rest of the round once declared).
+  if (state.quoteState && lastShownQuoteDeclaredForTeam !== state.quoteState.team) {
+    lastShownQuoteDeclaredForTeam = state.quoteState.team;
+    const onThatTeam = getTeam(MY_POS) === state.quoteState.team;
+    showModal('🎯 Quote Declared!',
+      `${onThatTeam ? 'Your team' : 'The bidding team'} just declared <b>Quote</b> — betting on sweeping both remaining tricks. ` +
+      `+2 if they win everything, -3 if they don't.`);
+  } else if (!state.quoteState) {
+    lastShownQuoteDeclaredForTeam = null;
+  }
+
   // Partner bidding signal received — same "show exactly once" pattern
   // as the void message above. Only meaningful to show if I'M the human
   // on the receiving end; a bot partner just quietly uses it in their
@@ -14348,6 +14464,9 @@ function resetTrickAndRoundTracking() {
   lastShownRoundVoidMessage = null;
   lastShownReshuffleReasonTs = null;
   lastShownPartnerSignalKey = null;
+  lastShownEarlyWinChoice = false;
+  lastShownQuoteOffer = false;
+  lastShownQuoteDeclaredForTeam = null;
   trickHoldGen++;
 }
 let trickRevealQueue = [];  // queued completed tricks still waiting to be shown
