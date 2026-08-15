@@ -15086,6 +15086,96 @@ function serverBotPlayForMe() {
   resetIdleTimer();
 })();
 
+// ==================== IDLE SCREENSAVER (live game table) ====================
+// Same idea as the welcome-screen one above, but deliberately built differently for safety:
+// this one NEVER touches the actual cards, avatars, or action buttons - it never even reads
+// them. Instead it drops a dimmed, full-screen overlay on top with its own purely decorative
+// bouncing text (suit symbols, branding), so the real table stays completely intact and
+// unmoved underneath. The overlay itself catches the dismissing click, so that first click
+// only ever closes the screensaver - it can never also land on a card or button underneath
+// and accidentally play something. 1 minute idle (shorter than the welcome screen's 2, since
+// a table with a turn in progress is more time-sensitive), only while the game table is the
+// screen actually showing.
+(function() {
+  const K28_TABLE_IDLE_MS = 60 * 1000;
+  const DECOR_ITEMS = ['♠', '♥', '♦', '♣', '🂮', '28', 'Gulan', '👑', '🎴', 'Bid smart.', 'Play smarter.', 'Become the King.', '28GULAN.COM', '🔥', 'Jack high'];
+  let idleTimer = null;
+  let overlay = null;
+  let bouncers = null;
+  let rafId = null;
+
+  function isGameTableVisible() {
+    const el = document.getElementById('gameWrap');
+    return !!el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
+  }
+
+  function startScreensaver() {
+    if (!isGameTableVisible() || overlay) return;
+    overlay = document.createElement('div');
+    overlay.id = 'k28TableScreensaver';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(4,9,18,0.6);z-index:99999;cursor:pointer;overflow:hidden';
+    document.body.appendChild(overlay);
+
+    const vw = window.innerWidth, vh = window.innerHeight;
+    bouncers = DECOR_ITEMS.map(text => {
+      const el = document.createElement('div');
+      el.textContent = text;
+      const size = 16 + Math.random() * 26;
+      el.style.cssText = `position:absolute;left:0;top:0;color:rgba(244,196,48,0.88);font-weight:800;
+        text-shadow:0 2px 10px rgba(0,0,0,0.7);white-space:nowrap;pointer-events:none;font-size:${size}px`;
+      overlay.appendChild(el);
+      const w = 20 + text.length * size * 0.55, h = size * 1.4; // rough estimate, good enough for bounce bounds
+      const homeX = Math.random() * Math.max(1, vw - w), homeY = Math.random() * Math.max(1, vh - h);
+      el.style.transform = `translate(${homeX}px,${homeY}px)`;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 22 + Math.random() * 35;
+      return { el, x: homeX, y: homeY, w, h, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed };
+    });
+
+    let lastT = performance.now();
+    function frame(t) {
+      if (!overlay) return;
+      const dt = Math.min(0.05, (t - lastT) / 1000);
+      lastT = t;
+      for (const b of bouncers) {
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
+        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
+        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); }
+        b.el.style.transform = `translate(${b.x.toFixed(1)}px,${b.y.toFixed(1)}px)`;
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+    rafId = requestAnimationFrame(frame);
+
+    // The overlay itself is what the dismissing click lands on - it's on top of everything
+    // at z-index 99999, so this click can never also reach a card or button underneath.
+    overlay.addEventListener('click', stopScreensaver);
+    overlay.addEventListener('touchstart', stopScreensaver, { passive: true });
+  }
+
+  function stopScreensaver() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    if (overlay) overlay.remove();
+    overlay = null;
+    bouncers = null;
+  }
+
+  function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    idleTimer = isGameTableVisible() ? setTimeout(startScreensaver, K28_TABLE_IDLE_MS) : null;
+  }
+
+  ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, resetIdleTimer, { passive: true }));
+  // Visibility can change without a click (navigating in from the welcome screen, a hand
+  // ending, etc.) - a light periodic re-check keeps the timer correctly armed either way.
+  setInterval(resetIdleTimer, 2000);
+  resetIdleTimer();
+})();
+
 </script>
 </body>
 </html>
