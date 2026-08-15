@@ -5158,7 +5158,7 @@ function updateInfo() {
       const isRedSuit = (trumpSuit === '♥' || trumpSuit === '♦');
       const suitColor = isRedSuit ? '#d32f2f' : '#fff';
       const darkClass = isRedSuit ? '' : ' dark-suit';
-      tr.innerHTML = '<span class="trump-suit-text' + darkClass + '" style="color:' + suitColor + '">' + trumpSuit + ' ' + suitName(trumpSuit) + '</span> <span style="color:var(--accent);font-weight:700">ACTIVE</span>';
+      tr.innerHTML = '<span class="trump-suit-text' + darkClass + '" style="color:' + suitColor + '">' + trumpSuit + ' ' + suitName(trumpSuit) + '</span> <span style="color:var(--accent);font-weight:700">TRUMP</span>';
       tr.classList.add('trump-active');
     } else {
       tr.innerHTML = '🎯 <span style="color:var(--text-secondary)">Trump: Hidden</span>';
@@ -8417,7 +8417,7 @@ function exposeTrump(caller) {
     const isRedSuit = (trumpSuit === '♥' || trumpSuit === '♦');
     const suitColor = isRedSuit ? '#d32f2f' : '#fff';
     const darkClass = isRedSuit ? '' : ' dark-suit';
-    tr.innerHTML = '<span class="trump-suit-text' + darkClass + '" style="color:' + suitColor + '">' + trumpSuit + ' ' + suitName(trumpSuit) + '</span> <span style="color:var(--accent);font-weight:700">ACTIVE</span>';
+    tr.innerHTML = '<span class="trump-suit-text' + darkClass + '" style="color:' + suitColor + '">' + trumpSuit + ' ' + suitName(trumpSuit) + '</span> <span style="color:var(--accent);font-weight:700">TRUMP</span>';
     tr.classList.add('trump-active');
   }
   showToast('⚡ Trump exposed: ' + trumpSuit + '!', 'win', 1800);
