@@ -1633,27 +1633,16 @@ io.on('connection', (socket) => {
   // plays their card normally afterward via the usual playCard above.
   // Any player, either team, can call it on their own turn as long as
   // their team is still clean (see declareQuote() / _isQuoteEligibleFor()
-  // in the engine for the full validation).
+  // in the engine for the full validation). Whether it becomes labeled
+  // "COT" or "MaruCOT" on the button depends purely on whether the
+  // declaring player is on the bidding team or not -- the client decides
+  // the label, this handler and the engine underneath it don't care
+  // which one it's called; it's the exact same action either way.
   socket.on('declareQuote', () => {
     withTable((t, pos) => {
       if (pos === null || pos === undefined) return;
       const r = t.engine.declareQuote(pos);
       if (!r) socket.emit('actionError', { ok: false, reason: 'quote is not available right now' });
-    });
-  });
-
-  // Maru COT: any player on the OTHER team from whoever just declared
-  // COT can challenge, whenever they like, within the short window that
-  // closes automatically once the COT-declarer's own next card is
-  // played. If multiple players attempt this at once, the server just
-  // naturally processes them one at a time -- whichever socket's event
-  // it handles first wins, and every later attempt correctly finds the
-  // window already closed. See challengeMaruCot() in the engine.
-  socket.on('challengeMaruCot', () => {
-    withTable((t, pos) => {
-      if (pos === null || pos === undefined) return;
-      const r = t.engine.challengeMaruCot(pos);
-      if (!r) socket.emit('actionError', { ok: false, reason: 'maru cot is not available right now' });
     });
   });
 
@@ -2267,18 +2256,6 @@ io.on('connection', (socket) => {
       if (pos === null || pos === undefined) return;
       const r = t.engine.declareQuote(pos);
       if (!r) { socket.emit('sixp_actionError', { reason: 'quote is not available right now' }); return; }
-      sixpTouch(t);
-      sixpBroadcastTable(t);
-    });
-  });
-
-  // Maru COT -- see the 4-player table's challengeMaruCot handler for
-  // the full reasoning, identical here.
-  socket.on('sixp_challengeMaruCot', () => {
-    withSixpTable((t, pos) => {
-      if (pos === null || pos === undefined) return;
-      const r = t.engine.challengeMaruCot(pos);
-      if (!r) { socket.emit('sixp_actionError', { reason: 'maru cot is not available right now' }); return; }
       sixpTouch(t);
       sixpBroadcastTable(t);
     });
