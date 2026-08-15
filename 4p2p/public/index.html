@@ -15125,7 +15125,10 @@ function serverBotPlayForMe() {
   ];
   // A real palette instead of one single gold everywhere - cycled per item (not random) so
   // the mix is always even, never accidentally almost-all-one-color on a given round.
-  const DECOR_COLORS = ['#f4c430', '#ffffff', '#e0524a', '#4fb0c6', '#8ed081', '#c98be0'];
+  // Royal metallics instead of the old mixed palette (which had plain red/teal/green mixed
+  // in - not exactly regal). Gold and silver each get two shades so neighboring items don't
+  // read as identically-colored, but everything stays in the same rich, metallic family.
+  const DECOR_COLORS = ['#f4c430', '#ffd700', '#e5e4e2', '#c0c0c0', '#9b7fd4', '#4f7fd4'];
   let idleTimer = null;
   let overlay = null;
   let bouncers = null;
@@ -15167,8 +15170,12 @@ function serverBotPlayForMe() {
       // that was actually happening, not a rendering glitch.
       const maxSizeForWidth = (vw * 0.8 - 20) / (text.length * 0.55);
       const size = 16 + Math.random() * Math.max(0, Math.min(26, maxSizeForWidth - 16));
-      el.style.cssText = `position:absolute;left:0;top:0;color:${DECOR_COLORS[i % DECOR_COLORS.length]};font-weight:800;
-        text-shadow:0 2px 10px rgba(0,0,0,0.7);white-space:nowrap;pointer-events:none;font-size:${size}px`;
+      const itemColor = DECOR_COLORS[i % DECOR_COLORS.length];
+      // A soft glow in the item's own color underneath the usual dark drop-shadow, instead
+      // of just a flat-colored fill - that faint halo is what actually reads as "metallic
+      // sheen" rather than a plain, flat (i.e. "dull") color swatch.
+      el.style.cssText = `position:absolute;left:0;top:0;color:${itemColor};font-weight:800;
+        text-shadow:0 0 14px ${itemColor}99,0 2px 10px rgba(0,0,0,0.7);white-space:nowrap;pointer-events:none;font-size:${size}px`;
       overlay.appendChild(el);
       const w = Math.min(vw * 0.85, 20 + text.length * size * 0.55), h = size * 1.4; // rough estimate, good enough for bounce bounds
       const cell = cellOrder[i % cellOrder.length];
