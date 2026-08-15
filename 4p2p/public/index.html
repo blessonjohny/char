@@ -14955,6 +14955,137 @@ function serverBotPlayForMe() {
 // and had gone stale.
 
 
+// ==================== IDLE SCREENSAVER (welcome screen only) ====================
+// After 2 minutes with no click/tap anywhere on the page, every word/button/icon on the
+// welcome screen breaks apart and bounces around independently (DVD-logo style), each with
+// its own random direction and speed. Any click/tap instantly stops it and snaps everything
+// back to its normal spot. Self-contained on purpose - it only ever touches elements inside
+// #welcomeScreen, only runs while that screen is actually the visible one, and never runs
+// during an actual game, so it can't interfere with anything else on the page.
+(function() {
+  const K28_IDLE_MS = 2 * 60 * 1000;
+  let idleTimer = null;
+  let bouncers = null; // null when inactive
+  let rafId = null;
+  let viewportW = 0, viewportH = 0;
+
+  function isWelcomeScreenVisible() {
+    const el = document.getElementById('welcomeScreen');
+    // Not using offsetParent here on purpose: it's null for position:fixed elements even
+    // when they're fully visible (a real browser quirk, not a bug) - #welcomeScreen is fixed,
+    // so that check was silently failing every time and the screensaver never activated at
+    // all. display is exactly how the rest of this page already toggles this screen, so it's
+    // the correct thing to check.
+    return !!el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
+  }
+
+  // Wraps each run of plain text in its own <span>, leaving any existing child elements
+  // (like <b>, <i>, <a> inside a sentence) as their own single bounce unit rather than
+  // shredding their inner text too - keeps links/bold text intact and clickable-looking.
+  function shatterIntoWords(el) {
+    if (el.dataset.k28Shattered) return;
+    el.dataset.k28Shattered = '1';
+    const children = Array.from(el.childNodes);
+    const frag = document.createDocumentFragment();
+    children.forEach(node => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const parts = node.textContent.split(/(\s+)/);
+        parts.forEach(part => {
+          if (part === '') return;
+          if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+          const span = document.createElement('span');
+          span.className = 'k28-bounce-word';
+          span.style.display = 'inline-block';
+          span.textContent = part;
+          frag.appendChild(span);
+        });
+      } else {
+        node.classList.add('k28-bounce-word');
+        if (!node.style.display) node.style.display = 'inline-block';
+        frag.appendChild(node);
+      }
+    });
+    el.innerHTML = '';
+    el.appendChild(frag);
+  }
+
+  function collectTargets() {
+    const root = document.getElementById('welcomeScreen');
+    if (!root) return [];
+    const targets = [];
+    root.querySelectorAll(
+      'button, a.welcome-btn, a.welcome-subbtn, .welcome-stat, .welcome-feature-icon, ' +
+      '.welcome-feature-title, .welcome-card-badge, .welcome-gold-rule'
+    ).forEach(el => targets.push(el));
+    root.querySelectorAll(
+      '.welcome-feature-desc, .welcome-about-text, .welcome-title-gold, .welcome-sub, ' +
+      '.welcome-tagline, .welcome-about-title, .welcome-features-title'
+    ).forEach(el => {
+      shatterIntoWords(el);
+      el.querySelectorAll(':scope > span.k28-bounce-word, :scope > .k28-bounce-word').forEach(w => targets.push(w));
+    });
+    return targets;
+  }
+
+  function startScreensaver() {
+    if (!isWelcomeScreenVisible() || bouncers) return;
+    const targets = collectTargets();
+    if (!targets.length) return;
+    viewportW = window.innerWidth;
+    viewportH = window.innerHeight;
+    bouncers = targets.map(el => {
+      const rect = el.getBoundingClientRect();
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 70 + Math.random() * 110; // px/sec, individual per element
+      el.style.willChange = 'transform';
+      el.style.position = el.style.position || 'relative';
+      return {
+        el, homeLeft: rect.left, homeTop: rect.top, w: rect.width, h: rect.height,
+        x: rect.left, y: rect.top,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed
+      };
+    });
+    let lastT = performance.now();
+    function frame(t) {
+      if (!bouncers) return;
+      const dt = Math.min(0.05, (t - lastT) / 1000);
+      lastT = t;
+      for (const b of bouncers) {
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
+        else if (b.x + b.w > viewportW) { b.x = viewportW - b.w; b.vx = -Math.abs(b.vx); }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
+        else if (b.y + b.h > viewportH) { b.y = viewportH - b.h; b.vy = -Math.abs(b.vy); }
+        b.el.style.transform = `translate(${(b.x - b.homeLeft).toFixed(1)}px,${(b.y - b.homeTop).toFixed(1)}px)`;
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+    rafId = requestAnimationFrame(frame);
+  }
+
+  function stopScreensaver() {
+    if (!bouncers) return;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    for (const b of bouncers) {
+      b.el.style.transform = '';
+      b.el.style.willChange = '';
+    }
+    bouncers = null;
+  }
+
+  function resetIdleTimer() {
+    stopScreensaver();
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(startScreensaver, K28_IDLE_MS);
+  }
+
+  ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, resetIdleTimer, { passive: true }));
+  window.addEventListener('resize', () => { if (bouncers) stopScreensaver(); resetIdleTimer(); });
+  resetIdleTimer();
+})();
+
 </script>
 </body>
 </html>
