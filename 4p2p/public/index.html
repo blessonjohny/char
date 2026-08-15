@@ -2556,6 +2556,19 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 .icon-btn{border-radius:8px;background:rgba(233,185,73,0.06);
   border-color:rgba(233,185,73,0.18)}
 #serverNotice{background:transparent;border-color:rgba(233,185,73,0.35)}
+/* Invite and Admin specifically (not the plain icon-only buttons next to
+   them) get the same classic serif + antique-gold treatment as the RD/DL/
+   TEAM/OPP/BIDDER bar, so the whole top strip reads as one consistent
+   style instead of two different button languages sitting side by side. */
+#btnInvite, #btnHostRestart{
+  font-family:'Cinzel','Playfair Display',serif;
+  font-weight:700;
+  letter-spacing:0.3px;
+  background:linear-gradient(180deg, rgba(201,162,75,0.16), rgba(201,162,75,0.05));
+  border:1px solid rgba(201,162,75,0.4);
+  color:#e8dcc0;
+  text-shadow:0 1px 2px rgba(0,0,0,0.6);
+}
 
 /* ---------- Desktop / Mac / wide-screen ----------
    Everything above assumes a phone-width screen. On a wide PC or Mac
@@ -3080,7 +3093,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
         <span class="info-item"><span class="info-label" id="oppTricksLabel">Opp</span><span class="info-val" id="oppTricks">0</span></span>
       </div>
       <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:flex-end;overflow:hidden">
-        <span class="info-item"><span class="info-label" id="bidderLabel">BD</span><span class="info-val" id="bidderDisplay">—</span></span>
+        <span class="info-item"><span class="info-label" id="bidderLabel">Bidder</span><span class="info-val" id="bidderDisplay">—</span></span>
       </div>
     </div>
     <div class="info-row info-king" id="kingRow" style="display:none" title="Win championships back-to-back to level up: 2 wins in a row = Level 1, and so on up to 10 wins in a row = 👑 King.">
@@ -15190,7 +15203,11 @@ function serverBotPlayForMe() {
   // Royal metallics instead of the old mixed palette (which had plain red/teal/green mixed
   // in - not exactly regal). Gold and silver each get two shades so neighboring items don't
   // read as identically-colored, but everything stays in the same rich, metallic family.
-  const DECOR_COLORS = ['#f4c430', '#ffd700', '#e5e4e2', '#c0c0c0', '#9b7fd4', '#4f7fd4'];
+  // Classic antique-gold palette, matching the same muted engraved-plate look as the RD/DL/
+  // TEAM/OPP/BIDDER bar and the game buttons, instead of the brighter royal-metallic glow this
+  // had before - one consistent classic style across the whole app rather than two different
+  // looks living side by side.
+  const DECOR_COLORS = ['#c9a24b', '#e8dcc0', '#8a6a2c', '#d4c896', '#a8895a', '#c4a876'];
   let idleTimer = null;
   let overlay = null;
   let bouncers = null;
@@ -15236,8 +15253,9 @@ function serverBotPlayForMe() {
       // A soft glow in the item's own color underneath the usual dark drop-shadow, instead
       // of just a flat-colored fill - that faint halo is what actually reads as "metallic
       // sheen" rather than a plain, flat (i.e. "dull") color swatch.
-      el.style.cssText = `position:absolute;left:0;top:0;color:${itemColor};font-weight:800;
-        text-shadow:0 0 14px ${itemColor}99,0 2px 10px rgba(0,0,0,0.7);white-space:nowrap;pointer-events:none;font-size:${size}px`;
+      el.style.cssText = `position:absolute;left:0;top:0;color:${itemColor};font-weight:700;
+        font-family:'Cinzel','Playfair Display',serif;letter-spacing:0.3px;
+        text-shadow:0 0 10px ${itemColor}80,0 2px 6px rgba(0,0,0,0.75);white-space:nowrap;pointer-events:none;font-size:${size}px`;
       overlay.appendChild(el);
       const w = Math.min(vw * 0.85, 20 + text.length * size * 0.55), h = size * 1.4; // rough estimate, good enough for bounce bounds
       const cell = cellOrder[i % cellOrder.length];
