@@ -12700,9 +12700,7 @@ let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toas
 let lastShownRoundVoidMessage = null; // tracks the defending-team-has-no-trump void message so it shows exactly once per occurrence
 let lastShownReshuffleReasonTs = null; // same "show exactly once" pattern for the 3 auto-reshuffle popups below
 let lastShownEarlyWinChoice = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
-let lastShownQuoteDeclaredForTeam = null; // which team's quote declaration has already been announced this round
-let lastShownMaruCotForTeam = null; // which team's maru cot challenge has already been announced this round
-let maruCotPopupOpen = false; // true while the COT-declared popup is showing WITH an active challenge option -- lets it force-close itself if the window passes while still open
+let lastShownQuoteDeclaredForTeam = null; // which team's COT/MaruCOT declaration has already been announced this round
 let lastShownPartnerSignalKey = null; // tracks the last partner bidding signal shown to this player so it shows exactly once per occurrence
 
 // A full page reload wipes every JS variable but leaves localStorage
@@ -14079,83 +14077,26 @@ function applyServerState(state) {
   // IS the offer.
   updateQuoteButton(state);
 
-  // COT declared -- announced to the whole table via one merged popup.
-  // For the declaring team (and anyone with no stake), it's purely
-  // informational. For the OTHER team specifically, this same popup
-  // becomes the actual Maru COT challenge -- "whoever clicks first" is
-  // handled correctly server-side (see challengeMaruCot() in the
-  // engine), but client-side this also has to gracefully handle a
-  // teammate winning that race first: if pendingMaruCotChallenge
-  // disappears while this exact popup is still open (checked on every
-  // subsequent state push below), it force-closes itself instead of
-  // sitting there offering a challenge that's no longer actually live.
+  // COT/MaruCOT declared -- a one-time, purely informational
+  // announcement to the whole table. Which word applies is decided by
+  // whether the declaring team is the bidding team or not -- same
+  // underlying action either way, just a different label and different
+  // scoring (see game-engine.js's _endRound() for the actual numbers).
+  // No challenge option here anymore -- that entire mechanic (the other
+  // team optionally escalating the stakes after the fact) was replaced
+  // outright with this simpler two-label system.
   if (state.quoteState && lastShownQuoteDeclaredForTeam !== state.quoteState.team) {
     lastShownQuoteDeclaredForTeam = state.quoteState.team;
     const onThatTeam = getTeam(MY_POS) === state.quoteState.team;
-    const canChallenge = state.pendingMaruCotChallenge && getTeam(MY_POS) === state.pendingMaruCotChallenge.team;
-    showModal('🎯 COT Declared!',
-      `${onThatTeam ? 'Your team' : 'The other team'} just declared <b>COT</b> — betting on sweeping every single trick this round. ` +
-      `+2 if they win everything, -3 if they lose even one trick from here.` +
-      (canChallenge ? '<br><br>🔥 You can challenge this with <b>Maru COT</b> right now, before their next card is played — but only for a moment. If you stop them (they fail to sweep everything): <b>+4</b> for your team. If they still succeed anyway: <b>-3</b> for your team.' : ''));
-    maruCotPopupOpen = canChallenge;
-    const okBtn = document.getElementById('modalOkBtn');
-    const oldOk = okBtn.onclick;
-    let noBtn = document.getElementById('modalNoBtn');
-    if (!noBtn) {
-      noBtn = document.createElement('button');
-      noBtn.id = 'modalNoBtn';
-      noBtn.className = 'btn btn-outline';
-      noBtn.style.cssText = 'width:100%;margin-top:8px';
-      document.getElementById('modalBox').appendChild(noBtn);
-    }
-    const oldNoClick = noBtn.onclick;
-    const oldNoDisplay = noBtn.style.display;
-    if (canChallenge) {
-      okBtn.textContent = '🔥 Yes, Maru COT!';
-      okBtn.onclick = function() {
-        closeModal();
-        maruCotPopupOpen = false;
-        okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
-        noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
-        gameSocket.emit('challengeMaruCot');
-      };
-      noBtn.textContent = 'No';
-      noBtn.style.display = '';
-      noBtn.onclick = function() {
-        closeModal();
-        maruCotPopupOpen = false;
-        okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
-        noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
-      };
-    } else {
-      okBtn.textContent = 'OK';
-      okBtn.onclick = function() {
-        closeModal();
-        okBtn.onclick = oldOk;
-        noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
-      };
-      noBtn.style.display = 'none';
-    }
+    const isBidderTeam = state.quoteState.team === getTeam(state.bidder);
+    const label = isBidderTeam ? 'COT' : 'MaruCOT';
+    const madePts = isBidderTeam ? 2 : 3;
+    const failPts = isBidderTeam ? 3 : 2;
+    showModal(`🎯 ${label} Declared!`,
+      `${onThatTeam ? 'Your team' : 'The other team'} just declared <b>${label}</b> — betting on sweeping every single trick this round. ` +
+      `+${madePts} if they win everything, -${failPts} if they lose even one trick from here.`);
   } else if (!state.quoteState) {
     lastShownQuoteDeclaredForTeam = null;
-  }
-  // The window can close (someone else on my team won the race, or the
-  // declarer's own next card just got played) while this exact popup is
-  // still sitting open on screen -- force it shut rather than leave a
-  // stale, no-longer-live challenge offer visible.
-  if (maruCotPopupOpen && !state.pendingMaruCotChallenge) {
-    maruCotPopupOpen = false;
-    closeModal();
-  }
-  // Maru COT successfully declared -- a one-time announcement, same
-  // "show exactly once" pattern.
-  if (state.maruCotState && lastShownMaruCotForTeam !== state.maruCotState.team) {
-    lastShownMaruCotForTeam = state.maruCotState.team;
-    const onThatTeam = getTeam(MY_POS) === state.maruCotState.team;
-    showModal('🔥 Maru COT!',
-      `${onThatTeam ? 'Your team' : 'The other team'} just challenged the COT! Stakes just went up: <b>+3/-3</b> if the COT still succeeds, <b>-4/+4</b> if it fails.`);
-  } else if (!state.maruCotState) {
-    lastShownMaruCotForTeam = null;
   }
 
   // Partner bidding signal received — same "show exactly once" pattern
@@ -14630,12 +14571,16 @@ let lastSeenTricksPlayed = -1;
 // after a restart or reconnect can silently break the "a trick just
 // resolved" detection for the rest of that round, since the new round's
 // real progress would never again exceed old, leftover high-water marks.
-// Quote button -- persistent, visible to everyone at the table during
-// play, but only genuinely clickable ("active") when it's this exact
-// viewer's turn and their team hasn't lost a trick yet this round. See
-// declareQuote() / _isQuoteEligibleFor() in game-engine.js for the
-// authoritative rule -- this is purely a reflection of server state,
-// never a local decision about whether it should be allowed.
+// COT/MaruCOT button -- persistent, visible to everyone at the table
+// during play, but only genuinely clickable ("active") when it's this
+// exact viewer's turn and their team hasn't lost a trick yet this
+// round. See declareQuote() / _isQuoteEligibleFor() in game-engine.js
+// for the authoritative rule -- this is purely a reflection of server
+// state, never a local decision about whether it should be allowed.
+// Whether it reads "COT" or "MaruCOT" depends purely on whether MY OWN
+// team is the bidding team or not -- same button, same underlying
+// action, different label (and different scoring) depending on which
+// side is looking at it.
 function updateQuoteButton(state) {
   const btn = document.getElementById('btnQuoteDeclare');
   if (!btn) return;
@@ -14644,25 +14589,34 @@ function updateQuoteButton(state) {
     return;
   }
   btn.style.display = '';
+  const myLabel = getTeam(MY_POS) === getTeam(state.bidder) ? 'COT' : 'MaruCOT';
   if (state.quoteState) {
     // Already declared this round -- informational only from here on.
+    // The label shown here reflects MY OWN team's relationship to the
+    // bidder, not necessarily which side actually declared it -- if the
+    // OTHER team declared MaruCOT, someone on the bidding team still
+    // correctly sees it labeled "COT" is the word that applies to them.
     const onThatTeam = getTeam(MY_POS) === state.quoteState.team;
-    btn.textContent = onThatTeam ? '🎯 COT (yours!)' : '🎯 COT (active)';
+    btn.textContent = onThatTeam ? `🎯 ${myLabel} (yours!)` : `🎯 ${myLabel} (active)`;
     btn.classList.remove('quote-btn-active');
     btn.classList.add('quote-btn-disabled');
     return;
   }
-  btn.textContent = '🎯 COT';
+  btn.textContent = `🎯 ${myLabel}`;
   const iAmEligible = !!(state.quoteEligible && state.currentPlayer === MY_POS);
   btn.classList.toggle('quote-btn-active', iAmEligible);
   btn.classList.toggle('quote-btn-disabled', !iAmEligible);
 }
 document.getElementById('btnQuoteDeclare').addEventListener('click', () => {
   if (!latestServerState || !latestServerState.quoteEligible || latestServerState.currentPlayer !== MY_POS) return;
-  showModal('🎯 Declare COT?',
+  const isBidderTeam = getTeam(MY_POS) === getTeam(latestServerState.bidder);
+  const label = isBidderTeam ? 'COT' : 'MaruCOT';
+  const madePts = isBidderTeam ? 2 : 3;
+  const failPts = isBidderTeam ? 3 : 2;
+  showModal(`🎯 Declare ${label}?`,
     'Your team hasn\'t lost a single trick yet this round.<br><br>' +
-    'Declare <b>COT</b> to bet on sweeping <b>every single trick</b> the rest of this round: ' +
-    '<b>+2</b> if you win everything, <b>-3</b> if you lose even one trick from here — even if you\'ve already made your bid.');
+    `Declare <b>${label}</b> to bet on sweeping <b>every single trick</b> the rest of this round: ` +
+    `<b>+${madePts}</b> if you win everything, <b>-${failPts}</b> if you lose even one trick from here — even if you've already made your bid.`);
   const okBtn = document.getElementById('modalOkBtn');
   const oldOk = okBtn.onclick;
   let noBtn = document.getElementById('modalNoBtn');
@@ -14675,7 +14629,7 @@ document.getElementById('btnQuoteDeclare').addEventListener('click', () => {
   }
   const oldNoClick = noBtn.onclick;
   const oldNoDisplay = noBtn.style.display;
-  okBtn.textContent = '🎯 Yes, Declare COT!';
+  okBtn.textContent = `🎯 Yes, Declare ${label}!`;
   okBtn.onclick = function() {
     closeModal();
     okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
@@ -14704,8 +14658,6 @@ function resetTrickAndRoundTracking() {
   lastShownPartnerSignalKey = null;
   lastShownEarlyWinChoice = false;
   lastShownQuoteDeclaredForTeam = null;
-  lastShownMaruCotForTeam = null;
-  maruCotPopupOpen = false;
   trickHoldGen++;
 }
 let trickRevealQueue = [];  // queued completed tricks still waiting to be shown

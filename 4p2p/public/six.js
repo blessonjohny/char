@@ -567,9 +567,7 @@ let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toas
 let lastShownRoundVoidMessage = null;
 let lastShownPartnerSignalKey6p = null;
 let lastShownEarlyWinChoice6p = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
-let lastShownQuoteDeclaredForTeam6p = null; // which team's quote declaration has already been announced this round
-let lastShownMaruCotForTeam6p = null; // which team's maru cot challenge has already been announced this round
-let lastMaruCotWindowHandled6p = false; // true while the current challenge window has already been prompted for
+let lastShownQuoteDeclaredForTeam6p = null; // which team's COT/MaruCOT declaration has already been announced this round
 let lastSeenTricksPlayed = -1; // detects exactly when a new trick has just completed
 let trickHoldBusy = false;     // a trick is currently mid-reveal (its full pause hasn't elapsed yet)
 let sixpTrickRevealQueue = []; // completed tricks still waiting their turn — nothing in here is ever dropped
@@ -934,7 +932,6 @@ function applyState(state) {
   handleEarlyWinPopup(state);
   updateQuoteButton(state);
   handleQuoteDeclaredToast(state);
-  handleMaruCotChallenge(state);
 
   if (state.phase === 'lobby') {
     $('gameScreen').style.display = 'none';
@@ -1938,11 +1935,15 @@ $('btnEarlyWinOk').addEventListener('click', () => {
   $('earlyWinOverlay').classList.remove('on');
 });
 
-// Quote button -- persistent, visible to everyone at the table during
-// play, but only genuinely clickable ("active") when it's this exact
-// viewer's turn and their team hasn't lost a trick yet this round. See
-// declareQuote() / _isQuoteEligibleFor() in game-engine-6p.js for the
-// authoritative rule -- this is purely a reflection of server state.
+// COT/MaruCOT button -- persistent, visible to everyone at the table
+// during play, but only genuinely clickable ("active") when it's this
+// exact viewer's turn and their team hasn't lost a trick yet this
+// round. See declareQuote() / _isQuoteEligibleFor() in
+// game-engine-6p.js for the authoritative rule -- this is purely a
+// reflection of server state. Whether it reads "COT" or "MaruCOT"
+// depends purely on whether MY OWN team is the bidding team or not --
+// same button, same underlying action, different label (and different
+// scoring) depending on which side is looking at it.
 function updateQuoteButton(state) {
   const btn = $('btnQuoteDeclare');
   if (!btn) return;
@@ -1951,61 +1952,47 @@ function updateQuoteButton(state) {
     return;
   }
   btn.style.display = '';
+  const myLabel = sixpGetTeam(MY_POS) === sixpGetTeam(state.bidder) ? 'COT' : 'MaruCOT';
   if (state.quoteState) {
     const onThatTeam = sixpGetTeam(MY_POS) === state.quoteState.team;
-    btn.textContent = onThatTeam ? '🎯 COT (yours!)' : '🎯 COT (active)';
+    btn.textContent = onThatTeam ? `🎯 ${myLabel} (yours!)` : `🎯 ${myLabel} (active)`;
     btn.classList.remove('quote-btn-active');
     btn.classList.add('quote-btn-disabled');
     return;
   }
-  btn.textContent = '🎯 COT';
+  btn.textContent = `🎯 ${myLabel}`;
   const iAmEligible = !!(state.quoteEligible && state.currentPlayer === MY_POS);
   btn.classList.toggle('quote-btn-active', iAmEligible);
   btn.classList.toggle('quote-btn-disabled', !iAmEligible);
 }
 $('btnQuoteDeclare').addEventListener('click', () => {
   if (!latestState || !latestState.quoteEligible || latestState.currentPlayer !== MY_POS) return;
-  if (!confirm('Declare COT?\n\nYour team hasn\'t lost a single trick yet this round. This bets on sweeping EVERY remaining trick: +2 if you win everything, -3 if you lose even one trick from here -- even if you\'ve already made your bid.')) return;
+  const isBidderTeam = sixpGetTeam(MY_POS) === sixpGetTeam(latestState.bidder);
+  const label = isBidderTeam ? 'COT' : 'MaruCOT';
+  const madePts = isBidderTeam ? 2 : 3;
+  const failPts = isBidderTeam ? 3 : 2;
+  if (!confirm(`Declare ${label}?\n\nYour team hasn't lost a single trick yet this round. This bets on sweeping EVERY remaining trick: +${madePts} if you win everything, -${failPts} if you lose even one trick from here -- even if you've already made your bid.`)) return;
   socket.emit('sixp_declareQuote');
 });
 
-// Quote declared -- a one-time announcement to the whole table, tracked
-// by team so it only fires once per declaration.
+// COT/MaruCOT declared -- a one-time, purely informational announcement
+// to the whole table, tracked by team so it only fires once per
+// declaration. Which word applies is decided by whether the declaring
+// team is the bidding team or not -- same underlying action either way,
+// just a different label and different scoring. No challenge option
+// anymore -- that entire mechanic was replaced outright with this
+// simpler two-label system.
 function handleQuoteDeclaredToast(state) {
   if (state.quoteState && lastShownQuoteDeclaredForTeam6p !== state.quoteState.team) {
     lastShownQuoteDeclaredForTeam6p = state.quoteState.team;
     const onThatTeam = sixpGetTeam(MY_POS) === state.quoteState.team;
-    showToast(`🎯 ${onThatTeam ? 'Your team' : 'The other team'} declared COT! +2 if they sweep everything, -3 if not.`, 'info', 4500);
+    const isBidderTeam = state.quoteState.team === sixpGetTeam(state.bidder);
+    const label = isBidderTeam ? 'COT' : 'MaruCOT';
+    const madePts = isBidderTeam ? 2 : 3;
+    const failPts = isBidderTeam ? 3 : 2;
+    showToast(`🎯 ${onThatTeam ? 'Your team' : 'The other team'} declared ${label}! +${madePts} if they sweep everything, -${failPts} if not.`, 'info', 4500);
   } else if (!state.quoteState) {
     lastShownQuoteDeclaredForTeam6p = null;
-  }
-}
-
-// Maru COT: the moment a challenge window opens for MY team, prompt
-// immediately -- confirm() is blocking, which is fine here since the
-// window itself is meant to be answered right away, not left open.
-// lastMaruCotWindowHandled6p makes sure this only fires once per window
-// (not re-prompted on every subsequent state push while it's still
-// open), and resets the instant the window closes for any reason so a
-// FUTURE window (a later round) can prompt again correctly.
-function handleMaruCotChallenge(state) {
-  if (state.pendingMaruCotChallenge) {
-    if (sixpGetTeam(MY_POS) === state.pendingMaruCotChallenge.team && !lastMaruCotWindowHandled6p) {
-      lastMaruCotWindowHandled6p = true;
-      if (confirm('🔥 Maru COT?\n\nThe other team just declared COT. Challenge it right now, before their next card is played?\n\nIf you stop them (they fail to sweep everything): +4 for your team. If they still succeed anyway: -3 for your team.')) {
-        socket.emit('sixp_challengeMaruCot');
-      }
-    }
-  } else {
-    lastMaruCotWindowHandled6p = false;
-  }
-
-  if (state.maruCotState && lastShownMaruCotForTeam6p !== state.maruCotState.team) {
-    lastShownMaruCotForTeam6p = state.maruCotState.team;
-    const onThatTeam = sixpGetTeam(MY_POS) === state.maruCotState.team;
-    showToast(`🔥 ${onThatTeam ? 'Your team' : 'The other team'} called Maru COT! Stakes are now +3/-3 or -4/+4.`, 'info', 4500);
-  } else if (!state.maruCotState) {
-    lastShownMaruCotForTeam6p = null;
   }
 }
 async function shareInviteLink() {
