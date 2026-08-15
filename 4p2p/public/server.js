@@ -24,13 +24,16 @@
 // ============================================================
 
 const express = require('express');
+const helmet = require('helmet');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { Server } = require('socket.io');
 const { GameEngine } = require('./game-engine');
+const { SpadesEngine } = require('./spades-engine');
 const brain = require('./bot-brain');
+const l56Engine = require('./l56-engine');
 const geoip = require('geoip-lite');
 
 // ============================================================
@@ -78,6 +81,95 @@ const PORT = process.env.PORT || 9000;
 // below useless.
 app.set('trust proxy', true);
 
+// Adds a batch of standard protective HTTP headers (clickjacking
+// protection, MIME-sniffing protection, hiding the "X-Powered-By:
+// Express" fingerprint, etc). Content-Security-Policy and
+// Cross-Origin-Embedder-Policy are turned off deliberately -- this app
+// is one big HTML file relying heavily on inline <script> tags and
+// inline onclick="..." handlers throughout, plus cross-origin sockets
+// (the separate Carrom server). Helmet's default CSP blocks inline
+// scripts and would break the entire game; COEP can block legitimate
+// cross-origin connections. Every other protection Helmet adds stays on.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+// Reads the admin password from the 'x-admin-password' request header
+// instead of a URL query string (?password=...). A URL is the wrong place
+// for a secret: it commonly ends up written into server access logs,
+// proxy logs, and browser history in plain text, all just from loading
+// the page normally. A header is never included in any of those by
+// default. req.query.password is still accepted as a fallback purely so
+// an old cached copy of admin.html (or any other client) doesn't
+// instantly break the moment this deploys -- new requests should use the
+// header, and this fallback can be deleted later once nothing old is
+// left calling these endpoints the previous way.
+function adminPasswordFrom(req) {
+  return req.get('x-admin-password') || req.query.password || (req.body && req.body.password);
+}
+
+// ============================================================
+// ADMIN RATE LIMITING — 5 wrong password attempts within 15 minutes from
+// the same IP blocks that IP from even trying again for 15 minutes.
+// Resets itself automatically; nothing to unlock manually. A correct
+// password immediately clears an IP's attempt count. Shared by every
+// admin check below, both the REST endpoints and the Socket.IO admin
+// events -- there's no accounts/sessions here, so IP is the only thing
+// to key attempts on.
+// ============================================================
+const ADMIN_RATE_LIMIT_MAX = 5;
+const ADMIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const adminAttempts = new Map(); // ip -> { count, firstAttemptAt, blockedUntil }
+
+function adminBlockedMsRemaining(ip) {
+  const rec = adminAttempts.get(ip);
+  if (!rec || !rec.blockedUntil) return 0;
+  const remaining = rec.blockedUntil - Date.now();
+  if (remaining <= 0) { adminAttempts.delete(ip); return 0; }
+  return remaining;
+}
+
+function recordAdminAttempt(ip, success) {
+  if (success) { adminAttempts.delete(ip); return; }
+  const now = Date.now();
+  let rec = adminAttempts.get(ip);
+  if (!rec || now - rec.firstAttemptAt > ADMIN_RATE_LIMIT_WINDOW_MS) {
+    rec = { count: 0, firstAttemptAt: now, blockedUntil: null };
+  }
+  rec.count++;
+  if (rec.count >= ADMIN_RATE_LIMIT_MAX) rec.blockedUntil = now + ADMIN_RATE_LIMIT_WINDOW_MS;
+  adminAttempts.set(ip, rec);
+}
+
+// REST version: checks the rate limit, then the password, records the
+// attempt either way, and writes the HTTP response itself on failure.
+// Returns true only when the caller should proceed.
+function checkAdminAuth(req, res) {
+  const ip = req.ip;
+  const blockedMs = adminBlockedMsRemaining(ip);
+  if (blockedMs > 0) {
+    res.status(429).json({ ok: false, error: 'too_many_attempts', retryAfterMs: blockedMs });
+    return false;
+  }
+  const ok = adminPasswordFrom(req) === ADMIN_SECRET;
+  recordAdminAttempt(ip, ok);
+  if (!ok) res.status(401).json({ ok: false, error: 'bad_password' });
+  return ok;
+}
+
+// Socket.IO version: same rate limit/attempt recording, but returns a
+// small {ok, reason} result instead of writing a response, since each
+// admin socket event has its own ack event name/shape to emit back.
+function checkAdminAuthSocket(socket, password) {
+  const ip = socket.handshake.address;
+  const blockedMs = adminBlockedMsRemaining(ip);
+  if (blockedMs > 0) return { ok: false, reason: 'too_many_attempts' };
+  const ok = password === ADMIN_SECRET;
+  recordAdminAttempt(ip, ok);
+  return { ok, reason: ok ? null : 'wrong_password' };
+}
+
 // Browsers (especially mobile) cache static files aggressively by default,
 // which means a redeploy can silently NOT reach a returning player — they
 // keep seeing whatever old version their browser already cached. The game
@@ -118,6 +210,21 @@ const COMMENTS_FILE = path.join(__dirname, 'comments-data.json');
 const GITHUB_COMMENTS_PATH = '4p2p/data/comments.json';
 let comments = [];
 let commentsDirty = false;
+let commentsGithubPushDebounceTimer = null;
+let commentsGithubPushMaxWaitTimer = null;
+function markCommentsDirtyForGithub() {
+  if (!GITHUB_ENABLED) return;
+  if (commentsGithubPushDebounceTimer) clearTimeout(commentsGithubPushDebounceTimer);
+  commentsGithubPushDebounceTimer = setTimeout(runScheduledCommentsGithubPush, 20000);
+  if (!commentsGithubPushMaxWaitTimer) {
+    commentsGithubPushMaxWaitTimer = setTimeout(runScheduledCommentsGithubPush, 60000);
+  }
+}
+function runScheduledCommentsGithubPush() {
+  if (commentsGithubPushDebounceTimer) { clearTimeout(commentsGithubPushDebounceTimer); commentsGithubPushDebounceTimer = null; }
+  if (commentsGithubPushMaxWaitTimer) { clearTimeout(commentsGithubPushMaxWaitTimer); commentsGithubPushMaxWaitTimer = null; }
+  githubPushComments().catch(e => console.error('[comments] Scheduled GitHub push failed:', e.message));
+}
 let githubCommentsFileSha = null;
 
 async function githubFetchComments() {
@@ -136,7 +243,29 @@ async function githubFetchComments() {
     return null;
   }
 }
-async function githubPushComments() {
+async function githubRefreshCommentsSha() {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    let res;
+    try {
+      res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_COMMENTS_PATH}?ref=${GITHUB_BRANCH}`, {
+        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' },
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (res.status === 404) { githubCommentsFileSha = null; return true; }
+    if (!res.ok) return false;
+    const json = await res.json();
+    githubCommentsFileSha = json.sha;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+async function githubPushComments(isRetry) {
   if (!GITHUB_ENABLED) return;
   try {
     const body = {
@@ -145,11 +274,24 @@ async function githubPushComments() {
       branch: GITHUB_BRANCH
     };
     if (githubCommentsFileSha) body.sha = githubCommentsFileSha;
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_COMMENTS_PATH}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    let res;
+    try {
+      res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_COMMENTS_PATH}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (res.status === 409 && !isRetry) {
+      console.log('[comments] GitHub push got a 409 (stale SHA) -- refreshing and retrying once.');
+      const refreshed = await githubRefreshCommentsSha();
+      if (refreshed) { await githubPushComments(true); return; }
+    }
     if (!res.ok) { console.error('[comments] GitHub push failed:', res.status, await res.text()); return; }
     const json = await res.json();
     githubCommentsFileSha = json.content.sha;
@@ -197,6 +339,7 @@ app.post('/api/comments', (req, res) => {
   comments.unshift({ id: crypto.randomBytes(6).toString('hex'), name, message, time: Date.now(), replies: [] });
   if (comments.length > 500) comments.length = 500; // cap growth — this is a comment box, not a database
   commentsDirty = true;
+  markCommentsDirtyForGithub();
   saveCommentsLocal();
   console.log(`[comments] new message from ${name}`);
   res.json({ ok: true });
@@ -217,6 +360,7 @@ app.post('/api/comments/:id/reply', (req, res) => {
   if (parent.replies.length >= 100) return res.status(400).json({ ok: false, error: 'too_many_replies' }); // sane per-thread cap
   parent.replies.push({ id: crypto.randomBytes(6).toString('hex'), name, message, time: Date.now() });
   commentsDirty = true;
+  markCommentsDirtyForGithub();
   saveCommentsLocal();
   console.log(`[comments] new reply from ${name} on comment ${parent.id}`);
   res.json({ ok: true });
@@ -229,13 +373,23 @@ app.post('/api/comments/:id/reply', (req, res) => {
 // below), so the public can view and add to the conversation but can't
 // remove anyone else's words.
 app.get('/api/comments', (req, res) => {
+  // Deliberately public, no password check -- this doubles as the public
+  // comment wall every player sees on the welcome screen (see
+  // public/index.html's loadComments()/around line 4344), not just an
+  // admin view. The actual bug was admin.html's unlock() using THIS
+  // endpoint to validate the login gate -- since it was never
+  // password-protected, ANY typed password (even a wrong one) silently
+  // "worked" for the initial screen. Fixed there instead: unlock() now
+  // checks the password against a properly-protected endpoint
+  // (/api/live-players) rather than this public one.
   res.json({ ok: true, comments });
 });
 
 app.delete('/api/comments/:id', (req, res) => {
-  if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  if (!checkAdminAuth(req, res)) return;
   comments = comments.filter(c => c.id !== req.params.id);
   commentsDirty = true;
+  markCommentsDirtyForGithub();
   saveCommentsLocal();
   if (GITHUB_ENABLED) { lastGithubCommentsSyncCount = comments.length; githubPushComments(); }
   res.json({ ok: true });
@@ -293,6 +447,29 @@ const GITHUB_VISITOR_LOG_PATH = '4p2p/data/visitor-log.json';
 const GITHUB_ENABLED = !!(GITHUB_TOKEN && GITHUB_REPO);
 let visitorLog = [];
 let visitorLogDirty = false;
+let visitorGithubPushDebounceTimer = null;
+let visitorGithubPushMaxWaitTimer = null;
+function markVisitorLogDirtyForGithub() {
+  if (!GITHUB_ENABLED) return;
+  // Same proven pattern already used for Carrom/Pool table persistence:
+  // debounced off real activity, not a fixed recurring clock. The
+  // earlier periodic ~11-minute GitHub sync was removed because it ran
+  // on its own independent timer regardless of what was happening,
+  // which caused disconnects. This only ever fires in response to an
+  // actual new visitor, settling 20s after the last one so a burst of
+  // visits doesn't trigger a separate push per visitor, capped at 60s
+  // so a steady trickle can't push it back indefinitely.
+  if (visitorGithubPushDebounceTimer) clearTimeout(visitorGithubPushDebounceTimer);
+  visitorGithubPushDebounceTimer = setTimeout(runScheduledVisitorGithubPush, 20000);
+  if (!visitorGithubPushMaxWaitTimer) {
+    visitorGithubPushMaxWaitTimer = setTimeout(runScheduledVisitorGithubPush, 60000);
+  }
+}
+function runScheduledVisitorGithubPush() {
+  if (visitorGithubPushDebounceTimer) { clearTimeout(visitorGithubPushDebounceTimer); visitorGithubPushDebounceTimer = null; }
+  if (visitorGithubPushMaxWaitTimer) { clearTimeout(visitorGithubPushMaxWaitTimer); visitorGithubPushMaxWaitTimer = null; }
+  githubPushVisitorLog().catch(e => console.error('[visitor] Scheduled GitHub push failed:', e.message));
+}
 let githubFileSha = null; // required by GitHub's API to update an existing file
 
 function githubApiUrl() {
@@ -315,7 +492,34 @@ async function githubFetchVisitorLog() {
     return null;
   }
 }
-async function githubPushVisitorLog() {
+async function githubRefreshVisitorLogSha() {
+  // Lightweight - just need the current SHA to retry a rejected push,
+  // not the full file content again. Bounded the same way as the push
+  // itself - this runs as part of the same shutdown-flush sequence, so
+  // an unbounded GET here could eat the whole shutdown budget on its
+  // own and leave nothing for the retry PUT that follows it.
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    let res;
+    try {
+      res = await fetch(`${githubApiUrl()}?ref=${GITHUB_BRANCH}`, {
+        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' },
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (res.status === 404) { githubFileSha = null; return true; } // file doesn't exist yet -- fine, next push creates it fresh
+    if (!res.ok) return false;
+    const json = await res.json();
+    githubFileSha = json.sha;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+async function githubPushVisitorLog(isRetry) {
   if (!GITHUB_ENABLED) return;
   try {
     const body = {
@@ -324,14 +528,13 @@ async function githubPushVisitorLog() {
       branch: GITHUB_BRANCH
     };
     if (githubFileSha) body.sha = githubFileSha;
-    // Hard timeout — this fetch previously had none at all, meaning a
-    // slow or hanging GitHub API response could block this in-flight
-    // request indefinitely with no way to recover until the process
-    // itself did something about it. 10 seconds is generous for what's
-    // a small JSON PUT; if GitHub hasn't responded by then, treat it as
-    // failed for this cycle and let the next one try again.
+    // Bounded to 4s, not 10s - this can now run up to twice in a
+    // single shutdown-flush cycle (original attempt + retry, with a
+    // refresh GET in between), and all of it has to fit inside the
+    // outer 12-second shutdown budget with room to spare. 3 * 4s = 12s
+    // worst case, well inside that.
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
     let res;
     try {
       res = await fetch(githubApiUrl(), {
@@ -342,6 +545,17 @@ async function githubPushVisitorLog() {
       });
     } finally {
       clearTimeout(timeoutId);
+    }
+    if (res.status === 409 && !isRetry) {
+      // The server's cached SHA no longer matches what's actually on
+      // GitHub right now (the file changed some other way since this
+      // process last knew about it). Refetch the real current SHA and
+      // retry exactly once with it -- this is what actually recovers
+      // from the "push failed: 409, does not match" failure that used
+      // to just log and give up permanently until the next restart.
+      console.log('[visitor] GitHub push got a 409 (stale SHA) -- refreshing and retrying once.');
+      const refreshed = await githubRefreshVisitorLogSha();
+      if (refreshed) { await githubPushVisitorLog(true); return; }
     }
     if (!res.ok) { console.error('[visitor] GitHub push failed:', res.status, await res.text()); return; }
     const json = await res.json();
@@ -358,6 +572,7 @@ async function loadVisitorLog() {
     if (fromGithub) {
       visitorLog = fromGithub;
       console.log(`[visitor] Loaded ${visitorLog.length} logged visit(s) from GitHub.`);
+      closeOutStaleVisitorSessions();
       return;
     }
     console.log('[visitor] Falling back to local file for this boot (GitHub fetch failed).');
@@ -372,6 +587,37 @@ async function loadVisitorLog() {
   } catch (e) {
     console.error('[visitor] Failed to load local visitor log, starting fresh:', e.message);
     visitorLog = [];
+  }
+  closeOutStaleVisitorSessions();
+}
+// Any entry still missing disconnectedAt at the moment the log is loaded
+// belongs to a connection from a PREVIOUS server process -- that
+// process's actual socket is long gone, so a real 'disconnect' event for
+// it can never fire in this one. Left alone, it would show "still
+// connected" forever, even days later, which is exactly what looked
+// wrong in the visitor log. This doesn't touch how connections work at
+// all -- it only runs once, right after loading old data at startup, and
+// only ever closes out entries that genuinely can't be closed out any
+// other way. The exact moment it actually ended is unknowable (anywhere
+// between the last save and this restart), so this is marked distinctly
+// (endedByRestart: true) rather than faking a real-looking duration --
+// the display below shows "ended (server restarted)" for these instead
+// of a specific length of time, so nothing here overstates what's
+// actually known.
+function closeOutStaleVisitorSessions() {
+  const now = Date.now();
+  let closedCount = 0;
+  for (const entry of visitorLog) {
+    if (entry.disconnectedAt == null) {
+      entry.disconnectedAt = now;
+      entry.sessionMs = null;
+      entry.endedByRestart = true;
+      closedCount++;
+    }
+  }
+  if (closedCount > 0) {
+    console.log(`[visitor] Closed out ${closedCount} stale "still connected" entr${closedCount === 1 ? 'y' : 'ies'} left over from a previous server process.`);
+    visitorLogDirty = true;
   }
 }
 function saveVisitorLogLocal() {
@@ -414,9 +660,20 @@ async function finalVisitorLogFlush() {
   saveVisitorLogLocal();
   saveCommentsLocal();
   if (GITHUB_ENABLED) {
+    // Each individual GitHub network call is bounded to 3s, and a
+    // single push can involve up to 3 sequential calls in the worst
+    // case (failed push -> refresh -> retry push) = 9s worst case per
+    // push. Without this, a slow response or the 409-retry path could
+    // silently abandon the push mid-flight when process.exit runs (the
+    // race just resolves via the timeout branch, no error logged at
+    // all). 11s gives margin over that 9s worst case. Kept
+    // conservative since the platform's own grace period before it
+    // force-kills the process isn't precisely known -- better to
+    // finish comfortably early than race right up against an unknown
+    // outer deadline.
     await Promise.race([
       Promise.all([githubPushVisitorLog(), githubPushComments()]),
-      new Promise(resolve => setTimeout(resolve, 4000))
+      new Promise(resolve => setTimeout(resolve, 11000))
     ]);
   }
 }
@@ -431,15 +688,79 @@ function clientIpFor(socket) {
   return socket.handshake.address || '';
 }
 
+// Lightweight, dependency-free User-Agent parsing -- just enough to show
+// "iPhone, Safari, mobile" instead of a raw UA string in the admin
+// dashboard. Not meant to be exhaustive (a real UA-parsing library would
+// catch far more edge cases), just enough for a quick human read.
+function parseUserAgent(ua) {
+  ua = ua || '';
+  let device = 'Desktop';
+  if (/iPad|Tablet(?!.*Mobile)/i.test(ua)) device = 'Tablet';
+  else if (/Mobi|Android|iPhone/i.test(ua)) device = 'Mobile';
+
+  let os = 'Unknown';
+  if (/Windows/i.test(ua)) os = 'Windows';
+  else if (/Android/i.test(ua)) os = 'Android';
+  else if (/iPhone|iPad|iPod/i.test(ua)) os = 'iOS';
+  else if (/Mac OS X/i.test(ua)) os = 'macOS';
+  else if (/Linux/i.test(ua)) os = 'Linux';
+
+  let browser = 'Unknown';
+  if (/Edg\//i.test(ua)) browser = 'Edge';
+  else if (/OPR\/|Opera/i.test(ua)) browser = 'Opera';
+  else if (/CriOS\//i.test(ua)) browser = 'Chrome (iOS)';
+  else if (/FxiOS\//i.test(ua)) browser = 'Firefox (iOS)';
+  else if (/Chrome\//i.test(ua) && !/Chromium/i.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+  else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+
+  return { device, os, browser };
+}
+
+// geoip-lite returns region as a short subdivision code ("CA", "ON", not
+// "California"/"Ontario") -- this spells out the common ones so the
+// dashboard reads like a place, not an abbreviation. Anything not in here
+// (most of the world) just falls back to showing the raw code as-is,
+// rather than guessing -- better an honest "TX" than a wrong guess.
+const REGION_NAMES = {
+  US: { AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',PR:'Puerto Rico' },
+  CA: { AB:'Alberta',BC:'British Columbia',MB:'Manitoba',NB:'New Brunswick',NL:'Newfoundland and Labrador',NS:'Nova Scotia',NT:'Northwest Territories',NU:'Nunavut',ON:'Ontario',PE:'Prince Edward Island',QC:'Quebec',SK:'Saskatchewan',YT:'Yukon' },
+};
+function fullRegionName(countryCode, regionCode) {
+  if (!regionCode) return null;
+  const table = REGION_NAMES[countryCode];
+  return (table && table[regionCode]) || regionCode;
+}
+
 function logVisitor(socket) {
   const ip = clientIpFor(socket);
   const geo = ip ? geoip.lookup(ip) : null;
+  const headers = socket.handshake.headers || {};
+  const { device, os, browser } = parseUserAgent(headers['user-agent']);
+  const language = (headers['accept-language'] || '').split(',')[0].trim() || null;
+  const referrer = headers['referer'] || headers['referrer'] || null;
+  // Best-effort "have we seen this IP before" -- checked against
+  // whatever's currently in the (capped, 90-day) log, not literally
+  // forever. Good enough to eyeball "is this a new person or someone
+  // who's been here before" without needing real accounts/cookies.
+  const returning = ip ? visitorLog.some(e => e.ip === ip) : false;
   const entry = {
     ip,
     country: geo ? geo.country : null,
     region: geo ? geo.region : null,
+    regionName: geo ? fullRegionName(geo.country, geo.region) : null,
     city: geo ? geo.city : null,
     timezone: geo ? geo.timezone : null,
+    // Approximate coordinates from the IP lookup -- this is a rough,
+    // often city-center-level estimate, not the person's exact location.
+    // geoip-lite returns [null, null] when it has no location at all for
+    // that IP, so that case is normalized to just leaving both out.
+    lat: (geo && geo.ll && geo.ll[0] != null) ? geo.ll[0] : null,
+    lon: (geo && geo.ll && geo.ll[1] != null) ? geo.ll[1] : null,
+    device, os, browser,
+    language,
+    referrer,
+    returning,
     ts: Date.now(),
     socketId: socket.id
   };
@@ -448,7 +769,18 @@ function logVisitor(socket) {
   visitorLog = visitorLog.filter(e => e.ts >= cutoff);
   if (visitorLog.length > VISITOR_LOG_MAX) visitorLog.length = VISITOR_LOG_MAX;
   visitorLogDirty = true;
+  markVisitorLogDirtyForGithub();
   return entry;
+}
+
+// Counts distinct IPs in a set of entries -- this is what "unique
+// visitors" should actually mean, as opposed to raw connection count
+// (which double-, triple-, etc-counts anyone who just refreshed the page
+// or opened a second tab, since each is a brand new socket connection).
+function uniqueIpCount(entries) {
+  const seen = new Set();
+  for (const e of entries) { if (e.ip) seen.add(e.ip); }
+  return seen.size;
 }
 
 function visitorLogFilteredAndSummary(filter) {
@@ -457,11 +789,13 @@ function visitorLogFilteredAndSummary(filter) {
   const cutoffs = { today: now - DAY, week: now - 7 * DAY, month: now - 30 * DAY, all: 0 };
   const cutoff = cutoffs[filter] !== undefined ? cutoffs[filter] : 0;
   const entries = visitorLog.filter(e => e.ts >= cutoff);
+  const bucket = (c) => visitorLog.filter(e => e.ts >= c);
+  const summarize = (list) => ({ visits: list.length, unique: uniqueIpCount(list) });
   const summary = {
-    today: visitorLog.filter(e => e.ts >= cutoffs.today).length,
-    week: visitorLog.filter(e => e.ts >= cutoffs.week).length,
-    month: visitorLog.filter(e => e.ts >= cutoffs.month).length,
-    all: visitorLog.length
+    today: summarize(bucket(cutoffs.today)),
+    week: summarize(bucket(cutoffs.week)),
+    month: summarize(bucket(cutoffs.month)),
+    all: summarize(visitorLog)
   };
   return { entries, summary };
 }
@@ -474,10 +808,40 @@ io.on('connection', (socket) => {
   // currently seated at any table, without needing every single game
   // to independently do its own geo lookup.
   socketLocations.set(socket.id, { ip: entry.ip, city: entry.city, region: entry.region, country: entry.country });
-  socket.on('disconnect', () => socketLocations.delete(socket.id));
+
+  // A pure connection-liveness check -- no game logic, no table lookup,
+  // touches nothing except acknowledging that THIS specific socket is
+  // actually still able to complete a round trip right now. Used by
+  // every game's client on the page-visibility handler instead of
+  // trusting a time-based guess or the socket's own .connected flag,
+  // both of which can be WRONG after a real device suspension: a phone
+  // can pause a tab's JS entirely before it ever processes the actual
+  // disconnect event, even though the server's own ping-timeout already
+  // gave up on that connection long ago -- the client is left believing
+  // it's live while receiving nothing. This gives every client a
+  // definitive, direct answer instead of guessing from a flag or a timer.
+  socket.on('healthPing', (ack) => {
+    if (typeof ack === 'function') ack({ ok: true, ts: Date.now() });
+  });
+
+  socket.on('disconnect', () => {
+    socketLocations.delete(socket.id);
+    // How long this particular connection lasted, start to finish --
+    // `entry` is the exact same object already sitting in visitorLog
+    // (logVisitor() returned it, this is a closure over that reference),
+    // so updating it here updates it in place; no need to search the
+    // array again. sessionMs stays null/absent for a visit still in
+    // progress -- the admin views below show that as "still connected"
+    // rather than a real, final duration.
+    entry.disconnectedAt = Date.now();
+    entry.sessionMs = entry.disconnectedAt - entry.ts;
+    visitorLogDirty = true;
+    markVisitorLogDirtyForGithub();
+  });
 
   socket.on('adminGetVisitorLog', ({ adminPassword, filter }) => {
-    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'visitorLog', reason: 'wrong_password' }); return; }
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) { socket.emit('adminActionResult', { ok: false, action: 'visitorLog', reason: auth.reason }); return; }
     const { entries, summary } = visitorLogFilteredAndSummary(filter || 'all');
     socket.emit('adminVisitorLog', { entries, summary, filter: filter || 'all' });
   });
@@ -525,8 +889,20 @@ function getAllLivePlayers() {
 }
 
 app.get('/api/live-players', (req, res) => {
-  if (req.query.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  if (!checkAdminAuth(req, res)) return;
   res.json({ ok: true, players: getAllLivePlayers() });
+});
+
+// admin.html's "Visitor Log" tab fetches this directly -- it was
+// missing entirely, only the socket-based adminGetVisitorLog event
+// (used by the OTHER admin panel embedded in index.html) existed. Same
+// underlying data, same visitorLogFilteredAndSummary helper, just
+// exposed as a REST endpoint too since that's what this page actually
+// calls.
+app.get('/api/visitor-log', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const { entries, summary } = visitorLogFilteredAndSummary(req.query.filter || 'all');
+  res.json({ ok: true, entries, summary });
 });
 
 // Admin: force-close ANY table in ANY of the four games, no matter what
@@ -536,7 +912,7 @@ app.get('/api/live-players', (req, res) => {
 // in turn since the admin panel doesn't need to know which game a given
 // ID belongs to.
 app.post('/api/admin/close-table', (req, res) => {
-  if (req.body.password !== ADMIN_SECRET) return res.status(401).json({ ok: false, error: 'bad_password' });
+  if (!checkAdminAuth(req, res)) return;
   const id = String(req.body.tableId || '').trim();
   if (!id) return res.status(400).json({ ok: false, error: 'missing_table_id' });
   let closed = null;
@@ -599,7 +975,7 @@ function totalActiveRooms() { return Object.keys(tables).length + Object.keys(si
 // this lock feature actually lives in — so it works out of the box, but
 // can be overridden per-deployment via an environment variable without
 // touching either file.
-let ADMIN_SECRET = process.env.ADMIN_SECRET || '0000';
+let ADMIN_SECRET = process.env.ADMIN_SECRET || '5252';
 // In-memory only, on purpose -- resets to the env var/default on every
 // server restart or redeploy. That's the honest tradeoff of a password
 // you can change without editing files: there's no persistent store
@@ -828,7 +1204,8 @@ io.on('connection', (socket) => {
   // anyone who noticed the event name — the client's own password prompt
   // is a convenience, not the actual security boundary.
   socket.on('adminSetLock', ({ adminPassword, maxRooms }) => {
-    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'setLock', reason: 'wrong_password' }); return; }
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) { socket.emit('adminActionResult', { ok: false, action: 'setLock', reason: auth.reason }); return; }
     const n = parseInt(maxRooms, 10);
     roomCapMax = Number.isFinite(n) && n >= 0 ? Math.min(n, 50) : 3;
     roomCapEnabled = true;
@@ -838,7 +1215,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('adminClearLock', ({ adminPassword }) => {
-    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'clearLock', reason: 'wrong_password' }); return; }
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) { socket.emit('adminActionResult', { ok: false, action: 'clearLock', reason: auth.reason }); return; }
     roomCapEnabled = false;
     io.emit('lockStatus', { capped: false, maxRooms: roomCapMax, currentRooms: totalActiveRooms() });
     socket.emit('adminActionResult', { ok: true, action: 'clearLock' });
@@ -855,7 +1233,15 @@ io.on('connection', (socket) => {
   });
 
   socket.on('adminChangePassword', ({ adminPassword, newPassword }) => {
-    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminPasswordChangeResult', { ok: false, reason: 'wrong_current' }); return; }
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) {
+      // This event's existing contract uses 'wrong_current' specifically
+      // for a bad password (see the client's message map) -- translate
+      // checkAdminAuthSocket's generic reason to match that, but pass a
+      // rate-limit block through as-is.
+      socket.emit('adminPasswordChangeResult', { ok: false, reason: auth.reason === 'too_many_attempts' ? 'too_many_attempts' : 'wrong_current' });
+      return;
+    }
     const trimmed = String(newPassword || '').trim();
     if (trimmed.length < 4) { socket.emit('adminPasswordChangeResult', { ok: false, reason: 'too_short' }); return; }
     ADMIN_SECRET = trimmed;
@@ -889,7 +1275,7 @@ io.on('connection', (socket) => {
     detachSocketFromAllTables(socket, id);
     t.sockets.set(socket.id, { playerId, pos: 3 });
     socket.join(id);
-    socket.emit('joined', { tableId: id, playerId, pos: 3, isHost: true });
+    socket.emit('joined', { tableId: id, playerId, pos: 3, isHost: true, phase: engine.phase });
     broadcastTable(t);
     scheduleNoHumanShutdown(t, id);
     io.emit('roomList', publicTableList());
@@ -916,7 +1302,7 @@ io.on('connection', (socket) => {
         // player without host rights even when they were the only human
         // present — the exact reported bug.
         ensureHumanHost(t, playerId);
-        socket.emit('joined', { tableId, playerId, pos: idx.pos, isHost: isEffectiveHost(t, playerId) });
+        socket.emit('joined', { tableId, playerId, pos: idx.pos, isHost: isEffectiveHost(t, playerId), phase: t.engine.phase });
         // A bot's (or another disconnected seat's) turn can stall while
         // this player was away — nothing else was guaranteed to re-check
         // it. Re-kicking here means reconnecting always un-sticks the
@@ -1076,7 +1462,7 @@ io.on('connection', (socket) => {
     socket.join(tableId);
     // Strong host-recovery rule, same as the reconnect path above.
     ensureHumanHost(t, playerId);
-    socket.emit('joined', { tableId, playerId, pos, isHost: isEffectiveHost(t, playerId) });
+    socket.emit('joined', { tableId, playerId, pos, isHost: isEffectiveHost(t, playerId), phase: t.engine.phase });
     touch(t);
     broadcastTable(t);
     scheduleNoHumanShutdown(t, tableId);
@@ -1230,6 +1616,47 @@ io.on('connection', (socket) => {
     });
   });
 
+  // "Already won" early-round-end: whoever's on the winning team answers
+  // for their whole team (either partner can respond, see
+  // respondToEarlyWin() in the engine itself for why). continuePlay=true
+  // keeps playing normally; false ends the round right now using the
+  // already-decided point totals.
+  socket.on('respondToEarlyWin', ({ continuePlay }) => {
+    withTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.respondToEarlyWin(pos, !!continuePlay);
+      if (!r) socket.emit('actionError', { ok: false, reason: 'not your team\'s decision to make right now' });
+    });
+  });
+
+  // Quote: a pure declaration, not a card play -- the same player still
+  // plays their card normally afterward via the usual playCard above.
+  // Any player, either team, can call it on their own turn as long as
+  // their team is still clean (see declareQuote() / _isQuoteEligibleFor()
+  // in the engine for the full validation).
+  socket.on('declareQuote', () => {
+    withTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.declareQuote(pos);
+      if (!r) socket.emit('actionError', { ok: false, reason: 'quote is not available right now' });
+    });
+  });
+
+  // Maru COT: any player on the OTHER team from whoever just declared
+  // COT can challenge, whenever they like, within the short window that
+  // closes automatically once the COT-declarer's own next card is
+  // played. If multiple players attempt this at once, the server just
+  // naturally processes them one at a time -- whichever socket's event
+  // it handles first wins, and every later attempt correctly finds the
+  // window already closed. See challengeMaruCot() in the engine.
+  socket.on('challengeMaruCot', () => {
+    withTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.challengeMaruCot(pos);
+      if (!r) socket.emit('actionError', { ok: false, reason: 'maru cot is not available right now' });
+    });
+  });
+
   socket.on('continueRound', () => {
     withTable((t, pos) => {
       if (!isEffectiveHost(t, playerId)) return;
@@ -1275,7 +1702,7 @@ io.on('connection', (socket) => {
       if (!isEffectiveHost(t, playerId)) return;
       const target = t.engine.seats[pos];
       if (!target || target.isBot) return;
-      if (target.playerId === t.hostPlayerId) return; // can't kick yourself
+      if (target.playerId === playerId) return; // can't kick yourself
       // If they're currently connected, tell their client directly and
       // disconnect their seat mapping before touching the engine, so a
       // stray action from them can't land mid-kick.
@@ -1367,6 +1794,13 @@ io.on('connection', (socket) => {
           t.engine.removeSeat(info.pos);
         } else {
           t.engine.convertToBot(info.pos);
+          // Same gap as the silent-disconnect path below: if this was
+          // this seat's turn right now, nothing else was ever going to
+          // call maybeAutoAct() again on its own -- the bot conversion
+          // itself doesn't start play, it just changes what the seat IS.
+          // Without this, leaving via the X button mid-turn would freeze
+          // the table exactly the same way a silent disconnect could.
+          if (t.engine.currentPlayer === info.pos) t.engine.maybeAutoAct();
         }
         delete playerIndex[info.playerId];
       } else {
@@ -1388,6 +1822,20 @@ io.on('connection', (socket) => {
         alreadyReclaimed = [...t.sockets.values()].some(v => v.pos === info.pos);
         if (!alreadyReclaimed) {
           t.engine.markConnected(info.pos, false);
+          // If this seat's turn is happening RIGHT NOW, nothing else was
+          // ever going to call maybeAutoAct() again -- every other place
+          // it's called runs as a result of some NEW action, and if
+          // everyone's waiting on the person who JUST disconnected,
+          // there is no new action coming. Without this, the grace
+          // period + auto-act safety net that already exists inside
+          // maybeAutoAct() (35s for a disconnected human, then it plays
+          // for them) never actually gets armed for exactly this case --
+          // the table would freeze permanently, not even recovering on
+          // a refresh, since a fresh page load just re-fetches this same
+          // stuck server state. This is what was reported exactly as it
+          // looks: reconnecting doesn't help, refreshing doesn't help,
+          // because the server itself was the one waiting forever.
+          if (t.engine.currentPlayer === info.pos) t.engine.maybeAutoAct();
         }
       }
       // Host migration: whoever was hosting just left/dropped, so every
@@ -1420,6 +1868,25 @@ io.on('connection', (socket) => {
       }
       touch(t);
       broadcastTable(t);
+    }
+    // Deliberate leave (the actual 'leaveTable' event, sent only by the
+    // in-app red X / "Leave Table" confirmation) AND, after the seat
+    // handling above, not a single real (non-bot) player is left seated
+    // anywhere at this table -- only bots or empty seats remain. This is
+    // the ONE case that actually closes the table right now: an explicit
+    // leave is an unambiguous "I'm done", not a network blip, so there is
+    // no reconnect window worth preserving. A silent disconnect (lost
+    // signal, closed tab, backgrounding) NEVER reaches this branch --
+    // explicitLeave is only true for a real 'leaveTable' emit, never for
+    // the plain socket 'disconnect' handler -- so losing connection still
+    // leaves the table exactly as-is for a reconnect, same as before,
+    // regardless of whether other real players remain.
+    if (explicitLeave && !t.engine.seats.some(s => s && !s.isBot)) {
+      io.to(tableId).emit('tableClosed', { reason: 'lastPlayerLeft' });
+      delete tables[tableId];
+      io.emit('roomList', publicTableList());
+      console.log(`[table ${tableId}] closed — last real player explicitly left via Leave Table`);
+      return;
     }
     if (!t.engine.seats.some(Boolean)) {
       // Table just became fully empty (last occupant disconnected, or
@@ -1775,6 +2242,48 @@ io.on('connection', (socket) => {
     withSixpTable((t, pos) => { t.engine.playHiddenTrump(pos); sixpTouch(t); });
   });
 
+  // "Already won" early-round-end: whoever's on the winning team answers
+  // for their whole team (either teammate can respond). continuePlay=true
+  // keeps playing normally; false ends the round right now using the
+  // already-decided point totals. See respondToEarlyWin() in
+  // game-engine-6p.js for the full validation.
+  socket.on('sixp_respondToEarlyWin', ({ continuePlay }) => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.respondToEarlyWin(pos, !!continuePlay);
+      if (!r) { socket.emit('sixp_actionError', { reason: 'not your team\'s decision to make right now' }); return; }
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+    });
+  });
+
+  // Quote: a pure declaration, not a card play -- the same player still
+  // plays their card normally afterward via sixp_playCard above. Any
+  // player, either team, can call it on their own turn as long as
+  // their team is still clean. See declareQuote() /
+  // _isQuoteEligibleFor() in game-engine-6p.js.
+  socket.on('sixp_declareQuote', () => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.declareQuote(pos);
+      if (!r) { socket.emit('sixp_actionError', { reason: 'quote is not available right now' }); return; }
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+    });
+  });
+
+  // Maru COT -- see the 4-player table's challengeMaruCot handler for
+  // the full reasoning, identical here.
+  socket.on('sixp_challengeMaruCot', () => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.challengeMaruCot(pos);
+      if (!r) { socket.emit('sixp_actionError', { reason: 'maru cot is not available right now' }); return; }
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+    });
+  });
+
   socket.on('sixp_continueRound', () => {
     withSixpTable((t) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;
@@ -1864,10 +2373,32 @@ io.on('connection', (socket) => {
         t.engine.removeSeat(pos);
       } else {
         t.engine.convertToBot(pos);
+        // Same gap as the silent-disconnect path: if this was this
+        // seat's turn right now, nothing else was ever going to call
+        // maybeAutoAct() again on its own -- converting to a bot only
+        // changes what the seat IS, it doesn't start play.
+        if (t.engine.currentPlayer === pos) t.engine.maybeAutoAct();
       }
       if (leavingPlayerId) delete sixpPlayerIndex[leavingPlayerId];
       sixpTouch(t);
       sixpBroadcastTable(t);
+      // Deliberate leave (this handler only fires for the actual
+      // 'sixp_leaveTable' emit, sent by the red X / "Leave Table"
+      // confirmation -- never by a silent disconnect, see the separate
+      // 'disconnect' handler below) AND, after the seat handling above,
+      // not a single real (non-bot) player is left seated anywhere at
+      // this table. Mirrors the identical 4-player fix: this is the one
+      // case that closes the table right now, since an explicit leave
+      // means there's nothing left worth keeping a reconnect window open
+      // for. A network drop still preserves the table exactly as before,
+      // regardless of how many real players remain.
+      if (!t.engine.seats.some(s => s && !s.isBot)) {
+        io.to('sixp_' + sixpTableId).emit('sixp_tableClosed', { reason: 'lastPlayerLeft' });
+        delete sixpTables[sixpTableId];
+        io.emit('sixp_roomList', sixpPublicTableList());
+        console.log(`[6p table ${sixpTableId}] closed — last real player explicitly left via Leave Table`);
+        return;
+      }
       if (!t.engine.seats.some(Boolean)) {
         scheduleEmptyTableGrace(sixpTables, sixpTableId, 'sixp_roomList', sixpPublicTableList);
       }
@@ -1884,6 +2415,15 @@ io.on('connection', (socket) => {
     t.sockets.delete(socket.id);
     if (t.engine.seats[info.pos]) {
       t.engine.markConnected(info.pos, false);
+      // If this seat's turn is happening RIGHT NOW, nothing else was
+      // ever going to call maybeAutoAct() again -- every other place
+      // it's called runs as a result of some NEW action, and if
+      // everyone's waiting on the person who JUST disconnected, there
+      // is no new action coming. Same exact fix as the 4-player table:
+      // without this, the table would freeze permanently, not even
+      // recovering on a refresh, since a fresh page load just re-fetches
+      // this same stuck server state.
+      if (t.engine.currentPlayer === info.pos) t.engine.maybeAutoAct();
       if (t.hostPlayerId === info.playerId) {
         const newHostSeat = t.engine.seats.find(s => s && !s.isBot && s.connected && s.playerId !== info.playerId);
         if (newHostSeat) {
@@ -1969,6 +2509,183 @@ function l56Broadcast(code) {
   io.emit('l56_roomList', l56PublicList());
 }
 
+// ============================================================
+// 56 — AUTHORITATIVE GAMEPLAY ACTIONS
+// ============================================================
+// This is the real fix for "guest gets stuck" -- everything that
+// touches bidding, card play, or hand/match transitions now happens
+// HERE, on the server, exactly once, the moment it's asked for, using
+// the tested engine in l56-engine.js. The client no longer runs any of
+// this itself; it sends an action (l56_placeBid, l56_playCard, etc.)
+// and renders whatever state comes back. Bot turns, a finished trick
+// clearing, and the auction-result screen advancing are all scheduled
+// HERE too (l56ScheduleNext, below) with real setTimeout calls that
+// belong to the server process itself -- not to any player's browser
+// tab -- so none of it depends on anyone's phone being awake. This is
+// the same guarantee the 4-player table already has.
+//
+// Lobby/seat-management (creating a table, claiming a seat, chat,
+// partner signals, the reveal-toggle) deliberately still use the
+// original saveState()-from-the-client blob mechanism -- those were
+// never the source of a stuck game, and leaving them alone keeps this
+// change scoped to the actual problem.
+
+function l56SeatFor(socket, code) {
+  const r = l56Rooms[code];
+  if (!r || !r.state) return null;
+  const info = r.sockets.get(socket.id);
+  if (!info || info.pos == null || info.pos < 0) return null;
+  return { r, pos: info.pos };
+}
+
+// After ANY action changes state.turn/phase/pendingTrick/auctionClosedAt,
+// this looks at what the game needs next and schedules exactly one
+// thing: either the next bot's move, clearing a finished trick, or
+// advancing past the auction-result screen. Safe to call after every
+// single action -- the per-room "already scheduled for this exact
+// moment" keys below prevent duplicate/overlapping timers the same way
+// the old client-side version did.
+function l56ScheduleNext(code) {
+  const r = l56Rooms[code];
+  if (!r || !r.state) return;
+  const state = r.state;
+
+  if (state.pendingTrick) {
+    const key = 'trick:' + state.pendingTrick.ts;
+    if (r.l56TrickKey === key) return;
+    r.l56TrickKey = key;
+    if (r.l56TrickTimer) clearTimeout(r.l56TrickTimer);
+    const elapsed = Date.now() - state.pendingTrick.ts;
+    const remaining = Math.max(0, 3000 - elapsed);
+    r.l56TrickTimer = setTimeout(() => {
+      const rr = l56Rooms[code];
+      if (!rr || !rr.state || !rr.state.pendingTrick || rr.state.pendingTrick.ts !== state.pendingTrick.ts) return;
+      l56Engine.settlePendingTrick(rr.state);
+      l56Broadcast(code);
+      l56ScheduleNext(code);
+    }, remaining);
+    return;
+  }
+
+  if (state.phase === 'auctionClosed') {
+    const key = 'auction:' + state.auctionClosedAt;
+    if (r.l56AuctionKey === key) return;
+    r.l56AuctionKey = key;
+    if (r.l56AuctionTimer) clearTimeout(r.l56AuctionTimer);
+    const elapsed = Date.now() - state.auctionClosedAt;
+    const remaining = Math.max(0, 3000 - elapsed);
+    r.l56AuctionTimer = setTimeout(() => {
+      const rr = l56Rooms[code];
+      if (!rr || !rr.state || rr.state.phase !== 'auctionClosed' || rr.state.auctionClosedAt !== state.auctionClosedAt) return;
+      rr.state.phase = 'playing';
+      rr.state.turn = (rr.state.dealer + 1) % 6;
+      l56Broadcast(code);
+      l56ScheduleNext(code);
+    }, remaining);
+    return;
+  }
+
+  if ((state.phase === 'bidding' || state.phase === 'playing') && state.turn !== null && state.turn !== undefined) {
+    const occ = state.seats[state.turn];
+    if (!occ || !occ.bot) return; // a human's turn -- nothing to schedule, we wait for their action
+    const key = state.phase + ':' + state.turn + ':' + state.updatedAt;
+    if (r.l56BotKey === key) return;
+    r.l56BotKey = key;
+    if (r.l56BotTimer) clearTimeout(r.l56BotTimer);
+    const delay = state.phase === 'bidding' ? (1400 + Math.random() * 1400) : (250 + Math.random() * 350);
+    r.l56BotTimer = setTimeout(() => {
+      const rr = l56Rooms[code];
+      if (!rr || !rr.state) return;
+      const s = rr.state;
+      if (s.phase !== state.phase || s.turn !== state.turn) return; // stale, something else already happened
+      if (s.phase === 'bidding') l56RunBotBid(s, state.turn);
+      else if (s.phase === 'playing') l56RunBotPlay(s, state.turn);
+      l56Broadcast(code);
+      l56ScheduleNext(code);
+    }, delay);
+  }
+}
+
+function l56RunBotBid(state, seat) {
+  const decision = l56Engine.botDecideBid(state, seat);
+  const botName = state.seats[seat].name;
+  state.lastActionBySeat = state.lastActionBySeat || {};
+
+  const mySignal = state.partnerSignals && state.partnerSignals[seat];
+  if (mySignal && mySignal.forHand === (state.handNumber || 1) && decision.action === 'bid' && typeof decision.value === 'number') {
+    const cb = state.currentBid;
+    const minAllowed = cb ? cb.value + 1 : 28;
+    if (mySignal.signal === 'higher') decision.value = Math.min(56, decision.value + 2);
+    else if (mySignal.signal === 'lower') decision.value = Math.max(minAllowed, decision.value - 2);
+  }
+  if (mySignal) delete state.partnerSignals[seat];
+
+  if (decision.action === 'pass') {
+    if (!state.passedSeats.includes(seat)) state.passedSeats.push(seat);
+    state.lastActionBySeat[seat] = 'Pass';
+    l56Engine.addLog(state, `${botName} passed.`, seat);
+    if (!state.currentBid && state.passedSeats.length >= 6) {
+      state.forcedSeat = (state.dealer + 1) % 6;
+      state.passedSeats = [];
+      state.turn = state.forcedSeat;
+      l56Engine.addLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
+    } else if (state.currentBid && state.passedSeats.length >= 5) {
+      l56Engine.closeBidding(state);
+    } else {
+      l56Engine.advanceBiddingTurn(state);
+    }
+  } else if (decision.action === 'double') {
+    state.doubled = 1;
+    state.doubledBySeat = seat;
+    state.lastActionBySeat[seat] = 'Double';
+    l56Engine.addLog(state, `${botName} doubled!`, seat);
+    l56Engine.advanceBiddingTurn(state);
+  } else if (decision.action === 'redouble') {
+    state.doubled = 2;
+    state.lastActionBySeat[seat] = 'Redouble';
+    l56Engine.addLog(state, `${botName} redoubled!`, seat);
+    l56Engine.advanceBiddingTurn(state);
+  } else {
+    const newBid = { value: decision.value, trump: decision.trump, seat, kind: decision.kind, order: decision.order };
+    if (decision.kind === 'suit' && state.currentBid && state.currentBid.trump === decision.trump) {
+      newBid.increment = decision.value - state.currentBid.value;
+    }
+    if (!state.currentBid) { state.openerSeat = seat; state.openerSuit = decision.trump; }
+    if (decision.kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[seat] = state.currentBid ? state.currentBid.trump : true; }
+    if (decision.kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[seat + '-' + decision.trump] = decision.order; }
+    if (decision.isReassert) state.openerReassertCount = (state.openerReassertCount || 0) + 1;
+    if (decision.isProbe) state.openerProbeSuit = decision.trump;
+    state.currentBid = newBid;
+    state.doubled = 0;
+    state.doubledBySeat = null;
+    state.passedSeats = [];
+    state.lastActionBySeat[seat] = l56Engine.formatBidLogLabel(newBid);
+    l56Engine.addLog(state, `${botName} bid ${l56Engine.formatBidLogLabel(newBid)}.`, seat);
+    l56Engine.advanceBiddingTurn(state);
+  }
+}
+
+function l56RunBotPlay(state, seat) {
+  const legal = l56Engine.legalCardsForSeat(state, seat);
+  const hand = state.hands[seat];
+  const legalCards = hand.filter(c => legal.some(l => l.id === c.id));
+  if (legalCards.length === 0) return;
+  const card = l56Engine.botChooseCard(state, seat, legalCards);
+  const botName = state.seats[seat].name;
+  const idx = hand.findIndex(c => c.id === card.id);
+  hand.splice(idx, 1);
+  if (state.leadSuit && card.s !== state.leadSuit) {
+    state.revealedVoidBySeat = state.revealedVoidBySeat || {};
+    if (!state.revealedVoidBySeat[seat]) state.revealedVoidBySeat[seat] = [];
+    if (!state.revealedVoidBySeat[seat].includes(state.leadSuit)) state.revealedVoidBySeat[seat].push(state.leadSuit);
+  }
+  if (!state.leadSuit) state.leadSuit = card.s;
+  state.table.push({ seat, card });
+  l56Engine.addLog(state, `${botName} played ${card.r}${l56Engine.SUIT_SYM[card.s]}.`);
+  if (state.table.length === 6) l56Engine.resolveTrick(state);
+  else state.turn = (state.turn + 1) % 6;
+}
+
 function l56Touch(r) {
   r.lastActivityAt = Date.now();
   if (r.stillPlayingTimer) {
@@ -1977,6 +2694,293 @@ function l56Touch(r) {
     io.to(l56SocketRoom(r.code)).emit('l56_stillPlayingResolved');
   }
 }
+
+// ============================================================
+// 56 SERVER-SIDE BOT FALLBACK
+// ============================================================
+// 56's real game logic normally runs entirely inside whichever player's
+// browser currently has the room open (see public/56.html) -- the
+// server is just a relay storing/broadcasting whatever state blob it's
+// given. That's fine for the common case (some tab is almost always
+// open), but if EVERY connected player's tab is backgrounded at once
+// (switched apps, phone locked), nobody is left to drive a bot's turn,
+// clear a finished trick, or advance past the auction-result screen --
+// and the table would stall forever with no client able to fix it,
+// since backgrounded tabs have their timers throttled by the browser.
+//
+// This is a safety net, not a smart player: it only ever touches a room
+// that's gone quiet for a while (see L56_STALL_MS), and always makes
+// the simplest always-legal move (pass, or the first legal card) rather
+// than anything strategic -- the real, smart client-side bot AI is what
+// actually plays in every normal case. This exists purely so the game
+// can never truly deadlock, the same guarantee the fully
+// server-authoritative 4-player and 6-player tables already have.
+const L56_STALL_MS = 20000; // a bot's turn/pending screen sitting this long with no client update -> server steps in
+const L56_HUMAN_GRACE_MS = 35000; // a DISCONNECTED human's own turn gets a longer grace period than a bot -- brief blips are common and often invisible to them; matches the same 35s grace period the 4-player/6-player engines use
+const L56_TRICK_DISPLAY_MS = 3000;
+const L56_AUCTION_RESULT_MS = 3000;
+const L56_TEAM_OF = seat => (seat % 2 === 0 ? 'A' : 'B');
+const L56_RANKS = ['J', '9', 'A', '10', 'K', 'Q']; // power order, highest first
+const L56_RANK_PTS = { J: 3, '9': 2, A: 1, '10': 1, K: 0, Q: 0 };
+const L56_SUIT_SYM = { S: '♠', H: '♥', D: '♦', C: '♣' };
+
+function l56BandFor(value) {
+  if (value >= 28 && value <= 39) return { win: 1, lose: 2 };
+  if (value >= 40 && value <= 47) return { win: 2, lose: 3 };
+  if (value >= 48 && value <= 55) return { win: 3, lose: 4 };
+  if (value === 56) return { win: 4, lose: 5 };
+  return { win: 1, lose: 2 };
+}
+function l56AddLog(state, text, seat) {
+  state.log = state.log || [];
+  state.log.unshift({ text, ts: Date.now(), seat: (seat !== undefined ? seat : null) });
+  if (state.log.length > 60) state.log.length = 60;
+}
+function l56LegalCardsForSeat(state, seat) {
+  const hand = state.hands[seat] || [];
+  if (!state.leadSuit) return hand.slice();
+  const followers = hand.filter(c => c.s === state.leadSuit);
+  return followers.length > 0 ? followers : hand.slice();
+}
+function l56CardPower(card, state) {
+  const isTrump = state.currentBid.trump && card.s === state.currentBid.trump;
+  return { isTrump, rankIdx: L56_RANKS.indexOf(card.r) };
+}
+// Faithful port of the client's resolveTrick() (public/56.html) -- same
+// trick-winner/points logic, just without touching the DOM.
+function l56ResolveTrick(state) {
+  let winner = state.table[0];
+  let winPow = l56CardPower(winner.card, state);
+  for (let i = 1; i < state.table.length; i++) {
+    const play = state.table[i];
+    const pow = l56CardPower(play.card, state);
+    let better = false;
+    if (pow.isTrump && !winPow.isTrump) {
+      better = true;
+    } else if (pow.isTrump === winPow.isTrump) {
+      if (pow.isTrump) {
+        better = pow.rankIdx < winPow.rankIdx;
+      } else if (play.card.s === state.leadSuit && winner.card.s === state.leadSuit) {
+        better = pow.rankIdx < winPow.rankIdx;
+      } else if (play.card.s === state.leadSuit && winner.card.s !== state.leadSuit) {
+        better = true;
+      }
+    }
+    if (better) { winner = play; winPow = pow; }
+  }
+  const points = state.table.reduce((sum, p) => sum + L56_RANK_PTS[p.card.r], 0);
+  const winTeam = L56_TEAM_OF(winner.seat);
+  state.teamPoints[winTeam] += points;
+  state.tricksLog = state.tricksLog || [];
+  state.tricksLog.push({ cards: state.table, winnerSeat: winner.seat, points });
+  l56AddLog(state, `${state.seats[winner.seat].name} wins the trick (+${points} pts) for Team ${winTeam}.`);
+  state.pendingTrick = { winnerSeat: winner.seat, points, team: winTeam, ts: Date.now() };
+  state.turn = null;
+}
+// Faithful port of settlePendingTrick() + finishHand() from public/56.html.
+function l56SettlePendingTrick(state) {
+  if (!state.pendingTrick) return;
+  const winnerSeat = state.pendingTrick.winnerSeat;
+  state.table = [];
+  state.leadSuit = null;
+  state.turn = winnerSeat;
+  state.pendingTrick = null;
+  const cardsLeft = state.hands.reduce((a, h) => a + h.length, 0);
+  if (cardsLeft === 0) l56FinishHand(state);
+}
+function l56FinishHand(state) {
+  const cb = state.currentBid;
+  const biddingTeam = L56_TEAM_OF(cb.seat);
+  const oppTeam = biddingTeam === 'A' ? 'B' : 'A';
+  const made = state.teamPoints[biddingTeam] >= cb.value;
+  const band = l56BandFor(cb.value);
+  const mult = state.doubled === 2 ? 4 : state.doubled === 1 ? 2 : 1;
+  if (made) {
+    const amt = Math.min(band.win * mult, state.matchScore[oppTeam]);
+    state.matchScore[biddingTeam] += amt;
+    state.matchScore[oppTeam] -= amt;
+    l56AddLog(state, `Team ${biddingTeam} made their bid of ${cb.value}. Receive ${amt} table${amt !== 1 ? 's' : ''} from Team ${oppTeam}.`);
+  } else {
+    const amt = Math.min(band.lose * mult, state.matchScore[biddingTeam]);
+    state.matchScore[biddingTeam] -= amt;
+    state.matchScore[oppTeam] += amt;
+    l56AddLog(state, `Team ${biddingTeam} fell short of ${cb.value}. Pay ${amt} table${amt !== 1 ? 's' : ''} to Team ${oppTeam}.`);
+  }
+  state.qMarks = state.qMarks || {};
+  if (made) {
+    const bidderSeatInfo = state.seats[cb.seat];
+    if (bidderSeatInfo && state.qMarks[bidderSeatInfo.name] > 0) {
+      state.qMarks[bidderSeatInfo.name]--;
+      if (state.qMarks[bidderSeatInfo.name] <= 0) delete state.qMarks[bidderSeatInfo.name];
+      l56AddLog(state, `${bidderSeatInfo.name} shed a Q by calling and winning the bid.`);
+    }
+    if (state.isFirstHandOfChampionship) {
+      for (let i = 0; i < 6; i++) {
+        if (i === cb.seat || L56_TEAM_OF(i) !== biddingTeam) continue;
+        const teammateInfo = state.seats[i];
+        if (teammateInfo && state.qMarks[teammateInfo.name] > 0) {
+          state.qMarks[teammateInfo.name]--;
+          if (state.qMarks[teammateInfo.name] <= 0) delete state.qMarks[teammateInfo.name];
+          l56AddLog(state, `${teammateInfo.name} also shed a Q — first hand of the match, teammate's bid came through.`);
+        }
+      }
+    }
+  }
+  state.isFirstHandOfChampionship = false;
+  if (state.matchScore.A <= 0 || state.matchScore.B <= 0) {
+    state.matchOver = true;
+    state.matchWinner = state.matchScore.A <= 0 ? 'B' : 'A';
+    state.sessionWins = state.sessionWins || { A: 0, B: 0 };
+    state.sessionWins[state.matchWinner] = (state.sessionWins[state.matchWinner] || 0) + 1;
+    l56AddLog(state, `Team ${state.matchWinner} wins the match — Team ${state.matchWinner === 'A' ? 'B' : 'A'} is out of tables!`);
+    const losingTeam = state.matchWinner === 'A' ? 'B' : 'A';
+    for (let i = 0; i < 6; i++) {
+      const s = state.seats[i];
+      if (!s || L56_TEAM_OF(i) !== losingTeam) continue;
+      state.qMarks[s.name] = (state.qMarks[s.name] || 0) + 1;
+    }
+    l56AddLog(state, `Team ${losingTeam} shut out — every player picks up a Q.`);
+  }
+  state.phase = 'handEnd';
+}
+function l56AdvanceBiddingTurn(state) {
+  let next = (state.turn + 1) % 6;
+  let guard = 0;
+  while (state.passedSeats.includes(next) && guard < 6) {
+    next = (next + 1) % 6;
+    guard++;
+  }
+  state.turn = next;
+}
+function l56CloseBidding(state) {
+  const cb = state.currentBid;
+  state.phase = 'auctionClosed';
+  state.auctionClosedAt = Date.now();
+  state.turn = null;
+  state.leadSuit = null;
+  state.table = [];
+  state.forcedSeat = null;
+  const trumpTxt = cb.trump ? L56_SUIT_SYM[cb.trump] + ' trump' : 'No Trump';
+  const leaderSeat = (state.dealer + 1) % 6;
+  l56AddLog(state, `Bidding closed. ${state.seats[cb.seat].name} won with ${cb.value} (${trumpTxt}). ${state.seats[leaderSeat].name} leads the first trick.`);
+}
+
+// Attempts one fallback nudge for a room that's gone quiet. Returns true
+// only if it actually changed something (caller saves + broadcasts then,
+// and only then -- an untouched room shouldn't get its activity clock
+// bumped or trigger a pointless broadcast).
+function l56TryNudge(r) {
+  const state = r.state;
+  if (!state) return false;
+  const now = Date.now();
+
+  // A finished trick still sitting on screen past its display time.
+  if (state.pendingTrick && (now - state.pendingTrick.ts) >= L56_TRICK_DISPLAY_MS) {
+    l56SettlePendingTrick(state);
+    state.updatedAt = now;
+    return true;
+  }
+  // The auction-result screen sitting past its display time.
+  if (state.phase === 'auctionClosed' && state.auctionClosedAt && (now - state.auctionClosedAt) >= L56_AUCTION_RESULT_MS) {
+    state.phase = 'playing';
+    state.turn = (state.dealer + 1) % 6;
+    state.updatedAt = now;
+    return true;
+  }
+  // A bot's turn that's gone stale, OR a disconnected HUMAN's turn that's
+  // gone unanswered for a real grace period. Bots get the short
+  // L56_STALL_MS threshold (they're already bots, no reason to wait).
+  // A disconnected human gets a genuine 35s grace period first -- brief
+  // network blips are common and often invisible to the person
+  // experiencing them -- before this treats them the same way a bot
+  // seat already was. Without this second condition, a human who
+  // disconnects mid-turn was NEVER covered by this sweep at all (the
+  // bot-only check skips right past them), which is exactly what left a
+  // table frozen permanently: nobody -- not the periodic sweep, not a
+  // fresh page reload, nothing -- was ever going to act for them.
+  if ((state.phase === 'bidding' || state.phase === 'playing') && state.turn !== null && state.turn !== undefined) {
+    const occ = state.seats[state.turn];
+    const ageMs = state.updatedAt ? (now - state.updatedAt) : 0;
+    const isStuckBot = occ && occ.bot && ageMs >= L56_STALL_MS;
+    const isStuckDisconnectedHuman = occ && !occ.bot && occ.connected === false && ageMs >= L56_HUMAN_GRACE_MS;
+    if (isStuckBot || isStuckDisconnectedHuman) {
+      if (state.phase === 'bidding') {
+        const seat = state.turn;
+        if (state.forcedSeat === seat && !state.currentBid) {
+          // Forced to open, can't pass -- simplest safe opening bid.
+          state.currentBid = { value: 28, trump: null, seat, kind: 'nt', order: null };
+          state.doubled = 0;
+          state.doubledBySeat = null;
+          state.passedSeats = [];
+          state.openerSeat = seat;
+          state.openerSuit = null;
+          state.lastActionBySeat = state.lastActionBySeat || {};
+          state.lastActionBySeat[seat] = '28 No Trump';
+          l56AddLog(state, `${state.seats[seat].name} bid 28 No Trump.`, seat);
+          l56AdvanceBiddingTurn(state);
+        } else {
+          state.passedSeats = state.passedSeats || [];
+          if (!state.passedSeats.includes(seat)) state.passedSeats.push(seat);
+          state.lastActionBySeat = state.lastActionBySeat || {};
+          state.lastActionBySeat[seat] = 'Pass';
+          l56AddLog(state, `${state.seats[seat].name} passed.`, seat);
+          if (!state.currentBid && state.passedSeats.length >= 6) {
+            state.forcedSeat = (state.dealer + 1) % 6;
+            state.passedSeats = [];
+            state.turn = state.forcedSeat;
+            l56AddLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
+          } else if (state.currentBid && state.passedSeats.length >= 5) {
+            l56CloseBidding(state);
+          } else {
+            l56AdvanceBiddingTurn(state);
+          }
+        }
+        state.updatedAt = now;
+        return true;
+      }
+      if (state.phase === 'playing') {
+        const seat = state.turn;
+        const legal = l56LegalCardsForSeat(state, seat);
+        if (legal.length === 0) return false; // shouldn't happen, but don't crash a room over it
+        const card = legal[0];
+        const hand = state.hands[seat];
+        const idx = hand.findIndex(c => c.id === card.id);
+        if (idx === -1) return false;
+        hand.splice(idx, 1);
+        if (state.leadSuit && card.s !== state.leadSuit) {
+          state.revealedVoidBySeat = state.revealedVoidBySeat || {};
+          if (!state.revealedVoidBySeat[seat]) state.revealedVoidBySeat[seat] = [];
+          if (!state.revealedVoidBySeat[seat].includes(state.leadSuit)) state.revealedVoidBySeat[seat].push(state.leadSuit);
+        }
+        if (!state.leadSuit) state.leadSuit = card.s;
+        state.table = state.table || [];
+        state.table.push({ seat, card });
+        l56AddLog(state, `${state.seats[seat].name} played ${card.r}${L56_SUIT_SYM[card.s]}.`);
+        if (state.table.length === 6) l56ResolveTrick(state);
+        else state.turn = (state.turn + 1) % 6;
+        state.updatedAt = now;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function l56RunFallbackSweep() {
+  for (const code of Object.keys(l56Rooms)) {
+    const r = l56Rooms[code];
+    if (!r || !r.state) continue;
+    try {
+      if (l56TryNudge(r)) {
+        l56Touch(r);
+        io.to(l56SocketRoom(code)).emit('sync56_state', { room: code, state: r.state });
+      }
+    } catch (e) {
+      console.error(`[l56-fallback] room ${code} nudge failed:`, e && e.stack || e);
+    }
+  }
+}
+setInterval(l56RunFallbackSweep, 5000);
 
 // Picks the next host when the current one disconnects/leaves: lowest
 // seat index that's a currently-connected human. If nobody qualifies,
@@ -2021,7 +3025,8 @@ io.on('connection', (socket) => {
 
   socket.emit('reveal56Policy', { disabled: reveal56Disabled });
   socket.on('admin56SetRevealDisabled', ({ adminPassword, disabled }) => {
-    if (adminPassword !== ADMIN_SECRET) { socket.emit('adminActionResult', { ok: false, action: 'reveal56', reason: 'wrong_password' }); return; }
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) { socket.emit('adminActionResult', { ok: false, action: 'reveal56', reason: auth.reason }); return; }
     reveal56Disabled = !!disabled;
     io.emit('reveal56Policy', { disabled: reveal56Disabled });
     socket.emit('adminActionResult', { ok: true, action: 'reveal56' });
@@ -2152,6 +3157,194 @@ io.on('connection', (socket) => {
     if (!hadHost && r.hostPlayerId) l56Broadcast(code);
   });
 
+  // ---------------- Authoritative gameplay actions ----------------
+  // Each of these: validates it's actually this seat's turn, applies the
+  // change using the tested engine, broadcasts the result, then checks
+  // what needs to happen next (another bot's turn, a trick clearing,
+  // etc). See l56ScheduleNext() above for why this is what actually
+  // fixes "guest gets stuck" -- the game keeps moving on its own from
+  // here, it doesn't need anyone's browser to push it forward.
+
+  socket.on('l56_startGame', ({ code }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r } = seatInfo;
+    if (!l56IsEffectiveHost(r, socket.data.l56 && socket.data.l56.playerId)) return;
+    if (r.state.phase !== 'lobby') return;
+    l56Engine.startGame(r.state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_nextHand', ({ code }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r } = seatInfo;
+    if (r.state.phase !== 'handEnd' || r.state.matchOver) return;
+    l56Engine.nextHand(r.state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_restartRound', ({ code }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r } = seatInfo;
+    if (!l56IsEffectiveHost(r, socket.data.l56 && socket.data.l56.playerId)) return;
+    l56Engine.restartRound(r.state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_startNewMatch', ({ code }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r } = seatInfo;
+    if (r.state.phase !== 'handEnd' || !r.state.matchOver) return;
+    l56Engine.startNewMatch(r.state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_placeBid', ({ code, value, trump, kind, order, note }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r, pos } = seatInfo;
+    const state = r.state;
+    if (state.phase !== 'bidding' || state.turn !== pos) return;
+    const minAllowed = state.currentBid ? state.currentBid.value + 1 : 28;
+    if (typeof value !== 'number' || value < minAllowed || value > 56) return;
+    if (!['suit', 'nt', 'ns'].includes(kind)) return;
+    if (kind === 'suit' && !l56Engine.SUITS.includes(trump)) return;
+
+    const newBid = { value, trump: kind === 'suit' ? trump : null, seat: pos, kind, order: kind === 'suit' ? order : null };
+    if (kind === 'suit' && state.currentBid && state.currentBid.trump === trump) {
+      newBid.increment = value - state.currentBid.value;
+    } else if (kind === 'suit' && !state.currentBid) {
+      newBid.increment = value - 27;
+    }
+    if (!state.currentBid) { state.openerSeat = pos; state.openerSuit = newBid.trump; }
+    if (kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[pos] = state.currentBid ? state.currentBid.trump : true; }
+    if (kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[pos + '-' + trump] = order; }
+    if (state.openerSeat === pos && state.openerSuit && trump === state.openerSuit && state.currentBid) {
+      state.openerReassertCount = (state.openerReassertCount || 0) + 1;
+    }
+    state.currentBid = newBid;
+    state.doubled = 0;
+    state.doubledBySeat = null;
+    state.passedSeats = [];
+    const label = l56Engine.formatBidLogLabel(newBid);
+    state.lastActionBySeat = state.lastActionBySeat || {};
+    state.lastActionBySeat[pos] = label;
+    const noteText = (typeof note === 'string' ? note.trim() : '').slice(0, 200);
+    if (noteText) state.lastNote = { seat: pos, text: noteText, ts: Date.now() };
+    l56Engine.addLog(state, `${state.seats[pos].name} bid ${label}${noteText ? ' — "' + noteText + '"' : ''}`, pos);
+    l56Engine.advanceBiddingTurn(state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_pass', ({ code, note }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r, pos } = seatInfo;
+    const state = r.state;
+    if (state.phase !== 'bidding' || state.turn !== pos) return;
+    if (state.forcedSeat === pos && !state.currentBid) return; // forced opener can't pass
+    if (!state.passedSeats.includes(pos)) state.passedSeats.push(pos);
+    state.lastActionBySeat = state.lastActionBySeat || {};
+    state.lastActionBySeat[pos] = 'Pass';
+    const noteText = (typeof note === 'string' ? note.trim() : '').slice(0, 200);
+    if (noteText) state.lastNote = { seat: pos, text: noteText, ts: Date.now() };
+    l56Engine.addLog(state, `${state.seats[pos].name} passed.${noteText ? ' — "' + noteText + '"' : ''}`, pos);
+    if (!state.currentBid && state.passedSeats.length >= 6) {
+      state.forcedSeat = (state.dealer + 1) % 6;
+      state.passedSeats = [];
+      state.turn = state.forcedSeat;
+      l56Engine.addLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
+    } else if (state.currentBid && state.passedSeats.length >= 5) {
+      l56Engine.closeBidding(state);
+    } else {
+      l56Engine.advanceBiddingTurn(state);
+    }
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_double', ({ code, note }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r, pos } = seatInfo;
+    const state = r.state;
+    if (state.phase !== 'bidding' || state.turn !== pos || !state.currentBid) return;
+    if (l56Engine.TEAM_OF(state.currentBid.seat) === l56Engine.TEAM_OF(pos) || state.doubled !== 0) return;
+    state.doubled = 1;
+    state.doubledBySeat = pos;
+    state.lastActionBySeat = state.lastActionBySeat || {};
+    state.lastActionBySeat[pos] = 'Double';
+    const noteText = (typeof note === 'string' ? note.trim() : '').slice(0, 200);
+    if (noteText) state.lastNote = { seat: pos, text: noteText, ts: Date.now() };
+    l56Engine.addLog(state, `${state.seats[pos].name} doubled!${noteText ? ' — "' + noteText + '"' : ''}`, pos);
+    l56Engine.advanceBiddingTurn(state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_redouble', ({ code, note }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r, pos } = seatInfo;
+    const state = r.state;
+    if (state.phase !== 'bidding' || state.turn !== pos || state.doubled !== 1) return;
+    if (l56Engine.TEAM_OF(state.currentBid.seat) !== l56Engine.TEAM_OF(pos)) return;
+    state.doubled = 2;
+    state.lastActionBySeat = state.lastActionBySeat || {};
+    state.lastActionBySeat[pos] = 'Redouble';
+    const noteText = (typeof note === 'string' ? note.trim() : '').slice(0, 200);
+    if (noteText) state.lastNote = { seat: pos, text: noteText, ts: Date.now() };
+    l56Engine.addLog(state, `${state.seats[pos].name} redoubled!${noteText ? ' — "' + noteText + '"' : ''}`, pos);
+    l56Engine.advanceBiddingTurn(state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  socket.on('l56_playCard', ({ code, cardId }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r, pos } = seatInfo;
+    const state = r.state;
+    if (state.phase !== 'playing' || state.turn !== pos) return;
+    const legal = l56Engine.legalCardsForSeat(state, pos);
+    if (!legal.some(c => c.id === cardId)) return;
+    const hand = state.hands[pos];
+    const idx = hand.findIndex(c => c.id === cardId);
+    if (idx === -1) return;
+    const card = hand[idx];
+    hand.splice(idx, 1);
+    if (state.leadSuit && card.s !== state.leadSuit) {
+      state.revealedVoidBySeat = state.revealedVoidBySeat || {};
+      if (!state.revealedVoidBySeat[pos]) state.revealedVoidBySeat[pos] = [];
+      if (!state.revealedVoidBySeat[pos].includes(state.leadSuit)) state.revealedVoidBySeat[pos].push(state.leadSuit);
+    }
+    if (!state.leadSuit) state.leadSuit = card.s;
+    state.table = state.table || [];
+    state.table.push({ seat: pos, card });
+    l56Engine.addLog(state, `${state.seats[pos].name} played ${card.r}${l56Engine.SUIT_SYM[card.s]}.`);
+    if (state.table.length === 6) l56Engine.resolveTrick(state);
+    else state.turn = (state.turn + 1) % 6;
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
   socket.on('l56_kick', ({ code, pos }) => {
     const r = l56Rooms[code];
     if (!r || !r.state || !r.state.seats) return;
@@ -2201,8 +3394,45 @@ io.on('connection', (socket) => {
     const info = r.sockets.get(socket.id);
     r.sockets.delete(socket.id);
     socket.leave(l56SocketRoom(code));
-    if (info && r.hostPlayerId === info.playerId) l56ReassignHost(r);
     socket.data.l56 = null;
+
+    // In the lobby (nothing at stake), free the seat for someone else.
+    // Mid-game, hand it to a bot instead -- a clean, permanent handoff,
+    // same as every other table here does on an explicit leave.
+    if (info && info.pos != null && info.pos >= 0 && r.state && r.state.seats && r.state.seats[info.pos] && r.state.seats[info.pos].playerId === info.playerId) {
+      if (r.state.phase === 'lobby') {
+        r.state.seats[info.pos] = null;
+      } else {
+        r.state.seats[info.pos] = { name: r.state.seats[info.pos].name, bot: true };
+      }
+    }
+    if (info && r.hostPlayerId === info.playerId) l56ReassignHost(r);
+    // The seat is now a bot (if this wasn't the lobby), but nothing else
+    // was going to make it actually act -- without this, if it's their
+    // turn right now, the table just sits there until the periodic
+    // fallback sweep eventually notices in up to ~20-25s, instead of
+    // responding immediately the way the 4-player/6-player tables do.
+    if (info && r.state && r.state.turn === info.pos) l56ScheduleNext(code);
+
+    // Deliberate leave (this handler only fires for the actual
+    // 'l56_leaveTable' emit, sent by the red X / "Leave Table"
+    // confirmation -- never by a silent disconnect, see the separate
+    // 'disconnect' handler below) AND, after the seat handling above,
+    // not a single real (non-bot) player is left seated anywhere at
+    // this table. Mirrors the identical fix already in place for the
+    // 4-player and 6-player tables: this is the one case that closes
+    // the table right now, since an explicit leave means there's
+    // nothing left worth keeping a reconnect window open for. A network
+    // drop still preserves the table exactly as before, regardless of
+    // how many real players remain.
+    if (r.state && r.state.seats && !r.state.seats.some(s => s && !s.bot)) {
+      io.to(l56SocketRoom(code)).emit('l56_tableClosed', { reason: 'lastPlayerLeft' });
+      delete l56Rooms[code];
+      io.emit('l56_roomList', l56PublicList());
+      console.log(`[56 table ${code}] closed — last real player explicitly left via Leave Table`);
+      return;
+    }
+
     l56Touch(r);
     l56Broadcast(code);
   });
@@ -2265,7 +3495,7 @@ io.on('connection', (socket) => {
 });
 
 // ============================================================
-// TEXAS HOLD'EM (9-seat, Zynga-style) -- fully isolated from every
+// TEXAS HOLD'EM (9-seat) -- fully isolated from every
 // other game in this file, same spirit as the 6-player/56 sections:
 // nothing in here can affect any other table type, and nothing
 // elsewhere can affect this.
@@ -2788,7 +4018,7 @@ io.on('connection', (socket) => {
 // America/New_York timezone database entry, which correctly handles
 // the EST/EDT daylight-saving switch on its own.
 function dailyCloseAllTables() {
-  const counts = { fourP: Object.keys(tables).length, sixP: Object.keys(sixpTables).length, l56: Object.keys(l56Rooms).length, poker: Object.keys(pokerTables).length };
+  const counts = { fourP: Object.keys(tables).length, sixP: Object.keys(sixpTables).length, l56: Object.keys(l56Rooms).length, poker: Object.keys(pokerTables).length, spades: Object.keys(spadesTables).length };
   for (const k of Object.keys(tables)) delete tables[k];
   for (const k of Object.keys(sixpTables)) delete sixpTables[k];
   for (const k of Object.keys(l56Rooms)) delete l56Rooms[k];
@@ -2797,12 +4027,16 @@ function dailyCloseAllTables() {
   for (const k of Object.keys(carromPlayerIndex)) delete carromPlayerIndex[k];
   for (const k of Object.keys(playerIndex)) delete playerIndex[k];
   for (const k of Object.keys(sixpPlayerIndex)) delete sixpPlayerIndex[k];
+  for (const k of Object.keys(spadesTables)) delete spadesTables[k];
+  for (const k of Object.keys(spadesPlayerIndex)) delete spadesPlayerIndex[k];
   console.log(`[daily-reset] 5am Eastern — closed all tables: ${JSON.stringify(counts)}`);
   io.emit('roomList', publicTableList());
   io.emit('sixp_roomList', sixpPublicTableList());
   io.emit('l56_roomList', l56PublicList());
   io.emit('dailyReset'); // every connected client gets a clear, honest reason instead of a silent kick
   io.emit('carrom_dailyReset');
+  io.emit('spades_roomList', spadesPublicList());
+  io.emit('spades_dailyReset');
 }
 // Reads the current wall-clock date/time as it actually is in Eastern
 // right now, independent of the server's own timezone.
@@ -2878,6 +4112,207 @@ setInterval(() => {
     io.emit('carrom_dailyResetWarning', payload);
   }
 }, 1000);
+
+// ============================================================
+// Spades — table/socket layer. The engine (spades-engine.js) is fully
+// authoritative; this section only ever does table bookkeeping and
+// wires socket events to engine methods, same division of
+// responsibility as the 4-player game's engine/server split.
+// ============================================================
+const spadesTables = {};
+const spadesPlayerIndex = {}; // playerId -> { tableId, pos }
+
+function newSpadesTableId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/0/1 -- avoids visual confusion
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+function spadesSocketRoom(id) { return 'spades_' + id; }
+
+function spadesPublicList() {
+  return Object.values(spadesTables)
+    .filter(t => t.engine.seats.some(Boolean) && t.engine.phase === 'lobby')
+    .map(t => ({
+      id: t.id,
+      hostName: (t.engine.seats.find(s => s && s.playerId === t.hostPlayerId) || {}).name || '?',
+      openSeats: t.engine.emptySeats().length
+    }));
+}
+function spadesBroadcastList() { io.emit('spades_roomList', spadesPublicList()); }
+
+function spadesBroadcast(t) {
+  for (const [socketId, info] of t.sockets) {
+    const sock = io.sockets.sockets.get(socketId);
+    if (sock) sock.emit('spades_state', t.engine.stateFor(info.pos));
+  }
+  spadesBroadcastList();
+}
+function spadesTouch(t) { t.lastActivityAt = Date.now(); }
+
+function spadesIsEffectiveHost(t, playerId) {
+  if (t.hostPlayerId === playerId) return true;
+  const seat = t.engine.seats.find(s => s && s.playerId === playerId);
+  return !!(seat && !seat.isBot && seat.connected);
+}
+
+io.on('connection', (socket) => {
+  let spadesTableId = null;
+  let spadesPlayerId = null;
+
+  socket.on('spades_listRooms', () => socket.emit('spades_roomList', spadesPublicList()));
+  socket.on('spades_ping', () => socket.emit('spades_pong'));
+
+  socket.on('spades_createTable', ({ name }, ack) => {
+    const id = newSpadesTableId();
+    const engine = new SpadesEngine(id);
+    spadesPlayerId = crypto.randomBytes(8).toString('hex');
+    engine.seatHuman(0, name || 'Player', spadesPlayerId);
+    const t = { id, engine, hostPlayerId: spadesPlayerId, createdAt: Date.now(), lastActivityAt: Date.now(), sockets: new Map() };
+    engine.onChange = () => { spadesTouch(t); spadesBroadcast(t); };
+    spadesTables[id] = t;
+    spadesTableId = id;
+    spadesPlayerIndex[spadesPlayerId] = { tableId: id, pos: 0 };
+    t.sockets.set(socket.id, { playerId: spadesPlayerId, pos: 0 });
+    socket.join(spadesSocketRoom(id));
+    socket.emit('spades_joined', { tableId: id, playerId: spadesPlayerId, pos: 0 });
+    if (typeof ack === 'function') ack({ tableId: id });
+    spadesBroadcast(t);
+    console.log(`[spades] table ${id} created by ${name}`);
+  });
+
+  socket.on('spades_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
+    // Reconnect via saved token first, same pattern as every other game.
+    if (existingPlayerId && spadesPlayerIndex[existingPlayerId]) {
+      const idx = spadesPlayerIndex[existingPlayerId];
+      const t = spadesTables[idx.tableId];
+      if (t && t.engine.seats[idx.pos] && t.engine.seats[idx.pos].playerId === existingPlayerId) {
+        spadesPlayerId = existingPlayerId;
+        spadesTableId = idx.tableId;
+        t.engine.markConnected(idx.pos, true);
+        if (name) t.engine.seats[idx.pos].name = name;
+        t.sockets.set(socket.id, { playerId: existingPlayerId, pos: idx.pos });
+        socket.join(spadesSocketRoom(idx.tableId));
+        socket.emit('spades_joined', { tableId: idx.tableId, playerId: existingPlayerId, pos: idx.pos });
+        t.engine.maybeAutoAct(); // un-stick the table if it stalled on this seat while away
+        spadesTouch(t);
+        spadesBroadcast(t);
+        console.log(`[spades] ${name} reconnected to table ${idx.tableId} seat ${idx.pos}`);
+        return;
+      }
+    }
+    // Fresh join: an open seat, a bot's seat, or a disconnected human's
+    // abandoned seat are all fair game, same as Pool.
+    const t = spadesTables[tableId];
+    if (!t) {
+      console.log(`[spades-diag] table_not_found for tableId="${tableId}" name="${name}" — currently live spades table IDs: [${Object.keys(spadesTables).join(', ')}]`);
+      socket.emit('spades_joinError', { reason: 'not_found' });
+      return;
+    }
+    const openPos = t.engine.seats.findIndex(s => !s || s.isBot || !s.connected);
+    if (openPos === -1) { socket.emit('spades_joinError', { reason: 'table_full' }); return; }
+    const replaced = t.engine.seats[openPos];
+    if (replaced && replaced.playerId) delete spadesPlayerIndex[replaced.playerId];
+    spadesPlayerId = crypto.randomBytes(8).toString('hex');
+    if (replaced && replaced.isBot) t.engine.replaceBot(openPos, spadesPlayerId, name || 'Player');
+    else if (replaced) t.engine.takeOverSeat(openPos, spadesPlayerId, name || 'Player');
+    else t.engine.seatHuman(openPos, name || 'Player', spadesPlayerId);
+    spadesTableId = tableId;
+    spadesPlayerIndex[spadesPlayerId] = { tableId, pos: openPos };
+    t.sockets.set(socket.id, { playerId: spadesPlayerId, pos: openPos });
+    socket.join(spadesSocketRoom(tableId));
+    socket.emit('spades_joined', { tableId, playerId: spadesPlayerId, pos: openPos });
+    spadesTouch(t);
+    spadesBroadcast(t);
+  });
+
+  socket.on('spades_fillBots', () => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info || !spadesIsEffectiveHost(t, info.playerId)) return;
+    const botNames = ['Bot A', 'Bot B', 'Bot C'];
+    let n = 0;
+    for (let i = 0; i < 4; i++) if (!t.engine.seats[i]) t.engine.seatBot(i, botNames[n++] || `Bot ${i}`);
+    spadesTouch(t);
+    spadesBroadcast(t);
+  });
+
+  socket.on('spades_startGame', () => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info || !spadesIsEffectiveHost(t, info.playerId)) return;
+    if (!t.engine.canStart()) return;
+    t.engine.startRound();
+    spadesTouch(t);
+    spadesBroadcast(t);
+  });
+
+  socket.on('spades_placeBid', ({ bid }) => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info) return;
+    t.engine.placeBid(info.pos, bid);
+  });
+
+  socket.on('spades_playCard', ({ card }) => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info) return;
+    t.engine.playCard(info.pos, card);
+  });
+
+  socket.on('spades_nextHand', () => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info || !spadesIsEffectiveHost(t, info.playerId)) return;
+    t.engine.nextHand();
+  });
+
+  socket.on('spades_chat', ({ msg, isEmote }) => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info) return;
+    const seat = t.engine.seats[info.pos];
+    if (!seat) return;
+    io.to(spadesSocketRoom(spadesTableId)).except(socket.id).emit('spades_chatMsg', { from: seat.name, msg: String(msg || '').slice(0, 300), isEmote: !!isEmote, pos: info.pos });
+  });
+
+  socket.on('spades_leaveTable', () => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    t.sockets.delete(socket.id);
+    if (info) {
+      delete spadesPlayerIndex[info.playerId];
+      if (t.engine.phase === 'lobby') t.engine.removeSeat(info.pos);
+      else t.engine.convertToBot(info.pos); // mid-game: keep the table running rather than leaving a hole
+    }
+    if (!t.engine.seats.some(Boolean)) delete spadesTables[spadesTableId];
+    else { spadesTouch(t); spadesBroadcast(t); t.engine.maybeAutoAct(); }
+    spadesTableId = null;
+  });
+
+  socket.on('disconnect', () => {
+    const t = spadesTables[spadesTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    t.sockets.delete(socket.id);
+    if (info && t.engine.seats[info.pos] && t.engine.seats[info.pos].playerId === info.playerId) {
+      const alreadyReclaimed = [...t.sockets.values()].some(v => v.pos === info.pos);
+      if (!alreadyReclaimed) {
+        t.engine.markConnected(info.pos, false);
+        t.engine.maybeAutoAct(); // don't let the table stall on a seat that just went quiet
+      }
+    }
+    spadesBroadcast(t);
+  });
+});
 
 server.listen(PORT, () => {
   console.log(`28 Kerala Gulan authoritative server running on port ${PORT}`);

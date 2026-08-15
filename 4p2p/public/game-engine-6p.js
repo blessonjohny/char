@@ -91,7 +91,7 @@ function evaluateHand(hand) {
   const probByBid = {};
   for (let bid = 16; bid <= 28; bid++) {
     const margin = ceiling - bid;
-    let p = margin >= 0 ? 0.97 - 0.25 * Math.exp(-margin / 3) : 0.97 * Math.exp(margin / 3);
+    let p = margin >= 0 ? 0.97 - 0.25 * Math.exp(-margin / 3) : 0.72 * Math.exp(margin / 3);
     probByBid[bid] = Math.max(0.02, Math.min(0.97, p));
   }
   return { offensive, defensive, bestSuit, ceiling, probByBid };
@@ -147,6 +147,21 @@ class GameEngine6P {
     this.teamPoints = [0, 0];
     this.lastTrick = null;
     this.roundWinnerAnnounced = null;
+    // "Already won" early-round-end and Quote -- see game-engine.js
+    // (the 4-player engine) for the full reasoning behind both, now
+    // redesigned there to be always-live rather than tied to a fixed
+    // trick number: available to WHICHEVER team is currently clean
+    // (hasn't lost a trick yet, true for both teams from the start),
+    // for any player on that team on their own turn, as long as the bid
+    // was <=19. Ported here identically -- only the full-sweep total
+    // matters for success (28, confirmed unchanged for this variant's
+    // 36-card deck), not any trick-count trigger.
+    this.pendingEarlyWinChoice = null;
+    this.earlyWinDeclined = false;
+    this.teamStillClean = [true, true];
+    this.quoteState = null;
+    this.pendingMaruCotChallenge = null; // {team} -- see game-engine.js for the full reasoning, identical here
+    this.maruCotState = null; // {team} once successfully challenged
   }
 
   addLog(msg) {
@@ -462,6 +477,7 @@ class GameEngine6P {
     // else. See game-engine.js's playCard for the full reasoning.
     const isIncidentalTrumpDiscard = !this.trumpExposed && played.suit === this.trumpSuit && this.trickSuit !== this.trumpSuit;
     this.trickCards.push({ pos, card: played, powerless: isIncidentalTrumpDiscard });
+    if (this.pendingMaruCotChallenge) this.pendingMaruCotChallenge = null;
 
     this.addLog(`Seat ${pos} played ${played.rank}${played.suit}.`);
 
@@ -485,6 +501,7 @@ class GameEngine6P {
     if (!this.trumpExposed) this.exposeTrump();
     if (this.trickSuit === '') { this.trickSuit = card.suit; this.suitLeadCount[card.suit]++; }
     this.trickCards.push({ pos, card });
+    if (this.pendingMaruCotChallenge) this.pendingMaruCotChallenge = null;
     this.addLog(`Seat ${pos} played the hidden trump ${card.rank}${card.suit}!`);
     if (this.trickCards.length === SEATS) this._resolveTrick();
     else { this.currentPlayer = nextPos(this.currentPlayer); this._notify(); this.maybeAutoAct(); }
@@ -499,6 +516,21 @@ class GameEngine6P {
       this.hiddenTrump = null;
       this.hiddenTrumpOwner = -1;
     }
+  }
+
+  // See game-engine.js for the full reasoning -- identical helper here,
+  // except this table's cutoff is 2 cards left, not 3 -- confirmed
+  // deliberately different from the 4-player table's threshold, not a
+  // scaling mistake.
+  _isQuoteEligibleFor(pos) {
+    if (pos === null || pos === undefined || !this.seats[pos]) return false;
+    if (this.seats[pos].hand.length < 2) return false; // cutoff: must still have at least 2 cards of your own left
+    if (this.trickCards.length !== 0) return false; // only the trick's opener can declare
+    if (this.quoteState) return false;
+    if (this.phase !== 'play') return false;
+    if (this.highestBid > 19) return false;
+    if (this.pendingEarlyWinChoice) return false;
+    return !!this.teamStillClean[getTeam(pos)];
   }
 
   _trickWinner() {
@@ -522,6 +554,11 @@ class GameEngine6P {
     this.lastTrick = { cards: this.trickCards.slice(), winner: winner.pos, points, team };
     this.addLog(`Seat ${winner.pos} won the trick (+${points}pts).`);
 
+    // Per-team clean tracking for Quote eligibility -- see
+    // game-engine.js for the full reasoning, identical logic here.
+    const bidTeamThisRound = getTeam(this.bidder);
+    this.teamStillClean[1 - team] = false;
+
     if (this.trickSuit) {
       for (const tc of this.trickCards) {
         if (tc.card.suit !== this.trickSuit) this.voidSuits[tc.pos].add(this.trickSuit);
@@ -541,6 +578,14 @@ class GameEngine6P {
     this.trickSuit = '';
     this.mustPlayTrumpBy = -1;
 
+    // Quote resolution -- see game-engine.js for the full reasoning,
+    // identical logic here: fails immediately on losing any trick,
+    // success just falls through to the normal cardsLeft===0 ending.
+    if (this.quoteState && team !== this.quoteState.team) {
+      this._endRound();
+      return;
+    }
+
     const cardsLeft = this.seats.reduce((s, seat) => s + (seat ? seat.hand.length : 0), 0);
     if (cardsLeft === 0 && this.hiddenTrump) {
       this.currentPlayer = this.hiddenTrumpOwner;
@@ -549,17 +594,108 @@ class GameEngine6P {
     } else if (cardsLeft === 0) {
       this._endRound();
     } else {
+      // See game-engine.js for the full reasoning -- identical logic
+      // here: early-win suppressed while the winning team (whichever
+      // one it is) is still clean and their bid qualifies for Quote.
+      const oT = 1 - bidTeamThisRound;
+      const bidderClinched = this.teamPoints[bidTeamThisRound] >= this.highestBid;
+      const defenseClinched = this.teamPoints[oT] > (28 - this.highestBid);
+      const winningTeam = bidderClinched ? bidTeamThisRound : oT;
+      const stillQuoteCandidate = this.teamStillClean[winningTeam] && this.highestBid <= 19;
+      if (!stillQuoteCandidate && !this.earlyWinDeclined && (bidderClinched || defenseClinched)) {
+        const hasHuman = Array.from({ length: SEATS }, (_, p) => p).some(p => getTeam(p) === winningTeam && this.seats[p] && !this.seats[p].isBot);
+        if (hasHuman) {
+          this.pendingEarlyWinChoice = { team: winningTeam, made: bidderClinched };
+          this.currentPlayer = winner.pos;
+          this._notify();
+          return;
+        }
+        this._endRound();
+        return;
+      }
+
       this.currentPlayer = winner.pos;
       this._notify();
       this.maybeAutoAct();
     }
   }
 
+  // See game-engine.js for the full reasoning -- identical logic here,
+  // just using SEATS (6) instead of the 4-player game's hardcoded 4.
+  respondToEarlyWin(pos, continuePlay) {
+    if (!this.pendingEarlyWinChoice) return false;
+    if (getTeam(pos) !== this.pendingEarlyWinChoice.team) return false;
+    this.pendingEarlyWinChoice = null;
+    if (continuePlay) {
+      this.earlyWinDeclined = true;
+      this._notify();
+      this.maybeAutoAct();
+    } else {
+      this._endRound();
+    }
+    return true;
+  }
+
+  declareQuote(pos) {
+    if (pos !== this.currentPlayer) return false;
+    if (!this._isQuoteEligibleFor(pos)) return false;
+    this.quoteState = { team: getTeam(pos) };
+    this.pendingMaruCotChallenge = { team: 1 - getTeam(pos) };
+    const seat = this.seats[pos];
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared COT — betting on a full sweep of all 6 tricks!`);
+    this._notify();
+    return true;
+  }
+
+  // See game-engine.js for the full reasoning -- identical logic here.
+  challengeMaruCot(pos) {
+    if (!this.pendingMaruCotChallenge) return false;
+    if (getTeam(pos) !== this.pendingMaruCotChallenge.team) return false;
+    this.maruCotState = { team: getTeam(pos) };
+    this.pendingMaruCotChallenge = null;
+    const seat = this.seats[pos];
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} called MARU COT — challenging the COT! Stakes are now +4/-4 instead of +2/-3.`);
+    this._notify();
+    return true;
+  }
+
   _endRound() {
     const bT = getTeam(this.bidder);
     const oT = 1 - bT;
-    const made = this.teamPoints[bT] >= this.highestBid;
-    let pts;
+    const isQuote = !!this.quoteState;
+    const isMaruCot = !!this.maruCotState;
+    let made, pts;
+    if (isQuote) {
+      // See game-engine.js for the full reasoning -- identical fix here:
+      // this used to hard-code the bidder's team, which was wrong the
+      // instant COT stopped being bidder-only. Full sweep = all 28
+      // points (confirmed this variant's 36-card deck still totals 28,
+      // same as the 4-player game). Maru COT escalates the stakes to
+      // +3/-3 (success) or -4/+4 (failure) instead of the normal +2/-3.
+      const cotTeam = this.quoteState.team;
+      const otherTeam = 1 - cotTeam;
+      made = this.teamPoints[cotTeam] >= 28;
+      if (isMaruCot) pts = made ? 3 : 4;
+      else pts = made ? 2 : 3;
+      const isHonors = this.highestBid >= 20;
+      if (made) { this.gameScore[cotTeam] += pts; this.gameScore[otherTeam] -= pts; }
+      else { this.gameScore[otherTeam] += pts; this.gameScore[cotTeam] -= pts; }
+      this.roundWinnerAnnounced = {
+        bidderWon: getTeam(this.bidder) === cotTeam ? made : !made,
+        made, bidder: this.bidder, highestBid: this.highestBid,
+        teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
+        quote: true, quoteSuccess: made, cotTeam,
+        maruCot: isMaruCot, maruCotTeam: isMaruCot ? this.maruCotState.team : undefined
+      };
+      this.phase = 'roundEnd';
+      this.addLog(isMaruCot
+        ? `Round ${this.round} over. Maru COT ${made ? 'FAILED to stop the sweep — COT succeeded!' : 'succeeded — COT failed!'} (${made ? '+3/-3' : '-4/+4'}).`
+        : `Round ${this.round} over. COT ${made ? 'succeeded — full sweep!' : 'failed'} (${made ? '+' : '-'}${pts}).`);
+      const bidderMadeIt = (getTeam(this.bidder) === cotTeam) ? made : !made;
+      this._finishRoundBookkeeping(bT, bidderMadeIt);
+      return;
+    }
+    made = this.teamPoints[bT] >= this.highestBid;
     if (this.highestBid >= 28) pts = made ? 3 : 4;
     else if (this.highestBid >= 20) pts = made ? 2 : 3;
     else pts = made ? 1 : 2;
@@ -568,11 +704,17 @@ class GameEngine6P {
     else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
     this.roundWinnerAnnounced = {
       bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
-      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors
+      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
+      quote: false, quoteSuccess: undefined
     };
     this.phase = 'roundEnd';
     this.addLog(`Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
+    this._finishRoundBookkeeping(bT, made);
+  }
 
+  // Shared tail end of _endRound() -- see game-engine.js for the full
+  // reasoning. bT/made here are always BIDDER-centric.
+  _finishRoundBookkeeping(bT, made) {
     // Q-mark removal: same rule as the 4-player game — personally
     // calling and winning a bid sheds one Q from yourself; on the very
     // first hand of a new match specifically, your partner sheds one
@@ -641,11 +783,34 @@ class GameEngine6P {
   // ---------------- Bots ----------------
 
   maybeAutoAct() {
+    // See game-engine.js for the full reasoning -- identical guard here.
+    // If literally everyone on the winning team is now a bot or
+    // disconnected (can change after the prompt was first shown),
+    // auto-resolve with "keep playing" rather than risk the table
+    // waiting forever for an answer that's never coming.
+    if (this.pendingEarlyWinChoice) {
+      const team = this.pendingEarlyWinChoice.team;
+      const stillHasHuman = Array.from({ length: SEATS }, (_, p) => p).some(p => getTeam(p) === team && this.seats[p] && !this.seats[p].isBot && this.seats[p].connected);
+      if (!stillHasHuman) {
+        const anyPosOnTeam = Array.from({ length: SEATS }, (_, p) => p).find(p => getTeam(p) === team);
+        this.respondToEarlyWin(anyPosOnTeam, true);
+      }
+      return;
+    }
     const seat = this.seats[this.currentPlayer];
     if (!seat) return;
-    if (seat.isBot || !seat.connected) {
+    if (this._turnTrackedPlayer !== this.currentPlayer || this._turnTrackedRound !== this.round) {
+      this._turnTrackedPlayer = this.currentPlayer;
+      this._turnTrackedRound = this.round;
+      this.turnStartedAt = Date.now();
+    }
+    const turnAgeMs = Date.now() - (this.turnStartedAt || Date.now());
+    const CONNECTED_BUT_STUCK_MS = 120000;
+    const treatAsStuck = seat.isBot || !seat.connected || turnAgeMs >= CONNECTED_BUT_STUCK_MS;
+    if (treatAsStuck) {
       const capturedPos = this.currentPlayer;
       const capturedRound = this.round;
+      const capturedTurnStartedAt = this.turnStartedAt;
       // Bots pace themselves at a natural ~900ms. A disconnected HUMAN
       // seat gets a much longer grace window before a bot steps in for
       // them — 10s turned out to be too tight: a brief mobile network
@@ -654,25 +819,61 @@ class GameEngine6P {
       // reconnect (only re-checked once, right when it fires), someone
       // who reconnects with only a couple seconds left doesn't get a
       // real chance to notice and act before the bot takes over anyway.
-      const delay = seat.isBot ? 900 : 35000;
+      // A seat already past the connected-but-stuck threshold has used
+      // up its grace period - act promptly instead of waiting a fresh 35s.
+      const delay = seat.isBot ? 900 : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         if (this.round !== capturedRound) return;
         if (this.currentPlayer !== capturedPos) return;
         const seatNow = this.seats[capturedPos];
-        if (!seatNow || (!seatNow.isBot && seatNow.connected)) return;
+        if (!seatNow) return;
+        const stillStuck = seatNow.isBot || !seatNow.connected || (Date.now() - (capturedTurnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
+        if (!stillStuck) return;
         this._botAct(capturedPos);
       }, delay);
     }
   }
 
   _botAct(pos) {
+    try {
+      this._botActInner(pos);
+    } catch (e) {
+      console.error(`[bot-safety] _botAct threw for seat ${pos} in phase ${this.phase} (round ${this.round}) - falling back to a safe default action:`, e && e.stack || e);
+      try {
+        if (this.phase === 'bidding1' && this.currentPlayer === pos) {
+          const bid = this.isFirstBidder(pos) ? 16 : 0;
+          const result = this.placeBid(pos, bid);
+          if (!result.ok) this.placeBid(pos, 0);
+        } else if (this.phase === 'choosingTrump' && this.currentPlayer === pos) {
+          this.chooseTrump(pos, SUITS[0], null);
+        } else if (this.phase === 'play' && this.currentPlayer === pos) {
+          const hand = this.seats[pos].hand;
+          if (hand.length === 0 && this.hiddenTrump && pos === this.hiddenTrumpOwner) {
+            this.playHiddenTrump(pos);
+          } else {
+            const legal = hand.find(c => this.canPlayCard(pos, c));
+            if (legal) this.playCard(pos, legal);
+          }
+        }
+      } catch (e2) {
+        console.error(`[bot-safety] fallback action ALSO threw for seat ${pos}:`, e2 && e2.stack || e2);
+      }
+    }
+  }
+
+  _botActInner(pos) {
     if (this.phase === 'bidding1' && this.currentPlayer === pos) {
       const b = brain.getBrain(this.seats[pos].name);
       const hand = this.seats[pos].hand;
       const first = this.isFirstBidder(pos);
       const minBid = this.highestBid > 0 ? this.highestBid + 1 : 16;
       const ev = evaluateHand(hand);
-      const comfortThreshold = Math.max(0.45, 0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1);
+      const totalDecidedBids = b.stats.bidsWon + b.stats.bidsLost;
+      const performanceAdjustment = totalDecidedBids >= 5
+        ? Math.max(0, 0.5 - (b.stats.bidsWon / totalDecidedBids)) * 0.6
+        : 0;
+      const comfortThreshold = Math.min(0.9, Math.max(0.45,
+        0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1 + performanceAdjustment));
       let target = 16;
       for (let bidLevel = 16; bidLevel <= 28; bidLevel++) {
         // Bids of 20+ ("Honors") pay and cost more per point than
@@ -688,16 +889,24 @@ class GameEngine6P {
 
       // Partner bidding signal from last round -- same rule as the
       // 4-player game, just sent to ALL teammates at once here since
-      // teams are 3-a-side, not a single designated partner.
+      // teams are 3-a-side, not a single designated partner. "lower" is
+      // applied later as a hard cap (see below, after the partner-
+      // support bonus) rather than here, so the bonus can't quietly
+      // walk the target back up past what was explicitly asked for.
+      const wantsLower = this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round &&
+        this.partnerSignals[pos].signal === 'lower';
       if (this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round) {
         const sig = this.partnerSignals[pos].signal;
         if (sig === 'higher') target = Math.min(28, target + 3);
-        else if (sig === 'lower') target = Math.max(16, target - 3);
       }
 
       let pb = 0;
       if (this.bidder >= 0 && getTeam(this.bidder) === getTeam(pos)) pb = 1 * b.bidWeights.partnerSupport;
       target = Math.min(28, Math.round(target + pb));
+
+      // Deliberate last word on this bid - see the 4-player game's
+      // identical comment for the full reasoning.
+      if (wantsLower) target = Math.min(target, 18);
 
       let bid = 0;
       if (first) {
@@ -973,8 +1182,19 @@ class GameEngine6P {
     }
 
     if (!this.trumpExposed && trumps.length > 0 && this.trickSuit !== this.trumpSuit) {
-      if (isLast && wt !== myTeam && tPts >= 2) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
-      if (isBidder && wt !== myTeam && tPts >= 3) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
+      // Same reasoning as elsewhere: trump isn't exposed yet, so any
+      // trump card wins this trick outright - reflexively grabbing the
+      // highest one (often the Jack) is unnecessary waste, not a
+      // special case just because exposing trump is also happening here.
+      const cutForWin = (isLast && wt !== myTeam && tPts >= 2) || (isBidder && wt !== myTeam && tPts >= 3);
+      if (cutForWin) {
+        trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+        const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+        const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+        return zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+          : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+          : trumps[trumps.length - 1];
+      }
     }
 
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
@@ -1013,6 +1233,12 @@ class GameEngine6P {
       gameOver: this.gameOver,
       lastTrick: this.lastTrick,
       roundWinnerAnnounced: this.roundWinnerAnnounced,
+      pendingEarlyWinChoice: this.pendingEarlyWinChoice,
+      quoteEligible: this._isQuoteEligibleFor(this.currentPlayer),
+      teamStillClean: this.teamStillClean,
+      quoteState: this.quoteState,
+      pendingMaruCotChallenge: this.pendingMaruCotChallenge,
+      maruCotState: this.maruCotState,
       phase: this.phase,
       seats: this.seats.map((s, i) => {
         if (!s) return null;

@@ -72,6 +72,36 @@ const GITHUB_ENABLED = !!(GITHUB_TOKEN && GITHUB_REPO);
 const carromTables = {};
 const carromPlayerIndex = {}; // playerId -> { tableId, pos }
 
+// ---------------- Pool (2-seat, server-relay) ----------------
+// Pool used to be true peer-to-peer (PeerJS, direct browser-to-browser)
+// with no way to recover from a dropped connection at all. Moved onto
+// this same server so it gets the same real reconnect path Carrom has
+// -- the server here is a pure relay, not authoritative: each shot's
+// INPUT (angle/power/spin) is relayed, not a final result, and both
+// clients simulate the same deterministic physics independently from
+// that same input, exactly like the original P2P version did. Much
+// lighter than Carrom's tables since there's no board state to persist
+// server-side at all -- just who's in which seat.
+const poolTables = {};
+const poolPlayerIndex = {}; // playerId -> { tableId, pos }
+
+function poolNewTableId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+function poolPublicList() {
+  return Object.values(poolTables)
+    .filter(t => t.seats.some(Boolean) && t.phase === 'lobby' && t.seats.some(s => !s))
+    .map(t => ({
+      id: t.id,
+      hostName: (t.seats.find(s => s && s.playerId === t.hostPlayerId) || {}).name || '?',
+      openSeats: t.seats.filter(s => !s).length
+    }));
+}
+function poolBroadcastList() { io.emit('pool_roomList', poolPublicList()); }
+
 // ---------------- Carrom table persistence ----------------
 // Every reconnect-logic fix so far, however solid, is powerless against
 // the actual root cause behind tables vanishing on their own: they only
@@ -194,6 +224,7 @@ async function loadCarromTables() {
     if (fromGithub) {
       carromRestoreFromData(fromGithub);
       console.log(`[carrom] Restored ${Object.keys(fromGithub).length} table(s) from GitHub.`);
+      await checkForMissedDailyReset();
       return;
     }
     console.log('[carrom] Falling back to local file for this boot (GitHub fetch failed).');
@@ -209,8 +240,32 @@ async function loadCarromTables() {
   } catch (e) {
     console.error('[carrom] Failed to load local carrom tables, starting fresh:', e.message);
   }
+  await checkForMissedDailyReset();
 }
-// Local save every 10s if dirty (cheap, matches the visitor-log
+// A setTimeout-based schedule only fires while the process is actually
+// running. If this service spins down from inactivity (common on
+// Render's free/lower tiers) and happens to be asleep at the exact
+// moment 5am arrives, the scheduled reset simply never fires -- there's
+// no process alive to fire it. The next scheduleDailyClose() call on
+// startup would then just target tomorrow's 5am, silently skipping an
+// entire day and leaving yesterday's tables running well past when
+// they should have closed. Catches that here: if any restored table
+// predates the most recent 5am boundary that's already passed, at
+// least one reset was missed, and it runs immediately instead of
+// waiting for the next scheduled one.
+async function checkForMissedDailyReset() {
+  const allTables = [...Object.values(carromTables), ...Object.values(poolTables)];
+  if (allTables.length === 0) return;
+  const p = easternTimeParts(new Date());
+  let mostRecent5amAsIfUTC = Date.UTC(p.year, p.month - 1, p.day, 5, 0, 0, 0);
+  const nowAsIfUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  if (mostRecent5amAsIfUTC > nowAsIfUTC) mostRecent5amAsIfUTC -= 24 * 60 * 60 * 1000; // most recent 5am hasn't happened yet today -- use yesterday's
+  const missedAny = allTables.some(t => (t.lastActivityAt || 0) < mostRecent5amAsIfUTC);
+  if (missedAny) {
+    console.log('[daily-reset] Restored table(s) predate the most recent 5am Eastern boundary -- a scheduled reset was missed (likely a spin-down asleep at the moment it should have fired). Running it now.');
+    await dailyCloseAllTables();
+  }
+}
 // Local save every 10s if dirty (cheap, matches the visitor-log
 // pattern, no network call). GitHub push is debounced off actual table
 // activity via carromMarkDirty -> scheduleCarromPush, NOT a fixed
@@ -285,6 +340,7 @@ function carromBroadcast(t) {
 
 io.on('connection', (socket) => {
   let carromTableId = null;
+  let poolTableId = null;
 
   // A client that just connected (selected "Play Online" but hasn't
   // created or joined anything yet) needs the CURRENT list immediately
@@ -473,6 +529,15 @@ io.on('connection', (socket) => {
       if (sock) sock.emit('carrom_liveShot', snapshot);
     }
   });
+  socket.on('carrom_liveAim', (data) => {
+    const t = carromTables[carromTableId];
+    if (!t || t.phase !== 'playing') return;
+    for (const [socketId] of t.sockets) {
+      if (socketId === socket.id) continue;
+      const sock = io.sockets.sockets.get(socketId);
+      if (sock) sock.emit('carrom_liveAim', data);
+    }
+  });
 
   socket.on('carrom_shotResult', ({ boardState }) => {
     const t = carromTables[carromTableId];
@@ -511,9 +576,167 @@ io.on('connection', (socket) => {
     carromTableId = null;
   });
 
+  // ---------------- Pool handlers ----------------
+  socket.on('pool_ping', () => { socket.emit('pool_pong'); });
+
+  socket.on('pool_listRooms', () => {
+    socket.emit('pool_roomList', poolPublicList());
+  });
+
+  socket.on('pool_createTable', ({ name }, ack) => {
+    const id = poolNewTableId();
+    const playerId = crypto.randomBytes(8).toString('hex');
+    const t = {
+      id,
+      seats: [{ playerId, name: name || 'Host', connected: true, isBot: false }, null],
+      hostPlayerId: playerId,
+      phase: 'lobby',
+      lastActivityAt: Date.now(),
+      sockets: new Map()
+    };
+    t.sockets.set(socket.id, { playerId, pos: 0 });
+    poolTables[id] = t;
+    poolPlayerIndex[playerId] = { tableId: id, pos: 0 };
+    poolTableId = id;
+    socket.emit('pool_joined', { tableId: id, playerId, pos: 0, phase: t.phase });
+    if (typeof ack === 'function') ack({ tableId: id });
+    poolBroadcastList();
+  });
+
+  function poolIsEffectiveHost(t, pos) {
+    const seat0 = t.seats[0];
+    if (seat0 && !seat0.isBot && seat0.connected) return pos === 0;
+    const seat1 = t.seats[1];
+    if (seat1 && !seat1.isBot && seat1.connected) return pos === 1;
+    return false;
+  }
+
+  socket.on('pool_fillBot', ({ difficulty }) => {
+    // Same idea as Carrom's carrom_fillBots -- only the effective host
+    // (the connected, non-bot occupant of seat 0, or whoever's left if
+    // that seat is now open) can add a bot, and only into a genuinely
+    // open seat.
+    const t = poolTables[poolTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    if (!info || !poolIsEffectiveHost(t, info.pos)) return;
+    const openPos = t.seats.findIndex(s => !s);
+    if (openPos === -1) return;
+    const diff = ['easy', 'medium', 'hard', 'pro'].includes(difficulty) ? difficulty : 'easy';
+    t.seats[openPos] = { playerId: null, name: null, connected: true, isBot: true, botDifficulty: diff };
+    t.lastActivityAt = Date.now();
+    socket.emit('pool_opponentJoined', { name: null, isBot: true, botDifficulty: diff });
+    poolBroadcastList();
+  });
+
+  socket.on('pool_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
+    // Reconnect via saved token first, same pattern as Carrom.
+    if (existingPlayerId && poolPlayerIndex[existingPlayerId]) {
+      const idx = poolPlayerIndex[existingPlayerId];
+      const t = poolTables[idx.tableId];
+      if (t && t.seats[idx.pos] && t.seats[idx.pos].playerId === existingPlayerId) {
+        t.seats[idx.pos].connected = true;
+        t.sockets.set(socket.id, { playerId: existingPlayerId, pos: idx.pos });
+        poolTableId = idx.tableId;
+        const otherSeat = t.seats[1 - idx.pos];
+        socket.emit('pool_joined', { tableId: idx.tableId, playerId: existingPlayerId, pos: idx.pos, opponentName: otherSeat ? otherSeat.name : null, opponentIsBot: !!(otherSeat && otherSeat.isBot), opponentBotDifficulty: otherSeat ? otherSeat.botDifficulty : null, phase: t.phase });
+        for (const [sid, info] of t.sockets) {
+          if (sid === socket.id) continue;
+          const sock = io.sockets.sockets.get(sid);
+          if (sock) sock.emit('pool_opponentJoined', { name: t.seats[idx.pos].name });
+        }
+        return;
+      }
+    }
+    // Fresh join into an existing table's open seat -- an "open" seat
+    // is an empty one, OR a bot's seat (replacing it with a real
+    // opponent), OR a seat whose human occupant has disconnected and
+    // never came back (abandoned, not just mid-reconnect), matching
+    // exactly what was asked for: someone can join and take over a
+    // bot's spot, and a table with nobody actively connected to it
+    // stays open rather than becoming a dead end.
+    const t = poolTables[tableId];
+    if (!t) { socket.emit('pool_joinError', { reason: 'not_found' }); return; }
+    const openPos = t.seats.findIndex(s => !s || s.isBot || !s.connected);
+    if (openPos === -1) { socket.emit('pool_joinError', { reason: 'table_full' }); return; }
+    const replacedSeat = t.seats[openPos];
+    if (replacedSeat && replacedSeat.playerId) delete poolPlayerIndex[replacedSeat.playerId]; // replacing an abandoned human -- their old token can no longer reclaim this seat
+    const playerId = crypto.randomBytes(8).toString('hex');
+    t.seats[openPos] = { playerId, name: name || 'Guest', connected: true, isBot: false };
+    t.sockets.set(socket.id, { playerId, pos: openPos });
+    poolPlayerIndex[playerId] = { tableId, pos: openPos };
+    poolTableId = tableId;
+    t.lastActivityAt = Date.now();
+    const otherSeat = t.seats[1 - openPos];
+    socket.emit('pool_joined', { tableId, playerId, pos: openPos, opponentName: otherSeat ? otherSeat.name : null, opponentIsBot: !!(otherSeat && otherSeat.isBot), opponentBotDifficulty: otherSeat ? otherSeat.botDifficulty : null, phase: t.phase });
+    for (const [sid] of t.sockets) {
+      if (sid === socket.id) continue;
+      const sock = io.sockets.sockets.get(sid);
+      if (sock) sock.emit('pool_opponentJoined', { name: t.seats[openPos].name });
+    }
+    poolBroadcastList();
+  });
+
+  socket.on('pool_leaveTable', () => {
+    const t = poolTables[poolTableId];
+    if (!t) return;
+    const info = t.sockets.get(socket.id);
+    t.sockets.delete(socket.id);
+    if (info && t.seats[info.pos]) {
+      delete poolPlayerIndex[info.playerId];
+      t.seats[info.pos] = null;
+    }
+    for (const [sid] of t.sockets) {
+      const sock = io.sockets.sockets.get(sid);
+      if (sock) sock.emit('pool_opponentLeft');
+    }
+    if (!t.seats.some(Boolean)) delete poolTables[poolTableId];
+    poolTableId = null;
+    poolBroadcastList();
+  });
+
+  // Pure relay -- the server never simulates or validates any of these,
+  // it just forwards to the other seat, exactly matching what the
+  // direct P2P connection used to do.
+  function poolRelay(eventName, data) {
+    const t = poolTables[poolTableId];
+    if (!t) return;
+    for (const [sid] of t.sockets) {
+      if (sid === socket.id) continue;
+      const sock = io.sockets.sockets.get(sid);
+      if (sock) sock.emit(eventName, data);
+    }
+  }
+  socket.on('pool_start', (data) => {
+    const t = poolTables[poolTableId];
+    if (!t) return;
+    if (t.seats.some(s => !s)) return; // every seat must be filled (human or bot) before starting, matching Carrom
+    t.phase = 'playing';
+    poolRelay('pool_start', data);
+    poolBroadcastList();
+  });
+  socket.on('pool_shot', (data) => poolRelay('pool_shot', data));
+  // Live streams while the shooter is still aiming/adjusting power (not
+  // fired yet) so the opponent can watch the actual cue stick move in
+  // real time, and while a shot is actively in motion so the opponent
+  // sees the shooter's own real ball positions directly rather than an
+  // independently-simulated guess -- same principle as Carrom's live
+  // shot streaming: nobody re-simulates, they just render what's sent.
+  socket.on('pool_liveAim', (data) => poolRelay('pool_liveAim', data));
+  socket.on('pool_callShot', (data) => poolRelay('pool_callShot', data));
+  socket.on('pool_liveShot', (data) => poolRelay('pool_liveShot', data));
+  socket.on('pool_requestBoardSync', () => poolRelay('pool_requestBoardSync', {}));
+  socket.on('pool_boardSync', (data) => poolRelay('pool_boardSync', data));
+  socket.on('pool_shotResult', (data) => poolRelay('pool_shotResult', data));
+  socket.on('pool_cuePlace', (data) => poolRelay('pool_cuePlace', data));
+  socket.on('pool_callShot', (data) => poolRelay('pool_callShot', data));
+  socket.on('pool_callShot', (data) => poolRelay('pool_callShot', data));
+  socket.on('pool_restart', (data) => poolRelay('pool_restart', data || {}));
+  socket.on('pool_rematch', (data) => poolRelay('pool_rematch', data || {}));
+
   socket.on('disconnect', () => {
     const t = carromTables[carromTableId];
-    if (!t) return;
+    if (t) {
     const info = t.sockets.get(socket.id);
     t.sockets.delete(socket.id);
     if (info && t.seats[info.pos] && t.seats[info.pos].playerId === info.playerId) {
@@ -534,6 +757,23 @@ io.on('connection', (socket) => {
       carromEnsureHumanHost(t);
     }
     carromBroadcast(t);
+    }
+
+    const pt = poolTables[poolTableId];
+    if (pt) {
+      const pinfo = pt.sockets.get(socket.id);
+      pt.sockets.delete(socket.id);
+      if (pinfo && pt.seats[pinfo.pos] && pt.seats[pinfo.pos].playerId === pinfo.playerId) {
+        const alreadyReclaimed = [...pt.sockets.values()].some(v => v.pos === pinfo.pos);
+        if (!alreadyReclaimed) {
+          pt.seats[pinfo.pos].connected = false;
+          for (const [sid] of pt.sockets) {
+            const sock = io.sockets.sockets.get(sid);
+            if (sock) sock.emit('pool_opponentLeft');
+          }
+        }
+      }
+    }
   });
 });
 
@@ -556,6 +796,56 @@ process.on('unhandledRejection', (reason) => {
 // happens to catch. The GitHub push gets a bounded grace window rather
 // than blocking shutdown forever if GitHub is slow or unreachable
 // right at that moment.
+// ---------------- Daily 5am Eastern reset ----------------
+// Same pattern already proven on the card-game server: reschedules
+// itself fresh off the real clock each time rather than a fixed 24h
+// interval, so it can never drift across a DST transition.
+async function dailyCloseAllTables() {
+  const counts = { carrom: Object.keys(carromTables).length, pool: Object.keys(poolTables).length };
+  for (const k of Object.keys(carromTables)) delete carromTables[k];
+  for (const k of Object.keys(carromPlayerIndex)) delete carromPlayerIndex[k];
+  for (const k of Object.keys(poolTables)) delete poolTables[k];
+  for (const k of Object.keys(poolPlayerIndex)) delete poolPlayerIndex[k];
+  console.log(`[daily-reset] 5am Eastern — closed all tables: ${JSON.stringify(counts)}`);
+  io.emit('carrom_dailyReset');
+  io.emit('pool_dailyReset');
+  saveCarromTablesLocal();
+  // Push immediately, not through the debounced scheduler -- a restart
+  // landing in that 20-60s debounce window would reload from GitHub
+  // before the push ever went out, bringing every "closed" table right
+  // back and silently undoing the reset. This closes that window.
+  if (GITHUB_ENABLED) {
+    try { await githubPushCarromTables(); } catch (e) { console.error('[daily-reset] GitHub push failed:', e.message); }
+  }
+}
+function easternTimeParts(date) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+  const parts = {};
+  for (const p of fmt.formatToParts(date)) if (p.type !== 'literal') parts[p.type] = parseInt(p.value, 10);
+  if (parts.hour === 24) parts.hour = 0;
+  return parts;
+}
+function msUntilNext5amEastern() {
+  const now = new Date();
+  const p = easternTimeParts(now);
+  const nowAsIfUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  let targetAsIfUTC = Date.UTC(p.year, p.month - 1, p.day, 5, 0, 0, 0);
+  if (targetAsIfUTC <= nowAsIfUTC) targetAsIfUTC += 24 * 60 * 60 * 1000;
+  return targetAsIfUTC - nowAsIfUTC;
+}
+function scheduleDailyClose() {
+  setTimeout(async () => {
+    await dailyCloseAllTables();
+    scheduleDailyClose();
+  }, msUntilNext5amEastern());
+}
+scheduleDailyClose();
+console.log(`[daily-reset] scheduled — next run in ${Math.round(msUntilNext5amEastern() / 60000)} minutes (5am US Eastern Time)`);
+
 async function finalCarromFlush() {
   saveCarromTablesLocal();
   if (GITHUB_ENABLED) {

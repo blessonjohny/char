@@ -13,8 +13,9 @@
 // Rules implemented, ported from the original client's engine:
 //  - 32-card deck (7,8,9,10,J,Q,K,A x 4 suits). J=3pts, 9=2pts, A=1pt,
 //    10=1pt, everything else 0pts. 28 points in the deck total.
-//  - Teams are fixed by seat: seats 0 & 2 vs seats 1 & 3.
-//  - Bidding: 4 cards dealt first. First bidder (dealer's left) must bid
+//  - Teams are fixed by seat: seats 0 & 3 vs seats 1 & 2 (partners sit
+//    directly across the table from each other, not next to each other).
+//  - Bidding: 4 cards dealt first. First bidder (dealer's right) must bid
 //    at least 14 and cannot pass. Bids strictly increase. Bidding ends
 //    once 3 players in a row have passed after some bid exists.
 //  - Bid winner picks a trump suit and sets aside ("hides") one trump
@@ -56,6 +57,7 @@ brain.loadBrains();
 const SEAT_ROTATION = [3, 2, 0, 1];
 function getTeam(pos) { return (pos === 0 || pos === 3) ? 1 : 0; }
 function nextPos(p) { return SEAT_ROTATION[(SEAT_ROTATION.indexOf(p) + 1) % 4]; }
+function partnerOf(pos) { return pos === 0 ? 3 : pos === 3 ? 0 : pos === 1 ? 2 : 1; }
 
 function freshDeck() {
   const deck = [];
@@ -94,6 +96,102 @@ function evaluatePhase1Hand(hand) {
   for (const s of SUITS) bySuit[s] = [];
   for (const c of hand) bySuit[c.suit].push(c);
 
+  // Hard ceiling based on actual cards held, not a probability curve.
+  // Real-game feedback: bots kept bidding well past what their hand
+  // could support because a continuous "confidence" estimate can always
+  // be nudged a little further by aggression, learned patterns, or a
+  // partner bonus. A structural ceiling tied directly to concrete card
+  // composition can't be talked past that way - it's an actual cap, not
+  // a starting point.
+  let eligibleToRaise = false;
+  let jSuitCeiling = 14;
+  let jPlusOneCompanionSuits = 0;
+  // Suits where this hand holds ONLY a lone Jack (no companion at all in
+  // that suit) -- tracked for the 9-A-10-no-Jack rule further below,
+  // which needs to know about a genuinely separate bonus Jack elsewhere.
+  const loneJackSuits = [];
+  for (const s of SUITS) {
+    const cards = bySuit[s];
+    if (cards.length === 0) continue;
+    const hasJ = cards.some(c => c.rank === 'J');
+    const has9 = cards.some(c => c.rank === '9');
+    const hasA = cards.some(c => c.rank === 'A');
+    if (!hasJ) {
+      // No Jack in this suit: only justifies raising at all if it's a
+      // real 3+ card suit that also includes the 9 - a genuine strong
+      // suit, not just a pile of low cards.
+      if (cards.length >= 3 && has9) { eligibleToRaise = true; jSuitCeiling = Math.max(jSuitCeiling, 15); }
+      continue;
+    }
+    eligibleToRaise = true;
+    const companions = cards.filter(c => c.rank !== 'J');
+    let suitCeiling;
+    if (companions.length === 0) {
+      suitCeiling = 14; // a lone Jack, no companion - not enough to raise on its own
+      loneJackSuits.push(s);
+    } else if (has9 && hasA) {
+      // Jack+9+Ace (with or without the 10 too) is the single strongest
+      // hand type here - full command of the suit's point structure PLUS
+      // the Jack itself locking the suit down. Raised from 20 to 23 per
+      // updated tuning; still a real ceiling, not a starting point, so
+      // the confidence/pullback logic elsewhere still decides how close
+      // to it a given bot actually commits.
+      suitCeiling = 23;
+    } else if (companions.length >= 2) {
+      const hasPointCompanion = companions.some(c => c.points > 0);
+      suitCeiling = hasPointCompanion ? 20 : 18;
+    } else {
+      suitCeiling = 15;
+      jPlusOneCompanionSuits++;
+    }
+    jSuitCeiling = Math.max(jSuitCeiling, suitCeiling);
+  }
+  // Two separate suits each with a Jack + one companion reads as
+  // slightly more than either alone, even though neither individually
+  // clears the next tier up.
+  if (jPlusOneCompanionSuits >= 2) jSuitCeiling = Math.max(jSuitCeiling, 16);
+
+  // Three of a kind (same rank, spread across three different suits) is
+  // its own real signal, independent of the same-suit Jack reasoning
+  // above -- a trio of 10s/Aces/9s isn't captured by anything above,
+  // since none of those individually needs a Jack of its own suit.
+  const rankCounts = {};
+  for (const c of hand) rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1;
+  if ((rankCounts['10'] || 0) >= 3 || (rankCounts['A'] || 0) >= 3) {
+    eligibleToRaise = true;
+    jSuitCeiling = Math.max(jSuitCeiling, 16);
+  }
+  if ((rankCounts['9'] || 0) >= 3) {
+    eligibleToRaise = true;
+    jSuitCeiling = Math.max(jSuitCeiling, 18);
+  }
+
+  // 9-A-10 of one suit, with NO Jack of that suit, plus a separate bonus
+  // Jack sitting alone in a different suit. Deliberately kept just under
+  // the J+9+A ceiling above (19 vs 23) -- this hand has full command of
+  // the suit's points but no Jack to actually lock the suit itself, so
+  // it reads as very strong rather than the single best hand type.
+  // suggestedTrumpSuit tells the bot's trump-suit choice (a separate
+  // function) which suit to actually call, rather than leaving it to
+  // fall back on generic point-counting.
+  let suggestedTrumpSuit = null;
+  for (const s of SUITS) {
+    const cards = bySuit[s];
+    const hasJ = cards.some(c => c.rank === 'J');
+    const has9 = cards.some(c => c.rank === '9');
+    const hasA = cards.some(c => c.rank === 'A');
+    const has10 = cards.some(c => c.rank === '10');
+    if (!hasJ && has9 && hasA && has10 && loneJackSuits.some(js => js !== s)) {
+      eligibleToRaise = true;
+      jSuitCeiling = Math.max(jSuitCeiling, 19);
+      suggestedTrumpSuit = s;
+    }
+  }
+
+  const hardCeiling = eligibleToRaise ? jSuitCeiling : 14;
+
+  // Suit-dominance scoring retained for the existing defensive-vs-
+  // offensive read elsewhere - no longer drives the bid ceiling itself.
   let bestSuit = null, bestSuitScore = -1, bestSuitCount = 0;
   for (const s of SUITS) {
     const cards = bySuit[s];
@@ -102,12 +200,7 @@ function evaluatePhase1Hand(hand) {
     const has9 = cards.some(c => c.rank === '9');
     const hasA = cards.some(c => c.rank === 'A');
     const has10 = cards.some(c => c.rank === '10');
-    // Raw rank strength of what's held in this suit...
     let score = cards.reduce((s2, c) => s2 + RANK_ORDER[c.rank], 0);
-    // ...plus a CONTROL bonus that compounds the more of the suit's top
-    // end you hold together — owning J+9+A+10 of one suit isn't just
-    // "4 good cards", it's near-total command of that suit, which is
-    // worth far more than the individual card values suggest.
     if (hasJ) score += 4;
     if (hasJ && has9) score += 6;
     if (hasJ && has9 && hasA) score += 8;
@@ -118,42 +211,16 @@ function evaluatePhase1Hand(hand) {
 
   const jacks = hand.filter(c => c.rank === 'J');
   const jackSuits = new Set(jacks.map(c => c.suit));
-  // Jacks scattered one-per-suit contribute almost nothing to suit
-  // control (each is an island), even though they're individually the
-  // highest card of their own suit.
   const jacksScattered = jacks.length >= 2 && jackSuits.size === jacks.length;
-
   const highCardCount = hand.filter(c => ['J', '9', 'A', '10'].includes(c.rank)).length;
-
-  // Offensive score: mostly driven by how dominant the single best suit
-  // is, with a modest allowance for genuine uncertainty about the 4
-  // still-unseen cards (more high cards already in hand -> more likely
-  // the rest helps too, but this is capped since it's still a guess).
   let offensive = bestSuitScore * 3 + Math.min(6, highCardCount * 1.5);
-  if (jacksScattered) offensive -= (jacks.length - 1) * 4; // scattered Jacks don't buy suit control
-
-  // Defensive score: raw stopping power — every Jack is a guaranteed
-  // trick-stopper regardless of suit, and low filler cards are safe
-  // discards while waiting to spring them.
+  if (jacksScattered) offensive -= (jacks.length - 1) * 4;
   const defensive = jacks.length * 10 + hand.filter(c => c.points === 0).length * 2;
-
-  // Convert the offensive score into a "comfortable ceiling" bid, then a
-  // full probability curve around it — smooth and continuous, not a
-  // lookup table, so it genuinely reflects THESE cards.
-  const ceiling = 14 + offensive / 8;
-  const winProbAtBid = (bid) => {
-    const margin = ceiling - bid; // positive = comfortably within range, negative = stretching past it
-    let p = margin >= 0
-      ? 0.97 - 0.25 * Math.exp(-margin / 3)   // approaches ~97% the more comfortable margin there is
-      : 0.97 * Math.exp(margin / 3);          // decays smoothly the further past the ceiling
-    return Math.max(0.02, Math.min(0.97, p));
-  };
-  const probByBid = {};
-  for (let bid = 14; bid <= 28; bid++) probByBid[bid] = winProbAtBid(bid);
 
   return {
     offensive, defensive, bestSuit, bestSuitScore, bestSuitCount,
-    jacksScattered, jackCount: jacks.length, highCardCount, ceiling, probByBid
+    jacksScattered, jackCount: jacks.length, highCardCount, hardCeiling, eligibleToRaise,
+    suggestedTrumpSuit
   };
 }
 
@@ -244,12 +311,20 @@ function bestPhase2Evaluation(hand) {
   return best;
 }
 
+// Must match the length of TABLE_THEMES in public/index.html (Royal Red,
+// Royal Blue, Emerald Green, Royal Purple, Onyx & Gold, Sapphire Teal) —
+// the server just picks an index each round, the client owns the colors.
+const TABLE_THEME_COUNT = 6;
+
 class GameEngine {
   constructor(tableId) {
     this.tableId = tableId;
     // seats[i] = { name, isBot, connected, hand: [cards] } for i in 0..3
     this.seats = [null, null, null, null];
     this.round = 0;
+    // Random table felt theme, rerolled once per round (see startRound()),
+    // synced to every client via stateFor() so everyone sees the same color.
+    this.tableTheme = Math.floor(Math.random() * TABLE_THEME_COUNT);
     this.gameScore = [6, 6]; // match score, team 0 / team 1 (mirrors client default)
     this.championshipNumber = 1;
     this.kingStreak = [0, 0]; // consecutive championships won by each team
@@ -262,6 +337,12 @@ class GameEngine {
     // exact rule, including the first-hand-of-a-new-championship
     // exception where a successful bidder's partner can shed one too.
     this.qMarks = {};
+    // Cumulative running total of Qunique marks ever acquired, per
+    // player, for this table's whole lifetime - unlike qMarks above,
+    // this NEVER decreases when a Q gets shed by winning a bid. Only
+    // resets on a genuine new game (constructor or restartGame()), not
+    // on shedding a Q or starting a new championship.
+    this.qTotalEver = {};
     this.isFirstHandOfChampionship = true;
     // Partner bidding signals: a human tells their partner (bot or
     // human) how to approach the NEXT hand's bidding relative to normal
@@ -308,6 +389,17 @@ class GameEngine {
     this.passes = 0;
     this.bidHistory = []; // [{pos, bid}]
     this.p2History = []; // [{pos, bid}] — phase 2 raises/passes, reset again when phase 2 actually starts
+    // Phase 1 bidding flow: the first bidder's partner doesn't get their
+    // turn in the normal seating order — it's deferred until the seat
+    // right before them (going around the table) has actually acted,
+    // and depending on how that plays out, their eventual turn is either
+    // completely normal or pre-restricted to Honors (20) or higher. See
+    // _afterBidAction() for the full flow this supports.
+    this.partnerTurnDeferred = false; // true from the first forced bid until the partner actually gets a turn
+    this.partnerTurnRestrictedWhenReached = false; // true only in the "both opponents passed" branch
+    this._partnerTurnWasDelayed = false; // true only between partner's delayed turn finishing and the redirect back to the first bidder
+    this.firstBidderPos = -1;
+    this.p1SeatsActed = {}; // {seatPos: true} - anyone who's had a genuine turn already this phase 1 round
     this.trumpSuit = '';
     this.trumpExposed = false;
     this.roundVoidMessage = null;
@@ -340,6 +432,34 @@ class GameEngine {
     this.teamPoints = [0, 0]; // points captured THIS round
     this.lastTrick = null; // {cards:[{pos,card}], winner, points, team}
     this.roundWinnerAnnounced = null; // {bidderWon, made, bidder, highestBid}
+    // "Already won" early-round-end feature: once EITHER team's outcome
+    // becomes mathematically certain (the bidding team has already
+    // captured >= their bid, or the defense has captured enough that the
+    // bidder can no longer reach it even with every remaining point),
+    // the winning team (if it includes a real human -- bots don't need
+    // this) is offered the choice to skip the now-meaningless remaining
+    // tricks. See the early-win check in _resolveTrick() and
+    // respondToEarlyWin().
+    this.pendingEarlyWinChoice = null; // {team, made} while awaiting a human choice
+    this.earlyWinDeclined = false; // true once the winning team has chosen "keep playing" -- suppresses re-prompting every subsequent trick this round
+    // Quote: available to WHICHEVER team is currently "clean" (hasn't
+    // lost a single trick yet this round -- trivially true for BOTH
+    // teams before the first trick, so it's live from the very start),
+    // valid for ANY player on that team on their own turn (leading or
+    // following), as long as the bid was <=19. Declaring it is a bet on
+    // the FULL 8-trick, 28-point sweep, evaluated as an absolute fact
+    // regardless of when it's declared -- calling it on trick 1 is a
+    // much bigger bet than calling it on trick 7, since either way the
+    // requirement is the same: every single trick, no exceptions.
+    // Success replaces normal scoring with a flat +2 for the declaring
+    // team; losing even one trick afterward replaces it with a flat -3
+    // against them, however many points they'd already banked. See
+    // _isQuoteEligibleFor(), the quote checks in _resolveTrick(), and
+    // declareQuote()/_endRound().
+    this.teamStillClean = [true, true]; // per-team: has this team won every trick so far (both start true, at most one stays true past trick 1)
+    this.quoteState = null; // {team} once quote has actually been declared this round
+    this.pendingMaruCotChallenge = null; // {team} -- open the instant COT is declared, closes the instant the COT-declarer's own next card is played
+    this.maruCotState = null; // {team} once the other team has successfully challenged -- escalates COT's scoring to +3/-3 (success) or -4/+4 (failure)
     // Phase 2 (the "second chance to raise" round after trump is chosen,
     // once everyone's holding their full 8 cards). p2LastRaiser stays -1
     // for the whole phase if nobody ever raises.
@@ -450,6 +570,7 @@ class GameEngine {
 
   startRound() {
     this.round++;
+    this.tableTheme = Math.floor(Math.random() * TABLE_THEME_COUNT);
     this.resetRoundState();
     this.dealer = nextPos(this.dealer);
     this.currentPlayer = nextPos(this.dealer);
@@ -459,9 +580,50 @@ class GameEngine {
     }
     this.dealCards(4);
     this.phase = 'bidding1';
+    // Silently redeals (no intermediate notify) until neither
+    // auto-reshuffle condition holds, so clients only ever see ONE clean
+    // final state -- with reshuffleReason explaining what happened, if
+    // anything did. Same dealer throughout, per round of edits.
+    this.reshuffleReason = this._dealSameHandUntilValid();
     this.addLog(`Round ${this.round} started. Dealer seat ${this.dealer}.`);
     this._notify();
     this.maybeAutoAct();
+  }
+
+  // Redeals (same dealer, no notify/side effects per attempt) until
+  // neither auto-reshuffle condition is true: the forced first bidder
+  // holding nothing but 7s/8s (an unplayable hand they'd otherwise be
+  // forced to bid on), or any single seat holding all four Jacks.
+  // Returns the reason for the FIRST bad deal hit in the chain (or null
+  // if the original deal was already fine) -- that first reason is the
+  // one actually worth telling players about; anything after it is just
+  // this same safety net doing its job again on the replacement deal.
+  _dealSameHandUntilValid() {
+    let reason = null;
+    let guard = 0;
+    while (guard++ < 100) { // effectively unbounded in practice; just a hard safety cap
+      const firstBidderSeat = nextPos(this.dealer);
+      const firstBidderHand = this.seats[firstBidderSeat] ? this.seats[firstBidderSeat].hand : [];
+      const isAll78 = firstBidderHand.length === 4 && firstBidderHand.every(c => c.rank === '7' || c.rank === '8');
+      let allJacksSeat = -1;
+      if (!isAll78) {
+        for (let i = 0; i < 4; i++) {
+          const hand = this.seats[i] ? this.seats[i].hand : [];
+          if (hand.filter(c => c.rank === 'J').length === 4) { allJacksSeat = i; break; }
+        }
+      }
+      if (!isAll78 && allJacksSeat === -1) break; // this deal is fine, stop here
+      if (!reason) {
+        reason = isAll78
+          ? { type: 'all78', seat: firstBidderSeat, name: this.seats[firstBidderSeat] ? this.seats[firstBidderSeat].name : ('Seat ' + firstBidderSeat), round: this.round, ts: Date.now() }
+          : { type: 'allJacks', seat: allJacksSeat, name: this.seats[allJacksSeat].name, round: this.round, ts: Date.now() };
+        this.addLog(`Reshuffling — ${reason.name} ${reason.type === 'all78' ? "was forced to bid with a hand of only 7s and 8s" : "was dealt all four Jacks"}. Same dealer, fresh deal.`);
+      }
+      for (let i = 0; i < 4; i++) { if (this.seats[i]) this.seats[i].hand = []; }
+      this.deck = freshDeck();
+      this.dealCards(4);
+    }
+    return reason;
   }
 
   // Host control: reshuffle and redeal the CURRENT round from scratch —
@@ -481,7 +643,13 @@ class GameEngine {
     }
     this.dealCards(4);
     this.phase = 'bidding1';
-    this.addLog(`Round ${this.round} restarted by the host — fresh shuffle.`);
+    // Always reflects what happened during THIS specific redeal -- never
+    // left stale from an earlier, unrelated trigger. _startPlay()'s
+    // no-trump check already broadcasts its OWN reshuffleReason once,
+    // directly, right before calling this -- so resetting it here based
+    // on this fresh deal (null if it's clean) is correct, not a loss.
+    this.reshuffleReason = this._dealSameHandUntilValid();
+    this.addLog(`Round ${this.round} restarted — fresh shuffle.`);
     this._notify();
     this.maybeAutoAct();
   }
@@ -494,6 +662,7 @@ class GameEngine {
     this.championshipNumber = 1;
     this.kingStreak = [0, 0];
     this.qMarks = {};
+    this.qTotalEver = {};
     this.isFirstHandOfChampionship = true;
     this.lastChampionshipResult = null;
     this.round = 0;
@@ -565,6 +734,17 @@ class GameEngine {
     return this.highestBid === 0 && this.passes === 0 && pos === nextPos(this.dealer);
   }
 
+  // Whether pos's NEXT bid must be Honors (20) or higher rather than a
+  // normal one-higher-than-the-current-bid raise - true for anyone
+  // who's already had a genuine turn this phase 1 round and is now
+  // cycling back, and also for the first bidder's partner specifically
+  // when their delayed turn was reached via both opponents passing.
+  _isBidRestrictedToHonors(pos) {
+    if (this.p1SeatsActed[pos]) return true;
+    if (pos === partnerOf(this.firstBidderPos) && this.partnerTurnRestrictedWhenReached) return true;
+    return false;
+  }
+
   // A human telling their partner how to approach the next hand's
   // bidding -- same, more aggressive, or less aggressive than usual.
   // Only meaningful between the seat that just finished a round and
@@ -584,29 +764,36 @@ class GameEngine {
     if (this.phase !== 'bidding1') return { ok: false, reason: 'not_bidding' };
     if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
     const first = this.isFirstBidder(pos);
+    if (first) {
+      this.firstBidderPos = pos;
+      this.partnerTurnDeferred = true;
+    }
+    const restricted = this._isBidRestrictedToHonors(pos);
     if (bid === 0) {
       if (first) bid = 14; // first bidder cannot pass
       else {
         this.passes++;
+        this.p1SeatsActed[pos] = true;
         this.bidHistory.push({ pos, bid: 0 });
         this.addLog(`Seat ${pos} passed.`);
-        return this._afterBidAction();
+        return this._afterBidAction(pos, false);
       }
     }
-    const minBid = this.highestBid > 0 ? this.highestBid + 1 : 14;
+    const minBid = restricted ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 14);
     if (bid < minBid || bid > 28) return { ok: false, reason: 'invalid_bid_amount' };
     this.highestBid = bid;
     this.bidder = pos;
     this.passes = 0;
+    this.p1SeatsActed[pos] = true;
     this.bidHistory.push({ pos, bid });
     // Snapshot the hand profile now, at bid-time — by round end this
     // hand will be empty, too late to learn anything from it.
     if (this.seats[pos]) this._bidderHandProfileForLearning = brain.getHandProfile(this.seats[pos].hand);
     this.addLog(`Seat ${pos} bid ${bid}.`);
-    return this._afterBidAction();
+    return this._afterBidAction(pos, true);
   }
 
-  _afterBidAction() {
+  _afterBidAction(actingPos, wasABid) {
     if ((this.passes >= 3 && this.highestBid > 0) || this.passes >= 4) {
       this.phase = 'choosingTrump';
       this.currentPlayer = this.bidder;
@@ -615,7 +802,44 @@ class GameEngine {
       this.maybeAutoAct();
       return { ok: true };
     }
-    this.currentPlayer = nextPos(this.currentPlayer);
+
+    const partnerSeat = partnerOf(this.firstBidderPos);
+    const p2Seat = nextPos(this.firstBidderPos);
+    const p4Seat = nextPos(nextPos(p2Seat));
+
+    if (actingPos === partnerSeat && this._partnerTurnWasDelayed) {
+      // Partner's delayed turn (normal or Honors-restricted) just
+      // finished. The natural continuation is back to the very start
+      // of the round - not the seat that would come next in an
+      // uninterrupted rotation, since in this branch that seat (P4)
+      // already had its own turn just before partner's delayed one.
+      this._partnerTurnWasDelayed = false;
+      this.currentPlayer = this.firstBidderPos;
+    } else if (this.partnerTurnDeferred) {
+      if (actingPos === this.firstBidderPos) {
+        this.currentPlayer = nextPos(actingPos); // -> P2, normal
+      } else if (actingPos === p2Seat) {
+        if (wasABid) {
+          // P2 bid - partner gets a completely normal, in-sequence turn.
+          this.partnerTurnDeferred = false;
+          this.currentPlayer = partnerSeat;
+        } else {
+          // P2 passed - skip partner entirely, straight to P4.
+          this.currentPlayer = p4Seat;
+        }
+      } else if (actingPos === p4Seat) {
+        // Only reached when P2 passed (partner still deferred).
+        this.partnerTurnDeferred = false;
+        this._partnerTurnWasDelayed = true;
+        this.partnerTurnRestrictedWhenReached = !wasABid; // true only if P4 also passed
+        this.currentPlayer = partnerSeat;
+      } else {
+        this.currentPlayer = nextPos(actingPos);
+      }
+    } else {
+      this.currentPlayer = nextPos(actingPos);
+    }
+
     this._notify();
     this.maybeAutoAct();
     return { ok: true };
@@ -664,7 +888,7 @@ class GameEngine {
 
   // ---------------- Phase 2: the "second chance to raise" round ----------------
   // Once trump is picked, everyone gets dealt up to their full 8 cards, then
-  // starting from the dealer's left again, each player may either raise the
+  // starting from the dealer's right again, each player may either raise the
   // bid (becoming the new bidder — the trump already chosen stays as-is) or
   // pass. Ends once everyone's passed with no raise at all, or 3 straight
   // passes follow whoever raised last.
@@ -751,17 +975,20 @@ class GameEngine {
   _startPlay() {
     // Rule: if NEITHER player on the defending team (the team that didn't
     // win the bid) holds even a single card of the trump suit, they have
-    // no way to ever contest trump at all — the round is void. Redeal
-    // with the next dealer rather than playing out something that was
-    // never really contestable. (The bidder's own hidden trump card
-    // doesn't count here — this check is specifically about the
+    // no way to ever contest trump at all — the round is void. Reshuffle
+    // with the SAME dealer (matching the other two auto-reshuffle rules
+    // in _checkAndHandleBadDeal()) rather than playing out something
+    // that was never really contestable. (The bidder's own hidden trump
+    // card doesn't count here — this check is specifically about the
     // DEFENDING side having zero trump between them.)
     const bidTeam = getTeam(this.bidder);
+    const defendingTeam = bidTeam === 0 ? 1 : 0;
     const defendingHasTrump = this.seats.some((s, i) => s && getTeam(i) !== bidTeam && s.hand.some(c => c.suit === this.trumpSuit));
     if (!defendingHasTrump) {
-      this.roundVoidMessage = `The defending team has no ${this.trumpSuit} at all this round — nothing to contest. Round voided, moving to the next dealer.`;
+      this.roundVoidMessage = `The defending team has no ${this.trumpSuit} at all this round — nothing to contest. Reshuffling with the same dealer.`;
+      this.reshuffleReason = { type: 'noTrump', team: defendingTeam, suit: this.trumpSuit, round: this.round, ts: Date.now() };
       this.addLog(this.roundVoidMessage);
-      // Broadcast the void message FIRST — startRound() immediately
+      // Broadcast the void message FIRST — restartRound() immediately
       // clears it again as part of resetting for the new deal, so
       // without this explicit notify the client would never actually
       // see it before it's already gone.
@@ -772,7 +999,7 @@ class GameEngine {
       // play well with synchronous testing either. The client's toast
       // for this message already stays up for a few seconds on its own,
       // which is what actually gives players time to read it.
-      this.startRound();
+      this.restartRound();
       return;
     }
 
@@ -781,7 +1008,7 @@ class GameEngine {
     this.trickCards = [];
     this.trickSuit = '';
     this.suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
-    // Play is always led by the dealer's left — the same seat phase-1
+    // Play is always led by the dealer's right — the same seat phase-1
     // bidding started with — regardless of who ended up winning the bid.
     this.currentPlayer = nextPos(this.dealer);
     this.addLog(`Play begins. Seat ${this.currentPlayer} leads.`);
@@ -808,6 +1035,26 @@ class GameEngine {
     }
     const hasSuit = hand.some(c => c.suit === this.trickSuit);
     if (hasSuit && card.suit !== this.trickSuit) return false;
+    // New rule: void in the led suit, a player may cut with trump or
+    // discard - but a discard (anything that isn't trump) can never be
+    // a Jack of any suit. Cutting with the trump Jack itself is still
+    // completely fine, since that's a cut, not a discard. Falls back to
+    // allowing it only if there's truly no other legal option (no trump
+    // to cut with, and every other card outside the led suit is also a
+    // Jack).
+    if (!hasSuit && card.suit !== this.trumpSuit && card.rank === 'J') {
+      const hasAlternative = hand.some(c => c.suit === this.trumpSuit || (c.suit !== this.trickSuit && c.rank !== 'J'));
+      if (hasAlternative) return false;
+    }
+    // Same restriction as the leading case above, but for following while
+    // void: the hidden-trump owner can't discard from the trump suit
+    // before it's properly exposed, even when they're not leading -
+    // unless trump is genuinely their only option left (every card they
+    // hold outside the led suit is trump).
+    if (!hasSuit && pos === this.hiddenTrumpOwner && !this.trumpExposed && card.suit === this.trumpSuit) {
+      const hasOtherOption = hand.some(c => c.suit !== this.trumpSuit && c.suit !== this.trickSuit);
+      if (hasOtherOption) return false;
+    }
     // If this player just ASKED for the trump to be opened (callTrump),
     // they're bound by the classic rule: having demanded the reveal, they
     // must play a trump card this trick if they're holding one.
@@ -856,6 +1103,12 @@ class GameEngine {
     // trump card isn't the same thing and shouldn't be treated as one.
     const isIncidentalTrumpDiscard = !this.trumpExposed && played.suit === this.trumpSuit && this.trickSuit !== this.trumpSuit;
     this.trickCards.push({ pos, card: played, powerless: isIncidentalTrumpDiscard });
+    // A Maru COT challenge window (if one is open) can only ever have
+    // been opened by THIS same player's own COT declaration just now --
+    // COT is only declarable when leading a fresh trick, so the very
+    // next card played is necessarily theirs. Closes "right away" the
+    // instant it's actually played, whether or not anyone challenged.
+    if (this.pendingMaruCotChallenge) this.pendingMaruCotChallenge = null;
 
     this.addLog(`Seat ${pos} played ${played.rank}${played.suit}.`);
 
@@ -884,6 +1137,7 @@ class GameEngine {
     if (!this.trumpExposed) this.exposeTrump();
     if (this.trickSuit === '') { this.trickSuit = card.suit; this.suitLeadCount[card.suit]++; }
     this.trickCards.push({ pos, card });
+    if (this.pendingMaruCotChallenge) this.pendingMaruCotChallenge = null;
     this.addLog(`Seat ${pos} played the hidden trump ${card.rank}${card.suit}!`);
     if (this.trickCards.length === 4) {
       this._resolveTrick();
@@ -906,6 +1160,31 @@ class GameEngine {
       this.hiddenTrump = null;
       this.hiddenTrumpOwner = -1;
     }
+  }
+
+  // Reusable, always-computed-fresh check (never a stored flag that
+  // could go stale) -- true iff Quote is genuinely available for THIS
+  // exact player, right now: they still have a real cutoff window left
+  // (at least 3 cards still in their own hand on this table -- the
+  // 6-player table uses 2 instead, confirmed deliberately different,
+  // not scaled proportionally to hand size either way; miss it and
+  // Quote is gone for the rest of the round, no matter how clean their
+  // team stays), they're the one OPENING the trick (the first card of
+  // it, not following into one already started), their team is still
+  // clean (hasn't lost a trick), it's actually the play phase (not
+  // bidding, not between rounds), the bid qualifies, nobody's already
+  // declared it this round, and there isn't a paused early-win decision
+  // blocking normal play at this exact moment (declaring into that
+  // pause would create two simultaneous, conflicting decisions).
+  _isQuoteEligibleFor(pos) {
+    if (pos === null || pos === undefined || !this.seats[pos]) return false;
+    if (this.seats[pos].hand.length < 3) return false; // cutoff: must still have at least 3 cards of your own left
+    if (this.trickCards.length !== 0) return false; // only the trick's opener can declare, not someone following mid-trick
+    if (this.quoteState) return false;
+    if (this.phase !== 'play') return false;
+    if (this.highestBid > 19) return false;
+    if (this.pendingEarlyWinChoice) return false;
+    return !!this.teamStillClean[getTeam(pos)];
   }
 
   _trickWinner() {
@@ -940,6 +1219,14 @@ class GameEngine {
     };
     this.addLog(`Seat ${winner.pos} won the trick (+${points}pts).`);
 
+    // Per-team clean tracking for Quote eligibility -- whichever team
+    // did NOT win this trick permanently loses their "still clean"
+    // status for the rest of the round (it can never come back once
+    // lost). At most one team can remain clean past trick 1, since a
+    // trick always goes to exactly one side.
+    const bidTeamThisRound = getTeam(this.bidder);
+    this.teamStillClean[1 - team] = false;
+
     // Anyone who didn't follow the led suit just proved they're out of
     // it entirely (following suit is mandatory whenever you can) — a
     // permanent, useful fact for the rest of this round.
@@ -966,6 +1253,19 @@ class GameEngine {
     this.trickSuit = '';
     this.mustPlayTrumpBy = -1; // never carries across tricks
 
+    // Quote resolution: if quote is already active, its outcome is
+    // decided the instant the declaring team loses ANY trick (fails
+    // immediately -- no reason to keep playing out a bet that's already
+    // lost). Success isn't specially checked here at all -- it just
+    // falls through to the normal cardsLeft===0 path below like any
+    // other round ending, since _endRound() already correctly checks
+    // "did the declaring team capture all 28 points" regardless of
+    // whether quote was ever involved.
+    if (this.quoteState && team !== this.quoteState.team) {
+      this._endRound();
+      return;
+    }
+
     const cardsLeft = this.seats.reduce((s, seat) => s + (seat ? seat.hand.length : 0), 0);
     if (cardsLeft === 0 && this.hiddenTrump) {
       // Everyone else is out of cards but the hidden card's owner never
@@ -977,17 +1277,166 @@ class GameEngine {
     } else if (cardsLeft === 0) {
       this._endRound();
     } else {
+      // Early-win offer: the outcome of this round just became
+      // mathematically certain -- either the bidding team has already
+      // captured enough to have made their bid regardless of what's
+      // left, or the defense has captured enough that the bidder can
+      // no longer reach their bid even by winning every remaining
+      // point. Only offered once per round (earlyWinDeclined).
+      const oT = 1 - bidTeamThisRound;
+      const bidderClinched = this.teamPoints[bidTeamThisRound] >= this.highestBid;
+      const defenseClinched = this.teamPoints[oT] > (28 - this.highestBid);
+      const winningTeam = bidderClinched ? bidTeamThisRound : oT;
+      // If the winning team (whichever one it is -- Quote is no longer
+      // bidder-only) is STILL clean and their bid qualifies, don't
+      // interrupt them with this popup -- Quote is available to them
+      // right now (or will be the instant it's their turn), and forcing
+      // the early-win choice first would cut across that. Once their
+      // sweep actually breaks, this stops applying and the popup fires
+      // normally.
+      const stillQuoteCandidate = this.teamStillClean[winningTeam] && this.highestBid <= 19;
+      if (!stillQuoteCandidate && !this.earlyWinDeclined && (bidderClinched || defenseClinched)) {
+        const hasHuman = [0, 1, 2, 3].some(p => getTeam(p) === winningTeam && this.seats[p] && !this.seats[p].isBot);
+        if (hasHuman) {
+          // A real person is on the winning team -- offer them the
+          // choice and wait, however long it takes, for an actual
+          // answer (see respondToEarlyWin()).
+          this.pendingEarlyWinChoice = { team: winningTeam, made: bidderClinched };
+          this.currentPlayer = winner.pos;
+          this._notify();
+          return;
+        }
+        // Nobody who'd need to see the remaining tricks is even
+        // watching -- skip straight to ending the round instead of
+        // pointlessly playing out an outcome that's already decided
+        // with no one around who needs it. _endRound()'s scoring is a
+        // pure threshold check either way, so this is exactly as
+        // correct as playing it all the way out would have been.
+        this._endRound();
+        return;
+      }
+
       this.currentPlayer = winner.pos;
       this._notify();
       this.maybeAutoAct();
     }
   }
 
+  // Either player on the team that's just been offered the early-win
+  // choice can respond for their team -- it affects the whole team, and
+  // either partner making the call is reasonable. continuePlay=true just
+  // resumes normal play (and won't be asked again this round);
+  // continuePlay=false ends the round right now using the CURRENT,
+  // already-decided point totals -- correct because _endRound()'s
+  // scoring is a pure threshold check (did the bidding team's points
+  // reach their bid), not dependent on how many tricks were actually
+  // played.
+  respondToEarlyWin(pos, continuePlay) {
+    if (!this.pendingEarlyWinChoice) return false;
+    if (getTeam(pos) !== this.pendingEarlyWinChoice.team) return false;
+    this.pendingEarlyWinChoice = null;
+    if (continuePlay) {
+      this.earlyWinDeclined = true;
+      this._notify();
+      this.maybeAutoAct();
+    } else {
+      this._endRound();
+    }
+    return true;
+  }
+
+  // Declares COT -- a pure declaration, not a card play. The player
+  // still plays their card normally afterward via the usual playCard()
+  // flow; this just locks in the bet before they do. Any player, on
+  // either team, can call it on their own turn as long as their team is
+  // still clean -- see _isQuoteEligibleFor() for the full check.
+  // Immediately opens a Maru COT challenge window for the OTHER team --
+  // see challengeMaruCot() and the pendingMaruCotChallenge clearing
+  // logic in playCard() for how that window works and closes.
+  declareQuote(pos) {
+    if (pos !== this.currentPlayer) return false;
+    if (!this._isQuoteEligibleFor(pos)) return false;
+    this.quoteState = { team: getTeam(pos) };
+    this.pendingMaruCotChallenge = { team: 1 - getTeam(pos) };
+    const seat = this.seats[pos];
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared COT — betting on a full sweep of all 8 tricks!`);
+    this._notify();
+    return true;
+  }
+
+  // Maru COT: the other team challenging a just-declared COT, raising
+  // the stakes for both sides. Any player on that team can attempt it
+  // (not just their own trick opener, unlike COT itself) -- whoever's
+  // challenge reaches the server first is the one that counts, since
+  // pendingMaruCotChallenge gets cleared the instant the first valid
+  // one lands, and every later attempt this round correctly finds it
+  // already gone. The window itself is real but short: it opens the
+  // moment COT is declared and closes the instant the COT-declaring
+  // player's own next card is actually played (see playCard()) --
+  // "right away," not an open-ended option.
+  challengeMaruCot(pos) {
+    if (!this.pendingMaruCotChallenge) return false;
+    if (getTeam(pos) !== this.pendingMaruCotChallenge.team) return false;
+    this.maruCotState = { team: getTeam(pos) };
+    this.pendingMaruCotChallenge = null;
+    const seat = this.seats[pos];
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} called MARU COT — challenging the COT! Stakes are now +4/-4 instead of +2/-3.`);
+    this._notify();
+    return true;
+  }
+
   _endRound() {
     const bT = getTeam(this.bidder);
     const oT = 1 - bT;
-    const made = this.teamPoints[bT] >= this.highestBid;
-    let pts;
+    const isQuote = !!this.quoteState;
+    const isMaruCot = !!this.maruCotState;
+    let made, pts;
+    if (isQuote) {
+      // COT replaces normal scoring entirely, evaluated as a simple
+      // absolute fact -- did the DECLARING team (this.quoteState.team --
+      // NOT necessarily the bidder; either team can declare COT now)
+      // capture every one of the 28 points (a full 8-trick sweep). This
+      // used to hard-code the bidder's team here, which was wrong the
+      // instant COT stopped being bidder-only -- checking the wrong
+      // team's points if the defense was the one who'd actually
+      // declared it. Fixed score regardless of the original bid: +2 for
+      // the declaring team on success, -3 against them on failure, even
+      // if they'd already technically made their original bid. If
+      // Maru COT was successfully called against them, the stakes
+      // escalate instead: +3/-3 on success, -4/+4 on failure.
+      const cotTeam = this.quoteState.team;
+      const otherTeam = 1 - cotTeam;
+      made = this.teamPoints[cotTeam] >= 28;
+      if (isMaruCot) pts = made ? 3 : 4;
+      else pts = made ? 2 : 3;
+      const isHonors = this.highestBid >= 20;
+      if (made) { this.gameScore[cotTeam] += pts; this.gameScore[otherTeam] -= pts; }
+      else { this.gameScore[otherTeam] += pts; this.gameScore[cotTeam] -= pts; }
+      this.roundWinnerAnnounced = {
+        bidderWon: getTeam(this.bidder) === cotTeam ? made : !made,
+        made, bidder: this.bidder, highestBid: this.highestBid,
+        teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
+        quote: true, quoteSuccess: made, cotTeam,
+        maruCot: isMaruCot, maruCotTeam: isMaruCot ? this.maruCotState.team : undefined
+      };
+      this.phase = 'roundEnd';
+      this.addLog(isMaruCot
+        ? `Round ${this.round} over. Maru COT ${made ? 'FAILED to stop the sweep — COT succeeded!' : 'succeeded — COT failed!'} (${made ? '+3/-3' : '-4/+4'}).`
+        : `Round ${this.round} over. COT ${made ? 'succeeded — full sweep!' : 'failed'} (${made ? '+' : '-'}${pts}).`);
+      // The Q-mark/bot-learning logic below is entirely about whether
+      // the BIDDER personally succeeded, which isn't the same question
+      // as "did the COT-declaring team win their bet" -- if the DEFENSE
+      // was the one who declared COT, their success means the bidder
+      // was completely shut out, the opposite of the bidder succeeding.
+      // Converting to the bidder's own true outcome here keeps
+      // _finishRoundBookkeeping()'s bT/made parameters meaning exactly
+      // what they've always meant, regardless of any of this COT
+      // complexity above it.
+      const bidderMadeIt = (getTeam(this.bidder) === cotTeam) ? made : !made;
+      this._finishRoundBookkeeping(bT, bidderMadeIt);
+      return;
+    }
+    made = this.teamPoints[bT] >= this.highestBid;
     if (this.highestBid >= 28) pts = made ? 3 : 4;
     else if (this.highestBid >= 20) pts = made ? 2 : 3;
     else pts = made ? 1 : 2;
@@ -996,11 +1445,22 @@ class GameEngine {
     else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
     this.roundWinnerAnnounced = {
       bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
-      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors
+      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
+      quote: false, quoteSuccess: undefined
     };
     this.phase = 'roundEnd';
     this.addLog(`Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
+    this._finishRoundBookkeeping(bT, made);
+  }
 
+  // Shared tail end of _endRound() -- Q-mark shedding, bot learning,
+  // and whatever else follows scoring, factored out so both the COT and
+  // normal scoring branches above can share it without duplicating it
+  // or risking the two copies drifting apart later. bT/made here are
+  // always BIDDER-centric ("did the bidder's own team come out ahead"),
+  // never COT-team-centric -- see the conversion in the COT branch above
+  // for why that distinction matters.
+  _finishRoundBookkeeping(bT, made) {
     // Q-mark removal: personally calling and winning a bid sheds one Q
     // from yourself, if you're carrying any. On the very first hand of a
     // new championship specifically, a successful bidder ALSO sheds one
@@ -1086,6 +1546,7 @@ class GameEngine {
         const s = this.seats[i];
         if (!s || getTeam(i) !== losingTeam) continue;
         this.qMarks[s.name] = (this.qMarks[s.name] || 0) + 1;
+        this.qTotalEver[s.name] = (this.qTotalEver[s.name] || 0) + 1;
       }
       this.addLog(`Team ${losingTeam} shut out — every player picks up a Q.`);
       // Start the next championship: reset the match score, keep everyone
@@ -1108,9 +1569,50 @@ class GameEngine {
   // presentation/flavor on top if desired.
 
   maybeAutoAct() {
+    // A pending early-win choice isn't a card-play turn at all -- it's a
+    // yes/no decision offered to a specific team, and the normal
+    // stuck-seat logic below (which assumes currentPlayer owes a CARD)
+    // doesn't apply to it. But the same underlying risk still exists: if
+    // the human this was offered to disconnects before responding, the
+    // whole table would otherwise wait forever for an answer that's
+    // never coming. If literally everyone on the winning team is now a
+    // bot or disconnected (checked fresh here, since that can change
+    // after the prompt was first shown), auto-resolve with "keep
+    // playing" -- the safest, least-surprising default that just
+    // continues the round normally, exactly as if this feature didn't
+    // exist for them.
+    if (this.pendingEarlyWinChoice) {
+      const team = this.pendingEarlyWinChoice.team;
+      const stillHasHuman = [0, 1, 2, 3].some(p => getTeam(p) === team && this.seats[p] && !this.seats[p].isBot && this.seats[p].connected);
+      if (!stillHasHuman) {
+        const anyPosOnTeam = [0, 1, 2, 3].find(p => getTeam(p) === team);
+        this.respondToEarlyWin(anyPosOnTeam, true);
+      }
+      return;
+    }
     const seat = this.seats[this.currentPlayer];
     if (!seat) return; // truly empty seat — caller must fill or skip
-    if (seat.isBot || !seat.connected) {
+    // Track how long the current seat has actually been on the clock,
+    // not how long ago maybeAutoAct() happened to last be called (which
+    // can be re-invoked many times for the same turn, e.g. once per
+    // reconnect) - only a genuine turn change resets this.
+    if (this._turnTrackedPlayer !== this.currentPlayer || this._turnTrackedRound !== this.round) {
+      this._turnTrackedPlayer = this.currentPlayer;
+      this._turnTrackedRound = this.round;
+      this.turnStartedAt = Date.now();
+    }
+    const turnAgeMs = Date.now() - (this.turnStartedAt || Date.now());
+    // A seat that LOOKS connected but hasn't actually acted in a very
+    // long time is almost certainly a zombie connection (a network
+    // transition the socket layer never cleanly detected as a
+    // disconnect) rather than a human genuinely still thinking - no
+    // real turn takes 2 minutes. Once past that, treat it exactly like
+    // an explicitly disconnected seat so the table can recover on its
+    // own instead of staying stuck until someone happens to reconnect
+    // in a way that coincidentally un-sticks it.
+    const CONNECTED_BUT_STUCK_MS = 120000;
+    const treatAsStuck = seat.isBot || !seat.connected || turnAgeMs >= CONNECTED_BUT_STUCK_MS;
+    if (treatAsStuck) {
       // A disconnected human gets covered the same way a bot seat does —
       // otherwise their turn just freezes the whole table indefinitely
       // waiting for them to come back. The moment they reconnect, control
@@ -1125,6 +1627,7 @@ class GameEngine {
       // correct, the human just never got a chance to see the steps.
       const capturedPos = this.currentPlayer;
       const capturedRound = this.round;
+      const capturedTurnStartedAt = this.turnStartedAt;
       // Bots always act at a comfortable, watchable pace. A disconnected
       // HUMAN gets a real grace period instead — brief network hiccups are
       // common and often invisible to the person experiencing them (their
@@ -1135,19 +1638,27 @@ class GameEngine {
       // Same reasoning as the 6-player engine: 10s was too tight to
       // absorb a brief mobile connectivity blip before a bot takes over
       // an actively-present human's seat.
-      const delay = seat.isBot ? 900 : 35000;
+      // A seat that's already past the connected-but-stuck threshold has
+      // used up its grace period already - act promptly rather than
+      // making the table wait out a full fresh 35s on top of the 2
+      // minutes it's already been stuck.
+      const delay = seat.isBot ? 900 : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         // Re-check everything at fire-time, not just at schedule-time:
         // - the round hasn't moved on
         // - it's still actually this seat's turn
-        // - this seat is STILL a bot or STILL disconnected — if a human
-        //   reconnected during this delay, they should get to act
-        //   themselves now, not have a card auto-played out from under
-        //   them the moment they came back.
+        // - this seat is STILL a bot, STILL disconnected, or STILL past
+        //   the connected-but-stuck threshold (re-derived fresh here,
+        //   not reused from schedule-time) — if a human reconnected AND
+        //   genuinely resumed play during this delay, they should get
+        //   to act themselves now, not have a card auto-played out from
+        //   under them the moment they came back.
         if (this.round !== capturedRound) return;
         if (this.currentPlayer !== capturedPos) return;
         const seatNow = this.seats[capturedPos];
-        if (!seatNow || (!seatNow.isBot && seatNow.connected)) return;
+        if (!seatNow) return;
+        const stillStuck = seatNow.isBot || !seatNow.connected || (Date.now() - (capturedTurnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
+        if (!stillStuck) return;
         this._botAct(capturedPos);
       }, delay);
     }
@@ -1155,12 +1666,52 @@ class GameEngine {
   }
 
   _botAct(pos) {
+    try {
+      this._botActInner(pos);
+    } catch (e) {
+      // Never let a bad bot decision permanently freeze the table. The
+      // server's global uncaughtException handler keeps the PROCESS alive
+      // on an unhandled throw here, but it does nothing to un-stick THIS
+      // seat's turn - nothing else was going to retry it, so the table
+      // would otherwise wait forever for an action that will never come.
+      // Fall back to the simplest guaranteed-legal action for whatever
+      // phase we're actually in, so the round always keeps moving even
+      // when the "smart" logic above hits something it didn't expect.
+      console.error(`[bot-safety] _botAct threw for seat ${pos} in phase ${this.phase} (round ${this.round}) - falling back to a safe default action:`, e && e.stack || e);
+      try {
+        if (this.phase === 'bidding1' && this.currentPlayer === pos) {
+          const bid = this.isFirstBidder(pos) ? 14 : 0;
+          const result = this.placeBid(pos, bid);
+          if (!result.ok) this.placeBid(pos, 0);
+        } else if (this.phase === 'choosingTrump' && pos === this.bidder) {
+          this.chooseTrump(pos, SUITS[0], null);
+        } else if (this.phase === 'bidding2' && this.currentPlayer === pos) {
+          this.passPhase2(pos);
+        } else if (this.phase === 'play' && this.currentPlayer === pos) {
+          const hand = this.seats[pos].hand;
+          if (hand.length === 0 && this.hiddenTrump && pos === this.hiddenTrumpOwner) {
+            this.playHiddenTrump(pos);
+          } else {
+            const legal = hand.find(c => this.canPlayCard(pos, c));
+            if (legal) this.playCard(pos, legal);
+          }
+        }
+      } catch (e2) {
+        // If even the fallback fails, log it clearly rather than throwing
+        // again silently - at minimum this gives a concrete trace to chase.
+        console.error(`[bot-safety] fallback action ALSO threw for seat ${pos}:`, e2 && e2.stack || e2);
+      }
+    }
+  }
+
+  _botActInner(pos) {
     if (this.phase === 'bidding1' && this.currentPlayer === pos) {
       const botName = this.seats[pos].name;
       const b = brain.getBrain(botName);
       const hand = this.seats[pos].hand;
       const first = this.isFirstBidder(pos);
-      const minBid = this.highestBid > 0 ? this.highestBid + 1 : 14;
+      const restricted = this._isBidRestrictedToHonors(pos);
+      const minBid = restricted ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 14);
 
       // Suit-dominance based evaluation (see evaluatePhase1Hand above) —
       // replaces flat point-counting, which badly overrated hands like
@@ -1171,48 +1722,72 @@ class GameEngine {
 
       // How comfortable this particular bot is committing depends on its
       // brain's personality: a cautious/low-level bot wants a much safer
-      // win probability before bidding than a confident, aggressive one.
+      // margin before bidding than a confident, aggressive one.
       // Raised from 0.75 after real-game reports of bots committing to
       // bids their actual hand didn't support and losing badly — even a
       // confident, high-level bot should want real odds before bidding.
-      const comfortThreshold = Math.max(0.45,
-        0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1);
+      // Leveling up (and the aggression increase that comes with it) is
+      // driven purely by accumulated experience, which grows from EVERY
+      // bid outcome including failures - so on its own this had no way
+      // to ever pull a bot back toward caution, only push it further
+      // toward confidence the more it played, regardless of whether its
+      // bids were actually working. This performance term is the missing
+      // other half: once there's enough real history to judge (5+
+      // decided bids), an actual success rate running below break-even
+      // raises the threshold back up, proportional to how badly it's
+      // missing - a bot that's been failing most of its bids gets
+      // meaningfully more cautious here, not just plateaued at whatever
+      // aggression its level happened to unlock.
+      const totalDecidedBids = b.stats.bidsWon + b.stats.bidsLost;
+      const performanceAdjustment = totalDecidedBids >= 5
+        ? Math.max(0, 0.5 - (b.stats.bidsWon / totalDecidedBids)) * 0.6
+        : 0;
+      const comfortThreshold = Math.min(0.9, Math.max(0.45,
+        0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1 + performanceAdjustment));
 
-      // Walk the dynamically-computed probability curve and take the
-      // highest bid level that still clears this bot's comfort bar. Bids
-      // of 20+ ("Honors") pay and cost more per point than sub-20 bids —
-      // a bad guess up there is a bigger absolute swing on the
-      // scoreboard, not just a bigger number, so the bar to cross into
-      // that territory (and again into 28) is a bit higher than the
-      // plain curve alone would ask for. This is on top of the comfort
-      // bar, not instead of it — a hand that wasn't going to clear the
-      // ordinary bar doesn't get pulled up here.
-      let target = 14;
-      for (let bidLevel = 14; bidLevel <= 28; bidLevel++) {
-        const honorsPremium = bidLevel >= 28 ? 0.08 : bidLevel >= 20 ? 0.05 : 0;
-        if (ev.probByBid[bidLevel] >= comfortThreshold + honorsPremium) target = bidLevel;
-        else break;
-      }
+      // The hand itself sets a hard ceiling (see evaluatePhase1Hand) -
+      // confidence only decides how close to it this bot actually
+      // commits, never past it. A high comfortThreshold (cautious/
+      // unproven bot) holds back a little even on a strong hand; a low
+      // one (confident, proven bot) commits to the full ceiling the
+      // cards support. Real-game reports of bots bidding well past what
+      // their hand justified were exactly this: a confidence estimate
+      // that could keep climbing on its own, disconnected from what was
+      // actually in hand. Now the cards decide the ceiling; confidence
+      // only ever pulls back from it, never past it.
+      const confidenceFactor = Math.max(0, Math.min(1, (0.9 - comfortThreshold) / (0.9 - 0.45)));
+      // Modest pullback (at most 2) for a cautious/unproven bot, not a
+      // full rescale of the whole range - the hand's own composition is
+      // the dominant factor here, personality is a small nudge around
+      // it, not something that can swamp what the cards actually support.
+      const pullback = Math.round((1 - confidenceFactor) * 2);
+      let target = ev.eligibleToRaise ? Math.max(14, ev.hardCeiling - pullback) : 14;
 
       // A hand that reads as much better for DEFENSE than OFFENSE — the
       // classic "scattered Jacks, no suit control" case — should pull the
-      // bot back from committing high even if the raw curve alone looked
+      // bot back from committing high even if the ceiling itself looked
       // OK, mirroring the real distinction between a good bidding hand
       // and a good defending hand.
       if (ev.defensive > ev.offensive * 1.3) {
         target = Math.max(14, target - 3);
       }
 
-      // Partner bidding signal from last round: a lightweight nudge, not
-      // a hard override — still bounded by the normal 14-28 range so a
-      // signal can't push a truly hopeless hand into a bid it has no
-      // business making. Tagged with the round it's meant for, so a
-      // signal that never got used (e.g. this seat never got to bid)
-      // just quietly expires instead of leaking into a later round.
+      // Partner bidding signal from last round. "higher" stays a light
+      // nudge here, folded in with everything else below. "lower" is
+      // handled separately, much later (see after pattern memory) - a
+      // small nudge this early was getting overridden by the partner-
+      // support bonus and pattern-memory blend that both run afterward,
+      // so a human explicitly asking their bot partner to stay
+      // cautious could still end up watching it bid high anyway,
+      // especially with a high-confidence bot on a winning streak. A
+      // deliberate "stay low" ask from the human deserves to actually
+      // hold, not get quietly walked back up by the bot's own
+      // enthusiasm a few lines later.
+      const wantsLower = this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round &&
+        this.partnerSignals[pos].signal === 'lower';
       if (this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round) {
         const sig = this.partnerSignals[pos].signal;
-        if (sig === 'higher') target = Math.min(28, target + 3);
-        else if (sig === 'lower') target = Math.max(14, target - 3);
+        if (sig === 'higher') target = Math.min(ev.hardCeiling, target + 3);
       }
 
       // Partner already winning the bidding is worth leaning into a
@@ -1226,7 +1801,7 @@ class GameEngine {
         const trust = (partnerSeat && !partnerSeat.isBot) ? brain.partnerTrustMultiplier(b, partnerSeat.playerId) : 1.0;
         pb = 1 * b.bidWeights.partnerSupport * trust;
       }
-      target = Math.min(28, Math.round(target + pb));
+      target = Math.min(ev.hardCeiling, Math.round(target + pb));
 
       // Pattern memory: has this bot seen a similar hand work out before?
       // Blended with (rather than fully overriding) the principled target
@@ -1240,8 +1815,18 @@ class GameEngine {
       });
       if (similarBids.length > 0 && Math.random() < 0.3 * b.level) {
         const avgBid = similarBids.reduce((s, sb) => s + sb.bid, 0) / similarBids.length;
-        target = Math.round((target + avgBid) / 2);
+        // Only ever pull DOWN toward a more conservative memory, never up -
+        // see the comment above this block for why.
+        target = Math.min(target, Math.round((target + avgBid) / 2));
       }
+
+      // "Stay low" is the deliberate last word on this bid, applied
+      // after every other adjustment above (partner-support bonus,
+      // pattern memory) so nothing downstream of the signal can walk
+      // the target back up again. Capped low enough that a non-first
+      // bidder will correctly pass rather than still committing to
+      // something well above what the human explicitly asked for.
+      if (wantsLower) target = Math.min(target, 16);
 
       let bid = 0;
       if (first) {
@@ -1260,6 +1845,19 @@ class GameEngine {
       // Faithful port of the reference's botChooseTrumpWithBrain.
       const b = brain.getBrain(this.seats[pos].name);
       const hand = this.seats[pos].hand;
+      // The hand is still the original 4 cards here -- the second batch
+      // of 4 isn't dealt until after trump is chosen (see the rules
+      // comment at the top of this file) -- so this is the exact same
+      // hand evaluatePhase1Hand already scored during bidding. If it
+      // flagged a specific suit (9-A-10 of one suit, no Jack of that
+      // suit, plus a separate bonus Jack elsewhere), that's a strong
+      // enough signal to just call it directly rather than leave the
+      // choice to the generic point-counting below.
+      const ev = evaluatePhase1Hand(hand);
+      if (ev.suggestedTrumpSuit) {
+        this.chooseTrump(pos, ev.suggestedTrumpSuit, null);
+        return;
+      }
       const ss = {};
       for (const s of SUITS) ss[s] = { points: 0, hasJ: false, has9: false, hasK: false, hasQ: false, count: 0 };
       for (const c of hand) {
@@ -1307,7 +1905,7 @@ class GameEngine {
         const margin = ownEstimate - lvl; // positive = own hand comfortably covers this bid already
         let p = margin >= 0
           ? 0.95 - 0.2 * Math.exp(-margin / 3.5)
-          : 0.95 * Math.exp(margin / 3.5);
+          : 0.75 * Math.exp(margin / 3.5); // continues smoothly from the ~0.75 the positive branch reaches at margin=0 (0.95-0.2), not a jump to ~0.95
         probByBid[lvl] = Math.max(0.03, Math.min(0.97, p));
       }
 
@@ -1318,7 +1916,12 @@ class GameEngine {
       // (not already on their team) is a bigger commitment than merely
       // extending your own side's existing bid, so it needs a clearly
       // higher bar.
-      const baseThreshold = Math.max(0.48, 0.86 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1);
+      const totalDecidedBids2 = b.stats.bidsWon + b.stats.bidsLost;
+      const performanceAdjustment2 = totalDecidedBids2 >= 5
+        ? Math.max(0, 0.5 - (b.stats.bidsWon / totalDecidedBids2)) * 0.6
+        : 0;
+      const baseThreshold = Math.min(0.92, Math.max(0.48,
+        0.86 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1 + performanceAdjustment2));
       const riskThreshold = isBT ? baseThreshold : baseThreshold + 0.15;
 
       const minRaise = Math.max(20, this.highestBid + 1);
@@ -1376,6 +1979,16 @@ class GameEngine {
         if (callTrump) {
           const goodOutcome = wt !== myTeam; // calling trump to steal back a trick the other team was winning
           brain.recordTrumpExposure(this.seats[pos].name, { trickLen: this.trickCards.length }, true, goodOutcome);
+          if (pos === this.hiddenTrumpOwner && this.hiddenTrump) {
+            // The hidden-trump owner reveals by playing their specific
+            // hidden card, not an arbitrary trump card from their open
+            // hand - that's the whole point of it being hidden. Any
+            // other trump cards this bot happens to also be holding
+            // openly stay subject to the normal incidental-discard /
+            // now-illegal-until-exposed rules, same as anyone else's.
+            this.playHiddenTrump(pos);
+            return;
+          }
           this.exposeTrump();
           if (trumps.length > 0) {
             trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
@@ -1388,8 +2001,11 @@ class GameEngine {
             // trick a King or 7 would have won just as well is exactly the
             // waste reported — a bidder doing this on their own last turn
             // with cheaper trump sitting right there in hand.
-            const zeroPt = trumps.filter(c => c.points === 0);
-            let cutCard = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1] : trumps[trumps.length - 1];
+            const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+            const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+            let cutCard = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+              : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+              : trumps[trumps.length - 1];
             // Still respect real overtake risk: if other players still
             // act after us in this same trick and the trump Jack hasn't
             // been seen yet, a big enough trick is worth committing our
@@ -1449,6 +2065,20 @@ class GameEngine {
       const bySuit = {};
       for (const s of SUITS) bySuit[s] = [];
       for (const c of hand) bySuit[c.suit].push(c);
+      // Absolute rule, not a scored preference: if this bot holds a Jack
+      // it's legitimately allowed to lead, it leads it - full stop,
+      // before any other leading logic (including the bidder's own
+      // trump-concealment strategy below) even runs. The Jack is
+      // unbeatable in its own suit barring trump, and this should never
+      // lose out to some other candidate happening to score higher, or
+      // get skipped because some other special case returned first.
+      for (const s of SUITS) {
+        if (bySuit[s].length === 0) continue;
+        const holdsJackHere = bySuit[s].some(c => c.rank === 'J');
+        if (holdsJackHere && (s !== this.trumpSuit || this.trumpExposed)) {
+          return bySuit[s].find(c => c.rank === 'J');
+        }
+      }
       if (!this.trumpExposed && isBidder) {
         const nt = hand.filter(c => c.suit !== this.trumpSuit);
         if (nt.length > 0) {
@@ -1470,7 +2100,6 @@ class GameEngine {
         const low = bySuit[s][0], high = bySuit[s][bySuit[s].length - 1];
         const jSeen = this._isRankSeen(s, 'J');
         const nineSeen = this._isRankSeen(s, '9');
-        const iHoldJ = bySuit[s].some(c => c.rank === 'J');
         const iHold9 = bySuit[s].some(c => c.rank === '9');
         // A known opponent (not partner — partner being void isn't a
         // threat to us) already out of this suit can trump straight over
@@ -1523,12 +2152,17 @@ class GameEngine {
           if (s === this.trumpSuit) sc -= 30;
           candidates.push({ card: low, score: sc, suit: s });
         } else {
-          // The Jack is the single most valuable card in the game — if
-          // this hand actually holds it, leading it is close to a free
-          // trick (nothing beats it barring trump) and should be strongly
-          // preferred over anything else on offer.
-          if (iHoldJ) {
-            candidates.push({ card: bySuit[s].find(c => c.rank === 'J'), score: 60 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
+          const trumpIneligibleHere = s === this.trumpSuit && !this.trumpExposed;
+          if (trumpIneligibleHere && high.rank === 'J') {
+            // The generic "lead your best card in a suit" scoring below
+            // would otherwise offer the Jack anyway just because it's
+            // this suit's highest card - even though this bot isn't
+            // actually eligible to know this suit is trump. Fall back to
+            // a lower card from the same suit if one exists; otherwise
+            // this suit isn't a safe option to lead from at all here.
+            if (bySuit[s].length > 1) {
+              candidates.push({ card: bySuit[s][bySuit[s].length - 2], score: sc + bySuit[s].length * 2, suit: s });
+            }
             continue;
           }
           // Holding the 9 without the Jack is only a safe, strong lead
@@ -1655,8 +2289,11 @@ class GameEngine {
           // have won exactly as well is a real, common waste. Use the
           // cheapest trump we have, preferring a zero-point one so we're
           // not even giving up bonus points to do it.
-          const zeroPt = trumps.filter(c => c.points === 0);
-          wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1] : trumps[trumps.length - 1];
+          const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+          const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+          wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+            : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+            : trumps[trumps.length - 1];
         }
         return wtr;
       }
@@ -1676,6 +2313,20 @@ class GameEngine {
           feedablePts.sort((a, c) => c.points - a.points);
           return feedablePts[0];
         }
+        // A Jack can never be played as a plain discard (see canPlayCard) -
+        // exclude it from consideration here the same way, so the bot
+        // doesn't pick one and then have it rejected as illegal.
+        const nonJackDiscard = nonTrumpDiscard.filter(c => c.rank !== 'J');
+        if (nonJackDiscard.length > 0) {
+          nonJackDiscard.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+          return nonJackDiscard[0];
+        }
+        // Every remaining non-trump card is a Jack. If trump is still
+        // available, cutting with it is the legal alternative (canPlayCard
+        // would reject a Jack discard here) - only fall through to
+        // actually playing the Jack when there's genuinely no trump left
+        // either, matching canPlayCard's own last-resort exception.
+        if (trumps.length > 0) return trumps[trumps.length - 1];
         nonTrumpDiscard.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
         return nonTrumpDiscard[0];
       }
@@ -1683,8 +2334,22 @@ class GameEngine {
     }
 
     if (!this.trumpExposed && trumps.length > 0 && this.trickSuit !== this.trumpSuit) {
-      if (isLast && wt !== myTeam && tPts >= 2) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
-      if (isBidder && wt !== myTeam && tPts >= 3) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
+      // Same reasoning as the other "first cut" spots above: trump isn't
+      // exposed yet, so literally any trump card wins this trick outright
+      // - reflexively reaching for the highest one (often the Jack) to
+      // win with a King or 7 just as easily is the same unnecessary
+      // waste, not a special case just because exposing trump is also
+      // happening here.
+      const cutForWin = pos !== this.hiddenTrumpOwner &&
+        ((isLast && wt !== myTeam && tPts >= 2) || (isBidder && wt !== myTeam && tPts >= 3));
+      if (cutForWin) {
+        trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+        const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+        const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+        return zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+          : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+          : trumps[trumps.length - 1];
+      }
     }
 
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
@@ -1702,6 +2367,7 @@ class GameEngine {
     return {
       tableId: this.tableId,
       round: this.round,
+      tableTheme: this.tableTheme,
       phase: this.phase,
       dealer: this.dealer,
       tricksPlayed: this.tricksPlayed,
@@ -1713,11 +2379,14 @@ class GameEngine {
       p2History: this.p2History,
       p2LastRaiser: this.p2LastRaiser,
       p2MinRaise: this.phase === 'bidding2' ? Math.max(20, this.highestBid + 1) : null,
+      p1MinBid: this.phase === 'bidding1' ? (this._isBidRestrictedToHonors(this.currentPlayer) ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 14)) : null,
+      p1CurrentTurnRestricted: this.phase === 'bidding1' ? this._isBidRestrictedToHonors(this.currentPlayer) : false,
       learningPulseCount: this.learningPulseCount,
       lastLearningBotName: this.lastLearningBotName,
       trumpSuit: this.trumpSuit, // the chosen SUIT is known to everyone once picked — only the specific hidden CARD stays secret until exposure
       trumpExposed: this.trumpExposed,
       roundVoidMessage: this.roundVoidMessage,
+      reshuffleReason: this.reshuffleReason || null,
       mustPlayTrump: this.mustPlayTrumpBy === viewerPos, // viewer just asked for the reveal and owes a trump card this trick if holding one
       hasHiddenTrump: !!this.hiddenTrump,
       myHiddenTrumpCard: (this.hiddenTrump && viewerPos === this.hiddenTrumpOwner) ? this.hiddenTrump : null,
@@ -1726,12 +2395,25 @@ class GameEngine {
       teamPoints: this.teamPoints,
       gameScore: this.gameScore,
       qMarks: this.qMarks,
+      qTotalEver: this.qTotalEver,
       partnerSignals: this.partnerSignals,
       championshipNumber: this.championshipNumber,
       kingStreak: this.kingStreak,
       lastChampionshipResult: this.lastChampionshipResult,
       lastTrick: this.lastTrick,
       roundWinnerAnnounced: this.roundWinnerAnnounced,
+      pendingEarlyWinChoice: this.pendingEarlyWinChoice,
+      // Computed fresh every time (never a stored flag) -- true iff
+      // it's genuinely valid for whoever's turn it currently is to
+      // declare Quote right now. The client combines this with its own
+      // currentPlayer===MY_POS check to decide whether ITS OWN quote
+      // button should be enabled -- the button itself stays visible to
+      // everyone at the table regardless, per how this was designed.
+      quoteEligible: this._isQuoteEligibleFor(this.currentPlayer),
+      teamStillClean: this.teamStillClean,
+      quoteState: this.quoteState,
+      pendingMaruCotChallenge: this.pendingMaruCotChallenge,
+      maruCotState: this.maruCotState,
       seats: this.seats.map((s, i) => s ? {
         name: s.name, isBot: s.isBot, connected: s.connected,
         cardCount: s.hand.length,
