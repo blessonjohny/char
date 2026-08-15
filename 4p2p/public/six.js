@@ -568,6 +568,8 @@ let lastShownRoundVoidMessage = null;
 let lastShownPartnerSignalKey6p = null;
 let lastShownEarlyWinChoice6p = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
 let lastShownQuoteDeclaredForTeam6p = null; // which team's quote declaration has already been announced this round
+let lastShownMaruCotForTeam6p = null; // which team's maru cot challenge has already been announced this round
+let lastMaruCotWindowHandled6p = false; // true while the current challenge window has already been prompted for
 let lastSeenTricksPlayed = -1; // detects exactly when a new trick has just completed
 let trickHoldBusy = false;     // a trick is currently mid-reveal (its full pause hasn't elapsed yet)
 let sixpTrickRevealQueue = []; // completed tricks still waiting their turn — nothing in here is ever dropped
@@ -932,6 +934,7 @@ function applyState(state) {
   handleEarlyWinPopup(state);
   updateQuoteButton(state);
   handleQuoteDeclaredToast(state);
+  handleMaruCotChallenge(state);
 
   if (state.phase === 'lobby') {
     $('gameScreen').style.display = 'none';
@@ -1950,19 +1953,19 @@ function updateQuoteButton(state) {
   btn.style.display = '';
   if (state.quoteState) {
     const onThatTeam = sixpGetTeam(MY_POS) === state.quoteState.team;
-    btn.textContent = onThatTeam ? '🎯 Quote (yours!)' : '🎯 Quote (active)';
+    btn.textContent = onThatTeam ? '🎯 COT (yours!)' : '🎯 COT (active)';
     btn.classList.remove('quote-btn-active');
     btn.classList.add('quote-btn-disabled');
     return;
   }
-  btn.textContent = '🎯 Quote';
+  btn.textContent = '🎯 COT';
   const iAmEligible = !!(state.quoteEligible && state.currentPlayer === MY_POS);
   btn.classList.toggle('quote-btn-active', iAmEligible);
   btn.classList.toggle('quote-btn-disabled', !iAmEligible);
 }
 $('btnQuoteDeclare').addEventListener('click', () => {
   if (!latestState || !latestState.quoteEligible || latestState.currentPlayer !== MY_POS) return;
-  if (!confirm('Declare Quote?\n\nYour team hasn\'t lost a single trick yet this round. This bets on sweeping EVERY remaining trick: +2 if you win everything, -3 if you lose even one trick from here -- even if you\'ve already made your bid.')) return;
+  if (!confirm('Declare COT?\n\nYour team hasn\'t lost a single trick yet this round. This bets on sweeping EVERY remaining trick: +2 if you win everything, -3 if you lose even one trick from here -- even if you\'ve already made your bid.')) return;
   socket.emit('sixp_declareQuote');
 });
 
@@ -1972,9 +1975,37 @@ function handleQuoteDeclaredToast(state) {
   if (state.quoteState && lastShownQuoteDeclaredForTeam6p !== state.quoteState.team) {
     lastShownQuoteDeclaredForTeam6p = state.quoteState.team;
     const onThatTeam = sixpGetTeam(MY_POS) === state.quoteState.team;
-    showToast(`🎯 ${onThatTeam ? 'Your team' : 'The other team'} declared Quote! +2 if they sweep everything, -3 if not.`, 'info', 4500);
+    showToast(`🎯 ${onThatTeam ? 'Your team' : 'The other team'} declared COT! +2 if they sweep everything, -3 if not.`, 'info', 4500);
   } else if (!state.quoteState) {
     lastShownQuoteDeclaredForTeam6p = null;
+  }
+}
+
+// Maru COT: the moment a challenge window opens for MY team, prompt
+// immediately -- confirm() is blocking, which is fine here since the
+// window itself is meant to be answered right away, not left open.
+// lastMaruCotWindowHandled6p makes sure this only fires once per window
+// (not re-prompted on every subsequent state push while it's still
+// open), and resets the instant the window closes for any reason so a
+// FUTURE window (a later round) can prompt again correctly.
+function handleMaruCotChallenge(state) {
+  if (state.pendingMaruCotChallenge) {
+    if (sixpGetTeam(MY_POS) === state.pendingMaruCotChallenge.team && !lastMaruCotWindowHandled6p) {
+      lastMaruCotWindowHandled6p = true;
+      if (confirm('🔥 Maru COT?\n\nThe other team just declared COT. Challenge it right now, before their next card is played?\n\nIf you stop them (they fail to sweep everything): +4 for your team. If they still succeed anyway: -3 for your team.')) {
+        socket.emit('sixp_challengeMaruCot');
+      }
+    }
+  } else {
+    lastMaruCotWindowHandled6p = false;
+  }
+
+  if (state.maruCotState && lastShownMaruCotForTeam6p !== state.maruCotState.team) {
+    lastShownMaruCotForTeam6p = state.maruCotState.team;
+    const onThatTeam = sixpGetTeam(MY_POS) === state.maruCotState.team;
+    showToast(`🔥 ${onThatTeam ? 'Your team' : 'The other team'} called Maru COT! Stakes are now +3/-3 or -4/+4.`, 'info', 4500);
+  } else if (!state.maruCotState) {
+    lastShownMaruCotForTeam6p = null;
   }
 }
 async function shareInviteLink() {
