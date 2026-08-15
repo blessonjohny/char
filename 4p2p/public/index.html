@@ -7687,6 +7687,20 @@ function showRaisePanel() {
     btns.appendChild(btn);
   }
 
+  // THANI -- the last bid option, beating any numeric raise. Going it
+  // alone: partner folds out of the round entirely, caller leads the
+  // first trick immediately, and needs to win every single trick (not
+  // points) to succeed. See callThani() in game-engine.js for the full
+  // rule.
+  const thaniBtn = document.createElement('button');
+  thaniBtn.className = 'bid-btn';
+  thaniBtn.style.cssText = 'background:linear-gradient(135deg,#8b2020,#4a0f0f);border-color:#c94f4f';
+  thaniBtn.textContent = '🔥 THANI (Solo)';
+  thaniBtn.addEventListener('click', () => {
+    showPhase2Confirmation('THANI', false);
+  });
+  btns.appendChild(thaniBtn);
+
   // PASS button at the END (after raise buttons) — if this player is
   // already the highest bidder, "passing" doesn't forfeit anything, it
   // just locks in the bid they already have. Label it accordingly so it
@@ -7710,11 +7724,18 @@ function showPhase2Confirmation(bid, isPass) {
   pendingBid = bid;
   pendingIsPass = isPass || false;
   const alreadyHighest = bidder === MY_POS;
+  const isThani = bid === 'THANI';
 
-  document.getElementById('bidTitle').textContent = isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Raise';
+  document.getElementById('bidTitle').textContent = isThani ? 'Confirm THANI — Going Solo' : (isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Raise');
 
   let confirmText = '';
-  if (isPass) {
+  if (isThani) {
+    confirmText = "You are about to call <b style='color:#e05555;font-size:1.6rem'>THANI</b> — going it completely alone.<br><br>";
+    confirmText += "Your partner <b>folds out of this round entirely</b> — they won't play a single card. ";
+    confirmText += "You'll lead the very first trick immediately, and you must win <b>every single trick</b> yourself to succeed — not points, tricks.<br><br>";
+    confirmText += "<b style='color:var(--success)'>+3</b> if you win everything. <b style='color:#e05555'>-4</b> if you lose even one trick.<br><br>";
+    confirmText += "<b style='color:var(--success)'>✓ Confirm THANI?</b>";
+  } else if (isPass) {
     confirmText = alreadyHighest
       ? "You'll <b>stay at your bid of " + highestBid + "</b> — you're already the highest bidder, this just locks it in without raising further.<br><br>Confirm?"
       : "You are about to <b>PASS</b> in Phase 2.<br>Current highest bid: <b style='color:var(--accent)'>" + highestBid + "</b><br><br>Confirm?";
@@ -7751,6 +7772,8 @@ function showPhase2Confirmation(bid, isPass) {
     confirmBtn.innerHTML = alreadyHighest
       ? '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Stay at ' + highestBid + '</span>'
       : '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Pass</span>';
+  } else if (isThani) {
+    confirmBtn.innerHTML = '<span class="btn-icon">🔥</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Call THANI</span>';
   } else {
     confirmBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-label">CONFIRM</span><span class="btn-sub">Raise to ' + bid + '</span>';
   }
@@ -7758,7 +7781,8 @@ function showPhase2Confirmation(bid, isPass) {
     document.getElementById('bidOverlay').classList.remove('on');
     const myPos = MY_POS;
     if (SERVER_MODE) {
-      if (isPass) gameSocket.emit('passPhase2');
+      if (isThani) gameSocket.emit('callThani');
+      else if (isPass) gameSocket.emit('passPhase2');
       else gameSocket.emit('raiseBid', { bid: pendingBid });
       return;
     }
