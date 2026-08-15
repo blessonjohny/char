@@ -15036,7 +15036,7 @@ function serverBotPlayForMe() {
     bouncers = targets.map(el => {
       const rect = el.getBoundingClientRect();
       const angle = Math.random() * Math.PI * 2;
-      const speed = 70 + Math.random() * 110; // px/sec, individual per element
+      const speed = 22 + Math.random() * 35; // px/sec, individual per element - slowed way down from the original 70-180 range, which felt frantic rather than ambient
       el.style.willChange = 'transform';
       el.style.position = el.style.position || 'relative';
       return {
