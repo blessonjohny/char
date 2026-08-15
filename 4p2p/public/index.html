@@ -221,7 +221,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .welcome-btn-wrap.welcome-btn-grid{max-width:420px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:stretch}
 .welcome-btn-grid .welcome-btn{padding:12px 10px;font-size:0.82rem;flex-direction:column;gap:4px;text-align:center;min-height:70px;justify-content:center}
 .welcome-btn-grid .welcome-btn .icon{font-size:1.1rem}
-.welcome-btn{width:100%;padding:14px 20px;border-radius:12px;border:1.5px solid rgba(255,215,0,0.3);background:rgba(255,215,0,0.05);color:var(--accent);font-size:0.95rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);position:relative;overflow:hidden}
+.welcome-btn{width:100%;padding:14px 20px;border-radius:12px;border:1.5px solid rgba(255,215,0,0.3);background:rgba(255,215,0,0.05);color:var(--accent);font-family:'Cinzel','Playfair Display',serif;font-size:0.95rem;font-weight:700;letter-spacing:0.3px;text-shadow:0 1px 2px rgba(0,0,0,0.4);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);position:relative;overflow:hidden}
 .welcome-subbtn-row{width:100%;max-width:320px;margin:0 auto 20px;padding:0 20px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;box-sizing:border-box}
 .welcome-subbtn{padding:7px 13px;border-radius:18px;border:1px solid rgba(255,215,0,0.22);background:rgba(255,255,255,0.03);color:var(--text-secondary);font-size:0.7rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap;transition:all 0.2s}
 .welcome-subbtn:active{background:rgba(255,215,0,0.1);color:var(--accent)}
@@ -368,7 +368,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   -webkit-text-fill-color:transparent;
   filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5));
   font-weight:700;
-  font-size:0.85rem;
+  font-size:0.72rem;
   text-transform:uppercase;
   letter-spacing:0.5px;
 }
@@ -376,7 +376,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   font-family:'Cinzel','Playfair Display',serif;
   color:#e8dcc0;
   font-weight:700;
-  font-size:1.02rem;
+  font-size:0.72rem;
   text-shadow:0 1px 2px rgba(0,0,0,0.6);
 }
 .info-sep{color:var(--text-secondary);opacity:0.4;font-size:0.72rem}
@@ -416,8 +416,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   flex-wrap:wrap;
   row-gap:0;
 }
-.info-king .info-label{color:rgba(255,225,120,0.95);font-size:0.85rem;font-weight:800}
-.info-king .info-val{font-size:1.02rem;color:#fff;text-shadow:0 0 8px rgba(255,215,0,0.4);font-weight:800}
+.info-king .info-label{color:rgba(255,225,120,0.95);font-size:0.72rem;font-weight:800}
+.info-king .info-val{font-size:0.72rem;color:#fff;text-shadow:0 0 8px rgba(255,215,0,0.4);font-weight:800}
 /* Championship score animates continuously, not just when it changes */
 @keyframes kingChampPulse{
   0%,100%{transform:scale(1);text-shadow:0 0 8px rgba(255,215,0,0.4)}
@@ -3080,7 +3080,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
         <span class="info-item"><span class="info-label" id="oppTricksLabel">Opp</span><span class="info-val" id="oppTricks">0</span></span>
       </div>
       <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:flex-end;overflow:hidden">
-        <span class="info-item"><span class="info-label" id="bidderLabel">Bidder</span><span class="info-val" id="bidderDisplay">—</span></span>
+        <span class="info-item"><span class="info-label" id="bidderLabel">BD</span><span class="info-val" id="bidderDisplay">—</span></span>
       </div>
     </div>
     <div class="info-row info-king" id="kingRow" style="display:none" title="Win championships back-to-back to level up: 2 wins in a row = Level 1, and so on up to 10 wins in a row = 👑 King.">
