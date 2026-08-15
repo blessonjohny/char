@@ -1539,8 +1539,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   top:50%;
   left:50%;
   transform:translate(-50%,-50%);
-  width:min(calc(clamp(102px,27.5vh,184px) + 190px), 99.5%);
-  height:min(calc(clamp(102px,27.5vh,184px) + 96px), 92%);
+  width:96%;
+  aspect-ratio:1.05;
+  max-height:90%;
   border-radius:50%;
   z-index:-2;
   /* Wooden rail lit from the top — conic-gradient varies color by angle
@@ -1548,11 +1549,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      instead of a flat painted line. Masked into a donut so only the rail
      itself (not the whole oval) picks up the gradient. Wide enough that
      the color is unmistakable at a glance, not just a thin outline.
-     Sized off the clock itself (not the grid row) so it always reads as
-     a slim edge just outside the clock, instead of stretching taller
-     whenever there's extra vertical space on screen. Capped to a % of
-     the center column so on narrow phones it can never spill into the
-     left/right seat columns and cover those avatars. */
+     width:96% + aspect-ratio (not a fixed clamp() ceiling, and not a
+     matching height:96% either) is the key combination here: a fixed
+     pixel ceiling stopped growing once the cell got bigger than it
+     anticipated (exactly what left a large gap in fullscreen, which
+     drops the browser chrome and hands over real extra height), but
+     matching height:96% to width:96% swung too far the other way and
+     stretched this into a distorted, egg-shaped oval on tall screens,
+     since .center's own box can be far taller than it is wide. Deriving
+     height from width via a fixed aspect-ratio keeps the shape a
+     sensible, consistent oval in any mode - it uses all the width
+     available (that was the actual complaint), and intentionally
+     leaves vertical breathing room on unusually tall screens rather
+     than stretching to fill it, which is what actually looks like a
+     real table instead of a smear. */
   background: var(--table-rail);
   -webkit-mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
   mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
@@ -1571,8 +1581,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   top:50%;
   left:50%;
   transform:translate(-50%,-50%);
-  width:min(calc(clamp(102px,27.5vh,184px) + 190px), 99.5%);
-  height:min(calc(clamp(102px,27.5vh,184px) + 96px), 92%);
+  width:96%;
+  aspect-ratio:1.05;
+  max-height:90%;
   border-radius:50%;
   z-index:-2;
   box-shadow:
@@ -1587,8 +1598,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   top:50%;
   left:50%;
   transform:translate(-50%,-50%);
-  width:min(calc(clamp(102px,27.5vh,184px) + 160px), 95%);
-  height:min(calc(clamp(102px,27.5vh,184px) + 66px), 84%);
+  width:88%;
+  aspect-ratio:1.05;
+  max-height:82%;
   border-radius:50%;
   z-index:-1;
   pointer-events:none;
@@ -11949,10 +11961,17 @@ function adjustForOrientation() {
   if (isMobile) {
     const table = document.getElementById('tableArea');
     if (table) {
+      // Reduced from 90px/80px - measured directly that the avatar circle and name label
+      // inside this column only ever use ~32px of it, so the rest was pure unused padding
+      // sitting between the avatar and the table oval, no matter how large the oval itself
+      // was allowed to grow (its own sizing is capped separately, in the .center::after/
+      // ::before/.felt rules, and was already maxed out within ITS column - this JS value
+      // was the actual remaining bottleneck, not those). Still comfortably wider than the
+      // ~32px the content needs, just no longer excessive.
       if (isLandscape) {
-        table.style.gridTemplateColumns = '80px 1fr 80px';
+        table.style.gridTemplateColumns = '58px 1fr 58px';
       } else {
-        table.style.gridTemplateColumns = '90px 1fr 90px';
+        table.style.gridTemplateColumns = '62px 1fr 62px';
       }
     }
   }
