@@ -1584,6 +1584,17 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Thani -- the last, highest Phase 2 bid option. See callThani() in
+  // the engine for the full rule (folds the caller's partner out of the
+  // round, caller leads the first trick immediately, wins on tricks not
+  // points).
+  socket.on('callThani', () => {
+    withTable((t, pos) => {
+      const r = t.engine.callThani(pos);
+      if (!r.ok) socket.emit('actionError', r);
+    });
+  });
+
   socket.on('passPhase2', () => {
     withTable((t, pos) => {
       const r = t.engine.passPhase2(pos);
