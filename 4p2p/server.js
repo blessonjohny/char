@@ -1642,6 +1642,21 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Maru COT: any player on the OTHER team from whoever just declared
+  // COT can challenge, whenever they like, within the short window that
+  // closes automatically once the COT-declarer's own next card is
+  // played. If multiple players attempt this at once, the server just
+  // naturally processes them one at a time -- whichever socket's event
+  // it handles first wins, and every later attempt correctly finds the
+  // window already closed. See challengeMaruCot() in the engine.
+  socket.on('challengeMaruCot', () => {
+    withTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.challengeMaruCot(pos);
+      if (!r) socket.emit('actionError', { ok: false, reason: 'maru cot is not available right now' });
+    });
+  });
+
   socket.on('continueRound', () => {
     withTable((t, pos) => {
       if (!isEffectiveHost(t, playerId)) return;
@@ -2252,6 +2267,18 @@ io.on('connection', (socket) => {
       if (pos === null || pos === undefined) return;
       const r = t.engine.declareQuote(pos);
       if (!r) { socket.emit('sixp_actionError', { reason: 'quote is not available right now' }); return; }
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+    });
+  });
+
+  // Maru COT -- see the 4-player table's challengeMaruCot handler for
+  // the full reasoning, identical here.
+  socket.on('sixp_challengeMaruCot', () => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.challengeMaruCot(pos);
+      if (!r) { socket.emit('sixp_actionError', { reason: 'maru cot is not available right now' }); return; }
       sixpTouch(t);
       sixpBroadcastTable(t);
     });

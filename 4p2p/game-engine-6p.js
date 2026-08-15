@@ -160,6 +160,8 @@ class GameEngine6P {
     this.earlyWinDeclined = false;
     this.teamStillClean = [true, true];
     this.quoteState = null;
+    this.pendingMaruCotChallenge = null; // {team} -- see game-engine.js for the full reasoning, identical here
+    this.maruCotState = null; // {team} once successfully challenged
   }
 
   addLog(msg) {
@@ -475,6 +477,7 @@ class GameEngine6P {
     // else. See game-engine.js's playCard for the full reasoning.
     const isIncidentalTrumpDiscard = !this.trumpExposed && played.suit === this.trumpSuit && this.trickSuit !== this.trumpSuit;
     this.trickCards.push({ pos, card: played, powerless: isIncidentalTrumpDiscard });
+    if (this.pendingMaruCotChallenge) this.pendingMaruCotChallenge = null;
 
     this.addLog(`Seat ${pos} played ${played.rank}${played.suit}.`);
 
@@ -498,6 +501,7 @@ class GameEngine6P {
     if (!this.trumpExposed) this.exposeTrump();
     if (this.trickSuit === '') { this.trickSuit = card.suit; this.suitLeadCount[card.suit]++; }
     this.trickCards.push({ pos, card });
+    if (this.pendingMaruCotChallenge) this.pendingMaruCotChallenge = null;
     this.addLog(`Seat ${pos} played the hidden trump ${card.rank}${card.suit}!`);
     if (this.trickCards.length === SEATS) this._resolveTrick();
     else { this.currentPlayer = nextPos(this.currentPlayer); this._notify(); this.maybeAutoAct(); }
@@ -636,8 +640,21 @@ class GameEngine6P {
     if (pos !== this.currentPlayer) return false;
     if (!this._isQuoteEligibleFor(pos)) return false;
     this.quoteState = { team: getTeam(pos) };
+    this.pendingMaruCotChallenge = { team: 1 - getTeam(pos) };
     const seat = this.seats[pos];
-    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared QUOTE — betting on a full sweep of all 6 tricks!`);
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared COT — betting on a full sweep of all 6 tricks!`);
+    this._notify();
+    return true;
+  }
+
+  // See game-engine.js for the full reasoning -- identical logic here.
+  challengeMaruCot(pos) {
+    if (!this.pendingMaruCotChallenge) return false;
+    if (getTeam(pos) !== this.pendingMaruCotChallenge.team) return false;
+    this.maruCotState = { team: getTeam(pos) };
+    this.pendingMaruCotChallenge = null;
+    const seat = this.seats[pos];
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} called MARU COT — challenging the COT! Stakes are now +4/-4 instead of +2/-3.`);
     this._notify();
     return true;
   }
@@ -646,33 +663,58 @@ class GameEngine6P {
     const bT = getTeam(this.bidder);
     const oT = 1 - bT;
     const isQuote = !!this.quoteState;
+    const isMaruCot = !!this.maruCotState;
     let made, pts;
     if (isQuote) {
-      // Quote replaces normal scoring entirely -- see game-engine.js for
-      // the full reasoning, identical logic here. Full sweep = all 28
+      // See game-engine.js for the full reasoning -- identical fix here:
+      // this used to hard-code the bidder's team, which was wrong the
+      // instant COT stopped being bidder-only. Full sweep = all 28
       // points (confirmed this variant's 36-card deck still totals 28,
-      // same as the 4-player game).
-      made = this.teamPoints[bT] >= 28;
-      pts = made ? 2 : 3;
-    } else {
-      made = this.teamPoints[bT] >= this.highestBid;
-      if (this.highestBid >= 28) pts = made ? 3 : 4;
-      else if (this.highestBid >= 20) pts = made ? 2 : 3;
-      else pts = made ? 1 : 2;
+      // same as the 4-player game). Maru COT escalates the stakes to
+      // +3/-3 (success) or -4/+4 (failure) instead of the normal +2/-3.
+      const cotTeam = this.quoteState.team;
+      const otherTeam = 1 - cotTeam;
+      made = this.teamPoints[cotTeam] >= 28;
+      if (isMaruCot) pts = made ? 3 : 4;
+      else pts = made ? 2 : 3;
+      const isHonors = this.highestBid >= 20;
+      if (made) { this.gameScore[cotTeam] += pts; this.gameScore[otherTeam] -= pts; }
+      else { this.gameScore[otherTeam] += pts; this.gameScore[cotTeam] -= pts; }
+      this.roundWinnerAnnounced = {
+        bidderWon: getTeam(this.bidder) === cotTeam ? made : !made,
+        made, bidder: this.bidder, highestBid: this.highestBid,
+        teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
+        quote: true, quoteSuccess: made, cotTeam,
+        maruCot: isMaruCot, maruCotTeam: isMaruCot ? this.maruCotState.team : undefined
+      };
+      this.phase = 'roundEnd';
+      this.addLog(isMaruCot
+        ? `Round ${this.round} over. Maru COT ${made ? 'FAILED to stop the sweep — COT succeeded!' : 'succeeded — COT failed!'} (${made ? '+3/-3' : '-4/+4'}).`
+        : `Round ${this.round} over. COT ${made ? 'succeeded — full sweep!' : 'failed'} (${made ? '+' : '-'}${pts}).`);
+      const bidderMadeIt = (getTeam(this.bidder) === cotTeam) ? made : !made;
+      this._finishRoundBookkeeping(bT, bidderMadeIt);
+      return;
     }
+    made = this.teamPoints[bT] >= this.highestBid;
+    if (this.highestBid >= 28) pts = made ? 3 : 4;
+    else if (this.highestBid >= 20) pts = made ? 2 : 3;
+    else pts = made ? 1 : 2;
     const isHonors = this.highestBid >= 20;
     if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
     else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
     this.roundWinnerAnnounced = {
       bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
       teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
-      quote: isQuote, quoteSuccess: isQuote ? made : undefined
+      quote: false, quoteSuccess: undefined
     };
     this.phase = 'roundEnd';
-    this.addLog(isQuote
-      ? `Round ${this.round} over. Quote ${made ? 'succeeded — full sweep!' : 'failed'} (${made ? '+' : '-'}${pts}).`
-      : `Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
+    this.addLog(`Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
+    this._finishRoundBookkeeping(bT, made);
+  }
 
+  // Shared tail end of _endRound() -- see game-engine.js for the full
+  // reasoning. bT/made here are always BIDDER-centric.
+  _finishRoundBookkeeping(bT, made) {
     // Q-mark removal: same rule as the 4-player game — personally
     // calling and winning a bid sheds one Q from yourself; on the very
     // first hand of a new match specifically, your partner sheds one
@@ -1195,6 +1237,8 @@ class GameEngine6P {
       quoteEligible: this._isQuoteEligibleFor(this.currentPlayer),
       teamStillClean: this.teamStillClean,
       quoteState: this.quoteState,
+      pendingMaruCotChallenge: this.pendingMaruCotChallenge,
+      maruCotState: this.maruCotState,
       phase: this.phase,
       seats: this.seats.map((s, i) => {
         if (!s) return null;

@@ -458,6 +458,8 @@ class GameEngine {
     // declareQuote()/_endRound().
     this.teamStillClean = [true, true]; // per-team: has this team won every trick so far (both start true, at most one stays true past trick 1)
     this.quoteState = null; // {team} once quote has actually been declared this round
+    this.pendingMaruCotChallenge = null; // {team} -- open the instant COT is declared, closes the instant the COT-declarer's own next card is played
+    this.maruCotState = null; // {team} once the other team has successfully challenged -- escalates COT's scoring to +3/-3 (success) or -4/+4 (failure)
     // Phase 2 (the "second chance to raise" round after trump is chosen,
     // once everyone's holding their full 8 cards). p2LastRaiser stays -1
     // for the whole phase if nobody ever raises.
@@ -1101,6 +1103,12 @@ class GameEngine {
     // trump card isn't the same thing and shouldn't be treated as one.
     const isIncidentalTrumpDiscard = !this.trumpExposed && played.suit === this.trumpSuit && this.trickSuit !== this.trumpSuit;
     this.trickCards.push({ pos, card: played, powerless: isIncidentalTrumpDiscard });
+    // A Maru COT challenge window (if one is open) can only ever have
+    // been opened by THIS same player's own COT declaration just now --
+    // COT is only declarable when leading a fresh trick, so the very
+    // next card played is necessarily theirs. Closes "right away" the
+    // instant it's actually played, whether or not anyone challenged.
+    if (this.pendingMaruCotChallenge) this.pendingMaruCotChallenge = null;
 
     this.addLog(`Seat ${pos} played ${played.rank}${played.suit}.`);
 
@@ -1129,6 +1137,7 @@ class GameEngine {
     if (!this.trumpExposed) this.exposeTrump();
     if (this.trickSuit === '') { this.trickSuit = card.suit; this.suitLeadCount[card.suit]++; }
     this.trickCards.push({ pos, card });
+    if (this.pendingMaruCotChallenge) this.pendingMaruCotChallenge = null;
     this.addLog(`Seat ${pos} played the hidden trump ${card.rank}${card.suit}!`);
     if (this.trickCards.length === 4) {
       this._resolveTrick();
@@ -1336,17 +1345,42 @@ class GameEngine {
     return true;
   }
 
-  // Declares Quote -- a pure declaration, not a card play. The player
+  // Declares COT -- a pure declaration, not a card play. The player
   // still plays their card normally afterward via the usual playCard()
   // flow; this just locks in the bet before they do. Any player, on
   // either team, can call it on their own turn as long as their team is
   // still clean -- see _isQuoteEligibleFor() for the full check.
+  // Immediately opens a Maru COT challenge window for the OTHER team --
+  // see challengeMaruCot() and the pendingMaruCotChallenge clearing
+  // logic in playCard() for how that window works and closes.
   declareQuote(pos) {
     if (pos !== this.currentPlayer) return false;
     if (!this._isQuoteEligibleFor(pos)) return false;
     this.quoteState = { team: getTeam(pos) };
+    this.pendingMaruCotChallenge = { team: 1 - getTeam(pos) };
     const seat = this.seats[pos];
-    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared QUOTE — betting on a full sweep of all 8 tricks!`);
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared COT — betting on a full sweep of all 8 tricks!`);
+    this._notify();
+    return true;
+  }
+
+  // Maru COT: the other team challenging a just-declared COT, raising
+  // the stakes for both sides. Any player on that team can attempt it
+  // (not just their own trick opener, unlike COT itself) -- whoever's
+  // challenge reaches the server first is the one that counts, since
+  // pendingMaruCotChallenge gets cleared the instant the first valid
+  // one lands, and every later attempt this round correctly finds it
+  // already gone. The window itself is real but short: it opens the
+  // moment COT is declared and closes the instant the COT-declaring
+  // player's own next card is actually played (see playCard()) --
+  // "right away," not an open-ended option.
+  challengeMaruCot(pos) {
+    if (!this.pendingMaruCotChallenge) return false;
+    if (getTeam(pos) !== this.pendingMaruCotChallenge.team) return false;
+    this.maruCotState = { team: getTeam(pos) };
+    this.pendingMaruCotChallenge = null;
+    const seat = this.seats[pos];
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} called MARU COT — challenging the COT! Stakes are now +4/-4 instead of +2/-3.`);
     this._notify();
     return true;
   }
@@ -1355,36 +1389,78 @@ class GameEngine {
     const bT = getTeam(this.bidder);
     const oT = 1 - bT;
     const isQuote = !!this.quoteState;
+    const isMaruCot = !!this.maruCotState;
     let made, pts;
     if (isQuote) {
-      // Quote replaces normal scoring entirely, evaluated as a simple
-      // absolute fact -- did the bidding team capture every one of the
-      // 28 points (a full 8-trick sweep) -- rather than the normal
-      // tiered-by-bid-value scoring. Fixed score regardless of the
-      // original bid: +2 for the bidding team on success, -3 against
-      // them on failure, even if they'd already technically made their
-      // original (lower) bid before declaring quote.
-      made = this.teamPoints[bT] >= 28;
-      pts = made ? 2 : 3;
-    } else {
-      made = this.teamPoints[bT] >= this.highestBid;
-      if (this.highestBid >= 28) pts = made ? 3 : 4;
-      else if (this.highestBid >= 20) pts = made ? 2 : 3;
-      else pts = made ? 1 : 2;
+      // COT replaces normal scoring entirely, evaluated as a simple
+      // absolute fact -- did the DECLARING team (this.quoteState.team --
+      // NOT necessarily the bidder; either team can declare COT now)
+      // capture every one of the 28 points (a full 8-trick sweep). This
+      // used to hard-code the bidder's team here, which was wrong the
+      // instant COT stopped being bidder-only -- checking the wrong
+      // team's points if the defense was the one who'd actually
+      // declared it. Fixed score regardless of the original bid: +2 for
+      // the declaring team on success, -3 against them on failure, even
+      // if they'd already technically made their original bid. If
+      // Maru COT was successfully called against them, the stakes
+      // escalate instead: +3/-3 on success, -4/+4 on failure.
+      const cotTeam = this.quoteState.team;
+      const otherTeam = 1 - cotTeam;
+      made = this.teamPoints[cotTeam] >= 28;
+      if (isMaruCot) pts = made ? 3 : 4;
+      else pts = made ? 2 : 3;
+      const isHonors = this.highestBid >= 20;
+      if (made) { this.gameScore[cotTeam] += pts; this.gameScore[otherTeam] -= pts; }
+      else { this.gameScore[otherTeam] += pts; this.gameScore[cotTeam] -= pts; }
+      this.roundWinnerAnnounced = {
+        bidderWon: getTeam(this.bidder) === cotTeam ? made : !made,
+        made, bidder: this.bidder, highestBid: this.highestBid,
+        teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
+        quote: true, quoteSuccess: made, cotTeam,
+        maruCot: isMaruCot, maruCotTeam: isMaruCot ? this.maruCotState.team : undefined
+      };
+      this.phase = 'roundEnd';
+      this.addLog(isMaruCot
+        ? `Round ${this.round} over. Maru COT ${made ? 'FAILED to stop the sweep — COT succeeded!' : 'succeeded — COT failed!'} (${made ? '+3/-3' : '-4/+4'}).`
+        : `Round ${this.round} over. COT ${made ? 'succeeded — full sweep!' : 'failed'} (${made ? '+' : '-'}${pts}).`);
+      // The Q-mark/bot-learning logic below is entirely about whether
+      // the BIDDER personally succeeded, which isn't the same question
+      // as "did the COT-declaring team win their bet" -- if the DEFENSE
+      // was the one who declared COT, their success means the bidder
+      // was completely shut out, the opposite of the bidder succeeding.
+      // Converting to the bidder's own true outcome here keeps
+      // _finishRoundBookkeeping()'s bT/made parameters meaning exactly
+      // what they've always meant, regardless of any of this COT
+      // complexity above it.
+      const bidderMadeIt = (getTeam(this.bidder) === cotTeam) ? made : !made;
+      this._finishRoundBookkeeping(bT, bidderMadeIt);
+      return;
     }
+    made = this.teamPoints[bT] >= this.highestBid;
+    if (this.highestBid >= 28) pts = made ? 3 : 4;
+    else if (this.highestBid >= 20) pts = made ? 2 : 3;
+    else pts = made ? 1 : 2;
     const isHonors = this.highestBid >= 20;
     if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
     else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
     this.roundWinnerAnnounced = {
       bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
       teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
-      quote: isQuote, quoteSuccess: isQuote ? made : undefined
+      quote: false, quoteSuccess: undefined
     };
     this.phase = 'roundEnd';
-    this.addLog(isQuote
-      ? `Round ${this.round} over. Quote ${made ? 'succeeded — full sweep!' : 'failed'} (${made ? '+' : '-'}${pts}).`
-      : `Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
+    this.addLog(`Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
+    this._finishRoundBookkeeping(bT, made);
+  }
 
+  // Shared tail end of _endRound() -- Q-mark shedding, bot learning,
+  // and whatever else follows scoring, factored out so both the COT and
+  // normal scoring branches above can share it without duplicating it
+  // or risking the two copies drifting apart later. bT/made here are
+  // always BIDDER-centric ("did the bidder's own team come out ahead"),
+  // never COT-team-centric -- see the conversion in the COT branch above
+  // for why that distinction matters.
+  _finishRoundBookkeeping(bT, made) {
     // Q-mark removal: personally calling and winning a bid sheds one Q
     // from yourself, if you're carrying any. On the very first hand of a
     // new championship specifically, a successful bidder ALSO sheds one
@@ -2336,6 +2412,8 @@ class GameEngine {
       quoteEligible: this._isQuoteEligibleFor(this.currentPlayer),
       teamStillClean: this.teamStillClean,
       quoteState: this.quoteState,
+      pendingMaruCotChallenge: this.pendingMaruCotChallenge,
+      maruCotState: this.maruCotState,
       seats: this.seats.map((s, i) => s ? {
         name: s.name, isBot: s.isBot, connected: s.connected,
         cardCount: s.hand.length,
