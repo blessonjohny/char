@@ -514,9 +514,13 @@ class GameEngine6P {
     }
   }
 
-  // See game-engine.js for the full reasoning -- identical helper here.
+  // See game-engine.js for the full reasoning -- identical helper here,
+  // except this table's cutoff is 2 cards left, not 3 -- confirmed
+  // deliberately different from the 4-player table's threshold, not a
+  // scaling mistake.
   _isQuoteEligibleFor(pos) {
     if (pos === null || pos === undefined || !this.seats[pos]) return false;
+    if (this.seats[pos].hand.length < 2) return false; // cutoff: must still have at least 2 cards of your own left
     if (this.trickCards.length !== 0) return false; // only the trick's opener can declare
     if (this.quoteState) return false;
     if (this.phase !== 'play') return false;

@@ -1155,16 +1155,21 @@ class GameEngine {
 
   // Reusable, always-computed-fresh check (never a stored flag that
   // could go stale) -- true iff Quote is genuinely available for THIS
-  // exact player, right now: they're the one OPENING the trick (the
-  // first card of it, not following into one already started), their
-  // team is still clean (hasn't lost a trick), it's actually the play
-  // phase (not bidding, not between rounds), the bid qualifies,
-  // nobody's already declared it this round, and there isn't a paused
-  // early-win decision blocking normal play at this exact moment
-  // (declaring into that pause would create two simultaneous,
-  // conflicting decisions).
+  // exact player, right now: they still have a real cutoff window left
+  // (at least 3 cards still in their own hand on this table -- the
+  // 6-player table uses 2 instead, confirmed deliberately different,
+  // not scaled proportionally to hand size either way; miss it and
+  // Quote is gone for the rest of the round, no matter how clean their
+  // team stays), they're the one OPENING the trick (the first card of
+  // it, not following into one already started), their team is still
+  // clean (hasn't lost a trick), it's actually the play phase (not
+  // bidding, not between rounds), the bid qualifies, nobody's already
+  // declared it this round, and there isn't a paused early-win decision
+  // blocking normal play at this exact moment (declaring into that
+  // pause would create two simultaneous, conflicting decisions).
   _isQuoteEligibleFor(pos) {
     if (pos === null || pos === undefined || !this.seats[pos]) return false;
+    if (this.seats[pos].hand.length < 3) return false; // cutoff: must still have at least 3 cards of your own left
     if (this.trickCards.length !== 0) return false; // only the trick's opener can declare, not someone following mid-trick
     if (this.quoteState) return false;
     if (this.phase !== 'play') return false;
