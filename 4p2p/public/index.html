@@ -15081,7 +15081,14 @@ function serverBotPlayForMe() {
     idleTimer = setTimeout(startScreensaver, K28_IDLE_MS);
   }
 
-  ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, resetIdleTimer, { passive: true }));
+  // isTrusted is a real, unforgeable browser flag: true only for events the user actually
+  // generated (a real click/tap), false for anything the page's own JS triggers via
+  // element.click() (auto-continue timers, animations, etc). Without this check, the game's
+  // own programmatic clicks - like the end-of-round auto-continue - silently reset this timer
+  // just as if the player had clicked something themselves, so the screensaver could go a very
+  // long time without ever actually firing during genuinely idle-but-still-advancing play.
+  function handleActivity(e) { if (e.isTrusted) resetIdleTimer(); }
+  ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, handleActivity, { passive: true }));
   window.addEventListener('resize', () => { if (bouncers) stopScreensaver(); resetIdleTimer(); });
   resetIdleTimer();
 })();
@@ -15169,10 +15176,20 @@ function serverBotPlayForMe() {
     idleTimer = isGameTableVisible() ? setTimeout(startScreensaver, K28_TABLE_IDLE_MS) : null;
   }
 
-  ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, resetIdleTimer, { passive: true }));
+  // Same isTrusted fix as the welcome-screen screensaver, and it matters even more here: this
+  // game already has programmatic element.click() calls of its own (the end-of-round
+  // auto-continue timer, for one) that fire on a schedule regardless of whether the player is
+  // actually doing anything. Those aren't real activity and shouldn't count as it - without
+  // this check, a bot-vs-bot or auto-advancing game could keep resetting this timer forever
+  // and the screensaver would never actually get a chance to run.
+  function handleActivity(e) { if (e.isTrusted) resetIdleTimer(); }
+  ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, handleActivity, { passive: true }));
   // Visibility can change without a click (navigating in from the welcome screen, a hand
-  // ending, etc.) - a light periodic re-check keeps the timer correctly armed either way.
-  setInterval(resetIdleTimer, 2000);
+  // ending, etc.) - this only ARMS the timer if nothing is already counting down; it must
+  // NOT unconditionally restart it, or this alone would wipe out and re-begin the full
+  // countdown every 2 seconds forever, and the real idle time genuinely never accumulates
+  // regardless of any clicks at all - which is exactly what was happening.
+  setInterval(() => { if (idleTimer === null && isGameTableVisible()) resetIdleTimer(); }, 2000);
   resetIdleTimer();
 })();
 
