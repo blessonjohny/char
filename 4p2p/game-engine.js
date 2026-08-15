@@ -880,13 +880,7 @@ class GameEngine {
       this.hiddenTrumpOwner = pos;
     }
     this.addLog(`Seat ${pos} chose ${suit} as trump.`);
-    if (this.thaniCaller >= 0) {
-      // Thani skips straight to play -- it's the maximum possible bid,
-      // no further raising makes sense once it's been called. Takes
-      // priority over resumePhase2After below (which is for an ordinary
-      // raise resuming the raise round, not applicable here).
-      this._startPlay();
-    } else if (this.resumePhase2After) {
+    if (this.resumePhase2After) {
       // This trump choice was triggered by a raise mid-phase-2 — resume
       // the raise round from the seat after the new bidder, rather than
       // treating this as the original once-per-round trump choice (which
@@ -991,20 +985,22 @@ class GameEngine {
     const callerSeat = this.seats[pos];
     const partnerSeat = this.seats[partnerPos];
     this.addLog(`Seat ${pos} called THANI — going it alone, needing to win every single trick! ${partnerSeat ? partnerSeat.name : 'Their partner'} folds out of this round.`);
-    // Same as an ordinary raise -- whatever trump was chosen before is no
-    // longer settled, the hidden card (if any) returns to whoever
-    // actually hid it, and the new bidder must pick a fresh trump.
+    // Thani plays with NO trump suit at all -- not hidden, not chosen,
+    // not contestable. Whatever trump was in play before (if this
+    // followed an earlier ordinary raise) simply stops mattering: the
+    // hidden card, if any, returns to whoever actually hid it, and
+    // trumpSuit stays permanently empty for the rest of this round.
+    // isRealTrump() throughout the engine already gates on
+    // this.trumpExposed, and exposeTrump() is never called during a
+    // Thani round, so every trick this round is naturally decided by
+    // "highest card of the led suit," with nothing able to cut it.
     if (this.hiddenTrump && this.hiddenTrumpOwner >= 0 && this.seats[this.hiddenTrumpOwner]) {
       this.seats[this.hiddenTrumpOwner].hand.push(this.hiddenTrump);
     }
     this.hiddenTrump = null;
     this.hiddenTrumpOwner = -1;
     this.trumpSuit = '';
-    this.phase = 'choosingTrump';
-    this.currentPlayer = pos;
-    this.addLog(`Seat ${pos} must choose trump for their Thani.`);
-    this._notify();
-    this.maybeAutoAct();
+    this._startPlay();
     return { ok: true };
   }
 
@@ -1046,10 +1042,15 @@ class GameEngine {
     // in _checkAndHandleBadDeal()) rather than playing out something
     // that was never really contestable. (The bidder's own hidden trump
     // card doesn't count here — this check is specifically about the
-    // DEFENDING side having zero trump between them.)
+    // DEFENDING side having zero trump between them.) Thani rounds have
+    // no trump suit at all by design (trumpSuit stays permanently
+    // empty), so this check is meaningless for them and must be skipped
+    // entirely -- otherwise "no card matches an empty suit string" would
+    // incorrectly look identical to "genuinely no trump," voiding and
+    // reshuffling every single Thani round without exception.
     const bidTeam = getTeam(this.bidder);
     const defendingTeam = bidTeam === 0 ? 1 : 0;
-    const defendingHasTrump = this.seats.some((s, i) => s && getTeam(i) !== bidTeam && s.hand.some(c => c.suit === this.trumpSuit));
+    const defendingHasTrump = this.thaniCaller >= 0 || this.seats.some((s, i) => s && getTeam(i) !== bidTeam && s.hand.some(c => c.suit === this.trumpSuit));
     if (!defendingHasTrump) {
       this.roundVoidMessage = `The defending team has no ${this.trumpSuit} at all this round — nothing to contest. Reshuffling with the same dealer.`;
       this.reshuffleReason = { type: 'noTrump', team: defendingTeam, suit: this.trumpSuit, round: this.round, ts: Date.now() };
@@ -1143,6 +1144,7 @@ class GameEngine {
   callTrump(pos) {
     if (this.phase !== 'play') return { ok: false, reason: 'not_playing' };
     if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
+    if (this.thaniCaller >= 0) return { ok: false, reason: 'no_trump_this_round' }; // Thani has no trump at all -- nothing to open
     if (this.trumpExposed) return { ok: false, reason: 'already_exposed' };
     if (this.trickSuit === '') return { ok: false, reason: 'cannot_call_when_leading' };
     const hand = this.seats[pos].hand;
