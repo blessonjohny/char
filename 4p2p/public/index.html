@@ -15105,7 +15105,19 @@ function serverBotPlayForMe() {
 // screen actually showing.
 (function() {
   const K28_TABLE_IDLE_MS = 60 * 1000;
-  const DECOR_ITEMS = ['♠', '♥', '♦', '♣', '🂮', '28', 'Gulan', '👑', '🎴', 'Bid smart.', 'Play smarter.', 'Become the King.', '28GULAN.COM', '🔥', 'Jack high'];
+  // 28GULAN.COM appears multiple times on purpose - it's the actual site name, so it should
+  // be the one thing you can't miss no matter where it's currently drifted to. Suits and short
+  // branded phrases repeat too, both for a fuller "full of action" feel on a tall screen (15
+  // items looked sparse) and so no single overlap (like the earlier "Become the King." sitting
+  // on top of a player's name) is the only thing you're looking at for long.
+  const DECOR_ITEMS = [
+    '28GULAN.COM', '28GULAN.COM', '28GULAN.COM',
+    '♠', '♥', '♦', '♣', '♠', '♥', '♦', '♣',
+    '🂮', '🎴', '👑', '🔥',
+    '28', 'Gulan', 'Gulan',
+    'Bid smart.', 'Play smarter.', 'Become the King.',
+    'Jack high', 'Ace high', 'The Gulan.'
+  ];
   let idleTimer = null;
   let overlay = null;
   let bouncers = null;
@@ -15124,7 +15136,20 @@ function serverBotPlayForMe() {
     document.body.appendChild(overlay);
 
     const vw = window.innerWidth, vh = window.innerHeight;
-    bouncers = DECOR_ITEMS.map(text => {
+    // Spawn on a jittered grid rather than pure random - a handful of items landing purely
+    // randomly can easily clump together at the start (exactly what happened with "Become
+    // the King." sitting right on top of a player's name), so divide the screen into roughly
+    // as many cells as there are items and place each one randomly within its own cell. Still
+    // looks organic (the jitter), but guarantees a spread instead of leaving it to chance.
+    const cols = Math.ceil(Math.sqrt(DECOR_ITEMS.length * vw / vh));
+    const rows = Math.ceil(DECOR_ITEMS.length / cols);
+    const cellW = vw / cols, cellH = vh / rows;
+    const cellOrder = Array.from({ length: cols * rows }, (_, i) => i);
+    for (let i = cellOrder.length - 1; i > 0; i--) { // shuffle so item order doesn't map to a predictable grid pattern
+      const j = Math.floor(Math.random() * (i + 1));
+      [cellOrder[i], cellOrder[j]] = [cellOrder[j], cellOrder[i]];
+    }
+    bouncers = DECOR_ITEMS.map((text, i) => {
       const el = document.createElement('div');
       el.textContent = text;
       const size = 16 + Math.random() * 26;
@@ -15132,7 +15157,10 @@ function serverBotPlayForMe() {
         text-shadow:0 2px 10px rgba(0,0,0,0.7);white-space:nowrap;pointer-events:none;font-size:${size}px`;
       overlay.appendChild(el);
       const w = 20 + text.length * size * 0.55, h = size * 1.4; // rough estimate, good enough for bounce bounds
-      const homeX = Math.random() * Math.max(1, vw - w), homeY = Math.random() * Math.max(1, vh - h);
+      const cell = cellOrder[i % cellOrder.length];
+      const cellX = (cell % cols) * cellW, cellY = Math.floor(cell / cols) * cellH;
+      const homeX = Math.min(vw - w, Math.max(0, cellX + Math.random() * Math.max(1, cellW - w)));
+      const homeY = Math.min(vh - h, Math.max(0, cellY + Math.random() * Math.max(1, cellH - h)));
       el.style.transform = `translate(${homeX}px,${homeY}px)`;
       const angle = Math.random() * Math.PI * 2;
       const speed = 22 + Math.random() * 35;
