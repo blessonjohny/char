@@ -1155,14 +1155,17 @@ class GameEngine {
 
   // Reusable, always-computed-fresh check (never a stored flag that
   // could go stale) -- true iff Quote is genuinely available for THIS
-  // exact player, right now: their team is still clean (hasn't lost a
-  // trick), it's actually the play phase (not bidding, not between
-  // rounds), the bid qualifies, nobody's already declared it this
-  // round, and there isn't a paused early-win decision blocking normal
-  // play at this exact moment (declaring into that pause would create
-  // two simultaneous, conflicting decisions).
+  // exact player, right now: they're the one OPENING the trick (the
+  // first card of it, not following into one already started), their
+  // team is still clean (hasn't lost a trick), it's actually the play
+  // phase (not bidding, not between rounds), the bid qualifies,
+  // nobody's already declared it this round, and there isn't a paused
+  // early-win decision blocking normal play at this exact moment
+  // (declaring into that pause would create two simultaneous,
+  // conflicting decisions).
   _isQuoteEligibleFor(pos) {
     if (pos === null || pos === undefined || !this.seats[pos]) return false;
+    if (this.trickCards.length !== 0) return false; // only the trick's opener can declare, not someone following mid-trick
     if (this.quoteState) return false;
     if (this.phase !== 'play') return false;
     if (this.highestBid > 19) return false;

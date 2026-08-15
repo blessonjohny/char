@@ -517,6 +517,7 @@ class GameEngine6P {
   // See game-engine.js for the full reasoning -- identical helper here.
   _isQuoteEligibleFor(pos) {
     if (pos === null || pos === undefined || !this.seats[pos]) return false;
+    if (this.trickCards.length !== 0) return false; // only the trick's opener can declare
     if (this.quoteState) return false;
     if (this.phase !== 'play') return false;
     if (this.highestBid > 19) return false;
