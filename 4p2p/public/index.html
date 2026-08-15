@@ -347,11 +347,55 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .info-bar{background:rgba(10,22,40,0.8);border-bottom:1px solid rgba(255,215,0,0.08);display:flex;flex-direction:column;flex-shrink:0;animation:statusBarGlow 3s ease-in-out infinite}
 .info-row{display:flex;align-items:center;justify-content:center;gap:clamp(2px,1.2vw,6px);padding:5px 6px;font-size:clamp(0.4rem,2.3vw,0.58rem);white-space:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
 .info-row::-webkit-scrollbar{display:none}
-.info-main{background:rgba(255,215,0,0.03);border-bottom:1px solid rgba(255,255,255,0.05)}
+/* A subtle gold gradient bar instead of the old flat near-black strip, with a
+   soft glowing underline instead of a plain 1px divider - this is the "plain
+   bar" being replaced. */
+.info-main{
+  background:linear-gradient(180deg, rgba(255,215,0,0.07), rgba(255,215,0,0.02));
+  border-bottom:1px solid rgba(255,215,0,0.25);
+  box-shadow:0 1px 8px rgba(255,215,0,0.08);
+}
 .info-item{display:inline-flex;align-items:center;gap:2px}
-.info-label{color:var(--text-secondary);font-size:0.85rem;font-weight:700;text-transform:uppercase;letter-spacing:0.3px}
-.info-val{color:var(--text);font-weight:700;font-size:1.02rem}
+/* Chrome/metallic text (same family as the reference styles) via a gradient
+   clipped to the glyphs themselves, plus a drop-shadow glow - text-shadow
+   doesn't render on a transparent fill, drop-shadow (a filter, not a
+   shadow property) does. Each label gets its own gradient rather than one
+   shared style, since TEAM/OPP need to stay green/red at a glance - a
+   single gold treatment across every label would erase that distinction,
+   which matters more here than a uniform look. */
+.info-label{
+  background:linear-gradient(180deg, #fff5d0 0%, #ffd700 45%, #b8860b 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 3px rgba(255,215,0,0.5));
+  font-weight:800;
+  font-size:0.85rem;
+  text-transform:uppercase;
+  letter-spacing:0.3px;
+}
+.info-val{
+  color:var(--text);
+  font-weight:800;
+  font-size:1.02rem;
+  text-shadow:0 0 6px rgba(255,255,255,0.25);
+}
 .info-sep{color:var(--text-secondary);opacity:0.4;font-size:0.72rem}
+/* TEAM stays green, OPP stays red - same chrome treatment, just each in its
+   own color family, so the distinction that matters (which side is which)
+   survives the restyle instead of getting flattened into one gold look. */
+#yourTricksLabel{
+  background:linear-gradient(180deg, #d4f8c4 0%, #4ade80 45%, #15803d 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 3px rgba(74,222,128,0.55));
+}
+#oppTricksLabel{
+  background:linear-gradient(180deg, #ffd4d0 0%, #f87171 45%, #b91c1c 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 3px rgba(248,113,113,0.55));
+}
+#yourTricks{text-shadow:0 0 6px rgba(74,222,128,0.4)}
+#oppTricks{text-shadow:0 0 6px rgba(248,113,113,0.4)}
 .info-phase{background:rgba(255,215,0,0.15);color:var(--accent);padding:1px 6px;border-radius:4px;font-size:0.6rem;font-weight:700;border:1px solid rgba(255,215,0,0.3)}
 .info-sub{background:rgba(255,215,0,0.04);color:var(--accent);font-size:0.6rem;padding:2px 8px;border-bottom:1px solid rgba(255,215,0,0.1)}
 /* Road to King row — same text sizing/structure as the row above it for
