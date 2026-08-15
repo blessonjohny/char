@@ -458,6 +458,19 @@ class GameEngine {
     // declareQuote()/_endRound().
     this.teamStillClean = [true, true]; // per-team: has this team won every trick so far (both start true, at most one stays true past trick 1)
     this.quoteState = null; // {team} once COT/MaruCOT has actually been declared this round
+    // Thani: a Phase-2 bid that beats any numeric raise (effectively
+    // "above 28"). Whoever calls it leads the very first trick
+    // immediately, regardless of normal turn order; their partner
+    // folds out of the round entirely -- never dealt into any trick,
+    // never taking a turn. It's a genuinely different win condition
+    // from every other bid: not points, just tricks -- the caller must
+    // win literally every trick played (their own hand size worth),
+    // failing the instant they lose even one. Scoring reuses the
+    // existing >=28 tier (+3/-4) since highestBid gets set to a value
+    // that already falls in it -- see callThani()/_resolveTrick()/
+    // _endRound().
+    this.thaniCaller = -1; // -1 = no thani this round, else the seat who called it
+    this.foldedSeats = []; // seats sitting out entirely this round (the thani caller's partner)
     // Phase 2 (the "second chance to raise" round after trump is chosen,
     // once everyone's holding their full 8 cards). p2LastRaiser stays -1
     // for the whole phase if nobody ever raises.
@@ -867,7 +880,13 @@ class GameEngine {
       this.hiddenTrumpOwner = pos;
     }
     this.addLog(`Seat ${pos} chose ${suit} as trump.`);
-    if (this.resumePhase2After) {
+    if (this.thaniCaller >= 0) {
+      // Thani skips straight to play -- it's the maximum possible bid,
+      // no further raising makes sense once it's been called. Takes
+      // priority over resumePhase2After below (which is for an ordinary
+      // raise resuming the raise round, not applicable here).
+      this._startPlay();
+    } else if (this.resumePhase2After) {
       // This trump choice was triggered by a raise mid-phase-2 — resume
       // the raise round from the seat after the new bidder, rather than
       // treating this as the original once-per-round trump choice (which
@@ -935,6 +954,55 @@ class GameEngine {
     this.phase = 'choosingTrump';
     this.currentPlayer = pos;
     this.addLog(`Seat ${pos} must choose a new trump before phase 2 continues.`);
+    this._notify();
+    this.maybeAutoAct();
+    return { ok: true };
+  }
+
+  // Thani: available any time it's genuinely someone's turn in Phase 2 --
+  // it always beats any numeric bid (effectively "above 28"), so unlike
+  // isPhase2RaiseOption there's no threshold to check beyond it not
+  // having already been called this round.
+  isThaniOption() {
+    return this.thaniCaller === -1;
+  }
+
+  // Calling Thani: locks in the caller as bidder with a bid that already
+  // falls in the existing >=28 scoring tier (+3/-4), folds their partner
+  // out of the round entirely (never dealt into any trick again), and --
+  // like an ordinary raise -- sends them to choose a fresh trump, except
+  // afterward it skips straight to play instead of returning to more
+  // Phase 2 bidding (see chooseTrump() above). _startPlay() itself
+  // handles making the caller lead the very first trick, overriding the
+  // normal "dealer's right leads" rule.
+  callThani(pos) {
+    if (this.phase !== 'bidding2') return { ok: false, reason: 'not_phase2' };
+    if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
+    if (!this.isThaniOption()) return { ok: false, reason: 'thani_already_called' };
+    this.highestBid = 29; // deliberately just above 28, so it naturally falls in the existing >=28 scoring tier
+    this.bidder = pos;
+    this.thaniCaller = pos;
+    const partnerPos = pos === 0 ? 3 : pos === 3 ? 0 : pos === 1 ? 2 : 1;
+    this.foldedSeats = [partnerPos];
+    this.p2LastRaiser = pos;
+    this.p2Passes = 0;
+    this.p2History.push({ pos, bid: 'THANI' });
+    if (this.seats[pos]) this._bidderHandProfileForLearning = brain.getHandProfile(this.seats[pos].hand);
+    const callerSeat = this.seats[pos];
+    const partnerSeat = this.seats[partnerPos];
+    this.addLog(`Seat ${pos} called THANI — going it alone, needing to win every single trick! ${partnerSeat ? partnerSeat.name : 'Their partner'} folds out of this round.`);
+    // Same as an ordinary raise -- whatever trump was chosen before is no
+    // longer settled, the hidden card (if any) returns to whoever
+    // actually hid it, and the new bidder must pick a fresh trump.
+    if (this.hiddenTrump && this.hiddenTrumpOwner >= 0 && this.seats[this.hiddenTrumpOwner]) {
+      this.seats[this.hiddenTrumpOwner].hand.push(this.hiddenTrump);
+    }
+    this.hiddenTrump = null;
+    this.hiddenTrumpOwner = -1;
+    this.trumpSuit = '';
+    this.phase = 'choosingTrump';
+    this.currentPlayer = pos;
+    this.addLog(`Seat ${pos} must choose trump for their Thani.`);
     this._notify();
     this.maybeAutoAct();
     return { ok: true };
@@ -1008,7 +1076,10 @@ class GameEngine {
     this.suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
     // Play is always led by the dealer's right — the same seat phase-1
     // bidding started with — regardless of who ended up winning the bid.
-    this.currentPlayer = nextPos(this.dealer);
+    // Thani is the one deliberate exception: the caller leads the very
+    // first trick themselves, immediately, no matter whose turn it would
+    // otherwise have been.
+    this.currentPlayer = this.thaniCaller >= 0 ? this.thaniCaller : nextPos(this.dealer);
     this.addLog(`Play begins. Seat ${this.currentPlayer} leads.`);
     this._notify();
     this.maybeAutoAct();
@@ -1104,10 +1175,13 @@ class GameEngine {
 
     this.addLog(`Seat ${pos} played ${played.rank}${played.suit}.`);
 
-    if (this.trickCards.length === 4) {
+    // A folded seat (Thani's partner) never plays, so a trick is
+    // complete once every ACTIVE player has played, not always
+    // literally 4 -- normally still 4, but 3 during a Thani round.
+    if (this.trickCards.length === 4 - this.foldedSeats.length) {
       this._resolveTrick();
     } else {
-      this.currentPlayer = nextPos(this.currentPlayer);
+      this.currentPlayer = this._nextActivePos(this.currentPlayer);
       this._notify();
       this.maybeAutoAct();
     }
@@ -1130,10 +1204,10 @@ class GameEngine {
     if (this.trickSuit === '') { this.trickSuit = card.suit; this.suitLeadCount[card.suit]++; }
     this.trickCards.push({ pos, card });
     this.addLog(`Seat ${pos} played the hidden trump ${card.rank}${card.suit}!`);
-    if (this.trickCards.length === 4) {
+    if (this.trickCards.length === 4 - this.foldedSeats.length) {
       this._resolveTrick();
     } else {
-      this.currentPlayer = nextPos(this.currentPlayer);
+      this.currentPlayer = this._nextActivePos(this.currentPlayer);
       this._notify();
       this.maybeAutoAct();
     }
@@ -1176,6 +1250,20 @@ class GameEngine {
     if (this.highestBid > 19) return false;
     if (this.pendingEarlyWinChoice) return false;
     return !!this.teamStillClean[getTeam(pos)];
+  }
+
+  // During a Thani round, the caller's partner is folded out entirely --
+  // never gets a turn, never gets dealt into any trick. This is what
+  // every "move to the next player" step during actual play uses
+  // instead of the plain nextPos() (which bidding still uses normally,
+  // since Thani can only ever be called during bidding, before anyone's
+  // folded yet). Outside of a Thani round, foldedSeats is always empty
+  // and this behaves identically to nextPos().
+  _nextActivePos(p) {
+    let n = nextPos(p);
+    let guard = 0;
+    while (this.foldedSeats.includes(n) && guard++ < 4) n = nextPos(n);
+    return n;
   }
 
   _trickWinner() {
@@ -1257,7 +1345,23 @@ class GameEngine {
       return;
     }
 
-    const cardsLeft = this.seats.reduce((s, seat) => s + (seat ? seat.hand.length : 0), 0);
+    // Thani resolution -- same "fail immediately" shape as COT above,
+    // except the win condition is tricks, not points: the instant
+    // anyone other than the caller wins a trick, it's over. Success,
+    // like COT, isn't specially checked here -- it just falls through
+    // to the normal cardsLeft===0 ending below, and by construction
+    // that can only be reached having never failed this check on any
+    // earlier trick, i.e. the caller won every single one.
+    if (this.thaniCaller >= 0 && winner.pos !== this.thaniCaller) {
+      this._endRound();
+      return;
+    }
+
+    // Folded seats (Thani's partner) never play a single card, so their
+    // hand sits untouched, full, for the entire round -- counting it
+    // here would mean this could never reach 0 even after every ACTIVE
+    // player has played out their whole hand.
+    const cardsLeft = this.seats.reduce((s, seat, i) => s + (seat && !this.foldedSeats.includes(i) ? seat.hand.length : 0), 0);
     if (cardsLeft === 0 && this.hiddenTrump) {
       // Everyone else is out of cards but the hidden card's owner never
       // got to expose it — it becomes their forced final play. This is
@@ -1267,6 +1371,18 @@ class GameEngine {
       this.maybeAutoAct();
     } else if (cardsLeft === 0) {
       this._endRound();
+    } else if (this.thaniCaller >= 0) {
+      // Thani has no early-win concept of its own -- its win condition
+      // is handled entirely by the two checks above (fail the instant
+      // anyone but the caller wins a trick; succeed by reaching
+      // cardsLeft===0 without ever failing). The normal early-win math
+      // below assumes a numeric highestBid<=28 (it computes
+      // 28-highestBid, which goes negative and breaks completely once
+      // highestBid is Thani's 29 sentinel) -- skipping it here avoids
+      // that outright, not just working around its symptom.
+      this.currentPlayer = winner.pos;
+      this._notify();
+      this.maybeAutoAct();
     } else {
       // Early-win offer: the outcome of this round just became
       // mathematically certain -- either the bidding team has already
@@ -1360,7 +1476,33 @@ class GameEngine {
     const bT = getTeam(this.bidder);
     const oT = 1 - bT;
     const isQuote = !!this.quoteState;
+    const isThani = this.thaniCaller >= 0;
     let made, pts;
+    if (isThani) {
+      // Thani's win condition is tricks, not points -- highestBid was
+      // deliberately set to 29 (unreachable by points alone, max is 28),
+      // so the normal teamPoints>=highestBid check literally could never
+      // be true and isn't used here at all. By the time _endRound() runs
+      // for a Thani round, _resolveTrick() has already guaranteed one of
+      // exactly two things happened: either it early-failed the instant
+      // anyone but the caller won a trick, or every single trick
+      // (including this last one) went to the caller -- so simply
+      // checking who won the most recent trick correctly tells us which.
+      made = !!(this.lastTrick && this.lastTrick.winner === this.thaniCaller);
+      pts = made ? 3 : 4;
+      const isHonors = true;
+      if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
+      else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
+      this.roundWinnerAnnounced = {
+        bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
+        teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
+        thani: true, thaniSuccess: made, tricksPlayed: this.tricksPlayed
+      };
+      this.phase = 'roundEnd';
+      this.addLog(`Round ${this.round} over. Thani ${made ? 'succeeded — every trick won!' : 'failed'} (${made ? '+' : '-'}${pts}).`);
+      this._finishRoundBookkeeping(bT, made);
+      return;
+    }
     if (isQuote) {
       // COT/MaruCOT replaces normal scoring entirely, evaluated as a
       // simple absolute fact -- did the DECLARING team (this.quoteState.
@@ -2381,6 +2523,8 @@ class GameEngine {
       quoteEligible: this._isQuoteEligibleFor(this.currentPlayer),
       teamStillClean: this.teamStillClean,
       quoteState: this.quoteState,
+      thaniCaller: this.thaniCaller,
+      foldedSeats: this.foldedSeats,
       seats: this.seats.map((s, i) => s ? {
         name: s.name, isBot: s.isBot, connected: s.connected,
         cardCount: s.hand.length,
