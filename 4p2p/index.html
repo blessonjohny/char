@@ -16,7 +16,7 @@
 <title>Play 28 Card Game Online Free | Kerala Gulan – Indian Card Game (Eripathettu)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700;800&display=swap" rel="stylesheet">
 <meta name="description" content="Play 28 (Gulan / Eripathettu / Twenty Eight), Texas Hold'em Poker, Spades, Carrom, and 8-Ball Pool online free — classic card and board games, live multiplayer or offline vs smart AI bots. No download needed, play instantly in your browser.">
 <meta name="keywords" content="28, 28 gulan, 28gulan, play 28 online, 28 card game, play cards online, gulan, gulan online, play gulan online, indian card game, kerala card game, kerala 28, 28 kerala, eripathettu, twenty eight, twentyeight, thuruppu gulan, irupathiyettu, 28 online multiplayer, card game kerala, play 28 offline, learn 28, play poker online, texas holdem online, play spades online, play carrom online, play carrom offline, play pool online, play pool offline, 8 ball pool online, play card games online, play board games online, free multiplayer games">
 <meta name="robots" content="index, follow, max-image-preview:large">
@@ -221,7 +221,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .welcome-btn-wrap.welcome-btn-grid{max-width:420px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:stretch}
 .welcome-btn-grid .welcome-btn{padding:12px 10px;font-size:0.82rem;flex-direction:column;gap:4px;text-align:center;min-height:70px;justify-content:center}
 .welcome-btn-grid .welcome-btn .icon{font-size:1.1rem}
-.welcome-btn{width:100%;padding:14px 20px;border-radius:12px;border:1.5px solid rgba(255,215,0,0.3);background:rgba(255,215,0,0.05);color:var(--accent);font-size:0.95rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);position:relative;overflow:hidden}
+.welcome-btn{width:100%;padding:14px 20px;border-radius:12px;border:1.5px solid rgba(255,215,0,0.3);background:rgba(255,215,0,0.05);color:var(--accent);font-family:'Cinzel','Playfair Display',serif;font-size:0.95rem;font-weight:700;letter-spacing:0.3px;text-shadow:0 1px 2px rgba(0,0,0,0.4);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);position:relative;overflow:hidden}
 .welcome-subbtn-row{width:100%;max-width:320px;margin:0 auto 20px;padding:0 20px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;box-sizing:border-box}
 .welcome-subbtn{padding:7px 13px;border-radius:18px;border:1px solid rgba(255,215,0,0.22);background:rgba(255,255,255,0.03);color:var(--text-secondary);font-size:0.7rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap;transition:all 0.2s}
 .welcome-subbtn:active{background:rgba(255,215,0,0.1);color:var(--accent)}
@@ -345,13 +345,56 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* ===== INFO BAR (merged status + phase + king) ===== */
 .info-bar{background:rgba(10,22,40,0.8);border-bottom:1px solid rgba(255,215,0,0.08);display:flex;flex-direction:column;flex-shrink:0;animation:statusBarGlow 3s ease-in-out infinite}
-.info-row{display:flex;align-items:center;justify-content:center;gap:clamp(2px,1.2vw,6px);padding:2px 6px;font-size:clamp(0.4rem,2.3vw,0.58rem);white-space:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.info-row{display:flex;align-items:center;justify-content:center;gap:clamp(2px,1.2vw,6px);padding:5px 6px;font-size:clamp(0.4rem,2.3vw,0.58rem);white-space:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
 .info-row::-webkit-scrollbar{display:none}
-.info-main{background:rgba(255,215,0,0.03);border-bottom:1px solid rgba(255,255,255,0.05)}
+/* A subtle gold gradient bar instead of the old flat near-black strip, with a
+   soft glowing underline instead of a plain 1px divider - this is the "plain
+   bar" being replaced. */
+.info-main{
+  background:linear-gradient(180deg, rgba(201,162,75,0.09), rgba(201,162,75,0.02));
+  border-bottom:1px solid rgba(201,162,75,0.3);
+  box-shadow:0 1px 6px rgba(0,0,0,0.3);
+}
 .info-item{display:inline-flex;align-items:center;gap:2px}
-.info-label{color:var(--text-secondary);font-size:0.55rem;font-weight:700;text-transform:uppercase;letter-spacing:0.3px}
-.info-val{color:var(--text);font-weight:700;font-size:0.68rem}
-.info-sep{color:var(--text-secondary);opacity:0.4;font-size:0.5rem}
+/* Classic style: a real serif (Cinzel, same family as the ornate gold names
+   in the reference - AUREX, MONARCH, LUXORA) instead of the bold sci-fi
+   sans, and a muted antique-gold/brass gradient instead of the brighter
+   neon-chrome gold - less "glowing sign", more "engraved plate". */
+.info-label{
+  font-family:'Cinzel','Playfair Display',serif;
+  background:linear-gradient(180deg, #f0dfa8 0%, #c9a24b 50%, #8a6a2c 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+  font-weight:700;
+  font-size:0.72rem;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+}
+.info-val{
+  font-family:'Cinzel','Playfair Display',serif;
+  color:#e8dcc0;
+  font-weight:700;
+  font-size:0.72rem;
+  text-shadow:0 1px 2px rgba(0,0,0,0.6);
+}
+.info-sep{color:var(--text-secondary);opacity:0.4;font-size:0.72rem}
+/* TEAM stays green, OPP stays red - same classic serif + engraved-metal
+   treatment, each in its own muted color family, so the distinction that
+   matters (which side is which) survives the restyle. */
+#yourTricksLabel{
+  background:linear-gradient(180deg, #cfe8bb 0%, #6fa855 50%, #3f6b2f 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+}
+#oppTricksLabel{
+  background:linear-gradient(180deg, #e8bcb8 0%, #b8564f 50%, #7a2f2a 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+}
+#yourTricks{text-shadow:0 1px 2px rgba(0,0,0,0.6)}
+#oppTricks{text-shadow:0 1px 2px rgba(0,0,0,0.6)}
 .info-phase{background:rgba(255,215,0,0.15);color:var(--accent);padding:1px 6px;border-radius:4px;font-size:0.6rem;font-weight:700;border:1px solid rgba(255,215,0,0.3)}
 .info-sub{background:rgba(255,215,0,0.04);color:var(--accent);font-size:0.6rem;padding:2px 8px;border-bottom:1px solid rgba(255,215,0,0.1)}
 /* Road to King row — same text sizing/structure as the row above it for
@@ -373,8 +416,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   flex-wrap:wrap;
   row-gap:0;
 }
-.info-king .info-label{color:rgba(255,225,120,0.95);font-size:0.55rem;font-weight:800}
-.info-king .info-val{font-size:0.68rem;color:#fff;text-shadow:0 0 8px rgba(255,215,0,0.4);font-weight:800}
+.info-king .info-label{color:rgba(255,225,120,0.95);font-size:0.72rem;font-weight:800}
+.info-king .info-val{font-size:0.72rem;color:#fff;text-shadow:0 0 8px rgba(255,215,0,0.4);font-weight:800}
 /* Championship score animates continuously, not just when it changes */
 @keyframes kingChampPulse{
   0%,100%{transform:scale(1);text-shadow:0 0 8px rgba(255,215,0,0.4)}
@@ -497,7 +540,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .table:not(.mode6) .s-left{left:0;top:50%;transform:translateY(-50%)}
 .table:not(.mode6) .s-right{right:0;top:50%;transform:translateY(-50%)}
 .table:not(.mode6) .s-bot{bottom:0;left:50%;transform:translateX(-50%)}
-.table:not(.mode6) .hand-area{grid-area:h;display:flex;align-items:flex-end;justify-content:center;padding:6px 10px 4px;background:#1a0505;border-top:2px solid var(--accent);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--accent) transparent;min-height:80px;max-height:100px}
+.table:not(.mode6) .hand-area{grid-area:h;display:flex;align-items:flex-end;justify-content:center;padding:6px 10px 4px;background:#1a0505;border-top:2px solid var(--accent);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--accent) transparent;min-height:150px;max-height:160px}
 .table:not(.mode6) .pspot.pos4{display:none !important}
 .table:not(.mode6) .pspot.pos5{display:none !important}
 .table:not(.mode6) .pslot.s-pos4{display:none !important}
@@ -1516,6 +1559,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    the actual card row on any screen size -- these are just sane fallback
    values for the instant before that JS runs. */
 .table-corner-btn{position:fixed;bottom:110px;right:8px;z-index:150;width:32px;height:32px;font-size:0.9rem}
+/* Quote button states -- see #btnQuoteDeclare above. Visible to
+   everyone at the table the whole time (so nobody's surprised when a
+   quote actually gets declared), but only the "active" state is
+   genuinely clickable -- disabled just means it's not your moment for
+   it right now (not your turn, or your team's already lost a trick
+   this round), not that quote is unavailable to the table at all. */
+#btnQuoteDeclare.quote-btn-active{background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;box-shadow:0 0 12px rgba(244,196,48,0.6);animation:quoteBtnPulse 1.6s ease-in-out infinite}
+#btnQuoteDeclare.quote-btn-disabled{opacity:0.45;filter:grayscale(0.4);cursor:default;pointer-events:none}
+@keyframes quoteBtnPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 /* Center racetrack - where cards are played */
 .center{
   position:relative;
@@ -1530,8 +1582,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   top:50%;
   left:50%;
   transform:translate(-50%,-50%);
-  width:min(calc(clamp(102px,27.5vh,184px) + 130px), 88%);
-  height:min(calc(clamp(102px,27.5vh,184px) + 54px), 82%);
+  width:96%;
+  aspect-ratio:1.05;
+  max-height:90%;
   border-radius:50%;
   z-index:-2;
   /* Wooden rail lit from the top — conic-gradient varies color by angle
@@ -1539,11 +1592,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      instead of a flat painted line. Masked into a donut so only the rail
      itself (not the whole oval) picks up the gradient. Wide enough that
      the color is unmistakable at a glance, not just a thin outline.
-     Sized off the clock itself (not the grid row) so it always reads as
-     a slim edge just outside the clock, instead of stretching taller
-     whenever there's extra vertical space on screen. Capped to a % of
-     the center column so on narrow phones it can never spill into the
-     left/right seat columns and cover those avatars. */
+     width:96% + aspect-ratio (not a fixed clamp() ceiling, and not a
+     matching height:96% either) is the key combination here: a fixed
+     pixel ceiling stopped growing once the cell got bigger than it
+     anticipated (exactly what left a large gap in fullscreen, which
+     drops the browser chrome and hands over real extra height), but
+     matching height:96% to width:96% swung too far the other way and
+     stretched this into a distorted, egg-shaped oval on tall screens,
+     since .center's own box can be far taller than it is wide. Deriving
+     height from width via a fixed aspect-ratio keeps the shape a
+     sensible, consistent oval in any mode - it uses all the width
+     available (that was the actual complaint), and intentionally
+     leaves vertical breathing room on unusually tall screens rather
+     than stretching to fill it, which is what actually looks like a
+     real table instead of a smear. */
   background: var(--table-rail);
   -webkit-mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
   mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
@@ -1562,8 +1624,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   top:50%;
   left:50%;
   transform:translate(-50%,-50%);
-  width:min(calc(clamp(102px,27.5vh,184px) + 130px), 88%);
-  height:min(calc(clamp(102px,27.5vh,184px) + 54px), 82%);
+  width:96%;
+  aspect-ratio:1.05;
+  max-height:90%;
   border-radius:50%;
   z-index:-2;
   box-shadow:
@@ -1578,8 +1641,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   top:50%;
   left:50%;
   transform:translate(-50%,-50%);
-  width:min(calc(clamp(102px,27.5vh,184px) + 100px), 82%);
-  height:min(calc(clamp(102px,27.5vh,184px) + 24px), 74%);
+  width:88%;
+  aspect-ratio:1.05;
+  max-height:82%;
   border-radius:50%;
   z-index:-1;
   pointer-events:none;
@@ -1652,6 +1716,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .hand-area{
   position:relative;
   z-index:3;
+  /* Explicit margin-top here, on top of the existing border-top
+     separator just below -- a direct, guaranteed gap between the table
+     above and the cards here, so there is no scenario where the two
+     visually crowd into or appear to slide under one another,
+     regardless of exactly how tall the table itself renders on any
+     given screen. */
+  margin-top:14px;
   background:
     linear-gradient(to top, rgba(6,14,26,0.95) 0%, rgba(13,27,42,0.8) 40%, rgba(17,29,46,0.6) 100%) !important;
   border-top:3px solid rgba(255,215,0,0.15) !important;
@@ -2485,6 +2556,19 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 .icon-btn{border-radius:8px;background:rgba(233,185,73,0.06);
   border-color:rgba(233,185,73,0.18)}
 #serverNotice{background:transparent;border-color:rgba(233,185,73,0.35)}
+/* Invite and Admin specifically (not the plain icon-only buttons next to
+   them) get the same classic serif + antique-gold treatment as the RD/DL/
+   TEAM/OPP/BIDDER bar, so the whole top strip reads as one consistent
+   style instead of two different button languages sitting side by side. */
+#btnInvite, #btnHostRestart{
+  font-family:'Cinzel','Playfair Display',serif;
+  font-weight:700;
+  letter-spacing:0.3px;
+  background:linear-gradient(180deg, rgba(201,162,75,0.16), rgba(201,162,75,0.05));
+  border:1px solid rgba(201,162,75,0.4);
+  color:#e8dcc0;
+  text-shadow:0 1px 2px rgba(0,0,0,0.6);
+}
 
 /* ---------- Desktop / Mac / wide-screen ----------
    Everything above assumes a phone-width screen. On a wide PC or Mac
@@ -2494,38 +2578,20 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    comfortable phone-proportioned column, centered, with the rest of the
    window as backdrop — the same trick most mobile-first web apps use to
    stay usable on desktop. */
-/* Was scoped to (hover:hover) and (pointer:fine) -- an actual mouse --
-   specifically to protect against a real bug: cards were getting
-   clipped at the top on any wide-viewport screen (including a phone in
-   "Desktop site" mode, or a genuinely wide phone), because the
-   hand-of-cards box was never actually tall enough for a full-size
-   card, and the fragile fix attempted for that at the time depended on
-   viewport-height math that wasn't reliable either. Both of those are
-   now fixed at their actual root (.hand-area has a real, fixed
-   min-height that's genuinely tall enough for a card, no calculation
-   involved; the height budget for the table below uses min-height:0 +
-   a real page scroll as a backstop instead of guessing a number) --
-   which means the ORIGINAL reason to exclude wide-viewport touch
-   devices (a phone in Desktop-site mode, a wide phone, etc) no longer
-   applies, and excluding them was exactly what left "Desktop site"
-   mode still showing the narrow, phone-shaped column instead of
-   actually using the wider space. Width alone is the right, simple
-   signal for "is there more room to use" -- it doesn't matter whether
-   that room is being viewed with a mouse or a finger. */
+/* Deliberately simple, on purpose: several earlier, more elaborate
+   attempts at this (repositioning .game-wrap out of position:fixed
+   entirely, forcing the whole html/body to scroll, adding manual toggle
+   buttons and borders) each introduced their own new problems while
+   trying to solve this. This version changes as little as possible --
+   .game-wrap keeps its original, already-proven position:fixed
+   behavior completely untouched; the only change here is width, plus
+   letting it scroll internally (on itself) if its content is ever
+   taller than the screen, so nothing can ever be permanently
+   unreachable. */
 @media (min-width:700px){
   body{display:flex;justify-content:center;background:radial-gradient(ellipse at 50% 30%, #16283f 0%, #05090a 70%)}
   .game-wrap,.topbar,.lobby-screen,.welcome-screen{
     left:50%!important;right:auto!important;
-    /* Was capped at 560px (a literal phone-simulator width), then later
-       880px -- both were still fundamentally a narrow, phone-shaped
-       column just sitting in the middle of a wide screen with empty
-       space on either side, which is exactly why it kept looking and
-       behaving like "a phone display on a PC" no matter how the height
-       was adjusted. This is a real landscape-appropriate width instead
-       -- the table (its felt uses percentage-based sizing relative to
-       this container, not a fixed pixel size, so it scales up with it)
-       actually fills a proper landscape-shaped portion of the screen
-       now, rather than staying phone-proportioned but centered. */
     width:min(1200px,94vw)!important;max-width:1200px;
     transform:translateX(-50%);
     box-shadow:0 0 80px rgba(0,0,0,0.65);
@@ -2535,71 +2601,38 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   .overlay{left:50%!important;right:auto!important;transform:translateX(-50%);
     width:min(1200px,94vw)!important;max-width:1200px}
   #serverNotice{right:calc(50vw - min(1200px,94vw)/2 + 10px)}
-  /* flex-grow:1 on the table is exactly right on a real phone (height
-     naturally proportionate to width), but on a desktop window the
-     width is capped here while height stays full-viewport, so it has
-     far more room to expand into than intended and pushes the hand of
-     cards below the bottom of the screen. Rather than GUESS how much
-     space the header/hand-area actually need (a fixed pixel budget is
-     always wrong for someone -- too little and the hand gets clipped
-     with no way to scroll to it since .game-wrap is
-     position:fixed;overflow:hidden, too much and it leaves a wasted
-     empty gap, both of which were separately reported), min-height:0
-     lets flexbox measure the REAL rendered height of the header and
-     hand-of-cards row and give the table exactly whatever's genuinely
-     left over -- correct on any window size without needing to guess
-     any number at all. Still capped at 820px so a very tall window
-     doesn't stretch the table oversized either. */
   #tableArea{max-height:820px;min-height:0}
-  /* This is the actual, guaranteed fix, replacing several earlier
-     attempts that each tried to precisely calculate or cap a height and
-     kept being wrong for someone: reported as still cut off on a real
-     desktop computer too, not just a phone in a desktop-emulating mode,
-     which means the exact cause genuinely isn't reliably knowable from
-     CSS alone. So stop trying to fit everything inside one fixed,
-     unscrollable box and predict its exact contents' height -- instead,
-     let this whole column be a NORMAL, naturally flowing part of the
-     page, exactly like any ordinary website. .game-wrap was
-     position:fixed with a hard viewport-height boundary and
-     overflow:hidden/auto on ITSELF specifically -- switching it (and
-     the page behind it) to genuinely scroll as one normal document
-     means there is no longer any fixed budget to miscalculate: if the
-     table, header, and hand of cards together add up to more than one
-     screen's height, the player just scrolls the actual page down, the
-     same way they would on any tall webpage. That's not a guess about
-     any particular device's chrome or emulation quirks -- it's how
-     browsers already reliably work for arbitrarily tall content.
-     Scoped to this exact desktop-only block, so phones (already
-     confirmed correct) are entirely unaffected. */
-  html,body{height:auto!important;overflow-y:auto!important;overflow-x:hidden!important}
-  .game-wrap{position:relative!important;top:auto!important;bottom:auto!important;
-    left:auto!important;right:auto!important;transform:none!important;
-    /* The centering trick above (left:50% + transform:translateX(-50%))
-       was specifically built for position:fixed, where an element is
-       taken clean out of normal document flow -- body's own
-       display:flex;justify-content:center (see the very top of this
-       block) can't center something that's not actually IN that flow,
-       which is exactly why that manual trick existed. Now that
-       .game-wrap is back in normal flow (position:relative), that same
-       flex centering on body already does the job directly -- keeping
-       the old left/transform values here too would double up and shift
-       it off-center, so they're explicitly cancelled for this element
-       specifically (the shared rule above still correctly applies
-       as-is to .topbar/.lobby-screen/.welcome-screen, which remain
-       position:fixed and still need it).
-       min-height:calc(100vh - 40px) here was a real, separate mistake:
-       it FORCED this to be at least full-viewport-tall regardless of
-       its actual content, which is exactly the "full-screen phone app"
-       look even after widening it -- a real desktop window doesn't
-       fill edge-to-edge top-to-bottom. Sizing purely to its own content
-       instead, with a visible framed border, is what actually reads as
-       a normal computer window instead of an oversized phone screen. */
-    height:auto!important;min-height:0!important;overflow:visible!important;
-    margin:16px auto!important;
-    border:2px solid rgba(244,196,48,0.4)!important;
-    border-radius:10px!important;
-    box-shadow:0 0 60px rgba(0,0,0,0.7)!important;
-  }
+  .game-wrap{overflow-y:auto!important}
+  /* Direct, explicit, and impossible-to-lose-the-cascade fix, added
+     right in this exact breakpoint on purpose: reported specifically on
+     a screen wide enough to hit this block (Chrome's "Desktop site"
+     mode on a phone reports a wide virtual viewport and scales the
+     WHOLE page down to fit the real screen, which is consistent with
+     everything -- header, icons, text -- all rendering uniformly
+     smaller in that mode) where the top of each card was still getting
+     cut off despite .hand-area's base min-height already being raised
+     to 150px elsewhere. Re-declaring it here, with !important, at this
+     exact breakpoint removes any possible ambiguity about which rule
+     wins -- this one does, guaranteed, specifically where it was still
+     being reported as wrong. */
+  .hand-area{min-height:150px!important}
+  /* .welcome-screen has a decorative pulse animation (welcomePulse,
+     defined elsewhere) that only ever sets transform:scale(...) on each
+     step. CSS animations take full ownership of any property they
+     touch for their entire duration -- so on this exact breakpoint,
+     where .welcome-screen is centered using transform:translateX(-50%)
+     (see the rule above), that animation was silently overwriting the
+     centering with just its own scale value, every single cycle. The
+     effect: the whole screen sat at left:50% with no compensating
+     shift back, so it rendered pinned to the horizontal center-line and
+     extending only rightward -- the entire left half blank, the actual
+     content pushed against the right edge and cut off. This is a
+     confirmed, verified bug, not a guess: the animation's own keyframes
+     are checkable directly. Disabling the animation specifically at
+     this breakpoint removes the conflict entirely -- it's purely
+     decorative, so no functionality is lost, only a subtle pulse
+     effect that was never worth a broken layout underneath it. */
+  .welcome-screen{animation:none!important}
 }
 /* Create Room button on the "host or join" screen: flashes gold/red so
    it's obviously the next step after setting your name. Scoped to just
@@ -2608,38 +2641,6 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    at the very end of the stylesheet (after the phone-width override above
    that recolors #btnCreateRoom blue with !important), so this wins the
    cascade on every screen size instead of being silently defeated by it. */
-/* Manual wide-layout toggle (#btnWideView / toggleWideView()) -- purely
-   a CSS toggle, nothing rotates or transforms. The width-only version
-   of this rule was the actual reason it looked like it "did nothing":
-   .game-wrap's own base rule is position:fixed;top:40px;bottom:0, which
-   forces it to stretch across the FULL screen height no matter what --
-   widening it on top of that just produced a WIDER full-screen phone
-   shape, not something that reads as a normal computer window. A real
-   desktop app doesn't fill edge-to-edge top-to-bottom; that's
-   specifically a phone-app trait. This now also takes .game-wrap out of
-   that fixed, full-height positioning entirely -- it sizes to its own
-   actual content instead, with a visible dark margin above/below if
-   there's extra space, framed with a distinct border so it's
-   unmistakable the layout genuinely changed. */
-body.wide-view{overflow-y:auto!important}
-body.wide-view .game-wrap,body.wide-view .topbar,body.wide-view .lobby-screen,body.wide-view .welcome-screen{
-  left:50%!important;right:auto!important;transform:translateX(-50%)!important;
-  width:min(1200px,94vw)!important;max-width:1200px!important;
-}
-body.wide-view .game-wrap{
-  position:relative!important;top:auto!important;bottom:auto!important;
-  height:auto!important;min-height:0!important;max-height:none!important;
-  overflow:visible!important;margin:16px auto!important;
-  border:2px solid rgba(244,196,48,0.4)!important;
-  border-radius:10px!important;
-  box-shadow:0 0 60px rgba(0,0,0,0.7)!important;
-}
-body.wide-view #tableArea{max-height:820px!important;min-height:0!important}
-body.wide-view .overlay{
-  left:50%!important;right:auto!important;transform:translateX(-50%)!important;
-  width:min(1200px,94vw)!important;max-width:1200px!important;
-}
-#btnWideView.wide-active{background:rgba(244,196,48,0.9)!important;color:#111!important}
 #btnCreateRoom{
   background:linear-gradient(135deg,#ffd700,#c0392b)!important;
   color:#fff!important;
@@ -3061,14 +3062,16 @@ body.wide-view .overlay{
       <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none;width:auto;padding:0 5px;gap:2px;white-space:nowrap;font-size:0.8em">💌 Invite</button>
       <button class="icon-btn" id="btnRequestSeat" title="Ask for a Seat" style="display:none">🪑</button>
       <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none;width:auto;padding:0 6px;white-space:nowrap;font-weight:800;font-size:0.85em">Admin</button>
-      <!-- Toggles between the normal layout and a wider one for
-           landscape/desktop screens -- see toggleWideView() and
-           body.wide-view in the stylesheet. Just a CSS width change,
-           nothing rotates -- correcting an earlier, wrong attempt at
-           this that physically rotated the screen with a CSS
-           transform, which made no sense on a PC (or really anywhere
-           you can't also physically turn the screen afterward). -->
-      <button class="icon-btn" id="btnWideView" title="Toggle wide layout" onclick="toggleWideView()" style="width:auto;padding:0 6px;font-size:0.85em">🖥️</button>
+      <!-- Browsers automatically exit fullscreen the moment a tab loses
+           focus (backgrounding it, switching apps) -- that's a real
+           browser security behavior, not something that can be
+           silently re-triggered on return, since the Fullscreen API
+           always requires an actual, direct tap. This button is that
+           tap -- reuses the exact same requestFullscreen28() already
+           used when starting a game (see there for the vendor-prefix
+           fallback handling), so there's only one implementation of
+           "try to go fullscreen" in the whole file. -->
+      <button class="icon-btn" id="btnFullscreen" title="Enter Full Screen" onclick="requestFullscreen28()" style="width:auto;padding:0 6px;font-size:0.85em">⛶</button>
       <button class="icon-btn" id="btnRoomManage" title="Manage Room (Host)" style="display:none">🎛️</button>
       <button class="icon-btn" id="btnHome" title="Go Home" style="margin-left:auto;background:#c0392b;border-color:#c0392b;color:#fff;border-radius:4px;font-weight:800">✕</button>
     </div>
@@ -3080,9 +3083,9 @@ body.wide-view .overlay{
   <div class="info-bar" id="infoBar">
     <div class="info-row info-main" style="display:grid;grid-template-columns:1fr auto 1fr;justify-content:stretch;align-items:center">
       <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:flex-start;overflow:hidden">
-        <span class="info-item"><span class="info-label" id="roundLabel">Round</span><span class="info-val" id="roundNum">1</span></span>
+        <span class="info-item"><span class="info-label" id="roundLabel">RD</span><span class="info-val" id="roundNum">1</span></span>
         <span class="info-sep">·</span>
-        <span class="info-item"><span class="info-label" id="dealerLabel">Dealer</span><span class="info-val" id="dealerDisplay">—</span></span>
+        <span class="info-item"><span class="info-label" id="dealerLabel">DL</span><span class="info-val" id="dealerDisplay">—</span></span>
       </div>
       <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:center;white-space:nowrap;padding:0 6px">
         <span class="info-item"><span class="info-label" id="yourTricksLabel">Team</span><span class="info-val" id="yourTricks">0</span></span>
@@ -3107,6 +3110,16 @@ body.wide-view .overlay{
     <div class="chip-stack cs-bl"><div class="c3"></div></div>
     <div class="chip-stack cs-br"><div class="c3"></div></div>
     <button class="icon-btn table-corner-btn" id="btnChat" title="Chat" style="display:none">💬<span class="chat-badge" id="chatBadge"></span></button>
+    <!-- Quote button -- see toggleQuoteDeclare()/updateQuoteButton() in
+         the main script and _isQuoteEligibleFor() in game-engine.js.
+         Persistent and visible to every player at the table at all
+         times during play (not just whoever's currently eligible), but
+         only enabled/clickable when it's genuinely valid for the
+         person looking at it right now: their own turn, and their
+         team hasn't lost a trick yet this round. Positioned just to the
+         left of the chat button, right of where the player's own
+         avatar sits at the bottom of the table. -->
+    <button class="icon-btn table-corner-btn" id="btnQuoteDeclare" title="Declare COT" style="display:none;right:48px;bottom:150px;width:auto;padding:0 8px;font-weight:800;font-size:0.8rem">🎯 COT</button>
     <div class="bid-predictor" id="bidPredictor" style="display:none">
       <h6><span class="pulse-dot"></span>Smart Predictor</h6>
       <div class="predictor-section">
@@ -3464,14 +3477,14 @@ body.wide-view .overlay{
   // as a tiny corner tag on the welcome screen. This exists purely so we
   // can settle, with certainty, whether a bug report is against this
   // exact code or a stale deployment — no more guessing.
-  window.K28_BUILD_TAG = 'stable-hostfix · 2026-08-11';
+  window.K28_BUILD_TAG = 'stable-quote · 2026-08-14';
   // Human-readable version of the same "when was this last touched"
   // fact, used in the comment-invite toast so a returning player can see
   // at a glance that the site is actively maintained. Deliberately a
   // separate constant from K28_BUILD_TAG (not derived from it) so this
   // page's own deploy-mismatch check above always compares two build
   // identifiers exactly, never a human-formatted string.
-  window.SITE_LAST_UPDATED = 'Aug 11, 2026';
+  window.SITE_LAST_UPDATED = 'Aug 14, 2026';
   console.log('[28 Kerala Gulan] build:', window.K28_BUILD_TAG);
   window.addEventListener('DOMContentLoaded', () => {
     const tag = document.createElement('div');
@@ -12004,10 +12017,17 @@ function adjustForOrientation() {
   if (isMobile) {
     const table = document.getElementById('tableArea');
     if (table) {
+      // Reduced from 90px/80px - measured directly that the avatar circle and name label
+      // inside this column only ever use ~32px of it, so the rest was pure unused padding
+      // sitting between the avatar and the table oval, no matter how large the oval itself
+      // was allowed to grow (its own sizing is capped separately, in the .center::after/
+      // ::before/.felt rules, and was already maxed out within ITS column - this JS value
+      // was the actual remaining bottleneck, not those). Still comfortably wider than the
+      // ~32px the content needs, just no longer excessive.
       if (isLandscape) {
-        table.style.gridTemplateColumns = '80px 1fr 80px';
+        table.style.gridTemplateColumns = '58px 1fr 58px';
       } else {
-        table.style.gridTemplateColumns = '90px 1fr 90px';
+        table.style.gridTemplateColumns = '62px 1fr 62px';
       }
     }
   }
@@ -12679,6 +12699,10 @@ let serverLastAnnouncedTrumpExposed = false; // tracks trumpExposed so the annou
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired, so it shows exactly once per round
 let lastShownRoundVoidMessage = null; // tracks the defending-team-has-no-trump void message so it shows exactly once per occurrence
 let lastShownReshuffleReasonTs = null; // same "show exactly once" pattern for the 3 auto-reshuffle popups below
+let lastShownEarlyWinChoice = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
+let lastShownQuoteDeclaredForTeam = null; // which team's quote declaration has already been announced this round
+let lastShownMaruCotForTeam = null; // which team's maru cot challenge has already been announced this round
+let maruCotPopupOpen = false; // true while the COT-declared popup is showing WITH an active challenge option -- lets it force-close itself if the window passes while still open
 let lastShownPartnerSignalKey = null; // tracks the last partner bidding signal shown to this player so it shows exactly once per occurrence
 
 // A full page reload wipes every JS variable but leaves localStorage
@@ -13406,18 +13430,6 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// Manual layout toggle (the "🖥️ Wide View" button in the topbar, next
-// to Admin). Switches between the normal layout and a wider one that
-// properly uses landscape/desktop-width space -- purely a CSS class
-// toggle, nothing rotates or transforms, nothing to physically turn the
-// phone or monitor for. Off by default on every fresh load, changing
-// only from an actual tap.
-function toggleWideView(){
-  const isActive = document.body.classList.toggle('wide-view');
-  const btn = document.getElementById('btnWideView');
-  if (btn) btn.classList.toggle('wide-active', isActive);
-}
-
 // Requests fullscreen -- hides the browser's own address bar and nav
 // bars on mobile -- the moment someone actually starts a game (Create
 // Room, Join Room, or Play vs Bots). Only works when called
@@ -13468,6 +13480,58 @@ function maybeShowIosInstallHint(){
   document.getElementById('iosHintDismiss28').addEventListener('click', () => el.remove());
 }
 maybeShowIosInstallHint();
+
+// ============================================================
+// "WHAT'S NEW" OPENING ANNOUNCEMENT
+// ------------------------------------------------------------
+// TO POST A NEW UPDATE: bump K28_UPDATE_VERSION to a new unique string
+// (anything different from before — the date alone is fine) and edit
+// K28_UPDATE_HTML below. Bumping the version is what makes it show
+// again to everyone, including people who already dismissed an older
+// one — matching it to the OLD version would mean nobody ever sees the
+// new announcement at all, since they'd already be marked as having
+// "seen" that exact version string.
+// ============================================================
+const K28_UPDATE_VERSION = '2026-08-14-welcome-quote';
+const K28_UPDATE_HTML = `
+  <div style="font-size:1.6rem;margin-bottom:4px">🌍</div>
+  <div style="color:#f4c430;font-size:1.05rem;font-weight:800;margin-bottom:4px">Welcome to 28GULAN.COM</div>
+  <div style="color:var(--text-secondary);font-size:0.8rem;line-height:1.6;text-align:left;margin:14px 0">
+    This site is built for people who love <b style="color:#fff">28 and 56</b> — the goal is simple:
+    play with fellow card lovers from around the world you've never met, and have a genuinely good time
+    together. Building a community around these games, one hand at a time.<br><br>
+    <b style="color:#fff">🎯 New rule: COT</b> (Aug 14) — sweep every trick so far on a bid ≤19, and with
+    a few cards left you can bet on sweeping everything for a bonus, or risk a bigger penalty if you don't.<br><br>
+    Got ideas for what this place should become, or spotted something that felt off? We'd genuinely love
+    to hear it.
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <button id="btnUpdateAnnounceComment" class="btn btn-outline" style="width:100%">💌 Share Ideas & Comments</button>
+    <button id="btnUpdateAnnounceOk" class="btn btn-primary" style="width:100%">Got it, let's play!</button>
+  </div>
+`;
+function maybeShowUpdateAnnouncement(){
+  try {
+    if (localStorage.getItem('k28_seenUpdateVersion') === K28_UPDATE_VERSION) return;
+  } catch (e) { return; }
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:3500;display:flex;align-items:center;justify-content:center;padding:20px';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:linear-gradient(135deg,#151f30,#0a1628);border:2px solid rgba(244,196,48,0.55);border-radius:18px;padding:24px 22px;width:100%;max-width:420px;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,0.6),0 0 0 1px rgba(244,196,48,0.15)';
+  box.innerHTML = K28_UPDATE_HTML;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  const dismiss = () => {
+    try { localStorage.setItem('k28_seenUpdateVersion', K28_UPDATE_VERSION); } catch (e) {}
+    overlay.remove();
+  };
+  document.getElementById('btnUpdateAnnounceOk').addEventListener('click', dismiss);
+  document.getElementById('btnUpdateAnnounceComment').addEventListener('click', () => {
+    dismiss();
+    openCommentBox();
+  });
+}
+maybeShowUpdateAnnouncement();
 
 // Formats a visitor-log session length (ms) as "2h 14m", "5m 32s", or
 // "12s" -- whichever units are actually meaningful, never "0h 0m".
@@ -13951,6 +14015,149 @@ function applyServerState(state) {
     if (msg) showModal('Reshuffling', msg);
   }
 
+  // "Already won" early-round-end popup. Shown to EVERYONE as soon as it
+  // appears (so the whole table knows why things paused), but only the
+  // winning team gets real action buttons -- everyone else just gets an
+  // informational dismiss. lastShownEarlyWinChoice tracks "have I already
+  // shown a popup for this specific pending choice" so it doesn't re-pop
+  // on every subsequent state push while still waiting on an answer.
+  if (state.pendingEarlyWinChoice && !lastShownEarlyWinChoice) {
+    lastShownEarlyWinChoice = true;
+    const ew = state.pendingEarlyWinChoice;
+    const onWinningTeam = getTeam(MY_POS) === ew.team;
+    const iAmWinner = onWinningTeam ? 'Your team' : 'The other team';
+    const outcome = ew.made ? 'already reached the bid' : 'made the bid impossible to reach';
+    showModal('🏆 Already Won This Round',
+      `${iAmWinner} has ${outcome} — the outcome of this round is already decided.` +
+      (onWinningTeam
+        ? '<br><br>Keep playing out the remaining tricks, or skip straight to the next round?'
+        : '<br><br>Waiting for the winning team to decide whether to keep playing or move on.'));
+    const okBtn = document.getElementById('modalOkBtn');
+    const oldOk = okBtn.onclick;
+    let noBtn = document.getElementById('modalNoBtn');
+    if (!noBtn) {
+      noBtn = document.createElement('button');
+      noBtn.id = 'modalNoBtn';
+      noBtn.className = 'btn btn-outline';
+      noBtn.style.cssText = 'width:100%;margin-top:8px';
+      document.getElementById('modalBox').appendChild(noBtn);
+    }
+    const oldNoClick = noBtn.onclick;
+    const oldNoDisplay = noBtn.style.display;
+    if (onWinningTeam) {
+      okBtn.textContent = '▶️ Keep Playing';
+      okBtn.onclick = function() {
+        closeModal();
+        okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
+        noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+        gameSocket.emit('respondToEarlyWin', { continuePlay: true });
+      };
+      noBtn.textContent = '⏭️ Start Next Round';
+      noBtn.style.display = '';
+      noBtn.onclick = function() {
+        closeModal();
+        okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
+        noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+        gameSocket.emit('respondToEarlyWin', { continuePlay: false });
+      };
+    } else {
+      okBtn.textContent = 'OK';
+      okBtn.onclick = function() {
+        closeModal();
+        okBtn.onclick = oldOk;
+        noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+      };
+      noBtn.style.display = 'none';
+    }
+  } else if (!state.pendingEarlyWinChoice) {
+    lastShownEarlyWinChoice = false;
+  }
+
+  // Quote button -- persistent and visible to everyone, updated on
+  // every state push (see updateQuoteButton() near the bottom of this
+  // file). No popup anymore; the button's own enabled/disabled state
+  // IS the offer.
+  updateQuoteButton(state);
+
+  // COT declared -- announced to the whole table via one merged popup.
+  // For the declaring team (and anyone with no stake), it's purely
+  // informational. For the OTHER team specifically, this same popup
+  // becomes the actual Maru COT challenge -- "whoever clicks first" is
+  // handled correctly server-side (see challengeMaruCot() in the
+  // engine), but client-side this also has to gracefully handle a
+  // teammate winning that race first: if pendingMaruCotChallenge
+  // disappears while this exact popup is still open (checked on every
+  // subsequent state push below), it force-closes itself instead of
+  // sitting there offering a challenge that's no longer actually live.
+  if (state.quoteState && lastShownQuoteDeclaredForTeam !== state.quoteState.team) {
+    lastShownQuoteDeclaredForTeam = state.quoteState.team;
+    const onThatTeam = getTeam(MY_POS) === state.quoteState.team;
+    const canChallenge = state.pendingMaruCotChallenge && getTeam(MY_POS) === state.pendingMaruCotChallenge.team;
+    showModal('🎯 COT Declared!',
+      `${onThatTeam ? 'Your team' : 'The other team'} just declared <b>COT</b> — betting on sweeping every single trick this round. ` +
+      `+2 if they win everything, -3 if they lose even one trick from here.` +
+      (canChallenge ? '<br><br>🔥 You can challenge this with <b>Maru COT</b> right now, before their next card is played — but only for a moment. If you stop them (they fail to sweep everything): <b>+4</b> for your team. If they still succeed anyway: <b>-3</b> for your team.' : ''));
+    maruCotPopupOpen = canChallenge;
+    const okBtn = document.getElementById('modalOkBtn');
+    const oldOk = okBtn.onclick;
+    let noBtn = document.getElementById('modalNoBtn');
+    if (!noBtn) {
+      noBtn = document.createElement('button');
+      noBtn.id = 'modalNoBtn';
+      noBtn.className = 'btn btn-outline';
+      noBtn.style.cssText = 'width:100%;margin-top:8px';
+      document.getElementById('modalBox').appendChild(noBtn);
+    }
+    const oldNoClick = noBtn.onclick;
+    const oldNoDisplay = noBtn.style.display;
+    if (canChallenge) {
+      okBtn.textContent = '🔥 Yes, Maru COT!';
+      okBtn.onclick = function() {
+        closeModal();
+        maruCotPopupOpen = false;
+        okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
+        noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+        gameSocket.emit('challengeMaruCot');
+      };
+      noBtn.textContent = 'No';
+      noBtn.style.display = '';
+      noBtn.onclick = function() {
+        closeModal();
+        maruCotPopupOpen = false;
+        okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
+        noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+      };
+    } else {
+      okBtn.textContent = 'OK';
+      okBtn.onclick = function() {
+        closeModal();
+        okBtn.onclick = oldOk;
+        noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+      };
+      noBtn.style.display = 'none';
+    }
+  } else if (!state.quoteState) {
+    lastShownQuoteDeclaredForTeam = null;
+  }
+  // The window can close (someone else on my team won the race, or the
+  // declarer's own next card just got played) while this exact popup is
+  // still sitting open on screen -- force it shut rather than leave a
+  // stale, no-longer-live challenge offer visible.
+  if (maruCotPopupOpen && !state.pendingMaruCotChallenge) {
+    maruCotPopupOpen = false;
+    closeModal();
+  }
+  // Maru COT successfully declared -- a one-time announcement, same
+  // "show exactly once" pattern.
+  if (state.maruCotState && lastShownMaruCotForTeam !== state.maruCotState.team) {
+    lastShownMaruCotForTeam = state.maruCotState.team;
+    const onThatTeam = getTeam(MY_POS) === state.maruCotState.team;
+    showModal('🔥 Maru COT!',
+      `${onThatTeam ? 'Your team' : 'The other team'} just challenged the COT! Stakes just went up: <b>+3/-3</b> if the COT still succeeds, <b>-4/+4</b> if it fails.`);
+  } else if (!state.maruCotState) {
+    lastShownMaruCotForTeam = null;
+  }
+
   // Partner bidding signal received — same "show exactly once" pattern
   // as the void message above. Only meaningful to show if I'M the human
   // on the receiving end; a bot partner just quietly uses it in their
@@ -14423,6 +14630,67 @@ let lastSeenTricksPlayed = -1;
 // after a restart or reconnect can silently break the "a trick just
 // resolved" detection for the rest of that round, since the new round's
 // real progress would never again exceed old, leftover high-water marks.
+// Quote button -- persistent, visible to everyone at the table during
+// play, but only genuinely clickable ("active") when it's this exact
+// viewer's turn and their team hasn't lost a trick yet this round. See
+// declareQuote() / _isQuoteEligibleFor() in game-engine.js for the
+// authoritative rule -- this is purely a reflection of server state,
+// never a local decision about whether it should be allowed.
+function updateQuoteButton(state) {
+  const btn = document.getElementById('btnQuoteDeclare');
+  if (!btn) return;
+  if (state.phase !== 'play' && !state.quoteState) {
+    btn.style.display = 'none';
+    return;
+  }
+  btn.style.display = '';
+  if (state.quoteState) {
+    // Already declared this round -- informational only from here on.
+    const onThatTeam = getTeam(MY_POS) === state.quoteState.team;
+    btn.textContent = onThatTeam ? '🎯 COT (yours!)' : '🎯 COT (active)';
+    btn.classList.remove('quote-btn-active');
+    btn.classList.add('quote-btn-disabled');
+    return;
+  }
+  btn.textContent = '🎯 COT';
+  const iAmEligible = !!(state.quoteEligible && state.currentPlayer === MY_POS);
+  btn.classList.toggle('quote-btn-active', iAmEligible);
+  btn.classList.toggle('quote-btn-disabled', !iAmEligible);
+}
+document.getElementById('btnQuoteDeclare').addEventListener('click', () => {
+  if (!latestServerState || !latestServerState.quoteEligible || latestServerState.currentPlayer !== MY_POS) return;
+  showModal('🎯 Declare COT?',
+    'Your team hasn\'t lost a single trick yet this round.<br><br>' +
+    'Declare <b>COT</b> to bet on sweeping <b>every single trick</b> the rest of this round: ' +
+    '<b>+2</b> if you win everything, <b>-3</b> if you lose even one trick from here — even if you\'ve already made your bid.');
+  const okBtn = document.getElementById('modalOkBtn');
+  const oldOk = okBtn.onclick;
+  let noBtn = document.getElementById('modalNoBtn');
+  if (!noBtn) {
+    noBtn = document.createElement('button');
+    noBtn.id = 'modalNoBtn';
+    noBtn.className = 'btn btn-outline';
+    noBtn.style.cssText = 'width:100%;margin-top:8px';
+    document.getElementById('modalBox').appendChild(noBtn);
+  }
+  const oldNoClick = noBtn.onclick;
+  const oldNoDisplay = noBtn.style.display;
+  okBtn.textContent = '🎯 Yes, Declare COT!';
+  okBtn.onclick = function() {
+    closeModal();
+    okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
+    noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+    gameSocket.emit('declareQuote');
+  };
+  noBtn.textContent = 'Not Yet';
+  noBtn.style.display = '';
+  noBtn.onclick = function() {
+    closeModal();
+    okBtn.textContent = 'OK'; okBtn.onclick = oldOk;
+    noBtn.style.display = oldNoDisplay; noBtn.onclick = oldNoClick;
+  };
+});
+
 function resetTrickAndRoundTracking() {
   lastSeenTricksPlayed = -1;
   trickRevealBusy = false;
@@ -14434,6 +14702,10 @@ function resetTrickAndRoundTracking() {
   lastShownRoundVoidMessage = null;
   lastShownReshuffleReasonTs = null;
   lastShownPartnerSignalKey = null;
+  lastShownEarlyWinChoice = false;
+  lastShownQuoteDeclaredForTeam = null;
+  lastShownMaruCotForTeam = null;
+  maruCotPopupOpen = false;
   trickHoldGen++;
 }
 let trickRevealQueue = [];  // queued completed tricks still waiting to be shown
@@ -14757,6 +15029,298 @@ function serverBotPlayForMe() {
 // reasoning -- this comment previously duplicated it here, separately,
 // and had gone stale.
 
+
+// ==================== IDLE SCREENSAVER (welcome screen only) ====================
+// After 2 minutes with no click/tap anywhere on the page, every word/button/icon on the
+// welcome screen breaks apart and bounces around independently (DVD-logo style), each with
+// its own random direction and speed. Any click/tap instantly stops it and snaps everything
+// back to its normal spot. Self-contained on purpose - it only ever touches elements inside
+// #welcomeScreen, only runs while that screen is actually the visible one, and never runs
+// during an actual game, so it can't interfere with anything else on the page.
+(function() {
+  const K28_IDLE_MS = 2 * 60 * 1000;
+  let idleTimer = null;
+  let bouncers = null; // null when inactive
+  let rafId = null;
+  let viewportW = 0, viewportH = 0;
+
+  function isWelcomeScreenVisible() {
+    const el = document.getElementById('welcomeScreen');
+    // Not using offsetParent here on purpose: it's null for position:fixed elements even
+    // when they're fully visible (a real browser quirk, not a bug) - #welcomeScreen is fixed,
+    // so that check was silently failing every time and the screensaver never activated at
+    // all. display is exactly how the rest of this page already toggles this screen, so it's
+    // the correct thing to check.
+    return !!el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
+  }
+
+  // Wraps each run of plain text in its own <span>, leaving any existing child elements
+  // (like <b>, <i>, <a> inside a sentence) as their own single bounce unit rather than
+  // shredding their inner text too - keeps links/bold text intact and clickable-looking.
+  function shatterIntoWords(el) {
+    if (el.dataset.k28Shattered) return;
+    el.dataset.k28Shattered = '1';
+    const children = Array.from(el.childNodes);
+    const frag = document.createDocumentFragment();
+    children.forEach(node => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const parts = node.textContent.split(/(\s+)/);
+        parts.forEach(part => {
+          if (part === '') return;
+          if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+          const span = document.createElement('span');
+          span.className = 'k28-bounce-word';
+          span.style.display = 'inline-block';
+          span.textContent = part;
+          frag.appendChild(span);
+        });
+      } else {
+        node.classList.add('k28-bounce-word');
+        if (!node.style.display) node.style.display = 'inline-block';
+        frag.appendChild(node);
+      }
+    });
+    el.innerHTML = '';
+    el.appendChild(frag);
+  }
+
+  function collectTargets() {
+    const root = document.getElementById('welcomeScreen');
+    if (!root) return [];
+    const targets = [];
+    root.querySelectorAll(
+      'button, a.welcome-btn, a.welcome-subbtn, .welcome-stat, .welcome-feature-icon, ' +
+      '.welcome-feature-title, .welcome-card-badge, .welcome-gold-rule'
+    ).forEach(el => targets.push(el));
+    root.querySelectorAll(
+      '.welcome-feature-desc, .welcome-about-text, .welcome-title-gold, .welcome-sub, ' +
+      '.welcome-tagline, .welcome-about-title, .welcome-features-title'
+    ).forEach(el => {
+      shatterIntoWords(el);
+      el.querySelectorAll(':scope > span.k28-bounce-word, :scope > .k28-bounce-word').forEach(w => targets.push(w));
+    });
+    return targets;
+  }
+
+  function startScreensaver() {
+    if (!isWelcomeScreenVisible() || bouncers) return;
+    const targets = collectTargets();
+    if (!targets.length) return;
+    viewportW = window.innerWidth;
+    viewportH = window.innerHeight;
+    bouncers = targets.map(el => {
+      const rect = el.getBoundingClientRect();
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 22 + Math.random() * 35; // px/sec, individual per element - slowed way down from the original 70-180 range, which felt frantic rather than ambient
+      el.style.willChange = 'transform';
+      el.style.position = el.style.position || 'relative';
+      return {
+        el, homeLeft: rect.left, homeTop: rect.top, w: rect.width, h: rect.height,
+        x: rect.left, y: rect.top,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed
+      };
+    });
+    let lastT = performance.now();
+    function frame(t) {
+      if (!bouncers) return;
+      const dt = Math.min(0.05, (t - lastT) / 1000);
+      lastT = t;
+      for (const b of bouncers) {
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
+        else if (b.x + b.w > viewportW) { b.x = viewportW - b.w; b.vx = -Math.abs(b.vx); }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
+        else if (b.y + b.h > viewportH) { b.y = viewportH - b.h; b.vy = -Math.abs(b.vy); }
+        b.el.style.transform = `translate(${(b.x - b.homeLeft).toFixed(1)}px,${(b.y - b.homeTop).toFixed(1)}px)`;
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+    rafId = requestAnimationFrame(frame);
+  }
+
+  function stopScreensaver() {
+    if (!bouncers) return;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    for (const b of bouncers) {
+      b.el.style.transform = '';
+      b.el.style.willChange = '';
+    }
+    bouncers = null;
+  }
+
+  function resetIdleTimer() {
+    stopScreensaver();
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(startScreensaver, K28_IDLE_MS);
+  }
+
+  // isTrusted is a real, unforgeable browser flag: true only for events the user actually
+  // generated (a real click/tap), false for anything the page's own JS triggers via
+  // element.click() (auto-continue timers, animations, etc). Without this check, the game's
+  // own programmatic clicks - like the end-of-round auto-continue - silently reset this timer
+  // just as if the player had clicked something themselves, so the screensaver could go a very
+  // long time without ever actually firing during genuinely idle-but-still-advancing play.
+  function handleActivity(e) { if (e.isTrusted) resetIdleTimer(); }
+  ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, handleActivity, { passive: true }));
+  window.addEventListener('resize', () => { if (bouncers) stopScreensaver(); resetIdleTimer(); });
+  resetIdleTimer();
+})();
+
+// ==================== IDLE SCREENSAVER (live game table) ====================
+// Same idea as the welcome-screen one above, but deliberately built differently for safety:
+// this one NEVER touches the actual cards, avatars, or action buttons - it never even reads
+// them. Instead it drops a dimmed, full-screen overlay on top with its own purely decorative
+// bouncing text (suit symbols, branding), so the real table stays completely intact and
+// unmoved underneath. The overlay itself catches the dismissing click, so that first click
+// only ever closes the screensaver - it can never also land on a card or button underneath
+// and accidentally play something. 1 minute idle (shorter than the welcome screen's 2, since
+// a table with a turn in progress is more time-sensitive), only while the game table is the
+// screen actually showing.
+(function() {
+  const K28_TABLE_IDLE_MS = 60 * 1000;
+  // 28GULAN.COM appears multiple times on purpose - it's the actual site name, so it should
+  // be the one thing you can't miss no matter where it's currently drifted to. Suits and short
+  // branded phrases repeat too, both for a fuller "full of action" feel on a tall screen (15
+  // items looked sparse) and so no single overlap (like the earlier "Become the King." sitting
+  // on top of a player's name) is the only thing you're looking at for long. The game-name
+  // entries borrow the same flavor as the main menu's own buttons (28 4 Player, Texas Hold'em,
+  // Pool, etc.) without actually touching that screen's real DOM - this stays purely
+  // decorative text, same as everything else here, so the "never move the real table" rule
+  // still holds exactly as before.
+  const DECOR_ITEMS = [
+    '28GULAN.COM', '28GULAN.COM', '28GULAN.COM',
+    '♠', '♥', '♦', '♣', '♠', '♥', '♦', '♣',
+    '🂮', '🎴', '👑', '🔥',
+    '28', 'Gulan', 'Gulan',
+    'Bid smart.', 'Play smarter.', 'Become the King.',
+    'Jack high', 'Ace high', 'The Gulan.',
+    '🌍 28 4 Player', '👥 28 6 Player', '🃏 56', '♣ Texas Hold\u2019em', '🎱 Pool', '🎯 Carrom'
+  ];
+  // A real palette instead of one single gold everywhere - cycled per item (not random) so
+  // the mix is always even, never accidentally almost-all-one-color on a given round.
+  // Royal metallics instead of the old mixed palette (which had plain red/teal/green mixed
+  // in - not exactly regal). Gold and silver each get two shades so neighboring items don't
+  // read as identically-colored, but everything stays in the same rich, metallic family.
+  // Classic antique-gold palette, matching the same muted engraved-plate look as the RD/DL/
+  // TEAM/OPP/BIDDER bar and the game buttons, instead of the brighter royal-metallic glow this
+  // had before - one consistent classic style across the whole app rather than two different
+  // looks living side by side.
+  const DECOR_COLORS = ['#c9a24b', '#e8dcc0', '#8a6a2c', '#d4c896', '#a8895a', '#c4a876'];
+  let idleTimer = null;
+  let overlay = null;
+  let bouncers = null;
+  let rafId = null;
+
+  function isGameTableVisible() {
+    const el = document.getElementById('gameWrap');
+    return !!el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
+  }
+
+  function startScreensaver() {
+    if (!isGameTableVisible() || overlay) return;
+    overlay = document.createElement('div');
+    overlay.id = 'k28TableScreensaver';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(4,9,18,0.6);z-index:99999;cursor:pointer;overflow:hidden';
+    document.body.appendChild(overlay);
+
+    const vw = window.innerWidth, vh = window.innerHeight;
+    // Spawn on a jittered grid rather than pure random - a handful of items landing purely
+    // randomly can easily clump together at the start (exactly what happened with "Become
+    // the King." sitting right on top of a player's name), so divide the screen into roughly
+    // as many cells as there are items and place each one randomly within its own cell. Still
+    // looks organic (the jitter), but guarantees a spread instead of leaving it to chance.
+    const cols = Math.ceil(Math.sqrt(DECOR_ITEMS.length * vw / vh));
+    const rows = Math.ceil(DECOR_ITEMS.length / cols);
+    const cellW = vw / cols, cellH = vh / rows;
+    const cellOrder = Array.from({ length: cols * rows }, (_, i) => i);
+    for (let i = cellOrder.length - 1; i > 0; i--) { // shuffle so item order doesn't map to a predictable grid pattern
+      const j = Math.floor(Math.random() * (i + 1));
+      [cellOrder[i], cellOrder[j]] = [cellOrder[j], cellOrder[i]];
+    }
+    bouncers = DECOR_ITEMS.map((text, i) => {
+      const el = document.createElement('div');
+      el.textContent = text;
+      // Longer phrases get a smaller max size - without this, a long phrase at a large random
+      // size can render WIDER than the screen itself (measured: "Become the King." could hit
+      // ~390px, wider than most phone screens), which leaves no valid in-bounds position at
+      // all and makes the bounce math flip direction every single frame - that's the "jitter"
+      // that was actually happening, not a rendering glitch.
+      const maxSizeForWidth = (vw * 0.8 - 20) / (text.length * 0.55);
+      const size = 16 + Math.random() * Math.max(0, Math.min(26, maxSizeForWidth - 16));
+      const itemColor = DECOR_COLORS[i % DECOR_COLORS.length];
+      // A soft glow in the item's own color underneath the usual dark drop-shadow, instead
+      // of just a flat-colored fill - that faint halo is what actually reads as "metallic
+      // sheen" rather than a plain, flat (i.e. "dull") color swatch.
+      el.style.cssText = `position:absolute;left:0;top:0;color:${itemColor};font-weight:700;
+        font-family:'Cinzel','Playfair Display',serif;letter-spacing:0.3px;
+        text-shadow:0 0 10px ${itemColor}80,0 2px 6px rgba(0,0,0,0.75);white-space:nowrap;pointer-events:none;font-size:${size}px`;
+      overlay.appendChild(el);
+      const w = Math.min(vw * 0.85, 20 + text.length * size * 0.55), h = size * 1.4; // rough estimate, good enough for bounce bounds
+      const cell = cellOrder[i % cellOrder.length];
+      const cellX = (cell % cols) * cellW, cellY = Math.floor(cell / cols) * cellH;
+      const homeX = Math.min(vw - w, Math.max(0, cellX + Math.random() * Math.max(1, cellW - w)));
+      const homeY = Math.min(vh - h, Math.max(0, cellY + Math.random() * Math.max(1, cellH - h)));
+      el.style.transform = `translate(${homeX}px,${homeY}px)`;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 22 + Math.random() * 35;
+      return { el, x: homeX, y: homeY, w, h, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed };
+    });
+
+    let lastT = performance.now();
+    function frame(t) {
+      if (!overlay) return;
+      const dt = Math.min(0.05, (t - lastT) / 1000);
+      lastT = t;
+      for (const b of bouncers) {
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
+        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
+        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); }
+        b.el.style.transform = `translate(${b.x.toFixed(1)}px,${b.y.toFixed(1)}px)`;
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+    rafId = requestAnimationFrame(frame);
+
+    // The overlay itself is what the dismissing click lands on - it's on top of everything
+    // at z-index 99999, so this click can never also reach a card or button underneath.
+    overlay.addEventListener('click', stopScreensaver);
+    overlay.addEventListener('touchstart', stopScreensaver, { passive: true });
+  }
+
+  function stopScreensaver() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    if (overlay) overlay.remove();
+    overlay = null;
+    bouncers = null;
+  }
+
+  function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    idleTimer = isGameTableVisible() ? setTimeout(startScreensaver, K28_TABLE_IDLE_MS) : null;
+  }
+
+  // Same isTrusted fix as the welcome-screen screensaver, and it matters even more here: this
+  // game already has programmatic element.click() calls of its own (the end-of-round
+  // auto-continue timer, for one) that fire on a schedule regardless of whether the player is
+  // actually doing anything. Those aren't real activity and shouldn't count as it - without
+  // this check, a bot-vs-bot or auto-advancing game could keep resetting this timer forever
+  // and the screensaver would never actually get a chance to run.
+  function handleActivity(e) { if (e.isTrusted) resetIdleTimer(); }
+  ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, handleActivity, { passive: true }));
+  // Visibility can change without a click (navigating in from the welcome screen, a hand
+  // ending, etc.) - this only ARMS the timer if nothing is already counting down; it must
+  // NOT unconditionally restart it, or this alone would wipe out and re-begin the full
+  // countdown every 2 seconds forever, and the real idle time genuinely never accumulates
+  // regardless of any clicks at all - which is exactly what was happening.
+  setInterval(() => { if (idleTimer === null && isGameTableVisible()) resetIdleTimer(); }, 2000);
+  resetIdleTimer();
+})();
 
 </script>
 </body>
