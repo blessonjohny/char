@@ -15109,15 +15109,23 @@ function serverBotPlayForMe() {
   // be the one thing you can't miss no matter where it's currently drifted to. Suits and short
   // branded phrases repeat too, both for a fuller "full of action" feel on a tall screen (15
   // items looked sparse) and so no single overlap (like the earlier "Become the King." sitting
-  // on top of a player's name) is the only thing you're looking at for long.
+  // on top of a player's name) is the only thing you're looking at for long. The game-name
+  // entries borrow the same flavor as the main menu's own buttons (28 4 Player, Texas Hold'em,
+  // Pool, etc.) without actually touching that screen's real DOM - this stays purely
+  // decorative text, same as everything else here, so the "never move the real table" rule
+  // still holds exactly as before.
   const DECOR_ITEMS = [
     '28GULAN.COM', '28GULAN.COM', '28GULAN.COM',
     '♠', '♥', '♦', '♣', '♠', '♥', '♦', '♣',
     '🂮', '🎴', '👑', '🔥',
     '28', 'Gulan', 'Gulan',
     'Bid smart.', 'Play smarter.', 'Become the King.',
-    'Jack high', 'Ace high', 'The Gulan.'
+    'Jack high', 'Ace high', 'The Gulan.',
+    '🌍 28 4 Player', '👥 28 6 Player', '🃏 56', '♣ Texas Hold\u2019em', '🎱 Pool', '🎯 Carrom'
   ];
+  // A real palette instead of one single gold everywhere - cycled per item (not random) so
+  // the mix is always even, never accidentally almost-all-one-color on a given round.
+  const DECOR_COLORS = ['#f4c430', '#ffffff', '#e0524a', '#4fb0c6', '#8ed081', '#c98be0'];
   let idleTimer = null;
   let overlay = null;
   let bouncers = null;
@@ -15152,11 +15160,17 @@ function serverBotPlayForMe() {
     bouncers = DECOR_ITEMS.map((text, i) => {
       const el = document.createElement('div');
       el.textContent = text;
-      const size = 16 + Math.random() * 26;
-      el.style.cssText = `position:absolute;left:0;top:0;color:rgba(244,196,48,0.88);font-weight:800;
+      // Longer phrases get a smaller max size - without this, a long phrase at a large random
+      // size can render WIDER than the screen itself (measured: "Become the King." could hit
+      // ~390px, wider than most phone screens), which leaves no valid in-bounds position at
+      // all and makes the bounce math flip direction every single frame - that's the "jitter"
+      // that was actually happening, not a rendering glitch.
+      const maxSizeForWidth = (vw * 0.8 - 20) / (text.length * 0.55);
+      const size = 16 + Math.random() * Math.max(0, Math.min(26, maxSizeForWidth - 16));
+      el.style.cssText = `position:absolute;left:0;top:0;color:${DECOR_COLORS[i % DECOR_COLORS.length]};font-weight:800;
         text-shadow:0 2px 10px rgba(0,0,0,0.7);white-space:nowrap;pointer-events:none;font-size:${size}px`;
       overlay.appendChild(el);
-      const w = 20 + text.length * size * 0.55, h = size * 1.4; // rough estimate, good enough for bounce bounds
+      const w = Math.min(vw * 0.85, 20 + text.length * size * 0.55), h = size * 1.4; // rough estimate, good enough for bounce bounds
       const cell = cellOrder[i % cellOrder.length];
       const cellX = (cell % cols) * cellW, cellY = Math.floor(cell / cols) * cellH;
       const homeX = Math.min(vw - w, Math.max(0, cellX + Math.random() * Math.max(1, cellW - w)));
