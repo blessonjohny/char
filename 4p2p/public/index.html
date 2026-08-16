@@ -3506,36 +3506,45 @@ const ALL_PLAYERS = [
   // Original roster — restored. These are the names that had actual
   // accumulated brain/learning history before an earlier change here
   // mistakenly replaced the whole array instead of adding to it.
-  {name:'Charlie',emoji:'🐬',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Wesley',emoji:'🎓',bg:'linear-gradient(135deg,#9b59b6,#8e44ad)'},
+  // Every avatar below is a genuine young person, matched to the
+  // gender the name actually reads as (never an animal, instrument, or
+  // random object standing in for a person), and never an elderly
+  // emoji — a few names had drifted to 👴/👵-style "old" avatars or
+  // outright mismatched genders, both fixed here. Genuinely ambiguous
+  // names get a neutral, positive avatar rather than a guess.
+  {name:'Charlie',emoji:'👨',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Wesley',emoji:'🧑‍🎓',bg:'linear-gradient(135deg,#9b59b6,#8e44ad)'},
   {name:'Benson',emoji:'👦',bg:'linear-gradient(135deg,#e67e22,#d35400)'},
-  {name:'Rahul',emoji:'🧔',bg:'linear-gradient(135deg,#e74c3c,#c0392b)'},
+  {name:'Rahul',emoji:'👱‍♂️',bg:'linear-gradient(135deg,#e74c3c,#c0392b)'},
   {name:'Anjali',emoji:'👩',bg:'linear-gradient(135deg,#ff6b9d,#c44569)'},
-  {name:'Neha',emoji:'💇',bg:'linear-gradient(135deg,#ff7979,#eb4d4b)'},
-  {name:'Nate',emoji:'🕶️',bg:'linear-gradient(135deg,#2ecc71,#27ae60)'},
-  {name:'Koshy',emoji:'👴',bg:'linear-gradient(135deg,#f39c12,#e67e22)'},
-  {name:'Meera',emoji:'🌸',bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Priya',emoji:'💃',bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Sanjay',emoji:'🎩',bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Johny',emoji:'🎸',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Neha',emoji:'👩‍🦱',bg:'linear-gradient(135deg,#ff7979,#eb4d4b)'},
+  {name:'Nate',emoji:'🙋‍♂️',bg:'linear-gradient(135deg,#2ecc71,#27ae60)'},
+  {name:'Koshy',emoji:'👨‍🦱',bg:'linear-gradient(135deg,#f39c12,#e67e22)'},
+  {name:'Meera',emoji:'👩‍🦰',bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Priya',emoji:'💁‍♀️',bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Sanjay',emoji:'🧑‍💼',bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Johny',emoji:'🙋‍♂️',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
   {name:'Vinod',emoji:'🧑',bg:'linear-gradient(135deg,#9b59b6,#8e44ad)'},
   // Newer additions.
-  {name:'Jean',emoji:'🧢',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Randall',emoji:'🧔',bg:'linear-gradient(135deg,#9b59b6,#8e44ad)'},
-  {name:'Rajesh',emoji:'🎩',bg:'linear-gradient(135deg,#e67e22,#d35400)'},
-  {name:'Stev',emoji:'👴',bg:'linear-gradient(135deg,#e74c3c,#c0392b)'},
-  {name:'Alok',emoji:'🕶️',bg:'linear-gradient(135deg,#2ecc71,#27ae60)'},
-  {name:'Jerin',emoji:'💃',bg:'linear-gradient(135deg,#ff6b9d,#c44569)'},
-  {name:'Binchu',emoji:'🎸',bg:'linear-gradient(135deg,#f39c12,#e67e22)'},
+  {name:'Jean',emoji:'🧑',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Randall',emoji:'👨',bg:'linear-gradient(135deg,#9b59b6,#8e44ad)'},
+  {name:'Rajesh',emoji:'🧑‍💼',bg:'linear-gradient(135deg,#e67e22,#d35400)'},
+  {name:'Stev',emoji:'👨',bg:'linear-gradient(135deg,#e74c3c,#c0392b)'},
+  {name:'Alok',emoji:'👱‍♂️',bg:'linear-gradient(135deg,#2ecc71,#27ae60)'},
+  {name:'Jerin',emoji:'🧑',bg:'linear-gradient(135deg,#ff6b9d,#c44569)'},
+  {name:'Binchu',emoji:'😊',bg:'linear-gradient(135deg,#f39c12,#e67e22)'},
   {name:'Ajai',emoji:'👨',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Peter',emoji:'🏀',bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Shyam',emoji:'🍵',bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Appu',emoji:'🌺',bg:'linear-gradient(135deg,#ff7979,#eb4d4b)'},
-  {name:'Anup',emoji:'🦊',bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Peter',emoji:'🧑',bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Shyam',emoji:'👨',bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Appu',emoji:'👦',bg:'linear-gradient(135deg,#ff7979,#eb4d4b)'},
+  {name:'Anup',emoji:'👨',bg:'linear-gradient(135deg,#00b894,#00a085)'},
   // Newest additions.
   {name:'Arun',emoji:'🧑‍💼',bg:'linear-gradient(135deg,#e67e22,#d35400)'},
   {name:'Vilphy',emoji:'😎',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Roji',emoji:'🙂',bg:'linear-gradient(135deg,#1abc9c,#16a085)'}
+  {name:'Roji',emoji:'🙂',bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  // Rebee — a young lady, given her own distinct look rather than
+  // reusing Anjali's/Priya's/etc, and a soft rose gradient to match.
+  {name:'Rebee',emoji:'🙋‍♀️',bg:'linear-gradient(135deg,#ff8fab,#e0648a)'}
 ];
 
 const SUITS=['♥','♠','♦','♣'];
