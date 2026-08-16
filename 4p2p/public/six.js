@@ -24,7 +24,7 @@ let isAutoReconnectAttempt6p = false;
 // player's choice carries over between tables instead of resetting.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = [...Array.from({length:10}, (_,i) => 'men'+(i+1)), ...Array.from({length:10}, (_,i) => 'ladies'+(i+1))];
+const ALL_AVATAR_KEYS = [...Array.from({length:10}, (_,i) => 'ladies'+(i+1)), ...Array.from({length:10}, (_,i) => 'men'+(i+1))];
 if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
 }

@@ -818,7 +818,7 @@ let mySeat = null;
 // returning player's choice carries over between every table.
 let myAvatar = '';
 try { myAvatar = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS_56 = [...Array.from({length:10}, (_,i) => 'men'+(i+1)), ...Array.from({length:10}, (_,i) => 'ladies'+(i+1))];
+const ALL_AVATAR_KEYS_56 = [...Array.from({length:10}, (_,i) => 'ladies'+(i+1)), ...Array.from({length:10}, (_,i) => 'men'+(i+1))];
 if (!myAvatar || !ALL_AVATAR_KEYS_56.includes(myAvatar)) {
   myAvatar = ALL_AVATAR_KEYS_56[Math.floor(Math.random() * ALL_AVATAR_KEYS_56.length)];
 }
