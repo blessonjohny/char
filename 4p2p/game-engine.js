@@ -505,8 +505,8 @@ class GameEngine {
     return this.seats.filter(s => s && !s.isBot).length;
   }
 
-  seatHuman(pos, name, playerId) {
-    this.seats[pos] = { name, isBot: false, connected: true, playerId, hand: [] };
+  seatHuman(pos, name, playerId, avatar) {
+    this.seats[pos] = { name, isBot: false, connected: true, playerId, hand: [], avatar: avatar || null };
   }
 
   seatBot(pos, name) {
@@ -535,13 +535,14 @@ class GameEngine {
   // A human taking over a bot's seat mid-game — inherits the bot's exact
   // current hand and state rather than starting fresh, since the round
   // may already be well underway. Fails if that seat isn't currently a bot.
-  replaceBot(pos, playerId, name) {
+  replaceBot(pos, playerId, name, avatar) {
     const seat = this.seats[pos];
     if (!seat || !seat.isBot) return false;
     seat.isBot = false;
     seat.connected = true;
     seat.playerId = playerId;
     seat.name = name;
+    seat.avatar = avatar || null;
     return true;
   }
 
@@ -554,7 +555,7 @@ class GameEngine {
   // nowhere to go even though that exact seat was sitting there idle.
   // This lets a new joiner step into any seat that's either a bot OR
   // simply disconnected, inheriting whatever hand/state is already there.
-  takeOverSeat(pos, playerId, name) {
+  takeOverSeat(pos, playerId, name, avatar) {
     const seat = this.seats[pos];
     if (!seat) return false;
     if (!seat.isBot && seat.connected) return false; // seat is a real, present human — not up for grabs
@@ -562,6 +563,7 @@ class GameEngine {
     seat.connected = true;
     seat.playerId = playerId;
     seat.name = name;
+    seat.avatar = avatar || null;
     return true;
   }
 
@@ -2613,7 +2615,8 @@ class GameEngine {
       seats: this.seats.map((s, i) => s ? {
         name: s.name, isBot: s.isBot, connected: s.connected,
         cardCount: s.hand.length,
-        hand: i === viewerPos ? s.hand : undefined
+        hand: i === viewerPos ? s.hand : undefined,
+        avatar: s.avatar || null
       } : null)
     };
   }

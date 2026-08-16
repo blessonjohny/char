@@ -983,6 +983,16 @@ let ADMIN_SECRET = process.env.ADMIN_SECRET || '5252';
 
 function newId() { return crypto.randomBytes(8).toString('hex'); }
 function newTableId() { return crypto.randomBytes(4).toString('hex').toUpperCase(); }
+// The avatar a player picks client-side ends up stored in seat data and later interpolated
+// straight into an <img src="..."> on every connected client's page - validating it against
+// the exact known set of real filenames here (rather than trusting whatever string arrives)
+// means a malicious client can never get an arbitrary value reflected into other players'
+// pages through this field.
+const VALID_AVATAR_KEYS = new Set([
+  ...Array.from({length:10}, (_,i) => 'men'+(i+1)),
+  ...Array.from({length:10}, (_,i) => 'ladies'+(i+1)),
+]);
+function sanitizeAvatarKey(k) { return (typeof k === 'string' && VALID_AVATAR_KEYS.has(k)) ? k : null; }
 
 // Seats a new joiner can step into beyond the fully-empty ones: real bot
 // seats, plus any seat left behind by a human who disconnected (still a
@@ -1007,7 +1017,7 @@ function joinableSeats(t) {
 // 1&2 — who they'd be teamed up with before committing to a seat, instead
 // of just picking a bare seat number blind.
 function seatSnapshot(t) {
-  return t.engine.seats.map((s, i) => s ? { pos: i, name: s.name, isBot: s.isBot, connected: s.connected, isHost: s.playerId === t.hostPlayerId } : null);
+  return t.engine.seats.map((s, i) => s ? { pos: i, name: s.name, isBot: s.isBot, connected: s.connected, isHost: s.playerId === t.hostPlayerId, avatar: s.avatar || null } : null);
 }
 
 // If every human has left/disconnected and only bots remain, there's no one
@@ -1249,7 +1259,7 @@ io.on('connection', (socket) => {
     socket.emit('adminPasswordChangeResult', { ok: true, newPassword: trimmed });
   });
 
-  socket.on('createTable', ({ name }) => {
+  socket.on('createTable', ({ name, avatar }) => {
     if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
       socket.emit('createBlocked', { maxRooms: roomCapMax });
       return;
@@ -1257,7 +1267,7 @@ io.on('connection', (socket) => {
     const id = newTableId();
     const engine = new GameEngine(id);
     playerId = newId();
-    engine.seatHuman(3, name || 'Player', playerId);
+    engine.seatHuman(3, name || 'Player', playerId, sanitizeAvatarKey(avatar));
     const t = {
       id, engine, name: name || 'Player', hostPlayerId: playerId,
       botFill: 3, createdAt: Date.now(), lastActivityAt: Date.now(),
@@ -1282,7 +1292,7 @@ io.on('connection', (socket) => {
     console.log(`[table ${id}] created by ${name}`);
   });
 
-  socket.on('joinTable', ({ tableId: reqTableId, name, playerId: existingPlayerId, code }) => {
+  socket.on('joinTable', ({ tableId: reqTableId, name, playerId: existingPlayerId, code, avatar }) => {
     // Reconnect path: known token pointing at a real, still-existing seat.
     if (existingPlayerId && playerIndex[existingPlayerId]) {
       const idx = playerIndex[existingPlayerId];
@@ -1334,7 +1344,7 @@ io.on('connection', (socket) => {
 
     if (!isPlaying) {
       // Table hasn't started — no approval needed, straight to picking a seat.
-      pendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player' };
+      pendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player', avatar: sanitizeAvatarKey(avatar) };
       socket.emit('chooseSeat', { tableId: reqTableId, openSeats, botSeats, disconnectedSeats, seats: seatSnapshot(t), canWatch: false, needsApproval: false });
       return;
     }
@@ -1349,7 +1359,7 @@ io.on('connection', (socket) => {
       socket.emit('joinError', { reason: 'table_full' });
       return;
     }
-    pendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player' };
+    pendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player', avatar: sanitizeAvatarKey(avatar) };
     socket.emit('chooseSeat', { tableId: reqTableId, openSeats, botSeats, disconnectedSeats, seats: seatSnapshot(t), canWatch: false, needsApproval: false });
     console.log(`[table ${reqTableId}] ${name} joined a table already in progress — no approval needed`);
   });
@@ -1436,11 +1446,11 @@ io.on('connection', (socket) => {
     if (choice.type === 'openSeat') {
       if (!t.engine.emptySeats().includes(pos)) { rejectClaim(t, pending, 'seat_taken'); return; }
       playerId = newId();
-      t.engine.seatHuman(pos, pending.name, playerId);
+      t.engine.seatHuman(pos, pending.name, playerId, pending.avatar);
     } else if (choice.type === 'replaceBot') {
       if (!t.engine.seats[pos] || !t.engine.seats[pos].isBot) { rejectClaim(t, pending, 'not_a_bot_seat'); return; }
       playerId = newId();
-      if (!t.engine.replaceBot(pos, playerId, pending.name)) { rejectClaim(t, pending, 'replace_failed'); return; }
+      if (!t.engine.replaceBot(pos, playerId, pending.name, pending.avatar)) { rejectClaim(t, pending, 'replace_failed'); return; }
     } else if (choice.type === 'takeOverSeat') {
       // Reclaiming a seat left behind by a disconnected human (or a bot —
       // this covers both, same as replaceBot but also for the orphaned-
@@ -1450,7 +1460,7 @@ io.on('connection', (socket) => {
       const seat = t.engine.seats[pos];
       const oldPlayerId = seat ? seat.playerId : null;
       playerId = newId();
-      if (!t.engine.takeOverSeat(pos, playerId, pending.name)) { rejectClaim(t, pending, 'replace_failed'); return; }
+      if (!t.engine.takeOverSeat(pos, playerId, pending.name, pending.avatar)) { rejectClaim(t, pending, 'replace_failed'); return; }
       if (oldPlayerId) delete playerIndex[oldPlayerId];
     } else {
       return;
