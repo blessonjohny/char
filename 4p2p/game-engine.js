@@ -2444,6 +2444,35 @@ class GameEngine {
           wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
             : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
             : trumps[trumps.length - 1];
+          // Going cheap here is only safe once there's no real chance of
+          // getting over-cut right back by someone still left to act
+          // this same trick. That risk isn't fixed -- it's read directly
+          // off how many times the LED suit (the one actually being cut,
+          // not the trump suit) has already been led this round:
+          // suitRepeat===0 means this is its first time out, so the odds
+          // another player is also already void in it (and holding a
+          // trump ready to cut) are genuinely low -- go cheap regardless
+          // of who's left to act. Once that suit has been led multiple
+          // times, though, players who followed it earlier have shown
+          // they hold it, narrowing down who's actually still void — and
+          // the more it's been led, the likelier it becomes that someone
+          // still to act this trick is void too and holding their own
+          // cut. On the actual last turn this never applies at all --
+          // nobody's left to over-cut regardless of any of this.
+          if (!isLast && suitRepeat >= 2 && tPts >= 2 && wtr.rank !== 'J') {
+            const jSeenTrump = this._isRankSeen(this.trumpSuit, 'J');
+            if (jSeenTrump) {
+              // The Jack's already accounted for, so nothing left can
+              // beat a 9 -- a genuinely safe upgrade, not a big spend.
+              const nine = trumps.find(c => c.rank === '9');
+              if (nine) wtr = nine;
+            } else {
+              // The Jack itself is still unaccounted for and could still
+              // be sitting with whoever's left to act -- worth committing
+              // our strongest trump to make sure this cut actually holds.
+              wtr = trumps[0];
+            }
+          }
         }
         return wtr;
       }
