@@ -4928,6 +4928,7 @@ function updateBadges() {
     const nameEl = document.getElementById('name' + slot);
     const avEl = document.getElementById('av' + slot);
     const playerPos = playerAtSlot(slot);
+    const isFolded = !!(latestServerState && latestServerState.foldedSeats && latestServerState.foldedSeats.includes(playerPos));
 
     if (bc) {
       let b = [];
@@ -4937,7 +4938,12 @@ function updateBadges() {
       // there was no dealer indicator anywhere on the seat at all. This
       // badge is the dependable one, visible the whole round regardless.
       if (playerPos === dealer) b.push("<span class='bdg bdg-d'>D</span>");
-      if (playerPos === bidder && bidder >= 0) b.push("<span class='bdg bdg-b'>B" + highestBid + '</span>');
+      if (playerPos === bidder && bidder >= 0) b.push("<span class='bdg bdg-b'>B" + (highestBid >= 29 ? 'THANI' : highestBid) + '</span>');
+      // Thani's folded seat -- sits out the whole round, never plays a
+      // card. Their card count stays static the entire time, which would
+      // otherwise look like a stuck/frozen player rather than what it
+      // actually is.
+      if (isFolded) b.push("<span class='bdg' style='background:#4a1010;color:#e08080' title='Folded out of this round -- their partner called Thani'>FOLDED</span>");
       // "Q" penalty marks: a shame counter that sticks to a player across
       // championships until they personally call and win a bid. Kept in
       // the same badges row the dealer/bidder chips already use (so it
@@ -4961,6 +4967,7 @@ function updateBadges() {
     // just sitting permanently highlighted red the whole round.
     if (avEl) {
       avEl.classList.toggle('turn-active', playerPos === currentPlayer);
+      avEl.style.opacity = isFolded ? '0.4' : '';
     }
 
     if (nameEl) {

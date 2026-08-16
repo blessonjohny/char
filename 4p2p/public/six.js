@@ -1165,20 +1165,22 @@ function showQMarkEventSix(names, direction) {
 
 function renderSeats(state) {
   detectQMarkChangesSix(state);
+  const folded = state.foldedSeats || [];
   for (let pos = 0; pos < 6; pos++) {
     const slot = slotFor(pos);
     const seat = state.seats[pos];
     const av = $('av' + slot), nm = $('nm' + slot), cc = $('cc' + slot), wrap = $('seatWrap' + slot);
     if (!seat) { av.textContent = ''; nm.textContent = ''; cc.textContent = ''; wrap.style.opacity = '0.25'; continue; }
-    wrap.style.opacity = '1';
+    const isFolded = folded.includes(pos);
+    wrap.style.opacity = isFolded ? '0.4' : '1';
     const qCount = (state.qMarks && state.qMarks[seat.name]) || 0;
-    av.textContent = qCount > 0 ? '😭' : (seat.isBot ? '🤖' : (pos === MY_POS ? '😊' : '👤'));
+    av.textContent = isFolded ? '🙈' : (qCount > 0 ? '😭' : (seat.isBot ? '🤖' : (pos === MY_POS ? '😊' : '👤')));
     nm.textContent = seat.name + (pos === MY_POS ? ' (You)' : '');
-    cc.textContent = seat.cardCount + 'c';
+    cc.textContent = isFolded ? 'Folded (Thani)' : (seat.cardCount + 'c');
     wrap.classList.toggle('on', state.currentPlayer === pos && (state.phase === 'bidding1' || state.phase === 'play' || state.phase === 'choosingTrump'));
     let badge = '';
     if (pos === state.dealer) badge = 'D';
-    if (pos === state.bidder && state.highestBid > 0) badge = 'B' + state.highestBid;
+    if (pos === state.bidder && state.highestBid > 0) badge = 'B' + (state.highestBid >= 29 ? 'THANI' : state.highestBid);
     let bdgEl = wrap.querySelector('.bdg');
     if (badge) {
       if (!bdgEl) { bdgEl = document.createElement('div'); bdgEl.className = 'bdg'; av.appendChild(bdgEl); }
@@ -1190,7 +1192,7 @@ function renderSeats(state) {
     // it. The avatar itself already swapped to a loser face above; this
     // badge spells out the actual count.
     let qEl = wrap.querySelector('.bdg-q');
-    if (qCount > 0) {
+    if (qCount > 0 && !isFolded) {
       if (!qEl) { qEl = document.createElement('div'); qEl.className = 'bdg-q'; av.appendChild(qEl); }
       qEl.textContent = qCount + ' Qunique' + (qCount > 1 ? 's' : '');
       qEl.title = qCount + ' Qunique — must personally call and win a bid to shed one';
@@ -1542,6 +1544,18 @@ function showBidPanel(state) {
     btn.addEventListener('click', () => showBidConfirm(state, b, false));
     btns.appendChild(btn);
   }
+  // THANI -- the last, highest bid option, beating any numeric bid.
+  // Going it alone: both other teammates fold out of the round entirely
+  // (3-a-side teams here, so two fold, not just one), caller leads the
+  // first trick immediately, no trump at all, and needs to win every
+  // single trick (not points) to succeed. See callThani() in
+  // game-engine-6p.js for the full rule.
+  const thaniBtn = document.createElement('button');
+  thaniBtn.className = 'bid-btn';
+  thaniBtn.style.cssText = 'background:linear-gradient(135deg,#8b2020,#4a0f0f);border-color:#c94f4f';
+  thaniBtn.textContent = '🔥 THANI (Solo)';
+  thaniBtn.addEventListener('click', () => showBidConfirm(state, 'THANI', false));
+  btns.appendChild(thaniBtn);
   const mySeat = state.seats[MY_POS];
   const hand = (mySeat && mySeat.hand) || [];
   const sorted = hand.slice().sort((a, b) => SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit) || RANK_ORDER[b.rank] - RANK_ORDER[a.rank]);
@@ -1554,13 +1568,21 @@ function showBidPanel(state) {
 // registered, with real match points on the line.
 function showBidConfirm(state, bid, isPass) {
   const alreadyHighest = state.bidder === MY_POS;
-  $('bidTitle').textContent = isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Bid';
-  $('bidText').innerHTML = isPass
-    ? (alreadyHighest
-        ? `You'll <b>stay at your bid of ${state.highestBid}</b> — you're already the highest bidder, this just locks it in.`
-        : `You are about to <b>PASS</b>.<br>Current highest: <b style="color:var(--accent)">${state.highestBid}</b>`)
-    : `You are about to bid: <b style="color:var(--accent);font-size:1.8rem">${bid}</b>` +
-      (state.highestBid > 0 ? `<br>Raising from: <b>${state.highestBid}</b> by ${state.seats[state.bidder] ? state.seats[state.bidder].name : '—'}` : '');
+  const isThani = bid === 'THANI';
+  $('bidTitle').textContent = isThani ? 'Confirm THANI — Going Solo' : (isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Bid');
+  if (isThani) {
+    $('bidText').innerHTML = "You are about to call <b style='color:#e05555;font-size:1.6rem'>THANI</b> — going it completely alone.<br><br>" +
+      "<b>Both your teammates fold out of this round</b> — neither will play a single card. " +
+      "You'll lead the very first trick immediately, and you must win <b>every single trick</b> yourself to succeed — not points, tricks. No trump this round at all.<br><br>" +
+      "<b style='color:var(--success)'>+3</b> if you win everything. <b style='color:#e05555'>-4</b> if you lose even one trick.";
+  } else {
+    $('bidText').innerHTML = isPass
+      ? (alreadyHighest
+          ? `You'll <b>stay at your bid of ${state.highestBid}</b> — you're already the highest bidder, this just locks it in.`
+          : `You are about to <b>PASS</b>.<br>Current highest: <b style="color:var(--accent)">${state.highestBid}</b>`)
+      : `You are about to bid: <b style="color:var(--accent);font-size:1.8rem">${bid}</b>` +
+        (state.highestBid > 0 ? `<br>Raising from: <b>${state.highestBid}</b> by ${state.seats[state.bidder] ? state.seats[state.bidder].name : '—'}` : '');
+  }
   const btns = $('bidButtons');
   btns.innerHTML = '';
   btns.className = 'bid-grid';
@@ -1579,10 +1601,11 @@ function showBidConfirm(state, bid, isPass) {
   confirmBtn.style.background = 'var(--success, #2ecc71)';
   confirmBtn.style.color = '#0a1628';
   confirmBtn.style.fontWeight = '800';
-  confirmBtn.textContent = isPass ? (alreadyHighest ? `✓ Stay at ${state.highestBid}` : '✓ Confirm Pass') : `✓ Confirm Bid ${bid}`;
+  confirmBtn.textContent = isThani ? '🔥 Confirm THANI' : (isPass ? (alreadyHighest ? `✓ Stay at ${state.highestBid}` : '✓ Confirm Pass') : `✓ Confirm Bid ${bid}`);
   confirmBtn.addEventListener('click', () => {
     $('bidOverlay').classList.remove('on');
-    socket.emit('sixp_placeBid', { bid: isPass ? 0 : bid });
+    if (isThani) socket.emit('sixp_callThani');
+    else socket.emit('sixp_placeBid', { bid: isPass ? 0 : bid });
   });
   btns.appendChild(confirmBtn);
 }
