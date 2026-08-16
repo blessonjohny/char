@@ -5035,6 +5035,31 @@ function updateBidProximityColors() {
     return;
   }
 
+  // Thani has no numeric bid to be "close to" at all -- highestBid is
+  // deliberately set to 29 (above the 28-point maximum, on purpose, so
+  // it sorts as the biggest possible bid and falls in the right scoring
+  // tier), which makes every calculation below it nonsensical: needed
+  // points would never be satisfiable, proximity percentages would never
+  // reach "won" even at a full sweep. Thani's real win condition is
+  // tricks, not points, and isn't proximity-bar material at all -- treat
+  // it the same as the "no active bid yet" case above rather than run
+  // any of that math against a value it was never meant for.
+  if (typeof latestServerState !== 'undefined' && latestServerState && latestServerState.thaniCaller >= 0) {
+    yourScoreEl.style.color = '#fff';
+    yourScoreEl.style.textShadow = '0 0 5px rgba(255,255,255,0.3)';
+    oppScoreEl.style.color = '#fff';
+    oppScoreEl.style.textShadow = '0 0 5px rgba(255,255,255,0.3)';
+    if (yourBox) {
+      yourBox.classList.remove('bid-winning-border', 'bid-losing-border', 'winning', 'losing', 'tie', 'int-1', 'int-2', 'int-3', 'int-4', 'int-5');
+      yourBox.style.borderColor = 'rgba(255,255,255,0.3)';
+    }
+    if (oppBox) {
+      oppBox.classList.remove('bid-winning-border', 'bid-losing-border', 'winning', 'losing', 'tie', 'int-1', 'int-2', 'int-3', 'int-4', 'int-5');
+      oppBox.style.borderColor = 'rgba(255,255,255,0.3)';
+    }
+    return;
+  }
+
   const bT = getTeam(bidder);
   let effBid = highestBid;
   const totalPoints = teamPoints[0] + teamPoints[1];
@@ -5142,7 +5167,22 @@ function updateInfo() {
     } else if (phase === 'play1' || phase === 'play2') {
       const bT = getTeam(bidder);
       let effBid = highestBid;
-      if (teamIdx === bT) {
+      // Thani has no numeric bid to compare points against at all --
+      // see the matching fix in updateBidProximityColors() above for the
+      // full reasoning (effBid=29 is deliberately unreachable by points
+      // alone, which breaks this exact math: the bidding team could
+      // never show as "round-won" even mid-sweep, and the defending team
+      // would incorrectly show it almost always). Thani's real win
+      // condition is tricks, not points -- read it directly from
+      // lastTrick instead, which is exactly what the server itself uses
+      // to decide success once the round actually ends.
+      if (typeof latestServerState !== 'undefined' && latestServerState && latestServerState.thaniCaller >= 0) {
+        const caller = latestServerState.thaniCaller;
+        const callerTeam = getTeam(caller);
+        const stillOnTrack = latestServerState.lastTrick ? latestServerState.lastTrick.winner === caller : true;
+        if (teamIdx === callerTeam && stillOnTrack) el.classList.add('round-won');
+        else if (teamIdx !== callerTeam && !stillOnTrack) el.classList.add('round-won');
+      } else if (teamIdx === bT) {
         if (teamPoints[teamIdx] >= effBid) {
           el.classList.add('round-won');
         }
@@ -5161,7 +5201,17 @@ function updateInfo() {
 
   const tr = document.getElementById('trumpReveal');
   if (tr) {
-    if (trumpExposed) {
+    const thaniActive = !!(SERVER_MODE && latestServerState && latestServerState.thaniCaller >= 0);
+    if (thaniActive) {
+      // Thani has no trump at all, permanently, for the whole round --
+      // not "still hidden," not "about to be exposed," genuinely none.
+      // Making this its own explicit state (rather than just falling
+      // into the normal trumpExposed===false branch, which reads as
+      // "hidden, might get exposed later") removes any ambiguity about
+      // whether trump could still come into play this round.
+      tr.innerHTML = '🔥 <span style="color:#e05555;font-weight:700">THANI — No Trump This Round</span>';
+      tr.classList.remove('trump-active');
+    } else if (trumpExposed) {
       const isRedSuit = (trumpSuit === '♥' || trumpSuit === '♦');
       const suitColor = isRedSuit ? '#d32f2f' : '#fff';
       const darkClass = isRedSuit ? '' : ' dark-suit';
@@ -5177,7 +5227,11 @@ function updateInfo() {
     // announcement — so server-mode games never got any toast/log at all
     // when trump flipped exposed, even though it correctly became visible
     // in the banner above. Announce it exactly once per exposure here.
-    if (SERVER_MODE) {
+    // Explicitly excluded during Thani even though trumpExposed should
+    // never actually be true during one -- belt and suspenders, since a
+    // stray announcement here would be actively misleading given trump
+    // isn't even in play this round at all.
+    if (SERVER_MODE && !thaniActive) {
       if (trumpExposed && !serverLastAnnouncedTrumpExposed) {
         showToast('⚡ Trump exposed: ' + trumpSuit + '!', 'win', 2200);
         log('Trump exposed! ' + trumpSuit + ' is active.', 'win');
@@ -5323,7 +5377,8 @@ function updateInfo() {
     let newBidder;
     if (bidder >= 0) {
       const b = playerAt(bidder);
-      newBidder = (bidder === MY_POS ? 'You' : (b ? b.name : '—')) + ' ' + highestBid;
+      const bidLabel = highestBid >= 29 ? 'THANI' : highestBid;
+      newBidder = (bidder === MY_POS ? 'You' : (b ? b.name : '—')) + ' ' + bidLabel;
     } else {
       newBidder = '—';
     }
@@ -12290,7 +12345,15 @@ function generateRoundAnalysisHTML() {
   const handQuality = assessHandQuality(roundHandSnapshot, roundBidSnapshot);
 
   // Verdict
-  const roundWon = isYourBid ? (yourRoundPoints >= roundBidSnapshot.highestBid) : (yourRoundPoints > oppRoundPoints);
+  // Thani's real outcome is tricks, not points -- roundBidSnapshot.
+  // highestBid is deliberately 29 (unreachable by points alone), so the
+  // normal points-based recompute below would always incorrectly read
+  // as a loss for the bidder even after a genuine full sweep. Use the
+  // server's own captured verdict for Thani instead (see where
+  // roundBidSnapshot.isThani/bidderWon get set in applyServerState).
+  const roundWon = roundBidSnapshot.isThani
+    ? (isYourBid ? roundBidSnapshot.bidderWon : !roundBidSnapshot.bidderWon)
+    : (isYourBid ? (yourRoundPoints >= roundBidSnapshot.highestBid) : (yourRoundPoints > oppRoundPoints));
   const verdictEmoji = roundWon ? '🏆' : '💔';
   const verdictTitle = roundWon ? (isYourBid ? 'You MADE the Bid!' : 'You DEFEATED the Bid!') : (isYourBid ? 'You FAILED the Bid' : 'Bidder Made It');
   const verdictColor = roundWon ? 'var(--success)' : 'var(--danger)';
@@ -12302,7 +12365,7 @@ function generateRoundAnalysisHTML() {
   html += '<h3 style="color:' + verdictColor + '">' + verdictEmoji + ' ' + verdictTitle + '</h3>';
   html += '<p>Your Team: <b style="color:var(--success)">' + yourRoundPoints + '</b> pts | ';
   html += 'Opponents: <b style="color:var(--danger)">' + oppRoundPoints + '</b> pts | ';
-  html += 'Bid: <b style="color:var(--accent)">' + roundBidSnapshot.highestBid + '</b> by ' + (isYourBid ? 'You' : 'Opponents') + '</p>';
+  html += 'Bid: <b style="color:var(--accent)">' + (roundBidSnapshot.isThani ? 'THANI' : roundBidSnapshot.highestBid) + '</b> by ' + (isYourBid ? 'You' : 'Opponents') + '</p>';
   html += '</div>';
 
   // Hand Quality Section
@@ -12477,7 +12540,7 @@ function assessHandQuality(hand, bidInfo) {
       else if (score >= 20) analysis += 'Borderline for bidding — consider passing if partner is strong.';
       else analysis += 'Too weak to bid. Passing was the right call.';
     } else {
-      analysis += 'You were defending against a ' + bidInfo.highestBid + ' bid.';
+      analysis += 'You were defending against a ' + (bidInfo.isThani ? 'THANI' : bidInfo.highestBid) + ' bid.';
     }
   }
 
@@ -12664,13 +12727,17 @@ function generateTacticalAdvice(tricks, yourTeam, bidInfo, handQuality) {
   let advice = '';
 
   if (isBidTeam) {
-    if (yourPoints >= bidInfo.highestBid) {
+    const madeIt = bidInfo.isThani ? bidInfo.bidderWon : (yourPoints >= bidInfo.highestBid);
+    if (madeIt) {
       advice += '✅ You made your bid! ';
-      if (yourWins < 4) advice += 'Despite winning fewer tricks, you captured the right points. Well done on point targeting.';
+      if (bidInfo.isThani) advice += 'A full solo sweep — every single trick, alone. Excellent.';
+      else if (yourWins < 4) advice += 'Despite winning fewer tricks, you captured the right points. Well done on point targeting.';
       else advice += 'Strong performance with both tricks and points.';
     } else {
       advice += '❌ You failed the bid. ';
-      if (handQuality.label === 'Weak' || handQuality.label === 'Fair') {
+      if (bidInfo.isThani) {
+        advice += 'Thani needs every single trick with no help from your partner — losing even one ends it immediately.';
+      } else if (handQuality.label === 'Weak' || handQuality.label === 'Fair') {
         advice += 'Your hand was not strong enough for this bid. In future, be more conservative with bidding when you lack trump and high cards.';
       } else if (yourWins < 3) {
         advice += 'You won very few tricks. Consider leading more aggressively to capture control early.';
@@ -12679,14 +12746,21 @@ function generateTacticalAdvice(tricks, yourTeam, bidInfo, handQuality) {
       }
     }
   } else {
-    if (yourPoints > oppPoints) {
+    const defeated = bidInfo.isThani ? !bidInfo.bidderWon : (yourPoints > oppPoints);
+    if (defeated) {
       advice += '✅ You defeated the bid! ';
-      if (yourWins >= 5) advice += 'Excellent defense — you took control and denied the bidder their points.';
+      if (bidInfo.isThani) advice += 'You took at least one trick away from a solo Thani — that alone was enough to end it.';
+      else if (yourWins >= 5) advice += 'Excellent defense — you took control and denied the bidder their points.';
       else advice += 'Good defensive play. You prevented the bidder from reaching their target.';
     } else {
       advice += '❌ The bidder made their bid. ';
-      if (yourWins < 3) advice += 'You need to be more aggressive in defense. Try to capture early tricks and force the bidder to play their trump.';
-      else advice += 'You won some tricks but let too many point cards through. Focus on taking tricks that contain J or 9.';
+      if (bidInfo.isThani) {
+        advice += 'The Thani caller swept every single trick, alone. Tough to stop once they have full control of the suits.';
+      } else if (yourWins < 3) {
+        advice += 'You need to be more aggressive in defense. Try to capture early tricks and force the bidder to play their trump.';
+      } else {
+        advice += 'You won some tricks but let too many point cards through. Focus on taking tricks that contain J or 9.';
+      }
     }
   }
 
@@ -14169,8 +14243,9 @@ function applyServerState(state) {
       state.bidder >= 0 && state.round !== lastAnnouncedHonorsRound) {
     lastAnnouncedHonorsRound = state.round;
     const bidderName = state.bidder === MY_POS ? 'You' : relLabel(state.bidder);
-    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + state.highestBid, 'win', 3200);
-    log('👑 Honors called — bid of ' + state.highestBid + ' by ' + bidderName + '. Win pays double, lose costs double.', 'win');
+    const bidLabel = state.highestBid >= 29 ? 'THANI' : state.highestBid;
+    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + bidLabel, 'win', 3200);
+    log('👑 Honors called — bid of ' + bidLabel + ' by ' + bidderName + '. Win pays double, lose costs double.', 'win');
   }
   if (typeof state.learningPulseCount === 'number' && state.learningPulseCount > lastSeenLearningPulse) {
     if (lastSeenLearningPulse >= 0) { // skip the very first state (would fire on join with stale history)
@@ -14417,6 +14492,18 @@ function applyServerState(state) {
     const isYourBid = (getTeam(r.bidder) === yourTeam);
     const champResult = state.lastChampionshipResult;
     let roundEndPanelShown = false;
+
+    // Thani's real outcome is tricks, not points -- roundBidSnapshot's
+    // own highestBid (29, deliberately unreachable by points alone)
+    // makes any points-based win/loss recompute against it meaningless.
+    // Capture the server's own authoritative verdict here, once it's
+    // actually known, so anything using this snapshot later (like the
+    // optional "Analyze Round" screen) reflects the true result instead
+    // of quietly recomputing a wrong one from points.
+    if (roundBidSnapshot) {
+      roundBidSnapshot.isThani = r.thani === true;
+      roundBidSnapshot.bidderWon = r.bidderWon;
+    }
 
     // The round can end on the very last trick, whose own 2s-hold +
     // fly-to-winner animation may still be playing when this arrives.

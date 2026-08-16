@@ -964,7 +964,7 @@ function applyState(state) {
   $('dealerDisplay').textContent = state.dealer === MY_POS ? 'You' : (dealerSeat ? dealerSeat.name : '—');
   const bidderSeat = state.bidder >= 0 ? state.seats[state.bidder] : null;
   $('bidderDisplay').textContent = bidderSeat
-    ? (state.bidder === MY_POS ? 'You' : bidderSeat.name) + (state.highestBid > 0 ? ' (' + state.highestBid + ')' : '')
+    ? (state.bidder === MY_POS ? 'You' : bidderSeat.name) + (state.highestBid > 0 ? ' (' + (state.highestBid >= 29 ? 'THANI' : state.highestBid) + ')' : '')
     : '—';
   {
     const tp = $('teamPointsDisplay');
@@ -1031,7 +1031,7 @@ function applyState(state) {
       state.round !== lastAnnouncedHonorsRound) {
     lastAnnouncedHonorsRound = state.round;
     const bidderName = state.bidder === MY_POS ? 'You' : sixpRelLabel(state.bidder, state.seats);
-    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + state.highestBid, 'win', 3200);
+    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + (state.highestBid >= 29 ? 'THANI' : state.highestBid), 'win', 3200);
   }
   if (state.phase === 'bidding1' && state.currentPlayer === MY_POS) showBidPanel(state);
   else $('bidOverlay').classList.remove('on');
@@ -1678,7 +1678,7 @@ function showRoundEnd(state) {
   $('roundEndTitle').textContent = myTeamWon ? '🎉 Your Team Won This Round!' : '😢 Your Team Lost This Round';
   $('roundEndTitle').style.color = myTeamWon ? 'var(--success)' : 'var(--danger)';
   const bidderName = state.seats[r.bidder] ? state.seats[r.bidder].name : ('Seat ' + r.bidder);
-  let body = `${bidderName} bid ${r.highestBid} — ${r.made ? 'made it' : 'fell short'}.<br>Team points: ${r.teamPoints[0]} - ${r.teamPoints[1]}<br><b style="color:${myTeamWon ? 'var(--success)' : 'var(--danger)'}">${myTeamWon ? '+' : '-'}${r.pts} match points for your team</b>`;
+  let body = `${bidderName} bid ${r.thani ? 'THANI' : r.highestBid} — ${r.made ? 'made it' : 'fell short'}.<br>Team points: ${r.teamPoints[0]} - ${r.teamPoints[1]}<br><b style="color:${myTeamWon ? 'var(--success)' : 'var(--danger)'}">${myTeamWon ? '+' : '-'}${r.pts} match points for your team</b>`;
   if (!IS_HOST) {
     body += `<br><br><span style="color:var(--text-secondary);font-size:0.8rem">⏳ Waiting for the host to start the next round...</span>`;
   }
