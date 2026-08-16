@@ -2454,12 +2454,25 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 .lobby-hdr{background:rgba(233,185,73,0.04);border-bottom:1px solid rgba(233,185,73,0.12)}
 /* The lobby cards (Your Name / Host / Join / Players) were left stacked at
    the top of .lobby-body with all the remaining vertical space just sitting
-   empty below them. Centering the body as a flex column fixes that while
-   overflow-y:auto (already set on .lobby-body) still lets it scroll on
-   short screens where a card is genuinely taller than the viewport. */
-.lobby-body{display:flex;flex-direction:column;justify-content:center}
+   empty below them on short cards -- but justify-content:center on the
+   scrollable flex container is a well-known trap the moment a card grows
+   TALLER than the viewport (which the Your Name card now regularly does,
+   between the 20-portrait avatar picker and the invite button added since
+   this was written): centering overflowing flex content pushes its top
+   half above the scrollable area's own reachable range in most mobile
+   browsers, not just "off-screen until you scroll up" -- there's no
+   negative scroll position to reach it, so the heading and invite banner
+   at the top of the card become genuinely unreachable, not just hidden
+   until scrolled to. margin:auto on the card itself (removing
+   justify-content:center from the parent) gets the identical "center it
+   if there's room to spare" result for short cards, but degrades
+   correctly for a tall one instead: with no extra space to distribute,
+   the card simply starts flush at the scrollable top, exactly where
+   normal scrolling can already reach it.
+*/
+.lobby-body{display:flex;flex-direction:column}
 .lobby-card{border-radius:16px;border:1.5px solid rgba(233,185,73,0.14);
-  background:linear-gradient(170deg,#10231C,#0D1D17)}
+  background:linear-gradient(170deg,#10231C,#0D1D17);margin-top:auto;margin-bottom:auto}
 .player-row{border-radius:10px;background:rgba(255,255,255,0.035)}
 
 /* ---------- Buttons: royal-blue chrome family ----------
@@ -3526,7 +3539,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   window.addEventListener('DOMContentLoaded', () => {
     const tag = document.createElement('div');
     tag.textContent = window.K28_BUILD_TAG;
-    tag.style.cssText = 'position:fixed;bottom:2px;left:2px;font-size:8px;color:rgba(255,255,255,0.25);z-index:9999;pointer-events:none;font-family:monospace';
+    tag.style.cssText = 'position:fixed;top:2px;left:2px;font-size:8px;color:rgba(255,255,255,0.25);z-index:9999;pointer-events:none;font-family:monospace';
     document.body.appendChild(tag);
   });
 </script>
