@@ -84,6 +84,16 @@ button{font-family:inherit;cursor:pointer}
 .hero-avatar-face.hero-avatar-sad{display:none}
 .av.has-q .hero-avatar-face.hero-avatar-normal{display:none}
 .av.has-q .hero-avatar-face.hero-avatar-sad{display:block}
+/* Matches the 4-player table's own Qunique treatment exactly, not just
+   the sad-image swap above -- a grayscale/darken filter on the whole
+   avatar plus a semi-opaque dark overlay with a crying face on top of
+   everything. */
+.av.has-q{filter:grayscale(0.7) brightness(0.75)}
+.av.has-q::after{
+  content:'😭';position:absolute;inset:0;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:1.15rem;
+  background:rgba(20,10,15,0.55);filter:none;
+}
 h1{font-size:1.7rem;margin:0 0 4px;background:linear-gradient(135deg,#f4c430,#e6a817);-webkit-background-clip:text;background-clip:text;color:transparent}
 .subtitle{color:var(--text-secondary);font-size:0.8rem;margin-bottom:24px}
 .btn{padding:14px 20px;border-radius:12px;border:none;font-weight:700;font-size:0.95rem;width:100%;max-width:320px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px}
