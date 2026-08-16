@@ -3036,7 +3036,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <p>See public rooms below or enter a code manually</p>
       <div id="publicRoomsSection" style="margin-bottom:12px">
         <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px">🌐 Public Rooms (auto-discovering...)</div>
-        <div id="publicRoomsList" style="max-height:150px;overflow-y:auto"></div>
+        <div id="publicRoomsList" style="max-height:52vh;overflow-y:auto"></div>
         <div id="publicRoomsStatus" style="font-size:0.65rem;color:var(--text-secondary);text-align:center;margin-top:4px">Scanning for active rooms...</div>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px">
@@ -3092,9 +3092,23 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <!-- ===== TOPBAR ===== -->
 <div class="topbar" id="topBar">
   <div class="topbar-main">
-    <div class="score-box compact" id="yourScoreBox" style="justify-self:start"><span class="slabel">YOU</span><span class="sval" id="yourScore">6</span><span class="q-total-badge" id="yourQTotal" style="display:none" title="Total Qunique acquired this game (never decreases when shed)">0Q</span></div>
+    <!-- Q-total badges now sit as standalone siblings just outside their
+         own score circle, toward the center of the bar, rather than
+         crammed inside the fixed 50px clay-chip circle alongside the
+         label and score number -- there simply wasn't room in there for
+         a third stacked line without it looking squeezed. Your own
+         badge sits to the RIGHT of your circle; the opponent's sits to
+         the LEFT of theirs -- both lean toward center, framing the
+         trump display symmetrically instead of hugging the outer edges. -->
+    <div style="display:flex;align-items:center;gap:4px;justify-self:start">
+      <div class="score-box compact" id="yourScoreBox"><span class="slabel">YOU</span><span class="sval" id="yourScore">6</span></div>
+      <span class="q-total-badge" id="yourQTotal" style="display:none" title="Total Qunique acquired this game (never decreases when shed)">0Q</span>
+    </div>
     <div class="trump-chip" id="trumpReveal" style="justify-self:center">🎯 Hidden</div>
-    <div class="score-box compact" id="oppScoreBox" style="justify-self:end"><span class="slabel">OPP</span><span class="sval" id="oppScore">6</span><span class="q-total-badge" id="oppQTotal" style="display:none" title="Total Qunique acquired this game (never decreases when shed)">0Q</span></div>
+    <div style="display:flex;align-items:center;gap:4px;justify-self:end">
+      <span class="q-total-badge" id="oppQTotal" style="display:none" title="Total Qunique acquired this game (never decreases when shed)">0Q</span>
+      <div class="score-box compact" id="oppScoreBox"><span class="slabel">OPP</span><span class="sval" id="oppScore">6</span></div>
+    </div>
     <div class="topbar-actions" style="grid-column:1/-1">
       <button class="icon-btn" id="btnLog">📋</button>
       <button class="icon-btn" id="btnBrainGame">🧠</button>
@@ -5427,9 +5441,17 @@ function updateInfo() {
     }
   }
 
-  // Cumulative Qunique totals, summed per team to match the team score
-  // shown right next to them - this count only ever grows across the
-  // whole game, even after a Q gets shed by winning a bid.
+  // Cumulative Qunique totals, one count per TEAM (not summed per
+  // player) to match the team score shown right next to them - this
+  // count only ever grows across the whole game, even after a Q gets
+  // shed by winning a bid. qTotalEver is tracked per player name, but a
+  // shutout always increments every teammate on the losing side
+  // together for that one single event and is never decremented
+  // individually afterward -- so both teammates' own totals are always
+  // exactly the same number, not two separate tallies to add up. Taking
+  // the max (rather than assuming they're always in sync) is just a
+  // safety margin for edge cases like a mid-game seat replacement,
+  // without ever risking an undercount.
   {
     const qTotals = (latestServerState && latestServerState.qTotalEver) || {};
     const seatsNow = (latestServerState && latestServerState.seats) || [];
@@ -5438,7 +5460,7 @@ function updateInfo() {
       const seat = seatsNow[p];
       if (!seat) continue;
       const q = qTotals[seat.name] || 0;
-      if (getTeam(p) === yourTeam) yourQTotal += q; else oppQTotal += q;
+      if (getTeam(p) === yourTeam) yourQTotal = Math.max(yourQTotal, q); else oppQTotal = Math.max(oppQTotal, q);
     }
     const yourQEl = document.getElementById('yourQTotal');
     const oppQEl = document.getElementById('oppQTotal');
@@ -14033,9 +14055,9 @@ function renderServerRoomList(rooms) {
   list.innerHTML = rooms.map(r => {
     let tag;
     if (r.isPlaying) {
-      tag = `<span class="p-tag" style="background:rgba(220,68,68,0.15);color:#f87171;border:1px solid rgba(248,113,113,0.3)">🎮 Playing</span>`;
+      tag = `<span class="p-tag" style="background:rgba(220,68,68,0.15);color:#f87171;border:1px solid rgba(248,113,113,0.3);font-size:0.54rem;padding:1px 5px;white-space:nowrap;flex-shrink:0">🎮 Playing</span>`;
     } else {
-      tag = `<span class="p-tag tag-waiting">${r.players}/4 · Lobby</span>`;
+      tag = `<span class="p-tag tag-waiting" style="font-size:0.54rem;padding:1px 5px;white-space:nowrap;flex-shrink:0">${r.players}/4 · Lobby</span>`;
     }
     let sub = '';
     if (r.isPlaying) {
@@ -14043,12 +14065,12 @@ function renderServerRoomList(rooms) {
       else sub = 'Full — watch only';
       if (r.spectators > 0) sub += (sub ? ' · ' : '') + r.spectators + ' watching';
     }
-    return `<div class="player-row" style="cursor:pointer" onclick="joinTableOnServer('${r.tableId}', MY_NAME)">` +
-      `<div class="p-avatar" style="background:linear-gradient(135deg,#4a90d9,#2a5a9a)">&#x1F3AE;</div>` +
-      `<div style="flex:1"><div class="p-name">${r.name}'s Table</div>` +
-      (sub ? `<div style="font-size:0.65rem;color:var(--text-secondary)">${sub}</div>` : '') +
+    return `<div class="player-row" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:4px" onclick="joinTableOnServer('${r.tableId}', MY_NAME)">` +
+      `<div class="p-avatar" style="background:linear-gradient(135deg,#4a90d9,#2a5a9a);width:24px;height:24px;font-size:0.75rem;flex-shrink:0">&#x1F3AE;</div>` +
+      `<div style="flex:1;min-width:0"><div class="p-name" style="font-size:0.72rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}'s Table</div>` +
+      (sub ? `<div style="font-size:0.56rem;color:var(--text-secondary);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub}</div>` : '') +
       `</div>${tag}` +
-      `<button class="btn btn-primary" style="padding:6px 14px;font-size:0.75rem;margin-left:8px" onclick="event.stopPropagation();joinTableOnServer('${r.tableId}', MY_NAME)">JOIN</button>` +
+      `<button class="btn btn-primary" style="padding:3px 9px;font-size:0.62rem;margin-left:4px;flex-shrink:0" onclick="event.stopPropagation();joinTableOnServer('${r.tableId}', MY_NAME)">JOIN</button>` +
       `</div>`;
   }).join('');
   if (status) status.textContent = rooms.length + ' room(s) available';
