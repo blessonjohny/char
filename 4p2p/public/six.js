@@ -489,8 +489,15 @@ function updateTableClock() {
   }
   sixpClockLastHourMark = hourMark;
 }
-updateTableClock();
-setInterval(updateTableClock, 1000);
+// The vintage clock face has been removed from the table (replaced by a plain wooden-rail
+// oval matching the 4-player table's design) - disabling its driver here rather than tracing
+// through every downstream function it calls (weather fetch, city click wiring, complications,
+// hand rotation) is the safe way to retire it: those functions were written assuming the
+// clock's DOM elements exist, and several touch the DOM before their own internal null-checks
+// would catch a missing element. Not calling them at all avoids relying on every one of those
+// checks being airtight.
+// updateTableClock();
+// setInterval(updateTableClock, 1000);
 
 // Mirrors the 4-player table's score-box treatment exactly: pop-bounce on
 // every value change, plus a continuous ambient green/red glow for

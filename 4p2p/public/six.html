@@ -18,6 +18,9 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700;800&display=swap" rel="stylesheet">
 <meta name="description" content="Play the 6-player version of 28 (Gulan / Eripathettu) online free, 2 teams of 3, with live voice chat. The classic Kerala Indian card game, no download needed.">
 <meta name="keywords" content="play 28 online, 28 card game 6 player, gulan online, indian card game, kerala card game, eripathettu">
 <meta name="robots" content="index, follow">
@@ -39,8 +42,8 @@
 @keyframes scoreBump{0%{transform:scale(1)}20%{transform:scale(1.5)}40%{transform:scale(1.1)}60%{transform:scale(1.4)}80%{transform:scale(0.95)}100%{transform:scale(1)}}
 .score-box{position:relative;overflow:hidden;border-radius:8px;padding:3px 8px;text-align:center;min-width:48px;transition:all 0.5s ease;border:2px solid transparent;flex-shrink:0;display:inline-block}
 .score-box::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.25) 45%,rgba(255,255,255,0.4) 50%,rgba(255,255,255,0.25) 55%,transparent 60%);background-size:200% 100%;animation:scoreShimmer 3s ease-in-out infinite;pointer-events:none;z-index:1}
-.score-box .slabel{position:relative;z-index:2;font-size:0.5rem;text-transform:uppercase;letter-spacing:0.5px;display:block;font-weight:600}
-.score-box .sval{position:relative;z-index:2;font-size:1.05rem;font-weight:800;line-height:1.1;display:block;color:#fff;text-shadow:0 0 5px rgba(255,255,255,0.3);transition:color 1.5s cubic-bezier(0.4,0,0.2,1),text-shadow 1.5s cubic-bezier(0.4,0,0.2,1),transform 0.4s cubic-bezier(0.34,1.56,0.64,1)}
+.score-box .slabel{position:relative;z-index:2;font-size:0.5rem;text-transform:uppercase;letter-spacing:0.5px;display:block;font-weight:600;font-family:'Cinzel','Playfair Display',serif}
+.score-box .sval{position:relative;z-index:2;font-size:1.05rem;font-weight:800;line-height:1.1;display:block;color:#fff;text-shadow:0 0 5px rgba(255,255,255,0.3);transition:color 1.5s cubic-bezier(0.4,0,0.2,1),text-shadow 1.5s cubic-bezier(0.4,0,0.2,1),transform 0.4s cubic-bezier(0.34,1.56,0.64,1);font-family:'Cinzel','Playfair Display',serif}
 .score-box .sval.pop-anim{animation:scoreBump 0.4s cubic-bezier(0.34,1.56,0.64,1)}
 #teamPointsDisplay.pop-anim{animation:scoreBump 0.4s cubic-bezier(0.34,1.56,0.64,1);display:inline-block}
 .score-box.tie{background:linear-gradient(135deg,rgba(255,255,255,0.15),rgba(255,255,255,0.05));border-color:rgba(255,255,255,0.3);animation:scorePulseTie 2s ease-in-out infinite}
@@ -87,7 +90,34 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 #gameScreen{position:fixed;inset:0;background:radial-gradient(ellipse at center,#132840 0%,#0a1628 70%);display:none;z-index:50}
 .topbar{position:absolute;top:0;left:0;right:0;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:0.75rem;background:rgba(0,0,0,0.25);z-index:10}
 .topbar .score{font-weight:800;color:var(--accent)}
-.table-oval{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(calc(clamp(116px,27.5vh,210px) + 150px),54%);height:min(calc(clamp(116px,27.5vh,210px) + 70px),44%);border:5px solid rgba(244,196,48,0.32);border-radius:50%;box-shadow:0 0 16px rgba(244,196,48,0.12),inset 0 0 20px rgba(0,0,0,0.35);}
+/* Wooden-rail oval matching the 4-player table's design, replacing the old flat bordered
+   circle - same layered rail/bevel/felt approach, same conic-gradient wood tones. */
+.table-oval{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(calc(clamp(116px,27.5vh,210px) + 150px),90%);height:min(calc(clamp(116px,27.5vh,210px) + 70px),80%);pointer-events:none}
+.six-oval-rail{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:96%;aspect-ratio:1.15;max-height:96%;
+  border-radius:50%;
+  background:conic-gradient(from 200deg, #5c2c0c 0deg, #8a4d1a 45deg, #c98f3f 95deg, #f0c674 115deg, #c98f3f 135deg, #8a4d1a 180deg, #4a2308 230deg, #2e1504 270deg, #4a2308 310deg, #5c2c0c 360deg);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
+  mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
+  box-shadow:0 0 0 1px rgba(255,215,0,0.28),0 10px 26px 6px rgba(0,0,0,0.6),0 2px 4px rgba(0,0,0,0.4);
+}
+.six-oval-bevel{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:96%;aspect-ratio:1.15;max-height:96%;
+  border-radius:50%;
+  box-shadow:inset 0 4px 7px rgba(255,235,180,0.3),inset 0 -6px 10px rgba(0,0,0,0.6);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
+  mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
+}
+.six-oval-felt{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:88%;aspect-ratio:1.15;max-height:88%;
+  border-radius:50%;
+  background:radial-gradient(ellipse at center, #1a2540 0%, #0d1526 70%, #070c18 100%);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 2px 8px rgba(0,0,0,0.5);
+}
 .table-oval::after{
   /* Centered branding watermark. Six-player doesn't have a rotating felt
      color theme (unlike the 4-player and 56 tables), so this uses the
@@ -150,7 +180,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 @keyframes winnerRingBurst{0%{transform:scale(0.5);opacity:1;border-width:4px}100%{transform:scale(2.5);opacity:0;border-width:0}}
 @keyframes winnerPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,215,0,0.6)}50%{box-shadow:0 0 25px 8px rgba(255,215,0,0.3)}}
 .av.winner-pulse{animation:winnerPulse 0.8s ease 2}
-.seat .nm{font-size:0.62rem;color:var(--text-secondary);max-width:78px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:1px 6px}
+.seat .nm{font-family:'Cinzel','Playfair Display',serif;font-size:0.62rem;color:var(--text-secondary);max-width:78px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:1px 6px}
 .seat .cc{font-size:0.6rem;color:var(--accent)}
 .seat .bdg{position:absolute;top:-6px;right:-6px;background:var(--accent);color:#111;border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800}
 .seat .bdg-q{position:absolute;top:-6px;left:-6px;background:rgba(180,60,80,0.35);color:#e08a9a;border:1px solid rgba(224,138,154,0.6);border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800;white-space:nowrap;z-index:5}
@@ -405,165 +435,10 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
   </div>
   <div class="ltrick-backdrop" id="ltrickBackdrop"></div>
   <div class="table-oval">
-    <div class="table-clock-rim"></div>
-    <div class="table-clock" id="tableClock">
-      <div class="weather-fx" id="weatherFx"></div>
-      <svg id="vclk6Svg" viewBox="0 0 200 200" width="200" height="200" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);overflow:visible">
-<defs>
-    <radialGradient id="vclk6Bezel" cx="50%" cy="38%" r="72%">
-      <stop offset="0%" stop-color="#f4dfa0"/>
-      <stop offset="45%" stop-color="#c9a03e"/>
-      <stop offset="75%" stop-color="#8a6218"/>
-      <stop offset="100%" stop-color="#4d3608"/>
-    </radialGradient>
-    <radialGradient id="vclk6Face" cx="50%" cy="42%" r="70%">
-      <stop offset="0%" stop-color="#f7ecd0"/>
-      <stop offset="60%" stop-color="#eddcae"/>
-      <stop offset="100%" stop-color="#d8bd80"/>
-    </radialGradient>
-    <linearGradient id="vclk6HandGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop id="vclk6HandGradStop1" offset="0%" stop-color="#3a2a12"/>
-      <stop id="vclk6HandGradStop2" offset="100%" stop-color="#1a1206"/>
-    </linearGradient>
-  </defs>
-<g style="pointer-events:none">
-<circle cx="100" cy="100" r="98" fill="url(#vclk6Bezel)"/>
-<circle cx="100" cy="100" r="95" fill="none" stroke="#3d2a08" stroke-width="1" opacity="0.5"/>
-<circle cx="100" cy="100" r="92" fill="url(#vclk6Face)" stroke="#5c4410" stroke-width="1.5"/>
-<circle cx="100" cy="100" r="76" fill="none" stroke="#8a6218" stroke-width="1" opacity="0.55"/>
-<circle cx="100" cy="100" r="66" fill="none" stroke="#8a6218" stroke-width="0.6" opacity="0.35"/>
-<circle cx="100.0" cy="19.0" r="1.6" fill="#8a6218" opacity="0.6"/>
-<circle cx="181.0" cy="100.0" r="1.6" fill="#8a6218" opacity="0.6"/>
-<circle cx="100.0" cy="181.0" r="1.6" fill="#8a6218" opacity="0.6"/>
-<circle cx="19.0" cy="100.0" r="1.6" fill="#8a6218" opacity="0.6"/>
-<line class="vclk6Tick" data-major="1" x1="100.0" y1="11.0" x2="100.0" y2="19.0" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line class="vclk6Tick" data-major="0" x1="109.3" y1="11.5" x2="108.9" y2="15.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="118.5" y1="12.9" x2="117.7" y2="16.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="127.5" y1="15.4" x2="126.3" y2="19.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="136.2" y1="18.7" x2="134.6" y2="22.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="1" x1="144.5" y1="22.9" x2="140.5" y2="29.9" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line class="vclk6Tick" data-major="0" x1="152.3" y1="28.0" x2="150.0" y2="31.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="159.6" y1="33.9" x2="156.9" y2="36.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="166.1" y1="40.4" x2="163.2" y2="43.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="172.0" y1="47.7" x2="168.8" y2="50.0" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="1" x1="177.1" y1="55.5" x2="170.1" y2="59.5" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line class="vclk6Tick" data-major="0" x1="181.3" y1="63.8" x2="177.7" y2="65.4" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="184.6" y1="72.5" x2="180.8" y2="73.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="187.1" y1="81.5" x2="183.1" y2="82.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="188.5" y1="90.7" x2="184.5" y2="91.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="1" x1="189.0" y1="100.0" x2="181.0" y2="100.0" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line class="vclk6Tick" data-major="0" x1="188.5" y1="109.3" x2="184.5" y2="108.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="187.1" y1="118.5" x2="183.1" y2="117.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="184.6" y1="127.5" x2="180.8" y2="126.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="181.3" y1="136.2" x2="177.7" y2="134.6" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="1" x1="177.1" y1="144.5" x2="170.1" y2="140.5" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line class="vclk6Tick" data-major="0" x1="172.0" y1="152.3" x2="168.8" y2="150.0" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="166.1" y1="159.6" x2="163.2" y2="156.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="159.6" y1="166.1" x2="156.9" y2="163.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="152.3" y1="172.0" x2="150.0" y2="168.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="1" x1="144.5" y1="177.1" x2="140.5" y2="170.1" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line class="vclk6Tick" data-major="0" x1="136.2" y1="181.3" x2="134.6" y2="177.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="127.5" y1="184.6" x2="126.3" y2="180.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="118.5" y1="187.1" x2="117.7" y2="183.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="109.3" y1="188.5" x2="108.9" y2="184.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="1" x1="100.0" y1="189.0" x2="100.0" y2="181.0" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line class="vclk6Tick" data-major="0" x1="90.7" y1="188.5" x2="91.1" y2="184.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="81.5" y1="187.1" x2="82.3" y2="183.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="72.5" y1="184.6" x2="73.7" y2="180.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="63.8" y1="181.3" x2="65.4" y2="177.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="1" x1="55.5" y1="177.1" x2="59.5" y2="170.1" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line class="vclk6Tick" data-major="0" x1="47.7" y1="172.0" x2="50.0" y2="168.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="40.4" y1="166.1" x2="43.1" y2="163.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="33.9" y1="159.6" x2="36.8" y2="156.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="28.0" y1="152.3" x2="31.2" y2="150.0" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="1" x1="22.9" y1="144.5" x2="29.9" y2="140.5" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line class="vclk6Tick" data-major="0" x1="18.7" y1="136.2" x2="22.3" y2="134.6" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="15.4" y1="127.5" x2="19.2" y2="126.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="12.9" y1="118.5" x2="16.9" y2="117.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="11.5" y1="109.3" x2="15.5" y2="108.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="1" x1="11.0" y1="100.0" x2="19.0" y2="100.0" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line class="vclk6Tick" data-major="0" x1="11.5" y1="90.7" x2="15.5" y2="91.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="12.9" y1="81.5" x2="16.9" y2="82.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="15.4" y1="72.5" x2="19.2" y2="73.7" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="18.7" y1="63.8" x2="22.3" y2="65.4" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="1" x1="22.9" y1="55.5" x2="29.9" y2="59.5" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line class="vclk6Tick" data-major="0" x1="28.0" y1="47.7" x2="31.2" y2="50.0" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="33.9" y1="40.4" x2="36.8" y2="43.1" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="40.4" y1="33.9" x2="43.1" y2="36.8" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="47.7" y1="28.0" x2="50.0" y2="31.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="1" x1="55.5" y1="22.9" x2="59.5" y2="29.9" stroke="#4d3608" stroke-width="1.6" opacity="0.75"/>
-<line class="vclk6Tick" data-major="0" x1="63.8" y1="18.7" x2="65.4" y2="22.3" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="72.5" y1="15.4" x2="73.7" y2="19.2" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="81.5" y1="12.9" x2="82.3" y2="16.9" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<line class="vclk6Tick" data-major="0" x1="90.7" y1="11.5" x2="91.1" y2="15.5" stroke="#8a6218" stroke-width="0.6" opacity="0.4"/>
-<text class="vclk6Numeral" x="100.0" y="43.0" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XII</text>
-<text class="vclk6Numeral" x="128.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">I</text>
-<text class="vclk6Numeral" x="149.4" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">II</text>
-<text class="vclk6Numeral" x="149.4" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">IV</text>
-<text class="vclk6Numeral" x="128.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">V</text>
-<text class="vclk6Numeral" x="71.5" y="149.4" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VII</text>
-<text class="vclk6Numeral" x="50.6" y="128.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">VIII</text>
-<text class="vclk6Numeral" x="50.6" y="71.5" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">X</text>
-<text class="vclk6Numeral" x="71.5" y="50.6" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" fill="#3d2a08" text-anchor="middle" dominant-baseline="central" opacity="0.88">XI</text>
-<rect x="80" y="56.0" width="19" height="12" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
-<text id="vclk6DayText" x="89.5" y="62.5" font-family="Georgia, serif" font-size="6.4" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
-<rect x="102" y="56.0" width="14" height="12" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
-<text id="vclk6DateText" x="109.0" y="62.5" font-family="Georgia, serif" font-size="6.8" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--</text>
-<circle id="vclk6FaceClickOverlay" cx="100" cy="100" r="92" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<circle cx="100" cy="138" r="13" fill="none" stroke="#8a6218" stroke-width="0.8" opacity="0.6"/>
-<circle id="vclk6MoonBg" cx="100" cy="138" r="10" fill="#efe6c8"/>
-<path id="vclk6MoonShadow" d="" fill="#1a2035"/>
-<circle cx="100" cy="138" r="10" fill="none" stroke="#3d2a08" stroke-width="0.7"/>
-<circle id="vclk6MoonClick" cx="100" cy="138" r="14" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<rect x="125.0" y="92.5" width="30" height="15" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
-<text id="vclk6WeatherIcon" x="131.0" y="100.5" font-size="8" text-anchor="middle" dominant-baseline="central">☀</text>
-<text id="vclk6WeatherTemp" x="145.0" y="100.5" font-family="Georgia, serif" font-size="6.3" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">--°F</text>
-<rect id="vclk6WeatherClick" x="125.0" y="92.5" width="30" height="15" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<rect x="45.0" y="92.5" width="30" height="15" rx="1.5" fill="#efe6c8" stroke="#3d2a08" stroke-width="1"/>
-<text id="vclk6LeapYear" x="60.0" y="97.5" font-family="Georgia, serif" font-size="6" font-weight="700" fill="#2a1c08" text-anchor="middle" dominant-baseline="central">----</text>
-<text id="vclk6LeapLbl" x="60.0" y="104.5" font-family="Georgia, serif" font-size="4.6" font-weight="700" fill="#6b4a12" text-anchor="middle" dominant-baseline="central">--</text>
-<rect id="vclk6LeapClick" x="45.0" y="92.5" width="30" height="15" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<circle cx="100" cy="100" r="7" fill="url(#vclk6Bezel)" stroke="#3d2a08" stroke-width="0.8"/>
-<circle cx="100" cy="100" r="2.4" fill="#3d2a08"/>
-<g id="vclk6HourHand" transform="rotate(0 100 100)">
-      <path d="M 97.8,100 L 98.6,70 L 96,66 L 100,52 L 104,66 L 101.4,70 L 102.2,100 Z" fill="url(#vclk6HandGrad)" stroke="#1a1206" stroke-width="0.4"/>
-    </g>
-<g id="vclk6MinuteHand" transform="rotate(0 100 100)">
-      <path d="M 98.2,100 L 98.9,58 L 96.8,54 L 100,32 L 103.2,54 L 101.1,58 L 101.8,100 Z" fill="url(#vclk6HandGrad)" stroke="#1a1206" stroke-width="0.4"/>
-    </g>
-<g id="vclk6SecondHand" transform="rotate(0 100 100)">
-      <line x1="100" y1="114" x2="100" y2="26" stroke="#8b2020" stroke-width="1.1"/>
-      <circle cx="100" cy="110" r="3" fill="#8b2020"/>
-    </g>
-<circle cx="100" cy="100" r="2.4" fill="#1a1206"/>
-</g>
-<circle class="vclk6CityLabel" data-tz="America/New_York" data-code="NYC" data-lat="40.7128" data-lon="-74.006" cx="100.0" cy="22.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text class="vclk6CityText" data-tz="America/New_York" data-code="NYC" x="100.0" y="22.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">NYC</text>
-<circle class="vclk6CityLabel" data-tz="Europe/London" data-code="LON" data-lat="51.5072" data-lon="-0.1276" cx="139.0" cy="32.5" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text class="vclk6CityText" data-tz="Europe/London" data-code="LON" x="139.0" y="32.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">LON</text>
-<circle class="vclk6CityLabel" data-tz="Europe/Paris" data-code="PAR" data-lat="48.8566" data-lon="2.3522" cx="167.5" cy="61.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text class="vclk6CityText" data-tz="Europe/Paris" data-code="PAR" x="167.5" y="61.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">PAR</text>
-<circle class="vclk6CityLabel" data-tz="America/Los_Angeles" data-code="VGS" data-lat="36.1699" data-lon="-115.1398" cx="178.0" cy="100.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text class="vclk6CityText" data-tz="America/Los_Angeles" data-code="VGS" x="178.0" y="100.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">VGS</text>
-<circle class="vclk6CityLabel" data-tz="Europe/Istanbul" data-code="IST" data-lat="41.0082" data-lon="28.9784" cx="167.5" cy="139.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text class="vclk6CityText" data-tz="Europe/Istanbul" data-code="IST" x="167.5" y="139.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">IST</text>
-<circle class="vclk6CityLabel" data-tz="Asia/Dubai" data-code="DXB" data-lat="25.2048" data-lon="55.2708" cx="139.0" cy="167.5" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text class="vclk6CityText" data-tz="Asia/Dubai" data-code="DXB" x="139.0" y="167.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">DXB</text>
-<circle class="vclk6CityLabel" data-tz="America/Chicago" data-code="CHI" data-lat="41.8781" data-lon="-87.6298" cx="100.0" cy="178.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text class="vclk6CityText" data-tz="America/Chicago" data-code="CHI" x="100.0" y="178.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">CHI</text>
-<circle class="vclk6CityLabel" data-tz="Pacific/Kiritimati" data-code="KIR" data-lat="1.8721" data-lon="-157.4278" cx="61.0" cy="167.5" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text class="vclk6CityText" data-tz="Pacific/Kiritimati" data-code="KIR" x="61.0" y="167.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">KIR</text>
-<circle class="vclk6CityLabel" data-tz="Asia/Kolkata" data-code="KOC" data-lat="9.9312" data-lon="76.2673" cx="32.5" cy="139.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text class="vclk6CityText" data-tz="Asia/Kolkata" data-code="KOC" x="32.5" y="139.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">KOC</text>
-<circle class="vclk6CityLabel" data-tz="America/Chicago" data-code="DAL" data-lat="32.7767" data-lon="-96.797" cx="22.0" cy="100.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text class="vclk6CityText" data-tz="America/Chicago" data-code="DAL" x="22.0" y="100.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">DAL</text>
-<circle class="vclk6CityLabel" data-tz="Asia/Shanghai" data-code="BEI" data-lat="39.9042" data-lon="116.4074" cx="32.5" cy="61.0" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text class="vclk6CityText" data-tz="Asia/Shanghai" data-code="BEI" x="32.5" y="61.0" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">BEI</text>
-<circle class="vclk6CityLabel" data-tz="Asia/Tokyo" data-code="TOK" data-lat="35.6762" data-lon="139.6503" cx="61.0" cy="32.5" r="17" fill="rgba(0,0,0,0.001)" style="pointer-events:auto;cursor:pointer"/>
-<text class="vclk6CityText" data-tz="Asia/Tokyo" data-code="TOK" x="61.0" y="32.5" font-family="Georgia, serif" font-size="8.5" font-weight="700" fill="#4a3208" text-anchor="middle" dominant-baseline="central" opacity="0.9" style="pointer-events:none">TOK</text>
-</svg>
-    </div>
-    </div>
+    <div class="six-oval-rail"></div>
+    <div class="six-oval-bevel"></div>
+    <div class="six-oval-felt"></div>
+  </div>
     <div class="seat" id="seatWrap0"><div class="av" id="av0">👤</div><div class="nm" id="nm0"></div><div class="cc" id="cc0"></div></div>
     <div class="seat" id="seatWrap1"><div class="av" id="av1">👤</div><div class="nm" id="nm1"></div><div class="cc" id="cc1"></div></div>
     <div class="seat" id="seatWrap2"><div class="av" id="av2">👤</div><div class="nm" id="nm2"></div><div class="cc" id="cc2"></div></div>
