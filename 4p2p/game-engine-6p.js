@@ -185,8 +185,8 @@ class GameEngine6P {
 
   humanCount() { return this.seats.filter(s => s && !s.isBot).length; }
 
-  seatHuman(pos, name, playerId) {
-    this.seats[pos] = { name, isBot: false, connected: true, playerId, hand: [] };
+  seatHuman(pos, name, playerId, avatar) {
+    this.seats[pos] = { name, isBot: false, connected: true, playerId, hand: [], avatar: avatar || null };
   }
 
   seatBot(pos, name) {
@@ -207,18 +207,20 @@ class GameEngine6P {
     return true;
   }
 
-  replaceBot(pos, playerId, name) {
+  replaceBot(pos, playerId, name, avatar) {
     const seat = this.seats[pos];
     if (!seat || !seat.isBot) return false;
     seat.isBot = false; seat.connected = true; seat.playerId = playerId; seat.name = name;
+    seat.avatar = avatar || null;
     return true;
   }
 
-  takeOverSeat(pos, playerId, name) {
+  takeOverSeat(pos, playerId, name, avatar) {
     const seat = this.seats[pos];
     if (!seat) return false;
     if (!seat.isBot && seat.connected) return false;
     seat.isBot = false; seat.connected = true; seat.playerId = playerId; seat.name = name;
+    seat.avatar = avatar || null;
     return true;
   }
 
@@ -1340,7 +1342,8 @@ class GameEngine6P {
         return {
           name: s.name, isBot: s.isBot, connected: s.connected,
           cardCount: s.hand.length,
-          hand: i === viewerPos ? s.hand : undefined
+          hand: i === viewerPos ? s.hand : undefined,
+          avatar: s.avatar || null
         };
       })
     };

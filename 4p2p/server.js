@@ -1992,7 +1992,7 @@ function sixpJoinableSeats(t) {
 }
 
 function sixpSeatSnapshot(t) {
-  return t.engine.seats.map((s, i) => s ? { pos: i, name: s.name, isBot: s.isBot, connected: s.connected, isHost: s.playerId === t.hostPlayerId } : null);
+  return t.engine.seats.map((s, i) => s ? { pos: i, name: s.name, isBot: s.isBot, connected: s.connected, isHost: s.playerId === t.hostPlayerId, avatar: s.avatar || null } : null);
 }
 
 function sixpHasAnyHuman(t) { return t.engine.seats.some(s => s && !s.isBot); }
@@ -2054,7 +2054,7 @@ io.on('connection', (socket) => {
 
   socket.on('sixp_listRooms', () => { socket.emit('sixp_roomList', sixpPublicTableList()); });
 
-  socket.on('sixp_createTable', ({ name }) => {
+  socket.on('sixp_createTable', ({ name, avatar }) => {
     if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
       socket.emit('createBlocked', { maxRooms: roomCapMax });
       return;
@@ -2062,7 +2062,7 @@ io.on('connection', (socket) => {
     const id = newSixpTableId();
     const engine = new GameEngine6P(id);
     sixpPlayerId = newId();
-    engine.seatHuman(0, name || 'Player', sixpPlayerId);
+    engine.seatHuman(0, name || 'Player', sixpPlayerId, sanitizeAvatarKey(avatar));
     const t = {
       id, engine, name: name || 'Player', hostPlayerId: sixpPlayerId,
       botFill: 5, createdAt: Date.now(), lastActivityAt: Date.now(),
@@ -2082,7 +2082,7 @@ io.on('connection', (socket) => {
     console.log(`[6p table ${id}] created by ${name}`);
   });
 
-  socket.on('sixp_joinTable', ({ tableId: reqTableId, name, playerId: existingPlayerId }) => {
+  socket.on('sixp_joinTable', ({ tableId: reqTableId, name, playerId: existingPlayerId, avatar }) => {
     if (existingPlayerId && sixpPlayerIndex[existingPlayerId]) {
       const idx = sixpPlayerIndex[existingPlayerId];
       const t = sixpTables[idx.tableId];
@@ -2115,7 +2115,7 @@ io.on('connection', (socket) => {
     }
     // Simpler than the 4p game for this first pass: no host-approval gate
     // for joining a table already in progress — straight to seat picking.
-    sixpPendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player' };
+    sixpPendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player', avatar: sanitizeAvatarKey(avatar) };
     socket.emit('sixp_chooseSeat', { tableId: reqTableId, openSeats, botSeats, disconnectedSeats, seats: sixpSeatSnapshot(t) });
   });
 
@@ -2131,20 +2131,20 @@ io.on('connection', (socket) => {
       const { botSeats } = sixpJoinableSeats(t);
       pos = botSeats[0];
       if (pos === undefined) { socket.emit('sixp_joinError', { reason: 'not_a_bot_seat' }); return; }
-      if (!t.engine.replaceBot(pos, newId(), pending.name)) { socket.emit('sixp_joinError', { reason: 'replace_failed' }); return; }
+      if (!t.engine.replaceBot(pos, newId(), pending.name, pending.avatar)) { socket.emit('sixp_joinError', { reason: 'replace_failed' }); return; }
       sixpPlayerId = t.engine.seats[pos].playerId;
     } else if (typeof choice === 'number') {
       pos = choice;
       const seat = t.engine.seats[pos];
       if (!seat) {
         sixpPlayerId = newId();
-        t.engine.seatHuman(pos, pending.name, sixpPlayerId);
+        t.engine.seatHuman(pos, pending.name, sixpPlayerId, pending.avatar);
       } else if (seat.isBot) {
         sixpPlayerId = newId();
-        if (!t.engine.replaceBot(pos, sixpPlayerId, pending.name)) { socket.emit('sixp_joinError', { reason: 'replace_failed' }); return; }
+        if (!t.engine.replaceBot(pos, sixpPlayerId, pending.name, pending.avatar)) { socket.emit('sixp_joinError', { reason: 'replace_failed' }); return; }
       } else if (!seat.connected) {
         sixpPlayerId = newId();
-        if (!t.engine.takeOverSeat(pos, sixpPlayerId, pending.name)) { socket.emit('sixp_joinError', { reason: 'seat_taken' }); return; }
+        if (!t.engine.takeOverSeat(pos, sixpPlayerId, pending.name, pending.avatar)) { socket.emit('sixp_joinError', { reason: 'seat_taken' }); return; }
       } else {
         socket.emit('sixp_joinError', { reason: 'seat_taken' });
         return;
