@@ -766,7 +766,12 @@ connectSocket(); // connect right away so every landing on this page gets logged
 
 let pendingAction = null; // 'create' | 'join'
 
-$('btnCreate').addEventListener('click', () => { pendingAction = 'create'; showScreen('nameScreen'); });
+$('btnCreate').addEventListener('click', () => {
+  pendingAction = 'create';
+  const inviteBanner6pCreate = $('inviteBanner6p');
+  if (inviteBanner6pCreate) inviteBanner6pCreate.classList.add('hidden');
+  showScreen('nameScreen');
+});
 $('btnShowJoin').addEventListener('click', () => { showScreen('joinScreen'); refreshRoomList(); });
 $('btnRules').addEventListener('click', () => {
   alert('28 Kerala Gulan — 6 Player\n\n6 players in 2 teams of 3 (alternating seats).\n36 cards (includes the 6s). J=3pts, 9=2pts, A/10=1pt.\n\nBidding: 16-28 for trump. Highest bidder picks trump and hides one trump card face down.\n\nFirst team to 12 game points wins!');
@@ -779,6 +784,8 @@ $('btnNameContinue').addEventListener('click', () => {
     return;
   }
   MY_NAME = name;
+  const inviteBanner6pDone = $('inviteBanner6p');
+  if (inviteBanner6pDone) inviteBanner6pDone.classList.add('hidden');
   requestFullscreen6p();
   connectSocket();
   if (pendingAction === 'create') {
@@ -793,6 +800,8 @@ $('btnJoinByCode').addEventListener('click', () => {
   if (!code) { showToast('Enter a room code first', 'lose', 1500); return; }
   pendingJoinCode = code;
   pendingAction = 'join';
+  const inviteBanner6pManual = $('inviteBanner6p');
+  if (inviteBanner6pManual) inviteBanner6pManual.classList.add('hidden');
   showScreen('nameScreen');
 });
 
@@ -813,6 +822,8 @@ function renderRoomList(rooms) {
     btn.addEventListener('click', () => {
       pendingJoinCode = btn.getAttribute('data-code');
       pendingAction = 'join';
+      const inviteBanner6pList = $('inviteBanner6p');
+      if (inviteBanner6pList) inviteBanner6pList.classList.add('hidden');
       showScreen('nameScreen');
     });
   });
@@ -1742,6 +1753,8 @@ window.addEventListener('DOMContentLoaded', () => {
     history.replaceState({}, '', window.location.pathname); // don't re-trigger on refresh
     pendingJoinCode = inviteCode.trim().toUpperCase();
     pendingAction = 'join';
+    const inviteBanner6p = $('inviteBanner6p');
+    if (inviteBanner6p) inviteBanner6p.classList.remove('hidden');
     showScreen('nameScreen');
     return; // skip auto-reconnect — they're here to join a specific friend's table
   }
@@ -2040,6 +2053,28 @@ async function shareInviteLink() {
     showToast(`Room code: ${MY_TABLE_ID} — share this with a friend`, 'info', 4000);
   }
 }
+// A second, plainer kind of invite -- not pointing at any specific
+// table (nothing exists yet at the moment this button is shown, right
+// on the name-entry screen before anyone's created or joined anything).
+// Just a share of this game's own landing page, so whoever opens it
+// lands on this exact same "enter your name" screen with both Create
+// and Join fully open to them -- as opposed to shareInviteLink() above,
+// which is for "come join the specific table I'm already sitting at."
+const inviteGeneric6pBtn = $('btnInviteGeneric6p');
+if (inviteGeneric6pBtn) inviteGeneric6pBtn.addEventListener('click', async () => {
+  const link = window.location.origin + window.location.pathname;
+  const text = `Come play 28 Kerala Gulan (6 Player) with me!`;
+  if (navigator.share) {
+    try { await navigator.share({ title: '28 Kerala Gulan — 6 Player', text, url: link }); return; }
+    catch (e) { /* cancelled the share sheet — fall through to copy */ }
+  }
+  try {
+    await navigator.clipboard.writeText(link);
+    showToast('🔗 Invite link copied — send it to a friend!', 'win', 3000);
+  } catch (e) {
+    showToast(`Link: ${link}`, 'info', 4000);
+  }
+});
 $('btnCloseChat').addEventListener('click', closeChat);
 $('chatOverlay').addEventListener('click', function (e) { if (e.target === this) closeChat(); });
 $('btnSendChat').addEventListener('click', sendChat);

@@ -2970,10 +2970,14 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   </div>
   <div class="lobby-body">
     <div class="lobby-card" id="nameCard">
+      <div id="inviteBanner4p" style="display:none;background:linear-gradient(160deg,#5FA8F5,#2E63D6);border-radius:12px;padding:14px;margin-bottom:14px;text-align:center;font-size:0.85rem;color:#fff">
+        🎉 You've been invited to a table! Enter your name below to join.
+      </div>
       <h3>Your Name</h3>
       <p>Enter your name to join the game</p>
       <input type="text" class="name-input" id="playerNameInput" placeholder="Enter your name..." maxlength="12" value="">
       <button type="button" class="btn btn-primary" style="width:100%" id="btnSetName">Set Name</button>
+      <button type="button" id="btnInviteGeneric4p" style="width:100%;margin-top:10px;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;font-weight:800;font-size:0.85rem;cursor:pointer">📨 Send Invitation to Join 4 Player Table</button>
     </div>
     <div class="lobby-card" id="hostCard" style="display:none">
       <h3>🏠 Host a Room</h3>
@@ -10488,6 +10492,28 @@ async function shareInviteLink() {
     showToast(`Room code: ${MY_TABLE_ID} — share this with a friend`, 'info', 4000);
   }
 }
+// A second, plainer kind of invite -- not pointing at any specific room
+// (nothing exists yet at the moment this button is shown, right on the
+// name-entry screen before anyone's created or joined anything). Just a
+// share of this game's own landing page, so whoever opens it lands on
+// this exact same "enter your name" screen with both Create and Join
+// fully open to them -- as opposed to shareInviteLink() above, which is
+// for "come join the specific table I'm already sitting at right now."
+const inviteGeneric4pBtn = document.getElementById('btnInviteGeneric4p');
+if (inviteGeneric4pBtn) inviteGeneric4pBtn.addEventListener('click', async () => {
+  const link = window.location.origin + window.location.pathname;
+  const text = `Come play 28 Kerala Gulan (4 Player) with me!`;
+  if (navigator.share) {
+    try { await navigator.share({ title: '28 Kerala Gulan — 4 Player', text, url: link }); return; }
+    catch (e) { /* user cancelled the share sheet — fall through to copy */ }
+  }
+  try {
+    await navigator.clipboard.writeText(link);
+    showToast('🔗 Invite link copied — send it to a friend!', 'win', 3000);
+  } catch (e) {
+    showToast(`Link: ${link}`, 'info', 4000);
+  }
+});
 document.getElementById('btnCloseChat').addEventListener('click', closeChat);
 document.getElementById('chatOverlay').addEventListener('click', function(e) { if (e.target === this) closeChat(); });
 document.getElementById('btnSendChat').addEventListener('click', sendChat);
@@ -12025,6 +12051,8 @@ document.getElementById('btnSetName').addEventListener('click', async () => {
   connectGameSocket();
   gameSocket.emit('listRooms');
   document.getElementById('nameCard').style.display = 'none';
+  const inviteBanner4pEl = document.getElementById('inviteBanner4p');
+  if (inviteBanner4pEl) inviteBanner4pEl.style.display = 'none';
   if (window.PENDING_INVITE_CODE) {
     const code = window.PENDING_INVITE_CODE;
     window.PENDING_INVITE_CODE = null;
@@ -12260,6 +12288,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('authScreen').style.display = 'none';
     document.getElementById('lobbyScreen').style.display = 'flex';
     document.getElementById('nameCard').style.display = 'block';
+    const inviteBanner4p = document.getElementById('inviteBanner4p');
+    if (inviteBanner4p) inviteBanner4p.style.display = 'block';
     document.getElementById('hostCard').style.display = 'none';
     document.getElementById('joinCard').style.display = 'none';
     document.getElementById('playersCard').style.display = 'none';
@@ -15260,13 +15290,20 @@ function serverBotPlayForMe() {
   // decorative text, same as everything else here, so the "never move the real table" rule
   // still holds exactly as before.
   const DECOR_ITEMS = [
-    '28GULAN.COM', '28GULAN.COM', '28GULAN.COM',
-    '♠', '♥', '♦', '♣', '♠', '♥', '♦', '♣',
+    '28GULAN.COM', '28GULAN.COM',
+    '♠', '♥', '♦', '♣', '♠', '♥', '♦',
     '🂮', '🎴', '👑', '🔥',
-    '28', 'Gulan', 'Gulan',
+    '28', 'Gulan',
     'Bid smart.', 'Play smarter.', 'Become the King.',
     'Jack high', 'Ace high', 'The Gulan.',
-    '🌍 28 4 Player', '👥 28 6 Player', '🃏 56', '♣ Texas Hold\u2019em', '🎱 Pool', '🎯 Carrom'
+    '🌍 28 4 Player', '👥 28 6 Player', '🃏 56', '♣ Texas Hold\u2019em', '🎱 Pool', '🎯 Carrom',
+    // Pulled straight from the welcome screen's own feature grid and stats
+    // bar — the same badges a player sees before ever sitting down — so an
+    // idle table feels like part of the same site instead of a generic
+    // bouncing-text gimmick with no connection to anything else here.
+    '😭 The Qunique', '🎙️ Live Voice Chat', '🤖 AI Bots That Learn',
+    '💾 Auto-Save & Resume', '🎯 Smart Bid Predictor', '👑 Road to King',
+    '🧠 Round Analysis', '32 Cards', '28 Points', 'Kerala, India'
   ];
   // A real palette instead of one single gold everywhere - cycled per item (not random) so
   // the mix is always even, never accidentally almost-all-one-color on a given round.
@@ -15292,7 +15329,7 @@ function serverBotPlayForMe() {
     if (!isGameTableVisible() || overlay) return;
     overlay = document.createElement('div');
     overlay.id = 'k28TableScreensaver';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(4,9,18,0.6);z-index:99999;cursor:pointer;overflow:hidden';
+    overlay.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.55) 0%,rgba(4,9,18,0.72) 100%);z-index:99999;cursor:pointer;overflow:hidden';
     document.body.appendChild(overlay);
 
     const vw = window.innerWidth, vh = window.innerHeight;
@@ -15312,20 +15349,27 @@ function serverBotPlayForMe() {
     bouncers = DECOR_ITEMS.map((text, i) => {
       const el = document.createElement('div');
       el.textContent = text;
-      // Longer phrases get a smaller max size - without this, a long phrase at a large random
+      // Longer phrases get a smaller max size — without this, a long phrase at a large random
       // size can render WIDER than the screen itself (measured: "Become the King." could hit
       // ~390px, wider than most phone screens), which leaves no valid in-bounds position at
       // all and makes the bounce math flip direction every single frame - that's the "jitter"
       // that was actually happening, not a rendering glitch.
+      // Kept deliberately small and even across items (11-17px, not the old 16-42px range) —
+      // a screensaver reads as tasteful ambient motion at this scale; anything much larger
+      // starts competing with the actual table underneath for attention, which is the
+      // opposite of what an idle-state overlay should do.
       const maxSizeForWidth = (vw * 0.8 - 20) / (text.length * 0.55);
-      const size = 16 + Math.random() * Math.max(0, Math.min(26, maxSizeForWidth - 16));
+      const size = 11 + Math.random() * Math.max(0, Math.min(6, maxSizeForWidth - 11));
       const itemColor = DECOR_COLORS[i % DECOR_COLORS.length];
       // A soft glow in the item's own color underneath the usual dark drop-shadow, instead
       // of just a flat-colored fill - that faint halo is what actually reads as "metallic
-      // sheen" rather than a plain, flat (i.e. "dull") color swatch.
-      el.style.cssText = `position:absolute;left:0;top:0;color:${itemColor};font-weight:700;
-        font-family:'Cinzel','Playfair Display',serif;letter-spacing:0.3px;
-        text-shadow:0 0 10px ${itemColor}80,0 2px 6px rgba(0,0,0,0.75);white-space:nowrap;pointer-events:none;font-size:${size}px`;
+      // sheen" rather than a plain, flat (i.e. "dull") color swatch. Weight and glow both
+      // pulled back from the original (700→600, 0x80 alpha→0x55) — heavy bold text with a
+      // strong glow at small sizes reads as garish rather than refined; a lighter touch is
+      // what actually looks premium at this scale.
+      el.style.cssText = `position:absolute;left:0;top:0;color:${itemColor};font-weight:600;
+        font-family:'Cinzel','Playfair Display',serif;letter-spacing:0.4px;
+        text-shadow:0 0 6px ${itemColor}55,0 1px 4px rgba(0,0,0,0.7);white-space:nowrap;pointer-events:none;font-size:${size}px;opacity:0.88`;
       overlay.appendChild(el);
       const w = Math.min(vw * 0.85, 20 + text.length * size * 0.55), h = size * 1.4; // rough estimate, good enough for bounce bounds
       const cell = cellOrder[i % cellOrder.length];

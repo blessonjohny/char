@@ -634,6 +634,7 @@
   </div>
   <button class="btn btn-gold hidden" id="btnJoinInvite56" style="width:100%;margin-bottom:8px">💌 Join This Table</button>
   <button class="btn btn-gold" id="createTableBtn" style="width:100%">🏠 Create a Table</button>
+  <button type="button" id="btnInviteGeneric56" style="width:100%;margin-top:10px;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;font-weight:800;font-size:0.85rem;cursor:pointer">📨 Send Invitation to Join 56</button>
 
   <div class="field" style="margin-top:20px;text-align:left">
     <label>🌐 Public tables</label>
@@ -1400,6 +1401,29 @@ async function shareInviteLink56(){
   }
 }
 document.getElementById('btnInvite56').addEventListener('click', shareInviteLink56);
+
+// A second, plainer kind of invite -- not pointing at any specific
+// table (nothing exists yet at the moment this button is shown, right
+// on the landing screen before anyone's created or joined anything).
+// Just a share of this game's own landing page, so whoever opens it
+// lands on this exact same screen with both Create and Join fully open
+// to them -- as opposed to shareInviteLink56() above, which is for
+// "come join the specific table I'm already sitting at right now."
+const inviteGeneric56Btn = document.getElementById('btnInviteGeneric56');
+if(inviteGeneric56Btn) inviteGeneric56Btn.addEventListener('click', async () => {
+  const link = window.location.origin + window.location.pathname;
+  const text = `Come play 56 — The Kerala Card Game with me!`;
+  if(navigator.share){
+    try{ await navigator.share({title: '56 — The Kerala Card Game', text, url: link}); return; }
+    catch(e){ /* cancelled the share sheet -- fall through to copy */ }
+  }
+  try{
+    await navigator.clipboard.writeText(link);
+    showToast('🔗 Invite link copied — send it to a friend!', 2800);
+  }catch(e){
+    showToast(`Link: ${link}`, 3500);
+  }
+});
 
 document.getElementById('createTableBtn').addEventListener('click', createTable);
 document.getElementById('nameInput').addEventListener('keydown', e=>{
