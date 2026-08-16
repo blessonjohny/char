@@ -2222,6 +2222,14 @@ io.on('connection', (socket) => {
     withSixpTable((t, pos) => { t.engine.placeBid(pos, bid); sixpTouch(t); });
   });
 
+  // Thani -- see callThani() in game-engine-6p.js for the full rule
+  // (folds BOTH the caller's other teammates out of the round, caller
+  // leads the first trick immediately, no trump at all, wins on tricks
+  // not points).
+  socket.on('sixp_callThani', () => {
+    withSixpTable((t, pos) => { t.engine.callThani(pos); sixpTouch(t); });
+  });
+
   socket.on('sixp_chooseTrump', ({ suit, hiddenCard }) => {
     withSixpTable((t, pos) => { t.engine.chooseTrump(pos, suit, hiddenCard); sixpTouch(t); });
   });

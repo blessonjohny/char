@@ -2256,13 +2256,42 @@ class GameEngine {
             // hasn't been seen yet — this was previously falling through
             // with zero penalty just because there was no second card to
             // swap in instead.
-            if (low.rank === '9' && !jSeen) sc -= 25;
+            if (low.rank === '9' && !jSeen) sc -= 40;
           }
           sc += bySuit[s].length * 5;
           if (low.points === 0) sc += 20;
           if (low.rank === '7' || low.rank === '8') sc += 15;
           if (high.points > 0) sc -= 10;
           if (s === this.trumpSuit) sc -= 30;
+          // The lowest-ranked card this bot holds in this suit can still
+          // itself be a point card (J,9,A,10) if it holds NOTHING below
+          // point-card rank in this suit at all -- e.g. holding only
+          // "10, A" with no K/Q/8/7 to lead instead. That case was
+          // falling through with none of the jSeen/nineSeen safety
+          // checks the rest of this scoring already applies elsewhere.
+          // J itself is always safe to lead (nothing beats it, so it
+          // never reaches this check at all -- see the lone-J/9 case
+          // above). A 9 is only genuinely at risk from an unseen Jack;
+          // an Ace or 10 is at risk from BOTH an unseen Jack and an
+          // unseen 9, since either one still beats it. Scaled by BOTH
+          // how many ranks above this card are still unseen (more
+          // threats still out there = more likely to actually get
+          // captured) AND this card's own point value (losing a 2-point
+          // 9 stings more than losing a 1-point Ace or 10) -- not a flat
+          // penalty either way, since neither dimension alone is the
+          // whole story: this is exactly what makes "if I have to risk
+          // a point card at all, prefer the lowest-value one" emerge
+          // naturally from the scoring instead of needing a separate
+          // override bolted on afterward.
+          if (low.points > 0) {
+            let unseenThreats = 0;
+            if (low.rank === '9' && !jSeen) unseenThreats = 1;
+            else if (low.rank === 'A' || low.rank === '10') {
+              if (!jSeen) unseenThreats++;
+              if (!nineSeen) unseenThreats++;
+            }
+            if (unseenThreats > 0) sc -= unseenThreats * low.points * 20;
+          }
           candidates.push({ card: low, score: sc, suit: s });
         } else {
           const trumpIneligibleHere = s === this.trumpSuit && !this.trumpExposed;
@@ -2288,13 +2317,21 @@ class GameEngine {
               candidates.push({ card: bySuit[s].find(c => c.rank === '9'), score: 45 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
               continue;
             }
-            sc -= 25; // real risk, not a lead to favor
+            sc -= 40; // real risk, not a lead to favor -- 1 threat (unseen J) * 2 points * 20, matching the isEarly branch's formula
           }
           sc += bySuit[s].reduce((a, c) => a + c.points, 0) * 10 + bySuit[s].length * 3;
           // Aces and 10s carry real points but are still beaten by an
           // unseen Jack or 9 of the same suit — only lead them with
-          // confidence once both are already accounted for.
-          if ((high.rank === 'A' || high.rank === '10') && (!jSeen || !nineSeen)) sc -= 15;
+          // confidence once both are already accounted for. Same
+          // threats*points*20 formula as the isEarly branch above, so a
+          // 9 and an Ace/10 facing the same number of unseen threats are
+          // penalized consistently by their actual point value either way.
+          if (high.rank === 'A' || high.rank === '10') {
+            let unseenThreats = 0;
+            if (!jSeen) unseenThreats++;
+            if (!nineSeen) unseenThreats++;
+            if (unseenThreats > 0) sc -= unseenThreats * high.points * 20;
+          }
           if (s === this.trumpSuit) sc -= 10;
           candidates.push({ card: high, score: sc, suit: s });
         }
@@ -2465,8 +2502,25 @@ class GameEngine {
       }
     }
 
+    // Final fallback: void in the led suit AND holding no trump at all
+    // (a very common situation, not a rare edge case) -- everything
+    // above this point specifically required trumps.length>0 to even
+    // run, so this was the one discard path with no awareness at all of
+    // whether our own partner is already winning the trick. Same "feed
+    // points to a winning partner rather than waste the chance" logic
+    // used everywhere else in this function above, applied here too --
+    // team points are what wins the game, so a partner who's already
+    // won this trick should get every safe point we can hand them
+    // rather than have us just dump our cheapest card on reflex.
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
     if (!disc.length) disc = hand;
+    if (wt === myTeam) {
+      const feedablePts = disc.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+      if (feedablePts.length > 0) {
+        feedablePts.sort((a, c) => c.points - a.points);
+        return feedablePts[0];
+      }
+    }
     disc.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
     return disc[0];
   }
