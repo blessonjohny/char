@@ -1588,7 +1588,12 @@ function maybeAutoReconnect56(){
         localStorage.removeItem('k56_room_code');
         localStorage.removeItem('k56_session_time');
       } catch(e) {}
-      showToast('Could not reconnect to your previous table', 4000);
+      // Genuine reconnect failures like this are almost always the
+      // server having been restarted for a deployment -- which wipes
+      // every in-memory table, since none of that state is persisted to
+      // disk. A plain toast read as a vague, unexplained error; this
+      // deserves an actual apology and a clear next step.
+      alert('😔 We\'re sorry — the server was recently updated, which means your previous game session was lost in the process.\n\nThis wasn\'t anything you did wrong. Please log back in and create or join a table to keep playing. Thanks for your patience!');
     }
   }, 12000);
 }

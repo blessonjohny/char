@@ -13,6 +13,12 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
+// True only for the one automatic reconnect attempt made on a fresh page
+// load when a recent session is found -- lets sixp_joinError show a
+// genuinely different, apologetic message for "the server was restarted
+// and lost your table" instead of the generic "that code doesn't exist"
+// wording meant for someone manually mistyping a room code.
+let isAutoReconnectAttempt6p = false;
 // The avatar the player picked on the name-entry screen -- same pattern
 // and same localStorage key as the 4-player table, so a returning
 // player's choice carries over between tables instead of resetting.
@@ -725,6 +731,7 @@ function connectSocket() {
   });
 
   socket.on('sixp_joined', (info) => {
+    isAutoReconnectAttempt6p = false;
     MY_TABLE_ID = info.tableId;
     MY_PLAYER_ID = info.playerId;
     MY_POS = info.pos;
@@ -740,6 +747,21 @@ function connectSocket() {
   });
 
   socket.on('sixp_joinError', (err) => {
+    if (isAutoReconnectAttempt6p) {
+      isAutoReconnectAttempt6p = false;
+      try {
+        localStorage.removeItem('k28six_table_id');
+        localStorage.removeItem('k28six_session_time');
+      } catch (e) {}
+      // Genuine reconnect failures like this are almost always the
+      // server having been restarted for a deployment -- which wipes
+      // every in-memory table, since none of that state is persisted to
+      // disk. The generic "that code doesn't exist" wording below is
+      // meant for someone mistyping a room code by hand, not this --
+      // this deserves an actual apology and a clear next step.
+      alert('😔 We\'re sorry — the server was recently updated, which means your previous game session was lost in the process.\n\nThis wasn\'t anything you did wrong. Please log back in and create or join a table to keep playing. Thanks for your patience!');
+      return;
+    }
     const messages = {
       table_not_found: "That room code doesn't exist.",
       table_full: 'That table is already full.',
@@ -1810,6 +1832,7 @@ window.addEventListener('DOMContentLoaded', () => {
   } catch (e) {}
   const RECENT_WINDOW_MS = 3 * 60 * 1000;
   if (tableId && MY_PLAYER_ID && sessionTime && (Date.now() - sessionTime) < RECENT_WINDOW_MS) {
+    isAutoReconnectAttempt6p = true;
     connectSocket();
     socket.emit('sixp_joinTable', { tableId, playerId: MY_PLAYER_ID });
   } else {
