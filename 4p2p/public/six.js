@@ -13,6 +13,35 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
+// The avatar the player picked on the name-entry screen -- same pattern
+// and same localStorage key as the 4-player table, so a returning
+// player's choice carries over between tables instead of resetting.
+let MY_AVATAR_KEY = '';
+try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
+const ALL_AVATAR_KEYS = [...Array.from({length:10}, (_,i) => 'men'+(i+1)), ...Array.from({length:10}, (_,i) => 'ladies'+(i+1))];
+if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
+  MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
+}
+function heroAvatarHtml(key) {
+  return `<img src="/images/hero-avatars/${key}.png" class="hero-avatar-face hero-avatar-normal" alt="">`
+       + `<img src="/images/hero-avatars/${key}_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">`;
+}
+function renderMyAvatarPicker6p() {
+  const el = document.getElementById('myAvatarPicker6p');
+  if (!el) return;
+  el.innerHTML = ALL_AVATAR_KEYS.map(key =>
+    `<div class="my-avatar-choice${key === MY_AVATAR_KEY ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatar6p('${key}')">
+      <img src="/images/hero-avatars/${key}.png" alt="">
+    </div>`
+  ).join('');
+}
+function pickMyAvatar6p(key) {
+  MY_AVATAR_KEY = key;
+  try { localStorage.setItem('k28_player_avatar', key); } catch (e) {}
+  document.querySelectorAll('#myAvatarPicker6p .my-avatar-choice').forEach(el => el.classList.toggle('picked', el.dataset.key === key));
+}
+document.addEventListener('DOMContentLoaded', renderMyAvatarPicker6p);
+if (document.readyState === 'interactive' || document.readyState === 'complete') renderMyAvatarPicker6p();
 
 // Requests fullscreen -- hides the browser's own address bar and nav
 // bars on mobile -- the moment someone actually creates or joins a
@@ -789,9 +818,9 @@ $('btnNameContinue').addEventListener('click', () => {
   requestFullscreen6p();
   connectSocket();
   if (pendingAction === 'create') {
-    socket.emit('sixp_createTable', { name });
+    socket.emit('sixp_createTable', { name, avatar: MY_AVATAR_KEY });
   } else if (pendingAction === 'join' && pendingJoinCode) {
-    socket.emit('sixp_joinTable', { tableId: pendingJoinCode, name });
+    socket.emit('sixp_joinTable', { tableId: pendingJoinCode, name, avatar: MY_AVATAR_KEY });
   }
 });
 $('btnJoinBack').addEventListener('click', () => showScreen('welcomeScreen'));
@@ -1185,7 +1214,22 @@ function renderSeats(state) {
     const isFolded = folded.includes(pos);
     wrap.style.opacity = isFolded ? '0.4' : '1';
     const qCount = (state.qMarks && state.qMarks[seat.name]) || 0;
-    av.textContent = isFolded ? '🙈' : (qCount > 0 ? '😭' : (seat.isBot ? '🤖' : (pos === MY_POS ? '😊' : '👤')));
+    // A human who picked one of the 20 hero portraits gets their own
+    // choice rendered here (with the matching _sad variant swapped in
+    // automatically by the .has-q CSS rule below on a Qunique) --
+    // otherwise falls back to the simple emoji scheme this table
+    // already had. Folded (a Thani partner sitting out) always shows
+    // the "peeking away" face regardless, same as before.
+    if (isFolded) {
+      av.innerHTML = '🙈';
+      av.classList.remove('has-q');
+    } else if (seat.avatar) {
+      av.innerHTML = heroAvatarHtml(seat.avatar);
+      av.classList.toggle('has-q', qCount > 0);
+    } else {
+      av.innerHTML = qCount > 0 ? '😭' : (seat.isBot ? '🤖' : (pos === MY_POS ? '😊' : '👤'));
+      av.classList.remove('has-q');
+    }
     nm.textContent = seat.name + (pos === MY_POS ? ' (You)' : '');
     cc.textContent = isFolded ? 'Folded (Thani)' : (seat.cardCount + 'c');
     wrap.classList.toggle('on', state.currentPlayer === pos && (state.phase === 'bidding1' || state.phase === 'play' || state.phase === 'choosingTrump'));

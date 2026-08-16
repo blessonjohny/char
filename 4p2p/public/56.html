@@ -594,6 +594,25 @@
     background:rgba(0,0,0,0.35);font-size:13px;color:var(--gold-soft);border-top:1px solid var(--line);
   }
   .hidden{display:none !important;}
+  /* Avatar picker (same pattern as the 4-player and 6-player tables) --
+     a grid of 20 hero portraits (10 men, 10 ladies) a human player picks
+     from on the landing screen. .hero-avatar-sad stays hidden normally,
+     swapped in by the .has-q class exactly like the other two tables --
+     see renderTable() for where that toggle actually happens here. The
+     .avatar circle itself needed position:relative added (it didn't have
+     it before) for the absolutely-positioned portrait images inside it
+     to actually fill just that circle instead of some larger ancestor. */
+  .avatar{position:relative;}
+  .my-avatar-picker{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:10px 0;max-height:260px;overflow-y:auto;padding:4px}
+  .my-avatar-choice{position:relative;width:100%;aspect-ratio:1;border-radius:50%;cursor:pointer;border:2.5px solid rgba(255,255,255,0.15);overflow:hidden;transition:border-color 0.2s ease,transform 0.15s ease}
+  .my-avatar-choice img{width:100%;height:100%;object-fit:cover;display:block}
+  .my-avatar-choice:active{transform:scale(0.92)}
+  .my-avatar-choice.picked{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,162,39,0.35),0 0 10px rgba(201,162,39,0.4)}
+  .my-avatar-choice.picked::after{content:'✓';position:absolute;bottom:-2px;right:-2px;background:var(--gold);color:#241a12;width:16px;height:16px;border-radius:50%;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1.5px solid #0a2419}
+  .hero-avatar-face{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
+  .hero-avatar-face.hero-avatar-sad{display:none}
+  .avatar.has-q .hero-avatar-face.hero-avatar-normal{display:none}
+  .avatar.has-q .hero-avatar-face.hero-avatar-sad{display:block}
   .team-tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;letter-spacing:0.5px;text-transform:uppercase;font-weight:700;}
   .team-tag.A{background:rgba(201,162,39,0.2);color:var(--gold-soft);border:1px solid var(--gold);}
   .team-tag.B{background:rgba(124,35,52,0.35);color:#e8a6b4;border:1px solid var(--maroon);}
@@ -631,6 +650,10 @@
   <div class="field">
     <label for="nameInput">Your name</label>
     <input id="nameInput" placeholder="" autocomplete="off" maxlength="18">
+  </div>
+  <div class="field">
+    <label>Choose your avatar</label>
+    <div id="myAvatarPicker56" class="my-avatar-picker"></div>
   </div>
   <button class="btn btn-gold hidden" id="btnJoinInvite56" style="width:100%;margin-bottom:8px">💌 Join This Table</button>
   <button class="btn btn-gold" id="createTableBtn" style="width:100%">🏠 Create a Table</button>
@@ -780,6 +803,35 @@ const TEAM_OF = seat => (seat % 2 === 0 ? 'A' : 'B'); // seats 0,2,4 = A ; 1,3,5
 let roomCode = null;
 let myName = null;
 let mySeat = null;
+// The avatar the player picked on the landing screen -- same pattern
+// and same localStorage key as the 4-player and 6-player tables, so a
+// returning player's choice carries over between every table.
+let myAvatar = '';
+try { myAvatar = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
+const ALL_AVATAR_KEYS_56 = [...Array.from({length:10}, (_,i) => 'men'+(i+1)), ...Array.from({length:10}, (_,i) => 'ladies'+(i+1))];
+if (!myAvatar || !ALL_AVATAR_KEYS_56.includes(myAvatar)) {
+  myAvatar = ALL_AVATAR_KEYS_56[Math.floor(Math.random() * ALL_AVATAR_KEYS_56.length)];
+}
+function heroAvatarHtml(key) {
+  return `<img src="/images/hero-avatars/${key}.png" class="hero-avatar-face hero-avatar-normal" alt="">`
+       + `<img src="/images/hero-avatars/${key}_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">`;
+}
+function renderMyAvatarPicker56() {
+  const el = document.getElementById('myAvatarPicker56');
+  if (!el) return;
+  el.innerHTML = ALL_AVATAR_KEYS_56.map(key =>
+    `<div class="my-avatar-choice${key === myAvatar ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatar56('${key}')">
+      <img src="/images/hero-avatars/${key}.png" alt="">
+    </div>`
+  ).join('');
+}
+function pickMyAvatar56(key) {
+  myAvatar = key;
+  try { localStorage.setItem('k28_player_avatar', key); } catch (e) {}
+  document.querySelectorAll('#myAvatarPicker56 .my-avatar-choice').forEach(el => el.classList.toggle('picked', el.dataset.key === key));
+}
+document.addEventListener('DOMContentLoaded', renderMyAvatarPicker56);
+if (document.readyState === 'interactive' || document.readyState === 'complete') renderMyAvatarPicker56();
 let pollTimer = null;
 let sessionHeartbeat = null; // see enterTableAsSeat() -- keeps k56_session_time honest during a long, active session
 let headerResizeObserver = null; // see enterTableAsSeat() -- disconnected/recreated together with pollTimer, same reasoning
@@ -1064,7 +1116,7 @@ function ensureSyncSocket(){
     let state = await loadState();
     if(!state){
       state = newRoomState();
-      state.seats[pos] = {name: myName, playerId: MY_PLAYER_ID, connected: true};
+      state.seats[pos] = {name: myName, playerId: MY_PLAYER_ID, connected: true, avatar: myAvatar};
       state.hostPlayerId = MY_PLAYER_ID;
       addLog(state, myName + ' created the table.');
       await saveState(state);
@@ -1620,7 +1672,7 @@ async function claimSeat56(pos){
   document.getElementById('seatPicker56Overlay').classList.add('hidden');
   let state = await loadState();
   if(!state){ alert('That table just closed.'); location.reload(); return; }
-  state.seats[pos] = {name: myName, playerId: MY_PLAYER_ID, connected: true};
+  state.seats[pos] = {name: myName, playerId: MY_PLAYER_ID, connected: true, avatar: myAvatar};
   addLog(state, myName + ' took seat ' + (pos+1) + '.');
   await saveState(state);
   ensureSyncSocket();
@@ -2205,12 +2257,22 @@ function renderTable(state){
     // instead of restarting (which was reading as a visible glitch/jump
     // on the table every time anyone played a card).
     const qCount = (occ && state.qMarks && state.qMarks[occ.name]) || 0;
-    // Carrying a Q swaps the avatar itself to a loser face until it's
-    // shed — a much more visible, constant reminder than a small corner
-    // badge alone.
-    const avatarContent = occ ? (qCount > 0 ? '😭' : botFace(occ, seat, state)) : '·';
+    // A human who picked one of the 20 hero portraits gets their own
+    // choice rendered here, with the matching _sad variant swapped in
+    // automatically by the .has-q CSS rule (same mechanism as the
+    // 4-player and 6-player tables) on a Qunique -- otherwise falls back
+    // to this table's own existing mood-reactive bot face system
+    // (botFace), which already has its own separate qCount>0 override.
     const avatarEl = div.querySelector('.avatar');
-    if(avatarEl.dataset.v !== avatarContent){ avatarEl.dataset.v = avatarContent; avatarEl.innerHTML = avatarContent; }
+    if (occ && occ.avatar) {
+      const avatarContent = heroAvatarHtml(occ.avatar);
+      if (avatarEl.dataset.v !== 'hero:' + occ.avatar) { avatarEl.dataset.v = 'hero:' + occ.avatar; avatarEl.innerHTML = avatarContent; }
+      avatarEl.classList.toggle('has-q', qCount > 0);
+    } else {
+      const avatarContent = occ ? (qCount > 0 ? '😭' : botFace(occ, seat, state)) : '·';
+      avatarEl.classList.remove('has-q');
+      if (avatarEl.dataset.v !== avatarContent) { avatarEl.dataset.v = avatarContent; avatarEl.innerHTML = avatarContent; }
+    }
 
     const dealerChip = div.querySelector('.dealer-chip');
     dealerChip.style.display = isDealer ? '' : 'none';
