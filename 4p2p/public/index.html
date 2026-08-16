@@ -560,6 +560,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .player-avatar.has-q .hero-avatar-face.hero-avatar-normal{display:none}
 .avatar.has-q .hero-avatar-face.hero-avatar-sad,
 .player-avatar.has-q .hero-avatar-face.hero-avatar-sad{display:block}
+/* For the few places p.emoji gets used in plain inline text/button lists rather than inside
+   an existing .avatar/.player-avatar circle - those elements have no defined size or
+   position:relative of their own, so the two stacked images inside p.emoji would render at
+   their full native resolution (each is a cropped avatar image, hundreds of pixels) instead of
+   as a small icon. This gives any such usage a properly sized, circular home to sit in. */
+.hero-avatar-inline{display:inline-block;position:relative;width:22px;height:22px;border-radius:50%;vertical-align:middle;overflow:hidden;flex-shrink:0}
 .avatar.has-q{filter:grayscale(0.7) brightness(0.75)}
 .avatar.has-q::after{
   content:'😭';position:absolute;inset:0;border-radius:50%;
@@ -3527,16 +3533,12 @@ const ALL_PLAYERS = [
   {name:'Charlie',emoji:'<img src="/images/hero-avatars/men1.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men1_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
   {name:'Wesley',emoji:'<img src="/images/hero-avatars/men4.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men4_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#9b59b6,#8e44ad)'},
   {name:'Benson',emoji:'<img src="/images/hero-avatars/men2.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men2_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#e67e22,#d35400)'},
-  {name:'Rahul',emoji:'<img src="/images/hero-avatars/men3.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men3_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#e74c3c,#c0392b)'},
   {name:'Anjali',emoji:'<img src="/images/hero-avatars/ladies1.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies1_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#ff6b9d,#c44569)'},
   {name:'Neha',emoji:'<img src="/images/hero-avatars/ladies2.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies2_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#ff7979,#eb4d4b)'},
   {name:'Nate',emoji:'<img src="/images/hero-avatars/men4.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men4_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#2ecc71,#27ae60)'},
   {name:'Koshy',emoji:'<img src="/images/hero-avatars/men5.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men5_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#f39c12,#e67e22)'},
-  {name:'Meera',emoji:'<img src="/images/hero-avatars/ladies3.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies3_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
   {name:'Priya',emoji:'<img src="/images/hero-avatars/ladies4.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies4_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Sanjay',emoji:'<img src="/images/hero-avatars/men5.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men5_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
   {name:'Johny',emoji:'<img src="/images/hero-avatars/men6.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men6_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Vinod',emoji:'<img src="/images/hero-avatars/men6.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men6_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#9b59b6,#8e44ad)'},
   // Newer additions.
   {name:'Jean',emoji:'<img src="/images/hero-avatars/men7.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men7_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
   {name:'Randall',emoji:'<img src="/images/hero-avatars/men7.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men7_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#9b59b6,#8e44ad)'},
@@ -3556,7 +3558,22 @@ const ALL_PLAYERS = [
   {name:'Roji',emoji:'<img src="/images/hero-avatars/men4.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men4_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
   // Rebee — a young lady, given her own distinct look rather than
   // reusing Anjali's/Priya's/etc, and a soft rose gradient to match.
-  {name:'Rebee',emoji:'<img src="/images/hero-avatars/ladies5.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies5_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#ff8fab,#e0648a)'}
+  {name:'Rebee',emoji:'<img src="/images/hero-avatars/ladies5.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies5_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Thoma',emoji:'<img src="/images/hero-avatars/men5.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men5_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Kunjan',emoji:'<img src="/images/hero-avatars/men6.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men6_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#9b59b6,#8e44ad)'},
+  {name:'Shiju',emoji:'<img src="/images/hero-avatars/men3.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men3_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#e67e22,#d35400)'},
+  {name:'Biju',emoji:'<img src="/images/hero-avatars/men7.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men7_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#e74c3c,#c0392b)'},
+  {name:'Johnson',emoji:'<img src="/images/hero-avatars/men8.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men8_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#2ecc71,#27ae60)'},
+  {name:'Lenji',emoji:'<img src="/images/hero-avatars/men9.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men9_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#f39c12,#e67e22)'},
+  {name:'Benji',emoji:'<img src="/images/hero-avatars/men10.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men10_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Alex',emoji:'<img src="/images/hero-avatars/men1.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/men1_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Biskey',emoji:'<img src="/images/hero-avatars/ladies3.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies3_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#ff6b9d,#c44569)'},
+  {name:'Linda',emoji:'<img src="/images/hero-avatars/ladies6.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies6_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#ff7979,#eb4d4b)'},
+  {name:'Niya',emoji:'<img src="/images/hero-avatars/ladies7.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies7_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Leela',emoji:'<img src="/images/hero-avatars/ladies8.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies8_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Sara',emoji:'<img src="/images/hero-avatars/ladies9.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies9_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#3498db,#2980b9)'},
+  {name:'Sharon',emoji:'<img src="/images/hero-avatars/ladies10.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies10_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#d35400,#a04000)'},
+  {name:'Judy',emoji:'<img src="/images/hero-avatars/ladies2.png" class="hero-avatar-face hero-avatar-normal" alt=""><img src="/images/hero-avatars/ladies2_sad.png" class="hero-avatar-face hero-avatar-sad" alt="">',bg:'linear-gradient(135deg,#16a085,#0e6655)'}
 ];
 
 const SUITS=['♥','♠','♦','♣'];
@@ -4229,7 +4246,7 @@ function selectPlayer(idx, el) {
   btn.textContent = 'Play as ' + ALL_PLAYERS[idx].name;
   const numBots = 3;
   const others = shuffleArray([...ALL_PLAYERS.map((p, i) => i)]).filter(i => i !== idx).slice(0, numBots);
-  document.getElementById('botNames').innerHTML = others.map(i => ALL_PLAYERS[i].emoji + ' ' + ALL_PLAYERS[i].name).join(' &middot; ');
+  document.getElementById('botNames').innerHTML = others.map(i => `<span class="hero-avatar-inline">${ALL_PLAYERS[i].emoji}</span> ${ALL_PLAYERS[i].name}`).join(' &middot; ');
 }
 
 document.getElementById('pickerStart').addEventListener('click', confirmPlayer);
@@ -14053,7 +14070,7 @@ function openChangeBotPicker(pos) {
   const options = ALL_PLAYERS.filter(p => !takenNames.has(p.name));
   if (options.length === 0) { showToast('No other bot names available right now', 'info', 2000); return; }
   const listHtml = options.map(p =>
-    `<button class="btn btn-outline" style="width:100%;margin-bottom:6px;text-align:left" onclick="confirmChangeBot(${pos}, '${p.name}')">${p.emoji} ${p.name}</button>`
+    `<button class="btn btn-outline" style="width:100%;margin-bottom:6px;text-align:left" onclick="confirmChangeBot(${pos}, '${p.name}')"><span class="hero-avatar-inline">${p.emoji}</span> ${p.name}</button>`
   ).join('');
   document.getElementById('hostMenuOverlay').classList.remove('on');
   botPickerReturnToHostMenu = true;
