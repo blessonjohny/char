@@ -231,6 +231,42 @@ class GameEngine6P {
 
   canStart() { return this.seats.filter(Boolean).length >= 2; }
 
+  // Redeals (same dealer, no notify/side effects per attempt) until
+  // neither auto-reshuffle condition is true: the forced first bidder
+  // holding nothing but 7s/8s (an unplayable hand they'd otherwise be
+  // forced to bid on), or any single seat holding all four Jacks. Same
+  // rule and same reasoning as the 4-player table's own version -- this
+  // engine just never had it at all until now. Returns the reason for
+  // the FIRST bad deal hit in the chain (or null if the original deal
+  // was already fine).
+  _dealSameHandUntilValid() {
+    let reason = null;
+    let guard = 0;
+    while (guard++ < 100) { // effectively unbounded in practice; just a hard safety cap
+      const firstBidderSeat = nextPos(this.dealer);
+      const firstBidderHand = this.seats[firstBidderSeat] ? this.seats[firstBidderSeat].hand : [];
+      const isAll78 = firstBidderHand.length === 6 && firstBidderHand.every(c => c.rank === '7' || c.rank === '8');
+      let allJacksSeat = -1;
+      if (!isAll78) {
+        for (let i = 0; i < SEATS; i++) {
+          const hand = this.seats[i] ? this.seats[i].hand : [];
+          if (hand.filter(c => c.rank === 'J').length === 4) { allJacksSeat = i; break; }
+        }
+      }
+      if (!isAll78 && allJacksSeat === -1) break; // this deal is fine, stop here
+      if (!reason) {
+        reason = isAll78
+          ? { type: 'all78', seat: firstBidderSeat, name: this.seats[firstBidderSeat] ? this.seats[firstBidderSeat].name : ('Seat ' + firstBidderSeat), round: this.round, ts: Date.now() }
+          : { type: 'allJacks', seat: allJacksSeat, name: this.seats[allJacksSeat].name, round: this.round, ts: Date.now() };
+        this.addLog(`Reshuffling — ${reason.name} ${reason.type === 'all78' ? "was forced to bid with a hand of only 7s and 8s" : "was dealt all four Jacks"}. Same dealer, fresh deal.`);
+      }
+      for (let i = 0; i < SEATS; i++) { if (this.seats[i]) this.seats[i].hand = []; }
+      this.deck = freshDeck();
+      this.dealCards(6);
+    }
+    return reason;
+  }
+
   startRound() {
     this.round++;
     this.resetRoundState();
@@ -239,6 +275,7 @@ class GameEngine6P {
     this.deck = freshDeck();
     for (let i = 0; i < SEATS; i++) if (this.seats[i]) this.seats[i].hand = [];
     this.dealCards(6); // all 6 cards, all at once — no split deal in this variant
+    this.reshuffleReason = this._dealSameHandUntilValid();
     this.phase = 'bidding1';
     this.addLog(`Round ${this.round} started. Dealer seat ${this.dealer}.`);
     this._notify();
@@ -253,6 +290,7 @@ class GameEngine6P {
     this.deck = freshDeck();
     for (let i = 0; i < SEATS; i++) if (this.seats[i]) this.seats[i].hand = [];
     this.dealCards(6);
+    this.reshuffleReason = this._dealSameHandUntilValid();
     this.phase = 'bidding1';
     this.addLog(`Round ${this.round} restarted by the host — fresh shuffle.`);
     this._notify();
@@ -1348,6 +1386,7 @@ class GameEngine6P {
       quoteState: this.quoteState,
       thaniCaller: this.thaniCaller,
       foldedSeats: this.foldedSeats,
+      reshuffleReason: this.reshuffleReason || null,
       phase: this.phase,
       seats: this.seats.map((s, i) => {
         if (!s) return null;
