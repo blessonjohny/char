@@ -692,7 +692,7 @@ let roundHistorySeenFor = -1; // which round roundTrickHistory currently belongs
 let lastRenderedTrickSlot = [null, null, null, null, null, null]; // for the card-landing animation diff
 let gameOverShownFor = false;
 
-const SUITS = ['♥', '♠', '♦', '♣'];
+const SUITS = ['♠', '♦', '♥', '♣'];
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1, '6': 0 };
 const POINTS = { J: 3, '9': 2, A: 1, '10': 1, K: 0, Q: 0, '8': 0, '7': 0, '6': 0 };
 const SUIT_ICON_ID = { '♠': 'spade', '♣': 'club', '♥': 'heart', '♦': 'diamond' };
