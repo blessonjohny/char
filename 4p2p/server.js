@@ -649,6 +649,195 @@ setInterval(saveVisitorLogLocal, 10000);
 loadVisitorLog();
 loadComments();
 
+// ============================================================
+// GENERIC GITHUB-BACKED LOG (used by the table-history feature below)
+// ============================================================
+// A reusable version of the exact same proven pattern the visitor log
+// above already uses (debounced GitHub push, 409-conflict retry, local
+// disk fallback, stale-entry cleanup on load) -- built as a fresh,
+// self-contained factory rather than by modifying the visitor log's own
+// functions, since those are already working and the risk of touching
+// them isn't worth it just to share code. Each call to this factory
+// returns its own fully independent log with its own file path, own
+// GitHub path, own debounce timers, and own in-memory array -- multiple
+// logs built this way never interfere with each other.
+function createGithubBackedLog({ logName, localFile, githubPath }) {
+  const state = {
+    data: [],
+    dirty: false,
+    githubPushDebounceTimer: null,
+    githubPushMaxWaitTimer: null,
+    githubFileSha: null
+  };
+
+  function markDirtyForGithub() {
+    if (!GITHUB_ENABLED) return;
+    if (state.githubPushDebounceTimer) clearTimeout(state.githubPushDebounceTimer);
+    state.githubPushDebounceTimer = setTimeout(runScheduledPush, 20000);
+    if (!state.githubPushMaxWaitTimer) {
+      state.githubPushMaxWaitTimer = setTimeout(runScheduledPush, 60000);
+    }
+  }
+  function runScheduledPush() {
+    if (state.githubPushDebounceTimer) { clearTimeout(state.githubPushDebounceTimer); state.githubPushDebounceTimer = null; }
+    if (state.githubPushMaxWaitTimer) { clearTimeout(state.githubPushMaxWaitTimer); state.githubPushMaxWaitTimer = null; }
+    pushToGithub().catch(e => console.error(`[${logName}] Scheduled GitHub push failed:`, e.message));
+  }
+  function githubApiUrl() {
+    return `https://api.github.com/repos/${GITHUB_REPO}/contents/${githubPath}`;
+  }
+  async function fetchFromGithub() {
+    if (!GITHUB_ENABLED) return null;
+    try {
+      const res = await fetch(`${githubApiUrl()}?ref=${GITHUB_BRANCH}`, {
+        headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' }
+      });
+      if (res.status === 404) { console.log(`[${logName}] No existing ${githubPath} in the repo yet — starting fresh.`); return []; }
+      if (!res.ok) { console.error(`[${logName}] GitHub fetch failed:`, res.status, await res.text()); return null; }
+      const json = await res.json();
+      state.githubFileSha = json.sha;
+      const decoded = Buffer.from(json.content, 'base64').toString('utf8');
+      return JSON.parse(decoded);
+    } catch (e) {
+      console.error(`[${logName}] GitHub fetch error:`, e.message);
+      return null;
+    }
+  }
+  async function refreshGithubSha() {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      let res;
+      try {
+        res = await fetch(`${githubApiUrl()}?ref=${GITHUB_BRANCH}`, {
+          headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json' },
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+      if (res.status === 404) { state.githubFileSha = null; return true; }
+      if (!res.ok) return false;
+      const json = await res.json();
+      state.githubFileSha = json.sha;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  async function pushToGithub(isRetry) {
+    if (!GITHUB_ENABLED) return;
+    try {
+      const body = {
+        message: `Update ${logName} (${state.data.length} entries)`,
+        content: Buffer.from(JSON.stringify(state.data)).toString('base64'),
+        branch: GITHUB_BRANCH
+      };
+      if (state.githubFileSha) body.sha = state.githubFileSha;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      let res;
+      try {
+        res = await fetch(githubApiUrl(), {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+      if (res.status === 409 && !isRetry) {
+        console.log(`[${logName}] GitHub push got a 409 (stale SHA) -- refreshing and retrying once.`);
+        const refreshed = await refreshGithubSha();
+        if (refreshed) { await pushToGithub(true); return; }
+      }
+      if (!res.ok) { console.error(`[${logName}] GitHub push failed:`, res.status, await res.text()); return; }
+      const json = await res.json();
+      state.githubFileSha = json.content.sha;
+      console.log(`[${logName}] Synced ${state.data.length} entries to GitHub.`);
+    } catch (e) {
+      console.error(`[${logName}] GitHub push error:`, e.message);
+    }
+  }
+  async function load() {
+    if (GITHUB_ENABLED) {
+      const fromGithub = await fetchFromGithub();
+      if (fromGithub) {
+        state.data = fromGithub;
+        console.log(`[${logName}] Loaded ${state.data.length} entries from GitHub.`);
+        return;
+      }
+      console.log(`[${logName}] Falling back to local file for this boot (GitHub fetch failed).`);
+    }
+    try {
+      if (fs2.existsSync(localFile)) {
+        state.data = JSON.parse(fs2.readFileSync(localFile, 'utf8'));
+        console.log(`[${logName}] Loaded ${state.data.length} entries from local disk.`);
+      }
+    } catch (e) {
+      console.error(`[${logName}] Failed to load local file, starting fresh:`, e.message);
+      state.data = [];
+    }
+  }
+  function saveLocal() {
+    if (!state.dirty) return;
+    try {
+      fs2.writeFileSync(localFile, JSON.stringify(state.data));
+      state.dirty = false;
+    } catch (e) {
+      console.error(`[${logName}] Failed to save local file:`, e.message);
+    }
+  }
+  function markDirty() {
+    state.dirty = true;
+    markDirtyForGithub();
+  }
+
+  return { state, load, saveLocal, markDirty, pushToGithub };
+}
+
+// ============================================================
+// TABLE HISTORY LOG (for the admin panel's "how many tables, how long
+// each was open, per day for the past month" view)
+// ============================================================
+// Every table that has ever fully closed gets exactly one entry here --
+// tables currently still open are NOT in this log at all (the existing
+// live-tables view already covers those); this is purely a historical
+// record of completed table lifetimes. Matches the same 3 places a
+// table can ever actually close, per the comment on dailyCloseAllTables
+// below: an explicit admin close, the last real player explicitly
+// leaving, or the hard 5am daily reset.
+const TABLE_HISTORY_FILE = path.join(__dirname, 'table-history-data.json');
+const TABLE_HISTORY_MAX = 20000; // generous cap; at even 200 tables/day this covers ~100 days before anything gets trimmed
+const TABLE_HISTORY_MAX_AGE_MS = 400 * 24 * 60 * 60 * 1000; // kept well past the 1-month view the admin panel actually shows, in case that window ever needs to grow later
+const GITHUB_TABLE_HISTORY_PATH = '4p2p/data/table-history.json';
+const tableHistoryLog = createGithubBackedLog({
+  logName: 'table-history',
+  localFile: TABLE_HISTORY_FILE,
+  githubPath: GITHUB_TABLE_HISTORY_PATH
+});
+function recordTableClosed(tableId, game, createdAt, closeReason) {
+  const closedAt = Date.now();
+  const openedAt = createdAt || closedAt; // a table from before createdAt was tracked on every game type -- treat as a 0-length entry rather than crashing or guessing
+  tableHistoryLog.state.data.push({
+    tableId, game, createdAt: openedAt, closedAt, durationMs: Math.max(0, closedAt - openedAt), closeReason: closeReason || 'unknown'
+  });
+  // Same trim-on-write pattern as the visitor log: bounded by count AND
+  // by age, oldest dropped first, so this can never grow without limit
+  // even if the admin panel is never actually opened to look at it.
+  const cutoff = closedAt - TABLE_HISTORY_MAX_AGE_MS;
+  tableHistoryLog.state.data = tableHistoryLog.state.data.filter(e => e.closedAt >= cutoff);
+  if (tableHistoryLog.state.data.length > TABLE_HISTORY_MAX) {
+    tableHistoryLog.state.data = tableHistoryLog.state.data.slice(tableHistoryLog.state.data.length - TABLE_HISTORY_MAX);
+  }
+  tableHistoryLog.markDirty();
+}
+setInterval(tableHistoryLog.saveLocal, 10000);
+tableHistoryLog.load();
+
+
+
 // Consolidated graceful shutdown -- every module with something to save
 // (bot brains, visitor log, anything added later) registers its own
 // SIGTERM/SIGINT listener that just saves, without exiting; this is the
@@ -659,6 +848,7 @@ loadComments();
 async function finalVisitorLogFlush() {
   saveVisitorLogLocal();
   saveCommentsLocal();
+  tableHistoryLog.saveLocal();
   if (GITHUB_ENABLED) {
     // Each individual GitHub network call is bounded to 3s, and a
     // single push can involve up to 3 sequential calls in the worst
@@ -672,7 +862,7 @@ async function finalVisitorLogFlush() {
     // finish comfortably early than race right up against an unknown
     // outer deadline.
     await Promise.race([
-      Promise.all([githubPushVisitorLog(), githubPushComments()]),
+      Promise.all([githubPushVisitorLog(), githubPushComments(), tableHistoryLog.pushToGithub()]),
       new Promise(resolve => setTimeout(resolve, 11000))
     ]);
   }
@@ -961,6 +1151,46 @@ app.get('/api/all-tables', (req, res) => {
   res.json({ ok: true, tables: getAllTablesSummary() });
 });
 
+// Daily table-open counts for the past 30 days, plus every individual
+// closed table's own duration -- grouped by the Eastern calendar date it
+// was CREATED on (not closed), matching the same day-boundary convention
+// the rest of the app already uses for its own 5am Eastern daily reset.
+// Only ever includes tables that have actually finished their lifetime
+// (see recordTableClosed) -- a table still open right now belongs to the
+// separate live-tables view above, not here.
+app.get('/api/table-history', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const DAYS = 30;
+  const now = new Date();
+  const todayParts = easternTimeParts(now);
+  // Midnight-anchored UTC instant for "today" in Eastern terms, purely
+  // as a stable anchor to count back DAYS-1 calendar days from -- the
+  // actual bucketing below still derives each entry's OWN Eastern date
+  // independently via easternTimeParts, so this anchor being a UTC
+  // instant rather than a true Eastern midnight never causes entries to
+  // land in the wrong day-bucket.
+  const todayAnchor = Date.UTC(todayParts.year, todayParts.month - 1, todayParts.day);
+  const dayBuckets = new Map(); // 'YYYY-MM-DD' -> { date, count, totalDurationMs, tables: [] }
+  for (let i = 0; i < DAYS; i++) {
+    const d = new Date(todayAnchor - i * 24 * 60 * 60 * 1000);
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    dayBuckets.set(key, { date: key, count: 0, totalDurationMs: 0, tables: [] });
+  }
+  const cutoffMs = todayAnchor - (DAYS - 1) * 24 * 60 * 60 * 1000;
+  for (const entry of tableHistoryLog.state.data) {
+    if (entry.createdAt < cutoffMs) continue;
+    const p = easternTimeParts(new Date(entry.createdAt));
+    const key = `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+    const bucket = dayBuckets.get(key);
+    if (!bucket) continue; // just outside the window due to a timezone-boundary edge case -- fine to skip, not worth a whole extra day of noise
+    bucket.count++;
+    bucket.totalDurationMs += entry.durationMs;
+    bucket.tables.push({ tableId: entry.tableId, game: entry.game, durationMs: entry.durationMs, closeReason: entry.closeReason });
+  }
+  const days = Array.from(dayBuckets.values()).sort((a, b) => b.date.localeCompare(a.date));
+  res.json({ ok: true, days });
+});
+
 // admin.html's "Visitor Log" tab fetches this directly -- it was
 // missing entirely, only the socket-based adminGetVisitorLog event
 // (used by the OTHER admin panel embedded in index.html) existed. Same
@@ -987,19 +1217,23 @@ app.post('/api/admin/close-table', (req, res) => {
   if (tables[id]) {
     io.to(id).emit('tableClosed', { reason: 'admin' });
     for (const s of tables[id].engine.seats) if (s && s.playerId) delete playerIndex[s.playerId];
+    recordTableClosed(id, '4-Player', tables[id].createdAt, 'admin');
     delete tables[id]; closed = '4-Player';
     io.emit('roomList', publicTableList());
   } else if (sixpTables[id]) {
     io.to('sixp_' + id).emit('sixp_tableClosed', { reason: 'admin' });
     for (const s of sixpTables[id].engine.seats) if (s && s.playerId) delete sixpPlayerIndex[s.playerId];
+    recordTableClosed(id, '6-Player', sixpTables[id].createdAt, 'admin');
     delete sixpTables[id]; closed = '6-Player';
     io.emit('sixp_roomList', sixpPublicTableList());
   } else if (l56Rooms[id]) {
     io.to(l56SocketRoom(id)).emit('l56_tableClosed', { reason: 'admin' });
+    recordTableClosed(id, '56', l56Rooms[id].createdAt, 'admin');
     delete l56Rooms[id]; closed = '56';
     io.emit('l56_roomList', l56PublicList());
   } else if (pokerTables[id]) {
     io.to('poker_' + id).emit('poker_tableClosed', { reason: 'admin' });
+    recordTableClosed(id, "Hold'em", pokerTables[id].createdAt, 'admin');
     delete pokerTables[id]; closed = "Hold'em";
   }
   if (!closed) return res.status(404).json({ ok: false, error: 'table_not_found' });
@@ -1970,6 +2204,7 @@ io.on('connection', (socket) => {
     // regardless of whether other real players remain.
     if (explicitLeave && !t.engine.seats.some(s => s && !s.isBot)) {
       io.to(tableId).emit('tableClosed', { reason: 'lastPlayerLeft' });
+      recordTableClosed(tableId, '4-Player', t.createdAt, 'lastPlayerLeft');
       delete tables[tableId];
       io.emit('roomList', publicTableList());
       console.log(`[table ${tableId}] closed — last real player explicitly left via Leave Table`);
@@ -2482,6 +2717,7 @@ io.on('connection', (socket) => {
       // regardless of how many real players remain.
       if (!t.engine.seats.some(s => s && !s.isBot)) {
         io.to('sixp_' + sixpTableId).emit('sixp_tableClosed', { reason: 'lastPlayerLeft' });
+        recordTableClosed(sixpTableId, '6-Player', t.createdAt, 'lastPlayerLeft');
         delete sixpTables[sixpTableId];
         io.emit('sixp_roomList', sixpPublicTableList());
         console.log(`[6p table ${sixpTableId}] closed — last real player explicitly left via Leave Table`);
@@ -3515,6 +3751,7 @@ io.on('connection', (socket) => {
     // how many real players remain.
     if (r.state && r.state.seats && !r.state.seats.some(s => s && !s.bot)) {
       io.to(l56SocketRoom(code)).emit('l56_tableClosed', { reason: 'lastPlayerLeft' });
+      recordTableClosed(code, '56', r.createdAt, 'lastPlayerLeft');
       delete l56Rooms[code];
       io.emit('l56_roomList', l56PublicList());
       console.log(`[56 table ${code}] closed — last real player explicitly left via Leave Table`);
@@ -4107,6 +4344,10 @@ io.on('connection', (socket) => {
 // the EST/EDT daylight-saving switch on its own.
 function dailyCloseAllTables() {
   const counts = { fourP: Object.keys(tables).length, sixP: Object.keys(sixpTables).length, l56: Object.keys(l56Rooms).length, poker: Object.keys(pokerTables).length, spades: Object.keys(spadesTables).length };
+  for (const [k, t] of Object.entries(tables)) recordTableClosed(k, '4-Player', t.createdAt, 'dailyReset');
+  for (const [k, t] of Object.entries(sixpTables)) recordTableClosed(k, '6-Player', t.createdAt, 'dailyReset');
+  for (const [k, r] of Object.entries(l56Rooms)) recordTableClosed(k, '56', r.createdAt, 'dailyReset');
+  for (const [k, t] of Object.entries(pokerTables)) recordTableClosed(k, "Hold'em", t.createdAt, 'dailyReset');
   for (const k of Object.keys(tables)) delete tables[k];
   for (const k of Object.keys(sixpTables)) delete sixpTables[k];
   for (const k of Object.keys(l56Rooms)) delete l56Rooms[k];
