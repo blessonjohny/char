@@ -2416,6 +2416,27 @@ class GameEngine {
     }
 
     const trumps = hand.filter(c => c.suit === this.trumpSuit);
+    // Having personally asked for trump to be opened, this bot owes a
+    // trump card this trick if it's holding one at all — a flat Kerala
+    // rule, not a strategic choice weighed against trick value or who's
+    // currently winning. This was a real gap: the strategic cut/discard
+    // decision below (worthTrumping, trumpWinning, wt !== myTeam) had no
+    // awareness of this obligation at all, so a bot that had just asked
+    // to see trump could still walk right past it and discard instead
+    // whenever the trick wasn't judged worth spending trump on — exactly
+    // the "bot asked to see trump but didn't play it" bug reported. The
+    // rule only requires playing A trump card, not necessarily the
+    // strongest one, so the cheapest zero-point trump (falling back to
+    // the weakest non-Jack, then the weakest overall) satisfies it while
+    // still not wasting more than necessary.
+    if (this.mustPlayTrumpBy === pos && trumps.length > 0) {
+      trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+      const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+      const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+      return zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+        : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+        : trumps[trumps.length - 1];
+    }
     if (this.trumpExposed && trumps.length > 0) {
       trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
       let trumpWinning;
