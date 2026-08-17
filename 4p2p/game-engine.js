@@ -2313,13 +2313,26 @@ class GameEngine {
           // once that suit's Jack has genuinely been accounted for —
           // otherwise it's exactly the "leading a point card into a suit
           // where the opponent may still hold the Jack" mistake, and
-          // often just gives points away for nothing.
+          // often just gives points away for nothing. If a safer, lower
+          // card in this SAME suit exists (e.g. holding 9+7 of trump —
+          // the 9 unsafe, the 7 completely safe), lead that instead of
+          // the 9 outright: the -40 penalty below only ever affected
+          // whether this suit got chosen over other suits, never which
+          // actual card got played once it was — meaning a bot with
+          // only that one risky suit left to lead from was always stuck
+          // committing to the 9 anyway, even holding a strictly safer
+          // card in the exact same suit the whole time.
           if (iHold9) {
             if (jSeen) {
               candidates.push({ card: bySuit[s].find(c => c.rank === '9'), score: 45 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
               continue;
             }
             sc -= 40; // real risk, not a lead to favor -- 1 threat (unseen J) * 2 points * 20, matching the isEarly branch's formula
+            const saferInSuit = bySuit[s].find(c => c.rank !== '9' && c.points === 0);
+            if (saferInSuit) {
+              candidates.push({ card: saferInSuit, score: sc + bySuit[s].length * 3, suit: s });
+              continue;
+            }
           }
           sc += bySuit[s].reduce((a, c) => a + c.points, 0) * 10 + bySuit[s].length * 3;
           // Aces and 10s carry real points but are still beaten by an
@@ -2328,11 +2341,21 @@ class GameEngine {
           // threats*points*20 formula as the isEarly branch above, so a
           // 9 and an Ace/10 facing the same number of unseen threats are
           // penalized consistently by their actual point value either way.
+          // Same "prefer a safer card in the same suit if one exists"
+          // fallback as the 9 case above, for the identical reason.
           if (high.rank === 'A' || high.rank === '10') {
             let unseenThreats = 0;
             if (!jSeen) unseenThreats++;
             if (!nineSeen) unseenThreats++;
-            if (unseenThreats > 0) sc -= unseenThreats * high.points * 20;
+            if (unseenThreats > 0) {
+              sc -= unseenThreats * high.points * 20;
+              const saferInSuit = bySuit[s].find(c => c !== high && c.points === 0);
+              if (saferInSuit) {
+                if (s === this.trumpSuit) sc -= 10;
+                candidates.push({ card: saferInSuit, score: sc, suit: s });
+                continue;
+              }
+            }
           }
           if (s === this.trumpSuit) sc -= 10;
           candidates.push({ card: high, score: sc, suit: s });
