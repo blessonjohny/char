@@ -5353,8 +5353,17 @@ function updateInfo() {
     // isn't even in play this round at all.
     if (SERVER_MODE && !thaniActive) {
       if (trumpExposed && !serverLastAnnouncedTrumpExposed) {
-        showToast('⚡ Trump exposed: ' + trumpSuit + '!', 'win', 2200);
-        log('Trump exposed! ' + trumpSuit + ' is active.', 'win');
+        // A brief, deliberate pause before the announcement rather than
+        // firing in the exact same instant the card lands -- the two
+        // together, simultaneously, meant the announcement effectively
+        // covered up the very card that just caused it, with no moment
+        // to actually register what just happened before the banner
+        // took over the screen.
+        const exposedSuitAtCall = trumpSuit;
+        setTimeout(() => {
+          showToast('⚡ Trump exposed: ' + exposedSuitAtCall + '!', 'win', 2200);
+          log('Trump exposed! ' + exposedSuitAtCall + ' is active.', 'win');
+        }, 550);
       }
       serverLastAnnouncedTrumpExposed = trumpExposed;
     }

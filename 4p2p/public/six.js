@@ -1119,7 +1119,14 @@ function applyState(state) {
     tr.textContent = '🎯 Trump: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit) + ' ACTIVE';
     tr.style.color = 'var(--accent)';
     if (!lastAnnouncedTrumpExposed) {
-      showToast('⚡ Trump exposed: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit) + '!', 'win', 2200);
+      // Same fix as the 4-player table: a brief, deliberate pause before
+      // the announcement rather than firing in the exact same instant
+      // the card lands, which effectively covered up the very card that
+      // just caused it with no moment to register what happened first.
+      const exposedSuitAtCall = state.trumpSuit;
+      setTimeout(() => {
+        showToast('⚡ Trump exposed: ' + exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall) + '!', 'win', 2200);
+      }, 550);
     }
     lastAnnouncedTrumpExposed = true;
   } else {
