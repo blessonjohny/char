@@ -2456,7 +2456,16 @@ class GameEngine {
       // calls have gone poorly stays looser, same as before it learned
       // anything at all.
       const trumpPtsThreshold = Math.round(2 * b.playWeights.trumpManagement);
-      const worthTrumping = tPts >= trumpPtsThreshold || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
+      // A suit being led for the very first time this round (suitRepeat
+      // === 1, counting this exact lead) is now its own trigger to cut,
+      // independent of the trick's point value — added per specific
+      // request, layered alongside the existing triggers rather than
+      // replacing them. trumpWinning and wt !== myTeam above still both
+      // apply regardless of why we're cutting: never spend trump that
+      // wouldn't actually win the trick, and never cut over our own
+      // partner who's already winning it for free.
+      const firstTimeSuitLed = suitRepeat === 1;
+      const worthTrumping = tPts >= trumpPtsThreshold || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1) || firstTimeSuitLed;
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {
