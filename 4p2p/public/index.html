@@ -3550,12 +3550,6 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   // identifiers exactly, never a human-formatted string.
   window.SITE_LAST_UPDATED = 'Aug 14, 2026';
   console.log('[28 Kerala Gulan] build:', window.K28_BUILD_TAG);
-  window.addEventListener('DOMContentLoaded', () => {
-    const tag = document.createElement('div');
-    tag.textContent = window.K28_BUILD_TAG;
-    tag.style.cssText = 'position:fixed;top:2px;left:2px;font-size:8px;color:rgba(255,255,255,0.25);z-index:9999;pointer-events:none;font-family:monospace';
-    document.body.appendChild(tag);
-  });
 </script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/voice.js"></script>
@@ -8358,12 +8352,22 @@ function showTrumpPlayPanel(trumps, nonT) {
 }
 
 function showDiscardPanel(nonT, trumps) {
-  // When you chose NO, you don't know trump - just discard any card
-  // Update title to reflect discarding (not calling trump)
+  // Whether trump actually got exposed here differs by path even though
+  // every card ends up equally discardable either way: NO never called
+  // trump at all (still genuinely hidden), while YES did call it but
+  // this player happens to hold none to actually cut with. Both used to
+  // land on the exact same "Discard Card" title and message regardless
+  // -- meaning a player who correctly called trump, with nothing to
+  // play, saw literally nothing different from someone who'd chosen not
+  // to call it at all. That's the exact confusion reported: "call trump
+  // only results in discard" -- the call genuinely worked, but nothing
+  // on screen ever confirmed it did.
   const title = document.getElementById('callTrumpTitle');
-  if (title) title.textContent = 'Discard Card';
+  if (title) title.textContent = discardIsCalledTrump ? '🃏 Trump Called — No Trump to Play' : 'Discard Card';
   const msg = document.getElementById('callTrumpMsg');
-  if (msg) msg.textContent = 'You cannot follow suit. Choose a card to discard.';
+  if (msg) msg.textContent = discardIsCalledTrump
+    ? 'Trump is now exposed for everyone — you just don\'t hold any yourself. Choose any card to discard.'
+    : 'You cannot follow suit. Choose a card to discard.';
 
   // Show ALL cards as discardable since you don't know what's trump. Every
   // card here is a plain discard - there's no "cutting with trump" concept
@@ -14522,6 +14526,25 @@ function applyServerState(state) {
   hiddenTrump = state.myHiddenTrumpCard
     ? { suit: state.myHiddenTrumpCard.suit, rank: state.myHiddenTrumpCard.rank, points: state.myHiddenTrumpCard.points, color: (state.myHiddenTrumpCard.suit === '♥' || state.myHiddenTrumpCard.suit === '♦') ? '#d32f2f' : '#222' }
     : (state.hasHiddenTrump ? { suit: trumpSuit } : null); // not our own hidden card — we only get to know the suit, never which specific card, until it's exposed
+  // Forced last card: our own visible hand is empty and the hidden
+  // trump card is genuinely all we have left, so playing it isn't a
+  // real decision at all -- there's no alternative to weigh. The local
+  // (offline) game already auto-plays this exact situation; server mode
+  // never did, since the only way to play the hidden card here was
+  // tapping its exact suit/rank -- something with literally nothing
+  // rendered in the empty hand area to tap. A player in this spot was
+  // stuck with no visible action available at all, not offered a choice
+  // they were declining. serverPlayHiddenTrumpFired guards against
+  // firing more than once for the same turn while waiting on the
+  // server's own follow-up state to arrive.
+  if (SERVER_MODE && state.myHiddenTrumpCard && state.currentPlayer === MY_POS &&
+      state.phase === 'play' && (players[MY_POS] || []).length === 0 &&
+      !window._serverPlayHiddenTrumpFired) {
+    window._serverPlayHiddenTrumpFired = true;
+    setTimeout(() => { serverPlayHiddenTrump(); }, 400);
+  } else if (!(state.myHiddenTrumpCard && state.currentPlayer === MY_POS)) {
+    window._serverPlayHiddenTrumpFired = false;
+  }
   const withColor = (c) => ({ suit: c.suit, rank: c.rank, points: c.points, color: (c.suit === '♥' || c.suit === '♦') ? '#d32f2f' : '#222' });
   trickCards = (state.trickCards || []).map(tc => ({ player: tc.pos, card: withColor(tc.card) }));
   trickSuit = state.trickSuit || '';
@@ -14775,10 +14798,14 @@ function proceedAfterCrownAnimationServerMode(bidderWon, made, bT, oT, yourTeam,
       overlay.classList.remove('on');
       if (champResult) {
         showChampionshipResultServerMode(champResult, yourTeam);
-      } else if (SERVER_IS_HOST) {
-        gameSocket.emit('continueRound');
       } else {
-        showToast('⏳ Waiting for host to start next round...', 'info', 1500);
+        // Any seated player can trigger this now, not host-only -- see
+        // the matching server.js handler for the full reasoning. Still
+        // sent unconditionally here even for a non-host, since the
+        // server is the one that actually decides whether it takes
+        // effect; there's no longer a "wait for host" case that can
+        // leave someone stuck with nothing to do.
+        gameSocket.emit('continueRound');
       }
     };
   }
@@ -14848,8 +14875,9 @@ function showChampionshipResultServerMode(champResult, yourTeam) {
       closeModal();
       okBtn.textContent = 'OK';
       okBtn.onclick = oldOnclick;
-      if (SERVER_IS_HOST) gameSocket.emit('continueRound');
-      else showToast('⏳ Waiting for host to start next round...', 'info', 1500);
+      // Any seated player can trigger this now -- see the matching
+      // server.js handler for the full reasoning.
+      gameSocket.emit('continueRound');
     };
   }
 }

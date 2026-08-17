@@ -677,6 +677,7 @@ let IS_HOST = false;
 let pendingJoinCode = null;
 let latestState = null;
 let lastAnnouncedTrumpExposed = false;
+let lastHiddenTrumpAutoFired6p = false; // see renderHand() -- guards the forced-last-card auto-play against firing more than once per turn
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired
 let lastShownRoundVoidMessage = null;
 let lastShownPartnerSignalKey6p = null;
@@ -1629,6 +1630,19 @@ function renderHand(state) {
       <span class="cr" style="color:${cardColor(state.myHiddenTrumpCard.suit)}">${state.myHiddenTrumpCard.rank}</span>
       <span class="cs" style="color:${cardColor(state.myHiddenTrumpCard.suit)}">${suitIconSvg(state.myHiddenTrumpCard.suit, 'suit-icon-center')}</span>
     </div>`;
+    // Forced last card: the hand is empty and this hidden card is
+    // genuinely all that's left, so playing it isn't a real decision to
+    // weigh -- there's no alternative. Auto-play it rather than making
+    // the player find and tap this one specific card with nothing else
+    // on screen to compare it against. lastHiddenTrumpAutoFired6p guards
+    // against firing more than once for the same turn while waiting on
+    // the server's own follow-up state to arrive.
+    if (!lastHiddenTrumpAutoFired6p) {
+      lastHiddenTrumpAutoFired6p = true;
+      setTimeout(() => { playHiddenTrumpCard(); }, 400);
+    }
+  } else if (!(state.myHiddenTrumpCard && myTurn)) {
+    lastHiddenTrumpAutoFired6p = false;
   }
 
   // Can't follow suit and trump not exposed yet -> offer Call Trump.
@@ -1835,12 +1849,14 @@ function showRoundEnd(state) {
   $('roundEndTitle').style.color = myTeamWon ? 'var(--success)' : 'var(--danger)';
   const bidderName = state.seats[r.bidder] ? state.seats[r.bidder].name : ('Seat ' + r.bidder);
   let body = `${bidderName} bid ${r.thani ? 'THANI' : r.highestBid} — ${r.made ? 'made it' : 'fell short'}.<br>Team points: ${r.teamPoints[0]} - ${r.teamPoints[1]}<br><b style="color:${myTeamWon ? 'var(--success)' : 'var(--danger)'}">${myTeamWon ? '+' : '-'}${r.pts} match points for your team</b>`;
-  if (!IS_HOST) {
-    body += `<br><br><span style="color:var(--text-secondary);font-size:0.8rem">⏳ Waiting for the host to start the next round...</span>`;
-  }
   $('roundEndBody').innerHTML = body;
-  $('btnContinueRound').style.display = IS_HOST ? 'flex' : 'none';
-  $('btnAckRoundEnd').style.display = IS_HOST ? 'none' : 'flex';
+  // Any seated player can trigger this now, not host-only -- see the
+  // matching server.js handler for the full reasoning. Everyone gets
+  // the same real "Continue" button now; the separate passive
+  // "acknowledge and wait for host" button isn't needed anymore, since
+  // there's no longer anything to actually wait for.
+  $('btnContinueRound').style.display = 'flex';
+  $('btnAckRoundEnd').style.display = 'none';
   const signalNote6p = $('partnerSignalSentNote6p');
   if (signalNote6p) signalNote6p.style.display = 'none';
   $('roundEndOverlay').classList.add('on');
@@ -1849,12 +1865,6 @@ $('btnContinueRound').addEventListener('click', () => {
   $('roundEndOverlay').classList.remove('on');
   socket.emit('sixp_continueRound');
 });
-// Non-host players can't actually advance the round themselves -- only
-// the host can do that server-side -- but they had nothing at all to
-// click before, just a passive wait message. This acknowledges they've
-// seen the result and dismisses their own view; if the host advances
-// the round in the meantime, the next state broadcast replaces this
-// screen for everyone regardless, so nothing is lost either way.
 $('btnAckRoundEnd').addEventListener('click', () => {
   $('roundEndOverlay').classList.remove('on');
 });
