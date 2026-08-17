@@ -4797,6 +4797,22 @@ function showModal(title, text) {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
+  // The main OK button also needs the same treatment, and this was a real
+  // gap: the round-end flow temporarily repurposes this exact button
+  // (relabels it "▶ Continue", rewires its click to emit continueRound)
+  // and only restores the original text/handler INSIDE that new handler
+  // -- meaning if it never actually gets clicked (e.g. a guest whose
+  // round-end popup was still open when the host advanced the round for
+  // everyone, especially straight into an automatic reshuffle), the
+  // stale "Continue"-labeled, continueRound-wired button was still
+  // sitting there under whatever unrelated message showed up next. Any
+  // caller that wants special OK-button behavior (like round-end already
+  // does) sets it up AFTER calling showModal(), so resetting first here
+  // never breaks that -- it just guarantees a clean starting point every
+  // single time instead of only when the previous modal happened to be
+  // dismissed properly.
+  const okBtnReset = document.getElementById('modalOkBtn');
+  if (okBtnReset) { okBtnReset.textContent = 'OK'; okBtnReset.onclick = closeModal; }
   document.getElementById('modalOverlay').classList.add('on');
 }
 function closeModal() {
@@ -14261,6 +14277,32 @@ function applyServerState(state) {
   const gameWrapAlreadyShowing = !!gwDisplay && gwDisplay !== 'none';
   latestServerState = state;
   logClientDebug(state);
+  // A genuinely different table (not just a new round on the SAME table)
+  // is a much more definitive signal than the tricksPlayed-went-backwards
+  // heuristic further down can ever be — that heuristic was built for a
+  // host restarting the same table, and can miss cases like this one:
+  // leaving one table and starting a completely different one, where a
+  // leftover card from the old table's last trick stayed visually
+  // stuck on screen because nothing had told the renderer anything
+  // actually changed. Any table ID change forces every stale visual
+  // tracker to reset unconditionally, no comparison needed.
+  if (state.tableId && state.tableId !== lastAppliedTableId) {
+    lastAppliedTableId = state.tableId;
+    resetTrickAndRoundTracking();
+    // resetTrickAndRoundTracking() clears the tracking array back to
+    // all-null, but if the NEW table's own desired content is also
+    // null (nothing played yet, the common case), null === null would
+    // still match and skip the actual DOM-clearing step in
+    // renderTrickSlots() below -- the stale card's HTML would stay
+    // sitting on screen even though the tracker itself looks reset.
+    // Directly empty every slot element here too, so there's nothing
+    // left over regardless of what the new table's first real state
+    // happens to want.
+    for (let i = 0; i < 4; i++) {
+      const slotEl = document.getElementById('slot' + i);
+      if (slotEl) slotEl.innerHTML = '';
+    }
+  }
   // Keeps the auto-reconnect staleness check (see attemptAutoReconnect)
   // from ever mistaking an actively-ongoing game for an old, abandoned
   // one just because it's been running a while — only a genuine gap in
@@ -15026,6 +15068,7 @@ function afterTrickRevealSettles(fn, _startedAt) {
 }
 
 let lastRenderedSlotContent = [null, null, null, null];
+let lastAppliedTableId = null; // see applyServerState -- forces a full visual-tracker reset the moment the table ID itself changes, not just on a same-table restart
 function renderTrickSlotsWithWinnerPause(state) {
   // A trick has genuinely just resolved exactly when tricksPlayed has
   // incremented since the last render — an unambiguous counter, unlike

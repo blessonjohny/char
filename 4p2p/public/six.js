@@ -680,6 +680,7 @@ let lastAnnouncedTrumpExposed = false;
 let lastHiddenTrumpAutoFired6p = false; // see renderHand() -- guards the forced-last-card auto-play against firing more than once per turn
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired
 let lastShownRoundVoidMessage = null;
+let lastShownReshuffleReasonTs6p = null;
 let lastShownPartnerSignalKey6p = null;
 let lastShownEarlyWinChoice6p = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
 let lastShownQuoteDeclaredForTeam6p = null; // which team's COT/MaruCOT declaration has already been announced this round
@@ -690,6 +691,7 @@ let lastRoundSeen = -1;
 let roundTrickHistory = []; // every completed trick so far THIS round, for the "played so far" view
 let roundHistorySeenFor = -1; // which round roundTrickHistory currently belongs to
 let lastRenderedTrickSlot = [null, null, null, null, null, null]; // for the card-landing animation diff
+let lastAppliedTableId6p = null; // see applyState -- forces a full trick-slot reset the moment the table itself changes
 let gameOverShownFor = false;
 
 const SUITS = ['♠', '♦', '♥', '♣'];
@@ -1054,11 +1056,47 @@ function renderLobby(state) {
 function applyState(state) {
   latestState = state;
 
+  // A genuinely different table (not just a new round on the SAME table)
+  // is a much more definitive signal than any per-field staleness check
+  // further down could ever be -- leaving one table and starting a
+  // completely different one could leave a leftover card from the old
+  // table's last trick visually stuck on screen, since nothing had told
+  // the renderer anything actually changed. Directly clearing every slot
+  // element here (not just resetting the tracking array) matters: if the
+  // NEW table's own first real state also wants an empty slot (the
+  // common case, nothing played yet), a reset tracker comparing
+  // null===null would still skip the actual DOM-clearing step in
+  // renderTrickSlots below.
+  if (MY_TABLE_ID && MY_TABLE_ID !== lastAppliedTableId6p) {
+    lastAppliedTableId6p = MY_TABLE_ID;
+    lastRenderedTrickSlot = [null, null, null, null, null, null];
+    for (let i = 0; i < 6; i++) {
+      const slotEl = document.getElementById('trickSlot' + i);
+      if (slotEl) slotEl.innerHTML = '';
+    }
+  }
+
   if (state.roundVoidMessage && state.roundVoidMessage !== lastShownRoundVoidMessage) {
     lastShownRoundVoidMessage = state.roundVoidMessage;
     showToast('🚫 ' + state.roundVoidMessage, 'lose', 3500);
   } else if (!state.roundVoidMessage) {
     lastShownRoundVoidMessage = null;
+  }
+
+  // Same event as the 4-player table's reshuffleReason -- explains why
+  // everyone's hand suddenly changed (all four Jacks in one hand, or the
+  // first bidder stuck with an unplayable hand of nothing but 7s/8s).
+  // ts makes each event unique even if the exact same situation repeats.
+  if (state.reshuffleReason && state.reshuffleReason.ts !== lastShownReshuffleReasonTs6p) {
+    lastShownReshuffleReasonTs6p = state.reshuffleReason.ts;
+    const r = state.reshuffleReason;
+    let msg;
+    if (r.type === 'all78') {
+      msg = `🔄 Reshuffling — ${r.name} was forced to bid with a hand of nothing but 7s and 8s. Same dealer, fresh deal.`;
+    } else if (r.type === 'allJacks') {
+      msg = `🔄 Reshuffling — ${r.name} was dealt all four Jacks! Same dealer, fresh deal.`;
+    }
+    if (msg) showToast(msg, 'info', 5000);
   }
 
   const mySignal6p = state.partnerSignals && state.partnerSignals[MY_POS];
