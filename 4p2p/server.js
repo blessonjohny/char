@@ -1667,9 +1667,18 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Any seated player can trigger this now, not host-only -- letting
+  // any single player advance past round-end is completely safe: only
+  // the very FIRST valid attempt can ever actually do anything, since
+  // startRound() moves phase away from 'roundEnd' immediately, and the
+  // phase check below correctly rejects every attempt after that one on
+  // its own, with no extra coordination needed. This also means the
+  // whole round can never again get stuck forever just because one
+  // specific player's host status wasn't recognized correctly for
+  // whatever reason -- anyone else at the table can always unstick it.
   socket.on('continueRound', () => {
     withTable((t, pos) => {
-      if (!isEffectiveHost(t, playerId)) return;
+      if (pos === null || pos === undefined) return;
       if (t.engine.phase !== 'roundEnd') return;
       t.engine.startRound();
     });
@@ -2290,9 +2299,14 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Any seated player can trigger this now, not host-only -- see the
+  // 4-player table's continueRound handler for the full reasoning
+  // (only the first valid attempt can ever do anything, so this can't
+  // double-advance, and the round can never get stuck just because one
+  // player's host status wasn't recognized correctly).
   socket.on('sixp_continueRound', () => {
-    withSixpTable((t) => {
-      if (!isEffectiveHost(t, sixpPlayerId)) return;
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
       if (t.engine.phase !== 'roundEnd') return;
       if (t.engine.gameOver) return;
       t.engine.startRound();
