@@ -2479,11 +2479,25 @@ class GameEngine {
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {
-          // Over-cutting another trump that's currently winning — find the
-          // minimal trump that still beats it, not necessarily our best.
-          wtr = trumps[0];
-          for (let i = trumps.length - 1; i >= 0; i--) {
-            if (RANK_ORDER[trumps[i].rank] > RANK_ORDER[cwc.rank]) { wtr = trumps[i]; break; }
+          // Over-cutting another trump that's currently winning. Same
+          // "prefer a zero-point trump, not just the rank-cheapest one"
+          // philosophy as the first-cut branch below -- this used to only
+          // search for the rank-minimal card that beats cwc, with no
+          // regard for point value at all. That happened to work out most
+          // of the time since Q/K generally rank below the point cards,
+          // but not always: if cwc.rank is high enough, the rank-minimal
+          // winner can skip straight past every zero-point option and
+          // land on a point card, or the Jack, when a cheaper win was
+          // sitting right there just because it wasn't the very next
+          // rank up.
+          const zeroPtBeats = trumps.filter(c => c.points === 0 && RANK_ORDER[c.rank] > RANK_ORDER[cwc.rank]);
+          if (zeroPtBeats.length > 0) {
+            wtr = zeroPtBeats.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank])[0];
+          } else {
+            wtr = trumps[0];
+            for (let i = trumps.length - 1; i >= 0; i--) {
+              if (RANK_ORDER[trumps[i].rank] > RANK_ORDER[cwc.rank]) { wtr = trumps[i]; break; }
+            }
           }
           // The minimal sufficient trump only stays safe if no one still
           // to act in this trick can hold a bigger one — in practice,
