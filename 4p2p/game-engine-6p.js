@@ -1222,6 +1222,18 @@ class GameEngine6P {
     }
 
     const trumps = hand.filter(c => c.suit === this.trumpSuit);
+    // Same fix as the 4-player table's engine: having personally asked
+    // for trump to be opened, this bot owes a trump card this trick if
+    // holding one — a flat rule, not weighed against trick value or who's
+    // winning. See game-engine.js for the full reasoning.
+    if (this.mustPlayTrumpBy === pos && trumps.length > 0) {
+      trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+      const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+      const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+      return zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+        : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+        : trumps[trumps.length - 1];
+    }
     if (this.trumpExposed && trumps.length > 0) {
       trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
       let trumpWinning;
