@@ -857,7 +857,7 @@ const socketLocations = new Map(); // socket.id -> {ip, city, region, country}, 
 // plus named seats) is already consistent across all four games.
 function getAllLivePlayers() {
   const rows = [];
-  function addFromSocketsMap(socketsMap, gameLabel, tableId, seatLookup) {
+  function addFromSocketsMap(socketsMap, gameLabel, tableId, seatLookup, phase) {
     if (!socketsMap) return;
     for (const [socketId, info] of socketsMap) {
       const seat = seatLookup(info);
@@ -869,21 +869,84 @@ function getAllLivePlayers() {
         tableId,
         connected: seat.connected !== false,
         location: loc ? [loc.city, loc.region, loc.country].filter(Boolean).join(', ') || loc.ip : '?',
-        ip: loc ? loc.ip : '?'
+        ip: loc ? loc.ip : '?',
+        phase: phase || 'unknown' // lets the admin panel show "in lobby" vs "playing" per table, not just a flat list
       });
     }
   }
   for (const t of Object.values(tables)) {
-    addFromSocketsMap(t.sockets, '4-Player', t.id, (info) => t.engine.seats[info.pos]);
+    addFromSocketsMap(t.sockets, '4-Player', t.id, (info) => t.engine.seats[info.pos], t.engine.phase);
   }
   for (const t of Object.values(sixpTables)) {
-    addFromSocketsMap(t.sockets, '6-Player', t.id, (info) => t.engine.seats[info.pos]);
+    addFromSocketsMap(t.sockets, '6-Player', t.id, (info) => t.engine.seats[info.pos], t.engine.phase);
   }
   for (const r of Object.values(l56Rooms)) {
-    addFromSocketsMap(r.sockets, '56', r.code, (info) => r.state && r.state.seats && r.state.seats[info.pos]);
+    addFromSocketsMap(r.sockets, '56', r.code, (info) => r.state && r.state.seats && r.state.seats[info.pos], r.state ? r.state.phase : 'lobby');
   }
   for (const t of Object.values(pokerTables)) {
-    addFromSocketsMap(t.sockets, "Hold'em", t.engine.tableId, (info) => t.engine.seats[info.pos]);
+    addFromSocketsMap(t.sockets, "Hold'em", t.engine.tableId, (info) => t.engine.seats[info.pos], t.engine.phase);
+  }
+  return rows;
+}
+
+// Table-centric view, unlike getAllLivePlayers() above (which is
+// player-centric and requires at least one currently-connected human
+// socket to show a table at all -- meaning an all-bot table, e.g. one
+// whose only human host disconnected and had their seat auto-converted
+// to a bot, would never appear there no matter how long it kept running
+// in memory). This walks every table registry directly regardless of
+// connection state, so lobby-phase tables and pure-bot tables both show
+// up, each with a plain-English seat summary ("4 bots" / "1 human, 3
+// bots") rather than requiring the admin to open every table to see
+// who's actually in it.
+function getAllTablesSummary() {
+  const rows = [];
+  function summarizeSeats(seats, socketsMap) {
+    // socketsMap (t.sockets) maps a live socket to {pos, ...}, letting a
+    // connected human's row also show their location -- the same lookup
+    // getAllLivePlayers() above already relies on, now folded in here
+    // too rather than only available in a separate, player-only view.
+    const posToLocation = new Map();
+    if (socketsMap) {
+      for (const [socketId, info] of socketsMap) {
+        const loc = socketLocations.get(socketId);
+        if (loc && typeof info.pos === 'number') {
+          posToLocation.set(info.pos, [loc.city, loc.region, loc.country].filter(Boolean).join(', ') || loc.ip);
+        }
+      }
+    }
+    let humans = 0, bots = 0;
+    const humanDetails = [];
+    (seats || []).forEach((s, pos) => {
+      if (!s) return;
+      if (s.isBot) { bots++; return; }
+      humans++;
+      const loc = posToLocation.get(pos);
+      humanDetails.push((s.name || 'Player') + (s.connected === false ? ' (disconnected)' : loc ? ` (📍 ${loc})` : ''));
+    });
+    let summary;
+    if (humans === 0 && bots === 0) summary = 'empty';
+    else if (humans === 0) summary = `${bots} bot${bots === 1 ? '' : 's'}`;
+    else summary = `${humanDetails.join(', ')} + ${bots} bot${bots === 1 ? '' : 's'}`;
+    return { humans, bots, summary };
+  }
+  for (const t of Object.values(tables)) {
+    const { humans, bots, summary } = summarizeSeats(t.engine.seats, t.sockets);
+    rows.push({ game: '4-Player', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
+  }
+  for (const t of Object.values(sixpTables)) {
+    const { humans, bots, summary } = summarizeSeats(t.engine.seats, t.sockets);
+    rows.push({ game: '6-Player', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
+  }
+  for (const r of Object.values(l56Rooms)) {
+    const seats = r.state && r.state.seats ? r.state.seats : [];
+    const { humans, bots, summary } = summarizeSeats(seats, r.sockets);
+    const phase = r.state ? r.state.phase : 'lobby';
+    rows.push({ game: '56', tableId: r.code, phase, isPlaying: phase !== 'lobby', humans, bots, summary, createdAt: r.createdAt || null, lastActivityAt: r.lastActivityAt || null });
+  }
+  for (const t of Object.values(pokerTables)) {
+    const { humans, bots, summary } = summarizeSeats(t.engine.seats, t.sockets);
+    rows.push({ game: "Hold'em", tableId: t.engine.tableId, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
   }
   return rows;
 }
@@ -891,6 +954,11 @@ function getAllLivePlayers() {
 app.get('/api/live-players', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
   res.json({ ok: true, players: getAllLivePlayers() });
+});
+
+app.get('/api/all-tables', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  res.json({ ok: true, tables: getAllTablesSummary() });
 });
 
 // admin.html's "Visitor Log" tab fetches this directly -- it was
@@ -3063,7 +3131,7 @@ io.on('connection', (socket) => {
     const code = newL56Id();
     const playerId = newId();
     const r = {
-      code, state: null, lastActivityAt: Date.now(),
+      code, state: null, createdAt: Date.now(), lastActivityAt: Date.now(),
       hostPlayerId: playerId, creatorName: name || 'Player',
       sockets: new Map(), pendingRequests: new Map(), stillPlayingTimer: null
     };
@@ -3481,7 +3549,7 @@ io.on('connection', (socket) => {
     if (!r) {
       // Extremely rare race (room deleted between create and first save) --
       // recreate a minimal entry rather than silently dropping the save.
-      r = l56Rooms[code] = { code, state: null, lastActivityAt: Date.now(), hostPlayerId: null, creatorName: 'Player', sockets: new Map(), pendingRequests: new Map(), stillPlayingTimer: null };
+      r = l56Rooms[code] = { code, state: null, createdAt: Date.now(), lastActivityAt: Date.now(), hostPlayerId: null, creatorName: 'Player', sockets: new Map(), pendingRequests: new Map(), stillPlayingTimer: null };
     }
     r.state = state;
     if (r.hostPlayerId && (!state.hostPlayerId)) state.hostPlayerId = r.hostPlayerId;
@@ -3857,7 +3925,7 @@ io.on('connection', (socket) => {
     engine.seatHuman(0, String(name || 'Host').slice(0, 20), playerId);
     const t = {
       engine, name: `${name || 'Host'}'s table`, hostPlayerId: playerId,
-      sockets: new Map(), lastActivityAt: Date.now()
+      sockets: new Map(), createdAt: Date.now(), lastActivityAt: Date.now()
     };
     pokerTables[tableId] = t;
     t.sockets.set(socket.id, { pos: 0, playerId });
