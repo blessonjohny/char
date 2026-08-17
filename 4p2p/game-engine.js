@@ -2090,6 +2090,16 @@ class GameEngine {
           else if ((this.suitLeadCount[this.trickSuit] || 0) >= 2 && tPts >= 1) callTrump = true;
           else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) callTrump = true;
           else if (this.trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) callTrump = true;
+          // Same "first time this suit's been led this round" trigger
+          // added to the post-exposure cutting decision — but that fix
+          // alone didn't cover this actual reported case, since trump
+          // hadn't been exposed yet at all when it happened. This is
+          // the real decision point for that: whether to be the one who
+          // calls for trump to be opened in the first place. wt !==
+          // myTeam above still applies regardless of this new trigger,
+          // same reasoning as before — never call trump just to win a
+          // trick our own partner already has for free.
+          else if ((this.suitLeadCount[this.trickSuit] || 0) === 1) callTrump = true;
         }
         if (callTrump) {
           const goodOutcome = wt !== myTeam; // calling trump to steal back a trick the other team was winning
