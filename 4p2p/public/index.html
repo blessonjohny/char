@@ -3763,6 +3763,17 @@ let roundTricks = [];
 // game-engine.js's server-side voidSuits. Populated in
 // endTrickWithLearning() whenever someone fails to follow the led suit.
 let voidSuits = [new Set(), new Set(), new Set(), new Set()];
+// How many times each suit has been led this round -- mirrors
+// game-engine.js's server-side suitLeadCount exactly. Used as a proxy
+// for "how likely is someone else also void in this suit and holding a
+// trump ready to cut": a suit's first-ever lead means the odds anyone
+// else is already void in it are low, so a cheap trump cut is safe; the
+// more times it's been led, the more players have shown their hand in
+// it, narrowing down who's actually void and raising real over-cut
+// risk. This offline copy previously had none of this -- its trump-
+// cutting logic in chooseBotCardBase was a much simpler, flatter
+// version than the real server-side bots, missing this entirely.
+let suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
 let roundHandSnapshot = null, roundBidSnapshot = null, roundSnapshotTakenForRound = -1;
 let selectedPlayerIdx=-1;
 // King of the Table tracking - STREAK SYSTEM
@@ -6612,6 +6623,7 @@ function restoreGameState(data) {
   playedCards = [];
   roundTricks = [];
   voidSuits = [new Set(), new Set(), new Set(), new Set()];
+  suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
   roundHandSnapshot = null;
   roundBidSnapshot = null;
   predictionHistory = [];
@@ -7034,6 +7046,18 @@ function getRiskyOptions(p, hand, situation) {
 
 // Base card selection (original logic enhanced)
 function chooseBotCardBase(p, hand, myTeam, bidTeam, isBidder, isBT, numInTrick, isLast, cw, wt, cwc, tPts) {
+  // Bid-target awareness -- same reasoning as the real server bots (see
+  // game-engine.js), ported here too. One deliberate difference: no
+  // !quoteState check on myTeamSecured, because Quote/COT genuinely
+  // cannot exist in offline play at all -- declaring it requires an
+  // actual server connection (gameSocket.emit('declareQuote'),
+  // latestServerState.quoteEligible), neither of which exists here.
+  // There's nothing to gate against in this specific mode.
+  const myTeamTarget = isBT ? highestBid : (29 - highestBid);
+  const myTeamNeeds = myTeamTarget - teamPoints[myTeam];
+  const pointsRemainingInPlay = 28 - teamPoints[0] - teamPoints[1];
+  const myTeamDesperate = myTeamNeeds > 0 && pointsRemainingInPlay > 0 && myTeamNeeds >= pointsRemainingInPlay * 0.7;
+  const myTeamSecured = myTeamNeeds <= 0;
   if (trickSuit === '') {
     const tricksPlayed = tricksWon.reduce((a, b) => a + b, 0);
     const isEarly = (tricksPlayed < 4);
@@ -7187,7 +7211,10 @@ function chooseBotCardBase(p, hand, myTeam, bidTeam, isBidder, isBT, numInTrick,
     // regardless (tPts>=3), same threshold already used for the
     // equivalent 9-lead risk above. Matches the real server-side bots
     // exactly, which already had this right too.
-    if (wt === myTeam) {
+    // Also skipped entirely once myTeamSecured -- our own side's goal
+    // this round is already mathematically locked in, so there's no
+    // actual benefit left to optimizing which card feeds our partner.
+    if (wt === myTeam && !myTeamSecured) {
       const jSeenThisSuitFollow = playedCards.concat(trickCards.map(tc => tc.card)).some(c => c.suit === trickSuit && c.rank === 'J');
       const jackRiskFollow = !isLast && !jSeenThisSuitFollow;
       if (!jackRiskFollow || tPts >= 3) {
@@ -7204,29 +7231,129 @@ function chooseBotCardBase(p, hand, myTeam, bidTeam, isBidder, isBT, numInTrick,
   const trumps = hand.filter(c => c.suit === trumpSuit);
   if (trumpExposed && trumps.length > 0) {
     trumps.sort((a, b) => RANK_ORDER[b.rank] - RANK_ORDER[a.rank]);
-    let trumpWinning = false;
+    let trumpWinning;
     if (!cwc) trumpWinning = true;
     else if (cwc.suit !== trumpSuit) trumpWinning = true;
     else trumpWinning = RANK_ORDER[trumps[0].rank] > RANK_ORDER[cwc.rank];
-    if (trumpWinning && wt !== myTeam) {
-      let wtr = trumps[0];
+    // Trump is limited and valuable -- using one to win a trick worth
+    // almost nothing is a poor trade, unless it's the last trick of the
+    // round, this bot is the bidder protecting their own contract, the
+    // suit's already been led before (raising over-cut risk from
+    // whoever's shown void in it), or this is the very first time this
+    // suit's been led at all (worth cutting to establish control even
+    // without points yet). Ported from the real server-side bots --
+    // this offline copy previously had none of this: it always cut
+    // whenever it could win at all, with no notion of whether the trick
+    // was actually worth spending trump on, and no over-cut risk
+    // awareness whatsoever.
+    const suitRepeat = suitLeadCount[trickSuit] || 0;
+    // When genuinely desperate for points (myTeamDesperate above), the
+    // bar for "is this trick worth trump" drops from 2 to 1 -- same
+    // adjustment as the real server bots.
+    const trumpPtsThreshold = myTeamDesperate ? 1 : 2; // 2 matches the real bots' default, never-learned weight
+    const firstTimeSuitLed = suitRepeat === 1;
+    const worthTrumping = tPts >= trumpPtsThreshold || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1) || firstTimeSuitLed;
+    if (trumpWinning && wt !== myTeam && worthTrumping) {
+      let wtr;
       if (cwc && cwc.suit === trumpSuit) {
-        for (let i = trumps.length - 1; i >= 0; i--) {
-          if (RANK_ORDER[trumps[i].rank] > RANK_ORDER[cwc.rank]) { wtr = trumps[i]; break; }
+        // Over-cutting another trump that's currently winning. Prefer a
+        // zero-point trump that still beats it over just the rank-
+        // minimal winner, so a cheap win doesn't accidentally skip past
+        // available zero-point options and land on a point card (or the
+        // Jack) just because it happened to be the next rank up.
+        const zeroPtBeats = trumps.filter(c => c.points === 0 && RANK_ORDER[c.rank] > RANK_ORDER[cwc.rank]);
+        if (zeroPtBeats.length > 0) {
+          wtr = zeroPtBeats.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank])[0];
+        } else {
+          wtr = trumps[0];
+          for (let i = trumps.length - 1; i >= 0; i--) {
+            if (RANK_ORDER[trumps[i].rank] > RANK_ORDER[cwc.rank]) { wtr = trumps[i]; break; }
+          }
+        }
+        // The minimal sufficient trump only stays safe if no one still
+        // to act this trick can hold a bigger one -- in practice,
+        // whether the trump Jack is still unaccounted for.
+        const jSeenTrumpOvercut = playedCards.concat(trickCards.map(tc => tc.card)).some(c => c.suit === trumpSuit && c.rank === 'J');
+        if (!isLast && !jSeenTrumpOvercut && wtr.rank !== 'J' && tPts >= 3) {
+          wtr = trumps[0];
+        }
+      } else {
+        // The FIRST cut in this trick -- nothing on the table is trump
+        // yet, so any trump wins it. Use the cheapest one, preferring a
+        // zero-point one, rather than reflexively reaching for the best.
+        const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+        const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+        wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+          : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+          : trumps[trumps.length - 1];
+        // Going cheap here is only safe once there's no real chance of
+        // getting over-cut right back by someone still left to act.
+        if (!isLast && suitRepeat >= 2 && tPts >= 2 && wtr.rank !== 'J') {
+          const jSeenTrumpFirst = playedCards.concat(trickCards.map(tc => tc.card)).some(c => c.suit === trumpSuit && c.rank === 'J');
+          if (jSeenTrumpFirst) {
+            const nine = trumps.find(c => c.rank === '9');
+            if (nine) wtr = nine;
+          } else {
+            wtr = trumps[0];
+          }
         }
       }
       return wtr;
+    }
+    // Not spending trump to win this one -- most commonly because our
+    // OWN partner is already winning it, where cutting in over our own
+    // teammate would just waste a trump for nothing, or because the
+    // trick isn't worth the trump at all. A trump card is not
+    // automatically the right thing to throw away just because we're
+    // void in the led suit -- a non-trump discard (ideally a point
+    // card, feeding a winning partner the same way the follow-suit
+    // logic above does) preserves trump for when it actually matters
+    // later. Ported from the real server-side bots -- this offline
+    // copy previously just blindly discarded its own weakest trump
+    // here with no such awareness at all.
+    const nonTrumpDiscard = hand.filter(c => c.suit !== trumpSuit);
+    if (nonTrumpDiscard.length > 0) {
+      const feedablePts = nonTrumpDiscard.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+      if (wt === myTeam && !myTeamSecured && feedablePts.length > 0) {
+        feedablePts.sort((a, b) => b.points - a.points);
+        return feedablePts[0];
+      }
+      // A Jack can never be played as a plain discard -- exclude it here
+      // too, so the bot doesn't pick one and have it rejected as illegal.
+      const nonJackDiscard = nonTrumpDiscard.filter(c => c.rank !== 'J');
+      if (nonJackDiscard.length > 0) {
+        nonJackDiscard.sort((a, b) => a.points !== b.points ? a.points - b.points : RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
+        return nonJackDiscard[0];
+      }
+      // Every remaining non-trump card is a Jack -- cutting with trump
+      // is the legal alternative; only actually play the Jack when
+      // there's genuinely no trump left either.
+      if (trumps.length > 0) return trumps[trumps.length - 1];
+      nonTrumpDiscard.sort((a, b) => a.points !== b.points ? a.points - b.points : RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
+      return nonTrumpDiscard[0];
     }
     return trumps[trumps.length - 1];
   }
 
   if (!trumpExposed && trumps.length > 0 && trickSuit !== trumpSuit) {
     if (isLast && wt !== myTeam && tPts >= 2) { trumps.sort((a, b) => RANK_ORDER[b.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
-    if (p === bidder && tPts >= 3) { trumps.sort((a, b) => RANK_ORDER[b.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
+    if (isBidder && tPts >= 3) { trumps.sort((a, b) => RANK_ORDER[b.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
   }
 
+  // Final fallback: void in the led suit and holding no trump at all.
+  // Same "feed partner points rather than waste the chance" logic used
+  // throughout this function above, ported here too -- this specific
+  // path had none of it at all, same gap already fixed on the real
+  // server-side bots. Also skipped once myTeamSecured.
   let disc = hand.filter(c => c.suit !== trumpSuit);
   if (!disc.length) disc = hand;
+  if (wt === myTeam && !myTeamSecured) {
+    const feedablePts = disc.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+    if (feedablePts.length > 0) {
+      feedablePts.sort((a, b) => b.points - a.points);
+      return feedablePts[0];
+    }
+  }
   disc.sort((a, b) => { if (a.points !== b.points) return a.points - b.points; return RANK_ORDER[a.rank] - RANK_ORDER[b.rank]; });
   return disc[0];
 }
@@ -8594,7 +8721,7 @@ function playCard(suit, rank, player, calledTrump) {
   // non-trump if that's all they're holding. Requiring card.suit ===
   // trumpSuit here meant that exact scenario silently never exposed trump.
   if (explicitlyCalled && !trumpExposed) exposeTrump(p);
-  if (trickSuit === '') trickSuit = card.suit;
+  if (trickSuit === '') { trickSuit = card.suit; suitLeadCount[card.suit]++; }
   trickCards.push({player: p, card: card});
   const slot = document.getElementById('slot' + slotForPlayer(p));
   if (slot) { slot.innerHTML = cardHTML(card);  }
@@ -8636,7 +8763,7 @@ function playHiddenTrump(p) {
   hiddenTrump = null;
   trumpExplicitlyCalled = true;
   if (!trumpExposed) exposeTrump(p);
-  if (trickSuit === '') trickSuit = card.suit;
+  if (trickSuit === '') { trickSuit = card.suit; suitLeadCount[card.suit]++; }
   trickCards.push({player: p, card: card});
   const slot = document.getElementById('slot' + slotForPlayer(p));
   if (slot) { slot.innerHTML = cardHTML(card);  }
@@ -9376,6 +9503,7 @@ function continueNextRound() {
     // Reset round analysis data for new round
     roundTricks = [];
   voidSuits = [new Set(), new Set(), new Set(), new Set()];
+  suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
     roundHandSnapshot = null;
     roundBidSnapshot = null;
     const tr = document.getElementById('trumpReveal');
@@ -9756,6 +9884,7 @@ function startGame() {
   lastTrick = null;
   roundTricks = [];
   voidSuits = [new Set(), new Set(), new Set(), new Set()];
+  suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
   roundHandSnapshot = null;
   roundBidSnapshot = null;
   const tr = document.getElementById('trumpReveal');
