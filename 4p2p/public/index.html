@@ -7052,7 +7052,15 @@ function chooseBotCardBase(p, hand, myTeam, bidTeam, isBidder, isBT, numInTrick,
       let sc = -voidOpponentPenalty;
       if (isEarly) {
         if (low.rank === 'J' || low.rank === '9') {
-          if (bySuit[s].length > 1) { candidates.push({card: bySuit[s][1], score: bySuit[s].length * 5 - voidOpponentPenalty, suit: s}); continue; }
+          // Given RANK_ORDER, low.rank can only be '9' with more than
+          // one card in the suit by holding J+9 together (the strongest
+          // possible holding) -- previously scored as barely more than
+          // a generic length bonus, undervaluing it against a merely-
+          // safe short suit with no real strength. Matches the same
+          // +60 baseline a bare Jack gets in the non-early branch below
+          // -- holding the 9 alongside it is worth at least as much.
+          // Same fix as the real 4-player/6-player server bots.
+          if (bySuit[s].length > 1) { candidates.push({card: bySuit[s][1], score: 60 + bySuit[s].length * 5 - voidOpponentPenalty, suit: s}); continue; }
           // A lone 9 with no second card of that suit to lead instead —
           // exactly the risky "leading a point card into a suit where
           // the opponent may still hold the Jack" case if that Jack
