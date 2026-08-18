@@ -266,12 +266,25 @@ function renderTableHistory(days) {
   // open time too.
   el.innerHTML = days.map((d, i) => {
     const dateLabel = new Date(d.date + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-    const tableRows = d.tables.map(t => `
-      <div class="who" style="font-size:0.78rem;display:flex;justify-content:space-between;gap:8px;padding:2px 0">
-        <span>${esc(t.game)} · ${esc(t.tableId)} <span style="opacity:0.6">(${esc(t.closeReason)})</span></span>
-        <span style="white-space:nowrap">${esc(fmtDuration(t.durationMs))}</span>
+    const tableRows = d.tables.map(t => {
+      const humanRows = (t.seatedHumans || []).map(h => `
+        <div style="font-size:0.7rem;opacity:0.8;padding:1px 0 1px 14px">
+          👤 ${esc(h.name)} — 📍 ${esc(h.location || '?')} (${esc(h.ip || '?')})
+        </div>
+      `).join('');
+      return `
+      <div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <div class="who" style="font-size:0.78rem;display:flex;justify-content:space-between;gap:8px">
+          <span>${esc(t.game)} · ${esc(t.tableId)} <span style="opacity:0.6">(${esc(t.closeReason)})</span></span>
+          <span style="white-space:nowrap">${esc(fmtDuration(t.durationMs))}</span>
+        </div>
+        <div style="font-size:0.68rem;opacity:0.6">
+          🕐 ${esc(fmtTime(t.createdAt))} → ${esc(fmtTime(t.closedAt))}
+        </div>
+        ${humanRows}
       </div>
-    `).join('');
+    `;
+    }).join('');
     return `
     <details class="live-card" style="display:block;padding:10px 14px" ${i === 0 && d.count > 0 ? 'open' : ''}>
       <summary style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;list-style:none">
