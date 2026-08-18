@@ -914,6 +914,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .bot-toast{position:fixed;bottom:70px;right:10px;background:rgba(26,5,5,0.95);border:1.5px solid var(--accent);border-radius:10px;padding:6px 12px;z-index:899;font-size:0.72rem;font-weight:700;color:var(--accent);pointer-events:none;white-space:nowrap;animation:tIn 0.25s ease-out}
 .bot-toast.hide{animation:tOut 0.3s ease forwards}
 
+/* Floating WhatsApp group link -- shown only on the welcome/lobby
+   screens (never during actual gameplay, see whatsappFabPoll below),
+   bottom-right same as the in-game bot toggle, but that one only ever
+   appears once a table is active, so the two never actually overlap. */
+.whatsapp-fab{position:fixed;bottom:16px;right:16px;z-index:850;width:56px;height:56px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 14px rgba(0,0,0,0.4);cursor:pointer;text-decoration:none;font-size:1.6rem;animation:botFloat 3s ease-in-out infinite;transition:transform 0.2s}
+.whatsapp-fab:active{transform:scale(0.92)}
+
 /* ===== BRAIN STATUS INDICATOR ===== */
 .brain-status-bar{display:none !important}
 .brain-level-item{display:inline-flex;align-items:center;gap:3px;background:rgba(255,215,0,0.08);padding:1px 6px;border-radius:4px;border:1px solid rgba(255,215,0,0.15);white-space:nowrap}
@@ -2807,6 +2814,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <button class="counter-unlock-btn" id="btnCloseAdmin" style="margin-top:16px;background:var(--danger)">✕ Close</button>
   </div>
 </div>
+
+<!-- Floating WhatsApp group link -- visible on welcome/lobby, hidden the
+     moment a table is actually active (see whatsappFabPoll). Opens in a
+     new tab so it can never navigate anyone away from the app itself. -->
+<a href="https://chat.whatsapp.com/JWNheNu92Ue16KrhWnhoCD?s=cl&amp;p=a&amp;ilr=4" target="_blank" rel="noopener noreferrer" class="whatsapp-fab" id="whatsappFab" title="Join our WhatsApp group" aria-label="Join our WhatsApp group">💬</a>
 
 <!-- ===== WELCOME SCREEN ===== -->
 <noscript>
@@ -12072,6 +12084,30 @@ function startLocalGameWithPosition(yourPos) {
   updateTeamLabels();
   startGame();
 }
+
+// Floating WhatsApp group link: visible on the welcome/lobby screens,
+// hidden the instant an actual table is active. gameWrap's visibility
+// gets toggled from many scattered places throughout this file rather
+// than one central "show this screen" function, so a light poll here
+// is simpler and more reliable than trying to hook every single one of
+// those call sites individually and risk missing one.
+(function whatsappFabPoll() {
+  const fab = document.getElementById('whatsappFab');
+  if (!fab) return;
+  setInterval(() => {
+    const gw = document.getElementById('gameWrap');
+    // getComputedStyle, not gw.style.display -- gameWrap starts hidden
+    // via its CSS stylesheet rule (display:none), not an inline style,
+    // so the inline .style.display would incorrectly read as an empty
+    // string (not literally 'none') at page load, before any JS has
+    // touched it -- wrongly reporting "in game" on first load and
+    // hiding this button when the welcome screen is what's actually
+    // showing. getComputedStyle reflects the real, effective value
+    // regardless of whether it came from the stylesheet or JS.
+    const inGame = gw && getComputedStyle(gw).display !== 'none';
+    fab.style.display = inGame ? 'none' : 'flex';
+  }, 400);
+})();
 
 // ==================== ENHANCED WELCOME ====================
 const originalBtnPlayLocal = document.getElementById('btnPlayLocal');
