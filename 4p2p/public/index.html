@@ -2870,7 +2870,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <span class="icon">🎱</span> Pool <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">1v1, 8-ball</span>
     </a>
     <button class="welcome-btn primary" id="btnPlayLocal" style="background:linear-gradient(135deg,#2a3f5f,#1a2942);border-color:transparent;color:#fff">
-      <span class="icon">🎮</span> 28 PLAY vs AI <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🧠 learns your strategy</span>
+      <span class="icon">🎮</span> Learn 28 <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🧠 practice vs AI that learns your strategy</span>
     </button>
   </div>
 
@@ -12144,7 +12144,7 @@ function startLocalGameWithPosition(yourPos) {
 // ==================== ENHANCED WELCOME ====================
 const originalBtnPlayLocal = document.getElementById('btnPlayLocal');
 if (originalBtnPlayLocal) {
-  originalBtnPlayLocal.innerHTML = '<span class="icon">🎮</span> 28 PLAY vs AI';
+  originalBtnPlayLocal.innerHTML = '<span class="icon">🎮</span> Learn 28';
   originalBtnPlayLocal.addEventListener('click', () => {
     // Allow guest play - no auth required
     IS_ONLINE = false;
