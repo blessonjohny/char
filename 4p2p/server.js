@@ -817,11 +817,17 @@ const tableHistoryLog = createGithubBackedLog({
   localFile: TABLE_HISTORY_FILE,
   githubPath: GITHUB_TABLE_HISTORY_PATH
 });
-function recordTableClosed(tableId, game, createdAt, closeReason) {
+function recordTableClosed(tableId, game, createdAt, closeReason, seatedHumans) {
   const closedAt = Date.now();
   const openedAt = createdAt || closedAt; // a table from before createdAt was tracked on every game type -- treat as a 0-length entry rather than crashing or guessing
   tableHistoryLog.state.data.push({
-    tableId, game, createdAt: openedAt, closedAt, durationMs: Math.max(0, closedAt - openedAt), closeReason: closeReason || 'unknown'
+    tableId, game, createdAt: openedAt, closedAt, durationMs: Math.max(0, closedAt - openedAt), closeReason: closeReason || 'unknown',
+    // Every distinct human who was ever actually seated here, not just
+    // the creator -- this is the part that actually matters for the
+    // stated goal (spotting the same IP showing up across different
+    // names/tables), since multi-accounting shows up in who played
+    // TOGETHER, not just who happened to create the table.
+    seatedHumans: seatedHumans || []
   });
   // Same trim-on-write pattern as the visitor log: bounded by count AND
   // by age, oldest dropped first, so this can never grow without limit
@@ -832,6 +838,28 @@ function recordTableClosed(tableId, game, createdAt, closeReason) {
     tableHistoryLog.state.data = tableHistoryLog.state.data.slice(tableHistoryLog.state.data.length - TABLE_HISTORY_MAX);
   }
   tableHistoryLog.markDirty();
+}
+// Called every time a human takes a seat (create, join, replace a bot,
+// take over a disconnected seat) to build up t.seatedHumans -- a running,
+// de-duplicated (by name+ip together, so the same person reconnecting
+// doesn't spam duplicate rows) list of everyone who was ever actually at
+// this table, each with their own IP/location captured at the moment
+// they sat down. Kept on the table object itself rather than only in
+// socketLocations, since that map only covers CURRENTLY connected
+// sockets -- by the time the table finally closes and this gets read
+// out into the history log, most of these people are long gone.
+function recordSeatedHuman(t, name, socketId) {
+  if (!t.seatedHumans) t.seatedHumans = [];
+  const loc = socketLocations.get(socketId);
+  const ip = loc ? loc.ip : null;
+  const already = t.seatedHumans.some(h => h.name === name && h.ip === ip);
+  if (already) return;
+  t.seatedHumans.push({
+    name,
+    ip,
+    location: loc ? [loc.city, loc.region, loc.country].filter(Boolean).join(', ') : null,
+    seatedAt: Date.now()
+  });
 }
 setInterval(tableHistoryLog.saveLocal, 10000);
 tableHistoryLog.load();
@@ -1185,7 +1213,11 @@ app.get('/api/table-history', (req, res) => {
     if (!bucket) continue; // just outside the window due to a timezone-boundary edge case -- fine to skip, not worth a whole extra day of noise
     bucket.count++;
     bucket.totalDurationMs += entry.durationMs;
-    bucket.tables.push({ tableId: entry.tableId, game: entry.game, durationMs: entry.durationMs, closeReason: entry.closeReason });
+    bucket.tables.push({
+      tableId: entry.tableId, game: entry.game, durationMs: entry.durationMs, closeReason: entry.closeReason,
+      createdAt: entry.createdAt, closedAt: entry.closedAt,
+      seatedHumans: entry.seatedHumans || []
+    });
   }
   const days = Array.from(dayBuckets.values()).sort((a, b) => b.date.localeCompare(a.date));
   res.json({ ok: true, days });
@@ -1217,23 +1249,23 @@ app.post('/api/admin/close-table', (req, res) => {
   if (tables[id]) {
     io.to(id).emit('tableClosed', { reason: 'admin' });
     for (const s of tables[id].engine.seats) if (s && s.playerId) delete playerIndex[s.playerId];
-    recordTableClosed(id, '4-Player', tables[id].createdAt, 'admin');
+    recordTableClosed(id, '4-Player', tables[id].createdAt, 'admin', tables[id].seatedHumans);
     delete tables[id]; closed = '4-Player';
     io.emit('roomList', publicTableList());
   } else if (sixpTables[id]) {
     io.to('sixp_' + id).emit('sixp_tableClosed', { reason: 'admin' });
     for (const s of sixpTables[id].engine.seats) if (s && s.playerId) delete sixpPlayerIndex[s.playerId];
-    recordTableClosed(id, '6-Player', sixpTables[id].createdAt, 'admin');
+    recordTableClosed(id, '6-Player', sixpTables[id].createdAt, 'admin', sixpTables[id].seatedHumans);
     delete sixpTables[id]; closed = '6-Player';
     io.emit('sixp_roomList', sixpPublicTableList());
   } else if (l56Rooms[id]) {
     io.to(l56SocketRoom(id)).emit('l56_tableClosed', { reason: 'admin' });
-    recordTableClosed(id, '56', l56Rooms[id].createdAt, 'admin');
+    recordTableClosed(id, '56', l56Rooms[id].createdAt, 'admin', l56Rooms[id].seatedHumans);
     delete l56Rooms[id]; closed = '56';
     io.emit('l56_roomList', l56PublicList());
   } else if (pokerTables[id]) {
     io.to('poker_' + id).emit('poker_tableClosed', { reason: 'admin' });
-    recordTableClosed(id, "Hold'em", pokerTables[id].createdAt, 'admin');
+    recordTableClosed(id, "Hold'em", pokerTables[id].createdAt, 'admin', pokerTables[id].seatedHumans);
     delete pokerTables[id]; closed = "Hold'em";
   }
   if (!closed) return res.status(404).json({ ok: false, error: 'table_not_found' });
@@ -1634,6 +1666,7 @@ io.on('connection', (socket) => {
       botFill: 3, createdAt: Date.now(), lastActivityAt: Date.now(),
       sockets: new Map()
     };
+    recordSeatedHuman(t, name || 'Player', socket.id);
     // This is the fix that makes bot moves actually reach players: bots
     // act asynchronously via setImmediate, completely outside any socket
     // event handler, so nothing would otherwise tell connected clients a
@@ -1832,6 +1865,7 @@ io.on('connection', (socket) => {
     } else {
       return;
     }
+    recordSeatedHuman(t, pending.name, socket.id);
     tableId = pending.tableId;
     playerIndex[playerId] = { tableId, pos };
     detachSocketFromAllTables(socket, pending.tableId);
@@ -2269,7 +2303,7 @@ io.on('connection', (socket) => {
     // regardless of whether other real players remain.
     if (explicitLeave && !t.engine.seats.some(s => s && !s.isBot)) {
       io.to(tableId).emit('tableClosed', { reason: 'lastPlayerLeft' });
-      recordTableClosed(tableId, '4-Player', t.createdAt, 'lastPlayerLeft');
+      recordTableClosed(tableId, '4-Player', t.createdAt, 'lastPlayerLeft', t.seatedHumans);
       delete tables[tableId];
       io.emit('roomList', publicTableList());
       console.log(`[table ${tableId}] closed — last real player explicitly left via Leave Table`);
@@ -2447,6 +2481,7 @@ io.on('connection', (socket) => {
       botFill: 5, createdAt: Date.now(), lastActivityAt: Date.now(),
       sockets: new Map()
     };
+    recordSeatedHuman(t, name || 'Player', socket.id);
     engine.onChange = () => { sixpTouch(t); sixpBroadcastTable(t); };
     sixpTables[id] = t;
     sixpTableId = id;
@@ -2532,6 +2567,7 @@ io.on('connection', (socket) => {
         return;
       }
     }
+    recordSeatedHuman(t, pending.name, socket.id);
     sixpTableId = pending.tableId;
     sixpPlayerIndex[sixpPlayerId] = { tableId: sixpTableId, pos };
     detachSocketFromAllTables(socket, pending.tableId);
@@ -2787,7 +2823,7 @@ io.on('connection', (socket) => {
       // regardless of how many real players remain.
       if (!t.engine.seats.some(s => s && !s.isBot)) {
         io.to('sixp_' + sixpTableId).emit('sixp_tableClosed', { reason: 'lastPlayerLeft' });
-        recordTableClosed(sixpTableId, '6-Player', t.createdAt, 'lastPlayerLeft');
+        recordTableClosed(sixpTableId, '6-Player', t.createdAt, 'lastPlayerLeft', t.seatedHumans);
         delete sixpTables[sixpTableId];
         io.emit('sixp_roomList', sixpPublicTableList());
         console.log(`[6p table ${sixpTableId}] closed — last real player explicitly left via Leave Table`);
@@ -3445,6 +3481,7 @@ io.on('connection', (socket) => {
       sockets: new Map(), pendingRequests: new Map(), stillPlayingTimer: null
     };
     r.sockets.set(socket.id, { playerId, pos: 0, name: name || 'Player' });
+    recordSeatedHuman(r, name || 'Player', socket.id);
     l56Rooms[code] = r;
     socket.join(l56SocketRoom(code));
     socket.data.l56 = { code, playerId, pos: 0 };
@@ -3549,6 +3586,7 @@ io.on('connection', (socket) => {
     const r = l56Rooms[code];
     if (!r) return;
     r.sockets.set(socket.id, { playerId, pos, name });
+    recordSeatedHuman(r, name, socket.id);
     socket.join(l56SocketRoom(code));
     socket.data.l56 = { code, playerId, pos };
     const hadHost = !!r.hostPlayerId;
@@ -3830,7 +3868,7 @@ io.on('connection', (socket) => {
     // how many real players remain.
     if (r.state && r.state.seats && !r.state.seats.some(s => s && !s.bot)) {
       io.to(l56SocketRoom(code)).emit('l56_tableClosed', { reason: 'lastPlayerLeft' });
-      recordTableClosed(code, '56', r.createdAt, 'lastPlayerLeft');
+      recordTableClosed(code, '56', r.createdAt, 'lastPlayerLeft', r.seatedHumans);
       delete l56Rooms[code];
       io.emit('l56_roomList', l56PublicList());
       console.log(`[56 table ${code}] closed — last real player explicitly left via Leave Table`);
@@ -4280,6 +4318,7 @@ io.on('connection', (socket) => {
       engine, creatorName: name || 'Host', hostPlayerId: playerId,
       sockets: new Map(), createdAt: Date.now(), lastActivityAt: Date.now()
     };
+    recordSeatedHuman(t, String(name || 'Host').slice(0, 20), socket.id);
     pokerTables[tableId] = t;
     t.sockets.set(socket.id, { pos: 0, playerId });
     pokerTableId = tableId; pokerPlayerId = playerId;
@@ -4346,6 +4385,7 @@ io.on('connection', (socket) => {
     const newPlayerId = crypto.randomBytes(8).toString('hex');
     t.engine.seats[pos].playerId = newPlayerId;
     t.sockets.set(socket.id, { pos, playerId: newPlayerId });
+    recordSeatedHuman(t, String(name || 'Player').slice(0, 20), socket.id);
     pokerTableId = tableId; pokerPlayerId = newPlayerId;
     socket.join('poker_' + tableId);
     // Strong host-recovery rule, same as the reconnect path.
@@ -4465,7 +4505,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Converts a seat that's been disconnected for 2+ minutes into a real,
+// Converts a seat that's been disconnected for 1+ minute into a real,
 // normally-paced bot -- NOT the same as convertToBot() used elsewhere
 // for an explicit "Leave Table", which deliberately wipes playerId
 // since that player chose to leave for good. This sweep specifically
@@ -4473,12 +4513,22 @@ io.on('connection', (socket) => {
 // reclaim the seat at any time (see the isBot-reset-on-reconnect logic
 // in every joinTable/reconnect handler above). Before this sweep
 // existed, a disconnected seat only had the much slower, per-turn
-// ~35s maybeAutoAct() grace period to fall back on -- meaning the
-// TABLE'S PUBLIC NAME would already show the generic "TableX" form
-// after 2 minutes (implying the seat is now bot-run and the table is
-// open for someone else to join), while the seat itself was still
-// only getting nudged along one slow forced move at a time, not
-// actually behaving like a normal bot. This closes that gap.
+// ~35s maybeAutoAct() grace period to fall back on -- this closes that
+// gap by having a real bot actually take over quickly.
+//
+// Deliberately shorter than TABLE_ABANDON_GRACE_MS (still 2 minutes,
+// unchanged, for when the table's own PUBLIC NAME switches to the
+// generic "TableX" form): the other players already seated don't
+// benefit from waiting the full 2 minutes just to keep the game
+// moving -- 1 minute is still a real, generous window for an actual
+// brief network hiccup to recover in (and even past that point,
+// reconnecting always still hands the seat right back, immediately,
+// same as before), while everyone else at the table isn't stuck
+// waiting on the slow per-turn fallback for an extra minute for no
+// real benefit. The table only becomes visibly "open for someone new
+// to join" at the full 2-minute mark either way -- this just makes
+// the seat itself behave normally sooner within that same window.
+const SEAT_ABANDON_GRACE_MS = 1 * 60 * 1000;
 const SEAT_ABANDON_SWEEP_MS = 15000;
 function sweepAbandonedSeats() {
   const now = Date.now();
@@ -4486,7 +4536,7 @@ function sweepAbandonedSeats() {
     let changed = false;
     for (let i = 0; i < seats.length; i++) {
       const seat = seats[i];
-      if (seat && !seat.isBot && !seat.connected && seat.disconnectedAt && (now - seat.disconnectedAt) >= TABLE_ABANDON_GRACE_MS) {
+      if (seat && !seat.isBot && !seat.connected && seat.disconnectedAt && (now - seat.disconnectedAt) >= SEAT_ABANDON_GRACE_MS) {
         seat.isBot = true;
         changed = true;
         onConverted(i);
@@ -4517,7 +4567,7 @@ function sweepAbandonedSeats() {
     let changed = false;
     for (let i = 0; i < r.state.seats.length; i++) {
       const seat = r.state.seats[i];
-      if (seat && !seat.bot && !seat.connected && seat.disconnectedAt && (now - seat.disconnectedAt) >= TABLE_ABANDON_GRACE_MS) {
+      if (seat && !seat.bot && !seat.connected && seat.disconnectedAt && (now - seat.disconnectedAt) >= SEAT_ABANDON_GRACE_MS) {
         seat.bot = true;
         changed = true;
       }
@@ -4541,10 +4591,10 @@ setInterval(sweepAbandonedSeats, SEAT_ABANDON_SWEEP_MS);
 // the EST/EDT daylight-saving switch on its own.
 function dailyCloseAllTables() {
   const counts = { fourP: Object.keys(tables).length, sixP: Object.keys(sixpTables).length, l56: Object.keys(l56Rooms).length, poker: Object.keys(pokerTables).length, spades: Object.keys(spadesTables).length };
-  for (const [k, t] of Object.entries(tables)) recordTableClosed(k, '4-Player', t.createdAt, 'dailyReset');
-  for (const [k, t] of Object.entries(sixpTables)) recordTableClosed(k, '6-Player', t.createdAt, 'dailyReset');
-  for (const [k, r] of Object.entries(l56Rooms)) recordTableClosed(k, '56', r.createdAt, 'dailyReset');
-  for (const [k, t] of Object.entries(pokerTables)) recordTableClosed(k, "Hold'em", t.createdAt, 'dailyReset');
+  for (const [k, t] of Object.entries(tables)) recordTableClosed(k, '4-Player', t.createdAt, 'dailyReset', t.seatedHumans);
+  for (const [k, t] of Object.entries(sixpTables)) recordTableClosed(k, '6-Player', t.createdAt, 'dailyReset', t.seatedHumans);
+  for (const [k, r] of Object.entries(l56Rooms)) recordTableClosed(k, '56', r.createdAt, 'dailyReset', r.seatedHumans);
+  for (const [k, t] of Object.entries(pokerTables)) recordTableClosed(k, "Hold'em", t.createdAt, 'dailyReset', t.seatedHumans);
   for (const k of Object.keys(tables)) delete tables[k];
   for (const k of Object.keys(sixpTables)) delete sixpTables[k];
   for (const k of Object.keys(l56Rooms)) delete l56Rooms[k];
