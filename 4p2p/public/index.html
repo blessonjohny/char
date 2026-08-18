@@ -7141,7 +7141,21 @@ function chooseBotCardBase(p, hand, myTeam, bidTeam, isBidder, isBT, numInTrick,
       let hasJ = follow.some(c => c.rank === 'J');
       let has9 = follow.some(c => c.rank === '9');
       if (hasJ) { const jCard = follow.find(c => c.rank === 'J'); return jCard; }
-      if (has9) { const nineCard = follow.find(c => c.rank === '9'); return nineCard; }
+      if (has9) {
+        // A 9 beats everything else in this suit -- but not the Jack.
+        // If the Jack hasn't shown up yet and someone still acts after
+        // us this trick, spending the 9 here risks winning the trick
+        // only for a later opponent's unseen Jack to steal it right
+        // back for nothing. Worth the risk once it's genuinely the last
+        // word (isLast), the Jack's already accounted for, or the trick
+        // carries enough points to justify it regardless. Matches the
+        // real server-side 4-player/6-player bots exactly -- this
+        // offline copy was previously missing this check entirely.
+        const jSeenThisSuit = playedCards.concat(trickCards.map(tc => tc.card)).some(c => c.suit === trickSuit && c.rank === 'J');
+        const jackRisk = !isLast && !jSeenThisSuit;
+        if (jackRisk && tPts < 3) return follow[follow.length - 1];
+        return follow.find(c => c.rank === '9');
+      }
       let winner = follow[0];
       if (cwc && cwc.suit === trickSuit) {
         for (let i = follow.length - 1; i >= 0; i--) {
@@ -7150,9 +7164,41 @@ function chooseBotCardBase(p, hand, myTeam, bidTeam, isBidder, isBT, numInTrick,
       }
       if (wt === myTeam && tPts < 2 && !isLast && !hasJ && !has9) return follow[follow.length - 1];
       return winner;
-    } else {
-      return follow[follow.length - 1];
     }
+    // Can't beat what's on the table. If partner is the one currently
+    // winning, our card is going to their pile either way -- feeding a
+    // point card (Ace/10) instead of the bare lowest hands over the
+    // same points to our own team rather than wasting the opportunity,
+    // as long as it isn't a Jack/9 we'd rather keep for later. This
+    // exact case -- holding a 10 (1 point) alongside a King (0 points)
+    // while partner is already winning -- was the reported bug: this
+    // offline copy previously always played the lowest-RANK card no
+    // matter who was winning, so it held onto the 10 and threw away the
+    // King instead of feeding the 10's point to a winning partner.
+    // Matches the real server-side bots exactly, which already had this
+    // right.
+    // Further refinement: even feeding is only genuinely free value once
+    // the trick is actually secure. If someone still acts after us this
+    // trick AND this suit's Jack hasn't been seen yet, a later opponent
+    // could still steal the trick out from under our partner with it --
+    // in which case our fed point card just handed the opponent extra
+    // points instead of our own team. Skip the feed in that risky case
+    // unless the trick already carries enough points to justify it
+    // regardless (tPts>=3), same threshold already used for the
+    // equivalent 9-lead risk above. Matches the real server-side bots
+    // exactly, which already had this right too.
+    if (wt === myTeam) {
+      const jSeenThisSuitFollow = playedCards.concat(trickCards.map(tc => tc.card)).some(c => c.suit === trickSuit && c.rank === 'J');
+      const jackRiskFollow = !isLast && !jSeenThisSuitFollow;
+      if (!jackRiskFollow || tPts >= 3) {
+        const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+        if (feedable.length > 0) {
+          feedable.sort((a, b) => b.points - a.points);
+          return feedable[0];
+        }
+      }
+    }
+    return follow[follow.length - 1];
   }
 
   const trumps = hand.filter(c => c.suit === trumpSuit);
