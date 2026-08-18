@@ -1945,7 +1945,7 @@ function addChatMessage56(from, msg, isMine){
   if(!container) return;
   const div = document.createElement('div');
   div.className = 'chat-msg ' + (isMine ? 'mine' : 'theirs');
-  div.innerHTML = '<div class="chat-from">' + (isMine ? 'You' : escapeHtml(from)) + '</div>' + escapeHtml(msg);
+  div.innerHTML = '<div class="chat-from">' + (isMine ? 'You' : escapeHtml(from)) + '</div>' + linkifyEscaped(escapeHtml(msg));
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
   if(!document.getElementById('chatOverlay56').classList.contains('on') && !isMine){
@@ -1965,7 +1965,7 @@ function showComicChatPopup(from, msg){
   existing.forEach(el => el.remove()); // don't stack multiples if messages arrive close together
   const el = document.createElement('div');
   el.className = 'comic-chat-popup';
-  el.innerHTML = '<div class="comic-from">' + escapeHtml(from) + '</div>' + escapeHtml(msg);
+  el.innerHTML = '<div class="comic-from">' + escapeHtml(from) + '</div>' + linkifyEscaped(escapeHtml(msg));
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3000);
 }
@@ -2862,6 +2862,31 @@ function escapeHtml(s){
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+// Turns any URL-looking text in an ALREADY-escaped chat message into a
+// real, clickable link. Order matters -- must only ever run on text
+// already through escapeHtml(), never the reverse. Quotes are
+// re-escaped here specifically for the href attribute, independent of
+// escapeHtml above (which only encodes &, <, >, not quotes, since
+// quotes aren't syntactically special in plain text content). Without
+// this, a literal " in a URL could break straight out of the
+// href="..." attribute and inject a live, working event-handler
+// attribute onto the link -- confirmed exploitable before this was
+// added. target="_blank" is the actual point of this feature: opens in
+// a new tab instead of navigating the current one away, so clicking a
+// link in table chat can never disconnect anyone from the game.
+function linkifyEscaped(escapedText){
+  return escapedText.replace(/(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi, (raw) => {
+    let url = raw;
+    let trailing = '';
+    const trailMatch = url.match(/([.,!?;:)\]]+)$/);
+    if (trailMatch) { trailing = trailMatch[1]; url = url.slice(0, -trailing.length); }
+    if (!url) return raw;
+    const href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+    const hrefSafe = href.replace(/"/g, '&quot;');
+    return `<a href="${hrefSafe}" target="_blank" rel="noopener noreferrer" style="color:#6db3ff;text-decoration:underline;word-break:break-all">${url}</a>${trailing}`;
+  });
 }
 
 // ============================================================

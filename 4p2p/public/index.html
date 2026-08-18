@@ -10412,7 +10412,7 @@ function addChatMessage(from, msg, isMine) {
   if (!container) return;
   const div = document.createElement('div');
   div.className = 'chat-msg ' + (isMine ? 'mine' : 'theirs');
-  div.innerHTML = '<div class="chat-from">' + (isMine ? 'You' : escapeHtml(from)) + '</div>' + escapeHtml(msg);
+  div.innerHTML = '<div class="chat-from">' + (isMine ? 'You' : escapeHtml(from)) + '</div>' + linkifyEscaped(escapeHtml(msg));
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
   // Badge if panel is closed
@@ -10431,7 +10431,7 @@ function showComicChatPopup(from, msg) {
   document.querySelectorAll('.comic-chat-popup').forEach(el => el.remove());
   const el = document.createElement('div');
   el.className = 'comic-chat-popup';
-  el.innerHTML = '<div class="comic-from">' + escapeHtml(from) + '</div>' + escapeHtml(msg);
+  el.innerHTML = '<div class="comic-from">' + escapeHtml(from) + '</div>' + linkifyEscaped(escapeHtml(msg));
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3000);
 }
@@ -13660,6 +13660,42 @@ function exitToHome() {
 // "take over this bot", and "just watch" actually apply right now.
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Turns any URL-looking text in an ALREADY-escaped chat message into a
+// real, clickable link. Order matters here -- this must only ever run
+// on text that's already been through escapeHtml(), never the other
+// way around, since linkifying first and escaping after would mangle
+// the <a> tags this inserts right back into plain text. Safe to run on
+// escaped text specifically because a genuine "<" from user input is
+// already "&lt;" by this point, so the URL-matching regex can't
+// accidentally reach across into real markup.
+// target="_blank" is the actual point of this: opens in a new tab
+// instead of navigating the current one away, so clicking a link in
+// table chat can never disconnect anyone from the game.
+function linkifyEscaped(escapedText) {
+  return escapedText.replace(/(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi, (raw) => {
+    // Trim common trailing punctuation that's clearly part of the
+    // sentence, not the URL itself (e.g. "check this out: site.com."),
+    // without stripping things that legitimately end a URL.
+    let url = raw;
+    let trailing = '';
+    const trailMatch = url.match(/([.,!?;:)\]]+)$/);
+    if (trailMatch) { trailing = trailMatch[1]; url = url.slice(0, -trailing.length); }
+    if (!url) return raw;
+    const href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+    // Quotes are re-escaped here specifically, independent of whatever
+    // the caller's own escapeHtml already did to the surrounding text --
+    // this function must never assume or rely on that, since a caller
+    // whose escaping doesn't cover quotes (some don't, since quotes
+    // aren't syntactically special in plain text content) would let a
+    // literal " in the URL break straight out of the href="..."
+    // attribute and inject a live, working event-handler attribute like
+    // onmouseover=... onto the link. Confirmed this exact break was
+    // possible before this line was added.
+    const hrefSafe = href.replace(/"/g, '&quot;');
+    return `<a href="${hrefSafe}" target="_blank" rel="noopener noreferrer" style="color:#6db3ff;text-decoration:underline;word-break:break-all">${url}</a>${trailing}`;
+  });
 }
 
 // Requests fullscreen -- hides the browser's own address bar and nav
