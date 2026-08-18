@@ -2266,7 +2266,22 @@ class GameEngine {
         let sc = -voidOpponentPenalty + partnerVoidBonus;
         if (isEarly) {
           if (low.rank === 'J' || low.rank === '9') {
-            if (bySuit[s].length > 1) { candidates.push({ card: bySuit[s][1], score: bySuit[s].length * 5 - voidOpponentPenalty + partnerVoidBonus, suit: s }); continue; }
+            if (bySuit[s].length > 1) {
+              // Given RANK_ORDER, the ONLY way low.rank can be '9' with
+              // more than one card in the suit is holding J+9 together
+              // (nothing ranks between them) -- the strongest possible
+              // holding in a suit, since the Jack is unbeatable in its
+              // own suit and the 9 becomes safe the moment the Jack is
+              // seen. This was previously scored as barely more than a
+              // generic length bonus (~length*5, same as any random
+              // 2-card suit with nothing special in it) -- badly
+              // undervaluing a genuine J+9 lock and letting a short,
+              // merely-safe suit with zero real strength outscore it.
+              // Matches the same +60 baseline the non-early branch
+              // already gives a bare Jack below -- holding the 9
+              // alongside it is worth at least as much, not less.
+              candidates.push({ card: bySuit[s][1], score: 60 + bySuit[s].length * 5 - voidOpponentPenalty + partnerVoidBonus, suit: s }); continue;
+            }
             // A LONE 9 (or J) with nothing else in that suit — there's no
             // second card to lead instead, so this exact card is the only
             // option if this suit gets picked at all. A lone Jack is
