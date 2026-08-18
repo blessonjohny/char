@@ -3020,19 +3020,50 @@ function l56ScheduleNext(code) {
 
   if ((state.phase === 'bidding' || state.phase === 'playing') && state.turn !== null && state.turn !== undefined) {
     const occ = state.seats[state.turn];
-    if (!occ || !occ.bot) return; // a human's turn -- nothing to schedule, we wait for their action
+    if (!occ) return;
+    // Track how long the CURRENT turn has actually been active, keyed
+    // by phase+turn only (not state.updatedAt, which changes on every
+    // unrelated state mutation too, like a chat message or a note --
+    // that would keep resetting this incorrectly). Only a genuine turn
+    // change resets the clock.
+    const turnKey = state.phase + ':' + state.turn;
+    if (r.l56TurnTrackedKey !== turnKey) {
+      r.l56TurnTrackedKey = turnKey;
+      r.l56TurnStartedAt = Date.now();
+    }
+    const turnAgeMs = Date.now() - (r.l56TurnStartedAt || Date.now());
+    // A seat that LOOKS connected but hasn't acted in 2 minutes is
+    // almost certainly a zombie connection (a network transition the
+    // socket layer never cleanly detected as a disconnect), not a
+    // human genuinely still deciding. Before this, 56 had ZERO
+    // protection against this case at all -- this branch only ever
+    // handled an actual bot seat (occ.bot === true); a connected-
+    // looking human's turn could freeze the whole table indefinitely
+    // with nothing able to recover it short of an admin force-closing
+    // the table. Matches the same fix already in place on 4-player,
+    // 6-player, and poker.
+    const treatAsStuck = occ.bot || turnAgeMs >= TABLE_ABANDON_GRACE_MS;
+    if (!treatAsStuck) return; // a human's turn, not yet stuck -- nothing to schedule, we wait for their action
     const key = state.phase + ':' + state.turn + ':' + state.updatedAt;
     if (r.l56BotKey === key) return;
     r.l56BotKey = key;
     if (r.l56BotTimer) clearTimeout(r.l56BotTimer);
-    const delay = state.phase === 'bidding' ? (1400 + Math.random() * 1400) : (250 + Math.random() * 350);
+    // A genuine bot always acts at the normal, watchable bot pace. A
+    // connected-but-stuck human has already used up its full 2-minute
+    // grace period by the time it gets here -- act promptly instead of
+    // making everyone else wait even longer on top of that.
+    const delay = occ.bot ? (state.phase === 'bidding' ? (1400 + Math.random() * 1400) : (250 + Math.random() * 350)) : 900;
     r.l56BotTimer = setTimeout(() => {
       const rr = l56Rooms[code];
       if (!rr || !rr.state) return;
       const s = rr.state;
       if (s.phase !== state.phase || s.turn !== state.turn) return; // stale, something else already happened
+      const seatNow = s.seats[state.turn];
+      const stillStuck = seatNow && (seatNow.bot || (Date.now() - (r.l56TurnStartedAt || Date.now())) >= TABLE_ABANDON_GRACE_MS);
+      if (!stillStuck) return; // acted (or reconnected and it's no longer stuck) within the grace period -- leave it entirely to them
       if (s.phase === 'bidding') l56RunBotBid(s, state.turn);
       else if (s.phase === 'playing') l56RunBotPlay(s, state.turn);
+      if (!seatNow.bot) l56Engine.addLog(s, `${seatNow.name} was unresponsive and was auto-played for.`, state.turn);
       l56Broadcast(code);
       l56ScheduleNext(code);
     }, delay);
@@ -3511,6 +3542,13 @@ io.on('connection', (socket) => {
     socket.emit('l56_created', { code, playerId, pos, isHost });
     l56Touch(r);
     l56Broadcast(code);
+    // Same as the other tables: reconnecting always re-checks whether
+    // ANYONE'S turn needs a nudge, not just this player's own --
+    // l56ScheduleNext() looks at the current turn itself and safely
+    // no-ops if nothing actually needs it. Without this, reconnecting
+    // never helped recover a stall that wasn't specifically this
+    // player's own turn.
+    l56ScheduleNext(code);
   });
 
   socket.on('l56_requestJoin', ({ code, name }) => {
@@ -4217,11 +4255,32 @@ function pokerTouch(t) { t.lastActivityAt = Date.now(); }
 // so their own turn could freeze the entire table indefinitely with no
 // way for anyone else to do anything about it.
 const POKER_DISCONNECT_GRACE_MS = 30000;
+const POKER_CONNECTED_BUT_STUCK_MS = 120000;
 function pokerMaybeBotAct(t) {
   const p = t.engine.currentPlayer;
   if (p === -1) return;
   const seat = t.engine.seats[p];
   if (!seat || t.engine.phase === 'handEnd' || t.engine.phase === 'lobby') return;
+  // Track how long the current seat has actually been on the clock, same
+  // approach as the 4-player/6-player engines -- only a genuine turn
+  // change (a different seat, or a new hand) resets this.
+  if (t.engine._turnTrackedPlayer !== p || t.engine._turnTrackedHand !== t.engine.handNumber) {
+    t.engine._turnTrackedPlayer = p;
+    t.engine._turnTrackedHand = t.engine.handNumber;
+    t.engine.turnStartedAt = Date.now();
+  }
+  const turnAgeMs = Date.now() - (t.engine.turnStartedAt || Date.now());
+  // A seat that LOOKS connected but hasn't acted in 2 minutes is almost
+  // certainly a zombie connection (a network transition the socket layer
+  // never cleanly detected as a disconnect), not a human genuinely still
+  // deciding -- no real poker decision takes 2 minutes. Without this,
+  // poker had zero protection against exactly this case: the disconnect-
+  // grace-period branch below only ever fires when seat.connected is
+  // actually false, so a connection that LOOKS fine but simply never
+  // sends another action would freeze the table forever, with nothing
+  // to recover it short of an admin force-closing the table. This
+  // matches the exact same fix already in place on 4-player/6-player.
+  const treatAsStuck = seat.connected === false || turnAgeMs >= POKER_CONNECTED_BUT_STUCK_MS;
   if (seat.isBot) {
     setTimeout(() => {
       if (!pokerTables[t.engine.tableId]) return; // table closed in the meantime
@@ -4240,22 +4299,28 @@ function pokerMaybeBotAct(t) {
       if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
       else pokerMaybeBotAct(t);
     }, 900 + Math.random() * 700);
-  } else if (seat.connected === false) {
+  } else if (treatAsStuck) {
+    // A seat already past the zombie-connection threshold has used up
+    // its grace period already -- act promptly instead of making
+    // everyone else wait out a full fresh 30s on top of the 2 minutes
+    // it's already been stuck.
+    const delay = seat.connected === false ? POKER_DISCONNECT_GRACE_MS : 900;
     setTimeout(() => {
       if (!pokerTables[t.engine.tableId]) return;
       if (t.engine.currentPlayer !== p) return; // already acted, or reconnected and acted, in the meantime
-      const stillDisconnected = t.engine.seats[p] && t.engine.seats[p].connected === false;
-      if (!stillDisconnected) return; // reconnected within the grace period -- leave it entirely to them, no auto-act
-      const toCall = t.engine.currentBet - t.engine.seats[p].bettedThisRound;
+      const seatNow = t.engine.seats[p];
+      const stillStuck = seatNow && (seatNow.connected === false || (Date.now() - (t.engine.turnStartedAt || Date.now())) >= POKER_CONNECTED_BUT_STUCK_MS);
+      if (!stillStuck) return; // reconnected (or genuinely just acted) within the grace period -- leave it entirely to them, no auto-act
+      const toCall = t.engine.currentBet - seatNow.bettedThisRound;
       const result = t.engine.act(p, toCall > 0 ? 'fold' : 'check');
       if (result.ok) {
-        t.engine.addLog(`${t.engine.seats[p].name} was disconnected and auto-${toCall > 0 ? 'folded' : 'checked'}.`);
+        t.engine.addLog(`${seatNow.name} was ${seatNow.connected === false ? 'disconnected' : 'unresponsive'} and auto-${toCall > 0 ? 'folded' : 'checked'}.`);
       }
       pokerTouch(t);
       pokerBroadcast(t);
       if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
       else pokerMaybeBotAct(t);
-    }, POKER_DISCONNECT_GRACE_MS);
+    }, delay);
   }
 }
 
@@ -4347,6 +4412,13 @@ io.on('connection', (socket) => {
         socket.emit('poker_joined', { tableId, pos: existingPos, playerId: existingPlayerId, isHost: isEffectiveHost(t, existingPlayerId) });
         pokerTouch(t);
         pokerBroadcast(t);
+        // Same as the 4-player/6-player tables: reconnecting always
+        // re-checks whether ANYONE'S turn needs a nudge, not just this
+        // player's own -- pokerMaybeBotAct() checks currentPlayer itself
+        // and safely no-ops if nothing actually needs it. Without this,
+        // if someone else's turn had stalled while this player was away
+        // entirely, reconnecting did nothing to help recover it.
+        pokerMaybeBotAct(t);
         return;
       }
     }
