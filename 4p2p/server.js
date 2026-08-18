@@ -1285,6 +1285,59 @@ let ADMIN_SECRET = process.env.ADMIN_SECRET || '5252';
 
 function newId() { return crypto.randomBytes(8).toString('hex'); }
 function newTableId() { return crypto.randomBytes(4).toString('hex').toUpperCase(); }
+
+// Table display names are now just "Table" + the creator's first letter
+// (uppercased) instead of their full name -- e.g. "Bless" creates
+// "TableB", not "Bless's Table". existingNames is whatever table names
+// are already active for that SAME game type (checked separately per
+// game, so a "TableB" in 4-player and a "TableB" in 6-player never
+// collide with or count against each other). The first table with a
+// given letter keeps the plain, unnumbered form; only the second and
+// later ones sharing that same letter get a number appended, starting
+// at 2 -- deliberately never renaming an already-created, already-
+// displayed table just because a later one happens to collide with it.
+function generateTableDisplayName(creatorName, existingNames) {
+  const letter = (String(creatorName || 'P').trim()[0] || 'P').toUpperCase();
+  const base = 'Table' + letter;
+  if (!existingNames.includes(base)) return base;
+  let n = 2;
+  while (existingNames.includes(base + n)) n++;
+  return base + n;
+}
+
+// The public listing name for a table now reflects who's ACTUALLY there
+// right now, not a name fixed once at creation time:
+//   - any currently-connected human seated -> their own name, possessive
+//     ("Bless's Table") -- covers both the creator still being there,
+//     and someone else having taken over as the only human present
+//   - nobody connected, but the most recent disconnect was under 2
+//     minutes ago -> still shows that departed player's own name the
+//     same way, so a brief drop or a quick tab-switch never makes an
+//     actively-used table suddenly look up-for-grabs
+//   - nobody connected for 2+ minutes -> the generic "TableX" form,
+//     using the ORIGINAL creator's first letter specifically (not
+//     whoever most recently left, if those differ) -- this is the
+//     signal to everyone else browsing the lobby that the table is open
+// existingGenericNames is whatever OTHER tables are currently ALSO in
+// this generic state, for collision purposes -- a table with an active
+// human's name showing never competes for a letter, since it isn't
+// using this generic form at all.
+const TABLE_ABANDON_GRACE_MS = 2 * 60 * 1000;
+function computeTableDisplayName(seats, creatorName, existingGenericNames) {
+  // 56's seats use `bot`, every other game's engine uses `isBot` --
+  // checking both here means this one helper works correctly across
+  // every table type without needing the caller to normalize first.
+  const humanSeats = (seats || []).filter(s => s && !s.isBot && !s.bot);
+  const connectedHuman = humanSeats.find(s => s.connected);
+  if (connectedHuman) return `${connectedHuman.name}'s Table`;
+  const mostRecentlyGone = humanSeats
+    .filter(s => s.disconnectedAt)
+    .sort((a, b) => b.disconnectedAt - a.disconnectedAt)[0];
+  if (mostRecentlyGone && (Date.now() - mostRecentlyGone.disconnectedAt) < TABLE_ABANDON_GRACE_MS) {
+    return `${mostRecentlyGone.name}'s Table`;
+  }
+  return generateTableDisplayName(creatorName, existingGenericNames || []);
+}
 // The avatar a player picks client-side ends up stored in seat data and later interpolated
 // straight into an <img src="..."> on every connected client's page - validating it against
 // the exact known set of real filenames here (rather than trusting whatever string arrives)
@@ -1398,21 +1451,27 @@ function ensureHumanHost(t, preferPlayerId) {
 }
 
 function publicTableList() {
-  return Object.values(tables)
-    .filter(t => t.engine.seats.some(Boolean))
-    .map(t => {
-      const openSeats = t.engine.emptySeats().length;
-      const botSeats = t.engine.seats.filter(s => s && s.isBot).length;
-      return {
-        tableId: t.engine.tableId,
-        name: t.name,
-        players: t.engine.seats.filter(Boolean).length,
-        isPlaying: t.engine.phase !== 'lobby',
-        openSeats, botSeats,
-        spectators: t.spectators ? t.spectators.size : 0,
-        canJoinSeat: openSeats > 0 || botSeats > 0
-      };
-    });
+  const list = Object.values(tables).filter(t => t.engine.seats.some(Boolean));
+  // Collect which tables are ALREADY showing a generic "TableX" name in
+  // this same pass, so a second table going generic around the same
+  // moment doesn't collide with the first -- computed fresh every call,
+  // same as the room list itself always was.
+  const genericNamesSoFar = [];
+  return list.map(t => {
+    const openSeats = t.engine.emptySeats().length;
+    const botSeats = t.engine.seats.filter(s => s && s.isBot).length;
+    const name = computeTableDisplayName(t.engine.seats, t.creatorName, genericNamesSoFar);
+    if (!name.endsWith("'s Table")) genericNamesSoFar.push(name);
+    return {
+      tableId: t.engine.tableId,
+      name,
+      players: t.engine.seats.filter(Boolean).length,
+      isPlaying: t.engine.phase !== 'lobby',
+      openSeats, botSeats,
+      spectators: t.spectators ? t.spectators.size : 0,
+      canJoinSeat: openSeats > 0 || botSeats > 0
+    };
+  });
 }
 
 function broadcastTable(t) {
@@ -1571,7 +1630,7 @@ io.on('connection', (socket) => {
     playerId = newId();
     engine.seatHuman(3, name || 'Player', playerId, sanitizeAvatarKey(avatar));
     const t = {
-      id, engine, name: name || 'Player', hostPlayerId: playerId,
+      id, engine, creatorName: name || 'Player', hostPlayerId: playerId,
       botFill: 3, createdAt: Date.now(), lastActivityAt: Date.now(),
       sockets: new Map()
     };
@@ -2310,19 +2369,21 @@ function sixpSeatSnapshot(t) {
 function sixpHasAnyHuman(t) { return t.engine.seats.some(s => s && !s.isBot); }
 
 function sixpPublicTableList() {
-  return Object.values(sixpTables)
-    .filter(t => t.engine.seats.some(Boolean))
-    .map(t => {
-      const openSeats = t.engine.emptySeats().length;
-      const botSeats = t.engine.seats.filter(s => s && s.isBot).length;
-      return {
-        tableId: t.engine.tableId, name: t.name,
-        players: t.engine.seats.filter(Boolean).length,
-        isPlaying: t.engine.phase !== 'lobby',
-        openSeats, botSeats,
-        canJoinSeat: openSeats > 0 || botSeats > 0
-      };
-    });
+  const list = Object.values(sixpTables).filter(t => t.engine.seats.some(Boolean));
+  const genericNamesSoFar = [];
+  return list.map(t => {
+    const openSeats = t.engine.emptySeats().length;
+    const botSeats = t.engine.seats.filter(s => s && s.isBot).length;
+    const name = computeTableDisplayName(t.engine.seats, t.creatorName, genericNamesSoFar);
+    if (!name.endsWith("'s Table")) genericNamesSoFar.push(name);
+    return {
+      tableId: t.engine.tableId, name,
+      players: t.engine.seats.filter(Boolean).length,
+      isPlaying: t.engine.phase !== 'lobby',
+      openSeats, botSeats,
+      canJoinSeat: openSeats > 0 || botSeats > 0
+    };
+  });
 }
 
 function sixpBroadcastTable(t) {
@@ -2376,7 +2437,7 @@ io.on('connection', (socket) => {
     sixpPlayerId = newId();
     engine.seatHuman(0, name || 'Player', sixpPlayerId, sanitizeAvatarKey(avatar));
     const t = {
-      id, engine, name: name || 'Player', hostPlayerId: sixpPlayerId,
+      id, engine, creatorName: name || 'Player', hostPlayerId: sixpPlayerId,
       botFill: 5, createdAt: Date.now(), lastActivityAt: Date.now(),
       sockets: new Map()
     };
@@ -2806,13 +2867,16 @@ function newL56Id() { return crypto.randomBytes(4).toString('hex').toUpperCase()
 function l56SocketRoom(code) { return 'l56_' + code; }
 
 function l56PublicList() {
+  const genericNamesSoFar = [];
   return Object.entries(l56Rooms).map(([code, r]) => {
     const seats = (r.state && r.state.seats) || [];
     const players = seats.filter(Boolean).length;
     const phase = (r.state && r.state.phase) || 'lobby';
+    const name = computeTableDisplayName(seats, r.creatorName, genericNamesSoFar);
+    if (!name.endsWith("'s Table")) genericNamesSoFar.push(name);
     return {
       code,
-      name: r.creatorName || 'Table',
+      name,
       players,
       seats: 6,
       isPlaying: phase !== 'lobby',
@@ -3387,7 +3451,7 @@ io.on('connection', (socket) => {
     const pos = (r.state.seats || []).findIndex(s => s && s.playerId === playerId);
     if (pos === -1) { socket.emit('l56_reconnectFailed'); return; }
     r.sockets.set(socket.id, { playerId, pos, name: name || r.state.seats[pos].name });
-    if (r.state.seats[pos]) r.state.seats[pos].connected = true;
+    if (r.state.seats[pos]) { r.state.seats[pos].connected = true; r.state.seats[pos].disconnectedAt = null; }
     socket.join(l56SocketRoom(code));
     socket.data.l56 = { code, playerId, pos };
     if (!r.hostPlayerId) l56ReassignHost(r);
@@ -3811,7 +3875,10 @@ io.on('connection', (socket) => {
       // Silent drop: keep the seat (same reconnect-friendly behavior as
       // the other tables) -- just mark it disconnected so the host
       // badge / UI can show it, but don't free the seat outright.
+      // disconnectedAt feeds the table-name logic's 2-minute grace
+      // period, same as the other games.
       r.state.seats[info.pos].connected = false;
+      r.state.seats[info.pos].disconnectedAt = Date.now();
     }
     if (r.hostPlayerId === info.playerId) l56ReassignHost(r);
     l56Touch(r);
@@ -4053,15 +4120,19 @@ io.on('connection', (socket) => {
 function newPokerTableId() { return 'P' + crypto.randomBytes(4).toString('hex').toUpperCase(); }
 
 function pokerPublicTableList() {
-  return Object.values(pokerTables)
-    .filter(t => t.engine.seats.some(Boolean))
-    .map(t => ({
-      tableId: t.engine.tableId, name: t.name, mode: t.engine.mode,
+  const list = Object.values(pokerTables).filter(t => t.engine.seats.some(Boolean));
+  const genericNamesSoFar = [];
+  return list.map(t => {
+    const name = computeTableDisplayName(t.engine.seats, t.creatorName, genericNamesSoFar);
+    if (!name.endsWith("'s Table")) genericNamesSoFar.push(name);
+    return {
+      tableId: t.engine.tableId, name, mode: t.engine.mode,
       smallBlind: t.engine.smallBlind, bigBlind: t.engine.bigBlind,
       players: t.engine.occupiedSeats().length,
       openSeats: POKER_SEATS - t.engine.occupiedSeats().length,
       isPlaying: t.engine.phase !== 'lobby'
-    }));
+    };
+  });
 }
 
 function pokerBroadcast(t) {
@@ -4081,28 +4152,58 @@ function pokerTouch(t) { t.lastActivityAt = Date.now(); }
 // other games. Re-arms itself after every broadcast as long as it's
 // still a bot's turn -- if a human's turn comes up, it naturally stops
 // and waits for their actual input instead.
+//
+// Also covers the other half of "whose turn needs help": a DISCONNECTED
+// human. Unlike a bot (acts almost immediately, nobody's waiting on it
+// to "come back"), a disconnected human gets a real grace period first,
+// since they may simply be reconnecting. If that runs out with them
+// still gone, they're auto-played the same safe, standard way a poker
+// room handles an AFK player: check if that's free, otherwise fold --
+// never auto-calls or auto-bets on anyone's behalf. This was a genuine
+// gap before: nothing ever forced a decision for a disconnected player,
+// so their own turn could freeze the entire table indefinitely with no
+// way for anyone else to do anything about it.
+const POKER_DISCONNECT_GRACE_MS = 30000;
 function pokerMaybeBotAct(t) {
   const p = t.engine.currentPlayer;
   if (p === -1) return;
   const seat = t.engine.seats[p];
-  if (!seat || !seat.isBot || t.engine.phase === 'handEnd' || t.engine.phase === 'lobby') return;
-  setTimeout(() => {
-    if (!pokerTables[t.engine.tableId]) return; // table closed in the meantime
-    if (t.engine.currentPlayer !== p) return; // already moved on somehow
-    pokerBotAct(t.engine, p);
-    pokerTouch(t);
-    pokerBroadcast(t);
-    // This was the actual bug behind "table freezes after a few rounds":
-    // if THIS bot action is what ends the hand (e.g. it's the fold that
-    // leaves one player standing, or the call that completes the last
-    // betting round into showdown), nothing was scheduling the next
-    // deal -- that only ever happened from the human poker_act handler.
-    // Whenever a bot happened to be the one whose action closed out a
-    // hand, the table would sit at handEnd forever. Same handling as
-    // poker_act now applies here too.
-    if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
-    else pokerMaybeBotAct(t);
-  }, 900 + Math.random() * 700);
+  if (!seat || t.engine.phase === 'handEnd' || t.engine.phase === 'lobby') return;
+  if (seat.isBot) {
+    setTimeout(() => {
+      if (!pokerTables[t.engine.tableId]) return; // table closed in the meantime
+      if (t.engine.currentPlayer !== p) return; // already moved on somehow
+      pokerBotAct(t.engine, p);
+      pokerTouch(t);
+      pokerBroadcast(t);
+      // This was the actual bug behind "table freezes after a few rounds":
+      // if THIS bot action is what ends the hand (e.g. it's the fold that
+      // leaves one player standing, or the call that completes the last
+      // betting round into showdown), nothing was scheduling the next
+      // deal -- that only ever happened from the human poker_act handler.
+      // Whenever a bot happened to be the one whose action closed out a
+      // hand, the table would sit at handEnd forever. Same handling as
+      // poker_act now applies here too.
+      if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
+      else pokerMaybeBotAct(t);
+    }, 900 + Math.random() * 700);
+  } else if (seat.connected === false) {
+    setTimeout(() => {
+      if (!pokerTables[t.engine.tableId]) return;
+      if (t.engine.currentPlayer !== p) return; // already acted, or reconnected and acted, in the meantime
+      const stillDisconnected = t.engine.seats[p] && t.engine.seats[p].connected === false;
+      if (!stillDisconnected) return; // reconnected within the grace period -- leave it entirely to them, no auto-act
+      const toCall = t.engine.currentBet - t.engine.seats[p].bettedThisRound;
+      const result = t.engine.act(p, toCall > 0 ? 'fold' : 'check');
+      if (result.ok) {
+        t.engine.addLog(`${t.engine.seats[p].name} was disconnected and auto-${toCall > 0 ? 'folded' : 'checked'}.`);
+      }
+      pokerTouch(t);
+      pokerBroadcast(t);
+      if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
+      else pokerMaybeBotAct(t);
+    }, POKER_DISCONNECT_GRACE_MS);
+  }
 }
 
 // Auto-deals the next hand a couple seconds after one ends, as long as
@@ -4161,7 +4262,7 @@ io.on('connection', (socket) => {
     const playerId = crypto.randomBytes(8).toString('hex');
     engine.seatHuman(0, String(name || 'Host').slice(0, 20), playerId);
     const t = {
-      engine, name: `${name || 'Host'}'s table`, hostPlayerId: playerId,
+      engine, creatorName: name || 'Host', hostPlayerId: playerId,
       sockets: new Map(), createdAt: Date.now(), lastActivityAt: Date.now()
     };
     pokerTables[tableId] = t;
@@ -4181,6 +4282,7 @@ io.on('connection', (socket) => {
       const existingPos = t.engine.seats.findIndex(s => s && s.playerId === existingPlayerId);
       if (existingPos >= 0) {
         t.engine.seats[existingPos].connected = true;
+        t.engine.seats[existingPos].disconnectedAt = null;
         t.sockets.set(socket.id, { pos: existingPos, playerId: existingPlayerId });
         pokerTableId = tableId; pokerPlayerId = existingPlayerId;
         socket.join('poker_' + tableId);
@@ -4309,8 +4411,10 @@ io.on('connection', (socket) => {
     t.sockets.delete(socket.id);
     if (info && t.engine.seats[info.pos] && t.engine.seats[info.pos].playerId === info.playerId) {
       // Keep the seat (reconnect-friendly, same as the other tables),
-      // just mark it disconnected.
+      // just mark it disconnected. disconnectedAt feeds the table-name
+      // logic's 2-minute grace period, same as the other games.
       t.engine.seats[info.pos].connected = false;
+      t.engine.seats[info.pos].disconnectedAt = Date.now();
       // Host migration: hand it to another connected human if one
       // exists, one-way (not a temporary delegation). If nobody else is
       // connected, the slot goes vacant rather than staying stuck
@@ -4331,6 +4435,16 @@ io.on('connection', (socket) => {
     }
     pokerTouch(t);
     pokerBroadcast(t);
+    // This was the real gap: nothing here ever started the disconnected-
+    // player grace-period timer. If a human's own turn was the exact
+    // moment they disconnected, pokerMaybeBotAct() would never have any
+    // other reason to run again until some unrelated event happened to
+    // trigger it -- meaning their own turn could sit frozen forever with
+    // nothing ever stepping in for them, defeating the whole point of
+    // the auto-act fix above. Safe to call unconditionally here even
+    // when it isn't currently their turn at all -- it checks that
+    // itself and simply does nothing in that case.
+    pokerMaybeBotAct(t);
   });
 });
 

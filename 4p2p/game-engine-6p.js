@@ -224,7 +224,12 @@ class GameEngine6P {
     return true;
   }
 
-  markConnected(pos, connected) { if (this.seats[pos]) this.seats[pos].connected = connected; }
+  markConnected(pos, connected) {
+    if (!this.seats[pos]) return;
+    this.seats[pos].connected = connected;
+    if (!connected) this.seats[pos].disconnectedAt = Date.now();
+    else this.seats[pos].disconnectedAt = null;
+  }
   findSeatByPlayerId(playerId) { return this.seats.findIndex(s => s && s.playerId === playerId); }
 
   // ---------------- Round lifecycle ----------------

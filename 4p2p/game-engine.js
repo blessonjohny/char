@@ -568,7 +568,15 @@ class GameEngine {
   }
 
   markConnected(pos, connected) {
-    if (this.seats[pos]) this.seats[pos].connected = connected;
+    if (!this.seats[pos]) return;
+    this.seats[pos].connected = connected;
+    // Timestamp of the most recent disconnect, cleared the moment they
+    // reconnect -- used by the server's table-name logic (see
+    // getSeatBasedTableName in server.js) to know whether a disconnected
+    // seat has genuinely been gone long enough (2 minutes) to switch the
+    // table's public listing away from their name.
+    if (!connected) this.seats[pos].disconnectedAt = Date.now();
+    else this.seats[pos].disconnectedAt = null;
   }
 
   findSeatByPlayerId(playerId) {
