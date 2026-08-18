@@ -2193,6 +2193,34 @@ class GameEngine {
   _chooseBotCardBase(pos, hand, myTeam, bidTeam, isBT, isLast, cw, wt, cwc, tPts) {
     const b = brain.getBrain(this.seats[pos].name);
     const isBidder = pos === this.bidder;
+    // Bid-target awareness: teamPoints was already tracked live (updated
+    // after every trick) but never actually READ by any decision here --
+    // the bots had no notion of whether their own side was falling
+    // behind what it needs, or had already secured the round's outcome.
+    // myTeamTarget/myTeamNeeds is generic across both roles: the bidding
+    // team needs teamPoints >= highestBid; the defending team's
+    // equivalent goal is capturing enough to guarantee the bid fails
+    // (more than 28-highestBid, i.e. at least 29-highestBid).
+    const myTeamTarget = isBT ? this.highestBid : (29 - this.highestBid);
+    const myTeamNeeds = myTeamTarget - this.teamPoints[myTeam];
+    const pointsRemainingInPlay = 28 - this.teamPoints[0] - this.teamPoints[1];
+    // "Desperate": genuinely needs most of what's mathematically still
+    // available, not just "behind by a little" -- a low bar here would
+    // make bots panic-spend trump on ordinary tricks constantly, which
+    // isn't what real urgency looks like. 70% of what's left is a real,
+    // meaningful threshold: comfortably still gettable with a normal
+    // strategy stays under it, genuinely at-risk situations clear it.
+    const myTeamDesperate = myTeamNeeds > 0 && pointsRemainingInPlay > 0 && myTeamNeeds >= pointsRemainingInPlay * 0.7;
+    // "Already secured": this side's own goal is already mathematically
+    // locked in regardless of what happens in the remaining tricks.
+    // Deliberately gated on !quoteState -- Quote/COT is a completely
+    // separate bet, either side can declare it, and its win condition is
+    // a full 28-point sweep of every trick, not the original bid number.
+    // A bot that eased off the instant its base bid was merely satisfied
+    // would actively sabotage that separate, still-live commitment --
+    // this must stay fully engaged for every remaining point whenever
+    // Quote is in play, no matter how "safe" the base bid already looks.
+    const myTeamSecured = myTeamNeeds <= 0 && !this.quoteState;
     if (this.trickSuit === '') {
       const isEarly = this.tricksPlayed < 4;
       const bySuit = {};
@@ -2447,7 +2475,13 @@ class GameEngine {
       // the 9-lead case above, and the same tPts>=3 override: worth
       // feeding anyway once enough points are already on the table to
       // justify the risk regardless.
-      if (wt === myTeam) {
+      // Also skipped entirely once myTeamSecured -- our own side's goal
+      // this round is already mathematically locked in (and Quote/COT
+      // isn't in play, or this would stay fully engaged regardless per
+      // myTeamSecured's own definition), so there's no actual benefit
+      // left to optimizing exactly which card feeds our partner the most
+      // -- any legal card is equally fine at that point.
+      if (wt === myTeam && !myTeamSecured) {
         const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
         if (!jackRisk || tPts >= 3) {
           const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
@@ -2500,7 +2534,13 @@ class GameEngine {
       // gone well learns to be a little pickier (higher bar); one whose
       // calls have gone poorly stays looser, same as before it learned
       // anything at all.
-      const trumpPtsThreshold = Math.round(2 * b.playWeights.trumpManagement);
+      // When genuinely desperate for points (see myTeamDesperate above),
+      // that bar drops to 1 -- even a single point is worth spending
+      // trump on when this side needs nearly everything that's left to
+      // still have a shot. Still gated on tPts (a genuinely zero-point
+      // trick gets no benefit from this at all -- there's nothing there
+      // to capture regardless of how desperate this side is).
+      const trumpPtsThreshold = myTeamDesperate ? 1 : Math.round(2 * b.playWeights.trumpManagement);
       // A suit being led for the very first time this round (suitRepeat
       // === 1, counting this exact lead) is now its own trigger to cut,
       // independent of the trick's point value — added per specific
@@ -2602,7 +2642,9 @@ class GameEngine {
       const nonTrumpDiscard = hand.filter(c => c.suit !== this.trumpSuit);
       if (nonTrumpDiscard.length > 0) {
         const feedablePts = nonTrumpDiscard.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
-        if (wt === myTeam && feedablePts.length > 0) {
+        // Same myTeamSecured skip as the equivalent feed-partner blocks
+        // elsewhere in this function.
+        if (wt === myTeam && !myTeamSecured && feedablePts.length > 0) {
           feedablePts.sort((a, c) => c.points - a.points);
           return feedablePts[0];
         }
@@ -2657,7 +2699,10 @@ class GameEngine {
     // rather than have us just dump our cheapest card on reflex.
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
     if (!disc.length) disc = hand;
-    if (wt === myTeam) {
+    // Same myTeamSecured skip as the equivalent block above -- once our
+    // own goal is already locked in (and Quote/COT isn't live), there's
+    // nothing left to optimize here either.
+    if (wt === myTeam && !myTeamSecured) {
       const feedablePts = disc.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
       if (feedablePts.length > 0) {
         feedablePts.sort((a, c) => c.points - a.points);

@@ -1142,6 +1142,15 @@ class GameEngine6P {
   // tracking) — see game-engine.js for the full reasoning on each piece.
   _chooseBotCard(pos, hand, myTeam, isBT, isLast, wt, cwc, tPts) {
     const isBidder = pos === this.bidder;
+    // Bid-target awareness -- same as the 4-player engine, see there for
+    // the full reasoning. Total points remain 28 even with this
+    // variant's 36-card deck (the extra 6s are all worth 0), so these
+    // constants transfer directly unchanged.
+    const myTeamTarget = isBT ? this.highestBid : (29 - this.highestBid);
+    const myTeamNeeds = myTeamTarget - this.teamPoints[myTeam];
+    const pointsRemainingInPlay = 28 - this.teamPoints[0] - this.teamPoints[1];
+    const myTeamDesperate = myTeamNeeds > 0 && pointsRemainingInPlay > 0 && myTeamNeeds >= pointsRemainingInPlay * 0.7;
+    const myTeamSecured = myTeamNeeds <= 0 && !this.quoteState;
     if (this.trickSuit === '') {
       const isEarly = this.tricksPlayed < 2; // 6 tricks total this variant, not 8
       const bySuit = {};
@@ -1270,7 +1279,8 @@ class GameEngine6P {
       // of our own team. Same jackRisk concept and tPts>=3 override
       // already used for the 9-lead case above. Same fix as the
       // 4-player engine.
-      if (wt === myTeam) {
+      // Same myTeamSecured skip as the 4-player engine's equivalent.
+      if (wt === myTeam && !myTeamSecured) {
         const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
         if (!jackRisk || tPts >= 3) {
           const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
@@ -1303,7 +1313,10 @@ class GameEngine6P {
       else if (cwc.suit !== this.trumpSuit) trumpWinning = true;
       else trumpWinning = RANK_ORDER[trumps[0].rank] > RANK_ORDER[cwc.rank];
       const suitRepeat = this.suitLeadCount[this.trickSuit] || 0;
-      const worthTrumping = tPts >= 2 || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
+      // When genuinely desperate for points (myTeamDesperate above), the
+      // bar for "is this trick worth trump" drops from 2 to 1 -- same
+      // adjustment as the 4-player engine.
+      const worthTrumping = tPts >= (myTeamDesperate ? 1 : 2) || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {
@@ -1342,7 +1355,8 @@ class GameEngine6P {
       const nonTrumpDiscard = hand.filter(c => c.suit !== this.trumpSuit);
       if (nonTrumpDiscard.length > 0) {
         const feedablePts = nonTrumpDiscard.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
-        if (wt === myTeam && feedablePts.length > 0) {
+        // Same myTeamSecured skip as the 4-player engine's equivalent.
+        if (wt === myTeam && !myTeamSecured && feedablePts.length > 0) {
           feedablePts.sort((a, c) => c.points - a.points);
           return feedablePts[0];
         }
@@ -1368,8 +1382,21 @@ class GameEngine6P {
       }
     }
 
+    // Final fallback: void in the led suit and holding no trump at all.
+    // Same "feed partner points rather than waste the chance" logic used
+    // above, ported here too -- this specific path had none of it at
+    // all (a leftover gap from the earlier 4-player fix never having
+    // been carried over to this engine). Also skipped once myTeamSecured,
+    // same as the other feed-partner spots above.
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
     if (!disc.length) disc = hand;
+    if (wt === myTeam && !myTeamSecured) {
+      const feedablePts = disc.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+      if (feedablePts.length > 0) {
+        feedablePts.sort((a, c) => c.points - a.points);
+        return feedablePts[0];
+      }
+    }
     disc.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
     return disc[0];
   }
