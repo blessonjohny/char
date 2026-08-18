@@ -1134,18 +1134,29 @@ function getAllTablesSummary() {
       }
     }
     let humans = 0, bots = 0;
-    const humanDetails = [];
+    // Every seat listed individually by its actual current name, rather
+    // than grouping every bot seat into a bare count -- this is what
+    // actually makes the abandoned-seat sweep visible in the admin
+    // panel: a seat's NAME never changes when it flips between human and
+    // bot control (only isBot/bot does), so "Rebee (bot)" becoming
+    // "Bless" the moment someone joins, and back to "Bless (bot)" if
+    // they later go quiet for a while, is exactly what actually
+    // happened at that seat, not a display quirk. 56 marks a bot seat
+    // with `bot`, every other engine uses `isBot` -- checked here so
+    // this works correctly across every table type.
+    const seatDetails = [];
     (seats || []).forEach((s, pos) => {
       if (!s) return;
-      if (s.isBot) { bots++; return; }
+      if (s.isBot || s.bot) {
+        bots++;
+        seatDetails.push(`${s.name || 'Bot'} (bot)`);
+        return;
+      }
       humans++;
       const loc = posToLocation.get(pos);
-      humanDetails.push((s.name || 'Player') + (s.connected === false ? ' (disconnected)' : loc ? ` (📍 ${loc})` : ''));
+      seatDetails.push((s.name || 'Player') + (s.connected === false ? ' (disconnected)' : loc ? ` (📍 ${loc})` : ''));
     });
-    let summary;
-    if (humans === 0 && bots === 0) summary = 'empty';
-    else if (humans === 0) summary = `${bots} bot${bots === 1 ? '' : 's'}`;
-    else summary = `${humanDetails.join(', ')} + ${bots} bot${bots === 1 ? '' : 's'}`;
+    const summary = seatDetails.length ? seatDetails.join(', ') : 'empty';
     return { humans, bots, summary };
   }
   for (const t of Object.values(tables)) {
