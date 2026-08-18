@@ -928,8 +928,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    below real modals/popups like the Bot Brain Manager (z-index:3000),
    so this still correctly disappears behind an actual popup when one
    opens. */
-.whatsapp-fab{position:fixed;bottom:16px;left:16px;z-index:2100;width:56px;height:56px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 14px rgba(0,0,0,0.4);cursor:pointer;text-decoration:none;font-size:1.6rem;animation:botFloat 3s ease-in-out infinite;transition:transform 0.2s}
+.whatsapp-fab{position:fixed;bottom:16px;left:16px;z-index:2100;width:46px;height:46px;border-radius:50%;background:#25D366;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 3px 14px rgba(0,0,0,0.4);cursor:pointer;text-decoration:none;animation:botFloat 3s ease-in-out infinite;transition:transform 0.2s;padding:3px;box-sizing:border-box}
 .whatsapp-fab:active{transform:scale(0.92)}
+.whatsapp-fab .whatsapp-fab-icon{font-size:1rem;line-height:1}
+.whatsapp-fab .whatsapp-fab-label{font-size:0.3rem;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:0.2px;line-height:1.1;margin-top:1px;text-align:center;text-shadow:0 1px 2px rgba(0,0,0,0.3)}
 
 /* ===== BRAIN STATUS INDICATOR ===== */
 .brain-status-bar{display:none !important}
@@ -2828,7 +2830,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <!-- Floating WhatsApp group link -- visible on welcome/lobby, hidden the
      moment a table is actually active (see whatsappFabPoll). Opens in a
      new tab so it can never navigate anyone away from the app itself. -->
-<a href="https://chat.whatsapp.com/JWNheNu92Ue16KrhWnhoCD?s=cl&amp;p=a&amp;ilr=4" target="_blank" rel="noopener noreferrer" class="whatsapp-fab" id="whatsappFab" title="Join our WhatsApp group" aria-label="Join our WhatsApp group">💬</a>
+<a href="https://chat.whatsapp.com/JWNheNu92Ue16KrhWnhoCD?s=cl&amp;p=a&amp;ilr=4" target="_blank" rel="noopener noreferrer" class="whatsapp-fab" id="whatsappFab" title="Join us on WhatsApp" aria-label="Join us on WhatsApp"><span class="whatsapp-fab-icon">💬</span><span class="whatsapp-fab-label">Join us<br>WhatsApp</span></a>
 
 <!-- ===== WELCOME SCREEN ===== -->
 <noscript>
