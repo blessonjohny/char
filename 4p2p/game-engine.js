@@ -2438,11 +2438,23 @@ class GameEngine {
       // point card (Ace/10) instead of the bare lowest hands over the
       // same points to our own team rather than wasting the opportunity,
       // as long as it isn't a Jack/9 we'd rather keep for later.
+      // BUT: that's only genuinely free value if the trick is actually
+      // secure. If someone still acts after us this trick AND this
+      // suit's Jack hasn't been seen yet, a later opponent could still
+      // steal the trick out from under our partner with it -- in which
+      // case our fed point card just handed the opponent extra points
+      // instead of our own team. Same jackRisk concept already used for
+      // the 9-lead case above, and the same tPts>=3 override: worth
+      // feeding anyway once enough points are already on the table to
+      // justify the risk regardless.
       if (wt === myTeam) {
-        const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
-        if (feedable.length > 0) {
-          feedable.sort((a, c) => c.points - a.points);
-          return feedable[0];
+        const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
+        if (!jackRisk || tPts >= 3) {
+          const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+          if (feedable.length > 0) {
+            feedable.sort((a, c) => c.points - a.points);
+            return feedable[0];
+          }
         }
       }
       return follow[follow.length - 1];

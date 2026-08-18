@@ -1262,11 +1262,22 @@ class GameEngine6P {
         if (wt === myTeam && tPts < 2 && !isLast && !hasJ && !has9) return follow[follow.length - 1];
         return winner;
       }
+      // Can't beat what's on the table. If partner is currently winning,
+      // feeding a point card is only genuinely free value once the
+      // trick is actually secure -- if someone still acts after us and
+      // this suit's Jack hasn't been seen, a later opponent could still
+      // steal the trick with it, handing our fed points to them instead
+      // of our own team. Same jackRisk concept and tPts>=3 override
+      // already used for the 9-lead case above. Same fix as the
+      // 4-player engine.
       if (wt === myTeam) {
-        const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
-        if (feedable.length > 0) {
-          feedable.sort((a, c) => c.points - a.points);
-          return feedable[0];
+        const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
+        if (!jackRisk || tPts >= 3) {
+          const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+          if (feedable.length > 0) {
+            feedable.sort((a, c) => c.points - a.points);
+            return feedable[0];
+          }
         }
       }
       return follow[follow.length - 1];
