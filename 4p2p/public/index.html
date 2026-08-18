@@ -14096,7 +14096,7 @@ function renderServerRoomList(rooms) {
     }
     return `<div class="player-row" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:4px" onclick="joinTableOnServer('${r.tableId}', MY_NAME)">` +
       `<div class="p-avatar" style="background:linear-gradient(135deg,#4a90d9,#2a5a9a);width:24px;height:24px;font-size:0.75rem;flex-shrink:0">&#x1F3AE;</div>` +
-      `<div style="flex:1;min-width:0"><div class="p-name" style="font-size:0.72rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}'s Table</div>` +
+      `<div style="flex:1;min-width:0"><div class="p-name" style="font-size:0.72rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</div>` +
       (sub ? `<div style="font-size:0.56rem;color:var(--text-secondary);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub}</div>` : '') +
       `</div>${tag}` +
       `<button class="btn btn-primary" style="padding:3px 9px;font-size:0.62rem;margin-left:4px;flex-shrink:0" onclick="event.stopPropagation();joinTableOnServer('${r.tableId}', MY_NAME)">JOIN</button>` +
