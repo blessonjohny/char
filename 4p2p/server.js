@@ -1661,6 +1661,12 @@ io.on('connection', (socket) => {
       if (t && t.engine.seats[idx.pos] && t.engine.seats[idx.pos].playerId === existingPlayerId) {
         playerId = existingPlayerId;
         tableId = idx.tableId;
+        // If the 2-minute abandoned-seat sweep already converted this
+        // seat to a real bot while they were away (see
+        // sweepAbandonedSeats below), reconnecting takes it right back
+        // -- their identity (playerId) was deliberately never touched
+        // by that conversion specifically so this could still happen.
+        if (t.engine.seats[idx.pos].isBot) t.engine.seats[idx.pos].isBot = false;
         t.engine.markConnected(idx.pos, true);
         if (name) t.engine.seats[idx.pos].name = name;
         detachSocketFromAllTables(socket, idx.tableId);
@@ -2462,6 +2468,9 @@ io.on('connection', (socket) => {
       if (t && t.engine.seats[idx.pos] && t.engine.seats[idx.pos].playerId === existingPlayerId) {
         sixpPlayerId = existingPlayerId;
         sixpTableId = idx.tableId;
+        // Same reclaim-from-the-2-minute-sweep as the 4-player table --
+        // see sweepAbandonedSeats below.
+        if (t.engine.seats[idx.pos].isBot) t.engine.seats[idx.pos].isBot = false;
         t.engine.markConnected(idx.pos, true);
         if (name) t.engine.seats[idx.pos].name = name;
         detachSocketFromAllTables(socket, idx.tableId);
@@ -3451,7 +3460,13 @@ io.on('connection', (socket) => {
     const pos = (r.state.seats || []).findIndex(s => s && s.playerId === playerId);
     if (pos === -1) { socket.emit('l56_reconnectFailed'); return; }
     r.sockets.set(socket.id, { playerId, pos, name: name || r.state.seats[pos].name });
-    if (r.state.seats[pos]) { r.state.seats[pos].connected = true; r.state.seats[pos].disconnectedAt = null; }
+    if (r.state.seats[pos]) {
+      // Same reclaim-from-the-2-minute-sweep as the other tables -- 56
+      // uses `bot`, not `isBot`, for its seat shape.
+      if (r.state.seats[pos].bot) r.state.seats[pos].bot = false;
+      r.state.seats[pos].connected = true;
+      r.state.seats[pos].disconnectedAt = null;
+    }
     socket.join(l56SocketRoom(code));
     socket.data.l56 = { code, playerId, pos };
     if (!r.hostPlayerId) l56ReassignHost(r);
@@ -4281,6 +4296,8 @@ io.on('connection', (socket) => {
     if (existingPlayerId) {
       const existingPos = t.engine.seats.findIndex(s => s && s.playerId === existingPlayerId);
       if (existingPos >= 0) {
+        // Same reclaim-from-the-2-minute-sweep as the other tables.
+        if (t.engine.seats[existingPos].isBot) t.engine.seats[existingPos].isBot = false;
         t.engine.seats[existingPos].connected = true;
         t.engine.seats[existingPos].disconnectedAt = null;
         t.sockets.set(socket.id, { pos: existingPos, playerId: existingPlayerId });
@@ -4447,6 +4464,72 @@ io.on('connection', (socket) => {
     pokerMaybeBotAct(t);
   });
 });
+
+// Converts a seat that's been disconnected for 2+ minutes into a real,
+// normally-paced bot -- NOT the same as convertToBot() used elsewhere
+// for an explicit "Leave Table", which deliberately wipes playerId
+// since that player chose to leave for good. This sweep specifically
+// preserves playerId, so the original human can still reconnect and
+// reclaim the seat at any time (see the isBot-reset-on-reconnect logic
+// in every joinTable/reconnect handler above). Before this sweep
+// existed, a disconnected seat only had the much slower, per-turn
+// ~35s maybeAutoAct() grace period to fall back on -- meaning the
+// TABLE'S PUBLIC NAME would already show the generic "TableX" form
+// after 2 minutes (implying the seat is now bot-run and the table is
+// open for someone else to join), while the seat itself was still
+// only getting nudged along one slow forced move at a time, not
+// actually behaving like a normal bot. This closes that gap.
+const SEAT_ABANDON_SWEEP_MS = 15000;
+function sweepAbandonedSeats() {
+  const now = Date.now();
+  function sweepEngineSeats(t, seats, onConverted) {
+    let changed = false;
+    for (let i = 0; i < seats.length; i++) {
+      const seat = seats[i];
+      if (seat && !seat.isBot && !seat.connected && seat.disconnectedAt && (now - seat.disconnectedAt) >= TABLE_ABANDON_GRACE_MS) {
+        seat.isBot = true;
+        changed = true;
+        onConverted(i);
+      }
+    }
+    return changed;
+  }
+  for (const t of Object.values(tables)) {
+    if (sweepEngineSeats(t, t.engine.seats, (i) => { if (t.engine.currentPlayer === i) t.engine.maybeAutoAct(); })) {
+      touch(t);
+      broadcastTable(t);
+    }
+  }
+  for (const t of Object.values(sixpTables)) {
+    if (sweepEngineSeats(t, t.engine.seats, (i) => { if (t.engine.currentPlayer === i) t.engine.maybeAutoAct(); })) {
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+    }
+  }
+  for (const t of Object.values(pokerTables)) {
+    if (sweepEngineSeats(t, t.engine.seats, () => { pokerMaybeBotAct(t); })) {
+      pokerTouch(t);
+      pokerBroadcast(t);
+    }
+  }
+  for (const [code, r] of Object.entries(l56Rooms)) {
+    if (!r.state || !r.state.seats) continue;
+    let changed = false;
+    for (let i = 0; i < r.state.seats.length; i++) {
+      const seat = r.state.seats[i];
+      if (seat && !seat.bot && !seat.connected && seat.disconnectedAt && (now - seat.disconnectedAt) >= TABLE_ABANDON_GRACE_MS) {
+        seat.bot = true;
+        changed = true;
+      }
+    }
+    if (changed) {
+      l56Touch(r);
+      l56Broadcast(code);
+      l56ScheduleNext(code); // nothing else would otherwise trigger the newly-bot seat's own turn to actually get picked up
+    }
+  }
+}
+setInterval(sweepAbandonedSeats, SEAT_ABANDON_SWEEP_MS);
 
 // Per explicit instruction: the ONLY automatic table-closing left in the
 // entire server, and tables never close for any other reason now (not
