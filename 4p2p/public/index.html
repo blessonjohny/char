@@ -5607,94 +5607,83 @@ function updateLastTrick() {
 }
 
 // ==================== LEARN MODE: BIDDING ADVICE ====================
-// A heuristic hand-strength coach for local "vs bots" play — deliberately
-// framed as rules of thumb distilled from classic 28 strategy, not a
-// perfect solver. Treat every suggestion as a second opinion, not gospel;
-// real hands have edge cases no fixed rule set will nail every time.
-function analyzeHandStrengthForBid(hand) {
-  const bySuit = {};
-  for (const c of hand) { (bySuit[c.suit] = bySuit[c.suit] || []).push(c); }
-  const suits = Object.keys(bySuit);
-  const totalJacks = hand.filter(c => c.rank === 'J').length;
-
-  const suitInfo = suits.map(s => {
-    const cards = bySuit[s];
-    return {
-      suit: s, count: cards.length, cards,
-      hasJ: cards.some(c => c.rank === 'J'),
-      has9: cards.some(c => c.rank === '9'),
-      hasA: cards.some(c => c.rank === 'A')
-    };
-  });
-  // Rank suits by how many of J/9/A they hold (the three cards that matter
-  // most in 28 — J=3pts, 9=2pts, A=1pt, and J/9 are the top two trumps of
-  // whichever suit becomes trump), then by raw length as a tiebreaker.
-  suitInfo.sort((a, b) => {
-    const aScore = (a.hasJ ? 1 : 0) + (a.has9 ? 1 : 0) + (a.hasA ? 1 : 0);
-    const bScore = (b.hasJ ? 1 : 0) + (b.has9 ? 1 : 0) + (b.hasA ? 1 : 0);
-    if (aScore !== bScore) return bScore - aScore;
-    return b.count - a.count;
-  });
-  const best = suitInfo[0];
-  const bestHasJ9A = best.hasJ && best.has9 && best.hasA;
-  const bestHasJ9 = best.hasJ && best.has9;
-  // J plus some other companion card in the same suit, as long as that
-  // companion isn't specifically the 9 (that combo is handled above as the
-  // stronger bestHasJ9 case) — could be an Ace or any plain card.
-  const bestHasJCompanionNo9 = best.hasJ && !best.has9 && best.count >= 2;
-  const bestLongNoJ = !best.hasJ && best.count >= 3;
-  const others = hand.filter(c => c.suit !== best.suit);
-
-  // Three-plus Jacks: the single strongest defending hand in the game.
-  if (totalJacks >= 3) {
-    const remaining = hand.filter(c => c.rank !== 'J');
-    const remainingWeak = remaining.every(c => c.points === 0);
-    if (remainingWeak) {
-      return { action: 'defend', range: null, reason:
-        'Three Jacks and nothing else of real value. This is about as strong a defending hand as exists — let someone else win the bid; you\'ll very likely stop them. Defending successfully doubles your points, so this is genuinely a great hand, just not for bidding.' };
-    }
-    return { action: 'bid_high', range: [24, 28], reason:
-      'Three Jacks with real supporting strength is rare and powerful — bids of 24 or higher can be justified. But be honest about the support: at this level, losing even one trick can lose you the whole round. Only push this high with genuine backup, not just "probably fine."' };
+// Same principle as the card-play advice: calls the EXACT SAME decision
+// logic driving the bots at this table (botBid1WithBrain's core
+// reasoning) rather than a separately hand-written rule set that could
+// drift out of sync with it -- which is exactly what had happened here
+// before. The one deliberate difference: the bots occasionally blend in
+// a random nudge from their own remembered pattern history
+// (brain.patterns.successfulBids) -- that's appropriate for a learning
+// bot's own play, but not for advice, which should be a consistent,
+// explainable answer rather than something that could change randomly
+// call to call for the exact same hand. Skipped here on purpose; every
+// other part of the real decision is faithfully reproduced.
+function computeAdviceBidDecision(p) {
+  const hand = players[p];
+  if (!hand || hand.length === 0) return null;
+  const botName = playerAt(p) ? playerAt(p).name : 'You';
+  const brain = getBrain(botName);
+  const isFirst = (highestBid === 0 && passes === 0 && p === nextPlayer(dealer));
+  const botRestricted = isBidRestrictedToHonors(p);
+  const minBid = botRestricted ? Math.max(20, highestBid + 1) : (highestBid > 0 ? highestBid + 1 : 14);
+  const ev = evaluatePhase1Hand(hand);
+  const comfortThreshold = Math.max(0.45,
+    0.85 - (brain.level - 1) * 0.08 - (brain.bidWeights.aggression - 1) * 0.1);
+  let target = 14;
+  for (let bidLevel = 14; bidLevel <= 28; bidLevel++) {
+    if (ev.probByBid[bidLevel] >= comfortThreshold) target = bidLevel;
+    else break;
   }
-
-  if (bestHasJ9A) {
-    const randomIsJack = others.some(c => c.rank === 'J');
-    if (randomIsJack) {
-      return { action: 'bid_high', range: [20, 24], reason:
-        'J-9-A in one suit plus another Jack elsewhere is a genuinely strong hand — bidding 20 or above is reasonable.' };
-    }
-    return { action: 'bid_high', range: [18, 22], reason:
-      'J-9-A in the same suit is the classic strong hand — you hold the top three cards of that suit outright. Bid with confidence.' };
+  const pulledBackForDefense = ev.defensive > ev.offensive * 1.3;
+  if (pulledBackForDefense) target = Math.max(14, target - 3);
+  let partnerSupportBonus = 0;
+  if (bidder >= 0 && getTeam(bidder) === getTeam(p)) partnerSupportBonus = 1 * brain.bidWeights.partnerSupport;
+  target = Math.min(28, Math.round(target + partnerSupportBonus));
+  let bid = 0;
+  if (isFirst) {
+    bid = Math.max(14, Math.min(target, 20));
+    if (bid < 14) bid = 14;
+  } else if (minBid <= target && minBid <= 28) {
+    bid = minBid <= target - 2 ? minBid + 1 : minBid;
   }
-
-  if (totalJacks === 2 && hand.filter(c => c.rank !== 'J').every(c => c.points === 0)) {
-    return { action: 'defend', range: null, reason:
-      'Two Jacks but nothing else of real substance — better used to defend than to bid. Let someone else commit to a number, then use your Jacks to stop them.' };
+  if (passes >= 3 && highestBid === 0) {
+    bid = Math.max(14, Math.min(16, target));
   }
-
-  if (bestLongNoJ) {
-    return { action: 'bid_moderate', range: [14, 18], reason:
-      'Three cards in one suit but no Jack in it — a decent, playable hand. Stay safe and don\'t go above 18 on this alone.' };
-  }
-
-  if (bestHasJ9) {
-    return { action: 'bid_moderate', range: [16, 19], reason:
-      'Jack and 9 of the same suit is solid — the top two cards of that suit are yours. Worth bidding up to about 19.' };
-  }
-
-  if (bestHasJCompanionNo9) {
-    return { action: 'bid_moderate', range: [14, 15], reason:
-      'A Jack with one companion card in the same suit is just okay — playable at the minimum, but there isn\'t enough here to raise further.' };
-  }
-
-  if (totalJacks === 1) {
-    return { action: 'pass', range: null, reason:
-      'A lone Jack with no real support around it is a weak hand for bidding. Consider passing unless you\'re forced to as the first bidder.' };
-  }
-
-  return { action: 'pass', range: null, reason:
-    'No Jacks and no strong suit — a weak hand. Passing, or bidding the bare minimum only if you must, is the safer move.' };
+  return { bid, target, ev, minBid, isFirst, botRestricted, pulledBackForDefense, partnerSupportBonus };
 }
+
+// Turns the raw decision above into a readable explanation. Purely
+// descriptive -- the decision (bid or pass, and how much) already
+// happened in computeAdviceBidDecision; this just explains why it
+// makes sense given the hand.
+function describeAdviceBidDecision(d) {
+  const ev = d.ev;
+  const jackTxt = ev.jackCount === 0 ? 'no Jacks' : ev.jackCount === 1 ? 'one Jack' : `${ev.jackCount} Jacks`;
+  const suitTxt = ev.bestSuit ? `${ev.bestSuitCount} card${ev.bestSuitCount === 1 ? '' : 's'} of ${ev.bestSuit}` : 'no real suit length anywhere';
+  let strengthNote = `This hand has ${jackTxt} and ${suitTxt} as its best suit.`;
+  if (ev.jacksScattered) strengthNote += ` The Jacks are scattered across different suits rather than backed up by their own suit's 9 and Ace, which is weaker than it looks on paper.`;
+
+  if (d.pulledBackForDefense) {
+    strengthNote += ` This hand actually rates better for defending than bidding -- scattered high cards without real suit control mostly gets used stopping someone else's bid, since defending successfully doubles your points.`;
+  }
+
+  if (d.bid === 0) {
+    return `${strengthNote} Not enough here to justify bidding right now -- passing is the sounder move.`;
+  }
+  if (d.isFirst) {
+    return `${strengthNote} As the first bidder, this hand is worth opening at ${d.bid}.`;
+  }
+  return `${strengthNote} With ${d.minBid} needed to stay in it, this hand is worth going to ${d.bid}${d.bid > d.minBid ? ' (a bit above the minimum, since the hand can comfortably support it)' : ''}.`;
+}
+
+function runBidAdvice() {
+  const d = computeAdviceBidDecision(MY_POS);
+  if (!d) { showToast('No suggestion available right now.', 'info', 1500); return; }
+  const actionLabel = d.bid === 0 ? '✋ Consider passing' : `📈 Bid ${d.bid}`;
+  showLearnAdvice('Bidding Advice', `<div style="font-weight:800;margin-bottom:8px;color:var(--accent)">${actionLabel}</div><div>${describeAdviceBidDecision(d)}</div>`);
+}
+document.getElementById('btnLearnBid') && document.getElementById('btnLearnBid').addEventListener('click', runBidAdvice);
+// ==================== END LEARN MODE: BIDDING ADVICE ====================
 
 function showLearnAdvice(title, bodyHtml) {
   document.getElementById('learnAdviceTitle').textContent = title;
@@ -5702,23 +5691,9 @@ function showLearnAdvice(title, bodyHtml) {
   document.getElementById('learnAdviceOverlay').classList.add('on');
 }
 
-function runBidAdvice() {
-  const hand = players[MY_POS];
-  if (!hand || hand.length === 0) return;
-  const result = analyzeHandStrengthForBid(hand);
-  const actionLabel = {
-    bid_high: '📈 Bid high' + (result.range ? ` (${result.range[0]}–${result.range[1]})` : ''),
-    bid_moderate: '👍 Bid moderately' + (result.range ? ` (up to ${result.range[1]})` : ''),
-    defend: '🛡️ Better to defend',
-    pass: '✋ Consider passing'
-  }[result.action] || '';
-  showLearnAdvice('Bidding Advice', `<div style="font-weight:800;margin-bottom:8px;color:var(--accent)">${actionLabel}</div><div>${result.reason}</div>`);
-}
-
 document.getElementById('btnCloseLearnAdvice') && document.getElementById('btnCloseLearnAdvice').addEventListener('click', () => {
   document.getElementById('learnAdviceOverlay').classList.remove('on');
 });
-document.getElementById('btnLearnBid') && document.getElementById('btnLearnBid').addEventListener('click', runBidAdvice);
 
 function canPlay(card) {
   const youPos = MY_POS;
@@ -5751,43 +5726,60 @@ function canPlay(card) {
 // trump at all right now. Same team-awareness and trick-value reasoning
 // as suggestCardToPlay's can't-follow-suit branch, framed as a yes/no
 // call instead of a card choice.
-function suggestCallTrumpDecision() {
-  const hand = players[MY_POS];
+// ==================== LEARN MODE: CALL TRUMP DECISION ====================
+// Same principle as the bid and card-play advice above: calls the exact
+// same decision logic already driving the bots (the trump-calling block
+// inside botPlayWithBrain), minus its own random pattern-memory nudge
+// and all side effects (nothing here actually calls trump or plays a
+// card -- this only reports what the real logic would decide).
+//
+// Worth knowing: while porting this, I found this offline logic itself
+// doesn't include the "first time this suit's been led, worth calling
+// even without points on the table" rule that was added to the actual
+// server-side 4-player table's bot AI. That's a real, pre-existing gap
+// between the two -- not something this change introduces or fixes.
+// This advice now faithfully matches what the bots AT THIS TABLE would
+// do, but that's a slightly more conservative decision than what the
+// real online 4-player bots use for this exact situation.
+function computeAdviceCallTrumpDecision() {
+  const p = MY_POS;
+  const hand = players[p];
   if (!hand) return null;
-  const myTrumps = hand.filter(c => c.suit === trumpSuit);
-  const myTeam = getTeam(MY_POS);
-  const trickHasPoints = trickCards.some(tc => tc.card.points > 0);
+  const trumps = hand.filter(c => c.suit === trumpSuit);
+  const myTeam = getTeam(p);
+  const bidTeam = getTeam(bidder);
+  const tPts = trickCards.reduce((s, tc) => s + tc.card.points, 0);
+  const cw = getCurrentTrickWinner();
+  const wt = cw ? getTeam(cw.player) : -1;
+  const isLast = (trickCards.length === 3);
 
-  let currentWinnerPos = -1, currentWinnerName = '', currentWinnerCardTxt = '';
-  if (trickCards.length > 0) {
-    const suitCards = trickCards.filter(tc => tc.card.suit === trickSuit).sort((a, b) => RANK_ORDER[b.card.rank] - RANK_ORDER[a.card.rank]);
-    if (suitCards.length > 0) { currentWinnerPos = suitCards[0].player; currentWinnerCardTxt = suitCards[0].card.rank + suitCards[0].card.suit; }
-  }
-  currentWinnerName = currentWinnerPos === MY_POS ? 'you' : (currentWinnerPos >= 0 ? (playerAt(currentWinnerPos) ? playerAt(currentWinnerPos).name : 'seat ' + currentWinnerPos) : '');
-  const winnerIsPartner = currentWinnerPos >= 0 && currentWinnerPos !== MY_POS && getTeam(currentWinnerPos) === myTeam;
+  let callTrump = false;
+  let whyKey = '';
+  if (p === bidder) { callTrump = true; whyKey = 'bidder'; }
+  else if (isLast && wt !== myTeam && tPts > 0) { callTrump = true; whyKey = 'lastToPlayPoints'; }
+  else if (wt !== myTeam && tPts >= 2) { callTrump = true; whyKey = 'opponentsWinningPoints'; }
+  else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) { callTrump = true; whyKey = 'strongTrump'; }
+  else if (trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) { callTrump = true; whyKey = 'valuableTrickCard'; }
 
-  if (winnerIsPartner) {
-    return { decision: 'NO', reason: `Your partner (${currentWinnerName}, ${currentWinnerCardTxt}) is already winning this trick — calling trump risks cutting your own teammate for nothing. Discard instead and let them keep it.` };
-  }
-
-  if (myTrumps.length === 0) {
-    if (trickHasPoints) {
-      return { decision: 'YES', reason: `You don't hold any trump yourself, but calling exposes it for everyone — if your partner is holding strong trump, this gives them the chance to cut in and capture the points sitting here instead of losing them to the other side.` };
-    }
-    return { decision: 'NO', reason: `Not much at stake here, and you have no trump to contribute anyway — no reason to reveal trump information yet. Keep it hidden for a moment it actually matters.` };
-  }
-
-  // I do hold trump myself.
-  const highestTrumpInTrick = Math.max(-1, ...trickCards.filter(tc => tc.card.suit === trumpSuit).map(tc => RANK_ORDER[tc.card.rank]));
-  const canWin = myTrumps.some(c => RANK_ORDER[c.rank] > highestTrumpInTrick);
-  if (highestTrumpInTrick >= 0 && !canWin) {
-    return { decision: 'NO', reason: `Someone's already played a trump higher than anything you're holding — calling now would just force you to waste a trump card on a trick you still won't win. Discard something safe and save your trump.` };
-  }
-  if (trickHasPoints) {
-    return { decision: 'YES', reason: `You hold a trump that beats what's currently down, and there are real points sitting in this trick — calling lets you cut in and capture them instead of handing them to the other side.` };
-  }
-  return { decision: 'NO', reason: `This trick isn't worth much — better to save your trump for a bigger moment than spend it here.` };
+  return { callTrump, whyKey, trumps, tPts, wt, myTeam };
 }
+
+function suggestCallTrumpDecision() {
+  const d = computeAdviceCallTrumpDecision();
+  if (!d) return null;
+  if (!d.callTrump) {
+    return { decision: 'NO', reason: `Nothing here is worth exposing trump for yet — not enough at stake, and you're not the bidder. Keep trump hidden for a moment it actually matters.` };
+  }
+  const reasons = {
+    bidder: `You're the one who won the bid — as the bidder, calling trump here is standard, since your side needs to actually use the trump you bid on to make the contract.`,
+    lastToPlayPoints: `You're last to play this trick and it's not going to your own team — calling trump now lets you cut in and capture those points before they're lost for good.`,
+    opponentsWinningPoints: `The other side is currently winning a trick with real points in it — calling trump gives your side (and your partner specifically) the chance to cut in and take it back.`,
+    strongTrump: `You're holding a strong trump (Jack or 9) — calling now puts it to use instead of sitting on it.`,
+    valuableTrickCard: `There's a valuable card sitting in this trick — calling trump gives someone on your side the chance to capture it instead of letting it go.`
+  };
+  return { decision: 'YES', reason: reasons[d.whyKey] || `Calling trump makes sense here.` };
+}
+// ==================== END LEARN MODE: CALL TRUMP DECISION ====================
 
 function suggestCardToPlay() {
   const hand = players[MY_POS];
@@ -5796,11 +5788,33 @@ function suggestCardToPlay() {
   if (legal.length === 0) return null;
   const leading = (trickSuit === '' || !trickCards || trickCards.length === 0);
 
+  // The advice now comes from calling the EXACT SAME decision function
+  // driving the bots at this table (chooseBotCardBase) -- not a
+  // separately hand-written decision tree that could quietly drift out
+  // of sync with it over time, which is exactly what had happened here
+  // before: several refinements made to the bots' own trump/leading
+  // logic were never reflected in this advice, so the two could
+  // disagree on what the right play actually was. Calling the real
+  // function directly means that can't happen again -- the advice is
+  // whatever the bots would genuinely do in this exact seat, guaranteed
+  // to stay in sync as long as this function is.
+  const myTeam = getTeam(MY_POS);
+  const bidTeam = getTeam(bidder);
+  const isBidder = (MY_POS === bidder);
+  const isBT = (myTeam === bidTeam);
+  const numInTrick = trickCards.length;
+  const isLast = (numInTrick === 3);
+  const cw = getCurrentTrickWinner();
+  const wt = cw ? getTeam(cw.player) : -1;
+  const cwc = cw ? cw.card : null;
+  const tPts = trickCards.reduce((s, tc) => s + tc.card.points, 0);
+  const card = chooseBotCardBase(MY_POS, [...hand], myTeam, bidTeam, isBidder, isBT, numInTrick, isLast, cw, wt, cwc, tPts);
+  if (!card) return null;
+
   // Who's provably void in which suit so far this round (tracked live —
   // see voidSuits, populated whenever someone fails to follow a led
   // suit). Only opponents matter here; a partner being void isn't a
   // threat to your own lead.
-  const myTeam = getTeam(MY_POS);
   function dangerousVoidOpponent(suit) {
     for (let p = 0; p < 4; p++) {
       if (p === MY_POS || getTeam(p) === myTeam) continue;
@@ -5808,154 +5822,64 @@ function suggestCardToPlay() {
     }
     return -1;
   }
+  function nameOf(pos) { return playerAt(pos) ? playerAt(pos).name : 'seat ' + pos; }
 
+  let currentWinnerName = cw ? (cw.player === MY_POS ? 'you' : nameOf(cw.player)) : '';
+  const currentWinnerCardTxt = cwc ? (cwc.rank + cwc.suit) : '';
+  const winnerIsPartner = cw && cw.player !== MY_POS && getTeam(cw.player) === myTeam;
+
+  // Everything below is purely descriptive -- explaining WHY the chosen
+  // card makes sense given the situation, not making any decision of
+  // its own. The decision already happened above.
+  let reason;
   if (leading) {
-    // Look for a suit where the Jack has already been accounted for, so
-    // the 9 of that suit is now provably the highest card left — a safe,
-    // strong lead. Conversely, holding a 9 while that suit's Jack is still
-    // unseen is a real risk (someone could still be sitting on it), so we
-    // don't recommend leading a bare 9 in that situation.
-    const suitsInHand = [...new Set(legal.map(c => c.suit))];
-    for (const s of suitsInHand) {
-      const myJ = legal.find(c => c.suit === s && c.rank === 'J');
-      if (myJ) {
-        const voidOpp = dangerousVoidOpponent(s);
-        const riskNote = voidOpp >= 0 ? ` One caveat: ${(playerAt(voidOpp) ? playerAt(voidOpp).name : 'seat ' + voidOpp)} has already shown they're out of ${s} this round, so if trump's exposed they could still cut over even your Jack.` : '';
-        return { card: myJ, reason: `Lead the Jack of ${s} — nobody's played it yet, so it's still the highest card of that suit. A safe, strong lead that either wins outright or forces trump out.${riskNote}` };
-      }
-    }
-    for (const s of suitsInHand) {
-      const my9 = legal.find(c => c.suit === s && c.rank === '9');
-      const jSeen = playedCards.some(c => c.suit === s && c.rank === 'J');
-      if (my9 && jSeen) {
-        const voidOpp = dangerousVoidOpponent(s);
-        const riskNote = voidOpp >= 0 ? ` Worth noting: ${(playerAt(voidOpp) ? playerAt(voidOpp).name : 'seat ' + voidOpp)} is already known void in ${s}, so they could trump over this if trump's exposed.` : '';
-        return { card: my9, reason: `The Jack of ${s} has already been played, so your 9 is now the highest remaining card in that suit — safe to lead with confidence.${riskNote}` };
-      }
-    }
-    // Nothing provably safe to lead strong — fall back to a low,
-    // non-trump, non-point card so you're not giving anything away.
-    // Prefer a suit nobody dangerous is known void in, if there's a
-    // choice, since leading into a known void just invites a cut.
-    const safeCandidates = legal.filter(c => c.suit !== trumpSuit && c.points === 0 && c.rank !== 'J' && c.rank !== '9');
-    const safeNoVoidRisk = safeCandidates.filter(c => dangerousVoidOpponent(c.suit) === -1);
-    const safePool = safeNoVoidRisk.length > 0 ? safeNoVoidRisk : safeCandidates;
-    const safe = safePool.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank])[0];
-    if (safe) {
-      const hadToAcceptRisk = safeNoVoidRisk.length === 0 && dangerousVoidOpponent(safe.suit) >= 0;
-      const voidOpp = hadToAcceptRisk ? dangerousVoidOpponent(safe.suit) : -1;
-      const riskNote = hadToAcceptRisk ? ` (${(playerAt(voidOpp) ? playerAt(voidOpp).name : 'seat ' + voidOpp)} is void in ${safe.suit} though, so there's some risk even here — just the least-bad option available.)` : '';
-      return { card: safe, reason: `Nothing stands out as a strong, safe lead right now — a low card like this gives away no points and reveals the least information.${riskNote}` };
-    }
-    const fallback = legal.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank])[0];
-    return { card: fallback, reason: `No especially safe option available — this is the most reasonable default from what's left.` };
-  }
-
-  // Following a trick.
-  const hasSuit = hand.some(c => c.suit === trickSuit);
-  const trumpAlreadyInTrick = trumpExposed && trickCards.some(tc => tc.card.suit === trumpSuit) && trickSuit !== trumpSuit;
-  const tPtsSoFar = trickCards.reduce((s, tc) => s + tc.card.points, 0);
-  const isLastToPlay = trickCards.length === 3;
-  // Who's actually ahead right now, and are they on my own team? The
-  // whole point of a partnership game is the TEAM's total, not individual
-  // tricks — competing with your own partner, or failing to feed them
-  // points when they're already winning, both cost the team for nothing.
-  let currentWinnerPos = -1, currentWinnerName = '', currentWinnerCardTxt = '';
-  if (trickCards.length > 0) {
-    if (trumpAlreadyInTrick) {
-      const trumpCards = trickCards.filter(tc => tc.card.suit === trumpSuit).sort((a, b) => RANK_ORDER[b.card.rank] - RANK_ORDER[a.card.rank]);
-      currentWinnerPos = trumpCards[0].player;
-      currentWinnerCardTxt = trumpCards[0].card.rank + trumpCards[0].card.suit;
+    if (card.rank === 'J') {
+      const voidOpp = dangerousVoidOpponent(card.suit);
+      const riskNote = voidOpp >= 0 ? ` One caveat: ${nameOf(voidOpp)} has already shown they're out of ${card.suit} this round, so if trump's exposed they could still cut over even your Jack.` : '';
+      reason = `Lead the Jack of ${card.suit} — nobody's played it yet, so it's still the highest card of that suit. A safe, strong lead that either wins outright or forces trump out.${riskNote}`;
+    } else if (card.rank === '9') {
+      const voidOpp = dangerousVoidOpponent(card.suit);
+      const riskNote = voidOpp >= 0 ? ` Worth noting: ${nameOf(voidOpp)} is already known void in ${card.suit}, so they could trump over this if trump's exposed.` : '';
+      reason = `The Jack of ${card.suit} has already been played, so your 9 is now the highest remaining card in that suit — safe to lead with confidence.${riskNote}`;
+    } else if (card.points === 0) {
+      reason = `Nothing stands out as a strong, safe lead right now — a low card like this gives away no points and reveals the least information.`;
     } else {
-      const suitCards = trickCards.filter(tc => tc.card.suit === trickSuit).sort((a, b) => RANK_ORDER[b.card.rank] - RANK_ORDER[a.card.rank]);
-      if (suitCards.length > 0) { currentWinnerPos = suitCards[0].player; currentWinnerCardTxt = suitCards[0].card.rank + suitCards[0].card.suit; }
+      reason = `No especially safe option available — this is the most reasonable default from what's left.`;
     }
-  }
-  currentWinnerName = currentWinnerPos === MY_POS ? 'you' : (currentWinnerPos >= 0 ? (playerAt(currentWinnerPos) ? playerAt(currentWinnerPos).name : 'seat ' + currentWinnerPos) : '');
-  const winnerIsPartner = currentWinnerPos >= 0 && currentWinnerPos !== MY_POS && getTeam(currentWinnerPos) === myTeam;
-
-  if (hasSuit) {
+  } else if (card.suit === trickSuit) {
     const followCards = legal.filter(c => c.suit === trickSuit);
-    let winningCards = [];
-    if (!trumpAlreadyInTrick) {
-      const highestSoFar = Math.max(-1, ...trickCards.filter(tc => tc.card.suit === trickSuit).map(tc => RANK_ORDER[tc.card.rank] ?? -1));
-      winningCards = followCards.filter(c => RANK_ORDER[c.rank] > highestSoFar);
-    }
-    if (winningCards.length > 0) {
-      // Don't fight your own partner for a trick they've already got —
-      // unless the points on the table or the trick's position make it
-      // worth locking down for certain, just let them keep it and save
-      // your good cards for a trick that actually needs winning.
-      if (winnerIsPartner && tPtsSoFar < 2 && !isLastToPlay) {
-        const safestLow = followCards.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank])[0];
-        return { card: safestLow, reason: `Your partner (${currentWinnerName}, ${currentWinnerCardTxt}) is already winning this trick, and it's low-value so far — no need to spend a bigger card competing with your own teammate. Play low and save your strength for a trick that actually needs it.` };
+    const winning = !cwc || (cwc.suit === trickSuit && RANK_ORDER[card.rank] > RANK_ORDER[cwc.rank]) || (cwc.suit !== trickSuit && !(trumpExposed && cwc.suit === trumpSuit));
+    if (winning) {
+      if (winnerIsPartner && tPts < 2 && !isLast) {
+        reason = `Your partner (${currentWinnerName}, ${currentWinnerCardTxt}) is already winning this trick, and it's low-value so far — no need to spend a bigger card competing with your own teammate. Play low and save your strength for a trick that actually needs it.`;
+      } else {
+        reason = `This wins the trick — no reason to spend anything bigger than you need to.`;
       }
-      const cheapest = winningCards.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank])[0];
-      return { card: cheapest, reason: `This wins the trick and is the lowest card that does it — no reason to spend anything bigger than you need to.` };
-    }
-    // Can't beat what's there. If it's your OWN partner winning, that's
-    // good news for the team — feed them a valuable card instead of just
-    // dumping your lowest, since every point you hand them is a point
-    // that's already safely on your side.
-    if (winnerIsPartner) {
-      const feedable = followCards.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9')
-        .sort((a, b) => b.points - a.points);
-      if (feedable.length > 0) {
-        return { card: feedable[0], reason: `Your partner (${currentWinnerName}, ${currentWinnerCardTxt}) is already winning this trick — feed them this ${feedable[0].rank}${feedable[0].suit} rather than your lowest card, since the points go straight to your own team either way.` };
+    } else if (winnerIsPartner) {
+      if (card.points > 0) {
+        reason = `Your partner (${currentWinnerName}, ${currentWinnerCardTxt}) is already winning this trick — feed them this ${card.rank}${card.suit} rather than your lowest card, since the points go straight to your own team either way.`;
+      } else {
+        reason = `Your partner (${currentWinnerName}, ${currentWinnerCardTxt}) is already winning this trick — nothing valuable to feed them here, so this is fine as-is.`;
       }
-      const lowestPartner = followCards.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank])[0];
-      return { card: lowestPartner, reason: `Your partner (${currentWinnerName}, ${currentWinnerCardTxt}) is already winning this trick — nothing valuable to feed them here, so this is fine as-is.` };
+    } else {
+      reason = `${currentWinnerName}'s ${currentWinnerCardTxt} is currently winning this trick and nothing in your hand beats it, so play your lowest ${trickSuit} rather than hand over unnecessary points.`;
     }
-    const lowest = followCards.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank])[0];
-    return { card: lowest, reason: `${currentWinnerName}'s ${currentWinnerCardTxt} is currently winning this trick and nothing in your hand beats it, so play your lowest ${trickSuit} rather than hand over unnecessary points.` };
-  }
-
-  // Can't follow suit at all.
-  const trumps = legal.filter(c => c.suit === trumpSuit);
-  const trickHasPoints = trickCards.some(tc => tc.card.points > 0);
-  // Never trump over your own partner — spending a trump card just to
-  // beat your own teammate helps nobody and costs you a trump you might
-  // need later.
-  if (trumpExposed && trumps.length > 0 && trickHasPoints && !winnerIsPartner) {
-    // Trumping in only actually WINS if it beats the highest trump
-    // already sitting in this trick — if someone's already played the
-    // Jack of trump (or anything higher than every trump in your hand),
-    // no card you hold can beat it, and "trumping in" would just be
-    // adding your own points to a trick you still lose, handing the
-    // other side even more than they'd have gotten otherwise.
-    const highestTrumpInTrickSoFar = Math.max(-1, ...trickCards.filter(tc => tc.card.suit === trumpSuit).map(tc => RANK_ORDER[tc.card.rank]));
-    const winningTrumps = trumps.filter(c => RANK_ORDER[c.rank] > highestTrumpInTrickSoFar);
-    if (winningTrumps.length > 0) {
-      const lowestWinningTrump = winningTrumps.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank])[0];
-      return { card: lowestWinningTrump, reason: `You can't follow suit, and there are points sitting in this trick — trumping in with this beats what's currently winning and captures those points instead of letting them go to someone else.` };
+  } else if (card.suit === trumpSuit) {
+    if (!winnerIsPartner) {
+      reason = `You can't follow suit, and trumping in with this beats what's currently winning — capturing those points instead of letting them go to someone else.`;
+    } else {
+      reason = `Trump is what's called for here.`;
     }
-    // No trump in hand can actually beat what's already there — fall
-    // through to a safe discard instead of wasting a trump for nothing.
-    const alreadyWinningCard = trickCards.find(tc => tc.card.suit === trumpSuit && RANK_ORDER[tc.card.rank] === highestTrumpInTrickSoFar);
-    const nonTrumpSafe = legal.filter(c => c.suit !== trumpSuit)
-      .sort((a, b) => (a.points !== b.points ? a.points - b.points : RANK_ORDER[a.rank] - RANK_ORDER[b.rank]))[0];
-    if (nonTrumpSafe) {
-      return { card: nonTrumpSafe, reason: `Someone's already played ${alreadyWinningCard.card.rank}${alreadyWinningCard.card.suit} — nothing in your hand beats that, so trumping in here would just be wasting a trump card for a trick you still won't win. Discard your lowest safe card instead.` };
+  } else {
+    if (winnerIsPartner && card.points > 0) {
+      reason = `Your partner (${currentWinnerName}, ${currentWinnerCardTxt}) is already winning this trick and you can't follow suit — feed them this ${card.rank}${card.suit} rather than saving it, the points land on your own side either way.`;
+    } else if (cwc) {
+      reason = `Someone's already played ${cwc.rank}${cwc.suit} that your hand can't beat — trumping in here would just waste a trump for a trick you still won't win. Discard your lowest safe card instead.`;
+    } else {
+      reason = `You can't follow suit here. Discard a low, non-trump card — no reason to give up a trump card unless you actually need it to win the points on the table.`;
     }
   }
-  if (winnerIsPartner && trickHasPoints) {
-    // Same partner-feeding idea, but for the case where you can't follow
-    // suit at all: don't trump over your own teammate, and if you're
-    // holding a non-trump point card, handing it to them is free value
-    // for the team instead of just discarding it blind.
-    const feedableNonTrump = legal.filter(c => c.suit !== trumpSuit && c.points > 0 && c.rank !== 'J' && c.rank !== '9')
-      .sort((a, b) => b.points - a.points);
-    if (feedableNonTrump.length > 0) {
-      return { card: feedableNonTrump[0], reason: `Your partner (${currentWinnerName}, ${currentWinnerCardTxt}) is already winning this trick and you can't follow suit — feed them this ${feedableNonTrump[0].rank}${feedableNonTrump[0].suit} rather than saving it, the points land on your own side either way.` };
-    }
-  }
-  const nonTrumpLow = legal.filter(c => c.suit !== trumpSuit)
-    .sort((a, b) => (a.points !== b.points ? a.points - b.points : RANK_ORDER[a.rank] - RANK_ORDER[b.rank]))[0];
-  if (nonTrumpLow) {
-    return { card: nonTrumpLow, reason: `You can't follow suit here. Discard a low, non-trump card — no reason to give up a trump card unless you actually need it to win the points on the table.` };
-  }
-  const lowestLeft = legal.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank])[0];
-  return { card: lowestLeft, reason: `Trump is all you have left to play here — this is your lowest option.` };
+  return { card, reason };
 }
 
 function runPlayAdvice() {
