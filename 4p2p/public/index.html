@@ -916,14 +916,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* Floating WhatsApp group link -- shown only on the welcome/lobby
    screens (never during actual gameplay, see whatsappFabPoll below).
-   Deliberately bottom-LEFT, not bottom-right: the in-game bot toggle
-   sits bottom-right and, on closer check, has no display:none of its
-   own -- it's actually visible by default regardless of whether a
-   table is active, not gated to gameplay the way it looked at a
-   glance. Confirmed the two were directly overlapping there. Bottom-
-   left avoids that collision entirely rather than trying to stack two
-   floating buttons in the same tight corner. */
-.whatsapp-fab{position:fixed;bottom:16px;left:16px;z-index:850;width:56px;height:56px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 14px rgba(0,0,0,0.4);cursor:pointer;text-decoration:none;font-size:1.6rem;animation:botFloat 3s ease-in-out infinite;transition:transform 0.2s}
+   Bottom-left, not bottom-right, since the in-game bot toggle sits
+   there and is visible by default regardless of whether a table is
+   active -- confirmed the two were directly overlapping there.
+   z-index:2100 is the actual fix that matters: welcome-screen,
+   lobby-screen, and picker-screen are EACH their own full-screen
+   overlay at z-index:2000 (background image included), which was
+   burying this button completely no matter where it sat in the page's
+   HTML -- z-index always wins over DOM order once it's explicitly set.
+   2100 sits just above those screen backgrounds while staying safely
+   below real modals/popups like the Bot Brain Manager (z-index:3000),
+   so this still correctly disappears behind an actual popup when one
+   opens. */
+.whatsapp-fab{position:fixed;bottom:16px;left:16px;z-index:2100;width:56px;height:56px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 14px rgba(0,0,0,0.4);cursor:pointer;text-decoration:none;font-size:1.6rem;animation:botFloat 3s ease-in-out infinite;transition:transform 0.2s}
 .whatsapp-fab:active{transform:scale(0.92)}
 
 /* ===== BRAIN STATUS INDICATOR ===== */
