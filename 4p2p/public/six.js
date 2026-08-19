@@ -965,23 +965,33 @@ function refreshRoomList() {
   socket.emit('sixp_listRooms');
 }
 function renderRoomList(rooms) {
-  const list = $('roomList');
-  if (!list) return;
-  if (!rooms.length) { list.innerHTML = '<div style="color:var(--text-secondary);font-size:0.8rem;padding:10px">No open tables right now.</div>'; return; }
-  list.innerHTML = rooms.map(r => `
+  // Populates BOTH the existing joinScreen list and the one on the main
+  // welcomeScreen itself -- previously this list only ever showed up
+  // after clicking "Join Table" first, tucked away on a separate
+  // screen, unlike the 4-player table which shows its running-tables
+  // list directly on the main menu. Same live data, same click-to-join
+  // behavior, just also visible immediately without that extra step.
+  const targets = [$('roomList'), $('welcomeRoomList')].filter(Boolean);
+  if (!targets.length) return;
+  const html = !rooms.length
+    ? '<div style="color:var(--text-secondary);font-size:0.8rem;padding:10px">No open tables right now.</div>'
+    : rooms.map(r => `
     <div class="room-row">
       <div><b>${escapeHtml(r.name)}</b><br><span style="color:var(--text-secondary)">${r.players}/6 · ${r.isPlaying ? 'Playing' : 'Lobby'}</span></div>
       <button class="btn btn-outline" style="width:auto;margin:0;padding:8px 14px" data-code="${r.tableId}" ${r.canJoinSeat ? '' : 'disabled'}>JOIN</button>
     </div>`).join('');
-  list.querySelectorAll('button[data-code]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      pendingJoinCode = btn.getAttribute('data-code');
-      pendingAction = 'join';
-      const inviteBanner6pList = $('inviteBanner6p');
-      if (inviteBanner6pList) inviteBanner6pList.classList.add('hidden');
-      showScreen('nameScreen');
+  for (const list of targets) {
+    list.innerHTML = html;
+    list.querySelectorAll('button[data-code]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        pendingJoinCode = btn.getAttribute('data-code');
+        pendingAction = 'join';
+        const inviteBanner6pList = $('inviteBanner6p');
+        if (inviteBanner6pList) inviteBanner6pList.classList.add('hidden');
+        showScreen('nameScreen');
+      });
     });
-  });
+  }
 }
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
@@ -2002,6 +2012,10 @@ $('btnGameOverRestart').addEventListener('click', () => {
 
 window.addEventListener('DOMContentLoaded', () => {
   showScreen('welcomeScreen');
+  // The room list now shows directly on this screen (not just after
+  // clicking "Join Table"), so it needs to actually be populated the
+  // moment the page loads too, not only when that button gets clicked.
+  refreshRoomList();
 
   const inviteCode = new URLSearchParams(window.location.search).get('invite');
   if (inviteCode) {
