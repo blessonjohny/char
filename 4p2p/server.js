@@ -1764,15 +1764,19 @@ io.on('connection', (socket) => {
     // needs the host's permission anymore, connected host or not — same
     // treatment as a table that hasn't started yet. If a seat is
     // available (open, bot-controlled, or a disconnected human's), the
-    // new player goes straight to picking one; an empty table with no
-    // available seats at all is the only thing that still blocks a join.
-    if (openSeats.length === 0 && botSeats.length === 0 && disconnectedSeats.length === 0) {
-      socket.emit('joinError', { reason: 'table_full' });
-      return;
-    }
+    // new player goes straight to picking one. A table with no available
+    // seats at all still isn't a dead end -- the seat-picker UI already
+    // has a full, working "Just Watch" path for exactly this case
+    // (nothingToClaim on the client), so this sends the same chooseSeat
+    // event either way rather than rejecting outright with a bare
+    // 'table_full' error and never giving the joiner the option to
+    // spectate at all. That reject-instead-of-offer-to-watch is the
+    // actual regression: watching was always meant to be the fallback
+    // once every seat is genuinely taken by a connected human, not a
+    // dead end.
     pendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player', avatar: sanitizeAvatarKey(avatar) };
-    socket.emit('chooseSeat', { tableId: reqTableId, openSeats, botSeats, disconnectedSeats, seats: seatSnapshot(t), canWatch: false, needsApproval: false });
-    console.log(`[table ${reqTableId}] ${name} joined a table already in progress — no approval needed`);
+    socket.emit('chooseSeat', { tableId: reqTableId, openSeats, botSeats, disconnectedSeats, seats: seatSnapshot(t), canWatch: true, needsApproval: false });
+    console.log(`[table ${reqTableId}] ${name} joined a table already in progress${openSeats.length === 0 && botSeats.length === 0 && disconnectedSeats.length === 0 ? ' (full -- offered to watch)' : ''} — no approval needed`);
   });
 
   // An existing spectator asking to convert to a player — no host
