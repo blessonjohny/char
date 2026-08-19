@@ -1934,7 +1934,7 @@ io.on('connection', (socket) => {
       if (!isEffectiveHost(t, playerId)) return;
       if (typeof pos !== 'number' || pos < 0 || pos >= t.engine.seats.length) return;
       if (t.engine.seats[pos]) return; // only genuinely empty seats
-      const botNamePool = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya', 'Rebee'];
+      const botNamePool = ['Ancy', 'Meera', 'Priya', 'Reena', 'Divya', 'Sarah', 'Nisha', 'Charlie', 'Rahul', 'Nate', 'Koshy', 'Johny', 'Sanjay', 'Arun'];
       const usedNames = new Set(t.engine.seats.filter(Boolean).map(s => s.name));
       const name = botNamePool.find(n => !usedNames.has(n)) || `Bot${pos}`;
       t.engine.seatBot(pos, name);
@@ -1948,7 +1948,7 @@ io.on('connection', (socket) => {
       if (!isEffectiveHost(t, playerId)) return;
       if (t.engine.phase !== 'lobby') return;
       const open = t.engine.emptySeats();
-      const botNamePool = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya', 'Sanjay', 'Johny', 'Vinod', 'Jean', 'Randall', 'Rajesh', 'Stev', 'Alok', 'Jerin', 'Binchu', 'Ajai', 'Peter', 'Shyam', 'Appu', 'Anup', 'Arun', 'Vilphy', 'Roji', 'Rebee'];
+      const botNamePool = ['Ancy', 'Anjali', 'Meera', 'Neha', 'Priya', 'Reena', 'Divya', 'Lakshmi', 'Sarah', 'Nisha', 'Deepa', 'Elsa', 'Maya', 'Sherin', 'Teena', 'Anu', 'Reshma', 'Jisha', 'Nimmy', 'Beena', 'Soumya', 'Liya', 'Merin', 'Asha', 'Ajai', 'Alok', 'Anup', 'Appu', 'Arun', 'Benson', 'Binchu', 'Charlie', 'Jerin', 'Johny', 'Koshy', 'Nate', 'Peter', 'Rahul', 'Rajesh', 'Randall', 'Renji', 'Roji', 'Roney', 'Sanjay', 'Shyam', 'Stev', 'Vinod', 'Wesley'];
       // Shuffle so repeated games don't always show the same first few
       // names in the list — previously toFill was always 3, so seats
       // always got names[0], names[1], names[2] and nothing past that.
@@ -2629,7 +2629,7 @@ io.on('connection', (socket) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;
       if (typeof pos !== 'number' || pos < 0 || pos >= t.engine.seats.length) return;
       if (t.engine.seats[pos]) return;
-      const botNamePool = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya', 'Sanjay', 'Johny', 'Rebee'];
+      const botNamePool = ['Ancy', 'Meera', 'Priya', 'Reena', 'Divya', 'Sarah', 'Nisha', 'Charlie', 'Rahul', 'Nate', 'Koshy', 'Johny', 'Sanjay', 'Arun'];
       const usedNames = new Set(t.engine.seats.filter(Boolean).map(s => s.name));
       const name = botNamePool.find(n => !usedNames.has(n)) || `Bot${pos}`;
       t.engine.seatBot(pos, name);
@@ -2643,7 +2643,7 @@ io.on('connection', (socket) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;
       if (t.engine.phase !== 'lobby') return;
       const empties = t.engine.emptySeats();
-      const botNamePool = ['Charlie', 'Wesley', 'Benson', 'Rahul', 'Anjali', 'Neha', 'Nate', 'Koshy', 'Meera', 'Priya', 'Sanjay', 'Johny', 'Vinod', 'Jean', 'Randall', 'Rajesh', 'Stev', 'Alok', 'Jerin', 'Binchu', 'Ajai', 'Peter', 'Shyam', 'Appu', 'Anup', 'Arun', 'Vilphy', 'Roji', 'Rebee'];
+      const botNamePool = ['Ancy', 'Anjali', 'Meera', 'Neha', 'Priya', 'Reena', 'Divya', 'Lakshmi', 'Sarah', 'Nisha', 'Deepa', 'Elsa', 'Maya', 'Sherin', 'Teena', 'Anu', 'Reshma', 'Jisha', 'Nimmy', 'Beena', 'Soumya', 'Liya', 'Merin', 'Asha', 'Ajai', 'Alok', 'Anup', 'Appu', 'Arun', 'Benson', 'Binchu', 'Charlie', 'Jerin', 'Johny', 'Koshy', 'Nate', 'Peter', 'Rahul', 'Rajesh', 'Randall', 'Renji', 'Roji', 'Roney', 'Sanjay', 'Shyam', 'Stev', 'Vinod', 'Wesley'];
       const shuffled = [...botNamePool].sort(() => Math.random() - 0.5);
       let botNum = 0;
       for (const pos of empties) {

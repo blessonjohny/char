@@ -131,6 +131,15 @@ class GameEngine6P {
     this.bidder = -1;
     this.highestBid = 0;
     this.passes = 0;
+    // Tracks total bidding actions taken this auction (bid OR pass,
+    // including the forced first bid), separate from `passes` above --
+    // `passes` resets to 0 every time someone raises, which meant the
+    // auction could effectively restart its own clock mid-round and
+    // cycle back for a SECOND turn from someone who already acted, as
+    // long as enough people happened to bid instead of pass along the
+    // way. The real rule is a single pass around the table: every seat
+    // gets exactly one turn, then it's over, however the bids landed.
+    this.bidTurnsTaken = 0;
     this.bidHistory = [];
     this.trumpSuit = '';
     this.trumpExposed = false;
@@ -390,6 +399,7 @@ class GameEngine6P {
       if (first) bid = 16; // first bidder cannot pass
       else {
         this.passes++;
+        this.bidTurnsTaken++;
         this.bidHistory.push({ pos, bid: 0 });
         this.addLog(`Seat ${pos} passed.`);
         return this._afterBidAction();
@@ -400,6 +410,7 @@ class GameEngine6P {
     this.highestBid = bid;
     this.bidder = pos;
     this.passes = 0;
+    this.bidTurnsTaken++;
     this.bidHistory.push({ pos, bid });
     if (this.seats[pos]) this._bidderHandProfileForLearning = brain.getHandProfile(this.seats[pos].hand);
     this.addLog(`Seat ${pos} bid ${bid}.`);
@@ -407,9 +418,20 @@ class GameEngine6P {
   }
 
   _afterBidAction() {
-    // Ends once everyone-but-the-bidder has passed, or everyone passed
-    // outright (no valid bid at all — a redeal is needed).
-    if ((this.passes >= SEATS - 1 && this.highestBid > 0) || this.passes >= SEATS) {
+    // Ends once every seat has had exactly one turn (bid or pass) --
+    // NOT once "enough" passes have piled up, which is what `passes`
+    // alone used to gate this on. `passes` resets to 0 every time
+    // someone raises, so relying on it let the auction effectively
+    // restart its own clock mid-round: if enough people happened to
+    // bid instead of pass along the way, the rotation could cycle back
+    // around for a genuine SECOND turn from someone who'd already
+    // acted, rather than ending the moment the dealer (the last seat)
+    // has gone. The real rule is simpler than that: one full pass
+    // around the table, six turns total, then it's over however the
+    // bids landed. bidTurnsTaken tracks that directly and is the only
+    // thing gating this now; `passes` is left fully alone for its own
+    // separate uses (isFirstBidder(), the client's bid display).
+    if (this.bidTurnsTaken >= SEATS) {
       if (this.highestBid === 0) {
         this.addLog('No valid bids. Redealing...');
         this.startRound();
