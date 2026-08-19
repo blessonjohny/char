@@ -10784,9 +10784,15 @@ document.getElementById('modalOverlay').addEventListener('click', (e) => { if (e
 document.getElementById('newGameBtn').addEventListener('click', startGame);
 document.getElementById('btnChat').addEventListener('click', openChat);
 document.getElementById('btnInvite').addEventListener('click', shareInviteLink);
+// Deliberately the branded custom domain, not window.location.origin --
+// this app is also reachable through its raw Render deployment URL
+// (something like xxxxx.onrender.com), and an invite generated from
+// there would otherwise show that raw address instead of the actual
+// 28gulan.com domain people recognize and trust.
+const BRAND_ORIGIN = 'https://28gulan.com';
 async function shareInviteLink() {
   if (!MY_TABLE_ID) { showToast('Join a table first', 'lose', 1500); return; }
-  const link = window.location.origin + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);
+  const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);
   const text = `Join my 28 Kerala Gulan table! Room code: ${MY_TABLE_ID}`;
   if (navigator.share) {
     try { await navigator.share({ title: '28 Kerala Gulan', text, url: link }); return; }
@@ -10808,7 +10814,7 @@ async function shareInviteLink() {
 // for "come join the specific table I'm already sitting at right now."
 const inviteGeneric4pBtn = document.getElementById('btnInviteGeneric4p');
 if (inviteGeneric4pBtn) inviteGeneric4pBtn.addEventListener('click', async () => {
-  const link = window.location.origin + window.location.pathname;
+  const link = BRAND_ORIGIN + window.location.pathname;
   const text = `Come play 28 Kerala Gulan (4 Player) with me!`;
   if (navigator.share) {
     try { await navigator.share({ title: '28 Kerala Gulan — 4 Player', text, url: link }); return; }

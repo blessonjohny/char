@@ -2284,9 +2284,12 @@ function handleQuoteDeclaredToast(state) {
     lastShownQuoteDeclaredForTeam6p = null;
   }
 }
+// Deliberately the branded custom domain, not window.location.origin --
+// see index.html's identical constant for the full reasoning.
+const BRAND_ORIGIN = 'https://28gulan.com';
 async function shareInviteLink() {
   if (!MY_TABLE_ID) { showToast('Join a table first', 'lose', 1500); return; }
-  const link = window.location.origin + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);
+  const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);
   const text = `Join my 28 Kerala Gulan 6-player table! Room code: ${MY_TABLE_ID}`;
   if (navigator.share) {
     try { await navigator.share({ title: '28 Kerala Gulan', text, url: link }); return; }
@@ -2308,7 +2311,7 @@ async function shareInviteLink() {
 // which is for "come join the specific table I'm already sitting at."
 const inviteGeneric6pBtn = $('btnInviteGeneric6p');
 if (inviteGeneric6pBtn) inviteGeneric6pBtn.addEventListener('click', async () => {
-  const link = window.location.origin + window.location.pathname;
+  const link = BRAND_ORIGIN + window.location.pathname;
   const text = `Come play 28 Kerala Gulan (6 Player) with me!`;
   if (navigator.share) {
     try { await navigator.share({ title: '28 Kerala Gulan — 6 Player', text, url: link }); return; }

@@ -1489,9 +1489,12 @@ document.getElementById('btnJoinInvite56').addEventListener('click', () => {
   requestJoinRoom(pendingInviteCode56);
 });
 
+// Deliberately the branded custom domain, not window.location.origin --
+// see index.html's identical constant for the full reasoning.
+const BRAND_ORIGIN = 'https://28gulan.com';
 async function shareInviteLink56(){
   if(!roomCode){ showToast('Join a table first'); return; }
-  const link = window.location.origin + window.location.pathname + '?invite=' + encodeURIComponent(roomCode);
+  const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(roomCode);
   const text = `Join my 56 table! Room code: ${roomCode}`;
   if(navigator.share){
     try{ await navigator.share({title: '56 — The Kerala Card Game', text, url: link}); return; }
@@ -1515,7 +1518,7 @@ document.getElementById('btnInvite56').addEventListener('click', shareInviteLink
 // "come join the specific table I'm already sitting at right now."
 const inviteGeneric56Btn = document.getElementById('btnInviteGeneric56');
 if(inviteGeneric56Btn) inviteGeneric56Btn.addEventListener('click', async () => {
-  const link = window.location.origin + window.location.pathname;
+  const link = BRAND_ORIGIN + window.location.pathname;
   const text = `Come play 56 — The Kerala Card Game with me!`;
   if(navigator.share){
     try{ await navigator.share({title: '56 — The Kerala Card Game', text, url: link}); return; }
