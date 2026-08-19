@@ -140,6 +140,11 @@ class GameEngine6P {
     // way. The real rule is a single pass around the table: every seat
     // gets exactly one turn, then it's over, however the bids landed.
     this.bidTurnsTaken = 0;
+    // Which seats have already taken their one bidding turn this
+    // auction -- needed by _nextBidTurn's team-reactive lookups (finding
+    // "the next unacted seat on team X"), since the turn order is no
+    // longer a simple physical rotation.
+    this.bidActed = [false, false, false, false, false, false];
     this.bidHistory = [];
     this.trumpSuit = '';
     this.trumpExposed = false;
@@ -395,42 +400,63 @@ class GameEngine6P {
     if (this.phase !== 'bidding1') return { ok: false, reason: 'not_bidding' };
     if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
     const first = this.isFirstBidder(pos);
+    // Honors restriction: triggers whenever it's genuinely your turn and
+    // your OWN PARTNER already holds the current highest bid -- whether
+    // that's because the whole opposing team passed and the turn fell
+    // through back to your side, or simply because it's your normal
+    // turn and your partner already happens to be on top. Either way,
+    // your team is already ahead, so a plain raise isn't the point --
+    // only a genuine honors-level bid (20+) is allowed.
+    const honorsRestricted = !first && this.highestBid > 0 && getTeam(this.bidder) === getTeam(pos);
     if (bid === 0) {
       if (first) bid = 16; // first bidder cannot pass
       else {
+        this.bidActed[pos] = true;
         this.passes++;
         this.bidTurnsTaken++;
         this.bidHistory.push({ pos, bid: 0 });
         this.addLog(`Seat ${pos} passed.`);
-        return this._afterBidAction();
+        return this._afterBidAction(pos, false);
       }
     }
-    const minBid = this.highestBid > 0 ? this.highestBid + 1 : 16;
+    const minBid = honorsRestricted ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 16);
     if (bid < minBid || bid > 28) return { ok: false, reason: 'invalid_bid_amount' };
     this.highestBid = bid;
     this.bidder = pos;
+    this.bidActed[pos] = true;
     this.passes = 0;
     this.bidTurnsTaken++;
     this.bidHistory.push({ pos, bid });
     if (this.seats[pos]) this._bidderHandProfileForLearning = brain.getHandProfile(this.seats[pos].hand);
     this.addLog(`Seat ${pos} bid ${bid}.`);
-    return this._afterBidAction();
+    return this._afterBidAction(pos, true);
   }
 
-  _afterBidAction() {
+  // Per explicit, carefully worked-through instruction: this is NOT a
+  // simple seat-by-seat rotation around the table (that's the PLAYING
+  // order later, which is unchanged) -- the BIDDING order is reactive
+  // and team-based. A bid sends the turn to the OTHER team's next seat
+  // that hasn't acted yet; a pass keeps the turn on the passer's OWN
+  // team's next unacted seat. If that target team has nobody left
+  // unacted, it falls through to the other team's next unacted seat
+  // instead. This was verified against every scenario worked through
+  // and confirmed turn by turn before writing this, including the
+  // fallthrough case specifically.
+  _nextBidTurn(lastActor, wasABid) {
+    const lastTeam = getTeam(lastActor);
+    const targetTeam = wasABid ? (1 - lastTeam) : lastTeam;
+    const primary = targetTeam === 0 ? [0, 2, 4] : [1, 3, 5];
+    for (const s of primary) if (!this.bidActed[s]) return s;
+    const fallback = targetTeam === 0 ? [1, 3, 5] : [0, 2, 4];
+    for (const s of fallback) if (!this.bidActed[s]) return s;
+    return -1;
+  }
+
+  _afterBidAction(lastActor, wasABid) {
     // Ends once every seat has had exactly one turn (bid or pass) --
-    // NOT once "enough" passes have piled up, which is what `passes`
-    // alone used to gate this on. `passes` resets to 0 every time
-    // someone raises, so relying on it let the auction effectively
-    // restart its own clock mid-round: if enough people happened to
-    // bid instead of pass along the way, the rotation could cycle back
-    // around for a genuine SECOND turn from someone who'd already
-    // acted, rather than ending the moment the dealer (the last seat)
-    // has gone. The real rule is simpler than that: one full pass
-    // around the table, six turns total, then it's over however the
-    // bids landed. bidTurnsTaken tracks that directly and is the only
-    // thing gating this now; `passes` is left fully alone for its own
-    // separate uses (isFirstBidder(), the client's bid display).
+    // the ORDER they act in is now reactive (see _nextBidTurn above),
+    // but the ending condition itself is unchanged: six total turns,
+    // however they land, and it's over.
     if (this.bidTurnsTaken >= SEATS) {
       if (this.highestBid === 0) {
         this.addLog('No valid bids. Redealing...');
@@ -444,7 +470,7 @@ class GameEngine6P {
       this.maybeAutoAct();
       return { ok: true };
     }
-    this.currentPlayer = nextPos(this.currentPlayer);
+    this.currentPlayer = this._nextBidTurn(lastActor, wasABid);
     this._notify();
     this.maybeAutoAct();
     return { ok: true };
