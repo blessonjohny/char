@@ -439,16 +439,24 @@ class GameEngine6P {
   // that hasn't acted yet; a pass keeps the turn on the passer's OWN
   // team's next unacted seat. If that target team has nobody left
   // unacted, it falls through to the other team's next unacted seat
-  // instead. This was verified against every scenario worked through
-  // and confirmed turn by turn before writing this, including the
-  // fallthrough case specifically.
+  // instead. One further refinement, confirmed against multiple full
+  // worked-through sequences: within their OWN team's own search order
+  // specifically, the dealer is always considered last, not in plain
+  // seat-number order -- they still take part in the normal reactive
+  // rotation like anyone else (not held out of the whole auction until
+  // everyone everywhere else is done, which was an earlier, wrong guess
+  // corrected by the actual sequences worked through), they're just the
+  // final consideration within their own side specifically, since they
+  // already got the advantage of dealing the hand.
+  _bidTeamOrder(team) {
+    const seats = team === 0 ? [0, 2, 4] : [1, 3, 5];
+    return seats.slice().sort((a, b) => (a === this.dealer ? 1 : 0) - (b === this.dealer ? 1 : 0));
+  }
   _nextBidTurn(lastActor, wasABid) {
     const lastTeam = getTeam(lastActor);
     const targetTeam = wasABid ? (1 - lastTeam) : lastTeam;
-    const primary = targetTeam === 0 ? [0, 2, 4] : [1, 3, 5];
-    for (const s of primary) if (!this.bidActed[s]) return s;
-    const fallback = targetTeam === 0 ? [1, 3, 5] : [0, 2, 4];
-    for (const s of fallback) if (!this.bidActed[s]) return s;
+    for (const s of this._bidTeamOrder(targetTeam)) if (!this.bidActed[s]) return s;
+    for (const s of this._bidTeamOrder(1 - targetTeam)) if (!this.bidActed[s]) return s;
     return -1;
   }
 
