@@ -131,6 +131,20 @@ class GameEngine6P {
     this.bidder = -1;
     this.highestBid = 0;
     this.passes = 0;
+    // Tracks total bidding actions taken this auction (bid OR pass,
+    // including the forced first bid), separate from `passes` above --
+    // `passes` resets to 0 every time someone raises, which meant the
+    // auction could effectively restart its own clock mid-round and
+    // cycle back for a SECOND turn from someone who already acted, as
+    // long as enough people happened to bid instead of pass along the
+    // way. The real rule is a single pass around the table: every seat
+    // gets exactly one turn, then it's over, however the bids landed.
+    this.bidTurnsTaken = 0;
+    // Which seats have already taken their one bidding turn this
+    // auction -- needed by _nextBidTurn's team-reactive lookups (finding
+    // "the next unacted seat on team X"), since the turn order is no
+    // longer a simple physical rotation.
+    this.bidActed = [false, false, false, false, false, false];
     this.bidHistory = [];
     this.trumpSuit = '';
     this.trumpExposed = false;
@@ -160,6 +174,13 @@ class GameEngine6P {
     this.earlyWinDeclined = false;
     this.teamStillClean = [true, true];
     this.quoteState = null;
+    // Thani -- see game-engine.js (the 4-player table) for the full
+    // reasoning, identical rule here except folding: this table's teams
+    // are 3-a-side, so BOTH of the caller's other teammates fold, not
+    // just one. No trump at all this round either way -- see callThani()
+    // below.
+    this.thaniCaller = -1;
+    this.foldedSeats = [];
   }
 
   addLog(msg) {
@@ -178,8 +199,8 @@ class GameEngine6P {
 
   humanCount() { return this.seats.filter(s => s && !s.isBot).length; }
 
-  seatHuman(pos, name, playerId) {
-    this.seats[pos] = { name, isBot: false, connected: true, playerId, hand: [] };
+  seatHuman(pos, name, playerId, avatar) {
+    this.seats[pos] = { name, isBot: false, connected: true, playerId, hand: [], avatar: avatar || null };
   }
 
   seatBot(pos, name) {
@@ -200,27 +221,70 @@ class GameEngine6P {
     return true;
   }
 
-  replaceBot(pos, playerId, name) {
+  replaceBot(pos, playerId, name, avatar) {
     const seat = this.seats[pos];
     if (!seat || !seat.isBot) return false;
     seat.isBot = false; seat.connected = true; seat.playerId = playerId; seat.name = name;
+    seat.avatar = avatar || null;
     return true;
   }
 
-  takeOverSeat(pos, playerId, name) {
+  takeOverSeat(pos, playerId, name, avatar) {
     const seat = this.seats[pos];
     if (!seat) return false;
     if (!seat.isBot && seat.connected) return false;
     seat.isBot = false; seat.connected = true; seat.playerId = playerId; seat.name = name;
+    seat.avatar = avatar || null;
     return true;
   }
 
-  markConnected(pos, connected) { if (this.seats[pos]) this.seats[pos].connected = connected; }
+  markConnected(pos, connected) {
+    if (!this.seats[pos]) return;
+    this.seats[pos].connected = connected;
+    if (!connected) this.seats[pos].disconnectedAt = Date.now();
+    else this.seats[pos].disconnectedAt = null;
+  }
   findSeatByPlayerId(playerId) { return this.seats.findIndex(s => s && s.playerId === playerId); }
 
   // ---------------- Round lifecycle ----------------
 
   canStart() { return this.seats.filter(Boolean).length >= 2; }
+
+  // Redeals (same dealer, no notify/side effects per attempt) until
+  // neither auto-reshuffle condition is true: the forced first bidder
+  // holding nothing but 7s/8s (an unplayable hand they'd otherwise be
+  // forced to bid on), or any single seat holding all four Jacks. Same
+  // rule and same reasoning as the 4-player table's own version -- this
+  // engine just never had it at all until now. Returns the reason for
+  // the FIRST bad deal hit in the chain (or null if the original deal
+  // was already fine).
+  _dealSameHandUntilValid() {
+    let reason = null;
+    let guard = 0;
+    while (guard++ < 100) { // effectively unbounded in practice; just a hard safety cap
+      const firstBidderSeat = nextPos(this.dealer);
+      const firstBidderHand = this.seats[firstBidderSeat] ? this.seats[firstBidderSeat].hand : [];
+      const isAll78 = firstBidderHand.length === 6 && firstBidderHand.every(c => c.rank === '7' || c.rank === '8');
+      let allJacksSeat = -1;
+      if (!isAll78) {
+        for (let i = 0; i < SEATS; i++) {
+          const hand = this.seats[i] ? this.seats[i].hand : [];
+          if (hand.filter(c => c.rank === 'J').length === 4) { allJacksSeat = i; break; }
+        }
+      }
+      if (!isAll78 && allJacksSeat === -1) break; // this deal is fine, stop here
+      if (!reason) {
+        reason = isAll78
+          ? { type: 'all78', seat: firstBidderSeat, name: this.seats[firstBidderSeat] ? this.seats[firstBidderSeat].name : ('Seat ' + firstBidderSeat), round: this.round, ts: Date.now() }
+          : { type: 'allJacks', seat: allJacksSeat, name: this.seats[allJacksSeat].name, round: this.round, ts: Date.now() };
+        this.addLog(`Reshuffling — ${reason.name} ${reason.type === 'all78' ? "was forced to bid with a hand of only 7s and 8s" : "was dealt all four Jacks"}. Same dealer, fresh deal.`);
+      }
+      for (let i = 0; i < SEATS; i++) { if (this.seats[i]) this.seats[i].hand = []; }
+      this.deck = freshDeck();
+      this.dealCards(6);
+    }
+    return reason;
+  }
 
   startRound() {
     this.round++;
@@ -230,6 +294,7 @@ class GameEngine6P {
     this.deck = freshDeck();
     for (let i = 0; i < SEATS; i++) if (this.seats[i]) this.seats[i].hand = [];
     this.dealCards(6); // all 6 cards, all at once — no split deal in this variant
+    this.reshuffleReason = this._dealSameHandUntilValid();
     this.phase = 'bidding1';
     this.addLog(`Round ${this.round} started. Dealer seat ${this.dealer}.`);
     this._notify();
@@ -244,6 +309,7 @@ class GameEngine6P {
     this.deck = freshDeck();
     for (let i = 0; i < SEATS; i++) if (this.seats[i]) this.seats[i].hand = [];
     this.dealCards(6);
+    this.reshuffleReason = this._dealSameHandUntilValid();
     this.phase = 'bidding1';
     this.addLog(`Round ${this.round} restarted by the host — fresh shuffle.`);
     this._notify();
@@ -334,30 +400,72 @@ class GameEngine6P {
     if (this.phase !== 'bidding1') return { ok: false, reason: 'not_bidding' };
     if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
     const first = this.isFirstBidder(pos);
+    // Honors restriction: triggers whenever it's genuinely your turn and
+    // your OWN PARTNER already holds the current highest bid -- whether
+    // that's because the whole opposing team passed and the turn fell
+    // through back to your side, or simply because it's your normal
+    // turn and your partner already happens to be on top. Either way,
+    // your team is already ahead, so a plain raise isn't the point --
+    // only a genuine honors-level bid (20+) is allowed.
+    const honorsRestricted = !first && this.highestBid > 0 && getTeam(this.bidder) === getTeam(pos);
     if (bid === 0) {
       if (first) bid = 16; // first bidder cannot pass
       else {
+        this.bidActed[pos] = true;
         this.passes++;
+        this.bidTurnsTaken++;
         this.bidHistory.push({ pos, bid: 0 });
         this.addLog(`Seat ${pos} passed.`);
-        return this._afterBidAction();
+        return this._afterBidAction(pos, false);
       }
     }
-    const minBid = this.highestBid > 0 ? this.highestBid + 1 : 16;
+    const minBid = honorsRestricted ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 16);
     if (bid < minBid || bid > 28) return { ok: false, reason: 'invalid_bid_amount' };
     this.highestBid = bid;
     this.bidder = pos;
+    this.bidActed[pos] = true;
     this.passes = 0;
+    this.bidTurnsTaken++;
     this.bidHistory.push({ pos, bid });
     if (this.seats[pos]) this._bidderHandProfileForLearning = brain.getHandProfile(this.seats[pos].hand);
     this.addLog(`Seat ${pos} bid ${bid}.`);
-    return this._afterBidAction();
+    return this._afterBidAction(pos, true);
   }
 
-  _afterBidAction() {
-    // Ends once everyone-but-the-bidder has passed, or everyone passed
-    // outright (no valid bid at all — a redeal is needed).
-    if ((this.passes >= SEATS - 1 && this.highestBid > 0) || this.passes >= SEATS) {
+  // Per explicit, carefully worked-through instruction: this is NOT a
+  // simple seat-by-seat rotation around the table (that's the PLAYING
+  // order later, which is unchanged) -- the BIDDING order is reactive
+  // and team-based. A bid sends the turn to the OTHER team's next seat
+  // that hasn't acted yet; a pass keeps the turn on the passer's OWN
+  // team's next unacted seat. If that target team has nobody left
+  // unacted, it falls through to the other team's next unacted seat
+  // instead. One further refinement, confirmed against multiple full
+  // worked-through sequences: within their OWN team's own search order
+  // specifically, the dealer is always considered last, not in plain
+  // seat-number order -- they still take part in the normal reactive
+  // rotation like anyone else (not held out of the whole auction until
+  // everyone everywhere else is done, which was an earlier, wrong guess
+  // corrected by the actual sequences worked through), they're just the
+  // final consideration within their own side specifically, since they
+  // already got the advantage of dealing the hand.
+  _bidTeamOrder(team) {
+    const seats = team === 0 ? [0, 2, 4] : [1, 3, 5];
+    return seats.slice().sort((a, b) => (a === this.dealer ? 1 : 0) - (b === this.dealer ? 1 : 0));
+  }
+  _nextBidTurn(lastActor, wasABid) {
+    const lastTeam = getTeam(lastActor);
+    const targetTeam = wasABid ? (1 - lastTeam) : lastTeam;
+    for (const s of this._bidTeamOrder(targetTeam)) if (!this.bidActed[s]) return s;
+    for (const s of this._bidTeamOrder(1 - targetTeam)) if (!this.bidActed[s]) return s;
+    return -1;
+  }
+
+  _afterBidAction(lastActor, wasABid) {
+    // Ends once every seat has had exactly one turn (bid or pass) --
+    // the ORDER they act in is now reactive (see _nextBidTurn above),
+    // but the ending condition itself is unchanged: six total turns,
+    // however they land, and it's over.
+    if (this.bidTurnsTaken >= SEATS) {
       if (this.highestBid === 0) {
         this.addLog('No valid bids. Redealing...');
         this.startRound();
@@ -370,9 +478,47 @@ class GameEngine6P {
       this.maybeAutoAct();
       return { ok: true };
     }
-    this.currentPlayer = nextPos(this.currentPlayer);
+    this.currentPlayer = this._nextBidTurn(lastActor, wasABid);
     this._notify();
     this.maybeAutoAct();
+    return { ok: true };
+  }
+
+  // Thani: available any time it's genuinely someone's turn during
+  // bidding -- always beats any numeric bid (effectively "above 28"),
+  // so unlike a normal bid there's no threshold to check beyond it not
+  // having already been called this round. This table has no separate
+  // "phase 2" the way the 4-player table does -- there's only one
+  // bidding phase here, so Thani is offered as an option throughout it.
+  isThaniOption() {
+    return this.thaniCaller === -1;
+  }
+
+  // See game-engine.js (the 4-player table) for the full reasoning --
+  // identical rule here, except the fold: this table's teams are
+  // 3-a-side, so BOTH of the caller's other teammates fold, not just
+  // one. No trump at all this round either way -- skips choosingTrump
+  // entirely and goes straight to play, same as the 4-player table.
+  callThani(pos) {
+    if (this.phase !== 'bidding1') return { ok: false, reason: 'not_bidding' };
+    if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
+    if (!this.isThaniOption()) return { ok: false, reason: 'thani_already_called' };
+    this.highestBid = 29; // deliberately just above 28, so it naturally falls in the existing >=28 scoring tier
+    this.bidder = pos;
+    this.thaniCaller = pos;
+    const myTeam = getTeam(pos);
+    this.foldedSeats = [];
+    for (let i = 0; i < SEATS; i++) {
+      if (i !== pos && getTeam(i) === myTeam) this.foldedSeats.push(i);
+    }
+    this.bidHistory.push({ pos, bid: 'THANI' });
+    if (this.seats[pos]) this._bidderHandProfileForLearning = brain.getHandProfile(this.seats[pos].hand);
+    const foldedNames = this.foldedSeats.map(i => this.seats[i] ? this.seats[i].name : `Seat ${i}`).join(' and ');
+    this.addLog(`Seat ${pos} called THANI — going it alone, needing to win every single trick! ${foldedNames} fold out of this round.`);
+    this.hiddenTrump = null;
+    this.hiddenTrumpOwner = -1;
+    this.trumpSuit = '';
+    this._startPlay();
     return { ok: true };
   }
 
@@ -403,9 +549,12 @@ class GameEngine6P {
     // Same rule as the 4-player engine: if the whole defending team (both
     // of them, in this variant — seats alternate 0/2/4 vs 1/3/5) holds
     // zero cards of the trump suit between them, there's no way for them
-    // to ever contest it. Void the round and move on.
+    // to ever contest it. Void the round and move on. Thani rounds have
+    // no trump suit at all by design (trumpSuit stays permanently
+    // empty), so this check is meaningless for them and must be skipped
+    // entirely -- see game-engine.js for the full reasoning.
     const bidTeam = getTeam(this.bidder);
-    const defendingHasTrump = this.seats.some((s, i) => s && getTeam(i) !== bidTeam && s.hand.some(c => c.suit === this.trumpSuit));
+    const defendingHasTrump = this.thaniCaller >= 0 || this.seats.some((s, i) => s && getTeam(i) !== bidTeam && s.hand.some(c => c.suit === this.trumpSuit));
     if (!defendingHasTrump) {
       this.roundVoidMessage = `The defending team has no ${this.trumpSuit} at all this round — nothing to contest. Round voided, moving to the next dealer.`;
       this.addLog(this.roundVoidMessage);
@@ -419,7 +568,10 @@ class GameEngine6P {
     this.trickCards = [];
     this.trickSuit = '';
     this.suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
-    this.currentPlayer = nextPos(this.dealer); // dealer's right always leads
+    // Dealer's right always leads -- except Thani, where the caller
+    // leads the very first trick themselves, immediately, no matter
+    // whose turn it would otherwise have been.
+    this.currentPlayer = this.thaniCaller >= 0 ? this.thaniCaller : nextPos(this.dealer);
     this.addLog(`Play begins. Seat ${this.currentPlayer} leads.`);
     this._notify();
     this.maybeAutoAct();
@@ -449,6 +601,7 @@ class GameEngine6P {
   callTrump(pos) {
     if (this.phase !== 'play') return { ok: false, reason: 'not_playing' };
     if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
+    if (this.thaniCaller >= 0) return { ok: false, reason: 'no_trump_this_round' }; // Thani has no trump at all -- nothing to open
     if (this.trumpExposed) return { ok: false, reason: 'already_exposed' };
     if (this.trickSuit === '') return { ok: false, reason: 'cannot_call_when_leading' };
     const hand = this.seats[pos].hand;
@@ -478,10 +631,14 @@ class GameEngine6P {
 
     this.addLog(`Seat ${pos} played ${played.rank}${played.suit}.`);
 
-    if (this.trickCards.length === SEATS) {
+    // A folded seat (Thani's teammates) never plays, so a trick is
+    // complete once every ACTIVE player has played, not always
+    // literally SEATS -- normally still 6, but 4 during a Thani round
+    // (caller + 3 opponents, since 2 teammates fold).
+    if (this.trickCards.length === SEATS - this.foldedSeats.length) {
       this._resolveTrick();
     } else {
-      this.currentPlayer = nextPos(this.currentPlayer);
+      this.currentPlayer = this._nextActivePos(this.currentPlayer);
       this._notify();
       this.maybeAutoAct();
     }
@@ -499,8 +656,8 @@ class GameEngine6P {
     if (this.trickSuit === '') { this.trickSuit = card.suit; this.suitLeadCount[card.suit]++; }
     this.trickCards.push({ pos, card });
     this.addLog(`Seat ${pos} played the hidden trump ${card.rank}${card.suit}!`);
-    if (this.trickCards.length === SEATS) this._resolveTrick();
-    else { this.currentPlayer = nextPos(this.currentPlayer); this._notify(); this.maybeAutoAct(); }
+    if (this.trickCards.length === SEATS - this.foldedSeats.length) this._resolveTrick();
+    else { this.currentPlayer = this._nextActivePos(this.currentPlayer); this._notify(); this.maybeAutoAct(); }
     return { ok: true };
   }
 
@@ -527,6 +684,14 @@ class GameEngine6P {
     if (this.highestBid > 19) return false;
     if (this.pendingEarlyWinChoice) return false;
     return !!this.teamStillClean[getTeam(pos)];
+  }
+
+  // See game-engine.js for the full reasoning -- identical helper here.
+  _nextActivePos(p) {
+    let n = nextPos(p);
+    let guard = 0;
+    while (this.foldedSeats.includes(n) && guard++ < SEATS) n = nextPos(n);
+    return n;
   }
 
   _trickWinner() {
@@ -582,13 +747,35 @@ class GameEngine6P {
       return;
     }
 
-    const cardsLeft = this.seats.reduce((s, seat) => s + (seat ? seat.hand.length : 0), 0);
+    // Thani resolution -- see game-engine.js for the full reasoning,
+    // identical logic here: fails immediately the instant anyone other
+    // than the caller wins a trick; success just falls through to the
+    // normal cardsLeft===0 ending below.
+    if (this.thaniCaller >= 0 && winner.pos !== this.thaniCaller) {
+      this._endRound();
+      return;
+    }
+
+    // Folded seats (Thani's teammates) never play a single card, so
+    // their hands sit untouched, full, for the entire round -- counting
+    // them here would mean this could never reach 0 even after every
+    // ACTIVE player has played out their whole hand.
+    const cardsLeft = this.seats.reduce((s, seat, i) => s + (seat && !this.foldedSeats.includes(i) ? seat.hand.length : 0), 0);
     if (cardsLeft === 0 && this.hiddenTrump) {
       this.currentPlayer = this.hiddenTrumpOwner;
       this._notify();
       this.maybeAutoAct();
     } else if (cardsLeft === 0) {
       this._endRound();
+    } else if (this.thaniCaller >= 0) {
+      // Thani has no early-win concept of its own -- see game-engine.js
+      // for the full reasoning, identical here. The normal early-win
+      // math below assumes a numeric highestBid<=28 (28-highestBid goes
+      // negative once highestBid is Thani's 29 sentinel, breaking it
+      // completely) -- skipping it here avoids that outright.
+      this.currentPlayer = winner.pos;
+      this._notify();
+      this.maybeAutoAct();
     } else {
       // See game-engine.js for the full reasoning -- identical logic
       // here: early-win suppressed while the winning team (whichever
@@ -647,7 +834,34 @@ class GameEngine6P {
     const bT = getTeam(this.bidder);
     const oT = 1 - bT;
     const isQuote = !!this.quoteState;
+    const isThani = this.thaniCaller >= 0;
     let made, pts;
+    if (isThani) {
+      // See game-engine.js for the full reasoning -- identical logic
+      // here. Thani's win condition is tricks, not points -- highestBid
+      // was deliberately set to 29 (unreachable by points alone, max is
+      // 28), so the normal teamPoints>=highestBid check could never be
+      // true and isn't used here at all. By the time _endRound() runs
+      // for a Thani round, _resolveTrick() has already guaranteed one of
+      // exactly two things happened: either it early-failed the instant
+      // anyone but the caller won a trick, or every single trick
+      // (including this last one) went to the caller -- so simply
+      // checking who won the most recent trick correctly tells us which.
+      made = !!(this.lastTrick && this.lastTrick.winner === this.thaniCaller);
+      pts = made ? 3 : 4;
+      const isHonors = true;
+      if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
+      else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
+      this.roundWinnerAnnounced = {
+        bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
+        teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
+        thani: true, thaniSuccess: made, tricksPlayed: this.tricksPlayed
+      };
+      this.phase = 'roundEnd';
+      this.addLog(`Round ${this.round} over. Thani ${made ? 'succeeded — every trick won!' : 'failed'} (${made ? '+' : '-'}${pts}).`);
+      this._finishRoundBookkeeping(bT, made);
+      return;
+    }
     if (isQuote) {
       // See game-engine.js for the full reasoning -- identical logic
       // here. Scoring depends on which side declares: the bidding
@@ -984,6 +1198,15 @@ class GameEngine6P {
   // tracking) — see game-engine.js for the full reasoning on each piece.
   _chooseBotCard(pos, hand, myTeam, isBT, isLast, wt, cwc, tPts) {
     const isBidder = pos === this.bidder;
+    // Bid-target awareness -- same as the 4-player engine, see there for
+    // the full reasoning. Total points remain 28 even with this
+    // variant's 36-card deck (the extra 6s are all worth 0), so these
+    // constants transfer directly unchanged.
+    const myTeamTarget = isBT ? this.highestBid : (29 - this.highestBid);
+    const myTeamNeeds = myTeamTarget - this.teamPoints[myTeam];
+    const pointsRemainingInPlay = 28 - this.teamPoints[0] - this.teamPoints[1];
+    const myTeamDesperate = myTeamNeeds > 0 && pointsRemainingInPlay > 0 && myTeamNeeds >= pointsRemainingInPlay * 0.7;
+    const myTeamSecured = myTeamNeeds <= 0 && !this.quoteState;
     if (this.trickSuit === '') {
       const isEarly = this.tricksPlayed < 2; // 6 tricks total this variant, not 8
       const bySuit = {};
@@ -1029,7 +1252,15 @@ class GameEngine6P {
         let sc = -voidOpponentPenalty + partnerVoidBonus;
         if (isEarly) {
           if (low.rank === 'J' || low.rank === '9') {
-            if (bySuit[s].length > 1) { candidates.push({ card: bySuit[s][1], score: bySuit[s].length * 5 - voidOpponentPenalty + partnerVoidBonus, suit: s }); continue; }
+            // Given RANK_ORDER, low.rank can only be '9' with more than
+            // one card in the suit by holding J+9 together (the
+            // strongest possible holding in a suit) -- previously
+            // scored as barely more than a generic length bonus,
+            // undervaluing it against a merely-safe short suit with no
+            // real strength. Matches the same +60 baseline given a bare
+            // Jack below -- holding the 9 alongside it is worth at
+            // least as much. Same fix as the 4-player engine.
+            if (bySuit[s].length > 1) { candidates.push({ card: bySuit[s][1], score: 60 + bySuit[s].length * 5 - voidOpponentPenalty + partnerVoidBonus, suit: s }); continue; }
             // A lone 9 with no second card of that suit to lead instead —
             // this is exactly the risky "leading a point card into a suit
             // where the opponent may still hold the Jack" case if that
@@ -1096,17 +1327,41 @@ class GameEngine6P {
         if (wt === myTeam && tPts < 2 && !isLast && !hasJ && !has9) return follow[follow.length - 1];
         return winner;
       }
-      if (wt === myTeam) {
-        const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
-        if (feedable.length > 0) {
-          feedable.sort((a, c) => c.points - a.points);
-          return feedable[0];
+      // Can't beat what's on the table. If partner is currently winning,
+      // feeding a point card is only genuinely free value once the
+      // trick is actually secure -- if someone still acts after us and
+      // this suit's Jack hasn't been seen, a later opponent could still
+      // steal the trick with it, handing our fed points to them instead
+      // of our own team. Same jackRisk concept and tPts>=3 override
+      // already used for the 9-lead case above. Same fix as the
+      // 4-player engine.
+      // Same myTeamSecured skip as the 4-player engine's equivalent.
+      if (wt === myTeam && !myTeamSecured) {
+        const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
+        if (!jackRisk || tPts >= 3) {
+          const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+          if (feedable.length > 0) {
+            feedable.sort((a, c) => c.points - a.points);
+            return feedable[0];
+          }
         }
       }
       return follow[follow.length - 1];
     }
 
     const trumps = hand.filter(c => c.suit === this.trumpSuit);
+    // Same fix as the 4-player table's engine: having personally asked
+    // for trump to be opened, this bot owes a trump card this trick if
+    // holding one — a flat rule, not weighed against trick value or who's
+    // winning. See game-engine.js for the full reasoning.
+    if (this.mustPlayTrumpBy === pos && trumps.length > 0) {
+      trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+      const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+      const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+      return zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+        : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+        : trumps[trumps.length - 1];
+    }
     if (this.trumpExposed && trumps.length > 0) {
       trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
       let trumpWinning;
@@ -1114,7 +1369,10 @@ class GameEngine6P {
       else if (cwc.suit !== this.trumpSuit) trumpWinning = true;
       else trumpWinning = RANK_ORDER[trumps[0].rank] > RANK_ORDER[cwc.rank];
       const suitRepeat = this.suitLeadCount[this.trickSuit] || 0;
-      const worthTrumping = tPts >= 2 || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
+      // When genuinely desperate for points (myTeamDesperate above), the
+      // bar for "is this trick worth trump" drops from 2 to 1 -- same
+      // adjustment as the 4-player engine.
+      const worthTrumping = tPts >= (myTeamDesperate ? 1 : 2) || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {
@@ -1153,7 +1411,8 @@ class GameEngine6P {
       const nonTrumpDiscard = hand.filter(c => c.suit !== this.trumpSuit);
       if (nonTrumpDiscard.length > 0) {
         const feedablePts = nonTrumpDiscard.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
-        if (wt === myTeam && feedablePts.length > 0) {
+        // Same myTeamSecured skip as the 4-player engine's equivalent.
+        if (wt === myTeam && !myTeamSecured && feedablePts.length > 0) {
           feedablePts.sort((a, c) => c.points - a.points);
           return feedablePts[0];
         }
@@ -1179,8 +1438,21 @@ class GameEngine6P {
       }
     }
 
+    // Final fallback: void in the led suit and holding no trump at all.
+    // Same "feed partner points rather than waste the chance" logic used
+    // above, ported here too -- this specific path had none of it at
+    // all (a leftover gap from the earlier 4-player fix never having
+    // been carried over to this engine). Also skipped once myTeamSecured,
+    // same as the other feed-partner spots above.
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
     if (!disc.length) disc = hand;
+    if (wt === myTeam && !myTeamSecured) {
+      const feedablePts = disc.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+      if (feedablePts.length > 0) {
+        feedablePts.sort((a, c) => c.points - a.points);
+        return feedablePts[0];
+      }
+    }
     disc.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
     return disc[0];
   }
@@ -1219,13 +1491,17 @@ class GameEngine6P {
       quoteEligible: this._isQuoteEligibleFor(this.currentPlayer),
       teamStillClean: this.teamStillClean,
       quoteState: this.quoteState,
+      thaniCaller: this.thaniCaller,
+      foldedSeats: this.foldedSeats,
+      reshuffleReason: this.reshuffleReason || null,
       phase: this.phase,
       seats: this.seats.map((s, i) => {
         if (!s) return null;
         return {
           name: s.name, isBot: s.isBot, connected: s.connected,
           cardCount: s.hand.length,
-          hand: i === viewerPos ? s.hand : undefined
+          hand: i === viewerPos ? s.hand : undefined,
+          avatar: s.avatar || null
         };
       })
     };
