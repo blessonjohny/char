@@ -1231,6 +1231,16 @@ function applyState(state) {
       setTimeout(() => {
         showToast('⚡ Trump exposed: ' + exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall) + '!', 'win', 2200);
       }, 550);
+      // Same table-wide pop/shake/glow reveal as the 4-player table - see the CSS comment
+      // next to .table-oval.trump-exposed for why this touches two elements at once.
+      const ovalEl = document.querySelector('.table-oval');
+      const railEl = document.querySelector('.six-oval-rail');
+      if (ovalEl && railEl) {
+        ovalEl.classList.remove('trump-exposed'); railEl.classList.remove('trump-exposed');
+        void ovalEl.offsetWidth; // force reflow so re-adding the class restarts the animation
+        ovalEl.classList.add('trump-exposed'); railEl.classList.add('trump-exposed');
+        setTimeout(() => { ovalEl.classList.remove('trump-exposed'); railEl.classList.remove('trump-exposed'); }, 5000);
+      }
     }
     lastAnnouncedTrumpExposed = true;
   } else {
@@ -2516,3 +2526,19 @@ $('btnRestartConfirmOk').addEventListener('click', () => {
   });
   el.appendChild(frag);
 })();
+
+// Same fullscreen helper as the 4-player table (public/index.html's requestFullscreen28) -
+// duplicated here rather than shared via an import, since six.html/six.js don't share a
+// module system with index.html, but functionally identical: standard requestFullscreen with
+// the usual vendor prefixes, wrapped so a browser that doesn't support it (or silently
+// restricts it, like iOS Safari) just does nothing instead of throwing.
+function requestFullscreen28() {
+  try {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (fn) {
+      const result = fn.call(el);
+      if (result && result.catch) result.catch(() => {});
+    }
+  } catch (e) { /* not available here -- fine, just skip it */ }
+}

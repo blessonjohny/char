@@ -232,6 +232,20 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 }
 .seat .call-badge.call-badge-pass{color:#9aa5b1;border-color:rgba(154,165,177,0.6)}
 @keyframes callBadgePop{from{opacity:0;transform:translateX(-50%) scale(0.7)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+/* Same "trump just got exposed" reveal sequence as the 4-player table - copied over
+   verbatim (not reinvented) so the two tables share the exact same feel at this moment.
+   Split across two elements because of how this table's oval is built: .table-oval is just
+   a plain positioning wrapper with no border/background of its own (those live on its child
+   .six-oval-rail), so the pop/shake (which move the whole assembly) go on the wrapper, while
+   the glow/border-flash (which need something with an actual visible border to flash)
+   go on the rail itself. Both classes get added and removed together from six.js, in
+   lockstep, so this reads as one single animation even though it's two selectors. */
+@keyframes tablePopIn{0%{transform:scale(0.85) translateY(20px);opacity:0.3}40%{transform:scale(1.06) translateY(-8px);opacity:1}60%{transform:scale(0.97) translateY(2px)}80%{transform:scale(1.02) translateY(-2px)}100%{transform:scale(1) translateY(0)}}
+@keyframes tableShake{0%,100%{transform:translateX(0)}10%{transform:translateX(-6px) rotate(-1deg)}20%{transform:translateX(6px) rotate(1deg)}30%{transform:translateX(-4px) rotate(-0.5deg)}40%{transform:translateX(4px) rotate(0.5deg)}50%{transform:translateX(-2px)}60%{transform:translateX(2px)}70%{transform:translateX(-1px)}80%{transform:translateX(1px)}90%{transform:translateX(0)}}
+@keyframes tableGlowPulse{0%,100%{box-shadow:inset 0 0 0 0 rgba(255,215,0,0),0 0 0 0 rgba(255,215,0,0)}25%{box-shadow:inset 0 0 60px 10px rgba(255,215,0,0.15),0 0 30px 8px rgba(255,215,0,0.3)}50%{box-shadow:inset 0 0 80px 20px rgba(255,215,0,0.25),0 0 50px 15px rgba(255,215,0,0.4)}75%{box-shadow:inset 0 0 60px 10px rgba(255,215,0,0.15),0 0 30px 8px rgba(255,215,0,0.3)}}
+@keyframes borderFlash{0%,100%{filter:brightness(1)}20%{filter:brightness(1.6)}40%{filter:brightness(1)}60%{filter:brightness(1.6)}80%{filter:brightness(1)}}
+.table-oval.trump-exposed{animation:tablePopIn 0.7s cubic-bezier(0.34,1.56,0.64,1),tableShake 0.5s ease 0.4s}
+.six-oval-rail.trump-exposed{animation:tableGlowPulse 2s ease 0.9s 3,borderFlash 1.5s ease 0.9s 2}
 
 /* ---- Big Qunique event banner (gain/shed) ---- */
 .qmark-event-overlay{
@@ -474,6 +488,12 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
       <button class="btn-outline" id="btnHostMenu" style="display:none;padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">Admin</button>
       <button class="btn-outline" id="btnChat" title="Chat" style="padding:3px 7px;border-radius:7px;font-size:0.68rem;position:relative">💬<span class="chat-badge" id="chatBadge"></span></button>
       <button class="btn-outline" id="btnInvite" title="Invite a Friend" style="padding:3px 7px;border-radius:7px;font-size:0.68rem;white-space:nowrap">💌</button>
+      <!-- Same fullscreen button as the 4-player table, in the same spot (left of the
+           close/X button). Browsers automatically exit fullscreen the moment a tab loses
+           focus, so this always needs a fresh direct tap - reuses the exact same
+           requestFullscreen28() implementation as the 4-player table (defined below) rather
+           than having two separate copies of "try to go fullscreen" in the project. -->
+      <button class="btn-outline" id="btnFullscreen" title="Enter Full Screen" onclick="requestFullscreen28()" style="padding:3px 8px;border-radius:6px;font-size:0.85rem">⛶</button>
       <button class="btn-outline" id="btnGameHome" title="Leave Table" style="margin-left:6px;padding:3px 9px;border-radius:6px;font-size:0.75rem;background:#c0392b;border-color:#c0392b;color:#fff;font-weight:800">✕</button>
       </div>
     </div>
