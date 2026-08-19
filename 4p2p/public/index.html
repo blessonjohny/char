@@ -579,8 +579,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .my-avatar-choice{position:relative;aspect-ratio:1;border-radius:50%;overflow:hidden;cursor:pointer;border:2.5px solid rgba(255,255,255,0.15);transition:border-color 0.15s ease,transform 0.15s ease}
 .my-avatar-choice img{width:100%;height:100%;object-fit:cover;display:block}
 .my-avatar-choice.selected{border-color:var(--accent);transform:scale(1.08);box-shadow:0 0 10px rgba(255,215,0,0.5)}
-.avatar.has-q{filter:grayscale(0.7) brightness(0.75)}
-.avatar.has-q::after{
+.avatar.has-q,
+.player-avatar.has-q{filter:grayscale(0.7) brightness(0.75)}
+.avatar.has-q::after,
+.player-avatar.has-q::after{
   content:'😭';position:absolute;inset:0;border-radius:50%;
   display:flex;align-items:center;justify-content:center;font-size:1.15rem;
   background:rgba(20,10,15,0.55);filter:none;
@@ -1807,13 +1809,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   /* MOBILE PORTRAIT - MAXIMIZED VIEW */
   .table:not(.mode6){grid-template-columns:52px 1fr 52px;grid-template-rows:auto 1fr auto minmax(85px,auto);gap:1px;padding:2px;background-color:#0d1b2a}
 
-  /* Bigger cards with edged accent */
-  .card{width:48px !important;height:66px !important;border-radius:8px !important;border-width:1px !important;box-shadow:0 2px 8px rgba(0,0,0,0.2),0 1px 3px rgba(0,0,0,0.12),inset 0 1px 0 rgba(255,255,255,0.8) !important}
-  .card::before{border-width:1.5px !important;border-radius:8px !important}
-  .card::after{inset:3px !important;border-radius:5px !important}
-  .card .cr,.card .crb{font-size:0.78rem !important;top:2px !important;left:3px !important;text-shadow:0 1px 0 rgba(0,0,0,0.15),0 2px 2px rgba(0,0,0,0.1) !important;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2)) !important}
+  /* Bigger cards with edged accent -- matches the 6-player table's card
+     size exactly (52x74px), which never shrinks on any screen width at
+     all. Text/suit sizes inside the card scaled up proportionally to
+     match, since they were originally tuned for the smaller 48x66 size. */
+  .card{width:52px !important;height:74px !important;border-radius:9px !important;border-width:1px !important;box-shadow:0 3px 10px rgba(0,0,0,0.3) !important}
+  .card::before{border-width:1.5px !important;border-radius:9px !important}
+  .card::after{inset:3px !important;border-radius:6px !important}
+  .card .cr,.card .crb{font-size:0.86rem !important;top:2px !important;left:3px !important;text-shadow:0 1px 0 rgba(0,0,0,0.15),0 2px 2px rgba(0,0,0,0.1) !important;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2)) !important}
   .card .crb{bottom:2px !important;right:3px !important}
-  .card .cs{font-size:1.25rem !important;margin-top:0 !important;text-shadow:0 1px 0 rgba(0,0,0,0.1),0 2px 4px rgba(0,0,0,0.15) !important;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.25)) !important}
+  .card .cs{font-size:1.38rem !important;margin-top:0 !important;text-shadow:0 1px 0 rgba(0,0,0,0.1),0 2px 4px rgba(0,0,0,0.15) !important;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.25)) !important}
 
   /* Hand area - bigger */
   .hand-area{min-height:75px !important;max-height:90px !important;padding:4px 4px 2px !important;overflow-x:auto !important;display:flex !important;align-items:flex-end !important;justify-content:center !important}
