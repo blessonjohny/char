@@ -74,8 +74,8 @@ button{font-family:inherit;cursor:pointer}
    name-entry screen. .hero-avatar-sad stays hidden normally, swapped in
    by the existing Qunique .has-q class exactly like the 4-player table
    -- see renderSeats() for where that toggle actually happens here. */
-.my-avatar-picker{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0;max-height:260px;overflow-y:auto;padding:4px;width:100%;max-width:320px}
-.my-avatar-choice{position:relative;width:100%;aspect-ratio:1;border-radius:50%;cursor:pointer;border:2.5px solid rgba(255,255,255,0.15);overflow:hidden;transition:border-color 0.2s ease,transform 0.15s ease}
+.my-avatar-picker{display:grid;grid-template-columns:repeat(auto-fill,68px);justify-content:center;gap:8px;margin:10px 0;max-height:260px;overflow-y:auto;padding:4px;width:100%}
+.my-avatar-choice{position:relative;width:68px;height:68px;border-radius:50%;cursor:pointer;border:2.5px solid rgba(255,255,255,0.15);overflow:hidden;transition:border-color 0.2s ease,transform 0.15s ease}
 .my-avatar-choice img{width:100%;height:100%;object-fit:cover;display:block}
 .my-avatar-choice:active{transform:scale(0.92)}
 .my-avatar-choice.picked{border-color:#f4c430;box-shadow:0 0 0 2px rgba(255,215,0,0.35),0 0 10px rgba(255,215,0,0.4)}
