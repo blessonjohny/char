@@ -1221,6 +1221,7 @@ function applyState(state) {
   if (state.trumpExposed) {
     tr.textContent = '🎯 Trump: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit) + ' ACTIVE';
     tr.style.color = 'var(--accent)';
+    tr.classList.add('trump-active');
     if (!lastAnnouncedTrumpExposed) {
       // Same fix as the 4-player table: a brief, deliberate pause before
       // the announcement rather than firing in the exact same instant
@@ -1235,6 +1236,7 @@ function applyState(state) {
   } else {
     tr.textContent = '🎯 Trump: Hidden';
     tr.style.color = '';
+    tr.classList.remove('trump-active');
     lastAnnouncedTrumpExposed = false;
   }
 
