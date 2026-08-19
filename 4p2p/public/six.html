@@ -209,6 +209,29 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .seat .cc{font-size:0.6rem;color:var(--accent)}
 .seat .bdg{position:absolute;top:-6px;right:-6px;background:var(--accent);color:#111;border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800}
 .seat .bdg-q{position:absolute;top:-6px;left:-6px;background:rgba(180,60,80,0.35);color:#e08a9a;border:1px solid rgba(224,138,154,0.6);border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800;white-space:nowrap;z-index:5}
+/* The bidding "call" bubble - what a seat actually said (Bid 17 / Pass / Bid Thani), shown
+   above their avatar and left up for everyone to see through the whole rest of the auction
+   and trump selection, not just for a moment - only clears once the first card of the hand
+   is actually played. Its own distinct look (gold pill, small pointer nub underneath like a
+   real speech bubble) rather than reusing .bdg's small corner-tag style, since this needs to
+   read clearly at a glance, not just be a compact corner note. */
+.seat .call-badge{
+  position:absolute;top:-26px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(180deg,#1a1410,#0d0a08);
+  border:1.5px solid var(--accent, #f4c430);
+  color:var(--accent, #f4c430);
+  border-radius:12px;padding:3px 9px;font-size:0.6rem;font-weight:800;
+  font-family:'Cinzel','Playfair Display',serif;
+  white-space:nowrap;z-index:6;
+  box-shadow:0 2px 8px rgba(0,0,0,0.5),0 0 6px rgba(244,196,48,0.2);
+  animation:callBadgePop 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+.seat .call-badge::after{
+  content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:#0d0a08;
+}
+.seat .call-badge.call-badge-pass{color:#9aa5b1;border-color:rgba(154,165,177,0.6)}
+@keyframes callBadgePop{from{opacity:0;transform:translateX(-50%) scale(0.7)}to{opacity:1;transform:translateX(-50%) scale(1)}}
 
 /* ---- Big Qunique event banner (gain/shed) ---- */
 .qmark-event-overlay{
@@ -236,7 +259,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .trickslot .card .cr,.trickslot .card .crb{font-size:0.68rem!important}
 .trickslot .card .cs{font-size:1rem!important}
 .trick-winner{box-shadow:0 0 0 3px var(--accent),0 0 16px rgba(244,196,48,0.8)!important;transform:scale(1.15);z-index:6}
-.trump-chip{position:absolute;top:80px;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:3px;background:rgba(139,0,0,0.6);border:1.5px solid var(--accent);border-radius:20px;padding:4px 12px;font-size:0.8rem;font-family:'Cinzel','Playfair Display',serif;font-weight:700;color:var(--accent);white-space:nowrap;box-shadow:0 0 10px rgba(255,215,0,0.15),inset 0 0 6px rgba(255,215,0,0.05);transition:all 0.3s ease;z-index:10}
+.trump-chip{position:absolute;top:80px;left:8px;display:inline-flex;align-items:center;gap:3px;background:rgba(139,0,0,0.6);border:1.5px solid var(--accent);border-radius:20px;padding:4px 12px;font-size:0.8rem;font-family:'Cinzel','Playfair Display',serif;font-weight:700;color:var(--accent);white-space:nowrap;box-shadow:0 0 10px rgba(255,215,0,0.15),inset 0 0 6px rgba(255,215,0,0.05);transition:all 0.3s ease;z-index:10}
 .trump-chip.trump-active{background:rgba(139,0,0,0.8);border:1.5px solid var(--royal-gold, var(--accent));box-shadow:0 0 15px rgba(255,215,0,0.3),0 0 30px rgba(255,215,0,0.1),inset 0 0 10px rgba(255,215,0,0.1)}
 
 .hand-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.35);padding:10px 6px 14px;display:flex;flex-direction:column;align-items:center;gap:6px}

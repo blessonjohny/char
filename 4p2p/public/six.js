@@ -1466,6 +1466,24 @@ function renderSeats(state) {
       qEl.textContent = qCount + ' Qunique' + (qCount > 1 ? 's' : '');
       qEl.title = qCount + ' Qunique — must personally call and win a bid to shed one';
     } else if (qEl) { qEl.remove(); }
+
+    // The bidding "call" bubble above the avatar - what this seat actually said (Bid 17 /
+    // Pass / Bid Thani), left visible through the rest of the auction and trump selection so
+    // a player joining the conversation partway through (or who just looks away for a
+    // second) can still see what already happened, not just whoever is currently deciding.
+    // Derived straight from bidHistory (already sent to every client for the bid-history
+    // strip) rather than needing any new server-side state - the last entry for this seat is
+    // exactly what they last called, in order.
+    let callEl = wrap.querySelector('.call-badge');
+    const showCalls = state.phase === 'bidding1' || state.phase === 'choosingTrump';
+    const lastCall = showCalls && state.bidHistory ? [...state.bidHistory].reverse().find(h => h.pos === pos) : null;
+    if (lastCall && !isFolded) {
+      const isPass = lastCall.bid === 0;
+      const label = isPass ? 'Pass' : ('Bid ' + (lastCall.bid >= 29 ? 'Thani' : lastCall.bid));
+      if (!callEl) { callEl = document.createElement('div'); callEl.className = 'call-badge'; wrap.appendChild(callEl); }
+      if (callEl.dataset.v !== label) { callEl.dataset.v = label; callEl.textContent = label; }
+      callEl.classList.toggle('call-badge-pass', isPass);
+    } else if (callEl) { callEl.remove(); }
   }
 }
 
