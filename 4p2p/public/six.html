@@ -429,6 +429,15 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 
 <!-- ============ GAME ============ -->
 <div id="gameScreen">
+  <!-- Quote/COT button -- see updateQuoteButton()/declareQuote in six.js and
+       _isQuoteEligibleFor() in game-engine-6p.js. Persistent and visible to everyone during
+       play, only enabled/clickable when it's genuinely valid for whoever's looking at it:
+       their own turn, and their team hasn't lost a trick yet this round.
+       Moved out of the inline top-bar button row (where it used to sit alongside
+       Admin/Chat/Invite) to float near the bottom, to the right of the local player's own
+       seat - matching exactly where the 4-player table puts this same button, instead of
+       the two tables having two different conventions for it. -->
+  <button class="btn-outline" id="btnQuoteDeclare" title="Declare COT" style="display:none;position:fixed;right:48px;bottom:150px;z-index:150;padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">🎯 COT</button>
   <div class="topbar" style="flex-direction:column;align-items:stretch;gap:2px;padding:6px 10px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:4px">
       <div class="score-box" style="padding:2px 5px;min-width:0;flex-shrink:0"><span class="slabel" style="font-size:0.42rem">ROUND</span><span class="sval" id="roundNum" style="font-size:0.8rem">1</span></div>
@@ -439,13 +448,6 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
       </div>
       <div style="display:flex;gap:2px;align-items:center;flex-shrink:0">
       <button class="btn-outline" id="btnHostMenu" style="display:none;padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">Admin</button>
-      <!-- Quote button -- see updateQuoteButton()/declareQuote in
-           six.js and _isQuoteEligibleFor() in game-engine-6p.js.
-           Persistent and visible to everyone during play, only
-           enabled/clickable when it's genuinely valid for whoever's
-           looking at it: their own turn, and their team hasn't lost a
-           trick yet this round. -->
-      <button class="btn-outline" id="btnQuoteDeclare" title="Declare COT" style="display:none;padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">🎯 COT</button>
       <button class="btn-outline" id="btnChat" title="Chat" style="padding:3px 7px;border-radius:7px;font-size:0.68rem;position:relative">💬<span class="chat-badge" id="chatBadge"></span></button>
       <button class="btn-outline" id="btnInvite" title="Invite a Friend" style="padding:3px 7px;border-radius:7px;font-size:0.68rem;white-space:nowrap">💌</button>
       <button class="btn-outline" id="btnGameHome" title="Leave Table" style="margin-left:6px;padding:3px 9px;border-radius:6px;font-size:0.75rem;background:#c0392b;border-color:#c0392b;color:#fff;font-weight:800">✕</button>
