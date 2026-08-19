@@ -3676,10 +3676,25 @@ function heroAvatarHtml(key) {
   // dimming with the emoji overlay, the opposite of what's wanted here.
   return `<img src="/images/hero-avatars/${key}.png" class="hero-avatar-face" alt="">`;
 }
+// Genuine per-visit randomization, not a fixed order baked into the
+// source -- shuffles a COPY of ALL_AVATAR_KEYS each time the picker is
+// actually rendered, so every visit sees a different mix of who's
+// listed where. Never mutates ALL_AVATAR_KEYS itself, since that same
+// array is also used elsewhere (picking a random default avatar,
+// validating a returning player's saved key) and has no reason to
+// share this shuffled order.
+function shuffledAvatarKeys() {
+  const arr = ALL_AVATAR_KEYS.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 function renderMyAvatarPicker() {
   const el = document.getElementById('myAvatarPicker');
   if (!el) return;
-  el.innerHTML = ALL_AVATAR_KEYS.map(key =>
+  el.innerHTML = shuffledAvatarKeys().map(key =>
     `<div class="my-avatar-choice${key === MY_AVATAR_KEY ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatar('${key}')">
       <img src="/images/hero-avatars/${key}.png" alt="">
     </div>`
@@ -14715,12 +14730,17 @@ function applyServerState(state) {
   PLAYERS = state.seats.map((s, i) => {
     if (!s) return null;
     const meta = ALL_PLAYERS.find(b => b.name === s.name) || ALL_PLAYERS[i % ALL_PLAYERS.length];
-    // A human who explicitly picked one of the 20 hero portraits (s.avatar, set at
+    // A human who explicitly picked one of the 48 hero portraits (s.avatar, set at
     // join time and validated server-side) always wins over the old name-matching
     // fallback - that fallback only ever existed to give bots/unmatched names SOME
-    // portrait, not to override a real person's own choice.
+    // portrait, not to override a real person's own choice. The background gradient
+    // is part of the same fix -- it used to stay tied to the name-matched meta even
+    // when a real avatar was already showing, so it could visibly mismatch whatever
+    // portrait was actually picked. A neutral, consistent background behind an
+    // explicitly-chosen portrait avoids that entirely.
     const emojiHtml = s.avatar ? heroAvatarHtml(s.avatar) : meta.emoji;
-    return { name: s.name, pos: i, isBot: s.isBot, isLocal: i === MY_POS, emoji: emojiHtml, bg: meta.bg };
+    const bg = s.avatar ? 'linear-gradient(135deg,#2a3f5f,#1a2942)' : meta.bg;
+    return { name: s.name, pos: i, isBot: s.isBot, isLocal: i === MY_POS, emoji: emojiHtml, bg };
   }).filter(Boolean);
 
   // 2. Hands: only our own seat gets real cards from the server (everyone

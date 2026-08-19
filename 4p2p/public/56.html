@@ -829,10 +829,20 @@ function heroAvatarHtml(key) {
   // image class is inside it, so no dual-image markup is needed.
   return `<img src="/images/hero-avatars/${key}.png" class="hero-avatar-face" alt="">`;
 }
+// Genuine per-visit randomization -- see index.html's identical helper
+// for the full reasoning. Never mutates ALL_AVATAR_KEYS_56 itself.
+function shuffledAvatarKeys56() {
+  const arr = ALL_AVATAR_KEYS_56.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 function renderMyAvatarPicker56() {
   const el = document.getElementById('myAvatarPicker56');
   if (!el) return;
-  el.innerHTML = ALL_AVATAR_KEYS_56.map(key =>
+  el.innerHTML = shuffledAvatarKeys56().map(key =>
     `<div class="my-avatar-choice${key === myAvatar ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatar56('${key}')">
       <img src="/images/hero-avatars/${key}.png" alt="">
     </div>`
