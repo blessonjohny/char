@@ -603,7 +603,7 @@
      it before) for the absolutely-positioned portrait images inside it
      to actually fill just that circle instead of some larger ancestor. */
   .avatar{position:relative;}
-  .my-avatar-picker{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0;max-height:260px;overflow-y:auto;padding:4px}
+  .my-avatar-picker{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0;max-height:260px;overflow-y:auto;padding:4px;width:100%}
   .my-avatar-choice{position:relative;width:100%;aspect-ratio:1;border-radius:50%;cursor:pointer;border:2.5px solid rgba(255,255,255,0.15);overflow:hidden;transition:border-color 0.2s ease,transform 0.15s ease}
   .my-avatar-choice img{width:100%;height:100%;object-fit:cover;display:block}
   .my-avatar-choice:active{transform:scale(0.92)}
@@ -844,6 +844,21 @@ function pickMyAvatar56(key) {
   document.querySelectorAll('#myAvatarPicker56 .my-avatar-choice').forEach(el => el.classList.toggle('picked', el.dataset.key === key));
 }
 document.addEventListener('DOMContentLoaded', renderMyAvatarPicker56);
+
+// Keeps the screen from timing out/locking while this page is open --
+// see six.js's identical implementation for the full reasoning. Not
+// supported on every browser -- fails silently and harmlessly if so.
+let screenWakeLock = null;
+async function requestScreenWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    screenWakeLock = await navigator.wakeLock.request('screen');
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') requestScreenWakeLock();
+});
+requestScreenWakeLock();
 if (document.readyState === 'interactive' || document.readyState === 'complete') renderMyAvatarPicker56();
 
 // Same name-to-portrait mapping the 4-player table uses for its bots --

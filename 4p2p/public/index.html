@@ -294,7 +294,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   text-shadow:0 0 8px rgba(255,215,0,0.45),0 1px 2px rgba(0,0,0,0.5);
 }
 .name-input{width:100%;padding:12px 14px;border-radius:10px;border:2px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text-primary);font-size:1rem;text-align:center;margin-bottom:10px;font-family:inherit}
-.my-avatar-picker{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;max-height:280px;overflow-y:auto;padding:4px}
+.my-avatar-picker{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;max-height:280px;overflow-y:auto;padding:4px;width:100%}
 .my-avatar-choice{position:relative;width:100%;aspect-ratio:1;border-radius:50%;cursor:pointer;border:2.5px solid var(--border);overflow:hidden;transition:border-color 0.2s ease,transform 0.15s ease}
 .my-avatar-choice img{width:100%;height:100%;object-fit:cover;display:block}
 .my-avatar-choice:active{transform:scale(0.92)}
@@ -575,7 +575,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* The "choose your own avatar" grid on the Your Name screen - lets a real player pick a hero
    portrait for themselves instead of only ever getting the generic silhouette that used to
    show up whenever a typed name didn't happen to exactly match one of the preset bot names. */
-.my-avatar-picker{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+.my-avatar-picker{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0;width:100%}
 .my-avatar-choice{position:relative;aspect-ratio:1;border-radius:50%;overflow:hidden;cursor:pointer;border:2.5px solid rgba(255,255,255,0.15);transition:border-color 0.15s ease,transform 0.15s ease}
 .my-avatar-choice img{width:100%;height:100%;object-fit:cover;display:block}
 .my-avatar-choice.selected{border-color:var(--accent);transform:scale(1.08);box-shadow:0 0 10px rgba(255,215,0,0.5)}
@@ -3691,6 +3691,21 @@ function pickMyAvatar(key) {
   document.querySelectorAll('.my-avatar-choice').forEach(el => el.classList.toggle('picked', el.dataset.key === key));
 }
 document.addEventListener('DOMContentLoaded', renderMyAvatarPicker);
+
+// Keeps the screen from timing out/locking while this page is open --
+// see six.js's identical implementation for the full reasoning. Not
+// supported on every browser -- fails silently and harmlessly if so.
+let screenWakeLock = null;
+async function requestScreenWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    screenWakeLock = await navigator.wakeLock.request('screen');
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') requestScreenWakeLock();
+});
+requestScreenWakeLock();
 if (document.readyState === 'interactive' || document.readyState === 'complete') renderMyAvatarPicker();
 let MY_PEER_ID = '';
 let ROOM_ID = '';

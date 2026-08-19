@@ -50,6 +50,38 @@ function pickMyAvatar6p(key) {
   document.querySelectorAll('#myAvatarPicker6p .my-avatar-choice').forEach(el => el.classList.toggle('picked', el.dataset.key === key));
 }
 document.addEventListener('DOMContentLoaded', renderMyAvatarPicker6p);
+
+// Keeps the screen from timing out/locking while this page is open --
+// without this, the device's own screen-off timer (often as short as
+// ~30s) would dim and lock the phone mid-game, which can cost a missed
+// turn or a disconnect entirely. The Screen Wake Lock API is what
+// actually solves this (not a fake "keep clicking" trick or an invisible
+// looping video, which is how this used to have to be faked before real
+// browser support existed). Not supported on every browser -- fails
+// silently and harmlessly if so, since there's no good fallback that
+// doesn't come with its own downsides (battery drain, an actual hidden
+// video element, etc.) worth adding for this. The lock is automatically
+// released by the browser itself whenever the tab/app loses visibility
+// (backgrounded, screen manually locked, switched away from) -- so this
+// re-acquires it every time the page becomes visible again, rather than
+// only once on load, which would otherwise silently stop protecting the
+// screen the very first time the user glanced away and came back.
+let screenWakeLock = null;
+async function requestScreenWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    screenWakeLock = await navigator.wakeLock.request('screen');
+  } catch (e) {
+    // Commonly just means the tab wasn't visible at the exact moment of
+    // the request, or the OS/browser declined for its own reasons --
+    // not worth surfacing to the player, the visibilitychange listener
+    // below will simply try again the next time it's actually visible.
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') requestScreenWakeLock();
+});
+requestScreenWakeLock();
 if (document.readyState === 'interactive' || document.readyState === 'complete') renderMyAvatarPicker6p();
 
 // Same name-to-portrait mapping the 4-player table uses for its bots --
