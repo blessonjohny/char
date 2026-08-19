@@ -1387,8 +1387,8 @@ function computeTableDisplayName(seats, creatorName, existingGenericNames) {
 // means a malicious client can never get an arbitrary value reflected into other players'
 // pages through this field.
 const VALID_AVATAR_KEYS = new Set([
-  ...Array.from({length:10}, (_,i) => 'men'+(i+1)),
-  ...Array.from({length:10}, (_,i) => 'ladies'+(i+1)),
+  ...Array.from({length:24}, (_,i) => 'hero2f'+(i+1)),
+  ...Array.from({length:24}, (_,i) => 'hero2m'+(i+1)),
 ]);
 function sanitizeAvatarKey(k) { return (typeof k === 'string' && VALID_AVATAR_KEYS.has(k)) ? k : null; }
 
