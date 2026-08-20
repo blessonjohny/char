@@ -400,6 +400,15 @@ class GameEngine {
     this._partnerTurnWasDelayed = false; // true only between partner's delayed turn finishing and the redirect back to the first bidder
     this.firstBidderPos = -1;
     this.p1SeatsActed = {}; // {seatPos: true} - anyone who's had a genuine turn already this phase 1 round
+    // Tracks total phase-1 bidding actions taken (bid OR pass, including
+    // the forced first bid), separate from `passes` above -- `passes`
+    // resets to 0 every time someone raises, which meant the auction
+    // could effectively restart its own clock mid-round and let a seat
+    // get asked to act a genuine second time, as long as enough people
+    // happened to bid instead of pass along the way. The real rule,
+    // matching what 6-player already correctly does: one turn per seat,
+    // four turns total, then it's over however the bids landed.
+    this.p1TurnsTaken = 0;
     this.trumpSuit = '';
     this.trumpExposed = false;
     this.roundVoidMessage = null;
@@ -808,6 +817,7 @@ class GameEngine {
       else {
         this.passes++;
         this.p1SeatsActed[pos] = true;
+        this.p1TurnsTaken++;
         this.bidHistory.push({ pos, bid: 0 });
         this.addLog(`Seat ${pos} passed.`);
         return this._afterBidAction(pos, false);
@@ -819,6 +829,7 @@ class GameEngine {
     this.bidder = pos;
     this.passes = 0;
     this.p1SeatsActed[pos] = true;
+    this.p1TurnsTaken++;
     this.bidHistory.push({ pos, bid });
     // Snapshot the hand profile now, at bid-time — by round end this
     // hand will be empty, too late to learn anything from it.
@@ -828,7 +839,20 @@ class GameEngine {
   }
 
   _afterBidAction(actingPos, wasABid) {
-    if ((this.passes >= 3 && this.highestBid > 0) || this.passes >= 4) {
+    // Ends once every seat has had exactly one turn (bid or pass) --
+    // p1TurnsTaken tracks that directly and is the only thing gating
+    // this now. `passes` is left fully alone for everything else that
+    // still depends on it (isFirstBidder(), _isBidRestrictedToHonors()'s
+    // first condition, the client's bid display).
+    if (this.p1TurnsTaken >= 4) {
+      if (this.highestBid === 0) {
+        // Shouldn't be reachable in practice (the first bidder is
+        // always forced to bid, never pass), but matches the same
+        // defensive redeal check 6-player has for the equivalent case.
+        this.addLog('No valid bids. Redealing...');
+        this.startRound();
+        return { ok: true };
+      }
       this.phase = 'choosingTrump';
       this.currentPlayer = this.bidder;
       this.addLog(`Bidding done. Seat ${this.bidder} won with ${this.highestBid}.`);
