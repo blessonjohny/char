@@ -3775,6 +3775,12 @@ function resetPhase1BiddingFlowState() {
 function isBidRestrictedToHonors(pos) {
   if (p1SeatsActed[pos]) return true;
   if (pos === partnerOfSeat(firstBidderPos) && partnerTurnRestrictedWhenReached) return true;
+  // Same fix as the server-side _isBidRestrictedToHonors() in
+  // game-engine.js: whenever it's genuinely pos's turn and pos's own
+  // partner already holds the current highest bid, only an honors-level
+  // bid makes sense. The two conditions above are specific edge cases
+  // that never actually covered this general situation on their own.
+  if (highestBid > 0 && getTeam(bidder) === getTeam(pos)) return true;
   return false;
 }
 // True between a bidder winning phase-1 bidding and them actually choosing a
