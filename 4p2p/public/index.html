@@ -946,10 +946,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .brain-level-dot.l5{background:#44ff88}
 
 /* ===== TRUMP EXPOSE TABLE POP ===== */
-@keyframes tablePopIn{0%{transform:scale(0.85) translateY(20px);opacity:0.3;border-color:transparent}40%{transform:scale(1.06) translateY(-8px);opacity:1;border-color:var(--accent)}60%{transform:scale(0.97) translateY(2px)}80%{transform:scale(1.02) translateY(-2px)}100%{transform:scale(1) translateY(0);border-color:var(--border)}}
-@keyframes tableShake{0%,100%{transform:translateX(0)}10%{transform:translateX(-6px) rotate(-1deg)}20%{transform:translateX(6px) rotate(1deg)}30%{transform:translateX(-4px) rotate(-0.5deg)}40%{transform:translateX(4px) rotate(0.5deg)}50%{transform:translateX(-2px)}60%{transform:translateX(2px)}70%{transform:translateX(-1px)}80%{transform:translateX(1px)}90%{transform:translateX(0)}}
 @keyframes tableGlowPulse{0%,100%{box-shadow:inset 0 0 0 0 rgba(255,215,0,0),0 0 0 0 rgba(255,215,0,0)}25%{box-shadow:inset 0 0 60px 10px rgba(255,215,0,0.15),0 0 30px 8px rgba(255,215,0,0.3)}50%{box-shadow:inset 0 0 80px 20px rgba(255,215,0,0.25),0 0 50px 15px rgba(255,215,0,0.4)}75%{box-shadow:inset 0 0 60px 10px rgba(255,215,0,0.15),0 0 30px 8px rgba(255,215,0,0.3)}}
 @keyframes borderFlash{0%,100%{border-color:var(--border)}20%{border-color:var(--accent)}40%{border-color:var(--royal-crimson)}60%{border-color:var(--accent)}80%{border-color:var(--royal-crimson)}}
+/* Thunderous trump-reveal shake -- per explicit instruction, replaces
+   the old tableShake entirely. The old version topped out at 6px of
+   horizontal movement and read as a light wobble, not a genuine jolt --
+   this one moves the whole table itself (up to 22px, with real vertical
+   snap and rotation, not just side to side) and pairs it with two quick
+   brightness/contrast spikes early on to read as an actual lightning
+   strike hitting the table, not just a shake with no visual cause. */
+@keyframes thunderShake{
+  0%{transform:translateX(0) translateY(0) rotate(0deg);filter:brightness(1) contrast(1)}
+  4%{transform:translateX(-18px) translateY(-8px) rotate(-3deg);filter:brightness(2.4) contrast(1.4)}
+  8%{transform:translateX(20px) translateY(6px) rotate(3deg);filter:brightness(1) contrast(1)}
+  14%{transform:translateX(-16px) translateY(-7px) rotate(-2.6deg);filter:brightness(2.1) contrast(1.3)}
+  20%{transform:translateX(17px) translateY(5px) rotate(2.6deg);filter:brightness(1) contrast(1)}
+  28%{transform:translateX(-12px) translateY(-4px) rotate(-1.8deg)}
+  36%{transform:translateX(13px) translateY(4px) rotate(1.8deg)}
+  46%{transform:translateX(-8px) translateY(-2px) rotate(-1.1deg)}
+  56%{transform:translateX(8px) translateY(2px) rotate(1.1deg)}
+  66%{transform:translateX(-5px) rotate(-0.6deg)}
+  76%{transform:translateX(5px) rotate(0.6deg)}
+  86%{transform:translateX(-2px)}
+  93%{transform:translateX(2px)}
+  100%{transform:translateX(0) translateY(0) rotate(0deg);filter:brightness(1) contrast(1)}
+}
 @keyframes crownFloat{0%,100%{transform:translateY(0) scale(1)}25%{transform:translateY(-4px) scale(1.15)}50%{transform:translateY(0) scale(1)}75%{transform:translateY(-2px) scale(1.08)}}
 @keyframes bidWinnerGlow{0%,100%{box-shadow:0 0 8px 2px rgba(255,215,0,0.4),0 0 20px 4px rgba(255,215,0,0.15),inset 0 0 10px rgba(255,215,0,0.1);border-color:var(--accent)}50%{box-shadow:0 0 16px 4px rgba(255,215,0,0.7),0 0 40px 10px rgba(255,215,0,0.3),inset 0 0 20px rgba(255,215,0,0.2);border-color:var(--royal-gold)}}
 @keyframes bidWinnerRing{0%{transform:scale(1);opacity:0.6}100%{transform:scale(2.2);opacity:0}}
@@ -962,9 +983,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @keyframes welcomePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
 @keyframes buttonShine{0%{background-position:-200% center}100%{background-position:200% center}}
 
-.table.trump-exposed{animation:tablePopIn 0.7s cubic-bezier(0.34,1.56,0.64,1),tableShake 0.5s ease 0.4s,tableGlowPulse 2s ease 0.9s 3,borderFlash 1.5s ease 0.9s 2;border:3px solid var(--accent)!important}
-.table.trump-exposed .card{animation:cardShake 0.4s ease 0.5s}
-.table.trump-exposed .cross{animation:tableShake 0.4s ease 0.6s}
+.table.trump-exposed{animation:thunderShake 0.7s ease,tableGlowPulse 2s ease 0.6s 3,borderFlash 1.5s ease 0.6s 2;border:3px solid var(--accent)!important}
+.table.trump-exposed .card{animation:cardShake 0.4s ease 0.2s}
+.table.trump-exposed .cross{animation:thunderShake 0.7s ease}
 
 .bid-winner-avatar{position:relative}
 .bid-winner-avatar::after{content:'👑';position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-size:0.9rem;z-index:10;text-shadow:0 0 8px rgba(255,215,0,0.8)}
