@@ -741,6 +741,23 @@ function showToast(msg, kind, ms) {
   setTimeout(() => el.remove(), ms || 2000);
 }
 
+// Reusable "big moment" popup -- identical to index.html's own version,
+// see there for the full reasoning.
+function showGameEvent(icon, title, detail, color) {
+  const overlay = document.createElement('div');
+  overlay.className = 'game-event-overlay';
+  overlay.style.setProperty('--evt-color', color);
+  overlay.style.setProperty('--evt-glow', color + '66');
+  overlay.innerHTML = `<div class="game-event-box">
+    <div class="game-event-icon">${icon}</div>
+    <div class="game-event-title">${title}</div>
+    <div class="game-event-detail">${detail}</div>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.classList.add('leaving'), 1900);
+  setTimeout(() => overlay.remove(), 2350);
+}
+
 // The 5-second vetoable kick popup -- see index.html's identical
 // implementation for the full reasoning. Two different messages
 // depending on which side of the kick you're on: the target gets the
@@ -1192,6 +1209,25 @@ function renderLobby(state) {
 // ---------------- Main state application ----------------
 
 function applyState(state) {
+  // Detect any genuinely new bid entries (not passes, and never the
+  // forced opening bid at index 0) to fire a big event for a real raise
+  // or an honors-level bid -- same logic as index.html's identical
+  // detection, just reading straight from state.seats since six.js
+  // doesn't keep a separate bidHistory global the way index.html does.
+  // Must run BEFORE latestState gets overwritten just below, since it
+  // compares against the previous state's own bidHistory.
+  const oldBidHistoryLen = (latestState && latestState.bidHistory) ? latestState.bidHistory.length : 0;
+  const newBidEntries = (state.bidHistory || []).slice(oldBidHistoryLen);
+  for (let i = 0; i < newBidEntries.length; i++) {
+    const entry = newBidEntries[i];
+    const entryIndex = oldBidHistoryLen + i;
+    if (entry.bid > 0 && entryIndex > 0) {
+      const bidderName = (state.seats && state.seats[entry.pos]) ? state.seats[entry.pos].name : 'A player';
+      if (entry.bid >= 20) showGameEvent('👑', 'Honors Bid', bidderName + ' — ' + entry.bid, '#f4c430');
+      else showGameEvent('📈', 'Raise', bidderName + ' — ' + entry.bid, '#4a90d9');
+    }
+  }
+
   latestState = state;
 
   // A genuinely different table (not just a new round on the SAME table)
@@ -1303,6 +1339,7 @@ function applyState(state) {
       const exposedSuitAtCall = state.trumpSuit;
       setTimeout(() => {
         showToast('⚡ Trump exposed: ' + exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall) + '!', 'win', 2200);
+        showGameEvent('⚡', 'Trump Exposed', exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall), '#a78bfa');
       }, 550);
       // Same table-wide pop/shake/glow reveal as the 4-player table - see the CSS comment
       // next to .table-oval.trump-exposed for why this touches two elements at once.
@@ -1392,6 +1429,15 @@ function applyState(state) {
 
   if (state.phase === 'roundEnd' && state.round !== lastRoundSeen) {
     lastRoundSeen = state.round;
+    // Same big event as index.html's identical hook -- fires exactly
+    // once per round-end, right alongside the existing lastRoundSeen
+    // guard above so it can't double-fire on a later re-render.
+    const rw = state.roundWinnerAnnounced;
+    if (rw) {
+      const bidderName = (state.seats && state.seats[rw.bidder]) ? state.seats[rw.bidder].name : 'The bidder';
+      if (rw.bidderWon) showGameEvent('🏆', 'Bid Made', bidderName + ' — ' + rw.highestBid, '#2ecc71');
+      else showGameEvent('💥', 'Bid Failed', bidderName + ' — ' + rw.highestBid, '#e74c3c');
+    }
     // The round can end right on the last trick, whose own 2s-hold +
     // fly-to-winner animation (~3.2s total) may still be playing. Wait for
     // it to actually finish instead of popping the round summary over it.

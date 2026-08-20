@@ -281,6 +281,35 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .table-oval.trump-exposed{animation:thunderShake 0.7s ease}
 .six-oval-rail.trump-exposed{animation:tableGlowPulse 2s ease 0.6s 3,borderFlash 1.5s ease 0.6s 2}
 
+/* ---- Big game-event announcement -- generalized, reusable version,
+   identical to index.html's own version of this. See there for the
+   full reasoning. Used for a real raise, an honors bid, trump exposed,
+   and the round's actual result -- never the forced opening bid. ---- */
+.game-event-overlay{
+  position:fixed;inset:0;z-index:9001;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0);pointer-events:none;animation:qmarkBackdropIn .25s ease forwards;
+}
+.game-event-overlay.leaving{animation:qmarkBackdropOut .45s ease forwards;}
+.game-event-box{
+  position:relative;overflow:hidden;text-align:center;padding:26px 40px;border-radius:16px;max-width:88vw;
+  background:linear-gradient(155deg, rgba(18,14,10,0.97), rgba(8,6,4,0.98));
+  border:1.5px solid var(--evt-color, #f4c430);
+  box-shadow:0 0 1px var(--evt-color, #f4c430),0 12px 40px rgba(0,0,0,0.6),0 0 60px var(--evt-glow, rgba(244,196,48,0.25));
+  animation:gameEventIn .5s cubic-bezier(.16,.9,.28,1) both;
+}
+.game-event-overlay.leaving .game-event-box{animation:gameEventOut .4s ease both;}
+@keyframes gameEventIn{0%{opacity:0;transform:translateY(14px) scale(0.96)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes gameEventOut{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-10px) scale(0.97)}}
+.game-event-box::before{
+  content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,0.16), transparent);
+  animation:gameEventSweep 1s ease 0.15s both;
+}
+@keyframes gameEventSweep{0%{left:-60%}100%{left:130%}}
+.game-event-icon{font-size:2rem;line-height:1;filter:drop-shadow(0 0 10px var(--evt-glow, rgba(244,196,48,0.6)))}
+.game-event-title{font-family:'Cinzel','Playfair Display',serif;font-size:1.35rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-top:8px;color:var(--evt-color, #f4c430);text-shadow:0 2px 8px rgba(0,0,0,0.6)}
+.game-event-detail{font-family:'Cinzel','Playfair Display',serif;font-size:1.6rem;font-weight:600;margin-top:4px;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.5)}
+
 /* ---- Big Kunukku event banner (gain/shed) ---- */
 .qmark-event-overlay{
   position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;

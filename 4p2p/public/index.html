@@ -849,6 +849,45 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .qmark-event-sub{font-size:0.9rem;margin-top:8px;color:#E9B949;max-width:280px;margin-left:auto;margin-right:auto;}
 .avatar.on{animation:glow2 1.5s ease infinite;border-color:var(--accent)}
 
+/* ---- Big game-event announcement -- generalized, reusable version of
+   what used to be trump-exposed-only styling. Used for every genuinely
+   notable moment now (a real raise, an honors-level bid, trump exposed,
+   the round's actual result) -- NOT the forced opening bid, which isn't
+   a real choice and was explicitly excluded. Per explicit instruction:
+   moved away from the earlier bouncy "slam" entrance toward a cleaner,
+   more restrained reveal -- a soft upward drift with a brief light
+   sweep across the panel, in the app's own established premium
+   typography (Cinzel/Playfair, the same serif pairing used everywhere
+   else in this app that's meant to read as polished rather than
+   playful) instead of a generic sans-serif box. Color is passed in per
+   call via CSS custom properties (--evt-color/--evt-glow) rather than
+   a separate class per event type, so every event shares one single
+   definition instead of near-duplicate CSS per moment. ---- */
+.game-event-overlay{
+  position:fixed;inset:0;z-index:9001;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0);pointer-events:none;animation:qmarkBackdropIn .25s ease forwards;
+}
+.game-event-overlay.leaving{animation:qmarkBackdropOut .45s ease forwards;}
+.game-event-box{
+  position:relative;overflow:hidden;text-align:center;padding:26px 40px;border-radius:16px;max-width:88vw;
+  background:linear-gradient(155deg, rgba(18,14,10,0.97), rgba(8,6,4,0.98));
+  border:1.5px solid var(--evt-color, #f4c430);
+  box-shadow:0 0 1px var(--evt-color, #f4c430),0 12px 40px rgba(0,0,0,0.6),0 0 60px var(--evt-glow, rgba(244,196,48,0.25));
+  animation:gameEventIn .5s cubic-bezier(.16,.9,.28,1) both;
+}
+.game-event-overlay.leaving .game-event-box{animation:gameEventOut .4s ease both;}
+@keyframes gameEventIn{0%{opacity:0;transform:translateY(14px) scale(0.96)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes gameEventOut{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-10px) scale(0.97)}}
+.game-event-box::before{
+  content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;
+  background:linear-gradient(100deg, transparent, rgba(255,255,255,0.16), transparent);
+  animation:gameEventSweep 1s ease 0.15s both;
+}
+@keyframes gameEventSweep{0%{left:-60%}100%{left:130%}}
+.game-event-icon{font-size:2rem;line-height:1;filter:drop-shadow(0 0 10px var(--evt-glow, rgba(244,196,48,0.6)))}
+.game-event-title{font-family:'Cinzel','Playfair Display',serif;font-size:1.35rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-top:8px;color:var(--evt-color, #f4c430);text-shadow:0 2px 8px rgba(0,0,0,0.6)}
+.game-event-detail{font-family:'Cinzel','Playfair Display',serif;font-size:1.6rem;font-weight:600;margin-top:4px;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.5)}
+
 .card-float{transition:transform 0.8s cubic-bezier(0.4,0,0.2,1),opacity 0.8s ease;pointer-events:none;z-index:500}
 @keyframes winnerPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,215,0,0.6)}50%{box-shadow:0 0 25px 8px rgba(255,215,0,0.3)}}
 @keyframes winnerTrickReceive{0%{transform:scale(1)}20%{transform:scale(1.4)}40%{transform:scale(1.15)}60%{transform:scale(1.35)}80%{transform:scale(1.1)}100%{transform:scale(1)}}
@@ -5151,6 +5190,27 @@ function showQMarkEvent4p(names, direction) {
   setTimeout(() => overlay.remove(), 2700);
 }
 
+// Reusable "big moment" popup -- see the CSS comment next to
+// .game-event-overlay for the full reasoning. icon is an emoji, title
+// is the short uppercase label ("RAISE", "HONORS BID", "TRUMP EXPOSED",
+// "BID MADE" etc.), detail is the large headline text underneath (the
+// actual number/suit/result), color is any valid CSS color used for
+// both the border/glow and the title text.
+function showGameEvent(icon, title, detail, color) {
+  const overlay = document.createElement('div');
+  overlay.className = 'game-event-overlay';
+  overlay.style.setProperty('--evt-color', color);
+  overlay.style.setProperty('--evt-glow', color + '66');
+  overlay.innerHTML = `<div class="game-event-box">
+    <div class="game-event-icon">${icon}</div>
+    <div class="game-event-title">${title}</div>
+    <div class="game-event-detail">${detail}</div>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.classList.add('leaving'), 1900);
+  setTimeout(() => overlay.remove(), 2350);
+}
+
 function updateBadges() {
   detectQMarkChanges4p();
   for (let slot = 0; slot < 4; slot++) {
@@ -8858,6 +8918,7 @@ function exposeTrump(caller) {
     tr.classList.add('trump-active');
   }
   showToast('⚡ Trump exposed: ' + trumpSuit + '!', 'win', 1800);
+  showGameEvent('⚡', 'Trump Exposed', trumpSuit + ' ' + suitName(trumpSuit), '#a78bfa');
   const name = playerAt(caller) ? playerAt(caller).name : 'Player';
   log((caller === MY_POS ? 'You' : name) + ' exposed trump! ' + trumpSuit + ' active!', 'win');
   // TABLE POP ANIMATION when trump is exposed
@@ -14977,6 +15038,21 @@ function applyServerState(state) {
   bidder = state.bidder;
   highestBid = state.highestBid;
   passes = state.passes;
+  // Detect any genuinely new bid entries (not passes, and never the
+  // forced opening bid at index 0, which isn't a real choice and was
+  // explicitly excluded) to fire a big event for a real raise or an
+  // honors-level bid specifically. Compares against the length BEFORE
+  // this same state's bidHistory overwrites it just below.
+  const newBidEntries = (state.bidHistory || []).slice(bidHistory.length);
+  for (let i = 0; i < newBidEntries.length; i++) {
+    const entry = newBidEntries[i];
+    const entryIndex = bidHistory.length + i;
+    if (entry.bid > 0 && entryIndex > 0) {
+      const bidderName = playerAt(entry.pos) ? playerAt(entry.pos).name : 'A player';
+      if (entry.bid >= 20) showGameEvent('👑', 'Honors Bid', bidderName + ' — ' + entry.bid, '#f4c430');
+      else showGameEvent('📈', 'Raise', bidderName + ' — ' + entry.bid, '#4a90d9');
+    }
+  }
   bidHistory = state.bidHistory || [];
   window._p1MinBid = (typeof state.p1MinBid === 'number') ? state.p1MinBid : null;
   window._p1CurrentTurnRestricted = !!state.p1CurrentTurnRestricted;
@@ -15146,6 +15222,9 @@ function applyServerState(state) {
     const bT = r.bidTeam, oT = 1 - bT;
     const yourTeam = getTeam(MY_POS);
     const isYourBid = (getTeam(r.bidder) === yourTeam);
+    const bidderName = playerAt(r.bidder) ? playerAt(r.bidder).name : 'The bidder';
+    if (r.bidderWon) showGameEvent('🏆', 'Bid Made', bidderName + ' — ' + r.highestBid, '#2ecc71');
+    else showGameEvent('💥', 'Bid Failed', bidderName + ' — ' + r.highestBid, '#e74c3c');
     const champResult = state.lastChampionshipResult;
     let roundEndPanelShown = false;
 
