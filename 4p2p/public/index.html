@@ -10814,7 +10814,14 @@ const BRAND_ORIGIN = 'https://28gulan.com';
 async function shareInviteLink() {
   if (!MY_TABLE_ID) { showToast('Join a table first', 'lose', 1500); return; }
   const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);
-  const text = `🟢 Live now — Join my 28 Kerala Gulan 4 Player table! Room code: ${MY_TABLE_ID}`;
+  // The actual creation clock-time, not a relative "5 min ago" -- pulled
+  // from the server-tracked createdAt now included in every state push
+  // (see broadcastTable in server.js), not guessed client-side, so it's
+  // accurate even if this device's own clock is off. Falls back to "now"
+  // only in the genuinely unlikely case no state has arrived yet.
+  const createdMs = (latestServerState && latestServerState.createdAt) || Date.now();
+  const createdTime = new Date(createdMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const text = `🟢 Live now — created at ${createdTime}. Join 28 Kerala Gulan 4 Player table! Room code: ${MY_TABLE_ID}`;
   if (navigator.share) {
     try { await navigator.share({ title: '28 Kerala Gulan', text, url: link }); return; }
     catch (e) { /* user cancelled the share sheet — fall through to copy */ }

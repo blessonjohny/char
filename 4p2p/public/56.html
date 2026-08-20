@@ -1575,7 +1575,12 @@ const BRAND_ORIGIN = 'https://28gulan.com';
 async function shareInviteLink56(){
   if(!roomCode){ showToast('Join a table first'); return; }
   const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(roomCode);
-  const text = `🟢 Live now — Join my 56 (6 Player) table! Room code: ${roomCode}`;
+  // Same fix as index.html's identical function -- see there for the
+  // full reasoning. createdAt comes from the server-tracked value now
+  // included in every state push (see l56Broadcast in server.js).
+  const createdMs = (latestState && latestState.createdAt) || Date.now();
+  const createdTime = new Date(createdMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const text = `🟢 Live now — created at ${createdTime}. Join 56 (6 Player) table! Room code: ${roomCode}`;
   if(navigator.share){
     try{ await navigator.share({title: '56 — The Kerala Card Game', text, url: link}); return; }
     catch(e){ /* cancelled the share sheet -- fall through to copy */ }

@@ -2436,7 +2436,12 @@ const BRAND_ORIGIN = 'https://28gulan.com';
 async function shareInviteLink() {
   if (!MY_TABLE_ID) { showToast('Join a table first', 'lose', 1500); return; }
   const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);
-  const text = `🟢 Live now — Join my 28 Kerala Gulan 6 Player table! Room code: ${MY_TABLE_ID}`;
+  // Same fix as index.html's identical function -- see there for the
+  // full reasoning. createdAt comes from the server-tracked value now
+  // included in every state push (see sixpBroadcastTable in server.js).
+  const createdMs = (latestState && latestState.createdAt) || Date.now();
+  const createdTime = new Date(createdMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const text = `🟢 Live now — created at ${createdTime}. Join 28 Kerala Gulan 6 Player table! Room code: ${MY_TABLE_ID}`;
   if (navigator.share) {
     try { await navigator.share({ title: '28 Kerala Gulan', text, url: link }); return; }
     catch (e) { /* cancelled the share sheet — fall through to copy */ }
