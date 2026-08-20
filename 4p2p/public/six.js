@@ -1409,11 +1409,11 @@ function detectQMarkChangesSix(state) {
 function showQMarkEventSix(names, direction) {
   const overlay = document.createElement('div');
   overlay.className = 'qmark-event-overlay ' + direction;
-  const title = direction === 'gained' ? '😭 QUNIQUE!' : '🎉 QUNIQUE SHED!';
+  const title = direction === 'gained' ? '😭 KUNUKKU!' : '🎉 KUNUKKU SHED!';
   const namesText = names.map(escapeHtml).join(', ');
   const subtitle = direction === 'gained'
-    ? `${namesText} ${names.length > 1 ? 'each get' : 'gets'} a Qunique — shut out!`
-    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Qunique!`;
+    ? `${namesText} ${names.length > 1 ? 'each get' : 'gets'} a Kunukku — shut out!`
+    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Kunukku!`;
   overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${direction === 'gained' ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
   document.body.appendChild(overlay);
   setTimeout(() => overlay.classList.add('leaving'), 2200);
@@ -1433,7 +1433,7 @@ function renderSeats(state) {
     const qCount = (state.qMarks && state.qMarks[seat.name]) || 0;
     // A human who picked one of the 20 hero portraits gets their own
     // choice rendered here (with the matching _sad variant swapped in
-    // automatically by the .has-q CSS rule below on a Qunique) --
+    // automatically by the .has-q CSS rule below on a Kunukku) --
     // otherwise falls back to the simple emoji scheme this table
     // already had. Folded (a Thani partner sitting out) always shows
     // the "peeking away" face regardless, same as before.
@@ -1473,8 +1473,8 @@ function renderSeats(state) {
     let qEl = wrap.querySelector('.bdg-q');
     if (qCount > 0 && !isFolded) {
       if (!qEl) { qEl = document.createElement('div'); qEl.className = 'bdg-q'; av.appendChild(qEl); }
-      qEl.textContent = qCount + ' Qunique' + (qCount > 1 ? 's' : '');
-      qEl.title = qCount + ' Qunique — must personally call and win a bid to shed one';
+      qEl.textContent = qCount + ' Kunukku' + (qCount > 1 ? 's' : '');
+      qEl.title = qCount + ' Kunukku — must personally call and win a bid to shed one';
     } else if (qEl) { qEl.remove(); }
 
     // The bidding "call" bubble above the avatar - what this seat actually said (Bid 17 /

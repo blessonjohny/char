@@ -383,7 +383,7 @@
     border-radius:8px;font-size:9px;font-weight:800;padding:1px 5px;line-height:1.3;
   }
 
-  /* ---- Big Qunique event banner (gain/shed) ---- */
+  /* ---- Big Kunukku event banner (gain/shed) ---- */
   .qmark-event-overlay{
     position:fixed;inset:0;z-index:900;display:flex;align-items:center;justify-content:center;
     background:rgba(0,0,0,0);pointer-events:none;animation:qmarkBackdropIn .3s ease forwards;
@@ -613,7 +613,7 @@
   .hero-avatar-face.hero-avatar-sad{display:none}
   .avatar.has-q .hero-avatar-face.hero-avatar-normal{display:none}
   .avatar.has-q .hero-avatar-face.hero-avatar-sad{display:block}
-  /* Matches the 4-player table's own Qunique treatment exactly, not just
+  /* Matches the 4-player table's own Kunukku treatment exactly, not just
      the sad-image swap above -- a grayscale/darken filter on the whole
      avatar plus a semi-opaque dark overlay with a crying face on top of
      everything. */
@@ -2041,7 +2041,7 @@ function displaySlot(seat){
 // ============================================================
 // RENDER
 // ============================================================
-// Detects when anyone's Qunique count actually changes between renders
+// Detects when anyone's Kunukku count actually changes between renders
 // and throws up a big, hard-to-miss event banner for it — gaining one is
 // a real moment (a whole team just got shut out), shedding one is worth
 // celebrating too. Multiple people changing in the same update (a whole
@@ -2084,11 +2084,11 @@ function detectQMarkChanges(state){
 function showQMarkEvent56(names, direction){
   const overlay = document.createElement('div');
   overlay.className = 'qmark-event-overlay ' + direction;
-  const title = direction === 'gained' ? '😭 QUNIQUE!' : '🎉 QUNIQUE SHED!';
+  const title = direction === 'gained' ? '😭 KUNUKKU!' : '🎉 KUNUKKU SHED!';
   const namesText = names.map(escapeHtml).join(', ');
   const subtitle = direction === 'gained'
-    ? `${namesText} ${names.length>1 ? 'each get' : 'gets'} a Qunique — shut out!`
-    : `${namesText} ${names.length>1 ? 'shed' : 'sheds'} a Qunique!`;
+    ? `${namesText} ${names.length>1 ? 'each get' : 'gets'} a Kunukku — shut out!`
+    : `${namesText} ${names.length>1 ? 'shed' : 'sheds'} a Kunukku!`;
   overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${direction==='gained'?'😭':'🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
   document.body.appendChild(overlay);
   setTimeout(() => overlay.classList.add('leaving'), 2200);
@@ -2330,7 +2330,7 @@ function renderTable(state){
     // A human who picked one of the 20 hero portraits gets their own
     // choice rendered here, with the matching _sad variant swapped in
     // automatically by the .has-q CSS rule (same mechanism as the
-    // 4-player and 6-player tables) on a Qunique. Bots get a static
+    // 4-player and 6-player tables) on a Kunukku. Bots get a static
     // portrait matched by name, same as the 4-player table -- no longer
     // this table's own separate mood-reactive face system (botFace),
     // which only remains as a fallback for the rare case of a human
@@ -2360,8 +2360,8 @@ function renderTable(state){
     const qBadge = div.querySelector('.q-badge');
     if(qCount > 0){
       qBadge.style.display = '';
-      const qText = qCount + ' Qunique' + (qCount > 1 ? 's' : '');
-      if(qBadge.dataset.v !== qText){ qBadge.dataset.v = qText; qBadge.textContent = qText; qBadge.title = qCount + ' Qunique — must personally call and win a bid to shed one'; }
+      const qText = qCount + ' Kunukku' + (qCount > 1 ? 's' : '');
+      if(qBadge.dataset.v !== qText){ qBadge.dataset.v = qText; qBadge.textContent = qText; qBadge.title = qCount + ' Kunukku — must personally call and win a bid to shed one'; }
     } else {
       qBadge.style.display = 'none';
     }

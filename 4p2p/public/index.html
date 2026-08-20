@@ -554,11 +554,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 .pspot{display:flex;flex-direction:column;align-items:center;gap:1px;transform:scale(1)}
 .avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;border:2.5px solid var(--border);position:relative;flex-shrink:0}
-/* Hero avatar portraits (replacing plain emoji) - both the normal and "sad" (Qunique) images
+/* Hero avatar portraits (replacing plain emoji) - both the normal and "sad" (Kunukku) images
    are always both present in the markup (baked into the same p.emoji string that every
    existing render call site already uses verbatim), stacked absolutely, and CSS alone decides
    which one is actually visible based on the .has-q class that's already being toggled on the
-   avatar element by the existing Qunique logic above - no JS logic anywhere had to change to
+   avatar element by the existing Kunukku logic above - no JS logic anywhere had to change to
    get the sad-face swap, only which image is visible. */
 .hero-avatar-face{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
 .hero-avatar-face.hero-avatar-sad{display:none}
@@ -826,7 +826,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .bdg-q{background:rgba(180,60,80,0.22);color:#e08a9a;border:1px solid rgba(224,138,154,0.55)}
 .q-total-badge{display:inline-flex;align-items:center;justify-content:center;font-size:0.42rem;font-weight:800;padding:1px 3px;border-radius:3px;margin-left:3px;white-space:nowrap;background:rgba(180,60,80,0.22);color:#e08a9a;border:1px solid rgba(224,138,154,0.55);vertical-align:middle}
 
-/* ---- Big Qunique event banner (gain/shed) ---- */
+/* ---- Big Kunukku event banner (gain/shed) ---- */
 .qmark-event-overlay{
   position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,0);pointer-events:none;animation:qmarkBackdropIn .3s ease forwards;
@@ -2915,8 +2915,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <div class="welcome-feature-grid">
       <div class="welcome-feature-item" style="border-color:rgba(224,138,154,0.5);box-shadow:0 0 20px rgba(224,138,154,0.15)">
         <span class="welcome-feature-icon">😭</span>
-        <div class="welcome-feature-title">The Qunique — New!</div>
-        <div class="welcome-feature-desc">Get shut out in a match and every player on your team gets marked with a Qunique, right on their avatar for the whole table to see. The only way off? Personally call and win a bid — it sticks around, match after match, until you earn it back.</div>
+        <div class="welcome-feature-title">The Kunukku — New!</div>
+        <div class="welcome-feature-desc">Get shut out in a match and every player on your team gets marked with a Kunukku, right on their avatar for the whole table to see. The only way off? Personally call and win a bid — it sticks around, match after match, until you earn it back.</div>
       </div>
       <div class="welcome-feature-item" style="border-color:rgba(244,196,48,0.5);box-shadow:0 0 20px rgba(244,196,48,0.15)">
         <span class="welcome-feature-icon">🎙️</span>
@@ -3131,11 +3131,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
          trump display symmetrically instead of hugging the outer edges. -->
     <div style="display:flex;align-items:center;gap:4px;justify-self:start">
       <div class="score-box compact" id="yourScoreBox"><span class="slabel">YOU</span><span class="sval" id="yourScore">6</span></div>
-      <span class="q-total-badge" id="yourQTotal" style="display:none" title="Total Qunique acquired this game (never decreases when shed)">0Q</span>
+      <span class="q-total-badge" id="yourQTotal" style="display:none" title="Total Kunukku acquired this game (never decreases when shed)">0Q</span>
     </div>
     <div class="trump-chip" id="trumpReveal" style="justify-self:center">🎯 Hidden</div>
     <div style="display:flex;align-items:center;gap:4px;justify-self:end">
-      <span class="q-total-badge" id="oppQTotal" style="display:none" title="Total Qunique acquired this game (never decreases when shed)">0Q</span>
+      <span class="q-total-badge" id="oppQTotal" style="display:none" title="Total Kunukku acquired this game (never decreases when shed)">0Q</span>
       <div class="score-box compact" id="oppScoreBox"><span class="slabel">OPP</span><span class="sval" id="oppScore">6</span></div>
     </div>
     <div class="topbar-actions" style="grid-column:1/-1">
@@ -5091,7 +5091,7 @@ function updateCardCounts() {
 
 // Same detection scheme as the 56 game: compares the incoming qMarks to
 // what was last seen, throws a big combined event banner for whoever
-// changed (gained a Qunique from a shutout, or shed one from a
+// changed (gained a Kunukku from a shutout, or shed one from a
 // successful bid). First-ever call just syncs the baseline silently.
 let lastSeenQMarks4p = null;
 function detectQMarkChanges4p() {
@@ -5113,11 +5113,11 @@ function detectQMarkChanges4p() {
 function showQMarkEvent4p(names, direction) {
   const overlay = document.createElement('div');
   overlay.className = 'qmark-event-overlay ' + direction;
-  const title = direction === 'gained' ? '😭 QUNIQUE!' : '🎉 QUNIQUE SHED!';
+  const title = direction === 'gained' ? '😭 KUNUKKU!' : '🎉 KUNUKKU SHED!';
   const namesText = names.map(escapeHtml).join(', ');
   const subtitle = direction === 'gained'
-    ? `${namesText} ${names.length > 1 ? 'each get' : 'gets'} a Qunique — shut out!`
-    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Qunique!`;
+    ? `${namesText} ${names.length > 1 ? 'each get' : 'gets'} a Kunukku — shut out!`
+    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Kunukku!`;
   overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${direction === 'gained' ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
   document.body.appendChild(overlay);
   setTimeout(() => overlay.classList.add('leaving'), 2200);
@@ -5155,7 +5155,7 @@ function updateBadges() {
       // in-the-moment alert like the other two badges.
       const seatAtSlot = latestServerState && latestServerState.seats && latestServerState.seats[playerPos];
       const qCount = (latestServerState && latestServerState.qMarks && seatAtSlot) ? (latestServerState.qMarks[seatAtSlot.name] || 0) : 0;
-      if (qCount > 0) b.push("<span class='bdg bdg-q' title='" + qCount + " Qunique — must personally call and win a bid to shed one'>" + qCount + ' Qunique' + (qCount > 1 ? 's' : '') + "</span>");
+      if (qCount > 0) b.push("<span class='bdg bdg-q' title='" + qCount + " Kunukku — must personally call and win a bid to shed one'>" + qCount + ' Kunukku' + (qCount > 1 ? 's' : '') + "</span>");
       bc.innerHTML = b.join('');
       // Loser-face overlay on the avatar itself while carrying any Q — a
       // much more visible, constant reminder than the corner badge alone.
@@ -5527,7 +5527,7 @@ function updateInfo() {
     }
   }
 
-  // Cumulative Qunique totals, one count per TEAM (not summed per
+  // Cumulative Kunukku totals, one count per TEAM (not summed per
   // player) to match the team score shown right next to them - this
   // count only ever grows across the whole game, even after a Q gets
   // shed by winning a bid. qTotalEver is tracked per player name, but a
@@ -15758,7 +15758,7 @@ function serverBotPlayForMe() {
     // bar — the same badges a player sees before ever sitting down — so an
     // idle table feels like part of the same site instead of a generic
     // bouncing-text gimmick with no connection to anything else here.
-    '😭 The Qunique', '🎙️ Live Voice Chat', '🤖 AI Bots That Learn',
+    '😭 The Kunukku', '🎙️ Live Voice Chat', '🤖 AI Bots That Learn',
     '💾 Auto-Save & Resume', '🎯 Smart Bid Predictor', '👑 Road to King',
     '🧠 Round Analysis', '32 Cards', '28 Points', 'Kerala, India'
   ];
