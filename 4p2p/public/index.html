@@ -5533,6 +5533,19 @@ function updateInfo() {
         setTimeout(() => {
           showToast('⚡ Trump exposed: ' + exposedSuitAtCall + '!', 'win', 2200);
           log('Trump exposed! ' + exposedSuitAtCall + ' is active.', 'win');
+          // This was the actual bug behind "no popup, no shake at all" in
+          // online play -- showGameEvent() and the table-shake class
+          // toggle only ever lived in the OFFLINE-only exposeTrump()
+          // function, which server-mode games never call at all. This is
+          // the real, actual trigger point for online trump exposure.
+          showGameEvent('⚡', 'Trump Exposed', exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall), '#a78bfa');
+          const table = document.getElementById('tableArea');
+          if (table) {
+            table.classList.remove('trump-exposed');
+            void table.offsetWidth; // force reflow so re-adding the class restarts the animation
+            table.classList.add('trump-exposed');
+            setTimeout(() => table.classList.remove('trump-exposed'), 5000);
+          }
         }, 550);
       }
       serverLastAnnouncedTrumpExposed = trumpExposed;
@@ -15056,6 +15069,20 @@ function applyServerState(state) {
   bidHistory = state.bidHistory || [];
   window._p1MinBid = (typeof state.p1MinBid === 'number') ? state.p1MinBid : null;
   window._p1CurrentTurnRestricted = !!state.p1CurrentTurnRestricted;
+  // Same raise-event detection as phase 1 above, for phase 2 raises too
+  // -- explicitly requested. No "skip the first entry" exclusion needed
+  // here: unlike phase 1, phase 2 has no forced opening bid, everyone
+  // genuinely chooses to pass or raise. bid can also be the string
+  // 'THANI' here (a phase-2-only special call) -- entry.bid > 0
+  // correctly evaluates that as false via NaN coercion, so it's safely
+  // excluded from this specific event without needing its own check.
+  const newP2Entries = (state.p2History || []).slice((window._p2History || []).length);
+  for (const entry of newP2Entries) {
+    if (entry.bid > 0) {
+      const bidderName = playerAt(entry.pos) ? playerAt(entry.pos).name : 'A player';
+      showGameEvent('📈', 'Raise', bidderName + ' — ' + entry.bid, '#4a90d9');
+    }
+  }
   window._p2History = state.p2History || [];
   trumpSuit = state.trumpSuit || '';
   trumpExposed = state.trumpExposed;
