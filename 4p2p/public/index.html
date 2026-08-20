@@ -13844,6 +13844,64 @@ gameSocket.on('chooseSeat', (info) => {
     showPlayerJoinedNotice(name);
   });
 
+  // "New Round" restart notice, visible to every connected real player (not just whoever
+  // clicked Restart) - see server.js's beginVetoableRestart for the actual 3s timer/veto
+  // logic this is just displaying. Anyone seated can tap "No" to cancel it outright; if
+  // nobody does within the window, the server proceeds on its own and this same event
+  // (restartProceeded) just closes the notice - the actual restart itself arrives moments
+  // later as a completely ordinary 'state' update, no separate handling needed for it.
+  gameSocket.on('restartPending', (info) => {
+    showRestartNotice(info.kind, info.seconds || 3);
+  });
+  gameSocket.on('restartCancelled', (info) => {
+    hideRestartNotice(`🚫 Restart cancelled — ${info.byName} said no.`);
+  });
+  gameSocket.on('restartProceeded', () => {
+    hideRestartNotice(null);
+  });
+
+// "New Round"/"New Game" restart notice - see server.js's beginVetoableRestart for why this
+// exists: a restart used to happen instantly the moment the host confirmed it, with no chance
+// for anyone else actually mid-hand to react. Now everyone gets this same brief notice with a
+// real chance to say no, host included if they change their mind.
+let restartNoticeCountdownTimer = null;
+function showRestartNotice(kind, seconds) {
+  let el = document.getElementById('restartNoticeToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'restartNoticeToast';
+    el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3000;background:rgba(20,20,30,0.97);border:2px solid var(--accent, #f4c430);border-radius:16px;padding:22px 26px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.6);min-width:220px';
+    document.body.appendChild(el);
+  }
+  const label = kind === 'game' ? 'New Game' : 'New Round';
+  let remaining = seconds;
+  const render = () => {
+    el.innerHTML = `
+      <div style="font-size:1.3rem;font-weight:800;color:var(--accent,#f4c430);margin-bottom:6px">🔄 ${label}</div>
+      <div style="font-size:0.85rem;color:#ccc;margin-bottom:14px">Starting in ${remaining}s unless someone says no…</div>
+      <button id="restartNoticeVetoBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">✋ No, don't restart</button>
+    `;
+    document.getElementById('restartNoticeVetoBtn').onclick = () => {
+      gameSocket.emit('vetoRestart');
+      hideRestartNotice(null);
+    };
+  };
+  render();
+  el.style.display = 'block';
+  clearInterval(restartNoticeCountdownTimer);
+  restartNoticeCountdownTimer = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) { clearInterval(restartNoticeCountdownTimer); return; }
+    render();
+  }, 1000);
+}
+function hideRestartNotice(cancelMessage) {
+  clearInterval(restartNoticeCountdownTimer);
+  const el = document.getElementById('restartNoticeToast');
+  if (el) el.style.display = 'none';
+  if (cancelMessage) showToast(cancelMessage, 'info', 2500);
+}
+
   gameSocket.on('state', (state) => {
     // Reject any state that isn't for the table we're actually at. A
     // stale registration on an old table (pre-detach-fix builds, or any
@@ -14476,8 +14534,8 @@ document.getElementById('btnRestartConfirmCancel') && document.getElementById('b
 });
 document.getElementById('btnRestartConfirmOk') && document.getElementById('btnRestartConfirmOk').addEventListener('click', () => {
   document.getElementById('restartConfirmOverlay').classList.remove('on');
-  if (pendingRestartAction === 'round') gameSocket.emit('restartRound');
-  else if (pendingRestartAction === 'game') gameSocket.emit('restartGame');
+  if (pendingRestartAction === 'round') gameSocket.emit('requestRestartRound');
+  else if (pendingRestartAction === 'game') gameSocket.emit('requestRestartGame');
   pendingRestartAction = null;
 });
 document.getElementById('btnCloseHostMenu') && document.getElementById('btnCloseHostMenu').addEventListener('click', closeHostMenu);
