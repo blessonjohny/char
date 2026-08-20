@@ -1219,7 +1219,7 @@ function applyState(state) {
 
   const tr = $('trumpChip');
   if (state.trumpExposed) {
-    tr.textContent = '🎯 Trump: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit) + ' ACTIVE';
+    tr.textContent = '🎯 Trump: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit);
     tr.style.color = 'var(--accent)';
     tr.classList.add('trump-active');
     if (!lastAnnouncedTrumpExposed) {
@@ -1250,7 +1250,14 @@ function applyState(state) {
     lastAnnouncedTrumpExposed = false;
   }
 
-  renderSeats(state);
+  // Defensively isolated: renderSeats does a lot of per-seat DOM work (avatars, badges, the
+  // bidding call-bubbles), and this function runs BEFORE the round-end/game-over logic further
+  // down in this same applyState call, with nothing between them to catch a thrown error.
+  // Any uncaught exception in here would silently abort the rest of applyState too - including
+  // the code that actually shows the round summary and lets the game continue - which matches
+  // exactly the "stuck after a round" symptom reported. Whatever the precise cause turns out to
+  // be, a rendering glitch in one seat's avatar should never be able to freeze the whole table.
+  try { renderSeats(state); } catch (e) { console.error('[renderSeats] threw, table would have frozen here without this guard:', e); }
   if (state.round !== roundHistorySeenFor) {
     roundHistorySeenFor = state.round;
     roundTrickHistory = [];
@@ -1281,7 +1288,7 @@ function applyState(state) {
   // trick, leave the hand as it was too, and only refresh it once the
   // hold finishes and the circle catches up (see processNextSixpTrickReveal).
   if (!trickHoldBusy && sixpTrickRevealQueue.length === 0) renderHand(state);
-  updateTurnLabel(state);
+  try { updateTurnLabel(state); } catch (e) { console.error('[updateTurnLabel] threw:', e); }
   if ($('hostMenuOverlay').classList.contains('on') && $('hostMenuMainView').style.display !== 'none') renderHostMenuPlayerList();
 
   if (state.phase !== 'bidding1' && state.highestBid >= 20 && state.bidder >= 0 &&
