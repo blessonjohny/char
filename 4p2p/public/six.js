@@ -743,6 +743,14 @@ function showToast(msg, kind, ms) {
 
 // Reusable "big moment" popup -- identical to index.html's own version,
 // see there for the full reasoning.
+// Small "actual playing card" HTML -- identical to index.html's own
+// version, see there for the full reasoning.
+function miniCardHtml(rank, suit) {
+  const isRed = (suit === '♥' || suit === '♦');
+  const ink = isRed ? '#d32f2f' : '#111';
+  return `<div class="game-event-minicard"><div class="mc-rank" style="color:${ink}">${rank}</div><div class="mc-suit" style="color:${ink}">${suit}</div></div>`;
+}
+
 function showGameEvent(icon, title, detail, color) {
   const overlay = document.createElement('div');
   overlay.className = 'game-event-overlay';
@@ -1339,9 +1347,11 @@ function applyState(state) {
       // the card lands, which effectively covered up the very card that
       // just caused it with no moment to register what happened first.
       const exposedSuitAtCall = state.trumpSuit;
+      const rc = state.revealedTrumpCard;
+      const trumpDetail = rc ? miniCardHtml(rc.rank, rc.suit) : (exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall));
       setTimeout(() => {
         showToast('⚡ Trump exposed: ' + exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall) + '!', 'win', 2200);
-        showGameEvent('⚡', 'Trump Exposed', exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall), '#a78bfa');
+        showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa');
       }, 550);
       // Same table-wide pop/shake/glow reveal as the 4-player table - see the CSS comment
       // next to .table-oval.trump-exposed for why this touches two elements at once.

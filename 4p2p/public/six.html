@@ -309,6 +309,11 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .game-event-icon{font-size:2rem;line-height:1;filter:drop-shadow(0 0 10px var(--evt-glow, rgba(244,196,48,0.6)))}
 .game-event-title{font-family:'Cinzel','Playfair Display',serif;font-size:1.35rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-top:8px;color:var(--evt-color, #f4c430);text-shadow:0 2px 8px rgba(0,0,0,0.6)}
 .game-event-detail{font-family:'Cinzel','Playfair Display',serif;font-size:1.6rem;font-weight:600;margin-top:4px;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.5)}
+/* Small "actual playing card" visual -- identical to index.html's own
+   version, see there for the full reasoning. */
+.game-event-minicard{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:52px;height:74px;background:linear-gradient(135deg,#fff 0%,#f5f5f5 60%,#e8e8e8 100%);border-radius:9px;border:1px solid rgba(180,180,180,0.5);box-shadow:0 3px 10px rgba(0,0,0,0.3);margin-top:6px}
+.game-event-minicard .mc-rank{font-size:1.3rem;font-weight:800;line-height:1}
+.game-event-minicard .mc-suit{font-size:1.7rem;line-height:1;margin-top:2px}
 
 /* ---- Big Kunukku event banner (gain/shed) ---- */
 .qmark-event-overlay{

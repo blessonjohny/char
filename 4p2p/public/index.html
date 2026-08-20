@@ -887,6 +887,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .game-event-icon{font-size:2rem;line-height:1;filter:drop-shadow(0 0 10px var(--evt-glow, rgba(244,196,48,0.6)))}
 .game-event-title{font-family:'Cinzel','Playfair Display',serif;font-size:1.35rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-top:8px;color:var(--evt-color, #f4c430);text-shadow:0 2px 8px rgba(0,0,0,0.6)}
 .game-event-detail{font-family:'Cinzel','Playfair Display',serif;font-size:1.6rem;font-weight:600;margin-top:4px;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.5)}
+/* Small "actual playing card" visual for the revealed-trump event
+   specifically -- per explicit instruction, showing the real rank and
+   suit that was hidden, styled like the card itself (white face,
+   red/black ink matching the suit), not just colored text. */
+.game-event-minicard{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:52px;height:74px;background:linear-gradient(135deg,#fff 0%,#f5f5f5 60%,#e8e8e8 100%);border-radius:9px;border:1px solid rgba(180,180,180,0.5);box-shadow:0 3px 10px rgba(0,0,0,0.3);margin-top:6px}
+.game-event-minicard .mc-rank{font-size:1.3rem;font-weight:800;line-height:1}
+.game-event-minicard .mc-suit{font-size:1.7rem;line-height:1;margin-top:2px}
 
 .card-float{transition:transform 0.8s cubic-bezier(0.4,0,0.2,1),opacity 0.8s ease;pointer-events:none;z-index:500}
 @keyframes winnerPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,215,0,0.6)}50%{box-shadow:0 0 25px 8px rgba(255,215,0,0.3)}}
@@ -3813,6 +3820,11 @@ function viewerPos() { return (MY_POS >= 0 && MY_POS <= 3) ? MY_POS : 3; }
 
 let deck=[], players=[[],[],[],[]], currentPlayer=0, dealer=0, bidder=-1, highestBid=0;
 let trumpSuit='', hiddenTrump=null, trumpExposed=false, trumpExplicitlyCalled=false, round=1;
+// Offline mirror of the server's revealedTrumpCard -- captured once,
+// publicly, the moment trump is actually exposed, since hiddenTrump
+// itself gets cleared right after (and in one specific call path,
+// even before exposeTrump() runs at all -- see playHiddenTrump()).
+let revealedTrumpCard = null;
 let trickCards=[], trickSuit='', teamPoints=[0,0], gameScore=[6,6];
 let phase='bidding1', passes=0;
 let bidHistory = []; // [{pos, bid}] — bid===0 means pass. Used to render "who's bid/passed so far" in the bid sheet.
@@ -5196,6 +5208,15 @@ function showQMarkEvent4p(names, direction) {
 // "BID MADE" etc.), detail is the large headline text underneath (the
 // actual number/suit/result), color is any valid CSS color used for
 // both the border/glow and the title text.
+// Small "actual playing card" HTML for the revealed-trump event's
+// detail slot -- see the .game-event-minicard CSS comment for the full
+// reasoning. Used by both the online and offline trump-exposed triggers.
+function miniCardHtml(rank, suit) {
+  const isRed = (suit === '♥' || suit === '♦');
+  const ink = isRed ? '#d32f2f' : '#111';
+  return `<div class="game-event-minicard"><div class="mc-rank" style="color:${ink}">${rank}</div><div class="mc-suit" style="color:${ink}">${suit}</div></div>`;
+}
+
 function showGameEvent(icon, title, detail, color) {
   const overlay = document.createElement('div');
   overlay.className = 'game-event-overlay';
@@ -5542,7 +5563,15 @@ function updateInfo() {
           // toggle only ever lived in the OFFLINE-only exposeTrump()
           // function, which server-mode games never call at all. This is
           // the real, actual trigger point for online trump exposure.
-          showGameEvent('⚡', 'Trump Exposed', exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall), '#a78bfa');
+          // Per explicit instruction: shows the actual specific card
+          // that was hidden (rank + suit, styled like the real card),
+          // not just the suit -- revealedTrumpCard is captured
+          // server-side the moment exposeTrump() runs, since the
+          // hiddenTrump field itself gets cleared/returned to the
+          // owner's private hand right after.
+          const rc = latestServerState && latestServerState.revealedTrumpCard;
+          const trumpDetail = rc ? miniCardHtml(rc.rank, rc.suit) : (exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall));
+          showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa');
           const table = document.getElementById('tableArea');
           if (table) {
             table.classList.remove('trump-exposed');
@@ -8896,6 +8925,11 @@ function playHiddenTrump(p) {
     return;
   }
   const card = hiddenTrump;
+  // Must capture this here, before clearing hiddenTrump below --
+  // exposeTrump() itself has no visibility into the card in this
+  // specific path, since it's already null by the time that function
+  // runs just a few lines down.
+  revealedTrumpCard = { rank: card.rank, suit: card.suit };
   hiddenTrump = null;
   trumpExplicitlyCalled = true;
   if (!trumpExposed) exposeTrump(p);
@@ -8925,6 +8959,11 @@ function exposeTrump(caller) {
   if (trumpExposed) return;
   trumpExposed = true;
   trumpExplicitlyCalled = true;
+  // Captures the specific card for every call path where hiddenTrump
+  // hasn't already been cleared before reaching here (the more common
+  // case) -- playHiddenTrump() specifically already set this itself
+  // above, since it clears hiddenTrump before this function even runs.
+  if (hiddenTrump) revealedTrumpCard = { rank: hiddenTrump.rank, suit: hiddenTrump.suit };
   phase = 'play2';
   const tr = document.getElementById('trumpReveal');
   if (tr) { 
@@ -8935,7 +8974,7 @@ function exposeTrump(caller) {
     tr.classList.add('trump-active');
   }
   showToast('⚡ Trump exposed: ' + trumpSuit + '!', 'win', 1800);
-  showGameEvent('⚡', 'Trump Exposed', trumpSuit + ' ' + suitName(trumpSuit), '#a78bfa');
+  showGameEvent('⚡', 'Trump Exposed', revealedTrumpCard ? miniCardHtml(revealedTrumpCard.rank, revealedTrumpCard.suit) : (trumpSuit + ' ' + suitName(trumpSuit)), '#a78bfa');
   const name = playerAt(caller) ? playerAt(caller).name : 'Player';
   log((caller === MY_POS ? 'You' : name) + ' exposed trump! ' + trumpSuit + ' active!', 'win');
   // TABLE POP ANIMATION when trump is exposed
