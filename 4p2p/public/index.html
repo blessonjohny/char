@@ -13836,6 +13836,17 @@ gameSocket.on('chooseSeat', (info) => {
   });
 
   gameSocket.on('kicked', () => {
+    // The 5-second countdown/veto popup was still showing right up
+    // until this exact moment (this only ever fires once that window
+    // has actually run out) -- without explicitly dismissing it here,
+    // it just stays frozen on screen, still showing "0s" and a veto
+    // button that no longer does anything, even after leaveServerTable()
+    // has already navigated back to the home screen underneath it. The
+    // toast below already correctly lingers a few seconds past that
+    // transition on its own (it's a fixed-position overlay, independent
+    // of whatever screen is showing) -- this was purely the stale
+    // countdown popup never being told to go away.
+    hideKickNotice();
     showToast('🚪 The host removed you from the table', 'lose', 3500);
     leaveServerTable();
   });

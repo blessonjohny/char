@@ -933,6 +933,13 @@ function connectSocket() {
   socket.on('sixp_chooseSeat', (info) => showSeatPicker(info));
 
   socket.on('sixp_kicked', () => {
+    // Same fix as index.html's identical handler -- the countdown/veto
+    // popup was still showing right up until this exact moment and
+    // needs to be explicitly dismissed, or it just stays frozen on
+    // screen underneath the home screen leaveToWelcome() navigates back
+    // to. The toast below already correctly lingers a few seconds on
+    // its own past that transition.
+    hideKickNotice();
     showToast('You were removed from the table by the host.', 'lose', 3000);
     leaveToWelcome();
   });

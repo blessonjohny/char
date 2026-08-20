@@ -1249,6 +1249,12 @@ function ensureSyncSocket(){
   });
 
   syncSocket.on('l56_kicked', () => {
+    // Same fix as the other two tables' identical handlers -- without
+    // this, the countdown/veto popup would still be visible underneath
+    // (or alongside) the alert() below for a moment before the reload
+    // wipes everything. hideKickNotice() clears it immediately instead
+    // of leaving that awkward overlap even briefly.
+    hideKickNotice();
     alert('You were removed from the table by the host.');
     location.reload();
   });
