@@ -10820,7 +10820,8 @@ async function shareInviteLink() {
   // accurate even if this device's own clock is off. Falls back to "now"
   // only in the genuinely unlikely case no state has arrived yet.
   const createdMs = (latestServerState && latestServerState.createdAt) || Date.now();
-  const createdTime = new Date(createdMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const createdTime = new Date(createdMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    + ' ' + new Date(createdMs).toLocaleDateString([], { year: '2-digit', month: 'numeric', day: 'numeric' });
   const text = `🟢 Live now — created at ${createdTime}. Join 28 Kerala Gulan 4 Player table! Room code: ${MY_TABLE_ID}`;
   if (navigator.share) {
     try { await navigator.share({ title: '28 Kerala Gulan', text, url: link }); return; }

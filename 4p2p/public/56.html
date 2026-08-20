@@ -1579,7 +1579,8 @@ async function shareInviteLink56(){
   // full reasoning. createdAt comes from the server-tracked value now
   // included in every state push (see l56Broadcast in server.js).
   const createdMs = (latestState && latestState.createdAt) || Date.now();
-  const createdTime = new Date(createdMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const createdTime = new Date(createdMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    + ' ' + new Date(createdMs).toLocaleDateString([], { year: '2-digit', month: 'numeric', day: 'numeric' });
   const text = `🟢 Live now — created at ${createdTime}. Join 56 (6 Player) table! Room code: ${roomCode}`;
   if(navigator.share){
     try{ await navigator.share({title: '56 — The Kerala Card Game', text, url: link}); return; }

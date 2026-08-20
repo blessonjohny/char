@@ -2440,7 +2440,8 @@ async function shareInviteLink() {
   // full reasoning. createdAt comes from the server-tracked value now
   // included in every state push (see sixpBroadcastTable in server.js).
   const createdMs = (latestState && latestState.createdAt) || Date.now();
-  const createdTime = new Date(createdMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const createdTime = new Date(createdMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    + ' ' + new Date(createdMs).toLocaleDateString([], { year: '2-digit', month: 'numeric', day: 'numeric' });
   const text = `🟢 Live now — created at ${createdTime}. Join 28 Kerala Gulan 6 Player table! Room code: ${MY_TABLE_ID}`;
   if (navigator.share) {
     try { await navigator.share({ title: '28 Kerala Gulan', text, url: link }); return; }
