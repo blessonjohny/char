@@ -13,6 +13,142 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
+// True only for the one automatic reconnect attempt made on a fresh page
+// load when a recent session is found -- lets sixp_joinError show a
+// genuinely different, apologetic message for "the server was restarted
+// and lost your table" instead of the generic "that code doesn't exist"
+// wording meant for someone manually mistyping a room code.
+let isAutoReconnectAttempt6p = false;
+// The avatar the player picked on the name-entry screen -- same pattern
+// and same localStorage key as the 4-player table, so a returning
+// player's choice carries over between tables instead of resetting.
+let MY_AVATAR_KEY = '';
+try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
+const ALL_AVATAR_KEYS = [...Array.from({length:24}, (_,i) => 'hero2f'+(i+1)), ...Array.from({length:24}, (_,i) => 'hero2m'+(i+1))];
+if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
+  MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
+}
+function heroAvatarHtml(key) {
+  // Single image only -- see index.html's identical function for the
+  // full reasoning. The .avatar.has-q CSS (dim filter + crying-emoji
+  // overlay) already applies to the whole container regardless of what
+  // image class is inside it, so no dual-image markup is needed.
+  return `<img src="/images/hero-avatars/${key}.png" class="hero-avatar-face" alt="">`;
+}
+// Genuine per-visit randomization -- see index.html's identical helper
+// for the full reasoning. Never mutates ALL_AVATAR_KEYS itself.
+function shuffledAvatarKeys() {
+  const arr = ALL_AVATAR_KEYS.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function renderMyAvatarPicker6p() {
+  const el = document.getElementById('myAvatarPicker6p');
+  if (!el) return;
+  el.innerHTML = shuffledAvatarKeys().map(key =>
+    `<div class="my-avatar-choice${key === MY_AVATAR_KEY ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatar6p('${key}')">
+      <img src="/images/hero-avatars/${key}.png" alt="">
+    </div>`
+  ).join('');
+}
+function pickMyAvatar6p(key) {
+  MY_AVATAR_KEY = key;
+  try { localStorage.setItem('k28_player_avatar', key); } catch (e) {}
+  document.querySelectorAll('#myAvatarPicker6p .my-avatar-choice').forEach(el => el.classList.toggle('picked', el.dataset.key === key));
+}
+document.addEventListener('DOMContentLoaded', renderMyAvatarPicker6p);
+
+// Keeps the screen from timing out/locking while this page is open --
+// without this, the device's own screen-off timer (often as short as
+// ~30s) would dim and lock the phone mid-game, which can cost a missed
+// turn or a disconnect entirely. The Screen Wake Lock API is what
+// actually solves this (not a fake "keep clicking" trick or an invisible
+// looping video, which is how this used to have to be faked before real
+// browser support existed). Not supported on every browser -- fails
+// silently and harmlessly if so, since there's no good fallback that
+// doesn't come with its own downsides (battery drain, an actual hidden
+// video element, etc.) worth adding for this. The lock is automatically
+// released by the browser itself whenever the tab/app loses visibility
+// (backgrounded, screen manually locked, switched away from) -- so this
+// re-acquires it every time the page becomes visible again, rather than
+// only once on load, which would otherwise silently stop protecting the
+// screen the very first time the user glanced away and came back.
+let screenWakeLock = null;
+async function requestScreenWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    screenWakeLock = await navigator.wakeLock.request('screen');
+  } catch (e) {
+    // Commonly just means the tab wasn't visible at the exact moment of
+    // the request, or the OS/browser declined for its own reasons --
+    // not worth surfacing to the player, the visibilitychange listener
+    // below will simply try again the next time it's actually visible.
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') requestScreenWakeLock();
+});
+requestScreenWakeLock();
+if (document.readyState === 'interactive' || document.readyState === 'complete') renderMyAvatarPicker6p();
+
+// Same name-to-portrait mapping the 4-player table uses for its bots --
+// shared bot name pools across every table mean the same bot name should
+// always show the same face wherever it appears, not a different one
+// per table. Static, never mood-reactive -- matches the 4-player table's
+// own approach exactly, not the mood-face system 56 has separately.
+const ALL_BOT_AVATARS_6P = [
+  {name:'Ancy',emoji:heroAvatarHtml('hero2f1'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Anjali',emoji:heroAvatarHtml('hero2f2'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Ajai',emoji:heroAvatarHtml('hero2m1'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Meera',emoji:heroAvatarHtml('hero2f3'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Alok',emoji:heroAvatarHtml('hero2m2'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Anup',emoji:heroAvatarHtml('hero2m3'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Appu',emoji:heroAvatarHtml('hero2m4'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Neha',emoji:heroAvatarHtml('hero2f4'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Arun',emoji:heroAvatarHtml('hero2m5'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Priya',emoji:heroAvatarHtml('hero2f5'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Reena',emoji:heroAvatarHtml('hero2f6'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Divya',emoji:heroAvatarHtml('hero2f7'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Benson',emoji:heroAvatarHtml('hero2m6'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Lakshmi',emoji:heroAvatarHtml('hero2f8'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Binchu',emoji:heroAvatarHtml('hero2m7'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Charlie',emoji:heroAvatarHtml('hero2m8'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Jerin',emoji:heroAvatarHtml('hero2m9'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Sarah',emoji:heroAvatarHtml('hero2f9'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Johny',emoji:heroAvatarHtml('hero2m10'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Nisha',emoji:heroAvatarHtml('hero2f10'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Koshy',emoji:heroAvatarHtml('hero2m11'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Deepa',emoji:heroAvatarHtml('hero2f11'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Elsa',emoji:heroAvatarHtml('hero2f12'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Nate',emoji:heroAvatarHtml('hero2m12'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Peter',emoji:heroAvatarHtml('hero2m13'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Maya',emoji:heroAvatarHtml('hero2f13'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Rahul',emoji:heroAvatarHtml('hero2m14'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Sherin',emoji:heroAvatarHtml('hero2f14'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Rajesh',emoji:heroAvatarHtml('hero2m15'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Randall',emoji:heroAvatarHtml('hero2m16'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Teena',emoji:heroAvatarHtml('hero2f15'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Renji',emoji:heroAvatarHtml('hero2m17'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Anu',emoji:heroAvatarHtml('hero2f16'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Roji',emoji:heroAvatarHtml('hero2m18'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Reshma',emoji:heroAvatarHtml('hero2f17'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Jisha',emoji:heroAvatarHtml('hero2f18'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Nimmy',emoji:heroAvatarHtml('hero2f19'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Roney',emoji:heroAvatarHtml('hero2m19'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Sanjay',emoji:heroAvatarHtml('hero2m20'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Shyam',emoji:heroAvatarHtml('hero2m21'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Beena',emoji:heroAvatarHtml('hero2f20'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Soumya',emoji:heroAvatarHtml('hero2f21'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Stev',emoji:heroAvatarHtml('hero2m22'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Liya',emoji:heroAvatarHtml('hero2f22'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Vinod',emoji:heroAvatarHtml('hero2m23'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Merin',emoji:heroAvatarHtml('hero2f23'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Wesley',emoji:heroAvatarHtml('hero2m24'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Asha',emoji:heroAvatarHtml('hero2f24'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'}
+];
 
 // Requests fullscreen -- hides the browser's own address bar and nav
 // bars on mobile -- the moment someone actually creates or joins a
@@ -489,8 +625,15 @@ function updateTableClock() {
   }
   sixpClockLastHourMark = hourMark;
 }
-updateTableClock();
-setInterval(updateTableClock, 1000);
+// The vintage clock face has been removed from the table (replaced by a plain wooden-rail
+// oval matching the 4-player table's design) - disabling its driver here rather than tracing
+// through every downstream function it calls (weather fetch, city click wiring, complications,
+// hand rotation) is the safe way to retire it: those functions were written assuming the
+// clock's DOM elements exist, and several touch the DOM before their own internal null-checks
+// would catch a missing element. Not calling them at all avoids relying on every one of those
+// checks being airtight.
+// updateTableClock();
+// setInterval(updateTableClock, 1000);
 
 // Mirrors the 4-player table's score-box treatment exactly: pop-bounce on
 // every value change, plus a continuous ambient green/red glow for
@@ -563,13 +706,13 @@ let IS_HOST = false;
 let pendingJoinCode = null;
 let latestState = null;
 let lastAnnouncedTrumpExposed = false;
+let lastHiddenTrumpAutoFired6p = false; // see renderHand() -- guards the forced-last-card auto-play against firing more than once per turn
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired
 let lastShownRoundVoidMessage = null;
+let lastShownReshuffleReasonTs6p = null;
 let lastShownPartnerSignalKey6p = null;
 let lastShownEarlyWinChoice6p = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
-let lastShownQuoteDeclaredForTeam6p = null; // which team's quote declaration has already been announced this round
-let lastShownMaruCotForTeam6p = null; // which team's maru cot challenge has already been announced this round
-let lastMaruCotWindowHandled6p = false; // true while the current challenge window has already been prompted for
+let lastShownQuoteDeclaredForTeam6p = null; // which team's COT/MaruCOT declaration has already been announced this round
 let lastSeenTricksPlayed = -1; // detects exactly when a new trick has just completed
 let trickHoldBusy = false;     // a trick is currently mid-reveal (its full pause hasn't elapsed yet)
 let sixpTrickRevealQueue = []; // completed tricks still waiting their turn — nothing in here is ever dropped
@@ -577,9 +720,10 @@ let lastRoundSeen = -1;
 let roundTrickHistory = []; // every completed trick so far THIS round, for the "played so far" view
 let roundHistorySeenFor = -1; // which round roundTrickHistory currently belongs to
 let lastRenderedTrickSlot = [null, null, null, null, null, null]; // for the card-landing animation diff
+let lastAppliedTableId6p = null; // see applyState -- forces a full trick-slot reset the moment the table itself changes
 let gameOverShownFor = false;
 
-const SUITS = ['♥', '♠', '♦', '♣'];
+const SUITS = ['♠', '♦', '♥', '♣'];
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1, '6': 0 };
 const POINTS = { J: 3, '9': 2, A: 1, '10': 1, K: 0, Q: 0, '8': 0, '7': 0, '6': 0 };
 const SUIT_ICON_ID = { '♠': 'spade', '♣': 'club', '♥': 'heart', '♦': 'diamond' };
@@ -595,6 +739,70 @@ function showToast(msg, kind, ms) {
   el.style.cssText = 'background:rgba(26,5,5,0.95);border:1.5px solid ' + (kind === 'lose' ? '#ff5c5c' : '#f4c430') + ';border-radius:12px;padding:8px 16px;color:' + (kind === 'lose' ? '#ff5c5c' : '#f4c430') + ';font-size:0.85rem;font-weight:700;white-space:nowrap;margin-bottom:8px';
   $('toastHost').appendChild(el);
   setTimeout(() => el.remove(), ms || 2000);
+}
+
+// Reusable "big moment" popup -- identical to index.html's own version,
+// see there for the full reasoning.
+function showGameEvent(icon, title, detail, color) {
+  const overlay = document.createElement('div');
+  overlay.className = 'game-event-overlay';
+  overlay.style.setProperty('--evt-color', color);
+  overlay.style.setProperty('--evt-glow', color + '66');
+  overlay.innerHTML = `<div class="game-event-box">
+    <div class="game-event-icon">${icon}</div>
+    <div class="game-event-title">${title}</div>
+    <div class="game-event-detail">${detail}</div>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.classList.add('leaving'), 1900);
+  setTimeout(() => overlay.remove(), 2350);
+}
+
+// The 5-second vetoable kick popup -- see index.html's identical
+// implementation for the full reasoning. Two different messages
+// depending on which side of the kick you're on: the target gets the
+// reject button, the admin who initiated it gets their own countdown.
+let kickNoticeCountdownTimer = null;
+function showKickNotice(info) {
+  let el = document.getElementById('kickNoticeToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'kickNoticeToast';
+    el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3000;background:rgba(20,20,30,0.97);border:2px solid #e74c3c;border-radius:16px;padding:22px 26px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.6);min-width:240px;max-width:88vw';
+    document.body.appendChild(el);
+  }
+  let remaining = info.seconds || 5;
+  const render = () => {
+    if (info.isInitiator) {
+      el.innerHTML = `
+        <div style="font-size:1.2rem;font-weight:800;color:#e74c3c;margin-bottom:6px">🚪 Kicking ${escapeHtml(info.targetName)}…</div>
+        <div style="font-size:0.85rem;color:#ccc">They have ${remaining}s to fight back before it's final.</div>
+      `;
+    } else {
+      el.innerHTML = `
+        <div style="font-size:1.3rem;font-weight:800;color:#e74c3c;margin-bottom:6px">🚪 You've been kicked!</div>
+        <div style="font-size:0.85rem;color:#ccc;margin-bottom:14px">Gone in ${remaining}s unless you fight back right now…</div>
+        <button id="kickNoticeVetoBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">🙅 No way, I'm playing!</button>
+      `;
+      document.getElementById('kickNoticeVetoBtn').onclick = () => {
+        socket.emit('sixp_vetoKick');
+        hideKickNotice();
+      };
+    }
+  };
+  render();
+  el.style.display = 'block';
+  clearInterval(kickNoticeCountdownTimer);
+  kickNoticeCountdownTimer = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) { clearInterval(kickNoticeCountdownTimer); return; }
+    render();
+  }, 1000);
+}
+function hideKickNotice() {
+  clearInterval(kickNoticeCountdownTimer);
+  const el = document.getElementById('kickNoticeToast');
+  if (el) el.style.display = 'none';
 }
 
 function connectSocket() {
@@ -691,6 +899,7 @@ function connectSocket() {
   });
 
   socket.on('sixp_joined', (info) => {
+    isAutoReconnectAttempt6p = false;
     MY_TABLE_ID = info.tableId;
     MY_PLAYER_ID = info.playerId;
     MY_POS = info.pos;
@@ -706,6 +915,21 @@ function connectSocket() {
   });
 
   socket.on('sixp_joinError', (err) => {
+    if (isAutoReconnectAttempt6p) {
+      isAutoReconnectAttempt6p = false;
+      try {
+        localStorage.removeItem('k28six_table_id');
+        localStorage.removeItem('k28six_session_time');
+      } catch (e) {}
+      // Genuine reconnect failures like this are almost always the
+      // server having been restarted for a deployment -- which wipes
+      // every in-memory table, since none of that state is persisted to
+      // disk. The generic "that code doesn't exist" wording below is
+      // meant for someone mistyping a room code by hand, not this --
+      // this deserves an actual apology and a clear next step.
+      alert('😔 We\'re sorry — the server was recently updated, which means your previous game session was lost in the process.\n\nThis wasn\'t anything you did wrong. Please log back in and create or join a table to keep playing. Thanks for your patience!');
+      return;
+    }
     const messages = {
       table_not_found: "That room code doesn't exist.",
       table_full: 'That table is already full.',
@@ -726,8 +950,34 @@ function connectSocket() {
   socket.on('sixp_chooseSeat', (info) => showSeatPicker(info));
 
   socket.on('sixp_kicked', () => {
+    // Same fix as index.html's identical handler -- the countdown/veto
+    // popup was still showing right up until this exact moment and
+    // needs to be explicitly dismissed, or it just stays frozen on
+    // screen underneath the home screen leaveToWelcome() navigates back
+    // to. The toast below already correctly lingers a few seconds on
+    // its own past that transition.
+    hideKickNotice();
     showToast('You were removed from the table by the host.', 'lose', 3000);
     leaveToWelcome();
+  });
+
+  // The 5-second vetoable kick -- same event names/pattern as the
+  // 4-player table (server.js emits these unprefixed on every table,
+  // same as the existing 'kicked' event already was), just the veto
+  // itself needs this table's own 'sixp_vetoKick' emit to reach the
+  // right handler server-side.
+  socket.on('kickPending', (info) => showKickNotice(info));
+  socket.on('kickVetoedSelf', () => {
+    hideKickNotice();
+    showToast("😅 Phew — you're staying at the table!", 'win', 2500);
+  });
+  socket.on('kickVetoedByTarget', ({ name }) => {
+    hideKickNotice();
+    showToast(`✋ ${name} said no — they're staying.`, 'info', 3000);
+  });
+  socket.on('kickProceeded', ({ targetName }) => {
+    hideKickNotice();
+    showToast(`🚪 ${targetName} has been removed from the table.`, 'info', 3000);
   });
 
   socket.on('sixp_state', (state) => {
@@ -761,7 +1011,12 @@ connectSocket(); // connect right away so every landing on this page gets logged
 
 let pendingAction = null; // 'create' | 'join'
 
-$('btnCreate').addEventListener('click', () => { pendingAction = 'create'; showScreen('nameScreen'); });
+$('btnCreate').addEventListener('click', () => {
+  pendingAction = 'create';
+  const inviteBanner6pCreate = $('inviteBanner6p');
+  if (inviteBanner6pCreate) inviteBanner6pCreate.classList.add('hidden');
+  showScreen('nameScreen');
+});
 $('btnShowJoin').addEventListener('click', () => { showScreen('joinScreen'); refreshRoomList(); });
 $('btnRules').addEventListener('click', () => {
   alert('28 Kerala Gulan — 6 Player\n\n6 players in 2 teams of 3 (alternating seats).\n36 cards (includes the 6s). J=3pts, 9=2pts, A/10=1pt.\n\nBidding: 16-28 for trump. Highest bidder picks trump and hides one trump card face down.\n\nFirst team to 12 game points wins!');
@@ -774,12 +1029,14 @@ $('btnNameContinue').addEventListener('click', () => {
     return;
   }
   MY_NAME = name;
+  const inviteBanner6pDone = $('inviteBanner6p');
+  if (inviteBanner6pDone) inviteBanner6pDone.classList.add('hidden');
   requestFullscreen6p();
   connectSocket();
   if (pendingAction === 'create') {
-    socket.emit('sixp_createTable', { name });
+    socket.emit('sixp_createTable', { name, avatar: MY_AVATAR_KEY });
   } else if (pendingAction === 'join' && pendingJoinCode) {
-    socket.emit('sixp_joinTable', { tableId: pendingJoinCode, name });
+    socket.emit('sixp_joinTable', { tableId: pendingJoinCode, name, avatar: MY_AVATAR_KEY });
   }
 });
 $('btnJoinBack').addEventListener('click', () => showScreen('welcomeScreen'));
@@ -788,6 +1045,8 @@ $('btnJoinByCode').addEventListener('click', () => {
   if (!code) { showToast('Enter a room code first', 'lose', 1500); return; }
   pendingJoinCode = code;
   pendingAction = 'join';
+  const inviteBanner6pManual = $('inviteBanner6p');
+  if (inviteBanner6pManual) inviteBanner6pManual.classList.add('hidden');
   showScreen('nameScreen');
 });
 
@@ -796,23 +1055,61 @@ function refreshRoomList() {
   socket.emit('sixp_listRooms');
 }
 function renderRoomList(rooms) {
-  const list = $('roomList');
-  if (!list) return;
-  if (!rooms.length) { list.innerHTML = '<div style="color:var(--text-secondary);font-size:0.8rem;padding:10px">No open tables right now.</div>'; return; }
-  list.innerHTML = rooms.map(r => `
+  // Populates BOTH the existing joinScreen list and the one on the main
+  // welcomeScreen itself -- previously this list only ever showed up
+  // after clicking "Join Table" first, tucked away on a separate
+  // screen, unlike the 4-player table which shows its running-tables
+  // list directly on the main menu. Same live data, same click-to-join
+  // behavior, just also visible immediately without that extra step.
+  const targets = [$('roomList'), $('welcomeRoomList')].filter(Boolean);
+  if (!targets.length) return;
+  const html = !rooms.length
+    ? '<div style="color:var(--text-secondary);font-size:0.8rem;padding:10px">No open tables right now.</div>'
+    : rooms.map(r => `
     <div class="room-row">
       <div><b>${escapeHtml(r.name)}</b><br><span style="color:var(--text-secondary)">${r.players}/6 · ${r.isPlaying ? 'Playing' : 'Lobby'}</span></div>
       <button class="btn btn-outline" style="width:auto;margin:0;padding:8px 14px" data-code="${r.tableId}" ${r.canJoinSeat ? '' : 'disabled'}>JOIN</button>
     </div>`).join('');
-  list.querySelectorAll('button[data-code]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      pendingJoinCode = btn.getAttribute('data-code');
-      pendingAction = 'join';
-      showScreen('nameScreen');
+  for (const list of targets) {
+    list.innerHTML = html;
+    list.querySelectorAll('button[data-code]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        pendingJoinCode = btn.getAttribute('data-code');
+        pendingAction = 'join';
+        const inviteBanner6pList = $('inviteBanner6p');
+        if (inviteBanner6pList) inviteBanner6pList.classList.add('hidden');
+        showScreen('nameScreen');
+      });
     });
-  });
+  }
 }
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// Turns any URL-looking text in an ALREADY-escaped chat message into a
+// real, clickable link. Order matters -- this must only ever run on
+// text already through escapeHtml(), never the reverse. Quotes are
+// re-escaped here specifically for the href attribute, independent of
+// whatever escapeHtml above already did -- that one only encodes
+// &, <, > (via textContent -> innerHTML serialization), not quotes,
+// since quotes aren't syntactically special in plain text content.
+// Without this, a literal " in a URL could break straight out of the
+// href="..." attribute and inject a live, working event-handler
+// attribute onto the link (confirmed exploitable before this was
+// added). target="_blank" is the actual point of this feature: opens
+// in a new tab instead of navigating the current one away, so clicking
+// a link in table chat can never disconnect anyone from the game.
+function linkifyEscaped(escapedText) {
+  return escapedText.replace(/(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi, (raw) => {
+    let url = raw;
+    let trailing = '';
+    const trailMatch = url.match(/([.,!?;:)\]]+)$/);
+    if (trailMatch) { trailing = trailMatch[1]; url = url.slice(0, -trailing.length); }
+    if (!url) return raw;
+    const href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+    const hrefSafe = href.replace(/"/g, '&quot;');
+    return `<a href="${hrefSafe}" target="_blank" rel="noopener noreferrer" style="color:#6db3ff;text-decoration:underline;word-break:break-all">${url}</a>${trailing}`;
+  });
+}
 
 // ---------------- Seat picker ----------------
 
@@ -912,13 +1209,68 @@ function renderLobby(state) {
 // ---------------- Main state application ----------------
 
 function applyState(state) {
+  // Detect any genuinely new bid entries (not passes, and never the
+  // forced opening bid at index 0) to fire a big event for a real raise
+  // or an honors-level bid -- same logic as index.html's identical
+  // detection, just reading straight from state.seats since six.js
+  // doesn't keep a separate bidHistory global the way index.html does.
+  // Must run BEFORE latestState gets overwritten just below, since it
+  // compares against the previous state's own bidHistory.
+  const oldBidHistoryLen = (latestState && latestState.bidHistory) ? latestState.bidHistory.length : 0;
+  const newBidEntries = (state.bidHistory || []).slice(oldBidHistoryLen);
+  for (let i = 0; i < newBidEntries.length; i++) {
+    const entry = newBidEntries[i];
+    const entryIndex = oldBidHistoryLen + i;
+    if (entry.bid > 0 && entryIndex > 0) {
+      const bidderName = (state.seats && state.seats[entry.pos]) ? state.seats[entry.pos].name : 'A player';
+      if (entry.bid >= 20) showGameEvent('👑', 'Honors Bid', bidderName + ' — ' + entry.bid, '#f4c430');
+      else showGameEvent('📈', 'Raise', bidderName + ' — ' + entry.bid, '#4a90d9');
+    }
+  }
+
   latestState = state;
+
+  // A genuinely different table (not just a new round on the SAME table)
+  // is a much more definitive signal than any per-field staleness check
+  // further down could ever be -- leaving one table and starting a
+  // completely different one could leave a leftover card from the old
+  // table's last trick visually stuck on screen, since nothing had told
+  // the renderer anything actually changed. Directly clearing every slot
+  // element here (not just resetting the tracking array) matters: if the
+  // NEW table's own first real state also wants an empty slot (the
+  // common case, nothing played yet), a reset tracker comparing
+  // null===null would still skip the actual DOM-clearing step in
+  // renderTrickSlots below.
+  if (MY_TABLE_ID && MY_TABLE_ID !== lastAppliedTableId6p) {
+    lastAppliedTableId6p = MY_TABLE_ID;
+    lastRenderedTrickSlot = [null, null, null, null, null, null];
+    for (let i = 0; i < 6; i++) {
+      const slotEl = document.getElementById('trickSlot' + i);
+      if (slotEl) slotEl.innerHTML = '';
+    }
+  }
 
   if (state.roundVoidMessage && state.roundVoidMessage !== lastShownRoundVoidMessage) {
     lastShownRoundVoidMessage = state.roundVoidMessage;
     showToast('🚫 ' + state.roundVoidMessage, 'lose', 3500);
   } else if (!state.roundVoidMessage) {
     lastShownRoundVoidMessage = null;
+  }
+
+  // Same event as the 4-player table's reshuffleReason -- explains why
+  // everyone's hand suddenly changed (all four Jacks in one hand, or the
+  // first bidder stuck with an unplayable hand of nothing but 7s/8s).
+  // ts makes each event unique even if the exact same situation repeats.
+  if (state.reshuffleReason && state.reshuffleReason.ts !== lastShownReshuffleReasonTs6p) {
+    lastShownReshuffleReasonTs6p = state.reshuffleReason.ts;
+    const r = state.reshuffleReason;
+    let msg;
+    if (r.type === 'all78') {
+      msg = `🔄 Reshuffling — ${r.name} was forced to bid with a hand of nothing but 7s and 8s. Same dealer, fresh deal.`;
+    } else if (r.type === 'allJacks') {
+      msg = `🔄 Reshuffling — ${r.name} was dealt all four Jacks! Same dealer, fresh deal.`;
+    }
+    if (msg) showToast(msg, 'info', 5000);
   }
 
   const mySignal6p = state.partnerSignals && state.partnerSignals[MY_POS];
@@ -934,7 +1286,6 @@ function applyState(state) {
   handleEarlyWinPopup(state);
   updateQuoteButton(state);
   handleQuoteDeclaredToast(state);
-  handleMaruCotChallenge(state);
 
   if (state.phase === 'lobby') {
     $('gameScreen').style.display = 'none';
@@ -960,7 +1311,7 @@ function applyState(state) {
   $('dealerDisplay').textContent = state.dealer === MY_POS ? 'You' : (dealerSeat ? dealerSeat.name : '—');
   const bidderSeat = state.bidder >= 0 ? state.seats[state.bidder] : null;
   $('bidderDisplay').textContent = bidderSeat
-    ? (state.bidder === MY_POS ? 'You' : bidderSeat.name) + (state.highestBid > 0 ? ' (' + state.highestBid + ')' : '')
+    ? (state.bidder === MY_POS ? 'You' : bidderSeat.name) + (state.highestBid > 0 ? ' (' + (state.highestBid >= 29 ? 'THANI' : state.highestBid) + ')' : '')
     : '—';
   {
     const tp = $('teamPointsDisplay');
@@ -977,19 +1328,46 @@ function applyState(state) {
 
   const tr = $('trumpChip');
   if (state.trumpExposed) {
-    tr.textContent = '🎯 Trump: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit) + ' ACTIVE';
+    tr.textContent = '🎯 Trump: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit);
     tr.style.color = 'var(--accent)';
+    tr.classList.add('trump-active');
     if (!lastAnnouncedTrumpExposed) {
-      showToast('⚡ Trump exposed: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit) + '!', 'win', 2200);
+      // Same fix as the 4-player table: a brief, deliberate pause before
+      // the announcement rather than firing in the exact same instant
+      // the card lands, which effectively covered up the very card that
+      // just caused it with no moment to register what happened first.
+      const exposedSuitAtCall = state.trumpSuit;
+      setTimeout(() => {
+        showToast('⚡ Trump exposed: ' + exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall) + '!', 'win', 2200);
+        showGameEvent('⚡', 'Trump Exposed', exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall), '#a78bfa');
+      }, 550);
+      // Same table-wide pop/shake/glow reveal as the 4-player table - see the CSS comment
+      // next to .table-oval.trump-exposed for why this touches two elements at once.
+      const ovalEl = document.querySelector('.table-oval');
+      const railEl = document.querySelector('.six-oval-rail');
+      if (ovalEl && railEl) {
+        ovalEl.classList.remove('trump-exposed'); railEl.classList.remove('trump-exposed');
+        void ovalEl.offsetWidth; // force reflow so re-adding the class restarts the animation
+        ovalEl.classList.add('trump-exposed'); railEl.classList.add('trump-exposed');
+        setTimeout(() => { ovalEl.classList.remove('trump-exposed'); railEl.classList.remove('trump-exposed'); }, 5000);
+      }
     }
     lastAnnouncedTrumpExposed = true;
   } else {
     tr.textContent = '🎯 Trump: Hidden';
     tr.style.color = '';
+    tr.classList.remove('trump-active');
     lastAnnouncedTrumpExposed = false;
   }
 
-  renderSeats(state);
+  // Defensively isolated: renderSeats does a lot of per-seat DOM work (avatars, badges, the
+  // bidding call-bubbles), and this function runs BEFORE the round-end/game-over logic further
+  // down in this same applyState call, with nothing between them to catch a thrown error.
+  // Any uncaught exception in here would silently abort the rest of applyState too - including
+  // the code that actually shows the round summary and lets the game continue - which matches
+  // exactly the "stuck after a round" symptom reported. Whatever the precise cause turns out to
+  // be, a rendering glitch in one seat's avatar should never be able to freeze the whole table.
+  try { renderSeats(state); } catch (e) { console.error('[renderSeats] threw, table would have frozen here without this guard:', e); }
   if (state.round !== roundHistorySeenFor) {
     roundHistorySeenFor = state.round;
     roundTrickHistory = [];
@@ -1020,14 +1398,14 @@ function applyState(state) {
   // trick, leave the hand as it was too, and only refresh it once the
   // hold finishes and the circle catches up (see processNextSixpTrickReveal).
   if (!trickHoldBusy && sixpTrickRevealQueue.length === 0) renderHand(state);
-  updateTurnLabel(state);
+  try { updateTurnLabel(state); } catch (e) { console.error('[updateTurnLabel] threw:', e); }
   if ($('hostMenuOverlay').classList.contains('on') && $('hostMenuMainView').style.display !== 'none') renderHostMenuPlayerList();
 
   if (state.phase !== 'bidding1' && state.highestBid >= 20 && state.bidder >= 0 &&
       state.round !== lastAnnouncedHonorsRound) {
     lastAnnouncedHonorsRound = state.round;
     const bidderName = state.bidder === MY_POS ? 'You' : sixpRelLabel(state.bidder, state.seats);
-    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + state.highestBid, 'win', 3200);
+    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + (state.highestBid >= 29 ? 'THANI' : state.highestBid), 'win', 3200);
   }
   if (state.phase === 'bidding1' && state.currentPlayer === MY_POS) showBidPanel(state);
   else $('bidOverlay').classList.remove('on');
@@ -1051,6 +1429,15 @@ function applyState(state) {
 
   if (state.phase === 'roundEnd' && state.round !== lastRoundSeen) {
     lastRoundSeen = state.round;
+    // Same big event as index.html's identical hook -- fires exactly
+    // once per round-end, right alongside the existing lastRoundSeen
+    // guard above so it can't double-fire on a later re-render.
+    const rw = state.roundWinnerAnnounced;
+    if (rw) {
+      const bidderName = (state.seats && state.seats[rw.bidder]) ? state.seats[rw.bidder].name : 'The bidder';
+      if (rw.bidderWon) showGameEvent('🏆', 'Bid Made', bidderName + ' — ' + rw.highestBid, '#2ecc71');
+      else showGameEvent('💥', 'Bid Failed', bidderName + ' — ' + rw.highestBid, '#e74c3c');
+    }
     // The round can end right on the last trick, whose own 2s-hold +
     // fly-to-winner animation (~3.2s total) may still be playing. Wait for
     // it to actually finish instead of popping the round summary over it.
@@ -1148,11 +1535,11 @@ function detectQMarkChangesSix(state) {
 function showQMarkEventSix(names, direction) {
   const overlay = document.createElement('div');
   overlay.className = 'qmark-event-overlay ' + direction;
-  const title = direction === 'gained' ? '😭 QUNIQUE!' : '🎉 QUNIQUE SHED!';
+  const title = direction === 'gained' ? '😭 KUNUKKU!' : '🎉 KUNUKKU SHED!';
   const namesText = names.map(escapeHtml).join(', ');
   const subtitle = direction === 'gained'
-    ? `${namesText} ${names.length > 1 ? 'each get' : 'gets'} a Qunique — shut out!`
-    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Qunique!`;
+    ? `${namesText} ${names.length > 1 ? 'each get' : 'gets'} a Kunukku — shut out!`
+    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Kunukku!`;
   overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${direction === 'gained' ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
   document.body.appendChild(overlay);
   setTimeout(() => overlay.classList.add('leaving'), 2200);
@@ -1161,20 +1548,44 @@ function showQMarkEventSix(names, direction) {
 
 function renderSeats(state) {
   detectQMarkChangesSix(state);
+  const folded = state.foldedSeats || [];
   for (let pos = 0; pos < 6; pos++) {
     const slot = slotFor(pos);
     const seat = state.seats[pos];
     const av = $('av' + slot), nm = $('nm' + slot), cc = $('cc' + slot), wrap = $('seatWrap' + slot);
     if (!seat) { av.textContent = ''; nm.textContent = ''; cc.textContent = ''; wrap.style.opacity = '0.25'; continue; }
-    wrap.style.opacity = '1';
+    const isFolded = folded.includes(pos);
+    wrap.style.opacity = isFolded ? '0.4' : '1';
     const qCount = (state.qMarks && state.qMarks[seat.name]) || 0;
-    av.textContent = qCount > 0 ? '😭' : (seat.isBot ? '🤖' : (pos === MY_POS ? '😊' : '👤'));
+    // A human who picked one of the 20 hero portraits gets their own
+    // choice rendered here (with the matching _sad variant swapped in
+    // automatically by the .has-q CSS rule below on a Kunukku) --
+    // otherwise falls back to the simple emoji scheme this table
+    // already had. Folded (a Thani partner sitting out) always shows
+    // the "peeking away" face regardless, same as before.
+    if (isFolded) {
+      av.innerHTML = '🙈';
+      av.classList.remove('has-q');
+    } else if (seat.avatar) {
+      av.innerHTML = heroAvatarHtml(seat.avatar);
+      av.classList.toggle('has-q', qCount > 0);
+    } else if (seat.isBot) {
+      // Static portrait matched by name, same as the 4-player table --
+      // not the generic robot icon this used to fall back to.
+      const botMeta = ALL_BOT_AVATARS_6P.find(b => b.name === seat.name) || ALL_BOT_AVATARS_6P[pos % ALL_BOT_AVATARS_6P.length];
+      av.innerHTML = botMeta.emoji;
+      av.style.background = botMeta.bg;
+      av.classList.toggle('has-q', qCount > 0);
+    } else {
+      av.innerHTML = qCount > 0 ? '😭' : (pos === MY_POS ? '😊' : '👤');
+      av.classList.remove('has-q');
+    }
     nm.textContent = seat.name + (pos === MY_POS ? ' (You)' : '');
-    cc.textContent = seat.cardCount + 'c';
+    cc.textContent = isFolded ? 'Folded (Thani)' : (seat.cardCount + 'c');
     wrap.classList.toggle('on', state.currentPlayer === pos && (state.phase === 'bidding1' || state.phase === 'play' || state.phase === 'choosingTrump'));
     let badge = '';
     if (pos === state.dealer) badge = 'D';
-    if (pos === state.bidder && state.highestBid > 0) badge = 'B' + state.highestBid;
+    if (pos === state.bidder && state.highestBid > 0) badge = 'B' + (state.highestBid >= 29 ? 'THANI' : state.highestBid);
     let bdgEl = wrap.querySelector('.bdg');
     if (badge) {
       if (!bdgEl) { bdgEl = document.createElement('div'); bdgEl.className = 'bdg'; av.appendChild(bdgEl); }
@@ -1186,11 +1597,29 @@ function renderSeats(state) {
     // it. The avatar itself already swapped to a loser face above; this
     // badge spells out the actual count.
     let qEl = wrap.querySelector('.bdg-q');
-    if (qCount > 0) {
+    if (qCount > 0 && !isFolded) {
       if (!qEl) { qEl = document.createElement('div'); qEl.className = 'bdg-q'; av.appendChild(qEl); }
-      qEl.textContent = qCount + ' Qunique' + (qCount > 1 ? 's' : '');
-      qEl.title = qCount + ' Qunique — must personally call and win a bid to shed one';
+      qEl.textContent = qCount + ' Kunukku' + (qCount > 1 ? 's' : '');
+      qEl.title = qCount + ' Kunukku — must personally call and win a bid to shed one';
     } else if (qEl) { qEl.remove(); }
+
+    // The bidding "call" bubble above the avatar - what this seat actually said (Bid 17 /
+    // Pass / Bid Thani), left visible through the rest of the auction and trump selection so
+    // a player joining the conversation partway through (or who just looks away for a
+    // second) can still see what already happened, not just whoever is currently deciding.
+    // Derived straight from bidHistory (already sent to every client for the bid-history
+    // strip) rather than needing any new server-side state - the last entry for this seat is
+    // exactly what they last called, in order.
+    let callEl = wrap.querySelector('.call-badge');
+    const showCalls = state.phase === 'bidding1' || state.phase === 'choosingTrump';
+    const lastCall = showCalls && state.bidHistory ? [...state.bidHistory].reverse().find(h => h.pos === pos) : null;
+    if (lastCall && !isFolded) {
+      const isPass = lastCall.bid === 0;
+      const label = isPass ? 'Pass' : ('Bid ' + (lastCall.bid >= 29 ? 'Thani' : lastCall.bid));
+      if (!callEl) { callEl = document.createElement('div'); callEl.className = 'call-badge'; wrap.appendChild(callEl); }
+      if (callEl.dataset.v !== label) { callEl.dataset.v = label; callEl.textContent = label; }
+      callEl.classList.toggle('call-badge-pass', isPass);
+    } else if (callEl) { callEl.remove(); }
   }
 }
 
@@ -1467,6 +1896,19 @@ function renderHand(state) {
       <span class="cr" style="color:${cardColor(state.myHiddenTrumpCard.suit)}">${state.myHiddenTrumpCard.rank}</span>
       <span class="cs" style="color:${cardColor(state.myHiddenTrumpCard.suit)}">${suitIconSvg(state.myHiddenTrumpCard.suit, 'suit-icon-center')}</span>
     </div>`;
+    // Forced last card: the hand is empty and this hidden card is
+    // genuinely all that's left, so playing it isn't a real decision to
+    // weigh -- there's no alternative. Auto-play it rather than making
+    // the player find and tap this one specific card with nothing else
+    // on screen to compare it against. lastHiddenTrumpAutoFired6p guards
+    // against firing more than once for the same turn while waiting on
+    // the server's own follow-up state to arrive.
+    if (!lastHiddenTrumpAutoFired6p) {
+      lastHiddenTrumpAutoFired6p = true;
+      setTimeout(() => { playHiddenTrumpCard(); }, 400);
+    }
+  } else if (!(state.myHiddenTrumpCard && myTurn)) {
+    lastHiddenTrumpAutoFired6p = false;
   }
 
   // Can't follow suit and trump not exposed yet -> offer Call Trump.
@@ -1515,11 +1957,23 @@ $('btnCallTrumpNo').addEventListener('click', () => {
 
 function showBidPanel(state) {
   const isFirst = state.highestBid === 0 && state.passes === 0;
-  const minBid = state.highestBid > 0 ? state.highestBid + 1 : 16;
+  // Honors restriction: if it's genuinely your turn and your OWN
+  // partner already holds the current highest bid, the minimum you can
+  // call jumps to 20 (or higher, if the bid's already past 19) instead
+  // of the normal highestBid+1 -- same rule game-engine-6p.js's
+  // placeBid() actually enforces server-side. This UI previously never
+  // reflected that at all: it always offered every number down to
+  // highestBid+1, including ones the server would reject outright the
+  // instant they were tapped, which is exactly the confusing
+  // "why did my legal-looking tap just fail" bug reported.
+  const honorsRestricted = !isFirst && state.highestBid > 0 && (state.bidder % 2) === (MY_POS % 2);
+  const minBid = honorsRestricted ? Math.max(20, state.highestBid + 1) : (state.highestBid > 0 ? state.highestBid + 1 : 16);
   $('bidTitle').textContent = 'Place Your Bid';
   $('bidText').innerHTML = (state.highestBid > 0
     ? `Current highest: <b style="color:var(--accent)">${state.highestBid}</b> by ${sixpRelLabel(state.bidder, state.seats)}`
-    : 'You are the first bidder — must bid at least 16.') + sixpRenderBidHistory(state.bidHistory, state.seats);
+    : 'You are the first bidder — must bid at least 16.')
+    + (honorsRestricted ? `<br><span style="color:var(--accent)">Your partner is already highest — you can only call ${minBid} or above.</span>` : '')
+    + sixpRenderBidHistory(state.bidHistory, state.seats);
   const btns = $('bidButtons');
   btns.innerHTML = '';
   btns.className = 'bid-grid';
@@ -1538,6 +1992,18 @@ function showBidPanel(state) {
     btn.addEventListener('click', () => showBidConfirm(state, b, false));
     btns.appendChild(btn);
   }
+  // THANI -- the last, highest bid option, beating any numeric bid.
+  // Going it alone: both other teammates fold out of the round entirely
+  // (3-a-side teams here, so two fold, not just one), caller leads the
+  // first trick immediately, no trump at all, and needs to win every
+  // single trick (not points) to succeed. See callThani() in
+  // game-engine-6p.js for the full rule.
+  const thaniBtn = document.createElement('button');
+  thaniBtn.className = 'bid-btn';
+  thaniBtn.style.cssText = 'background:linear-gradient(135deg,#8b2020,#4a0f0f);border-color:#c94f4f';
+  thaniBtn.textContent = '🔥 THANI (Solo)';
+  thaniBtn.addEventListener('click', () => showBidConfirm(state, 'THANI', false));
+  btns.appendChild(thaniBtn);
   const mySeat = state.seats[MY_POS];
   const hand = (mySeat && mySeat.hand) || [];
   const sorted = hand.slice().sort((a, b) => SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit) || RANK_ORDER[b.rank] - RANK_ORDER[a.rank]);
@@ -1550,13 +2016,21 @@ function showBidPanel(state) {
 // registered, with real match points on the line.
 function showBidConfirm(state, bid, isPass) {
   const alreadyHighest = state.bidder === MY_POS;
-  $('bidTitle').textContent = isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Bid';
-  $('bidText').innerHTML = isPass
-    ? (alreadyHighest
-        ? `You'll <b>stay at your bid of ${state.highestBid}</b> — you're already the highest bidder, this just locks it in.`
-        : `You are about to <b>PASS</b>.<br>Current highest: <b style="color:var(--accent)">${state.highestBid}</b>`)
-    : `You are about to bid: <b style="color:var(--accent);font-size:1.8rem">${bid}</b>` +
-      (state.highestBid > 0 ? `<br>Raising from: <b>${state.highestBid}</b> by ${state.seats[state.bidder] ? state.seats[state.bidder].name : '—'}` : '');
+  const isThani = bid === 'THANI';
+  $('bidTitle').textContent = isThani ? 'Confirm THANI — Going Solo' : (isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Bid');
+  if (isThani) {
+    $('bidText').innerHTML = "You are about to call <b style='color:#e05555;font-size:1.6rem'>THANI</b> — going it completely alone.<br><br>" +
+      "<b>Both your teammates fold out of this round</b> — neither will play a single card. " +
+      "You'll lead the very first trick immediately, and you must win <b>every single trick</b> yourself to succeed — not points, tricks. No trump this round at all.<br><br>" +
+      "<b style='color:var(--success)'>+3</b> if you win everything. <b style='color:#e05555'>-4</b> if you lose even one trick.";
+  } else {
+    $('bidText').innerHTML = isPass
+      ? (alreadyHighest
+          ? `You'll <b>stay at your bid of ${state.highestBid}</b> — you're already the highest bidder, this just locks it in.`
+          : `You are about to <b>PASS</b>.<br>Current highest: <b style="color:var(--accent)">${state.highestBid}</b>`)
+      : `You are about to bid: <b style="color:var(--accent);font-size:1.8rem">${bid}</b>` +
+        (state.highestBid > 0 ? `<br>Raising from: <b>${state.highestBid}</b> by ${state.seats[state.bidder] ? state.seats[state.bidder].name : '—'}` : '');
+  }
   const btns = $('bidButtons');
   btns.innerHTML = '';
   btns.className = 'bid-grid';
@@ -1575,10 +2049,11 @@ function showBidConfirm(state, bid, isPass) {
   confirmBtn.style.background = 'var(--success, #2ecc71)';
   confirmBtn.style.color = '#0a1628';
   confirmBtn.style.fontWeight = '800';
-  confirmBtn.textContent = isPass ? (alreadyHighest ? `✓ Stay at ${state.highestBid}` : '✓ Confirm Pass') : `✓ Confirm Bid ${bid}`;
+  confirmBtn.textContent = isThani ? '🔥 Confirm THANI' : (isPass ? (alreadyHighest ? `✓ Stay at ${state.highestBid}` : '✓ Confirm Pass') : `✓ Confirm Bid ${bid}`);
   confirmBtn.addEventListener('click', () => {
     $('bidOverlay').classList.remove('on');
-    socket.emit('sixp_placeBid', { bid: isPass ? 0 : bid });
+    if (isThani) socket.emit('sixp_callThani');
+    else socket.emit('sixp_placeBid', { bid: isPass ? 0 : bid });
   });
   btns.appendChild(confirmBtn);
 }
@@ -1651,13 +2126,15 @@ function showRoundEnd(state) {
   $('roundEndTitle').textContent = myTeamWon ? '🎉 Your Team Won This Round!' : '😢 Your Team Lost This Round';
   $('roundEndTitle').style.color = myTeamWon ? 'var(--success)' : 'var(--danger)';
   const bidderName = state.seats[r.bidder] ? state.seats[r.bidder].name : ('Seat ' + r.bidder);
-  let body = `${bidderName} bid ${r.highestBid} — ${r.made ? 'made it' : 'fell short'}.<br>Team points: ${r.teamPoints[0]} - ${r.teamPoints[1]}<br><b style="color:${myTeamWon ? 'var(--success)' : 'var(--danger)'}">${myTeamWon ? '+' : '-'}${r.pts} match points for your team</b>`;
-  if (!IS_HOST) {
-    body += `<br><br><span style="color:var(--text-secondary);font-size:0.8rem">⏳ Waiting for the host to start the next round...</span>`;
-  }
+  let body = `${bidderName} bid ${r.thani ? 'THANI' : r.highestBid} — ${r.made ? 'made it' : 'fell short'}.<br>Team points: ${r.teamPoints[0]} - ${r.teamPoints[1]}<br><b style="color:${myTeamWon ? 'var(--success)' : 'var(--danger)'}">${myTeamWon ? '+' : '-'}${r.pts} match points for your team</b>`;
   $('roundEndBody').innerHTML = body;
-  $('btnContinueRound').style.display = IS_HOST ? 'flex' : 'none';
-  $('btnAckRoundEnd').style.display = IS_HOST ? 'none' : 'flex';
+  // Any seated player can trigger this now, not host-only -- see the
+  // matching server.js handler for the full reasoning. Everyone gets
+  // the same real "Continue" button now; the separate passive
+  // "acknowledge and wait for host" button isn't needed anymore, since
+  // there's no longer anything to actually wait for.
+  $('btnContinueRound').style.display = 'flex';
+  $('btnAckRoundEnd').style.display = 'none';
   const signalNote6p = $('partnerSignalSentNote6p');
   if (signalNote6p) signalNote6p.style.display = 'none';
   $('roundEndOverlay').classList.add('on');
@@ -1666,12 +2143,6 @@ $('btnContinueRound').addEventListener('click', () => {
   $('roundEndOverlay').classList.remove('on');
   socket.emit('sixp_continueRound');
 });
-// Non-host players can't actually advance the round themselves -- only
-// the host can do that server-side -- but they had nothing at all to
-// click before, just a passive wait message. This acknowledges they've
-// seen the result and dismisses their own view; if the host advances
-// the round in the meantime, the next state broadcast replaces this
-// screen for everyone regardless, so nothing is lost either way.
 $('btnAckRoundEnd').addEventListener('click', () => {
   $('roundEndOverlay').classList.remove('on');
 });
@@ -1709,12 +2180,18 @@ $('btnGameOverRestart').addEventListener('click', () => {
 
 window.addEventListener('DOMContentLoaded', () => {
   showScreen('welcomeScreen');
+  // The room list now shows directly on this screen (not just after
+  // clicking "Join Table"), so it needs to actually be populated the
+  // moment the page loads too, not only when that button gets clicked.
+  refreshRoomList();
 
   const inviteCode = new URLSearchParams(window.location.search).get('invite');
   if (inviteCode) {
     history.replaceState({}, '', window.location.pathname); // don't re-trigger on refresh
     pendingJoinCode = inviteCode.trim().toUpperCase();
     pendingAction = 'join';
+    const inviteBanner6p = $('inviteBanner6p');
+    if (inviteBanner6p) inviteBanner6p.classList.remove('hidden');
     showScreen('nameScreen');
     return; // skip auto-reconnect — they're here to join a specific friend's table
   }
@@ -1726,6 +2203,7 @@ window.addEventListener('DOMContentLoaded', () => {
   } catch (e) {}
   const RECENT_WINDOW_MS = 3 * 60 * 1000;
   if (tableId && MY_PLAYER_ID && sessionTime && (Date.now() - sessionTime) < RECENT_WINDOW_MS) {
+    isAutoReconnectAttempt6p = true;
     connectSocket();
     socket.emit('sixp_joinTable', { tableId, playerId: MY_PLAYER_ID });
   } else {
@@ -1838,7 +2316,7 @@ function addChatMessage(from, msg, isMine) {
   if (!container) return;
   const div = document.createElement('div');
   div.className = 'chat-msg ' + (isMine ? 'mine' : 'theirs');
-  div.innerHTML = '<div class="chat-from">' + (isMine ? 'You' : escapeHtml(from)) + '</div>' + escapeHtml(msg);
+  div.innerHTML = '<div class="chat-from">' + (isMine ? 'You' : escapeHtml(from)) + '</div>' + linkifyEscaped(escapeHtml(msg));
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
   if (!$('chatOverlay').classList.contains('on') && !isMine) {
@@ -1856,7 +2334,7 @@ function showComicChatPopup(from, msg) {
   document.querySelectorAll('.comic-chat-popup').forEach(el => el.remove());
   const el = document.createElement('div');
   el.className = 'comic-chat-popup';
-  el.innerHTML = '<div class="comic-from">' + escapeHtml(from) + '</div>' + escapeHtml(msg);
+  el.innerHTML = '<div class="comic-from">' + escapeHtml(from) + '</div>' + linkifyEscaped(escapeHtml(msg));
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3000);
 }
@@ -1938,11 +2416,15 @@ $('btnEarlyWinOk').addEventListener('click', () => {
   $('earlyWinOverlay').classList.remove('on');
 });
 
-// Quote button -- persistent, visible to everyone at the table during
-// play, but only genuinely clickable ("active") when it's this exact
-// viewer's turn and their team hasn't lost a trick yet this round. See
-// declareQuote() / _isQuoteEligibleFor() in game-engine-6p.js for the
-// authoritative rule -- this is purely a reflection of server state.
+// COT/MaruCOT button -- persistent, visible to everyone at the table
+// during play, but only genuinely clickable ("active") when it's this
+// exact viewer's turn and their team hasn't lost a trick yet this
+// round. See declareQuote() / _isQuoteEligibleFor() in
+// game-engine-6p.js for the authoritative rule -- this is purely a
+// reflection of server state. Whether it reads "COT" or "MaruCOT"
+// depends purely on whether MY OWN team is the bidding team or not --
+// same button, same underlying action, different label (and different
+// scoring) depending on which side is looking at it.
 function updateQuoteButton(state) {
   const btn = $('btnQuoteDeclare');
   if (!btn) return;
@@ -1951,67 +2433,62 @@ function updateQuoteButton(state) {
     return;
   }
   btn.style.display = '';
+  const myLabel = sixpGetTeam(MY_POS) === sixpGetTeam(state.bidder) ? 'COT' : 'MaruCOT';
   if (state.quoteState) {
     const onThatTeam = sixpGetTeam(MY_POS) === state.quoteState.team;
-    btn.textContent = onThatTeam ? '🎯 COT (yours!)' : '🎯 COT (active)';
+    btn.textContent = onThatTeam ? `🎯 ${myLabel} (yours!)` : `🎯 ${myLabel} (active)`;
     btn.classList.remove('quote-btn-active');
     btn.classList.add('quote-btn-disabled');
     return;
   }
-  btn.textContent = '🎯 COT';
+  btn.textContent = `🎯 ${myLabel}`;
   const iAmEligible = !!(state.quoteEligible && state.currentPlayer === MY_POS);
   btn.classList.toggle('quote-btn-active', iAmEligible);
   btn.classList.toggle('quote-btn-disabled', !iAmEligible);
 }
 $('btnQuoteDeclare').addEventListener('click', () => {
   if (!latestState || !latestState.quoteEligible || latestState.currentPlayer !== MY_POS) return;
-  if (!confirm('Declare COT?\n\nYour team hasn\'t lost a single trick yet this round. This bets on sweeping EVERY remaining trick: +2 if you win everything, -3 if you lose even one trick from here -- even if you\'ve already made your bid.')) return;
+  const isBidderTeam = sixpGetTeam(MY_POS) === sixpGetTeam(latestState.bidder);
+  const label = isBidderTeam ? 'COT' : 'MaruCOT';
+  const madePts = isBidderTeam ? 2 : 3;
+  const failPts = isBidderTeam ? 3 : 2;
+  if (!confirm(`Declare ${label}?\n\nYour team hasn't lost a single trick yet this round. This bets on sweeping EVERY remaining trick: +${madePts} if you win everything, -${failPts} if you lose even one trick from here -- even if you've already made your bid.`)) return;
   socket.emit('sixp_declareQuote');
 });
 
-// Quote declared -- a one-time announcement to the whole table, tracked
-// by team so it only fires once per declaration.
+// COT/MaruCOT declared -- a one-time, purely informational announcement
+// to the whole table, tracked by team so it only fires once per
+// declaration. Which word applies is decided by whether the declaring
+// team is the bidding team or not -- same underlying action either way,
+// just a different label and different scoring. No challenge option
+// anymore -- that entire mechanic was replaced outright with this
+// simpler two-label system.
 function handleQuoteDeclaredToast(state) {
   if (state.quoteState && lastShownQuoteDeclaredForTeam6p !== state.quoteState.team) {
     lastShownQuoteDeclaredForTeam6p = state.quoteState.team;
     const onThatTeam = sixpGetTeam(MY_POS) === state.quoteState.team;
-    showToast(`🎯 ${onThatTeam ? 'Your team' : 'The other team'} declared COT! +2 if they sweep everything, -3 if not.`, 'info', 4500);
+    const isBidderTeam = state.quoteState.team === sixpGetTeam(state.bidder);
+    const label = isBidderTeam ? 'COT' : 'MaruCOT';
+    const madePts = isBidderTeam ? 2 : 3;
+    const failPts = isBidderTeam ? 3 : 2;
+    showToast(`🎯 ${onThatTeam ? 'Your team' : 'The other team'} declared ${label}! +${madePts} if they sweep everything, -${failPts} if not.`, 'info', 4500);
   } else if (!state.quoteState) {
     lastShownQuoteDeclaredForTeam6p = null;
   }
 }
-
-// Maru COT: the moment a challenge window opens for MY team, prompt
-// immediately -- confirm() is blocking, which is fine here since the
-// window itself is meant to be answered right away, not left open.
-// lastMaruCotWindowHandled6p makes sure this only fires once per window
-// (not re-prompted on every subsequent state push while it's still
-// open), and resets the instant the window closes for any reason so a
-// FUTURE window (a later round) can prompt again correctly.
-function handleMaruCotChallenge(state) {
-  if (state.pendingMaruCotChallenge) {
-    if (sixpGetTeam(MY_POS) === state.pendingMaruCotChallenge.team && !lastMaruCotWindowHandled6p) {
-      lastMaruCotWindowHandled6p = true;
-      if (confirm('🔥 Maru COT?\n\nThe other team just declared COT. Challenge it right now, before their next card is played?\n\nIf you stop them (they fail to sweep everything): +4 for your team. If they still succeed anyway: -3 for your team.')) {
-        socket.emit('sixp_challengeMaruCot');
-      }
-    }
-  } else {
-    lastMaruCotWindowHandled6p = false;
-  }
-
-  if (state.maruCotState && lastShownMaruCotForTeam6p !== state.maruCotState.team) {
-    lastShownMaruCotForTeam6p = state.maruCotState.team;
-    const onThatTeam = sixpGetTeam(MY_POS) === state.maruCotState.team;
-    showToast(`🔥 ${onThatTeam ? 'Your team' : 'The other team'} called Maru COT! Stakes are now +3/-3 or -4/+4.`, 'info', 4500);
-  } else if (!state.maruCotState) {
-    lastShownMaruCotForTeam6p = null;
-  }
-}
+// Deliberately the branded custom domain, not window.location.origin --
+// see index.html's identical constant for the full reasoning.
+const BRAND_ORIGIN = 'https://28gulan.com';
 async function shareInviteLink() {
   if (!MY_TABLE_ID) { showToast('Join a table first', 'lose', 1500); return; }
-  const link = window.location.origin + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);
-  const text = `Join my 28 Kerala Gulan 6-player table! Room code: ${MY_TABLE_ID}`;
+  const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);
+  // Same fix as index.html's identical function -- see there for the
+  // full reasoning. createdAt comes from the server-tracked value now
+  // included in every state push (see sixpBroadcastTable in server.js).
+  const createdMs = (latestState && latestState.createdAt) || Date.now();
+  const createdTime = new Date(createdMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    + ' ' + new Date(createdMs).toLocaleDateString([], { year: '2-digit', month: 'numeric', day: 'numeric' });
+  const text = `🟢 Live now — created at ${createdTime}. Join 28 Kerala Gulan 6 Player table! Room code: ${MY_TABLE_ID}`;
   if (navigator.share) {
     try { await navigator.share({ title: '28 Kerala Gulan', text, url: link }); return; }
     catch (e) { /* cancelled the share sheet — fall through to copy */ }
@@ -2023,6 +2500,28 @@ async function shareInviteLink() {
     showToast(`Room code: ${MY_TABLE_ID} — share this with a friend`, 'info', 4000);
   }
 }
+// A second, plainer kind of invite -- not pointing at any specific
+// table (nothing exists yet at the moment this button is shown, right
+// on the name-entry screen before anyone's created or joined anything).
+// Just a share of this game's own landing page, so whoever opens it
+// lands on this exact same "enter your name" screen with both Create
+// and Join fully open to them -- as opposed to shareInviteLink() above,
+// which is for "come join the specific table I'm already sitting at."
+const inviteGeneric6pBtn = $('btnInviteGeneric6p');
+if (inviteGeneric6pBtn) inviteGeneric6pBtn.addEventListener('click', async () => {
+  const link = BRAND_ORIGIN + window.location.pathname;
+  const text = `Come play 28 Kerala Gulan (6 Player) with me!`;
+  if (navigator.share) {
+    try { await navigator.share({ title: '28 Kerala Gulan — 6 Player', text, url: link }); return; }
+    catch (e) { /* cancelled the share sheet — fall through to copy */ }
+  }
+  try {
+    await navigator.clipboard.writeText(link);
+    showToast('🔗 Invite link copied — send it to a friend!', 'win', 3000);
+  } catch (e) {
+    showToast(`Link: ${link}`, 'info', 4000);
+  }
+});
 $('btnCloseChat').addEventListener('click', closeChat);
 $('chatOverlay').addEventListener('click', function (e) { if (e.target === this) closeChat(); });
 $('btnSendChat').addEventListener('click', sendChat);
@@ -2171,3 +2670,19 @@ $('btnRestartConfirmOk').addEventListener('click', () => {
   });
   el.appendChild(frag);
 })();
+
+// Same fullscreen helper as the 4-player table (public/index.html's requestFullscreen28) -
+// duplicated here rather than shared via an import, since six.html/six.js don't share a
+// module system with index.html, but functionally identical: standard requestFullscreen with
+// the usual vendor prefixes, wrapped so a browser that doesn't support it (or silently
+// restricts it, like iOS Safari) just does nothing instead of throwing.
+function requestFullscreen28() {
+  try {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (fn) {
+      const result = fn.call(el);
+      if (result && result.catch) result.catch(() => {});
+    }
+  } catch (e) { /* not available here -- fine, just skip it */ }
+}

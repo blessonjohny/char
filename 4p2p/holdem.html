@@ -801,6 +801,21 @@ $('btnLeaveTable').addEventListener('click', () => {
   showScreen('landingScreen');
   socket.emit('poker_listRooms');
 });
+
+// Keeps the screen from timing out/locking while this page is open --
+// see six.js's identical implementation for the full reasoning. Not
+// supported on every browser -- fails silently and harmlessly if so.
+let screenWakeLock = null;
+async function requestScreenWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    screenWakeLock = await navigator.wakeLock.request('screen');
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') requestScreenWakeLock();
+});
+requestScreenWakeLock();
 </script>
 </body>
 </html>

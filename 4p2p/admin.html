@@ -52,6 +52,7 @@
       <button class="tab on" id="tabComments">💌 Comments</button>
       <button class="tab" id="tabLive">🟢 Live Players</button>
       <button class="tab" id="tabVisitors">📊 Visitor Log</button>
+      <button class="tab" id="tabHistory">📅 Table History</button>
     </div>
     <div id="commentsView">
       <div class="toolbar">
@@ -78,6 +79,13 @@
         <button class="tab" data-filter="all">All Time</button>
       </div>
       <div id="visitorList"></div>
+    </div>
+    <div id="historyView" style="display:none">
+      <div class="toolbar">
+        <span class="sub" id="historyCount" style="margin:0;align-self:center">—</span>
+        <button class="btn ghost" id="btnRefreshHistory">🔄 Refresh</button>
+      </div>
+      <div id="historyList"></div>
     </div>
   </div>
 </div>
@@ -173,9 +181,11 @@ function switchTab(tab) {
   document.getElementById('tabComments').classList.toggle('on', tab === 'comments');
   document.getElementById('tabLive').classList.toggle('on', tab === 'live');
   document.getElementById('tabVisitors').classList.toggle('on', tab === 'visitors');
+  document.getElementById('tabHistory').classList.toggle('on', tab === 'history');
   document.getElementById('commentsView').style.display = tab === 'comments' ? 'block' : 'none';
   document.getElementById('liveView').style.display = tab === 'live' ? 'block' : 'none';
   document.getElementById('visitorsView').style.display = tab === 'visitors' ? 'block' : 'none';
+  document.getElementById('historyView').style.display = tab === 'history' ? 'block' : 'none';
   if (tab === 'live') {
     refreshLivePlayers();
     if (!liveRefreshInterval) liveRefreshInterval = setInterval(refreshLivePlayers, 5000);
@@ -184,37 +194,39 @@ function switchTab(tab) {
     liveRefreshInterval = null;
   }
   if (tab === 'visitors') refreshVisitorLog();
+  if (tab === 'history') refreshTableHistory();
 }
 
 async function refreshLivePlayers() {
-  const res = await adminFetch('/api/live-players');
+  const res = await adminFetch('/api/all-tables');
   if (!res.ok) return;
   const data = await res.json();
-  renderLivePlayers(data.players || []);
+  renderLivePlayers(data.tables || []);
 }
 
-function renderLivePlayers(players) {
+function renderLivePlayers(tablesList) {
   const el = document.getElementById('liveList');
   const countEl = document.getElementById('liveCount');
-  const connectedCount = players.filter(p => p.connected).length;
-  countEl.textContent = `${connectedCount} connected · ${players.length} seated`;
-  if (!players.length) { el.innerHTML = '<div class="empty">Nobody seated at any table right now.</div>'; return; }
-  // De-duplicate to one row per table (players array is per-seat) so the
-  // close button appears once per table, not once per person at it.
-  const byTable = new Map();
-  for (const p of players) {
-    if (!byTable.has(p.tableId)) byTable.set(p.tableId, { game: p.game, tableId: p.tableId, people: [] });
-    byTable.get(p.tableId).people.push(p);
-  }
-  el.innerHTML = Array.from(byTable.values()).map(t => `
+  const playingCount = tablesList.filter(t => t.isPlaying).length;
+  const lobbyCount = tablesList.length - playingCount;
+  countEl.textContent = `${tablesList.length} table${tablesList.length === 1 ? '' : 's'} · ${playingCount} playing · ${lobbyCount} in lobby`;
+  if (!tablesList.length) { el.innerHTML = '<div class="empty">No tables running right now.</div>'; return; }
+  const now = Date.now();
+  el.innerHTML = tablesList.map(t => {
+    const openFor = t.createdAt ? fmtDuration(now - t.createdAt) : '—';
+    const idleFor = t.lastActivityAt ? fmtDuration(now - t.lastActivityAt) : '—';
+    return `
     <div class="live-card" style="flex-direction:column;align-items:stretch;gap:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <span class="game-badge">${esc(t.game)} · table ${esc(t.tableId)}</span>
-        <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem" onclick="closeTable('${esc(t.tableId)}')">✕ Close table</button>
+        <span style="font-size:0.68rem;padding:2px 8px;border-radius:10px;white-space:nowrap;background:${t.isPlaying ? 'rgba(46,204,113,0.18)' : 'rgba(244,196,48,0.18)'};color:${t.isPlaying ? '#2ecc71' : '#f4c430'}">${t.isPlaying ? '🎮 Playing' : '🟢 In Lobby'}</span>
+        <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="closeTable('${esc(t.tableId)}')">✕ Close table</button>
       </div>
-      ${t.people.map(p => `<div class="who" style="font-size:0.8rem">${esc(p.name)}${p.connected ? '' : ' (disconnected)'} — 📍 ${esc(p.location)}</div>`).join('')}
+      <div class="who" style="font-size:0.8rem">${esc(t.summary)}</div>
+      <div class="who" style="font-size:0.7rem;opacity:0.75">🕐 Open ${openFor} · 💤 Idle ${idleFor}</div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 async function closeTable(tableId) {
@@ -229,10 +241,68 @@ async function closeTable(tableId) {
   else alert('Could not close that table: ' + (data.error || 'unknown error'));
 }
 
+// ---------------- Table history (daily counts + per-table durations, past 30 days) ----------------
+async function refreshTableHistory() {
+  const res = await adminFetch('/api/table-history');
+  if (!res.ok) return;
+  const data = await res.json();
+  renderTableHistory(data.days || []);
+}
+
+function renderTableHistory(days) {
+  const el = document.getElementById('historyList');
+  const countEl = document.getElementById('historyCount');
+  const totalTables = days.reduce((sum, d) => sum + d.count, 0);
+  const totalMs = days.reduce((sum, d) => sum + d.totalDurationMs, 0);
+  countEl.textContent = `${totalTables} table${totalTables === 1 ? '' : 's'} over the past 30 days · ${fmtDuration(totalMs)} total`;
+  const daysWithTables = days.filter(d => d.count > 0);
+  if (!daysWithTables.length) { el.innerHTML = '<div class="empty">No tables have closed in the past 30 days.</div>'; return; }
+  // Every day still renders (even 0-table ones get a quiet, collapsed-
+  // looking row) so a genuinely quiet day is visibly a zero, not just
+  // silently missing from the list. Each day starts collapsed except the
+  // very first (today) -- expanding one shows every individual table
+  // that closed that day with its own exact duration, matching what was
+  // actually asked for: not just a daily count, but each table's own
+  // open time too.
+  el.innerHTML = days.map((d, i) => {
+    const dateLabel = new Date(d.date + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    const tableRows = d.tables.map(t => {
+      const humanRows = (t.seatedHumans || []).map(h => `
+        <div style="font-size:0.7rem;opacity:0.8;padding:1px 0 1px 14px">
+          👤 ${esc(h.name)} — 📍 ${esc(h.location || '?')} (${esc(h.ip || '?')})
+        </div>
+      `).join('');
+      return `
+      <div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <div class="who" style="font-size:0.78rem;display:flex;justify-content:space-between;gap:8px">
+          <span>${esc(t.game)} · ${esc(t.tableId)} <span style="opacity:0.6">(${esc(t.closeReason)})</span></span>
+          <span style="white-space:nowrap">${esc(fmtDuration(t.durationMs))}</span>
+        </div>
+        <div style="font-size:0.68rem;opacity:0.6">
+          🕐 ${esc(fmtTime(t.createdAt))} → ${esc(fmtTime(t.closedAt))}
+        </div>
+        ${humanRows}
+      </div>
+    `;
+    }).join('');
+    return `
+    <details class="live-card" style="display:block;padding:10px 14px" ${i === 0 && d.count > 0 ? 'open' : ''}>
+      <summary style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;list-style:none">
+        <span class="game-badge">${esc(dateLabel)}</span>
+        <span style="font-size:0.78rem;opacity:0.85">${d.count} table${d.count === 1 ? '' : 's'} · ${esc(fmtDuration(d.totalDurationMs))}</span>
+      </summary>
+      ${d.count > 0 ? `<div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px">${tableRows}</div>` : ''}
+    </details>
+  `;
+  }).join('');
+}
+
 document.getElementById('tabComments').addEventListener('click', () => switchTab('comments'));
 document.getElementById('tabLive').addEventListener('click', () => switchTab('live'));
 document.getElementById('tabVisitors').addEventListener('click', () => switchTab('visitors'));
+document.getElementById('tabHistory').addEventListener('click', () => switchTab('history'));
 document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
+document.getElementById('btnRefreshHistory').addEventListener('click', refreshTableHistory);
 
 // ---------------- Visitor log (everyone who's ever visited, with location and time) ----------------
 let visitorFilter = 'today';

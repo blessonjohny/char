@@ -406,6 +406,20 @@
       chatBtn.style.top = 'auto';
       chatBtn.style.bottom = bottomOffset + 'px';
     }
+    // COT ("declare COT") sits just to the left of the chat button and had its own static
+    // bottom:150px in the HTML, never touched by this function - which is exactly why it
+    // could drift out of alignment with chat on any device where chat's real (dynamic)
+    // clearance off the hand-of-cards ends up landing somewhere other than 150px. Tying it
+    // to the same bottomOffset chat just got keeps them level on every screen, not just the
+    // ones where 150px happened to line up by coincidence.
+    const cotBtn = document.getElementById('btnQuoteDeclare');
+    if (cotBtn) {
+      cotBtn.style.position = 'fixed';
+      cotBtn.style.right = (rightEdge + 40) + 'px';
+      cotBtn.style.left = 'auto';
+      cotBtn.style.top = 'auto';
+      cotBtn.style.bottom = bottomOffset + 'px';
+    }
   }
   window.addEventListener('resize', positionButtons);
 
