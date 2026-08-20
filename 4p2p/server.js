@@ -2132,6 +2132,68 @@ io.on('connection', (socket) => {
     });
   });
 
+  // A 3-second, vetoable version of the two handlers above. The host's tap doesn't restart
+  // anything immediately anymore - it broadcasts a "New Round" notice to every connected
+  // real player at the table (bots can't and don't need to respond) and starts a 3s window.
+  // Any other real, connected seated player can veto during that window by emitting
+  // vetoRestart, which cancels it outright. If nobody does, it proceeds exactly like the
+  // direct handlers above once the window closes. If the host is alone with only bots, there's
+  // nobody who *could* veto, so it just quietly restarts once the 3s notice has run its course
+  // - same end result as an instant restart, just with the same brief courtesy notice always
+  // shown rather than special-casing "am I alone" to skip it.
+  function beginVetoableRestart(t, kind) {
+    if (t.pendingRestart) return; // one already in flight - a second tap does nothing new
+    t.pendingRestart = { kind, vetoed: false };
+    for (const [socketId] of t.sockets) {
+      const sock = io.sockets.sockets.get(socketId);
+      if (sock) sock.emit('restartPending', { kind, seconds: 3 });
+    }
+    t.pendingRestart.timer = setTimeout(() => {
+      if (!t.pendingRestart || t.pendingRestart.vetoed) return;
+      t.pendingRestart = null;
+      if (kind === 'game') t.engine.restartGame(); else t.engine.restartRound();
+      touch(t);
+      broadcastTable(t);
+      for (const [socketId] of t.sockets) {
+        const sock = io.sockets.sockets.get(socketId);
+        if (sock) sock.emit('restartProceeded', { kind });
+      }
+      console.log(`[table ${tableId}] vetoable ${kind} restart proceeded (no veto)`);
+    }, 3000);
+  }
+
+  socket.on('requestRestartGame', () => {
+    withTable((t, pos) => {
+      if (!isEffectiveHost(t, playerId)) return;
+      if (t.engine.phase === 'lobby') return;
+      beginVetoableRestart(t, 'game');
+    });
+  });
+
+  socket.on('requestRestartRound', () => {
+    withTable((t, pos) => {
+      if (!isEffectiveHost(t, playerId)) return;
+      if (t.engine.phase === 'lobby') return;
+      beginVetoableRestart(t, 'round');
+    });
+  });
+
+  socket.on('vetoRestart', () => {
+    withTable((t, pos) => {
+      if (!t.pendingRestart || t.pendingRestart.vetoed) return;
+      const seat = t.engine.seats[pos];
+      if (!seat || seat.isBot) return; // only a real seated player's own veto counts
+      t.pendingRestart.vetoed = true;
+      clearTimeout(t.pendingRestart.timer);
+      t.pendingRestart = null;
+      console.log(`[table ${tableId}] restart vetoed by ${seat.name}`);
+      for (const [socketId] of t.sockets) {
+        const sock = io.sockets.sockets.get(socketId);
+        if (sock) sock.emit('restartCancelled', { byName: seat.name });
+      }
+    });
+  });
+
   socket.on('kickPlayer', ({ pos }) => {
     withTable((t, myPos) => {
       if (!isEffectiveHost(t, playerId)) return;
