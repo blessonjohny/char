@@ -413,6 +413,7 @@ class GameEngine {
     this.trumpExposed = false;
     this.roundVoidMessage = null;
     this.hiddenTrump = null; // {suit, rank, points}
+    this.revealedTrumpCard = null; // {rank, suit} -- set once, publicly, the moment trump is exposed; unlike hiddenTrump this is never cleared again until the next round resets it here
     this.hiddenTrumpOwner = -1; // who physically hid it — NOT necessarily this.bidder, since a phase-2 raise can change the bidder while the original chooser still holds the hidden card
     this.mustPlayTrumpBy = -1; // seat that just ASKED for trump to be opened (callTrump) — Kerala rule: having asked, they must play a trump card this trick if they hold one
     this.trickCards = []; // [{pos, card}]
@@ -1246,6 +1247,11 @@ class GameEngine {
     if (pos !== this.currentPlayer || pos !== this.hiddenTrumpOwner) return { ok: false, reason: 'not_your_turn' };
     if (!this.hiddenTrump) return { ok: false, reason: 'no_hidden_card' };
     const card = this.hiddenTrump;
+    // Captured here too, same reasoning as inside exposeTrump() itself
+    // -- this path clears hiddenTrump BEFORE calling exposeTrump() below,
+    // so that function's own capture would never fire for this specific
+    // path (the card being played directly rather than just revealed).
+    this.revealedTrumpCard = { rank: card.rank, suit: card.suit };
     this.hiddenTrump = null;
     this.hiddenTrumpOwner = -1;
     if (this.mustPlayTrumpBy === pos) this.mustPlayTrumpBy = -1;
@@ -1270,6 +1276,16 @@ class GameEngine {
     // which may have changed to a different seat via a phase-2 raise while
     // the original chooser is still the one physically missing a card.
     if (this.hiddenTrump && this.hiddenTrumpOwner >= 0 && this.seats[this.hiddenTrumpOwner]) {
+      // Per explicit instruction, the exact card is now public knowledge
+      // the moment it's exposed, not just its suit -- captured here
+      // BEFORE hiddenTrump gets cleared below, since the card itself
+      // goes back into the owner's private hand and would otherwise
+      // have no public record of which specific card it was at all.
+      // Deliberately a separate field from hiddenTrump (which stays
+      // cleared/private as before) rather than reusing it, so this
+      // doesn't accidentally leak into any of hiddenTrump's other,
+      // legitimately-private uses elsewhere in this file.
+      this.revealedTrumpCard = { rank: this.hiddenTrump.rank, suit: this.hiddenTrump.suit };
       this.seats[this.hiddenTrumpOwner].hand.push(this.hiddenTrump);
       this.hiddenTrump = null;
       this.hiddenTrumpOwner = -1;
@@ -2781,6 +2797,7 @@ class GameEngine {
       reshuffleReason: this.reshuffleReason || null,
       mustPlayTrump: this.mustPlayTrumpBy === viewerPos, // viewer just asked for the reveal and owes a trump card this trick if holding one
       hasHiddenTrump: !!this.hiddenTrump,
+      revealedTrumpCard: this.revealedTrumpCard,
       myHiddenTrumpCard: (this.hiddenTrump && viewerPos === this.hiddenTrumpOwner) ? this.hiddenTrump : null,
       trickCards: this.trickCards,
       trickSuit: this.trickSuit,

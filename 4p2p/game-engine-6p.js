@@ -150,6 +150,7 @@ class GameEngine6P {
     this.trumpExposed = false;
     this.roundVoidMessage = null;
     this.hiddenTrump = null;
+    this.revealedTrumpCard = null; // {rank, suit} -- public once exposed, unlike hiddenTrump; see exposeTrump()
     this.hiddenTrumpOwner = -1;
     this.mustPlayTrumpBy = -1;
     this.trickCards = [];
@@ -650,6 +651,10 @@ class GameEngine6P {
     if (pos !== this.currentPlayer || pos !== this.hiddenTrumpOwner) return { ok: false, reason: 'not_your_turn' };
     if (!this.hiddenTrump) return { ok: false, reason: 'no_hidden_card' };
     const card = this.hiddenTrump;
+    // Same capture-before-clear fix as game-engine.js's identical path
+    // -- exposeTrump() below has no visibility into the card once
+    // hiddenTrump is cleared, since this path clears it first.
+    this.revealedTrumpCard = { rank: card.rank, suit: card.suit };
     this.hiddenTrump = null; this.hiddenTrumpOwner = -1;
     if (this.mustPlayTrumpBy === pos) this.mustPlayTrumpBy = -1;
     if (!this.trumpExposed) this.exposeTrump();
@@ -665,6 +670,9 @@ class GameEngine6P {
     this.trumpExposed = true;
     this.addLog(`Trump exposed: ${this.trumpSuit}!`);
     if (this.hiddenTrump && this.hiddenTrumpOwner >= 0 && this.seats[this.hiddenTrumpOwner]) {
+      // Same public-record capture as game-engine.js's identical
+      // function -- see there for the full reasoning.
+      this.revealedTrumpCard = { rank: this.hiddenTrump.rank, suit: this.hiddenTrump.suit };
       this.seats[this.hiddenTrumpOwner].hand.push(this.hiddenTrump);
       this.hiddenTrump = null;
       this.hiddenTrumpOwner = -1;
@@ -1477,6 +1485,7 @@ class GameEngine6P {
       roundVoidMessage: this.roundVoidMessage,
       mustPlayTrump: this.mustPlayTrumpBy === viewerPos,
       hasHiddenTrump: !!this.hiddenTrump,
+      revealedTrumpCard: this.revealedTrumpCard,
       myHiddenTrumpCard: (this.hiddenTrump && this.hiddenTrumpOwner === viewerPos) ? this.hiddenTrump : null,
       trickCards: this.trickCards,
       trickSuit: this.trickSuit,
