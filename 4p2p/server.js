@@ -1532,6 +1532,7 @@ function broadcastTable(t) {
     // removes the stale registration; braces: this id lets the client
     // drop anything that still slips through.
     state.tableId = t.id;
+    state.createdAt = t.createdAt || null;
     sock.emit('state', state);
   }
   if (t.spectators) {
@@ -2570,6 +2571,7 @@ function sixpBroadcastTable(t) {
     const state = t.engine.stateFor(info.pos);
     state.isHost = isEffectiveHost(t, info.playerId);
     state.tableId = t.id; // lets the client reject strays from an old table
+    state.createdAt = t.createdAt || null;
     sock.emit('sixp_state', state);
   }
   io.emit('sixp_roomList', sixpPublicTableList());
@@ -3127,7 +3129,10 @@ function l56Broadcast(code) {
   // still need a fresh updatedAt, or the client's own "is this actually
   // a new state?" dedup check in pollLoop() will silently ignore the
   // push since the timestamp looks unchanged.
-  if (r.state) r.state.updatedAt = Date.now();
+  if (r.state) {
+    r.state.updatedAt = Date.now();
+    r.state.createdAt = r.createdAt || null;
+  }
   io.to(l56SocketRoom(code)).emit('sync56_state', { room: code, state: r.state });
   io.emit('l56_roomList', l56PublicList());
 }
