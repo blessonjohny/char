@@ -337,7 +337,7 @@ class GameEngine {
     // exact rule, including the first-hand-of-a-new-championship
     // exception where a successful bidder's partner can shed one too.
     this.qMarks = {};
-    // Cumulative running total of Qunique marks ever acquired, per
+    // Cumulative running total of Kunukku marks ever acquired, per
     // player, for this table's whole lifetime - unlike qMarks above,
     // this NEVER decreases when a Q gets shed by winning a bid. Only
     // resets on a genuine new game (constructor or restartGame()), not
