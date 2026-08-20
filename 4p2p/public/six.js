@@ -2436,7 +2436,7 @@ const BRAND_ORIGIN = 'https://28gulan.com';
 async function shareInviteLink() {
   if (!MY_TABLE_ID) { showToast('Join a table first', 'lose', 1500); return; }
   const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);
-  const text = `Join my 28 Kerala Gulan 6-player table! Room code: ${MY_TABLE_ID}`;
+  const text = `🟢 Live now — Join my 28 Kerala Gulan 6 Player table! Room code: ${MY_TABLE_ID}`;
   if (navigator.share) {
     try { await navigator.share({ title: '28 Kerala Gulan', text, url: link }); return; }
     catch (e) { /* cancelled the share sheet — fall through to copy */ }

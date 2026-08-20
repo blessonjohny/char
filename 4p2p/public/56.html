@@ -1575,7 +1575,7 @@ const BRAND_ORIGIN = 'https://28gulan.com';
 async function shareInviteLink56(){
   if(!roomCode){ showToast('Join a table first'); return; }
   const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(roomCode);
-  const text = `Join my 56 table! Room code: ${roomCode}`;
+  const text = `🟢 Live now — Join my 56 (6 Player) table! Room code: ${roomCode}`;
   if(navigator.share){
     try{ await navigator.share({title: '56 — The Kerala Card Game', text, url: link}); return; }
     catch(e){ /* cancelled the share sheet -- fall through to copy */ }
