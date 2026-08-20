@@ -1253,6 +1253,23 @@ function ensureSyncSocket(){
     location.reload();
   });
 
+  // The 5-second vetoable kick -- same event names/pattern as the
+  // other two tables (server.js emits these unprefixed everywhere),
+  // just this table's own l56_vetoKick emit needs the room code too.
+  syncSocket.on('kickPending', (info) => showKickNotice(info));
+  syncSocket.on('kickVetoedSelf', () => {
+    hideKickNotice();
+    showToast("😅 Phew — you're staying at the table!", 2500);
+  });
+  syncSocket.on('kickVetoedByTarget', ({ name }) => {
+    hideKickNotice();
+    showToast(`✋ ${name} said no — they're staying.`, 3000);
+  });
+  syncSocket.on('kickProceeded', ({ targetName }) => {
+    hideKickNotice();
+    showToast(`🚪 ${targetName} has been removed from the table.`, 3000);
+  });
+
   syncSocket.on('l56_tableClosed', ({reason}) => {
     const msgs = {
       idle: "This table closed because nobody was active for a while.",
@@ -1481,6 +1498,53 @@ function showToast(msg, ms){
   el.textContent = msg;
   host.appendChild(el);
   setTimeout(() => el.remove(), ms || 2500);
+}
+
+// The 5-second vetoable kick popup -- see index.html's identical
+// implementation for the full reasoning. Two different messages
+// depending on which side of the kick you're on: the target gets the
+// reject button, the admin who initiated it gets their own countdown.
+let kickNoticeCountdownTimer = null;
+function showKickNotice(info) {
+  let el = document.getElementById('kickNoticeToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'kickNoticeToast';
+    el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3000;background:rgba(20,20,30,0.97);border:2px solid #e74c3c;border-radius:16px;padding:22px 26px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.6);min-width:240px;max-width:88vw';
+    document.body.appendChild(el);
+  }
+  let remaining = info.seconds || 5;
+  const render = () => {
+    if (info.isInitiator) {
+      el.innerHTML = `
+        <div style="font-size:1.2rem;font-weight:800;color:#e74c3c;margin-bottom:6px">🚪 Kicking ${escapeHtml(info.targetName)}…</div>
+        <div style="font-size:0.85rem;color:#ccc">They have ${remaining}s to fight back before it's final.</div>
+      `;
+    } else {
+      el.innerHTML = `
+        <div style="font-size:1.3rem;font-weight:800;color:#e74c3c;margin-bottom:6px">🚪 You've been kicked!</div>
+        <div style="font-size:0.85rem;color:#ccc;margin-bottom:14px">Gone in ${remaining}s unless you fight back right now…</div>
+        <button id="kickNoticeVetoBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">🙅 No way, I'm playing!</button>
+      `;
+      document.getElementById('kickNoticeVetoBtn').onclick = () => {
+        syncSocket.emit('l56_vetoKick', { code: roomCode });
+        hideKickNotice();
+      };
+    }
+  };
+  render();
+  el.style.display = 'block';
+  clearInterval(kickNoticeCountdownTimer);
+  kickNoticeCountdownTimer = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) { clearInterval(kickNoticeCountdownTimer); return; }
+    render();
+  }, 1000);
+}
+function hideKickNotice() {
+  clearInterval(kickNoticeCountdownTimer);
+  const el = document.getElementById('kickNoticeToast');
+  if (el) el.style.display = 'none';
 }
 
 // ---------------- Invite links (ported from six.html) ----------------

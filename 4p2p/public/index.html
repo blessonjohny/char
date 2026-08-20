@@ -13840,6 +13840,28 @@ gameSocket.on('chooseSeat', (info) => {
     leaveServerTable();
   });
 
+  // The 5-second vetoable kick, mirroring the restart-veto pattern
+  // exactly (see beginVetoableRestart / showRestartNotice) but
+  // targeted: only the actual kicked player themselves can veto their
+  // own kick, and both sides -- the target deciding, and the admin who
+  // initiated it -- get their own live-countdown popup rather than one
+  // of them just staring at silence while they wait.
+  gameSocket.on('kickPending', (info) => {
+    showKickNotice(info);
+  });
+  gameSocket.on('kickVetoedSelf', () => {
+    hideKickNotice();
+    showToast("😅 Phew — you're staying at the table!", 'win', 2500);
+  });
+  gameSocket.on('kickVetoedByTarget', ({ name }) => {
+    hideKickNotice();
+    showToast(`✋ ${name} said no — they're staying.`, 'info', 3000);
+  });
+  gameSocket.on('kickProceeded', ({ targetName }) => {
+    hideKickNotice();
+    showToast(`🚪 ${targetName} has been removed from the table.`, 'info', 3000);
+  });
+
   gameSocket.on('playerJoinedNotice', ({ name }) => {
     showPlayerJoinedNotice(name);
   });
@@ -13900,6 +13922,55 @@ function hideRestartNotice(cancelMessage) {
   const el = document.getElementById('restartNoticeToast');
   if (el) el.style.display = 'none';
   if (cancelMessage) showToast(cancelMessage, 'info', 2500);
+}
+
+// The 5-second vetoable kick popup - same exact structure as the restart notice above
+// (deliberately, not reinvented), but with two different messages depending on which
+// side of the kick you're actually on: the target gets the reject button and a playful,
+// human moment rather than a dry "you have been kicked" message with no recourse at all;
+// the admin who initiated it gets their own live countdown too, instead of silence while
+// they wait to find out what happens.
+let kickNoticeCountdownTimer = null;
+function showKickNotice(info) {
+  let el = document.getElementById('kickNoticeToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'kickNoticeToast';
+    el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3000;background:rgba(20,20,30,0.97);border:2px solid #e74c3c;border-radius:16px;padding:22px 26px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.6);min-width:240px;max-width:88vw';
+    document.body.appendChild(el);
+  }
+  let remaining = info.seconds || 5;
+  const render = () => {
+    if (info.isInitiator) {
+      el.innerHTML = `
+        <div style="font-size:1.2rem;font-weight:800;color:#e74c3c;margin-bottom:6px">🚪 Kicking ${escapeHtml(info.targetName)}…</div>
+        <div style="font-size:0.85rem;color:#ccc">They have ${remaining}s to fight back before it's final.</div>
+      `;
+    } else {
+      el.innerHTML = `
+        <div style="font-size:1.3rem;font-weight:800;color:#e74c3c;margin-bottom:6px">🚪 You've been kicked!</div>
+        <div style="font-size:0.85rem;color:#ccc;margin-bottom:14px">Gone in ${remaining}s unless you fight back right now…</div>
+        <button id="kickNoticeVetoBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">🙅 No way, I'm playing!</button>
+      `;
+      document.getElementById('kickNoticeVetoBtn').onclick = () => {
+        gameSocket.emit('vetoKick');
+        hideKickNotice();
+      };
+    }
+  };
+  render();
+  el.style.display = 'block';
+  clearInterval(kickNoticeCountdownTimer);
+  kickNoticeCountdownTimer = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) { clearInterval(kickNoticeCountdownTimer); return; }
+    render();
+  }, 1000);
+}
+function hideKickNotice() {
+  clearInterval(kickNoticeCountdownTimer);
+  const el = document.getElementById('kickNoticeToast');
+  if (el) el.style.display = 'none';
 }
 
   gameSocket.on('state', (state) => {

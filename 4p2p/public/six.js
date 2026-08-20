@@ -741,6 +741,53 @@ function showToast(msg, kind, ms) {
   setTimeout(() => el.remove(), ms || 2000);
 }
 
+// The 5-second vetoable kick popup -- see index.html's identical
+// implementation for the full reasoning. Two different messages
+// depending on which side of the kick you're on: the target gets the
+// reject button, the admin who initiated it gets their own countdown.
+let kickNoticeCountdownTimer = null;
+function showKickNotice(info) {
+  let el = document.getElementById('kickNoticeToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'kickNoticeToast';
+    el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3000;background:rgba(20,20,30,0.97);border:2px solid #e74c3c;border-radius:16px;padding:22px 26px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.6);min-width:240px;max-width:88vw';
+    document.body.appendChild(el);
+  }
+  let remaining = info.seconds || 5;
+  const render = () => {
+    if (info.isInitiator) {
+      el.innerHTML = `
+        <div style="font-size:1.2rem;font-weight:800;color:#e74c3c;margin-bottom:6px">🚪 Kicking ${escapeHtml(info.targetName)}…</div>
+        <div style="font-size:0.85rem;color:#ccc">They have ${remaining}s to fight back before it's final.</div>
+      `;
+    } else {
+      el.innerHTML = `
+        <div style="font-size:1.3rem;font-weight:800;color:#e74c3c;margin-bottom:6px">🚪 You've been kicked!</div>
+        <div style="font-size:0.85rem;color:#ccc;margin-bottom:14px">Gone in ${remaining}s unless you fight back right now…</div>
+        <button id="kickNoticeVetoBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">🙅 No way, I'm playing!</button>
+      `;
+      document.getElementById('kickNoticeVetoBtn').onclick = () => {
+        socket.emit('sixp_vetoKick');
+        hideKickNotice();
+      };
+    }
+  };
+  render();
+  el.style.display = 'block';
+  clearInterval(kickNoticeCountdownTimer);
+  kickNoticeCountdownTimer = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) { clearInterval(kickNoticeCountdownTimer); return; }
+    render();
+  }, 1000);
+}
+function hideKickNotice() {
+  clearInterval(kickNoticeCountdownTimer);
+  const el = document.getElementById('kickNoticeToast');
+  if (el) el.style.display = 'none';
+}
+
 function connectSocket() {
   if (socket) return;
   socket = io();
@@ -888,6 +935,25 @@ function connectSocket() {
   socket.on('sixp_kicked', () => {
     showToast('You were removed from the table by the host.', 'lose', 3000);
     leaveToWelcome();
+  });
+
+  // The 5-second vetoable kick -- same event names/pattern as the
+  // 4-player table (server.js emits these unprefixed on every table,
+  // same as the existing 'kicked' event already was), just the veto
+  // itself needs this table's own 'sixp_vetoKick' emit to reach the
+  // right handler server-side.
+  socket.on('kickPending', (info) => showKickNotice(info));
+  socket.on('kickVetoedSelf', () => {
+    hideKickNotice();
+    showToast("😅 Phew — you're staying at the table!", 'win', 2500);
+  });
+  socket.on('kickVetoedByTarget', ({ name }) => {
+    hideKickNotice();
+    showToast(`✋ ${name} said no — they're staying.`, 'info', 3000);
+  });
+  socket.on('kickProceeded', ({ targetName }) => {
+    hideKickNotice();
+    showToast(`🚪 ${targetName} has been removed from the table.`, 'info', 3000);
   });
 
   socket.on('sixp_state', (state) => {
