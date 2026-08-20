@@ -1838,11 +1838,23 @@ $('btnCallTrumpNo').addEventListener('click', () => {
 
 function showBidPanel(state) {
   const isFirst = state.highestBid === 0 && state.passes === 0;
-  const minBid = state.highestBid > 0 ? state.highestBid + 1 : 16;
+  // Honors restriction: if it's genuinely your turn and your OWN
+  // partner already holds the current highest bid, the minimum you can
+  // call jumps to 20 (or higher, if the bid's already past 19) instead
+  // of the normal highestBid+1 -- same rule game-engine-6p.js's
+  // placeBid() actually enforces server-side. This UI previously never
+  // reflected that at all: it always offered every number down to
+  // highestBid+1, including ones the server would reject outright the
+  // instant they were tapped, which is exactly the confusing
+  // "why did my legal-looking tap just fail" bug reported.
+  const honorsRestricted = !isFirst && state.highestBid > 0 && (state.bidder % 2) === (MY_POS % 2);
+  const minBid = honorsRestricted ? Math.max(20, state.highestBid + 1) : (state.highestBid > 0 ? state.highestBid + 1 : 16);
   $('bidTitle').textContent = 'Place Your Bid';
   $('bidText').innerHTML = (state.highestBid > 0
     ? `Current highest: <b style="color:var(--accent)">${state.highestBid}</b> by ${sixpRelLabel(state.bidder, state.seats)}`
-    : 'You are the first bidder — must bid at least 16.') + sixpRenderBidHistory(state.bidHistory, state.seats);
+    : 'You are the first bidder — must bid at least 16.')
+    + (honorsRestricted ? `<br><span style="color:var(--accent)">Your partner is already highest — you can only call ${minBid} or above.</span>` : '')
+    + sixpRenderBidHistory(state.bidHistory, state.seats);
   const btns = $('bidButtons');
   btns.innerHTML = '';
   btns.className = 'bid-grid';
