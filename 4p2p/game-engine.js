@@ -756,13 +756,26 @@ class GameEngine {
   }
 
   // Whether pos's NEXT bid must be Honors (20) or higher rather than a
-  // normal one-higher-than-the-current-bid raise - true for anyone
-  // who's already had a genuine turn this phase 1 round and is now
-  // cycling back, and also for the first bidder's partner specifically
-  // when their delayed turn was reached via both opponents passing.
+  // normal one-higher-than-the-current-bid raise. Three conditions,
+  // any one of which is enough:
+  // 1. Already had a genuine turn this phase 1 round and is now
+  //    cycling back.
+  // 2. The first bidder's partner specifically, when their delayed
+  //    turn was reached via both opponents passing.
+  // 3. The core rule, confirmed and traced turn-by-turn against the
+  //    real engine before adding this: whenever it's genuinely pos's
+  //    turn and pos's own partner already holds the current highest
+  //    bid (regardless of how the turn got to them), a plain raise
+  //    isn't the point anymore -- their own side is already ahead, so
+  //    only a genuine honors-level bid makes sense. This was the
+  //    actual gap: conditions 1 and 2 above are specific edge cases,
+  //    neither one actually covers this general situation, which is
+  //    exactly what let a completely unrestricted "Min: 16" show up
+  //    on screen with a player's own partner already sitting on top.
   _isBidRestrictedToHonors(pos) {
     if (this.p1SeatsActed[pos]) return true;
     if (pos === partnerOf(this.firstBidderPos) && this.partnerTurnRestrictedWhenReached) return true;
+    if (this.highestBid > 0 && getTeam(this.bidder) === getTeam(pos)) return true;
     return false;
   }
 
