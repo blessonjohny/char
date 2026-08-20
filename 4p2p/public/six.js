@@ -754,8 +754,10 @@ function showGameEvent(icon, title, detail, color) {
     <div class="game-event-detail">${detail}</div>
   </div>`;
   document.body.appendChild(overlay);
-  setTimeout(() => overlay.classList.add('leaving'), 1900);
-  setTimeout(() => overlay.remove(), 2350);
+  // Same timing bump as index.html's identical function -- see there
+  // for the full reasoning.
+  setTimeout(() => overlay.classList.add('leaving'), 2800);
+  setTimeout(() => overlay.remove(), 3250);
 }
 
 // The 5-second vetoable kick popup -- see index.html's identical
