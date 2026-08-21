@@ -345,6 +345,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .trump-chip{display:inline-flex;align-items:center;gap:3px;background:rgba(139,0,0,0.6);border:1.5px solid var(--accent);border-radius:10px;padding:2px 8px;font-size:0.62rem;color:var(--accent);font-weight:700;white-space:nowrap;box-shadow:0 0 10px rgba(255,215,0,0.15),inset 0 0 6px rgba(255,215,0,0.05);transition:all 0.3s ease;flex-shrink:0}
 .trump-chip.trump-active{background:rgba(139,0,0,0.8);border:1.5px solid var(--royal-gold);box-shadow:0 0 15px rgba(255,215,0,0.3),0 0 30px rgba(255,215,0,0.1),inset 0 0 10px rgba(255,215,0,0.1);}
 .icon-btn{width:20px;height:20px;border-radius:5px;border:1px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text-secondary);font-size:0.65rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* Sound mute toggle, sitting directly to the right of the voice-chat mic button (which is
+   fixed at left:10px, width:44px, bottom:40px - see voice.js). Placed at left:64px (10px mic
+   + 44px width + 10px gap) at the same size and vertical position, so the two read as a
+   matched pair rather than two unrelated floating buttons. The local player's own avatar sits
+   much further right (centered on the table), so this has no overlap risk with it. */
+#btnSoundMute{position:fixed;left:64px;bottom:40px;width:44px;height:44px;border-radius:50%;
+  background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);
+  color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;
+  z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
+#btnSoundMute:active{transform:scale(0.92)}
 .score-box.compact{padding:2px 5px;min-width:32px}
 .score-box.compact .slabel{font-size:0.48rem}
 .score-box.compact .sval{font-size:0.85rem}
@@ -3723,6 +3733,252 @@ try { MY_NAME = localStorage.getItem('k28_player_name') || ''; } catch (e) {}
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
 const ALL_AVATAR_KEYS = [...Array.from({length:24}, (_,i) => 'hero2f'+(i+1)), ...Array.from({length:24}, (_,i) => 'hero2m'+(i+1))];
+
+// ==================== SOUND ENGINE ====================
+// A full card-table sound system built entirely on the native Web Audio API - no audio files,
+// no paid APIs. Two building blocks make up every effect below: filtered noise bursts (for
+// anything physical/percussive - card flicks, slaps, shuffles) and short oscillator tones
+// (for anything musical/notification - trick win/lose, bid confirm, the join/turn chimes
+// this replaces). A single shared AudioContext and a master gain node sit in front of
+// everything, so mute and volume are one shared control rather than something each sound has
+// to check individually.
+let sharedAudioCtx = null;
+let masterGainNode = null;
+let soundMuted = false;
+let masterVolume = 0.8;
+try {
+  soundMuted = localStorage.getItem('k28_sound_muted') === '1';
+  const savedVol = parseFloat(localStorage.getItem('k28_sound_volume'));
+  if (!isNaN(savedVol)) masterVolume = savedVol;
+} catch (e) {}
+
+function getAudioCtx() {
+  if (!sharedAudioCtx) {
+    try {
+      sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGainNode = sharedAudioCtx.createGain();
+      masterGainNode.gain.value = masterVolume;
+      masterGainNode.connect(sharedAudioCtx.destination);
+    } catch (e) { return null; }
+  }
+  // Mobile browsers (iOS Safari in particular) create the context suspended until a real user
+  // gesture - every play-a-sound call attempts a resume, which is a no-op once it's already
+  // running, but is what actually lets the very first sound after page load work correctly
+  // instead of silently doing nothing.
+  if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume().catch(() => {});
+  return sharedAudioCtx;
+}
+function setSoundMuted(muted) {
+  soundMuted = muted;
+  try { localStorage.setItem('k28_sound_muted', muted ? '1' : '0'); } catch (e) {}
+  const btn = document.getElementById('btnSoundMute');
+  if (btn) btn.textContent = muted ? '🔇' : '🔊';
+}
+// Created once, lazily, the same way voice.js builds its own mic button on first use rather
+// than being static markup sitting in the page from load - avoids a floating button existing
+// (even hidden) before there's any table to mute the sounds of.
+let soundMuteBtnBuilt = false;
+function ensureSoundMuteButton() {
+  if (soundMuteBtnBuilt) return;
+  soundMuteBtnBuilt = true;
+  const btn = document.createElement('button');
+  btn.id = 'btnSoundMute';
+  btn.title = 'Mute sound effects';
+  btn.textContent = soundMuted ? '🔇' : '🔊';
+  btn.addEventListener('click', () => {
+    setSoundMuted(!soundMuted);
+    if (!soundMuted) playSound('click'); // a little audible confirmation when turning back ON
+  });
+  document.body.appendChild(btn);
+}
+function setMasterVolume(vol) {
+  masterVolume = Math.max(0, Math.min(1, vol));
+  if (masterGainNode) masterGainNode.gain.value = masterVolume;
+  try { localStorage.setItem('k28_sound_volume', String(masterVolume)); } catch (e) {}
+}
+
+// A reusable white-noise buffer, generated once and reused (via playbackRate + filters to vary
+// it) rather than regenerating random samples on every single play call - noise generation
+// itself is cheap, but reuse keeps every card sound trivially low-latency to trigger.
+let sharedNoiseBuffer = null;
+function getNoiseBuffer(ctx) {
+  if (sharedNoiseBuffer) return sharedNoiseBuffer;
+  const len = ctx.sampleRate * 1.0; // 1 second of noise is plenty to slice from
+  const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  sharedNoiseBuffer = buffer;
+  return buffer;
+}
+// rnd(a,b) - the one small helper every sound below leans on for "don't sound identical every
+// time": a random value in [a,b], used for pitch/filter-frequency/timing/volume variance.
+function rnd(a, b) { return a + Math.random() * (b - a); }
+
+// A single filtered burst of noise - the base unit for every physical (non-musical) sound
+// below. type/freq/Q shape *what* it sounds like (a papery flick vs. a woody slap vs. a dull
+// thud are really just different filter settings on the same underlying noise), while
+// startAt/duration/peakGain/attack shape the envelope.
+function noiseBurst(ctx, dest, { filterType = 'bandpass', freq = 2000, Q = 1, startAt = 0, duration = 0.05, peakGain = 0.3, attack = 0.002 }) {
+  const src = ctx.createBufferSource();
+  src.buffer = getNoiseBuffer(ctx);
+  src.loopStart = 0;
+  src.loopEnd = duration + 0.05;
+  const offset = Math.random() * 0.8; // start from a random point in the shared buffer each time
+  const filter = ctx.createBiquadFilter();
+  filter.type = filterType;
+  filter.frequency.value = freq;
+  filter.Q.value = Q;
+  const gain = ctx.createGain();
+  const t = ctx.currentTime + startAt;
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(peakGain, t + attack);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(dest);
+  src.start(t, offset, duration + 0.05);
+  src.stop(t + duration + 0.05);
+}
+// A single musical tone - the base unit for win/lose/confirm/notification sounds.
+function tone(ctx, dest, { freq = 440, type = 'sine', startAt = 0, duration = 0.18, peakGain = 0.15, attack = 0.015 }) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  const t = ctx.currentTime + startAt;
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(peakGain, t + attack);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  osc.connect(gain);
+  gain.connect(dest);
+  osc.start(t);
+  osc.stop(t + duration + 0.05);
+}
+
+const SOUND_BUILDERS = {
+  // Card dealt to a hand: a quick high "flick" through the air immediately followed by a
+  // soft, low "tap" as it lands on felt - two layered bursts, not one, is what actually
+  // separates this from cardPlayed below rather than just being quieter.
+  cardDeal(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(3200, 4200), Q: 0.7, duration: rnd(0.02, 0.03), peakGain: rnd(0.16, 0.22), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(220, 320), Q: 1.2, startAt: rnd(0.02, 0.035), duration: rnd(0.03, 0.045), peakGain: rnd(0.1, 0.15) });
+  },
+  // Card played to the table: sharper and louder than a deal (this is the moment a player
+  // commits to a move, it should read as more decisive), with a bit more low-end "weight"
+  // under the slap to feel like a real card meeting a table, not a flick meeting nothing.
+  cardPlayed(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1400, 2200), Q: rnd(0.8, 1.3), duration: rnd(0.035, 0.05), peakGain: rnd(0.32, 0.4), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(180, 260), Q: 1, startAt: 0.004, duration: rnd(0.05, 0.07), peakGain: rnd(0.14, 0.2) });
+  },
+  // Picking a card up off the table: the quietest, softest, shortest sound in the set on
+  // purpose - it's an incidental UI action, not a game event, and shouldn't compete for
+  // attention with anything actually happening in the round.
+  cardPickup(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(3800, 4800), Q: 0.6, duration: rnd(0.012, 0.02), peakGain: rnd(0.06, 0.1), attack: 0.001 });
+  },
+  // Full deck shuffle: 10-16 tiny overlapping riffle-clicks at randomized, slightly
+  // accelerating intervals - a single burst reads as "one card", but a ragged cluster of many
+  // reads unmistakably as a riffled deck, which is the entire difference here.
+  shuffle(ctx, dest) {
+    const count = Math.floor(rnd(10, 16));
+    let t = 0;
+    for (let i = 0; i < count; i++) {
+      noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1800, 3200), Q: rnd(1, 2), startAt: t, duration: rnd(0.015, 0.03), peakGain: rnd(0.1, 0.18), attack: 0.001 });
+      t += rnd(0.02, 0.045); // slightly irregular spacing is what makes it sound hand-shuffled, not mechanical
+    }
+  },
+  // Winning a trick: a bright ascending major triad - warm and triumphant without tipping
+  // into a full fanfare, since this happens frequently over a round and needs to stay
+  // pleasant on repeat rather than become annoying.
+  trickWin(ctx, dest) {
+    const base = rnd(520, 540); // slight random base pitch so repeated wins don't sound identical
+    [0, 4, 7].forEach((semi, i) => {
+      tone(ctx, dest, { freq: base * Math.pow(2, semi / 12), type: 'triangle', startAt: i * 0.07, duration: 0.22, peakGain: 0.14 });
+    });
+  },
+  // Losing a trick: a soft, muted two-note descent - deliberately understated (a minor third
+  // down, not a harsh buzzer) so it registers as "that one didn't go your way" without feeling
+  // punishing, since this is a normal, frequent part of play, not a failure state.
+  trickLose(ctx, dest) {
+    const base = rnd(380, 400);
+    tone(ctx, dest, { freq: base, type: 'sine', startAt: 0, duration: 0.16, peakGain: 0.09 });
+    tone(ctx, dest, { freq: base * Math.pow(2, -3 / 12), type: 'sine', startAt: 0.09, duration: 0.22, peakGain: 0.08 });
+  },
+  // Bid/call confirmed: one clean, crisp tone plus the tiniest transient click layered right
+  // under the attack - the click is what makes it read as a decisive "confirm" rather than
+  // just another notification chime.
+  bidConfirm(ctx, dest) {
+    tone(ctx, dest, { freq: rnd(820, 880), type: 'triangle', duration: 0.13, peakGain: 0.16, attack: 0.008 });
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: 3000, Q: 0.8, duration: 0.012, peakGain: 0.08, attack: 0.001 });
+  },
+  // Generic button click: the shortest, quietest sound of the whole set - pure UI feedback,
+  // should never be noticeable as "a sound effect" so much as a barely-there confirmation
+  // that a tap registered.
+  click(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1600, 2400), Q: 1.5, duration: rnd(0.006, 0.012), peakGain: rnd(0.05, 0.08), attack: 0.001 });
+  },
+  // The two notification chimes from before, now folded into the same engine/mute/volume
+  // system instead of being a separate parallel implementation.
+  join(ctx, dest) {
+    tone(ctx, dest, { freq: 660, type: 'sine', duration: 0.22, peakGain: 0.12 });
+  },
+  yourTurn(ctx, dest) {
+    tone(ctx, dest, { freq: 740, type: 'sine', duration: 0.16, peakGain: 0.16 });
+    tone(ctx, dest, { freq: 988, type: 'sine', startAt: 0.14, duration: 0.22, peakGain: 0.18 });
+  },
+  // Trump exposed: a low, rolling thunder rumble - three overlapping low-frequency noise
+  // bursts of increasing then decreasing intensity (a crack, then a rolling decay), matching
+  // the dramatic red "explosion" visual this moment already gets. Deliberately the loudest,
+  // longest sound in the whole set - this is the single biggest swing-moment in a round.
+  trumpExposed(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(140, 200), Q: 0.7, duration: 0.05, peakGain: rnd(0.38, 0.46), attack: 0.001 }); // the crack
+    noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(80, 120), Q: 1, startAt: 0.04, duration: rnd(0.5, 0.7), peakGain: rnd(0.22, 0.3), attack: 0.05 }); // the rumble
+    noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(60, 90), Q: 1.2, startAt: 0.3, duration: rnd(0.35, 0.5), peakGain: rnd(0.12, 0.16), attack: 0.08 }); // decaying tail
+  },
+};
+
+function playSound(kind) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  if (!ctx || !masterGainNode) return;
+  const builder = SOUND_BUILDERS[kind];
+  if (!builder) return;
+  try { builder(ctx, masterGainNode); } catch (e) { /* never let a sound glitch break gameplay */ }
+}
+// playChime kept as an alias so the join/yourTurn call sites added earlier don't need to
+// change - same function, now backed by the unified engine above.
+function playChime(kind) { playSound(kind); }
+
+// Haptic feedback (phone vibration) - a separate concern from sound, but the same principle:
+// short, distinct patterns per action rather than one generic buzz for everything.
+// navigator.vibrate simply doesn't exist on iOS Safari at all (Apple has never implemented
+// it) and is unsupported/blocked in many desktop browsers - both cases should silently do
+// nothing rather than error, since this is a nice-to-have enhancement, never a requirement.
+function vibrate(pattern) {
+  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+}
+const HAPTIC_PATTERNS = {
+  cardPlayed: 15,        // a quick, light tap - matches the crisp "slap" sound
+  trickWin: [20, 40, 20],  // two short pulses - a little celebratory double-tap
+  trickLose: 30,          // one slightly longer, duller pulse
+  bidConfirm: 12,          // barely-there confirmation tap
+  trumpExposed: [30, 60, 30, 60, 40], // a bigger, rumbling pattern for the biggest moment in a round
+  yourTurn: [15, 30, 15],  // gentle double-tap, noticeable without being alarming
+};
+function playHaptic(kind) {
+  const pattern = HAPTIC_PATTERNS[kind];
+  if (pattern) vibrate(pattern);
+}
+// Generic UI click feedback via a single delegated listener, rather than adding playSound
+// calls to every one of the many individual button handlers across this file. Deliberately
+// broad (any button or .btn-styled element) rather than an exhaustive allowlist - the click
+// sound is intentionally the quietest, most subtle effect in the whole set specifically so a
+// rare double-fire alongside an action that already has its own louder, more specific sound
+// (playing a card, confirming a bid) is unnoticeable rather than a real problem to chase down.
+document.addEventListener('click', (e) => {
+  const target = e.target.closest('button, .btn, .btn-outline, .icon-btn');
+  if (target) playSound('click');
+}, true);
 if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
 }
@@ -5579,6 +5835,8 @@ function updateInfo() {
             table.classList.add('trump-exposed');
             setTimeout(() => table.classList.remove('trump-exposed'), 5000);
           }
+          playSound('trumpExposed');
+          playHaptic('trumpExposed');
         }, 550);
       }
       serverLastAnnouncedTrumpExposed = trumpExposed;
@@ -7993,6 +8251,7 @@ function showTrumpCardSelection(suit) {
 
 function selectHiddenCard(card, el) {
   selectedTrumpCard = card;
+  playSound('cardPickup');
   document.querySelectorAll('.trump-select-area .card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
   log('You selected ' + card.rank + card.suit + ' to hide as trump.');
@@ -9217,10 +9476,10 @@ function animateCrownRoundEnd(bidderWon, callback, isYourBid) {
   if (typeof isYourBid === 'boolean') {
     didMyTeamSucceed = isYourBid ? bidderWon : !bidderWon;
     if (isYourBid) {
-      title = bidderWon ? 'Your Team Made It!' : 'Your Team Fell Short';
-      sub = bidderWon ? 'The bid came through.' : "Couldn't reach the bid.";
+      title = bidderWon ? 'Your Team Made It!' : 'You Lost — Fell Short';
+      sub = bidderWon ? 'The bid came through.' : "Didn't reach the bid.";
     } else {
-      title = bidderWon ? 'Opponents Made It' : 'Your Team Defended!';
+      title = bidderWon ? 'Opponents Made It' : 'You Won — Defended!';
       sub = bidderWon ? 'They reached their bid.' : 'You held them off.';
     }
   } else {
@@ -9592,9 +9851,9 @@ function showPostRoundOptions(bidderWon, made, bT, oT, yourTeam, isYourBid) {
 
   text.innerHTML = 
     '<div style="margin-bottom:12px">' +
-    '<div style="font-size:1.2rem;font-weight:800;color:var(--accent);margin-bottom:6px">' + 
-    (isYourBid ? (made ? 'Your team MADE the bid!' : 'Your team FAILED the bid!') : 
-     (made ? 'Opponents MADE the bid!' : 'Opponents FAILED the bid!')) + 
+    '<div style="font-size:1.2rem;font-weight:800;color:' + resultColor + ';margin-bottom:6px">' + 
+    (isYourBid ? (made ? 'Your team beat the bid!' : 'Your team FAILED the bid!') : 
+     (made ? 'Opponents beat the bid!' : 'Opponents FAILED the bid!')) + 
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;font-size:0.85rem">' +
     '<div style="background:rgba(74,222,128,0.1);border:1px solid var(--success);border-radius:8px;padding:8px">' +
@@ -14174,6 +14433,8 @@ function joinTableOnServer(tableIdRaw, name) {
 
 function leaveCurrentTableCleanup() {
   if (window.K28Voice) K28Voice.hideButton();
+  const muteBtn = document.getElementById('btnSoundMute');
+  if (muteBtn) muteBtn.style.display = 'none';
   if (gameSocket) gameSocket.emit('leaveTable');
   MY_TABLE_ID = null;
   SERVER_MODE = false;
@@ -14542,6 +14803,8 @@ function showServerLobbyWaiting() {
 }
 
 let lastRenderedPlayersSignature = null;
+let lastKnownHumanNamesInLobby = [];
+let lastChimedCurrentPlayer = null;
 function renderServerPlayersCard() {
   const list = document.getElementById('playerList');
   const count = document.getElementById('playerCount');
@@ -14561,6 +14824,19 @@ function renderServerPlayersCard() {
   // reason. Only touch the DOM when the roster has actually changed.
   const signature = JSON.stringify(seats.map(s => s ? [s.name, s.isBot] : null)) + '|' + MY_POS + '|' + SERVER_IS_HOST;
   if (signature !== lastRenderedPlayersSignature) {
+    // A real, specific new human joining (not the very first render of this lobby, not a bot
+    // being added, not just someone's connection status flickering) is the one case this
+    // chime is actually for - comparing the previous render's set of human names against this
+    // one's catches exactly that, and only that.
+    if (lastRenderedPlayersSignature !== null) {
+      const newHumanNames = seats.filter(s => s && !s.isBot).map(s => s.name);
+      const previousHumanNames = lastKnownHumanNamesInLobby;
+      const genuinelyNew = newHumanNames.some(name => !previousHumanNames.includes(name));
+      if (genuinelyNew) playChime('join');
+      lastKnownHumanNamesInLobby = newHumanNames;
+    } else {
+      lastKnownHumanNamesInLobby = seats.filter(s => s && !s.isBot).map(s => s.name);
+    }
     lastRenderedPlayersSignature = signature;
     list.innerHTML = seats.map((s, i) => {
       if (!s) return '';
@@ -15072,6 +15348,15 @@ function applyServerState(state) {
     const staleModal = document.getElementById('modalOverlay');
     if (staleModal) staleModal.classList.remove('on');
   }
+  // A genuinely new round starting (not the first state this client has ever seen, which
+  // would fire spuriously on page load/reconnect for a round already in progress) - shuffle
+  // first, deal a beat later, mirroring the real physical sequence rather than both firing on
+  // top of each other.
+  if (lastChimedRound !== null && state.round !== lastChimedRound && state.phase !== 'lobby') {
+    playSound('shuffle');
+    setTimeout(() => playSound('cardDeal'), 550);
+  }
+  lastChimedRound = state.round;
   round = state.round;
   // A host-triggered restart (whole game or just the round) broadcasts a
   // fresh state directly - there's no client-side "moving to the next
@@ -15090,6 +15375,15 @@ function applyServerState(state) {
     roundBidSnapshot = { bidder: state.bidder, highestBid: state.highestBid, trumpSuit: state.trumpSuit, yourTeam: getTeam(MY_POS), bidTeam: getTeam(state.bidder) };
   }
   dealer = state.dealer;
+  // A genuine transition INTO my turn (not just every state update that happens to arrive
+  // while it's already my turn, which would replay the chime on every minor update - a chat
+  // message, another player's avatar animation finishing, etc). Only actually fires the one
+  // moment turn possession changes hands and lands on me.
+  if (state.currentPlayer === MY_POS && lastChimedCurrentPlayer !== MY_POS && state.phase !== 'lobby') {
+    playChime('yourTurn');
+    playHaptic('yourTurn');
+  }
+  lastChimedCurrentPlayer = state.currentPlayer;
   currentPlayer = state.currentPlayer;
   bidder = state.bidder;
   highestBid = state.highestBid;
@@ -15187,6 +15481,8 @@ function applyServerState(state) {
     document.getElementById('btnInvite').style.display = 'flex';
     document.getElementById('btnRoomManage').style.display = 'none';
     if (window.K28Voice) K28Voice.showButton();
+    ensureSoundMuteButton();
+    document.getElementById('btnSoundMute').style.display = 'flex';
   }
   updateServerHostControlsVisibility();
   if (document.getElementById('hostMenuOverlay').classList.contains('on')) renderHostMenuPlayerList();
@@ -15293,8 +15589,17 @@ function applyServerState(state) {
     const yourTeam = getTeam(MY_POS);
     const isYourBid = (getTeam(r.bidder) === yourTeam);
     const bidderName = playerAt(r.bidder) ? playerAt(r.bidder).name : 'The bidder';
-    if (r.bidderWon) showGameEvent('🏆', 'Bid Made', bidderName + ' — ' + r.highestBid, '#2ecc71');
-    else showGameEvent('💥', 'Bid Failed', bidderName + ' — ' + r.highestBid, '#e74c3c');
+    // Colored (and worded) from THIS viewer's own perspective, not a fixed "made=green,
+    // failed=red" mapping - the exact same event is good news for one team and bad news for
+    // the other, so the same banner shown to both sides needs to actually say and show the
+    // opposite of each other, not the identical text and color regardless of who's looking.
+    if (isYourBid) {
+      if (r.bidderWon) showGameEvent(r.highestBid >= 20 ? '👑' : '🏆', r.highestBid >= 20 ? 'You Made the Honors!' : 'You Beat the Bid!', bidderName + ' — ' + r.highestBid, '#2ecc71');
+      else showGameEvent('💥', "You Lost — Didn't Make It", bidderName + ' — ' + r.highestBid, '#e74c3c');
+    } else {
+      if (r.bidderWon) showGameEvent(r.highestBid >= 20 ? '👑' : '💥', r.highestBid >= 20 ? 'Opp Made the Honors' : 'Opp Made It', bidderName + ' — ' + r.highestBid, '#e74c3c');
+      else showGameEvent('🛡️', 'You Won — Defended!', bidderName + ' — ' + r.highestBid, '#2ecc71');
+    }
     const champResult = state.lastChampionshipResult;
     let roundEndPanelShown = false;
 
@@ -15637,6 +15942,11 @@ function renderTrickSlotsWithWinnerPause(state) {
 
   if (justResolved) {
     lastSeenTricksPlayed = state.tricksPlayed;
+    // A card slap for the winning card landing already plays via renderTrickSlots for every
+    // card as it's played - this is specifically the trick OUTCOME sound, playing once the
+    // trick as a whole resolves, based on whether MY team (not just whoever won) took it.
+    playSound(getTeam(state.lastTrick.winner) === getTeam(MY_POS) ? 'trickWin' : 'trickLose');
+    playHaptic(getTeam(state.lastTrick.winner) === getTeam(MY_POS) ? 'trickWin' : 'trickLose');
     // Queue it rather than showing it immediately — if a trick is
     // ALREADY mid-reveal (bots can play fast enough that a second trick
     // completes before the first one's pause finishes), starting this
@@ -15820,6 +16130,7 @@ function renderTrickSlots(state) {
       // content actually changed, so it can never restart on a redundant
       // re-render the way the mini card-count indicators used to.
       el.innerHTML = cardHTML(tc.card, false, false, 'trick-card-landing');
+      playSound('cardPlayed');
     }
   }
 }
@@ -15829,9 +16140,9 @@ function renderTrickSlots(state) {
 // old local-engine functions (processBid/playCard/etc.) entirely — those
 // remain untouched for local bot-mode play.
 
-function serverPlaceBid(bid) { gameSocket.emit('placeBid', { bid: bid || 0 }); }
+function serverPlaceBid(bid) { playSound('bidConfirm'); playHaptic('bidConfirm'); gameSocket.emit('placeBid', { bid: bid || 0 }); }
 function serverChooseTrump(suit, hiddenCard) { gameSocket.emit('chooseTrump', { suit, hiddenCard: hiddenCard || null }); }
-function serverPlayCard(card) { gameSocket.emit('playCard', { card }); }
+function serverPlayCard(card) { playHaptic('cardPlayed'); gameSocket.emit('playCard', { card }); }
 function serverPlayHiddenTrump() { gameSocket.emit('playHiddenTrump'); }
 
 // Bot Mode (auto-play) for server mode: picks a legal card and submits it,
