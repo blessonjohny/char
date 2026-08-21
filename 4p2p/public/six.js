@@ -1303,6 +1303,7 @@ function applyState(state) {
   // rendering glitch in a toast/popup should never be able to freeze actual gameplay.
   try { handleEarlyWinPopup(state); } catch (e) { console.error('[handleEarlyWinPopup] threw:', e); }
   try { updateQuoteButton(state); } catch (e) { console.error('[updateQuoteButton] threw:', e); }
+  try { updateAskMidTrickButton(state); } catch (e) { console.error('[updateAskMidTrickButton] threw:', e); }
   try { handleQuoteDeclaredToast(state); } catch (e) { console.error('[handleQuoteDeclaredToast] threw:', e); }
   try { handleMidTrickQuoteOffer(state); } catch (e) { console.error('[handleMidTrickQuoteOffer] threw:', e); }
 
@@ -1464,6 +1465,7 @@ function applyState(state) {
   // underneath it. Same fix already applied to the Hold'em table for
   // the identical class of bug.
   if (state.phase !== 'roundEnd') {
+    stopRoundEndAutoContinue();
     $('roundEndOverlay').classList.remove('on');
   }
 
@@ -2192,12 +2194,53 @@ function showRoundEnd(state) {
   const signalNote6p = $('partnerSignalSentNote6p');
   if (signalNote6p) signalNote6p.style.display = 'none';
   $('roundEndOverlay').classList.add('on');
+  startRoundEndAutoContinue();
+}
+let roundEndAutoContinueTimer = null;
+let roundEndAutoContinueSecondsLeft = 10;
+let roundEndAutoContinuePaused = false;
+function startRoundEndAutoContinue() {
+  stopRoundEndAutoContinue();
+  roundEndAutoContinueSecondsLeft = 10;
+  roundEndAutoContinuePaused = false;
+  const row = $('roundEndAutoContinueRow');
+  const text = $('roundEndAutoContinueText');
+  const secEl = $('roundEndAutoContinueSeconds');
+  const pauseBtn = $('btnPauseAutoContinue');
+  if (row) row.style.display = 'flex';
+  if (pauseBtn) pauseBtn.textContent = '⏸ Pause';
+  if (secEl) secEl.textContent = roundEndAutoContinueSecondsLeft;
+  roundEndAutoContinueTimer = setInterval(() => {
+    if (roundEndAutoContinuePaused) return;
+    roundEndAutoContinueSecondsLeft -= 1;
+    if (secEl) secEl.textContent = Math.max(0, roundEndAutoContinueSecondsLeft);
+    if (roundEndAutoContinueSecondsLeft <= 0) {
+      stopRoundEndAutoContinue();
+      // Same action as tapping Continue - see the click handler right below this.
+      $('roundEndOverlay').classList.remove('on');
+      socket.emit('sixp_continueRound');
+    }
+  }, 1000);
+}
+function stopRoundEndAutoContinue() {
+  if (roundEndAutoContinueTimer) { clearInterval(roundEndAutoContinueTimer); roundEndAutoContinueTimer = null; }
+}
+const pauseAutoContinueBtn = $('btnPauseAutoContinue');
+if (pauseAutoContinueBtn) {
+  pauseAutoContinueBtn.addEventListener('click', () => {
+    roundEndAutoContinuePaused = !roundEndAutoContinuePaused;
+    pauseAutoContinueBtn.textContent = roundEndAutoContinuePaused ? '▶ Resume' : '⏸ Pause';
+    const text = $('roundEndAutoContinueText');
+    if (text) text.style.opacity = roundEndAutoContinuePaused ? '0.5' : '1';
+  });
 }
 $('btnContinueRound').addEventListener('click', () => {
+  stopRoundEndAutoContinue();
   $('roundEndOverlay').classList.remove('on');
   socket.emit('sixp_continueRound');
 });
 $('btnAckRoundEnd').addEventListener('click', () => {
+  stopRoundEndAutoContinue();
   $('roundEndOverlay').classList.remove('on');
 });
 // Partner bidding signal — tell your teammates how to approach next
@@ -2541,6 +2584,41 @@ $('btnQuoteDeclare').addEventListener('click', () => {
   const failPts = isBidderTeam ? 3 : 2;
   if (!confirm(`Declare ${label}?\n\nYour team hasn't lost a single trick yet this round. This bets on sweeping EVERY remaining trick: +${madePts} if you win everything, -${failPts} if you lose even one trick from here -- even if you've already made your bid.`)) return;
   socket.emit('sixp_declareQuote');
+});
+
+// The manual "ask" button - a real player presses this to send the mid-trick COT/MaruCOT
+// question to whoever currently holds the lead, rather than the game deciding on its own.
+// Only ever active for an opponent of the current leader, while a trick is genuinely still in
+// progress - see game-engine-6p.js's _getMidTrickAskTarget() for the exact rule this button's
+// state is driven by (the server computes it fresh per-viewer on every state update).
+function updateAskMidTrickButton(state) {
+  const btn = $('btnAskMidTrickQuote');
+  if (!btn) return;
+  if (state.phase !== 'play') { btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  const targetPos = state.midTrickAskTargetPos;
+  const canAsk = targetPos !== null && targetPos !== undefined;
+  btn.classList.toggle('quote-btn-active', canAsk);
+  btn.classList.toggle('quote-btn-disabled', !canAsk);
+  if (canAsk) {
+    const targetSeat = state.seats[targetPos];
+    const isBidderTeam = sixpGetTeam(targetPos) === sixpGetTeam(state.bidder);
+    const label = isBidderTeam ? 'COT' : 'MaruCOT';
+    btn.textContent = `❓ Ask ${targetSeat ? targetSeat.name : 'them'}?`;
+    btn.title = `Ask ${targetSeat ? targetSeat.name : 'them'} to declare ${label}`;
+  } else {
+    btn.textContent = '❓ Ask COT?';
+    btn.title = 'Ask them to declare';
+  }
+}
+$('btnAskMidTrickQuote').addEventListener('click', () => {
+  if (!latestState || latestState.midTrickAskTargetPos === null || latestState.midTrickAskTargetPos === undefined) return;
+  const targetPos = latestState.midTrickAskTargetPos;
+  const targetSeat = latestState.seats[targetPos];
+  const isBidderTeam = sixpGetTeam(targetPos) === sixpGetTeam(latestState.bidder);
+  const label = isBidderTeam ? 'COT' : 'MaruCOT';
+  if (!confirm(`Ask ${targetSeat ? targetSeat.name : 'them'} to declare ${label}?\n\nTheir card is currently winning this trick. They'll get to choose: bet on sweeping everything from here, or take a smaller guaranteed win right now.`)) return;
+  socket.emit('sixp_requestMidTrickQuote');
 });
 
 // COT/MaruCOT declared -- a one-time, purely informational announcement

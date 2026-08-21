@@ -103,6 +103,8 @@ h1{font-size:1.7rem;margin:0 0 4px;background:linear-gradient(135deg,#f4c430,#e6
    whole time; only "active" is genuinely clickable. */
 #btnQuoteDeclare.quote-btn-active{background:linear-gradient(135deg,#f4c430,#c99a1e)!important;border-color:#f4c430!important;color:#241a12!important;box-shadow:0 0 10px rgba(244,196,48,0.6);animation:quoteBtnPulse6p 1.6s ease-in-out infinite}
 #btnQuoteDeclare.quote-btn-disabled{opacity:0.45;filter:grayscale(0.4);cursor:default;pointer-events:none}
+#btnAskMidTrickQuote.quote-btn-active{background:linear-gradient(135deg,#f4c430,#c99a1e)!important;border-color:#f4c430!important;color:#241a12!important;box-shadow:0 0 10px rgba(244,196,48,0.6);animation:quoteBtnPulse6p 1.6s ease-in-out infinite}
+#btnAskMidTrickQuote.quote-btn-disabled{opacity:0.45;filter:grayscale(0.4);cursor:default;pointer-events:none}
 @keyframes quoteBtnPulse6p{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 .btn-success{background:linear-gradient(135deg,#3ddc84,#2bb673);color:#04241a}
 .btn-danger{background:linear-gradient(135deg,#ff5c5c,#e74040);color:#fff}
@@ -544,6 +546,12 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
        seat - matching exactly where the 4-player table puts this same button, instead of
        the two tables having two different conventions for it. -->
   <button class="btn-outline" id="btnQuoteDeclare" title="Declare COT" style="display:none;position:fixed;right:48px;bottom:150px;z-index:150;padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">🎯 COT</button>
+  <!-- The manual "ask" button - separate from the Declare button above and never active at
+       the same time as it (Declare only lights up when leading a fresh trick; Ask only lights
+       up mid-trick when someone else holds the lead) - stacked directly below it on the same
+       right edge, since they're the two entry points into the same underlying mechanic and
+       should read as a matched pair rather than two unrelated floating buttons. -->
+  <button class="btn-outline" id="btnAskMidTrickQuote" title="Ask them to declare" style="display:none;position:fixed;right:48px;bottom:114px;z-index:150;padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">❓ Ask COT?</button>
   <div class="topbar" style="flex-direction:column;align-items:stretch;gap:2px;padding:6px 10px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:4px">
       <div class="score-box" style="padding:2px 5px;min-width:0;flex-shrink:0"><span class="slabel">ROUND</span><span class="sval" id="roundNum">1</span></div>
@@ -664,6 +672,15 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
     </div>
     <button class="btn btn-success" id="btnContinueRound">Continue</button>
     <button class="btn btn-outline" id="btnAckRoundEnd" style="display:none">OK</button>
+    <!-- Auto-continue: if nobody at the table taps Continue, the round advances on its own
+         after a countdown, rather than the whole table being stuck on this screen indefinitely
+         waiting for someone to notice and tap a button. Pause stops the countdown for anyone
+         who wants more time to read the summary or discuss - it doesn't advance anything by
+         itself, it just removes the automatic pressure. -->
+    <div id="roundEndAutoContinueRow" style="margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:0.72rem;color:var(--text-secondary)">
+      <span id="roundEndAutoContinueText">Auto-continuing in <b id="roundEndAutoContinueSeconds" style="color:var(--accent)">10</b>s</span>
+      <button class="btn btn-outline" id="btnPauseAutoContinue" style="padding:3px 10px;font-size:0.68rem">⏸ Pause</button>
+    </div>
   </div>
 </div>
 
