@@ -1333,10 +1333,20 @@ function applyState(state) {
     $('bidderDisplay').textContent = bidderSeat
       ? (state.bidder === MY_POS ? 'You' : bidderSeat.name) + (state.highestBid > 0 ? ' (' + (state.highestBid >= 29 ? 'THANI' : state.highestBid) + ')' : '')
       : '—';
+    // Points display: always YOUR team's number first and in green, the opponents' second and
+    // in red - previously this was hardcoded teamPoints[0]-then-[1] regardless of which team
+    // the viewer was actually on, so a Team-1 player would see the opponent's total listed
+    // first and everything in one flat color, backwards from their own perspective. Every
+    // player at the table now sees this consistently framed as "mine, then theirs," matching
+    // the same viewer-relative convention already used for the round-end popup.
     const tp = $('teamPointsDisplay');
-    const newVal = (state.teamPoints ? state.teamPoints[0] : 0) + ' - ' + (state.teamPoints ? state.teamPoints[1] : 0);
-    if (tp.textContent !== newVal) {
-      tp.textContent = newVal;
+    const myTeam = sixpGetTeam(MY_POS);
+    const myPts = state.teamPoints ? state.teamPoints[myTeam] : 0;
+    const oppPts = state.teamPoints ? state.teamPoints[1 - myTeam] : 0;
+    const rawVal = myPts + '-' + oppPts;
+    if (tp.dataset.rawVal !== rawVal) {
+      tp.dataset.rawVal = rawVal;
+      tp.innerHTML = `<span style="color:var(--success)">${myPts}</span> - <span style="color:var(--danger)">${oppPts}</span>`;
       tp.classList.remove('pop-anim');
       void tp.offsetWidth;
       tp.classList.add('pop-anim');
