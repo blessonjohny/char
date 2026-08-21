@@ -663,6 +663,10 @@ class GameEngine6P {
   _getMidTrickAskTarget(askerPos) {
     if (this.pendingMidTrickQuote || this.quoteState || this.midTrickQuoteDeclinedThisTrick) return null;
     if (this.phase !== 'play') return null;
+    // The Ask button specifically (not the regular Declare button, which is untouched by this)
+    // is unavailable entirely during a round's very first trick - it only ever activates
+    // starting from the second trick onward, once tricksPlayed > 0.
+    if (this.tricksPlayed === 0) return null;
     if (this.trickCards.length === 0 || this.trickCards.length >= SEATS - this.foldedSeats.length) return null; // trick must be genuinely in progress - not empty, not already resolved
     const currentLeader = this._trickWinner();
     // The trick's original opener already had their own dedicated moment to declare
