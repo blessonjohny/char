@@ -683,9 +683,15 @@ class GameEngine6P {
     if (!currentLeader || currentLeader.pos === openerPos) return false;
     if (getTeam(currentLeader.pos) === getTeam(justPlayedPos)) return false;
     if (!this._isQuoteEligibleCore(currentLeader.pos)) return false;
-    this.pendingMidTrickQuote = { offeredToPos: currentLeader.pos };
+    // Bots are excluded entirely, not just auto-declined - this offer (and the round-ending
+    // consequence of declining it) is a human-only mechanic. A bot ending up as the current
+    // leader here should be invisible: no offer shown to anyone, no pause, no auto-decline, no
+    // round-ending side effect - the trick just plays out exactly as it always did before this
+    // feature existed, as if this check had never run at all.
     const leaderSeat = this.seats[currentLeader.pos];
-    this.addLog(`${leaderSeat ? leaderSeat.name : 'Seat ' + currentLeader.pos} is offered a mid-trick COT/MaruCOT choice.`);
+    if (!leaderSeat || leaderSeat.isBot) return false;
+    this.pendingMidTrickQuote = { offeredToPos: currentLeader.pos };
+    this.addLog(`${leaderSeat.name} is offered a mid-trick COT/MaruCOT choice.`);
     this._notify();
     // Bug this fixes: without calling maybeAutoAct() here too, a bot offered this would
     // never get a chance to auto-decline - nothing else was ever going to check again,
@@ -1115,20 +1121,11 @@ class GameEngine6P {
       }
       return;
     }
-    // Mid-trick COT/MaruCOT offer: unlike declaring at trick-open (which bots never
-    // proactively do at all today), this offer can land on a bot seat since it's triggered by
-    // whoever happens to be holding the lead, not by choice. Keeping bot behavior consistent
-    // with the existing "bots never declare COT" rule rather than inventing a new strategy
-    // simulation here - a bot offered this always declines, same as a bot would never have
-    // pressed the button itself if it could.
-    if (this.pendingMidTrickQuote) {
-      const offeredPos = this.pendingMidTrickQuote.offeredToPos;
-      const offeredSeat = this.seats[offeredPos];
-      if (offeredSeat && offeredSeat.isBot) {
-        this.respondToMidTrickQuote(offeredPos, false);
-      }
-      return;
-    }
+    // Mid-trick COT/MaruCOT offer: bots are excluded entirely from ever being offered this
+    // (see _checkMidTrickQuoteOffer), so pendingMidTrickQuote can only ever be set for a real
+    // human now - this just makes sure maybeAutoAct() doesn't try to act on their behalf while
+    // their response is still pending.
+    if (this.pendingMidTrickQuote) return;
     const seat = this.seats[this.currentPlayer];
     if (!seat) return;
     if (this._turnTrackedPlayer !== this.currentPlayer || this._turnTrackedRound !== this.round) {
