@@ -1868,6 +1868,20 @@ function animateCardsToWinner(winnerPos) {
 function updateTurnLabel(state) {
   const lbl = $('turnLabel');
   if (state.phase === 'roundEnd' || state.gameOver) { lbl.textContent = ''; return; }
+  // While a mid-trick COT/MaruCOT offer is pending, currentPlayer still points at whoever
+  // JUST played (the game deliberately doesn't advance turns until the offer is answered) -
+  // showing that as "Ajai's turn" (the person who just played, not the one actually deciding
+  // anything right now) was genuinely misleading, not just stale. This takes priority over
+  // the normal currentPlayer-based label whenever an offer is actually pending.
+  if (state.pendingMidTrickQuote) {
+    const offeredSeat = state.seats[state.pendingMidTrickQuote.offeredToPos];
+    if (state.pendingMidTrickQuote.offeredToPos === MY_POS) {
+      lbl.textContent = 'Your decision — COT/MaruCOT?';
+    } else {
+      lbl.textContent = offeredSeat ? `Waiting for ${offeredSeat.name}'s decision...` : 'Waiting for a decision...';
+    }
+    return;
+  }
   if (state.currentPlayer === MY_POS) {
     lbl.textContent = state.phase === 'bidding1' ? 'Your turn to bid' : state.phase === 'choosingTrump' ? 'Choose trump' : 'Your turn';
   } else {
