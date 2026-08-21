@@ -779,6 +779,21 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
   </div>
 </div>
 
+<!-- Mid-trick COT/MaruCOT offer - deliberately positioned on the LEFT side of the screen
+     (fixed, not a centered full-screen overlay like earlyWinOverlay above) rather than
+     anywhere near the COT/MaruCOT button itself, which lives on the right - the two are
+     visually distinct entry points into the same underlying mechanic, and keeping them on
+     opposite sides makes that separation obvious at a glance instead of them competing for
+     the same corner of the screen. -->
+<div id="midTrickQuoteOverlay" style="display:none;position:fixed;left:10px;top:50%;transform:translateY(-50%);z-index:2100;background:rgba(15,15,25,0.97);border:2px solid var(--accent,#f4c430);border-radius:14px;padding:16px;width:170px;box-shadow:0 10px 30px rgba(0,0,0,0.6)">
+  <div style="font-size:0.95rem;font-weight:800;color:var(--accent,#f4c430);margin-bottom:8px" id="midTrickQuoteTitle">🎯 Declare?</div>
+  <div style="font-size:0.75rem;color:#ddd;margin-bottom:12px;line-height:1.4" id="midTrickQuoteText"></div>
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <button class="btn btn-primary" style="width:100%;padding:8px;font-size:0.8rem" id="btnMidTrickQuoteYes">Yes, declare</button>
+    <button class="btn btn-outline" style="width:100%;padding:8px;font-size:0.8rem" id="btnMidTrickQuoteNo">No, take the round</button>
+  </div>
+</div>
+
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <defs>
 <symbol id="suit-spade" viewBox="0 0 100 100"><path fill="currentColor" d="M50,8 C35,28 8,48 8,68 C8,85 22,95 37,90 C42,88.5 46,85 48.5,80.5 C47,90 42,98 30,100 L70,100 C58,98 53,90 51.5,80.5 C54,85 58,88.5 63,90 C78,95 92,85 92,68 C92,48 65,28 50,8 Z"/></symbol>

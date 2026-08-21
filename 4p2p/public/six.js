@@ -1296,6 +1296,7 @@ function applyState(state) {
   handleEarlyWinPopup(state);
   updateQuoteButton(state);
   handleQuoteDeclaredToast(state);
+  handleMidTrickQuoteOffer(state);
 
   if (state.phase === 'lobby') {
     $('gameScreen').style.display = 'none';
@@ -2426,6 +2427,39 @@ $('btnEarlyWinNextRound').addEventListener('click', () => {
 });
 $('btnEarlyWinOk').addEventListener('click', () => {
   $('earlyWinOverlay').classList.remove('on');
+});
+
+// Mid-trick COT/MaruCOT offer - see respondToMidTrickQuote()/_endRoundByMidTrickDecline() in
+// game-engine-6p.js for the actual mechanics. Only ever shown to the one specific player it
+// was offered to (state.pendingMidTrickQuote.offeredToPos === MY_POS) - everyone else at the
+// table just sees the trick paused until they respond, no popup of their own.
+let lastShownMidTrickQuoteOffer6p = false;
+function handleMidTrickQuoteOffer(state) {
+  const overlay = $('midTrickQuoteOverlay');
+  if (!overlay) return;
+  const offer = state.pendingMidTrickQuote;
+  if (offer && offer.offeredToPos === MY_POS && !lastShownMidTrickQuoteOffer6p) {
+    lastShownMidTrickQuoteOffer6p = true;
+    const isBidderTeam = sixpGetTeam(MY_POS) === sixpGetTeam(state.bidder);
+    const label = isBidderTeam ? 'COT' : 'MaruCOT';
+    const madePts = isBidderTeam ? 2 : 3;
+    const failPts = isBidderTeam ? 3 : 2;
+    const declinePts = isBidderTeam ? 1 : 2;
+    $('midTrickQuoteTitle').textContent = `🎯 Declare ${label}?`;
+    $('midTrickQuoteText').innerHTML = `Your card is winning this trick right now. Declare ${label}: +${madePts} if your team sweeps everything from here, -${failPts} if not.<br><br>Or take the safe option — decline, and your team wins the round outright for a flat +${declinePts}.`;
+    overlay.style.display = 'block';
+  } else if (!offer) {
+    lastShownMidTrickQuoteOffer6p = false;
+    overlay.style.display = 'none';
+  }
+}
+$('btnMidTrickQuoteYes').addEventListener('click', () => {
+  $('midTrickQuoteOverlay').style.display = 'none';
+  socket.emit('sixp_respondMidTrickQuote', { accepted: true });
+});
+$('btnMidTrickQuoteNo').addEventListener('click', () => {
+  $('midTrickQuoteOverlay').style.display = 'none';
+  socket.emit('sixp_respondMidTrickQuote', { accepted: false });
 });
 
 // COT/MaruCOT button -- persistent, visible to everyone at the table
