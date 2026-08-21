@@ -175,6 +175,16 @@ class GameEngine6P {
     this.earlyWinDeclined = false;
     this.teamStillClean = [true, true];
     this.quoteState = null;
+    // Mid-trick COT/MaruCOT offer: while a trick is still in progress, if the CURRENT leading
+    // card belongs to the opposing team from whoever just played, and that leader is otherwise
+    // eligible, they get offered the same declare-or-not choice a normal trick-opener would get
+    // - just triggered mid-trick instead of only at the moment of leading. Declining isn't a
+    // no-op like it would be at trick-open: it ends the round immediately with a flat,
+    // guaranteed reward (1pt on the COT path, 2pt on the MaruCOT path) instead of playing out
+    // the rest of the round normally - see respondToMidTrickQuote() and
+    // _endRoundByMidTrickDecline() for the actual mechanics.
+    this.pendingMidTrickQuote = null;
+    this.midTrickQuoteDeclinedThisTrick = false;
     // Thani -- see game-engine.js (the 4-player table) for the full
     // reasoning, identical rule here except folding: this table's teams
     // are 3-a-side, so BOTH of the caller's other teammates fold, not
@@ -639,11 +649,86 @@ class GameEngine6P {
     if (this.trickCards.length === SEATS - this.foldedSeats.length) {
       this._resolveTrick();
     } else {
+      // Mid-trick COT/MaruCOT offer: the trick isn't over yet, but check whether the card
+      // just played handed the lead to the OPPOSING team from whoever's currently winning -
+      // i.e. an opponent of the current leader just played, and the leader held. _trickWinner()
+      // already works correctly on a partial trick (it just compares whatever's been played
+      // so far), so it doubles as "who's currently leading" here with no separate logic needed.
+      // This pauses play (no turn advance, no notify/maybeAutoAct below) until the offered
+      // player responds - see respondToMidTrickQuote().
+      let offeredMidTrickQuote = false;
+      if (!this.pendingMidTrickQuote && !this.quoteState && !this.midTrickQuoteDeclinedThisTrick) {
+        const currentLeader = this._trickWinner();
+        // The trick's original opener already had their own dedicated moment to declare
+        // (_isQuoteEligibleFor, checked before they led) - if they're still winning after an
+        // opponent plays, that's not a new opportunity, it's the same one they already either
+        // took or passed on. This offer is specifically for someone ELSE taking over the lead
+        // mid-trick, so the opener is excluded even if they're the current leader.
+        const openerPos = this.trickCards[0] ? this.trickCards[0].pos : null;
+        if (currentLeader && currentLeader.pos !== openerPos && getTeam(currentLeader.pos) !== getTeam(pos) && this._isQuoteEligibleCore(currentLeader.pos)) {
+          this.pendingMidTrickQuote = { offeredToPos: currentLeader.pos };
+          const leaderSeat = this.seats[currentLeader.pos];
+          this.addLog(`${leaderSeat ? leaderSeat.name : 'Seat ' + currentLeader.pos} is offered a mid-trick COT/MaruCOT choice.`);
+          this._notify();
+          offeredMidTrickQuote = true;
+        }
+      }
+      if (!offeredMidTrickQuote) {
+        this.currentPlayer = this._nextActivePos(this.currentPlayer);
+        this._notify();
+        this.maybeAutoAct();
+      }
+    }
+    return { ok: true };
+  }
+
+  // The mid-trick offer's response. Accepting behaves exactly like declareQuote() (play simply
+  // resumes with quoteState now set, same stakes as always). Declining is NOT a no-op the way
+  // it is when nobody gets asked at all - it ends the round immediately with a flat guaranteed
+  // reward instead of playing out the rest of the round: see _endRoundByMidTrickDecline().
+  respondToMidTrickQuote(pos, accepted) {
+    if (!this.pendingMidTrickQuote || this.pendingMidTrickQuote.offeredToPos !== pos) return false;
+    this.pendingMidTrickQuote = null;
+    if (accepted) {
+      this.quoteState = { team: getTeam(pos) };
+      const seat = this.seats[pos];
+      const isBidderTeam = getTeam(pos) === getTeam(this.bidder);
+      this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared ${isBidderTeam ? 'COT' : 'MaruCOT'} mid-trick — betting on a full sweep of all remaining tricks!`);
+      this._notify();
       this.currentPlayer = this._nextActivePos(this.currentPlayer);
       this._notify();
       this.maybeAutoAct();
+    } else {
+      this.midTrickQuoteDeclinedThisTrick = true;
+      this._endRoundByMidTrickDecline(pos);
     }
-    return { ok: true };
+    return true;
+  }
+
+  // Declining the mid-trick offer: the round ends right there, no more tricks played, the bid
+  // outcome (made/failed) is irrelevant. The declining player's team wins the round outright
+  // with a flat, guaranteed reward - 1pt if they're the bidding team (the COT path), 2pt if
+  // they're the defending team (the MaruCOT path). Deliberately smaller than a full COT/MaruCOT
+  // payout (2/3 or 3/2) since this is the safe, guaranteed choice instead of the full gamble.
+  _endRoundByMidTrickDecline(declinedByPos) {
+    const bT = getTeam(this.bidder);
+    const oT = 1 - bT;
+    const declineTeam = getTeam(declinedByPos);
+    const otherTeam = 1 - declineTeam;
+    const declineTeamIsBidder = declineTeam === bT;
+    const pts = declineTeamIsBidder ? 1 : 2;
+    this.gameScore[declineTeam] += pts;
+    this.gameScore[otherTeam] -= pts;
+    const seat = this.seats[declinedByPos];
+    this.roundWinnerAnnounced = {
+      bidderWon: declineTeamIsBidder, made: true, bidder: this.bidder, highestBid: this.highestBid,
+      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors: false,
+      quote: false, quoteSuccess: undefined,
+      midTrickDecline: true, declineTeam, declineTeamIsBidder, declinedByName: seat ? seat.name : ('Seat ' + declinedByPos)
+    };
+    this.phase = 'roundEnd';
+    this.addLog(`Round ${this.round} over. ${seat ? seat.name : 'Seat ' + declinedByPos} declined the mid-trick offer — Team ${declineTeam} takes the round outright (+${pts}).`);
+    this._finishRoundBookkeeping(bT, declineTeamIsBidder);
   }
 
   playHiddenTrump(pos) {
@@ -683,15 +768,22 @@ class GameEngine6P {
   // except this table's cutoff is 2 cards left, not 3 -- confirmed
   // deliberately different from the 4-player table's threshold, not a
   // scaling mistake.
-  _isQuoteEligibleFor(pos) {
+  // Split into a shared "core" (rules that apply no matter how the offer is reached) plus the
+  // opener-only check layered on top, since the new mid-trick offer needs every rule EXCEPT
+  // "must be the one leading the trick" - duplicating the other six checks in a second
+  // function would just be the same list drifting out of sync over time.
+  _isQuoteEligibleCore(pos) {
     if (pos === null || pos === undefined || !this.seats[pos]) return false;
     if (this.seats[pos].hand.length < 2) return false; // cutoff: must still have at least 2 cards of your own left
-    if (this.trickCards.length !== 0) return false; // only the trick's opener can declare
     if (this.quoteState) return false;
     if (this.phase !== 'play') return false;
     if (this.highestBid > 19) return false;
     if (this.pendingEarlyWinChoice) return false;
     return !!this.teamStillClean[getTeam(pos)];
+  }
+  _isQuoteEligibleFor(pos) {
+    if (this.trickCards.length !== 0) return false; // only the trick's opener can declare this way
+    return this._isQuoteEligibleCore(pos);
   }
 
   // See game-engine.js for the full reasoning -- identical helper here.
@@ -746,6 +838,7 @@ class GameEngine6P {
     this.trickCards = [];
     this.trickSuit = '';
     this.mustPlayTrumpBy = -1;
+    this.midTrickQuoteDeclinedThisTrick = false; // a fresh trick gets a fresh chance to be offered
 
     // Quote resolution -- see game-engine.js for the full reasoning,
     // identical logic here: fails immediately on losing any trick,
@@ -998,6 +1091,20 @@ class GameEngine6P {
       if (!stillHasHuman) {
         const anyPosOnTeam = Array.from({ length: SEATS }, (_, p) => p).find(p => getTeam(p) === team);
         this.respondToEarlyWin(anyPosOnTeam, true);
+      }
+      return;
+    }
+    // Mid-trick COT/MaruCOT offer: unlike declaring at trick-open (which bots never
+    // proactively do at all today), this offer can land on a bot seat since it's triggered by
+    // whoever happens to be holding the lead, not by choice. Keeping bot behavior consistent
+    // with the existing "bots never declare COT" rule rather than inventing a new strategy
+    // simulation here - a bot offered this always declines, same as a bot would never have
+    // pressed the button itself if it could.
+    if (this.pendingMidTrickQuote) {
+      const offeredPos = this.pendingMidTrickQuote.offeredToPos;
+      const offeredSeat = this.seats[offeredPos];
+      if (offeredSeat && offeredSeat.isBot) {
+        this.respondToMidTrickQuote(offeredPos, false);
       }
       return;
     }
@@ -1497,6 +1604,7 @@ class GameEngine6P {
       lastTrick: this.lastTrick,
       roundWinnerAnnounced: this.roundWinnerAnnounced,
       pendingEarlyWinChoice: this.pendingEarlyWinChoice,
+      pendingMidTrickQuote: this.pendingMidTrickQuote,
       quoteEligible: this._isQuoteEligibleFor(this.currentPlayer),
       teamStillClean: this.teamStillClean,
       quoteState: this.quoteState,

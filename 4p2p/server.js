@@ -2847,6 +2847,19 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Response to the mid-trick COT/MaruCOT offer - see game-engine-6p.js's
+  // respondToMidTrickQuote() for the actual mechanics (accept resumes play with quoteState
+  // set; decline ends the round immediately with a flat guaranteed reward).
+  socket.on('sixp_respondMidTrickQuote', ({ accepted }) => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.respondToMidTrickQuote(pos, !!accepted);
+      if (!r) { socket.emit('sixp_actionError', { reason: 'no mid-trick offer pending for you right now' }); return; }
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+    });
+  });
+
   // Any seated player can trigger this now, not host-only -- see the
   // 4-player table's continueRound handler for the full reasoning
   // (only the first valid attempt can ever do anything, so this can't
