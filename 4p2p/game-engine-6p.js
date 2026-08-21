@@ -683,6 +683,14 @@ class GameEngine6P {
     if (!currentLeader || currentLeader.pos === openerPos) return false;
     if (getTeam(currentLeader.pos) === getTeam(justPlayedPos)) return false;
     if (!this._isQuoteEligibleCore(currentLeader.pos)) return false;
+    // Bots are excluded entirely on BOTH sides of this, not just the recipient - this offer
+    // (and the round-ending consequence of declining it) is a human-vs-human mechanic. A bot
+    // taking the lead should be invisible (see below), and separately, a bot's own card is
+    // never what triggers this check to run in the first place, even if the current leader is
+    // a real human - the human answering isn't enough on its own; a bot's play shouldn't be
+    // able to put another player on the spot with this decision at all.
+    const justPlayedSeat = this.seats[justPlayedPos];
+    if (!justPlayedSeat || justPlayedSeat.isBot) return false;
     // Bots are excluded entirely, not just auto-declined - this offer (and the round-ending
     // consequence of declining it) is a human-only mechanic. A bot ending up as the current
     // leader here should be invisible: no offer shown to anyone, no pause, no auto-decline, no
