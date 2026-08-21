@@ -646,17 +646,7 @@ class GameEngine6P {
     // complete once every ACTIVE player has played, not always
     // literally SEATS -- normally still 6, but 4 during a Thani round
     // (caller + 3 opponents, since 2 teammates fold).
-    // Mid-trick COT/MaruCOT offer check happens BEFORE deciding whether the trick resolves,
-    // not just in the "still in progress" case - a 6-seat, 3-per-team trick means "my second
-    // partner takes the lead, triggered by my LAST/third opponent playing" is structurally
-    // always the trick's final card (there's no 7th player left to play after that). Checking
-    // this only in the not-yet-complete branch meant that exact, completely ordinary sequence
-    // could never actually trigger the offer at all - the trick just resolved normally and
-    // skipped it outright, not merely "paced wrong" but never offered in the first place.
-    if (this._checkMidTrickQuoteOffer(pos)) {
-      // Offer made and paused - _resolveTrick() (if this was the trick's last card) or the
-      // next player's turn (otherwise) happens once respondToMidTrickQuote() is called.
-    } else if (this.trickCards.length === SEATS - this.foldedSeats.length) {
+    if (this.trickCards.length === SEATS - this.foldedSeats.length) {
       this._resolveTrick();
     } else {
       this.currentPlayer = this._nextActivePos(this.currentPlayer);
@@ -666,57 +656,61 @@ class GameEngine6P {
     return { ok: true };
   }
 
-  // The core mid-trick offer check, shared between "trick still in progress" and "this was
-  // the trick's last card" - the eligibility rule is identical either way; only what happens
-  // AFTER an offer is made (or isn't) differs, which playCard() and respondToMidTrickQuote()
-  // each handle themselves. Returns true if an offer was made (caller should NOT advance the
-  // turn or resolve the trick - that happens once the offer is responded to), false otherwise.
-  _checkMidTrickQuoteOffer(justPlayedPos) {
-    if (this.pendingMidTrickQuote || this.quoteState || this.midTrickQuoteDeclinedThisTrick) return false;
+  // Computes who a given player COULD ask right now, if anyone - shared between exposing this
+  // to the client (so the "Ask COT/MaruCOT?" button knows when to light up) and validating an
+  // actual request. Returns the position of a valid target, or null if there's nobody the
+  // asker could currently ask.
+  _getMidTrickAskTarget(askerPos) {
+    if (this.pendingMidTrickQuote || this.quoteState || this.midTrickQuoteDeclinedThisTrick) return null;
+    if (this.phase !== 'play') return null;
+    if (this.trickCards.length === 0 || this.trickCards.length >= SEATS - this.foldedSeats.length) return null; // trick must be genuinely in progress - not empty, not already resolved
     const currentLeader = this._trickWinner();
     // The trick's original opener already had their own dedicated moment to declare
-    // (_isQuoteEligibleFor, checked before they led) - if they're still winning after an
-    // opponent plays, that's not a new opportunity, it's the same one they already either
-    // took or passed on. This offer is specifically for someone ELSE taking over the lead
-    // mid-trick, so the opener is excluded even if they're the current leader.
+    // (_isQuoteEligibleFor, checked before they led) - if they're still winning partway
+    // through, that's not a new opportunity, it's the same one they already either took or
+    // passed on. This is specifically for someone ELSE taking over the lead mid-trick, so the
+    // opener is never a valid target even while they're the current leader.
     const openerPos = this.trickCards[0] ? this.trickCards[0].pos : null;
-    if (!currentLeader || currentLeader.pos === openerPos) return false;
-    if (getTeam(currentLeader.pos) === getTeam(justPlayedPos)) return false;
-    if (!this._isQuoteEligibleCore(currentLeader.pos)) return false;
-    // Bots are excluded entirely on BOTH sides of this, not just the recipient - this offer
-    // (and the round-ending consequence of declining it) is a human-vs-human mechanic. A bot
-    // taking the lead should be invisible (see below), and separately, a bot's own card is
-    // never what triggers this check to run in the first place, even if the current leader is
-    // a real human - the human answering isn't enough on its own; a bot's play shouldn't be
-    // able to put another player on the spot with this decision at all.
-    const justPlayedSeat = this.seats[justPlayedPos];
-    if (!justPlayedSeat || justPlayedSeat.isBot) return false;
-    // Bots are excluded entirely, not just auto-declined - this offer (and the round-ending
-    // consequence of declining it) is a human-only mechanic. A bot ending up as the current
-    // leader here should be invisible: no offer shown to anyone, no pause, no auto-decline, no
-    // round-ending side effect - the trick just plays out exactly as it always did before this
-    // feature existed, as if this check had never run at all.
+    if (!currentLeader || currentLeader.pos === openerPos) return null;
+    // Only an opponent of the current leader can ask - mirrors a real player noticing "their
+    // team is sweeping everything, let's see if they'll commit to it" - not something a
+    // teammate of the leader would ever want to bring up themselves.
+    if (askerPos === undefined || askerPos === null || getTeam(currentLeader.pos) === getTeam(askerPos)) return null;
+    if (!this._isQuoteEligibleCore(currentLeader.pos)) return null;
+    // Bots are excluded on both sides - this offer (and the round-ending consequence of
+    // declining it) is a human-vs-human mechanic. A bot can't be asked, and a bot can't ask.
+    const askerSeat = this.seats[askerPos];
+    if (!askerSeat || askerSeat.isBot) return null;
     const leaderSeat = this.seats[currentLeader.pos];
-    if (!leaderSeat || leaderSeat.isBot) return false;
-    this.pendingMidTrickQuote = { offeredToPos: currentLeader.pos };
-    this.addLog(`${leaderSeat.name} is offered a mid-trick COT/MaruCOT choice.`);
+    if (!leaderSeat || leaderSeat.isBot) return null;
+    return currentLeader.pos;
+  }
+
+  // The manual "ask" action - a real player presses a button to send this question to whoever
+  // currently holds the lead mid-trick, rather than the game deciding to pop it up on its own.
+  // Reuses _getMidTrickAskTarget for the exact same validation the client's button visibility
+  // is already based on, so a request can only ever succeed when the button would genuinely
+  // have been lit up for this asker.
+  requestMidTrickQuote(askerPos) {
+    const targetPos = this._getMidTrickAskTarget(askerPos);
+    if (targetPos === null) return false;
+    this.pendingMidTrickQuote = { offeredToPos: targetPos, askedByPos: askerPos };
+    const leaderSeat = this.seats[targetPos];
+    const askerSeat = this.seats[askerPos];
+    this.addLog(`${askerSeat.name} asked ${leaderSeat.name} to declare mid-trick COT/MaruCOT.`);
     this._notify();
-    // Bug this fixes: without calling maybeAutoAct() here too, a bot offered this would
-    // never get a chance to auto-decline - nothing else was ever going to check again,
-    // so the table would just sit frozen forever waiting for a response a bot has no UI
-    // to ever give. Every other pending-decision path in this file already calls
-    // maybeAutoAct() immediately after setting itself up for exactly this reason.
+    // Bug this fixes (from the earlier automatic version): without calling maybeAutoAct()
+    // here too, if a genuine timing gap ever let this land on a bot, nothing would ever check
+    // again - though _getMidTrickAskTarget already excludes bots entirely, so this call is
+    // purely a defensive safety net now, not something that should ever actually fire.
     this.maybeAutoAct();
     return true;
   }
 
   // The mid-trick offer's response. Accepting behaves exactly like declareQuote() (play simply
-  // resumes with quoteState now set, same stakes as always) - EXCEPT if the offer landed on
-  // what was already the trick's final card, in which case accepting means resolving that
-  // trick now, under the newly-active quoteState, rather than advancing to a next player who
-  // doesn't exist for this trick. Declining is NOT a no-op the way it is when nobody gets
-  // asked at all - it ends the round immediately with a flat guaranteed reward instead of
-  // playing out the rest of the round: see _endRoundByMidTrickDecline().
+  // resumes with quoteState now set, same stakes as always). Declining is NOT a no-op the way
+  // it is when nobody gets asked at all - it ends the round immediately with a flat guaranteed
+  // reward instead of playing out the rest of the round: see _endRoundByMidTrickDecline().
   respondToMidTrickQuote(pos, accepted) {
     if (!this.pendingMidTrickQuote || this.pendingMidTrickQuote.offeredToPos !== pos) return false;
     this.pendingMidTrickQuote = null;
@@ -726,13 +720,9 @@ class GameEngine6P {
       const isBidderTeam = getTeam(pos) === getTeam(this.bidder);
       this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared ${isBidderTeam ? 'COT' : 'MaruCOT'} mid-trick — betting on a full sweep of all remaining tricks!`);
       this._notify();
-      if (this.trickCards.length === SEATS - this.foldedSeats.length) {
-        this._resolveTrick();
-      } else {
-        this.currentPlayer = this._nextActivePos(this.currentPlayer);
-        this._notify();
-        this.maybeAutoAct();
-      }
+      this.currentPlayer = this._nextActivePos(this.currentPlayer);
+      this._notify();
+      this.maybeAutoAct();
     } else {
       this.midTrickQuoteDeclinedThisTrick = true;
       this._endRoundByMidTrickDecline(pos);
@@ -1631,6 +1621,10 @@ class GameEngine6P {
       roundWinnerAnnounced: this.roundWinnerAnnounced,
       pendingEarlyWinChoice: this.pendingEarlyWinChoice,
       pendingMidTrickQuote: this.pendingMidTrickQuote,
+      // The ask-button's activation state, computed fresh for whichever specific viewer this
+      // state is being built for - null means nothing to ask right now (button greyed out for
+      // them), otherwise it's who they'd be asking if they pressed it.
+      midTrickAskTargetPos: this._getMidTrickAskTarget(viewerPos),
       quoteEligible: this._isQuoteEligibleFor(this.currentPlayer),
       teamStillClean: this.teamStillClean,
       quoteState: this.quoteState,

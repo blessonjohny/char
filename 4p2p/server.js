@@ -2847,6 +2847,21 @@ io.on('connection', (socket) => {
     });
   });
 
+  // The manual "ask" action - a real player presses a button to send the mid-trick
+  // COT/MaruCOT question to whoever's currently leading, rather than the game deciding to
+  // pop it up on its own. See game-engine-6p.js's requestMidTrickQuote()/
+  // _getMidTrickAskTarget() for the actual eligibility rules (opponent of the leader only,
+  // trick genuinely in progress, both sides human).
+  socket.on('sixp_requestMidTrickQuote', () => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.requestMidTrickQuote(pos);
+      if (!r) { socket.emit('sixp_actionError', { reason: 'nobody to ask right now' }); return; }
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+    });
+  });
+
   // Response to the mid-trick COT/MaruCOT offer - see game-engine-6p.js's
   // respondToMidTrickQuote() for the actual mechanics (accept resumes play with quoteState
   // set; decline ends the round immediately with a flat guaranteed reward).
