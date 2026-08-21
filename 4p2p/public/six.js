@@ -2604,7 +2604,11 @@ function updateAskMidTrickButton(state) {
     const targetSeat = state.seats[targetPos];
     const isBidderTeam = sixpGetTeam(targetPos) === sixpGetTeam(state.bidder);
     const label = isBidderTeam ? 'COT' : 'MaruCOT';
-    btn.textContent = `❓ Ask ${targetSeat ? targetSeat.name : 'them'}?`;
+    // The visible button text itself needs the actual COT/MaruCOT label, not just a name -
+    // a title="..." tooltip (which is all this used to carry the label in) never shows up on
+    // a mobile tap at all, only on desktop hover, so a phone user would never actually see
+    // which one they were about to ask for.
+    btn.textContent = `❓ Ask ${label}?`;
     btn.title = `Ask ${targetSeat ? targetSeat.name : 'them'} to declare ${label}`;
   } else {
     btn.textContent = '❓ Ask COT?';
