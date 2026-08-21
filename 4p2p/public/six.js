@@ -1293,10 +1293,18 @@ function applyState(state) {
     lastShownPartnerSignalKey6p = null;
   }
 
-  handleEarlyWinPopup(state);
-  updateQuoteButton(state);
-  handleQuoteDeclaredToast(state);
-  handleMidTrickQuoteOffer(state);
+  // Each of these is wrapped individually rather than left to run bare: renderHand() (which
+  // actually draws the clickable cards with their tap handlers) runs later in this same
+  // function, and if any handler between here and there throws, renderHand() never runs for
+  // this update - the hand keeps showing whatever it last successfully rendered, looking
+  // completely normal while doing nothing when tapped, since the server has already moved on.
+  // This exact failure mode has a documented precedent in this file already (see the comment
+  // in canPlay() about a past bug with the same "looks fine, does nothing" symptom) - a
+  // rendering glitch in a toast/popup should never be able to freeze actual gameplay.
+  try { handleEarlyWinPopup(state); } catch (e) { console.error('[handleEarlyWinPopup] threw:', e); }
+  try { updateQuoteButton(state); } catch (e) { console.error('[updateQuoteButton] threw:', e); }
+  try { handleQuoteDeclaredToast(state); } catch (e) { console.error('[handleQuoteDeclaredToast] threw:', e); }
+  try { handleMidTrickQuoteOffer(state); } catch (e) { console.error('[handleMidTrickQuoteOffer] threw:', e); }
 
   if (state.phase === 'lobby') {
     $('gameScreen').style.display = 'none';
@@ -1315,16 +1323,16 @@ function applyState(state) {
   document.querySelector('.link-back').style.display = 'none'; // was overlapping the info bar during play
 
   $('roundNum').textContent = state.round;
-  updateSixpScoreDisplay(state);
+  try { updateSixpScoreDisplay(state); } catch (e) { console.error('[updateSixpScoreDisplay] threw:', e); }
   $('btnHostMenu').style.display = IS_HOST ? 'inline-flex' : 'none';
 
-  const dealerSeat = state.seats[state.dealer];
-  $('dealerDisplay').textContent = state.dealer === MY_POS ? 'You' : (dealerSeat ? dealerSeat.name : '—');
-  const bidderSeat = state.bidder >= 0 ? state.seats[state.bidder] : null;
-  $('bidderDisplay').textContent = bidderSeat
-    ? (state.bidder === MY_POS ? 'You' : bidderSeat.name) + (state.highestBid > 0 ? ' (' + (state.highestBid >= 29 ? 'THANI' : state.highestBid) + ')' : '')
-    : '—';
-  {
+  try {
+    const dealerSeat = state.seats[state.dealer];
+    $('dealerDisplay').textContent = state.dealer === MY_POS ? 'You' : (dealerSeat ? dealerSeat.name : '—');
+    const bidderSeat = state.bidder >= 0 ? state.seats[state.bidder] : null;
+    $('bidderDisplay').textContent = bidderSeat
+      ? (state.bidder === MY_POS ? 'You' : bidderSeat.name) + (state.highestBid > 0 ? ' (' + (state.highestBid >= 29 ? 'THANI' : state.highestBid) + ')' : '')
+      : '—';
     const tp = $('teamPointsDisplay');
     const newVal = (state.teamPoints ? state.teamPoints[0] : 0) + ' - ' + (state.teamPoints ? state.teamPoints[1] : 0);
     if (tp.textContent !== newVal) {
@@ -1334,44 +1342,51 @@ function applyState(state) {
       tp.classList.add('pop-anim');
       setTimeout(() => tp.classList.remove('pop-anim'), 500);
     }
-  }
-  renderLastTrick(state);
+  } catch (e) { console.error('[dealer/bidder/points display] threw:', e); }
+  try { renderLastTrick(state); } catch (e) { console.error('[renderLastTrick] threw:', e); }
 
-  const tr = $('trumpChip');
-  if (state.trumpExposed) {
-    tr.textContent = '🎯 Trump: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit);
-    tr.style.color = 'var(--accent)';
-    tr.classList.add('trump-active');
-    if (!lastAnnouncedTrumpExposed) {
-      // Same fix as the 4-player table: a brief, deliberate pause before
-      // the announcement rather than firing in the exact same instant
-      // the card lands, which effectively covered up the very card that
-      // just caused it with no moment to register what happened first.
-      const exposedSuitAtCall = state.trumpSuit;
-      const rc = state.revealedTrumpCard;
-      const trumpDetail = rc ? miniCardHtml(rc.rank, rc.suit) : (exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall));
-      setTimeout(() => {
-        showToast('⚡ Trump exposed: ' + exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall) + '!', 'win', 2200);
-        showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa');
-      }, 550);
-      // Same table-wide pop/shake/glow reveal as the 4-player table - see the CSS comment
-      // next to .table-oval.trump-exposed for why this touches two elements at once.
-      const ovalEl = document.querySelector('.table-oval');
-      const railEl = document.querySelector('.six-oval-rail');
-      if (ovalEl && railEl) {
-        ovalEl.classList.remove('trump-exposed'); railEl.classList.remove('trump-exposed');
-        void ovalEl.offsetWidth; // force reflow so re-adding the class restarts the animation
-        ovalEl.classList.add('trump-exposed'); railEl.classList.add('trump-exposed');
-        setTimeout(() => { ovalEl.classList.remove('trump-exposed'); railEl.classList.remove('trump-exposed'); }, 5000);
+  // The trump-exposed block below is a large, multi-step DOM/animation sequence (chip text,
+  // toast, table-wide pop/shake/glow) - exactly the kind of thing a rendering glitch could
+  // hide inside. Wrapped as a whole rather than every line individually, but the effect is the
+  // same: nothing in here can prevent renderHand() (further down this same function) from
+  // running for this update.
+  try {
+    const tr = $('trumpChip');
+    if (state.trumpExposed) {
+      tr.textContent = '🎯 Trump: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit);
+      tr.style.color = 'var(--accent)';
+      tr.classList.add('trump-active');
+      if (!lastAnnouncedTrumpExposed) {
+        // Same fix as the 4-player table: a brief, deliberate pause before
+        // the announcement rather than firing in the exact same instant
+        // the card lands, which effectively covered up the very card that
+        // just caused it with no moment to register what happened first.
+        const exposedSuitAtCall = state.trumpSuit;
+        const rc = state.revealedTrumpCard;
+        const trumpDetail = rc ? miniCardHtml(rc.rank, rc.suit) : (exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall));
+        setTimeout(() => {
+          showToast('⚡ Trump exposed: ' + exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall) + '!', 'win', 2200);
+          showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa');
+        }, 550);
+        // Same table-wide pop/shake/glow reveal as the 4-player table - see the CSS comment
+        // next to .table-oval.trump-exposed for why this touches two elements at once.
+        const ovalEl = document.querySelector('.table-oval');
+        const railEl = document.querySelector('.six-oval-rail');
+        if (ovalEl && railEl) {
+          ovalEl.classList.remove('trump-exposed'); railEl.classList.remove('trump-exposed');
+          void ovalEl.offsetWidth; // force reflow so re-adding the class restarts the animation
+          ovalEl.classList.add('trump-exposed'); railEl.classList.add('trump-exposed');
+          setTimeout(() => { ovalEl.classList.remove('trump-exposed'); railEl.classList.remove('trump-exposed'); }, 5000);
+        }
       }
+      lastAnnouncedTrumpExposed = true;
+    } else {
+      tr.textContent = '🎯 Trump: Hidden';
+      tr.style.color = '';
+      tr.classList.remove('trump-active');
+      lastAnnouncedTrumpExposed = false;
     }
-    lastAnnouncedTrumpExposed = true;
-  } else {
-    tr.textContent = '🎯 Trump: Hidden';
-    tr.style.color = '';
-    tr.classList.remove('trump-active');
-    lastAnnouncedTrumpExposed = false;
-  }
+  } catch (e) { console.error('[trump-exposed block] threw:', e); }
 
   // Defensively isolated: renderSeats does a lot of per-seat DOM work (avatars, badges, the
   // bidding call-bubbles), and this function runs BEFORE the round-end/game-over logic further
@@ -1381,31 +1396,33 @@ function applyState(state) {
   // exactly the "stuck after a round" symptom reported. Whatever the precise cause turns out to
   // be, a rendering glitch in one seat's avatar should never be able to freeze the whole table.
   try { renderSeats(state); } catch (e) { console.error('[renderSeats] threw, table would have frozen here without this guard:', e); }
-  if (state.round !== roundHistorySeenFor) {
-    roundHistorySeenFor = state.round;
-    roundTrickHistory = [];
-    lastSeenTricksPlayed = state.tricksPlayed || 0;
-  }
-  const tricksPlayed = state.tricksPlayed || 0;
-  if (tricksPlayed > lastSeenTricksPlayed && state.lastTrick) {
-    // A trick just completed since the last render. Queue it rather than
-    // showing it immediately — if a trick is already mid-reveal, starting
-    // this one right now would cancel it early. Every trick gets its own
-    // full, uninterrupted pause, in order.
-    lastSeenTricksPlayed = tricksPlayed;
-    sixpTrickRevealQueue.push(state.lastTrick);
-    processNextSixpTrickReveal();
-  } else {
-    // Self-correcting catch-all: keeps lastSeenTricksPlayed in step with
-    // reality on every render, not just when a trick just resolved — so a
-    // new round's tricksPlayed resetting to 0 (below whatever the previous
-    // round ended at) can never leave this counter stuck above the new
-    // round's real count, which would otherwise silently suppress every
-    // future trick-completion animation for the rest of the game. Mirrors
-    // the 4-player table's renderTrickSlotsWithWinnerPause exactly.
-    lastSeenTricksPlayed = tricksPlayed;
-    if (!trickHoldBusy && sixpTrickRevealQueue.length === 0) renderTrick(state);
-  }
+  try {
+    if (state.round !== roundHistorySeenFor) {
+      roundHistorySeenFor = state.round;
+      roundTrickHistory = [];
+      lastSeenTricksPlayed = state.tricksPlayed || 0;
+    }
+    const tricksPlayed = state.tricksPlayed || 0;
+    if (tricksPlayed > lastSeenTricksPlayed && state.lastTrick) {
+      // A trick just completed since the last render. Queue it rather than
+      // showing it immediately — if a trick is already mid-reveal, starting
+      // this one right now would cancel it early. Every trick gets its own
+      // full, uninterrupted pause, in order.
+      lastSeenTricksPlayed = tricksPlayed;
+      sixpTrickRevealQueue.push(state.lastTrick);
+      processNextSixpTrickReveal();
+    } else {
+      // Self-correcting catch-all: keeps lastSeenTricksPlayed in step with
+      // reality on every render, not just when a trick just resolved — so a
+      // new round's tricksPlayed resetting to 0 (below whatever the previous
+      // round ended at) can never leave this counter stuck above the new
+      // round's real count, which would otherwise silently suppress every
+      // future trick-completion animation for the rest of the game. Mirrors
+      // the 4-player table's renderTrickSlotsWithWinnerPause exactly.
+      lastSeenTricksPlayed = tricksPlayed;
+      if (!trickHoldBusy && sixpTrickRevealQueue.length === 0) renderTrick(state);
+    }
+  } catch (e) { console.error('[trick-reveal queue] threw:', e); }
   // Hand restrictions must never update ahead of what the circle is
   // showing — if the circle is still holding the previous completed
   // trick, leave the hand as it was too, and only refresh it once the
