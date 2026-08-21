@@ -3768,6 +3768,23 @@ function getAudioCtx() {
   if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume().catch(() => {});
   return sharedAudioCtx;
 }
+// resume() above is asynchronous - calling it reactively, right as a sound is about to play,
+// isn't actually enough on its own: the oscillator/buffer nodes for that first sound get
+// scheduled synchronously immediately after, often before the context has actually finished
+// transitioning out of "suspended", so that very first sound can go out silently even though
+// none of this code throws or logs an error. The fix is warming the context up much earlier -
+// on the very first tap/click/key anywhere on the page (entering a name, tapping Play as
+// Guest, anything) - giving resume() a full head start before any *real* game sound is ever
+// needed, so by the time one actually has to play, the context is already fully running.
+let audioWarmedUp = false;
+function warmUpAudioContext() {
+  if (audioWarmedUp) return;
+  audioWarmedUp = true;
+  getAudioCtx();
+}
+['touchstart', 'mousedown', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, warmUpAudioContext, { once: true, passive: true });
+});
 function setSoundMuted(muted) {
   soundMuted = muted;
   try { localStorage.setItem('k28_sound_muted', muted ? '1' : '0'); } catch (e) {}
@@ -3926,14 +3943,23 @@ const SOUND_BUILDERS = {
     tone(ctx, dest, { freq: 740, type: 'sine', duration: 0.16, peakGain: 0.16 });
     tone(ctx, dest, { freq: 988, type: 'sine', startAt: 0.14, duration: 0.22, peakGain: 0.18 });
   },
-  // Trump exposed: a low, rolling thunder rumble - three overlapping low-frequency noise
-  // bursts of increasing then decreasing intensity (a crack, then a rolling decay), matching
-  // the dramatic red "explosion" visual this moment already gets. Deliberately the loudest,
-  // longest sound in the whole set - this is the single biggest swing-moment in a round.
+  // Trump exposed: a low, rolling thunder rumble - three overlapping bursts of increasing
+  // then decreasing intensity (a crack, then a rolling decay), matching the dramatic red
+  // "explosion" visual this moment already gets. Deliberately the loudest, longest sound in
+  // the whole set - this is the single biggest swing-moment in a round.
+  // Originally built entirely from 60-200Hz content, which is technically correct "thunder"
+  // but landed almost entirely below what a real phone speaker (tiny driver, no bass port,
+  // typically weak below ~300Hz) can actually reproduce - it was firing correctly with no
+  // errors, just genuinely inaudible on the exact hardware this needs to work on. The crack
+  // now leads with real broadband/high-frequency content (a sharp snap any speaker can
+  // reproduce) layered directly over the low end, and the rumble/tail shifted up into a range
+  // small speakers can actually push - still reads as "low and rolling" relative to every
+  // other sound in the set, just no longer relying on frequencies that go silent on a phone.
   trumpExposed(ctx, dest) {
-    noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(140, 200), Q: 0.7, duration: 0.05, peakGain: rnd(0.38, 0.46), attack: 0.001 }); // the crack
-    noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(80, 120), Q: 1, startAt: 0.04, duration: rnd(0.5, 0.7), peakGain: rnd(0.22, 0.3), attack: 0.05 }); // the rumble
-    noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(60, 90), Q: 1.2, startAt: 0.3, duration: rnd(0.35, 0.5), peakGain: rnd(0.12, 0.16), attack: 0.08 }); // decaying tail
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(1800, 2600), Q: 0.6, duration: 0.035, peakGain: rnd(0.3, 0.36), attack: 0.001 }); // the actual audible "snap" of the crack
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(280, 380), Q: 0.8, duration: 0.06, peakGain: rnd(0.4, 0.48), attack: 0.001 }); // the crack's body
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(180, 260), Q: 1, startAt: 0.04, duration: rnd(0.5, 0.7), peakGain: rnd(0.26, 0.34), attack: 0.05 }); // the rumble
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(140, 200), Q: 1.2, startAt: 0.3, duration: rnd(0.35, 0.5), peakGain: rnd(0.16, 0.2), attack: 0.08 }); // decaying tail
   },
 };
 
@@ -15481,8 +15507,8 @@ function applyServerState(state) {
     document.getElementById('btnChat').style.display = 'flex';
     document.getElementById('btnInvite').style.display = 'flex';
     document.getElementById('btnRoomManage').style.display = 'none';
-    if (window.K28Voice) K28Voice.showButton();
     ensureSoundMuteButton();
+    if (window.K28Voice) K28Voice.showButton();
     document.getElementById('btnSoundMute').style.display = 'flex';
   }
   updateServerHostControlsVisibility();
@@ -16131,7 +16157,12 @@ function renderTrickSlots(state) {
       // content actually changed, so it can never restart on a redundant
       // re-render the way the mini card-count indicators used to.
       el.innerHTML = cardHTML(tc.card, false, false, 'trick-card-landing');
-      playSound('cardPlayed');
+      // My own card already got its sound immediately on tap, in serverPlayCard - firing it
+      // again here once the server round-trip confirms it would double it up (once instant,
+      // once ~100-300ms later). Every other player's card only ever arrives through this
+      // state-driven path in the first place, so this exclusion only ever skips MY card,
+      // never anyone else's.
+      if (tc.player !== MY_POS) playSound('cardPlayed');
     }
   }
 }
@@ -16143,7 +16174,7 @@ function renderTrickSlots(state) {
 
 function serverPlaceBid(bid) { playSound('bidConfirm'); playHaptic('bidConfirm'); gameSocket.emit('placeBid', { bid: bid || 0 }); }
 function serverChooseTrump(suit, hiddenCard) { gameSocket.emit('chooseTrump', { suit, hiddenCard: hiddenCard || null }); }
-function serverPlayCard(card) { playHaptic('cardPlayed'); gameSocket.emit('playCard', { card }); }
+function serverPlayCard(card) { playSound('cardPlayed'); playHaptic('cardPlayed'); gameSocket.emit('playCard', { card }); }
 function serverPlayHiddenTrump() { gameSocket.emit('playHiddenTrump'); }
 
 // Bot Mode (auto-play) for server mode: picks a legal card and submits it,
