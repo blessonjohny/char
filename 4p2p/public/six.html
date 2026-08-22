@@ -339,7 +339,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .qmark-event-title{font-size:1.6rem;font-weight:800;letter-spacing:1px;margin-top:10px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,0.6);}
 .qmark-event-sub{font-size:0.9rem;margin-top:8px;color:var(--accent);max-width:280px;margin-left:auto;margin-right:auto;}
 .trickslot{position:absolute;transform:translate(-50%,-50%);z-index:5;transition:all 0.25s ease;pointer-events:none}
-.trickslot .card{width:70px!important;height:99px!important;margin-left:0!important;border-radius:9px!important}
+.trickslot .card{width:64px!important;height:90px!important;margin-left:0!important;border-radius:9px!important}
 .trickslot .card .cr,.trickslot .card .crb{font-size:0.68rem!important}
 .trickslot .card .cs{font-size:1rem!important}
 .trick-winner{box-shadow:0 0 0 3px var(--accent),0 0 16px rgba(244,196,48,0.8)!important;transform:scale(1.15);z-index:6}
@@ -367,16 +367,16 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .card.suit-group-start{margin-left:6px!important;border-left:4px solid var(--accent, #f4c430)}
 .card.disabled{filter:brightness(0.55) grayscale(0.4);pointer-events:none}
 .card.tiny{width:40px;height:56px;margin-left:-16px}
-.card .cr{position:absolute;top:4px;left:5px;font-weight:900;line-height:1;display:flex;flex-direction:column;align-items:center;font-size:1.1rem}
-.card .crb{position:absolute;bottom:4px;right:5px;font-weight:900;line-height:1;transform:rotate(180deg);display:flex;flex-direction:column;align-items:center;font-size:1.1rem}
+.card .cr{position:absolute;top:4px;left:5px;font-weight:900;line-height:1;display:flex;flex-direction:column;align-items:center;font-size:1.1rem;text-shadow:0 1px 2px rgba(0,0,0,0.35),0 0 1px rgba(0,0,0,0.2)}
+.card .crb{position:absolute;bottom:4px;right:5px;font-weight:900;line-height:1;transform:rotate(180deg);display:flex;flex-direction:column;align-items:center;font-size:1.1rem;text-shadow:0 1px 2px rgba(0,0,0,0.35),0 0 1px rgba(0,0,0,0.2)}
 .card .cs{display:flex;align-items:center;justify-content:center}
 /* Card content scales up to match each size context above - a bigger card frame with the same
    small text/icon would just look like a lot of empty white space, not genuinely bigger and
    more readable. */
-.trickslot .card .cr, .trickslot .card .crb, .trickslot .card.tiny .cr, .trickslot .card.tiny .crb{font-size:1.3rem}
-.trickslot .card .suit-icon-center, .trickslot .card.tiny .suit-icon-center{width:2.4rem;height:2.4rem}
-.suit-icon-corner{width:0.5em;height:0.5em;display:block}
-.suit-icon-center{width:2rem;height:2rem;display:block}
+.trickslot .card .cr, .trickslot .card .crb, .trickslot .card.tiny .cr, .trickslot .card.tiny .crb{font-size:1.45rem}
+.trickslot .card .suit-icon-center, .trickslot .card.tiny .suit-icon-center{width:2.7rem;height:2.7rem}
+.suit-icon-corner{width:0.5em;height:0.5em;display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.3))}
+.suit-icon-center{width:2rem;height:2rem;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35))}
 
 .hand-prev .card{width:40px;height:56px;margin-left:-16px;cursor:default;flex-shrink:0}
 .hand-prev .card:first-child{margin-left:0}
