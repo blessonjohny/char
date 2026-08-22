@@ -1539,15 +1539,16 @@ const SLOT_POS = [
   { left: '18%', top: '33%' },   // 4
   { left: '18%', top: '68%' }    // 5
 ];
-// Each played card sits closer to the center than its seat - originally 55% of the way in,
-// increased here since at 55% only the bottom three slots (which start naturally close
-// together in this hexagon layout) actually overlapped each other, while the top and side
-// slots stayed spaced apart - inconsistent, not a deliberate "fanned circle" look. Pulling
-// every slot further in by the same factor makes all six cards overlap their neighbors
-// consistently, all the way around, not just at the bottom.
+// Each played card sits just slightly closer to the center than its seat - a small nudge,
+// not a converging pile. Two earlier attempts at this (0.72, then 0.87) kept pushing further
+// toward the center and made it worse each time - at 0.87 especially, cards ended up
+// overlapping so heavily that some were genuinely no longer visible at all, which is a real
+// regression, not a style preference. Pulled back to barely more than the original 0.55 -
+// just enough that immediately-adjacent cards touch slightly, with every single card still
+// fully identifiable at a glance.
 const TRICK_SLOT_POS = SLOT_POS.map(p => {
   const l = parseFloat(p.left), t = parseFloat(p.top);
-  return { left: (l + (50 - l) * 0.72) + '%', top: (t + (50 - t) * 0.72) + '%' };
+  return { left: (l + (50 - l) * 0.6) + '%', top: (t + (50 - t) * 0.6) + '%' };
 });
 function ensureSeatPositions() {
   for (let slot = 0; slot < 6; slot++) {
