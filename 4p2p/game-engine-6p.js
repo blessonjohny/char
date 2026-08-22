@@ -669,13 +669,10 @@ class GameEngine6P {
     if (this.tricksPlayed === 0) return null;
     if (this.trickCards.length === 0 || this.trickCards.length >= SEATS - this.foldedSeats.length) return null; // trick must be genuinely in progress - not empty, not already resolved
     const currentLeader = this._trickWinner();
-    // The trick's original opener already had their own dedicated moment to declare
-    // (_isQuoteEligibleFor, checked before they led) - if they're still winning partway
-    // through, that's not a new opportunity, it's the same one they already either took or
-    // passed on. This is specifically for someone ELSE taking over the lead mid-trick, so the
-    // opener is never a valid target even while they're the current leader.
-    const openerPos = this.trickCards[0] ? this.trickCards[0].pos : null;
-    if (!currentLeader || currentLeader.pos === openerPos) return null;
+    // No opener exclusion here - whoever currently holds the lead can be asked, including the
+    // trick's own opener. The only thing that actually gates this is the "not during trick 1"
+    // rule above and "must be an opponent of the leader" rule below.
+    if (!currentLeader) return null;
     // Only an opponent of the current leader can ask - mirrors a real player noticing "their
     // team is sweeping everything, let's see if they'll commit to it" - not something a
     // teammate of the leader would ever want to bring up themselves.
