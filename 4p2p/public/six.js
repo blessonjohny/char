@@ -13,6 +13,27 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
+// Haptic-only feedback for this table - explicitly no sound engine here, per request. Same
+// pattern as the 4-player table's own vibrate()/playHaptic(), just without any of the Web
+// Audio API sound synthesis alongside it. navigator.vibrate doesn't exist at all on iOS
+// Safari (Apple has never implemented it) and is unsupported in some other browsers too -
+// both cases should silently do nothing rather than error, since this is a nice-to-have
+// enhancement, never a requirement.
+function vibrate(pattern) {
+  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+}
+const HAPTIC_PATTERNS = {
+  cardPlayed: 15,
+  trickWin: [20, 40, 20],
+  trickLose: 30,
+  bidConfirm: 12,
+  trumpExposed: [30, 60, 30, 60, 40],
+  yourTurn: [15, 30, 15],
+};
+function playHaptic(kind) {
+  const pattern = HAPTIC_PATTERNS[kind];
+  if (pattern) vibrate(pattern);
+}
 // True only for the one automatic reconnect attempt made on a fresh page
 // load when a recent session is found -- lets sixp_joinError show a
 // genuinely different, apologetic message for "the server was restarted
@@ -716,6 +737,7 @@ let lastRoundSeen = -1;
 let roundTrickHistory = []; // every completed trick so far THIS round, for the "played so far" view
 let roundHistorySeenFor = -1; // which round roundTrickHistory currently belongs to
 let lastRenderedTrickSlot = [null, null, null, null, null, null]; // for the card-landing animation diff
+let lastHapticCurrentPlayer = null; // tracks a genuine transition INTO my turn, not every re-render while it's already my turn
 let lastAppliedTableId6p = null; // see applyState -- forces a full trick-slot reset the moment the table itself changes
 let gameOverShownFor = false;
 
@@ -1379,6 +1401,7 @@ function applyState(state) {
         setTimeout(() => {
           showToast('⚡ Trump exposed: ' + exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall) + '!', 'win', 2200);
           showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa');
+          playHaptic('trumpExposed');
         }, 550);
         // Same table-wide pop/shake/glow reveal as the 4-player table - see the CSS comment
         // next to .table-oval.trump-exposed for why this touches two elements at once.
@@ -1725,6 +1748,12 @@ function renderCompletedTrick(lastTrick) {
     const isWinner = tc.pos === lastTrick.winner;
     $('trickSlot' + slot).innerHTML = cardHTML(tc.card, false, false, 'tiny' + (isWinner ? ' trick-winner' : ''));
   }
+  // A trick just fully resolved - single, reliable trigger point for this (only called once
+  // per completed trick, via the reveal queue below), so it's the right place for the
+  // win/lose haptic rather than anywhere state gets re-rendered.
+  if (MY_POS !== -1) {
+    playHaptic(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose');
+  }
 }
 
 function processNextSixpTrickReveal() {
@@ -1927,10 +1956,12 @@ function updateTurnLabel(state) {
   }
   if (state.currentPlayer === MY_POS) {
     lbl.textContent = state.phase === 'bidding1' ? 'Your turn to bid' : state.phase === 'choosingTrump' ? 'Choose trump' : 'Your turn';
+    if (lastHapticCurrentPlayer !== MY_POS && state.phase !== 'lobby') playHaptic('yourTurn');
   } else {
     const seat = state.seats[state.currentPlayer];
     lbl.textContent = seat ? (seat.name + "'s turn") : '';
   }
+  lastHapticCurrentPlayer = state.currentPlayer;
 }
 
 // ---------------- Card rendering (same crisp SVG suit design as the 4p game) ----------------
@@ -2032,6 +2063,7 @@ function renderHand(state) {
 
 function playHandCard(suit, rank) {
   if (!latestState || latestState.currentPlayer !== MY_POS) return;
+  playHaptic('cardPlayed');
   socket.emit('sixp_playCard', { card: { suit, rank, points: POINTS[rank] } });
 }
 function playHiddenTrumpCard() { socket.emit('sixp_playHiddenTrump'); }
@@ -2147,6 +2179,7 @@ function showBidConfirm(state, bid, isPass) {
   confirmBtn.textContent = isThani ? '🔥 Confirm THANI' : (isPass ? (alreadyHighest ? `✓ Stay at ${state.highestBid}` : '✓ Confirm Pass') : `✓ Confirm Bid ${bid}`);
   confirmBtn.addEventListener('click', () => {
     $('bidOverlay').classList.remove('on');
+    playHaptic('bidConfirm');
     if (isThani) socket.emit('sixp_callThani');
     else socket.emit('sixp_placeBid', { bid: isPass ? 0 : bid });
   });
