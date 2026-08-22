@@ -1634,6 +1634,7 @@ function showQMarkEventSix(names, direction) {
   setTimeout(() => overlay.remove(), 2700);
 }
 
+let lastKnownIsBotPerPos = [null, null, null, null, null, null]; // tracks each position's isBot status to detect a genuine join/leave transition, not just any re-render
 function renderSeats(state) {
   detectQMarkChangesSix(state);
   const folded = state.foldedSeats || [];
@@ -1668,6 +1669,23 @@ function renderSeats(state) {
       av.innerHTML = qCount > 0 ? '😭' : (pos === MY_POS ? '😊' : '👤');
       av.classList.remove('has-q');
     }
+    // Green ring for a connected real human, red for a bot - a brief brighter flash plays
+    // exactly once at the moment a seat actually transitions from one to the other, not on
+    // every render while it's already settled into one state. Separate element (av) from the
+    // yellow turn-active ring (applied to the .seat wrapper above/below), so the two can never
+    // conflict even when both are true at once (it's your turn AND you're human).
+    const isBotNow = !!seat.isBot;
+    av.classList.toggle('human-status', !isBotNow);
+    av.classList.toggle('bot-status', isBotNow);
+    const prevIsBot = lastKnownIsBotPerPos[pos];
+    if (prevIsBot !== null && prevIsBot !== isBotNow) {
+      av.classList.remove('flash-join', 'flash-leave');
+      void av.offsetWidth; // force reflow so re-adding the class restarts the animation
+      const flashClass = isBotNow ? 'flash-leave' : 'flash-join';
+      av.classList.add(flashClass);
+      setTimeout(() => av.classList.remove(flashClass), 1300);
+    }
+    lastKnownIsBotPerPos[pos] = isBotNow;
     nm.textContent = seat.name + (pos === MY_POS ? ' (You)' : '');
     // Partner (same team as the viewer) shown in a deep royal green, opponent in a deep royal
     // red - a consistent viewer-relative color convention, same principle as the "your points

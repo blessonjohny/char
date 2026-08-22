@@ -563,7 +563,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .table:not(.mode6) .pslot.s-pos5{display:none !important}
 
 .pspot{display:flex;flex-direction:column;align-items:center;gap:1px;transform:scale(1)}
-.avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;border:2.5px solid var(--border);position:relative;flex-shrink:0}
+.avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;border:2.5px solid var(--border);position:relative;flex-shrink:0;transition:border-color 0.6s ease}
+/* Human/bot status ring - separate from the yellow turn-active glow above (that's a
+   box-shadow, this is the avatar's own border-color, so both can be active at once with no
+   conflict - e.g. it's your turn AND you're human shows the yellow glow around a green
+   border). Green and static for a connected real human, red and static for a bot seat. The
+   brief brighter flash classes are added temporarily by JS the moment a seat actually
+   transitions (bot->human on join, human->bot on leave) and removed after the animation
+   finishes, so the flash only ever plays once per actual transition, not on every render. */
+.avatar.human-status{border-color:#22c55e}
+.avatar.bot-status{border-color:#ef4444}
+@keyframes humanJoinFlash{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 4px rgba(34,197,94,0.6),0 0 16px 6px rgba(34,197,94,0.5)}}
+@keyframes humanLeaveFlash{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 4px rgba(239,68,68,0.6),0 0 16px 6px rgba(239,68,68,0.5)}}
+.avatar.flash-join{animation:humanJoinFlash 0.6s ease-in-out 2}
+.avatar.flash-leave{animation:humanLeaveFlash 0.6s ease-in-out 2}
 /* Hero avatar portraits (replacing plain emoji) - both the normal and "sad" (Kunukku) images
    are always both present in the markup (baked into the same p.emoji string that every
    existing render call site already uses verbatim), stacked absolutely, and CSS alone decides
@@ -5604,6 +5617,7 @@ function showGameEvent(icon, title, detail, color) {
   setTimeout(() => overlay.remove(), 3250);
 }
 
+let lastKnownIsBotPerSlot = [null, null, null, null]; // tracks each slot's isBot status to detect a genuine join/leave transition, not just any re-render
 function updateBadges() {
   detectQMarkChanges4p();
   for (let slot = 0; slot < 4; slot++) {
@@ -5612,6 +5626,30 @@ function updateBadges() {
     const avEl = document.getElementById('av' + slot);
     const playerPos = playerAtSlot(slot);
     const isFolded = !!(latestServerState && latestServerState.foldedSeats && latestServerState.foldedSeats.includes(playerPos));
+    // Green ring for a connected real human, red for a bot - a brief brighter flash plays
+    // exactly once at the moment a seat actually transitions from one to the other (a human
+    // joining a bot's seat, or a human leaving and a bot taking over), not on every render
+    // while it's already settled into one state or the other.
+    if (avEl && latestServerState && latestServerState.seats && playerPos !== null && playerPos !== undefined) {
+      const seat = latestServerState.seats[playerPos];
+      if (seat) {
+        const isBotNow = !!seat.isBot;
+        avEl.classList.toggle('human-status', !isBotNow);
+        avEl.classList.toggle('bot-status', isBotNow);
+        const prev = lastKnownIsBotPerSlot[slot];
+        if (prev !== null && prev !== isBotNow) {
+          avEl.classList.remove('flash-join', 'flash-leave');
+          void avEl.offsetWidth; // force reflow so re-adding the class restarts the animation
+          const flashClass = isBotNow ? 'flash-leave' : 'flash-join';
+          avEl.classList.add(flashClass);
+          // Clean up after the animation naturally finishes (0.6s x 2 iterations) rather than
+          // leaving the class attached indefinitely - harmless visually (the animation's own
+          // end-state is box-shadow:none), but keeping the DOM's class list accurate.
+          setTimeout(() => avEl.classList.remove(flashClass), 1300);
+        }
+        lastKnownIsBotPerSlot[slot] = isBotNow;
+      }
+    }
     // Partner (same team as viewer) in a deep royal green, opponent in a deep royal red - as
     // a base class, not inline style, specifically so .name-dealer/.name-trick-win/
     // .name-trick-loss below still correctly override it when those are active (an inline
