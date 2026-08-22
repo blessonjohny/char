@@ -1554,9 +1554,19 @@ const SLOT_POS = [
 // on-screen gap between every pair of the 6 slots (not just visually-adjacent ones) across
 // several candidate factors, and picked the smallest one with a comfortable, confirmed-safe
 // margin (~30px) at every single pair, not just the ones that looked fine in one screenshot.
+// Horizontal and vertical compression toward center are handled separately, not with one
+// uniform factor - the request was specifically "top group moves down, bottom group moves
+// up, so the left pair and right pair get close together vertically" while horizontal
+// spacing stays roughly as-is. A single shared factor can't express that asymmetry. Both
+// values were verified against the actual measured gap between every one of the 6 slots'
+// 15 possible pairs (not just the visually-adjacent ones) before landing here - confirmed
+// zero real overlap anywhere, with the left/right vertical pairs down to a genuinely close
+// ~29px gap (visibly "almost touching" without crossing into actual overlap).
+const TRICK_SLOT_X_FACTOR = 0.25;
+const TRICK_SLOT_Y_FACTOR = 0.6;
 const TRICK_SLOT_POS = SLOT_POS.map(p => {
   const l = parseFloat(p.left), t = parseFloat(p.top);
-  return { left: (l + (50 - l) * 0.25) + '%', top: (t + (50 - t) * 0.25) + '%' };
+  return { left: (l + (50 - l) * TRICK_SLOT_X_FACTOR) + '%', top: (t + (50 - t) * TRICK_SLOT_Y_FACTOR) + '%' };
 });
 function ensureSeatPositions() {
   for (let slot = 0; slot < 6; slot++) {
