@@ -663,15 +663,11 @@ function updateSixpScoreDisplay(state) {
     setTimeout(() => os.classList.remove('pop-anim'), 500);
   }
 
-  function setScoreClass(box, diff) {
-    if (!box) return;
-    box.classList.remove('tie', 'winning', 'losing', 'int-1', 'int-2', 'int-3', 'int-4', 'int-5');
-    if (diff === 0) { box.classList.add('tie'); return; }
-    const intensity = Math.abs(diff) >= 8 ? 5 : Math.abs(diff) >= 6 ? 4 : Math.abs(diff) >= 4 ? 3 : Math.abs(diff) >= 2 ? 2 : 1;
-    box.classList.add(diff > 0 ? 'winning' : 'losing', 'int-' + intensity);
-  }
-  setScoreClass(yBox, yScore - oScore);
-  setScoreClass(oBox, oScore - yScore);
+  // Fixed convention now, not "whoever's currently ahead" - your box is always green,
+  // opponent's always red, matching the same viewer-relative color convention used
+  // elsewhere. Set once and left alone; nothing to recompute on every score change anymore.
+  if (yBox) yBox.classList.add('you-box');
+  if (oBox) oBox.classList.add('opp-box');
 }
 const SUIT_NAMES = { '♠': 'Spades', '♥': 'Hearts', '♦': 'Diamonds', '♣': 'Clubs' };
 function suitName(suit) { return SUIT_NAMES[suit] || suit; }
