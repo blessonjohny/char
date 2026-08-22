@@ -615,9 +615,66 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    looping animation (like the old score-box shimmer/pulse, removed elsewhere for being
    exactly that). filter:brightness on the same base color rather than animating between two
    different color values keeps it looking like the same team color throughout, just glowing. */
-@keyframes namePulse{0%,100%{filter:brightness(0.85)}50%{filter:brightness(1.6)}}
-.pname.name-teammate{color:#2e7d32;animation:namePulse 5s ease-in-out infinite}
-.pname.name-opponent{color:#c62828;animation:namePulse 5s ease-in-out infinite}
+/* A 10-second cycle: the first 5 seconds grow from a subtle, muted color with a plain white
+   border into a fully saturated, glowing version of the same color WITH the border itself
+   also turning that color (not white anymore) - then holds at that full, glowing state for
+   the remaining 5 seconds before the cycle restarts. Uses the longhand
+   -webkit-text-stroke-color (not the -webkit-text-stroke shorthand) so only the border's
+   COLOR animates, without needing to repeat the stroke width that's already set on the base
+   .pname rule. */
+/* Rebuilt to NOT rely on animating -webkit-text-stroke-color - that property is non-standard
+   and its animation support turned out to be inconsistent on real mobile browsers (it worked
+   in one test environment but reportedly did not visibly transition on the actual target
+   device). Every part of this effect - the "border" itself, its color, and the glow - is now
+   built entirely from text-shadow instead, which is a standard, universally well-supported
+   property for animation. Multiple directional shadow layers (up/down/left/right/diagonals)
+   at a small, fixed offset simulate a solid outline around the letters; animating their color
+   from white to the full team color, alongside a growing blurred glow layered on top, is what
+   produces the "color spreads from the letters out to the border" effect. The actual
+   -webkit-text-stroke on the base .pname rule stays a static, always-on thin white line
+   underneath this for baseline readability even before the animation kicks in. */
+@keyframes nameGlowGreen{
+  0%{
+    color:#2e7d32;
+    text-shadow:
+      1px 0 0 rgba(255,255,255,0.9), -1px 0 0 rgba(255,255,255,0.9),
+      0 1px 0 rgba(255,255,255,0.9), 0 -1px 0 rgba(255,255,255,0.9),
+      1px 1px 0 rgba(255,255,255,0.9), -1px -1px 0 rgba(255,255,255,0.9),
+      1px -1px 0 rgba(255,255,255,0.9), -1px 1px 0 rgba(255,255,255,0.9),
+      0 1px 2px rgba(0,0,0,0.7);
+  }
+  50%,100%{
+    color:#22c55e;
+    text-shadow:
+      1px 0 0 #22c55e, -1px 0 0 #22c55e,
+      0 1px 0 #22c55e, 0 -1px 0 #22c55e,
+      1px 1px 0 #22c55e, -1px -1px 0 #22c55e,
+      1px -1px 0 #22c55e, -1px 1px 0 #22c55e,
+      0 0 8px rgba(34,197,94,0.95), 0 0 18px rgba(34,197,94,0.65);
+  }
+}
+@keyframes nameGlowRed{
+  0%{
+    color:#c62828;
+    text-shadow:
+      1px 0 0 rgba(255,255,255,0.9), -1px 0 0 rgba(255,255,255,0.9),
+      0 1px 0 rgba(255,255,255,0.9), 0 -1px 0 rgba(255,255,255,0.9),
+      1px 1px 0 rgba(255,255,255,0.9), -1px -1px 0 rgba(255,255,255,0.9),
+      1px -1px 0 rgba(255,255,255,0.9), -1px 1px 0 rgba(255,255,255,0.9),
+      0 1px 2px rgba(0,0,0,0.7);
+  }
+  50%,100%{
+    color:#ef4444;
+    text-shadow:
+      1px 0 0 #ef4444, -1px 0 0 #ef4444,
+      0 1px 0 #ef4444, 0 -1px 0 #ef4444,
+      1px 1px 0 #ef4444, -1px -1px 0 #ef4444,
+      1px -1px 0 #ef4444, -1px 1px 0 #ef4444,
+      0 0 8px rgba(239,68,68,0.95), 0 0 18px rgba(239,68,68,0.65);
+  }
+}
+.pname.name-teammate{animation:nameGlowGreen 10s ease-in-out infinite}
+.pname.name-opponent{animation:nameGlowRed 10s ease-in-out infinite}
 .pname.name-dealer{color:var(--accent);text-shadow:0 0 6px rgba(255,215,0,0.35);animation:dealerTwinkle 1.8s ease-in-out infinite}
 @keyframes dealerTwinkle{
   0%,100%{text-shadow:0 0 6px rgba(255,215,0,0.35);filter:brightness(1)}
