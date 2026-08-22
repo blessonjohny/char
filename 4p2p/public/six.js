@@ -1539,13 +1539,15 @@ const SLOT_POS = [
   { left: '18%', top: '33%' },   // 4
   { left: '18%', top: '68%' }    // 5
 ];
-// Each played card sits about 55% of the way from that seat toward the
-// center of the table — radiating in front of whoever played it, same
-// spirit as the 4-player game's per-seat trick slots, instead of every
-// card just piling into one static row in the dead middle.
+// Each played card sits closer to the center than its seat - originally 55% of the way in,
+// increased here since at 55% only the bottom three slots (which start naturally close
+// together in this hexagon layout) actually overlapped each other, while the top and side
+// slots stayed spaced apart - inconsistent, not a deliberate "fanned circle" look. Pulling
+// every slot further in by the same factor makes all six cards overlap their neighbors
+// consistently, all the way around, not just at the bottom.
 const TRICK_SLOT_POS = SLOT_POS.map(p => {
   const l = parseFloat(p.left), t = parseFloat(p.top);
-  return { left: (l + (50 - l) * 0.55) + '%', top: (t + (50 - t) * 0.55) + '%' };
+  return { left: (l + (50 - l) * 0.72) + '%', top: (t + (50 - t) * 0.72) + '%' };
 });
 function ensureSeatPositions() {
   for (let slot = 0; slot < 6; slot++) {
