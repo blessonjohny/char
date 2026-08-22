@@ -102,7 +102,7 @@ class GameEngine6P {
     this.tableId = tableId;
     this.seats = new Array(SEATS).fill(null);
     this.round = 0;
-    this.gameScore = [6, 6];
+    this.gameScore = [0, 0];
     this.gameOver = null; // {winningTeam, finalScore} once the match ends
     // "Q" penalty marks: same rule as the 4-player game. This engine has
     // no automatic championship-to-championship continuation (a match
@@ -328,7 +328,7 @@ class GameEngine6P {
   }
 
   restartGame() {
-    this.gameScore = [6, 6];
+    this.gameScore = [0, 0];
     this.gameOver = null;
     this.round = 0;
     this.dealer = Math.floor(Math.random() * SEATS);
@@ -743,8 +743,10 @@ class GameEngine6P {
     const otherTeam = 1 - declineTeam;
     const declineTeamIsBidder = declineTeam === bT;
     const pts = declineTeamIsBidder ? 1 : 2;
+    // Only the declining team's score increases now, matching the same rule applied to every
+    // other scoring path in this file - see the normal-bid path in _endRound() for the full
+    // reasoning behind dropping the other side's deduction.
     this.gameScore[declineTeam] += pts;
-    this.gameScore[otherTeam] -= pts;
     const seat = this.seats[declinedByPos];
     this.roundWinnerAnnounced = {
       bidderWon: declineTeamIsBidder, made: true, bidder: this.bidder, highestBid: this.highestBid,
@@ -977,8 +979,11 @@ class GameEngine6P {
       made = !!(this.lastTrick && this.lastTrick.winner === this.thaniCaller);
       pts = made ? 3 : 4;
       const isHonors = true;
-      if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
-      else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
+      // Only the winning side's score ever changes now - the losing side keeps whatever
+      // they'd already accumulated rather than having it reduced. See the matching comment
+      // on the normal-bid path below for the full reasoning.
+      if (made) { this.gameScore[bT] += pts; }
+      else { this.gameScore[oT] += pts; }
       this.roundWinnerAnnounced = {
         bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
         teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
@@ -1004,8 +1009,10 @@ class GameEngine6P {
       if (cotTeamIsBidder) pts = made ? 2 : 3;
       else pts = made ? 3 : 2;
       const isHonors = this.highestBid >= 20;
-      if (made) { this.gameScore[cotTeam] += pts; this.gameScore[otherTeam] -= pts; }
-      else { this.gameScore[otherTeam] += pts; this.gameScore[cotTeam] -= pts; }
+      // Only the winning side gains now - see the normal-bid path below for the full
+      // reasoning behind dropping the losing side's deduction.
+      if (made) { this.gameScore[cotTeam] += pts; }
+      else { this.gameScore[otherTeam] += pts; }
       this.roundWinnerAnnounced = {
         bidderWon: getTeam(this.bidder) === cotTeam ? made : !made,
         made, bidder: this.bidder, highestBid: this.highestBid,
@@ -1023,8 +1030,13 @@ class GameEngine6P {
     else if (this.highestBid >= 20) pts = made ? 2 : 3;
     else pts = made ? 1 : 2;
     const isHonors = this.highestBid >= 20;
-    if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
-    else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
+    // Only the winning team's score ever changes - a made bid adds to the bidding team, a
+    // failed bid adds to the defending team, but nobody's existing total ever gets reduced
+    // for losing. Previously this was zero-sum (the loser's score dropped by the same amount
+    // the winner gained), which meant a team's own hard-earned points could get erased by a
+    // later loss that had nothing to do with how they earned them.
+    if (made) { this.gameScore[bT] += pts; }
+    else { this.gameScore[oT] += pts; }
     this.roundWinnerAnnounced = {
       bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
       teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
@@ -1083,21 +1095,34 @@ class GameEngine6P {
     this._bidderHandProfileForLearning = null;
     brain.saveBrains();
 
-    // No championship/King meta-game in this variant — the match just
-    // ends outright the moment either team hits 12 or drops to 0.
-    if (this.gameScore[0] >= 12 || this.gameScore[1] >= 12 || this.gameScore[0] <= 0 || this.gameScore[1] <= 0) {
+    // No championship/King meta-game in this variant — the match just ends outright the
+    // moment either team reaches the target. Previously this also checked "<= 0" as an
+    // equivalent trigger, which only worked because the old zero-sum scoring guaranteed
+    // hitting the target on one side always meant the other was at exactly 0 (6+6=12,
+    // always). Losing-side deductions are gone now (see the three _endRound() scoring
+    // branches above), so scores only ever go up - the <=0 check is meaningless from here on
+    // and is removed rather than left in as dead code that could misfire on a fresh 0-0 start.
+    if (this.gameScore[0] >= 15 || this.gameScore[1] >= 15) {
       const winningTeam = this.gameScore[0] > this.gameScore[1] ? 0 : 1;
       const losingTeam = 1 - winningTeam;
       this.gameOver = { winningTeam, finalScore: this.gameScore.slice() };
       this.addLog(`Match over — team ${winningTeam} wins ${this.gameScore[winningTeam]}-${this.gameScore[1 - winningTeam]}.`);
-      // Zero-sum scoring means this is always a shutout — every player
-      // on the losing side picks up a Q.
-      for (let i = 0; i < SEATS; i++) {
-        const s = this.seats[i];
-        if (!s || getTeam(i) !== losingTeam) continue;
-        this.qMarks[s.name] = (this.qMarks[s.name] || 0) + 1;
+      // A Q-mark penalty is specifically for an actual SHUTOUT, not just any loss - that
+      // distinction only used to be automatic because the old zero-sum math meant every
+      // match-ending loss WAS a shutout (the loser was always at exactly 0 when this fired).
+      // Now that losing-side deductions are gone, the loser could be sitting on a real score
+      // (e.g. 12 out of a 15 target) when the other team crosses the line - that's a close
+      // finish, not a shutout, and shouldn't carry the same penalty. Keeping the original
+      // "actually at zero" meaning intact rather than letting it silently become "every
+      // single loss now gets a Q," which would be a much harsher rule than intended.
+      if (this.gameScore[losingTeam] <= 0) {
+        for (let i = 0; i < SEATS; i++) {
+          const s = this.seats[i];
+          if (!s || getTeam(i) !== losingTeam) continue;
+          this.qMarks[s.name] = (this.qMarks[s.name] || 0) + 1;
+        }
+        this.addLog(`Team ${losingTeam} shut out — every player picks up a Q.`);
       }
-      this.addLog(`Team ${losingTeam} shut out — every player picks up a Q.`);
     }
 
     this._notify();
