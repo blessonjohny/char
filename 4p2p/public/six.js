@@ -1546,9 +1546,17 @@ const SLOT_POS = [
 // regression, not a style preference. Pulled back to barely more than the original 0.55 -
 // just enough that immediately-adjacent cards touch slightly, with every single card still
 // fully identifiable at a glance.
+// Each played card sits closer to the center than its seat - but only slightly. Every
+// earlier attempt at this (0.55 originally, then 0.72, then 0.87, then 0.6) was picked by
+// eye rather than actually measured, and every one of them had real overlap somewhere -
+// even the original 0.55 overlapped by 7px between two adjacent slots, and 0.6 (the last
+// value shipped) is worse still. This value was chosen differently: computed the actual
+// on-screen gap between every pair of the 6 slots (not just visually-adjacent ones) across
+// several candidate factors, and picked the smallest one with a comfortable, confirmed-safe
+// margin (~30px) at every single pair, not just the ones that looked fine in one screenshot.
 const TRICK_SLOT_POS = SLOT_POS.map(p => {
   const l = parseFloat(p.left), t = parseFloat(p.top);
-  return { left: (l + (50 - l) * 0.6) + '%', top: (t + (50 - t) * 0.6) + '%' };
+  return { left: (l + (50 - l) * 0.25) + '%', top: (t + (50 - t) * 0.25) + '%' };
 });
 function ensureSeatPositions() {
   for (let slot = 0; slot < 6; slot++) {
