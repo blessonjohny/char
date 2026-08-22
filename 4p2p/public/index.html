@@ -604,6 +604,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    changes completely: whichever team just won the last trick turns green
    and the other team turns red — live, trick by trick — regardless of the
    dealer/bidder colors above, which only apply before any trick is won. */
+/* Base team-relative name color - deliberately placed BEFORE (lower cascade priority than)
+   the dealer/trick-outcome classes below, since those are meant to temporarily override this
+   whenever they're active (same specificity - two classes each - so stylesheet order is what
+   decides the tie, and this needs to lose that tie on purpose). */
+.pname.name-teammate{color:#2e7d32}
+.pname.name-opponent{color:#c62828}
 .pname.name-dealer{color:var(--accent);text-shadow:0 0 6px rgba(255,215,0,0.35);animation:dealerTwinkle 1.8s ease-in-out infinite}
 @keyframes dealerTwinkle{
   0%,100%{text-shadow:0 0 6px rgba(255,215,0,0.35);filter:brightness(1)}
@@ -5541,6 +5547,14 @@ function updateBadges() {
     const avEl = document.getElementById('av' + slot);
     const playerPos = playerAtSlot(slot);
     const isFolded = !!(latestServerState && latestServerState.foldedSeats && latestServerState.foldedSeats.includes(playerPos));
+    // Partner (same team as viewer) in a deep royal green, opponent in a deep royal red - as
+    // a base class, not inline style, specifically so .name-dealer/.name-trick-win/
+    // .name-trick-loss below still correctly override it when those are active (an inline
+    // style would permanently block all of them, since inline always outranks a class).
+    if (nameEl && playerPos !== null && playerPos !== undefined) {
+      nameEl.classList.toggle('name-teammate', getTeam(playerPos) === getTeam(MY_POS));
+      nameEl.classList.toggle('name-opponent', getTeam(playerPos) !== getTeam(MY_POS));
+    }
 
     if (bc) {
       let b = [];
@@ -7022,7 +7036,15 @@ function restoreGameState(data) {
       av.style.background = p.bg; 
       av.innerHTML = p.emoji + '<span class="tdot ' + teamDot + '"></span>'; 
     }
-    if (nm) nm.textContent = formatPlayerName(p.name, p.isBot);
+    if (nm) {
+      nm.textContent = formatPlayerName(p.name, p.isBot);
+      // Class-based, not inline style - .name-dealer/.name-trick-win/.name-trick-loss below
+      // are meant to temporarily override this base team color when those specific events
+      // happen, and an inline style would permanently block all of them from ever showing at
+      // all (inline always outranks a class, regardless of what gets toggled on/off later).
+      nm.classList.toggle('name-teammate', teamDot === 'tyou');
+      nm.classList.toggle('name-opponent', teamDot !== 'tyou');
+    }
   }
 
   // === STEP 3: Restore persistent game state (scores, round, etc.) ===
@@ -12756,7 +12778,13 @@ function startLocalGameWithPosition(yourPos) {
     const nm = document.getElementById('name' + slot);
     const teamDot = getTeam(i) === getTeam(yourPos) ? 'tyou' : 'topp';
     if (av) { av.style.background = p.bg; av.innerHTML = p.emoji + '<span class="tdot ' + teamDot + '"></span>'; }
-    if (nm) nm.textContent = formatPlayerName(p.name, p.isBot);
+    if (nm) {
+      nm.textContent = formatPlayerName(p.name, p.isBot);
+      // Same royal green/red team-relative coloring as the online-mode update site, via
+      // class toggling rather than inline style for the same reason (see that site's comment).
+      nm.classList.toggle('name-teammate', teamDot === 'tyou');
+      nm.classList.toggle('name-opponent', teamDot !== 'tyou');
+    }
   }
   // FIX: Hide ALL screens before showing game
   document.getElementById('welcomeScreen').style.display = 'none';

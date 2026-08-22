@@ -1649,6 +1649,10 @@ function renderSeats(state) {
       av.classList.remove('has-q');
     }
     nm.textContent = seat.name + (pos === MY_POS ? ' (You)' : '');
+    // Partner (same team as the viewer) shown in a deep royal green, opponent in a deep royal
+    // red - a consistent viewer-relative color convention, same principle as the "your points
+    // always shown first and in green" fix from earlier, just applied to the seat labels too.
+    nm.style.color = (sixpGetTeam(pos) === sixpGetTeam(MY_POS)) ? '#2e7d32' : '#c62828';
     cc.textContent = isFolded ? 'Folded (Thani)' : (seat.cardCount + 'c');
     wrap.classList.toggle('on', state.currentPlayer === pos && (state.phase === 'bidding1' || state.phase === 'play' || state.phase === 'choosingTrump'));
     let badge = '';
