@@ -1649,7 +1649,11 @@ function renderSeats(state) {
     // Partner (same team as the viewer) shown in a deep royal green, opponent in a deep royal
     // red - a consistent viewer-relative color convention, same principle as the "your points
     // always shown first and in green" fix from earlier, just applied to the seat labels too.
-    nm.style.color = (sixpGetTeam(pos) === sixpGetTeam(MY_POS)) ? '#2e7d32' : '#c62828';
+    // Class-based, not inline style - lets the same pulse animation CSS rule apply here too
+    // (an inline color would still work alongside a class-based animation, but keeping this
+    // consistent with the 4-player table's own approach for the identical feature).
+    nm.classList.toggle('name-teammate', sixpGetTeam(pos) === sixpGetTeam(MY_POS));
+    nm.classList.toggle('name-opponent', sixpGetTeam(pos) !== sixpGetTeam(MY_POS));
     cc.textContent = isFolded ? 'Folded (Thani)' : (seat.cardCount + 'c');
     wrap.classList.toggle('on', state.currentPlayer === pos && (state.phase === 'bidding1' || state.phase === 'play' || state.phase === 'choosingTrump'));
     let badge = '';

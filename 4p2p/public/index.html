@@ -608,8 +608,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    the dealer/trick-outcome classes below, since those are meant to temporarily override this
    whenever they're active (same specificity - two classes each - so stylesheet order is what
    decides the tie, and this needs to lose that tie on purpose). */
-.pname.name-teammate{color:#2e7d32}
-.pname.name-opponent{color:#c62828}
+/* A slow, 5-second brightness pulse - the base team colors on their own read as fairly muted
+   against the dark background, so this cycles between a dimmer and a noticeably brighter
+   version of the same color rather than changing the color itself, giving it a "breathing"
+   glow that's easier to notice at a glance without being the fast, distracting kind of
+   looping animation (like the old score-box shimmer/pulse, removed elsewhere for being
+   exactly that). filter:brightness on the same base color rather than animating between two
+   different color values keeps it looking like the same team color throughout, just glowing. */
+@keyframes namePulse{0%,100%{filter:brightness(0.85)}50%{filter:brightness(1.6)}}
+.pname.name-teammate{color:#2e7d32;animation:namePulse 5s ease-in-out infinite}
+.pname.name-opponent{color:#c62828;animation:namePulse 5s ease-in-out infinite}
 .pname.name-dealer{color:var(--accent);text-shadow:0 0 6px rgba(255,215,0,0.35);animation:dealerTwinkle 1.8s ease-in-out infinite}
 @keyframes dealerTwinkle{
   0%,100%{text-shadow:0 0 6px rgba(255,215,0,0.35);filter:brightness(1)}
