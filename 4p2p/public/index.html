@@ -15406,9 +15406,24 @@ function applyServerState(state) {
   // while it's already my turn, which would replay the chime on every minor update - a chat
   // message, another player's avatar animation finishing, etc). Only actually fires the one
   // moment turn possession changes hands and lands on me.
+  //
+  // The delay here is the actual fix for a real, confirmed bug: when the LAST card of a trick
+  // is played, _resolveTrick() runs synchronously - it determines the winner and sets
+  // currentPlayer to them in the very same tick, before that card's own ~400ms landing
+  // animation has even started playing client-side. If that winner is me, this check would
+  // fire the instant the broadcast arrives, which is BEFORE the card that made it my turn has
+  // finished visually landing on screen - the sound/turn-indicator jumping ahead of what's
+  // actually visible. Delaying to match the trump-exposed announcement's own 550ms pause (for
+  // the identical reason - see that code) gives the card time to actually land first.
   if (state.currentPlayer === MY_POS && lastChimedCurrentPlayer !== MY_POS && state.phase !== 'lobby') {
-    playChime('yourTurn');
-    playHaptic('yourTurn');
+    setTimeout(() => {
+      // Re-check at fire-time, not just schedule-time - if something else already changed
+      // whose turn it is in the meantime (a fast bot, a reconnect), don't fire a stale chime.
+      if (latestServerState && latestServerState.currentPlayer === MY_POS) {
+        playChime('yourTurn');
+        playHaptic('yourTurn');
+      }
+    }, 550);
   }
   lastChimedCurrentPlayer = state.currentPlayer;
   currentPlayer = state.currentPlayer;
