@@ -646,48 +646,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    produces the "color spreads from the letters out to the border" effect. The actual
    -webkit-text-stroke on the base .pname rule stays a static, always-on thin white line
    underneath this for baseline readability even before the animation kicks in. */
-@keyframes nameGlowGreen{
-  0%{
-    color:#2e7d32;
-    text-shadow:
-      1px 0 0 rgba(255,255,255,0.9), -1px 0 0 rgba(255,255,255,0.9),
-      0 1px 0 rgba(255,255,255,0.9), 0 -1px 0 rgba(255,255,255,0.9),
-      1px 1px 0 rgba(255,255,255,0.9), -1px -1px 0 rgba(255,255,255,0.9),
-      1px -1px 0 rgba(255,255,255,0.9), -1px 1px 0 rgba(255,255,255,0.9),
-      0 1px 2px rgba(0,0,0,0.7);
-  }
-  50%,100%{
-    color:#22c55e;
-    text-shadow:
-      1px 0 0 #22c55e, -1px 0 0 #22c55e,
-      0 1px 0 #22c55e, 0 -1px 0 #22c55e,
-      1px 1px 0 #22c55e, -1px -1px 0 #22c55e,
-      1px -1px 0 #22c55e, -1px 1px 0 #22c55e,
-      0 0 8px rgba(34,197,94,0.95), 0 0 18px rgba(34,197,94,0.65);
-  }
+/* Reversed from the earlier animated version, per explicit request: no animation at all now,
+   and the colors are swapped - white fill (the "inside"), with the team color carried entirely
+   by the border/outline instead of the text itself. Static, not animated - built the same way
+   as the outline in the base .pname rule (multiple small directional text-shadow offsets to
+   simulate a solid border), just in the team color instead of white, with white text instead
+   of colored text. */
+.pname.name-teammate{
+  color:#fff;
+  text-shadow:
+    1px 0 0 #22c55e, -1px 0 0 #22c55e,
+    0 1px 0 #22c55e, 0 -1px 0 #22c55e,
+    1px 1px 0 #22c55e, -1px -1px 0 #22c55e,
+    1px -1px 0 #22c55e, -1px 1px 0 #22c55e;
 }
-@keyframes nameGlowRed{
-  0%{
-    color:#c62828;
-    text-shadow:
-      1px 0 0 rgba(255,255,255,0.9), -1px 0 0 rgba(255,255,255,0.9),
-      0 1px 0 rgba(255,255,255,0.9), 0 -1px 0 rgba(255,255,255,0.9),
-      1px 1px 0 rgba(255,255,255,0.9), -1px -1px 0 rgba(255,255,255,0.9),
-      1px -1px 0 rgba(255,255,255,0.9), -1px 1px 0 rgba(255,255,255,0.9),
-      0 1px 2px rgba(0,0,0,0.7);
-  }
-  50%,100%{
-    color:#ef4444;
-    text-shadow:
-      1px 0 0 #ef4444, -1px 0 0 #ef4444,
-      0 1px 0 #ef4444, 0 -1px 0 #ef4444,
-      1px 1px 0 #ef4444, -1px -1px 0 #ef4444,
-      1px -1px 0 #ef4444, -1px 1px 0 #ef4444,
-      0 0 8px rgba(239,68,68,0.95), 0 0 18px rgba(239,68,68,0.65);
-  }
+.pname.name-opponent{
+  color:#fff;
+  text-shadow:
+    1px 0 0 #ef4444, -1px 0 0 #ef4444,
+    0 1px 0 #ef4444, 0 -1px 0 #ef4444,
+    1px 1px 0 #ef4444, -1px -1px 0 #ef4444,
+    1px -1px 0 #ef4444, -1px 1px 0 #ef4444;
 }
-.pname.name-teammate{animation:nameGlowGreen 10s ease-in-out infinite}
-.pname.name-opponent{animation:nameGlowRed 10s ease-in-out infinite}
 .pname.name-dealer{color:var(--accent);text-shadow:0 0 6px rgba(255,215,0,0.35);animation:dealerTwinkle 1.8s ease-in-out infinite}
 @keyframes dealerTwinkle{
   0%,100%{text-shadow:0 0 6px rgba(255,215,0,0.35);filter:brightness(1)}

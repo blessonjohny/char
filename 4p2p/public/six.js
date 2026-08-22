@@ -1558,6 +1558,20 @@ const SLOT_POS = [
   { left: '18%', top: '33%' },   // 4
   { left: '18%', top: '68%' }    // 5
 ];
+// The actual avatar/seat position - separate from SLOT_POS above (which TRICK_SLOT_POS is
+// still derived from, for the played-card layout). Moving avatars further out from the table
+// needed its own array specifically so it couldn't also drag the trick cards along with it -
+// those were carefully tuned for a verified zero-overlap layout, and piggybacking this change
+// onto the same source array would have silently disturbed that. Left/right seats only (0/3,
+// the top/bottom seats, stay put - there's no unused horizontal margin for them to use).
+const SEAT_POS = [
+  { left: '50%', top: '78%' },   // 0 me
+  { left: '90%', top: '68%' },   // 1 - moved right, was 82%
+  { left: '90%', top: '33%' },   // 2 - moved right, was 82%
+  { left: '50%', top: '23%' },   // 3
+  { left: '10%', top: '33%' },   // 4 - moved left, was 18%
+  { left: '10%', top: '68%' }    // 5 - moved left, was 18%
+];
 // Each played card sits just slightly closer to the center than its seat - a small nudge,
 // not a converging pile. Two earlier attempts at this (0.72, then 0.87) kept pushing further
 // toward the center and made it worse each time - at 0.87 especially, cards ended up
@@ -1591,8 +1605,8 @@ const TRICK_SLOT_POS = SLOT_POS.map(p => {
 function ensureSeatPositions() {
   for (let slot = 0; slot < 6; slot++) {
     const el = $('seatWrap' + slot);
-    el.style.left = SLOT_POS[slot].left;
-    el.style.top = SLOT_POS[slot].top;
+    el.style.left = SEAT_POS[slot].left;
+    el.style.top = SEAT_POS[slot].top;
     el.style.transform = 'translate(-50%,-50%)';
     const ts = $('trickSlot' + slot);
     ts.style.left = TRICK_SLOT_POS[slot].left;
@@ -1686,7 +1700,7 @@ function renderSeats(state) {
       setTimeout(() => av.classList.remove(flashClass), 1300);
     }
     lastKnownIsBotPerPos[pos] = isBotNow;
-    nm.textContent = seat.name + (pos === MY_POS ? ' (You)' : '');
+    nm.textContent = seat.name;
     // Partner (same team as the viewer) shown in a deep royal green, opponent in a deep royal
     // red - a consistent viewer-relative color convention, same principle as the "your points
     // always shown first and in green" fix from earlier, just applied to the seat labels too.
