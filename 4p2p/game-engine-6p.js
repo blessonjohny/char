@@ -1297,9 +1297,9 @@ class GameEngine6P {
 
       if (!hasSuit && !this.trumpExposed && this.trickSuit !== '' && trumps.length >= 0) {
         let callTrumpNow = false;
-        // None of these reasons justify exposing trump and cutting in if
-        // our OWN partner already has this trick won for free — pure
-        // waste of a trump card and revealed information for nothing.
+        // None of these reasons justify exposing trump and cutting in if our OWN partner
+        // already has this trick won for free - pure waste of a trump card and revealed
+        // information for nothing.
         if (wt !== myTeam) {
           if (pos === this.bidder) callTrumpNow = true;
           else if (isLast && tPts > 0) callTrumpNow = true;
@@ -1307,6 +1307,18 @@ class GameEngine6P {
           else if ((this.suitLeadCount[this.trickSuit] || 0) >= 2 && tPts >= 1) callTrumpNow = true;
           else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) callTrumpNow = true;
           else if (this.trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) callTrumpNow = true;
+        } else if (!isLast && cwc.suit === this.trickSuit && this._higherCardOfSuitStillOut(this.trickSuit, cwc.rank)) {
+          // Partner is currently winning WITH A PLAIN CARD OF THE LED SUIT (not already a
+          // trump cut themselves - overcutting your own partner's trump is a different,
+          // generally bad idea and not what this covers) - but not necessarily safely. If
+          // some player still to act could still be holding a plain card of the led suit
+          // that beats our partner's, sitting on our hands (discarding, "trusting" the
+          // partner) is a real gamble, not free money. Cut it in to actually secure the
+          // trick instead of hoping nobody still holds the one card that beats it. isLast is
+          // excluded on purpose - if this is genuinely the trick's last card, nobody else is
+          // left to act, so the "still out there" card can only be sitting harmlessly in a
+          // hand that will never get a turn to play it into THIS trick.
+          callTrumpNow = true;
         }
         if (callTrumpNow) {
           this.exposeTrump();
@@ -1335,6 +1347,16 @@ class GameEngine6P {
 
   _cardsSeenSoFar() { return this.playedCardsThisRound.concat(this.trickCards.map(tc => tc.card)); }
   _isRankSeen(suit, rank) { return this._cardsSeenSoFar().some(c => c.suit === suit && c.rank === rank); }
+  // Is there still a card of `suit` ranked higher than `aboveRank` that hasn't been played yet
+  // this round? Used specifically for the "should I cut in even though my partner is
+  // currently winning" decision - the bot has none of this suit itself (that's the only way
+  // it's even considering a cut), so any unseen card of this suit can only be sitting in some
+  // other player's hand, not its own - a genuine live threat to the partner's lead, not a
+  // false alarm from a card the bot happens to be holding.
+  _higherCardOfSuitStillOut(suit, aboveRank) {
+    const aboveOrder = RANK_ORDER[aboveRank];
+    return RANKS.some(r => RANK_ORDER[r] > aboveOrder && !this._isRankSeen(suit, r));
+  }
 
   _currentTrickWinnerSoFar() {
     if (this.trickCards.length === 0) return null;
