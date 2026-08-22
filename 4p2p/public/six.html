@@ -339,7 +339,7 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .qmark-event-title{font-size:1.6rem;font-weight:800;letter-spacing:1px;margin-top:10px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,0.6);}
 .qmark-event-sub{font-size:0.9rem;margin-top:8px;color:var(--accent);max-width:280px;margin-left:auto;margin-right:auto;}
 .trickslot{position:absolute;transform:translate(-50%,-50%);z-index:5;transition:all 0.25s ease;pointer-events:none}
-.trickslot .card{width:44px!important;height:61px!important;margin-left:0!important;border-radius:6px!important}
+.trickslot .card{width:78px!important;height:110px!important;margin-left:0!important;border-radius:9px!important}
 .trickslot .card .cr,.trickslot .card .crb{font-size:0.68rem!important}
 .trickslot .card .cs{font-size:1rem!important}
 .trick-winner{box-shadow:0 0 0 3px var(--accent),0 0 16px rgba(244,196,48,0.8)!important;transform:scale(1.15);z-index:6}
@@ -350,16 +350,33 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
 .hand-cards{display:flex;justify-content:center}
 .turnlabel{font-size:0.75rem;color:var(--accent);font-weight:700;min-height:1.1em}
 
-.card{width:52px;height:74px;background:linear-gradient(135deg,#fff 0%,#f5f5f5 60%,#e8e8e8 100%);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;border:1px solid rgba(180,180,180,0.5);box-shadow:0 3px 10px rgba(0,0,0,0.3);margin-left:-14px;flex-shrink:0;transition:transform 0.15s}
+.card{width:62px;height:88px;background:linear-gradient(135deg,#fff 0%,#f5f5f5 60%,#e8e8e8 100%);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;border:1px solid rgba(180,180,180,0.5);box-shadow:0 3px 10px rgba(0,0,0,0.3);margin-left:-14px;flex-shrink:0;transition:transform 0.15s}
+/* The cards actually played to the table (inside a .trickslot) get a bigger size than the
+   hand cards above - there's genuinely more open space in the middle of the table than in the
+   cramped hand row at the bottom, and letting these overlap a little where the oval brings
+   slots close together is fine - readability of any one card matters more here than keeping
+   every slot's card from ever touching its neighbor. */
+.trickslot .card, .trickslot .card.tiny{width:78px;height:110px;margin-left:0}
 .card.selected{border:3px solid var(--accent);box-shadow:0 0 14px rgba(244,196,48,0.7),0 3px 10px rgba(0,0,0,0.3);transform:translateY(-8px)}
 .card:first-child{margin-left:0}
+/* Marks the first card of a new suit group in a sorted hand (spades/diamonds/clubs/hearts) -
+   overrides the usual negative overlap margin above so the thick left border is actually
+   visible instead of being hidden under the previous card, which is what actually makes the
+   suit grouping readable at a glance rather than the hand reading as one undifferentiated,
+   overlapping row. */
+.card.suit-group-start{margin-left:6px!important;border-left:4px solid var(--accent, #f4c430)}
 .card.disabled{filter:brightness(0.55) grayscale(0.4);pointer-events:none}
 .card.tiny{width:40px;height:56px;margin-left:-16px}
-.card .cr{position:absolute;top:4px;left:5px;font-weight:900;line-height:1;display:flex;flex-direction:column;align-items:center;font-size:0.85rem}
-.card .crb{position:absolute;bottom:4px;right:5px;font-weight:900;line-height:1;transform:rotate(180deg);display:flex;flex-direction:column;align-items:center;font-size:0.85rem}
+.card .cr{position:absolute;top:4px;left:5px;font-weight:900;line-height:1;display:flex;flex-direction:column;align-items:center;font-size:0.95rem}
+.card .crb{position:absolute;bottom:4px;right:5px;font-weight:900;line-height:1;transform:rotate(180deg);display:flex;flex-direction:column;align-items:center;font-size:0.95rem}
 .card .cs{display:flex;align-items:center;justify-content:center}
+/* Card content scales up to match each size context above - a bigger card frame with the same
+   small text/icon would just look like a lot of empty white space, not genuinely bigger and
+   more readable. */
+.trickslot .card .cr, .trickslot .card .crb, .trickslot .card.tiny .cr, .trickslot .card.tiny .crb{font-size:1.15rem}
+.trickslot .card .suit-icon-center, .trickslot .card.tiny .suit-icon-center{width:2rem;height:2rem}
 .suit-icon-corner{width:0.5em;height:0.5em;display:block}
-.suit-icon-center{width:1.5rem;height:1.5rem;display:block}
+.suit-icon-center{width:1.7rem;height:1.7rem;display:block}
 
 .hand-prev .card{width:40px;height:56px;margin-left:-16px;cursor:default;flex-shrink:0}
 .hand-prev .card:first-child{margin-left:0}

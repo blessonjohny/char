@@ -724,6 +724,11 @@ let lastAppliedTableId6p = null; // see applyState -- forces a full trick-slot r
 let gameOverShownFor = false;
 
 const SUITS = ['♠', '♦', '♥', '♣'];
+// The order a hand gets arranged in on screen specifically - spades, diamonds, clubs, hearts.
+// Deliberately separate from SUITS above (which is ♠♦♥♣, used elsewhere for things like trump
+// selection) rather than reordering that shared constant, since this ordering is specific to
+// how a hand displays, not a general suit-priority list.
+const HAND_SUIT_ORDER = ['♠', '♦', '♣', '♥'];
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1, '6': 0 };
 const POINTS = { J: 3, '9': 2, A: 1, '10': 1, K: 0, Q: 0, '8': 0, '7': 0, '6': 0 };
 const SUIT_ICON_ID = { '♠': 'spade', '♣': 'club', '♥': 'heart', '♦': 'diamond' };
@@ -1941,9 +1946,17 @@ function canPlay(state, card) {
 function renderHand(state) {
   const mySeat = state.seats[MY_POS];
   const hand = (mySeat && mySeat.hand) || [];
-  const sorted = hand.slice().sort((a, b) => SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit) || RANK_ORDER[b.rank] - RANK_ORDER[a.rank]);
+  const sorted = hand.slice().sort((a, b) => HAND_SUIT_ORDER.indexOf(a.suit) - HAND_SUIT_ORDER.indexOf(b.suit) || RANK_ORDER[b.rank] - RANK_ORDER[a.rank]);
   const myTurn = state.phase === 'play' && state.currentPlayer === MY_POS;
-  $('handCards').innerHTML = sorted.map(c => cardHTML(c, myTurn, myTurn && !canPlay(state, c), '')).join('');
+  // A visibly thick left border on the first card of each new suit group (not the very first
+  // card overall) - matches the same divider treatment as the 4-player table, so a sorted
+  // hand actually reads as spades/diamonds/clubs/hearts groups, not one undifferentiated row.
+  let prevSuit = null;
+  $('handCards').innerHTML = sorted.map(c => {
+    const isFirstOfGroup = prevSuit !== null && c.suit !== prevSuit;
+    prevSuit = c.suit;
+    return cardHTML(c, myTurn, myTurn && !canPlay(state, c), isFirstOfGroup ? 'suit-group-start' : '');
+  }).join('');
 
   // Hidden trump card (mine to play, once trump chosen) shows as an extra
   // face-up card at the end of the hand once nothing else can legally be led.
