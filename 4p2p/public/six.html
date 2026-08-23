@@ -351,7 +351,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 @keyframes gameEventSweep{0%{left:-60%}100%{left:130%}}
 .game-event-icon{font-size:2.2rem;line-height:1;font-weight:900;color:var(--evt-color, #f4c430);filter:drop-shadow(0 0 10px var(--evt-glow, rgba(244,196,48,0.6)))}
 .game-event-title{font-family:'Cinzel','Playfair Display',serif;font-size:1.35rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-top:8px;color:var(--evt-color, #f4c430);text-shadow:0 2px 8px rgba(0,0,0,0.6)}
-.game-event-detail{font-family:'Cinzel','Playfair Display',serif;font-size:1.6rem;font-weight:600;margin-top:4px;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.5)}
+.game-event-detail{font-family:'Cinzel','Playfair Display',serif;font-size:1.6rem;font-weight:600;margin-top:4px;color:var(--evt-color, #fff);text-shadow:0 2px 6px rgba(0,0,0,0.5)}
 /* Small "actual playing card" visual -- identical to index.html's own
    version, see there for the full reasoning. */
 .game-event-minicard{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:52px;height:74px;background:linear-gradient(135deg,#fff 0%,#f5f5f5 60%,#e8e8e8 100%);border-radius:9px;border:1px solid rgba(180,180,180,0.5);box-shadow:0 3px 10px rgba(0,0,0,0.3);margin-top:6px}
@@ -386,6 +386,19 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .trick-winner{box-shadow:0 0 0 3px var(--accent),0 0 16px rgba(244,196,48,0.8)!important;transform:scale(1.15);z-index:6}
 .trump-chip{position:absolute;top:80px;left:8px;display:inline-flex;align-items:center;gap:3px;background:rgba(139,0,0,0.6);border:1.5px solid var(--accent);border-radius:20px;padding:4px 12px;font-size:0.8rem;font-family:'Cinzel','Playfair Display',serif;font-weight:700;color:var(--accent);white-space:nowrap;box-shadow:0 0 10px rgba(255,215,0,0.15),inset 0 0 6px rgba(255,215,0,0.05);transition:all 0.3s ease;z-index:10}
 .trump-chip.trump-active{background:rgba(139,0,0,0.8);border:1.5px solid var(--royal-gold, var(--accent));box-shadow:0 0 15px rgba(255,215,0,0.3),0 0 30px rgba(255,215,0,0.1),inset 0 0 10px rgba(255,215,0,0.1)}
+/* A genuine heartbeat rhythm - two quick beats (lub-dub) then a pause, not a plain smooth
+   pulse - closer to an actual heartbeat's uneven timing. Applies to the persistent trump chip
+   icon whenever trump is active, and to the popup banner's icon every time it's shown. */
+@keyframes suitHeartbeat{
+  0%, 100%{transform:scale(1)}
+  14%{transform:scale(1.3)}
+  28%{transform:scale(1)}
+  42%{transform:scale(1.3)}
+  56%{transform:scale(1)}
+}
+.trump-chip-icon{display:inline-block;font-weight:900}
+.trump-chip.trump-active .trump-chip-icon{animation:suitHeartbeat 1.6s ease-in-out infinite}
+.game-event-icon{animation:suitHeartbeat 1.6s ease-in-out infinite}
 
 .hand-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.35);padding:10px 6px 14px;display:flex;flex-direction:column;align-items:center;gap:6px}
 .hand-cards{display:flex;justify-content:center}

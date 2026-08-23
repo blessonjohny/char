@@ -1442,8 +1442,8 @@ function applyState(state) {
       // color unrelated to what's actually being announced.
       const isRedSuit = state.trumpSuit === '♦' || state.trumpSuit === '♥';
       const suitColor = isRedSuit ? '#dc2626' : '#e2e8f0';
-      tr.innerHTML = '<span style="color:' + suitColor + ';font-weight:900">' + state.trumpSuit + '</span> Trump: ' + suitName(state.trumpSuit);
-      tr.style.color = 'var(--accent)';
+      tr.innerHTML = '<span class="trump-chip-icon">' + state.trumpSuit + '</span> Trump: ' + suitName(state.trumpSuit);
+      tr.style.color = suitColor;
       tr.classList.add('trump-active');
       if (!lastAnnouncedTrumpExposed) {
         // Same fix as the 4-player table: a brief, deliberate pause before
