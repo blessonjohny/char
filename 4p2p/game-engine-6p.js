@@ -1550,8 +1550,17 @@ class GameEngine6P {
       const suitRepeat = this.suitLeadCount[this.trickSuit] || 0;
       // When genuinely desperate for points (myTeamDesperate above), the
       // bar for "is this trick worth trump" drops from 2 to 1 -- same
-      // adjustment as the 4-player engine.
-      const worthTrumping = tPts >= (myTeamDesperate ? 1 : 2) || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
+      // adjustment as the 4-player engine. Per explicit instruction:
+      // also worth trumping the very first time a suit gets led this
+      // round, regardless of the trick's point value -- same
+      // firstTimeSuitLed concept 4-player's own worthTrumping already
+      // has, which 6-player was genuinely missing. suitRepeat===1 means
+      // this is that suit's first-ever lead (suitLeadCount is
+      // incremented the moment a trick's led, so by the time a bot is
+      // deciding whether to cut, the suit currently on the table has
+      // already been counted once).
+      const firstTimeSuitLed = suitRepeat === 1;
+      const worthTrumping = tPts >= (myTeamDesperate ? 1 : 2) || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1) || firstTimeSuitLed;
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {
