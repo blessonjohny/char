@@ -3295,7 +3295,14 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 </div>
 
 <!-- ===== BRAIN STATUS BAR ===== -->
-
+<!-- Fixed a genuine, pre-existing structural bug here: this section's
+     opening tag was missing entirely, so the .brain-status-bar{display:
+     none!important} rule meant to hide it could never actually match
+     these elements -- they were never really inside a div with that
+     class at all, just floating unwrapped in the document, which is
+     exactly why "Manage" was visibly showing up when it was always
+     meant to be fully hidden. -->
+<div class="brain-status-bar">
   <div class="brain-level" id="brainLevelDisplay"></div>
   <button class="btn btn-sm btn-outline" id="btnBrainQuick" style="padding:2px 8px;font-size:0.6rem">Manage</button>
 </div>
