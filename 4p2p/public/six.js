@@ -1567,6 +1567,29 @@ function applyState(state) {
   else $('bidOverlay').classList.remove('on');
 
   if (state.phase === 'choosingTrump' && state.currentPlayer === MY_POS && state.bidder === MY_POS) {
+    // Show the player's actual hand while they decide, and disable any suit they don't hold
+    // at all - same two fixes already present on the 4-player table's identical picker,
+    // brought over here to match. A suit with zero cards in hand was previously still
+    // clickable and would silently ask the server to pick a card on the player's behalf with
+    // no card-selection step at all - confusing for a decision this significant.
+    const myHand = (latestState && latestState.seats[MY_POS] && latestState.seats[MY_POS].hand) || [];
+    const handDisplay = $('trumpHandDisplay6p');
+    if (handDisplay) {
+      handDisplay.innerHTML = '';
+      myHand.forEach(card => { handDisplay.innerHTML += cardHTML(card, false, false, ''); });
+    }
+    const availableSuits = new Set(myHand.map(c => c.suit));
+    document.querySelectorAll('#trumpPickButtons button').forEach(b => {
+      const suit = b.getAttribute('data-suit');
+      const hasSuit = availableSuits.has(suit);
+      b.disabled = !hasSuit;
+      b.style.opacity = hasSuit ? '1' : '0.3';
+      b.style.cursor = hasSuit ? 'pointer' : 'not-allowed';
+      b.style.filter = hasSuit ? 'none' : 'grayscale(0.8)';
+      b.title = hasSuit ? '' : ("You have no " + suit + " cards");
+      b.classList.remove('on');
+    });
+    $('trumpCardSelectSection').style.display = 'none';
     $('trumpOverlay').classList.add('on');
   } else {
     $('trumpOverlay').classList.remove('on');
@@ -2324,6 +2347,7 @@ let selectedHiddenTrumpCard = null;
 
 document.querySelectorAll('#trumpPickButtons button').forEach(btn => {
   btn.addEventListener('click', () => {
+    if (btn.disabled) return; // matches the 4-player table's identical guard
     const suit = btn.getAttribute('data-suit');
     document.querySelectorAll('#trumpPickButtons button').forEach(b => b.classList.remove('on'));
     btn.classList.add('on');
@@ -2362,9 +2386,14 @@ function showTrumpCardSelect(suit) {
     area.appendChild(cardEl);
   });
   confirmBtn.onclick = () => {
-    $('trumpOverlay').classList.remove('on');
     const suitBtn = document.querySelector('#trumpPickButtons button.on');
     const chosenSuit = suitBtn ? suitBtn.getAttribute('data-suit') : suit;
+    // Explicit confirmation before this actually submits - trump can't be changed once chosen
+    // (short of the separate mid-round "change trump" flow, if this table even has one), so a
+    // misclick here is costly. Matches the same protection already added to other
+    // hard-to-undo actions elsewhere in this session.
+    if (!window.confirm('Set ' + suitName(chosenSuit) + ' ' + chosenSuit + ' as trump for this round?')) return;
+    $('trumpOverlay').classList.remove('on');
     const ht = selectedHiddenTrumpCard ? { suit: selectedHiddenTrumpCard.suit, rank: selectedHiddenTrumpCard.rank, points: selectedHiddenTrumpCard.points } : null;
     socket.emit('sixp_chooseTrump', { suit: chosenSuit, hiddenCard: ht });
     section.style.display = 'none';
