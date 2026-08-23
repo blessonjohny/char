@@ -812,7 +812,7 @@ function showScreen(id) {
 function showToast(msg, kind, ms) {
   const el = document.createElement('div');
   el.textContent = msg;
-  el.style.cssText = 'background:rgba(26,5,5,0.95);border:1.5px solid ' + (kind === 'lose' ? '#ff5c5c' : '#f4c430') + ';border-radius:12px;padding:8px 16px;color:' + (kind === 'lose' ? '#ff5c5c' : '#f4c430') + ';font-size:0.85rem;font-weight:700;white-space:nowrap;margin-bottom:8px';
+  el.style.cssText = 'background:rgba(26,5,5,0.35);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);border:1.5px solid ' + (kind === 'lose' ? '#ff5c5c' : '#f4c430') + ';border-radius:12px;padding:8px 16px;color:' + (kind === 'lose' ? '#ff5c5c' : '#f4c430') + ';font-size:0.85rem;font-weight:700;white-space:nowrap;margin-bottom:8px;text-shadow:0 1px 3px rgba(0,0,0,0.8)';
   $('toastHost').appendChild(el);
   setTimeout(() => el.remove(), ms || 2000);
 }
