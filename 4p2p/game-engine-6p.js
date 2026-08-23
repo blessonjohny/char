@@ -590,23 +590,27 @@ class GameEngine6P {
 
   // ---------------- Playing cards ----------------
 
+  // Returns {ok:true} or {ok:false, reason:'...'} instead of a plain boolean - the reason
+  // string lets the client show the person a specific, short explanation (e.g. "You must
+  // follow suit" vs "You're the bidder - trump stays hidden until asked for") instead of one
+  // generic "that card can't be played right now" for every possible rejection cause.
   canPlayCard(pos, card) {
-    if (this.phase !== 'play') return false;
-    if (pos !== this.currentPlayer) return false;
+    if (this.phase !== 'play') return { ok: false, reason: 'not_playing' };
+    if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
     const hand = this.seats[pos].hand;
-    if (!hand.some(c => cardEq(c, card))) return false;
+    if (!hand.some(c => cardEq(c, card))) return { ok: false, reason: 'not_in_hand' };
     if (this.trickSuit === '') {
       if (pos === this.hiddenTrumpOwner && !this.trumpExposed && card.suit === this.trumpSuit) {
-        if (hand.some(c => c.suit !== this.trumpSuit)) return false;
+        if (hand.some(c => c.suit !== this.trumpSuit)) return { ok: false, reason: 'bidder_hidden_trump' };
       }
-      return true;
+      return { ok: true };
     }
     const hasSuit = hand.some(c => c.suit === this.trickSuit);
-    if (hasSuit && card.suit !== this.trickSuit) return false;
+    if (hasSuit && card.suit !== this.trickSuit) return { ok: false, reason: 'must_follow_suit' };
     if (this.mustPlayTrumpBy === pos && !hasSuit && card.suit !== this.trumpSuit) {
-      if (hand.some(c => c.suit === this.trumpSuit)) return false;
+      if (hand.some(c => c.suit === this.trumpSuit)) return { ok: false, reason: 'must_play_trump' };
     }
-    return true;
+    return { ok: true };
   }
 
   callTrump(pos) {
@@ -625,7 +629,8 @@ class GameEngine6P {
   }
 
   playCard(pos, card) {
-    if (!this.canPlayCard(pos, card)) return { ok: false, reason: 'illegal_card' };
+    const chk = this.canPlayCard(pos, card);
+    if (!chk.ok) return chk;
     const hand = this.seats[pos].hand;
     const idx = hand.findIndex(c => cardEq(c, card));
     const played = hand.splice(idx, 1)[0];
@@ -1204,7 +1209,7 @@ class GameEngine6P {
           if (hand.length === 0 && this.hiddenTrump && pos === this.hiddenTrumpOwner) {
             this.playHiddenTrump(pos);
           } else {
-            const legal = hand.find(c => this.canPlayCard(pos, c));
+            const legal = hand.find(c => this.canPlayCard(pos, c).ok);
             if (legal) this.playCard(pos, legal);
           }
         }
