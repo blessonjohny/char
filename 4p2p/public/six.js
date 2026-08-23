@@ -1028,9 +1028,20 @@ function connectSocket() {
 
   socket.on('sixp_actionError', (err) => {
     console.log('[server] action rejected:', err.reason);
-    if (err.reason === 'illegal_card') {
-      showToast("⚠️ That card can't be played right now — check what's highlighted", 'lose', 2500);
-    }
+    // Short, specific messages per rejection reason instead of one generic "that card can't
+    // be played right now" for every case - the person gets an actual explanation of why,
+    // not just that something went wrong. Kept brief and quick (1.4s) like the other toasts,
+    // not a long-winded popup.
+    const REASON_MESSAGES = {
+      must_follow_suit: "You must follow suit",
+      must_play_trump: "You called for trump — you must cut",
+      bidder_hidden_trump: "You're the bidder — trump stays hidden until asked for",
+      not_your_turn: "It's not your turn",
+      not_playing: "Not in the play phase right now",
+      not_in_hand: "That card isn't in your hand",
+    };
+    const msg = REASON_MESSAGES[err.reason] || err.reason || "That action can't be done right now";
+    showToast('⚠️ ' + msg, 'lose', 1400);
   });
 
   socket.on('sixp_chooseSeat', (info) => showSeatPicker(info));
