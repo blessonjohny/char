@@ -1437,7 +1437,12 @@ function applyState(state) {
   try {
     const tr = $('trumpChip');
     if (state.trumpExposed) {
-      tr.textContent = '🎯 Trump: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit);
+      // Suit symbol instead of a dartboard emoji, colored to match the actual suit (red for
+      // diamonds/hearts, a clean dark tone for clubs/spades) rather than a generic accent
+      // color unrelated to what's actually being announced.
+      const isRedSuit = state.trumpSuit === '♦' || state.trumpSuit === '♥';
+      const suitColor = isRedSuit ? '#dc2626' : '#e2e8f0';
+      tr.innerHTML = '<span style="color:' + suitColor + ';font-weight:900">' + state.trumpSuit + '</span> Trump: ' + suitName(state.trumpSuit);
       tr.style.color = 'var(--accent)';
       tr.classList.add('trump-active');
       if (!lastAnnouncedTrumpExposed) {
@@ -1449,8 +1454,12 @@ function applyState(state) {
         const rc = state.revealedTrumpCard;
         const trumpDetail = rc ? miniCardHtml(rc.rank, rc.suit) : (exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall));
         setTimeout(() => {
-          showToast('⚡ Trump exposed: ' + exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall) + '!', 'win', 2200);
-          showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa');
+          showToast(exposedSuitAtCall + ' Trump exposed: ' + suitName(exposedSuitAtCall) + '!', 'win', 2200);
+          // Real suit symbol as the icon instead of a generic emoji, and the color matches
+          // the actual suit that was exposed instead of one fixed purple regardless of suit -
+          // same window size as before (showGameEvent's box dimensions are untouched), just a
+          // more precise, less cartoonish look for what's actually being announced.
+          showGameEvent(exposedSuitAtCall, 'Trump Exposed', trumpDetail, suitColor);
           playHaptic('trumpExposed');
         }, 550);
         // Same table-wide pop/shake/glow reveal as the 4-player table - see the CSS comment
@@ -1466,7 +1475,7 @@ function applyState(state) {
       }
       lastAnnouncedTrumpExposed = true;
     } else {
-      tr.textContent = '🎯 Trump: Hidden';
+      tr.innerHTML = 'Trump: Hidden';
       tr.style.color = '';
       tr.classList.remove('trump-active');
       lastAnnouncedTrumpExposed = false;
