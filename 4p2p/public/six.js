@@ -1104,9 +1104,6 @@ $('btnCreate').addEventListener('click', () => {
   showScreen('nameScreen');
 });
 $('btnShowJoin').addEventListener('click', () => { showScreen('joinScreen'); refreshRoomList(); });
-$('btnRules').addEventListener('click', () => {
-  alert('28 Kerala Gulan — 6 Player\n\n6 players in 2 teams of 3 (alternating seats).\n36 cards (includes the 6s). J=3pts, 9=2pts, A/10=1pt.\n\nBidding: 16-28 for trump. Highest bidder picks trump and hides one trump card face down.\n\nFirst team to 12 game points wins!');
-});
 $('btnNameBack').addEventListener('click', () => showScreen('welcomeScreen'));
 $('btnNameContinue').addEventListener('click', () => {
   const name = $('nameInput').value.trim();

@@ -104,7 +104,9 @@ h1{font-size:1.7rem;margin:0 0 4px;background:linear-gradient(135deg,#f4c430,#e6
 @keyframes quoteBtnPulse6p{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 .btn-success{background:linear-gradient(135deg,#3ddc84,#2bb673);color:#04241a}
 .btn-danger{background:linear-gradient(135deg,#ff5c5c,#e74040);color:#fff}
-input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:1rem;margin-bottom:14px;text-align:center}
+input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;border:2px solid var(--accent, #f4c430);background:rgba(255,255,255,0.14);color:#fff;font-size:1rem;margin-bottom:14px;text-align:center;box-shadow:0 0 10px rgba(244,196,48,0.15),inset 0 1px 3px rgba(0,0,0,0.3)}
+input.text-input::placeholder{color:rgba(255,255,255,0.55)}
+input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:0 0 14px rgba(244,196,48,0.35),inset 0 1px 3px rgba(0,0,0,0.3)}
 .room-list{width:100%;max-width:340px;max-height:280px;overflow-y:auto;margin-bottom:14px}
 .room-row{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;font-size:0.85rem}
 .link-back{position:fixed;top:12px;left:12px;font-size:0.75rem;color:var(--text-secondary);text-decoration:none;z-index:200;background:rgba(0,0,0,0.3);padding:6px 12px;border-radius:20px}
@@ -535,7 +537,6 @@ input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;bord
   <div class="subtitle">6 PLAYER TABLE — 2 teams of 3</div>
   <button class="btn btn-primary" id="btnCreate">🏠 Create Table</button>
   <button class="btn btn-outline" id="btnShowJoin">🔑 Join Table</button>
-  <button class="btn btn-outline" id="btnRules">📖 How to Play</button>
   <a href="/" class="btn btn-outline" style="text-decoration:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box">⬅️ Back to Main Menu</a>
   <div style="margin-top:20px;text-align:left;width:100%;max-width:320px">
     <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px">🌐 Public Tables</div>
