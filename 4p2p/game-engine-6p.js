@@ -1112,22 +1112,18 @@ class GameEngine6P {
       const losingTeam = 1 - winningTeam;
       this.gameOver = { winningTeam, finalScore: this.gameScore.slice() };
       this.addLog(`Match over — team ${winningTeam} wins ${this.gameScore[winningTeam]}-${this.gameScore[1 - winningTeam]}.`);
-      // A Q-mark penalty is specifically for an actual SHUTOUT, not just any loss - that
-      // distinction only used to be automatic because the old zero-sum math meant every
-      // match-ending loss WAS a shutout (the loser was always at exactly 0 when this fired).
-      // Now that losing-side deductions are gone, the loser could be sitting on a real score
-      // (e.g. 12 out of a 15 target) when the other team crosses the line - that's a close
-      // finish, not a shutout, and shouldn't carry the same penalty. Keeping the original
-      // "actually at zero" meaning intact rather than letting it silently become "every
-      // single loss now gets a Q," which would be a much harsher rule than intended.
-      if (this.gameScore[losingTeam] <= 0) {
-        for (let i = 0; i < SEATS; i++) {
-          const s = this.seats[i];
-          if (!s || getTeam(i) !== losingTeam) continue;
-          this.qMarks[s.name] = (this.qMarks[s.name] || 0) + 1;
-        }
-        this.addLog(`Team ${losingTeam} shut out — every player picks up a Q.`);
+      // Every player on the losing team picks up a Q at match end, regardless of their exact
+      // final score - not restricted to a true zero-point shutout. An earlier version of this
+      // only fired the Q on a genuine 0-score loss, reasoning that a close 12-15 finish isn't
+      // really a "shutout" in the traditional sense - but that made the Q so rare under this
+      // no-deduction scoring system that it stopped happening in practice at all, which is not
+      // what was wanted. The Q is simply "you lost the match," full stop.
+      for (let i = 0; i < SEATS; i++) {
+        const s = this.seats[i];
+        if (!s || getTeam(i) !== losingTeam) continue;
+        this.qMarks[s.name] = (this.qMarks[s.name] || 0) + 1;
       }
+      this.addLog(`Team ${losingTeam} lost the match — every player picks up a Q.`);
     }
 
     this._notify();
