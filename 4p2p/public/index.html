@@ -189,6 +189,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     background:linear-gradient(135deg,#0a1628 0%,#0d1b2a 50%,#111d2e 100%);
   }
   body{display:block;background:#05070a}
+  /* The trick-card spacing fix (.cross size) further down this file lives inside
+     @media(max-width:480px), which checks the actual BROWSER viewport - on desktop the
+     browser window itself is still wide even though #appPhoneFrame above visually squeezes
+     everything into a 480px column, so that rule never fires here and desktop kept showing
+     the old, far-too-clustered card spacing. This duplicates the same fix, keyed off this
+     already-desktop-only media query instead, so desktop actually gets it too. */
+  .cross{width:200px !important;height:300px !important}
 }
 
 /* ===== COUNTER OVERLAY ===== */
@@ -2051,7 +2058,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .pcards{font-size:0.5rem !important}
 
   /* Bigger cross */
-  .cross{width:255px !important;height:400px !important}
+  .cross{width:200px !important;height:300px !important}
   .pslot{width:36px !important;height:50px !important}
 
   .ltrick{display:block !important;position:absolute;top:24px;right:22px;min-width:70px;padding:3px;z-index:15}
