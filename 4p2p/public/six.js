@@ -1937,9 +1937,16 @@ function renderLastTrick(state) {
     h += `<div class="lt-card"><span class="ltr" style="color:${color}">${c.rank}</span><span class="lts" style="color:${color}">${c.suit}</span></div>`;
   }
   h += '</div>';
+  // Per explicit instruction: also shows who actually led/started the
+  // trick, not just who won it -- lt.cards is in play order, so its
+  // first entry is always whoever led. Combined onto the same compact
+  // line (not a second line/bigger box) since the window itself isn't
+  // meant to grow to fit this.
+  const starterSeat = state.seats[lt.cards[0].pos];
+  const starterName = lt.cards[0].pos === MY_POS ? 'You' : (starterSeat ? starterSeat.name : ('Seat ' + lt.cards[0].pos));
   const winnerSeat = state.seats[lt.winner];
   const winnerName = lt.winner === MY_POS ? 'You' : (winnerSeat ? winnerSeat.name : ('Seat ' + lt.winner));
-  h += `<div class="lt-win">${winnerName} +${lt.points}pt</div>`;
+  h += `<div class="lt-win">${starterName} ➜ ${winnerName} +${lt.points}pt</div>`;
   el.innerHTML = h;
 }
 

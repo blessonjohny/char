@@ -1976,9 +1976,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .hand-area .card{margin-left:-4px !important;box-shadow:0 3px 10px rgba(0,0,0,0.6) !important}
   .hand-area .card:first-child{margin-left:0 !important}
 
-  /* Bigger avatars */
-  .avatar{width:32px !important;height:32px !important;font-size:0.9rem !important;border-width:2px !important}
-  .pname{font-size:0.55rem !important;max-width:48px !important;font-weight:700}
+  /* Bigger avatars -- brought up from 32px to 48px to close the gap
+     with the 6-player table's own fixed 52px (never shrinks there at
+     all). Deliberately not the full 52px: the grid column itself is
+     already shrunk to exactly 52px at this same breakpoint (see
+     .table:not(.mode6) above), and even with box-sizing:border-box
+     making the avatar's own border count toward its declared size
+     rather than add to it, going all the way to 52px would leave zero
+     margin against the column's own edge -- 48px keeps a small, safe
+     buffer while still being a clear, substantial jump from before. */
+  .avatar{width:48px !important;height:48px !important;font-size:1.3rem !important;border-width:2.5px !important}
+  .pname{font-size:0.6rem !important;max-width:52px !important;font-weight:700}
   .pbid{font-size:0.5rem !important;padding:1px 4px !important}
   .pcards{font-size:0.5rem !important}
 
@@ -6256,8 +6264,15 @@ function updateLastTrick() {
     h += `<div class='lt-card'><span class='ltr' style='color:${c.color}'>${c.rank}</span><span class='lts' style='color:${c.color}'>${c.suit}</span></div>`;
   }
   h += '</div>';
+  // Per explicit instruction: also shows who actually led/started the
+  // trick, not just who won it -- lastTrick.cards is in play order, so
+  // its first entry is always whoever led. Combined onto the same
+  // compact line (not a second line/bigger box) specifically because
+  // the window itself isn't meant to grow to fit this.
+  const starterPos = lastTrick.cards[0].player;
+  const starterName = starterPos === MY_POS ? 'You' : (playerAt(starterPos) ? playerAt(starterPos).name : '—');
   const wn = lastTrick.winner === MY_POS ? 'You' : (playerAt(lastTrick.winner) ? playerAt(lastTrick.winner).name : '—');
-  h += `<div class='lt-win'>${wn} +${lastTrick.points}pt</div>`;
+  h += `<div class='lt-win'>${starterName} ➜ ${wn} +${lastTrick.points}pt</div>`;
   p.innerHTML = h;
 }
 
