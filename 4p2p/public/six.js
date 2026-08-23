@@ -1609,13 +1609,13 @@ function applyState(state) {
           console.warn('[waitThenShowRoundEnd] gave up waiting after 8s — forcing forward');
           trickHoldBusy = false;
           sixpTrickRevealQueue = [];
-          showRoundEnd(state);
+          safelyShowRoundEnd(state);
           return;
         }
         setTimeout(waitThenShowRoundEnd, 150);
         return;
       }
-      showRoundEnd(state);
+      safelyShowRoundEnd(state);
     })();
   }
 
@@ -2373,6 +2373,42 @@ function showTrumpCardSelect(suit) {
 
 // ---------------- Round end / game over ----------------
 
+// Wraps showRoundEnd() in a try/catch specifically because of a real bug this exposed: this
+// function is invoked from inside a setTimeout-driven retry loop, and by the time it's called,
+// lastRoundSeen has ALREADY been updated to the new round number (that update has to happen
+// early, before the wait loop even starts, to prevent the wait loop itself from double-firing
+// on a later re-render of the same round). That means if showRoundEnd() ever threw for any
+// reason - a missing element, an unexpected field on roundWinnerAnnounced, anything - the
+// exception would propagate straight out of this uncaught, the overlay would never appear,
+// and there would be no way for the guard condition to ever re-trigger for that round, since
+// the round number the guard checks against had already moved on. The player would be stuck
+// on a dead table with no summary, no Continue button, and nothing left to click - exactly
+// this report. The fallback here at minimum still shows the score change directly rather than
+// silently doing nothing, and still lets the round actually end.
+function safelyShowRoundEnd(state) {
+  try {
+    showRoundEnd(state);
+  } catch (e) {
+    console.error('[safelyShowRoundEnd] showRoundEnd() threw - falling back so the round can still end:', e);
+    try {
+      const rw = state.roundWinnerAnnounced;
+      $('roundEndTitle').textContent = 'Round Over';
+      $('roundEndTitle').style.color = '';
+      $('roundEndBody').innerHTML = rw
+        ? `Team points: ${rw.teamPoints ? rw.teamPoints[0] + ' - ' + rw.teamPoints[1] : '—'}<br>Match score: ${state.gameScore[0]} - ${state.gameScore[1]}`
+        : `Match score: ${state.gameScore[0]} - ${state.gameScore[1]}`;
+      $('btnContinueRound').style.display = 'flex';
+      $('btnAckRoundEnd').style.display = 'none';
+      $('roundEndOverlay').classList.add('on');
+      startRoundEndAutoContinue();
+    } catch (e2) {
+      // If even the minimal fallback can't render, at least auto-advance directly rather than
+      // leaving the person on a table with genuinely nothing left to interact with.
+      console.error('[safelyShowRoundEnd] fallback also failed - auto-continuing directly:', e2);
+      socket.emit('sixp_continueRound');
+    }
+  }
+}
 function showRoundEnd(state) {
   const r = state.roundWinnerAnnounced;
   if (!r) return;
