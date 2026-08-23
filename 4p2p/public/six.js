@@ -1466,7 +1466,11 @@ function applyState(state) {
       // now-transparent chip) for spades/clubs.
       const isRedSuit = state.trumpSuit === '♦' || state.trumpSuit === '♥';
       const iconClass = 'trump-chip-icon' + (isRedSuit ? ' icon-red-suit' : ' icon-black-suit-chip');
-      tr.innerHTML = '<span class="trump-word-gold">Trump:</span> <span class="trump-word-chrome">' + suitName(state.trumpSuit) + '</span> <span class="' + iconClass + '">' + state.trumpSuit + '</span>';
+      // "Dice" specifically for diamonds in this one chip only - a local naming preference for
+      // this particular display, not a change to the suit's name everywhere else in the game
+      // (toasts, the big trump-exposed banner, bid announcements all still say "Diamonds").
+      const chipSuitLabel = state.trumpSuit === '♦' ? 'Dice' : suitName(state.trumpSuit);
+      tr.innerHTML = '<span class="trump-word-gold">Trump:</span> <span class="trump-word-chrome">' + chipSuitLabel + '</span> <span class="' + iconClass + '">' + state.trumpSuit + '</span>';
       tr.style.color = '';
       tr.classList.add('trump-active');
       if (!lastAnnouncedTrumpExposed) {
