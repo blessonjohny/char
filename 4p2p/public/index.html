@@ -277,6 +277,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .lobby-hdr p{font-size:0.78rem;color:var(--text-secondary)}
 .lobby-body{flex:1;overflow-y:auto;padding:16px;max-width:500px;margin:0 auto;width:100%}
 .lobby-card{background:var(--bg-card);border:1.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;text-align:center;transition:all 0.2s}
+/* Per explicit instruction, matching the 6-player table's own name-entry
+   screen: that screen never wraps its form in a solid card panel at all
+   -- the input/picker/buttons just sit directly on the main screen
+   background. #nameCard specifically (not every .lobby-card on this
+   page -- #hostCard etc. keep their normal solid panel) drops that same
+   background here, so the two tables' name-entry screens actually
+   match instead of 4-player looking boxed-in by comparison. */
+#nameCard{background:transparent;border-color:transparent}
 .lobby-card:hover{border-color:rgba(255,215,0,0.2)}
 .lobby-card h3{color:var(--accent);font-size:1rem;margin-bottom:8px}
 .lobby-card p{font-size:0.75rem;color:var(--text-secondary);margin-bottom:12px;line-height:1.5}
