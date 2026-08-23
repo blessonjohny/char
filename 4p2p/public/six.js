@@ -1934,7 +1934,8 @@ function renderLastTrick(state) {
   for (const tc of lt.cards) {
     const c = tc.card;
     const color = cardColor(c.suit);
-    h += `<div class="lt-card"><span class="ltr" style="color:${color}">${c.rank}</span><span class="lts" style="color:${color}">${c.suit}</span></div>`;
+    const isWinningCard = tc.pos === lt.winner;
+    h += `<div class="lt-card${isWinningCard ? ' lt-card-won' : ''}"><span class="ltr" style="color:${color}">${c.rank}</span><span class="lts" style="color:${color}">${c.suit}</span></div>`;
   }
   h += '</div>';
   // Per explicit instruction: also shows who actually led/started the
@@ -1964,7 +1965,8 @@ function renderLastTrickHistory() {
     h += `<div class="lt-history-row"><span class="lt-history-num">#${i + 1}</span>`;
     for (const tc of t.cards) {
       const c = tc.card, color = cardColor(c.suit);
-      h += `<div class="lt-card"><span class="ltr" style="color:${color}">${c.rank}</span><span class="lts" style="color:${color}">${c.suit}</span></div>`;
+      const isWinningCard = tc.pos === t.winner;
+      h += `<div class="lt-card${isWinningCard ? ' lt-card-won' : ''}"><span class="ltr" style="color:${color}">${c.rank}</span><span class="lts" style="color:${color}">${c.suit}</span></div>`;
     }
     h += `<span class="lt-history-win">${escapeHtml(winnerName)} +${t.points}</span></div>`;
   });
