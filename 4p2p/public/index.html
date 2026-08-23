@@ -287,6 +287,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #nameCard{background:transparent;border-color:transparent}
 .lobby-card:hover{border-color:rgba(255,215,0,0.2)}
 .lobby-card h3{color:var(--accent);font-size:1rem;margin-bottom:8px}
+/* Per explicit instruction: bold, distinct-color, higher-contrast, and
+   a bit bigger than the generic .lobby-card versions -- scoped to
+   #nameCard specifically so #hostCard and any other .lobby-card on this
+   page keep their normal look, since this was about the name-entry
+   screen specifically, not every card. */
+#nameCard h3{font-size:1.15rem;font-weight:800;text-shadow:0 0 8px rgba(255,215,0,0.35)}
+#nameCard p{font-size:0.85rem;color:#fff;font-weight:700}
 .lobby-card p{font-size:0.75rem;color:var(--text-secondary);margin-bottom:12px;line-height:1.5}
 /* Host a Room's tagline: bolder + warm gold with a soft glow so it reads
    as inviting rather than plain gray instructional text, matching the
@@ -301,7 +308,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   color:#ffd700;
   text-shadow:0 0 8px rgba(255,215,0,0.45),0 1px 2px rgba(0,0,0,0.5);
 }
-.name-input{width:100%;padding:12px 14px;border-radius:10px;border:2px solid var(--border);background:rgba(255,255,255,0.05);color:var(--text-primary);font-size:1rem;text-align:center;margin-bottom:10px;font-family:inherit}
+.name-input{width:100%;padding:12px 14px;border-radius:10px;border:2px solid var(--accent, #f4c430);background:rgba(255,255,255,0.14);color:var(--text-primary);font-size:1rem;text-align:center;margin-bottom:10px;font-family:inherit;box-shadow:0 0 10px rgba(244,196,48,0.15),inset 0 1px 3px rgba(0,0,0,0.3)}
+.name-input::placeholder{color:rgba(255,255,255,0.55)}
+.name-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:0 0 14px rgba(244,196,48,0.35),inset 0 1px 3px rgba(0,0,0,0.3)}
 .my-avatar-picker{display:grid;grid-template-columns:repeat(auto-fill,68px);justify-content:center;gap:8px;margin-bottom:14px;max-height:280px;overflow-y:auto;padding:4px;width:100%}
 .my-avatar-choice{position:relative;width:68px;height:68px;border-radius:50%;cursor:pointer;border:2.5px solid var(--border);overflow:hidden;transition:border-color 0.2s ease,transform 0.15s ease}
 .my-avatar-choice img{width:100%;height:100%;object-fit:cover;display:block}
