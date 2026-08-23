@@ -1469,8 +1469,11 @@ function applyState(state) {
       // "Dice" specifically for diamonds in this one chip only - a local naming preference for
       // this particular display, not a change to the suit's name everywhere else in the game
       // (toasts, the big trump-exposed banner, bid announcements all still say "Diamonds").
-      const chipSuitLabel = state.trumpSuit === '♦' ? 'Dice' : suitName(state.trumpSuit);
-      tr.innerHTML = '<span class="trump-word-gold">Trump:</span> <span class="trump-word-chrome">' + chipSuitLabel + '</span> <span class="' + iconClass + '">' + state.trumpSuit + '</span>';
+      // Just "Trump [heartbeating icon] [bid number]" now, per explicit request - dropped the
+      // spelled-out suit name text entirely (it was doing double duty with the icon, which
+      // already conveys the suit on its own), and added the actual bid amount so this chip
+      // carries genuinely new information instead of repeating the suit twice.
+      tr.innerHTML = '<span class="trump-word-gold">Trump</span> <span class="' + iconClass + '">' + state.trumpSuit + '</span> <span class="trump-word-chrome">' + state.highestBid + '</span>';
       tr.style.color = '';
       tr.classList.add('trump-active');
       if (!lastAnnouncedTrumpExposed) {
