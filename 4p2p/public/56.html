@@ -290,11 +290,11 @@
        accent color applyTheme() already picks per curated color theme
        (Violet/Indigo/Blue/Green/etc — see THEMES array) -- so this
        automatically updates to a color chosen to read well against
-       whatever felt is currently active. The dark outline (text-shadow,
-       several directions) is what actually defines the letter edges
-       regardless of felt color; opacity is on the whole element so the
-       outline fades evenly with the fill instead of staying starker
-       than it. */
+       whatever felt is currently active. Per explicit instruction and
+       reference image, this is RECESSED/engraved into the felt, not
+       raised/embossed -- see index.html/six.html's identical watermarks
+       for the fuller reasoning; this one just keeps --gold for the live
+       theming instead of a fixed color. */
     content:"28GULAN.COM";
     position:absolute;
     top:50%;left:50%;
@@ -305,12 +305,14 @@
     letter-spacing:2px;
     color:var(--gold, #ffd700);
     text-shadow:
-      -1.5px -1.5px 0 rgba(0,0,0,0.7),
-      1.5px -1.5px 0 rgba(0,0,0,0.7),
-      -1.5px 1.5px 0 rgba(0,0,0,0.7),
-      1.5px 1.5px 0 rgba(0,0,0,0.7),
-      0 0 10px rgba(0,0,0,0.5);
-    opacity:0.42;
+      -1px -1px 0 rgba(255,255,255,0.4),
+      1px 1px 0 rgba(0,0,0,0.6),
+      2px 2px 0 rgba(0,0,0,0.55),
+      3px 3px 0 rgba(0,0,0,0.46),
+      4px 4px 0 rgba(0,0,0,0.38),
+      5px 5px 0 rgba(0,0,0,0.3),
+      6px 6px 6px rgba(0,0,0,0.35);
+    opacity:0.55;
     white-space:nowrap;
     pointer-events:none;
     user-select:none;
