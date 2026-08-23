@@ -620,12 +620,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .my-avatar-choice img{width:100%;height:100%;object-fit:cover;display:block}
 .my-avatar-choice.selected{border-color:var(--accent);transform:scale(1.08);box-shadow:0 0 10px rgba(255,215,0,0.5)}
 .avatar.has-q,
-.player-avatar.has-q{filter:grayscale(0.7) brightness(0.75)}
+.player-avatar.has-q{filter:none}
+/* Sad-coconut Kunukku image, same one already used on the 6-player table, shown as a full
+   CSS overlay rather than swapping avEl's actual innerHTML - deliberately, to preserve the
+   existing design principle right above (the underlying avatar content is set from several
+   different code paths, and a pure CSS overlay driven off the .has-q class means none of them
+   need to be touched or restored when the count drops back to 0). ::after carries the image
+   itself; ::before carries the count number via attr(), reading a data-qcount attribute set
+   alongside the class toggle - a well-supported CSS technique for showing a dynamic JS value
+   in generated content without injecting any HTML at all. */
 .avatar.has-q::after,
 .player-avatar.has-q::after{
-  content:'😭';position:absolute;inset:0;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;font-size:1.15rem;
-  background:rgba(20,10,15,0.55);filter:none;
+  content:'';position:absolute;inset:0;border-radius:50%;
+  background-image:url('/images/kunukku/sad-coconut.png');background-size:cover;background-position:center;
+}
+.avatar.has-q::before,
+.player-avatar.has-q::before{
+  content:attr(data-qcount);position:absolute;inset:0;z-index:2;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.3rem;font-weight:900;color:#fff;
+  text-shadow:0 0 4px #000,0 0 8px #000,0 2px 3px rgba(0,0,0,0.9);
 }
 .pname{font-family:'Cinzel','Playfair Display',serif;font-size:0.62rem;font-weight:600;white-space:nowrap;text-align:center;max-width:92px;overflow:hidden;text-overflow:ellipsis;transition:color 0.3s ease;-webkit-text-stroke:0.6px rgba(255,255,255,0.9);text-shadow:0 1px 2px rgba(0,0,0,0.7);letter-spacing:0.6px}
 /* Instead of a separate "D" badge, the dealer's name itself turns gold and
@@ -5765,7 +5779,10 @@ function updateBadges() {
       // A CSS overlay rather than swapping the underlying emoji, since
       // that's set from several different code paths (bot profile,
       // chosen avatar, etc.) and this avoids needing to touch all of them.
-      if (avEl) avEl.classList.toggle('has-q', qCount > 0);
+      if (avEl) {
+        avEl.classList.toggle('has-q', qCount > 0);
+        avEl.setAttribute('data-qcount', qCount);
+      }
     }
 
     // Whoever's turn it currently is gets a glowing pulse ring on their
