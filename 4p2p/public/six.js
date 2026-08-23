@@ -827,14 +827,23 @@ function miniCardHtml(rank, suit) {
   return `<div class="game-event-minicard"><div class="mc-rank" style="color:${ink}">${rank}</div><div class="mc-suit" style="color:${ink}">${suit}</div></div>`;
 }
 
-function showGameEvent(icon, title, detail, color) {
+function showGameEvent(icon, title, detail, color, opts) {
   const overlay = document.createElement('div');
   overlay.className = 'game-event-overlay';
   overlay.style.setProperty('--evt-color', color);
   overlay.style.setProperty('--evt-glow', color + '66');
-  overlay.innerHTML = `<div class="game-event-box">
-    <div class="game-event-icon">${icon}</div>
-    <div class="game-event-title">${title}</div>
+  const boxClass = 'game-event-box' + (opts && opts.trumpEvent ? ' trump-event' : '');
+  const iconClass = 'game-event-icon' + (opts && opts.blackSuitIcon ? ' icon-black-suit' : '');
+  // Trump-exposed gets a split title - "TRUMP" always gold, the second word always a metallic
+  // silver-chrome regardless of which suit was exposed (the suit's own color lives entirely
+  // in the icon symbol instead). Every other event type (Honors Bid, Raise, etc.) keeps a
+  // plain single-color title exactly as before - this only branches for the trump case.
+  const titleHtml = (opts && opts.splitTitle)
+    ? title.split(' ').map((w, i) => `<span class="${i === 0 ? 'trump-word-gold' : 'trump-word-chrome'}">${w}</span>`).join(' ')
+    : title;
+  overlay.innerHTML = `<div class="${boxClass}">
+    <div class="${iconClass}">${icon}</div>
+    <div class="game-event-title">${titleHtml}</div>
     <div class="game-event-detail">${detail}</div>
   </div>`;
   document.body.appendChild(overlay);
@@ -1451,10 +1460,14 @@ function applyState(state) {
       // Suit symbol instead of a dartboard emoji, colored to match the actual suit (red for
       // diamonds/hearts, a clean dark tone for clubs/spades) rather than a generic accent
       // color unrelated to what's actually being announced.
+      // "Trump" in gold, the suit name in a metallic silver-chrome regardless of which suit
+      // (matching the same convention as the popup banner), and the suit symbol icon colored
+      // red for hearts/diamonds or real black (with a light outline for contrast against the
+      // now-transparent chip) for spades/clubs.
       const isRedSuit = state.trumpSuit === '♦' || state.trumpSuit === '♥';
-      const suitColor = isRedSuit ? '#dc2626' : '#e2e8f0';
-      tr.innerHTML = 'Trump: ' + suitName(state.trumpSuit) + ' <span class="trump-chip-icon">' + state.trumpSuit + '</span>';
-      tr.style.color = suitColor;
+      const iconClass = 'trump-chip-icon' + (isRedSuit ? ' icon-red-suit' : ' icon-black-suit-chip');
+      tr.innerHTML = '<span class="trump-word-gold">Trump:</span> <span class="trump-word-chrome">' + suitName(state.trumpSuit) + '</span> <span class="' + iconClass + '">' + state.trumpSuit + '</span>';
+      tr.style.color = '';
       tr.classList.add('trump-active');
       if (!lastAnnouncedTrumpExposed) {
         // Same fix as the 4-player table: a brief, deliberate pause before
@@ -1470,7 +1483,11 @@ function applyState(state) {
           // the actual suit that was exposed instead of one fixed purple regardless of suit -
           // same window size as before (showGameEvent's box dimensions are untouched), just a
           // more precise, less cartoonish look for what's actually being announced.
-          showGameEvent(exposedSuitAtCall, 'Trump Exposed', trumpDetail, suitColor);
+          const isRedSuitForIcon = exposedSuitAtCall === '♦' || exposedSuitAtCall === '♥';
+          const popupSuitColor = isRedSuitForIcon ? '#dc2626' : '#e2e8f0';
+          showGameEvent(exposedSuitAtCall, 'Trump Exposed', trumpDetail, popupSuitColor, {
+            trumpEvent: true, splitTitle: true, blackSuitIcon: !isRedSuitForIcon
+          });
           playHaptic('trumpExposed');
         }, 550);
         // Same table-wide pop/shake/glow reveal as the 4-player table - see the CSS comment
