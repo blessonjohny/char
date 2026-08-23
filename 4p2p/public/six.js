@@ -1786,18 +1786,28 @@ function renderSeats(state) {
     if (isFolded) {
       av.innerHTML = '🙈';
       av.classList.remove('has-q');
+    } else if (qCount > 0) {
+      // The sad-coconut Kunukku image fully replaces whatever the avatar would normally be
+      // (hero portrait, bot portrait, or the plain emoji fallback) while a Q is active - not
+      // a dimming filter over the existing picture, a full swap - with the actual Kunukku
+      // count overlaid in the middle of it. The normal avatar returns automatically the
+      // moment the count drops back to 0, since this whole branch is keyed on qCount itself
+      // re-evaluating on every render, not a one-time swap that needs to be undone manually.
+      av.innerHTML = '<img src="/images/kunukku/sad-coconut.png" class="kunukku-avatar-img" alt="Kunukku">' +
+        '<div class="kunukku-count-badge">' + qCount + '</div>';
+      av.classList.remove('has-q');
     } else if (seat.avatar) {
       av.innerHTML = heroAvatarHtml(seat.avatar);
-      av.classList.toggle('has-q', qCount > 0);
+      av.classList.remove('has-q');
     } else if (seat.isBot) {
       // Static portrait matched by name, same as the 4-player table --
       // not the generic robot icon this used to fall back to.
       const botMeta = ALL_BOT_AVATARS_6P.find(b => b.name === seat.name) || ALL_BOT_AVATARS_6P[pos % ALL_BOT_AVATARS_6P.length];
       av.innerHTML = botMeta.emoji;
       av.style.background = botMeta.bg;
-      av.classList.toggle('has-q', qCount > 0);
+      av.classList.remove('has-q');
     } else {
-      av.innerHTML = qCount > 0 ? '😭' : (pos === MY_POS ? '😊' : '👤');
+      av.innerHTML = pos === MY_POS ? '😊' : '👤';
       av.classList.remove('has-q');
     }
     // Green ring for a connected real human, red for a bot - a brief brighter flash plays
