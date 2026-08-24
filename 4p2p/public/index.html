@@ -723,15 +723,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .avatar .call-badge.call-badge-pass::after{background:#100505;border-color:#ef4444}
 /* Top seat (pos0) and bottom/"me" seat (pos3) sit in their own tight,
    full-width grid rows directly bordering the table's center play area.
-   Per explicit correction: on an actual phone, an 8px gap was reading
-   as no gap at all -- the bubble was landing directly on top of the
-   avatar image itself, not near it. Pulled back out to 18px, still
-   much smaller than the original 34px and still tucked in close, but
-   enough real clearance on a small screen for the avatar to stay fully
-   visible underneath. */
-.avatar .call-badge.call-badge-n{top:-18px;left:50%;transform:translateX(-50%)}
+   Per explicit correction with a screenshot proving it: found the real
+   root cause -- top:-18px positions the badge's OWN TOP edge 18px above
+   the avatar, but the badge extends DOWNWARD from there by its own
+   height (two lines of text plus padding, comfortably taller than
+   18px), so its BOTTOM portion was landing back on top of the avatar
+   regardless of the offset number chosen. left/right never had this
+   problem because calc(100% + Npx) measures from the avatar's own far
+   edge outward, which is correct regardless of the badge's size in
+   that direction. Switched top/bottom to the identical calc(100% +
+   Npx) approach -- bottom:calc(100% + Npx) for the "above" badge (n)
+   guarantees ITS bottom edge sits Npx clear of the avatar's top,
+   however tall the badge itself turns out to be. */
+.avatar .call-badge.call-badge-n{top:auto;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%)}
 .avatar .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-3px) rotate(45deg)}
-.avatar .call-badge.call-badge-s{top:auto;bottom:-18px;left:50%;transform:translateX(-50%)}
+.avatar .call-badge.call-badge-s{top:calc(100% + 8px);bottom:auto;left:50%;transform:translateX(-50%)}
 .avatar .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,3px) rotate(225deg)}
 .avatar .call-badge.call-badge-e{top:50%;left:calc(100% + 4px);right:auto;bottom:auto;transform:translateY(-50%)}
 .avatar .call-badge.call-badge-e::after{top:50%;left:-3px;bottom:auto;transform:translateY(-50%) rotate(135deg)}

@@ -364,18 +364,29 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    bottom-left), with the tail rotated to still visibly point back at
    its own avatar from whichever direction the bubble ends up in,
    instead of one fixed pointer direction used everywhere regardless of
-   where that seat actually sits. */
-.seat .call-badge.call-badge-n{top:-34px;left:50%;transform:translateX(-50%)}
+   where that seat actually sits. Per a later explicit correction, with
+   a 4-player screenshot proving the exact same root cause here too:
+   top:-Npx/bottom:-Npx positions the badge's OWN edge Npx away from the
+   avatar, but the badge then extends further by its own height (two
+   lines of text, comfortably taller than the offset chosen), so its
+   far edge lands back on top of the avatar regardless of the number
+   picked. Every vertical offset below now uses bottom:calc(100% + Npx)
+   or top:calc(100% + Npx) instead -- measuring from the avatar's own
+   far edge outward, the same reliably correct approach the horizontal
+   nw/sw/se/ne offsets already used by lucky accident (right:46px/
+   left:46px happen to measure from the seat wrapper's edge, not the
+   badge's own position). */
+.seat .call-badge.call-badge-n{top:auto;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%)}
 .seat .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg)}
-.seat .call-badge.call-badge-s{top:auto;bottom:-34px;left:50%;transform:translateX(-50%)}
+.seat .call-badge.call-badge-s{top:calc(100% + 8px);bottom:auto;left:50%;transform:translateX(-50%)}
 .seat .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,6px) rotate(225deg)}
-.seat .call-badge.call-badge-nw{top:-22px;left:auto;right:46px;transform:none}
+.seat .call-badge.call-badge-nw{top:auto;bottom:calc(100% + 4px);left:auto;right:46px;transform:none}
 .seat .call-badge.call-badge-nw::after{top:auto;bottom:-4px;left:auto;right:-4px;transform:rotate(135deg)}
-.seat .call-badge.call-badge-sw{top:auto;bottom:-22px;left:auto;right:46px;transform:none}
+.seat .call-badge.call-badge-sw{top:calc(100% + 4px);bottom:auto;left:auto;right:46px;transform:none}
 .seat .call-badge.call-badge-sw::after{top:-4px;bottom:auto;left:auto;right:-4px;transform:rotate(-135deg)}
-.seat .call-badge.call-badge-se{top:auto;bottom:-22px;left:46px;transform:none}
+.seat .call-badge.call-badge-se{top:calc(100% + 4px);bottom:auto;left:46px;transform:none}
 .seat .call-badge.call-badge-se::after{top:-4px;bottom:auto;left:-4px;right:auto;transform:rotate(-45deg)}
-.seat .call-badge.call-badge-ne{top:-22px;left:46px;transform:none}
+.seat .call-badge.call-badge-ne{top:auto;bottom:calc(100% + 4px);left:46px;transform:none}
 .seat .call-badge.call-badge-ne::after{top:auto;bottom:-4px;left:-4px;right:auto;transform:rotate(45deg)}
 /* A bit more drama for the first half-second a badge appears - a quick overshoot pop plus a
    brief glow ring, rather than the previous version's much smaller, easy-to-miss fade. This
