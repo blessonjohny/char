@@ -315,16 +315,16 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    real speech bubble) rather than reusing .bdg's small corner-tag style, since this needs to
    read clearly at a glance, not just be a compact corner note. */
 .seat .call-badge{
-  position:absolute;top:-34px;left:50%;transform:translateX(-50%);
+  position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
   background:linear-gradient(180deg,#0a1f0f,#051008);
-  border:2px solid #4ade80;
+  border:1.5px solid #4ade80;
   color:#4ade80;
-  border-radius:14px;padding:6px 14px;font-size:0.82rem;font-weight:900;
+  border-radius:9px;padding:3px 8px;font-size:0.56rem;font-weight:900;
   font-family:'Cinzel','Playfair Display',serif;
-  max-width:150px;white-space:normal;text-align:center;line-height:1.25;z-index:6;
-  box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(74,222,128,0.4);
+  max-width:76px;white-space:normal;text-align:center;line-height:1.15;z-index:6;
+  box-shadow:0 2px 8px rgba(0,0,0,0.6),0 0 10px rgba(74,222,128,0.4);
   animation:callBadgePop 0.4s cubic-bezier(0.34,1.56,0.64,1);
-  text-shadow:0 0 8px rgba(74,222,128,0.6);
+  text-shadow:0 0 6px rgba(74,222,128,0.6);
 }
 /* Per explicit instruction: the plain "Pass"/"Bid 17" always comes
    first as its own bold line, with the random flavor line right below
@@ -332,9 +332,14 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    sentence. The header inherits the badge's own green/red color (set
    via currentColor) so it still reads as the same pass/bid color-coded
    pill; the flavor line is deliberately a bit smaller and slightly
-   dimmer so the header stays the visually dominant line. */
-.seat .call-badge-header{font-size:1rem;font-weight:900;color:currentColor}
-.seat .call-badge-flavor{font-size:0.72rem;font-weight:700;opacity:0.85;margin-top:1px;color:#fff;text-shadow:none}
+   dimmer so the header stays the visually dominant line. Per a later
+   explicit instruction ("too long overlapping, make it tiny smaller,
+   6-player only"), both the message pools (now capped to 2-3 words
+   each) and this sizing were shrunk together -- long, multi-line
+   flavor text was the actual cause of neighboring seats' bubbles
+   colliding, not just the box size on its own. */
+.seat .call-badge-header{font-size:0.66rem;font-weight:900;color:currentColor}
+.seat .call-badge-flavor{font-size:0.5rem;font-weight:700;opacity:0.85;margin-top:0;color:#fff;text-shadow:none}
 /* Semicircle-style speech-bubble tail -- a small rounded nub instead of
    a sharp comic-strip triangle, per explicit instruction. A single
    half-circle (border-radius on 3 corners only, one corner square)
@@ -342,18 +347,18 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    so it reads as "growing out of" the bubble toward the avatar rather
    than a generic arrow shape. */
 .seat .call-badge::after{
-  content:'';position:absolute;width:14px;height:14px;
-  background:#051008;border:2px solid #4ade80;
+  content:'';position:absolute;width:9px;height:9px;
+  background:#051008;border:1.5px solid #4ade80;
   border-radius:0 100% 100% 100%;
-  top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg);
+  top:100%;left:50%;transform:translate(-50%,-4px) rotate(45deg);
 }
 /* Red for a pass, green for an actual bid - a clear, immediately-readable color code rather
    than everything sharing one gold tone regardless of what was actually said. */
 .seat .call-badge.call-badge-pass{
   background:linear-gradient(180deg,#241010,#100505);
   border-color:#ef4444;color:#ef4444;
-  box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(239,68,68,0.4);
-  text-shadow:0 0 8px rgba(239,68,68,0.6);
+  box-shadow:0 2px 8px rgba(0,0,0,0.6),0 0 10px rgba(239,68,68,0.4);
+  text-shadow:0 0 6px rgba(239,68,68,0.6);
 }
 .seat .call-badge.call-badge-pass::after{background:#100505;border-color:#ef4444}
 /* Six directional variants, one per seat, replacing the old simple
