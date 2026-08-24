@@ -351,10 +351,15 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    so it reads as "growing out of" the bubble toward the avatar rather
    than a generic arrow shape. */
 .seat .call-badge::after{
+  /* Per explicit correction with a hand-drawn reference: "one line for
+     all" -- a single shared shape and size for the tail in every
+     direction, only the rotation angle differs. Same technique as
+     index.html's identical rule -- see there for the full geometry
+     reasoning and verification. */
   content:'';position:absolute;width:9px;height:9px;
   background:#051008;border:1.5px solid #4ade80;
-  border-radius:0 100% 100% 100%;
-  top:100%;left:50%;transform:translate(-50%,-4px) rotate(45deg);
+  border-radius:50% 50% 50% 0;
+  transform-origin:center;
 }
 /* Red for a pass, green for an actual bid - a clear, immediately-readable color code rather
    than everything sharing one gold tone regardless of what was actually said. */
@@ -384,19 +389,23 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    far edge outward, the same reliably correct approach the horizontal
    nw/sw/se/ne offsets already used by lucky accident (right:46px/
    left:46px happen to measure from the seat wrapper's edge, not the
-   badge's own position). */
+   badge's own position). Rotation angles below were computed from an
+   actual coordinate calculation (not guessed), the same way as
+   index.html's four directions -- an earlier version of these had the
+   tail pointing in the wrong direction entirely for several seats,
+   which the hand-drawn correction caught. */
 .seat .call-badge.call-badge-n{top:auto;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%)}
-.seat .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg)}
+.seat .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-4px) rotate(-45deg)}
 .seat .call-badge.call-badge-s{top:calc(100% + 8px);bottom:auto;left:50%;transform:translateX(-50%)}
-.seat .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,6px) rotate(225deg)}
+.seat .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,4px) rotate(135deg)}
 .seat .call-badge.call-badge-nw{top:auto;bottom:calc(100% + 4px);left:auto;right:46px;transform:none}
-.seat .call-badge.call-badge-nw::after{top:auto;bottom:-4px;left:auto;right:-4px;transform:rotate(135deg)}
+.seat .call-badge.call-badge-nw::after{top:auto;bottom:-4px;left:auto;right:-4px;transform:rotate(-90deg)}
 .seat .call-badge.call-badge-sw{top:calc(100% + 4px);bottom:auto;left:auto;right:46px;transform:none}
-.seat .call-badge.call-badge-sw::after{top:-4px;bottom:auto;left:auto;right:-4px;transform:rotate(-135deg)}
+.seat .call-badge.call-badge-sw::after{top:-4px;bottom:auto;left:auto;right:-4px;transform:rotate(180deg)}
 .seat .call-badge.call-badge-se{top:calc(100% + 4px);bottom:auto;left:46px;transform:none}
-.seat .call-badge.call-badge-se::after{top:-4px;bottom:auto;left:-4px;right:auto;transform:rotate(-45deg)}
+.seat .call-badge.call-badge-se::after{top:-4px;bottom:auto;left:-4px;right:auto;transform:rotate(90deg)}
 .seat .call-badge.call-badge-ne{top:auto;bottom:calc(100% + 4px);left:46px;transform:none}
-.seat .call-badge.call-badge-ne::after{top:auto;bottom:-4px;left:-4px;right:auto;transform:rotate(45deg)}
+.seat .call-badge.call-badge-ne::after{top:auto;bottom:-4px;left:-4px;right:auto;transform:rotate(0deg)}
 /* A bit more drama for the first half-second a badge appears - a quick overshoot pop plus a
    brief glow ring, rather than the previous version's much smaller, easy-to-miss fade. This
    is meant to be the moment a player "speaks" at the table, per the request, and needed to

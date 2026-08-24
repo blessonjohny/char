@@ -716,10 +716,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .avatar .call-badge-header{font-size:0.6rem;font-weight:900;color:currentColor}
 .avatar .call-badge-flavor{font-size:0.46rem;font-weight:700;opacity:0.85;margin-top:0;color:#fff;text-shadow:none}
 .avatar .call-badge::after{
-  content:'';position:absolute;width:8px;height:8px;
+  /* Per explicit correction with a hand-drawn reference: "one line for
+     all" -- a single shared shape and size for the tail in every
+     direction, only the rotation angle differs. border-radius:50% 50%
+     50% 0 is the classic CSS "map pin"/teardrop shape (three rounded
+     corners, one square corner at bottom-left by default), matching
+     the heart-bottom-point look from the drawing. Its default,
+     unrotated point aims toward the bottom-left (verified with an
+     actual coordinate calculation, not eyeballed) -- every direction
+     below rotates it by the exact angle needed to aim that same point
+     at wherever the avatar actually is relative to that badge, derived
+     the same way for all of them rather than guessed per-direction.
+     transform-origin:center keeps the shape rotating in place rather
+     than swinging around its positioned corner. */
+  content:'';position:absolute;width:9px;height:9px;
   background:#051008;border:1.5px solid #4ade80;
-  border-radius:0 100% 100% 100%;
-  top:100%;left:50%;transform:translate(-50%,-3px) rotate(45deg);
+  border-radius:50% 50% 50% 0;
+  transform-origin:center;
 }
 .avatar .call-badge.call-badge-pass{
   background:linear-gradient(180deg,#241010,#100505);
@@ -743,13 +756,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    guarantees ITS bottom edge sits Npx clear of the avatar's top,
    however tall the badge itself turns out to be. */
 .avatar .call-badge.call-badge-n{top:auto;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%)}
-.avatar .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-3px) rotate(45deg)}
+.avatar .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-4px) rotate(-45deg)}
 .avatar .call-badge.call-badge-s{top:calc(100% + 8px);bottom:auto;left:50%;transform:translateX(-50%)}
-.avatar .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,3px) rotate(225deg)}
+.avatar .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,4px) rotate(135deg)}
 .avatar .call-badge.call-badge-e{top:50%;left:calc(100% + 4px);right:auto;bottom:auto;transform:translateY(-50%)}
-.avatar .call-badge.call-badge-e::after{top:50%;left:-3px;bottom:auto;transform:translateY(-50%) rotate(135deg)}
+.avatar .call-badge.call-badge-e::after{top:50%;left:-4px;bottom:auto;transform:translateY(-50%) rotate(45deg)}
 .avatar .call-badge.call-badge-w{top:50%;right:calc(100% + 4px);left:auto;bottom:auto;transform:translateY(-50%)}
-.avatar .call-badge.call-badge-w::after{top:50%;right:-3px;left:auto;bottom:auto;transform:translateY(-50%) rotate(-45deg)}
+.avatar .call-badge.call-badge-w::after{top:50%;right:-4px;left:auto;bottom:auto;transform:translateY(-50%) rotate(225deg)}
 @keyframes callBadgePop4p{
   0%{opacity:0;transform:translateX(-50%) scale(0.4) translateY(8px)}
   55%{opacity:1;transform:translateX(-50%) scale(1.22) translateY(-4px)}
