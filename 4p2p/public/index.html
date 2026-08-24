@@ -15765,23 +15765,6 @@ function applyServerState(state) {
   if (typeof state.round === 'number' && state.round !== lastAnnouncedHonorsRound) {
     lastAnnouncedHonorsRound = -1; // allow a fresh announcement once this round's bidding actually concludes
   }
-  // Per explicit instruction: singles out the current winning bidder's
-  // own bubble with a blink any time bidding isn't actively in progress
-  // (bidding1) -- deliberately NOT excluding 'bidding2' or
-  // 'choosingTrump' here, since a phase-2 raise can change who the
-  // bidder is, and 'choosingTrump' itself can happen TWICE (once right
-  // after phase 1, again after phase 2 if the bidder changed) -- an
-  // earlier version of this gated on "already marked once this round"
-  // and excluded bidding2, which meant it locked onto the phase-1
-  // bidder the first time choosingTrump appeared and never updated
-  // again once phase 2 actually changed who won. Tracking round+bidder
-  // together instead of round alone means it correctly re-fires every
-  // time the actual bidder changes, not just once per round.
-  const winnerMarkKey = state.round + ':' + state.bidder;
-  if (state.phase !== 'bidding1' && state.bidder >= 0 && winnerMarkKey !== lastMarkedWinnerKey) {
-    lastMarkedWinnerKey = winnerMarkKey;
-    markWinningBidder4p(state.bidder);
-  }
   if (state.phase !== 'bidding1' && state.phase !== 'bidding2' && state.highestBid >= 20 &&
       state.bidder >= 0 && state.round !== lastAnnouncedHonorsRound) {
     lastAnnouncedHonorsRound = state.round;
@@ -15963,6 +15946,26 @@ function applyServerState(state) {
     if (typeof entry.bid === 'number') updateCallBadge4p(entry.pos, entry.bid, 10000 + i);
   }
   window._p2History = state.p2History || [];
+  // Per explicit instruction: singles out the current winning bidder's
+  // own bubble with a blink any time bidding isn't actively in progress
+  // (bidding1). Deliberately placed HERE, after both the phase-1 and
+  // phase-2 updateCallBadge4p loops above (not earlier in this
+  // function, where an earlier version of this lived) -- this specific
+  // bidder's badge genuinely may not exist in the DOM yet until those
+  // loops have actually run for this render pass, so calling this any
+  // earlier could try to mark a badge that hasn't been created yet and
+  // silently find nothing. Also deliberately NOT excluding 'bidding2'
+  // or 'choosingTrump', since a phase-2 raise can change who the bidder
+  // is, and 'choosingTrump' itself can happen TWICE (once right after
+  // phase 1, again after phase 2 if the bidder changed) -- tracking
+  // round+bidder together (not round alone) means this correctly
+  // re-fires every time the actual bidder changes, not just once per
+  // round.
+  const winnerMarkKey = state.round + ':' + state.bidder;
+  if (state.phase !== 'bidding1' && state.bidder >= 0 && winnerMarkKey !== lastMarkedWinnerKey) {
+    lastMarkedWinnerKey = winnerMarkKey;
+    markWinningBidder4p(state.bidder);
+  }
   trumpSuit = state.trumpSuit || '';
   trumpExposed = state.trumpExposed;
   hiddenTrump = state.myHiddenTrumpCard
