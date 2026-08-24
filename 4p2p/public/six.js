@@ -777,7 +777,7 @@ let pendingJoinCode = null;
 let latestState = null;
 let lastAnnouncedTrumpExposed = false;
 let lastHiddenTrumpAutoFired6p = false; // see renderHand() -- guards the forced-last-card auto-play against firing more than once per turn
-let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired
+let lastMarkedWinnerRound = -1; // tracks which round's winning-bidder blink has already been applied, so it fires exactly once per round
 let lastShownRoundVoidMessage = null;
 let lastShownReshuffleReasonTs6p = null;
 let lastShownPartnerSignalKey6p = null;
@@ -1319,17 +1319,6 @@ function applyState(state) {
   // doesn't keep a separate bidHistory global the way index.html does.
   // Must run BEFORE latestState gets overwritten just below, since it
   // compares against the previous state's own bidHistory.
-  const oldBidHistoryLen = (latestState && latestState.bidHistory) ? latestState.bidHistory.length : 0;
-  const newBidEntries = (state.bidHistory || []).slice(oldBidHistoryLen);
-  for (let i = 0; i < newBidEntries.length; i++) {
-    const entry = newBidEntries[i];
-    const entryIndex = oldBidHistoryLen + i;
-    if (entry.bid > 0 && entryIndex > 0) {
-      const bidderName = (state.seats && state.seats[entry.pos]) ? state.seats[entry.pos].name : 'A player';
-      if (entry.bid >= 20) showGameEvent('👑', 'Honors Bid', bidderName + ' — ' + entry.bid, '#f4c430');
-      else showGameEvent('📈', 'Raise', bidderName + ' — ' + entry.bid, '#4a90d9');
-    }
-  }
 
   latestState = state;
 
@@ -1560,11 +1549,16 @@ function applyState(state) {
   try { updateTurnLabel(state); } catch (e) { console.error('[updateTurnLabel] threw:', e); }
   if ($('hostMenuOverlay').classList.contains('on') && $('hostMenuMainView').style.display !== 'none') renderHostMenuPlayerList();
 
-  if (state.phase !== 'bidding1' && state.highestBid >= 20 && state.bidder >= 0 &&
-      state.round !== lastAnnouncedHonorsRound) {
-    lastAnnouncedHonorsRound = state.round;
-    const bidderName = state.bidder === MY_POS ? 'You' : sixpRelLabel(state.bidder, state.seats);
-    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + (state.highestBid >= 29 ? 'THANI' : state.highestBid), 'win', 3200);
+  // Per explicit instruction: with the individual "HONORS CALLED"/
+  // raise/bid popups removed as redundant now that the call bubble
+  // already shows that information, the winning bidder's own bubble
+  // instead blinks/pulses once bidding actually concludes -- fires
+  // once per round, same reasoning and pattern as index.html's
+  // identical markWinningBidder4p trigger.
+  if (state.phase !== 'bidding1' && state.bidder >= 0 &&
+      state.round !== lastMarkedWinnerRound) {
+    lastMarkedWinnerRound = state.round;
+    markWinningBidder6p(state.bidder);
   }
   if (state.phase === 'bidding1' && state.currentPlayer === MY_POS) showBidPanel(state);
   else $('bidOverlay').classList.remove('on');
@@ -1738,6 +1732,20 @@ const BID_MESSAGES = [
 // random pick on every state update -- otherwise the text would visibly
 // flicker between different lines each time the table re-renders while
 // this same bubble is still showing.
+// Per explicit instruction: singles out the winning bidder's own
+// call-badge with a blink/pulse once bidding concludes, replacing the
+// separate "HONORS CALLED"/raise popups that used to announce this.
+// Same reasoning and pattern as index.html's identical
+// markWinningBidder4p, just using this table's own slotFor/seatWrap
+// lookup instead of #av0-3.
+function markWinningBidder6p(pos) {
+  for (let slot = 0; slot < 6; slot++) {
+    const wrap = $('seatWrap' + slot);
+    const callEl = wrap && wrap.querySelector('.call-badge');
+    if (callEl) callEl.classList.toggle('call-badge-winner', slotFor(pos) === slot);
+  }
+}
+
 function pickCallMessage(pool, pos, seq, bid) {
   const seed = pos * 7919 + seq * 104729 + bid * 31;
   const idx = Math.abs(seed) % pool.length;

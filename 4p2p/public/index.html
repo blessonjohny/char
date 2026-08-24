@@ -729,6 +729,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   75%{transform:translateX(-50%) scale(0.94) translateY(0)}
   100%{opacity:1;transform:translateX(-50%) scale(1) translateY(0)}
 }
+/* Per explicit instruction: with the individual bid/pass popups removed
+   as redundant now that the speech bubble already shows that
+   information, the winning bidder's own bubble instead blinks/pulses
+   to single them out from the rest of the (now-static) bubbles still
+   showing -- the one thing actually worth still calling attention to.
+   Stays applied through trump selection and clears the same moment as
+   every other call bubble, right when the first card of the round
+   actually gets played (see clearCallBadges4p call sites). */
+.avatar .call-badge.call-badge-winner{animation:callBadgeWinnerBlink 1.1s ease-in-out infinite}
+@keyframes callBadgeWinnerBlink{
+  0%,100%{box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(74,222,128,0.4);border-color:#4ade80}
+  50%{box-shadow:0 3px 20px rgba(0,0,0,0.6),0 0 30px rgba(244,196,48,0.9);border-color:#f4c430}
+}
 /* Instead of a separate "D" badge, the dealer's name itself turns gold and
    twinkles. The bidder's name turns red while the round is still in the
    dealing/bidding stage. Once the first trick of the round is won, that
@@ -5869,6 +5882,20 @@ function clearCallBadges4p() {
     if (callEl) callEl.remove();
   }
 }
+// Per explicit instruction: singles out the winning bidder's own
+// call-badge with a blink/pulse once the auction ends, replacing the
+// separate "won bid"/"HONORS CALLED" popups that used to announce this
+// -- called from both the offline endBidding1() and the online
+// applyServerState() path the moment bidder is finalized. Clears every
+// other seat's winner class first (pos param is the actual winner)
+// since only one bubble should ever be blinking at a time.
+function markWinningBidder4p(pos) {
+  for (let i = 0; i < 4; i++) {
+    const av = document.getElementById('av' + i);
+    const callEl = av && av.querySelector('.call-badge');
+    if (callEl) callEl.classList.toggle('call-badge-winner', slotForPlayer(pos) === i);
+  }
+}
 
 function showGameEvent(icon, title, detail, color) {
   const overlay = document.createElement('div');
@@ -8441,7 +8468,6 @@ function processBid(p, bid) {
     if (bt) bt.textContent = 'Bid:' + bid;
     const name = playerAt(p) ? playerAt(p).name : 'Player';
     log((p === myPos ? 'You' : name) + ' bid ' + bid);
-    showToast((p === myPos ? '🎯 You' : '🤖 ' + name) + ' bid ' + bid, 'info', 1000);
   } else {
     passes++;
     bidHistory.push({ pos: p, bid: 0 });
@@ -8587,7 +8613,7 @@ function endBidding1() {
   if (bidder === -1 || highestBid === 0) { log('No valid bids. Redealing...'); setTimeout(() => startGame(), 1500); return; }
   const wn = playerAt(bidder) ? playerAt(bidder).name : 'Player';
   log((bidder === MY_POS ? 'You' : wn) + ' won bid with ' + highestBid + '!');
-  showToast('👑 ' + (bidder === MY_POS ? 'You' : wn) + ' won bid: ' + highestBid + '!', 'win', 1800);
+  markWinningBidder4p(bidder);
   // Host sends bidding result
   if (IS_ONLINE && IS_HOST) {
     setTimeout(() => hostSendState(), 300);
@@ -9049,11 +9075,18 @@ function endBidding2(x, canChange) {
   log('Final bid: ' + highestBid + ' by ' + relLabel(bidder));
   if (highestBid >= 20) {
     const bidderName = bidder === MY_POS ? 'You' : relLabel(bidder);
-    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + highestBid, 'win', 3200);
     log('👑 Honors called — bid of ' + highestBid + ' by ' + bidderName + '. Win pays double, lose costs double.', 'win');
   }
   for (let i = 0; i < 4; i++) { const b = document.getElementById('bid' + i); if (b) b.textContent = ''; }
-  clearCallBadges4p();
+  // Per explicit instruction: bid/pass bubbles should stay visible
+  // (the winner blinking) all the way through trump selection, only
+  // actually clearing once the first card of the round gets played --
+  // this clearCallBadges4p() call used to run right here instead,
+  // wiping every bubble out before trump was even chosen, which is
+  // exactly the premature-clearing this fix corrects. bidder may have
+  // changed during phase 2 raises, so the winner mark needs
+  // re-applying here too, not just once back in endBidding1().
+  markWinningBidder4p(bidder);
   if (canChange && bidder === MY_POS) setTimeout(() => showTrumpPanel(true), 500);
   else setTimeout(() => startPlay(), 500);
 }
@@ -9608,6 +9641,7 @@ function playCard(suit, rank, player, calledTrump) {
   if (explicitlyCalled && !trumpExposed) exposeTrump(p);
   if (trickSuit === '') { trickSuit = card.suit; suitLeadCount[card.suit]++; }
   trickCards.push({player: p, card: card});
+  clearCallBadges4p(); // per explicit instruction: bid/pass bubbles stay up only until someone actually starts playing
   const slot = document.getElementById('slot' + slotForPlayer(p));
   if (slot) { slot.innerHTML = cardHTML(card);  }
   const name = playerAt(p) ? playerAt(p).name : 'Player';
@@ -9655,6 +9689,7 @@ function playHiddenTrump(p) {
   if (!trumpExposed) exposeTrump(p);
   if (trickSuit === '') { trickSuit = card.suit; suitLeadCount[card.suit]++; }
   trickCards.push({player: p, card: card});
+  clearCallBadges4p(); // per explicit instruction: bid/pass bubbles stay up only until someone actually starts playing
   const slot = document.getElementById('slot' + slotForPlayer(p));
   if (slot) { slot.innerHTML = cardHTML(card);  }
   const name = playerAt(p) ? playerAt(p).name : 'Player';
@@ -14064,6 +14099,7 @@ let serverTurnWatchdog = null;
 let serverRoundEndShown = -1; // which round number we've already shown the summary panel for
 let serverLastAnnouncedTrumpExposed = false; // tracks trumpExposed so the announcement toast fires exactly once per exposure, not on every render
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired, so it shows exactly once per round
+let lastMarkedWinnerRound = -1; // tracks which round's winning-bidder blink has already been applied, so it fires exactly once per round
 let lastShownRoundVoidMessage = null; // tracks the defending-team-has-no-trump void message so it shows exactly once per occurrence
 let lastShownReshuffleReasonTs = null; // same "show exactly once" pattern for the 3 auto-reshuffle popups below
 let lastShownEarlyWinChoice = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
@@ -15729,12 +15765,24 @@ function applyServerState(state) {
   if (typeof state.round === 'number' && state.round !== lastAnnouncedHonorsRound) {
     lastAnnouncedHonorsRound = -1; // allow a fresh announcement once this round's bidding actually concludes
   }
+  // Per explicit instruction: singles out the winning bidder's own
+  // bubble with a blink the moment bidding actually concludes, for
+  // every round (not just honors ones) -- the actual online-mode
+  // trigger point for markWinningBidder4p, same reasoning as the
+  // honors tracker just above it.
+  if (typeof state.round === 'number' && state.round !== lastMarkedWinnerRound) {
+    lastMarkedWinnerRound = -1;
+  }
+  if (state.phase !== 'bidding1' && state.phase !== 'bidding2' &&
+      state.bidder >= 0 && state.round !== lastMarkedWinnerRound) {
+    lastMarkedWinnerRound = state.round;
+    markWinningBidder4p(state.bidder);
+  }
   if (state.phase !== 'bidding1' && state.phase !== 'bidding2' && state.highestBid >= 20 &&
       state.bidder >= 0 && state.round !== lastAnnouncedHonorsRound) {
     lastAnnouncedHonorsRound = state.round;
     const bidderName = state.bidder === MY_POS ? 'You' : relLabel(state.bidder);
     const bidLabel = state.highestBid >= 29 ? 'THANI' : state.highestBid;
-    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + bidLabel, 'win', 3200);
     log('👑 Honors called — bid of ' + bidLabel + ' by ' + bidderName + '. Win pays double, lose costs double.', 'win');
   }
   if (typeof state.learningPulseCount === 'number' && state.learningPulseCount > lastSeenLearningPulse) {
@@ -15890,11 +15938,6 @@ function applyServerState(state) {
     // games at all. Same mistake already made once before with the
     // trump-exposed animation, being careful not to repeat it here.
     updateCallBadge4p(entry.pos, entry.bid, entryIndex);
-    if (entry.bid > 0 && entryIndex > 0) {
-      const bidderName = playerAt(entry.pos) ? playerAt(entry.pos).name : 'A player';
-      if (entry.bid >= 20) showGameEvent('👑', 'Honors Bid', bidderName + ' — ' + entry.bid, '#f4c430');
-      else showGameEvent('📈', 'Raise', bidderName + ' — ' + entry.bid, '#4a90d9');
-    }
   }
   bidHistory = state.bidHistory || [];
   window._p1MinBid = (typeof state.p1MinBid === 'number') ? state.p1MinBid : null;
@@ -15914,10 +15957,6 @@ function applyServerState(state) {
     // large constant so a phase-2 entry never picks the exact same
     // message as a phase-1 entry at the same index for the same seat.
     if (typeof entry.bid === 'number') updateCallBadge4p(entry.pos, entry.bid, 10000 + i);
-    if (entry.bid > 0) {
-      const bidderName = playerAt(entry.pos) ? playerAt(entry.pos).name : 'A player';
-      showGameEvent('📈', 'Raise', bidderName + ' — ' + entry.bid, '#4a90d9');
-    }
   }
   window._p2History = state.p2History || [];
   trumpSuit = state.trumpSuit || '';
@@ -16601,6 +16640,7 @@ function catchUpTrickSlotsStaggered(real) {
     if (el) el.innerHTML = cardHTML(cardWithColor, false, false, 'trick-card-landing');
     lastRenderedSlotContent[slotIdx] = tc.card.suit + tc.card.rank;
     trickCards.push({ player: tc.pos, card: cardWithColor });
+    clearCallBadges4p(); // per explicit instruction: bid/pass bubbles stay up only until someone actually starts playing
     idx++;
     setTimeout(revealNext, 550);
   }
