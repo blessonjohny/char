@@ -316,21 +316,38 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    read clearly at a glance, not just be a compact corner note. */
 .seat .call-badge{
   position:absolute;top:-34px;left:50%;transform:translateX(-50%);
-  background:linear-gradient(180deg,#241b12,#100c08);
-  border:2px solid var(--accent, #f4c430);
-  color:var(--accent, #f4c430);
+  background:linear-gradient(180deg,#0a1f0f,#051008);
+  border:2px solid #4ade80;
+  color:#4ade80;
   border-radius:14px;padding:6px 14px;font-size:0.95rem;font-weight:900;
   font-family:'Cinzel','Playfair Display',serif;
   white-space:nowrap;z-index:6;
-  box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(244,196,48,0.45);
+  box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(74,222,128,0.4);
   animation:callBadgePop 0.4s cubic-bezier(0.34,1.56,0.64,1);
-  text-shadow:0 0 8px rgba(244,196,48,0.6);
+  text-shadow:0 0 8px rgba(74,222,128,0.6);
 }
 .seat .call-badge::after{
   content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
-  border:7px solid transparent;border-top-color:#100c08;
+  border:7px solid transparent;border-top-color:#051008;
 }
-.seat .call-badge.call-badge-pass{color:#9aa5b1;border-color:rgba(154,165,177,0.6);box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(154,165,177,0.25);text-shadow:none}
+/* Red for a pass, green for an actual bid - a clear, immediately-readable color code rather
+   than everything sharing one gold tone regardless of what was actually said. */
+.seat .call-badge.call-badge-pass{
+  background:linear-gradient(180deg,#241010,#100505);
+  border-color:#ef4444;color:#ef4444;
+  box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(239,68,68,0.4);
+  text-shadow:0 0 8px rgba(239,68,68,0.6);
+}
+.seat .call-badge.call-badge-pass::after{border-top-color:#100505}
+/* Top-half seats (top-left/top/top-right) get the badge rendered below the avatar instead of
+   above it - "above" for those three would push the badge off-screen, under the top bar,
+   since they already sit close to the screen edge. Flips both the position and the pointer
+   triangle so it still visibly connects to (and points at) its own avatar either way. */
+.seat .call-badge.call-badge-below{top:auto;bottom:-34px}
+.seat .call-badge.call-badge-below::after{
+  top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:#051008;
+}
+.seat .call-badge.call-badge-below.call-badge-pass::after{border-bottom-color:#100505}
 /* A bit more drama for the first half-second a badge appears - a quick overshoot pop plus a
    brief glow ring, rather than the previous version's much smaller, easy-to-miss fade. This
    is meant to be the moment a player "speaks" at the table, per the request, and needed to

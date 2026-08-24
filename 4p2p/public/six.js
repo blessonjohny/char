@@ -1943,7 +1943,14 @@ function renderSeats(state) {
     // strip) rather than needing any new server-side state - the last entry for this seat is
     // exactly what they last called, in order.
     let callEl = wrap.querySelector('.call-badge');
-    const showCalls = state.phase === 'bidding1' || state.phase === 'choosingTrump';
+    // "Until someone plays a card" means genuinely that - not just "until phase becomes
+    // 'play'", since phase actually flips to 'play' the instant trump gets chosen, before
+    // anyone has played a single card yet. Checking tricksPlayed and an empty trick (nobody
+    // partway through leading yet either) instead correctly keeps every call bubble up
+    // through trump selection AND that brief window after, right up until the very first
+    // card of the round actually lands.
+    const nobodyHasPlayedYet = (state.tricksPlayed || 0) === 0 && (!state.trickCards || state.trickCards.length === 0);
+    const showCalls = state.phase === 'bidding1' || state.phase === 'choosingTrump' || (state.phase === 'play' && nobodyHasPlayedYet);
     const lastCall = showCalls && state.bidHistory ? [...state.bidHistory].reverse().find(h => h.pos === pos) : null;
     if (lastCall && !isFolded) {
       const isPass = lastCall.bid === 0;
@@ -1951,6 +1958,13 @@ function renderSeats(state) {
       if (!callEl) { callEl = document.createElement('div'); callEl.className = 'call-badge'; wrap.appendChild(callEl); }
       if (callEl.dataset.v !== label) { callEl.dataset.v = label; callEl.textContent = label; }
       callEl.classList.toggle('call-badge-pass', isPass);
+      // Top-half seats (slots 2/3/4 - top-right, top, top-left) sit close enough to the
+      // screen edge that a badge positioned above the avatar the same way every other seat's
+      // is would push it off-screen, under the top bar. Those three instead get the badge
+      // rendered below the avatar with its pointer flipped to aim upward at it - every seat's
+      // badge points at its own avatar and stays fully on-screen, rather than one fixed
+      // direction applied uniformly regardless of where that seat actually sits on the table.
+      callEl.classList.toggle('call-badge-below', slot === 2 || slot === 3 || slot === 4);
     } else if (callEl) { callEl.remove(); }
   }
 }
