@@ -745,10 +745,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    logic used throughout this feature. Rotation angles verified by
    actually rendering this exact shape with a marked avatar position
    for all four directions before use, not trusted from math alone. */
-.avatar .call-badge.call-badge-n .call-badge-tail{top:100%;left:50%;transform:translate(-50%,-4px) rotate(0deg)}
-.avatar .call-badge.call-badge-s .call-badge-tail{bottom:100%;left:50%;transform:translate(-50%,4px) rotate(180deg)}
-.avatar .call-badge.call-badge-e .call-badge-tail{top:50%;right:100%;transform:translate(4px,-50%) rotate(90deg)}
-.avatar .call-badge.call-badge-w .call-badge-tail{top:50%;left:100%;transform:translate(-4px,-50%) rotate(-90deg)}
+.avatar .call-badge.call-badge-n .call-badge-tail{top:100%;left:50%;transform:translate(-50%,-8px) rotate(0deg)}
+.avatar .call-badge.call-badge-s .call-badge-tail{bottom:100%;left:50%;transform:translate(-50%,8px) rotate(180deg)}
+.avatar .call-badge.call-badge-e .call-badge-tail{top:50%;right:100%;transform:translate(8px,-50%) rotate(90deg)}
+.avatar .call-badge.call-badge-w .call-badge-tail{top:50%;left:100%;transform:translate(-8px,-50%) rotate(-90deg)}
 /* Top seat (pos0) and bottom/"me" seat (pos3) sit in their own tight,
    full-width grid rows directly bordering the table's center play area.
    Per explicit correction with a screenshot proving it: found the real
@@ -5926,7 +5926,18 @@ function updateCallBadge4p(pos, bid, seq) {
     // small, independently-sized tail SVG -- verified pointing
     // correctly per direction on its own already, unaffected by
     // whatever size the oval ends up being.
-    const tailSvg = '<svg class="call-badge-tail" viewBox="0 0 20 24" width="16" height="19"><path d="M4 0 L12 0 C12 7, 10 11, 8 13 C6 11, 4 7, 4 0 Z" fill="currentColor"/><path d="M5 12 L11 12 L8 20 Z" fill="currentColor"/></svg>';
+    // Per explicit correction: the tail was a solid flat currentColor
+    // shape with no outline at all, while the oval has a dark fill +
+    // colored border -- that mismatch in visual style (outline vs.
+    // solid) is what made this read as two different objects stuck
+    // together, not the shape or positioning. Gave the tail the exact
+    // same dark fill + colored stroke treatment as the oval, and
+    // pushed it further up to tuck behind the oval's own fill rather
+    // than just touching its border line (which left a visible
+    // double-line crossing where the two borders met). Actually
+    // rendered this combination and visually confirmed it reads as one
+    // continuous outline before using it, not assumed from theory.
+    const tailSvg = '<svg class="call-badge-tail" viewBox="0 0 20 24" width="16" height="19"><path d="M4 0 L12 0 C12 7, 10 11, 8 13 C6 11, 4 7, 4 0 Z" fill="#0a1f0f" stroke="currentColor" stroke-width="2"/><path d="M5 12 L11 12 L8 20 Z" fill="#0a1f0f" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
     callEl.innerHTML = (flavor
       ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
       : `<div class="call-badge-header">${header}</div>`) + tailSvg;

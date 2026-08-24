@@ -2062,7 +2062,11 @@ function renderSeats(state) {
         // tail SVG, same as index.html's identical rule -- see there
         // for the fuller reasoning behind reverting away from the
         // single stretched combined-shape SVG.
-        const tailSvg = '<svg class="call-badge-tail" viewBox="0 0 20 24" width="16" height="19"><path d="M4 0 L12 0 C12 7, 10 11, 8 13 C6 11, 4 7, 4 0 Z" fill="currentColor"/><path d="M5 12 L11 12 L8 20 Z" fill="currentColor"/></svg>';
+        // Per explicit correction: same fill/stroke fix as index.html's
+        // identical rule -- the tail needs the same dark fill +
+        // colored border style as the oval to read as one shape, not a
+        // solid flat currentColor piece touching an outlined one.
+        const tailSvg = '<svg class="call-badge-tail" viewBox="0 0 20 24" width="16" height="19"><path d="M4 0 L12 0 C12 7, 10 11, 8 13 C6 11, 4 7, 4 0 Z" fill="#0a1f0f" stroke="currentColor" stroke-width="2"/><path d="M5 12 L11 12 L8 20 Z" fill="#0a1f0f" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
         callEl.innerHTML = (flavor
           ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
           : `<div class="call-badge-header">${header}</div>`) + tailSvg;
