@@ -14099,7 +14099,7 @@ let serverTurnWatchdog = null;
 let serverRoundEndShown = -1; // which round number we've already shown the summary panel for
 let serverLastAnnouncedTrumpExposed = false; // tracks trumpExposed so the announcement toast fires exactly once per exposure, not on every render
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired, so it shows exactly once per round
-let lastMarkedWinnerKey = ''; // tracks "round:bidder" so the blink re-applies whenever the actual bidder changes (a phase-2 raise), not just once per round
+// (call-badge winner tracking removed -- markWinningBidder4p is now re-applied fresh every render pass instead of tracked incrementally, see applyServerState)
 let lastShownRoundVoidMessage = null; // tracks the defending-team-has-no-trump void message so it shows exactly once per occurrence
 let lastShownReshuffleReasonTs = null; // same "show exactly once" pattern for the 3 auto-reshuffle popups below
 let lastShownEarlyWinChoice = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
@@ -15913,63 +15913,44 @@ function applyServerState(state) {
   // explicitly excluded) to fire a big event for a real raise or an
   // honors-level bid specifically. Compares against the length BEFORE
   // this same state's bidHistory overwrites it just below.
-  // Bid/pass speech bubble -- the actual online-mode trigger for this
-  // feature. Fires for every genuinely new entry in bidHistory (phase
-  // 1) and p2History (phase 2), comparing against this client's own
-  // last-seen length of each array so only entries that just arrived
-  // get a fresh badge update, not ones already shown on a previous
-  // render. The actual updateCallBadge4p/markWinningBidder4p DOM calls
-  // are deliberately NOT made here -- only queued into
-  // window._pendingCallBadgeUpdates -- because setupOnlineTable() runs
-  // later in this same function and directly overwrites every avatar's
-  // innerHTML (see its own definition), which would silently destroy
-  // any badge added before it ran. This was the actual, confirmed root
-  // cause of the badges never visibly appearing online at all: they
-  // were being created and destroyed within the same synchronous
-  // function call, before the browser ever painted a frame in between.
-  // The real DOM updates happen in a later block, right after
-  // setupOnlineTable() has already rebuilt the avatars fresh.
+  // Bid/pass speech bubble -- the actual online-mode trigger. Per
+  // explicit correction: an earlier version of this only queued
+  // updates for entries that were brand-new on THIS specific state
+  // push, which meant a badge would show once and then vanish on the
+  // very next, unrelated state update (a different player's move, a
+  // chat message, anything) -- because setupOnlineTable() wipes every
+  // avatar's content on EVERY single state push, not just the one
+  // where a bid happened, and nothing was re-adding the badge on those
+  // later, unrelated pushes. The real fix: recompute and re-queue
+  // EVERY currently-active player's own latest call on every single
+  // render pass, not just newly-arrived ones, so it survives every
+  // subsequent wipe until play genuinely starts. Uses the exact same
+  // "has anyone actually played a card yet this round" check
+  // (nobodyHasPlayedYet) six.js's identical feature already uses, so
+  // once play starts, this stops re-queuing anything and the badges
+  // stay gone rather than reappearing on the next render.
   window._pendingCallBadgeUpdates = [];
+  window._pendingWinnerMark = null;
   try {
-    const newBidEntries = (state.bidHistory || []).slice(bidHistory.length);
-    for (let i = 0; i < newBidEntries.length; i++) {
-      const entry = newBidEntries[i];
-      window._pendingCallBadgeUpdates.push([entry.pos, entry.bid, bidHistory.length + i]);
+    const nobodyHasPlayedYet4p = (state.tricksPlayed || 0) === 0 && (!state.trickCards || state.trickCards.length === 0);
+    if (nobodyHasPlayedYet4p) {
+      const combined = [];
+      (state.bidHistory || []).forEach((entry, i) => combined.push({ pos: entry.pos, bid: entry.bid, seq: i, order: i }));
+      (state.p2History || []).forEach((entry, i) => { if (typeof entry.bid === 'number') combined.push({ pos: entry.pos, bid: entry.bid, seq: 10000 + i, order: 100000 + i }); });
+      // Latest call per seat, by actual chronological order (phase 2 always
+      // sorts after all of phase 1 via the +100000 offset above).
+      const latestPerPos = {};
+      combined.forEach(c => {
+        if (!latestPerPos[c.pos] || c.order > latestPerPos[c.pos].order) latestPerPos[c.pos] = c;
+      });
+      Object.values(latestPerPos).forEach(c => window._pendingCallBadgeUpdates.push([c.pos, c.bid, c.seq]));
+      if (state.phase !== 'bidding1' && state.bidder >= 0) window._pendingWinnerMark = state.bidder;
     }
-  } catch (e) { console.error('[call-badge phase1] threw:', e); }
+  } catch (e) { console.error('[call-badge] threw:', e); }
   bidHistory = state.bidHistory || [];
   window._p1MinBid = (typeof state.p1MinBid === 'number') ? state.p1MinBid : null;
   window._p1CurrentTurnRestricted = !!state.p1CurrentTurnRestricted;
-  try {
-    const newP2Entries = (state.p2History || []).slice((window._p2History || []).length);
-    for (let i = 0; i < newP2Entries.length; i++) {
-      const entry = newP2Entries[i];
-      // bid can be the string 'THANI' here (a phase-2-only special call);
-      // updateCallBadge4p expects a number, so that specific call is
-      // skipped rather than passed through and mishandled.
-      if (typeof entry.bid === 'number') window._pendingCallBadgeUpdates.push([entry.pos, entry.bid, 10000 + i]);
-    }
-  } catch (e) { console.error('[call-badge phase2] threw:', e); }
   window._p2History = state.p2History || [];
-  // Winning bidder's own bubble blinks any time bidding isn't actively
-  // in progress (bidding1) -- not excluding bidding2/choosingTrump,
-  // since a phase-2 raise can change who the bidder is, and
-  // choosingTrump itself can appear twice in one round (once after
-  // phase 1, again after phase 2 if the bidder changed). Tracking
-  // round+bidder together means this re-fires correctly every time the
-  // bidder actually changes, not just once per round. Also deferred
-  // (window._pendingWinnerMark) for the identical reason as the badge
-  // updates above.
-  window._pendingWinnerMark = null;
-  try {
-    if (state.phase !== 'bidding1' && state.bidder >= 0) {
-      const winnerMarkKey = state.round + ':' + state.bidder;
-      if (winnerMarkKey !== lastMarkedWinnerKey) {
-        lastMarkedWinnerKey = winnerMarkKey;
-        window._pendingWinnerMark = state.bidder;
-      }
-    }
-  } catch (e) { console.error('[winner-mark] threw:', e); }
   trumpSuit = state.trumpSuit || '';
   trumpExposed = state.trumpExposed;
   hiddenTrump = state.myHiddenTrumpCard
