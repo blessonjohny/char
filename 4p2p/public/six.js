@@ -2056,14 +2056,15 @@ function renderSeats(state) {
       if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
       if (callEl.dataset.v !== label) {
         callEl.dataset.v = label;
-        // Per explicit instruction with a reference image: a real
-        // curling "swoosh" stem ending in a small arrowhead, same SVG
-        // as index.html's identical rule -- see there for the full
-        // reasoning.
-        const tailSvg = '<svg class="call-badge-tail" viewBox="0 0 30 24" width="20" height="16"><path d="M5 2 C5 14, 16 16, 23 19" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M23 19 L14 17 L18 12 Z" fill="currentColor"/></svg>';
+        // Per explicit correction with a clean reference image: the
+        // bubble and tail are one unified closed path here, same as
+        // index.html's identical rule -- see there for the full
+        // reasoning (actually rendered and visually verified before
+        // use, not guessed blind).
+        const bgSvg = '<svg class="call-badge-bg" viewBox="0 0 100 80" preserveAspectRatio="none"><path d="M50,2 C 80,2 98,15 98,26 C 98,40 80,50 55,50 C 50,50 46,52 42,57 C 44,60 43,64 38,68 C 32,72 26,71 20,74 L 8,78 L 18,66 L 16,71 C 22,68 28,63 32,55 C 34,52 34,51 34,50 C 18,49 2,40 2,26 C 2,15 20,2 50,2 Z" fill="#0a1f0f" stroke="currentColor" stroke-width="2.2"/></svg>';
         callEl.innerHTML = (flavor
           ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
-          : `<div class="call-badge-header">${header}</div>`) + tailSvg;
+          : `<div class="call-badge-header">${header}</div>`) + bgSvg;
       }
     } else if (callEl) { callEl.remove(); }
   }

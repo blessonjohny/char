@@ -686,23 +686,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    physically sits, so the bubble always leans toward the table/rail. */
 .avatar .call-badge{
   position:absolute;top:-16px;left:50%;transform:translateX(-50%);
-  background:linear-gradient(180deg,#0a1f0f,#051008);
-  border:1.5px solid #4ade80;
   color:#4ade80;
-  /* Per explicit instruction with a hand-drawn reference: a rounded,
-     organic "cloud" speech-bubble shape instead of a rectangle with
-     lightly-rounded corners -- the classic CSS asymmetric-corner blob
-     technique (each corner a different radius) is what actually
-     produces that lumpy, hand-drawn-cloud look rather than a clean
-     rectangle or a uniform oval/pill. */
-  border-radius:42% 58% 68% 32% / 48% 42% 58% 52%;
-  padding:3px 7px;font-size:0.52rem;font-weight:900;
+  /* Per explicit correction with a clean reference image: the bubble
+     and tail must be ONE continuous shape, the tail literally part of
+     the bubble's own outline -- not a rounded box plus a separately
+     touching tail piece, which is what every earlier attempt here
+     still was underneath. Replaced entirely with a single SVG (fill +
+     stroke, drawn as one closed path covering both the oval and the
+     curling tail together) sitting behind the text as a background,
+     rather than styling this div's own box-model. Actually rendered
+     and visually verified this exact path before using it (a real
+     image, not guessed blind like the previous attempts), see the
+     .call-badge-bg SVG in updateCallBadge4p. */
+  padding:3px 7px 14px 7px;font-size:0.52rem;font-weight:900;
   font-family:'Cinzel','Playfair Display',serif;
   max-width:68px;white-space:normal;text-align:center;line-height:1.1;z-index:16;
-  box-shadow:0 2px 6px rgba(0,0,0,0.6),0 0 8px rgba(74,222,128,0.4);
   animation:callBadgePop4p 0.4s cubic-bezier(0.34,1.56,0.64,1);
   text-shadow:0 0 5px rgba(74,222,128,0.6);
 }
+.avatar .call-badge-bg{position:absolute;inset:0;width:100%;height:100%;z-index:-1;overflow:visible}
 /* Per explicit instruction: the plain "Pass"/"Bid 17" always comes
    first as its own bold line, with the random flavor line right below
    it -- same two-line structure as six.html's identical rule, see
@@ -729,11 +731,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    coordinate calculation for THIS specific SVG's own default pointing
    direction (bottom-right), not reused from the previous shape's
    different default. */
-.avatar .call-badge-tail{position:absolute;pointer-events:none;transform-origin:center}
-.avatar .call-badge.call-badge-n .call-badge-tail{top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg)}
-.avatar .call-badge.call-badge-s .call-badge-tail{bottom:100%;left:50%;transform:translate(-50%,6px) rotate(-135deg)}
-.avatar .call-badge.call-badge-e .call-badge-tail{top:50%;right:100%;transform:translate(6px,-50%) rotate(135deg)}
-.avatar .call-badge.call-badge-w .call-badge-tail{top:50%;left:100%;transform:translate(-6px,-50%) rotate(-45deg)}
+/* Rotates the whole unified bubble+tail shape per direction. "n"
+   (badge above avatar) needs no rotation at all -- the shape's own
+   natural, hand-verified orientation already has the tail pointing
+   down, which is exactly what that direction needs. */
+.avatar .call-badge.call-badge-n .call-badge-bg{transform:rotate(0deg)}
+.avatar .call-badge.call-badge-s .call-badge-bg{transform:rotate(180deg)}
+.avatar .call-badge.call-badge-e .call-badge-bg{transform:rotate(90deg)}
+.avatar .call-badge.call-badge-w .call-badge-bg{transform:rotate(-90deg)}
 .avatar .call-badge.call-badge-pass{
   background:linear-gradient(180deg,#241010,#100505);
   border-color:#ef4444;color:#ef4444;
@@ -5905,21 +5910,25 @@ function updateCallBadge4p(pos, bid, seq) {
   if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
   if (callEl.dataset.v !== label) {
     callEl.dataset.v = label;
-    // Per explicit instruction with a reference image: a real curling
-    // "swoosh" stem ending in a small arrowhead, not the earlier
-    // rounded-corner "nub" touching the bubble -- that read as two
-    // separate shapes stuck together rather than one continuous stem.
-    // An actual smooth curve like this needs a real path, which plain
-    // CSS border-radius tricks can't produce -- built as an inline SVG
-    // instead, using stroke/fill="currentColor" so it automatically
-    // matches whichever color (green bid / red pass) the badge itself
-    // is currently showing, without needing two separate hardcoded
-    // SVGs. Positioned and rotated by .call-badge-tail's own CSS per
-    // direction, same verified-angle approach as the shape it replaced.
-    const tailSvg = '<svg class="call-badge-tail" viewBox="0 0 30 24" width="20" height="16"><path d="M5 2 C5 14, 16 16, 23 19" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M23 19 L14 17 L18 12 Z" fill="currentColor"/></svg>';
+    // Per explicit correction with a clean reference image: the bubble
+    // and its tail are drawn as ONE closed path here -- a real oval
+    // with the tail literally emerging from its own outline and
+    // curling to an arrowhead -- not a separate small shape touching a
+    // separately-styled box, which every earlier version of this still
+    // was underneath however it looked. This exact path was actually
+    // rendered to a real image and visually checked before use, not
+    // guessed blind the way the earlier attempts were. Positioned as a
+    // background behind the text via .call-badge-bg, then rotated per
+    // direction by call-badge-n/s/e/w's own CSS -- since this is one
+    // asymmetric shape rather than a simple symmetric tail, rotating
+    // it for the e/w directions turns the oval on its side rather than
+    // keeping it upright; a real limitation of reusing one path for
+    // every direction instead of hand-designing a separate one for
+    // each, worth being upfront about rather than glossing over.
+    const bgSvg = '<svg class="call-badge-bg" viewBox="0 0 100 80" preserveAspectRatio="none"><path d="M50,2 C 80,2 98,15 98,26 C 98,40 80,50 55,50 C 50,50 46,52 42,57 C 44,60 43,64 38,68 C 32,72 26,71 20,74 L 8,78 L 18,66 L 16,71 C 22,68 28,63 32,55 C 34,52 34,51 34,50 C 18,49 2,40 2,26 C 2,15 20,2 50,2 Z" fill="#0a1f0f" stroke="currentColor" stroke-width="2.2"/></svg>';
     callEl.innerHTML = (flavor
       ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
-      : `<div class="call-badge-header">${header}</div>`) + tailSvg;
+      : `<div class="call-badge-header">${header}</div>`) + bgSvg;
   }
 }
 function clearCallBadges4p() {
