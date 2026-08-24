@@ -14099,7 +14099,7 @@ let serverTurnWatchdog = null;
 let serverRoundEndShown = -1; // which round number we've already shown the summary panel for
 let serverLastAnnouncedTrumpExposed = false; // tracks trumpExposed so the announcement toast fires exactly once per exposure, not on every render
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired, so it shows exactly once per round
-let lastMarkedWinnerRound = -1; // tracks which round's winning-bidder blink has already been applied, so it fires exactly once per round
+let lastMarkedWinnerKey = ''; // tracks "round:bidder" so the blink re-applies whenever the actual bidder changes (a phase-2 raise), not just once per round
 let lastShownRoundVoidMessage = null; // tracks the defending-team-has-no-trump void message so it shows exactly once per occurrence
 let lastShownReshuffleReasonTs = null; // same "show exactly once" pattern for the 3 auto-reshuffle popups below
 let lastShownEarlyWinChoice = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
@@ -15765,17 +15765,21 @@ function applyServerState(state) {
   if (typeof state.round === 'number' && state.round !== lastAnnouncedHonorsRound) {
     lastAnnouncedHonorsRound = -1; // allow a fresh announcement once this round's bidding actually concludes
   }
-  // Per explicit instruction: singles out the winning bidder's own
-  // bubble with a blink the moment bidding actually concludes, for
-  // every round (not just honors ones) -- the actual online-mode
-  // trigger point for markWinningBidder4p, same reasoning as the
-  // honors tracker just above it.
-  if (typeof state.round === 'number' && state.round !== lastMarkedWinnerRound) {
-    lastMarkedWinnerRound = -1;
-  }
-  if (state.phase !== 'bidding1' && state.phase !== 'bidding2' &&
-      state.bidder >= 0 && state.round !== lastMarkedWinnerRound) {
-    lastMarkedWinnerRound = state.round;
+  // Per explicit instruction: singles out the current winning bidder's
+  // own bubble with a blink any time bidding isn't actively in progress
+  // (bidding1) -- deliberately NOT excluding 'bidding2' or
+  // 'choosingTrump' here, since a phase-2 raise can change who the
+  // bidder is, and 'choosingTrump' itself can happen TWICE (once right
+  // after phase 1, again after phase 2 if the bidder changed) -- an
+  // earlier version of this gated on "already marked once this round"
+  // and excluded bidding2, which meant it locked onto the phase-1
+  // bidder the first time choosingTrump appeared and never updated
+  // again once phase 2 actually changed who won. Tracking round+bidder
+  // together instead of round alone means it correctly re-fires every
+  // time the actual bidder changes, not just once per round.
+  const winnerMarkKey = state.round + ':' + state.bidder;
+  if (state.phase !== 'bidding1' && state.bidder >= 0 && winnerMarkKey !== lastMarkedWinnerKey) {
+    lastMarkedWinnerKey = winnerMarkKey;
     markWinningBidder4p(state.bidder);
   }
   if (state.phase !== 'bidding1' && state.phase !== 'bidding2' && state.highestBid >= 20 &&
