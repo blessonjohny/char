@@ -337,7 +337,7 @@ class GameEngine {
     // exact rule, including the first-hand-of-a-new-championship
     // exception where a successful bidder's partner can shed one too.
     this.qMarks = {};
-    // Cumulative running total of Qunique marks ever acquired, per
+    // Cumulative running total of Kunukku marks ever acquired, per
     // player, for this table's whole lifetime - unlike qMarks above,
     // this NEVER decreases when a Q gets shed by winning a bid. Only
     // resets on a genuine new game (constructor or restartGame()), not
@@ -400,10 +400,20 @@ class GameEngine {
     this._partnerTurnWasDelayed = false; // true only between partner's delayed turn finishing and the redirect back to the first bidder
     this.firstBidderPos = -1;
     this.p1SeatsActed = {}; // {seatPos: true} - anyone who's had a genuine turn already this phase 1 round
+    // Tracks total phase-1 bidding actions taken (bid OR pass, including
+    // the forced first bid), separate from `passes` above -- `passes`
+    // resets to 0 every time someone raises, which meant the auction
+    // could effectively restart its own clock mid-round and let a seat
+    // get asked to act a genuine second time, as long as enough people
+    // happened to bid instead of pass along the way. The real rule,
+    // matching what 6-player already correctly does: one turn per seat,
+    // four turns total, then it's over however the bids landed.
+    this.p1TurnsTaken = 0;
     this.trumpSuit = '';
     this.trumpExposed = false;
     this.roundVoidMessage = null;
     this.hiddenTrump = null; // {suit, rank, points}
+    this.revealedTrumpCard = null; // {rank, suit} -- set once, publicly, the moment trump is exposed; unlike hiddenTrump this is never cleared again until the next round resets it here
     this.hiddenTrumpOwner = -1; // who physically hid it — NOT necessarily this.bidder, since a phase-2 raise can change the bidder while the original chooser still holds the hidden card
     this.mustPlayTrumpBy = -1; // seat that just ASKED for trump to be opened (callTrump) — Kerala rule: having asked, they must play a trump card this trick if they hold one
     this.trickCards = []; // [{pos, card}]
@@ -756,13 +766,26 @@ class GameEngine {
   }
 
   // Whether pos's NEXT bid must be Honors (20) or higher rather than a
-  // normal one-higher-than-the-current-bid raise - true for anyone
-  // who's already had a genuine turn this phase 1 round and is now
-  // cycling back, and also for the first bidder's partner specifically
-  // when their delayed turn was reached via both opponents passing.
+  // normal one-higher-than-the-current-bid raise. Three conditions,
+  // any one of which is enough:
+  // 1. Already had a genuine turn this phase 1 round and is now
+  //    cycling back.
+  // 2. The first bidder's partner specifically, when their delayed
+  //    turn was reached via both opponents passing.
+  // 3. The core rule, confirmed and traced turn-by-turn against the
+  //    real engine before adding this: whenever it's genuinely pos's
+  //    turn and pos's own partner already holds the current highest
+  //    bid (regardless of how the turn got to them), a plain raise
+  //    isn't the point anymore -- their own side is already ahead, so
+  //    only a genuine honors-level bid makes sense. This was the
+  //    actual gap: conditions 1 and 2 above are specific edge cases,
+  //    neither one actually covers this general situation, which is
+  //    exactly what let a completely unrestricted "Min: 16" show up
+  //    on screen with a player's own partner already sitting on top.
   _isBidRestrictedToHonors(pos) {
     if (this.p1SeatsActed[pos]) return true;
     if (pos === partnerOf(this.firstBidderPos) && this.partnerTurnRestrictedWhenReached) return true;
+    if (this.highestBid > 0 && getTeam(this.bidder) === getTeam(pos)) return true;
     return false;
   }
 
@@ -795,6 +818,7 @@ class GameEngine {
       else {
         this.passes++;
         this.p1SeatsActed[pos] = true;
+        this.p1TurnsTaken++;
         this.bidHistory.push({ pos, bid: 0 });
         this.addLog(`Seat ${pos} passed.`);
         return this._afterBidAction(pos, false);
@@ -806,6 +830,7 @@ class GameEngine {
     this.bidder = pos;
     this.passes = 0;
     this.p1SeatsActed[pos] = true;
+    this.p1TurnsTaken++;
     this.bidHistory.push({ pos, bid });
     // Snapshot the hand profile now, at bid-time — by round end this
     // hand will be empty, too late to learn anything from it.
@@ -815,7 +840,20 @@ class GameEngine {
   }
 
   _afterBidAction(actingPos, wasABid) {
-    if ((this.passes >= 3 && this.highestBid > 0) || this.passes >= 4) {
+    // Ends once every seat has had exactly one turn (bid or pass) --
+    // p1TurnsTaken tracks that directly and is the only thing gating
+    // this now. `passes` is left fully alone for everything else that
+    // still depends on it (isFirstBidder(), _isBidRestrictedToHonors()'s
+    // first condition, the client's bid display).
+    if (this.p1TurnsTaken >= 4) {
+      if (this.highestBid === 0) {
+        // Shouldn't be reachable in practice (the first bidder is
+        // always forced to bid, never pass), but matches the same
+        // defensive redeal check 6-player has for the equivalent case.
+        this.addLog('No valid bids. Redealing...');
+        this.startRound();
+        return { ok: true };
+      }
       this.phase = 'choosingTrump';
       this.currentPlayer = this.bidder;
       this.addLog(`Bidding done. Seat ${this.bidder} won with ${this.highestBid}.`);
@@ -1209,6 +1247,11 @@ class GameEngine {
     if (pos !== this.currentPlayer || pos !== this.hiddenTrumpOwner) return { ok: false, reason: 'not_your_turn' };
     if (!this.hiddenTrump) return { ok: false, reason: 'no_hidden_card' };
     const card = this.hiddenTrump;
+    // Captured here too, same reasoning as inside exposeTrump() itself
+    // -- this path clears hiddenTrump BEFORE calling exposeTrump() below,
+    // so that function's own capture would never fire for this specific
+    // path (the card being played directly rather than just revealed).
+    this.revealedTrumpCard = { rank: card.rank, suit: card.suit };
     this.hiddenTrump = null;
     this.hiddenTrumpOwner = -1;
     if (this.mustPlayTrumpBy === pos) this.mustPlayTrumpBy = -1;
@@ -1233,6 +1276,16 @@ class GameEngine {
     // which may have changed to a different seat via a phase-2 raise while
     // the original chooser is still the one physically missing a card.
     if (this.hiddenTrump && this.hiddenTrumpOwner >= 0 && this.seats[this.hiddenTrumpOwner]) {
+      // Per explicit instruction, the exact card is now public knowledge
+      // the moment it's exposed, not just its suit -- captured here
+      // BEFORE hiddenTrump gets cleared below, since the card itself
+      // goes back into the owner's private hand and would otherwise
+      // have no public record of which specific card it was at all.
+      // Deliberately a separate field from hiddenTrump (which stays
+      // cleared/private as before) rather than reusing it, so this
+      // doesn't accidentally leak into any of hiddenTrump's other,
+      // legitimately-private uses elsewhere in this file.
+      this.revealedTrumpCard = { rank: this.hiddenTrump.rank, suit: this.hiddenTrump.suit };
       this.seats[this.hiddenTrumpOwner].hand.push(this.hiddenTrump);
       this.hiddenTrump = null;
       this.hiddenTrumpOwner = -1;
@@ -2744,6 +2797,7 @@ class GameEngine {
       reshuffleReason: this.reshuffleReason || null,
       mustPlayTrump: this.mustPlayTrumpBy === viewerPos, // viewer just asked for the reveal and owes a trump card this trick if holding one
       hasHiddenTrump: !!this.hiddenTrump,
+      revealedTrumpCard: this.revealedTrumpCard,
       myHiddenTrumpCard: (this.hiddenTrump && viewerPos === this.hiddenTrumpOwner) ? this.hiddenTrump : null,
       trickCards: this.trickCards,
       trickSuit: this.trickSuit,

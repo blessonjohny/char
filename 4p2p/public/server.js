@@ -1387,8 +1387,8 @@ function computeTableDisplayName(seats, creatorName, existingGenericNames) {
 // means a malicious client can never get an arbitrary value reflected into other players'
 // pages through this field.
 const VALID_AVATAR_KEYS = new Set([
-  ...Array.from({length:24}, (_,i) => 'hero2f'+(i+1)),
-  ...Array.from({length:24}, (_,i) => 'hero2m'+(i+1)),
+  ...Array.from({length:36}, (_,i) => 'hero3f'+(i+1)),
+  ...Array.from({length:64}, (_,i) => 'hero3m'+(i+1)),
 ]);
 function sanitizeAvatarKey(k) { return (typeof k === 'string' && VALID_AVATAR_KEYS.has(k)) ? k : null; }
 
@@ -1532,6 +1532,7 @@ function broadcastTable(t) {
     // removes the stale registration; braces: this id lets the client
     // drop anything that still slips through.
     state.tableId = t.id;
+    state.createdAt = t.createdAt || null;
     sock.emit('state', state);
   }
   if (t.spectators) {
@@ -1938,7 +1939,7 @@ io.on('connection', (socket) => {
       if (!isEffectiveHost(t, playerId)) return;
       if (typeof pos !== 'number' || pos < 0 || pos >= t.engine.seats.length) return;
       if (t.engine.seats[pos]) return; // only genuinely empty seats
-      const botNamePool = ['Ancy', 'Meera', 'Priya', 'Reena', 'Divya', 'Sarah', 'Nisha', 'Charlie', 'Rahul', 'Nate', 'Koshy', 'Johny', 'Sanjay', 'Arun'];
+      const botNamePool = ['Ancy', 'Meera', 'Priya', 'Reena', 'Anita', 'Betty', 'Celine', 'Charlie', 'Rahul', 'Nate', 'Koshy', 'Johny', 'Abin', 'Bibin'];
       const usedNames = new Set(t.engine.seats.filter(Boolean).map(s => s.name));
       const name = botNamePool.find(n => !usedNames.has(n)) || `Bot${pos}`;
       t.engine.seatBot(pos, name);
@@ -1952,7 +1953,7 @@ io.on('connection', (socket) => {
       if (!isEffectiveHost(t, playerId)) return;
       if (t.engine.phase !== 'lobby') return;
       const open = t.engine.emptySeats();
-      const botNamePool = ['Ancy', 'Anjali', 'Meera', 'Neha', 'Priya', 'Reena', 'Divya', 'Lakshmi', 'Sarah', 'Nisha', 'Deepa', 'Elsa', 'Maya', 'Sherin', 'Teena', 'Anu', 'Reshma', 'Jisha', 'Nimmy', 'Beena', 'Soumya', 'Liya', 'Merin', 'Asha', 'Ajai', 'Alok', 'Anup', 'Appu', 'Arun', 'Benson', 'Binchu', 'Charlie', 'Jerin', 'Johny', 'Koshy', 'Nate', 'Peter', 'Rahul', 'Rajesh', 'Randall', 'Renji', 'Roji', 'Roney', 'Sanjay', 'Shyam', 'Stev', 'Vinod', 'Wesley'];
+      const botNamePool = ['Ancy', 'Anjali', 'Meera', 'Neha', 'Priya', 'Reena', 'Divya', 'Lakshmi', 'Sarah', 'Nisha', 'Deepa', 'Elsa', 'Maya', 'Sherin', 'Teena', 'Anu', 'Reshma', 'Jisha', 'Nimmy', 'Beena', 'Soumya', 'Liya', 'Merin', 'Asha', 'Anita', 'Betty', 'Celine', 'Diya', 'Fiona', 'Gracy', 'Hema', 'Indu', 'Jessy', 'Kavya', 'Leena', 'Mariya', 'Babi', 'Linda', 'Babitha', 'Maria', 'Leela', 'Anna', 'Thankam', 'Lincy', 'Princy', 'Ajai', 'Alok', 'Anup', 'Appu', 'Arun', 'Benson', 'Binchu', 'Charlie', 'Jerin', 'Johny', 'Koshy', 'Nate', 'Peter', 'Rahul', 'Rajesh', 'Randall', 'Renji', 'Roji', 'Roney', 'Sanjay', 'Shyam', 'Stev', 'Vinod', 'Wesley', 'Easo', 'Joseph', 'Abin', 'Bibin', 'Cibin', 'Denny', 'Eldho', 'Frankie', 'George', 'Hari', 'Ivan', 'Jibin', 'Kevin', 'Libin', 'Manoj', 'Nibin', 'Oommen', 'Pauly', 'Robin', 'Sibin', 'Tibin', 'Unni', 'Vishnu', 'Wilson', 'Xavier', 'Yohan', 'Zachariah', 'Aby', 'Bijoy', 'Cyriac', 'Davis', 'Ebin', 'Fenil', 'Gibin', 'Hillary', 'Ittoop', 'Jaison', 'Kurian', 'Lijo', 'Mathew', 'Ninan', 'Oliver'];
       // Shuffle so repeated games don't always show the same first few
       // names in the list — previously toFill was always 3, so seats
       // always got names[0], names[1], names[2] and nothing past that.
@@ -2132,25 +2133,147 @@ io.on('connection', (socket) => {
     });
   });
 
+  // A 3-second, vetoable version of the two handlers above. The host's tap doesn't restart
+  // anything immediately anymore - it broadcasts a "New Round" notice to every connected
+  // real player at the table (bots can't and don't need to respond) and starts a 3s window.
+  // Any other real, connected seated player can veto during that window by emitting
+  // vetoRestart, which cancels it outright. If nobody does, it proceeds exactly like the
+  // direct handlers above once the window closes. If the host is alone with only bots, there's
+  // nobody who *could* veto, so it just quietly restarts once the 3s notice has run its course
+  // - same end result as an instant restart, just with the same brief courtesy notice always
+  // shown rather than special-casing "am I alone" to skip it.
+  function beginVetoableRestart(t, kind) {
+    if (t.pendingRestart) return; // one already in flight - a second tap does nothing new
+    t.pendingRestart = { kind, vetoed: false };
+    for (const [socketId] of t.sockets) {
+      const sock = io.sockets.sockets.get(socketId);
+      if (sock) sock.emit('restartPending', { kind, seconds: 3 });
+    }
+    t.pendingRestart.timer = setTimeout(() => {
+      if (!t.pendingRestart || t.pendingRestart.vetoed) return;
+      t.pendingRestart = null;
+      if (kind === 'game') t.engine.restartGame(); else t.engine.restartRound();
+      touch(t);
+      broadcastTable(t);
+      for (const [socketId] of t.sockets) {
+        const sock = io.sockets.sockets.get(socketId);
+        if (sock) sock.emit('restartProceeded', { kind });
+      }
+      console.log(`[table ${tableId}] vetoable ${kind} restart proceeded (no veto)`);
+    }, 3000);
+  }
+
+  socket.on('requestRestartGame', () => {
+    withTable((t, pos) => {
+      if (!isEffectiveHost(t, playerId)) return;
+      if (t.engine.phase === 'lobby') return;
+      beginVetoableRestart(t, 'game');
+    });
+  });
+
+  socket.on('requestRestartRound', () => {
+    withTable((t, pos) => {
+      if (!isEffectiveHost(t, playerId)) return;
+      if (t.engine.phase === 'lobby') return;
+      beginVetoableRestart(t, 'round');
+    });
+  });
+
+  socket.on('vetoRestart', () => {
+    withTable((t, pos) => {
+      if (!t.pendingRestart || t.pendingRestart.vetoed) return;
+      const seat = t.engine.seats[pos];
+      if (!seat || seat.isBot) return; // only a real seated player's own veto counts
+      t.pendingRestart.vetoed = true;
+      clearTimeout(t.pendingRestart.timer);
+      t.pendingRestart = null;
+      console.log(`[table ${tableId}] restart vetoed by ${seat.name}`);
+      for (const [socketId] of t.sockets) {
+        const sock = io.sockets.sockets.get(socketId);
+        if (sock) sock.emit('restartCancelled', { byName: seat.name });
+      }
+    });
+  });
+
+  // A 5-second, vetoable kick -- same core idea as beginVetoableRestart
+  // above, but targeted rather than table-wide: only the specific
+  // player being kicked can veto THEIR OWN kick (unlike restart, where
+  // any seated player can veto on anyone's behalf), and the admin who
+  // initiated it gets their own live-countdown notice too rather than
+  // silence while they wait, matching the same fairness/visibility the
+  // restart feature already gives everyone. A little personality in
+  // the wording on purpose -- this is a real moment for both people
+  // involved, not a dry server message.
   socket.on('kickPlayer', ({ pos }) => {
     withTable((t, myPos) => {
       if (!isEffectiveHost(t, playerId)) return;
       const target = t.engine.seats[pos];
       if (!target || target.isBot) return;
       if (target.playerId === playerId) return; // can't kick yourself
-      // If they're currently connected, tell their client directly and
-      // disconnect their seat mapping before touching the engine, so a
-      // stray action from them can't land mid-kick.
+      t.pendingKicks = t.pendingKicks || {};
+      if (t.pendingKicks[pos]) return; // already got one in flight for this seat
+
+      // Find the target's own live socket -- if they're not actually
+      // connected right now, there's nobody to give a 5-second chance
+      // to, so fall straight through to the original, immediate kick.
+      let targetSockId = null;
       for (const [sockId, info] of t.sockets) {
-        if (info.pos === pos) {
-          const kickedSock = io.sockets.sockets.get(sockId);
-          if (kickedSock) kickedSock.emit('kicked');
-          t.sockets.delete(sockId);
-          if (target.playerId) delete playerIndex[target.playerId];
-        }
+        if (info.pos === pos) { targetSockId = sockId; break; }
       }
-      t.engine.kickPlayer(pos);
-      console.log(`[table ${tableId}] host kicked seat ${pos}`);
+      const targetSock = targetSockId ? io.sockets.sockets.get(targetSockId) : null;
+      if (!targetSock) {
+        t.engine.kickPlayer(pos);
+        console.log(`[table ${tableId}] host kicked seat ${pos} (not connected, immediate)`);
+        return;
+      }
+
+      const adminSock = socket;
+      const targetName = target.name;
+      t.pendingKicks[pos] = { vetoed: false };
+      targetSock.emit('kickPending', { seconds: 5, targetName });
+      adminSock.emit('kickPending', { seconds: 5, targetName, isInitiator: true });
+
+      t.pendingKicks[pos].timer = setTimeout(() => {
+        const pending = t.pendingKicks && t.pendingKicks[pos];
+        if (!pending || pending.vetoed) return;
+        delete t.pendingKicks[pos];
+        for (const [sockId, info] of t.sockets) {
+          if (info.pos === pos) {
+            const kickedSock = io.sockets.sockets.get(sockId);
+            if (kickedSock) kickedSock.emit('kicked');
+            t.sockets.delete(sockId);
+            if (target.playerId) delete playerIndex[target.playerId];
+          }
+        }
+        t.engine.kickPlayer(pos);
+        touch(t);
+        broadcastTable(t);
+        adminSock.emit('kickProceeded', { targetName });
+        console.log(`[table ${tableId}] vetoable kick of seat ${pos} proceeded (no veto)`);
+      }, 5000);
+    });
+  });
+
+  socket.on('vetoKick', () => {
+    withTable((t, pos) => {
+      const pending = t.pendingKicks && t.pendingKicks[pos];
+      if (!pending || pending.vetoed) return;
+      // Only the actual targeted seat's own veto counts -- this is
+      // deliberately not open to anyone else at the table the way a
+      // restart veto is, since this is specifically that one player's
+      // own chance to say no to their own kick.
+      pending.vetoed = true;
+      clearTimeout(pending.timer);
+      delete t.pendingKicks[pos];
+      const seat = t.engine.seats[pos];
+      const name = seat ? seat.name : 'They';
+      console.log(`[table ${tableId}] kick of seat ${pos} vetoed by the target themselves`);
+      for (const [sockId, info] of t.sockets) {
+        const sock = io.sockets.sockets.get(sockId);
+        if (!sock) continue;
+        if (info.pos === pos) sock.emit('kickVetoedSelf');
+        else sock.emit('kickVetoedByTarget', { name });
+      }
     });
   });
 
@@ -2448,6 +2571,7 @@ function sixpBroadcastTable(t) {
     const state = t.engine.stateFor(info.pos);
     state.isHost = isEffectiveHost(t, info.playerId);
     state.tableId = t.id; // lets the client reject strays from an old table
+    state.createdAt = t.createdAt || null;
     sock.emit('sixp_state', state);
   }
   io.emit('sixp_roomList', sixpPublicTableList());
@@ -2633,7 +2757,7 @@ io.on('connection', (socket) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;
       if (typeof pos !== 'number' || pos < 0 || pos >= t.engine.seats.length) return;
       if (t.engine.seats[pos]) return;
-      const botNamePool = ['Ancy', 'Meera', 'Priya', 'Reena', 'Divya', 'Sarah', 'Nisha', 'Charlie', 'Rahul', 'Nate', 'Koshy', 'Johny', 'Sanjay', 'Arun'];
+      const botNamePool = ['Ancy', 'Meera', 'Priya', 'Reena', 'Anita', 'Betty', 'Celine', 'Charlie', 'Rahul', 'Nate', 'Koshy', 'Johny', 'Abin', 'Bibin'];
       const usedNames = new Set(t.engine.seats.filter(Boolean).map(s => s.name));
       const name = botNamePool.find(n => !usedNames.has(n)) || `Bot${pos}`;
       t.engine.seatBot(pos, name);
@@ -2647,7 +2771,7 @@ io.on('connection', (socket) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;
       if (t.engine.phase !== 'lobby') return;
       const empties = t.engine.emptySeats();
-      const botNamePool = ['Ancy', 'Anjali', 'Meera', 'Neha', 'Priya', 'Reena', 'Divya', 'Lakshmi', 'Sarah', 'Nisha', 'Deepa', 'Elsa', 'Maya', 'Sherin', 'Teena', 'Anu', 'Reshma', 'Jisha', 'Nimmy', 'Beena', 'Soumya', 'Liya', 'Merin', 'Asha', 'Ajai', 'Alok', 'Anup', 'Appu', 'Arun', 'Benson', 'Binchu', 'Charlie', 'Jerin', 'Johny', 'Koshy', 'Nate', 'Peter', 'Rahul', 'Rajesh', 'Randall', 'Renji', 'Roji', 'Roney', 'Sanjay', 'Shyam', 'Stev', 'Vinod', 'Wesley'];
+      const botNamePool = ['Ancy', 'Anjali', 'Meera', 'Neha', 'Priya', 'Reena', 'Divya', 'Lakshmi', 'Sarah', 'Nisha', 'Deepa', 'Elsa', 'Maya', 'Sherin', 'Teena', 'Anu', 'Reshma', 'Jisha', 'Nimmy', 'Beena', 'Soumya', 'Liya', 'Merin', 'Asha', 'Anita', 'Betty', 'Celine', 'Diya', 'Fiona', 'Gracy', 'Hema', 'Indu', 'Jessy', 'Kavya', 'Leena', 'Mariya', 'Babi', 'Linda', 'Babitha', 'Maria', 'Leela', 'Anna', 'Thankam', 'Lincy', 'Princy', 'Ajai', 'Alok', 'Anup', 'Appu', 'Arun', 'Benson', 'Binchu', 'Charlie', 'Jerin', 'Johny', 'Koshy', 'Nate', 'Peter', 'Rahul', 'Rajesh', 'Randall', 'Renji', 'Roji', 'Roney', 'Sanjay', 'Shyam', 'Stev', 'Vinod', 'Wesley', 'Easo', 'Joseph', 'Abin', 'Bibin', 'Cibin', 'Denny', 'Eldho', 'Frankie', 'George', 'Hari', 'Ivan', 'Jibin', 'Kevin', 'Libin', 'Manoj', 'Nibin', 'Oommen', 'Pauly', 'Robin', 'Sibin', 'Tibin', 'Unni', 'Vishnu', 'Wilson', 'Xavier', 'Yohan', 'Zachariah', 'Aby', 'Bijoy', 'Cyriac', 'Davis', 'Ebin', 'Fenil', 'Gibin', 'Hillary', 'Ittoop', 'Jaison', 'Kurian', 'Lijo', 'Mathew', 'Ninan', 'Oliver'];
       const shuffled = [...botNamePool].sort(() => Math.random() - 0.5);
       let botNum = 0;
       for (const pos of empties) {
@@ -2723,6 +2847,34 @@ io.on('connection', (socket) => {
     });
   });
 
+  // The manual "ask" action - a real player presses a button to send the mid-trick
+  // COT/MaruCOT question to whoever's currently leading, rather than the game deciding to
+  // pop it up on its own. See game-engine-6p.js's requestMidTrickQuote()/
+  // _getMidTrickAskTarget() for the actual eligibility rules (opponent of the leader only,
+  // trick genuinely in progress, both sides human).
+  socket.on('sixp_requestMidTrickQuote', () => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.requestMidTrickQuote(pos);
+      if (!r) { socket.emit('sixp_actionError', { reason: 'nobody to ask right now' }); return; }
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+    });
+  });
+
+  // Response to the mid-trick COT/MaruCOT offer - see game-engine-6p.js's
+  // respondToMidTrickQuote() for the actual mechanics (accept resumes play with quoteState
+  // set; decline ends the round immediately with a flat guaranteed reward).
+  socket.on('sixp_respondMidTrickQuote', ({ accepted }) => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.respondToMidTrickQuote(pos, !!accepted);
+      if (!r) { socket.emit('sixp_actionError', { reason: 'no mid-trick offer pending for you right now' }); return; }
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+    });
+  });
+
   // Any seated player can trigger this now, not host-only -- see the
   // 4-player table's continueRound handler for the full reasoning
   // (only the first valid attempt can ever do anything, so this can't
@@ -2770,24 +2922,77 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Same 5-second vetoable kick as the 4-player table -- see that
+  // handler's comment for the full reasoning. Ported here with the
+  // 6-player table's own naming/helpers, not reinvented.
   socket.on('sixp_kickPlayer', ({ pos }) => {
-    withSixpTable((t) => {
+    withSixpTable((t, myPos) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;
-      const seat = t.engine.seats[pos];
-      const kickedPlayerId = seat ? seat.playerId : null;
-      t.engine.kickPlayer(pos);
-      if (kickedPlayerId) {
+      const target = t.engine.seats[pos];
+      if (!target || target.isBot) return;
+      if (target.playerId === sixpPlayerId) return; // can't kick yourself
+      t.pendingKicks = t.pendingKicks || {};
+      if (t.pendingKicks[pos]) return;
+
+      let targetSockId = null;
+      for (const [sockId, info] of t.sockets) {
+        if (info.pos === pos) { targetSockId = sockId; break; }
+      }
+      const targetSock = targetSockId ? io.sockets.sockets.get(targetSockId) : null;
+      if (!targetSock) {
+        const kickedPlayerId = target.playerId;
+        t.engine.kickPlayer(pos);
+        if (kickedPlayerId) delete sixpPlayerIndex[kickedPlayerId];
+        sixpTouch(t);
+        sixpBroadcastTable(t);
+        console.log(`[6p table ${sixpTableId}] host kicked seat ${pos} (not connected, immediate)`);
+        return;
+      }
+
+      const adminSock = socket;
+      const targetName = target.name;
+      t.pendingKicks[pos] = { vetoed: false };
+      targetSock.emit('kickPending', { seconds: 5, targetName });
+      adminSock.emit('kickPending', { seconds: 5, targetName, isInitiator: true });
+
+      t.pendingKicks[pos].timer = setTimeout(() => {
+        const pending = t.pendingKicks && t.pendingKicks[pos];
+        if (!pending || pending.vetoed) return;
+        delete t.pendingKicks[pos];
+        const kickedPlayerId = target.playerId;
         for (const [sockId, info] of t.sockets) {
-          if (info.playerId === kickedPlayerId) {
+          if (info.pos === pos) {
             const kickedSocket = io.sockets.sockets.get(sockId);
             if (kickedSocket) kickedSocket.emit('sixp_kicked');
             t.sockets.delete(sockId);
           }
         }
-        delete sixpPlayerIndex[kickedPlayerId];
+        if (kickedPlayerId) delete sixpPlayerIndex[kickedPlayerId];
+        t.engine.kickPlayer(pos);
+        sixpTouch(t);
+        sixpBroadcastTable(t);
+        adminSock.emit('kickProceeded', { targetName });
+        console.log(`[6p table ${sixpTableId}] vetoable kick of seat ${pos} proceeded (no veto)`);
+      }, 5000);
+    });
+  });
+
+  socket.on('sixp_vetoKick', () => {
+    withSixpTable((t, pos) => {
+      const pending = t.pendingKicks && t.pendingKicks[pos];
+      if (!pending || pending.vetoed) return;
+      pending.vetoed = true;
+      clearTimeout(pending.timer);
+      delete t.pendingKicks[pos];
+      const seat = t.engine.seats[pos];
+      const name = seat ? seat.name : 'They';
+      console.log(`[6p table ${sixpTableId}] kick of seat ${pos} vetoed by the target themselves`);
+      for (const [sockId, info] of t.sockets) {
+        const sock = io.sockets.sockets.get(sockId);
+        if (!sock) continue;
+        if (info.pos === pos) sock.emit('kickVetoedSelf');
+        else sock.emit('kickVetoedByTarget', { name });
       }
-      sixpTouch(t);
-      sixpBroadcastTable(t);
     });
   });
 
@@ -2952,7 +3157,10 @@ function l56Broadcast(code) {
   // still need a fresh updatedAt, or the client's own "is this actually
   // a new state?" dedup check in pollLoop() will silently ignore the
   // push since the timestamp looks unchanged.
-  if (r.state) r.state.updatedAt = Date.now();
+  if (r.state) {
+    r.state.updatedAt = Date.now();
+    r.state.createdAt = r.createdAt || null;
+  }
   io.to(l56SocketRoom(code)).emit('sync56_state', { room: code, state: r.state });
   io.emit('l56_roomList', l56PublicList());
 }
@@ -3839,29 +4047,83 @@ io.on('connection', (socket) => {
     l56ScheduleNext(code);
   });
 
+  // Same 5-second vetoable kick as the other two tables -- see the
+  // 4-player handler's comment for the full reasoning. This table has
+  // no engine.kickPlayer() to call through to (56 keeps its own plain
+  // r.state.seats rather than a GameEngine instance), so the actual
+  // seat-clearing logic below is copied from what this handler already
+  // did, just delayed behind the same veto window as everywhere else.
   socket.on('l56_kick', ({ code, pos }) => {
     const r = l56Rooms[code];
     if (!r || !r.state || !r.state.seats) return;
     const info = socket.data.l56;
     if (!info || info.code !== code || !l56IsEffectiveHost(r, info.playerId)) return; // any connected human present
     const seat = r.state.seats[pos];
-    if (!seat) return;
-    const kickedPlayerId = seat.playerId;
-    if (r.state.phase === 'lobby') {
-      r.state.seats[pos] = null;
-    } else {
-      r.state.seats[pos] = { name: seat.name, bot: true };
-    }
+    if (!seat || seat.bot) return;
+    if (seat.playerId === info.playerId) return; // can't kick yourself
+    r.pendingKicks = r.pendingKicks || {};
+    if (r.pendingKicks[pos]) return;
+
+    let targetSockId = null;
     for (const [sockId, sInfo] of r.sockets) {
-      if (sInfo.playerId === kickedPlayerId) {
-        const kSocket = io.sockets.sockets.get(sockId);
-        if (kSocket) kSocket.emit('l56_kicked');
-        r.sockets.delete(sockId);
-      }
+      if (sInfo.pos === pos) { targetSockId = sockId; break; }
     }
-    if (r.hostPlayerId === kickedPlayerId) l56ReassignHost(r);
-    l56Touch(r);
-    l56Broadcast(code);
+    const targetSock = targetSockId ? io.sockets.sockets.get(targetSockId) : null;
+
+    const doKick = () => {
+      const kickedPlayerId = seat.playerId;
+      if (r.state.phase === 'lobby') r.state.seats[pos] = null;
+      else r.state.seats[pos] = { name: seat.name, bot: true };
+      for (const [sockId, sInfo] of r.sockets) {
+        if (sInfo.playerId === kickedPlayerId) {
+          const kSocket = io.sockets.sockets.get(sockId);
+          if (kSocket) kSocket.emit('l56_kicked');
+          r.sockets.delete(sockId);
+        }
+      }
+      if (r.hostPlayerId === kickedPlayerId) l56ReassignHost(r);
+      l56Touch(r);
+      l56Broadcast(code);
+    };
+
+    if (!targetSock) { doKick(); return; }
+
+    const adminSock = socket;
+    const targetName = seat.name;
+    r.pendingKicks[pos] = { vetoed: false };
+    targetSock.emit('kickPending', { seconds: 5, targetName });
+    adminSock.emit('kickPending', { seconds: 5, targetName, isInitiator: true });
+
+    r.pendingKicks[pos].timer = setTimeout(() => {
+      const pending = r.pendingKicks && r.pendingKicks[pos];
+      if (!pending || pending.vetoed) return;
+      delete r.pendingKicks[pos];
+      doKick();
+      adminSock.emit('kickProceeded', { targetName });
+      console.log(`[l56 room ${code}] vetoable kick of seat ${pos} proceeded (no veto)`);
+    }, 5000);
+  });
+
+  socket.on('l56_vetoKick', ({ code }) => {
+    const r = l56Rooms[code];
+    if (!r) return;
+    const info = socket.data.l56;
+    if (!info || info.code !== code) return;
+    const pos = info.pos;
+    const pending = r.pendingKicks && r.pendingKicks[pos];
+    if (!pending || pending.vetoed) return;
+    pending.vetoed = true;
+    clearTimeout(pending.timer);
+    delete r.pendingKicks[pos];
+    const seat = r.state.seats[pos];
+    const name = seat ? seat.name : 'They';
+    console.log(`[l56 room ${code}] kick of seat ${pos} vetoed by the target themselves`);
+    for (const [sockId, sInfo] of r.sockets) {
+      const sock = io.sockets.sockets.get(sockId);
+      if (!sock) continue;
+      if (sInfo.pos === pos) sock.emit('kickVetoedSelf');
+      else sock.emit('kickVetoedByTarget', { name });
+    }
   });
 
   socket.on('l56_stillPlaying', ({ code }) => {

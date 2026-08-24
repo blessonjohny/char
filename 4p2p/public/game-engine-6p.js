@@ -102,7 +102,7 @@ class GameEngine6P {
     this.tableId = tableId;
     this.seats = new Array(SEATS).fill(null);
     this.round = 0;
-    this.gameScore = [6, 6];
+    this.gameScore = [0, 0];
     this.gameOver = null; // {winningTeam, finalScore} once the match ends
     // "Q" penalty marks: same rule as the 4-player game. This engine has
     // no automatic championship-to-championship continuation (a match
@@ -150,6 +150,7 @@ class GameEngine6P {
     this.trumpExposed = false;
     this.roundVoidMessage = null;
     this.hiddenTrump = null;
+    this.revealedTrumpCard = null; // {rank, suit} -- public once exposed, unlike hiddenTrump; see exposeTrump()
     this.hiddenTrumpOwner = -1;
     this.mustPlayTrumpBy = -1;
     this.trickCards = [];
@@ -174,6 +175,16 @@ class GameEngine6P {
     this.earlyWinDeclined = false;
     this.teamStillClean = [true, true];
     this.quoteState = null;
+    // Mid-trick COT/MaruCOT offer: while a trick is still in progress, if the CURRENT leading
+    // card belongs to the opposing team from whoever just played, and that leader is otherwise
+    // eligible, they get offered the same declare-or-not choice a normal trick-opener would get
+    // - just triggered mid-trick instead of only at the moment of leading. Declining isn't a
+    // no-op like it would be at trick-open: it ends the round immediately with a flat,
+    // guaranteed reward (1pt on the COT path, 2pt on the MaruCOT path) instead of playing out
+    // the rest of the round normally - see respondToMidTrickQuote() and
+    // _endRoundByMidTrickDecline() for the actual mechanics.
+    this.pendingMidTrickQuote = null;
+    this.midTrickQuoteDeclinedThisTrick = false;
     // Thani -- see game-engine.js (the 4-player table) for the full
     // reasoning, identical rule here except folding: this table's teams
     // are 3-a-side, so BOTH of the caller's other teammates fold, not
@@ -317,7 +328,7 @@ class GameEngine6P {
   }
 
   restartGame() {
-    this.gameScore = [6, 6];
+    this.gameScore = [0, 0];
     this.gameOver = null;
     this.round = 0;
     this.dealer = Math.floor(Math.random() * SEATS);
@@ -579,23 +590,27 @@ class GameEngine6P {
 
   // ---------------- Playing cards ----------------
 
+  // Returns {ok:true} or {ok:false, reason:'...'} instead of a plain boolean - the reason
+  // string lets the client show the person a specific, short explanation (e.g. "You must
+  // follow suit" vs "You're the bidder - trump stays hidden until asked for") instead of one
+  // generic "that card can't be played right now" for every possible rejection cause.
   canPlayCard(pos, card) {
-    if (this.phase !== 'play') return false;
-    if (pos !== this.currentPlayer) return false;
+    if (this.phase !== 'play') return { ok: false, reason: 'not_playing' };
+    if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
     const hand = this.seats[pos].hand;
-    if (!hand.some(c => cardEq(c, card))) return false;
+    if (!hand.some(c => cardEq(c, card))) return { ok: false, reason: 'not_in_hand' };
     if (this.trickSuit === '') {
       if (pos === this.hiddenTrumpOwner && !this.trumpExposed && card.suit === this.trumpSuit) {
-        if (hand.some(c => c.suit !== this.trumpSuit)) return false;
+        if (hand.some(c => c.suit !== this.trumpSuit)) return { ok: false, reason: 'bidder_hidden_trump' };
       }
-      return true;
+      return { ok: true };
     }
     const hasSuit = hand.some(c => c.suit === this.trickSuit);
-    if (hasSuit && card.suit !== this.trickSuit) return false;
+    if (hasSuit && card.suit !== this.trickSuit) return { ok: false, reason: 'must_follow_suit' };
     if (this.mustPlayTrumpBy === pos && !hasSuit && card.suit !== this.trumpSuit) {
-      if (hand.some(c => c.suit === this.trumpSuit)) return false;
+      if (hand.some(c => c.suit === this.trumpSuit)) return { ok: false, reason: 'must_play_trump' };
     }
-    return true;
+    return { ok: true };
   }
 
   callTrump(pos) {
@@ -614,7 +629,8 @@ class GameEngine6P {
   }
 
   playCard(pos, card) {
-    if (!this.canPlayCard(pos, card)) return { ok: false, reason: 'illegal_card' };
+    const chk = this.canPlayCard(pos, card);
+    if (!chk.ok) return chk;
     const hand = this.seats[pos].hand;
     const idx = hand.findIndex(c => cardEq(c, card));
     const played = hand.splice(idx, 1)[0];
@@ -645,11 +661,118 @@ class GameEngine6P {
     return { ok: true };
   }
 
+  // Computes who a given player COULD ask right now, if anyone - shared between exposing this
+  // to the client (so the "Ask COT/MaruCOT?" button knows when to light up) and validating an
+  // actual request. Returns the position of a valid target, or null if there's nobody the
+  // asker could currently ask.
+  _getMidTrickAskTarget(askerPos) {
+    if (this.pendingMidTrickQuote || this.quoteState || this.midTrickQuoteDeclinedThisTrick) return null;
+    if (this.phase !== 'play') return null;
+    // The Ask button specifically (not the regular Declare button, which is untouched by this)
+    // is unavailable entirely during a round's very first trick - it only ever activates
+    // starting from the second trick onward, once tricksPlayed > 0.
+    if (this.tricksPlayed === 0) return null;
+    if (this.trickCards.length === 0 || this.trickCards.length >= SEATS - this.foldedSeats.length) return null; // trick must be genuinely in progress - not empty, not already resolved
+    const currentLeader = this._trickWinner();
+    // No opener exclusion here - whoever currently holds the lead can be asked, including the
+    // trick's own opener. The only thing that actually gates this is the "not during trick 1"
+    // rule above and "must be an opponent of the leader" rule below.
+    if (!currentLeader) return null;
+    // Only an opponent of the current leader can ask - mirrors a real player noticing "their
+    // team is sweeping everything, let's see if they'll commit to it" - not something a
+    // teammate of the leader would ever want to bring up themselves.
+    if (askerPos === undefined || askerPos === null || getTeam(currentLeader.pos) === getTeam(askerPos)) return null;
+    if (!this._isQuoteEligibleCore(currentLeader.pos)) return null;
+    // Bots are excluded on both sides - this offer (and the round-ending consequence of
+    // declining it) is a human-vs-human mechanic. A bot can't be asked, and a bot can't ask.
+    const askerSeat = this.seats[askerPos];
+    if (!askerSeat || askerSeat.isBot) return null;
+    const leaderSeat = this.seats[currentLeader.pos];
+    if (!leaderSeat || leaderSeat.isBot) return null;
+    return currentLeader.pos;
+  }
+
+  // The manual "ask" action - a real player presses a button to send this question to whoever
+  // currently holds the lead mid-trick, rather than the game deciding to pop it up on its own.
+  // Reuses _getMidTrickAskTarget for the exact same validation the client's button visibility
+  // is already based on, so a request can only ever succeed when the button would genuinely
+  // have been lit up for this asker.
+  requestMidTrickQuote(askerPos) {
+    const targetPos = this._getMidTrickAskTarget(askerPos);
+    if (targetPos === null) return false;
+    this.pendingMidTrickQuote = { offeredToPos: targetPos, askedByPos: askerPos };
+    const leaderSeat = this.seats[targetPos];
+    const askerSeat = this.seats[askerPos];
+    this.addLog(`${askerSeat.name} asked ${leaderSeat.name} to declare mid-trick COT/MaruCOT.`);
+    this._notify();
+    // Bug this fixes (from the earlier automatic version): without calling maybeAutoAct()
+    // here too, if a genuine timing gap ever let this land on a bot, nothing would ever check
+    // again - though _getMidTrickAskTarget already excludes bots entirely, so this call is
+    // purely a defensive safety net now, not something that should ever actually fire.
+    this.maybeAutoAct();
+    return true;
+  }
+
+  // The mid-trick offer's response. Accepting behaves exactly like declareQuote() (play simply
+  // resumes with quoteState now set, same stakes as always). Declining is NOT a no-op the way
+  // it is when nobody gets asked at all - it ends the round immediately with a flat guaranteed
+  // reward instead of playing out the rest of the round: see _endRoundByMidTrickDecline().
+  respondToMidTrickQuote(pos, accepted) {
+    if (!this.pendingMidTrickQuote || this.pendingMidTrickQuote.offeredToPos !== pos) return false;
+    this.pendingMidTrickQuote = null;
+    if (accepted) {
+      this.quoteState = { team: getTeam(pos) };
+      const seat = this.seats[pos];
+      const isBidderTeam = getTeam(pos) === getTeam(this.bidder);
+      this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared ${isBidderTeam ? 'COT' : 'MaruCOT'} mid-trick — betting on a full sweep of all remaining tricks!`);
+      this._notify();
+      this.currentPlayer = this._nextActivePos(this.currentPlayer);
+      this._notify();
+      this.maybeAutoAct();
+    } else {
+      this.midTrickQuoteDeclinedThisTrick = true;
+      this._endRoundByMidTrickDecline(pos);
+    }
+    return true;
+  }
+
+  // Declining the mid-trick offer: the round ends right there, no more tricks played, the bid
+  // outcome (made/failed) is irrelevant. The declining player's team wins the round outright
+  // with a flat, guaranteed reward - 1pt if they're the bidding team (the COT path), 2pt if
+  // they're the defending team (the MaruCOT path). Deliberately smaller than a full COT/MaruCOT
+  // payout (2/3 or 3/2) since this is the safe, guaranteed choice instead of the full gamble.
+  _endRoundByMidTrickDecline(declinedByPos) {
+    const bT = getTeam(this.bidder);
+    const oT = 1 - bT;
+    const declineTeam = getTeam(declinedByPos);
+    const otherTeam = 1 - declineTeam;
+    const declineTeamIsBidder = declineTeam === bT;
+    const pts = declineTeamIsBidder ? 1 : 2;
+    // Only the declining team's score increases now, matching the same rule applied to every
+    // other scoring path in this file - see the normal-bid path in _endRound() for the full
+    // reasoning behind dropping the other side's deduction.
+    this.gameScore[declineTeam] += pts;
+    const seat = this.seats[declinedByPos];
+    this.roundWinnerAnnounced = {
+      bidderWon: declineTeamIsBidder, made: true, bidder: this.bidder, highestBid: this.highestBid,
+      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors: false,
+      quote: false, quoteSuccess: undefined,
+      midTrickDecline: true, declineTeam, declineTeamIsBidder, declinedByName: seat ? seat.name : ('Seat ' + declinedByPos)
+    };
+    this.phase = 'roundEnd';
+    this.addLog(`Round ${this.round} over. ${seat ? seat.name : 'Seat ' + declinedByPos} declined the mid-trick offer — Team ${declineTeam} takes the round outright (+${pts}).`);
+    this._finishRoundBookkeeping(bT, declineTeamIsBidder);
+  }
+
   playHiddenTrump(pos) {
     if (this.phase !== 'play') return { ok: false, reason: 'not_playing' };
     if (pos !== this.currentPlayer || pos !== this.hiddenTrumpOwner) return { ok: false, reason: 'not_your_turn' };
     if (!this.hiddenTrump) return { ok: false, reason: 'no_hidden_card' };
     const card = this.hiddenTrump;
+    // Same capture-before-clear fix as game-engine.js's identical path
+    // -- exposeTrump() below has no visibility into the card once
+    // hiddenTrump is cleared, since this path clears it first.
+    this.revealedTrumpCard = { rank: card.rank, suit: card.suit };
     this.hiddenTrump = null; this.hiddenTrumpOwner = -1;
     if (this.mustPlayTrumpBy === pos) this.mustPlayTrumpBy = -1;
     if (!this.trumpExposed) this.exposeTrump();
@@ -665,6 +788,9 @@ class GameEngine6P {
     this.trumpExposed = true;
     this.addLog(`Trump exposed: ${this.trumpSuit}!`);
     if (this.hiddenTrump && this.hiddenTrumpOwner >= 0 && this.seats[this.hiddenTrumpOwner]) {
+      // Same public-record capture as game-engine.js's identical
+      // function -- see there for the full reasoning.
+      this.revealedTrumpCard = { rank: this.hiddenTrump.rank, suit: this.hiddenTrump.suit };
       this.seats[this.hiddenTrumpOwner].hand.push(this.hiddenTrump);
       this.hiddenTrump = null;
       this.hiddenTrumpOwner = -1;
@@ -675,15 +801,22 @@ class GameEngine6P {
   // except this table's cutoff is 2 cards left, not 3 -- confirmed
   // deliberately different from the 4-player table's threshold, not a
   // scaling mistake.
-  _isQuoteEligibleFor(pos) {
+  // Split into a shared "core" (rules that apply no matter how the offer is reached) plus the
+  // opener-only check layered on top, since the new mid-trick offer needs every rule EXCEPT
+  // "must be the one leading the trick" - duplicating the other six checks in a second
+  // function would just be the same list drifting out of sync over time.
+  _isQuoteEligibleCore(pos) {
     if (pos === null || pos === undefined || !this.seats[pos]) return false;
     if (this.seats[pos].hand.length < 2) return false; // cutoff: must still have at least 2 cards of your own left
-    if (this.trickCards.length !== 0) return false; // only the trick's opener can declare
     if (this.quoteState) return false;
     if (this.phase !== 'play') return false;
     if (this.highestBid > 19) return false;
     if (this.pendingEarlyWinChoice) return false;
     return !!this.teamStillClean[getTeam(pos)];
+  }
+  _isQuoteEligibleFor(pos) {
+    if (this.trickCards.length !== 0) return false; // only the trick's opener can declare this way
+    return this._isQuoteEligibleCore(pos);
   }
 
   // See game-engine.js for the full reasoning -- identical helper here.
@@ -738,6 +871,7 @@ class GameEngine6P {
     this.trickCards = [];
     this.trickSuit = '';
     this.mustPlayTrumpBy = -1;
+    this.midTrickQuoteDeclinedThisTrick = false; // a fresh trick gets a fresh chance to be offered
 
     // Quote resolution -- see game-engine.js for the full reasoning,
     // identical logic here: fails immediately on losing any trick,
@@ -850,8 +984,11 @@ class GameEngine6P {
       made = !!(this.lastTrick && this.lastTrick.winner === this.thaniCaller);
       pts = made ? 3 : 4;
       const isHonors = true;
-      if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
-      else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
+      // Only the winning side's score ever changes now - the losing side keeps whatever
+      // they'd already accumulated rather than having it reduced. See the matching comment
+      // on the normal-bid path below for the full reasoning.
+      if (made) { this.gameScore[bT] += pts; }
+      else { this.gameScore[oT] += pts; }
       this.roundWinnerAnnounced = {
         bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
         teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
@@ -877,8 +1014,10 @@ class GameEngine6P {
       if (cotTeamIsBidder) pts = made ? 2 : 3;
       else pts = made ? 3 : 2;
       const isHonors = this.highestBid >= 20;
-      if (made) { this.gameScore[cotTeam] += pts; this.gameScore[otherTeam] -= pts; }
-      else { this.gameScore[otherTeam] += pts; this.gameScore[cotTeam] -= pts; }
+      // Only the winning side gains now - see the normal-bid path below for the full
+      // reasoning behind dropping the losing side's deduction.
+      if (made) { this.gameScore[cotTeam] += pts; }
+      else { this.gameScore[otherTeam] += pts; }
       this.roundWinnerAnnounced = {
         bidderWon: getTeam(this.bidder) === cotTeam ? made : !made,
         made, bidder: this.bidder, highestBid: this.highestBid,
@@ -896,8 +1035,13 @@ class GameEngine6P {
     else if (this.highestBid >= 20) pts = made ? 2 : 3;
     else pts = made ? 1 : 2;
     const isHonors = this.highestBid >= 20;
-    if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
-    else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
+    // Only the winning team's score ever changes - a made bid adds to the bidding team, a
+    // failed bid adds to the defending team, but nobody's existing total ever gets reduced
+    // for losing. Previously this was zero-sum (the loser's score dropped by the same amount
+    // the winner gained), which meant a team's own hard-earned points could get erased by a
+    // later loss that had nothing to do with how they earned them.
+    if (made) { this.gameScore[bT] += pts; }
+    else { this.gameScore[oT] += pts; }
     this.roundWinnerAnnounced = {
       bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
       teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
@@ -956,21 +1100,30 @@ class GameEngine6P {
     this._bidderHandProfileForLearning = null;
     brain.saveBrains();
 
-    // No championship/King meta-game in this variant — the match just
-    // ends outright the moment either team hits 12 or drops to 0.
-    if (this.gameScore[0] >= 12 || this.gameScore[1] >= 12 || this.gameScore[0] <= 0 || this.gameScore[1] <= 0) {
+    // No championship/King meta-game in this variant — the match just ends outright the
+    // moment either team reaches the target. Previously this also checked "<= 0" as an
+    // equivalent trigger, which only worked because the old zero-sum scoring guaranteed
+    // hitting the target on one side always meant the other was at exactly 0 (6+6=12,
+    // always). Losing-side deductions are gone now (see the three _endRound() scoring
+    // branches above), so scores only ever go up - the <=0 check is meaningless from here on
+    // and is removed rather than left in as dead code that could misfire on a fresh 0-0 start.
+    if (this.gameScore[0] >= 15 || this.gameScore[1] >= 15) {
       const winningTeam = this.gameScore[0] > this.gameScore[1] ? 0 : 1;
       const losingTeam = 1 - winningTeam;
       this.gameOver = { winningTeam, finalScore: this.gameScore.slice() };
       this.addLog(`Match over — team ${winningTeam} wins ${this.gameScore[winningTeam]}-${this.gameScore[1 - winningTeam]}.`);
-      // Zero-sum scoring means this is always a shutout — every player
-      // on the losing side picks up a Q.
+      // Every player on the losing team picks up a Q at match end, regardless of their exact
+      // final score - not restricted to a true zero-point shutout. An earlier version of this
+      // only fired the Q on a genuine 0-score loss, reasoning that a close 12-15 finish isn't
+      // really a "shutout" in the traditional sense - but that made the Q so rare under this
+      // no-deduction scoring system that it stopped happening in practice at all, which is not
+      // what was wanted. The Q is simply "you lost the match," full stop.
       for (let i = 0; i < SEATS; i++) {
         const s = this.seats[i];
         if (!s || getTeam(i) !== losingTeam) continue;
         this.qMarks[s.name] = (this.qMarks[s.name] || 0) + 1;
       }
-      this.addLog(`Team ${losingTeam} shut out — every player picks up a Q.`);
+      this.addLog(`Team ${losingTeam} lost the match — every player picks up a Q.`);
     }
 
     this._notify();
@@ -993,6 +1146,11 @@ class GameEngine6P {
       }
       return;
     }
+    // Mid-trick COT/MaruCOT offer: bots are excluded entirely from ever being offered this
+    // (see _checkMidTrickQuoteOffer), so pendingMidTrickQuote can only ever be set for a real
+    // human now - this just makes sure maybeAutoAct() doesn't try to act on their behalf while
+    // their response is still pending.
+    if (this.pendingMidTrickQuote) return;
     const seat = this.seats[this.currentPlayer];
     if (!seat) return;
     if (this._turnTrackedPlayer !== this.currentPlayer || this._turnTrackedRound !== this.round) {
@@ -1047,7 +1205,7 @@ class GameEngine6P {
           if (hand.length === 0 && this.hiddenTrump && pos === this.hiddenTrumpOwner) {
             this.playHiddenTrump(pos);
           } else {
-            const legal = hand.find(c => this.canPlayCard(pos, c));
+            const legal = hand.find(c => this.canPlayCard(pos, c).ok);
             if (legal) this.playCard(pos, legal);
           }
         }
@@ -1068,8 +1226,8 @@ class GameEngine6P {
       const performanceAdjustment = totalDecidedBids >= 5
         ? Math.max(0, 0.5 - (b.stats.bidsWon / totalDecidedBids)) * 0.6
         : 0;
-      const comfortThreshold = Math.min(0.9, Math.max(0.45,
-        0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1 + performanceAdjustment));
+      const comfortThreshold = Math.min(0.92, Math.max(0.6,
+        0.92 - (b.level - 1) * 0.06 - (b.bidWeights.aggression - 1) * 0.07 + performanceAdjustment));
       let target = 16;
       for (let bidLevel = 16; bidLevel <= 28; bidLevel++) {
         // Bids of 20+ ("Honors") pay and cost more per point than
@@ -1140,9 +1298,9 @@ class GameEngine6P {
 
       if (!hasSuit && !this.trumpExposed && this.trickSuit !== '' && trumps.length >= 0) {
         let callTrumpNow = false;
-        // None of these reasons justify exposing trump and cutting in if
-        // our OWN partner already has this trick won for free — pure
-        // waste of a trump card and revealed information for nothing.
+        // None of these reasons justify exposing trump and cutting in if our OWN partner
+        // already has this trick won for free - pure waste of a trump card and revealed
+        // information for nothing.
         if (wt !== myTeam) {
           if (pos === this.bidder) callTrumpNow = true;
           else if (isLast && tPts > 0) callTrumpNow = true;
@@ -1150,6 +1308,18 @@ class GameEngine6P {
           else if ((this.suitLeadCount[this.trickSuit] || 0) >= 2 && tPts >= 1) callTrumpNow = true;
           else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) callTrumpNow = true;
           else if (this.trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) callTrumpNow = true;
+        } else if (!isLast && cwc.suit === this.trickSuit && this._higherCardOfSuitStillOut(this.trickSuit, cwc.rank)) {
+          // Partner is currently winning WITH A PLAIN CARD OF THE LED SUIT (not already a
+          // trump cut themselves - overcutting your own partner's trump is a different,
+          // generally bad idea and not what this covers) - but not necessarily safely. If
+          // some player still to act could still be holding a plain card of the led suit
+          // that beats our partner's, sitting on our hands (discarding, "trusting" the
+          // partner) is a real gamble, not free money. Cut it in to actually secure the
+          // trick instead of hoping nobody still holds the one card that beats it. isLast is
+          // excluded on purpose - if this is genuinely the trick's last card, nobody else is
+          // left to act, so the "still out there" card can only be sitting harmlessly in a
+          // hand that will never get a turn to play it into THIS trick.
+          callTrumpNow = true;
         }
         if (callTrumpNow) {
           this.exposeTrump();
@@ -1178,6 +1348,16 @@ class GameEngine6P {
 
   _cardsSeenSoFar() { return this.playedCardsThisRound.concat(this.trickCards.map(tc => tc.card)); }
   _isRankSeen(suit, rank) { return this._cardsSeenSoFar().some(c => c.suit === suit && c.rank === rank); }
+  // Is there still a card of `suit` ranked higher than `aboveRank` that hasn't been played yet
+  // this round? Used specifically for the "should I cut in even though my partner is
+  // currently winning" decision - the bot has none of this suit itself (that's the only way
+  // it's even considering a cut), so any unseen card of this suit can only be sitting in some
+  // other player's hand, not its own - a genuine live threat to the partner's lead, not a
+  // false alarm from a card the bot happens to be holding.
+  _higherCardOfSuitStillOut(suit, aboveRank) {
+    const aboveOrder = RANK_ORDER[aboveRank];
+    return RANKS.some(r => RANK_ORDER[r] > aboveOrder && !this._isRankSeen(suit, r));
+  }
 
   _currentTrickWinnerSoFar() {
     if (this.trickCards.length === 0) return null;
@@ -1371,8 +1551,17 @@ class GameEngine6P {
       const suitRepeat = this.suitLeadCount[this.trickSuit] || 0;
       // When genuinely desperate for points (myTeamDesperate above), the
       // bar for "is this trick worth trump" drops from 2 to 1 -- same
-      // adjustment as the 4-player engine.
-      const worthTrumping = tPts >= (myTeamDesperate ? 1 : 2) || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
+      // adjustment as the 4-player engine. Per explicit instruction:
+      // also worth trumping the very first time a suit gets led this
+      // round, regardless of the trick's point value -- same
+      // firstTimeSuitLed concept 4-player's own worthTrumping already
+      // has, which 6-player was genuinely missing. suitRepeat===1 means
+      // this is that suit's first-ever lead (suitLeadCount is
+      // incremented the moment a trick's led, so by the time a bot is
+      // deciding whether to cut, the suit currently on the table has
+      // already been counted once).
+      const firstTimeSuitLed = suitRepeat === 1;
+      const worthTrumping = tPts >= (myTeamDesperate ? 1 : 2) || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1) || firstTimeSuitLed;
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {
@@ -1477,6 +1666,7 @@ class GameEngine6P {
       roundVoidMessage: this.roundVoidMessage,
       mustPlayTrump: this.mustPlayTrumpBy === viewerPos,
       hasHiddenTrump: !!this.hiddenTrump,
+      revealedTrumpCard: this.revealedTrumpCard,
       myHiddenTrumpCard: (this.hiddenTrump && this.hiddenTrumpOwner === viewerPos) ? this.hiddenTrump : null,
       trickCards: this.trickCards,
       trickSuit: this.trickSuit,
@@ -1488,6 +1678,11 @@ class GameEngine6P {
       lastTrick: this.lastTrick,
       roundWinnerAnnounced: this.roundWinnerAnnounced,
       pendingEarlyWinChoice: this.pendingEarlyWinChoice,
+      pendingMidTrickQuote: this.pendingMidTrickQuote,
+      // The ask-button's activation state, computed fresh for whichever specific viewer this
+      // state is being built for - null means nothing to ask right now (button greyed out for
+      // them), otherwise it's who they'd be asking if they pressed it.
+      midTrickAskTargetPos: this._getMidTrickAskTarget(viewerPos),
       quoteEligible: this._isQuoteEligibleFor(this.currentPlayer),
       teamStillClean: this.teamStillClean,
       quoteState: this.quoteState,
