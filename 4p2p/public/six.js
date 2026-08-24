@@ -1760,6 +1760,20 @@ function pickCallMessage(pool, pos, seq, bid) {
 // on. Replaces the old two-way (above seats 0/1/5, below seats 2/3/4)
 // split with a direction for every seat individually.
 const CALL_BADGE_DIR = ['n', 'nw', 'sw', 's', 'se', 'ne'];
+// Per non-negotiable instruction: one single object, oval+tail as ONE
+// path, not a shape plus a separately-attached piece. Same technique
+// as index.html's identical constant -- see there for the full
+// reasoning. The oval portion is byte-for-byte identical in all six;
+// only the tail portion differs, computed programmatically and each
+// one actually rendered and visually verified before use.
+const CALL_BADGE_PATHS = {
+  n: "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z M 46.0,60.0 L 54.0,60.0 C 54.0,67.0 52.0,71.0 50.0,73.0 C 48.0,71.0 46.0,67.0 46.0,60.0 Z M 47.0,72.0 L 53.0,72.0 L 50.0,80.0 Z",
+  s: "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z M 54.0,20.0 L 46.0,20.0 C 46.0,13.0 48.0,9.0 50.0,7.0 C 52.0,9.0 54.0,13.0 54.0,20.0 Z M 53.0,8.0 L 47.0,8.0 L 50.0,0.0 Z",
+  nw: "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z M 80.2,57.8 L 85.8,52.2 C 90.8,57.1 92.2,61.4 92.2,64.2 C 89.4,64.2 85.1,62.8 80.2,57.8 Z M 89.4,65.6 L 93.6,61.4 L 97.1,69.1 Z",
+  ne: "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z M 14.2,52.2 L 19.8,57.8 C 14.9,62.8 10.6,64.2 7.8,64.2 C 7.8,61.4 9.2,57.1 14.2,52.2 Z M 6.4,61.4 L 10.6,65.6 L 2.9,69.1 Z",
+  sw: "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z M 85.8,27.8 L 80.2,22.2 C 85.1,17.2 89.4,15.8 92.2,15.8 C 92.2,18.6 90.8,22.9 85.8,27.8 Z M 93.6,18.6 L 89.4,14.4 L 97.1,10.9 Z",
+  se: "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z M 19.8,22.2 L 14.2,27.8 C 9.2,22.9 7.8,18.6 7.8,15.8 C 10.6,15.8 14.9,17.2 19.8,22.2 Z M 10.6,14.4 L 6.4,18.6 L 2.9,10.9 Z",
+};
 
 const SEAT_POS = [
   { left: '50%', top: '78%' },   // 0 me
@@ -2056,20 +2070,15 @@ function renderSeats(state) {
       if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
       if (callEl.dataset.v !== label) {
         callEl.dataset.v = label;
-        // Per explicit correction: back to a real CSS shape for the
-        // oval (auto-sizes to exactly match its own text content, zero
-        // distortion risk) paired with this small, independently-sized
-        // tail SVG, same as index.html's identical rule -- see there
-        // for the fuller reasoning behind reverting away from the
-        // single stretched combined-shape SVG.
-        // Per explicit correction: same fill/stroke fix as index.html's
-        // identical rule -- the tail needs the same dark fill +
-        // colored border style as the oval to read as one shape, not a
-        // solid flat currentColor piece touching an outlined one.
-        const tailSvg = '<svg class="call-badge-tail" viewBox="0 0 20 24" width="16" height="19"><path d="M4 0 L12 0 C12 7, 10 11, 8 13 C6 11, 4 7, 4 0 Z" fill="#0a1f0f" stroke="currentColor" stroke-width="2"/><path d="M5 12 L11 12 L8 20 Z" fill="#0a1f0f" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+        // Per non-negotiable instruction: one single object, oval+tail
+        // as ONE path, not a shape plus a separately-attached piece.
+        // Same technique as index.html's identical rule -- see there
+        // for the full reasoning.
+        const fillColor = isPass ? '#241010' : '#0a1f0f';
+        const bgSvg = `<svg class="call-badge-bg" viewBox="-5 -10 110 100"><path d="${CALL_BADGE_PATHS[CALL_BADGE_DIR[slot]]}" fill="${fillColor}" stroke="currentColor" stroke-width="2.2"/></svg>`;
         callEl.innerHTML = (flavor
           ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
-          : `<div class="call-badge-header">${header}</div>`) + tailSvg;
+          : `<div class="call-badge-header">${header}</div>`) + bgSvg;
       }
     } else if (callEl) { callEl.remove(); }
   }

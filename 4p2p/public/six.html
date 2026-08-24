@@ -317,25 +317,20 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .seat .call-badge{
   position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
   color:#4ade80;
-  /* Per explicit correction: same fix as index.html's identical rule
-     -- back to a real CSS shape for the oval (auto-sizes to exactly
-     match its own text content, zero distortion risk regardless of
-     message length) paired with a small, independently-sized tail SVG,
-     rather than one combined SVG stretched to fit, which could distort
-     the oval:tail proportions and let text spill outside the drawn
-     outline when it needed more height than assumed. See index.html's
-     identical rule for the fuller reasoning. */
-  background:linear-gradient(180deg,#0a1f0f,#051008);
-  border:1.5px solid #4ade80;
-  border-radius:28% 34% 38% 24% / 36% 30% 40% 34%;
-  padding:4px 9px;font-size:0.56rem;font-weight:900;
+  /* Per non-negotiable instruction: one single object, not a bubble
+     plus a separately-attached tail piece -- same fixed-size single
+     combined SVG path approach as index.html's identical rule, scaled
+     up slightly to match this table's slightly larger font size. See
+     index.html for the fuller reasoning and how these dimensions were
+     actually verified by rendering, not assumed. */
+  width:94px;padding:19px 6px 23px 6px;font-size:0.56rem;font-weight:900;
   font-family:'Cinzel','Playfair Display',serif;
-  max-width:88px;white-space:normal;text-align:center;line-height:1.15;z-index:6;
-  box-shadow:0 2px 8px rgba(0,0,0,0.6),0 0 10px rgba(74,222,128,0.4);
+  white-space:normal;text-align:center;line-height:1.2;z-index:6;
   animation:callBadgePop 0.4s cubic-bezier(0.34,1.56,0.64,1);
   text-shadow:0 0 6px rgba(74,222,128,0.6);
 }
-.seat .call-badge-tail{position:absolute;pointer-events:none;transform-origin:center}
+.seat .call-badge-bg{position:absolute;top:-12px;left:-5px;width:107px;height:97px;z-index:-1;overflow:visible}
+.seat .call-badge.call-badge-pass{color:#ef4444;text-shadow:0 0 6px rgba(239,68,68,0.6)}
 /* Per explicit instruction: the plain "Pass"/"Bid 17" always comes
    first as its own bold line, with the random flavor line right below
    it -- rather than blending the number into the middle of a flavor
@@ -355,14 +350,6 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    -- see there for the full reasoning. stroke uses currentColor on the
    SVG itself, so this automatically matches whichever color (green
    bid / red pass) the badge is currently showing. */
-/* Red for a pass, green for an actual bid - a clear, immediately-readable color code rather
-   than everything sharing one gold tone regardless of what was actually said. */
-.seat .call-badge.call-badge-pass{
-  background:linear-gradient(180deg,#241010,#100505);
-  border-color:#ef4444;color:#ef4444;
-  box-shadow:0 2px 8px rgba(0,0,0,0.6),0 0 10px rgba(239,68,68,0.4);
-  text-shadow:0 0 6px rgba(239,68,68,0.6);
-}
 /* Six directional variants, one per seat, replacing the old simple
    above/below split -- per explicit instruction, each seat's bubble now
    sits toward the table/rail from that seat's own actual position
@@ -376,23 +363,16 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    lands back on top of the avatar regardless of the number picked.
    Every vertical offset below now uses bottom:calc(100% + Npx) or
    top:calc(100% + Npx) instead -- measuring from the avatar's own far
-   edge outward. Rotation angles on .call-badge-tail rotate the small,
-   independently-sized tail SVG only (see index.html's identical rule
-   for why this is separate from the oval again) -- "n" needs none at
-   all, since that shape's own default already points straight down,
-   exactly what that direction needs; the rest verified the same way. */
+   edge outward. Per the non-negotiable one-object correction, the
+   direction is now baked directly into CALL_BADGE_PATHS itself (see
+   six.js) -- these rules only position the whole badge box near the
+   avatar, nothing here rotates or offsets a separate tail anymore. */
 .seat .call-badge.call-badge-n{top:auto;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%)}
-.seat .call-badge.call-badge-n .call-badge-tail{top:100%;left:50%;transform:translate(-50%,-8px) rotate(0deg)}
 .seat .call-badge.call-badge-s{top:calc(100% + 8px);bottom:auto;left:50%;transform:translateX(-50%)}
-.seat .call-badge.call-badge-s .call-badge-tail{bottom:100%;left:50%;transform:translate(-50%,8px) rotate(180deg)}
 .seat .call-badge.call-badge-nw{top:auto;bottom:calc(100% + 4px);left:auto;right:46px;transform:none}
-.seat .call-badge.call-badge-nw .call-badge-tail{top:100%;right:0;transform:translateY(-8px) rotate(-45deg)}
 .seat .call-badge.call-badge-sw{top:calc(100% + 4px);bottom:auto;left:auto;right:46px;transform:none}
-.seat .call-badge.call-badge-sw .call-badge-tail{bottom:100%;right:0;transform:translateY(8px) rotate(-135deg)}
 .seat .call-badge.call-badge-se{top:calc(100% + 4px);bottom:auto;left:46px;transform:none}
-.seat .call-badge.call-badge-se .call-badge-tail{bottom:100%;left:0;transform:translateY(8px) rotate(135deg)}
 .seat .call-badge.call-badge-ne{top:auto;bottom:calc(100% + 4px);left:46px;transform:none}
-.seat .call-badge.call-badge-ne .call-badge-tail{top:100%;left:0;transform:translateY(-8px) rotate(45deg)}
 /* A bit more drama for the first half-second a badge appears - a quick overshoot pop plus a
    brief glow ring, rather than the previous version's much smaller, easy-to-miss fade. This
    is meant to be the moment a player "speaks" at the table, per the request, and needed to
