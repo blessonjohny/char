@@ -1702,27 +1702,27 @@ const PASS_MESSAGES = [
   "Bad cut.", "Can't do it.", "Not strong.",
   "Folding.", "No points.", "Better luck.",
   "Hand's cursed.", "No support.", "Nothing to bid.",
-  "Let it go.", "Off-suit hand.", "Hand's a disaster.",
+  "Let it go.", "Off-suit hand.", "Bad hand.",
   "No good.", "Need better.", "Not mine.",
-  "Not touching this.", "No cards.", "Bad hand.",
+  "Not my hand.", "No cards.", "Bad hand.",
   "Weak hand."
 ];
 const BID_MESSAGES = [
   "I raise.", "Reraise you.", "Honors, go!",
-  "Taking a chance.", "Minimum bid.", "Watch me.",
+  "Taking a shot.", "Minimum bid.", "Watch me.",
   "Pushing it.", "Going for it.", "I mean it.",
   "Let's raise.", "I got this.", "Feeling good.",
-  "Beat that.", "Not backing down.", "Strong hand.",
+  "Beat that.", "Staying in.", "Strong hand.",
   "Take it.", "Raising up.", "I'll call it.",
   "Going big.", "No fear.", "Hand's mine.",
-  "Like my chances.", "Trust me.", "Let's see it.",
+  "Like my odds.", "Trust me.", "Let's see it.",
   "I'm confident.", "Come at me.", "Solid cards.",
   "Pushing up.", "Easy pick.", "Taking it up.",
-  "Not folding.", "Hand's loaded.", "Found an opening.",
+  "Not folding.", "Hand's loaded.", "Found a gap.",
   "Locked in.", "Hand's ready.", "Calling it.",
-  "Raising it.", "Getting interesting.", "Feeling lucky.",
-  "I'm in.", "No hesitation.", "Taking the lead.",
-  "Mean business.", "Big bid.", "Betting on this.",
+  "Raising it.", "Getting good.", "Feeling lucky.",
+  "I'm in.", "No hesitation.", "Taking lead.",
+  "Mean business.", "Big bid.", "Betting big.",
   "All in."
 ];
 
