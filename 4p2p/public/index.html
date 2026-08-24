@@ -735,10 +735,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    (badge above avatar) needs no rotation at all -- the shape's own
    natural, hand-verified orientation already has the tail pointing
    down, which is exactly what that direction needs. */
-.avatar .call-badge.call-badge-n .call-badge-bg{transform:rotate(0deg)}
-.avatar .call-badge.call-badge-s .call-badge-bg{transform:rotate(180deg)}
-.avatar .call-badge.call-badge-e .call-badge-bg{transform:rotate(90deg)}
-.avatar .call-badge.call-badge-w .call-badge-bg{transform:rotate(-90deg)}
+/* Rotates the whole unified bubble+tail shape per direction. Per
+   explicit correction with a screenshot proving the arrows were
+   pointing away from the avatar: the earlier rotation values assumed
+   the shape's arrowhead pointed straight down by default, but it
+   actually points down-and-left (roughly 219 degrees, not 180) --
+   every rotation below was recalculated from that real, measured
+   angle and then actually rendered and visually confirmed pointing at
+   a marked avatar position for all four directions before use, not
+   trusted from math alone a second time. */
+.avatar .call-badge.call-badge-n .call-badge-bg{transform:rotate(-39deg)}
+.avatar .call-badge.call-badge-s .call-badge-bg{transform:rotate(141deg)}
+.avatar .call-badge.call-badge-e .call-badge-bg{transform:rotate(51deg)}
+.avatar .call-badge.call-badge-w .call-badge-bg{transform:rotate(-129deg)}
 .avatar .call-badge.call-badge-pass{
   background:linear-gradient(180deg,#241010,#100505);
   border-color:#ef4444;color:#ef4444;
@@ -10856,6 +10865,12 @@ function startGame() {
     const av = document.getElementById('av' + i);
     if (av) av.classList.remove('bid-winner-avatar');
   }
+  // Per explicit bug report: this function never actually cleared the
+  // bid/pass speech bubbles on a restart -- the loop just above only
+  // ever removed a stale, unrelated class name left over from before
+  // that feature existed, never the actual .call-badge elements
+  // themselves, so old bubbles from the previous game kept showing.
+  clearCallBadges4p();
   // Reset King streaks on fresh start (not when continuing championships)
   if (championshipNumber === 1) {
     resetKingScore();
