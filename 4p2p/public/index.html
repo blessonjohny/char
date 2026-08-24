@@ -685,44 +685,55 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    goes north -- the opposite compass direction from where that seat
    physically sits, so the bubble always leans toward the table/rail. */
 .avatar .call-badge{
-  position:absolute;top:-34px;left:50%;transform:translateX(-50%);
+  position:absolute;top:-22px;left:50%;transform:translateX(-50%);
   background:linear-gradient(180deg,#0a1f0f,#051008);
-  border:2px solid #4ade80;
+  border:1.5px solid #4ade80;
   color:#4ade80;
-  border-radius:14px;padding:6px 14px;font-size:0.82rem;font-weight:900;
+  border-radius:10px;padding:3px 8px;font-size:0.62rem;font-weight:900;
   font-family:'Cinzel','Playfair Display',serif;
-  max-width:150px;white-space:normal;text-align:center;line-height:1.25;z-index:16;
-  box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(74,222,128,0.4);
+  max-width:92px;white-space:normal;text-align:center;line-height:1.15;z-index:16;
+  box-shadow:0 2px 8px rgba(0,0,0,0.6),0 0 10px rgba(74,222,128,0.4);
   animation:callBadgePop4p 0.4s cubic-bezier(0.34,1.56,0.64,1);
-  text-shadow:0 0 8px rgba(74,222,128,0.6);
+  text-shadow:0 0 6px rgba(74,222,128,0.6);
 }
 /* Per explicit instruction: the plain "Pass"/"Bid 17" always comes
    first as its own bold line, with the random flavor line right below
    it -- same two-line structure as six.html's identical rule, see
-   there for the fuller reasoning. */
-.avatar .call-badge-header{font-size:1rem;font-weight:900;color:currentColor}
-.avatar .call-badge-flavor{font-size:0.72rem;font-weight:700;opacity:0.85;margin-top:1px;color:#fff;text-shadow:none}
+   there for the fuller reasoning. Sized down (per a later explicit
+   instruction: "make it smaller, nice and neat") from the original
+   6-player-matching size, since 4-player's grid rows for the top/bottom
+   seats sit much tighter against the table's own center play area than
+   6-player's open oval does, and the larger size was intruding on it. */
+.avatar .call-badge-header{font-size:0.72rem;font-weight:900;color:currentColor}
+.avatar .call-badge-flavor{font-size:0.56rem;font-weight:700;opacity:0.85;margin-top:0;color:#fff;text-shadow:none}
 .avatar .call-badge::after{
-  content:'';position:absolute;width:14px;height:14px;
-  background:#051008;border:2px solid #4ade80;
+  content:'';position:absolute;width:10px;height:10px;
+  background:#051008;border:1.5px solid #4ade80;
   border-radius:0 100% 100% 100%;
-  top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg);
+  top:100%;left:50%;transform:translate(-50%,-4px) rotate(45deg);
 }
 .avatar .call-badge.call-badge-pass{
   background:linear-gradient(180deg,#241010,#100505);
   border-color:#ef4444;color:#ef4444;
-  box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(239,68,68,0.4);
-  text-shadow:0 0 8px rgba(239,68,68,0.6);
+  box-shadow:0 2px 8px rgba(0,0,0,0.6),0 0 10px rgba(239,68,68,0.4);
+  text-shadow:0 0 6px rgba(239,68,68,0.6);
 }
 .avatar .call-badge.call-badge-pass::after{background:#100505;border-color:#ef4444}
-.avatar .call-badge.call-badge-n{top:-34px;left:50%;transform:translateX(-50%)}
-.avatar .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg)}
-.avatar .call-badge.call-badge-s{top:auto;bottom:-34px;left:50%;transform:translateX(-50%)}
-.avatar .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,6px) rotate(225deg)}
-.avatar .call-badge.call-badge-e{top:50%;left:calc(100% + 12px);right:auto;bottom:auto;transform:translateY(-50%)}
-.avatar .call-badge.call-badge-e::after{top:50%;left:-4px;bottom:auto;transform:translateY(-50%) rotate(135deg)}
-.avatar .call-badge.call-badge-w{top:50%;right:calc(100% + 12px);left:auto;bottom:auto;transform:translateY(-50%)}
-.avatar .call-badge.call-badge-w::after{top:50%;right:-4px;left:auto;bottom:auto;transform:translateY(-50%) rotate(-45deg)}
+/* Top seat (pos0) and bottom/"me" seat (pos3) sit in their own tight,
+   full-width grid rows directly bordering the table's center play area
+   -- per explicit instruction ("not where it should be... on the
+   table... without overlapping"), their bubbles now sit tucked much
+   closer against their own avatar (14px instead of the original 34px)
+   rather than reaching further out toward center where the felt and
+   played cards actually are. */
+.avatar .call-badge.call-badge-n{top:-14px;left:50%;transform:translateX(-50%)}
+.avatar .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-4px) rotate(45deg)}
+.avatar .call-badge.call-badge-s{top:auto;bottom:-14px;left:50%;transform:translateX(-50%)}
+.avatar .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,4px) rotate(225deg)}
+.avatar .call-badge.call-badge-e{top:50%;left:calc(100% + 8px);right:auto;bottom:auto;transform:translateY(-50%)}
+.avatar .call-badge.call-badge-e::after{top:50%;left:-3px;bottom:auto;transform:translateY(-50%) rotate(135deg)}
+.avatar .call-badge.call-badge-w{top:50%;right:calc(100% + 8px);left:auto;bottom:auto;transform:translateY(-50%)}
+.avatar .call-badge.call-badge-w::after{top:50%;right:-3px;left:auto;bottom:auto;transform:translateY(-50%) rotate(-45deg)}
 @keyframes callBadgePop4p{
   0%{opacity:0;transform:translateX(-50%) scale(0.4) translateY(8px)}
   55%{opacity:1;transform:translateX(-50%) scale(1.22) translateY(-4px)}
@@ -5889,11 +5900,27 @@ function clearCallBadges4p() {
 // applyServerState() path the moment bidder is finalized. Clears every
 // other seat's winner class first (pos param is the actual winner)
 // since only one bubble should ever be blinking at a time.
-function markWinningBidder4p(pos) {
+// Per explicit instruction: also forces the winner's own badge to show
+// their actual winning bid, in the green "won" style, regardless of
+// what their own last individual action happened to be. A player can
+// win the auction with an earlier bid (say 15) and then, on a later
+// phase-2 turn, simply decline to raise it further -- passing on THAT
+// turn, while their earlier 15 still stands as the overall winning bid.
+// Without this, their badge would keep showing that later pass in red,
+// which reads as if they lost, right as they're being highlighted as
+// the winner -- a real, confusing contradiction this corrects.
+function markWinningBidder4p(pos, winningBid) {
   for (let i = 0; i < 4; i++) {
     const av = document.getElementById('av' + i);
     const callEl = av && av.querySelector('.call-badge');
-    if (callEl) callEl.classList.toggle('call-badge-winner', slotForPlayer(pos) === i);
+    if (!callEl) continue;
+    const isWinner = slotForPlayer(pos) === i;
+    callEl.classList.toggle('call-badge-winner', isWinner);
+    if (isWinner && typeof winningBid === 'number') {
+      callEl.classList.remove('call-badge-pass');
+      const headerEl = callEl.querySelector('.call-badge-header');
+      if (headerEl) headerEl.textContent = winningBid >= 29 ? 'Thani!' : 'Bid ' + winningBid;
+    }
   }
 }
 
@@ -8613,7 +8640,7 @@ function endBidding1() {
   if (bidder === -1 || highestBid === 0) { log('No valid bids. Redealing...'); setTimeout(() => startGame(), 1500); return; }
   const wn = playerAt(bidder) ? playerAt(bidder).name : 'Player';
   log((bidder === MY_POS ? 'You' : wn) + ' won bid with ' + highestBid + '!');
-  markWinningBidder4p(bidder);
+  markWinningBidder4p(bidder, highestBid);
   // Host sends bidding result
   if (IS_ONLINE && IS_HOST) {
     setTimeout(() => hostSendState(), 300);
@@ -9086,7 +9113,7 @@ function endBidding2(x, canChange) {
   // exactly the premature-clearing this fix corrects. bidder may have
   // changed during phase 2 raises, so the winner mark needs
   // re-applying here too, not just once back in endBidding1().
-  markWinningBidder4p(bidder);
+  markWinningBidder4p(bidder, highestBid);
   if (canChange && bidder === MY_POS) setTimeout(() => showTrumpPanel(true), 500);
   else setTimeout(() => startPlay(), 500);
 }
@@ -15944,7 +15971,10 @@ function applyServerState(state) {
         if (!latestPerPos[c.pos] || c.order > latestPerPos[c.pos].order) latestPerPos[c.pos] = c;
       });
       Object.values(latestPerPos).forEach(c => window._pendingCallBadgeUpdates.push([c.pos, c.bid, c.seq]));
-      if (state.phase !== 'bidding1' && state.bidder >= 0) window._pendingWinnerMark = state.bidder;
+      if (state.phase !== 'bidding1' && state.bidder >= 0) {
+        window._pendingWinnerMark = state.bidder;
+        window._pendingWinnerMarkBid = state.highestBid;
+      }
     }
   } catch (e) { console.error('[call-badge] threw:', e); }
   bidHistory = state.bidHistory || [];
@@ -16027,7 +16057,7 @@ function applyServerState(state) {
   // the real, confirmed root cause of the badges never appearing online.
   try {
     (window._pendingCallBadgeUpdates || []).forEach(([pos, bid, seq]) => updateCallBadge4p(pos, bid, seq));
-    if (window._pendingWinnerMark !== null && window._pendingWinnerMark !== undefined) markWinningBidder4p(window._pendingWinnerMark);
+    if (window._pendingWinnerMark !== null && window._pendingWinnerMark !== undefined) markWinningBidder4p(window._pendingWinnerMark, window._pendingWinnerMarkBid);
   } catch (e) { console.error('[call-badge apply] threw:', e); }
   updateTeamLabels();
   updateInfo();
