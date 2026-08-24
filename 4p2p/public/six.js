@@ -1761,18 +1761,85 @@ function detectQMarkChangesSix(state) {
   if (gained.length > 0) showQMarkEventSix(gained, 'gained');
   if (lost.length > 0) showQMarkEventSix(lost, 'lost');
 }
+// Themed replacement for window.confirm() - a plain OS/browser dialog box looked completely
+// out of place against everything else in this game's visual style. Async by nature (a custom
+// DOM modal can't block execution the way the native confirm() does), so this takes a
+// callback for the "yes" case instead of returning a boolean directly - callers that used to
+// write `if (!window.confirm(...)) return;` need to move whatever ran after that line inside
+// the callback instead.
+function showThemedConfirm(message, onConfirm) {
+  const overlay = document.createElement('div');
+  overlay.className = 'themed-confirm-overlay';
+  overlay.innerHTML = `<div class="themed-confirm-box">
+    <div class="themed-confirm-message">${message}</div>
+    <div class="themed-confirm-btns">
+      <button class="themed-confirm-btn-no">Cancel</button>
+      <button class="themed-confirm-btn-yes">Confirm</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('on'));
+  function close() {
+    overlay.classList.remove('on');
+    setTimeout(() => overlay.remove(), 200);
+  }
+  overlay.querySelector('.themed-confirm-btn-no').addEventListener('click', close);
+  overlay.querySelector('.themed-confirm-btn-yes').addEventListener('click', () => {
+    close();
+    onConfirm();
+  });
+}
 function showQMarkEventSix(names, direction) {
   const overlay = document.createElement('div');
   overlay.className = 'qmark-event-overlay ' + direction;
-  const title = direction === 'gained' ? '😭 KUNUKKU!' : '🎉 KUNUKKU SHED!';
+  const isGained = direction === 'gained';
+  const durationMs = isGained ? 7000 : 5000;
+  // Explicitly celebratory framing for BOTH directions, per the request - getting a Kunukku
+  // is still a real, notable event worth marking with a real moment on screen, not just the
+  // relief of shedding one. Different tone (title/emoji/color palette), same energy.
+  const title = isGained ? '🎉 KUNUKKU!' : '🎉 KUNUKKU SHED!';
   const namesText = names.map(escapeHtml).join(', ');
-  const subtitle = direction === 'gained'
+  const subtitle = isGained
     ? `${namesText} ${names.length > 1 ? 'each get' : 'gets'} a Kunukku — shut out!`
-    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Kunukku!`;
-  overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${direction === 'gained' ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
+    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Kunukku — free at last!`;
+  overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${isGained ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
   document.body.appendChild(overlay);
-  setTimeout(() => overlay.classList.add('leaving'), 2200);
-  setTimeout(() => overlay.remove(), 2700);
+  spawnQmarkParticles(overlay, isGained, durationMs);
+  setTimeout(() => overlay.classList.add('leaving'), durationMs - 500);
+  setTimeout(() => overlay.remove(), durationMs);
+}
+// Floods the screen with falling confetti/firework-style particles for the full duration of
+// the event - explicitly requested ("fireworks or something that will flood the screen with
+// all kinda goodies"). Plain DOM elements with randomized inline styles rather than canvas -
+// simpler, and plenty fast enough for a burst this size that only runs for a few seconds.
+function spawnQmarkParticles(overlay, isGained, durationMs) {
+  const goldPalette = ['#f4c430', '#ffd700', '#ffe066', '#e6b800', '#fff3b0'];
+  const rainbowPalette = ['#f4c430', '#e08a9a', '#7ec8e3', '#9adba0', '#c99ae3', '#ff9f6b'];
+  const palette = isGained ? rainbowPalette : goldPalette;
+  const particleCount = 70;
+  for (let i = 0; i < particleCount; i++) {
+    const p = document.createElement('div');
+    p.className = 'qmark-particle';
+    const startLeft = Math.random() * 100;
+    const size = 6 + Math.random() * 10;
+    const fallDuration = 1.8 + Math.random() * 1.6;
+    const delay = Math.random() * (durationMs / 1000 - 2);
+    const drift = (Math.random() - 0.5) * 160;
+    const spin = 360 + Math.random() * 720;
+    const color = palette[Math.floor(Math.random() * palette.length)];
+    const isRound = Math.random() > 0.5;
+    p.style.left = startLeft + 'vw';
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.background = color;
+    p.style.borderRadius = isRound ? '50%' : '2px';
+    p.style.setProperty('--fall-distance', '115vh');
+    p.style.setProperty('--drift', drift + 'px');
+    p.style.setProperty('--spin', spin + 'deg');
+    p.style.animationDuration = fallDuration + 's';
+    p.style.animationDelay = delay + 's';
+    overlay.appendChild(p);
+  }
 }
 
 let lastKnownIsBotPerPos = [null, null, null, null, null, null]; // tracks each position's isBot status to detect a genuine join/leave transition, not just any re-render
@@ -2413,13 +2480,14 @@ function showTrumpCardSelect(suit) {
     const chosenSuit = suitBtn ? suitBtn.getAttribute('data-suit') : suit;
     // Explicit confirmation before this actually submits - trump can't be changed once chosen
     // (short of the separate mid-round "change trump" flow, if this table even has one), so a
-    // misclick here is costly. Matches the same protection already added to other
-    // hard-to-undo actions elsewhere in this session.
-    if (!window.confirm('Set ' + suitName(chosenSuit) + ' ' + chosenSuit + ' as trump for this round?')) return;
-    $('trumpOverlay').classList.remove('on');
-    const ht = selectedHiddenTrumpCard ? { suit: selectedHiddenTrumpCard.suit, rank: selectedHiddenTrumpCard.rank, points: selectedHiddenTrumpCard.points } : null;
-    socket.emit('sixp_chooseTrump', { suit: chosenSuit, hiddenCard: ht });
-    section.style.display = 'none';
+    // misclick here is costly. Themed to match the rest of this game instead of a plain
+    // window.confirm() browser dialog.
+    showThemedConfirm('Set ' + suitName(chosenSuit) + ' ' + chosenSuit + ' as trump for this round?', () => {
+      $('trumpOverlay').classList.remove('on');
+      const ht = selectedHiddenTrumpCard ? { suit: selectedHiddenTrumpCard.suit, rank: selectedHiddenTrumpCard.rank, points: selectedHiddenTrumpCard.points } : null;
+      socket.emit('sixp_chooseTrump', { suit: chosenSuit, hiddenCard: ht });
+      section.style.display = 'none';
+    });
   };
 }
 
