@@ -1654,14 +1654,24 @@ function applyState(state) {
           console.warn('[waitThenShowGameOver] gave up waiting after 8s — forcing forward');
           trickHoldBusy = false;
           sixpTrickRevealQueue = [];
-          showGameOver(state);
+          safelyShowGameOver(state);
           return;
         }
         setTimeout(waitThenShowGameOver, 150);
         return;
       }
-      showGameOver(state);
+      safelyShowGameOver(state);
     })();
+  } else if (!state.gameOver && gameOverShownFor) {
+    // gameOverShownFor previously had no reset anywhere in this file at all - it latched
+    // true the first time a match ended and stayed true permanently, for the rest of the
+    // page's lifetime. That's fine for the very first match, but the moment a second match
+    // starts (after a restart) and ALSO reaches its own game-over condition, this guard was
+    // already tripped from the first one, so the game-over screen could never show again -
+    // the match would just end silently with no summary and no way to start a third one.
+    // Resetting here, the moment the current state genuinely shows no gameOver (i.e. a fresh
+    // match is underway), re-arms it correctly for the next time one actually ends.
+    gameOverShownFor = false;
   }
 }
 
@@ -2541,6 +2551,28 @@ wireSignalBtn6p('btnSignalSame6p', 'same', 'bid the same');
 wireSignalBtn6p('btnSignalHigher6p', 'higher', 'bid more aggressively');
 wireSignalBtn6p('btnSignalLower6p', 'lower', 'bid less aggressively');
 
+// Same defensive wrapping as safelyShowRoundEnd() above, for the identical reason - see that
+// function's comment for the full explanation. showGameOver() gets called from inside this
+// same kind of setTimeout-driven retry loop, after gameOverShownFor has already latched true,
+// so an uncaught exception here would permanently block the match-over screen for the rest of
+// this match too.
+function safelyShowGameOver(state) {
+  try {
+    showGameOver(state);
+  } catch (e) {
+    console.error('[safelyShowGameOver] showGameOver() threw - falling back so the match-over screen can still appear:', e);
+    try {
+      const myTeam = sixpGetTeam(MY_POS);
+      const won = state.gameOver.winningTeam === myTeam;
+      $('gameOverTitle').textContent = won ? 'You Win!' : 'Defeat';
+      $('gameOverBody').textContent = 'Final score: ' + state.gameOver.finalScore[0] + ' - ' + state.gameOver.finalScore[1];
+      $('btnGameOverRestart').style.display = IS_HOST ? 'flex' : 'none';
+      $('gameOverOverlay').classList.add('on');
+    } catch (e2) {
+      console.error('[safelyShowGameOver] fallback also failed:', e2);
+    }
+  }
+}
 function showGameOver(state) {
   $('roundEndOverlay').classList.remove('on');
   const myTeam = sixpGetTeam(MY_POS);
