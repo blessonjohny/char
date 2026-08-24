@@ -344,23 +344,16 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    colliding, not just the box size on its own. */
 .seat .call-badge-header{font-size:0.66rem;font-weight:900;color:currentColor}
 .seat .call-badge-flavor{font-size:0.5rem;font-weight:700;opacity:0.85;margin-top:0;color:#fff;text-shadow:none}
-/* Semicircle-style speech-bubble tail -- a small rounded nub instead of
-   a sharp comic-strip triangle, per explicit instruction. A single
-   half-circle (border-radius on 3 corners only, one corner square)
-   rotated to face whichever direction that seat's bubble is offset in,
-   so it reads as "growing out of" the bubble toward the avatar rather
-   than a generic arrow shape. */
-.seat .call-badge::after{
-  /* Per explicit correction with a hand-drawn reference: "one line for
-     all" -- a single shared shape and size for the tail in every
-     direction, only the rotation angle differs. Same technique as
-     index.html's identical rule -- see there for the full geometry
-     reasoning and verification. */
-  content:'';position:absolute;width:9px;height:9px;
-  background:#051008;border:1.5px solid #4ade80;
-  border-radius:50% 50% 50% 0;
-  transform-origin:center;
-}
+/* Per explicit instruction with a reference image: a real curling
+   "swoosh" stem ending in a small arrowhead (built as an inline SVG,
+   see six.js -- a smooth curve like this isn't achievable with plain
+   CSS border-radius tricks), replacing the earlier rounded-corner
+   "nub" that read as two separate shapes stuck together rather than
+   one continuous stem. stroke/fill use currentColor on the SVG itself,
+   so this automatically matches whichever color (green bid / red
+   pass) the badge is currently showing. Same technique as index.html's
+   identical rule -- see there for the full geometry reasoning. */
+.seat .call-badge-tail{position:absolute;pointer-events:none;transform-origin:center}
 /* Red for a pass, green for an actual bid - a clear, immediately-readable color code rather
    than everything sharing one gold tone regardless of what was actually said. */
 .seat .call-badge.call-badge-pass{
@@ -369,7 +362,6 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   box-shadow:0 2px 8px rgba(0,0,0,0.6),0 0 10px rgba(239,68,68,0.4);
   text-shadow:0 0 6px rgba(239,68,68,0.6);
 }
-.seat .call-badge.call-badge-pass::after{background:#100505;border-color:#ef4444}
 /* Six directional variants, one per seat, replacing the old simple
    above/below split -- per explicit instruction, each seat's bubble now
    sits toward the table/rail from that seat's own actual position
@@ -389,23 +381,22 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    far edge outward, the same reliably correct approach the horizontal
    nw/sw/se/ne offsets already used by lucky accident (right:46px/
    left:46px happen to measure from the seat wrapper's edge, not the
-   badge's own position). Rotation angles below were computed from an
-   actual coordinate calculation (not guessed), the same way as
-   index.html's four directions -- an earlier version of these had the
-   tail pointing in the wrong direction entirely for several seats,
-   which the hand-drawn correction caught. */
+   badge's own position). Tail rotation angles below were computed from
+   an actual coordinate calculation for this specific SVG's own default
+   pointing direction (bottom-right), not reused from the previous
+   shape's different default. */
 .seat .call-badge.call-badge-n{top:auto;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%)}
-.seat .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-4px) rotate(-45deg)}
+.seat .call-badge.call-badge-n .call-badge-tail{top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg)}
 .seat .call-badge.call-badge-s{top:calc(100% + 8px);bottom:auto;left:50%;transform:translateX(-50%)}
-.seat .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,4px) rotate(135deg)}
+.seat .call-badge.call-badge-s .call-badge-tail{bottom:100%;left:50%;transform:translate(-50%,6px) rotate(-135deg)}
 .seat .call-badge.call-badge-nw{top:auto;bottom:calc(100% + 4px);left:auto;right:46px;transform:none}
-.seat .call-badge.call-badge-nw::after{top:auto;bottom:-4px;left:auto;right:-4px;transform:rotate(-90deg)}
+.seat .call-badge.call-badge-nw .call-badge-tail{top:100%;right:0;transform:translateY(-6px) rotate(0deg)}
 .seat .call-badge.call-badge-sw{top:calc(100% + 4px);bottom:auto;left:auto;right:46px;transform:none}
-.seat .call-badge.call-badge-sw::after{top:-4px;bottom:auto;left:auto;right:-4px;transform:rotate(180deg)}
+.seat .call-badge.call-badge-sw .call-badge-tail{bottom:100%;right:0;transform:translateY(6px) rotate(-90deg)}
 .seat .call-badge.call-badge-se{top:calc(100% + 4px);bottom:auto;left:46px;transform:none}
-.seat .call-badge.call-badge-se::after{top:-4px;bottom:auto;left:-4px;right:auto;transform:rotate(90deg)}
+.seat .call-badge.call-badge-se .call-badge-tail{bottom:100%;left:0;transform:translateY(6px) rotate(180deg)}
 .seat .call-badge.call-badge-ne{top:auto;bottom:calc(100% + 4px);left:46px;transform:none}
-.seat .call-badge.call-badge-ne::after{top:auto;bottom:-4px;left:-4px;right:auto;transform:rotate(0deg)}
+.seat .call-badge.call-badge-ne .call-badge-tail{top:100%;left:0;transform:translateY(-6px) rotate(90deg)}
 /* A bit more drama for the first half-second a badge appears - a quick overshoot pop plus a
    brief glow ring, rather than the previous version's much smaller, easy-to-miss fade. This
    is meant to be the moment a player "speaks" at the table, per the request, and needed to

@@ -715,32 +715,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    floating away from its own seat. */
 .avatar .call-badge-header{font-size:0.6rem;font-weight:900;color:currentColor}
 .avatar .call-badge-flavor{font-size:0.46rem;font-weight:700;opacity:0.85;margin-top:0;color:#fff;text-shadow:none}
-.avatar .call-badge::after{
-  /* Per explicit correction with a hand-drawn reference: "one line for
-     all" -- a single shared shape and size for the tail in every
-     direction, only the rotation angle differs. border-radius:50% 50%
-     50% 0 is the classic CSS "map pin"/teardrop shape (three rounded
-     corners, one square corner at bottom-left by default), matching
-     the heart-bottom-point look from the drawing. Its default,
-     unrotated point aims toward the bottom-left (verified with an
-     actual coordinate calculation, not eyeballed) -- every direction
-     below rotates it by the exact angle needed to aim that same point
-     at wherever the avatar actually is relative to that badge, derived
-     the same way for all of them rather than guessed per-direction.
-     transform-origin:center keeps the shape rotating in place rather
-     than swinging around its positioned corner. */
-  content:'';position:absolute;width:9px;height:9px;
-  background:#051008;border:1.5px solid #4ade80;
-  border-radius:50% 50% 50% 0;
-  transform-origin:center;
-}
+/* Per explicit instruction with a reference image: a real curling
+   "swoosh" stem ending in a small arrowhead (built as an inline SVG,
+   see updateCallBadge4p -- a smooth curve like this isn't achievable
+   with plain CSS border-radius tricks), replacing the earlier rounded-
+   corner "nub" that read as two separate shapes stuck together rather
+   than one continuous stem. stroke/fill use currentColor on the SVG
+   itself, so this automatically matches whichever color (green bid /
+   red pass) the badge is currently showing -- no separate pass-colored
+   variant needed here, unlike the old shape. Positioned near whichever
+   edge of the badge faces the avatar, same per-direction logic as
+   before; rotation angles below were computed from an actual
+   coordinate calculation for THIS specific SVG's own default pointing
+   direction (bottom-right), not reused from the previous shape's
+   different default. */
+.avatar .call-badge-tail{position:absolute;pointer-events:none;transform-origin:center}
+.avatar .call-badge.call-badge-n .call-badge-tail{top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg)}
+.avatar .call-badge.call-badge-s .call-badge-tail{bottom:100%;left:50%;transform:translate(-50%,6px) rotate(-135deg)}
+.avatar .call-badge.call-badge-e .call-badge-tail{top:50%;right:100%;transform:translate(6px,-50%) rotate(135deg)}
+.avatar .call-badge.call-badge-w .call-badge-tail{top:50%;left:100%;transform:translate(-6px,-50%) rotate(-45deg)}
 .avatar .call-badge.call-badge-pass{
   background:linear-gradient(180deg,#241010,#100505);
   border-color:#ef4444;color:#ef4444;
   box-shadow:0 2px 6px rgba(0,0,0,0.6),0 0 8px rgba(239,68,68,0.4);
   text-shadow:0 0 5px rgba(239,68,68,0.6);
 }
-.avatar .call-badge.call-badge-pass::after{background:#100505;border-color:#ef4444}
 /* Top seat (pos0) and bottom/"me" seat (pos3) sit in their own tight,
    full-width grid rows directly bordering the table's center play area.
    Per explicit correction with a screenshot proving it: found the real
@@ -756,13 +755,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    guarantees ITS bottom edge sits Npx clear of the avatar's top,
    however tall the badge itself turns out to be. */
 .avatar .call-badge.call-badge-n{top:auto;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%)}
-.avatar .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-4px) rotate(-45deg)}
 .avatar .call-badge.call-badge-s{top:calc(100% + 8px);bottom:auto;left:50%;transform:translateX(-50%)}
-.avatar .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,4px) rotate(135deg)}
 .avatar .call-badge.call-badge-e{top:50%;left:calc(100% + 4px);right:auto;bottom:auto;transform:translateY(-50%)}
-.avatar .call-badge.call-badge-e::after{top:50%;left:-4px;bottom:auto;transform:translateY(-50%) rotate(45deg)}
 .avatar .call-badge.call-badge-w{top:50%;right:calc(100% + 4px);left:auto;bottom:auto;transform:translateY(-50%)}
-.avatar .call-badge.call-badge-w::after{top:50%;right:-4px;left:auto;bottom:auto;transform:translateY(-50%) rotate(225deg)}
 @keyframes callBadgePop4p{
   0%{opacity:0;transform:translateX(-50%) scale(0.4) translateY(8px)}
   55%{opacity:1;transform:translateX(-50%) scale(1.22) translateY(-4px)}
@@ -5910,9 +5905,21 @@ function updateCallBadge4p(pos, bid, seq) {
   if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
   if (callEl.dataset.v !== label) {
     callEl.dataset.v = label;
-    callEl.innerHTML = flavor
+    // Per explicit instruction with a reference image: a real curling
+    // "swoosh" stem ending in a small arrowhead, not the earlier
+    // rounded-corner "nub" touching the bubble -- that read as two
+    // separate shapes stuck together rather than one continuous stem.
+    // An actual smooth curve like this needs a real path, which plain
+    // CSS border-radius tricks can't produce -- built as an inline SVG
+    // instead, using stroke/fill="currentColor" so it automatically
+    // matches whichever color (green bid / red pass) the badge itself
+    // is currently showing, without needing two separate hardcoded
+    // SVGs. Positioned and rotated by .call-badge-tail's own CSS per
+    // direction, same verified-angle approach as the shape it replaced.
+    const tailSvg = '<svg class="call-badge-tail" viewBox="0 0 30 24" width="20" height="16"><path d="M5 2 C5 14, 16 16, 23 19" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M23 19 L14 17 L18 12 Z" fill="currentColor"/></svg>';
+    callEl.innerHTML = (flavor
       ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
-      : `<div class="call-badge-header">${header}</div>`;
+      : `<div class="call-badge-header">${header}</div>`) + tailSvg;
   }
 }
 function clearCallBadges4p() {

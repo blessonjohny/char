@@ -2056,15 +2056,14 @@ function renderSeats(state) {
       if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
       if (callEl.dataset.v !== label) {
         callEl.dataset.v = label;
-        // innerHTML with the header in its own bold line and the flavor
-        // text right below, rather than textContent -- plain textContent
-        // would need white-space:pre-line for a \n to actually render as
-        // a line break, and this reads more clearly as two distinct
-        // lines (a bold "Pass"/"Bid 17" header, a lighter flavor line
-        // under it) than one plain wrapped block of text would.
-        callEl.innerHTML = flavor
+        // Per explicit instruction with a reference image: a real
+        // curling "swoosh" stem ending in a small arrowhead, same SVG
+        // as index.html's identical rule -- see there for the full
+        // reasoning.
+        const tailSvg = '<svg class="call-badge-tail" viewBox="0 0 30 24" width="20" height="16"><path d="M5 2 C5 14, 16 16, 23 19" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M23 19 L14 17 L18 12 Z" fill="currentColor"/></svg>';
+        callEl.innerHTML = (flavor
           ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
-          : `<div class="call-badge-header">${header}</div>`;
+          : `<div class="call-badge-header">${header}</div>`) + tailSvg;
       }
     } else if (callEl) { callEl.remove(); }
   }
