@@ -1766,13 +1766,14 @@ const CALL_BADGE_DIR = ['n', 'nw', 'sw', 's', 'se', 'ne'];
 // reasoning. The oval portion is byte-for-byte identical in all six;
 // only the tail portion differs, computed programmatically and each
 // one actually rendered and visually verified before use.
+// Per explicit instruction: no tail/arrow at all - the oval alone is enough. Every direction
+// key still exists (so the positioning CSS classes and JS lookups elsewhere don't need to
+// change), they just all point at the identical plain-oval path now instead of six different
+// tail shapes.
+const OVAL_ONLY_PATH = "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z";
 const CALL_BADGE_PATHS = {
-  n: "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z M 60.0,58.0 Q 78.0,78.0 50.0,108.0 Q 44.0,80.0 42.0,58.0 Z",
-  ne: "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z M 39.4,57.7 Q 31.1,83.2 -8.9,74.0 Q 12.4,54.8 30.4,42.1 Z",
-  se: "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z M 29.4,39.7 Q 3.1,45.2 -8.9,6.0 Q 18.4,14.8 38.4,24.1 Z",
-  s: "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z M 40.0,22.0 Q 22.0,2.0 50.0,-28.0 Q 56.0,0.0 58.0,22.0 Z",
-  sw: "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z M 60.6,22.3 Q 68.9,-3.2 108.9,6.0 Q 87.6,25.2 69.6,37.9 Z",
-  nw: "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z M 70.6,40.3 Q 96.9,34.8 108.9,74.0 Q 81.6,65.2 61.6,55.9 Z",
+  n: OVAL_ONLY_PATH, ne: OVAL_ONLY_PATH, se: OVAL_ONLY_PATH,
+  s: OVAL_ONLY_PATH, sw: OVAL_ONLY_PATH, nw: OVAL_ONLY_PATH,
 };
 
 const SEAT_POS = [
