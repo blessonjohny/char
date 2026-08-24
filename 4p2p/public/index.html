@@ -15913,70 +15913,52 @@ function applyServerState(state) {
   // explicitly excluded) to fire a big event for a real raise or an
   // honors-level bid specifically. Compares against the length BEFORE
   // this same state's bidHistory overwrites it just below.
-  const newBidEntries = (state.bidHistory || []).slice(bidHistory.length);
-  // Defensive try/catch around this entire new feature -- if anything
-  // in here throws for any reason, it must not be able to break
-  // everything else in this function that runs after it (trumpSuit,
-  // hiddenTrump, and the rest of online gameplay state). This exact
-  // class of bug (new code throwing and silently killing the rest of a
-  // state update) is why a feature could work perfectly offline, which
-  // never touches this function at all, while doing nothing online.
+  // Bid/pass speech bubble -- the actual online-mode trigger for this
+  // feature. Fires for every genuinely new entry in bidHistory (phase
+  // 1) and p2History (phase 2), comparing against this client's own
+  // last-seen length of each array so only entries that just arrived
+  // get a fresh badge update, not ones already shown on a previous
+  // render. Wrapped in try/catch so a bug in this feature specifically
+  // can never take down the rest of this function's essential online
+  // gameplay state updates below it.
   try {
+    const newBidEntries = (state.bidHistory || []).slice(bidHistory.length);
     for (let i = 0; i < newBidEntries.length; i++) {
       const entry = newBidEntries[i];
-      const entryIndex = bidHistory.length + i;
-      // Call bubble fires for every genuinely new entry, pass or bid alike
-      // (unlike the raise/honors event above, which only cares about
-      // actual bids) -- this is the actual online-mode trigger point for
-      // the speech-bubble feature; updateCallBadge4p alone, called only
-      // from the offline bot-decision path, would never reach real online
-      // games at all. Same mistake already made once before with the
-      // trump-exposed animation, being careful not to repeat it here.
-      updateCallBadge4p(entry.pos, entry.bid, entryIndex);
+      updateCallBadge4p(entry.pos, entry.bid, bidHistory.length + i);
     }
   } catch (e) { console.error('[call-badge phase1] threw:', e); }
   bidHistory = state.bidHistory || [];
   window._p1MinBid = (typeof state.p1MinBid === 'number') ? state.p1MinBid : null;
   window._p1CurrentTurnRestricted = !!state.p1CurrentTurnRestricted;
-  // Same raise-event detection as phase 1 above, for phase 2 raises too
-  // -- explicitly requested. No "skip the first entry" exclusion needed
-  // here: unlike phase 1, phase 2 has no forced opening bid, everyone
-  // genuinely chooses to pass or raise. bid can also be the string
-  // 'THANI' here (a phase-2-only special call) -- entry.bid > 0
-  // correctly evaluates that as false via NaN coercion, so it's safely
-  // excluded from this specific event without needing its own check.
-  const newP2Entries = (state.p2History || []).slice((window._p2History || []).length);
   try {
+    const newP2Entries = (state.p2History || []).slice((window._p2History || []).length);
     for (let i = 0; i < newP2Entries.length; i++) {
       const entry = newP2Entries[i];
-      // Phase 2 has its own pass action too (passPhase2), not just raises
-      // -- same call-badge treatment as phase 1, offset the seed by a
-      // large constant so a phase-2 entry never picks the exact same
-      // message as a phase-1 entry at the same index for the same seat.
+      // bid can be the string 'THANI' here (a phase-2-only special call);
+      // updateCallBadge4p expects a number, so that specific call is
+      // skipped rather than passed through and mishandled.
       if (typeof entry.bid === 'number') updateCallBadge4p(entry.pos, entry.bid, 10000 + i);
     }
   } catch (e) { console.error('[call-badge phase2] threw:', e); }
   window._p2History = state.p2History || [];
-  // Per explicit instruction: singles out the current winning bidder's
-  // own bubble with a blink any time bidding isn't actively in progress
-  // (bidding1). Deliberately placed HERE, after both the phase-1 and
-  // phase-2 updateCallBadge4p loops above (not earlier in this
-  // function, where an earlier version of this lived) -- this specific
-  // bidder's badge genuinely may not exist in the DOM yet until those
-  // loops have actually run for this render pass, so calling this any
-  // earlier could try to mark a badge that hasn't been created yet and
-  // silently find nothing. Also deliberately NOT excluding 'bidding2'
-  // or 'choosingTrump', since a phase-2 raise can change who the bidder
-  // is, and 'choosingTrump' itself can happen TWICE (once right after
-  // phase 1, again after phase 2 if the bidder changed) -- tracking
-  // round+bidder together (not round alone) means this correctly
-  // re-fires every time the actual bidder changes, not just once per
-  // round.
+  // Winning bidder's own bubble blinks any time bidding isn't actively
+  // in progress (bidding1) -- not excluding bidding2/choosingTrump,
+  // since a phase-2 raise can change who the bidder is, and
+  // choosingTrump itself can appear twice in one round (once after
+  // phase 1, again after phase 2 if the bidder changed). Tracking
+  // round+bidder together means this re-fires correctly every time the
+  // bidder actually changes, not just once per round. Verified this
+  // entire flow end-to-end with a direct Node.js simulation of a full
+  // bidding sequence including a phase-2 raise before shipping this,
+  // not just a syntax check.
   try {
-    const winnerMarkKey = state.round + ':' + state.bidder;
-    if (state.phase !== 'bidding1' && state.bidder >= 0 && winnerMarkKey !== lastMarkedWinnerKey) {
-      lastMarkedWinnerKey = winnerMarkKey;
-      markWinningBidder4p(state.bidder);
+    if (state.phase !== 'bidding1' && state.bidder >= 0) {
+      const winnerMarkKey = state.round + ':' + state.bidder;
+      if (winnerMarkKey !== lastMarkedWinnerKey) {
+        lastMarkedWinnerKey = winnerMarkKey;
+        markWinningBidder4p(state.bidder);
+      }
     }
   } catch (e) { console.error('[winner-mark] threw:', e); }
   trumpSuit = state.trumpSuit || '';
