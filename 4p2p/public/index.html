@@ -15918,14 +15918,23 @@ function applyServerState(state) {
   // 1) and p2History (phase 2), comparing against this client's own
   // last-seen length of each array so only entries that just arrived
   // get a fresh badge update, not ones already shown on a previous
-  // render. Wrapped in try/catch so a bug in this feature specifically
-  // can never take down the rest of this function's essential online
-  // gameplay state updates below it.
+  // render. The actual updateCallBadge4p/markWinningBidder4p DOM calls
+  // are deliberately NOT made here -- only queued into
+  // window._pendingCallBadgeUpdates -- because setupOnlineTable() runs
+  // later in this same function and directly overwrites every avatar's
+  // innerHTML (see its own definition), which would silently destroy
+  // any badge added before it ran. This was the actual, confirmed root
+  // cause of the badges never visibly appearing online at all: they
+  // were being created and destroyed within the same synchronous
+  // function call, before the browser ever painted a frame in between.
+  // The real DOM updates happen in a later block, right after
+  // setupOnlineTable() has already rebuilt the avatars fresh.
+  window._pendingCallBadgeUpdates = [];
   try {
     const newBidEntries = (state.bidHistory || []).slice(bidHistory.length);
     for (let i = 0; i < newBidEntries.length; i++) {
       const entry = newBidEntries[i];
-      updateCallBadge4p(entry.pos, entry.bid, bidHistory.length + i);
+      window._pendingCallBadgeUpdates.push([entry.pos, entry.bid, bidHistory.length + i]);
     }
   } catch (e) { console.error('[call-badge phase1] threw:', e); }
   bidHistory = state.bidHistory || [];
@@ -15938,7 +15947,7 @@ function applyServerState(state) {
       // bid can be the string 'THANI' here (a phase-2-only special call);
       // updateCallBadge4p expects a number, so that specific call is
       // skipped rather than passed through and mishandled.
-      if (typeof entry.bid === 'number') updateCallBadge4p(entry.pos, entry.bid, 10000 + i);
+      if (typeof entry.bid === 'number') window._pendingCallBadgeUpdates.push([entry.pos, entry.bid, 10000 + i]);
     }
   } catch (e) { console.error('[call-badge phase2] threw:', e); }
   window._p2History = state.p2History || [];
@@ -15948,16 +15957,16 @@ function applyServerState(state) {
   // choosingTrump itself can appear twice in one round (once after
   // phase 1, again after phase 2 if the bidder changed). Tracking
   // round+bidder together means this re-fires correctly every time the
-  // bidder actually changes, not just once per round. Verified this
-  // entire flow end-to-end with a direct Node.js simulation of a full
-  // bidding sequence including a phase-2 raise before shipping this,
-  // not just a syntax check.
+  // bidder actually changes, not just once per round. Also deferred
+  // (window._pendingWinnerMark) for the identical reason as the badge
+  // updates above.
+  window._pendingWinnerMark = null;
   try {
     if (state.phase !== 'bidding1' && state.bidder >= 0) {
       const winnerMarkKey = state.round + ':' + state.bidder;
       if (winnerMarkKey !== lastMarkedWinnerKey) {
         lastMarkedWinnerKey = winnerMarkKey;
-        markWinningBidder4p(state.bidder);
+        window._pendingWinnerMark = state.bidder;
       }
     }
   } catch (e) { console.error('[winner-mark] threw:', e); }
@@ -16028,6 +16037,17 @@ function applyServerState(state) {
   if (document.getElementById('hostMenuOverlay').classList.contains('on')) renderHostMenuPlayerList();
 
   setupOnlineTable();
+  // Actual DOM application of the call-badge updates queued way above
+  // (window._pendingCallBadgeUpdates/_pendingWinnerMark) -- run HERE,
+  // immediately after setupOnlineTable() rebuilds every avatar's own
+  // innerHTML fresh, since doing this any earlier meant setupOnlineTable()
+  // would immediately wipe out whatever badge had just been added,
+  // every single time, before it could ever actually be seen. This was
+  // the real, confirmed root cause of the badges never appearing online.
+  try {
+    (window._pendingCallBadgeUpdates || []).forEach(([pos, bid, seq]) => updateCallBadge4p(pos, bid, seq));
+    if (window._pendingWinnerMark !== null && window._pendingWinnerMark !== undefined) markWinningBidder4p(window._pendingWinnerMark);
+  } catch (e) { console.error('[call-badge apply] threw:', e); }
   updateTeamLabels();
   updateInfo();
   updatePhase();
