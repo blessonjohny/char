@@ -1691,6 +1691,69 @@ const SLOT_POS = [
 // those were carefully tuned for a verified zero-overlap layout, and piggybacking this change
 // onto the same source array would have silently disturbed that. Left/right seats only (0/3,
 // the top/bottom seats, stay put - there's no unused horizontal margin for them to use).
+// Randomized, personality-filled things a seat "says" when they pass or
+// bid, instead of just the flat "Pass"/"Bid 17" label. {bid} gets
+// replaced with the actual number for messages that reference it -- not
+// every bid message needs to, some are just attitude with no number.
+const PASS_MESSAGES = [
+  "Crappy hands, pass.", "What's goin on with my hands...", "All day no hands.",
+  "Nothing here, pass.", "Not today.", "I fold on this one.",
+  "My cards hate me.", "Pass, pass, pass.", "Zero help in this hand.",
+  "Can't work with this.", "Skip me.", "Rough draw this round.",
+  "I got nothing, pass.", "Not my hand.", "Pass — save myself.",
+  "Dead cards, pass.", "No trump for me here.", "I'll sit this one out.",
+  "Weak hand, no bid.", "Pass, try me next round.", "This hand's a mess.",
+  "Nothing worth bidding.", "I'm out.", "Cards are cold today.",
+  "No shot with this.", "Pass — nothing to work with.", "Empty hand, pass.",
+  "Not gonna risk it.", "I'll wait it out.", "Pass, my luck's off.",
+  "Bad cut today.", "Can't do anything with this.", "Not strong enough, pass.",
+  "I'm folding this hand.", "No points in sight.", "Pass — better luck next deal.",
+  "This hand's cursed.", "No support here, pass.", "Nothing to bid on.",
+  "I'll let it go.", "Pass, whole hand's off-suit.", "My hand's a disaster.",
+  "No good, pass.", "I need better cards than this.", "Pass — this one's not mine.",
+  "Not touching this hand."
+];
+
+const BID_MESSAGES = [
+  "Bid {bid}, I raise u.", "I reraise u.", "Honors, let's go!",
+  "I'm taking a chance — {bid}.", "Bid minimum this time.", "{bid}, watch me.",
+  "I'll push it to {bid}.", "Going for it — {bid}.", "{bid} and I mean it.",
+  "Let's raise — {bid}.", "I got this — {bid}.", "Feeling good, {bid}.",
+  "{bid}, try and beat that.", "I'm not backing down — {bid}.", "Strong hand, {bid}.",
+  "{bid}, take it or leave it.", "Raising to {bid}.", "I'll call {bid}.",
+  "Going big — {bid}.", "{bid}, no fear.", "This hand's mine — {bid}.",
+  "I like my chances, {bid}.", "{bid} — trust me.", "Bidding {bid}, let's see it.",
+  "I'm confident — {bid}.", "{bid}, come at me.", "Solid cards, {bid}.",
+  "Pushing to {bid}.", "{bid}, easy pick.", "I'll take it up to {bid}.",
+  "Not folding — {bid}.", "{bid}, this hand's loaded.", "I see an opening, {bid}.",
+  "Locked in — {bid}.", "{bid}, my hand's ready.", "Calling it — {bid}.",
+  "I raise it up — {bid}.", "{bid}, let's make it interesting.", "Feeling lucky, {bid}.",
+  "I'm in — {bid}.", "{bid}, no hesitation.", "Taking the lead — {bid}.",
+  "{bid}, I mean business.", "Going for the win — {bid}.", "I'll bet on this — {bid}.",
+  "{bid}, all in on this hand."
+];
+
+// A simple deterministic hash of (seat position + which bid-in-the-
+// sequence this is + the bid value itself) picks the same message every
+// time this exact call gets re-rendered, instead of re-rolling a fresh
+// random pick on every state update -- otherwise the text would visibly
+// flicker between different lines each time the table re-renders while
+// this same bubble is still showing.
+function pickCallMessage(pool, pos, seq, bid) {
+  const seed = pos * 7919 + seq * 104729 + bid * 31;
+  const idx = Math.abs(seed) % pool.length;
+  return pool[idx].replace(/\{bid\}/g, bid);
+}
+
+// Which compass direction each seat's call-badge should be offset
+// toward, computed from that seat's own actual SEAT_POS coordinates
+// (see below) relative to the table's center -- seat 0 sits due south
+// of center so its bubble goes north (above) pointing back down at it,
+// seat 1 sits southeast of center so its bubble goes northwest, and so
+// on. Replaces the old two-way (above seats 0/1/5, below seats 2/3/4)
+// split with a direction for every seat individually.
+const CALL_BADGE_DIR = ['n', 'nw', 'sw', 's', 'se', 'ne'];
+
 const SEAT_POS = [
   { left: '50%', top: '78%' },   // 0 me
   { left: '90%', top: '68%' },   // 1 - moved right, was 82%
@@ -1951,20 +2014,37 @@ function renderSeats(state) {
     // card of the round actually lands.
     const nobodyHasPlayedYet = (state.tricksPlayed || 0) === 0 && (!state.trickCards || state.trickCards.length === 0);
     const showCalls = state.phase === 'bidding1' || state.phase === 'choosingTrump' || (state.phase === 'play' && nobodyHasPlayedYet);
-    const lastCall = showCalls && state.bidHistory ? [...state.bidHistory].reverse().find(h => h.pos === pos) : null;
+    const lastCallIdx = showCalls && state.bidHistory ? state.bidHistory.map((h,i)=>({h,i})).reverse().find(x => x.h.pos === pos) : null;
+    const lastCall = lastCallIdx ? lastCallIdx.h : null;
     if (lastCall && !isFolded) {
       const isPass = lastCall.bid === 0;
-      const label = isPass ? 'Pass' : ('Bid ' + (lastCall.bid >= 29 ? 'Thani' : lastCall.bid));
+      const isThani = lastCall.bid >= 29;
+      // Per explicit instruction: a randomized, personality-filled line
+      // instead of the flat "Pass"/"Bid 17" label -- Thani stays its own
+      // fixed line rather than being folded into the regular bid pool,
+      // since a random attitude line built around a plain number would
+      // read strangely for this specific, special call ("Bid 29, I raise
+      // u" makes no sense for Thani). Seeded off this bid's own position
+      // in bidHistory (lastCallIdx.i) so the exact same message keeps
+      // showing every re-render of this same call, not a new random pick
+      // each time.
+      const label = isThani ? 'Bid Thani!' : isPass
+        ? pickCallMessage(PASS_MESSAGES, pos, lastCallIdx.i, 0)
+        : pickCallMessage(BID_MESSAGES, pos, lastCallIdx.i, lastCall.bid);
       if (!callEl) { callEl = document.createElement('div'); callEl.className = 'call-badge'; wrap.appendChild(callEl); }
+      // Per explicit instruction: each seat's bubble is now offset
+      // toward the table from that seat's own specific position around
+      // the oval (see CALL_BADGE_DIR above), not just a simple two-way
+      // above/below split. Combined into the same className string as
+      // the pass/bid color so both apply in one assignment -- but only
+      // written when something's actually different from last render
+      // (dataset.cls), same guard already used for the text content
+      // just below, so this doesn't reassign className (and restart the
+      // pop-in animation) on every single re-render while the same call
+      // is still showing.
+      const cls = 'call-badge' + (isPass ? ' call-badge-pass' : '') + ' call-badge-' + CALL_BADGE_DIR[slot];
+      if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
       if (callEl.dataset.v !== label) { callEl.dataset.v = label; callEl.textContent = label; }
-      callEl.classList.toggle('call-badge-pass', isPass);
-      // Top-half seats (slots 2/3/4 - top-right, top, top-left) sit close enough to the
-      // screen edge that a badge positioned above the avatar the same way every other seat's
-      // is would push it off-screen, under the top bar. Those three instead get the badge
-      // rendered below the avatar with its pointer flipped to aim upward at it - every seat's
-      // badge points at its own avatar and stays fully on-screen, rather than one fixed
-      // direction applied uniformly regardless of where that seat actually sits on the table.
-      callEl.classList.toggle('call-badge-below', slot === 2 || slot === 3 || slot === 4);
     } else if (callEl) { callEl.remove(); }
   }
 }

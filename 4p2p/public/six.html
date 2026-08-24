@@ -319,16 +319,24 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   background:linear-gradient(180deg,#0a1f0f,#051008);
   border:2px solid #4ade80;
   color:#4ade80;
-  border-radius:14px;padding:6px 14px;font-size:0.95rem;font-weight:900;
+  border-radius:14px;padding:6px 14px;font-size:0.82rem;font-weight:900;
   font-family:'Cinzel','Playfair Display',serif;
-  white-space:nowrap;z-index:6;
+  max-width:150px;white-space:normal;text-align:center;line-height:1.25;z-index:6;
   box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(74,222,128,0.4);
   animation:callBadgePop 0.4s cubic-bezier(0.34,1.56,0.64,1);
   text-shadow:0 0 8px rgba(74,222,128,0.6);
 }
+/* Semicircle-style speech-bubble tail -- a small rounded nub instead of
+   a sharp comic-strip triangle, per explicit instruction. A single
+   half-circle (border-radius on 3 corners only, one corner square)
+   rotated to face whichever direction that seat's bubble is offset in,
+   so it reads as "growing out of" the bubble toward the avatar rather
+   than a generic arrow shape. */
 .seat .call-badge::after{
-  content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
-  border:7px solid transparent;border-top-color:#051008;
+  content:'';position:absolute;width:14px;height:14px;
+  background:#051008;border:2px solid #4ade80;
+  border-radius:0 100% 100% 100%;
+  top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg);
 }
 /* Red for a pass, green for an actual bid - a clear, immediately-readable color code rather
    than everything sharing one gold tone regardless of what was actually said. */
@@ -338,16 +346,28 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(239,68,68,0.4);
   text-shadow:0 0 8px rgba(239,68,68,0.6);
 }
-.seat .call-badge.call-badge-pass::after{border-top-color:#100505}
-/* Top-half seats (top-left/top/top-right) get the badge rendered below the avatar instead of
-   above it - "above" for those three would push the badge off-screen, under the top bar,
-   since they already sit close to the screen edge. Flips both the position and the pointer
-   triangle so it still visibly connects to (and points at) its own avatar either way. */
-.seat .call-badge.call-badge-below{top:auto;bottom:-34px}
-.seat .call-badge.call-badge-below::after{
-  top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:#051008;
-}
-.seat .call-badge.call-badge-below.call-badge-pass::after{border-bottom-color:#100505}
+.seat .call-badge.call-badge-pass::after{background:#100505;border-color:#ef4444}
+/* Six directional variants, one per seat, replacing the old simple
+   above/below split -- per explicit instruction, each seat's bubble now
+   sits toward the table/rail from that seat's own actual position
+   around the oval (computed from SEAT_POS in six.js: seat 0 bottom-
+   center, 1 bottom-right, 2 top-right, 3 top-center, 4 top-left, 5
+   bottom-left), with the tail rotated to still visibly point back at
+   its own avatar from whichever direction the bubble ends up in,
+   instead of one fixed pointer direction used everywhere regardless of
+   where that seat actually sits. */
+.seat .call-badge.call-badge-n{top:-34px;left:50%;transform:translateX(-50%)}
+.seat .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg)}
+.seat .call-badge.call-badge-s{top:auto;bottom:-34px;left:50%;transform:translateX(-50%)}
+.seat .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,6px) rotate(225deg)}
+.seat .call-badge.call-badge-nw{top:-22px;left:auto;right:46px;transform:none}
+.seat .call-badge.call-badge-nw::after{top:auto;bottom:-4px;left:auto;right:-4px;transform:rotate(135deg)}
+.seat .call-badge.call-badge-sw{top:auto;bottom:-22px;left:auto;right:46px;transform:none}
+.seat .call-badge.call-badge-sw::after{top:-4px;bottom:auto;left:auto;right:-4px;transform:rotate(-135deg)}
+.seat .call-badge.call-badge-se{top:auto;bottom:-22px;left:46px;transform:none}
+.seat .call-badge.call-badge-se::after{top:-4px;bottom:auto;left:-4px;right:auto;transform:rotate(-45deg)}
+.seat .call-badge.call-badge-ne{top:-22px;left:46px;transform:none}
+.seat .call-badge.call-badge-ne::after{top:auto;bottom:-4px;left:-4px;right:auto;transform:rotate(45deg)}
 /* A bit more drama for the first half-second a badge appears - a quick overshoot pop plus a
    brief glow ring, rather than the previous version's much smaller, easy-to-miss fade. This
    is meant to be the moment a player "speaks" at the table, per the request, and needed to
