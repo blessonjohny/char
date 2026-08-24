@@ -326,6 +326,15 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   animation:callBadgePop 0.4s cubic-bezier(0.34,1.56,0.64,1);
   text-shadow:0 0 8px rgba(74,222,128,0.6);
 }
+/* Per explicit instruction: the plain "Pass"/"Bid 17" always comes
+   first as its own bold line, with the random flavor line right below
+   it -- rather than blending the number into the middle of a flavor
+   sentence. The header inherits the badge's own green/red color (set
+   via currentColor) so it still reads as the same pass/bid color-coded
+   pill; the flavor line is deliberately a bit smaller and slightly
+   dimmer so the header stays the visually dominant line. */
+.seat .call-badge-header{font-size:1rem;font-weight:900;color:currentColor}
+.seat .call-badge-flavor{font-size:0.72rem;font-weight:700;opacity:0.85;margin-top:1px;color:#fff;text-shadow:none}
 /* Semicircle-style speech-bubble tail -- a small rounded nub instead of
    a sharp comic-strip triangle, per explicit instruction. A single
    half-circle (border-radius on 3 corners only, one corner square)

@@ -1696,41 +1696,40 @@ const SLOT_POS = [
 // replaced with the actual number for messages that reference it -- not
 // every bid message needs to, some are just attitude with no number.
 const PASS_MESSAGES = [
-  "Crappy hands, pass.", "What's goin on with my hands...", "All day no hands.",
-  "Nothing here, pass.", "Not today.", "I fold on this one.",
-  "My cards hate me.", "Pass, pass, pass.", "Zero help in this hand.",
+  "Crappy hands.", "What's goin on with my hands...", "All day no hands.",
+  "Nothing here.", "Not today.", "I fold on this one.",
+  "My cards hate me.", "No, no, no.", "Zero help in this hand.",
   "Can't work with this.", "Skip me.", "Rough draw this round.",
-  "I got nothing, pass.", "Not my hand.", "Pass — save myself.",
-  "Dead cards, pass.", "No trump for me here.", "I'll sit this one out.",
-  "Weak hand, no bid.", "Pass, try me next round.", "This hand's a mess.",
+  "I got nothing.", "Not my hand.", "Gotta save myself.",
+  "Dead cards.", "No trump for me here.", "I'll sit this one out.",
+  "Weak hand, no bid.", "Try me next round.", "This hand's a mess.",
   "Nothing worth bidding.", "I'm out.", "Cards are cold today.",
-  "No shot with this.", "Pass — nothing to work with.", "Empty hand, pass.",
-  "Not gonna risk it.", "I'll wait it out.", "Pass, my luck's off.",
-  "Bad cut today.", "Can't do anything with this.", "Not strong enough, pass.",
-  "I'm folding this hand.", "No points in sight.", "Pass — better luck next deal.",
-  "This hand's cursed.", "No support here, pass.", "Nothing to bid on.",
-  "I'll let it go.", "Pass, whole hand's off-suit.", "My hand's a disaster.",
-  "No good, pass.", "I need better cards than this.", "Pass — this one's not mine.",
+  "No shot with this.", "Nothing to work with.", "Empty hand.",
+  "Not gonna risk it.", "I'll wait it out.", "My luck's off.",
+  "Bad cut today.", "Can't do anything with this.", "Not strong enough.",
+  "Folding this hand.", "No points in sight.", "Better luck next deal.",
+  "This hand's cursed.", "No support here.", "Nothing to bid on.",
+  "I'll let it go.", "Whole hand's off-suit.", "My hand's a disaster.",
+  "No good here.", "I need better cards than this.", "This one's not mine.",
   "Not touching this hand."
 ];
-
 const BID_MESSAGES = [
-  "Bid {bid}, I raise u.", "I reraise u.", "Honors, let's go!",
-  "I'm taking a chance — {bid}.", "Bid minimum this time.", "{bid}, watch me.",
-  "I'll push it to {bid}.", "Going for it — {bid}.", "{bid} and I mean it.",
-  "Let's raise — {bid}.", "I got this — {bid}.", "Feeling good, {bid}.",
-  "{bid}, try and beat that.", "I'm not backing down — {bid}.", "Strong hand, {bid}.",
-  "{bid}, take it or leave it.", "Raising to {bid}.", "I'll call {bid}.",
-  "Going big — {bid}.", "{bid}, no fear.", "This hand's mine — {bid}.",
-  "I like my chances, {bid}.", "{bid} — trust me.", "Bidding {bid}, let's see it.",
-  "I'm confident — {bid}.", "{bid}, come at me.", "Solid cards, {bid}.",
-  "Pushing to {bid}.", "{bid}, easy pick.", "I'll take it up to {bid}.",
-  "Not folding — {bid}.", "{bid}, this hand's loaded.", "I see an opening, {bid}.",
-  "Locked in — {bid}.", "{bid}, my hand's ready.", "Calling it — {bid}.",
-  "I raise it up — {bid}.", "{bid}, let's make it interesting.", "Feeling lucky, {bid}.",
-  "I'm in — {bid}.", "{bid}, no hesitation.", "Taking the lead — {bid}.",
-  "{bid}, I mean business.", "Going for the win — {bid}.", "I'll bet on this — {bid}.",
-  "{bid}, all in on this hand."
+  "I raise u.", "I reraise u.", "Honors, let's go!",
+  "I'm taking a chance.", "Minimum this time.", "Watch me.",
+  "I'll push it.", "Going for it.", "And I mean it.",
+  "Let's raise.", "I got this.", "Feeling good.",
+  "Try and beat that.", "I'm not backing down.", "Strong hand.",
+  "Take it or leave it.", "Raising it up.", "I'll call it.",
+  "Going big.", "No fear.", "This hand's mine.",
+  "I like my chances.", "Trust me.", "Let's see it.",
+  "I'm confident.", "Come at me.", "Solid cards.",
+  "Pushing it.", "Easy pick.", "I'll take it up.",
+  "Not folding.", "This hand's loaded.", "I see an opening.",
+  "Locked in.", "My hand's ready.", "Calling it.",
+  "Bidding it up.", "Let's make it interesting.", "Feeling lucky.",
+  "I'm in.", "No hesitation.", "Taking the lead.",
+  "I mean business.", "Going for the win.", "I'll bet on this.",
+  "All in on this hand."
 ];
 
 // A simple deterministic hash of (seat position + which bid-in-the-
@@ -1742,7 +1741,7 @@ const BID_MESSAGES = [
 function pickCallMessage(pool, pos, seq, bid) {
   const seed = pos * 7919 + seq * 104729 + bid * 31;
   const idx = Math.abs(seed) % pool.length;
-  return pool[idx].replace(/\{bid\}/g, bid);
+  return pool[idx];
 }
 
 // Which compass direction each seat's call-badge should be offset
@@ -2019,18 +2018,21 @@ function renderSeats(state) {
     if (lastCall && !isFolded) {
       const isPass = lastCall.bid === 0;
       const isThani = lastCall.bid >= 29;
-      // Per explicit instruction: a randomized, personality-filled line
-      // instead of the flat "Pass"/"Bid 17" label -- Thani stays its own
-      // fixed line rather than being folded into the regular bid pool,
-      // since a random attitude line built around a plain number would
-      // read strangely for this specific, special call ("Bid 29, I raise
-      // u" makes no sense for Thani). Seeded off this bid's own position
-      // in bidHistory (lastCallIdx.i) so the exact same message keeps
-      // showing every re-render of this same call, not a new random pick
-      // each time.
-      const label = isThani ? 'Bid Thani!' : isPass
+      // Per explicit instruction: first line is always the plain, clear
+      // "Pass" or "Bid 17" -- the flavor line goes on its own line right
+      // below it, instead of blending the number into the middle of a
+      // sentence. Thani stays its own fixed line rather than picking a
+      // flavor line from the regular bid pool, since a random attitude
+      // line built around a plain number wouldn't read sensibly for
+      // this specific, special call. Seeded off this bid's own position
+      // in bidHistory (lastCallIdx.i) so the exact same flavor line
+      // keeps showing every re-render of this same call, not a new
+      // random pick each time.
+      const header = isThani ? 'Thani!' : isPass ? 'Pass' : 'Bid ' + lastCall.bid;
+      const flavor = isThani ? '' : isPass
         ? pickCallMessage(PASS_MESSAGES, pos, lastCallIdx.i, 0)
         : pickCallMessage(BID_MESSAGES, pos, lastCallIdx.i, lastCall.bid);
+      const label = header + (flavor ? '\n' + flavor : '');
       if (!callEl) { callEl = document.createElement('div'); callEl.className = 'call-badge'; wrap.appendChild(callEl); }
       // Per explicit instruction: each seat's bubble is now offset
       // toward the table from that seat's own specific position around
@@ -2044,7 +2046,18 @@ function renderSeats(state) {
       // is still showing.
       const cls = 'call-badge' + (isPass ? ' call-badge-pass' : '') + ' call-badge-' + CALL_BADGE_DIR[slot];
       if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
-      if (callEl.dataset.v !== label) { callEl.dataset.v = label; callEl.textContent = label; }
+      if (callEl.dataset.v !== label) {
+        callEl.dataset.v = label;
+        // innerHTML with the header in its own bold line and the flavor
+        // text right below, rather than textContent -- plain textContent
+        // would need white-space:pre-line for a \n to actually render as
+        // a line break, and this reads more clearly as two distinct
+        // lines (a bold "Pass"/"Bid 17" header, a lighter flavor line
+        // under it) than one plain wrapped block of text would.
+        callEl.innerHTML = flavor
+          ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
+          : `<div class="call-badge-header">${header}</div>`;
+      }
     } else if (callEl) { callEl.remove(); }
   }
 }

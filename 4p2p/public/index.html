@@ -672,6 +672,63 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   text-shadow:0 0 4px #000,0 0 8px #000,0 2px 3px rgba(0,0,0,0.9);
 }
 .pname{font-family:'Cinzel','Playfair Display',serif;font-size:0.62rem;font-weight:600;white-space:nowrap;text-align:center;max-width:92px;overflow:hidden;text-overflow:ellipsis;transition:color 0.3s ease;-webkit-text-stroke:0.6px rgba(255,255,255,0.9);text-shadow:0 1px 2px rgba(0,0,0,0.7);letter-spacing:0.6px}
+/* Bidding "call" bubble -- per explicit instruction, ported over from
+   the 6-player table's identical feature (see six.html for the fuller
+   original reasoning), which this table never had at all before now,
+   just the plain "Bid:17"/"Pass" text still set on #bid0-3 elsewhere.
+   Attached to .avatar (which already has position:relative) rather than
+   .pspot, so it positions relative to the avatar specifically. Only
+   four directions needed here (n/s/e/w) instead of six-player's six,
+   since 4-player only has four seats on plain cardinal sides of the
+   table: top seat's bubble goes south (below, toward the table center),
+   left seat's goes east, right seat's goes west, bottom/"me" seat's
+   goes north -- the opposite compass direction from where that seat
+   physically sits, so the bubble always leans toward the table/rail. */
+.avatar .call-badge{
+  position:absolute;top:-34px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(180deg,#0a1f0f,#051008);
+  border:2px solid #4ade80;
+  color:#4ade80;
+  border-radius:14px;padding:6px 14px;font-size:0.82rem;font-weight:900;
+  font-family:'Cinzel','Playfair Display',serif;
+  max-width:150px;white-space:normal;text-align:center;line-height:1.25;z-index:16;
+  box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(74,222,128,0.4);
+  animation:callBadgePop4p 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  text-shadow:0 0 8px rgba(74,222,128,0.6);
+}
+/* Per explicit instruction: the plain "Pass"/"Bid 17" always comes
+   first as its own bold line, with the random flavor line right below
+   it -- same two-line structure as six.html's identical rule, see
+   there for the fuller reasoning. */
+.avatar .call-badge-header{font-size:1rem;font-weight:900;color:currentColor}
+.avatar .call-badge-flavor{font-size:0.72rem;font-weight:700;opacity:0.85;margin-top:1px;color:#fff;text-shadow:none}
+.avatar .call-badge::after{
+  content:'';position:absolute;width:14px;height:14px;
+  background:#051008;border:2px solid #4ade80;
+  border-radius:0 100% 100% 100%;
+  top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg);
+}
+.avatar .call-badge.call-badge-pass{
+  background:linear-gradient(180deg,#241010,#100505);
+  border-color:#ef4444;color:#ef4444;
+  box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(239,68,68,0.4);
+  text-shadow:0 0 8px rgba(239,68,68,0.6);
+}
+.avatar .call-badge.call-badge-pass::after{background:#100505;border-color:#ef4444}
+.avatar .call-badge.call-badge-n{top:-34px;left:50%;transform:translateX(-50%)}
+.avatar .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg)}
+.avatar .call-badge.call-badge-s{top:auto;bottom:-34px;left:50%;transform:translateX(-50%)}
+.avatar .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,6px) rotate(225deg)}
+.avatar .call-badge.call-badge-e{top:50%;left:calc(100% + 12px);right:auto;bottom:auto;transform:translateY(-50%)}
+.avatar .call-badge.call-badge-e::after{top:50%;left:-4px;bottom:auto;transform:translateY(-50%) rotate(135deg)}
+.avatar .call-badge.call-badge-w{top:50%;right:calc(100% + 12px);left:auto;bottom:auto;transform:translateY(-50%)}
+.avatar .call-badge.call-badge-w::after{top:50%;right:-4px;left:auto;bottom:auto;transform:translateY(-50%) rotate(-45deg)}
+@keyframes callBadgePop4p{
+  0%{opacity:0;transform:translateX(-50%) scale(0.4) translateY(8px)}
+  55%{opacity:1;transform:translateX(-50%) scale(1.22) translateY(-4px)}
+  75%{transform:translateX(-50%) scale(0.94) translateY(0)}
+  100%{opacity:1;transform:translateX(-50%) scale(1) translateY(0)}
+}
 /* Instead of a separate "D" badge, the dealer's name itself turns gold and
    twinkles. The bidder's name turns red while the round is still in the
    dealing/bidding stage. Once the first trick of the round is won, that
@@ -5722,6 +5779,97 @@ function miniCardHtml(rank, suit) {
   return `<div class="game-event-minicard"><div class="mc-rank" style="color:${ink}">${rank}</div><div class="mc-suit" style="color:${ink}">${suit}</div></div>`;
 }
 
+// Randomized, personality-filled call-bubble messages -- identical
+// pools to six.js's own version, see there for the full reasoning.
+// Duplicated rather than shared via an import, matching this project's
+// existing pattern of index.html/six.js being separate standalone
+// files with no shared module system between them.
+const PASS_MESSAGES = [
+  "Crappy hands.", "What's goin on with my hands...", "All day no hands.",
+  "Nothing here.", "Not today.", "I fold on this one.",
+  "My cards hate me.", "No, no, no.", "Zero help in this hand.",
+  "Can't work with this.", "Skip me.", "Rough draw this round.",
+  "I got nothing.", "Not my hand.", "Gotta save myself.",
+  "Dead cards.", "No trump for me here.", "I'll sit this one out.",
+  "Weak hand, no bid.", "Try me next round.", "This hand's a mess.",
+  "Nothing worth bidding.", "I'm out.", "Cards are cold today.",
+  "No shot with this.", "Nothing to work with.", "Empty hand.",
+  "Not gonna risk it.", "I'll wait it out.", "My luck's off.",
+  "Bad cut today.", "Can't do anything with this.", "Not strong enough.",
+  "Folding this hand.", "No points in sight.", "Better luck next deal.",
+  "This hand's cursed.", "No support here.", "Nothing to bid on.",
+  "I'll let it go.", "Whole hand's off-suit.", "My hand's a disaster.",
+  "No good here.", "I need better cards than this.", "This one's not mine.",
+  "Not touching this hand."
+];
+const BID_MESSAGES = [
+  "I raise u.", "I reraise u.", "Honors, let's go!",
+  "I'm taking a chance.", "Minimum this time.", "Watch me.",
+  "I'll push it.", "Going for it.", "And I mean it.",
+  "Let's raise.", "I got this.", "Feeling good.",
+  "Try and beat that.", "I'm not backing down.", "Strong hand.",
+  "Take it or leave it.", "Raising it up.", "I'll call it.",
+  "Going big.", "No fear.", "This hand's mine.",
+  "I like my chances.", "Trust me.", "Let's see it.",
+  "I'm confident.", "Come at me.", "Solid cards.",
+  "Pushing it.", "Easy pick.", "I'll take it up.",
+  "Not folding.", "This hand's loaded.", "I see an opening.",
+  "Locked in.", "My hand's ready.", "Calling it.",
+  "Bidding it up.", "Let's make it interesting.", "Feeling lucky.",
+  "I'm in.", "No hesitation.", "Taking the lead.",
+  "I mean business.", "Going for the win.", "I'll bet on this.",
+  "All in on this hand."
+];
+function pickCallMessage(pool, pos, seq, bid) {
+  const seed = pos * 7919 + seq * 104729 + bid * 31;
+  const idx = Math.abs(seed) % pool.length;
+  return pool[idx];
+}
+// pos0=top (bubble south), pos1=left (bubble east), pos2=right (bubble
+// west), pos3=bottom/me (bubble north) -- see the CSS comment next to
+// .avatar .call-badge for the fuller reasoning.
+const CALL_BADGE_DIR_4P = ['s', 'e', 'w', 'n'];
+// Shared helper for both the offline bot-decision path and the online
+// server-state path, so the two can't drift into showing different
+// text/positioning for what should be the identical event. seq should
+// be this bid's own index within bidHistory (stable per-call seed, so
+// the same bubble keeps the same message on every re-render rather than
+// re-rolling). Thani gets its own fixed label rather than a random pick
+// built around a plain number, which wouldn't read sensibly for that
+// specific special call. Per explicit instruction: the plain "Pass"/
+// "Bid 17" is always the first, bold line, with the random flavor line
+// underneath it -- same two-line structure as six.js's identical
+// function, see there for the fuller reasoning.
+function updateCallBadge4p(pos, bid, seq) {
+  const slot = slotForPlayer(pos);
+  const av = document.getElementById('av' + slot);
+  if (!av) return;
+  let callEl = av.querySelector('.call-badge');
+  const isPass = bid === 0;
+  const isThani = bid >= 29;
+  const header = isThani ? 'Thani!' : isPass ? 'Pass' : 'Bid ' + bid;
+  const flavor = isThani ? '' : isPass
+    ? pickCallMessage(PASS_MESSAGES, pos, seq, 0)
+    : pickCallMessage(BID_MESSAGES, pos, seq, bid);
+  const label = header + (flavor ? '\n' + flavor : '');
+  if (!callEl) { callEl = document.createElement('div'); callEl.className = 'call-badge'; av.appendChild(callEl); }
+  const cls = 'call-badge' + (isPass ? ' call-badge-pass' : '') + ' call-badge-' + CALL_BADGE_DIR_4P[slot];
+  if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
+  if (callEl.dataset.v !== label) {
+    callEl.dataset.v = label;
+    callEl.innerHTML = flavor
+      ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
+      : `<div class="call-badge-header">${header}</div>`;
+  }
+}
+function clearCallBadges4p() {
+  for (let i = 0; i < 4; i++) {
+    const av = document.getElementById('av' + i);
+    const callEl = av && av.querySelector('.call-badge');
+    if (callEl) callEl.remove();
+  }
+}
+
 function showGameEvent(icon, title, detail, color) {
   const overlay = document.createElement('div');
   overlay.className = 'game-event-overlay';
@@ -8288,6 +8436,7 @@ function processBid(p, bid) {
     bidder = p;
     passes = 0;
     bidHistory.push({ pos: p, bid });
+    updateCallBadge4p(p, bid, bidHistory.length - 1);
     const bt = document.getElementById('bid' + slotForPlayer(p));
     if (bt) bt.textContent = 'Bid:' + bid;
     const name = playerAt(p) ? playerAt(p).name : 'Player';
@@ -8296,6 +8445,7 @@ function processBid(p, bid) {
   } else {
     passes++;
     bidHistory.push({ pos: p, bid: 0 });
+    updateCallBadge4p(p, 0, bidHistory.length - 1);
     const bt = document.getElementById('bid' + slotForPlayer(p));
     if (bt) bt.textContent = 'Pass';
     const name = playerAt(p) ? playerAt(p).name : 'Player';
@@ -8450,6 +8600,7 @@ function endBidding1() {
   const av = document.getElementById('av' + slotForPlayer(bidder));
   if (av) { av.classList.add('bid-winner-avatar'); av.classList.add('trick-win'); setTimeout(() => av.classList.remove('trick-win'), 600); }
   for (let i = 0; i < 4; i++) { const b = document.getElementById('bid' + i); if (b) b.textContent = ''; }
+  clearCallBadges4p();
   currentPlayer = bidder;
   awaitingTrumpChoice = true;
   if (bidder === MY_POS) setTimeout(() => showTrumpPanel(false), 400);
@@ -8902,6 +9053,7 @@ function endBidding2(x, canChange) {
     log('👑 Honors called — bid of ' + highestBid + ' by ' + bidderName + '. Win pays double, lose costs double.', 'win');
   }
   for (let i = 0; i < 4; i++) { const b = document.getElementById('bid' + i); if (b) b.textContent = ''; }
+  clearCallBadges4p();
   if (canChange && bidder === MY_POS) setTimeout(() => showTrumpPanel(true), 500);
   else setTimeout(() => startPlay(), 500);
 }
@@ -10254,6 +10406,7 @@ function continueNextRound() {
     if (tr) { tr.innerHTML = '🎯 <span style="color:var(--text-secondary)">Trump: Hidden</span>'; tr.classList.remove('trump-active'); }
     for (let i = 0; i < 4; i++) { const s = document.getElementById('slot' + i); if (s) s.innerHTML = ''; }
     for (let i = 0; i < 4; i++) { const b = document.getElementById('bid' + i); if (b) b.textContent = ''; }
+    clearCallBadges4p();
     // Without regenerating this, createDeck()'s seeded shuffle below reuses
     // the exact same seed from game start every round, producing the exact
     // same "shuffle" (and therefore the exact same hands) round after round.
@@ -10635,6 +10788,7 @@ function startGame() {
   if (tr) { tr.innerHTML = '🎯 <span style="color:var(--text-secondary)">Trump: Hidden</span>'; tr.classList.remove('trump-active'); }
   for (let i = 0; i < 4; i++) { const s = document.getElementById('slot' + i); if (s) s.innerHTML = ''; }
   for (let i = 0; i < 4; i++) { const b = document.getElementById('bid' + i); if (b) b.textContent = ''; }
+  clearCallBadges4p();
   updateLastTrick();
   // Generate seed for online games so all peers get identical decks
   if (IS_ONLINE && IS_HOST) {
@@ -15728,6 +15882,14 @@ function applyServerState(state) {
   for (let i = 0; i < newBidEntries.length; i++) {
     const entry = newBidEntries[i];
     const entryIndex = bidHistory.length + i;
+    // Call bubble fires for every genuinely new entry, pass or bid alike
+    // (unlike the raise/honors event above, which only cares about
+    // actual bids) -- this is the actual online-mode trigger point for
+    // the speech-bubble feature; updateCallBadge4p alone, called only
+    // from the offline bot-decision path, would never reach real online
+    // games at all. Same mistake already made once before with the
+    // trump-exposed animation, being careful not to repeat it here.
+    updateCallBadge4p(entry.pos, entry.bid, entryIndex);
     if (entry.bid > 0 && entryIndex > 0) {
       const bidderName = playerAt(entry.pos) ? playerAt(entry.pos).name : 'A player';
       if (entry.bid >= 20) showGameEvent('👑', 'Honors Bid', bidderName + ' — ' + entry.bid, '#f4c430');
@@ -15745,7 +15907,13 @@ function applyServerState(state) {
   // correctly evaluates that as false via NaN coercion, so it's safely
   // excluded from this specific event without needing its own check.
   const newP2Entries = (state.p2History || []).slice((window._p2History || []).length);
-  for (const entry of newP2Entries) {
+  for (let i = 0; i < newP2Entries.length; i++) {
+    const entry = newP2Entries[i];
+    // Phase 2 has its own pass action too (passPhase2), not just raises
+    // -- same call-badge treatment as phase 1, offset the seed by a
+    // large constant so a phase-2 entry never picks the exact same
+    // message as a phase-1 entry at the same index for the same seat.
+    if (typeof entry.bid === 'number') updateCallBadge4p(entry.pos, entry.bid, 10000 + i);
     if (entry.bid > 0) {
       const bidderName = playerAt(entry.pos) ? playerAt(entry.pos).name : 'A player';
       showGameEvent('📈', 'Raise', bidderName + ' — ' + entry.bid, '#4a90d9');
