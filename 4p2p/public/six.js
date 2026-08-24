@@ -2056,15 +2056,16 @@ function renderSeats(state) {
       if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
       if (callEl.dataset.v !== label) {
         callEl.dataset.v = label;
-        // Per explicit correction with a clean reference image: the
-        // bubble and tail are one unified closed path here, same as
-        // index.html's identical rule -- see there for the full
-        // reasoning (actually rendered and visually verified before
-        // use, not guessed blind).
-        const bgSvg = '<svg class="call-badge-bg" viewBox="0 0 100 80" preserveAspectRatio="none"><path d="M50,2 C 80,2 98,15 98,26 C 98,40 80,50 55,50 C 50,50 46,52 42,57 C 44,60 43,64 38,68 C 32,72 26,71 20,74 L 8,78 L 18,66 L 16,71 C 22,68 28,63 32,55 C 34,52 34,51 34,50 C 18,49 2,40 2,26 C 2,15 20,2 50,2 Z" fill="#0a1f0f" stroke="currentColor" stroke-width="2.2"/></svg>';
+        // Per explicit correction: back to a real CSS shape for the
+        // oval (auto-sizes to exactly match its own text content, zero
+        // distortion risk) paired with this small, independently-sized
+        // tail SVG, same as index.html's identical rule -- see there
+        // for the fuller reasoning behind reverting away from the
+        // single stretched combined-shape SVG.
+        const tailSvg = '<svg class="call-badge-tail" viewBox="0 0 20 24" width="16" height="19"><path d="M4 0 L12 0 C12 7, 10 11, 8 13 C6 11, 4 7, 4 0 Z" fill="currentColor"/><path d="M5 12 L11 12 L8 20 Z" fill="currentColor"/></svg>';
         callEl.innerHTML = (flavor
           ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
-          : `<div class="call-badge-header">${header}</div>`) + bgSvg;
+          : `<div class="call-badge-header">${header}</div>`) + tailSvg;
       }
     } else if (callEl) { callEl.remove(); }
   }
