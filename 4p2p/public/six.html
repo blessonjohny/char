@@ -319,7 +319,11 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   background:linear-gradient(180deg,#0a1f0f,#051008);
   border:1.5px solid #4ade80;
   color:#4ade80;
-  border-radius:9px;padding:3px 8px;font-size:0.56rem;font-weight:900;
+  /* Per explicit instruction with a hand-drawn reference (same as
+     index.html's identical rule): a rounded, organic "cloud" shape
+     instead of a rectangle with lightly-rounded corners. */
+  border-radius:42% 58% 68% 32% / 48% 42% 58% 52%;
+  padding:4px 9px;font-size:0.56rem;font-weight:900;
   font-family:'Cinzel','Playfair Display',serif;
   max-width:76px;white-space:normal;text-align:center;line-height:1.15;z-index:6;
   box-shadow:0 2px 8px rgba(0,0,0,0.6),0 0 10px rgba(74,222,128,0.4);
