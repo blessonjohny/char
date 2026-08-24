@@ -13,6 +13,27 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
+// Haptic-only feedback for this table - explicitly no sound engine here, per request. Same
+// pattern as the 4-player table's own vibrate()/playHaptic(), just without any of the Web
+// Audio API sound synthesis alongside it. navigator.vibrate doesn't exist at all on iOS
+// Safari (Apple has never implemented it) and is unsupported in some other browsers too -
+// both cases should silently do nothing rather than error, since this is a nice-to-have
+// enhancement, never a requirement.
+function vibrate(pattern) {
+  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+}
+const HAPTIC_PATTERNS = {
+  cardPlayed: 15,
+  trickWin: [20, 40, 20],
+  trickLose: 30,
+  bidConfirm: 12,
+  trumpExposed: [30, 60, 30, 60, 40],
+  yourTurn: [15, 30, 15],
+};
+function playHaptic(kind) {
+  const pattern = HAPTIC_PATTERNS[kind];
+  if (pattern) vibrate(pattern);
+}
 // True only for the one automatic reconnect attempt made on a fresh page
 // load when a recent session is found -- lets sixp_joinError show a
 // genuinely different, apologetic message for "the server was restarted
@@ -24,7 +45,7 @@ let isAutoReconnectAttempt6p = false;
 // player's choice carries over between tables instead of resetting.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = [...Array.from({length:24}, (_,i) => 'hero2f'+(i+1)), ...Array.from({length:24}, (_,i) => 'hero2m'+(i+1))];
+const ALL_AVATAR_KEYS = [...Array.from({length:36}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:64}, (_,i) => 'hero3m'+(i+1))];
 if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
 }
@@ -100,54 +121,107 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
 // per table. Static, never mood-reactive -- matches the 4-player table's
 // own approach exactly, not the mood-face system 56 has separately.
 const ALL_BOT_AVATARS_6P = [
-  {name:'Ancy',emoji:heroAvatarHtml('hero2f1'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Anjali',emoji:heroAvatarHtml('hero2f2'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Ajai',emoji:heroAvatarHtml('hero2m1'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Meera',emoji:heroAvatarHtml('hero2f3'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Alok',emoji:heroAvatarHtml('hero2m2'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Anup',emoji:heroAvatarHtml('hero2m3'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Appu',emoji:heroAvatarHtml('hero2m4'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Neha',emoji:heroAvatarHtml('hero2f4'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Arun',emoji:heroAvatarHtml('hero2m5'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Priya',emoji:heroAvatarHtml('hero2f5'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Reena',emoji:heroAvatarHtml('hero2f6'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Divya',emoji:heroAvatarHtml('hero2f7'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Benson',emoji:heroAvatarHtml('hero2m6'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Lakshmi',emoji:heroAvatarHtml('hero2f8'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Binchu',emoji:heroAvatarHtml('hero2m7'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Charlie',emoji:heroAvatarHtml('hero2m8'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Jerin',emoji:heroAvatarHtml('hero2m9'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Sarah',emoji:heroAvatarHtml('hero2f9'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Johny',emoji:heroAvatarHtml('hero2m10'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Nisha',emoji:heroAvatarHtml('hero2f10'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Koshy',emoji:heroAvatarHtml('hero2m11'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Deepa',emoji:heroAvatarHtml('hero2f11'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Elsa',emoji:heroAvatarHtml('hero2f12'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Nate',emoji:heroAvatarHtml('hero2m12'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Peter',emoji:heroAvatarHtml('hero2m13'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Maya',emoji:heroAvatarHtml('hero2f13'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Rahul',emoji:heroAvatarHtml('hero2m14'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Sherin',emoji:heroAvatarHtml('hero2f14'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Rajesh',emoji:heroAvatarHtml('hero2m15'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Randall',emoji:heroAvatarHtml('hero2m16'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Teena',emoji:heroAvatarHtml('hero2f15'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Renji',emoji:heroAvatarHtml('hero2m17'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Anu',emoji:heroAvatarHtml('hero2f16'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Roji',emoji:heroAvatarHtml('hero2m18'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Reshma',emoji:heroAvatarHtml('hero2f17'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Jisha',emoji:heroAvatarHtml('hero2f18'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Nimmy',emoji:heroAvatarHtml('hero2f19'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Roney',emoji:heroAvatarHtml('hero2m19'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Sanjay',emoji:heroAvatarHtml('hero2m20'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Shyam',emoji:heroAvatarHtml('hero2m21'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Beena',emoji:heroAvatarHtml('hero2f20'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Soumya',emoji:heroAvatarHtml('hero2f21'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Stev',emoji:heroAvatarHtml('hero2m22'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Liya',emoji:heroAvatarHtml('hero2f22'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Vinod',emoji:heroAvatarHtml('hero2m23'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Merin',emoji:heroAvatarHtml('hero2f23'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Wesley',emoji:heroAvatarHtml('hero2m24'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Asha',emoji:heroAvatarHtml('hero2f24'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'}
+  {name:'Ancy',emoji:heroAvatarHtml('hero3f1'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Ajai',emoji:heroAvatarHtml('hero3m1'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Alok',emoji:heroAvatarHtml('hero3m2'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Anup',emoji:heroAvatarHtml('hero3m3'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Anjali',emoji:heroAvatarHtml('hero3f2'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Appu',emoji:heroAvatarHtml('hero3m4'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Arun',emoji:heroAvatarHtml('hero3m5'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Meera',emoji:heroAvatarHtml('hero3f3'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Benson',emoji:heroAvatarHtml('hero3m6'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Neha',emoji:heroAvatarHtml('hero3f6'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Binchu',emoji:heroAvatarHtml('hero3m7'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Charlie',emoji:heroAvatarHtml('hero3m8'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Jerin',emoji:heroAvatarHtml('hero3m9'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Priya',emoji:heroAvatarHtml('hero3f5'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Johny',emoji:heroAvatarHtml('hero3m10'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Reena',emoji:heroAvatarHtml('hero3f4'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Koshy',emoji:heroAvatarHtml('hero3m11'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Nate',emoji:heroAvatarHtml('hero3m12'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Divya',emoji:heroAvatarHtml('hero3f7'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Peter',emoji:heroAvatarHtml('hero3m13'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Lakshmi',emoji:heroAvatarHtml('hero3f8'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Rahul',emoji:heroAvatarHtml('hero3m14'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Rajesh',emoji:heroAvatarHtml('hero3m15'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Randall',emoji:heroAvatarHtml('hero3m16'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Sarah',emoji:heroAvatarHtml('hero3f9'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Renji',emoji:heroAvatarHtml('hero3m17'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Roji',emoji:heroAvatarHtml('hero3m18'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Nisha',emoji:heroAvatarHtml('hero3f10'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Roney',emoji:heroAvatarHtml('hero3m19'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Sanjay',emoji:heroAvatarHtml('hero3m20'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Shyam',emoji:heroAvatarHtml('hero3m21'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Deepa',emoji:heroAvatarHtml('hero3f11'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Stev',emoji:heroAvatarHtml('hero3m22'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Vinod',emoji:heroAvatarHtml('hero3m23'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Wesley',emoji:heroAvatarHtml('hero3m24'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Elsa',emoji:heroAvatarHtml('hero3f12'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Abin',emoji:heroAvatarHtml('hero3m25'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Maya',emoji:heroAvatarHtml('hero3f13'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Bibin',emoji:heroAvatarHtml('hero3m26'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Sherin',emoji:heroAvatarHtml('hero3f14'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Cibin',emoji:heroAvatarHtml('hero3m27'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Denny',emoji:heroAvatarHtml('hero3m28'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Eldho',emoji:heroAvatarHtml('hero3m29'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Teena',emoji:heroAvatarHtml('hero3f15'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Frankie',emoji:heroAvatarHtml('hero3m30'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'George',emoji:heroAvatarHtml('hero3m31'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Anu',emoji:heroAvatarHtml('hero3f16'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Hari',emoji:heroAvatarHtml('hero3m32'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Ivan',emoji:heroAvatarHtml('hero3m33'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Reshma',emoji:heroAvatarHtml('hero3f17'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Jibin',emoji:heroAvatarHtml('hero3m34'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Kevin',emoji:heroAvatarHtml('hero3m35'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Libin',emoji:heroAvatarHtml('hero3m36'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Jisha',emoji:heroAvatarHtml('hero3f18'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Manoj',emoji:heroAvatarHtml('hero3m37'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Nibin',emoji:heroAvatarHtml('hero3m38'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Oommen',emoji:heroAvatarHtml('hero3m39'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Nimmy',emoji:heroAvatarHtml('hero3f19'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Pauly',emoji:heroAvatarHtml('hero3m40'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Robin',emoji:heroAvatarHtml('hero3m41'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Beena',emoji:heroAvatarHtml('hero3f20'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Sibin',emoji:heroAvatarHtml('hero3m42'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Tibin',emoji:heroAvatarHtml('hero3m43'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Unni',emoji:heroAvatarHtml('hero3m44'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Soumya',emoji:heroAvatarHtml('hero3f21'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Vishnu',emoji:heroAvatarHtml('hero3m45'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Wilson',emoji:heroAvatarHtml('hero3m46'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Liya',emoji:heroAvatarHtml('hero3f22'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Xavier',emoji:heroAvatarHtml('hero3m47'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Yohan',emoji:heroAvatarHtml('hero3m48'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Merin',emoji:heroAvatarHtml('hero3f23'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Zachariah',emoji:heroAvatarHtml('hero3m49'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Aby',emoji:heroAvatarHtml('hero3m50'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Bijoy',emoji:heroAvatarHtml('hero3m51'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Asha',emoji:heroAvatarHtml('hero3f24'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Anita',emoji:heroAvatarHtml('hero3f25'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Cyriac',emoji:heroAvatarHtml('hero3m52'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Davis',emoji:heroAvatarHtml('hero3m53'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Betty',emoji:heroAvatarHtml('hero3f26'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Ebin',emoji:heroAvatarHtml('hero3m54'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Fenil',emoji:heroAvatarHtml('hero3m55'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Gibin',emoji:heroAvatarHtml('hero3m56'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Celine',emoji:heroAvatarHtml('hero3f27'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Diya',emoji:heroAvatarHtml('hero3f28'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Hillary',emoji:heroAvatarHtml('hero3m57'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Fiona',emoji:heroAvatarHtml('hero3f29'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Ittoop',emoji:heroAvatarHtml('hero3m58'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Gracy',emoji:heroAvatarHtml('hero3f30'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Hema',emoji:heroAvatarHtml('hero3f31'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Jaison',emoji:heroAvatarHtml('hero3m59'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Indu',emoji:heroAvatarHtml('hero3f32'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Jessy',emoji:heroAvatarHtml('hero3f33'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Kurian',emoji:heroAvatarHtml('hero3m60'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Lijo',emoji:heroAvatarHtml('hero3m61'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Kavya',emoji:heroAvatarHtml('hero3f34'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Mathew',emoji:heroAvatarHtml('hero3m62'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Leena',emoji:heroAvatarHtml('hero3f35'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Ninan',emoji:heroAvatarHtml('hero3m63'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Mariya',emoji:heroAvatarHtml('hero3f36'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Babi',emoji:heroAvatarHtml('hero3f36'),bg:'linear-gradient(135deg,#c2266f,#8e1c52)'},
+  {name:'Oliver',emoji:heroAvatarHtml('hero3m64'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'}
 ];
 
 // Requests fullscreen -- hides the browser's own address bar and nav
@@ -663,15 +737,11 @@ function updateSixpScoreDisplay(state) {
     setTimeout(() => os.classList.remove('pop-anim'), 500);
   }
 
-  function setScoreClass(box, diff) {
-    if (!box) return;
-    box.classList.remove('tie', 'winning', 'losing', 'int-1', 'int-2', 'int-3', 'int-4', 'int-5');
-    if (diff === 0) { box.classList.add('tie'); return; }
-    const intensity = Math.abs(diff) >= 8 ? 5 : Math.abs(diff) >= 6 ? 4 : Math.abs(diff) >= 4 ? 3 : Math.abs(diff) >= 2 ? 2 : 1;
-    box.classList.add(diff > 0 ? 'winning' : 'losing', 'int-' + intensity);
-  }
-  setScoreClass(yBox, yScore - oScore);
-  setScoreClass(oBox, oScore - yScore);
+  // Fixed convention now, not "whoever's currently ahead" - your box is always green,
+  // opponent's always red, matching the same viewer-relative color convention used
+  // elsewhere. Set once and left alone; nothing to recompute on every score change anymore.
+  if (yBox) yBox.classList.add('you-box');
+  if (oBox) oBox.classList.add('opp-box');
 }
 const SUIT_NAMES = { '♠': 'Spades', '♥': 'Hearts', '♦': 'Diamonds', '♣': 'Clubs' };
 function suitName(suit) { return SUIT_NAMES[suit] || suit; }
@@ -707,7 +777,7 @@ let pendingJoinCode = null;
 let latestState = null;
 let lastAnnouncedTrumpExposed = false;
 let lastHiddenTrumpAutoFired6p = false; // see renderHand() -- guards the forced-last-card auto-play against firing more than once per turn
-let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired
+let lastMarkedWinnerRound = -1; // tracks which round's winning-bidder blink has already been applied, so it fires exactly once per round
 let lastShownRoundVoidMessage = null;
 let lastShownReshuffleReasonTs6p = null;
 let lastShownPartnerSignalKey6p = null;
@@ -720,6 +790,7 @@ let lastRoundSeen = -1;
 let roundTrickHistory = []; // every completed trick so far THIS round, for the "played so far" view
 let roundHistorySeenFor = -1; // which round roundTrickHistory currently belongs to
 let lastRenderedTrickSlot = [null, null, null, null, null, null]; // for the card-landing animation diff
+let lastHapticCurrentPlayer = null; // tracks a genuine transition INTO my turn, not every re-render while it's already my turn
 let lastAppliedTableId6p = null; // see applyState -- forces a full trick-slot reset the moment the table itself changes
 let gameOverShownFor = false;
 
@@ -741,7 +812,7 @@ function showScreen(id) {
 function showToast(msg, kind, ms) {
   const el = document.createElement('div');
   el.textContent = msg;
-  el.style.cssText = 'background:rgba(26,5,5,0.95);border:1.5px solid ' + (kind === 'lose' ? '#ff5c5c' : '#f4c430') + ';border-radius:12px;padding:8px 16px;color:' + (kind === 'lose' ? '#ff5c5c' : '#f4c430') + ';font-size:0.85rem;font-weight:700;white-space:nowrap;margin-bottom:8px';
+  el.style.cssText = 'background:rgba(26,5,5,0.35);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);border:1.5px solid ' + (kind === 'lose' ? '#ff5c5c' : '#f4c430') + ';border-radius:12px;padding:8px 16px;color:' + (kind === 'lose' ? '#ff5c5c' : '#f4c430') + ';font-size:0.85rem;font-weight:700;white-space:nowrap;margin-bottom:8px;text-shadow:0 1px 3px rgba(0,0,0,0.8)';
   $('toastHost').appendChild(el);
   setTimeout(() => el.remove(), ms || 2000);
 }
@@ -756,14 +827,23 @@ function miniCardHtml(rank, suit) {
   return `<div class="game-event-minicard"><div class="mc-rank" style="color:${ink}">${rank}</div><div class="mc-suit" style="color:${ink}">${suit}</div></div>`;
 }
 
-function showGameEvent(icon, title, detail, color) {
+function showGameEvent(icon, title, detail, color, opts) {
   const overlay = document.createElement('div');
   overlay.className = 'game-event-overlay';
   overlay.style.setProperty('--evt-color', color);
   overlay.style.setProperty('--evt-glow', color + '66');
-  overlay.innerHTML = `<div class="game-event-box">
-    <div class="game-event-icon">${icon}</div>
-    <div class="game-event-title">${title}</div>
+  const boxClass = 'game-event-box' + (opts && opts.trumpEvent ? ' trump-event' : '');
+  const iconClass = 'game-event-icon' + (opts && opts.blackSuitIcon ? ' icon-black-suit' : '');
+  // Trump-exposed gets a split title - "TRUMP" always gold, the second word always a metallic
+  // silver-chrome regardless of which suit was exposed (the suit's own color lives entirely
+  // in the icon symbol instead). Every other event type (Honors Bid, Raise, etc.) keeps a
+  // plain single-color title exactly as before - this only branches for the trump case.
+  const titleHtml = (opts && opts.splitTitle)
+    ? title.split(' ').map((w, i) => `<span class="${i === 0 ? 'trump-word-gold' : 'trump-word-chrome'}">${w}</span>`).join(' ')
+    : title;
+  overlay.innerHTML = `<div class="${boxClass}">
+    <div class="${iconClass}">${icon}</div>
+    <div class="game-event-title">${titleHtml}</div>
     <div class="game-event-detail">${detail}</div>
   </div>`;
   document.body.appendChild(overlay);
@@ -957,9 +1037,20 @@ function connectSocket() {
 
   socket.on('sixp_actionError', (err) => {
     console.log('[server] action rejected:', err.reason);
-    if (err.reason === 'illegal_card') {
-      showToast("⚠️ That card can't be played right now — check what's highlighted", 'lose', 2500);
-    }
+    // Short, specific messages per rejection reason instead of one generic "that card can't
+    // be played right now" for every case - the person gets an actual explanation of why,
+    // not just that something went wrong. Kept brief and quick (1.4s) like the other toasts,
+    // not a long-winded popup.
+    const REASON_MESSAGES = {
+      must_follow_suit: "You must follow suit",
+      must_play_trump: "You called for trump — you must cut",
+      bidder_hidden_trump: "You're the bidder — trump stays hidden until asked for",
+      not_your_turn: "It's not your turn",
+      not_playing: "Not in the play phase right now",
+      not_in_hand: "That card isn't in your hand",
+    };
+    const msg = REASON_MESSAGES[err.reason] || err.reason || "That action can't be done right now";
+    showToast('⚠️ ' + msg, 'lose', 1400);
   });
 
   socket.on('sixp_chooseSeat', (info) => showSeatPicker(info));
@@ -1033,9 +1124,6 @@ $('btnCreate').addEventListener('click', () => {
   showScreen('nameScreen');
 });
 $('btnShowJoin').addEventListener('click', () => { showScreen('joinScreen'); refreshRoomList(); });
-$('btnRules').addEventListener('click', () => {
-  alert('28 Kerala Gulan — 6 Player\n\n6 players in 2 teams of 3 (alternating seats).\n36 cards (includes the 6s). J=3pts, 9=2pts, A/10=1pt.\n\nBidding: 16-28 for trump. Highest bidder picks trump and hides one trump card face down.\n\nFirst team to 12 game points wins!');
-});
 $('btnNameBack').addEventListener('click', () => showScreen('welcomeScreen'));
 $('btnNameContinue').addEventListener('click', () => {
   const name = $('nameInput').value.trim();
@@ -1231,17 +1319,6 @@ function applyState(state) {
   // doesn't keep a separate bidHistory global the way index.html does.
   // Must run BEFORE latestState gets overwritten just below, since it
   // compares against the previous state's own bidHistory.
-  const oldBidHistoryLen = (latestState && latestState.bidHistory) ? latestState.bidHistory.length : 0;
-  const newBidEntries = (state.bidHistory || []).slice(oldBidHistoryLen);
-  for (let i = 0; i < newBidEntries.length; i++) {
-    const entry = newBidEntries[i];
-    const entryIndex = oldBidHistoryLen + i;
-    if (entry.bid > 0 && entryIndex > 0) {
-      const bidderName = (state.seats && state.seats[entry.pos]) ? state.seats[entry.pos].name : 'A player';
-      if (entry.bid >= 20) showGameEvent('👑', 'Honors Bid', bidderName + ' — ' + entry.bid, '#f4c430');
-      else showGameEvent('📈', 'Raise', bidderName + ' — ' + entry.bid, '#4a90d9');
-    }
-  }
 
   latestState = state;
 
@@ -1369,8 +1446,24 @@ function applyState(state) {
   try {
     const tr = $('trumpChip');
     if (state.trumpExposed) {
-      tr.textContent = '🎯 Trump: ' + state.trumpSuit + ' ' + suitName(state.trumpSuit);
-      tr.style.color = 'var(--accent)';
+      // Suit symbol instead of a dartboard emoji, colored to match the actual suit (red for
+      // diamonds/hearts, a clean dark tone for clubs/spades) rather than a generic accent
+      // color unrelated to what's actually being announced.
+      // "Trump" in gold, the suit name in a metallic silver-chrome regardless of which suit
+      // (matching the same convention as the popup banner), and the suit symbol icon colored
+      // red for hearts/diamonds or real black (with a light outline for contrast against the
+      // now-transparent chip) for spades/clubs.
+      const isRedSuit = state.trumpSuit === '♦' || state.trumpSuit === '♥';
+      const iconClass = 'trump-chip-icon' + (isRedSuit ? ' icon-red-suit' : ' icon-black-suit-chip');
+      // "Dice" specifically for diamonds in this one chip only - a local naming preference for
+      // this particular display, not a change to the suit's name everywhere else in the game
+      // (toasts, the big trump-exposed banner, bid announcements all still say "Diamonds").
+      // Just "Trump [heartbeating icon] [bid number]" now, per explicit request - dropped the
+      // spelled-out suit name text entirely (it was doing double duty with the icon, which
+      // already conveys the suit on its own), and added the actual bid amount so this chip
+      // carries genuinely new information instead of repeating the suit twice.
+      tr.innerHTML = '<span class="trump-word-gold">Trump</span> <span class="' + iconClass + '">' + state.trumpSuit + '</span> <span class="trump-word-chrome">' + state.highestBid + '</span>';
+      tr.style.color = '';
       tr.classList.add('trump-active');
       if (!lastAnnouncedTrumpExposed) {
         // Same fix as the 4-player table: a brief, deliberate pause before
@@ -1381,8 +1474,17 @@ function applyState(state) {
         const rc = state.revealedTrumpCard;
         const trumpDetail = rc ? miniCardHtml(rc.rank, rc.suit) : (exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall));
         setTimeout(() => {
-          showToast('⚡ Trump exposed: ' + exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall) + '!', 'win', 2200);
-          showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa');
+          showToast(exposedSuitAtCall + ' Trump exposed: ' + suitName(exposedSuitAtCall) + '!', 'win', 2200);
+          // Real suit symbol as the icon instead of a generic emoji, and the color matches
+          // the actual suit that was exposed instead of one fixed purple regardless of suit -
+          // same window size as before (showGameEvent's box dimensions are untouched), just a
+          // more precise, less cartoonish look for what's actually being announced.
+          const isRedSuitForIcon = exposedSuitAtCall === '♦' || exposedSuitAtCall === '♥';
+          const popupSuitColor = isRedSuitForIcon ? '#dc2626' : '#e2e8f0';
+          showGameEvent(exposedSuitAtCall, 'Trump Exposed', trumpDetail, popupSuitColor, {
+            trumpEvent: true, splitTitle: true, blackSuitIcon: !isRedSuitForIcon
+          });
+          playHaptic('trumpExposed');
         }, 550);
         // Same table-wide pop/shake/glow reveal as the 4-player table - see the CSS comment
         // next to .table-oval.trump-exposed for why this touches two elements at once.
@@ -1397,7 +1499,7 @@ function applyState(state) {
       }
       lastAnnouncedTrumpExposed = true;
     } else {
-      tr.textContent = '🎯 Trump: Hidden';
+      tr.innerHTML = 'Trump: Hidden';
       tr.style.color = '';
       tr.classList.remove('trump-active');
       lastAnnouncedTrumpExposed = false;
@@ -1447,16 +1549,44 @@ function applyState(state) {
   try { updateTurnLabel(state); } catch (e) { console.error('[updateTurnLabel] threw:', e); }
   if ($('hostMenuOverlay').classList.contains('on') && $('hostMenuMainView').style.display !== 'none') renderHostMenuPlayerList();
 
-  if (state.phase !== 'bidding1' && state.highestBid >= 20 && state.bidder >= 0 &&
-      state.round !== lastAnnouncedHonorsRound) {
-    lastAnnouncedHonorsRound = state.round;
-    const bidderName = state.bidder === MY_POS ? 'You' : sixpRelLabel(state.bidder, state.seats);
-    showToast('🏆 HONORS CALLED! ' + bidderName + ' bid ' + (state.highestBid >= 29 ? 'THANI' : state.highestBid), 'win', 3200);
+  // Per explicit instruction: with the individual "HONORS CALLED"/
+  // raise/bid popups removed as redundant now that the call bubble
+  // already shows that information, the winning bidder's own bubble
+  // instead blinks/pulses once bidding actually concludes -- fires
+  // once per round, same reasoning and pattern as index.html's
+  // identical markWinningBidder4p trigger.
+  if (state.phase !== 'bidding1' && state.bidder >= 0 &&
+      state.round !== lastMarkedWinnerRound) {
+    lastMarkedWinnerRound = state.round;
+    markWinningBidder6p(state.bidder);
   }
   if (state.phase === 'bidding1' && state.currentPlayer === MY_POS) showBidPanel(state);
   else $('bidOverlay').classList.remove('on');
 
   if (state.phase === 'choosingTrump' && state.currentPlayer === MY_POS && state.bidder === MY_POS) {
+    // Show the player's actual hand while they decide, and disable any suit they don't hold
+    // at all - same two fixes already present on the 4-player table's identical picker,
+    // brought over here to match. A suit with zero cards in hand was previously still
+    // clickable and would silently ask the server to pick a card on the player's behalf with
+    // no card-selection step at all - confusing for a decision this significant.
+    const myHand = (latestState && latestState.seats[MY_POS] && latestState.seats[MY_POS].hand) || [];
+    const handDisplay = $('trumpHandDisplay6p');
+    if (handDisplay) {
+      handDisplay.innerHTML = '';
+      myHand.forEach(card => { handDisplay.innerHTML += cardHTML(card, false, false, ''); });
+    }
+    const availableSuits = new Set(myHand.map(c => c.suit));
+    document.querySelectorAll('#trumpPickButtons button').forEach(b => {
+      const suit = b.getAttribute('data-suit');
+      const hasSuit = availableSuits.has(suit);
+      b.disabled = !hasSuit;
+      b.style.opacity = hasSuit ? '1' : '0.3';
+      b.style.cursor = hasSuit ? 'pointer' : 'not-allowed';
+      b.style.filter = hasSuit ? 'none' : 'grayscale(0.8)';
+      b.title = hasSuit ? '' : ("You have no " + suit + " cards");
+      b.classList.remove('on');
+    });
+    $('trumpCardSelectSection').style.display = 'none';
     $('trumpOverlay').classList.add('on');
   } else {
     $('trumpOverlay').classList.remove('on');
@@ -1499,13 +1629,13 @@ function applyState(state) {
           console.warn('[waitThenShowRoundEnd] gave up waiting after 8s — forcing forward');
           trickHoldBusy = false;
           sixpTrickRevealQueue = [];
-          showRoundEnd(state);
+          safelyShowRoundEnd(state);
           return;
         }
         setTimeout(waitThenShowRoundEnd, 150);
         return;
       }
-      showRoundEnd(state);
+      safelyShowRoundEnd(state);
     })();
   }
 
@@ -1518,14 +1648,24 @@ function applyState(state) {
           console.warn('[waitThenShowGameOver] gave up waiting after 8s — forcing forward');
           trickHoldBusy = false;
           sixpTrickRevealQueue = [];
-          showGameOver(state);
+          safelyShowGameOver(state);
           return;
         }
         setTimeout(waitThenShowGameOver, 150);
         return;
       }
-      showGameOver(state);
+      safelyShowGameOver(state);
     })();
+  } else if (!state.gameOver && gameOverShownFor) {
+    // gameOverShownFor previously had no reset anywhere in this file at all - it latched
+    // true the first time a match ended and stayed true permanently, for the rest of the
+    // page's lifetime. That's fine for the very first match, but the moment a second match
+    // starts (after a restart) and ALSO reaches its own game-over condition, this guard was
+    // already tripped from the first one, so the game-over screen could never show again -
+    // the match would just end silently with no summary and no way to start a third one.
+    // Resetting here, the moment the current state genuinely shows no gameOver (i.e. a fresh
+    // match is underway), re-arms it correctly for the next time one actually ends.
+    gameOverShownFor = false;
   }
 }
 
@@ -1539,20 +1679,131 @@ const SLOT_POS = [
   { left: '18%', top: '33%' },   // 4
   { left: '18%', top: '68%' }    // 5
 ];
-// Each played card sits closer to the center than its seat. Pulled in significantly further
-// than the original attempt (which still left a visible gap between, say, the left-seat
-// cards and the right-seat cards - two separate clusters rather than one merged pile) - at
-// this factor, every seat's card converges close enough to the true center that the whole
-// trick reads as one overlapping group, not "which side of the table did this come from."
+// The actual avatar/seat position - separate from SLOT_POS above (which TRICK_SLOT_POS is
+// still derived from, for the played-card layout). Moving avatars further out from the table
+// needed its own array specifically so it couldn't also drag the trick cards along with it -
+// those were carefully tuned for a verified zero-overlap layout, and piggybacking this change
+// onto the same source array would have silently disturbed that. Left/right seats only (0/3,
+// the top/bottom seats, stay put - there's no unused horizontal margin for them to use).
+// Randomized, personality-filled things a seat "says" when they pass or
+// bid, instead of just the flat "Pass"/"Bid 17" label. {bid} gets
+// replaced with the actual number for messages that reference it -- not
+// every bid message needs to, some are just attitude with no number.
+const PASS_MESSAGES = [
+  "Crappy hands.", "What's goin on with my hands...", "All day no hands.",
+  "Nothing here.", "Not today.", "I fold on this one.",
+  "My cards hate me.", "No, no, no.", "Zero help in this hand.",
+  "Can't work with this.", "Skip me.", "Rough draw this round.",
+  "I got nothing.", "Not my hand.", "Gotta save myself.",
+  "Dead cards.", "No trump for me here.", "I'll sit this one out.",
+  "Weak hand, no bid.", "Try me next round.", "This hand's a mess.",
+  "Nothing worth bidding.", "I'm out.", "Cards are cold today.",
+  "No shot with this.", "Nothing to work with.", "Empty hand.",
+  "Not gonna risk it.", "I'll wait it out.", "My luck's off.",
+  "Bad cut today.", "Can't do anything with this.", "Not strong enough.",
+  "Folding this hand.", "No points in sight.", "Better luck next deal.",
+  "This hand's cursed.", "No support here.", "Nothing to bid on.",
+  "I'll let it go.", "Whole hand's off-suit.", "My hand's a disaster.",
+  "No good here.", "I need better cards than this.", "This one's not mine.",
+  "Not touching this hand."
+];
+const BID_MESSAGES = [
+  "I raise u.", "I reraise u.", "Honors, let's go!",
+  "I'm taking a chance.", "Minimum this time.", "Watch me.",
+  "I'll push it.", "Going for it.", "And I mean it.",
+  "Let's raise.", "I got this.", "Feeling good.",
+  "Try and beat that.", "I'm not backing down.", "Strong hand.",
+  "Take it or leave it.", "Raising it up.", "I'll call it.",
+  "Going big.", "No fear.", "This hand's mine.",
+  "I like my chances.", "Trust me.", "Let's see it.",
+  "I'm confident.", "Come at me.", "Solid cards.",
+  "Pushing it.", "Easy pick.", "I'll take it up.",
+  "Not folding.", "This hand's loaded.", "I see an opening.",
+  "Locked in.", "My hand's ready.", "Calling it.",
+  "Bidding it up.", "Let's make it interesting.", "Feeling lucky.",
+  "I'm in.", "No hesitation.", "Taking the lead.",
+  "I mean business.", "Going for the win.", "I'll bet on this.",
+  "All in on this hand."
+];
+
+// A simple deterministic hash of (seat position + which bid-in-the-
+// sequence this is + the bid value itself) picks the same message every
+// time this exact call gets re-rendered, instead of re-rolling a fresh
+// random pick on every state update -- otherwise the text would visibly
+// flicker between different lines each time the table re-renders while
+// this same bubble is still showing.
+// Per explicit instruction: singles out the winning bidder's own
+// call-badge with a blink/pulse once bidding concludes, replacing the
+// separate "HONORS CALLED"/raise popups that used to announce this.
+// Same reasoning and pattern as index.html's identical
+// markWinningBidder4p, just using this table's own slotFor/seatWrap
+// lookup instead of #av0-3.
+function markWinningBidder6p(pos) {
+  for (let slot = 0; slot < 6; slot++) {
+    const wrap = $('seatWrap' + slot);
+    const callEl = wrap && wrap.querySelector('.call-badge');
+    if (callEl) callEl.classList.toggle('call-badge-winner', slotFor(pos) === slot);
+  }
+}
+
+function pickCallMessage(pool, pos, seq, bid) {
+  const seed = pos * 7919 + seq * 104729 + bid * 31;
+  const idx = Math.abs(seed) % pool.length;
+  return pool[idx];
+}
+
+// Which compass direction each seat's call-badge should be offset
+// toward, computed from that seat's own actual SEAT_POS coordinates
+// (see below) relative to the table's center -- seat 0 sits due south
+// of center so its bubble goes north (above) pointing back down at it,
+// seat 1 sits southeast of center so its bubble goes northwest, and so
+// on. Replaces the old two-way (above seats 0/1/5, below seats 2/3/4)
+// split with a direction for every seat individually.
+const CALL_BADGE_DIR = ['n', 'nw', 'sw', 's', 'se', 'ne'];
+
+const SEAT_POS = [
+  { left: '50%', top: '78%' },   // 0 me
+  { left: '90%', top: '68%' },   // 1 - moved right, was 82%
+  { left: '90%', top: '33%' },   // 2 - moved right, was 82%
+  { left: '50%', top: '23%' },   // 3
+  { left: '10%', top: '33%' },   // 4 - moved left, was 18%
+  { left: '10%', top: '68%' }    // 5 - moved left, was 18%
+];
+// Each played card sits just slightly closer to the center than its seat - a small nudge,
+// not a converging pile. Two earlier attempts at this (0.72, then 0.87) kept pushing further
+// toward the center and made it worse each time - at 0.87 especially, cards ended up
+// overlapping so heavily that some were genuinely no longer visible at all, which is a real
+// regression, not a style preference. Pulled back to barely more than the original 0.55 -
+// just enough that immediately-adjacent cards touch slightly, with every single card still
+// fully identifiable at a glance.
+// Each played card sits closer to the center than its seat - but only slightly. Every
+// earlier attempt at this (0.55 originally, then 0.72, then 0.87, then 0.6) was picked by
+// eye rather than actually measured, and every one of them had real overlap somewhere -
+// even the original 0.55 overlapped by 7px between two adjacent slots, and 0.6 (the last
+// value shipped) is worse still. This value was chosen differently: computed the actual
+// on-screen gap between every pair of the 6 slots (not just visually-adjacent ones) across
+// several candidate factors, and picked the smallest one with a comfortable, confirmed-safe
+// margin (~30px) at every single pair, not just the ones that looked fine in one screenshot.
+// Horizontal and vertical compression toward center are handled separately, not with one
+// uniform factor. Started as "vertical only" (X left at 0.25) since the first request was
+// specifically about the left/right pairs getting close together vertically - a later
+// follow-up asked for the left/right pairs to also close in horizontally toward the center
+// top/bottom cards, hence X increasing to 0.42. Every value change here has been verified
+// the same way: measuring the actual gap between all 15 possible pairs of the 6 slots (not
+// just visually-adjacent ones), confirming zero real overlap anywhere at a safe margin
+// (~9px+) rather than cutting it down to a couple of risky pixels that could tip into actual
+// overlap on a slightly different device/browser.
+const TRICK_SLOT_X_FACTOR = 0.42;
+const TRICK_SLOT_Y_FACTOR = 0.6;
 const TRICK_SLOT_POS = SLOT_POS.map(p => {
   const l = parseFloat(p.left), t = parseFloat(p.top);
-  return { left: (l + (50 - l) * 0.87) + '%', top: (t + (50 - t) * 0.87) + '%' };
+  return { left: (l + (50 - l) * TRICK_SLOT_X_FACTOR) + '%', top: (t + (50 - t) * TRICK_SLOT_Y_FACTOR) + '%' };
 });
 function ensureSeatPositions() {
   for (let slot = 0; slot < 6; slot++) {
     const el = $('seatWrap' + slot);
-    el.style.left = SLOT_POS[slot].left;
-    el.style.top = SLOT_POS[slot].top;
+    el.style.left = SEAT_POS[slot].left;
+    el.style.top = SEAT_POS[slot].top;
     el.style.transform = 'translate(-50%,-50%)';
     const ts = $('trickSlot' + slot);
     ts.style.left = TRICK_SLOT_POS[slot].left;
@@ -1580,20 +1831,88 @@ function detectQMarkChangesSix(state) {
   if (gained.length > 0) showQMarkEventSix(gained, 'gained');
   if (lost.length > 0) showQMarkEventSix(lost, 'lost');
 }
+// Themed replacement for window.confirm() - a plain OS/browser dialog box looked completely
+// out of place against everything else in this game's visual style. Async by nature (a custom
+// DOM modal can't block execution the way the native confirm() does), so this takes a
+// callback for the "yes" case instead of returning a boolean directly - callers that used to
+// write `if (!window.confirm(...)) return;` need to move whatever ran after that line inside
+// the callback instead.
+function showThemedConfirm(message, onConfirm) {
+  const overlay = document.createElement('div');
+  overlay.className = 'themed-confirm-overlay';
+  overlay.innerHTML = `<div class="themed-confirm-box">
+    <div class="themed-confirm-message">${message}</div>
+    <div class="themed-confirm-btns">
+      <button class="themed-confirm-btn-no">Cancel</button>
+      <button class="themed-confirm-btn-yes">Confirm</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('on'));
+  function close() {
+    overlay.classList.remove('on');
+    setTimeout(() => overlay.remove(), 200);
+  }
+  overlay.querySelector('.themed-confirm-btn-no').addEventListener('click', close);
+  overlay.querySelector('.themed-confirm-btn-yes').addEventListener('click', () => {
+    close();
+    onConfirm();
+  });
+}
 function showQMarkEventSix(names, direction) {
   const overlay = document.createElement('div');
   overlay.className = 'qmark-event-overlay ' + direction;
-  const title = direction === 'gained' ? '😭 KUNUKKU!' : '🎉 KUNUKKU SHED!';
+  const isGained = direction === 'gained';
+  const durationMs = isGained ? 7000 : 5000;
+  // Explicitly celebratory framing for BOTH directions, per the request - getting a Kunukku
+  // is still a real, notable event worth marking with a real moment on screen, not just the
+  // relief of shedding one. Different tone (title/emoji/color palette), same energy.
+  const title = isGained ? '🎉 KUNUKKU!' : '🎉 KUNUKKU SHED!';
   const namesText = names.map(escapeHtml).join(', ');
-  const subtitle = direction === 'gained'
+  const subtitle = isGained
     ? `${namesText} ${names.length > 1 ? 'each get' : 'gets'} a Kunukku — shut out!`
-    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Kunukku!`;
-  overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${direction === 'gained' ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
+    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Kunukku — free at last!`;
+  overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${isGained ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
   document.body.appendChild(overlay);
-  setTimeout(() => overlay.classList.add('leaving'), 2200);
-  setTimeout(() => overlay.remove(), 2700);
+  spawnQmarkParticles(overlay, isGained, durationMs);
+  setTimeout(() => overlay.classList.add('leaving'), durationMs - 500);
+  setTimeout(() => overlay.remove(), durationMs);
+}
+// Floods the screen with falling confetti/firework-style particles for the full duration of
+// the event - explicitly requested ("fireworks or something that will flood the screen with
+// all kinda goodies"). Plain DOM elements with randomized inline styles rather than canvas -
+// simpler, and plenty fast enough for a burst this size that only runs for a few seconds.
+function spawnQmarkParticles(overlay, isGained, durationMs) {
+  const goldPalette = ['#f4c430', '#ffd700', '#ffe066', '#e6b800', '#fff3b0'];
+  const rainbowPalette = ['#f4c430', '#e08a9a', '#7ec8e3', '#9adba0', '#c99ae3', '#ff9f6b'];
+  const palette = isGained ? rainbowPalette : goldPalette;
+  const particleCount = 70;
+  for (let i = 0; i < particleCount; i++) {
+    const p = document.createElement('div');
+    p.className = 'qmark-particle';
+    const startLeft = Math.random() * 100;
+    const size = 6 + Math.random() * 10;
+    const fallDuration = 1.8 + Math.random() * 1.6;
+    const delay = Math.random() * (durationMs / 1000 - 2);
+    const drift = (Math.random() - 0.5) * 160;
+    const spin = 360 + Math.random() * 720;
+    const color = palette[Math.floor(Math.random() * palette.length)];
+    const isRound = Math.random() > 0.5;
+    p.style.left = startLeft + 'vw';
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.background = color;
+    p.style.borderRadius = isRound ? '50%' : '2px';
+    p.style.setProperty('--fall-distance', '115vh');
+    p.style.setProperty('--drift', drift + 'px');
+    p.style.setProperty('--spin', spin + 'deg');
+    p.style.animationDuration = fallDuration + 's';
+    p.style.animationDelay = delay + 's';
+    overlay.appendChild(p);
+  }
 }
 
+let lastKnownIsBotPerPos = [null, null, null, null, null, null]; // tracks each position's isBot status to detect a genuine join/leave transition, not just any re-render
 function renderSeats(state) {
   detectQMarkChangesSix(state);
   const folded = state.foldedSeats || [];
@@ -1614,21 +1933,56 @@ function renderSeats(state) {
     if (isFolded) {
       av.innerHTML = '🙈';
       av.classList.remove('has-q');
+    } else if (qCount > 0) {
+      // The sad-coconut Kunukku image fully replaces whatever the avatar would normally be
+      // (hero portrait, bot portrait, or the plain emoji fallback) while a Q is active - not
+      // a dimming filter over the existing picture, a full swap - with the actual Kunukku
+      // count overlaid in the middle of it. The normal avatar returns automatically the
+      // moment the count drops back to 0, since this whole branch is keyed on qCount itself
+      // re-evaluating on every render, not a one-time swap that needs to be undone manually.
+      av.innerHTML = '<img src="/images/kunukku/sad-coconut.png" class="kunukku-avatar-img" alt="Kunukku">' +
+        '<div class="kunukku-count-badge">' + qCount + '</div>';
+      av.classList.remove('has-q');
     } else if (seat.avatar) {
       av.innerHTML = heroAvatarHtml(seat.avatar);
-      av.classList.toggle('has-q', qCount > 0);
+      av.classList.remove('has-q');
     } else if (seat.isBot) {
       // Static portrait matched by name, same as the 4-player table --
       // not the generic robot icon this used to fall back to.
       const botMeta = ALL_BOT_AVATARS_6P.find(b => b.name === seat.name) || ALL_BOT_AVATARS_6P[pos % ALL_BOT_AVATARS_6P.length];
       av.innerHTML = botMeta.emoji;
       av.style.background = botMeta.bg;
-      av.classList.toggle('has-q', qCount > 0);
+      av.classList.remove('has-q');
     } else {
-      av.innerHTML = qCount > 0 ? '😭' : (pos === MY_POS ? '😊' : '👤');
+      av.innerHTML = pos === MY_POS ? '😊' : '👤';
       av.classList.remove('has-q');
     }
-    nm.textContent = seat.name + (pos === MY_POS ? ' (You)' : '');
+    // Green ring for a connected real human, red for a bot - a brief brighter flash plays
+    // exactly once at the moment a seat actually transitions from one to the other, not on
+    // every render while it's already settled into one state. Separate element (av) from the
+    // yellow turn-active ring (applied to the .seat wrapper above/below), so the two can never
+    // conflict even when both are true at once (it's your turn AND you're human).
+    const isBotNow = !!seat.isBot;
+    av.classList.toggle('human-status', !isBotNow);
+    av.classList.toggle('bot-status', isBotNow);
+    const prevIsBot = lastKnownIsBotPerPos[pos];
+    if (prevIsBot !== null && prevIsBot !== isBotNow) {
+      av.classList.remove('flash-join', 'flash-leave');
+      void av.offsetWidth; // force reflow so re-adding the class restarts the animation
+      const flashClass = isBotNow ? 'flash-leave' : 'flash-join';
+      av.classList.add(flashClass);
+      setTimeout(() => av.classList.remove(flashClass), 1300);
+    }
+    lastKnownIsBotPerPos[pos] = isBotNow;
+    nm.textContent = seat.name;
+    // Partner (same team as the viewer) shown in a deep royal green, opponent in a deep royal
+    // red - a consistent viewer-relative color convention, same principle as the "your points
+    // always shown first and in green" fix from earlier, just applied to the seat labels too.
+    // Class-based, not inline style - lets the same pulse animation CSS rule apply here too
+    // (an inline color would still work alongside a class-based animation, but keeping this
+    // consistent with the 4-player table's own approach for the identical feature).
+    nm.classList.toggle('name-teammate', sixpGetTeam(pos) === sixpGetTeam(MY_POS));
+    nm.classList.toggle('name-opponent', sixpGetTeam(pos) !== sixpGetTeam(MY_POS));
     cc.textContent = isFolded ? 'Folded (Thani)' : (seat.cardCount + 'c');
     wrap.classList.toggle('on', state.currentPlayer === pos && (state.phase === 'bidding1' || state.phase === 'play' || state.phase === 'choosingTrump'));
     let badge = '';
@@ -1659,14 +2013,59 @@ function renderSeats(state) {
     // strip) rather than needing any new server-side state - the last entry for this seat is
     // exactly what they last called, in order.
     let callEl = wrap.querySelector('.call-badge');
-    const showCalls = state.phase === 'bidding1' || state.phase === 'choosingTrump';
-    const lastCall = showCalls && state.bidHistory ? [...state.bidHistory].reverse().find(h => h.pos === pos) : null;
+    // "Until someone plays a card" means genuinely that - not just "until phase becomes
+    // 'play'", since phase actually flips to 'play' the instant trump gets chosen, before
+    // anyone has played a single card yet. Checking tricksPlayed and an empty trick (nobody
+    // partway through leading yet either) instead correctly keeps every call bubble up
+    // through trump selection AND that brief window after, right up until the very first
+    // card of the round actually lands.
+    const nobodyHasPlayedYet = (state.tricksPlayed || 0) === 0 && (!state.trickCards || state.trickCards.length === 0);
+    const showCalls = state.phase === 'bidding1' || state.phase === 'choosingTrump' || (state.phase === 'play' && nobodyHasPlayedYet);
+    const lastCallIdx = showCalls && state.bidHistory ? state.bidHistory.map((h,i)=>({h,i})).reverse().find(x => x.h.pos === pos) : null;
+    const lastCall = lastCallIdx ? lastCallIdx.h : null;
     if (lastCall && !isFolded) {
       const isPass = lastCall.bid === 0;
-      const label = isPass ? 'Pass' : ('Bid ' + (lastCall.bid >= 29 ? 'Thani' : lastCall.bid));
+      const isThani = lastCall.bid >= 29;
+      // Per explicit instruction: first line is always the plain, clear
+      // "Pass" or "Bid 17" -- the flavor line goes on its own line right
+      // below it, instead of blending the number into the middle of a
+      // sentence. Thani stays its own fixed line rather than picking a
+      // flavor line from the regular bid pool, since a random attitude
+      // line built around a plain number wouldn't read sensibly for
+      // this specific, special call. Seeded off this bid's own position
+      // in bidHistory (lastCallIdx.i) so the exact same flavor line
+      // keeps showing every re-render of this same call, not a new
+      // random pick each time.
+      const header = isThani ? 'Thani!' : isPass ? 'Pass' : 'Bid ' + lastCall.bid;
+      const flavor = isThani ? '' : isPass
+        ? pickCallMessage(PASS_MESSAGES, pos, lastCallIdx.i, 0)
+        : pickCallMessage(BID_MESSAGES, pos, lastCallIdx.i, lastCall.bid);
+      const label = header + (flavor ? '\n' + flavor : '');
       if (!callEl) { callEl = document.createElement('div'); callEl.className = 'call-badge'; wrap.appendChild(callEl); }
-      if (callEl.dataset.v !== label) { callEl.dataset.v = label; callEl.textContent = label; }
-      callEl.classList.toggle('call-badge-pass', isPass);
+      // Per explicit instruction: each seat's bubble is now offset
+      // toward the table from that seat's own specific position around
+      // the oval (see CALL_BADGE_DIR above), not just a simple two-way
+      // above/below split. Combined into the same className string as
+      // the pass/bid color so both apply in one assignment -- but only
+      // written when something's actually different from last render
+      // (dataset.cls), same guard already used for the text content
+      // just below, so this doesn't reassign className (and restart the
+      // pop-in animation) on every single re-render while the same call
+      // is still showing.
+      const cls = 'call-badge' + (isPass ? ' call-badge-pass' : '') + ' call-badge-' + CALL_BADGE_DIR[slot];
+      if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
+      if (callEl.dataset.v !== label) {
+        callEl.dataset.v = label;
+        // innerHTML with the header in its own bold line and the flavor
+        // text right below, rather than textContent -- plain textContent
+        // would need white-space:pre-line for a \n to actually render as
+        // a line break, and this reads more clearly as two distinct
+        // lines (a bold "Pass"/"Bid 17" header, a lighter flavor line
+        // under it) than one plain wrapped block of text would.
+        callEl.innerHTML = flavor
+          ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
+          : `<div class="call-badge-header">${header}</div>`;
+      }
     } else if (callEl) { callEl.remove(); }
   }
 }
@@ -1699,6 +2098,12 @@ function renderCompletedTrick(lastTrick) {
     const slot = slotFor(tc.pos);
     const isWinner = tc.pos === lastTrick.winner;
     $('trickSlot' + slot).innerHTML = cardHTML(tc.card, false, false, 'tiny' + (isWinner ? ' trick-winner' : ''));
+  }
+  // A trick just fully resolved - single, reliable trigger point for this (only called once
+  // per completed trick, via the reveal queue below), so it's the right place for the
+  // win/lose haptic rather than anywhere state gets re-rendered.
+  if (MY_POS !== -1) {
+    playHaptic(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose');
   }
 }
 
@@ -1795,12 +2200,20 @@ function renderLastTrick(state) {
   for (const tc of lt.cards) {
     const c = tc.card;
     const color = cardColor(c.suit);
-    h += `<div class="lt-card"><span class="ltr" style="color:${color}">${c.rank}</span><span class="lts" style="color:${color}">${c.suit}</span></div>`;
+    const isWinningCard = tc.pos === lt.winner;
+    h += `<div class="lt-card${isWinningCard ? ' lt-card-won' : ''}"><span class="ltr" style="color:${color}">${c.rank}</span><span class="lts" style="color:${color}">${c.suit}</span></div>`;
   }
   h += '</div>';
+  // Per explicit instruction: also shows who actually led/started the
+  // trick, not just who won it -- lt.cards is in play order, so its
+  // first entry is always whoever led. Combined onto the same compact
+  // line (not a second line/bigger box) since the window itself isn't
+  // meant to grow to fit this.
+  const starterSeat = state.seats[lt.cards[0].pos];
+  const starterName = lt.cards[0].pos === MY_POS ? 'You' : (starterSeat ? starterSeat.name : ('Seat ' + lt.cards[0].pos));
   const winnerSeat = state.seats[lt.winner];
   const winnerName = lt.winner === MY_POS ? 'You' : (winnerSeat ? winnerSeat.name : ('Seat ' + lt.winner));
-  h += `<div class="lt-win">${winnerName} +${lt.points}pt</div>`;
+  h += `<div class="lt-win">${starterName} ➜ ${winnerName} +${lt.points}pt</div>`;
   el.innerHTML = h;
 }
 
@@ -1818,7 +2231,8 @@ function renderLastTrickHistory() {
     h += `<div class="lt-history-row"><span class="lt-history-num">#${i + 1}</span>`;
     for (const tc of t.cards) {
       const c = tc.card, color = cardColor(c.suit);
-      h += `<div class="lt-card"><span class="ltr" style="color:${color}">${c.rank}</span><span class="lts" style="color:${color}">${c.suit}</span></div>`;
+      const isWinningCard = tc.pos === t.winner;
+      h += `<div class="lt-card${isWinningCard ? ' lt-card-won' : ''}"><span class="ltr" style="color:${color}">${c.rank}</span><span class="lts" style="color:${color}">${c.suit}</span></div>`;
     }
     h += `<span class="lt-history-win">${escapeHtml(winnerName)} +${t.points}</span></div>`;
   });
@@ -1902,10 +2316,12 @@ function updateTurnLabel(state) {
   }
   if (state.currentPlayer === MY_POS) {
     lbl.textContent = state.phase === 'bidding1' ? 'Your turn to bid' : state.phase === 'choosingTrump' ? 'Choose trump' : 'Your turn';
+    if (lastHapticCurrentPlayer !== MY_POS && state.phase !== 'lobby') playHaptic('yourTurn');
   } else {
     const seat = state.seats[state.currentPlayer];
     lbl.textContent = seat ? (seat.name + "'s turn") : '';
   }
+  lastHapticCurrentPlayer = state.currentPlayer;
 }
 
 // ---------------- Card rendering (same crisp SVG suit design as the 4p game) ----------------
@@ -2007,6 +2423,7 @@ function renderHand(state) {
 
 function playHandCard(suit, rank) {
   if (!latestState || latestState.currentPlayer !== MY_POS) return;
+  playHaptic('cardPlayed');
   socket.emit('sixp_playCard', { card: { suit, rank, points: POINTS[rank] } });
 }
 function playHiddenTrumpCard() { socket.emit('sixp_playHiddenTrump'); }
@@ -2122,6 +2539,7 @@ function showBidConfirm(state, bid, isPass) {
   confirmBtn.textContent = isThani ? '🔥 Confirm THANI' : (isPass ? (alreadyHighest ? `✓ Stay at ${state.highestBid}` : '✓ Confirm Pass') : `✓ Confirm Bid ${bid}`);
   confirmBtn.addEventListener('click', () => {
     $('bidOverlay').classList.remove('on');
+    playHaptic('bidConfirm');
     if (isThani) socket.emit('sixp_callThani');
     else socket.emit('sixp_placeBid', { bid: isPass ? 0 : bid });
   });
@@ -2134,6 +2552,7 @@ let selectedHiddenTrumpCard = null;
 
 document.querySelectorAll('#trumpPickButtons button').forEach(btn => {
   btn.addEventListener('click', () => {
+    if (btn.disabled) return; // matches the 4-player table's identical guard
     const suit = btn.getAttribute('data-suit');
     document.querySelectorAll('#trumpPickButtons button').forEach(b => b.classList.remove('on'));
     btn.classList.add('on');
@@ -2172,17 +2591,59 @@ function showTrumpCardSelect(suit) {
     area.appendChild(cardEl);
   });
   confirmBtn.onclick = () => {
-    $('trumpOverlay').classList.remove('on');
     const suitBtn = document.querySelector('#trumpPickButtons button.on');
     const chosenSuit = suitBtn ? suitBtn.getAttribute('data-suit') : suit;
-    const ht = selectedHiddenTrumpCard ? { suit: selectedHiddenTrumpCard.suit, rank: selectedHiddenTrumpCard.rank, points: selectedHiddenTrumpCard.points } : null;
-    socket.emit('sixp_chooseTrump', { suit: chosenSuit, hiddenCard: ht });
-    section.style.display = 'none';
+    // Explicit confirmation before this actually submits - trump can't be changed once chosen
+    // (short of the separate mid-round "change trump" flow, if this table even has one), so a
+    // misclick here is costly. Themed to match the rest of this game instead of a plain
+    // window.confirm() browser dialog.
+    showThemedConfirm('Set ' + suitName(chosenSuit) + ' ' + chosenSuit + ' as trump for this round?', () => {
+      $('trumpOverlay').classList.remove('on');
+      const ht = selectedHiddenTrumpCard ? { suit: selectedHiddenTrumpCard.suit, rank: selectedHiddenTrumpCard.rank, points: selectedHiddenTrumpCard.points } : null;
+      socket.emit('sixp_chooseTrump', { suit: chosenSuit, hiddenCard: ht });
+      section.style.display = 'none';
+    });
   };
 }
 
 // ---------------- Round end / game over ----------------
 
+// Wraps showRoundEnd() in a try/catch specifically because of a real bug this exposed: this
+// function is invoked from inside a setTimeout-driven retry loop, and by the time it's called,
+// lastRoundSeen has ALREADY been updated to the new round number (that update has to happen
+// early, before the wait loop even starts, to prevent the wait loop itself from double-firing
+// on a later re-render of the same round). That means if showRoundEnd() ever threw for any
+// reason - a missing element, an unexpected field on roundWinnerAnnounced, anything - the
+// exception would propagate straight out of this uncaught, the overlay would never appear,
+// and there would be no way for the guard condition to ever re-trigger for that round, since
+// the round number the guard checks against had already moved on. The player would be stuck
+// on a dead table with no summary, no Continue button, and nothing left to click - exactly
+// this report. The fallback here at minimum still shows the score change directly rather than
+// silently doing nothing, and still lets the round actually end.
+function safelyShowRoundEnd(state) {
+  try {
+    showRoundEnd(state);
+  } catch (e) {
+    console.error('[safelyShowRoundEnd] showRoundEnd() threw - falling back so the round can still end:', e);
+    try {
+      const rw = state.roundWinnerAnnounced;
+      $('roundEndTitle').textContent = 'Round Over';
+      $('roundEndTitle').style.color = '';
+      $('roundEndBody').innerHTML = rw
+        ? `Team points: ${rw.teamPoints ? rw.teamPoints[0] + ' - ' + rw.teamPoints[1] : '—'}<br>Match score: ${state.gameScore[0]} - ${state.gameScore[1]}`
+        : `Match score: ${state.gameScore[0]} - ${state.gameScore[1]}`;
+      $('btnContinueRound').style.display = 'flex';
+      $('btnAckRoundEnd').style.display = 'none';
+      $('roundEndOverlay').classList.add('on');
+      startRoundEndAutoContinue();
+    } catch (e2) {
+      // If even the minimal fallback can't render, at least auto-advance directly rather than
+      // leaving the person on a table with genuinely nothing left to interact with.
+      console.error('[safelyShowRoundEnd] fallback also failed - auto-continuing directly:', e2);
+      socket.emit('sixp_continueRound');
+    }
+  }
+}
 function showRoundEnd(state) {
   const r = state.roundWinnerAnnounced;
   if (!r) return;
@@ -2273,6 +2734,28 @@ wireSignalBtn6p('btnSignalSame6p', 'same', 'bid the same');
 wireSignalBtn6p('btnSignalHigher6p', 'higher', 'bid more aggressively');
 wireSignalBtn6p('btnSignalLower6p', 'lower', 'bid less aggressively');
 
+// Same defensive wrapping as safelyShowRoundEnd() above, for the identical reason - see that
+// function's comment for the full explanation. showGameOver() gets called from inside this
+// same kind of setTimeout-driven retry loop, after gameOverShownFor has already latched true,
+// so an uncaught exception here would permanently block the match-over screen for the rest of
+// this match too.
+function safelyShowGameOver(state) {
+  try {
+    showGameOver(state);
+  } catch (e) {
+    console.error('[safelyShowGameOver] showGameOver() threw - falling back so the match-over screen can still appear:', e);
+    try {
+      const myTeam = sixpGetTeam(MY_POS);
+      const won = state.gameOver.winningTeam === myTeam;
+      $('gameOverTitle').textContent = won ? 'You Win!' : 'Defeat';
+      $('gameOverBody').textContent = 'Final score: ' + state.gameOver.finalScore[0] + ' - ' + state.gameOver.finalScore[1];
+      $('btnGameOverRestart').style.display = IS_HOST ? 'flex' : 'none';
+      $('gameOverOverlay').classList.add('on');
+    } catch (e2) {
+      console.error('[safelyShowGameOver] fallback also failed:', e2);
+    }
+  }
+}
 function showGameOver(state) {
   $('roundEndOverlay').classList.remove('on');
   const myTeam = sixpGetTeam(MY_POS);

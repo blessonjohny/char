@@ -290,11 +290,11 @@
        accent color applyTheme() already picks per curated color theme
        (Violet/Indigo/Blue/Green/etc — see THEMES array) -- so this
        automatically updates to a color chosen to read well against
-       whatever felt is currently active. The dark outline (text-shadow,
-       several directions) is what actually defines the letter edges
-       regardless of felt color; opacity is on the whole element so the
-       outline fades evenly with the fill instead of staying starker
-       than it. */
+       whatever felt is currently active. Per explicit instruction and
+       reference image, this is RECESSED/engraved into the felt, not
+       raised/embossed -- see index.html/six.html's identical watermarks
+       for the fuller reasoning; this one just keeps --gold for the live
+       theming instead of a fixed color. */
     content:"28GULAN.COM";
     position:absolute;
     top:50%;left:50%;
@@ -305,12 +305,14 @@
     letter-spacing:2px;
     color:var(--gold, #ffd700);
     text-shadow:
-      -1.5px -1.5px 0 rgba(0,0,0,0.7),
-      1.5px -1.5px 0 rgba(0,0,0,0.7),
-      -1.5px 1.5px 0 rgba(0,0,0,0.7),
-      1.5px 1.5px 0 rgba(0,0,0,0.7),
-      0 0 10px rgba(0,0,0,0.5);
-    opacity:0.42;
+      -1px -1px 0 rgba(255,255,255,0.4),
+      1px 1px 0 rgba(0,0,0,0.6),
+      2px 2px 0 rgba(0,0,0,0.55),
+      3px 3px 0 rgba(0,0,0,0.46),
+      4px 4px 0 rgba(0,0,0,0.38),
+      5px 5px 0 rgba(0,0,0,0.3),
+      6px 6px 6px rgba(0,0,0,0.35);
+    opacity:0.55;
     white-space:nowrap;
     pointer-events:none;
     user-select:none;
@@ -818,7 +820,7 @@ let mySeat = null;
 // returning player's choice carries over between every table.
 let myAvatar = '';
 try { myAvatar = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS_56 = [...Array.from({length:24}, (_,i) => 'hero2f'+(i+1)), ...Array.from({length:24}, (_,i) => 'hero2m'+(i+1))];
+const ALL_AVATAR_KEYS_56 = [...Array.from({length:36}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:64}, (_,i) => 'hero3m'+(i+1))];
 if (!myAvatar || !ALL_AVATAR_KEYS_56.includes(myAvatar)) {
   myAvatar = ALL_AVATAR_KEYS_56[Math.floor(Math.random() * ALL_AVATAR_KEYS_56.length)];
 }
@@ -877,54 +879,107 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
 // per table. Static, never mood-reactive -- replaces this table's own
 // separate mood-face system (botFace()) for the avatar itself.
 const ALL_BOT_AVATARS_56 = [
-  {name:'Ancy',emoji:heroAvatarHtml('hero2f1'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Anjali',emoji:heroAvatarHtml('hero2f2'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Ajai',emoji:heroAvatarHtml('hero2m1'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Meera',emoji:heroAvatarHtml('hero2f3'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Alok',emoji:heroAvatarHtml('hero2m2'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Anup',emoji:heroAvatarHtml('hero2m3'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Appu',emoji:heroAvatarHtml('hero2m4'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Neha',emoji:heroAvatarHtml('hero2f4'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Arun',emoji:heroAvatarHtml('hero2m5'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Priya',emoji:heroAvatarHtml('hero2f5'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Reena',emoji:heroAvatarHtml('hero2f6'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Divya',emoji:heroAvatarHtml('hero2f7'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Benson',emoji:heroAvatarHtml('hero2m6'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Lakshmi',emoji:heroAvatarHtml('hero2f8'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Binchu',emoji:heroAvatarHtml('hero2m7'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Charlie',emoji:heroAvatarHtml('hero2m8'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Jerin',emoji:heroAvatarHtml('hero2m9'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Sarah',emoji:heroAvatarHtml('hero2f9'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Johny',emoji:heroAvatarHtml('hero2m10'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Nisha',emoji:heroAvatarHtml('hero2f10'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Koshy',emoji:heroAvatarHtml('hero2m11'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Deepa',emoji:heroAvatarHtml('hero2f11'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Elsa',emoji:heroAvatarHtml('hero2f12'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Nate',emoji:heroAvatarHtml('hero2m12'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Peter',emoji:heroAvatarHtml('hero2m13'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Maya',emoji:heroAvatarHtml('hero2f13'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Rahul',emoji:heroAvatarHtml('hero2m14'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Sherin',emoji:heroAvatarHtml('hero2f14'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Rajesh',emoji:heroAvatarHtml('hero2m15'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Randall',emoji:heroAvatarHtml('hero2m16'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Teena',emoji:heroAvatarHtml('hero2f15'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Renji',emoji:heroAvatarHtml('hero2m17'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Anu',emoji:heroAvatarHtml('hero2f16'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Roji',emoji:heroAvatarHtml('hero2m18'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Reshma',emoji:heroAvatarHtml('hero2f17'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Jisha',emoji:heroAvatarHtml('hero2f18'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Nimmy',emoji:heroAvatarHtml('hero2f19'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Roney',emoji:heroAvatarHtml('hero2m19'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Sanjay',emoji:heroAvatarHtml('hero2m20'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Shyam',emoji:heroAvatarHtml('hero2m21'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Beena',emoji:heroAvatarHtml('hero2f20'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Soumya',emoji:heroAvatarHtml('hero2f21'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Stev',emoji:heroAvatarHtml('hero2m22'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Liya',emoji:heroAvatarHtml('hero2f22'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Vinod',emoji:heroAvatarHtml('hero2m23'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Merin',emoji:heroAvatarHtml('hero2f23'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Wesley',emoji:heroAvatarHtml('hero2m24'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Asha',emoji:heroAvatarHtml('hero2f24'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'}
+  {name:'Ancy',emoji:heroAvatarHtml('hero3f1'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Ajai',emoji:heroAvatarHtml('hero3m1'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Alok',emoji:heroAvatarHtml('hero3m2'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Anup',emoji:heroAvatarHtml('hero3m3'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Anjali',emoji:heroAvatarHtml('hero3f2'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Appu',emoji:heroAvatarHtml('hero3m4'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Arun',emoji:heroAvatarHtml('hero3m5'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Meera',emoji:heroAvatarHtml('hero3f3'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Benson',emoji:heroAvatarHtml('hero3m6'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Neha',emoji:heroAvatarHtml('hero3f6'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Binchu',emoji:heroAvatarHtml('hero3m7'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Charlie',emoji:heroAvatarHtml('hero3m8'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Jerin',emoji:heroAvatarHtml('hero3m9'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Priya',emoji:heroAvatarHtml('hero3f5'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Johny',emoji:heroAvatarHtml('hero3m10'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Reena',emoji:heroAvatarHtml('hero3f4'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Koshy',emoji:heroAvatarHtml('hero3m11'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Nate',emoji:heroAvatarHtml('hero3m12'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Divya',emoji:heroAvatarHtml('hero3f7'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Peter',emoji:heroAvatarHtml('hero3m13'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Lakshmi',emoji:heroAvatarHtml('hero3f8'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Rahul',emoji:heroAvatarHtml('hero3m14'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Rajesh',emoji:heroAvatarHtml('hero3m15'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Randall',emoji:heroAvatarHtml('hero3m16'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Sarah',emoji:heroAvatarHtml('hero3f9'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Renji',emoji:heroAvatarHtml('hero3m17'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Roji',emoji:heroAvatarHtml('hero3m18'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Nisha',emoji:heroAvatarHtml('hero3f10'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Roney',emoji:heroAvatarHtml('hero3m19'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Sanjay',emoji:heroAvatarHtml('hero3m20'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Shyam',emoji:heroAvatarHtml('hero3m21'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Deepa',emoji:heroAvatarHtml('hero3f11'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Stev',emoji:heroAvatarHtml('hero3m22'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Vinod',emoji:heroAvatarHtml('hero3m23'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Wesley',emoji:heroAvatarHtml('hero3m24'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Elsa',emoji:heroAvatarHtml('hero3f12'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Abin',emoji:heroAvatarHtml('hero3m25'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Maya',emoji:heroAvatarHtml('hero3f13'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Bibin',emoji:heroAvatarHtml('hero3m26'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Sherin',emoji:heroAvatarHtml('hero3f14'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Cibin',emoji:heroAvatarHtml('hero3m27'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Denny',emoji:heroAvatarHtml('hero3m28'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Eldho',emoji:heroAvatarHtml('hero3m29'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Teena',emoji:heroAvatarHtml('hero3f15'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Frankie',emoji:heroAvatarHtml('hero3m30'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'George',emoji:heroAvatarHtml('hero3m31'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Anu',emoji:heroAvatarHtml('hero3f16'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Hari',emoji:heroAvatarHtml('hero3m32'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Ivan',emoji:heroAvatarHtml('hero3m33'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Reshma',emoji:heroAvatarHtml('hero3f17'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Jibin',emoji:heroAvatarHtml('hero3m34'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Kevin',emoji:heroAvatarHtml('hero3m35'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Libin',emoji:heroAvatarHtml('hero3m36'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Jisha',emoji:heroAvatarHtml('hero3f18'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Manoj',emoji:heroAvatarHtml('hero3m37'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Nibin',emoji:heroAvatarHtml('hero3m38'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Oommen',emoji:heroAvatarHtml('hero3m39'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Nimmy',emoji:heroAvatarHtml('hero3f19'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Pauly',emoji:heroAvatarHtml('hero3m40'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Robin',emoji:heroAvatarHtml('hero3m41'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Beena',emoji:heroAvatarHtml('hero3f20'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Sibin',emoji:heroAvatarHtml('hero3m42'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Tibin',emoji:heroAvatarHtml('hero3m43'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Unni',emoji:heroAvatarHtml('hero3m44'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Soumya',emoji:heroAvatarHtml('hero3f21'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Vishnu',emoji:heroAvatarHtml('hero3m45'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Wilson',emoji:heroAvatarHtml('hero3m46'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Liya',emoji:heroAvatarHtml('hero3f22'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Xavier',emoji:heroAvatarHtml('hero3m47'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Yohan',emoji:heroAvatarHtml('hero3m48'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Merin',emoji:heroAvatarHtml('hero3f23'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Zachariah',emoji:heroAvatarHtml('hero3m49'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Aby',emoji:heroAvatarHtml('hero3m50'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Bijoy',emoji:heroAvatarHtml('hero3m51'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Asha',emoji:heroAvatarHtml('hero3f24'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Anita',emoji:heroAvatarHtml('hero3f25'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Cyriac',emoji:heroAvatarHtml('hero3m52'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Davis',emoji:heroAvatarHtml('hero3m53'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Betty',emoji:heroAvatarHtml('hero3f26'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Ebin',emoji:heroAvatarHtml('hero3m54'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Fenil',emoji:heroAvatarHtml('hero3m55'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Gibin',emoji:heroAvatarHtml('hero3m56'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Celine',emoji:heroAvatarHtml('hero3f27'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Diya',emoji:heroAvatarHtml('hero3f28'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Hillary',emoji:heroAvatarHtml('hero3m57'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Fiona',emoji:heroAvatarHtml('hero3f29'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Ittoop',emoji:heroAvatarHtml('hero3m58'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Gracy',emoji:heroAvatarHtml('hero3f30'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Hema',emoji:heroAvatarHtml('hero3f31'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Jaison',emoji:heroAvatarHtml('hero3m59'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Indu',emoji:heroAvatarHtml('hero3f32'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Jessy',emoji:heroAvatarHtml('hero3f33'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Kurian',emoji:heroAvatarHtml('hero3m60'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Lijo',emoji:heroAvatarHtml('hero3m61'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Kavya',emoji:heroAvatarHtml('hero3f34'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Mathew',emoji:heroAvatarHtml('hero3m62'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Leena',emoji:heroAvatarHtml('hero3f35'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Ninan',emoji:heroAvatarHtml('hero3m63'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Mariya',emoji:heroAvatarHtml('hero3f36'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Babi',emoji:heroAvatarHtml('hero3f36'),bg:'linear-gradient(135deg,#c2266f,#8e1c52)'},
+  {name:'Oliver',emoji:heroAvatarHtml('hero3m64'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'}
 ];
 let pollTimer = null;
 let sessionHeartbeat = null; // see enterTableAsSeat() -- keeps k56_session_time honest during a long, active session
@@ -2723,6 +2778,13 @@ const BOT_NAME_POOL = [
   {name:'Anu', gender:'f'}, {name:'Reshma', gender:'f'}, {name:'Jisha', gender:'f'},
   {name:'Nimmy', gender:'f'}, {name:'Beena', gender:'f'}, {name:'Soumya', gender:'f'},
   {name:'Liya', gender:'f'}, {name:'Merin', gender:'f'}, {name:'Asha', gender:'f'},
+  {name:'Anita', gender:'f'}, {name:'Betty', gender:'f'}, {name:'Celine', gender:'f'},
+  {name:'Diya', gender:'f'}, {name:'Fiona', gender:'f'}, {name:'Gracy', gender:'f'},
+  {name:'Hema', gender:'f'}, {name:'Indu', gender:'f'}, {name:'Jessy', gender:'f'},
+  {name:'Kavya', gender:'f'}, {name:'Leena', gender:'f'}, {name:'Mariya', gender:'f'},
+  {name:'Babi', gender:'f'}, {name:'Linda', gender:'f'}, {name:'Babitha', gender:'f'},
+  {name:'Maria', gender:'f'}, {name:'Leela', gender:'f'}, {name:'Anna', gender:'f'},
+  {name:'Thankam', gender:'f'}, {name:'Lincy', gender:'f'}, {name:'Princy', gender:'f'},
   {name:'Ajai', gender:'m'}, {name:'Alok', gender:'m'}, {name:'Anup', gender:'m'},
   {name:'Appu', gender:'m'}, {name:'Arun', gender:'m'}, {name:'Benson', gender:'m'},
   {name:'Binchu', gender:'m'}, {name:'Charlie', gender:'m'}, {name:'Jerin', gender:'m'},
@@ -2730,7 +2792,22 @@ const BOT_NAME_POOL = [
   {name:'Peter', gender:'m'}, {name:'Rahul', gender:'m'}, {name:'Rajesh', gender:'m'},
   {name:'Randall', gender:'m'}, {name:'Renji', gender:'m'}, {name:'Roji', gender:'m'},
   {name:'Roney', gender:'m'}, {name:'Sanjay', gender:'m'}, {name:'Shyam', gender:'m'},
-  {name:'Stev', gender:'m'}, {name:'Vinod', gender:'m'}, {name:'Wesley', gender:'m'}
+  {name:'Stev', gender:'m'}, {name:'Vinod', gender:'m'}, {name:'Wesley', gender:'m'},
+  {name:'Abin', gender:'m'}, {name:'Bibin', gender:'m'}, {name:'Cibin', gender:'m'},
+  {name:'Denny', gender:'m'}, {name:'Eldho', gender:'m'}, {name:'Frankie', gender:'m'},
+  {name:'George', gender:'m'}, {name:'Hari', gender:'m'}, {name:'Ivan', gender:'m'},
+  {name:'Jibin', gender:'m'}, {name:'Kevin', gender:'m'}, {name:'Libin', gender:'m'},
+  {name:'Manoj', gender:'m'}, {name:'Nibin', gender:'m'}, {name:'Oommen', gender:'m'},
+  {name:'Pauly', gender:'m'}, {name:'Robin', gender:'m'}, {name:'Sibin', gender:'m'},
+  {name:'Tibin', gender:'m'}, {name:'Unni', gender:'m'}, {name:'Vishnu', gender:'m'},
+  {name:'Wilson', gender:'m'}, {name:'Xavier', gender:'m'}, {name:'Yohan', gender:'m'},
+  {name:'Zachariah', gender:'m'}, {name:'Aby', gender:'m'}, {name:'Bijoy', gender:'m'},
+  {name:'Cyriac', gender:'m'}, {name:'Davis', gender:'m'}, {name:'Ebin', gender:'m'},
+  {name:'Fenil', gender:'m'}, {name:'Gibin', gender:'m'}, {name:'Hillary', gender:'m'},
+  {name:'Ittoop', gender:'m'}, {name:'Jaison', gender:'m'}, {name:'Kurian', gender:'m'},
+  {name:'Lijo', gender:'m'}, {name:'Mathew', gender:'m'}, {name:'Ninan', gender:'m'},
+  {name:'Oliver', gender:'m'},
+  {name:'Easo', gender:'m'}, {name:'Joseph', gender:'m'}
 ];
 
 // Mood-based faces: the bot's expression reflects how their team is currently doing,

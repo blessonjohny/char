@@ -398,6 +398,21 @@
     ui.panel.style.top = 'auto';
     ui.panel.style.bottom = (bottomOffset + 52) + 'px';
 
+    // Sound mute button - sits directly to the right of the mic, same size, same dynamic
+    // bottomOffset the mic itself just got. It used to have its own static bottom:40px
+    // guess (matching the mic's own old static value), which is exactly why it ended up
+    // sitting on top of the hand of cards on a real device with a full 8-card hand instead
+    // of the near-empty test hand it was originally checked against - the hand-area's real
+    // height varies enough that only measuring it directly (like the mic already does) is
+    // actually reliable.
+    const muteBtn = document.getElementById('btnSoundMute');
+    if (muteBtn) {
+      muteBtn.style.left = (leftEdge + 54) + 'px';
+      muteBtn.style.right = 'auto';
+      muteBtn.style.top = 'auto';
+      muteBtn.style.bottom = bottomOffset + 'px';
+    }
+
     const chatBtn = document.getElementById('btnChat');
     if (chatBtn) {
       chatBtn.style.position = 'fixed';
