@@ -940,7 +940,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ===== OVERLAYS & PANELS ===== */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center;padding:12px;overflow-y:auto}
 .overlay.on{display:flex}
-.panel{background:linear-gradient(135deg,#111d2e,#0d1b2a);border:1.5px solid rgba(255,215,0,0.2);border-radius:16px;padding:16px;width:92%;max-width:520px;max-height:82vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.6);margin:0 auto;box-sizing:border-box}
+.panel{background:linear-gradient(135deg,#111d2e,#0d1b2a);border:1.5px solid rgba(255,215,0,0.2);border-radius:16px;padding:16px;width:92%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.6);margin:0 auto;box-sizing:border-box}
 /* On mobile, 100vh is the *nominal* viewport (as if the browser's address
    bar were fully collapsed), which is often taller than what's actually
    visible — so 82vh here could genuinely run past the bottom of the real,
@@ -5317,6 +5317,12 @@ function layoutHandPreviewCards(container) {
   const cards = container.querySelectorAll('.card');
   if (cards.length === 0) return;
   const cardWidth = cards[0].getBoundingClientRect().width;
+  // Defensive guard: a zero width means the container still wasn't
+  // actually laid out yet when this ran (shouldn't happen now that
+  // this only runs after the modal is visible, via requestAnimationFrame
+  // -- but if it somehow still does, retry one more frame later rather
+  // than computing nonsense negative margins from dividing by zero.
+  if (cardWidth === 0) { requestAnimationFrame(() => layoutHandPreviewCards(container)); return; }
   const gap = 6; // desired breathing room between cards when they fit without overlap
   const naturalTotalWidth = cards.length * cardWidth + (cards.length - 1) * gap;
   const availableWidth = container.clientWidth;
@@ -8570,8 +8576,16 @@ function showBidPanel1() {
   const hd = document.getElementById('bidHandDisplay');
   hd.innerHTML = '';
   for (let card of players[(MY_POS)] || []) hd.innerHTML += cardHTML(card, false, false);
-  layoutHandPreviewCards(hd);
   document.getElementById('bidOverlay').classList.add('on');
+  // Per explicit bug report: cards were overflowing past the screen
+  // edges -- the actual cause was calling this measurement BEFORE the
+  // modal became visible. A display:none container's children have no
+  // layout box at all, so getBoundingClientRect() on the cards returned
+  // 0 width at that point, which broke the whole overlap calculation.
+  // Moved to run after .on is added (modal now visible) and wrapped in
+  // requestAnimationFrame so the browser has genuinely painted a frame
+  // with the real layout before anything gets measured.
+  requestAnimationFrame(() => layoutHandPreviewCards(hd));
 }
 
 function processBid(p, bid) {
@@ -8842,8 +8856,8 @@ function showTrumpPanel(changeMode) {
   const hd = document.getElementById('trumpHandDisplay');
   hd.innerHTML = '';
   for (let card of hand) hd.innerHTML += cardHTML(card, false, false);
-  layoutHandPreviewCards(hd);
   document.getElementById('trumpOverlay').classList.add('on');
+  requestAnimationFrame(() => layoutHandPreviewCards(hd));
 }
 
 let selectedTrumpCard = null;
@@ -9121,8 +9135,8 @@ function showRaisePanel() {
   hd.innerHTML = '';
   const myPos = MY_POS;
   for (let card of players[myPos] || []) hd.innerHTML += cardHTML(card, false, false);
-  layoutHandPreviewCards(hd);
   document.getElementById('bidOverlay').classList.add('on');
+  requestAnimationFrame(() => layoutHandPreviewCards(hd));
 }
 
 function showPhase2Confirmation(bid, isPass) {
