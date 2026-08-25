@@ -5330,7 +5330,29 @@ function faceIconSvg(rank, cls) {
 function fitModalPanelToViewport(overlayEl) {
   const panel = overlayEl.querySelector('.panel');
   if (!panel) return;
-  panel.style.maxHeight = (window.innerHeight - 8) + 'px';
+  const apply = () => { panel.style.maxHeight = (window.innerHeight - 8) + 'px'; };
+  apply();
+  // Per direct follow-up: measuring window.innerHeight only once, at
+  // the moment the modal opens, isn't actually enough on its own --
+  // mobile browsers resize the visible viewport AFTER the page has
+  // already loaded (the address bar auto-hides/reappears as the page
+  // scrolls, changing window.innerHeight live, not just once at load).
+  // If that happens while this modal is already open, the height set
+  // at open time goes stale. Listens for resize/orientation changes
+  // for as long as this specific overlay stays open, re-measuring and
+  // re-applying every time, and cleans its own listeners up the moment
+  // the overlay closes so they don't keep firing for a modal that's no
+  // longer even visible.
+  window.addEventListener('resize', apply);
+  window.addEventListener('orientationchange', apply);
+  const stopWatching = () => {
+    window.removeEventListener('resize', apply);
+    window.removeEventListener('orientationchange', apply);
+  };
+  const observer = new MutationObserver(() => {
+    if (!overlayEl.classList.contains('on')) { stopWatching(); observer.disconnect(); }
+  });
+  observer.observe(overlayEl, { attributes: true, attributeFilter: ['class'] });
 }
 function layoutHandPreviewCards(container) {
   const cards = container.querySelectorAll('.card');
