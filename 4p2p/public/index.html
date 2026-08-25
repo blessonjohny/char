@@ -2853,8 +2853,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 }
 
 /* ---------- Bid pad: thumb-sized keys ---------- */
-.bid-grid{grid-template-columns:repeat(5,1fr)!important;gap:8px!important}
-.bid-btn{min-height:50px!important;font-size:1.05rem!important;border-radius:12px!important;
+.bid-grid{grid-template-columns:repeat(5,1fr)!important;gap:5px!important}
+.bid-btn{min-height:38px!important;font-size:0.92rem!important;border-radius:9px!important;
   border:1.5px solid rgba(233,185,73,0.22)!important;background:#10231C!important;
   color:var(--ivory)!important;font-family:var(--display-font);font-weight:700}
 .bid-btn:active{background:rgba(233,185,73,0.2)!important;transform:scale(0.96)}
@@ -5163,8 +5163,8 @@ function renderBidHistoryList(history) {
       ? '<span style="color:var(--text-primary)">' + who + '</span> bid <b style="color:var(--accent)">' + h.bid + '</b>'
       : '<span style="color:var(--text-secondary)">' + who + ' passed</span>';
   });
-  return '<div style="margin-top:8px;padding:8px 10px;background:rgba(255,255,255,0.04);border-radius:8px;font-size:0.72rem;line-height:1.6;text-align:left">' +
-    '<b style="color:var(--text-secondary);font-size:0.65rem;letter-spacing:0.5px">SO FAR THIS ROUND</b><br>' +
+  return '<div style="margin-top:6px;padding:6px 8px;background:rgba(255,255,255,0.04);border-radius:8px;font-size:0.7rem;line-height:1.4;text-align:left">' +
+    '<b style="color:var(--text-secondary);font-size:0.62rem;letter-spacing:0.5px">SO FAR THIS ROUND</b><br>' +
     rows.join('<br>') + '</div>';
 }
 
