@@ -580,7 +580,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .suit-icon-corner{width:0.5em;height:0.5em;display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.3))}
 .suit-icon-center{width:2rem;height:2rem;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35))}
 
-.hand-prev .card{width:56px;height:80px;margin-left:-14px;cursor:default;flex-shrink:0}
+.hand-prev .card{width:56px;height:80px;margin-left:4px;cursor:default;flex-shrink:0}
 .hand-prev .card:first-child{margin-left:0}
 .hand-prev .card .cr,.hand-prev .card .crb{font-size:1.1rem}
 
@@ -621,6 +621,15 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;align-items:flex-end;justify-content:center;z-index:300}
 .overlay.on{display:flex}
 .panel{background:var(--panel);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;max-height:75vh;overflow-y:auto}
+/* Per explicit instruction: the bid overlay specifically (not every
+   overlay sharing .panel's base style, like the trump-selection one,
+   which wasn't asked about) should appear as a genuinely centered
+   floating window, not the bottom-anchored sheet every other overlay
+   uses. Overriding align-items to center it vertically, and rounding
+   all four corners (not just the top two) to actually look like a
+   centered modal rather than a bottom sheet with empty space under it. */
+#bidOverlay{align-items:center}
+#bidOverlay .panel{border-radius:20px}
 .bid-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
 .bid-btn{padding:12px 4px;border-radius:10px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-weight:700}
 .bid-btn.pass-btn{grid-column:span 4;background:rgba(255,92,92,0.15);border-color:var(--danger);color:var(--danger)}

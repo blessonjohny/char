@@ -6333,7 +6333,22 @@ function updateInfo() {
       tr.innerHTML = '<span class="trump-suit-text' + darkClass + '" style="color:' + suitColor + '">' + trumpSuit + ' ' + suitName(trumpSuit) + '</span> <span style="color:var(--accent);font-weight:700">TRUMP</span>';
       tr.classList.add('trump-active');
     } else {
-      tr.innerHTML = '🎯 <span style="color:var(--text-secondary)">Trump: Hidden</span>';
+      // Per explicit instruction: the bidder already knows their own
+      // hidden trump suit (they're the one who chose it), so there's
+      // no real secrecy being protected by showing them the same
+      // generic "Hidden" every other player sees. Gated explicitly on
+      // bidder === MY_POS (not just on hiddenTrump being populated) to
+      // be certain this can never show the suit to anyone but the
+      // bidder themselves -- everyone else still sees plain "Hidden"
+      // exactly as before.
+      if (bidder === MY_POS && hiddenTrump && hiddenTrump.suit) {
+        const isRedSuit = (hiddenTrump.suit === '♥' || hiddenTrump.suit === '♦');
+        const suitColor = isRedSuit ? '#d32f2f' : '#fff';
+        const darkClass = isRedSuit ? '' : ' dark-suit';
+        tr.innerHTML = '<span class="trump-suit-text' + darkClass + '" style="color:' + suitColor + ';font-size:1.3em">' + hiddenTrump.suit + '</span>';
+      } else {
+        tr.innerHTML = '🎯 <span style="color:var(--text-secondary)">Trump: Hidden</span>';
+      }
       tr.classList.remove('trump-active');
     }
     // Server mode sets trumpExposed directly from the authoritative state
@@ -9356,11 +9371,11 @@ function showCallTrumpPanel() {
     trickHtml +
     '<div style="font-size:0.85rem;margin-bottom:8px">You cannot follow <b style="color:var(--accent)">' + trickSuit + '</b>.</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0;font-size:0.75rem">' +
-    '<div style="background:rgba(74,222,128,0.08);border:1px solid var(--success);border-radius:8px;padding:8px;text-align:center">' +
+    '<div id="callTrumpYesCard" style="cursor:pointer;background:rgba(74,222,128,0.08);border:1px solid var(--success);border-radius:8px;padding:8px;text-align:center">' +
     '<div style="font-weight:800;color:var(--success);margin-bottom:4px">YES ✓</div>' +
     '<div style="color:var(--text-secondary)">Expose trump suit</div>' +
     '<div style="color:var(--text-secondary);font-size:0.65rem">(Must play trump if you have it)</div></div>' +
-    '<div style="background:rgba(248,113,113,0.08);border:1px solid var(--danger);border-radius:8px;padding:8px;text-align:center">' +
+    '<div id="callTrumpNoCard" style="cursor:pointer;background:rgba(248,113,113,0.08);border:1px solid var(--danger);border-radius:8px;padding:8px;text-align:center">' +
     '<div style="font-weight:800;color:var(--danger);margin-bottom:4px">NO ✕</div>' +
     '<div style="color:var(--text-secondary)">Discard any card except J</div>' +
     '<div style="color:var(--text-secondary);font-size:0.65rem">(Trump stays hidden)</div></div>' +
@@ -9383,11 +9398,22 @@ function showCallTrumpPanel() {
 
   const okBtn = document.getElementById('modalOkBtn');
   const oldOk = okBtn.onclick;
-  okBtn.textContent = 'YES, Call Trump';
+  const oldOkDisplay = okBtn.style.display;
+  // Per explicit instruction: the modal used to show FOUR things for a
+  // two-way choice -- the green/red info cards explaining each option,
+  // PLUS two separate "YES, Call Trump"/"NO, Discard" buttons below
+  // repeating the same choice. The info cards already explain
+  // everything needed; making them the actual clickable buttons (and
+  // hiding the redundant separate ones, not deleting them, since
+  // modalOkBtn is shared scaffolding every other modal in the app also
+  // uses) gets down to two clear choices, left and right, instead of
+  // four elements for what's really one decision.
+  okBtn.style.display = 'none';
   okBtn.onclick = function() {
     closeModal();
     okBtn.textContent = 'OK';
     okBtn.onclick = oldOk;
+    okBtn.style.display = oldOkDisplay;
     const myPos = MY_POS;
     // Trump exposure is shared/authoritative game state (it flips `phase`
     // and moves the hidden trump card into the bidder's hand). For an
@@ -9440,15 +9466,20 @@ function showCallTrumpPanel() {
     document.getElementById('modalBox').appendChild(noBtn);
   }
   noBtn.textContent = 'NO, Discard';
-  noBtn.style.display = 'block';
+  noBtn.style.display = 'none';
   noBtn.onclick = function() {
     closeModal();
     noBtn.style.display = 'none';
     okBtn.textContent = 'OK';
     okBtn.onclick = oldOk;
+    okBtn.style.display = oldOkDisplay;
     discardIsCalledTrump = false;
     showDiscardPanel(nonT, trumps);
   };
+  const yesCard = document.getElementById('callTrumpYesCard');
+  const noCard = document.getElementById('callTrumpNoCard');
+  if (yesCard) yesCard.onclick = okBtn.onclick;
+  if (noCard) noCard.onclick = noBtn.onclick;
 }
 
 function botDecideTrumpExpose() {

@@ -1498,6 +1498,24 @@ function applyState(state) {
         }
       }
       lastAnnouncedTrumpExposed = true;
+    } else if (state.bidder === MY_POS && state.myHiddenTrumpCard && state.myHiddenTrumpCard.suit) {
+      // Per explicit instruction: the bidder already knows their own
+      // hidden trump suit (they're the one who chose it), so there's
+      // no real secrecy left to protect by showing them the same
+      // generic "Hidden" every other player sees. Gated explicitly on
+      // state.bidder === MY_POS (not just on myHiddenTrumpCard being
+      // populated, even though the server should already only ever
+      // send that field to the bidder themselves) to be doubly certain
+      // this can never show the suit to anyone but the bidder --
+      // everyone else still sees plain "Hidden" exactly as before.
+      // Same technique as index.html's identical rule.
+      const mySuit = state.myHiddenTrumpCard.suit;
+      const isRedSuit = mySuit === '♦' || mySuit === '♥';
+      const iconClass = 'trump-chip-icon' + (isRedSuit ? ' icon-red-suit' : ' icon-black-suit-chip');
+      tr.innerHTML = '<span class="' + iconClass + '">' + mySuit + '</span>';
+      tr.style.color = '';
+      tr.classList.remove('trump-active');
+      lastAnnouncedTrumpExposed = false;
     } else {
       tr.innerHTML = 'Trump: Hidden';
       tr.style.color = '';
