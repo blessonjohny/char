@@ -2469,12 +2469,21 @@ function showBidPanel(state) {
   // instant they were tapped, which is exactly the confusing
   // "why did my legal-looking tap just fail" bug reported.
   const honorsRestricted = !isFirst && state.highestBid > 0 && (state.bidder % 2) === (MY_POS % 2);
+  // Per explicit instruction: a further restriction on top of the
+  // honors-restriction above -- once the partner's own bid has ALREADY
+  // reached honors level (20+), placeBid() now only accepts exactly 28
+  // as a numeric raise (Thani remains available separately, rendered
+  // below regardless of this). Mirrors game-engine-6p.js's identical
+  // placeBid() check exactly, so this UI never offers a button the
+  // server would actually reject.
+  const partnerAlreadyHonors = honorsRestricted && state.highestBid >= 20;
   const minBid = honorsRestricted ? Math.max(20, state.highestBid + 1) : (state.highestBid > 0 ? state.highestBid + 1 : 16);
   $('bidTitle').textContent = 'Place Your Bid';
   $('bidText').innerHTML = (state.highestBid > 0
     ? `Current highest: <b style="color:var(--accent)">${state.highestBid}</b> by ${sixpRelLabel(state.bidder, state.seats)}`
     : 'You are the first bidder — must bid at least 16.')
-    + (honorsRestricted ? `<br><span style="color:var(--accent)">Your partner is already highest — you can only call ${minBid} or above.</span>` : '')
+    + (partnerAlreadyHonors ? `<br><span style="color:var(--accent)">Your partner is already at honors — you can only call 28 or Thani.</span>`
+       : honorsRestricted ? `<br><span style="color:var(--accent)">Your partner is already highest — you can only call ${minBid} or above.</span>` : '')
     + sixpRenderBidHistory(state.bidHistory, state.seats);
   const btns = $('bidButtons');
   btns.innerHTML = '';
@@ -2487,12 +2496,20 @@ function showBidPanel(state) {
     pass.addEventListener('click', () => showBidConfirm(state, 0, true));
     btns.appendChild(pass);
   }
-  for (let b = minBid; b <= 28; b++) {
+  if (partnerAlreadyHonors) {
     const btn = document.createElement('button');
     btn.className = 'bid-btn';
-    btn.textContent = b;
-    btn.addEventListener('click', () => showBidConfirm(state, b, false));
+    btn.textContent = 28;
+    btn.addEventListener('click', () => showBidConfirm(state, 28, false));
     btns.appendChild(btn);
+  } else {
+    for (let b = minBid; b <= 28; b++) {
+      const btn = document.createElement('button');
+      btn.className = 'bid-btn';
+      btn.textContent = b;
+      btn.addEventListener('click', () => showBidConfirm(state, b, false));
+      btns.appendChild(btn);
+    }
   }
   // THANI -- the last, highest bid option, beating any numeric bid.
   // Going it alone: both other teammates fold out of the round entirely
