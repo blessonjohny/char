@@ -419,6 +419,17 @@ class GameEngine6P {
     // your team is already ahead, so a plain raise isn't the point --
     // only a genuine honors-level bid (20+) is allowed.
     const honorsRestricted = !first && this.highestBid > 0 && getTeam(this.bidder) === getTeam(pos);
+    // Per explicit instruction: a further, tighter restriction within
+    // the honors-restriction case above -- once your OWN partner's
+    // bid has ALREADY reached honors level (20+), there's no point
+    // incrementally raising your own team's bid a point or two at a
+    // time anymore (17->20 already had to jump straight to honors via
+    // the rule above; from 20 onward there's nothing left to gain by
+    // going to 21, 22, etc. against yourself). The only two moves that
+    // still mean anything at that point are going all the way to 28,
+    // or calling Thani instead (handled entirely separately by
+    // callThani/isThaniOption, unaffected by this numeric bid check).
+    const partnerAlreadyHonors = honorsRestricted && this.highestBid >= 20;
     if (bid === 0) {
       if (first) bid = 16; // first bidder cannot pass
       else {
@@ -430,6 +441,7 @@ class GameEngine6P {
         return this._afterBidAction(pos, false);
       }
     }
+    if (partnerAlreadyHonors && bid !== 28) return { ok: false, reason: 'partner_already_honors_28_or_thani_only' };
     const minBid = honorsRestricted ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 16);
     if (bid < minBid || bid > 28) return { ok: false, reason: 'invalid_bid_amount' };
     this.highestBid = bid;
@@ -1185,6 +1197,33 @@ class GameEngine6P {
         if (!stillStuck) return;
         this._botAct(capturedPos);
       }, delay);
+      // Per explicit bug report: a bot's turn was observed getting
+      // skipped entirely in live play with real + bot players mixed --
+      // the seat's own turn-order tracking was later confirmed correct
+      // (the engine still correctly returned to that seat once its
+      // team's other members had acted, since it had genuinely never
+      // recorded any action for them), which points to the ~900ms timer
+      // above simply never firing or getting raced out by something
+      // else changing currentPlayer in that same window, not a flaw in
+      // whose turn it is. Rather than guess at the exact race without
+      // being able to reproduce it, this adds a second, independent
+      // safety check a few seconds later: if it's STILL that bot's
+      // uncompleted turn by then, retry via maybeAutoAct() itself
+      // (not a direct _botAct call), so it goes through every one of
+      // the normal guards again with a fresh view of the current state,
+      // rather than assuming the original captured values still apply.
+      if (seat.isBot) {
+        const watchdogPos = this.currentPlayer;
+        const watchdogRound = this.round;
+        setTimeout(() => {
+          if (this.round !== watchdogRound) return;
+          if (this.currentPlayer !== watchdogPos) return;
+          const seatNow = this.seats[watchdogPos];
+          if (!seatNow || !seatNow.isBot) return;
+          this.addLog(`[bot-watchdog] Seat ${watchdogPos} still hadn't acted after 3s -- retrying.`);
+          this.maybeAutoAct();
+        }, 3000);
+      }
     }
   }
 
@@ -1269,6 +1308,19 @@ class GameEngine6P {
         bid = minBid <= target - 2 ? minBid + 1 : minBid;
       }
       if (first && bid === 0) bid = 16;
+      // Per explicit instruction: once a bot's own partner is already
+      // the high bidder at honors level (20+), placeBid() now only
+      // accepts exactly 28 as a numeric raise (Thani is the other
+      // option, handled entirely separately below via
+      // isThaniOption()/callThani). Without this, a bot computing some
+      // intermediate target like 22 here would have that bid rejected
+      // and silently fall back to passing even on a hand strong enough
+      // to reasonably push to 28 -- clamp up to 28 specifically when
+      // the bot's own target was already high enough to suggest real
+      // confidence, rather than always collapsing to a pass.
+      if (!first && this.bidder >= 0 && getTeam(this.bidder) === getTeam(pos) && this.highestBid >= 20 && bid !== 0 && bid !== 28) {
+        bid = target >= 24 ? 28 : 0;
+      }
 
       const result = this.placeBid(pos, bid);
       if (!result.ok) this.placeBid(pos, 0);
