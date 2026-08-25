@@ -941,20 +941,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center;padding:6px;overflow-y:auto}
 .overlay.on{display:flex}
 .panel{background:linear-gradient(135deg,#111d2e,#0d1b2a);border:1.5px solid rgba(255,215,0,0.2);border-radius:16px;padding:16px;width:92%;max-width:520px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.6);margin:0 auto;box-sizing:border-box;
-  /* Per repeated, persistent bug report: six different height-calculation
-     approaches (vh, dvh, JS-measured window.innerHeight, resize
-     listeners, removing every competing max-height rule, !important
-     priority) have ALL failed to fix this, which means the actual
-     problem was never really about calculating the right number in the
-     first place -- something about a height CALCULATION specifically
-     was never the reliable path here. Switched entirely away from
-     calculating a height at all: position:fixed with BOTH top:0 and
-     bottom:0 set tells the browser to size this element implicitly,
-     stretching to fill exactly whatever's between those two pinned
-     edges -- the browser's own layout engine does this natively,
-     correctly, in every browser, with no vh/dvh/JS measurement
-     involved anywhere for this to get wrong. */
-  position:fixed;top:8px;bottom:8px;left:50%;transform:translateX(-50%)}
+  /* Per explicit follow-up: the real bug was never the outer window's
+     own height calculation at all -- it was #bidHandDisplay's own
+     hardcoded max-height:68px;overflow-y:hidden silently clipping the
+     cards regardless of how tall this panel was (see that fix). Now
+     that the actual cause is gone, forcing this panel to always fill
+     nearly the entire screen (which is what solved the symptom while
+     the real bug was still hiding underneath) is no longer needed and
+     was making it feel oversized on phones specifically. Back to
+     sizing naturally to its own content, capped so it can never
+     exceed the real screen either way. */
+  max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px)}
 /* On mobile, 100vh is the *nominal* viewport (as if the browser's address
    bar were fully collapsed), which is often taller than what's actually
    visible — so 82vh here could genuinely run past the bottom of the real,
@@ -5339,31 +5336,18 @@ function faceIconSvg(rank, cls) {
 // a CSS max-height declaration, so there's no ambiguity about which one
 // applies), called every time a modal is opened.
 function fitModalPanelToViewport(overlayEl) {
-  const panel = overlayEl.querySelector('.panel');
-  if (!panel) return;
-  const apply = () => { panel.style.setProperty('max-height', (window.innerHeight - 8) + 'px', 'important'); };
-  apply();
-  // Per direct follow-up: measuring window.innerHeight only once, at
-  // the moment the modal opens, isn't actually enough on its own --
-  // mobile browsers resize the visible viewport AFTER the page has
-  // already loaded (the address bar auto-hides/reappears as the page
-  // scrolls, changing window.innerHeight live, not just once at load).
-  // If that happens while this modal is already open, the height set
-  // at open time goes stale. Listens for resize/orientation changes
-  // for as long as this specific overlay stays open, re-measuring and
-  // re-applying every time, and cleans its own listeners up the moment
-  // the overlay closes so they don't keep firing for a modal that's no
-  // longer even visible.
-  window.addEventListener('resize', apply);
-  window.addEventListener('orientationchange', apply);
-  const stopWatching = () => {
-    window.removeEventListener('resize', apply);
-    window.removeEventListener('orientationchange', apply);
-  };
-  const observer = new MutationObserver(() => {
-    if (!overlayEl.classList.contains('on')) { stopWatching(); observer.disconnect(); }
-  });
-  observer.observe(overlayEl, { attributes: true, attributeFilter: ['class'] });
+  // Per explicit follow-up: this JS-forced sizing was a real, working
+  // fix for the SYMPTOM (content getting cut off), but the actual
+  // cause turned out to be somewhere else entirely --
+  // #bidHandDisplay's own hardcoded max-height/overflow-hidden clipping
+  // the cards regardless of this panel's size (see that fix). Now that
+  // the real cause is gone, forcing this panel to always be nearly
+  // full-screen tall via !important is no longer needed and was making
+  // it feel oversized specifically on phones. Left as a deliberate
+  // no-op (not deleted outright) so every existing call site stays
+  // valid without needing to be found and removed individually -- the
+  // panel now sizes itself naturally via its own CSS max-height
+  // instead.
 }
 function layoutHandPreviewCards(container) {
   const cards = container.querySelectorAll('.card');
@@ -5465,10 +5449,29 @@ function showBuddyGreeting(sourceEl) {
 // recreated) -- av3 is deliberately excluded, since that's always the
 // viewer's own seat regardless of online/offline mode (see
 // pos0=top/pos1=left/pos2=right/pos3=bottom -- pos3 is always "me").
-['av0', 'av1', 'av2'].forEach(id => {
+// Per explicit follow-up: this used to only show the greeting locally
+// to whoever clicked -- the person whose avatar got clicked never saw
+// anything at all, even though the whole point is a friendly gesture
+// BETWEEN two players. Online, this now goes through the server so
+// both the clicker and the clicked player see it; offline (bots), it
+// just shows locally immediately since there's no one else to notify.
+// slotIndex must resolve through playerAtSlot() to the ACTUAL game
+// position of whoever is currently shown there -- av0/av1/av2 are
+// fixed screen slots, but which real player occupies which slot is
+// relative to the viewer and can differ for every player at the table.
+['av0', 'av1', 'av2'].forEach((id) => {
   const el = document.getElementById(id);
-  if (el) el.style.cursor = 'pointer';
-  if (el) el.addEventListener('click', () => showBuddyGreeting(el));
+  if (!el) return;
+  const slotIndex = parseInt(id.replace('av', ''), 10);
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', () => {
+    const targetPos = playerAtSlot(slotIndex);
+    if (SERVER_MODE && typeof gameSocket !== 'undefined' && gameSocket) {
+      gameSocket.emit('buddyGreeting', { toPos: targetPos });
+    } else {
+      showBuddyGreeting(el);
+    }
+  });
 });
 function showToast(msg, type, dur) {
   dur = dur || 1800;
@@ -15076,6 +15079,17 @@ gameSocket.on('chooseSeat', (info) => {
     // reason to wake an idle table back up, even if this specific
     // client hasn't clicked or touched anything themselves.
     if (typeof window.k28WakeTableScreensaver === 'function') window.k28WakeTableScreensaver();
+  });
+
+  // Per explicit follow-up: the buddy greeting must reach BOTH the
+  // player who clicked and the player whose avatar got clicked, not
+  // just show up locally for the clicker. The server broadcasts this
+  // to the whole table (see server.js), so this fires for every seat
+  // -- only actually show the popup if this specific client is one of
+  // the two people actually involved (the sender or the target),
+  // everyone else at the table just silently ignores it.
+  gameSocket.on('buddyGreeting', ({ fromPos, toPos }) => {
+    if (MY_POS === fromPos || MY_POS === toPos) showBuddyGreeting(null);
   });
 
   // "New Round" restart notice, visible to every connected real player (not just whoever

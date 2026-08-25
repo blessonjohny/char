@@ -1097,6 +1097,13 @@ function connectSocket() {
     addChatMessage(from, msg, senderId === socket.id);
   });
 
+  // Per explicit follow-up: same feature as index.html's identical
+  // handler, see there for the fuller reasoning -- only shows for the
+  // two people actually involved, not the whole table.
+  socket.on('sixp_buddyGreeting', ({ fromPos, toPos }) => {
+    if (MY_POS === fromPos || MY_POS === toPos) window.showBuddyGreeting();
+  });
+
   socket.on('sixp_stillPlayingCheck', ({ seconds }) => showStillPlayingPopup(seconds || 60));
   socket.on('sixp_stillPlayingResolved', () => hideStillPlayingPopup());
   socket.on('sixp_tableClosed', ({ reason }) => {
@@ -2425,7 +2432,22 @@ window.showBuddyGreeting = function() {
 };
 ['av1', 'av2', 'av3', 'av4', 'av5'].forEach(id => {
   const el = document.getElementById(id);
-  if (el) { el.style.cursor = 'pointer'; el.addEventListener('click', () => window.showBuddyGreeting()); }
+  if (!el) return;
+  const slotIndex = parseInt(id.replace('av', ''), 10);
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', () => {
+    // slotFor(pos) maps an actual game position to a screen slot;
+    // there's no ready-made inverse, so find whichever position
+    // currently maps to the slot that was actually clicked.
+    let targetPos = -1;
+    for (let pos = 0; pos < 6; pos++) { if (slotFor(pos) === slotIndex) { targetPos = pos; break; } }
+    if (targetPos === -1) return;
+    if (typeof gameSocket !== 'undefined' && gameSocket && gameSocket.connected) {
+      gameSocket.emit('sixp_buddyGreeting', { toPos: targetPos });
+    } else {
+      window.showBuddyGreeting();
+    }
+  });
 });
 function cardHTML(c, clickable, disabled, extraClass) {
   const clk = clickable ? `onclick="playHandCard('${c.suit}','${c.rank}')"` : '';
