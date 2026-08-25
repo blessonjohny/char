@@ -5024,7 +5024,24 @@ function setupOnlineTable() {
     if (av) {
       av.style.background = p.bg;
       const teamClass = (getTeam(p.pos) === getTeam(viewerPos())) ? 'tyou' : 'topp';
-      av.innerHTML = p.emoji + '<span class="tdot ' + teamClass + '"></span>';
+      // Real bug fix, not a style nit: setupOnlineTable() runs on EVERY state update from the
+      // server (i.e. every single turn, whether or not this particular player's own avatar
+      // actually needs to change), and av.innerHTML = ... destroys and recreates every child
+      // of the avatar - including the call-badge speech bubble that updateCallBadge4p appends
+      // there. Rebuilding it from scratch on every turn meant its pop-in animation restarted
+      // every single turn too, even for a bid/pass bubble that hadn't changed at all - this is
+      // the actual mechanism behind the "jumpy popup on every move" report. Guarded with the
+      // same dataset-comparison pattern already used elsewhere in this file (e.g.
+      // lastRenderedCardCount): only touch innerHTML when the value that would be written is
+      // actually different from what's already there, and re-attach the badge afterward if an
+      // update did need to happen, since innerHTML= would otherwise have just deleted it.
+      const desiredAvHtml = p.emoji + '<span class="tdot ' + teamClass + '"></span>';
+      if (av.dataset.avHtml !== desiredAvHtml) {
+        const existingBadge = av.querySelector('.call-badge');
+        av.dataset.avHtml = desiredAvHtml;
+        av.innerHTML = desiredAvHtml;
+        if (existingBadge) av.appendChild(existingBadge);
+      }
     }
     if (nm) nm.textContent = formatPlayerName(p.name, p.isBot);
     if (roleEl) roleEl.textContent = p.isLocal ? 'YOU' : (p.isBot ? 'BOT' : 'OPP');
@@ -7512,9 +7529,25 @@ function restoreGameState(data) {
     const av = document.getElementById('av' + slot);
     const nm = document.getElementById('name' + slot);
     const teamDot = getTeam(p.pos) === getTeam(MY_POS) ? 'tyou' : 'topp';
-    if (av) { 
-      av.style.background = p.bg; 
-      av.innerHTML = p.emoji + '<span class="tdot ' + teamDot + '"></span>'; 
+    // Real bug, not a style nit: this ran unconditionally on EVERY state update (i.e. every
+    // single turn, whether or not anything about this player actually changed), and
+    // av.innerHTML = ... destroys and recreates every child of the avatar element - including
+    // the call-badge speech bubble, which lives as a child of this same avatar (see
+    // updateCallBadge4p, which appends it there). Rebuilding it from scratch every turn meant
+    // its own pop-in animation restarted every single turn too, even for a bid/pass bubble
+    // that hadn't changed at all - the "jumpy popup on every move" report. Guarded the same
+    // way call-badge's own dataset.v check works: only touch innerHTML when the actual
+    // rendered value is different from what's already there, and re-append the badge
+    // afterward if the update did need to happen (since innerHTML= would have just deleted it).
+    const desiredAvHtml = p.emoji + '<span class="tdot ' + teamDot + '"></span>';
+    if (av) {
+      av.style.background = p.bg;
+      if (av.dataset.avHtml !== desiredAvHtml) {
+        const existingBadge = av.querySelector('.call-badge');
+        av.dataset.avHtml = desiredAvHtml;
+        av.innerHTML = desiredAvHtml;
+        if (existingBadge) av.appendChild(existingBadge);
+      }
     }
     if (nm) {
       nm.textContent = formatPlayerName(p.name, p.isBot);
