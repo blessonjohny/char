@@ -5313,6 +5313,20 @@ function faceIconSvg(rank, cls) {
 // has already happened by then), and only pulls cards together with a
 // negative margin if the natural, un-overlapped total would exceed
 // that -- the exact minimum overlap needed to fit, never more.
+// Per repeated bug report: CSS vh/dvh units on this specific setup have
+// not reliably reflected the actual visible viewport for this modal --
+// tried plain vh, then dvh, neither one visibly fixed it. Switching to a
+// direct measurement in JS instead: window.innerHeight is the browser's
+// own report of the real, currently-visible viewport height, not a CSS
+// unit whose behavior can vary by browser/version. Sets the panel's
+// max-height as an explicit inline pixel value (which always wins over
+// a CSS max-height declaration, so there's no ambiguity about which one
+// applies), called every time a modal is opened.
+function fitModalPanelToViewport(overlayEl) {
+  const panel = overlayEl.querySelector('.panel');
+  if (!panel) return;
+  panel.style.maxHeight = (window.innerHeight - 8) + 'px';
+}
 function layoutHandPreviewCards(container) {
   const cards = container.querySelectorAll('.card');
   if (cards.length === 0) return;
@@ -8577,6 +8591,7 @@ function showBidPanel1() {
   hd.innerHTML = '';
   for (let card of players[(MY_POS)] || []) hd.innerHTML += cardHTML(card, false, false);
   document.getElementById('bidOverlay').classList.add('on');
+  fitModalPanelToViewport(document.getElementById('bidOverlay'));
   // Per explicit bug report: cards were overflowing past the screen
   // edges -- the actual cause was calling this measurement BEFORE the
   // modal became visible. A display:none container's children have no
@@ -8857,6 +8872,7 @@ function showTrumpPanel(changeMode) {
   hd.innerHTML = '';
   for (let card of hand) hd.innerHTML += cardHTML(card, false, false);
   document.getElementById('trumpOverlay').classList.add('on');
+  fitModalPanelToViewport(document.getElementById('trumpOverlay'));
   requestAnimationFrame(() => layoutHandPreviewCards(hd));
 }
 
@@ -9136,6 +9152,7 @@ function showRaisePanel() {
   const myPos = MY_POS;
   for (let card of players[myPos] || []) hd.innerHTML += cardHTML(card, false, false);
   document.getElementById('bidOverlay').classList.add('on');
+  fitModalPanelToViewport(document.getElementById('bidOverlay'));
   requestAnimationFrame(() => layoutHandPreviewCards(hd));
 }
 
@@ -9602,6 +9619,7 @@ function showTrumpPlayPanel(trumps, nonT) {
   document.getElementById('callTrumpCards').innerHTML = '<div style="font-size:0.75rem;color:var(--accent);margin-bottom:6px">🃏 You CALLED TRUMP — play a trump card:</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:4px 0">' + (th || "<span style='color:var(--text-secondary);font-size:0.75rem'>You have no " + suitName(trumpSuit) + " (trump) — you'll discard instead.</span>") + '</div>';
   document.getElementById('discardCards').innerHTML = '<div style="font-size:0.65rem;color:var(--text-secondary)">Non-trump cards (cannot play now)</div>';
   document.getElementById('callTrumpOverlay').classList.add('on');
+  fitModalPanelToViewport(document.getElementById('callTrumpOverlay'));
 }
 
 function showDiscardPanel(nonT, trumps) {
@@ -9649,6 +9667,7 @@ function showDiscardPanel(nonT, trumps) {
     : '<div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:6px">Rule: any card except a Jack (J is grayed out below).</div>';
   document.getElementById('discardCards').innerHTML = '<div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px">🗑️ Discard any card:</div>' + ruleNote + '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:4px 0">' + (dh || "<span style='color:var(--text-secondary);font-size:0.75rem'>No cards</span>") + '</div>';
   document.getElementById('callTrumpOverlay').classList.add('on');
+  fitModalPanelToViewport(document.getElementById('callTrumpOverlay'));
 }
 
 function callTrumpAndPlay(suit, rank) {
