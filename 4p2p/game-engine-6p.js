@@ -471,15 +471,34 @@ class GameEngine6P {
   // corrected by the actual sequences worked through), they're just the
   // final consideration within their own side specifically, since they
   // already got the advantage of dealing the hand.
-  _bidTeamOrder(team) {
+  // Per explicit bug report with a full worked sequence: the order
+  // within a team was always a FIXED ascending seat order ([0,2,4] or
+  // [1,3,5], dealer pushed last), regardless of where the rotation
+  // actually was. That's wrong whenever the lowest-numbered unacted
+  // teammate isn't the one physically next in clockwise rotation from
+  // wherever the last action happened -- e.g. seat 4 bids, and the
+  // target team's remaining seats are 1 and 5: seat 5 is the one
+  // actually clockwise-adjacent to seat 4, but the old fixed order
+  // checked seat 1 first regardless, since 1 < 5. Now takes fromPos
+  // (the seat that just acted) and rotates the team's own seat list to
+  // start the search clockwise from fromPos+1, wrapping around --
+  // dealer-last-within-own-team is still preserved exactly as before,
+  // applied as a final sort AFTER the clockwise rotation, not instead
+  // of it.
+  _bidTeamOrder(team, fromPos) {
     const seats = team === 0 ? [0, 2, 4] : [1, 3, 5];
-    return seats.slice().sort((a, b) => (a === this.dealer ? 1 : 0) - (b === this.dealer ? 1 : 0));
+    let rotated = seats;
+    if (typeof fromPos === 'number') {
+      // Sort by clockwise distance from fromPos (1..SEATS-1 steps away), not raw seat number.
+      rotated = seats.slice().sort((a, b) => ((a - fromPos + SEATS) % SEATS) - ((b - fromPos + SEATS) % SEATS));
+    }
+    return rotated.slice().sort((a, b) => (a === this.dealer ? 1 : 0) - (b === this.dealer ? 1 : 0));
   }
   _nextBidTurn(lastActor, wasABid) {
     const lastTeam = getTeam(lastActor);
     const targetTeam = wasABid ? (1 - lastTeam) : lastTeam;
-    for (const s of this._bidTeamOrder(targetTeam)) if (!this.bidActed[s]) return s;
-    for (const s of this._bidTeamOrder(1 - targetTeam)) if (!this.bidActed[s]) return s;
+    for (const s of this._bidTeamOrder(targetTeam, lastActor)) if (!this.bidActed[s]) return s;
+    for (const s of this._bidTeamOrder(1 - targetTeam, lastActor)) if (!this.bidActed[s]) return s;
     return -1;
   }
 

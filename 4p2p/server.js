@@ -2054,6 +2054,19 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Purely social, no gameplay effect at all -- one player tapping
+  // another's avatar to send a friendly greeting. Broadcast to the
+  // whole table rather than targeting just the one recipient socket;
+  // the client itself decides whether to actually show the popup
+  // (only for the two people actually involved), so this stays simple
+  // and doesn't need its own per-recipient socket lookup.
+  socket.on('buddyGreeting', ({ toPos }) => {
+    withTable((t, pos) => {
+      if (typeof toPos !== 'number' || toPos === pos) return;
+      if (t.id) io.to(t.id).emit('buddyGreeting', { fromPos: pos, toPos });
+    });
+  });
+
   // "Already won" early-round-end: whoever's on the winning team answers
   // for their whole team (either partner can respond, see
   // respondToEarlyWin() in the engine itself for why). continuePlay=true
@@ -2737,6 +2750,15 @@ io.on('connection', (socket) => {
       if (!seat) return;
       io.to('sixp_' + sixpTableId).emit('sixp_chat', { from: seat.name, msg: trimmed, senderId: socket.id });
       sixpTouch(t);
+    });
+  });
+
+  // Purely social, no gameplay effect at all -- same feature as
+  // index.html's identical handler, see there for the fuller reasoning.
+  socket.on('sixp_buddyGreeting', ({ toPos }) => {
+    withSixpTable((t, pos) => {
+      if (typeof toPos !== 'number' || toPos === pos) return;
+      io.to('sixp_' + sixpTableId).emit('sixp_buddyGreeting', { fromPos: pos, toPos });
     });
   });
 
