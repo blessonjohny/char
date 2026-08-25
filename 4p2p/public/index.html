@@ -15979,6 +15979,19 @@ function applyServerState(state) {
   // last trick, right through to the round-end popup.
   if (typeof state.tricksPlayed === 'number' && state.tricksPlayed < lastSeenTricksPlayed) {
     resetTrickAndRoundTracking();
+    // Same fix as the tableId-change branch above, and for the exact same reason: resetting
+    // lastRenderedSlotContent back to all-null does nothing by itself if the new round's own
+    // desired content is ALSO null (the common case right after a restart, before anyone's
+    // played a card yet) - null === null still matches in renderTrickSlots()'s own guard, so
+    // it skips the slot entirely and the previous game's last-played cards stay stuck on
+    // screen. This was the actual reported bug ("old cards on the table are not clearing"
+    // after a restart) - the tableId-change path already had this exact fix, this same-table
+    // restart path just never got the identical treatment. Clearing the DOM directly here
+    // guarantees a clean table regardless of what the new round's first state happens to want.
+    for (let i = 0; i < 4; i++) {
+      const slotEl = document.getElementById('slot' + i);
+      if (slotEl) slotEl.innerHTML = '';
+    }
   }
   if (round !== roundSnapshotTakenForRound && state.phase !== 'lobby' && state.phase !== 'bidding1') {
     roundSnapshotTakenForRound = round;
@@ -16053,6 +16066,25 @@ function applyServerState(state) {
       if (state.phase !== 'bidding1' && state.bidder >= 0) {
         window._pendingWinnerMark = state.bidder;
         window._pendingWinnerMarkBid = state.highestBid;
+      }
+    } else {
+      // Real regression this introduced, not a pre-existing gap: before setupOnlineTable() was
+      // fixed to stop unnecessarily rebuilding every avatar's content on every render (the
+      // "jumpy popup" fix), that unconditional rebuild was - completely incidentally - the
+      // only thing that ever actually removed a stale call-badge once play began, since
+      // nothing here ever populates _pendingCallBadgeUpdates once nobodyHasPlayedYet4p goes
+      // false, and updateCallBadge4p itself only ever adds/updates a badge, never removes one.
+      // Once that incidental wipe stopped happening, the last bid/pass bubble from before play
+      // started just sat there forever - through the rest of trick 1, only finally vanishing
+      // whenever some UNRELATED avatar content change happened to force a rebuild (which is
+      // exactly why it looked like it took until trick 2's first card - that's just whenever
+      // the next incidental rebuild happened to land, not anything actually tied to trick 2).
+      // The correct, direct fix: explicitly remove every remaining call-badge the moment
+      // nobodyHasPlayedYet4p first goes false, rather than depending on that unrelated
+      // rebuild ever happening again.
+      for (let i = 0; i < 4; i++) {
+        const badge = document.getElementById('av' + i) ? document.getElementById('av' + i).querySelector('.call-badge') : null;
+        if (badge) badge.remove();
       }
     }
   } catch (e) { console.error('[call-badge] threw:', e); }
