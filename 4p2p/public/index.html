@@ -948,9 +948,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    way to reach it since the overlay itself has no outer scroll. dvh tracks
    the real, current visible viewport where supported; browsers without it
    just keep using the vh value above. */
-@supports (max-height: 82dvh){
-  .panel{max-height:78dvh}
-}
 .handle{width:32px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 10px}
 .panel h3{color:var(--accent);font-size:0.9rem;margin-bottom:4px}
 .panel p{color:var(--text-secondary);font-size:0.72rem;margin-bottom:6px;line-height:1.4}
@@ -2178,7 +2175,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .btn{padding:5px 10px;font-size:0.72rem}
   .btn-sm{padding:4px 8px;font-size:0.65rem}
   .icon-btn{width:28px;height:28px;font-size:0.85rem}
-  .panel{padding:12px;width:95%;max-width:340px;max-height:90vh}
+  .panel{padding:12px;width:95%;max-width:340px}
   .bid-grid{grid-template-columns:repeat(auto-fill,minmax(36px,1fr));gap:3px}
   .bid-btn{padding:6px 1px;font-size:0.68rem;min-height:30px}
   .trump-btn{height:48px;font-size:1.5rem}
@@ -5330,7 +5327,7 @@ function faceIconSvg(rank, cls) {
 function fitModalPanelToViewport(overlayEl) {
   const panel = overlayEl.querySelector('.panel');
   if (!panel) return;
-  const apply = () => { panel.style.maxHeight = (window.innerHeight - 8) + 'px'; };
+  const apply = () => { panel.style.setProperty('max-height', (window.innerHeight - 8) + 'px', 'important'); };
   apply();
   // Per direct follow-up: measuring window.innerHeight only once, at
   // the moment the modal opens, isn't actually enough on its own --
