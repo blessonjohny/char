@@ -1097,11 +1097,20 @@ function connectSocket() {
     addChatMessage(from, msg, senderId === socket.id);
   });
 
-  // Per explicit follow-up: same feature as index.html's identical
+  // Per explicit instruction: same feature as index.html's identical
   // handler, see there for the fuller reasoning -- only shows for the
   // two people actually involved, not the whole table.
   socket.on('sixp_buddyGreeting', ({ fromPos, toPos }) => {
     if (MY_POS === fromPos || MY_POS === toPos) window.showBuddyGreeting();
+  });
+
+  // Per explicit instruction: a nice, visible popup for everyone
+  // already seated when someone new joins -- reuses the same
+  // showGameEvent "big moment" popup already used elsewhere on this
+  // table (bid made/failed, trump exposed) rather than a plain toast,
+  // so this reads as a genuinely welcoming moment, not routine text.
+  socket.on('sixp_playerJoinedNotice', ({ name }) => {
+    showGameEvent('👋', 'New Player!', (name || 'Someone') + ' just joined the table', '#f4c430');
   });
 
   socket.on('sixp_stillPlayingCheck', ({ seconds }) => showStillPlayingPopup(seconds || 60));
@@ -2442,8 +2451,8 @@ window.showBuddyGreeting = function() {
     let targetPos = -1;
     for (let pos = 0; pos < 6; pos++) { if (slotFor(pos) === slotIndex) { targetPos = pos; break; } }
     if (targetPos === -1) return;
-    if (typeof gameSocket !== 'undefined' && gameSocket && gameSocket.connected) {
-      gameSocket.emit('sixp_buddyGreeting', { toPos: targetPos });
+    if (typeof socket !== 'undefined' && socket && socket.connected) {
+      socket.emit('sixp_buddyGreeting', { toPos: targetPos });
     } else {
       window.showBuddyGreeting();
     }
