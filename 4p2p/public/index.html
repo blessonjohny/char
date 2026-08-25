@@ -967,10 +967,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .trump-btn.on{background:var(--accent);border-color:var(--accent)}
 .trump-btn:active{transform:scale(0.95)}
 .hand-prev{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;padding:6px;background:rgba(0,0,0,0.3);border-radius:10px;margin-bottom:8px;min-height:52px}
-.hand-prev .card{width:36px;height:50px;cursor:default;border-radius:6px;box-shadow:0 1px 5px rgba(0,0,0,0.15),inset 0 1px 0 rgba(255,255,255,0.7)}
-.hand-prev .card .cr,.hand-prev .card .crb{font-size:0.62rem;top:2px;left:3px;text-shadow:0 1px 0 rgba(0,0,0,0.15);filter:drop-shadow(0 1px 1px rgba(0,0,0,0.2))}
-.hand-prev .card .crb{top:auto;bottom:2px;right:3px;left:auto}
-.hand-prev .card .cs{font-size:1rem;margin-top:0;text-shadow:0 1px 0 rgba(0,0,0,0.1);filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2))}
+.hand-prev .card{cursor:default}
 .ct-section{margin-bottom:10px}
 .ct-section h5{font-size:0.72rem;color:var(--accent);margin-bottom:6px;font-weight:700}
 .ct-section .cards-row{display:flex;gap:5px;flex-wrap:wrap}
@@ -2898,18 +2895,21 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   box-shadow:0 0 0 2px rgba(233,185,73,0.65),0 8px 18px rgba(0,0,0,0.4)!important}
 .hand-area .card:active{z-index:6}
 
-/* The bid-panel/trump-panel hand previews (#bidHandDisplay etc, all using
-   .hand-prev) had their own fixed-width, non-wrapping, horizontal-scroll
-   layout that never got the "fan so it always fits" treatment above — with
-   a full 8-card hand this pushed cards off the right edge and, combined
-   with the panel's own scroll area, could leave the bottom of the preview
-   effectively unreachable. Give it the same fit-to-window fan instead. */
+/* Per explicit instruction: full, regular playing-card size for these
+   previews (#bidHandDisplay/#trumpHandDisplay, shared by "Your Bid",
+   "Phase 2: Raise?", and "Choose Trump Suit") instead of a separate,
+   smaller fixed size -- removed the .hand-prev-specific width/height
+   overrides entirely so cards here just inherit whatever size the
+   main .card class is already using at the current screen's own
+   breakpoint (see the plain .card rules and their own media queries),
+   automatically matching the player's actual hand cards rather than a
+   guessed, hardcoded pixel value. Spacing/overlap is now computed in
+   JS by layoutHandPreviewCards() based on the real available width at
+   render time, not a fixed CSS margin -- see cardHTML's neighboring
+   comment for the full reasoning. */
 .hand-prev{flex-wrap:nowrap!important;overflow-x:hidden!important;justify-content:center!important}
-.hand-prev .card{width:40px!important;height:56px!important;flex-shrink:1;min-width:0;margin-left:-16px}
+.hand-prev .card{flex-shrink:0;cursor:default}
 .hand-prev .card:first-child{margin-left:0!important}
-@media (max-width:480px){
-  .hand-prev .card{width:34px!important;height:48px!important;margin-left:-14px!important}
-}
 
 /* ---------- Signature: clay-chip team scores ---------- */
 .score-box{width:50px;height:50px;min-width:50px!important;border-radius:50%!important;
@@ -5301,6 +5301,39 @@ function faceIconSvg(rank, cls) {
   return `<svg class="${cls}" viewBox="0 0 100 100" aria-hidden="true"><use href="#face-${id}"></use></svg>`;
 }
 
+// Per explicit instruction: the small hand previews inside the bid/
+// trump modals (#bidHandDisplay, #trumpHandDisplay -- shared by all
+// three of "Your Bid", "Phase 2: Raise?", and "Choose Trump Suit",
+// since they all populate the same two elements) should show full,
+// regular playing-card size with real spacing between them, only
+// overlapping at all if the actual number of cards genuinely can't
+// fit the container's real width otherwise -- which varies by device,
+// so this can't be one fixed CSS value. Measures the container's own
+// actual clientWidth AFTER the cards are already in it (their layout
+// has already happened by then), and only pulls cards together with a
+// negative margin if the natural, un-overlapped total would exceed
+// that -- the exact minimum overlap needed to fit, never more.
+function layoutHandPreviewCards(container) {
+  const cards = container.querySelectorAll('.card');
+  if (cards.length === 0) return;
+  const cardWidth = cards[0].getBoundingClientRect().width;
+  const gap = 6; // desired breathing room between cards when they fit without overlap
+  const naturalTotalWidth = cards.length * cardWidth + (cards.length - 1) * gap;
+  const availableWidth = container.clientWidth;
+  cards.forEach((card, i) => {
+    if (i === 0) { card.style.marginLeft = '0'; return; }
+    if (naturalTotalWidth <= availableWidth) {
+      card.style.marginLeft = gap + 'px';
+    } else {
+      // Spread what space IS available evenly across the overlaps needed,
+      // rather than always falling back to one fixed overlap amount --
+      // 5 cards overlapping to fit get pulled together less than 8 would.
+      const neededOverlapTotal = naturalTotalWidth - availableWidth;
+      const perCardOverlap = neededOverlapTotal / (cards.length - 1);
+      card.style.marginLeft = '-' + Math.min(cardWidth - 8, perCardOverlap).toFixed(1) + 'px';
+    }
+  });
+}
 function cardHTML(c, clickable, disabled, extraClass) {
   const clk = clickable ? `onclick="playCard('${c.suit}','${c.rank}')"` : '';
   const dis = disabled ? 'disabled' : '';
@@ -8537,6 +8570,7 @@ function showBidPanel1() {
   const hd = document.getElementById('bidHandDisplay');
   hd.innerHTML = '';
   for (let card of players[(MY_POS)] || []) hd.innerHTML += cardHTML(card, false, false);
+  layoutHandPreviewCards(hd);
   document.getElementById('bidOverlay').classList.add('on');
 }
 
@@ -8808,6 +8842,7 @@ function showTrumpPanel(changeMode) {
   const hd = document.getElementById('trumpHandDisplay');
   hd.innerHTML = '';
   for (let card of hand) hd.innerHTML += cardHTML(card, false, false);
+  layoutHandPreviewCards(hd);
   document.getElementById('trumpOverlay').classList.add('on');
 }
 
@@ -9086,6 +9121,7 @@ function showRaisePanel() {
   hd.innerHTML = '';
   const myPos = MY_POS;
   for (let card of players[myPos] || []) hd.innerHTML += cardHTML(card, false, false);
+  layoutHandPreviewCards(hd);
   document.getElementById('bidOverlay').classList.add('on');
 }
 
