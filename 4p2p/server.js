@@ -2729,6 +2729,13 @@ io.on('connection', (socket) => {
     ensureHumanHost(t, sixpPlayerId);
     socket.emit('sixp_joined', { tableId: sixpTableId, playerId: sixpPlayerId, pos, isHost: isEffectiveHost(t, sixpPlayerId) });
     sixpTouch(t);
+    // Per explicit instruction: everyone else already seated should
+    // get a nice popup when someone new joins, same as the 4-player
+    // table's identical notification -- socket.to (not io.to)
+    // deliberately excludes the joining player's own connection from
+    // this, since getting a "so-and-so joined" popup about themselves
+    // the instant they join would be an odd, backwards thing to show.
+    socket.to('sixp_' + sixpTableId).emit('sixp_playerJoinedNotice', { name: pending.name });
     sixpBroadcastTable(t);
     sixpScheduleNoHumanShutdown(t, sixpTableId);
     io.emit('sixp_roomList', sixpPublicTableList());
