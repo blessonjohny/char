@@ -5416,6 +5416,49 @@ function log(msg, type) {
   if (lc) lc.prepend(e);
 }
 
+// Per explicit instruction: clicking on another player's own avatar at
+// the table (not your own) pops a big, warm, playful greeting for a
+// few seconds then fades away on its own -- purely social/fun, no
+// gameplay effect. A genuinely varied random pool so it doesn't feel
+// like the same canned line every time.
+const K28_BUDDY_GREETINGS = [
+  "Hey buddy, play! 🎉", "Let's gooo! 🔥", "Nice to see you here! 👋",
+  "Good luck out there! 🍀", "You've got this! 💪", "Bring your A-game! ⭐",
+  "Hey champ! 🏆", "Ready to play? 🎴", "Making friends at the table! 😄",
+  "Good game ahead! 🎲", "Hey there, partner! 🤝", "May the cards be kind! 🃏",
+  "You look sharp today! 😎", "High five! 🙌", "Let's have some fun! 🎊",
+];
+function showBuddyGreeting(sourceEl) {
+  const msg = K28_BUDDY_GREETINGS[Math.floor(Math.random() * K28_BUDDY_GREETINGS.length)];
+  const bubble = document.createElement('div');
+  bubble.className = 'k28-buddy-greeting';
+  bubble.textContent = msg;
+  bubble.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(0.7);' +
+    'background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;font-weight:900;' +
+    'font-family:var(--display-font, serif);font-size:1.4rem;padding:20px 32px;border-radius:20px;' +
+    'box-shadow:0 12px 40px rgba(0,0,0,0.5),0 0 0 3px rgba(255,255,255,0.25);' +
+    'z-index:9500;text-align:center;max-width:80vw;opacity:0;' +
+    'transition:opacity 0.25s ease,transform 0.25s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none';
+  document.body.appendChild(bubble);
+  requestAnimationFrame(() => {
+    bubble.style.opacity = '1';
+    bubble.style.transform = 'translate(-50%,-50%) scale(1)';
+  });
+  setTimeout(() => {
+    bubble.style.opacity = '0';
+    bubble.style.transform = 'translate(-50%,-50%) scale(0.85)';
+    setTimeout(() => bubble.remove(), 300);
+  }, 2200);
+}
+// Wired directly on page load (these are static elements, never
+// recreated) -- av3 is deliberately excluded, since that's always the
+// viewer's own seat regardless of online/offline mode (see
+// pos0=top/pos1=left/pos2=right/pos3=bottom -- pos3 is always "me").
+['av0', 'av1', 'av2'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.style.cursor = 'pointer';
+  if (el) el.addEventListener('click', () => showBuddyGreeting(el));
+});
 function showToast(msg, type, dur) {
   dur = dur || 1800;
   const ex = document.querySelector('.toast');
@@ -15018,6 +15061,10 @@ gameSocket.on('chooseSeat', (info) => {
 
   gameSocket.on('playerJoinedNotice', ({ name }) => {
     showPlayerJoinedNotice(name);
+    // Per explicit instruction: a real player joining is a genuine
+    // reason to wake an idle table back up, even if this specific
+    // client hasn't clicked or touched anything themselves.
+    if (typeof window.k28WakeTableScreensaver === 'function') window.k28WakeTableScreensaver();
   });
 
   // "New Round" restart notice, visible to every connected real player (not just whoever
@@ -17341,6 +17388,15 @@ function serverBotPlayForMe() {
   // regardless of any clicks at all - which is exactly what was happening.
   setInterval(() => { if (idleTimer === null && isGameTableVisible()) resetIdleTimer(); }, 2000);
   resetIdleTimer();
+  // Per explicit instruction: a player joining the table is a genuine
+  // reason to wake the screen back up (there's suddenly something new
+  // and relevant to see), but it's a socket event handled entirely
+  // outside this closure, not a local click/touch handleActivity()
+  // already listens for. Exposed as a small global hook specifically
+  // for that one external call site to reach into this otherwise-
+  // private screensaver state, rather than making everything in here
+  // global just for this one case.
+  window.k28WakeTableScreensaver = function() { stopScreensaver(); resetIdleTimer(); };
 })();
 
 </script>

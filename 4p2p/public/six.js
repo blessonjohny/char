@@ -2390,6 +2390,43 @@ function layoutHandPreviewCards(container) {
     }
   });
 }
+// Per explicit instruction ("all tables"): same buddy-greeting feature
+// as index.html's identical code -- see there for the fuller reasoning.
+// index.html and six.html are separate page loads (different URLs),
+// not a shared browser context, so this file needs its own actual copy
+// of the greeting pool and popup function, not just a reference to the
+// other file's version. Only the wiring-up differs between the two
+// (av0 here is "me", not av3 -- see SEAT_POS's own "0 me" comment above).
+window.K28_BUDDY_GREETINGS = [
+  "Hey buddy, play! 🎉", "Let's gooo! 🔥", "Nice to see you here! 👋",
+  "Good luck out there! 🍀", "You've got this! 💪", "Bring your A-game! ⭐",
+  "Hey champ! 🏆", "Ready to play? 🎴", "Making friends at the table! 😄",
+  "Good game ahead! 🎲", "Hey there, partner! 🤝", "May the cards be kind! 🃏",
+  "You look sharp today! 😎", "High five! 🙌", "Let's have some fun! 🎊",
+];
+window.showBuddyGreeting = function() {
+  const pool = window.K28_BUDDY_GREETINGS;
+  const msg = pool[Math.floor(Math.random() * pool.length)];
+  const bubble = document.createElement('div');
+  bubble.textContent = msg;
+  bubble.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(0.7);' +
+    'background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;font-weight:900;' +
+    'font-family:var(--display-font, serif);font-size:1.4rem;padding:20px 32px;border-radius:20px;' +
+    'box-shadow:0 12px 40px rgba(0,0,0,0.5),0 0 0 3px rgba(255,255,255,0.25);' +
+    'z-index:9500;text-align:center;max-width:80vw;opacity:0;' +
+    'transition:opacity 0.25s ease,transform 0.25s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none';
+  document.body.appendChild(bubble);
+  requestAnimationFrame(() => { bubble.style.opacity = '1'; bubble.style.transform = 'translate(-50%,-50%) scale(1)'; });
+  setTimeout(() => {
+    bubble.style.opacity = '0';
+    bubble.style.transform = 'translate(-50%,-50%) scale(0.85)';
+    setTimeout(() => bubble.remove(), 300);
+  }, 2200);
+};
+['av1', 'av2', 'av3', 'av4', 'av5'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) { el.style.cursor = 'pointer'; el.addEventListener('click', () => window.showBuddyGreeting()); }
+});
 function cardHTML(c, clickable, disabled, extraClass) {
   const clk = clickable ? `onclick="playHandCard('${c.suit}','${c.rank}')"` : '';
   const color = cardColor(c.suit);
