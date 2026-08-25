@@ -2364,6 +2364,32 @@ function suitIconSvg(suit, cls) {
   return `<svg class="${cls}" viewBox="0 0 100 100" aria-hidden="true"><use href="#suit-${id}"></use></svg>`;
 }
 function cardColor(suit) { return (suit === '♥' || suit === '♦') ? '#c0392b' : '#111'; }
+// Per explicit bug report ("can't see all the cards from left and right,
+// overflow") -- same function as index.html's identical one, see there
+// for the fuller reasoning. The small hand preview inside the bid modal
+// (#bidHandDisplay) should show full playing-card size with real
+// spacing, only overlapping at all if the actual number of cards
+// genuinely can't fit the container's real width otherwise -- measured
+// live at render time (varies by device), not a fixed CSS value.
+function layoutHandPreviewCards(container) {
+  const cards = container.querySelectorAll('.card');
+  if (cards.length === 0) return;
+  const cardWidth = cards[0].getBoundingClientRect().width;
+  if (cardWidth === 0) { requestAnimationFrame(() => layoutHandPreviewCards(container)); return; }
+  const gap = 6;
+  const naturalTotalWidth = cards.length * cardWidth + (cards.length - 1) * gap;
+  const availableWidth = container.clientWidth;
+  cards.forEach((card, i) => {
+    if (i === 0) { card.style.marginLeft = '0'; return; }
+    if (naturalTotalWidth <= availableWidth) {
+      card.style.marginLeft = gap + 'px';
+    } else {
+      const neededOverlapTotal = naturalTotalWidth - availableWidth;
+      const perCardOverlap = neededOverlapTotal / (cards.length - 1);
+      card.style.marginLeft = '-' + Math.min(cardWidth - 8, perCardOverlap).toFixed(1) + 'px';
+    }
+  });
+}
 function cardHTML(c, clickable, disabled, extraClass) {
   const clk = clickable ? `onclick="playHandCard('${c.suit}','${c.rank}')"` : '';
   const color = cardColor(c.suit);
@@ -2546,6 +2572,13 @@ function showBidPanel(state) {
   const sorted = hand.slice().sort((a, b) => SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit) || RANK_ORDER[b.rank] - RANK_ORDER[a.rank]);
   $('bidHandDisplay').innerHTML = sorted.map(c => cardHTML(c, false, false, '')).join('');
   $('bidOverlay').classList.add('on');
+  // Per explicit bug report ("can't see all the cards, overflow"): same
+  // fix as index.html's identical function -- must run AFTER the modal
+  // is actually visible (a display:none container's children have no
+  // layout box, so measuring width before this point would read 0 and
+  // produce broken math), and wrapped in requestAnimationFrame so the
+  // browser has genuinely painted a frame with the real layout first.
+  requestAnimationFrame(() => layoutHandPreviewCards($('bidHandDisplay')));
 }
 
 // A confirm step before the bid actually goes to the server — a
