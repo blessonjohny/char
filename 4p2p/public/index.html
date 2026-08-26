@@ -17459,7 +17459,6 @@ function serverBotPlayForMe() {
         transform: el.style.transform
       };
       el.style.transition = 'none';
-      el.style.transform = 'none';
       el.style.position = 'fixed';
       el.style.left = rect.left + 'px';
       el.style.top = rect.top + 'px';
@@ -17468,47 +17467,60 @@ function serverBotPlayForMe() {
       el.style.zIndex = '99999';
       const angle = Math.random() * Math.PI * 2;
       const speed = 40 + Math.random() * 50;
+      // Per explicit request: every bouncing object spins as it
+      // travels, not just translates -- a random starting spin speed
+      // (degrees/sec), applied via transform:rotate() each frame
+      // alongside the position. Picks up more spin every time it
+      // bounces off an edge (see the frame loop below), scaled to how
+      // fast it was moving at the moment of impact -- an actual
+      // calculated response to each hit, not just a constant idle spin.
       return {
         el, original, x: rect.left, y: rect.top, w: rect.width, h: rect.height,
-        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        rot: 0, spin: (Math.random() - 0.5) * 90
       };
     });
 
-    // A light dimming layer BEHIND the bouncing elements (not on top, and
-    // not catching clicks) just so the motion reads clearly against
-    // whatever static UI is still sitting underneath -- the 28gulan.com
-    // watermark lives on this same layer, always visible no matter where
-    // everything else has currently drifted to.
-    // Per explicit report: this used to be z-index:99998, LOWER than the
-    // bouncing elements themselves (99999) -- meaning anything flying
-    // past this spot rendered on TOP of the brand text and covered it,
-    // making it look like it kept disappearing (or like objects were
-    // "hitting" it) as they passed over. Now above the bouncers instead,
-    // so the watermark is genuinely always visible, never occluded.
-    watermark = document.createElement('div');
-    watermark.id = 'k28TableScreensaverBg';
-    watermark.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.35) 0%,rgba(4,9,18,0.5) 100%);z-index:100000;cursor:pointer';
+    // Per explicit request: 28GULAN.COM is now one of the bouncing
+    // objects itself, not a static watermark sitting still in a
+    // reserved corner -- starts dead center, bold and large, and joins
+    // the exact same bouncers array/physics as everything else (same
+    // edge-bounce, same spin-on-impact), so it travels and tumbles
+    // across the whole screen just like the avatars and cards do.
+    // Marked isBrand so stopScreensaver knows to just remove it rather
+    // than try to restore "original" styles a synthetic element never
+    // had.
     const brand = document.createElement('div');
     brand.textContent = '28GULAN.COM';
-    brand.style.cssText = 'position:absolute;bottom:5%;left:50%;transform:translateX(-50%);color:#c9a24b;font-family:\'Cinzel\',\'Playfair Display\',serif;font-weight:600;letter-spacing:2px;font-size:clamp(12px,3vw,18px);text-shadow:0 0 8px rgba(201,162,75,0.5),0 1px 4px rgba(0,0,0,0.7);opacity:0.9';
-    watermark.appendChild(brand);
+    brand.style.cssText = 'position:fixed;color:#f4c430;font-family:\'Cinzel\',\'Playfair Display\',serif;font-weight:900;letter-spacing:2px;font-size:clamp(20px,6vw,42px);text-shadow:0 0 14px rgba(244,196,48,0.8),0 2px 6px rgba(0,0,0,0.85);white-space:nowrap;pointer-events:none;z-index:99999';
+    document.body.appendChild(brand);
+    const brandRect = brand.getBoundingClientRect();
+    const brandAngle = Math.random() * Math.PI * 2;
+    const brandSpeed = 40 + Math.random() * 50;
+    const brandStartX = vw / 2 - brandRect.width / 2;
+    const brandStartY = vh / 2 - brandRect.height / 2;
+    brand.style.left = brandStartX + 'px';
+    brand.style.top = brandStartY + 'px';
+    bouncers.push({
+      el: brand, isBrand: true,
+      x: brandStartX, y: brandStartY, w: brandRect.width, h: brandRect.height,
+      vx: Math.cos(brandAngle) * brandSpeed, vy: Math.sin(brandAngle) * brandSpeed,
+      rot: 0, spin: (Math.random() - 0.5) * 90
+    });
+
+    // A light dimming layer on top of everything, purely for the
+    // dismissing click to land on safely. Per explicit report: this
+    // used to be BELOW the bouncing elements (z-index 99998 vs their
+    // 99999) -- meaning flying objects could render over whatever was
+    // on this layer, and a click on a bouncing element could reach that
+    // element's own handlers instead of this one. Now above everything,
+    // so it's always the one thing a click can land on.
+    watermark = document.createElement('div');
+    watermark.id = 'k28TableScreensaverBg';
+    watermark.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.25) 0%,rgba(4,9,18,0.35) 100%);z-index:100000;cursor:pointer';
     document.body.appendChild(watermark);
-    // This overlay still needs to catch the dismissing click itself
-    // (pointer-events stays on, not none) -- it sits above everything
-    // including the bouncers now, so it's the only thing a click can
-    // land on, which is exactly what keeps that click from also
-    // reaching a real card or button underneath and accidentally
-    // playing something.
     watermark.addEventListener('click', stopScreensaver);
     watermark.addEventListener('touchstart', stopScreensaver, { passive: true });
-
-    // Per the same report: also keep the bouncing objects from ever
-    // visually traveling through the brand's own reserved strip at the
-    // bottom of the screen, so nothing appears to fly "into" or "past"
-    // it even for a frame -- a clean bottom margin instead of relying
-    // on z-index layering alone to keep them apart.
-    const brandZoneHeight = Math.max(40, vh * 0.1);
-    const bounceMaxY = vh - brandZoneHeight;
 
     let lastT = performance.now();
     function frame(t) {
@@ -17518,12 +17530,24 @@ function serverBotPlayForMe() {
       for (const b of bouncers) {
         b.x += b.vx * dt;
         b.y += b.vy * dt;
-        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
-        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); }
-        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
-        else if (b.y + b.h > bounceMaxY) { b.y = bounceMaxY - b.h; b.vy = -Math.abs(b.vy); }
+        let bounced = false;
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); bounced = true; }
+        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); bounced = true; }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); bounced = true; }
+        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); bounced = true; }
+        // The actual "calculate spin from the hit" step: each impact
+        // adds a random kick scaled to how fast it was moving when it
+        // hit, then clamped so a long run of hits can't spin it
+        // absurdly fast.
+        if (bounced) {
+          const impactSpeed = Math.hypot(b.vx, b.vy);
+          b.spin += (Math.random() - 0.5) * impactSpeed * 0.6;
+          b.spin = Math.max(-260, Math.min(260, b.spin));
+        }
+        b.rot += b.spin * dt;
         b.el.style.left = b.x.toFixed(1) + 'px';
         b.el.style.top = b.y.toFixed(1) + 'px';
+        b.el.style.transform = 'rotate(' + b.rot.toFixed(1) + 'deg)';
       }
       rafId = requestAnimationFrame(frame);
     }
@@ -17535,6 +17559,7 @@ function serverBotPlayForMe() {
     rafId = null;
     if (bouncers) {
       for (const b of bouncers) {
+        if (b.isBrand) { b.el.remove(); continue; }
         // Restore every touched property exactly, not just the ones this
         // effect happens to set -- clearing anything left as '' lets the
         // element's real stylesheet rules take back over normally.

@@ -3689,7 +3689,6 @@ function requestFullscreen28() {
         transform: el.style.transform
       };
       el.style.transition = 'none';
-      el.style.transform = 'none';
       el.style.position = 'fixed';
       el.style.left = rect.left + 'px';
       el.style.top = rect.top + 'px';
@@ -3698,33 +3697,44 @@ function requestFullscreen28() {
       el.style.zIndex = '99999';
       const angle = Math.random() * Math.PI * 2;
       const speed = 40 + Math.random() * 50;
+      // Per explicit request: same spin-on-impact physics as the
+      // 4-player table's identical change -- see there for the fuller
+      // reasoning.
       return {
         el, original, x: rect.left, y: rect.top, w: rect.width, h: rect.height,
-        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        rot: 0, spin: (Math.random() - 0.5) * 90
       };
     });
 
-    // Per explicit report: same fix as the 4-player table's identical
-    // change -- z-index raised above the bouncers (was 99998, lower
-    // than their 99999) so the brand text is never covered by anything
-    // flying past, and the click-catching overlay is guaranteed to be
-    // the topmost thing a click can land on.
-    watermark = document.createElement('div');
-    watermark.id = 'k28TableScreensaverBg6p';
-    watermark.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.35) 0%,rgba(4,9,18,0.5) 100%);z-index:100000;cursor:pointer';
+    // Per explicit request: 28GULAN.COM is now one of the bouncing
+    // objects itself, starting dead center, bold and large -- same
+    // treatment as the 4-player table's identical change, see there
+    // for the fuller reasoning.
     const brand = document.createElement('div');
     brand.textContent = '28GULAN.COM';
-    brand.style.cssText = 'position:absolute;bottom:5%;left:50%;transform:translateX(-50%);color:#c9a24b;font-family:\'Cinzel\',\'Playfair Display\',serif;font-weight:600;letter-spacing:2px;font-size:clamp(12px,3vw,18px);text-shadow:0 0 8px rgba(201,162,75,0.5),0 1px 4px rgba(0,0,0,0.7);opacity:0.9';
-    watermark.appendChild(brand);
+    brand.style.cssText = 'position:fixed;color:#f4c430;font-family:\'Cinzel\',\'Playfair Display\',serif;font-weight:900;letter-spacing:2px;font-size:clamp(20px,6vw,42px);text-shadow:0 0 14px rgba(244,196,48,0.8),0 2px 6px rgba(0,0,0,0.85);white-space:nowrap;pointer-events:none;z-index:99999';
+    document.body.appendChild(brand);
+    const brandRect = brand.getBoundingClientRect();
+    const brandAngle = Math.random() * Math.PI * 2;
+    const brandSpeed = 40 + Math.random() * 50;
+    const brandStartX = vw / 2 - brandRect.width / 2;
+    const brandStartY = vh / 2 - brandRect.height / 2;
+    brand.style.left = brandStartX + 'px';
+    brand.style.top = brandStartY + 'px';
+    bouncers.push({
+      el: brand, isBrand: true,
+      x: brandStartX, y: brandStartY, w: brandRect.width, h: brandRect.height,
+      vx: Math.cos(brandAngle) * brandSpeed, vy: Math.sin(brandAngle) * brandSpeed,
+      rot: 0, spin: (Math.random() - 0.5) * 90
+    });
+
+    watermark = document.createElement('div');
+    watermark.id = 'k28TableScreensaverBg6p';
+    watermark.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.25) 0%,rgba(4,9,18,0.35) 100%);z-index:100000;cursor:pointer';
     document.body.appendChild(watermark);
     watermark.addEventListener('click', stopScreensaver);
     watermark.addEventListener('touchstart', stopScreensaver, { passive: true });
-
-    // Reserve a clear strip at the bottom so bouncing objects never
-    // visually travel through the brand's own space, same as the
-    // 4-player table's identical change.
-    const brandZoneHeight = Math.max(40, vh * 0.1);
-    const bounceMaxY = vh - brandZoneHeight;
 
     let lastT = performance.now();
     function frame(t) {
@@ -3734,12 +3744,20 @@ function requestFullscreen28() {
       for (const b of bouncers) {
         b.x += b.vx * dt;
         b.y += b.vy * dt;
-        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
-        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); }
-        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
-        else if (b.y + b.h > bounceMaxY) { b.y = bounceMaxY - b.h; b.vy = -Math.abs(b.vy); }
+        let bounced = false;
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); bounced = true; }
+        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); bounced = true; }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); bounced = true; }
+        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); bounced = true; }
+        if (bounced) {
+          const impactSpeed = Math.hypot(b.vx, b.vy);
+          b.spin += (Math.random() - 0.5) * impactSpeed * 0.6;
+          b.spin = Math.max(-260, Math.min(260, b.spin));
+        }
+        b.rot += b.spin * dt;
         b.el.style.left = b.x.toFixed(1) + 'px';
         b.el.style.top = b.y.toFixed(1) + 'px';
+        b.el.style.transform = 'rotate(' + b.rot.toFixed(1) + 'deg)';
       }
       rafId = requestAnimationFrame(frame);
     }
@@ -3751,6 +3769,7 @@ function requestFullscreen28() {
     rafId = null;
     if (bouncers) {
       for (const b of bouncers) {
+        if (b.isBrand) { b.el.remove(); continue; }
         b.el.style.position = b.original.position;
         b.el.style.left = b.original.left;
         b.el.style.top = b.original.top;
@@ -3764,6 +3783,7 @@ function requestFullscreen28() {
     bouncers = null;
     if (watermark) { watermark.remove(); watermark = null; }
   }
+
 
   function resetIdleTimer() {
     clearTimeout(idleTimer);
