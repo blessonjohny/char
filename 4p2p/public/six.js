@@ -3663,6 +3663,10 @@ function requestFullscreen28() {
   // every trick slot currently holding a played card. Deliberately NOT
   // the local player's own hand at the bottom -- that stays put and
   // interactive the whole time.
+  // Per explicit request: also includes the top bar's own chips -- see
+  // index.html's identical change for the full reasoning on why the
+  // trump chip needs no special handling (its content is already
+  // gated per viewer before this ever runs).
   function collectTargets() {
     const targets = [];
     document.querySelectorAll('.seat').forEach(el => {
@@ -3670,6 +3674,11 @@ function requestFullscreen28() {
     });
     document.querySelectorAll('.trickslot').forEach(el => {
       if (el.offsetParent && el.children.length > 0) targets.push(el);
+    });
+    ['roundNumBox', 'scoreBoxYours', 'scoreBoxOpp', 'trumpChip',
+     'sixInfoDealerWrap', 'sixInfoPointsWrap', 'sixInfoBidderWrap'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.offsetParent) targets.push(el);
     });
     return targets;
   }
@@ -3719,7 +3728,10 @@ function requestFullscreen28() {
     // fixed gold tone rather than a live theme variable (six-player
     // doesn't rotate felt colors the way 4-player does). Also shrunk
     // further per follow-up request.
-    brand.style.cssText = 'position:fixed;color:#8a6d1f;font-family:\'Cinzel Decorative\',\'Fraunces\',serif;font-weight:700;letter-spacing:2px;font-size:clamp(9px,2.2vw,15px);text-shadow:-1px -1px 0 rgba(255,235,180,0.55),1px 1px 0 rgba(0,0,0,0.55),2px 2px 0 rgba(0,0,0,0.5),3px 3px 0 rgba(0,0,0,0.42),4px 4px 0 rgba(0,0,0,0.34),5px 5px 0 rgba(0,0,0,0.26),6px 6px 6px rgba(0,0,0,0.3);opacity:0.9;white-space:nowrap;pointer-events:none;z-index:99999';
+    // Per explicit follow-up: same border-instead-of-shadow, smaller
+    // treatment as the 4-player table's identical change -- see there
+    // for the fuller reasoning.
+    brand.style.cssText = 'position:fixed;color:#8a6d1f;font-family:\'Cinzel Decorative\',\'Fraunces\',serif;font-weight:700;letter-spacing:1.5px;font-size:clamp(8px,1.8vw,12px);border:1.5px solid #8a6d1f;border-radius:8px;padding:3px 8px;background:rgba(10,10,10,0.35);white-space:nowrap;pointer-events:none;z-index:99999';
     document.body.appendChild(brand);
     const brandRect = brand.getBoundingClientRect();
     const brandAngle = Math.random() * Math.PI * 2;
@@ -3789,13 +3801,24 @@ function requestFullscreen28() {
       if (!bouncers) return;
       const dt = Math.min(0.05, (t - lastT) / 1000);
       lastT = t;
+      // Per explicit urgent report: same fix as the 4-player table's
+      // identical change -- wall bounces now also kick spin, scaled to
+      // impact speed, same as an object-vs-object hit. See there for
+      // the fuller reasoning on why this was making rotation look
+      // stuck in one direction.
       for (const b of bouncers) {
         b.x += b.vx * dt;
         b.y += b.vy * dt;
-        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
-        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); }
-        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
-        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); }
+        let bounced = false;
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); bounced = true; }
+        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); bounced = true; }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); bounced = true; }
+        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); bounced = true; }
+        if (bounced) {
+          const impactSpeed = Math.hypot(b.vx, b.vy);
+          b.spin += (Math.random() - 0.5) * impactSpeed * 0.6;
+          b.spin = Math.max(-260, Math.min(260, b.spin));
+        }
       }
       for (let i = 0; i < bouncers.length; i++) {
         for (let j = i + 1; j < bouncers.length; j++) {

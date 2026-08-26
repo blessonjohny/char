@@ -17429,6 +17429,18 @@ function serverBotPlayForMe() {
   // interactive-looking the whole time, since bouncing someone's own
   // cards while they're mid-decision would be actively confusing rather
   // than a harmless idle effect.
+  // Per explicit request: also includes the top bar's own chips -- the
+  // YOU/OPP score boxes, the trump reveal chip, the round/dealer/tricks/
+  // bidder row, and the championship streak row when it's showing.
+  // Trump safety needs no special handling here: #trumpReveal's text
+  // content is already server-gated per viewer BEFORE this ever runs
+  // (see applyServerState -- state.hasHiddenTrump only carries the
+  // actual suit for the bidder, everyone else's client only ever
+  // receives "Hidden" in the first place). Bouncing the real live
+  // element just moves whatever that specific viewer was already
+  // legitimately allowed to see -- it can't leak anything further,
+  // since nothing here is a clone with broader access than the
+  // original.
   function collectTargets() {
     const targets = [];
     document.querySelectorAll('.pspot').forEach(el => {
@@ -17437,6 +17449,15 @@ function serverBotPlayForMe() {
     document.querySelectorAll('.pslot').forEach(el => {
       if (el.offsetParent && el.children.length > 0) targets.push(el);
     });
+    ['yourScoreBox', 'oppScoreBox', 'trumpReveal'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.offsetParent) targets.push(el);
+    });
+    document.querySelectorAll('.info-row.info-main > div').forEach(el => {
+      if (el.offsetParent) targets.push(el);
+    });
+    const kingRow = document.getElementById('kingRow');
+    if (kingRow && kingRow.offsetParent) targets.push(kingRow);
     return targets;
   }
 
@@ -17498,7 +17519,12 @@ function serverBotPlayForMe() {
     // approximation -- same font-family, same --info-accent live-theme
     // color, same light-upper-left/dark-lower-right engraved shadow
     // stack. Also shrunk further per follow-up request.
-    brand.style.cssText = 'position:fixed;color:var(--info-accent, #ffd700);font-family:\'Cinzel Decorative\',\'Fraunces\',serif;font-weight:700;letter-spacing:2px;font-size:clamp(9px,2.2vw,15px);text-shadow:-1px -1px 0 rgba(255,255,255,0.45),1px 1px 0 rgba(0,0,0,0.55),2px 2px 0 rgba(0,0,0,0.5),3px 3px 0 rgba(0,0,0,0.42),4px 4px 0 rgba(0,0,0,0.34),5px 5px 0 rgba(0,0,0,0.26),6px 6px 6px rgba(0,0,0,0.3);opacity:0.9;white-space:nowrap;pointer-events:none;z-index:99999';
+    // Per explicit follow-up: no more engraved shadow stack -- just a
+    // clean bordered chip instead, matching the same visual language as
+    // the trump-reveal chip elsewhere on this same top bar
+    // (border+radius+background, no heavy shadow stack), and shrunk
+    // again.
+    brand.style.cssText = 'position:fixed;color:var(--info-accent, #ffd700);font-family:\'Cinzel Decorative\',\'Fraunces\',serif;font-weight:700;letter-spacing:1.5px;font-size:clamp(8px,1.8vw,12px);border:1.5px solid var(--info-accent, #ffd700);border-radius:8px;padding:3px 8px;background:rgba(10,10,10,0.35);white-space:nowrap;pointer-events:none;z-index:99999';
     document.body.appendChild(brand);
     const brandRect = brand.getBoundingClientRect();
     const brandAngle = Math.random() * Math.PI * 2;
@@ -17590,13 +17616,31 @@ function serverBotPlayForMe() {
       if (!bouncers) return;
       const dt = Math.min(0.05, (t - lastT) / 1000);
       lastT = t;
+      // Per explicit urgent report: the torque-based collision physics
+      // added above only ever fires on an object-vs-object hit -- wall
+      // bounces (which are what MOST hits actually are, since objects
+      // overlap each other far less often than they hit a screen edge)
+      // were left completely untouched, so an object's spin only ever
+      // got set once at creation and then never changed again unless it
+      // happened to collide with something else. That's exactly what
+      // reads as "rotating in one direction only" -- it wasn't really
+      // one direction, it just never varied after the first frame for
+      // most objects most of the time. Every wall bounce now also kicks
+      // the spin, scaled to how fast it was moving at that moment, same
+      // as the object-vs-object case.
       for (const b of bouncers) {
         b.x += b.vx * dt;
         b.y += b.vy * dt;
-        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
-        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); }
-        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
-        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); }
+        let bounced = false;
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); bounced = true; }
+        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); bounced = true; }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); bounced = true; }
+        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); bounced = true; }
+        if (bounced) {
+          const impactSpeed = Math.hypot(b.vx, b.vy);
+          b.spin += (Math.random() - 0.5) * impactSpeed * 0.6;
+          b.spin = Math.max(-260, Math.min(260, b.spin));
+        }
       }
       // Every bouncer checks against every other one (not just the
       // brand) now that real physics is in play -- the brand still
