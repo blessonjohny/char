@@ -151,7 +151,17 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .link-back{position:fixed;top:12px;left:12px;font-size:0.75rem;color:var(--text-secondary);text-decoration:none;z-index:200;background:rgba(0,0,0,0.3);padding:6px 12px;border-radius:20px}
 
 /* ---- Table / game screen ---- */
-#gameScreen{position:fixed;inset:0;background:radial-gradient(ellipse at center,#1f3f63 0%,#132840 60%,#0d1e33 100%);display:none;z-index:50}
+#gameScreen{position:fixed;inset:0;
+  /* Per explicit request: same premium royal-carpet floor as the
+     4-player table's identical change -- see index.html for the fuller
+     reasoning. A genuinely different color from the table (burgundy,
+     not this table's own navy felt tone) plus a wide gold diamond
+     lattice, so the floor reads as its own carpeted surface. */
+  background:
+    repeating-linear-gradient(45deg, rgba(212,175,90,0.09) 0px, rgba(212,175,90,0.09) 1.5px, transparent 1.5px, transparent 30px),
+    repeating-linear-gradient(-45deg, rgba(212,175,90,0.09) 0px, rgba(212,175,90,0.09) 1.5px, transparent 1.5px, transparent 30px),
+    radial-gradient(ellipse at center,#6b2430 0%,#4a1620 60%,#320e16 100%);
+  display:none;z-index:50}
 .topbar{position:absolute;top:0;left:0;right:0;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:0.75rem;background:rgba(0,0,0,0.25);z-index:10}
 .topbar .score{font-weight:800;color:var(--accent)}
 /* Wooden-rail oval matching the 4-player table's design, replacing the old flat bordered
@@ -191,18 +201,13 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
     inset 0 2px 6px rgba(255,255,255,0.04);
   background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
-    /* Per explicit request: same carbon-fiber weave as the 4-player
-       table's identical change -- see index.html for the fuller
-       reasoning. */
-    repeating-linear-gradient(45deg, rgba(0,0,0,0.3) 0px, rgba(0,0,0,0.3) 2px, transparent 2px, transparent 7px),
-    repeating-linear-gradient(-45deg, rgba(0,0,0,0.3) 0px, rgba(0,0,0,0.3) 2px, transparent 2px, transparent 7px),
     radial-gradient(ellipse at center, #1a2540 0%, transparent 60%),
     radial-gradient(ellipse at center, rgba(26,37,64,0.5) 0%, rgba(13,21,38,0.7) 50%, rgba(7,12,24,0.9) 100%),
     radial-gradient(circle at 15% 25%, rgba(255,215,0,0.06) 0%, transparent 6%),
     radial-gradient(circle at 82% 30%, rgba(96,165,250,0.04) 0%, transparent 5%),
     radial-gradient(circle at 25% 78%, rgba(255,215,0,0.05) 0%, transparent 6%),
     radial-gradient(circle at 80% 75%, rgba(96,165,250,0.04) 0%, transparent 5%);
-  background-size:140px 140px, 7px 7px, 7px 7px, auto, auto, auto, auto, auto, auto;
+  background-size:140px 140px, auto, auto, auto, auto, auto, auto;
 }
 .table-oval::after{
   /* Centered branding watermark. Per explicit instruction and reference
