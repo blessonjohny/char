@@ -2129,7 +2129,11 @@ function renderSeats(state) {
         // as ONE path, not a shape plus a separately-attached piece.
         // Same technique as index.html's identical rule -- see there
         // for the full reasoning.
-        const fillColor = isPass ? '#241010' : '#0a1f0f';
+        // Per explicit follow-up report: lightened from near-black
+        // (#241010/#0a1f0f, which just read as flat black) to an
+        // actually visible dark maroon/forest-green -- same fix and
+        // same reasoning as index.html's identical change.
+        const fillColor = isPass ? '#4a1a1a' : '#123d22';
         const bgSvg = `<svg class="call-badge-bg" viewBox="-5 -10 110 100"><path d="${CALL_BADGE_PATHS[CALL_BADGE_DIR[slot]]}" fill="${fillColor}" stroke="currentColor" stroke-width="2.2"/></svg>`;
         callEl.innerHTML = (flavor
           ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`

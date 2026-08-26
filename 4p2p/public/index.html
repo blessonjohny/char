@@ -6182,7 +6182,14 @@ function updateCallBadge4p(pos, bid, seq) {
     // coordinates around its attachment point on the oval, not by
     // hand), then actually rendered all of them with a marked avatar
     // position and confirmed each one visually before use.
-    const fillColor = isPass ? '#241010' : '#0a1f0f';
+    // Per explicit follow-up report: these were #241010/#0a1f0f -- so
+    // close to pure black that the bubble just read as a flat black
+    // rectangle instead of a tinted red/green one, on both this table
+    // and the 6-player table (same values, same bug, see six.js).
+    // Lightened to an actually visible dark maroon/forest-green while
+    // keeping them dark enough that the colored header text and white
+    // flavor text both still read clearly on top.
+    const fillColor = isPass ? '#4a1a1a' : '#123d22';
     const bgSvg = `<svg class="call-badge-bg" viewBox="-5 -10 110 100"><path d="${CALL_BADGE_PATHS[CALL_BADGE_DIR_4P[slot]]}" fill="${fillColor}" stroke="currentColor" stroke-width="2.2"/></svg>`;
     callEl.innerHTML = (flavor
       ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
