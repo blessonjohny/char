@@ -524,6 +524,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* ===== GAME WRAP ===== */
 .game-wrap{position:fixed;top:40px;left:0;right:0;bottom:0;display:none;flex-direction:column;
+  /* Per explicit request: this used to just inherit the body's dark
+     forest-green gradient straight through, which sat close enough in
+     hue/darkness to the felt itself that avatars and seat info didn't
+     really stand out against it. This is a lighter version of that same
+     green family, scoped to just the game screen (not the lobby/welcome
+     screens, which still use the original body background), so the
+     table now reads as a lit surface the avatars visibly sit on top of. */
+  background:radial-gradient(ellipse at center,#1d3a2c 0%,#152a20 55%,#0f2018 100%);
   /* overflow:hidden here meant anything that computed too tall for the
      viewport -- for ANY reason, including things impossible to reliably
      detect from CSS alone, like Chrome's "Desktop site" mode on a phone,
@@ -3511,6 +3519,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 
 <!-- ===== GAME WRAP ===== -->
 <div class="game-wrap" id="gameWrap">
+<canvas id="k28SeasonCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></canvas>
   <div class="info-bar" id="infoBar">
     <div class="info-row info-main" style="display:grid;grid-template-columns:1fr auto 1fr;justify-content:stretch;align-items:center">
       <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:flex-start;overflow:hidden">
@@ -15283,6 +15292,12 @@ function hideKickNotice() {
       return;
     }
     applyServerState(state);
+    // Per explicit request: the live game state changing at all — a
+    // bid, a card played, a new round dealt — is exactly the kind of
+    // "whatever is live" moment the idle screensaver should snap back
+    // for, not just an explicit click. Safe to call unconditionally:
+    // it's a no-op whenever the screensaver isn't currently running.
+    if (typeof window.k28WakeTableScreensaver === 'function') window.k28WakeTableScreensaver();
   });
 }
 
@@ -17320,122 +17335,101 @@ function serverBotPlayForMe() {
 })();
 
 // ==================== IDLE SCREENSAVER (live game table) ====================
-// Same idea as the welcome-screen one above, but deliberately built differently for safety:
-// this one NEVER touches the actual cards, avatars, or action buttons - it never even reads
-// them. Instead it drops a dimmed, full-screen overlay on top with its own purely decorative
-// bouncing text (suit symbols, branding), so the real table stays completely intact and
-// unmoved underneath. The overlay itself catches the dismissing click, so that first click
-// only ever closes the screensaver - it can never also land on a card or button underneath
-// and accidentally play something. 1 minute idle (shorter than the welcome screen's 2, since
-// a table with a turn in progress is more time-sensitive), only while the game table is the
-// screen actually showing.
+// Per explicit request: this version picks up the REAL table -- every
+// seat (avatar, name, bid, card count, all of it as one unit) and every
+// card currently sitting in the middle of the table -- and physically
+// bounces them around the screen, DVD-logo style, instead of drawing
+// decorative text over a dimmed copy of the table. Ends and snaps
+// everything back to its exact original spot the instant there's real
+// activity (a click/tap, or the table state changing -- see
+// window.k28WakeTableScreensaver, called from the server-driven "state"
+// handler elsewhere), so nothing about the live game can ever actually
+// be disturbed by this, only how it looks while genuinely idle. 1
+// minute idle, only while the game table is the screen actually showing.
 (function() {
   const K28_TABLE_IDLE_MS = 60 * 1000;
-  // 28GULAN.COM appears multiple times on purpose - it's the actual site name, so it should
-  // be the one thing you can't miss no matter where it's currently drifted to. Suits and short
-  // branded phrases repeat too, both for a fuller "full of action" feel on a tall screen (15
-  // items looked sparse) and so no single overlap (like the earlier "Become the King." sitting
-  // on top of a player's name) is the only thing you're looking at for long. The game-name
-  // entries borrow the same flavor as the main menu's own buttons (28 4 Player, Texas Hold'em,
-  // Pool, etc.) without actually touching that screen's real DOM - this stays purely
-  // decorative text, same as everything else here, so the "never move the real table" rule
-  // still holds exactly as before.
-  const DECOR_ITEMS = [
-    '28GULAN.COM', '28GULAN.COM',
-    '♠', '♥', '♦', '♣', '♠', '♥', '♦',
-    '🂮', '🎴', '👑', '🔥',
-    '28', 'Gulan',
-    'Bid smart.', 'Play smarter.', 'Become the King.',
-    'Jack high', 'Ace high', 'The Gulan.',
-    '🌍 28 4 Player', '👥 28 6 Player', '🃏 56', '♣ Texas Hold\u2019em', '🎱 Pool', '🎯 Carrom',
-    // Pulled straight from the welcome screen's own feature grid and stats
-    // bar — the same badges a player sees before ever sitting down — so an
-    // idle table feels like part of the same site instead of a generic
-    // bouncing-text gimmick with no connection to anything else here.
-    '😭 The Kunukku', '🎙️ Live Voice Chat', '🤖 AI Bots That Learn',
-    '💾 Auto-Save & Resume', '🎯 Smart Bid Predictor', '👑 Road to King',
-    '🧠 Round Analysis', '32 Cards', '28 Points', 'Kerala, India'
-  ];
-  // A real palette instead of one single gold everywhere - cycled per item (not random) so
-  // the mix is always even, never accidentally almost-all-one-color on a given round.
-  // Royal metallics instead of the old mixed palette (which had plain red/teal/green mixed
-  // in - not exactly regal). Gold and silver each get two shades so neighboring items don't
-  // read as identically-colored, but everything stays in the same rich, metallic family.
-  // Classic antique-gold palette, matching the same muted engraved-plate look as the RD/DL/
-  // TEAM/OPP/BIDDER bar and the game buttons, instead of the brighter royal-metallic glow this
-  // had before - one consistent classic style across the whole app rather than two different
-  // looks living side by side.
-  const DECOR_COLORS = ['#c9a24b', '#e8dcc0', '#8a6a2c', '#d4c896', '#a8895a', '#c4a876'];
   let idleTimer = null;
-  let overlay = null;
-  let bouncers = null;
+  let bouncers = null; // null when inactive
   let rafId = null;
+  let watermark = null;
 
   function isGameTableVisible() {
     const el = document.getElementById('gameWrap');
     return !!el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
   }
 
+  // Every seat (".pspot" -- avatar, name, bid, mini-cards, card count,
+  // all together as the one visual unit a player actually looks at) plus
+  // every card slot currently holding a played card in the middle of the
+  // table (".pslot" inside the felt). Deliberately NOT touching the
+  // local player's own hand at the bottom -- that stays put and
+  // interactive-looking the whole time, since bouncing someone's own
+  // cards while they're mid-decision would be actively confusing rather
+  // than a harmless idle effect.
+  function collectTargets() {
+    const targets = [];
+    document.querySelectorAll('.pspot').forEach(el => {
+      if (el.offsetParent && el.querySelector('.avatar')) targets.push(el);
+    });
+    document.querySelectorAll('.pslot').forEach(el => {
+      if (el.offsetParent && el.children.length > 0) targets.push(el);
+    });
+    return targets;
+  }
+
   function startScreensaver() {
-    if (!isGameTableVisible() || overlay) return;
-    overlay = document.createElement('div');
-    overlay.id = 'k28TableScreensaver';
-    overlay.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.55) 0%,rgba(4,9,18,0.72) 100%);z-index:99999;cursor:pointer;overflow:hidden';
-    document.body.appendChild(overlay);
+    if (!isGameTableVisible() || bouncers) return;
+    const targets = collectTargets();
+    if (!targets.length) return; // nothing on the table yet (e.g. still in bidding) -- nothing to bounce
 
     const vw = window.innerWidth, vh = window.innerHeight;
-    // Spawn on a jittered grid rather than pure random - a handful of items landing purely
-    // randomly can easily clump together at the start (exactly what happened with "Become
-    // the King." sitting right on top of a player's name), so divide the screen into roughly
-    // as many cells as there are items and place each one randomly within its own cell. Still
-    // looks organic (the jitter), but guarantees a spread instead of leaving it to chance.
-    const cols = Math.ceil(Math.sqrt(DECOR_ITEMS.length * vw / vh));
-    const rows = Math.ceil(DECOR_ITEMS.length / cols);
-    const cellW = vw / cols, cellH = vh / rows;
-    const cellOrder = Array.from({ length: cols * rows }, (_, i) => i);
-    for (let i = cellOrder.length - 1; i > 0; i--) { // shuffle so item order doesn't map to a predictable grid pattern
-      const j = Math.floor(Math.random() * (i + 1));
-      [cellOrder[i], cellOrder[j]] = [cellOrder[j], cellOrder[i]];
-    }
-    bouncers = DECOR_ITEMS.map((text, i) => {
-      const el = document.createElement('div');
-      el.textContent = text;
-      // Longer phrases get a smaller max size — without this, a long phrase at a large random
-      // size can render WIDER than the screen itself (measured: "Become the King." could hit
-      // ~390px, wider than most phone screens), which leaves no valid in-bounds position at
-      // all and makes the bounce math flip direction every single frame - that's the "jitter"
-      // that was actually happening, not a rendering glitch.
-      // Kept deliberately small and even across items (11-17px, not the old 16-42px range) —
-      // a screensaver reads as tasteful ambient motion at this scale; anything much larger
-      // starts competing with the actual table underneath for attention, which is the
-      // opposite of what an idle-state overlay should do.
-      const maxSizeForWidth = (vw * 0.8 - 20) / (text.length * 0.55);
-      const size = 11 + Math.random() * Math.max(0, Math.min(6, maxSizeForWidth - 11));
-      const itemColor = DECOR_COLORS[i % DECOR_COLORS.length];
-      // A soft glow in the item's own color underneath the usual dark drop-shadow, instead
-      // of just a flat-colored fill - that faint halo is what actually reads as "metallic
-      // sheen" rather than a plain, flat (i.e. "dull") color swatch. Weight and glow both
-      // pulled back from the original (700→600, 0x80 alpha→0x55) — heavy bold text with a
-      // strong glow at small sizes reads as garish rather than refined; a lighter touch is
-      // what actually looks premium at this scale.
-      el.style.cssText = `position:absolute;left:0;top:0;color:${itemColor};font-weight:600;
-        font-family:'Cinzel','Playfair Display',serif;letter-spacing:0.4px;
-        text-shadow:0 0 6px ${itemColor}55,0 1px 4px rgba(0,0,0,0.7);white-space:nowrap;pointer-events:none;font-size:${size}px;opacity:0.88`;
-      overlay.appendChild(el);
-      const w = Math.min(vw * 0.85, 20 + text.length * size * 0.55), h = size * 1.4; // rough estimate, good enough for bounce bounds
-      const cell = cellOrder[i % cellOrder.length];
-      const cellX = (cell % cols) * cellW, cellY = Math.floor(cell / cols) * cellH;
-      const homeX = Math.min(vw - w, Math.max(0, cellX + Math.random() * Math.max(1, cellW - w)));
-      const homeY = Math.min(vh - h, Math.max(0, cellY + Math.random() * Math.max(1, cellH - h)));
-      el.style.transform = `translate(${homeX}px,${homeY}px)`;
+    bouncers = targets.map(el => {
+      const rect = el.getBoundingClientRect();
+      // Remember exactly how this element was laid out before touching
+      // anything, so stopScreensaver can put it back byte-for-byte --
+      // this is a real, live game element, not a clone, so an inexact
+      // restore would leave the actual table subtly broken afterward.
+      const original = {
+        position: el.style.position, left: el.style.left, top: el.style.top,
+        margin: el.style.margin, zIndex: el.style.zIndex,
+        width: el.style.width, transition: el.style.transition,
+        transform: el.style.transform
+      };
+      el.style.transition = 'none';
+      el.style.transform = 'none';
+      el.style.position = 'fixed';
+      el.style.left = rect.left + 'px';
+      el.style.top = rect.top + 'px';
+      el.style.margin = '0';
+      el.style.width = rect.width + 'px';
+      el.style.zIndex = '99999';
       const angle = Math.random() * Math.PI * 2;
-      const speed = 22 + Math.random() * 35;
-      return { el, x: homeX, y: homeY, w, h, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed };
+      const speed = 40 + Math.random() * 50;
+      return {
+        el, original, x: rect.left, y: rect.top, w: rect.width, h: rect.height,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed
+      };
     });
+
+    // A light dimming layer BEHIND the bouncing elements (not on top, and
+    // not catching clicks) just so the motion reads clearly against
+    // whatever static UI is still sitting underneath -- the 28gulan.com
+    // watermark lives on this same layer, always visible no matter where
+    // everything else has currently drifted to.
+    watermark = document.createElement('div');
+    watermark.id = 'k28TableScreensaverBg';
+    watermark.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.35) 0%,rgba(4,9,18,0.5) 100%);z-index:99998;cursor:pointer';
+    const brand = document.createElement('div');
+    brand.textContent = '28GULAN.COM';
+    brand.style.cssText = 'position:absolute;bottom:5%;left:50%;transform:translateX(-50%);color:#c9a24b;font-family:\'Cinzel\',\'Playfair Display\',serif;font-weight:600;letter-spacing:2px;font-size:clamp(12px,3vw,18px);text-shadow:0 0 8px rgba(201,162,75,0.5),0 1px 4px rgba(0,0,0,0.7);opacity:0.9';
+    watermark.appendChild(brand);
+    document.body.appendChild(watermark);
+    watermark.addEventListener('click', stopScreensaver);
+    watermark.addEventListener('touchstart', stopScreensaver, { passive: true });
 
     let lastT = performance.now();
     function frame(t) {
-      if (!overlay) return;
+      if (!bouncers) return;
       const dt = Math.min(0.05, (t - lastT) / 1000);
       lastT = t;
       for (const b of bouncers) {
@@ -17445,24 +17439,34 @@ function serverBotPlayForMe() {
         else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); }
         if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
         else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); }
-        b.el.style.transform = `translate(${b.x.toFixed(1)}px,${b.y.toFixed(1)}px)`;
+        b.el.style.left = b.x.toFixed(1) + 'px';
+        b.el.style.top = b.y.toFixed(1) + 'px';
       }
       rafId = requestAnimationFrame(frame);
     }
     rafId = requestAnimationFrame(frame);
-
-    // The overlay itself is what the dismissing click lands on - it's on top of everything
-    // at z-index 99999, so this click can never also reach a card or button underneath.
-    overlay.addEventListener('click', stopScreensaver);
-    overlay.addEventListener('touchstart', stopScreensaver, { passive: true });
   }
 
   function stopScreensaver() {
     if (rafId) cancelAnimationFrame(rafId);
     rafId = null;
-    if (overlay) overlay.remove();
-    overlay = null;
+    if (bouncers) {
+      for (const b of bouncers) {
+        // Restore every touched property exactly, not just the ones this
+        // effect happens to set -- clearing anything left as '' lets the
+        // element's real stylesheet rules take back over normally.
+        b.el.style.position = b.original.position;
+        b.el.style.left = b.original.left;
+        b.el.style.top = b.original.top;
+        b.el.style.margin = b.original.margin;
+        b.el.style.zIndex = b.original.zIndex;
+        b.el.style.width = b.original.width;
+        b.el.style.transition = b.original.transition;
+        b.el.style.transform = b.original.transform;
+      }
+    }
     bouncers = null;
+    if (watermark) { watermark.remove(); watermark = null; }
   }
 
   function resetIdleTimer() {
@@ -17476,7 +17480,7 @@ function serverBotPlayForMe() {
   // actually doing anything. Those aren't real activity and shouldn't count as it - without
   // this check, a bot-vs-bot or auto-advancing game could keep resetting this timer forever
   // and the screensaver would never actually get a chance to run.
-  function handleActivity(e) { if (e.isTrusted) resetIdleTimer(); }
+  function handleActivity(e) { if (e.isTrusted) { stopScreensaver(); resetIdleTimer(); } }
   ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, handleActivity, { passive: true }));
   // Visibility can change without a click (navigating in from the welcome screen, a hand
   // ending, etc.) - this only ARMS the timer if nothing is already counting down; it must
@@ -17484,18 +17488,127 @@ function serverBotPlayForMe() {
   // countdown every 2 seconds forever, and the real idle time genuinely never accumulates
   // regardless of any clicks at all - which is exactly what was happening.
   setInterval(() => { if (idleTimer === null && isGameTableVisible()) resetIdleTimer(); }, 2000);
+  window.addEventListener('resize', () => { if (bouncers) stopScreensaver(); resetIdleTimer(); });
   resetIdleTimer();
-  // Per explicit instruction: a player joining the table is a genuine
-  // reason to wake the screen back up (there's suddenly something new
-  // and relevant to see), but it's a socket event handled entirely
-  // outside this closure, not a local click/touch handleActivity()
-  // already listens for. Exposed as a small global hook specifically
-  // for that one external call site to reach into this otherwise-
-  // private screensaver state, rather than making everything in here
-  // global just for this one case.
+  // Per explicit instruction: a player joining the table -- or, just as
+  // importantly here, the actual game state changing underneath this
+  // (someone bids, plays a card, a round resets) -- is a genuine reason
+  // to snap the real table back to normal, not just a click. Exposed as
+  // a small global hook specifically for those external call sites to
+  // reach into this otherwise-private screensaver state.
   window.k28WakeTableScreensaver = function() { stopScreensaver(); resetIdleTimer(); };
 })();
 
+</script>
+<script>
+// Per explicit request: a subtle, always-on seasonal particle effect
+// over the live game table (not tied to the idle screensaver below --
+// this runs the whole time a hand is in progress). Preset picked once
+// from the real calendar date, not randomly, so it's actually
+// consistent with what time of year it is when someone's playing.
+// Deliberately lightweight: a couple dozen small shapes drifting down a
+// canvas is enough to read as "ambient" without competing for
+// attention with the actual cards -- ambient decoration should stay in
+// the background, not become the main event.
+(function() {
+  const canvas = document.getElementById('k28SeasonCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  let dpr = window.devicePixelRatio || 1;
+
+  function currentSeasonPreset() {
+    const month = new Date().getMonth(); // 0-11, real device clock
+    if (month === 7 || month === 8) {
+      // Aug/Sep -- Onam, Kerala's own harvest festival. This is the
+      // preset that'll actually be showing at launch.
+      return { colors: ['#f4c430', '#e8a33d', '#d9534f', '#f7e967', '#ffb347'], shape: 'petal', count: 20, speed: [16, 30] };
+    }
+    if (month === 9 || month === 10) { // Oct/Nov -- Diwali
+      return { colors: ['#ffd700', '#ffb347', '#ff8c00', '#fff2b2'], shape: 'spark', count: 18, speed: [14, 26] };
+    }
+    if (month === 11 || month === 0) { // Dec/Jan -- Christmas/New Year
+      return { colors: ['#ffffff', '#e8f4ff', '#cfe8ff'], shape: 'snow', count: 24, speed: [12, 22] };
+    }
+    // Rest of the year: a gentle sparkle in the site's own gold accent
+    // family -- always on-theme, never a jarring off-brand color.
+    return { colors: ['#f4c430', '#e6a817', '#fff3c4'], shape: 'spark', count: 12, speed: [10, 18] };
+  }
+  const preset = currentSeasonPreset();
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+  }
+
+  function spawn() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    particles = Array.from({ length: preset.count }, () => ({
+      x: Math.random() * w, y: Math.random() * h - h,
+      size: 3 + Math.random() * 4,
+      speed: preset.speed[0] + Math.random() * (preset.speed[1] - preset.speed[0]),
+      drift: (Math.random() - 0.5) * 14,
+      rot: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 1.2,
+      color: preset.colors[Math.floor(Math.random() * preset.colors.length)],
+      opacity: 0.3 + Math.random() * 0.35
+    }));
+  }
+
+  function drawParticle(p) {
+    ctx.save();
+    ctx.translate(p.x * dpr, p.y * dpr);
+    ctx.rotate(p.rot);
+    ctx.globalAlpha = p.opacity;
+    ctx.fillStyle = p.color;
+    if (preset.shape === 'petal') {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, p.size * dpr, p.size * dpr * 0.55, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (preset.shape === 'snow') {
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size * dpr * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = (Math.PI / 2) * i;
+        ctx.lineTo(Math.cos(a) * p.size * dpr, Math.sin(a) * p.size * dpr);
+        ctx.lineTo(Math.cos(a + Math.PI / 4) * p.size * dpr * 0.35, Math.sin(a + Math.PI / 4) * p.size * dpr * 0.35);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  let lastT = performance.now();
+  function frame(t) {
+    // offsetParent is null whenever this canvas (or an ancestor, i.e.
+    // the whole game-wrap) is display:none -- the cheapest possible
+    // "is this actually on screen right now" check, so this effect
+    // costs nothing while someone's on the lobby/welcome screen.
+    if (canvas.offsetParent) {
+      const dt = Math.min(0.05, (t - lastT) / 1000);
+      lastT = t;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const h = canvas.clientHeight;
+      for (const p of particles) {
+        p.y += p.speed * dt; p.x += p.drift * dt; p.rot += p.spin * dt;
+        if (p.y > h + 10) { p.y = -10; p.x = Math.random() * canvas.clientWidth; }
+        drawParticle(p);
+      }
+    } else {
+      lastT = t;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  spawn();
+  requestAnimationFrame(frame);
+})();
 </script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page has fully

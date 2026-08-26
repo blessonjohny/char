@@ -1091,6 +1091,11 @@ function connectSocket() {
     // states for the table we're actually at.
     if (state && state.tableId && MY_TABLE_ID && state.tableId !== MY_TABLE_ID) return;
     applyState(state);
+    // Per explicit request: mirrors the 4-player table's identical
+    // hook -- the live game state changing at all is exactly the
+    // "whatever is live" moment the idle screensaver should snap back
+    // for. No-op whenever the screensaver isn't currently running.
+    if (typeof window.k28WakeTableScreensaver6p === 'function') window.k28WakeTableScreensaver6p();
   });
 
   socket.on('sixp_chat', ({ from, msg, senderId }) => {
@@ -3575,3 +3580,230 @@ function requestFullscreen28() {
     }
   } catch (e) { /* not available here -- fine, just skip it */ }
 }
+
+// Per explicit request: same always-on seasonal particle effect as the
+// 4-player table (see index.html's identical block for the fuller
+// reasoning) -- date-driven preset, runs continuously while the game
+// screen is up, pauses itself for free whenever it isn't visible.
+(function() {
+  const canvas = document.getElementById('k28SeasonCanvas6p');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  let dpr = window.devicePixelRatio || 1;
+
+  function currentSeasonPreset() {
+    const month = new Date().getMonth();
+    if (month === 7 || month === 8) {
+      return { colors: ['#f4c430', '#e8a33d', '#d9534f', '#f7e967', '#ffb347'], shape: 'petal', count: 20, speed: [16, 30] };
+    }
+    if (month === 9 || month === 10) {
+      return { colors: ['#ffd700', '#ffb347', '#ff8c00', '#fff2b2'], shape: 'spark', count: 18, speed: [14, 26] };
+    }
+    if (month === 11 || month === 0) {
+      return { colors: ['#ffffff', '#e8f4ff', '#cfe8ff'], shape: 'snow', count: 24, speed: [12, 22] };
+    }
+    return { colors: ['#f4c430', '#e6a817', '#fff3c4'], shape: 'spark', count: 12, speed: [10, 18] };
+  }
+  const preset = currentSeasonPreset();
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+  }
+
+  function spawn() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    particles = Array.from({ length: preset.count }, () => ({
+      x: Math.random() * w, y: Math.random() * h - h,
+      size: 3 + Math.random() * 4,
+      speed: preset.speed[0] + Math.random() * (preset.speed[1] - preset.speed[0]),
+      drift: (Math.random() - 0.5) * 14,
+      rot: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 1.2,
+      color: preset.colors[Math.floor(Math.random() * preset.colors.length)],
+      opacity: 0.3 + Math.random() * 0.35
+    }));
+  }
+
+  function drawParticle(p) {
+    ctx.save();
+    ctx.translate(p.x * dpr, p.y * dpr);
+    ctx.rotate(p.rot);
+    ctx.globalAlpha = p.opacity;
+    ctx.fillStyle = p.color;
+    if (preset.shape === 'petal') {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, p.size * dpr, p.size * dpr * 0.55, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (preset.shape === 'snow') {
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size * dpr * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = (Math.PI / 2) * i;
+        ctx.lineTo(Math.cos(a) * p.size * dpr, Math.sin(a) * p.size * dpr);
+        ctx.lineTo(Math.cos(a + Math.PI / 4) * p.size * dpr * 0.35, Math.sin(a + Math.PI / 4) * p.size * dpr * 0.35);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  let lastT = performance.now();
+  function frame(t) {
+    if (canvas.offsetParent) {
+      const dt = Math.min(0.05, (t - lastT) / 1000);
+      lastT = t;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const h = canvas.clientHeight;
+      for (const p of particles) {
+        p.y += p.speed * dt; p.x += p.drift * dt; p.rot += p.spin * dt;
+        if (p.y > h + 10) { p.y = -10; p.x = Math.random() * canvas.clientWidth; }
+        drawParticle(p);
+      }
+    } else {
+      lastT = t;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  spawn();
+  requestAnimationFrame(frame);
+})();
+
+// ==================== IDLE SCREENSAVER (live 6-player game table) ====================
+// This table had no idle screensaver at all before -- this mirrors the
+// 4-player table's real-object version (see index.html's identical
+// block for the fuller reasoning): every seat (".seat" -- avatar, name,
+// call-badge, all as one unit) and every card currently sitting in a
+// trick slot in the middle physically bounces around the screen,
+// DVD-logo style. Snaps everything back to its exact original spot the
+// instant there's real activity (a click/tap, or the live game state
+// changing underneath -- see the sixp_state hook above), so nothing
+// about the actual game can be disturbed, only how it looks while
+// genuinely idle. 1 minute idle, only while the game screen is showing.
+(function() {
+  const K28_TABLE_IDLE_MS = 60 * 1000;
+  let idleTimer = null;
+  let bouncers = null;
+  let rafId = null;
+  let watermark = null;
+
+  function isGameTableVisible() {
+    const el = document.getElementById('gameScreen');
+    return !!el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
+  }
+
+  // Every seat (avatar + name + call badge, the whole ".seat" unit) plus
+  // every trick slot currently holding a played card. Deliberately NOT
+  // the local player's own hand at the bottom -- that stays put and
+  // interactive the whole time.
+  function collectTargets() {
+    const targets = [];
+    document.querySelectorAll('.seat').forEach(el => {
+      if (el.offsetParent && el.querySelector('.av')) targets.push(el);
+    });
+    document.querySelectorAll('.trickslot').forEach(el => {
+      if (el.offsetParent && el.children.length > 0) targets.push(el);
+    });
+    return targets;
+  }
+
+  function startScreensaver() {
+    if (!isGameTableVisible() || bouncers) return;
+    const targets = collectTargets();
+    if (!targets.length) return;
+
+    const vw = window.innerWidth, vh = window.innerHeight;
+    bouncers = targets.map(el => {
+      const rect = el.getBoundingClientRect();
+      const original = {
+        position: el.style.position, left: el.style.left, top: el.style.top,
+        margin: el.style.margin, zIndex: el.style.zIndex,
+        width: el.style.width, transition: el.style.transition,
+        transform: el.style.transform
+      };
+      el.style.transition = 'none';
+      el.style.transform = 'none';
+      el.style.position = 'fixed';
+      el.style.left = rect.left + 'px';
+      el.style.top = rect.top + 'px';
+      el.style.margin = '0';
+      el.style.width = rect.width + 'px';
+      el.style.zIndex = '99999';
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 40 + Math.random() * 50;
+      return {
+        el, original, x: rect.left, y: rect.top, w: rect.width, h: rect.height,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed
+      };
+    });
+
+    watermark = document.createElement('div');
+    watermark.id = 'k28TableScreensaverBg6p';
+    watermark.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.35) 0%,rgba(4,9,18,0.5) 100%);z-index:99998;cursor:pointer';
+    const brand = document.createElement('div');
+    brand.textContent = '28GULAN.COM';
+    brand.style.cssText = 'position:absolute;bottom:5%;left:50%;transform:translateX(-50%);color:#c9a24b;font-family:\'Cinzel\',\'Playfair Display\',serif;font-weight:600;letter-spacing:2px;font-size:clamp(12px,3vw,18px);text-shadow:0 0 8px rgba(201,162,75,0.5),0 1px 4px rgba(0,0,0,0.7);opacity:0.9';
+    watermark.appendChild(brand);
+    document.body.appendChild(watermark);
+    watermark.addEventListener('click', stopScreensaver);
+    watermark.addEventListener('touchstart', stopScreensaver, { passive: true });
+
+    let lastT = performance.now();
+    function frame(t) {
+      if (!bouncers) return;
+      const dt = Math.min(0.05, (t - lastT) / 1000);
+      lastT = t;
+      for (const b of bouncers) {
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
+        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
+        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); }
+        b.el.style.left = b.x.toFixed(1) + 'px';
+        b.el.style.top = b.y.toFixed(1) + 'px';
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+    rafId = requestAnimationFrame(frame);
+  }
+
+  function stopScreensaver() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    if (bouncers) {
+      for (const b of bouncers) {
+        b.el.style.position = b.original.position;
+        b.el.style.left = b.original.left;
+        b.el.style.top = b.original.top;
+        b.el.style.margin = b.original.margin;
+        b.el.style.zIndex = b.original.zIndex;
+        b.el.style.width = b.original.width;
+        b.el.style.transition = b.original.transition;
+        b.el.style.transform = b.original.transform;
+      }
+    }
+    bouncers = null;
+    if (watermark) { watermark.remove(); watermark = null; }
+  }
+
+  function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    idleTimer = isGameTableVisible() ? setTimeout(startScreensaver, K28_TABLE_IDLE_MS) : null;
+  }
+
+  function handleActivity(e) { if (e.isTrusted) { stopScreensaver(); resetIdleTimer(); } }
+  ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, handleActivity, { passive: true }));
+  setInterval(() => { if (idleTimer === null && isGameTableVisible()) resetIdleTimer(); }, 2000);
+  window.addEventListener('resize', () => { if (bouncers) stopScreensaver(); resetIdleTimer(); });
+  resetIdleTimer();
+  window.k28WakeTableScreensaver6p = function() { stopScreensaver(); resetIdleTimer(); };
+})();

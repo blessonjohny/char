@@ -151,7 +151,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .link-back{position:fixed;top:12px;left:12px;font-size:0.75rem;color:var(--text-secondary);text-decoration:none;z-index:200;background:rgba(0,0,0,0.3);padding:6px 12px;border-radius:20px}
 
 /* ---- Table / game screen ---- */
-#gameScreen{position:fixed;inset:0;background:radial-gradient(ellipse at center,#132840 0%,#0a1628 70%);display:none;z-index:50}
+#gameScreen{position:fixed;inset:0;background:radial-gradient(ellipse at center,#1f3f63 0%,#132840 60%,#0d1e33 100%);display:none;z-index:50}
 .topbar{position:absolute;top:0;left:0;right:0;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:0.75rem;background:rgba(0,0,0,0.25);z-index:10}
 .topbar .score{font-weight:800;color:var(--accent)}
 /* Wooden-rail oval matching the 4-player table's design, replacing the old flat bordered
@@ -795,6 +795,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 
 <!-- ============ GAME ============ -->
 <div id="gameScreen">
+  <canvas id="k28SeasonCanvas6p" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></canvas>
   <!-- Quote/COT button -- see updateQuoteButton()/declareQuote in six.js and
        _isQuoteEligibleFor() in game-engine-6p.js. Persistent and visible to everyone during
        play, only enabled/clickable when it's genuinely valid for whoever's looking at it:
