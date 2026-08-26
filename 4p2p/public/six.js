@@ -3713,7 +3713,7 @@ function requestFullscreen28() {
     // for the fuller reasoning.
     const brand = document.createElement('div');
     brand.textContent = '28GULAN.COM';
-    brand.style.cssText = 'position:fixed;color:#f4c430;font-family:\'Cinzel\',\'Playfair Display\',serif;font-weight:900;letter-spacing:2px;font-size:clamp(20px,6vw,42px);text-shadow:0 0 14px rgba(244,196,48,0.8),0 2px 6px rgba(0,0,0,0.85);white-space:nowrap;pointer-events:none;z-index:99999';
+    brand.style.cssText = 'position:fixed;color:#f4c430;font-family:\'Cinzel\',\'Playfair Display\',serif;font-weight:900;letter-spacing:1.5px;font-size:clamp(12px,3vw,20px);text-shadow:0 0 10px rgba(244,196,48,0.75),0 2px 5px rgba(0,0,0,0.85);white-space:nowrap;pointer-events:none;z-index:99999';
     document.body.appendChild(brand);
     const brandRect = brand.getBoundingClientRect();
     const brandAngle = Math.random() * Math.PI * 2;
@@ -3741,6 +3741,7 @@ function requestFullscreen28() {
       if (!bouncers) return;
       const dt = Math.min(0.05, (t - lastT) / 1000);
       lastT = t;
+      const brandObj = bouncers.find(o => o.isBrand);
       for (const b of bouncers) {
         b.x += b.vx * dt;
         b.y += b.vy * dt;
@@ -3754,6 +3755,37 @@ function requestFullscreen28() {
           b.spin += (Math.random() - 0.5) * impactSpeed * 0.6;
           b.spin = Math.max(-260, Math.min(260, b.spin));
         }
+      }
+      // Per explicit request: same "brand reacts to actually being hit
+      // by another object" collision as the 4-player table's identical
+      // change -- see there for the fuller reasoning.
+      if (brandObj) {
+        for (const b of bouncers) {
+          if (b === brandObj) continue;
+          if (b.x < brandObj.x + brandObj.w && b.x + b.w > brandObj.x &&
+              b.y < brandObj.y + brandObj.h && b.y + b.h > brandObj.y) {
+            const overlapX = Math.min(b.x + b.w, brandObj.x + brandObj.w) - Math.max(b.x, brandObj.x);
+            const overlapY = Math.min(b.y + b.h, brandObj.y + brandObj.h) - Math.max(b.y, brandObj.y);
+            if (overlapX < overlapY) {
+              const dir = brandObj.x < b.x ? -1 : 1;
+              brandObj.x += dir * overlapX / 2;
+              b.x -= dir * overlapX / 2;
+              const tmp = brandObj.vx; brandObj.vx = b.vx; b.vx = tmp;
+            } else {
+              const dir = brandObj.y < b.y ? -1 : 1;
+              brandObj.y += dir * overlapY / 2;
+              b.y -= dir * overlapY / 2;
+              const tmp = brandObj.vy; brandObj.vy = b.vy; b.vy = tmp;
+            }
+            const impactSpeed = Math.hypot(brandObj.vx - b.vx, brandObj.vy - b.vy);
+            brandObj.spin += (Math.random() - 0.5) * impactSpeed * 0.6;
+            b.spin += (Math.random() - 0.5) * impactSpeed * 0.6;
+            brandObj.spin = Math.max(-260, Math.min(260, brandObj.spin));
+            b.spin = Math.max(-260, Math.min(260, b.spin));
+          }
+        }
+      }
+      for (const b of bouncers) {
         b.rot += b.spin * dt;
         b.el.style.left = b.x.toFixed(1) + 'px';
         b.el.style.top = b.y.toFixed(1) + 'px';
