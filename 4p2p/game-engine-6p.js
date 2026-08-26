@@ -145,6 +145,16 @@ class GameEngine6P {
     // "the next unacted seat on team X"), since the turn order is no
     // longer a simple physical rotation.
     this.bidActed = [false, false, false, false, false, false];
+    // Per-team "where did OUR side leave off" pointer -- the seat of the
+    // last member of that team to actually act (bid or pass) this
+    // auction, or -1 if nobody on that team has gone yet. Needed so
+    // _nextBidTurn can continue each team's own internal rotation from
+    // its own last actor, instead of measuring distance from whoever
+    // most recently acted overall (see _nextBidTurn for the full bug
+    // this fixes: measuring from an opponent's seat can skip over a
+    // teammate who's been waiting since earlier in the round in favor
+    // of one who merely sits seat-adjacent to that opponent).
+    this.teamLastBidActor = [-1, -1];
     this.bidHistory = [];
     this.trumpSuit = '';
     this.trumpExposed = false;
@@ -494,15 +504,32 @@ class GameEngine6P {
     }
     return rotated.slice().sort((a, b) => (a === this.dealer ? 1 : 0) - (b === this.dealer ? 1 : 0));
   }
+  // Per explicit bug report (full worked sequence: opponent bids, turn
+  // reactively returns to your team, and the seat physically adjacent
+  // to the OPPONENT gets picked over a teammate who'd been waiting
+  // since earlier in the round): the anchor for "clockwise distance"
+  // within the target team must be THAT team's own last actor, not
+  // whoever just acted overall. lastActor may belong to the opposite
+  // team entirely (that's exactly what triggers a reactive flip back to
+  // you) -- using their seat as the distance anchor measures adjacency
+  // to the opponent's seat, not continuity of your own team's rotation,
+  // and can leap over a teammate sitting earlier in line in favor of
+  // one who just happens to sit next to the opponent. Falls back to
+  // lastActor only the very first time a given team is asked to act
+  // this auction (it has no anchor of its own yet).
   _nextBidTurn(lastActor, wasABid) {
     const lastTeam = getTeam(lastActor);
     const targetTeam = wasABid ? (1 - lastTeam) : lastTeam;
-    for (const s of this._bidTeamOrder(targetTeam, lastActor)) if (!this.bidActed[s]) return s;
-    for (const s of this._bidTeamOrder(1 - targetTeam, lastActor)) if (!this.bidActed[s]) return s;
+    const targetAnchor = this.teamLastBidActor[targetTeam] >= 0 ? this.teamLastBidActor[targetTeam] : lastActor;
+    for (const s of this._bidTeamOrder(targetTeam, targetAnchor)) if (!this.bidActed[s]) return s;
+    const otherTeam = 1 - targetTeam;
+    const otherAnchor = this.teamLastBidActor[otherTeam] >= 0 ? this.teamLastBidActor[otherTeam] : lastActor;
+    for (const s of this._bidTeamOrder(otherTeam, otherAnchor)) if (!this.bidActed[s]) return s;
     return -1;
   }
 
   _afterBidAction(lastActor, wasABid) {
+    this.teamLastBidActor[getTeam(lastActor)] = lastActor;
     // Ends once every seat has had exactly one turn (bid or pass) --
     // the ORDER they act in is now reactive (see _nextBidTurn above),
     // but the ending condition itself is unchanged: six total turns,
