@@ -3713,7 +3713,13 @@ function requestFullscreen28() {
     // for the fuller reasoning.
     const brand = document.createElement('div');
     brand.textContent = '28GULAN.COM';
-    brand.style.cssText = 'position:fixed;color:#f4c430;font-family:\'Cinzel\',\'Playfair Display\',serif;font-weight:900;letter-spacing:1.5px;font-size:clamp(12px,3vw,20px);text-shadow:0 0 10px rgba(244,196,48,0.75),0 2px 5px rgba(0,0,0,0.85);white-space:nowrap;pointer-events:none;z-index:99999';
+    // Per explicit request: matches the exact font/color/engraved style
+    // of the "28GULAN.COM" watermark already carved into this table's
+    // felt (see .table-oval::after in six.html) -- this table uses a
+    // fixed gold tone rather than a live theme variable (six-player
+    // doesn't rotate felt colors the way 4-player does). Also shrunk
+    // further per follow-up request.
+    brand.style.cssText = 'position:fixed;color:#8a6d1f;font-family:\'Cinzel Decorative\',\'Fraunces\',serif;font-weight:700;letter-spacing:2px;font-size:clamp(9px,2.2vw,15px);text-shadow:-1px -1px 0 rgba(255,235,180,0.55),1px 1px 0 rgba(0,0,0,0.55),2px 2px 0 rgba(0,0,0,0.5),3px 3px 0 rgba(0,0,0,0.42),4px 4px 0 rgba(0,0,0,0.34),5px 5px 0 rgba(0,0,0,0.26),6px 6px 6px rgba(0,0,0,0.3);opacity:0.9;white-space:nowrap;pointer-events:none;z-index:99999';
     document.body.appendChild(brand);
     const brandRect = brand.getBoundingClientRect();
     const brandAngle = Math.random() * Math.PI * 2;
@@ -3737,51 +3743,65 @@ function requestFullscreen28() {
     watermark.addEventListener('touchstart', stopScreensaver, { passive: true });
 
     let lastT = performance.now();
+    // Per explicit request: same proper impulse-based physics with
+    // torque as the 4-player table's identical change -- see there for
+    // the fuller reasoning.
+    function resolveCollision(A, B) {
+      const overlapX = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
+      const overlapY = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
+      let nx, ny, contactX, contactY;
+      if (overlapX < overlapY) {
+        const sign = (A.x + A.w / 2 < B.x + B.w / 2) ? -1 : 1;
+        nx = sign; ny = 0;
+        A.x += sign * overlapX / 2; B.x -= sign * overlapX / 2;
+        contactX = sign > 0 ? A.x : A.x + A.w;
+        contactY = (Math.max(A.y, B.y) + Math.min(A.y + A.h, B.y + B.h)) / 2;
+      } else {
+        const sign = (A.y + A.h / 2 < B.y + B.h / 2) ? -1 : 1;
+        nx = 0; ny = sign;
+        A.y += sign * overlapY / 2; B.y -= sign * overlapY / 2;
+        contactX = (Math.max(A.x, B.x) + Math.min(A.x + A.w, B.x + B.w)) / 2;
+        contactY = sign > 0 ? A.y : A.y + A.h;
+      }
+      const rvx = A.vx - B.vx, rvy = A.vy - B.vy;
+      const velAlongNormal = rvx * nx + rvy * ny;
+      if (velAlongNormal > 0) return;
+      const restitution = 0.85;
+      const j = -(1 + restitution) * velAlongNormal / 2;
+      const jx = j * nx, jy = j * ny;
+      A.vx += jx; A.vy += jy;
+      B.vx -= jx; B.vy -= jy;
+      const centerAx = A.x + A.w / 2, centerAy = A.y + A.h / 2;
+      const centerBx = B.x + B.w / 2, centerBy = B.y + B.h / 2;
+      const rAx = contactX - centerAx, rAy = contactY - centerAy;
+      const rBx = contactX - centerBx, rBy = contactY - centerBy;
+      const torqueA = rAx * jy - rAy * jx;
+      const torqueB = -(rBx * jy - rBy * jx);
+      const IA = (A.w * A.w + A.h * A.h) / 12 || 1;
+      const IB = (B.w * B.w + B.h * B.h) / 12 || 1;
+      const spinScale = 55;
+      A.spin += (torqueA / IA) * spinScale;
+      B.spin += (torqueB / IB) * spinScale;
+      A.spin = Math.max(-260, Math.min(260, A.spin));
+      B.spin = Math.max(-260, Math.min(260, B.spin));
+    }
     function frame(t) {
       if (!bouncers) return;
       const dt = Math.min(0.05, (t - lastT) / 1000);
       lastT = t;
-      const brandObj = bouncers.find(o => o.isBrand);
       for (const b of bouncers) {
         b.x += b.vx * dt;
         b.y += b.vy * dt;
-        let bounced = false;
-        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); bounced = true; }
-        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); bounced = true; }
-        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); bounced = true; }
-        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); bounced = true; }
-        if (bounced) {
-          const impactSpeed = Math.hypot(b.vx, b.vy);
-          b.spin += (Math.random() - 0.5) * impactSpeed * 0.6;
-          b.spin = Math.max(-260, Math.min(260, b.spin));
-        }
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
+        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
+        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); }
       }
-      // Per explicit request: same "brand reacts to actually being hit
-      // by another object" collision as the 4-player table's identical
-      // change -- see there for the fuller reasoning.
-      if (brandObj) {
-        for (const b of bouncers) {
-          if (b === brandObj) continue;
-          if (b.x < brandObj.x + brandObj.w && b.x + b.w > brandObj.x &&
-              b.y < brandObj.y + brandObj.h && b.y + b.h > brandObj.y) {
-            const overlapX = Math.min(b.x + b.w, brandObj.x + brandObj.w) - Math.max(b.x, brandObj.x);
-            const overlapY = Math.min(b.y + b.h, brandObj.y + brandObj.h) - Math.max(b.y, brandObj.y);
-            if (overlapX < overlapY) {
-              const dir = brandObj.x < b.x ? -1 : 1;
-              brandObj.x += dir * overlapX / 2;
-              b.x -= dir * overlapX / 2;
-              const tmp = brandObj.vx; brandObj.vx = b.vx; b.vx = tmp;
-            } else {
-              const dir = brandObj.y < b.y ? -1 : 1;
-              brandObj.y += dir * overlapY / 2;
-              b.y -= dir * overlapY / 2;
-              const tmp = brandObj.vy; brandObj.vy = b.vy; b.vy = tmp;
-            }
-            const impactSpeed = Math.hypot(brandObj.vx - b.vx, brandObj.vy - b.vy);
-            brandObj.spin += (Math.random() - 0.5) * impactSpeed * 0.6;
-            b.spin += (Math.random() - 0.5) * impactSpeed * 0.6;
-            brandObj.spin = Math.max(-260, Math.min(260, brandObj.spin));
-            b.spin = Math.max(-260, Math.min(260, b.spin));
+      for (let i = 0; i < bouncers.length; i++) {
+        for (let j = i + 1; j < bouncers.length; j++) {
+          const A = bouncers[i], B = bouncers[j];
+          if (A.x < B.x + B.w && A.x + A.w > B.x && A.y < B.y + B.h && A.y + A.h > B.y) {
+            resolveCollision(A, B);
           }
         }
       }
