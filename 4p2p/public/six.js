@@ -1120,6 +1120,14 @@ function connectSocket() {
     showGameEvent('👋', 'New Player!', (name || 'Someone') + ' just joined the table', '#f4c430');
   });
 
+  // Mirrors the join popup above, for the other direction -- fires the
+  // same moment the departing seat's avatar ring flips red (isBot
+  // becomes true server-side), so the departure is just as visible as
+  // an arrival rather than only a passive border color change.
+  socket.on('sixp_playerLeftNotice', ({ name }) => {
+    showGameEvent('🔌', 'Player Left', (name || 'Someone') + ' left the table — a bot has taken over', '#e74c3c');
+  });
+
   socket.on('sixp_stillPlayingCheck', ({ seconds }) => showStillPlayingPopup(seconds || 60));
   socket.on('sixp_stillPlayingResolved', () => hideStillPlayingPopup());
   socket.on('sixp_tableClosed', ({ reason }) => {

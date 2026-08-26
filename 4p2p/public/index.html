@@ -15137,6 +15137,14 @@ gameSocket.on('chooseSeat', (info) => {
     if (typeof window.k28WakeTableScreensaver === 'function') window.k28WakeTableScreensaver();
   });
 
+  // Mirrors the join notice above, but for the other direction: everyone
+  // still at the table (not just the host) gets a lightweight toast the
+  // moment a seat's red ring appears, since that ring alone is easy to
+  // miss mid-hand.
+  gameSocket.on('playerLeftNotice', ({ name }) => {
+    showToast('🔌 ' + (name || 'A player') + ' left the table — a bot has taken over their seat', 'info', 3500);
+  });
+
   // Per explicit follow-up: the buddy greeting must reach BOTH the
   // player who clicked and the player whose avatar got clicked, not
   // just show up locally for the clicker. The server broadcasts this
