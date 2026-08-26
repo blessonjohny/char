@@ -3704,9 +3704,14 @@ function requestFullscreen28() {
       };
     });
 
+    // Per explicit report: same fix as the 4-player table's identical
+    // change -- z-index raised above the bouncers (was 99998, lower
+    // than their 99999) so the brand text is never covered by anything
+    // flying past, and the click-catching overlay is guaranteed to be
+    // the topmost thing a click can land on.
     watermark = document.createElement('div');
     watermark.id = 'k28TableScreensaverBg6p';
-    watermark.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.35) 0%,rgba(4,9,18,0.5) 100%);z-index:99998;cursor:pointer';
+    watermark.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.35) 0%,rgba(4,9,18,0.5) 100%);z-index:100000;cursor:pointer';
     const brand = document.createElement('div');
     brand.textContent = '28GULAN.COM';
     brand.style.cssText = 'position:absolute;bottom:5%;left:50%;transform:translateX(-50%);color:#c9a24b;font-family:\'Cinzel\',\'Playfair Display\',serif;font-weight:600;letter-spacing:2px;font-size:clamp(12px,3vw,18px);text-shadow:0 0 8px rgba(201,162,75,0.5),0 1px 4px rgba(0,0,0,0.7);opacity:0.9';
@@ -3714,6 +3719,12 @@ function requestFullscreen28() {
     document.body.appendChild(watermark);
     watermark.addEventListener('click', stopScreensaver);
     watermark.addEventListener('touchstart', stopScreensaver, { passive: true });
+
+    // Reserve a clear strip at the bottom so bouncing objects never
+    // visually travel through the brand's own space, same as the
+    // 4-player table's identical change.
+    const brandZoneHeight = Math.max(40, vh * 0.1);
+    const bounceMaxY = vh - brandZoneHeight;
 
     let lastT = performance.now();
     function frame(t) {
@@ -3726,7 +3737,7 @@ function requestFullscreen28() {
         if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
         else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); }
         if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
-        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); }
+        else if (b.y + b.h > bounceMaxY) { b.y = bounceMaxY - b.h; b.vy = -Math.abs(b.vy); }
         b.el.style.left = b.x.toFixed(1) + 'px';
         b.el.style.top = b.y.toFixed(1) + 'px';
       }

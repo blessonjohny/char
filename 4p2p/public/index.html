@@ -17479,16 +17479,36 @@ function serverBotPlayForMe() {
     // whatever static UI is still sitting underneath -- the 28gulan.com
     // watermark lives on this same layer, always visible no matter where
     // everything else has currently drifted to.
+    // Per explicit report: this used to be z-index:99998, LOWER than the
+    // bouncing elements themselves (99999) -- meaning anything flying
+    // past this spot rendered on TOP of the brand text and covered it,
+    // making it look like it kept disappearing (or like objects were
+    // "hitting" it) as they passed over. Now above the bouncers instead,
+    // so the watermark is genuinely always visible, never occluded.
     watermark = document.createElement('div');
     watermark.id = 'k28TableScreensaverBg';
-    watermark.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.35) 0%,rgba(4,9,18,0.5) 100%);z-index:99998;cursor:pointer';
+    watermark.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.35) 0%,rgba(4,9,18,0.5) 100%);z-index:100000;cursor:pointer';
     const brand = document.createElement('div');
     brand.textContent = '28GULAN.COM';
     brand.style.cssText = 'position:absolute;bottom:5%;left:50%;transform:translateX(-50%);color:#c9a24b;font-family:\'Cinzel\',\'Playfair Display\',serif;font-weight:600;letter-spacing:2px;font-size:clamp(12px,3vw,18px);text-shadow:0 0 8px rgba(201,162,75,0.5),0 1px 4px rgba(0,0,0,0.7);opacity:0.9';
     watermark.appendChild(brand);
     document.body.appendChild(watermark);
+    // This overlay still needs to catch the dismissing click itself
+    // (pointer-events stays on, not none) -- it sits above everything
+    // including the bouncers now, so it's the only thing a click can
+    // land on, which is exactly what keeps that click from also
+    // reaching a real card or button underneath and accidentally
+    // playing something.
     watermark.addEventListener('click', stopScreensaver);
     watermark.addEventListener('touchstart', stopScreensaver, { passive: true });
+
+    // Per the same report: also keep the bouncing objects from ever
+    // visually traveling through the brand's own reserved strip at the
+    // bottom of the screen, so nothing appears to fly "into" or "past"
+    // it even for a frame -- a clean bottom margin instead of relying
+    // on z-index layering alone to keep them apart.
+    const brandZoneHeight = Math.max(40, vh * 0.1);
+    const bounceMaxY = vh - brandZoneHeight;
 
     let lastT = performance.now();
     function frame(t) {
@@ -17501,7 +17521,7 @@ function serverBotPlayForMe() {
         if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
         else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); }
         if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
-        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); }
+        else if (b.y + b.h > bounceMaxY) { b.y = bounceMaxY - b.h; b.vy = -Math.abs(b.vy); }
         b.el.style.left = b.x.toFixed(1) + 'px';
         b.el.style.top = b.y.toFixed(1) + 'px';
       }
