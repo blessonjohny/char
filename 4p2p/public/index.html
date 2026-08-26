@@ -709,7 +709,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   font-size:1.3rem;font-weight:900;color:#fff;
   text-shadow:0 0 4px #000,0 0 8px #000,0 2px 3px rgba(0,0,0,0.9);
 }
-.pname{font-family:'Cinzel','Playfair Display',serif;font-size:0.62rem;font-weight:600;white-space:nowrap;text-align:center;max-width:92px;overflow:hidden;text-overflow:ellipsis;transition:color 0.3s ease;-webkit-text-stroke:0.6px rgba(255,255,255,0.9);text-shadow:0 1px 2px rgba(0,0,0,0.7);letter-spacing:0.6px}
+.pname{font-family:'Cinzel','Playfair Display',serif;font-size:0.62rem;font-weight:600;white-space:nowrap;text-align:center;max-width:92px;overflow:hidden;text-overflow:ellipsis;transition:color 0.3s ease;-webkit-text-stroke:0.12px rgba(255,255,255,0.55);text-shadow:0 1px 2px rgba(0,0,0,0.7);letter-spacing:0.6px}
 /* Bidding "call" bubble -- per explicit instruction, ported over from
    the 6-player table's identical feature (see six.html for the fuller
    original reasoning), which this table never had at all before now,
@@ -842,28 +842,76 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    of colored text. */
 .pname.name-teammate{
   color:#fff;
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.55);
+  /* Per explicit follow-up report: the outer ring used to be a near-
+     black tint of each team's own color (#0a1410 for green, #170808 for
+     red) -- that worked fine against the old navy felt, but against the
+     new burgundy carpet, the red-tinted ring in particular started
+     blending into a background that's ALSO a dark red, undoing the
+     contrast this border exists for. Pure black works against any
+     background regardless of hue, so every variant below now uses one
+     universal #000 outer ring instead of a per-team tinted one. The
+     white fill's own stroke is also thinned further (0.25px->0.12px,
+     opacity 0.7->0.55) exactly as requested, so it reads as a hint of
+     fill rather than a third competing outline. */
   text-shadow:
-    1px 0 0 #22c55e, -1px 0 0 #22c55e,
-    0 1px 0 #22c55e, 0 -1px 0 #22c55e,
-    1px 1px 0 #22c55e, -1px -1px 0 #22c55e,
-    1px -1px 0 #22c55e, -1px 1px 0 #22c55e;
+    2.2px 0 0 #000, -2.2px 0 0 #000, 0 2.2px 0 #000, 0 -2.2px 0 #000,
+    1.6px 1.6px 0 #000, -1.6px -1.6px 0 #000, 1.6px -1.6px 0 #000, -1.6px 1.6px 0 #000,
+    1.2px 0 0 #22c55e, -1.2px 0 0 #22c55e,
+    0 1.2px 0 #22c55e, 0 -1.2px 0 #22c55e,
+    1.2px 1.2px 0 #22c55e, -1.2px -1.2px 0 #22c55e,
+    1.2px -1.2px 0 #22c55e, -1.2px 1.2px 0 #22c55e;
 }
 .pname.name-opponent{
   color:#fff;
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.55);
+  /* Same universal-black-outer fix as .name-teammate above -- see there
+     for the fuller reasoning. */
   text-shadow:
-    1px 0 0 #ef4444, -1px 0 0 #ef4444,
-    0 1px 0 #ef4444, 0 -1px 0 #ef4444,
-    1px 1px 0 #ef4444, -1px -1px 0 #ef4444,
-    1px -1px 0 #ef4444, -1px 1px 0 #ef4444;
+    2.2px 0 0 #000, -2.2px 0 0 #000, 0 2.2px 0 #000, 0 -2.2px 0 #000,
+    1.6px 1.6px 0 #000, -1.6px -1.6px 0 #000, 1.6px -1.6px 0 #000, -1.6px 1.6px 0 #000,
+    1.2px 0 0 #ef4444, -1.2px 0 0 #ef4444,
+    0 1.2px 0 #ef4444, 0 -1.2px 0 #ef4444,
+    1.2px 1.2px 0 #ef4444, -1.2px -1.2px 0 #ef4444,
+    1.2px -1.2px 0 #ef4444, -1.2px 1.2px 0 #ef4444;
 }
-.pname.name-dealer{color:var(--accent);text-shadow:0 0 6px rgba(255,215,0,0.35);animation:dealerTwinkle 1.8s ease-in-out infinite}
+.pname.name-dealer{
+  color:var(--accent);
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.4);
+  text-shadow:
+    2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+    1.4px 1.4px 0 #000, -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px 1.4px 0 #000,
+    0 0 6px rgba(255,215,0,0.35);
+  animation:dealerTwinkle 1.8s ease-in-out infinite
+}
 @keyframes dealerTwinkle{
-  0%,100%{text-shadow:0 0 6px rgba(255,215,0,0.35);filter:brightness(1)}
-  50%{text-shadow:0 0 13px rgba(255,215,0,0.9),0 0 22px rgba(255,215,0,0.45);filter:brightness(1.3)}
+  0%,100%{text-shadow:2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,1.4px 1.4px 0 #000, -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px 1.4px 0 #000,0 0 6px rgba(255,215,0,0.35);filter:brightness(1)}
+  50%{text-shadow:2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,1.4px 1.4px 0 #000, -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px 1.4px 0 #000,0 0 13px rgba(255,215,0,0.9),0 0 22px rgba(255,215,0,0.45);filter:brightness(1.3)}
 }
-.pname.name-bidder{color:var(--danger);text-shadow:0 0 6px rgba(248,113,113,0.35)}
-.pname.name-trick-win{color:var(--success);text-shadow:0 0 6px rgba(74,222,128,0.4)}
-.pname.name-trick-loss{color:var(--danger);text-shadow:0 0 6px rgba(248,113,113,0.35)}
+.pname.name-bidder{
+  color:var(--danger);
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.4);
+  text-shadow:
+    2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+    1.4px 1.4px 0 #000, -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px 1.4px 0 #000,
+    0 0 6px rgba(248,113,113,0.35);
+}
+.pname.name-trick-win{
+  color:var(--success);
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.4);
+  text-shadow:
+    2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+    1.4px 1.4px 0 #000, -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px 1.4px 0 #000,
+    0 0 6px rgba(74,222,128,0.4);
+}
+.pname.name-trick-loss{
+  color:var(--danger);
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.4);
+  text-shadow:
+    2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+    1.4px 1.4px 0 #000, -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px 1.4px 0 #000,
+    0 0 6px rgba(248,113,113,0.35);
+}
 .pcards{display:flex;justify-content:center;align-items:flex-end;margin-top:2px;min-height:15px}
 /* Small face-down cards showing how many cards a player has left — colored
    to match the round's table theme so it changes color along with the felt. */

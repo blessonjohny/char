@@ -321,7 +321,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 @keyframes winnerRingBurst{0%{transform:scale(0.5);opacity:1;border-width:4px}100%{transform:scale(2.5);opacity:0;border-width:0}}
 @keyframes winnerPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,215,0,0.6)}50%{box-shadow:0 0 25px 8px rgba(255,215,0,0.3)}}
 .av.winner-pulse{animation:winnerPulse 0.8s ease 2}
-.seat .nm{font-family:'Cinzel','Playfair Display',serif;font-weight:700;font-size:0.62rem;color:var(--text-secondary);max-width:115px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 6px;-webkit-text-stroke:0.6px rgba(255,255,255,0.9);text-shadow:0 1px 2px rgba(0,0,0,0.7);letter-spacing:1.4px}
+.seat .nm{font-family:'Cinzel','Playfair Display',serif;font-weight:700;font-size:0.62rem;color:var(--text-secondary);max-width:115px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 6px;-webkit-text-stroke:0.12px rgba(255,255,255,0.55);text-shadow:0 1px 2px rgba(0,0,0,0.7);letter-spacing:1.4px}
 /* A slow, 5-second brightness pulse - same feature and reasoning as the 4-player table's own
    version: the base team colors read as fairly muted against the dark background on their
    own, so this cycles brightness on the same color rather than changing it, giving it a
@@ -331,21 +331,37 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 /* Reversed and static now, per explicit request - no animation, white text with the team
    color carried entirely by the border/outline instead. Same reasoning and technique as the
    4-player table's identical update. */
+/* Per explicit report: names were fading into the (now lighter) carpet
+   floor -- same fix as the 4-player table's identical change, see
+   there for the fuller reasoning. A dark outer border under the team
+   color one gives real contrast against any background, and the white
+   fill's own stroke is thinned down so it doesn't wash the borders out. */
+/* Per explicit follow-up report: same universal-black-outer-ring fix
+   as the 4-player table's identical change -- see there for the fuller
+   reasoning. The old per-team-tinted outer ring (#0a1410/#170808)
+   blended into the new burgundy carpet; pure black works against any
+   background. White fill stroke also thinned further as requested. */
 .seat .nm.name-teammate{
   color:#fff;
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.55);
   text-shadow:
-    1px 0 0 #22c55e, -1px 0 0 #22c55e,
-    0 1px 0 #22c55e, 0 -1px 0 #22c55e,
-    1px 1px 0 #22c55e, -1px -1px 0 #22c55e,
-    1px -1px 0 #22c55e, -1px 1px 0 #22c55e;
+    2.2px 0 0 #000, -2.2px 0 0 #000, 0 2.2px 0 #000, 0 -2.2px 0 #000,
+    1.6px 1.6px 0 #000, -1.6px -1.6px 0 #000, 1.6px -1.6px 0 #000, -1.6px 1.6px 0 #000,
+    1.2px 0 0 #22c55e, -1.2px 0 0 #22c55e,
+    0 1.2px 0 #22c55e, 0 -1.2px 0 #22c55e,
+    1.2px 1.2px 0 #22c55e, -1.2px -1.2px 0 #22c55e,
+    1.2px -1.2px 0 #22c55e, -1.2px 1.2px 0 #22c55e;
 }
 .seat .nm.name-opponent{
   color:#fff;
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.55);
   text-shadow:
-    1px 0 0 #ef4444, -1px 0 0 #ef4444,
-    0 1px 0 #ef4444, 0 -1px 0 #ef4444,
-    1px 1px 0 #ef4444, -1px -1px 0 #ef4444,
-    1px -1px 0 #ef4444, -1px 1px 0 #ef4444;
+    2.2px 0 0 #000, -2.2px 0 0 #000, 0 2.2px 0 #000, 0 -2.2px 0 #000,
+    1.6px 1.6px 0 #000, -1.6px -1.6px 0 #000, 1.6px -1.6px 0 #000, -1.6px 1.6px 0 #000,
+    1.2px 0 0 #ef4444, -1.2px 0 0 #ef4444,
+    0 1.2px 0 #ef4444, 0 -1.2px 0 #ef4444,
+    1.2px 1.2px 0 #ef4444, -1.2px -1.2px 0 #ef4444,
+    1.2px -1.2px 0 #ef4444, -1.2px 1.2px 0 #ef4444;
 }
 .seat .cc{font-size:0.6rem;color:var(--accent);display:none}
 .seat .bdg{position:absolute;top:-6px;right:-6px;background:var(--accent);color:#111;border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800}
