@@ -441,24 +441,36 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    the glow/border-flash (which need something with an actual visible border to flash)
    go on the rail itself. Both classes get added and removed together from six.js, in
    lockstep, so this reads as one single animation even though it's two selectors. */
-/* Thunderous trump-reveal shake -- same as index.html's identical
-   keyframe, replacing tablePopIn/tableShake entirely per explicit
-   instruction. See that file's comment for the full reasoning. */
+/* Thunderous trump-reveal shake -- fixed per explicit report: ".table-oval"
+   centers itself via transform:translate(-50%,-50%) in its own base rule
+   (it's positioned at top:50%/left:50% and self-offset back by half its
+   own size). A CSS animation's transform keyframes REPLACE the element's
+   transform entirely while running, they don't add to the base rule's
+   value -- so the old keyframes below, which never included that -50%/
+   -50% centering term, meant the table sat shifted by 50% of its own
+   width/height toward the bottom-right for the ENTIRE animation, only
+   snapping back to centered once the animation ended. That's the actual
+   cause of "the table flies out to the corner and comes back" -- not a
+   shake-amplitude problem. Every step below now starts with that same
+   translate(-50%,-50%) so the table stays centered throughout, with only
+   a small few-pixel shake layered on top of it via the second translate.
+   Also tightened while fixing it: the old shake amplitude (up to ±20px,
+   ±3°) was large enough on this wide an oval to look like a sway even
+   once centered correctly, so this is a tighter few-pixel vibration. */
 @keyframes thunderShake{
-  0%{transform:translateX(0) translateY(0) rotate(0deg);filter:brightness(1) contrast(1)}
-  4%{transform:translateX(-18px) translateY(-8px) rotate(-3deg);filter:brightness(2.4) contrast(1.4)}
-  8%{transform:translateX(20px) translateY(6px) rotate(3deg);filter:brightness(1) contrast(1)}
-  14%{transform:translateX(-16px) translateY(-7px) rotate(-2.6deg);filter:brightness(2.1) contrast(1.3)}
-  20%{transform:translateX(17px) translateY(5px) rotate(2.6deg);filter:brightness(1) contrast(1)}
-  28%{transform:translateX(-12px) translateY(-4px) rotate(-1.8deg)}
-  36%{transform:translateX(13px) translateY(4px) rotate(1.8deg)}
-  46%{transform:translateX(-8px) translateY(-2px) rotate(-1.1deg)}
-  56%{transform:translateX(8px) translateY(2px) rotate(1.1deg)}
-  66%{transform:translateX(-5px) rotate(-0.6deg)}
-  76%{transform:translateX(5px) rotate(0.6deg)}
-  86%{transform:translateX(-2px)}
-  93%{transform:translateX(2px)}
-  100%{transform:translateX(0) translateY(0) rotate(0deg);filter:brightness(1) contrast(1)}
+  0%{transform:translate(-50%,-50%) translate(0,0) rotate(0deg);filter:brightness(1) contrast(1)}
+  5%{transform:translate(-50%,-50%) translate(-4px,-2px) rotate(-0.6deg);filter:brightness(2.2) contrast(1.35)}
+  10%{transform:translate(-50%,-50%) translate(4px,2px) rotate(0.6deg);filter:brightness(1) contrast(1)}
+  15%{transform:translate(-50%,-50%) translate(-4px,-2px) rotate(-0.5deg);filter:brightness(1.9) contrast(1.25)}
+  20%{transform:translate(-50%,-50%) translate(4px,2px) rotate(0.5deg);filter:brightness(1) contrast(1)}
+  30%{transform:translate(-50%,-50%) translate(-3px,-1px) rotate(-0.4deg)}
+  40%{transform:translate(-50%,-50%) translate(3px,1px) rotate(0.4deg)}
+  50%{transform:translate(-50%,-50%) translate(-2px,-1px) rotate(-0.25deg)}
+  60%{transform:translate(-50%,-50%) translate(2px,1px) rotate(0.25deg)}
+  70%{transform:translate(-50%,-50%) translate(-1px,0) rotate(-0.15deg)}
+  80%{transform:translate(-50%,-50%) translate(1px,0) rotate(0.15deg)}
+  90%{transform:translate(-50%,-50%) translate(-0.5px,0)}
+  100%{transform:translate(-50%,-50%) translate(0,0) rotate(0deg);filter:brightness(1) contrast(1)}
 }
 @keyframes tableGlowPulse{0%,100%{box-shadow:inset 0 0 0 0 rgba(255,215,0,0),0 0 0 0 rgba(255,215,0,0)}25%{box-shadow:inset 0 0 60px 10px rgba(255,215,0,0.15),0 0 30px 8px rgba(255,215,0,0.3)}50%{box-shadow:inset 0 0 80px 20px rgba(255,215,0,0.25),0 0 50px 15px rgba(255,215,0,0.4)}75%{box-shadow:inset 0 0 60px 10px rgba(255,215,0,0.15),0 0 30px 8px rgba(255,215,0,0.3)}}
 @keyframes borderFlash{0%,100%{filter:brightness(1)}20%{filter:brightness(1.6)}40%{filter:brightness(1)}60%{filter:brightness(1.6)}80%{filter:brightness(1)}}

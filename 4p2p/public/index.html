@@ -5467,75 +5467,32 @@ function log(msg, type) {
 }
 
 // Per explicit instruction: clicking on another player's own avatar at
-// the table (not your own) pops a big, warm, playful greeting for a
-// few seconds then fades away on its own -- purely social/fun, no
-// gameplay effect. A genuinely varied random pool so it doesn't feel
-// like the same canned line every time.
-// 50 templates, each with a {from} and {to} placeholder -- {from} is
-// always whoever's avatar got CLICKED (the greeting is written as if
-// they're the one saying it) and {to} is always the clicker, so the
-// popup reads like a real message between the two named players
-// rather than a generic canned line. Both people at the table see the
-// exact same filled-in text.
-const K28_BUDDY_GREETINGS = [
-"{from} waves at {to}: Ready to lose some Jacks today? 😄",
-"{from} to {to}: May your trump stay hidden and your luck stay loud! 🃏",
-"{from}: Hey {to}, don't bid 28 on a bad hand again! 😜",
-"{from} nudges {to}: Let's make this round interesting! 🔥",
-"{from} to {to}: Good luck out there, you're gonna need it! 😏",
-"{from}: {to}, I saw that hand shuffle... nervous much? 👀",
-"{from} winks at {to}: Bring your best bid! 🎯",
-"{from} to {to}: Partner or not, I'm still winning this! 🏆",
-"{from}: Hey {to}, nice seeing you at the table again! 👋",
-"{from} to {to}: May the Jack of Hearts find you today! ❤️",
-"{from} pokes {to}: You call that a bid?! 😂",
-"{from}: {to}, save some luck for the rest of us! 🍀",
-"{from} to {to}: Let's gooo, no mercy today! 🔥",
-"{from} grins at {to}: Hope you kept the Jacks this time! 🃏",
-"{from}: Hey {to}, best of luck — you'll need every bit! 😄",
-"{from} to {to}: Show me what you got! 💪",
-"{from}: {to}, that was a bold bid... or a bad one. We'll see! 😎",
-"{from} tips their hat to {to}: Fair game, fair game! 🎩",
-"{from} to {to}: Let's shuffle up and deal! 🎴",
-"{from}: Hey {to}, may the cards be ever in your favor! 🌟",
-"{from} to {to}: Watch out, I've got a good feeling about this hand! 😏",
-"{from}: {to}, bring your A-game, I brought mine! ⭐",
-"{from} high-fives {to}: Great to play with you! 🙌",
-"{from} to {to}: No hard feelings when I win this round! 😄",
-"{from}: Hey {to}, I hope you brought your lucky socks! 🧦",
-"{from} to {to}: Let's make this a good one! 🎊",
-"{from}: {to}, that trump better not be hiding anything scary! 😅",
-"{from} grins: Hey {to}, I've been practicing my bids! 🃏",
-"{from} to {to}: Ready or not, here comes a big bid! 🔥",
-"{from}: {to}, is that a smile or a bluff? 😏",
-"{from} nods at {to}: Respect for the game, respect for you! 🤝",
-"{from} to {to}: May your Jack always find its Nine! 🃏",
-"{from}: Hey {to}, hope your hand's better than mine! 😂",
-"{from} to {to}: Let's keep it friendly... mostly! 😄",
-"{from}: {to}, I'm calling Thani on you one day! 🔥",
-"{from} to {to}: Good game vibes only today! 🎲",
-"{from}: Hey {to}, you and me, table legends! 🏆",
-"{from} to {to}: Don't blink, or you'll miss my winning trick! 😉",
-"{from}: {to}, may the trump suit smile upon you! 🎯",
-"{from} to {to}: Let's see those cards work their magic! ✨",
-"{from}: Hey {to}, hope you're ready to get schooled! 😄",
-"{from} to {to}: You bring the bids, I'll bring the wins! 😏",
-"{from}: {to}, this table just got a lot more fun! 🎉",
-"{from} to {to}: I promise to go easy on you... maybe! 😜",
-"{from}: Hey {to}, let's give the crowd a good show! 🎭",
-"{from} to {to}: One partner, one table, one legendary game! 🤝",
-"{from}: {to}, may your last card always be the winner! 🃏",
-"{from} to {to}: Big hands, big dreams, let's play! 💭",
-"{from}: Hey {to}, may your bids be bold and your losses be few! 😄",
-"{from} to {to}: Let's make this round one to remember! 🎉"
-
+// the table (not your own) pops a big, warm "Cheers!" toast with a
+// large drink glyph for a few seconds then fades away on its own --
+// purely social/fun, no gameplay effect. A random pool of everyday,
+// deliberately non-alcoholic drinks (soda, tea, coffee, juice, bubble
+// tea) so it's a different glass/cup each time instead of always the
+// same clinking-glasses emoji.
+const K28_CHEERS_DRINKS = [
+  { emoji: '🥂', label: 'a glass' },
+  { emoji: '🧋', label: 'bubble tea' },
+  { emoji: '🥤', label: 'red soda water' },
+  { emoji: '🥤', label: 'blue soda water' },
+  { emoji: '☕', label: 'coffee' },
+  { emoji: '🍵', label: 'tea' },
+  { emoji: '🧃', label: 'juice' },
+  { emoji: '🍋', label: 'lemonade' },
+  { emoji: '🍷', label: 'a toast' },
+  { emoji: '🍺', label: 'a cold one' },
+  { emoji: '🍾', label: 'a celebration' },
+  { emoji: '🥃', label: 'the good stuff' }
 ];
 function showBuddyGreeting(fromName, toName) {
-  const tpl = K28_BUDDY_GREETINGS[Math.floor(Math.random() * K28_BUDDY_GREETINGS.length)];
-  const msg = tpl.replace(/\{from\}/g, fromName || 'Someone').replace(/\{to\}/g, toName || 'you');
+  const drink = K28_CHEERS_DRINKS[Math.floor(Math.random() * K28_CHEERS_DRINKS.length)];
+  const msg = (fromName || 'Someone') + ' toasts ' + (toName || 'you') + ' with ' + drink.label + ' — Cheers!';
   const bubble = document.createElement('div');
   bubble.className = 'k28-buddy-greeting';
-  bubble.textContent = msg;
+  bubble.innerHTML = '<div style="font-size:3rem;line-height:1;margin-bottom:8px">' + drink.emoji + '</div><div>' + escapeHtml(msg) + '</div>';
   bubble.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(0.7);' +
     'background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;font-weight:900;' +
     'font-family:var(--display-font, serif);font-size:1.4rem;padding:20px 32px;border-radius:20px;' +
