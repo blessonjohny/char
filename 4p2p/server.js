@@ -1284,6 +1284,99 @@ app.post('/api/admin/close-table', (req, res) => {
   res.json({ ok: true, game: closed, tableId: id });
 });
 
+// Spawns a table that's entirely bot-run from the moment it's created --
+// no human socket ever needs to be attached to it, and nothing times it
+// out (see the "NO time-based auto-closing" note further down): it just
+// sits there playing itself forever, which is the whole point -- a
+// standing table that keeps the server visibly "alive" on the public
+// room list without anyone needing to babysit a browser tab.
+//
+// How it works: this creates the table exactly like a normal human host
+// would (same seatHuman/seatBot/startRound calls used by the ordinary
+// createTable + startGame flow), with the chosen name/avatar sitting in
+// the host seat -- then, the instant the round starts, immediately hands
+// that same seat over to the engine's existing convertToBot(), the exact
+// function already used whenever a real player explicitly leaves
+// mid-game. From that point on the seat is indistinguishable from any
+// other bot seat: driven entirely server-side by the same bot AI
+// (bot-brain.js) as every other bot at the table, and -- since it's now
+// isBot:true -- reclaimable by any real player who clicks it, through
+// the exact same "take over a bot's seat" flow that already exists for
+// every bot seat on every table. No new client-side code was needed for
+// that part at all.
+//
+// "Pausing bot mode to take over" isn't a special mode this endpoint
+// manages either -- it's the admin simply opening the ordinary invite
+// link this endpoint hands back (?invite=CODE) and clicking their own
+// bot-seat like any player reclaiming a seat would. Clicking "Leave
+// Table" afterward hands it right back to bot control, again via the
+// same convertToBot() call that already runs for any mid-game departure.
+app.post('/api/admin/spawn-bot-table', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const mode = req.body.mode === '6p' ? '6p' : '4p';
+  const avatar = sanitizeAvatarKey(req.body.avatar) || 'hero3m1';
+  const name = String(req.body.name || 'Admin').trim().slice(0, 20) || 'Admin';
+
+  if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
+    return res.status(429).json({ ok: false, error: 'room_cap_reached' });
+  }
+
+  if (mode === '4p') {
+    const id = newTableId();
+    const engine = new GameEngine(id);
+    const adminPlayerId = newId();
+    const hostPos = 3; // matches the seat position normal createTable uses for its host
+    engine.seatHuman(hostPos, name, adminPlayerId, avatar);
+    const t = {
+      id, engine, creatorName: name, hostPlayerId: adminPlayerId,
+      botFill: 3, createdAt: Date.now(), lastActivityAt: Date.now(),
+      sockets: new Map()
+    };
+    engine.onChange = () => { touch(t); broadcastTable(t); };
+    tables[id] = t;
+
+    const open = engine.emptySeats();
+    const shuffled = [...BOT_NAME_POOL].sort(() => Math.random() - 0.5);
+    for (let i = 0; i < open.length; i++) engine.seatBot(open[i], shuffled[i % shuffled.length]);
+    engine.startRound();
+    engine.convertToBot(hostPos);
+    if (engine.currentPlayer === hostPos) engine.maybeAutoAct();
+
+    touch(t);
+    broadcastTable(t);
+    io.emit('roomList', publicTableList());
+    console.log(`[admin] spawned self-running 4-player bot table ${id} (seat ${hostPos} as "${name}")`);
+    return res.json({ ok: true, mode: '4p', tableId: id, inviteUrl: `/?invite=${id}` });
+  } else {
+    const id = newSixpTableId();
+    const engine = new GameEngine6P(id);
+    const adminPlayerId = newId();
+    const hostPos = 0; // matches the seat position normal sixp_createTable uses for its host
+    engine.seatHuman(hostPos, name, adminPlayerId, avatar);
+    const t = {
+      id, engine, creatorName: name, hostPlayerId: adminPlayerId,
+      botFill: 5, createdAt: Date.now(), lastActivityAt: Date.now(),
+      sockets: new Map()
+    };
+    engine.onChange = () => { sixpTouch(t); sixpBroadcastTable(t); };
+    sixpTables[id] = t;
+
+    const empties = engine.emptySeats();
+    const shuffled = [...BOT_NAME_POOL].sort(() => Math.random() - 0.5);
+    let botNum = 0;
+    for (const pos of empties) { engine.seatBot(pos, shuffled[botNum % shuffled.length]); botNum++; }
+    engine.startRound();
+    engine.convertToBot(hostPos);
+    if (engine.currentPlayer === hostPos) engine.maybeAutoAct();
+
+    sixpTouch(t);
+    sixpBroadcastTable(t);
+    io.emit('sixp_roomList', sixpPublicTableList());
+    console.log(`[admin] spawned self-running 6-player bot table ${id} (seat ${hostPos} as "${name}")`);
+    return res.json({ ok: true, mode: '6p', tableId: id, inviteUrl: `/six.html?invite=${id}` });
+  }
+});
+
 // ---------------- Table registry ----------------
 // tableId -> {
 //   engine: GameEngine,
@@ -1391,6 +1484,13 @@ const VALID_AVATAR_KEYS = new Set([
   ...Array.from({length:64}, (_,i) => 'hero3m'+(i+1)),
 ]);
 function sanitizeAvatarKey(k) { return (typeof k === 'string' && VALID_AVATAR_KEYS.has(k)) ? k : null; }
+
+// Shared bot-name pool used anywhere seats get auto-filled with bots --
+// 4p's startGame, 6p's startGame, and the admin auto-bot-table spawner
+// below all draw from this exact same list, so a bot named "Ancy" means
+// the same thing (well-worn AI, tracked brain history) everywhere it
+// shows up rather than each call site inventing its own separate pool.
+const BOT_NAME_POOL = ['Ancy', 'Anjali', 'Meera', 'Neha', 'Priya', 'Reena', 'Divya', 'Lakshmi', 'Sarah', 'Nisha', 'Deepa', 'Elsa', 'Maya', 'Sherin', 'Teena', 'Anu', 'Reshma', 'Jisha', 'Nimmy', 'Beena', 'Soumya', 'Liya', 'Merin', 'Asha', 'Anita', 'Betty', 'Celine', 'Diya', 'Fiona', 'Gracy', 'Hema', 'Indu', 'Jessy', 'Kavya', 'Leena', 'Mariya', 'Babi', 'Linda', 'Babitha', 'Maria', 'Leela', 'Anna', 'Thankam', 'Lincy', 'Princy', 'Ajai', 'Alok', 'Anup', 'Appu', 'Arun', 'Benson', 'Binchu', 'Charlie', 'Jerin', 'Johny', 'Koshy', 'Nate', 'Peter', 'Rahul', 'Rajesh', 'Randall', 'Renji', 'Roji', 'Roney', 'Sanjay', 'Shyam', 'Stev', 'Vinod', 'Wesley', 'Easo', 'Joseph', 'Abin', 'Bibin', 'Cibin', 'Denny', 'Eldho', 'Frankie', 'George', 'Hari', 'Ivan', 'Jibin', 'Kevin', 'Libin', 'Manoj', 'Nibin', 'Oommen', 'Pauly', 'Robin', 'Sibin', 'Tibin', 'Unni', 'Vishnu', 'Wilson', 'Xavier', 'Yohan', 'Zachariah', 'Aby', 'Bijoy', 'Cyriac', 'Davis', 'Ebin', 'Fenil', 'Gibin', 'Hillary', 'Ittoop', 'Jaison', 'Kurian', 'Lijo', 'Mathew', 'Ninan', 'Oliver'];
 
 // Seats a new joiner can step into beyond the fully-empty ones: real bot
 // seats, plus any seat left behind by a human who disconnected (still a
@@ -1953,11 +2053,10 @@ io.on('connection', (socket) => {
       if (!isEffectiveHost(t, playerId)) return;
       if (t.engine.phase !== 'lobby') return;
       const open = t.engine.emptySeats();
-      const botNamePool = ['Ancy', 'Anjali', 'Meera', 'Neha', 'Priya', 'Reena', 'Divya', 'Lakshmi', 'Sarah', 'Nisha', 'Deepa', 'Elsa', 'Maya', 'Sherin', 'Teena', 'Anu', 'Reshma', 'Jisha', 'Nimmy', 'Beena', 'Soumya', 'Liya', 'Merin', 'Asha', 'Anita', 'Betty', 'Celine', 'Diya', 'Fiona', 'Gracy', 'Hema', 'Indu', 'Jessy', 'Kavya', 'Leena', 'Mariya', 'Babi', 'Linda', 'Babitha', 'Maria', 'Leela', 'Anna', 'Thankam', 'Lincy', 'Princy', 'Ajai', 'Alok', 'Anup', 'Appu', 'Arun', 'Benson', 'Binchu', 'Charlie', 'Jerin', 'Johny', 'Koshy', 'Nate', 'Peter', 'Rahul', 'Rajesh', 'Randall', 'Renji', 'Roji', 'Roney', 'Sanjay', 'Shyam', 'Stev', 'Vinod', 'Wesley', 'Easo', 'Joseph', 'Abin', 'Bibin', 'Cibin', 'Denny', 'Eldho', 'Frankie', 'George', 'Hari', 'Ivan', 'Jibin', 'Kevin', 'Libin', 'Manoj', 'Nibin', 'Oommen', 'Pauly', 'Robin', 'Sibin', 'Tibin', 'Unni', 'Vishnu', 'Wilson', 'Xavier', 'Yohan', 'Zachariah', 'Aby', 'Bijoy', 'Cyriac', 'Davis', 'Ebin', 'Fenil', 'Gibin', 'Hillary', 'Ittoop', 'Jaison', 'Kurian', 'Lijo', 'Mathew', 'Ninan', 'Oliver'];
       // Shuffle so repeated games don't always show the same first few
       // names in the list — previously toFill was always 3, so seats
       // always got names[0], names[1], names[2] and nothing past that.
-      const shuffled = [...botNamePool].sort(() => Math.random() - 0.5);
+      const shuffled = [...BOT_NAME_POOL].sort(() => Math.random() - 0.5);
       let toFill = Math.min(t.botFill, open.length);
       for (let i = 0; i < toFill; i++) {
         t.engine.seatBot(open[i], shuffled[i % shuffled.length]);
@@ -2364,6 +2463,7 @@ io.on('connection', (socket) => {
         if (t.engine.phase === 'lobby') {
           t.engine.removeSeat(info.pos);
         } else {
+          const leavingName = t.engine.seats[info.pos].name;
           t.engine.convertToBot(info.pos);
           // Same gap as the silent-disconnect path below: if this was
           // this seat's turn right now, nothing else was ever going to
@@ -2372,6 +2472,13 @@ io.on('connection', (socket) => {
           // Without this, leaving via the X button mid-turn would freeze
           // the table exactly the same way a silent disconnect could.
           if (t.engine.currentPlayer === info.pos) t.engine.maybeAutoAct();
+          // Per explicit request: the red ring already appears on this
+          // seat's avatar the moment isBot flips true (client renders
+          // that off seat.isBot in the very next broadcastTable below) --
+          // this notice makes the same event just as visible via a popup,
+          // not just a passive border color, mirroring the existing
+          // "X joined the table" notice for arrivals.
+          io.to(tableId).emit('playerLeftNotice', { name: leavingName });
         }
         delete playerIndex[info.playerId];
       } else {
@@ -2800,8 +2907,7 @@ io.on('connection', (socket) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;
       if (t.engine.phase !== 'lobby') return;
       const empties = t.engine.emptySeats();
-      const botNamePool = ['Ancy', 'Anjali', 'Meera', 'Neha', 'Priya', 'Reena', 'Divya', 'Lakshmi', 'Sarah', 'Nisha', 'Deepa', 'Elsa', 'Maya', 'Sherin', 'Teena', 'Anu', 'Reshma', 'Jisha', 'Nimmy', 'Beena', 'Soumya', 'Liya', 'Merin', 'Asha', 'Anita', 'Betty', 'Celine', 'Diya', 'Fiona', 'Gracy', 'Hema', 'Indu', 'Jessy', 'Kavya', 'Leena', 'Mariya', 'Babi', 'Linda', 'Babitha', 'Maria', 'Leela', 'Anna', 'Thankam', 'Lincy', 'Princy', 'Ajai', 'Alok', 'Anup', 'Appu', 'Arun', 'Benson', 'Binchu', 'Charlie', 'Jerin', 'Johny', 'Koshy', 'Nate', 'Peter', 'Rahul', 'Rajesh', 'Randall', 'Renji', 'Roji', 'Roney', 'Sanjay', 'Shyam', 'Stev', 'Vinod', 'Wesley', 'Easo', 'Joseph', 'Abin', 'Bibin', 'Cibin', 'Denny', 'Eldho', 'Frankie', 'George', 'Hari', 'Ivan', 'Jibin', 'Kevin', 'Libin', 'Manoj', 'Nibin', 'Oommen', 'Pauly', 'Robin', 'Sibin', 'Tibin', 'Unni', 'Vishnu', 'Wilson', 'Xavier', 'Yohan', 'Zachariah', 'Aby', 'Bijoy', 'Cyriac', 'Davis', 'Ebin', 'Fenil', 'Gibin', 'Hillary', 'Ittoop', 'Jaison', 'Kurian', 'Lijo', 'Mathew', 'Ninan', 'Oliver'];
-      const shuffled = [...botNamePool].sort(() => Math.random() - 0.5);
+      const shuffled = [...BOT_NAME_POOL].sort(() => Math.random() - 0.5);
       let botNum = 0;
       for (const pos of empties) {
         t.engine.seatBot(pos, shuffled[botNum % shuffled.length]);
@@ -3050,12 +3156,17 @@ io.on('connection', (socket) => {
       if (t.engine.phase === 'lobby') {
         t.engine.removeSeat(pos);
       } else {
+        const leavingName = t.engine.seats[pos].name;
         t.engine.convertToBot(pos);
         // Same gap as the silent-disconnect path: if this was this
         // seat's turn right now, nothing else was ever going to call
         // maybeAutoAct() again on its own -- converting to a bot only
         // changes what the seat IS, it doesn't start play.
         if (t.engine.currentPlayer === pos) t.engine.maybeAutoAct();
+        // Per explicit request: mirrors the 4-player fix -- the red ring
+        // already appears the moment isBot flips true, this notice makes
+        // that same event visible via a popup too, not just the border.
+        io.to('sixp_' + sixpTableId).emit('sixp_playerLeftNotice', { name: leavingName });
       }
       if (leavingPlayerId) delete sixpPlayerIndex[leavingPlayerId];
       sixpTouch(t);
