@@ -1101,7 +1101,14 @@ function connectSocket() {
   // handler, see there for the fuller reasoning -- only shows for the
   // two people actually involved, not the whole table.
   socket.on('sixp_buddyGreeting', ({ fromPos, toPos }) => {
-    if (MY_POS === fromPos || MY_POS === toPos) window.showBuddyGreeting();
+    // fromPos is the clicker, toPos is whose avatar got clicked -- but
+    // the MESSAGE is written the other way around (as if the clicked
+    // player is greeting the clicker), so {from}/{to} in the template
+    // are the reverse of the socket's fromPos/toPos.
+    if (MY_POS === fromPos || MY_POS === toPos) {
+      const nameAt = (pos) => (pos === MY_POS ? (MY_NAME || 'You') : ((latestState && latestState.seats[pos] && latestState.seats[pos].name) || 'Someone'));
+      window.showBuddyGreeting(nameAt(toPos), nameAt(fromPos));
+    }
   });
 
   // Per explicit instruction: a nice, visible popup for everyone
@@ -2413,16 +2420,70 @@ function layoutHandPreviewCards(container) {
 // of the greeting pool and popup function, not just a reference to the
 // other file's version. Only the wiring-up differs between the two
 // (av0 here is "me", not av3 -- see SEAT_POS's own "0 me" comment above).
+// 50 templates, each with a {from} and {to} placeholder -- {from} is
+// always whoever's avatar got CLICKED (the greeting is written as if
+// they're the one saying it) and {to} is always the clicker, so the
+// popup reads like a real message between the two named players
+// rather than a generic canned line. Both people at the table see the
+// exact same filled-in text. Same pool as index.html's identical
+// feature -- see there for the fuller reasoning.
 window.K28_BUDDY_GREETINGS = [
-  "Hey buddy, play! 🎉", "Let's gooo! 🔥", "Nice to see you here! 👋",
-  "Good luck out there! 🍀", "You've got this! 💪", "Bring your A-game! ⭐",
-  "Hey champ! 🏆", "Ready to play? 🎴", "Making friends at the table! 😄",
-  "Good game ahead! 🎲", "Hey there, partner! 🤝", "May the cards be kind! 🃏",
-  "You look sharp today! 😎", "High five! 🙌", "Let's have some fun! 🎊",
+"{from} waves at {to}: Ready to lose some Jacks today? 😄",
+"{from} to {to}: May your trump stay hidden and your luck stay loud! 🃏",
+"{from}: Hey {to}, don't bid 28 on a bad hand again! 😜",
+"{from} nudges {to}: Let's make this round interesting! 🔥",
+"{from} to {to}: Good luck out there, you're gonna need it! 😏",
+"{from}: {to}, I saw that hand shuffle... nervous much? 👀",
+"{from} winks at {to}: Bring your best bid! 🎯",
+"{from} to {to}: Partner or not, I'm still winning this! 🏆",
+"{from}: Hey {to}, nice seeing you at the table again! 👋",
+"{from} to {to}: May the Jack of Hearts find you today! ❤️",
+"{from} pokes {to}: You call that a bid?! 😂",
+"{from}: {to}, save some luck for the rest of us! 🍀",
+"{from} to {to}: Let's gooo, no mercy today! 🔥",
+"{from} grins at {to}: Hope you kept the Jacks this time! 🃏",
+"{from}: Hey {to}, best of luck — you'll need every bit! 😄",
+"{from} to {to}: Show me what you got! 💪",
+"{from}: {to}, that was a bold bid... or a bad one. We'll see! 😎",
+"{from} tips their hat to {to}: Fair game, fair game! 🎩",
+"{from} to {to}: Let's shuffle up and deal! 🎴",
+"{from}: Hey {to}, may the cards be ever in your favor! 🌟",
+"{from} to {to}: Watch out, I've got a good feeling about this hand! 😏",
+"{from}: {to}, bring your A-game, I brought mine! ⭐",
+"{from} high-fives {to}: Great to play with you! 🙌",
+"{from} to {to}: No hard feelings when I win this round! 😄",
+"{from}: Hey {to}, I hope you brought your lucky socks! 🧦",
+"{from} to {to}: Let's make this a good one! 🎊",
+"{from}: {to}, that trump better not be hiding anything scary! 😅",
+"{from} grins: Hey {to}, I've been practicing my bids! 🃏",
+"{from} to {to}: Ready or not, here comes a big bid! 🔥",
+"{from}: {to}, is that a smile or a bluff? 😏",
+"{from} nods at {to}: Respect for the game, respect for you! 🤝",
+"{from} to {to}: May your Jack always find its Nine! 🃏",
+"{from}: Hey {to}, hope your hand's better than mine! 😂",
+"{from} to {to}: Let's keep it friendly... mostly! 😄",
+"{from}: {to}, I'm calling Thani on you one day! 🔥",
+"{from} to {to}: Good game vibes only today! 🎲",
+"{from}: Hey {to}, you and me, table legends! 🏆",
+"{from} to {to}: Don't blink, or you'll miss my winning trick! 😉",
+"{from}: {to}, may the trump suit smile upon you! 🎯",
+"{from} to {to}: Let's see those cards work their magic! ✨",
+"{from}: Hey {to}, hope you're ready to get schooled! 😄",
+"{from} to {to}: You bring the bids, I'll bring the wins! 😏",
+"{from}: {to}, this table just got a lot more fun! 🎉",
+"{from} to {to}: I promise to go easy on you... maybe! 😜",
+"{from}: Hey {to}, let's give the crowd a good show! 🎭",
+"{from} to {to}: One partner, one table, one legendary game! 🤝",
+"{from}: {to}, may your last card always be the winner! 🃏",
+"{from} to {to}: Big hands, big dreams, let's play! 💭",
+"{from}: Hey {to}, may your bids be bold and your losses be few! 😄",
+"{from} to {to}: Let's make this round one to remember! 🎉"
+
 ];
-window.showBuddyGreeting = function() {
+window.showBuddyGreeting = function(fromName, toName) {
   const pool = window.K28_BUDDY_GREETINGS;
-  const msg = pool[Math.floor(Math.random() * pool.length)];
+  const tpl = pool[Math.floor(Math.random() * pool.length)];
+  const msg = tpl.replace(/\{from\}/g, fromName || 'Someone').replace(/\{to\}/g, toName || 'you');
   const bubble = document.createElement('div');
   bubble.textContent = msg;
   bubble.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(0.7);' +
@@ -2454,7 +2515,10 @@ window.showBuddyGreeting = function() {
     if (typeof socket !== 'undefined' && socket && socket.connected) {
       socket.emit('sixp_buddyGreeting', { toPos: targetPos });
     } else {
-      window.showBuddyGreeting();
+      // Offline (bots): no round trip needed, show it immediately.
+      // {from} = the avatar that got clicked, {to} = the local player.
+      const clickedName = (latestState && latestState.seats[targetPos] && latestState.seats[targetPos].name) || 'Someone';
+      window.showBuddyGreeting(clickedName, MY_NAME || 'You');
     }
   });
 });
