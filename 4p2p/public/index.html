@@ -2853,10 +2853,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     background-color: transparent;
   }
   .table:not(.mode6) .center::after,
-  .table:not(.mode6) .center::before,
-  .table:not(.mode6) .center .felt,
-  .table:not(.mode6) .center .felt::after {
+  .table:not(.mode6) .center::before {
     display: none !important;
+  }
+  /* .center .felt itself stays display'd (NOT display:none) specifically
+     so its own ::after pseudo-element -- the "28GULAN.COM" branding
+     watermark -- can still render; a display:none parent hides its own
+     pseudo-content too, which is what silently took the watermark out
+     the first time this table went photo-background. Only the felt's
+     own paint (background/border/shadow) is neutralized here, not its
+     display, so the watermark text stays exactly where it was. */
+  .table:not(.mode6) .center .felt {
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
   .table:not(.mode6) .pspot.top,

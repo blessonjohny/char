@@ -819,9 +819,16 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
     background-size: cover;
     background-position: center;
   }
-  .six-oval-rail, .six-oval-felt, .table-oval::after {
+  .six-oval-rail, .six-oval-felt {
     display: none !important;
   }
+  /* .table-oval::after (the "28GULAN.COM" branding watermark) is
+     deliberately NOT in the list above -- it used to be, which silently
+     removed the watermark along with the rail/felt art it was
+     originally engraved into. It's a standalone pseudo-element on
+     .table-oval itself, not nested inside .six-oval-rail/.six-oval-felt,
+     so hiding just those two leaves the watermark intact and still
+     centered where it always was. */
   /* Seat positions measured directly off the photo with a percentage
      grid overlay, then verified with drawn markers before wiring in --
      matched to SEAT_POS's own fixed slot-to-screen mapping
@@ -840,6 +847,23 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   #seatWrap3 { left: 50% !important; top: 15% !important; }
   #seatWrap4 { left: 13% !important; top: 28% !important; }
   #seatWrap5 { left: 13% !important; top: 53% !important; }
+
+  /* Trick-card (played card) positions were drifting from the avatar
+     seats above -- they're driven by a separate JS array (SLOT_POS /
+     TRICK_SLOT_POS in six.js) tuned for the OLD CSS-drawn oval table,
+     which never got updated when the avatar positions above were
+     customized for this photo background. Recomputed here using the
+     exact same pull-toward-center math six.js already uses
+     (TRICK_SLOT_X_FACTOR/Y_FACTOR = 0.42/0.6) but applied to the NEW
+     seat positions instead of the old ones, then verified with drawn
+     markers against the real image to confirm a clean hexagonal ring
+     inside the felt with zero overlap on any avatar before shipping. */
+  #trickSlot0 { left: 50%   !important; top: 57.2% !important; }
+  #trickSlot1 { left: 71.5% !important; top: 51.2% !important; }
+  #trickSlot2 { left: 71.5% !important; top: 41.2% !important; }
+  #trickSlot3 { left: 50%   !important; top: 36%   !important; }
+  #trickSlot4 { left: 28.5% !important; top: 41.2% !important; }
+  #trickSlot5 { left: 28.5% !important; top: 51.2% !important; }
 
   /* Same "there's real breathing room, make it bigger" treatment as
      the 4-player table -- this table's avatars were already 92px by
