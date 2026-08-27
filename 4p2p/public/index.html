@@ -2899,7 +2899,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   /* Per explicit request: a little bigger than the default ~44px --
      modest bump, not the aggressive size used on the 6-player table. */
+  /* Per explicit request: a little bigger than the default ~44px --
+     modest bump, not the aggressive size used on the 6-player table. */
   .table:not(.mode6) .avatar { width: 58px !important; height: 58px !important; font-size: 1.5rem !important; }
+  /* Per follow-up: YOUR OWN seat (bottom/pos3) specifically bigger than
+     the other three -- not a uniform bump, just this one seat, since
+     the played-card animation already draws the eye upward toward the
+     trick area and a bigger "you" avatar down here balances that out. */
+  .table:not(.mode6) .pspot.pos3 .avatar { width: 100px !important; height: 100px !important; font-size: 2.6rem !important; }
 }
 </style>
 <style id="redesign2026">
