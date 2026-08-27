@@ -836,17 +836,17 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      4=upper-left, 5=lower-left). !important needed since SEAT_POS sets
      these as inline styles via JS, which normal-specificity CSS can't
      override. */
-  #seatWrap0 { left: 50% !important; top: 68% !important; }
+  #seatWrap0 { left: 50% !important; top: 70% !important; }
   /* Per explicit report: left/right (1,2,4,5) nudged in from the
      raw measured chair positions -- avatar circles at 118px wide can
      overflow off the actual screen edge on a real phone, since
      background-size:cover can crop the visible width narrower than
      the source image's own width on some aspect ratios. */
-  #seatWrap1 { left: 87% !important; top: 53% !important; }
-  #seatWrap2 { left: 87% !important; top: 28% !important; }
-  #seatWrap3 { left: 50% !important; top: 15% !important; }
-  #seatWrap4 { left: 13% !important; top: 28% !important; }
-  #seatWrap5 { left: 13% !important; top: 53% !important; }
+  #seatWrap1 { left: 88% !important; top: 50% !important; }
+  #seatWrap2 { left: 88% !important; top: 24% !important; }
+  #seatWrap3 { left: 50% !important; top: 13% !important; }
+  #seatWrap4 { left: 12% !important; top: 24% !important; }
+  #seatWrap5 { left: 12% !important; top: 50% !important; }
 
   /* Trick-card (played card) positions were drifting from the avatar
      seats above -- they're driven by a separate JS array (SLOT_POS /
@@ -858,12 +858,12 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      seat positions instead of the old ones, then verified with drawn
      markers against the real image to confirm a clean hexagonal ring
      inside the felt with zero overlap on any avatar before shipping. */
-  #trickSlot0 { left: 50%   !important; top: 57.2% !important; }
-  #trickSlot1 { left: 71.5% !important; top: 51.2% !important; }
-  #trickSlot2 { left: 71.5% !important; top: 41.2% !important; }
-  #trickSlot3 { left: 50%   !important; top: 36%   !important; }
-  #trickSlot4 { left: 28.5% !important; top: 41.2% !important; }
-  #trickSlot5 { left: 28.5% !important; top: 51.2% !important; }
+  #trickSlot0 { left: 50% !important; top: 55% !important; }
+  #trickSlot1 { left: 66% !important; top: 47% !important; }
+  #trickSlot2 { left: 66% !important; top: 33% !important; }
+  #trickSlot3 { left: 50% !important; top: 30% !important; }
+  #trickSlot4 { left: 34% !important; top: 33% !important; }
+  #trickSlot5 { left: 34% !important; top: 47% !important; }
 
   /* Call-badge (bid/pass popup) sizing and diagonal offsets were tuned
      against the OLD seat spacing -- the upper-left/lower-left seats
