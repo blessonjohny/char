@@ -830,11 +830,18 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      these as inline styles via JS, which normal-specificity CSS can't
      override. */
   #seatWrap0 { left: 50% !important; top: 79% !important; }
-  #seatWrap1 { left: 92% !important; top: 64% !important; }
-  #seatWrap2 { left: 92% !important; top: 33% !important; }
+  /* Per explicit report: left/right (1,2,4,5) nudged in from the
+     original 8%/92% -- those were correctly measured against the
+     chair positions, but at 118px wide (the "make it bigger" bump
+     below) the avatar circles themselves extend far enough past that
+     center point to overflow off the actual screen edge on a real
+     phone, since background-size:cover can crop the visible width
+     narrower than the source image's own 941px on some aspect ratios. */
+  #seatWrap1 { left: 87% !important; top: 64% !important; }
+  #seatWrap2 { left: 87% !important; top: 33% !important; }
   #seatWrap3 { left: 50% !important; top: 19% !important; }
-  #seatWrap4 { left: 8%  !important; top: 33% !important; }
-  #seatWrap5 { left: 8%  !important; top: 64% !important; }
+  #seatWrap4 { left: 13% !important; top: 33% !important; }
+  #seatWrap5 { left: 13% !important; top: 64% !important; }
 
   /* Same "there's real breathing room, make it bigger" treatment as
      the 4-player table -- this table's avatars were already 92px by
