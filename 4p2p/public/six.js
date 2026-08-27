@@ -2106,9 +2106,10 @@ function renderSeats(state) {
       // keeps showing every re-render of this same call, not a new
       // random pick each time.
       const header = isThani ? 'Thani!' : isPass ? 'Pass' : 'Bid ' + lastCall.bid;
-      const flavor = isThani ? '' : isPass
-        ? pickCallMessage(PASS_MESSAGES, pos, lastCallIdx.i, 0)
-        : pickCallMessage(BID_MESSAGES, pos, lastCallIdx.i, lastCall.bid);
+      // Per explicit follow-up: same simplification as the 4-player
+      // table's identical change -- no more custom flavor lines, just
+      // the plain call itself.
+      const flavor = '';
       const label = header + (flavor ? '\n' + flavor : '');
       if (!callEl) { callEl = document.createElement('div'); callEl.className = 'call-badge'; wrap.appendChild(callEl); }
       // Per explicit instruction: each seat's bubble is now offset

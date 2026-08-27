@@ -2837,6 +2837,66 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 #serverNotice{position:fixed;top:10px;right:10px;left:auto;transform:none;z-index:9999;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;color:var(--accent);text-align:center;padding:6px 12px;border-radius:999px;border:1px solid rgba(255,215,0,0.3);box-shadow:none;text-shadow:0 1px 4px rgba(0,0,0,0.9),0 0 8px rgba(0,0,0,0.7);font-size:0.65rem;font-weight:700;display:none;white-space:nowrap;animation:serverNoticeIn 0.35s ease;pointer-events:none}
 @keyframes serverNoticeIn{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
+
+/* ==================== PHOTOREAL TABLE BACKGROUND (4-player, portrait only) ====================
+   Per explicit request: a real illustrated top-down table photo instead
+   of the CSS-drawn felt/rail, using the actual user-provided image.
+   Portrait-only -- there's no landscape version of this artwork (a true
+   top-down illustration doesn't reflow), so landscape keeps the
+   original CSS table completely untouched as a safe fallback rather
+   than stretching a portrait image into a bad landscape crop.
+
+   IMPORTANT CAVEAT left here deliberately: the four seat positions below
+   (top/left/right/bottom percentages) are a best-effort visual estimate
+   made by looking at the image, not a pixel-measured/rendered-and-
+   verified placement -- this sandbox has no way to actually render a
+   live browser page to confirm alignment. They are very likely close
+   but may need a few percentage points of nudging per seat once someone
+   actually views this on a real device. */
+@media (orientation: portrait) {
+  .table:not(.mode6) {
+    background-image: url('/images/table-bg-4p.jpg');
+    background-size: cover;
+    background-position: center;
+    /* The image already includes its own rail/felt painted in, so the
+       CSS-drawn versions need to get out of the way entirely rather
+       than layering a second table on top of the photo one. */
+    background-color: transparent;
+  }
+  .table:not(.mode6) .center::after,
+  .table:not(.mode6) .center::before,
+  .table:not(.mode6) .center .felt,
+  .table:not(.mode6) .center .felt::after {
+    display: none !important;
+  }
+  /* No change needed for trump-exposed here: that animation already
+     targets .table itself (see .table.trump-exposed elsewhere), which
+     is untouched by hiding .center's pseudo-elements/felt above -- it
+     keeps shaking exactly as it always did, photo mode or not. */
+
+  /* Seats repositioned to sit on the actual chairs in the photo,
+     overriding the grid-area placement used for the CSS-drawn table.
+     grid-column/row spanning the full grid is what makes each pspot's
+     absolute-positioning containing block the WHOLE table image
+     instead of just its own narrow original grid cell, so these
+     percentages are relative to the full photo, not a slice of it. */
+  .table:not(.mode6) .pspot.top,
+  .table:not(.mode6) .pspot.left,
+  .table:not(.mode6) .pspot.right,
+  .table:not(.mode6) .pspot.pos3 {
+    position: absolute;
+    grid-column: 1 / -1;
+    grid-row: 1 / -1;
+    justify-self: unset;
+    align-self: unset;
+    padding: 0;
+    transform: translate(-50%, -50%);
+  }
+  .table:not(.mode6) .pspot.top   { left: 50%; top: 19%; }
+  .table:not(.mode6) .pspot.left  { left: 12%; top: 32%; }
+  .table:not(.mode6) .pspot.right { left: 88%; top: 32%; }
+  .table:not(.mode6) .pspot.pos3  { left: 50%; top: 66%; }
+}
 </style>
 <style id="redesign2026">
 /* ============================================================
@@ -6186,9 +6246,10 @@ function updateCallBadge4p(pos, bid, seq) {
   const isPass = bid === 0;
   const isThani = bid >= 29;
   const header = isThani ? 'Thani!' : isPass ? 'Pass' : 'Bid ' + bid;
-  const flavor = isThani ? '' : isPass
-    ? pickCallMessage(PASS_MESSAGES, pos, seq, 0)
-    : pickCallMessage(BID_MESSAGES, pos, seq, bid);
+  // Per explicit follow-up: no more custom flavor lines ("Hand's
+  // ready", "Try next round", etc.) -- just the plain call itself,
+  // "Bid 16" / "Pass" / "Thani!" and nothing else.
+  const flavor = '';
   const label = header + (flavor ? '\n' + flavor : '');
   if (!callEl) { callEl = document.createElement('div'); callEl.className = 'call-badge'; av.appendChild(callEl); }
   const cls = 'call-badge' + (isPass ? ' call-badge-pass' : '') + ' call-badge-' + CALL_BADGE_DIR_4P[slot];
