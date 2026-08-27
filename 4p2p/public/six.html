@@ -847,6 +847,14 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   /* Per explicit follow-up: a little smaller than the previous 118px --
      modest reduction, still bigger than the table's own ~92px default. */
   .seat .av { width: 100px !important; height: 128px !important; font-size: 2.8rem !important; }
+  /* Per explicit request: same perspective/depth gradient as the
+     4-player table -- top (farthest away) is smallest, growing seat by
+     seat toward the bottom (closest, "you" -- left at its existing
+     100x128 size, unchanged). Matches SEAT_POS's fixed slot mapping:
+     3=top, 2/4=upper sides, 1/5=lower sides, 0=bottom/me. */
+  #seatWrap3 .av { width: 70px !important; height: 90px !important; font-size: 2rem !important; }
+  #seatWrap2 .av, #seatWrap4 .av { width: 82px !important; height: 105px !important; font-size: 2.3rem !important; }
+  #seatWrap1 .av, #seatWrap5 .av { width: 92px !important; height: 118px !important; font-size: 2.6rem !important; }
 
   /* Per explicit request: same no-more-circle, blend-into-chair
      treatment as the 4-player table's identical change -- see

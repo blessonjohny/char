@@ -2877,6 +2877,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .table:not(.mode6) .pspot.pos3  { left: 50%; top: 68%; }
 
   .table:not(.mode6) .avatar { width: 58px !important; height: 74px !important; font-size: 1.5rem !important; }
+  /* Per explicit request: a simple perspective/depth cue -- the seat
+     farthest from "camera" (top) is smaller than the two side seats,
+     which are in turn smaller than your own seat (bottom, already the
+     biggest) -- so the table reads as receding into the distance
+     instead of all four seats being flatly the same size. */
+  .table:not(.mode6) .pspot.top .avatar { width: 46px !important; height: 58px !important; font-size: 1.2rem !important; }
   .table:not(.mode6) .pspot.pos3 .avatar { width: 110px !important; height: 140px !important; font-size: 2.9rem !important; }
 
   /* Per explicit request: these new avatar images have a background
@@ -4530,13 +4536,37 @@ if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
 }
 function heroAvatarHtml(key) {
-  // Falls back to a guaranteed-valid key if this player's saved avatar
-  // choice predates a change to the avatar set's size (or count shrank)
-  // and no longer exists -- without this, a stale/invalid key renders
-  // as a literal broken <img> (browser's missing-image icon) instead of
-  // a real avatar, since this function used to build the <img> tag
-  // straight from whatever key it was given with no validation at all.
-  if (!key || typeof key !== 'string') key = 'hero3m1';
+  // Falls back to a deterministic, guaranteed-valid key whenever the
+  // given one isn't real -- not just when it's null/missing, but also
+  // when it's a well-formed key number that simply doesn't exist
+  // anymore (e.g. 'hero3f30' after the avatar set shrank to 23 female
+  // images). That second case is the one that actually broke faces
+  // across the board: a large hardcoded bot-name-to-avatar list further
+  // up this file still references numbers up into the 30s/60s from
+  // before the set was trimmed multiple times, and a plain null-check
+  // doesn't catch "well-formed but out of range."
+  //
+  // Deliberately NOT using ALL_AVATAR_KEYS here -- that list's hardcoded
+  // callers run before ALL_AVATAR_KEYS is itself defined later in this
+  // file, so referencing it here would throw (const isn't hoisted the
+  // way a function declaration is). FEMALE_COUNT/MALE_COUNT below are
+  // the same numbers ALL_AVATAR_KEYS is built from, just usable this
+  // early. Update both places together if the avatar set size changes
+  // again.
+  const FEMALE_COUNT = 23, MALE_COUNT = 24;
+  const m = typeof key === 'string' && key.match(/^hero3([fm])(\d+)$/);
+  const validNum = m && Number(m[2]) >= 1 && Number(m[2]) <= (m[1] === 'f' ? FEMALE_COUNT : MALE_COUNT);
+  if (!validNum) {
+    // Hash the ORIGINAL invalid key (not a random pick) so the same
+    // bot name/key always remaps to the same fallback avatar
+    // consistently across reloads, rather than jumping around.
+    const src = key || 'x';
+    let h = 0;
+    for (let i = 0; i < src.length; i++) h = (h * 31 + src.charCodeAt(i)) >>> 0;
+    const total = FEMALE_COUNT + MALE_COUNT;
+    const n = h % total;
+    key = n < FEMALE_COUNT ? `hero3f${n + 1}` : `hero3m${n - FEMALE_COUNT + 1}`;
+  }
   // Single image only, deliberately -- the new avatar set has one
   // expression per character, no separate "sad" pose. That's fine: the
   // .avatar.has-q CSS rule (grayscale/dim filter + the crying-emoji

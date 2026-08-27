@@ -50,10 +50,21 @@ if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
 }
 function heroAvatarHtml(key) {
-  // Falls back to a guaranteed-valid key on a stale/out-of-range saved
-  // choice -- see index.html's identical function for the full
-  // reasoning (a null key here used to render a literal broken <img>).
-  if (!key || typeof key !== 'string') key = 'hero3m1';
+  // Falls back to a deterministic, guaranteed-valid key on any invalid
+  // or out-of-range key -- see index.html's identical function for the
+  // full reasoning (a large hardcoded bot list references avatar
+  // numbers from before the set was trimmed multiple times).
+  const FEMALE_COUNT = 23, MALE_COUNT = 24;
+  const m = typeof key === 'string' && key.match(/^hero3([fm])(\d+)$/);
+  const validNum = m && Number(m[2]) >= 1 && Number(m[2]) <= (m[1] === 'f' ? FEMALE_COUNT : MALE_COUNT);
+  if (!validNum) {
+    const src = key || 'x';
+    let h = 0;
+    for (let i = 0; i < src.length; i++) h = (h * 31 + src.charCodeAt(i)) >>> 0;
+    const total = FEMALE_COUNT + MALE_COUNT;
+    const n = h % total;
+    key = n < FEMALE_COUNT ? `hero3f${n + 1}` : `hero3m${n - FEMALE_COUNT + 1}`;
+  }
   // Single image only -- see index.html's identical function for the
   // full reasoning. The .avatar.has-q CSS (dim filter + crying-emoji
   // overlay) already applies to the whole container regardless of what
