@@ -53,6 +53,7 @@
       <button class="tab" id="tabLive">🟢 Live Players</button>
       <button class="tab" id="tabVisitors">📊 Visitor Log</button>
       <button class="tab" id="tabHistory">📅 Table History</button>
+      <button class="tab" id="tabBots">🤖 Bot Tables</button>
     </div>
     <div id="commentsView">
       <div class="toolbar">
@@ -86,6 +87,32 @@
         <button class="btn ghost" id="btnRefreshHistory">🔄 Refresh</button>
       </div>
       <div id="historyList"></div>
+    </div>
+    <div id="botsView" style="display:none">
+      <div class="sub" style="margin-top:0">
+        Spawns a table that plays itself forever — your seat runs on the
+        same AI as every other bot from the moment it starts. No tab to
+        keep open. Any real player can click your seat to take it over,
+        same as any other bot seat; open your own invite link below and
+        click it yourself to do the same and take manual control anytime.
+      </div>
+      <div class="card">
+        <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">Table type</div>
+        <div class="tabs" style="margin-bottom:16px">
+          <button class="tab on" id="botMode4p" type="button">4-Player</button>
+          <button class="tab" id="botMode6p" type="button">6-Player</button>
+        </div>
+        <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">Name for this seat</div>
+        <input type="text" id="botSeatName" placeholder="Admin" maxlength="20"
+          style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.9rem;margin-bottom:16px">
+        <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">
+          Avatar — <span id="botAvatarSelected">hero3m1</span>
+        </div>
+        <div id="botAvatarGrid" style="display:flex;flex-wrap:wrap;gap:6px;max-height:220px;overflow-y:auto;padding:8px;background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:16px"></div>
+        <button class="btn" id="btnSpawnBotTable">🤖 Start Auto Table</button>
+        <div class="err" id="botSpawnErr"></div>
+      </div>
+      <div id="botSpawnResults"></div>
     </div>
   </div>
 </div>
@@ -182,10 +209,12 @@ function switchTab(tab) {
   document.getElementById('tabLive').classList.toggle('on', tab === 'live');
   document.getElementById('tabVisitors').classList.toggle('on', tab === 'visitors');
   document.getElementById('tabHistory').classList.toggle('on', tab === 'history');
+  document.getElementById('tabBots').classList.toggle('on', tab === 'bots');
   document.getElementById('commentsView').style.display = tab === 'comments' ? 'block' : 'none';
   document.getElementById('liveView').style.display = tab === 'live' ? 'block' : 'none';
   document.getElementById('visitorsView').style.display = tab === 'visitors' ? 'block' : 'none';
   document.getElementById('historyView').style.display = tab === 'history' ? 'block' : 'none';
+  document.getElementById('botsView').style.display = tab === 'bots' ? 'block' : 'none';
   if (tab === 'live') {
     refreshLivePlayers();
     if (!liveRefreshInterval) liveRefreshInterval = setInterval(refreshLivePlayers, 5000);
@@ -195,6 +224,7 @@ function switchTab(tab) {
   }
   if (tab === 'visitors') refreshVisitorLog();
   if (tab === 'history') refreshTableHistory();
+  if (tab === 'bots' && !botAvatarGridBuilt) buildBotAvatarGrid();
 }
 
 async function refreshLivePlayers() {
@@ -301,8 +331,90 @@ document.getElementById('tabComments').addEventListener('click', () => switchTab
 document.getElementById('tabLive').addEventListener('click', () => switchTab('live'));
 document.getElementById('tabVisitors').addEventListener('click', () => switchTab('visitors'));
 document.getElementById('tabHistory').addEventListener('click', () => switchTab('history'));
+document.getElementById('tabBots').addEventListener('click', () => switchTab('bots'));
 document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
 document.getElementById('btnRefreshHistory').addEventListener('click', refreshTableHistory);
+
+// ---------------- Bot tables (spawn a self-running, all-bot table) ----------------
+// Same avatar key convention used by the live game itself (see
+// VALID_AVATAR_KEYS in server.js and ALL_PLAYERS in index.html) --
+// 36 female-set images and 64 male-set images, filenames
+// /images/hero-avatars/hero3f{1-36}.png and hero3m{1-64}.png.
+const BOT_AVATAR_KEYS = [
+  ...Array.from({length:25}, (_,i) => 'hero3f'+(i+1)),
+  ...Array.from({length:25}, (_,i) => 'hero3m'+(i+1)),
+];
+let botAvatarGridBuilt = false;
+let selectedBotAvatar = 'hero3m1';
+let selectedBotMode = '4p';
+
+function buildBotAvatarGrid() {
+  botAvatarGridBuilt = true;
+  const grid = document.getElementById('botAvatarGrid');
+  grid.innerHTML = BOT_AVATAR_KEYS.map(key => `
+    <img src="/images/hero-avatars/${key}.png" data-key="${key}" class="bot-avatar-thumb"
+      style="width:40px;height:40px;border-radius:8px;object-fit:cover;cursor:pointer;border:2px solid ${key === selectedBotAvatar ? 'var(--accent)' : 'transparent'}">
+  `).join('');
+  grid.querySelectorAll('.bot-avatar-thumb').forEach(img => {
+    img.addEventListener('click', () => {
+      selectedBotAvatar = img.dataset.key;
+      document.getElementById('botAvatarSelected').textContent = selectedBotAvatar;
+      grid.querySelectorAll('.bot-avatar-thumb').forEach(i => { i.style.borderColor = i.dataset.key === selectedBotAvatar ? 'var(--accent)' : 'transparent'; });
+    });
+  });
+}
+
+document.getElementById('botMode4p').addEventListener('click', () => {
+  selectedBotMode = '4p';
+  document.getElementById('botMode4p').classList.add('on');
+  document.getElementById('botMode6p').classList.remove('on');
+});
+document.getElementById('botMode6p').addEventListener('click', () => {
+  selectedBotMode = '6p';
+  document.getElementById('botMode6p').classList.add('on');
+  document.getElementById('botMode4p').classList.remove('on');
+});
+
+document.getElementById('btnSpawnBotTable').addEventListener('click', async () => {
+  const errEl = document.getElementById('botSpawnErr');
+  errEl.style.display = 'none';
+  const name = document.getElementById('botSeatName').value.trim() || 'Admin';
+  const btn = document.getElementById('btnSpawnBotTable');
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
+  try {
+    const res = await adminFetch('/api/admin/spawn-bot-table', undefined, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: selectedBotMode, avatar: selectedBotAvatar, name })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      errEl.textContent = data.error === 'room_cap_reached' ? 'Server is at its room cap right now — try again later.' : ('Could not start table: ' + (data.error || res.status));
+      errEl.style.display = 'block';
+      return;
+    }
+    const fullUrl = window.location.origin + data.inviteUrl;
+    const resultsEl = document.getElementById('botSpawnResults');
+    const card = document.createElement('div');
+    card.className = 'live-card';
+    card.style.flexDirection = 'column';
+    card.style.alignItems = 'stretch';
+    card.style.gap = '8px';
+    card.innerHTML = `
+      <div class="who">🤖 ${esc(data.mode === '6p' ? '6-Player' : '4-Player')} table ${esc(data.tableId)} — running</div>
+      <div class="where">Playing itself now. Open this link and click your own seat anytime to take over, or leave it to hand control back to the bot.</div>
+      <a href="${esc(data.inviteUrl)}" target="_blank" style="color:var(--accent);font-size:0.8rem;word-break:break-all">${esc(fullUrl)}</a>
+    `;
+    resultsEl.prepend(card);
+  } catch (e) {
+    errEl.textContent = 'Request failed: ' + e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 Start Auto Table';
+  }
+});
 
 // ---------------- Visitor log (everyone who's ever visited, with location and time) ----------------
 let visitorFilter = 'today';

@@ -524,6 +524,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* ===== GAME WRAP ===== */
 .game-wrap{position:fixed;top:40px;left:0;right:0;bottom:0;display:none;flex-direction:column;
+  /* Per explicit request: an actual premium "royal carpet" floor for
+     the avatars to sit on, not just a lighter shade of the same green
+     family as the felt -- a genuinely different color (deep burgundy
+     instead of green) so the floor and the table read as two distinct
+     surfaces, the way a real card room has a felt table standing on a
+     carpeted floor. The diamond lattice (two crossed repeating
+     gradients, wide 30px spacing in soft gold) is the actual "carpet
+     pattern" -- much wider spacing and a warm gold tone versus a tight
+     dark weave, so it reads as woven carpet texture, not machinery. */
+  background:
+    repeating-linear-gradient(45deg, rgba(212,175,90,0.09) 0px, rgba(212,175,90,0.09) 1.5px, transparent 1.5px, transparent 30px),
+    repeating-linear-gradient(-45deg, rgba(212,175,90,0.09) 0px, rgba(212,175,90,0.09) 1.5px, transparent 1.5px, transparent 30px),
+    radial-gradient(ellipse at center,#6b2430 0%,#4a1620 55%,#320e16 100%);
   /* overflow:hidden here meant anything that computed too tall for the
      viewport -- for ANY reason, including things impossible to reliably
      detect from CSS alone, like Chrome's "Desktop site" mode on a phone,
@@ -565,28 +578,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   position:relative;
   flex:1;
   min-height:0;
-  /* PREMIUM DARK BLUE TABLE */
-  background-color:#0d1b2a;
-  background-image:
-    /* Subtle geometric pattern */
-    repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,215,0,0.02) 35px, rgba(255,215,0,0.02) 36px),
-    repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(96,165,250,0.02) 35px, rgba(96,165,250,0.02) 36px),
-    /* Subtle glow dots */
-    radial-gradient(circle at 15% 15%, rgba(255,215,0,0.04) 0%, transparent 8%),
-    radial-gradient(circle at 55% 25%, rgba(96,165,250,0.03) 0%, transparent 6%),
-    radial-gradient(circle at 85% 10%, rgba(255,215,0,0.03) 0%, transparent 7%),
-    radial-gradient(circle at 25% 55%, rgba(96,165,250,0.02) 0%, transparent 6%),
-    radial-gradient(circle at 70% 60%, rgba(255,215,0,0.03) 0%, transparent 8%),
-    radial-gradient(circle at 40% 85%, rgba(96,165,250,0.02) 0%, transparent 7%),
-    radial-gradient(circle at 80% 80%, rgba(255,215,0,0.03) 0%, transparent 6%),
-    /* Wave lines */
-    repeating-linear-gradient(0deg, transparent, transparent 60px, rgba(255,215,0,0.015) 60px, rgba(255,215,0,0.015) 61px),
-    /* Accent glow */
-    radial-gradient(circle at 90% 15%, rgba(96,165,250,0.04) 0%, transparent 12%),
-    /* Base gradient */
-    radial-gradient(ellipse at 30% 20%, rgba(96,165,250,0.1) 0%, transparent 55%),
-    radial-gradient(ellipse at 70% 80%, rgba(255,215,0,0.08) 0%, transparent 55%),
-    radial-gradient(ellipse at center, #111d2e 0%, #0d1b2a 60%, #0a1628 100%);
+  /* Per explicit report: THIS is the element that's actually visible
+     behind the avatars -- it's a direct child of .game-wrap with its
+     own fully opaque background, sitting on top of and completely
+     hiding whatever .game-wrap's own background is set to. The earlier
+     royal-carpet edit went on .game-wrap, which is technically correct
+     but invisible in practice because this element covers it entirely.
+     Moving that same treatment here instead: deep burgundy with a wide
+     gold diamond lattice, genuinely different from the felt oval in
+     the center (.center .felt keeps its own separate dark background,
+     unchanged), so the carpet actually shows up where the avatars sit. */
+  background:
+    repeating-linear-gradient(45deg, rgba(212,175,90,0.09) 0px, rgba(212,175,90,0.09) 1.5px, transparent 1.5px, transparent 30px),
+    repeating-linear-gradient(-45deg, rgba(212,175,90,0.09) 0px, rgba(212,175,90,0.09) 1.5px, transparent 1.5px, transparent 30px),
+    radial-gradient(ellipse at 30% 20%, rgba(212,175,90,0.08) 0%, transparent 55%),
+    radial-gradient(ellipse at center,#6b2430 0%,#4a1620 55%,#320e16 100%);
   /* Table edge shadow */
   box-shadow:
     inset 0 0 60px 20px rgba(0,0,0,0.5),
@@ -610,7 +616,39 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .table:not(.mode6) .pslot.s-pos5{display:none !important}
 
 .pspot{display:flex;flex-direction:column;align-items:center;gap:1px;transform:scale(1)}
-.avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;border:2.5px solid var(--border);position:relative;flex-shrink:0;transition:border-color 0.6s ease}
+.avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;border:2.5px solid var(--border);position:relative;flex-shrink:0;transition:border-color 0.6s ease,transform 0.25s ease;
+  /* Per explicit request: a real "popping off the table" look instead of
+     a flat circle. Three shadow layers instead of one -- a tight dark
+     contact shadow right at the edge, a medium one, and a wide soft one
+     -- is what actually reads as depth/lift rather than just a blurry
+     outline. The two inset lines fake a light source from above: a
+     bright rim on the top inner edge, a soft dark one on the bottom
+     inner edge, so the flat avatar image reads as a lit sphere instead
+     of a sticker. */
+  box-shadow:
+    0 2px 3px rgba(0,0,0,0.5),
+    0 8px 14px rgba(0,0,0,0.45),
+    0 16px 26px rgba(0,0,0,0.32),
+    inset 0 2px 3px rgba(255,255,255,0.35),
+    inset 0 -3px 4px rgba(0,0,0,0.25);
+}
+/* The actual "floating above the felt" cue: a soft blurred ellipse
+   sitting on the table just below the avatar, separate from the avatar
+   itself and from its own drop-shadow above. Nothing casts a shadow
+   like that unless there's real gap between it and the surface -- this
+   is the single biggest thing that sells the pop-out effect. */
+.avatar::after{
+  content:'';
+  position:absolute;
+  left:50%;
+  bottom:-9px;
+  transform:translateX(-50%);
+  width:72%;
+  height:9px;
+  background:radial-gradient(ellipse,rgba(0,0,0,0.55) 0%,rgba(0,0,0,0) 72%);
+  border-radius:50%;
+  pointer-events:none;
+}
 /* Human/bot status ring - separate from the yellow turn-active glow above (that's a
    box-shadow, this is the avatar's own border-color, so both can be active at once with no
    conflict - e.g. it's your turn AND you're human shows the yellow glow around a green
@@ -671,7 +709,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   font-size:1.3rem;font-weight:900;color:#fff;
   text-shadow:0 0 4px #000,0 0 8px #000,0 2px 3px rgba(0,0,0,0.9);
 }
-.pname{font-family:'Cinzel','Playfair Display',serif;font-size:0.62rem;font-weight:600;white-space:nowrap;text-align:center;max-width:92px;overflow:hidden;text-overflow:ellipsis;transition:color 0.3s ease;-webkit-text-stroke:0.6px rgba(255,255,255,0.9);text-shadow:0 1px 2px rgba(0,0,0,0.7);letter-spacing:0.6px}
+.pname{font-family:'Cinzel','Playfair Display',serif;font-size:0.62rem;font-weight:600;white-space:nowrap;text-align:center;max-width:92px;overflow:hidden;text-overflow:ellipsis;transition:color 0.3s ease;-webkit-text-stroke:0.12px rgba(255,255,255,0.55);text-shadow:0 1px 2px rgba(0,0,0,0.7);letter-spacing:0.6px}
 /* Bidding "call" bubble -- per explicit instruction, ported over from
    the 6-player table's identical feature (see six.html for the fuller
    original reasoning), which this table never had at all before now,
@@ -685,44 +723,63 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    goes north -- the opposite compass direction from where that seat
    physically sits, so the bubble always leans toward the table/rail. */
 .avatar .call-badge{
-  position:absolute;top:-34px;left:50%;transform:translateX(-50%);
-  background:linear-gradient(180deg,#0a1f0f,#051008);
-  border:2px solid #4ade80;
+  position:absolute;top:-16px;left:50%;transform:translateX(-50%);
   color:#4ade80;
-  border-radius:14px;padding:6px 14px;font-size:0.82rem;font-weight:900;
+  /* Per explicit, non-negotiable instruction: this must be ONE object,
+     not two elements that merely look similar -- back to a single
+     combined bubble+tail SVG path (see updateCallBadge4p). The actual
+     flaw in the earlier combined-shape attempt was never "two objects
+     vs one", it was using preserveAspectRatio="none" to STRETCH one
+     shape to whatever size the text needed, which distorted the oval
+     and tail together and let text spill outside when it needed more
+     height than the shape's proportions assumed. Fixed by computing a
+     genuinely different path PER DIRECTION -- the oval always stays
+     upright and in the exact same fixed position (matching this
+     upright text), only the tail portion of the path itself changes
+     per direction, so nothing ever needs to stretch or rotate the
+     text-bearing oval out of alignment. Actually rendered this exact
+     combination (background + real overlaid text) and adjusted
+     padding until it visually centered correctly before using it, not
+     assumed from math alone. */
+  width:88px;padding:18px 6px 22px 6px;font-size:0.52rem;font-weight:900;
   font-family:'Cinzel','Playfair Display',serif;
-  max-width:150px;white-space:normal;text-align:center;line-height:1.25;z-index:16;
-  box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(74,222,128,0.4);
+  white-space:normal;text-align:center;line-height:1.2;z-index:16;
   animation:callBadgePop4p 0.4s cubic-bezier(0.34,1.56,0.64,1);
-  text-shadow:0 0 8px rgba(74,222,128,0.6);
+  text-shadow:0 0 5px rgba(74,222,128,0.6);
 }
+.avatar .call-badge-bg{position:absolute;top:-11px;left:-5px;width:100px;height:91px;z-index:-1;overflow:visible}
+.avatar .call-badge.call-badge-pass{color:#ef4444;text-shadow:0 0 5px rgba(239,68,68,0.6)}
 /* Per explicit instruction: the plain "Pass"/"Bid 17" always comes
    first as its own bold line, with the random flavor line right below
    it -- same two-line structure as six.html's identical rule, see
    there for the fuller reasoning. */
-.avatar .call-badge-header{font-size:1rem;font-weight:900;color:currentColor}
-.avatar .call-badge-flavor{font-size:0.72rem;font-weight:700;opacity:0.85;margin-top:1px;color:#fff;text-shadow:none}
-.avatar .call-badge::after{
-  content:'';position:absolute;width:14px;height:14px;
-  background:#051008;border:2px solid #4ade80;
-  border-radius:0 100% 100% 100%;
-  top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg);
-}
-.avatar .call-badge.call-badge-pass{
-  background:linear-gradient(180deg,#241010,#100505);
-  border-color:#ef4444;color:#ef4444;
-  box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(239,68,68,0.4);
-  text-shadow:0 0 8px rgba(239,68,68,0.6);
-}
-.avatar .call-badge.call-badge-pass::after{background:#100505;border-color:#ef4444}
-.avatar .call-badge.call-badge-n{top:-34px;left:50%;transform:translateX(-50%)}
-.avatar .call-badge.call-badge-n::after{top:100%;left:50%;transform:translate(-50%,-6px) rotate(45deg)}
-.avatar .call-badge.call-badge-s{top:auto;bottom:-34px;left:50%;transform:translateX(-50%)}
-.avatar .call-badge.call-badge-s::after{top:auto;bottom:100%;left:50%;transform:translate(-50%,6px) rotate(225deg)}
-.avatar .call-badge.call-badge-e{top:50%;left:calc(100% + 12px);right:auto;bottom:auto;transform:translateY(-50%)}
-.avatar .call-badge.call-badge-e::after{top:50%;left:-4px;bottom:auto;transform:translateY(-50%) rotate(135deg)}
-.avatar .call-badge.call-badge-w{top:50%;right:calc(100% + 12px);left:auto;bottom:auto;transform:translateY(-50%)}
-.avatar .call-badge.call-badge-w::after{top:50%;right:-4px;left:auto;bottom:auto;transform:translateY(-50%) rotate(-45deg)}
+.avatar .call-badge-header{font-size:0.6rem;font-weight:900;color:currentColor}
+.avatar .call-badge-flavor{font-size:0.46rem;font-weight:700;opacity:0.85;margin-top:0;color:#fff;text-shadow:none}
+/* Per non-negotiable instruction: one single object, not a bubble plus
+   a separately-attached tail piece. Rather than rotate one shape (which
+   would turn the oval sideways for e/w and misalign it from the
+   upright text), a genuinely different combined path is generated per
+   direction in JS -- the oval portion is byte-for-byte identical and
+   stays upright in all four, only the tail portion of the SAME path
+   changes. See CALL_BADGE_PATHS in updateCallBadge4p. */
+/* Top seat (pos0) and bottom/"me" seat (pos3) sit in their own tight,
+   full-width grid rows directly bordering the table's center play area.
+   Per explicit correction with a screenshot proving it: found the real
+   root cause -- top:-18px positions the badge's OWN TOP edge 18px above
+   the avatar, but the badge extends DOWNWARD from there by its own
+   height (two lines of text plus padding, comfortably taller than
+   18px), so its BOTTOM portion was landing back on top of the avatar
+   regardless of the offset number chosen. left/right never had this
+   problem because calc(100% + Npx) measures from the avatar's own far
+   edge outward, which is correct regardless of the badge's size in
+   that direction. Switched top/bottom to the identical calc(100% +
+   Npx) approach -- bottom:calc(100% + Npx) for the "above" badge (n)
+   guarantees ITS bottom edge sits Npx clear of the avatar's top,
+   however tall the badge itself turns out to be. */
+.avatar .call-badge.call-badge-n{top:auto;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%)}
+.avatar .call-badge.call-badge-s{top:calc(100% + 8px);bottom:auto;left:50%;transform:translateX(-50%)}
+.avatar .call-badge.call-badge-e{top:50%;left:calc(100% + 4px);right:auto;bottom:auto;transform:translateY(-50%)}
+.avatar .call-badge.call-badge-w{top:50%;right:calc(100% + 4px);left:auto;bottom:auto;transform:translateY(-50%)}
 @keyframes callBadgePop4p{
   0%{opacity:0;transform:translateX(-50%) scale(0.4) translateY(8px)}
   55%{opacity:1;transform:translateX(-50%) scale(1.22) translateY(-4px)}
@@ -739,8 +796,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    actually gets played (see clearCallBadges4p call sites). */
 .avatar .call-badge.call-badge-winner{animation:callBadgeWinnerBlink 1.1s ease-in-out infinite}
 @keyframes callBadgeWinnerBlink{
-  0%,100%{box-shadow:0 3px 12px rgba(0,0,0,0.6),0 0 16px rgba(74,222,128,0.4);border-color:#4ade80}
-  50%{box-shadow:0 3px 20px rgba(0,0,0,0.6),0 0 30px rgba(244,196,48,0.9);border-color:#f4c430}
+  /* Per explicit follow-up report: this used to animate box-shadow,
+     which is always rectangular (it follows the invisible padding box
+     of the .call-badge div, not the actual oval shape drawn inside it
+     by the SVG background) -- so the glow rendered as an ugly square
+     halo around a round bubble. filter:drop-shadow follows the real
+     rendered alpha shape (the oval + its text), so the glow now hugs
+     the actual bubble outline instead of a rectangle around it. Also
+     switched border-color (which did nothing -- .call-badge has no
+     border at all, so that property was a silent no-op) to actually
+     animating color itself, since the SVG stroke and header text both
+     read off currentColor -- this is what makes the bubble's own
+     outline and text genuinely flash gold, not just the glow around it. */
+  0%,100%{color:#4ade80;filter:drop-shadow(0 3px 6px rgba(0,0,0,0.6)) drop-shadow(0 0 10px rgba(74,222,128,0.5))}
+  50%{color:#f4c430;filter:drop-shadow(0 3px 10px rgba(0,0,0,0.6)) drop-shadow(0 0 18px rgba(244,196,48,0.9))}
 }
 /* Instead of a separate "D" badge, the dealer's name itself turns gold and
    twinkles. The bidder's name turns red while the round is still in the
@@ -785,28 +854,76 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    of colored text. */
 .pname.name-teammate{
   color:#fff;
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.55);
+  /* Per explicit follow-up report: the outer ring used to be a near-
+     black tint of each team's own color (#0a1410 for green, #170808 for
+     red) -- that worked fine against the old navy felt, but against the
+     new burgundy carpet, the red-tinted ring in particular started
+     blending into a background that's ALSO a dark red, undoing the
+     contrast this border exists for. Pure black works against any
+     background regardless of hue, so every variant below now uses one
+     universal #000 outer ring instead of a per-team tinted one. The
+     white fill's own stroke is also thinned further (0.25px->0.12px,
+     opacity 0.7->0.55) exactly as requested, so it reads as a hint of
+     fill rather than a third competing outline. */
   text-shadow:
-    1px 0 0 #22c55e, -1px 0 0 #22c55e,
-    0 1px 0 #22c55e, 0 -1px 0 #22c55e,
-    1px 1px 0 #22c55e, -1px -1px 0 #22c55e,
-    1px -1px 0 #22c55e, -1px 1px 0 #22c55e;
+    2.2px 0 0 #000, -2.2px 0 0 #000, 0 2.2px 0 #000, 0 -2.2px 0 #000,
+    1.6px 1.6px 0 #000, -1.6px -1.6px 0 #000, 1.6px -1.6px 0 #000, -1.6px 1.6px 0 #000,
+    1.2px 0 0 #22c55e, -1.2px 0 0 #22c55e,
+    0 1.2px 0 #22c55e, 0 -1.2px 0 #22c55e,
+    1.2px 1.2px 0 #22c55e, -1.2px -1.2px 0 #22c55e,
+    1.2px -1.2px 0 #22c55e, -1.2px 1.2px 0 #22c55e;
 }
 .pname.name-opponent{
   color:#fff;
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.55);
+  /* Same universal-black-outer fix as .name-teammate above -- see there
+     for the fuller reasoning. */
   text-shadow:
-    1px 0 0 #ef4444, -1px 0 0 #ef4444,
-    0 1px 0 #ef4444, 0 -1px 0 #ef4444,
-    1px 1px 0 #ef4444, -1px -1px 0 #ef4444,
-    1px -1px 0 #ef4444, -1px 1px 0 #ef4444;
+    2.2px 0 0 #000, -2.2px 0 0 #000, 0 2.2px 0 #000, 0 -2.2px 0 #000,
+    1.6px 1.6px 0 #000, -1.6px -1.6px 0 #000, 1.6px -1.6px 0 #000, -1.6px 1.6px 0 #000,
+    1.2px 0 0 #ef4444, -1.2px 0 0 #ef4444,
+    0 1.2px 0 #ef4444, 0 -1.2px 0 #ef4444,
+    1.2px 1.2px 0 #ef4444, -1.2px -1.2px 0 #ef4444,
+    1.2px -1.2px 0 #ef4444, -1.2px 1.2px 0 #ef4444;
 }
-.pname.name-dealer{color:var(--accent);text-shadow:0 0 6px rgba(255,215,0,0.35);animation:dealerTwinkle 1.8s ease-in-out infinite}
+.pname.name-dealer{
+  color:var(--accent);
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.4);
+  text-shadow:
+    2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+    1.4px 1.4px 0 #000, -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px 1.4px 0 #000,
+    0 0 6px rgba(255,215,0,0.35);
+  animation:dealerTwinkle 1.8s ease-in-out infinite
+}
 @keyframes dealerTwinkle{
-  0%,100%{text-shadow:0 0 6px rgba(255,215,0,0.35);filter:brightness(1)}
-  50%{text-shadow:0 0 13px rgba(255,215,0,0.9),0 0 22px rgba(255,215,0,0.45);filter:brightness(1.3)}
+  0%,100%{text-shadow:2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,1.4px 1.4px 0 #000, -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px 1.4px 0 #000,0 0 6px rgba(255,215,0,0.35);filter:brightness(1)}
+  50%{text-shadow:2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,1.4px 1.4px 0 #000, -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px 1.4px 0 #000,0 0 13px rgba(255,215,0,0.9),0 0 22px rgba(255,215,0,0.45);filter:brightness(1.3)}
 }
-.pname.name-bidder{color:var(--danger);text-shadow:0 0 6px rgba(248,113,113,0.35)}
-.pname.name-trick-win{color:var(--success);text-shadow:0 0 6px rgba(74,222,128,0.4)}
-.pname.name-trick-loss{color:var(--danger);text-shadow:0 0 6px rgba(248,113,113,0.35)}
+.pname.name-bidder{
+  color:var(--danger);
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.4);
+  text-shadow:
+    2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+    1.4px 1.4px 0 #000, -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px 1.4px 0 #000,
+    0 0 6px rgba(248,113,113,0.35);
+}
+.pname.name-trick-win{
+  color:var(--success);
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.4);
+  text-shadow:
+    2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+    1.4px 1.4px 0 #000, -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px 1.4px 0 #000,
+    0 0 6px rgba(74,222,128,0.4);
+}
+.pname.name-trick-loss{
+  color:var(--danger);
+  -webkit-text-stroke:0.12px rgba(255,255,255,0.4);
+  text-shadow:
+    2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+    1.4px 1.4px 0 #000, -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000, -1.4px 1.4px 0 #000,
+    0 0 6px rgba(248,113,113,0.35);
+}
 .pcards{display:flex;justify-content:center;align-items:flex-end;margin-top:2px;min-height:15px}
 /* Small face-down cards showing how many cards a player has left — colored
    to match the round's table theme so it changes color along with the felt. */
@@ -919,9 +1036,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn:disabled{opacity:0.4;cursor:not-allowed}
 
 /* ===== OVERLAYS & PANELS ===== */
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center;padding:12px;overflow-y:auto}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center;padding:6px;overflow-y:auto}
 .overlay.on{display:flex}
-.panel{background:linear-gradient(135deg,#111d2e,#0d1b2a);border:1.5px solid rgba(255,215,0,0.2);border-radius:16px;padding:16px;width:92%;max-width:520px;max-height:82vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.6);margin:0 auto;box-sizing:border-box}
+.panel{background:linear-gradient(135deg,#111d2e,#0d1b2a);border:1.5px solid rgba(255,215,0,0.2);border-radius:16px;padding:16px;width:92%;max-width:520px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.6);margin:0 auto;box-sizing:border-box;
+  /* Per explicit follow-up: the real bug was never the outer window's
+     own height calculation at all -- it was #bidHandDisplay's own
+     hardcoded max-height:68px;overflow-y:hidden silently clipping the
+     cards regardless of how tall this panel was (see that fix). Now
+     that the actual cause is gone, forcing this panel to always fill
+     nearly the entire screen (which is what solved the symptom while
+     the real bug was still hiding underneath) is no longer needed and
+     was making it feel oversized on phones specifically. Back to
+     sizing naturally to its own content, capped so it can never
+     exceed the real screen either way. */
+  max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px)}
 /* On mobile, 100vh is the *nominal* viewport (as if the browser's address
    bar were fully collapsed), which is often taller than what's actually
    visible — so 82vh here could genuinely run past the bottom of the real,
@@ -929,9 +1057,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    way to reach it since the overlay itself has no outer scroll. dvh tracks
    the real, current visible viewport where supported; browsers without it
    just keep using the vh value above. */
-@supports (max-height: 82dvh){
-  .panel{max-height:78dvh}
-}
 .handle{width:32px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 10px}
 .panel h3{color:var(--accent);font-size:0.9rem;margin-bottom:4px}
 .panel p{color:var(--text-secondary);font-size:0.72rem;margin-bottom:6px;line-height:1.4}
@@ -948,10 +1073,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .trump-btn.on{background:var(--accent);border-color:var(--accent)}
 .trump-btn:active{transform:scale(0.95)}
 .hand-prev{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;padding:6px;background:rgba(0,0,0,0.3);border-radius:10px;margin-bottom:8px;min-height:52px}
-.hand-prev .card{width:36px;height:50px;cursor:default;border-radius:6px;box-shadow:0 1px 5px rgba(0,0,0,0.15),inset 0 1px 0 rgba(255,255,255,0.7)}
-.hand-prev .card .cr,.hand-prev .card .crb{font-size:0.62rem;top:2px;left:3px;text-shadow:0 1px 0 rgba(0,0,0,0.15);filter:drop-shadow(0 1px 1px rgba(0,0,0,0.2))}
-.hand-prev .card .crb{top:auto;bottom:2px;right:3px;left:auto}
-.hand-prev .card .cs{font-size:1rem;margin-top:0;text-shadow:0 1px 0 rgba(0,0,0,0.1);filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2))}
+.hand-prev .card{cursor:default}
 .ct-section{margin-bottom:10px}
 .ct-section h5{font-size:0.72rem;color:var(--accent);margin-bottom:6px;font-weight:700}
 .ct-section .cards-row{display:flex;gap:5px;flex-wrap:wrap}
@@ -1021,7 +1143,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .toast.win{border-color:var(--success);color:var(--success)}
 .toast.lose{border-color:var(--danger);color:var(--danger)}
 .toast.info{border-color:var(--info);color:var(--info)}
-@keyframes glow2{0%,100%{box-shadow:0 0 0}50%{box-shadow:0 0 16px rgba(255,215,0,0.7)}}
+@keyframes glow2{
+  0%,100%{
+    box-shadow:0 2px 3px rgba(0,0,0,0.5),0 10px 18px rgba(0,0,0,0.5),0 20px 32px rgba(0,0,0,0.38),0 0 12px rgba(255,215,0,0.45),inset 0 2px 3px rgba(255,255,255,0.4),inset 0 -3px 4px rgba(0,0,0,0.25);
+    transform:scale(1.06) translateY(-3px);
+  }
+  50%{
+    box-shadow:0 2px 3px rgba(0,0,0,0.5),0 14px 24px rgba(0,0,0,0.55),0 26px 40px rgba(0,0,0,0.42),0 0 26px rgba(255,215,0,0.85),inset 0 2px 3px rgba(255,255,255,0.45),inset 0 -3px 4px rgba(0,0,0,0.25);
+    transform:scale(1.12) translateY(-5px);
+  }
+}
 .trick-win{animation:glow2 0.6s ease}
 @keyframes confettiFall{0%{transform:translateY(-100vh) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
 .confetti{position:fixed;pointer-events:none;z-index:900}
@@ -1940,7 +2071,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      leaves vertical breathing room on unusually tall screens rather
      than stretching to fill it, which is what actually looks like a
      real table instead of a smear. */
-  background: var(--table-rail);
+  /* Per explicit follow-up: layered a real wood-grain texture on top of
+     the color gradient -- the reference mockups showed visible grain
+     streaks, which a smooth conic-gradient alone can't produce no
+     matter how many color stops it has. SVG turbulence with very
+     different X/Y frequencies (0.9 vs 0.02) is the standard trick for
+     directional "streaky" noise instead of uniform static -- it reads
+     as grain, not fuzz. background-blend-mode:overlay lets the grain
+     darken/lighten the existing wood-tone gradient underneath rather
+     than sitting on top as a flat separate layer, so the color and the
+     texture read as one material.  */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.9 0.02' numOctaves='3' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+    var(--table-rail);
+  background-blend-mode:overlay,normal;
   -webkit-mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
   mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
   box-shadow:
@@ -2162,7 +2306,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .btn{padding:5px 10px;font-size:0.72rem}
   .btn-sm{padding:4px 8px;font-size:0.65rem}
   .icon-btn{width:28px;height:28px;font-size:0.85rem}
-  .panel{padding:12px;width:95%;max-width:340px;max-height:90vh}
+  .panel{padding:12px;width:95%;max-width:340px}
   .bid-grid{grid-template-columns:repeat(auto-fill,minmax(36px,1fr));gap:3px}
   .bid-btn{padding:6px 1px;font-size:0.68rem;min-height:30px}
   .trump-btn{height:48px;font-size:1.5rem}
@@ -2693,6 +2837,77 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 #serverNotice{position:fixed;top:10px;right:10px;left:auto;transform:none;z-index:9999;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;color:var(--accent);text-align:center;padding:6px 12px;border-radius:999px;border:1px solid rgba(255,215,0,0.3);box-shadow:none;text-shadow:0 1px 4px rgba(0,0,0,0.9),0 0 8px rgba(0,0,0,0.7);font-size:0.65rem;font-weight:700;display:none;white-space:nowrap;animation:serverNoticeIn 0.35s ease;pointer-events:none}
 @keyframes serverNoticeIn{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
+
+/* ==================== PHOTOREAL TABLE BACKGROUND (4-player, portrait only) ====================
+   Per explicit request: a real illustrated top-down table photo instead
+   of the CSS-drawn felt/rail, using the actual user-provided image.
+   Portrait-only -- there's no landscape version of this artwork (a true
+   top-down illustration doesn't reflow), so landscape keeps the
+   original CSS table completely untouched as a safe fallback rather
+   than stretching a portrait image into a bad landscape crop.
+
+   IMPORTANT CAVEAT left here deliberately: the four seat positions below
+   (top/left/right/bottom percentages) are a best-effort visual estimate
+   made by looking at the image, not a pixel-measured/rendered-and-
+   verified placement -- this sandbox has no way to actually render a
+   live browser page to confirm alignment. They are very likely close
+   but may need a few percentage points of nudging per seat once someone
+   actually views this on a real device. */
+@media (orientation: portrait) {
+  .table:not(.mode6) {
+    background-image: url('/images/table-bg-4p.jpg');
+    background-size: cover;
+    background-position: center;
+    /* The image already includes its own rail/felt painted in, so the
+       CSS-drawn versions need to get out of the way entirely rather
+       than layering a second table on top of the photo one. */
+    background-color: transparent;
+  }
+  .table:not(.mode6) .center::after,
+  .table:not(.mode6) .center::before,
+  .table:not(.mode6) .center .felt,
+  .table:not(.mode6) .center .felt::after {
+    display: none !important;
+  }
+  /* No change needed for trump-exposed here: that animation already
+     targets .table itself (see .table.trump-exposed elsewhere), which
+     is untouched by hiding .center's pseudo-elements/felt above -- it
+     keeps shaking exactly as it always did, photo mode or not. */
+
+  /* Seats repositioned to sit on the actual chairs in the photo,
+     overriding the grid-area placement used for the CSS-drawn table.
+     grid-column/row spanning the full grid is what makes each pspot's
+     absolute-positioning containing block the WHOLE table image
+     instead of just its own narrow original grid cell, so these
+     percentages are relative to the full photo, not a slice of it. */
+  .table:not(.mode6) .pspot.top,
+  .table:not(.mode6) .pspot.left,
+  .table:not(.mode6) .pspot.right,
+  .table:not(.mode6) .pspot.pos3 {
+    position: absolute;
+    grid-column: 1 / -1;
+    grid-row: 1 / -1;
+    justify-self: unset;
+    align-self: unset;
+    padding: 0;
+    transform: translate(-50%, -50%);
+  }
+  .table:not(.mode6) .pspot.top   { left: 50%; top: 19%; }
+  .table:not(.mode6) .pspot.left  { left: 6%;  top: 45%; }
+  .table:not(.mode6) .pspot.right { left: 94%; top: 45%; }
+  .table:not(.mode6) .pspot.pos3  { left: 50%; top: 79%; }
+
+  /* Per explicit request: a little bigger than the default ~44px --
+     modest bump, not the aggressive size used on the 6-player table. */
+  /* Per explicit request: a little bigger than the default ~44px --
+     modest bump, not the aggressive size used on the 6-player table. */
+  .table:not(.mode6) .avatar { width: 58px !important; height: 58px !important; font-size: 1.5rem !important; }
+  /* Per follow-up: YOUR OWN seat (bottom/pos3) specifically bigger than
+     the other three -- not a uniform bump, just this one seat, since
+     the played-card animation already draws the eye upward toward the
+     trick area and a bigger "you" avatar down here balances that out. */
+  .table:not(.mode6) .pspot.pos3 .avatar { width: 100px !important; height: 100px !important; font-size: 2.6rem !important; }
+}
 </style>
 <style id="redesign2026">
 /* ============================================================
@@ -2831,14 +3046,19 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   .panel{width:100%!important;max-width:none!important;border-radius:22px 22px 0 0!important;
     border-bottom:none!important;padding:16px 14px calc(14px + env(safe-area-inset-bottom))!important;
     animation:panelSlideUp 0.28s cubic-bezier(0.34,1.2,0.64,1)!important;
-    box-shadow:0 -12px 40px rgba(0,0,0,0.55)!important}
+    box-shadow:0 -12px 40px rgba(0,0,0,0.55)!important;
+    /* A small, direct nudge upward -- not attempting to solve the
+       underlying viewport-measurement issue again, just physically
+       moving the window a bit higher on screen so a bit more of the
+       bottom is visible. */
+    transform:translateY(-30px)!important}
   .panel::before{content:'';display:block;width:42px;height:4px;border-radius:99px;
     background:rgba(233,185,73,0.35);margin:0 auto 10px}
 }
 
 /* ---------- Bid pad: thumb-sized keys ---------- */
-.bid-grid{grid-template-columns:repeat(5,1fr)!important;gap:8px!important}
-.bid-btn{min-height:50px!important;font-size:1.05rem!important;border-radius:12px!important;
+.bid-grid{grid-template-columns:repeat(5,1fr)!important;gap:5px!important}
+.bid-btn{min-height:32px!important;font-size:0.82rem!important;border-radius:8px!important;
   border:1.5px solid rgba(233,185,73,0.22)!important;background:#10231C!important;
   color:var(--ivory)!important;font-family:var(--display-font);font-weight:700}
 .bid-btn:active{background:rgba(233,185,73,0.2)!important;transform:scale(0.96)}
@@ -2879,18 +3099,21 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   box-shadow:0 0 0 2px rgba(233,185,73,0.65),0 8px 18px rgba(0,0,0,0.4)!important}
 .hand-area .card:active{z-index:6}
 
-/* The bid-panel/trump-panel hand previews (#bidHandDisplay etc, all using
-   .hand-prev) had their own fixed-width, non-wrapping, horizontal-scroll
-   layout that never got the "fan so it always fits" treatment above — with
-   a full 8-card hand this pushed cards off the right edge and, combined
-   with the panel's own scroll area, could leave the bottom of the preview
-   effectively unreachable. Give it the same fit-to-window fan instead. */
+/* Per explicit instruction: full, regular playing-card size for these
+   previews (#bidHandDisplay/#trumpHandDisplay, shared by "Your Bid",
+   "Phase 2: Raise?", and "Choose Trump Suit") instead of a separate,
+   smaller fixed size -- removed the .hand-prev-specific width/height
+   overrides entirely so cards here just inherit whatever size the
+   main .card class is already using at the current screen's own
+   breakpoint (see the plain .card rules and their own media queries),
+   automatically matching the player's actual hand cards rather than a
+   guessed, hardcoded pixel value. Spacing/overlap is now computed in
+   JS by layoutHandPreviewCards() based on the real available width at
+   render time, not a fixed CSS margin -- see cardHTML's neighboring
+   comment for the full reasoning. */
 .hand-prev{flex-wrap:nowrap!important;overflow-x:hidden!important;justify-content:center!important}
-.hand-prev .card{width:40px!important;height:56px!important;flex-shrink:1;min-width:0;margin-left:-16px}
+.hand-prev .card{flex-shrink:0;cursor:default}
 .hand-prev .card:first-child{margin-left:0!important}
-@media (max-width:480px){
-  .hand-prev .card{width:34px!important;height:48px!important;margin-left:-14px!important}
-}
 
 /* ---------- Signature: clay-chip team scores ---------- */
 .score-box{width:50px;height:50px;min-width:50px!important;border-radius:50%!important;
@@ -3479,6 +3702,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 
 <!-- ===== GAME WRAP ===== -->
 <div class="game-wrap" id="gameWrap">
+<canvas id="k28SeasonCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></canvas>
   <div class="info-bar" id="infoBar">
     <div class="info-row info-main" style="display:grid;grid-template-columns:1fr auto 1fr;justify-content:stretch;align-items:center">
       <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:flex-start;overflow:hidden">
@@ -3646,7 +3870,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <p id="bidText"></p>
     <div class="bid-grid" id="bidButtons"></div>
     <button class="btn btn-outline" id="btnLearnBid" style="width:100%;margin-top:8px;display:none">💡 What should I do?</button>
-    <div class="hand-prev" id="bidHandDisplay" style="margin-top:8px;max-height:68px;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;justify-content:flex-start;padding:4px 6px"></div>
+    <div class="hand-prev" id="bidHandDisplay" style="margin-top:8px;overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;padding:4px 6px"></div>
   </div>
 </div>
 <div class="overlay" id="trumpOverlay">
@@ -4025,7 +4249,7 @@ try { MY_NAME = localStorage.getItem('k28_player_name') || ''; } catch (e) {}
 // sticks across visits instead of resetting every time.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = [...Array.from({length:36}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:64}, (_,i) => 'hero3m'+(i+1))];
+const ALL_AVATAR_KEYS = [...Array.from({length:25}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:25}, (_,i) => 'hero3m'+(i+1))];
 
 // ==================== SOUND ENGINE ====================
 // A full card-table sound system built entirely on the native Web Audio API - no audio files,
@@ -5005,7 +5229,24 @@ function setupOnlineTable() {
     if (av) {
       av.style.background = p.bg;
       const teamClass = (getTeam(p.pos) === getTeam(viewerPos())) ? 'tyou' : 'topp';
-      av.innerHTML = p.emoji + '<span class="tdot ' + teamClass + '"></span>';
+      // Real bug fix, not a style nit: setupOnlineTable() runs on EVERY state update from the
+      // server (i.e. every single turn, whether or not this particular player's own avatar
+      // actually needs to change), and av.innerHTML = ... destroys and recreates every child
+      // of the avatar - including the call-badge speech bubble that updateCallBadge4p appends
+      // there. Rebuilding it from scratch on every turn meant its pop-in animation restarted
+      // every single turn too, even for a bid/pass bubble that hadn't changed at all - this is
+      // the actual mechanism behind the "jumpy popup on every move" report. Guarded with the
+      // same dataset-comparison pattern already used elsewhere in this file (e.g.
+      // lastRenderedCardCount): only touch innerHTML when the value that would be written is
+      // actually different from what's already there, and re-attach the badge afterward if an
+      // update did need to happen, since innerHTML= would otherwise have just deleted it.
+      const desiredAvHtml = p.emoji + '<span class="tdot ' + teamClass + '"></span>';
+      if (av.dataset.avHtml !== desiredAvHtml) {
+        const existingBadge = av.querySelector('.call-badge');
+        av.dataset.avHtml = desiredAvHtml;
+        av.innerHTML = desiredAvHtml;
+        if (existingBadge) av.appendChild(existingBadge);
+      }
     }
     if (nm) nm.textContent = formatPlayerName(p.name, p.isBot);
     if (roleEl) roleEl.textContent = p.isLocal ? 'YOU' : (p.isBot ? 'BOT' : 'OPP');
@@ -5127,8 +5368,8 @@ function renderBidHistoryList(history) {
       ? '<span style="color:var(--text-primary)">' + who + '</span> bid <b style="color:var(--accent)">' + h.bid + '</b>'
       : '<span style="color:var(--text-secondary)">' + who + ' passed</span>';
   });
-  return '<div style="margin-top:8px;padding:8px 10px;background:rgba(255,255,255,0.04);border-radius:8px;font-size:0.72rem;line-height:1.6;text-align:left">' +
-    '<b style="color:var(--text-secondary);font-size:0.65rem;letter-spacing:0.5px">SO FAR THIS ROUND</b><br>' +
+  return '<div style="margin-top:6px;padding:6px 8px;background:rgba(255,255,255,0.04);border-radius:8px;font-size:0.7rem;line-height:1.4;text-align:left">' +
+    '<b style="color:var(--text-secondary);font-size:0.62rem;letter-spacing:0.5px">SO FAR THIS ROUND</b><br>' +
     rows.join('<br>') + '</div>';
 }
 
@@ -5265,6 +5506,68 @@ function faceIconSvg(rank, cls) {
   return `<svg class="${cls}" viewBox="0 0 100 100" aria-hidden="true"><use href="#face-${id}"></use></svg>`;
 }
 
+// Per explicit instruction: the small hand previews inside the bid/
+// trump modals (#bidHandDisplay, #trumpHandDisplay -- shared by all
+// three of "Your Bid", "Phase 2: Raise?", and "Choose Trump Suit",
+// since they all populate the same two elements) should show full,
+// regular playing-card size with real spacing between them, only
+// overlapping at all if the actual number of cards genuinely can't
+// fit the container's real width otherwise -- which varies by device,
+// so this can't be one fixed CSS value. Measures the container's own
+// actual clientWidth AFTER the cards are already in it (their layout
+// has already happened by then), and only pulls cards together with a
+// negative margin if the natural, un-overlapped total would exceed
+// that -- the exact minimum overlap needed to fit, never more.
+// Per repeated bug report: CSS vh/dvh units on this specific setup have
+// not reliably reflected the actual visible viewport for this modal --
+// tried plain vh, then dvh, neither one visibly fixed it. Switching to a
+// direct measurement in JS instead: window.innerHeight is the browser's
+// own report of the real, currently-visible viewport height, not a CSS
+// unit whose behavior can vary by browser/version. Sets the panel's
+// max-height as an explicit inline pixel value (which always wins over
+// a CSS max-height declaration, so there's no ambiguity about which one
+// applies), called every time a modal is opened.
+function fitModalPanelToViewport(overlayEl) {
+  // Per explicit follow-up: this JS-forced sizing was a real, working
+  // fix for the SYMPTOM (content getting cut off), but the actual
+  // cause turned out to be somewhere else entirely --
+  // #bidHandDisplay's own hardcoded max-height/overflow-hidden clipping
+  // the cards regardless of this panel's size (see that fix). Now that
+  // the real cause is gone, forcing this panel to always be nearly
+  // full-screen tall via !important is no longer needed and was making
+  // it feel oversized specifically on phones. Left as a deliberate
+  // no-op (not deleted outright) so every existing call site stays
+  // valid without needing to be found and removed individually -- the
+  // panel now sizes itself naturally via its own CSS max-height
+  // instead.
+}
+function layoutHandPreviewCards(container) {
+  const cards = container.querySelectorAll('.card');
+  if (cards.length === 0) return;
+  const cardWidth = cards[0].getBoundingClientRect().width;
+  // Defensive guard: a zero width means the container still wasn't
+  // actually laid out yet when this ran (shouldn't happen now that
+  // this only runs after the modal is visible, via requestAnimationFrame
+  // -- but if it somehow still does, retry one more frame later rather
+  // than computing nonsense negative margins from dividing by zero.
+  if (cardWidth === 0) { requestAnimationFrame(() => layoutHandPreviewCards(container)); return; }
+  const gap = 6; // desired breathing room between cards when they fit without overlap
+  const naturalTotalWidth = cards.length * cardWidth + (cards.length - 1) * gap;
+  const availableWidth = container.clientWidth;
+  cards.forEach((card, i) => {
+    if (i === 0) { card.style.marginLeft = '0'; return; }
+    if (naturalTotalWidth <= availableWidth) {
+      card.style.marginLeft = gap + 'px';
+    } else {
+      // Spread what space IS available evenly across the overlaps needed,
+      // rather than always falling back to one fixed overlap amount --
+      // 5 cards overlapping to fit get pulled together less than 8 would.
+      const neededOverlapTotal = naturalTotalWidth - availableWidth;
+      const perCardOverlap = neededOverlapTotal / (cards.length - 1);
+      card.style.marginLeft = '-' + Math.min(cardWidth - 8, perCardOverlap).toFixed(1) + 'px';
+    }
+  });
+}
 function cardHTML(c, clickable, disabled, extraClass) {
   const clk = clickable ? `onclick="playCard('${c.suit}','${c.rank}')"` : '';
   const dis = disabled ? 'disabled' : '';
@@ -5300,6 +5603,81 @@ function log(msg, type) {
   if (lc) lc.prepend(e);
 }
 
+// Per explicit instruction: clicking on another player's own avatar at
+// the table (not your own) pops a big, warm "Cheers!" toast with a
+// large drink glyph for a few seconds then fades away on its own --
+// purely social/fun, no gameplay effect. A random pool of everyday,
+// deliberately non-alcoholic drinks (soda, tea, coffee, juice, bubble
+// tea) so it's a different glass/cup each time instead of always the
+// same clinking-glasses emoji.
+const K28_CHEERS_DRINKS = [
+  { emoji: '🥂', label: 'a glass' },
+  { emoji: '🧋', label: 'bubble tea' },
+  { emoji: '🥤', label: 'red soda water' },
+  { emoji: '🥤', label: 'blue soda water' },
+  { emoji: '☕', label: 'coffee' },
+  { emoji: '🍵', label: 'tea' },
+  { emoji: '🧃', label: 'juice' },
+  { emoji: '🍋', label: 'lemonade' },
+  { emoji: '🍷', label: 'a toast' },
+  { emoji: '🍺', label: 'a cold one' },
+  { emoji: '🍾', label: 'a celebration' },
+  { emoji: '🥃', label: 'the good stuff' }
+];
+function showBuddyGreeting(fromName, toName) {
+  const drink = K28_CHEERS_DRINKS[Math.floor(Math.random() * K28_CHEERS_DRINKS.length)];
+  const msg = (fromName || 'Someone') + ' toasts ' + (toName || 'you') + ' with ' + drink.label + ' — Cheers!';
+  const bubble = document.createElement('div');
+  bubble.className = 'k28-buddy-greeting';
+  bubble.innerHTML = '<div style="font-size:3rem;line-height:1;margin-bottom:8px">' + drink.emoji + '</div><div>' + escapeHtml(msg) + '</div>';
+  bubble.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(0.7);' +
+    'background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;font-weight:900;' +
+    'font-family:var(--display-font, serif);font-size:1.4rem;padding:20px 32px;border-radius:20px;' +
+    'box-shadow:0 12px 40px rgba(0,0,0,0.5),0 0 0 3px rgba(255,255,255,0.25);' +
+    'z-index:9500;text-align:center;max-width:80vw;opacity:0;' +
+    'transition:opacity 0.25s ease,transform 0.25s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none';
+  document.body.appendChild(bubble);
+  requestAnimationFrame(() => {
+    bubble.style.opacity = '1';
+    bubble.style.transform = 'translate(-50%,-50%) scale(1)';
+  });
+  setTimeout(() => {
+    bubble.style.opacity = '0';
+    bubble.style.transform = 'translate(-50%,-50%) scale(0.85)';
+    setTimeout(() => bubble.remove(), 300);
+  }, 2200);
+}
+// Wired directly on page load (these are static elements, never
+// recreated) -- av3 is deliberately excluded, since that's always the
+// viewer's own seat regardless of online/offline mode (see
+// pos0=top/pos1=left/pos2=right/pos3=bottom -- pos3 is always "me").
+// Per explicit follow-up: this used to only show the greeting locally
+// to whoever clicked -- the person whose avatar got clicked never saw
+// anything at all, even though the whole point is a friendly gesture
+// BETWEEN two players. Online, this now goes through the server so
+// both the clicker and the clicked player see it; offline (bots), it
+// just shows locally immediately since there's no one else to notify.
+// slotIndex must resolve through playerAtSlot() to the ACTUAL game
+// position of whoever is currently shown there -- av0/av1/av2 are
+// fixed screen slots, but which real player occupies which slot is
+// relative to the viewer and can differ for every player at the table.
+['av0', 'av1', 'av2'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const slotIndex = parseInt(id.replace('av', ''), 10);
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', () => {
+    const targetPos = playerAtSlot(slotIndex);
+    if (SERVER_MODE && typeof gameSocket !== 'undefined' && gameSocket) {
+      gameSocket.emit('buddyGreeting', { toPos: targetPos });
+    } else {
+      // Offline (bots): no round trip needed, show it immediately.
+      // {from} = the avatar that got clicked, {to} = the local player.
+      const clicked = playerAt(targetPos);
+      showBuddyGreeting(clicked ? clicked.name : 'Someone', MY_NAME || 'You');
+    }
+  });
+});
 function showToast(msg, type, dur) {
   dur = dur || 1800;
   const ex = document.querySelector('.toast');
@@ -5798,40 +6176,40 @@ function miniCardHtml(rank, suit) {
 // existing pattern of index.html/six.js being separate standalone
 // files with no shared module system between them.
 const PASS_MESSAGES = [
-  "Crappy hands.", "What's goin on with my hands...", "All day no hands.",
-  "Nothing here.", "Not today.", "I fold on this one.",
-  "My cards hate me.", "No, no, no.", "Zero help in this hand.",
-  "Can't work with this.", "Skip me.", "Rough draw this round.",
-  "I got nothing.", "Not my hand.", "Gotta save myself.",
-  "Dead cards.", "No trump for me here.", "I'll sit this one out.",
-  "Weak hand, no bid.", "Try me next round.", "This hand's a mess.",
-  "Nothing worth bidding.", "I'm out.", "Cards are cold today.",
-  "No shot with this.", "Nothing to work with.", "Empty hand.",
-  "Not gonna risk it.", "I'll wait it out.", "My luck's off.",
-  "Bad cut today.", "Can't do anything with this.", "Not strong enough.",
-  "Folding this hand.", "No points in sight.", "Better luck next deal.",
-  "This hand's cursed.", "No support here.", "Nothing to bid on.",
-  "I'll let it go.", "Whole hand's off-suit.", "My hand's a disaster.",
-  "No good here.", "I need better cards than this.", "This one's not mine.",
-  "Not touching this hand."
+  "Crappy hands.", "No hands.", "Dead cards.",
+  "Not today.", "I fold.", "Cards hate me.",
+  "Zero help.", "Can't work.", "Skip me.",
+  "Rough draw.", "I got nothing.", "Not my hand.",
+  "Save myself.", "No trump.", "Sit out.",
+  "No bid.", "Try next round.", "Hand's a mess.",
+  "Not worth it.", "I'm out.", "Cards are cold.",
+  "No shot.", "Nothing here.", "Empty hand.",
+  "Too risky.", "I'll wait.", "Luck's off.",
+  "Bad cut.", "Can't do it.", "Not strong.",
+  "Folding.", "No points.", "Better luck.",
+  "Hand's cursed.", "No support.", "Nothing to bid.",
+  "Let it go.", "Off-suit hand.", "Bad hand.",
+  "No good.", "Need better.", "Not mine.",
+  "Not my hand.", "No cards.", "Bad hand.",
+  "Weak hand."
 ];
 const BID_MESSAGES = [
-  "I raise u.", "I reraise u.", "Honors, let's go!",
-  "I'm taking a chance.", "Minimum this time.", "Watch me.",
-  "I'll push it.", "Going for it.", "And I mean it.",
+  "I raise.", "Reraise you.", "Honors, go!",
+  "Taking a shot.", "Minimum bid.", "Watch me.",
+  "Pushing it.", "Going for it.", "I mean it.",
   "Let's raise.", "I got this.", "Feeling good.",
-  "Try and beat that.", "I'm not backing down.", "Strong hand.",
-  "Take it or leave it.", "Raising it up.", "I'll call it.",
-  "Going big.", "No fear.", "This hand's mine.",
-  "I like my chances.", "Trust me.", "Let's see it.",
+  "Beat that.", "Staying in.", "Strong hand.",
+  "Take it.", "Raising up.", "I'll call it.",
+  "Going big.", "No fear.", "Hand's mine.",
+  "Like my odds.", "Trust me.", "Let's see it.",
   "I'm confident.", "Come at me.", "Solid cards.",
-  "Pushing it.", "Easy pick.", "I'll take it up.",
-  "Not folding.", "This hand's loaded.", "I see an opening.",
-  "Locked in.", "My hand's ready.", "Calling it.",
-  "Bidding it up.", "Let's make it interesting.", "Feeling lucky.",
-  "I'm in.", "No hesitation.", "Taking the lead.",
-  "I mean business.", "Going for the win.", "I'll bet on this.",
-  "All in on this hand."
+  "Pushing up.", "Easy pick.", "Taking it up.",
+  "Not folding.", "Hand's loaded.", "Found a gap.",
+  "Locked in.", "Hand's ready.", "Calling it.",
+  "Raising it.", "Getting good.", "Feeling lucky.",
+  "I'm in.", "No hesitation.", "Taking lead.",
+  "Mean business.", "Big bid.", "Betting big.",
+  "All in."
 ];
 function pickCallMessage(pool, pos, seq, bid) {
   const seed = pos * 7919 + seq * 104729 + bid * 31;
@@ -5842,6 +6220,24 @@ function pickCallMessage(pool, pos, seq, bid) {
 // west), pos3=bottom/me (bubble north) -- see the CSS comment next to
 // .avatar .call-badge for the fuller reasoning.
 const CALL_BADGE_DIR_4P = ['s', 'e', 'w', 'n'];
+// Per non-negotiable instruction: one single object, oval+tail as ONE
+// path, not a shape plus a separately-attached piece. A genuinely
+// different path per direction rather than one shape rotated four
+// ways -- rotating would turn the oval sideways for e/w and misalign
+// it from the always-upright text. The oval portion (the "M6,40
+// a44,20..." prefix) is byte-for-byte identical in all four; only the
+// tail portion differs. Computed by rotating the tail's own local
+// coordinates around its attachment point on the oval's edge in
+// Python, then each one actually rendered with a marked avatar
+// position and visually confirmed correct before use here.
+// Per explicit instruction: no tail/arrow at all - the oval alone is enough. Every direction
+// key still exists (so the positioning CSS classes and JS lookups elsewhere don't need to
+// change), they just all point at the identical plain-oval path now instead of four different
+// tail shapes.
+const OVAL_ONLY_PATH = "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z";
+const CALL_BADGE_PATHS = {
+  n: OVAL_ONLY_PATH, e: OVAL_ONLY_PATH, s: OVAL_ONLY_PATH, w: OVAL_ONLY_PATH,
+};
 // Shared helper for both the offline bot-decision path and the online
 // server-state path, so the two can't drift into showing different
 // text/positioning for what should be the identical event. seq should
@@ -5861,18 +6257,40 @@ function updateCallBadge4p(pos, bid, seq) {
   const isPass = bid === 0;
   const isThani = bid >= 29;
   const header = isThani ? 'Thani!' : isPass ? 'Pass' : 'Bid ' + bid;
-  const flavor = isThani ? '' : isPass
-    ? pickCallMessage(PASS_MESSAGES, pos, seq, 0)
-    : pickCallMessage(BID_MESSAGES, pos, seq, bid);
+  // Per explicit follow-up: no more custom flavor lines ("Hand's
+  // ready", "Try next round", etc.) -- just the plain call itself,
+  // "Bid 16" / "Pass" / "Thani!" and nothing else.
+  const flavor = '';
   const label = header + (flavor ? '\n' + flavor : '');
   if (!callEl) { callEl = document.createElement('div'); callEl.className = 'call-badge'; av.appendChild(callEl); }
   const cls = 'call-badge' + (isPass ? ' call-badge-pass' : '') + ' call-badge-' + CALL_BADGE_DIR_4P[slot];
   if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
   if (callEl.dataset.v !== label) {
     callEl.dataset.v = label;
-    callEl.innerHTML = flavor
+    // Per non-negotiable instruction: one single object, not a bubble
+    // plus a separately-attached tail piece. CALL_BADGE_PATHS holds a
+    // genuinely different combined SVG path per direction -- the oval
+    // portion of every single one is byte-for-byte identical and stays
+    // upright, only the tail portion of that same path changes, so
+    // there is never any rotation or stretching applied to the shape
+    // as a whole (which is what caused every earlier version of this
+    // to either misalign the oval or let text overflow it). Computed
+    // these paths programmatically (rotating the tail's own local
+    // coordinates around its attachment point on the oval, not by
+    // hand), then actually rendered all of them with a marked avatar
+    // position and confirmed each one visually before use.
+    // Per explicit follow-up report: these were #241010/#0a1f0f -- so
+    // close to pure black that the bubble just read as a flat black
+    // rectangle instead of a tinted red/green one, on both this table
+    // and the 6-player table (same values, same bug, see six.js).
+    // Lightened to an actually visible dark maroon/forest-green while
+    // keeping them dark enough that the colored header text and white
+    // flavor text both still read clearly on top.
+    const fillColor = isPass ? '#4a1a1a' : '#123d22';
+    const bgSvg = `<svg class="call-badge-bg" viewBox="-5 -10 110 100"><path d="${CALL_BADGE_PATHS[CALL_BADGE_DIR_4P[slot]]}" fill="${fillColor}" stroke="currentColor" stroke-width="2.2"/></svg>`;
+    callEl.innerHTML = (flavor
       ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
-      : `<div class="call-badge-header">${header}</div>`;
+      : `<div class="call-badge-header">${header}</div>`) + bgSvg;
   }
 }
 function clearCallBadges4p() {
@@ -5889,11 +6307,27 @@ function clearCallBadges4p() {
 // applyServerState() path the moment bidder is finalized. Clears every
 // other seat's winner class first (pos param is the actual winner)
 // since only one bubble should ever be blinking at a time.
-function markWinningBidder4p(pos) {
+// Per explicit instruction: also forces the winner's own badge to show
+// their actual winning bid, in the green "won" style, regardless of
+// what their own last individual action happened to be. A player can
+// win the auction with an earlier bid (say 15) and then, on a later
+// phase-2 turn, simply decline to raise it further -- passing on THAT
+// turn, while their earlier 15 still stands as the overall winning bid.
+// Without this, their badge would keep showing that later pass in red,
+// which reads as if they lost, right as they're being highlighted as
+// the winner -- a real, confusing contradiction this corrects.
+function markWinningBidder4p(pos, winningBid) {
   for (let i = 0; i < 4; i++) {
     const av = document.getElementById('av' + i);
     const callEl = av && av.querySelector('.call-badge');
-    if (callEl) callEl.classList.toggle('call-badge-winner', slotForPlayer(pos) === i);
+    if (!callEl) continue;
+    const isWinner = slotForPlayer(pos) === i;
+    callEl.classList.toggle('call-badge-winner', isWinner);
+    if (isWinner && typeof winningBid === 'number') {
+      callEl.classList.remove('call-badge-pass');
+      const headerEl = callEl.querySelector('.call-badge-header');
+      if (headerEl) headerEl.textContent = winningBid >= 29 ? 'Thani!' : 'Bid ' + winningBid;
+    }
   }
 }
 
@@ -6249,7 +6683,22 @@ function updateInfo() {
       tr.innerHTML = '<span class="trump-suit-text' + darkClass + '" style="color:' + suitColor + '">' + trumpSuit + ' ' + suitName(trumpSuit) + '</span> <span style="color:var(--accent);font-weight:700">TRUMP</span>';
       tr.classList.add('trump-active');
     } else {
-      tr.innerHTML = '🎯 <span style="color:var(--text-secondary)">Trump: Hidden</span>';
+      // Per explicit instruction: the bidder already knows their own
+      // hidden trump suit (they're the one who chose it), so there's
+      // no real secrecy being protected by showing them the same
+      // generic "Hidden" every other player sees. Gated explicitly on
+      // bidder === MY_POS (not just on hiddenTrump being populated) to
+      // be certain this can never show the suit to anyone but the
+      // bidder themselves -- everyone else still sees plain "Hidden"
+      // exactly as before.
+      if (bidder === MY_POS && hiddenTrump && hiddenTrump.suit) {
+        const isRedSuit = (hiddenTrump.suit === '♥' || hiddenTrump.suit === '♦');
+        const suitColor = isRedSuit ? '#d32f2f' : '#fff';
+        const darkClass = isRedSuit ? '' : ' dark-suit';
+        tr.innerHTML = '<span class="trump-suit-text' + darkClass + '" style="color:' + suitColor + ';font-size:1.3em">' + hiddenTrump.suit + '</span>';
+      } else {
+        tr.innerHTML = '🎯 <span style="color:var(--text-secondary)">Trump: Hidden</span>';
+      }
       tr.classList.remove('trump-active');
     }
     // Server mode sets trumpExposed directly from the authoritative state
@@ -7445,9 +7894,25 @@ function restoreGameState(data) {
     const av = document.getElementById('av' + slot);
     const nm = document.getElementById('name' + slot);
     const teamDot = getTeam(p.pos) === getTeam(MY_POS) ? 'tyou' : 'topp';
-    if (av) { 
-      av.style.background = p.bg; 
-      av.innerHTML = p.emoji + '<span class="tdot ' + teamDot + '"></span>'; 
+    // Real bug, not a style nit: this ran unconditionally on EVERY state update (i.e. every
+    // single turn, whether or not anything about this player actually changed), and
+    // av.innerHTML = ... destroys and recreates every child of the avatar element - including
+    // the call-badge speech bubble, which lives as a child of this same avatar (see
+    // updateCallBadge4p, which appends it there). Rebuilding it from scratch every turn meant
+    // its own pop-in animation restarted every single turn too, even for a bid/pass bubble
+    // that hadn't changed at all - the "jumpy popup on every move" report. Guarded the same
+    // way call-badge's own dataset.v check works: only touch innerHTML when the actual
+    // rendered value is different from what's already there, and re-append the badge
+    // afterward if the update did need to happen (since innerHTML= would have just deleted it).
+    const desiredAvHtml = p.emoji + '<span class="tdot ' + teamDot + '"></span>';
+    if (av) {
+      av.style.background = p.bg;
+      if (av.dataset.avHtml !== desiredAvHtml) {
+        const existingBadge = av.querySelector('.call-badge');
+        av.dataset.avHtml = desiredAvHtml;
+        av.innerHTML = desiredAvHtml;
+        if (existingBadge) av.appendChild(existingBadge);
+      }
     }
     if (nm) {
       nm.textContent = formatPlayerName(p.name, p.isBot);
@@ -8423,6 +8888,16 @@ function showBidPanel1() {
   hd.innerHTML = '';
   for (let card of players[(MY_POS)] || []) hd.innerHTML += cardHTML(card, false, false);
   document.getElementById('bidOverlay').classList.add('on');
+  fitModalPanelToViewport(document.getElementById('bidOverlay'));
+  // Per explicit bug report: cards were overflowing past the screen
+  // edges -- the actual cause was calling this measurement BEFORE the
+  // modal became visible. A display:none container's children have no
+  // layout box at all, so getBoundingClientRect() on the cards returned
+  // 0 width at that point, which broke the whole overlap calculation.
+  // Moved to run after .on is added (modal now visible) and wrapped in
+  // requestAnimationFrame so the browser has genuinely painted a frame
+  // with the real layout before anything gets measured.
+  requestAnimationFrame(() => layoutHandPreviewCards(hd));
 }
 
 function processBid(p, bid) {
@@ -8613,7 +9088,7 @@ function endBidding1() {
   if (bidder === -1 || highestBid === 0) { log('No valid bids. Redealing...'); setTimeout(() => startGame(), 1500); return; }
   const wn = playerAt(bidder) ? playerAt(bidder).name : 'Player';
   log((bidder === MY_POS ? 'You' : wn) + ' won bid with ' + highestBid + '!');
-  markWinningBidder4p(bidder);
+  markWinningBidder4p(bidder, highestBid);
   // Host sends bidding result
   if (IS_ONLINE && IS_HOST) {
     setTimeout(() => hostSendState(), 300);
@@ -8694,6 +9169,8 @@ function showTrumpPanel(changeMode) {
   hd.innerHTML = '';
   for (let card of hand) hd.innerHTML += cardHTML(card, false, false);
   document.getElementById('trumpOverlay').classList.add('on');
+  fitModalPanelToViewport(document.getElementById('trumpOverlay'));
+  requestAnimationFrame(() => layoutHandPreviewCards(hd));
 }
 
 let selectedTrumpCard = null;
@@ -8972,6 +9449,8 @@ function showRaisePanel() {
   const myPos = MY_POS;
   for (let card of players[myPos] || []) hd.innerHTML += cardHTML(card, false, false);
   document.getElementById('bidOverlay').classList.add('on');
+  fitModalPanelToViewport(document.getElementById('bidOverlay'));
+  requestAnimationFrame(() => layoutHandPreviewCards(hd));
 }
 
 function showPhase2Confirmation(bid, isPass) {
@@ -9086,7 +9565,7 @@ function endBidding2(x, canChange) {
   // exactly the premature-clearing this fix corrects. bidder may have
   // changed during phase 2 raises, so the winner mark needs
   // re-applying here too, not just once back in endBidding1().
-  markWinningBidder4p(bidder);
+  markWinningBidder4p(bidder, highestBid);
   if (canChange && bidder === MY_POS) setTimeout(() => showTrumpPanel(true), 500);
   else setTimeout(() => startPlay(), 500);
 }
@@ -9256,11 +9735,11 @@ function showCallTrumpPanel() {
     trickHtml +
     '<div style="font-size:0.85rem;margin-bottom:8px">You cannot follow <b style="color:var(--accent)">' + trickSuit + '</b>.</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0;font-size:0.75rem">' +
-    '<div style="background:rgba(74,222,128,0.08);border:1px solid var(--success);border-radius:8px;padding:8px;text-align:center">' +
+    '<div id="callTrumpYesCard" style="cursor:pointer;background:rgba(74,222,128,0.08);border:1px solid var(--success);border-radius:8px;padding:8px;text-align:center">' +
     '<div style="font-weight:800;color:var(--success);margin-bottom:4px">YES ✓</div>' +
     '<div style="color:var(--text-secondary)">Expose trump suit</div>' +
     '<div style="color:var(--text-secondary);font-size:0.65rem">(Must play trump if you have it)</div></div>' +
-    '<div style="background:rgba(248,113,113,0.08);border:1px solid var(--danger);border-radius:8px;padding:8px;text-align:center">' +
+    '<div id="callTrumpNoCard" style="cursor:pointer;background:rgba(248,113,113,0.08);border:1px solid var(--danger);border-radius:8px;padding:8px;text-align:center">' +
     '<div style="font-weight:800;color:var(--danger);margin-bottom:4px">NO ✕</div>' +
     '<div style="color:var(--text-secondary)">Discard any card except J</div>' +
     '<div style="color:var(--text-secondary);font-size:0.65rem">(Trump stays hidden)</div></div>' +
@@ -9283,11 +9762,22 @@ function showCallTrumpPanel() {
 
   const okBtn = document.getElementById('modalOkBtn');
   const oldOk = okBtn.onclick;
-  okBtn.textContent = 'YES, Call Trump';
+  const oldOkDisplay = okBtn.style.display;
+  // Per explicit instruction: the modal used to show FOUR things for a
+  // two-way choice -- the green/red info cards explaining each option,
+  // PLUS two separate "YES, Call Trump"/"NO, Discard" buttons below
+  // repeating the same choice. The info cards already explain
+  // everything needed; making them the actual clickable buttons (and
+  // hiding the redundant separate ones, not deleting them, since
+  // modalOkBtn is shared scaffolding every other modal in the app also
+  // uses) gets down to two clear choices, left and right, instead of
+  // four elements for what's really one decision.
+  okBtn.style.display = 'none';
   okBtn.onclick = function() {
     closeModal();
     okBtn.textContent = 'OK';
     okBtn.onclick = oldOk;
+    okBtn.style.display = oldOkDisplay;
     const myPos = MY_POS;
     // Trump exposure is shared/authoritative game state (it flips `phase`
     // and moves the hidden trump card into the bidder's hand). For an
@@ -9340,15 +9830,20 @@ function showCallTrumpPanel() {
     document.getElementById('modalBox').appendChild(noBtn);
   }
   noBtn.textContent = 'NO, Discard';
-  noBtn.style.display = 'block';
+  noBtn.style.display = 'none';
   noBtn.onclick = function() {
     closeModal();
     noBtn.style.display = 'none';
     okBtn.textContent = 'OK';
     okBtn.onclick = oldOk;
+    okBtn.style.display = oldOkDisplay;
     discardIsCalledTrump = false;
     showDiscardPanel(nonT, trumps);
   };
+  const yesCard = document.getElementById('callTrumpYesCard');
+  const noCard = document.getElementById('callTrumpNoCard');
+  if (yesCard) yesCard.onclick = okBtn.onclick;
+  if (noCard) noCard.onclick = noBtn.onclick;
 }
 
 function botDecideTrumpExpose() {
@@ -9421,6 +9916,7 @@ function showTrumpPlayPanel(trumps, nonT) {
   document.getElementById('callTrumpCards').innerHTML = '<div style="font-size:0.75rem;color:var(--accent);margin-bottom:6px">🃏 You CALLED TRUMP — play a trump card:</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:4px 0">' + (th || "<span style='color:var(--text-secondary);font-size:0.75rem'>You have no " + suitName(trumpSuit) + " (trump) — you'll discard instead.</span>") + '</div>';
   document.getElementById('discardCards').innerHTML = '<div style="font-size:0.65rem;color:var(--text-secondary)">Non-trump cards (cannot play now)</div>';
   document.getElementById('callTrumpOverlay').classList.add('on');
+  fitModalPanelToViewport(document.getElementById('callTrumpOverlay'));
 }
 
 function showDiscardPanel(nonT, trumps) {
@@ -9468,6 +9964,7 @@ function showDiscardPanel(nonT, trumps) {
     : '<div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:6px">Rule: any card except a Jack (J is grayed out below).</div>';
   document.getElementById('discardCards').innerHTML = '<div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px">🗑️ Discard any card:</div>' + ruleNote + '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:4px 0">' + (dh || "<span style='color:var(--text-secondary);font-size:0.75rem'>No cards</span>") + '</div>';
   document.getElementById('callTrumpOverlay').classList.add('on');
+  fitModalPanelToViewport(document.getElementById('callTrumpOverlay'));
 }
 
 function callTrumpAndPlay(suit, rank) {
@@ -10784,6 +11281,12 @@ function startGame() {
     const av = document.getElementById('av' + i);
     if (av) av.classList.remove('bid-winner-avatar');
   }
+  // Per explicit bug report: this function never actually cleared the
+  // bid/pass speech bubbles on a restart -- the loop just above only
+  // ever removed a stale, unrelated class name left over from before
+  // that feature existed, never the actual .call-badge elements
+  // themselves, so old bubbles from the previous game kept showing.
+  clearCallBadges4p();
   // Reset King streaks on fresh start (not when continuing championships)
   if (championshipNumber === 1) {
     resetKingScore();
@@ -14099,7 +14602,7 @@ let serverTurnWatchdog = null;
 let serverRoundEndShown = -1; // which round number we've already shown the summary panel for
 let serverLastAnnouncedTrumpExposed = false; // tracks trumpExposed so the announcement toast fires exactly once per exposure, not on every render
 let lastAnnouncedHonorsRound = -1; // tracks which round's "Honors called!" toast has already fired, so it shows exactly once per round
-let lastMarkedWinnerKey = ''; // tracks "round:bidder" so the blink re-applies whenever the actual bidder changes (a phase-2 raise), not just once per round
+// (call-badge winner tracking removed -- markWinningBidder4p is now re-applied fresh every render pass instead of tracked incrementally, see applyServerState)
 let lastShownRoundVoidMessage = null; // tracks the defending-team-has-no-trump void message so it shows exactly once per occurrence
 let lastShownReshuffleReasonTs = null; // same "show exactly once" pattern for the 3 auto-reshuffle popups below
 let lastShownEarlyWinChoice = false; // true while a popup is already showing for the CURRENT pendingEarlyWinChoice
@@ -14785,6 +15288,37 @@ gameSocket.on('chooseSeat', (info) => {
 
   gameSocket.on('playerJoinedNotice', ({ name }) => {
     showPlayerJoinedNotice(name);
+    // Per explicit instruction: a real player joining is a genuine
+    // reason to wake an idle table back up, even if this specific
+    // client hasn't clicked or touched anything themselves.
+    if (typeof window.k28WakeTableScreensaver === 'function') window.k28WakeTableScreensaver();
+  });
+
+  // Mirrors the join notice above, but for the other direction: everyone
+  // still at the table (not just the host) gets a lightweight toast the
+  // moment a seat's red ring appears, since that ring alone is easy to
+  // miss mid-hand.
+  gameSocket.on('playerLeftNotice', ({ name }) => {
+    showToast('🔌 ' + (name || 'A player') + ' left the table — a bot has taken over their seat', 'info', 3500);
+  });
+
+  // Per explicit follow-up: the buddy greeting must reach BOTH the
+  // player who clicked and the player whose avatar got clicked, not
+  // just show up locally for the clicker. The server broadcasts this
+  // to the whole table (see server.js), so this fires for every seat
+  // -- only actually show the popup if this specific client is one of
+  // the two people actually involved (the sender or the target),
+  // everyone else at the table just silently ignores it.
+  gameSocket.on('buddyGreeting', ({ fromPos, toPos }) => {
+    // fromPos is the clicker, toPos is whose avatar got clicked -- but
+    // the MESSAGE itself is written the other way around (as if the
+    // clicked player is the one greeting the clicker), so {from}/{to}
+    // in the template are the reverse of the socket's fromPos/toPos.
+    if (MY_POS === fromPos || MY_POS === toPos) {
+      const clickerName = fromPos === MY_POS ? (MY_NAME || 'You') : ((playerAt(fromPos) || {}).name || 'Someone');
+      const clickedName = toPos === MY_POS ? (MY_NAME || 'You') : ((playerAt(toPos) || {}).name || 'Someone');
+      showBuddyGreeting(clickedName, clickerName);
+    }
   });
 
   // "New Round" restart notice, visible to every connected real player (not just whoever
@@ -14906,6 +15440,12 @@ function hideKickNotice() {
       return;
     }
     applyServerState(state);
+    // Per explicit request: the live game state changing at all — a
+    // bid, a card played, a new round dealt — is exactly the kind of
+    // "whatever is live" moment the idle screensaver should snap back
+    // for, not just an explicit click. Safe to call unconditionally:
+    // it's a no-op whenever the screensaver isn't currently running.
+    if (typeof window.k28WakeTableScreensaver === 'function') window.k28WakeTableScreensaver();
   });
 }
 
@@ -15873,6 +16413,19 @@ function applyServerState(state) {
   // last trick, right through to the round-end popup.
   if (typeof state.tricksPlayed === 'number' && state.tricksPlayed < lastSeenTricksPlayed) {
     resetTrickAndRoundTracking();
+    // Same fix as the tableId-change branch above, and for the exact same reason: resetting
+    // lastRenderedSlotContent back to all-null does nothing by itself if the new round's own
+    // desired content is ALSO null (the common case right after a restart, before anyone's
+    // played a card yet) - null === null still matches in renderTrickSlots()'s own guard, so
+    // it skips the slot entirely and the previous game's last-played cards stay stuck on
+    // screen. This was the actual reported bug ("old cards on the table are not clearing"
+    // after a restart) - the tableId-change path already had this exact fix, this same-table
+    // restart path just never got the identical treatment. Clearing the DOM directly here
+    // guarantees a clean table regardless of what the new round's first state happens to want.
+    for (let i = 0; i < 4; i++) {
+      const slotEl = document.getElementById('slot' + i);
+      if (slotEl) slotEl.innerHTML = '';
+    }
   }
   if (round !== roundSnapshotTakenForRound && state.phase !== 'lobby' && state.phase !== 'bidding1') {
     roundSnapshotTakenForRound = round;
@@ -15913,63 +16466,66 @@ function applyServerState(state) {
   // explicitly excluded) to fire a big event for a real raise or an
   // honors-level bid specifically. Compares against the length BEFORE
   // this same state's bidHistory overwrites it just below.
-  // Bid/pass speech bubble -- the actual online-mode trigger for this
-  // feature. Fires for every genuinely new entry in bidHistory (phase
-  // 1) and p2History (phase 2), comparing against this client's own
-  // last-seen length of each array so only entries that just arrived
-  // get a fresh badge update, not ones already shown on a previous
-  // render. The actual updateCallBadge4p/markWinningBidder4p DOM calls
-  // are deliberately NOT made here -- only queued into
-  // window._pendingCallBadgeUpdates -- because setupOnlineTable() runs
-  // later in this same function and directly overwrites every avatar's
-  // innerHTML (see its own definition), which would silently destroy
-  // any badge added before it ran. This was the actual, confirmed root
-  // cause of the badges never visibly appearing online at all: they
-  // were being created and destroyed within the same synchronous
-  // function call, before the browser ever painted a frame in between.
-  // The real DOM updates happen in a later block, right after
-  // setupOnlineTable() has already rebuilt the avatars fresh.
+  // Bid/pass speech bubble -- the actual online-mode trigger. Per
+  // explicit correction: an earlier version of this only queued
+  // updates for entries that were brand-new on THIS specific state
+  // push, which meant a badge would show once and then vanish on the
+  // very next, unrelated state update (a different player's move, a
+  // chat message, anything) -- because setupOnlineTable() wipes every
+  // avatar's content on EVERY single state push, not just the one
+  // where a bid happened, and nothing was re-adding the badge on those
+  // later, unrelated pushes. The real fix: recompute and re-queue
+  // EVERY currently-active player's own latest call on every single
+  // render pass, not just newly-arrived ones, so it survives every
+  // subsequent wipe until play genuinely starts. Uses the exact same
+  // "has anyone actually played a card yet this round" check
+  // (nobodyHasPlayedYet) six.js's identical feature already uses, so
+  // once play starts, this stops re-queuing anything and the badges
+  // stay gone rather than reappearing on the next render.
   window._pendingCallBadgeUpdates = [];
+  window._pendingWinnerMark = null;
   try {
-    const newBidEntries = (state.bidHistory || []).slice(bidHistory.length);
-    for (let i = 0; i < newBidEntries.length; i++) {
-      const entry = newBidEntries[i];
-      window._pendingCallBadgeUpdates.push([entry.pos, entry.bid, bidHistory.length + i]);
+    const nobodyHasPlayedYet4p = (state.tricksPlayed || 0) === 0 && (!state.trickCards || state.trickCards.length === 0);
+    if (nobodyHasPlayedYet4p) {
+      const combined = [];
+      (state.bidHistory || []).forEach((entry, i) => combined.push({ pos: entry.pos, bid: entry.bid, seq: i, order: i }));
+      (state.p2History || []).forEach((entry, i) => { if (typeof entry.bid === 'number') combined.push({ pos: entry.pos, bid: entry.bid, seq: 10000 + i, order: 100000 + i }); });
+      // Latest call per seat, by actual chronological order (phase 2 always
+      // sorts after all of phase 1 via the +100000 offset above).
+      const latestPerPos = {};
+      combined.forEach(c => {
+        if (!latestPerPos[c.pos] || c.order > latestPerPos[c.pos].order) latestPerPos[c.pos] = c;
+      });
+      Object.values(latestPerPos).forEach(c => window._pendingCallBadgeUpdates.push([c.pos, c.bid, c.seq]));
+      if (state.phase !== 'bidding1' && state.bidder >= 0) {
+        window._pendingWinnerMark = state.bidder;
+        window._pendingWinnerMarkBid = state.highestBid;
+      }
+    } else {
+      // Real regression this introduced, not a pre-existing gap: before setupOnlineTable() was
+      // fixed to stop unnecessarily rebuilding every avatar's content on every render (the
+      // "jumpy popup" fix), that unconditional rebuild was - completely incidentally - the
+      // only thing that ever actually removed a stale call-badge once play began, since
+      // nothing here ever populates _pendingCallBadgeUpdates once nobodyHasPlayedYet4p goes
+      // false, and updateCallBadge4p itself only ever adds/updates a badge, never removes one.
+      // Once that incidental wipe stopped happening, the last bid/pass bubble from before play
+      // started just sat there forever - through the rest of trick 1, only finally vanishing
+      // whenever some UNRELATED avatar content change happened to force a rebuild (which is
+      // exactly why it looked like it took until trick 2's first card - that's just whenever
+      // the next incidental rebuild happened to land, not anything actually tied to trick 2).
+      // The correct, direct fix: explicitly remove every remaining call-badge the moment
+      // nobodyHasPlayedYet4p first goes false, rather than depending on that unrelated
+      // rebuild ever happening again.
+      for (let i = 0; i < 4; i++) {
+        const badge = document.getElementById('av' + i) ? document.getElementById('av' + i).querySelector('.call-badge') : null;
+        if (badge) badge.remove();
+      }
     }
-  } catch (e) { console.error('[call-badge phase1] threw:', e); }
+  } catch (e) { console.error('[call-badge] threw:', e); }
   bidHistory = state.bidHistory || [];
   window._p1MinBid = (typeof state.p1MinBid === 'number') ? state.p1MinBid : null;
   window._p1CurrentTurnRestricted = !!state.p1CurrentTurnRestricted;
-  try {
-    const newP2Entries = (state.p2History || []).slice((window._p2History || []).length);
-    for (let i = 0; i < newP2Entries.length; i++) {
-      const entry = newP2Entries[i];
-      // bid can be the string 'THANI' here (a phase-2-only special call);
-      // updateCallBadge4p expects a number, so that specific call is
-      // skipped rather than passed through and mishandled.
-      if (typeof entry.bid === 'number') window._pendingCallBadgeUpdates.push([entry.pos, entry.bid, 10000 + i]);
-    }
-  } catch (e) { console.error('[call-badge phase2] threw:', e); }
   window._p2History = state.p2History || [];
-  // Winning bidder's own bubble blinks any time bidding isn't actively
-  // in progress (bidding1) -- not excluding bidding2/choosingTrump,
-  // since a phase-2 raise can change who the bidder is, and
-  // choosingTrump itself can appear twice in one round (once after
-  // phase 1, again after phase 2 if the bidder changed). Tracking
-  // round+bidder together means this re-fires correctly every time the
-  // bidder actually changes, not just once per round. Also deferred
-  // (window._pendingWinnerMark) for the identical reason as the badge
-  // updates above.
-  window._pendingWinnerMark = null;
-  try {
-    if (state.phase !== 'bidding1' && state.bidder >= 0) {
-      const winnerMarkKey = state.round + ':' + state.bidder;
-      if (winnerMarkKey !== lastMarkedWinnerKey) {
-        lastMarkedWinnerKey = winnerMarkKey;
-        window._pendingWinnerMark = state.bidder;
-      }
-    }
-  } catch (e) { console.error('[winner-mark] threw:', e); }
   trumpSuit = state.trumpSuit || '';
   trumpExposed = state.trumpExposed;
   hiddenTrump = state.myHiddenTrumpCard
@@ -16046,7 +16602,7 @@ function applyServerState(state) {
   // the real, confirmed root cause of the badges never appearing online.
   try {
     (window._pendingCallBadgeUpdates || []).forEach(([pos, bid, seq]) => updateCallBadge4p(pos, bid, seq));
-    if (window._pendingWinnerMark !== null && window._pendingWinnerMark !== undefined) markWinningBidder4p(window._pendingWinnerMark);
+    if (window._pendingWinnerMark !== null && window._pendingWinnerMark !== undefined) markWinningBidder4p(window._pendingWinnerMark, window._pendingWinnerMarkBid);
   } catch (e) { console.error('[call-badge apply] threw:', e); }
   updateTeamLabels();
   updateInfo();
@@ -16927,149 +17483,294 @@ function serverBotPlayForMe() {
 })();
 
 // ==================== IDLE SCREENSAVER (live game table) ====================
-// Same idea as the welcome-screen one above, but deliberately built differently for safety:
-// this one NEVER touches the actual cards, avatars, or action buttons - it never even reads
-// them. Instead it drops a dimmed, full-screen overlay on top with its own purely decorative
-// bouncing text (suit symbols, branding), so the real table stays completely intact and
-// unmoved underneath. The overlay itself catches the dismissing click, so that first click
-// only ever closes the screensaver - it can never also land on a card or button underneath
-// and accidentally play something. 1 minute idle (shorter than the welcome screen's 2, since
-// a table with a turn in progress is more time-sensitive), only while the game table is the
-// screen actually showing.
+// Per explicit request: this version picks up the REAL table -- every
+// seat (avatar, name, bid, card count, all of it as one unit) and every
+// card currently sitting in the middle of the table -- and physically
+// bounces them around the screen, DVD-logo style, instead of drawing
+// decorative text over a dimmed copy of the table. Ends and snaps
+// everything back to its exact original spot the instant there's real
+// activity (a click/tap, or the table state changing -- see
+// window.k28WakeTableScreensaver, called from the server-driven "state"
+// handler elsewhere), so nothing about the live game can ever actually
+// be disturbed by this, only how it looks while genuinely idle. 1
+// minute idle, only while the game table is the screen actually showing.
 (function() {
   const K28_TABLE_IDLE_MS = 60 * 1000;
-  // 28GULAN.COM appears multiple times on purpose - it's the actual site name, so it should
-  // be the one thing you can't miss no matter where it's currently drifted to. Suits and short
-  // branded phrases repeat too, both for a fuller "full of action" feel on a tall screen (15
-  // items looked sparse) and so no single overlap (like the earlier "Become the King." sitting
-  // on top of a player's name) is the only thing you're looking at for long. The game-name
-  // entries borrow the same flavor as the main menu's own buttons (28 4 Player, Texas Hold'em,
-  // Pool, etc.) without actually touching that screen's real DOM - this stays purely
-  // decorative text, same as everything else here, so the "never move the real table" rule
-  // still holds exactly as before.
-  const DECOR_ITEMS = [
-    '28GULAN.COM', '28GULAN.COM',
-    '♠', '♥', '♦', '♣', '♠', '♥', '♦',
-    '🂮', '🎴', '👑', '🔥',
-    '28', 'Gulan',
-    'Bid smart.', 'Play smarter.', 'Become the King.',
-    'Jack high', 'Ace high', 'The Gulan.',
-    '🌍 28 4 Player', '👥 28 6 Player', '🃏 56', '♣ Texas Hold\u2019em', '🎱 Pool', '🎯 Carrom',
-    // Pulled straight from the welcome screen's own feature grid and stats
-    // bar — the same badges a player sees before ever sitting down — so an
-    // idle table feels like part of the same site instead of a generic
-    // bouncing-text gimmick with no connection to anything else here.
-    '😭 The Kunukku', '🎙️ Live Voice Chat', '🤖 AI Bots That Learn',
-    '💾 Auto-Save & Resume', '🎯 Smart Bid Predictor', '👑 Road to King',
-    '🧠 Round Analysis', '32 Cards', '28 Points', 'Kerala, India'
-  ];
-  // A real palette instead of one single gold everywhere - cycled per item (not random) so
-  // the mix is always even, never accidentally almost-all-one-color on a given round.
-  // Royal metallics instead of the old mixed palette (which had plain red/teal/green mixed
-  // in - not exactly regal). Gold and silver each get two shades so neighboring items don't
-  // read as identically-colored, but everything stays in the same rich, metallic family.
-  // Classic antique-gold palette, matching the same muted engraved-plate look as the RD/DL/
-  // TEAM/OPP/BIDDER bar and the game buttons, instead of the brighter royal-metallic glow this
-  // had before - one consistent classic style across the whole app rather than two different
-  // looks living side by side.
-  const DECOR_COLORS = ['#c9a24b', '#e8dcc0', '#8a6a2c', '#d4c896', '#a8895a', '#c4a876'];
   let idleTimer = null;
-  let overlay = null;
-  let bouncers = null;
+  let bouncers = null; // null when inactive
   let rafId = null;
+  let watermark = null;
 
   function isGameTableVisible() {
     const el = document.getElementById('gameWrap');
     return !!el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
   }
 
+  // Every seat (".pspot" -- avatar, name, bid, mini-cards, card count,
+  // all together as the one visual unit a player actually looks at) plus
+  // every card slot currently holding a played card in the middle of the
+  // table (".pslot" inside the felt). Deliberately NOT touching the
+  // local player's own hand at the bottom -- that stays put and
+  // interactive-looking the whole time, since bouncing someone's own
+  // cards while they're mid-decision would be actively confusing rather
+  // than a harmless idle effect.
+  // Per explicit request: also includes the top bar's own chips -- the
+  // YOU/OPP score boxes, the trump reveal chip, the round/dealer/tricks/
+  // bidder row, and the championship streak row when it's showing.
+  // Trump safety needs no special handling here: #trumpReveal's text
+  // content is already server-gated per viewer BEFORE this ever runs
+  // (see applyServerState -- state.hasHiddenTrump only carries the
+  // actual suit for the bidder, everyone else's client only ever
+  // receives "Hidden" in the first place). Bouncing the real live
+  // element just moves whatever that specific viewer was already
+  // legitimately allowed to see -- it can't leak anything further,
+  // since nothing here is a clone with broader access than the
+  // original.
+  function collectTargets() {
+    const targets = [];
+    document.querySelectorAll('.pspot').forEach(el => {
+      if (el.offsetParent && el.querySelector('.avatar')) targets.push(el);
+    });
+    document.querySelectorAll('.pslot').forEach(el => {
+      if (el.offsetParent && el.children.length > 0) targets.push(el);
+    });
+    ['yourScoreBox', 'oppScoreBox', 'trumpReveal'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.offsetParent) targets.push(el);
+    });
+    document.querySelectorAll('.info-row.info-main > div').forEach(el => {
+      if (el.offsetParent) targets.push(el);
+    });
+    const kingRow = document.getElementById('kingRow');
+    if (kingRow && kingRow.offsetParent) targets.push(kingRow);
+    return targets;
+  }
+
   function startScreensaver() {
-    if (!isGameTableVisible() || overlay) return;
-    overlay = document.createElement('div');
-    overlay.id = 'k28TableScreensaver';
-    overlay.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.55) 0%,rgba(4,9,18,0.72) 100%);z-index:99999;cursor:pointer;overflow:hidden';
-    document.body.appendChild(overlay);
+    if (!isGameTableVisible() || bouncers) return;
+    const targets = collectTargets();
+    if (!targets.length) return; // nothing on the table yet (e.g. still in bidding) -- nothing to bounce
 
     const vw = window.innerWidth, vh = window.innerHeight;
-    // Spawn on a jittered grid rather than pure random - a handful of items landing purely
-    // randomly can easily clump together at the start (exactly what happened with "Become
-    // the King." sitting right on top of a player's name), so divide the screen into roughly
-    // as many cells as there are items and place each one randomly within its own cell. Still
-    // looks organic (the jitter), but guarantees a spread instead of leaving it to chance.
-    const cols = Math.ceil(Math.sqrt(DECOR_ITEMS.length * vw / vh));
-    const rows = Math.ceil(DECOR_ITEMS.length / cols);
-    const cellW = vw / cols, cellH = vh / rows;
-    const cellOrder = Array.from({ length: cols * rows }, (_, i) => i);
-    for (let i = cellOrder.length - 1; i > 0; i--) { // shuffle so item order doesn't map to a predictable grid pattern
-      const j = Math.floor(Math.random() * (i + 1));
-      [cellOrder[i], cellOrder[j]] = [cellOrder[j], cellOrder[i]];
-    }
-    bouncers = DECOR_ITEMS.map((text, i) => {
-      const el = document.createElement('div');
-      el.textContent = text;
-      // Longer phrases get a smaller max size — without this, a long phrase at a large random
-      // size can render WIDER than the screen itself (measured: "Become the King." could hit
-      // ~390px, wider than most phone screens), which leaves no valid in-bounds position at
-      // all and makes the bounce math flip direction every single frame - that's the "jitter"
-      // that was actually happening, not a rendering glitch.
-      // Kept deliberately small and even across items (11-17px, not the old 16-42px range) —
-      // a screensaver reads as tasteful ambient motion at this scale; anything much larger
-      // starts competing with the actual table underneath for attention, which is the
-      // opposite of what an idle-state overlay should do.
-      const maxSizeForWidth = (vw * 0.8 - 20) / (text.length * 0.55);
-      const size = 11 + Math.random() * Math.max(0, Math.min(6, maxSizeForWidth - 11));
-      const itemColor = DECOR_COLORS[i % DECOR_COLORS.length];
-      // A soft glow in the item's own color underneath the usual dark drop-shadow, instead
-      // of just a flat-colored fill - that faint halo is what actually reads as "metallic
-      // sheen" rather than a plain, flat (i.e. "dull") color swatch. Weight and glow both
-      // pulled back from the original (700→600, 0x80 alpha→0x55) — heavy bold text with a
-      // strong glow at small sizes reads as garish rather than refined; a lighter touch is
-      // what actually looks premium at this scale.
-      el.style.cssText = `position:absolute;left:0;top:0;color:${itemColor};font-weight:600;
-        font-family:'Cinzel','Playfair Display',serif;letter-spacing:0.4px;
-        text-shadow:0 0 6px ${itemColor}55,0 1px 4px rgba(0,0,0,0.7);white-space:nowrap;pointer-events:none;font-size:${size}px;opacity:0.88`;
-      overlay.appendChild(el);
-      const w = Math.min(vw * 0.85, 20 + text.length * size * 0.55), h = size * 1.4; // rough estimate, good enough for bounce bounds
-      const cell = cellOrder[i % cellOrder.length];
-      const cellX = (cell % cols) * cellW, cellY = Math.floor(cell / cols) * cellH;
-      const homeX = Math.min(vw - w, Math.max(0, cellX + Math.random() * Math.max(1, cellW - w)));
-      const homeY = Math.min(vh - h, Math.max(0, cellY + Math.random() * Math.max(1, cellH - h)));
-      el.style.transform = `translate(${homeX}px,${homeY}px)`;
+    bouncers = targets.map(el => {
+      const rect = el.getBoundingClientRect();
+      // Remember exactly how this element was laid out before touching
+      // anything, so stopScreensaver can put it back byte-for-byte --
+      // this is a real, live game element, not a clone, so an inexact
+      // restore would leave the actual table subtly broken afterward.
+      const original = {
+        position: el.style.position, left: el.style.left, top: el.style.top,
+        margin: el.style.margin, zIndex: el.style.zIndex,
+        width: el.style.width, transition: el.style.transition,
+        transform: el.style.transform
+      };
+      el.style.transition = 'none';
+      el.style.position = 'fixed';
+      el.style.left = rect.left + 'px';
+      el.style.top = rect.top + 'px';
+      el.style.margin = '0';
+      el.style.width = rect.width + 'px';
+      el.style.zIndex = '99999';
       const angle = Math.random() * Math.PI * 2;
-      const speed = 22 + Math.random() * 35;
-      return { el, x: homeX, y: homeY, w, h, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed };
+      const speed = 40 + Math.random() * 50;
+      // Per explicit request: every bouncing object spins as it
+      // travels, not just translates -- a random starting spin speed
+      // (degrees/sec), applied via transform:rotate() each frame
+      // alongside the position. Picks up more spin every time it
+      // bounces off an edge (see the frame loop below), scaled to how
+      // fast it was moving at the moment of impact -- an actual
+      // calculated response to each hit, not just a constant idle spin.
+      return {
+        el, original, x: rect.left, y: rect.top, w: rect.width, h: rect.height,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        rot: 0, spin: (Math.random() - 0.5) * 90
+      };
     });
 
+    // Per explicit request: 28GULAN.COM is now one of the bouncing
+    // objects itself, not a static watermark sitting still in a
+    // reserved corner -- starts dead center, bold and large, and joins
+    // the exact same bouncers array/physics as everything else (same
+    // edge-bounce, same spin-on-impact), so it travels and tumbles
+    // across the whole screen just like the avatars and cards do.
+    // Marked isBrand so stopScreensaver knows to just remove it rather
+    // than try to restore "original" styles a synthetic element never
+    // had.
+    const brand = document.createElement('div');
+    brand.textContent = '28GULAN.COM';
+    // Per explicit request: matches the EXACT font/color/engraved style
+    // already used for the "28GULAN.COM" watermark carved into the felt
+    // itself (see .center .felt::after above), rather than an
+    // approximation -- same font-family, same --info-accent live-theme
+    // color, same light-upper-left/dark-lower-right engraved shadow
+    // stack. Also shrunk further per follow-up request.
+    // Per explicit follow-up: no more engraved shadow stack -- just a
+    // clean bordered chip instead, matching the same visual language as
+    // the trump-reveal chip elsewhere on this same top bar
+    // (border+radius+background, no heavy shadow stack), and shrunk
+    // again.
+    brand.style.cssText = 'position:fixed;color:var(--info-accent, #ffd700);font-family:\'Cinzel Decorative\',\'Fraunces\',serif;font-weight:700;letter-spacing:1.5px;font-size:clamp(8px,1.8vw,12px);border:1.5px solid var(--info-accent, #ffd700);border-radius:8px;padding:3px 8px;background:rgba(10,10,10,0.35);white-space:nowrap;pointer-events:none;z-index:99999';
+    document.body.appendChild(brand);
+    const brandRect = brand.getBoundingClientRect();
+    const brandAngle = Math.random() * Math.PI * 2;
+    const brandSpeed = 40 + Math.random() * 50;
+    const brandStartX = vw / 2 - brandRect.width / 2;
+    const brandStartY = vh / 2 - brandRect.height / 2;
+    brand.style.left = brandStartX + 'px';
+    brand.style.top = brandStartY + 'px';
+    bouncers.push({
+      el: brand, isBrand: true,
+      x: brandStartX, y: brandStartY, w: brandRect.width, h: brandRect.height,
+      vx: Math.cos(brandAngle) * brandSpeed, vy: Math.sin(brandAngle) * brandSpeed,
+      rot: 0, spin: (Math.random() - 0.5) * 90
+    });
+
+    // A light dimming layer on top of everything, purely for the
+    // dismissing click to land on safely. Per explicit report: this
+    // used to be BELOW the bouncing elements (z-index 99998 vs their
+    // 99999) -- meaning flying objects could render over whatever was
+    // on this layer, and a click on a bouncing element could reach that
+    // element's own handlers instead of this one. Now above everything,
+    // so it's always the one thing a click can land on.
+    watermark = document.createElement('div');
+    watermark.id = 'k28TableScreensaverBg';
+    watermark.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.25) 0%,rgba(4,9,18,0.35) 100%);z-index:100000;cursor:pointer';
+    document.body.appendChild(watermark);
+    watermark.addEventListener('click', stopScreensaver);
+    watermark.addEventListener('touchstart', stopScreensaver, { passive: true });
+
     let lastT = performance.now();
+    // Per explicit request: proper impulse-based physics instead of the
+    // earlier velocity-swap approximation. Real conservation-of-
+    // momentum along the collision normal (equal-mass elastic
+    // collision, restitution slightly under 1 so repeated hits don't
+    // gain energy from floating-point drift), PLUS torque: the impulse
+    // is applied at the actual contact point, not at each object's
+    // center, so a hit that lands off-center imparts spin around that
+    // contact point (a dead-center hit imparts none, exactly like real
+    // rigid bodies) -- this is what makes "hit on the left, left stays,
+    // right rotates" actually happen, rather than a random spin kick.
+    function resolveCollision(A, B) {
+      const overlapX = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
+      const overlapY = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
+      let nx, ny, contactX, contactY;
+      if (overlapX < overlapY) {
+        const sign = (A.x + A.w / 2 < B.x + B.w / 2) ? -1 : 1;
+        nx = sign; ny = 0;
+        A.x += sign * overlapX / 2; B.x -= sign * overlapX / 2;
+        contactX = sign > 0 ? A.x : A.x + A.w;
+        contactY = (Math.max(A.y, B.y) + Math.min(A.y + A.h, B.y + B.h)) / 2;
+      } else {
+        const sign = (A.y + A.h / 2 < B.y + B.h / 2) ? -1 : 1;
+        nx = 0; ny = sign;
+        A.y += sign * overlapY / 2; B.y -= sign * overlapY / 2;
+        contactX = (Math.max(A.x, B.x) + Math.min(A.x + A.w, B.x + B.w)) / 2;
+        contactY = sign > 0 ? A.y : A.y + A.h;
+      }
+      const rvx = A.vx - B.vx, rvy = A.vy - B.vy;
+      const velAlongNormal = rvx * nx + rvy * ny;
+      if (velAlongNormal > 0) return; // already separating, nothing to resolve
+      const restitution = 0.85;
+      const j = -(1 + restitution) * velAlongNormal / 2; // equal mass (1) on both sides
+      const jx = j * nx, jy = j * ny;
+      A.vx += jx; A.vy += jy;
+      B.vx -= jx; B.vy -= jy;
+      // Torque = r x J (2D cross product, z-component only) -- r is the
+      // offset from each object's own center to the actual contact
+      // point, so the SAME impulse produces zero spin on a dead-center
+      // hit and maximum spin on a hit right at the corner/edge.
+      const centerAx = A.x + A.w / 2, centerAy = A.y + A.h / 2;
+      const centerBx = B.x + B.w / 2, centerBy = B.y + B.h / 2;
+      const rAx = contactX - centerAx, rAy = contactY - centerAy;
+      const rBx = contactX - centerBx, rBy = contactY - centerBy;
+      const torqueA = rAx * jy - rAy * jx;
+      const torqueB = -(rBx * jy - rBy * jx);
+      const IA = (A.w * A.w + A.h * A.h) / 12 || 1;
+      const IB = (B.w * B.w + B.h * B.h) / 12 || 1;
+      // Pixels/degrees have no "real" physical scale to convert
+      // through, so this constant is tuned for visual feel (a
+      // noticeable but not violent spin on a solid off-center hit),
+      // not derived from any real unit system.
+      const spinScale = 55;
+      A.spin += (torqueA / IA) * spinScale;
+      B.spin += (torqueB / IB) * spinScale;
+      A.spin = Math.max(-260, Math.min(260, A.spin));
+      B.spin = Math.max(-260, Math.min(260, B.spin));
+    }
     function frame(t) {
-      if (!overlay) return;
+      if (!bouncers) return;
       const dt = Math.min(0.05, (t - lastT) / 1000);
       lastT = t;
+      // Per explicit urgent report: the torque-based collision physics
+      // added above only ever fires on an object-vs-object hit -- wall
+      // bounces (which are what MOST hits actually are, since objects
+      // overlap each other far less often than they hit a screen edge)
+      // were left completely untouched, so an object's spin only ever
+      // got set once at creation and then never changed again unless it
+      // happened to collide with something else. That's exactly what
+      // reads as "rotating in one direction only" -- it wasn't really
+      // one direction, it just never varied after the first frame for
+      // most objects most of the time. Every wall bounce now also kicks
+      // the spin, scaled to how fast it was moving at that moment, same
+      // as the object-vs-object case.
       for (const b of bouncers) {
         b.x += b.vx * dt;
         b.y += b.vy * dt;
-        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
-        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); }
-        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
-        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); }
-        b.el.style.transform = `translate(${b.x.toFixed(1)}px,${b.y.toFixed(1)}px)`;
+        let bounced = false;
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); bounced = true; }
+        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); bounced = true; }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); bounced = true; }
+        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); bounced = true; }
+        if (bounced) {
+          const impactSpeed = Math.hypot(b.vx, b.vy);
+          b.spin += (Math.random() - 0.5) * impactSpeed * 0.6;
+          b.spin = Math.max(-260, Math.min(260, b.spin));
+        }
+      }
+      // Every bouncer checks against every other one (not just the
+      // brand) now that real physics is in play -- the brand still
+      // bounces off avatars/cards exactly as before, this just makes
+      // the response itself correct.
+      for (let i = 0; i < bouncers.length; i++) {
+        for (let j = i + 1; j < bouncers.length; j++) {
+          const A = bouncers[i], B = bouncers[j];
+          if (A.x < B.x + B.w && A.x + A.w > B.x && A.y < B.y + B.h && A.y + A.h > B.y) {
+            resolveCollision(A, B);
+          }
+        }
+      }
+      for (const b of bouncers) {
+        b.rot += b.spin * dt;
+        b.el.style.left = b.x.toFixed(1) + 'px';
+        b.el.style.top = b.y.toFixed(1) + 'px';
+        b.el.style.transform = 'rotate(' + b.rot.toFixed(1) + 'deg)';
       }
       rafId = requestAnimationFrame(frame);
     }
     rafId = requestAnimationFrame(frame);
-
-    // The overlay itself is what the dismissing click lands on - it's on top of everything
-    // at z-index 99999, so this click can never also reach a card or button underneath.
-    overlay.addEventListener('click', stopScreensaver);
-    overlay.addEventListener('touchstart', stopScreensaver, { passive: true });
   }
 
   function stopScreensaver() {
     if (rafId) cancelAnimationFrame(rafId);
     rafId = null;
-    if (overlay) overlay.remove();
-    overlay = null;
+    if (bouncers) {
+      for (const b of bouncers) {
+        if (b.isBrand) { b.el.remove(); continue; }
+        // Restore every touched property exactly, not just the ones this
+        // effect happens to set -- clearing anything left as '' lets the
+        // element's real stylesheet rules take back over normally.
+        b.el.style.position = b.original.position;
+        b.el.style.left = b.original.left;
+        b.el.style.top = b.original.top;
+        b.el.style.margin = b.original.margin;
+        b.el.style.zIndex = b.original.zIndex;
+        b.el.style.width = b.original.width;
+        b.el.style.transition = b.original.transition;
+        b.el.style.transform = b.original.transform;
+      }
+    }
     bouncers = null;
+    if (watermark) { watermark.remove(); watermark = null; }
   }
 
   function resetIdleTimer() {
@@ -17083,7 +17784,7 @@ function serverBotPlayForMe() {
   // actually doing anything. Those aren't real activity and shouldn't count as it - without
   // this check, a bot-vs-bot or auto-advancing game could keep resetting this timer forever
   // and the screensaver would never actually get a chance to run.
-  function handleActivity(e) { if (e.isTrusted) resetIdleTimer(); }
+  function handleActivity(e) { if (e.isTrusted) { stopScreensaver(); resetIdleTimer(); } }
   ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, handleActivity, { passive: true }));
   // Visibility can change without a click (navigating in from the welcome screen, a hand
   // ending, etc.) - this only ARMS the timer if nothing is already counting down; it must
@@ -17091,9 +17792,127 @@ function serverBotPlayForMe() {
   // countdown every 2 seconds forever, and the real idle time genuinely never accumulates
   // regardless of any clicks at all - which is exactly what was happening.
   setInterval(() => { if (idleTimer === null && isGameTableVisible()) resetIdleTimer(); }, 2000);
+  window.addEventListener('resize', () => { if (bouncers) stopScreensaver(); resetIdleTimer(); });
   resetIdleTimer();
+  // Per explicit instruction: a player joining the table -- or, just as
+  // importantly here, the actual game state changing underneath this
+  // (someone bids, plays a card, a round resets) -- is a genuine reason
+  // to snap the real table back to normal, not just a click. Exposed as
+  // a small global hook specifically for those external call sites to
+  // reach into this otherwise-private screensaver state.
+  window.k28WakeTableScreensaver = function() { stopScreensaver(); resetIdleTimer(); };
 })();
 
+</script>
+<script>
+// Per explicit request: a subtle, always-on seasonal particle effect
+// over the live game table (not tied to the idle screensaver below --
+// this runs the whole time a hand is in progress). Preset picked once
+// from the real calendar date, not randomly, so it's actually
+// consistent with what time of year it is when someone's playing.
+// Deliberately lightweight: a couple dozen small shapes drifting down a
+// canvas is enough to read as "ambient" without competing for
+// attention with the actual cards -- ambient decoration should stay in
+// the background, not become the main event.
+(function() {
+  const canvas = document.getElementById('k28SeasonCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  let dpr = window.devicePixelRatio || 1;
+
+  function currentSeasonPreset() {
+    const month = new Date().getMonth(); // 0-11, real device clock
+    if (month === 7 || month === 8) {
+      // Aug/Sep -- Onam, Kerala's own harvest festival. This is the
+      // preset that'll actually be showing at launch.
+      return { colors: ['#f4c430', '#e8a33d', '#d9534f', '#f7e967', '#ffb347'], shape: 'petal', count: 20, speed: [16, 30] };
+    }
+    if (month === 9 || month === 10) { // Oct/Nov -- Diwali
+      return { colors: ['#ffd700', '#ffb347', '#ff8c00', '#fff2b2'], shape: 'spark', count: 18, speed: [14, 26] };
+    }
+    if (month === 11 || month === 0) { // Dec/Jan -- Christmas/New Year
+      return { colors: ['#ffffff', '#e8f4ff', '#cfe8ff'], shape: 'snow', count: 24, speed: [12, 22] };
+    }
+    // Rest of the year: a gentle sparkle in the site's own gold accent
+    // family -- always on-theme, never a jarring off-brand color.
+    return { colors: ['#f4c430', '#e6a817', '#fff3c4'], shape: 'spark', count: 12, speed: [10, 18] };
+  }
+  const preset = currentSeasonPreset();
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+  }
+
+  function spawn() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    particles = Array.from({ length: preset.count }, () => ({
+      x: Math.random() * w, y: Math.random() * h - h,
+      size: 3 + Math.random() * 4,
+      speed: preset.speed[0] + Math.random() * (preset.speed[1] - preset.speed[0]),
+      drift: (Math.random() - 0.5) * 14,
+      rot: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 1.2,
+      color: preset.colors[Math.floor(Math.random() * preset.colors.length)],
+      opacity: 0.3 + Math.random() * 0.35
+    }));
+  }
+
+  function drawParticle(p) {
+    ctx.save();
+    ctx.translate(p.x * dpr, p.y * dpr);
+    ctx.rotate(p.rot);
+    ctx.globalAlpha = p.opacity;
+    ctx.fillStyle = p.color;
+    if (preset.shape === 'petal') {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, p.size * dpr, p.size * dpr * 0.55, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (preset.shape === 'snow') {
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size * dpr * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = (Math.PI / 2) * i;
+        ctx.lineTo(Math.cos(a) * p.size * dpr, Math.sin(a) * p.size * dpr);
+        ctx.lineTo(Math.cos(a + Math.PI / 4) * p.size * dpr * 0.35, Math.sin(a + Math.PI / 4) * p.size * dpr * 0.35);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  let lastT = performance.now();
+  function frame(t) {
+    // offsetParent is null whenever this canvas (or an ancestor, i.e.
+    // the whole game-wrap) is display:none -- the cheapest possible
+    // "is this actually on screen right now" check, so this effect
+    // costs nothing while someone's on the lobby/welcome screen.
+    if (canvas.offsetParent) {
+      const dt = Math.min(0.05, (t - lastT) / 1000);
+      lastT = t;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const h = canvas.clientHeight;
+      for (const p of particles) {
+        p.y += p.speed * dt; p.x += p.drift * dt; p.rot += p.spin * dt;
+        if (p.y > h + 10) { p.y = -10; p.x = Math.random() * canvas.clientWidth; }
+        drawParticle(p);
+      }
+    } else {
+      lastT = t;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  spawn();
+  requestAnimationFrame(frame);
+})();
 </script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page has fully

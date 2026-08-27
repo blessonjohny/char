@@ -45,7 +45,7 @@ let isAutoReconnectAttempt6p = false;
 // player's choice carries over between tables instead of resetting.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = [...Array.from({length:36}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:64}, (_,i) => 'hero3m'+(i+1))];
+const ALL_AVATAR_KEYS = [...Array.from({length:25}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:25}, (_,i) => 'hero3m'+(i+1))];
 if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
 }
@@ -1091,10 +1091,46 @@ function connectSocket() {
     // states for the table we're actually at.
     if (state && state.tableId && MY_TABLE_ID && state.tableId !== MY_TABLE_ID) return;
     applyState(state);
+    // Per explicit request: mirrors the 4-player table's identical
+    // hook -- the live game state changing at all is exactly the
+    // "whatever is live" moment the idle screensaver should snap back
+    // for. No-op whenever the screensaver isn't currently running.
+    if (typeof window.k28WakeTableScreensaver6p === 'function') window.k28WakeTableScreensaver6p();
   });
 
   socket.on('sixp_chat', ({ from, msg, senderId }) => {
     addChatMessage(from, msg, senderId === socket.id);
+  });
+
+  // Per explicit instruction: same feature as index.html's identical
+  // handler, see there for the fuller reasoning -- only shows for the
+  // two people actually involved, not the whole table.
+  socket.on('sixp_buddyGreeting', ({ fromPos, toPos }) => {
+    // fromPos is the clicker, toPos is whose avatar got clicked -- but
+    // the MESSAGE is written the other way around (as if the clicked
+    // player is greeting the clicker), so {from}/{to} in the template
+    // are the reverse of the socket's fromPos/toPos.
+    if (MY_POS === fromPos || MY_POS === toPos) {
+      const nameAt = (pos) => (pos === MY_POS ? (MY_NAME || 'You') : ((latestState && latestState.seats[pos] && latestState.seats[pos].name) || 'Someone'));
+      window.showBuddyGreeting(nameAt(toPos), nameAt(fromPos));
+    }
+  });
+
+  // Per explicit instruction: a nice, visible popup for everyone
+  // already seated when someone new joins -- reuses the same
+  // showGameEvent "big moment" popup already used elsewhere on this
+  // table (bid made/failed, trump exposed) rather than a plain toast,
+  // so this reads as a genuinely welcoming moment, not routine text.
+  socket.on('sixp_playerJoinedNotice', ({ name }) => {
+    showGameEvent('👋', 'New Player!', (name || 'Someone') + ' just joined the table', '#f4c430');
+  });
+
+  // Mirrors the join popup above, for the other direction -- fires the
+  // same moment the departing seat's avatar ring flips red (isBot
+  // becomes true server-side), so the departure is just as visible as
+  // an arrival rather than only a passive border color change.
+  socket.on('sixp_playerLeftNotice', ({ name }) => {
+    showGameEvent('🔌', 'Player Left', (name || 'Someone') + ' left the table — a bot has taken over', '#e74c3c');
   });
 
   socket.on('sixp_stillPlayingCheck', ({ seconds }) => showStillPlayingPopup(seconds || 60));
@@ -1498,6 +1534,24 @@ function applyState(state) {
         }
       }
       lastAnnouncedTrumpExposed = true;
+    } else if (state.bidder === MY_POS && state.myHiddenTrumpCard && state.myHiddenTrumpCard.suit) {
+      // Per explicit instruction: the bidder already knows their own
+      // hidden trump suit (they're the one who chose it), so there's
+      // no real secrecy left to protect by showing them the same
+      // generic "Hidden" every other player sees. Gated explicitly on
+      // state.bidder === MY_POS (not just on myHiddenTrumpCard being
+      // populated, even though the server should already only ever
+      // send that field to the bidder themselves) to be doubly certain
+      // this can never show the suit to anyone but the bidder --
+      // everyone else still sees plain "Hidden" exactly as before.
+      // Same technique as index.html's identical rule.
+      const mySuit = state.myHiddenTrumpCard.suit;
+      const isRedSuit = mySuit === '♦' || mySuit === '♥';
+      const iconClass = 'trump-chip-icon' + (isRedSuit ? ' icon-red-suit' : ' icon-black-suit-chip');
+      tr.innerHTML = '<span class="' + iconClass + '">' + mySuit + '</span>';
+      tr.style.color = '';
+      tr.classList.remove('trump-active');
+      lastAnnouncedTrumpExposed = false;
     } else {
       tr.innerHTML = 'Trump: Hidden';
       tr.style.color = '';
@@ -1690,40 +1744,40 @@ const SLOT_POS = [
 // replaced with the actual number for messages that reference it -- not
 // every bid message needs to, some are just attitude with no number.
 const PASS_MESSAGES = [
-  "Crappy hands.", "What's goin on with my hands...", "All day no hands.",
-  "Nothing here.", "Not today.", "I fold on this one.",
-  "My cards hate me.", "No, no, no.", "Zero help in this hand.",
-  "Can't work with this.", "Skip me.", "Rough draw this round.",
-  "I got nothing.", "Not my hand.", "Gotta save myself.",
-  "Dead cards.", "No trump for me here.", "I'll sit this one out.",
-  "Weak hand, no bid.", "Try me next round.", "This hand's a mess.",
-  "Nothing worth bidding.", "I'm out.", "Cards are cold today.",
-  "No shot with this.", "Nothing to work with.", "Empty hand.",
-  "Not gonna risk it.", "I'll wait it out.", "My luck's off.",
-  "Bad cut today.", "Can't do anything with this.", "Not strong enough.",
-  "Folding this hand.", "No points in sight.", "Better luck next deal.",
-  "This hand's cursed.", "No support here.", "Nothing to bid on.",
-  "I'll let it go.", "Whole hand's off-suit.", "My hand's a disaster.",
-  "No good here.", "I need better cards than this.", "This one's not mine.",
-  "Not touching this hand."
+  "Crappy hands.", "No hands.", "Dead cards.",
+  "Not today.", "I fold.", "Cards hate me.",
+  "Zero help.", "Can't work.", "Skip me.",
+  "Rough draw.", "I got nothing.", "Not my hand.",
+  "Save myself.", "No trump.", "Sit out.",
+  "No bid.", "Try next round.", "Hand's a mess.",
+  "Not worth it.", "I'm out.", "Cards are cold.",
+  "No shot.", "Nothing here.", "Empty hand.",
+  "Too risky.", "I'll wait.", "Luck's off.",
+  "Bad cut.", "Can't do it.", "Not strong.",
+  "Folding.", "No points.", "Better luck.",
+  "Hand's cursed.", "No support.", "Nothing to bid.",
+  "Let it go.", "Off-suit hand.", "Bad hand.",
+  "No good.", "Need better.", "Not mine.",
+  "Not my hand.", "No cards.", "Bad hand.",
+  "Weak hand."
 ];
 const BID_MESSAGES = [
-  "I raise u.", "I reraise u.", "Honors, let's go!",
-  "I'm taking a chance.", "Minimum this time.", "Watch me.",
-  "I'll push it.", "Going for it.", "And I mean it.",
+  "I raise.", "Reraise you.", "Honors, go!",
+  "Taking a shot.", "Minimum bid.", "Watch me.",
+  "Pushing it.", "Going for it.", "I mean it.",
   "Let's raise.", "I got this.", "Feeling good.",
-  "Try and beat that.", "I'm not backing down.", "Strong hand.",
-  "Take it or leave it.", "Raising it up.", "I'll call it.",
-  "Going big.", "No fear.", "This hand's mine.",
-  "I like my chances.", "Trust me.", "Let's see it.",
+  "Beat that.", "Staying in.", "Strong hand.",
+  "Take it.", "Raising up.", "I'll call it.",
+  "Going big.", "No fear.", "Hand's mine.",
+  "Like my odds.", "Trust me.", "Let's see it.",
   "I'm confident.", "Come at me.", "Solid cards.",
-  "Pushing it.", "Easy pick.", "I'll take it up.",
-  "Not folding.", "This hand's loaded.", "I see an opening.",
-  "Locked in.", "My hand's ready.", "Calling it.",
-  "Bidding it up.", "Let's make it interesting.", "Feeling lucky.",
-  "I'm in.", "No hesitation.", "Taking the lead.",
-  "I mean business.", "Going for the win.", "I'll bet on this.",
-  "All in on this hand."
+  "Pushing up.", "Easy pick.", "Taking it up.",
+  "Not folding.", "Hand's loaded.", "Found a gap.",
+  "Locked in.", "Hand's ready.", "Calling it.",
+  "Raising it.", "Getting good.", "Feeling lucky.",
+  "I'm in.", "No hesitation.", "Taking lead.",
+  "Mean business.", "Big bid.", "Betting big.",
+  "All in."
 ];
 
 // A simple deterministic hash of (seat position + which bid-in-the-
@@ -1760,6 +1814,21 @@ function pickCallMessage(pool, pos, seq, bid) {
 // on. Replaces the old two-way (above seats 0/1/5, below seats 2/3/4)
 // split with a direction for every seat individually.
 const CALL_BADGE_DIR = ['n', 'nw', 'sw', 's', 'se', 'ne'];
+// Per non-negotiable instruction: one single object, oval+tail as ONE
+// path, not a shape plus a separately-attached piece. Same technique
+// as index.html's identical constant -- see there for the full
+// reasoning. The oval portion is byte-for-byte identical in all six;
+// only the tail portion differs, computed programmatically and each
+// one actually rendered and visually verified before use.
+// Per explicit instruction: no tail/arrow at all - the oval alone is enough. Every direction
+// key still exists (so the positioning CSS classes and JS lookups elsewhere don't need to
+// change), they just all point at the identical plain-oval path now instead of six different
+// tail shapes.
+const OVAL_ONLY_PATH = "M6,40 a44,20 0 1,0 88,0 a44,20 0 1,0 -88,0 Z";
+const CALL_BADGE_PATHS = {
+  n: OVAL_ONLY_PATH, ne: OVAL_ONLY_PATH, se: OVAL_ONLY_PATH,
+  s: OVAL_ONLY_PATH, sw: OVAL_ONLY_PATH, nw: OVAL_ONLY_PATH,
+};
 
 const SEAT_POS = [
   { left: '50%', top: '78%' },   // 0 me
@@ -2037,9 +2106,10 @@ function renderSeats(state) {
       // keeps showing every re-render of this same call, not a new
       // random pick each time.
       const header = isThani ? 'Thani!' : isPass ? 'Pass' : 'Bid ' + lastCall.bid;
-      const flavor = isThani ? '' : isPass
-        ? pickCallMessage(PASS_MESSAGES, pos, lastCallIdx.i, 0)
-        : pickCallMessage(BID_MESSAGES, pos, lastCallIdx.i, lastCall.bid);
+      // Per explicit follow-up: same simplification as the 4-player
+      // table's identical change -- no more custom flavor lines, just
+      // the plain call itself.
+      const flavor = '';
       const label = header + (flavor ? '\n' + flavor : '');
       if (!callEl) { callEl = document.createElement('div'); callEl.className = 'call-badge'; wrap.appendChild(callEl); }
       // Per explicit instruction: each seat's bubble is now offset
@@ -2056,15 +2126,19 @@ function renderSeats(state) {
       if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
       if (callEl.dataset.v !== label) {
         callEl.dataset.v = label;
-        // innerHTML with the header in its own bold line and the flavor
-        // text right below, rather than textContent -- plain textContent
-        // would need white-space:pre-line for a \n to actually render as
-        // a line break, and this reads more clearly as two distinct
-        // lines (a bold "Pass"/"Bid 17" header, a lighter flavor line
-        // under it) than one plain wrapped block of text would.
-        callEl.innerHTML = flavor
+        // Per non-negotiable instruction: one single object, oval+tail
+        // as ONE path, not a shape plus a separately-attached piece.
+        // Same technique as index.html's identical rule -- see there
+        // for the full reasoning.
+        // Per explicit follow-up report: lightened from near-black
+        // (#241010/#0a1f0f, which just read as flat black) to an
+        // actually visible dark maroon/forest-green -- same fix and
+        // same reasoning as index.html's identical change.
+        const fillColor = isPass ? '#4a1a1a' : '#123d22';
+        const bgSvg = `<svg class="call-badge-bg" viewBox="-5 -10 110 100"><path d="${CALL_BADGE_PATHS[CALL_BADGE_DIR[slot]]}" fill="${fillColor}" stroke="currentColor" stroke-width="2.2"/></svg>`;
+        callEl.innerHTML = (flavor
           ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
-          : `<div class="call-badge-header">${header}</div>`;
+          : `<div class="call-badge-header">${header}</div>`) + bgSvg;
       }
     } else if (callEl) { callEl.remove(); }
   }
@@ -2331,6 +2405,96 @@ function suitIconSvg(suit, cls) {
   return `<svg class="${cls}" viewBox="0 0 100 100" aria-hidden="true"><use href="#suit-${id}"></use></svg>`;
 }
 function cardColor(suit) { return (suit === '♥' || suit === '♦') ? '#c0392b' : '#111'; }
+// Per explicit bug report ("can't see all the cards from left and right,
+// overflow") -- same function as index.html's identical one, see there
+// for the fuller reasoning. The small hand preview inside the bid modal
+// (#bidHandDisplay) should show full playing-card size with real
+// spacing, only overlapping at all if the actual number of cards
+// genuinely can't fit the container's real width otherwise -- measured
+// live at render time (varies by device), not a fixed CSS value.
+function layoutHandPreviewCards(container) {
+  const cards = container.querySelectorAll('.card');
+  if (cards.length === 0) return;
+  const cardWidth = cards[0].getBoundingClientRect().width;
+  if (cardWidth === 0) { requestAnimationFrame(() => layoutHandPreviewCards(container)); return; }
+  const gap = 6;
+  const naturalTotalWidth = cards.length * cardWidth + (cards.length - 1) * gap;
+  const availableWidth = container.clientWidth;
+  cards.forEach((card, i) => {
+    if (i === 0) { card.style.marginLeft = '0'; return; }
+    if (naturalTotalWidth <= availableWidth) {
+      card.style.marginLeft = gap + 'px';
+    } else {
+      const neededOverlapTotal = naturalTotalWidth - availableWidth;
+      const perCardOverlap = neededOverlapTotal / (cards.length - 1);
+      card.style.marginLeft = '-' + Math.min(cardWidth - 8, perCardOverlap).toFixed(1) + 'px';
+    }
+  });
+}
+// Per explicit instruction ("all tables"): same buddy-greeting feature
+// Per explicit instruction: clicking on another player's own avatar at
+// the table (not your own) pops a big, warm "Cheers!" toast with a
+// large drink glyph for a few seconds then fades away on its own --
+// purely social/fun, no gameplay effect. Same random drink pool as
+// index.html's identical feature -- see there for the fuller reasoning;
+// this file needs its own actual copy since the two pages are separate
+// loads, not a shared browser context.
+window.K28_CHEERS_DRINKS = [
+  { emoji: '🥂', label: 'a glass' },
+  { emoji: '🧋', label: 'bubble tea' },
+  { emoji: '🥤', label: 'red soda water' },
+  { emoji: '🥤', label: 'blue soda water' },
+  { emoji: '☕', label: 'coffee' },
+  { emoji: '🍵', label: 'tea' },
+  { emoji: '🧃', label: 'juice' },
+  { emoji: '🍋', label: 'lemonade' },
+  { emoji: '🍷', label: 'a toast' },
+  { emoji: '🍺', label: 'a cold one' },
+  { emoji: '🍾', label: 'a celebration' },
+  { emoji: '🥃', label: 'the good stuff' }
+];
+window.showBuddyGreeting = function(fromName, toName) {
+  const pool = window.K28_CHEERS_DRINKS;
+  const drink = pool[Math.floor(Math.random() * pool.length)];
+  const msg = (fromName || 'Someone') + ' toasts ' + (toName || 'you') + ' with ' + drink.label + ' — Cheers!';
+  const bubble = document.createElement('div');
+  bubble.innerHTML = '<div style="font-size:3rem;line-height:1;margin-bottom:8px">' + drink.emoji + '</div><div>' + escapeHtml(msg) + '</div>';
+  bubble.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(0.7);' +
+    'background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;font-weight:900;' +
+    'font-family:var(--display-font, serif);font-size:1.4rem;padding:20px 32px;border-radius:20px;' +
+    'box-shadow:0 12px 40px rgba(0,0,0,0.5),0 0 0 3px rgba(255,255,255,0.25);' +
+    'z-index:9500;text-align:center;max-width:80vw;opacity:0;' +
+    'transition:opacity 0.25s ease,transform 0.25s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none';
+  document.body.appendChild(bubble);
+  requestAnimationFrame(() => { bubble.style.opacity = '1'; bubble.style.transform = 'translate(-50%,-50%) scale(1)'; });
+  setTimeout(() => {
+    bubble.style.opacity = '0';
+    bubble.style.transform = 'translate(-50%,-50%) scale(0.85)';
+    setTimeout(() => bubble.remove(), 300);
+  }, 2200);
+};
+['av1', 'av2', 'av3', 'av4', 'av5'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const slotIndex = parseInt(id.replace('av', ''), 10);
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', () => {
+    // slotFor(pos) maps an actual game position to a screen slot;
+    // there's no ready-made inverse, so find whichever position
+    // currently maps to the slot that was actually clicked.
+    let targetPos = -1;
+    for (let pos = 0; pos < 6; pos++) { if (slotFor(pos) === slotIndex) { targetPos = pos; break; } }
+    if (targetPos === -1) return;
+    if (typeof socket !== 'undefined' && socket && socket.connected) {
+      socket.emit('sixp_buddyGreeting', { toPos: targetPos });
+    } else {
+      // Offline (bots): no round trip needed, show it immediately.
+      // {from} = the avatar that got clicked, {to} = the local player.
+      const clickedName = (latestState && latestState.seats[targetPos] && latestState.seats[targetPos].name) || 'Someone';
+      window.showBuddyGreeting(clickedName, MY_NAME || 'You');
+    }
+  });
+});
 function cardHTML(c, clickable, disabled, extraClass) {
   const clk = clickable ? `onclick="playHandCard('${c.suit}','${c.rank}')"` : '';
   const color = cardColor(c.suit);
@@ -2454,12 +2618,21 @@ function showBidPanel(state) {
   // instant they were tapped, which is exactly the confusing
   // "why did my legal-looking tap just fail" bug reported.
   const honorsRestricted = !isFirst && state.highestBid > 0 && (state.bidder % 2) === (MY_POS % 2);
+  // Per explicit instruction: a further restriction on top of the
+  // honors-restriction above -- once the partner's own bid has ALREADY
+  // reached honors level (20+), placeBid() now only accepts exactly 28
+  // as a numeric raise (Thani remains available separately, rendered
+  // below regardless of this). Mirrors game-engine-6p.js's identical
+  // placeBid() check exactly, so this UI never offers a button the
+  // server would actually reject.
+  const partnerAlreadyHonors = honorsRestricted && state.highestBid >= 20;
   const minBid = honorsRestricted ? Math.max(20, state.highestBid + 1) : (state.highestBid > 0 ? state.highestBid + 1 : 16);
   $('bidTitle').textContent = 'Place Your Bid';
   $('bidText').innerHTML = (state.highestBid > 0
     ? `Current highest: <b style="color:var(--accent)">${state.highestBid}</b> by ${sixpRelLabel(state.bidder, state.seats)}`
     : 'You are the first bidder — must bid at least 16.')
-    + (honorsRestricted ? `<br><span style="color:var(--accent)">Your partner is already highest — you can only call ${minBid} or above.</span>` : '')
+    + (partnerAlreadyHonors ? `<br><span style="color:var(--accent)">Your partner is already at honors — you can only call 28 or Thani.</span>`
+       : honorsRestricted ? `<br><span style="color:var(--accent)">Your partner is already highest — you can only call ${minBid} or above.</span>` : '')
     + sixpRenderBidHistory(state.bidHistory, state.seats);
   const btns = $('bidButtons');
   btns.innerHTML = '';
@@ -2472,12 +2645,20 @@ function showBidPanel(state) {
     pass.addEventListener('click', () => showBidConfirm(state, 0, true));
     btns.appendChild(pass);
   }
-  for (let b = minBid; b <= 28; b++) {
+  if (partnerAlreadyHonors) {
     const btn = document.createElement('button');
     btn.className = 'bid-btn';
-    btn.textContent = b;
-    btn.addEventListener('click', () => showBidConfirm(state, b, false));
+    btn.textContent = 28;
+    btn.addEventListener('click', () => showBidConfirm(state, 28, false));
     btns.appendChild(btn);
+  } else {
+    for (let b = minBid; b <= 28; b++) {
+      const btn = document.createElement('button');
+      btn.className = 'bid-btn';
+      btn.textContent = b;
+      btn.addEventListener('click', () => showBidConfirm(state, b, false));
+      btns.appendChild(btn);
+    }
   }
   // THANI -- the last, highest bid option, beating any numeric bid.
   // Going it alone: both other teammates fold out of the round entirely
@@ -2496,6 +2677,13 @@ function showBidPanel(state) {
   const sorted = hand.slice().sort((a, b) => SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit) || RANK_ORDER[b.rank] - RANK_ORDER[a.rank]);
   $('bidHandDisplay').innerHTML = sorted.map(c => cardHTML(c, false, false, '')).join('');
   $('bidOverlay').classList.add('on');
+  // Per explicit bug report ("can't see all the cards, overflow"): same
+  // fix as index.html's identical function -- must run AFTER the modal
+  // is actually visible (a display:none container's children have no
+  // layout box, so measuring width before this point would read 0 and
+  // produce broken math), and wrapped in requestAnimationFrame so the
+  // browser has genuinely painted a frame with the real layout first.
+  requestAnimationFrame(() => layoutHandPreviewCards($('bidHandDisplay')));
 }
 
 // A confirm step before the bid actually goes to the server — a
@@ -3352,3 +3540,336 @@ function requestFullscreen28() {
     }
   } catch (e) { /* not available here -- fine, just skip it */ }
 }
+
+// Per explicit request: same always-on seasonal particle effect as the
+// 4-player table (see index.html's identical block for the fuller
+// reasoning) -- date-driven preset, runs continuously while the game
+// screen is up, pauses itself for free whenever it isn't visible.
+(function() {
+  const canvas = document.getElementById('k28SeasonCanvas6p');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  let dpr = window.devicePixelRatio || 1;
+
+  function currentSeasonPreset() {
+    const month = new Date().getMonth();
+    if (month === 7 || month === 8) {
+      return { colors: ['#f4c430', '#e8a33d', '#d9534f', '#f7e967', '#ffb347'], shape: 'petal', count: 20, speed: [16, 30] };
+    }
+    if (month === 9 || month === 10) {
+      return { colors: ['#ffd700', '#ffb347', '#ff8c00', '#fff2b2'], shape: 'spark', count: 18, speed: [14, 26] };
+    }
+    if (month === 11 || month === 0) {
+      return { colors: ['#ffffff', '#e8f4ff', '#cfe8ff'], shape: 'snow', count: 24, speed: [12, 22] };
+    }
+    return { colors: ['#f4c430', '#e6a817', '#fff3c4'], shape: 'spark', count: 12, speed: [10, 18] };
+  }
+  const preset = currentSeasonPreset();
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+  }
+
+  function spawn() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    particles = Array.from({ length: preset.count }, () => ({
+      x: Math.random() * w, y: Math.random() * h - h,
+      size: 3 + Math.random() * 4,
+      speed: preset.speed[0] + Math.random() * (preset.speed[1] - preset.speed[0]),
+      drift: (Math.random() - 0.5) * 14,
+      rot: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 1.2,
+      color: preset.colors[Math.floor(Math.random() * preset.colors.length)],
+      opacity: 0.3 + Math.random() * 0.35
+    }));
+  }
+
+  function drawParticle(p) {
+    ctx.save();
+    ctx.translate(p.x * dpr, p.y * dpr);
+    ctx.rotate(p.rot);
+    ctx.globalAlpha = p.opacity;
+    ctx.fillStyle = p.color;
+    if (preset.shape === 'petal') {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, p.size * dpr, p.size * dpr * 0.55, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (preset.shape === 'snow') {
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size * dpr * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = (Math.PI / 2) * i;
+        ctx.lineTo(Math.cos(a) * p.size * dpr, Math.sin(a) * p.size * dpr);
+        ctx.lineTo(Math.cos(a + Math.PI / 4) * p.size * dpr * 0.35, Math.sin(a + Math.PI / 4) * p.size * dpr * 0.35);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  let lastT = performance.now();
+  function frame(t) {
+    if (canvas.offsetParent) {
+      const dt = Math.min(0.05, (t - lastT) / 1000);
+      lastT = t;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const h = canvas.clientHeight;
+      for (const p of particles) {
+        p.y += p.speed * dt; p.x += p.drift * dt; p.rot += p.spin * dt;
+        if (p.y > h + 10) { p.y = -10; p.x = Math.random() * canvas.clientWidth; }
+        drawParticle(p);
+      }
+    } else {
+      lastT = t;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  spawn();
+  requestAnimationFrame(frame);
+})();
+
+// ==================== IDLE SCREENSAVER (live 6-player game table) ====================
+// This table had no idle screensaver at all before -- this mirrors the
+// 4-player table's real-object version (see index.html's identical
+// block for the fuller reasoning): every seat (".seat" -- avatar, name,
+// call-badge, all as one unit) and every card currently sitting in a
+// trick slot in the middle physically bounces around the screen,
+// DVD-logo style. Snaps everything back to its exact original spot the
+// instant there's real activity (a click/tap, or the live game state
+// changing underneath -- see the sixp_state hook above), so nothing
+// about the actual game can be disturbed, only how it looks while
+// genuinely idle. 1 minute idle, only while the game screen is showing.
+(function() {
+  const K28_TABLE_IDLE_MS = 60 * 1000;
+  let idleTimer = null;
+  let bouncers = null;
+  let rafId = null;
+  let watermark = null;
+
+  function isGameTableVisible() {
+    const el = document.getElementById('gameScreen');
+    return !!el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
+  }
+
+  // Every seat (avatar + name + call badge, the whole ".seat" unit) plus
+  // every trick slot currently holding a played card. Deliberately NOT
+  // the local player's own hand at the bottom -- that stays put and
+  // interactive the whole time.
+  // Per explicit request: also includes the top bar's own chips -- see
+  // index.html's identical change for the full reasoning on why the
+  // trump chip needs no special handling (its content is already
+  // gated per viewer before this ever runs).
+  function collectTargets() {
+    const targets = [];
+    document.querySelectorAll('.seat').forEach(el => {
+      if (el.offsetParent && el.querySelector('.av')) targets.push(el);
+    });
+    document.querySelectorAll('.trickslot').forEach(el => {
+      if (el.offsetParent && el.children.length > 0) targets.push(el);
+    });
+    ['roundNumBox', 'scoreBoxYours', 'scoreBoxOpp', 'trumpChip',
+     'sixInfoDealerWrap', 'sixInfoPointsWrap', 'sixInfoBidderWrap'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.offsetParent) targets.push(el);
+    });
+    return targets;
+  }
+
+  function startScreensaver() {
+    if (!isGameTableVisible() || bouncers) return;
+    const targets = collectTargets();
+    if (!targets.length) return;
+
+    const vw = window.innerWidth, vh = window.innerHeight;
+    bouncers = targets.map(el => {
+      const rect = el.getBoundingClientRect();
+      const original = {
+        position: el.style.position, left: el.style.left, top: el.style.top,
+        margin: el.style.margin, zIndex: el.style.zIndex,
+        width: el.style.width, transition: el.style.transition,
+        transform: el.style.transform
+      };
+      el.style.transition = 'none';
+      el.style.position = 'fixed';
+      el.style.left = rect.left + 'px';
+      el.style.top = rect.top + 'px';
+      el.style.margin = '0';
+      el.style.width = rect.width + 'px';
+      el.style.zIndex = '99999';
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 40 + Math.random() * 50;
+      // Per explicit request: same spin-on-impact physics as the
+      // 4-player table's identical change -- see there for the fuller
+      // reasoning.
+      return {
+        el, original, x: rect.left, y: rect.top, w: rect.width, h: rect.height,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        rot: 0, spin: (Math.random() - 0.5) * 90
+      };
+    });
+
+    // Per explicit request: 28GULAN.COM is now one of the bouncing
+    // objects itself, starting dead center, bold and large -- same
+    // treatment as the 4-player table's identical change, see there
+    // for the fuller reasoning.
+    const brand = document.createElement('div');
+    brand.textContent = '28GULAN.COM';
+    // Per explicit request: matches the exact font/color/engraved style
+    // of the "28GULAN.COM" watermark already carved into this table's
+    // felt (see .table-oval::after in six.html) -- this table uses a
+    // fixed gold tone rather than a live theme variable (six-player
+    // doesn't rotate felt colors the way 4-player does). Also shrunk
+    // further per follow-up request.
+    // Per explicit follow-up: same border-instead-of-shadow, smaller
+    // treatment as the 4-player table's identical change -- see there
+    // for the fuller reasoning.
+    brand.style.cssText = 'position:fixed;color:#8a6d1f;font-family:\'Cinzel Decorative\',\'Fraunces\',serif;font-weight:700;letter-spacing:1.5px;font-size:clamp(8px,1.8vw,12px);border:1.5px solid #8a6d1f;border-radius:8px;padding:3px 8px;background:rgba(10,10,10,0.35);white-space:nowrap;pointer-events:none;z-index:99999';
+    document.body.appendChild(brand);
+    const brandRect = brand.getBoundingClientRect();
+    const brandAngle = Math.random() * Math.PI * 2;
+    const brandSpeed = 40 + Math.random() * 50;
+    const brandStartX = vw / 2 - brandRect.width / 2;
+    const brandStartY = vh / 2 - brandRect.height / 2;
+    brand.style.left = brandStartX + 'px';
+    brand.style.top = brandStartY + 'px';
+    bouncers.push({
+      el: brand, isBrand: true,
+      x: brandStartX, y: brandStartY, w: brandRect.width, h: brandRect.height,
+      vx: Math.cos(brandAngle) * brandSpeed, vy: Math.sin(brandAngle) * brandSpeed,
+      rot: 0, spin: (Math.random() - 0.5) * 90
+    });
+
+    watermark = document.createElement('div');
+    watermark.id = 'k28TableScreensaverBg6p';
+    watermark.style.cssText = 'position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,14,26,0.25) 0%,rgba(4,9,18,0.35) 100%);z-index:100000;cursor:pointer';
+    document.body.appendChild(watermark);
+    watermark.addEventListener('click', stopScreensaver);
+    watermark.addEventListener('touchstart', stopScreensaver, { passive: true });
+
+    let lastT = performance.now();
+    // Per explicit request: same proper impulse-based physics with
+    // torque as the 4-player table's identical change -- see there for
+    // the fuller reasoning.
+    function resolveCollision(A, B) {
+      const overlapX = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
+      const overlapY = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
+      let nx, ny, contactX, contactY;
+      if (overlapX < overlapY) {
+        const sign = (A.x + A.w / 2 < B.x + B.w / 2) ? -1 : 1;
+        nx = sign; ny = 0;
+        A.x += sign * overlapX / 2; B.x -= sign * overlapX / 2;
+        contactX = sign > 0 ? A.x : A.x + A.w;
+        contactY = (Math.max(A.y, B.y) + Math.min(A.y + A.h, B.y + B.h)) / 2;
+      } else {
+        const sign = (A.y + A.h / 2 < B.y + B.h / 2) ? -1 : 1;
+        nx = 0; ny = sign;
+        A.y += sign * overlapY / 2; B.y -= sign * overlapY / 2;
+        contactX = (Math.max(A.x, B.x) + Math.min(A.x + A.w, B.x + B.w)) / 2;
+        contactY = sign > 0 ? A.y : A.y + A.h;
+      }
+      const rvx = A.vx - B.vx, rvy = A.vy - B.vy;
+      const velAlongNormal = rvx * nx + rvy * ny;
+      if (velAlongNormal > 0) return;
+      const restitution = 0.85;
+      const j = -(1 + restitution) * velAlongNormal / 2;
+      const jx = j * nx, jy = j * ny;
+      A.vx += jx; A.vy += jy;
+      B.vx -= jx; B.vy -= jy;
+      const centerAx = A.x + A.w / 2, centerAy = A.y + A.h / 2;
+      const centerBx = B.x + B.w / 2, centerBy = B.y + B.h / 2;
+      const rAx = contactX - centerAx, rAy = contactY - centerAy;
+      const rBx = contactX - centerBx, rBy = contactY - centerBy;
+      const torqueA = rAx * jy - rAy * jx;
+      const torqueB = -(rBx * jy - rBy * jx);
+      const IA = (A.w * A.w + A.h * A.h) / 12 || 1;
+      const IB = (B.w * B.w + B.h * B.h) / 12 || 1;
+      const spinScale = 55;
+      A.spin += (torqueA / IA) * spinScale;
+      B.spin += (torqueB / IB) * spinScale;
+      A.spin = Math.max(-260, Math.min(260, A.spin));
+      B.spin = Math.max(-260, Math.min(260, B.spin));
+    }
+    function frame(t) {
+      if (!bouncers) return;
+      const dt = Math.min(0.05, (t - lastT) / 1000);
+      lastT = t;
+      // Per explicit urgent report: same fix as the 4-player table's
+      // identical change -- wall bounces now also kick spin, scaled to
+      // impact speed, same as an object-vs-object hit. See there for
+      // the fuller reasoning on why this was making rotation look
+      // stuck in one direction.
+      for (const b of bouncers) {
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        let bounced = false;
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); bounced = true; }
+        else if (b.x + b.w > vw) { b.x = vw - b.w; b.vx = -Math.abs(b.vx); bounced = true; }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); bounced = true; }
+        else if (b.y + b.h > vh) { b.y = vh - b.h; b.vy = -Math.abs(b.vy); bounced = true; }
+        if (bounced) {
+          const impactSpeed = Math.hypot(b.vx, b.vy);
+          b.spin += (Math.random() - 0.5) * impactSpeed * 0.6;
+          b.spin = Math.max(-260, Math.min(260, b.spin));
+        }
+      }
+      for (let i = 0; i < bouncers.length; i++) {
+        for (let j = i + 1; j < bouncers.length; j++) {
+          const A = bouncers[i], B = bouncers[j];
+          if (A.x < B.x + B.w && A.x + A.w > B.x && A.y < B.y + B.h && A.y + A.h > B.y) {
+            resolveCollision(A, B);
+          }
+        }
+      }
+      for (const b of bouncers) {
+        b.rot += b.spin * dt;
+        b.el.style.left = b.x.toFixed(1) + 'px';
+        b.el.style.top = b.y.toFixed(1) + 'px';
+        b.el.style.transform = 'rotate(' + b.rot.toFixed(1) + 'deg)';
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+    rafId = requestAnimationFrame(frame);
+  }
+
+  function stopScreensaver() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    if (bouncers) {
+      for (const b of bouncers) {
+        if (b.isBrand) { b.el.remove(); continue; }
+        b.el.style.position = b.original.position;
+        b.el.style.left = b.original.left;
+        b.el.style.top = b.original.top;
+        b.el.style.margin = b.original.margin;
+        b.el.style.zIndex = b.original.zIndex;
+        b.el.style.width = b.original.width;
+        b.el.style.transition = b.original.transition;
+        b.el.style.transform = b.original.transform;
+      }
+    }
+    bouncers = null;
+    if (watermark) { watermark.remove(); watermark = null; }
+  }
+
+
+  function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    idleTimer = isGameTableVisible() ? setTimeout(startScreensaver, K28_TABLE_IDLE_MS) : null;
+  }
+
+  function handleActivity(e) { if (e.isTrusted) { stopScreensaver(); resetIdleTimer(); } }
+  ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, handleActivity, { passive: true }));
+  setInterval(() => { if (idleTimer === null && isGameTableVisible()) resetIdleTimer(); }, 2000);
+  window.addEventListener('resize', () => { if (bouncers) stopScreensaver(); resetIdleTimer(); });
+  resetIdleTimer();
+  window.k28WakeTableScreensaver6p = function() { stopScreensaver(); resetIdleTimer(); };
+})();
