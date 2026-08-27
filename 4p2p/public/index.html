@@ -2839,15 +2839,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @keyframes serverNoticeIn{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
 
 /* ==================== PHOTOREAL TABLE BACKGROUND (4-player, portrait only) ====================
-   Rebuilt from a clean slate per explicit request, after prior seat
-   positions weren't holding up on real devices. Every coordinate below
-   was measured with an actual percentage grid overlay on the real
-   deployed image, THEN confirmed by drawing markers at those exact
-   coordinates and visually checking every single one lands on a real
-   chair before this was ever written into CSS -- not estimated by eye,
-   not reused from an earlier attempt. Portrait-only: there's no
-   landscape version of a top-down illustration, so landscape keeps the
-   original CSS-drawn table completely untouched as a safe fallback. */
+   Every coordinate below was measured with an actual percentage grid
+   overlay on the real deployed image, THEN confirmed by drawing markers
+   at those exact coordinates and visually checking every single one
+   lands on a real chair before this was written into CSS. Portrait-
+   only: no landscape version of a top-down illustration exists, so
+   landscape keeps the original CSS-drawn table completely untouched. */
 @media (orientation: portrait) {
   .table:not(.mode6) {
     background-image: url('/images/table-bg-4p.jpg');
@@ -2879,13 +2876,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .table:not(.mode6) .pspot.right { left: 95%; top: 46%; }
   .table:not(.mode6) .pspot.pos3  { left: 50%; top: 78%; }
 
-  /* The other three seats (top/left/right) at a modest bump over the
-     unstyled ~44px default. */
   .table:not(.mode6) .avatar { width: 58px !important; height: 58px !important; font-size: 1.5rem !important; }
-  /* Per accumulated explicit feedback: YOUR OWN seat (bottom/pos3)
-     specifically bigger than the other three, and nudged up slightly --
-     the played-card animation already draws the eye toward the trick
-     area, and a bigger "you" avatar down here balances that out. */
   .table:not(.mode6) .pspot.pos3 .avatar { width: 110px !important; height: 110px !important; font-size: 2.9rem !important; }
 }
 </style>
@@ -4229,7 +4220,7 @@ try { MY_NAME = localStorage.getItem('k28_player_name') || ''; } catch (e) {}
 // sticks across visits instead of resetting every time.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = [...Array.from({length:25}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:25}, (_,i) => 'hero3m'+(i+1))];
+const ALL_AVATAR_KEYS = [...Array.from({length:36}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:64}, (_,i) => 'hero3m'+(i+1))];
 
 // ==================== SOUND ENGINE ====================
 // A full card-table sound system built entirely on the native Web Audio API - no audio files,

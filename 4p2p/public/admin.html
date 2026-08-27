@@ -341,8 +341,8 @@ document.getElementById('btnRefreshHistory').addEventListener('click', refreshTa
 // 36 female-set images and 64 male-set images, filenames
 // /images/hero-avatars/hero3f{1-36}.png and hero3m{1-64}.png.
 const BOT_AVATAR_KEYS = [
-  ...Array.from({length:25}, (_,i) => 'hero3f'+(i+1)),
-  ...Array.from({length:25}, (_,i) => 'hero3m'+(i+1)),
+  ...Array.from({length:36}, (_,i) => 'hero3f'+(i+1)),
+  ...Array.from({length:64}, (_,i) => 'hero3m'+(i+1)),
 ];
 let botAvatarGridBuilt = false;
 let selectedBotAvatar = 'hero3m1';

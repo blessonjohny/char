@@ -804,54 +804,6 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 @keyframes comicPopOut{0%{opacity:1;}100%{opacity:0;transform:scale(0.92) translateY(-6px);}}
 .chat-badge.on{display:flex}
 #btnChat{position:relative}
-
-/* ==================== PHOTOREAL TABLE BACKGROUND (6-player, portrait only) ====================
-   Per explicit request. Chairs measured with an actual percentage grid
-   overlay and confirmed with visual marker placement before shipping
-   (learned from the earlier 4-player mixup where positions were never
-   re-verified against the actual image). Six chairs confirmed at
-   12/2/4/6/8/10 o'clock. Portrait-only, same reasoning as the
-   4-player table: no landscape version of a top-down illustration
-   exists, so landscape keeps the CSS-drawn table untouched. */
-@media (orientation: portrait) {
-  #gameScreen {
-    background-image: url('/images/table-bg-6p.jpg');
-    background-size: cover;
-    background-position: center;
-  }
-  .six-oval-rail, .six-oval-felt, .table-oval::after {
-    display: none !important;
-  }
-  /* Seat positions measured directly off the photo with a percentage
-     grid overlay, then verified with drawn markers before wiring in --
-     matched to SEAT_POS's own fixed slot-to-screen mapping
-     (slot0=bottom/me, 1=lower-right, 2=upper-right, 3=top,
-     4=upper-left, 5=lower-left). !important needed since SEAT_POS sets
-     these as inline styles via JS, which normal-specificity CSS can't
-     override. */
-  #seatWrap0 { left: 50% !important; top: 79% !important; }
-  /* Per explicit report: left/right (1,2,4,5) nudged in from the
-     original 8%/92% -- those were correctly measured against the
-     chair positions, but at 118px wide (the "make it bigger" bump
-     below) the avatar circles themselves extend far enough past that
-     center point to overflow off the actual screen edge on a real
-     phone, since background-size:cover can crop the visible width
-     narrower than the source image's own 941px on some aspect ratios. */
-  #seatWrap1 { left: 87% !important; top: 64% !important; }
-  #seatWrap2 { left: 87% !important; top: 33% !important; }
-  #seatWrap3 { left: 50% !important; top: 19% !important; }
-  #seatWrap4 { left: 13% !important; top: 33% !important; }
-  #seatWrap5 { left: 13% !important; top: 64% !important; }
-
-  /* Same "there's real breathing room, make it bigger" treatment as
-     the 4-player table -- this table's avatars were already 92px by
-     default, bumped further here to actually fill the chair seats. */
-  /* Per explicit follow-up: a little smaller than the previous 118px --
-     modest reduction, still bigger than the table's own ~92px default. */
-  .seat .av { width: 100px !important; height: 100px !important; font-size: 2.8rem !important; }
-  /* Per explicit follow-up: a bit smaller than the previous 78x108. */
-  .trickslot .card { width: 64px !important; height: 90px !important; }
-}
 </style>
 </head>
 <body>
