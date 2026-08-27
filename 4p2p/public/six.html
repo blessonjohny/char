@@ -171,7 +171,13 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   width:96%;aspect-ratio:1.15;max-height:96%;
   border-radius:50%;
-  background:conic-gradient(from 200deg, #5c2c0c 0deg, #8a4d1a 45deg, #c98f3f 95deg, #f0c674 115deg, #c98f3f 135deg, #8a4d1a 180deg, #4a2308 230deg, #2e1504 270deg, #4a2308 310deg, #5c2c0c 360deg);
+  /* Per explicit follow-up: same real wood-grain texture layered over
+     the color gradient as the 4-player table's identical change -- see
+     .center::after in index.html for the fuller reasoning. */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.9 0.02' numOctaves='3' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+    conic-gradient(from 200deg, #5c2c0c 0deg, #8a4d1a 45deg, #c98f3f 95deg, #f0c674 115deg, #c98f3f 135deg, #8a4d1a 180deg, #4a2308 230deg, #2e1504 270deg, #4a2308 310deg, #5c2c0c 360deg);
+  background-blend-mode:overlay,normal;
   -webkit-mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
   mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
   box-shadow:0 0 0 1px rgba(255,215,0,0.28),0 10px 26px 6px rgba(0,0,0,0.6),0 2px 4px rgba(0,0,0,0.4);

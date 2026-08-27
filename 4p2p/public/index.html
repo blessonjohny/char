@@ -2071,7 +2071,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      leaves vertical breathing room on unusually tall screens rather
      than stretching to fill it, which is what actually looks like a
      real table instead of a smear. */
-  background: var(--table-rail);
+  /* Per explicit follow-up: layered a real wood-grain texture on top of
+     the color gradient -- the reference mockups showed visible grain
+     streaks, which a smooth conic-gradient alone can't produce no
+     matter how many color stops it has. SVG turbulence with very
+     different X/Y frequencies (0.9 vs 0.02) is the standard trick for
+     directional "streaky" noise instead of uniform static -- it reads
+     as grain, not fuzz. background-blend-mode:overlay lets the grain
+     darken/lighten the existing wood-tone gradient underneath rather
+     than sitting on top as a flat separate layer, so the color and the
+     texture read as one material.  */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.9 0.02' numOctaves='3' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+    var(--table-rail);
+  background-blend-mode:overlay,normal;
   -webkit-mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
   mask-image: radial-gradient(ellipse at center, transparent 58%, black 66%, black 93%, transparent 100%);
   box-shadow:
