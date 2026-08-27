@@ -339,10 +339,10 @@ document.getElementById('btnRefreshHistory').addEventListener('click', refreshTa
 // Same avatar key convention used by the live game itself (see
 // VALID_AVATAR_KEYS in server.js and ALL_PLAYERS in index.html) --
 // 36 female-set images and 64 male-set images, filenames
-// /images/hero-avatars/hero3f{1-36}.png and hero3m{1-64}.png.
+// /images/hero-avatars/hero3f{1-50}.jpg and hero3m{1-50}.jpg.
 const BOT_AVATAR_KEYS = [
-  ...Array.from({length:36}, (_,i) => 'hero3f'+(i+1)),
-  ...Array.from({length:64}, (_,i) => 'hero3m'+(i+1)),
+  ...Array.from({length:50}, (_,i) => 'hero3f'+(i+1)),
+  ...Array.from({length:50}, (_,i) => 'hero3m'+(i+1)),
 ];
 let botAvatarGridBuilt = false;
 let selectedBotAvatar = 'hero3m1';
@@ -352,7 +352,7 @@ function buildBotAvatarGrid() {
   botAvatarGridBuilt = true;
   const grid = document.getElementById('botAvatarGrid');
   grid.innerHTML = BOT_AVATAR_KEYS.map(key => `
-    <img src="/images/hero-avatars/${key}.png" data-key="${key}" class="bot-avatar-thumb"
+    <img src="/images/hero-avatars/${key}.jpg" data-key="${key}" class="bot-avatar-thumb"
       style="width:40px;height:40px;border-radius:8px;object-fit:cover;cursor:pointer;border:2px solid ${key === selectedBotAvatar ? 'var(--accent)' : 'transparent'}">
   `).join('');
   grid.querySelectorAll('.bot-avatar-thumb').forEach(img => {

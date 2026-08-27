@@ -820,7 +820,7 @@ let mySeat = null;
 // returning player's choice carries over between every table.
 let myAvatar = '';
 try { myAvatar = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS_56 = [...Array.from({length:36}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:64}, (_,i) => 'hero3m'+(i+1))];
+const ALL_AVATAR_KEYS_56 = [...Array.from({length:50}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:50}, (_,i) => 'hero3m'+(i+1))];
 if (!myAvatar || !ALL_AVATAR_KEYS_56.includes(myAvatar)) {
   myAvatar = ALL_AVATAR_KEYS_56[Math.floor(Math.random() * ALL_AVATAR_KEYS_56.length)];
 }
@@ -829,7 +829,7 @@ function heroAvatarHtml(key) {
   // full reasoning. The .avatar.has-q CSS (dim filter + crying-emoji
   // overlay) already applies to the whole container regardless of what
   // image class is inside it, so no dual-image markup is needed.
-  return `<img src="/images/hero-avatars/${key}.png" class="hero-avatar-face" alt="">`;
+  return `<img src="/images/hero-avatars/${key}.jpg" class="hero-avatar-face" alt="">`;
 }
 // Genuine per-visit randomization -- see index.html's identical helper
 // for the full reasoning. Never mutates ALL_AVATAR_KEYS_56 itself.
@@ -846,7 +846,7 @@ function renderMyAvatarPicker56() {
   if (!el) return;
   el.innerHTML = shuffledAvatarKeys56().map(key =>
     `<div class="my-avatar-choice${key === myAvatar ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatar56('${key}')">
-      <img src="/images/hero-avatars/${key}.png" alt="">
+      <img src="/images/hero-avatars/${key}.jpg" alt="">
     </div>`
   ).join('');
 }
@@ -952,34 +952,34 @@ const ALL_BOT_AVATARS_56 = [
   {name:'Merin',emoji:heroAvatarHtml('hero3f23'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
   {name:'Zachariah',emoji:heroAvatarHtml('hero3m49'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
   {name:'Aby',emoji:heroAvatarHtml('hero3m50'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Bijoy',emoji:heroAvatarHtml('hero3m51'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Bijoy',emoji:heroAvatarHtml('hero3m1'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
   {name:'Asha',emoji:heroAvatarHtml('hero3f24'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
   {name:'Anita',emoji:heroAvatarHtml('hero3f25'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Cyriac',emoji:heroAvatarHtml('hero3m52'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Davis',emoji:heroAvatarHtml('hero3m53'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Cyriac',emoji:heroAvatarHtml('hero3m2'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Davis',emoji:heroAvatarHtml('hero3m3'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
   {name:'Betty',emoji:heroAvatarHtml('hero3f26'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Ebin',emoji:heroAvatarHtml('hero3m54'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Fenil',emoji:heroAvatarHtml('hero3m55'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Gibin',emoji:heroAvatarHtml('hero3m56'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Ebin',emoji:heroAvatarHtml('hero3m4'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Fenil',emoji:heroAvatarHtml('hero3m5'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Gibin',emoji:heroAvatarHtml('hero3m6'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
   {name:'Celine',emoji:heroAvatarHtml('hero3f27'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
   {name:'Diya',emoji:heroAvatarHtml('hero3f28'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Hillary',emoji:heroAvatarHtml('hero3m57'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Hillary',emoji:heroAvatarHtml('hero3m7'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
   {name:'Fiona',emoji:heroAvatarHtml('hero3f29'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Ittoop',emoji:heroAvatarHtml('hero3m58'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Ittoop',emoji:heroAvatarHtml('hero3m8'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
   {name:'Gracy',emoji:heroAvatarHtml('hero3f30'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
   {name:'Hema',emoji:heroAvatarHtml('hero3f31'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Jaison',emoji:heroAvatarHtml('hero3m59'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Jaison',emoji:heroAvatarHtml('hero3m9'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
   {name:'Indu',emoji:heroAvatarHtml('hero3f32'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
   {name:'Jessy',emoji:heroAvatarHtml('hero3f33'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Kurian',emoji:heroAvatarHtml('hero3m60'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Lijo',emoji:heroAvatarHtml('hero3m61'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Kurian',emoji:heroAvatarHtml('hero3m10'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Lijo',emoji:heroAvatarHtml('hero3m11'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
   {name:'Kavya',emoji:heroAvatarHtml('hero3f34'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Mathew',emoji:heroAvatarHtml('hero3m62'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Mathew',emoji:heroAvatarHtml('hero3m12'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
   {name:'Leena',emoji:heroAvatarHtml('hero3f35'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Ninan',emoji:heroAvatarHtml('hero3m63'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Ninan',emoji:heroAvatarHtml('hero3m13'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
   {name:'Mariya',emoji:heroAvatarHtml('hero3f36'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
   {name:'Babi',emoji:heroAvatarHtml('hero3f36'),bg:'linear-gradient(135deg,#c2266f,#8e1c52)'},
-  {name:'Oliver',emoji:heroAvatarHtml('hero3m64'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'}
+  {name:'Oliver',emoji:heroAvatarHtml('hero3m14'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'}
 ];
 let pollTimer = null;
 let sessionHeartbeat = null; // see enterTableAsSeat() -- keeps k56_session_time honest during a long, active session

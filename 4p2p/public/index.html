@@ -2839,28 +2839,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @keyframes serverNoticeIn{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
 
 /* ==================== PHOTOREAL TABLE BACKGROUND (4-player, portrait only) ====================
-   Per explicit request: a real illustrated top-down table photo instead
-   of the CSS-drawn felt/rail, using the actual user-provided image.
-   Portrait-only -- there's no landscape version of this artwork (a true
-   top-down illustration doesn't reflow), so landscape keeps the
-   original CSS table completely untouched as a safe fallback rather
-   than stretching a portrait image into a bad landscape crop.
-
-   IMPORTANT CAVEAT left here deliberately: the four seat positions below
-   (top/left/right/bottom percentages) are a best-effort visual estimate
-   made by looking at the image, not a pixel-measured/rendered-and-
-   verified placement -- this sandbox has no way to actually render a
-   live browser page to confirm alignment. They are very likely close
-   but may need a few percentage points of nudging per seat once someone
-   actually views this on a real device. */
+   Per explicit request, using the corrected 4-chair image after the
+   earlier version turned out to be the 6-player photo (now correctly
+   moved to six.html). Chair positions measured with an actual
+   percentage grid overlay this time, not eyeballed -- confirmed
+   genuinely 4 chairs (top/bottom/left/right only, no upper/lower
+   pairs) before writing these numbers down. Portrait-only, same
+   reasoning as the 6-player table: no landscape version of a top-down
+   illustration exists, so landscape keeps the CSS-drawn table
+   untouched as a safe fallback. */
 @media (orientation: portrait) {
   .table:not(.mode6) {
     background-image: url('/images/table-bg-4p.jpg');
     background-size: cover;
     background-position: center;
-    /* The image already includes its own rail/felt painted in, so the
-       CSS-drawn versions need to get out of the way entirely rather
-       than layering a second table on top of the photo one. */
     background-color: transparent;
   }
   .table:not(.mode6) .center::after,
@@ -2869,17 +2861,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .table:not(.mode6) .center .felt::after {
     display: none !important;
   }
-  /* No change needed for trump-exposed here: that animation already
-     targets .table itself (see .table.trump-exposed elsewhere), which
-     is untouched by hiding .center's pseudo-elements/felt above -- it
-     keeps shaking exactly as it always did, photo mode or not. */
+  /* trump-exposed shake already targets .table itself (see
+     .table.trump-exposed elsewhere), untouched by hiding .center's
+     pseudo-elements/felt above -- no extra rule needed for it here. */
 
-  /* Seats repositioned to sit on the actual chairs in the photo,
-     overriding the grid-area placement used for the CSS-drawn table.
-     grid-column/row spanning the full grid is what makes each pspot's
-     absolute-positioning containing block the WHOLE table image
-     instead of just its own narrow original grid cell, so these
-     percentages are relative to the full photo, not a slice of it. */
   .table:not(.mode6) .pspot.top,
   .table:not(.mode6) .pspot.left,
   .table:not(.mode6) .pspot.right,
@@ -2893,22 +2878,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     transform: translate(-50%, -50%);
   }
   .table:not(.mode6) .pspot.top   { left: 50%; top: 19%; }
-  .table:not(.mode6) .pspot.left  { left: 12%; top: 32%; }
-  .table:not(.mode6) .pspot.right { left: 88%; top: 32%; }
-  .table:not(.mode6) .pspot.pos3  { left: 50%; top: 66%; }
+  .table:not(.mode6) .pspot.left  { left: 7%;  top: 46%; }
+  .table:not(.mode6) .pspot.right { left: 93%; top: 46%; }
+  .table:not(.mode6) .pspot.pos3  { left: 50%; top: 80%; }
 
-  /* Per explicit follow-up: the felt has real breathing room in this
-     photo, so avatars/cards can go noticeably bigger than the
-     CSS-table defaults without crowding anything -- makes them read
-     as actually sitting in the ornate chairs instead of small tokens
-     floating near them. !important needed here since these override
-     rules deep in the existing size cascade (multiple narrower-
-     breakpoint .avatar/.pslot overrides already fight each other with
-     !important at smaller widths). */
+  /* Same "there's real breathing room, make it bigger" treatment as
+     the 6-player table's identical change. */
   .table:not(.mode6) .avatar { width: 72px !important; height: 72px !important; font-size: 1.8rem !important; }
   .table:not(.mode6) .pslot { width: 64px !important; height: 88px !important; }
-  /* Your own hand stays modest -- these need to stay a size you can
-     tap accurately, so a smaller bump than the seats/played cards. */
   .game-wrap #handArea .card { width: 60px !important; height: 84px !important; }
 }
 </style>
@@ -4192,34 +4169,34 @@ const ALL_PLAYERS = [
   {name:'Merin',emoji:heroAvatarHtml('hero3f23'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
   {name:'Zachariah',emoji:heroAvatarHtml('hero3m49'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
   {name:'Aby',emoji:heroAvatarHtml('hero3m50'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Bijoy',emoji:heroAvatarHtml('hero3m51'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Bijoy',emoji:heroAvatarHtml('hero3m1'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
   {name:'Asha',emoji:heroAvatarHtml('hero3f24'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
   {name:'Anita',emoji:heroAvatarHtml('hero3f25'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Cyriac',emoji:heroAvatarHtml('hero3m52'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Davis',emoji:heroAvatarHtml('hero3m53'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Cyriac',emoji:heroAvatarHtml('hero3m2'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Davis',emoji:heroAvatarHtml('hero3m3'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
   {name:'Betty',emoji:heroAvatarHtml('hero3f26'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Ebin',emoji:heroAvatarHtml('hero3m54'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Fenil',emoji:heroAvatarHtml('hero3m55'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Gibin',emoji:heroAvatarHtml('hero3m56'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Ebin',emoji:heroAvatarHtml('hero3m4'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Fenil',emoji:heroAvatarHtml('hero3m5'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Gibin',emoji:heroAvatarHtml('hero3m6'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
   {name:'Celine',emoji:heroAvatarHtml('hero3f27'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
   {name:'Diya',emoji:heroAvatarHtml('hero3f28'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Hillary',emoji:heroAvatarHtml('hero3m57'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Hillary',emoji:heroAvatarHtml('hero3m7'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
   {name:'Fiona',emoji:heroAvatarHtml('hero3f29'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Ittoop',emoji:heroAvatarHtml('hero3m58'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Ittoop',emoji:heroAvatarHtml('hero3m8'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
   {name:'Gracy',emoji:heroAvatarHtml('hero3f30'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
   {name:'Hema',emoji:heroAvatarHtml('hero3f31'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Jaison',emoji:heroAvatarHtml('hero3m59'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Jaison',emoji:heroAvatarHtml('hero3m9'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
   {name:'Indu',emoji:heroAvatarHtml('hero3f32'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
   {name:'Jessy',emoji:heroAvatarHtml('hero3f33'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Kurian',emoji:heroAvatarHtml('hero3m60'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Lijo',emoji:heroAvatarHtml('hero3m61'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Kurian',emoji:heroAvatarHtml('hero3m10'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Lijo',emoji:heroAvatarHtml('hero3m11'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
   {name:'Kavya',emoji:heroAvatarHtml('hero3f34'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Mathew',emoji:heroAvatarHtml('hero3m62'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Mathew',emoji:heroAvatarHtml('hero3m12'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
   {name:'Leena',emoji:heroAvatarHtml('hero3f35'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Ninan',emoji:heroAvatarHtml('hero3m63'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Ninan',emoji:heroAvatarHtml('hero3m13'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
   {name:'Mariya',emoji:heroAvatarHtml('hero3f36'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
   {name:'Babi',emoji:heroAvatarHtml('hero3f36'),bg:'linear-gradient(135deg,#c2266f,#8e1c52)'},
-  {name:'Oliver',emoji:heroAvatarHtml('hero3m64'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'}
+  {name:'Oliver',emoji:heroAvatarHtml('hero3m14'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'}
 ];
 
 const SUITS=['♠','♦','♥','♣'];
@@ -4252,7 +4229,7 @@ try { MY_NAME = localStorage.getItem('k28_player_name') || ''; } catch (e) {}
 // sticks across visits instead of resetting every time.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = [...Array.from({length:36}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:64}, (_,i) => 'hero3m'+(i+1))];
+const ALL_AVATAR_KEYS = [...Array.from({length:50}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:50}, (_,i) => 'hero3m'+(i+1))];
 
 // ==================== SOUND ENGINE ====================
 // A full card-table sound system built entirely on the native Web Audio API - no audio files,
@@ -4543,7 +4520,7 @@ function heroAvatarHtml(key) {
   // image swap CSS hides on .has-q (display:none), which would make
   // this single image vanish entirely on a shutout instead of just
   // dimming with the emoji overlay, the opposite of what's wanted here.
-  return `<img src="/images/hero-avatars/${key}.png" class="hero-avatar-face" alt="">`;
+  return `<img src="/images/hero-avatars/${key}.jpg" class="hero-avatar-face" alt="">`;
 }
 // Genuine per-visit randomization, not a fixed order baked into the
 // source -- shuffles a COPY of ALL_AVATAR_KEYS each time the picker is
@@ -4565,7 +4542,7 @@ function renderMyAvatarPicker() {
   if (!el) return;
   el.innerHTML = shuffledAvatarKeys().map(key =>
     `<div class="my-avatar-choice${key === MY_AVATAR_KEY ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatar('${key}')">
-      <img src="/images/hero-avatars/${key}.png" alt="">
+      <img src="/images/hero-avatars/${key}.jpg" alt="">
     </div>`
   ).join('');
 }
