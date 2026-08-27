@@ -339,10 +339,10 @@ document.getElementById('btnRefreshHistory').addEventListener('click', refreshTa
 // Same avatar key convention used by the live game itself (see
 // VALID_AVATAR_KEYS in server.js and ALL_PLAYERS in index.html) --
 // 36 female-set images and 64 male-set images, filenames
-// /images/hero-avatars/hero3f{1-50}.png and hero3m{1-50}.png.
+// /images/hero-avatars/hero3f{1-36}.png and hero3m{1-64}.png.
 const BOT_AVATAR_KEYS = [
-  ...Array.from({length:50}, (_,i) => 'hero3f'+(i+1)),
-  ...Array.from({length:50}, (_,i) => 'hero3m'+(i+1)),
+  ...Array.from({length:36}, (_,i) => 'hero3f'+(i+1)),
+  ...Array.from({length:64}, (_,i) => 'hero3m'+(i+1)),
 ];
 let botAvatarGridBuilt = false;
 let selectedBotAvatar = 'hero3m1';
