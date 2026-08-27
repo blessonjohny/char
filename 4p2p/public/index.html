@@ -2896,6 +2896,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .table:not(.mode6) .pspot.left  { left: 12%; top: 32%; }
   .table:not(.mode6) .pspot.right { left: 88%; top: 32%; }
   .table:not(.mode6) .pspot.pos3  { left: 50%; top: 66%; }
+
+  /* Per explicit follow-up: the felt has real breathing room in this
+     photo, so avatars/cards can go noticeably bigger than the
+     CSS-table defaults without crowding anything -- makes them read
+     as actually sitting in the ornate chairs instead of small tokens
+     floating near them. !important needed here since these override
+     rules deep in the existing size cascade (multiple narrower-
+     breakpoint .avatar/.pslot overrides already fight each other with
+     !important at smaller widths). */
+  .table:not(.mode6) .avatar { width: 72px !important; height: 72px !important; font-size: 1.8rem !important; }
+  .table:not(.mode6) .pslot { width: 64px !important; height: 88px !important; }
+  /* Your own hand stays modest -- these need to stay a size you can
+     tap accurately, so a smaller bump than the seats/played cards. */
+  .game-wrap #handArea .card { width: 60px !important; height: 84px !important; }
 }
 </style>
 <style id="redesign2026">
