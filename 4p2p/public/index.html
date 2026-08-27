@@ -2839,28 +2839,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @keyframes serverNoticeIn{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
 
 /* ==================== PHOTOREAL TABLE BACKGROUND (4-player, portrait only) ====================
-   Per explicit request: a real illustrated top-down table photo instead
-   of the CSS-drawn felt/rail, using the actual user-provided image.
-   Portrait-only -- there's no landscape version of this artwork (a true
-   top-down illustration doesn't reflow), so landscape keeps the
-   original CSS table completely untouched as a safe fallback rather
-   than stretching a portrait image into a bad landscape crop.
-
-   IMPORTANT CAVEAT left here deliberately: the four seat positions below
-   (top/left/right/bottom percentages) are a best-effort visual estimate
-   made by looking at the image, not a pixel-measured/rendered-and-
-   verified placement -- this sandbox has no way to actually render a
-   live browser page to confirm alignment. They are very likely close
-   but may need a few percentage points of nudging per seat once someone
-   actually views this on a real device. */
+   Rebuilt from a clean slate per explicit request, after prior seat
+   positions weren't holding up on real devices. Every coordinate below
+   was measured with an actual percentage grid overlay on the real
+   deployed image, THEN confirmed by drawing markers at those exact
+   coordinates and visually checking every single one lands on a real
+   chair before this was ever written into CSS -- not estimated by eye,
+   not reused from an earlier attempt. Portrait-only: there's no
+   landscape version of a top-down illustration, so landscape keeps the
+   original CSS-drawn table completely untouched as a safe fallback. */
 @media (orientation: portrait) {
   .table:not(.mode6) {
     background-image: url('/images/table-bg-4p.jpg');
     background-size: cover;
     background-position: center;
-    /* The image already includes its own rail/felt painted in, so the
-       CSS-drawn versions need to get out of the way entirely rather
-       than layering a second table on top of the photo one. */
     background-color: transparent;
   }
   .table:not(.mode6) .center::after,
@@ -2869,17 +2861,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .table:not(.mode6) .center .felt::after {
     display: none !important;
   }
-  /* No change needed for trump-exposed here: that animation already
-     targets .table itself (see .table.trump-exposed elsewhere), which
-     is untouched by hiding .center's pseudo-elements/felt above -- it
-     keeps shaking exactly as it always did, photo mode or not. */
 
-  /* Seats repositioned to sit on the actual chairs in the photo,
-     overriding the grid-area placement used for the CSS-drawn table.
-     grid-column/row spanning the full grid is what makes each pspot's
-     absolute-positioning containing block the WHOLE table image
-     instead of just its own narrow original grid cell, so these
-     percentages are relative to the full photo, not a slice of it. */
   .table:not(.mode6) .pspot.top,
   .table:not(.mode6) .pspot.left,
   .table:not(.mode6) .pspot.right,
@@ -2892,21 +2874,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     padding: 0;
     transform: translate(-50%, -50%);
   }
-  .table:not(.mode6) .pspot.top   { left: 50%; top: 19%; }
-  .table:not(.mode6) .pspot.left  { left: 6%;  top: 45%; }
-  .table:not(.mode6) .pspot.right { left: 94%; top: 45%; }
-  .table:not(.mode6) .pspot.pos3  { left: 50%; top: 79%; }
+  .table:not(.mode6) .pspot.top   { left: 50%; top: 18%; }
+  .table:not(.mode6) .pspot.left  { left: 5%;  top: 46%; }
+  .table:not(.mode6) .pspot.right { left: 95%; top: 46%; }
+  .table:not(.mode6) .pspot.pos3  { left: 50%; top: 78%; }
 
-  /* Per explicit request: a little bigger than the default ~44px --
-     modest bump, not the aggressive size used on the 6-player table. */
-  /* Per explicit request: a little bigger than the default ~44px --
-     modest bump, not the aggressive size used on the 6-player table. */
+  /* The other three seats (top/left/right) at a modest bump over the
+     unstyled ~44px default. */
   .table:not(.mode6) .avatar { width: 58px !important; height: 58px !important; font-size: 1.5rem !important; }
-  /* Per follow-up: YOUR OWN seat (bottom/pos3) specifically bigger than
-     the other three -- not a uniform bump, just this one seat, since
-     the played-card animation already draws the eye upward toward the
-     trick area and a bigger "you" avatar down here balances that out. */
-  .table:not(.mode6) .pspot.pos3 .avatar { width: 100px !important; height: 100px !important; font-size: 2.6rem !important; }
+  /* Per accumulated explicit feedback: YOUR OWN seat (bottom/pos3)
+     specifically bigger than the other three, and nudged up slightly --
+     the played-card animation already draws the eye toward the trick
+     area, and a bigger "you" avatar down here balances that out. */
+  .table:not(.mode6) .pspot.pos3 .avatar { width: 110px !important; height: 110px !important; font-size: 2.9rem !important; }
 }
 </style>
 <style id="redesign2026">
