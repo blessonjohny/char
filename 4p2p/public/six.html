@@ -829,19 +829,17 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      4=upper-left, 5=lower-left). !important needed since SEAT_POS sets
      these as inline styles via JS, which normal-specificity CSS can't
      override. */
-  #seatWrap0 { left: 50% !important; top: 79% !important; }
+  #seatWrap0 { left: 50% !important; top: 68% !important; }
   /* Per explicit report: left/right (1,2,4,5) nudged in from the
-     original 8%/92% -- those were correctly measured against the
-     chair positions, but at 118px wide (the "make it bigger" bump
-     below) the avatar circles themselves extend far enough past that
-     center point to overflow off the actual screen edge on a real
-     phone, since background-size:cover can crop the visible width
-     narrower than the source image's own 941px on some aspect ratios. */
-  #seatWrap1 { left: 87% !important; top: 64% !important; }
-  #seatWrap2 { left: 87% !important; top: 33% !important; }
-  #seatWrap3 { left: 50% !important; top: 19% !important; }
-  #seatWrap4 { left: 13% !important; top: 33% !important; }
-  #seatWrap5 { left: 13% !important; top: 64% !important; }
+     raw measured chair positions -- avatar circles at 118px wide can
+     overflow off the actual screen edge on a real phone, since
+     background-size:cover can crop the visible width narrower than
+     the source image's own width on some aspect ratios. */
+  #seatWrap1 { left: 87% !important; top: 53% !important; }
+  #seatWrap2 { left: 87% !important; top: 28% !important; }
+  #seatWrap3 { left: 50% !important; top: 15% !important; }
+  #seatWrap4 { left: 13% !important; top: 28% !important; }
+  #seatWrap5 { left: 13% !important; top: 53% !important; }
 
   /* Same "there's real breathing room, make it bigger" treatment as
      the 4-player table -- this table's avatars were already 92px by
@@ -849,6 +847,12 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   /* Per explicit follow-up: a little smaller than the previous 118px --
      modest reduction, still bigger than the table's own ~92px default. */
   .seat .av { width: 100px !important; height: 100px !important; font-size: 2.8rem !important; }
+
+  /* Per explicit request: same no-more-circle, blend-into-chair
+     treatment as the 4-player table's identical change -- see
+     index.html for the fuller reasoning. */
+  .seat .av { border-radius: 6px !important; }
+  .seat .hero-avatar-face { border-radius: 4px !important; }
   /* Per explicit follow-up: a bit smaller than the previous 78x108. */
   .trickslot .card { width: 64px !important; height: 90px !important; }
 }
