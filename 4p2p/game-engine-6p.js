@@ -1347,6 +1347,14 @@ class GameEngine6P {
       // identical comment for the full reasoning.
       if (wantsLower) target = Math.min(target, 18);
 
+      // Per explicit request: bots were bidding too aggressively on the
+      // 6-player table -- pull the final target down ~10% (still
+      // floored at 16, the game's minimum legal bid) so a bot that
+      // would have bid e.g. 19 now lands closer to 17. Scoped to this
+      // file only (6-player); the 4-player engine's bidding is
+      // untouched.
+      target = Math.max(16, Math.round(target * 0.9));
+
       let bid = 0;
       if (first) {
         bid = Math.max(16, Math.min(target, 22));
