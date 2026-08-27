@@ -865,6 +865,30 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   #trickSlot4 { left: 28.5% !important; top: 41.2% !important; }
   #trickSlot5 { left: 28.5% !important; top: 51.2% !important; }
 
+  /* Call-badge (bid/pass popup) sizing and diagonal offsets were tuned
+     against the OLD seat spacing -- the upper-left/lower-left seats
+     (and the upper-right/lower-right pair) are now only 25% of the
+     table's height apart with the repositioned seats above, tighter
+     than before, so the same fixed 46px diagonal offset that used to
+     clear comfortably now reaches into the neighboring seat's own
+     space. Shrunk here (smaller badge, smaller offset) specifically for
+     this photo-table layout so it stays within its own seat's
+     footprint instead of overlapping the seat above/below it. */
+  .seat .call-badge {
+    width: 72px !important;
+    padding: 14px 5px 17px 5px !important;
+    font-size: 0.48rem !important;
+  }
+  .seat .call-badge-bg { width: 82px !important; height: 74px !important; }
+  .seat .call-badge.call-badge-nw,
+  .seat .call-badge.call-badge-sw {
+    right: 32px !important;
+  }
+  .seat .call-badge.call-badge-se,
+  .seat .call-badge.call-badge-ne {
+    left: 32px !important;
+  }
+
   /* Same "there's real breathing room, make it bigger" treatment as
      the 4-player table -- this table's avatars were already 92px by
      default, bumped further here to actually fill the chair seats. */
