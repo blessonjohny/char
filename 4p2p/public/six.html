@@ -846,13 +846,21 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      default, bumped further here to actually fill the chair seats. */
   /* Per explicit follow-up: a little smaller than the previous 118px --
      modest reduction, still bigger than the table's own ~92px default. */
-  .seat .av { width: 100px !important; height: 100px !important; font-size: 2.8rem !important; }
+  .seat .av { width: 100px !important; height: 128px !important; font-size: 2.8rem !important; }
 
   /* Per explicit request: same no-more-circle, blend-into-chair
      treatment as the 4-player table's identical change -- see
      index.html for the fuller reasoning. */
-  .seat .av { border-radius: 6px !important; }
-  .seat .hero-avatar-face { border-radius: 4px !important; }
+  /* Per explicit request: true oval, and border fully removed (not
+     just transparent) including status classes -- see index.html's
+     identical change for the fuller reasoning. */
+  .seat .av,
+  .seat .av.human-status,
+  .seat .av.bot-status {
+    border-radius: 50% !important;
+    border: none !important;
+  }
+  .seat .hero-avatar-face { border-radius: 50% !important; }
   /* Per explicit follow-up: a bit smaller than the previous 78x108. */
   .trickslot .card { width: 64px !important; height: 90px !important; }
 }

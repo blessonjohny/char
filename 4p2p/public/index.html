@@ -2876,8 +2876,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .table:not(.mode6) .pspot.right { left: 91%; top: 45%; }
   .table:not(.mode6) .pspot.pos3  { left: 50%; top: 68%; }
 
-  .table:not(.mode6) .avatar { width: 58px !important; height: 58px !important; font-size: 1.5rem !important; }
-  .table:not(.mode6) .pspot.pos3 .avatar { width: 110px !important; height: 110px !important; font-size: 2.9rem !important; }
+  .table:not(.mode6) .avatar { width: 58px !important; height: 74px !important; font-size: 1.5rem !important; }
+  .table:not(.mode6) .pspot.pos3 .avatar { width: 110px !important; height: 140px !important; font-size: 2.9rem !important; }
 
   /* Per explicit request: these new avatar images have a background
      color already matching the chair leather, so the frame/circle that
@@ -2887,8 +2887,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      defined at transparent (not removed outright) so the functional
      status rings (bot/human/turn-active) still recolor it correctly
      without a layout shift when they apply. */
-  .table:not(.mode6) .avatar { border-radius: 6px !important; border: 2.5px solid transparent !important; }
-  .table:not(.mode6) .hero-avatar-face { border-radius: 4px !important; }
+  /* Per explicit request: true oval (not a squarish rounded rect) --
+     the container itself is now taller than wide, with a full 50%
+     radius, which actually produces an ellipse instead of the flatter
+     6px-corner rectangle from before. Border fully removed (not just
+     made transparent) since the human/bot/turn-active status classes
+     recolor border-color specifically, and those need to be
+     neutralized too, or the "no edges" request would still show a
+     colored ring the moment someone's status changes. The small
+     connection-status dot elsewhere on each seat already conveys
+     human/bot state independently, so this isn't a total loss of that
+     information, just moved off the avatar's own edge. */
+  .table:not(.mode6) .avatar,
+  .table:not(.mode6) .avatar.human-status,
+  .table:not(.mode6) .avatar.bot-status {
+    border-radius: 50% !important;
+    border: none !important;
+  }
+  .table:not(.mode6) .hero-avatar-face { border-radius: 50% !important; }
 
   /* Per explicit request: the small "cards remaining" tick-bar under
      each avatar isn't wanted in this photo-table look -- hidden for
@@ -4514,6 +4530,13 @@ if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
 }
 function heroAvatarHtml(key) {
+  // Falls back to a guaranteed-valid key if this player's saved avatar
+  // choice predates a change to the avatar set's size (or count shrank)
+  // and no longer exists -- without this, a stale/invalid key renders
+  // as a literal broken <img> (browser's missing-image icon) instead of
+  // a real avatar, since this function used to build the <img> tag
+  // straight from whatever key it was given with no validation at all.
+  if (!key || typeof key !== 'string') key = 'hero3m1';
   // Single image only, deliberately -- the new avatar set has one
   // expression per character, no separate "sad" pose. That's fine: the
   // .avatar.has-q CSS rule (grayscale/dim filter + the crying-emoji

@@ -50,6 +50,10 @@ if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
 }
 function heroAvatarHtml(key) {
+  // Falls back to a guaranteed-valid key on a stale/out-of-range saved
+  // choice -- see index.html's identical function for the full
+  // reasoning (a null key here used to render a literal broken <img>).
+  if (!key || typeof key !== 'string') key = 'hero3m1';
   // Single image only -- see index.html's identical function for the
   // full reasoning. The .avatar.has-q CSS (dim filter + crying-emoji
   // overlay) already applies to the whole container regardless of what
