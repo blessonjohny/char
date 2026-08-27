@@ -54,7 +54,7 @@ function heroAvatarHtml(key) {
   // full reasoning. The .avatar.has-q CSS (dim filter + crying-emoji
   // overlay) already applies to the whole container regardless of what
   // image class is inside it, so no dual-image markup is needed.
-  return `<img src="/images/hero-avatars/${key}.jpg" class="hero-avatar-face" alt="">`;
+  return `<img src="/images/hero-avatars/${key}.png" class="hero-avatar-face" alt="">`;
 }
 // Genuine per-visit randomization -- see index.html's identical helper
 // for the full reasoning. Never mutates ALL_AVATAR_KEYS itself.
@@ -71,7 +71,7 @@ function renderMyAvatarPicker6p() {
   if (!el) return;
   el.innerHTML = shuffledAvatarKeys().map(key =>
     `<div class="my-avatar-choice${key === MY_AVATAR_KEY ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatar6p('${key}')">
-      <img src="/images/hero-avatars/${key}.jpg" alt="">
+      <img src="/images/hero-avatars/${key}.png" alt="">
     </div>`
   ).join('');
 }

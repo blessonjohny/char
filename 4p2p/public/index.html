@@ -616,15 +616,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .table:not(.mode6) .pslot.s-pos5{display:none !important}
 
 .pspot{display:flex;flex-direction:column;align-items:center;gap:1px;transform:scale(1)}
-.avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;border:2.5px solid var(--border);position:relative;flex-shrink:0;transition:border-color 0.6s ease,transform 0.25s ease;
-  /* Per explicit request: a real "popping off the table" look instead of
-     a flat circle. Three shadow layers instead of one -- a tight dark
-     contact shadow right at the edge, a medium one, and a wide soft one
-     -- is what actually reads as depth/lift rather than just a blurry
-     outline. The two inset lines fake a light source from above: a
-     bright rim on the top inner edge, a soft dark one on the bottom
-     inner edge, so the flat avatar image reads as a lit sphere instead
-     of a sticker. */
+.avatar{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;border:2.5px solid transparent;background:transparent;position:relative;flex-shrink:0;transition:border-color 0.6s ease,transform 0.25s ease;
+  /* Per explicit request: no visible frame or background box anymore --
+     the avatar art is now a transparent cutout (background already
+     removed from the source image itself), so it just sits directly on
+     whatever's behind it -- the chair in the photo-table background --
+     instead of floating in a bordered tile on top of it. Border stays
+     defined at transparent (not removed entirely) specifically so the
+     functional status rings still work without any layout shift: bot-
+     status/human-status/turn-active all recolor this same border to
+     something real when they apply -- this is only invisible by
+     default, not gone. */
   box-shadow:
     0 2px 3px rgba(0,0,0,0.5),
     0 8px 14px rgba(0,0,0,0.45),
@@ -668,7 +670,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    which one is actually visible based on the .has-q class that's already being toggled on the
    avatar element by the existing Kunukku logic above - no JS logic anywhere had to change to
    get the sad-face swap, only which image is visible. */
-.hero-avatar-face{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
+.hero-avatar-face{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;border-radius:0}
 .hero-avatar-face.hero-avatar-sad{display:none}
 .avatar.has-q .hero-avatar-face.hero-avatar-normal,
 .player-avatar.has-q .hero-avatar-face.hero-avatar-normal{display:none}
@@ -4520,7 +4522,7 @@ function heroAvatarHtml(key) {
   // image swap CSS hides on .has-q (display:none), which would make
   // this single image vanish entirely on a shutout instead of just
   // dimming with the emoji overlay, the opposite of what's wanted here.
-  return `<img src="/images/hero-avatars/${key}.jpg" class="hero-avatar-face" alt="">`;
+  return `<img src="/images/hero-avatars/${key}.png" class="hero-avatar-face" alt="">`;
 }
 // Genuine per-visit randomization, not a fixed order baked into the
 // source -- shuffles a COPY of ALL_AVATAR_KEYS each time the picker is
@@ -4542,7 +4544,7 @@ function renderMyAvatarPicker() {
   if (!el) return;
   el.innerHTML = shuffledAvatarKeys().map(key =>
     `<div class="my-avatar-choice${key === MY_AVATAR_KEY ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatar('${key}')">
-      <img src="/images/hero-avatars/${key}.jpg" alt="">
+      <img src="/images/hero-avatars/${key}.png" alt="">
     </div>`
   ).join('');
 }
