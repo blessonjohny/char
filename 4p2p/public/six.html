@@ -852,11 +852,11 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      two lower-diagonal seats are closest/largest before "me"). Kept small and conservative on
      the first pass - top +3%, upper-diagonal +5% (deliberately more than top, per the
      request), lower-diagonal +2% (deliberately just a touch). */
-  #seatWrap1 { left: 88% !important; top: 73% !important; }
+  #seatWrap1 { left: 88% !important; top: 68% !important; }
   #seatWrap2 { left: 88% !important; top: 38% !important; }
   #seatWrap3 { left: 50% !important; top: 19% !important; }
   #seatWrap4 { left: 12% !important; top: 38% !important; }
-  #seatWrap5 { left: 12% !important; top: 73% !important; }
+  #seatWrap5 { left: 12% !important; top: 68% !important; }
 
   /* Trick-card (played card) positions were drifting from the avatar
      seats above -- they're driven by a separate JS array (SLOT_POS /
@@ -905,6 +905,10 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   /* Per explicit follow-up: a little smaller than the previous 118px --
      modest reduction, still bigger than the table's own ~92px default. */
   .seat .av { width: 100px !important; height: 128px !important; font-size: 2.8rem !important; }
+  /* Per explicit request: "mine" (bottom/you) a little smaller than
+     before, while still staying the biggest in the top->bottom depth
+     hierarchy below. */
+  #seatWrap0 .av { width: 96px !important; height: 123px !important; font-size: 2.7rem !important; }
   /* Per explicit request: same perspective/depth gradient as the
      4-player table -- top (farthest away) is smallest, growing seat by
      seat toward the bottom (closest, "you" -- left at its existing
