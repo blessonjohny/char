@@ -832,8 +832,27 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 @media (orientation: portrait) {
   #gameScreen {
     background-image: url('/images/table-bg-6p.jpg');
-    background-size: cover;
+    /* Per explicit report: "cover" crops whichever dimension doesn't
+       match the device's own aspect ratio -- normally that's a modest,
+       tolerable amount, but the recent top/bottom crop of this specific
+       image made it proportionally much wider relative to its height,
+       so on an actual tall phone screen "cover" now has to crop a much
+       bigger chunk off the LEFT/RIGHT sides than it did before to fill
+       the height, pushing the side chairs (and their avatars, still
+       positioned as percentages of the full original image) out of
+       what's actually visible. "100% auto" locks the displayed width to
+       exactly match the container width always, so every horizontal
+       percentage position -- every seat left/right coordinate measured
+       against this image -- stays accurate on any device, no more
+       guessing at an unknown crop amount. Trade-off: since this image
+       is proportionally wider than a typical tall phone screen, this
+       can leave a sliver of plain background visible above and/or below
+       the image instead of the image being cropped there, but that's
+       vertical -- a minor, easily-styled cosmetic gap -- rather than a
+       horizontal one that breaks left/right avatar alignment. */
+    background-size: 100% auto;
     background-position: center;
+    background-color: #1a0e08;
   }
   .six-oval-rail, .six-oval-felt, .six-oval-bevel {
     display: none !important;
