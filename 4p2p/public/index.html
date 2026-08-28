@@ -866,6 +866,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      white fill's own stroke is also thinned further (0.25px->0.12px,
      opacity 0.7->0.55) exactly as requested, so it reads as a hint of
      fill rather than a third competing outline. */
+  /* "Nice and shiny" per later explicit request -- same soft glow
+     treatment as the 6-player table's identical change, added on top
+     of the existing crisp outline rather than replacing it. */
+  filter: drop-shadow(0 0 4px rgba(34,197,94,0.85)) drop-shadow(0 0 8px rgba(34,197,94,0.5));
   text-shadow:
     2.2px 0 0 #000, -2.2px 0 0 #000, 0 2.2px 0 #000, 0 -2.2px 0 #000,
     1.6px 1.6px 0 #000, -1.6px -1.6px 0 #000, 1.6px -1.6px 0 #000, -1.6px 1.6px 0 #000,
@@ -878,7 +882,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   color:#fff;
   -webkit-text-stroke:0.12px rgba(255,255,255,0.55);
   /* Same universal-black-outer fix as .name-teammate above -- see there
-     for the fuller reasoning. */
+     for the fuller reasoning. Same shiny-glow addition too. */
+  filter: drop-shadow(0 0 4px rgba(239,68,68,0.85)) drop-shadow(0 0 8px rgba(239,68,68,0.5));
   text-shadow:
     2.2px 0 0 #000, -2.2px 0 0 #000, 0 2.2px 0 #000, 0 -2.2px 0 #000,
     1.6px 1.6px 0 #000, -1.6px -1.6px 0 #000, 1.6px -1.6px 0 #000, -1.6px 1.6px 0 #000,
