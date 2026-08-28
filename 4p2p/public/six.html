@@ -829,7 +829,17 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    12/2/4/6/8/10 o'clock. Portrait-only, same reasoning as the
    4-player table: no landscape version of a top-down illustration
    exists, so landscape keeps the CSS-drawn table untouched. */
-@media (orientation: portrait) {
+/* Fixed per explicit report: this previously matched (orientation: portrait) alone, which
+   checks the actual browser viewport - not the width of the phone-frame container the game
+   renders inside. On desktop, the browser window itself is normally landscape-shaped even
+   though the game is displayed inside a narrow, portrait-shaped frame centered on the page
+   (see the min-width:521px phone-frame wrapper elsewhere in this file), so this entire block
+   never matched there at all, and desktop players saw the old CSS-drawn table with none of
+   this theme's seat positions, avatar sizing, or transparency fixes applied. Now matches
+   EITHER an actually-portrait device OR a browser wide enough to be in that desktop frame
+   mode, while a genuinely narrow-AND-landscape phone (turned sideways) still correctly falls
+   through to the old table, per the original reasoning above. */
+@media (orientation: portrait), (min-width: 521px) {
   #gameScreen {
     /* Per explicit request: NOT touching the actual photo file at all
        this time -- that risks the seat/trick alignment that took a lot

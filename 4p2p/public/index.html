@@ -2850,7 +2850,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    lands on a real chair before this was written into CSS. Portrait-
    only: no landscape version of a top-down illustration exists, so
    landscape keeps the original CSS-drawn table completely untouched. */
-@media (orientation: portrait) {
+/* Fixed per explicit report: this previously matched (orientation: portrait) alone, which
+   checks the actual browser viewport - not the width of the phone-frame container the game
+   renders inside. On desktop, the browser window itself is normally landscape-shaped even
+   though the game is displayed inside a narrow, portrait-shaped frame centered on the page
+   (see the min-width:521px phone-frame wrapper elsewhere in this file), so this entire block
+   never matched there at all, and desktop players saw the old CSS-drawn table with none of
+   this theme's seat positions, avatar sizing, or transparency fixes applied. Now matches
+   EITHER an actually-portrait device OR a browser wide enough to be in that desktop frame
+   mode, while a genuinely narrow-AND-landscape phone (turned sideways) still correctly falls
+   through to the old table, per the original reasoning below. */
+@media (orientation: portrait), (min-width: 521px) {
   .table:not(.mode6) {
     background-image: url('/images/table-bg-4p.jpg');
     background-size: cover;
