@@ -881,7 +881,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      request), lower-diagonal +2% (deliberately just a touch). */
   #seatWrap1 { left: 88% !important; top: 68% !important; }
   #seatWrap2 { left: 88% !important; top: 38% !important; }
-  #seatWrap3 { left: 50% !important; top: 19% !important; }
+  #seatWrap3 { left: 50% !important; top: 24% !important; }
   #seatWrap4 { left: 12% !important; top: 38% !important; }
   #seatWrap5 { left: 12% !important; top: 68% !important; }
 
@@ -942,7 +942,9 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      happens to overlap the hand-cards bar below it. Applies regardless
      of who joins that seat, since it targets the seat position, not a
      player identity. */
-  #seatWrap0 .av { opacity: 0.55 !important; }
+  /* Per explicit request: all seats (not just the bottom one) render
+     semi-transparent now, not just yours. */
+  .seat .av { opacity: 0.55 !important; }
   /* Per explicit request: same perspective/depth gradient as the
      4-player table -- top (farthest away) is smallest, growing seat by
      seat toward the bottom (closest, "you" -- left at its existing
