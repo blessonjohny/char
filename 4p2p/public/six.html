@@ -831,27 +831,21 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    exists, so landscape keeps the CSS-drawn table untouched. */
 @media (orientation: portrait) {
   #gameScreen {
-    background-image: url('/images/table-bg-6p.jpg');
-    /* Per explicit report: "cover" crops whichever dimension doesn't
-       match the device's own aspect ratio -- normally that's a modest,
-       tolerable amount, but the recent top/bottom crop of this specific
-       image made it proportionally much wider relative to its height,
-       so on an actual tall phone screen "cover" now has to crop a much
-       bigger chunk off the LEFT/RIGHT sides than it did before to fill
-       the height, pushing the side chairs (and their avatars, still
-       positioned as percentages of the full original image) out of
-       what's actually visible. "100% auto" locks the displayed width to
-       exactly match the container width always, so every horizontal
-       percentage position -- every seat left/right coordinate measured
-       against this image -- stays accurate on any device, no more
-       guessing at an unknown crop amount. Trade-off: since this image
-       is proportionally wider than a typical tall phone screen, this
-       can leave a sliver of plain background visible above and/or below
-       the image instead of the image being cropped there, but that's
-       vertical -- a minor, easily-styled cosmetic gap -- rather than a
-       horizontal one that breaks left/right avatar alignment. */
-    background-size: 100% auto;
-    background-position: center;
+    /* Per explicit request: NOT touching the actual photo file at all
+       this time -- that risks the seat/trick alignment that took a lot
+       of careful measurement to get right. This is a pure CSS overlay
+       instead: a dark gradient layered on top of the existing image
+       (first in the list = painted on top), covering just the top
+       portion of the screen -- from the very top edge down to roughly
+       where the top chair sits -- so the score bar / trump / last-trick
+       / mic UI elements that live in that space read against a darker
+       backdrop, without editing a single pixel of the photo underneath. */
+    background-image:
+      linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0) 100%),
+      url('/images/table-bg-6p.jpg');
+    background-size: 100% 10%, 100% auto;
+    background-position: top, center;
+    background-repeat: no-repeat, no-repeat;
     background-color: #1a0e08;
   }
   .six-oval-rail, .six-oval-felt, .six-oval-bevel {
@@ -1045,7 +1039,6 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 
 <!-- ============ GAME ============ -->
 <div id="gameScreen">
-  <canvas id="k28SeasonCanvas6p" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></canvas>
   <!-- Quote/COT button -- see updateQuoteButton()/declareQuote in six.js and
        _isQuoteEligibleFor() in game-engine-6p.js. Persistent and visible to everyone during
        play, only enabled/clickable when it's genuinely valid for whoever's looking at it:
