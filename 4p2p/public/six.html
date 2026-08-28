@@ -640,7 +640,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .trump-chip.trump-active .trump-chip-icon{animation:suitHeartbeat 1.6s ease-in-out infinite}
 .game-event-icon{animation:suitHeartbeat 1.6s ease-in-out infinite}
 
-.hand-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.35);padding:10px 6px 14px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.hand-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.35);padding:10px 6px 14px;display:flex;flex-direction:column;align-items:center;gap:6px;z-index:6}
 .hand-cards{display:flex;justify-content:center}
 .turnlabel{font-size:0.75rem;color:var(--accent);font-weight:700;min-height:1.1em}
 
@@ -844,7 +844,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      4=upper-left, 5=lower-left). !important needed since SEAT_POS sets
      these as inline styles via JS, which normal-specificity CSS can't
      override. */
-  #seatWrap0 { left: 50% !important; top: 84% !important; }
+  #seatWrap0 { left: 50% !important; top: 80% !important; }
   /* Per explicit request: nudge each seat down slightly so the avatar circle reads as
      actually sitting in its carved chair in the photo rather than floating just above it -
      different amounts per seat since the chairs themselves sit at different depths in the
@@ -909,6 +909,13 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      before, while still staying the biggest in the top->bottom depth
      hierarchy below. */
   #seatWrap0 .av { width: 96px !important; height: 123px !important; font-size: 2.7rem !important; }
+  /* Per explicit request: the bottom seat's avatar (whoever is sitting
+     there -- this isn't tied to a specific player, it's the seat/
+     position itself) always renders semi-transparent, not just when it
+     happens to overlap the hand-cards bar below it. Applies regardless
+     of who joins that seat, since it targets the seat position, not a
+     player identity. */
+  #seatWrap0 .av { opacity: 0.55 !important; }
   /* Per explicit request: same perspective/depth gradient as the
      4-player table -- top (farthest away) is smallest, growing seat by
      seat toward the bottom (closest, "you" -- left at its existing
