@@ -948,19 +948,17 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   #seatWrap2 .av, #seatWrap4 .av { width: 82px !important; height: 105px !important; font-size: 2.3rem !important; }
   #seatWrap1 .av, #seatWrap5 .av { width: 92px !important; height: 118px !important; font-size: 2.6rem !important; }
 
-  /* Per explicit request: same no-more-circle, blend-into-chair
-     treatment as the 4-player table's identical change -- see
-     index.html for the fuller reasoning. */
-  /* Per explicit request: true oval, and border fully removed (not
-     just transparent) including status classes -- see index.html's
-     identical change for the fuller reasoning. */
+  /* Per explicit request: these new avatar images have genuine
+     per-pixel transparency baked in (real alpha channel, confirmed
+     directly) -- so no container shape at all, not even the oval from
+     before. The character's own silhouette is the shape. */
   .seat .av,
   .seat .av.human-status,
   .seat .av.bot-status {
-    border-radius: 50% !important;
+    border-radius: 0 !important;
     border: none !important;
   }
-  .seat .hero-avatar-face { border-radius: 50% !important; }
+  .seat .hero-avatar-face { border-radius: 0 !important; object-fit: contain !important; }
   /* Per explicit follow-up: a bit smaller than the previous 78x108. */
   .trickslot .card { width: 64px !important; height: 90px !important; }
 }
@@ -1003,6 +1001,15 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   color: #f0e0d0;
   font-size: 0.85rem;
   opacity: 0.9;
+}
+/* Confetti burst per explicit follow-up report -- the card alone read
+   as too quiet/easy to miss for something meant to feel like an actual
+   celebration. Added alongside the existing card, not replacing it. */
+#k28ConfettiBurst{position:fixed;inset:0;z-index:99998;pointer-events:none;overflow:hidden}
+#k28ConfettiBurst .bit{position:absolute;top:-20px;border-radius:2px;will-change:transform,opacity}
+@keyframes k28ConfettiFall{
+  0%{transform:translateY(0) rotate(0deg);opacity:1;}
+  100%{transform:translateY(var(--fall,110vh)) rotate(var(--spin,540deg));opacity:0;}
 }
 </style>
 </head>

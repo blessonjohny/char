@@ -341,7 +341,7 @@ document.getElementById('btnRefreshHistory').addEventListener('click', refreshTa
 // 36 female-set images and 64 male-set images, filenames
 // /images/hero-avatars/hero3f{1-36}.png and hero3m{1-64}.png.
 const BOT_AVATAR_KEYS = [
-  ...Array.from({length:23}, (_,i) => 'hero3f'+(i+1)),
+  ...Array.from({length:25}, (_,i) => 'hero3f'+(i+1)),
   ...Array.from({length:24}, (_,i) => 'hero3m'+(i+1)),
 ];
 let botAvatarGridBuilt = false;
@@ -352,7 +352,7 @@ function buildBotAvatarGrid() {
   botAvatarGridBuilt = true;
   const grid = document.getElementById('botAvatarGrid');
   grid.innerHTML = BOT_AVATAR_KEYS.map(key => `
-    <img src="/images/hero-avatars/${key}.jpg" data-key="${key}" class="bot-avatar-thumb"
+    <img src="/images/hero-avatars/${key}.png" data-key="${key}" class="bot-avatar-thumb"
       style="width:40px;height:40px;border-radius:8px;object-fit:cover;cursor:pointer;border:2px solid ${key === selectedBotAvatar ? 'var(--accent)' : 'transparent'}">
   `).join('');
   grid.querySelectorAll('.bot-avatar-thumb').forEach(img => {

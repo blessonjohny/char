@@ -45,7 +45,7 @@ let isAutoReconnectAttempt6p = false;
 // player's choice carries over between tables instead of resetting.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = [...Array.from({length:23}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:24}, (_,i) => 'hero3m'+(i+1))];
+const ALL_AVATAR_KEYS = [...Array.from({length:25}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:24}, (_,i) => 'hero3m'+(i+1))];
 if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
 }
@@ -69,7 +69,7 @@ function heroAvatarHtml(key) {
   // full reasoning. The .avatar.has-q CSS (dim filter + crying-emoji
   // overlay) already applies to the whole container regardless of what
   // image class is inside it, so no dual-image markup is needed.
-  return `<img src="/images/hero-avatars/${key}.jpg" class="hero-avatar-face" alt="">`;
+  return `<img src="/images/hero-avatars/${key}.png" class="hero-avatar-face" alt="">`;
 }
 // Genuine per-visit randomization -- see index.html's identical helper
 // for the full reasoning. Never mutates ALL_AVATAR_KEYS itself.
@@ -86,7 +86,7 @@ function renderMyAvatarPicker6p() {
   if (!el) return;
   el.innerHTML = shuffledAvatarKeys().map(key =>
     `<div class="my-avatar-choice${key === MY_AVATAR_KEY ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatar6p('${key}')">
-      <img src="/images/hero-avatars/${key}.jpg" alt="">
+      <img src="/images/hero-avatars/${key}.png" alt="">
     </div>`
   ).join('');
 }
@@ -831,44 +831,6 @@ function showToast(msg, kind, ms) {
   $('toastHost').appendChild(el);
   setTimeout(() => el.remove(), ms || 2000);
 }
-
-// Per explicit request: same one-time holiday-greeting toast as the
-// 4-player table (replaces the old always-on particle effect) -- see
-// index.html's identical block for the fuller reasoning on why only
-// fixed-date holidays are included.
-const K28_HOLIDAYS = [
-  { name: "New Year", greeting: "Happy New Year!", startMonth: 0, startDay: 1, endMonth: 0, endDay: 2 },
-  { name: "Republic Day (India)", greeting: "Happy Republic Day!", startMonth: 0, startDay: 26, endMonth: 0, endDay: 26 },
-  { name: "Vishu", greeting: "Happy Vishu!", startMonth: 3, startDay: 14, endMonth: 3, endDay: 16 },
-  { name: "Independence Day (India)", greeting: "Happy Independence Day!", startMonth: 7, startDay: 15, endMonth: 7, endDay: 15 },
-  { name: "Onam", greeting: "Happy Onam!", startMonth: 7, startDay: 25, endMonth: 8, endDay: 5 },
-  { name: "Halloween", greeting: "Happy Halloween!", startMonth: 9, startDay: 31, endMonth: 9, endDay: 31 },
-  { name: "Thanksgiving (US)", greeting: "Happy Thanksgiving!", startMonth: 10, startDay: 20, endMonth: 10, endDay: 28 },
-  { name: "Christmas", greeting: "Merry Christmas!", startMonth: 11, startDay: 24, endMonth: 11, endDay: 26 },
-  { name: "New Year's Eve", greeting: "Happy New Year's Eve!", startMonth: 11, startDay: 31, endMonth: 11, endDay: 31 }
-];
-
-function activeHoliday(date) {
-  const m = date.getMonth(), d = date.getDate();
-  for (const h of K28_HOLIDAYS) {
-    if (h.startMonth === h.endMonth) {
-      if (m === h.startMonth && d >= h.startDay && d <= h.endDay) return h;
-    } else {
-      if ((m === h.startMonth && d >= h.startDay) || (m === h.endMonth && d <= h.endDay)) return h;
-    }
-  }
-  return null;
-}
-
-function showHolidayGreetingOnce() {
-  const holiday = activeHoliday(new Date());
-  if (!holiday) return;
-  const todayKey = 'k28HolidayShown_' + holiday.name.replace(/\s+/g, '') + '_' + new Date().toDateString();
-  if (localStorage.getItem(todayKey)) return;
-  localStorage.setItem(todayKey, '1');
-  showToast('🎉 ' + holiday.greeting, 'win', 4000);
-}
-showHolidayGreetingOnce();
 
 // Reusable "big moment" popup -- identical to index.html's own version,
 // see there for the full reasoning.
@@ -3889,6 +3851,28 @@ function requestFullscreen28() {
     return null;
   }
 
+  function spawnConfetti() {
+    const host = document.createElement('div');
+    host.id = 'k28ConfettiBurst';
+    const colors = ['#ffd700','#ff6b6b','#4ecdc4','#f4c430','#e8a33d','#ffffff'];
+    for (let i = 0; i < 60; i++) {
+      const c = document.createElement('div');
+      c.className = 'bit';
+      const size = 6 + Math.random() * 7;
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.width = size + 'px';
+      c.style.height = size + 'px';
+      c.style.background = colors[i % colors.length];
+      c.style.borderRadius = (i % 2 === 0) ? '0' : '50%';
+      c.style.setProperty('--fall', (100 + Math.random() * 25) + 'vh');
+      c.style.setProperty('--spin', (Math.random() * 720 - 360) + 'deg');
+      c.style.animation = 'k28ConfettiFall ' + (2.6 + Math.random() * 1.8) + 's ease-in ' + (Math.random() * 0.6) + 's forwards';
+      host.appendChild(c);
+    }
+    document.body.appendChild(host);
+    setTimeout(() => host.remove(), 4700);
+  }
+
   function showHolidayGreetingIfNeeded() {
     const holiday = findActiveHoliday();
     if (!holiday) return;
@@ -3902,6 +3886,7 @@ function requestFullscreen28() {
     sessionStorage.setItem(sessionKey, '1');
     setTimeout(() => {
       el.classList.add('on');
+      spawnConfetti();
       setTimeout(() => el.classList.remove('on'), 3800);
     }, 500); // small delay so it doesn't pop in before the table has finished rendering
   }

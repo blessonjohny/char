@@ -2909,24 +2909,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      defined at transparent (not removed outright) so the functional
      status rings (bot/human/turn-active) still recolor it correctly
      without a layout shift when they apply. */
-  /* Per explicit request: true oval (not a squarish rounded rect) --
-     the container itself is now taller than wide, with a full 50%
-     radius, which actually produces an ellipse instead of the flatter
-     6px-corner rectangle from before. Border fully removed (not just
-     made transparent) since the human/bot/turn-active status classes
-     recolor border-color specifically, and those need to be
-     neutralized too, or the "no edges" request would still show a
-     colored ring the moment someone's status changes. The small
-     connection-status dot elsewhere on each seat already conveys
-     human/bot state independently, so this isn't a total loss of that
-     information, just moved off the avatar's own edge. */
+  /* Per explicit request: these new avatar images have genuine
+     per-pixel transparency baked in (real alpha channel, not a white
+     background) -- confirmed directly before using them. So no
+     container shape at all now, not even the oval from before: the
+     character's own silhouette IS the shape. Border/radius fully
+     removed. */
   .table:not(.mode6) .avatar,
   .table:not(.mode6) .avatar.human-status,
   .table:not(.mode6) .avatar.bot-status {
-    border-radius: 50% !important;
+    border-radius: 0 !important;
     border: none !important;
   }
-  .table:not(.mode6) .hero-avatar-face { border-radius: 50% !important; }
+  .table:not(.mode6) .hero-avatar-face { border-radius: 0 !important; object-fit: contain !important; }
 
   /* Per explicit request: the small "cards remaining" tick-bar under
      each avatar isn't wanted in this photo-table look -- hidden for
@@ -3269,6 +3264,30 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 }
 @media (prefers-reduced-motion: reduce){
   #btnCreateRoom{animation:none}
+}
+/* Holiday celebration burst -- a few seconds of confetti + a big
+   scaling/fading greeting, replacing the earlier too-subtle toast per
+   explicit follow-up report. Self-contained: creates and destroys its
+   own DOM, doesn't touch any existing layout. */
+#k28HolidayBurst{position:fixed;inset:0;z-index:9500;pointer-events:none;overflow:hidden}
+#k28HolidayBurst .confetti{position:absolute;top:-20px;border-radius:2px;will-change:transform,opacity}
+#k28HolidayBurst .greeting{
+  position:absolute;top:38%;left:50%;transform:translate(-50%,-50%) scale(0.5);
+  font-family:'Cinzel Decorative',serif;font-size:clamp(1.6rem,7vw,2.8rem);font-weight:700;
+  color:#ffd700;text-shadow:0 0 12px rgba(255,215,0,0.9),0 0 24px rgba(255,140,0,0.6),0 3px 6px rgba(0,0,0,0.9);
+  text-align:center;white-space:nowrap;opacity:0;
+  animation:k28GreetPop 4.5s cubic-bezier(.2,1.2,.3,1) forwards;
+}
+@keyframes k28GreetPop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(0.4);}
+  15%{opacity:1;transform:translate(-50%,-50%) scale(1.12);}
+  25%{transform:translate(-50%,-50%) scale(1);}
+  80%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.05);}
+}
+@keyframes k28ConfettiFall{
+  0%{transform:translateY(0) rotate(0deg);opacity:1;}
+  100%{transform:translateY(var(--fall,110vh)) rotate(var(--spin,540deg));opacity:0;}
 }
 </style>
 </head>
@@ -4275,7 +4294,7 @@ try { MY_NAME = localStorage.getItem('k28_player_name') || ''; } catch (e) {}
 // sticks across visits instead of resetting every time.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = [...Array.from({length:23}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:24}, (_,i) => 'hero3m'+(i+1))];
+const ALL_AVATAR_KEYS = [...Array.from({length:25}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:24}, (_,i) => 'hero3m'+(i+1))];
 
 // ==================== SOUND ENGINE ====================
 // A full card-table sound system built entirely on the native Web Audio API - no audio files,
@@ -4597,7 +4616,7 @@ function heroAvatarHtml(key) {
   // image swap CSS hides on .has-q (display:none), which would make
   // this single image vanish entirely on a shutout instead of just
   // dimming with the emoji overlay, the opposite of what's wanted here.
-  return `<img src="/images/hero-avatars/${key}.jpg" class="hero-avatar-face" alt="">`;
+  return `<img src="/images/hero-avatars/${key}.png" class="hero-avatar-face" alt="">`;
 }
 // Genuine per-visit randomization, not a fixed order baked into the
 // source -- shuffles a COPY of ALL_AVATAR_KEYS each time the picker is
@@ -4619,7 +4638,7 @@ function renderMyAvatarPicker() {
   if (!el) return;
   el.innerHTML = shuffledAvatarKeys().map(key =>
     `<div class="my-avatar-choice${key === MY_AVATAR_KEY ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatar('${key}')">
-      <img src="/images/hero-avatars/${key}.jpg" alt="">
+      <img src="/images/hero-avatars/${key}.png" alt="">
     </div>`
   ).join('');
 }
@@ -5753,34 +5772,38 @@ function showToast(msg, type, dur) {
 }
 
 // Per explicit request: replaces the old always-on particle animation --
-// a one-time "Happy [Holiday]!" toast shown when the table first loads,
-// not a persistent effect. Fixed-date holidays only (Gregorian calendar
-// math is reliable for these); deliberately NOT including movable-date
+// a celebration burst (confetti + a big scaling/fading greeting) shown
+// once per day when the table loads, not a persistent effect. Same
+// 12-holiday list as the 6-player table's own (separately pre-existing)
+// holiday system, kept in sync so both tables recognize the same set.
+// Fixed-date holidays only -- deliberately NOT including movable-date
 // ones like Easter or Eid, since those follow lunar/lunisolar calendars
 // this can't compute accurately, and showing a wrong date would be worse
-// than not showing one at all. Each entry's window runs a few days past
-// the holiday itself (e.g. Onam continues to feel festive a few days
-// after), not just the single calendar day.
+// than not showing one at all.
 const K28_HOLIDAYS = [
-  { name: "New Year", greeting: "Happy New Year!", startMonth: 0, startDay: 1, endMonth: 0, endDay: 2 },
-  { name: "Republic Day (India)", greeting: "Happy Republic Day!", startMonth: 0, startDay: 26, endMonth: 0, endDay: 26 },
-  { name: "Vishu", greeting: "Happy Vishu!", startMonth: 3, startDay: 14, endMonth: 3, endDay: 16 },
-  { name: "Independence Day (India)", greeting: "Happy Independence Day!", startMonth: 7, startDay: 15, endMonth: 7, endDay: 15 },
-  { name: "Onam", greeting: "Happy Onam!", startMonth: 7, startDay: 25, endMonth: 8, endDay: 5 },
-  { name: "Halloween", greeting: "Happy Halloween!", startMonth: 9, startDay: 31, endMonth: 9, endDay: 31 },
-  { name: "Thanksgiving (US)", greeting: "Happy Thanksgiving!", startMonth: 10, startDay: 20, endMonth: 10, endDay: 28 },
-  { name: "Christmas", greeting: "Merry Christmas!", startMonth: 11, startDay: 24, endMonth: 11, endDay: 26 },
-  { name: "New Year's Eve", greeting: "Happy New Year's Eve!", startMonth: 11, startDay: 31, endMonth: 11, endDay: 31 }
+  { key: 'newyear',    emoji: '🎉', title: 'Happy New Year!',         start: [1,1],  end: [1,2] },
+  { key: 'valentines', emoji: '💝', title: "Happy Valentine's Day!",  start: [2,14], end: [2,14] },
+  { key: 'vishu',      emoji: '🌼', title: 'Happy Vishu!',            start: [4,14], end: [4,16] },
+  { key: 'mayday',     emoji: '🌷', title: 'Happy May Day!',          start: [5,1],  end: [5,1] },
+  { key: 'julyfourth', emoji: '🎆', title: 'Happy Independence Day!', start: [7,4],  end: [7,4] },
+  { key: 'indiaindep', emoji: '🇮🇳', title: 'Happy Independence Day!', start: [8,15], end: [8,16] },
+  { key: 'onam',       emoji: '🌸', title: 'Happy Onam!',             start: [8,20], end: [9,10] },
+  { key: 'halloween',  emoji: '🎃', title: 'Happy Halloween!',        start: [10,30],end: [11,2] },
+  { key: 'diwali',     emoji: '🪔', title: 'Happy Diwali!',           start: [11,1], end: [11,6] },
+  { key: 'thanksgiving',emoji:'🦃', title: 'Happy Thanksgiving!',     start: [11,24],end: [11,28] },
+  { key: 'christmas',  emoji: '🎄', title: 'Merry Christmas!',        start: [12,24],end: [12,26] },
+  { key: 'yearend',    emoji: '🥳', title: "Happy New Year's Eve!",   start: [12,31],end: [12,31] },
 ];
 
 function activeHoliday(date) {
-  const m = date.getMonth(), d = date.getDate();
+  const m = date.getMonth() + 1, d = date.getDate();
+  const asNum = (mo, da) => mo * 100 + da;
+  const today = asNum(m, d);
   for (const h of K28_HOLIDAYS) {
-    if (h.startMonth === h.endMonth) {
-      if (m === h.startMonth && d >= h.startDay && d <= h.endDay) return h;
-    } else {
-      // spans a month boundary (only Onam currently does this)
-      if ((m === h.startMonth && d >= h.startDay) || (m === h.endMonth && d <= h.endDay)) return h;
+    const start = asNum(h.start[0], h.start[1]);
+    const end = asNum(h.end[0], h.end[1]);
+    if (start <= end ? (today >= start && today <= end) : (today >= start || today <= end)) {
+      return h;
     }
   }
   return null;
@@ -5795,10 +5818,37 @@ function showHolidayGreetingOnce() {
   // to today specifically (a rejoin, a refresh, someone else joining
   // the same table -- none of those re-trigger it for a browser that's
   // already seen today's greeting).
-  const todayKey = 'k28HolidayShown_' + holiday.name.replace(/\s+/g, '') + '_' + new Date().toDateString();
+  const todayKey = 'k28HolidayShown_' + holiday.key + '_' + new Date().toDateString();
   if (localStorage.getItem(todayKey)) return;
   localStorage.setItem(todayKey, '1');
-  showToast('🎉 ' + holiday.greeting, 'info', 4000);
+
+  // Real celebration burst, not a quiet toast, per explicit follow-up --
+  // a few seconds of falling confetti plus a big scaling/fading
+  // greeting, then it removes itself entirely and doesn't repeat today.
+  const host = document.createElement('div');
+  host.id = 'k28HolidayBurst';
+  const colors = ['#ffd700','#ff6b6b','#4ecdc4','#f4c430','#e8a33d','#ffffff'];
+  const shapes = ['0','50%']; // square vs round confetti bits, mixed
+  for (let i = 0; i < 60; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    const size = 6 + Math.random() * 7;
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.width = size + 'px';
+    c.style.height = size + 'px';
+    c.style.background = colors[i % colors.length];
+    c.style.borderRadius = shapes[i % 2];
+    c.style.setProperty('--fall', (100 + Math.random() * 25) + 'vh');
+    c.style.setProperty('--spin', (Math.random() * 720 - 360) + 'deg');
+    c.style.animation = 'k28ConfettiFall ' + (2.6 + Math.random() * 1.8) + 's ease-in ' + (Math.random() * 0.6) + 's forwards';
+    host.appendChild(c);
+  }
+  const g = document.createElement('div');
+  g.className = 'greeting';
+  g.textContent = holiday.emoji + ' ' + holiday.title + ' ' + holiday.emoji;
+  host.appendChild(g);
+  document.body.appendChild(host);
+  setTimeout(() => host.remove(), 4700);
 }
 showHolidayGreetingOnce();
 
