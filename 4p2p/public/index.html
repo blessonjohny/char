@@ -4613,7 +4613,7 @@ function heroAvatarHtml(key) {
   // the same numbers ALL_AVATAR_KEYS is built from, just usable this
   // early. Update both places together if the avatar set size changes
   // again.
-  const FEMALE_COUNT = 23, MALE_COUNT = 24;
+  const FEMALE_COUNT = 19, MALE_COUNT = 17;
   const m = typeof key === 'string' && key.match(/^hero3([fm])(\d+)$/);
   const validNum = m && Number(m[2]) >= 1 && Number(m[2]) <= (m[1] === 'f' ? FEMALE_COUNT : MALE_COUNT);
   if (!validNum) {

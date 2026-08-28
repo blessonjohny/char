@@ -54,7 +54,7 @@ function heroAvatarHtml(key) {
   // or out-of-range key -- see index.html's identical function for the
   // full reasoning (a large hardcoded bot list references avatar
   // numbers from before the set was trimmed multiple times).
-  const FEMALE_COUNT = 23, MALE_COUNT = 24;
+  const FEMALE_COUNT = 19, MALE_COUNT = 17;
   const m = typeof key === 'string' && key.match(/^hero3([fm])(\d+)$/);
   const validNum = m && Number(m[2]) >= 1 && Number(m[2]) <= (m[1] === 'f' ? FEMALE_COUNT : MALE_COUNT);
   if (!validNum) {
