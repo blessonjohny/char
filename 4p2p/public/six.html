@@ -948,15 +948,16 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   #seatWrap2 .av, #seatWrap4 .av { width: 82px !important; height: 105px !important; font-size: 2.3rem !important; }
   #seatWrap1 .av, #seatWrap5 .av { width: 92px !important; height: 118px !important; font-size: 2.6rem !important; }
 
-  /* Per explicit request: these new avatar images have genuine
-     per-pixel transparency baked in (real alpha channel, confirmed
-     directly) -- so no container shape at all, not even the oval from
-     before. The character's own silhouette is the shape. */
+  /* Per explicit re-do: same inline-background-neutralizing fix as the
+     4-player table -- see index.html's identical change for the fuller
+     reasoning (a JS-set background color, av.style.background =
+     botMeta.bg, was painting through the transparent PNG). */
   .seat .av,
   .seat .av.human-status,
   .seat .av.bot-status {
     border-radius: 0 !important;
     border: none !important;
+    background: transparent !important;
   }
   .seat .hero-avatar-face { border-radius: 0 !important; object-fit: contain !important; }
   /* Per explicit follow-up: a bit smaller than the previous 78x108. */
