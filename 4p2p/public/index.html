@@ -5280,7 +5280,13 @@ function setupOnlineTable() {
     }
     if (av) {
       av.style.background = p.bg;
-      const teamClass = (getTeam(p.pos) === getTeam(viewerPos())) ? 'tyou' : 'topp';
+      // Per explicit request: this dot shows human-vs-bot status (green
+      // = live human, red = bot), not team membership -- previously it
+      // reused the same 'tyou'/'topp' classes as the team-color system,
+      // which are still used below for name-text coloring (unrelated,
+      // stays team-based), but the dot itself now checks p.isBot
+      // directly instead of team comparison.
+      const teamClass = p.isBot ? 'topp' : 'tyou';
       // Real bug fix, not a style nit: setupOnlineTable() runs on EVERY state update from the
       // server (i.e. every single turn, whether or not this particular player's own avatar
       // actually needs to change), and av.innerHTML = ... destroys and recreates every child
@@ -5372,7 +5378,7 @@ function confirmPlayer() {
   for (let i = 0; i < 4; i++) {
     const av = document.getElementById('av' + i);
     const nm = document.getElementById('name' + i);
-    const teamDot = getTeam(i) === getTeam(MY_POS) ? 'tyou' : 'topp';
+    const teamDot = PLAYERS[i].isBot ? 'topp' : 'tyou';
     if (av) { av.style.background = avs[i].bg; av.innerHTML = avs[i].emoji + '<span class="tdot ' + teamDot + '"></span>'; }
     if (nm) nm.textContent = formatPlayerName(PLAYERS[i].name, PLAYERS[i].isBot);
   }
@@ -7945,6 +7951,13 @@ function restoreGameState(data) {
     const slot = slotForPlayer(p.pos);
     const av = document.getElementById('av' + slot);
     const nm = document.getElementById('name' + slot);
+    // Per explicit request: the dot on the avatar shows human-vs-bot
+    // status (green=human, red=bot), separate from teamDot below which
+    // still drives the name-teammate/name-opponent text color -- these
+    // used to be the same variable, conflating "is this my teammate"
+    // with "is this a bot", which is why the dot showed team affiliation
+    // instead of connection type before this fix.
+    const botDot = p.isBot ? 'topp' : 'tyou';
     const teamDot = getTeam(p.pos) === getTeam(MY_POS) ? 'tyou' : 'topp';
     // Real bug, not a style nit: this ran unconditionally on EVERY state update (i.e. every
     // single turn, whether or not anything about this player actually changed), and
@@ -7956,7 +7969,7 @@ function restoreGameState(data) {
     // way call-badge's own dataset.v check works: only touch innerHTML when the actual
     // rendered value is different from what's already there, and re-append the badge
     // afterward if the update did need to happen (since innerHTML= would have just deleted it).
-    const desiredAvHtml = p.emoji + '<span class="tdot ' + teamDot + '"></span>';
+    const desiredAvHtml = p.emoji + '<span class="tdot ' + botDot + '"></span>';
     if (av) {
       av.style.background = p.bg;
       if (av.dataset.avHtml !== desiredAvHtml) {
@@ -13758,8 +13771,12 @@ function startLocalGameWithPosition(yourPos) {
     const slot = slotForPlayer(i);
     const av = document.getElementById('av' + slot);
     const nm = document.getElementById('name' + slot);
+    // Per explicit request: dot = human/bot status, separate from
+    // teamDot which still drives name-teammate/name-opponent coloring
+    // -- see the identical fix/comment at the online-mode update site.
+    const botDot = p.isBot ? 'topp' : 'tyou';
     const teamDot = getTeam(i) === getTeam(yourPos) ? 'tyou' : 'topp';
-    if (av) { av.style.background = p.bg; av.innerHTML = p.emoji + '<span class="tdot ' + teamDot + '"></span>'; }
+    if (av) { av.style.background = p.bg; av.innerHTML = p.emoji + '<span class="tdot ' + botDot + '"></span>'; }
     if (nm) {
       nm.textContent = formatPlayerName(p.name, p.isBot);
       // Same royal green/red team-relative coloring as the online-mode update site, via

@@ -2049,6 +2049,19 @@ function renderSeats(state) {
     const isBotNow = !!seat.isBot;
     av.classList.toggle('human-status', !isBotNow);
     av.classList.toggle('bot-status', isBotNow);
+    // Per explicit request: same small colored dot as the 4-player
+    // table (green=human, red=bot) -- this table never had one before,
+    // it only ever relied on the avatar's own border color for this,
+    // which the earlier "no edges" change removed entirely in photo
+    // mode, silently leaving no bot/human indicator at all here.
+    let dotEl = av.querySelector('.tdot');
+    if (!dotEl) {
+      dotEl = document.createElement('span');
+      dotEl.className = 'tdot';
+      av.appendChild(dotEl);
+    }
+    dotEl.classList.toggle('tyou', !isBotNow);
+    dotEl.classList.toggle('topp', isBotNow);
     const prevIsBot = lastKnownIsBotPerPos[pos];
     if (prevIsBot !== null && prevIsBot !== isBotNow) {
       av.classList.remove('flash-join', 'flash-leave');

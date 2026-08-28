@@ -306,6 +306,14 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    continuously running). */
 .seat .av.human-status{border-color:#22c55e}
 .seat .av.bot-status{border-color:#ef4444}
+/* Per explicit request: same small colored status dot as the 4-player
+   table (green=human, red=bot), added here since this table never had
+   one -- it only ever had the border-color above, which the "no edges"
+   change elsewhere removes in photo mode, leaving no visible indicator
+   at all without this. */
+.seat .av .tdot{position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;border:1.5px solid #1a1a2e;z-index:2}
+.seat .av .tdot.tyou{background:#4ade80}
+.seat .av .tdot.topp{background:#f87171}
 @keyframes humanJoinFlashSix{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 4px rgba(34,197,94,0.6),0 0 16px 6px rgba(34,197,94,0.5)}}
 @keyframes humanLeaveFlashSix{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 4px rgba(239,68,68,0.6),0 0 16px 6px rgba(239,68,68,0.5)}}
 .seat .av.flash-join{animation:humanJoinFlashSix 0.6s ease-in-out 2}
@@ -836,7 +844,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      4=upper-left, 5=lower-left). !important needed since SEAT_POS sets
      these as inline styles via JS, which normal-specificity CSS can't
      override. */
-  #seatWrap0 { left: 50% !important; top: 80% !important; }
+  #seatWrap0 { left: 50% !important; top: 95% !important; }
   /* Per explicit request: nudge each seat down slightly so the avatar circle reads as
      actually sitting in its carved chair in the photo rather than floating just above it -
      different amounts per seat since the chairs themselves sit at different depths in the
@@ -844,11 +852,11 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      two lower-diagonal seats are closest/largest before "me"). Kept small and conservative on
      the first pass - top +3%, upper-diagonal +5% (deliberately more than top, per the
      request), lower-diagonal +2% (deliberately just a touch). */
-  #seatWrap1 { left: 88% !important; top: 50% !important; }
-  #seatWrap2 { left: 88% !important; top: 26% !important; }
-  #seatWrap3 { left: 50% !important; top: 10% !important; }
-  #seatWrap4 { left: 12% !important; top: 26% !important; }
-  #seatWrap5 { left: 12% !important; top: 50% !important; }
+  #seatWrap1 { left: 88% !important; top: 73% !important; }
+  #seatWrap2 { left: 88% !important; top: 38% !important; }
+  #seatWrap3 { left: 50% !important; top: 11% !important; }
+  #seatWrap4 { left: 12% !important; top: 38% !important; }
+  #seatWrap5 { left: 12% !important; top: 73% !important; }
 
   /* Trick-card (played card) positions were drifting from the avatar
      seats above -- they're driven by a separate JS array (SLOT_POS /
@@ -860,12 +868,12 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      seat positions instead of the old ones, then verified with drawn
      markers against the real image to confirm a clean hexagonal ring
      inside the felt with zero overlap on any avatar before shipping. */
-  #trickSlot0 { left: 50% !important; top: 55% !important; }
-  #trickSlot1 { left: 66% !important; top: 49% !important; }
-  #trickSlot2 { left: 66% !important; top: 35% !important; }
-  #trickSlot3 { left: 50% !important; top: 30% !important; }
-  #trickSlot4 { left: 34% !important; top: 35% !important; }
-  #trickSlot5 { left: 34% !important; top: 49% !important; }
+  #trickSlot0 { left: 50% !important; top: 63% !important; }
+  #trickSlot1 { left: 66% !important; top: 56% !important; }
+  #trickSlot2 { left: 66% !important; top: 44% !important; }
+  #trickSlot3 { left: 50% !important; top: 38% !important; }
+  #trickSlot4 { left: 34% !important; top: 44% !important; }
+  #trickSlot5 { left: 34% !important; top: 56% !important; }
 
   /* Call-badge (bid/pass popup) sizing and diagonal offsets were tuned
      against the OLD seat spacing -- the upper-left/lower-left seats
