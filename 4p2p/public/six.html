@@ -964,6 +964,46 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   /* Per explicit follow-up: a bit smaller than the previous 78x108. */
   .trickslot .card { width: 64px !important; height: 90px !important; }
 }
+/* Holiday greeting popup -- one-time per browser session (see the JS
+   block near the closing body tag for the actual holiday list/logic).
+   Deliberately NOT part of the seasonal particle system that was just
+   removed -- this is a single popup shown once, not a continuous
+   animation. */
+.k28-holiday-greeting {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0.85);
+  z-index: 99999;
+  background: linear-gradient(135deg, rgba(30,10,10,0.97), rgba(50,15,15,0.97));
+  border: 2px solid var(--accent, #ffd700);
+  border-radius: 18px;
+  padding: 28px 32px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(255,215,0,0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(.2,1.4,.4,1);
+  max-width: 86vw;
+}
+.k28-holiday-greeting.on {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: auto;
+}
+.k28-holiday-greeting .k28hg-emoji { font-size: 2.6rem; margin-bottom: 6px; }
+.k28-holiday-greeting .k28hg-title {
+  font-family: 'Cinzel Decorative', serif;
+  color: var(--accent, #ffd700);
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  margin-bottom: 4px;
+}
+.k28-holiday-greeting .k28hg-sub {
+  color: #f0e0d0;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
 </style>
 </head>
 <body>
@@ -1093,6 +1133,11 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
     <div id="lastTrickContent"><div class="lt-empty">None yet</div></div>
   </div>
   <div class="ltrick-backdrop" id="ltrickBackdrop"></div>
+  <div class="k28-holiday-greeting" id="k28HolidayGreeting">
+    <div class="k28hg-emoji" id="k28hgEmoji"></div>
+    <div class="k28hg-title" id="k28hgTitle"></div>
+    <div class="k28hg-sub" id="k28hgSub"></div>
+  </div>
   <div class="table-oval">
     <div class="six-oval-rail"></div>
     <div class="six-oval-bevel"></div>

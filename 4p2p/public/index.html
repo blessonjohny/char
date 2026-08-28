@@ -3728,7 +3728,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 
 <!-- ===== GAME WRAP ===== -->
 <div class="game-wrap" id="gameWrap">
-<canvas id="k28SeasonCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></canvas>
+
   <div class="info-bar" id="infoBar">
     <div class="info-row info-main" style="display:grid;grid-template-columns:1fr auto 1fr;justify-content:stretch;align-items:center">
       <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:flex-start;overflow:hidden">
@@ -5751,6 +5751,56 @@ function showToast(msg, type, dur) {
   document.body.appendChild(t);
   setTimeout(() => { t.classList.add('hide'); setTimeout(() => t.remove(), 300); }, dur);
 }
+
+// Per explicit request: replaces the old always-on particle animation --
+// a one-time "Happy [Holiday]!" toast shown when the table first loads,
+// not a persistent effect. Fixed-date holidays only (Gregorian calendar
+// math is reliable for these); deliberately NOT including movable-date
+// ones like Easter or Eid, since those follow lunar/lunisolar calendars
+// this can't compute accurately, and showing a wrong date would be worse
+// than not showing one at all. Each entry's window runs a few days past
+// the holiday itself (e.g. Onam continues to feel festive a few days
+// after), not just the single calendar day.
+const K28_HOLIDAYS = [
+  { name: "New Year", greeting: "Happy New Year!", startMonth: 0, startDay: 1, endMonth: 0, endDay: 2 },
+  { name: "Republic Day (India)", greeting: "Happy Republic Day!", startMonth: 0, startDay: 26, endMonth: 0, endDay: 26 },
+  { name: "Vishu", greeting: "Happy Vishu!", startMonth: 3, startDay: 14, endMonth: 3, endDay: 16 },
+  { name: "Independence Day (India)", greeting: "Happy Independence Day!", startMonth: 7, startDay: 15, endMonth: 7, endDay: 15 },
+  { name: "Onam", greeting: "Happy Onam!", startMonth: 7, startDay: 25, endMonth: 8, endDay: 5 },
+  { name: "Halloween", greeting: "Happy Halloween!", startMonth: 9, startDay: 31, endMonth: 9, endDay: 31 },
+  { name: "Thanksgiving (US)", greeting: "Happy Thanksgiving!", startMonth: 10, startDay: 20, endMonth: 10, endDay: 28 },
+  { name: "Christmas", greeting: "Merry Christmas!", startMonth: 11, startDay: 24, endMonth: 11, endDay: 26 },
+  { name: "New Year's Eve", greeting: "Happy New Year's Eve!", startMonth: 11, startDay: 31, endMonth: 11, endDay: 31 }
+];
+
+function activeHoliday(date) {
+  const m = date.getMonth(), d = date.getDate();
+  for (const h of K28_HOLIDAYS) {
+    if (h.startMonth === h.endMonth) {
+      if (m === h.startMonth && d >= h.startDay && d <= h.endDay) return h;
+    } else {
+      // spans a month boundary (only Onam currently does this)
+      if ((m === h.startMonth && d >= h.startDay) || (m === h.endMonth && d <= h.endDay)) return h;
+    }
+  }
+  return null;
+}
+
+function showHolidayGreetingOnce() {
+  const holiday = activeHoliday(new Date());
+  if (!holiday) return;
+  // Keyed by holiday name + today's actual date, not just the holiday
+  // name alone -- so it naturally shows again next year, but not again
+  // today no matter how many times this table is loaded/reconnected
+  // to today specifically (a rejoin, a refresh, someone else joining
+  // the same table -- none of those re-trigger it for a browser that's
+  // already seen today's greeting).
+  const todayKey = 'k28HolidayShown_' + holiday.name.replace(/\s+/g, '') + '_' + new Date().toDateString();
+  if (localStorage.getItem(todayKey)) return;
+  localStorage.setItem(todayKey, '1');
+  showToast('🎉 ' + holiday.greeting, 'info', 4000);
+}
+showHolidayGreetingOnce();
 
 function showBotThinking(p, name) {
   // Thinking animation removed - bots play silently
@@ -17879,114 +17929,6 @@ function serverBotPlayForMe() {
 
 </script>
 <script>
-// Per explicit request: a subtle, always-on seasonal particle effect
-// over the live game table (not tied to the idle screensaver below --
-// this runs the whole time a hand is in progress). Preset picked once
-// from the real calendar date, not randomly, so it's actually
-// consistent with what time of year it is when someone's playing.
-// Deliberately lightweight: a couple dozen small shapes drifting down a
-// canvas is enough to read as "ambient" without competing for
-// attention with the actual cards -- ambient decoration should stay in
-// the background, not become the main event.
-(function() {
-  const canvas = document.getElementById('k28SeasonCanvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  let particles = [];
-  let dpr = window.devicePixelRatio || 1;
-
-  function currentSeasonPreset() {
-    const month = new Date().getMonth(); // 0-11, real device clock
-    if (month === 7 || month === 8) {
-      // Aug/Sep -- Onam, Kerala's own harvest festival. This is the
-      // preset that'll actually be showing at launch.
-      return { colors: ['#f4c430', '#e8a33d', '#d9534f', '#f7e967', '#ffb347'], shape: 'petal', count: 20, speed: [16, 30] };
-    }
-    if (month === 9 || month === 10) { // Oct/Nov -- Diwali
-      return { colors: ['#ffd700', '#ffb347', '#ff8c00', '#fff2b2'], shape: 'spark', count: 18, speed: [14, 26] };
-    }
-    if (month === 11 || month === 0) { // Dec/Jan -- Christmas/New Year
-      return { colors: ['#ffffff', '#e8f4ff', '#cfe8ff'], shape: 'snow', count: 24, speed: [12, 22] };
-    }
-    // Rest of the year: a gentle sparkle in the site's own gold accent
-    // family -- always on-theme, never a jarring off-brand color.
-    return { colors: ['#f4c430', '#e6a817', '#fff3c4'], shape: 'spark', count: 12, speed: [10, 18] };
-  }
-  const preset = currentSeasonPreset();
-
-  function resize() {
-    dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.clientWidth * dpr;
-    canvas.height = canvas.clientHeight * dpr;
-  }
-
-  function spawn() {
-    const w = canvas.clientWidth, h = canvas.clientHeight;
-    particles = Array.from({ length: preset.count }, () => ({
-      x: Math.random() * w, y: Math.random() * h - h,
-      size: 3 + Math.random() * 4,
-      speed: preset.speed[0] + Math.random() * (preset.speed[1] - preset.speed[0]),
-      drift: (Math.random() - 0.5) * 14,
-      rot: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 1.2,
-      color: preset.colors[Math.floor(Math.random() * preset.colors.length)],
-      opacity: 0.3 + Math.random() * 0.35
-    }));
-  }
-
-  function drawParticle(p) {
-    ctx.save();
-    ctx.translate(p.x * dpr, p.y * dpr);
-    ctx.rotate(p.rot);
-    ctx.globalAlpha = p.opacity;
-    ctx.fillStyle = p.color;
-    if (preset.shape === 'petal') {
-      ctx.beginPath();
-      ctx.ellipse(0, 0, p.size * dpr, p.size * dpr * 0.55, 0, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (preset.shape === 'snow') {
-      ctx.beginPath();
-      ctx.arc(0, 0, p.size * dpr * 0.6, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.beginPath();
-      for (let i = 0; i < 4; i++) {
-        const a = (Math.PI / 2) * i;
-        ctx.lineTo(Math.cos(a) * p.size * dpr, Math.sin(a) * p.size * dpr);
-        ctx.lineTo(Math.cos(a + Math.PI / 4) * p.size * dpr * 0.35, Math.sin(a + Math.PI / 4) * p.size * dpr * 0.35);
-      }
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  let lastT = performance.now();
-  function frame(t) {
-    // offsetParent is null whenever this canvas (or an ancestor, i.e.
-    // the whole game-wrap) is display:none -- the cheapest possible
-    // "is this actually on screen right now" check, so this effect
-    // costs nothing while someone's on the lobby/welcome screen.
-    if (canvas.offsetParent) {
-      const dt = Math.min(0.05, (t - lastT) / 1000);
-      lastT = t;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const h = canvas.clientHeight;
-      for (const p of particles) {
-        p.y += p.speed * dt; p.x += p.drift * dt; p.rot += p.spin * dt;
-        if (p.y > h + 10) { p.y = -10; p.x = Math.random() * canvas.clientWidth; }
-        drawParticle(p);
-      }
-    } else {
-      lastT = t;
-    }
-    requestAnimationFrame(frame);
-  }
-
-  window.addEventListener('resize', resize);
-  resize();
-  spawn();
-  requestAnimationFrame(frame);
-})();
 </script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page has fully

@@ -832,6 +832,44 @@ function showToast(msg, kind, ms) {
   setTimeout(() => el.remove(), ms || 2000);
 }
 
+// Per explicit request: same one-time holiday-greeting toast as the
+// 4-player table (replaces the old always-on particle effect) -- see
+// index.html's identical block for the fuller reasoning on why only
+// fixed-date holidays are included.
+const K28_HOLIDAYS = [
+  { name: "New Year", greeting: "Happy New Year!", startMonth: 0, startDay: 1, endMonth: 0, endDay: 2 },
+  { name: "Republic Day (India)", greeting: "Happy Republic Day!", startMonth: 0, startDay: 26, endMonth: 0, endDay: 26 },
+  { name: "Vishu", greeting: "Happy Vishu!", startMonth: 3, startDay: 14, endMonth: 3, endDay: 16 },
+  { name: "Independence Day (India)", greeting: "Happy Independence Day!", startMonth: 7, startDay: 15, endMonth: 7, endDay: 15 },
+  { name: "Onam", greeting: "Happy Onam!", startMonth: 7, startDay: 25, endMonth: 8, endDay: 5 },
+  { name: "Halloween", greeting: "Happy Halloween!", startMonth: 9, startDay: 31, endMonth: 9, endDay: 31 },
+  { name: "Thanksgiving (US)", greeting: "Happy Thanksgiving!", startMonth: 10, startDay: 20, endMonth: 10, endDay: 28 },
+  { name: "Christmas", greeting: "Merry Christmas!", startMonth: 11, startDay: 24, endMonth: 11, endDay: 26 },
+  { name: "New Year's Eve", greeting: "Happy New Year's Eve!", startMonth: 11, startDay: 31, endMonth: 11, endDay: 31 }
+];
+
+function activeHoliday(date) {
+  const m = date.getMonth(), d = date.getDate();
+  for (const h of K28_HOLIDAYS) {
+    if (h.startMonth === h.endMonth) {
+      if (m === h.startMonth && d >= h.startDay && d <= h.endDay) return h;
+    } else {
+      if ((m === h.startMonth && d >= h.startDay) || (m === h.endMonth && d <= h.endDay)) return h;
+    }
+  }
+  return null;
+}
+
+function showHolidayGreetingOnce() {
+  const holiday = activeHoliday(new Date());
+  if (!holiday) return;
+  const todayKey = 'k28HolidayShown_' + holiday.name.replace(/\s+/g, '') + '_' + new Date().toDateString();
+  if (localStorage.getItem(todayKey)) return;
+  localStorage.setItem(todayKey, '1');
+  showToast('🎉 ' + holiday.greeting, 'win', 4000);
+}
+showHolidayGreetingOnce();
+
 // Reusable "big moment" popup -- identical to index.html's own version,
 // see there for the full reasoning.
 // Small "actual playing card" HTML -- identical to index.html's own
@@ -3569,101 +3607,6 @@ function requestFullscreen28() {
   } catch (e) { /* not available here -- fine, just skip it */ }
 }
 
-// Per explicit request: same always-on seasonal particle effect as the
-// 4-player table (see index.html's identical block for the fuller
-// reasoning) -- date-driven preset, runs continuously while the game
-// screen is up, pauses itself for free whenever it isn't visible.
-(function() {
-  const canvas = document.getElementById('k28SeasonCanvas6p');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  let particles = [];
-  let dpr = window.devicePixelRatio || 1;
-
-  function currentSeasonPreset() {
-    const month = new Date().getMonth();
-    if (month === 7 || month === 8) {
-      return { colors: ['#f4c430', '#e8a33d', '#d9534f', '#f7e967', '#ffb347'], shape: 'petal', count: 20, speed: [16, 30] };
-    }
-    if (month === 9 || month === 10) {
-      return { colors: ['#ffd700', '#ffb347', '#ff8c00', '#fff2b2'], shape: 'spark', count: 18, speed: [14, 26] };
-    }
-    if (month === 11 || month === 0) {
-      return { colors: ['#ffffff', '#e8f4ff', '#cfe8ff'], shape: 'snow', count: 24, speed: [12, 22] };
-    }
-    return { colors: ['#f4c430', '#e6a817', '#fff3c4'], shape: 'spark', count: 12, speed: [10, 18] };
-  }
-  const preset = currentSeasonPreset();
-
-  function resize() {
-    dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.clientWidth * dpr;
-    canvas.height = canvas.clientHeight * dpr;
-  }
-
-  function spawn() {
-    const w = canvas.clientWidth, h = canvas.clientHeight;
-    particles = Array.from({ length: preset.count }, () => ({
-      x: Math.random() * w, y: Math.random() * h - h,
-      size: 3 + Math.random() * 4,
-      speed: preset.speed[0] + Math.random() * (preset.speed[1] - preset.speed[0]),
-      drift: (Math.random() - 0.5) * 14,
-      rot: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 1.2,
-      color: preset.colors[Math.floor(Math.random() * preset.colors.length)],
-      opacity: 0.3 + Math.random() * 0.35
-    }));
-  }
-
-  function drawParticle(p) {
-    ctx.save();
-    ctx.translate(p.x * dpr, p.y * dpr);
-    ctx.rotate(p.rot);
-    ctx.globalAlpha = p.opacity;
-    ctx.fillStyle = p.color;
-    if (preset.shape === 'petal') {
-      ctx.beginPath();
-      ctx.ellipse(0, 0, p.size * dpr, p.size * dpr * 0.55, 0, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (preset.shape === 'snow') {
-      ctx.beginPath();
-      ctx.arc(0, 0, p.size * dpr * 0.6, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.beginPath();
-      for (let i = 0; i < 4; i++) {
-        const a = (Math.PI / 2) * i;
-        ctx.lineTo(Math.cos(a) * p.size * dpr, Math.sin(a) * p.size * dpr);
-        ctx.lineTo(Math.cos(a + Math.PI / 4) * p.size * dpr * 0.35, Math.sin(a + Math.PI / 4) * p.size * dpr * 0.35);
-      }
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  let lastT = performance.now();
-  function frame(t) {
-    if (canvas.offsetParent) {
-      const dt = Math.min(0.05, (t - lastT) / 1000);
-      lastT = t;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const h = canvas.clientHeight;
-      for (const p of particles) {
-        p.y += p.speed * dt; p.x += p.drift * dt; p.rot += p.spin * dt;
-        if (p.y > h + 10) { p.y = -10; p.x = Math.random() * canvas.clientWidth; }
-        drawParticle(p);
-      }
-    } else {
-      lastT = t;
-    }
-    requestAnimationFrame(frame);
-  }
-
-  window.addEventListener('resize', resize);
-  resize();
-  spawn();
-  requestAnimationFrame(frame);
-})();
 
 // ==================== IDLE SCREENSAVER (live 6-player game table) ====================
 // This table had no idle screensaver at all before -- this mirrors the
@@ -3900,4 +3843,68 @@ function requestFullscreen28() {
   window.addEventListener('resize', () => { if (bouncers) stopScreensaver(); resetIdleTimer(); });
   resetIdleTimer();
   window.k28WakeTableScreensaver6p = function() { stopScreensaver(); resetIdleTimer(); };
+})();
+
+// Holiday greeting popup -- one-time per browser session, not a
+// continuous effect. Replaces the always-on seasonal particle system
+// that was removed per explicit request: this only shows a single
+// popup once when the table is first entered during a holiday window,
+// then never again for the rest of that browser session (sessionStorage
+// flag, not localStorage -- a genuinely new session, e.g. a new tab or
+// browser restart, is allowed to show it again, but reloading or
+// rejoining the SAME table within the same session will not re-trigger
+// it). Covers Kerala/Indian holidays, Christian/Western holidays, and
+// major US holidays. Movable-date holidays (Onam, Diwali, Thanksgiving,
+// Easter) use an approximate fixed window since their real dates shift
+// year to year on lunar/lunisolar calendars -- these may need manual
+// adjustment in future years to stay accurate.
+(function() {
+  const HOLIDAYS = [
+    { key: 'newyear',    emoji: '🎉', title: 'Happy New Year!',        sub: 'Wishing you a great year of cards ahead',        start: [1,1],  end: [1,2] },
+    { key: 'valentines', emoji: '💝', title: "Happy Valentine's Day!", sub: 'Wishing you and your partner good luck today',   start: [2,14], end: [2,14] },
+    { key: 'vishu',      emoji: '🌼', title: 'Happy Vishu!',           sub: 'Kerala New Year greetings from 28gulan.com',     start: [4,14], end: [4,16] },
+    { key: 'mayday',     emoji: '🌷', title: 'Happy May Day!',         sub: '',                                               start: [5,1],  end: [5,1] },
+    { key: 'julyfourth', emoji: '🎆', title: 'Happy Independence Day!',sub: '',                                               start: [7,4],  end: [7,4] },
+    { key: 'indiaindep', emoji: '🇮🇳', title: 'Happy Independence Day!',sub: 'Jai Hind',                                       start: [8,15], end: [8,16] },
+    { key: 'onam',       emoji: '🌸', title: 'Happy Onam!',            sub: 'Wishing you a joyful Onam from 28gulan.com',     start: [8,20], end: [9,10] },
+    { key: 'halloween',  emoji: '🎃', title: 'Happy Halloween!',       sub: '',                                               start: [10,30],end: [11,2] },
+    { key: 'diwali',     emoji: '🪔', title: 'Happy Diwali!',          sub: 'Wishing you light and prosperity',               start: [11,1], end: [11,6] },
+    { key: 'thanksgiving',emoji:'🦃', title: 'Happy Thanksgiving!',    sub: '',                                               start: [11,24],end: [11,28] },
+    { key: 'christmas',  emoji: '🎄', title: 'Merry Christmas!',       sub: 'Happy holidays from 28gulan.com',                start: [12,24],end: [12,26] },
+    { key: 'yearend',    emoji: '🥳', title: "Happy New Year's Eve!",  sub: '',                                               start: [12,31],end: [12,31] },
+  ];
+
+  function findActiveHoliday() {
+    const now = new Date();
+    const m = now.getMonth() + 1, d = now.getDate();
+    const asNum = (mo, da) => mo * 100 + da;
+    const today = asNum(m, d);
+    for (const h of HOLIDAYS) {
+      const start = asNum(h.start[0], h.start[1]);
+      const end = asNum(h.end[0], h.end[1]);
+      if (start <= end ? (today >= start && today <= end) : (today >= start || today <= end)) {
+        return h;
+      }
+    }
+    return null;
+  }
+
+  function showHolidayGreetingIfNeeded() {
+    const holiday = findActiveHoliday();
+    if (!holiday) return;
+    const sessionKey = 'k28_holiday_shown_' + holiday.key;
+    if (sessionStorage.getItem(sessionKey)) return; // already shown this session -- don't repeat
+    const el = document.getElementById('k28HolidayGreeting');
+    if (!el) return;
+    document.getElementById('k28hgEmoji').textContent = holiday.emoji;
+    document.getElementById('k28hgTitle').textContent = holiday.title;
+    document.getElementById('k28hgSub').textContent = holiday.sub;
+    sessionStorage.setItem(sessionKey, '1');
+    setTimeout(() => {
+      el.classList.add('on');
+      setTimeout(() => el.classList.remove('on'), 3800);
+    }, 500); // small delay so it doesn't pop in before the table has finished rendering
+  }
+
+  showHolidayGreetingIfNeeded();
 })();
