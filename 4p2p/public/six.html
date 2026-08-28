@@ -819,7 +819,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
     background-size: cover;
     background-position: center;
   }
-  .six-oval-rail, .six-oval-felt {
+  .six-oval-rail, .six-oval-felt, .six-oval-bevel {
     display: none !important;
   }
   /* .table-oval::after (the "28GULAN.COM" branding watermark) is
@@ -837,16 +837,18 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      these as inline styles via JS, which normal-specificity CSS can't
      override. */
   #seatWrap0 { left: 50% !important; top: 70% !important; }
-  /* Per explicit report: left/right (1,2,4,5) nudged in from the
-     raw measured chair positions -- avatar circles at 118px wide can
-     overflow off the actual screen edge on a real phone, since
-     background-size:cover can crop the visible width narrower than
-     the source image's own width on some aspect ratios. */
-  #seatWrap1 { left: 88% !important; top: 50% !important; }
-  #seatWrap2 { left: 88% !important; top: 24% !important; }
-  #seatWrap3 { left: 50% !important; top: 13% !important; }
-  #seatWrap4 { left: 12% !important; top: 24% !important; }
-  #seatWrap5 { left: 12% !important; top: 50% !important; }
+  /* Per explicit request: nudge each seat down slightly so the avatar circle reads as
+     actually sitting in its carved chair in the photo rather than floating just above it -
+     different amounts per seat since the chairs themselves sit at different depths in the
+     photo (the top seat is farthest/smallest, the two upper-diagonal seats are mid-depth, the
+     two lower-diagonal seats are closest/largest before "me"). Kept small and conservative on
+     the first pass - top +3%, upper-diagonal +5% (deliberately more than top, per the
+     request), lower-diagonal +2% (deliberately just a touch). */
+  #seatWrap1 { left: 88% !important; top: 52% !important; }
+  #seatWrap2 { left: 88% !important; top: 29% !important; }
+  #seatWrap3 { left: 50% !important; top: 16% !important; }
+  #seatWrap4 { left: 12% !important; top: 29% !important; }
+  #seatWrap5 { left: 12% !important; top: 52% !important; }
 
   /* Trick-card (played card) positions were drifting from the avatar
      seats above -- they're driven by a separate JS array (SLOT_POS /
