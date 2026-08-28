@@ -958,8 +958,20 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
     border-radius: 0 !important;
     border: none !important;
     background: transparent !important;
+    /* Per explicit report: same box-shadow-follows-rectangle issue as
+       the 4-player table -- see index.html's identical fix for the
+       fuller reasoning. */
+    box-shadow: none !important;
   }
   .seat .hero-avatar-face { border-radius: 0 !important; object-fit: contain !important; }
+  /* Per explicit report: turnActiveGlow6 is ALSO box-shadow-based (plus
+     scales/lifts the box itself), so the current-turn highlight was
+     showing as a glowing yellow rectangle. Swapped to a drop-shadow
+     animation, which follows the character's actual alpha-channel
+     shape instead of the bounding box -- same pulse, correct shape. */
+  .seat.on .av {
+    animation: k28ContainTurnGlow6 1.1s ease-in-out infinite !important;
+  }
   /* Per explicit follow-up: a bit smaller than the previous 78x108. */
   .trickslot .card { width: 64px !important; height: 90px !important; }
 }
@@ -1011,6 +1023,10 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 @keyframes k28ConfettiFall{
   0%{transform:translateY(0) rotate(0deg);opacity:1;}
   100%{transform:translateY(var(--fall,110vh)) rotate(var(--spin,540deg));opacity:0;}
+}
+@keyframes k28ContainTurnGlow6{
+  0%,100%{filter:drop-shadow(0 0 6px rgba(255,215,0,0.7)) drop-shadow(0 0 13px rgba(255,215,0,0.4));}
+  50%{filter:drop-shadow(0 0 10px rgba(255,215,0,1)) drop-shadow(0 0 22px rgba(255,215,0,0.7));}
 }
 </style>
 </head>

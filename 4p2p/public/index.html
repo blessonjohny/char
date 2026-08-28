@@ -2924,8 +2924,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     border-radius: 0 !important;
     border: none !important;
     background: transparent !important;
+    /* Per explicit report: the base .avatar rule has a permanent 5-layer
+       "pop off the table" box-shadow (built for the old solid circular
+       avatars) that's always on. box-shadow follows the element's own
+       rectangular box, not the character's actual silhouette, so on
+       these transparent PNGs it was showing as a faint but very visible
+       ghost square around every avatar. Turned off entirely here. */
+    box-shadow: none !important;
   }
   .table:not(.mode6) .hero-avatar-face { border-radius: 0 !important; object-fit: contain !important; }
+  /* Per explicit report: the turn-active glow (the animated gold ring
+     for whoever's turn it is) is ALSO box-shadow-based, so it was
+     rendering as a glowing yellow SQUARE around the current player
+     instead of hugging their actual shape. filter:drop-shadow, unlike
+     box-shadow, follows the alpha channel of the image itself -- so
+     this swaps the glow to that instead, keeping the "whose turn is it"
+     highlight but shaped like the character, not a rectangle. */
+  .table:not(.mode6) .avatar.turn-active {
+    animation: k28ContainTurnGlow 1.1s ease-in-out infinite !important;
+  }
 
   /* Per explicit request: the small "cards remaining" tick-bar under
      each avatar isn't wanted in this photo-table look -- hidden for
@@ -3292,6 +3309,10 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 @keyframes k28ConfettiFall{
   0%{transform:translateY(0) rotate(0deg);opacity:1;}
   100%{transform:translateY(var(--fall,110vh)) rotate(var(--spin,540deg));opacity:0;}
+}
+@keyframes k28ContainTurnGlow{
+  0%,100%{filter:drop-shadow(0 0 5px rgba(255,215,0,0.7)) drop-shadow(0 0 11px rgba(255,215,0,0.4));}
+  50%{filter:drop-shadow(0 0 8px rgba(255,215,0,1)) drop-shadow(0 0 18px rgba(255,215,0,0.7));}
 }
 </style>
 </head>
