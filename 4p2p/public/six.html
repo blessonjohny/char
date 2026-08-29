@@ -875,7 +875,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      4=upper-left, 5=lower-left). !important needed since SEAT_POS sets
      these as inline styles via JS, which normal-specificity CSS can't
      override. */
-  #seatWrap0 { left: 50% !important; top: 80% !important; }
+  #seatWrap0 { left: 50% !important; top: 75% !important; }
   /* Per explicit request: nudge each seat down slightly so the avatar circle reads as
      actually sitting in its carved chair in the photo rather than floating just above it -
      different amounts per seat since the chairs themselves sit at different depths in the
@@ -888,11 +888,11 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      (Kurian) which was off by a smaller amount - both nudged further to seat them properly
      (left one moved more, matching the reported severity), and the top seat pulled down a
      little further still per the same report. */
-  #seatWrap1 { left: 87% !important; top: 70% !important; }
+  #seatWrap1 { left: 87% !important; top: 63% !important; }
   #seatWrap2 { left: 88% !important; top: 38% !important; }
   #seatWrap3 { left: 50% !important; top: 27% !important; }
   #seatWrap4 { left: 12% !important; top: 38% !important; }
-  #seatWrap5 { left: 14% !important; top: 73% !important; }
+  #seatWrap5 { left: 14% !important; top: 65% !important; }
 
   /* Trick-card (played card) positions were drifting from the avatar
      seats above -- they're driven by a separate JS array (SLOT_POS /
@@ -944,7 +944,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   /* Per explicit request: made bigger again (was intentionally shrunk smaller than this in an
      earlier pass) - "mine" is meant to be the single biggest avatar at the table, anchoring
      the depth hierarchy below it rather than nearly tying the lower-side seats. */
-  #seatWrap0 .av { width: 112px !important; height: 143px !important; font-size: 3.1rem !important; }
+  #seatWrap0 .av { width: 128px !important; height: 164px !important; font-size: 3.5rem !important; }
   /* Per explicit request: the bottom seat's avatar (whoever is sitting there -- this isn't tied
      to a specific player, it's the seat/position itself) always renders semi-transparent, not
      just when it happens to overlap the hand-cards bar below it. Applies regardless of who
