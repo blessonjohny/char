@@ -54,6 +54,7 @@
       <button class="tab" id="tabVisitors">📊 Visitor Log</button>
       <button class="tab" id="tabHistory">📅 Table History</button>
       <button class="tab" id="tabBots">🤖 Bot Tables</button>
+      <button class="tab" id="tabGhost">🕵️ Ghost Players</button>
     </div>
     <div id="commentsView">
       <div class="toolbar">
@@ -106,13 +107,56 @@
         <input type="text" id="botSeatName" placeholder="Admin" maxlength="20"
           style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.9rem;margin-bottom:16px">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">
-          Avatar — <span id="botAvatarSelected">hero4m1</span>
+          Avatar — <span id="botAvatarSelected">toon1</span>
         </div>
         <div id="botAvatarGrid" style="display:flex;flex-wrap:wrap;gap:6px;max-height:220px;overflow-y:auto;padding:8px;background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:16px"></div>
         <button class="btn" id="btnSpawnBotTable">🤖 Start Auto Table</button>
         <div class="err" id="botSpawnErr"></div>
       </div>
       <div id="botSpawnResults"></div>
+    </div>
+    <div id="ghostView" style="display:none">
+      <div class="sub" style="margin-top:0">
+        Runs a seat that shows the same green "live" status dot a genuinely-connected human
+        would, and plays with a randomized few-second "thinking" pause before each move
+        instead of a bot's near-instant pace — driven entirely server-side, no tab to keep
+        open. Either start a brand new table with it in the host seat, or drop it into any
+        existing table's open bot seat. Stop it anytime below to hand that seat back to
+        ordinary bot control — the table itself keeps running either way.
+      </div>
+      <div class="card">
+        <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">Where</div>
+        <div class="tabs" style="margin-bottom:16px">
+          <button class="tab on" id="ghostModeNew" type="button">Create New Table</button>
+          <button class="tab" id="ghostModeJoin" type="button">Join Existing Table</button>
+        </div>
+        <div id="ghostNewTableTypeWrap">
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">Table type</div>
+          <div class="tabs" style="margin-bottom:16px">
+            <button class="tab on" id="ghostMode4p" type="button">4-Player</button>
+            <button class="tab" id="ghostMode6p" type="button">6-Player</button>
+          </div>
+        </div>
+        <div id="ghostJoinTableWrap" style="display:none">
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">
+            Pick a table <button class="btn ghost" id="btnRefreshJoinable" style="padding:4px 10px;font-size:0.75rem;margin-left:6px">🔄</button>
+          </div>
+          <select id="ghostJoinableSelect" style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.9rem;margin-bottom:16px">
+            <option value="">Loading tables…</option>
+          </select>
+        </div>
+        <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">Name for this seat</div>
+        <input type="text" id="ghostSeatName" placeholder="Player" maxlength="20"
+          style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.9rem;margin-bottom:16px">
+        <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">
+          Avatar — <span id="ghostAvatarSelected">toon1</span>
+        </div>
+        <div id="ghostAvatarGrid" style="display:flex;flex-wrap:wrap;gap:6px;max-height:220px;overflow-y:auto;padding:8px;background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:16px"></div>
+        <button class="btn" id="btnStartGhost">🕵️ Start Ghost Player</button>
+        <div class="err" id="ghostSpawnErr"></div>
+      </div>
+      <div style="font-weight:700;font-size:0.85rem;margin:16px 0 10px;color:var(--accent)">Currently running</div>
+      <div id="ghostList"></div>
     </div>
   </div>
 </div>
@@ -210,11 +254,13 @@ function switchTab(tab) {
   document.getElementById('tabVisitors').classList.toggle('on', tab === 'visitors');
   document.getElementById('tabHistory').classList.toggle('on', tab === 'history');
   document.getElementById('tabBots').classList.toggle('on', tab === 'bots');
+  document.getElementById('tabGhost').classList.toggle('on', tab === 'ghost');
   document.getElementById('commentsView').style.display = tab === 'comments' ? 'block' : 'none';
   document.getElementById('liveView').style.display = tab === 'live' ? 'block' : 'none';
   document.getElementById('visitorsView').style.display = tab === 'visitors' ? 'block' : 'none';
   document.getElementById('historyView').style.display = tab === 'history' ? 'block' : 'none';
   document.getElementById('botsView').style.display = tab === 'bots' ? 'block' : 'none';
+  document.getElementById('ghostView').style.display = tab === 'ghost' ? 'block' : 'none';
   if (tab === 'live') {
     refreshLivePlayers();
     if (!liveRefreshInterval) liveRefreshInterval = setInterval(refreshLivePlayers, 5000);
@@ -225,6 +271,15 @@ function switchTab(tab) {
   if (tab === 'visitors') refreshVisitorLog();
   if (tab === 'history') refreshTableHistory();
   if (tab === 'bots' && !botAvatarGridBuilt) buildBotAvatarGrid();
+  if (tab === 'ghost') {
+    if (!ghostAvatarGridBuilt) buildGhostAvatarGrid();
+    refreshGhostList();
+    if (ghostMode === 'join') refreshJoinableTables();
+    if (!ghostListRefreshInterval) ghostListRefreshInterval = setInterval(refreshGhostList, 8000);
+  } else if (ghostListRefreshInterval) {
+    clearInterval(ghostListRefreshInterval);
+    ghostListRefreshInterval = null;
+  }
 }
 
 async function refreshLivePlayers() {
@@ -332,20 +387,18 @@ document.getElementById('tabLive').addEventListener('click', () => switchTab('li
 document.getElementById('tabVisitors').addEventListener('click', () => switchTab('visitors'));
 document.getElementById('tabHistory').addEventListener('click', () => switchTab('history'));
 document.getElementById('tabBots').addEventListener('click', () => switchTab('bots'));
+document.getElementById('tabGhost').addEventListener('click', () => switchTab('ghost'));
 document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
 document.getElementById('btnRefreshHistory').addEventListener('click', refreshTableHistory);
 
 // ---------------- Bot tables (spawn a self-running, all-bot table) ----------------
 // Same avatar key convention used by the live game itself (see
 // VALID_AVATAR_KEYS in server.js and ALL_PLAYERS in index.html) --
-// 50 female-set images and 30 male-set images, filenames
-// /images/hero-avatars/hero4f{1-50}.png and hero4m{1-30}.png.
-const BOT_AVATAR_KEYS = [
-  ...Array.from({length:50}, (_,i) => 'hero4f'+(i+1)),
-  ...Array.from({length:30}, (_,i) => 'hero4m'+(i+1)),
-];
+// 100 cartoon mascot-style images, filenames
+// /images/hero-avatars/toon{1-100}.png.
+const BOT_AVATAR_KEYS = Array.from({length:100}, (_,i) => 'toon'+(i+1));
 let botAvatarGridBuilt = false;
-let selectedBotAvatar = 'hero4m1';
+let selectedBotAvatar = 'toon1';
 let selectedBotMode = '4p';
 
 function buildBotAvatarGrid() {
@@ -415,6 +468,175 @@ document.getElementById('btnSpawnBotTable').addEventListener('click', async () =
     btn.textContent = '🤖 Start Auto Table';
   }
 });
+
+// ---------------- Ghost players (admin-run seats that display and behave as real connected
+// humans, not bots - see server.js's spawn/join/stop-ghost-player endpoints) ----------------
+const GHOST_AVATAR_KEYS = Array.from({length:100}, (_,i) => 'toon'+(i+1));
+let ghostAvatarGridBuilt = false;
+let selectedGhostAvatar = 'toon1';
+let ghostMode = 'new';        // 'new' or 'join'
+let ghostNewTableType = '4p'; // only relevant when ghostMode === 'new'
+let ghostListRefreshInterval = null;
+let joinableTablesCache = [];
+
+function buildGhostAvatarGrid() {
+  ghostAvatarGridBuilt = true;
+  const grid = document.getElementById('ghostAvatarGrid');
+  grid.innerHTML = GHOST_AVATAR_KEYS.map(key => `
+    <img src="/images/hero-avatars/${key}.png" data-key="${key}" class="ghost-avatar-thumb"
+      style="width:40px;height:40px;border-radius:8px;object-fit:cover;cursor:pointer;border:2px solid ${key === selectedGhostAvatar ? 'var(--accent)' : 'transparent'}">
+  `).join('');
+  grid.querySelectorAll('.ghost-avatar-thumb').forEach(img => {
+    img.addEventListener('click', () => {
+      selectedGhostAvatar = img.dataset.key;
+      document.getElementById('ghostAvatarSelected').textContent = selectedGhostAvatar;
+      grid.querySelectorAll('.ghost-avatar-thumb').forEach(i => { i.style.borderColor = i.dataset.key === selectedGhostAvatar ? 'var(--accent)' : 'transparent'; });
+    });
+  });
+}
+
+document.getElementById('ghostModeNew').addEventListener('click', () => {
+  ghostMode = 'new';
+  document.getElementById('ghostModeNew').classList.add('on');
+  document.getElementById('ghostModeJoin').classList.remove('on');
+  document.getElementById('ghostNewTableTypeWrap').style.display = 'block';
+  document.getElementById('ghostJoinTableWrap').style.display = 'none';
+});
+document.getElementById('ghostModeJoin').addEventListener('click', () => {
+  ghostMode = 'join';
+  document.getElementById('ghostModeJoin').classList.add('on');
+  document.getElementById('ghostModeNew').classList.remove('on');
+  document.getElementById('ghostNewTableTypeWrap').style.display = 'none';
+  document.getElementById('ghostJoinTableWrap').style.display = 'block';
+  refreshJoinableTables();
+});
+document.getElementById('ghostMode4p').addEventListener('click', () => {
+  ghostNewTableType = '4p';
+  document.getElementById('ghostMode4p').classList.add('on');
+  document.getElementById('ghostMode6p').classList.remove('on');
+});
+document.getElementById('ghostMode6p').addEventListener('click', () => {
+  ghostNewTableType = '6p';
+  document.getElementById('ghostMode6p').classList.add('on');
+  document.getElementById('ghostMode4p').classList.remove('on');
+});
+document.getElementById('btnRefreshJoinable').addEventListener('click', refreshJoinableTables);
+
+async function refreshJoinableTables() {
+  const select = document.getElementById('ghostJoinableSelect');
+  select.innerHTML = '<option value="">Loading tables…</option>';
+  try {
+    const res = await adminFetch('/api/admin/joinable-tables');
+    const data = await res.json();
+    joinableTablesCache = (data.tables || []);
+    if (joinableTablesCache.length === 0) {
+      select.innerHTML = '<option value="">No tables with an open bot seat right now</option>';
+      return;
+    }
+    select.innerHTML = joinableTablesCache.map((t, i) =>
+      `<option value="${i}">${esc(t.mode === '6p' ? '6P' : '4P')} · ${esc(t.name)} (${esc(t.tableId)}) — ${t.botSeats} bot seat${t.botSeats === 1 ? '' : 's'} open</option>`
+    ).join('');
+  } catch (e) {
+    select.innerHTML = '<option value="">Could not load tables</option>';
+  }
+}
+
+document.getElementById('btnStartGhost').addEventListener('click', async () => {
+  const errEl = document.getElementById('ghostSpawnErr');
+  errEl.style.display = 'none';
+  const name = document.getElementById('ghostSeatName').value.trim() || 'Player';
+  const btn = document.getElementById('btnStartGhost');
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
+  try {
+    let res;
+    if (ghostMode === 'new') {
+      res = await adminFetch('/api/admin/spawn-ghost-player', undefined, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: ghostNewTableType, avatar: selectedGhostAvatar, name })
+      });
+    } else {
+      const sel = document.getElementById('ghostJoinableSelect');
+      const picked = joinableTablesCache[Number(sel.value)];
+      if (!picked) {
+        errEl.textContent = 'Pick a table to join first.';
+        errEl.style.display = 'block';
+        return;
+      }
+      res = await adminFetch('/api/admin/join-ghost-player', undefined, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: picked.mode, tableId: picked.tableId, avatar: selectedGhostAvatar, name })
+      });
+    }
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      const msg = data.error === 'room_cap_reached' ? 'Server is at its room cap right now — try again later.'
+        : data.error === 'no_bot_seat_open' ? 'That table no longer has an open bot seat — refresh and pick another.'
+        : ('Could not start: ' + (data.error || res.status));
+      errEl.textContent = msg;
+      errEl.style.display = 'block';
+      return;
+    }
+    document.getElementById('ghostSeatName').value = '';
+    refreshGhostList();
+    if (ghostMode === 'join') refreshJoinableTables();
+  } catch (e) {
+    errEl.textContent = 'Request failed: ' + e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🕵️ Start Ghost Player';
+  }
+});
+
+async function refreshGhostList() {
+  const listEl = document.getElementById('ghostList');
+  try {
+    const res = await adminFetch('/api/admin/ghost-players');
+    const data = await res.json();
+    const ghosts = data.ghosts || [];
+    if (ghosts.length === 0) {
+      listEl.innerHTML = '<div class="sub" style="margin:0">None running right now.</div>';
+      return;
+    }
+    listEl.innerHTML = ghosts.map(g => {
+      const fullUrl = window.location.origin + g.inviteUrl;
+      const statusLabel = g.stillActive ? '🟢 live' : '⚪ stopped elsewhere';
+      return `
+        <div class="live-card" style="flex-direction:column;align-items:stretch;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <img src="/images/hero-avatars/${esc(g.avatar)}.png" style="width:36px;height:36px;border-radius:8px;object-fit:cover">
+            <div style="flex:1">
+              <div class="who">${esc(g.name)} — ${esc(g.mode === '6p' ? '6-Player' : '4-Player')} table ${esc(g.tableId)} (seat ${g.pos})</div>
+              <div class="where">${statusLabel}</div>
+            </div>
+            <button class="btn ghost" data-ghost-id="${esc(g.ghostId)}" style="padding:6px 14px;font-size:0.8rem">Stop</button>
+          </div>
+          <a href="${esc(g.inviteUrl)}" target="_blank" style="color:var(--accent);font-size:0.78rem;word-break:break-all">${esc(fullUrl)}</a>
+        </div>
+      `;
+    }).join('');
+    listEl.querySelectorAll('button[data-ghost-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = '…';
+        try {
+          await adminFetch('/api/admin/stop-ghost-player', undefined, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ghostId: btn.dataset.ghostId })
+          });
+        } finally {
+          refreshGhostList();
+        }
+      });
+    });
+  } catch (e) {
+    listEl.innerHTML = '<div class="sub" style="margin:0">Could not load list.</div>';
+  }
+}
 
 // ---------------- Visitor log (everyone who's ever visited, with location and time) ----------------
 let visitorFilter = 'today';
