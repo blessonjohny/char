@@ -539,6 +539,11 @@ class GameEngine {
     seat.isBot = true;
     seat.connected = true;
     seat.playerId = null;
+    // Clears any leftover ghost-player flag (see maybeAutoAct()) - isBot alone is already
+    // sufficient to drive bot-speed auto-play from here on, and leaving this stale would
+    // incorrectly follow the seat if a real human later takes it over via replaceBot(),
+    // forcing artificial few-second auto-play on their own genuine turns.
+    seat.ghostPlayer = false;
     return true;
   }
 
@@ -553,6 +558,11 @@ class GameEngine {
     seat.playerId = playerId;
     seat.name = name;
     seat.avatar = avatar || null;
+    // Explicitly cleared, not just left unset - a bot seat can be the leftover remains of a
+    // previously-stopped ghost player (see convertToBot()), and a genuine real human taking
+    // it over here must never inherit that flag, or their own real turns would get forced
+    // into the ghost's artificial few-second auto-play instead of waiting on them normally.
+    seat.ghostPlayer = false;
     return true;
   }
 
@@ -574,6 +584,8 @@ class GameEngine {
     seat.playerId = playerId;
     seat.name = name;
     seat.avatar = avatar || null;
+    // See convertToBot()/replaceBot() above for the full reasoning.
+    seat.ghostPlayer = false;
     return true;
   }
 
@@ -1468,7 +1480,13 @@ class GameEngine {
       // normally.
       const stillQuoteCandidate = this.teamStillClean[winningTeam] && this.highestBid <= 19;
       if (!stillQuoteCandidate && !this.earlyWinDeclined && (bidderClinched || defenseClinched)) {
-        const hasHuman = [0, 1, 2, 3].some(p => getTeam(p) === winningTeam && this.seats[p] && !this.seats[p].isBot);
+        // Ghost-controlled seats (isBot:false, per explicit request) can't answer this prompt
+        // either - excluded here for the same reason as the stillHasHuman check inside
+        // maybeAutoAct(), and critically important here specifically: this branch returns
+        // without ever calling maybeAutoAct() itself, so if this check alone were wrong, a
+        // ghost-only winning team would set this choice and then wait forever with nothing
+        // left to ever re-check or resolve it.
+        const hasHuman = [0, 1, 2, 3].some(p => getTeam(p) === winningTeam && this.seats[p] && !this.seats[p].isBot && !this.seats[p].ghostPlayer);
         if (hasHuman) {
           // A real person is on the winning team -- offer them the
           // choice and wait, however long it takes, for an actual
@@ -1759,7 +1777,11 @@ class GameEngine {
     // exist for them.
     if (this.pendingEarlyWinChoice) {
       const team = this.pendingEarlyWinChoice.team;
-      const stillHasHuman = [0, 1, 2, 3].some(p => getTeam(p) === team && this.seats[p] && !this.seats[p].isBot && this.seats[p].connected);
+      // A ghost-controlled seat (isBot:false, per explicit request) can't actually respond to
+      // this prompt any more than a real bot can - there's no client to send the choice back.
+      // Excluded here the same way isBot seats already are, otherwise a team made up of only
+      // ghosts and bots would leave this waiting forever for an answer nobody can send.
+      const stillHasHuman = [0, 1, 2, 3].some(p => getTeam(p) === team && this.seats[p] && !this.seats[p].isBot && !this.seats[p].ghostPlayer && this.seats[p].connected);
       if (!stillHasHuman) {
         const anyPosOnTeam = [0, 1, 2, 3].find(p => getTeam(p) === team);
         this.respondToEarlyWin(anyPosOnTeam, true);
@@ -1787,7 +1809,13 @@ class GameEngine {
     // own instead of staying stuck until someone happens to reconnect
     // in a way that coincidentally un-sticks it.
     const CONNECTED_BUT_STUCK_MS = 120000;
-    const treatAsStuck = seat.isBot || !seat.connected || turnAgeMs >= CONNECTED_BUT_STUCK_MS;
+    // A ghost-player seat (admin-run, per explicit request) is deliberately kept isBot:false
+    // so it displays and behaves as a genuine connected human everywhere else in the game
+    // (green "live" status dot, counted as a real player for room listings, etc.) - but still
+    // needs the engine to actually play it, since there's no real socket ever sending moves
+    // for it. Checked as its own separate condition here rather than folded into isBot itself.
+    const isGhost = seat.ghostPlayer === true;
+    const treatAsStuck = seat.isBot || isGhost || !seat.connected || turnAgeMs >= CONNECTED_BUT_STUCK_MS;
     if (treatAsStuck) {
       // A disconnected human gets covered the same way a bot seat does —
       // otherwise their turn just freezes the whole table indefinitely
@@ -1818,7 +1846,12 @@ class GameEngine {
       // used up its grace period already - act promptly rather than
       // making the table wait out a full fresh 35s on top of the 2
       // minutes it's already been stuck.
-      const delay = seat.isBot ? 900 : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
+      const delay = seat.isBot ? 900
+        // Per explicit request: a ghost seat should "sometimes take a few sec to play" rather
+        // than react instantly like a bot or wait out a long human grace period - a randomized
+        // 2-6s window reads as someone actually thinking about their move, not a script.
+        : isGhost ? (2000 + Math.floor(Math.random() * 4000))
+        : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         // Re-check everything at fire-time, not just at schedule-time:
         // - the round hasn't moved on
@@ -1833,7 +1866,7 @@ class GameEngine {
         if (this.currentPlayer !== capturedPos) return;
         const seatNow = this.seats[capturedPos];
         if (!seatNow) return;
-        const stillStuck = seatNow.isBot || !seatNow.connected || (Date.now() - (capturedTurnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
+        const stillStuck = seatNow.isBot || seatNow.ghostPlayer === true || !seatNow.connected || (Date.now() - (capturedTurnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
         if (!stillStuck) return;
         this._botAct(capturedPos);
       }, delay);

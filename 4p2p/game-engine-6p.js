@@ -239,6 +239,9 @@ class GameEngine6P {
     const seat = this.seats[pos];
     if (!seat || seat.isBot) return false;
     seat.isBot = true; seat.connected = true; seat.playerId = null;
+    // See game-engine.js's identical fix for the full reasoning - clears any leftover
+    // ghost-player flag so it can't follow this seat if a real human takes it over later.
+    seat.ghostPlayer = false;
     return true;
   }
 
@@ -247,6 +250,9 @@ class GameEngine6P {
     if (!seat || !seat.isBot) return false;
     seat.isBot = false; seat.connected = true; seat.playerId = playerId; seat.name = name;
     seat.avatar = avatar || null;
+    // See game-engine.js's identical fix - a bot seat can be the leftover remains of a
+    // stopped ghost player, and a genuine human taking it over must never inherit this.
+    seat.ghostPlayer = false;
     return true;
   }
 
@@ -256,6 +262,7 @@ class GameEngine6P {
     if (!seat.isBot && seat.connected) return false;
     seat.isBot = false; seat.connected = true; seat.playerId = playerId; seat.name = name;
     seat.avatar = avatar || null;
+    seat.ghostPlayer = false;
     return true;
   }
 
@@ -743,10 +750,14 @@ class GameEngine6P {
     if (!this._isQuoteEligibleCore(currentLeader.pos)) return null;
     // Bots are excluded on both sides - this offer (and the round-ending consequence of
     // declining it) is a human-vs-human mechanic. A bot can't be asked, and a bot can't ask.
+    // Ghost-controlled seats (isBot:false, per explicit request) are excluded the same way -
+    // there's no real client behind one to actually press the ask button or respond to being
+    // asked, so treating it as eligible here would leave a real opponent's question waiting
+    // for an answer that will never come.
     const askerSeat = this.seats[askerPos];
-    if (!askerSeat || askerSeat.isBot) return null;
+    if (!askerSeat || askerSeat.isBot || askerSeat.ghostPlayer) return null;
     const leaderSeat = this.seats[currentLeader.pos];
-    if (!leaderSeat || leaderSeat.isBot) return null;
+    if (!leaderSeat || leaderSeat.isBot || leaderSeat.ghostPlayer) return null;
     return currentLeader.pos;
   }
 
@@ -978,7 +989,11 @@ class GameEngine6P {
       const winningTeam = bidderClinched ? bidTeamThisRound : oT;
       const stillQuoteCandidate = this.teamStillClean[winningTeam] && this.highestBid <= 19;
       if (!stillQuoteCandidate && !this.earlyWinDeclined && (bidderClinched || defenseClinched)) {
-        const hasHuman = Array.from({ length: SEATS }, (_, p) => p).some(p => getTeam(p) === winningTeam && this.seats[p] && !this.seats[p].isBot);
+        // Ghost-controlled seats can't answer this prompt either - see game-engine.js's
+        // identical fix for the full reasoning (this branch returns without ever calling
+        // maybeAutoAct(), so an incorrect check here would wait forever with nothing left to
+        // ever re-check or resolve it).
+        const hasHuman = Array.from({ length: SEATS }, (_, p) => p).some(p => getTeam(p) === winningTeam && this.seats[p] && !this.seats[p].isBot && !this.seats[p].ghostPlayer);
         if (hasHuman) {
           this.pendingEarlyWinChoice = { team: winningTeam, made: bidderClinched };
           this.currentPlayer = winner.pos;
@@ -1197,7 +1212,9 @@ class GameEngine6P {
     // waiting forever for an answer that's never coming.
     if (this.pendingEarlyWinChoice) {
       const team = this.pendingEarlyWinChoice.team;
-      const stillHasHuman = Array.from({ length: SEATS }, (_, p) => p).some(p => getTeam(p) === team && this.seats[p] && !this.seats[p].isBot && this.seats[p].connected);
+      // Ghost-controlled seats can't respond to this prompt either - see game-engine.js's
+      // identical fix for the full reasoning.
+      const stillHasHuman = Array.from({ length: SEATS }, (_, p) => p).some(p => getTeam(p) === team && this.seats[p] && !this.seats[p].isBot && !this.seats[p].ghostPlayer && this.seats[p].connected);
       if (!stillHasHuman) {
         const anyPosOnTeam = Array.from({ length: SEATS }, (_, p) => p).find(p => getTeam(p) === team);
         this.respondToEarlyWin(anyPosOnTeam, true);
@@ -1218,7 +1235,10 @@ class GameEngine6P {
     }
     const turnAgeMs = Date.now() - (this.turnStartedAt || Date.now());
     const CONNECTED_BUT_STUCK_MS = 120000;
-    const treatAsStuck = seat.isBot || !seat.connected || turnAgeMs >= CONNECTED_BUT_STUCK_MS;
+    // A ghost-player seat (admin-run, per explicit request) is deliberately kept isBot:false -
+    // see game-engine.js's identical fix for the full reasoning.
+    const isGhost = seat.ghostPlayer === true;
+    const treatAsStuck = seat.isBot || isGhost || !seat.connected || turnAgeMs >= CONNECTED_BUT_STUCK_MS;
     if (treatAsStuck) {
       const capturedPos = this.currentPlayer;
       const capturedRound = this.round;
@@ -1233,13 +1253,15 @@ class GameEngine6P {
       // real chance to notice and act before the bot takes over anyway.
       // A seat already past the connected-but-stuck threshold has used
       // up its grace period - act promptly instead of waiting a fresh 35s.
-      const delay = seat.isBot ? 900 : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
+      const delay = seat.isBot ? 900
+        : isGhost ? (2000 + Math.floor(Math.random() * 4000))
+        : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         if (this.round !== capturedRound) return;
         if (this.currentPlayer !== capturedPos) return;
         const seatNow = this.seats[capturedPos];
         if (!seatNow) return;
-        const stillStuck = seatNow.isBot || !seatNow.connected || (Date.now() - (capturedTurnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
+        const stillStuck = seatNow.isBot || seatNow.ghostPlayer === true || !seatNow.connected || (Date.now() - (capturedTurnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
         if (!stillStuck) return;
         this._botAct(capturedPos);
       }, delay);

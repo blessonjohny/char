@@ -1314,7 +1314,7 @@ app.post('/api/admin/close-table', (req, res) => {
 app.post('/api/admin/spawn-bot-table', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
   const mode = req.body.mode === '6p' ? '6p' : '4p';
-  const avatar = sanitizeAvatarKey(req.body.avatar) || 'hero4m1';
+  const avatar = sanitizeAvatarKey(req.body.avatar) || 'toon1';
   const name = String(req.body.name || 'Admin').trim().slice(0, 20) || 'Admin';
 
   if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
@@ -1375,6 +1375,173 @@ app.post('/api/admin/spawn-bot-table', (req, res) => {
     console.log(`[admin] spawned self-running 6-player bot table ${id} (seat ${hostPos} as "${name}")`);
     return res.json({ ok: true, mode: '6p', tableId: id, inviteUrl: `/six.html?invite=${id}` });
   }
+});
+
+// ---------------- Ghost player (admin-run seat that looks and behaves like a real
+// connected human, not a bot) ----------------
+// Per explicit request: a way to run a seat from the admin panel that shows the same green
+// "live" status dot a genuinely-connected human would (isBot stays false throughout), is
+// counted as a real player everywhere the game already checks isBot for that, and can either
+// start a brand new table or drop into any existing table's open bot seat - but is actually
+// driven entirely server-side, the same underlying decision logic as any other bot, just with
+// a randomized few-second "thinking" delay before each move (see maybeAutoAct() in both
+// engines) instead of a bot's fixed, near-instant pace, so it doesn't read as an obvious bot to
+// anyone watching. ghostPlayers below tracks every currently-active one so the admin panel can
+// list and individually stop them; nothing here creates a new way for a table to close on its
+// own — the seat just hands itself back to ordinary bot control (the exact same convertToBot()
+// used whenever a real human explicitly leaves mid-game), and the table itself only ever goes
+// away through the existing close-table endpoint or the daily 5am reset, same as any other
+// table on this server.
+const ghostPlayers = {}; // ghostId -> { mode, tableId, pos, name, avatar, createdAt }
+
+function ghostSnapshot() {
+  return Object.entries(ghostPlayers).map(([ghostId, g]) => {
+    const t = g.mode === '6p' ? sixpTables[g.tableId] : tables[g.tableId];
+    const seat = t && t.engine.seats[g.pos];
+    return {
+      ghostId, mode: g.mode, tableId: g.tableId, pos: g.pos,
+      name: g.name, avatar: g.avatar, createdAt: g.createdAt,
+      // If the table or seat is gone (closed elsewhere, e.g. the daily reset, or an admin
+      // closing the whole table directly rather than stopping the ghost specifically), this
+      // still shows up in the list as stale rather than throwing - the admin panel can then
+      // just let the person clear it, rather than the endpoint pretending everything's fine.
+      stillActive: !!(t && seat && seat.ghostPlayer === true),
+      inviteUrl: g.mode === '6p' ? `/six.html?invite=${g.tableId}` : `/?invite=${g.tableId}`
+    };
+  });
+}
+
+app.get('/api/admin/ghost-players', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  res.json({ ok: true, ghosts: ghostSnapshot() });
+});
+
+// Lists every current table (both modes) that has at least one bot seat a ghost could step
+// into - reuses the exact same public listing already computed for the ordinary room list
+// rather than recomputing seat counts separately, so this never drifts out of sync with what
+// the room list itself already shows.
+app.get('/api/admin/joinable-tables', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const fourP = publicTableList().filter(t => t.botSeats > 0).map(t => ({ mode: '4p', ...t }));
+  const sixP = sixpPublicTableList().filter(t => t.botSeats > 0).map(t => ({ mode: '6p', ...t }));
+  res.json({ ok: true, tables: [...fourP, ...sixP] });
+});
+
+app.post('/api/admin/spawn-ghost-player', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const mode = req.body.mode === '6p' ? '6p' : '4p';
+  const avatar = sanitizeAvatarKey(req.body.avatar) || 'toon1';
+  const name = String(req.body.name || 'Player').trim().slice(0, 20) || 'Player';
+
+  if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
+    return res.status(429).json({ ok: false, error: 'room_cap_reached' });
+  }
+
+  const ghostId = newId();
+  if (mode === '4p') {
+    const id = newTableId();
+    const engine = new GameEngine(id);
+    const ghostPlayerId = newId();
+    const hostPos = 3; // matches the seat position normal createTable uses for its host
+    engine.seatHuman(hostPos, name, ghostPlayerId, avatar);
+    engine.seats[hostPos].ghostPlayer = true;
+    const t = {
+      id, engine, creatorName: name, hostPlayerId: ghostPlayerId,
+      botFill: 3, createdAt: Date.now(), lastActivityAt: Date.now(),
+      sockets: new Map()
+    };
+    engine.onChange = () => { touch(t); broadcastTable(t); };
+    tables[id] = t;
+
+    const open = engine.emptySeats();
+    const shuffled = [...BOT_NAME_POOL].sort(() => Math.random() - 0.5);
+    for (let i = 0; i < open.length; i++) engine.seatBot(open[i], shuffled[i % shuffled.length]);
+    engine.startRound();
+    if (engine.currentPlayer === hostPos) engine.maybeAutoAct();
+
+    ghostPlayers[ghostId] = { mode: '4p', tableId: id, pos: hostPos, name, avatar, createdAt: Date.now() };
+    touch(t);
+    broadcastTable(t);
+    io.emit('roomList', publicTableList());
+    console.log(`[admin] spawned ghost-player 4-player table ${id} (seat ${hostPos} as "${name}")`);
+    return res.json({ ok: true, ghostId, mode: '4p', tableId: id, inviteUrl: `/?invite=${id}` });
+  } else {
+    const id = newSixpTableId();
+    const engine = new GameEngine6P(id);
+    const ghostPlayerId = newId();
+    const hostPos = 0; // matches the seat position normal sixp_createTable uses for its host
+    engine.seatHuman(hostPos, name, ghostPlayerId, avatar);
+    engine.seats[hostPos].ghostPlayer = true;
+    const t = {
+      id, engine, creatorName: name, hostPlayerId: ghostPlayerId,
+      botFill: 5, createdAt: Date.now(), lastActivityAt: Date.now(),
+      sockets: new Map()
+    };
+    engine.onChange = () => { sixpTouch(t); sixpBroadcastTable(t); };
+    sixpTables[id] = t;
+
+    const empties = engine.emptySeats();
+    const shuffled = [...BOT_NAME_POOL].sort(() => Math.random() - 0.5);
+    let botNum = 0;
+    for (const pos of empties) { engine.seatBot(pos, shuffled[botNum % shuffled.length]); botNum++; }
+    engine.startRound();
+    if (engine.currentPlayer === hostPos) engine.maybeAutoAct();
+
+    ghostPlayers[ghostId] = { mode: '6p', tableId: id, pos: hostPos, name, avatar, createdAt: Date.now() };
+    sixpTouch(t);
+    sixpBroadcastTable(t);
+    io.emit('sixp_roomList', sixpPublicTableList());
+    console.log(`[admin] spawned ghost-player 6-player table ${id} (seat ${hostPos} as "${name}")`);
+    return res.json({ ok: true, ghostId, mode: '6p', tableId: id, inviteUrl: `/six.html?invite=${id}` });
+  }
+});
+
+app.post('/api/admin/join-ghost-player', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const mode = req.body.mode === '6p' ? '6p' : '4p';
+  const tableId = String(req.body.tableId || '');
+  const avatar = sanitizeAvatarKey(req.body.avatar) || 'toon1';
+  const name = String(req.body.name || 'Player').trim().slice(0, 20) || 'Player';
+
+  const t = mode === '6p' ? sixpTables[tableId] : tables[tableId];
+  if (!t) return res.status(404).json({ ok: false, error: 'table_not_found' });
+  const botPos = t.engine.seats.findIndex(s => s && s.isBot);
+  if (botPos === -1) return res.status(409).json({ ok: false, error: 'no_bot_seat_open' });
+
+  const ghostPlayerId = newId();
+  if (!t.engine.replaceBot(botPos, ghostPlayerId, name, avatar)) {
+    return res.status(409).json({ ok: false, error: 'replace_failed' });
+  }
+  t.engine.seats[botPos].ghostPlayer = true;
+
+  const ghostId = newId();
+  ghostPlayers[ghostId] = { mode, tableId, pos: botPos, name, avatar, createdAt: Date.now() };
+
+  if (mode === '6p') { sixpTouch(t); sixpBroadcastTable(t); io.emit('sixp_roomList', sixpPublicTableList()); }
+  else { touch(t); broadcastTable(t); io.emit('roomList', publicTableList()); }
+
+  console.log(`[admin] ghost-player joined ${mode === '6p' ? '6-player' : '4-player'} table ${tableId} (seat ${botPos} as "${name}")`);
+  return res.json({ ok: true, ghostId, mode, tableId, pos: botPos, inviteUrl: mode === '6p' ? `/six.html?invite=${tableId}` : `/?invite=${tableId}` });
+});
+
+app.post('/api/admin/stop-ghost-player', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const ghostId = String(req.body.ghostId || '');
+  const g = ghostPlayers[ghostId];
+  if (!g) return res.status(404).json({ ok: false, error: 'ghost_not_found' });
+
+  const t = g.mode === '6p' ? sixpTables[g.tableId] : tables[g.tableId];
+  if (t && t.engine.seats[g.pos] && t.engine.seats[g.pos].ghostPlayer) {
+    // Hands the seat back to ordinary bot control - the exact same convertToBot() already
+    // used whenever a real human explicitly leaves mid-game, so this seat becomes completely
+    // indistinguishable from any other bot seat at the table from this point on.
+    t.engine.convertToBot(g.pos);
+    if (g.mode === '6p') { sixpTouch(t); sixpBroadcastTable(t); io.emit('sixp_roomList', sixpPublicTableList()); }
+    else { touch(t); broadcastTable(t); io.emit('roomList', publicTableList()); }
+  }
+  delete ghostPlayers[ghostId];
+  console.log(`[admin] stopped ghost-player ${ghostId} (was ${g.mode === '6p' ? '6-player' : '4-player'} table ${g.tableId}, seat ${g.pos})`);
+  return res.json({ ok: true });
 });
 
 // ---------------- Table registry ----------------
@@ -1479,10 +1646,9 @@ function computeTableDisplayName(seats, creatorName, existingGenericNames) {
 // the exact known set of real filenames here (rather than trusting whatever string arrives)
 // means a malicious client can never get an arbitrary value reflected into other players'
 // pages through this field.
-const VALID_AVATAR_KEYS = new Set([
-  ...Array.from({length:50}, (_,i) => 'hero4f'+(i+1)),
-  ...Array.from({length:30}, (_,i) => 'hero4m'+(i+1)),
-]);
+const VALID_AVATAR_KEYS = new Set(
+  Array.from({length:100}, (_,i) => 'toon'+(i+1))
+);
 function sanitizeAvatarKey(k) { return (typeof k === 'string' && VALID_AVATAR_KEYS.has(k)) ? k : null; }
 
 // Shared bot-name pool used anywhere seats get auto-filled with bots --
