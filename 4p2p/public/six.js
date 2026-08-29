@@ -45,7 +45,7 @@ let isAutoReconnectAttempt6p = false;
 // player's choice carries over between tables instead of resetting.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:96}, (_,i) => 'toon'+(i+1));
+const ALL_AVATAR_KEYS = Array.from({length:100}, (_,i) => 'toon'+(i+1));
 if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
 }
@@ -54,7 +54,7 @@ function heroAvatarHtml(key) {
   // or out-of-range key -- see index.html's identical function for the
   // full reasoning (a large hardcoded bot list references avatar
   // numbers from before the set was trimmed multiple times).
-  const TOON_COUNT = 96;
+  const TOON_COUNT = 100;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
   const validNum = m && Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT;
   if (!validNum) {
@@ -135,117 +135,117 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
 // per table. Static, never mood-reactive -- matches the 4-player table's
 // own approach exactly, not the mood-face system 56 has separately.
 const ALL_BOT_AVATARS_6P = [
-  {name:'Ancy',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Ajai',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Alok',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Anup',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Anjali',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Appu',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Arun',emoji:heroAvatarHtml('toon16'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Meera',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Benson',emoji:heroAvatarHtml('toon18'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Neha',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Binchu',emoji:heroAvatarHtml('toon21'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Charlie',emoji:heroAvatarHtml('toon23'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Jerin',emoji:heroAvatarHtml('toon25'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Priya',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Johny',emoji:heroAvatarHtml('toon28'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Reena',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Koshy',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Nate',emoji:heroAvatarHtml('toon33'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Divya',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Peter',emoji:heroAvatarHtml('toon38'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Lakshmi',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Rahul',emoji:heroAvatarHtml('toon41'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Rajesh',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Randall',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Sarah',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Renji',emoji:heroAvatarHtml('toon50'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Roji',emoji:heroAvatarHtml('toon53'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Nisha',emoji:heroAvatarHtml('toon14'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Roney',emoji:heroAvatarHtml('toon54'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Sanjay',emoji:heroAvatarHtml('toon63'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Shyam',emoji:heroAvatarHtml('toon67'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Deepa',emoji:heroAvatarHtml('toon15'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Stev',emoji:heroAvatarHtml('toon70'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Vinod',emoji:heroAvatarHtml('toon74'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Wesley',emoji:heroAvatarHtml('toon79'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Elsa',emoji:heroAvatarHtml('toon17'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Abin',emoji:heroAvatarHtml('toon80'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Maya',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Bibin',emoji:heroAvatarHtml('toon84'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Sherin',emoji:heroAvatarHtml('toon20'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Cibin',emoji:heroAvatarHtml('toon87'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Denny',emoji:heroAvatarHtml('toon89'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Eldho',emoji:heroAvatarHtml('toon92'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Teena',emoji:heroAvatarHtml('toon22'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Frankie',emoji:heroAvatarHtml('toon94'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'George',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Anu',emoji:heroAvatarHtml('toon24'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Hari',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Ivan',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Reshma',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Jibin',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Kevin',emoji:heroAvatarHtml('toon16'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Libin',emoji:heroAvatarHtml('toon18'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Jisha',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Manoj',emoji:heroAvatarHtml('toon21'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Nibin',emoji:heroAvatarHtml('toon23'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Oommen',emoji:heroAvatarHtml('toon25'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Nimmy',emoji:heroAvatarHtml('toon29'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Pauly',emoji:heroAvatarHtml('toon28'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Robin',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Beena',emoji:heroAvatarHtml('toon30'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Sibin',emoji:heroAvatarHtml('toon33'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Tibin',emoji:heroAvatarHtml('toon38'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Unni',emoji:heroAvatarHtml('toon41'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Soumya',emoji:heroAvatarHtml('toon32'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Vishnu',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Wilson',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Liya',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Xavier',emoji:heroAvatarHtml('toon50'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Yohan',emoji:heroAvatarHtml('toon53'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Merin',emoji:heroAvatarHtml('toon35'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Zachariah',emoji:heroAvatarHtml('toon54'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Aby',emoji:heroAvatarHtml('toon63'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Bijoy',emoji:heroAvatarHtml('toon67'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Asha',emoji:heroAvatarHtml('toon36'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Anita',emoji:heroAvatarHtml('toon37'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Cyriac',emoji:heroAvatarHtml('toon70'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Davis',emoji:heroAvatarHtml('toon74'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Betty',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Ebin',emoji:heroAvatarHtml('toon79'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Fenil',emoji:heroAvatarHtml('toon80'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Gibin',emoji:heroAvatarHtml('toon84'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Celine',emoji:heroAvatarHtml('toon40'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Diya',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Hillary',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Fiona',emoji:heroAvatarHtml('toon44'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Ittoop',emoji:heroAvatarHtml('toon87'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Gracy',emoji:heroAvatarHtml('toon45'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Hema',emoji:heroAvatarHtml('toon47'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Jaison',emoji:heroAvatarHtml('toon89'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Indu',emoji:heroAvatarHtml('toon49'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Jessy',emoji:heroAvatarHtml('toon51'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Kurian',emoji:heroAvatarHtml('toon92'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Lijo',emoji:heroAvatarHtml('toon94'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Kavya',emoji:heroAvatarHtml('toon52'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Mathew',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Leena',emoji:heroAvatarHtml('toon55'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Ninan',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Mariya',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Babi',emoji:heroAvatarHtml('toon57'),bg:'linear-gradient(135deg,linear-gradient(135deg,#c2266f,#8e1c52))'},
-  {name:'Oliver',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Linda',emoji:heroAvatarHtml('toon58'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Babitha',emoji:heroAvatarHtml('toon59'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Maria',emoji:heroAvatarHtml('toon60'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Leela',emoji:heroAvatarHtml('toon61'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Anna',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Thankam',emoji:heroAvatarHtml('toon64'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Lincy',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Princy',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Easo',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Joseph',emoji:heroAvatarHtml('toon16'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Ancy',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Ajai',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Alok',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Anup',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Anjali',emoji:heroAvatarHtml('toon32'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Appu',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Arun',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Meera',emoji:heroAvatarHtml('toon33'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Benson',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Neha',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Binchu',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Charlie',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Jerin',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Priya',emoji:heroAvatarHtml('toon35'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Johny',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Reena',emoji:heroAvatarHtml('toon36'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Koshy',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Nate',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Divya',emoji:heroAvatarHtml('toon37'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Peter',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Lakshmi',emoji:heroAvatarHtml('toon38'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Rahul',emoji:heroAvatarHtml('toon14'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Rajesh',emoji:heroAvatarHtml('toon15'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Randall',emoji:heroAvatarHtml('toon16'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Sarah',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Renji',emoji:heroAvatarHtml('toon17'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Roji',emoji:heroAvatarHtml('toon18'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Nisha',emoji:heroAvatarHtml('toon40'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Roney',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Sanjay',emoji:heroAvatarHtml('toon20'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Shyam',emoji:heroAvatarHtml('toon21'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Deepa',emoji:heroAvatarHtml('toon41'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Stev',emoji:heroAvatarHtml('toon22'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Vinod',emoji:heroAvatarHtml('toon23'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Wesley',emoji:heroAvatarHtml('toon24'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Elsa',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Abin',emoji:heroAvatarHtml('toon25'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Maya',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Bibin',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Sherin',emoji:heroAvatarHtml('toon44'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Cibin',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Denny',emoji:heroAvatarHtml('toon28'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Eldho',emoji:heroAvatarHtml('toon29'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Teena',emoji:heroAvatarHtml('toon45'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Frankie',emoji:heroAvatarHtml('toon30'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'George',emoji:heroAvatarHtml('toon52'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Anu',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Hari',emoji:heroAvatarHtml('toon54'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Ivan',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Reshma',emoji:heroAvatarHtml('toon47'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Jibin',emoji:heroAvatarHtml('toon58'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Kevin',emoji:heroAvatarHtml('toon60'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Libin',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Jisha',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Manoj',emoji:heroAvatarHtml('toon64'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Nibin',emoji:heroAvatarHtml('toon67'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Oommen',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Nimmy',emoji:heroAvatarHtml('toon49'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Pauly',emoji:heroAvatarHtml('toon70'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Robin',emoji:heroAvatarHtml('toon76'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Beena',emoji:heroAvatarHtml('toon50'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Sibin',emoji:heroAvatarHtml('toon77'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Tibin',emoji:heroAvatarHtml('toon78'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Unni',emoji:heroAvatarHtml('toon79'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Soumya',emoji:heroAvatarHtml('toon51'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Vishnu',emoji:heroAvatarHtml('toon80'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Wilson',emoji:heroAvatarHtml('toon82'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Liya',emoji:heroAvatarHtml('toon53'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Xavier',emoji:heroAvatarHtml('toon84'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Yohan',emoji:heroAvatarHtml('toon86'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Merin',emoji:heroAvatarHtml('toon55'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Zachariah',emoji:heroAvatarHtml('toon89'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Aby',emoji:heroAvatarHtml('toon96'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Bijoy',emoji:heroAvatarHtml('toon97'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Asha',emoji:heroAvatarHtml('toon57'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Anita',emoji:heroAvatarHtml('toon59'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Cyriac',emoji:heroAvatarHtml('toon98'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Davis',emoji:heroAvatarHtml('toon99'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Betty',emoji:heroAvatarHtml('toon61'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Ebin',emoji:heroAvatarHtml('toon100'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Fenil',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Gibin',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Celine',emoji:heroAvatarHtml('toon63'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Diya',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Hillary',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Fiona',emoji:heroAvatarHtml('toon68'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Ittoop',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Gracy',emoji:heroAvatarHtml('toon71'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Hema',emoji:heroAvatarHtml('toon72'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Jaison',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Indu',emoji:heroAvatarHtml('toon73'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Jessy',emoji:heroAvatarHtml('toon74'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Kurian',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Lijo',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Kavya',emoji:heroAvatarHtml('toon75'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Mathew',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Leena',emoji:heroAvatarHtml('toon81'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Ninan',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Mariya',emoji:heroAvatarHtml('toon83'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Babi',emoji:heroAvatarHtml('toon85'),bg:'linear-gradient(135deg,linear-gradient(135deg,#c2266f,#8e1c52))'},
+  {name:'Oliver',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Linda',emoji:heroAvatarHtml('toon87'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Babitha',emoji:heroAvatarHtml('toon88'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Maria',emoji:heroAvatarHtml('toon90'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Leela',emoji:heroAvatarHtml('toon91'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Anna',emoji:heroAvatarHtml('toon92'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Thankam',emoji:heroAvatarHtml('toon93'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Lincy',emoji:heroAvatarHtml('toon94'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Princy',emoji:heroAvatarHtml('toon95'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Easo',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Joseph',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
 ];
 
 // Requests fullscreen -- hides the browser's own address bar and nav
@@ -871,10 +871,15 @@ function showGameEvent(icon, title, detail, color, opts) {
     <div class="game-event-detail">${detail}</div>
   </div>`;
   document.body.appendChild(overlay);
-  // Same timing bump as index.html's identical function -- see there
-  // for the full reasoning.
-  setTimeout(() => overlay.classList.add('leaving'), 2800);
-  setTimeout(() => overlay.remove(), 3250);
+  // Per explicit request: reshuffle/void-round events need to actually be readable, not just
+  // glanced at - they explain something that just changed everyone's hand, not a quick flair
+  // moment like a trump reveal. holdMs (defaulting to the original 2800/3250 pair when not
+  // given) lets a caller ask for a longer, fully-visible period before the same fade-out
+  // begins; the ~450ms gap between "start leaving" and "fully removed" stays constant either
+  // way, since that's just the CSS transition duration, not part of the readable time itself.
+  const holdMs = (opts && opts.holdMs) || 2800;
+  setTimeout(() => overlay.classList.add('leaving'), holdMs);
+  setTimeout(() => overlay.remove(), holdMs + 450);
 }
 
 // The 5-second vetoable kick popup -- see index.html's identical
@@ -1410,19 +1415,39 @@ function applyState(state) {
   }
 
   // Same event as the 4-player table's reshuffleReason -- explains why
-  // everyone's hand suddenly changed (all four Jacks in one hand, or the
-  // first bidder stuck with an unplayable hand of nothing but 7s/8s).
-  // ts makes each event unique even if the exact same situation repeats.
+  // everyone's hand suddenly changed (all four Jacks in one hand, the
+  // first bidder stuck with an unplayable hand of nothing but 7s/8s,
+  // the whole defending side holding zero trump, or anyone dealt a
+  // hand of nothing but 6s/7s/8s). ts makes each event unique even if
+  // the exact same situation repeats.
+  // Per explicit request: switched from the small, generic showToast to the same "big
+  // moment" showGameEvent overlay already used for trump reveals and honors bids elsewhere
+  // in this file - a reshuffle changes everyone's hand and deserves the same visual weight,
+  // not a quiet corner notification easy to miss. Each reason gets its own icon, color, and
+  // specific wording rather than one shared generic message, and holdMs is set well past 5s
+  // of fully-visible time since this needs to actually be read, not just glimpsed.
   if (state.reshuffleReason && state.reshuffleReason.ts !== lastShownReshuffleReasonTs6p) {
     lastShownReshuffleReasonTs6p = state.reshuffleReason.ts;
     const r = state.reshuffleReason;
-    let msg;
+    let icon, title, detail, color;
     if (r.type === 'all78') {
-      msg = `🔄 Reshuffling — ${r.name} was forced to bid with a hand of nothing but 7s and 8s. Same dealer, fresh deal.`;
+      icon = '😬'; title = 'Unplayable Hand!';
+      detail = `${escapeHtml(r.name)} was forced to bid with nothing but 7s and 8s — reshuffling with the same dealer.`;
+      color = '#e67e22';
     } else if (r.type === 'allJacks') {
-      msg = `🔄 Reshuffling — ${r.name} was dealt all four Jacks! Same dealer, fresh deal.`;
+      icon = '🃏'; title = 'All Four Jacks!';
+      detail = `${escapeHtml(r.name)} was dealt every single Jack in one hand — reshuffling with the same dealer.`;
+      color = '#f4c430';
+    } else if (r.type === 'all678') {
+      icon = '💤'; title = 'Dead Hand!';
+      detail = `${escapeHtml(r.name)} was dealt nothing but 6s, 7s, and 8s — not a single card worth playing. Reshuffling with the same dealer.`;
+      color = '#95a5a6';
+    } else if (r.type === 'noTrump') {
+      icon = '🚫'; title = 'No Trump To Contest!';
+      detail = `The defending team holds zero ${escapeHtml(r.suit || '')} between them — nothing to fight over. Round voided, same dealer.`;
+      color = '#e74c3c';
     }
-    if (msg) showToast(msg, 'info', 5000);
+    if (title) showGameEvent(icon, title, detail, color, { holdMs: 5200 });
   }
 
   const mySignal6p = state.partnerSignals && state.partnerSignals[MY_POS];
@@ -2163,19 +2188,12 @@ function renderSeats(state) {
       if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }
       if (callEl.dataset.v !== label) {
         callEl.dataset.v = label;
-        // Per non-negotiable instruction: one single object, oval+tail
-        // as ONE path, not a shape plus a separately-attached piece.
-        // Same technique as index.html's identical rule -- see there
-        // for the full reasoning.
-        // Per explicit follow-up report: lightened from near-black
-        // (#241010/#0a1f0f, which just read as flat black) to an
-        // actually visible dark maroon/forest-green -- same fix and
-        // same reasoning as index.html's identical change.
-        const fillColor = isPass ? '#4a1a1a' : '#123d22';
-        const bgSvg = `<svg class="call-badge-bg" viewBox="-5 -10 110 100"><path d="${CALL_BADGE_PATHS[CALL_BADGE_DIR[slot]]}" fill="${fillColor}" stroke="currentColor" stroke-width="2.2"/></svg>`;
-        callEl.innerHTML = (flavor
+        // Per explicit request: no more oval bubble background at all - just the animated
+        // text itself now, letters only. The SVG bubble+tail path that used to render behind
+        // this text (see CALL_BADGE_PATHS above) is intentionally no longer built here.
+        callEl.innerHTML = flavor
           ? `<div class="call-badge-header">${header}</div><div class="call-badge-flavor">${flavor}</div>`
-          : `<div class="call-badge-header">${header}</div>`) + bgSvg;
+          : `<div class="call-badge-header">${header}</div>`;
       }
     } else if (callEl) { callEl.remove(); }
   }
