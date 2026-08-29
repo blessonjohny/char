@@ -300,12 +300,31 @@ class GameEngine6P {
           if (hand.filter(c => c.rank === 'J').length === 4) { allJacksSeat = i; break; }
         }
       }
-      if (!isAll78 && allJacksSeat === -1) break; // this deal is fine, stop here
+      // Per explicit request: a new, broader "genuinely worthless hand" check - ANY seat
+      // (not just the forced first bidder) dealt all 6 cards from just {6,7,8} - the three
+      // lowest ranks in this deck, worth 0 points and barely able to win a trick against
+      // anything. Checked after the two existing conditions above and skipped entirely if
+      // either already matched, since isAll78 is a strict subset of this (7s/8s only, no 6,
+      // first bidder only) and would otherwise double-report the exact same hand under two
+      // different reasons.
+      let all678Seat = -1;
+      if (!isAll78 && allJacksSeat === -1) {
+        for (let i = 0; i < SEATS; i++) {
+          const hand = this.seats[i] ? this.seats[i].hand : [];
+          if (hand.length === 6 && hand.every(c => c.rank === '6' || c.rank === '7' || c.rank === '8')) { all678Seat = i; break; }
+        }
+      }
+      if (!isAll78 && allJacksSeat === -1 && all678Seat === -1) break; // this deal is fine, stop here
       if (!reason) {
         reason = isAll78
           ? { type: 'all78', seat: firstBidderSeat, name: this.seats[firstBidderSeat] ? this.seats[firstBidderSeat].name : ('Seat ' + firstBidderSeat), round: this.round, ts: Date.now() }
-          : { type: 'allJacks', seat: allJacksSeat, name: this.seats[allJacksSeat].name, round: this.round, ts: Date.now() };
-        this.addLog(`Reshuffling — ${reason.name} ${reason.type === 'all78' ? "was forced to bid with a hand of only 7s and 8s" : "was dealt all four Jacks"}. Same dealer, fresh deal.`);
+          : allJacksSeat !== -1
+          ? { type: 'allJacks', seat: allJacksSeat, name: this.seats[allJacksSeat].name, round: this.round, ts: Date.now() }
+          : { type: 'all678', seat: all678Seat, name: this.seats[all678Seat].name, round: this.round, ts: Date.now() };
+        const reasonText = reason.type === 'all78' ? "was forced to bid with a hand of only 7s and 8s"
+          : reason.type === 'allJacks' ? "was dealt all four Jacks"
+          : "was dealt a hand of nothing but 6s, 7s, and 8s";
+        this.addLog(`Reshuffling — ${reason.name} ${reasonText}. Same dealer, fresh deal.`);
       }
       for (let i = 0; i < SEATS; i++) { if (this.seats[i]) this.seats[i].hand = []; }
       this.deck = freshDeck();
@@ -630,9 +649,15 @@ class GameEngine6P {
     // empty), so this check is meaningless for them and must be skipped
     // entirely -- see game-engine.js for the full reasoning.
     const bidTeam = getTeam(this.bidder);
+    const defendingTeam = bidTeam === 0 ? 1 : 0;
     const defendingHasTrump = this.thaniCaller >= 0 || this.seats.some((s, i) => s && getTeam(i) !== bidTeam && s.hand.some(c => c.suit === this.trumpSuit));
     if (!defendingHasTrump) {
       this.roundVoidMessage = `The defending team has no ${this.trumpSuit} at all this round — nothing to contest. Round voided, moving to the next dealer.`;
+      // Per explicit request: this event existed and correctly voided the round already, but
+      // never actually set reshuffleReason the way the 4-player engine's identical check
+      // does - so the client's popup system never had a distinct, named event to show a real
+      // explanation for, just the generic roundVoidMessage log line. Added to match.
+      this.reshuffleReason = { type: 'noTrump', team: defendingTeam, suit: this.trumpSuit, round: this.round, ts: Date.now() };
       this.addLog(this.roundVoidMessage);
       this._notify();
       this.startRound();
@@ -1431,6 +1456,18 @@ class GameEngine6P {
         // information for nothing.
         if (wt !== myTeam) {
           if (pos === this.bidder) callTrumpNow = true;
+          // Per explicit request: the very first time a suit gets led, cut in regardless of
+          // whether this particular trick happens to be carrying any points yet - even with
+          // nothing better than a zero-point 6 of trump. Waiting for "worth it" points to
+          // show up before ever committing trump was leaving opponents free to run a suit
+          // the bot is void in without ever being contested early, which is worse for the
+          // team than spending a cheap trump now (see the zeroPt preference below - this
+          // never actually costs a valuable trump card, just commits to *a* cut happening).
+          // The two-tier "first time always, second+ time needs a reason" split below this
+          // is deliberate, not an oversight - see the next two conditions for how a repeat
+          // lead of the same suit is judged differently (needs actual value on the table or
+          // real trump strength in hand, not just "it's this suit again").
+          else if ((this.suitLeadCount[this.trickSuit] || 0) === 1) callTrumpNow = true;
           else if (isLast && tPts > 0) callTrumpNow = true;
           else if (tPts >= 2) callTrumpNow = true;
           else if ((this.suitLeadCount[this.trickSuit] || 0) >= 2 && tPts >= 1) callTrumpNow = true;
@@ -1572,8 +1609,17 @@ class GameEngine6P {
             // A lone 9 with no second card of that suit to lead instead —
             // this is exactly the risky "leading a point card into a suit
             // where the opponent may still hold the Jack" case if that
-            // Jack hasn't been seen yet.
-            if (low.rank === '9' && !jSeen) sc -= 25;
+            // Jack hasn't been seen yet. Per explicit instruction this is
+            // now a near-absolute "never" specifically while trump hasn't
+            // been exposed at all yet (a much harder penalty than the
+            // ordinary jack-still-out case below it) — with trump status
+            // still completely unknown, leading this lone 9 risks losing
+            // it for nothing AND potentially triggering an opponent's cut
+            // with no read at all on how that will go. Once trump has
+            // been exposed the plain, smaller penalty still applies (the
+            // jack risk itself hasn't gone away), just without that
+            // additional unknown stacked on top.
+            if (low.rank === '9' && !jSeen) sc -= this.trumpExposed ? 25 : 200;
           }
           sc += bySuit[s].length * 5;
           if (low.points === 0) sc += 20;
@@ -1591,7 +1637,9 @@ class GameEngine6P {
               candidates.push({ card: bySuit[s].find(c => c.rank === '9'), score: 45 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
               continue;
             }
-            sc -= 25;
+            // Same near-absolute "never lead the 9 while trump is still completely unexposed"
+            // rule as the early-game branch above — see there for the full reasoning.
+            sc -= this.trumpExposed ? 25 : 200;
           }
           sc += bySuit[s].reduce((a, c) => a + c.points, 0) * 10 + bySuit[s].length * 3;
           if ((high.rank === 'A' || high.rank === '10') && (!jSeen || !nineSeen)) sc -= 15;

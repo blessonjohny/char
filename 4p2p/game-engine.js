@@ -655,12 +655,27 @@ class GameEngine {
           if (hand.filter(c => c.rank === 'J').length === 4) { allJacksSeat = i; break; }
         }
       }
-      if (!isAll78 && allJacksSeat === -1) break; // this deal is fine, stop here
+      // Per explicit request: same broader "genuinely worthless hand" check as the 6-player
+      // engine's identical addition - see there for the full reasoning. Adjusted for this
+      // game's 4-card hand instead of 6.
+      let all678Seat = -1;
+      if (!isAll78 && allJacksSeat === -1) {
+        for (let i = 0; i < 4; i++) {
+          const hand = this.seats[i] ? this.seats[i].hand : [];
+          if (hand.length === 4 && hand.every(c => c.rank === '6' || c.rank === '7' || c.rank === '8')) { all678Seat = i; break; }
+        }
+      }
+      if (!isAll78 && allJacksSeat === -1 && all678Seat === -1) break; // this deal is fine, stop here
       if (!reason) {
         reason = isAll78
           ? { type: 'all78', seat: firstBidderSeat, name: this.seats[firstBidderSeat] ? this.seats[firstBidderSeat].name : ('Seat ' + firstBidderSeat), round: this.round, ts: Date.now() }
-          : { type: 'allJacks', seat: allJacksSeat, name: this.seats[allJacksSeat].name, round: this.round, ts: Date.now() };
-        this.addLog(`Reshuffling — ${reason.name} ${reason.type === 'all78' ? "was forced to bid with a hand of only 7s and 8s" : "was dealt all four Jacks"}. Same dealer, fresh deal.`);
+          : allJacksSeat !== -1
+          ? { type: 'allJacks', seat: allJacksSeat, name: this.seats[allJacksSeat].name, round: this.round, ts: Date.now() }
+          : { type: 'all678', seat: all678Seat, name: this.seats[all678Seat].name, round: this.round, ts: Date.now() };
+        const reasonText = reason.type === 'all78' ? "was forced to bid with a hand of only 7s and 8s"
+          : reason.type === 'allJacks' ? "was dealt all four Jacks"
+          : "was dealt a hand of nothing but 6s, 7s, and 8s";
+        this.addLog(`Reshuffling — ${reason.name} ${reasonText}. Same dealer, fresh deal.`);
       }
       for (let i = 0; i < 4; i++) { if (this.seats[i]) this.seats[i].hand = []; }
       this.deck = freshDeck();
