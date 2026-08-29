@@ -882,12 +882,17 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      photo (the top seat is farthest/smallest, the two upper-diagonal seats are mid-depth, the
      two lower-diagonal seats are closest/largest before "me"). Kept small and conservative on
      the first pass - top +3%, upper-diagonal +5% (deliberately more than top, per the
-     request), lower-diagonal +2% (deliberately just a touch). */
-  #seatWrap1 { left: 88% !important; top: 68% !important; }
+     request), lower-diagonal +2% (deliberately just a touch).
+     Follow-up per explicit report with a real screenshot: the lower-left seat (Lakshmi) was
+     sitting visibly off her actual chair in the photo, worse than the lower-right seat
+     (Kurian) which was off by a smaller amount - both nudged further to seat them properly
+     (left one moved more, matching the reported severity), and the top seat pulled down a
+     little further still per the same report. */
+  #seatWrap1 { left: 87% !important; top: 70% !important; }
   #seatWrap2 { left: 88% !important; top: 38% !important; }
-  #seatWrap3 { left: 50% !important; top: 24% !important; }
+  #seatWrap3 { left: 50% !important; top: 27% !important; }
   #seatWrap4 { left: 12% !important; top: 38% !important; }
-  #seatWrap5 { left: 12% !important; top: 68% !important; }
+  #seatWrap5 { left: 14% !important; top: 73% !important; }
 
   /* Trick-card (played card) positions were drifting from the avatar
      seats above -- they're driven by a separate JS array (SLOT_POS /
@@ -936,27 +941,27 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   /* Per explicit follow-up: a little smaller than the previous 118px --
      modest reduction, still bigger than the table's own ~92px default. */
   .seat .av { width: 100px !important; height: 128px !important; font-size: 2.8rem !important; }
-  /* Per explicit request: "mine" (bottom/you) a little smaller than
-     before, while still staying the biggest in the top->bottom depth
-     hierarchy below. */
-  #seatWrap0 .av { width: 96px !important; height: 123px !important; font-size: 2.7rem !important; }
-  /* Per explicit request: the bottom seat's avatar (whoever is sitting
-     there -- this isn't tied to a specific player, it's the seat/
-     position itself) always renders semi-transparent, not just when it
-     happens to overlap the hand-cards bar below it. Applies regardless
-     of who joins that seat, since it targets the seat position, not a
-     player identity. */
-  /* Per explicit follow-up: face should be full opaque again, not
-     semi-transparent -- reverting the opacity:0.55 change. */
+  /* Per explicit request: made bigger again (was intentionally shrunk smaller than this in an
+     earlier pass) - "mine" is meant to be the single biggest avatar at the table, anchoring
+     the depth hierarchy below it rather than nearly tying the lower-side seats. */
+  #seatWrap0 .av { width: 112px !important; height: 143px !important; font-size: 3.1rem !important; }
+  /* Per explicit request: the bottom seat's avatar (whoever is sitting there -- this isn't tied
+     to a specific player, it's the seat/position itself) always renders semi-transparent, not
+     just when it happens to overlap the hand-cards bar below it. Applies regardless of who
+     joins that seat, since it targets the seat position, not a player identity. */
+  /* Per explicit follow-up: face should be full opaque again, not semi-transparent -- reverting
+     the opacity:0.55 change. */
   .seat .av { opacity: 1 !important; }
-  /* Per explicit request: same perspective/depth gradient as the
-     4-player table -- top (farthest away) is smallest, growing seat by
-     seat toward the bottom (closest, "you" -- left at its existing
-     100x128 size, unchanged). Matches SEAT_POS's fixed slot mapping:
-     3=top, 2/4=upper sides, 1/5=lower sides, 0=bottom/me. */
-  #seatWrap3 .av { width: 70px !important; height: 90px !important; font-size: 2rem !important; }
+  /* Per explicit request: a clearer, more pronounced perspective/depth gradient - top
+     (farthest away) smallest, growing seat by seat toward the bottom (closest, "you", set
+     above). Matches SEAT_POS's fixed slot mapping: 3=top, 2/4=upper sides, 1/5=lower sides,
+     0=bottom/me. Follow-up per explicit request: widened the gaps between each depth tier (top
+     smallest, upper-sides next, lower-sides "a little smaller than mine" just below the new,
+     bigger "me" size) so the 3D effect actually reads clearly instead of the tiers nearly
+     blending together. */
+  #seatWrap3 .av { width: 68px !important; height: 87px !important; font-size: 1.9rem !important; }
   #seatWrap2 .av, #seatWrap4 .av { width: 82px !important; height: 105px !important; font-size: 2.3rem !important; }
-  #seatWrap1 .av, #seatWrap5 .av { width: 92px !important; height: 118px !important; font-size: 2.6rem !important; }
+  #seatWrap1 .av, #seatWrap5 .av { width: 104px !important; height: 133px !important; font-size: 2.9rem !important; }
 
   /* Per explicit re-do: same inline-background-neutralizing fix as the
      4-player table -- see index.html's identical change for the fuller
