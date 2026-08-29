@@ -45,7 +45,7 @@ let isAutoReconnectAttempt6p = false;
 // player's choice carries over between tables instead of resetting.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:100}, (_,i) => 'toon'+(i+1));
+const ALL_AVATAR_KEYS = Array.from({length:96}, (_,i) => 'toon'+(i+1));
 if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
 }
@@ -54,7 +54,7 @@ function heroAvatarHtml(key) {
   // or out-of-range key -- see index.html's identical function for the
   // full reasoning (a large hardcoded bot list references avatar
   // numbers from before the set was trimmed multiple times).
-  const TOON_COUNT = 100;
+  const TOON_COUNT = 96;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
   const validNum = m && Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT;
   if (!validNum) {

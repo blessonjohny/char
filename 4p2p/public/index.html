@@ -4329,7 +4329,7 @@ try { MY_NAME = localStorage.getItem('k28_player_name') || ''; } catch (e) {}
 // sticks across visits instead of resetting every time.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:100}, (_,i) => 'toon'+(i+1));
+const ALL_AVATAR_KEYS = Array.from({length:96}, (_,i) => 'toon'+(i+1));
 
 // ==================== SOUND ENGINE ====================
 // A full card-table sound system built entirely on the native Web Audio API - no audio files,
@@ -4622,7 +4622,7 @@ function heroAvatarHtml(key) {
   // way a function declaration is). TOON_COUNT below is the same number
   // ALL_AVATAR_KEYS is built from, just usable this early. Update both
   // places together if the avatar set size changes again.
-  const TOON_COUNT = 100;
+  const TOON_COUNT = 96;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
   const validNum = m && Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT;
   if (!validNum) {
