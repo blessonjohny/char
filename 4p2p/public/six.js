@@ -1601,6 +1601,20 @@ function applyState(state) {
       tr.style.color = '';
       tr.classList.remove('trump-active');
       lastAnnouncedTrumpExposed = false;
+    } else if (state.thaniCaller >= 0) {
+      // Real bug fix, per explicit report: a Thani call skips trump
+      // entirely (see callThani() -- trumpSuit is set to '', no hidden
+      // card exists at all), but neither of the two branches above ever
+      // matched that case, so it fell all the way through to the plain
+      // "Trump: Hidden" fallback below -- implying a trump exists and
+      // is just concealed, when actually there's no trump this round
+      // at all. Every player sees this, not just the bidder, since
+      // there's no secret left to protect once nobody has a hidden
+      // trump card to begin with.
+      tr.innerHTML = '🚫 No Trump — Thani!';
+      tr.style.color = '';
+      tr.classList.remove('trump-active');
+      lastAnnouncedTrumpExposed = false;
     } else {
       tr.innerHTML = 'Trump: Hidden';
       tr.style.color = '';
