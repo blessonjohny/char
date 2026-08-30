@@ -2065,8 +2065,43 @@ function spawnQmarkParticles(overlay, isGained, durationMs) {
 }
 
 let lastKnownIsBotPerPos = [null, null, null, null, null, null]; // tracks each position's isBot status to detect a genuine join/leave transition, not just any re-render
+// Per explicit request: some browsers (confirmed via a real side-by-side comparison, not just
+// a guess - measured avatar widths directly from screenshots) don't evaluate the CSS
+// `orientation: portrait` media feature the same way Chrome does, which is what the whole
+// depth-hierarchy sizing block above is gated behind - on at least one such browser the
+// hierarchy came out essentially inverted (top seat larger than several side seats, own seat
+// smaller than the lower-side seats). `window.innerWidth`/`innerHeight` are plain JS
+// properties with far more consistent cross-browser behavior than that CSS media feature, so
+// this enforces the exact same sizes directly and unconditionally whenever they'd apply,
+// using setProperty(...,'important') so it wins over the CSS regardless of whether that CSS
+// happened to match or not in this particular browser. Deliberately mirrors the CSS values
+// exactly rather than replacing them - this is a safety net for browsers where the CSS
+// condition misfires, not a new source of truth.
+function enforceSeatAvatarSizing6p() {
+  const isPortraitish = window.innerHeight >= window.innerWidth || window.innerWidth >= 521;
+  if (!isPortraitish) return;
+  const sizes = {
+    0: { w: 128, h: 164, fs: 3.5 },
+    3: { w: 68, h: 87, fs: 1.9 },
+    2: { w: 82, h: 105, fs: 2.3 },
+    4: { w: 82, h: 105, fs: 2.3 },
+    1: { w: 104, h: 133, fs: 2.9 },
+    5: { w: 104, h: 133, fs: 2.9 },
+  };
+  for (const slot in sizes) {
+    const av = document.getElementById('av' + slot);
+    if (!av) continue;
+    const s = sizes[slot];
+    av.style.setProperty('width', s.w + 'px', 'important');
+    av.style.setProperty('height', s.h + 'px', 'important');
+    av.style.setProperty('font-size', s.fs + 'rem', 'important');
+  }
+}
+window.addEventListener('resize', enforceSeatAvatarSizing6p);
+
 function renderSeats(state) {
   detectQMarkChangesSix(state);
+  enforceSeatAvatarSizing6p();
   const folded = state.foldedSeats || [];
   for (let pos = 0; pos < 6; pos++) {
     const slot = slotFor(pos);
