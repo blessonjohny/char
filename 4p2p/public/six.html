@@ -110,7 +110,16 @@ button{font-family:inherit;cursor:pointer}
    lower portion of the avatar, on top of the character's own portrait,
    which stays visible underneath -- matching the identical change made
    on the 4-player table. */
-.kunukku-avatar-img{position:absolute;left:50%;bottom:-6%;transform:translateX(-50%);width:58%;height:auto;object-fit:contain;border-radius:0;z-index:3;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.7));}
+/* Per explicit request: pinned by TOP edge, not bottom - the top-center point of the
+   coconut image is meant to land right where a v-neck collar's lowest point would be on the
+   avatar photo behind it, so it reads as sitting "in place of" the head rather than floating
+   at an arbitrary offset from the bottom of the seat. Since this is a percentage of each
+   seat's own avatar container height, it scales consistently across every seat tier's
+   different avatar size (68px up through 128px) without needing a separate vertical override
+   per seat the way the old bottom-anchored version did - only left/width still vary below,
+   for seats whose avatar is horizontally offset within its own wrapper. 55% is a first-pass
+   estimate, expected to be tuned further once seen live per the accompanying request. */
+.kunukku-avatar-img{position:absolute;left:50%;top:55%;transform:translateX(-50%);width:58%;height:auto;object-fit:contain;border-radius:0;z-index:3;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.7));}
 .kunukku-count-badge{
   position:absolute;left:50%;bottom:2%;transform:translateX(-50%);
   font-family:'Cinzel','Playfair Display',serif;font-weight:900;font-size:1rem;color:#fff;
@@ -137,12 +146,12 @@ button{font-family:inherit;cursor:pointer}
    nudged right). Left/right shifts work by moving the `left` percent
    itself, since the base rule's translateX(-50%) centers relative to
    whatever that is. */
-#seatWrap0 .kunukku-avatar-img{bottom:18%;width:52%;left:52%;}
-#seatWrap3 .kunukku-avatar-img{bottom:2%;width:50%;}
+#seatWrap0 .kunukku-avatar-img{width:52%;left:52%;}
+#seatWrap3 .kunukku-avatar-img{width:50%;}
 #seatWrap1 .kunukku-avatar-img{width:56%;left:52%;}
-#seatWrap5 .kunukku-avatar-img{width:56%;bottom:-2%;}
+#seatWrap5 .kunukku-avatar-img{width:56%;}
 #seatWrap4 .kunukku-avatar-img{width:50%;left:47%;}
-#seatWrap2 .kunukku-avatar-img{width:50%;bottom:0%;}
+#seatWrap2 .kunukku-avatar-img{width:50%;}
 /* Matches the 4-player table's own Kunukku treatment exactly, not just
    the sad-image swap above -- a grayscale/darken filter on the whole
    avatar plus a semi-opaque dark overlay with a crying face on top of
