@@ -3355,10 +3355,13 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    (not auto-dismissing) badge that pops in big and keeps a gentle
    heartbeat pulse going for as long as it's on screen, positioned in
    the center of the table itself rather than a fullscreen overlay.
-   Explicitly removed the moment actual play starts (see
-   dismissBidWinnerCelebration4p, called from startPlay()) -- this is
-   the one thing that makes it "persistent" rather than timer-based
-   like the other event popups in this file. */
+   Explicitly removed the moment the first card of the round actually
+   gets played (see dismissBidWinnerCelebration4p, called from the same
+   3 code paths as the established clearCallBadges4p signal -- NOT
+   startPlay(), which fires earlier, before trump selection/dealing,
+   while a card may not have been played yet) -- this is the one thing
+   that makes it "persistent" rather than timer-based like the other
+   event popups in this file. */
 #bidWinnerBubble4p{
   position:absolute;top:48%;left:50%;transform:translate(-50%,-50%) scale(0);
   z-index:400;text-align:center;pointer-events:none;
@@ -6659,6 +6662,22 @@ function dismissBidWinnerCelebration4p() {
   el.classList.add('leaving');
   setTimeout(() => { el.style.display = 'none'; el.classList.remove('leaving', 'settled'); }, 400);
 }
+// Real bug fix, per explicit report: the animated dismiss above only
+// ever ran from startPlay() -- the normal "bidding just ended" moment.
+// Exiting to the home screen or restarting the game/round go through
+// entirely different code paths that never called it at all, so a
+// bubble left on screen at that exact moment stayed visually stuck in
+// display:block and would immediately reappear the instant a new game
+// screen rendered, even with zero new bids having happened yet. This is
+// the same reset with no animation (nothing needs to be graceful when
+// the whole screen is being torn down anyway) plus clearing the
+// "already celebrated" guard, called from every genuine fresh-start/
+// exit point instead of relying on startPlay() alone.
+function hardResetBidWinnerBubble4p() {
+  const el = document.getElementById('bidWinnerBubble4p');
+  if (el) { el.style.display = 'none'; el.classList.remove('leaving', 'settled'); el.innerHTML = ''; }
+  lastCelebratedBidWinner4p = null;
+}
 let lastCelebratedBidWinner4p = null; // tracks {round, pos, winningBid} already celebrated, so redundant calls (phase1+phase2 both firing, reconnection catch-up) don't re-pop the same unchanged result -- but a genuinely different winner/bid (bidder changed during phase2 raises) still triggers fresh
 function markWinningBidder4p(pos, winningBid) {
   for (let i = 0; i < 4; i++) {
@@ -9958,10 +9977,6 @@ function endBidding2(x, canChange) {
 
 // ==================== PLAY PHASE ====================
 function startPlay() {
-  // Per explicit request: the bid-winner celebration bubble stays up
-  // until this exact moment -- the true "a player starts the game"
-  // point -- rather than on any timer.
-  dismissBidWinnerCelebration4p();
   // Same rule as online mode: if neither player on the defending team
   // holds even one card of the trump suit, they have no way to ever
   // contest it — void the round and move to the next dealer instead of
@@ -10529,6 +10544,7 @@ function playCard(suit, rank, player, calledTrump) {
   if (trickSuit === '') { trickSuit = card.suit; suitLeadCount[card.suit]++; }
   trickCards.push({player: p, card: card});
   clearCallBadges4p(); // per explicit instruction: bid/pass bubbles stay up only until someone actually starts playing
+  dismissBidWinnerCelebration4p(); // real "first card played" moment, per explicit correction -- see clearCallBadges4p's own comment right above for why this specific call site (not startPlay()) is the correct signal
   const slot = document.getElementById('slot' + slotForPlayer(p));
   if (slot) { slot.innerHTML = cardHTML(card);  }
   const name = playerAt(p) ? playerAt(p).name : 'Player';
@@ -10577,6 +10593,7 @@ function playHiddenTrump(p) {
   if (trickSuit === '') { trickSuit = card.suit; suitLeadCount[card.suit]++; }
   trickCards.push({player: p, card: card});
   clearCallBadges4p(); // per explicit instruction: bid/pass bubbles stay up only until someone actually starts playing
+  dismissBidWinnerCelebration4p(); // real "first card played" moment, per explicit correction -- see clearCallBadges4p's own comment right above for why this specific call site (not startPlay()) is the correct signal
   const slot = document.getElementById('slot' + slotForPlayer(p));
   if (slot) { slot.innerHTML = cardHTML(card);  }
   const name = playerAt(p) ? playerAt(p).name : 'Player';
@@ -12493,6 +12510,7 @@ function hostRestartGame() {
     closeModal();
     okBtn.textContent = 'OK';
     okBtn.onclick = oldClick;
+    hardResetBidWinnerBubble4p();
     // Build config matching startOnlineGame expectations
     const config = {
       players: PLAYERS.map(p => ({ name: p.name, emoji: p.emoji, bg: p.bg, isBot: p.isBot, peerId: p.peerId, pos: p.pos })),
@@ -15903,6 +15921,7 @@ function exitToHome() {
   try {
     if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
   } catch (e) {}
+  hardResetBidWinnerBubble4p();
   if (SERVER_MODE || IS_ONLINE) leaveServerTable();
   else goHome();
 }
@@ -16506,6 +16525,7 @@ document.getElementById('btnRestartConfirmCancel') && document.getElementById('b
 });
 document.getElementById('btnRestartConfirmOk') && document.getElementById('btnRestartConfirmOk').addEventListener('click', () => {
   document.getElementById('restartConfirmOverlay').classList.remove('on');
+  hardResetBidWinnerBubble4p();
   if (pendingRestartAction === 'round') gameSocket.emit('requestRestartRound');
   else if (pendingRestartAction === 'game') gameSocket.emit('requestRestartGame');
   pendingRestartAction = null;
@@ -16542,6 +16562,22 @@ function applyServerState(state) {
   const gameWrapAlreadyShowing = !!gwDisplay && gwDisplay !== 'none';
   latestServerState = state;
   logClientDebug(state);
+  // Per explicit report: the bubble was surviving a restart/exit
+  // triggered by ANY player at the table, not just whoever clicked the
+  // button -- every other connected client only ever learns about a
+  // restart through the state update it causes, never through the
+  // button click itself. This is the one place every single state
+  // change from the server passes through regardless of what caused
+  // it, so it's the reliable spot to catch "we're back at a fresh
+  // lobby" and clear the bubble no matter who or what triggered it.
+  // Deliberately just phase==='lobby' and nothing broader (an earlier
+  // draft also checked round<=1-with-zero-points, but that's true for
+  // the entirety of a completely normal round 1 too, before any points
+  // are scored -- it would have wiped out a legitimate round-1
+  // celebration seconds after it appeared).
+  if (state.phase === 'lobby') {
+    hardResetBidWinnerBubble4p();
+  }
   // A genuinely different table (not just a new round on the SAME table)
   // is a much more definitive signal than the tricksPlayed-went-backwards
   // heuristic further down can ever be — that heuristic was built for a
@@ -16837,6 +16873,14 @@ function applyServerState(state) {
   // last trick, right through to the round-end popup.
   if (typeof state.tricksPlayed === 'number' && state.tricksPlayed < lastSeenTricksPlayed) {
     resetTrickAndRoundTracking();
+    // Per explicit report: same reasoning as this whole block -- a
+    // same-table restart (round or full game) never passes through
+    // phase:'lobby' the way exiting to a fresh table does, so the
+    // separate lobby-phase check above never catches it. This existing
+    // tricksPlayed-went-backwards signal already exists specifically to
+    // detect that case for other stale-UI cleanup, so the bubble reset
+    // belongs right here too, not a second bespoke detection.
+    hardResetBidWinnerBubble4p();
     // Same fix as the tableId-change branch above, and for the exact same reason: resetting
     // lastRenderedSlotContent back to all-null does nothing by itself if the new round's own
     // desired content is ALSO null (the common case right after a restart, before anyone's
@@ -17643,6 +17687,7 @@ function catchUpTrickSlotsStaggered(real) {
     lastRenderedSlotContent[slotIdx] = tc.card.suit + tc.card.rank;
     trickCards.push({ player: tc.pos, card: cardWithColor });
     clearCallBadges4p(); // per explicit instruction: bid/pass bubbles stay up only until someone actually starts playing
+    dismissBidWinnerCelebration4p(); // real "first card played" moment, per explicit correction -- see clearCallBadges4p's own comment right above for why this specific call site (not startPlay()) is the correct signal
     idx++;
     setTimeout(revealNext, 550);
   }
