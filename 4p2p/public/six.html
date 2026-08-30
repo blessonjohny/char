@@ -129,10 +129,20 @@ button{font-family:inherit;cursor:pointer}
    side seats (which the report flagged as "a little small") bumped up
    in width slightly. Upper sides and the base rule above are
    unchanged, per the report not mentioning them. */
-#seatWrap0 .kunukku-avatar-img{bottom:12%;width:52%;}
-#seatWrap3 .kunukku-avatar-img{bottom:2%;}
-#seatWrap1 .kunukku-avatar-img,
-#seatWrap5 .kunukku-avatar-img{width:64%;}
+/* Per explicit follow-up (multiple rounds of reference screenshots):
+   full per-seat tuning now, not just the earlier 3-seat pass -- each
+   line below is a distinct adjustment called out by seat position
+   (bottom up + right; top smaller; upper-left smaller + nudged left;
+   upper-right smaller + up; lower-left up slightly; lower-right
+   nudged right). Left/right shifts work by moving the `left` percent
+   itself, since the base rule's translateX(-50%) centers relative to
+   whatever that is. */
+#seatWrap0 .kunukku-avatar-img{bottom:18%;width:52%;left:52%;}
+#seatWrap3 .kunukku-avatar-img{bottom:2%;width:50%;}
+#seatWrap1 .kunukku-avatar-img{width:64%;left:52%;}
+#seatWrap5 .kunukku-avatar-img{width:64%;bottom:-2%;}
+#seatWrap4 .kunukku-avatar-img{width:50%;left:47%;}
+#seatWrap2 .kunukku-avatar-img{width:50%;bottom:0%;}
 /* Matches the 4-player table's own Kunukku treatment exactly, not just
    the sad-image swap above -- a grayscale/darken filter on the whole
    avatar plus a semi-opaque dark overlay with a crying face on top of
