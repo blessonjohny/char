@@ -119,7 +119,12 @@ button{font-family:inherit;cursor:pointer}
    per seat the way the old bottom-anchored version did - only left/width still vary below,
    for seats whose avatar is horizontally offset within its own wrapper. 55% is a first-pass
    estimate, expected to be tuned further once seen live per the accompanying request. */
-.kunukku-avatar-img{position:absolute;left:50%;top:55%;transform:translateX(-50%);width:58%;height:auto;object-fit:contain;border-radius:0;z-index:3;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.7));}
+/* Per explicit follow-up with a real screenshot: 55% still landed too low (mid-chest/hands
+   area on the largest seat instead of the actual v-neck collar point) - pulled up significantly
+   to sit at the upper-chest/collarbone area instead, where the two curved strap shapes read as
+   hooking over the shoulders like a bag strap or a necklace clasp, rather than just floating
+   somewhere on the torso. */
+.kunukku-avatar-img{position:absolute;left:50%;top:46%;transform:translateX(-50%);width:58%;height:auto;object-fit:contain;border-radius:0;z-index:3;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.7));}
 .kunukku-count-badge{
   position:absolute;left:50%;bottom:2%;transform:translateX(-50%);
   font-family:'Cinzel','Playfair Display',serif;font-weight:900;font-size:1rem;color:#fff;
