@@ -702,6 +702,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   text-shadow:0 0 4px rgba(0,0,0,0.9),0 0 8px rgba(0,0,0,0.9),0 2px 3px rgba(0,0,0,1);
   z-index:4;pointer-events:none;
 }
+/* Per explicit report: the bottom seat's pendant looked oversized and
+   low relative to the smaller seats -- its avatar box is bigger (110px
+   vs 58px) so the same 62%-width pendant scales up proportionally too.
+   Sized down and nudged up specifically for this seat only. */
+.table:not(.mode6) .pspot.pos3 .kunukku-avatar-img{width:48%;bottom:2%;}
+.table:not(.mode6) .pspot.pos3 .kunukku-count-badge{bottom:9%;font-size:1rem;}
 .player-avatar.has-q::after{
   content:'';position:absolute;inset:0;border-radius:50%;
   background-image:url('/images/kunukku/sad-coconut.png');background-size:cover;background-position:center;
@@ -1182,7 +1188,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* ---- Big Kunukku event banner (gain/shed) ---- */
 .qmark-event-overlay{
-  position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;
+  position:fixed;inset:0;z-index:10600;display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,0);pointer-events:none;animation:qmarkBackdropIn .3s ease forwards;
 }
 .qmark-event-overlay.leaving{animation:qmarkBackdropOut .5s ease forwards;}
@@ -1198,6 +1204,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .qmark-event-overlay.gained .qmark-event-box{background:radial-gradient(ellipse at center, rgba(120,20,35,0.96), rgba(50,8,15,0.98));border:3px solid #e08a9a;box-shadow:0 0 60px rgba(200,40,70,0.6);}
 .qmark-event-overlay.lost .qmark-event-box{background:radial-gradient(ellipse at center, rgba(120,90,15,0.96), rgba(50,35,5,0.98));border:3px solid #E9B949;box-shadow:0 0 60px rgba(230,200,80,0.6);}
 .qmark-event-emoji{font-size:3.2rem;line-height:1;animation:qmarkEmojiShake 0.6s ease-in-out 0.3s 2;}
+/* Real particle system ported directly from the 6-player table's own
+   spawnQmarkParticles, for true parity per explicit request -- 70
+   particles with horizontal drift and staggered spawn timing across
+   the event's full duration, not just a straight-down confetti fall. */
+.qmark-particle{
+  position:absolute;top:-20px;
+  width:10px;height:10px;
+  opacity:0.95;
+  animation-name:qmarkParticleFall;
+  animation-timing-function:cubic-bezier(.25,.46,.45,.94);
+  animation-fill-mode:forwards;
+  will-change:transform,opacity;
+}
+@keyframes qmarkParticleFall{
+  0%{transform:translateY(0) translateX(0) rotate(0deg);opacity:1;}
+  85%{opacity:1;}
+  100%{transform:translateY(var(--fall-distance,110vh)) translateX(var(--drift,0px)) rotate(var(--spin,540deg));opacity:0;}
+}
 @keyframes qmarkEmojiShake{0%,100%{transform:rotate(0);}25%{transform:rotate(-12deg) scale(1.1);}75%{transform:rotate(12deg) scale(1.1);}}
 .qmark-event-title{font-size:1.6rem;font-weight:800;letter-spacing:1px;margin-top:10px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,0.6);}
 .qmark-event-sub{font-size:0.9rem;margin-top:8px;color:#E9B949;max-width:280px;margin-left:auto;margin-right:auto;}
@@ -3327,6 +3351,41 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   0%,100%{filter:drop-shadow(0 0 5px rgba(255,215,0,0.7)) drop-shadow(0 0 11px rgba(255,215,0,0.4));}
   50%{filter:drop-shadow(0 0 8px rgba(255,215,0,1)) drop-shadow(0 0 18px rgba(255,215,0,0.7));}
 }
+/* Bid-winner celebration bubble -- per explicit request, a persistent
+   (not auto-dismissing) badge that pops in big and keeps a gentle
+   heartbeat pulse going for as long as it's on screen, positioned in
+   the center of the table itself rather than a fullscreen overlay.
+   Explicitly removed the moment actual play starts (see
+   dismissBidWinnerCelebration4p, called from startPlay()) -- this is
+   the one thing that makes it "persistent" rather than timer-based
+   like the other event popups in this file. */
+#bidWinnerBubble4p{
+  position:absolute;top:48%;left:50%;transform:translate(-50%,-50%) scale(0);
+  z-index:400;text-align:center;pointer-events:none;
+  padding:18px 26px;border-radius:18px;
+  background:radial-gradient(ellipse at center, rgba(120,90,15,0.95), rgba(40,28,4,0.98));
+  border:3px solid #f4c430;box-shadow:0 0 40px rgba(244,196,48,0.55),0 0 80px rgba(244,196,48,0.25);
+  animation:bidWinnerBubblePop 0.6s cubic-bezier(.2,1.4,.4,1) forwards;
+}
+#bidWinnerBubble4p.settled{animation:bidWinnerBubbleHeartbeat 1.6s ease-in-out infinite;}
+#bidWinnerBubble4p.leaving{animation:bidWinnerBubbleOut 0.35s ease forwards !important;}
+@keyframes bidWinnerBubblePop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(0.2) rotate(-6deg);}
+  60%{opacity:1;transform:translate(-50%,-50%) scale(1.15) rotate(2deg);}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0);}
+}
+@keyframes bidWinnerBubbleHeartbeat{
+  0%,100%{transform:translate(-50%,-50%) scale(1);}
+  15%{transform:translate(-50%,-50%) scale(1.06);}
+  30%{transform:translate(-50%,-50%) scale(1);}
+  45%{transform:translate(-50%,-50%) scale(1.04);}
+}
+@keyframes bidWinnerBubbleOut{
+  0%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}
+}
+#bidWinnerBubble4p .bwb-name{font-family:'Cinzel','Playfair Display',serif;font-size:0.95rem;font-weight:700;color:#f4c430;letter-spacing:0.5px;}
+#bidWinnerBubble4p .bwb-bid{font-family:'Cinzel','Playfair Display',serif;font-size:1.7rem;font-weight:900;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.7);margin-top:2px;}
 </style>
 </head>
 <body>
@@ -3813,6 +3872,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </div>
     <div class="king-progress-track" id="kingProgressTrack" style="display:none"><div class="king-progress-fill" id="kingProgressFill" style="width:0%"></div></div>
   </div><div class="table" id="tableArea">
+    <div id="bidWinnerBubble4p" style="display:none"></div>
     <div class="chip-stack cs-bl"><div class="c3"></div></div>
     <div class="chip-stack cs-br"><div class="c3"></div></div>
     <button class="icon-btn table-corner-btn" id="btnChat" title="Chat" style="display:none">💬<span class="chat-badge" id="chatBadge"></span></button>
@@ -6368,18 +6428,52 @@ function detectQMarkChanges4p() {
   if (gained.length > 0) showQMarkEvent4p(gained, 'gained');
   if (lost.length > 0) showQMarkEvent4p(lost, 'lost');
 }
+function spawnQmarkParticles(overlay, isGained, durationMs) {
+  // Ported directly from the 6-player table's identical function, per
+  // explicit request for true parity between the two tables.
+  const goldPalette = ['#f4c430', '#ffd700', '#ffe066', '#e6b800', '#fff3b0'];
+  const rainbowPalette = ['#f4c430', '#e08a9a', '#7ec8e3', '#9adba0', '#c99ae3', '#ff9f6b'];
+  const palette = isGained ? rainbowPalette : goldPalette;
+  const particleCount = 70;
+  for (let i = 0; i < particleCount; i++) {
+    const p = document.createElement('div');
+    p.className = 'qmark-particle';
+    const startLeft = Math.random() * 100;
+    const size = 6 + Math.random() * 10;
+    const fallDuration = 1.8 + Math.random() * 1.6;
+    const delay = Math.random() * (durationMs / 1000 - 2);
+    const drift = (Math.random() - 0.5) * 160;
+    const spin = 360 + Math.random() * 720;
+    const color = palette[Math.floor(Math.random() * palette.length)];
+    const isRound = Math.random() > 0.5;
+    p.style.left = startLeft + 'vw';
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.background = color;
+    p.style.borderRadius = isRound ? '50%' : '2px';
+    p.style.setProperty('--fall-distance', '115vh');
+    p.style.setProperty('--drift', drift + 'px');
+    p.style.setProperty('--spin', spin + 'deg');
+    p.style.animationDuration = fallDuration + 's';
+    p.style.animationDelay = delay + 's';
+    overlay.appendChild(p);
+  }
+}
 function showQMarkEvent4p(names, direction) {
   const overlay = document.createElement('div');
   overlay.className = 'qmark-event-overlay ' + direction;
-  const title = direction === 'gained' ? '😭 KUNUKKU!' : '🎉 KUNUKKU SHED!';
+  const isGained = direction === 'gained';
+  const durationMs = isGained ? 7000 : 5000;
+  const title = isGained ? '😭 KUNUKKU!' : '🎉 KUNUKKU SHED!';
   const namesText = names.map(escapeHtml).join(', ');
-  const subtitle = direction === 'gained'
+  const subtitle = isGained
     ? `${namesText} ${names.length > 1 ? 'each get' : 'gets'} a Kunukku — shut out!`
-    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Kunukku!`;
-  overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${direction === 'gained' ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
+    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Kunukku — free at last!`;
+  overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${isGained ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
   document.body.appendChild(overlay);
-  setTimeout(() => overlay.classList.add('leaving'), 2200);
-  setTimeout(() => overlay.remove(), 2700);
+  spawnQmarkParticles(overlay, isGained, durationMs);
+  setTimeout(() => overlay.classList.add('leaving'), durationMs - 500);
+  setTimeout(() => overlay.remove(), durationMs);
 }
 
 // Reusable "big moment" popup -- see the CSS comment next to
@@ -6543,6 +6637,28 @@ function clearCallBadges4p() {
 // Without this, their badge would keep showing that later pass in red,
 // which reads as if they lost, right as they're being highlighted as
 // the winner -- a real, confusing contradiction this corrects.
+function showBidWinnerCelebration4p(pos, winningBid) {
+  const el = document.getElementById('bidWinnerBubble4p');
+  if (!el) return;
+  const p = PLAYERS.find(pl => pl.pos === pos);
+  const name = p ? (pos === MY_POS ? 'You' : p.name) : 'Player';
+  const bidText = winningBid >= 29 ? 'THANI!' : ('Bid ' + winningBid);
+  el.innerHTML = '<div class="bwb-name">' + escapeHtml(name) + ' won the bid</div><div class="bwb-bid">' + bidText + '</div>';
+  el.style.display = 'block';
+  el.classList.remove('leaving', 'settled');
+  // force reflow so the pop-in animation replays even if it's already showing from a phase-2 re-mark
+  void el.offsetWidth;
+  el.style.animation = 'none';
+  void el.offsetWidth;
+  el.style.animation = '';
+  setTimeout(() => el.classList.add('settled'), 650);
+}
+function dismissBidWinnerCelebration4p() {
+  const el = document.getElementById('bidWinnerBubble4p');
+  if (!el || el.style.display === 'none') return;
+  el.classList.add('leaving');
+  setTimeout(() => { el.style.display = 'none'; el.classList.remove('leaving', 'settled'); }, 400);
+}
 function markWinningBidder4p(pos, winningBid) {
   for (let i = 0; i < 4; i++) {
     const av = document.getElementById('av' + i);
@@ -6555,6 +6671,14 @@ function markWinningBidder4p(pos, winningBid) {
       const headerEl = callEl.querySelector('.call-badge-header');
       if (headerEl) headerEl.textContent = winningBid >= 29 ? 'Thani!' : 'Bid ' + winningBid;
     }
+  }
+  // Per explicit request: a persistent, heartbeat-pulsing bubble in the
+  // center of the table, separate from the existing avatar-ring glow
+  // above -- that ring is subtle and easy to miss, this is meant to be
+  // impossible to miss. Stays up until startPlay() explicitly dismisses
+  // it (see there), not on a timer like every other event popup.
+  if (typeof pos === 'number' && pos >= 0 && typeof winningBid === 'number' && winningBid > 0) {
+    showBidWinnerCelebration4p(pos, winningBid);
   }
 }
 
@@ -9816,6 +9940,10 @@ function endBidding2(x, canChange) {
 
 // ==================== PLAY PHASE ====================
 function startPlay() {
+  // Per explicit request: the bid-winner celebration bubble stays up
+  // until this exact moment -- the true "a player starts the game"
+  // point -- rather than on any timer.
+  dismissBidWinnerCelebration4p();
   // Same rule as online mode: if neither player on the defending team
   // holds even one card of the trump suit, they have no way to ever
   // contest it — void the round and move to the next dealer instead of
@@ -16265,9 +16393,13 @@ function renderHostMenuPlayerList() {
     } else if (s.isBot) {
       actionBtn = `<button class="btn btn-outline btn-sm" onclick="openChangeBotPicker(${pos})" style="padding:4px 10px;font-size:0.7rem">🔄 Change</button>`;
     }
+    // Per explicit request: avatar-change available for every seat, not
+    // just bots -- a separate button alongside whatever Kick/Change
+    // button that seat already has, rather than replacing it.
+    const avatarBtn = `<button class="btn btn-outline btn-sm" onclick="openChangeAvatarPicker(${pos})" style="padding:4px 10px;font-size:0.7rem;margin-left:4px">🖼️ Avatar</button>`;
     html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
       <span style="font-size:0.8rem">${tag} ${escapeHtml(s.name)}${isSelf ? ' (you)' : ''}</span>
-      ${actionBtn}
+      <span>${actionBtn}${avatarBtn}</span>
     </div>`;
   });
   container.innerHTML = html || '<p style="color:var(--text-secondary);font-size:0.75rem">No one seated yet.</p>';
@@ -16303,6 +16435,30 @@ function confirmChangeBot(pos, newName) {
   document.getElementById('modalOkBtn').style.display = 'block';
   gameSocket.emit('changeBotName', { pos, newName });
   showToast(`🔄 Bot changed to ${newName}`, 'win', 2200);
+}
+
+// Mid-game avatar change per explicit request -- same modal-reuse
+// pattern as openChangeBotPicker right above (see its comment for the
+// z-index/return-to-host-menu reasoning), just showing the avatar grid
+// instead of a name list. Works for both a human's own seat and a
+// bot's, since the server accepts any valid seat index.
+function openChangeAvatarPicker(pos) {
+  const gridHtml = shuffledAvatarKeys().map(key =>
+    `<div class="my-avatar-choice" data-key="${key}" onclick="confirmChangeAvatar(${pos}, '${key}')" style="display:inline-block">
+      <img src="/images/hero-avatars/${key}.png" alt="">
+    </div>`
+  ).join('');
+  document.getElementById('hostMenuOverlay').classList.remove('on');
+  botPickerReturnToHostMenu = true;
+  showModal('🖼️ Change Avatar', `<div class="my-avatar-picker" style="max-height:55vh;overflow-y:auto">${gridHtml}</div>`);
+  const okBtn = document.getElementById('modalOkBtn');
+  okBtn.style.display = 'none';
+}
+function confirmChangeAvatar(pos, key) {
+  closeModal();
+  document.getElementById('modalOkBtn').style.display = 'block';
+  gameSocket.emit('hostChangeAvatar', { targetPos: pos, avatar: key });
+  showToast('🖼️ Avatar changed', 'win', 2000);
 }
 
 function openServerHostMenu() {

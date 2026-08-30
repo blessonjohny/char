@@ -1074,6 +1074,36 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   0%,100%{filter:drop-shadow(0 0 6px rgba(255,215,0,0.7)) drop-shadow(0 0 13px rgba(255,215,0,0.4));}
   50%{filter:drop-shadow(0 0 10px rgba(255,215,0,1)) drop-shadow(0 0 22px rgba(255,215,0,0.7));}
 }
+/* Bid-winner celebration bubble -- identical to index.html's own
+   #bidWinnerBubble4p, same reasoning there (persistent, not
+   timer-dismissed; removed only when actual play starts). */
+#bidWinnerBubble6p{
+  position:absolute;top:48%;left:50%;transform:translate(-50%,-50%) scale(0);
+  z-index:400;text-align:center;pointer-events:none;
+  padding:18px 26px;border-radius:18px;
+  background:radial-gradient(ellipse at center, rgba(120,90,15,0.95), rgba(40,28,4,0.98));
+  border:3px solid #f4c430;box-shadow:0 0 40px rgba(244,196,48,0.55),0 0 80px rgba(244,196,48,0.25);
+  animation:bidWinnerBubblePop6 0.6s cubic-bezier(.2,1.4,.4,1) forwards;
+}
+#bidWinnerBubble6p.settled{animation:bidWinnerBubbleHeartbeat6 1.6s ease-in-out infinite;}
+#bidWinnerBubble6p.leaving{animation:bidWinnerBubbleOut6 0.35s ease forwards !important;}
+@keyframes bidWinnerBubblePop6{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(0.2) rotate(-6deg);}
+  60%{opacity:1;transform:translate(-50%,-50%) scale(1.15) rotate(2deg);}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0);}
+}
+@keyframes bidWinnerBubbleHeartbeat6{
+  0%,100%{transform:translate(-50%,-50%) scale(1);}
+  15%{transform:translate(-50%,-50%) scale(1.06);}
+  30%{transform:translate(-50%,-50%) scale(1);}
+  45%{transform:translate(-50%,-50%) scale(1.04);}
+}
+@keyframes bidWinnerBubbleOut6{
+  0%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}
+}
+#bidWinnerBubble6p .bwb-name{font-family:'Cinzel','Playfair Display',serif;font-size:0.95rem;font-weight:700;color:#f4c430;letter-spacing:0.5px;}
+#bidWinnerBubble6p .bwb-bid{font-family:'Cinzel','Playfair Display',serif;font-size:1.7rem;font-weight:900;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.7);margin-top:2px;}
 </style>
 </head>
 <body>
@@ -1208,6 +1238,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
     <div class="k28hg-title" id="k28hgTitle"></div>
     <div class="k28hg-sub" id="k28hgSub"></div>
   </div>
+  <div id="bidWinnerBubble6p" style="display:none"></div>
   <div class="table-oval">
     <div class="six-oval-rail"></div>
     <div class="six-oval-bevel"></div>

@@ -1662,7 +1662,16 @@ function applyState(state) {
       state.round !== lastMarkedWinnerRound) {
     lastMarkedWinnerRound = state.round;
     markWinningBidder6p(state.bidder);
+    // Per explicit request: same persistent, heartbeat-pulsing bubble
+    // as the 4-player table -- see showBidWinnerCelebration6p, and
+    // dismissBidWinnerCelebration6p wherever this table's own actual
+    // "play begins" moment is (phase transitions off bidding entirely).
+    if (state.highestBid > 0) showBidWinnerCelebration6p(state.bidder, state.highestBid, state);
   }
+  // Per explicit request: dismissed the moment actual play begins (this
+  // table's play phase is just 'play', not the hidden/exposed split
+  // 4-player uses) -- the true "a player starts the game" point.
+  if (state.phase === 'play') dismissBidWinnerCelebration6p();
   if (state.phase === 'bidding1' && state.currentPlayer === MY_POS) showBidPanel(state);
   else $('bidOverlay').classList.remove('on');
 
@@ -1841,6 +1850,27 @@ const BID_MESSAGES = [
 // Same reasoning and pattern as index.html's identical
 // markWinningBidder4p, just using this table's own slotFor/seatWrap
 // lookup instead of #av0-3.
+function showBidWinnerCelebration6p(pos, winningBid, state) {
+  const el = $('bidWinnerBubble6p');
+  if (!el) return;
+  const seat = state.seats[pos];
+  const name = pos === MY_POS ? 'You' : (seat ? seat.name : 'Player');
+  const bidText = winningBid >= 29 ? 'THANI!' : ('Bid ' + winningBid);
+  el.innerHTML = '<div class="bwb-name">' + escapeHtml(name) + ' won the bid</div><div class="bwb-bid">' + bidText + '</div>';
+  el.style.display = 'block';
+  el.classList.remove('leaving', 'settled');
+  void el.offsetWidth;
+  el.style.animation = 'none';
+  void el.offsetWidth;
+  el.style.animation = '';
+  setTimeout(() => el.classList.add('settled'), 650);
+}
+function dismissBidWinnerCelebration6p() {
+  const el = $('bidWinnerBubble6p');
+  if (!el || el.style.display === 'none') return;
+  el.classList.add('leaving');
+  setTimeout(() => { el.style.display = 'none'; el.classList.remove('leaving', 'settled'); }, 400);
+}
 function markWinningBidder6p(pos) {
   for (let slot = 0; slot < 6; slot++) {
     const wrap = $('seatWrap' + slot);
@@ -3489,9 +3519,12 @@ function renderHostMenuPlayerList() {
     } else if (s.isBot) {
       actionBtn = `<button class="btn btn-outline btn-sm" onclick="openSixpChangeBotPicker(${pos})" style="padding:4px 10px;font-size:0.7rem;width:auto">🔄 Change</button>`;
     }
+    // Per explicit request: avatar-change available for every seat, not
+    // just bots -- same reasoning as the identical 4-player change.
+    const avatarBtn = `<button class="btn btn-outline btn-sm" onclick="openSixpChangeAvatarPicker(${pos})" style="padding:4px 10px;font-size:0.7rem;width:auto;margin-left:4px">🖼️ Avatar</button>`;
     html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
       <span style="font-size:0.8rem">${tag} ${escapeHtml(s.name)}${isSelf ? ' (you)' : ''}</span>
-      ${actionBtn}
+      <span>${actionBtn}${avatarBtn}</span>
     </div>`;
   });
   container.innerHTML = html || '<p style="color:var(--text-secondary);font-size:0.75rem">No one seated yet.</p>';
@@ -3518,6 +3551,28 @@ function confirmSixpChangeBot(pos, newName) {
   $('hostMenuBotPickerView').style.display = 'none';
   $('hostMenuMainView').style.display = 'block';
   setTimeout(renderHostMenuPlayerList, 300); // give the server's confirming state a moment to arrive
+}
+
+// Mid-game avatar change per explicit request -- reuses the exact same
+// sub-view swap technique (and even the same botPickerList/
+// hostMenuBotPickerView container) as openSixpChangeBotPicker right
+// above, just filling it with the avatar grid instead of a name list.
+function openSixpChangeAvatarPicker(pos) {
+  const gridHtml = shuffledAvatarKeys().map(key =>
+    `<div class="my-avatar-choice" data-key="${key}" onclick="confirmSixpChangeAvatar(${pos}, '${key}')" style="display:inline-block">
+      <img src="/images/hero-avatars/${key}.png" alt="">
+    </div>`
+  ).join('');
+  $('botPickerList').innerHTML = `<div class="my-avatar-picker">${gridHtml}</div>`;
+  $('hostMenuMainView').style.display = 'none';
+  $('hostMenuBotPickerView').style.display = 'block';
+}
+function confirmSixpChangeAvatar(pos, key) {
+  socket.emit('sixp_hostChangeAvatar', { targetPos: pos, avatar: key });
+  showToast('🖼️ Avatar changed', 'win', 2000);
+  $('hostMenuBotPickerView').style.display = 'none';
+  $('hostMenuMainView').style.display = 'block';
+  setTimeout(renderHostMenuPlayerList, 300);
 }
 
 function sixpKickPlayer(pos) {
