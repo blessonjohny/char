@@ -157,7 +157,13 @@ button{font-family:inherit;cursor:pointer}
    nudged right). Left/right shifts work by moving the `left` percent
    itself, since the base rule's translateX(-50%) centers relative to
    whatever that is. */
-#seatWrap0 .kunukku-avatar-img{width:52%;left:52%;}
+/* Per explicit report with real screenshots: the largest avatar (this seat specifically,
+   128px tall vs. 68-104px everywhere else) needed its own vertical override - the same 38%
+   that correctly lands right at the collar for every other seat size still put this one's
+   Kunukku down near the hands instead, since a bigger avatar means the same PERCENTAGE
+   covers more actual pixels before reaching the same visual landmark. Pulled up specifically
+   for this seat only. */
+#seatWrap0 .kunukku-avatar-img{width:52%;left:52%;top:22%;}
 #seatWrap3 .kunukku-avatar-img{width:50%;}
 #seatWrap1 .kunukku-avatar-img{width:56%;left:52%;}
 #seatWrap5 .kunukku-avatar-img{width:56%;}
