@@ -6659,6 +6659,7 @@ function dismissBidWinnerCelebration4p() {
   el.classList.add('leaving');
   setTimeout(() => { el.style.display = 'none'; el.classList.remove('leaving', 'settled'); }, 400);
 }
+let lastCelebratedBidWinner4p = null; // tracks {round, pos, winningBid} already celebrated, so redundant calls (phase1+phase2 both firing, reconnection catch-up) don't re-pop the same unchanged result -- but a genuinely different winner/bid (bidder changed during phase2 raises) still triggers fresh
 function markWinningBidder4p(pos, winningBid) {
   for (let i = 0; i < 4; i++) {
     const av = document.getElementById('av' + i);
@@ -6677,8 +6678,25 @@ function markWinningBidder4p(pos, winningBid) {
   // above -- that ring is subtle and easy to miss, this is meant to be
   // impossible to miss. Stays up until startPlay() explicitly dismisses
   // it (see there), not on a timer like every other event popup.
+  //
+  // Real bug fix, per explicit report of the popup flickering/re-
+  // popping unpredictably: this function is called from 3 separate
+  // places (endBidding1, endBidding2, and a reconnection catch-up path)
+  // and can legitimately fire more than once in the SAME round -- every
+  // one of those calls was re-triggering the pop-in entrance animation
+  // from scratch, even when nothing had actually changed. Guarded the
+  // same way six.js's own markWinningBidder6p already guards this (see
+  // lastMarkedWinnerRound there), but comparing pos+bid too, not just
+  // round -- a bidder actually changing during phase 2 raises is a
+  // real, new result that should still celebrate fresh, not just any
+  // repeat call within the same round.
   if (typeof pos === 'number' && pos >= 0 && typeof winningBid === 'number' && winningBid > 0) {
-    showBidWinnerCelebration4p(pos, winningBid);
+    const key = round + ':' + pos + ':' + winningBid;
+    const lastKey = lastCelebratedBidWinner4p;
+    if (lastKey !== key) {
+      lastCelebratedBidWinner4p = key;
+      showBidWinnerCelebration4p(pos, winningBid);
+    }
   }
 }
 
