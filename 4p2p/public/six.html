@@ -120,6 +120,19 @@ button{font-family:inherit;cursor:pointer}
 .hero-avatar-face.hero-avatar-sad{display:none}
 .av.has-q .hero-avatar-face.hero-avatar-normal{display:none}
 .av.has-q .hero-avatar-face.hero-avatar-sad{display:block}
+/* Per explicit report with reference screenshots: the pendant needs
+   per-seat tuning, not one size/position for all six -- the bottom
+   seat's own avatar box is noticeably taller than the others (123px
+   vs 90-118px), so the same -6% offset that looks fine elsewhere
+   pushes it well below the shoulders on that seat specifically.
+   Bottom moved up substantially; top nudged up a bit; the two lower
+   side seats (which the report flagged as "a little small") bumped up
+   in width slightly. Upper sides and the base rule above are
+   unchanged, per the report not mentioning them. */
+#seatWrap0 .kunukku-avatar-img{bottom:12%;width:52%;}
+#seatWrap3 .kunukku-avatar-img{bottom:2%;}
+#seatWrap1 .kunukku-avatar-img,
+#seatWrap5 .kunukku-avatar-img{width:64%;}
 /* Matches the 4-player table's own Kunukku treatment exactly, not just
    the sad-image swap above -- a grayscale/darken filter on the whole
    avatar plus a semi-opaque dark overlay with a crying face on top of
