@@ -1668,10 +1668,14 @@ function applyState(state) {
     // "play begins" moment is (phase transitions off bidding entirely).
     if (state.highestBid > 0) showBidWinnerCelebration6p(state.bidder, state.highestBid, state);
   }
-  // Per explicit request: dismissed the moment actual play begins (this
-  // table's play phase is just 'play', not the hidden/exposed split
-  // 4-player uses) -- the true "a player starts the game" point.
-  if (state.phase === 'play') dismissBidWinnerCelebration6p();
+  // Per explicit follow-up report: dismissing the instant phase flips to 'play' fired too
+  // early - that's the moment the play STAGE begins, broadcast immediately once trump is
+  // chosen, before anyone has actually played a single card yet (see _startPlay() in
+  // game-engine-6p.js - phase='play' and trickCards=[] both happen in the very same
+  // synchronous block, then _notify() fires right away). Now also requires trickCards to be
+  // non-empty, i.e. someone - bot or human - has genuinely played the first card of the
+  // round, which is what "stay until a player plays a card" actually meant.
+  if (state.phase === 'play' && state.trickCards && state.trickCards.length > 0) dismissBidWinnerCelebration6p();
   if (state.phase === 'bidding1' && state.currentPlayer === MY_POS) showBidPanel(state);
   else $('bidOverlay').classList.remove('on');
 
