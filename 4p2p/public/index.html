@@ -17722,6 +17722,18 @@ function renderTrickSlots(state) {
       // state-driven path in the first place, so this exclusion only ever skips MY card,
       // never anyone else's.
       if (tc.player !== MY_POS) playSound('cardPlayed');
+      // Real bug fix, per explicit correction: this is the actual live,
+      // real-time path every other player's card renders through in
+      // online multiplayer (see the comment right above -- confirmed
+      // directly, not assumed). The offline/local trickCards.push()
+      // call sites and the staggered catch-up reveal queue both already
+      // had this dismiss, but this one -- the one that fires on a
+      // genuinely fresh single card the moment the server confirms it --
+      // never did, which is exactly why the bubble was surviving all of
+      // trick 1 and only clearing once trick 2's own catch-up/reveal
+      // cycle happened to touch one of the OTHER hooked call sites.
+      clearCallBadges4p();
+      dismissBidWinnerCelebration4p();
     }
   }
 }
