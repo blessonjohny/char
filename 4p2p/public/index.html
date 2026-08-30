@@ -689,20 +689,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .my-avatar-choice.selected{border-color:var(--accent);transform:scale(1.08);box-shadow:0 0 10px rgba(255,215,0,0.5)}
 .avatar.has-q,
 .player-avatar.has-q{filter:none}
-/* Sad-coconut Kunukku image, same one already used on the 6-player table, shown as a full
-   CSS overlay rather than swapping avEl's actual innerHTML - deliberately, to preserve the
-   existing design principle right above (the underlying avatar content is set from several
-   different code paths, and a pure CSS overlay driven off the .has-q class means none of them
-   need to be touched or restored when the count drops back to 0). ::after carries the image
-   itself; ::before carries the count number via attr(), reading a data-qcount attribute set
-   alongside the class toggle - a well-supported CSS technique for showing a dynamic JS value
-   in generated content without injecting any HTML at all. */
-.avatar.has-q::after,
+/* Sad-coconut Kunukku badge -- per explicit report, switched from a CSS
+   ::before/::after pseudo-element overlay to real DOM elements (an
+   actual <img> + count <div>, built directly in JS) matching the
+   6-player table's already-proven approach, since the pseudo-element
+   version was rendering clipped/mispositioned in this table's newer
+   photo-background layout. .player-avatar.has-q below is untouched --
+   that's a different, unrelated UI context (the post-game results
+   picker), not the live table seats this fix is about. */
+.kunukku-avatar-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
+.kunukku-count-badge{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-family:'Cinzel','Playfair Display',serif;font-weight:900;font-size:1.3rem;color:#fff;
+  text-shadow:0 0 6px rgba(0,0,0,0.9),0 0 12px rgba(0,0,0,0.9),0 2px 3px rgba(0,0,0,1);
+  z-index:2;pointer-events:none;
+}
 .player-avatar.has-q::after{
   content:'';position:absolute;inset:0;border-radius:50%;
   background-image:url('/images/kunukku/sad-coconut.png');background-size:cover;background-position:center;
 }
-.avatar.has-q::before,
 .player-avatar.has-q::before{
   content:attr(data-qcount);position:absolute;inset:0;z-index:2;
   display:flex;align-items:center;justify-content:center;
@@ -5365,13 +5370,26 @@ function setupOnlineTable() {
       // lastRenderedCardCount): only touch innerHTML when the value that would be written is
       // actually different from what's already there, and re-attach the badge afterward if an
       // update did need to happen, since innerHTML= would otherwise have just deleted it.
-      const desiredAvHtml = p.emoji + '<span class="tdot ' + teamClass + '"></span>';
+      //
+      // Per explicit report: the old has-q CSS-pseudo-element approach (::before/::after with
+      // attr(data-qcount)) was rendering the coconut/count badly in the new photo-table layout
+      // -- clipped, stuck in a corner instead of filling the avatar. The 6-player table never
+      // had this problem because it never used pseudo-elements for this at all -- it builds
+      // real DOM nodes (an actual <img> + count <div>) directly in the same innerHTML this
+      // function already sets. Porting that same real-element approach here instead of trying
+      // to patch the pseudo-element positioning further.
+      const qCountHere = (latestServerState && latestServerState.qMarks) ? (latestServerState.qMarks[p.name] || 0) : 0;
+      const desiredAvHtml = qCountHere > 0
+        ? '<img src="/images/kunukku/sad-coconut.png" class="kunukku-avatar-img" alt="Kunukku">' +
+          '<div class="kunukku-count-badge">' + qCountHere + '</div>'
+        : p.emoji + '<span class="tdot ' + teamClass + '"></span>';
       if (av.dataset.avHtml !== desiredAvHtml) {
         const existingBadge = av.querySelector('.call-badge');
         av.dataset.avHtml = desiredAvHtml;
         av.innerHTML = desiredAvHtml;
         if (existingBadge) av.appendChild(existingBadge);
       }
+      av.classList.remove('has-q');
     }
     if (nm) nm.textContent = formatPlayerName(p.name, p.isBot);
     if (roleEl) roleEl.textContent = p.isLocal ? 'YOU' : (p.isBot ? 'BOT' : 'OPP');
@@ -8117,7 +8135,15 @@ function restoreGameState(data) {
     // way call-badge's own dataset.v check works: only touch innerHTML when the actual
     // rendered value is different from what's already there, and re-append the badge
     // afterward if the update did need to happen (since innerHTML= would have just deleted it).
-    const desiredAvHtml = p.emoji + '<span class="tdot ' + botDot + '"></span>';
+    //
+    // Per explicit report: swapped the old CSS-pseudo-element Kunukku overlay for the same
+    // real-DOM-element approach the 6-player table already uses successfully -- see the
+    // identical fix/comment at the other call site in this file for the fuller reasoning.
+    const qCountHere2 = (latestServerState && latestServerState.qMarks) ? (latestServerState.qMarks[p.name] || 0) : 0;
+    const desiredAvHtml = qCountHere2 > 0
+      ? '<img src="/images/kunukku/sad-coconut.png" class="kunukku-avatar-img" alt="Kunukku">' +
+        '<div class="kunukku-count-badge">' + qCountHere2 + '</div>'
+      : p.emoji + '<span class="tdot ' + botDot + '"></span>';
     if (av) {
       av.style.background = p.bg;
       if (av.dataset.avHtml !== desiredAvHtml) {
@@ -8126,6 +8152,7 @@ function restoreGameState(data) {
         av.innerHTML = desiredAvHtml;
         if (existingBadge) av.appendChild(existingBadge);
       }
+      av.classList.remove('has-q');
     }
     if (nm) {
       nm.textContent = formatPlayerName(p.name, p.isBot);
