@@ -1589,10 +1589,18 @@ class GameEngine6P {
         // trump straight in and win it for the team once trump is
         // exposed — leading into that is a genuine team tactic ("what
         // can my partner cut"), not just a read on this bot's own hand.
+        // Per explicit follow-up: also worth doing BEFORE trump is
+        // exposed, but only when that void partner specifically is
+        // this.hiddenTrumpOwner (always the bidder -- see chooseTrump)
+        // -- they're the one and only player who can act on this
+        // pre-exposure at all, via playHiddenTrump(), since every other
+        // seat genuinely doesn't know the trump suit yet. Extending this
+        // bonus to a non-bidder partner pre-exposure would have the bot
+        // acting on information it has no legitimate way to know.
         let partnerVoidBonus = 0;
         for (let p = 0; p < SEATS; p++) {
           if (p === pos || getTeam(p) !== myTeam) continue;
-          if (this.voidSuits[p].has(s) && this.trumpExposed) { partnerVoidBonus = 18; break; }
+          if (this.voidSuits[p].has(s) && (this.trumpExposed || p === this.hiddenTrumpOwner)) { partnerVoidBonus = 18; break; }
         }
         let sc = -voidOpponentPenalty + partnerVoidBonus;
         if (isEarly) {
@@ -1606,20 +1614,15 @@ class GameEngine6P {
             // Jack below -- holding the 9 alongside it is worth at
             // least as much. Same fix as the 4-player engine.
             if (bySuit[s].length > 1) { candidates.push({ card: bySuit[s][1], score: 60 + bySuit[s].length * 5 - voidOpponentPenalty + partnerVoidBonus, suit: s }); continue; }
-            // A lone 9 with no second card of that suit to lead instead —
-            // this is exactly the risky "leading a point card into a suit
-            // where the opponent may still hold the Jack" case if that
-            // Jack hasn't been seen yet. Per explicit instruction this is
-            // now a near-absolute "never" specifically while trump hasn't
-            // been exposed at all yet (a much harder penalty than the
-            // ordinary jack-still-out case below it) — with trump status
-            // still completely unknown, leading this lone 9 risks losing
-            // it for nothing AND potentially triggering an opponent's cut
-            // with no read at all on how that will go. Once trump has
-            // been exposed the plain, smaller penalty still applies (the
-            // jack risk itself hasn't gone away), just without that
-            // additional unknown stacked on top.
-            if (low.rank === '9' && !jSeen) sc -= this.trumpExposed ? 25 : 200;
+            // A lone 9 with no second card of that suit to lead instead.
+            // Per explicit instruction, this is now an absolute "never" —
+            // not a steep score penalty that a sufficiently bad hand
+            // could still lose out to, an outright exclusion from the
+            // candidates this bot will even consider leading, whenever
+            // the Jack of this suit hasn't been played yet this round.
+            // Skips straight to the next suit rather than pushing this
+            // one onto candidates at all.
+            if (low.rank === '9' && !jSeen) continue;
           }
           sc += bySuit[s].length * 5;
           if (low.points === 0) sc += 20;
@@ -1637,9 +1640,14 @@ class GameEngine6P {
               candidates.push({ card: bySuit[s].find(c => c.rank === '9'), score: 45 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
               continue;
             }
-            // Same near-absolute "never lead the 9 while trump is still completely unexposed"
-            // rule as the early-game branch above — see there for the full reasoning.
-            sc -= this.trumpExposed ? 25 : 200;
+            // Per explicit instruction, an absolute "never" -- same as
+            // the early-game branch above (see there for the fuller
+            // reasoning). Given RANK_ORDER, iHoldJ was already ruled out
+            // just above, so holding a 9 here always means it's this
+            // suit's `high` card -- the exact card that would otherwise
+            // get pushed as a candidate right below. Skip the suit
+            // entirely instead.
+            continue;
           }
           sc += bySuit[s].reduce((a, c) => a + c.points, 0) * 10 + bySuit[s].length * 3;
           if ((high.rank === 'A' || high.rank === '10') && (!jSeen || !nineSeen)) sc -= 15;
@@ -1649,8 +1657,22 @@ class GameEngine6P {
       }
       candidates.sort((a, c) => c.score - a.score);
       if (candidates.length > 0) return candidates[0].card;
-      hand.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
-      return isEarly ? hand[0] : hand[hand.length - 1];
+      // Real edge-case bug found and fixed: this fallback only runs
+      // when every suit got excluded above (typically because every
+      // remaining suit's lead would be a 9 with its Jack unseen) --
+      // but it used to pick straight from RANK_ORDER across the WHOLE
+      // hand with no awareness of that exclusion at all, meaning a
+      // hand like [9,10] of a single suit would have its 9 correctly
+      // excluded by the main loop above, only for this fallback to
+      // turn right around and pick that same 9 anyway (9 outranks 10
+      // in RANK_ORDER, so hand[hand.length-1] was the 9 specifically).
+      // Filter out any 9 whose suit's Jack hasn't been seen first, and
+      // only fall through to a literal last-resort (that 9 really is
+      // the only card left at all) if nothing else remains.
+      const safeHand = hand.filter(c => !(c.rank === '9' && !this._isRankSeen(c.suit, 'J')));
+      const pool = safeHand.length > 0 ? safeHand : hand;
+      pool.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+      return isEarly ? pool[0] : pool[pool.length - 1];
     }
 
     const follow = hand.filter(c => c.suit === this.trickSuit);
@@ -1725,19 +1747,19 @@ class GameEngine6P {
       else if (cwc.suit !== this.trumpSuit) trumpWinning = true;
       else trumpWinning = RANK_ORDER[trumps[0].rank] > RANK_ORDER[cwc.rank];
       const suitRepeat = this.suitLeadCount[this.trickSuit] || 0;
-      // When genuinely desperate for points (myTeamDesperate above), the
-      // bar for "is this trick worth trump" drops from 2 to 1 -- same
-      // adjustment as the 4-player engine. Per explicit instruction:
-      // also worth trumping the very first time a suit gets led this
-      // round, regardless of the trick's point value -- same
-      // firstTimeSuitLed concept 4-player's own worthTrumping already
-      // has, which 6-player was genuinely missing. suitRepeat===1 means
-      // this is that suit's first-ever lead (suitLeadCount is
-      // incremented the moment a trick's led, so by the time a bot is
-      // deciding whether to cut, the suit currently on the table has
-      // already been counted once).
-      const firstTimeSuitLed = suitRepeat === 1;
-      const worthTrumping = tPts >= (myTeamDesperate ? 1 : 2) || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1) || firstTimeSuitLed;
+      // Per explicit instruction: a bot void in the led suit should
+      // always cut with a trump if holding one, regardless of the
+      // trick's value -- UNLESS this suit has already been led before
+      // this round (suitRepeat >= 2, i.e. this is its second-or-later
+      // opening) or the J or 9 of it has already been played, in which
+      // case the situational judgment below (trick value, position,
+      // etc.) still applies same as before. This replaces the previous
+      // firstTimeSuitLed-only trigger, which forced a cut on a suit's
+      // first lead even once its J/9 were already accounted for --
+      // exactly the case this new rule's exception is meant to exempt.
+      const jOrNineSeenInTrickSuit = this._isRankSeen(this.trickSuit, 'J') || this._isRankSeen(this.trickSuit, '9');
+      const mustTrumpRegardless = suitRepeat < 2 && !jOrNineSeenInTrickSuit;
+      const worthTrumping = mustTrumpRegardless || tPts >= (myTeamDesperate ? 1 : 2) || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {
