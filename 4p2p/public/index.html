@@ -1246,6 +1246,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   background:rgba(0,0,0,0);pointer-events:none;animation:qmarkBackdropIn .25s ease forwards;
 }
 .game-event-overlay.leaving{animation:qmarkBackdropOut .45s ease forwards;}
+/* Per explicit request (same feature as six.js's identical rule - see there for the fuller
+   reasoning): a persistent, non-blocking bidding status banner visible to every player at the
+   table for the whole bidding phase, not just whoever's turn it currently is. Fixed position
+   rather than centered full-screen so it never blocks the table or intercepts taps, and sized
+   roomy enough to hold a full sentence of context per the "we have space" request. */
+.bid-status-banner{
+  position:fixed;top:130px;left:8px;right:8px;z-index:120;max-width:420px;margin:0 auto;
+  padding:10px 16px;border-radius:14px;pointer-events:none;
+  background:linear-gradient(155deg, rgba(18,14,10,0.95), rgba(8,6,4,0.96));
+  border:1.5px solid #f4c430;box-shadow:0 0 1px #f4c430,0 8px 24px rgba(0,0,0,0.55),0 0 30px rgba(244,196,48,0.2);
+  font-family:'Cinzel','Playfair Display',serif;font-size:0.78rem;line-height:1.45;color:var(--text-primary);
+  text-align:center;
+}
+.bid-status-banner b{color:#f4c430}
+.bid-status-banner .bsb-turn{display:block;margin-top:3px;color:#4ade80;font-weight:700}
 .game-event-box{
   position:relative;overflow:hidden;text-align:center;padding:26px 40px;border-radius:16px;max-width:88vw;
   background:linear-gradient(155deg, rgba(18,14,10,0.97), rgba(8,6,4,0.98));
@@ -3876,6 +3891,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <div class="king-progress-track" id="kingProgressTrack" style="display:none"><div class="king-progress-fill" id="kingProgressFill" style="width:0%"></div></div>
   </div><div class="table" id="tableArea">
     <div id="bidWinnerBubble4p" style="display:none"></div>
+    <div id="bidStatusBanner4p" class="bid-status-banner" style="display:none"></div>
     <div class="chip-stack cs-bl"><div class="c3"></div></div>
     <div class="chip-stack cs-br"><div class="c3"></div></div>
     <button class="icon-btn table-corner-btn" id="btnChat" title="Chat" style="display:none">💬<span class="chat-badge" id="chatBadge"></span></button>
@@ -5566,6 +5582,30 @@ function relLabel(pos) {
   const name = p ? p.name : null;
   const rel = getTeam(pos) === getTeam(MY_POS) ? 'your partner' : 'your opponent';
   return name ? rel + ' (' + name + ')' : rel;
+}
+// Per explicit request (same feature as six.js's identical function - see there for the
+// fuller reasoning): shown to EVERY player throughout bidding, not just whoever's turn it
+// currently is, updating live with every bid or pass. Covers both bidding1 and bidding2,
+// since this table (unlike six-player) has both - hands off to showBidWinnerCelebration4p
+// (already handles its own "who won" persistence until a card is played) the moment bidding
+// concludes into either trump selection or play, rather than covering that window itself.
+function renderBidStatusBanner4p(state) {
+  const el = document.getElementById('bidStatusBanner4p');
+  if (!el) return;
+  if (state.phase !== 'bidding1' && state.phase !== 'bidding2') { el.style.display = 'none'; return; }
+  let html;
+  if (state.highestBid > 0 && typeof state.bidder === 'number' && state.bidder >= 0) {
+    const bidderLabel = relLabel(state.bidder);
+    html = `<b>${bidderLabel}</b> bid <b>${state.highestBid}</b> — current highest bidder.`;
+  } else {
+    html = `Bidding has started — no bids yet.`;
+  }
+  if (typeof state.currentPlayer === 'number' && state.currentPlayer >= 0) {
+    const turnLabel = state.currentPlayer === MY_POS ? 'Your turn' : relLabel(state.currentPlayer) + "'s turn";
+    html += `<span class="bsb-turn">${turnLabel}</span>`;
+  }
+  el.innerHTML = html;
+  el.style.display = 'block';
 }
 // Renders the "so far this round" bid/pass list for the bid sheet, in the
 // order actions actually happened, using relative labels throughout.
@@ -16561,6 +16601,7 @@ function applyServerState(state) {
   const gwDisplay = document.getElementById('gameWrap').style.display;
   const gameWrapAlreadyShowing = !!gwDisplay && gwDisplay !== 'none';
   latestServerState = state;
+  try { renderBidStatusBanner4p(state); } catch (e) { console.error('[renderBidStatusBanner4p] threw:', e); }
   logClientDebug(state);
   // Per explicit report: the bubble was surviving a restart/exit
   // triggered by ANY player at the table, not just whoever clicked the

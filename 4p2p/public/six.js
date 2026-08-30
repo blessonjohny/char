@@ -1617,6 +1617,7 @@ function applyState(state) {
   // exactly the "stuck after a round" symptom reported. Whatever the precise cause turns out to
   // be, a rendering glitch in one seat's avatar should never be able to freeze the whole table.
   try { renderSeats(state); } catch (e) { console.error('[renderSeats] threw, table would have frozen here without this guard:', e); }
+  try { renderBidStatusBanner6p(state); } catch (e) { console.error('[renderBidStatusBanner6p] threw:', e); }
   try {
     if (state.round !== roundHistorySeenFor) {
       roundHistorySeenFor = state.round;
@@ -2730,6 +2731,34 @@ $('btnCallTrumpNo').addEventListener('click', () => {
 });
 
 // ---------------- Bidding UI ----------------
+
+// Per explicit request: unlike showBidPanel (only ever shown to whoever's turn it currently
+// is to bid), this shows to EVERY player at the table throughout the entire bidding phase,
+// updating live with every single bid or pass - including someone who just joined mid-auction,
+// since this reads straight from the current state on every render rather than reacting to a
+// one-time event. Deliberately hands off to showBidWinnerCelebration6p (which already
+// correctly persists its own "who won" announcement until a card is actually played) the
+// moment bidding concludes, rather than trying to cover that same window itself - avoids two
+// overlapping banners saying similar things at once.
+function renderBidStatusBanner6p(state) {
+  const el = document.getElementById('bidStatusBanner6p');
+  if (!el) return;
+  if (state.phase !== 'bidding1') { el.style.display = 'none'; return; }
+  const seats = state.seats;
+  let html;
+  if (state.highestBid > 0 && state.bidder >= 0) {
+    const bidderLabel = sixpRelLabel(state.bidder, seats);
+    html = `<b>${bidderLabel}</b> bid <b>${state.highestBid}</b> — current highest bidder.`;
+  } else {
+    html = `Bidding has started — no bids yet.`;
+  }
+  if (state.currentPlayer >= 0) {
+    const turnLabel = state.currentPlayer === MY_POS ? 'Your turn' : sixpRelLabel(state.currentPlayer, seats) + "'s turn";
+    html += `<span class="bsb-turn">${turnLabel}</span>`;
+  }
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
 
 function showBidPanel(state) {
   const isFirst = state.highestBid === 0 && state.passes === 0;

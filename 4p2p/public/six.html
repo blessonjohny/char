@@ -130,7 +130,12 @@ button{font-family:inherit;cursor:pointer}
    image file including those horns. That head point is what should touch/slightly overlap
    the avatar's own v-neck bottom. Pulled up further again (46% -> 38%) per explicit request
    to move every seat's Kunukku up from where the previous pass landed. */
-.kunukku-avatar-img{position:absolute;left:50%;top:38%;transform:translateX(-50%);width:58%;height:auto;object-fit:contain;border-radius:0;z-index:3;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.7));}
+/* Per explicit follow-up (checked across two different browsers on the same device): every
+   seat, including the top one via this shared rule, was sitting about 5 percentage points too
+   high after the previous pass. Nudged back down uniformly (38% -> 43%) rather than singling
+   any one seat out, since the feedback was that all of them needed the same small correction
+   in the same direction. */
+.kunukku-avatar-img{position:absolute;left:50%;top:43%;transform:translateX(-50%);width:58%;height:auto;object-fit:contain;border-radius:0;z-index:3;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.7));}
 .kunukku-count-badge{
   position:absolute;left:50%;bottom:2%;transform:translateX(-50%);
   font-family:'Cinzel','Playfair Display',serif;font-weight:900;font-size:1rem;color:#fff;
@@ -163,8 +168,13 @@ button{font-family:inherit;cursor:pointer}
    Kunukku down near the hands instead, since a bigger avatar means the same PERCENTAGE
    covers more actual pixels before reaching the same visual landmark. Pulled up specifically
    for this seat only. */
-#seatWrap0 .kunukku-avatar-img{width:52%;left:52%;top:22%;}
-#seatWrap3 .kunukku-avatar-img{width:50%;}
+/* Per explicit report with a real screenshot: the top seat (smallest avatar, 68px) and this
+   player's own seat (largest, 128px) were sitting noticeably higher on the face than the
+   four side seats, which were confirmed as the correct reference point (coconut at the
+   collar, full face visible above it). Top nudged down a little; own seat nudged down
+   further still, since it was further off than top was. */
+#seatWrap0 .kunukku-avatar-img{width:52%;left:52%;top:41%;}
+#seatWrap3 .kunukku-avatar-img{width:50%;top:45%;}
 #seatWrap1 .kunukku-avatar-img{width:56%;left:52%;}
 #seatWrap5 .kunukku-avatar-img{width:56%;}
 #seatWrap4 .kunukku-avatar-img{width:50%;left:47%;}
@@ -611,6 +621,24 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,0);pointer-events:none;animation:qmarkBackdropIn .25s ease forwards;
 }
+/* Per explicit request: unlike the brief game-event popups above (which cover the whole
+   screen and vanish in a few seconds), this one needs to stay up and stay readable through
+   the entire bidding phase, updating with every single bid or pass, without ever blocking the
+   view of the table underneath it or intercepting taps meant for the seats/cards behind it -
+   hence position:fixed at a fixed corner of the screen rather than centered full-screen, and
+   pointer-events:none throughout. Sized deliberately roomier than the quick-flash event boxes
+   (this is the "we have space, put more detail in it" request) since it's meant to hold a full
+   sentence of context, not a 2-3 word title. */
+.bid-status-banner{
+  position:fixed;top:130px;left:8px;right:8px;z-index:120;max-width:420px;margin:0 auto;
+  padding:10px 16px;border-radius:14px;pointer-events:none;
+  background:linear-gradient(155deg, rgba(18,14,10,0.95), rgba(8,6,4,0.96));
+  border:1.5px solid #f4c430;box-shadow:0 0 1px #f4c430,0 8px 24px rgba(0,0,0,0.55),0 0 30px rgba(244,196,48,0.2);
+  font-family:'Cinzel','Playfair Display',serif;font-size:0.78rem;line-height:1.45;color:var(--text-primary);
+  text-align:center;
+}
+.bid-status-banner b{color:#f4c430}
+.bid-status-banner .bsb-turn{display:block;margin-top:3px;color:#4ade80;font-weight:700}
 .game-event-overlay.leaving{animation:qmarkBackdropOut .45s ease forwards;}
 .game-event-box{
   position:relative;overflow:hidden;text-align:center;padding:26px 40px;border-radius:16px;max-width:88vw;
@@ -1288,6 +1316,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
     <div class="k28hg-sub" id="k28hgSub"></div>
   </div>
   <div id="bidWinnerBubble6p" style="display:none"></div>
+  <div id="bidStatusBanner6p" class="bid-status-banner" style="display:none"></div>
   <div class="table-oval">
     <div class="six-oval-rail"></div>
     <div class="six-oval-bevel"></div>
