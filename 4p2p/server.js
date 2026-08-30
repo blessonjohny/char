@@ -2411,6 +2411,27 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Host-only mid-game avatar change per explicit request -- targetPos
+  // identifies the seat (works for both a real human's own avatar and
+  // a bot's, since the client-side render already checks seat.avatar
+  // before falling back to the name-matched bot lookup, so simply
+  // setting it here is enough with no rendering-logic changes needed).
+  // Validated through the exact same sanitizeAvatarKey used at initial
+  // seating, so this can't be used to inject an arbitrary image path.
+  socket.on('hostChangeAvatar', ({ targetPos, avatar }) => {
+    withTable((t, pos) => {
+      if (!isEffectiveHost(t, playerId)) return;
+      const key = sanitizeAvatarKey(avatar);
+      if (!key) return;
+      const seat = t.engine.seats[targetPos];
+      if (!seat) return;
+      seat.avatar = key;
+      touch(t);
+      broadcastTable(t);
+      console.log(`[table ${tableId}] host changed seat ${targetPos}'s avatar to ${key}`);
+    });
+  });
+
   // A 3-second, vetoable version of the two handlers above. The host's tap doesn't restart
   // anything immediately anymore - it broadcasts a "New Round" notice to every connected
   // real player at the table (bots can't and don't need to respond) and starts a 3s window.
@@ -3220,6 +3241,23 @@ io.on('connection', (socket) => {
       t.engine.restartRound();
       sixpTouch(t);
       sixpBroadcastTable(t);
+    });
+  });
+
+  // Host-only mid-game avatar change -- identical reasoning and
+  // validation to the 4-player table's own hostChangeAvatar, just
+  // using this table's own withSixpTable/sixpBroadcastTable helpers.
+  socket.on('sixp_hostChangeAvatar', ({ targetPos, avatar }) => {
+    withSixpTable((t) => {
+      if (!isEffectiveHost(t, sixpPlayerId)) return;
+      const key = sanitizeAvatarKey(avatar);
+      if (!key) return;
+      const seat = t.engine.seats[targetPos];
+      if (!seat) return;
+      seat.avatar = key;
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+      console.log(`[6p table] host changed seat ${targetPos}'s avatar to ${key}`);
     });
   });
 
