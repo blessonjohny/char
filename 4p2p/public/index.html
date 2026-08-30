@@ -689,20 +689,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .my-avatar-choice.selected{border-color:var(--accent);transform:scale(1.08);box-shadow:0 0 10px rgba(255,215,0,0.5)}
 .avatar.has-q,
 .player-avatar.has-q{filter:none}
-/* Sad-coconut Kunukku badge -- per explicit report, switched from a CSS
-   ::before/::after pseudo-element overlay to real DOM elements (an
-   actual <img> + count <div>, built directly in JS) matching the
-   6-player table's already-proven approach, since the pseudo-element
-   version was rendering clipped/mispositioned in this table's newer
-   photo-background layout. .player-avatar.has-q below is untouched --
-   that's a different, unrelated UI context (the post-game results
-   picker), not the live table seats this fix is about. */
-.kunukku-avatar-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
+/* Sad-coconut Kunukku pendant -- per explicit follow-up report, no
+   longer a full-avatar replacement (that was the original 6-player
+   design, but the request now is for the character's own face to stay
+   visible, with this hanging over it like a necklace charm instead).
+   Sized and positioned as a small overlay in the lower portion of the
+   avatar, not inset:0 across the whole box. */
+.kunukku-avatar-img{position:absolute;left:50%;bottom:-6%;transform:translateX(-50%);width:62%;height:auto;object-fit:contain;z-index:3;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.7));}
 .kunukku-count-badge{
-  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  font-family:'Cinzel','Playfair Display',serif;font-weight:900;font-size:1.3rem;color:#fff;
-  text-shadow:0 0 6px rgba(0,0,0,0.9),0 0 12px rgba(0,0,0,0.9),0 2px 3px rgba(0,0,0,1);
-  z-index:2;pointer-events:none;
+  position:absolute;left:50%;bottom:2%;transform:translateX(-50%);
+  font-family:'Cinzel','Playfair Display',serif;font-weight:900;font-size:0.85rem;color:#fff;
+  text-shadow:0 0 4px rgba(0,0,0,0.9),0 0 8px rgba(0,0,0,0.9),0 2px 3px rgba(0,0,0,1);
+  z-index:4;pointer-events:none;
 }
 .player-avatar.has-q::after{
   content:'';position:absolute;inset:0;border-radius:50%;
@@ -5379,10 +5377,15 @@ function setupOnlineTable() {
       // function already sets. Porting that same real-element approach here instead of trying
       // to patch the pseudo-element positioning further.
       const qCountHere = (latestServerState && latestServerState.qMarks) ? (latestServerState.qMarks[p.name] || 0) : 0;
-      const desiredAvHtml = qCountHere > 0
+      // Per explicit follow-up: the coconut no longer replaces the
+      // character's own portrait -- it's appended as a small pendant
+      // overlay on top of the normal avatar content instead, so the
+      // face stays visible underneath it like a necklace charm.
+      const pendantHtml = qCountHere > 0
         ? '<img src="/images/kunukku/sad-coconut.png" class="kunukku-avatar-img" alt="Kunukku">' +
           '<div class="kunukku-count-badge">' + qCountHere + '</div>'
-        : p.emoji + '<span class="tdot ' + teamClass + '"></span>';
+        : '';
+      const desiredAvHtml = p.emoji + '<span class="tdot ' + teamClass + '"></span>' + pendantHtml;
       if (av.dataset.avHtml !== desiredAvHtml) {
         const existingBadge = av.querySelector('.call-badge');
         av.dataset.avHtml = desiredAvHtml;
@@ -8140,10 +8143,11 @@ function restoreGameState(data) {
     // real-DOM-element approach the 6-player table already uses successfully -- see the
     // identical fix/comment at the other call site in this file for the fuller reasoning.
     const qCountHere2 = (latestServerState && latestServerState.qMarks) ? (latestServerState.qMarks[p.name] || 0) : 0;
-    const desiredAvHtml = qCountHere2 > 0
+    const pendantHtml2 = qCountHere2 > 0
       ? '<img src="/images/kunukku/sad-coconut.png" class="kunukku-avatar-img" alt="Kunukku">' +
         '<div class="kunukku-count-badge">' + qCountHere2 + '</div>'
-      : p.emoji + '<span class="tdot ' + botDot + '"></span>';
+      : '';
+    const desiredAvHtml = p.emoji + '<span class="tdot ' + botDot + '"></span>' + pendantHtml2;
     if (av) {
       av.style.background = p.bg;
       if (av.dataset.avHtml !== desiredAvHtml) {

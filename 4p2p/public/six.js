@@ -2051,28 +2051,29 @@ function renderSeats(state) {
     if (isFolded) {
       av.innerHTML = '🙈';
       av.classList.remove('has-q');
-    } else if (qCount > 0) {
-      // The sad-coconut Kunukku image fully replaces whatever the avatar would normally be
-      // (hero portrait, bot portrait, or the plain emoji fallback) while a Q is active - not
-      // a dimming filter over the existing picture, a full swap - with the actual Kunukku
-      // count overlaid in the middle of it. The normal avatar returns automatically the
-      // moment the count drops back to 0, since this whole branch is keyed on qCount itself
-      // re-evaluating on every render, not a one-time swap that needs to be undone manually.
-      av.innerHTML = '<img src="/images/kunukku/sad-coconut.png" class="kunukku-avatar-img" alt="Kunukku">' +
-        '<div class="kunukku-count-badge">' + qCount + '</div>';
-      av.classList.remove('has-q');
-    } else if (seat.avatar) {
-      av.innerHTML = heroAvatarHtml(seat.avatar);
-      av.classList.remove('has-q');
-    } else if (seat.isBot) {
-      // Static portrait matched by name, same as the 4-player table --
-      // not the generic robot icon this used to fall back to.
-      const botMeta = ALL_BOT_AVATARS_6P.find(b => b.name === seat.name) || ALL_BOT_AVATARS_6P[pos % ALL_BOT_AVATARS_6P.length];
-      av.innerHTML = botMeta.emoji;
-      av.style.background = botMeta.bg;
-      av.classList.remove('has-q');
     } else {
-      av.innerHTML = pos === MY_POS ? '😊' : '👤';
+      // Per explicit follow-up: the coconut no longer replaces the
+      // character's own portrait -- it's appended as a small pendant
+      // overlay on top of the normal avatar content instead, so the
+      // face stays visible underneath it like a necklace charm. Base
+      // avatar content is computed first (exactly the same seat.avatar
+      // / isBot / fallback chain as before), then the pendant is
+      // appended on top if there's an active Kunukku.
+      let baseHtml;
+      if (seat.avatar) {
+        baseHtml = heroAvatarHtml(seat.avatar);
+      } else if (seat.isBot) {
+        const botMeta = ALL_BOT_AVATARS_6P.find(b => b.name === seat.name) || ALL_BOT_AVATARS_6P[pos % ALL_BOT_AVATARS_6P.length];
+        baseHtml = botMeta.emoji;
+        av.style.background = botMeta.bg;
+      } else {
+        baseHtml = pos === MY_POS ? '😊' : '👤';
+      }
+      const pendantHtml = qCount > 0
+        ? '<img src="/images/kunukku/sad-coconut.png" class="kunukku-avatar-img" alt="Kunukku">' +
+          '<div class="kunukku-count-badge">' + qCount + '</div>'
+        : '';
+      av.innerHTML = baseHtml + pendantHtml;
       av.classList.remove('has-q');
     }
     // Green ring for a connected real human, red for a bot - a brief brighter flash plays
