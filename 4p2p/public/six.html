@@ -124,7 +124,13 @@ button{font-family:inherit;cursor:pointer}
    to sit at the upper-chest/collarbone area instead, where the two curved strap shapes read as
    hooking over the shoulders like a bag strap or a necklace clasp, rather than just floating
    somewhere on the torso. */
-.kunukku-avatar-img{position:absolute;left:50%;top:46%;transform:translateX(-50%);width:58%;height:auto;object-fit:contain;border-radius:0;z-index:3;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.7));}
+/* Per explicit follow-up: the reference point that matters is specifically where the actual
+   round coconut head begins (roughly 51% down this source image - the two curved straw
+   "horns" start well above that, at the image's very top edge) - NOT the top of the whole
+   image file including those horns. That head point is what should touch/slightly overlap
+   the avatar's own v-neck bottom. Pulled up further again (46% -> 38%) per explicit request
+   to move every seat's Kunukku up from where the previous pass landed. */
+.kunukku-avatar-img{position:absolute;left:50%;top:38%;transform:translateX(-50%);width:58%;height:auto;object-fit:contain;border-radius:0;z-index:3;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.7));}
 .kunukku-count-badge{
   position:absolute;left:50%;bottom:2%;transform:translateX(-50%);
   font-family:'Cinzel','Playfair Display',serif;font-weight:900;font-size:1rem;color:#fff;
