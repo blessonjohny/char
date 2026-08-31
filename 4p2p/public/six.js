@@ -45,7 +45,7 @@ let isAutoReconnectAttempt6p = false;
 // player's choice carries over between tables instead of resetting.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:105}, (_,i) => 'toon'+(i+1));
+const ALL_AVATAR_KEYS = Array.from({length:106}, (_,i) => 'toon'+(i+1));
 // Per explicit request: these 5 are personal, PIN-protected avatars
 // (see pickMyAvatar/confirmSixpChangeAvatar for the actual PIN check)
 // and must never be handed to anyone automatically -- not as a bot,
@@ -55,7 +55,7 @@ const ALL_AVATAR_KEYS = Array.from({length:105}, (_,i) => 'toon'+(i+1));
 // ALL_AVATAR_KEYS itself stays the full set, since the picker grid
 // still needs to show and offer them for a human to deliberately
 // select.
-const PROTECTED_AVATAR_KEYS = new Set(['toon101', 'toon102', 'toon103', 'toon104', 'toon105']);
+const PROTECTED_AVATAR_KEYS = new Set(['toon101', 'toon102', 'toon103', 'toon104', 'toon105', 'toon106']);
 // Per explicit request: these 5 personal avatars require a 4-digit PIN
 // before a human can actually select them (JCK's own PIN is distinct;
 // the other 4 share 0000 for now, per explicit instruction). This is a
@@ -69,6 +69,7 @@ const AVATAR_PINS = {
   toon103: '0000', // JK
   toon104: '0000', // Santhosh
   toon105: '0000', // Jose
+  toon106: '0000', // Bless
 };
 function checkAvatarPin(key) {
   if (!AVATAR_PINS[key]) return Promise.resolve(true);
@@ -132,7 +133,7 @@ function heroAvatarHtml(key) {
   // or out-of-range key -- see index.html's identical function for the
   // full reasoning (a large hardcoded bot list references avatar
   // numbers from before the set was trimmed multiple times).
-  const TOON_COUNT = 105;
+  const TOON_COUNT = 106;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
   // Per explicit correction: validNum must NOT reject protected keys --
   // this function also renders a human's own CORRECTLY, PIN-validated
