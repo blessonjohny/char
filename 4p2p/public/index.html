@@ -3446,6 +3446,39 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 </style>
 </head>
 <body>
+<!-- Personal-avatar PIN modal -- deliberately placed here, as an
+     always-present top-level body child, not nested inside #gameWrap
+     or any other conditionally-hidden screen container. Real bug fix,
+     per explicit report: it was originally added right next to
+     #bidWinnerBubble4p, which lives INSIDE #gameWrap -- a container
+     that's display:none by default and only shown once an actual game
+     has started (see the .game-wrap CSS rule and every
+     getElementById('gameWrap').style.display toggle). That made the
+     modal completely unreachable from the lobby/home screen, exactly
+     where the initial avatar picker (pickMyAvatar) is used, before
+     anyone has joined a table at all. Placed before the
+     appPhoneFrame-wrapping script further down so it still gets swept
+     into that frame along with everything else (matching the rest of
+     the UI's mobile-styled width), while staying a sibling of
+     #gameWrap rather than a descendant of it. -->
+<div id="pinModalOverlay">
+  <div class="pin-modal-box" id="pinModalBox">
+    <div class="pin-modal-icon">🔒</div>
+    <div class="pin-modal-title">Personal Avatar</div>
+    <div class="pin-modal-sub">Enter the 4-digit PIN to use it</div>
+    <div class="pin-digit-row">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="0">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="1">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="2">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="3">
+    </div>
+    <div class="pin-modal-error" id="pinModalError"></div>
+    <div class="pin-modal-btns">
+      <button id="pinCancelBtn">Cancel</button>
+      <button id="pinSubmitBtn">Unlock</button>
+    </div>
+  </div>
+</div>
 <!-- Shared suit icon shapes, referenced via <use> from every card's rank
      corners and center (see cardHTML()/suitIconSvg() in the script below).
      Hand-drawn deliberately so spade and club — both black, and the pair
@@ -3930,24 +3963,6 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <div class="king-progress-track" id="kingProgressTrack" style="display:none"><div class="king-progress-fill" id="kingProgressFill" style="width:0%"></div></div>
   </div><div class="table" id="tableArea">
     <div id="bidWinnerBubble4p" style="display:none"></div>
-    <div id="pinModalOverlay">
-      <div class="pin-modal-box" id="pinModalBox">
-        <div class="pin-modal-icon">🔒</div>
-        <div class="pin-modal-title">Personal Avatar</div>
-        <div class="pin-modal-sub">Enter the 4-digit PIN to use it</div>
-        <div class="pin-digit-row">
-          <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="0">
-          <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="1">
-          <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="2">
-          <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="3">
-        </div>
-        <div class="pin-modal-error" id="pinModalError"></div>
-        <div class="pin-modal-btns">
-          <button id="pinCancelBtn">Cancel</button>
-          <button id="pinSubmitBtn">Unlock</button>
-        </div>
-      </div>
-    </div>
     <div id="bidStatusBanner4p" class="bid-status-banner" style="display:none"></div>
     <div class="chip-stack cs-bl"><div class="c3"></div></div>
     <div class="chip-stack cs-br"><div class="c3"></div></div>

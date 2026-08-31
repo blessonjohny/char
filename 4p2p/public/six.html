@@ -1237,6 +1237,35 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 </style>
 </head>
 <body>
+<!-- Personal-avatar PIN modal -- deliberately placed here, as an
+     always-present top-level body child, not nested inside #gameScreen
+     or any other conditionally-hidden screen container. Real bug fix,
+     per explicit report: it was originally added right next to
+     #bidWinnerBubble6p, which lives INSIDE #gameScreen -- a container
+     toggled between display:none and display:block (see every
+     $('gameScreen').style.display assignment in six.js), hidden by
+     default on the lobby/home screen. That made the modal completely
+     unreachable exactly where the initial avatar picker
+     (pickMyAvatar6p) is used, before anyone has joined a table at all.
+     Same fix as index.html's identical change. -->
+<div id="pinModalOverlay">
+  <div class="pin-modal-box" id="pinModalBox">
+    <div class="pin-modal-icon">🔒</div>
+    <div class="pin-modal-title">Personal Avatar</div>
+    <div class="pin-modal-sub">Enter the 4-digit PIN to use it</div>
+    <div class="pin-digit-row">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="0">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="1">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="2">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="3">
+    </div>
+    <div class="pin-modal-error" id="pinModalError"></div>
+    <div class="pin-modal-btns">
+      <button id="pinCancelBtn">Cancel</button>
+      <button id="pinSubmitBtn">Unlock</button>
+    </div>
+  </div>
+</div>
 <script>
 </script>
 
@@ -1369,24 +1398,6 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
     <div class="k28hg-sub" id="k28hgSub"></div>
   </div>
   <div id="bidWinnerBubble6p" style="display:none"></div>
-  <div id="pinModalOverlay">
-    <div class="pin-modal-box" id="pinModalBox">
-      <div class="pin-modal-icon">🔒</div>
-      <div class="pin-modal-title">Personal Avatar</div>
-      <div class="pin-modal-sub">Enter the 4-digit PIN to use it</div>
-      <div class="pin-digit-row">
-        <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="0">
-        <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="1">
-        <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="2">
-        <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="3">
-      </div>
-      <div class="pin-modal-error" id="pinModalError"></div>
-      <div class="pin-modal-btns">
-        <button id="pinCancelBtn">Cancel</button>
-        <button id="pinSubmitBtn">Unlock</button>
-      </div>
-    </div>
-  </div>
   <div id="bidStatusBanner6p" class="bid-status-banner" style="display:none"></div>
   <div class="table-oval">
     <div class="six-oval-rail"></div>
