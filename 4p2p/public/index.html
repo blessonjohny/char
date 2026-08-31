@@ -9053,6 +9053,23 @@ function chooseBotCardBase(p, hand, myTeam, bidTeam, isBidder, isBT, numInTrick,
         }
       }
     }
+    // Per explicit instruction: same rule as the server bots in
+    // game-engine.js -- see there for the fuller reasoning. Uses the
+    // same explicit "holds a leadable Jack" check as the 6-player
+    // engine's identical addition, not an early-return precondition,
+    // since this offline function doesn't have one either (its own
+    // Jack-leading happens naturally within the per-suit scoring loop
+    // just below instead).
+    if (trumpExposed && !isBidder && getTeam(bidder) === myTeam) {
+      const holdsLeadableJack = SUITS.some(s => bySuit[s].some(c => c.rank === 'J') && (s !== trumpSuit || trumpExposed));
+      if (!holdsLeadableJack) {
+        const nonAceTrumps = hand.filter(c => c.suit === trumpSuit && c.rank !== 'A');
+        if (nonAceTrumps.length > 0) {
+          nonAceTrumps.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
+          return nonAceTrumps[0];
+        }
+      }
+    }
     let candidates = [];
     for (let s of SUITS) {
       if (bySuit[s].length === 0) continue;
