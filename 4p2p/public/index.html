@@ -4715,7 +4715,7 @@ function heroAvatarHtml(key) {
   // way a function declaration is). TOON_COUNT below is the same number
   // ALL_AVATAR_KEYS is built from, just usable this early. Update both
   // places together if the avatar set size changes again.
-  const TOON_COUNT = 100;
+  const TOON_COUNT = 101;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
   const validNum = m && Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT;
   if (!validNum) {
