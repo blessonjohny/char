@@ -1571,6 +1571,28 @@ class GameEngine6P {
           }
         }
       }
+      // Per explicit instruction: same rule as the 4-player engine's
+      // identical addition -- see there for the fuller reasoning. One
+      // real structural difference handled here: 4-player has an
+      // earlier, separate "holds a leadable Jack" absolute return
+      // before this point, so reaching here already guarantees no Jack
+      // is available. 6-player doesn't have that same early return (its
+      // Jack-leading happens naturally within the per-suit scoring loop
+      // below instead), so this must explicitly check for a leadable
+      // Jack itself -- without that check, this new rule would fire
+      // even when the bot DOES hold a Jack it should lead instead,
+      // exactly the case this whole rule is meant to only apply once
+      // that's no longer true.
+      if (this.trumpExposed && !isBidder && getTeam(this.bidder) === myTeam) {
+        const holdsLeadableJack = SUITS.some(s => bySuit[s].some(c => c.rank === 'J') && (s !== this.trumpSuit || this.trumpExposed));
+        if (!holdsLeadableJack) {
+          const nonAceTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'A');
+          if (nonAceTrumps.length > 0) {
+            nonAceTrumps.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+            return nonAceTrumps[0];
+          }
+        }
+      }
       const candidates = [];
       for (const s of SUITS) {
         if (bySuit[s].length === 0) continue;

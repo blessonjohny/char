@@ -2355,6 +2355,25 @@ class GameEngine {
           }
         }
       }
+      // Per explicit instruction: a bot that just won leading a Jack and
+      // no longer holds one to lead again shouldn't automatically fall
+      // through to the normal weakest-card lead if its OWN partner is
+      // the bid winner -- leading a trump (any trump except the Ace,
+      // saving that as the guaranteed winner for later) keeps applying
+      // pressure for the team instead of surrendering the initiative.
+      // Gated on trump actually being exposed: a non-bidder bot has no
+      // legitimate way to know the trump suit before that (see the
+      // hidden-trump mechanic -- only the bidder knows it pre-exposure).
+      // Falls through to the normal logic below with no special
+      // handling at all if the bot holds no non-Ace trump, exactly as
+      // instructed.
+      if (this.trumpExposed && !isBidder && getTeam(this.bidder) === myTeam) {
+        const nonAceTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'A');
+        if (nonAceTrumps.length > 0) {
+          nonAceTrumps.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+          return nonAceTrumps[0];
+        }
+      }
       const candidates = [];
       for (const s of SUITS) {
         if (bySuit[s].length === 0) continue;
