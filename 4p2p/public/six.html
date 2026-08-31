@@ -142,6 +142,16 @@ button{font-family:inherit;cursor:pointer}
   text-shadow:0 0 4px rgba(0,0,0,0.9),0 0 8px rgba(0,0,0,0.9),0 2px 3px rgba(0,0,0,1);
   z-index:4;pointer-events:none;
 }
+/* Per explicit report: the pendant images for these 4 seats moved up
+   significantly (from top:41-45% to top:33-36%) so the coconut face
+   sits at chest height instead of low on the torso -- the count number
+   needs to move up by a matching amount to stay centered on that same
+   face, since it's a separate overlay, not baked into the pendant
+   image itself. */
+#seatWrap0 .kunukku-count-badge{bottom:22%;}
+#seatWrap3 .kunukku-count-badge{bottom:19%;}
+#seatWrap5 .kunukku-count-badge{bottom:19%;}
+#seatWrap2 .kunukku-count-badge{bottom:19%;}
 .hero-avatar-face.hero-avatar-sad{display:none}
 .av.has-q .hero-avatar-face.hero-avatar-normal{display:none}
 .av.has-q .hero-avatar-face.hero-avatar-sad{display:block}
@@ -173,12 +183,12 @@ button{font-family:inherit;cursor:pointer}
    four side seats, which were confirmed as the correct reference point (coconut at the
    collar, full face visible above it). Top nudged down a little; own seat nudged down
    further still, since it was further off than top was. */
-#seatWrap0 .kunukku-avatar-img{width:52%;left:52%;top:41%;}
-#seatWrap3 .kunukku-avatar-img{width:50%;top:45%;}
+#seatWrap0 .kunukku-avatar-img{width:52%;left:52%;top:33%;}
+#seatWrap3 .kunukku-avatar-img{width:50%;top:36%;}
 #seatWrap1 .kunukku-avatar-img{width:56%;left:52%;}
-#seatWrap5 .kunukku-avatar-img{width:56%;}
+#seatWrap5 .kunukku-avatar-img{width:56%;top:36%;}
 #seatWrap4 .kunukku-avatar-img{width:50%;left:47%;}
-#seatWrap2 .kunukku-avatar-img{width:50%;}
+#seatWrap2 .kunukku-avatar-img{width:50%;top:36%;}
 /* Matches the 4-player table's own Kunukku treatment exactly, not just
    the sad-image swap above -- a grayscale/darken filter on the whole
    avatar plus a semi-opaque dark overlay with a crying face on top of
