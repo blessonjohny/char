@@ -4281,6 +4281,7 @@ const ALL_PLAYERS = [
   {name:'JCK',emoji:heroAvatarHtml('toon101'),bg:'linear-gradient(135deg,#2c5f8a,#1a3f5c)'},
   {name:'LJ',emoji:heroAvatarHtml('toon102'),bg:'linear-gradient(135deg,#6b4423,#3d2614)'},
   {name:'JK',emoji:heroAvatarHtml('toon103'),bg:'linear-gradient(135deg,#4a4a4a,#242424)'},
+  {name:'Santhosh',emoji:heroAvatarHtml('toon104'),bg:'linear-gradient(135deg,#2e5c8a,#1c3a5c)'},
   {name:'Ancy',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
   {name:'Ajai',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
   {name:'Alok',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
@@ -4424,7 +4425,7 @@ try { MY_NAME = localStorage.getItem('k28_player_name') || ''; } catch (e) {}
 // sticks across visits instead of resetting every time.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:103}, (_,i) => 'toon'+(i+1));
+const ALL_AVATAR_KEYS = Array.from({length:104}, (_,i) => 'toon'+(i+1));
 
 // ==================== SOUND ENGINE ====================
 // A full card-table sound system built entirely on the native Web Audio API - no audio files,
@@ -4717,7 +4718,7 @@ function heroAvatarHtml(key) {
   // way a function declaration is). TOON_COUNT below is the same number
   // ALL_AVATAR_KEYS is built from, just usable this early. Update both
   // places together if the avatar set size changes again.
-  const TOON_COUNT = 103;
+  const TOON_COUNT = 104;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
   const validNum = m && Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT;
   if (!validNum) {
