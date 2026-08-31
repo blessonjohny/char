@@ -45,7 +45,7 @@ let isAutoReconnectAttempt6p = false;
 // player's choice carries over between tables instead of resetting.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:102}, (_,i) => 'toon'+(i+1));
+const ALL_AVATAR_KEYS = Array.from({length:103}, (_,i) => 'toon'+(i+1));
 if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
 }
@@ -54,7 +54,7 @@ function heroAvatarHtml(key) {
   // or out-of-range key -- see index.html's identical function for the
   // full reasoning (a large hardcoded bot list references avatar
   // numbers from before the set was trimmed multiple times).
-  const TOON_COUNT = 102;
+  const TOON_COUNT = 103;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
   const validNum = m && Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT;
   if (!validNum) {
@@ -137,6 +137,7 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
 const ALL_BOT_AVATARS_6P = [
   {name:'JCK',emoji:heroAvatarHtml('toon101'),bg:'linear-gradient(135deg,#2c5f8a,#1a3f5c)'},
   {name:'LJ',emoji:heroAvatarHtml('toon102'),bg:'linear-gradient(135deg,#6b4423,#3d2614)'},
+  {name:'JK',emoji:heroAvatarHtml('toon103'),bg:'linear-gradient(135deg,#4a4a4a,#242424)'},
   {name:'Ancy',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
   {name:'Ajai',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
   {name:'Alok',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
