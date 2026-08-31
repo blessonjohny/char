@@ -4278,11 +4278,9 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <script>
 // ==================== CONFIG ====================
 const ALL_PLAYERS = [
-  {name:'JCK',emoji:heroAvatarHtml('toon101'),bg:'linear-gradient(135deg,#2c5f8a,#1a3f5c)'},
-  {name:'LJ',emoji:heroAvatarHtml('toon102'),bg:'linear-gradient(135deg,#6b4423,#3d2614)'},
-  {name:'JK',emoji:heroAvatarHtml('toon103'),bg:'linear-gradient(135deg,#4a4a4a,#242424)'},
-  {name:'Santhosh',emoji:heroAvatarHtml('toon104'),bg:'linear-gradient(135deg,#2e5c8a,#1c3a5c)'},
-  {name:'Jose',emoji:heroAvatarHtml('toon105'),bg:'linear-gradient(135deg,#7a2e2e,#4a1a1a)'},
+  // Per explicit request: the 5 personal, PIN-protected avatars
+  // (JCK/LJ/JK/Santhosh/Jose) are deliberately NOT entries in this
+  // array -- see six.js's identical change for the fuller reasoning.
   {name:'Ancy',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
   {name:'Ajai',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
   {name:'Alok',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
@@ -4699,8 +4697,34 @@ document.addEventListener('click', (e) => {
   const target = e.target.closest('button, .btn, .btn-outline, .icon-btn');
   if (target) playSound('click');
 }, true);
-if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
-  MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
+if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY) || ['toon101','toon102','toon103','toon104','toon105'].includes(MY_AVATAR_KEY)) {
+  // Per explicit request: a brand-new visitor's random starting avatar
+  // must never land on one of the 5 personal, PIN-protected avatars --
+  // filtered out here rather than picked and then checked, so there's
+  // no window where an unprotected pick briefly holds a protected key.
+  const publicKeys = ALL_AVATAR_KEYS.filter(k => !['toon101','toon102','toon103','toon104','toon105'].includes(k));
+  MY_AVATAR_KEY = publicKeys[Math.floor(Math.random() * publicKeys.length)];
+}
+// Per explicit request: these 5 personal avatars require a 4-digit PIN
+// before a human can actually select them -- see six.js's identical
+// helper for the fuller reasoning (lightweight gate, not real
+// cryptographic security).
+const AVATAR_PINS = {
+  toon101: '0719', // JCK
+  toon102: '0000', // LJ
+  toon103: '0000', // JK
+  toon104: '0000', // Santhosh
+  toon105: '0000', // Jose
+};
+function checkAvatarPin(key) {
+  if (!AVATAR_PINS[key]) return true;
+  const entered = prompt('This avatar is personal. Enter the 4-digit PIN to use it:');
+  if (entered === null) return false;
+  if (entered !== AVATAR_PINS[key]) {
+    alert('Incorrect PIN.');
+    return false;
+  }
+  return true;
 }
 function heroAvatarHtml(key) {
   // Falls back to a deterministic, guaranteed-valid key whenever the
@@ -4720,6 +4744,17 @@ function heroAvatarHtml(key) {
   // ALL_AVATAR_KEYS is built from, just usable this early. Update both
   // places together if the avatar set size changes again.
   const TOON_COUNT = 105;
+  // Per explicit request: the 5 personal, PIN-protected avatars
+  // (toon101-105) must never be handed out automatically -- this
+  // fallback path only runs for an already-invalid/out-of-range key,
+  // so it's exactly where that matters. Deliberately arithmetic, not
+  // an array/Set reference, for the same hoisting reason TOON_COUNT
+  // above is a plain number and not ALL_AVATAR_KEYS.length -- this
+  // function gets called by the hardcoded bot list further up the
+  // file, before ALL_AVATAR_KEYS is defined at all. The protected 5
+  // are exactly the last 5 (101-105), so capping the fallback range to
+  // the first 100 excludes them with no array needed.
+  const PUBLIC_TOON_COUNT = 100;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
   const validNum = m && Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT;
   if (!validNum) {
@@ -4729,7 +4764,7 @@ function heroAvatarHtml(key) {
     const src = key || 'x';
     let h = 0;
     for (let i = 0; i < src.length; i++) h = (h * 31 + src.charCodeAt(i)) >>> 0;
-    const n = h % TOON_COUNT;
+    const n = h % PUBLIC_TOON_COUNT;
     key = `toon${n + 1}`;
   }
   // Single image only, deliberately -- the new avatar set has one
@@ -4773,6 +4808,7 @@ function renderMyAvatarPicker() {
   ).join('');
 }
 function pickMyAvatar(key) {
+  if (!checkAvatarPin(key)) return;
   MY_AVATAR_KEY = key;
   try { localStorage.setItem('k28_player_avatar', key); } catch (e) {}
   document.querySelectorAll('.my-avatar-choice').forEach(el => el.classList.toggle('picked', el.dataset.key === key));
@@ -16537,6 +16573,7 @@ function openChangeAvatarPicker(pos) {
   okBtn.style.display = 'none';
 }
 function confirmChangeAvatar(pos, key) {
+  if (!checkAvatarPin(key)) return;
   closeModal();
   document.getElementById('modalOkBtn').style.display = 'block';
   gameSocket.emit('hostChangeAvatar', { targetPos: pos, avatar: key });

@@ -46,8 +46,43 @@ let isAutoReconnectAttempt6p = false;
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
 const ALL_AVATAR_KEYS = Array.from({length:105}, (_,i) => 'toon'+(i+1));
-if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
-  MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
+// Per explicit request: these 5 are personal, PIN-protected avatars
+// (see pickMyAvatar/confirmSixpChangeAvatar for the actual PIN check)
+// and must never be handed to anyone automatically -- not as a bot,
+// and not even as a brand-new visitor's random starting avatar before
+// they've chosen anything at all. PUBLIC_AVATAR_KEYS is ALL_AVATAR_KEYS
+// with just these 5 removed, used for every random/automatic pick;
+// ALL_AVATAR_KEYS itself stays the full set, since the picker grid
+// still needs to show and offer them for a human to deliberately
+// select.
+const PROTECTED_AVATAR_KEYS = new Set(['toon101', 'toon102', 'toon103', 'toon104', 'toon105']);
+// Per explicit request: these 5 personal avatars require a 4-digit PIN
+// before a human can actually select them (JCK's own PIN is distinct;
+// the other 4 share 0000 for now, per explicit instruction). This is a
+// lightweight gate against a stranger picking someone else's face by
+// accident or on a whim, not real cryptographic security -- anyone
+// reading this client-side source can see the PINs. That's an
+// accepted tradeoff for what this is actually protecting against.
+const AVATAR_PINS = {
+  toon101: '0719', // JCK
+  toon102: '0000', // LJ
+  toon103: '0000', // JK
+  toon104: '0000', // Santhosh
+  toon105: '0000', // Jose
+};
+function checkAvatarPin(key) {
+  if (!AVATAR_PINS[key]) return true;
+  const entered = prompt('This avatar is personal. Enter the 4-digit PIN to use it:');
+  if (entered === null) return false;
+  if (entered !== AVATAR_PINS[key]) {
+    alert('Incorrect PIN.');
+    return false;
+  }
+  return true;
+}
+const PUBLIC_AVATAR_KEYS = ALL_AVATAR_KEYS.filter(k => !PROTECTED_AVATAR_KEYS.has(k));
+if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY) || PROTECTED_AVATAR_KEYS.has(MY_AVATAR_KEY)) {
+  MY_AVATAR_KEY = PUBLIC_AVATAR_KEYS[Math.floor(Math.random() * PUBLIC_AVATAR_KEYS.length)];
 }
 function heroAvatarHtml(key) {
   // Falls back to a deterministic, guaranteed-valid key on any invalid
@@ -56,13 +91,22 @@ function heroAvatarHtml(key) {
   // numbers from before the set was trimmed multiple times).
   const TOON_COUNT = 105;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
+  // Per explicit correction: validNum must NOT reject protected keys --
+  // this function also renders a human's own CORRECTLY, PIN-validated
+  // choice of toon101-105 (see confirmChangeAvatar/
+  // confirmSixpChangeAvatar), and rejecting them here would silently
+  // remap that legitimate choice to something else every time it's
+  // rendered. The exclusion only belongs in the FALLBACK path below
+  // (an already-invalid key getting remapped to something guaranteed-
+  // valid), which is exactly where PUBLIC_AVATAR_KEYS is used instead
+  // of the full range.
   const validNum = m && Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT;
   if (!validNum) {
     const src = key || 'x';
     let h = 0;
     for (let i = 0; i < src.length; i++) h = (h * 31 + src.charCodeAt(i)) >>> 0;
-    const n = h % TOON_COUNT;
-    key = `toon${n + 1}`;
+    const n = h % PUBLIC_AVATAR_KEYS.length;
+    key = PUBLIC_AVATAR_KEYS[n];
   }
   // Single image only -- see index.html's identical function for the
   // full reasoning. The .avatar.has-q CSS (dim filter + crying-emoji
@@ -90,6 +134,7 @@ function renderMyAvatarPicker6p() {
   ).join('');
 }
 function pickMyAvatar6p(key) {
+  if (!checkAvatarPin(key)) return;
   MY_AVATAR_KEY = key;
   try { localStorage.setItem('k28_player_avatar', key); } catch (e) {}
   document.querySelectorAll('#myAvatarPicker6p .my-avatar-choice').forEach(el => el.classList.toggle('picked', el.dataset.key === key));
@@ -135,11 +180,16 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
 // per table. Static, never mood-reactive -- matches the 4-player table's
 // own approach exactly, not the mood-face system 56 has separately.
 const ALL_BOT_AVATARS_6P = [
-  {name:'JCK',emoji:heroAvatarHtml('toon101'),bg:'linear-gradient(135deg,#2c5f8a,#1a3f5c)'},
-  {name:'LJ',emoji:heroAvatarHtml('toon102'),bg:'linear-gradient(135deg,#6b4423,#3d2614)'},
-  {name:'JK',emoji:heroAvatarHtml('toon103'),bg:'linear-gradient(135deg,#4a4a4a,#242424)'},
-  {name:'Santhosh',emoji:heroAvatarHtml('toon104'),bg:'linear-gradient(135deg,#2e5c8a,#1c3a5c)'},
-  {name:'Jose',emoji:heroAvatarHtml('toon105'),bg:'linear-gradient(135deg,#7a2e2e,#4a1a1a)'},
+  // Per explicit request: the 5 personal, PIN-protected avatars
+  // (JCK/LJ/JK/Santhosh/Jose) are deliberately NOT entries in this
+  // array. Every bot name/avatar in the game gets drawn from here --
+  // by removing them entirely rather than adding an exclusion check at
+  // each of the many places this array gets indexed for bot selection,
+  // there's no separate list to keep in sync and no way for a bot to
+  // end up wearing a real person's face. They're still fully available
+  // for an actual human to pick for themselves, via the separate
+  // ALL_AVATAR_KEYS-driven picker grid and its PIN gate (see
+  // pickMyAvatar/confirmSixpChangeAvatar).
   {name:'Ancy',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
   {name:'Ajai',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
   {name:'Alok',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
@@ -3655,6 +3705,7 @@ function openSixpChangeAvatarPicker(pos) {
   $('hostMenuBotPickerView').style.display = 'block';
 }
 function confirmSixpChangeAvatar(pos, key) {
+  if (!checkAvatarPin(key)) return;
   socket.emit('sixp_hostChangeAvatar', { targetPos: pos, avatar: key });
   showToast('🖼️ Avatar changed', 'win', 2000);
   $('hostMenuBotPickerView').style.display = 'none';
