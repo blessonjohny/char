@@ -71,14 +71,57 @@ const AVATAR_PINS = {
   toon105: '0000', // Jose
 };
 function checkAvatarPin(key) {
-  if (!AVATAR_PINS[key]) return true;
-  const entered = prompt('This avatar is personal. Enter the 4-digit PIN to use it:');
-  if (entered === null) return false;
-  if (entered !== AVATAR_PINS[key]) {
-    alert('Incorrect PIN.');
-    return false;
-  }
-  return true;
+  if (!AVATAR_PINS[key]) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('pinModalOverlay');
+    const box = document.getElementById('pinModalBox');
+    const errEl = document.getElementById('pinModalError');
+    const digits = Array.from(document.querySelectorAll('.pin-digit'));
+    const cancelBtn = document.getElementById('pinCancelBtn');
+    const submitBtn = document.getElementById('pinSubmitBtn');
+    digits.forEach(d => d.value = '');
+    errEl.textContent = '';
+    overlay.classList.add('on');
+    setTimeout(() => digits[0].focus(), 50);
+
+    function cleanup() {
+      overlay.classList.remove('on');
+      digits.forEach(d => { d.oninput = null; d.onkeydown = null; });
+      cancelBtn.onclick = null;
+      submitBtn.onclick = null;
+    }
+    function tryDigit(i, e) {
+      const v = e.target.value.replace(/\D/g, '').slice(0, 1);
+      e.target.value = v;
+      if (v && i < 3) digits[i + 1].focus();
+    }
+    function tryKeydown(i, e) {
+      if (e.key === 'Backspace' && !e.target.value && i > 0) digits[i - 1].focus();
+      if (e.key === 'Enter') attemptSubmit();
+    }
+    function attemptSubmit() {
+      const entered = digits.map(d => d.value).join('');
+      if (entered.length < 4) {
+        errEl.textContent = 'Enter all 4 digits';
+        return;
+      }
+      if (entered !== AVATAR_PINS[key]) {
+        errEl.textContent = 'Incorrect PIN';
+        box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+        digits.forEach(d => d.value = '');
+        digits[0].focus();
+        return;
+      }
+      cleanup();
+      resolve(true);
+    }
+    digits.forEach((d, i) => {
+      d.oninput = (e) => tryDigit(i, e);
+      d.onkeydown = (e) => tryKeydown(i, e);
+    });
+    submitBtn.onclick = attemptSubmit;
+    cancelBtn.onclick = () => { cleanup(); resolve(false); };
+  });
 }
 const PUBLIC_AVATAR_KEYS = ALL_AVATAR_KEYS.filter(k => !PROTECTED_AVATAR_KEYS.has(k));
 if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY) || PROTECTED_AVATAR_KEYS.has(MY_AVATAR_KEY)) {
@@ -133,8 +176,8 @@ function renderMyAvatarPicker6p() {
     </div>`
   ).join('');
 }
-function pickMyAvatar6p(key) {
-  if (!checkAvatarPin(key)) return;
+async function pickMyAvatar6p(key) {
+  if (!(await checkAvatarPin(key))) return;
   MY_AVATAR_KEY = key;
   try { localStorage.setItem('k28_player_avatar', key); } catch (e) {}
   document.querySelectorAll('#myAvatarPicker6p .my-avatar-choice').forEach(el => el.classList.toggle('picked', el.dataset.key === key));
@@ -3704,8 +3747,8 @@ function openSixpChangeAvatarPicker(pos) {
   $('hostMenuMainView').style.display = 'none';
   $('hostMenuBotPickerView').style.display = 'block';
 }
-function confirmSixpChangeAvatar(pos, key) {
-  if (!checkAvatarPin(key)) return;
+async function confirmSixpChangeAvatar(pos, key) {
+  if (!(await checkAvatarPin(key))) return;
   socket.emit('sixp_hostChangeAvatar', { targetPos: pos, avatar: key });
   showToast('🖼️ Avatar changed', 'win', 2000);
   $('hostMenuBotPickerView').style.display = 'none';

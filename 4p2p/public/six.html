@@ -1191,6 +1191,49 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 }
 #bidWinnerBubble6p .bwb-name{font-family:'Cinzel','Playfair Display',serif;font-size:0.95rem;font-weight:700;color:#f4c430;letter-spacing:0.5px;}
 #bidWinnerBubble6p .bwb-bid{font-family:'Cinzel','Playfair Display',serif;font-size:1.7rem;font-weight:900;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.7);margin-top:2px;}
+/* Personal-avatar PIN modal -- per explicit request, replacing the
+   generic browser prompt() with something that actually matches the
+   table's own look (dark backdrop, gold/ornate border, Cinzel
+   heading), and a real 4-box digit entry instead of a single text
+   field, since that's the standard, more legible pattern for PIN
+   entry. */
+#pinModalOverlay{
+  position:fixed;inset:0;z-index:20000;display:none;
+  align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.72);backdrop-filter:blur(2px);
+}
+#pinModalOverlay.on{display:flex;animation:pinFadeIn 0.2s ease;}
+@keyframes pinFadeIn{from{opacity:0;}to{opacity:1;}}
+.pin-modal-box{
+  width:min(320px,88vw);padding:26px 22px;text-align:center;
+  background:radial-gradient(ellipse at center, rgba(40,28,10,0.98), rgba(15,10,4,0.99));
+  border:2px solid #f4c430;border-radius:16px;
+  box-shadow:0 0 40px rgba(244,196,48,0.35),0 20px 60px rgba(0,0,0,0.6);
+  animation:pinBoxPop 0.25s cubic-bezier(.2,1.4,.4,1);
+}
+@keyframes pinBoxPop{0%{transform:scale(0.85);opacity:0;}100%{transform:scale(1);opacity:1;}}
+.pin-modal-box.shake{animation:pinShake 0.4s ease;}
+@keyframes pinShake{0%,100%{transform:translateX(0);}20%{transform:translateX(-8px);}40%{transform:translateX(8px);}60%{transform:translateX(-6px);}80%{transform:translateX(6px);}}
+.pin-modal-icon{font-size:1.8rem;margin-bottom:4px;}
+.pin-modal-title{font-family:'Cinzel','Playfair Display',serif;font-size:1.05rem;font-weight:700;color:#f4c430;letter-spacing:0.5px;}
+.pin-modal-sub{font-size:0.78rem;color:rgba(255,255,255,0.65);margin:6px 0 18px;}
+.pin-digit-row{display:flex;gap:10px;justify-content:center;margin-bottom:10px;}
+.pin-digit{
+  width:46px;height:54px;text-align:center;font-size:1.5rem;font-weight:800;
+  color:#fff;background:rgba(255,255,255,0.06);
+  border:2px solid rgba(244,196,48,0.4);border-radius:10px;
+  font-family:'Cinzel','Playfair Display',serif;
+  -webkit-appearance:none;appearance:none;
+}
+.pin-digit:focus{outline:none;border-color:#f4c430;box-shadow:0 0 10px rgba(244,196,48,0.5);background:rgba(255,255,255,0.1);}
+.pin-modal-error{min-height:18px;font-size:0.75rem;color:#ff6b6b;margin-bottom:6px;}
+.pin-modal-btns{display:flex;gap:10px;margin-top:8px;}
+.pin-modal-btns button{
+  flex:1;padding:10px;border-radius:10px;border:none;font-weight:700;font-size:0.85rem;
+  font-family:'Cinzel','Playfair Display',serif;cursor:pointer;
+}
+#pinCancelBtn{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.75);}
+#pinSubmitBtn{background:linear-gradient(135deg,#f4c430,#d4a017);color:#1a1206;}
 </style>
 </head>
 <body>
@@ -1326,6 +1369,24 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
     <div class="k28hg-sub" id="k28hgSub"></div>
   </div>
   <div id="bidWinnerBubble6p" style="display:none"></div>
+  <div id="pinModalOverlay">
+    <div class="pin-modal-box" id="pinModalBox">
+      <div class="pin-modal-icon">🔒</div>
+      <div class="pin-modal-title">Personal Avatar</div>
+      <div class="pin-modal-sub">Enter the 4-digit PIN to use it</div>
+      <div class="pin-digit-row">
+        <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="0">
+        <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="1">
+        <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="2">
+        <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="3">
+      </div>
+      <div class="pin-modal-error" id="pinModalError"></div>
+      <div class="pin-modal-btns">
+        <button id="pinCancelBtn">Cancel</button>
+        <button id="pinSubmitBtn">Unlock</button>
+      </div>
+    </div>
+  </div>
   <div id="bidStatusBanner6p" class="bid-status-banner" style="display:none"></div>
   <div class="table-oval">
     <div class="six-oval-rail"></div>
