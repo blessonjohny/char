@@ -599,6 +599,16 @@ class GameEngine {
     // table's public listing away from their name.
     if (!connected) this.seats[pos].disconnectedAt = Date.now();
     else this.seats[pos].disconnectedAt = null;
+    // Real bug fix, per explicit report on the 6-player table -- see
+    // that engine's identical fix for the fuller reasoning. Same
+    // CONNECTED_BUT_STUCK_MS mechanism exists here too, with the same
+    // gap: turnStartedAt never reset on reconnect, only on an actual
+    // player/round change, so a genuine pause that ran past the
+    // threshold left that turn permanently "stuck" for its remainder
+    // regardless of how promptly the player actually returned.
+    if (connected && this.currentPlayer === pos) {
+      this.turnStartedAt = Date.now();
+    }
   }
 
   findSeatByPlayerId(playerId) {

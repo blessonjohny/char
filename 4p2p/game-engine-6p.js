@@ -271,6 +271,26 @@ class GameEngine6P {
     this.seats[pos].connected = connected;
     if (!connected) this.seats[pos].disconnectedAt = Date.now();
     else this.seats[pos].disconnectedAt = null;
+    // Real bug fix, per explicit report: reconnecting/resuming while it's
+    // STILL this same seat's own unfinished turn never reset
+    // turnStartedAt at all -- that only happens when currentPlayer or
+    // round actually changes. A genuine pause (tab backgrounded, app
+    // minimized, etc. -- the socket can stay alive through all of that,
+    // this isn't only about a hard disconnect) that ran past the
+    // CONNECTED_BUT_STUCK_MS threshold in maybeAutoAct() left that
+    // turn's "stuck" status permanent for the rest of it: turnAgeMs kept
+    // counting from the ORIGINAL start of the turn, long since past
+    // the threshold, no matter how promptly the player actually came
+    // back and tried to act. maybeAutoAct() runs from many different
+    // places (after every broadcast, essentially), so it kept re-firing
+    // and re-scheduling an auto-act regardless of what the returning
+    // player did. Resetting the clock here, specifically when THIS is
+    // the seat whose turn is currently active, gives a genuine fresh
+    // grace window from the actual moment they're back, rather than
+    // inheriting an already-expired one.
+    if (connected && this.currentPlayer === pos) {
+      this.turnStartedAt = Date.now();
+    }
   }
   findSeatByPlayerId(playerId) { return this.seats.findIndex(s => s && s.playerId === playerId); }
 
