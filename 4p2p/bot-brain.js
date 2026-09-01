@@ -235,6 +235,17 @@ function recordBidOutcome(botName, handProfile, bid, won, roundWon) {
     brain.patterns.failedBids.push({ handProfile, bid, timestamp: Date.now() });
     if (brain.patterns.failedBids.length > 50) brain.patterns.failedBids.shift();
     addExperience(brain, 10);
+    // Per explicit report: bots bidding progressively higher over time
+    // and never coming back down. aggression only ever climbs (see
+    // updateBrainLevel, +0.1 per level-up, no matching decrease
+    // anywhere) -- a failed bid is exactly the real-world signal that
+    // this bot has been bidding too confidently for its actual read on
+    // the hand, so it resets back to the same 0.5 a brand new brain
+    // starts at. Deliberately NOT touching brain.level here (or
+    // anything level-gates, like playWeights.riskTaking/bluffing) --
+    // per explicit instruction, playing behavior should stay exactly
+    // as it is; only the bidding-aggression side resets.
+    brain.bidWeights.aggression = 0.5;
   }
   dirty = true;
 }

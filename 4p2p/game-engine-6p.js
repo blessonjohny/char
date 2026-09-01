@@ -444,6 +444,43 @@ class GameEngine6P {
     return this.highestBid === 0 && this.passes === 0 && pos === nextPos(this.dealer);
   }
 
+  // Per explicit instruction: replaces the old continuous EV/comfort-
+  // threshold bid target with an explicit table based on exact hand
+  // composition, confirmed line-by-line:
+  //   J + 3 more of that suit (4 total)              -> 17
+  //   J + 9 + 2 more of that suit (4 total, incl J+9) -> 18
+  //   J + 9 + A + anything (4+ total, incl J+9+A)     -> 20
+  //   the above, PLUS a second Jack (different suit)  -> Thani
+  // Default with no qualifying suit at all is the game's own bidding
+  // minimum (16), not some intermediate guess -- "goes to bidding
+  // minimum" was explicit. Checks every suit the bot holds a Jack in
+  // and uses whichever qualifies for the strongest tier, since the
+  // bidder chooses trump later and would naturally pick their best
+  // suit. isThani is a separate flag, not a numeric bid, since Thani
+  // is called through its own dedicated method (callThani), not
+  // submitted as a number the way 16-28 are.
+  _tableBid(hand) {
+    const bySuit = {};
+    for (const c of hand) { (bySuit[c.suit] = bySuit[c.suit] || []).push(c); }
+    const jackSuits = Object.keys(bySuit).filter(s => bySuit[s].some(c => c.rank === 'J'));
+    let bestSuit = null, bestTier = 0;
+    for (const s of jackSuits) {
+      const cards = bySuit[s];
+      const hasNine = cards.some(c => c.rank === '9');
+      const hasAce = cards.some(c => c.rank === 'A');
+      const len = cards.length;
+      let tier = 0;
+      if (hasNine && hasAce && len >= 4) tier = 3;
+      else if (hasNine && len >= 4) tier = 2;
+      else if (len >= 4) tier = 1;
+      if (tier > bestTier) { bestTier = tier; bestSuit = s; }
+    }
+    const hasSecondJack = bestTier === 3 && jackSuits.some(s => s !== bestSuit);
+    if (hasSecondJack) return { bidValue: 29, isThani: true };
+    const bidValue = bestTier === 3 ? 20 : bestTier === 2 ? 18 : bestTier === 1 ? 17 : 16;
+    return { bidValue, isThani: false };
+  }
+
   // A human telling their teammates how to approach the next hand's
   // bidding -- same, more aggressive, or less aggressive. Sent to every
   // teammate at once (3-a-side teams here, no single "partner").
@@ -1373,25 +1410,20 @@ class GameEngine6P {
       const hand = this.seats[pos].hand;
       const first = this.isFirstBidder(pos);
       const minBid = this.highestBid > 0 ? this.highestBid + 1 : 16;
-      const ev = evaluateHand(hand);
-      const totalDecidedBids = b.stats.bidsWon + b.stats.bidsLost;
-      const performanceAdjustment = totalDecidedBids >= 5
-        ? Math.max(0, 0.5 - (b.stats.bidsWon / totalDecidedBids)) * 0.6
-        : 0;
-      const comfortThreshold = Math.min(0.92, Math.max(0.6,
-        0.92 - (b.level - 1) * 0.06 - (b.bidWeights.aggression - 1) * 0.07 + performanceAdjustment));
-      let target = 16;
-      for (let bidLevel = 16; bidLevel <= 28; bidLevel++) {
-        // Bids of 20+ ("Honors") pay and cost more per point than
-        // sub-20 bids — a bad guess up there is a bigger absolute swing
-        // on the scoreboard, so crossing into that territory (and again
-        // into 28) needs a bit more confidence than the plain curve
-        // alone would ask for, on top of the ordinary comfort bar.
-        const honorsPremium = bidLevel >= 28 ? 0.08 : bidLevel >= 20 ? 0.05 : 0;
-        if (ev.probByBid[bidLevel] >= comfortThreshold + honorsPremium) target = bidLevel;
-        else break;
+      // Per explicit instruction: the old continuous EV/comfort-
+      // threshold system below this point is replaced entirely by the
+      // explicit table in _tableBid -- see that method for the full,
+      // confirmed rule set. Thani is handled as an immediate bypass
+      // here, before any of the numeric bid-submission logic further
+      // down even runs, since it's a fundamentally different action
+      // (its own dedicated method) rather than a number on the same
+      // 16-28 scale the rest of this function works with.
+      const tableBid = this._tableBid(hand);
+      if (tableBid.isThani && this.isThaniOption()) {
+        this.callThani(pos);
+        return;
       }
-      if (ev.defensive > ev.offensive * 1.3) target = Math.max(16, target - 3);
+      let target = tableBid.bidValue;
 
       // Partner bidding signal from last round -- same rule as the
       // 4-player game, just sent to ALL teammates at once here since
@@ -1413,14 +1445,6 @@ class GameEngine6P {
       // Deliberate last word on this bid - see the 4-player game's
       // identical comment for the full reasoning.
       if (wantsLower) target = Math.min(target, 18);
-
-      // Per explicit request: bots were bidding too aggressively on the
-      // 6-player table -- pull the final target down ~10% (still
-      // floored at 16, the game's minimum legal bid) so a bot that
-      // would have bid e.g. 19 now lands closer to 17. Scoped to this
-      // file only (6-player); the 4-player engine's bidding is
-      // untouched.
-      target = Math.max(16, Math.round(target * 0.9));
 
       let bid = 0;
       if (first) {
