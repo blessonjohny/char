@@ -1,6 +1,12 @@
 // ============================================================
 // 28 KERALA GULAN — AUTHORITATIVE GAME ENGINE
 // ============================================================
+// NAMING: this file is specifically the ONLINE "4 player" engine (per
+// explicit user instruction). The separate offline, single-device,
+// no-server bot mode lives entirely client-side in public/index.html
+// (chooseBotCardBase() and friends) and should be called the "learn
+// table"/"learn mode" instead -- see the full explanation in the
+// comment at the very top of public/index.html.
 // This runs on the SERVER, not in any player's browser. That's the whole
 // point: previously the "host" player's browser ran this exact logic
 // locally, and if their tab died, the entire game died with it — nobody

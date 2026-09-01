@@ -1,6 +1,10 @@
 // ============================================================
 // 28 KERALA GULAN — AUTHORITATIVE SERVER
 // ============================================================
+// NAMING: "4 player" (unqualified) means the ONLINE table this server
+// actually runs -- see the full naming-convention explanation at the
+// very top of public/index.html. The offline/local "learn table" mode
+// never touches this server at all.
 // This replaces the old PeerJS signaling-only server. Previously this
 // process just introduced two browsers to each other and then got out of
 // the way — the actual game lived entirely in whichever player's tab
@@ -1145,37 +1149,42 @@ function getAllTablesSummary() {
     // with `bot`, every other engine uses `isBot` -- checked here so
     // this works correctly across every table type.
     const seatDetails = [];
+    const seatEntries = [];
     (seats || []).forEach((s, pos) => {
       if (!s) return;
       if (s.isBot || s.bot) {
         bots++;
-        seatDetails.push(`${s.name || 'Bot'} (bot)`);
+        const text = `${s.name || 'Bot'} (bot)`;
+        seatDetails.push(text);
+        seatEntries.push({ text, isBot: true });
         return;
       }
       humans++;
       const loc = posToLocation.get(pos);
-      seatDetails.push((s.name || 'Player') + (s.connected === false ? ' (disconnected)' : loc ? ` (📍 ${loc})` : ''));
+      const text = (s.name || 'Player') + (s.connected === false ? ' (disconnected)' : loc ? ` (📍 ${loc})` : '');
+      seatDetails.push(text);
+      seatEntries.push({ text, isBot: false });
     });
     const summary = seatDetails.length ? seatDetails.join(', ') : 'empty';
-    return { humans, bots, summary };
+    return { humans, bots, summary, seatEntries };
   }
   for (const t of Object.values(tables)) {
-    const { humans, bots, summary } = summarizeSeats(t.engine.seats, t.sockets);
-    rows.push({ game: '4-Player', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
+    const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
+    rows.push({ game: '4-Player', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
   }
   for (const t of Object.values(sixpTables)) {
-    const { humans, bots, summary } = summarizeSeats(t.engine.seats, t.sockets);
-    rows.push({ game: '6-Player', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
+    const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
+    rows.push({ game: '6-Player', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
   }
   for (const r of Object.values(l56Rooms)) {
     const seats = r.state && r.state.seats ? r.state.seats : [];
-    const { humans, bots, summary } = summarizeSeats(seats, r.sockets);
+    const { humans, bots, summary, seatEntries } = summarizeSeats(seats, r.sockets);
     const phase = r.state ? r.state.phase : 'lobby';
-    rows.push({ game: '56', tableId: r.code, phase, isPlaying: phase !== 'lobby', humans, bots, summary, createdAt: r.createdAt || null, lastActivityAt: r.lastActivityAt || null });
+    rows.push({ game: '56', tableId: r.code, phase, isPlaying: phase !== 'lobby', humans, bots, summary, seatEntries, createdAt: r.createdAt || null, lastActivityAt: r.lastActivityAt || null });
   }
   for (const t of Object.values(pokerTables)) {
-    const { humans, bots, summary } = summarizeSeats(t.engine.seats, t.sockets);
-    rows.push({ game: "Hold'em", tableId: t.engine.tableId, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
+    const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
+    rows.push({ game: "Hold'em", tableId: t.engine.tableId, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
   }
   return rows;
 }
