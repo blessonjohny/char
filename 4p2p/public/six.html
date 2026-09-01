@@ -1192,6 +1192,12 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 #bidWinnerBubble6p .bwb-name{font-family:'Cinzel','Playfair Display',serif;font-size:0.95rem;font-weight:700;color:#f4c430;letter-spacing:0.5px;}
 #bidWinnerBubble6p .bwb-bid{font-family:'Cinzel','Playfair Display',serif;font-size:1.7rem;font-weight:900;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.7);margin-top:2px;}
 #bidWinnerBubble6p .bwb-turn{font-family:'Cinzel','Playfair Display',serif;font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.75);letter-spacing:0.3px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(244,196,48,0.3);}
+/* Per explicit request: "Your turn" specifically (not other players'
+   turns -- this is the actual call-to-action for the person looking at
+   it) gets bold + a blink, so it's impossible to miss that the ball is
+   in their court. */
+#bidWinnerBubble6p .bwb-turn.bwb-turn-mine{font-weight:900;font-size:0.9rem;color:#fff;animation:bwbTurnBlink 1s step-start infinite;}
+@keyframes bwbTurnBlink{50%{opacity:0.3;}}
 /* Personal-avatar PIN modal -- per explicit request, replacing the
    generic browser prompt() with something that actually matches the
    table's own look (dark backdrop, gold/ornate border, Cinzel
