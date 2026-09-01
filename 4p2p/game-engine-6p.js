@@ -1700,6 +1700,18 @@ class GameEngine6P {
             // one onto candidates at all.
             if (low.rank === '9' && !jSeen) continue;
           }
+          // Per explicit instruction, extending the same "never" rule to
+          // the Ace and 10 -- the next two highest point-carrying ranks
+          // after J/9 (see RANK_ORDER: J=8, 9=7, A=6, 10=5). Leading
+          // either one while BOTH the 9 and J of this suit are still
+          // unaccounted for risks losing it the exact same way leading a
+          // lone 9 does. Deliberately requires both to be unseen, not
+          // either -- once even one of the two bigger cards is out, the
+          // risk this rule exists to prevent has already passed. A
+          // separate check from the J/9 block above (not merged into
+          // it), since this one triggers on a different low.rank value
+          // entirely and has no "J+9 together" special case to share.
+          if ((low.rank === 'A' || low.rank === '10') && (!jSeen || !nineSeen)) continue;
           sc += bySuit[s].length * 5;
           if (low.points === 0) sc += 20;
           if (low.rank === '7' || low.rank === '8' || low.rank === '6') sc += 15;
@@ -1725,8 +1737,13 @@ class GameEngine6P {
             // entirely instead.
             continue;
           }
+          // Per explicit instruction, upgraded from a -15 score penalty
+          // to an absolute "never" -- matches the same fix already
+          // applied to the early-trick branch above for the exact same
+          // reason (a steep penalty can still lose out to a
+          // sufficiently bad hand; an outright exclusion can't).
+          if ((high.rank === 'A' || high.rank === '10') && (!jSeen || !nineSeen)) continue;
           sc += bySuit[s].reduce((a, c) => a + c.points, 0) * 10 + bySuit[s].length * 3;
-          if ((high.rank === 'A' || high.rank === '10') && (!jSeen || !nineSeen)) sc -= 15;
           if (s === this.trumpSuit) sc -= 10;
           candidates.push({ card: high, score: sc, suit: s });
         }
@@ -1745,7 +1762,17 @@ class GameEngine6P {
       // Filter out any 9 whose suit's Jack hasn't been seen first, and
       // only fall through to a literal last-resort (that 9 really is
       // the only card left at all) if nothing else remains.
-      const safeHand = hand.filter(c => !(c.rank === '9' && !this._isRankSeen(c.suit, 'J')));
+      // Per explicit instruction, extending this same fallback
+      // protection to the new Ace/10 restriction above -- without this,
+      // a hand where every suit got excluded from the main loop could
+      // have this same fallback turn around and pick an Ace or 10 that
+      // violates the exact rule that excluded it in the first place,
+      // the same category of bug the 9-specific filter below already
+      // exists to prevent.
+      const safeHand = hand.filter(c =>
+        !(c.rank === '9' && !this._isRankSeen(c.suit, 'J')) &&
+        !((c.rank === 'A' || c.rank === '10') && (!this._isRankSeen(c.suit, 'J') || !this._isRankSeen(c.suit, '9')))
+      );
       const pool = safeHand.length > 0 ? safeHand : hand;
       pool.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
       return isEarly ? pool[0] : pool[pool.length - 1];
@@ -1888,6 +1915,24 @@ class GameEngine6P {
         if (wt === myTeam && !myTeamSecured && feedablePts.length > 0) {
           feedablePts.sort((a, c) => c.points - a.points);
           return feedablePts[0];
+        }
+        // Per explicit instruction: when discarding (not cutting, not
+        // feeding partner), actively look for a discard that VOIDS a
+        // suit entirely -- this is the bot's own last card of that
+        // suit -- since being void sets up cutting that suit with
+        // trump the next time it's led. Worth spending up to a 1-point
+        // card (a 10 or an Ace) to buy that future cutting opportunity;
+        // deliberately excludes the 9 and J (2/3 points) even if one of
+        // those happens to be the last card of a suit too, since
+        // sacrificing that much value for a maybe-later cut isn't the
+        // same trade. Checked before the plain lowest-point sort below,
+        // since a targeted void is worth more than just being cheap.
+        const suitCounts = {};
+        for (const c of hand) suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1;
+        const voidCandidates = nonTrumpDiscard.filter(c => suitCounts[c.suit] === 1 && c.points <= 1);
+        if (voidCandidates.length > 0) {
+          voidCandidates.sort((a, c) => a.points - c.points);
+          return voidCandidates[0];
         }
         nonTrumpDiscard.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
         return nonTrumpDiscard[0];
