@@ -1825,8 +1825,18 @@ class GameEngine6P {
           // our best trump (often the Jack) to win a trick a King or 7
           // would have won exactly as well is a real, common waste. Use
           // the cheapest trump we have, preferring a zero-point one.
-          const zeroPt = trumps.filter(c => c.points === 0);
-          wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1] : trumps[trumps.length - 1];
+          // Real bug fix, per explicit report: this branch was missing
+          // the explicit nonJackTrumps exclusion the 4-player engine's
+          // identical branch already has -- it only filtered by
+          // zero-point value, with no separate safeguard keeping the
+          // Jack specifically off the table whenever any other trump
+          // (zero-point or not) was available instead. Matches
+          // game-engine.js's own logic now.
+          const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+          const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+          wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+            : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+            : trumps[trumps.length - 1];
         }
         return wtr;
       }
