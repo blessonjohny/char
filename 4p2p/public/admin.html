@@ -165,6 +165,18 @@
 let PASSWORD = '';
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+// Per explicit request: a live (human, non-bot) player's name in this
+// list should stand out in red, distinct from bot names, so a glance
+// at a busy table immediately shows who's actually a real person
+// versus filler. Falls back to the old plain-text summary if
+// seatEntries isn't present for some reason (older cached response,
+// etc.) rather than showing nothing.
+function renderSeatEntries(seatEntries, summaryFallback) {
+  if (!Array.isArray(seatEntries) || seatEntries.length === 0) return esc(summaryFallback || 'empty');
+  return seatEntries.map(e =>
+    e.isBot ? esc(e.text) : `<span style="color:#ff4d4d;font-weight:700">${esc(e.text)}</span>`
+  ).join(', ');
+}
 function fmtTime(ms) {
   const d = new Date(ms);
   return d.toLocaleString();
@@ -307,7 +319,7 @@ function renderLivePlayers(tablesList) {
         <span style="font-size:0.68rem;padding:2px 8px;border-radius:10px;white-space:nowrap;background:${t.isPlaying ? 'rgba(46,204,113,0.18)' : 'rgba(244,196,48,0.18)'};color:${t.isPlaying ? '#2ecc71' : '#f4c430'}">${t.isPlaying ? '🎮 Playing' : '🟢 In Lobby'}</span>
         <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="closeTable('${esc(t.tableId)}')">✕ Close table</button>
       </div>
-      <div class="who" style="font-size:0.8rem">${esc(t.summary)}</div>
+      <div class="who" style="font-size:0.8rem">${renderSeatEntries(t.seatEntries, t.summary)}</div>
       <div class="who" style="font-size:0.7rem;opacity:0.75">🕐 Open ${openFor} · 💤 Idle ${idleFor}</div>
     </div>
   `;

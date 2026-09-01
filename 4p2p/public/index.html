@@ -1,4 +1,30 @@
 <!DOCTYPE html>
+<!--
+  NAMING CONVENTION (per explicit user instruction, recorded here so it
+  persists across sessions and is visible to any future Claude instance
+  working on this file, since chat memory isn't enabled for this user):
+
+  This single file implements TWO distinct 4-player modes, both driven
+  by the same UI and much of the same bot-decision code, but launched
+  and referred to differently:
+
+    - "4 PLAYER" (unqualified) means the ONLINE table -- server-
+      authoritative play via server.js/game-engine.js, real multiplayer,
+      SERVER_MODE/IS_ONLINE true. This is what "4 player" refers to by
+      default from now on, with no further qualification needed.
+
+    - The OFFLINE, single-device, no-server mode (client-side bot AI
+      via chooseBotCardBase() in this same file, no socket connection)
+      is to be called the "LEARN TABLE" or "LEARN MODE" going forward --
+      never just "4 player" on its own, specifically to avoid the
+      confusion of two different things sharing one name.
+
+  If a request says "4 player" with no other qualifier, assume ONLINE.
+  If it's about the local/offline single-device mode, it should say
+  "learn table" or "learn mode" -- and this file's own offline code
+  paths should be read/edited under that name in comments going
+  forward too.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3404,6 +3430,9 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 }
 #bidWinnerBubble4p .bwb-name{font-family:'Cinzel','Playfair Display',serif;font-size:0.95rem;font-weight:700;color:#f4c430;letter-spacing:0.5px;}
 #bidWinnerBubble4p .bwb-bid{font-family:'Cinzel','Playfair Display',serif;font-size:1.7rem;font-weight:900;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.7);margin-top:2px;}
+#bidWinnerBubble4p .bwb-turn{font-family:'Cinzel','Playfair Display',serif;font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.75);letter-spacing:0.3px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(244,196,48,0.3);}
+#bidWinnerBubble4p .bwb-turn.bwb-turn-mine{font-weight:900;font-size:0.9rem;color:#fff;animation:bwbTurnBlink4p 1s step-start infinite;}
+@keyframes bwbTurnBlink4p{50%{opacity:0.3;}}
 /* Personal-avatar PIN modal -- identical to six.html's own, see there
    for the fuller reasoning. */
 #pinModalOverlay{
@@ -6857,7 +6886,7 @@ function showBidWinnerCelebration4p(pos, winningBid) {
   const p = PLAYERS.find(pl => pl.pos === pos);
   const name = p ? (pos === MY_POS ? 'You' : p.name) : 'Player';
   const bidText = winningBid >= 29 ? 'THANI!' : ('Bid ' + winningBid);
-  el.innerHTML = '<div class="bwb-name">' + escapeHtml(name) + ' won the bid</div><div class="bwb-bid">' + bidText + '</div>';
+  el.innerHTML = '<div class="bwb-name">' + escapeHtml(name) + ' won the bid</div><div class="bwb-bid">' + bidText + '</div><div class="bwb-turn" id="bwbTurnLine4p"></div>';
   el.style.display = 'block';
   el.classList.remove('leaving', 'settled');
   // force reflow so the pop-in animation replays even if it's already showing from a phase-2 re-mark
@@ -6866,6 +6895,31 @@ function showBidWinnerCelebration4p(pos, winningBid) {
   void el.offsetWidth;
   el.style.animation = '';
   setTimeout(() => el.classList.add('settled'), 650);
+  updateBidWinnerTurnText4p();
+}
+// Per explicit request: same "whose turn" line as the 6-player table's
+// identical addition -- see there for the fuller reasoning (the
+// bubble's main content only ever gets set once per phase-2 re-mark,
+// so without this separate refresh the turn line would go stale the
+// moment the active player changed, e.g. trump-choosing finishing and
+// the actual lead beginning). Reads from latestServerState (the online
+// 4-player table's own live state) with currentPlayer/phase as a
+// fallback for the offline/local mode, which tracks turn via those
+// same-named globals directly instead of a server-pushed state object.
+function updateBidWinnerTurnText4p() {
+  const turnEl = document.getElementById('bwbTurnLine4p');
+  if (!turnEl) return;
+  const bubble = document.getElementById('bidWinnerBubble4p');
+  if (!bubble || bubble.style.display === 'none') return;
+  const src = (typeof latestServerState !== 'undefined' && latestServerState) ? latestServerState : { currentPlayer, phase };
+  const cp = src.currentPlayer;
+  if (typeof cp !== 'number' || cp < 0) { turnEl.textContent = ''; turnEl.classList.remove('bwb-turn-mine'); return; }
+  const p = PLAYERS.find(pl => pl.pos === cp);
+  const isMe = cp === MY_POS;
+  const possessive = isMe ? 'Your' : (p ? escapeHtml(p.name) + "'s" : "Their");
+  const verb = src.phase === 'choosingTrump' ? 'turn to choose trump...' : 'turn to play';
+  turnEl.textContent = `${possessive} ${verb}`;
+  turnEl.classList.toggle('bwb-turn-mine', isMe);
 }
 function dismissBidWinnerCelebration4p() {
   const el = document.getElementById('bidWinnerBubble4p');
@@ -16811,6 +16865,13 @@ function applyServerState(state) {
   const gwDisplay = document.getElementById('gameWrap').style.display;
   const gameWrapAlreadyShowing = !!gwDisplay && gwDisplay !== 'none';
   latestServerState = state;
+  // Per explicit report: runs on every single online state update,
+  // unconditionally -- see six.js's identical addition for the fuller
+  // reasoning (the "whose turn" line inside the bubble needs to stay
+  // current for its whole visible window, not just whatever was true
+  // the one time the bubble's main content got set). Harmless no-op
+  // when the bubble isn't currently showing at all.
+  try { updateBidWinnerTurnText4p(); } catch (e) {}
   try { renderBidStatusBanner4p(state); } catch (e) { console.error('[renderBidStatusBanner4p] threw:', e); }
   logClientDebug(state);
   // Per explicit report: the bubble was surviving a restart/exit
