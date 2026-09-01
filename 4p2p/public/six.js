@@ -71,6 +71,16 @@ const AVATAR_PINS = {
   toon105: '0000', // Jose
   toon106: '0000', // Bless
 };
+// Per explicit request: same as index.html's identical addition, see
+// there for the fuller reasoning.
+const PROTECTED_NAME_TO_AVATAR = {
+  jck: 'toon101',
+  lj: 'toon102',
+  jk: 'toon103',
+  santhosh: 'toon104',
+  jose: 'toon105',
+  bless: 'toon106',
+};
 function checkAvatarPin(key) {
   if (!AVATAR_PINS[key]) return Promise.resolve(true);
   return new Promise((resolve) => {
@@ -1289,11 +1299,26 @@ $('btnCreate').addEventListener('click', () => {
 });
 $('btnShowJoin').addEventListener('click', () => { showScreen('joinScreen'); refreshRoomList(); });
 $('btnNameBack').addEventListener('click', () => showScreen('welcomeScreen'));
-$('btnNameContinue').addEventListener('click', () => {
+$('btnNameContinue').addEventListener('click', submitPlayerName6p);
+// Real bug fix, per explicit report: hitting Enter/"Go" on the mobile
+// keyboard while in this field did nothing at all -- same fix as
+// index.html's identical addition.
+$('nameInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); submitPlayerName6p(); }
+});
+async function submitPlayerName6p() {
   const name = $('nameInput').value.trim();
   if (!name || name.length < 2) {
     showToast('Enter a name (2+ chars)', 'lose', 1500);
     return;
+  }
+  // Per explicit request: same auto-match + PIN-gate as index.html's
+  // identical addition, see there for the fuller reasoning.
+  const matchedAvatar = PROTECTED_NAME_TO_AVATAR[name.toLowerCase()];
+  if (matchedAvatar) {
+    if (!(await checkAvatarPin(matchedAvatar))) return;
+    MY_AVATAR_KEY = matchedAvatar;
+    try { localStorage.setItem('k28_player_avatar', matchedAvatar); } catch (e) {}
   }
   MY_NAME = name;
   const inviteBanner6pDone = $('inviteBanner6p');
@@ -1305,7 +1330,7 @@ $('btnNameContinue').addEventListener('click', () => {
   } else if (pendingAction === 'join' && pendingJoinCode) {
     socket.emit('sixp_joinTable', { tableId: pendingJoinCode, name, avatar: MY_AVATAR_KEY });
   }
-});
+}
 $('btnJoinBack').addEventListener('click', () => showScreen('welcomeScreen'));
 $('btnJoinByCode').addEventListener('click', () => {
   const code = $('joinCodeInput').value.trim().toUpperCase();

@@ -4789,6 +4789,20 @@ const AVATAR_PINS = {
   toon105: '0000', // Jose
   toon106: '0000', // Bless
 };
+// Per explicit request: typing one of these names on the "enter your
+// name" screen should automatically match its personal avatar (still
+// gated by the same PIN check every other selection path goes through
+// -- see checkAvatarPin) rather than requiring a separate manual pick
+// from the picker grid. Lowercased keys since name entry should match
+// regardless of how the player capitalizes it.
+const PROTECTED_NAME_TO_AVATAR = {
+  jck: 'toon101',
+  lj: 'toon102',
+  jk: 'toon103',
+  santhosh: 'toon104',
+  jose: 'toon105',
+  bless: 'toon106',
+};
 function checkAvatarPin(key) {
   if (!AVATAR_PINS[key]) return Promise.resolve(true);
   return new Promise((resolve) => {
@@ -14436,11 +14450,24 @@ document.getElementById('btnPlayOnline').addEventListener('click', () => {
 });
 
 // Set Name button - init PeerJS
-document.getElementById('btnSetName').addEventListener('click', async () => {
+async function submitPlayerName() {
   const name = document.getElementById('playerNameInput').value.trim();
   if (!name || name.length < 2) {
     showToast('Enter a name (2+ chars)', 'lose', 1500);
     return;
+  }
+  // Per explicit request: a name that matches one of the personal
+  // avatars (case-insensitive) auto-selects that avatar, still gated
+  // by the same PIN check every other selection path uses. A wrong or
+  // cancelled PIN stops the whole join here -- someone who typed a
+  // protected name and failed verification shouldn't fall through to
+  // joining with some other avatar instead, silently bypassing the
+  // gate they just failed.
+  const matchedAvatar = PROTECTED_NAME_TO_AVATAR[name.toLowerCase()];
+  if (matchedAvatar) {
+    if (!(await checkAvatarPin(matchedAvatar))) return;
+    MY_AVATAR_KEY = matchedAvatar;
+    try { localStorage.setItem('k28_player_avatar', matchedAvatar); } catch (e) {}
   }
   MY_NAME = name;
   SERVER_MODE = true;
@@ -14463,6 +14490,14 @@ document.getElementById('btnSetName').addEventListener('click', async () => {
     document.getElementById('joinCard').style.display = 'block';
     document.getElementById('lobbySub').textContent = 'Create or join a table';
   }
+}
+document.getElementById('btnSetName').addEventListener('click', submitPlayerName);
+// Real bug fix, per explicit report: hitting Enter/"Go" on the mobile
+// keyboard while in this field did nothing at all -- only tapping the
+// on-screen Continue button after dismissing the keyboard worked. This
+// wires the same submit path to the Enter key directly.
+document.getElementById('playerNameInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); submitPlayerName(); }
 });
 
 // Create Room button
