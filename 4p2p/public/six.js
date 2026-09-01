@@ -1807,6 +1807,13 @@ function applyState(state) {
     // "play begins" moment is (phase transitions off bidding entirely).
     if (state.highestBid > 0) showBidWinnerCelebration6p(state.bidder, state.highestBid, state);
   }
+  // Per explicit report: runs on every state update, outside the
+  // round-gate above, specifically so the "whose turn" line inside the
+  // bubble stays current for the whole window it's visible (bidder
+  // choosing trump, then whoever leads first) rather than freezing at
+  // whatever was true the one time the bubble's main content got set.
+  // No-ops harmlessly if the bubble isn't currently showing at all.
+  updateBidWinnerTurnText6p(state);
   // Per explicit follow-up report: dismissing the instant phase flips to 'play' fired too
   // early - that's the moment the play STAGE begins, broadcast immediately once trump is
   // chosen, before anyone has actually played a single card yet (see _startPlay() in
@@ -1999,7 +2006,7 @@ function showBidWinnerCelebration6p(pos, winningBid, state) {
   const seat = state.seats[pos];
   const name = pos === MY_POS ? 'You' : (seat ? seat.name : 'Player');
   const bidText = winningBid >= 29 ? 'THANI!' : ('Bid ' + winningBid);
-  el.innerHTML = '<div class="bwb-name">' + escapeHtml(name) + ' won the bid</div><div class="bwb-bid">' + bidText + '</div>';
+  el.innerHTML = '<div class="bwb-name">' + escapeHtml(name) + ' won the bid</div><div class="bwb-bid">' + bidText + '</div><div class="bwb-turn" id="bwbTurnLine"></div>';
   el.style.display = 'block';
   el.classList.remove('leaving', 'settled');
   void el.offsetWidth;
@@ -2007,6 +2014,29 @@ function showBidWinnerCelebration6p(pos, winningBid, state) {
   void el.offsetWidth;
   el.style.animation = '';
   setTimeout(() => el.classList.add('settled'), 650);
+  updateBidWinnerTurnText6p(state);
+}
+// Per explicit report: the bubble stays up through trump selection and
+// into the moment before the first card, but who's actually being
+// waited on can change during that window (bidder choosing trump, then
+// whoever leads first) -- the bubble's main content only ever gets set
+// once per round (see the round-gated call site below), so without
+// this separate, lightweight update the turn line would go stale the
+// instant the active player changed. Deliberately only touches the
+// turn line itself, not the whole bubble, so it can run on every state
+// update without re-triggering the pop-in/heartbeat animation.
+function updateBidWinnerTurnText6p(state) {
+  const turnEl = document.getElementById('bwbTurnLine');
+  if (!turnEl) return;
+  const bubble = $('bidWinnerBubble6p');
+  if (!bubble || bubble.style.display === 'none') return;
+  const cp = state.currentPlayer;
+  if (typeof cp !== 'number' || cp < 0) { turnEl.textContent = ''; return; }
+  const seat = state.seats[cp];
+  const isMe = cp === MY_POS;
+  const possessive = isMe ? 'Your' : (seat ? escapeHtml(seat.name) + "'s" : "Their");
+  const verb = state.phase === 'choosingTrump' ? 'turn to choose trump...' : 'turn to play';
+  turnEl.textContent = `${possessive} ${verb}`;
 }
 function dismissBidWinnerCelebration6p() {
   const el = $('bidWinnerBubble6p');
