@@ -2031,13 +2031,14 @@ function updateBidWinnerTurnText6p(state) {
   const bubble = $('bidWinnerBubble6p');
   if (!bubble || bubble.style.display === 'none') return;
   const cp = state.currentPlayer;
-  if (typeof cp !== 'number' || cp < 0) { turnEl.textContent = ''; turnEl.classList.remove('bwb-turn-mine'); return; }
+  if (typeof cp !== 'number' || cp < 0) { turnEl.textContent = ''; turnEl.classList.remove('bwb-turn-mine', 'bwb-turn-other'); return; }
   const seat = state.seats[cp];
   const isMe = cp === MY_POS;
   const possessive = isMe ? 'Your' : (seat ? escapeHtml(seat.name) + "'s" : "Their");
   const verb = state.phase === 'choosingTrump' ? 'turn to choose trump...' : 'turn to play';
   turnEl.textContent = `${possessive} ${verb}`;
   turnEl.classList.toggle('bwb-turn-mine', isMe);
+  turnEl.classList.toggle('bwb-turn-other', !isMe);
 }
 function dismissBidWinnerCelebration6p() {
   const el = $('bidWinnerBubble6p');
