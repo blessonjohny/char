@@ -829,7 +829,7 @@ class GameEngine6P {
     // team is sweeping everything, let's see if they'll commit to it" - not something a
     // teammate of the leader would ever want to bring up themselves.
     if (askerPos === undefined || askerPos === null || getTeam(currentLeader.pos) === getTeam(askerPos)) return null;
-    if (!this._isQuoteEligibleCore(currentLeader.pos)) return null;
+    if (!this._isQuoteEligibleCore(currentLeader.pos, true)) return null;
     // Bots are excluded on both sides - this offer (and the round-ending consequence of
     // declining it) is a human-vs-human mechanic. A bot can't be asked, and a bot can't ask.
     // Ghost-controlled seats (isBot:false, per explicit request) are excluded the same way -
@@ -956,9 +956,19 @@ class GameEngine6P {
   // opener-only check layered on top, since the new mid-trick offer needs every rule EXCEPT
   // "must be the one leading the trick" - duplicating the other six checks in a second
   // function would just be the same list drifting out of sync over time.
-  _isQuoteEligibleCore(pos) {
+  //
+  // Per explicit follow-up: the hand.length<2 cutoff is now conditional on a new
+  // relaxHandLengthCutoff param, defaulting to false so the ORIGINAL voluntary-declare path
+  // (_isQuoteEligibleFor, called with no second argument) is completely unaffected — that one
+  // stays exactly as it was, per explicit instruction that declaring is a different thing not
+  // being touched here. Only the opponent-initiated mid-trick ASK path
+  // (_getMidTrickAskTarget) passes true, so asking stays available for the rest of the round
+  // once it's unlocked (tricksPlayed>0), all the way through the final tricks, not just until
+  // the leader's hand gets down to 2 cards.
+  _isQuoteEligibleCore(pos, relaxHandLengthCutoff) {
     if (pos === null || pos === undefined || !this.seats[pos]) return false;
-    if (this.seats[pos].hand.length < 2) return false; // cutoff: must still have at least 2 cards of your own left
+    if (!relaxHandLengthCutoff && this.seats[pos].hand.length < 2) return false; // cutoff: must still have at least 2 cards of your own left
+    if (relaxHandLengthCutoff && this.seats[pos].hand.length < 1) return false; // still needs at least a card actually in hand to mean anything
     if (this.quoteState) return false;
     if (this.phase !== 'play') return false;
     if (this.highestBid > 19) return false;
