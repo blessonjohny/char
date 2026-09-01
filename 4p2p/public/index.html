@@ -3432,9 +3432,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 #bidWinnerBubble4p .bwb-bid{font-family:'Cinzel','Playfair Display',serif;font-size:1.7rem;font-weight:900;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.7);margin-top:2px;}
 #bidWinnerBubble4p .bwb-turn{font-family:'Cinzel','Playfair Display',serif;font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.75);letter-spacing:0.3px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(244,196,48,0.3);}
 #bidWinnerBubble4p .bwb-turn.bwb-turn-mine{font-weight:900;font-size:0.9rem;color:#ff3b3b;text-shadow:0 0 8px rgba(255,20,20,0.8);animation:bwbTurnBlinkRed4p 1s step-start infinite;}
-#bidWinnerBubble4p .bwb-turn.bwb-turn-other{font-weight:900;font-size:0.9rem;color:#9d5cff;text-shadow:0 0 8px rgba(138,43,226,0.8);animation:bwbTurnBlinkViolet4p 1s step-start infinite;}
+#bidWinnerBubble4p .bwb-turn.bwb-turn-partner{font-weight:900;font-size:0.9rem;color:#3ddc84;text-shadow:0 0 8px rgba(46,204,113,0.8);animation:bwbTurnBlinkGreen4p 1s step-start infinite;}
+#bidWinnerBubble4p .bwb-turn.bwb-turn-opp{font-weight:900;font-size:0.9rem;color:#5c8bff;text-shadow:0 0 8px rgba(65,105,225,0.8);animation:bwbTurnBlinkBlue4p 1s step-start infinite;}
 @keyframes bwbTurnBlinkRed4p{50%{opacity:0.25;}}
-@keyframes bwbTurnBlinkViolet4p{50%{opacity:0.25;}}
+@keyframes bwbTurnBlinkGreen4p{50%{opacity:0.25;}}
+@keyframes bwbTurnBlinkBlue4p{50%{opacity:0.25;}}
 /* Personal-avatar PIN modal -- identical to six.html's own, see there
    for the fuller reasoning. */
 #pinModalOverlay{
@@ -6915,14 +6917,16 @@ function updateBidWinnerTurnText4p() {
   if (!bubble || bubble.style.display === 'none') return;
   const src = (typeof latestServerState !== 'undefined' && latestServerState) ? latestServerState : { currentPlayer, phase };
   const cp = src.currentPlayer;
-  if (typeof cp !== 'number' || cp < 0) { turnEl.textContent = ''; turnEl.classList.remove('bwb-turn-mine', 'bwb-turn-other'); return; }
+  if (typeof cp !== 'number' || cp < 0) { turnEl.textContent = ''; turnEl.classList.remove('bwb-turn-mine', 'bwb-turn-partner', 'bwb-turn-opp'); return; }
   const p = PLAYERS.find(pl => pl.pos === cp);
   const isMe = cp === MY_POS;
+  const isPartner = !isMe && getTeam(cp) === getTeam(MY_POS);
   const possessive = isMe ? 'Your' : (p ? escapeHtml(p.name) + "'s" : "Their");
   const verb = src.phase === 'choosingTrump' ? 'turn to choose trump...' : 'turn to play';
   turnEl.textContent = `${possessive} ${verb}`;
   turnEl.classList.toggle('bwb-turn-mine', isMe);
-  turnEl.classList.toggle('bwb-turn-other', !isMe);
+  turnEl.classList.toggle('bwb-turn-partner', isPartner);
+  turnEl.classList.toggle('bwb-turn-opp', !isMe && !isPartner);
 }
 function dismissBidWinnerCelebration4p() {
   const el = document.getElementById('bidWinnerBubble4p');

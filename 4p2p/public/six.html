@@ -1199,9 +1199,11 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    it) gets bold + a blink, so it's impossible to miss that the ball is
    in their court. */
 #bidWinnerBubble6p .bwb-turn.bwb-turn-mine{font-weight:900;font-size:0.9rem;color:#ff3b3b;text-shadow:0 0 8px rgba(255,20,20,0.8);animation:bwbTurnBlinkRed 1s step-start infinite;}
-#bidWinnerBubble6p .bwb-turn.bwb-turn-other{font-weight:900;font-size:0.9rem;color:#9d5cff;text-shadow:0 0 8px rgba(138,43,226,0.8);animation:bwbTurnBlinkViolet 1s step-start infinite;}
+#bidWinnerBubble6p .bwb-turn.bwb-turn-partner{font-weight:900;font-size:0.9rem;color:#3ddc84;text-shadow:0 0 8px rgba(46,204,113,0.8);animation:bwbTurnBlinkGreen 1s step-start infinite;}
+#bidWinnerBubble6p .bwb-turn.bwb-turn-opp{font-weight:900;font-size:0.9rem;color:#5c8bff;text-shadow:0 0 8px rgba(65,105,225,0.8);animation:bwbTurnBlinkBlue 1s step-start infinite;}
 @keyframes bwbTurnBlinkRed{50%{opacity:0.25;}}
-@keyframes bwbTurnBlinkViolet{50%{opacity:0.25;}}
+@keyframes bwbTurnBlinkGreen{50%{opacity:0.25;}}
+@keyframes bwbTurnBlinkBlue{50%{opacity:0.25;}}
 /* Personal-avatar PIN modal -- per explicit request, replacing the
    generic browser prompt() with something that actually matches the
    table's own look (dark backdrop, gold/ornate border, Cinzel
