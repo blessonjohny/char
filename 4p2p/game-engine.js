@@ -444,6 +444,14 @@ class GameEngine {
     // Lets bot leading/discard decisions reason about who's likely to
     // trump in on a given suit, not just what's in their own hand.
     this.voidSuits = [new Set(), new Set(), new Set(), new Set()];
+    // Per explicit report: which suits have already been cut (led,
+    // then won by trump instead of the led suit itself) this round --
+    // populated in _resolveTrick() below. A bot holding the Jack of a
+    // suit that's already been cut once knows leading it again risks
+    // losing it to trump; one that hasn't been cut yet is still safe to
+    // lead the Jack into directly, which is exactly the distinction
+    // "unless someone cut it with trump" describes.
+    this.suitsCutThisRound = new Set();
     this.tricksPlayed = 0;
     this.teamPoints = [0, 0]; // points captured THIS round
     this.lastTrick = null; // {cards:[{pos,card}], winner, points, team}
@@ -1398,6 +1406,15 @@ class GameEngine {
     const points = this.trickCards.reduce((s, tc) => s + tc.card.points, 0);
     const team = getTeam(winner.pos);
     this.teamPoints[team] += points;
+    // Per explicit report: records this suit as "cut" the moment it's
+    // actually won by something other than itself -- the winning
+    // card's suit differs from the suit that was led, which given how
+    // _trickWinner() works can only happen via a genuine trump win, not
+    // a same-suit higher card. Checked before this.trickSuit gets reset
+    // for the next trick elsewhere.
+    if (this.trickSuit && winner.card.suit !== this.trickSuit) {
+      this.suitsCutThisRound.add(this.trickSuit);
+    }
     this.lastTrick = {
       cards: this.trickCards.slice(),
       winner: winner.pos,
@@ -2379,6 +2396,32 @@ class GameEngine {
           }
         }
       }
+      // Per explicit bug report: a bot holding the Jack of some suit
+      // PLUS other, lower cards in that same suit (e.g. J+K+Q) was
+      // leading the low card instead of the Jack -- the "lead low
+      // early" branch further down only ever special-cased a suit held
+      // as EXACTLY a bare Jack or J+9 together (see low.rank==='J'
+      // check inside that loop), so a suit with the Jack plus anything
+      // else fell straight through to generic length/points scoring
+      // with no priority at all, and could easily lose out to some
+      // unrelated suit's score. This is an absolute, unconditional
+      // check ahead of everything below, including the trump-lead
+      // fallback right after it -- exactly the confirmed priority
+      // order: play the Jack if there's an uncut suit to lead it into,
+      // and only fall back to leading trump when there ISN'T one.
+      // "unless someone cut it with trump" per explicit report:
+      // a Jack the bot holds is safe to lead into any suit that hasn't
+      // already been cut by trump this round (see suitsCutThisRound,
+      // populated in _resolveTrick()). Picks the longest such suit if
+      // more than one qualifies, since a longer suit alongside the
+      // Jack is strictly safer to keep leading in later tricks too.
+      const uncutJackSuits = SUITS.filter(s =>
+        bySuit[s].some(c => c.rank === 'J') && !this.suitsCutThisRound.has(s)
+      );
+      if (uncutJackSuits.length > 0) {
+        uncutJackSuits.sort((a, b) => bySuit[b].length - bySuit[a].length);
+        return bySuit[uncutJackSuits[0]].find(c => c.rank === 'J');
+      }
       // Per explicit instruction: a bot that just won leading a Jack and
       // no longer holds one to lead again shouldn't automatically fall
       // through to the normal weakest-card lead if its OWN partner is
@@ -2390,7 +2433,11 @@ class GameEngine {
       // hidden-trump mechanic -- only the bidder knows it pre-exposure).
       // Falls through to the normal logic below with no special
       // handling at all if the bot holds no non-Ace trump, exactly as
-      // instructed.
+      // instructed. Confirmed explicitly: this only fires once the
+      // Jack check above has already found nothing to lead, not before
+      // it -- per explicit confirmation, trump-leading here is
+      // specifically the fallback for when there's no Jack available,
+      // not a competing option checked first.
       if (this.trumpExposed && !isBidder && getTeam(this.bidder) === myTeam) {
         const nonAceTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'A');
         if (nonAceTrumps.length > 0) {

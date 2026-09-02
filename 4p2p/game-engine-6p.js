@@ -199,6 +199,11 @@ class GameEngine6P {
     this.suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
     this.playedCardsThisRound = [];
     this.voidSuits = Array.from({ length: SEATS }, () => new Set());
+    // Per explicit report, same fix as the 4-player engine's identical
+    // addition -- see there for the fuller reasoning. Which suits have
+    // already been cut (led, then won by trump instead of the led suit
+    // itself) this round, populated in _resolveTrick() below.
+    this.suitsCutThisRound = new Set();
     this.tricksPlayed = 0;
     this.teamPoints = [0, 0];
     this.lastTrick = null;
@@ -516,15 +521,22 @@ class GameEngine6P {
   //   J + 3 more of that suit (4 total)              -> 17
   //   J + 9 + 2 more of that suit (4 total, incl J+9) -> 18
   //   J + 9 + A + anything (4+ total, incl J+9+A)     -> 20
-  //   the above, PLUS a second Jack (different suit)  -> Thani
-  // Default with no qualifying suit at all is the game's own bidding
-  // minimum (16), not some intermediate guess -- "goes to bidding
-  // minimum" was explicit. Checks every suit the bot holds a Jack in
-  // and uses whichever qualifies for the strongest tier, since the
-  // bidder chooses trump later and would naturally pick their best
-  // suit. isThani is a separate flag, not a numeric bid, since Thani
-  // is called through its own dedicated method (callThani), not
-  // submitted as a number the way 16-28 are.
+  //   the above, PLUS a second Jack (different suit)  -> was Thani
+  // Per further explicit instruction: bots must never call Thani at
+  // all now -- where a hand would previously have qualified for it,
+  // the bot bids a number instead, capped at 26 (not the game's true
+  // max of 28, left as headroom above a bot's own ceiling), and NOT a
+  // flat jump straight to that cap every time. Scaled by how strong
+  // the qualifying hand actually is: a bare second Jack (no matching
+  // 9 in that second suit) bids toward the lower end of this tier
+  // (22); a second Jack that ALSO brings its own suit's 9 -- genuinely
+  // two strong suits, not just an extra high card -- bids at the full
+  // 26 cap. Default with no qualifying suit at all is the game's own
+  // bidding minimum (16), not some intermediate guess -- "goes to
+  // bidding minimum" was explicit. Checks every suit the bot holds a
+  // Jack in and uses whichever qualifies for the strongest tier, since
+  // the bidder chooses trump later and would naturally pick their best
+  // suit.
   _tableBid(hand) {
     const bySuit = {};
     for (const c of hand) { (bySuit[c.suit] = bySuit[c.suit] || []).push(c); }
@@ -541,8 +553,12 @@ class GameEngine6P {
       else if (len >= 4) tier = 1;
       if (tier > bestTier) { bestTier = tier; bestSuit = s; }
     }
-    const hasSecondJack = bestTier === 3 && jackSuits.some(s => s !== bestSuit);
-    if (hasSecondJack) return { bidValue: 29, isThani: true };
+    const secondJackSuit = bestTier === 3 ? jackSuits.find(s => s !== bestSuit) : null;
+    if (secondJackSuit) {
+      const secondSuitHasNine = bySuit[secondJackSuit].some(c => c.rank === '9');
+      const bidValue = secondSuitHasNine ? 26 : 22;
+      return { bidValue, isThani: false };
+    }
     const bidValue = bestTier === 3 ? 20 : bestTier === 2 ? 18 : bestTier === 1 ? 17 : 16;
     return { bidValue, isThani: false };
   }
@@ -1075,6 +1091,12 @@ class GameEngine6P {
     const points = this.trickCards.reduce((s, tc) => s + tc.card.points, 0);
     const team = getTeam(winner.pos);
     this.teamPoints[team] += points;
+    // Per explicit report, same fix as the 4-player engine's identical
+    // addition -- see there for the fuller reasoning. Checked before
+    // trickSuit gets reset for the next trick elsewhere.
+    if (this.trickSuit && winner.card.suit !== this.trickSuit) {
+      this.suitsCutThisRound.add(this.trickSuit);
+    }
     this.lastTrick = { cards: this.trickCards.slice(), winner: winner.pos, points, team };
     this.addLog(`Seat ${winner.pos} won the trick (+${points}pts).`);
 
@@ -1730,17 +1752,50 @@ class GameEngine6P {
       const bySuit = {};
       for (const s of SUITS) bySuit[s] = [];
       for (const c of hand) bySuit[c.suit].push(c);
+      // Per explicit bug report: this whole "bidder leading before trump
+      // exposure" branch right below used to run BEFORE any Jack/9
+      // safety check at all -- it picks the longest non-trump suit and
+      // returns its low/high card completely blindly, with a `return`
+      // that exits before ever reaching the checks further down. A bot
+      // in this exact situation could lead a lone 9 with its Jack still
+      // unseen, or skip a Jack it was actually holding, with nothing in
+      // this specific code path stopping either. Moved the same
+      // uncut-Jack priority check up here, ahead of that branch, so it
+      // applies universally to every way a lead can happen, not just
+      // the ones that fall through to the main per-suit loop below.
+      const uncutJackSuits = SUITS.filter(s =>
+        bySuit[s].some(c => c.rank === 'J') && !this.suitsCutThisRound.has(s)
+      );
+      if (uncutJackSuits.length > 0) {
+        uncutJackSuits.sort((a, b) => bySuit[b].length - bySuit[a].length);
+        return bySuit[uncutJackSuits[0]].find(c => c.rank === 'J');
+      }
       if (!this.trumpExposed && isBidder) {
         const nt = hand.filter(c => c.suit !== this.trumpSuit);
         if (nt.length > 0) {
           const ntBySuit = {};
           for (const s of SUITS) ntBySuit[s] = [];
           for (const c of nt) ntBySuit[c.suit].push(c);
-          let bestSuit = '', bestLen = -1;
-          for (const s of SUITS) { if (ntBySuit[s].length > bestLen) { bestLen = ntBySuit[s].length; bestSuit = s; } }
-          if (bestSuit && ntBySuit[bestSuit].length > 0) {
-            ntBySuit[bestSuit].sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
-            return isEarly ? ntBySuit[bestSuit][0] : ntBySuit[bestSuit][ntBySuit[bestSuit].length - 1];
+          // Per explicit bug report: this used to always pick the
+          // single longest non-trump suit with no regard at all for
+          // what card that would actually mean leading -- a bot could
+          // end up leading a lone 9 with its Jack still unseen (or an
+          // Ace/10 with J/9 unseen) just because that suit happened to
+          // be the longest one available. Now checks EVERY non-trump
+          // suit, longest first, and skips any whose lead card would
+          // violate the same safety rules used everywhere else in this
+          // function, rather than blindly committing to the first
+          // (longest) one regardless of content.
+          const suitsByLength = SUITS.filter(s => ntBySuit[s].length > 0)
+            .sort((a, b) => ntBySuit[b].length - ntBySuit[a].length);
+          for (const s of suitsByLength) {
+            const sorted = [...ntBySuit[s]].sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+            const candidate = isEarly ? sorted[0] : sorted[sorted.length - 1];
+            const jSeenHere = this._isRankSeen(s, 'J');
+            const nineSeenHere = this._isRankSeen(s, '9');
+            const unsafe = (candidate.rank === '9' && !jSeenHere) ||
+              ((candidate.rank === 'A' || candidate.rank === '10') && (!jSeenHere || !nineSeenHere));
+            if (!unsafe) return candidate;
           }
         }
       }
