@@ -16869,7 +16869,15 @@ document.getElementById('btnPlayerJoinedOk') && document.getElementById('btnPlay
 });
 
 function applyServerState(state) {
-  const gwDisplay = document.getElementById('gameWrap').style.display;
+  // Defensive fix: this used to assume gameWrap always exists with no
+  // guard at all -- if it's ever missing for any reason, the old code
+  // threw immediately on this very first line, before any of the
+  // actual table-rendering logic below it could run at all, which
+  // would produce exactly a blank screen with nothing rendered. Now
+  // degrades to treating it as "not showing" instead of crashing the
+  // whole function.
+  const gwEl = document.getElementById('gameWrap');
+  const gwDisplay = gwEl ? gwEl.style.display : '';
   const gameWrapAlreadyShowing = !!gwDisplay && gwDisplay !== 'none';
   latestServerState = state;
   // Per explicit report: runs on every single online state update,
