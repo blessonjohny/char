@@ -1897,7 +1897,15 @@ class GameEngine {
         if (this.currentPlayer !== capturedPos) return;
         const seatNow = this.seats[capturedPos];
         if (!seatNow) return;
-        const stillStuck = seatNow.isBot || seatNow.ghostPlayer === true || !seatNow.connected || (Date.now() - (capturedTurnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
+        // Real bug fix, per explicit report on the 6-player table -- see
+        // that engine's identical fix for the fuller reasoning. Same
+        // stale-closure gap here: this re-check compared against
+        // capturedTurnStartedAt, frozen the moment THIS timer was
+        // scheduled, so a reconnect that reset the LIVE turnStartedAt
+        // any time after that (but before this timeout fired) got
+        // silently ignored -- the bot took over anyway regardless of
+        // how promptly the player actually came back.
+        const stillStuck = seatNow.isBot || seatNow.ghostPlayer === true || !seatNow.connected || (Date.now() - (this.turnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
         if (!stillStuck) return;
         this._botAct(capturedPos);
       }, delay);

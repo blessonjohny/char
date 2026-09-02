@@ -1423,7 +1423,20 @@ class GameEngine6P {
         if (this.currentPlayer !== capturedPos) return;
         const seatNow = this.seats[capturedPos];
         if (!seatNow) return;
-        const stillStuck = seatNow.isBot || seatNow.ghostPlayer === true || !seatNow.connected || (Date.now() - (capturedTurnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
+        // Real bug fix, per explicit report: this re-check used to
+        // compare against capturedTurnStartedAt -- a value frozen the
+        // moment THIS timer was scheduled. If the player reconnected
+        // (or otherwise had their turn genuinely resume) any time after
+        // that but before this timeout fired, markConnected() resets
+        // the LIVE this.turnStartedAt correctly, but this already-
+        // in-flight timeout had no way to know that -- it kept using
+        // its own frozen snapshot from before the reset, so it still
+        // concluded "still stuck" and handed the turn to a bot anyway,
+        // regardless of how promptly the player actually came back.
+        // Reading this.turnStartedAt live here instead means a reset
+        // that happens at any point before this fires is actually
+        // honored, not silently ignored by a stale closure.
+        const stillStuck = seatNow.isBot || seatNow.ghostPlayer === true || !seatNow.connected || (Date.now() - (this.turnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
         if (!stillStuck) return;
         this._botAct(capturedPos);
       }, delay);
