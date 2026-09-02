@@ -286,9 +286,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .welcome-btn .icon{font-size:1.2rem}
 .welcome-btn.primary{background:linear-gradient(135deg,var(--accent),#e6c200);color:var(--bg-dark);border-color:var(--accent);font-weight:800;box-shadow:0 4px 20px rgba(255,215,0,0.25)}
 .welcome-btn.primary:hover,.welcome-btn.primary:active{background:linear-gradient(135deg,#ffe033,#FFD700);box-shadow:0 8px 30px rgba(255,215,0,0.4);transform:translateY(-2px) scale(1.02)}
-.btn28-badge{font-family:'Cinzel','Playfair Display',serif;font-weight:900;font-size:1.7rem;line-height:1;letter-spacing:0.5px;display:block;-webkit-text-stroke:1.5px rgba(0,0,0,0.55);text-shadow:0 2px 4px rgba(0,0,0,0.35),0 0 12px rgba(255,255,255,0.25),-1px -1px 0 rgba(0,0,0,0.5),1px -1px 0 rgba(0,0,0,0.5),-1px 1px 0 rgba(0,0,0,0.5),1px 1px 0 rgba(0,0,0,0.5)}
+.btn28-badge{font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;line-height:1.15;letter-spacing:0.5px;display:block;
+  background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 2px 18px rgba(230,200,107,0.35),0 1px 0 rgba(0,0,0,0.3);
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+  font-size:1.7rem}
 .welcome-btn-grid .welcome-btn .btn28-badge{font-size:1.9rem}
-.btn28-modelabel{font-family:'Cinzel','Playfair Display',serif;font-weight:700;font-size:0.95rem;letter-spacing:0.4px;display:block;margin-top:1px;opacity:0.95;-webkit-text-stroke:0.8px rgba(0,0,0,0.5);text-shadow:-1px -1px 0 rgba(0,0,0,0.45),1px -1px 0 rgba(0,0,0,0.45),-1px 1px 0 rgba(0,0,0,0.45),1px 1px 0 rgba(0,0,0,0.45)}
+.btn28-modelabel{font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;font-size:0.95rem;letter-spacing:0.4px;display:block;margin-top:1px;
+  background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 2px 18px rgba(230,200,107,0.35),0 1px 0 rgba(0,0,0,0.3);
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4))}
+/* Per explicit request: the 6-player button's background is a light
+   gold, so the same gold-on-dark gradient text used everywhere else
+   would have almost no contrast there -- inverted to a dark
+   maroon-on-light gradient specifically for that one button instead,
+   keeping the same layered gradient+shadow TREATMENT (matching the
+   logo's own styling approach) while actually being readable against
+   a light background. */
+.welcome-btn-grid a .btn28-badge,.welcome-btn-grid a .btn28-modelabel{
+  background:linear-gradient(180deg,#a8443a 0%,#781c18 45%,#4a1410 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 2px 10px rgba(120,28,24,0.25),0 1px 0 rgba(255,255,255,0.25);
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,0.25))}
 .welcome-btn.coming-soon{opacity:0.5;cursor:not-allowed;border-style:dashed}
 .welcome-btn.coming-soon:hover{transform:none;box-shadow:none;background:rgba(255,215,0,0.05)}
 .welcome-features{width:100%;max-width:500px;margin:0 auto;padding:0 20px 30px;display:flex;flex-direction:column;align-items:center}
@@ -3667,10 +3688,10 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   </div>
 
   <div class="welcome-btn-wrap welcome-btn-grid">
-    <button class="welcome-btn primary" id="btnPlayOnline">
+    <button class="welcome-btn primary" id="btnPlayOnline" style="background:linear-gradient(160deg,#8a221c 0%,#5c150f 55%,#2b0603 100%);border-color:#cfa160;color:#f0cf94">
       <span class="btn28-badge">28</span><span class="btn28-modelabel">4 Player</span> <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🎙️ live voice chat</span>
     </button>
-    <a class="welcome-btn primary" href="/six.html" style="background:linear-gradient(135deg,#9b59b6,#8e44ad);border-color:transparent;color:#fff;text-decoration:none">
+    <a class="welcome-btn primary" href="/six.html" style="background:linear-gradient(160deg,#e0b878 0%,#cfa160 55%,#a67a3e 100%);border-color:#781c18;color:#4a1410;text-decoration:none">
       <span class="btn28-badge">28</span><span class="btn28-modelabel">6 Player</span> <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🎙️ 2 teams of 3</span>
     </a>
     <a class="welcome-btn primary" href="/56.html" style="background:linear-gradient(135deg,#2a9d8f,#1d6f65);border-color:transparent;color:#fff;text-decoration:none">
