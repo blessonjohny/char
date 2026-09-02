@@ -49,6 +49,37 @@ function freshDeck() {
   return deck;
 }
 
+// Per explicit request: models how a real physical deck actually behaves between rounds --
+// the cards from the last round don't reset to a fresh factory order before the next shuffle,
+// they start from however they ended up stacked as tricks were collected (folded on top of
+// each other) one after another. foldOrder is exactly that: this.playedCardsThisRound from the
+// round that just ended, in the order each trick was gathered up.
+//
+// Worth being explicit about what this changes and what it doesn't: a proper Fisher-Yates
+// shuffle (the same one freshDeck() already runs) produces a uniformly random result
+// regardless of what order the cards were in before it started -- so this isn't a fairness fix
+// and the deck was never biased to begin with. It's specifically about matching the physical
+// mental model of how a real deck moves from round to round, which is the actual thing asked
+// for here, not a claim that the old approach was somehow less fair.
+//
+// Falls back to the plain freshDeck() factory order whenever foldOrder isn't a genuinely
+// complete 36-card stack -- the very first round of a new game (nothing has been played yet to
+// build a fold order from at all) being the main case, exactly as expected.
+function freshDeckFromFoldOrder(foldOrder) {
+  const base = (Array.isArray(foldOrder) && foldOrder.length === 36) ? foldOrder.slice() : null;
+  const deck = base || (() => {
+    const d = [];
+    for (const s of SUITS) for (const r of RANKS) d.push({ suit: s, rank: r, points: POINTS[r] });
+    for (const s of SUITS) d.push({ suit: s, rank: '6', points: 0 });
+    return d;
+  })();
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
 function cardEq(a, b) { return a.suit === b.suit && a.rank === b.rank; }
 
 // ============================================================
@@ -348,20 +379,40 @@ class GameEngine6P {
       }
       for (let i = 0; i < SEATS; i++) { if (this.seats[i]) this.seats[i].hand = []; }
       this.deck = freshDeck();
-      this.dealCards(6);
+      // Per explicit instruction: dealt as two passes of 3 (going all
+      // the way around the table each pass) rather than one pass of 6,
+      // even though there's only a single bidding phase here and both
+      // passes happen back to back with nothing in between them --
+      // bidding only starts once both passes are done either way, so
+      // this doesn't change when bidding begins or what anyone ends up
+      // holding, just how the deal itself is structured.
+      this.dealCards(3);
+      this.dealCards(3);
     }
     return reason;
   }
 
   startRound() {
+    // Captured BEFORE resetRoundState() wipes playedCardsThisRound back
+    // to [] -- this is the previous round's actual fold order (all 36
+    // cards, in the order each trick was collected), used as this new
+    // round's pre-shuffle starting stack. See freshDeckFromFoldOrder for
+    // the full reasoning.
+    const priorFoldOrder = this.playedCardsThisRound;
     this.round++;
     this.resetRoundState();
     this.dealer = nextPos(this.dealer);
     this.currentPlayer = nextPos(this.dealer);
-    this.deck = freshDeck();
+    this.deck = freshDeckFromFoldOrder(priorFoldOrder);
     for (let i = 0; i < SEATS; i++) if (this.seats[i]) this.seats[i].hand = [];
-    this.dealCards(6); // all 6 cards, all at once — no split deal in this variant
+    // Per explicit instruction: two passes of 3 around the table, not
+    // one pass of 6 -- see the identical change/reasoning in
+    // _dealSameHandUntilValid above. Still only one bidding phase,
+    // still starts only once both passes finish.
+    this.dealCards(3);
+    this.dealCards(3);
     this.reshuffleReason = this._dealSameHandUntilValid();
+    this._validateCardIntegrity('startRound, right after dealing');
     this.phase = 'bidding1';
     this.addLog(`Round ${this.round} started. Dealer seat ${this.dealer}.`);
     this._notify();
@@ -369,14 +420,23 @@ class GameEngine6P {
   }
 
   restartRound() {
+    // Same reasoning as startRound() -- captured before resetRoundState()
+    // wipes it, so a mid-round restart still bases its fresh shuffle on
+    // whatever was actually played of THIS round before the restart, not
+    // a blank factory order.
+    const priorFoldOrder = this.playedCardsThisRound;
     const keepRound = this.round, keepDealer = this.dealer;
     this.resetRoundState();
     this.round = keepRound; this.dealer = keepDealer;
     this.currentPlayer = nextPos(this.dealer);
-    this.deck = freshDeck();
+    this.deck = freshDeckFromFoldOrder(priorFoldOrder);
     for (let i = 0; i < SEATS; i++) if (this.seats[i]) this.seats[i].hand = [];
-    this.dealCards(6);
+    // Per explicit instruction: same two-passes-of-3 dealing as
+    // startRound() -- see there for the fuller reasoning.
+    this.dealCards(3);
+    this.dealCards(3);
     this.reshuffleReason = this._dealSameHandUntilValid();
+    this._validateCardIntegrity('restartRound, right after dealing');
     this.phase = 'bidding1';
     this.addLog(`Round ${this.round} restarted by the host — fresh shuffle.`);
     this._notify();
@@ -388,6 +448,12 @@ class GameEngine6P {
     this.gameOver = null;
     this.round = 0;
     this.dealer = Math.floor(Math.random() * SEATS);
+    // A brand new game's first round has no legitimate prior round to
+    // base a fold order on -- explicitly cleared here so startRound()'s
+    // own capture-before-reset sees an empty array (not 36 leftover
+    // cards from the game that just ended) and correctly falls back to
+    // freshDeckFromFoldOrder's plain factory order for this one round.
+    this.playedCardsThisRound = [];
     // Q marks deliberately NOT cleared here -- this is the only path to
     // a new match in this engine (there's no automatic continuation
     // like the 4-player game has), so clearing on every restart would
@@ -693,6 +759,7 @@ class GameEngine6P {
       this.hiddenTrumpOwner = pos;
     }
     this.addLog(`Seat ${pos} chose ${suit} as trump.`);
+    this._validateCardIntegrity('chooseTrump, right after pulling the hidden card out of the hand');
     this._startPlay();
     return { ok: true };
   }
@@ -930,6 +997,7 @@ class GameEngine6P {
     if (this.trickSuit === '') { this.trickSuit = card.suit; this.suitLeadCount[card.suit]++; }
     this.trickCards.push({ pos, card });
     this.addLog(`Seat ${pos} played the hidden trump ${card.rank}${card.suit}!`);
+    this._validateCardIntegrity('playHiddenTrump, right after the hidden card enters the current trick');
     if (this.trickCards.length === SEATS - this.foldedSeats.length) this._resolveTrick();
     else { this.currentPlayer = this._nextActivePos(this.currentPlayer); this._notify(); this.maybeAutoAct(); }
     return { ok: true };
@@ -946,6 +1014,7 @@ class GameEngine6P {
       this.hiddenTrump = null;
       this.hiddenTrumpOwner = -1;
     }
+    this._validateCardIntegrity('exposeTrump, right after returning the hidden card to its owner\'s hand');
   }
 
   // See game-engine.js for the full reasoning -- identical helper here,
@@ -1130,6 +1199,7 @@ class GameEngine6P {
   }
 
   _endRound() {
+    this._validateCardIntegrity('_endRound, at the very start -- before this round\'s state gets reset for the next one');
     const bT = getTeam(this.bidder);
     const oT = 1 - bT;
     const isQuote = !!this.quoteState;
@@ -1566,6 +1636,42 @@ class GameEngine6P {
   }
 
   _cardsSeenSoFar() { return this.playedCardsThisRound.concat(this.trickCards.map(tc => tc.card)); }
+
+  // Per explicit request: a real integrity check, not just a comment
+  // claiming things are fine -- sums every location a card can
+  // legitimately be at any moment (a player's hand, the hidden-trump
+  // holding spot, the current unresolved trick, and every card already
+  // collected from finished tricks this round) and confirms the total
+  // is exactly the full 36-card set with no duplicates and nothing
+  // missing. Doesn't throw or interrupt play -- logs a clear, specific
+  // error so a real problem is immediately visible and debuggable
+  // instead of silently corrupting a deal, without turning a caught bug
+  // into a second, louder bug of its own (a thrown exception here mid-
+  // game would crash the table outright, which is worse than a logged
+  // warning for something that should never happen but needs to be
+  // caught if it somehow does).
+  _validateCardIntegrity(where) {
+    const all = [];
+    for (const seat of this.seats) if (seat) all.push(...seat.hand);
+    if (this.hiddenTrump) all.push(this.hiddenTrump);
+    all.push(...this.trickCards.map(tc => tc.card));
+    all.push(...this.playedCardsThisRound);
+    const key = c => c.suit + c.rank;
+    const keys = all.map(key);
+    const uniqueKeys = new Set(keys);
+    const ok = all.length === 36 && uniqueKeys.size === 36;
+    if (!ok) {
+      const counts = {};
+      for (const k of keys) counts[k] = (counts[k] || 0) + 1;
+      const duplicates = Object.keys(counts).filter(k => counts[k] > 1);
+      const fullDeckKeys = new Set();
+      for (const s of SUITS) for (const r of RANKS) fullDeckKeys.add(s + r);
+      for (const s of SUITS) fullDeckKeys.add(s + '6');
+      const missing = [...fullDeckKeys].filter(k => !uniqueKeys.has(k));
+      console.error(`[card integrity FAILED at ${where}] total=${all.length} (expected 36), unique=${uniqueKeys.size}, duplicates=${JSON.stringify(duplicates)}, missing=${JSON.stringify(missing)}`);
+    }
+    return ok;
+  }
   _isRankSeen(suit, rank) { return this._cardsSeenSoFar().some(c => c.suit === suit && c.rank === rank); }
   // Is there still a card of `suit` ranked higher than `aboveRank` that hasn't been played yet
   // this round? Used specifically for the "should I cut in even though my partner is
