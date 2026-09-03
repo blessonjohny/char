@@ -2436,8 +2436,26 @@ class GameEngine {
       // populated in _resolveTrick()). Picks the longest such suit if
       // more than one qualifies, since a longer suit alongside the
       // Jack is strictly safer to keep leading in later tricks too.
+      // Real, confirmed bug fix per explicit live report on the
+      // 6-player table (a bot's turn observed getting permanently
+      // stuck with these exact cards) -- see that engine's identical
+      // fix for the fuller reasoning. This specific check didn't
+      // exclude the trump suit the way the separate, earlier Jack
+      // check above it already does -- if the bidder still holds
+      // their own trump suit's Jack in hand (a different, lower trump
+      // card got spliced out as the hidden card instead), this would
+      // return that Jack to lead, but canPlayCard's bidder-hidden-
+      // trump rule explicitly rejects a bidder leading trump while
+      // holding other non-trump cards and trump isn't exposed yet --
+      // a guaranteed-rejected candidate with nothing to catch or retry
+      // it. The earlier check above already prevents this from being
+      // reached in the exact same scenario this session hit, but this
+      // one had the identical gap and is fixed the same way for
+      // consistency and defense in depth.
+      const restrictedFromTrumpLead = !this.trumpExposed && isBidder && hand.some(c => c.suit !== this.trumpSuit);
       const uncutJackSuits = SUITS.filter(s =>
-        bySuit[s].some(c => c.rank === 'J') && !this.suitsCutThisRound.has(s)
+        bySuit[s].some(c => c.rank === 'J') && !this.suitsCutThisRound.has(s) &&
+        !(restrictedFromTrumpLead && s === this.trumpSuit)
       );
       if (uncutJackSuits.length > 0) {
         uncutJackSuits.sort((a, b) => bySuit[b].length - bySuit[a].length);

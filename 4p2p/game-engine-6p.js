@@ -1251,6 +1251,30 @@ class GameEngine6P {
           this.pendingEarlyWinChoice = { team: winningTeam, made: bidderClinched };
           this.currentPlayer = winner.pos;
           this._notify();
+          // Real, confirmed bug fix per explicit report -- structurally
+          // the exact same gap as requestMidTrickQuote()'s identical
+          // fix (see there for the fuller reasoning): this offer had no
+          // timeout at all. maybeAutoAct() unconditionally returns the
+          // moment pendingEarlyWinChoice is set, for as long as it
+          // stays set, blocking every bot action anywhere in the game --
+          // not just this round. The existing "no human left on the
+          // team" check only auto-resolves if EVERYONE on that team
+          // disconnects; one connected human who simply never responds
+          // (steps away, doesn't notice the prompt, etc.) leaves this
+          // stuck exactly like the mid-trick question was. Defaults to
+          // "continue playing" on timeout, matching the existing
+          // default this function already uses when no human is left
+          // at all -- the least disruptive option, since it's simply
+          // what happens when nobody claims the early win.
+          const capturedChoice = this.pendingEarlyWinChoice;
+          const capturedRound = this.round;
+          setTimeout(() => {
+            if (this.round !== capturedRound) return;
+            if (this.pendingEarlyWinChoice !== capturedChoice) return;
+            this.addLog(`No response to the early-win offer in time -- continuing to play out the round.`);
+            const anyPosOnTeam = Array.from({ length: SEATS }, (_, p) => p).find(p => getTeam(p) === winningTeam);
+            this.respondToEarlyWin(anyPosOnTeam, true);
+          }, 30000);
           return;
         }
         this._endRound();
@@ -1854,8 +1878,28 @@ class GameEngine6P {
       // uncut-Jack priority check up here, ahead of that branch, so it
       // applies universally to every way a lead can happen, not just
       // the ones that fall through to the main per-suit loop below.
+      //
+      // Real, confirmed bug fix per explicit live report (a bot's turn
+      // observed getting permanently stuck with these exact cards): this
+      // check had no awareness at all of the bidder's own hidden-trump
+      // restriction. If the bidder still holds their trump suit's OWN
+      // Jack in hand (a different, lower trump card got spliced out as
+      // the actual hidden card instead), this would return that Jack as
+      // the card to lead -- but canPlayCard()'s bidder_hidden_trump rule
+      // explicitly REJECTS a bidder leading their trump suit at all
+      // while it holds other non-trump cards and trump isn't exposed
+      // yet. The candidate this function returned was therefore
+      // guaranteed to be rejected the moment it was actually attempted,
+      // which is a silent failure with nothing to catch or retry it --
+      // even the watchdog's retry would hit the exact same rejection
+      // again. Excludes the trump suit from this Jack-priority check
+      // specifically in that situation, leaving trump-suit Jacks to
+      // the existing hidden-trump logic below, which already handles
+      // leading non-trump correctly.
+      const restrictedFromTrumpLead = !this.trumpExposed && isBidder && pos === this.hiddenTrumpOwner && hand.some(c => c.suit !== this.trumpSuit);
       const uncutJackSuits = SUITS.filter(s =>
-        bySuit[s].some(c => c.rank === 'J') && !this.suitsCutThisRound.has(s)
+        bySuit[s].some(c => c.rank === 'J') && !this.suitsCutThisRound.has(s) &&
+        !(restrictedFromTrumpLead && s === this.trumpSuit)
       );
       if (uncutJackSuits.length > 0) {
         uncutJackSuits.sort((a, b) => bySuit[b].length - bySuit[a].length);
