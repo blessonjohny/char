@@ -4380,6 +4380,10 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <button class="btn btn-outline" style="width:100%;margin-bottom:14px;text-align:left" id="btnHostRestartGame">
       ♻️ Restart Entire Game<br><span style="font-size:0.68rem;opacity:0.75;font-weight:400">Reset the match score and start over from round 1</span>
     </button>
+    <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:12px;margin-bottom:12px">
+      <div style="color:var(--accent);font-weight:700;font-size:0.8rem;margin-bottom:8px">🏆 Fastest Championship — 4 Player</div>
+      <div id="hostMenuLeaderboard" style="font-size:0.75rem;color:var(--text-secondary)">Loading…</div>
+    </div>
     <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:12px">
       <div style="color:var(--text-secondary);font-size:0.75rem;margin-bottom:8px">Players at the table:</div>
       <div id="hostMenuPlayerList"></div>
@@ -14546,7 +14550,7 @@ async function showLeaderboardPopup() {
     okBtn.removeEventListener('click', dismiss);
   };
   okBtn.addEventListener('click', dismiss);
-  autoTimer = setTimeout(dismiss, 5000);
+  autoTimer = setTimeout(dismiss, 10000);
 
   try {
     const res = await fetch('/api/leaderboard');
@@ -16916,7 +16920,31 @@ async function confirmChangeAvatar(pos, key) {
 function openServerHostMenu() {
   if (!SERVER_IS_HOST) return;
   renderHostMenuPlayerList();
+  refreshHostMenuLeaderboard();
   document.getElementById('hostMenuOverlay').classList.add('on');
+}
+// Per explicit request: the leaderboard should also be reachable from
+// the in-table host/admin menu itself, not just the separate standalone
+// admin.html page (that one stays exactly as built, per explicit
+// instruction to leave it). Shows just this table's own mode (4-player)
+// -- a host at a 4-player table has no reason to see 6-player's numbers
+// here, and vice versa on the six-player table's own equivalent.
+async function refreshHostMenuLeaderboard() {
+  const el = document.getElementById('hostMenuLeaderboard');
+  if (!el) return;
+  el.innerHTML = 'Loading…';
+  try {
+    const res = await fetch('/api/leaderboard');
+    const data = await res.json();
+    const lb = data.leaderboard;
+    const top = lb.today['4p'][0];
+    if (!top) { el.innerHTML = 'No championship won yet today.'; return; }
+    const names = top.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
+    const roundLabel = top.rounds === 1 ? 'round' : 'rounds';
+    el.innerHTML = `${names} — ${top.rounds} ${roundLabel}`;
+  } catch (e) {
+    el.innerHTML = 'Could not load.';
+  }
 }
 function closeHostMenu() {
   document.getElementById('hostMenuOverlay').classList.remove('on');

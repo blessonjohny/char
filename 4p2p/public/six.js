@@ -3749,7 +3749,28 @@ function openHostMenu() {
   $('hostMenuBotPickerView').style.display = 'none';
   $('hostMenuMainView').style.display = 'block';
   renderHostMenuPlayerList();
+  refreshHostMenuLeaderboard();
   $('hostMenuOverlay').classList.add('on');
+}
+// Per explicit request, same addition as the 4-player table's identical
+// function -- see there for the fuller reasoning. Shows only this
+// table's own mode (6-player).
+async function refreshHostMenuLeaderboard() {
+  const el = $('hostMenuLeaderboard');
+  if (!el) return;
+  el.innerHTML = 'Loading…';
+  try {
+    const res = await fetch('/api/leaderboard');
+    const data = await res.json();
+    const lb = data.leaderboard;
+    const top = lb.today['6p'][0];
+    if (!top) { el.innerHTML = 'No championship won yet today.'; return; }
+    const names = top.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
+    const roundLabel = top.rounds === 1 ? 'round' : 'rounds';
+    el.innerHTML = `${names} — ${top.rounds} ${roundLabel}`;
+  } catch (e) {
+    el.innerHTML = 'Could not load.';
+  }
 }
 function closeHostMenu() {
   $('hostMenuOverlay').classList.remove('on');
