@@ -3776,7 +3776,7 @@ async function refreshHostMenuLeaderboard() {
       if (!e) return 'None yet';
       const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
       const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
-      return `${names} — ${e.rounds} ${roundLabel}`;
+      return `${names} enforced Kunukku in ${e.rounds} ${roundLabel}`;
     };
     el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['6p'][0])}<br>📅 Today: ${fmtEntry(lb.today['6p'][0])}`;
   } catch (e) {

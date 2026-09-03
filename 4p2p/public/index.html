@@ -4311,7 +4311,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
      for the fetch/populate logic and the 5s auto-dismiss timer. -->
 <div class="modal-overlay" id="leaderboardPopupOverlay" style="z-index:2600">
   <div class="modal" style="text-align:center;max-width:340px">
-    <h3 style="margin-top:0">🏆 Today's Fastest Championships</h3>
+    <h3 style="margin-top:0;margin-bottom:2px">🏆 Leaderboard</h3>
+    <div style="text-align:center;font-size:0.72rem;color:var(--text-secondary);opacity:0.85;margin-bottom:10px">Ranked by fewest rounds to win a championship</div>
     <div id="leaderboardPopupContent" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:40px">
       Loading…
     </div>
@@ -14632,7 +14633,7 @@ async function showLeaderboardPopup() {
       // surrounding round-count text instead of blending in at the
       // same weight.
       const styledNames = `<span style="font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;font-size:1.08em;text-transform:uppercase;letter-spacing:0.3px;background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 1px 8px rgba(230,200,107,0.3)">${names}</span>`;
-      return `${styledNames} — ${e.rounds} ${roundLabel}`;
+      return `${styledNames} enforced Kunukku in ${e.rounds} ${roundLabel}`;
     };
     const fmtOne = (mode, label) => `
       <div style="margin-bottom:12px">
@@ -17018,7 +17019,7 @@ async function refreshHostMenuLeaderboard() {
       if (!e) return 'None yet';
       const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
       const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
-      return `${names} — ${e.rounds} ${roundLabel}`;
+      return `${names} enforced Kunukku in ${e.rounds} ${roundLabel}`;
     };
     el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['4p'][0])}<br>📅 Today: ${fmtEntry(lb.today['4p'][0])}`;
   } catch (e) {
