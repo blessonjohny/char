@@ -1662,7 +1662,28 @@ class GameEngine6P {
       for (const c of hand) bySuit[c.suit].push(c);
       let bestSuit = SUITS[0], bestLen = -1;
       for (const s of SUITS) if (bySuit[s].length > bestLen) { bestLen = bySuit[s].length; bestSuit = s; }
-      this.chooseTrump(pos, bestSuit, null);
+      // Per explicit live report: a bot's turn to choose trump was
+      // observed getting permanently stuck (never recovering, even
+      // after the usual watchdog window) with no error at all in the
+      // server log. This call's return value was never being checked,
+      // unlike the identical bid-placing pattern right above it -- if
+      // chooseTrump() ever legitimately fails here (returns {ok:false}
+      // instead of throwing), that failure was completely invisible:
+      // no log line, no fallback, no retry, and since nothing about
+      // the underlying condition would change on its own, even the
+      // watchdog's retry a few seconds later would silently hit the
+      // exact same failure again. This doesn't claim to have found
+      // the root cause with certainty -- extensive live testing this
+      // session couldn't reproduce a genuine permanent stall -- but it
+      // closes a real, confirmed gap: if this happens again, the
+      // server log will now show exactly which reason chooseTrump()
+      // rejected, rather than the silence that made this so hard to
+      // diagnose from a report alone.
+      const trumpResult = this.chooseTrump(pos, bestSuit, null);
+      if (!trumpResult.ok) {
+        console.error(`[bot-safety] chooseTrump failed for seat ${pos} in round ${this.round}: ${trumpResult.reason}. Hand:`, JSON.stringify(hand));
+        this.addLog(`[bot-safety] Seat ${pos}'s trump choice failed (${trumpResult.reason}) -- retrying.`);
+      }
     } else if (this.phase === 'play' && this.currentPlayer === pos) {
       const hand = this.seats[pos].hand;
       if (hand.length === 0 && this.hiddenTrump && pos === this.hiddenTrumpOwner) {
