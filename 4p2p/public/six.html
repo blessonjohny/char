@@ -1249,12 +1249,19 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    turns -- this is the actual call-to-action for the person looking at
    it) gets bold + a blink, so it's impossible to miss that the ball is
    in their court. */
-#bidWinnerBubble6p .bwb-turn.bwb-turn-mine{font-weight:900;font-size:0.9rem;color:#ff3b3b;text-shadow:0 0 8px rgba(255,20,20,0.8);animation:bwbTurnBlinkRed 1s step-start infinite;}
-#bidWinnerBubble6p .bwb-turn.bwb-turn-partner{font-weight:900;font-size:0.9rem;color:#3ddc84;text-shadow:0 0 8px rgba(46,204,113,0.8);animation:bwbTurnBlinkGreen 1s step-start infinite;}
-#bidWinnerBubble6p .bwb-turn.bwb-turn-opp{font-weight:900;font-size:0.9rem;color:#5c8bff;text-shadow:0 0 8px rgba(65,105,225,0.8);animation:bwbTurnBlinkBlue 1s step-start infinite;}
+/* Per explicit request: same "matte royal" finish + spring pop as the
+   4-player table's identical addition -- see there for the fuller
+   reasoning. */
+#bidWinnerBubble6p .bwb-turn.bwb-turn-mine{font-weight:900;font-size:0.9rem;color:#c41e3a;text-shadow:0 2px 3px rgba(0,0,0,0.6),0 0 10px rgba(196,30,58,0.5);animation:bwbTurnBlinkRed 1s step-start infinite;}
+#bidWinnerBubble6p .bwb-turn.bwb-turn-partner{font-weight:900;font-size:0.9rem;color:#2e7d4f;text-shadow:0 2px 3px rgba(0,0,0,0.6),0 0 10px rgba(46,125,79,0.5);animation:bwbTurnBlinkGreen 1s step-start infinite;}
+#bidWinnerBubble6p .bwb-turn.bwb-turn-opp{font-weight:900;font-size:0.9rem;color:#2851a3;text-shadow:0 2px 3px rgba(0,0,0,0.6),0 0 10px rgba(40,81,163,0.5);animation:bwbTurnBlinkBlue 1s step-start infinite;}
+#bidWinnerBubble6p .bwb-turn.bwb-turn-pop{animation-name:bwbTurnPop6p, bwbTurnBlinkRed;animation-duration:0.55s,1s;animation-timing-function:cubic-bezier(0.34,1.56,0.64,1),step-start;animation-iteration-count:1,infinite;animation-delay:0s,0.55s;}
+#bidWinnerBubble6p .bwb-turn.bwb-turn-pop.bwb-turn-partner{animation-name:bwbTurnPop6p, bwbTurnBlinkGreen;}
+#bidWinnerBubble6p .bwb-turn.bwb-turn-pop.bwb-turn-opp{animation-name:bwbTurnPop6p, bwbTurnBlinkBlue;}
 @keyframes bwbTurnBlinkRed{50%{opacity:0.25;}}
 @keyframes bwbTurnBlinkGreen{50%{opacity:0.25;}}
 @keyframes bwbTurnBlinkBlue{50%{opacity:0.25;}}
+@keyframes bwbTurnPop6p{0%{transform:scale(0.3);opacity:0;}55%{transform:scale(1.18);opacity:1;}80%{transform:scale(0.94);}100%{transform:scale(1);}}
 /* Personal-avatar PIN modal -- per explicit request, replacing the
    generic browser prompt() with something that actually matches the
    table's own look (dark backdrop, gold/ornate border, Cinzel

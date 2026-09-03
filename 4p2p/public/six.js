@@ -2042,16 +2042,25 @@ function updateBidWinnerTurnText6p(state) {
   const bubble = $('bidWinnerBubble6p');
   if (!bubble || bubble.style.display === 'none') return;
   const cp = state.currentPlayer;
-  if (typeof cp !== 'number' || cp < 0) { turnEl.textContent = ''; turnEl.classList.remove('bwb-turn-mine', 'bwb-turn-partner', 'bwb-turn-opp'); return; }
+  if (typeof cp !== 'number' || cp < 0) { turnEl.textContent = ''; turnEl.classList.remove('bwb-turn-mine', 'bwb-turn-partner', 'bwb-turn-opp', 'bwb-turn-pop'); return; }
   const seat = state.seats[cp];
   const isMe = cp === MY_POS;
   const isPartner = !isMe && sixpGetTeam(cp) === sixpGetTeam(MY_POS);
   const possessive = isMe ? 'Your' : (seat ? escapeHtml(seat.name) + "'s" : "Their");
   const verb = state.phase === 'choosingTrump' ? 'turn to choose trump...' : 'turn to play';
-  turnEl.textContent = `${possessive} ${verb}`;
+  const newText = `${possessive} ${verb}`;
+  // Per explicit request, same "only replay on a genuine change, not
+  // every call" logic as the 4-player table's identical addition.
+  const changed = turnEl.textContent !== newText;
+  turnEl.textContent = newText;
   turnEl.classList.toggle('bwb-turn-mine', isMe);
   turnEl.classList.toggle('bwb-turn-partner', isPartner);
   turnEl.classList.toggle('bwb-turn-opp', !isMe && !isPartner);
+  if (changed) {
+    turnEl.classList.remove('bwb-turn-pop');
+    void turnEl.offsetWidth;
+    turnEl.classList.add('bwb-turn-pop');
+  }
 }
 function dismissBidWinnerCelebration6p() {
   const el = $('bidWinnerBubble6p');
