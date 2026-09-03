@@ -2555,6 +2555,16 @@ class GameEngine {
       const candidates = [];
       for (const s of SUITS) {
         if (bySuit[s].length === 0) continue;
+        // Real, confirmed bug fix per explicit live report on the
+        // 6-player table (a bot's turn observed permanently stuck with
+        // this exact hand shape) -- see that engine's identical fix for
+        // the fuller reasoning. Ported here too: a restricted bidder's
+        // trump suit used to only take a score penalty further below,
+        // not an outright exclusion, so it could still end up the only
+        // candidate pushed whenever every other suit got skipped by the
+        // safety rules -- and canPlayCard() rejects it outright
+        // regardless of score. Excluded entirely now.
+        if (restrictedFromTrumpLead && s === this.trumpSuit) continue;
         bySuit[s].sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
         const low = bySuit[s][0], high = bySuit[s][bySuit[s].length - 1];
         const jSeen = this._isRankSeen(s, 'J');
@@ -2722,8 +2732,21 @@ class GameEngine {
       }
       candidates.sort((a, c) => c.score - a.score);
       if (candidates.length > 0) return candidates[0].card;
-      hand.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
-      return isEarly ? hand[0] : hand[hand.length - 1];
+      // Real, confirmed bug fix per explicit live report on the
+      // 6-player table -- see that engine's identical fix for the
+      // fuller reasoning. This fallback used to sort and pick from the
+      // FULL hand with zero awareness of the bidder's hidden-trump
+      // restriction -- if every non-trump suit got excluded above (all
+      // "risky" lone Aces/9s with J/9 unseen) and this bot is a
+      // restricted bidder, it could pick a trump-suit card here that
+      // canPlayCard() unconditionally rejects, leaving the turn
+      // permanently stuck with nothing to catch or retry it. Falls back
+      // to whatever's actually legal to lead, low to high, so there's
+      // always something to return.
+      let pool = restrictedFromTrumpLead ? hand.filter(c => c.suit !== this.trumpSuit) : hand;
+      if (pool.length === 0) pool = hand; // only trump left at all -- must lead it, nothing else to give
+      pool.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+      return isEarly ? pool[0] : pool[pool.length - 1];
     }
 
     const follow = hand.filter(c => c.suit === this.trickSuit);

@@ -2004,6 +2004,16 @@ class GameEngine6P {
       const candidates = [];
       for (const s of SUITS) {
         if (bySuit[s].length === 0) continue;
+        // Real, confirmed bug fix per explicit live report -- see the
+        // fallback further down for the fuller reasoning: a restricted
+        // bidder's trump suit used to only take a score PENALTY here
+        // (-30 early, -10 late), not an outright exclusion, so it could
+        // still end up the only candidate pushed at all whenever every
+        // other suit got skipped by the safety rules above -- and
+        // canPlayCard() rejects it outright regardless of how it scored.
+        // Excluded entirely now, matching the same exclusion already
+        // applied to the uncutJackSuits check earlier in this function.
+        if (restrictedFromTrumpLead && s === this.trumpSuit) continue;
         bySuit[s].sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
         const low = bySuit[s][0], high = bySuit[s][bySuit[s].length - 1];
         const jSeen = this._isRankSeen(s, 'J');
@@ -2123,11 +2133,29 @@ class GameEngine6P {
       // violates the exact rule that excluded it in the first place,
       // the same category of bug the 9-specific filter below already
       // exists to prevent.
+      // Real, confirmed bug fix per explicit live report (a bot's turn
+      // observed permanently stuck holding exactly this shape of hand --
+      // a bidder pre-exposure with only "risky" lone-Ace/9 non-trump
+      // options plus its own trump suit): this fallback had zero
+      // awareness of the bidder's hidden-trump restriction at all. If
+      // every non-trump suit got excluded above by the safety rules
+      // (lone Ace/9 with J/9 unseen) AND this bot is a restricted
+      // bidder, safeHand/pool could still end up containing only trump-
+      // suit cards -- which canPlayCard() unconditionally REJECTS for a
+      // restricted bidder leading pre-exposure. The candidate this
+      // function returned was therefore guaranteed to be illegal, with
+      // nothing to catch or retry it -- exactly a permanent stuck turn,
+      // not a one-off. Per explicit instruction: if nothing safe AND
+      // legal remains, don't get clever -- just play low to high from
+      // whatever's actually legal to lead, so the bot never has nothing
+      // to return at all.
       const safeHand = hand.filter(c =>
         !(c.rank === '9' && !this._isRankSeen(c.suit, 'J')) &&
-        !((c.rank === 'A' || c.rank === '10') && (!this._isRankSeen(c.suit, 'J') || !this._isRankSeen(c.suit, '9')))
+        !((c.rank === 'A' || c.rank === '10') && (!this._isRankSeen(c.suit, 'J') || !this._isRankSeen(c.suit, '9'))) &&
+        !(restrictedFromTrumpLead && c.suit === this.trumpSuit)
       );
-      const pool = safeHand.length > 0 ? safeHand : hand;
+      let pool = safeHand.length > 0 ? safeHand : hand.filter(c => !(restrictedFromTrumpLead && c.suit === this.trumpSuit));
+      if (pool.length === 0) pool = hand; // only trump left at all -- must lead it, nothing else to give
       pool.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
       return isEarly ? pool[0] : pool[pool.length - 1];
     }
