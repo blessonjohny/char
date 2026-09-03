@@ -3076,6 +3076,18 @@ io.on('connection', (socket) => {
     withSixpTable((t) => { sixpTouch(t); });
   });
 
+  // Per explicit request: an explicit "I'm back" signal the client
+  // sends the moment its tab regains focus -- see reclaimTurn() in
+  // game-engine-6p.js for the full reasoning on why this needs to
+  // exist as its own thing, separate from the disconnect/reconnect-
+  // triggered reset that already existed.
+  socket.on('sixp_reclaimTurn', () => {
+    withSixpTable((t, pos) => {
+      if (typeof pos !== 'number' || pos < 0) return;
+      t.engine.reclaimTurn(pos);
+    });
+  });
+
   socket.on('sixp_fillBots', ({ count }) => {
     withSixpTable((t, pos) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;

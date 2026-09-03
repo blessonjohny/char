@@ -328,6 +328,25 @@ class GameEngine6P {
       this.turnStartedAt = Date.now();
     }
   }
+
+  // Per explicit request: a direct, explicit "I'm back, this is still
+  // my turn" reset that doesn't require an actual disconnect/reconnect
+  // cycle to fire at all -- markConnected() above only resets the clock
+  // as a side effect of a genuine socket disconnect event, but a
+  // backgrounded mobile tab often keeps its socket connection alive
+  // the whole time (OS-level throttling, not a real network drop), so
+  // there's no disconnect event for the server to ever see, and thus
+  // no reconnect to trigger that existing reset either. This gives the
+  // client a way to explicitly ask for the same reset the moment the
+  // tab comes back to the foreground, regardless of whether the
+  // connection ever actually dropped. No-ops harmlessly if it isn't
+  // genuinely this seat's turn right now, so it's safe to call
+  // speculatively any time the tab regains focus.
+  reclaimTurn(pos) {
+    if (this.currentPlayer === pos) {
+      this.turnStartedAt = Date.now();
+    }
+  }
   findSeatByPlayerId(playerId) { return this.seats.findIndex(s => s && s.playerId === playerId); }
 
   // ---------------- Round lifecycle ----------------
