@@ -37,6 +37,7 @@ const { Server } = require('socket.io');
 const { GameEngine } = require('./game-engine');
 const { SpadesEngine } = require('./spades-engine');
 const brain = require('./bot-brain');
+const leaderboard = require('./leaderboard');
 const l56Engine = require('./l56-engine');
 const geoip = require('geoip-lite');
 
@@ -1423,6 +1424,22 @@ function ghostSnapshot() {
 app.get('/api/admin/ghost-players', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
   res.json({ ok: true, ghosts: ghostSnapshot() });
+});
+
+// Fastest-championship leaderboard, 4-player and 6-player tracked
+// separately -- see leaderboard.js for the full ranking/persistence
+// logic.
+app.get('/api/admin/leaderboard', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  res.json({ ok: true, leaderboard: leaderboard.getLeaderboard() });
+});
+
+// Per explicit request: the same leaderboard data, but public -- no
+// admin auth -- for the new home-page popup every player sees, not
+// just admins. Same underlying data as the admin endpoint above,
+// just without the auth gate.
+app.get('/api/leaderboard', (req, res) => {
+  res.json({ ok: true, leaderboard: leaderboard.getLeaderboard() });
 });
 
 // Lists every current table (both modes) that has at least one bot seat a ghost could step

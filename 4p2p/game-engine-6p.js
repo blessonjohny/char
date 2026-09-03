@@ -24,6 +24,7 @@ const POINTS = { J: 3, '9': 2, A: 1, '10': 1, K: 0, Q: 0, '8': 0, '7': 0, '6': 0
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1, '6': 0 };
 const SEATS = 6;
 const brain = require('./bot-brain');
+const leaderboard = require('./leaderboard');
 brain.loadBrains();
 
 // Alternating seats form each team: 0,2,4 vs 1,3,5 — matches the source
@@ -135,6 +136,13 @@ class GameEngine6P {
     this.round = 0;
     this.gameScore = [0, 0];
     this.gameOver = null; // {winningTeam, finalScore} once the match ends
+    // Per explicit request: leaderboard tracking -- see game-engine.js's
+    // identical addition for the fuller reasoning. No "next match begins
+    // automatically" reset needed here the way 4-player needs for its
+    // championship-to-championship continuation (see the comment right
+    // below this one) -- a match just ends outright, so this only ever
+    // needs resetting on restartGame()/a genuinely fresh match.
+    this.roundLossesThisMatch = [0, 0];
     // "Q" penalty marks: same rule as the 4-player game. This engine has
     // no automatic championship-to-championship continuation (a match
     // just ends outright and needs an explicit restartGame() to begin
@@ -492,6 +500,7 @@ class GameEngine6P {
     this.gameScore = [0, 0];
     this.gameOver = null;
     this.round = 0;
+    this.roundLossesThisMatch = [0, 0];
     this.dealer = Math.floor(Math.random() * SEATS);
     // A brand new game's first round has no legitimate prior round to
     // base a fold order on -- explicitly cleared here so startRound()'s
@@ -1406,6 +1415,13 @@ class GameEngine6P {
   // Shared tail end of _endRound() -- see game-engine.js for the full
   // reasoning. bT/made here are always BIDDER-centric.
   _finishRoundBookkeeping(bT, made) {
+    // Per explicit request: leaderboard tracking -- see game-engine.js's
+    // identical addition for the fuller reasoning. The team that
+    // DIDN'T win this specific round just took a round-loss toward
+    // this match's tally.
+    const roundWinningTeam = made ? bT : (1 - bT);
+    const roundLosingTeam = 1 - roundWinningTeam;
+    this.roundLossesThisMatch[roundLosingTeam]++;
     // Q-mark removal: same rule as the 4-player game — personally
     // calling and winning a bid sheds one Q from yourself; on the very
     // first hand of a new match specifically, your partner sheds one
@@ -1463,6 +1479,20 @@ class GameEngine6P {
       const losingTeam = 1 - winningTeam;
       this.gameOver = { winningTeam, finalScore: this.gameScore.slice() };
       this.addLog(`Match over — team ${winningTeam} wins ${this.gameScore[winningTeam]}-${this.gameScore[1 - winningTeam]}.`);
+      // Per explicit request: leaderboard recording -- see
+      // game-engine.js's identical addition for the fuller reasoning.
+      // No championshipStartRound offset needed here the way 4-player
+      // needs one -- this engine's match starts at round 0 and ends
+      // outright right here, so this.round IS the rounds-taken count,
+      // not a difference between two points.
+      const winningPlayerNames = [];
+      for (let i = 0; i < SEATS; i++) {
+        const s = this.seats[i];
+        if (s && !s.isBot && getTeam(i) === winningTeam) winningPlayerNames.push(s.name);
+      }
+      if (winningPlayerNames.length > 0) {
+        leaderboard.recordChampionshipWin('6p', winningPlayerNames, this.round, this.roundLossesThisMatch[winningTeam]);
+      }
       // Every player on the losing team picks up a Q at match end, regardless of their exact
       // final score - not restricted to a true zero-point shutout. An earlier version of this
       // only fired the Q on a genuine 0-score loss, reasoning that a close 12-15 finish isn't

@@ -50,6 +50,7 @@ const RANKS = ['7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 const POINTS = { J: 3, '9': 2, A: 1, '10': 1, K: 0, Q: 0, '8': 0, '7': 0 };
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1 };
 const brain = require('./bot-brain');
+const leaderboard = require('./leaderboard');
 brain.loadBrains();
 
 // These two lines were wrong for this entire rewrite, and are the true
@@ -334,6 +335,16 @@ class GameEngine {
     this.gameScore = [6, 6]; // match score, team 0 / team 1 (mirrors client default)
     this.championshipNumber = 1;
     this.kingStreak = [0, 0]; // consecutive championships won by each team
+    // Per explicit request: leaderboard tracking -- how many rounds
+    // this specific championship has taken so far, and how many of
+    // those rounds each team has LOST (the other team scored that
+    // round), reset fresh at the start of every new championship (see
+    // both the initial start and the "next championship begins"
+    // reset further down). Used at the moment a championship is won
+    // to record a "fastest championship" leaderboard entry: fewest
+    // rounds first, fewest round-losses along the way as the tiebreak.
+    this.championshipStartRound = this.round;
+    this.roundLossesThisChampionship = [0, 0];
     // "Q" penalty marks: a shame counter that sticks to a player (by
     // name) across championships within this table's lifetime, not just
     // within one match. Every loss (this scoring system is zero-sum, so
@@ -743,6 +754,8 @@ class GameEngine {
     this.gameScore = [6, 6];
     this.championshipNumber = 1;
     this.kingStreak = [0, 0];
+    this.championshipStartRound = this.round;
+    this.roundLossesThisChampionship = [0, 0];
     this.qMarks = {};
     this.qTotalEver = {};
     this.isFirstHandOfChampionship = true;
@@ -1703,6 +1716,14 @@ class GameEngine {
   // never COT-team-centric -- see the conversion in the COT branch above
   // for why that distinction matters.
   _finishRoundBookkeeping(bT, made) {
+    // Per explicit request: leaderboard tracking -- see the property
+    // declarations near the constructor for the fuller reasoning. The
+    // team that DIDN'T win this specific round just took a round-loss
+    // toward this championship's tally.
+    const roundWinningTeam = made ? bT : (1 - bT);
+    const roundLosingTeam = 1 - roundWinningTeam;
+    this.roundLossesThisChampionship[roundLosingTeam]++;
+
     // Q-mark removal: personally calling and winning a bid sheds one Q
     // from yourself, if you're carrying any. On the very first hand of a
     // new championship specifically, a successful bidder ALSO sheds one
@@ -1780,6 +1801,21 @@ class GameEngine {
         kingStreak: this.kingStreak.slice(), isKing
       };
       this.addLog(`Championship ${this.championshipNumber} won by team ${winningTeam} (streak: ${this.kingStreak[winningTeam]})${isKing ? ' — KING OF THE TABLE!' : ''}.`);
+      // Per explicit request: leaderboard recording, right here where
+      // every piece of data needed already exists -- winning team's
+      // real (non-bot -- a bot winning isn't a player achievement to
+      // rank) player names, how many rounds this specific championship
+      // took (current round minus the round it started on), and how
+      // many of those rounds the winning team lost along the way.
+      const championshipRounds = this.round - this.championshipStartRound;
+      const winningPlayerNames = [];
+      for (let i = 0; i < 4; i++) {
+        const s = this.seats[i];
+        if (s && !s.isBot && getTeam(i) === winningTeam) winningPlayerNames.push(s.name);
+      }
+      if (winningPlayerNames.length > 0) {
+        leaderboard.recordChampionshipWin('4p', winningPlayerNames, championshipRounds, this.roundLossesThisChampionship[winningTeam]);
+      }
       // This scoring system is zero-sum (every point gained by one team
       // is lost by the other), so every championship necessarily ends
       // 12-0/0-12 — there's no such thing as a "close" loss here. Every
@@ -1799,6 +1835,8 @@ class GameEngine {
       this.gameScore = [6, 6];
       this.championshipNumber++;
       this.isFirstHandOfChampionship = true;
+      this.championshipStartRound = this.round;
+      this.roundLossesThisChampionship = [0, 0];
     }
 
     this._notify();
