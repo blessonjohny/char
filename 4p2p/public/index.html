@@ -14609,6 +14609,18 @@ async function showLeaderboardPopup() {
   contentEl.innerHTML = 'Loading…';
   overlay.classList.add('on');
 
+  // Per explicit request: on a slow connection, the popup and its OK
+  // button both appeared instantly (before the actual leaderboard data
+  // had even arrived), so a quick tap could dismiss the whole thing
+  // before the person ever saw real content -- just "Loading…" the
+  // entire time it was on screen. Disabling OK until the fetch actually
+  // resolves (success OR failure -- either way there's now something
+  // real to read) closes that gap without adding any visible spinner or
+  // extra UI; the button simply isn't tappable yet.
+  okBtn.disabled = true;
+  okBtn.style.opacity = '0.5';
+  okBtn.style.cursor = 'default';
+
   // Per explicit request: no auto-dismiss timer anymore -- OK click only.
   const dismiss = () => {
     overlay.classList.remove('on');
@@ -14642,6 +14654,10 @@ async function showLeaderboardPopup() {
     contentEl.innerHTML = fmtOne('4p', '4 Player') + fmtOne('6p', '6 Player');
   } catch (e) {
     contentEl.innerHTML = '<div style="opacity:0.7">Could not load today\'s leaderboard.</div>';
+  } finally {
+    okBtn.disabled = false;
+    okBtn.style.opacity = '';
+    okBtn.style.cursor = '';
   }
 }
 
