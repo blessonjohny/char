@@ -7,8 +7,10 @@
 // 15 for 6-player), with fewest round-losses along the way as the
 // tiebreak when two entries took the same number of rounds.
 //
-// Two sections per mode, per explicit request:
-//   - allTime: the single best entry ever recorded, kept forever.
+// Two sections per mode, both top-3 lists per explicit request
+// (all-time was originally a single best entry, then explicitly
+// changed to top-3 to match today's structure):
+//   - allTime: the best 3 entries ever recorded, kept forever.
 //   - today: up to the top 3 entries recorded since the last daily
 //     reset, resetting fresh every day. Uses the same 5am US Eastern
 //     boundary as the rest of the app's own daily reset (see
@@ -25,7 +27,7 @@ const path = require('path');
 const LEADERBOARD_FILE = path.join(__dirname, 'leaderboard-data.json');
 
 let data = {
-  allTime: { '4p': null, '6p': null },
+  allTime: { '4p': [], '6p': [] },
   today: { '4p': [], '6p': [] },
   todayDateKey: null // e.g. "2026-09-03", in America/New_York -- see currentDateKey()
 };
@@ -38,11 +40,26 @@ function currentDateKey() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
+// Per explicit change: allTime used to be a single {entry}-or-null per
+// mode; now it's a top-3 list, same shape as today. Migrates an
+// existing on-disk file from the old shape rather than discarding it
+// or crashing on it -- a real player's genuine best record from before
+// this change shouldn't just vanish.
+function _migrateAllTimeShape(loaded) {
+  if (!loaded || !loaded.allTime) return;
+  for (const mode of ['4p', '6p']) {
+    const v = loaded.allTime[mode];
+    if (Array.isArray(v)) continue; // already the new shape
+    loaded.allTime[mode] = v ? [v] : [];
+  }
+}
+
 function loadLeaderboard() {
   try {
     if (fs.existsSync(LEADERBOARD_FILE)) {
       const loaded = JSON.parse(fs.readFileSync(LEADERBOARD_FILE, 'utf8'));
-      data = Object.assign({ allTime: { '4p': null, '6p': null }, today: { '4p': [], '6p': [] }, todayDateKey: null }, loaded);
+      _migrateAllTimeShape(loaded);
+      data = Object.assign({ allTime: { '4p': [], '6p': [] }, today: { '4p': [], '6p': [] }, todayDateKey: null }, loaded);
       console.log(`[leaderboard] Loaded existing leaderboard data from disk.`);
     }
   } catch (e) {
@@ -70,15 +87,12 @@ function _rolloverIfNeeded() {
   }
 }
 
-// Returns true if entry A is a strictly better (faster) championship
-// than entry B: fewer rounds first, fewer round-losses as the tiebreak.
-// Equal on both counts is NOT better -- ties keep the earlier record
-// (first to achieve it holds the spot), matching how records normally
-// work.
-function _isBetter(a, b) {
-  if (!b) return true;
-  if (a.rounds !== b.rounds) return a.rounds < b.rounds;
-  return a.roundLosses < b.roundLosses;
+// Inserts entry into the given top-3 list (today or allTime for one
+// mode), re-sorts by rounds then roundLosses, and truncates back to 3.
+function _insertIntoTop3(list, entry) {
+  list.push(entry);
+  list.sort((x, y) => x.rounds !== y.rounds ? x.rounds - y.rounds : x.roundLosses - y.roundLosses);
+  return list.slice(0, 3);
 }
 
 // mode is '4p' or '6p'. playerNames is an array of the winning team's
@@ -94,15 +108,8 @@ function recordChampionshipWin(mode, playerNames, rounds, roundLosses) {
     ts: Date.now()
   };
 
-  if (_isBetter(entry, data.allTime[mode])) {
-    data.allTime[mode] = entry;
-    dirty = true;
-  }
-
-  const list = data.today[mode];
-  list.push(entry);
-  list.sort((x, y) => x.rounds !== y.rounds ? x.rounds - y.rounds : x.roundLosses - y.roundLosses);
-  data.today[mode] = list.slice(0, 3);
+  data.allTime[mode] = _insertIntoTop3(data.allTime[mode], entry);
+  data.today[mode] = _insertIntoTop3(data.today[mode], entry);
   dirty = true;
   saveLeaderboard();
 }
@@ -110,7 +117,7 @@ function recordChampionshipWin(mode, playerNames, rounds, roundLosses) {
 function getLeaderboard() {
   _rolloverIfNeeded();
   return {
-    allTime: { '4p': data.allTime['4p'], '6p': data.allTime['6p'] },
+    allTime: { '4p': data.allTime['4p'].slice(), '6p': data.allTime['6p'].slice() },
     today: { '4p': data.today['4p'].slice(), '6p': data.today['6p'].slice() }
   };
 }
