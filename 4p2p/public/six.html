@@ -210,6 +210,10 @@ h1{font-size:1.7rem;margin:0 0 4px;background:linear-gradient(135deg,#f4c430,#e6
    whole time; only "active" is genuinely clickable. */
 #btnQuoteDeclare.quote-btn-active{background:linear-gradient(135deg,#f4c430,#c99a1e)!important;border-color:#f4c430!important;color:#241a12!important;box-shadow:0 0 10px rgba(244,196,48,0.6);animation:quoteBtnPulse6p 1.6s ease-in-out infinite}
 #btnQuoteDeclare.quote-btn-disabled{opacity:0.45;filter:grayscale(0.4);cursor:default;pointer-events:none}
+/* Per explicit request: new bot-toggle addition, same "on" treatment
+   style as the 4-player table's identical feature, adapted to this
+   button's pill shape instead of a circle. */
+.sixp-bot-toggle.on{background:linear-gradient(135deg,#f4c430,#c99a1e)!important;border-color:#f4c430!important;color:#241a12!important;box-shadow:0 0 10px rgba(244,196,48,0.6)}
 #btnAskMidTrickQuote.quote-btn-active{background:linear-gradient(135deg,#f4c430,#c99a1e)!important;border-color:#f4c430!important;color:#241a12!important;box-shadow:0 0 10px rgba(244,196,48,0.6);animation:quoteBtnPulse6p 1.6s ease-in-out infinite}
 #btnAskMidTrickQuote.quote-btn-disabled{opacity:0.45;filter:grayscale(0.4);cursor:default;pointer-events:none}
 @keyframes quoteBtnPulse6p{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
@@ -1422,6 +1426,19 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
        seat - matching exactly where the 4-player table puts this same button, instead of
        the two tables having two different conventions for it. -->
   <button class="btn-outline" id="btnQuoteDeclare" title="Declare COT" style="display:none;position:fixed;right:48px;bottom:150px;z-index:150;padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">🎯 COT</button>
+
+  <!-- ===== BOT TOGGLE (6-player) ===== -->
+  <!-- Per explicit request: same auto-play-your-own-hand feature the
+       4-player table already has (see index.html's #botToggle /
+       toggleBotMode() / serverBotPlayForMe() for the original), added
+       here without touching any existing function -- this is purely new
+       HTML/CSS/JS, nothing above this point was changed. Positioned
+       opposite the COT button above: same bottom offset, mirrored to
+       the left side instead of the right, so it sits near the bottom
+       seat without colliding with COT or any other fixed control. -->
+  <div class="sixp-bot-toggle" id="sixpBotToggle" onclick="sixpToggleBotMode()" style="position:fixed;left:48px;bottom:150px;z-index:150;display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:0.68rem;font-weight:800;white-space:nowrap;cursor:pointer;border:1px solid rgba(255,255,255,0.25);background:rgba(20,20,20,0.55);color:#fff;transition:all 0.25s">
+    <span>🤖</span><span id="sixpBotLabel">BOT</span>
+  </div>
   <!-- The manual "ask" button - separate from the Declare button above and never active at
        the same time as it (Declare only lights up when leading a fresh trick; Ask only lights
        up mid-trick when someone else holds the lead) - stacked directly below it on the same

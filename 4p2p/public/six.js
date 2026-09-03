@@ -1940,6 +1940,13 @@ function applyState(state) {
     // match is underway), re-arms it correctly for the next time one actually ends.
     gameOverShownFor = false;
   }
+
+  // Per explicit request: triggers the new Bot Mode auto-play the same
+  // way index.html's own state handler triggers serverBotPlayForMe() --
+  // purely additive, doesn't touch any of the branches above.
+  if (state.phase === 'play' && state.currentPlayer === MY_POS && sixpBotModeActive) {
+    setTimeout(() => sixpBotPlayForMe(), 600);
+  }
 }
 
 function slotFor(pos) { return (pos - MY_POS + 6) % 6; }
@@ -2909,6 +2916,50 @@ function playHandCard(suit, rank) {
   socket.emit('sixp_playCard', { card: { suit, rank, points: POINTS[rank] } });
 }
 function playHiddenTrumpCard() { socket.emit('sixp_playHiddenTrump'); }
+
+// ---------------- Bot Mode (auto-play, 6-player) ----------------
+// Per explicit request: same feature as the 4-player table's own Bot
+// Mode toggle (see index.html's toggleBotMode()/serverBotPlayForMe()
+// for the original this mirrors) -- purely new code, calling only the
+// existing playHandCard()/playHiddenTrumpCard()/canPlay() functions
+// above rather than duplicating or modifying any of their logic. Same
+// "just submit a legal card, let the server's own authoritative engine
+// handle everything else" approach as the 4-player version: no local
+// trump-exposure or hidden-trump decisions made here at all.
+let sixpBotModeActive = false;
+function sixpToggleBotMode() {
+  sixpBotModeActive = !sixpBotModeActive;
+  const btn = document.getElementById('sixpBotToggle');
+  const label = document.getElementById('sixpBotLabel');
+  if (sixpBotModeActive) {
+    btn.classList.add('on');
+    label.textContent = 'ON';
+    showToast('🤖 Bot Mode ON — Auto-playing');
+    if (latestState && latestState.phase === 'play' && latestState.currentPlayer === MY_POS) {
+      setTimeout(() => sixpBotPlayForMe(), 400);
+    }
+  } else {
+    btn.classList.remove('on');
+    label.textContent = 'BOT';
+    showToast('🎮 Manual Mode — You control');
+  }
+}
+function sixpBotPlayForMe() {
+  if (!sixpBotModeActive) return;
+  if (!latestState || latestState.phase !== 'play' || latestState.currentPlayer !== MY_POS) return;
+  const mySeat = latestState.seats[MY_POS];
+  const hand = (mySeat && mySeat.hand) || [];
+  if (hand.length === 0) {
+    // Only remaining move is the forced hidden trump, if it's ours to play.
+    playHiddenTrumpCard();
+    return;
+  }
+  const legal = hand.filter(c => canPlay(latestState, c));
+  if (legal.length === 0) return; // shouldn't happen; server rejects anything illegal anyway
+  // Simple heuristic matching the 4-player version: lowest legal card.
+  legal.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
+  playHandCard(legal[0].suit, legal[0].rank);
+}
 
 $('btnCallTrumpYes').addEventListener('click', () => {
   $('callTrumpOverlay').classList.remove('on');

@@ -14609,14 +14609,12 @@ async function showLeaderboardPopup() {
   contentEl.innerHTML = 'Loading…';
   overlay.classList.add('on');
 
-  let autoTimer = null;
+  // Per explicit request: no auto-dismiss timer anymore -- OK click only.
   const dismiss = () => {
     overlay.classList.remove('on');
-    if (autoTimer) clearTimeout(autoTimer);
     okBtn.removeEventListener('click', dismiss);
   };
   okBtn.addEventListener('click', dismiss);
-  autoTimer = setTimeout(dismiss, 10000);
 
   try {
     const res = await fetch('/api/leaderboard');
