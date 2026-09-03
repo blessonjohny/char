@@ -1820,7 +1820,40 @@ function publicTableList() {
   });
 }
 
+// Per explicit report ("ghost bots stop after some time or after round 1")
+// -- confirmed to be a much broader gap than just ghost seats: ANY table
+// with no real, connected human at all (fully-bot tables included) got
+// permanently stuck the moment it reached 'roundEnd'. The only thing that
+// ever advances a table out of that phase is the client-side 'continueRound'
+// socket event -- sent when a real person clicks the on-screen continue
+// button. A table with nobody real seated has no one who could ever send
+// that event, so it just sat there forever waiting on something that could
+// never come, even though bots/ghosts play the actual round itself just fine.
+// Scoped strictly to "zero real connected humans" -- if even one real
+// person is at the table, they get to control pacing exactly as before;
+// this only kicks in for the fully-automated case where nothing else could
+// ever move the table forward.
+function _tableHasRealConnectedHuman(engine) {
+  return engine.seats.some(s => s && !s.isBot && s.ghostPlayer !== true && s.connected);
+}
+function autoAdvanceRoundEndIfNoHuman(t, isSixP) {
+  const engine = t.engine;
+  if (!engine || engine.phase !== 'roundEnd') { t._autoContinueScheduled = false; return; }
+  if (t._autoContinueScheduled) return;
+  if (_tableHasRealConnectedHuman(engine)) return;
+  t._autoContinueScheduled = true;
+  const capturedRound = engine.round;
+  setTimeout(() => {
+    t._autoContinueScheduled = false;
+    if (engine.phase !== 'roundEnd') return;
+    if (engine.round !== capturedRound) return;
+    if (_tableHasRealConnectedHuman(engine)) return;
+    engine.startRound();
+  }, 3000);
+}
+
 function broadcastTable(t) {
+  autoAdvanceRoundEndIfNoHuman(t, false);
   for (const [socketId, info] of t.sockets) {
     const sock = io.sockets.sockets.get(socketId);
     if (!sock) continue;
@@ -2909,6 +2942,7 @@ function sixpPublicTableList() {
 }
 
 function sixpBroadcastTable(t) {
+  autoAdvanceRoundEndIfNoHuman(t, true);
   for (const [socketId, info] of t.sockets) {
     const sock = io.sockets.sockets.get(socketId);
     if (!sock) continue;

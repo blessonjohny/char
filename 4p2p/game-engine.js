@@ -1973,14 +1973,24 @@ class GameEngine {
       // through every one of the normal guards again with a fresh view
       // of the current state, rather than assuming the original
       // captured values still apply.
-      if (seat.isBot) {
+      // Real, confirmed bug fix per explicit report ("ghost bots stop
+      // after some time"): this watchdog only ever fired for seat.isBot,
+      // completely excluding ghost-player seats. Ghost seats are
+      // deliberately kept isBot:false (see the comment above on isGhost)
+      // so they display as a real connected human everywhere else in the
+      // game -- but that also meant this second-chance retry silently
+      // never covered them. If the first timeout-based _botAct call ever
+      // failed to actually complete a ghost's turn for any reason, there
+      // was no fallback at all and the table just sat there permanently
+      // on that ghost's turn -- exactly the reported symptom.
+      if (seat.isBot || isGhost) {
         const watchdogPos = this.currentPlayer;
         const watchdogRound = this.round;
         setTimeout(() => {
           if (this.round !== watchdogRound) return;
           if (this.currentPlayer !== watchdogPos) return;
           const seatNow = this.seats[watchdogPos];
-          if (!seatNow || !seatNow.isBot) return;
+          if (!seatNow || !(seatNow.isBot || seatNow.ghostPlayer === true)) return;
           this.addLog(`[bot-watchdog] Seat ${watchdogPos} still hadn't acted after 3s -- retrying.`);
           this.maybeAutoAct();
         }, 3000);

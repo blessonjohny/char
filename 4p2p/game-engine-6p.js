@@ -1601,14 +1601,21 @@ class GameEngine6P {
       // (not a direct _botAct call), so it goes through every one of
       // the normal guards again with a fresh view of the current state,
       // rather than assuming the original captured values still apply.
-      if (seat.isBot) {
+      // Real, confirmed bug fix per explicit report ("ghost bots stop
+      // after some time") -- same fix as the 4-player engine's
+      // identical change: this watchdog only ever fired for seat.isBot,
+      // completely excluding ghost-player seats (deliberately kept
+      // isBot:false so they display as a real connected human), so
+      // ghost turns had no fallback at all if the first timeout-based
+      // action ever failed to complete.
+      if (seat.isBot || isGhost) {
         const watchdogPos = this.currentPlayer;
         const watchdogRound = this.round;
         setTimeout(() => {
           if (this.round !== watchdogRound) return;
           if (this.currentPlayer !== watchdogPos) return;
           const seatNow = this.seats[watchdogPos];
-          if (!seatNow || !seatNow.isBot) return;
+          if (!seatNow || !(seatNow.isBot || seatNow.ghostPlayer === true)) return;
           this.addLog(`[bot-watchdog] Seat ${watchdogPos} still hadn't acted after 3s -- retrying.`);
           this.maybeAutoAct();
         }, 3000);
