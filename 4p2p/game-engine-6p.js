@@ -327,6 +327,27 @@ class GameEngine6P {
     if (connected && this.currentPlayer === pos) {
       this.turnStartedAt = Date.now();
     }
+    // Real, confirmed bug fix per explicit report -- see the fuller
+    // reasoning at requestMidTrickQuote()'s 30s timeout, which handles
+    // the "never responds" case. This handles the faster, more certain
+    // case: if we ALREADY know the offered player just disconnected,
+    // there's no reason to wait out the rest of that 30s not knowing --
+    // clear it immediately instead, since maybeAutoAct() is completely
+    // blocked (for every seat, every future turn) for as long as this
+    // stays set.
+    if (!connected && this.pendingMidTrickQuote && this.pendingMidTrickQuote.offeredToPos === pos) {
+      const leaderSeat = this.seats[pos];
+      this.addLog(`${leaderSeat ? leaderSeat.name : 'That player'} disconnected before responding -- the question is withdrawn, play continues normally.`);
+      this.pendingMidTrickQuote = null;
+      // Explicit call here, not left to the caller: the offered player
+      // isn't necessarily this.currentPlayer at the moment they
+      // disconnect (the trick they're leading may still be waiting on
+      // OTHER seats to play their cards), so server.js's existing
+      // "only call maybeAutoAct() if the disconnecting seat IS
+      // currentPlayer" wouldn't catch this case at all, and whichever
+      // bot actually needs to move next would stay silently blocked.
+      this.maybeAutoAct();
+    }
   }
 
   // Per explicit request: a direct, explicit "I'm back, this is still
@@ -958,6 +979,36 @@ class GameEngine6P {
     const askerSeat = this.seats[askerPos];
     this.addLog(`${askerSeat.name} asked ${leaderSeat.name} to declare mid-trick COT/MaruCOT.`);
     this._notify();
+    // Real, confirmed bug fix per explicit report: this offer had NO
+    // timeout and NO disconnect handling at all -- respondToMidTrickQuote()
+    // is the ONLY place that ever clears pendingMidTrickQuote, and it only
+    // runs when the offered human explicitly responds. maybeAutoAct()
+    // unconditionally returns immediately, before any bot logic at all,
+    // for as long as this stays set (see the top of that function) -- so
+    // if the offered player disconnects, closes the tab, or simply never
+    // notices the prompt, EVERY bot turn for the rest of the entire game
+    // silently does nothing, not just this one trick. Confirmed via a
+    // live report: a bot's turn at the start of a LATER round never
+    // fired at all, and the seat was genuinely unresponsive (joining
+    // that seat from a second browser let a human play it manually,
+    // which wouldn't happen if the seat itself were merely slow).
+    // Fixed with a 30s timeout: if unanswered, the offer is simply
+    // cancelled as though it was never asked -- NOT auto-declined, since
+    // declining has a real, immediate round-ending consequence the
+    // player never actually chose. Captures the exact offer object, not
+    // just a position, so a NEW offer created in the meantime (after
+    // this one was answered and play moved on) is never mistakenly
+    // cancelled by an old timer that was scheduled before it existed.
+    const capturedOffer = this.pendingMidTrickQuote;
+    const capturedRound = this.round;
+    setTimeout(() => {
+      if (this.round !== capturedRound) return;
+      if (this.pendingMidTrickQuote !== capturedOffer) return;
+      this.addLog(`${leaderSeat.name} didn't respond in time -- the question is withdrawn, play continues normally.`);
+      this.pendingMidTrickQuote = null;
+      this._notify();
+      this.maybeAutoAct();
+    }, 30000);
     // Bug this fixes (from the earlier automatic version): without calling maybeAutoAct()
     // here too, if a genuine timing gap ever let this land on a bot, nothing would ever check
     // again - though _getMidTrickAskTarget already excludes bots entirely, so this call is

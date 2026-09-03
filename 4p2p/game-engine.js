@@ -1926,6 +1926,27 @@ class GameEngine {
         if (!stillStuck) return;
         this._botAct(capturedPos);
       }, delay);
+      // Per explicit report on the 6-player table (a bot's turn observed
+      // getting skipped entirely in live play) -- see that engine's
+      // identical addition for the fuller reasoning. Ported here since
+      // this file had no equivalent second safety check at all: if it's
+      // STILL that bot's uncompleted turn a few seconds later, retry via
+      // maybeAutoAct() itself (not a direct _botAct call), so it goes
+      // through every one of the normal guards again with a fresh view
+      // of the current state, rather than assuming the original
+      // captured values still apply.
+      if (seat.isBot) {
+        const watchdogPos = this.currentPlayer;
+        const watchdogRound = this.round;
+        setTimeout(() => {
+          if (this.round !== watchdogRound) return;
+          if (this.currentPlayer !== watchdogPos) return;
+          const seatNow = this.seats[watchdogPos];
+          if (!seatNow || !seatNow.isBot) return;
+          this.addLog(`[bot-watchdog] Seat ${watchdogPos} still hadn't acted after 3s -- retrying.`);
+          this.maybeAutoAct();
+        }, 3000);
+      }
     }
     // Connected human seats just wait for a client message; nothing to do here.
   }
