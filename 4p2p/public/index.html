@@ -2952,12 +2952,47 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    EITHER an actually-portrait device OR a browser wide enough to be in that desktop frame
    mode, while a genuinely narrow-AND-landscape phone (turned sideways) still correctly falls
    through to the old table, per the original reasoning below. */
+/* Default: hidden outside the photo-background context below --
+   these only make sense layered over that specific image. */
+.lamp-glow { display: none; }
 @media (orientation: portrait), (min-width: 521px) {
   .table:not(.mode6) {
     background-image: url('/images/table-bg-4p.jpg');
     background-size: cover;
     background-position: center;
     background-color: transparent;
+  }
+  /* Per explicit request: a warm ambient glow over each of the 4 lamps
+     already visible in this photo background (2 lamps top corners, a
+     candle cluster + lantern bottom corners), positioned by eye against
+     the actual image rather than computed -- coordinates are percentage
+     -based so they track background-size:cover's own scaling instead of
+     drifting at different viewport sizes. Kept deliberately subtle (low
+     opacity, slow gentle pulse, each lamp on its own animation-delay so
+     they don't all breathe in perfect unison) -- a soft casino-ambience
+     flicker, not a bright, distracting effect competing with the actual
+     game UI on top of it. pointer-events:none so these never intercept
+     taps meant for the table underneath.
+  */
+  .table:not(.mode6) .lamp-glow {
+    display: block;
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1;
+    background: radial-gradient(circle, rgba(255,200,110,0.55) 0%, rgba(255,170,70,0.28) 35%, rgba(255,140,40,0) 70%);
+    transform: translate(-50%, -50%);
+    animation: lampGlowPulse 4.5s ease-in-out infinite;
+  }
+  .table:not(.mode6) .lamp-glow-tl { top: 7.5%; left: 9%; animation-delay: 0s; }
+  .table:not(.mode6) .lamp-glow-tr { top: 7.5%; left: 91%; animation-delay: 1.1s; }
+  .table:not(.mode6) .lamp-glow-bl { top: 82%; left: 9%; width: 70px; height: 70px; animation-delay: 2.2s; }
+  .table:not(.mode6) .lamp-glow-br { top: 82%; left: 91%; animation-delay: 0.6s; }
+  @keyframes lampGlowPulse {
+    0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.92); }
+    50% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.08); }
   }
   .table:not(.mode6) .center::after,
   .table:not(.mode6) .center::before {
@@ -4031,6 +4066,10 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </div>
     <div class="king-progress-track" id="kingProgressTrack" style="display:none"><div class="king-progress-fill" id="kingProgressFill" style="width:0%"></div></div>
   </div><div class="table" id="tableArea">
+    <div class="lamp-glow lamp-glow-tl"></div>
+    <div class="lamp-glow lamp-glow-tr"></div>
+    <div class="lamp-glow lamp-glow-bl"></div>
+    <div class="lamp-glow lamp-glow-br"></div>
     <div id="bidWinnerBubble4p" style="display:none"></div>
     <div id="bidStatusBanner4p" class="bid-status-banner" style="display:none"></div>
     <div class="chip-stack cs-bl"><div class="c3"></div></div>
@@ -14560,7 +14599,14 @@ async function showLeaderboardPopup() {
       if (!e) return 'None yet';
       const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
       const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
-      return `${names} — ${e.rounds} ${roundLabel}`;
+      // Per explicit request: player names styled like the
+      // "28GULAN.COM" title elsewhere on this page -- bold, uppercase,
+      // slightly larger, same gold gradient treatment -- so the names
+      // (the actual achievement) stand out clearly from the
+      // surrounding round-count text instead of blending in at the
+      // same weight.
+      const styledNames = `<span style="font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;font-size:1.08em;text-transform:uppercase;letter-spacing:0.3px;background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 1px 8px rgba(230,200,107,0.3)">${names}</span>`;
+      return `${styledNames} — ${e.rounds} ${roundLabel}`;
     };
     const fmtOne = (mode, label) => `
       <div style="margin-bottom:12px">
