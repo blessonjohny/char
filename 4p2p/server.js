@@ -1829,25 +1829,40 @@ function publicTableList() {
 // button. A table with nobody real seated has no one who could ever send
 // that event, so it just sat there forever waiting on something that could
 // never come, even though bots/ghosts play the actual round itself just fine.
-// Scoped strictly to "zero real connected humans" -- if even one real
-// person is at the table, they get to control pacing exactly as before;
-// this only kicks in for the fully-automated case where nothing else could
-// ever move the table forward.
+//
+// Real, confirmed correction per explicit follow-up report: the first
+// version of this fix was scoped too broadly. It's specifically meant for
+// tables an admin deliberately spawned to run unattended (a ghost-player
+// seat present) or where a real person is actually there -- NOT for an
+// ordinary table where a real player simply left and got replaced by a
+// plain bot, leaving zero ghost and zero human seats behind. That kind of
+// abandoned table is SUPPOSED to just sit at round-end rather than keep
+// playing itself forever with nobody watching -- that was the original,
+// correct behavior, and this fix had accidentally erased the distinction
+// between "deliberately unattended" and "abandoned." Now requires a ghost
+// seat OR a real connected human -- a table with neither gets left alone,
+// exactly as before this whole fix ever existed.
 function _tableHasRealConnectedHuman(engine) {
   return engine.seats.some(s => s && !s.isBot && s.ghostPlayer !== true && s.connected);
+}
+function _tableHasGhostSeat(engine) {
+  return engine.seats.some(s => s && s.ghostPlayer === true);
+}
+function _tableShouldAutoRun(engine) {
+  return _tableHasRealConnectedHuman(engine) || _tableHasGhostSeat(engine);
 }
 function autoAdvanceRoundEndIfNoHuman(t, isSixP) {
   const engine = t.engine;
   if (!engine || engine.phase !== 'roundEnd') { t._autoContinueScheduled = false; return; }
   if (t._autoContinueScheduled) return;
-  if (_tableHasRealConnectedHuman(engine)) return;
+  if (!_tableShouldAutoRun(engine)) return;
   t._autoContinueScheduled = true;
   const capturedRound = engine.round;
   setTimeout(() => {
     t._autoContinueScheduled = false;
     if (engine.phase !== 'roundEnd') return;
     if (engine.round !== capturedRound) return;
-    if (_tableHasRealConnectedHuman(engine)) return;
+    if (!_tableShouldAutoRun(engine)) return;
     engine.startRound();
   }, 3000);
 }

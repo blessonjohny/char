@@ -1485,10 +1485,18 @@ class GameEngine6P {
       // needs one -- this engine's match starts at round 0 and ends
       // outright right here, so this.round IS the rounds-taken count,
       // not a difference between two points.
+      // Real, confirmed bug fix per explicit report -- same fix as the
+      // 4-player engine's identical change: a team win belongs to the
+      // whole team, so every teammate's name goes in (bot or not, using
+      // their actual name) once at least one real player is on the
+      // winning side -- not just that one real player's name alone.
+      const winningTeamHasRealPlayer = Array.from({ length: SEATS }, (_, i) => i).some(i => this.seats[i] && !this.seats[i].isBot && getTeam(i) === winningTeam);
       const winningPlayerNames = [];
-      for (let i = 0; i < SEATS; i++) {
-        const s = this.seats[i];
-        if (s && !s.isBot && getTeam(i) === winningTeam) winningPlayerNames.push(s.name);
+      if (winningTeamHasRealPlayer) {
+        for (let i = 0; i < SEATS; i++) {
+          const s = this.seats[i];
+          if (s && getTeam(i) === winningTeam) winningPlayerNames.push(s.name);
+        }
       }
       if (winningPlayerNames.length > 0) {
         leaderboard.recordChampionshipWin('6p', winningPlayerNames, this.round, this.roundLossesThisMatch[winningTeam]);

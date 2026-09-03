@@ -1803,15 +1803,27 @@ class GameEngine {
       this.addLog(`Championship ${this.championshipNumber} won by team ${winningTeam} (streak: ${this.kingStreak[winningTeam]})${isKing ? ' — KING OF THE TABLE!' : ''}.`);
       // Per explicit request: leaderboard recording, right here where
       // every piece of data needed already exists -- winning team's
-      // real (non-bot -- a bot winning isn't a player achievement to
-      // rank) player names, how many rounds this specific championship
+      // player names, how many rounds this specific championship
       // took (current round minus the round it started on), and how
       // many of those rounds the winning team lost along the way.
       const championshipRounds = this.round - this.championshipStartRound;
+      // Per explicit report: this used to only collect non-bot names,
+      // on the reasoning that "a bot winning isn't a player achievement
+      // to rank" -- correct for excluding a fully bot-only team, but it
+      // also silently dropped a real player's own BOT PARTNER from the
+      // recorded names, since that filter applied per-seat, not per-team.
+      // A team win is a team's achievement, not an individual's -- if
+      // even one real player is on the winning team, every teammate's
+      // name belongs in the record, bot or not, using their actual name
+      // either way (never a generic "Bot" placeholder). Still excludes
+      // an entirely bot team with zero real players, same as before.
+      const winningTeamHasRealPlayer = [0, 1, 2, 3].some(i => this.seats[i] && !this.seats[i].isBot && getTeam(i) === winningTeam);
       const winningPlayerNames = [];
-      for (let i = 0; i < 4; i++) {
-        const s = this.seats[i];
-        if (s && !s.isBot && getTeam(i) === winningTeam) winningPlayerNames.push(s.name);
+      if (winningTeamHasRealPlayer) {
+        for (let i = 0; i < 4; i++) {
+          const s = this.seats[i];
+          if (s && getTeam(i) === winningTeam) winningPlayerNames.push(s.name);
+        }
       }
       if (winningPlayerNames.length > 0) {
         leaderboard.recordChampionshipWin('4p', winningPlayerNames, championshipRounds, this.roundLossesThisChampionship[winningTeam]);
