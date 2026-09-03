@@ -1095,6 +1095,17 @@ function connectSocket() {
   // immediately instead of waiting on a timer that was never going to run.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
+      // Per explicit request: fired immediately, before the health-ping
+      // round-trip below even starts -- that existing check can take a
+      // moment (ping + possible reconnect + rejoin), and an already-
+      // scheduled bot-takeover timer for this seat's turn doesn't wait
+      // for any of that to finish. This is a direct, fire-and-forget
+      // "I'm back" signal that resets the stuck-turn clock the instant
+      // the tab is visible again, independent of whether the socket
+      // itself ever actually needed reconnecting at all. Harmless if
+      // it isn't genuinely this player's turn right now -- see
+      // reclaimTurn() in game-engine-6p.js.
+      if (socket && socket.connected) socket.emit('sixp_reclaimTurn');
       // Trusting socket.connected alone here was the actual gap:
       // repeatedly switching apps ("in and out of network a few times")
       // was reported to leave a tab permanently zombied -- looking

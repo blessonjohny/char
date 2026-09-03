@@ -905,6 +905,13 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .mini-table-legend .dot.taken{background:#666}
 .modal-overlay.on{display:flex;opacity:1}
 .modal-box{background:var(--panel);border-radius:18px;padding:24px;max-width:360px;width:100%;text-align:center;transform:scale(0.85);transition:transform 0.3s cubic-bezier(.2,1.4,.3,1)}
+/* Per explicit request: the round-end "made it" popup specifically,
+   not the other 5 modals sharing .modal-box -- a fully transparent
+   background would make the white text unreadable against whatever's
+   behind it (the table, cards, avatars), so this keeps a light frosted
+   dark tint plus a blur, rather than genuinely see-through with
+   nothing backing the text at all. */
+#roundEndOverlay .modal-box{background:rgba(15,15,20,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .modal-overlay.on .modal-box{transform:scale(1)}
 
 /* ===== CHAT PANEL ===== */

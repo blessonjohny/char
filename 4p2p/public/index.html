@@ -279,7 +279,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .welcome-btn-grid .welcome-btn .icon{font-size:1.1rem}
 .welcome-btn{width:100%;padding:14px 20px;border-radius:12px;border:1.5px solid rgba(255,215,0,0.3);background:rgba(255,215,0,0.05);color:var(--accent);font-family:'Cinzel','Playfair Display',serif;font-size:0.95rem;font-weight:700;letter-spacing:0.3px;text-shadow:0 1px 2px rgba(0,0,0,0.4);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);position:relative;overflow:hidden}
 .welcome-subbtn-row{width:100%;max-width:320px;margin:0 auto 20px;padding:0 20px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;box-sizing:border-box}
-.welcome-subbtn{padding:7px 13px;border-radius:18px;border:1px solid rgba(255,215,0,0.22);background:rgba(255,255,255,0.03);color:var(--text-secondary);font-size:0.7rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap;transition:all 0.2s}
+.welcome-subbtn{padding:7px 13px;border-radius:18px;border:1px solid rgba(255,215,0,0.22);background:rgba(255,255,255,0.03);color:var(--text-secondary);font-size:0.7rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap;transition:all 0.2s;backdrop-filter:blur(2px)}
 .welcome-subbtn:active{background:rgba(255,215,0,0.1);color:var(--accent)}
 .welcome-btn::before{content:'';position:absolute;top:0;left:-100%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent);animation:buttonShine 3s ease-in-out infinite}
 .welcome-btn:hover,.welcome-btn:active{background:rgba(255,215,0,0.15);border-color:var(--accent);transform:translateY(-2px) scale(1.02);box-shadow:0 8px 25px rgba(255,215,0,0.15)}
@@ -3100,10 +3100,22 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 .welcome-btn.primary:hover,.welcome-btn.primary:active{
   background:linear-gradient(160deg,#8CC6FF,#3070E0)!important;
   box-shadow:0 8px 30px rgba(46,99,214,0.45)!important;transform:translateY(-2px) scale(1.02)}
-.welcome-feature-item{background:rgba(8,14,12,0.72);border-radius:12px;
+/* Per explicit request: this whole Game Features section hadn't been
+   touched since the gold-theme buttons went in elsewhere on this same
+   page, so it still looked like the old design entirely. Kept the
+   transparent feel (if anything, more so -- 0.72 down to 0.4) rather
+   than making it solid, per explicit instruction; the darker top and
+   lighter bottom on this gradient is the "header darker" ask -- a
+   visual weight behind the icon/title specifically, fading toward the
+   more transparent body text below, without needing to restructure the
+   HTML into a separate header wrapper element just to get there. */
+.welcome-feature-item{background:linear-gradient(180deg,rgba(6,10,9,0.6) 0%,rgba(8,14,12,0.4) 45%,rgba(8,14,12,0.32) 100%);border-radius:12px;
   border:1px solid rgba(233,185,73,0.15);backdrop-filter:blur(2px)}
-.welcome-feature-title{color:var(--accent)}
-.welcome-feature-desc{color:#d8d8d8}
+.welcome-feature-title{font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;
+  background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 2px 10px rgba(230,200,107,0.3),0 1px 0 rgba(0,0,0,0.3)}
+.welcome-feature-desc{color:#f0f0f0}
 
 /* ---------- Lobby ---------- */
 .lobby-screen{background:linear-gradient(170deg,#0B1512,#0E211A 60%,#0B1512)}
@@ -3688,28 +3700,28 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   </div>
 
   <div class="welcome-btn-wrap welcome-btn-grid">
-    <button class="welcome-btn primary" id="btnPlayOnline" style="background:linear-gradient(160deg,#8a221c 0%,#5c150f 55%,#2b0603 100%);border-color:#cfa160;color:#f0cf94">
+    <button class="welcome-btn primary" id="btnPlayOnline" style="background:linear-gradient(160deg,rgba(138,34,28,0.4) 0%,rgba(92,21,15,0.35) 55%,rgba(43,6,3,0.32) 100%);border-color:#cfa160;color:#f0cf94;backdrop-filter:blur(2px)">
       <span class="btn28-badge">28</span><span class="btn28-modelabel">4 Player</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">🎙️ live voice chat</span>
     </button>
-    <a class="welcome-btn primary btn28-inverted" href="/six.html" style="background:linear-gradient(160deg,#e0b878 0%,#cfa160 55%,#a67a3e 100%);border-color:#781c18;color:#4a1410;text-decoration:none">
+    <a class="welcome-btn primary btn28-inverted" href="/six.html" style="background:linear-gradient(160deg,rgba(224,184,120,0.5) 0%,rgba(207,161,96,0.45) 55%,rgba(166,122,62,0.4) 100%);border-color:#781c18;color:#4a1410;text-decoration:none;backdrop-filter:blur(2px)">
       <span class="btn28-badge">28</span><span class="btn28-modelabel">6 Player</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#5c1410;text-shadow:0 1px 1px rgba(255,255,255,0.3)">🎙️ 2 teams of 3</span>
     </a>
-    <a class="welcome-btn primary" href="/56.html" style="background:linear-gradient(135deg,#2a9d8f,#1d6f65);border-color:transparent;color:#fff;text-decoration:none">
+    <a class="welcome-btn primary" href="/56.html" style="background:linear-gradient(135deg,rgba(42,157,143,0.35),rgba(29,111,101,0.32));border-color:rgba(233,185,73,0.25);color:#fff;text-decoration:none;backdrop-filter:blur(2px)">
       <span class="btn28-badge">56</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">bid 28 to 56, with doubling</span>
     </a>
-    <a class="welcome-btn primary" href="/holdem.html" style="background:linear-gradient(135deg,#0b6b3a,#084d2a);border-color:transparent;color:#fff;text-decoration:none">
+    <a class="welcome-btn primary" href="/holdem.html" style="background:linear-gradient(135deg,rgba(11,107,58,0.35),rgba(8,77,42,0.32));border-color:rgba(233,185,73,0.25);color:#fff;text-decoration:none;backdrop-filter:blur(2px)">
       <span class="btn28-badge" style="font-size:1.35rem">Hold'em</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">9-player, cash or tourney</span>
     </a>
-    <a class="welcome-btn primary" href="/spades.html" style="background:linear-gradient(135deg,#1a3a6e,#0f2447);border-color:transparent;color:#fff;text-decoration:none">
+    <a class="welcome-btn primary" href="/spades.html" style="background:linear-gradient(135deg,rgba(26,58,110,0.4),rgba(15,36,71,0.35));border-color:rgba(233,185,73,0.25);color:#fff;text-decoration:none;backdrop-filter:blur(2px)">
       <span class="btn28-badge" style="font-size:1.35rem">Spades</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">300 to win, nil bids, bags</span>
     </a>
-    <a class="welcome-btn primary" href="/carrom.html" style="background:linear-gradient(135deg,#8a6a3c,#5e4726);border-color:transparent;color:#fff;text-decoration:none">
+    <a class="welcome-btn primary" href="/carrom.html" style="background:linear-gradient(135deg,rgba(138,106,60,0.4),rgba(94,71,38,0.35));border-color:rgba(233,185,73,0.25);color:#fff;text-decoration:none;backdrop-filter:blur(2px)">
       <span class="btn28-badge" style="font-size:1.35rem">Carrom</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">1v1 or 2v2 teams</span>
     </a>
-    <a class="welcome-btn primary" href="/pool.html" style="background:linear-gradient(135deg,#0d5c4d,#083d33);border-color:transparent;color:#fff;text-decoration:none">
+    <a class="welcome-btn primary" href="/pool.html" style="background:linear-gradient(135deg,rgba(13,92,77,0.4),rgba(8,61,51,0.35));border-color:rgba(233,185,73,0.25);color:#fff;text-decoration:none;backdrop-filter:blur(2px)">
       <span class="btn28-badge" style="font-size:1.5rem">Pool</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">1v1, 8-ball</span>
     </a>
-    <button class="welcome-btn primary" id="btnPlayLocal" style="background:linear-gradient(135deg,#2a3f5f,#1a2942);border-color:transparent;color:#fff">
+    <button class="welcome-btn primary" id="btnPlayLocal" style="background:linear-gradient(135deg,rgba(42,63,95,0.4),rgba(26,41,66,0.35));border-color:rgba(233,185,73,0.25);color:#fff;backdrop-filter:blur(2px)">
       <span class="btn28-badge">28</span><span class="btn28-modelabel">Learn</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">🧠 practice vs AI that learns your strategy</span>
     </button>
   </div>
@@ -3725,7 +3737,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <h2 class="welcome-features-title">Game Features</h2>
     <div class="welcome-feature-grid">
       <div class="welcome-feature-item" style="border-color:rgba(224,138,154,0.5);box-shadow:0 0 20px rgba(224,138,154,0.15)">
-        <span class="welcome-feature-icon">😭</span>
+        <img src="/images/kunukku/sad-coconut-face-icon.png" alt="Kunukku" class="welcome-feature-icon" style="width:1.9rem;height:auto;object-fit:contain;display:block;margin-bottom:6px">
         <div class="welcome-feature-title">The Kunukku — New!</div>
         <div class="welcome-feature-desc">Get shut out in a match and every player on your team gets marked with a Kunukku, right on their avatar for the whole table to see. The only way off? Personally call and win a bid — it sticks around, match after match, until you earn it back.</div>
       </div>
@@ -3740,7 +3752,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
         <div class="welcome-feature-desc">Create a room and invite friends with a simple code or share link. Voice chat, text chat, and AI bots to fill empty seats — reconnect anytime, the game keeps running even if you close the tab.</div>
       </div>
       <div class="welcome-feature-item">
-        <span class="welcome-feature-icon">🤖</span>
+        <span class="welcome-feature-icon">🧠</span>
         <div class="welcome-feature-title">AI Bots That Learn</div>
         <div class="welcome-feature-desc">Bots analyze every trick and improve their strategy over time. Each bot has its own brain!</div>
       </div>
@@ -3750,7 +3762,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
         <div class="welcome-feature-desc">Your game is automatically saved every 15 seconds. Resume anytime, even after closing the browser.</div>
       </div>
       <div class="welcome-feature-item">
-        <span class="welcome-feature-icon">🎯</span>
+        <span class="welcome-feature-icon">🔮</span>
         <div class="welcome-feature-title">Smart Bid Predictor</div>
         <div class="welcome-feature-desc">Real-time AI predicts your chances of winning each round and the championship based on your hand.</div>
       </div>
