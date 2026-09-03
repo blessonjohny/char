@@ -167,6 +167,10 @@
         every day at 5am US Eastern, same boundary the rest of the app already uses.
         <button class="btn ghost" id="btnRefreshLeaderboard" style="padding:4px 10px;font-size:0.75rem;margin-left:6px">🔄</button>
       </div>
+      <div style="margin:8px 0;display:flex;gap:6px">
+        <button class="btn ghost" id="btnResetLeaderboard4p" style="padding:4px 10px;font-size:0.72rem">🗑️ Reset 4 Player</button>
+        <button class="btn ghost" id="btnResetLeaderboard6p" style="padding:4px 10px;font-size:0.72rem">🗑️ Reset 6 Player</button>
+      </div>
       <div id="leaderboardContent"></div>
     </div>
   </div>
@@ -666,6 +670,21 @@ async function refreshGhostList() {
 }
 
 document.getElementById('btnRefreshLeaderboard').addEventListener('click', refreshLeaderboard);
+
+// Per explicit request: lets an admin clear out stale/test data
+// directly on this deployed server -- see resetLeaderboard() in
+// leaderboard.js for the fuller reasoning.
+async function resetLeaderboardMode(mode, label) {
+  if (!confirm(`Reset the ${label} leaderboard? This clears both All-Time and Today's records for ${label} and can't be undone.`)) return;
+  try {
+    await adminFetch('/api/admin/reset-leaderboard', undefined, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) });
+    refreshLeaderboard();
+  } catch (e) {
+    alert('Failed to reset: ' + e.message);
+  }
+}
+document.getElementById('btnResetLeaderboard4p').addEventListener('click', () => resetLeaderboardMode('4p', '4 Player'));
+document.getElementById('btnResetLeaderboard6p').addEventListener('click', () => resetLeaderboardMode('6p', '6 Player'));
 
 function formatLbEntry(e) {
   if (!e) return '<div class="sub" style="margin:0">No record yet.</div>';
