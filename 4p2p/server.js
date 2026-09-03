@@ -1434,6 +1434,17 @@ app.get('/api/admin/leaderboard', (req, res) => {
   res.json({ ok: true, leaderboard: leaderboard.getLeaderboard() });
 });
 
+// Per explicit request: lets an admin clear out stale/test leaderboard
+// data directly on an already-deployed server -- a new zip deploy can't
+// reach whatever's already sitting in that server's own leaderboard-
+// data.json file. mode is '4p', '6p', or omitted to reset both.
+app.post('/api/admin/reset-leaderboard', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const mode = req.body && req.body.mode;
+  leaderboard.resetLeaderboard(mode === '4p' || mode === '6p' ? mode : undefined);
+  res.json({ ok: true, leaderboard: leaderboard.getLeaderboard() });
+});
+
 // Per explicit request: the same leaderboard data, but public -- no
 // admin auth -- for the new home-page popup every player sees, not
 // just admins. Same underlying data as the admin endpoint above,

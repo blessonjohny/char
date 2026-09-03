@@ -2155,8 +2155,13 @@ class GameEngine6P {
       // of our own team. Same jackRisk concept and tPts>=3 override
       // already used for the 9-lead case above. Same fix as the
       // 4-player engine.
-      // Same myTeamSecured skip as the 4-player engine's equivalent.
-      if (wt === myTeam && !myTeamSecured) {
+      // Real, confirmed bug fix per explicit report -- same fix as the
+      // 4-player engine's identical change: dropped the myTeamSecured
+      // gate entirely. A partner about to win the trick regardless
+      // benefits from an extra point card every time, secured round or
+      // not -- discarding a real point card instead of a genuine
+      // zero-point one for no reason was the actual reported waste.
+      if (wt === myTeam) {
         const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
         if (!jackRisk || tPts >= 3) {
           const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
@@ -2250,8 +2255,9 @@ class GameEngine6P {
       const nonTrumpDiscard = hand.filter(c => c.suit !== this.trumpSuit);
       if (nonTrumpDiscard.length > 0) {
         const feedablePts = nonTrumpDiscard.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
-        // Same myTeamSecured skip as the 4-player engine's equivalent.
-        if (wt === myTeam && !myTeamSecured && feedablePts.length > 0) {
+        // Real, confirmed bug fix per explicit report -- same fix as
+        // the 4-player engine's identical change: dropped myTeamSecured.
+        if (wt === myTeam && feedablePts.length > 0) {
           feedablePts.sort((a, c) => c.points - a.points);
           return feedablePts[0];
         }
@@ -2299,11 +2305,12 @@ class GameEngine6P {
     // Same "feed partner points rather than waste the chance" logic used
     // above, ported here too -- this specific path had none of it at
     // all (a leftover gap from the earlier 4-player fix never having
-    // been carried over to this engine). Also skipped once myTeamSecured,
-    // same as the other feed-partner spots above.
+    // been carried over to this engine). Real, confirmed bug fix per
+    // explicit report -- myTeamSecured gate dropped here too, same as
+    // the other feed-partner spots above.
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
     if (!disc.length) disc = hand;
-    if (wt === myTeam && !myTeamSecured) {
+    if (wt === myTeam) {
       const feedablePts = disc.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
       if (feedablePts.length > 0) {
         feedablePts.sort((a, c) => c.points - a.points);

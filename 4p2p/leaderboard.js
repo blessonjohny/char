@@ -122,9 +122,27 @@ function getLeaderboard() {
   };
 }
 
+// Per explicit request: a way to clear out stale/test data on an
+// already-deployed server, since Claude can only ever delete its own
+// local sandbox copy of this file -- a fresh zip doesn't touch
+// whatever's already sitting on the actual live server's disk. mode
+// is '4p', '6p', or omitted/undefined to reset both.
+function resetLeaderboard(mode) {
+  if (mode === '4p' || mode === undefined) {
+    data.allTime['4p'] = [];
+    data.today['4p'] = [];
+  }
+  if (mode === '6p' || mode === undefined) {
+    data.allTime['6p'] = [];
+    data.today['6p'] = [];
+  }
+  dirty = true;
+  saveLeaderboard();
+}
+
 loadLeaderboard();
 setInterval(saveLeaderboard, 10000);
 process.on('SIGTERM', () => { saveLeaderboard(); });
 process.on('SIGINT', () => { saveLeaderboard(); });
 
-module.exports = { recordChampionshipWin, getLeaderboard, loadLeaderboard, saveLeaderboard };
+module.exports = { recordChampionshipWin, getLeaderboard, resetLeaderboard, loadLeaderboard, saveLeaderboard };

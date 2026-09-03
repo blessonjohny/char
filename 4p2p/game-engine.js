@@ -2751,13 +2751,19 @@ class GameEngine {
       // the 9-lead case above, and the same tPts>=3 override: worth
       // feeding anyway once enough points are already on the table to
       // justify the risk regardless.
-      // Also skipped entirely once myTeamSecured -- our own side's goal
-      // this round is already mathematically locked in (and Quote/COT
-      // isn't in play, or this would stay fully engaged regardless per
-      // myTeamSecured's own definition), so there's no actual benefit
-      // left to optimizing exactly which card feeds our partner the most
-      // -- any legal card is equally fine at that point.
-      if (wt === myTeam && !myTeamSecured) {
+      // Real, confirmed bug fix per explicit report: this used to also
+      // skip entirely once myTeamSecured, on the theory that with the
+      // round's goal already mathematically locked in there was no
+      // benefit left to optimizing which card feeds partner -- but that
+      // reasoning doesn't actually hold. A partner about to win the
+      // trick regardless benefits from an extra point card every time,
+      // securedround or not -- there's no downside to feeding it, and
+      // discarding a real point card (a 10, here) instead of a genuine
+      // zero-point card (an 8 or K) for no reason at all is exactly the
+      // reported waste. Dropped the myTeamSecured condition entirely --
+      // this optimization is unconditionally correct whenever the trick
+      // is actually safe to feed into.
+      if (wt === myTeam) {
         const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
         if (!jackRisk || tPts >= 3) {
           const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
