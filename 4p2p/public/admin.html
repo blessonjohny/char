@@ -55,6 +55,7 @@
       <button class="tab" id="tabHistory">📅 Table History</button>
       <button class="tab" id="tabBots">🤖 Bot Tables</button>
       <button class="tab" id="tabGhost">🕵️ Ghost Players</button>
+      <button class="tab" id="tabLeaderboard">🏆 Leaderboard</button>
     </div>
     <div id="commentsView">
       <div class="toolbar">
@@ -157,6 +158,16 @@
       </div>
       <div style="font-weight:700;font-size:0.85rem;margin:16px 0 10px;color:var(--accent)">Currently running</div>
       <div id="ghostList"></div>
+    </div>
+    <div id="leaderboardView" style="display:none">
+      <div class="sub" style="margin-top:0">
+        Fastest championship win — ranked by fewest rounds taken to win a match, with fewest
+        rounds lost along the way as the tiebreak when two entries took the same number of
+        rounds. All-time is the single best ever recorded, kept forever. Today's resets fresh
+        every day at 5am US Eastern, same boundary the rest of the app already uses.
+        <button class="btn ghost" id="btnRefreshLeaderboard" style="padding:4px 10px;font-size:0.75rem;margin-left:6px">🔄</button>
+      </div>
+      <div id="leaderboardContent"></div>
     </div>
   </div>
 </div>
@@ -267,12 +278,15 @@ function switchTab(tab) {
   document.getElementById('tabHistory').classList.toggle('on', tab === 'history');
   document.getElementById('tabBots').classList.toggle('on', tab === 'bots');
   document.getElementById('tabGhost').classList.toggle('on', tab === 'ghost');
+  document.getElementById('tabLeaderboard').classList.toggle('on', tab === 'leaderboard');
   document.getElementById('commentsView').style.display = tab === 'comments' ? 'block' : 'none';
   document.getElementById('liveView').style.display = tab === 'live' ? 'block' : 'none';
   document.getElementById('visitorsView').style.display = tab === 'visitors' ? 'block' : 'none';
   document.getElementById('historyView').style.display = tab === 'history' ? 'block' : 'none';
   document.getElementById('botsView').style.display = tab === 'bots' ? 'block' : 'none';
   document.getElementById('ghostView').style.display = tab === 'ghost' ? 'block' : 'none';
+  document.getElementById('leaderboardView').style.display = tab === 'leaderboard' ? 'block' : 'none';
+  if (tab === 'leaderboard') refreshLeaderboard();
   if (tab === 'live') {
     refreshLivePlayers();
     if (!liveRefreshInterval) liveRefreshInterval = setInterval(refreshLivePlayers, 5000);
@@ -400,6 +414,7 @@ document.getElementById('tabVisitors').addEventListener('click', () => switchTab
 document.getElementById('tabHistory').addEventListener('click', () => switchTab('history'));
 document.getElementById('tabBots').addEventListener('click', () => switchTab('bots'));
 document.getElementById('tabGhost').addEventListener('click', () => switchTab('ghost'));
+document.getElementById('tabLeaderboard').addEventListener('click', () => switchTab('leaderboard'));
 document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
 document.getElementById('btnRefreshHistory').addEventListener('click', refreshTableHistory);
 
@@ -647,6 +662,55 @@ async function refreshGhostList() {
     });
   } catch (e) {
     listEl.innerHTML = '<div class="sub" style="margin:0">Could not load list.</div>';
+  }
+}
+
+document.getElementById('btnRefreshLeaderboard').addEventListener('click', refreshLeaderboard);
+
+function formatLbEntry(e) {
+  if (!e) return '<div class="sub" style="margin:0">No record yet.</div>';
+  const names = e.names.map(esc).join(', ');
+  const when = new Date(e.ts).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
+  const lossLabel = e.roundLosses === 1 ? 'loss' : 'losses';
+  return `
+    <div class="live-card" style="flex-direction:column;align-items:stretch;gap:4px">
+      <div class="who">${names}</div>
+      <div class="where">${e.rounds} ${roundLabel} · ${e.roundLosses} round ${lossLabel} · ${esc(when)} ET</div>
+    </div>
+  `;
+}
+
+function formatLbList(list) {
+  if (!list || list.length === 0) return '<div class="sub" style="margin:0">None yet today.</div>';
+  return list.map((e, i) => `
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="font-weight:800;color:var(--accent);width:20px;flex-shrink:0">${i + 1}</div>
+      <div style="flex:1">${formatLbEntry(e)}</div>
+    </div>
+  `).join('');
+}
+
+async function refreshLeaderboard() {
+  const contentEl = document.getElementById('leaderboardContent');
+  contentEl.innerHTML = '<div class="sub" style="margin:0">Loading…</div>';
+  try {
+    const res = await adminFetch('/api/admin/leaderboard');
+    const data = await res.json();
+    const lb = data.leaderboard;
+    contentEl.innerHTML = ['4p', '6p'].map(mode => `
+      <div style="margin-bottom:24px">
+        <div style="font-weight:700;font-size:0.95rem;margin-bottom:10px;color:var(--accent)">
+          ${mode === '4p' ? '4-Player' : '6-Player'} (target: ${mode === '4p' ? '12' : '15'})
+        </div>
+        <div style="font-weight:700;font-size:0.8rem;margin-bottom:8px;opacity:0.85">🏆 All-Time Best</div>
+        ${formatLbEntry(lb.allTime[mode])}
+        <div style="font-weight:700;font-size:0.8rem;margin:14px 0 8px;opacity:0.85">📅 Today's Top 3</div>
+        ${formatLbList(lb.today[mode])}
+      </div>
+    `).join('');
+  } catch (e) {
+    contentEl.innerHTML = '<div class="sub" style="margin:0">Could not load leaderboard.</div>';
   }
 }
 

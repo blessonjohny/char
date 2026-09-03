@@ -4255,6 +4255,20 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   </div>
 </div>
 
+<!-- ===== HOME-PAGE LEADERBOARD POPUP ===== -->
+<!-- Per explicit request: shown once, right after the welcome/sign-in
+     screen and before the game-mode picker -- see showLeaderboardPopup()
+     for the fetch/populate logic and the 5s auto-dismiss timer. -->
+<div class="modal-overlay" id="leaderboardPopupOverlay" style="z-index:2600">
+  <div class="modal" style="text-align:center;max-width:340px">
+    <h3 style="margin-top:0">🏆 Today's Fastest Championships</h3>
+    <div id="leaderboardPopupContent" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:40px">
+      Loading…
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:16px" id="btnLeaderboardPopupOk">OK</button>
+  </div>
+</div>
+
 <!-- ===== SEAT PICKER (joining a table) ===== -->
 <div class="modal-overlay" id="seatPickerOverlay">
   <div class="modal" id="seatPickerModal">
@@ -6194,7 +6208,12 @@ const K28_HOLIDAYS = [
   { key: 'mayday',     emoji: '🌷', title: 'Happy May Day!',          start: [5,1],  end: [5,1] },
   { key: 'julyfourth', emoji: '🎆', title: 'Happy Independence Day!', start: [7,4],  end: [7,4] },
   { key: 'indiaindep', emoji: '🇮🇳', title: 'Happy Independence Day!', start: [8,15], end: [8,16] },
-  { key: 'onam',       emoji: '🌸', title: 'Happy Onam!',             start: [8,20], end: [9,10] },
+  // Per explicit request: shortened from the original end:[9,10] --
+  // Onam itself is over and the celebration should stop showing NOW,
+  // not on the 10th. Still recurs automatically every year in this
+  // same Aug 20 -- Sep 2 window going forward, since only the end date
+  // changed, not the key/start/structure.
+  { key: 'onam',       emoji: '🌸', title: 'Happy Onam!',             start: [8,20], end: [9,2] },
   { key: 'halloween',  emoji: '🎃', title: 'Happy Halloween!',        start: [10,30],end: [11,2] },
   { key: 'diwali',     emoji: '🪔', title: 'Happy Diwali!',           start: [11,1], end: [11,6] },
   { key: 'thanksgiving',emoji:'🦃', title: 'Happy Thanksgiving!',     start: [11,24],end: [11,28] },
@@ -14504,10 +14523,59 @@ if (originalBtnPlayLocal) {
   });
 }
 
+// Per explicit request: shown once each time the welcome screen (game
+// mode picker) becomes visible, right after sign-in/guest-play. Shows
+// today's fastest-championship leaderboard, dismisses on OK or auto-
+// dismisses after 5s -- whichever the player doesn't wait for. Uses
+// the public (no admin auth) /api/leaderboard endpoint, matching the
+// same data the admin panel's own leaderboard tab shows, just without
+// the all-time section -- this is a quick glance, not the full view.
+async function showLeaderboardPopup() {
+  const overlay = document.getElementById('leaderboardPopupOverlay');
+  const contentEl = document.getElementById('leaderboardPopupContent');
+  const okBtn = document.getElementById('btnLeaderboardPopupOk');
+  if (!overlay || !contentEl || !okBtn) return;
+
+  contentEl.innerHTML = 'Loading…';
+  overlay.classList.add('on');
+
+  let autoTimer = null;
+  const dismiss = () => {
+    overlay.classList.remove('on');
+    if (autoTimer) clearTimeout(autoTimer);
+    okBtn.removeEventListener('click', dismiss);
+  };
+  okBtn.addEventListener('click', dismiss);
+  autoTimer = setTimeout(dismiss, 5000);
+
+  try {
+    const res = await fetch('/api/leaderboard');
+    const data = await res.json();
+    const lb = data.leaderboard;
+    const fmtOne = (mode, label) => {
+      const top = lb.today[mode][0];
+      if (!top) return `<div style="margin-bottom:10px"><b style="color:var(--accent)">${label}:</b> No championship won yet today.</div>`;
+      const names = top.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
+      const roundLabel = top.rounds === 1 ? 'round' : 'rounds';
+      return `<div style="margin-bottom:10px"><b style="color:var(--accent)">${label}:</b> ${names} — ${top.rounds} ${roundLabel}</div>`;
+    };
+    contentEl.innerHTML = fmtOne('4p', '4 Player') + fmtOne('6p', '6 Player');
+  } catch (e) {
+    contentEl.innerHTML = '<div style="opacity:0.7">Could not load today\'s leaderboard.</div>';
+  }
+}
+
 function enhanceWelcomeScreen() {
   const welcome = document.getElementById('welcomeScreen');
   if (!welcome) return;
   if (document.getElementById('btnPersonalBot')) return;
+  // Per explicit request: shown right after the welcome/sign-in screen,
+  // before the player picks a game mode. This whole function only ever
+  // runs its body once per page load (see the guard right above --
+  // every one of the 7 call sites elsewhere becomes a no-op after the
+  // first), which is exactly the "once per session, not every time
+  // this screen reappears" behavior wanted here.
+  showLeaderboardPopup();
   const rules = welcome.querySelector('.welcome-rules');
   const createBotBtn = document.createElement('button');
   createBotBtn.id = 'btnPersonalBot';
