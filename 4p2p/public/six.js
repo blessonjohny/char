@@ -3763,11 +3763,13 @@ async function refreshHostMenuLeaderboard() {
     const res = await fetch('/api/leaderboard');
     const data = await res.json();
     const lb = data.leaderboard;
-    const top = lb.today['6p'][0];
-    if (!top) { el.innerHTML = 'No championship won yet today.'; return; }
-    const names = top.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
-    const roundLabel = top.rounds === 1 ? 'round' : 'rounds';
-    el.innerHTML = `${names} — ${top.rounds} ${roundLabel}`;
+    const fmtEntry = (e) => {
+      if (!e) return 'None yet';
+      const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
+      const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
+      return `${names} — ${e.rounds} ${roundLabel}`;
+    };
+    el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['6p'][0])}<br>📅 Today: ${fmtEntry(lb.today['6p'][0])}`;
   } catch (e) {
     el.innerHTML = 'Could not load.';
   }

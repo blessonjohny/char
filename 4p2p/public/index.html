@@ -3984,7 +3984,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <button class="icon-btn" id="btnLoadGame" title="Load Game">📂</button>
       <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none;width:auto;padding:0 1px;gap:0px;white-space:nowrap;font-size:0.72em">💌 Invite</button>
       <button class="icon-btn" id="btnRequestSeat" title="Ask for a Seat" style="display:none">🪑</button>
-      <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none;width:auto;padding:0 2px;white-space:nowrap;font-weight:800;font-size:0.76em">Admin</button>
+      <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none;width:auto;padding:0 2px;white-space:nowrap;font-weight:800;font-size:0.76em">Menu</button>
       <!-- Browsers automatically exit fullscreen the moment a tab loses
            focus (backgrounding it, switching apps) -- that's a real
            browser security behavior, not something that can be
@@ -14556,13 +14556,18 @@ async function showLeaderboardPopup() {
     const res = await fetch('/api/leaderboard');
     const data = await res.json();
     const lb = data.leaderboard;
-    const fmtOne = (mode, label) => {
-      const top = lb.today[mode][0];
-      if (!top) return `<div style="margin-bottom:10px"><b style="color:var(--accent)">${label}:</b> No championship won yet today.</div>`;
-      const names = top.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
-      const roundLabel = top.rounds === 1 ? 'round' : 'rounds';
-      return `<div style="margin-bottom:10px"><b style="color:var(--accent)">${label}:</b> ${names} — ${top.rounds} ${roundLabel}</div>`;
+    const fmtEntry = (e) => {
+      if (!e) return 'None yet';
+      const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
+      const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
+      return `${names} — ${e.rounds} ${roundLabel}`;
     };
+    const fmtOne = (mode, label) => `
+      <div style="margin-bottom:12px">
+        <b style="color:var(--accent)">${label}</b><br>
+        <span style="font-size:0.9em">🏆 All-Time: ${fmtEntry(lb.allTime[mode][0])}</span><br>
+        <span style="font-size:0.9em">📅 Today: ${fmtEntry(lb.today[mode][0])}</span>
+      </div>`;
     contentEl.innerHTML = fmtOne('4p', '4 Player') + fmtOne('6p', '6 Player');
   } catch (e) {
     contentEl.innerHTML = '<div style="opacity:0.7">Could not load today\'s leaderboard.</div>';
@@ -16937,11 +16942,13 @@ async function refreshHostMenuLeaderboard() {
     const res = await fetch('/api/leaderboard');
     const data = await res.json();
     const lb = data.leaderboard;
-    const top = lb.today['4p'][0];
-    if (!top) { el.innerHTML = 'No championship won yet today.'; return; }
-    const names = top.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
-    const roundLabel = top.rounds === 1 ? 'round' : 'rounds';
-    el.innerHTML = `${names} — ${top.rounds} ${roundLabel}`;
+    const fmtEntry = (e) => {
+      if (!e) return 'None yet';
+      const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
+      const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
+      return `${names} — ${e.rounds} ${roundLabel}`;
+    };
+    el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['4p'][0])}<br>📅 Today: ${fmtEntry(lb.today['4p'][0])}`;
   } catch (e) {
     el.innerHTML = 'Could not load.';
   }

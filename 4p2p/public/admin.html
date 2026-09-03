@@ -163,7 +163,7 @@
       <div class="sub" style="margin-top:0">
         Fastest championship win — ranked by fewest rounds taken to win a match, with fewest
         rounds lost along the way as the tiebreak when two entries took the same number of
-        rounds. All-time is the single best ever recorded, kept forever. Today's resets fresh
+        rounds. All-time is the best 3 ever recorded, kept forever. Today's resets fresh
         every day at 5am US Eastern, same boundary the rest of the app already uses.
         <button class="btn ghost" id="btnRefreshLeaderboard" style="padding:4px 10px;font-size:0.75rem;margin-left:6px">🔄</button>
       </div>
@@ -703,8 +703,8 @@ async function refreshLeaderboard() {
         <div style="font-weight:700;font-size:0.95rem;margin-bottom:10px;color:var(--accent)">
           ${mode === '4p' ? '4-Player' : '6-Player'} (target: ${mode === '4p' ? '12' : '15'})
         </div>
-        <div style="font-weight:700;font-size:0.8rem;margin-bottom:8px;opacity:0.85">🏆 All-Time Best</div>
-        ${formatLbEntry(lb.allTime[mode])}
+        <div style="font-weight:700;font-size:0.8rem;margin-bottom:8px;opacity:0.85">🏆 All-Time Top 3</div>
+        ${formatLbList(lb.allTime[mode])}
         <div style="font-weight:700;font-size:0.8rem;margin:14px 0 8px;opacity:0.85">📅 Today's Top 3</div>
         ${formatLbList(lb.today[mode])}
       </div>
