@@ -2340,12 +2340,20 @@ class GameEngine {
             let cutCard = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
               : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
               : trumps[trumps.length - 1];
-            // Still respect real overtake risk: if other players still
-            // act after us in this same trick and the trump Jack hasn't
-            // been seen yet, a big enough trick is worth committing our
-            // strongest trump to make sure it actually holds up.
-            if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && cutCard.rank !== 'J' && tPts >= 3) {
-              cutCard = trumps[0];
+            // Per explicit report: escalating all the way to trumps[0]
+            // here -- the single highest trump in hand, which IS the
+            // Jack whenever we hold it -- was exactly the waste being
+            // reported: cutting with the Jack when a lower trump was
+            // available. Overtake risk is real and worth respecting,
+            // but the ceiling for that escalation is the highest
+            // non-Jack trump (at most a 9), never the Jack itself --
+            // the Jack gets preserved regardless of how real the risk
+            // of getting over-cut is. Explicit: "use up to a 9, never a
+            // J" -- if even that highest non-Jack trump isn't available,
+            // there's nothing safe left to escalate to, so cutCard just
+            // stays whatever it already was.
+            if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && cutCard.rank !== 'J' && tPts >= 3 && nonJackTrumps.length > 0) {
+              cutCard = nonJackTrumps[0];
             }
             this.playCard(pos, cutCard);
           } else {
@@ -2850,8 +2858,14 @@ class GameEngine {
           // was meant to avoid — better to commit the strongest trump we
           // have when that risk is real and there's still real value on
           // the table for it.
-          if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && wtr.rank !== 'J' && tPts >= 3) {
-            wtr = trumps[0];
+          // Per explicit report: same fix as the first-cut branch above
+          // -- escalating to trumps[0] (the Jack, whenever we hold it)
+          // was exactly the reported waste. Caps at the highest
+          // non-Jack trump instead; the Jack stays preserved regardless
+          // of how real the overtake risk is.
+          const nonJackTrumpsHere = trumps.filter(c => c.rank !== 'J');
+          if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && wtr.rank !== 'J' && tPts >= 3 && nonJackTrumpsHere.length > 0 && RANK_ORDER[nonJackTrumpsHere[0].rank] > RANK_ORDER[wtr.rank]) {
+            wtr = nonJackTrumpsHere[0];
           }
         } else {
           // The FIRST cut in this trick — nothing on the table is trump
@@ -2882,17 +2896,22 @@ class GameEngine {
           // cut. On the actual last turn this never applies at all --
           // nobody's left to over-cut regardless of any of this.
           if (!isLast && suitRepeat >= 2 && tPts >= 2 && wtr.rank !== 'J') {
-            const jSeenTrump = this._isRankSeen(this.trumpSuit, 'J');
-            if (jSeenTrump) {
-              // The Jack's already accounted for, so nothing left can
-              // beat a 9 -- a genuinely safe upgrade, not a big spend.
-              const nine = trumps.find(c => c.rank === '9');
-              if (nine) wtr = nine;
+            // Per explicit report: the branch below used to treat an
+            // unseen Jack as a reason to escalate ALL THE WAY to
+            // trumps[0] -- the Jack itself, whenever we hold it -- which
+            // is exactly backwards from what was asked: "use a 9 if the
+            // J is still out... never a J." Whether the Jack has been
+            // seen or not, the ceiling here is a 9 (or whatever the
+            // highest non-Jack trump actually is) -- an unseen Jack
+            // means this 9 is a real, accepted risk of getting over-cut,
+            // not a reason to spend the Jack pre-emptively to avoid
+            // that risk.
+            const nine = trumps.find(c => c.rank === '9');
+            if (nine) {
+              wtr = nine;
             } else {
-              // The Jack itself is still unaccounted for and could still
-              // be sitting with whoever's left to act -- worth committing
-              // our strongest trump to make sure this cut actually holds.
-              wtr = trumps[0];
+              const nonJackTrumpsHere = trumps.filter(c => c.rank !== 'J');
+              if (nonJackTrumpsHere.length > 0) wtr = nonJackTrumpsHere[0];
             }
           }
         }
