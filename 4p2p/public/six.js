@@ -1278,13 +1278,14 @@ function connectSocket() {
   // handler, see there for the fuller reasoning -- only shows for the
   // two people actually involved, not the whole table.
   socket.on('sixp_buddyGreeting', ({ fromPos, toPos }) => {
-    // fromPos is the clicker, toPos is whose avatar got clicked -- but
-    // the MESSAGE is written the other way around (as if the clicked
-    // player is greeting the clicker), so {from}/{to} in the template
-    // are the reverse of the socket's fromPos/toPos.
+    // Per explicit follow-up fix: this used to deliberately write the
+    // message backwards -- same fix as the 4-player table's identical
+    // change. fromPos/fromName is always the actual sender, toPos/
+    // toName is always the actual receiver; showBuddyGreeting itself
+    // picks the right phrasing per-viewer.
     if (MY_POS === fromPos || MY_POS === toPos) {
       const nameAt = (pos) => (pos === MY_POS ? (MY_NAME || 'You') : ((latestState && latestState.seats[pos] && latestState.seats[pos].name) || 'Someone'));
-      window.showBuddyGreeting(nameAt(toPos), nameAt(fromPos));
+      window.showBuddyGreeting(nameAt(fromPos), nameAt(toPos), fromPos, toPos);
     }
   });
 
@@ -2811,25 +2812,74 @@ window.K28_CHEERS_DRINKS = [
   { emoji: '🍾', label: 'a celebration' },
   { emoji: '🥃', label: 'the good stuff' }
 ];
-window.showBuddyGreeting = function(fromName, toName) {
+// Per explicit follow-up request, same enhancement as the 4-player
+// table's identical change -- see there for the fuller reasoning: the
+// glass now visibly travels from the sender's own seat to the
+// receiver's rather than just popping up centered on screen, and the
+// landing message itself is a transparent, blurred panel instead of a
+// solid yellow box. fromPos/toPos (both optional) resolve each
+// player's actual on-screen seat via this table's own existing
+// slotFor(pos) mapping.
+// Per further explicit follow-up: fromPos/fromName is always the
+// actual sender (whoever clicked), toPos/toName is always the actual
+// receiver -- each viewer sees their own natural phrasing depending on
+// which one they are, and the whole thing is sized down noticeably
+// from the first pass.
+window.showBuddyGreeting = function(fromName, toName, fromPos, toPos) {
   const pool = window.K28_CHEERS_DRINKS;
   const drink = pool[Math.floor(Math.random() * pool.length)];
-  const msg = (fromName || 'Someone') + ' toasts ' + (toName || 'you') + ' with ' + drink.label + ' — Cheers!';
-  const bubble = document.createElement('div');
-  bubble.innerHTML = '<div style="font-size:3rem;line-height:1;margin-bottom:8px">' + drink.emoji + '</div><div>' + escapeHtml(msg) + '</div>';
-  bubble.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(0.7);' +
-    'background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;font-weight:900;' +
-    'font-family:var(--display-font, serif);font-size:1.4rem;padding:20px 32px;border-radius:20px;' +
-    'box-shadow:0 12px 40px rgba(0,0,0,0.5),0 0 0 3px rgba(255,255,255,0.25);' +
-    'z-index:9500;text-align:center;max-width:80vw;opacity:0;' +
-    'transition:opacity 0.25s ease,transform 0.25s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none';
-  document.body.appendChild(bubble);
-  requestAnimationFrame(() => { bubble.style.opacity = '1'; bubble.style.transform = 'translate(-50%,-50%) scale(1)'; });
-  setTimeout(() => {
-    bubble.style.opacity = '0';
-    bubble.style.transform = 'translate(-50%,-50%) scale(0.85)';
-    setTimeout(() => bubble.remove(), 300);
-  }, 2200);
+  const isSender = (typeof fromPos === 'number' && fromPos === MY_POS);
+  const msg = isSender
+    ? 'You sent ' + (toName || 'them') + ' ' + drink.label + '! Cheers!'
+    : (fromName || 'Someone') + ' toasted you with ' + drink.label + ' — Cheers!';
+
+  const elForPos = (pos) => (typeof pos === 'number') ? document.getElementById('av' + slotFor(pos)) : null;
+  const fromEl = elForPos(fromPos);
+  const toEl = elForPos(toPos);
+
+  const landAndShowMessage = (centerX, centerY) => {
+    const bubble = document.createElement('div');
+    bubble.innerHTML = '<div style="font-size:1.5rem;line-height:1;margin-bottom:4px">' + drink.emoji + '</div><div>' + escapeHtml(msg) + '</div>';
+    bubble.style.cssText = 'position:fixed;left:' + centerX + 'px;top:' + centerY + 'px;transform:translate(-50%,-50%) scale(0.7);' +
+      'background:rgba(15,15,20,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#e6c86b;font-weight:600;' +
+      'font-family:var(--display-font, serif);font-size:0.78rem;padding:10px 16px;border-radius:12px;' +
+      'border:1px solid rgba(230,200,107,0.35);' +
+      'box-shadow:0 8px 28px rgba(0,0,0,0.5);' +
+      'z-index:9500;text-align:center;max-width:70vw;opacity:0;' +
+      'transition:opacity 0.25s ease,transform 0.25s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none';
+    document.body.appendChild(bubble);
+    requestAnimationFrame(() => { bubble.style.opacity = '1'; bubble.style.transform = 'translate(-50%,-50%) scale(1)'; });
+    setTimeout(() => {
+      bubble.style.opacity = '0';
+      bubble.style.transform = 'translate(-50%,-50%) scale(0.85)';
+      setTimeout(() => bubble.remove(), 300);
+    }, 2000);
+  };
+
+  if (fromEl && toEl) {
+    const fromRect = fromEl.getBoundingClientRect();
+    const toRect = toEl.getBoundingClientRect();
+    const fromX = fromRect.left + fromRect.width / 2, fromY = fromRect.top + fromRect.height / 2;
+    const toX = toRect.left + toRect.width / 2, toY = toRect.top + toRect.height / 2;
+    const flyer = document.createElement('div');
+    flyer.textContent = drink.emoji;
+    flyer.style.cssText = 'position:fixed;left:' + fromX + 'px;top:' + fromY + 'px;font-size:1.4rem;' +
+      'transform:translate(-50%,-50%) scale(0.8);z-index:9500;pointer-events:none;' +
+      'filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));' +
+      'transition:left 0.55s cubic-bezier(0.4,0,0.2,1),top 0.55s cubic-bezier(0.4,0,0.2,1),transform 0.55s cubic-bezier(0.4,0,0.2,1)';
+    document.body.appendChild(flyer);
+    requestAnimationFrame(() => {
+      flyer.style.left = toX + 'px';
+      flyer.style.top = (toY - 30) + 'px';
+      flyer.style.transform = 'translate(-50%,-50%) scale(1.15) rotate(20deg)';
+    });
+    setTimeout(() => {
+      flyer.remove();
+      landAndShowMessage(toX, toY);
+    }, 550);
+  } else {
+    landAndShowMessage(window.innerWidth / 2, window.innerHeight * 0.42);
+  }
 };
 ['av1', 'av2', 'av3', 'av4', 'av5'].forEach(id => {
   const el = document.getElementById(id);
@@ -2846,10 +2896,11 @@ window.showBuddyGreeting = function(fromName, toName) {
     if (typeof socket !== 'undefined' && socket && socket.connected) {
       socket.emit('sixp_buddyGreeting', { toPos: targetPos });
     } else {
-      // Offline (bots): no round trip needed, show it immediately.
-      // {from} = the avatar that got clicked, {to} = the local player.
-      const clickedName = (latestState && latestState.seats[targetPos] && latestState.seats[targetPos].name) || 'Someone';
-      window.showBuddyGreeting(clickedName, MY_NAME || 'You');
+      // Offline/disconnected fallback: show locally. I am always the
+      // sender since I'm the one clicking -- fromName/fromPos must be
+      // me, toName/toPos must be whoever I clicked.
+      const clickedName = (latestState && latestState.seats[targetPos] && latestState.seats[targetPos].name) || 'them';
+      window.showBuddyGreeting(MY_NAME || 'You', clickedName, MY_POS, targetPos);
     }
   });
 });
@@ -4292,7 +4343,7 @@ function requestFullscreen28() {
     { key: 'mayday',     emoji: '🌷', title: 'Happy May Day!',         sub: '',                                               start: [5,1],  end: [5,1] },
     { key: 'julyfourth', emoji: '🎆', title: 'Happy Independence Day!',sub: '',                                               start: [7,4],  end: [7,4] },
     { key: 'indiaindep', emoji: '🇮🇳', title: 'Happy Independence Day!',sub: 'Jai Hind',                                       start: [8,15], end: [8,16] },
-    { key: 'onam',       emoji: '🌸', title: 'Happy Onam!',            sub: 'Wishing you a joyful Onam from 28gulan.com',     start: [8,20], end: [9,10] },
+    { key: 'onam',       emoji: '🌸', title: 'Happy Onam!',            sub: 'Wishing you a joyful Onam from 28gulan.com',     start: [8,20], end: [9,2] },
     { key: 'halloween',  emoji: '🎃', title: 'Happy Halloween!',       sub: '',                                               start: [10,30],end: [11,2] },
     { key: 'diwali',     emoji: '🪔', title: 'Happy Diwali!',          sub: 'Wishing you light and prosperity',               start: [11,1], end: [11,6] },
     { key: 'thanksgiving',emoji:'🦃', title: 'Happy Thanksgiving!',    sub: '',                                               start: [11,24],end: [11,28] },
