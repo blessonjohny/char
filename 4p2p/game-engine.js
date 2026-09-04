@@ -2832,6 +2832,21 @@ class GameEngine {
       // this optimization is unconditionally correct whenever the trick
       // is actually safe to feed into.
       if (wt === myTeam) {
+        // Per explicit request: if partner's actual winning card is the
+        // Jack itself, this trick has zero risk left at all -- the Jack
+        // is unbeatable in its own suit, nothing left to act can ever
+        // take it away. That makes the usual caution around spending a
+        // 9 (saving it in case of an unseen Jack) meaningless here, since
+        // the Jack is already the card on top. Feed the single highest
+        // card in the suit outright, 9 included, rather than holding it
+        // back for a "later" that carries no more risk than right now.
+        if (cwc && cwc.rank === 'J') {
+          const best = follow.filter(c => c.rank !== 'J');
+          if (best.length > 0) {
+            best.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+            return best[0];
+          }
+        }
         const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
         if (!jackRisk || tPts >= 3) {
           const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
@@ -2900,7 +2915,18 @@ class GameEngine {
       // wouldn't actually win the trick, and never cut over our own
       // partner who's already winning it for free.
       const firstTimeSuitLed = suitRepeat === 1;
-      const worthTrumping = tPts >= trumpPtsThreshold || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1) || firstTimeSuitLed;
+      // Per explicit request: on the second-or-later time this suit has
+      // been led, cutting for even a single point stopped making sense
+      // once the suit's own high-value cards (Jack, Ace, 10) are all
+      // already accounted for -- there's nothing left in that suit worth
+      // spending a trump to chase, this trick's low value is exactly
+      // what's left over once the real value already came and went.
+      // Scoped narrowly to the suitRepeat>=2 trigger specifically; the
+      // other triggers (tPts>=trumpPtsThreshold, isLast, bidder
+      // protection, first-time-led) are untouched and still apply on
+      // their own terms regardless of this.
+      const trickSuitTopCardsGone = this._isRankSeen(this.trickSuit, 'J') && this._isRankSeen(this.trickSuit, 'A') && this._isRankSeen(this.trickSuit, '10');
+      const worthTrumping = tPts >= trumpPtsThreshold || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1 && !trickSuitTopCardsGone) || firstTimeSuitLed;
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {
@@ -3014,6 +3040,23 @@ class GameEngine {
         // doesn't pick one and then have it rejected as illegal.
         const nonJackDiscard = nonTrumpDiscard.filter(c => c.rank !== 'J');
         if (nonJackDiscard.length > 0) {
+          // Per explicit request: discarding from a suit this bot holds
+          // only a single card of empties that suit out entirely,
+          // meaning any future trick led in it becomes a free cut with
+          // trump instead of a forced follow. Given a choice among
+          // otherwise-reasonable discards, prefer the singleton over an
+          // equally-cheap card from a suit still held in depth -- the
+          // void it creates is a real, lasting advantage the depth-held
+          // suit's card doesn't offer. Scoped to genuinely low-value
+          // candidates only (0-1 points) so this never means giving up
+          // an actual point card just to chase a void.
+          const suitCounts = {};
+          for (const c of hand) suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1;
+          const cheapSingletons = nonJackDiscard.filter(c => c.points <= 1 && suitCounts[c.suit] === 1);
+          if (cheapSingletons.length > 0) {
+            cheapSingletons.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+            return cheapSingletons[0];
+          }
           nonJackDiscard.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
           return nonJackDiscard[0];
         }
@@ -3036,8 +3079,21 @@ class GameEngine {
       // win with a King or 7 just as easily is the same unnecessary
       // waste, not a special case just because exposing trump is also
       // happening here.
-      const cutForWin = pos !== this.hiddenTrumpOwner &&
-        ((isLast && wt !== myTeam && tPts >= 2) || (isBidder && wt !== myTeam && tPts >= 3));
+      // Real, confirmed bug fix per explicit follow-up report: the
+      // "cut on a suit's very first lead, regardless of trick value"
+      // rule was only ever added to the POST-exposure cutting branch
+      // further up this function -- this separate PRE-exposure branch
+      // (the far more common case, since trump usually hasn't been
+      // exposed yet the first time a bot actually goes void) never had
+      // it at all, so the rule effectively never fired for the single
+      // most common situation it was meant to cover. Ported the same
+      // trigger here: still respects the same pos !== hiddenTrumpOwner
+      // restriction and the same wt !== myTeam guard (never cut over a
+      // partner already winning it for free) that the rest of this
+      // branch already enforces.
+      const firstTimeSuitLedPreExposure = (this.suitLeadCount[this.trickSuit] || 0) === 1;
+      const cutForWin = pos !== this.hiddenTrumpOwner && wt !== myTeam &&
+        (isLast && tPts >= 2 || isBidder && tPts >= 3 || firstTimeSuitLedPreExposure);
       if (cutForWin) {
         trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
         const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
