@@ -1445,6 +1445,15 @@ app.post('/api/admin/reset-leaderboard', (req, res) => {
   res.json({ ok: true, leaderboard: leaderboard.getLeaderboard() });
 });
 
+// Per explicit request: a simple, manual way to carry leaderboard data
+// across a deploy on a host with an ephemeral filesystem -- see
+// importLeaderboard() in leaderboard.js for the fuller reasoning.
+app.post('/api/admin/import-leaderboard', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const ok = leaderboard.importLeaderboard(req.body);
+  res.json({ ok, leaderboard: leaderboard.getLeaderboard() });
+});
+
 // Per explicit request: the same leaderboard data, but public -- no
 // admin auth -- for the new home-page popup every player sees, not
 // just admins. Same underlying data as the admin endpoint above,

@@ -166,9 +166,42 @@ function resetLeaderboard(mode) {
   saveLeaderboard();
 }
 
+// Per explicit request: a simple, manual way to carry leaderboard data
+// across a deploy on a host with an ephemeral filesystem -- export the
+// current data right before deploying, import it right back after.
+// Deliberately a full overwrite, not a merge, to keep this predictable:
+// whatever's imported becomes the new state exactly as given. Validates
+// the shape defensively since this comes from a file an admin picked,
+// not internal state -- a malformed or unrelated JSON file is ignored
+// per-field rather than partially corrupting what's already there.
+function importLeaderboard(imported) {
+  if (!imported || typeof imported !== 'object') return false;
+  let touchedAnything = false;
+  for (const section of ['allTime', 'today']) {
+    if (!imported[section] || typeof imported[section] !== 'object') continue;
+    for (const mode of ['4p', '6p']) {
+      const list = imported[section][mode];
+      if (!Array.isArray(list)) continue;
+      data[section][mode] = list
+        .filter(e => e && Array.isArray(e.names) && typeof e.rounds === 'number' && typeof e.roundLosses === 'number')
+        .map(e => ({
+          names: e.names.slice(),
+          opponentNames: Array.isArray(e.opponentNames) ? e.opponentNames.slice() : [],
+          rounds: e.rounds,
+          roundLosses: e.roundLosses,
+          ts: typeof e.ts === 'number' ? e.ts : Date.now()
+        }))
+        .slice(0, 3);
+      touchedAnything = true;
+    }
+  }
+  if (touchedAnything) { dirty = true; saveLeaderboard(); }
+  return touchedAnything;
+}
+
 loadLeaderboard();
 setInterval(saveLeaderboard, 10000);
 process.on('SIGTERM', () => { saveLeaderboard(); });
 process.on('SIGINT', () => { saveLeaderboard(); });
 
-module.exports = { recordChampionshipWin, getLeaderboard, resetLeaderboard, loadLeaderboard, saveLeaderboard };
+module.exports = { recordChampionshipWin, getLeaderboard, resetLeaderboard, importLeaderboard, loadLeaderboard, saveLeaderboard };
