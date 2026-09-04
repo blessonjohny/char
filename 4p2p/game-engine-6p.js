@@ -1824,8 +1824,17 @@ class GameEngine6P {
             // pure waste when a King or 7 would win it just as well.
             const zeroPt = trumps.filter(c => c.points === 0);
             let cutCard = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1] : trumps[trumps.length - 1];
-            if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && cutCard.rank !== 'J' && tPts >= 3) {
-              cutCard = trumps[0];
+            // Real, confirmed bug fix per explicit report: same "never
+            // escalate to the Jack" waste already fixed in two other
+            // cutting branches in this file (and the 4-player table's
+            // identical one) -- missed here since this is a third,
+            // separate branch (a non-bidder voluntarily exposing trump
+            // themselves rather than following suit or over-cutting).
+            // Caps at the highest non-Jack trump instead of trumps[0],
+            // which is the Jack whenever it's held.
+            const nonJackTrumpsCall = trumps.filter(c => c.rank !== 'J');
+            if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && cutCard.rank !== 'J' && tPts >= 3 && nonJackTrumpsCall.length > 0 && RANK_ORDER[nonJackTrumpsCall[0].rank] > RANK_ORDER[cutCard.rank]) {
+              cutCard = nonJackTrumpsCall[0];
             }
             this.playCard(pos, cutCard);
           } else {
