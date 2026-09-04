@@ -14651,24 +14651,30 @@ async function showLeaderboardPopup() {
     const res = await fetch('/api/leaderboard');
     const data = await res.json();
     const lb = data.leaderboard;
-    const fmtEntry = (e) => {
-      if (!e) return 'None yet';
-      const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
-      const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
-      // Per explicit request: player names styled like the
-      // "28GULAN.COM" title elsewhere on this page -- bold, uppercase,
-      // slightly larger, same gold gradient treatment -- so the names
-      // (the actual achievement) stand out clearly from the
-      // surrounding round-count text instead of blending in at the
-      // same weight.
-      const styledNames = `<span style="font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;font-size:1.08em;text-transform:uppercase;letter-spacing:0.3px;background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 1px 8px rgba(230,200,107,0.3)">${names}</span>`;
-      return `${styledNames} enforced Kunukku in ${e.rounds} ${roundLabel}`;
+    // Per explicit request: shows all 3 positions (not just #1), the
+    // opponent team too (previously only the winners were ever
+    // recorded at all), and tightened into one compact line per entry
+    // so both modes' All-Time and Today's top-3 fit on one screen
+    // without excessive scrolling. Names keep the gold-gradient
+    // treatment for the "look nice" part of the request, just at a
+    // smaller size than before so 3 entries don't take the vertical
+    // space 1 used to.
+    const nameSpan = (n) => `<span style="font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;text-transform:uppercase;background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);-webkit-background-clip:text;background-clip:text;color:transparent">${String(n).replace(/</g, '&lt;')}</span>`;
+    const fmtRow = (e, rank) => {
+      if (!e) return `<div style="font-size:0.72rem;opacity:0.5;padding:2px 0">${rank}. —</div>`;
+      const names = e.names.map(nameSpan).join(', ');
+      const opp = (e.opponentNames && e.opponentNames.length > 0) ? ` <span style="opacity:0.55">vs</span> ${e.opponentNames.map(n => String(n).replace(/</g, '&lt;')).join(', ')}` : '';
+      const roundLabel = e.rounds === 1 ? 'rd' : 'rds';
+      return `<div style="font-size:0.72rem;padding:2px 0;line-height:1.3"><b style="opacity:0.6">${rank}.</b> ${names}${opp} <span style="opacity:0.6">— ${e.rounds}${roundLabel}</span></div>`;
     };
+    const fmtSection = (list, label) => `
+      <div style="margin-bottom:4px;font-size:0.68rem;color:var(--accent);opacity:0.85;font-weight:700">${label}</div>
+      ${[0,1,2].map(i => fmtRow(list[i], i + 1)).join('')}`;
     const fmtOne = (mode, label) => `
-      <div style="margin-bottom:12px">
-        <b style="color:var(--accent)">${label}</b><br>
-        <span style="font-size:0.9em">🏆 All-Time: ${fmtEntry(lb.allTime[mode][0])}</span><br>
-        <span style="font-size:0.9em">📅 Today: ${fmtEntry(lb.today[mode][0])}</span>
+      <div style="margin-bottom:10px">
+        <div style="font-weight:800;color:var(--text-primary);font-size:0.82rem;margin-bottom:3px">${label}</div>
+        ${fmtSection(lb.allTime[mode], '🏆 All-Time')}
+        ${fmtSection(lb.today[mode], '📅 Today')}
       </div>`;
     contentEl.innerHTML = fmtOne('4p', '4 Player') + fmtOne('6p', '6 Player');
   } catch (e) {

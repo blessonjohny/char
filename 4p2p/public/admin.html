@@ -686,28 +686,31 @@ async function resetLeaderboardMode(mode, label) {
 document.getElementById('btnResetLeaderboard4p').addEventListener('click', () => resetLeaderboardMode('4p', '4 Player'));
 document.getElementById('btnResetLeaderboard6p').addEventListener('click', () => resetLeaderboardMode('6p', '6 Player'));
 
-function formatLbEntry(e) {
-  if (!e) return '<div class="sub" style="margin:0">No record yet.</div>';
+// Per explicit request: compact single-card format showing the
+// opponent team too (previously only the winners were ever recorded
+// or shown at all), and tightened enough that all 3 positions for a
+// mode fit comfortably without excessive scrolling.
+function formatLbEntry(e, position) {
+  if (!e) return '';
   const names = e.names.map(esc).join(', ');
+  const oppNames = (e.opponentNames && e.opponentNames.length > 0) ? e.opponentNames.map(esc).join(', ') : null;
   const when = new Date(e.ts).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
+  const roundLabel = e.rounds === 1 ? 'rd' : 'rds';
   const lossLabel = e.roundLosses === 1 ? 'loss' : 'losses';
   return `
-    <div class="live-card" style="flex-direction:column;align-items:stretch;gap:4px">
-      <div class="who">${names}</div>
-      <div class="where">Enforced Kunukku in ${e.rounds} ${roundLabel} · ${e.roundLosses} round ${lossLabel} · ${esc(when)} ET</div>
+    <div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <div style="font-weight:800;color:var(--accent);width:16px;flex-shrink:0;font-size:0.85rem">${position}</div>
+      <div style="flex:1;min-width:0;font-size:0.78rem;line-height:1.35">
+        <b>${names}</b>${oppNames ? ` <span style="opacity:0.6">vs</span> ${oppNames}` : ''}
+        <span style="opacity:0.7"> — ${e.rounds} ${roundLabel}, ${e.roundLosses} ${lossLabel} · ${esc(when)}</span>
+      </div>
     </div>
   `;
 }
 
 function formatLbList(list) {
-  if (!list || list.length === 0) return '<div class="sub" style="margin:0">None yet today.</div>';
-  return list.map((e, i) => `
-    <div style="display:flex;align-items:center;gap:8px">
-      <div style="font-weight:800;color:var(--accent);width:20px;flex-shrink:0">${i + 1}</div>
-      <div style="flex:1">${formatLbEntry(e)}</div>
-    </div>
-  `).join('');
+  if (!list || list.length === 0) return '<div class="sub" style="margin:0;padding:5px 0">None yet.</div>';
+  return list.map((e, i) => formatLbEntry(e, i + 1)).join('');
 }
 
 async function refreshLeaderboard() {
