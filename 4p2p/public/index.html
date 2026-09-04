@@ -1186,6 +1186,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #playerJoinedOverlay{z-index:3050;pointer-events:none}
 #playerJoinedOverlay .join-notice-card{pointer-events:auto}
 .modal{background:linear-gradient(135deg,#111d2e,#0d1b2a);border:1.5px solid rgba(255,215,0,0.2);border-radius:16px;padding:16px;width:100%;max-width:320px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.6)}
+/* Per explicit request: transparent background specifically for the
+   end-of-round and end-of-championship popups -- scoped to just these
+   two overlays rather than the shared .modal class itself, since that
+   base class is reused by many unrelated modals (chat, settings, etc.)
+   this request wasn't about. Matches the same treatment already applied
+   to the 6-player table's equivalent round-end/game-over popups. */
+#postRoundOverlay .modal,#modalOverlay .modal{background:rgba(15,15,20,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .modal h3{color:var(--accent);margin-bottom:10px}
 .modal p{color:var(--text-secondary);font-size:0.82rem;margin-bottom:16px;line-height:1.6}
 
@@ -5094,7 +5101,19 @@ async function requestScreenWakeLock() {
   } catch (e) {}
 }
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') requestScreenWakeLock();
+  if (document.visibilityState === 'visible') {
+    requestScreenWakeLock();
+    // Per explicit request: same "I'm back" signal the 6-player table
+    // already sends on tab return -- see reclaimTurn() in
+    // game-engine.js and the socket handler in server.js for the
+    // fuller reasoning. Only meaningful in SERVER_MODE (online play) --
+    // the offline/learn table has no stuck-turn timer to reclaim at
+    // all. Guarded with typeof since this fires very early, before
+    // SERVER_MODE/socket are necessarily assigned yet on first load.
+    if (typeof SERVER_MODE !== 'undefined' && SERVER_MODE && typeof socket !== 'undefined' && socket && socket.connected) {
+      socket.emit('reclaimTurn');
+    }
+  }
 });
 requestScreenWakeLock();
 if (document.readyState === 'interactive' || document.readyState === 'complete') renderMyAvatarPicker();
@@ -17567,7 +17586,15 @@ function applyServerState(state) {
       state.phase === 'play' && (players[MY_POS] || []).length === 0 &&
       !window._serverPlayHiddenTrumpFired) {
     window._serverPlayHiddenTrumpFired = true;
-    setTimeout(() => { serverPlayHiddenTrump(); }, 400);
+    // Real, confirmed bug fix per explicit live report -- same fix as
+    // the 6-player table's identical addition, see there for the fuller
+    // reasoning: this used to fire after only 400ms, fast enough that a
+    // real player could easily never even perceive the card appearing
+    // before it was already played, which read indistinguishably from
+    // the card just vanishing. Slowed down and paired with an explicit
+    // toast so this is a visible, legible event, not a silent one.
+    showToast('🃏 Playing your last card (hidden trump)...', 'info', 1600);
+    setTimeout(() => { serverPlayHiddenTrump(); }, 1400);
   } else if (!(state.myHiddenTrumpCard && state.currentPlayer === MY_POS)) {
     window._serverPlayHiddenTrumpFired = false;
   }
@@ -17812,6 +17839,21 @@ function clearPostRoundAutoContinueTimer() {
 // mode, but "Continue" asks the SERVER to deal the next round instead of
 // any player's browser doing it themselves.
 function proceedAfterCrownAnimationServerMode(bidderWon, made, bT, oT, yourTeam, isYourBid, champResult) {
+  // Real, confirmed bug fix per explicit report ("2 popups at the end,
+  // only need the 1 main one") -- same fix as the 6-player table's
+  // identical addition, see there for the fuller reasoning. This
+  // function already receives champResult and therefore already knows
+  // up front whether this specific round also just decided the whole
+  // championship -- previously it showed the round-summary popup
+  // regardless, only routing to the championship-result popup as a
+  // SECOND, separate step once the player clicked Continue on the
+  // first one. Skips straight to the championship result now instead;
+  // that popup already carries the final score, so the intermediate
+  // round-summary popup has nothing left to add at that specific point.
+  if (champResult) {
+    showChampionshipResultServerMode(champResult, yourTeam);
+    return;
+  }
   const overlay = document.getElementById('postRoundOverlay');
   const title = document.getElementById('postRoundTitle');
   const text = document.getElementById('postRoundText');

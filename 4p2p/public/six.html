@@ -916,6 +916,14 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    dark tint plus a blur, rather than genuinely see-through with
    nothing backing the text at all. */
 #roundEndOverlay .modal-box{background:rgba(15,15,20,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+/* Per explicit request: same transparent treatment extended to the
+   game-over (match-end) popup -- it only ever existed on roundEndOverlay
+   before, gameOverOverlay was missed. */
+#gameOverOverlay .modal-box{background:rgba(15,15,20,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+/* Per explicit request: same treatment for the early-win popup too --
+   also a round-ending scenario (an early sweep), same category as
+   round-end and game-over above. */
+#earlyWinOverlay .modal-box{background:rgba(15,15,20,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .modal-overlay.on .modal-box{transform:scale(1)}
 
 /* ===== CHAT PANEL ===== */

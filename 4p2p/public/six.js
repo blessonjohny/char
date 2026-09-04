@@ -1877,7 +1877,17 @@ function applyState(state) {
     $('roundEndOverlay').classList.remove('on');
   }
 
-  if (state.phase === 'roundEnd' && state.round !== lastRoundSeen) {
+  // Real, confirmed bug fix per explicit report ("2 popups at the end,
+  // only need the 1 main one"): this condition never checked
+  // state.gameOver at all, so on the specific round that both ends a
+  // round AND wins the whole championship, this fired regardless --
+  // showing the round summary popup right alongside (or just before)
+  // the separate game-over popup below, which is a completely
+  // independent `if` block with no awareness of this one. Skips the
+  // round-end popup entirely once the match itself has ended; the
+  // game-over popup already carries the final result, so there's
+  // nothing the round-end popup would add at that specific point.
+  if (state.phase === 'roundEnd' && state.round !== lastRoundSeen && !state.gameOver) {
     lastRoundSeen = state.round;
     // Same big event as index.html's identical hook -- fires exactly
     // once per round-end, right alongside the existing lastRoundSeen
@@ -2878,9 +2888,22 @@ function renderHand(state) {
     // on screen to compare it against. lastHiddenTrumpAutoFired6p guards
     // against firing more than once for the same turn while waiting on
     // the server's own follow-up state to arrive.
+    // Real, confirmed bug fix per explicit live report: a real player's
+    // last card appeared to just vanish mid-game. Root cause -- this
+    // auto-play fired after only 400ms, fast enough that a real person
+    // could easily never even see the card render before it was already
+    // gone, since they still had to notice it, recognize it, and decide
+    // not to act, all inside less than half a second. The card was never
+    // actually missing or lost -- it played itself correctly -- but from
+    // the player's side that's functionally indistinguishable from data
+    // loss if they never got a chance to perceive it happening at all.
+    // Slowed to 1.4s and paired with an explicit toast explaining what's
+    // about to happen, so this reads as a deliberate, visible action
+    // instead of something that just silently happened to their hand.
     if (!lastHiddenTrumpAutoFired6p) {
       lastHiddenTrumpAutoFired6p = true;
-      setTimeout(() => { playHiddenTrumpCard(); }, 400);
+      showToast('🃏 Playing your last card (hidden trump)...', 'info', 1600);
+      setTimeout(() => { playHiddenTrumpCard(); }, 1400);
     }
   } else if (!(state.myHiddenTrumpCard && myTurn)) {
     lastHiddenTrumpAutoFired6p = false;
