@@ -167,10 +167,18 @@
         every day at 5am US Eastern, same boundary the rest of the app already uses.
         <button class="btn ghost" id="btnRefreshLeaderboard" style="padding:4px 10px;font-size:0.75rem;margin-left:6px">🔄</button>
       </div>
-      <div style="margin:8px 0;display:flex;gap:6px">
+      <div style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn ghost" id="btnResetLeaderboard4p" style="padding:4px 10px;font-size:0.72rem">🗑️ Reset 4 Player</button>
         <button class="btn ghost" id="btnResetLeaderboard6p" style="padding:4px 10px;font-size:0.72rem">🗑️ Reset 6 Player</button>
+        <button class="btn ghost" id="btnExportLeaderboard" style="padding:4px 10px;font-size:0.72rem">⬇️ Export</button>
+        <button class="btn ghost" id="btnImportLeaderboard" style="padding:4px 10px;font-size:0.72rem">⬆️ Import</button>
       </div>
+      <!-- Per explicit request: a simple, manual way to carry leaderboard
+           data across a deploy on a host with an ephemeral filesystem --
+           export right before deploying, import right after. Not a
+           substitute for a real persistent disk if the hosting platform
+           offers one, but works regardless of hosting setup. -->
+      <input type="file" id="importLeaderboardFile" accept="application/json" style="display:none">
       <div id="leaderboardContent"></div>
     </div>
   </div>
@@ -685,6 +693,47 @@ async function resetLeaderboardMode(mode, label) {
 }
 document.getElementById('btnResetLeaderboard4p').addEventListener('click', () => resetLeaderboardMode('4p', '4 Player'));
 document.getElementById('btnResetLeaderboard6p').addEventListener('click', () => resetLeaderboardMode('6p', '6 Player'));
+
+// Per explicit request: simple manual export/import so leaderboard data
+// can be carried across a deploy on a host with an ephemeral
+// filesystem -- see importLeaderboard() in leaderboard.js for the
+// fuller reasoning on why this exists at all.
+document.getElementById('btnExportLeaderboard').addEventListener('click', async () => {
+  try {
+    const res = await fetch('/api/leaderboard');
+    const json = await res.json();
+    const blob = new Blob([JSON.stringify(json.leaderboard, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'leaderboard-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Failed to export: ' + e.message);
+  }
+});
+document.getElementById('btnImportLeaderboard').addEventListener('click', () => {
+  document.getElementById('importLeaderboardFile').click();
+});
+document.getElementById('importLeaderboardFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = ''; // allow re-selecting the same file next time
+  if (!file) return;
+  if (!confirm('Import this file? This replaces the current All-Time and Today\'s leaderboard entries for any mode present in the file.')) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const res = await adminFetch('/api/admin/import-leaderboard', undefined, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsed) });
+    const json = await res.json();
+    if (json.ok) { refreshLeaderboard(); alert('Leaderboard imported.'); }
+    else alert('That file didn\'t look like leaderboard data -- nothing was changed.');
+  } catch (e) {
+    alert('Failed to import: ' + e.message);
+  }
+});
 
 // Per explicit request: compact single-card format showing the
 // opponent team too (previously only the winners were ever recorded
