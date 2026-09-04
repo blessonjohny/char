@@ -1550,7 +1550,9 @@ class GameEngine6P {
       this.turnStartedAt = Date.now();
     }
     const turnAgeMs = Date.now() - (this.turnStartedAt || Date.now());
-    const CONNECTED_BUT_STUCK_MS = 120000;
+    // Per explicit request, same 1:50 (110s) value as the 4-player
+    // engine's identical constant -- see there for the fuller reasoning.
+    const CONNECTED_BUT_STUCK_MS = 110000;
     // A ghost-player seat (admin-run, per explicit request) is deliberately kept isBot:false -
     // see game-engine.js's identical fix for the full reasoning.
     const isGhost = seat.ghostPlayer === true;
@@ -2264,8 +2266,18 @@ class GameEngine6P {
           // the trump Jack is still unaccounted for. Spending our only
           // realistic winner into a trick a live Jack can still take away
           // is exactly the waste this was meant to avoid.
-          if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && wtr.rank !== 'J' && tPts >= 3) {
-            wtr = trumps[0];
+          // Real, confirmed bug fix per explicit report: this used to
+          // escalate to trumps[0] here -- the single highest trump in
+          // hand, which IS the Jack whenever we hold it -- exactly the
+          // same waste already fixed on the 4-player table (bidder
+          // holding J/A/K of trump, cutting with the Jack when a lower
+          // trump was available). Never fixed here since that earlier
+          // report was specifically about the 4-player table. Caps at
+          // the highest non-Jack trump instead, same as there: the Jack
+          // stays preserved regardless of how real the overtake risk is.
+          const nonJackTrumpsHere = trumps.filter(c => c.rank !== 'J');
+          if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && wtr.rank !== 'J' && tPts >= 3 && nonJackTrumpsHere.length > 0 && RANK_ORDER[nonJackTrumpsHere[0].rank] > RANK_ORDER[wtr.rank]) {
+            wtr = nonJackTrumpsHere[0];
           }
         } else {
           // The FIRST cut in this trick — nothing on the table is trump

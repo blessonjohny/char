@@ -2703,6 +2703,20 @@ io.on('connection', (socket) => {
     if (t) touch(t);
   });
 
+  // Per explicit request: same "tab returns to foreground -> reset my
+  // stuck-turn clock immediately" signal the 6-player table already
+  // has (see reclaimTurn() in game-engine-6p.js for the fuller
+  // reasoning) -- ported here since 4-player never had an equivalent
+  // at all. Without this, a player returning from a brief break had no
+  // way to reclaim an already-running stuck-turn countdown except
+  // waiting it out or a full disconnect/reconnect cycle.
+  socket.on('reclaimTurn', () => {
+    withTable((t, pos) => {
+      if (typeof pos !== 'number' || pos < 0) return;
+      t.engine.reclaimTurn(pos);
+    });
+  });
+
   socket.on('leaveTable', () => {
     handleDisconnectOrLeave(true);
   });

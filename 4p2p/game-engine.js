@@ -636,6 +636,15 @@ class GameEngine {
     }
   }
 
+  // Per explicit request: same "tab returns to foreground" reclaim
+  // signal the 6-player engine already has -- see there for the fuller
+  // reasoning. Ported here since this engine never had an equivalent.
+  reclaimTurn(pos) {
+    if (this.currentPlayer === pos) {
+      this.turnStartedAt = Date.now();
+    }
+  }
+
   findSeatByPlayerId(playerId) {
     return this.seats.findIndex(s => s && s.playerId === playerId);
   }
@@ -1902,11 +1911,15 @@ class GameEngine {
     // long time is almost certainly a zombie connection (a network
     // transition the socket layer never cleanly detected as a
     // disconnect) rather than a human genuinely still thinking - no
-    // real turn takes 2 minutes. Once past that, treat it exactly like
+    // real turn takes that long. Once past that, treat it exactly like
     // an explicitly disconnected seat so the table can recover on its
     // own instead of staying stuck until someone happens to reconnect
     // in a way that coincidentally un-sticks it.
-    const CONNECTED_BUT_STUCK_MS = 120000;
+    // Per explicit request: set to exactly 1:50 (110s) -- long enough
+    // that a brief real-world break (a bathroom run, a knock at the
+    // door) doesn't trigger the bot taking over, without leaving it so
+    // long that the rest of the table sits waiting excessively either.
+    const CONNECTED_BUT_STUCK_MS = 110000;
     // A ghost-player seat (admin-run, per explicit request) is deliberately kept isBot:false
     // so it displays and behaves as a genuine connected human everywhere else in the game
     // (green "live" status dot, counted as a real player for room listings, etc.) - but still
