@@ -18,6 +18,10 @@
 //     server process's own local time, so "today" means the same
 //     thing here as it does everywhere else in this app.
 //
+// Per explicit request: each entry now also carries the opponent
+// team's names alongside the winners -- previously only the winning
+// side was ever recorded at all.
+//
 // Persists to a JSON file on disk, same pattern as bot-brain.js.
 // ============================================================
 
@@ -54,11 +58,30 @@ function _migrateAllTimeShape(loaded) {
   }
 }
 
+// Per explicit change: older entries (recorded before opponents were
+// tracked at all) won't have an opponentNames field -- backfills an
+// empty array rather than leaving it undefined, so display code never
+// has to special-case a missing field.
+function _migrateOpponentNames(loaded) {
+  if (!loaded) return;
+  for (const section of [loaded.allTime, loaded.today]) {
+    if (!section) continue;
+    for (const mode of ['4p', '6p']) {
+      const list = section[mode];
+      if (!Array.isArray(list)) continue;
+      for (const entry of list) {
+        if (!Array.isArray(entry.opponentNames)) entry.opponentNames = [];
+      }
+    }
+  }
+}
+
 function loadLeaderboard() {
   try {
     if (fs.existsSync(LEADERBOARD_FILE)) {
       const loaded = JSON.parse(fs.readFileSync(LEADERBOARD_FILE, 'utf8'));
       _migrateAllTimeShape(loaded);
+      _migrateOpponentNames(loaded);
       data = Object.assign({ allTime: { '4p': [], '6p': [] }, today: { '4p': [], '6p': [] }, todayDateKey: null }, loaded);
       console.log(`[leaderboard] Loaded existing leaderboard data from disk.`);
     }
@@ -98,11 +121,14 @@ function _insertIntoTop3(list, entry) {
 // mode is '4p' or '6p'. playerNames is an array of the winning team's
 // player names. rounds is how many rounds this specific championship
 // took. roundLosses is how many of those rounds the winning team lost.
-function recordChampionshipWin(mode, playerNames, rounds, roundLosses) {
+// opponentNames (per explicit request) is an array of the losing
+// team's names -- optional/backward-compatible, defaults to empty.
+function recordChampionshipWin(mode, playerNames, rounds, roundLosses, opponentNames) {
   if (mode !== '4p' && mode !== '6p') return;
   _rolloverIfNeeded();
   const entry = {
     names: playerNames.slice(),
+    opponentNames: Array.isArray(opponentNames) ? opponentNames.slice() : [],
     rounds,
     roundLosses,
     ts: Date.now()

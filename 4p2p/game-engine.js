@@ -1834,8 +1834,18 @@ class GameEngine {
           if (s && getTeam(i) === winningTeam) winningPlayerNames.push(s.name);
         }
       }
+      // Per explicit request: the losing team's names, alongside the
+      // winners -- no "at least one real player" gate here the way the
+      // winning side has one, since displaying who was beaten doesn't
+      // carry the same "is this a real achievement to rank" question
+      // the winning side's gate exists for.
+      const opponentNames = [];
+      for (let i = 0; i < 4; i++) {
+        const s = this.seats[i];
+        if (s && getTeam(i) === losingTeam) opponentNames.push(s.name);
+      }
       if (winningPlayerNames.length > 0) {
-        leaderboard.recordChampionshipWin('4p', winningPlayerNames, championshipRounds, this.roundLossesThisChampionship[winningTeam]);
+        leaderboard.recordChampionshipWin('4p', winningPlayerNames, championshipRounds, this.roundLossesThisChampionship[winningTeam], opponentNames);
       }
       // This scoring system is zero-sum (every point gained by one team
       // is lost by the other), so every championship necessarily ends

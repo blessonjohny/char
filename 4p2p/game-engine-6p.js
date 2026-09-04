@@ -1498,8 +1498,16 @@ class GameEngine6P {
           if (s && getTeam(i) === winningTeam) winningPlayerNames.push(s.name);
         }
       }
+      // Per explicit request, same opponent-name tracking as the
+      // 4-player engine's identical addition -- see there for the
+      // fuller reasoning.
+      const opponentNames = [];
+      for (let i = 0; i < SEATS; i++) {
+        const s = this.seats[i];
+        if (s && getTeam(i) === losingTeam) opponentNames.push(s.name);
+      }
       if (winningPlayerNames.length > 0) {
-        leaderboard.recordChampionshipWin('6p', winningPlayerNames, this.round, this.roundLossesThisMatch[winningTeam]);
+        leaderboard.recordChampionshipWin('6p', winningPlayerNames, this.round, this.roundLossesThisMatch[winningTeam], opponentNames);
       }
       // Every player on the losing team picks up a Q at match end, regardless of their exact
       // final score - not restricted to a true zero-point shutout. An earlier version of this
