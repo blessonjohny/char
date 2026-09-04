@@ -1,4 +1,30 @@
 <!DOCTYPE html>
+<!--
+  NAMING CONVENTION (per explicit user instruction, recorded here so it
+  persists across sessions and is visible to any future Claude instance
+  working on this file, since chat memory isn't enabled for this user):
+
+  This single file implements TWO distinct 4-player modes, both driven
+  by the same UI and much of the same bot-decision code, but launched
+  and referred to differently:
+
+    - "4 PLAYER" (unqualified) means the ONLINE table -- server-
+      authoritative play via server.js/game-engine.js, real multiplayer,
+      SERVER_MODE/IS_ONLINE true. This is what "4 player" refers to by
+      default from now on, with no further qualification needed.
+
+    - The OFFLINE, single-device, no-server mode (client-side bot AI
+      via chooseBotCardBase() in this same file, no socket connection)
+      is to be called the "LEARN TABLE" or "LEARN MODE" going forward --
+      never just "4 player" on its own, specifically to avoid the
+      confusion of two different things sharing one name.
+
+  If a request says "4 player" with no other qualifier, assume ONLINE.
+  If it's about the local/offline single-device mode, it should say
+  "learn table" or "learn mode" -- and this file's own offline code
+  paths should be read/edited under that name in comments going
+  forward too.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -197,6 +223,40 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      already-desktop-only media query instead, so desktop actually gets it too. */
   .cross{width:180px !important;height:270px !important}
 }
+/* Per explicit request ("option 2" -- low-risk proportional scale-up rather than a full
+   landscape redesign): the phone frame above was previously frozen at exactly 480px on
+   EVERY desktop width, so it looked identically small whether the browser was 700px or
+   2000px wide, leaving more and more unused space either side as the window grew. This
+   keys off wider breakpoints ON TOP OF the 480px base above (that block still applies to
+   everything from 700px up; these just layer larger sizes on top for genuinely wide
+   windows) and scales the SAME frame up proportionally instead -- same single-column
+   phone-shaped layout, same code, same position:fixed-children containment behavior
+   (scale() is still a transform value, so the existing note above about why translateZ(0)
+   is there applies exactly the same way here), just visually bigger on a big screen. Kept
+   deliberately conservative and stepped (not a fluid clamp/calc scale) specifically so this
+   stays easy to verify screenshot-by-screenshot and easy to dial back a step if any given
+   width doesn't look right, rather than a single continuous formula that's hard to reason
+   about at any one specific width. transform-origin fixed to the top so the frame grows
+   downward from a stable top edge instead of expanding equally in both directions and
+   fighting the vertical centering. */
+@media (min-width: 1000px) {
+  #appPhoneFrame{ transform:translateZ(0) scale(1.15); transform-origin:top center; }
+  /* Confirmed via direct testing (not assumed): scale() enlarges the
+     frame's visual box past the actual 100vh it's laid out at, and the
+     base html,body{overflow:hidden} rule earlier in this file was
+     silently clipping and permanently hiding the bottom portion of the
+     game with no way to reach it at all -- worse than the blank-space
+     problem this change was meant to fix. Overriding to allow vertical
+     scroll specifically at these wider, scaled breakpoints so the
+     clipped portion becomes reachable by scrolling instead of just
+     gone. Zero effect below 1000px -- everything under that keeps the
+     exact original overflow:hidden behavior untouched.
+  */
+  html,body{overflow-y:auto;overflow-x:hidden}
+}
+@media (min-width: 1300px) {
+  #appPhoneFrame{ transform:translateZ(0) scale(1.3); transform-origin:top center; }
+}
 
 /* ===== COUNTER OVERLAY ===== */
 .counter-overlay{position:fixed;inset:0;background:rgba(10,22,40,0.98);z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px;text-align:center;transition:opacity 0.6s ease;overflow-y:auto}
@@ -253,13 +313,37 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .welcome-btn-grid .welcome-btn .icon{font-size:1.1rem}
 .welcome-btn{width:100%;padding:14px 20px;border-radius:12px;border:1.5px solid rgba(255,215,0,0.3);background:rgba(255,215,0,0.05);color:var(--accent);font-family:'Cinzel','Playfair Display',serif;font-size:0.95rem;font-weight:700;letter-spacing:0.3px;text-shadow:0 1px 2px rgba(0,0,0,0.4);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);position:relative;overflow:hidden}
 .welcome-subbtn-row{width:100%;max-width:320px;margin:0 auto 20px;padding:0 20px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;box-sizing:border-box}
-.welcome-subbtn{padding:7px 13px;border-radius:18px;border:1px solid rgba(255,215,0,0.22);background:rgba(255,255,255,0.03);color:var(--text-secondary);font-size:0.7rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap;transition:all 0.2s}
+.welcome-subbtn{padding:7px 13px;border-radius:18px;border:1px solid rgba(255,215,0,0.22);background:rgba(255,255,255,0.03);color:var(--text-secondary);font-size:0.7rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap;transition:all 0.2s;backdrop-filter:blur(2px)}
 .welcome-subbtn:active{background:rgba(255,215,0,0.1);color:var(--accent)}
 .welcome-btn::before{content:'';position:absolute;top:0;left:-100%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent);animation:buttonShine 3s ease-in-out infinite}
 .welcome-btn:hover,.welcome-btn:active{background:rgba(255,215,0,0.15);border-color:var(--accent);transform:translateY(-2px) scale(1.02);box-shadow:0 8px 25px rgba(255,215,0,0.15)}
 .welcome-btn .icon{font-size:1.2rem}
 .welcome-btn.primary{background:linear-gradient(135deg,var(--accent),#e6c200);color:var(--bg-dark);border-color:var(--accent);font-weight:800;box-shadow:0 4px 20px rgba(255,215,0,0.25)}
 .welcome-btn.primary:hover,.welcome-btn.primary:active{background:linear-gradient(135deg,#ffe033,#FFD700);box-shadow:0 8px 30px rgba(255,215,0,0.4);transform:translateY(-2px) scale(1.02)}
+.btn28-badge{font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;line-height:1.15;letter-spacing:0.5px;display:block;
+  background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 2px 18px rgba(230,200,107,0.35),0 1px 0 rgba(0,0,0,0.3);
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+  font-size:1.7rem}
+.welcome-btn-grid .welcome-btn .btn28-badge{font-size:1.9rem}
+.btn28-modelabel{font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;font-size:0.95rem;letter-spacing:0.4px;display:block;margin-top:1px;
+  background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 2px 18px rgba(230,200,107,0.35),0 1px 0 rgba(0,0,0,0.3);
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4))}
+/* Per explicit request: the 6-player button's background is a light
+   gold, so the same gold-on-dark gradient text used everywhere else
+   would have almost no contrast there -- inverted to a dark
+   maroon-on-light gradient specifically for that one button instead,
+   keeping the same layered gradient+shadow TREATMENT (matching the
+   logo's own styling approach) while actually being readable against
+   a light background. */
+.welcome-btn-grid a.btn28-inverted .btn28-badge,.welcome-btn-grid a.btn28-inverted .btn28-modelabel{
+  background:linear-gradient(180deg,#a8443a 0%,#781c18 45%,#4a1410 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 2px 10px rgba(120,28,24,0.25),0 1px 0 rgba(255,255,255,0.25);
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,0.25))}
 .welcome-btn.coming-soon{opacity:0.5;cursor:not-allowed;border-style:dashed}
 .welcome-btn.coming-soon:hover{transform:none;box-shadow:none;background:rgba(255,215,0,0.05)}
 .welcome-features{width:100%;max-width:500px;margin:0 auto;padding:0 20px 30px;display:flex;flex-direction:column;align-items:center}
@@ -689,20 +773,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .my-avatar-choice.selected{border-color:var(--accent);transform:scale(1.08);box-shadow:0 0 10px rgba(255,215,0,0.5)}
 .avatar.has-q,
 .player-avatar.has-q{filter:none}
-/* Sad-coconut Kunukku image, same one already used on the 6-player table, shown as a full
-   CSS overlay rather than swapping avEl's actual innerHTML - deliberately, to preserve the
-   existing design principle right above (the underlying avatar content is set from several
-   different code paths, and a pure CSS overlay driven off the .has-q class means none of them
-   need to be touched or restored when the count drops back to 0). ::after carries the image
-   itself; ::before carries the count number via attr(), reading a data-qcount attribute set
-   alongside the class toggle - a well-supported CSS technique for showing a dynamic JS value
-   in generated content without injecting any HTML at all. */
-.avatar.has-q::after,
+/* Sad-coconut Kunukku pendant -- per explicit follow-up report, no
+   longer a full-avatar replacement (that was the original 6-player
+   design, but the request now is for the character's own face to stay
+   visible, with this hanging over it like a necklace charm instead).
+   Sized and positioned as a small overlay in the lower portion of the
+   avatar, not inset:0 across the whole box. */
+.kunukku-avatar-img{position:absolute;left:50%;bottom:-6%;transform:translateX(-50%);width:62%;height:auto;object-fit:contain;z-index:3;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.7));}
+.kunukku-count-badge{
+  position:absolute;left:50%;bottom:2%;transform:translateX(-50%);
+  font-family:'Cinzel','Playfair Display',serif;font-weight:900;font-size:0.85rem;color:#fff;
+  text-shadow:0 0 4px rgba(0,0,0,0.9),0 0 8px rgba(0,0,0,0.9),0 2px 3px rgba(0,0,0,1);
+  z-index:4;pointer-events:none;
+}
+/* Per explicit report: the bottom seat's pendant looked oversized and
+   low relative to the smaller seats -- its avatar box is bigger (110px
+   vs 58px) so the same 62%-width pendant scales up proportionally too.
+   Sized down and nudged up specifically for this seat only. */
+.table:not(.mode6) .pspot.pos3 .kunukku-avatar-img{width:48%;bottom:14%;}
+.table:not(.mode6) .pspot.pos3 .kunukku-count-badge{bottom:21%;font-size:1rem;}
 .player-avatar.has-q::after{
   content:'';position:absolute;inset:0;border-radius:50%;
   background-image:url('/images/kunukku/sad-coconut.png');background-size:cover;background-position:center;
 }
-.avatar.has-q::before,
 .player-avatar.has-q::before{
   content:attr(data-qcount);position:absolute;inset:0;z-index:2;
   display:flex;align-items:center;justify-content:center;
@@ -866,6 +959,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      white fill's own stroke is also thinned further (0.25px->0.12px,
      opacity 0.7->0.55) exactly as requested, so it reads as a hint of
      fill rather than a third competing outline. */
+  /* "Nice and shiny" per later explicit request -- same soft glow
+     treatment as the 6-player table's identical change, added on top
+     of the existing crisp outline rather than replacing it. */
+  filter: drop-shadow(0 0 4px rgba(34,197,94,0.85)) drop-shadow(0 0 8px rgba(34,197,94,0.5));
   text-shadow:
     2.2px 0 0 #000, -2.2px 0 0 #000, 0 2.2px 0 #000, 0 -2.2px 0 #000,
     1.6px 1.6px 0 #000, -1.6px -1.6px 0 #000, 1.6px -1.6px 0 #000, -1.6px 1.6px 0 #000,
@@ -878,7 +975,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   color:#fff;
   -webkit-text-stroke:0.12px rgba(255,255,255,0.55);
   /* Same universal-black-outer fix as .name-teammate above -- see there
-     for the fuller reasoning. */
+     for the fuller reasoning. Same shiny-glow addition too. */
+  filter: drop-shadow(0 0 4px rgba(239,68,68,0.85)) drop-shadow(0 0 8px rgba(239,68,68,0.5));
   text-shadow:
     2.2px 0 0 #000, -2.2px 0 0 #000, 0 2.2px 0 #000, 0 -2.2px 0 #000,
     1.6px 1.6px 0 #000, -1.6px -1.6px 0 #000, 1.6px -1.6px 0 #000, -1.6px 1.6px 0 #000,
@@ -1122,6 +1220,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #playerJoinedOverlay{z-index:3050;pointer-events:none}
 #playerJoinedOverlay .join-notice-card{pointer-events:auto}
 .modal{background:linear-gradient(135deg,#111d2e,#0d1b2a);border:1.5px solid rgba(255,215,0,0.2);border-radius:16px;padding:16px;width:100%;max-width:320px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.6)}
+/* Per explicit request: transparent background specifically for the
+   end-of-round and end-of-championship popups -- scoped to just these
+   two overlays rather than the shared .modal class itself, since that
+   base class is reused by many unrelated modals (chat, settings, etc.)
+   this request wasn't about. Matches the same treatment already applied
+   to the 6-player table's equivalent round-end/game-over popups. */
+#postRoundOverlay .modal,#modalOverlay .modal{background:rgba(15,15,20,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .modal h3{color:var(--accent);margin-bottom:10px}
 .modal p{color:var(--text-secondary);font-size:0.82rem;margin-bottom:16px;line-height:1.6}
 
@@ -1174,7 +1279,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* ---- Big Kunukku event banner (gain/shed) ---- */
 .qmark-event-overlay{
-  position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;
+  position:fixed;inset:0;z-index:10600;display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,0);pointer-events:none;animation:qmarkBackdropIn .3s ease forwards;
 }
 .qmark-event-overlay.leaving{animation:qmarkBackdropOut .5s ease forwards;}
@@ -1190,6 +1295,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .qmark-event-overlay.gained .qmark-event-box{background:radial-gradient(ellipse at center, rgba(120,20,35,0.96), rgba(50,8,15,0.98));border:3px solid #e08a9a;box-shadow:0 0 60px rgba(200,40,70,0.6);}
 .qmark-event-overlay.lost .qmark-event-box{background:radial-gradient(ellipse at center, rgba(120,90,15,0.96), rgba(50,35,5,0.98));border:3px solid #E9B949;box-shadow:0 0 60px rgba(230,200,80,0.6);}
 .qmark-event-emoji{font-size:3.2rem;line-height:1;animation:qmarkEmojiShake 0.6s ease-in-out 0.3s 2;}
+/* Real particle system ported directly from the 6-player table's own
+   spawnQmarkParticles, for true parity per explicit request -- 70
+   particles with horizontal drift and staggered spawn timing across
+   the event's full duration, not just a straight-down confetti fall. */
+.qmark-particle{
+  position:absolute;top:-20px;
+  width:10px;height:10px;
+  opacity:0.95;
+  animation-name:qmarkParticleFall;
+  animation-timing-function:cubic-bezier(.25,.46,.45,.94);
+  animation-fill-mode:forwards;
+  will-change:transform,opacity;
+}
+@keyframes qmarkParticleFall{
+  0%{transform:translateY(0) translateX(0) rotate(0deg);opacity:1;}
+  85%{opacity:1;}
+  100%{transform:translateY(var(--fall-distance,110vh)) translateX(var(--drift,0px)) rotate(var(--spin,540deg));opacity:0;}
+}
 @keyframes qmarkEmojiShake{0%,100%{transform:rotate(0);}25%{transform:rotate(-12deg) scale(1.1);}75%{transform:rotate(12deg) scale(1.1);}}
 .qmark-event-title{font-size:1.6rem;font-weight:800;letter-spacing:1px;margin-top:10px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,0.6);}
 .qmark-event-sub{font-size:0.9rem;margin-top:8px;color:#E9B949;max-width:280px;margin-left:auto;margin-right:auto;}
@@ -1214,9 +1337,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   background:rgba(0,0,0,0);pointer-events:none;animation:qmarkBackdropIn .25s ease forwards;
 }
 .game-event-overlay.leaving{animation:qmarkBackdropOut .45s ease forwards;}
+/* Per explicit request (same feature as six.js's identical rule - see there for the fuller
+   reasoning): a persistent, non-blocking bidding status banner visible to every player at the
+   table for the whole bidding phase, not just whoever's turn it currently is. Fixed position
+   rather than centered full-screen so it never blocks the table or intercepts taps, and sized
+   roomy enough to hold a full sentence of context per the "we have space" request. */
+.bid-status-banner{
+  position:fixed;top:130px;left:8px;right:8px;z-index:120;max-width:420px;margin:0 auto;
+  padding:10px 16px;border-radius:14px;pointer-events:none;
+  background:linear-gradient(155deg, rgba(18,14,10,0.95), rgba(8,6,4,0.96));
+  border:1.5px solid #f4c430;box-shadow:0 0 1px #f4c430,0 8px 24px rgba(0,0,0,0.55),0 0 30px rgba(244,196,48,0.2);
+  font-family:'Cinzel','Playfair Display',serif;font-size:0.78rem;line-height:1.45;color:var(--text-primary);
+  text-align:center;
+}
+.bid-status-banner b{color:#f4c430}
+.bid-status-banner .bsb-turn{display:block;margin-top:3px;color:#4ade80;font-weight:700}
 .game-event-box{
   position:relative;overflow:hidden;text-align:center;padding:26px 40px;border-radius:16px;max-width:88vw;
-  background:linear-gradient(155deg, rgba(18,14,10,0.97), rgba(8,6,4,0.98));
+  background:linear-gradient(155deg, rgba(18,14,10,0.55), rgba(8,6,4,0.58));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
   border:1.5px solid var(--evt-color, #f4c430);
   box-shadow:0 0 1px var(--evt-color, #f4c430),0 12px 40px rgba(0,0,0,0.6),0 0 60px var(--evt-glow, rgba(244,196,48,0.25));
   animation:gameEventIn .5s cubic-bezier(.16,.9,.28,1) both;
@@ -2839,47 +2977,82 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @keyframes serverNoticeIn{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
 
 /* ==================== PHOTOREAL TABLE BACKGROUND (4-player, portrait only) ====================
-   Per explicit request: a real illustrated top-down table photo instead
-   of the CSS-drawn felt/rail, using the actual user-provided image.
-   Portrait-only -- there's no landscape version of this artwork (a true
-   top-down illustration doesn't reflow), so landscape keeps the
-   original CSS table completely untouched as a safe fallback rather
-   than stretching a portrait image into a bad landscape crop.
-
-   IMPORTANT CAVEAT left here deliberately: the four seat positions below
-   (top/left/right/bottom percentages) are a best-effort visual estimate
-   made by looking at the image, not a pixel-measured/rendered-and-
-   verified placement -- this sandbox has no way to actually render a
-   live browser page to confirm alignment. They are very likely close
-   but may need a few percentage points of nudging per seat once someone
-   actually views this on a real device. */
-@media (orientation: portrait) {
+   Every coordinate below was measured with an actual percentage grid
+   overlay on the real deployed image, THEN confirmed by drawing markers
+   at those exact coordinates and visually checking every single one
+   lands on a real chair before this was written into CSS. Portrait-
+   only: no landscape version of a top-down illustration exists, so
+   landscape keeps the original CSS-drawn table completely untouched. */
+/* Fixed per explicit report: this previously matched (orientation: portrait) alone, which
+   checks the actual browser viewport - not the width of the phone-frame container the game
+   renders inside. On desktop, the browser window itself is normally landscape-shaped even
+   though the game is displayed inside a narrow, portrait-shaped frame centered on the page
+   (see the min-width:521px phone-frame wrapper elsewhere in this file), so this entire block
+   never matched there at all, and desktop players saw the old CSS-drawn table with none of
+   this theme's seat positions, avatar sizing, or transparency fixes applied. Now matches
+   EITHER an actually-portrait device OR a browser wide enough to be in that desktop frame
+   mode, while a genuinely narrow-AND-landscape phone (turned sideways) still correctly falls
+   through to the old table, per the original reasoning below. */
+/* Default: hidden outside the photo-background context below --
+   these only make sense layered over that specific image. */
+.lamp-glow { display: none; }
+@media (orientation: portrait), (min-width: 521px) {
   .table:not(.mode6) {
     background-image: url('/images/table-bg-4p.jpg');
     background-size: cover;
     background-position: center;
-    /* The image already includes its own rail/felt painted in, so the
-       CSS-drawn versions need to get out of the way entirely rather
-       than layering a second table on top of the photo one. */
     background-color: transparent;
   }
+  /* Per explicit request: a warm ambient glow over each of the 4 lamps
+     already visible in this photo background (2 lamps top corners, a
+     candle cluster + lantern bottom corners), positioned by eye against
+     the actual image rather than computed -- coordinates are percentage
+     -based so they track background-size:cover's own scaling instead of
+     drifting at different viewport sizes. Kept deliberately subtle (low
+     opacity, slow gentle pulse, each lamp on its own animation-delay so
+     they don't all breathe in perfect unison) -- a soft casino-ambience
+     flicker, not a bright, distracting effect competing with the actual
+     game UI on top of it. pointer-events:none so these never intercept
+     taps meant for the table underneath.
+  */
+  .table:not(.mode6) .lamp-glow {
+    display: block;
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1;
+    background: radial-gradient(circle, rgba(255,200,110,0.55) 0%, rgba(255,170,70,0.28) 35%, rgba(255,140,40,0) 70%);
+    transform: translate(-50%, -50%);
+    animation: lampGlowPulse 4.5s ease-in-out infinite;
+  }
+  .table:not(.mode6) .lamp-glow-tl { top: 7.5%; left: 9%; animation-delay: 0s; }
+  .table:not(.mode6) .lamp-glow-tr { top: 7.5%; left: 91%; animation-delay: 1.1s; }
+  .table:not(.mode6) .lamp-glow-bl { top: 82%; left: 9%; width: 70px; height: 70px; animation-delay: 2.2s; }
+  .table:not(.mode6) .lamp-glow-br { top: 82%; left: 91%; animation-delay: 0.6s; }
+  @keyframes lampGlowPulse {
+    0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.92); }
+    50% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.08); }
+  }
   .table:not(.mode6) .center::after,
-  .table:not(.mode6) .center::before,
-  .table:not(.mode6) .center .felt,
-  .table:not(.mode6) .center .felt::after {
+  .table:not(.mode6) .center::before {
     display: none !important;
   }
-  /* No change needed for trump-exposed here: that animation already
-     targets .table itself (see .table.trump-exposed elsewhere), which
-     is untouched by hiding .center's pseudo-elements/felt above -- it
-     keeps shaking exactly as it always did, photo mode or not. */
+  /* .center .felt itself stays display'd (NOT display:none) specifically
+     so its own ::after pseudo-element -- the "28GULAN.COM" branding
+     watermark -- can still render; a display:none parent hides its own
+     pseudo-content too, which is what silently took the watermark out
+     the first time this table went photo-background. Only the felt's
+     own paint (background/border/shadow) is neutralized here, not its
+     display, so the watermark text stays exactly where it was. */
+  .table:not(.mode6) .center .felt {
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
 
-  /* Seats repositioned to sit on the actual chairs in the photo,
-     overriding the grid-area placement used for the CSS-drawn table.
-     grid-column/row spanning the full grid is what makes each pspot's
-     absolute-positioning containing block the WHOLE table image
-     instead of just its own narrow original grid cell, so these
-     percentages are relative to the full photo, not a slice of it. */
   .table:not(.mode6) .pspot.top,
   .table:not(.mode6) .pspot.left,
   .table:not(.mode6) .pspot.right,
@@ -2892,21 +3065,68 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     padding: 0;
     transform: translate(-50%, -50%);
   }
-  .table:not(.mode6) .pspot.top   { left: 50%; top: 19%; }
-  .table:not(.mode6) .pspot.left  { left: 6%;  top: 45%; }
-  .table:not(.mode6) .pspot.right { left: 94%; top: 45%; }
-  .table:not(.mode6) .pspot.pos3  { left: 50%; top: 79%; }
+  .table:not(.mode6) .pspot.top   { left: 50%; top: 17%; }
+  .table:not(.mode6) .pspot.left  { left: 9%;  top: 45%; }
+  .table:not(.mode6) .pspot.right { left: 91%; top: 45%; }
+  .table:not(.mode6) .pspot.pos3  { left: 50%; top: 68%; }
 
-  /* Per explicit request: a little bigger than the default ~44px --
-     modest bump, not the aggressive size used on the 6-player table. */
-  /* Per explicit request: a little bigger than the default ~44px --
-     modest bump, not the aggressive size used on the 6-player table. */
-  .table:not(.mode6) .avatar { width: 58px !important; height: 58px !important; font-size: 1.5rem !important; }
-  /* Per follow-up: YOUR OWN seat (bottom/pos3) specifically bigger than
-     the other three -- not a uniform bump, just this one seat, since
-     the played-card animation already draws the eye upward toward the
-     trick area and a bigger "you" avatar down here balances that out. */
-  .table:not(.mode6) .pspot.pos3 .avatar { width: 100px !important; height: 100px !important; font-size: 2.6rem !important; }
+  .table:not(.mode6) .avatar { width: 58px !important; height: 74px !important; font-size: 1.5rem !important; }
+  /* Per explicit request: a simple perspective/depth cue -- the seat
+     farthest from "camera" (top) is smaller than the two side seats,
+     which are in turn smaller than your own seat (bottom, already the
+     biggest) -- so the table reads as receding into the distance
+     instead of all four seats being flatly the same size. */
+  .table:not(.mode6) .pspot.top .avatar { width: 50px !important; height: 64px !important; font-size: 1.3rem !important; }
+  .table:not(.mode6) .pspot.pos3 .avatar { width: 110px !important; height: 140px !important; font-size: 2.9rem !important; }
+
+  /* Per explicit request: these new avatar images have a background
+     color already matching the chair leather, so the frame/circle that
+     used to visually separate the avatar from the table is no longer
+     needed -- removing it lets the art blend directly into the seat
+     instead of looking like a token sitting on top of it. Border stays
+     defined at transparent (not removed outright) so the functional
+     status rings (bot/human/turn-active) still recolor it correctly
+     without a layout shift when they apply. */
+  /* Per explicit re-do: the previous transparent-avatar attempt failed
+     specifically because of a JS-set inline background color (from the
+     old emoji-fallback system, `av.style.background = p.bg` and similar
+     -- there are 3 separate call sites for this) painting through the
+     transparent PNG as a solid colored square. A stylesheet rule with
+     !important beats an inline style regardless of which of those 3
+     call sites set it, so this neutralizes all of them at once without
+     needing to hunt down and edit each one individually. No container
+     shape at all: the character's own silhouette is the shape. */
+  .table:not(.mode6) .avatar,
+  .table:not(.mode6) .avatar.human-status,
+  .table:not(.mode6) .avatar.bot-status {
+    border-radius: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    /* Per explicit report: the base .avatar rule has a permanent 5-layer
+       "pop off the table" box-shadow (built for the old solid circular
+       avatars) that's always on. box-shadow follows the element's own
+       rectangular box, not the character's actual silhouette, so on
+       these transparent PNGs it was showing as a faint but very visible
+       ghost square around every avatar. Turned off entirely here. */
+    box-shadow: none !important;
+  }
+  .table:not(.mode6) .hero-avatar-face { border-radius: 0 !important; object-fit: contain !important; }
+  /* Per explicit report: the turn-active glow (the animated gold ring
+     for whoever's turn it is) is ALSO box-shadow-based, so it was
+     rendering as a glowing yellow SQUARE around the current player
+     instead of hugging their actual shape. filter:drop-shadow, unlike
+     box-shadow, follows the alpha channel of the image itself -- so
+     this swaps the glow to that instead, keeping the "whose turn is it"
+     highlight but shaped like the character, not a rectangle. */
+  .table:not(.mode6) .avatar.turn-active {
+    animation: k28ContainTurnGlow 1.1s ease-in-out infinite !important;
+  }
+
+  /* Per explicit request: the small "cards remaining" tick-bar under
+     each avatar isn't wanted in this photo-table look -- hidden for
+     all four seats (top included, even though its position wasn't
+     touched above). */
+  .table:not(.mode6) .pcards { display: none !important; }
 }
 </style>
 <style id="redesign2026">
@@ -2956,10 +3176,22 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 .welcome-btn.primary:hover,.welcome-btn.primary:active{
   background:linear-gradient(160deg,#8CC6FF,#3070E0)!important;
   box-shadow:0 8px 30px rgba(46,99,214,0.45)!important;transform:translateY(-2px) scale(1.02)}
-.welcome-feature-item{background:rgba(8,14,12,0.72);border-radius:12px;
+/* Per explicit request: this whole Game Features section hadn't been
+   touched since the gold-theme buttons went in elsewhere on this same
+   page, so it still looked like the old design entirely. Kept the
+   transparent feel (if anything, more so -- 0.72 down to 0.4) rather
+   than making it solid, per explicit instruction; the darker top and
+   lighter bottom on this gradient is the "header darker" ask -- a
+   visual weight behind the icon/title specifically, fading toward the
+   more transparent body text below, without needing to restructure the
+   HTML into a separate header wrapper element just to get there. */
+.welcome-feature-item{background:linear-gradient(180deg,rgba(6,10,9,0.6) 0%,rgba(8,14,12,0.4) 45%,rgba(8,14,12,0.32) 100%);border-radius:12px;
   border:1px solid rgba(233,185,73,0.15);backdrop-filter:blur(2px)}
-.welcome-feature-title{color:var(--accent)}
-.welcome-feature-desc{color:#d8d8d8}
+.welcome-feature-title{font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;
+  background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 2px 10px rgba(230,200,107,0.3),0 1px 0 rgba(0,0,0,0.3)}
+.welcome-feature-desc{color:#f0f0f0}
 
 /* ---------- Lobby ---------- */
 .lobby-screen{background:linear-gradient(170deg,#0B1512,#0E211A 60%,#0B1512)}
@@ -3244,9 +3476,165 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 @media (prefers-reduced-motion: reduce){
   #btnCreateRoom{animation:none}
 }
+/* Holiday celebration burst -- a few seconds of confetti + a big
+   scaling/fading greeting, replacing the earlier too-subtle toast per
+   explicit follow-up report. Self-contained: creates and destroys its
+   own DOM, doesn't touch any existing layout. */
+#k28HolidayBurst{position:fixed;inset:0;z-index:9500;pointer-events:none;overflow:hidden}
+#k28HolidayBurst .confetti{position:absolute;top:-20px;border-radius:2px;will-change:transform,opacity}
+#k28HolidayBurst .greeting{
+  position:absolute;top:38%;left:50%;transform:translate(-50%,-50%) scale(0.5);
+  font-family:'Cinzel Decorative',serif;font-size:clamp(1.6rem,7vw,2.8rem);font-weight:700;
+  color:#ffd700;text-shadow:0 0 12px rgba(255,215,0,0.9),0 0 24px rgba(255,140,0,0.6),0 3px 6px rgba(0,0,0,0.9);
+  text-align:center;white-space:nowrap;opacity:0;
+  animation:k28GreetPop 4.5s cubic-bezier(.2,1.2,.3,1) forwards;
+}
+@keyframes k28GreetPop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(0.4);}
+  15%{opacity:1;transform:translate(-50%,-50%) scale(1.12);}
+  25%{transform:translate(-50%,-50%) scale(1);}
+  80%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.05);}
+}
+@keyframes k28ConfettiFall{
+  0%{transform:translateY(0) rotate(0deg);opacity:1;}
+  100%{transform:translateY(var(--fall,110vh)) rotate(var(--spin,540deg));opacity:0;}
+}
+@keyframes k28ContainTurnGlow{
+  0%,100%{filter:drop-shadow(0 0 5px rgba(255,215,0,0.7)) drop-shadow(0 0 11px rgba(255,215,0,0.4));}
+  50%{filter:drop-shadow(0 0 8px rgba(255,215,0,1)) drop-shadow(0 0 18px rgba(255,215,0,0.7));}
+}
+/* Bid-winner celebration bubble -- per explicit request, a persistent
+   (not auto-dismissing) badge that pops in big and keeps a gentle
+   heartbeat pulse going for as long as it's on screen, positioned in
+   the center of the table itself rather than a fullscreen overlay.
+   Explicitly removed the moment the first card of the round actually
+   gets played (see dismissBidWinnerCelebration4p, called from the same
+   3 code paths as the established clearCallBadges4p signal -- NOT
+   startPlay(), which fires earlier, before trump selection/dealing,
+   while a card may not have been played yet) -- this is the one thing
+   that makes it "persistent" rather than timer-based like the other
+   event popups in this file. */
+#bidWinnerBubble4p{
+  position:absolute;top:48%;left:50%;transform:translate(-50%,-50%) scale(0);
+  z-index:400;text-align:center;pointer-events:none;
+  padding:18px 26px;border-radius:18px;
+  background:radial-gradient(ellipse at center, rgba(120,90,15,0.95), rgba(40,28,4,0.98));
+  border:3px solid #f4c430;box-shadow:0 0 40px rgba(244,196,48,0.55),0 0 80px rgba(244,196,48,0.25);
+  animation:bidWinnerBubblePop 0.6s cubic-bezier(.2,1.4,.4,1) forwards;
+}
+#bidWinnerBubble4p.settled{animation:bidWinnerBubbleHeartbeat 1.6s ease-in-out infinite;}
+#bidWinnerBubble4p.leaving{animation:bidWinnerBubbleOut 0.35s ease forwards !important;}
+@keyframes bidWinnerBubblePop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(0.2) rotate(-6deg);}
+  60%{opacity:1;transform:translate(-50%,-50%) scale(1.15) rotate(2deg);}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0);}
+}
+@keyframes bidWinnerBubbleHeartbeat{
+  0%,100%{transform:translate(-50%,-50%) scale(1);}
+  15%{transform:translate(-50%,-50%) scale(1.06);}
+  30%{transform:translate(-50%,-50%) scale(1);}
+  45%{transform:translate(-50%,-50%) scale(1.04);}
+}
+@keyframes bidWinnerBubbleOut{
+  0%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}
+}
+#bidWinnerBubble4p .bwb-name{font-family:'Cinzel','Playfair Display',serif;font-size:0.95rem;font-weight:700;color:#f4c430;letter-spacing:0.5px;}
+#bidWinnerBubble4p .bwb-bid{font-family:'Cinzel','Playfair Display',serif;font-size:1.7rem;font-weight:900;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.7);margin-top:2px;}
+#bidWinnerBubble4p .bwb-turn{font-family:'Cinzel','Playfair Display',serif;font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.75);letter-spacing:0.3px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(244,196,48,0.3);}
+/* Per explicit request: "matte royal" finish -- deep, rich jewel tones
+   instead of the previous bright/neon colors, plus a spring "pop"
+   entrance (scales up past 100% then settles, like a spring) that
+   plays once each time the turn actually changes -- see
+   updateBidWinnerTurnText4p()'s pop-retrigger logic for how this gets
+   restarted on each change, since a CSS animation on an unchanging
+   class doesn't replay on its own just because textContent changed. */
+#bidWinnerBubble4p .bwb-turn.bwb-turn-mine{font-weight:900;font-size:0.9rem;color:#c41e3a;text-shadow:0 2px 3px rgba(0,0,0,0.6),0 0 10px rgba(196,30,58,0.5);animation:bwbTurnBlinkRed4p 1s step-start infinite;}
+#bidWinnerBubble4p .bwb-turn.bwb-turn-partner{font-weight:900;font-size:0.9rem;color:#2e7d4f;text-shadow:0 2px 3px rgba(0,0,0,0.6),0 0 10px rgba(46,125,79,0.5);animation:bwbTurnBlinkGreen4p 1s step-start infinite;}
+#bidWinnerBubble4p .bwb-turn.bwb-turn-opp{font-weight:900;font-size:0.9rem;color:#2851a3;text-shadow:0 2px 3px rgba(0,0,0,0.6),0 0 10px rgba(40,81,163,0.5);animation:bwbTurnBlinkBlue4p 1s step-start infinite;}
+#bidWinnerBubble4p .bwb-turn.bwb-turn-pop{animation-name:bwbTurnPop4p, bwbTurnBlinkRed4p;animation-duration:0.55s,1s;animation-timing-function:cubic-bezier(0.34,1.56,0.64,1),step-start;animation-iteration-count:1,infinite;animation-delay:0s,0.55s;}
+#bidWinnerBubble4p .bwb-turn.bwb-turn-pop.bwb-turn-partner{animation-name:bwbTurnPop4p, bwbTurnBlinkGreen4p;}
+#bidWinnerBubble4p .bwb-turn.bwb-turn-pop.bwb-turn-opp{animation-name:bwbTurnPop4p, bwbTurnBlinkBlue4p;}
+@keyframes bwbTurnBlinkRed4p{50%{opacity:0.25;}}
+@keyframes bwbTurnBlinkGreen4p{50%{opacity:0.25;}}
+@keyframes bwbTurnBlinkBlue4p{50%{opacity:0.25;}}
+@keyframes bwbTurnPop4p{0%{transform:scale(0.3);opacity:0;}55%{transform:scale(1.18);opacity:1;}80%{transform:scale(0.94);}100%{transform:scale(1);}}
+/* Personal-avatar PIN modal -- identical to six.html's own, see there
+   for the fuller reasoning. */
+#pinModalOverlay{
+  position:fixed;inset:0;z-index:20000;display:none;
+  align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.72);backdrop-filter:blur(2px);
+}
+#pinModalOverlay.on{display:flex;animation:pinFadeIn 0.2s ease;}
+@keyframes pinFadeIn{from{opacity:0;}to{opacity:1;}}
+.pin-modal-box{
+  width:min(320px,88vw);padding:26px 22px;text-align:center;
+  background:radial-gradient(ellipse at center, rgba(40,28,10,0.98), rgba(15,10,4,0.99));
+  border:2px solid #f4c430;border-radius:16px;
+  box-shadow:0 0 40px rgba(244,196,48,0.35),0 20px 60px rgba(0,0,0,0.6);
+  animation:pinBoxPop 0.25s cubic-bezier(.2,1.4,.4,1);
+}
+@keyframes pinBoxPop{0%{transform:scale(0.85);opacity:0;}100%{transform:scale(1);opacity:1;}}
+.pin-modal-box.shake{animation:pinShake 0.4s ease;}
+@keyframes pinShake{0%,100%{transform:translateX(0);}20%{transform:translateX(-8px);}40%{transform:translateX(8px);}60%{transform:translateX(-6px);}80%{transform:translateX(6px);}}
+.pin-modal-icon{font-size:1.8rem;margin-bottom:4px;}
+.pin-modal-title{font-family:'Cinzel','Playfair Display',serif;font-size:1.05rem;font-weight:700;color:#f4c430;letter-spacing:0.5px;}
+.pin-modal-sub{font-size:0.78rem;color:rgba(255,255,255,0.65);margin:6px 0 18px;}
+.pin-digit-row{display:flex;gap:10px;justify-content:center;margin-bottom:10px;}
+.pin-digit{
+  width:46px;height:54px;text-align:center;font-size:1.5rem;font-weight:800;
+  color:#fff;background:rgba(255,255,255,0.06);
+  border:2px solid rgba(244,196,48,0.4);border-radius:10px;
+  font-family:'Cinzel','Playfair Display',serif;
+  -webkit-appearance:none;appearance:none;
+}
+.pin-digit:focus{outline:none;border-color:#f4c430;box-shadow:0 0 10px rgba(244,196,48,0.5);background:rgba(255,255,255,0.1);}
+.pin-modal-error{min-height:18px;font-size:0.75rem;color:#ff6b6b;margin-bottom:6px;}
+.pin-modal-btns{display:flex;gap:10px;margin-top:8px;}
+.pin-modal-btns button{
+  flex:1;padding:10px;border-radius:10px;border:none;font-weight:700;font-size:0.85rem;
+  font-family:'Cinzel','Playfair Display',serif;cursor:pointer;
+}
+#pinCancelBtn{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.75);}
+#pinSubmitBtn{background:linear-gradient(135deg,#f4c430,#d4a017);color:#1a1206;}
 </style>
 </head>
 <body>
+<!-- Personal-avatar PIN modal -- deliberately placed here, as an
+     always-present top-level body child, not nested inside #gameWrap
+     or any other conditionally-hidden screen container. Real bug fix,
+     per explicit report: it was originally added right next to
+     #bidWinnerBubble4p, which lives INSIDE #gameWrap -- a container
+     that's display:none by default and only shown once an actual game
+     has started (see the .game-wrap CSS rule and every
+     getElementById('gameWrap').style.display toggle). That made the
+     modal completely unreachable from the lobby/home screen, exactly
+     where the initial avatar picker (pickMyAvatar) is used, before
+     anyone has joined a table at all. Placed before the
+     appPhoneFrame-wrapping script further down so it still gets swept
+     into that frame along with everything else (matching the rest of
+     the UI's mobile-styled width), while staying a sibling of
+     #gameWrap rather than a descendant of it. -->
+<div id="pinModalOverlay">
+  <div class="pin-modal-box" id="pinModalBox">
+    <div class="pin-modal-icon">🔒</div>
+    <div class="pin-modal-title">Personal Avatar</div>
+    <div class="pin-modal-sub">Enter the 4-digit PIN to use it</div>
+    <div class="pin-digit-row">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="0">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="1">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="2">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="3">
+    </div>
+    <div class="pin-modal-error" id="pinModalError"></div>
+    <div class="pin-modal-btns">
+      <button id="pinCancelBtn">Cancel</button>
+      <button id="pinSubmitBtn">Unlock</button>
+    </div>
+  </div>
+</div>
 <!-- Shared suit icon shapes, referenced via <use> from every card's rank
      corners and center (see cardHTML()/suitIconSvg() in the script below).
      Hand-drawn deliberately so spade and club — both black, and the pair
@@ -3399,29 +3787,29 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   </div>
 
   <div class="welcome-btn-wrap welcome-btn-grid">
-    <button class="welcome-btn primary" id="btnPlayOnline">
-      <span class="icon">🌐</span> 28 4 Player <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🎙️ live voice chat</span>
+    <button class="welcome-btn primary" id="btnPlayOnline" style="background:linear-gradient(160deg,rgba(138,34,28,0.78) 0%,rgba(92,21,15,0.75) 55%,rgba(43,6,3,0.72) 100%);border-color:#cfa160;color:#f0cf94;backdrop-filter:blur(2px)">
+      <span class="btn28-badge">28</span><span class="btn28-modelabel">4 Player</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">🎙️ live voice chat</span>
     </button>
-    <a class="welcome-btn primary" href="/six.html" style="background:linear-gradient(135deg,#9b59b6,#8e44ad);border-color:transparent;color:#fff;text-decoration:none">
-      <span class="icon">👥</span> 28 6 Player <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🎙️ 2 teams of 3</span>
+    <a class="welcome-btn primary btn28-inverted" href="/six.html" style="background:linear-gradient(160deg,rgba(224,184,120,0.85) 0%,rgba(207,161,96,0.82) 55%,rgba(166,122,62,0.78) 100%);border-color:#781c18;color:#4a1410;text-decoration:none;backdrop-filter:blur(2px)">
+      <span class="btn28-badge">28</span><span class="btn28-modelabel">6 Player</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#5c1410;text-shadow:0 1px 1px rgba(255,255,255,0.3)">🎙️ 2 teams of 3</span>
     </a>
-    <a class="welcome-btn primary" href="/56.html" style="background:linear-gradient(135deg,#2a9d8f,#1d6f65);border-color:transparent;color:#fff;text-decoration:none">
-      <span class="icon">🂮</span> 56 <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">bid 28 to 56, with doubling</span>
+    <a class="welcome-btn primary" href="/56.html" style="background:linear-gradient(135deg,rgba(42,157,143,0.75),rgba(29,111,101,0.72));border-color:rgba(233,185,73,0.5);color:#fff;text-decoration:none;backdrop-filter:blur(2px)">
+      <span class="btn28-badge">56</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">bid 28 to 56, with doubling</span>
     </a>
-    <a class="welcome-btn primary" href="/holdem.html" style="background:linear-gradient(135deg,#0b6b3a,#084d2a);border-color:transparent;color:#fff;text-decoration:none">
-      <span class="icon">♠️</span> Texas Hold'em <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">9-player, cash or tourney</span>
+    <a class="welcome-btn primary" href="/holdem.html" style="background:linear-gradient(135deg,rgba(11,107,58,0.75),rgba(8,77,42,0.72));border-color:rgba(233,185,73,0.5);color:#fff;text-decoration:none;backdrop-filter:blur(2px)">
+      <span class="btn28-badge" style="font-size:1.35rem">Hold'em</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">9-player, cash or tourney</span>
     </a>
-    <a class="welcome-btn primary" href="/spades.html" style="background:linear-gradient(135deg,#1a3a6e,#0f2447);border-color:transparent;color:#fff;text-decoration:none">
-      <span class="icon">♣️</span> Spades <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">300 to win, nil bids, bags</span>
+    <a class="welcome-btn primary" href="/spades.html" style="background:linear-gradient(135deg,rgba(26,58,110,0.78),rgba(15,36,71,0.75));border-color:rgba(233,185,73,0.5);color:#fff;text-decoration:none;backdrop-filter:blur(2px)">
+      <span class="btn28-badge" style="font-size:1.35rem">Spades</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">300 to win, nil bids, bags</span>
     </a>
-    <a class="welcome-btn primary" href="/carrom.html" style="background:linear-gradient(135deg,#8a6a3c,#5e4726);border-color:transparent;color:#fff;text-decoration:none">
-      <span class="icon">🎯</span> Carrom <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">1v1 or 2v2 teams</span>
+    <a class="welcome-btn primary" href="/carrom.html" style="background:linear-gradient(135deg,rgba(138,106,60,0.78),rgba(94,71,38,0.75));border-color:rgba(233,185,73,0.5);color:#fff;text-decoration:none;backdrop-filter:blur(2px)">
+      <span class="btn28-badge" style="font-size:1.35rem">Carrom</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">1v1 or 2v2 teams</span>
     </a>
-    <a class="welcome-btn primary" href="/pool.html" style="background:linear-gradient(135deg,#0d5c4d,#083d33);border-color:transparent;color:#fff;text-decoration:none">
-      <span class="icon">🎱</span> Pool <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">1v1, 8-ball</span>
+    <a class="welcome-btn primary" href="/pool.html" style="background:linear-gradient(135deg,rgba(13,92,77,0.78),rgba(8,61,51,0.75));border-color:rgba(233,185,73,0.5);color:#fff;text-decoration:none;backdrop-filter:blur(2px)">
+      <span class="btn28-badge" style="font-size:1.5rem">Pool</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">1v1, 8-ball</span>
     </a>
-    <button class="welcome-btn primary" id="btnPlayLocal" style="background:linear-gradient(135deg,#2a3f5f,#1a2942);border-color:transparent;color:#fff">
-      <span class="icon">🎮</span> Learn 28 <span style="font-size:0.62em;opacity:0.9;display:block;font-weight:600">🧠 practice vs AI that learns your strategy</span>
+    <button class="welcome-btn primary" id="btnPlayLocal" style="background:linear-gradient(135deg,rgba(42,63,95,0.78),rgba(26,41,66,0.75));border-color:rgba(233,185,73,0.5);color:#fff;backdrop-filter:blur(2px)">
+      <span class="btn28-badge">28</span><span class="btn28-modelabel">Learn</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">🧠 practice vs AI that learns your strategy</span>
     </button>
   </div>
 
@@ -3436,7 +3824,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <h2 class="welcome-features-title">Game Features</h2>
     <div class="welcome-feature-grid">
       <div class="welcome-feature-item" style="border-color:rgba(224,138,154,0.5);box-shadow:0 0 20px rgba(224,138,154,0.15)">
-        <span class="welcome-feature-icon">😭</span>
+        <img src="/images/kunukku/sad-coconut-face-icon.png" alt="Kunukku" class="welcome-feature-icon" style="width:1.9rem;height:auto;object-fit:contain;display:block;margin-bottom:6px">
         <div class="welcome-feature-title">The Kunukku — New!</div>
         <div class="welcome-feature-desc">Get shut out in a match and every player on your team gets marked with a Kunukku, right on their avatar for the whole table to see. The only way off? Personally call and win a bid — it sticks around, match after match, until you earn it back.</div>
       </div>
@@ -3451,7 +3839,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
         <div class="welcome-feature-desc">Create a room and invite friends with a simple code or share link. Voice chat, text chat, and AI bots to fill empty seats — reconnect anytime, the game keeps running even if you close the tab.</div>
       </div>
       <div class="welcome-feature-item">
-        <span class="welcome-feature-icon">🤖</span>
+        <span class="welcome-feature-icon">🧠</span>
         <div class="welcome-feature-title">AI Bots That Learn</div>
         <div class="welcome-feature-desc">Bots analyze every trick and improve their strategy over time. Each bot has its own brain!</div>
       </div>
@@ -3461,7 +3849,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
         <div class="welcome-feature-desc">Your game is automatically saved every 15 seconds. Resume anytime, even after closing the browser.</div>
       </div>
       <div class="welcome-feature-item">
-        <span class="welcome-feature-icon">🎯</span>
+        <span class="welcome-feature-icon">🔮</span>
         <div class="welcome-feature-title">Smart Bid Predictor</div>
         <div class="welcome-feature-desc">Real-time AI predicts your chances of winning each round and the championship based on your hand.</div>
       </div>
@@ -3683,7 +4071,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <button class="icon-btn" id="btnLoadGame" title="Load Game">📂</button>
       <button class="icon-btn" id="btnInvite" title="Invite a Friend" style="display:none;width:auto;padding:0 1px;gap:0px;white-space:nowrap;font-size:0.72em">💌 Invite</button>
       <button class="icon-btn" id="btnRequestSeat" title="Ask for a Seat" style="display:none">🪑</button>
-      <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none;width:auto;padding:0 2px;white-space:nowrap;font-weight:800;font-size:0.76em">Admin</button>
+      <button class="icon-btn" id="btnHostRestart" title="Host Menu" style="display:none;width:auto;padding:0 2px;white-space:nowrap;font-weight:800;font-size:0.76em">Menu</button>
       <!-- Browsers automatically exit fullscreen the moment a tab loses
            focus (backgrounding it, switching apps) -- that's a real
            browser security behavior, not something that can be
@@ -3702,7 +4090,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 
 <!-- ===== GAME WRAP ===== -->
 <div class="game-wrap" id="gameWrap">
-<canvas id="k28SeasonCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></canvas>
+
   <div class="info-bar" id="infoBar">
     <div class="info-row info-main" style="display:grid;grid-template-columns:1fr auto 1fr;justify-content:stretch;align-items:center">
       <div style="display:flex;align-items:center;gap:clamp(2px,1.2vw,6px);justify-content:flex-start;overflow:hidden">
@@ -3730,6 +4118,12 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </div>
     <div class="king-progress-track" id="kingProgressTrack" style="display:none"><div class="king-progress-fill" id="kingProgressFill" style="width:0%"></div></div>
   </div><div class="table" id="tableArea">
+    <div class="lamp-glow lamp-glow-tl"></div>
+    <div class="lamp-glow lamp-glow-tr"></div>
+    <div class="lamp-glow lamp-glow-bl"></div>
+    <div class="lamp-glow lamp-glow-br"></div>
+    <div id="bidWinnerBubble4p" style="display:none"></div>
+    <div id="bidStatusBanner4p" class="bid-status-banner" style="display:none"></div>
     <div class="chip-stack cs-bl"><div class="c3"></div></div>
     <div class="chip-stack cs-br"><div class="c3"></div></div>
     <button class="icon-btn table-corner-btn" id="btnChat" title="Chat" style="display:none">💬<span class="chat-badge" id="chatBadge"></span></button>
@@ -3925,6 +4319,22 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   </div>
 </div>
 
+<!-- Per explicit request: dedicated, clearer popup specifically for the
+     "clicked an invite link to a table that no longer exists" case --
+     previously this fell into the same generic toast as every other
+     join error (wrong code, seat taken, table full), which just said
+     "that room code doesn't exist" and left the player to figure out
+     what to do next on their own. This spells out the actual likely
+     cause (everyone already left) and leads straight into creating a
+     fresh room instead of dropping them back at a blank welcome screen. -->
+<div class="modal-overlay" id="roomGoneOverlay" style="z-index:2200">
+  <div class="modal" style="text-align:center">
+    <h3 style="margin-top:0">🚪 This Room Is No Longer Available</h3>
+    <p style="color:var(--text-secondary);font-size:0.88rem;line-height:1.5">All the players in this room have already left. Please create a new room and invite your friends to play!</p>
+    <button class="btn btn-primary" style="width:100%" id="btnRoomGoneOk">OK</button>
+  </div>
+</div>
+
 <!-- ===== STILL PLAYING? (idle check) ===== -->
 <div class="modal-overlay" id="stillPlayingOverlay" style="z-index:2200">
   <div class="modal" id="stillPlayingBox">
@@ -3949,6 +4359,21 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <button class="btn" style="width:100%;margin-top:8px;background:transparent;border:1.5px solid var(--border);color:#fff" id="btnCloseComment">Close</button>
       <div style="text-align:center;margin-top:12px;font-size:0.7rem;color:var(--text-secondary)">Prefer email? <a href="mailto:blessonjohny@gmail.com" style="color:var(--accent)">blessonjohny@gmail.com</a></div>
     </div>
+  </div>
+</div>
+
+<!-- ===== HOME-PAGE LEADERBOARD POPUP ===== -->
+<!-- Per explicit request: shown once, right after the welcome/sign-in
+     screen and before the game-mode picker -- see showLeaderboardPopup()
+     for the fetch/populate logic and the 5s auto-dismiss timer. -->
+<div class="modal-overlay" id="leaderboardPopupOverlay" style="z-index:2600">
+  <div class="modal" style="text-align:center;max-width:340px">
+    <h3 style="margin-top:0;margin-bottom:2px">🏆 Leaderboard</h3>
+    <div style="text-align:center;font-size:0.72rem;color:var(--text-secondary);opacity:0.85;margin-bottom:10px">Ranked by fewest rounds to enforce Kunukku to the opponents</div>
+    <div id="leaderboardPopupContent" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:40px">
+      Loading…
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:16px" id="btnLeaderboardPopupOk">OK</button>
   </div>
 </div>
 
@@ -4063,6 +4488,10 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <button class="btn btn-outline" style="width:100%;margin-bottom:14px;text-align:left" id="btnHostRestartGame">
       ♻️ Restart Entire Game<br><span style="font-size:0.68rem;opacity:0.75;font-weight:400">Reset the match score and start over from round 1</span>
     </button>
+    <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:12px;margin-bottom:12px">
+      <div style="color:var(--accent);font-weight:700;font-size:0.8rem;margin-bottom:8px">🏆 Fastest Championship — 4 Player</div>
+      <div id="hostMenuLeaderboard" style="font-size:0.75rem;color:var(--text-secondary)">Loading…</div>
+    </div>
     <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:12px">
       <div style="color:var(--text-secondary);font-size:0.75rem;margin-bottom:8px">Players at the table:</div>
       <div id="hostMenuPlayerList"></div>
@@ -4116,107 +4545,120 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <script>
 // ==================== CONFIG ====================
 const ALL_PLAYERS = [
-  {name:'Ancy',emoji:heroAvatarHtml('hero3f1'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Ajai',emoji:heroAvatarHtml('hero3m1'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Alok',emoji:heroAvatarHtml('hero3m2'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Anup',emoji:heroAvatarHtml('hero3m3'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Anjali',emoji:heroAvatarHtml('hero3f2'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Appu',emoji:heroAvatarHtml('hero3m4'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Arun',emoji:heroAvatarHtml('hero3m5'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Meera',emoji:heroAvatarHtml('hero3f3'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Benson',emoji:heroAvatarHtml('hero3m6'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Neha',emoji:heroAvatarHtml('hero3f6'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Binchu',emoji:heroAvatarHtml('hero3m7'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Charlie',emoji:heroAvatarHtml('hero3m8'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Jerin',emoji:heroAvatarHtml('hero3m9'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Priya',emoji:heroAvatarHtml('hero3f5'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Johny',emoji:heroAvatarHtml('hero3m10'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Reena',emoji:heroAvatarHtml('hero3f4'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Koshy',emoji:heroAvatarHtml('hero3m11'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Nate',emoji:heroAvatarHtml('hero3m12'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Divya',emoji:heroAvatarHtml('hero3f7'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Peter',emoji:heroAvatarHtml('hero3m13'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Lakshmi',emoji:heroAvatarHtml('hero3f8'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Rahul',emoji:heroAvatarHtml('hero3m14'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Rajesh',emoji:heroAvatarHtml('hero3m15'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Randall',emoji:heroAvatarHtml('hero3m16'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Sarah',emoji:heroAvatarHtml('hero3f9'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Renji',emoji:heroAvatarHtml('hero3m17'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Roji',emoji:heroAvatarHtml('hero3m18'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Nisha',emoji:heroAvatarHtml('hero3f10'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Roney',emoji:heroAvatarHtml('hero3m19'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Sanjay',emoji:heroAvatarHtml('hero3m20'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Shyam',emoji:heroAvatarHtml('hero3m21'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Deepa',emoji:heroAvatarHtml('hero3f11'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Stev',emoji:heroAvatarHtml('hero3m22'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Vinod',emoji:heroAvatarHtml('hero3m23'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Wesley',emoji:heroAvatarHtml('hero3m24'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Elsa',emoji:heroAvatarHtml('hero3f12'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Abin',emoji:heroAvatarHtml('hero3m25'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Maya',emoji:heroAvatarHtml('hero3f13'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Bibin',emoji:heroAvatarHtml('hero3m26'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Sherin',emoji:heroAvatarHtml('hero3f14'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Cibin',emoji:heroAvatarHtml('hero3m27'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Denny',emoji:heroAvatarHtml('hero3m28'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Eldho',emoji:heroAvatarHtml('hero3m29'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Teena',emoji:heroAvatarHtml('hero3f15'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Frankie',emoji:heroAvatarHtml('hero3m30'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'George',emoji:heroAvatarHtml('hero3m31'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Anu',emoji:heroAvatarHtml('hero3f16'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Hari',emoji:heroAvatarHtml('hero3m32'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Ivan',emoji:heroAvatarHtml('hero3m33'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Reshma',emoji:heroAvatarHtml('hero3f17'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Jibin',emoji:heroAvatarHtml('hero3m34'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Kevin',emoji:heroAvatarHtml('hero3m35'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Libin',emoji:heroAvatarHtml('hero3m36'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Jisha',emoji:heroAvatarHtml('hero3f18'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Manoj',emoji:heroAvatarHtml('hero3m37'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Nibin',emoji:heroAvatarHtml('hero3m38'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Oommen',emoji:heroAvatarHtml('hero3m39'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Nimmy',emoji:heroAvatarHtml('hero3f19'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Pauly',emoji:heroAvatarHtml('hero3m40'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Robin',emoji:heroAvatarHtml('hero3m41'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Beena',emoji:heroAvatarHtml('hero3f20'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Sibin',emoji:heroAvatarHtml('hero3m42'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Tibin',emoji:heroAvatarHtml('hero3m43'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Unni',emoji:heroAvatarHtml('hero3m44'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Soumya',emoji:heroAvatarHtml('hero3f21'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Vishnu',emoji:heroAvatarHtml('hero3m45'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Wilson',emoji:heroAvatarHtml('hero3m46'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Liya',emoji:heroAvatarHtml('hero3f22'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Xavier',emoji:heroAvatarHtml('hero3m47'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Yohan',emoji:heroAvatarHtml('hero3m48'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Merin',emoji:heroAvatarHtml('hero3f23'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Zachariah',emoji:heroAvatarHtml('hero3m49'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Aby',emoji:heroAvatarHtml('hero3m50'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Bijoy',emoji:heroAvatarHtml('hero3m51'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Asha',emoji:heroAvatarHtml('hero3f24'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Anita',emoji:heroAvatarHtml('hero3f25'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Cyriac',emoji:heroAvatarHtml('hero3m52'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Davis',emoji:heroAvatarHtml('hero3m53'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Betty',emoji:heroAvatarHtml('hero3f26'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Ebin',emoji:heroAvatarHtml('hero3m54'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Fenil',emoji:heroAvatarHtml('hero3m55'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Gibin',emoji:heroAvatarHtml('hero3m56'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Celine',emoji:heroAvatarHtml('hero3f27'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Diya',emoji:heroAvatarHtml('hero3f28'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Hillary',emoji:heroAvatarHtml('hero3m57'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Fiona',emoji:heroAvatarHtml('hero3f29'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Ittoop',emoji:heroAvatarHtml('hero3m58'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Gracy',emoji:heroAvatarHtml('hero3f30'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Hema',emoji:heroAvatarHtml('hero3f31'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Jaison',emoji:heroAvatarHtml('hero3m59'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Indu',emoji:heroAvatarHtml('hero3f32'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Jessy',emoji:heroAvatarHtml('hero3f33'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Kurian',emoji:heroAvatarHtml('hero3m60'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Lijo',emoji:heroAvatarHtml('hero3m61'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Kavya',emoji:heroAvatarHtml('hero3f34'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Mathew',emoji:heroAvatarHtml('hero3m62'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Leena',emoji:heroAvatarHtml('hero3f35'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Ninan',emoji:heroAvatarHtml('hero3m63'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Mariya',emoji:heroAvatarHtml('hero3f36'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Babi',emoji:heroAvatarHtml('hero3f36'),bg:'linear-gradient(135deg,#c2266f,#8e1c52)'},
-  {name:'Oliver',emoji:heroAvatarHtml('hero3m64'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'}
+  // Per explicit request: the 5 personal, PIN-protected avatars
+  // (JCK/LJ/JK/Santhosh/Jose) are deliberately NOT entries in this
+  // array -- see six.js's identical change for the fuller reasoning.
+  {name:'Ancy',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Ajai',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Alok',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Anup',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Anjali',emoji:heroAvatarHtml('toon32'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Appu',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Arun',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Meera',emoji:heroAvatarHtml('toon33'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Benson',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Neha',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Binchu',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Charlie',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Jerin',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Priya',emoji:heroAvatarHtml('toon35'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Johny',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Reena',emoji:heroAvatarHtml('toon36'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Koshy',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Nate',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Divya',emoji:heroAvatarHtml('toon37'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Peter',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Lakshmi',emoji:heroAvatarHtml('toon38'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Rahul',emoji:heroAvatarHtml('toon14'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Rajesh',emoji:heroAvatarHtml('toon15'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Randall',emoji:heroAvatarHtml('toon16'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Sarah',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Renji',emoji:heroAvatarHtml('toon17'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Roji',emoji:heroAvatarHtml('toon18'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Nisha',emoji:heroAvatarHtml('toon40'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Roney',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Sanjay',emoji:heroAvatarHtml('toon20'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Shyam',emoji:heroAvatarHtml('toon21'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Deepa',emoji:heroAvatarHtml('toon41'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Stev',emoji:heroAvatarHtml('toon22'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Vinod',emoji:heroAvatarHtml('toon23'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Wesley',emoji:heroAvatarHtml('toon24'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Elsa',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Abin',emoji:heroAvatarHtml('toon25'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Maya',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Bibin',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Sherin',emoji:heroAvatarHtml('toon44'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Cibin',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Denny',emoji:heroAvatarHtml('toon28'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Eldho',emoji:heroAvatarHtml('toon29'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Teena',emoji:heroAvatarHtml('toon45'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Frankie',emoji:heroAvatarHtml('toon30'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'George',emoji:heroAvatarHtml('toon52'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Anu',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Hari',emoji:heroAvatarHtml('toon54'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Ivan',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Reshma',emoji:heroAvatarHtml('toon47'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Jibin',emoji:heroAvatarHtml('toon58'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Kevin',emoji:heroAvatarHtml('toon60'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Libin',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Jisha',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Manoj',emoji:heroAvatarHtml('toon64'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Nibin',emoji:heroAvatarHtml('toon67'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Oommen',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Nimmy',emoji:heroAvatarHtml('toon49'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Pauly',emoji:heroAvatarHtml('toon70'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Robin',emoji:heroAvatarHtml('toon76'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Beena',emoji:heroAvatarHtml('toon50'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Sibin',emoji:heroAvatarHtml('toon77'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Tibin',emoji:heroAvatarHtml('toon78'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Unni',emoji:heroAvatarHtml('toon79'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Soumya',emoji:heroAvatarHtml('toon51'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Vishnu',emoji:heroAvatarHtml('toon80'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Wilson',emoji:heroAvatarHtml('toon82'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Liya',emoji:heroAvatarHtml('toon53'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Xavier',emoji:heroAvatarHtml('toon84'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Yohan',emoji:heroAvatarHtml('toon86'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Merin',emoji:heroAvatarHtml('toon55'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Zachariah',emoji:heroAvatarHtml('toon89'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Aby',emoji:heroAvatarHtml('toon96'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Bijoy',emoji:heroAvatarHtml('toon97'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Asha',emoji:heroAvatarHtml('toon57'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Anita',emoji:heroAvatarHtml('toon59'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Cyriac',emoji:heroAvatarHtml('toon98'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Davis',emoji:heroAvatarHtml('toon99'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Betty',emoji:heroAvatarHtml('toon61'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Ebin',emoji:heroAvatarHtml('toon100'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Fenil',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Gibin',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Celine',emoji:heroAvatarHtml('toon63'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Diya',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Hillary',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Fiona',emoji:heroAvatarHtml('toon68'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Ittoop',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Gracy',emoji:heroAvatarHtml('toon71'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Hema',emoji:heroAvatarHtml('toon72'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Jaison',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Indu',emoji:heroAvatarHtml('toon73'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Jessy',emoji:heroAvatarHtml('toon74'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Kurian',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Lijo',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Kavya',emoji:heroAvatarHtml('toon75'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Mathew',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Leena',emoji:heroAvatarHtml('toon81'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Ninan',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Mariya',emoji:heroAvatarHtml('toon83'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Babi',emoji:heroAvatarHtml('toon85'),bg:'linear-gradient(135deg,linear-gradient(135deg,#c2266f,#8e1c52))'},
+  {name:'Oliver',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Linda',emoji:heroAvatarHtml('toon87'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Babitha',emoji:heroAvatarHtml('toon88'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Maria',emoji:heroAvatarHtml('toon90'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Leela',emoji:heroAvatarHtml('toon91'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Anna',emoji:heroAvatarHtml('toon92'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Thankam',emoji:heroAvatarHtml('toon93'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Lincy',emoji:heroAvatarHtml('toon94'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Princy',emoji:heroAvatarHtml('toon95'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Easo',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Joseph',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
 ];
 
 const SUITS=['♠','♦','♥','♣'];
@@ -4249,7 +4691,7 @@ try { MY_NAME = localStorage.getItem('k28_player_name') || ''; } catch (e) {}
 // sticks across visits instead of resetting every time.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = [...Array.from({length:25}, (_,i) => 'hero3f'+(i+1)), ...Array.from({length:25}, (_,i) => 'hero3m'+(i+1))];
+const ALL_AVATAR_KEYS = Array.from({length:106}, (_,i) => 'toon'+(i+1));
 
 // ==================== SOUND ENGINE ====================
 // A full card-table sound system built entirely on the native Web Audio API - no audio files,
@@ -4522,10 +4964,134 @@ document.addEventListener('click', (e) => {
   const target = e.target.closest('button, .btn, .btn-outline, .icon-btn');
   if (target) playSound('click');
 }, true);
-if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY)) {
-  MY_AVATAR_KEY = ALL_AVATAR_KEYS[Math.floor(Math.random() * ALL_AVATAR_KEYS.length)];
+if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY) || ['toon101','toon102','toon103','toon104','toon105','toon106'].includes(MY_AVATAR_KEY)) {
+  // Per explicit request: a brand-new visitor's random starting avatar
+  // must never land on one of the 5 personal, PIN-protected avatars --
+  // filtered out here rather than picked and then checked, so there's
+  // no window where an unprotected pick briefly holds a protected key.
+  const publicKeys = ALL_AVATAR_KEYS.filter(k => !['toon101','toon102','toon103','toon104','toon105','toon106'].includes(k));
+  MY_AVATAR_KEY = publicKeys[Math.floor(Math.random() * publicKeys.length)];
+}
+// Per explicit request: these 5 personal avatars require a 4-digit PIN
+// before a human can actually select them -- see six.js's identical
+// helper for the fuller reasoning (lightweight gate, not real
+// cryptographic security).
+const AVATAR_PINS = {
+  toon101: '0719', // JCK
+  toon102: '0000', // LJ
+  toon103: '0000', // JK
+  toon104: '0000', // Santhosh
+  toon105: '0000', // Jose
+  toon106: '0000', // Bless
+};
+// Per explicit request: typing one of these names on the "enter your
+// name" screen should automatically match its personal avatar (still
+// gated by the same PIN check every other selection path goes through
+// -- see checkAvatarPin) rather than requiring a separate manual pick
+// from the picker grid. Lowercased keys since name entry should match
+// regardless of how the player capitalizes it.
+const PROTECTED_NAME_TO_AVATAR = {
+  jck: 'toon101',
+  lj: 'toon102',
+  jk: 'toon103',
+  santhosh: 'toon104',
+  jose: 'toon105',
+  bless: 'toon106',
+};
+function checkAvatarPin(key) {
+  if (!AVATAR_PINS[key]) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('pinModalOverlay');
+    const box = document.getElementById('pinModalBox');
+    const errEl = document.getElementById('pinModalError');
+    const digits = Array.from(document.querySelectorAll('.pin-digit'));
+    const cancelBtn = document.getElementById('pinCancelBtn');
+    const submitBtn = document.getElementById('pinSubmitBtn');
+    digits.forEach(d => d.value = '');
+    errEl.textContent = '';
+    overlay.classList.add('on');
+    setTimeout(() => digits[0].focus(), 50);
+
+    function cleanup() {
+      overlay.classList.remove('on');
+      digits.forEach(d => { d.oninput = null; d.onkeydown = null; });
+      cancelBtn.onclick = null;
+      submitBtn.onclick = null;
+    }
+    function tryDigit(i, e) {
+      const v = e.target.value.replace(/\D/g, '').slice(0, 1);
+      e.target.value = v;
+      if (v && i < 3) digits[i + 1].focus();
+    }
+    function tryKeydown(i, e) {
+      if (e.key === 'Backspace' && !e.target.value && i > 0) digits[i - 1].focus();
+      if (e.key === 'Enter') attemptSubmit();
+    }
+    function attemptSubmit() {
+      const entered = digits.map(d => d.value).join('');
+      if (entered.length < 4) {
+        errEl.textContent = 'Enter all 4 digits';
+        return;
+      }
+      if (entered !== AVATAR_PINS[key]) {
+        errEl.textContent = 'Incorrect PIN';
+        box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+        digits.forEach(d => d.value = '');
+        digits[0].focus();
+        return;
+      }
+      cleanup();
+      resolve(true);
+    }
+    digits.forEach((d, i) => {
+      d.oninput = (e) => tryDigit(i, e);
+      d.onkeydown = (e) => tryKeydown(i, e);
+    });
+    submitBtn.onclick = attemptSubmit;
+    cancelBtn.onclick = () => { cleanup(); resolve(false); };
+  });
 }
 function heroAvatarHtml(key) {
+  // Falls back to a deterministic, guaranteed-valid key whenever the
+  // given one isn't real -- not just when it's null/missing, but also
+  // when it's a well-formed key number that simply doesn't exist
+  // anymore (e.g. 'toon30' after the avatar set shrank to 23 female
+  // images). That second case is the one that actually broke faces
+  // across the board: a large hardcoded bot-name-to-avatar list further
+  // up this file still references numbers up into the 30s/60s from
+  // before the set was trimmed multiple times, and a plain null-check
+  // doesn't catch "well-formed but out of range."
+  //
+  // Deliberately NOT using ALL_AVATAR_KEYS here -- that list's hardcoded
+  // callers run before ALL_AVATAR_KEYS is itself defined later in this
+  // file, so referencing it here would throw (const isn't hoisted the
+  // way a function declaration is). TOON_COUNT below is the same number
+  // ALL_AVATAR_KEYS is built from, just usable this early. Update both
+  // places together if the avatar set size changes again.
+  const TOON_COUNT = 106;
+  // Per explicit request: the 5 personal, PIN-protected avatars
+  // (toon101-105) must never be handed out automatically -- this
+  // fallback path only runs for an already-invalid/out-of-range key,
+  // so it's exactly where that matters. Deliberately arithmetic, not
+  // an array/Set reference, for the same hoisting reason TOON_COUNT
+  // above is a plain number and not ALL_AVATAR_KEYS.length -- this
+  // function gets called by the hardcoded bot list further up the
+  // file, before ALL_AVATAR_KEYS is defined at all. The protected 5
+  // are exactly the last 5 (101-105), so capping the fallback range to
+  // the first 100 excludes them with no array needed.
+  const PUBLIC_TOON_COUNT = 100;
+  const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
+  const validNum = m && Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT;
+  if (!validNum) {
+    // Hash the ORIGINAL invalid key (not a random pick) so the same
+    // bot name/key always remaps to the same fallback avatar
+    // consistently across reloads, rather than jumping around.
+    const src = key || 'x';
+    let h = 0;
+    for (let i = 0; i < src.length; i++) h = (h * 31 + src.charCodeAt(i)) >>> 0;
+    const n = h % PUBLIC_TOON_COUNT;
+    key = `toon${n + 1}`;
+  }
   // Single image only, deliberately -- the new avatar set has one
   // expression per character, no separate "sad" pose. That's fine: the
   // .avatar.has-q CSS rule (grayscale/dim filter + the crying-emoji
@@ -4566,7 +5132,8 @@ function renderMyAvatarPicker() {
     </div>`
   ).join('');
 }
-function pickMyAvatar(key) {
+async function pickMyAvatar(key) {
+  if (!(await checkAvatarPin(key))) return;
   MY_AVATAR_KEY = key;
   try { localStorage.setItem('k28_player_avatar', key); } catch (e) {}
   document.querySelectorAll('.my-avatar-choice').forEach(el => el.classList.toggle('picked', el.dataset.key === key));
@@ -4584,7 +5151,19 @@ async function requestScreenWakeLock() {
   } catch (e) {}
 }
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') requestScreenWakeLock();
+  if (document.visibilityState === 'visible') {
+    requestScreenWakeLock();
+    // Per explicit request: same "I'm back" signal the 6-player table
+    // already sends on tab return -- see reclaimTurn() in
+    // game-engine.js and the socket handler in server.js for the
+    // fuller reasoning. Only meaningful in SERVER_MODE (online play) --
+    // the offline/learn table has no stuck-turn timer to reclaim at
+    // all. Guarded with typeof since this fires very early, before
+    // SERVER_MODE/socket are necessarily assigned yet on first load.
+    if (typeof SERVER_MODE !== 'undefined' && SERVER_MODE && typeof socket !== 'undefined' && socket && socket.connected) {
+      socket.emit('reclaimTurn');
+    }
+  }
 });
 requestScreenWakeLock();
 if (document.readyState === 'interactive' || document.readyState === 'complete') renderMyAvatarPicker();
@@ -5228,7 +5807,13 @@ function setupOnlineTable() {
     }
     if (av) {
       av.style.background = p.bg;
-      const teamClass = (getTeam(p.pos) === getTeam(viewerPos())) ? 'tyou' : 'topp';
+      // Per explicit request: this dot shows human-vs-bot status (green
+      // = live human, red = bot), not team membership -- previously it
+      // reused the same 'tyou'/'topp' classes as the team-color system,
+      // which are still used below for name-text coloring (unrelated,
+      // stays team-based), but the dot itself now checks p.isBot
+      // directly instead of team comparison.
+      const teamClass = p.isBot ? 'topp' : 'tyou';
       // Real bug fix, not a style nit: setupOnlineTable() runs on EVERY state update from the
       // server (i.e. every single turn, whether or not this particular player's own avatar
       // actually needs to change), and av.innerHTML = ... destroys and recreates every child
@@ -5240,13 +5825,31 @@ function setupOnlineTable() {
       // lastRenderedCardCount): only touch innerHTML when the value that would be written is
       // actually different from what's already there, and re-attach the badge afterward if an
       // update did need to happen, since innerHTML= would otherwise have just deleted it.
-      const desiredAvHtml = p.emoji + '<span class="tdot ' + teamClass + '"></span>';
+      //
+      // Per explicit report: the old has-q CSS-pseudo-element approach (::before/::after with
+      // attr(data-qcount)) was rendering the coconut/count badly in the new photo-table layout
+      // -- clipped, stuck in a corner instead of filling the avatar. The 6-player table never
+      // had this problem because it never used pseudo-elements for this at all -- it builds
+      // real DOM nodes (an actual <img> + count <div>) directly in the same innerHTML this
+      // function already sets. Porting that same real-element approach here instead of trying
+      // to patch the pseudo-element positioning further.
+      const qCountHere = (latestServerState && latestServerState.qMarks) ? (latestServerState.qMarks[p.name] || 0) : 0;
+      // Per explicit follow-up: the coconut no longer replaces the
+      // character's own portrait -- it's appended as a small pendant
+      // overlay on top of the normal avatar content instead, so the
+      // face stays visible underneath it like a necklace charm.
+      const pendantHtml = qCountHere > 0
+        ? '<img src="/images/kunukku/sad-coconut.png" class="kunukku-avatar-img" alt="Kunukku">' +
+          '<div class="kunukku-count-badge">' + qCountHere + '</div>'
+        : '';
+      const desiredAvHtml = p.emoji + '<span class="tdot ' + teamClass + '"></span>' + pendantHtml;
       if (av.dataset.avHtml !== desiredAvHtml) {
         const existingBadge = av.querySelector('.call-badge');
         av.dataset.avHtml = desiredAvHtml;
         av.innerHTML = desiredAvHtml;
         if (existingBadge) av.appendChild(existingBadge);
       }
+      av.classList.remove('has-q');
     }
     if (nm) nm.textContent = formatPlayerName(p.name, p.isBot);
     if (roleEl) roleEl.textContent = p.isLocal ? 'YOU' : (p.isBot ? 'BOT' : 'OPP');
@@ -5320,7 +5923,7 @@ function confirmPlayer() {
   for (let i = 0; i < 4; i++) {
     const av = document.getElementById('av' + i);
     const nm = document.getElementById('name' + i);
-    const teamDot = getTeam(i) === getTeam(MY_POS) ? 'tyou' : 'topp';
+    const teamDot = PLAYERS[i].isBot ? 'topp' : 'tyou';
     if (av) { av.style.background = avs[i].bg; av.innerHTML = avs[i].emoji + '<span class="tdot ' + teamDot + '"></span>'; }
     if (nm) nm.textContent = formatPlayerName(PLAYERS[i].name, PLAYERS[i].isBot);
   }
@@ -5357,6 +5960,30 @@ function relLabel(pos) {
   const name = p ? p.name : null;
   const rel = getTeam(pos) === getTeam(MY_POS) ? 'your partner' : 'your opponent';
   return name ? rel + ' (' + name + ')' : rel;
+}
+// Per explicit request (same feature as six.js's identical function - see there for the
+// fuller reasoning): shown to EVERY player throughout bidding, not just whoever's turn it
+// currently is, updating live with every bid or pass. Covers both bidding1 and bidding2,
+// since this table (unlike six-player) has both - hands off to showBidWinnerCelebration4p
+// (already handles its own "who won" persistence until a card is played) the moment bidding
+// concludes into either trump selection or play, rather than covering that window itself.
+function renderBidStatusBanner4p(state) {
+  const el = document.getElementById('bidStatusBanner4p');
+  if (!el) return;
+  if (state.phase !== 'bidding1' && state.phase !== 'bidding2') { el.style.display = 'none'; return; }
+  let html;
+  if (state.highestBid > 0 && typeof state.bidder === 'number' && state.bidder >= 0) {
+    const bidderLabel = relLabel(state.bidder);
+    html = `<b>${bidderLabel}</b> bid <b>${state.highestBid}</b> — current highest bidder.`;
+  } else {
+    html = `Bidding has started — no bids yet.`;
+  }
+  if (typeof state.currentPlayer === 'number' && state.currentPlayer >= 0) {
+    const turnLabel = state.currentPlayer === MY_POS ? 'Your turn' : relLabel(state.currentPlayer) + "'s turn";
+    html += `<span class="bsb-turn">${turnLabel}</span>`;
+  }
+  el.innerHTML = html;
+  el.style.display = 'block';
 }
 // Renders the "so far this round" bid/pass list for the bid sheet, in the
 // order actions actually happened, using relative labels throughout.
@@ -5688,6 +6315,92 @@ function showToast(msg, type, dur) {
   document.body.appendChild(t);
   setTimeout(() => { t.classList.add('hide'); setTimeout(() => t.remove(), 300); }, dur);
 }
+
+// Per explicit request: replaces the old always-on particle animation --
+// a celebration burst (confetti + a big scaling/fading greeting) shown
+// once per day when the table loads, not a persistent effect. Same
+// 12-holiday list as the 6-player table's own (separately pre-existing)
+// holiday system, kept in sync so both tables recognize the same set.
+// Fixed-date holidays only -- deliberately NOT including movable-date
+// ones like Easter or Eid, since those follow lunar/lunisolar calendars
+// this can't compute accurately, and showing a wrong date would be worse
+// than not showing one at all.
+const K28_HOLIDAYS = [
+  { key: 'newyear',    emoji: '🎉', title: 'Happy New Year!',         start: [1,1],  end: [1,2] },
+  { key: 'valentines', emoji: '💝', title: "Happy Valentine's Day!",  start: [2,14], end: [2,14] },
+  { key: 'vishu',      emoji: '🌼', title: 'Happy Vishu!',            start: [4,14], end: [4,16] },
+  { key: 'mayday',     emoji: '🌷', title: 'Happy May Day!',          start: [5,1],  end: [5,1] },
+  { key: 'julyfourth', emoji: '🎆', title: 'Happy Independence Day!', start: [7,4],  end: [7,4] },
+  { key: 'indiaindep', emoji: '🇮🇳', title: 'Happy Independence Day!', start: [8,15], end: [8,16] },
+  // Per explicit request: shortened from the original end:[9,10] --
+  // Onam itself is over and the celebration should stop showing NOW,
+  // not on the 10th. Still recurs automatically every year in this
+  // same Aug 20 -- Sep 2 window going forward, since only the end date
+  // changed, not the key/start/structure.
+  { key: 'onam',       emoji: '🌸', title: 'Happy Onam!',             start: [8,20], end: [9,2] },
+  { key: 'halloween',  emoji: '🎃', title: 'Happy Halloween!',        start: [10,30],end: [11,2] },
+  { key: 'diwali',     emoji: '🪔', title: 'Happy Diwali!',           start: [11,1], end: [11,6] },
+  { key: 'thanksgiving',emoji:'🦃', title: 'Happy Thanksgiving!',     start: [11,24],end: [11,28] },
+  { key: 'christmas',  emoji: '🎄', title: 'Merry Christmas!',        start: [12,24],end: [12,26] },
+  { key: 'yearend',    emoji: '🥳', title: "Happy New Year's Eve!",   start: [12,31],end: [12,31] },
+];
+
+function activeHoliday(date) {
+  const m = date.getMonth() + 1, d = date.getDate();
+  const asNum = (mo, da) => mo * 100 + da;
+  const today = asNum(m, d);
+  for (const h of K28_HOLIDAYS) {
+    const start = asNum(h.start[0], h.start[1]);
+    const end = asNum(h.end[0], h.end[1]);
+    if (start <= end ? (today >= start && today <= end) : (today >= start || today <= end)) {
+      return h;
+    }
+  }
+  return null;
+}
+
+function showHolidayGreetingOnce() {
+  const holiday = activeHoliday(new Date());
+  if (!holiday) return;
+  // Keyed by holiday name + today's actual date, not just the holiday
+  // name alone -- so it naturally shows again next year, but not again
+  // today no matter how many times this table is loaded/reconnected
+  // to today specifically (a rejoin, a refresh, someone else joining
+  // the same table -- none of those re-trigger it for a browser that's
+  // already seen today's greeting).
+  const todayKey = 'k28HolidayShown_' + holiday.key + '_' + new Date().toDateString();
+  if (localStorage.getItem(todayKey)) return;
+  localStorage.setItem(todayKey, '1');
+
+  // Real celebration burst, not a quiet toast, per explicit follow-up --
+  // a few seconds of falling confetti plus a big scaling/fading
+  // greeting, then it removes itself entirely and doesn't repeat today.
+  const host = document.createElement('div');
+  host.id = 'k28HolidayBurst';
+  const colors = ['#ffd700','#ff6b6b','#4ecdc4','#f4c430','#e8a33d','#ffffff'];
+  const shapes = ['0','50%']; // square vs round confetti bits, mixed
+  for (let i = 0; i < 60; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    const size = 6 + Math.random() * 7;
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.width = size + 'px';
+    c.style.height = size + 'px';
+    c.style.background = colors[i % colors.length];
+    c.style.borderRadius = shapes[i % 2];
+    c.style.setProperty('--fall', (100 + Math.random() * 25) + 'vh');
+    c.style.setProperty('--spin', (Math.random() * 720 - 360) + 'deg');
+    c.style.animation = 'k28ConfettiFall ' + (2.6 + Math.random() * 1.8) + 's ease-in ' + (Math.random() * 0.6) + 's forwards';
+    host.appendChild(c);
+  }
+  const g = document.createElement('div');
+  g.className = 'greeting';
+  g.textContent = holiday.emoji + ' ' + holiday.title + ' ' + holiday.emoji;
+  host.appendChild(g);
+  document.body.appendChild(host);
+  setTimeout(() => host.remove(), 4700);
+}
+showHolidayGreetingOnce();
 
 function showBotThinking(p, name) {
   // Thinking animation removed - bots play silently
@@ -6141,18 +6854,52 @@ function detectQMarkChanges4p() {
   if (gained.length > 0) showQMarkEvent4p(gained, 'gained');
   if (lost.length > 0) showQMarkEvent4p(lost, 'lost');
 }
+function spawnQmarkParticles(overlay, isGained, durationMs) {
+  // Ported directly from the 6-player table's identical function, per
+  // explicit request for true parity between the two tables.
+  const goldPalette = ['#f4c430', '#ffd700', '#ffe066', '#e6b800', '#fff3b0'];
+  const rainbowPalette = ['#f4c430', '#e08a9a', '#7ec8e3', '#9adba0', '#c99ae3', '#ff9f6b'];
+  const palette = isGained ? rainbowPalette : goldPalette;
+  const particleCount = 70;
+  for (let i = 0; i < particleCount; i++) {
+    const p = document.createElement('div');
+    p.className = 'qmark-particle';
+    const startLeft = Math.random() * 100;
+    const size = 6 + Math.random() * 10;
+    const fallDuration = 1.8 + Math.random() * 1.6;
+    const delay = Math.random() * (durationMs / 1000 - 2);
+    const drift = (Math.random() - 0.5) * 160;
+    const spin = 360 + Math.random() * 720;
+    const color = palette[Math.floor(Math.random() * palette.length)];
+    const isRound = Math.random() > 0.5;
+    p.style.left = startLeft + 'vw';
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.background = color;
+    p.style.borderRadius = isRound ? '50%' : '2px';
+    p.style.setProperty('--fall-distance', '115vh');
+    p.style.setProperty('--drift', drift + 'px');
+    p.style.setProperty('--spin', spin + 'deg');
+    p.style.animationDuration = fallDuration + 's';
+    p.style.animationDelay = delay + 's';
+    overlay.appendChild(p);
+  }
+}
 function showQMarkEvent4p(names, direction) {
   const overlay = document.createElement('div');
   overlay.className = 'qmark-event-overlay ' + direction;
-  const title = direction === 'gained' ? '😭 KUNUKKU!' : '🎉 KUNUKKU SHED!';
+  const isGained = direction === 'gained';
+  const durationMs = isGained ? 7000 : 5000;
+  const title = isGained ? '😭 KUNUKKU!' : '🎉 KUNUKKU SHED!';
   const namesText = names.map(escapeHtml).join(', ');
-  const subtitle = direction === 'gained'
+  const subtitle = isGained
     ? `${namesText} ${names.length > 1 ? 'each get' : 'gets'} a Kunukku — shut out!`
-    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Kunukku!`;
-  overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${direction === 'gained' ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
+    : `${namesText} ${names.length > 1 ? 'shed' : 'sheds'} a Kunukku — free at last!`;
+  overlay.innerHTML = `<div class="qmark-event-box"><div class="qmark-event-emoji">${isGained ? '😭' : '🎉'}</div><div class="qmark-event-title">${title}</div><div class="qmark-event-sub">${subtitle}</div></div>`;
   document.body.appendChild(overlay);
-  setTimeout(() => overlay.classList.add('leaving'), 2200);
-  setTimeout(() => overlay.remove(), 2700);
+  spawnQmarkParticles(overlay, isGained, durationMs);
+  setTimeout(() => overlay.classList.add('leaving'), durationMs - 500);
+  setTimeout(() => overlay.remove(), durationMs);
 }
 
 // Reusable "big moment" popup -- see the CSS comment next to
@@ -6316,6 +7063,88 @@ function clearCallBadges4p() {
 // Without this, their badge would keep showing that later pass in red,
 // which reads as if they lost, right as they're being highlighted as
 // the winner -- a real, confusing contradiction this corrects.
+function showBidWinnerCelebration4p(pos, winningBid) {
+  const el = document.getElementById('bidWinnerBubble4p');
+  if (!el) return;
+  const p = PLAYERS.find(pl => pl.pos === pos);
+  const name = p ? (pos === MY_POS ? 'You' : p.name) : 'Player';
+  const bidText = winningBid >= 29 ? 'THANI!' : ('Bid ' + winningBid);
+  el.innerHTML = '<div class="bwb-name">' + escapeHtml(name) + ' won the bid</div><div class="bwb-bid">' + bidText + '</div><div class="bwb-turn" id="bwbTurnLine4p"></div>';
+  el.style.display = 'block';
+  el.classList.remove('leaving', 'settled');
+  // force reflow so the pop-in animation replays even if it's already showing from a phase-2 re-mark
+  void el.offsetWidth;
+  el.style.animation = 'none';
+  void el.offsetWidth;
+  el.style.animation = '';
+  setTimeout(() => el.classList.add('settled'), 650);
+  updateBidWinnerTurnText4p();
+}
+// Per explicit request: same "whose turn" line as the 6-player table's
+// identical addition -- see there for the fuller reasoning (the
+// bubble's main content only ever gets set once per phase-2 re-mark,
+// so without this separate refresh the turn line would go stale the
+// moment the active player changed, e.g. trump-choosing finishing and
+// the actual lead beginning). Reads from latestServerState (the online
+// 4-player table's own live state) with currentPlayer/phase as a
+// fallback for the offline/local mode, which tracks turn via those
+// same-named globals directly instead of a server-pushed state object.
+function updateBidWinnerTurnText4p() {
+  const turnEl = document.getElementById('bwbTurnLine4p');
+  if (!turnEl) return;
+  const bubble = document.getElementById('bidWinnerBubble4p');
+  if (!bubble || bubble.style.display === 'none') return;
+  const src = (typeof latestServerState !== 'undefined' && latestServerState) ? latestServerState : { currentPlayer, phase };
+  const cp = src.currentPlayer;
+  if (typeof cp !== 'number' || cp < 0) { turnEl.textContent = ''; turnEl.classList.remove('bwb-turn-mine', 'bwb-turn-partner', 'bwb-turn-opp', 'bwb-turn-pop'); return; }
+  const p = PLAYERS.find(pl => pl.pos === cp);
+  const isMe = cp === MY_POS;
+  const isPartner = !isMe && getTeam(cp) === getTeam(MY_POS);
+  const possessive = isMe ? 'Your' : (p ? escapeHtml(p.name) + "'s" : "Their");
+  const verb = src.phase === 'choosingTrump' ? 'turn to choose trump...' : 'turn to play';
+  const newText = `${possessive} ${verb}`;
+  // Per explicit request: the "pop" only replays when the turn has
+  // GENUINELY changed (a new player, or trump-choosing finishing and
+  // play beginning) -- not on every single state update this function
+  // gets called from, which would make it pop continuously instead of
+  // once per actual change. Re-triggering a CSS animation on an
+  // element that already has the class requires actually removing it,
+  // forcing a reflow, then re-adding it -- just setting the class again
+  // while it's already present is a no-op to the browser.
+  const changed = turnEl.textContent !== newText;
+  turnEl.textContent = newText;
+  turnEl.classList.toggle('bwb-turn-mine', isMe);
+  turnEl.classList.toggle('bwb-turn-partner', isPartner);
+  turnEl.classList.toggle('bwb-turn-opp', !isMe && !isPartner);
+  if (changed) {
+    turnEl.classList.remove('bwb-turn-pop');
+    void turnEl.offsetWidth; // force reflow so the browser actually notices the removal
+    turnEl.classList.add('bwb-turn-pop');
+  }
+}
+function dismissBidWinnerCelebration4p() {
+  const el = document.getElementById('bidWinnerBubble4p');
+  if (!el || el.style.display === 'none') return;
+  el.classList.add('leaving');
+  setTimeout(() => { el.style.display = 'none'; el.classList.remove('leaving', 'settled'); }, 400);
+}
+// Real bug fix, per explicit report: the animated dismiss above only
+// ever ran from startPlay() -- the normal "bidding just ended" moment.
+// Exiting to the home screen or restarting the game/round go through
+// entirely different code paths that never called it at all, so a
+// bubble left on screen at that exact moment stayed visually stuck in
+// display:block and would immediately reappear the instant a new game
+// screen rendered, even with zero new bids having happened yet. This is
+// the same reset with no animation (nothing needs to be graceful when
+// the whole screen is being torn down anyway) plus clearing the
+// "already celebrated" guard, called from every genuine fresh-start/
+// exit point instead of relying on startPlay() alone.
+function hardResetBidWinnerBubble4p() {
+  const el = document.getElementById('bidWinnerBubble4p');
+  if (el) { el.style.display = 'none'; el.classList.remove('leaving', 'settled'); el.innerHTML = ''; }
+  lastCelebratedBidWinner4p = null;
+}
+let lastCelebratedBidWinner4p = null; // tracks {round, pos, winningBid} already celebrated, so redundant calls (phase1+phase2 both firing, reconnection catch-up) don't re-pop the same unchanged result -- but a genuinely different winner/bid (bidder changed during phase2 raises) still triggers fresh
 function markWinningBidder4p(pos, winningBid) {
   for (let i = 0; i < 4; i++) {
     const av = document.getElementById('av' + i);
@@ -6327,6 +7156,31 @@ function markWinningBidder4p(pos, winningBid) {
       callEl.classList.remove('call-badge-pass');
       const headerEl = callEl.querySelector('.call-badge-header');
       if (headerEl) headerEl.textContent = winningBid >= 29 ? 'Thani!' : 'Bid ' + winningBid;
+    }
+  }
+  // Per explicit request: a persistent, heartbeat-pulsing bubble in the
+  // center of the table, separate from the existing avatar-ring glow
+  // above -- that ring is subtle and easy to miss, this is meant to be
+  // impossible to miss. Stays up until startPlay() explicitly dismisses
+  // it (see there), not on a timer like every other event popup.
+  //
+  // Real bug fix, per explicit report of the popup flickering/re-
+  // popping unpredictably: this function is called from 3 separate
+  // places (endBidding1, endBidding2, and a reconnection catch-up path)
+  // and can legitimately fire more than once in the SAME round -- every
+  // one of those calls was re-triggering the pop-in entrance animation
+  // from scratch, even when nothing had actually changed. Guarded the
+  // same way six.js's own markWinningBidder6p already guards this (see
+  // lastMarkedWinnerRound there), but comparing pos+bid too, not just
+  // round -- a bidder actually changing during phase 2 raises is a
+  // real, new result that should still celebrate fresh, not just any
+  // repeat call within the same round.
+  if (typeof pos === 'number' && pos >= 0 && typeof winningBid === 'number' && winningBid > 0) {
+    const key = round + ':' + pos + ':' + winningBid;
+    const lastKey = lastCelebratedBidWinner4p;
+    if (lastKey !== key) {
+      lastCelebratedBidWinner4p = key;
+      showBidWinnerCelebration4p(pos, winningBid);
     }
   }
 }
@@ -7893,6 +8747,13 @@ function restoreGameState(data) {
     const slot = slotForPlayer(p.pos);
     const av = document.getElementById('av' + slot);
     const nm = document.getElementById('name' + slot);
+    // Per explicit request: the dot on the avatar shows human-vs-bot
+    // status (green=human, red=bot), separate from teamDot below which
+    // still drives the name-teammate/name-opponent text color -- these
+    // used to be the same variable, conflating "is this my teammate"
+    // with "is this a bot", which is why the dot showed team affiliation
+    // instead of connection type before this fix.
+    const botDot = p.isBot ? 'topp' : 'tyou';
     const teamDot = getTeam(p.pos) === getTeam(MY_POS) ? 'tyou' : 'topp';
     // Real bug, not a style nit: this ran unconditionally on EVERY state update (i.e. every
     // single turn, whether or not anything about this player actually changed), and
@@ -7904,7 +8765,16 @@ function restoreGameState(data) {
     // way call-badge's own dataset.v check works: only touch innerHTML when the actual
     // rendered value is different from what's already there, and re-append the badge
     // afterward if the update did need to happen (since innerHTML= would have just deleted it).
-    const desiredAvHtml = p.emoji + '<span class="tdot ' + teamDot + '"></span>';
+    //
+    // Per explicit report: swapped the old CSS-pseudo-element Kunukku overlay for the same
+    // real-DOM-element approach the 6-player table already uses successfully -- see the
+    // identical fix/comment at the other call site in this file for the fuller reasoning.
+    const qCountHere2 = (latestServerState && latestServerState.qMarks) ? (latestServerState.qMarks[p.name] || 0) : 0;
+    const pendantHtml2 = qCountHere2 > 0
+      ? '<img src="/images/kunukku/sad-coconut.png" class="kunukku-avatar-img" alt="Kunukku">' +
+        '<div class="kunukku-count-badge">' + qCountHere2 + '</div>'
+      : '';
+    const desiredAvHtml = p.emoji + '<span class="tdot ' + botDot + '"></span>' + pendantHtml2;
     if (av) {
       av.style.background = p.bg;
       if (av.dataset.avHtml !== desiredAvHtml) {
@@ -7913,6 +8783,7 @@ function restoreGameState(data) {
         av.innerHTML = desiredAvHtml;
         if (existingBadge) av.appendChild(existingBadge);
       }
+      av.classList.remove('has-q');
     }
     if (nm) {
       nm.textContent = formatPlayerName(p.name, p.isBot);
@@ -8448,6 +9319,23 @@ function chooseBotCardBase(p, hand, myTeam, bidTeam, isBidder, isBT, numInTrick,
           ntBySuit[bestSuit].sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
           if (isEarly) return ntBySuit[bestSuit][0];
           return ntBySuit[bestSuit][ntBySuit[bestSuit].length - 1];
+        }
+      }
+    }
+    // Per explicit instruction: same rule as the server bots in
+    // game-engine.js -- see there for the fuller reasoning. Uses the
+    // same explicit "holds a leadable Jack" check as the 6-player
+    // engine's identical addition, not an early-return precondition,
+    // since this offline function doesn't have one either (its own
+    // Jack-leading happens naturally within the per-suit scoring loop
+    // just below instead).
+    if (trumpExposed && !isBidder && getTeam(bidder) === myTeam) {
+      const holdsLeadableJack = SUITS.some(s => bySuit[s].some(c => c.rank === 'J') && (s !== trumpSuit || trumpExposed));
+      if (!holdsLeadableJack) {
+        const nonAceTrumps = hand.filter(c => c.suit === trumpSuit && c.rank !== 'A');
+        if (nonAceTrumps.length > 0) {
+          nonAceTrumps.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
+          return nonAceTrumps[0];
         }
       }
     }
@@ -10139,6 +11027,7 @@ function playCard(suit, rank, player, calledTrump) {
   if (trickSuit === '') { trickSuit = card.suit; suitLeadCount[card.suit]++; }
   trickCards.push({player: p, card: card});
   clearCallBadges4p(); // per explicit instruction: bid/pass bubbles stay up only until someone actually starts playing
+  dismissBidWinnerCelebration4p(); // real "first card played" moment, per explicit correction -- see clearCallBadges4p's own comment right above for why this specific call site (not startPlay()) is the correct signal
   const slot = document.getElementById('slot' + slotForPlayer(p));
   if (slot) { slot.innerHTML = cardHTML(card);  }
   const name = playerAt(p) ? playerAt(p).name : 'Player';
@@ -10187,6 +11076,7 @@ function playHiddenTrump(p) {
   if (trickSuit === '') { trickSuit = card.suit; suitLeadCount[card.suit]++; }
   trickCards.push({player: p, card: card});
   clearCallBadges4p(); // per explicit instruction: bid/pass bubbles stay up only until someone actually starts playing
+  dismissBidWinnerCelebration4p(); // real "first card played" moment, per explicit correction -- see clearCallBadges4p's own comment right above for why this specific call site (not startPlay()) is the correct signal
   const slot = document.getElementById('slot' + slotForPlayer(p));
   if (slot) { slot.innerHTML = cardHTML(card);  }
   const name = playerAt(p) ? playerAt(p).name : 'Player';
@@ -12103,6 +12993,7 @@ function hostRestartGame() {
     closeModal();
     okBtn.textContent = 'OK';
     okBtn.onclick = oldClick;
+    hardResetBidWinnerBubble4p();
     // Build config matching startOnlineGame expectations
     const config = {
       players: PLAYERS.map(p => ({ name: p.name, emoji: p.emoji, bg: p.bg, isBot: p.isBot, peerId: p.peerId, pos: p.pos })),
@@ -13706,8 +14597,12 @@ function startLocalGameWithPosition(yourPos) {
     const slot = slotForPlayer(i);
     const av = document.getElementById('av' + slot);
     const nm = document.getElementById('name' + slot);
+    // Per explicit request: dot = human/bot status, separate from
+    // teamDot which still drives name-teammate/name-opponent coloring
+    // -- see the identical fix/comment at the online-mode update site.
+    const botDot = p.isBot ? 'topp' : 'tyou';
     const teamDot = getTeam(i) === getTeam(yourPos) ? 'tyou' : 'topp';
-    if (av) { av.style.background = p.bg; av.innerHTML = p.emoji + '<span class="tdot ' + teamDot + '"></span>'; }
+    if (av) { av.style.background = p.bg; av.innerHTML = p.emoji + '<span class="tdot ' + botDot + '"></span>'; }
     if (nm) {
       nm.textContent = formatPlayerName(p.name, p.isBot);
       // Same royal green/red team-relative coloring as the online-mode update site, via
@@ -13755,7 +14650,7 @@ function startLocalGameWithPosition(yourPos) {
 // ==================== ENHANCED WELCOME ====================
 const originalBtnPlayLocal = document.getElementById('btnPlayLocal');
 if (originalBtnPlayLocal) {
-  originalBtnPlayLocal.innerHTML = '<span class="icon">🎮</span> Learn 28';
+  originalBtnPlayLocal.innerHTML = '<span class="btn28-badge">28</span><span class="btn28-modelabel">Learn</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">🧠 practice vs AI that learns your strategy</span>';
   originalBtnPlayLocal.addEventListener('click', () => {
     // Allow guest play - no auth required
     IS_ONLINE = false;
@@ -13767,10 +14662,91 @@ if (originalBtnPlayLocal) {
   });
 }
 
+// Per explicit request: shown once each time the welcome screen (game
+// mode picker) becomes visible, right after sign-in/guest-play. Shows
+// today's fastest-championship leaderboard, dismisses on OK or auto-
+// dismisses after 5s -- whichever the player doesn't wait for. Uses
+// the public (no admin auth) /api/leaderboard endpoint, matching the
+// same data the admin panel's own leaderboard tab shows, just without
+// the all-time section -- this is a quick glance, not the full view.
+async function showLeaderboardPopup() {
+  const overlay = document.getElementById('leaderboardPopupOverlay');
+  const contentEl = document.getElementById('leaderboardPopupContent');
+  const okBtn = document.getElementById('btnLeaderboardPopupOk');
+  if (!overlay || !contentEl || !okBtn) return;
+
+  contentEl.innerHTML = 'Loading…';
+  overlay.classList.add('on');
+
+  // Per explicit request: on a slow connection, the popup and its OK
+  // button both appeared instantly (before the actual leaderboard data
+  // had even arrived), so a quick tap could dismiss the whole thing
+  // before the person ever saw real content -- just "Loading…" the
+  // entire time it was on screen. Disabling OK until the fetch actually
+  // resolves (success OR failure -- either way there's now something
+  // real to read) closes that gap without adding any visible spinner or
+  // extra UI; the button simply isn't tappable yet.
+  okBtn.disabled = true;
+  okBtn.style.opacity = '0.5';
+  okBtn.style.cursor = 'default';
+
+  // Per explicit request: no auto-dismiss timer anymore -- OK click only.
+  const dismiss = () => {
+    overlay.classList.remove('on');
+    okBtn.removeEventListener('click', dismiss);
+  };
+  okBtn.addEventListener('click', dismiss);
+
+  try {
+    const res = await fetch('/api/leaderboard');
+    const data = await res.json();
+    const lb = data.leaderboard;
+    // Per explicit request: shows all 3 positions (not just #1), the
+    // opponent team too (previously only the winners were ever
+    // recorded at all), and tightened into one compact line per entry
+    // so both modes' All-Time and Today's top-3 fit on one screen
+    // without excessive scrolling. Names keep the gold-gradient
+    // treatment for the "look nice" part of the request, just at a
+    // smaller size than before so 3 entries don't take the vertical
+    // space 1 used to.
+    const nameSpan = (n) => `<span style="font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;text-transform:uppercase;background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);-webkit-background-clip:text;background-clip:text;color:transparent">${String(n).replace(/</g, '&lt;')}</span>`;
+    const fmtRow = (e, rank) => {
+      if (!e) return `<div style="font-size:0.72rem;opacity:0.5;padding:2px 0">${rank}. —</div>`;
+      const names = e.names.map(nameSpan).join(', ');
+      const opp = (e.opponentNames && e.opponentNames.length > 0) ? ` <span style="opacity:0.55">vs</span> ${e.opponentNames.map(n => String(n).replace(/</g, '&lt;')).join(', ')}` : '';
+      const roundLabel = e.rounds === 1 ? 'rd' : 'rds';
+      return `<div style="font-size:0.72rem;padding:2px 0;line-height:1.3"><b style="opacity:0.6">${rank}.</b> ${names}${opp} <span style="opacity:0.6">— ${e.rounds}${roundLabel}</span></div>`;
+    };
+    const fmtSection = (list, label) => `
+      <div style="margin-bottom:4px;font-size:0.68rem;color:var(--accent);opacity:0.85;font-weight:700">${label}</div>
+      ${[0,1,2].map(i => fmtRow(list[i], i + 1)).join('')}`;
+    const fmtOne = (mode, label) => `
+      <div style="margin-bottom:10px">
+        <div style="font-weight:800;color:var(--text-primary);font-size:0.82rem;margin-bottom:3px">${label}</div>
+        ${fmtSection(lb.allTime[mode], '🏆 All-Time')}
+        ${fmtSection(lb.today[mode], '📅 Today')}
+      </div>`;
+    contentEl.innerHTML = fmtOne('4p', '4 Player') + fmtOne('6p', '6 Player');
+  } catch (e) {
+    contentEl.innerHTML = '<div style="opacity:0.7">Could not load today\'s leaderboard.</div>';
+  } finally {
+    okBtn.disabled = false;
+    okBtn.style.opacity = '';
+    okBtn.style.cursor = '';
+  }
+}
+
 function enhanceWelcomeScreen() {
   const welcome = document.getElementById('welcomeScreen');
   if (!welcome) return;
   if (document.getElementById('btnPersonalBot')) return;
+  // Per explicit request: shown right after the welcome/sign-in screen,
+  // before the player picks a game mode. This whole function only ever
+  // runs its body once per page load (see the guard right above --
+  // every one of the 7 call sites elsewhere becomes a no-op after the
+  // first), which is exactly the "once per session, not every time
+  // this screen reappears" behavior wanted here.
+  showLeaderboardPopup();
   const rules = welcome.querySelector('.welcome-rules');
   const createBotBtn = document.createElement('button');
   createBotBtn.id = 'btnPersonalBot';
@@ -13810,11 +14786,24 @@ document.getElementById('btnPlayOnline').addEventListener('click', () => {
 });
 
 // Set Name button - init PeerJS
-document.getElementById('btnSetName').addEventListener('click', async () => {
+async function submitPlayerName() {
   const name = document.getElementById('playerNameInput').value.trim();
   if (!name || name.length < 2) {
     showToast('Enter a name (2+ chars)', 'lose', 1500);
     return;
+  }
+  // Per explicit request: a name that matches one of the personal
+  // avatars (case-insensitive) auto-selects that avatar, still gated
+  // by the same PIN check every other selection path uses. A wrong or
+  // cancelled PIN stops the whole join here -- someone who typed a
+  // protected name and failed verification shouldn't fall through to
+  // joining with some other avatar instead, silently bypassing the
+  // gate they just failed.
+  const matchedAvatar = PROTECTED_NAME_TO_AVATAR[name.toLowerCase()];
+  if (matchedAvatar) {
+    if (!(await checkAvatarPin(matchedAvatar))) return;
+    MY_AVATAR_KEY = matchedAvatar;
+    try { localStorage.setItem('k28_player_avatar', matchedAvatar); } catch (e) {}
   }
   MY_NAME = name;
   SERVER_MODE = true;
@@ -13837,6 +14826,14 @@ document.getElementById('btnSetName').addEventListener('click', async () => {
     document.getElementById('joinCard').style.display = 'block';
     document.getElementById('lobbySub').textContent = 'Create or join a table';
   }
+}
+document.getElementById('btnSetName').addEventListener('click', submitPlayerName);
+// Real bug fix, per explicit report: hitting Enter/"Go" on the mobile
+// keyboard while in this field did nothing at all -- only tapping the
+// on-screen Continue button after dismissing the keyboard worked. This
+// wires the same submit path to the Enter key directly.
+document.getElementById('playerNameInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); submitPlayerName(); }
 });
 
 // Create Room button
@@ -14942,6 +15939,43 @@ function connectGameSocket() {
     showServerRoomCode();
   });
 
+  // Per explicit request: OK on the "room no longer available" popup
+  // leads straight into the create-a-room flow, matching the message's
+  // own suggestion, rather than just dismissing back to wherever the
+  // player already was (likely a blank/loading state, since they got
+  // here via a dead invite link in the first place).
+  const btnRoomGoneOk = document.getElementById('btnRoomGoneOk');
+  if (btnRoomGoneOk) {
+    btnRoomGoneOk.addEventListener('click', () => {
+      document.getElementById('roomGoneOverlay').classList.remove('on');
+      IS_ONLINE = false;
+      IS_SPECTATOR = false;
+      SPECTATORS = [];
+      // Real, confirmed fix per explicit follow-up report: this used to
+      // land on the intermediate "pick your player" picker screen, not
+      // the actual create-a-room screen (name + avatar entry) the
+      // popup's own message points to. Matches the exact same
+      // welcomeScreen -> lobbyScreen -> nameCard sequence already used
+      // elsewhere in this file for a fresh invite link, minus the
+      // invite banner itself since there's no live invite to honor
+      // anymore -- this is a brand new room, not a rejoin.
+      const ws = document.getElementById('welcomeScreen');
+      if (ws) ws.style.display = 'none';
+      const gw = document.getElementById('gameWrap');
+      if (gw) gw.style.display = 'none';
+      const as = document.getElementById('authScreen');
+      if (as) as.style.display = 'none';
+      document.getElementById('lobbyScreen').style.display = 'flex';
+      document.getElementById('nameCard').style.display = 'block';
+      const inviteBanner4pEl = document.getElementById('inviteBanner4p');
+      if (inviteBanner4pEl) inviteBanner4pEl.style.display = 'none';
+      document.getElementById('hostCard').style.display = 'none';
+      document.getElementById('joinCard').style.display = 'none';
+      const playersCardEl = document.getElementById('playersCard');
+      if (playersCardEl) playersCardEl.style.display = 'none';
+    });
+  }
+
   gameSocket.on('joinError', (err) => {
     // Before showing any message, check whether the server itself
     // actually restarted since we were last talking to it -- that's a
@@ -14962,12 +15996,19 @@ function connectGameSocket() {
         return;
       }
       const messages = {
-        table_not_found: 'That room code doesn\u2019t exist — check it and try again.',
         table_full: 'That table is already full.',
         seat_taken: 'Someone just took that seat — pick another.',
         not_a_bot_seat: 'That seat isn\u2019t a bot anymore — pick another.',
         replace_failed: 'Could not take over that seat — pick another.'
       };
+      // Per explicit request: table_not_found gets its own clearer,
+      // dedicated popup instead of folding into the same generic toast
+      // as every other join error -- see #roomGoneOverlay for the
+      // fuller reasoning.
+      if (err.reason === 'table_not_found') {
+        document.getElementById('roomGoneOverlay').classList.add('on');
+        return;
+      }
       showToast('❌ ' + (messages[err.reason] || 'Could not join that table.'), 'lose', 3000);
     });
   });
@@ -15509,6 +16550,7 @@ function exitToHome() {
   try {
     if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
   } catch (e) {}
+  hardResetBidWinnerBubble4p();
   if (SERVER_MODE || IS_ONLINE) leaveServerTable();
   else goHome();
 }
@@ -16017,9 +17059,13 @@ function renderHostMenuPlayerList() {
     } else if (s.isBot) {
       actionBtn = `<button class="btn btn-outline btn-sm" onclick="openChangeBotPicker(${pos})" style="padding:4px 10px;font-size:0.7rem">🔄 Change</button>`;
     }
+    // Per explicit request: avatar-change available for every seat, not
+    // just bots -- a separate button alongside whatever Kick/Change
+    // button that seat already has, rather than replacing it.
+    const avatarBtn = `<button class="btn btn-outline btn-sm" onclick="openChangeAvatarPicker(${pos})" style="padding:4px 10px;font-size:0.7rem;margin-left:4px">🖼️ Avatar</button>`;
     html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
       <span style="font-size:0.8rem">${tag} ${escapeHtml(s.name)}${isSelf ? ' (you)' : ''}</span>
-      ${actionBtn}
+      <span>${actionBtn}${avatarBtn}</span>
     </div>`;
   });
   container.innerHTML = html || '<p style="color:var(--text-secondary);font-size:0.75rem">No one seated yet.</p>';
@@ -16057,10 +17103,61 @@ function confirmChangeBot(pos, newName) {
   showToast(`🔄 Bot changed to ${newName}`, 'win', 2200);
 }
 
+// Mid-game avatar change per explicit request -- same modal-reuse
+// pattern as openChangeBotPicker right above (see its comment for the
+// z-index/return-to-host-menu reasoning), just showing the avatar grid
+// instead of a name list. Works for both a human's own seat and a
+// bot's, since the server accepts any valid seat index.
+function openChangeAvatarPicker(pos) {
+  const gridHtml = shuffledAvatarKeys().map(key =>
+    `<div class="my-avatar-choice" data-key="${key}" onclick="confirmChangeAvatar(${pos}, '${key}')" style="display:inline-block">
+      <img src="/images/hero-avatars/${key}.png" alt="">
+    </div>`
+  ).join('');
+  document.getElementById('hostMenuOverlay').classList.remove('on');
+  botPickerReturnToHostMenu = true;
+  showModal('🖼️ Change Avatar', `<div class="my-avatar-picker" style="max-height:55vh;overflow-y:auto">${gridHtml}</div>`);
+  const okBtn = document.getElementById('modalOkBtn');
+  okBtn.style.display = 'none';
+}
+async function confirmChangeAvatar(pos, key) {
+  if (!(await checkAvatarPin(key))) return;
+  closeModal();
+  document.getElementById('modalOkBtn').style.display = 'block';
+  gameSocket.emit('hostChangeAvatar', { targetPos: pos, avatar: key });
+  showToast('🖼️ Avatar changed', 'win', 2000);
+}
+
 function openServerHostMenu() {
   if (!SERVER_IS_HOST) return;
   renderHostMenuPlayerList();
+  refreshHostMenuLeaderboard();
   document.getElementById('hostMenuOverlay').classList.add('on');
+}
+// Per explicit request: the leaderboard should also be reachable from
+// the in-table host/admin menu itself, not just the separate standalone
+// admin.html page (that one stays exactly as built, per explicit
+// instruction to leave it). Shows just this table's own mode (4-player)
+// -- a host at a 4-player table has no reason to see 6-player's numbers
+// here, and vice versa on the six-player table's own equivalent.
+async function refreshHostMenuLeaderboard() {
+  const el = document.getElementById('hostMenuLeaderboard');
+  if (!el) return;
+  el.innerHTML = 'Loading…';
+  try {
+    const res = await fetch('/api/leaderboard');
+    const data = await res.json();
+    const lb = data.leaderboard;
+    const fmtEntry = (e) => {
+      if (!e) return 'None yet';
+      const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
+      const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
+      return `${names} enforced Kunukku in ${e.rounds} ${roundLabel}`;
+    };
+    el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['4p'][0])}<br>📅 Today: ${fmtEntry(lb.today['4p'][0])}`;
+  } catch (e) {
+    el.innerHTML = 'Could not load.';
+  }
 }
 function closeHostMenu() {
   document.getElementById('hostMenuOverlay').classList.remove('on');
@@ -16084,6 +17181,7 @@ document.getElementById('btnRestartConfirmCancel') && document.getElementById('b
 });
 document.getElementById('btnRestartConfirmOk') && document.getElementById('btnRestartConfirmOk').addEventListener('click', () => {
   document.getElementById('restartConfirmOverlay').classList.remove('on');
+  hardResetBidWinnerBubble4p();
   if (pendingRestartAction === 'round') gameSocket.emit('requestRestartRound');
   else if (pendingRestartAction === 'game') gameSocket.emit('requestRestartGame');
   pendingRestartAction = null;
@@ -16116,10 +17214,42 @@ document.getElementById('btnPlayerJoinedOk') && document.getElementById('btnPlay
 });
 
 function applyServerState(state) {
-  const gwDisplay = document.getElementById('gameWrap').style.display;
+  // Defensive fix: this used to assume gameWrap always exists with no
+  // guard at all -- if it's ever missing for any reason, the old code
+  // threw immediately on this very first line, before any of the
+  // actual table-rendering logic below it could run at all, which
+  // would produce exactly a blank screen with nothing rendered. Now
+  // degrades to treating it as "not showing" instead of crashing the
+  // whole function.
+  const gwEl = document.getElementById('gameWrap');
+  const gwDisplay = gwEl ? gwEl.style.display : '';
   const gameWrapAlreadyShowing = !!gwDisplay && gwDisplay !== 'none';
   latestServerState = state;
+  // Per explicit report: runs on every single online state update,
+  // unconditionally -- see six.js's identical addition for the fuller
+  // reasoning (the "whose turn" line inside the bubble needs to stay
+  // current for its whole visible window, not just whatever was true
+  // the one time the bubble's main content got set). Harmless no-op
+  // when the bubble isn't currently showing at all.
+  try { updateBidWinnerTurnText4p(); } catch (e) {}
+  try { renderBidStatusBanner4p(state); } catch (e) { console.error('[renderBidStatusBanner4p] threw:', e); }
   logClientDebug(state);
+  // Per explicit report: the bubble was surviving a restart/exit
+  // triggered by ANY player at the table, not just whoever clicked the
+  // button -- every other connected client only ever learns about a
+  // restart through the state update it causes, never through the
+  // button click itself. This is the one place every single state
+  // change from the server passes through regardless of what caused
+  // it, so it's the reliable spot to catch "we're back at a fresh
+  // lobby" and clear the bubble no matter who or what triggered it.
+  // Deliberately just phase==='lobby' and nothing broader (an earlier
+  // draft also checked round<=1-with-zero-points, but that's true for
+  // the entirety of a completely normal round 1 too, before any points
+  // are scored -- it would have wiped out a legitimate round-1
+  // celebration seconds after it appeared).
+  if (state.phase === 'lobby') {
+    hardResetBidWinnerBubble4p();
+  }
   // A genuinely different table (not just a new round on the SAME table)
   // is a much more definitive signal than the tricksPlayed-went-backwards
   // heuristic further down can ever be — that heuristic was built for a
@@ -16177,6 +17307,8 @@ function applyServerState(state) {
       msg = `🔄 <b>Reshuffling</b><br><br>${escapeHtml(r.name)} was forced to bid with a hand of nothing but 7s and 8s — unplayable. Same dealer, fresh deal.`;
     } else if (r.type === 'allJacks') {
       msg = `🔄 <b>Reshuffling</b><br><br>${escapeHtml(r.name)} was dealt all four Jacks! Same dealer, fresh deal.`;
+    } else if (r.type === 'all678') {
+      msg = `😴 <b>Dead Hand — Reshuffling</b><br><br>${escapeHtml(r.name)} was dealt nothing but 6s, 7s, and 8s — not a single card worth playing. Same dealer, fresh deal.`;
     } else if (r.type === 'noTrump') {
       const onThatTeam = getTeam(MY_POS) === r.team;
       msg = `😮 <b>${onThatTeam ? 'Your team' : 'Opponent team'} has no trump</b><br><br>${onThatTeam ? 'Your team' : 'The opponent team'} has zero ${r.suit} between both hands — nothing to contest. Same dealer, fresh deal.`;
@@ -16413,6 +17545,14 @@ function applyServerState(state) {
   // last trick, right through to the round-end popup.
   if (typeof state.tricksPlayed === 'number' && state.tricksPlayed < lastSeenTricksPlayed) {
     resetTrickAndRoundTracking();
+    // Per explicit report: same reasoning as this whole block -- a
+    // same-table restart (round or full game) never passes through
+    // phase:'lobby' the way exiting to a fresh table does, so the
+    // separate lobby-phase check above never catches it. This existing
+    // tricksPlayed-went-backwards signal already exists specifically to
+    // detect that case for other stale-UI cleanup, so the bubble reset
+    // belongs right here too, not a second bespoke detection.
+    hardResetBidWinnerBubble4p();
     // Same fix as the tableId-change branch above, and for the exact same reason: resetting
     // lastRenderedSlotContent back to all-null does nothing by itself if the new round's own
     // desired content is ALSO null (the common case right after a restart, before anyone's
@@ -16546,7 +17686,15 @@ function applyServerState(state) {
       state.phase === 'play' && (players[MY_POS] || []).length === 0 &&
       !window._serverPlayHiddenTrumpFired) {
     window._serverPlayHiddenTrumpFired = true;
-    setTimeout(() => { serverPlayHiddenTrump(); }, 400);
+    // Real, confirmed bug fix per explicit live report -- same fix as
+    // the 6-player table's identical addition, see there for the fuller
+    // reasoning: this used to fire after only 400ms, fast enough that a
+    // real player could easily never even perceive the card appearing
+    // before it was already played, which read indistinguishably from
+    // the card just vanishing. Slowed down and paired with an explicit
+    // toast so this is a visible, legible event, not a silent one.
+    showToast('🃏 Playing your last card (hidden trump)...', 'info', 1600);
+    setTimeout(() => { serverPlayHiddenTrump(); }, 1400);
   } else if (!(state.myHiddenTrumpCard && state.currentPlayer === MY_POS)) {
     window._serverPlayHiddenTrumpFired = false;
   }
@@ -16791,6 +17939,21 @@ function clearPostRoundAutoContinueTimer() {
 // mode, but "Continue" asks the SERVER to deal the next round instead of
 // any player's browser doing it themselves.
 function proceedAfterCrownAnimationServerMode(bidderWon, made, bT, oT, yourTeam, isYourBid, champResult) {
+  // Real, confirmed bug fix per explicit report ("2 popups at the end,
+  // only need the 1 main one") -- same fix as the 6-player table's
+  // identical addition, see there for the fuller reasoning. This
+  // function already receives champResult and therefore already knows
+  // up front whether this specific round also just decided the whole
+  // championship -- previously it showed the round-summary popup
+  // regardless, only routing to the championship-result popup as a
+  // SECOND, separate step once the player clicked Continue on the
+  // first one. Skips straight to the championship result now instead;
+  // that popup already carries the final score, so the intermediate
+  // round-summary popup has nothing left to add at that specific point.
+  if (champResult) {
+    showChampionshipResultServerMode(champResult, yourTeam);
+    return;
+  }
   const overlay = document.getElementById('postRoundOverlay');
   const title = document.getElementById('postRoundTitle');
   const text = document.getElementById('postRoundText');
@@ -17219,6 +18382,7 @@ function catchUpTrickSlotsStaggered(real) {
     lastRenderedSlotContent[slotIdx] = tc.card.suit + tc.card.rank;
     trickCards.push({ player: tc.pos, card: cardWithColor });
     clearCallBadges4p(); // per explicit instruction: bid/pass bubbles stay up only until someone actually starts playing
+    dismissBidWinnerCelebration4p(); // real "first card played" moment, per explicit correction -- see clearCallBadges4p's own comment right above for why this specific call site (not startPlay()) is the correct signal
     idx++;
     setTimeout(revealNext, 550);
   }
@@ -17253,6 +18417,18 @@ function renderTrickSlots(state) {
       // state-driven path in the first place, so this exclusion only ever skips MY card,
       // never anyone else's.
       if (tc.player !== MY_POS) playSound('cardPlayed');
+      // Real bug fix, per explicit correction: this is the actual live,
+      // real-time path every other player's card renders through in
+      // online multiplayer (see the comment right above -- confirmed
+      // directly, not assumed). The offline/local trickCards.push()
+      // call sites and the staggered catch-up reveal queue both already
+      // had this dismiss, but this one -- the one that fires on a
+      // genuinely fresh single card the moment the server confirms it --
+      // never did, which is exactly why the bubble was surviving all of
+      // trick 1 and only clearing once trick 2's own catch-up/reveal
+      // cycle happened to touch one of the OTHER hooked call sites.
+      clearCallBadges4p();
+      dismissBidWinnerCelebration4p();
     }
   }
 }
@@ -17805,114 +18981,6 @@ function serverBotPlayForMe() {
 
 </script>
 <script>
-// Per explicit request: a subtle, always-on seasonal particle effect
-// over the live game table (not tied to the idle screensaver below --
-// this runs the whole time a hand is in progress). Preset picked once
-// from the real calendar date, not randomly, so it's actually
-// consistent with what time of year it is when someone's playing.
-// Deliberately lightweight: a couple dozen small shapes drifting down a
-// canvas is enough to read as "ambient" without competing for
-// attention with the actual cards -- ambient decoration should stay in
-// the background, not become the main event.
-(function() {
-  const canvas = document.getElementById('k28SeasonCanvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  let particles = [];
-  let dpr = window.devicePixelRatio || 1;
-
-  function currentSeasonPreset() {
-    const month = new Date().getMonth(); // 0-11, real device clock
-    if (month === 7 || month === 8) {
-      // Aug/Sep -- Onam, Kerala's own harvest festival. This is the
-      // preset that'll actually be showing at launch.
-      return { colors: ['#f4c430', '#e8a33d', '#d9534f', '#f7e967', '#ffb347'], shape: 'petal', count: 20, speed: [16, 30] };
-    }
-    if (month === 9 || month === 10) { // Oct/Nov -- Diwali
-      return { colors: ['#ffd700', '#ffb347', '#ff8c00', '#fff2b2'], shape: 'spark', count: 18, speed: [14, 26] };
-    }
-    if (month === 11 || month === 0) { // Dec/Jan -- Christmas/New Year
-      return { colors: ['#ffffff', '#e8f4ff', '#cfe8ff'], shape: 'snow', count: 24, speed: [12, 22] };
-    }
-    // Rest of the year: a gentle sparkle in the site's own gold accent
-    // family -- always on-theme, never a jarring off-brand color.
-    return { colors: ['#f4c430', '#e6a817', '#fff3c4'], shape: 'spark', count: 12, speed: [10, 18] };
-  }
-  const preset = currentSeasonPreset();
-
-  function resize() {
-    dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.clientWidth * dpr;
-    canvas.height = canvas.clientHeight * dpr;
-  }
-
-  function spawn() {
-    const w = canvas.clientWidth, h = canvas.clientHeight;
-    particles = Array.from({ length: preset.count }, () => ({
-      x: Math.random() * w, y: Math.random() * h - h,
-      size: 3 + Math.random() * 4,
-      speed: preset.speed[0] + Math.random() * (preset.speed[1] - preset.speed[0]),
-      drift: (Math.random() - 0.5) * 14,
-      rot: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 1.2,
-      color: preset.colors[Math.floor(Math.random() * preset.colors.length)],
-      opacity: 0.3 + Math.random() * 0.35
-    }));
-  }
-
-  function drawParticle(p) {
-    ctx.save();
-    ctx.translate(p.x * dpr, p.y * dpr);
-    ctx.rotate(p.rot);
-    ctx.globalAlpha = p.opacity;
-    ctx.fillStyle = p.color;
-    if (preset.shape === 'petal') {
-      ctx.beginPath();
-      ctx.ellipse(0, 0, p.size * dpr, p.size * dpr * 0.55, 0, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (preset.shape === 'snow') {
-      ctx.beginPath();
-      ctx.arc(0, 0, p.size * dpr * 0.6, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.beginPath();
-      for (let i = 0; i < 4; i++) {
-        const a = (Math.PI / 2) * i;
-        ctx.lineTo(Math.cos(a) * p.size * dpr, Math.sin(a) * p.size * dpr);
-        ctx.lineTo(Math.cos(a + Math.PI / 4) * p.size * dpr * 0.35, Math.sin(a + Math.PI / 4) * p.size * dpr * 0.35);
-      }
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  let lastT = performance.now();
-  function frame(t) {
-    // offsetParent is null whenever this canvas (or an ancestor, i.e.
-    // the whole game-wrap) is display:none -- the cheapest possible
-    // "is this actually on screen right now" check, so this effect
-    // costs nothing while someone's on the lobby/welcome screen.
-    if (canvas.offsetParent) {
-      const dt = Math.min(0.05, (t - lastT) / 1000);
-      lastT = t;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const h = canvas.clientHeight;
-      for (const p of particles) {
-        p.y += p.speed * dt; p.x += p.drift * dt; p.rot += p.spin * dt;
-        if (p.y > h + 10) { p.y = -10; p.x = Math.random() * canvas.clientWidth; }
-        drawParticle(p);
-      }
-    } else {
-      lastT = t;
-    }
-    requestAnimationFrame(frame);
-  }
-
-  window.addEventListener('resize', resize);
-  resize();
-  spawn();
-  requestAnimationFrame(frame);
-})();
 </script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page has fully
