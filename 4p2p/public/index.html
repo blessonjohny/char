@@ -4330,7 +4330,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <div class="modal-overlay" id="roomGoneOverlay" style="z-index:2200">
   <div class="modal" style="text-align:center">
     <h3 style="margin-top:0">🚪 This Room Is No Longer Available</h3>
-    <p style="color:var(--text-secondary);font-size:0.88rem;line-height:1.5">All the players in this room have already left. Please create a new room and invite your friends to play!</p>
+    <p style="color:var(--text-secondary);font-size:0.88rem;line-height:1.5">All the players in this room have left. Please create a room and play — you can invite friends while playing, or now!</p>
     <button class="btn btn-primary" style="width:100%" id="btnRoomGoneOk">OK</button>
   </div>
 </div>
@@ -14714,8 +14714,8 @@ async function showLeaderboardPopup() {
       if (!e) return `<div style="font-size:0.72rem;opacity:0.5;padding:2px 0">${rank}. —</div>`;
       const names = e.names.map(nameSpan).join(', ');
       const opp = (e.opponentNames && e.opponentNames.length > 0) ? ` <span style="opacity:0.55">vs</span> ${e.opponentNames.map(n => String(n).replace(/</g, '&lt;')).join(', ')}` : '';
-      const roundLabel = e.rounds === 1 ? 'rd' : 'rds';
-      return `<div style="font-size:0.72rem;padding:2px 0;line-height:1.3"><b style="opacity:0.6">${rank}.</b> ${names}${opp} <span style="opacity:0.6">— ${e.rounds}${roundLabel}</span></div>`;
+      const roundLabel = e.rounds === 1 ? 'Round' : 'Rounds';
+      return `<div style="font-size:0.72rem;padding:2px 0;line-height:1.3"><b style="opacity:0.6">${rank}.</b> ${names}${opp} <span style="opacity:0.6">— <b style="opacity:0.85">${e.rounds}</b> ${roundLabel}</span></div>`;
     };
     const fmtSection = (list, label) => `
       <div style="margin-bottom:4px;font-size:0.68rem;color:var(--accent);opacity:0.85;font-weight:700">${label}</div>
