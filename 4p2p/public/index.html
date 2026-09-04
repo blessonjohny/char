@@ -223,6 +223,40 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      already-desktop-only media query instead, so desktop actually gets it too. */
   .cross{width:180px !important;height:270px !important}
 }
+/* Per explicit request ("option 2" -- low-risk proportional scale-up rather than a full
+   landscape redesign): the phone frame above was previously frozen at exactly 480px on
+   EVERY desktop width, so it looked identically small whether the browser was 700px or
+   2000px wide, leaving more and more unused space either side as the window grew. This
+   keys off wider breakpoints ON TOP OF the 480px base above (that block still applies to
+   everything from 700px up; these just layer larger sizes on top for genuinely wide
+   windows) and scales the SAME frame up proportionally instead -- same single-column
+   phone-shaped layout, same code, same position:fixed-children containment behavior
+   (scale() is still a transform value, so the existing note above about why translateZ(0)
+   is there applies exactly the same way here), just visually bigger on a big screen. Kept
+   deliberately conservative and stepped (not a fluid clamp/calc scale) specifically so this
+   stays easy to verify screenshot-by-screenshot and easy to dial back a step if any given
+   width doesn't look right, rather than a single continuous formula that's hard to reason
+   about at any one specific width. transform-origin fixed to the top so the frame grows
+   downward from a stable top edge instead of expanding equally in both directions and
+   fighting the vertical centering. */
+@media (min-width: 1000px) {
+  #appPhoneFrame{ transform:translateZ(0) scale(1.15); transform-origin:top center; }
+  /* Confirmed via direct testing (not assumed): scale() enlarges the
+     frame's visual box past the actual 100vh it's laid out at, and the
+     base html,body{overflow:hidden} rule earlier in this file was
+     silently clipping and permanently hiding the bottom portion of the
+     game with no way to reach it at all -- worse than the blank-space
+     problem this change was meant to fix. Overriding to allow vertical
+     scroll specifically at these wider, scaled breakpoints so the
+     clipped portion becomes reachable by scrolling instead of just
+     gone. Zero effect below 1000px -- everything under that keeps the
+     exact original overflow:hidden behavior untouched.
+  */
+  html,body{overflow-y:auto;overflow-x:hidden}
+}
+@media (min-width: 1300px) {
+  #appPhoneFrame{ transform:translateZ(0) scale(1.3); transform-origin:top center; }
+}
 
 /* ===== COUNTER OVERLAY ===== */
 .counter-overlay{position:fixed;inset:0;background:rgba(10,22,40,0.98);z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px;text-align:center;transition:opacity 0.6s ease;overflow-y:auto}
@@ -4282,6 +4316,22 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <h3 id="modalTitle"></h3>
     <p id="modalText"></p>
     <button class="btn btn-primary" style="width:100%" id="modalOkBtn">OK</button>
+  </div>
+</div>
+
+<!-- Per explicit request: dedicated, clearer popup specifically for the
+     "clicked an invite link to a table that no longer exists" case --
+     previously this fell into the same generic toast as every other
+     join error (wrong code, seat taken, table full), which just said
+     "that room code doesn't exist" and left the player to figure out
+     what to do next on their own. This spells out the actual likely
+     cause (everyone already left) and leads straight into creating a
+     fresh room instead of dropping them back at a blank welcome screen. -->
+<div class="modal-overlay" id="roomGoneOverlay" style="z-index:2200">
+  <div class="modal" style="text-align:center">
+    <h3 style="margin-top:0">🚪 This Room Is No Longer Available</h3>
+    <p style="color:var(--text-secondary);font-size:0.88rem;line-height:1.5">All the players in this room have already left. Please create a new room and invite your friends to play!</p>
+    <button class="btn btn-primary" style="width:100%" id="btnRoomGoneOk">OK</button>
   </div>
 </div>
 
@@ -15889,6 +15939,43 @@ function connectGameSocket() {
     showServerRoomCode();
   });
 
+  // Per explicit request: OK on the "room no longer available" popup
+  // leads straight into the create-a-room flow, matching the message's
+  // own suggestion, rather than just dismissing back to wherever the
+  // player already was (likely a blank/loading state, since they got
+  // here via a dead invite link in the first place).
+  const btnRoomGoneOk = document.getElementById('btnRoomGoneOk');
+  if (btnRoomGoneOk) {
+    btnRoomGoneOk.addEventListener('click', () => {
+      document.getElementById('roomGoneOverlay').classList.remove('on');
+      IS_ONLINE = false;
+      IS_SPECTATOR = false;
+      SPECTATORS = [];
+      // Real, confirmed fix per explicit follow-up report: this used to
+      // land on the intermediate "pick your player" picker screen, not
+      // the actual create-a-room screen (name + avatar entry) the
+      // popup's own message points to. Matches the exact same
+      // welcomeScreen -> lobbyScreen -> nameCard sequence already used
+      // elsewhere in this file for a fresh invite link, minus the
+      // invite banner itself since there's no live invite to honor
+      // anymore -- this is a brand new room, not a rejoin.
+      const ws = document.getElementById('welcomeScreen');
+      if (ws) ws.style.display = 'none';
+      const gw = document.getElementById('gameWrap');
+      if (gw) gw.style.display = 'none';
+      const as = document.getElementById('authScreen');
+      if (as) as.style.display = 'none';
+      document.getElementById('lobbyScreen').style.display = 'flex';
+      document.getElementById('nameCard').style.display = 'block';
+      const inviteBanner4pEl = document.getElementById('inviteBanner4p');
+      if (inviteBanner4pEl) inviteBanner4pEl.style.display = 'none';
+      document.getElementById('hostCard').style.display = 'none';
+      document.getElementById('joinCard').style.display = 'none';
+      const playersCardEl = document.getElementById('playersCard');
+      if (playersCardEl) playersCardEl.style.display = 'none';
+    });
+  }
+
   gameSocket.on('joinError', (err) => {
     // Before showing any message, check whether the server itself
     // actually restarted since we were last talking to it -- that's a
@@ -15909,12 +15996,19 @@ function connectGameSocket() {
         return;
       }
       const messages = {
-        table_not_found: 'That room code doesn\u2019t exist — check it and try again.',
         table_full: 'That table is already full.',
         seat_taken: 'Someone just took that seat — pick another.',
         not_a_bot_seat: 'That seat isn\u2019t a bot anymore — pick another.',
         replace_failed: 'Could not take over that seat — pick another.'
       };
+      // Per explicit request: table_not_found gets its own clearer,
+      // dedicated popup instead of folding into the same generic toast
+      // as every other join error -- see #roomGoneOverlay for the
+      // fuller reasoning.
+      if (err.reason === 'table_not_found') {
+        document.getElementById('roomGoneOverlay').classList.add('on');
+        return;
+      }
       showToast('❌ ' + (messages[err.reason] || 'Could not join that table.'), 'lose', 3000);
     });
   });

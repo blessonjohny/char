@@ -1175,14 +1175,37 @@ function connectSocket() {
       return;
     }
     const messages = {
-      table_not_found: "That room code doesn't exist.",
       table_full: 'That table is already full.',
       seat_taken: 'Someone just took that seat — pick another.',
       not_a_bot_seat: "That seat isn't a bot anymore — pick another.",
       replace_failed: 'Could not take that seat — pick another.'
     };
+    // Per explicit request: table_not_found gets its own clearer,
+    // dedicated popup instead of folding into the same generic toast
+    // as every other join error -- see #roomGoneOverlay for the
+    // fuller reasoning.
+    if (err.reason === 'table_not_found') {
+      $('roomGoneOverlay').classList.add('on');
+      return;
+    }
     showToast('❌ ' + (messages[err.reason] || 'Could not join.'), 'lose', 2500);
   });
+
+  // Per explicit request: OK on the "room no longer available" popup
+  // Real, confirmed fix per explicit follow-up report: this used to
+  // land back on the welcome screen, not the actual create-a-room
+  // screen (name + avatar entry) the popup's own message points to --
+  // matches the 4-player table's identical fix. Deliberately does NOT
+  // set pendingJoinCode/pendingAction/the invite banner the way a real
+  // invite link does above -- there's no live invite to honor anymore,
+  // this is a brand new room, not a rejoin attempt on the dead one.
+  const btnRoomGoneOk = $('btnRoomGoneOk');
+  if (btnRoomGoneOk) {
+    btnRoomGoneOk.addEventListener('click', () => {
+      $('roomGoneOverlay').classList.remove('on');
+      showScreen('nameScreen');
+    });
+  }
 
   socket.on('sixp_actionError', (err) => {
     console.log('[server] action rejected:', err.reason);
