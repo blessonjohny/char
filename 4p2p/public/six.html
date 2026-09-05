@@ -142,39 +142,34 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
   body.k28-in-game .six-oval-bevel{
     display:none !important;
   }
-  body.k28-in-game #seatWrap0{left:50% !important;top:78% !important;}
-  body.k28-in-game #seatWrap1{left:82% !important;top:56% !important;}
-  body.k28-in-game #seatWrap2{left:77% !important;top:19% !important;}
+  body.k28-in-game #seatWrap0{left:50% !important;top:80% !important;}
+  body.k28-in-game #seatWrap1{left:82% !important;top:60% !important;}
+  body.k28-in-game #seatWrap2{left:77% !important;top:24% !important;}
   body.k28-in-game #seatWrap3{left:50% !important;top:9% !important;}
-  body.k28-in-game #seatWrap4{left:23% !important;top:19% !important;}
-  body.k28-in-game #seatWrap5{left:18% !important;top:56% !important;}
-  /* Real, confirmed follow-up per explicit report: switched from
-     vw-based clamp() to a flat fixed size, same reasoning as the
-     4-player table's identical change -- now that the table area
-     itself is capped at max-width:1600px above, a vw-based size would
-     still track the raw (now unbounded relative to the capped
-     container) viewport width instead. */
-  body.k28-in-game .seat .av{width:150px !important;height:150px !important;font-size:4rem !important}
-  /* Real, confirmed bug found while investigating why the increase
-     above wasn't visibly showing: several separate, unrelated per-seat
-     rules elsewhere in this file (#seatWrap0/1/2/3/4/5 .av, a deliberate
-     mobile-only "depth perspective" sizing system) use their own fixed
-     pixel width/height with !important and higher specificity (ID
-     selectors) than the plain .seat .av rule above -- those kept
-     winning regardless of what was set here. Matches their exact
-     selectors here too, inside this desktop-only block, so this
-     correctly wins instead while in-game on desktop. Deliberately
-     flattens all seats to the same uniform size rather than porting
-     the depth-perspective concept to the new wide layout too -- simpler
-     fix for now, can be revisited if wanted later. */
-  body.k28-in-game #seatWrap0 .av,
-  body.k28-in-game #seatWrap1 .av,
+  body.k28-in-game #seatWrap4{left:23% !important;top:24% !important;}
+  body.k28-in-game #seatWrap5{left:18% !important;top:60% !important;}
+  /* Real, confirmed follow-up per explicit request: restored the
+     depth-perspective sizing concept the mobile layout already uses --
+     the earlier flattening to one uniform size for every seat was a
+     simplification that turned out not to be wanted after all. Top
+     (farthest) smallest, the two upper-diagonal seats next, the two
+     lower-diagonal seats bigger still (closer), "me" at the bottom
+     biggest of all (closest) -- same relative ordering as the mobile
+     #seatWrap0-5 rules already use, just scaled up for this much
+     wider desktop table area. */
+  body.k28-in-game #seatWrap3 .av{width:120px !important;height:120px !important;font-size:3.2rem !important}
   body.k28-in-game #seatWrap2 .av,
-  body.k28-in-game #seatWrap3 .av,
-  body.k28-in-game #seatWrap4 .av,
-  body.k28-in-game #seatWrap5 .av{width:150px !important;height:150px !important;font-size:4rem !important}
-  body.k28-in-game .hand-cards .card{width:110px !important;height:156px !important;border-radius:11px !important}
-  body.k28-in-game .hand-cards .card{margin-left:-20px !important}
+  body.k28-in-game #seatWrap4 .av{width:145px !important;height:145px !important;font-size:3.8rem !important}
+  body.k28-in-game #seatWrap1 .av,
+  body.k28-in-game #seatWrap5 .av{width:175px !important;height:175px !important;font-size:4.5rem !important}
+  body.k28-in-game #seatWrap0 .av{width:200px !important;height:200px !important;font-size:5.2rem !important}
+  /* Real, confirmed follow-up per explicit request: card box itself
+     brought down a little from the previous pass (110x156) so the
+     card reads less like a big blank rectangle, while the rank/suit
+     text inside it goes up further still -- the actual complaint was
+     the text-to-card-size ratio, not the card's absolute size. */
+  body.k28-in-game .hand-cards .card{width:96px !important;height:136px !important;border-radius:11px !important}
+  body.k28-in-game .hand-cards .card{margin-left:-18px !important}
   body.k28-in-game .hand-cards .card:first-child{margin-left:0 !important}
   /* Real, confirmed bug found via live report with screenshots, same
      fix as the 4-player table's identical change: the card box scaled
@@ -184,8 +179,8 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
      em-based (sized relative to their own parent), so fixing the
      parent font-size alone correctly scales both together. */
   body.k28-in-game .hand-cards .card .cr,
-  body.k28-in-game .hand-cards .card .crb{font-size:1.6rem !important}
-  body.k28-in-game .hand-cards .card .cs{font-size:2.4rem !important}
+  body.k28-in-game .hand-cards .card .crb{font-size:2rem !important}
+  body.k28-in-game .hand-cards .card .cs{font-size:3rem !important}
 }
 /* Per explicit follow-up request: same reversion as the 4-player
    table's identical change -- the "option 2" proportional desktop

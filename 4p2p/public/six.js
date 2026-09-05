@@ -941,6 +941,21 @@ function $(id) { return document.getElementById(id); }
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   $(id).classList.remove('hidden');
+  // Real, confirmed root cause found per explicit live report: the
+  // separate MutationObserver/poll below that mirrors this onto
+  // body.k28-in-game only ever fires asynchronously (a queued
+  // microtask at best, up to 500ms later at worst via the poll) --
+  // but enforceSeatAvatarSizing6p() runs SYNCHRONOUSLY on every single
+  // seat render, often immediately after this exact call in the same
+  // synchronous block. That gap meant every fresh render briefly (or
+  // not-so-briefly) saw the class as not-yet-set and applied the wrong
+  // size, which is exactly what caused the visible "pop" on every card
+  // played -- size was only ever corrected on the NEXT render after
+  // the async class update finally landed, not the current one. Sets
+  // the class synchronously right here instead, at the one point that
+  // actually changes visibility, so it's always already correct by
+  // the time anything renders off of it.
+  document.body.classList.toggle('k28-in-game', id === 'gameScreen' && window.innerWidth >= 521);
 }
 // Per explicit request, same addition as the 4-player table's identical
 // change -- see there for the fuller reasoning: mirrors #gameScreen's
@@ -961,30 +976,6 @@ function showScreen(id) {
   setInterval(() => {
     const visible = getComputedStyle(gs).display !== 'none';
     document.body.classList.toggle('k28-in-game', visible);
-    // Real, confirmed bug found via live testing: something (still
-    // unconfirmed exactly what/where) keeps re-asserting a fixed
-    // pixel width/height directly as this element's own inline style,
-    // which always wins over any stylesheet rule regardless of
-    // selector specificity or !important -- no CSS-only fix could ever
-    // beat it. Enforced directly here instead, the same way, so
-    // whichever mechanism keeps setting it gets immediately corrected
-    // right back on the very next poll.
-    // Real, confirmed bug found while re-verifying mobile safety right
-    // after adding this: this direct enforcement had no viewport-width
-    // check at all, so it was forcing the large desktop avatar size
-    // even on an actual phone -- clamp()'s own 90px floor doesn't
-    // shrink below that no matter how narrow the real viewport is.
-    // Matches the same min-width:521px breakpoint the surrounding CSS
-    // itself is scoped to, so this only ever fires on desktop widths.
-    if (visible && window.innerWidth >= 521) {
-      for (let i = 0; i < 6; i++) {
-        const av = document.getElementById('av' + i);
-        if (!av) continue;
-        av.style.setProperty('width', '150px', 'important');
-        av.style.setProperty('height', '150px', 'important');
-        av.style.setProperty('font-size', '4rem', 'important');
-      }
-    }
   }, 500);
 })();
 function showToast(msg, kind, ms) {
@@ -2414,7 +2405,31 @@ let lastKnownIsBotPerPos = [null, null, null, null, null, null]; // tracks each 
 function enforceSeatAvatarSizing6p() {
   const isPortraitish = window.innerHeight >= window.innerWidth || window.innerWidth >= 521;
   if (!isPortraitish) return;
-  const sizes = {
+  // Real, confirmed root cause found per explicit live report: this
+  // function already existed before this session's desktop wide-table
+  // work and runs on every single seat render (every card played,
+  // every state update) plus on window resize -- forcibly reapplying
+  // these MOBILE sizes as inline styles with 'important' priority,
+  // which no stylesheet rule can ever beat regardless of selector
+  // specificity, since inline priority wins ties over stylesheet
+  // priority in the cascade. This is what silently discarded every
+  // earlier CSS-only attempt at a different desktop size, and -- once
+  // a separate, delayed JS poll was added to fight it back -- caused
+  // the visible "pop" between sizes on every card play, since this
+  // function would reset it small immediately and the other poll only
+  // caught up up to half a second later. Fixed at the actual source
+  // instead of fighting it from outside: this function itself now
+  // picks the desktop depth-based sizes when the wide table layout is
+  // active, applied immediately and synchronously on every render, so
+  // there's no gap for a "pop" to happen in at all.
+  const sizes = document.body.classList.contains('k28-in-game') ? {
+    0: { w: 200, h: 200, fs: 5.2 },
+    3: { w: 120, h: 120, fs: 3.2 },
+    2: { w: 145, h: 145, fs: 3.8 },
+    4: { w: 145, h: 145, fs: 3.8 },
+    1: { w: 175, h: 175, fs: 4.5 },
+    5: { w: 175, h: 175, fs: 4.5 },
+  } : {
     0: { w: 128, h: 164, fs: 3.5 },
     3: { w: 68, h: 87, fs: 1.9 },
     2: { w: 82, h: 105, fs: 2.3 },
