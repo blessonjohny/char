@@ -1233,14 +1233,27 @@ function connectSocket() {
   // Real, confirmed fix per explicit follow-up report: this used to
   // land back on the welcome screen, not the actual create-a-room
   // screen (name + avatar entry) the popup's own message points to --
-  // matches the 4-player table's identical fix. Deliberately does NOT
-  // set pendingJoinCode/pendingAction/the invite banner the way a real
-  // invite link does above -- there's no live invite to honor anymore,
-  // this is a brand new room, not a rejoin attempt on the dead one.
+  // matches the 4-player table's identical fix.
+  // Real, confirmed bug fix per explicit live report: this comment
+  // originally said "deliberately does NOT set pendingAction" on the
+  // reasoning that there's no live invite left to honor -- but that
+  // reasoning missed that pendingAction isn't just about the invite,
+  // it's what the name screen's own submit handler reads to decide
+  // whether to create a new table or rejoin one. Leaving it untouched
+  // meant it silently kept whatever value the original failed join
+  // attempt had already set it to ('join'), so entering a name here
+  // and continuing tried to rejoin the same dead table all over again
+  // instead of creating a new one -- the user had to back out to the
+  // welcome screen and use the real Create button to actually get a
+  // working table. Explicitly sets 'create' now, matching exactly what
+  // the popup's own message promises.
   const btnRoomGoneOk = $('btnRoomGoneOk');
   if (btnRoomGoneOk) {
     btnRoomGoneOk.addEventListener('click', () => {
       $('roomGoneOverlay').classList.remove('on');
+      pendingAction = 'create';
+      const inviteBanner6pGone = $('inviteBanner6p');
+      if (inviteBanner6pGone) inviteBanner6pGone.classList.add('hidden');
       showScreen('nameScreen');
     });
   }

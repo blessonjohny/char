@@ -16046,6 +16046,15 @@ function connectGameSocket() {
       document.getElementById('nameCard').style.display = 'block';
       const inviteBanner4pEl = document.getElementById('inviteBanner4p');
       if (inviteBanner4pEl) inviteBanner4pEl.style.display = 'none';
+      // Real, confirmed bug fix per explicit live report -- same fix
+      // as the 6-player table's identical bug, just this table's own
+      // equivalent of that state: submitPlayerName() reads
+      // window.PENDING_INVITE_CODE to decide whether to rejoin a table
+      // or show the normal host/join options. Left uncleared here, a
+      // name submitted after this popup would silently try to rejoin
+      // the exact same dead table all over again instead of landing on
+      // the create/join screen the popup's own message promises.
+      window.PENDING_INVITE_CODE = null;
       document.getElementById('hostCard').style.display = 'none';
       document.getElementById('joinCard').style.display = 'none';
       const playersCardEl = document.getElementById('playersCard');
