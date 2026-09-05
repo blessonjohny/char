@@ -597,18 +597,37 @@ class GameEngine6P {
       const hasAce = cards.some(c => c.rank === 'A');
       const len = cards.length;
       let tier = 0;
-      if (hasNine && hasAce && len >= 4) tier = 3;
+      // Real, confirmed gap found during a strategy audit: every tier
+      // here required len>=4, including the top one for J+9+A -- but a
+      // 6-player hand only holds 6 cards total, so a bare J+9+A (3
+      // cards, no 4th card of that suit at all) is a completely
+      // plausible, even common shape. Without a qualifying tier of its
+      // own, that hand fell all the way through to "no qualifying
+      // suit" and bid the game's absolute minimum -- identical
+      // treatment to a hand with no Jack whatsoever, despite holding a
+      // combination this game's own logic elsewhere (the 4-player
+      // table's hand evaluation) already treats as very strong even
+      // without a 4th card. Added as its own tier between the plain
+      // J+9 tier and the full 4+-card J+9+A tier: full command of the
+      // suit's top three cards, just without the extra length.
+      if (hasNine && hasAce && len >= 4) tier = 4;
+      else if (hasNine && hasAce) tier = 3; // bare J+9+A, exactly 3 cards
       else if (hasNine && len >= 4) tier = 2;
       else if (len >= 4) tier = 1;
       if (tier > bestTier) { bestTier = tier; bestSuit = s; }
     }
-    const secondJackSuit = bestTier === 3 ? jackSuits.find(s => s !== bestSuit) : null;
+    const secondJackSuit = bestTier === 4 ? jackSuits.find(s => s !== bestSuit) : null;
     if (secondJackSuit) {
       const secondSuitHasNine = bySuit[secondJackSuit].some(c => c.rank === '9');
       const bidValue = secondSuitHasNine ? 26 : 22;
       return { bidValue, isThani: false };
     }
-    const bidValue = bestTier === 3 ? 20 : bestTier === 2 ? 18 : bestTier === 1 ? 17 : 16;
+    // Per explicit tuning to match the new tier added above: bare
+    // J+9+A (tier 3, exactly 3 cards) bids 19 -- between the plain J+9
+    // tier below it (18) and the full 4+-card J+9+A tier above it (20,
+    // now tier 4) -- since it has full command of the suit's top three
+    // cards but lacks the extra length that tier has.
+    const bidValue = bestTier === 4 ? 20 : bestTier === 3 ? 19 : bestTier === 2 ? 18 : bestTier === 1 ? 17 : 16;
     return { bidValue, isThani: false };
   }
 
@@ -1845,6 +1864,18 @@ class GameEngine6P {
         }
       }
       const chosen = this._chooseBotCard(pos, hand, myTeam, isBT, isLast, wt, cwc, tPts);
+      // TEMPORARY DIAGNOSTIC per explicit live report -- removed before
+      // shipping. Logs any case where the chosen card is the trump Jack
+      // while a lower trump was also available and legal, to find
+      // exactly which decision path (if any) is still doing this
+      // despite every branch checked so far already having a
+      // nonJackTrumps guard in place.
+      if (chosen && chosen.rank === 'J' && chosen.suit === this.trumpSuit && this.trickSuit !== '' && this.trickSuit !== this.trumpSuit) {
+        const otherTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'J');
+        if (otherTrumps.length > 0) {
+          console.error('[JACK-CUT-DEBUG] pos=' + pos + ' hand=' + JSON.stringify(hand) + ' trickSuit=' + this.trickSuit + ' cwc=' + JSON.stringify(cwc) + ' tPts=' + tPts + ' isLast=' + isLast + ' wt=' + wt + ' myTeam=' + myTeam + ' mustPlayTrumpBy=' + this.mustPlayTrumpBy + ' trumpExposed=' + this.trumpExposed);
+        }
+      }
       this.playCard(pos, chosen);
     }
   }
@@ -1887,6 +1918,95 @@ class GameEngine6P {
     return ok;
   }
   _isRankSeen(suit, rank) { return this._cardsSeenSoFar().some(c => c.suit === suit && c.rank === rank); }
+
+  // ============================================================
+  // CARD-COUNTING FOUNDATION -- ported from the 4-player engine's
+  // identical addition (see there for the fuller original reasoning).
+  // Adapted here for 6 seats instead of 4 and this engine's own simpler
+  // (p+1)%6 seat rotation -- the underlying approach (exact unseen
+  // cards, void-based inference on who could hold them, many
+  // random-but-consistent simulated deals, survival probability across
+  // those deals) is otherwise identical.
+  // ============================================================
+  _unseenCardsFor(pos) {
+    const seenOrHeld = new Set();
+    const key = (c) => c.suit + c.rank;
+    for (const c of this._cardsSeenSoFar()) seenOrHeld.add(key(c));
+    for (const c of this.seats[pos].hand) seenOrHeld.add(key(c));
+    if (this.hiddenTrump && (pos === this.hiddenTrumpOwner || this.trumpExposed)) {
+      seenOrHeld.add(key(this.hiddenTrump));
+    }
+    const all = [];
+    for (const s of SUITS) for (const r of RANKS) all.push({ suit: s, rank: r, points: POINTS[r] });
+    return all.filter(c => !seenOrHeld.has(key(c)));
+  }
+  _possibleHoldersFor(pos) {
+    const unseen = this._unseenCardsFor(pos);
+    const otherSeats = Array.from({ length: SEATS }, (_, i) => i).filter(p => p !== pos && this.seats[p]);
+    const result = new Map();
+    for (const c of unseen) {
+      const key = c.suit + c.rank;
+      if (this.hiddenTrump && cardEq(c, this.hiddenTrump) && pos !== this.hiddenTrumpOwner && !this.trumpExposed) {
+        result.set(key, [this.hiddenTrumpOwner]);
+        continue;
+      }
+      result.set(key, otherSeats.filter(p => !this.voidSuits[p].has(c.suit)));
+    }
+    return result;
+  }
+  _simulateOneDeal(pos) {
+    const possibleHolders = this._possibleHoldersFor(pos);
+    const unseen = this._unseenCardsFor(pos);
+    const otherSeats = Array.from({ length: SEATS }, (_, i) => i).filter(p => p !== pos && this.seats[p]);
+    const handSize = {};
+    for (const p of otherSeats) handSize[p] = this.seats[p].hand.length;
+    const shuffled = unseen.slice().sort((a, b) => {
+      const ha = possibleHolders.get(a.suit + a.rank) || [];
+      const hb = possibleHolders.get(b.suit + b.rank) || [];
+      return ha.length - hb.length;
+    });
+    const dealt = {};
+    for (const p of otherSeats) dealt[p] = [];
+    for (const c of shuffled) {
+      const eligible = (possibleHolders.get(c.suit + c.rank) || []).filter(p => dealt[p].length < handSize[p]);
+      if (eligible.length === 0) continue;
+      const pick = eligible[Math.floor(Math.random() * eligible.length)];
+      dealt[pick].push(c);
+    }
+    return dealt;
+  }
+  _seatsActingAfter(pos) {
+    const leader = this.trickCards.length > 0 ? this.trickCards[0].pos : this.currentPlayer;
+    const order = [];
+    let p = leader;
+    for (let i = 0; i < SEATS; i++) { order.push(p); p = nextPos(p); }
+    const myIndex = order.indexOf(pos);
+    return order.slice(myIndex + 1);
+  }
+  _survivalProbability(pos, candidateCard, iterations = 300) {
+    const actingAfter = this._seatsActingAfter(pos);
+    if (actingAfter.length === 0) return 1;
+    const trickSuit = this.trickSuit || candidateCard.suit;
+    const isCandidateTrump = this.trumpExposed && candidateCard.suit === this.trumpSuit;
+    let survived = 0;
+    for (let i = 0; i < iterations; i++) {
+      const deal = this._simulateOneDeal(pos);
+      let beaten = false;
+      for (const p of actingAfter) {
+        const simHand = deal[p] || [];
+        const simSeatVoidInLedSuit = !simHand.some(c => c.suit === trickSuit);
+        const canBeat = simHand.some(c => {
+          if (c.suit === candidateCard.suit) return RANK_ORDER[c.rank] > RANK_ORDER[candidateCard.rank];
+          if (this.trumpExposed && c.suit === this.trumpSuit && !isCandidateTrump && simSeatVoidInLedSuit) return true;
+          return false;
+        });
+        if (canBeat) { beaten = true; break; }
+      }
+      if (!beaten) survived++;
+    }
+    return survived / iterations;
+  }
+
   // Is there still a card of `suit` ranked higher than `aboveRank` that hasn't been played yet
   // this round? Used specifically for the "should I cut in even though my partner is
   // currently winning" decision - the bot has none of this suit itself (that's the only way
@@ -1990,10 +2110,12 @@ class GameEngine6P {
           for (const s of suitsByLength) {
             const sorted = [...ntBySuit[s]].sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
             const candidate = isEarly ? sorted[0] : sorted[sorted.length - 1];
-            const jSeenHere = this._isRankSeen(s, 'J');
-            const nineSeenHere = this._isRankSeen(s, '9');
-            const unsafe = (candidate.rank === '9' && !jSeenHere) ||
-              ((candidate.rank === 'A' || candidate.rank === '10') && (!jSeenHere || !nineSeenHere));
+            // Real, confirmed further extension of the simulation-based
+            // approach already applied to the 4-player engine: replaced
+            // the binary "is the Jack/9 seen" exclusion with the actual
+            // survival probability of leading this specific candidate.
+            const unsafe = (candidate.rank === '9' || candidate.rank === 'A' || candidate.rank === '10') &&
+              this._survivalProbability(pos, candidate) < 0.7;
             if (!unsafe) return candidate;
           }
         }
@@ -2013,7 +2135,25 @@ class GameEngine6P {
       if (this.trumpExposed && !isBidder && getTeam(this.bidder) === myTeam) {
         const holdsLeadableJack = SUITS.some(s => bySuit[s].some(c => c.rank === 'J') && (s !== this.trumpSuit || this.trumpExposed));
         if (!holdsLeadableJack) {
-          const nonAceTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'A');
+          // Real, confirmed bug fix per explicit live report: this used
+          // to return the lowest non-Ace trump unconditionally, with no
+          // check at all for whether this suit's Jack has actually been
+          // seen yet. The reasoning behind this whole branch -- "my
+          // partner called this trump, so leading it toward them is
+          // probably safe" -- doesn't actually guarantee the partner
+          // holds the Jack specifically; the bidder can easily have
+          // spliced a different card out as their hidden trump, or
+          // simply not hold the Jack at all. If the lowest non-Ace
+          // trump happened to be a bare 9, this bypassed the exact same
+          // "never lead a 9 with an unseen Jack" rule enforced
+          // everywhere else in this function, handing an opponent's
+          // still-live Jack a free chance to steal the trick. Now
+          // excludes an unsafe 9 the same way the general suit-scoring
+          // loop below already does, falling through to that normal
+          // loop (which still separately considers this trump suit
+          // like any other) rather than forcing a specific card here.
+          const nonAceTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'A' &&
+            !(c.rank === '9' && !this._isRankSeen(this.trumpSuit, 'J')));
           if (nonAceTrumps.length > 0) {
             nonAceTrumps.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
             return nonAceTrumps[0];
@@ -2190,15 +2330,14 @@ class GameEngine6P {
         const hasJ = follow.some(c => c.rank === 'J'), has9 = follow.some(c => c.rank === '9');
         if (hasJ) return follow.find(c => c.rank === 'J');
         if (has9) {
-          // Same fix as the 4-player engine: don't automatically spend
-          // the 9 to win a small trick when the Jack of this suit hasn't
-          // been seen yet and someone still acts after us -- that's
-          // exactly the "wins the trick, then a later Jack steals it
-          // back for nothing" mistake. Safe once it's the last word,
-          // the Jack's accounted for, or the trick's worth the risk.
-          const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
-          if (jackRisk && tPts < 3) return follow[follow.length - 1];
-          return follow.find(c => c.rank === '9');
+          // Real, confirmed further extension of the simulation-based
+          // approach already applied to the 4-player engine: replaced
+          // the binary jackRisk check with the actual simulated
+          // survival probability of playing this specific 9.
+          const my9 = follow.find(c => c.rank === '9');
+          const survivalProb = this._survivalProbability(pos, my9);
+          if (survivalProb < 0.6 && tPts < 3) return follow[follow.length - 1];
+          return my9;
         }
         let winner = follow[0];
         if (cwc && cwc.suit === this.trickSuit) {
@@ -2224,8 +2363,25 @@ class GameEngine6P {
       // not -- discarding a real point card instead of a genuine
       // zero-point one for no reason was the actual reported waste.
       if (wt === myTeam) {
-        const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
-        if (!jackRisk || tPts >= 3) {
+        // Real, confirmed deeper finding already applied to the
+        // 4-player engine: partner's Jack being unconditionally "safe"
+        // only accounts for same-suit comparison, not a later player
+        // who's void in this suit cutting with trump. Checks the real
+        // simulated survival probability instead of assuming it.
+        const jackSurvival = cwc && cwc.rank === 'J' ? this._survivalProbability(pos, cwc) : 0;
+        if (cwc && cwc.rank === 'J' && jackSurvival >= 0.9) {
+          const best = follow.filter(c => c.rank !== 'J');
+          if (best.length > 0) {
+            best.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+            return best[0];
+          }
+        }
+        // Real, confirmed further extension of the simulation-based
+        // approach: replaced the binary jackRisk check with the actual
+        // simulated survival probability of partner's own current
+        // winning card.
+        const survivalProb = cwc && cwc.rank === 'J' ? jackSurvival : this._survivalProbability(pos, cwc);
+        if (survivalProb >= 0.6 || tPts >= 3) {
           const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
           if (feedable.length > 0) {
             feedable.sort((a, c) => c.points - a.points);
@@ -2278,24 +2434,14 @@ class GameEngine6P {
           for (let i = trumps.length - 1; i >= 0; i--) {
             if (RANK_ORDER[trumps[i].rank] > RANK_ORDER[cwc.rank]) { wtr = trumps[i]; break; }
           }
-          // The minimal sufficient trump is only safe if no one still to
-          // act in this trick can hold a bigger one — in practice, whether
-          // the trump Jack is still unaccounted for. Spending our only
-          // realistic winner into a trick a live Jack can still take away
-          // is exactly the waste this was meant to avoid.
-          // Real, confirmed bug fix per explicit report: this used to
-          // escalate to trumps[0] here -- the single highest trump in
-          // hand, which IS the Jack whenever we hold it -- exactly the
-          // same waste already fixed on the 4-player table (bidder
-          // holding J/A/K of trump, cutting with the Jack when a lower
-          // trump was available). Never fixed here since that earlier
-          // report was specifically about the 4-player table. Caps at
-          // the highest non-Jack trump instead, same as there: the Jack
-          // stays preserved regardless of how real the overtake risk is.
-          const nonJackTrumpsHere = trumps.filter(c => c.rank !== 'J');
-          if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && wtr.rank !== 'J' && tPts >= 3 && nonJackTrumpsHere.length > 0 && RANK_ORDER[nonJackTrumpsHere[0].rank] > RANK_ORDER[wtr.rank]) {
-            wtr = nonJackTrumpsHere[0];
-          }
+          // Real, confirmed bug fix per explicit live report (a bot
+          // holding J/A/7 of trump still cut with the Jack): per
+          // explicit instruction, removed the "escalate to a bigger
+          // trump if the minimal one might not be safe against an
+          // unseen Jack" logic that used to sit here entirely, rather
+          // than continue trying to patch it further -- the minimal
+          // sufficient trump found above is used as-is, with no further
+          // escalation step that could end up reaching for the Jack.
         } else {
           // The FIRST cut in this trick — nothing on the table is trump
           // yet, so literally any trump wins it. Reflexively reaching for
@@ -2327,9 +2473,14 @@ class GameEngine6P {
       const nonTrumpDiscard = hand.filter(c => c.suit !== this.trumpSuit);
       if (nonTrumpDiscard.length > 0) {
         const feedablePts = nonTrumpDiscard.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
-        // Real, confirmed bug fix per explicit report -- same fix as
-        // the 4-player engine's identical change: dropped myTeamSecured.
-        if (wt === myTeam && feedablePts.length > 0) {
+        // Real, confirmed further extension of the simulation-based
+        // approach already applied to the 4-player engine: this fed
+        // points into partner's trick unconditionally whenever
+        // wt===myTeam, with no check on whether partner's own card
+        // will actually survive to win it. Checks the real simulated
+        // survival probability instead.
+        const cwcSurvival = cwc ? this._survivalProbability(pos, cwc) : 1;
+        if (wt === myTeam && (cwcSurvival >= 0.6 || tPts >= 3) && feedablePts.length > 0) {
           feedablePts.sort((a, c) => c.points - a.points);
           return feedablePts[0];
         }
@@ -2351,10 +2502,43 @@ class GameEngine6P {
           voidCandidates.sort((a, c) => a.points - c.points);
           return voidCandidates[0];
         }
-        nonTrumpDiscard.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
-        return nonTrumpDiscard[0];
+        // Real, confirmed gap found during a strategy audit: unlike the
+        // 4-player table, this engine's canPlayCard() genuinely allows
+        // a Jack to be played as a plain discard -- not a bug in the
+        // rule itself, a real difference between the two games' rules,
+        // left as-is here since changing it would affect real human
+        // players too, not just bot behavior. But strategically, a
+        // Jack thrown away as a discard is still a real waste
+        // regardless of whether the rule technically allows it: 3
+        // points handed to whoever wins the trick, with the Jack never
+        // getting the chance to actually win a trick on its own later.
+        // The final sort below used to run across the FULL
+        // nonTrumpDiscard including any Jacks, meaning one could still
+        // get picked here whenever it happened to sort as "cheapest" by
+        // rank -- prefers a non-Jack discard now, only falling back to
+        // an actual Jack once every other non-trump option is
+        // genuinely gone.
+        const nonJackDiscard = nonTrumpDiscard.filter(c => c.rank !== 'J');
+        const discardPool = nonJackDiscard.length > 0 ? nonJackDiscard : nonTrumpDiscard;
+        discardPool.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+        return discardPool[0];
       }
-      return trumps[trumps.length - 1]; // genuinely nothing else left to throw
+      // Real, confirmed bug fix found during the same audit as the
+      // 4-player table's identical fix: trumps only gets sorted
+      // descending inside the earlier this.trumpExposed branch above --
+      // if trump ISN'T exposed yet, that never ran, so this could pick
+      // an arbitrary, unsorted trump card in this rare "nothing else at
+      // all to throw" situation -- potentially the trump Jack itself.
+      // Sorts explicitly and prefers a genuine zero-point non-Jack
+      // trump, matching every other trump fallback in this function.
+      {
+        const sortedTrumps = trumps.slice().sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+        const nonJackT = sortedTrumps.filter(c => c.rank !== 'J');
+        const zeroPtT = nonJackT.filter(c => c.points === 0);
+        return zeroPtT.length > 0 ? zeroPtT[zeroPtT.length - 1]
+          : nonJackT.length > 0 ? nonJackT[nonJackT.length - 1]
+          : sortedTrumps[sortedTrumps.length - 1];
+      }
     }
 
     if (!this.trumpExposed && trumps.length > 0 && this.trickSuit !== this.trumpSuit) {
@@ -2382,7 +2566,13 @@ class GameEngine6P {
     // the other feed-partner spots above.
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
     if (!disc.length) disc = hand;
-    if (wt === myTeam) {
+    // Real, confirmed further extension of the simulation-based
+    // approach: same fix as the equivalent trump-holding discard block
+    // above -- checks the real simulated survival probability of
+    // partner's own current winning card instead of feeding
+    // unconditionally.
+    const cwcSurvival2 = cwc ? this._survivalProbability(pos, cwc) : 1;
+    if (wt === myTeam && (cwcSurvival2 >= 0.6 || tPts >= 3)) {
       const feedablePts = disc.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
       if (feedablePts.length > 0) {
         feedablePts.sort((a, c) => c.points - a.points);
