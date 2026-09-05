@@ -223,41 +223,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      already-desktop-only media query instead, so desktop actually gets it too. */
   .cross{width:180px !important;height:270px !important}
 }
-/* Per explicit request ("option 2" -- low-risk proportional scale-up rather than a full
-   landscape redesign): the phone frame above was previously frozen at exactly 480px on
-   EVERY desktop width, so it looked identically small whether the browser was 700px or
-   2000px wide, leaving more and more unused space either side as the window grew. This
-   keys off wider breakpoints ON TOP OF the 480px base above (that block still applies to
-   everything from 700px up; these just layer larger sizes on top for genuinely wide
-   windows) and scales the SAME frame up proportionally instead -- same single-column
-   phone-shaped layout, same code, same position:fixed-children containment behavior
-   (scale() is still a transform value, so the existing note above about why translateZ(0)
-   is there applies exactly the same way here), just visually bigger on a big screen. Kept
-   deliberately conservative and stepped (not a fluid clamp/calc scale) specifically so this
-   stays easy to verify screenshot-by-screenshot and easy to dial back a step if any given
-   width doesn't look right, rather than a single continuous formula that's hard to reason
-   about at any one specific width. transform-origin fixed to the top so the frame grows
-   downward from a stable top edge instead of expanding equally in both directions and
-   fighting the vertical centering. */
-@media (min-width: 1000px) {
-  #appPhoneFrame{ transform:translateZ(0) scale(1.15); transform-origin:top center; }
-  /* Confirmed via direct testing (not assumed): scale() enlarges the
-     frame's visual box past the actual 100vh it's laid out at, and the
-     base html,body{overflow:hidden} rule earlier in this file was
-     silently clipping and permanently hiding the bottom portion of the
-     game with no way to reach it at all -- worse than the blank-space
-     problem this change was meant to fix. Overriding to allow vertical
-     scroll specifically at these wider, scaled breakpoints so the
-     clipped portion becomes reachable by scrolling instead of just
-     gone. Zero effect below 1000px -- everything under that keeps the
-     exact original overflow:hidden behavior untouched.
-  */
-  html,body{overflow-y:auto;overflow-x:hidden}
-}
-@media (min-width: 1300px) {
-  #appPhoneFrame{ transform:translateZ(0) scale(1.3); transform-origin:top center; }
-}
-
+/* Per explicit follow-up request: the "option 2" proportional desktop
+   scale-up below made the desktop experience noticeably worse rather
+   than better, so it's removed entirely here -- back to the plain,
+   fixed 480px phone frame on every desktop width, exactly as it
+   behaved before that change was ever introduced. Nothing else in this
+   file was touched to do this reversion; every other fix made since
+   then (leaderboard styling, turn-text colors, border colors, the
+   buddy-greeting redesign, the spade-icon fix, etc.) stays exactly as
+   it was. */
 /* ===== COUNTER OVERLAY ===== */
 .counter-overlay{position:fixed;inset:0;background:rgba(10,22,40,0.98);z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px;text-align:center;transition:opacity 0.6s ease;overflow-y:auto}
 .counter-overlay.hidden{opacity:0;pointer-events:none}
@@ -3523,6 +3497,13 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   border:3px solid #f4c430;box-shadow:0 0 40px rgba(244,196,48,0.55),0 0 80px rgba(244,196,48,0.25);
   animation:bidWinnerBubblePop 0.6s cubic-bezier(.2,1.4,.4,1) forwards;
 }
+/* Per explicit request: the bubble's own border/glow reflects whose
+   turn it currently is -- green for this player's own turn, red for
+   anyone else's (partner or opponent alike). Overrides the base gold
+   border/glow above via the same specificity as the .settled/.leaving
+   rules already doing the same kind of override on this element. */
+#bidWinnerBubble4p.bwb-border-mine{border-color:#3fae6a;box-shadow:0 0 40px rgba(63,174,106,0.55),0 0 80px rgba(63,174,106,0.25);}
+#bidWinnerBubble4p.bwb-border-other{border-color:#d9463f;box-shadow:0 0 40px rgba(217,70,63,0.55),0 0 80px rgba(217,70,63,0.25);}
 #bidWinnerBubble4p.settled{animation:bidWinnerBubbleHeartbeat 1.6s ease-in-out infinite;}
 #bidWinnerBubble4p.leaving{animation:bidWinnerBubbleOut 0.35s ease forwards !important;}
 @keyframes bidWinnerBubblePop{
@@ -7185,6 +7166,12 @@ function updateBidWinnerTurnText4p() {
   turnEl.classList.toggle('bwb-turn-mine', isMe);
   turnEl.classList.toggle('bwb-turn-partner', isPartner);
   turnEl.classList.toggle('bwb-turn-opp', !isMe && !isPartner);
+  // Per explicit request: the bubble's own border/glow now reflects
+  // whose turn it actually is -- green while it's this player's own
+  // turn, red for anyone else's (partner or opponent alike), instead of
+  // staying gold regardless of whose turn it is.
+  bubble.classList.toggle('bwb-border-mine', isMe);
+  bubble.classList.toggle('bwb-border-other', !isMe);
   if (changed) {
     turnEl.classList.remove('bwb-turn-pop');
     void turnEl.offsetWidth; // force reflow so the browser actually notices the removal

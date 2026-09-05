@@ -2097,6 +2097,10 @@ function updateBidWinnerTurnText6p(state) {
   turnEl.classList.toggle('bwb-turn-mine', isMe);
   turnEl.classList.toggle('bwb-turn-partner', isPartner);
   turnEl.classList.toggle('bwb-turn-opp', !isMe && !isPartner);
+  // Per explicit request, same addition as the 4-player table's
+  // identical change -- see there for the fuller reasoning.
+  bubble.classList.toggle('bwb-border-mine', isMe);
+  bubble.classList.toggle('bwb-border-other', !isMe);
   if (changed) {
     turnEl.classList.remove('bwb-turn-pop');
     void turnEl.offsetWidth;
