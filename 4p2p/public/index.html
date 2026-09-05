@@ -298,12 +298,34 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     background:none;border-top:none;
     max-width:480px;min-height:auto;max-height:none;
   }
-  /* Avatars sized for the mobile 480px column read as tiny dots on a
-     full desktop screen -- scaled up to actually read at this size.
-     clamp() instead of a flat 64px so this also scales up further on
-     genuinely wide monitors rather than staying fixed regardless of
-     how much real width is actually available. */
-  body.k28-in-game .avatar{width:clamp(64px,6vw,110px);height:clamp(64px,6vw,110px);font-size:clamp(1.7rem,2.4vw,3rem)}
+  /* Real, confirmed bug found while investigating why the increase
+     above wasn't visibly showing: two completely separate, unrelated
+     per-seat rules elsewhere in this file (.pspot.top .avatar and
+     .pspot.pos3 .avatar) set their own fixed pixel width/height with
+     !important, and have HIGHER specificity than the plain
+     body.k28-in-game .avatar rule above -- when both sides use
+     !important, specificity decides the winner, not source order, so
+     those rules kept winning regardless of what was set here. Matches
+     their exact selector structure here too (same specificity), just
+     inside this desktop-only block, so these correctly win instead
+     while in-game on desktop specifically.
+     Real, confirmed bug found while investigating why the increase
+     above wasn't visibly showing: a completely separate, unrelated
+     .avatar rule elsewhere in this file uses !important on its own
+     width/height -- !important always wins over a normal rule
+     regardless of specificity or source order, so this rule was being
+     silently overridden the whole time no matter what value was set
+     here. Added !important here too, matching the same pattern already
+     used for the card-size fix above. */
+  body.k28-in-game .avatar{width:clamp(90px,8vw,160px) !important;height:clamp(90px,8vw,160px) !important;font-size:clamp(2.2rem,3vw,4rem) !important}
+  body.k28-in-game .table:not(.mode6) .pspot.top .avatar,
+  body.k28-in-game .table:not(.mode6) .pspot.pos3 .avatar{width:clamp(90px,8vw,160px) !important;height:clamp(90px,8vw,160px) !important;font-size:clamp(2.2rem,3vw,4rem) !important}
+  /* Same fix again for the left/right seats specifically -- these
+     don't have their own per-seat override like top/pos3 above, they
+     fall back to this file's general .table:not(.mode6) .avatar rule
+     instead, which ALSO uses !important with its own specificity this
+     needed to be matched to beat. */
+  body.k28-in-game .table:not(.mode6) .avatar{width:clamp(90px,8vw,160px) !important;height:clamp(90px,8vw,160px) !important;font-size:clamp(2.2rem,3vw,4rem) !important}
   /* Same reasoning for the hand of cards -- the 52px mobile card size
      (see the max-width:480px media query elsewhere in this file) reads
      small and narrow stretched across a full desktop width. Scaled up
@@ -312,6 +334,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   body.k28-in-game .hand-area .card{width:clamp(72px,7vw,120px) !important;height:clamp(102px,10vw,170px) !important;border-radius:11px !important}
   body.k28-in-game .hand-area .card{margin-left:-20px !important}
   body.k28-in-game .hand-area .card:first-child{margin-left:0 !important}
+  /* Real, confirmed bug found via live report with screenshots: the
+     card BOX itself scaled up via the rule above, but the rank/suit
+     text inside it (.cr/.crb corner rank, .cs center suit) never did
+     -- those font-sizes come from a much-earlier, small-screen-specific
+     rule (font-size:0.58rem for the corners, 0.9rem for the center)
+     that has nothing to do with desktop at all and was never meant to
+     apply here. The suit ICONS themselves are already em-based
+     (suit-icon-corner/suit-icon-center use width/height in em, sized
+     relative to their own parent's font-size), so fixing the parent
+     font-size alone correctly scales both the rank text and the suit
+     icon together -- this is the actual fix, not a separate icon-size
+     rule. Scaled roughly proportional to the card box's own growth
+     above (card grew from 52px to a 72-120px range, so text scales up
+     by a similar factor). */
+  body.k28-in-game .hand-area .card .cr,
+  body.k28-in-game .hand-area .card .crb{font-size:clamp(1rem,1.4vw,1.7rem) !important}
+  body.k28-in-game .hand-area .card .cs{font-size:clamp(1.6rem,2.2vw,2.6rem) !important}
 }
 /* Per explicit follow-up request: the "option 2" proportional desktop
    scale-up below made the desktop experience noticeably worse rather

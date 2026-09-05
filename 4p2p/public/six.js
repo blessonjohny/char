@@ -961,6 +961,30 @@ function showScreen(id) {
   setInterval(() => {
     const visible = getComputedStyle(gs).display !== 'none';
     document.body.classList.toggle('k28-in-game', visible);
+    // Real, confirmed bug found via live testing: something (still
+    // unconfirmed exactly what/where) keeps re-asserting a fixed
+    // pixel width/height directly as this element's own inline style,
+    // which always wins over any stylesheet rule regardless of
+    // selector specificity or !important -- no CSS-only fix could ever
+    // beat it. Enforced directly here instead, the same way, so
+    // whichever mechanism keeps setting it gets immediately corrected
+    // right back on the very next poll.
+    // Real, confirmed bug found while re-verifying mobile safety right
+    // after adding this: this direct enforcement had no viewport-width
+    // check at all, so it was forcing the large desktop avatar size
+    // even on an actual phone -- clamp()'s own 90px floor doesn't
+    // shrink below that no matter how narrow the real viewport is.
+    // Matches the same min-width:521px breakpoint the surrounding CSS
+    // itself is scoped to, so this only ever fires on desktop widths.
+    if (visible && window.innerWidth >= 521) {
+      for (let i = 0; i < 6; i++) {
+        const av = document.getElementById('av' + i);
+        if (!av) continue;
+        av.style.setProperty('width', 'clamp(90px,8vw,160px)', 'important');
+        av.style.setProperty('height', 'clamp(90px,8vw,160px)', 'important');
+        av.style.setProperty('font-size', 'clamp(2.2rem,3vw,4rem)', 'important');
+      }
+    }
   }, 500);
 })();
 function showToast(msg, kind, ms) {
