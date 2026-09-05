@@ -954,6 +954,14 @@ function showScreen(id) {
   const sync = () => document.body.classList.toggle('k28-in-game', !gs.classList.contains('hidden'));
   sync();
   new MutationObserver(sync).observe(gs, { attributes: true, attributeFilter: ['class'] });
+  // Real, confirmed live report: same fallback as the 4-player table's
+  // identical addition -- see there for the fuller reasoning. Runs
+  // independently of the MutationObserver above and re-checks the real,
+  // current computed visibility every half second regardless of cause.
+  setInterval(() => {
+    const visible = getComputedStyle(gs).display !== 'none';
+    document.body.classList.toggle('k28-in-game', visible);
+  }, 500);
 })();
 function showToast(msg, kind, ms) {
   const el = document.createElement('div');

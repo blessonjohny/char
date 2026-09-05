@@ -299,13 +299,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     max-width:480px;min-height:auto;max-height:none;
   }
   /* Avatars sized for the mobile 480px column read as tiny dots on a
-     full desktop screen -- scaled up to actually read at this size. */
-  body.k28-in-game .avatar{width:64px;height:64px;font-size:1.7rem}
+     full desktop screen -- scaled up to actually read at this size.
+     clamp() instead of a flat 64px so this also scales up further on
+     genuinely wide monitors rather than staying fixed regardless of
+     how much real width is actually available. */
+  body.k28-in-game .avatar{width:clamp(64px,6vw,110px);height:clamp(64px,6vw,110px);font-size:clamp(1.7rem,2.4vw,3rem)}
   /* Same reasoning for the hand of cards -- the 52px mobile card size
      (see the max-width:480px media query elsewhere in this file) reads
      small and narrow stretched across a full desktop width. Scaled up
-     proportionally to roughly match the avatar scale-up above. */
-  body.k28-in-game .hand-area .card{width:72px !important;height:102px !important;border-radius:11px !important}
+     proportionally to roughly match the avatar scale-up above, also
+     via clamp() for the same reason. */
+  body.k28-in-game .hand-area .card{width:clamp(72px,7vw,120px) !important;height:clamp(102px,10vw,170px) !important;border-radius:11px !important}
   body.k28-in-game .hand-area .card{margin-left:-20px !important}
   body.k28-in-game .hand-area .card:first-child{margin-left:0 !important}
 }
@@ -6390,6 +6394,20 @@ function log(msg, type) {
   };
   sync();
   new MutationObserver(sync).observe(gw, { attributes: true, attributeFilter: ['style'] });
+  // Real, confirmed live report: this class wasn't reliably applying
+  // on the actual deployed site despite working correctly in every
+  // local test -- rather than keep guessing at the exact reason
+  // (timing, a code path that sets visibility some other way, etc.),
+  // added a periodic poll as a belt-and-suspenders fallback alongside
+  // the MutationObserver above. This runs independently and re-checks
+  // the real, current computed visibility (not just the inline style
+  // the observer watches) every half second for as long as the page is
+  // open, so even if the observer genuinely misses an update for any
+  // reason, this catches it shortly after regardless of the cause.
+  setInterval(() => {
+    const visible = getComputedStyle(gw).display !== 'none';
+    document.body.classList.toggle('k28-in-game', visible);
+  }, 500);
 })();
 
 const K28_CHEERS_DRINKS = [
