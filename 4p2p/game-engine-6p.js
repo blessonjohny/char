@@ -1758,8 +1758,32 @@ class GameEngine6P {
       const bySuit = {};
       for (const s of SUITS) bySuit[s] = [];
       for (const c of hand) bySuit[c.suit].push(c);
-      let bestSuit = SUITS[0], bestLen = -1;
-      for (const s of SUITS) if (bySuit[s].length > bestLen) { bestLen = bySuit[s].length; bestSuit = s; }
+      // Real, confirmed bug fix per explicit live report ("when bots
+      // bid minimum, they bid bad"): this used to pick trump by raw
+      // suit LENGTH alone, with zero regard for whether that suit
+      // actually holds any real strength at all. A 4-card suit of
+      // K/Q/8/7 (nothing, since none of those beat anything reliably)
+      // would win over a 3-card suit holding the Jack, purely because
+      // it's one card longer. This matters most exactly in the
+      // situation reported: a genuinely weak hand with no qualifying
+      // suit in _tableBid still gets forced to bid the minimum as
+      // first bidder (there's no "pass" option there), and then
+      // picking trump by length alone could hand that already-weak
+      // bidder a trump suit with no guaranteed winner in it at all --
+      // compounding one bad situation with a second, avoidable one.
+      // Now scores each suit by (holds the Jack, holds the 9 too,
+      // then length as the tiebreaker) instead, so trump actually
+      // reflects whatever real strength this hand has, wherever it
+      // happens to sit, rather than just whichever suit is longest.
+      let bestSuit = SUITS[0], bestScore = [-1, -1, -1];
+      for (const s of SUITS) {
+        const cards = bySuit[s];
+        const score = [cards.some(c => c.rank === 'J') ? 1 : 0, cards.some(c => c.rank === '9') ? 1 : 0, cards.length];
+        if (score[0] > bestScore[0] || (score[0] === bestScore[0] && score[1] > bestScore[1]) ||
+            (score[0] === bestScore[0] && score[1] === bestScore[1] && score[2] > bestScore[2])) {
+          bestScore = score; bestSuit = s;
+        }
+      }
       // Per explicit live report: a bot's turn to choose trump was
       // observed getting permanently stuck (never recovering, even
       // after the usual watchdog window) with no error at all in the
