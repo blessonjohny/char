@@ -2381,7 +2381,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .card{width:52px !important;height:74px !important;border-radius:9px !important;border-width:1px !important;box-shadow:0 3px 10px rgba(0,0,0,0.3) !important}
   .card::before{border-width:1.5px !important;border-radius:9px !important}
   .card::after{inset:3px !important;border-radius:6px !important}
-  .card .cr,.card .crb{font-size:0.86rem !important;top:2px !important;left:3px !important;text-shadow:0 1px 0 rgba(0,0,0,0.15),0 2px 2px rgba(0,0,0,0.1) !important;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2)) !important}
+  .card .cr,.card .crb{font-size:0.86rem !important;text-shadow:0 1px 0 rgba(0,0,0,0.15),0 2px 2px rgba(0,0,0,0.1) !important;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2)) !important}
+  .card .cr{top:2px !important;left:3px !important}
   .card .crb{bottom:2px !important;right:3px !important}
   .card .cs{font-size:1.9rem !important;margin-top:0 !important;text-shadow:0 1px 0 rgba(0,0,0,0.1),0 2px 4px rgba(0,0,0,0.15) !important;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.25)) !important}
 
@@ -2546,7 +2547,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .card{width:30px;height:42px;border-radius:5px;border-width:1px;box-shadow:0 1px 5px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.7)}
   .card::before{border-width:1.5px;border-radius:5px}
   .card::after{inset:2px;border-radius:3px}
-  .card .cr,.card .crb{font-size:0.52rem;top:2px;left:2px;text-shadow:0 1px 0 rgba(0,0,0,0.12);filter:drop-shadow(0 1px 1px rgba(0,0,0,0.15))}
+  .card .cr,.card .crb{font-size:0.52rem;text-shadow:0 1px 0 rgba(0,0,0,0.12);filter:drop-shadow(0 1px 1px rgba(0,0,0,0.15))}
+  .card .cr{top:2px;left:2px}
   .card .crb{bottom:2px;right:2px}
   .card .cs{font-size:1.2rem;margin-top:0;text-shadow:0 1px 0 rgba(0,0,0,0.08);filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2))}
 
@@ -2618,7 +2620,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .card{width:24px;height:34px;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.6)}
   .card::before{border-width:1px;border-radius:4px}
   .card::after{inset:1px;border-radius:2px}
-  .card .cr,.card .crb{font-size:0.42rem;top:1px;left:1px;text-shadow:0 1px 0 rgba(0,0,0,0.1);filter:drop-shadow(0 1px 1px rgba(0,0,0,0.1))}
+  .card .cr,.card .crb{font-size:0.42rem;text-shadow:0 1px 0 rgba(0,0,0,0.1);filter:drop-shadow(0 1px 1px rgba(0,0,0,0.1))}
+  .card .cr{top:1px;left:1px}
   .card .crb{bottom:1px;right:1px}
   .card .cs{font-size:0.65rem;text-shadow:0 1px 0 rgba(0,0,0,0.06);filter:drop-shadow(0 1px 1px rgba(0,0,0,0.1))}
   .hand-area{min-height:52px !important;max-height:65px;padding:2px 4px 1px}
@@ -3143,6 +3146,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   --display-font: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
 }
 body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
+/* The redesign2026 rule directly above this resets body's background
+   unconditionally (no media guard), which was silently overwriting the
+   desktop wide-background photo set inside the earlier
+   @media(min-width:700px) block -- same specificity (a bare `body`
+   selector both times), later in source order, so it always won
+   regardless of screen width. Confirmed via testing: without this,
+   desktop only ever showed the plain color, never the photo, at any
+   width. Re-asserting the exact same desktop rule again here, after
+   this reset, restores it for desktop widths without touching the
+   redesign2026 rule itself (mobile/base styling untouched). */
+@media (min-width: 700px) {
+  body{
+    background-color:#05070a;
+    background-image:url('/images/desktop-bg-4p.jpg');
+    background-size:cover;
+    background-position:center center;
+    background-repeat:no-repeat;
+    background-attachment:fixed;
+  }
+}
 
 /* ---------- Display typography: brass signage ---------- */
 .welcome-title,.lobby-hdr h2,.lobby-card h3,.counter-title,
