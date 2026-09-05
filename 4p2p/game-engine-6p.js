@@ -1758,31 +1758,36 @@ class GameEngine6P {
       const bySuit = {};
       for (const s of SUITS) bySuit[s] = [];
       for (const c of hand) bySuit[c.suit].push(c);
-      // Real, confirmed bug fix per explicit live report ("when bots
-      // bid minimum, they bid bad"): this used to pick trump by raw
-      // suit LENGTH alone, with zero regard for whether that suit
-      // actually holds any real strength at all. A 4-card suit of
-      // K/Q/8/7 (nothing, since none of those beat anything reliably)
-      // would win over a 3-card suit holding the Jack, purely because
-      // it's one card longer. This matters most exactly in the
-      // situation reported: a genuinely weak hand with no qualifying
-      // suit in _tableBid still gets forced to bid the minimum as
-      // first bidder (there's no "pass" option there), and then
-      // picking trump by length alone could hand that already-weak
-      // bidder a trump suit with no guaranteed winner in it at all --
-      // compounding one bad situation with a second, avoidable one.
-      // Now scores each suit by (holds the Jack, holds the 9 too,
-      // then length as the tiebreaker) instead, so trump actually
-      // reflects whatever real strength this hand has, wherever it
-      // happens to sit, rather than just whichever suit is longest.
-      let bestSuit = SUITS[0], bestScore = [-1, -1, -1];
+      // Real, confirmed refinement per explicit follow-up discussion:
+      // the first pass at this fix treated holding the Jack as an
+      // automatic win over everything else, including a bare, lone
+      // Jack with no other card of that suit at all. That's actually
+      // the WEAKEST real case, not the strongest: the bidder must hide
+      // one trump card as the concealed card, so a lone Jack means
+      // hiding the only trump held, leaving zero live trump for the
+      // whole round until the very last card. A 9 held alongside an
+      // Ace has real staying power instead: the Jack is provably still
+      // out there and WILL surface eventually (forced to follow suit or
+      // led outright), and the instant it does, the 9 inherits the top
+      // spot in that same suit while the Ace is still live too. Even a
+      // plain 3-card suit with no Jack or 9 at all genuinely beats a
+      // lone Jack, since length alone means never being reduced to a
+      // single all-or-nothing card. Scored numerically now instead of
+      // as a strict tiebreak tuple: length always counts, a Jack WITH
+      // at least one other card of that suit is the strongest case by
+      // far, a 9 with support is the next-strongest, and a lone Jack
+      // gets only a small bonus -- enough to edge out an equally bare
+      // 1-card suit of nothing, but not enough to beat real length.
+      let bestSuit = SUITS[0], bestScore = -1;
       for (const s of SUITS) {
         const cards = bySuit[s];
-        const score = [cards.some(c => c.rank === 'J') ? 1 : 0, cards.some(c => c.rank === '9') ? 1 : 0, cards.length];
-        if (score[0] > bestScore[0] || (score[0] === bestScore[0] && score[1] > bestScore[1]) ||
-            (score[0] === bestScore[0] && score[1] === bestScore[1] && score[2] > bestScore[2])) {
-          bestScore = score; bestSuit = s;
-        }
+        const hasJ = cards.some(c => c.rank === 'J');
+        const has9 = cards.some(c => c.rank === '9');
+        let score = cards.length * 12;
+        if (hasJ && cards.length >= 2) score += 100;
+        else if (has9 && cards.length >= 2) score += 60;
+        else if (hasJ) score += 12; // lone Jack, no support at all
+        if (score > bestScore) { bestScore = score; bestSuit = s; }
       }
       // Per explicit live report: a bot's turn to choose trump was
       // observed getting permanently stuck (never recovering, even
