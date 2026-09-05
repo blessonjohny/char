@@ -980,9 +980,9 @@ function showScreen(id) {
       for (let i = 0; i < 6; i++) {
         const av = document.getElementById('av' + i);
         if (!av) continue;
-        av.style.setProperty('width', 'clamp(90px,8vw,160px)', 'important');
-        av.style.setProperty('height', 'clamp(90px,8vw,160px)', 'important');
-        av.style.setProperty('font-size', 'clamp(2.2rem,3vw,4rem)', 'important');
+        av.style.setProperty('width', '150px', 'important');
+        av.style.setProperty('height', '150px', 'important');
+        av.style.setProperty('font-size', '4rem', 'important');
       }
     }
   }, 500);

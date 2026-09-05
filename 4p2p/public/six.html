@@ -122,6 +122,21 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
     background-position:center center !important;
     background-color:transparent !important;
   }
+  /* Real, confirmed bug found per explicit live report: same fix as
+     the 4-player table's identical change -- see there for the fuller
+     reasoning. #gameScreen uses position:fixed;inset:0, spanning the
+     entire real browser viewport unbounded, so on a wide monitor
+     background-size:cover scaled the chairs up indefinitely with
+     screen width while avatar size was capped -- backwards from
+     intended, worse the wider the screen. Capped and centered here
+     instead of letting it track raw viewport width. */
+  body.k28-in-game #gameScreen{
+    left:50% !important;
+    right:auto !important;
+    max-width:1600px !important;
+    width:100% !important;
+    transform:translateX(-50%) !important;
+  }
   body.k28-in-game .six-oval-rail,
   body.k28-in-game .six-oval-felt,
   body.k28-in-game .six-oval-bevel{
@@ -133,10 +148,13 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
   body.k28-in-game #seatWrap3{left:50% !important;top:9% !important;}
   body.k28-in-game #seatWrap4{left:23% !important;top:19% !important;}
   body.k28-in-game #seatWrap5{left:18% !important;top:56% !important;}
-  /* Real, confirmed follow-up per explicit report: same increase as
-     the 4-player table's identical change -- see there for the fuller
-     reasoning. */
-  body.k28-in-game .seat .av{width:clamp(90px,8vw,160px) !important;height:clamp(90px,8vw,160px) !important;font-size:clamp(2.2rem,3vw,4rem) !important}
+  /* Real, confirmed follow-up per explicit report: switched from
+     vw-based clamp() to a flat fixed size, same reasoning as the
+     4-player table's identical change -- now that the table area
+     itself is capped at max-width:1600px above, a vw-based size would
+     still track the raw (now unbounded relative to the capped
+     container) viewport width instead. */
+  body.k28-in-game .seat .av{width:150px !important;height:150px !important;font-size:4rem !important}
   /* Real, confirmed bug found while investigating why the increase
      above wasn't visibly showing: several separate, unrelated per-seat
      rules elsewhere in this file (#seatWrap0/1/2/3/4/5 .av, a deliberate
@@ -154,8 +172,8 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
   body.k28-in-game #seatWrap2 .av,
   body.k28-in-game #seatWrap3 .av,
   body.k28-in-game #seatWrap4 .av,
-  body.k28-in-game #seatWrap5 .av{width:clamp(90px,8vw,160px) !important;height:clamp(90px,8vw,160px) !important;font-size:clamp(2.2rem,3vw,4rem) !important}
-  body.k28-in-game .hand-cards .card{width:clamp(72px,7vw,120px) !important;height:clamp(102px,10vw,170px) !important;border-radius:11px !important}
+  body.k28-in-game #seatWrap5 .av{width:150px !important;height:150px !important;font-size:4rem !important}
+  body.k28-in-game .hand-cards .card{width:110px !important;height:156px !important;border-radius:11px !important}
   body.k28-in-game .hand-cards .card{margin-left:-20px !important}
   body.k28-in-game .hand-cards .card:first-child{margin-left:0 !important}
   /* Real, confirmed bug found via live report with screenshots, same
@@ -166,8 +184,8 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
      em-based (sized relative to their own parent), so fixing the
      parent font-size alone correctly scales both together. */
   body.k28-in-game .hand-cards .card .cr,
-  body.k28-in-game .hand-cards .card .crb{font-size:clamp(1rem,1.4vw,1.7rem) !important}
-  body.k28-in-game .hand-cards .card .cs{font-size:clamp(1.6rem,2.2vw,2.6rem) !important}
+  body.k28-in-game .hand-cards .card .crb{font-size:1.6rem !important}
+  body.k28-in-game .hand-cards .card .cs{font-size:2.4rem !important}
 }
 /* Per explicit follow-up request: same reversion as the 4-player
    table's identical change -- the "option 2" proportional desktop

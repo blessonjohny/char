@@ -263,6 +263,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     background:none;
     box-shadow:none;
   }
+  /* Real, confirmed bug found per explicit live report: .game-wrap uses
+     position:fixed;left:0;right:0, so it was spanning the ENTIRE real
+     browser viewport with no upper limit at all -- on a large or wide
+     monitor, background-size:cover then scales the table photo up to
+     match, making the chairs themselves grow indefinitely with screen
+     width. Avatar size was capped at a fixed maximum, so past a certain
+     screen width the chairs kept growing while avatars stopped --
+     exactly backwards from the intended effect, and worse the wider the
+     actual screen. Capped the table area's own width here instead of
+     letting it track raw viewport width unbounded, and centered it,
+     so the background image (and therefore the chairs) settles at a
+     sane, predictable size instead of scaling forever. */
+  body.k28-in-game .game-wrap{
+    left:50%;
+    right:auto;
+    max-width:1600px;
+    width:100%;
+    transform:translateX(-50%);
+  }
   body.k28-in-game .game-wrap{
     background-image:url('/images/desktop-bg-4p.jpg');
     background-size:cover;
@@ -298,40 +317,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     background:none;border-top:none;
     max-width:480px;min-height:auto;max-height:none;
   }
-  /* Real, confirmed bug found while investigating why the increase
-     above wasn't visibly showing: two completely separate, unrelated
-     per-seat rules elsewhere in this file (.pspot.top .avatar and
-     .pspot.pos3 .avatar) set their own fixed pixel width/height with
-     !important, and have HIGHER specificity than the plain
-     body.k28-in-game .avatar rule above -- when both sides use
-     !important, specificity decides the winner, not source order, so
-     those rules kept winning regardless of what was set here. Matches
-     their exact selector structure here too (same specificity), just
-     inside this desktop-only block, so these correctly win instead
-     while in-game on desktop specifically.
-     Real, confirmed bug found while investigating why the increase
-     above wasn't visibly showing: a completely separate, unrelated
-     .avatar rule elsewhere in this file uses !important on its own
-     width/height -- !important always wins over a normal rule
-     regardless of specificity or source order, so this rule was being
-     silently overridden the whole time no matter what value was set
-     here. Added !important here too, matching the same pattern already
-     used for the card-size fix above. */
-  body.k28-in-game .avatar{width:clamp(90px,8vw,160px) !important;height:clamp(90px,8vw,160px) !important;font-size:clamp(2.2rem,3vw,4rem) !important}
+  /* Real, confirmed follow-up per explicit live report: with the
+     table area itself now capped above at max-width:1600px, a vw-based
+     avatar size would still keep growing off the raw browser viewport
+     past that cap (viewport can be wider than the now-bounded game
+     area), re-introducing the exact same mismatch this was meant to
+     fix. Switched to a flat, fixed size instead now that the
+     container itself no longer grows unbounded -- sized generously
+     against that same 1600px cap rather than trying to track viewport
+     width at all. */
+  body.k28-in-game .avatar{width:150px !important;height:150px !important;font-size:4rem !important}
   body.k28-in-game .table:not(.mode6) .pspot.top .avatar,
-  body.k28-in-game .table:not(.mode6) .pspot.pos3 .avatar{width:clamp(90px,8vw,160px) !important;height:clamp(90px,8vw,160px) !important;font-size:clamp(2.2rem,3vw,4rem) !important}
+  body.k28-in-game .table:not(.mode6) .pspot.pos3 .avatar{width:150px !important;height:150px !important;font-size:4rem !important}
   /* Same fix again for the left/right seats specifically -- these
      don't have their own per-seat override like top/pos3 above, they
      fall back to this file's general .table:not(.mode6) .avatar rule
      instead, which ALSO uses !important with its own specificity this
      needed to be matched to beat. */
-  body.k28-in-game .table:not(.mode6) .avatar{width:clamp(90px,8vw,160px) !important;height:clamp(90px,8vw,160px) !important;font-size:clamp(2.2rem,3vw,4rem) !important}
+  body.k28-in-game .table:not(.mode6) .avatar{width:150px !important;height:150px !important;font-size:4rem !important}
   /* Same reasoning for the hand of cards -- the 52px mobile card size
      (see the max-width:480px media query elsewhere in this file) reads
-     small and narrow stretched across a full desktop width. Scaled up
-     proportionally to roughly match the avatar scale-up above, also
-     via clamp() for the same reason. */
-  body.k28-in-game .hand-area .card{width:clamp(72px,7vw,120px) !important;height:clamp(102px,10vw,170px) !important;border-radius:11px !important}
+     small and narrow stretched across a full desktop width. Same fix
+     as the avatar sizing above: switched from vw-based to a flat fixed
+     size now that the table area itself is capped at max-width:1600px
+     above, since a vw-based size would still track the raw (now
+     unbounded relative to the capped container) viewport width. */
+  body.k28-in-game .hand-area .card{width:110px !important;height:156px !important;border-radius:11px !important}
   body.k28-in-game .hand-area .card{margin-left:-20px !important}
   body.k28-in-game .hand-area .card:first-child{margin-left:0 !important}
   /* Real, confirmed bug found via live report with screenshots: the
@@ -349,8 +360,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      above (card grew from 52px to a 72-120px range, so text scales up
      by a similar factor). */
   body.k28-in-game .hand-area .card .cr,
-  body.k28-in-game .hand-area .card .crb{font-size:clamp(1rem,1.4vw,1.7rem) !important}
-  body.k28-in-game .hand-area .card .cs{font-size:clamp(1.6rem,2.2vw,2.6rem) !important}
+  body.k28-in-game .hand-area .card .crb{font-size:1.6rem !important}
+  body.k28-in-game .hand-area .card .cs{font-size:2.4rem !important}
 }
 /* Per explicit follow-up request: the "option 2" proportional desktop
    scale-up below made the desktop experience noticeably worse rather
