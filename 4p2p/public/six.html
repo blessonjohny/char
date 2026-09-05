@@ -94,6 +94,53 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
     background-attachment:fixed;
   }
 }
+/* ============================================================
+   WIDE DESKTOP TABLE (per explicit request): same treatment as the
+   4-player table's identical addition -- the wide table photo becomes
+   the actual game table on desktop, not just a decorative surround.
+   Seat coordinates below are measured directly off desktop-bg-6p.jpg
+   with a percentage grid overlay -- a SEPARATE, wider photo from
+   table-bg-6p.jpg (the existing portrait-shaped mobile table image,
+   left completely untouched below min-width:521px), so these are new
+   coordinates, not a reuse of the mobile ones. Same slot-to-screen
+   mapping already established elsewhere in this file: slot0=bottom/me,
+   1=lower-right, 2=upper-right, 3=top, 4=upper-left, 5=lower-left.
+   Scoped to body.k28-in-game (kept in sync with #gameScreen's real
+   visibility by the MutationObserver set up in six.js) so this only
+   ever applies during actual gameplay. */
+@media (min-width: 521px) {
+  body.k28-in-game #appPhoneFrame{
+    transform:none;
+    max-width:none;
+    width:100%;
+    background:none;
+    box-shadow:none;
+  }
+  body.k28-in-game #gameScreen{
+    background-image:url('/images/desktop-bg-6p.jpg') !important;
+    background-size:cover !important;
+    background-position:center center !important;
+    background-color:transparent !important;
+  }
+  body.k28-in-game .six-oval-rail,
+  body.k28-in-game .six-oval-felt,
+  body.k28-in-game .six-oval-bevel{
+    display:none !important;
+  }
+  body.k28-in-game #seatWrap0{left:50% !important;top:78% !important;}
+  body.k28-in-game #seatWrap1{left:82% !important;top:56% !important;}
+  body.k28-in-game #seatWrap2{left:77% !important;top:19% !important;}
+  body.k28-in-game #seatWrap3{left:50% !important;top:9% !important;}
+  body.k28-in-game #seatWrap4{left:23% !important;top:19% !important;}
+  body.k28-in-game #seatWrap5{left:18% !important;top:56% !important;}
+  /* Avatars sized for the mobile phone-frame column read as tiny on a
+     full desktop screen -- scaled up to actually read at this size,
+     same reasoning as the 4-player table's identical change. */
+  body.k28-in-game .seat .av{width:64px !important;height:64px !important;font-size:1.7rem !important}
+  body.k28-in-game .hand-cards .card{width:72px !important;height:102px !important;border-radius:11px !important}
+  body.k28-in-game .hand-cards .card{margin-left:-20px !important}
+  body.k28-in-game .hand-cards .card:first-child{margin-left:0 !important}
+}
 /* Per explicit follow-up request: same reversion as the 4-player
    table's identical change -- the "option 2" proportional desktop
    scale-up made the desktop experience noticeably worse, so it's

@@ -942,6 +942,19 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   $(id).classList.remove('hidden');
 }
+// Per explicit request, same addition as the 4-player table's identical
+// change -- see there for the fuller reasoning: mirrors #gameScreen's
+// real visibility (its own .hidden class, toggled by showScreen above)
+// onto a body class automatically, so the desktop wide-table CSS keyed
+// off it always stays correct regardless of which call site changed
+// screens or when, without needing every one of them touched directly.
+(function () {
+  const gs = document.getElementById('gameScreen');
+  if (!gs) return;
+  const sync = () => document.body.classList.toggle('k28-in-game', !gs.classList.contains('hidden'));
+  sync();
+  new MutationObserver(sync).observe(gs, { attributes: true, attributeFilter: ['class'] });
+})();
 function showToast(msg, kind, ms) {
   const el = document.createElement('div');
   el.textContent = msg;

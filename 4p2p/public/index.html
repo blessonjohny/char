@@ -244,6 +244,71 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      already-desktop-only media query instead, so desktop actually gets it too. */
   .cross{width:180px !important;height:270px !important}
 }
+/* ============================================================
+   WIDE DESKTOP TABLE (per explicit request): the wide table photo
+   becomes the actual game table on desktop, not a decorative surround
+   -- seats are repositioned to sit exactly where the real chairs are
+   in the photo, matching coordinates mapped directly from the image
+   itself (percentages measured against the actual photo, not guessed).
+   Scoped to body.k28-in-game (kept in sync with #gameWrap's real
+   visibility by the MutationObserver set up earlier in this file) so
+   this only ever applies during actual gameplay -- the welcome/lobby
+   screens keep the original 480px phone-frame treatment untouched.
+   ============================================================ */
+@media (min-width: 700px) {
+  body.k28-in-game #appPhoneFrame{
+    transform:none; /* the whole point: stop containing .game-wrap's position:fixed to this 480px box */
+    width:100%;
+    max-width:none;
+    background:none;
+    box-shadow:none;
+  }
+  body.k28-in-game .game-wrap{
+    background-image:url('/images/desktop-bg-4p.jpg');
+    background-size:cover;
+    background-position:center center;
+    background-repeat:no-repeat;
+  }
+  body.k28-in-game .table:not(.mode6){
+    display:block;
+    position:relative;
+    background:none;
+    box-shadow:none;
+    width:100%;
+    height:100%;
+    padding:0;
+  }
+  body.k28-in-game .table:not(.mode6) .pspot.top{
+    position:absolute;left:50%;top:9%;transform:translate(-50%,-50%);
+  }
+  body.k28-in-game .table:not(.mode6) .pspot.left{
+    position:absolute;left:17%;top:37%;transform:translate(-50%,-50%);
+  }
+  body.k28-in-game .table:not(.mode6) .pspot.right{
+    position:absolute;left:83%;top:37%;transform:translate(-50%,-50%);
+  }
+  body.k28-in-game .table:not(.mode6) .pspot.pos3{
+    position:absolute;left:50%;top:68%;transform:translate(-50%,-50%);
+  }
+  body.k28-in-game .table:not(.mode6) .center{
+    position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);
+  }
+  body.k28-in-game .table:not(.mode6) .hand-area{
+    position:absolute;left:50%;bottom:1%;transform:translateX(-50%);
+    background:none;border-top:none;
+    max-width:480px;min-height:auto;max-height:none;
+  }
+  /* Avatars sized for the mobile 480px column read as tiny dots on a
+     full desktop screen -- scaled up to actually read at this size. */
+  body.k28-in-game .avatar{width:64px;height:64px;font-size:1.7rem}
+  /* Same reasoning for the hand of cards -- the 52px mobile card size
+     (see the max-width:480px media query elsewhere in this file) reads
+     small and narrow stretched across a full desktop width. Scaled up
+     proportionally to roughly match the avatar scale-up above. */
+  body.k28-in-game .hand-area .card{width:72px !important;height:102px !important;border-radius:11px !important}
+  body.k28-in-game .hand-area .card{margin-left:-20px !important}
+  body.k28-in-game .hand-area .card:first-child{margin-left:0 !important}
+}
 /* Per explicit follow-up request: the "option 2" proportional desktop
    scale-up below made the desktop experience noticeably worse rather
    than better, so it's removed entirely here -- back to the plain,
@@ -6299,6 +6364,34 @@ function log(msg, type) {
 // deliberately non-alcoholic drinks (soda, tea, coffee, juice, bubble
 // tea) so it's a different glass/cup each time instead of always the
 // same clinking-glasses emoji.
+// Per explicit request: desktop-only wide table layout, where the game
+// itself (not a decorative surround) uses the wide table photo and
+// repositions seats to match it. .game-wrap already uses
+// position:fixed;left:0;right:0 (meant to span the full viewport), but
+// #appPhoneFrame's own transform:translateZ(0) makes IT the containing
+// block for every position:fixed descendant instead -- so .game-wrap
+// has actually always been constrained to the 480px column on desktop,
+// not the real browser width, without anyone having to notice since
+// the whole site was 480px-constrained anyway before this. Rather than
+// touch each of the several separate places elsewhere in this file
+// that toggle #gameWrap's own display style directly (fragile -- easy
+// to miss one and have this silently drift out of sync later), this
+// watches #gameWrap itself and mirrors its real visibility onto a body
+// class automatically, no matter which of those call sites changed it
+// or when. The desktop CSS keyed off this class is what actually
+// breaks #appPhoneFrame's containment and applies the wide table
+// layout -- see the dedicated wide-table CSS block for that part.
+(function () {
+  const gw = document.getElementById('gameWrap');
+  if (!gw) return;
+  const sync = () => {
+    const visible = gw.style.display && gw.style.display !== 'none';
+    document.body.classList.toggle('k28-in-game', !!visible);
+  };
+  sync();
+  new MutationObserver(sync).observe(gw, { attributes: true, attributeFilter: ['style'] });
+})();
+
 const K28_CHEERS_DRINKS = [
   { emoji: '🥂', label: 'a glass' },
   { emoji: '🧋', label: 'bubble tea' },
