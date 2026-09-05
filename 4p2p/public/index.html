@@ -3301,6 +3301,27 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   .hand-area .card:first-child{margin-left:0 !important}
   .hand-area{min-height:86px !important;max-height:100px !important}
 }
+/* Real, confirmed bug fix per explicit live report: this same small
+   card size only ever applied via a max-width:480px media query,
+   which checks the actual BROWSER viewport. On a real phone that
+   viewport naturally IS ≤480px, so it fires correctly there. On
+   desktop, #appPhoneFrame squeezes the whole game visually into a
+   480px-wide column via a fixed CSS width, but the actual browser
+   window is still however wide the desktop screen is (often 1000px+)
+   -- so this media query never fired there at all, leaving cards at
+   the much larger default 100x140px size while visually crammed into
+   that same narrow column. The 6-player table never had this problem
+   since its cards are small by default with no viewport-width
+   dependency at all. Mirrors the exact same sizing here, scoped to
+   the same min-width:700px breakpoint #appPhoneFrame's own desktop
+   styling already uses, so it applies precisely when that squeezed
+   layout is actually active. */
+@media (min-width:700px){
+  .card{width:52px !important;height:74px !important;border-radius:9px !important}
+  .hand-area .card{margin-left:-16px !important}
+  .hand-area .card:first-child{margin-left:0 !important}
+  .hand-area{min-height:86px !important;max-height:100px !important}
+}
 .hand-area .card.playable-now{transform:translateY(-8px);z-index:5;
   box-shadow:0 0 0 2px rgba(233,185,73,0.65),0 8px 18px rgba(0,0,0,0.4)!important}
 .hand-area .card:active{z-index:6}

@@ -1142,6 +1142,44 @@ function connectSocket() {
     }
   });
 
+  // Real, confirmed bug fix per explicit live report: a player who
+  // stayed on this same tab/app the entire time (never switching away
+  // and back, so visibilitychange above never once fired) reported the
+  // automatic bot-takeover kicking in and then NEVER handing control
+  // back -- not just for the one stuck turn, but for every turn after
+  // it too, until the page was refreshed. Traced this to the server
+  // marking the seat disconnected (a brief real network drop
+  // Socket.IO's own client-side "connected" flag didn't register at
+  // all) with nothing left client-side to ever notice and recover from
+  // it: the connect handler only fires on an actual reconnect event,
+  // and visibilitychange only fires on an actual tab switch -- neither
+  // covers a connection that silently died while the tab stayed
+  // visible and socket.connected kept reporting true regardless. Once
+  // the server believes a seat is disconnected, maybeAutoAct() treats
+  // every single turn as stuck immediately (not just the one that
+  // crossed the timeout), which matches exactly what was reported.
+  // This runs the same healthPing-then-rejoin recovery the
+  // visibilitychange handler already does, but on its own timer,
+  // independent of visibility ever changing at all.
+  setInterval(() => {
+    if (!MY_TABLE_ID || !MY_PLAYER_ID) return;
+    if (!socket.connected) { socket.connect(); return; }
+    let settled = false;
+    const forceReconnect = () => {
+      if (settled) return;
+      settled = true;
+      try { socket.disconnect(); } catch (e) {}
+      socket.connect();
+    };
+    const healthCheckTimeout = setTimeout(forceReconnect, 3000);
+    socket.emit('healthPing', () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(healthCheckTimeout);
+      socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
+    });
+  }, 30000);
+
   socket.on('sixp_joined', (info) => {
     isAutoReconnectAttempt6p = false;
     MY_TABLE_ID = info.tableId;
