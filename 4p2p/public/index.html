@@ -220,14 +220,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    plain block element would. Explicit width sidesteps that entirely. */
 @media (min-width: 700px) {
   #appPhoneFrame{
-    width:900px;
+    width:100%;
     margin:0 auto;
     min-height:100vh;
     position:relative;
     transform:translateZ(0);
-    box-shadow:0 0 0 1px rgba(255,255,255,0.06), 0 40px 100px rgba(0,0,0,0.7);
+    box-shadow:none;
     background:linear-gradient(135deg,#0a1628 0%,#0d1b2a 50%,#111d2e 100%);
   }
+  /* Real, confirmed follow-up per explicit live report: 900px was
+     still narrow enough to leave visible bars on either side on an
+     actual wide monitor -- the background image is meant to extend
+     the full width of the screen with nothing constraining it at all.
+     Removed the width limit entirely (100% instead of a fixed
+     pixel value), letting the background fill the whole viewport.
+     The inner welcome content doesn't stretch awkwardly as a result --
+     .welcome-hero (further down this file) already has its own
+     max-width:500px;margin:0 auto, so it stays centered and readable
+     regardless of how wide this outer frame itself is. */
   /* Real, confirmed bug found per explicit live report: this rule used
      to unconditionally set the in-game table photo as the BODY's own
      background on every desktop screen, including the welcome/lobby
