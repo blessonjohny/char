@@ -384,7 +384,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      170px - 170*1.08=183.6, rounded to 184px, font-size scaled by the same factor. */
   /* Per explicit follow-up: another 10% bigger on top of the previous 184px (170->184 was an
      earlier, separate 8% bump) - 184*1.1=202.4, rounded to 202px. */
-  body.k28-in-game .table:not(.mode6) .pspot.pos3 .avatar{width:222px !important;height:222px !important;font-size:5.9rem !important}
+  /* Per explicit report: the bottom seat wasn't visibly growing the way top/left/right were
+     across several rounds of these size requests. Rather than keep guessing at why, reset to
+     a clean, known baseline first - every non-bottom seat now shares this exact same 175px
+     size (see the matching top/left/right rules elsewhere in this block) - then the bottom
+     seat is set as a straightforward 10% increase on top of that shared number (175*1.1=192.5,
+     rounded to 193px), so there's one single, unambiguous source size this is computed from. */
+  body.k28-in-game .table:not(.mode6) .pspot.pos3 .avatar{width:193px !important;height:193px !important;font-size:5.1rem !important}
   /* Same fix again for the left/right seats specifically -- these
      don't have their own per-seat override like top/pos3 above, they
      fall back to this file's general .table:not(.mode6) .avatar rule
@@ -395,7 +401,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      specifically was reported as looking a little small compared to
      the others -- bumped just that one up rather than all seats
      again, since only the right seat was called out. */
-  body.k28-in-game .table:not(.mode6) .pspot.right .avatar{width:191px !important;height:191px !important;font-size:5rem !important}
+  /* Per explicit request: right seat no longer gets its own separate bump - matched to the
+     same uniform size as top/left instead, so every non-bottom seat is identical. */
+  body.k28-in-game .table:not(.mode6) .pspot.right .avatar{width:175px !important;height:175px !important;font-size:4.6rem !important}
   /* Same reasoning for the hand of cards -- the 52px mobile card size
      (see the max-width:480px media query elsewhere in this file) reads
      small and narrow stretched across a full desktop width. Same fix
