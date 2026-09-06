@@ -1444,6 +1444,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    this request wasn't about. Matches the same treatment already applied
    to the 6-player table's equivalent round-end/game-over popups. */
 #postRoundOverlay .modal,#modalOverlay .modal{background:rgba(15,15,20,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+/* Real, confirmed change per explicit live report: this panel read as
+   a solid, opaque block compared to the trump-exposed popup's
+   deliberately see-through style -- made both this panel and its
+   full-screen backdrop match that same transparency level (same alpha
+   values as .game-event-box above), so the cards on the table stay
+   visible behind it instead of being fully hidden. Scoped to
+   #postRoundOverlay specifically, not the shared .modal-overlay class,
+   so other modals using that same class elsewhere are unaffected. */
+#postRoundOverlay{background:rgba(0,0,0,0.25) !important;}
+#postRoundOverlay .modal{background:linear-gradient(155deg, rgba(18,14,10,0.18), rgba(8,6,4,0.2)) !important;backdrop-filter:blur(3px) !important;-webkit-backdrop-filter:blur(3px) !important;}
 .modal h3{color:var(--accent);margin-bottom:10px}
 .modal p{color:var(--text-secondary);font-size:0.82rem;margin-bottom:16px;line-height:1.6}
 
@@ -1575,7 +1585,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .bid-status-banner .bsb-turn{display:block;margin-top:3px;color:#4ade80;font-weight:700}
 .game-event-box{
   position:relative;overflow:hidden;text-align:center;padding:26px 40px;border-radius:16px;max-width:88vw;
-  background:linear-gradient(155deg, rgba(18,14,10,0.55), rgba(8,6,4,0.58));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  /* Real, confirmed follow-up per explicit live report: the previous
+     0.55/0.58 alpha values still read as too solid -- the actual cards
+     on the table need to stay visible through this, not just a subtle
+     tint. Dropped significantly (to 0.18/0.2) and reduced the blur too
+     (6px -> 3px), so the cards underneath are genuinely legible through
+     it rather than just barely-there. */
+  background:linear-gradient(155deg, rgba(18,14,10,0.18), rgba(8,6,4,0.2));backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
   border:1.5px solid var(--evt-color, #f4c430);
   box-shadow:0 0 1px var(--evt-color, #f4c430),0 12px 40px rgba(0,0,0,0.6),0 0 60px var(--evt-glow, rgba(244,196,48,0.25));
   animation:gameEventIn .5s cubic-bezier(.16,.9,.28,1) both;
@@ -18283,17 +18299,14 @@ function applyServerState(state) {
     const yourTeam = getTeam(MY_POS);
     const isYourBid = (getTeam(r.bidder) === yourTeam);
     const bidderName = playerAt(r.bidder) ? playerAt(r.bidder).name : 'The bidder';
-    // Colored (and worded) from THIS viewer's own perspective, not a fixed "made=green,
-    // failed=red" mapping - the exact same event is good news for one team and bad news for
-    // the other, so the same banner shown to both sides needs to actually say and show the
-    // opposite of each other, not the identical text and color regardless of who's looking.
-    if (isYourBid) {
-      if (r.bidderWon) showGameEvent(r.highestBid >= 20 ? '👑' : '🏆', r.highestBid >= 20 ? 'You Made the Honors!' : 'You Beat the Bid!', bidderName + ' — ' + r.highestBid, '#2ecc71');
-      else showGameEvent('💥', "You Lost — Didn't Make It", bidderName + ' — ' + r.highestBid, '#e74c3c');
-    } else {
-      if (r.bidderWon) showGameEvent(r.highestBid >= 20 ? '👑' : '💥', r.highestBid >= 20 ? 'Opp Made the Honors' : 'Opp Made It', bidderName + ' — ' + r.highestBid, '#e74c3c');
-      else showGameEvent('🛡️', 'You Won — Defended!', bidderName + ' — ' + r.highestBid, '#2ecc71');
-    }
+    // Real, confirmed change per explicit live report: this used to also
+    // show a separate showGameEvent() banner (green for a win, red for a
+    // loss) announcing the exact same "did your team make the bid"
+    // result that postRoundOverlay, opening right after, already says
+    // in full with the actual score breakdown -- two different popups
+    // conveying the same result back to back. Removed this banner
+    // entirely per explicit instruction; postRoundOverlay alone now
+    // carries this message.
     const champResult = state.lastChampionshipResult;
     let roundEndPanelShown = false;
 
