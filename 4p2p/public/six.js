@@ -958,26 +958,19 @@ function showScreen(id) {
   document.body.classList.toggle('k28-in-game', id === 'gameScreen' && window.innerWidth >= 521);
 }
 // Per explicit request, same addition as the 4-player table's identical
-// change -- see there for the fuller reasoning: mirrors #gameScreen's
-// real visibility (its own .hidden class, toggled by showScreen above)
-// onto a body class automatically, so the desktop wide-table CSS keyed
-// off it always stays correct regardless of which call site changed
-// screens or when, without needing every one of them touched directly.
-(function () {
-  const gs = document.getElementById('gameScreen');
-  if (!gs) return;
-  const sync = () => document.body.classList.toggle('k28-in-game', !gs.classList.contains('hidden'));
-  sync();
-  new MutationObserver(sync).observe(gs, { attributes: true, attributeFilter: ['class'] });
-  // Real, confirmed live report: same fallback as the 4-player table's
-  // identical addition -- see there for the fuller reasoning. Runs
-  // independently of the MutationObserver above and re-checks the real,
-  // current computed visibility every half second regardless of cause.
-  setInterval(() => {
-    const visible = getComputedStyle(gs).display !== 'none';
-    document.body.classList.toggle('k28-in-game', visible);
-  }, 500);
-})();
+// change -- see there for the fuller reasoning: originally mirrored
+// #gameScreen's visibility onto body.k28-in-game via a separate
+// MutationObserver plus a 500ms poll as a safety net. Removed both per
+// explicit live report of an intermittent size glitch specifically at
+// round transitions: showScreen() itself now sets this class directly
+// and synchronously the one place visibility actually changes (see
+// showScreen above), making this separate observer/poll redundant --
+// and worse, a real liability, since it re-derived the class from
+// #gameScreen's raw visibility with no viewport-width check at all
+// (unlike showScreen's own check), so it could re-flip the class
+// incorrectly off of a transient DOM state during any transition,
+// independent of whether the actual screen or viewport had changed at
+// all. One single source of truth now instead of two racing to agree.
 function showToast(msg, kind, ms) {
   const el = document.createElement('div');
   el.textContent = msg;
