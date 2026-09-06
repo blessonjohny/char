@@ -205,7 +205,8 @@
   --info-accent-glow: rgba(255,138,128,0.45);
 }
 html,body{height:100%;overflow:hidden}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0a1628 0%,#0d1b2a 50%,#111d2e 100%);color:var(--text-primary);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+html{overflow-x:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0a1628 0%,#0d1b2a 50%,#111d2e 100%);color:var(--text-primary);touch-action:manipulation;user-select:none;-webkit-user-select:none;overflow-x:hidden}
 /* Same "phone frame" fix as the 6-player table's identical addition - constrains the whole
    app to a centered, phone-width column on screens wider than a phone, since this UI leans
    heavily on position:fixed elements that would otherwise anchor to the full width of a wide
@@ -294,8 +295,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     background:none;
     box-shadow:none;
     width:100%;
-    height:100%;
+    flex-grow:1 !important;
+    flex-shrink:1 !important;
+    flex-basis:2000px !important;
+    min-height:0 !important;
     padding:0;
+  }
+  /* Real, confirmed root cause found via direct CSSOM inspection: a
+     completely separate, unrelated #tableArea rule (same element --
+     "tableArea" is this element's id, "table" is its class) caps
+     max-height at a flat 820px for any screen 700px wide or more --
+     tuned for a mid-size tablet breakpoint that has nothing to do with
+     this desktop layout, but ID selectors beat class selectors on
+     specificity regardless of source order, so it silently overrode
+     every flex-based attempt above to make this element actually fill
+     the remaining vertical space. This is what was leaving a visible
+     gap of raw background below the table on desktop. */
+  body.k28-in-game #tableArea{
+    max-height:none !important;
   }
   body.k28-in-game .table:not(.mode6) .pspot.top{
     position:absolute;left:50%;top:15%;transform:translate(-50%,-50%);
@@ -312,6 +329,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   }
   body.k28-in-game .table:not(.mode6) .center{
     position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);
+  }
+  /* Real, confirmed follow-up per explicit live report: .cross (the
+     container holding the 4 played-card slots -- top/left/right/bottom)
+     was 180x270px, tall and narrow, so the top/bottom played cards sat
+     far apart while left/right sat close together. Pulled top/bottom
+     in and pushed left/right out to balance the spread instead. */
+  body.k28-in-game .table:not(.mode6) .cross{width:220px !important;height:210px !important}
+  /* Real, confirmed follow-up per explicit live report: .bottom-bar
+     (the turn/phase footer strip) has its own solid, opaque dark
+     gradient background, completely different from the casino table
+     photo above it -- on the new wide desktop layout this reads as
+     the table photo abruptly stopping and a plain strip showing
+     underneath, rather than looking like part of the same room. Made
+     it semi-transparent over the same table background instead of a
+     solid color, so the casino photo visually continues underneath it
+     the whole way down, with a dark backdrop behind the text still
+     kept dark enough to stay readable. */
+  body.k28-in-game .bottom-bar{
+    background:linear-gradient(135deg,rgba(17,29,46,0.75),rgba(13,27,42,0.75)) !important;
+    backdrop-filter:blur(4px);
   }
   body.k28-in-game .table:not(.mode6) .hand-area{
     position:absolute;left:50%;bottom:1%;transform:translateX(-50%);
@@ -338,6 +375,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      instead, which ALSO uses !important with its own specificity this
      needed to be matched to beat. */
   body.k28-in-game .table:not(.mode6) .avatar{width:170px !important;height:170px !important;font-size:4.5rem !important}
+  /* Real, confirmed follow-up per explicit live report: the right seat
+     specifically was reported as looking a little small compared to
+     the others -- bumped just that one up rather than all seats
+     again, since only the right seat was called out. */
+  body.k28-in-game .table:not(.mode6) .pspot.right .avatar{width:185px !important;height:185px !important;font-size:4.9rem !important}
   /* Same reasoning for the hand of cards -- the 52px mobile card size
      (see the max-width:480px media query elsewhere in this file) reads
      small and narrow stretched across a full desktop width. Same fix

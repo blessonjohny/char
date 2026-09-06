@@ -157,12 +157,21 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
      biggest of all (closest) -- same relative ordering as the mobile
      #seatWrap0-5 rules already use, just scaled up for this much
      wider desktop table area. */
-  body.k28-in-game #seatWrap3 .av{width:140px !important;height:140px !important;font-size:3.7rem !important}
-  body.k28-in-game #seatWrap2 .av,
-  body.k28-in-game #seatWrap4 .av{width:165px !important;height:165px !important;font-size:4.3rem !important}
-  body.k28-in-game #seatWrap1 .av,
-  body.k28-in-game #seatWrap5 .av{width:195px !important;height:195px !important;font-size:5rem !important}
-  body.k28-in-game #seatWrap0 .av{width:220px !important;height:220px !important;font-size:5.7rem !important}
+  /* Real, confirmed follow-up per explicit live report: bottom-left,
+     top, and top-right were specifically reported as still looking
+     small even after the previous increase -- rather than a flat
+     percentage bump across every seat equally, these three get a
+     bigger jump than the rest so they actually catch up, while every
+     seat also gets the requested general ~15% increase on top of that.
+     Split bottom-left away from bottom-right (previously the same
+     size as each other) since only one seat was reported as too
+     small, not both. */
+  body.k28-in-game #seatWrap3 .av{width:180px !important;height:180px !important;font-size:4.7rem !important}
+  body.k28-in-game #seatWrap4 .av{width:195px !important;height:195px !important;font-size:5rem !important}
+  body.k28-in-game #seatWrap2 .av{width:225px !important;height:225px !important;font-size:5.8rem !important}
+  body.k28-in-game #seatWrap1 .av{width:225px !important;height:225px !important;font-size:5.8rem !important}
+  body.k28-in-game #seatWrap5 .av{width:250px !important;height:250px !important;font-size:6.4rem !important}
+  body.k28-in-game #seatWrap0 .av{width:265px !important;height:265px !important;font-size:6.8rem !important}
   /* Real, confirmed follow-up per explicit request: card box itself
      brought down a little from the previous pass (110x156) so the
      card reads less like a big blank rectangle, while the rank/suit
@@ -222,11 +231,11 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
      to true center (50%,50%) instead of leaving them at their original
      mobile spread. */
   body.k28-in-game #trickSlot0{left:50% !important;top:58% !important;}
-  body.k28-in-game #trickSlot1{left:61% !important;top:53% !important;}
-  body.k28-in-game #trickSlot2{left:61% !important;top:47% !important;}
+  body.k28-in-game #trickSlot1{left:60% !important;top:53% !important;}
+  body.k28-in-game #trickSlot2{left:60% !important;top:47% !important;}
   body.k28-in-game #trickSlot3{left:50% !important;top:43% !important;}
-  body.k28-in-game #trickSlot4{left:39% !important;top:47% !important;}
-  body.k28-in-game #trickSlot5{left:39% !important;top:53% !important;}
+  body.k28-in-game #trickSlot4{left:40% !important;top:47% !important;}
+  body.k28-in-game #trickSlot5{left:40% !important;top:53% !important;}
 }
 /* Per explicit follow-up request: same reversion as the 4-player
    table's identical change -- the "option 2" proportional desktop
