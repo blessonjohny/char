@@ -1114,6 +1114,12 @@ function connectSocket() {
     lastRenderedTrickSlot = [null, null, null, null, null, null];
     sixpCatchUpGen++;
     if (MY_TABLE_ID && MY_PLAYER_ID) {
+      // Same silent-recovery flag as the other two health-check-driven
+      // rejoins -- see there for the fuller reasoning. A real network
+      // reconnect while already mid-game needs the exact same
+      // treatment: land back on whatever screen was already showing,
+      // not get bounced to the lobby.
+      window.__sixpSilentRejoin = true;
       socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
     }
     // The "connection lost" toast never had a matching "you're back"
@@ -1178,6 +1184,22 @@ function connectSocket() {
         settled = true;
         clearTimeout(healthCheckTimeout);
         if (MY_TABLE_ID && MY_PLAYER_ID) {
+          // Real, confirmed bug found per explicit live report: this is
+          // a SILENT background recovery -- the player never actually
+          // left the game screen, so the rejoin this triggers shouldn't
+          // touch what's currently on screen at all. But the shared
+          // sixp_joined handler below unconditionally calls
+          // showScreen('lobbyScreen') on every successful join,
+          // assuming it's always a fresh one -- so every time this
+          // silent recovery fired, it was yanking an actively-playing
+          // user back to the lobby screen for a moment before whatever
+          // came next switched back to the game screen, which is
+          // exactly what caused the reported "avatars pop small, then
+          // back to normal" -- the lobby screen briefly counts as NOT
+          // the wide desktop game view, sizing everything back down
+          // for that instant. Flag this as silent so that handler knows
+          // to leave the current screen alone.
+          window.__sixpSilentRejoin = true;
           socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
         }
       });
@@ -1218,6 +1240,12 @@ function connectSocket() {
       if (settled) return;
       settled = true;
       clearTimeout(healthCheckTimeout);
+      // Same silent-recovery flag as the visibilitychange handler's
+      // identical health-ping above -- see there for the fuller
+      // reasoning. This one fires unconditionally every 30 seconds
+      // regardless of tab visibility, so it's an even more frequent
+      // source of the same reported pop if left unflagged.
+      window.__sixpSilentRejoin = true;
       socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
     });
   }, 30000);
@@ -1234,7 +1262,21 @@ function connectSocket() {
       localStorage.setItem('k28six_session_time', String(Date.now()));
     } catch (e) {}
     $('seatPickerOverlay').classList.remove('on');
-    showScreen('lobbyScreen');
+    // Real, confirmed bug fix per explicit live report: this used to
+    // unconditionally switch to the lobby screen on every successful
+    // join, silently assuming every join is a fresh one -- but the two
+    // background health-check recoveries above also route through this
+    // exact same event on success, and those fire while a game is
+    // already actively in progress on screen. Skips the screen switch
+    // specifically for those silent recoveries, leaving whatever
+    // screen the player was actually looking at alone -- a genuine
+    // fresh join (this flag unset) still goes to the lobby exactly as
+    // before.
+    if (window.__sixpSilentRejoin) {
+      window.__sixpSilentRejoin = false;
+    } else {
+      showScreen('lobbyScreen');
+    }
     $('roomCodeDisplay').textContent = info.tableId;
   });
 

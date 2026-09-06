@@ -143,11 +143,11 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
     display:none !important;
   }
   body.k28-in-game #seatWrap0{left:50% !important;top:80% !important;}
-  body.k28-in-game #seatWrap1{left:82% !important;top:64% !important;}
+  body.k28-in-game #seatWrap1{left:79% !important;top:64% !important;}
   body.k28-in-game #seatWrap2{left:73% !important;top:29% !important;}
   body.k28-in-game #seatWrap3{left:50% !important;top:21% !important;}
-  body.k28-in-game #seatWrap4{left:23% !important;top:29% !important;}
-  body.k28-in-game #seatWrap5{left:18% !important;top:64% !important;}
+  body.k28-in-game #seatWrap4{left:26% !important;top:32% !important;}
+  body.k28-in-game #seatWrap5{left:21% !important;top:64% !important;}
   /* Real, confirmed follow-up per explicit request: restored the
      depth-perspective sizing concept the mobile layout already uses --
      the earlier flattening to one uniform size for every seat was a
@@ -157,12 +157,12 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
      biggest of all (closest) -- same relative ordering as the mobile
      #seatWrap0-5 rules already use, just scaled up for this much
      wider desktop table area. */
-  body.k28-in-game #seatWrap3 .av{width:120px !important;height:120px !important;font-size:3.2rem !important}
+  body.k28-in-game #seatWrap3 .av{width:140px !important;height:140px !important;font-size:3.7rem !important}
   body.k28-in-game #seatWrap2 .av,
-  body.k28-in-game #seatWrap4 .av{width:145px !important;height:145px !important;font-size:3.8rem !important}
+  body.k28-in-game #seatWrap4 .av{width:165px !important;height:165px !important;font-size:4.3rem !important}
   body.k28-in-game #seatWrap1 .av,
-  body.k28-in-game #seatWrap5 .av{width:175px !important;height:175px !important;font-size:4.5rem !important}
-  body.k28-in-game #seatWrap0 .av{width:200px !important;height:200px !important;font-size:5.2rem !important}
+  body.k28-in-game #seatWrap5 .av{width:195px !important;height:195px !important;font-size:5rem !important}
+  body.k28-in-game #seatWrap0 .av{width:220px !important;height:220px !important;font-size:5.7rem !important}
   /* Real, confirmed follow-up per explicit request: card box itself
      brought down a little from the previous pass (110x156) so the
      card reads less like a big blank rectangle, while the rank/suit
@@ -215,6 +215,18 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
      and scaled its own text up to match everything else around it. */
   body.k28-in-game .ltrick{top:150px !important;width:150px !important;max-width:150px !important;padding:8px 12px !important}
   body.k28-in-game .ltrick h6{font-size:1.1rem !important}
+  /* Real, confirmed follow-up per explicit live report: the played
+     (trick) cards were sitting at the same spread mobile positions,
+     which read as too far apart / too far from the table's actual
+     center on the much wider desktop layout. Pulled each one closer
+     to true center (50%,50%) instead of leaving them at their original
+     mobile spread. */
+  body.k28-in-game #trickSlot0{left:50% !important;top:58% !important;}
+  body.k28-in-game #trickSlot1{left:61% !important;top:53% !important;}
+  body.k28-in-game #trickSlot2{left:61% !important;top:47% !important;}
+  body.k28-in-game #trickSlot3{left:50% !important;top:43% !important;}
+  body.k28-in-game #trickSlot4{left:39% !important;top:47% !important;}
+  body.k28-in-game #trickSlot5{left:39% !important;top:53% !important;}
 }
 /* Per explicit follow-up request: same reversion as the 4-player
    table's identical change -- the "option 2" proportional desktop
