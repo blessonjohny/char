@@ -144,9 +144,9 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
   }
   body.k28-in-game #seatWrap0{left:50% !important;top:80% !important;}
   body.k28-in-game #seatWrap1{left:82% !important;top:64% !important;}
-  body.k28-in-game #seatWrap2{left:73% !important;top:24% !important;}
-  body.k28-in-game #seatWrap3{left:50% !important;top:17% !important;}
-  body.k28-in-game #seatWrap4{left:23% !important;top:36% !important;}
+  body.k28-in-game #seatWrap2{left:73% !important;top:29% !important;}
+  body.k28-in-game #seatWrap3{left:50% !important;top:21% !important;}
+  body.k28-in-game #seatWrap4{left:23% !important;top:29% !important;}
   body.k28-in-game #seatWrap5{left:18% !important;top:64% !important;}
   /* Real, confirmed follow-up per explicit request: restored the
      depth-perspective sizing concept the mobile layout already uses --
@@ -191,12 +191,30 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
   body.k28-in-game .score-box{padding:6px 14px !important;min-width:80px !important;border-radius:12px !important}
   body.k28-in-game .score-box .slabel{font-size:0.95rem !important}
   body.k28-in-game .score-box .sval{font-size:2rem !important}
-  body.k28-in-game .trump-chip{font-size:1.3rem !important;padding:8px 20px !important}
   body.k28-in-game #sixInfoDealerWrap,
   body.k28-in-game #sixInfoPointsWrap,
   body.k28-in-game #sixInfoBidderWrap{font-size:1.2rem !important}
   body.k28-in-game .seat .nm{font-size:1rem !important;max-width:180px !important}
   body.k28-in-game .seat .bdg{font-size:0.9rem !important;padding:3px 8px !important;border-radius:10px !important}
+  /* Real, confirmed bug found via live report: scaling up the text
+     inside the topbar (score boxes, dealer/points/bidder row) made the
+     topbar itself noticeably taller than it was, but the trump-chip
+     badge is a separate position:absolute element with its own fixed
+     top:80px, tuned for the OLD, much shorter topbar height -- once
+     the topbar grew, this fixed position put the chip overlapping the
+     now-lower dealer/bidder row instead of sitting cleanly below it.
+     Gave the topbar itself more breathing room (padding, row gap) to
+     match its now-larger text, and moved the trump-chip down to
+     actually clear the new, taller topbar's real bottom edge. */
+  body.k28-in-game .topbar{padding:14px 24px !important;gap:8px !important}
+  body.k28-in-game .topbar > div{gap:10px !important}
+  body.k28-in-game .trump-chip{top:150px !important;font-size:1.3rem !important;padding:8px 20px !important}
+  /* Same root cause and same fix as trump-chip above -- .ltrick (the
+     "Last Trick" box) is also position:absolute;top:80px, tuned for
+     the same old, shorter topbar. Moved down to clear the taller one,
+     and scaled its own text up to match everything else around it. */
+  body.k28-in-game .ltrick{top:150px !important;width:150px !important;max-width:150px !important;padding:8px 12px !important}
+  body.k28-in-game .ltrick h6{font-size:1.1rem !important}
 }
 /* Per explicit follow-up request: same reversion as the 4-player
    table's identical change -- the "option 2" proportional desktop
