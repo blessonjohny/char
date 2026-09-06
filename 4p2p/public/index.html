@@ -320,11 +320,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   /* Per explicit request: left/right seats pulled a tiny bit further from center (away from
      the table), top seat nudged down a little, and the bottom (player's own) seat nudged
      down a bit too - all small moves, not big repositions. */
+  /* Per explicit follow-up: pulled back in toward center a tiny bit (19%->21%, 81%->79%). */
   body.k28-in-game .table:not(.mode6) .pspot.left{
-    position:absolute;left:19%;top:48%;transform:translate(-50%,-50%);
+    position:absolute;left:21%;top:48%;transform:translate(-50%,-50%);
   }
   body.k28-in-game .table:not(.mode6) .pspot.right{
-    position:absolute;left:81%;top:48%;transform:translate(-50%,-50%);
+    position:absolute;left:79%;top:48%;transform:translate(-50%,-50%);
   }
   body.k28-in-game .table:not(.mode6) .pspot.pos3{
     position:absolute;left:50%;top:75%;transform:translate(-50%,-50%);
@@ -345,7 +346,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      to actually fill that larger container. z-index added here (matching .hand-area's own
      z-index:2 below) so played cards correctly sit on top of any avatar they happen to
      overlap, per explicit request - same treatment for both played cards and hand cards. */
-  body.k28-in-game .table:not(.mode6) .pslot{width:70px !important;height:98px !important;z-index:2}
+  /* Per explicit follow-up: played cards made a little bigger still (70x98 -> 78x109). */
+  body.k28-in-game .table:not(.mode6) .pslot{width:78px !important;height:109px !important;z-index:2}
   /* Real, confirmed follow-up per explicit live report: .bottom-bar
      (the turn/phase footer strip) has its own solid, opaque dark
      gradient background, completely different from the casino table
@@ -380,7 +382,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   body.k28-in-game .table:not(.mode6) .pspot.top .avatar{width:170px !important;height:170px !important;font-size:4.5rem !important}
   /* Per explicit request: the bottom (player's own) seat made 8% bigger than the standard
      170px - 170*1.08=183.6, rounded to 184px, font-size scaled by the same factor. */
-  body.k28-in-game .table:not(.mode6) .pspot.pos3 .avatar{width:184px !important;height:184px !important;font-size:4.9rem !important}
+  /* Per explicit follow-up: another 10% bigger on top of the previous 184px (170->184 was an
+     earlier, separate 8% bump) - 184*1.1=202.4, rounded to 202px. */
+  body.k28-in-game .table:not(.mode6) .pspot.pos3 .avatar{width:202px !important;height:202px !important;font-size:5.4rem !important}
   /* Same fix again for the left/right seats specifically -- these
      don't have their own per-seat override like top/pos3 above, they
      fall back to this file's general .table:not(.mode6) .avatar rule
@@ -400,7 +404,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      above, since a vw-based size would still track the raw (now
      unbounded relative to the capped container) viewport width. Per
      explicit follow-up request, sized up further still (82x116 -> 92x130). */
-  body.k28-in-game .hand-area .card{width:92px !important;height:130px !important;border-radius:12px !important}
+  /* Per explicit follow-up: hand cards read as too tall/oversized at this scale even though
+     the ratio matched mobile's own proportions exactly - reduced overall size and eased the
+     ratio a bit less tall in the process. z-index added explicitly here (rather than assuming
+     one already existed on the container, which it didn't) so hand cards always sit on top of
+     the bottom avatar if the two ever overlap, per explicit request. */
+  body.k28-in-game .hand-area .card{width:80px !important;height:105px !important;border-radius:11px !important;z-index:3 !important}
   body.k28-in-game .hand-area .card{margin-left:-20px !important}
   body.k28-in-game .hand-area .card:first-child{margin-left:0 !important}
   /* Real, confirmed bug found via live report with screenshots: the
