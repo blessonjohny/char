@@ -958,19 +958,32 @@ function showScreen(id) {
   document.body.classList.toggle('k28-in-game', id === 'gameScreen' && window.innerWidth >= 521);
 }
 // Per explicit request, same addition as the 4-player table's identical
-// change -- see there for the fuller reasoning: originally mirrored
-// #gameScreen's visibility onto body.k28-in-game via a separate
-// MutationObserver plus a 500ms poll as a safety net. Removed both per
-// explicit live report of an intermittent size glitch specifically at
-// round transitions: showScreen() itself now sets this class directly
-// and synchronously the one place visibility actually changes (see
-// showScreen above), making this separate observer/poll redundant --
-// and worse, a real liability, since it re-derived the class from
-// #gameScreen's raw visibility with no viewport-width check at all
-// (unlike showScreen's own check), so it could re-flip the class
-// incorrectly off of a transient DOM state during any transition,
-// independent of whether the actual screen or viewport had changed at
-// all. One single source of truth now instead of two racing to agree.
+// change -- see there for the fuller reasoning: mirrors #gameScreen's
+// real visibility onto body.k28-in-game as a safety net, in addition
+// to showScreen() setting it directly above. Real, confirmed live
+// report: removing this fallback entirely (on the theory that
+// showScreen() alone was now sufficient) broke the desktop layout
+// completely on the actual live site, even though it kept working
+// correctly in every local test here -- whatever the exact reason
+// (a different code path reaching #gameScreen's visibility without
+// going through showScreen, or something else this sandbox doesn't
+// reproduce), the fallback is evidently load-bearing in a way local
+// testing alone didn't reveal, and needs to stay. Rebuilt correctly
+// this time instead of just restoring the old version verbatim: checks
+// the same .hidden class showScreen() itself checks (not raw computed
+// display, which is more exposed to transient CSS-rendering states
+// during a re-render) AND requires the same window.innerWidth>=521
+// condition showScreen() already requires -- the previous version of
+// this fallback checked neither of those the same way, which is what
+// actually let it disagree with showScreen() and cause the earlier
+// pop/glitch at round transitions. This version can only ever agree
+// with showScreen()'s own logic, never contradict it.
+setInterval(() => {
+  const gs = document.getElementById('gameScreen');
+  if (!gs) return;
+  const shouldBeActive = !gs.classList.contains('hidden') && window.innerWidth >= 521;
+  document.body.classList.toggle('k28-in-game', shouldBeActive);
+}, 500);
 function showToast(msg, kind, ms) {
   const el = document.createElement('div');
   el.textContent = msg;
