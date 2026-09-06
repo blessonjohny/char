@@ -347,7 +347,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      z-index:2 below) so played cards correctly sit on top of any avatar they happen to
      overlap, per explicit request - same treatment for both played cards and hand cards. */
   /* Per explicit follow-up: played cards made a little bigger still (70x98 -> 78x109). */
-  body.k28-in-game .table:not(.mode6) .pslot{width:78px !important;height:109px !important;z-index:2}
+  body.k28-in-game .table:not(.mode6) .pslot{width:82px !important;height:114px !important;z-index:2}
   /* Real, confirmed follow-up per explicit live report: .bottom-bar
      (the turn/phase footer strip) has its own solid, opaque dark
      gradient background, completely different from the casino table
@@ -378,24 +378,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      container itself no longer grows unbounded -- sized generously
      against that same 1600px cap rather than trying to track viewport
      width at all. */
-  body.k28-in-game .avatar{width:170px !important;height:170px !important;font-size:4.5rem !important}
-  body.k28-in-game .table:not(.mode6) .pspot.top .avatar{width:170px !important;height:170px !important;font-size:4.5rem !important}
+  body.k28-in-game .avatar{width:175px !important;height:175px !important;font-size:4.6rem !important}
+  body.k28-in-game .table:not(.mode6) .pspot.top .avatar{width:175px !important;height:175px !important;font-size:4.6rem !important}
   /* Per explicit request: the bottom (player's own) seat made 8% bigger than the standard
      170px - 170*1.08=183.6, rounded to 184px, font-size scaled by the same factor. */
   /* Per explicit follow-up: another 10% bigger on top of the previous 184px (170->184 was an
      earlier, separate 8% bump) - 184*1.1=202.4, rounded to 202px. */
-  body.k28-in-game .table:not(.mode6) .pspot.pos3 .avatar{width:202px !important;height:202px !important;font-size:5.4rem !important}
+  body.k28-in-game .table:not(.mode6) .pspot.pos3 .avatar{width:222px !important;height:222px !important;font-size:5.9rem !important}
   /* Same fix again for the left/right seats specifically -- these
      don't have their own per-seat override like top/pos3 above, they
      fall back to this file's general .table:not(.mode6) .avatar rule
      instead, which ALSO uses !important with its own specificity this
      needed to be matched to beat. */
-  body.k28-in-game .table:not(.mode6) .avatar{width:170px !important;height:170px !important;font-size:4.5rem !important}
+  body.k28-in-game .table:not(.mode6) .avatar{width:175px !important;height:175px !important;font-size:4.6rem !important}
   /* Real, confirmed follow-up per explicit live report: the right seat
      specifically was reported as looking a little small compared to
      the others -- bumped just that one up rather than all seats
      again, since only the right seat was called out. */
-  body.k28-in-game .table:not(.mode6) .pspot.right .avatar{width:185px !important;height:185px !important;font-size:4.9rem !important}
+  body.k28-in-game .table:not(.mode6) .pspot.right .avatar{width:191px !important;height:191px !important;font-size:5rem !important}
   /* Same reasoning for the hand of cards -- the 52px mobile card size
      (see the max-width:480px media query elsewhere in this file) reads
      small and narrow stretched across a full desktop width. Same fix
