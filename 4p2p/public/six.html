@@ -1296,9 +1296,11 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      (left one moved more, matching the reported severity), and the top seat pulled down a
      little further still per the same report. */
   #seatWrap1 { left: 87% !important; top: 63% !important; }
-  #seatWrap2 { left: 88% !important; top: 33% !important; }
-  #seatWrap3 { left: 50% !important; top: 25% !important; }
-  #seatWrap4 { left: 12% !important; top: 33% !important; }
+  /* Per explicit request (mobile view only): top, upper-left, and upper-right seats moved
+     down a little bit (33->35, 25->27, 33->35). */
+  #seatWrap2 { left: 88% !important; top: 35% !important; }
+  #seatWrap3 { left: 50% !important; top: 27% !important; }
+  #seatWrap4 { left: 12% !important; top: 35% !important; }
   #seatWrap5 { left: 14% !important; top: 65% !important; }
 
   /* Trick-card (played card) positions were drifting from the avatar
