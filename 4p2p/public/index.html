@@ -220,7 +220,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    plain block element would. Explicit width sidesteps that entirely. */
 @media (min-width: 700px) {
   #appPhoneFrame{
-    width:480px;
+    width:900px;
     margin:0 auto;
     min-height:100vh;
     position:relative;
@@ -228,14 +228,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     box-shadow:0 0 0 1px rgba(255,255,255,0.06), 0 40px 100px rgba(0,0,0,0.7);
     background:linear-gradient(135deg,#0a1628 0%,#0d1b2a 50%,#111d2e 100%);
   }
+  /* Real, confirmed bug found per explicit live report: this rule used
+     to unconditionally set the in-game table photo as the BODY's own
+     background on every desktop screen, including the welcome/lobby
+     screens -- but #appPhoneFrame right above gets its own separate
+     dark gradient background, and (before this fix) was a fixed
+     480px column. The table photo only showed up in the gap AROUND
+     that narrow column, splitting across both sides with the actual
+     welcome content squeezed in a thin strip in the middle -- exactly
+     the "table background on both sides, phone view in the middle"
+     look reported. Two changes here: the table photo is removed from
+     the welcome-screen case entirely (a plain dark color instead,
+     matching #appPhoneFrame's own gradient so there's no visible seam
+     at all), and #appPhoneFrame itself widened from a narrow 480px
+     column to a more genuinely desktop-appropriate 900px -- this
+     block only ever affects the welcome/lobby case; the in-game view
+     has its own separate, already-working full-width treatment
+     further below that overrides both of these when body.k28-in-game
+     is active. */
   body{
     display:block;
     background-color:#05070a;
-    background-image:url('/images/desktop-bg-4p.jpg');
-    background-size:cover;
-    background-position:center center;
-    background-repeat:no-repeat;
-    background-attachment:fixed;
+    background-image:none;
   }
   /* The trick-card spacing fix (.cross size) further down this file lives inside
      @media(max-width:480px), which checks the actual BROWSER viewport - on desktop the
