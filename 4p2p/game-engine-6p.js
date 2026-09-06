@@ -1156,6 +1156,16 @@ class GameEngine6P {
     if (this.phase !== 'play') return false;
     if (this.highestBid > 19) return false;
     if (this.pendingEarlyWinChoice) return false;
+    // Real, confirmed bug fix per explicit live report: the mid-trick
+    // ASK path (_getMidTrickAskTarget) already refuses to offer anyone
+    // the ask button during a round's very first trick -- but this
+    // core check, which the plain DECLARE path (_isQuoteEligibleFor)
+    // also runs through, had no such restriction at all. That meant a
+    // player really could declare COT/MaruCOT during trick 1 itself,
+    // directly contradicting the intended rule that this only becomes
+    // available starting from the second trick onward, same as asking.
+    // Moved the same restriction here so both paths agree.
+    if (this.tricksPlayed === 0) return false;
     return !!this.teamStillClean[getTeam(pos)];
   }
   _isQuoteEligibleFor(pos) {
