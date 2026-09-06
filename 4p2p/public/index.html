@@ -3351,7 +3351,16 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    this reset, restores it for desktop widths without touching the
    redesign2026 rule itself (mobile/base styling untouched). */
 @media (min-width: 700px) {
-  body{
+  /* Real, confirmed bug found per explicit live report: this rule had
+     no gate on body.k28-in-game at all, so it fired on every screen at
+     desktop width -- including the welcome/lobby screens, which were
+     never meant to show the in-game table photo as their background at
+     all. The photo split awkwardly across both sides of the narrow
+     welcome column, looking like two disconnected half-images rather
+     than an intentional design. Scoped to only apply while the game is
+     actually active; the welcome/lobby screens now fall back to the
+     plain gradient below instead. */
+  body.k28-in-game{
     background-color:#05070a;
     background-image:url('/images/desktop-bg-4p.jpg');
     background-size:cover;

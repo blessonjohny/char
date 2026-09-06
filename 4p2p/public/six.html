@@ -29,6 +29,24 @@
 <meta property="og:description" content="Play 6-player 28 (Gulan) online free, 2 teams of 3, with live voice chat.">
 <meta property="og:url" content="https://28gulan.com/six.html">
 <meta property="og:type" content="website">
+<!-- Real, confirmed bug found per explicit live report: this page had
+     og:title/description/url/type but no og:image at all -- when an
+     invite link gets shared (WhatsApp, etc.), the receiving app has no
+     specified preview image to use and falls back to scraping
+     whatever image it can find on the page instead, which is exactly
+     what was producing the "low quality, AI-generated-looking" invite
+     preview. Added a proper, high-quality image the same way the
+     4-player page already does, plus the matching twitter: tags and
+     og:locale/site_name the 4-player page also has, so both pages'
+     invite links now render a real, intentional preview image
+     instead of one or the other falling back to a scrape. -->
+<meta property="og:image" content="https://28gulan.com/images/desktop-bg-6p.jpg">
+<meta property="og:locale" content="en_IN">
+<meta property="og:site_name" content="28 Kerala Gulan">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Play 28 Card Game Online – 6 Player Kerala Gulan">
+<meta name="twitter:description" content="Play 6-player 28 (Gulan) online free, 2 teams of 3, with live voice chat.">
+<meta name="twitter:image" content="https://28gulan.com/images/desktop-bg-6p.jpg">
 <script src="/socket.io/socket.io.js"></script>
 <script src="/voice.js"></script>
 <style>
@@ -213,6 +231,39 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
   body.k28-in-game #sixInfoBidderWrap{font-size:1.2rem !important}
   body.k28-in-game .seat .nm{font-size:1rem !important;max-width:180px !important}
   body.k28-in-game .seat .bdg{font-size:0.9rem !important;padding:3px 8px !important;border-radius:10px !important}
+  /* Real, confirmed follow-up per explicit live report: the second
+     topbar row (Dealer / Points / Bidder) used a 3-column grid that
+     spread across the full width with Points centered between the
+     other two -- on desktop specifically, requested order is Dealer,
+     Bidder, Points, all grouped together on the left rather than
+     spread out. Switched this row to flex + explicit `order` on each
+     item instead of relying on source order, so the underlying HTML
+     (and therefore mobile, completely untouched by anything in this
+     block) keeps its original Dealer/Points/Bidder markup -- only the
+     desktop visual order changes. Also addressed separately: the
+     glowing text-shadow halos on the dealer/bidder names and the trump
+     chip read as a distracting "glowing angel" effect rather than
+     clean, readable text -- removed the glow and switched to a plain,
+     higher-contrast color instead, and enlarged the points number
+     specifically since it's the most-referenced value at a glance. */
+  body.k28-in-game #sixInfoDealerWrap,
+  body.k28-in-game #sixInfoPointsWrap,
+  body.k28-in-game #sixInfoBidderWrap{
+    display:flex !important;justify-content:flex-start !important;flex:0 0 auto !important;
+  }
+  body.k28-in-game .topbar > div[style*="grid-template-columns"]{
+    display:flex !important;justify-content:flex-start !important;gap:28px !important;
+  }
+  body.k28-in-game #sixInfoDealerWrap{order:1 !important}
+  body.k28-in-game #sixInfoBidderWrap{order:2 !important}
+  body.k28-in-game #sixInfoPointsWrap{order:3 !important}
+  body.k28-in-game #dealerDisplay,
+  body.k28-in-game #bidderDisplay{
+    text-shadow:none !important;color:#ffe9a8 !important;
+  }
+  body.k28-in-game #teamPointsDisplay{
+    font-size:1.6rem !important;color:#ffe9a8 !important;text-shadow:none !important;
+  }
   /* Real, confirmed bug found via live report: scaling up the text
      inside the topbar (score boxes, dealer/points/bidder row) made the
      topbar itself noticeably taller than it was, but the trump-chip
@@ -225,7 +276,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
      actually clear the new, taller topbar's real bottom edge. */
   body.k28-in-game .topbar{padding:14px 24px !important;gap:8px !important}
   body.k28-in-game .topbar > div{gap:10px !important}
-  body.k28-in-game .trump-chip{top:150px !important;font-size:1.3rem !important;padding:8px 20px !important}
+  body.k28-in-game .trump-chip{top:150px !important;font-size:1.3rem !important;padding:8px 20px !important;text-shadow:none !important;box-shadow:none !important;color:#ffe9a8 !important}
   /* Same root cause and same fix as trump-chip above -- .ltrick (the
      "Last Trick" box) is also position:absolute;top:80px, tuned for
      the same old, shorter topbar. Moved down to clear the taller one,
