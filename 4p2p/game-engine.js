@@ -2963,6 +2963,25 @@ class GameEngine {
         }
       }
       candidates.sort((a, c) => c.score - a.score);
+      // Real, confirmed follow-up per explicit live report and explicit
+      // choice on how to resolve it, same fix as the 6-player engine's
+      // identical change -- see there for the fuller reasoning. An
+      // opponent bot (!isBT) with no safe lead at all ends up here with
+      // trump as the only candidate, since every non-trump suit got
+      // excluded outright above while trump only ever takes a score
+      // penalty, never an exclusion. Per explicit instruction: an
+      // opponent bot should accept the known, bounded risk of the
+      // excluded non-trump lead rather than spend trump on it.
+      if (!isBT && candidates.length > 0 && candidates[0].suit === this.trumpSuit) {
+        const excludedNonTrumpSuits = SUITS.filter(s =>
+          s !== this.trumpSuit && bySuit[s].length > 0 && !candidates.some(cd => cd.suit === s));
+        if (excludedNonTrumpSuits.length > 0) {
+          excludedNonTrumpSuits.sort((a, b) => bySuit[b].length - bySuit[a].length);
+          const chosenSuit = excludedNonTrumpSuits[0];
+          const sorted = [...bySuit[chosenSuit]].sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+          return isEarly ? sorted[0] : sorted[sorted.length - 1];
+        }
+      }
       if (candidates.length > 0) return candidates[0].card;
       // Real, confirmed bug fix per explicit live report on the
       // 6-player table -- see that engine's identical fix for the
@@ -2990,8 +3009,22 @@ class GameEngine {
       else if (this.trumpExposed && cwc.suit === this.trumpSuit) canWin = false;
       if (canWin) {
         const hasJ = follow.some(c => c.rank === 'J'), has9 = follow.some(c => c.rank === '9');
-        if (hasJ) return follow.find(c => c.rank === 'J');
-        if (has9) {
+        // Real, confirmed bug fix per explicit live report, same fix as
+        // the 6-player engine's identical change: this whole "canWin"
+        // branch only ever checked whether this bot's best card beats
+        // cwc -- it never checked WHO cwc belongs to. When partner is
+        // the one already winning (wt===myTeam), "winning" by beating
+        // your own partner's card accomplishes nothing on its own --
+        // the trick is already going to your team either way. The
+        // Jack/9 are too valuable (30/20 points) to spend reflexively
+        // overtaking your own teammate; they're only actually
+        // justified here if a remaining opponent could otherwise still
+        // steal the trick from partner's card, checked via the same
+        // simulated survival probability already used for the
+        // equivalent "can't beat it" decision further below.
+        const partnerCardSafe = wt === myTeam && (!cwc || this._survivalProbability(pos, cwc) >= 0.6) && tPts < 3;
+        if (hasJ && !partnerCardSafe) return follow.find(c => c.rank === 'J');
+        if (has9 && !partnerCardSafe) {
           // A 9 beats everything else in this suit — but not the Jack.
           // Per explicit request: replaced the old binary "seen means
           // safe, unseen means risky" read of this with the real

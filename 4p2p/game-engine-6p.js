@@ -2301,6 +2301,38 @@ class GameEngine6P {
         }
       }
       candidates.sort((a, c) => c.score - a.score);
+      // Real, confirmed follow-up per explicit live report and explicit
+      // choice on how to resolve it: an opponent bot (not the bidder,
+      // not the bidder's partner -- !isBT) with no safe lead at all
+      // ends up here with trump as the only candidate, since every
+      // non-trump suit got excluded outright above by the "never lead
+      // a lone Ace/9/10 with the Jack/9 unseen" rules, while trump only
+      // ever takes a score penalty, never an exclusion. That reflexively
+      // spends a trump card -- often a weak one, as reported -- for an
+      // opponent who generally has no reason to want trump drawn out at
+      // all (unlike the bidder, who might deliberately want exactly
+      // that). Per explicit instruction: an opponent bot in this spot
+      // should accept the known, bounded risk of the excluded non-trump
+      // lead rather than spend trump on it. Only applies to a genuine
+      // opponent (!isBT) whose best candidate is trump AND who actually
+      // has a non-trump suit that was excluded rather than legitimately
+      // absent -- the bidder's own analogous pre-exposure lead decision
+      // is a fully separate branch earlier in this function and is
+      // untouched by this.
+      if (!isBT && candidates.length > 0 && candidates[0].suit === this.trumpSuit) {
+        const excludedNonTrumpSuits = SUITS.filter(s =>
+          s !== this.trumpSuit && bySuit[s].length > 0 && !candidates.some(cd => cd.suit === s));
+        if (excludedNonTrumpSuits.length > 0) {
+          // Prefers whichever excluded suit is longest (spreads risk
+          // thinnest, and keeps the most future flexibility), leading
+          // its lowest card the same way the main early-game loop above
+          // leads a suit's low card.
+          excludedNonTrumpSuits.sort((a, b) => bySuit[b].length - bySuit[a].length);
+          const chosenSuit = excludedNonTrumpSuits[0];
+          const sorted = [...bySuit[chosenSuit]].sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+          return isEarly ? sorted[0] : sorted[sorted.length - 1];
+        }
+      }
       if (candidates.length > 0) return candidates[0].card;
       // Real edge-case bug found and fixed: this fallback only runs
       // when every suit got excluded above (typically because every
@@ -2357,8 +2389,24 @@ class GameEngine6P {
       else if (this.trumpExposed && cwc.suit === this.trumpSuit) canWin = false;
       if (canWin) {
         const hasJ = follow.some(c => c.rank === 'J'), has9 = follow.some(c => c.rank === '9');
-        if (hasJ) return follow.find(c => c.rank === 'J');
-        if (has9) {
+        // Real, confirmed bug fix per explicit live report: this whole
+        // "canWin" branch only ever checked whether this bot's best
+        // card beats cwc -- it never checked WHO cwc belongs to. When
+        // partner is the one already winning (wt===myTeam), "winning"
+        // by beating your own partner's card accomplishes nothing on
+        // its own -- the trick is already going to your team either
+        // way. The Jack/9 are too valuable (30/20 points) to spend
+        // reflexively overtaking your own teammate; they're only
+        // actually justified here if a remaining opponent could
+        // otherwise still steal the trick from partner's card,
+        // checked via the same simulated survival probability already
+        // used for the equivalent "can't beat it" decision further
+        // below. If partner's card is safe (or nobody's left to act),
+        // falls through to the normal follow-suit logic below instead
+        // of blowing the Jack/9 for a trick partner already had.
+        const partnerCardSafe = wt === myTeam && (!cwc || this._survivalProbability(pos, cwc) >= 0.6) && tPts < 3;
+        if (hasJ && !partnerCardSafe) return follow.find(c => c.rank === 'J');
+        if (has9 && !partnerCardSafe) {
           // Real, confirmed further extension of the simulation-based
           // approach already applied to the 4-player engine: replaced
           // the binary jackRisk check with the actual simulated
