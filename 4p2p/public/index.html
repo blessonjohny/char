@@ -378,8 +378,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      container itself no longer grows unbounded -- sized generously
      against that same 1600px cap rather than trying to track viewport
      width at all. */
-  body.k28-in-game .avatar{width:175px !important;height:175px !important;font-size:4.6rem !important}
-  body.k28-in-game .table:not(.mode6) .pspot.top .avatar{width:175px !important;height:175px !important;font-size:4.6rem !important}
+  body.k28-in-game .avatar{width:207px !important;height:207px !important;font-size:5.43rem !important}
+  body.k28-in-game .table:not(.mode6) .pspot.top .avatar{width:207px !important;height:207px !important;font-size:5.43rem !important}
   /* Per explicit request: the bottom (player's own) seat made 8% bigger than the standard
      170px - 170*1.08=183.6, rounded to 184px, font-size scaled by the same factor. */
   /* Per explicit follow-up: another 10% bigger on top of the previous 184px (170->184 was an
@@ -390,20 +390,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      size (see the matching top/left/right rules elsewhere in this block) - then the bottom
      seat is set as a straightforward 10% increase on top of that shared number (175*1.1=192.5,
      rounded to 193px), so there's one single, unambiguous source size this is computed from. */
-  body.k28-in-game .table:not(.mode6) .pspot.pos3 .avatar{width:193px !important;height:193px !important;font-size:5.1rem !important}
+  body.k28-in-game .table:not(.mode6) .pspot.pos3 .avatar{width:228px !important;height:228px !important;font-size:6.02rem !important}
   /* Same fix again for the left/right seats specifically -- these
      don't have their own per-seat override like top/pos3 above, they
      fall back to this file's general .table:not(.mode6) .avatar rule
      instead, which ALSO uses !important with its own specificity this
      needed to be matched to beat. */
-  body.k28-in-game .table:not(.mode6) .avatar{width:175px !important;height:175px !important;font-size:4.6rem !important}
+  body.k28-in-game .table:not(.mode6) .avatar{width:207px !important;height:207px !important;font-size:5.43rem !important}
   /* Real, confirmed follow-up per explicit live report: the right seat
      specifically was reported as looking a little small compared to
      the others -- bumped just that one up rather than all seats
      again, since only the right seat was called out. */
   /* Per explicit request: right seat no longer gets its own separate bump - matched to the
      same uniform size as top/left instead, so every non-bottom seat is identical. */
-  body.k28-in-game .table:not(.mode6) .pspot.right .avatar{width:175px !important;height:175px !important;font-size:4.6rem !important}
+  body.k28-in-game .table:not(.mode6) .pspot.right .avatar{width:207px !important;height:207px !important;font-size:5.43rem !important}
   /* Same reasoning for the hand of cards -- the 52px mobile card size
      (see the max-width:480px media query elsewhere in this file) reads
      small and narrow stretched across a full desktop width. Same fix
