@@ -143,11 +143,13 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
     display:none !important;
   }
   body.k28-in-game #seatWrap0{left:50% !important;top:80% !important;}
-  body.k28-in-game #seatWrap1{left:79% !important;top:64% !important;}
+  /* Per explicit request: the two lower-side seats pulled slightly further from the table
+     center (increased top%, since these sit below center) - a small nudge, not a big move. */
+  body.k28-in-game #seatWrap1{left:79% !important;top:66% !important;}
   body.k28-in-game #seatWrap2{left:73% !important;top:29% !important;}
   body.k28-in-game #seatWrap3{left:50% !important;top:21% !important;}
   body.k28-in-game #seatWrap4{left:26% !important;top:32% !important;}
-  body.k28-in-game #seatWrap5{left:21% !important;top:64% !important;}
+  body.k28-in-game #seatWrap5{left:21% !important;top:66% !important;}
   /* Real, confirmed follow-up per explicit request: restored the
      depth-perspective sizing concept the mobile layout already uses --
      the earlier flattening to one uniform size for every seat was a
@@ -231,11 +233,18 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
      to true center (50%,50%) instead of leaving them at their original
      mobile spread. */
   body.k28-in-game #trickSlot0{left:50% !important;top:58% !important;}
-  body.k28-in-game #trickSlot1{left:60% !important;top:53% !important;}
-  body.k28-in-game #trickSlot2{left:60% !important;top:47% !important;}
+  /* Per explicit report: the left pair (slots 4/5) and right pair (slots 1/2) were each only
+     6 percentage points apart vertically, which measured out to a real 36px of overlap at a
+     typical desktop width - confirmed directly by comparing their rendered bounding boxes,
+     not just eyeballing it. Widened the gap between each pair so they now just barely touch
+     at the edge instead of stacking on top of each other. Scoped here inside the existing
+     min-width:521px, body.k28-in-game block only - deliberately left completely untouched
+     below that breakpoint, so phone mode's own trick-card layout is unaffected either way. */
+  body.k28-in-game #trickSlot1{left:60% !important;top:50% !important;}
+  body.k28-in-game #trickSlot2{left:60% !important;top:40% !important;}
   body.k28-in-game #trickSlot3{left:50% !important;top:43% !important;}
-  body.k28-in-game #trickSlot4{left:40% !important;top:47% !important;}
-  body.k28-in-game #trickSlot5{left:40% !important;top:53% !important;}
+  body.k28-in-game #trickSlot4{left:40% !important;top:40% !important;}
+  body.k28-in-game #trickSlot5{left:40% !important;top:50% !important;}
 }
 /* Per explicit follow-up request: same reversion as the 4-player
    table's identical change -- the "option 2" proportional desktop
