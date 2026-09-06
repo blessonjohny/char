@@ -1485,6 +1485,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .team-you{background:rgba(74,222,128,0.15);color:var(--success);border:1px solid rgba(74,222,128,0.3)}
 .team-opp{background:rgba(248,113,113,0.15);color:var(--danger);border:1px solid rgba(248,113,113,0.3)}
 .tdot{position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--bg-dark)}
+/* Per explicit request: only the right seat's dot was overflowing off the screen edge (it's
+   the one closest to it) - moved to the left side of that avatar specifically. Every other
+   seat's dot stays exactly where it was (right edge, unchanged). */
+.pspot.right .tdot{right:auto;left:-2px;}
 .tyou{background:var(--success)}
 .topp{background:var(--danger)}
 .bdg{display:inline-flex;align-items:center;justify-content:center;font-size:0.5rem;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:1px;white-space:nowrap}
@@ -6297,11 +6301,12 @@ function renderBidHistoryList(history) {
     rows.join('<br>') + '</div>';
 }
 
-// Bots display as "NAME 🤖" (uppercase, small bot emoji) instead of the
-// literal "(Bot)" text suffix stored in the underlying name string.
+// Per explicit request: the bot emoji suffix removed - the colored dot on the avatar already
+// conveys this, so the emoji was redundant. Still strips any literal "(Bot)" text suffix and
+// still uppercases the name, just no longer appends the emoji itself.
 function formatPlayerName(name, isBot) {
   if (!isBot) return name;
-  return name.replace(/\s*\(Bot\)\s*$/i, '').toUpperCase() + ' 🤖';
+  return name.replace(/\s*\(Bot\)\s*$/i, '').toUpperCase();
 }
 function nextPlayer(p) { const o = [3, 2, 0, 1]; return o[(o.indexOf(p) + 1) % 4]; }
 function prevPlayer(p) { const o = [3, 1, 0, 2]; return o[(o.indexOf(p) + 1) % 4]; }
