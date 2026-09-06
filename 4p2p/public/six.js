@@ -2471,7 +2471,7 @@ function enforceSeatAvatarSizing6p() {
   // active, applied immediately and synchronously on every render, so
   // there's no gap for a "pop" to happen in at all.
   const sizes = document.body.classList.contains('k28-in-game') ? {
-    0: { w: 292, h: 292, fs: 7.5 },
+    0: { w: 321, h: 321, fs: 8.25 },
     3: { w: 180, h: 180, fs: 4.7 },
     2: { w: 225, h: 225, fs: 5.8 },
     4: { w: 195, h: 195, fs: 5 },
