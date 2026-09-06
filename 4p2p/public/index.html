@@ -898,9 +898,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .table:not(.mode6) .pspot.top{grid-area:t;justify-self:center;align-self:start;padding-top:2px}
 .table:not(.mode6) .pspot.left{grid-area:l;justify-self:center;align-self:center}
 .table:not(.mode6) .pspot.right{grid-area:r;justify-self:center;align-self:center}
-.table:not(.mode6) .pspot.pos3{grid-area:b;justify-self:center;align-self:end;padding-bottom:2px}
+.table:not(.mode6) .pspot.pos3{grid-area:b;justify-self:center;align-self:end;padding-bottom:2px;z-index:1}
 .table:not(.mode6) .center{grid-area:c;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
-.table:not(.mode6) .cross{position:relative;width:200px;height:150px;margin:0 auto;pointer-events:none}
+/* Per explicit request (mobile view only): played cards should overlap the bottom avatar
+   wherever the two intersect, not the other way around - explicit z-index added on both
+   sides (this rule higher, .pspot.pos3 above lower) so this is guaranteed regardless of DOM
+   order, matching the same explicit z-index pattern already used for the desktop view. */
+.table:not(.mode6) .cross{position:relative;width:200px;height:150px;margin:0 auto;pointer-events:none;z-index:2}
 .table:not(.mode6) .pslot{position:absolute;display:flex;align-items:center;justify-content:center;width:50px;height:70px;pointer-events:none}
 .table:not(.mode6) .s-top{top:0;left:50%;transform:translateX(-50%)}
 .table:not(.mode6) .s-left{left:0;top:50%;transform:translateY(-50%)}
@@ -3288,13 +3292,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   /* Per explicit request: all 4 seats made 45% bigger (mobile view only) - each from its own
      existing size, not flattened to one uniform size (58->84, 50->73, 110->160). */
-  .table:not(.mode6) .avatar { width: 84px !important; height: 107px !important; font-size: 2.2rem !important; }
+  /* Per explicit follow-up: side (left/right) seats +5%, top seat +25% - each its own separate
+     bump from its own current size (84->88, 73->91). */
+  .table:not(.mode6) .avatar { width: 88px !important; height: 112px !important; font-size: 2.3rem !important; }
   /* Per explicit request: a simple perspective/depth cue -- the seat
      farthest from "camera" (top) is smaller than the two side seats,
      which are in turn smaller than your own seat (bottom, already the
      biggest) -- so the table reads as receding into the distance
      instead of all four seats being flatly the same size. */
-  .table:not(.mode6) .pspot.top .avatar { width: 73px !important; height: 93px !important; font-size: 1.9rem !important; }
+  .table:not(.mode6) .pspot.top .avatar { width: 91px !important; height: 116px !important; font-size: 2.4rem !important; }
   .table:not(.mode6) .pspot.pos3 .avatar { width: 160px !important; height: 203px !important; font-size: 4.2rem !important; }
 
   /* Per explicit request: these new avatar images have a background
