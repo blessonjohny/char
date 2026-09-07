@@ -2706,6 +2706,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .table:not(.mode6) .pspot.pos3{padding-bottom:2px !important}
   .table:not(.mode6) .pspot.left{align-self:center !important}
   .table:not(.mode6) .pspot.right{align-self:center !important}
+  /* Real, confirmed follow-up per explicit live report, mobile phone
+     view only (this file's desktop wide-table treatment lives in a
+     completely separate body.k28-in-game block elsewhere and is
+     untouched by this): pushes the bottom seat (your own avatar) down
+     so its lower portion sits behind/under the hand of cards instead
+     of stopping just above them with a visible gap. .hand-area gets a
+     higher z-index than .pspot.pos3's existing z-index:1 so the cards
+     actually render on top where the two now overlap, rather than the
+     avatar covering the cards. */
+  .table:not(.mode6) .pspot.pos3{transform:translateY(45px) !important}
+  .table:not(.mode6) .hand-area{position:relative !important;z-index:2 !important}
+  /* Real, confirmed follow-up per explicit live report, mobile phone
+     view only: the raw box gap between avatar and name was already
+     tiny (1px), but the avatar's own glow/border effect extends
+     visually beyond its actual box, making the real-world gap read as
+     bigger than it measures. Pulled the name up further with a small
+     negative margin so it visually sits right against (or slightly
+     under) that glow instead of floating just past it -- explicitly
+     fine per instruction for the name to touch the avatar's bottom
+     edge. */
+  .table:not(.mode6) .pspot .pname{margin-top:-6px !important}
 
   .center { min-height: 80px; }
   .cross { width: 130px; height: 100px; }
