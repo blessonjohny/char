@@ -428,6 +428,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   /* Per explicit request: right seat no longer gets its own separate bump - matched to the
      same uniform size as top/left instead, so every non-bottom seat is identical. */
   body.k28-in-game .table:not(.mode6) .pspot.right .avatar{width:207px !important;height:207px !important;font-size:5.43rem !important}
+  /* Real, confirmed bug fix found while verifying an unrelated mobile-only
+     change didn't leak into desktop: left never had this same explicit
+     override that right already has, so it was relying purely on the
+     general body.k28-in-game .avatar rule above -- which has slightly
+     LOWER specificity than a later-added mobile-only left/right avatar
+     rule elsewhere in this file. That mobile rule was correctly scoped
+     to a media query that also (unintentionally) matches desktop widths,
+     and with no left-specific desktop override to beat it, it was
+     winning there too, incorrectly shrinking left's avatar down to the
+     mobile size on desktop. Matches right's exact same override here so
+     left can no longer lose that specificity fight either. */
+  body.k28-in-game .table:not(.mode6) .pspot.left .avatar{width:207px !important;height:207px !important;font-size:5.43rem !important}
   /* Same reasoning for the hand of cards -- the 52px mobile card size
      (see the max-width:480px media query elsewhere in this file) reads
      small and narrow stretched across a full desktop width. Same fix
@@ -2717,6 +2729,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .table:not(.mode6) .pspot.pos3{margin-top:15px !important}
   .table:not(.mode6) .pspot.left{align-self:center !important}
   .table:not(.mode6) .pspot.right{align-self:center !important}
+  /* Real, confirmed follow-up per explicit live report: moves left and
+     right up a little -- specifically only these two, not top and not
+     pos3, per explicit "move for only 2" instruction. */
+  .table:not(.mode6) .pspot.left,
+  .table:not(.mode6) .pspot.right{margin-top:-12px !important}
   /* Real, confirmed full undo per explicit live report: the earlier
      attempt to push the bottom seat down under the hand of cards
      (transform:translateY plus a matching hand-area z-index bump) is
@@ -3365,6 +3382,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      instead of all four seats being flatly the same size. */
   .table:not(.mode6) .pspot.top .avatar { width: 91px !important; height: 116px !important; font-size: 2.4rem !important; }
   .table:not(.mode6) .pspot.pos3 .avatar { width: 160px !important; height: 203px !important; font-size: 4.2rem !important; }
+  /* Real, confirmed follow-up per explicit live report: left and right
+     were both still on the general .avatar rule just above (88x112),
+     one size smaller than top's own specific override (91x116) --
+     explicit instruction was to make all three of the non-mine seats
+     match the single biggest of them, which is top's size. Gives
+     left/right that exact same size instead of leaving them on the
+     general rule. */
+  .table:not(.mode6) .pspot.left .avatar,
+  .table:not(.mode6) .pspot.right .avatar { width: 91px !important; height: 116px !important; font-size: 2.4rem !important; }
 
   /* Per explicit request: these new avatar images have a background
      color already matching the chair leather, so the frame/circle that
