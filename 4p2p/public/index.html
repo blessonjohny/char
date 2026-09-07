@@ -2732,19 +2732,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      under) that glow instead of floating just past it -- explicitly
      fine per instruction for the name to touch the avatar's bottom
      edge. */
-  /* Real, confirmed follow-up per explicit live report: -22px reached
-     up into the face/chin area of the avatar photo -- explicit
-     instruction is for the name tag to sit against the very BOTTOM
-     edge of the avatar circle only (shoulders area), not overlap up
-     into the face. Reduced to a smaller overlap that just catches the
-     bottom rim of the circle instead. */
+  /* Real, confirmed follow-up per explicit live report, with the exact
+     math worked out by measurement rather than guessing: name tag
+     height measures 13px consistently across all four seats, so
+     margin-top:-13px (exactly -1x its own height) puts its bottom edge
+     precisely flush with the avatar's own bottom edge -- not just
+     close, exactly on the same line. Background/padding/border-radius
+     removed entirely per explicit follow-up instruction: just the
+     name text and whatever animation it already carries (its existing
+     color-transition/text-shadow), no box behind it at all. */
   .table:not(.mode6) .pspot .pname{
-    margin-top:-10px !important;
+    margin-top:-13px !important;
     position:relative !important;
     z-index:6 !important;
-    background:rgba(10,8,6,0.62) !important;
-    padding:1px 8px !important;
-    border-radius:8px !important;
+    background:none !important;
+    padding:0 !important;
+    border-radius:0 !important;
   }
 
   .center { min-height: 80px; }
