@@ -1169,7 +1169,23 @@ class GameEngine6P {
     return !!this.teamStillClean[getTeam(pos)];
   }
   _isQuoteEligibleFor(pos) {
-    if (this.trickCards.length !== 0) return false; // only the trick's opener can declare this way
+    // Real, confirmed follow-up per explicit live report: this used to
+    // only ever allow declaring at the exact moment a player opens a
+    // fresh trick (trickCards.length===0) -- but the actual intended
+    // rule is broader than that. A player should be able to declare on
+    // their own turn ANY time their team is the one currently winning
+    // the trick so far, not just when they personally happen to be the
+    // one leading it. The exact scenario reported: partner leads,
+    // opponent follows with something lower (partner's card is still
+    // winning), and now it's this player's own turn mid-trick with
+    // their team still on top -- they should have the declare option
+    // right then, not only back when the trick was first opened.
+    // Reuses the same _trickWinner() helper the mid-trick ASK path
+    // already relies on to read who's currently ahead.
+    if (this.trickCards.length !== 0) {
+      const cw = this._trickWinner();
+      if (!cw || getTeam(cw.pos) !== getTeam(pos)) return false;
+    }
     return this._isQuoteEligibleCore(pos);
   }
 
