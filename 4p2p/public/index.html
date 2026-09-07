@@ -2704,19 +2704,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   /* Player spots closer to center */
   .table:not(.mode6) .pspot.top{padding-top:2px !important}
   .table:not(.mode6) .pspot.pos3{padding-bottom:2px !important}
+  /* Real, confirmed follow-up per explicit live report: the earlier
+     attempt used transform:translateY, which (confirmed directly by
+     measuring the element's actual on-screen position) ended up
+     shifting it horizontally too, off-center, not just down --
+     probably from conflicting with this same element's own turn-glow
+     animation, which also drives transform. Uses margin-top instead
+     this time specifically to avoid touching transform at all, so
+     there's no way for it to interact with that animation. Small,
+     deliberately modest move per explicit instruction to calibrate
+     from here rather than jump straight to a big change again. */
+  .table:not(.mode6) .pspot.pos3{margin-top:15px !important}
   .table:not(.mode6) .pspot.left{align-self:center !important}
   .table:not(.mode6) .pspot.right{align-self:center !important}
-  /* Real, confirmed follow-up per explicit live report, mobile phone
-     view only (this file's desktop wide-table treatment lives in a
-     completely separate body.k28-in-game block elsewhere and is
-     untouched by this): pushes the bottom seat (your own avatar) down
-     so its lower portion sits behind/under the hand of cards instead
-     of stopping just above them with a visible gap. .hand-area gets a
-     higher z-index than .pspot.pos3's existing z-index:1 so the cards
-     actually render on top where the two now overlap, rather than the
-     avatar covering the cards. */
-  .table:not(.mode6) .pspot.pos3{transform:translateY(15px) !important}
-  .table:not(.mode6) .hand-area{position:relative !important;z-index:2 !important}
+  /* Real, confirmed full undo per explicit live report: the earlier
+     attempt to push the bottom seat down under the hand of cards
+     (transform:translateY plus a matching hand-area z-index bump) is
+     completely reverted here -- back to the exact original, unmodified
+     state, per explicit instruction to undo everything first before
+     trying a fresh, small adjustment. */
   /* Real, confirmed follow-up per explicit live report, mobile phone
      view only: the raw box gap between avatar and name was already
      tiny (1px), but the avatar's own glow/border effect extends
@@ -2726,7 +2732,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      under) that glow instead of floating just past it -- explicitly
      fine per instruction for the name to touch the avatar's bottom
      edge. */
-  .table:not(.mode6) .pspot .pname{margin-top:-6px !important}
+  /* Real, confirmed follow-up per explicit live report: -22px reached
+     up into the face/chin area of the avatar photo -- explicit
+     instruction is for the name tag to sit against the very BOTTOM
+     edge of the avatar circle only (shoulders area), not overlap up
+     into the face. Reduced to a smaller overlap that just catches the
+     bottom rim of the circle instead. */
+  .table:not(.mode6) .pspot .pname{
+    margin-top:-10px !important;
+    position:relative !important;
+    z-index:6 !important;
+    background:rgba(10,8,6,0.62) !important;
+    padding:1px 8px !important;
+    border-radius:8px !important;
+  }
 
   .center { min-height: 80px; }
   .cross { width: 130px; height: 100px; }
