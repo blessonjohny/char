@@ -3,8 +3,9 @@
 // the 4-player and 6-player tables.
 // ============================================================
 // Per explicit request: ranks by fewest rounds taken to win a
-// championship (reach the match target score -- 12 for 4-player,
-// 15 for 6-player), with fewest round-losses along the way as the
+// championship (reach the match target score -- 15 for both 4-player
+// and 6-player, per explicit request to unify the two point systems),
+// with fewest round-losses along the way as the
 // tiebreak when two entries took the same number of rounds.
 //
 // Two sections per mode, both top-3 lists per explicit request

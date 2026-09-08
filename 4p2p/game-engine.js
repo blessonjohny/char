@@ -1818,12 +1818,14 @@ class GameEngine {
     // handlers) can never lose more than the tricks within a single round.
     brain.saveBrains();
 
-    // Championship check: matches the reference exactly — a championship
-    // ends when either team reaches 12, OR when either team's score drops
-    // to 0 or below (losing badly enough counts as the other side winning
-    // outright, not just a very low score).
+    // Championship check: per explicit request, the target score now
+    // matches 6-player's own championship threshold (15) instead of the
+    // reference game's original 12, so both tables use the same point
+    // system. The <= 0 condition is untouched -- that's a separate,
+    // intentional reference-game rule (losing badly enough counts as
+    // the other side winning outright), not part of what changed here.
     this.lastChampionshipResult = null;
-    if (this.gameScore[0] >= 12 || this.gameScore[1] >= 12 || this.gameScore[0] <= 0 || this.gameScore[1] <= 0) {
+    if (this.gameScore[0] >= 15 || this.gameScore[1] >= 15 || this.gameScore[0] <= 0 || this.gameScore[1] <= 0) {
       const winningTeam = this.gameScore[0] > this.gameScore[1] ? 0 : 1;
       const losingTeam = 1 - winningTeam;
       this.kingStreak[winningTeam]++;
