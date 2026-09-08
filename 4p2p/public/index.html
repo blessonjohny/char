@@ -19180,7 +19180,10 @@ function serverBotPlayForMe() {
 // be disturbed by this, only how it looks while genuinely idle. 1
 // minute idle, only while the game table is the screen actually showing.
 (function() {
-  const K28_TABLE_IDLE_MS = 60 * 1000;
+  // Per explicit request: idle threshold raised from 1 minute to 3 minutes, matching the
+  // same change made to the six-player table's identical screensaver, for the same reason -
+  // see there for the fuller explanation.
+  const K28_TABLE_IDLE_MS = 3 * 60 * 1000;
   let idleTimer = null;
   let bouncers = null; // null when inactive
   let rafId = null;

@@ -2462,18 +2462,22 @@ function enforceSeatAvatarSizing6p() {
   // there's no gap for a "pop" to happen in at all.
   const sizes = document.body.classList.contains('k28-in-game') ? {
     0: { w: 321, h: 321, fs: 8.25 },
-    3: { w: 180, h: 180, fs: 4.7 },
-    2: { w: 225, h: 225, fs: 5.8 },
-    4: { w: 195, h: 195, fs: 5 },
+    /* Per explicit request: top seat +25% (180->225), upper-left/right +5% each from their
+       own individual size (195->205, 225->236) - not flattened to a shared value. */
+    3: { w: 225, h: 225, fs: 5.9 },
+    2: { w: 236, h: 236, fs: 6.1 },
+    4: { w: 205, h: 205, fs: 5.25 },
     1: { w: 225, h: 225, fs: 5.8 },
     5: { w: 250, h: 250, fs: 6.4 },
   } : {
-    0: { w: 128, h: 164, fs: 3.5 },
+    /* Per explicit request (phone view only): every seat except the top one made 5% bigger,
+       each from its own individual current size. */
+    0: { w: 134, h: 172, fs: 3.7 },
     3: { w: 68, h: 87, fs: 1.9 },
-    2: { w: 82, h: 105, fs: 2.3 },
-    4: { w: 82, h: 105, fs: 2.3 },
-    1: { w: 104, h: 133, fs: 2.9 },
-    5: { w: 104, h: 133, fs: 2.9 },
+    2: { w: 86, h: 110, fs: 2.4 },
+    4: { w: 86, h: 110, fs: 2.4 },
+    1: { w: 109, h: 140, fs: 3.0 },
+    5: { w: 109, h: 140, fs: 3.0 },
   };
   for (const slot in sizes) {
     const av = document.getElementById('av' + slot);
@@ -4250,7 +4254,11 @@ function requestFullscreen28() {
 // about the actual game can be disturbed, only how it looks while
 // genuinely idle. 1 minute idle, only while the game screen is showing.
 (function() {
-  const K28_TABLE_IDLE_MS = 60 * 1000;
+  // Per explicit request: idle threshold raised from 1 minute to 3 minutes, so a player just
+  // reading the screen or thinking about their move for a bit doesn't trigger this nearly as
+  // often - directly reduces how much of the time this animation (and its battery cost) is
+  // actually running during a normal session.
+  const K28_TABLE_IDLE_MS = 3 * 60 * 1000;
   let idleTimer = null;
   let bouncers = null;
   let rafId = null;
