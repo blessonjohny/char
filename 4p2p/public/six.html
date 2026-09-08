@@ -1087,7 +1087,16 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 #bidOverlay{align-items:center}
 #bidOverlay .panel{border-radius:20px}
 .bid-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
-.bid-btn{padding:12px 4px;border-radius:10px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-weight:700}
+/* Real, confirmed follow-up per explicit live report: relying on
+   padding alone to size these meant the actual height came from
+   content + padding rather than a fixed value -- normally identical
+   for every plain two-digit number, but not a guarantee across every
+   possible scenario (partner-already-honors mode renders a single "28"
+   button through a different branch, for instance). Setting an
+   explicit height directly removes any possible variation source
+   entirely, rather than continuing to rely on every branch happening
+   to produce visually-identical markup. */
+.bid-btn{padding:12px 4px;border-radius:10px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-weight:700;height:52px;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
 .bid-btn.pass-btn{grid-column:span 4;background:rgba(255,92,92,0.15);border-color:var(--danger);color:var(--danger)}
 .trump-pick{display:flex;gap:10px;justify-content:center;margin:16px 0}
 .trump-pick button{width:56px;height:56px;border-radius:14px;border:2px solid var(--border);background:#fff;font-size:1.6rem}
