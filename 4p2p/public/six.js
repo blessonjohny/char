@@ -2474,17 +2474,16 @@ function enforceSeatAvatarSizing6p() {
     1: { w: 225, h: 225, fs: 5.8 },
     5: { w: 250, h: 250, fs: 6.4 },
   } : {
-    /* Real, confirmed full undo per explicit live report, then a fresh
-       change on top of that clean baseline: restored the original
-       varied per-seat sizes first (134/68/86/86/109/109), then
-       increased each one individually by exactly 25% from its own
-       original value -- not flattened to one uniform size. */
-    0: { w: 168, h: 215, fs: 4.63 },
-    3: { w: 85, h: 109, fs: 2.38 },
-    2: { w: 108, h: 138, fs: 3.0 },
-    4: { w: 108, h: 138, fs: 3.0 },
-    1: { w: 136, h: 175, fs: 3.75 },
-    5: { w: 136, h: 175, fs: 3.75 },
+    /* Real, confirmed follow-up per explicit live report: another 10%
+       increase on top of the already-25%-bigger baseline (each of
+       those values * 1.1), to see whether this starts overlapping
+       the main table components (topbar, trump chip, etc). */
+    0: { w: 185, h: 237, fs: 5.09 },
+    3: { w: 94, h: 120, fs: 2.62 },
+    2: { w: 119, h: 152, fs: 3.3 },
+    4: { w: 119, h: 152, fs: 3.3 },
+    1: { w: 150, h: 193, fs: 4.13 },
+    5: { w: 150, h: 193, fs: 4.13 },
   };
   for (const slot in sizes) {
     const av = document.getElementById('av' + slot);
