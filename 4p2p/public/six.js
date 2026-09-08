@@ -2461,23 +2461,29 @@ function enforceSeatAvatarSizing6p() {
   // active, applied immediately and synchronously on every render, so
   // there's no gap for a "pop" to happen in at all.
   const sizes = document.body.classList.contains('k28-in-game') ? {
-    /* Per explicit request: trying all six seats at one uniform 450px size instead of the
-       previous uniform 320px. */
+    /* Real, confirmed full undo per explicit live report: restored to
+       the exact original depth-based sizing (top smallest, upper-sides
+       next, lower-sides bigger, "me" biggest) -- this desktop branch
+       was never actually asked to change at all; it only got touched
+       as a side effect of a misread earlier request that was really
+       about the phone branch below. */
+    0: { w: 321, h: 321, fs: 8.25 },
+    3: { w: 180, h: 180, fs: 4.7 },
+    2: { w: 225, h: 225, fs: 5.8 },
+    4: { w: 195, h: 195, fs: 5 },
+    1: { w: 225, h: 225, fs: 5.8 },
+    5: { w: 250, h: 250, fs: 6.4 },
+  } : {
+    /* Per explicit request (phone view only): trying all six seats at one uniform 400px size,
+       matching the same uniform value already tried on the wide-desktop-triggered branch above --
+       this is the actual branch that renders on a true, narrow phone viewport, which the earlier
+       change to the branch above never touched at all. */
     0: { w: 400, h: 400, fs: 10.25 },
     3: { w: 400, h: 400, fs: 10.25 },
     2: { w: 400, h: 400, fs: 10.25 },
     4: { w: 400, h: 400, fs: 10.25 },
     1: { w: 400, h: 400, fs: 10.25 },
     5: { w: 400, h: 400, fs: 10.25 },
-  } : {
-    /* Per explicit request (phone view only): every seat except the top one made 5% bigger,
-       each from its own individual current size. */
-    0: { w: 134, h: 172, fs: 3.7 },
-    3: { w: 68, h: 87, fs: 1.9 },
-    2: { w: 86, h: 110, fs: 2.4 },
-    4: { w: 86, h: 110, fs: 2.4 },
-    1: { w: 109, h: 140, fs: 3.0 },
-    5: { w: 109, h: 140, fs: 3.0 },
   };
   for (const slot in sizes) {
     const av = document.getElementById('av' + slot);
