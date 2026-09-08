@@ -4087,6 +4087,15 @@ async function refreshHostMenuLeaderboard() {
       if (!e) return 'None yet';
       const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
       const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
+      // Per explicit request: 6-player leaderboard entries now also show
+      // the final score gap, since ranking here is score-first (see
+      // leaderboard.js's identical sorting change) -- rounds alone no
+      // longer tells the whole story of why one entry outranks another.
+      // Falls back to the original rounds-only wording for any entry
+      // recorded before this change, which won't have scoreDiff at all.
+      if (typeof e.scoreDiff === 'number') {
+        return `${names} won by ${e.scoreDiff} in ${e.rounds} ${roundLabel}`;
+      }
       return `${names} enforced Kunukku in ${e.rounds} ${roundLabel}`;
     };
     el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['6p'][0])}<br>📅 Today: ${fmtEntry(lb.today['6p'][0])}`;
