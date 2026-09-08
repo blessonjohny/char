@@ -5586,7 +5586,7 @@ let trumpSuit='', hiddenTrump=null, trumpExposed=false, trumpExplicitlyCalled=fa
 // itself gets cleared right after (and in one specific call path,
 // even before exposeTrump() runs at all -- see playHiddenTrump()).
 let revealedTrumpCard = null;
-let trickCards=[], trickSuit='', teamPoints=[0,0], gameScore=[6,6];
+let trickCards=[], trickSuit='', teamPoints=[0,0], gameScore=[0,0];
 let phase='bidding1', passes=0;
 let bidHistory = []; // [{pos, bid}] — bid===0 means pass. Used to render "who's bid/passed so far" in the bid sheet.
 // Phase 1 bidding flow (mirrors game-engine.js's server-side implementation
@@ -12606,7 +12606,11 @@ function updateKingDisplay() {
   const toKing = KING_TARGET - yourStreakVal;
 
   // Always show king row during gameplay
-  const isInGame = phase && (phase.startsWith('play') || phase.startsWith('bidding') || gameScore[0] !== 6 || gameScore[1] !== 6 || round > 1);
+  // Per explicit request: baseline updated from the old [6,6] start to
+  // [0,0], matching 6-player -- this detection needs the same update
+  // or it would now permanently read every match as "in game" from
+  // round 1 onward (0 !== 6 is always true).
+  const isInGame = phase && (phase.startsWith('play') || phase.startsWith('bidding') || gameScore[0] !== 0 || gameScore[1] !== 0 || round > 1);
 
   if (isInGame || yourStreakVal > 0 || oppStreakVal > 0 || championshipNumber > 1) {
     kingRow.style.display = 'flex';
