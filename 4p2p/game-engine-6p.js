@@ -1552,7 +1552,14 @@ class GameEngine6P {
         if (s && getTeam(i) === losingTeam) opponentNames.push(s.name);
       }
       if (winningPlayerNames.length > 0) {
-        leaderboard.recordChampionshipWin('6p', winningPlayerNames, this.round, this.roundLossesThisMatch[winningTeam], opponentNames);
+        // Per explicit request: 6-player leaderboard ranking now uses
+        // the final score gap between the two teams as the primary
+        // sort key (biggest gap first), with rounds taken as the
+        // tiebreaker only when the gap is equal -- a genuinely
+        // different rule from 4-player's existing rounds-first
+        // ranking, which stays untouched per explicit instruction.
+        const scoreDiff = this.gameScore[winningTeam] - this.gameScore[losingTeam];
+        leaderboard.recordChampionshipWin('6p', winningPlayerNames, this.round, this.roundLossesThisMatch[winningTeam], opponentNames, scoreDiff);
       }
       // Every player on the losing team picks up a Q at match end, regardless of their exact
       // final score - not restricted to a true zero-point shutout. An earlier version of this

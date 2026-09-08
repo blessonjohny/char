@@ -111,10 +111,22 @@ function _rolloverIfNeeded() {
 }
 
 // Inserts entry into the given top-3 list (today or allTime for one
-// mode), re-sorts by rounds then roundLosses, and truncates back to 3.
+// mode), re-sorts, and truncates back to 3.
+// Per explicit request: 6-player now ranks by score gap first
+// (biggest gap wins), falling back to rounds taken only when the gap
+// ties -- a different rule from 4-player's existing rounds-first,
+// roundLosses-tiebreak ranking, which is untouched and still used
+// whenever scoreDiff isn't present on an entry (backward-compatible
+// with existing 4p data and any pre-existing 6p entries recorded
+// before this change).
 function _insertIntoTop3(list, entry) {
   list.push(entry);
-  list.sort((x, y) => x.rounds !== y.rounds ? x.rounds - y.rounds : x.roundLosses - y.roundLosses);
+  list.sort((x, y) => {
+    if (typeof x.scoreDiff === 'number' && typeof y.scoreDiff === 'number') {
+      return x.scoreDiff !== y.scoreDiff ? y.scoreDiff - x.scoreDiff : x.rounds - y.rounds;
+    }
+    return x.rounds !== y.rounds ? x.rounds - y.rounds : x.roundLosses - y.roundLosses;
+  });
   return list.slice(0, 3);
 }
 
@@ -123,7 +135,11 @@ function _insertIntoTop3(list, entry) {
 // took. roundLosses is how many of those rounds the winning team lost.
 // opponentNames (per explicit request) is an array of the losing
 // team's names -- optional/backward-compatible, defaults to empty.
-function recordChampionshipWin(mode, playerNames, rounds, roundLosses, opponentNames) {
+// scoreDiff (per explicit request, 6-player only for now) is the final
+// point gap between the winning and losing team -- optional too, only
+// present when the caller actually passes it (currently just the
+// 6-player engine).
+function recordChampionshipWin(mode, playerNames, rounds, roundLosses, opponentNames, scoreDiff) {
   if (mode !== '4p' && mode !== '6p') return;
   _rolloverIfNeeded();
   const entry = {
@@ -133,6 +149,7 @@ function recordChampionshipWin(mode, playerNames, rounds, roundLosses, opponentN
     roundLosses,
     ts: Date.now()
   };
+  if (typeof scoreDiff === 'number') entry.scoreDiff = scoreDiff;
 
   data.allTime[mode] = _insertIntoTop3(data.allTime[mode], entry);
   data.today[mode] = _insertIntoTop3(data.today[mode], entry);
