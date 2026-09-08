@@ -3306,6 +3306,10 @@ function showBidPanel(state) {
     const btn = document.createElement('button');
     btn.className = 'bid-btn';
     btn.textContent = 28;
+    // Per explicit request: honors territory (20+) gets a red treatment
+    // on both bid windows so a bidder can see at a glance which numbers
+    // are already in the escalated range, not just read the value.
+    btn.style.cssText = 'background:rgba(255,59,59,0.18);border-color:#ff3b3b;color:#ff8a8a';
     btn.addEventListener('click', () => showBidConfirm(state, 28, false));
     btns.appendChild(btn);
   } else {
@@ -3313,6 +3317,7 @@ function showBidPanel(state) {
       const btn = document.createElement('button');
       btn.className = 'bid-btn';
       btn.textContent = b;
+      if (b >= 20) btn.style.cssText = 'background:rgba(255,59,59,0.18);border-color:#ff3b3b;color:#ff8a8a';
       btn.addEventListener('click', () => showBidConfirm(state, b, false));
       btns.appendChild(btn);
     }
@@ -3325,7 +3330,18 @@ function showBidPanel(state) {
   // game-engine-6p.js for the full rule.
   const thaniBtn = document.createElement('button');
   thaniBtn.className = 'bid-btn';
-  thaniBtn.style.cssText = 'background:linear-gradient(135deg,#8b2020,#4a0f0f);border-color:#c94f4f';
+  // Real, confirmed follow-up per explicit live report: with a 4-column
+  // grid and a variable-length run of number buttons ahead of it (the
+  // exact count moves depending on minBid), THANI landing right after
+  // whatever's left in that last row could leave 1-2 empty grid cells
+  // trailing it -- most visibly when only "28" precedes it, leaving
+  // two dead cells. Counts how many number buttons actually got added
+  // above and has THANI span exactly the remaining columns in that
+  // same row (or a full fresh row if the numbers happened to fill
+  // theirs exactly), so the row is always fully used either way.
+  const numberBtnCount = btns.querySelectorAll('.bid-btn:not(.pass-btn)').length;
+  const remainderInRow = numberBtnCount % 4;
+  thaniBtn.style.cssText = `background:linear-gradient(135deg,#8b2020,#4a0f0f);border-color:#c94f4f;grid-column:span ${remainderInRow === 0 ? 4 : 4 - remainderInRow}`;
   thaniBtn.textContent = '🔥 THANI (Solo)';
   thaniBtn.addEventListener('click', () => showBidConfirm(state, 'THANI', false));
   btns.appendChild(thaniBtn);

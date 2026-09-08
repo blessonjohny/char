@@ -149,7 +149,7 @@
       "name": "How do you score in 28 / Eripathettu?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "The bidding team must win at least their bid in points. Jacks are worth 3 points, Nines 2 points, and Aces and Tens 1 point each. Winning a round earns game points, and the first team to 12 game points wins the championship."
+        "text": "The bidding team must win at least their bid in points. Jacks are worth 3 points, Nines 2 points, and Aces and Tens 1 point each. Winning a round earns game points, and the first team to 15 game points wins the championship."
       }
     },
     {
@@ -6328,7 +6328,7 @@ function showRules() {
     '<b>Bidding:</b> Bid 14-28 for trump<br>' +
     '<b>Trump:</b> Hidden until called<br>' +
     
-    'First team to 12 game points wins!');
+    'First team to 15 game points wins!');
 }
 
 const SUIT_NAMES = { '♠': 'Spades', '♥': 'Hearts', '♦': 'Diamonds', '♣': 'Clubs' };
@@ -10252,6 +10252,10 @@ function showBidPanel1() {
     const btn = document.createElement('button');
     btn.className = 'bid-btn';
     btn.textContent = b;
+    // Per explicit request: honors territory (20+) gets a red treatment
+    // here too, matching the same change on the 6-player bid window --
+    // both tables now flag honors-range bids the same way.
+    if (b >= 20) btn.style.cssText = 'background:rgba(255,59,59,0.18)!important;border-color:#ff3b3b!important;color:#ff8a8a!important';
     btn.addEventListener('click', (function(bb) {
       return () => {
         showBidConfirmation(bb);
@@ -10799,6 +10803,10 @@ function showRaisePanel() {
     const btn = document.createElement('button');
     btn.className = 'bid-btn';
     btn.textContent = 'RAISE ' + b;
+    // Per explicit request: honors territory (20+) gets a red treatment
+    // -- every Phase 2 raise is already in that range (24-28), so all
+    // of these get it consistently with the Phase 1 numbers above.
+    btn.style.cssText = 'background:rgba(255,59,59,0.18)!important;border-color:#ff3b3b!important;color:#ff8a8a!important';
     btn.addEventListener('click', (function(bb) {
       return () => {
         showPhase2Confirmation(bb, false);
@@ -15271,7 +15279,7 @@ function enhanceWelcomeScreen() {
     rules.parentNode.insertBefore(createBotBtn, rules);
     rules.parentNode.insertBefore(assignBotBtn, rules);
     rules.parentNode.insertBefore(choosePosBtn, rules);
-    rules.innerHTML = '4 players: Cross table, YOU at bottom<br>First team to 12 points wins!<br><span style="color:var(--accent)">Create a personal bot that learns YOUR style!</span>';
+    rules.innerHTML = '4 players: Cross table, YOU at bottom<br>First team to 15 points wins!<br><span style="color:var(--accent)">Create a personal bot that learns YOUR style!</span>';
   }
 }
 
@@ -18566,7 +18574,7 @@ function showChampionshipResultServerMode(champResult, yourTeam) {
       (won ? "<b style='color:var(--success)'>Your team won championship " + champResult.championshipNumber + "!</b>" : "<b style='color:var(--danger)'>Opponents won championship " + champResult.championshipNumber + "!</b>") +
       '<br><br>🔥 Your Streak: <b style="color:var(--accent)">' + yourStreak + '</b> in a row<br>🔥 Opp Streak: <b style="color:var(--danger)">' + oppStreak + '</b> in a row' +
       '<br><br>Final score: ' + champResult.finalScore[yourTeam] + ' - ' + champResult.finalScore[1 - yourTeam] +
-      '<br><br>A new championship starts now — first to 12 (or drop the other team to 0) wins!'
+      '<br><br>A new championship starts now — first to 15 (or drop the other team to 0) wins!'
     );
   }
   const okBtn = document.getElementById('modalOkBtn');
