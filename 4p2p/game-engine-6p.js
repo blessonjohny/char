@@ -1927,15 +1927,30 @@ class GameEngine6P {
       }
       const chosen = this._chooseBotCard(pos, hand, myTeam, isBT, isLast, wt, cwc, tPts);
       // TEMPORARY DIAGNOSTIC per explicit live report -- removed before
-      // shipping. Logs any case where the chosen card is the trump Jack
-      // while a lower trump was also available and legal, to find
-      // exactly which decision path (if any) is still doing this
-      // despite every branch checked so far already having a
-      // nonJackTrumps guard in place.
+      // shipping. Split into the two genuinely different cases per
+      // explicit follow-up, since a single "any other trump in hand"
+      // check produces a false positive on the first one: when this
+      // bot's own team is behind (wt !== myTeam) and it's actually
+      // trying to WIN the trick, only another trump that could
+      // ACTUALLY beat the current winning card counts as a real waste
+      // -- an over-cut situation where the only other trump held (e.g.
+      // a 10) ranks below the current winner (e.g. a 9) makes the Jack
+      // the only card that could win at all, which is correct play,
+      // not a bug. When it's this bot's OWN team already winning (wt
+      // === myTeam) it isn't trying to beat anything at all -- any
+      // other trump in hand at that point makes discarding the Jack
+      // specifically a real waste regardless of rank, since nothing
+      // needs to be beaten.
       if (chosen && chosen.rank === 'J' && chosen.suit === this.trumpSuit && this.trickSuit !== '' && this.trickSuit !== this.trumpSuit) {
-        const otherTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'J');
+        let otherTrumps;
+        if (wt === myTeam) {
+          otherTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'J');
+        } else {
+          const cwcRank = (cwc && cwc.suit === this.trumpSuit) ? RANK_ORDER[cwc.rank] : -1;
+          otherTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'J' && RANK_ORDER[c.rank] > cwcRank);
+        }
         if (otherTrumps.length > 0) {
-          console.error('[JACK-CUT-DEBUG] pos=' + pos + ' hand=' + JSON.stringify(hand) + ' trickSuit=' + this.trickSuit + ' cwc=' + JSON.stringify(cwc) + ' tPts=' + tPts + ' isLast=' + isLast + ' wt=' + wt + ' myTeam=' + myTeam + ' mustPlayTrumpBy=' + this.mustPlayTrumpBy + ' trumpExposed=' + this.trumpExposed);
+          console.error('[JACK-CUT-DEBUG] pos=' + pos + ' hand=' + JSON.stringify(hand) + ' trickSuit=' + this.trickSuit + ' cwc=' + JSON.stringify(cwc) + ' tPts=' + tPts + ' isLast=' + isLast + ' wt=' + wt + ' myTeam=' + myTeam + ' mustPlayTrumpBy=' + this.mustPlayTrumpBy + ' trumpExposed=' + this.trumpExposed + ' otherTrumps=' + JSON.stringify(otherTrumps));
         }
       }
       this.playCard(pos, chosen);
@@ -2050,11 +2065,31 @@ class GameEngine6P {
     if (actingAfter.length === 0) return 1;
     const trickSuit = this.trickSuit || candidateCard.suit;
     const isCandidateTrump = this.trumpExposed && candidateCard.suit === this.trumpSuit;
+    // Real, confirmed bug fix per explicit live report: every caller of
+    // this function is really asking "will MY TEAM still be winning
+    // this trick by the end" (whether checking a lead, a follow, or a
+    // partner's current card) -- not "will this exact card specifically
+    // still be the one that wins." The loop below used to count ANY
+    // seat acting after pos as a threat, including pos's own teammates
+    // -- but 6-player has three players per team, not two, so a
+    // "middle" seat can easily have a teammate still left to act after
+    // it in the same trick. If that teammate later overtakes pos's own
+    // card with something even better, the trick is still won by pos's
+    // team either way -- that's not a threat, it's the same outcome
+    // this function exists to detect. Counting it as "beaten" made the
+    // simulated survival odds look artificially worse than reality
+    // specifically in 6-player, causing safe partner-leads to be judged
+    // as unsafe more often than they actually were, and in turn caused
+    // bots to reach for the Jack (its \"is my partner actually safe\"
+    // escape hatch) in situations that didn't call for it at all.
+    const myTeam = getTeam(pos);
+    const threatSeats = actingAfter.filter(p => getTeam(p) !== myTeam);
+    if (threatSeats.length === 0) return 1;
     let survived = 0;
     for (let i = 0; i < iterations; i++) {
       const deal = this._simulateOneDeal(pos);
       let beaten = false;
-      for (const p of actingAfter) {
+      for (const p of threatSeats) {
         const simHand = deal[p] || [];
         const simSeatVoidInLedSuit = !simHand.some(c => c.suit === trickSuit);
         const canBeat = simHand.some(c => {
