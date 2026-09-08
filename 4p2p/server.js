@@ -1692,8 +1692,11 @@ function computeTableDisplayName(seats, creatorName, existingGenericNames) {
 // the exact known set of real filenames here (rather than trusting whatever string arrives)
 // means a malicious client can never get an arbitrary value reflected into other players'
 // pages through this field.
+// Per explicit request: the generic bot roster was cut down from 100 to 45 curated avatars
+// (toon1-45) - the 6 protected personal ones (toon101-106) are listed separately since
+// they're not part of this sequential range.
 const VALID_AVATAR_KEYS = new Set(
-  Array.from({length:106}, (_,i) => 'toon'+(i+1))
+  Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106'])
 );
 function sanitizeAvatarKey(k) { return (typeof k === 'string' && VALID_AVATAR_KEYS.has(k)) ? k : null; }
 
