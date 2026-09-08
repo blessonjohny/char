@@ -614,6 +614,12 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    change elsewhere removes in photo mode, leaving no visible indicator
    at all without this. */
 .seat .av .tdot{position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;border:1.5px solid #1a1a2e;z-index:2}
+/* Per explicit request: the two right-side seats (upper-right and lower-right) specifically
+   get their status dot moved to the left edge of the avatar instead - matches the same
+   left-side override already applied to the 4-player table's own right seat, same reasoning
+   (closest to the screen edge, so the dot was at risk of overflowing off it there). Every
+   other seat's dot stays exactly where it was, on the right. */
+#seatWrap1 .av .tdot, #seatWrap2 .av .tdot{right:auto;left:-2px;}
 .seat .av .tdot.tyou{background:#4ade80}
 .seat .av .tdot.topp{background:#f87171}
 @keyframes humanJoinFlashSix{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 4px rgba(34,197,94,0.6),0 0 16px 6px rgba(34,197,94,0.5)}}
