@@ -2461,14 +2461,14 @@ function enforceSeatAvatarSizing6p() {
   // active, applied immediately and synchronously on every render, so
   // there's no gap for a "pop" to happen in at all.
   const sizes = document.body.classList.contains('k28-in-game') ? {
-    0: { w: 321, h: 321, fs: 8.25 },
-    /* Per explicit request: top seat +25% (180->225), upper-left/right +5% each from their
-       own individual size (195->205, 225->236) - not flattened to a shared value. */
-    3: { w: 225, h: 225, fs: 5.9 },
-    2: { w: 236, h: 236, fs: 6.1 },
-    4: { w: 205, h: 205, fs: 5.25 },
-    1: { w: 225, h: 225, fs: 5.8 },
-    5: { w: 250, h: 250, fs: 6.4 },
+    /* Per explicit request: trying all six seats at one uniform 320px size instead of the
+       previous depth-based variation. */
+    0: { w: 320, h: 320, fs: 8.2 },
+    3: { w: 320, h: 320, fs: 8.2 },
+    2: { w: 320, h: 320, fs: 8.2 },
+    4: { w: 320, h: 320, fs: 8.2 },
+    1: { w: 320, h: 320, fs: 8.2 },
+    5: { w: 320, h: 320, fs: 8.2 },
   } : {
     /* Per explicit request (phone view only): every seat except the top one made 5% bigger,
        each from its own individual current size. */
