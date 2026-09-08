@@ -1872,7 +1872,13 @@ class GameEngine {
         if (s && getTeam(i) === losingTeam) opponentNames.push(s.name);
       }
       if (winningPlayerNames.length > 0) {
-        leaderboard.recordChampionshipWin('4p', winningPlayerNames, championshipRounds, this.roundLossesThisChampionship[winningTeam], opponentNames);
+        // Per explicit request: 4-player leaderboard ranking now uses
+        // the same score-gap-first rule already applied to 6-player
+        // (see leaderboard.js's _insertIntoTop3), so both tables'
+        // welcome-popup rankings are consistent with each other rather
+        // than one using score and the other using rounds alone.
+        const scoreDiff = this.gameScore[winningTeam] - this.gameScore[losingTeam];
+        leaderboard.recordChampionshipWin('4p', winningPlayerNames, championshipRounds, this.roundLossesThisChampionship[winningTeam], opponentNames, scoreDiff);
       }
       // This scoring system is zero-sum (every point gained by one team
       // is lost by the other), so every championship necessarily ends

@@ -7,6 +7,10 @@
 // and 6-player, per explicit request to unify the two point systems),
 // with fewest round-losses along the way as the
 // tiebreak when two entries took the same number of rounds.
+// Per further explicit request: both 4-player and 6-player now rank
+// primarily by final score gap instead (biggest gap first), falling
+// back to rounds taken only when the gap ties -- see
+// _insertIntoTop3's scoreDiff branch below.
 //
 // Two sections per mode, both top-3 lists per explicit request
 // (all-time was originally a single best entry, then explicitly
