@@ -357,7 +357,7 @@ class GameEngine {
     // Random table felt theme, rerolled once per round (see startRound()),
     // synced to every client via stateFor() so everyone sees the same color.
     this.tableTheme = Math.floor(Math.random() * TABLE_THEME_COUNT);
-    this.gameScore = [6, 6]; // match score, team 0 / team 1 (mirrors client default)
+    this.gameScore = [0, 0]; // match score, team 0 / team 1 -- per explicit request, now starts at 0-0 exactly like 6-player, not the old [6,6] baseline
     this.championshipNumber = 1;
     this.kingStreak = [0, 0]; // consecutive championships won by each team
     // Per explicit request: leaderboard tracking -- how many rounds
@@ -785,7 +785,7 @@ class GameEngine {
   // and king streak all reset — and deal a fresh round 1. Also works from
   // any phase for the same reason as restartRound().
   restartGame() {
-    this.gameScore = [6, 6];
+    this.gameScore = [0, 0]; // per explicit request, matches 6-player's own reset value
     this.championshipNumber = 1;
     this.kingStreak = [0, 0];
     this.championshipStartRound = this.round;
@@ -1669,8 +1669,16 @@ class GameEngine {
       made = !!(this.lastTrick && this.lastTrick.winner === this.thaniCaller);
       pts = made ? 3 : 4;
       const isHonors = true;
-      if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
-      else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
+      // Real, confirmed bug fix per explicit live report: 4-player used
+      // to be zero-sum here -- every point awarded to one team was
+      // simultaneously subtracted from the other, which is exactly the
+      // "point system is different from 6-player" gap that an earlier,
+      // incomplete fix (the championship target number) never actually
+      // addressed. 6-player only ever adds to the winning side's own
+      // score and leaves the other team's number untouched -- matches
+      // that here, removing the deduction entirely.
+      if (made) { this.gameScore[bT] += pts; }
+      else { this.gameScore[oT] += pts; }
       this.roundWinnerAnnounced = {
         bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
         teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
@@ -1702,8 +1710,12 @@ class GameEngine {
       if (cotTeamIsBidder) pts = made ? 2 : 3;
       else pts = made ? 3 : 2;
       const isHonors = this.highestBid >= 20;
-      if (made) { this.gameScore[cotTeam] += pts; this.gameScore[otherTeam] -= pts; }
-      else { this.gameScore[otherTeam] += pts; this.gameScore[cotTeam] -= pts; }
+      // Real, confirmed bug fix per explicit live report -- same
+      // zero-sum-to-additive-only change as the Thani branch above and
+      // the plain-bid branch below, applied here too since COT/MaruCOT
+      // scoring had the identical deduction.
+      if (made) { this.gameScore[cotTeam] += pts; }
+      else { this.gameScore[otherTeam] += pts; }
       this.roundWinnerAnnounced = {
         bidderWon: getTeam(this.bidder) === cotTeam ? made : !made,
         made, bidder: this.bidder, highestBid: this.highestBid,
@@ -1730,8 +1742,11 @@ class GameEngine {
     else if (this.highestBid >= 20) pts = made ? 2 : 3;
     else pts = made ? 1 : 2;
     const isHonors = this.highestBid >= 20;
-    if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
-    else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
+    // Real, confirmed bug fix per explicit live report -- same
+    // zero-sum-to-additive-only change as the Thani and COT/MaruCOT
+    // branches above, applied here for the plain-bid case too.
+    if (made) { this.gameScore[bT] += pts; }
+    else { this.gameScore[oT] += pts; }
     this.roundWinnerAnnounced = {
       bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
       teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
@@ -1818,14 +1833,19 @@ class GameEngine {
     // handlers) can never lose more than the tricks within a single round.
     brain.saveBrains();
 
-    // Championship check: per explicit request, the target score now
-    // matches 6-player's own championship threshold (15) instead of the
-    // reference game's original 12, so both tables use the same point
-    // system. The <= 0 condition is untouched -- that's a separate,
-    // intentional reference-game rule (losing badly enough counts as
-    // the other side winning outright), not part of what changed here.
+    // Championship check: per explicit request, the target score
+    // matches 6-player's own championship threshold (15), and per a
+    // further, more fundamental fix, scoring itself is now additive
+    // only just like 6-player -- the zero-sum deduction that used to
+    // subtract from the losing side every round is gone (see the three
+    // scoring branches above). With that removed, a score can never
+    // actually reach 0 or below again once the match is underway
+    // (nothing ever subtracts from it) -- the <= 0 half of this check
+    // is now the exact same kind of leftover dead condition 6-player's
+    // own identical check already had removed for the same reason.
+    // Dropped here too rather than left in as inert dead code.
     this.lastChampionshipResult = null;
-    if (this.gameScore[0] >= 15 || this.gameScore[1] >= 15 || this.gameScore[0] <= 0 || this.gameScore[1] <= 0) {
+    if (this.gameScore[0] >= 15 || this.gameScore[1] >= 15) {
       const winningTeam = this.gameScore[0] > this.gameScore[1] ? 0 : 1;
       const losingTeam = 1 - winningTeam;
       this.kingStreak[winningTeam]++;
@@ -1896,7 +1916,7 @@ class GameEngine {
       // became King, the streak naturally starts back at 0 next time
       // (matches the reference: winning again after being crowned just
       // starts building a fresh streak, it doesn't lock the table).
-      this.gameScore = [6, 6];
+      this.gameScore = [0, 0]; // per explicit request, matches 6-player's own reset value for a new championship
       this.championshipNumber++;
       this.isFirstHandOfChampionship = true;
       this.championshipStartRound = this.round;
