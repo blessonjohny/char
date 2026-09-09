@@ -18099,7 +18099,18 @@ function applyServerState(state) {
     // visible once the game actually started, since nothing was ever
     // telling it to hide either.
     document.getElementById('lobbyScreen').style.display = 'none';
-    document.getElementById('gameWrap').style.display = 'flex';
+    // Real, confirmed follow-up per explicit live report: this used to
+    // also set gameWrap visible right here -- but the later, main
+    // "just past the lobby" initialization block (the one that shows
+    // topBar, the championship/king streak row, chat/invite buttons,
+    // etc.) specifically only runs once, guarded by
+    // "!gameWrapAlreadyShowing". Making gameWrap visible this early
+    // tripped that guard prematurely, so by the time the game actually
+    // started for real, that block believed it had already run and
+    // skipped itself forever -- topBar and the championship row never
+    // got shown at all. Leaves gameWrap alone now; the ready-room popup
+    // is a separate, fully opaque element anyway; it doesn't need
+    // gameWrap visible underneath it to display correctly.
     renderReadyRoom(state);
     document.getElementById('readyRoomOverlay').classList.add('on');
     return;
