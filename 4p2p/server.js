@@ -2287,7 +2287,10 @@ io.on('connection', (socket) => {
 
   socket.on('fillBots', ({ count }) => {
     withTable((t, pos) => {
-      if (!isEffectiveHost(t, playerId)) return; // lobby-only permission
+      // Per explicit request: any seated player can adjust the bot-fill
+      // count now, not just the host, matching the same startGame
+      // change right below this.
+      if (pos === null || pos === undefined) return;
       t.botFill = Math.max(0, Math.min(3, count | 0));
     });
   });
@@ -2313,7 +2316,14 @@ io.on('connection', (socket) => {
 
   socket.on('startGame', () => {
     withTable((t, pos) => {
-      if (!isEffectiveHost(t, playerId)) return;
+      // Per explicit request: any seated player can start the game
+      // now, not just the host -- previously restricted to
+      // isEffectiveHost(t, playerId) alone, leaving every non-host
+      // seated player stuck waiting on the host specifically even
+      // though they were just as ready to play. Still requires an
+      // actual seat (pos !== null/undefined), not just anyone
+      // connected to the table's socket room.
+      if (pos === null || pos === undefined) return;
       if (t.engine.phase !== 'lobby') return;
       const open = t.engine.emptySeats();
       // Shuffle so repeated games don't always show the same first few
@@ -3193,7 +3203,9 @@ io.on('connection', (socket) => {
 
   socket.on('sixp_fillBots', ({ count }) => {
     withSixpTable((t, pos) => {
-      if (!isEffectiveHost(t, sixpPlayerId)) return;
+      // Per explicit request: any seated player can adjust the bot-fill
+      // count now, not just the host, matching the same 4-player change.
+      if (pos === null || pos === undefined) return;
       t.botFill = Math.max(0, Math.min(5, count));
     });
   });
@@ -3214,8 +3226,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('sixp_startGame', () => {
-    withSixpTable((t) => {
-      if (!isEffectiveHost(t, sixpPlayerId)) return;
+    withSixpTable((t, pos) => {
+      // Per explicit request: any seated player can start the game
+      // now, not just the host, matching the same 4-player change.
+      if (pos === null || pos === undefined) return;
       if (t.engine.phase !== 'lobby') return;
       const empties = t.engine.emptySeats();
       const shuffled = [...BOT_NAME_POOL].sort(() => Math.random() - 0.5);
