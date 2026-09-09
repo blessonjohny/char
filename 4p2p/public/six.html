@@ -1690,7 +1690,13 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      4-player table -- see there for the fuller reasoning. Sits right at
      the actual table itself; nothing deals until someone here taps
      Start. -->
-<div class="modal-overlay" id="readyRoomOverlay6p" style="z-index:2500;background:rgba(0,0,0,0.7)">
+<!-- Real, confirmed bug fix per explicit live report: background
+     deliberately opaque now, not semi-transparent, matching the
+     identical fix on the 4-player table's version -- this popup shows
+     before the underlying table has ever actually been rendered, so a
+     see-through overlay let the old lobby/welcome background bleed
+     through visibly behind it. -->
+<div class="modal-overlay" id="readyRoomOverlay6p" style="z-index:2500;background:#0d1b2a">
   <div class="modal" style="text-align:center;max-width:340px;background:var(--panel);border-radius:16px;padding:20px">
     <h3 style="margin-top:0;margin-bottom:2px">🪑 Table is Ready</h3>
     <div style="text-align:center;font-size:0.78rem;color:var(--text-secondary);opacity:0.85;margin-bottom:12px">Nothing starts until someone here hits Start</div>

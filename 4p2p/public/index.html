@@ -4768,8 +4768,15 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
      filled in already), sitting right at the actual table itself --
      nothing deals or begins until someone here taps Start. See
      renderReadyRoom() for the population logic and the confirmStart
-     socket emit. -->
-<div class="modal-overlay" id="readyRoomOverlay" style="z-index:2500">
+     socket emit. Real, confirmed bug fix per explicit live report:
+     background deliberately opaque, not the base .modal-overlay
+     class's semi-transparent one -- this popup shows before the
+     underlying table has ever actually been rendered (the full
+     rendering pipeline is deliberately skipped during this phase, see
+     applyServerState's readyRoom branch), so a see-through overlay let
+     the old welcome-screen background bleed through visibly behind it
+     instead of a clean dark backdrop. -->
+<div class="modal-overlay" id="readyRoomOverlay" style="z-index:2500;background:#0d1b2a">
   <div class="modal" style="text-align:center;max-width:340px">
     <h3 style="margin-top:0;margin-bottom:2px">🪑 Table is Ready</h3>
     <div style="text-align:center;font-size:0.78rem;color:var(--text-secondary);opacity:0.85;margin-bottom:12px">Nothing starts until someone here hits Start</div>
@@ -18082,6 +18089,16 @@ function applyServerState(state) {
     // hidden here now, matching the other lobby-specific elements right
     // above it.
     document.getElementById('playersCard').style.display = 'none';
+    // Real, confirmed follow-up per explicit live report: found via
+    // elementFromPoint() at the exact spot the wallpaper was showing --
+    // there's a third, entirely separate screen container (id=lobbyScreen,
+    // wrapping the "Online Room" header and "Waiting for players..." text)
+    // that's genuinely distinct from welcomeScreen/pickerScreen/playersCard
+    // and was never accounted for at all. It sat on top of everything else
+    // underneath the ready-room popup and then stayed permanently stuck
+    // visible once the game actually started, since nothing was ever
+    // telling it to hide either.
+    document.getElementById('lobbyScreen').style.display = 'none';
     document.getElementById('gameWrap').style.display = 'flex';
     renderReadyRoom(state);
     document.getElementById('readyRoomOverlay').classList.add('on');
