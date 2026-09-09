@@ -18071,6 +18071,17 @@ function applyServerState(state) {
   if (state.phase === 'readyRoom') {
     document.getElementById('welcomeScreen').style.display = 'none';
     document.getElementById('pickerScreen').style.display = 'none';
+    // Real, confirmed bug fix per explicit live report: the old lobby's
+    // own "players" card (id=playersCard, the panel with the player
+    // list/bot-fill row/original Start button) only ever got hidden by
+    // the normal past-lobby rendering flow further down this function --
+    // which this readyRoom branch deliberately returns before reaching.
+    // That left it still visible underneath (and, once the game actually
+    // started and this branch stopped running at all, permanently stuck
+    // showing) since nothing else was ever telling it to hide. Explicitly
+    // hidden here now, matching the other lobby-specific elements right
+    // above it.
+    document.getElementById('playersCard').style.display = 'none';
     document.getElementById('gameWrap').style.display = 'flex';
     renderReadyRoom(state);
     document.getElementById('readyRoomOverlay').classList.add('on');
