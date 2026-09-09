@@ -1685,6 +1685,20 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   <button class="btn btn-outline" id="btnLeaveLobby">Leave Table</button>
 </div>
 
+<!-- ===== READY ROOM (table seated, waiting for anyone to start) ===== -->
+<!-- Per explicit request: same ready-room step already added to the
+     4-player table -- see there for the fuller reasoning. Sits right at
+     the actual table itself; nothing deals until someone here taps
+     Start. -->
+<div class="modal-overlay" id="readyRoomOverlay6p" style="z-index:2500;background:rgba(0,0,0,0.7)">
+  <div class="modal" style="text-align:center;max-width:340px;background:var(--panel);border-radius:16px;padding:20px">
+    <h3 style="margin-top:0;margin-bottom:2px">🪑 Table is Ready</h3>
+    <div style="text-align:center;font-size:0.78rem;color:var(--text-secondary);opacity:0.85;margin-bottom:12px">Nothing starts until someone here hits Start</div>
+    <div id="readyRoomPlayerList6p" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:40px"></div>
+    <button class="btn btn-success" style="width:100%;margin-top:16px" id="btnReadyRoomStart6p">▶ Start Game</button>
+  </div>
+</div>
+
 <!-- ============ GAME ============ -->
 <div id="gameScreen">
   <div class="fake-lamp-glow fake-lamp-glow-tl"><div class="fake-lamp-core"></div></div>

@@ -1644,6 +1644,23 @@ $('btnStartGame').addEventListener('click', () => {
   socket.emit('sixp_startGame');
 });
 
+// Per explicit request: populates the ready-room popup's player list
+// (names + bot count), matching the identical 4-player function.
+function renderReadyRoom6p(state) {
+  const list = $('readyRoomPlayerList6p');
+  if (!list || !state || !Array.isArray(state.seats)) return;
+  const seated = state.seats.filter(Boolean);
+  const botCount = seated.filter(s => s.isBot).length;
+  const humanCount = seated.length - botCount;
+  const rows = seated.map(s => `<div style="display:flex;justify-content:space-between;padding:6px 10px;background:var(--panel-alt,rgba(255,255,255,0.05));border-radius:8px;margin-bottom:6px">
+      <span>${s.isBot ? '🤖' : '👤'} ${escapeHtml(s.name)}</span>
+    </div>`).join('');
+  list.innerHTML = `<div style="margin-bottom:8px;opacity:0.85">${humanCount} player${humanCount === 1 ? '' : 's'}, ${botCount} bot${botCount === 1 ? '' : 's'}</div>${rows}`;
+}
+$('btnReadyRoomStart6p').addEventListener('click', () => {
+  socket.emit('sixp_confirmStart');
+});
+
 function renderLobby(state) {
   const seated = state.seats.filter(Boolean).length;
   $('lobbySub').textContent = `${seated}/6 players`;
@@ -1771,8 +1788,24 @@ function applyState(state) {
     $('roomCodeDisplay').textContent = MY_TABLE_ID;
     renderLobby(state);
     if (window.K28Voice) K28Voice.hideButton();
+    $('readyRoomOverlay6p').classList.remove('on');
     return;
   }
+
+  // Per explicit request: table is fully seated (bots filled in already)
+  // but nothing has actually dealt yet -- same conservative approach as
+  // the 4-player table's identical addition: shows the ready-room popup
+  // (which already lists who's here) rather than running the full
+  // table-rendering pipeline below, which assumes an active round is
+  // genuinely underway.
+  if (state.phase === 'readyRoom') {
+    document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+    $('gameScreen').style.display = 'block';
+    renderReadyRoom6p(state);
+    $('readyRoomOverlay6p').classList.add('on');
+    return;
+  }
+  $('readyRoomOverlay6p').classList.remove('on');
 
   // Any non-lobby phase means we're in the game screen.
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));

@@ -4763,6 +4763,21 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   </div>
 </div>
 
+<!-- ===== READY ROOM (table seated, waiting for anyone to start) ===== -->
+<!-- Per explicit request: shown once the table is fully seated (bots
+     filled in already), sitting right at the actual table itself --
+     nothing deals or begins until someone here taps Start. See
+     renderReadyRoom() for the population logic and the confirmStart
+     socket emit. -->
+<div class="modal-overlay" id="readyRoomOverlay" style="z-index:2500">
+  <div class="modal" style="text-align:center;max-width:340px">
+    <h3 style="margin-top:0;margin-bottom:2px">🪑 Table is Ready</h3>
+    <div style="text-align:center;font-size:0.78rem;color:var(--text-secondary);opacity:0.85;margin-bottom:12px">Nothing starts until someone here hits Start</div>
+    <div id="readyRoomPlayerList" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:40px"></div>
+    <button class="btn btn-success" style="width:100%;margin-top:16px" id="btnReadyRoomStart">▶ Start Game</button>
+  </div>
+</div>
+
 <!-- ===== SEAT PICKER (joining a table) ===== -->
 <div class="modal-overlay" id="seatPickerOverlay">
   <div class="modal" id="seatPickerModal">
@@ -17435,6 +17450,24 @@ let lastRenderedPlayersSignature = null;
 let lastKnownHumanNamesInLobby = [];
 let lastChimedCurrentPlayer = null;
 let lastChimedRound = null;
+// Per explicit request: populates the ready-room popup's player list
+// (names + bot count) and wires the Start button, mirroring
+// renderServerPlayersCard's own name-list formatting right below it.
+function renderReadyRoom(state) {
+  const list = document.getElementById('readyRoomPlayerList');
+  if (!list || !state || !Array.isArray(state.seats)) return;
+  const seated = state.seats.filter(Boolean);
+  const botCount = seated.filter(s => s.isBot).length;
+  const humanCount = seated.length - botCount;
+  const rows = seated.map(s => `<div style="display:flex;justify-content:space-between;padding:6px 10px;background:var(--panel);border-radius:8px;margin-bottom:6px">
+      <span>${s.isBot ? '🤖' : '👤'} ${escapeHtml(s.name)}</span>
+    </div>`).join('');
+  list.innerHTML = `<div style="margin-bottom:8px;opacity:0.85">${humanCount} player${humanCount === 1 ? '' : 's'}, ${botCount} bot${botCount === 1 ? '' : 's'}</div>${rows}`;
+}
+document.getElementById('btnReadyRoomStart').addEventListener('click', () => {
+  gameSocket.emit('confirmStart');
+});
+
 function renderServerPlayersCard() {
   const list = document.getElementById('playerList');
   const count = document.getElementById('playerCount');
@@ -18022,8 +18055,28 @@ function applyServerState(state) {
   // point is meaningful before a round actually exists.
   if (state.phase === 'lobby') {
     renderServerPlayersCard();
+    document.getElementById('readyRoomOverlay').classList.remove('on');
     return;
   }
+
+  // Per explicit request: table is fully seated (bots filled in already)
+  // but nothing has actually dealt yet -- the ready-room popup itself
+  // already lists who's here (names, bot count), which is the actual
+  // information this step needs to convey. Deliberately does NOT try to
+  // run the full table-rendering pipeline below this point (hands,
+  // tricks, scores, trump, etc. all still fed by very-real-looking state
+  // that hasn't happened yet) since that pipeline assumes an active round
+  // is genuinely underway -- stops here instead, same as the lobby check
+  // right above it, until someone actually confirms start.
+  if (state.phase === 'readyRoom') {
+    document.getElementById('welcomeScreen').style.display = 'none';
+    document.getElementById('pickerScreen').style.display = 'none';
+    document.getElementById('gameWrap').style.display = 'flex';
+    renderReadyRoom(state);
+    document.getElementById('readyRoomOverlay').classList.add('on');
+    return;
+  }
+  document.getElementById('readyRoomOverlay').classList.remove('on');
 
   // 1. Seats -> the same PLAYERS shape local-mode rendering already expects
   PLAYERS = state.seats.map((s, i) => {
