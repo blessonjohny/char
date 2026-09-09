@@ -2463,6 +2463,23 @@ class GameEngine {
       }
 
       const chosen = this._chooseBotCardBase(pos, hand, myTeam, bidTeam, isBT, isLast, cw, wt, cwc, tPts);
+      // TEMPORARY DIAGNOSTIC per explicit live report -- removed before
+      // shipping. Identical to the one already added to 6-player's
+      // equivalent function -- see there for the fuller reasoning on
+      // why it's split into these two specific cases rather than
+      // flagging any other trump in hand at all.
+      if (chosen && chosen.rank === 'J' && chosen.suit === this.trumpSuit && this.trickSuit !== '' && this.trickSuit !== this.trumpSuit) {
+        let otherTrumps;
+        if (wt === myTeam) {
+          otherTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'J');
+        } else {
+          const cwcRank = (cwc && cwc.suit === this.trumpSuit) ? RANK_ORDER[cwc.rank] : -1;
+          otherTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'J' && RANK_ORDER[c.rank] > cwcRank);
+        }
+        if (otherTrumps.length > 0) {
+          console.error('[JACK-CUT-DEBUG-4P] pos=' + pos + ' hand=' + JSON.stringify(hand) + ' trickSuit=' + this.trickSuit + ' cwc=' + JSON.stringify(cwc) + ' tPts=' + tPts + ' isLast=' + isLast + ' wt=' + wt + ' myTeam=' + myTeam + ' trumpExposed=' + this.trumpExposed + ' otherTrumps=' + JSON.stringify(otherTrumps));
+        }
+      }
       this.playCard(pos, chosen);
     }
   }
@@ -2609,11 +2626,24 @@ class GameEngine {
     if (actingAfter.length === 0) return 1; // last to act this trick -- nothing left that could beat it
     const trickSuit = this.trickSuit || candidateCard.suit;
     const isCandidateTrump = this.trumpExposed && candidateCard.suit === this.trumpSuit;
+    // Real, confirmed bug fix per explicit live report -- same
+    // teammate-vs-opponent fix already applied to 6-player's identical
+    // function: every caller here is really asking "will MY TEAM still
+    // be winning this trick," not "will this exact card specifically
+    // still be the one on top." 4-player only has one partner, but
+    // that partner can still act after pos in plenty of trick
+    // orderings, and if they later overtake pos's own card with
+    // something better, pos's team still wins the trick either way --
+    // that's not a threat. This was still counting the partner as a
+    // threat exactly like 6-player's version used to before that fix.
+    const myTeam = getTeam(pos);
+    const threatSeats = actingAfter.filter(p => getTeam(p) !== myTeam);
+    if (threatSeats.length === 0) return 1;
     let survived = 0;
     for (let i = 0; i < iterations; i++) {
       const deal = this._simulateOneDeal(pos);
       let beaten = false;
-      for (const p of actingAfter) {
+      for (const p of threatSeats) {
         const simHand = deal[p] || [];
         // A card beats the candidate if: it's a higher card of the
         // SAME suit as the candidate, OR (once trump is exposed and
