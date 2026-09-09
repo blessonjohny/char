@@ -4163,18 +4163,18 @@ async function refreshHostMenuLeaderboard() {
       if (!e) return 'None yet';
       const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
       const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
-      // Per explicit request: 6-player leaderboard entries now also show
-      // the final score gap, since ranking here is score-first (see
-      // leaderboard.js's identical sorting change) -- rounds alone no
-      // longer tells the whole story of why one entry outranks another.
-      // Falls back to the original rounds-only wording for any entry
-      // recorded before this change, which won't have scoreDiff at all.
-      if (typeof e.scoreDiff === 'number') {
-        return `${names} won by ${e.scoreDiff} in ${e.rounds} ${roundLabel}`;
+      // Per explicit follow-up request: winning score in green, losing
+      // ("OPP") score bold red, matching the identical change made to
+      // the 4-player table's own version of this same function. Falls
+      // back to the original rounds-only wording for any entry recorded
+      // before this change, which won't have winningScore/losingScore
+      // at all.
+      if (typeof e.winningScore === 'number' && typeof e.losingScore === 'number') {
+        return `${names} won <b style="color:var(--success)">${e.winningScore}</b>-<b style="color:var(--danger)">${e.losingScore}</b> in ${e.rounds} ${roundLabel}`;
       }
       return `${names} enforced Kunukku in ${e.rounds} ${roundLabel}`;
     };
-    el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['6p'][0])}<br>📅 Today: ${fmtEntry(lb.today['6p'][0])}`;
+    el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['6p'][0])}`;
   } catch (e) {
     el.innerHTML = 'Could not load.';
   }

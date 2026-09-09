@@ -15259,23 +15259,26 @@ async function showLeaderboardPopup() {
       const names = e.names.map(nameSpan).join(', ');
       const opp = (e.opponentNames && e.opponentNames.length > 0) ? ` <span style="opacity:0.55">vs</span> ${e.opponentNames.map(n => String(n).replace(/</g, '&lt;')).join(', ')}` : '';
       const roundLabel = e.rounds === 1 ? 'Round' : 'Rounds';
-      // Per explicit request: ranking here is score-gap-first now (see
-      // leaderboard.js), so the score gap is shown alongside rounds
-      // rather than rounds alone -- consistent for both 4-player and
-      // 6-player. Falls back to the original rounds-only wording for
-      // any entry recorded before this change, which won't carry a
-      // scoreDiff at all.
-      const scorePart = typeof e.scoreDiff === 'number' ? `won by <b style="opacity:0.85">${e.scoreDiff}</b>, ` : '';
+      // Per explicit follow-up request: winning score in green, losing
+      // ("OPP") score bold red -- same var(--success)/var(--danger)
+      // colors already used everywhere else in this app for win/lose,
+      // applied consistently to every row here rather than one flat
+      // color for the whole "15-7" pair.
+      const scorePart = (typeof e.winningScore === 'number' && typeof e.losingScore === 'number')
+        ? `<b style="color:var(--success)">${e.winningScore}</b>-<b style="color:var(--danger)">${e.losingScore}</b>, `
+        : '';
       return `<div style="font-size:0.72rem;padding:2px 0;line-height:1.3"><b style="opacity:0.6">${rank}.</b> ${names}${opp} <span style="opacity:0.6">— ${scorePart}<b style="opacity:0.85">${e.rounds}</b> ${roundLabel}</span></div>`;
     };
+    // Per explicit follow-up request: simplified to a single all-time
+    // top-10 list per mode -- no more separate "Today" section, and
+    // widened from showing 3 positions to 10.
     const fmtSection = (list, label) => `
       <div style="margin-bottom:4px;font-size:0.68rem;color:var(--accent);opacity:0.85;font-weight:700">${label}</div>
-      ${[0,1,2].map(i => fmtRow(list[i], i + 1)).join('')}`;
+      ${Array.from({length: 10}, (_, i) => fmtRow(list[i], i + 1)).join('')}`;
     const fmtOne = (mode, label) => `
       <div style="margin-bottom:10px">
         <div style="font-weight:800;color:var(--text-primary);font-size:0.82rem;margin-bottom:3px">${label}</div>
         ${fmtSection(lb.allTime[mode], '🏆 All-Time')}
-        ${fmtSection(lb.today[mode], '📅 Today')}
       </div>`;
     contentEl.innerHTML = fmtOne('4p', '4 Player') + fmtOne('6p', '6 Player');
   } catch (e) {
@@ -17740,16 +17743,16 @@ async function refreshHostMenuLeaderboard() {
       if (!e) return 'None yet';
       const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
       const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
-      // Per explicit request: shows the score gap too now, since
-      // ranking here is score-first (see leaderboard.js) -- matches
-      // the identical change already made to the 6-player table's own
-      // version of this same function.
-      if (typeof e.scoreDiff === 'number') {
-        return `${names} won by ${e.scoreDiff} in ${e.rounds} ${roundLabel}`;
+      // Per explicit follow-up request: winning score in green, losing
+      // ("OPP") score bold red, matching the identical change made to
+      // the welcome-popup version and the 6-player table's own version
+      // of this same function.
+      if (typeof e.winningScore === 'number' && typeof e.losingScore === 'number') {
+        return `${names} won <b style="color:var(--success)">${e.winningScore}</b>-<b style="color:var(--danger)">${e.losingScore}</b> in ${e.rounds} ${roundLabel}`;
       }
       return `${names} enforced Kunukku in ${e.rounds} ${roundLabel}`;
     };
-    el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['4p'][0])}<br>📅 Today: ${fmtEntry(lb.today['4p'][0])}`;
+    el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['4p'][0])}`;
   } catch (e) {
     el.innerHTML = 'Could not load.';
   }
