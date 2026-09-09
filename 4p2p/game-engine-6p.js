@@ -2296,7 +2296,19 @@ class GameEngine6P {
         let partnerVoidBonus = 0;
         for (let p = 0; p < SEATS; p++) {
           if (p === pos || getTeam(p) !== myTeam) continue;
-          if (this.voidSuits[p].has(s) && (this.trumpExposed || p === this.hiddenTrumpOwner)) { partnerVoidBonus = 18; break; }
+          if (this.voidSuits[p].has(s) && (this.trumpExposed || p === this.hiddenTrumpOwner)) {
+            // Per explicit follow-up request (same enhancement applied
+            // to the 4-player table's identical bonus): scaled up
+            // further the more suits this partner has already proven
+            // void in overall -- one void suit could still mean a
+            // healthy hand everywhere else, but a partner void in two
+            // or three suits already is genuinely running low on
+            // options and heading toward being stuck with little but
+            // trump left, worth actively routing the lead toward.
+            const partnerVoidSuitCount = SUITS.filter(vs => this.voidSuits[p].has(vs)).length;
+            partnerVoidBonus = 18 + Math.max(0, partnerVoidSuitCount - 1) * 12;
+            break;
+          }
         }
         let sc = -voidOpponentPenalty + partnerVoidBonus;
         if (isEarly) {
@@ -2601,10 +2613,68 @@ class GameEngine6P {
           // (zero-point or not) was available instead. Matches
           // game-engine.js's own logic now.
           const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+          // Per explicit follow-up request: being last to act this
+          // trick means literally any trump wins it right now,
+          // guaranteed -- so this is exactly the safest possible moment
+          // to spend a point-card trump (9/A/10) that's still actually
+          // AT RISK of losing its own points later, rather than reflexively
+          // saving it. "At risk" specifically means some higher trump
+          // rank than it hasn't been seen yet -- if the Jack (or
+          // whatever ranks above this card) is still unseen, someone
+          // could still play it in a future trick and beat this exact
+          // card then, wasting the points it's holding for nothing;
+          // spending it now while guaranteed to win locks those points
+          // in instead. A genuinely zero-point trump has no such risk
+          // (no points to lose either way) and stays the default
+          // choice otherwise. Scoped to isLast only -- outside of that,
+          // "any trump wins" isn't actually true, so this reasoning
+          // doesn't apply.
+          if (isLast) {
+            const atRiskPointTrumps = nonJackTrumps.filter(c => {
+              if (c.points === 0) return false;
+              const higherRanks = RANKS.filter(r => RANK_ORDER[r] > RANK_ORDER[c.rank]);
+              return higherRanks.some(r => !this._isRankSeen(this.trumpSuit, r));
+            });
+            if (atRiskPointTrumps.length > 0) {
+              atRiskPointTrumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+              wtr = atRiskPointTrumps[0];
+              return wtr;
+            }
+          }
           const zeroPt = nonJackTrumps.filter(c => c.points === 0);
           wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
             : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
             : trumps[trumps.length - 1];
+          // Real, confirmed follow-up per explicit live report: 4-player
+          // already has this exact escalation and 6-player never got the
+          // port. Going cheap above is only actually safe once there's
+          // no real chance of getting over-cut right back by someone
+          // still left to act this same trick -- a genuine, distinct
+          // concern in 6-player specifically, since a "middle" seat
+          // (neither first to act nor last) can easily have one or two
+          // opponents still left to play after it, unlike a true last
+          // seat where nothing can come back at all. Checks the actual
+          // simulated survival odds of the cheap card just chosen,
+          // given who's really still left to act and what they could
+          // realistically be holding, rather than assuming a cheap cut
+          // always holds up. isLast needs no separate branch here --
+          // survival probability is already 1 outright the moment
+          // nobody's left to act, so this can never fire for an actual
+          // last seat regardless.
+          const cutSurvival = this._survivalProbability(pos, wtr);
+          if (cutSurvival < 0.6 && tPts >= 2 && wtr.rank !== 'J') {
+            // Never escalates all the way to the Jack itself, matching
+            // the same explicit instruction as every other trump-choice
+            // fix this session -- caps at whatever the highest non-Jack
+            // trump actually is.
+            const nine = trumps.find(c => c.rank === '9');
+            if (nine) {
+              wtr = nine;
+            } else {
+              const nonJackTrumpsHere = trumps.filter(c => c.rank !== 'J');
+              if (nonJackTrumpsHere.length > 0) wtr = nonJackTrumpsHere[0];
+            }
+          }
         }
         return wtr;
       }
@@ -2625,6 +2695,28 @@ class GameEngine6P {
         // will actually survive to win it. Checks the real simulated
         // survival probability instead.
         const cwcSurvival = cwc ? this._survivalProbability(pos, cwc) : 1;
+        // Per explicit follow-up request: a genuinely different, much
+        // narrower case than the feedablePts rule right below it, which
+        // deliberately excludes the Jack/9 -- this specifically covers
+        // a bot stuck holding a NON-trump Jack that will likely never
+        // get a real chance to win a trick on its own, once partner has
+        // ALREADY CUT this exact trick (cwc.suit is trump, not just any
+        // winning card) with a near-guaranteed hold (checked with a
+        // notably higher bar than the general feed threshold below,
+        // since permanently giving up the Jack is a bigger commitment
+        // than feeding an ordinary point card) AND this bot's own
+        // remaining trump is weak (no Jack or 9 of its own left to lead
+        // with later, so keeping this suit's Jack in reserve buys
+        // little anyway). Feeding it into an already-secured cut locks
+        // its 3 points in for the team instead of risking them on a
+        // Jack that may never lead a trick of its own again this round.
+        if (wt === myTeam && cwc && cwc.suit === this.trumpSuit && cwcSurvival >= 0.85) {
+          const myTrumpIsWeak = !trumps.some(c => c.rank === 'J' || c.rank === '9');
+          const strandedJacks = nonTrumpDiscard.filter(c => c.rank === 'J');
+          if (myTrumpIsWeak && strandedJacks.length > 0) {
+            return strandedJacks[0];
+          }
+        }
         if (wt === myTeam && (cwcSurvival >= 0.6 || tPts >= 3) && feedablePts.length > 0) {
           feedablePts.sort((a, c) => c.points - a.points);
           return feedablePts[0];
@@ -2664,9 +2756,31 @@ class GameEngine6P {
         // an actual Jack once every other non-trump option is
         // genuinely gone.
         const nonJackDiscard = nonTrumpDiscard.filter(c => c.rank !== 'J');
-        const discardPool = nonJackDiscard.length > 0 ? nonJackDiscard : nonTrumpDiscard;
-        discardPool.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
-        return discardPool[0];
+        if (nonJackDiscard.length > 0) {
+          nonJackDiscard.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+          return nonJackDiscard[0];
+        }
+        // Real, confirmed gap found per explicit follow-up request,
+        // matching the 4-player engine's identical safety net that
+        // this table never got: every remaining non-trump card being a
+        // Jack doesn't mean a Jack HAS to be discarded here -- if this
+        // bot still holds any trump at all, cutting with it is a
+        // completely legal alternative to a plain discard, and clearly
+        // the better one: a Jack thrown away as a discard hands 3
+        // points to whoever wins the trick and never gets a chance to
+        // win one on its own later, while cutting with even a cheap
+        // trump at least contests the trick itself. Only actually
+        // falls through to discarding the Jack when there's genuinely
+        // no trump left either.
+        if (trumps.length > 0) {
+          const sortedTrumps = trumps.slice().sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+          const nonJackT = sortedTrumps.filter(c => c.rank !== 'J');
+          const zeroPtT = nonJackT.filter(c => c.points === 0);
+          return zeroPtT.length > 0 ? zeroPtT[zeroPtT.length - 1]
+            : nonJackT.length > 0 ? nonJackT[nonJackT.length - 1]
+            : sortedTrumps[sortedTrumps.length - 1];
+        }
+        return nonTrumpDiscard[0];
       }
       // Real, confirmed bug fix found during the same audit as the
       // 4-player table's identical fix: trumps only gets sorted

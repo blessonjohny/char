@@ -2883,10 +2883,23 @@ class GameEngine {
         // ("what can my partner cut"), not just a read on this bot's own
         // hand. Only counts once trump is actually exposed; before that
         // a partner "void" here hasn't been proven safe to exploit yet.
+        // Per explicit follow-up request: scaled up further the more
+        // suits partner has already proven void in overall (tracked via
+        // this same this.voidSuits the base bonus already reads) --
+        // being void in just one suit could still mean a perfectly
+        // healthy hand in everything else, but a partner void in two or
+        // three suits already is genuinely running out of safe options
+        // and heading toward being stuck with little but trump left,
+        // exactly the situation worth actively routing the lead toward
+        // rather than just mildly favoring.
         let partnerVoidBonus = 0;
         for (let p = 0; p < 4; p++) {
           if (p === pos || getTeam(p) !== myTeam) continue;
-          if (this.voidSuits[p].has(s) && this.trumpExposed) { partnerVoidBonus = 18; break; }
+          if (this.voidSuits[p].has(s) && this.trumpExposed) {
+            const partnerVoidSuitCount = SUITS.filter(vs => this.voidSuits[p].has(vs)).length;
+            partnerVoidBonus = 18 + Math.max(0, partnerVoidSuitCount - 1) * 12;
+            break;
+          }
         }
         let sc = -voidOpponentPenalty + partnerVoidBonus;
         if (isEarly) {
@@ -3289,6 +3302,32 @@ class GameEngine {
           // cheapest trump we have, preferring a zero-point one so we're
           // not even giving up bonus points to do it.
           const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+          // Per explicit follow-up request (same enhancement already
+          // applied to 6-player's identical branch): being last to act
+          // this trick means literally any trump wins it right now,
+          // guaranteed -- the single safest possible moment to spend a
+          // point-card trump (9/A/10) that's still actually AT RISK of
+          // losing its own points later, rather than reflexively saving
+          // it. "At risk" means some higher trump rank than it hasn't
+          // been seen yet -- if the Jack (or whatever outranks this
+          // card) is still unseen, someone could still play it in a
+          // future trick and beat this exact card then, wasting its
+          // points for nothing; spending it now while guaranteed to win
+          // locks those points in instead. A genuine zero-point trump
+          // has no such risk (no points to lose either way) and stays
+          // the default choice otherwise.
+          if (isLast) {
+            const atRiskPointTrumps = nonJackTrumps.filter(c => {
+              if (c.points === 0) return false;
+              const higherRanks = RANKS.filter(r => RANK_ORDER[r] > RANK_ORDER[c.rank]);
+              return higherRanks.some(r => !this._isRankSeen(this.trumpSuit, r));
+            });
+            if (atRiskPointTrumps.length > 0) {
+              atRiskPointTrumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+              wtr = atRiskPointTrumps[0];
+              return wtr;
+            }
+          }
           const zeroPt = nonJackTrumps.filter(c => c.points === 0);
           wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
             : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
@@ -3355,6 +3394,25 @@ class GameEngine {
         // trick resolves, not partner. Same real simulation-based check
         // as the follow-suit version now applies here too.
         const cwcSurvival = cwc ? this._survivalProbability(pos, cwc) : 1;
+        // Per explicit follow-up request (same addition already applied
+        // to 6-player's identical block): a genuinely different, much
+        // narrower case than the feedablePts rule right below it, which
+        // deliberately excludes the Jack/9 -- covers a bot stuck
+        // holding a non-trump Jack that will likely never get a real
+        // chance to win a trick on its own, once partner has ALREADY
+        // CUT this exact trick (cwc.suit is trump, not just any
+        // winning card) with a near-guaranteed hold, and this bot's own
+        // remaining trump is weak (no Jack or 9 of its own left).
+        // Feeding it into an already-secured cut locks its 3 points in
+        // for the team instead of risking them on a Jack that may
+        // never lead a trick of its own again this round.
+        if (wt === myTeam && !myTeamSecured && cwc && cwc.suit === this.trumpSuit && cwcSurvival >= 0.85) {
+          const myTrumpIsWeak = !trumps.some(c => c.rank === 'J' || c.rank === '9');
+          const strandedJacks = nonTrumpDiscard.filter(c => c.rank === 'J');
+          if (myTrumpIsWeak && strandedJacks.length > 0) {
+            return strandedJacks[0];
+          }
+        }
         if (wt === myTeam && !myTeamSecured && (cwcSurvival >= 0.6 || tPts >= 3) && feedablePts.length > 0) {
           feedablePts.sort((a, c) => c.points - a.points);
           return feedablePts[0];
