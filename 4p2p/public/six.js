@@ -1654,8 +1654,14 @@ function renderLobby(state) {
       <span style="color:var(--accent)">${realIdx === MY_POS ? 'YOU' : ''}</span>
     </div>`;
   }).join('');
-  $('btnStartGame').style.display = IS_HOST ? 'flex' : 'none';
-  $('botFillRow').style.display = IS_HOST ? 'flex' : 'none';
+  // Per explicit request: any seated player can start the game now,
+  // not just the host -- shows both the Start button and the bot-fill
+  // row to everyone at the table instead of gating on IS_HOST. The
+  // server-side handlers have their own matching checks (any actual
+  // seat, not just host) as the real safety net regardless of what
+  // this client shows.
+  $('btnStartGame').style.display = 'flex';
+  $('botFillRow').style.display = 'flex';
 }
 
 // ---------------- Main state application ----------------

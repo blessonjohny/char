@@ -15397,7 +15397,10 @@ document.getElementById('btnLeaveRoom').addEventListener('click', () => {
 
 // Start Game button
 document.getElementById('btnStartGame').addEventListener('click', () => {
-  if (!SERVER_IS_HOST) return;
+  // Per explicit request: any seated player can start the game now,
+  // not just the host -- removed the SERVER_IS_HOST gate here to match
+  // the button now being shown to everyone and the server-side handler
+  // now accepting any actual seat.
   const botCount = parseInt(document.getElementById('botFillSelect').value) || 0;
   gameSocket.emit('fillBots', { count: botCount });
   gameSocket.emit('startGame');
@@ -17489,7 +17492,12 @@ function renderServerPlayersCard() {
     }
     const botCount = botFillEl ? (parseInt(botFillEl.value) || 0) : 0;
     const totalOnceStarted = filled + botCount;
-    startBtn.style.display = SERVER_IS_HOST ? 'block' : 'none';
+    // Per explicit request: any seated player can start the game now,
+    // not just the host -- shows the button to everyone at the table
+    // instead of gating it on SERVER_IS_HOST. The server-side handler
+    // has its own matching check (any actual seat, not just host) as
+    // the real safety net regardless of what this client shows.
+    startBtn.style.display = 'block';
     startBtn.disabled = totalOnceStarted < 2 || totalOnceStarted > 4;
     startBtn.textContent = !startBtn.disabled ? '▶ Start Game' : 'Need 2-4 players';
   }
