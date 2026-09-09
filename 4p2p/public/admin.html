@@ -346,6 +346,7 @@ function renderLivePlayers(tablesList) {
         <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="closeTable('${esc(t.tableId)}')">✕ Close table</button>
       </div>
       <div class="who" style="font-size:0.8rem">${renderSeatEntries(t.seatEntries, t.summary)}</div>
+      ${(t.round || (t.gameScore && (t.gameScore[0] || t.gameScore[1]))) ? `<div class="who" style="font-size:0.72rem;opacity:0.85">🃏 Round ${esc(t.round || 0)}${t.gameScore ? ` · Score ${esc(t.gameScore[0])}-${esc(t.gameScore[1])}` : ''}</div>` : ''}
       <div class="who" style="font-size:0.7rem;opacity:0.75">🕐 Open ${openFor} · 💤 Idle ${idleFor}</div>
     </div>
   `;
