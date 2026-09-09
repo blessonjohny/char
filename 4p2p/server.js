@@ -2334,9 +2334,26 @@ io.on('connection', (socket) => {
       for (let i = 0; i < toFill; i++) {
         t.engine.seatBot(open[i], shuffled[i % shuffled.length]);
       }
-      if (!t.engine.canStart()) return;
+      // Per explicit follow-up request: this used to deal cards and
+      // jump straight into bidding the instant this fired -- now it
+      // only fills the table and moves to a genuinely separate "ready
+      // room" step instead (readyRoom phase), showing everyone who's
+      // actually seated (names, bot count) with its own explicit Start
+      // button on the table screen itself. The real deal only happens
+      // once someone confirms from there (see 'confirmStart' below).
+      if (!t.engine.readyUp()) return;
+      touch(t); broadcastTable(t);
+      console.log(`[table ${tableId}] table ready, waiting for confirm-start`);
+    });
+  });
+
+  socket.on('confirmStart', () => {
+    withTable((t, pos) => {
+      // Same "any seated player" permission as startGame above.
+      if (pos === null || pos === undefined) return;
+      if (t.engine.phase !== 'readyRoom') return;
       t.engine.startRound(); // fires onChange itself once dealing is done
-      console.log(`[table ${tableId}] game started`);
+      console.log(`[table ${tableId}] game actually started (confirmed from ready room)`);
     });
   });
 
@@ -3234,10 +3251,27 @@ io.on('connection', (socket) => {
       const empties = t.engine.emptySeats();
       const shuffled = [...BOT_NAME_POOL].sort(() => Math.random() - 0.5);
       let botNum = 0;
-      for (const pos of empties) {
-        t.engine.seatBot(pos, shuffled[botNum % shuffled.length]);
+      for (const p of empties) {
+        t.engine.seatBot(p, shuffled[botNum % shuffled.length]);
         botNum++;
       }
+      // Per explicit follow-up request, matching the identical
+      // 4-player change: this used to deal cards and jump straight
+      // into bidding -- now only fills the table and moves to a
+      // separate "ready room" step instead, with its own explicit
+      // Start button. The real deal only happens once someone confirms
+      // via sixp_confirmStart below.
+      if (!t.engine.readyUp()) return;
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+      io.emit('sixp_roomList', sixpPublicTableList());
+    });
+  });
+
+  socket.on('sixp_confirmStart', () => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      if (t.engine.phase !== 'readyRoom') return;
       t.engine.startRound();
       sixpTouch(t);
       sixpBroadcastTable(t);

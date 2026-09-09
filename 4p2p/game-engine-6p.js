@@ -382,6 +382,19 @@ class GameEngine6P {
 
   canStart() { return this.seats.filter(Boolean).length >= 2; }
 
+  // Per explicit request: same "ready room" step already added to the
+  // 4-player engine -- see there for the fuller reasoning. Shows the
+  // real table with everyone seated (bots already filled in by the
+  // caller before this runs), but doesn't deal cards or start bidding
+  // yet.
+  readyUp() {
+    if (this.phase !== 'lobby') return false;
+    if (!this.canStart()) return false;
+    this.phase = 'readyRoom';
+    this.addLog('Table is ready — waiting for a player to start.');
+    return true;
+  }
+
   // Redeals (same dealer, no notify/side effects per attempt) until
   // neither auto-reshuffle condition is true: the forced first bidder
   // holding nothing but 7s/8s (an unplayable hand they'd otherwise be

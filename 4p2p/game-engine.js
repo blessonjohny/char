@@ -680,6 +680,21 @@ class GameEngine {
     return this.seats.filter(Boolean).length >= 2;
   }
 
+  // Per explicit request: a genuinely separate "ready room" step between
+  // the lobby (where seats/bots get picked) and the actual deal --
+  // shows the real table with everyone seated (bots already filled in
+  // by the caller before this runs), but doesn't deal cards or start
+  // bidding yet. Any seated player can then trigger the actual start
+  // from there via startRound() itself, once they've seen who's
+  // actually at the table.
+  readyUp() {
+    if (this.phase !== 'lobby') return false;
+    if (!this.canStart()) return false;
+    this.phase = 'readyRoom';
+    this.addLog('Table is ready — waiting for a player to start.');
+    return true;
+  }
+
   startRound() {
     this.round++;
     this.tableTheme = Math.floor(Math.random() * TABLE_THEME_COUNT);
