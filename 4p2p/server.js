@@ -1886,6 +1886,7 @@ function broadcastTable(t) {
     if (!sock) continue;
     const state = t.engine.stateFor(info.pos);
     state.isHost = isEffectiveHost(t, info.playerId);
+    state.isActualHost = (t.hostPlayerId === info.playerId); // per explicit request: strict host-only check, distinct from the deliberately permissive isHost above -- used by the ready-room popup's host-only gating
     // Every state names its table so the client can reject strays. A
     // socket that reconnected to an old table and then joined a new one
     // was still registered in the old table's sockets map (nothing ever
@@ -2349,8 +2350,22 @@ io.on('connection', (socket) => {
 
   socket.on('confirmStart', () => {
     withTable((t, pos) => {
-      // Same "any seated player" permission as startGame above.
+      // Per explicit request: this specific action (the ready-room
+      // confirm, right before cards actually deal) is host-only --
+      // different from startGame/fillBots right above, which stay open
+      // to any seated player per the earlier explicit request. Both
+      // requests are real and simply apply to different steps: anyone
+      // seated can get the table moving into the ready room, but only
+      // the host gives the final go-ahead once everyone's actually
+      // visible there. Real, confirmed bug fix found while verifying
+      // this: isEffectiveHost() is deliberately permissive by design
+      // (any currently-connected human seat counts, so the table never
+      // gets stuck with an unreachable host slot) -- using it here
+      // would have let literally any seated player through anyway,
+      // defeating the whole point of the ask. Checks the actual
+      // designated host slot directly instead.
       if (pos === null || pos === undefined) return;
+      if (t.hostPlayerId !== playerId) return;
       if (t.engine.phase !== 'readyRoom') return;
       t.engine.startRound(); // fires onChange itself once dealing is done
       console.log(`[table ${tableId}] game actually started (confirmed from ready room)`);
@@ -3016,6 +3031,7 @@ function sixpBroadcastTable(t) {
     if (!sock) continue;
     const state = t.engine.stateFor(info.pos);
     state.isHost = isEffectiveHost(t, info.playerId);
+    state.isActualHost = (t.hostPlayerId === info.playerId); // per explicit request: strict host-only check, matching the identical 4-player addition's reasoning
     state.tableId = t.id; // lets the client reject strays from an old table
     state.createdAt = t.createdAt || null;
     sock.emit('sixp_state', state);
@@ -3270,7 +3286,15 @@ io.on('connection', (socket) => {
 
   socket.on('sixp_confirmStart', () => {
     withSixpTable((t, pos) => {
+      // Per explicit request: host-only, matching the identical
+      // 4-player change -- different from sixp_startGame/sixp_fillBots
+      // above, which stay open to any seated player. Same real,
+      // confirmed bug fix as there too: isEffectiveHost() is
+      // deliberately permissive (any connected human counts), which
+      // would have let any seated player through here regardless --
+      // checks the actual designated host slot directly instead.
       if (pos === null || pos === undefined) return;
+      if (t.hostPlayerId !== sixpPlayerId) return;
       if (t.engine.phase !== 'readyRoom') return;
       t.engine.startRound();
       sixpTouch(t);
