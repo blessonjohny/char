@@ -2911,7 +2911,12 @@ function updateTurnLabel(state) {
     return;
   }
   if (state.currentPlayer === MY_POS) {
-    lbl.textContent = state.phase === 'bidding1' ? 'Your turn to bid' : state.phase === 'choosingTrump' ? 'Choose trump' : 'Your turn';
+    // Real, confirmed follow-up per explicit live report: the 'else'
+    // fallback here just said generic "Your turn" for the actual play
+    // phase too, when it could say "Your turn to play" specifically,
+    // matching the same phase-aware pattern bidding1 and choosingTrump
+    // already had.
+    lbl.textContent = state.phase === 'bidding1' ? 'Your turn to bid' : state.phase === 'choosingTrump' ? 'Choose trump' : state.phase === 'play' ? 'Your turn to play' : 'Your turn';
     if (lastHapticCurrentPlayer !== MY_POS && state.phase !== 'lobby') playHaptic('yourTurn');
   } else {
     const seat = state.seats[state.currentPlayer];
