@@ -1171,11 +1171,15 @@ function getAllTablesSummary() {
   }
   for (const t of Object.values(tables)) {
     const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
-    rows.push({ game: '4-Player', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
+    // Per explicit request: admin panel's live-tables view now also
+    // shows the current round number and championship score (e.g.
+    // "12-9") for each table, not just who's seated -- previously
+    // absent entirely.
+    rows.push({ game: '4-Player', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
   }
   for (const t of Object.values(sixpTables)) {
     const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
-    rows.push({ game: '6-Player', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
+    rows.push({ game: '6-Player', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
   }
   for (const r of Object.values(l56Rooms)) {
     const seats = r.state && r.state.seats ? r.state.seats : [];
@@ -1875,6 +1879,29 @@ function autoAdvanceRoundEndIfNoHuman(t, isSixP) {
     if (engine.phase !== 'roundEnd') return;
     if (engine.round !== capturedRound) return;
     if (!_tableShouldAutoRun(engine)) return;
+    // Real, confirmed bug fix per explicit live report: this used to
+    // call startRound() unconditionally, with no check for
+    // engine.gameOver at all -- the human-driven equivalent
+    // (sixp_continueRound/continueRound) already correctly refuses to
+    // continue once a championship has actually ended, but this
+    // bot-only auto-advance path never had that same guard. On a table
+    // with no human ever present to notice or intervene, that meant the
+    // "match" just kept dealing fresh rounds forever past the actual
+    // 15-point finish line, with the score climbing indefinitely (this
+    // is why the leaderboard was showing final scores like 21-10 and
+    // 22-12 -- genuinely impossible outcomes given the target is 15 and
+    // no single round can award more than a few points). Starts a
+    // proper new championship instead (resets both scores to 0, clears
+    // gameOver) whenever the just-finished one is actually over, rather
+    // than letting the same over match keep accumulating points. Only
+    // 6-player's engine actually needs this explicit call -- 4-player's
+    // own equivalent round-end logic already resets and continues
+    // inline by itself the moment a championship ends, with no separate
+    // restartGame() step required at all.
+    if (engine.gameOver) {
+      if (typeof engine.restartGame === 'function') engine.restartGame();
+      return;
+    }
     engine.startRound();
   }, 3000);
 }
