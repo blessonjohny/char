@@ -1913,7 +1913,11 @@ class GameEngine {
         // welcome-popup rankings are consistent with each other rather
         // than one using score and the other using rounds alone.
         const scoreDiff = this.gameScore[winningTeam] - this.gameScore[losingTeam];
-        leaderboard.recordChampionshipWin('4p', winningPlayerNames, championshipRounds, this.roundLossesThisChampionship[winningTeam], opponentNames, scoreDiff);
+        // Per explicit follow-up request: the popup display should show
+        // the actual final score (e.g. "15-7"), not just the bare gap
+        // number -- passes both real numbers through now, ranking logic
+        // itself is unchanged (still sorts by scoreDiff first).
+        leaderboard.recordChampionshipWin('4p', winningPlayerNames, championshipRounds, this.roundLossesThisChampionship[winningTeam], opponentNames, scoreDiff, this.gameScore[winningTeam], this.gameScore[losingTeam]);
       }
       // This scoring system is zero-sum (every point gained by one team
       // is lost by the other), so every championship necessarily ends

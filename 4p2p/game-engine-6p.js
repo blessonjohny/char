@@ -1572,7 +1572,11 @@ class GameEngine6P {
         // different rule from 4-player's existing rounds-first
         // ranking, which stays untouched per explicit instruction.
         const scoreDiff = this.gameScore[winningTeam] - this.gameScore[losingTeam];
-        leaderboard.recordChampionshipWin('6p', winningPlayerNames, this.round, this.roundLossesThisMatch[winningTeam], opponentNames, scoreDiff);
+        // Per explicit follow-up request: the popup display should show
+        // the actual final score (e.g. "15-7"), not just the bare gap
+        // number -- passes both real numbers through now, ranking logic
+        // itself is unchanged (still sorts by scoreDiff first).
+        leaderboard.recordChampionshipWin('6p', winningPlayerNames, this.round, this.roundLossesThisMatch[winningTeam], opponentNames, scoreDiff, this.gameScore[winningTeam], this.gameScore[losingTeam]);
       }
       // Every player on the losing team picks up a Q at match end, regardless of their exact
       // final score - not restricted to a true zero-point shutout. An earlier version of this

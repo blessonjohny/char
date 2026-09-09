@@ -10,18 +10,13 @@
 // Per further explicit request: both 4-player and 6-player now rank
 // primarily by final score gap instead (biggest gap first), falling
 // back to rounds taken only when the gap ties -- see
-// _insertIntoTop3's scoreDiff branch below.
+// _insertIntoTopN's scoreDiff branch below.
 //
-// Two sections per mode, both top-3 lists per explicit request
-// (all-time was originally a single best entry, then explicitly
-// changed to top-3 to match today's structure):
-//   - allTime: the best 3 entries ever recorded, kept forever.
-//   - today: up to the top 3 entries recorded since the last daily
-//     reset, resetting fresh every day. Uses the same 5am US Eastern
-//     boundary as the rest of the app's own daily reset (see
-//     dailyCloseAllTables() in server.js), not UTC midnight or the
-//     server process's own local time, so "today" means the same
-//     thing here as it does everywhere else in this app.
+// Per explicit follow-up request: simplified down to a single all-time
+// top-10 list per mode -- no more separate "today" section with its
+// own daily reset. An earlier version of this file tracked both
+// sections at top-3 each; this removes "today" entirely and widens the
+// one remaining list from 3 to 10.
 //
 // Per explicit request: each entry now also carries the opponent
 // team's names alongside the winners -- previously only the winning
@@ -34,31 +29,23 @@ const fs = require('fs');
 const path = require('path');
 
 const LEADERBOARD_FILE = path.join(__dirname, 'leaderboard-data.json');
+const TOP_N = 10;
 
 let data = {
-  allTime: { '4p': [], '6p': [] },
-  today: { '4p': [], '6p': [] },
-  todayDateKey: null // e.g. "2026-09-03", in America/New_York -- see currentDateKey()
+  allTime: { '4p': [], '6p': [] }
 };
 let dirty = false;
 
-function currentDateKey() {
-  // en-CA locale formats as YYYY-MM-DD, which sorts/compares correctly
-  // as a plain string -- matches the same America/New_York boundary
-  // dailyCloseAllTables() already uses elsewhere in this app.
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-}
-
 // Per explicit change: allTime used to be a single {entry}-or-null per
-// mode; now it's a top-3 list, same shape as today. Migrates an
-// existing on-disk file from the old shape rather than discarding it
-// or crashing on it -- a real player's genuine best record from before
+// mode, then a top-3 list; now it's top-10. Migrates an existing
+// on-disk file from either older shape rather than discarding it or
+// crashing on it -- a real player's genuine best record from before
 // this change shouldn't just vanish.
 function _migrateAllTimeShape(loaded) {
   if (!loaded || !loaded.allTime) return;
   for (const mode of ['4p', '6p']) {
     const v = loaded.allTime[mode];
-    if (Array.isArray(v)) continue; // already the new shape
+    if (Array.isArray(v)) continue; // already a list
     loaded.allTime[mode] = v ? [v] : [];
   }
 }
@@ -69,14 +56,13 @@ function _migrateAllTimeShape(loaded) {
 // has to special-case a missing field.
 function _migrateOpponentNames(loaded) {
   if (!loaded) return;
-  for (const section of [loaded.allTime, loaded.today]) {
-    if (!section) continue;
-    for (const mode of ['4p', '6p']) {
-      const list = section[mode];
-      if (!Array.isArray(list)) continue;
-      for (const entry of list) {
-        if (!Array.isArray(entry.opponentNames)) entry.opponentNames = [];
-      }
+  const section = loaded.allTime;
+  if (!section) return;
+  for (const mode of ['4p', '6p']) {
+    const list = section[mode];
+    if (!Array.isArray(list)) continue;
+    for (const entry of list) {
+      if (!Array.isArray(entry.opponentNames)) entry.opponentNames = [];
     }
   }
 }
@@ -87,13 +73,15 @@ function loadLeaderboard() {
       const loaded = JSON.parse(fs.readFileSync(LEADERBOARD_FILE, 'utf8'));
       _migrateAllTimeShape(loaded);
       _migrateOpponentNames(loaded);
-      data = Object.assign({ allTime: { '4p': [], '6p': [] }, today: { '4p': [], '6p': [] }, todayDateKey: null }, loaded);
+      // Per explicit follow-up request: "today" is dropped entirely
+      // here too, even if an older on-disk file still has it -- only
+      // allTime ever gets carried forward now.
+      data = { allTime: { '4p': (loaded.allTime && loaded.allTime['4p']) || [], '6p': (loaded.allTime && loaded.allTime['6p']) || [] } };
       console.log(`[leaderboard] Loaded existing leaderboard data from disk.`);
     }
   } catch (e) {
     console.error('[leaderboard] Failed to load leaderboard file, starting fresh:', e.message);
   }
-  _rolloverIfNeeded();
 }
 
 function saveLeaderboard() {
@@ -106,17 +94,8 @@ function saveLeaderboard() {
   }
 }
 
-function _rolloverIfNeeded() {
-  const key = currentDateKey();
-  if (data.todayDateKey !== key) {
-    data.todayDateKey = key;
-    data.today = { '4p': [], '6p': [] };
-    dirty = true;
-  }
-}
-
-// Inserts entry into the given top-3 list (today or allTime for one
-// mode), re-sorts, and truncates back to 3.
+// Inserts entry into the given top-N list for one mode, re-sorts, and
+// truncates back to TOP_N.
 // Per explicit request: 6-player now ranks by score gap first
 // (biggest gap wins), falling back to rounds taken only when the gap
 // ties -- a different rule from 4-player's existing rounds-first,
@@ -124,7 +103,7 @@ function _rolloverIfNeeded() {
 // whenever scoreDiff isn't present on an entry (backward-compatible
 // with existing 4p data and any pre-existing 6p entries recorded
 // before this change).
-function _insertIntoTop3(list, entry) {
+function _insertIntoTopN(list, entry) {
   list.push(entry);
   list.sort((x, y) => {
     if (typeof x.scoreDiff === 'number' && typeof y.scoreDiff === 'number') {
@@ -132,7 +111,7 @@ function _insertIntoTop3(list, entry) {
     }
     return x.rounds !== y.rounds ? x.rounds - y.rounds : x.roundLosses - y.roundLosses;
   });
-  return list.slice(0, 3);
+  return list.slice(0, TOP_N);
 }
 
 // mode is '4p' or '6p'. playerNames is an array of the winning team's
@@ -140,13 +119,14 @@ function _insertIntoTop3(list, entry) {
 // took. roundLosses is how many of those rounds the winning team lost.
 // opponentNames (per explicit request) is an array of the losing
 // team's names -- optional/backward-compatible, defaults to empty.
-// scoreDiff (per explicit request, 6-player only for now) is the final
-// point gap between the winning and losing team -- optional too, only
-// present when the caller actually passes it (currently just the
-// 6-player engine).
-function recordChampionshipWin(mode, playerNames, rounds, roundLosses, opponentNames, scoreDiff) {
+// scoreDiff is the final point gap between the winning and losing team
+// -- used for ranking only. winningScore/losingScore (per explicit
+// follow-up request) are the actual final numbers themselves (e.g. 15
+// and 7), used for DISPLAY so the popup can show "15-7" instead of just
+// the bare gap -- all three are optional/backward-compatible, only
+// present when the caller actually passes them.
+function recordChampionshipWin(mode, playerNames, rounds, roundLosses, opponentNames, scoreDiff, winningScore, losingScore) {
   if (mode !== '4p' && mode !== '6p') return;
-  _rolloverIfNeeded();
   const entry = {
     names: playerNames.slice(),
     opponentNames: Array.isArray(opponentNames) ? opponentNames.slice() : [],
@@ -155,18 +135,19 @@ function recordChampionshipWin(mode, playerNames, rounds, roundLosses, opponentN
     ts: Date.now()
   };
   if (typeof scoreDiff === 'number') entry.scoreDiff = scoreDiff;
+  if (typeof winningScore === 'number' && typeof losingScore === 'number') {
+    entry.winningScore = winningScore;
+    entry.losingScore = losingScore;
+  }
 
-  data.allTime[mode] = _insertIntoTop3(data.allTime[mode], entry);
-  data.today[mode] = _insertIntoTop3(data.today[mode], entry);
+  data.allTime[mode] = _insertIntoTopN(data.allTime[mode], entry);
   dirty = true;
   saveLeaderboard();
 }
 
 function getLeaderboard() {
-  _rolloverIfNeeded();
   return {
-    allTime: { '4p': data.allTime['4p'].slice(), '6p': data.allTime['6p'].slice() },
-    today: { '4p': data.today['4p'].slice(), '6p': data.today['6p'].slice() }
+    allTime: { '4p': data.allTime['4p'].slice(), '6p': data.allTime['6p'].slice() }
   };
 }
 
@@ -178,11 +159,9 @@ function getLeaderboard() {
 function resetLeaderboard(mode) {
   if (mode === '4p' || mode === undefined) {
     data.allTime['4p'] = [];
-    data.today['4p'] = [];
   }
   if (mode === '6p' || mode === undefined) {
     data.allTime['6p'] = [];
-    data.today['6p'] = [];
   }
   dirty = true;
   saveLeaderboard();
@@ -196,24 +175,34 @@ function resetLeaderboard(mode) {
 // the shape defensively since this comes from a file an admin picked,
 // not internal state -- a malformed or unrelated JSON file is ignored
 // per-field rather than partially corrupting what's already there.
+// Per explicit follow-up request: only ever reads the allTime section
+// now, even from an older export file that still has a "today" section
+// -- that section is simply ignored rather than imported.
 function importLeaderboard(imported) {
   if (!imported || typeof imported !== 'object') return false;
   let touchedAnything = false;
-  for (const section of ['allTime', 'today']) {
-    if (!imported[section] || typeof imported[section] !== 'object') continue;
+  if (imported.allTime && typeof imported.allTime === 'object') {
     for (const mode of ['4p', '6p']) {
-      const list = imported[section][mode];
+      const list = imported.allTime[mode];
       if (!Array.isArray(list)) continue;
-      data[section][mode] = list
+      data.allTime[mode] = list
         .filter(e => e && Array.isArray(e.names) && typeof e.rounds === 'number' && typeof e.roundLosses === 'number')
-        .map(e => ({
-          names: e.names.slice(),
-          opponentNames: Array.isArray(e.opponentNames) ? e.opponentNames.slice() : [],
-          rounds: e.rounds,
-          roundLosses: e.roundLosses,
-          ts: typeof e.ts === 'number' ? e.ts : Date.now()
-        }))
-        .slice(0, 3);
+        .map(e => {
+          const entry = {
+            names: e.names.slice(),
+            opponentNames: Array.isArray(e.opponentNames) ? e.opponentNames.slice() : [],
+            rounds: e.rounds,
+            roundLosses: e.roundLosses,
+            ts: typeof e.ts === 'number' ? e.ts : Date.now()
+          };
+          if (typeof e.scoreDiff === 'number') entry.scoreDiff = e.scoreDiff;
+          if (typeof e.winningScore === 'number' && typeof e.losingScore === 'number') {
+            entry.winningScore = e.winningScore;
+            entry.losingScore = e.losingScore;
+          }
+          return entry;
+        })
+        .slice(0, TOP_N);
       touchedAnything = true;
     }
   }
