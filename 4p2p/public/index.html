@@ -4763,20 +4763,21 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   </div>
 </div>
 
-<!-- ===== READY ROOM (table seated, waiting for anyone to start) ===== -->
+<!-- ===== READY ROOM (host-only, table seated, waiting to start) ===== -->
 <!-- Per explicit request: shown once the table is fully seated (bots
-     filled in already), sitting right at the actual table itself --
-     nothing deals or begins until someone here taps Start. See
-     renderReadyRoom() for the population logic and the confirmStart
-     socket emit. Real, confirmed bug fix per explicit live report:
-     background deliberately opaque, not the base .modal-overlay
-     class's semi-transparent one -- this popup shows before the
-     underlying table has ever actually been rendered (the full
-     rendering pipeline is deliberately skipped during this phase, see
-     applyServerState's readyRoom branch), so a see-through overlay let
-     the old welcome-screen background bleed through visibly behind it
-     instead of a clean dark backdrop. -->
-<div class="modal-overlay" id="readyRoomOverlay" style="z-index:2500;background:#0d1b2a">
+     filled in already), sitting right at the actual table itself with
+     every real seat/avatar already visible underneath it -- nothing
+     deals or begins until the host taps Start. See renderReadyRoom()
+     for the population logic and the confirmStart socket emit. Host-only
+     by explicit request -- other seated players just see the real table
+     underneath and wait, no popup of their own. Semi-transparent again
+     (back to the base .modal-overlay class's own background, no
+     override): the earlier opaque version was compensating for a
+     different, now-fixed bug where the real table hadn't actually been
+     rendered yet at this point -- now that it genuinely has (see
+     applyServerState's readyRoom branch calling setupOnlineTable()
+     first), an opaque backdrop would just needlessly hide it again. -->
+<div class="modal-overlay" id="readyRoomOverlay" style="z-index:2500">
   <div class="modal" style="text-align:center;max-width:340px">
     <h3 style="margin-top:0;margin-bottom:2px">🪑 Table is Ready</h3>
     <div style="text-align:center;font-size:0.78rem;color:var(--text-secondary);opacity:0.85;margin-bottom:12px">Nothing starts until someone here hits Start</div>
@@ -18066,57 +18067,6 @@ function applyServerState(state) {
     return;
   }
 
-  // Per explicit request: table is fully seated (bots filled in already)
-  // but nothing has actually dealt yet -- the ready-room popup itself
-  // already lists who's here (names, bot count), which is the actual
-  // information this step needs to convey. Deliberately does NOT try to
-  // run the full table-rendering pipeline below this point (hands,
-  // tricks, scores, trump, etc. all still fed by very-real-looking state
-  // that hasn't happened yet) since that pipeline assumes an active round
-  // is genuinely underway -- stops here instead, same as the lobby check
-  // right above it, until someone actually confirms start.
-  if (state.phase === 'readyRoom') {
-    document.getElementById('welcomeScreen').style.display = 'none';
-    document.getElementById('pickerScreen').style.display = 'none';
-    // Real, confirmed bug fix per explicit live report: the old lobby's
-    // own "players" card (id=playersCard, the panel with the player
-    // list/bot-fill row/original Start button) only ever got hidden by
-    // the normal past-lobby rendering flow further down this function --
-    // which this readyRoom branch deliberately returns before reaching.
-    // That left it still visible underneath (and, once the game actually
-    // started and this branch stopped running at all, permanently stuck
-    // showing) since nothing else was ever telling it to hide. Explicitly
-    // hidden here now, matching the other lobby-specific elements right
-    // above it.
-    document.getElementById('playersCard').style.display = 'none';
-    // Real, confirmed follow-up per explicit live report: found via
-    // elementFromPoint() at the exact spot the wallpaper was showing --
-    // there's a third, entirely separate screen container (id=lobbyScreen,
-    // wrapping the "Online Room" header and "Waiting for players..." text)
-    // that's genuinely distinct from welcomeScreen/pickerScreen/playersCard
-    // and was never accounted for at all. It sat on top of everything else
-    // underneath the ready-room popup and then stayed permanently stuck
-    // visible once the game actually started, since nothing was ever
-    // telling it to hide either.
-    document.getElementById('lobbyScreen').style.display = 'none';
-    // Real, confirmed follow-up per explicit live report: this used to
-    // also set gameWrap visible right here -- but the later, main
-    // "just past the lobby" initialization block (the one that shows
-    // topBar, the championship/king streak row, chat/invite buttons,
-    // etc.) specifically only runs once, guarded by
-    // "!gameWrapAlreadyShowing". Making gameWrap visible this early
-    // tripped that guard prematurely, so by the time the game actually
-    // started for real, that block believed it had already run and
-    // skipped itself forever -- topBar and the championship row never
-    // got shown at all. Leaves gameWrap alone now; the ready-room popup
-    // is a separate, fully opaque element anyway; it doesn't need
-    // gameWrap visible underneath it to display correctly.
-    renderReadyRoom(state);
-    document.getElementById('readyRoomOverlay').classList.add('on');
-    return;
-  }
-  document.getElementById('readyRoomOverlay').classList.remove('on');
-
   // 1. Seats -> the same PLAYERS shape local-mode rendering already expects
   PLAYERS = state.seats.map((s, i) => {
     if (!s) return null;
@@ -18387,6 +18337,38 @@ function applyServerState(state) {
   if (document.getElementById('hostMenuOverlay').classList.contains('on')) renderHostMenuPlayerList();
 
   setupOnlineTable();
+  // Per explicit follow-up request: the whole point is ONE transition,
+  // not two -- clicking Start in the lobby should land directly on the
+  // real table with every seat's actual avatar already visible (bots
+  // included), with just a simple popup on top of that real table
+  // asking the host to confirm before anything deals. Not a second,
+  // separate "screen" in between showing nothing but a name list. Now
+  // that setupOnlineTable() above has populated the real seats/avatars
+  // (it only needs PLAYERS, not hands or trick state, so it's already
+  // safe to call here), this is exactly the point to show that popup:
+  // real table fully visible underneath, then stop before the parts
+  // below that genuinely do need active hand/trick/bid state that
+  // doesn't exist yet.
+  if (state.phase === 'readyRoom') {
+    // Per explicit request: this popup is host-only -- everyone else
+    // just sees the real table underneath (already fully populated by
+    // setupOnlineTable() above) and simply waits for the host to
+    // confirm, no popup blocking their own view of who's seated. Real,
+    // confirmed bug fix found while testing this: SERVER_IS_HOST is
+    // deliberately permissive (true for any connected human, not just
+    // the actual host, so other host-gated features never get stuck)
+    // -- using it here would have shown this popup to every seated
+    // player, not just the host. state.isActualHost is the strict
+    // version, sent by the server specifically for this.
+    if (state.isActualHost) {
+      renderReadyRoom(state);
+      document.getElementById('readyRoomOverlay').classList.add('on');
+    } else {
+      document.getElementById('readyRoomOverlay').classList.remove('on');
+    }
+    return;
+  }
+  document.getElementById('readyRoomOverlay').classList.remove('on');
   // Actual DOM application of the call-badge updates queued way above
   // (window._pendingCallBadgeUpdates/_pendingWinnerMark) -- run HERE,
   // immediately after setupOnlineTable() rebuilds every avatar's own

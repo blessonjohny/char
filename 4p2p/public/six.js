@@ -1792,17 +1792,33 @@ function applyState(state) {
     return;
   }
 
-  // Per explicit request: table is fully seated (bots filled in already)
-  // but nothing has actually dealt yet -- same conservative approach as
-  // the 4-player table's identical addition: shows the ready-room popup
-  // (which already lists who's here) rather than running the full
-  // table-rendering pipeline below, which assumes an active round is
-  // genuinely underway.
+  // Per explicit follow-up request: the whole point is ONE transition,
+  // not two -- clicking Start should land directly on the real table
+  // with every seat's actual avatar already visible (bots included),
+  // with just a simple popup on top of that real table asking the host
+  // to confirm before anything deals. Calls renderSeats() directly here
+  // (wrapped, same defensive pattern already used for its main call
+  // further down) since that's self-contained -- only needs
+  // state.seats/foldedSeats/qMarks, not any active hand/trick/bid state
+  // -- rather than letting the rest of this function run all the way
+  // down to its own renderSeats() call, since several of the blocks in
+  // between do depend on that active state.
   if (state.phase === 'readyRoom') {
     document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
     $('gameScreen').style.display = 'block';
-    renderReadyRoom6p(state);
-    $('readyRoomOverlay6p').classList.add('on');
+    try { renderSeats(state); } catch (e) { console.error('[renderSeats during readyRoom] threw:', e); }
+    // Per explicit request: this popup is host-only -- everyone else
+    // just sees the real table underneath and waits for the host to
+    // confirm. Real, confirmed bug fix, matching the identical
+    // 4-player one: IS_HOST is deliberately permissive (true for any
+    // connected human) -- state.isActualHost is the strict version
+    // sent by the server specifically for this.
+    if (state.isActualHost) {
+      renderReadyRoom6p(state);
+      $('readyRoomOverlay6p').classList.add('on');
+    } else {
+      $('readyRoomOverlay6p').classList.remove('on');
+    }
     return;
   }
   $('readyRoomOverlay6p').classList.remove('on');

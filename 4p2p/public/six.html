@@ -1685,18 +1685,18 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   <button class="btn btn-outline" id="btnLeaveLobby">Leave Table</button>
 </div>
 
-<!-- ===== READY ROOM (table seated, waiting for anyone to start) ===== -->
+<!-- ===== READY ROOM (host-only, table seated, waiting to start) ===== -->
 <!-- Per explicit request: same ready-room step already added to the
      4-player table -- see there for the fuller reasoning. Sits right at
-     the actual table itself; nothing deals until someone here taps
-     Start. -->
-<!-- Real, confirmed bug fix per explicit live report: background
-     deliberately opaque now, not semi-transparent, matching the
-     identical fix on the 4-player table's version -- this popup shows
-     before the underlying table has ever actually been rendered, so a
-     see-through overlay let the old lobby/welcome background bleed
-     through visibly behind it. -->
-<div class="modal-overlay" id="readyRoomOverlay6p" style="z-index:2500;background:#0d1b2a">
+     the actual table itself with every real seat/avatar already visible
+     underneath it; nothing deals until the host taps Start. Host-only --
+     other seated players just see the real table underneath and wait.
+     Semi-transparent again (no background override): the earlier opaque
+     version was compensating for a different, now-fixed bug where the
+     real table hadn't actually been rendered yet at this point -- now
+     that it genuinely has, an opaque backdrop would just needlessly
+     hide it again. -->
+<div class="modal-overlay" id="readyRoomOverlay6p" style="z-index:2500">
   <div class="modal" style="text-align:center;max-width:340px;background:var(--panel);border-radius:16px;padding:20px">
     <h3 style="margin-top:0;margin-bottom:2px">🪑 Table is Ready</h3>
     <div style="text-align:center;font-size:0.78rem;color:var(--text-secondary);opacity:0.85;margin-bottom:12px">Nothing starts until someone here hits Start</div>
