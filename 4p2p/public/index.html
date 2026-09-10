@@ -4809,15 +4809,14 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
      for the population logic and the confirmStart socket emit. Host-only
      by explicit request -- other seated players just see the real table
      underneath and wait, no popup of their own. Per explicit follow-up
-     request: the base .modal-overlay class's own background
-     (rgba(0,0,0,0.7), a fairly heavy dark scrim meant for modals that
-     don't need to show what's behind them) was still making the real
-     table look "very dark" here specifically, where seeing the table
-     clearly -- same as during normal play -- is the entire point.
-     Overridden much lighter just for this one popup rather than
-     touching the shared base class other modals still rely on. -->
-<div class="modal-overlay" id="readyRoomOverlay" style="z-index:2500;background:rgba(0,0,0,0.15)">
-  <div class="modal" style="text-align:center;max-width:340px">
+     request: fully transparent now, both the outer overlay and the
+     inner modal box (which otherwise inherits a solid dark gradient
+     fill from the shared base .modal class) -- the explicit ask was to
+     see the players through the popup clearly, same treatment as the
+     trump-exposed event box (transparent fill, just a border/glow to
+     mark the popup's edges, not a solid card sitting over the table). -->
+<div class="modal-overlay" id="readyRoomOverlay" style="z-index:2500;background:transparent">
+  <div class="modal" style="text-align:center;max-width:340px;background:transparent;border:1.5px solid #f4c430;box-shadow:0 0 1px #f4c430,0 12px 40px rgba(0,0,0,0.6),0 0 60px rgba(244,196,48,0.25)">
     <h3 style="margin-top:0;margin-bottom:2px">🪑 Table is Ready</h3>
     <div style="text-align:center;font-size:0.78rem;color:var(--text-secondary);opacity:0.85;margin-bottom:12px">Nothing starts until someone here hits Start</div>
     <div id="readyRoomPlayerList" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:40px"></div>

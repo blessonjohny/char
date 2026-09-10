@@ -1695,12 +1695,13 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      underneath it; nothing deals until the host taps Start. Host-only --
      other seated players just see the real table underneath and wait.
      Per explicit follow-up request, matching the identical 4-player
-     fix: the base .modal-overlay class's own background
-     (rgba(0,0,0,0.55)) was still making the real table look too dark
-     here specifically, where seeing it clearly is the whole point.
-     Overridden much lighter just for this one popup. -->
-<div class="modal-overlay" id="readyRoomOverlay6p" style="z-index:2500;background:rgba(0,0,0,0.15)">
-  <div class="modal" style="text-align:center;max-width:340px;background:var(--panel);border-radius:16px;padding:20px">
+     fix: fully transparent now, both the outer overlay and the inner
+     modal box (which otherwise had a solid var(--panel) fill) -- the
+     explicit ask was to see the players through the popup clearly, same
+     treatment as the trump-exposed event box (transparent fill, just a
+     border/glow to mark the popup's edges). -->
+<div class="modal-overlay" id="readyRoomOverlay6p" style="z-index:2500;background:transparent">
+  <div class="modal" style="text-align:center;max-width:340px;background:transparent;border:1.5px solid #f4c430;box-shadow:0 0 1px #f4c430,0 12px 40px rgba(0,0,0,0.6),0 0 60px rgba(244,196,48,0.25);border-radius:16px;padding:20px">
     <h3 style="margin-top:0;margin-bottom:2px">🪑 Table is Ready</h3>
     <div style="text-align:center;font-size:0.78rem;color:var(--text-secondary);opacity:0.85;margin-bottom:12px">Nothing starts until someone here hits Start</div>
     <div id="readyRoomPlayerList6p" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:40px"></div>
