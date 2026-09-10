@@ -1174,12 +1174,17 @@ function getAllTablesSummary() {
     // Per explicit request: admin panel's live-tables view now also
     // shows the current round number and championship score (e.g.
     // "12-9") for each table, not just who's seated -- previously
-    // absent entirely.
-    rows.push({ game: '4-Player', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
+    // absent entirely. mode and ghostSeats (per further explicit
+    // request) support the admin chat feature: mode tells the client
+    // which table-chat/send-chat call to make, ghostSeats lists any
+    // admin-controlled ghost players currently seated here so the
+    // client can offer "chat as <ghost name>" alongside the generic
+    // "chat as Admin".
+    rows.push({ game: '4-Player', mode: '4p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
   }
   for (const t of Object.values(sixpTables)) {
     const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
-    rows.push({ game: '6-Player', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
+    rows.push({ game: '6-Player', mode: '6p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
   }
   for (const r of Object.values(l56Rooms)) {
     const seats = r.state && r.state.seats ? r.state.seats : [];
@@ -1202,6 +1207,50 @@ app.get('/api/live-players', (req, res) => {
 app.get('/api/all-tables', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
   res.json({ ok: true, tables: getAllTablesSummary() });
+});
+
+// Per explicit request: lets the admin panel show and send into a
+// specific table's chat directly, without needing its own live socket
+// connection into every room. mode is '4p' or '6p'.
+function _lookupTableForAdmin(mode, tableId) {
+  if (mode === '6p') return sixpTables[tableId];
+  return tables[tableId];
+}
+
+app.get('/api/admin/table-chat', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const mode = req.query.mode;
+  const tableId = req.query.tableId;
+  if (mode !== '4p' && mode !== '6p') return res.json({ ok: false, error: 'invalid mode' });
+  const t = _lookupTableForAdmin(mode, tableId);
+  if (!t) return res.json({ ok: false, error: 'table not found' });
+  res.json({ ok: true, chat: t.chatHistory || [] });
+});
+
+// Per explicit request: sends a chat message into a specific table as
+// either a generic "Admin" or, when impersonating a ghost player
+// specifically, as that ghost's own seated name -- either way it goes
+// out through the exact same 'chat'/'sixp_chat' broadcast every regular
+// player's own message uses, so it shows up in the same chat box
+// everyone at the table already sees, not a separate admin-only channel.
+app.post('/api/admin/send-chat', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const mode = req.body && req.body.mode;
+  const tableId = req.body && req.body.tableId;
+  const from = String((req.body && req.body.from) || 'Admin').slice(0, 40);
+  const msg = String((req.body && req.body.msg) || '').slice(0, 300).trim();
+  if (mode !== '4p' && mode !== '6p') return res.json({ ok: false, error: 'invalid mode' });
+  if (!msg) return res.json({ ok: false, error: 'empty message' });
+  const t = _lookupTableForAdmin(mode, tableId);
+  if (!t) return res.json({ ok: false, error: 'table not found' });
+  const entry = { from, msg, ts: Date.now() };
+  if (mode === '6p') {
+    io.to('sixp_' + tableId).emit('sixp_chat', { from, msg, senderId: 'admin' });
+  } else {
+    io.to(tableId).emit('chat', { from, msg, senderId: 'admin' });
+  }
+  appendChatHistory(t, entry);
+  res.json({ ok: true });
 });
 
 // Daily table-open counts for the past 30 days, plus every individual
@@ -1407,6 +1456,20 @@ app.post('/api/admin/spawn-bot-table', (req, res) => {
 // away through the existing close-table endpoint or the daily 5am reset, same as any other
 // table on this server.
 const ghostPlayers = {}; // ghostId -> { mode, tableId, pos, name, avatar, createdAt }
+
+// Per explicit request: keeps a small rolling buffer of a table's
+// recent chat (both directions -- player messages and anything the
+// admin panel sends in) so the admin panel can show/poll a table's
+// chat without needing its own live socket connection into every room.
+// Chat was previously pure ephemeral broadcast with nothing ever
+// retained server-side at all. Top-level (not nested in a socket
+// handler) since both the existing per-socket chat handlers below and
+// the new admin REST endpoints further down both need to reach it.
+function appendChatHistory(table, entry) {
+  if (!table.chatHistory) table.chatHistory = [];
+  table.chatHistory.push(entry);
+  if (table.chatHistory.length > 60) table.chatHistory.shift();
+}
 
 function ghostSnapshot() {
   return Object.entries(ghostPlayers).map(([ghostId, g]) => {
@@ -2790,6 +2853,7 @@ io.on('connection', (socket) => {
     }
     if (!from) return;
     io.to(tableId).emit('chat', { from, msg: trimmed, senderId: socket.id });
+    appendChatHistory(t, { from, msg: trimmed, ts: Date.now() });
     touch(t);
   });
 
@@ -3249,6 +3313,7 @@ io.on('connection', (socket) => {
       const seat = t.engine.seats[pos];
       if (!seat) return;
       io.to('sixp_' + sixpTableId).emit('sixp_chat', { from: seat.name, msg: trimmed, senderId: socket.id });
+      appendChatHistory(t, { from: seat.name, msg: trimmed, ts: Date.now() });
       sixpTouch(t);
     });
   });
