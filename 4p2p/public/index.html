@@ -1608,6 +1608,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   box-shadow:0 0 1px var(--evt-color, #f4c430),0 12px 40px rgba(0,0,0,0.6),0 0 60px var(--evt-glow, rgba(244,196,48,0.25));
   animation:gameEventIn .5s cubic-bezier(.16,.9,.28,1) both;
 }
+/* Per explicit follow-up request, matching six.js's identical existing
+   pattern: transparent background specifically for the trump-exposed
+   event (the one with the shake) -- a separate class rather than
+   changing the shared .game-event-box rule above, since Honors
+   Bid/Raise/Bid Made/Bid Failed all reuse that same box and should keep
+   their existing look. Real, confirmed bug fix found while adding this
+   here: six.js's own version of this same override class already
+   existed but only ever cleared the background/box-shadow, never
+   backdrop-filter itself -- so its blur kept applying regardless,
+   which is exactly why that popup still looked "blurry" even though
+   its fill was already transparent. Both explicitly cleared here.  */
+.game-event-box.trump-event{background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:0 0 1px var(--evt-color, #f4c430),0 0 40px var(--evt-glow, rgba(244,196,48,0.25))}
+.game-event-box.trump-event::before{display:none}
 .game-event-overlay.leaving .game-event-box{animation:gameEventOut .4s ease both;}
 @keyframes gameEventIn{0%{opacity:0;transform:translateY(14px) scale(0.96)}100%{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes gameEventOut{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-10px) scale(0.97)}}
@@ -4753,13 +4766,38 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
      screen and before the game-mode picker -- see showLeaderboardPopup()
      for the fetch/populate logic and the 5s auto-dismiss timer. -->
 <div class="modal-overlay" id="leaderboardPopupOverlay" style="z-index:2600">
-  <div class="modal" style="text-align:center;max-width:340px">
-    <h3 style="margin-top:0;margin-bottom:2px">🏆 Leaderboard</h3>
-    <div style="text-align:center;font-size:0.72rem;color:var(--text-secondary);opacity:0.85;margin-bottom:10px">Ranked by biggest score gap, rounds taken as tiebreak</div>
-    <div id="leaderboardPopupContent" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:40px">
+  <!-- Per explicit live report: this popup had no scrolling at all --
+       with the leaderboard now showing a full top-10 for both 4-player
+       and 6-player together (20 rows), it easily overflowed past the
+       visible screen on a phone with no way to reach the OK button
+       below it at all. Title and OK button now stay fixed in place
+       (flex column, max-height capped to the viewport) while only the
+       actual list in the middle scrolls -- -webkit-overflow-scrolling
+       keeps that scroll smooth under touch on iOS specifically, not
+       just functional on desktop with a mouse wheel. Real, confirmed
+       follow-up bug fix per second live report that the popup still
+       couldn't reach bottom: the scrolling div below had min-height:40px
+       (originally just to keep some visible space for the "Loading…"
+       text) -- a flex child's default/explicit min-height blocks it
+       from ever actually shrinking below that value, which silently
+       defeated its own overflow-y:auto since the browser never
+       considered it "too small for its content" in the first place.
+       Changed to min-height:0, the actual fix needed to let a
+       scrollable flex child work at all. Also added an 85dvh fallback
+       alongside the existing 85vh: on mobile browsers, plain vh units
+       are sized against the largest-possible viewport (address bar
+       hidden), not whatever's actually visible at any given moment --
+       dvh (dynamic viewport height) tracks the real, currently-visible
+       area instead. Kept 85vh first for older browsers that don't know
+       dvh at all; both max-height declarations are valid CSS, so the
+       later one silently wins wherever it's actually supported. -->
+  <div class="modal" style="text-align:center;max-width:340px;display:flex;flex-direction:column;max-height:85vh;max-height:85dvh">
+    <h3 style="margin-top:0;margin-bottom:2px;flex-shrink:0">🏆 Leaderboard</h3>
+    <div style="text-align:center;font-size:0.72rem;color:var(--text-secondary);opacity:0.85;margin-bottom:10px;flex-shrink:0">Ranked by biggest score gap, rounds taken as tiebreak</div>
+    <div id="leaderboardPopupContent" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto">
       Loading…
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:16px" id="btnLeaderboardPopupOk">OK</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:16px;flex-shrink:0" id="btnLeaderboardPopupOk">OK</button>
   </div>
 </div>
 
@@ -4770,14 +4808,15 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
      deals or begins until the host taps Start. See renderReadyRoom()
      for the population logic and the confirmStart socket emit. Host-only
      by explicit request -- other seated players just see the real table
-     underneath and wait, no popup of their own. Semi-transparent again
-     (back to the base .modal-overlay class's own background, no
-     override): the earlier opaque version was compensating for a
-     different, now-fixed bug where the real table hadn't actually been
-     rendered yet at this point -- now that it genuinely has (see
-     applyServerState's readyRoom branch calling setupOnlineTable()
-     first), an opaque backdrop would just needlessly hide it again. -->
-<div class="modal-overlay" id="readyRoomOverlay" style="z-index:2500">
+     underneath and wait, no popup of their own. Per explicit follow-up
+     request: the base .modal-overlay class's own background
+     (rgba(0,0,0,0.7), a fairly heavy dark scrim meant for modals that
+     don't need to show what's behind them) was still making the real
+     table look "very dark" here specifically, where seeing the table
+     clearly -- same as during normal play -- is the entire point.
+     Overridden much lighter just for this one popup rather than
+     touching the shared base class other modals still rely on. -->
+<div class="modal-overlay" id="readyRoomOverlay" style="z-index:2500;background:rgba(0,0,0,0.15)">
   <div class="modal" style="text-align:center;max-width:340px">
     <h3 style="margin-top:0;margin-bottom:2px">🪑 Table is Ready</h3>
     <div style="text-align:center;font-size:0.78rem;color:var(--text-secondary);opacity:0.85;margin-bottom:12px">Nothing starts until someone here hits Start</div>
@@ -7709,12 +7748,12 @@ function markWinningBidder4p(pos, winningBid) {
   }
 }
 
-function showGameEvent(icon, title, detail, color) {
+function showGameEvent(icon, title, detail, color, extraClass) {
   const overlay = document.createElement('div');
   overlay.className = 'game-event-overlay';
   overlay.style.setProperty('--evt-color', color);
   overlay.style.setProperty('--evt-glow', color + '66');
-  overlay.innerHTML = `<div class="game-event-box">
+  overlay.innerHTML = `<div class="game-event-box${extraClass ? ' ' + extraClass : ''}">
     <div class="game-event-icon">${icon}</div>
     <div class="game-event-title">${title}</div>
     <div class="game-event-detail">${detail}</div>
@@ -8114,7 +8153,7 @@ function updateInfo() {
           // owner's private hand right after.
           const rc = latestServerState && latestServerState.revealedTrumpCard;
           const trumpDetail = rc ? miniCardHtml(rc.rank, rc.suit) : (exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall));
-          showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa');
+          showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa', 'trump-event');
           const table = document.getElementById('tableArea');
           if (table) {
             table.classList.remove('trump-exposed');
@@ -11656,7 +11695,7 @@ function exposeTrump(caller) {
     tr.classList.add('trump-active');
   }
   showToast('⚡ Trump exposed: ' + trumpSuit + '!', 'win', 1800);
-  showGameEvent('⚡', 'Trump Exposed', revealedTrumpCard ? miniCardHtml(revealedTrumpCard.rank, revealedTrumpCard.suit) : (trumpSuit + ' ' + suitName(trumpSuit)), '#a78bfa');
+  showGameEvent('⚡', 'Trump Exposed', revealedTrumpCard ? miniCardHtml(revealedTrumpCard.rank, revealedTrumpCard.suit) : (trumpSuit + ' ' + suitName(trumpSuit)), '#a78bfa', 'trump-event');
   const name = playerAt(caller) ? playerAt(caller).name : 'Player';
   log((caller === MY_POS ? 'You' : name) + ' exposed trump! ' + trumpSuit + ' active!', 'win');
   // TABLE POP ANIMATION when trump is exposed

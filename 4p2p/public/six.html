@@ -901,11 +901,14 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   box-shadow:0 0 1px var(--evt-color, #f4c430),0 12px 40px rgba(0,0,0,0.6),0 0 60px var(--evt-glow, rgba(244,196,48,0.25));
   animation:gameEventIn .5s cubic-bezier(.16,.9,.28,1) both;
 }
-/* Transparent background specifically for the trump-exposed event - a separate class rather
-   than changing the shared .game-event-box rule, since Honors Bid/Raise/Bid Made/Bid Failed
-   all reuse that same box and should keep their existing solid-card look. Box padding/size
-   is untouched - only the fill becomes see-through, border and glow stay. */
-.game-event-box.trump-event{background:transparent;box-shadow:0 0 1px var(--evt-color, #f4c430),0 0 40px var(--evt-glow, rgba(244,196,48,0.25))}
+/* Per explicit follow-up request: real, confirmed bug fix -- this
+   override already existed and was already being applied to the right
+   event, but only ever cleared background/box-shadow, never
+   backdrop-filter itself. The base .game-event-box rule's blur(6px)
+   kept applying regardless, which is exactly why this popup still
+   looked "blurry" even though its fill was already transparent.
+   backdrop-filter explicitly cleared here now too. */
+.game-event-box.trump-event{background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:0 0 1px var(--evt-color, #f4c430),0 0 40px var(--evt-glow, rgba(244,196,48,0.25))}
 .game-event-box.trump-event::before{display:none}
 .game-event-overlay.leaving .game-event-box{animation:gameEventOut .4s ease both;}
 @keyframes gameEventIn{0%{opacity:0;transform:translateY(14px) scale(0.96)}100%{opacity:1;transform:translateY(0) scale(1)}}
@@ -1691,12 +1694,12 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      the actual table itself with every real seat/avatar already visible
      underneath it; nothing deals until the host taps Start. Host-only --
      other seated players just see the real table underneath and wait.
-     Semi-transparent again (no background override): the earlier opaque
-     version was compensating for a different, now-fixed bug where the
-     real table hadn't actually been rendered yet at this point -- now
-     that it genuinely has, an opaque backdrop would just needlessly
-     hide it again. -->
-<div class="modal-overlay" id="readyRoomOverlay6p" style="z-index:2500">
+     Per explicit follow-up request, matching the identical 4-player
+     fix: the base .modal-overlay class's own background
+     (rgba(0,0,0,0.55)) was still making the real table look too dark
+     here specifically, where seeing it clearly is the whole point.
+     Overridden much lighter just for this one popup. -->
+<div class="modal-overlay" id="readyRoomOverlay6p" style="z-index:2500;background:rgba(0,0,0,0.15)">
   <div class="modal" style="text-align:center;max-width:340px;background:var(--panel);border-radius:16px;padding:20px">
     <h3 style="margin-top:0;margin-bottom:2px">🪑 Table is Ready</h3>
     <div style="text-align:center;font-size:0.78rem;color:var(--text-secondary);opacity:0.85;margin-bottom:12px">Nothing starts until someone here hits Start</div>
