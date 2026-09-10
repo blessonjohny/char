@@ -3392,18 +3392,25 @@ function showBidPanel(state) {
   // game-engine-6p.js for the full rule.
   const thaniBtn = document.createElement('button');
   thaniBtn.className = 'bid-btn';
-  // Real, confirmed follow-up per explicit live report: with a 4-column
-  // grid and a variable-length run of number buttons ahead of it (the
-  // exact count moves depending on minBid), THANI landing right after
-  // whatever's left in that last row could leave 1-2 empty grid cells
-  // trailing it -- most visibly when only "28" precedes it, leaving
-  // two dead cells. Counts how many number buttons actually got added
-  // above and has THANI span exactly the remaining columns in that
-  // same row (or a full fresh row if the numbers happened to fill
-  // theirs exactly), so the row is always fully used either way.
+  // Real, confirmed follow-up per explicit live report: with a
+  // 4-per-row layout and a variable-length run of number buttons ahead
+  // of it (the exact count moves depending on minBid), THANI landing
+  // right after whatever's left in that last row could leave 1-2 empty
+  // slots trailing it -- most visibly when only "28" precedes it,
+  // leaving two dead slots. Counts how many number buttons actually got
+  // added above and has THANI span exactly the remaining columns in
+  // that same row (or a full fresh row if the numbers happened to fill
+  // theirs exactly), so the row is always fully used either way. Now
+  // expressed as an explicit flex-basis calc() (n columns spanned, with
+  // this layout's 8px gap and 4-column width baked into the formula)
+  // rather than grid-column:span, since the whole layout moved off CSS
+  // Grid onto flexbox -- see the .bid-grid/.bid-btn rule comments for
+  // why (a real, confirmed cross-browser Grid rendering bug on the
+  // user's actual phone browser).
   const numberBtnCount = btns.querySelectorAll('.bid-btn:not(.pass-btn)').length;
   const remainderInRow = numberBtnCount % 4;
-  thaniBtn.style.cssText = `background:linear-gradient(135deg,#8b2020,#4a0f0f);border-color:#c94f4f;grid-column:span ${remainderInRow === 0 ? 4 : 4 - remainderInRow}`;
+  const thaniSpan = remainderInRow === 0 ? 4 : 4 - remainderInRow;
+  thaniBtn.style.cssText = `background:linear-gradient(135deg,#8b2020,#4a0f0f);border-color:#c94f4f;flex-basis:calc(${thaniSpan * 25}% + ${2 * thaniSpan - 8}px)`;
   thaniBtn.textContent = '🔥 THANI (Solo)';
   thaniBtn.addEventListener('click', () => showBidConfirm(state, 'THANI', false));
   btns.appendChild(thaniBtn);
