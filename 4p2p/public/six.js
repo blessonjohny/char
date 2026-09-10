@@ -1652,8 +1652,10 @@ function renderReadyRoom6p(state) {
   const seated = state.seats.filter(Boolean);
   const botCount = seated.filter(s => s.isBot).length;
   const humanCount = seated.length - botCount;
+  // Per explicit request: live (human) players shown in green, bots in
+  // red, matching the identical 4-player change.
   const rows = seated.map(s => `<div style="display:flex;justify-content:space-between;padding:6px 10px;background:var(--panel-alt,rgba(255,255,255,0.05));border-radius:8px;margin-bottom:6px">
-      <span>${s.isBot ? '🤖' : '👤'} ${escapeHtml(s.name)}</span>
+      <span style="color:${s.isBot ? 'var(--danger)' : 'var(--success)'}">${s.isBot ? '🤖' : '👤'} ${escapeHtml(s.name)}</span>
     </div>`).join('');
   list.innerHTML = `<div style="margin-bottom:8px;opacity:0.85">${humanCount} player${humanCount === 1 ? '' : 's'}, ${botCount} bot${botCount === 1 ? '' : 's'}</div>${rows}`;
 }
