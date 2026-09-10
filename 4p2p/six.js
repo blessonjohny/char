@@ -45,7 +45,7 @@ let isAutoReconnectAttempt6p = false;
 // player's choice carries over between tables instead of resetting.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:106}, (_,i) => 'toon'+(i+1));
+const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 // Per explicit request: these 5 are personal, PIN-protected avatars
 // (see pickMyAvatar/confirmSixpChangeAvatar for the actual PIN check)
 // and must never be handed to anyone automatically -- not as a bot,
@@ -234,127 +234,117 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
 // per table. Static, never mood-reactive -- matches the 4-player table's
 // own approach exactly, not the mood-face system 56 has separately.
 const ALL_BOT_AVATARS_6P = [
-  // Per explicit request: the 5 personal, PIN-protected avatars
-  // (JCK/LJ/JK/Santhosh/Jose) are deliberately NOT entries in this
-  // array. Every bot name/avatar in the game gets drawn from here --
-  // by removing them entirely rather than adding an exclusion check at
-  // each of the many places this array gets indexed for bot selection,
-  // there's no separate list to keep in sync and no way for a bot to
-  // end up wearing a real person's face. They're still fully available
-  // for an actual human to pick for themselves, via the separate
-  // ALL_AVATAR_KEYS-driven picker grid and its PIN gate (see
-  // pickMyAvatar/confirmSixpChangeAvatar).
-  {name:'Ancy',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Ajai',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Alok',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Anup',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Anjali',emoji:heroAvatarHtml('toon32'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Appu',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Arun',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Meera',emoji:heroAvatarHtml('toon33'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Benson',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Neha',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Binchu',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Charlie',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Jerin',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Priya',emoji:heroAvatarHtml('toon35'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Johny',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Reena',emoji:heroAvatarHtml('toon36'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Koshy',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Nate',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Divya',emoji:heroAvatarHtml('toon37'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Peter',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Lakshmi',emoji:heroAvatarHtml('toon38'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Rahul',emoji:heroAvatarHtml('toon14'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Rajesh',emoji:heroAvatarHtml('toon15'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Randall',emoji:heroAvatarHtml('toon16'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Sarah',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Renji',emoji:heroAvatarHtml('toon17'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Roji',emoji:heroAvatarHtml('toon18'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Nisha',emoji:heroAvatarHtml('toon40'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Roney',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Sanjay',emoji:heroAvatarHtml('toon20'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Shyam',emoji:heroAvatarHtml('toon21'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Deepa',emoji:heroAvatarHtml('toon41'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Stev',emoji:heroAvatarHtml('toon22'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Vinod',emoji:heroAvatarHtml('toon23'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Wesley',emoji:heroAvatarHtml('toon24'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Elsa',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Abin',emoji:heroAvatarHtml('toon25'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Maya',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Bibin',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Sherin',emoji:heroAvatarHtml('toon44'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Cibin',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Denny',emoji:heroAvatarHtml('toon28'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Eldho',emoji:heroAvatarHtml('toon29'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Teena',emoji:heroAvatarHtml('toon45'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Frankie',emoji:heroAvatarHtml('toon30'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'George',emoji:heroAvatarHtml('toon52'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Anu',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Hari',emoji:heroAvatarHtml('toon54'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Ivan',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Reshma',emoji:heroAvatarHtml('toon47'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Jibin',emoji:heroAvatarHtml('toon58'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Kevin',emoji:heroAvatarHtml('toon60'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Libin',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Jisha',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Manoj',emoji:heroAvatarHtml('toon64'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Nibin',emoji:heroAvatarHtml('toon67'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Oommen',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Nimmy',emoji:heroAvatarHtml('toon49'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Pauly',emoji:heroAvatarHtml('toon70'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Robin',emoji:heroAvatarHtml('toon76'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Beena',emoji:heroAvatarHtml('toon50'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Sibin',emoji:heroAvatarHtml('toon77'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Tibin',emoji:heroAvatarHtml('toon78'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Unni',emoji:heroAvatarHtml('toon79'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Soumya',emoji:heroAvatarHtml('toon51'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Vishnu',emoji:heroAvatarHtml('toon80'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Wilson',emoji:heroAvatarHtml('toon82'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Liya',emoji:heroAvatarHtml('toon53'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Xavier',emoji:heroAvatarHtml('toon84'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Yohan',emoji:heroAvatarHtml('toon86'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Merin',emoji:heroAvatarHtml('toon55'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Zachariah',emoji:heroAvatarHtml('toon89'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Aby',emoji:heroAvatarHtml('toon96'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Bijoy',emoji:heroAvatarHtml('toon97'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Asha',emoji:heroAvatarHtml('toon57'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Anita',emoji:heroAvatarHtml('toon59'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Cyriac',emoji:heroAvatarHtml('toon98'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Davis',emoji:heroAvatarHtml('toon99'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Betty',emoji:heroAvatarHtml('toon61'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Ebin',emoji:heroAvatarHtml('toon100'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Fenil',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Gibin',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Celine',emoji:heroAvatarHtml('toon63'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Diya',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Hillary',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Fiona',emoji:heroAvatarHtml('toon68'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Ittoop',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Gracy',emoji:heroAvatarHtml('toon71'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Hema',emoji:heroAvatarHtml('toon72'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Jaison',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Indu',emoji:heroAvatarHtml('toon73'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Jessy',emoji:heroAvatarHtml('toon74'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Kurian',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Lijo',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Kavya',emoji:heroAvatarHtml('toon75'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Mathew',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Leena',emoji:heroAvatarHtml('toon81'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Ninan',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Mariya',emoji:heroAvatarHtml('toon83'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Babi',emoji:heroAvatarHtml('toon85'),bg:'linear-gradient(135deg,linear-gradient(135deg,#c2266f,#8e1c52))'},
-  {name:'Oliver',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Linda',emoji:heroAvatarHtml('toon87'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Babitha',emoji:heroAvatarHtml('toon88'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Maria',emoji:heroAvatarHtml('toon90'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Leela',emoji:heroAvatarHtml('toon91'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Anna',emoji:heroAvatarHtml('toon92'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Thankam',emoji:heroAvatarHtml('toon93'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Lincy',emoji:heroAvatarHtml('toon94'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Princy',emoji:heroAvatarHtml('toon95'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Easo',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Joseph',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Ancy',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Ajai',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Alok',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Anup',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Anjali',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Appu',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Arun',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Meera',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Benson',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Neha',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Binchu',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Charlie',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Jerin',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Priya',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Johny',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Reena',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Koshy',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Nate',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Divya',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Peter',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Lakshmi',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Rahul',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Rajesh',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Randall',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Sarah',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Renji',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Roji',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Nisha',emoji:heroAvatarHtml('toon14'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Roney',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Sanjay',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Shyam',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Deepa',emoji:heroAvatarHtml('toon15'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Stev',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Vinod',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Wesley',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Elsa',emoji:heroAvatarHtml('toon16'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Abin',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Maya',emoji:heroAvatarHtml('toon17'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Bibin',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Sherin',emoji:heroAvatarHtml('toon18'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Cibin',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Denny',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Eldho',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Teena',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Frankie',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'George',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Anu',emoji:heroAvatarHtml('toon20'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Hari',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Ivan',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Reshma',emoji:heroAvatarHtml('toon21'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Jibin',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Kevin',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Libin',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Jisha',emoji:heroAvatarHtml('toon22'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Manoj',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Nibin',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Oommen',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Nimmy',emoji:heroAvatarHtml('toon23'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Pauly',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Robin',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Beena',emoji:heroAvatarHtml('toon24'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Sibin',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Tibin',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Unni',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Soumya',emoji:heroAvatarHtml('toon25'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Vishnu',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Wilson',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Liya',emoji:heroAvatarHtml('toon28'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Xavier',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Yohan',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Merin',emoji:heroAvatarHtml('toon29'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Zachariah',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Aby',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Bijoy',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Asha',emoji:heroAvatarHtml('toon30'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Anita',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Cyriac',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Davis',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Betty',emoji:heroAvatarHtml('toon32'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Ebin',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Fenil',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Gibin',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Celine',emoji:heroAvatarHtml('toon33'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Diya',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Hillary',emoji:heroAvatarHtml('toon35'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Fiona',emoji:heroAvatarHtml('toon36'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Ittoop',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Gracy',emoji:heroAvatarHtml('toon37'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Hema',emoji:heroAvatarHtml('toon38'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Jaison',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Indu',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Jessy',emoji:heroAvatarHtml('toon40'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Kurian',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Lijo',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Kavya',emoji:heroAvatarHtml('toon41'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Mathew',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Leena',emoji:heroAvatarHtml('toon44'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Ninan',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Mariya',emoji:heroAvatarHtml('toon45'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Babi',emoji:heroAvatarHtml('toon47'),bg:'linear-gradient(135deg,linear-gradient(135deg,#c2266f,#8e1c52))'},
+  {name:'Oliver',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Linda',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Babitha',emoji:heroAvatarHtml('toon49'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Maria',emoji:heroAvatarHtml('toon50'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Leela',emoji:heroAvatarHtml('toon51'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Anna',emoji:heroAvatarHtml('toon52'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Thankam',emoji:heroAvatarHtml('toon53'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Lincy',emoji:heroAvatarHtml('toon54'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Princy',emoji:heroAvatarHtml('toon55'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Easo',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Joseph',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
 ];
 
 // Requests fullscreen -- hides the browser's own address bar and nav
@@ -941,7 +931,49 @@ function $(id) { return document.getElementById(id); }
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   $(id).classList.remove('hidden');
+  // Real, confirmed root cause found per explicit live report: the
+  // separate MutationObserver/poll below that mirrors this onto
+  // body.k28-in-game only ever fires asynchronously (a queued
+  // microtask at best, up to 500ms later at worst via the poll) --
+  // but enforceSeatAvatarSizing6p() runs SYNCHRONOUSLY on every single
+  // seat render, often immediately after this exact call in the same
+  // synchronous block. That gap meant every fresh render briefly (or
+  // not-so-briefly) saw the class as not-yet-set and applied the wrong
+  // size, which is exactly what caused the visible "pop" on every card
+  // played -- size was only ever corrected on the NEXT render after
+  // the async class update finally landed, not the current one. Sets
+  // the class synchronously right here instead, at the one point that
+  // actually changes visibility, so it's always already correct by
+  // the time anything renders off of it.
+  document.body.classList.toggle('k28-in-game', id === 'gameScreen' && window.innerWidth >= 521);
 }
+// Per explicit request, same addition as the 4-player table's identical
+// change -- see there for the fuller reasoning: mirrors #gameScreen's
+// real visibility onto body.k28-in-game as a safety net, in addition
+// to showScreen() setting it directly above. Real, confirmed live
+// report: removing this fallback entirely (on the theory that
+// showScreen() alone was now sufficient) broke the desktop layout
+// completely on the actual live site, even though it kept working
+// correctly in every local test here -- whatever the exact reason
+// (a different code path reaching #gameScreen's visibility without
+// going through showScreen, or something else this sandbox doesn't
+// reproduce), the fallback is evidently load-bearing in a way local
+// testing alone didn't reveal, and needs to stay. Rebuilt correctly
+// this time instead of just restoring the old version verbatim: checks
+// the same .hidden class showScreen() itself checks (not raw computed
+// display, which is more exposed to transient CSS-rendering states
+// during a re-render) AND requires the same window.innerWidth>=521
+// condition showScreen() already requires -- the previous version of
+// this fallback checked neither of those the same way, which is what
+// actually let it disagree with showScreen() and cause the earlier
+// pop/glitch at round transitions. This version can only ever agree
+// with showScreen()'s own logic, never contradict it.
+setInterval(() => {
+  const gs = document.getElementById('gameScreen');
+  if (!gs) return;
+  const shouldBeActive = !gs.classList.contains('hidden') && window.innerWidth >= 521;
+  document.body.classList.toggle('k28-in-game', shouldBeActive);
+}, 500);
 function showToast(msg, kind, ms) {
   const el = document.createElement('div');
   el.textContent = msg;
@@ -1072,6 +1104,12 @@ function connectSocket() {
     lastRenderedTrickSlot = [null, null, null, null, null, null];
     sixpCatchUpGen++;
     if (MY_TABLE_ID && MY_PLAYER_ID) {
+      // Same silent-recovery flag as the other two health-check-driven
+      // rejoins -- see there for the fuller reasoning. A real network
+      // reconnect while already mid-game needs the exact same
+      // treatment: land back on whatever screen was already showing,
+      // not get bounced to the lobby.
+      window.__sixpSilentRejoin = true;
       socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
     }
     // The "connection lost" toast never had a matching "you're back"
@@ -1136,11 +1174,71 @@ function connectSocket() {
         settled = true;
         clearTimeout(healthCheckTimeout);
         if (MY_TABLE_ID && MY_PLAYER_ID) {
+          // Real, confirmed bug found per explicit live report: this is
+          // a SILENT background recovery -- the player never actually
+          // left the game screen, so the rejoin this triggers shouldn't
+          // touch what's currently on screen at all. But the shared
+          // sixp_joined handler below unconditionally calls
+          // showScreen('lobbyScreen') on every successful join,
+          // assuming it's always a fresh one -- so every time this
+          // silent recovery fired, it was yanking an actively-playing
+          // user back to the lobby screen for a moment before whatever
+          // came next switched back to the game screen, which is
+          // exactly what caused the reported "avatars pop small, then
+          // back to normal" -- the lobby screen briefly counts as NOT
+          // the wide desktop game view, sizing everything back down
+          // for that instant. Flag this as silent so that handler knows
+          // to leave the current screen alone.
+          window.__sixpSilentRejoin = true;
           socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
         }
       });
     }
   });
+
+  // Real, confirmed bug fix per explicit live report: a player who
+  // stayed on this same tab/app the entire time (never switching away
+  // and back, so visibilitychange above never once fired) reported the
+  // automatic bot-takeover kicking in and then NEVER handing control
+  // back -- not just for the one stuck turn, but for every turn after
+  // it too, until the page was refreshed. Traced this to the server
+  // marking the seat disconnected (a brief real network drop
+  // Socket.IO's own client-side "connected" flag didn't register at
+  // all) with nothing left client-side to ever notice and recover from
+  // it: the connect handler only fires on an actual reconnect event,
+  // and visibilitychange only fires on an actual tab switch -- neither
+  // covers a connection that silently died while the tab stayed
+  // visible and socket.connected kept reporting true regardless. Once
+  // the server believes a seat is disconnected, maybeAutoAct() treats
+  // every single turn as stuck immediately (not just the one that
+  // crossed the timeout), which matches exactly what was reported.
+  // This runs the same healthPing-then-rejoin recovery the
+  // visibilitychange handler already does, but on its own timer,
+  // independent of visibility ever changing at all.
+  setInterval(() => {
+    if (!MY_TABLE_ID || !MY_PLAYER_ID) return;
+    if (!socket.connected) { socket.connect(); return; }
+    let settled = false;
+    const forceReconnect = () => {
+      if (settled) return;
+      settled = true;
+      try { socket.disconnect(); } catch (e) {}
+      socket.connect();
+    };
+    const healthCheckTimeout = setTimeout(forceReconnect, 3000);
+    socket.emit('healthPing', () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(healthCheckTimeout);
+      // Same silent-recovery flag as the visibilitychange handler's
+      // identical health-ping above -- see there for the fuller
+      // reasoning. This one fires unconditionally every 30 seconds
+      // regardless of tab visibility, so it's an even more frequent
+      // source of the same reported pop if left unflagged.
+      window.__sixpSilentRejoin = true;
+      socket.emit('sixp_joinTable', { tableId: MY_TABLE_ID, playerId: MY_PLAYER_ID });
+    });
+  }, 30000);
 
   socket.on('sixp_joined', (info) => {
     isAutoReconnectAttempt6p = false;
@@ -1154,7 +1252,21 @@ function connectSocket() {
       localStorage.setItem('k28six_session_time', String(Date.now()));
     } catch (e) {}
     $('seatPickerOverlay').classList.remove('on');
-    showScreen('lobbyScreen');
+    // Real, confirmed bug fix per explicit live report: this used to
+    // unconditionally switch to the lobby screen on every successful
+    // join, silently assuming every join is a fresh one -- but the two
+    // background health-check recoveries above also route through this
+    // exact same event on success, and those fire while a game is
+    // already actively in progress on screen. Skips the screen switch
+    // specifically for those silent recoveries, leaving whatever
+    // screen the player was actually looking at alone -- a genuine
+    // fresh join (this flag unset) still goes to the lobby exactly as
+    // before.
+    if (window.__sixpSilentRejoin) {
+      window.__sixpSilentRejoin = false;
+    } else {
+      showScreen('lobbyScreen');
+    }
     $('roomCodeDisplay').textContent = info.tableId;
   });
 
@@ -1195,14 +1307,27 @@ function connectSocket() {
   // Real, confirmed fix per explicit follow-up report: this used to
   // land back on the welcome screen, not the actual create-a-room
   // screen (name + avatar entry) the popup's own message points to --
-  // matches the 4-player table's identical fix. Deliberately does NOT
-  // set pendingJoinCode/pendingAction/the invite banner the way a real
-  // invite link does above -- there's no live invite to honor anymore,
-  // this is a brand new room, not a rejoin attempt on the dead one.
+  // matches the 4-player table's identical fix.
+  // Real, confirmed bug fix per explicit live report: this comment
+  // originally said "deliberately does NOT set pendingAction" on the
+  // reasoning that there's no live invite left to honor -- but that
+  // reasoning missed that pendingAction isn't just about the invite,
+  // it's what the name screen's own submit handler reads to decide
+  // whether to create a new table or rejoin one. Leaving it untouched
+  // meant it silently kept whatever value the original failed join
+  // attempt had already set it to ('join'), so entering a name here
+  // and continuing tried to rejoin the same dead table all over again
+  // instead of creating a new one -- the user had to back out to the
+  // welcome screen and use the real Create button to actually get a
+  // working table. Explicitly sets 'create' now, matching exactly what
+  // the popup's own message promises.
   const btnRoomGoneOk = $('btnRoomGoneOk');
   if (btnRoomGoneOk) {
     btnRoomGoneOk.addEventListener('click', () => {
       $('roomGoneOverlay').classList.remove('on');
+      pendingAction = 'create';
+      const inviteBanner6pGone = $('inviteBanner6p');
+      if (inviteBanner6pGone) inviteBanner6pGone.classList.add('hidden');
       showScreen('nameScreen');
     });
   }
@@ -1278,13 +1403,14 @@ function connectSocket() {
   // handler, see there for the fuller reasoning -- only shows for the
   // two people actually involved, not the whole table.
   socket.on('sixp_buddyGreeting', ({ fromPos, toPos }) => {
-    // fromPos is the clicker, toPos is whose avatar got clicked -- but
-    // the MESSAGE is written the other way around (as if the clicked
-    // player is greeting the clicker), so {from}/{to} in the template
-    // are the reverse of the socket's fromPos/toPos.
+    // Per explicit follow-up fix: this used to deliberately write the
+    // message backwards -- same fix as the 4-player table's identical
+    // change. fromPos/fromName is always the actual sender, toPos/
+    // toName is always the actual receiver; showBuddyGreeting itself
+    // picks the right phrasing per-viewer.
     if (MY_POS === fromPos || MY_POS === toPos) {
       const nameAt = (pos) => (pos === MY_POS ? (MY_NAME || 'You') : ((latestState && latestState.seats[pos] && latestState.seats[pos].name) || 'Someone'));
-      window.showBuddyGreeting(nameAt(toPos), nameAt(fromPos));
+      window.showBuddyGreeting(nameAt(fromPos), nameAt(toPos), fromPos, toPos);
     }
   });
 
@@ -1518,6 +1644,23 @@ $('btnStartGame').addEventListener('click', () => {
   socket.emit('sixp_startGame');
 });
 
+// Per explicit request: populates the ready-room popup's player list
+// (names + bot count), matching the identical 4-player function.
+function renderReadyRoom6p(state) {
+  const list = $('readyRoomPlayerList6p');
+  if (!list || !state || !Array.isArray(state.seats)) return;
+  const seated = state.seats.filter(Boolean);
+  const botCount = seated.filter(s => s.isBot).length;
+  const humanCount = seated.length - botCount;
+  const rows = seated.map(s => `<div style="display:flex;justify-content:space-between;padding:6px 10px;background:var(--panel-alt,rgba(255,255,255,0.05));border-radius:8px;margin-bottom:6px">
+      <span>${s.isBot ? '🤖' : '👤'} ${escapeHtml(s.name)}</span>
+    </div>`).join('');
+  list.innerHTML = `<div style="margin-bottom:8px;opacity:0.85">${humanCount} player${humanCount === 1 ? '' : 's'}, ${botCount} bot${botCount === 1 ? '' : 's'}</div>${rows}`;
+}
+$('btnReadyRoomStart6p').addEventListener('click', () => {
+  socket.emit('sixp_confirmStart');
+});
+
 function renderLobby(state) {
   const seated = state.seats.filter(Boolean).length;
   $('lobbySub').textContent = `${seated}/6 players`;
@@ -1528,8 +1671,14 @@ function renderLobby(state) {
       <span style="color:var(--accent)">${realIdx === MY_POS ? 'YOU' : ''}</span>
     </div>`;
   }).join('');
-  $('btnStartGame').style.display = IS_HOST ? 'flex' : 'none';
-  $('botFillRow').style.display = IS_HOST ? 'flex' : 'none';
+  // Per explicit request: any seated player can start the game now,
+  // not just the host -- shows both the Start button and the bot-fill
+  // row to everyone at the table instead of gating on IS_HOST. The
+  // server-side handlers have their own matching checks (any actual
+  // seat, not just host) as the real safety net regardless of what
+  // this client shows.
+  $('btnStartGame').style.display = 'flex';
+  $('botFillRow').style.display = 'flex';
 }
 
 // ---------------- Main state application ----------------
@@ -1639,8 +1788,40 @@ function applyState(state) {
     $('roomCodeDisplay').textContent = MY_TABLE_ID;
     renderLobby(state);
     if (window.K28Voice) K28Voice.hideButton();
+    $('readyRoomOverlay6p').classList.remove('on');
     return;
   }
+
+  // Per explicit follow-up request: the whole point is ONE transition,
+  // not two -- clicking Start should land directly on the real table
+  // with every seat's actual avatar already visible (bots included),
+  // with just a simple popup on top of that real table asking the host
+  // to confirm before anything deals. Calls renderSeats() directly here
+  // (wrapped, same defensive pattern already used for its main call
+  // further down) since that's self-contained -- only needs
+  // state.seats/foldedSeats/qMarks, not any active hand/trick/bid state
+  // -- rather than letting the rest of this function run all the way
+  // down to its own renderSeats() call, since several of the blocks in
+  // between do depend on that active state.
+  if (state.phase === 'readyRoom') {
+    document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+    $('gameScreen').style.display = 'block';
+    try { renderSeats(state); } catch (e) { console.error('[renderSeats during readyRoom] threw:', e); }
+    // Per explicit request: this popup is host-only -- everyone else
+    // just sees the real table underneath and waits for the host to
+    // confirm. Real, confirmed bug fix, matching the identical
+    // 4-player one: IS_HOST is deliberately permissive (true for any
+    // connected human) -- state.isActualHost is the strict version
+    // sent by the server specifically for this.
+    if (state.isActualHost) {
+      renderReadyRoom6p(state);
+      $('readyRoomOverlay6p').classList.add('on');
+    } else {
+      $('readyRoomOverlay6p').classList.remove('on');
+    }
+    return;
+  }
+  $('readyRoomOverlay6p').classList.remove('on');
 
   // Any non-lobby phase means we're in the game screen.
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
@@ -2096,6 +2277,10 @@ function updateBidWinnerTurnText6p(state) {
   turnEl.classList.toggle('bwb-turn-mine', isMe);
   turnEl.classList.toggle('bwb-turn-partner', isPartner);
   turnEl.classList.toggle('bwb-turn-opp', !isMe && !isPartner);
+  // Per explicit request, same addition as the 4-player table's
+  // identical change -- see there for the fuller reasoning.
+  bubble.classList.toggle('bwb-border-mine', isMe);
+  bubble.classList.toggle('bwb-border-other', !isMe);
   if (changed) {
     turnEl.classList.remove('bwb-turn-pop');
     void turnEl.offsetWidth;
@@ -2313,13 +2498,47 @@ let lastKnownIsBotPerPos = [null, null, null, null, null, null]; // tracks each 
 function enforceSeatAvatarSizing6p() {
   const isPortraitish = window.innerHeight >= window.innerWidth || window.innerWidth >= 521;
   if (!isPortraitish) return;
-  const sizes = {
-    0: { w: 128, h: 164, fs: 3.5 },
-    3: { w: 68, h: 87, fs: 1.9 },
-    2: { w: 82, h: 105, fs: 2.3 },
-    4: { w: 82, h: 105, fs: 2.3 },
-    1: { w: 104, h: 133, fs: 2.9 },
-    5: { w: 104, h: 133, fs: 2.9 },
+  // Real, confirmed root cause found per explicit live report: this
+  // function already existed before this session's desktop wide-table
+  // work and runs on every single seat render (every card played,
+  // every state update) plus on window resize -- forcibly reapplying
+  // these MOBILE sizes as inline styles with 'important' priority,
+  // which no stylesheet rule can ever beat regardless of selector
+  // specificity, since inline priority wins ties over stylesheet
+  // priority in the cascade. This is what silently discarded every
+  // earlier CSS-only attempt at a different desktop size, and -- once
+  // a separate, delayed JS poll was added to fight it back -- caused
+  // the visible "pop" between sizes on every card play, since this
+  // function would reset it small immediately and the other poll only
+  // caught up up to half a second later. Fixed at the actual source
+  // instead of fighting it from outside: this function itself now
+  // picks the desktop depth-based sizes when the wide table layout is
+  // active, applied immediately and synchronously on every render, so
+  // there's no gap for a "pop" to happen in at all.
+  const sizes = document.body.classList.contains('k28-in-game') ? {
+    /* Real, confirmed full undo per explicit live report: restored to
+       the exact original depth-based sizing (top smallest, upper-sides
+       next, lower-sides bigger, "me" biggest) -- this desktop branch
+       was never actually asked to change at all; it only got touched
+       as a side effect of a misread earlier request that was really
+       about the phone branch below. */
+    0: { w: 321, h: 321, fs: 8.25 },
+    3: { w: 180, h: 180, fs: 4.7 },
+    2: { w: 225, h: 225, fs: 5.8 },
+    4: { w: 195, h: 195, fs: 5 },
+    1: { w: 225, h: 225, fs: 5.8 },
+    5: { w: 250, h: 250, fs: 6.4 },
+  } : {
+    /* Real, confirmed follow-up per explicit live report: another 10%
+       increase on top of the already-25%-bigger baseline (each of
+       those values * 1.1), to see whether this starts overlapping
+       the main table components (topbar, trump chip, etc). */
+    0: { w: 185, h: 237, fs: 5.09 },
+    3: { w: 94, h: 120, fs: 2.62 },
+    2: { w: 119, h: 152, fs: 3.3 },
+    4: { w: 119, h: 152, fs: 3.3 },
+    1: { w: 150, h: 193, fs: 4.13 },
+    5: { w: 150, h: 193, fs: 4.13 },
   };
   for (const slot in sizes) {
     const av = document.getElementById('av' + slot);
@@ -2747,7 +2966,12 @@ function updateTurnLabel(state) {
     return;
   }
   if (state.currentPlayer === MY_POS) {
-    lbl.textContent = state.phase === 'bidding1' ? 'Your turn to bid' : state.phase === 'choosingTrump' ? 'Choose trump' : 'Your turn';
+    // Real, confirmed follow-up per explicit live report: the 'else'
+    // fallback here just said generic "Your turn" for the actual play
+    // phase too, when it could say "Your turn to play" specifically,
+    // matching the same phase-aware pattern bidding1 and choosingTrump
+    // already had.
+    lbl.textContent = state.phase === 'bidding1' ? 'Your turn to bid' : state.phase === 'choosingTrump' ? 'Choose trump' : state.phase === 'play' ? 'Your turn to play' : 'Your turn';
     if (lastHapticCurrentPlayer !== MY_POS && state.phase !== 'lobby') playHaptic('yourTurn');
   } else {
     const seat = state.seats[state.currentPlayer];
@@ -2811,25 +3035,74 @@ window.K28_CHEERS_DRINKS = [
   { emoji: '🍾', label: 'a celebration' },
   { emoji: '🥃', label: 'the good stuff' }
 ];
-window.showBuddyGreeting = function(fromName, toName) {
+// Per explicit follow-up request, same enhancement as the 4-player
+// table's identical change -- see there for the fuller reasoning: the
+// glass now visibly travels from the sender's own seat to the
+// receiver's rather than just popping up centered on screen, and the
+// landing message itself is a transparent, blurred panel instead of a
+// solid yellow box. fromPos/toPos (both optional) resolve each
+// player's actual on-screen seat via this table's own existing
+// slotFor(pos) mapping.
+// Per further explicit follow-up: fromPos/fromName is always the
+// actual sender (whoever clicked), toPos/toName is always the actual
+// receiver -- each viewer sees their own natural phrasing depending on
+// which one they are, and the whole thing is sized down noticeably
+// from the first pass.
+window.showBuddyGreeting = function(fromName, toName, fromPos, toPos) {
   const pool = window.K28_CHEERS_DRINKS;
   const drink = pool[Math.floor(Math.random() * pool.length)];
-  const msg = (fromName || 'Someone') + ' toasts ' + (toName || 'you') + ' with ' + drink.label + ' — Cheers!';
-  const bubble = document.createElement('div');
-  bubble.innerHTML = '<div style="font-size:3rem;line-height:1;margin-bottom:8px">' + drink.emoji + '</div><div>' + escapeHtml(msg) + '</div>';
-  bubble.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(0.7);' +
-    'background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;font-weight:900;' +
-    'font-family:var(--display-font, serif);font-size:1.4rem;padding:20px 32px;border-radius:20px;' +
-    'box-shadow:0 12px 40px rgba(0,0,0,0.5),0 0 0 3px rgba(255,255,255,0.25);' +
-    'z-index:9500;text-align:center;max-width:80vw;opacity:0;' +
-    'transition:opacity 0.25s ease,transform 0.25s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none';
-  document.body.appendChild(bubble);
-  requestAnimationFrame(() => { bubble.style.opacity = '1'; bubble.style.transform = 'translate(-50%,-50%) scale(1)'; });
-  setTimeout(() => {
-    bubble.style.opacity = '0';
-    bubble.style.transform = 'translate(-50%,-50%) scale(0.85)';
-    setTimeout(() => bubble.remove(), 300);
-  }, 2200);
+  const isSender = (typeof fromPos === 'number' && fromPos === MY_POS);
+  const msg = isSender
+    ? 'You sent ' + (toName || 'them') + ' ' + drink.label + '! Cheers!'
+    : (fromName || 'Someone') + ' toasted you with ' + drink.label + ' — Cheers!';
+
+  const elForPos = (pos) => (typeof pos === 'number') ? document.getElementById('av' + slotFor(pos)) : null;
+  const fromEl = elForPos(fromPos);
+  const toEl = elForPos(toPos);
+
+  const landAndShowMessage = (centerX, centerY) => {
+    const bubble = document.createElement('div');
+    bubble.innerHTML = '<div style="font-size:1.5rem;line-height:1;margin-bottom:4px">' + drink.emoji + '</div><div>' + escapeHtml(msg) + '</div>';
+    bubble.style.cssText = 'position:fixed;left:' + centerX + 'px;top:' + centerY + 'px;transform:translate(-50%,-50%) scale(0.7);' +
+      'background:rgba(15,15,20,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#e6c86b;font-weight:600;' +
+      'font-family:var(--display-font, serif);font-size:0.78rem;padding:10px 16px;border-radius:12px;' +
+      'border:1px solid rgba(230,200,107,0.35);' +
+      'box-shadow:0 8px 28px rgba(0,0,0,0.5);' +
+      'z-index:9500;text-align:center;max-width:70vw;opacity:0;' +
+      'transition:opacity 0.25s ease,transform 0.25s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none';
+    document.body.appendChild(bubble);
+    requestAnimationFrame(() => { bubble.style.opacity = '1'; bubble.style.transform = 'translate(-50%,-50%) scale(1)'; });
+    setTimeout(() => {
+      bubble.style.opacity = '0';
+      bubble.style.transform = 'translate(-50%,-50%) scale(0.85)';
+      setTimeout(() => bubble.remove(), 300);
+    }, 2000);
+  };
+
+  if (fromEl && toEl) {
+    const fromRect = fromEl.getBoundingClientRect();
+    const toRect = toEl.getBoundingClientRect();
+    const fromX = fromRect.left + fromRect.width / 2, fromY = fromRect.top + fromRect.height / 2;
+    const toX = toRect.left + toRect.width / 2, toY = toRect.top + toRect.height / 2;
+    const flyer = document.createElement('div');
+    flyer.textContent = drink.emoji;
+    flyer.style.cssText = 'position:fixed;left:' + fromX + 'px;top:' + fromY + 'px;font-size:1.4rem;' +
+      'transform:translate(-50%,-50%) scale(0.8);z-index:9500;pointer-events:none;' +
+      'filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));' +
+      'transition:left 0.55s cubic-bezier(0.4,0,0.2,1),top 0.55s cubic-bezier(0.4,0,0.2,1),transform 0.55s cubic-bezier(0.4,0,0.2,1)';
+    document.body.appendChild(flyer);
+    requestAnimationFrame(() => {
+      flyer.style.left = toX + 'px';
+      flyer.style.top = (toY - 30) + 'px';
+      flyer.style.transform = 'translate(-50%,-50%) scale(1.15) rotate(20deg)';
+    });
+    setTimeout(() => {
+      flyer.remove();
+      landAndShowMessage(toX, toY);
+    }, 550);
+  } else {
+    landAndShowMessage(window.innerWidth / 2, window.innerHeight * 0.42);
+  }
 };
 ['av1', 'av2', 'av3', 'av4', 'av5'].forEach(id => {
   const el = document.getElementById(id);
@@ -2846,10 +3119,11 @@ window.showBuddyGreeting = function(fromName, toName) {
     if (typeof socket !== 'undefined' && socket && socket.connected) {
       socket.emit('sixp_buddyGreeting', { toPos: targetPos });
     } else {
-      // Offline (bots): no round trip needed, show it immediately.
-      // {from} = the avatar that got clicked, {to} = the local player.
-      const clickedName = (latestState && latestState.seats[targetPos] && latestState.seats[targetPos].name) || 'Someone';
-      window.showBuddyGreeting(clickedName, MY_NAME || 'You');
+      // Offline/disconnected fallback: show locally. I am always the
+      // sender since I'm the one clicking -- fromName/fromPos must be
+      // me, toName/toPos must be whoever I clicked.
+      const clickedName = (latestState && latestState.seats[targetPos] && latestState.seats[targetPos].name) || 'them';
+      window.showBuddyGreeting(MY_NAME || 'You', clickedName, MY_POS, targetPos);
     }
   });
 });
@@ -3092,6 +3366,10 @@ function showBidPanel(state) {
     const btn = document.createElement('button');
     btn.className = 'bid-btn';
     btn.textContent = 28;
+    // Per explicit request: honors territory (20+) gets a red treatment
+    // on both bid windows so a bidder can see at a glance which numbers
+    // are already in the escalated range, not just read the value.
+    btn.style.cssText = 'background:rgba(255,59,59,0.18);border-color:#ff3b3b;color:#ff8a8a';
     btn.addEventListener('click', () => showBidConfirm(state, 28, false));
     btns.appendChild(btn);
   } else {
@@ -3099,6 +3377,7 @@ function showBidPanel(state) {
       const btn = document.createElement('button');
       btn.className = 'bid-btn';
       btn.textContent = b;
+      if (b >= 20) btn.style.cssText = 'background:rgba(255,59,59,0.18);border-color:#ff3b3b;color:#ff8a8a';
       btn.addEventListener('click', () => showBidConfirm(state, b, false));
       btns.appendChild(btn);
     }
@@ -3111,7 +3390,18 @@ function showBidPanel(state) {
   // game-engine-6p.js for the full rule.
   const thaniBtn = document.createElement('button');
   thaniBtn.className = 'bid-btn';
-  thaniBtn.style.cssText = 'background:linear-gradient(135deg,#8b2020,#4a0f0f);border-color:#c94f4f';
+  // Real, confirmed follow-up per explicit live report: with a 4-column
+  // grid and a variable-length run of number buttons ahead of it (the
+  // exact count moves depending on minBid), THANI landing right after
+  // whatever's left in that last row could leave 1-2 empty grid cells
+  // trailing it -- most visibly when only "28" precedes it, leaving
+  // two dead cells. Counts how many number buttons actually got added
+  // above and has THANI span exactly the remaining columns in that
+  // same row (or a full fresh row if the numbers happened to fill
+  // theirs exactly), so the row is always fully used either way.
+  const numberBtnCount = btns.querySelectorAll('.bid-btn:not(.pass-btn)').length;
+  const remainderInRow = numberBtnCount % 4;
+  thaniBtn.style.cssText = `background:linear-gradient(135deg,#8b2020,#4a0f0f);border-color:#c94f4f;grid-column:span ${remainderInRow === 0 ? 4 : 4 - remainderInRow}`;
   thaniBtn.textContent = '🔥 THANI (Solo)';
   thaniBtn.addEventListener('click', () => showBidConfirm(state, 'THANI', false));
   btns.appendChild(thaniBtn);
@@ -3873,9 +4163,18 @@ async function refreshHostMenuLeaderboard() {
       if (!e) return 'None yet';
       const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
       const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
+      // Per explicit follow-up request: winning score in green, losing
+      // ("OPP") score bold red, matching the identical change made to
+      // the 4-player table's own version of this same function. Falls
+      // back to the original rounds-only wording for any entry recorded
+      // before this change, which won't have winningScore/losingScore
+      // at all.
+      if (typeof e.winningScore === 'number' && typeof e.losingScore === 'number') {
+        return `${names} won <b style="color:var(--success)">${e.winningScore}</b>-<b style="color:var(--danger)">${e.losingScore}</b> in ${e.rounds} ${roundLabel}`;
+      }
       return `${names} enforced Kunukku in ${e.rounds} ${roundLabel}`;
     };
-    el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['6p'][0])}<br>📅 Today: ${fmtEntry(lb.today['6p'][0])}`;
+    el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['6p'][0])}`;
   } catch (e) {
     el.innerHTML = 'Could not load.';
   }
@@ -4046,7 +4345,11 @@ function requestFullscreen28() {
 // about the actual game can be disturbed, only how it looks while
 // genuinely idle. 1 minute idle, only while the game screen is showing.
 (function() {
-  const K28_TABLE_IDLE_MS = 60 * 1000;
+  // Per explicit request: idle threshold raised from 1 minute to 3 minutes, so a player just
+  // reading the screen or thinking about their move for a bit doesn't trigger this nearly as
+  // often - directly reduces how much of the time this animation (and its battery cost) is
+  // actually running during a normal session.
+  const K28_TABLE_IDLE_MS = 3 * 60 * 1000;
   let idleTimer = null;
   let bouncers = null;
   let rafId = null;
@@ -4292,7 +4595,7 @@ function requestFullscreen28() {
     { key: 'mayday',     emoji: '🌷', title: 'Happy May Day!',         sub: '',                                               start: [5,1],  end: [5,1] },
     { key: 'julyfourth', emoji: '🎆', title: 'Happy Independence Day!',sub: '',                                               start: [7,4],  end: [7,4] },
     { key: 'indiaindep', emoji: '🇮🇳', title: 'Happy Independence Day!',sub: 'Jai Hind',                                       start: [8,15], end: [8,16] },
-    { key: 'onam',       emoji: '🌸', title: 'Happy Onam!',            sub: 'Wishing you a joyful Onam from 28gulan.com',     start: [8,20], end: [9,10] },
+    { key: 'onam',       emoji: '🌸', title: 'Happy Onam!',            sub: 'Wishing you a joyful Onam from 28gulan.com',     start: [8,20], end: [9,2] },
     { key: 'halloween',  emoji: '🎃', title: 'Happy Halloween!',       sub: '',                                               start: [10,30],end: [11,2] },
     { key: 'diwali',     emoji: '🪔', title: 'Happy Diwali!',          sub: 'Wishing you light and prosperity',               start: [11,1], end: [11,6] },
     { key: 'thanksgiving',emoji:'🦃', title: 'Happy Thanksgiving!',    sub: '',                                               start: [11,24],end: [11,28] },
@@ -4379,29 +4682,29 @@ function requestFullscreen28() {
   {name:'Peter',emoji:heroAvatarHtml('toon38'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
   {name:'Lakshmi',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
   {name:'Rahul',emoji:heroAvatarHtml('toon41'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Rajesh',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Randall',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Rajesh',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Randall',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
   {name:'Sarah',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Renji',emoji:heroAvatarHtml('toon50'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Roji',emoji:heroAvatarHtml('toon53'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Renji',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Roji',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
   {name:'Nisha',emoji:heroAvatarHtml('toon14'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Roney',emoji:heroAvatarHtml('toon54'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Sanjay',emoji:heroAvatarHtml('toon63'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Shyam',emoji:heroAvatarHtml('toon67'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Roney',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Sanjay',emoji:heroAvatarHtml('toon18'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Shyam',emoji:heroAvatarHtml('toon22'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
   {name:'Deepa',emoji:heroAvatarHtml('toon15'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Stev',emoji:heroAvatarHtml('toon70'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Vinod',emoji:heroAvatarHtml('toon74'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Wesley',emoji:heroAvatarHtml('toon79'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Stev',emoji:heroAvatarHtml('toon25'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Vinod',emoji:heroAvatarHtml('toon29'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Wesley',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
   {name:'Elsa',emoji:heroAvatarHtml('toon17'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Abin',emoji:heroAvatarHtml('toon80'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Abin',emoji:heroAvatarHtml('toon35'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
   {name:'Maya',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Bibin',emoji:heroAvatarHtml('toon84'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Bibin',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
   {name:'Sherin',emoji:heroAvatarHtml('toon20'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Cibin',emoji:heroAvatarHtml('toon87'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Denny',emoji:heroAvatarHtml('toon89'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Eldho',emoji:heroAvatarHtml('toon92'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Cibin',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Denny',emoji:heroAvatarHtml('toon44'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Eldho',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
   {name:'Teena',emoji:heroAvatarHtml('toon22'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Frankie',emoji:heroAvatarHtml('toon94'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Frankie',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
   {name:'George',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
   {name:'Anu',emoji:heroAvatarHtml('toon24'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
   {name:'Hari',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
@@ -4422,40 +4725,40 @@ function requestFullscreen28() {
   {name:'Tibin',emoji:heroAvatarHtml('toon38'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
   {name:'Unni',emoji:heroAvatarHtml('toon41'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
   {name:'Soumya',emoji:heroAvatarHtml('toon32'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Vishnu',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Wilson',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Vishnu',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Wilson',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
   {name:'Liya',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Xavier',emoji:heroAvatarHtml('toon50'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Yohan',emoji:heroAvatarHtml('toon53'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Xavier',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Yohan',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
   {name:'Merin',emoji:heroAvatarHtml('toon35'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
-  {name:'Zachariah',emoji:heroAvatarHtml('toon54'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Aby',emoji:heroAvatarHtml('toon63'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Bijoy',emoji:heroAvatarHtml('toon67'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Zachariah',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
+  {name:'Aby',emoji:heroAvatarHtml('toon18'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Bijoy',emoji:heroAvatarHtml('toon22'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
   {name:'Asha',emoji:heroAvatarHtml('toon36'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
   {name:'Anita',emoji:heroAvatarHtml('toon37'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Cyriac',emoji:heroAvatarHtml('toon70'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Davis',emoji:heroAvatarHtml('toon74'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Cyriac',emoji:heroAvatarHtml('toon25'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Davis',emoji:heroAvatarHtml('toon29'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
   {name:'Betty',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Ebin',emoji:heroAvatarHtml('toon79'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Fenil',emoji:heroAvatarHtml('toon80'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Gibin',emoji:heroAvatarHtml('toon84'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Ebin',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Fenil',emoji:heroAvatarHtml('toon35'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Gibin',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
   {name:'Celine',emoji:heroAvatarHtml('toon40'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
   {name:'Diya',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
   {name:'Hillary',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
   {name:'Fiona',emoji:heroAvatarHtml('toon44'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Ittoop',emoji:heroAvatarHtml('toon87'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Ittoop',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
   {name:'Gracy',emoji:heroAvatarHtml('toon45'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Hema',emoji:heroAvatarHtml('toon47'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Jaison',emoji:heroAvatarHtml('toon89'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Indu',emoji:heroAvatarHtml('toon49'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Jessy',emoji:heroAvatarHtml('toon51'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Kurian',emoji:heroAvatarHtml('toon92'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Lijo',emoji:heroAvatarHtml('toon94'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
-  {name:'Kavya',emoji:heroAvatarHtml('toon52'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
+  {name:'Hema',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Jaison',emoji:heroAvatarHtml('toon44'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Indu',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Jessy',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Kurian',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Lijo',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Kavya',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,#fdcb6e,#e0a83c)'},
   {name:'Mathew',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,#00a8ff,#0077b3)'},
-  {name:'Leena',emoji:heroAvatarHtml('toon55'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Leena',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
   {name:'Ninan',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Mariya',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Babi',emoji:heroAvatarHtml('toon57'),bg:'linear-gradient(135deg,#c2266f,#8e1c52)'},
+  {name:'Mariya',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Babi',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,#c2266f,#8e1c52)'},
   {name:'Oliver',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
 ];

@@ -342,6 +342,25 @@
         if (hdrRect.height > 0 && getComputedStyle(header).display !== 'none') {
           topY = hdrRect.bottom + 40;
         }
+        // Real, confirmed bug fix per explicit live report: six-player's
+        // trump indicator (.trump-chip) is a SEPARATE element, its own
+        // independently-positioned fixed spot below the topbar -- not
+        // part of the topbar's own measured height at all. Once that
+        // chip's own position/size grew (bigger text, moved further
+        // down to clear a taller topbar), this button's clearance,
+        // still based purely on the topbar's own bottom edge, was no
+        // longer enough to also clear the chip sitting below it, and
+        // the two started overlapping. Extends topY to also clear the
+        // trump chip's own actual bottom edge, whenever that element
+        // exists on this page, instead of a fixed +40 that only ever
+        // knew about the topbar itself.
+        const trumpChip = document.querySelector('.trump-chip');
+        if (trumpChip) {
+          const chipRect = trumpChip.getBoundingClientRect();
+          if (chipRect.height > 0 && getComputedStyle(trumpChip).display !== 'none') {
+            topY = Math.max(topY, chipRect.bottom + 16);
+          }
+        }
         // 56's header (and possibly others) has a second row -- dealer,
         // trump, score -- that only expands once an actual hand starts,
         // which can easily happen well after this first ran (it depends

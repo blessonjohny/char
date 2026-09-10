@@ -161,16 +161,23 @@
     </div>
     <div id="leaderboardView" style="display:none">
       <div class="sub" style="margin-top:0">
-        Fastest championship win — ranked by fewest rounds taken to win a match, with fewest
-        rounds lost along the way as the tiebreak when two entries took the same number of
-        rounds. All-time is the best 3 ever recorded, kept forever. Today's resets fresh
-        every day at 5am US Eastern, same boundary the rest of the app already uses.
+        Fastest, most dominant championship win — ranked by biggest final score gap between the
+        two teams, with fewest rounds taken as the tiebreak when two entries have the same gap.
+        A single all-time top 10 per table, kept forever.
         <button class="btn ghost" id="btnRefreshLeaderboard" style="padding:4px 10px;font-size:0.75rem;margin-left:6px">🔄</button>
       </div>
-      <div style="margin:8px 0;display:flex;gap:6px">
+      <div style="margin:8px 0;display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn ghost" id="btnResetLeaderboard4p" style="padding:4px 10px;font-size:0.72rem">🗑️ Reset 4 Player</button>
         <button class="btn ghost" id="btnResetLeaderboard6p" style="padding:4px 10px;font-size:0.72rem">🗑️ Reset 6 Player</button>
+        <button class="btn ghost" id="btnExportLeaderboard" style="padding:4px 10px;font-size:0.72rem">⬇️ Export</button>
+        <button class="btn ghost" id="btnImportLeaderboard" style="padding:4px 10px;font-size:0.72rem">⬆️ Import</button>
       </div>
+      <!-- Per explicit request: a simple, manual way to carry leaderboard
+           data across a deploy on a host with an ephemeral filesystem --
+           export right before deploying, import right after. Not a
+           substitute for a real persistent disk if the hosting platform
+           offers one, but works regardless of hosting setup. -->
+      <input type="file" id="importLeaderboardFile" accept="application/json" style="display:none">
       <div id="leaderboardContent"></div>
     </div>
   </div>
@@ -338,6 +345,7 @@ function renderLivePlayers(tablesList) {
         <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="closeTable('${esc(t.tableId)}')">✕ Close table</button>
       </div>
       <div class="who" style="font-size:0.8rem">${renderSeatEntries(t.seatEntries, t.summary)}</div>
+      ${(t.round || (t.gameScore && (t.gameScore[0] || t.gameScore[1]))) ? `<div class="who" style="font-size:0.72rem;opacity:0.85">🃏 Round ${esc(t.round || 0)}${t.gameScore ? ` · Score ${esc(t.gameScore[0])}-${esc(t.gameScore[1])}` : ''}</div>` : ''}
       <div class="who" style="font-size:0.7rem;opacity:0.75">🕐 Open ${openFor} · 💤 Idle ${idleFor}</div>
     </div>
   `;
@@ -427,7 +435,7 @@ document.getElementById('btnRefreshHistory').addEventListener('click', refreshTa
 // VALID_AVATAR_KEYS in server.js and ALL_PLAYERS in index.html) --
 // 100 cartoon mascot-style images, filenames
 // /images/hero-avatars/toon{1-100}.png.
-const BOT_AVATAR_KEYS = Array.from({length:106}, (_,i) => 'toon'+(i+1));
+const BOT_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 let botAvatarGridBuilt = false;
 let selectedBotAvatar = 'toon1';
 let selectedBotMode = '4p';
@@ -502,7 +510,7 @@ document.getElementById('btnSpawnBotTable').addEventListener('click', async () =
 
 // ---------------- Ghost players (admin-run seats that display and behave as real connected
 // humans, not bots - see server.js's spawn/join/stop-ghost-player endpoints) ----------------
-const GHOST_AVATAR_KEYS = Array.from({length:106}, (_,i) => 'toon'+(i+1));
+const GHOST_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 let ghostAvatarGridBuilt = false;
 let selectedGhostAvatar = 'toon1';
 let ghostMode = 'new';        // 'new' or 'join'
@@ -686,31 +694,92 @@ async function resetLeaderboardMode(mode, label) {
 document.getElementById('btnResetLeaderboard4p').addEventListener('click', () => resetLeaderboardMode('4p', '4 Player'));
 document.getElementById('btnResetLeaderboard6p').addEventListener('click', () => resetLeaderboardMode('6p', '6 Player'));
 
+// Per explicit request: simple manual export/import so leaderboard data
+// can be carried across a deploy on a host with an ephemeral
+// filesystem -- see importLeaderboard() in leaderboard.js for the
+// fuller reasoning on why this exists at all.
+document.getElementById('btnExportLeaderboard').addEventListener('click', async () => {
+  try {
+    const res = await fetch('/api/leaderboard');
+    const json = await res.json();
+    const blob = new Blob([JSON.stringify(json.leaderboard, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'leaderboard-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Failed to export: ' + e.message);
+  }
+});
+document.getElementById('btnImportLeaderboard').addEventListener('click', () => {
+  document.getElementById('importLeaderboardFile').click();
+});
+document.getElementById('importLeaderboardFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = ''; // allow re-selecting the same file next time
+  if (!file) return;
+  if (!confirm('Import this file? This replaces the current All-Time and Today\'s leaderboard entries for any mode present in the file.')) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const res = await adminFetch('/api/admin/import-leaderboard', undefined, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsed) });
+    const json = await res.json();
+    if (json.ok) { refreshLeaderboard(); alert('Leaderboard imported.'); }
+    else alert('That file didn\'t look like leaderboard data -- nothing was changed.');
+  } catch (e) {
+    alert('Failed to import: ' + e.message);
+  }
+});
+
 // Per explicit request: compact single-card format showing the
 // opponent team too (previously only the winners were ever recorded
 // or shown at all), and tightened enough that all 3 positions for a
 // mode fit comfortably without excessive scrolling.
-function formatLbEntry(e, position) {
+// Per explicit request: each row now has its own checkbox (for the
+// group-select-and-delete flow) and its own individual delete button,
+// rather than the only removal option being wiping an entire mode's
+// list via the Reset button above. mode is threaded through so the
+// delete calls know which list (4p/6p) a given row's timestamp belongs
+// to -- ts alone isn't enough on its own since both lists could
+// theoretically collide (astronomically unlikely given Date.now(), but
+// not worth relying on).
+function formatLbEntry(e, position, mode) {
   if (!e) return '';
   const names = e.names.map(esc).join(', ');
   const oppNames = (e.opponentNames && e.opponentNames.length > 0) ? e.opponentNames.map(esc).join(', ') : null;
   const when = new Date(e.ts).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  const roundLabel = e.rounds === 1 ? 'rd' : 'rds';
-  const lossLabel = e.roundLosses === 1 ? 'loss' : 'losses';
+  const roundLabel = e.rounds === 1 ? 'Round' : 'Rounds';
+  const hasScore = typeof e.winningScore === 'number' && typeof e.losingScore === 'number';
+  // Per explicit follow-up request: real, confirmed usability fix --
+  // each team's own score now sits directly next to that same team's
+  // names ("P10a, P10b: 15 vs O1, O2: 5"), rather than both names
+  // appearing together up front with the "15-5" pair only appearing
+  // separately at the end ("P10a, P10b vs O1, O2 — 15-5") -- that
+  // format left it genuinely ambiguous at a glance which of the two
+  // numbers belonged to which side without reading the whole line
+  // carefully every time.
+  const winnersPart = hasScore ? `<b>${names}</b>: <b style="color:#4ade80">${e.winningScore}</b>` : `<b>${names}</b>`;
+  const oppPart = oppNames ? (hasScore ? `${oppNames}: <b style="color:#f87171">${e.losingScore}</b>` : oppNames) : null;
   return `
-    <div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+    <div class="lb-row" data-mode="${mode}" data-id="${e.id}" style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <input type="checkbox" class="lb-check" data-mode="${mode}" data-id="${e.id}" style="flex-shrink:0;margin-top:2px;width:15px;height:15px;cursor:pointer">
       <div style="font-weight:800;color:var(--accent);width:16px;flex-shrink:0;font-size:0.85rem">${position}</div>
       <div style="flex:1;min-width:0;font-size:0.78rem;line-height:1.35">
-        <b>${names}</b>${oppNames ? ` <span style="opacity:0.6">vs</span> ${oppNames}` : ''}
-        <span style="opacity:0.7"> — ${e.rounds} ${roundLabel}, ${e.roundLosses} ${lossLabel} · ${esc(when)}</span>
+        ${winnersPart}${oppPart ? ` <span style="opacity:0.6">vs</span> ${oppPart}` : ''}
+        <span style="opacity:0.7"> — <b style="opacity:0.9">${e.rounds}</b> ${roundLabel} · ${esc(when)}</span>
       </div>
+      <button class="btn ghost" style="padding:2px 8px;font-size:0.68rem;flex-shrink:0;width:auto" onclick="deleteLeaderboardEntry('${mode}', '${e.id}')">🗑️</button>
     </div>
   `;
 }
 
-function formatLbList(list) {
+function formatLbList(list, mode) {
   if (!list || list.length === 0) return '<div class="sub" style="margin:0;padding:5px 0">None yet.</div>';
-  return list.map((e, i) => formatLbEntry(e, i + 1)).join('');
+  return list.map((e, i) => formatLbEntry(e, i + 1, mode)).join('');
 }
 
 async function refreshLeaderboard() {
@@ -720,20 +789,84 @@ async function refreshLeaderboard() {
     const res = await adminFetch('/api/admin/leaderboard');
     const data = await res.json();
     const lb = data.leaderboard;
-    contentEl.innerHTML = ['4p', '6p'].map(mode => `
+    // Per explicit follow-up request: "Today" section is gone entirely
+    // now (matches the same simplification already made to the actual
+    // player-facing popup) -- this used to reference lb.today directly,
+    // which no longer exists at all since that change, silently
+    // throwing inside the try block above and showing "Could not load
+    // leaderboard" every single time regardless of what was actually in
+    // the data. Also fixed the stale "target: 12" / "Top 3" text left
+    // over from before both those numbers changed to 15 / top-10.
+    contentEl.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:6px 10px;background:rgba(255,255,255,0.04);border-radius:8px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;cursor:pointer">
+          <input type="checkbox" id="lbSelectAll" style="width:15px;height:15px;cursor:pointer"> Select all
+        </label>
+        <button class="btn ghost" id="btnDeleteSelectedLb" style="padding:4px 10px;font-size:0.72rem" disabled>🗑️ Delete selected (0)</button>
+      </div>
+    ` + ['4p', '6p'].map(mode => `
       <div style="margin-bottom:24px">
         <div style="font-weight:700;font-size:0.95rem;margin-bottom:10px;color:var(--accent)">
-          ${mode === '4p' ? '4-Player' : '6-Player'} (target: ${mode === '4p' ? '12' : '15'})
+          ${mode === '4p' ? '4-Player' : '6-Player'} (target: 15)
         </div>
-        <div style="font-weight:700;font-size:0.8rem;margin-bottom:8px;opacity:0.85">🏆 All-Time Top 3</div>
-        ${formatLbList(lb.allTime[mode])}
-        <div style="font-weight:700;font-size:0.8rem;margin:14px 0 8px;opacity:0.85">📅 Today's Top 3</div>
-        ${formatLbList(lb.today[mode])}
+        <div style="font-weight:700;font-size:0.8rem;margin-bottom:8px;opacity:0.85">🏆 All-Time Top 10</div>
+        ${formatLbList(lb.allTime[mode], mode)}
       </div>
     `).join('');
+    wireLeaderboardSelection();
   } catch (e) {
     contentEl.innerHTML = '<div class="sub" style="margin:0">Could not load leaderboard.</div>';
   }
+}
+
+// Per explicit request: wires up the "select all" checkbox and keeps
+// the "Delete selected (N)" button's count/enabled-state current as
+// individual row checkboxes get ticked or unticked.
+function wireLeaderboardSelection() {
+  const selectAll = document.getElementById('lbSelectAll');
+  const deleteBtn = document.getElementById('btnDeleteSelectedLb');
+  const checks = () => [...document.querySelectorAll('.lb-check')];
+  function updateDeleteBtn() {
+    const checked = checks().filter(c => c.checked);
+    deleteBtn.textContent = `🗑️ Delete selected (${checked.length})`;
+    deleteBtn.disabled = checked.length === 0;
+  }
+  selectAll.addEventListener('change', () => {
+    checks().forEach(c => { c.checked = selectAll.checked; });
+    updateDeleteBtn();
+  });
+  checks().forEach(c => c.addEventListener('change', updateDeleteBtn));
+  deleteBtn.addEventListener('click', async () => {
+    const checked = checks().filter(c => c.checked);
+    if (checked.length === 0) return;
+    if (!confirm(`Delete ${checked.length} selected leaderboard ${checked.length === 1 ? 'entry' : 'entries'}? This can't be undone.`)) return;
+    // Group by mode since the delete endpoint takes one mode at a time.
+    // Real, confirmed bug fix: uses each row's own unique "id" now, not
+    // "ts" -- two entries can share the same millisecond timestamp
+    // (confirmed directly), which meant deleting by ts could silently
+    // take out every other entry recorded in that same instant too.
+    const byMode = { '4p': [], '6p': [] };
+    checked.forEach(c => byMode[c.dataset.mode].push(c.dataset.id));
+    for (const mode of ['4p', '6p']) {
+      if (byMode[mode].length === 0) continue;
+      await adminFetch('/api/admin/delete-leaderboard-entries', undefined, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, ids: byMode[mode] })
+      });
+    }
+    refreshLeaderboard();
+  });
+}
+
+// Per explicit request: a single row's own delete button, for removing
+// just one bad/test entry without needing to tick its checkbox first.
+async function deleteLeaderboardEntry(mode, id) {
+  if (!confirm('Delete this leaderboard entry? This can\'t be undone.')) return;
+  await adminFetch('/api/admin/delete-leaderboard-entries', undefined, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode, ids: [id] })
+  });
+  refreshLeaderboard();
 }
 
 // ---------------- Visitor log (everyone who's ever visited, with location and time) ----------------

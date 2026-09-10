@@ -39,12 +39,25 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="28 Kerala Gulan">
 <meta name="mobile-web-app-capable" content="yes">
-<title>Play 28 Card Game Online Free | Kerala Gulan – Indian Card Game (Eripathettu)</title>
+<title>Play Card Games Online Free – 28 (Kerala Gulan), Poker, Spades, Carrom & Pool</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700;800&display=swap" rel="stylesheet">
-<meta name="description" content="Play 28 (Gulan / Eripathettu / Twenty Eight), Texas Hold'em Poker, Spades, Carrom, and 8-Ball Pool online free — classic card and board games, live multiplayer or offline vs smart AI bots. No download needed, play instantly in your browser.">
-<meta name="keywords" content="28, 28 gulan, 28gulan, play 28 online, 28 card game, play cards online, gulan, gulan online, play gulan online, indian card game, kerala card game, kerala 28, 28 kerala, eripathettu, twenty eight, twentyeight, thuruppu gulan, irupathiyettu, 28 online multiplayer, card game kerala, play 28 offline, learn 28, play poker online, texas holdem online, play spades online, play carrom online, play carrom offline, play pool online, play pool offline, 8 ball pool online, play card games online, play board games online, free multiplayer games">
+<!-- Real, confirmed SEO gap per explicit request: the title above (the
+     single biggest factor in how Google ranks and displays a page) used
+     to lead entirely with "28 Card Game," meaning a generic search like
+     "play card game online" had little reason to surface this site
+     over a competitor whose title actually contains that phrase, even
+     though this site hosts five other games too. Now leads with the
+     generic phrase first, with 28/Kerala Gulan named as the flagship
+     game rather than the only one -- same approach applied to
+     description, keywords, and the Open Graph tags below. The
+     dedicated kerala-28-gulan-guide.html page is deliberately left
+     untouched: a narrowly-focused page is genuinely good practice for
+     the specific 28/Eripathettu searches, this change is only about
+     the general-purpose homepage. -->
+<meta name="description" content="Play card games online free — 28 (Gulan / Eripathettu / Twenty Eight), Texas Hold'em Poker, Spades, Carrom, and 8-Ball Pool. Classic multiplayer card and board games, live with friends or offline vs smart AI bots. No download needed, play instantly in your browser.">
+<meta name="keywords" content="play card games online, card game online free, online card games, multiplayer card games, free card games, play cards online, card game website, 28, 28 gulan, 28gulan, play 28 online, 28 card game, gulan, gulan online, play gulan online, indian card game, kerala card game, kerala 28, 28 kerala, eripathettu, twenty eight, twentyeight, thuruppu gulan, irupathiyettu, 28 online multiplayer, card game kerala, play 28 offline, learn 28, play poker online, texas holdem online, play spades online, play carrom online, play carrom offline, play pool online, play pool offline, 8 ball pool online, play board games online, free multiplayer games">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="https://28gulan.com/">
 <meta name="theme-color" content="#0a1628">
@@ -58,8 +71,8 @@
 <!-- Open Graph / Facebook / WhatsApp -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://28gulan.com/">
-<meta property="og:title" content="Play 28 Card Game Online Free | Kerala Gulan">
-<meta property="og:description" content="The classic Kerala trick-taking card game — play 28 (Gulan / Eripathettu) online with friends via live voice chat, or offline vs learning AI bots. Free, no download.">
+<meta property="og:title" content="Play Card Games Online Free – 28, Poker, Spades, Carrom & Pool">
+<meta property="og:description" content="Play card games online free with friends or offline vs smart AI bots — 28 (Kerala Gulan / Eripathettu), Texas Hold'em Poker, Spades, Carrom, and 8-Ball Pool. No download needed.">
 <meta property="og:image" content="https://28gulan.com/og-image.jpg">
 <meta property="og:locale" content="en_IN">
 <meta property="og:site_name" content="28 Kerala Gulan">
@@ -136,7 +149,7 @@
       "name": "How do you score in 28 / Eripathettu?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "The bidding team must win at least their bid in points. Jacks are worth 3 points, Nines 2 points, and Aces and Tens 1 point each. Winning a round earns game points, and the first team to 12 game points wins the championship."
+        "text": "The bidding team must win at least their bid in points. Jacks are worth 3 points, Nines 2 points, and Aces and Tens 1 point each. Winning a round earns game points, and the first team to 15 game points wins the championship."
       }
     },
     {
@@ -192,7 +205,8 @@
   --info-accent-glow: rgba(255,138,128,0.45);
 }
 html,body{height:100%;overflow:hidden}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0a1628 0%,#0d1b2a 50%,#111d2e 100%);color:var(--text-primary);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+html{overflow-x:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#0a1628 0%,#0d1b2a 50%,#111d2e 100%);color:var(--text-primary);touch-action:manipulation;user-select:none;-webkit-user-select:none;overflow-x:hidden}
 /* Same "phone frame" fix as the 6-player table's identical addition - constrains the whole
    app to a centered, phone-width column on screens wider than a phone, since this UI leans
    heavily on position:fixed elements that would otherwise anchor to the full width of a wide
@@ -206,15 +220,47 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    plain block element would. Explicit width sidesteps that entirely. */
 @media (min-width: 700px) {
   #appPhoneFrame{
-    width:480px;
+    width:100%;
     margin:0 auto;
     min-height:100vh;
     position:relative;
     transform:translateZ(0);
-    box-shadow:0 0 0 1px rgba(255,255,255,0.06), 0 40px 100px rgba(0,0,0,0.7);
+    box-shadow:none;
     background:linear-gradient(135deg,#0a1628 0%,#0d1b2a 50%,#111d2e 100%);
   }
-  body{display:block;background:#05070a}
+  /* Real, confirmed follow-up per explicit live report: 900px was
+     still narrow enough to leave visible bars on either side on an
+     actual wide monitor -- the background image is meant to extend
+     the full width of the screen with nothing constraining it at all.
+     Removed the width limit entirely (100% instead of a fixed
+     pixel value), letting the background fill the whole viewport.
+     The inner welcome content doesn't stretch awkwardly as a result --
+     .welcome-hero (further down this file) already has its own
+     max-width:500px;margin:0 auto, so it stays centered and readable
+     regardless of how wide this outer frame itself is. */
+  /* Real, confirmed bug found per explicit live report: this rule used
+     to unconditionally set the in-game table photo as the BODY's own
+     background on every desktop screen, including the welcome/lobby
+     screens -- but #appPhoneFrame right above gets its own separate
+     dark gradient background, and (before this fix) was a fixed
+     480px column. The table photo only showed up in the gap AROUND
+     that narrow column, splitting across both sides with the actual
+     welcome content squeezed in a thin strip in the middle -- exactly
+     the "table background on both sides, phone view in the middle"
+     look reported. Two changes here: the table photo is removed from
+     the welcome-screen case entirely (a plain dark color instead,
+     matching #appPhoneFrame's own gradient so there's no visible seam
+     at all), and #appPhoneFrame itself widened from a narrow 480px
+     column to a more genuinely desktop-appropriate 900px -- this
+     block only ever affects the welcome/lobby case; the in-game view
+     has its own separate, already-working full-width treatment
+     further below that overrides both of these when body.k28-in-game
+     is active. */
+  body{
+    display:block;
+    background-color:#05070a;
+    background-image:none;
+  }
   /* The trick-card spacing fix (.cross size) further down this file lives inside
      @media(max-width:480px), which checks the actual BROWSER viewport - on desktop the
      browser window itself is still wide even though #appPhoneFrame above visually squeezes
@@ -223,41 +269,220 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      already-desktop-only media query instead, so desktop actually gets it too. */
   .cross{width:180px !important;height:270px !important}
 }
-/* Per explicit request ("option 2" -- low-risk proportional scale-up rather than a full
-   landscape redesign): the phone frame above was previously frozen at exactly 480px on
-   EVERY desktop width, so it looked identically small whether the browser was 700px or
-   2000px wide, leaving more and more unused space either side as the window grew. This
-   keys off wider breakpoints ON TOP OF the 480px base above (that block still applies to
-   everything from 700px up; these just layer larger sizes on top for genuinely wide
-   windows) and scales the SAME frame up proportionally instead -- same single-column
-   phone-shaped layout, same code, same position:fixed-children containment behavior
-   (scale() is still a transform value, so the existing note above about why translateZ(0)
-   is there applies exactly the same way here), just visually bigger on a big screen. Kept
-   deliberately conservative and stepped (not a fluid clamp/calc scale) specifically so this
-   stays easy to verify screenshot-by-screenshot and easy to dial back a step if any given
-   width doesn't look right, rather than a single continuous formula that's hard to reason
-   about at any one specific width. transform-origin fixed to the top so the frame grows
-   downward from a stable top edge instead of expanding equally in both directions and
-   fighting the vertical centering. */
-@media (min-width: 1000px) {
-  #appPhoneFrame{ transform:translateZ(0) scale(1.15); transform-origin:top center; }
-  /* Confirmed via direct testing (not assumed): scale() enlarges the
-     frame's visual box past the actual 100vh it's laid out at, and the
-     base html,body{overflow:hidden} rule earlier in this file was
-     silently clipping and permanently hiding the bottom portion of the
-     game with no way to reach it at all -- worse than the blank-space
-     problem this change was meant to fix. Overriding to allow vertical
-     scroll specifically at these wider, scaled breakpoints so the
-     clipped portion becomes reachable by scrolling instead of just
-     gone. Zero effect below 1000px -- everything under that keeps the
-     exact original overflow:hidden behavior untouched.
-  */
-  html,body{overflow-y:auto;overflow-x:hidden}
+/* ============================================================
+   WIDE DESKTOP TABLE (per explicit request): the wide table photo
+   becomes the actual game table on desktop, not a decorative surround
+   -- seats are repositioned to sit exactly where the real chairs are
+   in the photo, matching coordinates mapped directly from the image
+   itself (percentages measured against the actual photo, not guessed).
+   Scoped to body.k28-in-game (kept in sync with #gameWrap's real
+   visibility by the MutationObserver set up earlier in this file) so
+   this only ever applies during actual gameplay -- the welcome/lobby
+   screens keep the original 480px phone-frame treatment untouched.
+   ============================================================ */
+@media (min-width: 700px) {
+  body.k28-in-game #appPhoneFrame{
+    transform:none; /* the whole point: stop containing .game-wrap's position:fixed to this 480px box */
+    width:100%;
+    max-width:none;
+    background:none;
+    box-shadow:none;
+  }
+  /* Real, confirmed bug found per explicit live report: .game-wrap uses
+     position:fixed;left:0;right:0, so it was spanning the ENTIRE real
+     browser viewport with no upper limit at all -- on a large or wide
+     monitor, background-size:cover then scales the table photo up to
+     match, making the chairs themselves grow indefinitely with screen
+     width. Avatar size was capped at a fixed maximum, so past a certain
+     screen width the chairs kept growing while avatars stopped --
+     exactly backwards from the intended effect, and worse the wider the
+     actual screen. Capped the table area's own width here instead of
+     letting it track raw viewport width unbounded, and centered it,
+     so the background image (and therefore the chairs) settles at a
+     sane, predictable size instead of scaling forever. */
+  body.k28-in-game .game-wrap{
+    left:50%;
+    right:auto;
+    max-width:1600px;
+    width:100%;
+    transform:translateX(-50%);
+  }
+  body.k28-in-game .game-wrap{
+    background-image:url('/images/desktop-bg-4p.jpg');
+    background-size:cover;
+    background-position:center center;
+    background-repeat:no-repeat;
+  }
+  body.k28-in-game .table:not(.mode6){
+    display:block;
+    position:relative;
+    background:none;
+    box-shadow:none;
+    width:100%;
+    flex-grow:1 !important;
+    flex-shrink:1 !important;
+    flex-basis:2000px !important;
+    min-height:0 !important;
+    padding:0;
+  }
+  /* Real, confirmed root cause found via direct CSSOM inspection: a
+     completely separate, unrelated #tableArea rule (same element --
+     "tableArea" is this element's id, "table" is its class) caps
+     max-height at a flat 820px for any screen 700px wide or more --
+     tuned for a mid-size tablet breakpoint that has nothing to do with
+     this desktop layout, but ID selectors beat class selectors on
+     specificity regardless of source order, so it silently overrode
+     every flex-based attempt above to make this element actually fill
+     the remaining vertical space. This is what was leaving a visible
+     gap of raw background below the table on desktop. */
+  body.k28-in-game #tableArea{
+    max-height:none !important;
+  }
+  body.k28-in-game .table:not(.mode6) .pspot.top{
+    position:absolute;left:50%;top:18%;transform:translate(-50%,-50%);
+  }
+  /* Per explicit request: left/right seats pulled a tiny bit further from center (away from
+     the table), top seat nudged down a little, and the bottom (player's own) seat nudged
+     down a bit too - all small moves, not big repositions. */
+  /* Per explicit follow-up: pulled back in toward center a tiny bit (19%->21%, 81%->79%). */
+  body.k28-in-game .table:not(.mode6) .pspot.left{
+    position:absolute;left:21%;top:44%;transform:translate(-50%,-50%);
+  }
+  body.k28-in-game .table:not(.mode6) .pspot.right{
+    position:absolute;left:79%;top:44%;transform:translate(-50%,-50%);
+  }
+  body.k28-in-game .table:not(.mode6) .pspot.pos3{
+    position:absolute;left:50%;top:75%;transform:translate(-50%,-50%);
+    z-index:1;
+  }
+  body.k28-in-game .table:not(.mode6) .center{
+    position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);
+  }
+  /* Real, confirmed follow-up per explicit live report: .cross (the
+     container holding the 4 played-card slots -- top/left/right/bottom)
+     was 180x270px, tall and narrow, so the top/bottom played cards sat
+     far apart while left/right sat close together. Pulled top/bottom
+     in and pushed left/right out to balance the spread instead. */
+  body.k28-in-game .table:not(.mode6) .cross{width:220px !important;height:210px !important;z-index:2}
+  /* Per explicit request: the individual played cards themselves (each .pslot within .cross
+     above) had never gotten their own desktop size at all - still sitting at the plain 50x70
+     mobile size even though their container had already been enlarged to 220x210. Sized up
+     to actually fill that larger container. z-index added here (matching .hand-area's own
+     z-index:2 below) so played cards correctly sit on top of any avatar they happen to
+     overlap, per explicit request - same treatment for both played cards and hand cards. */
+  /* Per explicit follow-up: played cards made a little bigger still (70x98 -> 78x109). */
+  body.k28-in-game .table:not(.mode6) .pslot{width:82px !important;height:114px !important;z-index:2}
+  /* Real, confirmed follow-up per explicit live report: .bottom-bar
+     (the turn/phase footer strip) has its own solid, opaque dark
+     gradient background, completely different from the casino table
+     photo above it -- on the new wide desktop layout this reads as
+     the table photo abruptly stopping and a plain strip showing
+     underneath, rather than looking like part of the same room. Made
+     it semi-transparent over the same table background instead of a
+     solid color, so the casino photo visually continues underneath it
+     the whole way down, with a dark backdrop behind the text still
+     kept dark enough to stay readable. */
+  body.k28-in-game .bottom-bar{
+    background:linear-gradient(135deg,rgba(17,29,46,0.75),rgba(13,27,42,0.75)) !important;
+    backdrop-filter:blur(4px);
+  }
+  body.k28-in-game .table:not(.mode6) .hand-area{
+    position:absolute;left:50%;bottom:1%;transform:translateX(-50%);
+    background:none;border-top:none;
+    max-width:480px;min-height:170px !important;max-height:none !important;
+    overflow-y:visible !important;
+    z-index:2;
+  }
+  /* Real, confirmed follow-up per explicit live report: with the
+     table area itself now capped above at max-width:1600px, a vw-based
+     avatar size would still keep growing off the raw browser viewport
+     past that cap (viewport can be wider than the now-bounded game
+     area), re-introducing the exact same mismatch this was meant to
+     fix. Switched to a flat, fixed size instead now that the
+     container itself no longer grows unbounded -- sized generously
+     against that same 1600px cap rather than trying to track viewport
+     width at all. */
+  body.k28-in-game .avatar{width:207px !important;height:207px !important;font-size:5.43rem !important}
+  body.k28-in-game .table:not(.mode6) .pspot.top .avatar{width:207px !important;height:207px !important;font-size:5.43rem !important}
+  /* Per explicit request: the bottom (player's own) seat made 8% bigger than the standard
+     170px - 170*1.08=183.6, rounded to 184px, font-size scaled by the same factor. */
+  /* Per explicit follow-up: another 10% bigger on top of the previous 184px (170->184 was an
+     earlier, separate 8% bump) - 184*1.1=202.4, rounded to 202px. */
+  /* Per explicit report: the bottom seat wasn't visibly growing the way top/left/right were
+     across several rounds of these size requests. Rather than keep guessing at why, reset to
+     a clean, known baseline first - every non-bottom seat now shares this exact same 175px
+     size (see the matching top/left/right rules elsewhere in this block) - then the bottom
+     seat is set as a straightforward 10% increase on top of that shared number (175*1.1=192.5,
+     rounded to 193px), so there's one single, unambiguous source size this is computed from. */
+  body.k28-in-game .table:not(.mode6) .pspot.pos3 .avatar{width:228px !important;height:228px !important;font-size:6.02rem !important}
+  /* Same fix again for the left/right seats specifically -- these
+     don't have their own per-seat override like top/pos3 above, they
+     fall back to this file's general .table:not(.mode6) .avatar rule
+     instead, which ALSO uses !important with its own specificity this
+     needed to be matched to beat. */
+  body.k28-in-game .table:not(.mode6) .avatar{width:207px !important;height:207px !important;font-size:5.43rem !important}
+  /* Real, confirmed follow-up per explicit live report: the right seat
+     specifically was reported as looking a little small compared to
+     the others -- bumped just that one up rather than all seats
+     again, since only the right seat was called out. */
+  /* Per explicit request: right seat no longer gets its own separate bump - matched to the
+     same uniform size as top/left instead, so every non-bottom seat is identical. */
+  body.k28-in-game .table:not(.mode6) .pspot.right .avatar{width:207px !important;height:207px !important;font-size:5.43rem !important}
+  /* Real, confirmed bug fix found while verifying an unrelated mobile-only
+     change didn't leak into desktop: left never had this same explicit
+     override that right already has, so it was relying purely on the
+     general body.k28-in-game .avatar rule above -- which has slightly
+     LOWER specificity than a later-added mobile-only left/right avatar
+     rule elsewhere in this file. That mobile rule was correctly scoped
+     to a media query that also (unintentionally) matches desktop widths,
+     and with no left-specific desktop override to beat it, it was
+     winning there too, incorrectly shrinking left's avatar down to the
+     mobile size on desktop. Matches right's exact same override here so
+     left can no longer lose that specificity fight either. */
+  body.k28-in-game .table:not(.mode6) .pspot.left .avatar{width:207px !important;height:207px !important;font-size:5.43rem !important}
+  /* Same reasoning for the hand of cards -- the 52px mobile card size
+     (see the max-width:480px media query elsewhere in this file) reads
+     small and narrow stretched across a full desktop width. Same fix
+     as the avatar sizing above: switched from vw-based to a flat fixed
+     size now that the table area itself is capped at max-width:1600px
+     above, since a vw-based size would still track the raw (now
+     unbounded relative to the capped container) viewport width. Per
+     explicit follow-up request, sized up further still (82x116 -> 92x130). */
+  /* Per explicit follow-up: hand cards read as too tall/oversized at this scale even though
+     the ratio matched mobile's own proportions exactly - reduced overall size and eased the
+     ratio a bit less tall in the process. z-index added explicitly here (rather than assuming
+     one already existed on the container, which it didn't) so hand cards always sit on top of
+     the bottom avatar if the two ever overlap, per explicit request. */
+  body.k28-in-game .hand-area .card{width:80px !important;height:105px !important;border-radius:11px !important;z-index:3 !important}
+  body.k28-in-game .hand-area .card{margin-left:-20px !important}
+  body.k28-in-game .hand-area .card:first-child{margin-left:0 !important}
+  /* Real, confirmed bug found via live report with screenshots: the
+     card BOX itself scaled up via the rule above, but the rank/suit
+     text inside it (.cr/.crb corner rank, .cs center suit) never did
+     -- those font-sizes come from a much-earlier, small-screen-specific
+     rule (font-size:0.58rem for the corners, 0.9rem for the center)
+     that has nothing to do with desktop at all and was never meant to
+     apply here. The suit ICONS themselves are already em-based
+     (suit-icon-corner/suit-icon-center use width/height in em, sized
+     relative to their own parent's font-size), so fixing the parent
+     font-size alone correctly scales both the rank text and the suit
+     icon together -- this is the actual fix, not a separate icon-size
+     rule. Scaled roughly proportional to the card box's own growth
+     above (card grew from 52px to a 72-120px range, so text scales up
+     by a similar factor). */
+  body.k28-in-game .hand-area .card .cr,
+  body.k28-in-game .hand-area .card .crb{font-size:1.9rem !important}
+  body.k28-in-game .hand-area .card .cs{font-size:2.8rem !important}
 }
-@media (min-width: 1300px) {
-  #appPhoneFrame{ transform:translateZ(0) scale(1.3); transform-origin:top center; }
-}
-
+/* Per explicit follow-up request: the "option 2" proportional desktop
+   scale-up below made the desktop experience noticeably worse rather
+   than better, so it's removed entirely here -- back to the plain,
+   fixed 480px phone frame on every desktop width, exactly as it
+   behaved before that change was ever introduced. Nothing else in this
+   file was touched to do this reversion; every other fix made since
+   then (leaderboard styling, turn-text colors, border colors, the
+   buddy-greeting redesign, the spade-icon fix, etc.) stays exactly as
+   it was. */
 /* ===== COUNTER OVERLAY ===== */
 .counter-overlay{position:fixed;inset:0;background:rgba(10,22,40,0.98);z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px;text-align:center;transition:opacity 0.6s ease;overflow-y:auto}
 .counter-overlay.hidden{opacity:0;pointer-events:none}
@@ -303,7 +528,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));
 }
 .welcome-gold-rule{width:120px;height:2px;margin:2px auto 14px;background:linear-gradient(90deg,transparent,#e6c86b,transparent);position:relative}
-.welcome-gold-rule::before{content:'♠';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#0a1628;padding:0 10px;color:#e6c86b;font-size:0.8rem}
+.welcome-gold-rule::before{content:'♠';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#e6c86b;font-size:0.8rem;text-shadow:0 0 6px rgba(230,200,107,0.7),0 0 3px rgba(0,0,0,0.6)}
 .welcome-title{font-size:2.2rem;font-weight:800;color:#fff;text-shadow:0 2px 20px rgba(255,215,0,0.15),0 4px 40px rgba(0,0,0,0.4);margin-bottom:6px;letter-spacing:2px}
 .welcome-sub{font-size:0.78rem;color:var(--text-secondary);margin-bottom:6px;letter-spacing:4px;text-transform:uppercase;font-weight:500}
 .welcome-tagline{font-size:0.85rem;color:rgba(255,215,0,0.7);margin-bottom:28px;font-weight:500;letter-spacing:1px}
@@ -685,9 +910,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .table:not(.mode6) .pspot.top{grid-area:t;justify-self:center;align-self:start;padding-top:2px}
 .table:not(.mode6) .pspot.left{grid-area:l;justify-self:center;align-self:center}
 .table:not(.mode6) .pspot.right{grid-area:r;justify-self:center;align-self:center}
-.table:not(.mode6) .pspot.pos3{grid-area:b;justify-self:center;align-self:end;padding-bottom:2px}
+.table:not(.mode6) .pspot.pos3{grid-area:b;justify-self:center;align-self:end;padding-bottom:2px;z-index:1}
 .table:not(.mode6) .center{grid-area:c;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
-.table:not(.mode6) .cross{position:relative;width:200px;height:150px;margin:0 auto;pointer-events:none}
+/* Per explicit request (mobile view only): played cards should overlap the bottom avatar
+   wherever the two intersect, not the other way around - explicit z-index added on both
+   sides (this rule higher, .pspot.pos3 above lower) so this is guaranteed regardless of DOM
+   order, matching the same explicit z-index pattern already used for the desktop view. */
+.table:not(.mode6) .cross{position:relative;width:200px;height:150px;margin:0 auto;pointer-events:none;z-index:2}
 .table:not(.mode6) .pslot{position:absolute;display:flex;align-items:center;justify-content:center;width:50px;height:70px;pointer-events:none}
 .table:not(.mode6) .s-top{top:0;left:50%;transform:translateX(-50%)}
 .table:not(.mode6) .s-left{left:0;top:50%;transform:translateY(-50%)}
@@ -1227,6 +1456,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    this request wasn't about. Matches the same treatment already applied
    to the 6-player table's equivalent round-end/game-over popups. */
 #postRoundOverlay .modal,#modalOverlay .modal{background:rgba(15,15,20,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+/* Real, confirmed change per explicit live report: this panel read as
+   a solid, opaque block compared to the trump-exposed popup's
+   deliberately see-through style -- made both this panel and its
+   full-screen backdrop match that same transparency level (same alpha
+   values as .game-event-box above), so the cards on the table stay
+   visible behind it instead of being fully hidden. Scoped to
+   #postRoundOverlay specifically, not the shared .modal-overlay class,
+   so other modals using that same class elsewhere are unaffected. */
+#postRoundOverlay{background:rgba(0,0,0,0.25) !important;}
+#postRoundOverlay .modal{background:linear-gradient(155deg, rgba(18,14,10,0.18), rgba(8,6,4,0.2)) !important;backdrop-filter:blur(3px) !important;-webkit-backdrop-filter:blur(3px) !important;}
 .modal h3{color:var(--accent);margin-bottom:10px}
 .modal p{color:var(--text-secondary);font-size:0.82rem;margin-bottom:16px;line-height:1.6}
 
@@ -1268,6 +1507,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .team-you{background:rgba(74,222,128,0.15);color:var(--success);border:1px solid rgba(74,222,128,0.3)}
 .team-opp{background:rgba(248,113,113,0.15);color:var(--danger);border:1px solid rgba(248,113,113,0.3)}
 .tdot{position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--bg-dark)}
+/* Per explicit request: only the right seat's dot was overflowing off the screen edge (it's
+   the one closest to it) - moved to the left side of that avatar specifically. Every other
+   seat's dot stays exactly where it was (right edge, unchanged). */
+.pspot.right .tdot{right:auto;left:-2px;}
 .tyou{background:var(--success)}
 .topp{background:var(--danger)}
 .bdg{display:inline-flex;align-items:center;justify-content:center;font-size:0.5rem;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:1px;white-space:nowrap}
@@ -1354,11 +1597,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .bid-status-banner .bsb-turn{display:block;margin-top:3px;color:#4ade80;font-weight:700}
 .game-event-box{
   position:relative;overflow:hidden;text-align:center;padding:26px 40px;border-radius:16px;max-width:88vw;
-  background:linear-gradient(155deg, rgba(18,14,10,0.55), rgba(8,6,4,0.58));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  /* Real, confirmed follow-up per explicit live report: the previous
+     0.55/0.58 alpha values still read as too solid -- the actual cards
+     on the table need to stay visible through this, not just a subtle
+     tint. Dropped significantly (to 0.18/0.2) and reduced the blur too
+     (6px -> 3px), so the cards underneath are genuinely legible through
+     it rather than just barely-there. */
+  background:linear-gradient(155deg, rgba(18,14,10,0.18), rgba(8,6,4,0.2));backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
   border:1.5px solid var(--evt-color, #f4c430);
   box-shadow:0 0 1px var(--evt-color, #f4c430),0 12px 40px rgba(0,0,0,0.6),0 0 60px var(--evt-glow, rgba(244,196,48,0.25));
   animation:gameEventIn .5s cubic-bezier(.16,.9,.28,1) both;
 }
+/* Per explicit follow-up request, matching six.js's identical existing
+   pattern: transparent background specifically for the trump-exposed
+   event (the one with the shake) -- a separate class rather than
+   changing the shared .game-event-box rule above, since Honors
+   Bid/Raise/Bid Made/Bid Failed all reuse that same box and should keep
+   their existing look. Real, confirmed bug fix found while adding this
+   here: six.js's own version of this same override class already
+   existed but only ever cleared the background/box-shadow, never
+   backdrop-filter itself -- so its blur kept applying regardless,
+   which is exactly why that popup still looked "blurry" even though
+   its fill was already transparent. Both explicitly cleared here.  */
+.game-event-box.trump-event{background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:0 0 1px var(--evt-color, #f4c430),0 0 40px var(--evt-glow, rgba(244,196,48,0.25))}
+.game-event-box.trump-event::before{display:none}
 .game-event-overlay.leaving .game-event-box{animation:gameEventOut .4s ease both;}
 @keyframes gameEventIn{0%{opacity:0;transform:translateY(14px) scale(0.96)}100%{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes gameEventOut{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-10px) scale(0.97)}}
@@ -1389,8 +1651,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    the turn, during both bidding and play, replacing what used to be a
    permanently-red bidder name for the whole round. */
 @keyframes turnActiveGlow{
-  0%,100%{box-shadow:0 0 0 2px rgba(255,215,0,0.55), 0 0 10px 3px rgba(255,215,0,0.35)}
-  50%{box-shadow:0 0 0 3px rgba(255,215,0,0.9), 0 0 20px 8px rgba(255,215,0,0.6)}
+  0%,100%{box-shadow:0 0 0 2px rgba(255,59,59,0.55), 0 0 10px 3px rgba(255,59,59,0.35)}
+  50%{box-shadow:0 0 0 3px rgba(255,59,59,0.9), 0 0 20px 8px rgba(255,59,59,0.6)}
 }
 .avatar.turn-active{animation:turnActiveGlow 1.1s ease-in-out infinite}
 .avatar.winner-trick{animation:winnerTrickReceive 1s cubic-bezier(0.34,1.56,0.64,1)}
@@ -2386,7 +2648,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .card{width:52px !important;height:74px !important;border-radius:9px !important;border-width:1px !important;box-shadow:0 3px 10px rgba(0,0,0,0.3) !important}
   .card::before{border-width:1.5px !important;border-radius:9px !important}
   .card::after{inset:3px !important;border-radius:6px !important}
-  .card .cr,.card .crb{font-size:0.86rem !important;top:2px !important;left:3px !important;text-shadow:0 1px 0 rgba(0,0,0,0.15),0 2px 2px rgba(0,0,0,0.1) !important;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2)) !important}
+  .card .cr,.card .crb{font-size:0.86rem !important;text-shadow:0 1px 0 rgba(0,0,0,0.15),0 2px 2px rgba(0,0,0,0.1) !important;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2)) !important}
+  .card .cr{top:2px !important;left:3px !important}
   .card .crb{bottom:2px !important;right:3px !important}
   .card .cs{font-size:1.9rem !important;margin-top:0 !important;text-shadow:0 1px 0 rgba(0,0,0,0.1),0 2px 4px rgba(0,0,0,0.15) !important;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.25)) !important}
 
@@ -2466,8 +2729,56 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   /* Player spots closer to center */
   .table:not(.mode6) .pspot.top{padding-top:2px !important}
   .table:not(.mode6) .pspot.pos3{padding-bottom:2px !important}
+  /* Real, confirmed follow-up per explicit live report: the earlier
+     attempt used transform:translateY, which (confirmed directly by
+     measuring the element's actual on-screen position) ended up
+     shifting it horizontally too, off-center, not just down --
+     probably from conflicting with this same element's own turn-glow
+     animation, which also drives transform. Uses margin-top instead
+     this time specifically to avoid touching transform at all, so
+     there's no way for it to interact with that animation. Small,
+     deliberately modest move per explicit instruction to calibrate
+     from here rather than jump straight to a big change again. */
+  .table:not(.mode6) .pspot.pos3{margin-top:15px !important}
   .table:not(.mode6) .pspot.left{align-self:center !important}
   .table:not(.mode6) .pspot.right{align-self:center !important}
+  /* Real, confirmed follow-up per explicit live report: moves left and
+     right up a little -- specifically only these two, not top and not
+     pos3, per explicit "move for only 2" instruction. */
+  .table:not(.mode6) .pspot.left,
+  .table:not(.mode6) .pspot.right{margin-top:-12px !important}
+  /* Real, confirmed full undo per explicit live report: the earlier
+     attempt to push the bottom seat down under the hand of cards
+     (transform:translateY plus a matching hand-area z-index bump) is
+     completely reverted here -- back to the exact original, unmodified
+     state, per explicit instruction to undo everything first before
+     trying a fresh, small adjustment. */
+  /* Real, confirmed follow-up per explicit live report, mobile phone
+     view only: the raw box gap between avatar and name was already
+     tiny (1px), but the avatar's own glow/border effect extends
+     visually beyond its actual box, making the real-world gap read as
+     bigger than it measures. Pulled the name up further with a small
+     negative margin so it visually sits right against (or slightly
+     under) that glow instead of floating just past it -- explicitly
+     fine per instruction for the name to touch the avatar's bottom
+     edge. */
+  /* Real, confirmed follow-up per explicit live report, with the exact
+     math worked out by measurement rather than guessing: name tag
+     height measures 13px consistently across all four seats, so
+     margin-top:-13px (exactly -1x its own height) puts its bottom edge
+     precisely flush with the avatar's own bottom edge -- not just
+     close, exactly on the same line. Background/padding/border-radius
+     removed entirely per explicit follow-up instruction: just the
+     name text and whatever animation it already carries (its existing
+     color-transition/text-shadow), no box behind it at all. */
+  .table:not(.mode6) .pspot .pname{
+    margin-top:-13px !important;
+    position:relative !important;
+    z-index:6 !important;
+    background:none !important;
+    padding:0 !important;
+    border-radius:0 !important;
+  }
 
   .center { min-height: 80px; }
   .cross { width: 130px; height: 100px; }
@@ -2551,7 +2862,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .card{width:30px;height:42px;border-radius:5px;border-width:1px;box-shadow:0 1px 5px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.7)}
   .card::before{border-width:1.5px;border-radius:5px}
   .card::after{inset:2px;border-radius:3px}
-  .card .cr,.card .crb{font-size:0.52rem;top:2px;left:2px;text-shadow:0 1px 0 rgba(0,0,0,0.12);filter:drop-shadow(0 1px 1px rgba(0,0,0,0.15))}
+  .card .cr,.card .crb{font-size:0.52rem;text-shadow:0 1px 0 rgba(0,0,0,0.12);filter:drop-shadow(0 1px 1px rgba(0,0,0,0.15))}
+  .card .cr{top:2px;left:2px}
   .card .crb{bottom:2px;right:2px}
   .card .cs{font-size:1.2rem;margin-top:0;text-shadow:0 1px 0 rgba(0,0,0,0.08);filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2))}
 
@@ -2623,7 +2935,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .card{width:24px;height:34px;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.6)}
   .card::before{border-width:1px;border-radius:4px}
   .card::after{inset:1px;border-radius:2px}
-  .card .cr,.card .crb{font-size:0.42rem;top:1px;left:1px;text-shadow:0 1px 0 rgba(0,0,0,0.1);filter:drop-shadow(0 1px 1px rgba(0,0,0,0.1))}
+  .card .cr,.card .crb{font-size:0.42rem;text-shadow:0 1px 0 rgba(0,0,0,0.1);filter:drop-shadow(0 1px 1px rgba(0,0,0,0.1))}
+  .card .cr{top:1px;left:1px}
   .card .crb{bottom:1px;right:1px}
   .card .cs{font-size:0.65rem;text-shadow:0 1px 0 rgba(0,0,0,0.06);filter:drop-shadow(0 1px 1px rgba(0,0,0,0.1))}
   .hand-area{min-height:52px !important;max-height:65px;padding:2px 4px 1px}
@@ -3070,14 +3383,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .table:not(.mode6) .pspot.right { left: 91%; top: 45%; }
   .table:not(.mode6) .pspot.pos3  { left: 50%; top: 68%; }
 
-  .table:not(.mode6) .avatar { width: 58px !important; height: 74px !important; font-size: 1.5rem !important; }
+  /* Per explicit request: all 4 seats made 45% bigger (mobile view only) - each from its own
+     existing size, not flattened to one uniform size (58->84, 50->73, 110->160). */
+  /* Per explicit follow-up: side (left/right) seats +5%, top seat +25% - each its own separate
+     bump from its own current size (84->88, 73->91). */
+  .table:not(.mode6) .avatar { width: 88px !important; height: 112px !important; font-size: 2.3rem !important; }
   /* Per explicit request: a simple perspective/depth cue -- the seat
      farthest from "camera" (top) is smaller than the two side seats,
      which are in turn smaller than your own seat (bottom, already the
      biggest) -- so the table reads as receding into the distance
      instead of all four seats being flatly the same size. */
-  .table:not(.mode6) .pspot.top .avatar { width: 50px !important; height: 64px !important; font-size: 1.3rem !important; }
-  .table:not(.mode6) .pspot.pos3 .avatar { width: 110px !important; height: 140px !important; font-size: 2.9rem !important; }
+  .table:not(.mode6) .pspot.top .avatar { width: 91px !important; height: 116px !important; font-size: 2.4rem !important; }
+  .table:not(.mode6) .pspot.pos3 .avatar { width: 160px !important; height: 203px !important; font-size: 4.2rem !important; }
+  /* Real, confirmed follow-up per explicit live report: left and right
+     were both still on the general .avatar rule just above (88x112),
+     one size smaller than top's own specific override (91x116) --
+     explicit instruction was to make all three of the non-mine seats
+     match the single biggest of them, which is top's size. Gives
+     left/right that exact same size instead of leaving them on the
+     general rule. */
+  .table:not(.mode6) .pspot.left .avatar,
+  .table:not(.mode6) .pspot.right .avatar { width: 91px !important; height: 116px !important; font-size: 2.4rem !important; }
 
   /* Per explicit request: these new avatar images have a background
      color already matching the chair leather, so the frame/circle that
@@ -3148,6 +3474,35 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   --display-font: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
 }
 body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
+/* The redesign2026 rule directly above this resets body's background
+   unconditionally (no media guard), which was silently overwriting the
+   desktop wide-background photo set inside the earlier
+   @media(min-width:700px) block -- same specificity (a bare `body`
+   selector both times), later in source order, so it always won
+   regardless of screen width. Confirmed via testing: without this,
+   desktop only ever showed the plain color, never the photo, at any
+   width. Re-asserting the exact same desktop rule again here, after
+   this reset, restores it for desktop widths without touching the
+   redesign2026 rule itself (mobile/base styling untouched). */
+@media (min-width: 700px) {
+  /* Real, confirmed bug found per explicit live report: this rule had
+     no gate on body.k28-in-game at all, so it fired on every screen at
+     desktop width -- including the welcome/lobby screens, which were
+     never meant to show the in-game table photo as their background at
+     all. The photo split awkwardly across both sides of the narrow
+     welcome column, looking like two disconnected half-images rather
+     than an intentional design. Scoped to only apply while the game is
+     actually active; the welcome/lobby screens now fall back to the
+     plain gradient below instead. */
+  body.k28-in-game{
+    background-color:#05070a;
+    background-image:url('/images/desktop-bg-4p.jpg');
+    background-size:cover;
+    background-position:center center;
+    background-repeat:no-repeat;
+    background-attachment:fixed;
+  }
+}
 
 /* ---------- Display typography: brass signage ---------- */
 .welcome-title,.lobby-hdr h2,.lobby-card h3,.counter-title,
@@ -3327,6 +3682,43 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   .hand-area .card:first-child{margin-left:0 !important}
   .hand-area{min-height:86px !important;max-height:100px !important}
 }
+/* Real, confirmed bug fix per explicit live report: this same small
+   card size only ever applied via a max-width:480px media query,
+   which checks the actual BROWSER viewport. On a real phone that
+   viewport naturally IS ≤480px, so it fires correctly there. On
+   desktop, #appPhoneFrame squeezes the whole game visually into a
+   480px-wide column via a fixed CSS width, but the actual browser
+   window is still however wide the desktop screen is (often 1000px+)
+   -- so this media query never fired there at all, leaving cards at
+   the much larger default 100x140px size while visually crammed into
+   that same narrow column. The 6-player table never had this problem
+   since its cards are small by default with no viewport-width
+   dependency at all. Mirrors the exact same sizing here, scoped to
+   the same min-width:700px breakpoint #appPhoneFrame's own desktop
+   styling already uses, so it applies precisely when that squeezed
+   layout is actually active. */
+@media (min-width:700px){
+  .card{width:52px !important;height:74px !important;border-radius:9px !important}
+  .hand-area .card{margin-left:-16px !important}
+  .hand-area .card:first-child{margin-left:0 !important}
+  .hand-area{min-height:86px !important;max-height:100px !important}
+  /* Follow-up to the fix above, per explicit live report: the outer .card
+     box was correctly scaled down to 52x74px here, but the rank/suit
+     glyphs INSIDE it were never included in that fix -- .cs (center
+     suit icon) and .cr/.crb (corner ranks) are separate selectors with
+     their own font-size, and they were still falling back to their
+     unscaled base values (.cs at 4.2rem/67px, .cr/.crb at 2.5rem/40px)
+     since those only ever got scaled down inside the max-width:480px
+     tier, which -- same as the .card box before it was fixed -- never
+     fires on an actual wide desktop window. The result: a properly
+     52x74px card with a 67px suit icon and 40px rank text crammed
+     into it, massively overflowing the card face. Mirrors the exact
+     same 0.86rem/1.9rem values the narrow-phone tier already uses. */
+  .card .cr,.card .crb{font-size:0.86rem !important;text-shadow:0 1px 0 rgba(0,0,0,0.15),0 2px 2px rgba(0,0,0,0.1) !important;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.2)) !important}
+  .card .cr{top:2px !important;left:3px !important}
+  .card .crb{bottom:2px !important;right:3px !important}
+  .card .cs{font-size:1.9rem !important;margin-top:0 !important;text-shadow:0 1px 0 rgba(0,0,0,0.1),0 2px 4px rgba(0,0,0,0.15) !important;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.25)) !important}
+}
 .hand-area .card.playable-now{transform:translateY(-8px);z-index:5;
   box-shadow:0 0 0 2px rgba(233,185,73,0.65),0 8px 18px rgba(0,0,0,0.4)!important}
 .hand-area .card:active{z-index:6}
@@ -3501,8 +3893,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   100%{transform:translateY(var(--fall,110vh)) rotate(var(--spin,540deg));opacity:0;}
 }
 @keyframes k28ContainTurnGlow{
-  0%,100%{filter:drop-shadow(0 0 5px rgba(255,215,0,0.7)) drop-shadow(0 0 11px rgba(255,215,0,0.4));}
-  50%{filter:drop-shadow(0 0 8px rgba(255,215,0,1)) drop-shadow(0 0 18px rgba(255,215,0,0.7));}
+  0%,100%{filter:drop-shadow(0 0 5px rgba(255,59,59,0.7)) drop-shadow(0 0 11px rgba(255,59,59,0.4));}
+  50%{filter:drop-shadow(0 0 8px rgba(255,59,59,1)) drop-shadow(0 0 18px rgba(255,59,59,0.7));}
 }
 /* Bid-winner celebration bubble -- per explicit request, a persistent
    (not auto-dismissing) badge that pops in big and keeps a gentle
@@ -3523,6 +3915,13 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   border:3px solid #f4c430;box-shadow:0 0 40px rgba(244,196,48,0.55),0 0 80px rgba(244,196,48,0.25);
   animation:bidWinnerBubblePop 0.6s cubic-bezier(.2,1.4,.4,1) forwards;
 }
+/* Per explicit request: the bubble's own border/glow reflects whose
+   turn it currently is -- green for this player's own turn, red for
+   anyone else's (partner or opponent alike). Overrides the base gold
+   border/glow above via the same specificity as the .settled/.leaving
+   rules already doing the same kind of override on this element. */
+#bidWinnerBubble4p.bwb-border-mine{border-color:#3fae6a;box-shadow:0 0 40px rgba(63,174,106,0.55),0 0 80px rgba(63,174,106,0.25);}
+#bidWinnerBubble4p.bwb-border-other{border-color:#d9463f;box-shadow:0 0 40px rgba(217,70,63,0.55),0 0 80px rgba(217,70,63,0.25);}
 #bidWinnerBubble4p.settled{animation:bidWinnerBubbleHeartbeat 1.6s ease-in-out infinite;}
 #bidWinnerBubble4p.leaving{animation:bidWinnerBubbleOut 0.35s ease forwards !important;}
 @keyframes bidWinnerBubblePop{
@@ -3550,9 +3949,9 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
    updateBidWinnerTurnText4p()'s pop-retrigger logic for how this gets
    restarted on each change, since a CSS animation on an unchanging
    class doesn't replay on its own just because textContent changed. */
-#bidWinnerBubble4p .bwb-turn.bwb-turn-mine{font-weight:900;font-size:0.9rem;color:#c41e3a;text-shadow:0 2px 3px rgba(0,0,0,0.6),0 0 10px rgba(196,30,58,0.5);animation:bwbTurnBlinkRed4p 1s step-start infinite;}
-#bidWinnerBubble4p .bwb-turn.bwb-turn-partner{font-weight:900;font-size:0.9rem;color:#2e7d4f;text-shadow:0 2px 3px rgba(0,0,0,0.6),0 0 10px rgba(46,125,79,0.5);animation:bwbTurnBlinkGreen4p 1s step-start infinite;}
-#bidWinnerBubble4p .bwb-turn.bwb-turn-opp{font-weight:900;font-size:0.9rem;color:#2851a3;text-shadow:0 2px 3px rgba(0,0,0,0.6),0 0 10px rgba(40,81,163,0.5);animation:bwbTurnBlinkBlue4p 1s step-start infinite;}
+#bidWinnerBubble4p .bwb-turn.bwb-turn-mine{font-weight:900;font-size:0.9rem;color:#ff3b3b;text-shadow:0 2px 3px rgba(0,0,0,0.8),0 0 10px rgba(196,30,58,0.9);animation:bwbTurnBlinkRed4p 1s step-start infinite;}
+#bidWinnerBubble4p .bwb-turn.bwb-turn-partner{font-weight:900;font-size:0.9rem;color:#fff;text-shadow:0 2px 3px rgba(0,0,0,0.8),0 0 10px rgba(46,125,79,0.9);animation:bwbTurnBlinkGreen4p 1s step-start infinite;}
+#bidWinnerBubble4p .bwb-turn.bwb-turn-opp{font-weight:900;font-size:0.9rem;color:#fff;text-shadow:0 2px 3px rgba(0,0,0,0.8),0 0 10px rgba(40,81,163,0.9);animation:bwbTurnBlinkBlue4p 1s step-start infinite;}
 #bidWinnerBubble4p .bwb-turn.bwb-turn-pop{animation-name:bwbTurnPop4p, bwbTurnBlinkRed4p;animation-duration:0.55s,1s;animation-timing-function:cubic-bezier(0.34,1.56,0.64,1),step-start;animation-iteration-count:1,infinite;animation-delay:0s,0.55s;}
 #bidWinnerBubble4p .bwb-turn.bwb-turn-pop.bwb-turn-partner{animation-name:bwbTurnPop4p, bwbTurnBlinkGreen4p;}
 #bidWinnerBubble4p .bwb-turn.bwb-turn-pop.bwb-turn-opp{animation-name:bwbTurnPop4p, bwbTurnBlinkBlue4p;}
@@ -3762,7 +4161,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
         <div class="welcome-title-gold">28GULAN.COM</div>
         <div class="welcome-gold-rule"></div>
       </div>
-      <div class="welcome-sub">Gulan · 56 · Hold'em · Carrom — Classic Indian Card &amp; Board Games Online</div>
+      <div class="welcome-sub">Gulan · 56 · Hold'em · Carrom — Play Card &amp; Board Games Online</div>
       <div class="welcome-tagline">Bid smart. Play smarter. Become the King.</div>
     </div>
   </div>
@@ -4330,7 +4729,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <div class="modal-overlay" id="roomGoneOverlay" style="z-index:2200">
   <div class="modal" style="text-align:center">
     <h3 style="margin-top:0">🚪 This Room Is No Longer Available</h3>
-    <p style="color:var(--text-secondary);font-size:0.88rem;line-height:1.5">All the players in this room have already left. Please create a new room and invite your friends to play!</p>
+    <p style="color:var(--text-secondary);font-size:0.88rem;line-height:1.5">All the players in this room have left. Please create a room and play — you can invite friends while playing, or now!</p>
     <button class="btn btn-primary" style="width:100%" id="btnRoomGoneOk">OK</button>
   </div>
 </div>
@@ -4367,13 +4766,62 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
      screen and before the game-mode picker -- see showLeaderboardPopup()
      for the fetch/populate logic and the 5s auto-dismiss timer. -->
 <div class="modal-overlay" id="leaderboardPopupOverlay" style="z-index:2600">
-  <div class="modal" style="text-align:center;max-width:340px">
-    <h3 style="margin-top:0;margin-bottom:2px">🏆 Leaderboard</h3>
-    <div style="text-align:center;font-size:0.72rem;color:var(--text-secondary);opacity:0.85;margin-bottom:10px">Ranked by fewest rounds to enforce Kunukku to the opponents</div>
-    <div id="leaderboardPopupContent" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:40px">
+  <!-- Per explicit live report: this popup had no scrolling at all --
+       with the leaderboard now showing a full top-10 for both 4-player
+       and 6-player together (20 rows), it easily overflowed past the
+       visible screen on a phone with no way to reach the OK button
+       below it at all. Title and OK button now stay fixed in place
+       (flex column, max-height capped to the viewport) while only the
+       actual list in the middle scrolls -- -webkit-overflow-scrolling
+       keeps that scroll smooth under touch on iOS specifically, not
+       just functional on desktop with a mouse wheel. Real, confirmed
+       follow-up bug fix per second live report that the popup still
+       couldn't reach bottom: the scrolling div below had min-height:40px
+       (originally just to keep some visible space for the "Loading…"
+       text) -- a flex child's default/explicit min-height blocks it
+       from ever actually shrinking below that value, which silently
+       defeated its own overflow-y:auto since the browser never
+       considered it "too small for its content" in the first place.
+       Changed to min-height:0, the actual fix needed to let a
+       scrollable flex child work at all. Also added an 85dvh fallback
+       alongside the existing 85vh: on mobile browsers, plain vh units
+       are sized against the largest-possible viewport (address bar
+       hidden), not whatever's actually visible at any given moment --
+       dvh (dynamic viewport height) tracks the real, currently-visible
+       area instead. Kept 85vh first for older browsers that don't know
+       dvh at all; both max-height declarations are valid CSS, so the
+       later one silently wins wherever it's actually supported. -->
+  <div class="modal" style="text-align:center;max-width:340px;display:flex;flex-direction:column;max-height:85vh;max-height:85dvh">
+    <h3 style="margin-top:0;margin-bottom:2px;flex-shrink:0">🏆 Leaderboard</h3>
+    <div style="text-align:center;font-size:0.72rem;color:var(--text-secondary);opacity:0.85;margin-bottom:10px;flex-shrink:0">Ranked by biggest score gap, rounds taken as tiebreak</div>
+    <div id="leaderboardPopupContent" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto">
       Loading…
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:16px" id="btnLeaderboardPopupOk">OK</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:16px;flex-shrink:0" id="btnLeaderboardPopupOk">OK</button>
+  </div>
+</div>
+
+<!-- ===== READY ROOM (host-only, table seated, waiting to start) ===== -->
+<!-- Per explicit request: shown once the table is fully seated (bots
+     filled in already), sitting right at the actual table itself with
+     every real seat/avatar already visible underneath it -- nothing
+     deals or begins until the host taps Start. See renderReadyRoom()
+     for the population logic and the confirmStart socket emit. Host-only
+     by explicit request -- other seated players just see the real table
+     underneath and wait, no popup of their own. Per explicit follow-up
+     request: the base .modal-overlay class's own background
+     (rgba(0,0,0,0.7), a fairly heavy dark scrim meant for modals that
+     don't need to show what's behind them) was still making the real
+     table look "very dark" here specifically, where seeing the table
+     clearly -- same as during normal play -- is the entire point.
+     Overridden much lighter just for this one popup rather than
+     touching the shared base class other modals still rely on. -->
+<div class="modal-overlay" id="readyRoomOverlay" style="z-index:2500;background:rgba(0,0,0,0.15)">
+  <div class="modal" style="text-align:center;max-width:340px">
+    <h3 style="margin-top:0;margin-bottom:2px">🪑 Table is Ready</h3>
+    <div style="text-align:center;font-size:0.78rem;color:var(--text-secondary);opacity:0.85;margin-bottom:12px">Nothing starts until someone here hits Start</div>
+    <div id="readyRoomPlayerList" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:40px"></div>
+    <button class="btn btn-success" style="width:100%;margin-top:16px" id="btnReadyRoomStart">▶ Start Game</button>
   </div>
 </div>
 
@@ -4545,120 +4993,117 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <script>
 // ==================== CONFIG ====================
 const ALL_PLAYERS = [
-  // Per explicit request: the 5 personal, PIN-protected avatars
-  // (JCK/LJ/JK/Santhosh/Jose) are deliberately NOT entries in this
-  // array -- see six.js's identical change for the fuller reasoning.
-  {name:'Ancy',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Ajai',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Alok',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Anup',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Anjali',emoji:heroAvatarHtml('toon32'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Appu',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Arun',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Meera',emoji:heroAvatarHtml('toon33'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Benson',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Neha',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Binchu',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Charlie',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Jerin',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Priya',emoji:heroAvatarHtml('toon35'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Johny',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Reena',emoji:heroAvatarHtml('toon36'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Koshy',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Nate',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Divya',emoji:heroAvatarHtml('toon37'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Peter',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Lakshmi',emoji:heroAvatarHtml('toon38'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Rahul',emoji:heroAvatarHtml('toon14'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Rajesh',emoji:heroAvatarHtml('toon15'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Randall',emoji:heroAvatarHtml('toon16'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Sarah',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Renji',emoji:heroAvatarHtml('toon17'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Roji',emoji:heroAvatarHtml('toon18'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Nisha',emoji:heroAvatarHtml('toon40'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Roney',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Sanjay',emoji:heroAvatarHtml('toon20'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Shyam',emoji:heroAvatarHtml('toon21'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Deepa',emoji:heroAvatarHtml('toon41'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Stev',emoji:heroAvatarHtml('toon22'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Vinod',emoji:heroAvatarHtml('toon23'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Wesley',emoji:heroAvatarHtml('toon24'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Elsa',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Abin',emoji:heroAvatarHtml('toon25'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Maya',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Bibin',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Sherin',emoji:heroAvatarHtml('toon44'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Cibin',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Denny',emoji:heroAvatarHtml('toon28'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Eldho',emoji:heroAvatarHtml('toon29'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Teena',emoji:heroAvatarHtml('toon45'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Frankie',emoji:heroAvatarHtml('toon30'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'George',emoji:heroAvatarHtml('toon52'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Anu',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Hari',emoji:heroAvatarHtml('toon54'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Ivan',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Reshma',emoji:heroAvatarHtml('toon47'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Jibin',emoji:heroAvatarHtml('toon58'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Kevin',emoji:heroAvatarHtml('toon60'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Libin',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Jisha',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Manoj',emoji:heroAvatarHtml('toon64'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Nibin',emoji:heroAvatarHtml('toon67'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Oommen',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Nimmy',emoji:heroAvatarHtml('toon49'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Pauly',emoji:heroAvatarHtml('toon70'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Robin',emoji:heroAvatarHtml('toon76'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Beena',emoji:heroAvatarHtml('toon50'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Sibin',emoji:heroAvatarHtml('toon77'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Tibin',emoji:heroAvatarHtml('toon78'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Unni',emoji:heroAvatarHtml('toon79'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Soumya',emoji:heroAvatarHtml('toon51'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Vishnu',emoji:heroAvatarHtml('toon80'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Wilson',emoji:heroAvatarHtml('toon82'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Liya',emoji:heroAvatarHtml('toon53'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Xavier',emoji:heroAvatarHtml('toon84'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Yohan',emoji:heroAvatarHtml('toon86'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Merin',emoji:heroAvatarHtml('toon55'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Zachariah',emoji:heroAvatarHtml('toon89'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Aby',emoji:heroAvatarHtml('toon96'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Bijoy',emoji:heroAvatarHtml('toon97'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Asha',emoji:heroAvatarHtml('toon57'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Anita',emoji:heroAvatarHtml('toon59'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Cyriac',emoji:heroAvatarHtml('toon98'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Davis',emoji:heroAvatarHtml('toon99'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Betty',emoji:heroAvatarHtml('toon61'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Ebin',emoji:heroAvatarHtml('toon100'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Fenil',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Gibin',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Celine',emoji:heroAvatarHtml('toon63'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Diya',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Hillary',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Fiona',emoji:heroAvatarHtml('toon68'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Ittoop',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Gracy',emoji:heroAvatarHtml('toon71'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Hema',emoji:heroAvatarHtml('toon72'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Jaison',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Indu',emoji:heroAvatarHtml('toon73'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Jessy',emoji:heroAvatarHtml('toon74'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Kurian',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Lijo',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Kavya',emoji:heroAvatarHtml('toon75'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Mathew',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Leena',emoji:heroAvatarHtml('toon81'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Ninan',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Mariya',emoji:heroAvatarHtml('toon83'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Babi',emoji:heroAvatarHtml('toon85'),bg:'linear-gradient(135deg,linear-gradient(135deg,#c2266f,#8e1c52))'},
-  {name:'Oliver',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Linda',emoji:heroAvatarHtml('toon87'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Babitha',emoji:heroAvatarHtml('toon88'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Maria',emoji:heroAvatarHtml('toon90'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Leela',emoji:heroAvatarHtml('toon91'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Anna',emoji:heroAvatarHtml('toon92'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Thankam',emoji:heroAvatarHtml('toon93'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Lincy',emoji:heroAvatarHtml('toon94'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Princy',emoji:heroAvatarHtml('toon95'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Easo',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Joseph',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Ancy',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Ajai',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Alok',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Anup',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Anjali',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Appu',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Arun',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Meera',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Benson',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Neha',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Binchu',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Charlie',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Jerin',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Priya',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Johny',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Reena',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Koshy',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Nate',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Divya',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Peter',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Lakshmi',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Rahul',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Rajesh',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Randall',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Sarah',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Renji',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Roji',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Nisha',emoji:heroAvatarHtml('toon14'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Roney',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Sanjay',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Shyam',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Deepa',emoji:heroAvatarHtml('toon15'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Stev',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Vinod',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Wesley',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Elsa',emoji:heroAvatarHtml('toon16'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Abin',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Maya',emoji:heroAvatarHtml('toon17'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Bibin',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Sherin',emoji:heroAvatarHtml('toon18'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Cibin',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Denny',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Eldho',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Teena',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Frankie',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'George',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Anu',emoji:heroAvatarHtml('toon20'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Hari',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Ivan',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Reshma',emoji:heroAvatarHtml('toon21'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Jibin',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Kevin',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Libin',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Jisha',emoji:heroAvatarHtml('toon22'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Manoj',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Nibin',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Oommen',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Nimmy',emoji:heroAvatarHtml('toon23'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Pauly',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Robin',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Beena',emoji:heroAvatarHtml('toon24'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Sibin',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Tibin',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Unni',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Soumya',emoji:heroAvatarHtml('toon25'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Vishnu',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Wilson',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Liya',emoji:heroAvatarHtml('toon28'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Xavier',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Yohan',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Merin',emoji:heroAvatarHtml('toon29'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Zachariah',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Aby',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Bijoy',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Asha',emoji:heroAvatarHtml('toon30'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Anita',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Cyriac',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Davis',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Betty',emoji:heroAvatarHtml('toon32'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Ebin',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Fenil',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Gibin',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Celine',emoji:heroAvatarHtml('toon33'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Diya',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Hillary',emoji:heroAvatarHtml('toon35'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Fiona',emoji:heroAvatarHtml('toon36'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Ittoop',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Gracy',emoji:heroAvatarHtml('toon37'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Hema',emoji:heroAvatarHtml('toon38'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Jaison',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Indu',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Jessy',emoji:heroAvatarHtml('toon40'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Kurian',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Lijo',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Kavya',emoji:heroAvatarHtml('toon41'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Mathew',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Leena',emoji:heroAvatarHtml('toon44'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Ninan',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Mariya',emoji:heroAvatarHtml('toon45'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Babi',emoji:heroAvatarHtml('toon47'),bg:'linear-gradient(135deg,linear-gradient(135deg,#c2266f,#8e1c52))'},
+  {name:'Oliver',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Linda',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Babitha',emoji:heroAvatarHtml('toon49'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Maria',emoji:heroAvatarHtml('toon50'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Leela',emoji:heroAvatarHtml('toon51'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Anna',emoji:heroAvatarHtml('toon52'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Thankam',emoji:heroAvatarHtml('toon53'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Lincy',emoji:heroAvatarHtml('toon54'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Princy',emoji:heroAvatarHtml('toon55'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Easo',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Joseph',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
 ];
 
 const SUITS=['♠','♦','♥','♣'];
@@ -4691,7 +5136,7 @@ try { MY_NAME = localStorage.getItem('k28_player_name') || ''; } catch (e) {}
 // sticks across visits instead of resetting every time.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:106}, (_,i) => 'toon'+(i+1));
+const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 
 // ==================== SOUND ENGINE ====================
 // A full card-table sound system built entirely on the native Web Audio API - no audio files,
@@ -5203,7 +5648,7 @@ let trumpSuit='', hiddenTrump=null, trumpExposed=false, trumpExplicitlyCalled=fa
 // itself gets cleared right after (and in one specific call path,
 // even before exposeTrump() runs at all -- see playHiddenTrump()).
 let revealedTrumpCard = null;
-let trickCards=[], trickSuit='', teamPoints=[0,0], gameScore=[6,6];
+let trickCards=[], trickSuit='', teamPoints=[0,0], gameScore=[0,0];
 let phase='bidding1', passes=0;
 let bidHistory = []; // [{pos, bid}] — bid===0 means pass. Used to render "who's bid/passed so far" in the bid sheet.
 // Phase 1 bidding flow (mirrors game-engine.js's server-side implementation
@@ -5945,7 +6390,7 @@ function showRules() {
     '<b>Bidding:</b> Bid 14-28 for trump<br>' +
     '<b>Trump:</b> Hidden until called<br>' +
     
-    'First team to 12 game points wins!');
+    'First team to 15 game points wins!');
 }
 
 const SUIT_NAMES = { '♠': 'Spades', '♥': 'Hearts', '♦': 'Diamonds', '♣': 'Clubs' };
@@ -6000,11 +6445,12 @@ function renderBidHistoryList(history) {
     rows.join('<br>') + '</div>';
 }
 
-// Bots display as "NAME 🤖" (uppercase, small bot emoji) instead of the
-// literal "(Bot)" text suffix stored in the underlying name string.
+// Per explicit request: the bot emoji suffix removed - the colored dot on the avatar already
+// conveys this, so the emoji was redundant. Still strips any literal "(Bot)" text suffix and
+// still uppercases the name, just no longer appends the emoji itself.
 function formatPlayerName(name, isBot) {
   if (!isBot) return name;
-  return name.replace(/\s*\(Bot\)\s*$/i, '').toUpperCase() + ' 🤖';
+  return name.replace(/\s*\(Bot\)\s*$/i, '').toUpperCase();
 }
 function nextPlayer(p) { const o = [3, 2, 0, 1]; return o[(o.indexOf(p) + 1) % 4]; }
 function prevPlayer(p) { const o = [3, 1, 0, 2]; return o[(o.indexOf(p) + 1) % 4]; }
@@ -6237,6 +6683,48 @@ function log(msg, type) {
 // deliberately non-alcoholic drinks (soda, tea, coffee, juice, bubble
 // tea) so it's a different glass/cup each time instead of always the
 // same clinking-glasses emoji.
+// Per explicit request: desktop-only wide table layout, where the game
+// itself (not a decorative surround) uses the wide table photo and
+// repositions seats to match it. .game-wrap already uses
+// position:fixed;left:0;right:0 (meant to span the full viewport), but
+// #appPhoneFrame's own transform:translateZ(0) makes IT the containing
+// block for every position:fixed descendant instead -- so .game-wrap
+// has actually always been constrained to the 480px column on desktop,
+// not the real browser width, without anyone having to notice since
+// the whole site was 480px-constrained anyway before this. Rather than
+// touch each of the several separate places elsewhere in this file
+// that toggle #gameWrap's own display style directly (fragile -- easy
+// to miss one and have this silently drift out of sync later), this
+// watches #gameWrap itself and mirrors its real visibility onto a body
+// class automatically, no matter which of those call sites changed it
+// or when. The desktop CSS keyed off this class is what actually
+// breaks #appPhoneFrame's containment and applies the wide table
+// layout -- see the dedicated wide-table CSS block for that part.
+(function () {
+  const gw = document.getElementById('gameWrap');
+  if (!gw) return;
+  const sync = () => {
+    const visible = gw.style.display && gw.style.display !== 'none';
+    document.body.classList.toggle('k28-in-game', !!visible);
+  };
+  sync();
+  new MutationObserver(sync).observe(gw, { attributes: true, attributeFilter: ['style'] });
+  // Real, confirmed live report: this class wasn't reliably applying
+  // on the actual deployed site despite working correctly in every
+  // local test -- rather than keep guessing at the exact reason
+  // (timing, a code path that sets visibility some other way, etc.),
+  // added a periodic poll as a belt-and-suspenders fallback alongside
+  // the MutationObserver above. This runs independently and re-checks
+  // the real, current computed visibility (not just the inline style
+  // the observer watches) every half second for as long as the page is
+  // open, so even if the observer genuinely misses an update for any
+  // reason, this catches it shortly after regardless of the cause.
+  setInterval(() => {
+    const visible = getComputedStyle(gw).display !== 'none';
+    document.body.classList.toggle('k28-in-game', visible);
+  }, 500);
+})();
+
 const K28_CHEERS_DRINKS = [
   { emoji: '🥂', label: 'a glass' },
   { emoji: '🧋', label: 'bubble tea' },
@@ -6251,28 +6739,94 @@ const K28_CHEERS_DRINKS = [
   { emoji: '🍾', label: 'a celebration' },
   { emoji: '🥃', label: 'the good stuff' }
 ];
-function showBuddyGreeting(fromName, toName) {
+// Per explicit follow-up request: the glass/drink should visibly travel
+// from the sender's own seat to the receiver's, landing there with a
+// small "Cheers!" celebration -- not just pop up centered on screen
+// disconnected from either player. fromPos/toPos (both optional, for
+// backward compatibility with any other caller) let this find each
+// player's actual on-screen seat position via the same slot mapping
+// setupOnlineTable() itself uses, so the glass visibly leaves one seat
+// and arrives at the other. Falls back to the old center-screen
+// behavior if a position can't be resolved (e.g. a seat currently
+// empty/not rendered) rather than failing silently.
+// Also per explicit follow-up: the landing message itself was a solid
+// yellow box -- swapped for a transparent, blurred glass panel with
+// quieter gold text instead of a filled block, matching the same
+// treatment already used elsewhere in this file, so it reads as part of
+// the table rather than a generic mobile-game alert box.
+// Per explicit follow-up request: the message used to be written
+// backwards (as if the clicked player greets the clicker) and read
+// identically for both people involved. Now fromPos/fromName is always
+// the actual sender (whoever clicked), toPos/toName is always the
+// actual receiver (whoever got clicked) -- no more reversal -- and
+// each side sees their own natural phrasing: the sender sees "I sent
+// you a drink!", the receiver sees "X toasted you!". Both sides still
+// see the same glass travel from the sender's seat to the receiver's.
+function showBuddyGreeting(fromName, toName, fromPos, toPos) {
   const drink = K28_CHEERS_DRINKS[Math.floor(Math.random() * K28_CHEERS_DRINKS.length)];
-  const msg = (fromName || 'Someone') + ' toasts ' + (toName || 'you') + ' with ' + drink.label + ' — Cheers!';
-  const bubble = document.createElement('div');
-  bubble.className = 'k28-buddy-greeting';
-  bubble.innerHTML = '<div style="font-size:3rem;line-height:1;margin-bottom:8px">' + drink.emoji + '</div><div>' + escapeHtml(msg) + '</div>';
-  bubble.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(0.7);' +
-    'background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;font-weight:900;' +
-    'font-family:var(--display-font, serif);font-size:1.4rem;padding:20px 32px;border-radius:20px;' +
-    'box-shadow:0 12px 40px rgba(0,0,0,0.5),0 0 0 3px rgba(255,255,255,0.25);' +
-    'z-index:9500;text-align:center;max-width:80vw;opacity:0;' +
-    'transition:opacity 0.25s ease,transform 0.25s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none';
-  document.body.appendChild(bubble);
-  requestAnimationFrame(() => {
-    bubble.style.opacity = '1';
-    bubble.style.transform = 'translate(-50%,-50%) scale(1)';
-  });
-  setTimeout(() => {
-    bubble.style.opacity = '0';
-    bubble.style.transform = 'translate(-50%,-50%) scale(0.85)';
-    setTimeout(() => bubble.remove(), 300);
-  }, 2200);
+  const isSender = (typeof fromPos === 'number' && fromPos === MY_POS);
+  const msg = isSender
+    ? 'You sent ' + (toName || 'them') + ' ' + drink.label + '! Cheers!'
+    : (fromName || 'Someone') + ' toasted you with ' + drink.label + ' — Cheers!';
+
+  const slotElFor = (pos) => {
+    if (typeof pos !== 'number') return null;
+    for (let s = 0; s < 4; s++) { if (playerAtSlot(s) === pos) return document.getElementById('av' + s); }
+    return null;
+  };
+  const fromEl = slotElFor(fromPos);
+  const toEl = slotElFor(toPos);
+
+  // Per explicit follow-up: made noticeably smaller (both the emoji and
+  // the message panel) -- the earlier size read as an oversized, showy
+  // interruption rather than a quick, quiet aside.
+  const landAndShowMessage = (centerX, centerY) => {
+    const bubble = document.createElement('div');
+    bubble.className = 'k28-buddy-greeting';
+    bubble.innerHTML = '<div style="font-size:1.5rem;line-height:1;margin-bottom:4px">' + drink.emoji + '</div><div>' + escapeHtml(msg) + '</div>';
+    bubble.style.cssText = 'position:fixed;left:' + centerX + 'px;top:' + centerY + 'px;transform:translate(-50%,-50%) scale(0.7);' +
+      'background:rgba(15,15,20,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#e6c86b;font-weight:600;' +
+      'font-family:var(--display-font, serif);font-size:0.78rem;padding:10px 16px;border-radius:12px;' +
+      'border:1px solid rgba(230,200,107,0.35);' +
+      'box-shadow:0 8px 28px rgba(0,0,0,0.5);' +
+      'z-index:9500;text-align:center;max-width:70vw;opacity:0;' +
+      'transition:opacity 0.25s ease,transform 0.25s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none';
+    document.body.appendChild(bubble);
+    requestAnimationFrame(() => {
+      bubble.style.opacity = '1';
+      bubble.style.transform = 'translate(-50%,-50%) scale(1)';
+    });
+    setTimeout(() => {
+      bubble.style.opacity = '0';
+      bubble.style.transform = 'translate(-50%,-50%) scale(0.85)';
+      setTimeout(() => bubble.remove(), 300);
+    }, 2000);
+  };
+
+  if (fromEl && toEl) {
+    const fromRect = fromEl.getBoundingClientRect();
+    const toRect = toEl.getBoundingClientRect();
+    const fromX = fromRect.left + fromRect.width / 2, fromY = fromRect.top + fromRect.height / 2;
+    const toX = toRect.left + toRect.width / 2, toY = toRect.top + toRect.height / 2;
+    const flyer = document.createElement('div');
+    flyer.textContent = drink.emoji;
+    flyer.style.cssText = 'position:fixed;left:' + fromX + 'px;top:' + fromY + 'px;font-size:1.4rem;' +
+      'transform:translate(-50%,-50%) scale(0.8);z-index:9500;pointer-events:none;' +
+      'filter:drop-shadow(0 4px 8px rgba(0,0,0,0.5));' +
+      'transition:left 0.55s cubic-bezier(0.4,0,0.2,1),top 0.55s cubic-bezier(0.4,0,0.2,1),transform 0.55s cubic-bezier(0.4,0,0.2,1)';
+    document.body.appendChild(flyer);
+    requestAnimationFrame(() => {
+      flyer.style.left = toX + 'px';
+      flyer.style.top = (toY - 30) + 'px'; // small arc: arrives slightly above the seat before settling
+      flyer.style.transform = 'translate(-50%,-50%) scale(1.15) rotate(20deg)';
+    });
+    setTimeout(() => {
+      flyer.remove();
+      landAndShowMessage(toX, toY);
+    }, 550);
+  } else {
+    landAndShowMessage(window.innerWidth / 2, window.innerHeight * 0.42);
+  }
 }
 // Wired directly on page load (these are static elements, never
 // recreated) -- av3 is deliberately excluded, since that's always the
@@ -6300,8 +6854,11 @@ function showBuddyGreeting(fromName, toName) {
     } else {
       // Offline (bots): no round trip needed, show it immediately.
       // {from} = the avatar that got clicked, {to} = the local player.
+      // Per explicit follow-up fix: I am always the sender when I'm the
+      // one clicking -- fromName/fromPos must be me, toName/toPos must
+      // be whoever I clicked, not the other way around.
       const clicked = playerAt(targetPos);
-      showBuddyGreeting(clicked ? clicked.name : 'Someone', MY_NAME || 'You');
+      showBuddyGreeting(MY_NAME || 'You', clicked ? clicked.name : 'them', MY_POS, targetPos);
     }
   });
 });
@@ -7116,6 +7673,12 @@ function updateBidWinnerTurnText4p() {
   turnEl.classList.toggle('bwb-turn-mine', isMe);
   turnEl.classList.toggle('bwb-turn-partner', isPartner);
   turnEl.classList.toggle('bwb-turn-opp', !isMe && !isPartner);
+  // Per explicit request: the bubble's own border/glow now reflects
+  // whose turn it actually is -- green while it's this player's own
+  // turn, red for anyone else's (partner or opponent alike), instead of
+  // staying gold regardless of whose turn it is.
+  bubble.classList.toggle('bwb-border-mine', isMe);
+  bubble.classList.toggle('bwb-border-other', !isMe);
   if (changed) {
     turnEl.classList.remove('bwb-turn-pop');
     void turnEl.offsetWidth; // force reflow so the browser actually notices the removal
@@ -7185,12 +7748,12 @@ function markWinningBidder4p(pos, winningBid) {
   }
 }
 
-function showGameEvent(icon, title, detail, color) {
+function showGameEvent(icon, title, detail, color, extraClass) {
   const overlay = document.createElement('div');
   overlay.className = 'game-event-overlay';
   overlay.style.setProperty('--evt-color', color);
   overlay.style.setProperty('--evt-glow', color + '66');
-  overlay.innerHTML = `<div class="game-event-box">
+  overlay.innerHTML = `<div class="game-event-box${extraClass ? ' ' + extraClass : ''}">
     <div class="game-event-icon">${icon}</div>
     <div class="game-event-title">${title}</div>
     <div class="game-event-detail">${detail}</div>
@@ -7590,7 +8153,7 @@ function updateInfo() {
           // owner's private hand right after.
           const rc = latestServerState && latestServerState.revealedTrumpCard;
           const trumpDetail = rc ? miniCardHtml(rc.rank, rc.suit) : (exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall));
-          showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa');
+          showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa', 'trump-event');
           const table = document.getElementById('tableArea');
           if (table) {
             table.classList.remove('trump-exposed');
@@ -7729,7 +8292,15 @@ function updateInfo() {
   setScoreClass(oBox, oppDiff);
 
   let turn = 'Bidding';
-  if (phase === 'play1' || phase === 'play2') {
+  if (phase === 'bidding1' || phase === 'bidding2') {
+    // Real, confirmed follow-up per explicit live report: this used to
+    // show a flat, generic "Bidding" label for every seat regardless of
+    // whose actual turn it was, while the play-phase branch below it
+    // specifically named "Your Turn" vs "{name}'s Turn" -- made this
+    // symmetric with that same pattern instead of just the phase name.
+    const p = playerAt(currentPlayer);
+    turn = currentPlayer === MY_POS ? 'Your Turn to Bid ▶' : (p ? p.name : 'Player') + "'s Turn to Bid";
+  } else if (phase === 'play1' || phase === 'play2') {
     const p = playerAt(currentPlayer);
     turn = currentPlayer === MY_POS ? 'Your Turn ▶' : (p ? p.name : 'Player') + "'s Turn";
   }
@@ -9751,6 +10322,10 @@ function showBidPanel1() {
     const btn = document.createElement('button');
     btn.className = 'bid-btn';
     btn.textContent = b;
+    // Per explicit request: honors territory (20+) gets a red treatment
+    // here too, matching the same change on the 6-player bid window --
+    // both tables now flag honors-range bids the same way.
+    if (b >= 20) btn.style.cssText = 'background:rgba(255,59,59,0.18)!important;border-color:#ff3b3b!important;color:#ff8a8a!important';
     btn.addEventListener('click', (function(bb) {
       return () => {
         showBidConfirmation(bb);
@@ -10298,6 +10873,10 @@ function showRaisePanel() {
     const btn = document.createElement('button');
     btn.className = 'bid-btn';
     btn.textContent = 'RAISE ' + b;
+    // Per explicit request: honors territory (20+) gets a red treatment
+    // -- every Phase 2 raise is already in that range (24-28), so all
+    // of these get it consistently with the Phase 1 numbers above.
+    btn.style.cssText = 'background:rgba(255,59,59,0.18)!important;border-color:#ff3b3b!important;color:#ff8a8a!important';
     btn.addEventListener('click', (function(bb) {
       return () => {
         showPhase2Confirmation(bb, false);
@@ -11116,7 +11695,7 @@ function exposeTrump(caller) {
     tr.classList.add('trump-active');
   }
   showToast('⚡ Trump exposed: ' + trumpSuit + '!', 'win', 1800);
-  showGameEvent('⚡', 'Trump Exposed', revealedTrumpCard ? miniCardHtml(revealedTrumpCard.rank, revealedTrumpCard.suit) : (trumpSuit + ' ' + suitName(trumpSuit)), '#a78bfa');
+  showGameEvent('⚡', 'Trump Exposed', revealedTrumpCard ? miniCardHtml(revealedTrumpCard.rank, revealedTrumpCard.suit) : (trumpSuit + ' ' + suitName(trumpSuit)), '#a78bfa', 'trump-event');
   const name = playerAt(caller) ? playerAt(caller).name : 'Player';
   log((caller === MY_POS ? 'You' : name) + ' exposed trump! ' + trumpSuit + ' active!', 'win');
   // TABLE POP ANIMATION when trump is exposed
@@ -12097,7 +12676,11 @@ function updateKingDisplay() {
   const toKing = KING_TARGET - yourStreakVal;
 
   // Always show king row during gameplay
-  const isInGame = phase && (phase.startsWith('play') || phase.startsWith('bidding') || gameScore[0] !== 6 || gameScore[1] !== 6 || round > 1);
+  // Per explicit request: baseline updated from the old [6,6] start to
+  // [0,0], matching 6-player -- this detection needs the same update
+  // or it would now permanently read every match as "in game" from
+  // round 1 onward (0 !== 6 is always true).
+  const isInGame = phase && (phase.startsWith('play') || phase.startsWith('bidding') || gameScore[0] !== 0 || gameScore[1] !== 0 || round > 1);
 
   if (isInGame || yourStreakVal > 0 || oppStreakVal > 0 || championshipNumber > 1) {
     kingRow.style.display = 'flex';
@@ -13574,7 +14157,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <div class="welcome-title-gold">28 Kerala Gulan</div>
         <div class="welcome-gold-rule"></div>
       </div>
-      <div class="welcome-sub">The Classic Indian Card Game</div>
+      <div class="welcome-sub">Play Card &amp; Board Games Online</div>
       <div class="welcome-tagline">Choose how you want to play</div>
     </div>
   </div>
@@ -14714,17 +15297,27 @@ async function showLeaderboardPopup() {
       if (!e) return `<div style="font-size:0.72rem;opacity:0.5;padding:2px 0">${rank}. —</div>`;
       const names = e.names.map(nameSpan).join(', ');
       const opp = (e.opponentNames && e.opponentNames.length > 0) ? ` <span style="opacity:0.55">vs</span> ${e.opponentNames.map(n => String(n).replace(/</g, '&lt;')).join(', ')}` : '';
-      const roundLabel = e.rounds === 1 ? 'rd' : 'rds';
-      return `<div style="font-size:0.72rem;padding:2px 0;line-height:1.3"><b style="opacity:0.6">${rank}.</b> ${names}${opp} <span style="opacity:0.6">— ${e.rounds}${roundLabel}</span></div>`;
+      const roundLabel = e.rounds === 1 ? 'Round' : 'Rounds';
+      // Per explicit follow-up request: winning score in green, losing
+      // ("OPP") score bold red -- same var(--success)/var(--danger)
+      // colors already used everywhere else in this app for win/lose,
+      // applied consistently to every row here rather than one flat
+      // color for the whole "15-7" pair.
+      const scorePart = (typeof e.winningScore === 'number' && typeof e.losingScore === 'number')
+        ? `<b style="color:var(--success)">${e.winningScore}</b>-<b style="color:var(--danger)">${e.losingScore}</b>, `
+        : '';
+      return `<div style="font-size:0.72rem;padding:2px 0;line-height:1.3"><b style="opacity:0.6">${rank}.</b> ${names}${opp} <span style="opacity:0.6">— ${scorePart}<b style="opacity:0.85">${e.rounds}</b> ${roundLabel}</span></div>`;
     };
+    // Per explicit follow-up request: simplified to a single all-time
+    // top-10 list per mode -- no more separate "Today" section, and
+    // widened from showing 3 positions to 10.
     const fmtSection = (list, label) => `
       <div style="margin-bottom:4px;font-size:0.68rem;color:var(--accent);opacity:0.85;font-weight:700">${label}</div>
-      ${[0,1,2].map(i => fmtRow(list[i], i + 1)).join('')}`;
+      ${Array.from({length: 10}, (_, i) => fmtRow(list[i], i + 1)).join('')}`;
     const fmtOne = (mode, label) => `
       <div style="margin-bottom:10px">
         <div style="font-weight:800;color:var(--text-primary);font-size:0.82rem;margin-bottom:3px">${label}</div>
         ${fmtSection(lb.allTime[mode], '🏆 All-Time')}
-        ${fmtSection(lb.today[mode], '📅 Today')}
       </div>`;
     contentEl.innerHTML = fmtOne('4p', '4 Player') + fmtOne('6p', '6 Player');
   } catch (e) {
@@ -14770,7 +15363,7 @@ function enhanceWelcomeScreen() {
     rules.parentNode.insertBefore(createBotBtn, rules);
     rules.parentNode.insertBefore(assignBotBtn, rules);
     rules.parentNode.insertBefore(choosePosBtn, rules);
-    rules.innerHTML = '4 players: Cross table, YOU at bottom<br>First team to 12 points wins!<br><span style="color:var(--accent)">Create a personal bot that learns YOUR style!</span>';
+    rules.innerHTML = '4 players: Cross table, YOU at bottom<br>First team to 15 points wins!<br><span style="color:var(--accent)">Create a personal bot that learns YOUR style!</span>';
   }
 }
 
@@ -14869,7 +15462,10 @@ document.getElementById('btnLeaveRoom').addEventListener('click', () => {
 
 // Start Game button
 document.getElementById('btnStartGame').addEventListener('click', () => {
-  if (!SERVER_IS_HOST) return;
+  // Per explicit request: any seated player can start the game now,
+  // not just the host -- removed the SERVER_IS_HOST gate here to match
+  // the button now being shown to everyone and the server-side handler
+  // now accepting any actual seat.
   const botCount = parseInt(document.getElementById('botFillSelect').value) || 0;
   gameSocket.emit('fillBots', { count: botCount });
   gameSocket.emit('startGame');
@@ -15969,6 +16565,15 @@ function connectGameSocket() {
       document.getElementById('nameCard').style.display = 'block';
       const inviteBanner4pEl = document.getElementById('inviteBanner4p');
       if (inviteBanner4pEl) inviteBanner4pEl.style.display = 'none';
+      // Real, confirmed bug fix per explicit live report -- same fix
+      // as the 6-player table's identical bug, just this table's own
+      // equivalent of that state: submitPlayerName() reads
+      // window.PENDING_INVITE_CODE to decide whether to rejoin a table
+      // or show the normal host/join options. Left uncleared here, a
+      // name submitted after this popup would silently try to rejoin
+      // the exact same dead table all over again instead of landing on
+      // the create/join screen the popup's own message promises.
+      window.PENDING_INVITE_CODE = null;
       document.getElementById('hostCard').style.display = 'none';
       document.getElementById('joinCard').style.display = 'none';
       const playersCardEl = document.getElementById('playersCard');
@@ -16350,15 +16955,17 @@ gameSocket.on('chooseSeat', (info) => {
   // -- only actually show the popup if this specific client is one of
   // the two people actually involved (the sender or the target),
   // everyone else at the table just silently ignores it.
+  // Per explicit follow-up fix: this used to deliberately write the
+  // message backwards (as if the clicked player greets the clicker).
+  // fromPos/fromName is now always the actual sender (whoever clicked),
+  // toPos/toName is always the actual receiver (whoever got clicked) --
+  // showBuddyGreeting itself now decides the phrasing per-viewer based
+  // on whether MY_POS matches fromPos or not.
   gameSocket.on('buddyGreeting', ({ fromPos, toPos }) => {
-    // fromPos is the clicker, toPos is whose avatar got clicked -- but
-    // the MESSAGE itself is written the other way around (as if the
-    // clicked player is the one greeting the clicker), so {from}/{to}
-    // in the template are the reverse of the socket's fromPos/toPos.
     if (MY_POS === fromPos || MY_POS === toPos) {
-      const clickerName = fromPos === MY_POS ? (MY_NAME || 'You') : ((playerAt(fromPos) || {}).name || 'Someone');
-      const clickedName = toPos === MY_POS ? (MY_NAME || 'You') : ((playerAt(toPos) || {}).name || 'Someone');
-      showBuddyGreeting(clickedName, clickerName);
+      const fromName = fromPos === MY_POS ? (MY_NAME || 'You') : ((playerAt(fromPos) || {}).name || 'Someone');
+      const toName = toPos === MY_POS ? (MY_NAME || 'you') : ((playerAt(toPos) || {}).name || 'them');
+      showBuddyGreeting(fromName, toName, fromPos, toPos);
     }
   });
 
@@ -16893,6 +17500,24 @@ let lastRenderedPlayersSignature = null;
 let lastKnownHumanNamesInLobby = [];
 let lastChimedCurrentPlayer = null;
 let lastChimedRound = null;
+// Per explicit request: populates the ready-room popup's player list
+// (names + bot count) and wires the Start button, mirroring
+// renderServerPlayersCard's own name-list formatting right below it.
+function renderReadyRoom(state) {
+  const list = document.getElementById('readyRoomPlayerList');
+  if (!list || !state || !Array.isArray(state.seats)) return;
+  const seated = state.seats.filter(Boolean);
+  const botCount = seated.filter(s => s.isBot).length;
+  const humanCount = seated.length - botCount;
+  const rows = seated.map(s => `<div style="display:flex;justify-content:space-between;padding:6px 10px;background:var(--panel);border-radius:8px;margin-bottom:6px">
+      <span>${s.isBot ? '🤖' : '👤'} ${escapeHtml(s.name)}</span>
+    </div>`).join('');
+  list.innerHTML = `<div style="margin-bottom:8px;opacity:0.85">${humanCount} player${humanCount === 1 ? '' : 's'}, ${botCount} bot${botCount === 1 ? '' : 's'}</div>${rows}`;
+}
+document.getElementById('btnReadyRoomStart').addEventListener('click', () => {
+  gameSocket.emit('confirmStart');
+});
+
 function renderServerPlayersCard() {
   const list = document.getElementById('playerList');
   const count = document.getElementById('playerCount');
@@ -16950,7 +17575,12 @@ function renderServerPlayersCard() {
     }
     const botCount = botFillEl ? (parseInt(botFillEl.value) || 0) : 0;
     const totalOnceStarted = filled + botCount;
-    startBtn.style.display = SERVER_IS_HOST ? 'block' : 'none';
+    // Per explicit request: any seated player can start the game now,
+    // not just the host -- shows the button to everyone at the table
+    // instead of gating it on SERVER_IS_HOST. The server-side handler
+    // has its own matching check (any actual seat, not just host) as
+    // the real safety net regardless of what this client shows.
+    startBtn.style.display = 'block';
     startBtn.disabled = totalOnceStarted < 2 || totalOnceStarted > 4;
     startBtn.textContent = !startBtn.disabled ? '▶ Start Game' : 'Need 2-4 players';
   }
@@ -17152,9 +17782,16 @@ async function refreshHostMenuLeaderboard() {
       if (!e) return 'None yet';
       const names = e.names.map(n => String(n).replace(/</g, '&lt;')).join(', ');
       const roundLabel = e.rounds === 1 ? 'round' : 'rounds';
+      // Per explicit follow-up request: winning score in green, losing
+      // ("OPP") score bold red, matching the identical change made to
+      // the welcome-popup version and the 6-player table's own version
+      // of this same function.
+      if (typeof e.winningScore === 'number' && typeof e.losingScore === 'number') {
+        return `${names} won <b style="color:var(--success)">${e.winningScore}</b>-<b style="color:var(--danger)">${e.losingScore}</b> in ${e.rounds} ${roundLabel}`;
+      }
       return `${names} enforced Kunukku in ${e.rounds} ${roundLabel}`;
     };
-    el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['4p'][0])}<br>📅 Today: ${fmtEntry(lb.today['4p'][0])}`;
+    el.innerHTML = `🏆 All-Time: ${fmtEntry(lb.allTime['4p'][0])}`;
   } catch (e) {
     el.innerHTML = 'Could not load.';
   }
@@ -17468,6 +18105,7 @@ function applyServerState(state) {
   // point is meaningful before a round actually exists.
   if (state.phase === 'lobby') {
     renderServerPlayersCard();
+    document.getElementById('readyRoomOverlay').classList.remove('on');
     return;
   }
 
@@ -17741,6 +18379,38 @@ function applyServerState(state) {
   if (document.getElementById('hostMenuOverlay').classList.contains('on')) renderHostMenuPlayerList();
 
   setupOnlineTable();
+  // Per explicit follow-up request: the whole point is ONE transition,
+  // not two -- clicking Start in the lobby should land directly on the
+  // real table with every seat's actual avatar already visible (bots
+  // included), with just a simple popup on top of that real table
+  // asking the host to confirm before anything deals. Not a second,
+  // separate "screen" in between showing nothing but a name list. Now
+  // that setupOnlineTable() above has populated the real seats/avatars
+  // (it only needs PLAYERS, not hands or trick state, so it's already
+  // safe to call here), this is exactly the point to show that popup:
+  // real table fully visible underneath, then stop before the parts
+  // below that genuinely do need active hand/trick/bid state that
+  // doesn't exist yet.
+  if (state.phase === 'readyRoom') {
+    // Per explicit request: this popup is host-only -- everyone else
+    // just sees the real table underneath (already fully populated by
+    // setupOnlineTable() above) and simply waits for the host to
+    // confirm, no popup blocking their own view of who's seated. Real,
+    // confirmed bug fix found while testing this: SERVER_IS_HOST is
+    // deliberately permissive (true for any connected human, not just
+    // the actual host, so other host-gated features never get stuck)
+    // -- using it here would have shown this popup to every seated
+    // player, not just the host. state.isActualHost is the strict
+    // version, sent by the server specifically for this.
+    if (state.isActualHost) {
+      renderReadyRoom(state);
+      document.getElementById('readyRoomOverlay').classList.add('on');
+    } else {
+      document.getElementById('readyRoomOverlay').classList.remove('on');
+    }
+    return;
+  }
+  document.getElementById('readyRoomOverlay').classList.remove('on');
   // Actual DOM application of the call-badge updates queued way above
   // (window._pendingCallBadgeUpdates/_pendingWinnerMark) -- run HERE,
   // immediately after setupOnlineTable() rebuilds every avatar's own
@@ -17853,17 +18523,14 @@ function applyServerState(state) {
     const yourTeam = getTeam(MY_POS);
     const isYourBid = (getTeam(r.bidder) === yourTeam);
     const bidderName = playerAt(r.bidder) ? playerAt(r.bidder).name : 'The bidder';
-    // Colored (and worded) from THIS viewer's own perspective, not a fixed "made=green,
-    // failed=red" mapping - the exact same event is good news for one team and bad news for
-    // the other, so the same banner shown to both sides needs to actually say and show the
-    // opposite of each other, not the identical text and color regardless of who's looking.
-    if (isYourBid) {
-      if (r.bidderWon) showGameEvent(r.highestBid >= 20 ? '👑' : '🏆', r.highestBid >= 20 ? 'You Made the Honors!' : 'You Beat the Bid!', bidderName + ' — ' + r.highestBid, '#2ecc71');
-      else showGameEvent('💥', "You Lost — Didn't Make It", bidderName + ' — ' + r.highestBid, '#e74c3c');
-    } else {
-      if (r.bidderWon) showGameEvent(r.highestBid >= 20 ? '👑' : '💥', r.highestBid >= 20 ? 'Opp Made the Honors' : 'Opp Made It', bidderName + ' — ' + r.highestBid, '#e74c3c');
-      else showGameEvent('🛡️', 'You Won — Defended!', bidderName + ' — ' + r.highestBid, '#2ecc71');
-    }
+    // Real, confirmed change per explicit live report: this used to also
+    // show a separate showGameEvent() banner (green for a win, red for a
+    // loss) announcing the exact same "did your team make the bid"
+    // result that postRoundOverlay, opening right after, already says
+    // in full with the actual score breakdown -- two different popups
+    // conveying the same result back to back. Removed this banner
+    // entirely per explicit instruction; postRoundOverlay alone now
+    // carries this message.
     const champResult = state.lastChampionshipResult;
     let roundEndPanelShown = false;
 
@@ -18057,7 +18724,7 @@ function showChampionshipResultServerMode(champResult, yourTeam) {
       (won ? "<b style='color:var(--success)'>Your team won championship " + champResult.championshipNumber + "!</b>" : "<b style='color:var(--danger)'>Opponents won championship " + champResult.championshipNumber + "!</b>") +
       '<br><br>🔥 Your Streak: <b style="color:var(--accent)">' + yourStreak + '</b> in a row<br>🔥 Opp Streak: <b style="color:var(--danger)">' + oppStreak + '</b> in a row' +
       '<br><br>Final score: ' + champResult.finalScore[yourTeam] + ' - ' + champResult.finalScore[1 - yourTeam] +
-      '<br><br>A new championship starts now — first to 12 (or drop the other team to 0) wins!'
+      '<br><br>A new championship starts now — first to 15 (or drop the other team to 0) wins!'
     );
   }
   const okBtn = document.getElementById('modalOkBtn');
@@ -18671,7 +19338,10 @@ function serverBotPlayForMe() {
 // be disturbed by this, only how it looks while genuinely idle. 1
 // minute idle, only while the game table is the screen actually showing.
 (function() {
-  const K28_TABLE_IDLE_MS = 60 * 1000;
+  // Per explicit request: idle threshold raised from 1 minute to 3 minutes, matching the
+  // same change made to the six-player table's identical screensaver, for the same reason -
+  // see there for the fuller explanation.
+  const K28_TABLE_IDLE_MS = 3 * 60 * 1000;
   let idleTimer = null;
   let bouncers = null; // null when inactive
   let rafId = null;
