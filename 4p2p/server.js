@@ -1449,6 +1449,23 @@ app.post('/api/admin/reset-leaderboard', (req, res) => {
   res.json({ ok: true, leaderboard: leaderboard.getLeaderboard() });
 });
 
+// Per explicit request: deletes one or several specific leaderboard
+// entries (checkbox-select-and-delete in the admin panel, or a single
+// row's own delete button) rather than only ever being able to wipe an
+// entire mode's list at once via reset-leaderboard above. Real,
+// confirmed bug fix: takes each entry's own unique "id" now, not "ts"
+// -- two entries can share the same millisecond timestamp (confirmed
+// directly), which meant deleting "one" entry by ts could silently
+// take out every other entry recorded in that same instant too.
+app.post('/api/admin/delete-leaderboard-entries', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const mode = req.body && req.body.mode;
+  const ids = req.body && req.body.ids;
+  if (mode !== '4p' && mode !== '6p') return res.json({ ok: false, error: 'invalid mode' });
+  const removed = leaderboard.deleteEntries(mode, ids);
+  res.json({ ok: true, removed, leaderboard: leaderboard.getLeaderboard() });
+});
+
 // Per explicit request: a simple, manual way to carry leaderboard data
 // across a deploy on a host with an ephemeral filesystem -- see
 // importLeaderboard() in leaderboard.js for the fuller reasoning.

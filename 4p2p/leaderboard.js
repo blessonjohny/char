@@ -35,6 +35,17 @@ let data = {
   allTime: { '4p': [], '6p': [] }
 };
 let dirty = false;
+// Real, confirmed bug fix found while adding admin delete support: ts
+// (Date.now()) was being used as each entry's de-facto unique id, but
+// two entries can genuinely land in the same millisecond (confirmed
+// directly -- a quick burst of recorded wins collided on the exact
+// same ts), which meant deleting "one" entry by ts could silently
+// delete every other entry that happened to share that same
+// millisecond too. A dedicated counter-based id, unique regardless of
+// timing, is generated for every new entry instead; ts itself is
+// untouched and still used for display/sorting.
+let nextEntryId = 1;
+function _newEntryId() { return `${Date.now()}-${nextEntryId++}`; }
 
 // Per explicit change: allTime used to be a single {entry}-or-null per
 // mode, then a top-3 list; now it's top-10. Migrates an existing
@@ -67,12 +78,30 @@ function _migrateOpponentNames(loaded) {
   }
 }
 
+// Real, confirmed bug fix: backfills a genuinely unique "id" onto any
+// entry already sitting on disk from before this field existed at all
+// (every entry saved on a live server prior to this change). Without
+// this, those older entries would have no id to delete by at all --
+// admin delete would silently fail on exactly the entries most likely
+// to be old test/junk data someone actually wants to clean up.
+function _migrateEntryIds(loaded) {
+  if (!loaded || !loaded.allTime) return;
+  for (const mode of ['4p', '6p']) {
+    const list = loaded.allTime[mode];
+    if (!Array.isArray(list)) continue;
+    for (const entry of list) {
+      if (!entry.id) entry.id = _newEntryId();
+    }
+  }
+}
+
 function loadLeaderboard() {
   try {
     if (fs.existsSync(LEADERBOARD_FILE)) {
       const loaded = JSON.parse(fs.readFileSync(LEADERBOARD_FILE, 'utf8'));
       _migrateAllTimeShape(loaded);
       _migrateOpponentNames(loaded);
+      _migrateEntryIds(loaded);
       // Per explicit follow-up request: "today" is dropped entirely
       // here too, even if an older on-disk file still has it -- only
       // allTime ever gets carried forward now.
@@ -128,6 +157,7 @@ function _insertIntoTopN(list, entry) {
 function recordChampionshipWin(mode, playerNames, rounds, roundLosses, opponentNames, scoreDiff, winningScore, losingScore) {
   if (mode !== '4p' && mode !== '6p') return;
   const entry = {
+    id: _newEntryId(),
     names: playerNames.slice(),
     opponentNames: Array.isArray(opponentNames) ? opponentNames.slice() : [],
     rounds,
@@ -189,6 +219,7 @@ function importLeaderboard(imported) {
         .filter(e => e && Array.isArray(e.names) && typeof e.rounds === 'number' && typeof e.roundLosses === 'number')
         .map(e => {
           const entry = {
+            id: e.id || _newEntryId(),
             names: e.names.slice(),
             opponentNames: Array.isArray(e.opponentNames) ? e.opponentNames.slice() : [],
             rounds: e.rounds,
@@ -215,4 +246,22 @@ setInterval(saveLeaderboard, 10000);
 process.on('SIGTERM', () => { saveLeaderboard(); });
 process.on('SIGINT', () => { saveLeaderboard(); });
 
-module.exports = { recordChampionshipWin, getLeaderboard, resetLeaderboard, importLeaderboard, loadLeaderboard, saveLeaderboard };
+// Per explicit request: lets the admin panel remove specific entries
+// (one at a time, or several at once via a checkbox-and-delete flow) --
+// there was previously no way to remove a bad/test/duplicate entry
+// short of wiping the entire mode's list via resetLeaderboard(). mode
+// is '4p' or '6p'. ids is an array of each entry's own "id" field (see
+// _newEntryId -- NOT ts, which can collide between entries recorded in
+// the same millisecond). Returns how many rows actually got removed.
+function deleteEntries(mode, ids) {
+  if (mode !== '4p' && mode !== '6p') return 0;
+  if (!Array.isArray(ids) || ids.length === 0) return 0;
+  const toRemove = new Set(ids);
+  const before = data.allTime[mode].length;
+  data.allTime[mode] = data.allTime[mode].filter(e => !toRemove.has(e.id));
+  const removed = before - data.allTime[mode].length;
+  if (removed > 0) { dirty = true; saveLeaderboard(); }
+  return removed;
+}
+
+module.exports = { recordChampionshipWin, getLeaderboard, resetLeaderboard, importLeaderboard, deleteEntries, loadLeaderboard, saveLeaderboard };
