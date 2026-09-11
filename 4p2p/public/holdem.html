@@ -314,6 +314,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
       <div id="winnerBanner" style="display:none;color:var(--gold);font-weight:800;font-size:0.66rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     </div>
     <div style="flex-shrink:0">
+      <button class="topbar-btn" id="btnFullscreen" onclick="requestHoldemFullscreen()" title="Full Screen">⛶</button>
       <button class="topbar-btn" id="btnShowLog">📜 Log</button>
       <button class="topbar-btn" id="btnLeaveTable">🚪 Leave</button>
     </div>
@@ -496,6 +497,29 @@ setInterval(() => {
   const shouldBeActive = !gs.classList.contains('hidden') && window.innerWidth >= 521;
   document.body.classList.toggle('k28-in-game', shouldBeActive);
 }, 500);
+// Per explicit request: a full-screen toggle for phone in particular (though it works on any
+// device), matching the exact same requestFullscreen/exitFullscreen pattern already proven on
+// the pool table - hides the browser's own address bar and chrome, leaving just the table.
+// Deliberately NOT adding pool's tilt-to-landscape warning here - explicitly asked to skip
+// that part for holdem, just the full-screen option itself.
+function requestHoldemFullscreen() {
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    return;
+  }
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if (req) { try { req.call(el).catch(() => {}); } catch (e) {} }
+}
+document.addEventListener('fullscreenchange', () => {
+  const btn = $('btnFullscreen');
+  if (btn) btn.textContent = (document.fullscreenElement) ? '⛶ Exit' : '⛶';
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  const btn = $('btnFullscreen');
+  if (btn) btn.textContent = (document.webkitFullscreenElement) ? '⛶ Exit' : '⛶';
+});
 function toast(msg) {
   const el = document.createElement('div');
   el.className = 'toast';
