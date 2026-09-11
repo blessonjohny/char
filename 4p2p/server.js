@@ -5447,13 +5447,34 @@ io.on('connection', (socket) => {
   });
 
   socket.on('poker_leaveTable', () => {
+    let shouldClose = false;
     withPokerTable((t, pos) => {
       t.engine.removeSeat(pos);
       t.sockets.delete(socket.id);
       socket.leave('poker_' + pokerTableId);
-      pokerTouch(t);
-      pokerBroadcast(t);
+      // Real, confirmed gap per explicit request: 4-player and 6-player both already close
+      // their table the moment an explicit "Leave Table" leaves no real (non-bot) seat behind
+      // - holdem never had the equivalent check at all, so a table a human walked away from
+      // would just keep running as bots-only forever with no cleanup. Same exact condition
+      // and same care about scope: this only ever fires from the deliberate leaveTable emit
+      // below, never from the plain socket 'disconnect' handler above, so an accidental
+      // network drop still preserves the normal reconnect window exactly as before - only a
+      // real, explicit leave with no human left behind closes the table.
+      if (!t.engine.seats.some(s => s && !s.isBot)) {
+        shouldClose = true;
+      } else {
+        pokerTouch(t);
+        pokerBroadcast(t);
+      }
     });
+    if (shouldClose && pokerTableId && pokerTables[pokerTableId]) {
+      const t = pokerTables[pokerTableId];
+      io.to('poker_' + pokerTableId).emit('poker_tableClosed', { reason: 'lastPlayerLeft' });
+      recordTableClosed(pokerTableId, "Hold'em", t.createdAt, 'lastPlayerLeft', t.seatedHumans);
+      delete pokerTables[pokerTableId];
+      io.emit('roomList', publicTableList());
+      console.log(`[poker] table ${pokerTableId} closed — last real player explicitly left via Leave Table`);
+    }
     pokerTableId = null; pokerPlayerId = null;
   });
 
