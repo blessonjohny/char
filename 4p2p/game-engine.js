@@ -3287,6 +3287,25 @@ class GameEngine {
             ? follow.find(c => c.rank !== '9' && c.rank !== 'J' && RANK_ORDER[c.rank] > RANK_ORDER[cwc.rank])
             : null;
           if (alreadyWinningCard) return alreadyWinningCard;
+          // Real, confirmed follow-up per explicit live report and
+          // explicit instruction to make this an absolute, simple rule
+          // rather than another probability threshold: if the Jack is
+          // unseen and this bot holds ANY zero-point card in the same
+          // suit (whether or not it would actually win this specific
+          // trick), play that instead of the 9 -- full stop, no
+          // survival-odds weighing involved at all. The reasoning is
+          // exactly as explicitly stated: if you have a card that costs
+          // nothing to lose, use it instead of one that costs you real
+          // points the moment the still-live Jack shows up and beats
+          // it. This deliberately doesn't care whether the zero-point
+          // card wins the trick or not -- conceding a trick that was
+          // led with a low card in the first place is a small, known
+          // cost; losing the 9's own points to an unseen Jack is a
+          // real, avoidable one.
+          const zeroPointAlt = !this._isRankSeen(this.trickSuit, 'J')
+            ? follow.find(c => c.rank !== '9' && c.points === 0)
+            : null;
+          if (zeroPointAlt) return zeroPointAlt;
           // A 9 beats everything else in this suit — but not the Jack.
           // Per explicit request: replaced the old binary "seen means
           // safe, unseen means risky" read of this with the real

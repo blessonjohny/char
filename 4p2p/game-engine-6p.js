@@ -2631,6 +2631,18 @@ class GameEngine6P {
             ? follow.find(c => c.rank !== '9' && c.rank !== 'J' && RANK_ORDER[c.rank] > RANK_ORDER[cwc.rank])
             : null;
           if (alreadyWinningCard) return alreadyWinningCard;
+          // Real, confirmed follow-up per explicit live report, matching
+          // the identical fix on the 4-player table: if the Jack is
+          // unseen and this bot holds ANY zero-point card in the same
+          // suit (whether or not it would actually win this specific
+          // trick), play that instead of the 9 -- an absolute rule, not
+          // another probability threshold. A card that costs nothing to
+          // lose beats one that costs real points the moment the
+          // still-live Jack shows up.
+          const zeroPointAlt = !this._isRankSeen(this.trickSuit, 'J')
+            ? follow.find(c => c.rank !== '9' && c.points === 0)
+            : null;
+          if (zeroPointAlt) return zeroPointAlt;
           // Real, confirmed further extension of the simulation-based
           // approach already applied to the 4-player engine: replaced
           // the binary jackRisk check with the actual simulated
