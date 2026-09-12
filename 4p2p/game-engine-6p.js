@@ -2639,7 +2639,17 @@ class GameEngine6P {
           // another probability threshold. A card that costs nothing to
           // lose beats one that costs real points the moment the
           // still-live Jack shows up.
-          const zeroPointAlt = !this._isRankSeen(this.trickSuit, 'J')
+          // Per explicit follow-up refinement, matching the identical
+          // exception on the 4-player table: trump only, and only when
+          // the BIDDER themselves led this exact trick -- see there for
+          // the fuller reasoning (the bidder is the seat most likely to
+          // hold the trump Jack, so their own lead of something else is
+          // real evidence they don't have it, and the survival
+          // simulation right below already accounts for exactly that
+          // more precisely than this blanket rule would).
+          const trumpLedByBidder = this.trickSuit === this.trumpSuit &&
+            this.trickCards.length > 0 && this.trickCards[0].pos === this.bidder;
+          const zeroPointAlt = !this._isRankSeen(this.trickSuit, 'J') && !trumpLedByBidder
             ? follow.find(c => c.rank !== '9' && c.points === 0)
             : null;
           if (zeroPointAlt) return zeroPointAlt;

@@ -3302,7 +3302,24 @@ class GameEngine {
           // led with a low card in the first place is a small, known
           // cost; losing the 9's own points to an unseen Jack is a
           // real, avoidable one.
-          const zeroPointAlt = !this._isRankSeen(this.trickSuit, 'J')
+          // Per explicit follow-up refinement, one specific exception
+          // carved out of this otherwise-absolute rule: trump only, and
+          // only when the BIDDER themselves led this exact trick. The
+          // bidder is the single most likely seat to actually hold the
+          // trump Jack (they called this suit), so a bidder who leads
+          // trump with something other than the Jack is real,
+          // meaningful evidence they don't have it -- and having
+          // already played this trick, they can't suddenly produce it
+          // later in it either. The simulation-based survival
+          // probability just below already accounts for exactly this
+          // (it reasons about who could still plausibly hold the Jack
+          // given who's already played what), so it's genuinely more
+          // accurate here than the blanket zero-point rule -- this one
+          // narrow case is trusted to the real numbers instead of the
+          // absolute shortcut.
+          const trumpLedByBidder = this.trickSuit === this.trumpSuit &&
+            this.trickCards.length > 0 && this.trickCards[0].pos === this.bidder;
+          const zeroPointAlt = !this._isRankSeen(this.trickSuit, 'J') && !trumpLedByBidder
             ? follow.find(c => c.rank !== '9' && c.points === 0)
             : null;
           if (zeroPointAlt) return zeroPointAlt;
