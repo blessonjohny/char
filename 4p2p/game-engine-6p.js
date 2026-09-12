@@ -2195,9 +2195,24 @@ class GameEngine6P {
       // the existing hidden-trump logic below, which already handles
       // leading non-trump correctly.
       const restrictedFromTrumpLead = !this.trumpExposed && isBidder && pos === this.hiddenTrumpOwner && hand.some(c => c.suit !== this.trumpSuit);
+      // Per explicit request: a defending bot (not on the bidding team)
+      // holding the trump Jack in an otherwise weak trump hand (the
+      // Jack plus at most one other trump card) with trump already
+      // exposed should NOT cash it in immediately -- leading it now
+      // only wins whatever's in this one specific trick, while holding
+      // it lets it get played later once bigger, more point-laden
+      // tricks are actually on the table. Scoped to trump only (a
+      // non-trump Jack still always leads immediately -- a non-trump
+      // suit genuinely risks being cut later if held too long, trump
+      // itself never can be), the defending side only, and a
+      // genuinely weak trump holding only (a bot already sitting on
+      // several trump cards has enough control that leading the Jack
+      // now is fine).
+      const weakDefendingTrump = !isBT && bySuit[this.trumpSuit] && bySuit[this.trumpSuit].length <= 2;
       const uncutJackSuits = SUITS.filter(s =>
         bySuit[s].some(c => c.rank === 'J') && !this.suitsCutThisRound.has(s) &&
-        !(restrictedFromTrumpLead && s === this.trumpSuit)
+        !(restrictedFromTrumpLead && s === this.trumpSuit) &&
+        !(weakDefendingTrump && s === this.trumpSuit)
       );
       if (uncutJackSuits.length > 0) {
         uncutJackSuits.sort((a, b) => bySuit[b].length - bySuit[a].length);
@@ -2287,6 +2302,25 @@ class GameEngine6P {
         // Excluded entirely now, matching the same exclusion already
         // applied to the uncutJackSuits check earlier in this function.
         if (restrictedFromTrumpLead && s === this.trumpSuit) continue;
+        // Real, confirmed follow-up per explicit live report: the
+        // earlier weakDefendingTrump exclusion (added to uncutJackSuits
+        // above) only blocked the FIRST of several separate places
+        // this same Jack could still get chosen from -- the iHoldJ
+        // special case a few lines below it still pushed it with a
+        // high score regardless, and even after excluding that too,
+        // the generic fallback further down still picked it up as
+        // simply "the highest card in this suit" (since the Jack IS
+        // the only, and therefore highest, card in a genuinely weak
+        // trump holding). Rather than patch each of those sub-cases
+        // individually, removes the Jack from consideration for this
+        // suit at the source instead -- if that leaves nothing at all
+        // (this bot's only trump card really was the Jack), the suit
+        // is skipped entirely for this lead; if there's a second trump
+        // card left, that one gets evaluated normally in its place.
+        if (weakDefendingTrump && s === this.trumpSuit) {
+          bySuit[s] = bySuit[s].filter(c => c.rank !== 'J');
+          if (bySuit[s].length === 0) continue;
+        }
         bySuit[s].sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
         const low = bySuit[s][0], high = bySuit[s][bySuit[s].length - 1];
         const jSeen = this._isRankSeen(s, 'J');
@@ -2517,7 +2551,21 @@ class GameEngine6P {
         // below. If partner's card is safe (or nobody's left to act),
         // falls through to the normal follow-suit logic below instead
         // of blowing the Jack/9 for a trick partner already had.
-        const partnerCardSafe = wt === myTeam && (!cwc || this._survivalProbability(pos, cwc) >= 0.6) && tPts < 3;
+        // Real, confirmed follow-up per explicit live report, matching
+        // the identical fix on the 4-player table: when
+        // _survivalProbability returns exactly 1 (no opponent seat
+        // left with any chance to beat partner's card at all -- not
+        // just a high estimate, but mathematically guaranteed), the
+        // tPts < 3 hedge makes no sense to apply anymore. That
+        // threshold only exists to hedge against a survival estimate
+        // that's genuinely uncertain (60-99%) on a big enough trick to
+        // justify playing it safe rather than trusting the odds -- it
+        // was never meant to override a probability that's already
+        // 100% certain. Treats an exact 1 as always safe regardless of
+        // tPts, and only applies the point-value hedge to the
+        // genuinely uncertain 60-99% range.
+        const partnerSurvival = cwc ? this._survivalProbability(pos, cwc) : 1;
+        const partnerCardSafe = wt === myTeam && (partnerSurvival === 1 || (partnerSurvival >= 0.6 && tPts < 3));
         // Real, confirmed follow-up per explicit live report, matching
         // the identical fix on the 4-player table: this partner-safe
         // exception makes sense for TRUMP (never cuttable, so a saved
@@ -2550,8 +2598,21 @@ class GameEngine6P {
           if (survivalProb < 0.6 && tPts < 3) return follow[follow.length - 1];
           return my9;
         }
+        // Real, confirmed bug fix per explicit live report, matching
+        // the identical fix on the 4-player table: this fallthrough
+        // used to search for "the lowest card in this suit that beats
+        // cwc" completely unconditionally, with no check on who cwc
+        // actually belongs to. When partner already owns cwc and is
+        // safely winning (partnerCardSafe, computed above), there's
+        // nothing to gain from "beating" your own teammate's card at
+        // all -- the trick already belongs to your team regardless of
+        // which of your own cards you add to it. Skips the whole "find
+        // something that beats cwc" step entirely when partner's card
+        // is already safe, playing this suit's lowest card instead.
         let winner = follow[0];
-        if (cwc && cwc.suit === this.trickSuit) {
+        if (partnerCardSafe) {
+          winner = follow[follow.length - 1];
+        } else if (cwc && cwc.suit === this.trickSuit) {
           for (let i = follow.length - 1; i >= 0; i--) {
             if (RANK_ORDER[follow[i].rank] > RANK_ORDER[cwc.rank]) { winner = follow[i]; break; }
           }
