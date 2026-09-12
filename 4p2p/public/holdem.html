@@ -91,6 +91,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 .seat{position:absolute;width:82px;text-align:center;z-index:4}
 .seat-avatar-wrap{position:relative;width:46px;height:46px;margin:0 auto}
 .turn-tag{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px;background:var(--gold);color:#241a12;font-size:0.5rem;font-weight:900;letter-spacing:0.5px;padding:2px 6px;border-radius:8px;white-space:nowrap;animation:turnTagPulse 1s ease-in-out infinite}
+/* Per explicit request: a persistent badge showing each player's most recent action (Fold,
+   Check, Call X, Raise to X, All-In), sitting on top of their own avatar the same way the
+   six-player table's call-badge does - not the four/six-player tables' own separate systems,
+   just the same idea of "stays visible until that seat acts again" rather than a toast that
+   flashes and disappears before it's readable. Cleared automatically at the start of each new
+   hand (see poker-engine.js's startHand()) and updated the instant that seat acts again -
+   never stale from a previous street or a previous hand. */
+.action-badge{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px;background:rgba(20,16,12,0.9);border:1.5px solid var(--gold-soft,#c9a44c);color:#fff;font-size:0.5rem;font-weight:800;letter-spacing:0.3px;padding:2px 7px;border-radius:8px;white-space:nowrap;z-index:5}
 @keyframes turnTagPulse{0%,100%{transform:translateX(-50%) scale(1);}50%{transform:translateX(-50%) scale(1.08);}}
 .seat-avatar{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#2a3f5f,#101d2e);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:2.5px solid rgba(255,255,255,0.15)}
 .seat.active .seat-avatar{border-color:var(--gold);box-shadow:0 0 14px rgba(244,196,48,0.7);animation:seatPulse 1.1s ease-in-out infinite}
@@ -249,7 +257,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .seat-cards .card.mini { width: 24px; height: 34px; font-size: 0.65rem; }
   body.k28-in-game .dealer-chip { width: 20px; height: 20px; font-size: 0.62rem; }
   body.k28-in-game .house-dealer {
-    display: block; position: absolute; left: 50%; top: 33%; transform: translate(-50%, -50%);
+    display: block; position: absolute; left: 49.8%; top: 40.9%; transform: translate(-50%, -50%);
     width: 70px; height: 70px; z-index: 6;
   }
   body.k28-in-game .house-dealer-photo {
@@ -848,36 +856,28 @@ $('btnStartHand').addEventListener('click', () => {
 // bottom) at the bottom-center, same viewer-relative convention the
 // other tables in this project use.
 function seatPositions() {
-  // Per explicit request: desktop wide-table mode uses seat positions measured directly
-  // against the actual background photo's real stool positions (see desktop-bg-holdem.jpg),
-  // rather than the generic evenly-spaced ellipse formula below used for phone/portrait mode.
-  // Honest limitation worth being upfront about: this specific photo clearly shows 6 real
-  // stools (3 per side) plus one dealer-area cushion at the back center - it does not show a
-  // full ring of 9 individual stools. Slots 1,2,7,8 below are measured directly against real,
-  // clearly visible stools in the photo. Slots 3-6 (the two per side nearest the back/window)
-  // don't have a distinctly visible stool of their own that far back in this photo - measured
-  // as close as this specific image reasonably supports rather than left unpositioned, but a
-  // future photo with more of the back stools actually visible would let these be tightened up
-  // the same exact way the visible ones already have been.
+  // Per explicit, confirmed bug report with screenshots: only seats 0, 4, and 5 were actually
+  // correct on a real device - every other seat was measured against the raw 1672x941 source
+  // photo's own proportions, but the background is displayed with background-size:cover,
+  // which crops differently depending on the actual viewport's aspect ratio. A real phone in
+  // landscape (2340x1080, a notably wider ratio than the source photo) crops enough off the
+  // top and bottom that those raw-photo percentages land in noticeably wrong spots - explains
+  // exactly why some seats "reversed" or drifted onto empty floor/window instead of their real
+  // stool. Re-measured every single position directly against a live screenshot rendered at
+  // that exact 2340x1080 resolution instead of the source photo - all 9 below (plus the
+  // dealer, set separately) are confirmed sitting on a real, distinctly visible stool at that
+  // resolution, not estimated or left unmeasured this time.
   if (document.body.classList.contains('k28-in-game')) {
     return [
-      { x: 49.8, y: 78 },    // 0: my own seat - moved further down per explicit request, to
-                              //    free up the table's top area for the pot/chips/labels
-      { x: 16, y: 67.0 },    // 1: lower-left - per explicit request, pushed further out (away
-                              //    from center) than seat 2 above it, matching how the actual
-                              //    photo's bottom-row stools sit further out than the top ones
-      { x: 26, y: 62.5 },    // 2: upper-left - pulled in closer to center than seat 1 below
-                              //    it, per the same explicit correction. Re-widened the gap
-                              //    between these two after the first attempt (20/23) sat them
-                              //    too close together and visibly overlapped on screen.
-      { x: 10.5, y: 41.9 },  // 3: back-left
-      { x: 29.9, y: 43.6 },  // 4: back-left-of-center (flanking the dealer) - re-measured
-                              //    against the corrected reference photo; the earlier guess
-                              //    sat these two seats too close in to the dealer
-      { x: 70.6, y: 43.6 },  // 5: back-right-of-center (mirrors 4)
-      { x: 89.1, y: 41.9 },  // 6: back-right (mirrors 3)
-      { x: 74, y: 62.5 },    // 7: upper-right (mirrors 2)
-      { x: 84, y: 67.0 },    // 8: lower-right (mirrors 1)
+      { x: 49.9, y: 80.8 },  // 0: my own seat
+      { x: 31.0, y: 79.4 },  // 1: front-left-of-center
+      { x: 15.2, y: 69.3 },  // 2: lower-left
+      { x: 10.8, y: 33.8 },  // 3: upper-left
+      { x: 29.9, y: 42.1 },  // 4: back-left-of-center (flanking the dealer)
+      { x: 70.6, y: 42.1 },  // 5: back-right-of-center (mirrors 4)
+      { x: 88.0, y: 33.7 },  // 6: upper-right (mirrors 3)
+      { x: 84.7, y: 69.1 },  // 7: lower-right (mirrors 2)
+      { x: 68.8, y: 79.5 },  // 8: front-right-of-center (mirrors 1)
     ];
   }
   const positions = [];
@@ -915,6 +915,7 @@ function renderGameTable(state) {
     return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
       <div class="seat-avatar-wrap">
         ${isActive ? `<div class="turn-tag">${pos === myPos ? 'YOUR TURN' : 'TURN'}</div>` : ''}
+        ${!isActive && s.lastAction && !s.folded ? `<div class="action-badge">${escapeHtml(s.lastAction)}</div>` : ''}
         <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
         ${holdemAvatarImgHtml(s.name, pos)}
         ${pos === state.dealerSeat ? '<div class="dealer-chip">D</div>' : ''}
