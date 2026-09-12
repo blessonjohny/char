@@ -2377,13 +2377,29 @@ class GameEngine6P {
               candidates.push({ card: bySuit[s].find(c => c.rank === '9'), score: 45 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
               continue;
             }
+            // Real, confirmed follow-up per explicit live report,
+            // matching the identical fix on the 4-player table (a
+            // specific hand there: bot held the trump 9 alongside a
+            // lower trump card with the Jack genuinely unseen, and led
+            // the 9 anyway -- the opponent turned out to actually hold
+            // the Jack). This used to just skip the whole suit outright
+            // whenever the Jack wasn't seen, which is safe but wasteful
+            // if a genuinely safe lower trump card (an Ace or 10, not
+            // just a zero-point one) is sitting right there in the same
+            // suit -- lead that instead of giving up on the suit
+            // entirely. Given RANK_ORDER and iHoldJ already ruled out
+            // above, any other card here is necessarily lower than the
+            // 9, so any one of them is a safe substitute.
+            const saferInSuit = bySuit[s].find(c => c.rank !== '9');
+            if (saferInSuit) {
+              candidates.push({ card: saferInSuit, score: sc + bySuit[s].length * 3, suit: s });
+              continue;
+            }
             // Per explicit instruction, an absolute "never" -- same as
             // the early-game branch above (see there for the fuller
-            // reasoning). Given RANK_ORDER, iHoldJ was already ruled out
-            // just above, so holding a 9 here always means it's this
-            // suit's `high` card -- the exact card that would otherwise
-            // get pushed as a candidate right below. Skip the suit
-            // entirely instead.
+            // reasoning). No safer substitute exists in this suit at
+            // all (the 9 really is the only card here), so there's
+            // nothing left to do but skip it entirely.
             continue;
           }
           // Per explicit instruction, upgraded from a -15 score penalty

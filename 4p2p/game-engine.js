@@ -2939,16 +2939,16 @@ class GameEngine {
               // alongside it is worth at least as much, not less.
               candidates.push({ card: bySuit[s][1], score: 60 + bySuit[s].length * 5 - voidOpponentPenalty + partnerVoidBonus, suit: s }); continue;
             }
-            // Real, confirmed further extension of the simulation-based
-            // approach: replaced the binary "is the Jack seen" exclusion
-            // with the actual survival probability of leading this 9 --
-            // same underlying question as everywhere else this session,
-            // just asked before the trick even starts instead of
-            // mid-trick. A high enough survival chance now permits
-            // leading it even with the Jack technically unseen, since
-            // "unseen" alone doesn't mean it's actually live against a
-            // specific opponent.
-            if (low.rank === '9' && this._survivalProbability(pos, low) < 0.7) continue;
+            // Real, confirmed follow-up per explicit live report: the
+            // simulation-based survival probability above still let a
+            // bare 9 (no Jack alongside it) get led whenever the sim
+            // judged it likely enough to be safe -- but the explicit,
+            // absolute rule wanted here is stricter than "probably
+            // fine": never lead a bare trump 9 unless that suit's Jack
+            // has actually already been played. A live bot doing this
+            // exact thing (leading a bare 9 with the Jack still
+            // genuinely unseen) is exactly the case being fixed.
+            if (low.rank === '9' && !this._isRankSeen(this.trumpSuit, 'J')) continue;
           }
           // Same real simulation-based check extended to the Ace/10
           // case directly below.
@@ -2995,15 +2995,32 @@ class GameEngine {
           // card in the exact same suit the whole time.
           if (iHold9) {
             const nineCard = bySuit[s].find(c => c.rank === '9');
-            // Same real simulation-based check as the isEarly branch,
-            // extended here too for consistency.
-            if (this._survivalProbability(pos, nineCard) >= 0.7) {
-              candidates.push({ card: nineCard, score: 45 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
+            // Real, confirmed follow-up per explicit live report with a
+            // specific hand: bot held the trump 9 alongside a lower
+            // trump (the Ace) with the Jack genuinely unseen, and led
+            // the 9 anyway because the survival-probability check below
+            // judged it likely enough to be safe -- the opponent turned
+            // out to actually hold the Jack. The explicit fix wanted
+            // here: whenever ANY other trump card exists in the same
+            // suit (not just a zero-point one -- an Ace or 10 counts
+            // too), lead that lower card first instead of the 9,
+            // regardless of how favorable the simulated odds looked.
+            // The whole point is to risk the less valuable card
+            // "testing" for the Jack, keeping the 9 safe in hand for
+            // once the Jack is actually accounted for -- a high
+            // survival percentage doesn't change that the 9 is the
+            // more painful card to lose if the odds happen to be wrong
+            // this specific time. Only actually leads the 9 itself once
+            // the Jack has genuinely been seen already (fully safe by
+            // then) or there's truly no other trump card left to
+            // substitute.
+            const saferInSuit = bySuit[s].find(c => c.rank !== '9');
+            if (!this._isRankSeen(this.trumpSuit, 'J') && saferInSuit) {
+              candidates.push({ card: saferInSuit, score: sc + bySuit[s].length * 3, suit: s });
               continue;
             }
-            const saferInSuit = bySuit[s].find(c => c.rank !== '9' && c.points === 0);
-            if (saferInSuit) {
-              candidates.push({ card: saferInSuit, score: sc + bySuit[s].length * 3, suit: s });
+            if (this._isRankSeen(this.trumpSuit, 'J') || this._survivalProbability(pos, nineCard) >= 0.7) {
+              candidates.push({ card: nineCard, score: 45 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
               continue;
             }
             // Real, confirmed inconsistency found during a strategy
