@@ -257,7 +257,15 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     position: fixed; bottom: 10px; right: 10px; left: auto; top: auto;
     width: auto; max-width: 340px; background: none; padding: 0; z-index: 45;
   }
-  body.k28-in-game .action-row { gap: 14px; margin-bottom: 8px; align-items: flex-end; }
+  /* Per explicit request: the three round action buttons (Fold/Check/Raise) split off to sit
+     at the bottom-left instead of stacked with the slider and Bet button at bottom-right -
+     those two stay exactly where they already were. Pulled out of the normal document flow
+     inside .action-bar with its own fixed position so it no longer shares that corner (and no
+     longer overlaps whichever seat happens to sit near the bottom-right). */
+  body.k28-in-game .action-row {
+    position: fixed; bottom: 10px; left: 10px; right: auto; top: auto;
+    gap: 14px; margin-bottom: 0; align-items: flex-end; z-index: 45;
+  }
   body.k28-in-game .action-btn {
     position: relative; flex: none; width: 60px; height: 60px; border-radius: 50%; padding: 0;
     font-size: 0; color: transparent; background: rgba(10,8,6,0.72);
@@ -818,14 +826,17 @@ function seatPositions() {
     return [
       { x: 49.8, y: 70.7 },  // 0: my own seat - the center-front stool
       { x: 26.3, y: 67.0 },  // 1: lower-left
-      { x: 11.5, y: 62.5 },  // 2: upper-left
+      { x: 17, y: 62.5 },    // 2: upper-left - per explicit report, pulled in from the raw
+                              //    measured 11.5% since on an actual wide phone screen these
+                              //    two sat floating off the edge of the table with no stool
+                              //    visually anchoring them - moved in toward the table itself
       { x: 10.5, y: 41.9 },  // 3: back-left
       { x: 29.9, y: 43.6 },  // 4: back-left-of-center (flanking the dealer) - re-measured
                               //    against the corrected reference photo; the earlier guess
                               //    sat these two seats too close in to the dealer
       { x: 70.6, y: 43.6 },  // 5: back-right-of-center (mirrors 4)
       { x: 89.1, y: 41.9 },  // 6: back-right (mirrors 3)
-      { x: 88.1, y: 62.7 },  // 7: upper-right (mirrors 2)
+      { x: 83, y: 62.7 },    // 7: upper-right (mirrors 2)
       { x: 73.6, y: 67.0 },  // 8: lower-right (mirrors 1)
     ];
   }
