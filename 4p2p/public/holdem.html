@@ -176,7 +176,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .table-wrap {
     position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none;
     aspect-ratio: unset; margin: 0; border-radius: 0;
-    background: url('/images/desktop-bg-holdem.jpg') center 70% / 118% auto no-repeat;
+    background: url('/images/desktop-bg-holdem.jpg') center/cover no-repeat;
     box-shadow: none;
   }
   body.k28-in-game .felt { display: none; }
@@ -224,7 +224,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .dealer-chip { width: 20px; height: 20px; font-size: 0.62rem; }
   body.k28-in-game .house-dealer {
     display: block; position: absolute; left: 50%; top: 33%; transform: translate(-50%, -50%);
-    width: 70px; height: 70px; z-index: 3;
+    width: 70px; height: 70px; z-index: 6;
   }
   body.k28-in-game .house-dealer-photo {
     width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
@@ -816,15 +816,15 @@ function seatPositions() {
   // the same exact way the visible ones already have been.
   if (document.body.classList.contains('k28-in-game')) {
     return [
-      { x: 50, y: 94 },   // 0: my own seat (bottom, viewer's own position)
-      { x: 37, y: 84 },   // 1: inner lower-left
-      { x: 22, y: 78 },   // 2: lower-left
-      { x: 13, y: 60 },   // 3: upper-left
-      { x: 30, y: 48 },   // 4: back-left
-      { x: 70, y: 48 },   // 5: back-right (mirrors 4)
-      { x: 87, y: 60 },   // 6: upper-right (mirrors 3)
-      { x: 78, y: 78 },   // 7: lower-right (mirrors 2)
-      { x: 63, y: 84 },   // 8: inner lower-right (mirrors 1)
+      { x: 49.8, y: 70.7 },  // 0: my own seat - the center-front stool
+      { x: 26.3, y: 67.0 },  // 1: lower-left
+      { x: 11.5, y: 62.5 },  // 2: upper-left
+      { x: 10.5, y: 41.9 },  // 3: back-left
+      { x: 40, y: 32 },      // 4: back-left-of-center (flanking the dealer)
+      { x: 60, y: 32 },      // 5: back-right-of-center (mirrors 4)
+      { x: 89.1, y: 41.9 },  // 6: back-right (mirrors 3)
+      { x: 88.1, y: 62.7 },  // 7: upper-right (mirrors 2)
+      { x: 73.6, y: 67.0 },  // 8: lower-right (mirrors 1)
     ];
   }
   const positions = [];
