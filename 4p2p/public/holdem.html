@@ -106,6 +106,9 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    phone layout - the desktop override alone is not enough, since a media query that doesn't
    match applies nothing at all, not even to fall back on. */
 .seat-avatar-photo{display:none}
+/* Hidden by default for the exact same reason as .seat-avatar-photo above (see that comment) -
+   only shown via the desktop wide-table media query rule further below. */
+.desktop-top-readout{display:none}
 .house-dealer{display:none}
 .seat-bet{position:absolute;background:rgba(0,0,0,0.6);border:1px solid var(--gold);border-radius:10px;padding:2px 8px 2px 4px;font-size:0.6rem;color:var(--gold);font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:3px}
 .dealer-chip{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#241a12;font-size:0.55rem;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #241a12}
@@ -192,10 +195,33 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .topbar-btn { background: rgba(0,0,0,0.5); font-size: 0.68rem; padding: 5px 9px; }
   body.k28-in-game #handNumDisplay, body.k28-in-game #blindsDisplay { text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
 
-  body.k28-in-game .board-area { top: 40%; gap: 6px; }
+  /* Per explicit request: a full relayout to use the large unused band of empty sky/window
+     space at the very top of the screen, rather than crowding the pot, my own turn indicator,
+     my hand-strength label, and the board cards all into the same tight middle band around
+     the dealer. Pot, "YOUR TURN", and "You have: X" all move up into that open space; the
+     board cards get pushed down enough to actually clear the dealer's own avatar instead of
+     rendering behind it; and my own seat/cards move further down the now-freed table to give
+     the whole layout room to breathe. */
+  body.k28-in-game .board-area { top: 48%; gap: 6px; }
   body.k28-in-game .board-area .card { width: 40px; height: 57px; font-size: 0.95rem; }
-  body.k28-in-game .pot-display { top: 50%; font-size: 0.85rem; padding: 6px 16px; }
+  body.k28-in-game .pot-display {
+    position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
+    font-size: 0.85rem; padding: 6px 16px; z-index: 48;
+  }
   body.k28-in-game .street-banner { top: 62%; font-size: 1.3rem; padding: 12px 26px; }
+  /* "YOUR TURN" and my own chip count both get a dedicated, real top-level element instead
+     (#myTurnTop, #myChipsTop, styled together below) - see the HTML comment where they're
+     defined for why nesting these inside my own seat div didn't work. */
+  body.k28-in-game .desktop-top-readout {
+    display: none; position: fixed; left: 50%; transform: translateX(-50%); z-index: 48;
+    text-align: center;
+  }
+  body.k28-in-game.my-turn-active #myTurnTop { display: block; top: 34px; }
+  body.k28-in-game #myChipsTop { display: block; top: 58px; font-size: 1rem; font-weight: 800; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,0.95); }
+  body.k28-in-game #myChipsTop::before {
+    content: 'Your Chips'; display: block; font-size: 0.55rem; font-weight: 600;
+    color: rgba(255,255,255,0.75); margin-bottom: 1px;
+  }
 
   body.k28-in-game .seat { width: 100px; }
   body.k28-in-game .seat-avatar-wrap { width: 58px; height: 58px; }
@@ -234,7 +260,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   /* My own hand sits right at my own seat, same as the reference's cards over its own player's
      avatar, instead of a separate strip claiming its own dedicated row of screen space. */
   body.k28-in-game .hand-strip {
-    position: fixed; bottom: 6%; left: 50%; transform: translateX(-50%); z-index: 40; gap: 2px;
+    position: fixed; bottom: 2%; left: 50%; transform: translateX(-50%); z-index: 40; gap: 2px;
   }
   body.k28-in-game .hand-strip .card { width: 40px; height: 57px; font-size: 0.95rem; }
   /* Slight fanned tilt on my own two hole cards, matching the reference's own spread-out
@@ -242,7 +268,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
   body.k28-in-game .hand-strip .card:last-child { transform: rotate(8deg) translateY(2px); }
   body.k28-in-game #myHandLabel {
-    position: fixed; bottom: 2%; left: 50%; transform: translateX(-50%); z-index: 40;
+    position: fixed; top: 90px; left: 50%; transform: translateX(-50%); z-index: 48;
     font-size: 0.68rem; text-shadow: 0 1px 4px rgba(0,0,0,0.9);
   }
 
@@ -425,6 +451,17 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   </div>
   <div class="hand-strip" id="myHandStrip"></div>
   <div id="myHandLabel" style="text-align:center;color:var(--gold);font-weight:800;font-size:0.72rem;min-height:1em;margin-bottom:2px"></div>
+  <!-- Per explicit request (desktop wide-table mode only, see CSS): a dedicated, real
+       top-level "Your Chips" readout and "YOUR TURN" tag living outside the seats container
+       entirely - not nested inside my own .seat div. That nesting is exactly why the earlier
+       attempt at this didn't work: .seat itself carries a CSS transform for centering, and a
+       transform on an ancestor makes it the containing block for any position:fixed
+       descendant instead of the real viewport, silently pinning the "fixed" element to that
+       moving seat rather than the top of the screen. These two are separate, always-present
+       elements instead, updated directly wherever the seat's own copies already are so they
+       never fall out of sync. -->
+  <div id="myChipsTop" class="desktop-top-readout"></div>
+  <div id="myTurnTop" class="desktop-top-readout desktop-turn-tag">YOUR TURN</div>
   <div class="winner-popup" id="winnerPopup">
     <div class="winner-popup-title" id="winnerPopupTitle"></div>
     <div class="winner-popup-sub" id="winnerPopupSub"></div>
@@ -824,20 +861,23 @@ function seatPositions() {
   // the same exact way the visible ones already have been.
   if (document.body.classList.contains('k28-in-game')) {
     return [
-      { x: 49.8, y: 70.7 },  // 0: my own seat - the center-front stool
-      { x: 26.3, y: 67.0 },  // 1: lower-left
-      { x: 17, y: 62.5 },    // 2: upper-left - per explicit report, pulled in from the raw
-                              //    measured 11.5% since on an actual wide phone screen these
-                              //    two sat floating off the edge of the table with no stool
-                              //    visually anchoring them - moved in toward the table itself
+      { x: 49.8, y: 78 },    // 0: my own seat - moved further down per explicit request, to
+                              //    free up the table's top area for the pot/chips/labels
+      { x: 16, y: 67.0 },    // 1: lower-left - per explicit request, pushed further out (away
+                              //    from center) than seat 2 above it, matching how the actual
+                              //    photo's bottom-row stools sit further out than the top ones
+      { x: 26, y: 62.5 },    // 2: upper-left - pulled in closer to center than seat 1 below
+                              //    it, per the same explicit correction. Re-widened the gap
+                              //    between these two after the first attempt (20/23) sat them
+                              //    too close together and visibly overlapped on screen.
       { x: 10.5, y: 41.9 },  // 3: back-left
       { x: 29.9, y: 43.6 },  // 4: back-left-of-center (flanking the dealer) - re-measured
                               //    against the corrected reference photo; the earlier guess
                               //    sat these two seats too close in to the dealer
       { x: 70.6, y: 43.6 },  // 5: back-right-of-center (mirrors 4)
       { x: 89.1, y: 41.9 },  // 6: back-right (mirrors 3)
-      { x: 83, y: 62.7 },    // 7: upper-right (mirrors 2)
-      { x: 73.6, y: 67.0 },  // 8: lower-right (mirrors 1)
+      { x: 74, y: 62.5 },    // 7: upper-right (mirrors 2)
+      { x: 84, y: 67.0 },    // 8: lower-right (mirrors 1)
     ];
   }
   const positions = [];
@@ -891,6 +931,10 @@ function renderGameTable(state) {
   const mySeat = state.seats[myPos];
   $('myHandStrip').innerHTML = mySeat && mySeat.hand.length ? mySeat.hand.map(c => cardHtml(c, false)).join('') : '';
   $('myHandLabel').textContent = state.myHandName ? `You have: ${state.myHandName}` : '';
+  // Desktop-only top readouts (see the CSS/HTML comments where these are defined for why they
+  // exist as separate top-level elements rather than nested inside my own seat).
+  if ($('myChipsTop') && mySeat) $('myChipsTop').textContent = mySeat.eliminated ? 'OUT' : mySeat.chips;
+  document.body.classList.toggle('my-turn-active', state.currentPlayer === myPos);
 
   renderActionBar(state);
   renderLogPanel(state);
