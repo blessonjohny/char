@@ -3130,8 +3130,18 @@ class GameEngine {
         // simulated survival probability already used for the
         // equivalent "can't beat it" decision further below.
         const partnerCardSafe = wt === myTeam && (!cwc || this._survivalProbability(pos, cwc) >= 0.6) && tPts < 3;
-        if (hasJ && !partnerCardSafe) return follow.find(c => c.rank === 'J');
-        if (has9 && !partnerCardSafe) {
+        // Real, confirmed follow-up per explicit live report: rename
+        // reflects this now covering both the Jack and the 9, not just
+        // the Jack -- same underlying reasoning applies to both: a
+        // saved TRUMP card can never be cut, so delaying it is free,
+        // but a saved non-trump card sitting in hand is genuinely at
+        // risk the next time this suit comes up, whether that's from
+        // an opponent going void and cutting it, or (specific to the 9)
+        // this exact suit's Jack finally surfacing and beating it where
+        // it would have won outright right now.
+        const nonTrumpHighCardAlwaysSafe = this.trickSuit !== this.trumpSuit;
+        if (hasJ && (!partnerCardSafe || nonTrumpHighCardAlwaysSafe)) return follow.find(c => c.rank === 'J');
+        if (has9 && (!partnerCardSafe || nonTrumpHighCardAlwaysSafe)) {
           // A 9 beats everything else in this suit — but not the Jack.
           // Per explicit request: replaced the old binary "seen means
           // safe, unseen means risky" read of this with the real

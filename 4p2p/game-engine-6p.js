@@ -2518,8 +2518,29 @@ class GameEngine6P {
         // falls through to the normal follow-suit logic below instead
         // of blowing the Jack/9 for a trick partner already had.
         const partnerCardSafe = wt === myTeam && (!cwc || this._survivalProbability(pos, cwc) >= 0.6) && tPts < 3;
-        if (hasJ && !partnerCardSafe) return follow.find(c => c.rank === 'J');
-        if (has9 && !partnerCardSafe) {
+        // Real, confirmed follow-up per explicit live report, matching
+        // the identical fix on the 4-player table: this partner-safe
+        // exception makes sense for TRUMP (never cuttable, so a saved
+        // trump Jack is just as safe played next time this suit comes
+        // up) but not for a regular non-trump suit -- holding the Jack
+        // back there risks a future lead of this same suit landing
+        // after an opponent has gone void in it, letting them cut what
+        // would otherwise be unbeatable. Non-trump suits always play
+        // the Jack the moment it can safely win, regardless of whether
+        // partner's card already technically has the trick.
+        // Real, confirmed follow-up per explicit live report: renamed
+        // to reflect this now covering both the Jack and the 9, not
+        // just the Jack, matching the identical extension on the
+        // 4-player table -- same underlying reasoning applies to both:
+        // a saved TRUMP card can never be cut, so delaying it is free,
+        // but a saved non-trump card sitting in hand is genuinely at
+        // risk the next time this suit comes up, whether from an
+        // opponent going void and cutting it, or (specific to the 9)
+        // this exact suit's Jack finally surfacing and beating it where
+        // it would have won outright right now.
+        const nonTrumpHighCardAlwaysSafe = this.trickSuit !== this.trumpSuit;
+        if (hasJ && (!partnerCardSafe || nonTrumpHighCardAlwaysSafe)) return follow.find(c => c.rank === 'J');
+        if (has9 && (!partnerCardSafe || nonTrumpHighCardAlwaysSafe)) {
           // Real, confirmed further extension of the simulation-based
           // approach already applied to the 4-player engine: replaced
           // the binary jackRisk check with the actual simulated
