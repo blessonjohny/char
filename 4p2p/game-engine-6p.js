@@ -1638,6 +1638,20 @@ class GameEngine6P {
       const capturedPos = this.currentPlayer;
       const capturedRound = this.round;
       const capturedTurnStartedAt = this.turnStartedAt;
+      // Real, confirmed root-cause bug fix per explicit live report,
+      // matching the identical fix on the 4-player table: neither this
+      // timer nor the watchdog one further below ever checked the
+      // game's PHASE, only round number and currentPlayer. A bot action
+      // scheduled during the very last trick of a round (while phase
+      // was legitimately 'play') could still be pending when that trick
+      // resolved and the round moved to 'roundEnd' -- same round
+      // number, and currentPlayer can easily still coincidentally equal
+      // the same seat, so neither existing check caught it. The timer
+      // then fired anyway, called _botAct() for a phase _botActInner()
+      // has no matching branch for, which did nothing and left
+      // currentPlayer unchanged -- so the watchdog re-armed itself
+      // forever, since nothing it was checking ever actually changed.
+      const capturedPhase = this.phase;
       // Bots pace themselves at a natural ~900ms. A disconnected HUMAN
       // seat gets a much longer grace window before a bot steps in for
       // them — 10s turned out to be too tight: a brief mobile network
@@ -1653,6 +1667,7 @@ class GameEngine6P {
         : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         if (this.round !== capturedRound) return;
+        if (this.phase !== capturedPhase) return;
         if (this.currentPlayer !== capturedPos) return;
         const seatNow = this.seats[capturedPos];
         if (!seatNow) return;
@@ -1698,8 +1713,13 @@ class GameEngine6P {
       if (seat.isBot || isGhost) {
         const watchdogPos = this.currentPlayer;
         const watchdogRound = this.round;
+        // Same phase-staleness fix as the timer right above this one --
+        // see that one's comment for the fuller root-cause reasoning,
+        // matching the identical fix on the 4-player table.
+        const watchdogPhase = this.phase;
         setTimeout(() => {
           if (this.round !== watchdogRound) return;
+          if (this.phase !== watchdogPhase) return;
           if (this.currentPlayer !== watchdogPos) return;
           const seatNow = this.seats[watchdogPos];
           if (!seatNow || !(seatNow.isBot || seatNow.ghostPlayer === true)) return;

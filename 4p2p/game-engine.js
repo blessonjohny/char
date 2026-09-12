@@ -2025,6 +2025,27 @@ class GameEngine {
       const capturedPos = this.currentPlayer;
       const capturedRound = this.round;
       const capturedTurnStartedAt = this.turnStartedAt;
+      // Real, confirmed root-cause bug fix per explicit live report
+      // (multiple live tables observed permanently stuck in an endless
+      // "[bot-watchdog]... retrying" loop right after a round actually
+      // finished): neither this timeout nor the watchdog one further
+      // below ever checked the game's PHASE at all, only round number
+      // and currentPlayer. A bot action scheduled during the very last
+      // trick of a round (while phase was legitimately 'play') could
+      // still be sitting on this timer when that trick resolved and the
+      // round moved on to 'roundEnd' -- same round number, and
+      // currentPlayer can easily still coincidentally equal the same
+      // seat, so neither existing check caught it. The timer then fired
+      // anyway, called _botAct() for a phase _botActInner() has no
+      // matching branch for at all (bidding1/choosingTrump/bidding2/play
+      // are the only ones handled), which did nothing and left
+      // currentPlayer completely unchanged -- so the watchdog re-armed
+      // itself over and over, forever, since nothing about the
+      // condition it was checking ever actually changed. Capturing and
+      // re-verifying phase alongside round/currentPlayer closes this
+      // exactly the same way those other two staleness checks already
+      // work.
+      const capturedPhase = this.phase;
       // Bots always act at a comfortable, watchable pace. A disconnected
       // HUMAN gets a real grace period instead — brief network hiccups are
       // common and often invisible to the person experiencing them (their
@@ -2056,6 +2077,7 @@ class GameEngine {
         //   to act themselves now, not have a card auto-played out from
         //   under them the moment they came back.
         if (this.round !== capturedRound) return;
+        if (this.phase !== capturedPhase) return;
         if (this.currentPlayer !== capturedPos) return;
         const seatNow = this.seats[capturedPos];
         if (!seatNow) return;
@@ -2093,8 +2115,17 @@ class GameEngine {
       if (seat.isBot || isGhost) {
         const watchdogPos = this.currentPlayer;
         const watchdogRound = this.round;
+        // Same phase-staleness fix as the timer right above this one --
+        // see that one's comment for the fuller root-cause reasoning.
+        // Without this, the watchdog itself becomes the thing keeping a
+        // fully-finished round stuck: it re-arms itself via
+        // maybeAutoAct() every 3s forever, since nothing it was actually
+        // checking (round number, currentPlayer) ever changes once the
+        // round has quietly moved to 'roundEnd' out from under it.
+        const watchdogPhase = this.phase;
         setTimeout(() => {
           if (this.round !== watchdogRound) return;
+          if (this.phase !== watchdogPhase) return;
           if (this.currentPlayer !== watchdogPos) return;
           const seatNow = this.seats[watchdogPos];
           if (!seatNow || !(seatNow.isBot || seatNow.ghostPlayer === true)) return;
