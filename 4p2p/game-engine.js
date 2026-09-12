@@ -2944,11 +2944,22 @@ class GameEngine {
             // bare 9 (no Jack alongside it) get led whenever the sim
             // judged it likely enough to be safe -- but the explicit,
             // absolute rule wanted here is stricter than "probably
-            // fine": never lead a bare trump 9 unless that suit's Jack
-            // has actually already been played. A live bot doing this
-            // exact thing (leading a bare 9 with the Jack still
-            // genuinely unseen) is exactly the case being fixed.
-            if (low.rank === '9' && !this._isRankSeen(this.trumpSuit, 'J')) continue;
+            // fine": never lead a bare 9 (of ANY suit, not just trump)
+            // unless that suit's own Jack has actually already been
+            // played. A live bot doing this exact thing (leading a
+            // bare 9 with the Jack still genuinely unseen) is exactly
+            // the case being fixed. Real, confirmed follow-up bug found
+            // on a second live report of the same issue persisting:
+            // this checked this._isRankSeen(this.trumpSuit, 'J') --
+            // trump's Jack specifically -- regardless of which suit s
+            // actually is in this per-suit loop. For a non-trump suit
+            // (hearts, say), this incorrectly asked whether TRUMP's
+            // Jack had been seen instead of hearts' own Jack, so a bare
+            // 9 of hearts could get led as soon as trump's Jack merely
+            // happened to have appeared for an unrelated reason, with
+            // hearts' own Jack still fully unseen. Checks this suit's
+            // actual Jack now (via low.suit, which is s here).
+            if (low.rank === '9' && !this._isRankSeen(low.suit, 'J')) continue;
           }
           // Same real simulation-based check extended to the Ace/10
           // case directly below.
@@ -2996,30 +3007,38 @@ class GameEngine {
           if (iHold9) {
             const nineCard = bySuit[s].find(c => c.rank === '9');
             // Real, confirmed follow-up per explicit live report with a
-            // specific hand: bot held the trump 9 alongside a lower
-            // trump (the Ace) with the Jack genuinely unseen, and led
-            // the 9 anyway because the survival-probability check below
-            // judged it likely enough to be safe -- the opponent turned
-            // out to actually hold the Jack. The explicit fix wanted
-            // here: whenever ANY other trump card exists in the same
-            // suit (not just a zero-point one -- an Ace or 10 counts
-            // too), lead that lower card first instead of the 9,
-            // regardless of how favorable the simulated odds looked.
-            // The whole point is to risk the less valuable card
-            // "testing" for the Jack, keeping the 9 safe in hand for
-            // once the Jack is actually accounted for -- a high
-            // survival percentage doesn't change that the 9 is the
-            // more painful card to lose if the odds happen to be wrong
-            // this specific time. Only actually leads the 9 itself once
-            // the Jack has genuinely been seen already (fully safe by
-            // then) or there's truly no other trump card left to
-            // substitute.
+            // specific hand: bot held a suit's 9 alongside a lower card
+            // in that same suit (the Ace) with that suit's Jack
+            // genuinely unseen, and led the 9 anyway because the
+            // survival-probability check below judged it likely enough
+            // to be safe -- the opponent turned out to actually hold
+            // the Jack. The explicit fix wanted here: whenever ANY
+            // other card exists in the same suit (not just a zero-point
+            // one -- an Ace or 10 counts too), lead that lower card
+            // first instead of the 9, regardless of how favorable the
+            // simulated odds looked. The whole point is to risk the
+            // less valuable card "testing" for the Jack, keeping the 9
+            // safe in hand for once the Jack is actually accounted
+            // for -- a high survival percentage doesn't change that the
+            // 9 is the more painful card to lose if the odds happen to
+            // be wrong this specific time. Only actually leads the 9
+            // itself once the Jack has genuinely been seen already
+            // (fully safe by then) or there's truly no other card left
+            // to substitute. Real, confirmed follow-up bug found on a
+            // second live report of the same issue persisting: this
+            // checked this._isRankSeen(this.trumpSuit, 'J') -- trump's
+            // Jack specifically -- regardless of which suit s actually
+            // is here. For a non-trump suit, this incorrectly asked
+            // whether TRUMP's Jack had been seen instead of this suit's
+            // own Jack, letting a bare 9 through as soon as trump's
+            // Jack merely happened to appear for an unrelated reason.
+            // Checks this suit's actual Jack now (s is this suit).
             const saferInSuit = bySuit[s].find(c => c.rank !== '9');
-            if (!this._isRankSeen(this.trumpSuit, 'J') && saferInSuit) {
+            if (!this._isRankSeen(s, 'J') && saferInSuit) {
               candidates.push({ card: saferInSuit, score: sc + bySuit[s].length * 3, suit: s });
               continue;
             }
-            if (this._isRankSeen(this.trumpSuit, 'J') || this._survivalProbability(pos, nineCard) >= 0.7) {
+            if (this._isRankSeen(s, 'J') || this._survivalProbability(pos, nineCard) >= 0.7) {
               candidates.push({ card: nineCard, score: 45 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
               continue;
             }
