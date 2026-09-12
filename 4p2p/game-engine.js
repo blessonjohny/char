@@ -3257,6 +3257,36 @@ class GameEngine {
         const nonTrumpHighCardAlwaysSafe = this.trickSuit !== this.trumpSuit;
         if (hasJ && (!partnerCardSafe || nonTrumpHighCardAlwaysSafe)) return follow.find(c => c.rank === 'J');
         if (has9 && (!partnerCardSafe || nonTrumpHighCardAlwaysSafe)) {
+          // Real, confirmed follow-up per explicit live report with a
+          // specific hand: bot held the 9 alongside a lower trump card,
+          // an opponent's card (K) was on the table, and the Jack was
+          // genuinely unseen. The lower trump card (an Ace, here)
+          // already outranks a King on its own -- RANK_ORDER has Ace
+          // above King in this suit's ranking -- so there was never
+          // any actual need to reach for the 9 at all. This used to
+          // jump straight to weighing the 9's own survival odds without
+          // ever first checking whether some OTHER, lower card already
+          // wins outright on its own merits. Generalized per explicit
+          // instruction beyond just the 9 specifically: any card that
+          // needs a still-unseen higher card to have not appeared yet
+          // in order to survive is a genuine risk to "overtake" with
+          // when a cheaper, already-sufficient card exists instead --
+          // using more card than the situation actually calls for buys
+          // nothing extra (the trick is won either way) while exposing
+          // the more valuable card to a risk that was completely
+          // avoidable. Checks for exactly that first: a different,
+          // already-winning card in the same suit besides the 9 --
+          // but only actually matters while the Jack is genuinely
+          // unseen. Once it's already been played, the 9 carries no
+          // risk left to avoid at all, and the existing "cash it in
+          // now rather than save it" reasoning for non-trump suits
+          // (see the hasJ/has9 gating above) already wants the 9 used
+          // directly in that case, not swapped for a different card
+          // for no reason.
+          const alreadyWinningCard = cwc && cwc.suit === this.trickSuit && !this._isRankSeen(this.trickSuit, 'J')
+            ? follow.find(c => c.rank !== '9' && c.rank !== 'J' && RANK_ORDER[c.rank] > RANK_ORDER[cwc.rank])
+            : null;
+          if (alreadyWinningCard) return alreadyWinningCard;
           // A 9 beats everything else in this suit — but not the Jack.
           // Per explicit request: replaced the old binary "seen means
           // safe, unseen means risky" read of this with the real

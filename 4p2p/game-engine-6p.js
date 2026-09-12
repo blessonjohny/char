@@ -2609,6 +2609,28 @@ class GameEngine6P {
         const nonTrumpHighCardAlwaysSafe = this.trickSuit !== this.trumpSuit;
         if (hasJ && (!partnerCardSafe || nonTrumpHighCardAlwaysSafe)) return follow.find(c => c.rank === 'J');
         if (has9 && (!partnerCardSafe || nonTrumpHighCardAlwaysSafe)) {
+          // Real, confirmed follow-up per explicit live report, matching
+          // the identical fix on the 4-player table: bot held the 9
+          // alongside a lower trump card, an opponent's card was on the
+          // table, and the Jack was genuinely unseen -- but that lower
+          // card already outranked the opponent's card on its own, so
+          // there was never any actual need to reach for the 9 at all.
+          // Generalized beyond just the 9 per explicit instruction: any
+          // card that needs a still-unseen higher card to have not
+          // appeared yet in order to survive is a genuine risk to
+          // "overtake" with when a cheaper, already-sufficient card
+          // exists instead -- using more card than the situation calls
+          // for buys nothing extra while exposing the more valuable
+          // card to an avoidable risk. Checks for a different,
+          // already-winning card in the same suit besides the 9 first.
+          // Only actually matters while the Jack is genuinely unseen --
+          // once it's already been played, the 9 carries no risk left
+          // to avoid, and the existing "cash it in now" reasoning for
+          // non-trump suits already wants it used directly in that case.
+          const alreadyWinningCard = cwc && cwc.suit === this.trickSuit && !this._isRankSeen(this.trickSuit, 'J')
+            ? follow.find(c => c.rank !== '9' && c.rank !== 'J' && RANK_ORDER[c.rank] > RANK_ORDER[cwc.rank])
+            : null;
+          if (alreadyWinningCard) return alreadyWinningCard;
           // Real, confirmed further extension of the simulation-based
           // approach already applied to the 4-player engine: replaced
           // the binary jackRisk check with the actual simulated
