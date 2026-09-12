@@ -1095,18 +1095,21 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    centered modal rather than a bottom sheet with empty space under it. */
 #bidOverlay{align-items:center}
 #bidOverlay .panel{border-radius:20px}
-.bid-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
-/* Real, confirmed follow-up per explicit live report: relying on
-   padding alone to size these meant the actual height came from
-   content + padding rather than a fixed value -- normally identical
-   for every plain two-digit number, but not a guarantee across every
-   possible scenario (partner-already-honors mode renders a single "28"
-   button through a different branch, for instance). Setting an
-   explicit height directly removes any possible variation source
-   entirely, rather than continuing to rely on every branch happening
-   to produce visually-identical markup. */
-.bid-btn{padding:12px 4px;border-radius:10px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-weight:700;height:52px;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
-.bid-btn.pass-btn{grid-column:span 4;background:rgba(255,92,92,0.15);border-color:var(--danger);color:var(--danger)}
+/* Real, confirmed follow-up per explicit live report with a screenshot
+   proving it: CSS Grid's repeat(4,1fr) rendered visibly UNEQUAL column
+   widths on the user's actual phone browser (a lesser-known Android
+   browser, "Dolphin") even though it measured out perfectly equal in
+   Chrome/Chromium-based testing -- a real cross-browser Grid rendering
+   inconsistency, not something reproducible in a standard browser.
+   Switched the whole layout to flexbox with explicit calc() widths
+   instead: flexbox's percentage-width model has been consistently,
+   reliably supported across far more browsers (including older/
+   non-standard mobile ones) for much longer than Grid has, and doesn't
+   leave column-track sizing up to each browser's own Grid
+   implementation at all. */
+.bid-grid{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.bid-btn{padding:12px 4px;border-radius:10px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-weight:700;height:52px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;flex:0 0 calc(25% - 6px)}
+.bid-btn.pass-btn{flex-basis:100%;background:rgba(255,92,92,0.15);border-color:var(--danger);color:var(--danger)}
 .trump-pick{display:flex;gap:10px;justify-content:center;margin:16px 0}
 .trump-pick button{width:56px;height:56px;border-radius:14px;border:2px solid var(--border);background:#fff;font-size:1.6rem}
 .trump-pick button.on{border-color:var(--accent);box-shadow:0 0 12px rgba(244,196,48,0.6);transform:scale(1.08)}
@@ -1695,12 +1698,13 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      underneath it; nothing deals until the host taps Start. Host-only --
      other seated players just see the real table underneath and wait.
      Per explicit follow-up request, matching the identical 4-player
-     fix: the base .modal-overlay class's own background
-     (rgba(0,0,0,0.55)) was still making the real table look too dark
-     here specifically, where seeing it clearly is the whole point.
-     Overridden much lighter just for this one popup. -->
-<div class="modal-overlay" id="readyRoomOverlay6p" style="z-index:2500;background:rgba(0,0,0,0.15)">
-  <div class="modal" style="text-align:center;max-width:340px;background:var(--panel);border-radius:16px;padding:20px">
+     fix: fully transparent now, both the outer overlay and the inner
+     modal box (which otherwise had a solid var(--panel) fill) -- the
+     explicit ask was to see the players through the popup clearly, same
+     treatment as the trump-exposed event box (transparent fill, just a
+     border/glow to mark the popup's edges). -->
+<div class="modal-overlay" id="readyRoomOverlay6p" style="z-index:2500;background:transparent">
+  <div class="modal" style="text-align:center;max-width:340px;background:transparent;border:1.5px solid #f4c430;box-shadow:0 0 1px #f4c430,0 12px 40px rgba(0,0,0,0.6),0 0 60px rgba(244,196,48,0.25);border-radius:16px;padding:20px">
     <h3 style="margin-top:0;margin-bottom:2px">🪑 Table is Ready</h3>
     <div style="text-align:center;font-size:0.78rem;color:var(--text-secondary);opacity:0.85;margin-bottom:12px">Nothing starts until someone here hits Start</div>
     <div id="readyRoomPlayerList6p" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:40px"></div>

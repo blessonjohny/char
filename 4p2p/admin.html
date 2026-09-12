@@ -183,6 +183,28 @@
   </div>
 </div>
 
+<!-- ===== TABLE CHAT (admin can view/send into a specific table's chat,
+     as "Admin" or, when a ghost player is seated there, impersonating
+     that ghost's own name) ===== -->
+<div id="tableChatOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:5000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--panel);border:1.5px solid var(--border);border-radius:14px;padding:16px;width:100%;max-width:420px;max-height:85vh;max-height:85dvh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-shrink:0">
+      <div style="font-weight:700" id="tableChatTitle">Table Chat</div>
+      <button class="btn ghost" style="width:auto;padding:4px 10px;font-size:0.75rem" onclick="closeTableChat()">✕</button>
+    </div>
+    <div class="sub" style="margin:0 0 10px;flex-shrink:0">Messages go out in the same chat box everyone at this table already sees.</div>
+    <div id="tableChatMessages" style="flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;font-size:0.8rem;display:flex;flex-direction:column;gap:6px"></div>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-shrink:0;align-items:center">
+      <label for="tableChatAsSelect" class="sub" style="margin:0;white-space:nowrap">Chat as</label>
+      <select id="tableChatAsSelect" style="flex-shrink:0;background:rgba(255,255,255,0.05);color:var(--text);border:1.5px solid var(--border);border-radius:8px;padding:6px;font-size:0.78rem"></select>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-shrink:0">
+      <input type="text" id="tableChatInput" placeholder="Message…" maxlength="300" style="flex:1;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.85rem">
+      <button class="btn" style="width:auto;padding:10px 16px" id="btnSendTableChat">Send</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let PASSWORD = '';
 
@@ -334,6 +356,13 @@ function renderLivePlayers(tablesList) {
   countEl.textContent = `${tablesList.length} table${tablesList.length === 1 ? '' : 's'} · ${playingCount} playing · ${lobbyCount} in lobby`;
   if (!tablesList.length) { el.innerHTML = '<div class="empty">No tables running right now.</div>'; return; }
   const now = Date.now();
+  // Per explicit request: keyed by tableId so openTableChat() (called
+  // from each card's onclick) can look up a table's mode/ghostSeats
+  // without ever having to embed that data as a literal string inside
+  // an HTML attribute -- ghost/player names could contain quotes or
+  // other characters that would break a naive JSON-in-onclick approach.
+  window._liveTablesById = {};
+  tablesList.forEach(t => { window._liveTablesById[t.tableId] = t; });
   el.innerHTML = tablesList.map(t => {
     const openFor = t.createdAt ? fmtDuration(now - t.createdAt) : '—';
     const idleFor = t.lastActivityAt ? fmtDuration(now - t.lastActivityAt) : '—';
@@ -342,6 +371,7 @@ function renderLivePlayers(tablesList) {
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <span class="game-badge">${esc(t.game)} · table ${esc(t.tableId)}</span>
         <span style="font-size:0.68rem;padding:2px 8px;border-radius:10px;white-space:nowrap;background:${t.isPlaying ? 'rgba(46,204,113,0.18)' : 'rgba(244,196,48,0.18)'};color:${t.isPlaying ? '#2ecc71' : '#f4c430'}">${t.isPlaying ? '🎮 Playing' : '🟢 In Lobby'}</span>
+        <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="openTableChat('${esc(t.tableId)}')">💬 Chat</button>
         <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="closeTable('${esc(t.tableId)}')">✕ Close table</button>
       </div>
       <div class="who" style="font-size:0.8rem">${renderSeatEntries(t.seatEntries, t.summary)}</div>
@@ -363,6 +393,75 @@ async function closeTable(tableId) {
   if (data.ok) { alert(`Closed ${data.game} table ${data.tableId}.`); refreshLivePlayers(); }
   else alert('Could not close that table: ' + (data.error || 'unknown error'));
 }
+
+// ---------------- Table chat (view/send into a specific table's chat, as Admin or a seated ghost) ----------------
+let tableChatState = null; // { mode, tableId } while the modal is open
+let tableChatPollInterval = null;
+
+function openTableChat(tableId) {
+  const t = window._liveTablesById && window._liveTablesById[tableId];
+  if (!t) return;
+  tableChatState = { mode: t.mode, tableId };
+  document.getElementById('tableChatTitle').textContent = `${t.game} · table ${tableId}`;
+  // Per explicit request: "Admin" is always the default option; any
+  // ghost player currently seated at this table is offered alongside
+  // it so the admin can impersonate that ghost's own name specifically
+  // rather than only ever appearing as a generic "Admin".
+  const select = document.getElementById('tableChatAsSelect');
+  select.innerHTML = '<option value="Admin">Admin</option>' +
+    (t.ghostSeats || []).map(name => `<option value="${esc(name)}">${esc(name)} (ghost)</option>`).join('');
+  document.getElementById('tableChatInput').value = '';
+  document.getElementById('tableChatOverlay').style.display = 'flex';
+  refreshTableChatMessages();
+  if (tableChatPollInterval) clearInterval(tableChatPollInterval);
+  tableChatPollInterval = setInterval(refreshTableChatMessages, 3000);
+}
+
+function closeTableChat() {
+  document.getElementById('tableChatOverlay').style.display = 'none';
+  if (tableChatPollInterval) { clearInterval(tableChatPollInterval); tableChatPollInterval = null; }
+  tableChatState = null;
+}
+
+async function refreshTableChatMessages() {
+  if (!tableChatState) return;
+  const { mode, tableId } = tableChatState;
+  const res = await adminFetch(`/api/admin/table-chat?mode=${mode}&tableId=${encodeURIComponent(tableId)}`);
+  if (!res.ok) return;
+  const data = await res.json();
+  if (!data.ok) return;
+  const box = document.getElementById('tableChatMessages');
+  // Preserves scroll position at the bottom only if the admin was
+  // already scrolled there -- doesn't yank them back down if they've
+  // scrolled up to read earlier messages while new ones keep arriving.
+  const wasAtBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  box.innerHTML = (data.chat || []).map(m => `
+    <div>
+      <span style="font-weight:700;color:var(--accent)">${esc(m.from)}</span>
+      <span style="opacity:0.5;font-size:0.68rem"> · ${new Date(m.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span><br>
+      <span>${esc(m.msg)}</span>
+    </div>
+  `).join('') || '<div class="sub" style="margin:0">No messages yet.</div>';
+  if (wasAtBottom) box.scrollTop = box.scrollHeight;
+}
+
+async function sendTableChat() {
+  if (!tableChatState) return;
+  const input = document.getElementById('tableChatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  const from = document.getElementById('tableChatAsSelect').value;
+  input.value = '';
+  await adminFetch('/api/admin/send-chat', undefined, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: tableChatState.mode, tableId: tableChatState.tableId, from, msg })
+  });
+  refreshTableChatMessages();
+}
+document.getElementById('btnSendTableChat').addEventListener('click', sendTableChat);
+document.getElementById('tableChatInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendTableChat();
+});
 
 // ---------------- Table history (daily counts + per-table durations, past 30 days) ----------------
 async function refreshTableHistory() {
