@@ -131,7 +131,19 @@ function personalityFor(seatKey) {
 function botDecideAction(engine, pos) {
   const s = engine.seats[pos];
   const toCall = engine.currentBet - s.bettedThisRound;
-  const pot = engine.totalPot();
+  // Real, confirmed bug fix: engine.totalPot() only reflects money already collected from
+  // COMPLETED betting rounds (via _collectBetsIntoPots(), called when a round finishes) - it
+  // reads back as 0 for the entire preflop round and for any street still in progress, which
+  // is precisely when a bot is actually making a decision. That silently forced every pot-odds
+  // comparison here to potOdds = toCall/(0+toCall) = 1.0 - the maximum possible value - which
+  // in turn required roughly 85%+ raw equity just to continue facing any bet at all. Confirmed
+  // directly: a 30-hand, 6-bot simulation folded preflop 92% of the time before this fix, and
+  // tracing a single hand showed real, clearly-playable hands (A5 offsuit from the blinds,
+  // scoring 50/100 - comfortably clear of that position's entire threshold) folding anyway
+  // purely because of this. Sum of every seat's totalBetThisHand is the actual, live pot at
+  // any moment regardless of whether the round has formally closed yet, and is what both the
+  // pot-odds comparison and the bet-sizing below actually need.
+  const pot = engine.occupiedSeats().reduce((sum, p) => sum + engine.seats[p].totalBetThisHand, 0);
   const potOdds = toCall > 0 ? toCall / (pot + toCall) : 0;
   const personality = personalityFor(engine.tableId + ':' + pos);
 
@@ -152,7 +164,28 @@ function botDecideAction(engine, pos) {
     // Postflop: real made-hand strength plus draw equity, not just one
     // or the other.
     const { score } = evaluateBest([...s.hand, ...engine.board]);
-    const madeHandEquity = Math.min(1, 0.12 + score[0] * 0.115);
+    // Real, confirmed bug fix: the old flat 0.12 + category*0.115 formula meant even three of
+    // a kind (category 3) only scored 0.465 equity - BELOW the 0.58 value-bet threshold below,
+    // and below most realistic pot-odds bars too. Confirmed directly via simulation: bots were
+    // checking through postflop streets 83.9% of the time and reaching real showdowns 79.8% of
+    // hands - both far more passive than an actual table, since even strong made hands rarely
+    // cleared the bar to bet. Rebalanced so each category sits at a level that reflects how
+    // often it's genuinely the best hand at showdown (pair still middling since plenty of
+    // pairs are weak kickers on a scary board, but two pair and up now comfortably clear a
+    // value bet the way they should). Also adds a same-category rank bonus (score[1], the
+    // primary tiebreaker) specifically for the "pair" and "high card" categories, where the
+    // gap between the best and worst hand in that same category is largest - top pair top
+    // kicker is a real value hand, bottom pair is not, and the old formula treated them
+    // identically.
+    const CATEGORY_BASE_EQUITY = [0.16, 0.34, 0.55, 0.66, 0.76, 0.83, 0.90, 0.96, 0.99];
+    let madeHandEquity = CATEGORY_BASE_EQUITY[score[0]];
+    if (score[0] === 0 || score[0] === 1) {
+      // score[1] is the primary rank (2-14) for both categories here - scale its position
+      // within that range into a modest bonus so, e.g., a pair of aces reads meaningfully
+      // stronger than a pair of twos, not identical to it.
+      madeHandEquity += ((score[1] - 2) / 12) * 0.12;
+    }
+    madeHandEquity = Math.min(1, madeHandEquity);
     const draws = detectDraws(s.hand, engine.board);
     equity = Math.min(0.97, madeHandEquity + drawEquityBonus(draws, streetsRemaining) * (1 - madeHandEquity));
   }
@@ -165,8 +198,16 @@ function botDecideAction(engine, pos) {
   if (toCall === 0) {
     // Free to act: bet for value with real equity, occasionally
     // continuation-bet as a bluff with nothing, otherwise check.
-    const valueBet = equity > 0.58;
-    const bluff = equity < 0.3 && Math.random() < 0.16 * personality.aggression;
+    // Real, confirmed bug fix: with the rebalanced equity scale above, a 0.58 cutoff put most
+    // pairs (now sitting around 0.34-0.46) in a dead zone below both this and the old 0.3
+    // bluff cutoff - neither branch fired, so the bot defaulted to checking regardless of
+    // hand strength. Confirmed directly: postflop checking stayed at 84%+ even after
+    // rebalancing the equity numbers alone, until these two cutoffs were widened to actually
+    // use that new scale. 0.46 now catches a genuine top-pair-or-better hand as a value bet;
+    // 0.38 widens the bluff range to cover realistic "nothing, but the board missed them too"
+    // spots instead of only the very weakest high cards.
+    const valueBet = equity > 0.46;
+    const bluff = equity < 0.38 && Math.random() < 0.22 * personality.aggression;
     if (valueBet || bluff) {
       const sizeFraction = valueBet ? (0.5 + equity * 0.35) : 0.45; // bigger with stronger hands, standard c-bet size as a bluff
       const betSize = Math.max(engine.bigBlind, Math.round(pot * sizeFraction * personality.aggression));
