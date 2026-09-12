@@ -716,10 +716,17 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .seat .bdg{position:absolute;right:-8px;background:var(--accent);color:#111;border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800;white-space:nowrap;z-index:6}
 .seat .bdg-bidder{top:24%}
 .seat .bdg-dealer{top:38%}
-/* Left-side seats (4 and 5 in this table's layout) get their badges
-   mirrored onto their own left shoulder instead of the shared right-
-   side default above. */
-#seatWrap4 .bdg, #seatWrap5 .bdg{right:auto;left:-8px}
+/* Per explicit live follow-up (after the first attempt put badges on
+   the wrong side and off-screen): the shared default above already
+   places the badge on each avatar's own right side, which for the
+   left-side seats (4 and 5) IS the side facing inward toward the
+   table center -- open space, no screen edge nearby, no override
+   needed for them at all. The right-side seats (1 and 2) are the ones
+   that need flipping: their own right side faces straight off the
+   edge of a narrow phone screen, so they're mirrored onto their left
+   instead -- also inward toward the table center, and safely on-screen
+   regardless of viewport width. */
+#seatWrap1 .bdg, #seatWrap2 .bdg{right:auto;left:-8px}
 .seat .bdg-q{position:absolute;top:-6px;left:-6px;background:rgba(180,60,80,0.35);color:#e08a9a;border:1px solid rgba(224,138,154,0.6);border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800;white-space:nowrap;z-index:5}
 /* The bidding "call" bubble - what a seat actually said (Bid 17 / Pass / Bid Thani), shown
    above their avatar and left up for everyone to see through the whole rest of the auction
