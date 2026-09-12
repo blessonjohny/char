@@ -713,9 +713,24 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    change removing the old shared single-badge element that silently
    let the bidder badge overwrite the dealer one whenever a seat was
    both at once). */
-.seat .bdg{position:absolute;right:-8px;background:var(--accent);color:#111;border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800;white-space:nowrap;z-index:6}
-.seat .bdg-bidder{top:24%}
-.seat .bdg-dealer{top:38%}
+/* Per explicit live follow-up: still reading as floating away from the
+   avatar rather than sitting on it -- brought in from -8px to +6px
+   (now overlapping the avatar's own edge slightly, not hovering just
+   past it) so the badge visually touches the shoulder instead of
+   sitting a visible gap away from the body. */
+/* Per second explicit live follow-up: still reading as too far from
+   the avatar even after the first adjustment -- pulled in further on
+   both axes this time. Horizontally, moved from a 6px inset to a
+   percentage-based one (12% of the avatar's own width) so it lands
+   properly on the body itself rather than barely grazing the edge on
+   every differently-sized avatar across the different seats.
+   Vertically, pushed down from the head/neck area (24%/38%) to genuine
+   shoulder height (46%/60%), since a person's shoulders sit roughly
+   midway down a head-and-shoulders portrait, not near the very top of
+   it. */
+.seat .bdg{position:absolute;right:12%;background:var(--accent);color:#111;border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800;white-space:nowrap;z-index:6}
+.seat .bdg-bidder{top:46%}
+.seat .bdg-dealer{top:60%}
 /* Per explicit live follow-up (after the first attempt put badges on
    the wrong side and off-screen): the shared default above already
    places the badge on each avatar's own right side, which for the
@@ -726,7 +741,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    edge of a narrow phone screen, so they're mirrored onto their left
    instead -- also inward toward the table center, and safely on-screen
    regardless of viewport width. */
-#seatWrap1 .bdg, #seatWrap2 .bdg{right:auto;left:-8px}
+#seatWrap1 .bdg, #seatWrap2 .bdg{right:auto;left:12%}
 .seat .bdg-q{position:absolute;top:-6px;left:-6px;background:rgba(180,60,80,0.35);color:#e08a9a;border:1px solid rgba(224,138,154,0.6);border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800;white-space:nowrap;z-index:5}
 /* The bidding "call" bubble - what a seat actually said (Bid 17 / Pass / Bid Thani), shown
    above their avatar and left up for everyone to see through the whole rest of the auction
