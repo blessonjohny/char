@@ -700,7 +700,26 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
     1.2px -1.2px 0 #ef4444, -1.2px 1.2px 0 #ef4444;
 }
 .seat .cc{font-size:0.6rem;color:var(--accent);display:none}
-.seat .bdg{position:absolute;top:-6px;right:-6px;background:var(--accent);color:#111;border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800}
+/* Per explicit live report: dealer/bidder badges sat at the avatar's
+   top-right corner regardless of which side of the table the seat was
+   actually on, so for a left-side seat the badge floated off toward
+   the table's center -- away from that seat's own body -- and read as
+   if it belonged to a neighboring player instead. Repositioned to sit
+   right at shoulder height (down from the very top corner) and, via
+   the side-specific overrides just below, on the actual outer-shoulder
+   side of each seat: left shoulder for the left-side seats, right
+   shoulder for the right-side ones. Bidder stacked above dealer per
+   explicit request, each its own independent element now (see the JS
+   change removing the old shared single-badge element that silently
+   let the bidder badge overwrite the dealer one whenever a seat was
+   both at once). */
+.seat .bdg{position:absolute;right:-8px;background:var(--accent);color:#111;border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800;white-space:nowrap;z-index:6}
+.seat .bdg-bidder{top:24%}
+.seat .bdg-dealer{top:38%}
+/* Left-side seats (4 and 5 in this table's layout) get their badges
+   mirrored onto their own left shoulder instead of the shared right-
+   side default above. */
+#seatWrap4 .bdg, #seatWrap5 .bdg{right:auto;left:-8px}
 .seat .bdg-q{position:absolute;top:-6px;left:-6px;background:rgba(180,60,80,0.35);color:#e08a9a;border:1px solid rgba(224,138,154,0.6);border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800;white-space:nowrap;z-index:5}
 /* The bidding "call" bubble - what a seat actually said (Bid 17 / Pass / Bid Thani), shown
    above their avatar and left up for everyone to see through the whole rest of the auction

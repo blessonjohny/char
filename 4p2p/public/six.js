@@ -2640,14 +2640,28 @@ function renderSeats(state) {
     nm.classList.toggle('name-opponent', sixpGetTeam(pos) !== sixpGetTeam(MY_POS));
     cc.textContent = isFolded ? 'Folded (Thani)' : (seat.cardCount + 'c');
     wrap.classList.toggle('on', state.currentPlayer === pos && (state.phase === 'bidding1' || state.phase === 'play' || state.phase === 'choosingTrump'));
-    let badge = '';
-    if (pos === state.dealer) badge = 'D';
-    if (pos === state.bidder && state.highestBid > 0) badge = 'B' + (state.highestBid >= 29 ? 'THANI' : state.highestBid);
-    let bdgEl = wrap.querySelector('.bdg');
-    if (badge) {
-      if (!bdgEl) { bdgEl = document.createElement('div'); bdgEl.className = 'bdg'; av.appendChild(bdgEl); }
-      bdgEl.textContent = badge;
-    } else if (bdgEl) { bdgEl.remove(); }
+    // Per explicit live report: dealer and bidder badges used to share
+    // one single element, so whichever check ran last (bidder) silently
+    // overwrote the dealer badge whenever the same seat happened to be
+    // both -- the dealer badge would just vanish instead of showing
+    // alongside it. Two independent badge elements now (bidder stacked
+    // on top, dealer just below, per explicit layout request), each
+    // only touched by its own condition, so either can show without
+    // affecting the other -- both, one, or neither, correctly, in every
+    // combination.
+    const bidderBadgeText = (pos === state.bidder && state.highestBid > 0)
+      ? 'B' + (state.highestBid >= 29 ? 'THANI' : state.highestBid) : '';
+    let bidderBdgEl = wrap.querySelector('.bdg-bidder');
+    if (bidderBadgeText) {
+      if (!bidderBdgEl) { bidderBdgEl = document.createElement('div'); bidderBdgEl.className = 'bdg bdg-bidder'; av.appendChild(bidderBdgEl); }
+      bidderBdgEl.textContent = bidderBadgeText;
+    } else if (bidderBdgEl) { bidderBdgEl.remove(); }
+    const dealerBadgeText = pos === state.dealer ? 'D' : '';
+    let dealerBdgEl = wrap.querySelector('.bdg-dealer');
+    if (dealerBadgeText) {
+      if (!dealerBdgEl) { dealerBdgEl = document.createElement('div'); dealerBdgEl.className = 'bdg bdg-dealer'; av.appendChild(dealerBdgEl); }
+      dealerBdgEl.textContent = dealerBadgeText;
+    } else if (dealerBdgEl) { dealerBdgEl.remove(); }
 
     // "Q" penalty marks — a running shame counter, separate from the
     // dealer/bidder badge above (opposite corner) so it never overlaps
