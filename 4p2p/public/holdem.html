@@ -99,6 +99,15 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    hand (see poker-engine.js's startHand()) and updated the instant that seat acts again -
    never stale from a previous street or a previous hand. */
 .action-badge{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px;background:rgba(20,16,12,0.9);border:1.5px solid var(--gold-soft,#c9a44c);color:#fff;font-size:0.5rem;font-weight:800;letter-spacing:0.3px;padding:2px 7px;border-radius:8px;white-space:nowrap;z-index:5}
+/* Per explicit follow-up request: for these same four bottom-row seats
+   specifically, the colored action badge moves to sit BELOW the
+   avatar instead of above it (the default position every other seat
+   still uses) -- overrides bottom/margin-bottom with the opposite
+   top/margin-top pairing to flip which edge it anchors to. */
+.seat[data-slot="1"] .action-badge, .seat[data-slot="2"] .action-badge,
+.seat[data-slot="7"] .action-badge, .seat[data-slot="8"] .action-badge {
+  bottom: auto; top: 100%; margin-bottom: 0; margin-top: 3px;
+}
 /* Per explicit request: raise/call/fold badges color-coded like a real
    poker room, but scoped to the bottom-row seats only (Bot2, Bot3,
    Bot8, Bot9 as labeled on screen -- slots 1, 2, 7, 8 in this array,
