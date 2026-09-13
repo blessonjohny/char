@@ -3776,6 +3776,43 @@ class GameEngine {
     // rather than have us just dump our cheapest card on reflex.
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
     if (!disc.length) disc = hand;
+    // Real, confirmed bug fix per explicit live report of a 4-player
+    // bot getting permanently stuck: this fallback's own comment
+    // assumes it's only ever reached holding NO trump at all, but
+    // that's not actually true -- it's also reached whenever the
+    // strategic cutForWin check above declines to cut (partner already
+    // winning, trick not worth it, etc.) even while genuinely holding
+    // trump. In 4-player specifically, a plain discard can never be a
+    // Jack of any suit once an alternative exists (see canPlayCard) --
+    // so on the rare hand where every remaining non-trump card happens
+    // to be a Jack, "disc" here was silently illegal, the client
+    // rejected the play, and the bot never advanced at all. Falls back
+    // to cutting with trump instead whenever that's true, exactly the
+    // same as canPlayCard's own last-resort rule requires. Real,
+    // confirmed 6-player note: this exact restriction is 4-player-only
+    // -- 6-player's canPlayCard has no equivalent rule at all, a plain
+    // Jack discard is always legal there, so no matching fix belongs on
+    // that engine.
+    const discAllJacks = disc.length > 0 && disc.every(c => c.rank === 'J');
+    if (discAllJacks && trumps.length > 0) {
+      trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+      const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+      const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+      return zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+        : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+        : trumps[trumps.length - 1];
+    }
+    // Per explicit follow-up: made this more explicit and robust rather
+    // than trusting the points-ascending sort further down to naturally
+    // sort a Jack (always the single highest point value in this game,
+    // 3) toward the end on its own. A mixed hand -- Jack alongside
+    // something like a 9 of a different suit -- should never even
+    // consider the Jack a candidate here at all while a legal
+    // alternative exists in "disc", not just happen to rank it lower.
+    // Excluding it outright removes any doubt, rather than relying on
+    // point-value ordering to always coincidentally do the right thing.
+    const discNonJack = disc.filter(c => c.rank !== 'J');
+    if (discNonJack.length > 0) disc = discNonJack;
     // Same myTeamSecured skip as the equivalent block above -- once our
     // own goal is already locked in (and Quote/COT isn't live), there's
     // nothing left to optimize here either.
