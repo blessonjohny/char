@@ -421,12 +421,13 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     <div class="opt-btn active" data-val="nolimit">No Limit</div>
     <div class="opt-btn" data-val="fixed">Fixed Limit</div>
   </div>
-  <div class="field-label">Blinds</div>
+  <div class="field-label" id="blindsFieldLabel">Blinds</div>
   <div class="opts-row" id="blindOpts">
     <div class="opt-btn" data-sb="1" data-bb="2">1/2</div>
     <div class="opt-btn active" data-sb="5" data-bb="10">5/10</div>
     <div class="opt-btn" data-sb="25" data-bb="50">25/50</div>
   </div>
+  <div id="tournamentBlindsNote" style="display:none;font-size:0.75rem;color:var(--text-dim,#9aa);margin:4px 0 8px">Tournament blinds always start at 5/10 and increase automatically as play goes on.</div>
   <div class="field-label">Starting Chips</div>
   <div class="opts-row" id="chipsOpts">
     <div class="opt-btn active" data-val="1000">1000</div>
@@ -793,7 +794,18 @@ function wireOptRow(rowId, onPick) {
     });
   });
 }
-wireOptRow('modeOpts', btn => createOpts.mode = btn.dataset.val);
+wireOptRow('modeOpts', btn => {
+  createOpts.mode = btn.dataset.val;
+  // Real, confirmed gap: the blind-preset buttons let someone pick e.g. 25/50 for a
+  // tournament table, but tournament mode always starts at 5/10 regardless (a fixed, standard
+  // schedule, not a user-chosen stake) - left as-is, that selector would silently get ignored
+  // with no explanation. Swapped for a plain note instead whenever tournament is selected, and
+  // swapped back the moment they pick cash again.
+  const isTournament = createOpts.mode === 'tournament';
+  $('blindOpts').style.display = isTournament ? 'none' : '';
+  $('blindsFieldLabel').style.display = isTournament ? 'none' : '';
+  $('tournamentBlindsNote').style.display = isTournament ? '' : 'none';
+});
 wireOptRow('buyInOpts', btn => createOpts.buyInType = btn.dataset.val);
 wireOptRow('blindOpts', btn => { createOpts.smallBlind = Number(btn.dataset.sb); createOpts.bigBlind = Number(btn.dataset.bb); });
 wireOptRow('chipsOpts', btn => createOpts.startingChips = Number(btn.dataset.val));
@@ -901,8 +913,11 @@ function seatPositions() {
       { x: 49.9, y: 80.8 },  // 0: my own seat
       { x: 31.0, y: 79.4 },  // 1: front-left-of-center
       { x: 15.2, y: 69.3 },  // 2: lower-left
-      { x: 14, y: 39 },      // 3: upper-left - per explicit request, moved down and in toward
-                              //    its own seat/stool a bit more (was 10.8/33.8)
+      { x: 7.5, y: 53.5 },   // 3: upper-left - re-measured from scratch after the previous
+                              //    value turned out to be a false match on the curtain fabric
+                              //    (same dark purple as the stools), not a real stool at all -
+                              //    checked this new position directly and it's confirmed
+                              //    sitting on an actual, distinct stool this time.
       { x: 29.9, y: 36 },    // 4: back-left-of-center (flanking the dealer) - per explicit
                               //    report, moved back up after the info-above-avatar flip
                               //    pushed the avatar itself down (that flip makes the whole
@@ -910,7 +925,8 @@ function seatPositions() {
                               //    centered on this point, the avatar - now in the bottom half
                               //    of that taller box - visually lands lower than before)
       { x: 70.6, y: 36 },    // 5: back-right-of-center (mirrors 4)
-      { x: 85, y: 39 },      // 6: upper-right (mirrors 3) - moved down and in to match
+      { x: 92.5, y: 53.5 },  // 6: upper-right (mirrors 3) - also re-measured from scratch,
+                              //    same reason as 3 above
       { x: 84.7, y: 69.1 },  // 7: lower-right (mirrors 2)
       { x: 68.8, y: 79.5 },  // 8: front-right-of-center (mirrors 1)
     ];
@@ -928,7 +944,7 @@ function slotFor(pos) { return myPos === null ? pos : (pos - myPos + 9) % 9; }
 function renderGameTable(state) {
   showScreen('gameScreen');
   $('handNumDisplay').textContent = 'Hand ' + state.handNumber;
-  $('blindsDisplay').textContent = state.smallBlind + '/' + state.bigBlind + (state.buyInType === 'fixed' ? ' fixed' : ' NL');
+  $('blindsDisplay').textContent = state.smallBlind + '/' + state.bigBlind + (state.buyInType === 'fixed' ? ' fixed' : ' NL') + (state.mode === 'tournament' ? ` · Level ${(state.blindLevel || 0) + 1}` : '');
   const potTotal = state.pots.reduce((s, p) => s + p.amount, 0);
   $('potDisplay').innerHTML = (potTotal > 0 ? chipHtml(potTotal) : '') + 'Pot: ' + potTotal + (state.currentBet > 0 ? ` · Bet: ${state.currentBet}` : '');
   $('boardArea').innerHTML = state.board.map(c => cardHtml(c, false)).join('') || '<span style="opacity:0.4;font-size:0.7rem">— waiting for flop —</span>';
@@ -1071,10 +1087,18 @@ function renderActionBar(state) {
     const fixedLabel = state.currentBet > 0 ? 'Raise to ' + (state.currentBet + state.bigBlind) : 'Bet ' + state.bigBlind;
     html += `<button class="action-btn action-bet" data-label="${fixedLabel}" style="width:100%" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}')">${fixedLabel}</button>`;
   } else if (maxBet > minBet) {
+    // Real, confirmed bug fix per explicit report: the slider step and both +/- stepper
+    // buttons all used the table's big blind directly, ignoring the actual current minimum
+    // raise size (state.minRaise) - once any raise bigger than a min-raise had happened this
+    // betting round, minRaise grows past the big blind, but these three still only offered
+    // big-blind-sized increments from that point, out of step with what a real minimum raise
+    // actually allows. raiseStep matches the same Math.max(minRaise, bigBlind) formula minBet
+    // itself already uses just above, so all four numbers agree with each other.
+    const raiseStep = Math.max(state.minRaise, state.bigBlind);
     html += `<div class="amount-row">
-      <button class="stepper-btn" onclick="adjustBetAmount(-${state.bigBlind})">−</button>
-      <input type="range" id="betSlider" min="${minBet}" max="${maxBet}" step="${state.bigBlind}" value="${minBet}">
-      <button class="stepper-btn" onclick="adjustBetAmount(${state.bigBlind})">+</button>
+      <button class="stepper-btn" onclick="adjustBetAmount(-${raiseStep})">−</button>
+      <input type="range" id="betSlider" min="${minBet}" max="${maxBet}" step="${raiseStep}" value="${minBet}">
+      <button class="stepper-btn" onclick="adjustBetAmount(${raiseStep})">+</button>
       <span class="amount-val" id="betAmountVal">${minBet}</span>
     </div>
     <button class="action-btn action-bet" data-label="${state.currentBet > 0 ? 'Raise' : 'Bet'}" style="width:100%;margin-top:8px" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}', Number(document.getElementById('betSlider').value))">${state.currentBet > 0 ? 'Raise' : 'Bet'}</button>`;
