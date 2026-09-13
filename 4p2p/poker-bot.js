@@ -195,6 +195,15 @@ function botDecideAction(engine, pos) {
   // play a fixed strategy either.
   equity = Math.max(0, Math.min(1, equity + (Math.random() - 0.5) * 0.06));
 
+  // Real, confirmed bug fix per explicit live report of bots calling/betting odd amounts like
+  // 21, 24, 25 with 5/10 blinds, instead of clean multiples of the big blind (10, 20, 30...)
+  // a real player would actually see offered. pot * someFraction was never going to land on a
+  // clean number on its own - rounded UP (never down, so a sized-up amount can never
+  // accidentally fall back below whatever floor - engine.bigBlind or engine.minRaise - the
+  // caller already enforced) to the nearest big-blind multiple right here, once, rather than
+  // patching each of the three call sites below separately.
+  const roundToBlind = (n) => Math.ceil(n / engine.bigBlind) * engine.bigBlind;
+
   if (toCall === 0) {
     // Free to act: bet for value with real equity, occasionally
     // continuation-bet as a bluff with nothing, otherwise check.
@@ -210,7 +219,7 @@ function botDecideAction(engine, pos) {
     const bluff = equity < 0.38 && Math.random() < 0.22 * personality.aggression;
     if (valueBet || bluff) {
       const sizeFraction = valueBet ? (0.5 + equity * 0.35) : 0.45; // bigger with stronger hands, standard c-bet size as a bluff
-      const betSize = Math.max(engine.bigBlind, Math.round(pot * sizeFraction * personality.aggression));
+      const betSize = roundToBlind(Math.max(engine.bigBlind, Math.round(pot * sizeFraction * personality.aggression)));
       return { action: 'bet', amount: s.bettedThisRound + betSize };
     }
     return { action: 'check' };
@@ -224,14 +233,14 @@ function botDecideAction(engine, pos) {
     // The rare deliberate bluff-raise with genuinely weak equity, kept
     // infrequent so it doesn't become predictable or reckless.
     if (Math.random() < 0.05 * personality.aggression && toCall < s.chips * 0.25) {
-      const raiseSize = Math.max(engine.minRaise, Math.round(pot * 0.7));
+      const raiseSize = roundToBlind(Math.max(engine.minRaise, Math.round(pot * 0.7)));
       return { action: 'raise', amount: engine.currentBet + raiseSize };
     }
     return { action: 'fold' };
   }
 
   if (equity > requiredEquity + 0.28 && Math.random() < 0.55 * personality.aggression) {
-    const raiseSize = Math.max(engine.minRaise, Math.round(pot * (0.55 + equity * 0.3)));
+    const raiseSize = roundToBlind(Math.max(engine.minRaise, Math.round(pot * (0.55 + equity * 0.3))));
     return { action: 'raise', amount: engine.currentBet + raiseSize };
   }
 
