@@ -316,17 +316,20 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
      with the button's own text crammed inside it. The dynamic label text (e.g. "Call 10")
      comes from the data-label attribute the JS above sets on each button; the button's own
      inline text is hidden here in favor of that separately-positioned, readable-sized label. */
-  /* Per explicit request: swapped sides from the previous layout - Fold/Check/Raise now sit
-     at the bottom-RIGHT, the bet-amount slider and its Bet/Raise submit button now sit at the
-     bottom-LEFT, arranged vertically. Each block keeps its own fixed position independent of
-     the other, exactly as before, just mirrored left/right. */
+  /* Per explicit, emphatic correction: these were still sitting in the bottom corners, which
+     inherently risk crowding whichever seat also lands near that corner (seats 1/2/7/8 all
+     live somewhere in that same bottom band). Moved both clusters up to the vertical middle
+     of the screen instead, hugging the left/right edges - genuinely empty space the whole way
+     down (just curtain/window, no seat ever renders there) - and stacked each cluster as an
+     actual vertical column top-to-bottom, not a row. Fold/Check/Raise on the right, the bet
+     slider and its submit button on the left, mirrored. */
   body.k28-in-game .action-bar {
-    position: fixed; bottom: 10px; left: 10px; right: auto; top: auto;
-    width: auto; max-width: 340px; background: none; padding: 0; z-index: 45;
+    position: fixed; left: 14px; right: auto; bottom: 0; top: 0; margin: auto 0; height: fit-content;
+    width: auto; max-width: 190px; background: none; padding: 0; z-index: 45;
   }
   body.k28-in-game .action-row {
-    position: fixed; bottom: 10px; right: 10px; left: auto; top: auto;
-    gap: 14px; margin-bottom: 0; align-items: flex-end; z-index: 45;
+    position: fixed; right: 14px; left: auto; bottom: 0; top: 0; margin: auto 0; height: fit-content;
+    flex-direction: column; gap: 34px; align-items: center; z-index: 45;
   }
   body.k28-in-game .action-btn {
     position: relative; flex: none; width: 60px; height: 60px; border-radius: 50%; padding: 0;
@@ -334,7 +337,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     box-shadow: 0 4px 14px rgba(0,0,0,0.6);
   }
   body.k28-in-game .action-btn::after {
-    position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+    position: absolute; top: 50%; right: 100%; transform: translateY(-50%); margin-right: 10px;
     font-size: 0.72rem; font-weight: 800; white-space: nowrap; color: currentColor;
     text-shadow: 0 1px 4px rgba(0,0,0,0.9);
   }
@@ -350,7 +353,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .action-bet { color: #f4c430; }
   body.k28-in-game .action-bet::after { content: attr(data-label); }
   body.k28-in-game .action-bet::before { content: '▲'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; border: 2.5px solid currentColor; border-radius: 50%; }
-  body.k28-in-game .amount-row { background: rgba(0,0,0,0.55); padding: 6px 10px; }
+  body.k28-in-game .amount-row { background: rgba(0,0,0,0.55); padding: 6px 10px; flex-wrap: wrap; justify-content: center; }
   body.k28-in-game .amount-val { font-size: 0.78rem; min-width: 44px; }
   /* The full-width Bet/Raise submit button (under the slider) keeps a normal filled pill
      style with its label actually inside, unlike the three small circles above - matches the
@@ -381,9 +384,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .board-area .card { width: 30px; height: 43px; font-size: 0.78rem; }
   body.k28-in-game .pot-display { font-size: 0.7rem; padding: 4px 10px; }
   body.k28-in-game .house-dealer { width: 50px; height: 50px; }
-  body.k28-in-game .action-btn { width: 52px; height: 52px; }
-  body.k28-in-game .action-btn::before { font-size: 1.2rem; }
-  body.k28-in-game .action-btn::after { font-size: 0.6rem; top: -18px; }
+  body.k28-in-game .action-btn { width: 46px; height: 46px; }
+  body.k28-in-game .action-btn::before { font-size: 1.1rem; }
+  body.k28-in-game .action-btn::after { font-size: 0.56rem; top: 50%; right: 100%; margin-right: 7px; }
+  body.k28-in-game .action-row { gap: 18px; right: 8px; }
+  body.k28-in-game .action-bar { left: 8px; max-width: 150px; }
   body.k28-in-game .hand-strip .card { width: 32px; height: 45px; font-size: 0.78rem; }
   body.k28-in-game #myHandLabel { font-size: 0.6rem; }
 }
