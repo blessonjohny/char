@@ -483,6 +483,15 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     <button class="btn btn-gold" id="btnStartHand">▶ Start Hand</button>
   </div>
   <div id="waitingNote" class="subtitle"></div>
+  <button class="btn" id="btnInviteHoldemLobby" style="margin-top:10px">💌 Invite a Friend</button>
+</div>
+
+<!-- ============ TOURNAMENT OVER ============ -->
+<div class="screen hidden" id="tournamentOverScreen">
+  <h1 id="tournamentOverTitle">🏁 Tournament complete</h1>
+  <div class="subtitle">Final standings</div>
+  <div id="tournamentStandingsList" style="width:100%;max-width:360px;margin-bottom:16px"></div>
+  <button class="btn btn-gold" id="btnTournamentExit">🚪 Exit</button>
 </div>
 
 <!-- ============ GAME TABLE ============ -->
@@ -494,6 +503,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     </div>
     <div style="flex-shrink:0">
       <button class="topbar-btn" id="btnFullscreen" onclick="requestHoldemFullscreen()" title="Full Screen">⛶</button>
+      <button class="topbar-btn" id="btnInviteHoldem" title="Invite a Friend">💌 Invite</button>
       <button class="topbar-btn" id="btnShowLog">📜 Log</button>
       <button class="topbar-btn" id="btnLeaveTable">🚪 Leave</button>
     </div>
@@ -710,6 +720,36 @@ document.addEventListener('webkitfullscreenchange', () => {
   const btn = $('btnFullscreen');
   if (btn) btn.textContent = (document.webkitFullscreenElement) ? '⛶ Exit' : '⛶';
 });
+// Per explicit request: an Invite button matching the same one already on the 4-player and
+// 6-player tables - native share sheet first, clipboard copy as the fallback, and a plain
+// on-screen room code as the last resort if even clipboard access is denied. Reuses the same
+// BRAND_ORIGIN + ?invite=<code> link shape those two tables already use, so a link generated
+// from any of the three games opens correctly for whichever game it actually points to.
+const BRAND_ORIGIN = 'https://28gulan.com';
+async function shareHoldemInviteLink() {
+  if (!myTableId) { toast('Join a table first'); return; }
+  const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(myTableId);
+  const text = `🟢 Join my Texas Hold'em table! Room code: ${myTableId}`;
+  if (navigator.share) {
+    try { await navigator.share({ title: "28 Gulan Hold'em", text, url: link }); return; }
+    catch (e) { /* user cancelled the share sheet - fall through to copy */ }
+  }
+  try {
+    await navigator.clipboard.writeText(link);
+    toast('🔗 Invite link copied — send it to a friend!');
+  } catch (e) {
+    toast(`Room code: ${myTableId} — share this with a friend`);
+  }
+}
+$('btnInviteHoldem').addEventListener('click', shareHoldemInviteLink);
+$('btnInviteHoldemLobby').addEventListener('click', shareHoldemInviteLink);
+// Auto-fills the join-code field from a ?invite=<code> link (the exact link shareHoldemInviteLink
+// generates above), matching the same query-param convention the 4-player/6-player tables use.
+(() => {
+  const params = new URLSearchParams(window.location.search);
+  const invited = params.get('invite');
+  if (invited) $('joinCodeInput').value = invited.toUpperCase();
+})();
 function toast(msg) {
   const el = document.createElement('div');
   el.className = 'toast';
@@ -891,8 +931,32 @@ socket.on('poker_joined', (info) => {
 socket.on('poker_state', (state) => {
   latestState = state;
   isHost = !!state.isHost;
-  if (state.phase === 'lobby') renderLobby(state);
+  if (state.phase === 'tournamentOver') renderTournamentOver(state);
+  else if (state.phase === 'lobby') renderLobby(state);
   else renderGameTable(state);
+});
+
+// Per explicit, confirmed bug report: this used to be entirely missing - a real tournament
+// conclusion fell through to the exact same handling as "this table doesn't have enough
+// players seated yet", landing on the plain pre-game lobby screen with no leave/exit control
+// at all and a Start Hand button that would only fail again. This is the actual screen for
+// that moment: final standings in finishing order (see the engine's own tournamentStandings,
+// already computed there), and a real Exit button - not a "Continue" that implies another
+// hand is coming, since none is.
+function renderTournamentOver(state) {
+  showScreen('tournamentOverScreen');
+  const standings = state.tournamentStandings || [];
+  const iWon = standings[0] && standings[0].pos === myPos;
+  $('tournamentOverTitle').textContent = iWon ? '🏆 You won the tournament!' : '🏁 Tournament complete';
+  $('tournamentStandingsList').innerHTML = standings.map(s => `
+    <div class="table-row${s.pos === myPos ? ' me' : ''}">
+      <span>${s.place}. ${escapeHtml(s.name)}${s.isBot ? ' 🤖' : ''}${s.pos === myPos ? ' (you)' : ''}</span>
+      <span style="color:var(--gold)">${s.place === 1 ? '🏆' : ''}</span>
+    </div>`).join('');
+}
+$('btnTournamentExit').addEventListener('click', () => {
+  socket.emit('poker_leaveTable');
+  showScreen('landingScreen');
 });
 
 function renderLobby(state) {
