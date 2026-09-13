@@ -975,24 +975,26 @@ function seatPositions() {
                               //    makes the whole seat box taller with the avatar sitting in
                               //    its lower half - the same effect already accounted for on
                               //    seats 4/5 elsewhere in this file.
-      { x: 29.9, y: 34 },    // 4: back-left-of-center (flanking the dealer) - per explicit
+      { x: 32.9, y: 32 },    // 4: back-left-of-center (flanking the dealer) - per explicit
                               //    report, moved back up after the info-above-avatar flip
                               //    pushed the avatar itself down (that flip makes the whole
                               //    seat box taller with the info on top, and since the box is
                               //    centered on this point, the avatar - now in the bottom half
                               //    of that taller box - visually lands lower than before).
-                              //    Per further explicit follow-up: nudged up another notch
-                              //    (36 -> 34) since the avatar still read as sitting a bit low
-                              //    of its actual chair even after the first correction.
-      { x: 70.6, y: 33 },    // 5: back-right-of-center (mirrors 4, but per explicit request
+                              //    Per further explicit follow-up: moved up a further notch
+                              //    (34 -> 32) and shifted right/inward toward the table
+                              //    (29.9 -> 32.9), closer to seat 5 and further from the
+                              //    curtain/window it was drifting toward.
+      { x: 70.6, y: 29 },    // 5: back-right-of-center (mirrors 4, but per explicit request
                               //    moved up slightly more than 4/7 specifically -- this seat
                               //    and 6 sit closest to the dealer at the true back-center of
                               //    the table, reading as more visibly low than the outer 4/7
                               //    pair even at the same nominal offset)
-      { x: 85.7, y: 39.2 },  // 6: upper-right (mirrors 3, moved up the same extra notch as 5
+      { x: 85.7, y: 35.2 },  // 6: upper-right (mirrors 3, moved up the same extra notch as 5
                               //    for the identical back-center reasoning)
-      { x: 84.7, y: 67.1 },  // 7: lower-right (mirrors 2, nudged up the same smaller amount
-                              //    as 4)
+      { x: 81.7, y: 65.1 },  // 7: lower-right (mirrors 2, moved up a small amount to match
+                              //    4's identical treatment, and shifted left/inward toward
+                              //    the table (84.7 -> 81.7) the same way 4 shifted right)
       { x: 68.8, y: 79.5 },  // 8: front-right-of-center (mirrors 1)
     ];
   }
