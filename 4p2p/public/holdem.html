@@ -99,11 +99,39 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    hand (see poker-engine.js's startHand()) and updated the instant that seat acts again -
    never stale from a previous street or a previous hand. */
 .action-badge{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px;background:rgba(20,16,12,0.9);border:1.5px solid var(--gold-soft,#c9a44c);color:#fff;font-size:0.5rem;font-weight:800;letter-spacing:0.3px;padding:2px 7px;border-radius:8px;white-space:nowrap;z-index:5}
+/* Per explicit request: raise/call/fold badges color-coded like a real
+   poker room, but scoped to the bottom-row seats only (Bot2, Bot3,
+   Bot8, Bot9 as labeled on screen -- slots 1, 2, 7, 8 in this array,
+   one lower than each bot's own display number, same mapping already
+   confirmed and documented in seatPositions() above). The back-row
+   seats keep the original neutral badge look untouched. */
+.seat[data-slot="1"] .action-badge-raise, .seat[data-slot="2"] .action-badge-raise,
+.seat[data-slot="7"] .action-badge-raise, .seat[data-slot="8"] .action-badge-raise {
+  background: rgba(20,90,40,0.92); border-color: #3ddc71; color: #eafff0;
+}
+.seat[data-slot="1"] .action-badge-call, .seat[data-slot="2"] .action-badge-call,
+.seat[data-slot="7"] .action-badge-call, .seat[data-slot="8"] .action-badge-call {
+  background: rgba(20,55,110,0.92); border-color: #4aa3ff; color: #eaf4ff;
+}
+.seat[data-slot="1"] .action-badge-fold, .seat[data-slot="2"] .action-badge-fold,
+.seat[data-slot="7"] .action-badge-fold, .seat[data-slot="8"] .action-badge-fold {
+  background: rgba(110,20,25,0.92); border-color: #ff5c5c; color: #ffeaea;
+}
 @keyframes turnTagPulse{0%,100%{transform:translateX(-50%) scale(1);}50%{transform:translateX(-50%) scale(1.08);}}
 .seat-avatar{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#2a3f5f,#101d2e);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:2.5px solid rgba(255,255,255,0.15)}
 .seat.active .seat-avatar{border-color:var(--gold);box-shadow:0 0 14px rgba(244,196,48,0.7);animation:seatPulse 1.1s ease-in-out infinite}
 @keyframes seatPulse{0%,100%{box-shadow:0 0 14px rgba(244,196,48,0.7)}50%{box-shadow:0 0 22px rgba(244,196,48,1)}}
 .seat.folded .seat-avatar{opacity:0.35;filter:grayscale(1)}
+/* Per explicit request: a split/multi-way pot showdown makes it
+   obvious at a glance who actually lost -- darkened and desaturated,
+   same visual language as a folded seat, but distinctly less extreme
+   (this seat DID show a real hand, it just wasn't the winner) so the
+   two states still read as different things happening for different
+   reasons. */
+.seat.showdown-lost .seat-avatar,
+.seat.showdown-lost .seat-avatar-photo { opacity: 0.5; filter: grayscale(0.85) brightness(0.6); }
+.seat.showdown-lost .seat-name,
+.seat.showdown-lost .seat-bet { opacity: 0.55; }
 .seat-name{font-size:0.62rem;font-weight:700;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .seat-chips{font-size:0.6rem;color:var(--gold);font-weight:800}
 .seat-cards{display:flex;gap:2px;justify-content:center;margin-top:3px}
@@ -119,6 +147,12 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 .desktop-top-readout{display:none}
 .house-dealer{display:none}
 .seat-bet{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);border:1px solid var(--gold);border-radius:10px;padding:2px 8px 2px 4px;font-size:0.6rem;color:var(--gold);font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:3px;z-index:5}
+/* Per explicit request: once all 5 community cards are out (the
+   river), every seat's bet chip -- centered toward the table by
+   default, same direction the community cards themselves sit in --
+   was landing right on top of those cards instead of beside them.
+   Shifted left specifically at this point rather than centered. */
+.seat-bet-river{left:auto;right:calc(50% + 34px);transform:none}
 .dealer-chip{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#241a12;font-size:0.55rem;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #241a12}
 .allin-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}
 .folded-tag{display:inline-block;background:rgba(0,0,0,0.5);color:rgba(255,255,255,0.55);font-size:0.6rem;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15)}
@@ -130,6 +164,19 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 .winner-popup-cards{display:flex;justify-content:center;gap:4px}
 .winner-popup-cards .card{animation:cardFlipReveal .45s ease both}
 .winner-popup-cards .card:nth-child(2){animation-delay:0.08s}
+/* Per explicit request: a plain, dismissible suggestion rather than
+   any actual screen-orientation locking or forced fullscreen -- see
+   the HTML comment above this popup's markup for the fuller
+   reasoning. Reuses the exact same fixed-center-popup positioning and
+   pointer-events pattern as .winner-popup for visual consistency
+   between the two, just its own simpler content and no chip-position
+   transform-origin trick (this one has no "grows out of the pot"
+   moment to connect to). */
+.tilt-suggest-popup{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:linear-gradient(160deg,rgba(26,47,28,0.92),rgba(13,31,16,0.92));border:3px solid var(--gold);border-radius:18px;padding:22px 26px;z-index:1950;text-align:center;box-shadow:0 0 40px rgba(244,196,48,0.5),0 10px 30px rgba(0,0,0,0.7);max-width:80vw;display:none}
+.tilt-suggest-popup.on{display:block}
+.tilt-suggest-icon{font-size:2.2rem;margin-bottom:8px}
+.tilt-suggest-title{color:var(--gold);font-size:1.05rem;font-weight:900;margin-bottom:6px;text-shadow:0 0 10px rgba(244,196,48,0.6)}
+.tilt-suggest-sub{color:var(--cream);font-size:0.8rem;line-height:1.4}
 .hand-strip{display:flex;justify-content:center;gap:6px;padding:4px 0;flex-shrink:0}
 .hand-strip .card{width:44px;height:62px;font-size:1rem}
 
@@ -224,7 +271,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     display: none; position: fixed; left: 50%; transform: translateX(-50%); z-index: 48;
     text-align: center;
   }
-  body.k28-in-game.my-turn-active #myTurnTop { display: block; top: 34px; }
+  body.k28-in-game.my-turn-active #myTurnTop {
+    display: block; top: 34px; background: transparent; color: var(--gold);
+    font-weight: 900; text-shadow: 0 2px 8px rgba(0,0,0,0.95); font-size: 1.05rem;
+    animation: none;
+  }
   body.k28-in-game #myChipsTop { display: block; top: 58px; font-size: 1rem; font-weight: 800; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,0.95); }
   body.k28-in-game #myChipsTop::before {
     content: 'Your Chips'; display: block; font-size: 0.55rem; font-weight: 600;
@@ -542,6 +593,21 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     <div class="winner-popup-cards" id="winnerPopupCards"></div>
     <button class="btn btn-gold" id="btnAckWinnerPopup" style="width:100%;margin-top:14px;pointer-events:auto">OK</button>
   </div>
+  <!-- Per explicit request: the safer of two options offered -- a
+       plain, dismissible suggestion rather than any actual
+       programmatic screen-orientation locking or forced fullscreen,
+       which the request explicitly asked to stay away from ("I don't
+       want this getting messed up"). Shown once, right after the
+       table first becomes visible and before any action has happened,
+       purely on a phone-sized portrait screen -- never on a screen
+       already wide enough for k28-in-game's own desktop layout, since
+       that's already a fine, complete experience on its own. -->
+  <div class="tilt-suggest-popup" id="tiltSuggestPopup">
+    <div class="tilt-suggest-icon">📱↻</div>
+    <div class="tilt-suggest-title">Rotate for the best view</div>
+    <div class="tilt-suggest-sub">Turn your phone sideways for a bigger table and easier controls.</div>
+    <button class="btn btn-gold" id="btnDismissTiltSuggest" style="width:100%;margin-top:14px">OK</button>
+  </div>
   <div class="action-bar" id="actionBar"></div>
 </div>
 
@@ -647,17 +713,54 @@ socket.io.on('reconnect_attempt', (attempt) => {
 // never even getting a chance to try. Checking explicitly the instant
 // the tab becomes visible again catches this immediately instead of
 // waiting on a timer that was never going to run.
+// Real, confirmed root-cause fix per explicit live report ("pause a
+// few seconds, table gets stuck, need a refresh, sometimes auto-folds
+// out of nowhere"): the block below used to just trust
+// socket.connected -- but that flag can straightforwardly lie after a
+// real device suspension. A phone can pause this tab's JS entirely
+// before it ever processes the actual disconnect event, even though
+// the server's own ping-timeout already gave up on that connection
+// long ago -- the client sits there believing it's live while
+// actually receiving nothing, which is exactly "pauses for a few
+// seconds, then stuck" from the player's side, and exactly why the
+// server-side auto-fold timer (which has no way to know the client
+// thinks it's fine) eventually fires and looks like it came "out of
+// nowhere." This is the identical, already-proven fix from the
+// 4-player/6-player tables: instead of trusting a flag that can be
+// wrong, ask the server directly every time via a real round-trip
+// (healthPing) with a short timeout -- only a genuine, current
+// response counts as "still connected." No ack in time (or the
+// transport already reporting disconnected) forces a completely
+// fresh connection rather than continuing to trust stale state.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && myTableId && myPlayerId) {
-    if (!socket.connected) {
-      socket.connect();
-    } else {
-      // Even if the transport itself looks connected, re-announce our
-      // seat -- a long suspension can leave the server-side socket
-      // registration stale without the transport ever actually
-      // dropping, so this is cheap insurance either way.
-      socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
-    }
+  if (document.visibilityState !== 'visible' || !myTableId || !myPlayerId) return;
+  let settled = false;
+  const forceReconnect = () => {
+    if (settled) return;
+    settled = true;
+    try { socket.disconnect(); } catch (e) {}
+    socket.connect();
+  };
+  if (!socket.connected) {
+    forceReconnect();
+    return;
+  }
+  const healthCheckTimeout = setTimeout(forceReconnect, 3000);
+  socket.emit('healthPing', () => {
+    if (settled) return; // the 3s timeout already fired and force-reconnected
+    settled = true;
+    clearTimeout(healthCheckTimeout);
+    // The round trip genuinely worked just now -- this connection is
+    // real, not zombied. A lightweight re-announce is enough.
+    socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
+  });
+});
+// Same companion fix as the 4-player table: a phone coming back online
+// after a full network drop (not just a backgrounded tab) doesn't
+// always fire visibilitychange at all, but does fire 'online'.
+window.addEventListener('online', () => {
+  if (myTableId && myPlayerId && !socket.connected) {
+    socket.connect();
   }
 });
 
@@ -677,6 +780,21 @@ function holdemAvatarFor(name, pos) {
 function holdemAvatarImgHtml(name, pos) {
   return `<img src="/images/hero-avatars/${holdemAvatarFor(name, pos)}.png" class="seat-avatar-photo" alt="" draggable="false">`;
 }
+// Per explicit request: color-codes each seat's own last-action badge
+// by what it actually was, matching a real poker room's own visual
+// convention (raise = aggression = green, call = neutral = blue,
+// fold = red) instead of every action sharing one flat, uninformative
+// color. Matched by prefix against poker-engine.js's own exact wording
+// (see recordAction there) -- 'Raise to'/'Bet' both count as
+// raising, 'Call'/'All-In' as calling (an all-in is still fundamentally
+// a call/commit, not new aggression), 'Fold' as folding, anything else
+// (Check) gets no special class and keeps the neutral default look.
+function actionBadgeClass(lastAction) {
+  if (/^(Raise|Bet)/.test(lastAction)) return 'action-badge-raise';
+  if (/^(Call|All-In)/.test(lastAction)) return 'action-badge-call';
+  if (/^Fold/.test(lastAction)) return 'action-badge-fold';
+  return '';
+}
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   $(id).classList.remove('hidden');
@@ -688,6 +806,25 @@ function showScreen(id) {
   // already correct by then, not on the next tick after an async observer catches up.
   document.body.classList.toggle('k28-in-game', id === 'gameScreen' && window.innerWidth >= 521);
 }
+// Per explicit request: suggests (never forces) rotating to landscape,
+// once per browser session, the very first moment the table itself is
+// actually visible -- before any action has happened, per the explicit
+// request. window.innerWidth >= 521 is the exact same threshold
+// k28-in-game itself already uses to decide "wide enough to be the
+// desktop/landscape layout" just above, so this only ever fires on a
+// screen that layout wouldn't already be active on -- a phone still in
+// portrait, specifically, not a tablet or desktop window narrower than
+// typical but still plenty roomy.
+let tiltSuggestShownThisSession = false;
+function maybeSuggestTilt() {
+  if (tiltSuggestShownThisSession) return;
+  if (window.innerWidth >= 521 || window.innerHeight <= window.innerWidth) return;
+  tiltSuggestShownThisSession = true;
+  $('tiltSuggestPopup').classList.add('on');
+}
+$('btnDismissTiltSuggest').addEventListener('click', () => {
+  $('tiltSuggestPopup').classList.remove('on');
+});
 // Safety-net fallback mirroring #gameScreen's real visibility onto body.k28-in-game, matching
 // the identical addition already proven necessary on both the 4-player and 6-player tables -
 // see six.js's identical block for the fuller reasoning already confirmed there.
@@ -791,6 +928,38 @@ let lastCardRevealAnimatedFor = null;
 // each winner's seat when a hand resolves -- purely a visual flourish
 // on top of the chip counts (which already update correctly regardless
 // of whether this animation runs or not).
+// Per explicit request: the same "chips physically travel" idea already
+// built for pot->winner payouts, applied to the much more common
+// moment of a bet/call/raise actually landing in the pot -- previously
+// the bet amount just appeared next to the seat with no visual
+// connection to the pot total updating. Reuses the identical
+// flying-chip/gradient/stagger approach for a consistent look. Fires
+// once per seat whenever THAT seat's own bettedThisRound has gone up
+// since the last render (tracked in lastBettedThisRoundBySeat below),
+// not on every render regardless of what changed.
+const lastBettedThisRoundBySeat = {};
+function animateChipToPot(seatPos, amount) {
+  const potEl = $('potDisplay');
+  const seatEl = document.querySelector(`.seat[data-pos="${seatPos}"]`);
+  if (!potEl || !seatEl) return;
+  const potRect = potEl.getBoundingClientRect();
+  const seatRect = seatEl.getBoundingClientRect();
+  const startX = seatRect.left + seatRect.width / 2;
+  const startY = seatRect.top + seatRect.height / 2;
+  const endX = potRect.left + potRect.width / 2;
+  const endY = potRect.top + potRect.height / 2;
+  const chip = document.createElement('div');
+  chip.className = 'flying-chip';
+  chip.style.background = chipGradientForValue(amount);
+  chip.style.left = startX + 'px';
+  chip.style.top = startY + 'px';
+  chip.style.transform = 'translate(-50%,-50%)';
+  chip.style.opacity = '1';
+  document.body.appendChild(chip);
+  setTimeout(() => { chip.style.transform = `translate(${endX - startX}px, ${endY - startY}px)`; }, 20);
+  setTimeout(() => { chip.style.opacity = '0'; }, 480);
+  setTimeout(() => { chip.remove(); }, 630);
+}
 function animateChipsToWinners(state) {
   const potEl = $('potDisplay');
   const winners = (state.showdownResult && state.showdownResult.winners) || [];
@@ -1036,6 +1205,7 @@ function slotFor(pos) { return myPos === null ? pos : (pos - myPos + 9) % 9; }
 
 function renderGameTable(state) {
   showScreen('gameScreen');
+  maybeSuggestTilt();
   $('handNumDisplay').textContent = 'Hand ' + state.handNumber;
   $('blindsDisplay').textContent = state.smallBlind + '/' + state.bigBlind + (state.buyInType === 'fixed' ? ' fixed' : ' NL') + (state.mode === 'tournament' ? ` · Level ${(state.blindLevel || 0) + 1}` : '');
   const potTotal = state.pots.reduce((s, p) => s + p.amount, 0);
@@ -1058,13 +1228,13 @@ function renderGameTable(state) {
         : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
     return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" data-slot="${slot}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
       ${isActive ? `<div class="turn-tag turn-tag-outer">${pos === myPos ? 'YOUR TURN' : 'TURN'}</div>` : ''}
-      ${!isActive && s.lastAction && !s.folded ? `<div class="action-badge action-badge-outer">${escapeHtml(s.lastAction)}</div>` : ''}
+      ${!isActive && s.lastAction && !s.folded ? `<div class="action-badge action-badge-outer ${actionBadgeClass(s.lastAction)}">${escapeHtml(s.lastAction)}</div>` : ''}
       <div class="seat-avatar-wrap">
         <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
         ${holdemAvatarImgHtml(s.name, pos)}
         ${pos === state.dealerSeat ? '<div class="dealer-chip">D</div>' : ''}
         ${s.allIn ? '<div class="allin-tag">ALL-IN</div>' : ''}
-        ${s.bettedThisRound > 0 && !s.folded ? `<div class="seat-bet">${chipHtml(s.bettedThisRound, true)}${s.bettedThisRound}</div>` : ''}
+        ${s.bettedThisRound > 0 && !s.folded ? `<div class="seat-bet${state.board.length === 5 ? ' seat-bet-river' : ''}">${chipHtml(s.bettedThisRound, true)}${s.bettedThisRound}</div>` : ''}
       </div>
       <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
       <div class="seat-chips">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
@@ -1080,6 +1250,38 @@ function renderGameTable(state) {
   // exist as separate top-level elements rather than nested inside my own seat).
   if ($('myChipsTop') && mySeat) $('myChipsTop').textContent = mySeat.eliminated ? 'OUT' : mySeat.chips;
   document.body.classList.toggle('my-turn-active', state.currentPlayer === myPos);
+  // Per explicit live report: a flat "YOUR TURN" told the player
+  // nothing they didn't already know from their turn simply having
+  // arrived -- what they actually need at a glance is what their real
+  // options are right now. Mirrors the exact same toCall/canCheck
+  // numbers renderActionBar() computes just below for the real action
+  // buttons, so this text and those buttons can never disagree with
+  // each other.
+  if ($('myTurnTop') && mySeat && state.currentPlayer === myPos && !mySeat.folded) {
+    const toCall = state.currentBet - mySeat.bettedThisRound;
+    const canCheck = toCall <= 0;
+    const firstAction = canCheck ? 'Check' : `Call ${Math.min(toCall, mySeat.chips)}`;
+    $('myTurnTop').textContent = `${firstAction} or Raise or Fold`;
+  }
+
+  // Per explicit request: animates a chip flying from a seat to the pot
+  // the moment that seat's own bet actually increases -- checked here,
+  // after the seats DOM above has already been rebuilt for this render,
+  // since seat positions are purely percentage-based against a fixed
+  // container and land at the identical pixel spot either way. Reset
+  // to empty at the very start of a new hand (bettedThisRound goes back
+  // to 0 for everyone) so the first blind of a fresh hand doesn't
+  // compare against last hand's leftover numbers.
+  if (state.handNumber !== lastBettedThisRoundBySeat.__hand) {
+    for (const k of Object.keys(lastBettedThisRoundBySeat)) delete lastBettedThisRoundBySeat[k];
+    lastBettedThisRoundBySeat.__hand = state.handNumber;
+  }
+  state.seats.forEach((s, pos) => {
+    if (!s) return;
+    const prev = lastBettedThisRoundBySeat[pos] || 0;
+    if (s.bettedThisRound > prev) animateChipToPot(pos, s.bettedThisRound - prev);
+    lastBettedThisRoundBySeat[pos] = s.bettedThisRound;
+  });
 
   renderActionBar(state);
   renderLogPanel(state);
@@ -1096,6 +1298,17 @@ function renderGameTable(state) {
     setTimeout(() => showWinnerPopup(state), 1500);
     setTimeout(() => showWinnerBanner(state), 1000);
   }
+  // Per explicit request: darkens every seat that reached a genuine
+  // showdown but didn't win any share of any pot -- called
+  // unconditionally on every single render (not just the first time a
+  // hand-end is detected) since the seats container's own innerHTML
+  // gets fully rebuilt from scratch on every render pass, which would
+  // otherwise silently wipe out a class added only once. The function
+  // itself already handles clearing when it doesn't apply (any phase
+  // other than a real showdown handEnd), so a plain call here covers
+  // both "should be dark" and "should have cleared" correctly no
+  // matter how often this fires.
+  darkenShowdownLosers(state);
 }
 
 let lastShownWinnerBannerFor = null;
@@ -1103,6 +1316,24 @@ let lastShownWinnerBannerFor = null;
 // Grows directly out of the pot's actual on-screen position, so the
 // announcement reads as a continuation of the chips that just flew
 // there rather than a separate, disconnected effect.
+// Per explicit request: on a genuine showdown (not everyone-else-folded,
+// which has no "losing hands" to show at all -- boardShown distinguishes
+// the two), every seat that showed a hand but didn't win any share of
+// any pot gets visually darkened -- exactly the split-pot "some win,
+// some lose, make it obvious at a glance who lost" ask. allHands lists
+// every seat that actually reached showdown; anyone in that list not
+// also present in winners lost outright.
+function darkenShowdownLosers(state) {
+  const r = state.showdownResult;
+  document.querySelectorAll('.seat.showdown-lost').forEach(el => el.classList.remove('showdown-lost'));
+  if (!r || !r.boardShown || !r.allHands) return;
+  const winnerSeats = new Set(r.winners.map(w => w.seat));
+  for (const h of r.allHands) {
+    if (winnerSeats.has(h.seat)) continue;
+    const seatEl = document.querySelector(`.seat[data-pos="${h.seat}"]`);
+    if (seatEl) seatEl.classList.add('showdown-lost');
+  }
+}
 function showWinnerPopup(state) {
   const r = state.showdownResult;
   const popup = $('winnerPopup');
@@ -1218,6 +1449,7 @@ socket.on('poker_actionError', (info) => toast('❌ ' + (info.reason || 'action 
 // hand-end popup, just applied to street transitions instead.
 let lastBoardLenForBanner = 0;
 let streetBannerShownAtLogText = null;
+let streetBannerDismissTimer = null;
 function renderStreetBanner(state) {
   const el = $('streetBanner');
   const boardLen = state.board.length;
@@ -1227,6 +1459,20 @@ function renderStreetBanner(state) {
       el.textContent = label;
       el.classList.add('on');
       streetBannerShownAtLogText = (state.log[0] && state.log[0].text) || null;
+      // Per explicit live report: waiting on "has a new action happened
+      // since this appeared" alone meant a slow bot, or simply nobody
+      // needing to act again for a while, left this banner sitting on
+      // screen far longer than its actual job (announce the new street,
+      // then get out of the way) ever called for. A flat, short timer
+      // guarantees it clears itself regardless of table pace -- the
+      // log-based dismissal right below still fires sooner if a real
+      // action does happen first, whichever comes first wins.
+      if (streetBannerDismissTimer) clearTimeout(streetBannerDismissTimer);
+      streetBannerDismissTimer = setTimeout(() => {
+        el.classList.remove('on');
+        streetBannerShownAtLogText = null;
+        streetBannerDismissTimer = null;
+      }, 1600);
     }
     // The last-hand winner display's whole purpose is to stay up as a
     // reminder while a new hand deals -- once the flop actually lands,
@@ -1234,7 +1480,11 @@ function renderStreetBanner(state) {
     if (boardLen === 3) $('winnerBanner').style.display = 'none';
   }
   lastBoardLenForBanner = boardLen;
-  if (boardLen === 0) { el.classList.remove('on'); streetBannerShownAtLogText = null; }
+  if (boardLen === 0) {
+    el.classList.remove('on');
+    streetBannerShownAtLogText = null;
+    if (streetBannerDismissTimer) { clearTimeout(streetBannerDismissTimer); streetBannerDismissTimer = null; }
+  }
 
   // Hide once a genuinely new action has happened since the banner
   // appeared (the top of the log has moved on from what it was then).
@@ -1243,6 +1493,7 @@ function renderStreetBanner(state) {
     if (currentTop !== streetBannerShownAtLogText) {
       el.classList.remove('on');
       streetBannerShownAtLogText = null;
+      if (streetBannerDismissTimer) { clearTimeout(streetBannerDismissTimer); streetBannerDismissTimer = null; }
     }
   }
 }
