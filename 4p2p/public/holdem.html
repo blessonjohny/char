@@ -353,18 +353,40 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .action-bet { color: #f4c430; }
   body.k28-in-game .action-bet::after { content: attr(data-label); }
   body.k28-in-game .action-bet::before { content: '▲'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; border: 2.5px solid currentColor; border-radius: 50%; }
-  body.k28-in-game .amount-row { background: rgba(0,0,0,0.55); padding: 6px 10px; flex-wrap: wrap; justify-content: center; }
-  body.k28-in-game .amount-val { font-size: 0.78rem; min-width: 44px; }
-  /* The full-width Bet/Raise submit button (under the slider) keeps a normal filled pill
-     style with its label actually inside, unlike the three small circles above - matches the
-     reference's own solid gold "Bet" submit bar used once an amount has been picked. */
-  body.k28-in-game .action-bar > button.action-bet[style*="width:100%"] {
-    width: 100%; height: 44px; border-radius: 22px; font-size: 0.85rem; font-weight: 800;
-    color: #1a1206; background: var(--gold, #f4c430);
+  /* Per explicit correction: the slider itself needs to actually be vertical (sliding up/down)
+     with a round submit button below it matching the same circular style as Fold/Check/All-In
+     - not a horizontal row of controls with a pill-shaped button underneath, which is what the
+     previous attempt actually produced despite the intent. The stack (stepper, rotated slider,
+     stepper, value, round submit button) is a column now, and the range input itself is
+     rotated 90° via CSS (the standard way to get a vertical slider out of a normal, otherwise-
+     horizontal-only <input type=range> without needing separate vertical-only markup - the
+     phone layout's own copy of this same input is completely untouched, still horizontal,
+     since this whole rule is scoped to k28-in-game only). */
+  body.k28-in-game .amount-row {
+    background: rgba(0,0,0,0.55); padding: 12px 8px; flex-direction: column; gap: 10px;
+    width: fit-content; margin: 0 auto;
   }
-  body.k28-in-game .action-bar > button.action-bet[style*="width:100%"]::before,
+  body.k28-in-game .amount-row input[type=range] {
+    writing-mode: vertical-lr; direction: rtl; width: 8px; height: 130px; flex: none;
+  }
+  body.k28-in-game .amount-val { font-size: 0.78rem; min-width: 44px; text-align: center; }
+  /* The submit button becomes a round circle matching Fold/Check/All-In exactly - same
+     ▲ icon, same label-to-the-side treatment via the shared .action-btn/::before/::after
+     rules already defined above, instead of the previous solid pill shape with the label
+     baked directly into the button's own text. */
+  body.k28-in-game .action-bar > button.action-bet[style*="width:100%"] {
+    width: 60px; height: 60px; border-radius: 50%; padding: 0; margin: 4px auto 0;
+    font-size: 0; color: #f4c430; background: rgba(10,8,6,0.72);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.6); position: relative;
+  }
+  body.k28-in-game .action-bar > button.action-bet[style*="width:100%"]::before {
+    content: '▲'; position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; font-size: 1.3rem; border: 2.5px solid currentColor; border-radius: 50%;
+  }
   body.k28-in-game .action-bar > button.action-bet[style*="width:100%"]::after {
-    content: none;
+    content: attr(data-label); position: absolute; top: 50%; left: 100%; transform: translateY(-50%);
+    margin-left: 10px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; color: currentColor;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.9);
   }
 }
 /* Per explicit correction: a phone tilted to landscape should also get this fuller desktop-
@@ -391,55 +413,6 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .action-bar { left: 8px; max-width: 150px; }
   body.k28-in-game .hand-strip .card { width: 32px; height: 45px; font-size: 0.78rem; }
   body.k28-in-game #myHandLabel { font-size: 0.6rem; }
-  /* Per explicit live report: the slider itself was still a plain
-     horizontal <input> squeezed into this already-narrow 150px-wide
-     left column above (see the .action-bar rule further up) -- with
-     no room to lay out horizontally, it and the +/- buttons/value
-     label were simply wrapping onto separate lines (flex-wrap set
-     just above), which reads as "two things stacked on top of each
-     other" rather than an actual functioning vertical slider control.
-     Switches the row to a real vertical column (order top-to-bottom:
-     +, the slider itself, −, the value) and makes the slider control
-     genuinely vertical the standard, reliable way -- a normal
-     horizontal <input> rotated -90deg to stand upright, wrapped in a
-     fixed-size container sized for its POST-rotation footprint (see
-     .slider-vertical-wrap) since rotation alone doesn't touch the
-     input's own pre-rotation layout box. Rotating -90deg specifically
-     moves the slider's right/max end to the top and its left/min end
-     to the bottom, so dragging UP raises the amount and DOWN lowers
-     it -- matching a physical fader's natural "more is higher"
-     feel, not the reverse. */
-  body.k28-in-game .amount-row {
-    flex-wrap: nowrap;
-    flex-direction: column;
-    height: 190px;
-    width: 46px;
-    padding: 8px 4px;
-    gap: 6px;
-  }
-  body.k28-in-game .amount-row .stepper-btn { flex-shrink: 0; }
-  body.k28-in-game .slider-vertical-wrap {
-    flex: 1;
-    width: 100%;
-    min-height: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-  }
-  body.k28-in-game .slider-vertical-wrap input[type=range] {
-    height: 6px;
-    margin: 0;
-    flex-shrink: 0;
-    transform: rotate(-90deg);
-    /* Width intentionally left unset in CSS -- this is the input's
-       pre-rotation width, which becomes its on-screen height once
-       rotated, and gets set directly in JS right after render
-       (measured from this wrapper's own real rendered height) since
-       that can't be expressed as a clean CSS percentage against a
-       flex:1 parent. See the JS comment where that happens. */
-  }
-  body.k28-in-game .amount-val { min-width: 0; width: 100%; }
 }
 </style>
 </head>
@@ -966,48 +939,25 @@ function seatPositions() {
       { x: 49.9, y: 80.8 },  // 0: my own seat
       { x: 31.0, y: 79.4 },  // 1: front-left-of-center
       { x: 15.2, y: 69.3 },  // 2: lower-left
-      // IMPORTANT MAPPING NOTE for whoever edits this next: this array
-      // is indexed by SLOT, not by the "Bot4/Bot5/Bot6..." names shown
-      // on screen. Since seats fill in order starting from position 1
-      // (0 is always the human), and this array's own index N directly
-      // IS the slot number whenever the viewer is at slot 0, "Bot4" as
-      // labeled on screen is this array's index 3, "Bot5" is index 4,
-      // "Bot6" is index 5, "Bot7" is index 6, "Bot8" is index 7 -- one
-      // lower than the bot's own display number, every time. A prior
-      // round of live-requested adjustments got misapplied for exactly
-      // this reason (edited index 4-7 while the actual live report
-      // meant Bot4-7, i.e. index 3-6) before being caught and corrected
-      // here -- confirmed against a real device screenshot with a
-      // pixel grid overlaid on it, not guessed.
-      { x: 17.3, y: 37.2 },  // 3 (displays as "Bot4"): upper-left - per explicit live
-                              //    report with a screenshot, the avatar itself was
-                              //    rendering left and below the real stool - measured the
-                              //    actual stool position directly from that screenshot,
-                              //    then aimed this seat anchor a bit higher than that
-                              //    measured avatar target since the info-above-avatar flip
-                              //    (see the seat[data-slot] rules below) makes the whole
-                              //    seat box taller with the avatar sitting in its lower
-                              //    half. Per further explicit request (correctly applied to
-                              //    THIS index this time, not index 4): moved up a bit
-                              //    (42.2 -> 39.2) and right/inward toward the table
-                              //    (14.3 -> 17.3).
-      { x: 29.9, y: 28 },    // 4 (displays as "Bot5"): back-left-of-center (flanking the
-                              //    dealer). Per explicit request, moved up DOUBLE the
-                              //    amount index 3/6 (Bot4/Bot7) moved, since this seat and
-                              //    index 5 (Bot6) sit closest to the dealer at the true
-                              //    back-center of the table and read as more visibly low
-                              //    than the outer Bot4/Bot7 pair even at the same nominal
-                              //    offset.
-      { x: 70.6, y: 30 },    // 5 (displays as "Bot6"): back-right-of-center (mirrors
-                              //    index 4/Bot5, identical double-amount treatment)
-      { x: 82.7, y: 37.2 },  // 6 (displays as "Bot7"): upper-right (mirrors index 3/Bot4,
-                              //    identical up-a-bit-and-inward treatment, correctly
-                              //    applied to THIS index this time, not index 7)
-      { x: 84.7, y: 66.1 },  // 7 (displays as "Bot8"): lower-right - per explicit further
-                              //    request this seat needed the same treatment too, moved
-                              //    up a bit and left/inward toward the table the same
-                              //    amount as index 3/6 (Bot4/Bot7)
-      { x: 68.8, y: 79.5 },  // 8 (displays as "Bot9"): front-right-of-center (mirrors 1)
+      { x: 14.3, y: 37 },    // 3: upper-left - per explicit live report with a screenshot,
+                              //    the avatar itself was rendering left and below the real
+                              //    stool - measured the actual stool position directly from
+                              //    that screenshot (14.3%, 45.1%), then aimed this seat anchor
+                              //    a bit higher than that measured avatar target since the
+                              //    info-above-avatar flip (see the seat[data-slot] rules below)
+                              //    makes the whole seat box taller with the avatar sitting in
+                              //    its lower half - the same effect already accounted for on
+                              //    seats 4/5 elsewhere in this file.
+      { x: 29.9, y: 31 },    // 4: back-left-of-center (flanking the dealer) - per explicit
+                              //    report, moved back up after the info-above-avatar flip
+                              //    pushed the avatar itself down (that flip makes the whole
+                              //    seat box taller with the info on top, and since the box is
+                              //    centered on this point, the avatar - now in the bottom half
+                              //    of that taller box - visually lands lower than before)
+      { x: 70.6, y: 31 },    // 5: back-right-of-center (mirrors 4)
+      { x: 85.7, y: 37 },    // 6: upper-right (mirrors 3)
+      { x: 84.7, y: 69.1 },  // 7: lower-right (mirrors 2)
+      { x: 68.8, y: 79.5 },  // 8: front-right-of-center (mirrors 1)
     ];
   }
   const positions = [];
@@ -1176,7 +1126,7 @@ function renderActionBar(state) {
     const raiseStep = Math.max(state.minRaise, state.bigBlind);
     html += `<div class="amount-row">
       <button class="stepper-btn" onclick="adjustBetAmount(-${raiseStep})">−</button>
-      <div class="slider-vertical-wrap"><input type="range" id="betSlider" min="${minBet}" max="${maxBet}" step="${raiseStep}" value="${minBet}"></div>
+      <input type="range" id="betSlider" min="${minBet}" max="${maxBet}" step="${raiseStep}" value="${minBet}">
       <button class="stepper-btn" onclick="adjustBetAmount(${raiseStep})">+</button>
       <span class="amount-val" id="betAmountVal">${minBet}</span>
     </div>
@@ -1185,19 +1135,6 @@ function renderActionBar(state) {
   bar.innerHTML = html;
   const slider = $('betSlider');
   if (slider) slider.addEventListener('input', () => { $('betAmountVal').textContent = slider.value; });
-  // Per explicit follow-up: a rotated slider's own layout box stays
-  // exactly as wide/tall as it was BEFORE rotation -- only its visual
-  // appearance turns sideways -- so its pre-rotation WIDTH is what
-  // ends up as its on-screen HEIGHT once rotated. That width can't be
-  // expressed as a clean CSS percentage against a flex:1 wrapper, so
-  // it's set directly here instead, measured from the wrapper's own
-  // real rendered height after the browser has already laid the rest
-  // of the column out -- always exactly right for whatever pixel
-  // height this specific phone actually leaves over. Only matters
-  // (and the wrapper only exists at all) once k28-in-game's own short-
-  // landscape layout is active; harmless no-op otherwise.
-  const sliderWrap = document.querySelector('.slider-vertical-wrap');
-  if (sliderWrap && slider) slider.style.width = sliderWrap.getBoundingClientRect().height + 'px';
 }
 function adjustBetAmount(delta) {
   const slider = $('betSlider');
