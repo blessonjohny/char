@@ -74,7 +74,7 @@ class PokerEngine {
       name, isBot, connected: true, playerId,
       chips: this.startingChips, hand: [],
       folded: false, allIn: false, sittingOut: false,
-      bettedThisRound: 0, totalBetThisHand: 0, hasActed: false,
+      bettedThisRound: 0, totalBetThisHand: 0, hasActed: false, lastAction: null,
       bustedAt: null, rebuysUsed: 0, eliminated: false
     };
   }
@@ -127,6 +127,7 @@ class PokerEngine {
       s.bettedThisRound = 0;
       s.totalBetThisHand = 0;
       s.hasActed = false;
+      s.lastAction = null;
     }
 
     this.dealerSeat = this.dealerSeat === -1 ? active[0] : nextOccupiedSeat(this.seats, this.dealerSeat, true);
@@ -182,14 +183,17 @@ class PokerEngine {
 
     if (action === 'fold') {
       s.folded = true;
+      s.lastAction = 'Fold';
       this.addLog(`${s.name} folds.`);
     } else if (action === 'check') {
       if (toCall > 0) return { ok: false, reason: 'must_call_or_fold' };
+      s.lastAction = 'Check';
       this.addLog(`${s.name} checks.`);
     } else if (action === 'call') {
       const pay = Math.min(toCall, s.chips);
       s.chips -= pay; s.bettedThisRound += pay; s.totalBetThisHand += pay;
       if (s.chips === 0) s.allIn = true;
+      s.lastAction = s.allIn ? 'All-In' : `Call ${pay}`;
       this.addLog(`${s.name} calls ${pay}${s.allIn ? ' (all-in)' : ''}.`);
     } else if (action === 'bet' || action === 'raise') {
       if (this.buyInType === 'fixed') amount = this.currentBet > 0 ? this.currentBet + this.bigBlind : this.bigBlind;
@@ -205,6 +209,7 @@ class PokerEngine {
         this.lastAggressorSeat = pos;
         for (const p of this.occupiedSeats()) if (p !== pos && !this.seats[p].folded) this.seats[p].hasActed = false;
       }
+      s.lastAction = s.allIn ? 'All-In' : `${action === 'bet' ? 'Bet' : 'Raise to'} ${s.bettedThisRound}`;
       this.addLog(`${s.name} ${action === 'bet' ? 'bets' : 'raises to'} ${s.bettedThisRound}${s.allIn ? ' (all-in)' : ''}.`);
     } else if (action === 'allin') {
       const pay = s.chips;
@@ -215,6 +220,7 @@ class PokerEngine {
         this.lastAggressorSeat = pos;
         for (const p of this.occupiedSeats()) if (p !== pos && !this.seats[p].folded) this.seats[p].hasActed = false;
       }
+      s.lastAction = 'All-In';
       this.addLog(`${s.name} goes all-in for ${pay}.`);
     }
 
@@ -428,6 +434,7 @@ class PokerEngine {
           folded: s.folded, allIn: s.allIn, sittingOut: s.sittingOut,
           bettedThisRound: s.bettedThisRound, totalBetThisHand: s.totalBetThisHand,
           bustedAt: s.bustedAt, eliminated: s.eliminated, rebuysUsed: s.rebuysUsed,
+          lastAction: s.lastAction || null,
           hand: revealHand ? s.hand : (s.hand.length ? s.hand.map(() => null) : [])
         };
       }),
