@@ -26,12 +26,37 @@ function nextOccupiedSeat(seats, from, requireActive) {
 }
 
 class PokerEngine {
+  // Per explicit request: a standard tournament blind schedule - starts at 5/10 and climbs on
+  // its own as the tournament goes on, exactly the progression given (5/10, 10/20, 15/30,
+  // 20/40, 25/50, 30/60), continuing on in the same standard-tournament shape afterward
+  // (linear steps early, then roughly doubling once the numbers get big enough that a flat
+  // step stops mattering much). Only ever used in mode:'tournament' - a cash game's blinds
+  // stay exactly where the table was created with them, same as any real cash table would.
+  static BLIND_LEVELS = [
+    { sb: 5, bb: 10 }, { sb: 10, bb: 20 }, { sb: 15, bb: 30 }, { sb: 20, bb: 40 },
+    { sb: 25, bb: 50 }, { sb: 30, bb: 60 }, { sb: 40, bb: 80 }, { sb: 50, bb: 100 },
+    { sb: 75, bb: 150 }, { sb: 100, bb: 200 }, { sb: 150, bb: 300 }, { sb: 200, bb: 400 },
+    { sb: 300, bb: 600 }, { sb: 400, bb: 800 }, { sb: 500, bb: 1000 }, { sb: 750, bb: 1500 },
+    { sb: 1000, bb: 2000 },
+  ];
+
   constructor(tableId, opts) {
     this.tableId = tableId;
     this.mode = (opts && opts.mode) || 'cash';
     this.buyInType = (opts && opts.buyInType) || 'nolimit';
-    this.smallBlind = (opts && opts.smallBlind) ?? 5;
-    this.bigBlind = (opts && opts.bigBlind) ?? 10;
+    this.blindLevel = 0;
+    // How many hands each level lasts before the blinds step up to the next one - only
+    // relevant in tournament mode. A round, deliberately-chosen number, not tied to real-world
+    // clock time (bots play at whatever pace they play at, so hand count is what stays
+    // meaningful regardless of how long any one hand actually takes).
+    this.handsPerLevel = (opts && opts.handsPerLevel) ?? 10;
+    if (this.mode === 'tournament') {
+      this.smallBlind = PokerEngine.BLIND_LEVELS[0].sb;
+      this.bigBlind = PokerEngine.BLIND_LEVELS[0].bb;
+    } else {
+      this.smallBlind = (opts && opts.smallBlind) ?? 5;
+      this.bigBlind = (opts && opts.bigBlind) ?? 10;
+    }
     this.startingChips = (opts && opts.startingChips) ?? 1000;
     this.reloadChips = (opts && opts.reloadChips) ?? 500;
     this.reloadWaitMs = (opts && opts.reloadWaitMs) ?? 60 * 1000;
@@ -50,6 +75,25 @@ class PokerEngine {
     this.log = [];
     this.showdownResult = null;
     this.kickRequests = {};
+  }
+
+  // Advances the blind level if enough hands have passed at the current one, per the fixed
+  // schedule above. Called once at the start of every new hand (see startHand() below) -
+  // never mid-hand, so a hand already in progress always finishes at the blinds it started
+  // at, exactly like a real tournament clock only ever taking effect between hands.
+  _maybeAdvanceBlindLevel() {
+    if (this.mode !== 'tournament') return;
+    const targetLevel = Math.min(
+      Math.floor(this.handNumber / this.handsPerLevel),
+      PokerEngine.BLIND_LEVELS.length - 1
+    );
+    if (targetLevel > this.blindLevel) {
+      this.blindLevel = targetLevel;
+      const { sb, bb } = PokerEngine.BLIND_LEVELS[this.blindLevel];
+      this.smallBlind = sb;
+      this.bigBlind = bb;
+      this.addLog(`Blinds increase to ${sb}/${bb} (level ${this.blindLevel + 1}).`);
+    }
   }
 
   addLog(msg) {
@@ -113,6 +157,7 @@ class PokerEngine {
     if (active.length < 2) { this.phase = 'lobby'; this.addLog('Not enough players with chips to start a hand.'); return; }
 
     this.handNumber++;
+    this._maybeAdvanceBlindLevel();
     this.deck = freshDeck();
     this.board = [];
     this.pots = [];
@@ -178,6 +223,16 @@ class PokerEngine {
     if (!['fold', 'check', 'call', 'bet', 'raise', 'allin'].includes(action)) return { ok: false, reason: 'bad_action' };
     const s = this.seats[pos];
     if (!s || s.folded) return { ok: false, reason: 'no_seat' };
+    // Real, confirmed gap per explicit "never allow invalid betting amounts" requirement:
+    // amount arrives straight from the client with no validation at all - a malformed value
+    // (a non-numeric string, an object, NaN itself) would silently poison every downstream
+    // calculation with NaN (Math.max/min propagate NaN rather than catching it), corrupting
+    // that seat's chip count for the rest of the hand. Coerced and range-checked once here,
+    // before any action branch, rather than trusting the raw input in each one individually.
+    if (amount !== undefined && amount !== null) {
+      amount = Number(amount);
+      if (!Number.isFinite(amount) || amount < 0) return { ok: false, reason: 'bad_amount' };
+    }
 
     const toCall = this.currentBet - s.bettedThisRound;
 
@@ -420,7 +475,7 @@ class PokerEngine {
     }
     return {
       tableId: this.tableId, mode: this.mode, buyInType: this.buyInType,
-      smallBlind: this.smallBlind, bigBlind: this.bigBlind,
+      smallBlind: this.smallBlind, bigBlind: this.bigBlind, blindLevel: this.blindLevel,
       phase: this.phase, dealerSeat: this.dealerSeat, currentPlayer: this.currentPlayer,
       board: this.board, pots: this.pots, currentBet: this.currentBet, minRaise: this.minRaise,
       handNumber: this.handNumber, showdownResult: this.showdownResult, myHandName,
