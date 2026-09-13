@@ -2858,7 +2858,22 @@ class GameEngine {
       // reached in the exact same scenario this session hit, but this
       // one had the identical gap and is fixed the same way for
       // consistency and defense in depth.
-      const restrictedFromTrumpLead = !this.trumpExposed && isBidder && hand.some(c => c.suit !== this.trumpSuit);
+      // Real, confirmed root-cause bug fix per explicit live report of
+      // a 4-player bot getting permanently stuck late in a match
+      // (round 24): this checked isBidder, but hiddenTrumpOwner is
+      // explicitly NOT always the same seat as the current bidder --
+      // this.hiddenTrumpOwner's own declaration comment says so
+      // directly: a phase-2 raise can hand the bidder role to a
+      // different seat entirely while the ORIGINAL chooser still
+      // physically holds the hidden trump card in their hand.
+      // canPlayCard's own restriction correctly checks
+      // pos===hiddenTrumpOwner, not isBidder -- so whenever a raise
+      // had actually happened, this scoring logic and the actual legal-
+      // move check disagreed about who was restricted, handing back a
+      // candidate that was guaranteed to be rejected as illegal with no
+      // fallback, leaving the bot stuck indefinitely. Checks the same
+      // condition canPlayCard itself checks now, not a proxy for it.
+      const restrictedFromTrumpLead = !this.trumpExposed && pos === this.hiddenTrumpOwner && hand.some(c => c.suit !== this.trumpSuit);
       // Per explicit follow-up request: same weak-trump-hand defending
       // exception added to the earlier, separate Jack-lead rule above
       // -- this is a second, independent rule that reaches the exact
@@ -3654,9 +3669,24 @@ class GameEngine {
         // for the team instead of risking them on a Jack that may
         // never lead a trick of its own again this round.
         if (wt === myTeam && !myTeamSecured && cwc && cwc.suit === this.trumpSuit && cwcSurvival >= 0.85) {
-          const myTrumpIsWeak = !trumps.some(c => c.rank === 'J' || c.rank === '9');
+          // Real, confirmed bug fix per explicit live report of a
+          // 4-player bot getting permanently stuck: this used to check
+          // only whether this bot's OWN trump was "weak" (no Jack or 9
+          // left in it) before feeding a non-trump Jack into an
+          // already-secured partner cut. But canPlayCard's own rule
+          // doesn't care how weak the trump is -- holding ANY trump
+          // card at all (even a bare 7) already counts as "an
+          // alternative" that makes a plain Jack discard illegal in
+          // 4-player. A hand with, say, a King and 7 of trump plus a
+          // stray Jack of a different suit would pass the old
+          // myTrumpIsWeak check (no Jack/9 of its own) and then get
+          // rejected by canPlayCard for exactly the reason that check
+          // never considered. This only ever needs to fire when
+          // holding literally zero trump of any kind -- the one
+          // situation where a Jack genuinely has no legal alternative
+          // to lose to.
           const strandedJacks = nonTrumpDiscard.filter(c => c.rank === 'J');
-          if (myTrumpIsWeak && strandedJacks.length > 0) {
+          if (trumps.length === 0 && strandedJacks.length > 0) {
             return strandedJacks[0];
           }
         }
