@@ -118,7 +118,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    only shown via the desktop wide-table media query rule further below. */
 .desktop-top-readout{display:none}
 .house-dealer{display:none}
-.seat-bet{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);border:1px solid var(--gold);border-radius:10px;padding:2px 8px 2px 4px;font-size:0.6rem;color:var(--gold);font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:3px;z-index:5}
+.seat-bet{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);border:1px solid var(--gold);border-radius:10px;padding:2px 8px 2px 4px;font-size:0.6rem;color:var(--gold);font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:3px;z-index:5}
 .dealer-chip{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#241a12;font-size:0.55rem;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #241a12}
 .allin-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}
 .folded-tag{display:inline-block;background:rgba(0,0,0,0.5);color:rgba(255,255,255,0.55);font-size:0.6rem;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15)}
@@ -316,17 +316,16 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
      with the button's own text crammed inside it. The dynamic label text (e.g. "Call 10")
      comes from the data-label attribute the JS above sets on each button; the button's own
      inline text is hidden here in favor of that separately-positioned, readable-sized label. */
+  /* Per explicit request: swapped sides from the previous layout - Fold/Check/Raise now sit
+     at the bottom-RIGHT, the bet-amount slider and its Bet/Raise submit button now sit at the
+     bottom-LEFT, arranged vertically. Each block keeps its own fixed position independent of
+     the other, exactly as before, just mirrored left/right. */
   body.k28-in-game .action-bar {
-    position: fixed; bottom: 10px; right: 10px; left: auto; top: auto;
+    position: fixed; bottom: 10px; left: 10px; right: auto; top: auto;
     width: auto; max-width: 340px; background: none; padding: 0; z-index: 45;
   }
-  /* Per explicit request: the three round action buttons (Fold/Check/Raise) split off to sit
-     at the bottom-left instead of stacked with the slider and Bet button at bottom-right -
-     those two stay exactly where they already were. Pulled out of the normal document flow
-     inside .action-bar with its own fixed position so it no longer shares that corner (and no
-     longer overlaps whichever seat happens to sit near the bottom-right). */
   body.k28-in-game .action-row {
-    position: fixed; bottom: 10px; left: 10px; right: auto; top: auto;
+    position: fixed; bottom: 10px; right: 10px; left: auto; top: auto;
     gap: 14px; margin-bottom: 0; align-items: flex-end; z-index: 45;
   }
   body.k28-in-game .action-btn {
@@ -913,11 +912,15 @@ function seatPositions() {
       { x: 49.9, y: 80.8 },  // 0: my own seat
       { x: 31.0, y: 79.4 },  // 1: front-left-of-center
       { x: 15.2, y: 69.3 },  // 2: lower-left
-      { x: 7.5, y: 53.5 },   // 3: upper-left - re-measured from scratch after the previous
-                              //    value turned out to be a false match on the curtain fabric
-                              //    (same dark purple as the stools), not a real stool at all -
-                              //    checked this new position directly and it's confirmed
-                              //    sitting on an actual, distinct stool this time.
+      { x: 14.3, y: 42.2 },  // 3: upper-left - per explicit live report with a screenshot,
+                              //    the avatar itself was rendering left and below the real
+                              //    stool - measured the actual stool position directly from
+                              //    that screenshot (14.3%, 45.1%), then aimed this seat anchor
+                              //    a bit higher than that measured avatar target since the
+                              //    info-above-avatar flip (see the seat[data-slot] rules below)
+                              //    makes the whole seat box taller with the avatar sitting in
+                              //    its lower half - the same effect already accounted for on
+                              //    seats 4/5 elsewhere in this file.
       { x: 29.9, y: 36 },    // 4: back-left-of-center (flanking the dealer) - per explicit
                               //    report, moved back up after the info-above-avatar flip
                               //    pushed the avatar itself down (that flip makes the whole
@@ -925,8 +928,7 @@ function seatPositions() {
                               //    centered on this point, the avatar - now in the bottom half
                               //    of that taller box - visually lands lower than before)
       { x: 70.6, y: 36 },    // 5: back-right-of-center (mirrors 4)
-      { x: 92.5, y: 53.5 },  // 6: upper-right (mirrors 3) - also re-measured from scratch,
-                              //    same reason as 3 above
+      { x: 85.7, y: 42.2 },  // 6: upper-right (mirrors 3)
       { x: 84.7, y: 69.1 },  // 7: lower-right (mirrors 2)
       { x: 68.8, y: 79.5 },  // 8: front-right-of-center (mirrors 1)
     ];
