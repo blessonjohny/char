@@ -118,7 +118,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    only shown via the desktop wide-table media query rule further below. */
 .desktop-top-readout{display:none}
 .house-dealer{display:none}
-.seat-bet{position:absolute;background:rgba(0,0,0,0.6);border:1px solid var(--gold);border-radius:10px;padding:2px 8px 2px 4px;font-size:0.6rem;color:var(--gold);font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:3px}
+.seat-bet{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);border:1px solid var(--gold);border-radius:10px;padding:2px 8px 2px 4px;font-size:0.6rem;color:var(--gold);font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:3px;z-index:5}
 .dealer-chip{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#241a12;font-size:0.55rem;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #241a12}
 .allin-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}
 .folded-tag{display:inline-block;background:rgba(0,0,0,0.5);color:rgba(255,255,255,0.55);font-size:0.6rem;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15)}
@@ -264,31 +264,33 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
     border: 2.5px solid var(--gold-soft); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
   }
-  /* Per explicit request: seats 3 and 6 (upper-left/upper-right) moved further down toward
-     their own real stools - but that puts their name/chips/cards band, which normally sits
-     below the avatar, close enough to the table rail and the seats flanking the dealer to
-     start overlapping them. Flips the stacking order for just these two seats specifically
-     (column-reverse) so that whole band renders ABOVE the avatar instead - same information,
-     just on the side that actually has clear room for it at this position. Every other seat
-     keeps its normal below-the-avatar layout, untouched. */
-  body.k28-in-game .seat[data-slot="3"], body.k28-in-game .seat[data-slot="6"] {
+  /* Per explicit request: seats 3, 4, 5, and 6 (both pairs flanking the dealer, and the
+     upper-left/upper-right pair below them) all get their name/chips/cards band flipped to
+     sit ABOVE the avatar instead of below - extended here from the original fix for just 3/6,
+     since 4/5 sit close enough to the dealer and to 3/6 below them to have the exact same
+     below-the-avatar crowding problem. Every other seat keeps its normal layout, untouched. */
+  body.k28-in-game .seat[data-slot="3"], body.k28-in-game .seat[data-slot="4"],
+  body.k28-in-game .seat[data-slot="5"], body.k28-in-game .seat[data-slot="6"] {
     display: flex; flex-direction: column-reverse; align-items: center;
   }
-  body.k28-in-game .seat[data-slot="3"] .seat-avatar-wrap,
-  body.k28-in-game .seat[data-slot="6"] .seat-avatar-wrap {
+  body.k28-in-game .seat[data-slot="3"] .seat-avatar-wrap, body.k28-in-game .seat[data-slot="4"] .seat-avatar-wrap,
+  body.k28-in-game .seat[data-slot="5"] .seat-avatar-wrap, body.k28-in-game .seat[data-slot="6"] .seat-avatar-wrap {
     order: 0;
   }
   /* column-reverse flips the whole stack, including the relative order within the info
      block itself - these explicit order values put it back in its natural reading order
      (name, then chips, then cards) working down from the top, with the avatar anchored at
      the bottom via its own order:0 above. */
-  body.k28-in-game .seat[data-slot="3"] .seat-name, body.k28-in-game .seat[data-slot="6"] .seat-name { order: 3; }
-  body.k28-in-game .seat[data-slot="3"] .seat-chips, body.k28-in-game .seat[data-slot="6"] .seat-chips { order: 2; }
-  body.k28-in-game .seat[data-slot="3"] .seat-cards, body.k28-in-game .seat[data-slot="6"] .seat-cards { order: 1; }
-  body.k28-in-game .seat[data-slot="3"] .turn-tag,
-  body.k28-in-game .seat[data-slot="3"] .action-badge,
-  body.k28-in-game .seat[data-slot="6"] .turn-tag,
-  body.k28-in-game .seat[data-slot="6"] .action-badge {
+  body.k28-in-game .seat[data-slot="3"] .seat-name, body.k28-in-game .seat[data-slot="4"] .seat-name,
+  body.k28-in-game .seat[data-slot="5"] .seat-name, body.k28-in-game .seat[data-slot="6"] .seat-name { order: 3; }
+  body.k28-in-game .seat[data-slot="3"] .seat-chips, body.k28-in-game .seat[data-slot="4"] .seat-chips,
+  body.k28-in-game .seat[data-slot="5"] .seat-chips, body.k28-in-game .seat[data-slot="6"] .seat-chips { order: 2; }
+  body.k28-in-game .seat[data-slot="3"] .seat-cards, body.k28-in-game .seat[data-slot="4"] .seat-cards,
+  body.k28-in-game .seat[data-slot="5"] .seat-cards, body.k28-in-game .seat[data-slot="6"] .seat-cards { order: 1; }
+  body.k28-in-game .seat[data-slot="3"] .turn-tag, body.k28-in-game .seat[data-slot="3"] .action-badge,
+  body.k28-in-game .seat[data-slot="4"] .turn-tag, body.k28-in-game .seat[data-slot="4"] .action-badge,
+  body.k28-in-game .seat[data-slot="5"] .turn-tag, body.k28-in-game .seat[data-slot="5"] .action-badge,
+  body.k28-in-game .seat[data-slot="6"] .turn-tag, body.k28-in-game .seat[data-slot="6"] .action-badge {
     bottom: auto; top: 100%; margin-bottom: 0; margin-top: 3px;
   }
 
@@ -948,11 +950,11 @@ function renderGameTable(state) {
         ${holdemAvatarImgHtml(s.name, pos)}
         ${pos === state.dealerSeat ? '<div class="dealer-chip">D</div>' : ''}
         ${s.allIn ? '<div class="allin-tag">ALL-IN</div>' : ''}
+        ${s.bettedThisRound > 0 && !s.folded ? `<div class="seat-bet">${chipHtml(s.bettedThisRound, true)}${s.bettedThisRound}</div>` : ''}
       </div>
       <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
       <div class="seat-chips">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
       <div class="seat-cards">${s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml}</div>
-      ${s.bettedThisRound > 0 && !s.folded ? `<div class="seat-bet">${chipHtml(s.bettedThisRound, true)}${s.bettedThisRound}</div>` : ''}
     </div>`;
   }).join('');
   if (isNewShowdownReveal) lastCardRevealAnimatedFor = state.handNumber;
