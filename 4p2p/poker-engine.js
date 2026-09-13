@@ -72,6 +72,7 @@ class PokerEngine {
     this.minRaise = 0;
     this.lastAggressorSeat = -1;
     this.handNumber = 0;
+    this.eliminationSeq = 0;
     this.log = [];
     this.showdownResult = null;
     this.kickRequests = {};
@@ -119,7 +120,7 @@ class PokerEngine {
       chips: this.startingChips, hand: [],
       folded: false, allIn: false, sittingOut: false,
       bettedThisRound: 0, totalBetThisHand: 0, hasActed: false, lastAction: null,
-      bustedAt: null, rebuysUsed: 0, eliminated: false
+      bustedAt: null, rebuysUsed: 0, eliminated: false, eliminatedAt: null
     };
   }
   removeSeat(pos) {
@@ -154,7 +155,38 @@ class PokerEngine {
   startHand() {
     this._applyPendingKicks();
     const active = this.activeSeats();
-    if (active.length < 2) { this.phase = 'lobby'; this.addLog('Not enough players with chips to start a hand.'); return; }
+    if (active.length < 2) {
+      // Real, confirmed bug fix per explicit live report: a genuine tournament conclusion (a
+      // hand has actually been played, and it's down to exactly one seat left with chips
+      // while every other occupied seat has been formally eliminated) was being treated
+      // identically to "this brand-new table doesn't have enough players seated yet" - both
+      // just sent everyone back to the plain pre-game lobby screen, which has no leave/exit
+      // control of any kind and a "Start Hand" button that would only fail again immediately.
+      // That's exactly the "stuck, can't exit, can't start a new game" dead end described.
+      // Distinguished properly now: only route to the real tournament-over screen when a hand
+      // has actually been played AND every other occupied seat is specifically eliminated
+      // (not just empty, which is the ordinary not-enough-players-yet case that still
+      // correctly belongs on the normal lobby screen).
+      const occupied = this.occupiedSeats();
+      const isRealTournamentConclusion = this.mode === 'tournament' && this.handNumber > 0 &&
+        active.length === 1 && occupied.every(p => active.includes(p) || this.seats[p].eliminated);
+      if (isRealTournamentConclusion) {
+        this.phase = 'tournamentOver';
+        const winner = active[0];
+        // Winner first, then everyone else ordered by how late they were eliminated (the last
+        // one out finished 2nd, and so on back to whoever busted first placing last).
+        const others = occupied.filter(p => p !== winner)
+          .sort((a, b) => (this.seats[b].eliminatedAt || 0) - (this.seats[a].eliminatedAt || 0));
+        this.tournamentStandings = [winner, ...others].map((pos, i) => ({
+          pos, name: this.seats[pos].name, place: i + 1, isBot: this.seats[pos].isBot,
+        }));
+        this.addLog(`🏆 ${this.seats[winner].name} wins the tournament!`);
+      } else {
+        this.phase = 'lobby';
+        this.addLog('Not enough players with chips to start a hand.');
+      }
+      return;
+    }
 
     this.handNumber++;
     this._maybeAdvanceBlindLevel();
@@ -440,6 +472,7 @@ class PokerEngine {
         if (s.isBot) {
           s.sittingOut = true;
           s.eliminated = true;
+          s.eliminatedAt = ++this.eliminationSeq;
           s.bustedAt = null;
           this.addLog(`${s.name} is eliminated from the tournament.`);
         } else if (s.rebuysUsed < 1) {
@@ -450,6 +483,7 @@ class PokerEngine {
         } else {
           s.sittingOut = true;
           s.eliminated = true;
+          s.eliminatedAt = ++this.eliminationSeq;
           s.bustedAt = null;
           this.addLog(`${s.name} is eliminated from the tournament (rebuy already used).`);
         }
@@ -476,6 +510,7 @@ class PokerEngine {
     return {
       tableId: this.tableId, mode: this.mode, buyInType: this.buyInType,
       smallBlind: this.smallBlind, bigBlind: this.bigBlind, blindLevel: this.blindLevel,
+      tournamentStandings: this.tournamentStandings || null,
       phase: this.phase, dealerSeat: this.dealerSeat, currentPlayer: this.currentPlayer,
       board: this.board, pots: this.pots, currentBet: this.currentBet, minRaise: this.minRaise,
       handNumber: this.handNumber, showdownResult: this.showdownResult, myHandName,
