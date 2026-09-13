@@ -966,36 +966,48 @@ function seatPositions() {
       { x: 49.9, y: 80.8 },  // 0: my own seat
       { x: 31.0, y: 79.4 },  // 1: front-left-of-center
       { x: 15.2, y: 69.3 },  // 2: lower-left
-      { x: 14.3, y: 42.2 },  // 3: upper-left - per explicit live report with a screenshot,
-                              //    the avatar itself was rendering left and below the real
-                              //    stool - measured the actual stool position directly from
-                              //    that screenshot (14.3%, 45.1%), then aimed this seat anchor
-                              //    a bit higher than that measured avatar target since the
-                              //    info-above-avatar flip (see the seat[data-slot] rules below)
-                              //    makes the whole seat box taller with the avatar sitting in
-                              //    its lower half - the same effect already accounted for on
-                              //    seats 4/5 elsewhere in this file.
-      { x: 32.9, y: 32 },    // 4: back-left-of-center (flanking the dealer) - per explicit
-                              //    report, moved back up after the info-above-avatar flip
-                              //    pushed the avatar itself down (that flip makes the whole
-                              //    seat box taller with the info on top, and since the box is
-                              //    centered on this point, the avatar - now in the bottom half
-                              //    of that taller box - visually lands lower than before).
-                              //    Per further explicit follow-up: moved up a further notch
-                              //    (34 -> 32) and shifted right/inward toward the table
-                              //    (29.9 -> 32.9), closer to seat 5 and further from the
-                              //    curtain/window it was drifting toward.
-      { x: 70.6, y: 29 },    // 5: back-right-of-center (mirrors 4, but per explicit request
-                              //    moved up slightly more than 4/7 specifically -- this seat
-                              //    and 6 sit closest to the dealer at the true back-center of
-                              //    the table, reading as more visibly low than the outer 4/7
-                              //    pair even at the same nominal offset)
-      { x: 85.7, y: 35.2 },  // 6: upper-right (mirrors 3, moved up the same extra notch as 5
-                              //    for the identical back-center reasoning)
-      { x: 81.7, y: 65.1 },  // 7: lower-right (mirrors 2, moved up a small amount to match
-                              //    4's identical treatment, and shifted left/inward toward
-                              //    the table (84.7 -> 81.7) the same way 4 shifted right)
-      { x: 68.8, y: 79.5 },  // 8: front-right-of-center (mirrors 1)
+      // IMPORTANT MAPPING NOTE for whoever edits this next: this array
+      // is indexed by SLOT, not by the "Bot4/Bot5/Bot6..." names shown
+      // on screen. Since seats fill in order starting from position 1
+      // (0 is always the human), and this array's own index N directly
+      // IS the slot number whenever the viewer is at slot 0, "Bot4" as
+      // labeled on screen is this array's index 3, "Bot5" is index 4,
+      // "Bot6" is index 5, "Bot7" is index 6, "Bot8" is index 7 -- one
+      // lower than the bot's own display number, every time. A prior
+      // round of live-requested adjustments got misapplied for exactly
+      // this reason (edited index 4-7 while the actual live report
+      // meant Bot4-7, i.e. index 3-6) before being caught and corrected
+      // here -- confirmed against a real device screenshot with a
+      // pixel grid overlaid on it, not guessed.
+      { x: 17.3, y: 39.2 },  // 3 (displays as "Bot4"): upper-left - per explicit live
+                              //    report with a screenshot, the avatar itself was
+                              //    rendering left and below the real stool - measured the
+                              //    actual stool position directly from that screenshot,
+                              //    then aimed this seat anchor a bit higher than that
+                              //    measured avatar target since the info-above-avatar flip
+                              //    (see the seat[data-slot] rules below) makes the whole
+                              //    seat box taller with the avatar sitting in its lower
+                              //    half. Per further explicit request (correctly applied to
+                              //    THIS index this time, not index 4): moved up a bit
+                              //    (42.2 -> 39.2) and right/inward toward the table
+                              //    (14.3 -> 17.3).
+      { x: 29.9, y: 30 },    // 4 (displays as "Bot5"): back-left-of-center (flanking the
+                              //    dealer). Per explicit request, moved up DOUBLE the
+                              //    amount index 3/6 (Bot4/Bot7) moved, since this seat and
+                              //    index 5 (Bot6) sit closest to the dealer at the true
+                              //    back-center of the table and read as more visibly low
+                              //    than the outer Bot4/Bot7 pair even at the same nominal
+                              //    offset.
+      { x: 70.6, y: 30 },    // 5 (displays as "Bot6"): back-right-of-center (mirrors
+                              //    index 4/Bot5, identical double-amount treatment)
+      { x: 82.7, y: 39.2 },  // 6 (displays as "Bot7"): upper-right (mirrors index 3/Bot4,
+                              //    identical up-a-bit-and-inward treatment, correctly
+                              //    applied to THIS index this time, not index 7)
+      { x: 81.7, y: 66.1 },  // 7 (displays as "Bot8"): lower-right - per explicit further
+                              //    request this seat needed the same treatment too, moved
+                              //    up a bit and left/inward toward the table the same
+                              //    amount as index 3/6 (Bot4/Bot7)
+      { x: 68.8, y: 79.5 },  // 8 (displays as "Bot9"): front-right-of-center (mirrors 1)
     ];
   }
   const positions = [];
