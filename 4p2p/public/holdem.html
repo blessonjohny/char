@@ -291,7 +291,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .seat[data-slot="4"] .turn-tag, body.k28-in-game .seat[data-slot="4"] .action-badge,
   body.k28-in-game .seat[data-slot="5"] .turn-tag, body.k28-in-game .seat[data-slot="5"] .action-badge,
   body.k28-in-game .seat[data-slot="6"] .turn-tag, body.k28-in-game .seat[data-slot="6"] .action-badge {
-    bottom: auto; top: 100%; margin-bottom: 0; margin-top: 3px;
+    position: static; transform: none; margin: 0 0 3px; order: 4;
   }
 
   /* My own hand sits right at my own seat, same as the reference's cards over its own player's
@@ -948,9 +948,9 @@ function renderGameTable(state) {
         ? '' // full-size cards already shown in the hand strip below -- no need to duplicate them here too
         : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
     return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" data-slot="${slot}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
+      ${isActive ? `<div class="turn-tag turn-tag-outer">${pos === myPos ? 'YOUR TURN' : 'TURN'}</div>` : ''}
+      ${!isActive && s.lastAction && !s.folded ? `<div class="action-badge action-badge-outer">${escapeHtml(s.lastAction)}</div>` : ''}
       <div class="seat-avatar-wrap">
-        ${isActive ? `<div class="turn-tag">${pos === myPos ? 'YOUR TURN' : 'TURN'}</div>` : ''}
-        ${!isActive && s.lastAction && !s.folded ? `<div class="action-badge">${escapeHtml(s.lastAction)}</div>` : ''}
         <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
         ${holdemAvatarImgHtml(s.name, pos)}
         ${pos === state.dealerSeat ? '<div class="dealer-chip">D</div>' : ''}
