@@ -939,7 +939,7 @@ function seatPositions() {
       { x: 49.9, y: 80.8 },  // 0: my own seat
       { x: 31.0, y: 79.4 },  // 1: front-left-of-center
       { x: 15.2, y: 69.3 },  // 2: lower-left
-      { x: 14.3, y: 37 },    // 3: upper-left - per explicit live report with a screenshot,
+      { x: 17, y: 37 },      // 3: upper-left - per explicit live report with a screenshot,
                               //    the avatar itself was rendering left and below the real
                               //    stool - measured the actual stool position directly from
                               //    that screenshot (14.3%, 45.1%), then aimed this seat anchor
@@ -948,14 +948,14 @@ function seatPositions() {
                               //    makes the whole seat box taller with the avatar sitting in
                               //    its lower half - the same effect already accounted for on
                               //    seats 4/5 elsewhere in this file.
-      { x: 29.9, y: 31 },    // 4: back-left-of-center (flanking the dealer) - per explicit
+      { x: 29.9, y: 27 },    // 4: back-left-of-center (flanking the dealer) - per explicit
                               //    report, moved back up after the info-above-avatar flip
                               //    pushed the avatar itself down (that flip makes the whole
                               //    seat box taller with the info on top, and since the box is
                               //    centered on this point, the avatar - now in the bottom half
                               //    of that taller box - visually lands lower than before)
-      { x: 70.6, y: 31 },    // 5: back-right-of-center (mirrors 4)
-      { x: 85.7, y: 37 },    // 6: upper-right (mirrors 3)
+      { x: 70.6, y: 27 },    // 5: back-right-of-center (mirrors 4)
+      { x: 83, y: 37 },      // 6: upper-right (mirrors 3)
       { x: 84.7, y: 69.1 },  // 7: lower-right (mirrors 2)
       { x: 68.8, y: 79.5 },  // 8: front-right-of-center (mirrors 1)
     ];
