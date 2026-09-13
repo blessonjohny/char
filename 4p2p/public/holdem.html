@@ -257,12 +257,39 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .seat-cards .card.mini { width: 24px; height: 34px; font-size: 0.65rem; }
   body.k28-in-game .dealer-chip { width: 20px; height: 20px; font-size: 0.62rem; }
   body.k28-in-game .house-dealer {
-    display: block; position: absolute; left: 49.8%; top: 40.9%; transform: translate(-50%, -50%);
+    display: block; position: absolute; left: 49.8%; top: 36%; transform: translate(-50%, -50%);
     width: 70px; height: 70px; z-index: 6;
   }
   body.k28-in-game .house-dealer-photo {
     width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
     border: 2.5px solid var(--gold-soft); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+  }
+  /* Per explicit request: seats 3 and 6 (upper-left/upper-right) moved further down toward
+     their own real stools - but that puts their name/chips/cards band, which normally sits
+     below the avatar, close enough to the table rail and the seats flanking the dealer to
+     start overlapping them. Flips the stacking order for just these two seats specifically
+     (column-reverse) so that whole band renders ABOVE the avatar instead - same information,
+     just on the side that actually has clear room for it at this position. Every other seat
+     keeps its normal below-the-avatar layout, untouched. */
+  body.k28-in-game .seat[data-slot="3"], body.k28-in-game .seat[data-slot="6"] {
+    display: flex; flex-direction: column-reverse; align-items: center;
+  }
+  body.k28-in-game .seat[data-slot="3"] .seat-avatar-wrap,
+  body.k28-in-game .seat[data-slot="6"] .seat-avatar-wrap {
+    order: 0;
+  }
+  /* column-reverse flips the whole stack, including the relative order within the info
+     block itself - these explicit order values put it back in its natural reading order
+     (name, then chips, then cards) working down from the top, with the avatar anchored at
+     the bottom via its own order:0 above. */
+  body.k28-in-game .seat[data-slot="3"] .seat-name, body.k28-in-game .seat[data-slot="6"] .seat-name { order: 3; }
+  body.k28-in-game .seat[data-slot="3"] .seat-chips, body.k28-in-game .seat[data-slot="6"] .seat-chips { order: 2; }
+  body.k28-in-game .seat[data-slot="3"] .seat-cards, body.k28-in-game .seat[data-slot="6"] .seat-cards { order: 1; }
+  body.k28-in-game .seat[data-slot="3"] .turn-tag,
+  body.k28-in-game .seat[data-slot="3"] .action-badge,
+  body.k28-in-game .seat[data-slot="6"] .turn-tag,
+  body.k28-in-game .seat[data-slot="6"] .action-badge {
+    bottom: auto; top: 100%; margin-bottom: 0; margin-top: 3px;
   }
 
   /* My own hand sits right at my own seat, same as the reference's cards over its own player's
@@ -872,10 +899,11 @@ function seatPositions() {
       { x: 49.9, y: 80.8 },  // 0: my own seat
       { x: 31.0, y: 79.4 },  // 1: front-left-of-center
       { x: 15.2, y: 69.3 },  // 2: lower-left
-      { x: 10.8, y: 33.8 },  // 3: upper-left
+      { x: 14, y: 39 },      // 3: upper-left - per explicit request, moved down and in toward
+                              //    its own seat/stool a bit more (was 10.8/33.8)
       { x: 29.9, y: 42.1 },  // 4: back-left-of-center (flanking the dealer)
       { x: 70.6, y: 42.1 },  // 5: back-right-of-center (mirrors 4)
-      { x: 88.0, y: 33.7 },  // 6: upper-right (mirrors 3)
+      { x: 85, y: 39 },      // 6: upper-right (mirrors 3) - moved down and in to match
       { x: 84.7, y: 69.1 },  // 7: lower-right (mirrors 2)
       { x: 68.8, y: 79.5 },  // 8: front-right-of-center (mirrors 1)
     ];
@@ -912,7 +940,7 @@ function renderGameTable(state) {
       : (pos === myPos
         ? '' // full-size cards already shown in the hand strip below -- no need to duplicate them here too
         : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
-    return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
+    return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" data-slot="${slot}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
       <div class="seat-avatar-wrap">
         ${isActive ? `<div class="turn-tag">${pos === myPos ? 'YOUR TURN' : 'TURN'}</div>` : ''}
         ${!isActive && s.lastAction && !s.folded ? `<div class="action-badge">${escapeHtml(s.lastAction)}</div>` : ''}
