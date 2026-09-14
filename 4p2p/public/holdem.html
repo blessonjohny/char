@@ -311,10 +311,12 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .seat { width: 100px; }
   /* Per explicit live request, confirmed against several rounds of
      mockup screenshots before committing: avatar circles enlarged to
-     500% of their original 58px (290px), a deliberately dramatic,
-     immersive size showing full upper-body detail rather than a small
-     cropped face. */
-  body.k28-in-game .seat-avatar-wrap { width: 290px; height: 290px; }
+     160% of their original 58px (93px) -- 500% was tried first and
+     confirmed too large on an actual phone screen (one avatar nearly
+     filled the whole display), 150/200/250% were mocked up side by
+     side at the real phone's own dimensions afterward, and 160% is
+     the confirmed pick. */
+  body.k28-in-game .seat-avatar-wrap { width: 93px; height: 93px; }
   body.k28-in-game .seat-avatar { display: none; }
   body.k28-in-game .seat-avatar-photo {
     display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
@@ -340,17 +342,17 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .dealer-chip { width: 20px; height: 20px; font-size: 0.62rem; }
   body.k28-in-game .house-dealer {
     /* Per explicit live request, confirmed against the same mockup
-       rounds as the seat avatars: enlarged to 500% (70px -> 350px) and
-       moved up (36% -> 30%) to keep it looking properly seated at the
-       table rather than swallowing the space behind it now that it's
-       so much bigger. z-index lowered from 6 to 4, matching every
-       other seat -- previously higher than the cards/pot's own z-index
-       of 5, so the dealer used to incorrectly render ON TOP of the
-       board and pot; now the community cards and pot correctly layer
-       above it (and every other avatar) whenever they visually
-       overlap, exactly as requested. */
+       rounds as the seat avatars: enlarged to 160% (70px -> 112px) --
+       500% was the first attempt and confirmed too large on an actual
+       phone screen, 160% is the confirmed final pick, matching the
+       seat avatars' own final size decision. Position (top: 30%,
+       moved up from the original 36%) and z-index (lowered from 6 to
+       4, so the community cards/pot correctly layer above the dealer
+       whenever they visually overlap, instead of the dealer
+       incorrectly rendering on top of them) both left as already
+       fixed -- only the pixel size changed here. */
     display: block; position: absolute; left: 49.8%; top: 30%; transform: translate(-50%, -50%);
-    width: 350px; height: 350px; z-index: 4;
+    width: 112px; height: 112px; z-index: 4;
   }
   body.k28-in-game .house-dealer-photo {
     width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
