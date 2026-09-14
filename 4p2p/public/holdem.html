@@ -64,6 +64,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 .table-wrap{position:relative;width:100%;max-width:520px;aspect-ratio:1/1.15;max-height:44vh;margin:6px auto;flex:0 1 auto;min-height:0}
 .felt{position:absolute;inset:8% 4%;border-radius:50%;background:radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-2) 100%);border:10px solid #3d2510;box-shadow:0 10px 30px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.4)}
 .board-area{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);display:flex;gap:4px;z-index:5}
+/* Invisible on purpose -- see the HTML comment next to potAnchor's
+   markup for the full reasoning. Sits just left of the board's own
+   center point at the same vertical height, clear of the actual
+   cards regardless of how many are currently dealt. */
+.pot-anchor{position:absolute;top:42%;left:38%;width:1px;height:1px;pointer-events:none}
 .pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
 
 /* ---- Visual poker chips ---- */
@@ -278,6 +283,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
      rendering behind it; and my own seat/cards move further down the now-freed table to give
      the whole layout room to breathe. */
   body.k28-in-game .board-area { top: 48%; gap: 6px; }
+  body.k28-in-game .pot-anchor { top: 48%; }
   body.k28-in-game .board-area .card { width: 40px; height: 57px; font-size: 0.95rem; }
   body.k28-in-game .pot-display {
     position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
@@ -584,6 +590,20 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     <div class="street-banner" id="streetBanner"></div>
     <div class="board-area" id="boardArea"></div>
     <div class="pot-display" id="potDisplay">Pot: 0</div>
+    <!-- Per explicit live report: the chip-to-pot flying animation's
+         real destination used to just be potDisplay itself -- fine on
+         mobile where that reads inline near the board, but in
+         k28-in-game's desktop layout potDisplay is pinned to a fixed
+         spot at the very top of the whole screen (see its own CSS
+         override), so a chip flying there from any seat had to
+         visibly pass straight through the community cards on the way,
+         worst once all 5 are out and the board is at its widest. This
+         is a separate, invisible anchor point instead, sitting on the
+         table itself just left of the board -- "next to the cards,
+         not through them," per the request -- used only as the flying
+         animation's target; potDisplay's own text readout is
+         untouched and stays exactly where it already was. -->
+    <div class="pot-anchor" id="potAnchor"></div>
     <div id="seatsContainer"></div>
     <!-- Per explicit correction: this is a house dealer standing at the table, not a 10th
          player seat - holdem has exactly 9 player seats plus one dealer, no teams. Desktop
@@ -959,7 +979,7 @@ let lastCardRevealAnimatedFor = null;
 // not on every render regardless of what changed.
 const lastBettedThisRoundBySeat = {};
 function animateChipToPot(seatPos, amount) {
-  const potEl = $('potDisplay');
+  const potEl = $('potAnchor') || $('potDisplay');
   const seatEl = document.querySelector(`.seat[data-pos="${seatPos}"]`);
   if (!potEl || !seatEl) return;
   const potRect = potEl.getBoundingClientRect();
@@ -981,7 +1001,7 @@ function animateChipToPot(seatPos, amount) {
   setTimeout(() => { chip.remove(); }, 630);
 }
 function animateChipsToWinners(state) {
-  const potEl = $('potDisplay');
+  const potEl = $('potAnchor') || $('potDisplay');
   const winners = (state.showdownResult && state.showdownResult.winners) || [];
   if (!potEl || winners.length === 0) return;
   const potRect = potEl.getBoundingClientRect();
@@ -1357,7 +1377,7 @@ function darkenShowdownLosers(state) {
 function showWinnerPopup(state) {
   const r = state.showdownResult;
   const popup = $('winnerPopup');
-  const potEl = $('potDisplay');
+  const potEl = $('potAnchor') || $('potDisplay');
   if (!popup || !r || !r.winners || !r.winners.length) return;
 
   const potRect = potEl.getBoundingClientRect();
