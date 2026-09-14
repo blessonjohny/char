@@ -73,7 +73,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    base point, since new chips stack upward from there), pushed down a
    little further so it reads as a caption underneath the pile rather
    than overlapping it. */
-.pot-stack-total{position:absolute;top:42%;left:32%;transform:translate(calc(-100% - 14px),-50%);font-size:0.6rem;font-weight:800;color:var(--gold);text-shadow:0 1px 4px rgba(0,0,0,0.9);white-space:nowrap;pointer-events:none;z-index:6}
+/* Per explicit follow-up request: switched from a static
+   percentage-based position to position:fixed, set dynamically in JS
+   (see updatePotStackTotalPosition) to track the actual top-right
+   corner of the chip pile itself -- since the pile grows taller as
+   more chips land, a fixed spot would either sit awkwardly far above
+   a short pile or get buried under a tall one. Updated every time the
+   pile's height actually changes instead. */
+.pot-stack-total{position:fixed;font-size:0.6rem;font-weight:800;color:var(--gold);text-shadow:0 1px 4px rgba(0,0,0,0.9);white-space:nowrap;pointer-events:none;z-index:6;transition:top 0.2s ease}
 .pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
 
 /* ---- Visual poker chips ---- */
@@ -218,9 +225,37 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    the table with nothing framing them. */
 .winner-popup{position:fixed;background:transparent;border:none;padding:14px 22px;z-index:1900;text-align:center;pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(0.15);transition:transform 0.5s cubic-bezier(.2,1.4,.3,1),opacity 0.35s ease;max-width:86vw}
 .winner-popup.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
-.winner-popup-cards{display:flex;justify-content:center;gap:4px}
-.winner-popup-cards .card{animation:cardFlipReveal .45s ease both}
+.winner-popup-cards{display:flex;justify-content:center;gap:4px;perspective:400px}
+/* Per explicit request: cards tilted to look like they're actually
+   lying flat on the table, the same visual idea as the pot chips'
+   own flattened look -- rotateX (a real 3D tilt, keeping the rank/suit
+   text readable, unlike squashing the card flat the way a plain
+   circular chip can get away with) plus a touch of translateY so the
+   tilted card doesn't visually float above where the pot chips sit. */
+.winner-popup-cards .card{animation:cardFlipRevealFlat .8s ease both}
 .winner-popup-cards .card:nth-child(2){animation-delay:0.08s}
+/* Per explicit follow-up bug fix: two separate CSS animations both
+   targeting transform (the existing cardFlipReveal flip, plus a
+   second one for the table-tilt) don't cleanly hand off to each other
+   in sequence the way separate delays suggest they should -- both are
+   considered "active" for their combined total duration from the
+   moment the element starts animating, and the earlier one's
+   rotateY/scale values were winning out for the full duration instead
+   of properly finishing before the second took over, so the tilt
+   barely showed. One single combined animation instead, carrying the
+   card through the exact same flip-in motion and ending on the same
+   tilted, lying-flat resting pose as before, just as one continuous
+   sequence instead of two competing ones. */
+@keyframes cardFlipRevealFlat{
+  0%{transform:rotateY(90deg) rotateX(0deg) scale(0.85) translateY(0);opacity:0.3;}
+  34%{transform:rotateY(-12deg) rotateX(0deg) scale(1.05) translateY(0);opacity:1;}
+  56%{transform:rotateY(0deg) rotateX(0deg) scale(1) translateY(0);opacity:1;}
+  100%{transform:rotateY(0deg) rotateX(38deg) scale(1) translateY(4px);opacity:1;}
+}
+/* Per explicit request: a short, single-line summary above the cards
+   -- who won, the hand they won with, and the amount -- since the
+   popup went fully text-free before and lost that context entirely. */
+.winner-popup-summary{color:var(--gold);font-size:0.95rem;font-weight:800;white-space:nowrap;text-shadow:0 2px 6px rgba(0,0,0,0.95),0 0 10px rgba(244,196,48,0.5);margin-bottom:10px}
 /* Per explicit request: a plain, dismissible suggestion rather than
    any actual screen-orientation locking or forced fullscreen -- see
    the HTML comment above this popup's markup for the fuller
@@ -316,7 +351,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
      the whole layout room to breathe. */
   body.k28-in-game .board-area { top: 48%; gap: 6px; }
   body.k28-in-game .pot-anchor { top: 58%; }
-  body.k28-in-game .pot-stack-total { top: 58%; font-size: 0.68rem; }
+  body.k28-in-game .pot-stack-total { font-size: 0.68rem; }
   body.k28-in-game .board-area .card { width: 40px; height: 57px; font-size: 0.95rem; }
   body.k28-in-game .pot-display {
     position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
@@ -701,6 +736,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   <div id="myChipsTop" class="desktop-top-readout"></div>
   <div id="myTurnTop" class="desktop-top-readout desktop-turn-tag">YOUR TURN</div>
   <div class="winner-popup" id="winnerPopup">
+    <div class="winner-popup-summary" id="winnerPopupSummary"></div>
     <div class="winner-popup-cards" id="winnerPopupCards"></div>
     <button class="btn btn-gold" id="btnAckWinnerPopup" style="margin-top:14px;pointer-events:auto;padding:8px 40px">OK</button>
   </div>
@@ -1041,6 +1077,19 @@ const CHIP_COLOR_STOPS = [
   { max: 249, colors: ['#c98aff', '#7c2fcf', '#3d1466'] },    // purple
   { max: Infinity, colors: ['#ffd76b', '#c9922b', '#8a611c'] } // gold, top tier
 ];
+// Per explicit request: the per-seat "YOUR TURN" badge (the small tag
+// floating right above the player's own avatar) shown as one short,
+// single line combining the turn indicator with the actual options --
+// same toCall/canCheck logic already used for the top-of-screen
+// readout, just condensed with slashes instead of "or" to stay
+// genuinely short for a small badge, not the full-sentence version
+// that reads fine as a standalone banner but not as a compact tag.
+function myTurnShortLabel(state, seat) {
+  const toCall = state.currentBet - seat.bettedThisRound;
+  const canCheck = toCall <= 0;
+  const firstAction = canCheck ? 'Check' : `Call ${Math.min(toCall, seat.chips)}`;
+  return `YOUR TURN: ${firstAction}/Raise/Fold`;
+}
 function chipGradientForValue(value) {
   const tier = CHIP_COLOR_STOPS.find(t => value <= t.max) || CHIP_COLOR_STOPS[CHIP_COLOR_STOPS.length - 1];
   const [a, b, c] = tier.colors;
@@ -1109,10 +1158,26 @@ function landChipInPotStack(color) {
   chip.style.zIndex = String(6 + chipInThisStack);
   document.body.appendChild(chip);
   potChipStack.push(chip);
+  updatePotStackTotalPosition(baseX, baseY, stackSpacingX, stackRiseY);
 }
 function clearPotChipStack() {
   potChipStack.forEach(c => c.remove());
   potChipStack = [];
+}
+// Per explicit request: keeps the running-total label pinned to the
+// actual top-right corner of the pile, moving up as new chips make it
+// taller -- baseX/baseY/stackSpacingX/stackRiseY are the exact same
+// values landChipInPotStack just used to place the chip that triggered
+// this call, so the label always matches the pile's real current
+// geometry rather than a guessed or stale one.
+function updatePotStackTotalPosition(baseX, baseY, stackSpacingX, stackRiseY) {
+  const label = $('potStackTotal');
+  if (!label) return;
+  const rightColumnCount = Math.ceil(potChipStack.length / 2);
+  const topOfRightColumnY = baseY - Math.max(0, rightColumnCount - 1) * stackRiseY;
+  label.style.left = (baseX + stackSpacingX + 14) + 'px';
+  label.style.top = (topOfRightColumnY - 10) + 'px';
+  label.style.transform = 'translate(0,-100%)';
 }
 function animateChipToPot(seatPos, amount) {
   const potEl = $('potAnchor') || $('potDisplay');
@@ -1492,7 +1557,7 @@ function renderGameTable(state) {
         ? '' // full-size cards already shown in the hand strip below -- no need to duplicate them here too
         : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
     return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" data-slot="${slot}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
-      ${isActive ? `<div class="turn-tag turn-tag-outer">${pos === myPos ? 'YOUR TURN' : 'TURN'}</div>` : ''}
+      ${isActive ? `<div class="turn-tag turn-tag-outer">${pos === myPos ? myTurnShortLabel(state, s) : 'TURN'}</div>` : ''}
       ${!isActive && s.lastAction && !s.folded ? `<div class="action-badge action-badge-outer ${actionBadgeClass(s.lastAction)}">${escapeHtml(s.lastAction)}</div>` : ''}
       <div class="seat-avatar-wrap">
         <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
@@ -1528,6 +1593,7 @@ function renderGameTable(state) {
     const firstAction = canCheck ? 'Check' : `Call ${Math.min(toCall, mySeat.chips)}`;
     $('myTurnTop').textContent = `${firstAction} or Raise or Fold`;
   }
+
 
   // Per explicit request: animates a chip flying from a seat to the pot
   // the moment that seat's own bet actually increases -- checked here,
@@ -1624,10 +1690,15 @@ function showWinnerPopup(state) {
   const potX = potRect.left + potRect.width / 2;
   const potY = potRect.top + potRect.height / 2;
 
-  // Per explicit follow-up request: the popup itself is now fully
-  // transparent, showing only the winning cards and an OK button --
-  // no name, no chip total, no hand-name text at all, so nothing else
-  // is computed or set here anymore.
+  // Per explicit follow-up request: a short, single-line summary is
+  // back (who won, what they won with, how much) -- kept as compact
+  // as the earlier no-text version was visually, just with the
+  // essential facts restored on one line rather than dropped entirely.
+  const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+  const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
+  $('winnerPopupSummary').textContent = r.boardShown
+    ? `${names} won ${totalWon} — ${r.winners[0].handName}`
+    : `${names} won ${totalWon}`;
   $('winnerPopupCards').innerHTML = (r.boardShown && r.winners[0].hand)
     ? r.winners[0].hand.map(c => cardHtml(c, false)).join('')
     : '';
