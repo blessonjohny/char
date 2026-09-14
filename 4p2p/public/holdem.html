@@ -316,7 +316,23 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
      back-row pairs were overlapping each other), and 140% combined
      with the widened back-row spacing below is the confirmed final
      pick. */
-  body.k28-in-game .seat-avatar-wrap { width: 81px; height: 81px; }
+  /* Per explicit live report, root cause fully diagnosed: a phone
+     screenshot's own pixel dimensions are its PHYSICAL screen pixels,
+     not the CSS pixels the browser actually lays things out with --
+     most phones run at 2-3x device pixel ratio, so a screenshot
+     showing 2340px wide can come from a browser whose real CSS layout
+     width is only ~800-1000px. Every fixed-px size tried (500%, 160%,
+     140%) was tuned against a simulated CSS width that doesn't
+     correspond to any real device, which is exactly why it kept
+     rendering bigger on the actual phone than in any mockup. Switched
+     to vw (percent of the real CSS viewport width, immune to device
+     pixel ratio entirely) so this scales correctly and identically on
+     any device without needing device-specific tuning ever again.
+     9.6vw reproduces the confirmed-good 140% look (81px) at the ~844px
+     CSS width that size was actually validated at; clamp() keeps it
+     from getting uncomfortably small on a narrow phone or oversized
+     on a genuinely wide desktop window. */
+  body.k28-in-game .seat-avatar-wrap { width: clamp(60px, 9.6vw, 100px); height: clamp(60px, 9.6vw, 100px); }
   body.k28-in-game .seat-avatar { display: none; }
   body.k28-in-game .seat-avatar-photo {
     display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
@@ -341,12 +357,12 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .seat-cards .card.mini { width: 24px; height: 34px; font-size: 0.65rem; }
   body.k28-in-game .dealer-chip { width: 20px; height: 20px; font-size: 0.62rem; }
   body.k28-in-game .house-dealer {
-    /* Per explicit live request: enlarged to 140% (70px -> 98px),
-       matching the seat avatars' own final size decision after 500%
-       and 160% were both tried and adjusted. Position/z-index
-       unchanged from before. */
+    /* Per explicit live report, same root-cause fix as the seat
+       avatars just above: switched from a fixed 98px to 11.6vw
+       (clamp-bounded), immune to device pixel ratio -- see the fuller
+       explanation on seat-avatar-wrap. Position/z-index unchanged. */
     display: block; position: absolute; left: 49.8%; top: 30%; transform: translate(-50%, -50%);
-    width: 98px; height: 98px; z-index: 4;
+    width: clamp(72px, 11.6vw, 120px); height: clamp(72px, 11.6vw, 120px); z-index: 4;
   }
   body.k28-in-game .house-dealer-photo {
     width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
