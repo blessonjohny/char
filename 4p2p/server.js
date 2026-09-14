@@ -5355,6 +5355,13 @@ function pokerMaybeBotAct(t) {
 // every single hand, the way a real cash game would just keep going.
 function pokerMaybeAutoDeal(t) {
   if (t.engine.phase !== 'handEnd') return;
+  // Per explicit request: the winning hand now gets laid face-up on
+  // the table itself and held there for a genuine 5 seconds before the
+  // next hand deals -- this delay lengthened from 3s to make room for
+  // that full sequence (chips flying to the winner, then the cards
+  // moving to the table, then the 5s hold) to actually finish playing
+  // out client-side before the next hand's data arrives and overwrites
+  // it.
   setTimeout(() => {
     if (!pokerTables[t.engine.tableId]) return;
     if (t.engine.phase !== 'handEnd') return;
@@ -5363,7 +5370,7 @@ function pokerMaybeAutoDeal(t) {
     pokerTouch(t);
     pokerBroadcast(t);
     pokerMaybeBotAct(t);
-  }, 3000);
+  }, 7500);
 }
 
 // Background reload-timer sweep -- catches a player whose 1-minute wait

@@ -45,6 +45,7 @@ class PokerEngine {
     this.mode = (opts && opts.mode) || 'cash';
     this.buyInType = (opts && opts.buyInType) || 'nolimit';
     this.blindLevel = 0;
+    this.allInShowdown = false;
     // How many hands each level lasts before the blinds step up to the next one - only
     // relevant in tournament mode. A round, deliberately-chosen number, not tied to real-world
     // clock time (bots play at whatever pace they play at, so hand count is what stays
@@ -245,6 +246,9 @@ class PokerEngine {
     this.pots = [];
     this.currentBet = 0;
     this.showdownResult = null;
+    // Cleared at the start of every genuinely new hand -- see
+    // _advanceIfCurrentCantAct for where this actually gets set to true.
+    this.allInShowdown = false;
 
     for (const pos of this.occupiedSeats()) {
       const s = this.seats[pos];
@@ -394,6 +398,17 @@ class PokerEngine {
     if (contesting.length <= 1) { if (contesting.length === 1) this._awardPotToSingleWinner(contesting[0]); return; }
     const canAct = contesting.filter(p => !this.seats[p].allIn);
     if (canAct.length === 0) {
+      // Per explicit live report: a genuine all-in showdown (nobody
+      // left who can still act -- every remaining player is either
+      // all-in or the very last bet just made everyone else all-in
+      // too) should reveal every contesting hand immediately, the same
+      // way a real poker room turns every remaining card face-up right
+      // then rather than making players wait for handEnd to see what
+      // they were actually up against while the rest of the board runs
+      // out. Cleared the moment a genuinely new hand starts (see
+      // startHand) so it can never leak into a hand that hasn't
+      // reached this point yet.
+      this.allInShowdown = true;
       this._collectBetsIntoPots();
       this._runOutRemainingStreets();
       return;
@@ -564,11 +579,19 @@ class PokerEngine {
       phase: this.phase, dealerSeat: this.dealerSeat, currentPlayer: this.currentPlayer,
       board: this.board, pots: this.pots, currentBet: this.currentBet, minRaise: this.minRaise,
       handNumber: this.handNumber, showdownResult: this.showdownResult, myHandName,
+      allInShowdown: !!this.allInShowdown,
       kickRequests: this.kickRequests,
       seats: this.seats.map((s, i) => {
         if (!s) return null;
         const isMe = i === viewerPos;
-        const revealHand = isMe || (this.phase === 'handEnd' && this.showdownResult && this.showdownResult.boardShown && !s.folded);
+        // Per explicit live report: a genuine all-in showdown reveals
+        // every contesting hand right then, the same as the real
+        // showdown-at-handEnd condition just after it -- not waiting
+        // for the hand to actually end while the remaining board runs
+        // out with everyone still in the dark about what they're up
+        // against.
+        const revealHand = isMe || (this.allInShowdown && !s.folded) ||
+          (this.phase === 'handEnd' && this.showdownResult && this.showdownResult.boardShown && !s.folded);
         return {
           name: s.name, isBot: s.isBot, connected: s.connected, chips: s.chips, avatar: s.avatar,
           folded: s.folded, allIn: s.allIn, sittingOut: s.sittingOut,
