@@ -69,6 +69,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    center point at the same vertical height, clear of the actual
    cards regardless of how many are currently dealt. */
 .pot-anchor{position:absolute;top:42%;left:32%;width:1px;height:1px;pointer-events:none}
+/* Sits at the same top/left as pot-anchor itself (the chip pile's own
+   base point, since new chips stack upward from there), pushed down a
+   little further so it reads as a caption underneath the pile rather
+   than overlapping it. */
+.pot-stack-total{position:absolute;top:42%;left:32%;transform:translate(-50%,14px);font-size:0.6rem;font-weight:800;color:var(--gold);text-shadow:0 1px 4px rgba(0,0,0,0.9);white-space:nowrap;pointer-events:none;z-index:6}
 .pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
 
 /* ---- Visual poker chips ---- */
@@ -311,6 +316,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
      the whole layout room to breathe. */
   body.k28-in-game .board-area { top: 48%; gap: 6px; }
   body.k28-in-game .pot-anchor { top: 58%; }
+  body.k28-in-game .pot-stack-total { top: 58%; font-size: 0.68rem; }
   body.k28-in-game .board-area .card { width: 40px; height: 57px; font-size: 0.95rem; }
   body.k28-in-game .pot-display {
     position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
@@ -664,6 +670,13 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
          animation's target; potDisplay's own text readout is
          untouched and stays exactly where it already was. -->
     <div class="pot-anchor" id="potAnchor"></div>
+    <!-- Per explicit request: a second, small running-total number
+         sitting right at the chip pile itself (not just the existing
+         Pot: readout pinned at the very top of the screen, far away
+         from where the actual chips are visually piling up) -- so the
+         number updates and reads right next to the chips it's
+         actually counting. -->
+    <div class="pot-stack-total" id="potStackTotal"></div>
     <div id="seatsContainer"></div>
     <!-- Per explicit correction: this is a house dealer standing at the table, not a 10th
          player seat - holdem has exactly 9 player seats plus one dealer, no teams. Desktop
@@ -954,6 +967,28 @@ document.addEventListener('fullscreenchange', () => {
 document.addEventListener('webkitfullscreenchange', () => {
   const btn = $('btnFullscreen');
   if (btn) btn.textContent = (document.webkitFullscreenElement) ? '⛶ Exit' : '⛶';
+});
+// Per explicit follow-up request: auto-enters full screen the moment
+// the phone is physically tilted into landscape, rather than leaving
+// it to a manual tap on the button every time. Only fires on an actual
+// portrait-to-landscape transition (tracked in wasPortraitForAutoFs,
+// not just "orientationchange happened") so it doesn't keep re-firing
+// on every minor resize once already landscape, and only while
+// actually at the table (myTableId set) -- never on the lobby/menu
+// screens. Wrapped the same defensively-silent way as the manual
+// button: some mobile browsers only allow requestFullscreen() from a
+// tap and will quietly refuse this automatic call, which is fine --
+// the manual button in the top bar is still right there as a fallback
+// either way, this is a convenience on top of it, not a replacement.
+let wasPortraitForAutoFs = window.innerHeight > window.innerWidth;
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    const isLandscapeNow = window.innerWidth > window.innerHeight;
+    if (wasPortraitForAutoFs && isLandscapeNow && myTableId && !document.fullscreenElement && !document.webkitFullscreenElement) {
+      requestHoldemFullscreen();
+    }
+    wasPortraitForAutoFs = !isLandscapeNow;
+  }, 200); // orientationchange can fire slightly before innerWidth/innerHeight actually update
 });
 // Per explicit request: an Invite button matching the same one already on the 4-player and
 // 6-player tables - native share sheet first, clipboard copy as the fallback, and a plain
@@ -1396,6 +1431,12 @@ function renderGameTable(state) {
   $('blindsDisplay').textContent = state.smallBlind + '/' + state.bigBlind + (state.buyInType === 'fixed' ? ' fixed' : ' NL') + (state.mode === 'tournament' ? ` · Level ${(state.blindLevel || 0) + 1}` : '');
   const potTotal = state.pots.reduce((s, p) => s + p.amount, 0);
   $('potDisplay').innerHTML = (potTotal > 0 ? chipHtml(potTotal) : '') + 'Pot: ' + potTotal + (state.currentBet > 0 ? ` · Bet: ${state.currentBet}` : '');
+  // Per explicit request: a plain running-total number right at the
+  // chip pile itself, not just the Pot: readout pinned at the top of
+  // the screen -- just the number, since "Pot:" is already spelled
+  // out up there and repeating it here would be redundant this close
+  // to the actual chips.
+  if ($('potStackTotal')) $('potStackTotal').textContent = potTotal > 0 ? potTotal : '';
   $('boardArea').innerHTML = state.board.map(c => cardHtml(c, false)).join('') || '<span style="opacity:0.4;font-size:0.7rem">— waiting for flop —</span>';
 
   const positions = seatPositions();
