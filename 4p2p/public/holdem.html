@@ -309,7 +309,12 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   }
 
   body.k28-in-game .seat { width: 100px; }
-  body.k28-in-game .seat-avatar-wrap { width: 58px; height: 58px; }
+  /* Per explicit live request, confirmed against several rounds of
+     mockup screenshots before committing: avatar circles enlarged to
+     500% of their original 58px (290px), a deliberately dramatic,
+     immersive size showing full upper-body detail rather than a small
+     cropped face. */
+  body.k28-in-game .seat-avatar-wrap { width: 290px; height: 290px; }
   body.k28-in-game .seat-avatar { display: none; }
   body.k28-in-game .seat-avatar-photo {
     display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
@@ -334,8 +339,18 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   body.k28-in-game .seat-cards .card.mini { width: 24px; height: 34px; font-size: 0.65rem; }
   body.k28-in-game .dealer-chip { width: 20px; height: 20px; font-size: 0.62rem; }
   body.k28-in-game .house-dealer {
-    display: block; position: absolute; left: 49.8%; top: 36%; transform: translate(-50%, -50%);
-    width: 70px; height: 70px; z-index: 6;
+    /* Per explicit live request, confirmed against the same mockup
+       rounds as the seat avatars: enlarged to 500% (70px -> 350px) and
+       moved up (36% -> 30%) to keep it looking properly seated at the
+       table rather than swallowing the space behind it now that it's
+       so much bigger. z-index lowered from 6 to 4, matching every
+       other seat -- previously higher than the cards/pot's own z-index
+       of 5, so the dealer used to incorrectly render ON TOP of the
+       board and pot; now the community cards and pot correctly layer
+       above it (and every other avatar) whenever they visually
+       overlap, exactly as requested. */
+    display: block; position: absolute; left: 49.8%; top: 30%; transform: translate(-50%, -50%);
+    width: 350px; height: 350px; z-index: 4;
   }
   body.k28-in-game .house-dealer-photo {
     width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
@@ -1208,29 +1223,25 @@ function seatPositions() {
   // dealer, set separately) are confirmed sitting on a real, distinctly visible stool at that
   // resolution, not estimated or left unmeasured this time.
   if (document.body.classList.contains('k28-in-game')) {
+    // Per explicit live request, confirmed correct across several
+    // rounds of mockup screenshots before committing: every coordinate
+    // below shifted left 4 (to compensate for the 500%-sized avatars
+    // visually reading as shifted right of their real stool) and up by
+    // an amount tuned per seat -- the bottom-center three (0, 1, 8)
+    // needed the most (-6.5 total, after two separate "a little more"
+    // follow-ups), the bottom corners (2, 7) a bit less (-4), the
+    // upper-left pair (3, 4) a moderate amount (-2.5), and the
+    // upper-right pair (5, 6) only a small amount (-1).
     return [
-      { x: 49.9, y: 80.8 },  // 0: my own seat
-      { x: 31.0, y: 79.4 },  // 1: front-left-of-center
-      { x: 15.2, y: 69.3 },  // 2: lower-left
-      { x: 17, y: 37 },      // 3: upper-left - per explicit live report with a screenshot,
-                              //    the avatar itself was rendering left and below the real
-                              //    stool - measured the actual stool position directly from
-                              //    that screenshot (14.3%, 45.1%), then aimed this seat anchor
-                              //    a bit higher than that measured avatar target since the
-                              //    info-above-avatar flip (see the seat[data-slot] rules below)
-                              //    makes the whole seat box taller with the avatar sitting in
-                              //    its lower half - the same effect already accounted for on
-                              //    seats 4/5 elsewhere in this file.
-      { x: 29.9, y: 27 },    // 4: back-left-of-center (flanking the dealer) - per explicit
-                              //    report, moved back up after the info-above-avatar flip
-                              //    pushed the avatar itself down (that flip makes the whole
-                              //    seat box taller with the info on top, and since the box is
-                              //    centered on this point, the avatar - now in the bottom half
-                              //    of that taller box - visually lands lower than before)
-      { x: 70.6, y: 27 },    // 5: back-right-of-center (mirrors 4)
-      { x: 83, y: 37 },      // 6: upper-right (mirrors 3)
-      { x: 84.7, y: 69.1 },  // 7: lower-right (mirrors 2)
-      { x: 68.8, y: 79.5 },  // 8: front-right-of-center (mirrors 1)
+      { x: 45.9, y: 74.3 },  // 0: my own seat
+      { x: 27.0, y: 72.9 },  // 1: front-left-of-center
+      { x: 11.2, y: 65.3 },  // 2: lower-left
+      { x: 13, y: 34.5 },    // 3: upper-left
+      { x: 25.9, y: 24.5 },  // 4: back-left-of-center (flanking the dealer)
+      { x: 66.6, y: 26 },    // 5: back-right-of-center (mirrors 4)
+      { x: 79, y: 36 },      // 6: upper-right (mirrors 3)
+      { x: 80.7, y: 65.1 },  // 7: lower-right (mirrors 2)
+      { x: 64.8, y: 73 },    // 8: front-right-of-center (mirrors 1)
     ];
   }
   const positions = [];
