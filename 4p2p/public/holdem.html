@@ -1183,9 +1183,26 @@ function animateChipsToWinners(state) {
       const delay = i * 60;
       const jitterX = (Math.random() - 0.5) * 16;
       const jitterY = (Math.random() - 0.5) * 16;
+      // Real, confirmed root-cause fix per explicit live report ("pot
+      // just disappears in place, doesn't travel to the winner"): each
+      // landed chip still carries the flying-chip-landed class, which
+      // has its own completed CSS @keyframes animation (the drop-and-
+      // settle effect) sitting on the transform property with
+      // animation-fill-mode:both. That fill-mode keeps the animation's
+      // own final transform value in force even after it's finished
+      // playing, and it can silently win over a later plain inline
+      // style change to that same transform property -- so the chip
+      // was never actually failing to move, the move just wasn't
+      // visible: its position was being held in place by its own
+      // still-attached settle animation the whole time. Removing the
+      // class first genuinely detaches that animation before the
+      // flight's own transform is set, so nothing is left competing
+      // for the same property.
+      chip.classList.remove('flying-chip-landed');
       chip.style.left = startX + 'px';
       chip.style.top = startY + 'px';
       chip.style.transform = 'translate(-50%,-50%)';
+      chip.style.opacity = '1';
       setTimeout(() => {
         chip.style.transform = `translate(${target.x - startX + jitterX}px, ${target.y - startY + jitterY}px)`;
       }, delay + 20);
