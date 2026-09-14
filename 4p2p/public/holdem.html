@@ -89,6 +89,18 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    a short pile or get buried under a tall one. Updated every time the
    pile's height actually changes instead. */
 .pot-stack-total{position:fixed;font-size:0.6rem;font-weight:800;color:var(--gold);text-shadow:0 1px 4px rgba(0,0,0,0.9);white-space:nowrap;pointer-events:none;z-index:6;transition:top 0.2s ease}
+/* Per explicit request: replaces the old end-of-hand popup -- the
+   winner's cards land here, at a fixed spot just below the community
+   cards, rather than a separate floating overlay anywhere else on
+   screen. Starts invisible/tiny and grows in exactly like the flying
+   chips settle, so it reads as the cards actually arriving here, not
+   a UI element just appearing. */
+.table-winning-hand{position:absolute;top:64%;left:50%;transform:translate(-50%,-50%) scale(0.3);text-align:center;z-index:7;pointer-events:none;opacity:0;transition:transform 0.4s cubic-bezier(.2,1.4,.3,1),opacity 0.3s ease}
+.table-winning-hand.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.table-winning-hand-cards{display:flex;justify-content:center;gap:4px;margin-bottom:6px}
+.table-winning-hand-cards .card{animation:cardFlipReveal .4s ease both}
+.table-winning-hand-cards .card:nth-child(2){animation-delay:0.08s}
+.table-winning-hand-label{color:var(--gold);font-size:0.85rem;font-weight:900;text-shadow:0 2px 6px rgba(0,0,0,0.95),0 0 10px rgba(244,196,48,0.6);white-space:nowrap}
 .pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
 
 /* ---- Visual poker chips ---- */
@@ -104,6 +116,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 
 /* ---- Flying chip pot-payout animation ---- */
 .flying-chip{position:fixed;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.8);box-shadow:0 3px 8px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.7s cubic-bezier(.3,.6,.4,1), opacity 0.7s ease;}
+/* Per explicit request: the small flying card-back sprite used only
+   during the new dealing animation (see animateDealingCards) -- a
+   miniature version of the real .card.back styling so it reads as an
+   actual card mid-flight, not a generic shape. */
+.dealing-card{position:fixed;width:16px;height:22px;border-radius:3px;background:linear-gradient(135deg,#8b2635,#5a1620);border:1.5px solid rgba(244,196,48,0.7);box-shadow:0 2px 6px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.35s cubic-bezier(.3,.5,.4,1);}
 /* Per explicit request: chips that have actually landed and joined the
    accumulating pot pile, spread across a small grid (see
    landChipInPotStack) rather than a flat token count -- a bit smaller
@@ -216,44 +233,18 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 .allin-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}
 .folded-tag{display:inline-block;background:rgba(0,0,0,0.5);color:rgba(255,255,255,0.55);font-size:0.6rem;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15)}
 
-/* Per explicit request: the win announcement redesigned to be
-   noticeably more transparent (the felt and table stay visible
-   through it, rather than being covered by a near-solid card) and
-   generally more polished -- a thinner double-line gold border in
-   place of the old flat thick one, a soft glow instead of a hard
-   shadow, and the chip amount pulled out as its own larger, gold,
-   separately-emphasized line rather than folded into a small plain
-   sentence, so the two things a player actually cares about at a
-   glance -- who won, and how much -- read clearly and instantly.
-   Blur increased to compensate for the lower opacity, keeping text
-   legible against a busy felt/card background behind it. */
-/* Per explicit follow-up request: fully transparent now -- no
-   background, blur, border, or glow at all, so only the winning cards
-   and the OK button themselves are visible, floating directly over
-   the table with nothing framing them. */
-.winner-popup{position:fixed;background:transparent;border:none;padding:14px 22px;z-index:1900;text-align:center;pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(0.15);transition:transform 0.5s cubic-bezier(.2,1.4,.3,1),opacity 0.35s ease;max-width:86vw}
-.winner-popup.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
-.winner-popup-cards{display:flex;justify-content:center;gap:4px}
-/* Per explicit correction: the tilt/lying-flat treatment below was a
-   misunderstanding of which cards were meant -- reverted back to the
-   plain, upright flip reveal these had originally. The actual request
-   was always about the real community cards on the table (flop/turn/
-   river, in #boardArea), not these popup cards -- see the CSS there
-   for where that tilt actually belongs instead. */
-.winner-popup-cards .card{animation:cardFlipReveal .45s ease both}
-.winner-popup-cards .card:nth-child(2){animation-delay:0.08s}
-/* Per explicit request: a short, single-line summary above the cards
-   -- who won, the hand they won with, and the amount -- since the
-   popup went fully text-free before and lost that context entirely. */
-.winner-popup-summary{color:var(--gold);font-size:0.95rem;font-weight:800;white-space:nowrap;text-shadow:0 2px 6px rgba(0,0,0,0.95),0 0 10px rgba(244,196,48,0.5);margin-bottom:10px}
+/* Per explicit correction: the old popup-based win announcement was
+   removed entirely per direct request ("I don't like the end popup,
+   it's annoying, delete it") -- replaced with the winning hand laid
+   face-up on the table itself instead (see .table-winning-hand below,
+   plus the new dealing animation), not another popup of any kind. */
 /* Per explicit request: a plain, dismissible suggestion rather than
    any actual screen-orientation locking or forced fullscreen -- see
    the HTML comment above this popup's markup for the fuller
-   reasoning. Reuses the exact same fixed-center-popup positioning and
-   pointer-events pattern as .winner-popup for visual consistency
-   between the two, just its own simpler content and no chip-position
-   transform-origin trick (this one has no "grows out of the pot"
-   moment to connect to). */
+   reasoning. A simple fixed-center popup with its own pointer-events,
+   just its own simpler content and no chip-position transform-origin
+   trick (this one has no "grows out of the pot" moment to connect
+   to). */
 .tilt-suggest-popup{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:linear-gradient(160deg,rgba(26,47,28,0.92),rgba(13,31,16,0.92));border:3px solid var(--gold);border-radius:18px;padding:22px 26px;z-index:1950;text-align:center;box-shadow:0 0 40px rgba(244,196,48,0.5),0 10px 30px rgba(0,0,0,0.7);max-width:80vw;display:none}
 .tilt-suggest-popup.on{display:block}
 .tilt-suggest-icon{font-size:2.2rem;margin-bottom:8px}
@@ -340,6 +331,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
      rendering behind it; and my own seat/cards move further down the now-freed table to give
      the whole layout room to breathe. */
   body.k28-in-game .board-area { top: 48%; gap: 6px; }
+  body.k28-in-game .table-winning-hand { top: 60%; }
   body.k28-in-game .pot-anchor { top: 58%; }
   body.k28-in-game .pot-stack-total { font-size: 0.68rem; }
   body.k28-in-game .board-area .card { width: 40px; height: 57px; font-size: 0.95rem; }
@@ -703,6 +695,16 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
          number updates and reads right next to the chips it's
          actually counting. -->
     <div class="pot-stack-total" id="potStackTotal"></div>
+    <!-- Per explicit request: replaces the old end-of-hand popup
+         entirely -- the winner's actual hole cards move here, onto the
+         table itself, with the hand name (e.g. "Straight") shown right
+         below them, held for a real 5 seconds before the next hand
+         deals. See showWinningHandOnTable() for the animation that
+         populates this. -->
+    <div class="table-winning-hand" id="tableWinningHand">
+      <div class="table-winning-hand-cards" id="tableWinningHandCards"></div>
+      <div class="table-winning-hand-label" id="tableWinningHandLabel"></div>
+    </div>
     <div id="seatsContainer"></div>
     <!-- Per explicit correction: this is a house dealer standing at the table, not a 10th
          player seat - holdem has exactly 9 player seats plus one dealer, no teams. Desktop
@@ -726,11 +728,6 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
        never fall out of sync. -->
   <div id="myChipsTop" class="desktop-top-readout"></div>
   <div id="myTurnTop" class="desktop-top-readout desktop-turn-tag">YOUR TURN</div>
-  <div class="winner-popup" id="winnerPopup">
-    <div class="winner-popup-summary" id="winnerPopupSummary"></div>
-    <div class="winner-popup-cards" id="winnerPopupCards"></div>
-    <button class="btn btn-gold" id="btnAckWinnerPopup" style="margin-top:14px;pointer-events:auto;padding:8px 40px">OK</button>
-  </div>
   <!-- Per explicit request: the safer of two options offered -- a
        plain, dismissible suggestion rather than any actual
        programmatic screen-orientation locking or forced fullscreen,
@@ -1183,6 +1180,10 @@ function cardHtml(card, mini, revealFlip) {
   return `<div class="card${mini ? ' mini' : ''} ${isRed ? 'red' : 'black'}${revealFlip ? ' reveal-flip' : ''}"><div>${card.rank}</div><div>${card.suit}</div></div>`;
 }
 let lastCardRevealAnimatedFor = null;
+// Per explicit request: tracks which hand number the dealing animation
+// has already played for, same pattern as lastCardRevealAnimatedFor --
+// see animateDealingCards below for what actually uses this.
+let lastDealAnimatedFor = null;
 
 // Animates a small handful of chips visually flying from the pot to
 // each winner's seat when a hand resolves -- purely a visual flourish
@@ -1663,7 +1664,14 @@ function renderGameTable(state) {
 
   const positions = seatPositions();
   const seatsEl = $('seatsContainer');
-  const isNewShowdownReveal = state.phase === 'handEnd' && state.showdownResult && state.showdownResult.boardShown && state.handNumber !== lastCardRevealAnimatedFor;
+  // Per explicit live report: a genuine all-in showdown (state.allInShowdown,
+  // set the moment nobody left can still act) reveals and flips every
+  // contesting hand right then -- the same flip-reveal treatment
+  // already used at handEnd, just triggered earlier since there's
+  // nothing left to wait for. handNumber-based tracking below means
+  // whichever of the two conditions fires first "claims" the
+  // animation for this hand, so it never plays twice for the same one.
+  const isNewShowdownReveal = (state.allInShowdown || (state.phase === 'handEnd' && state.showdownResult && state.showdownResult.boardShown)) && state.handNumber !== lastCardRevealAnimatedFor;
   seatsEl.innerHTML = state.seats.map((s, pos) => {
     if (!s) return '';
     const slot = slotFor(pos);
@@ -1730,6 +1738,23 @@ function renderGameTable(state) {
     // been) -- clears any stragglers so a new pile starts genuinely
     // empty instead of a new hand's chips landing on top of leftovers.
     clearPotChipStack();
+    // Same safety-net idea for the winning-hand display on the table --
+    // a new hand starting is the definitive signal the previous one is
+    // truly over, so this is cleared here regardless of whether its own
+    // 5s timer already fired.
+    if ($('tableWinningHand')) $('tableWinningHand').classList.remove('on');
+    if (tableWinningHandClearTimer) { clearTimeout(tableWinningHandClearTimer); tableWinningHandClearTimer = null; }
+    // Per explicit request: the dealer visibly deals to each player
+    // the moment a fresh hand's hole cards actually arrive -- checked
+    // here (seat positions haven't been re-rendered yet this cycle, so
+    // measuring them now still reflects last hand's positions, which
+    // are the same positions this hand uses too) rather than after,
+    // since the flying sprites need real coordinates to animate
+    // between.
+    if (state.handNumber !== lastDealAnimatedFor && state.seats.some(s => s && s.hand && s.hand.length)) {
+      lastDealAnimatedFor = state.handNumber;
+      animateDealingCards(state);
+    }
   }
   state.seats.forEach((s, pos) => {
     if (!s) return;
@@ -1743,24 +1768,20 @@ function renderGameTable(state) {
   renderStreetBanner(state);
 
   // The table already shows the real showdown -- cards flip face-up at
-  // each seat, chips fly to the winner. A popup then grows directly out
-  // of the pot's own position to announce the winner, so the whole
-  // sequence reads as one connected moment instead of separate effects,
-  // plus a small persistent on-table reminder that stays up longer.
+  // each seat, chips fly to the winner, then the winner's actual hole
+  // cards move to the table itself with the hand name shown, held for
+  // a real 5 seconds. No popup anywhere in this sequence anymore.
   if (state.phase === 'handEnd' && state.showdownResult && state.handNumber !== lastShownWinnerBannerFor) {
     lastShownWinnerBannerFor = state.handNumber;
     setTimeout(() => showWinnerBanner(state), 1000);
-    // Per explicit follow-up: showWinnerPopup used to be scheduled on
-    // a fixed delay that assumed a small, roughly-constant chip count.
-    // Now the real accumulated pile (which can be much bigger than
-    // that old assumption) is what actually flies out, so the popup
-    // waits for animateChipsToWinners' own true, returned duration --
-    // the genuine last chip actually finishing, not a guessed number --
-    // plus a short beat after so the table visibly empties out first,
-    // then the popup appears, rather than the two overlapping.
+    // Per explicit request: waits for animateChipsToWinners' own true,
+    // returned duration -- the genuine last chip actually finishing,
+    // not a guessed number -- plus a short beat after so the table
+    // visibly empties out first, then the winning hand appears on the
+    // table, rather than the two overlapping.
     setTimeout(() => {
       const flightDuration = animateChipsToWinners(state);
-      setTimeout(() => showWinnerPopup(state), flightDuration + 250);
+      setTimeout(() => showWinningHandOnTable(state), flightDuration + 250);
     }, 900);
   }
   // Per explicit request: darkens every seat that reached a genuine
@@ -1799,57 +1820,81 @@ function darkenShowdownLosers(state) {
     if (seatEl) seatEl.classList.add('showdown-lost');
   }
 }
-function showWinnerPopup(state) {
+// Per explicit request: replaces the old popup entirely -- the
+// winner's actual hole cards move from their seat onto the table
+// itself (a scale/transform-origin trick from their seat position, the
+// same idea the old popup used with the pot, just anchored to the
+// winner's seat instead), landing with the hand name shown right below
+// them. Held for a genuine 5 seconds, then cleared -- timed against
+// pokerMaybeAutoDeal's own matching 7.5s server-side delay before the
+// next hand deals, so this always finishes well before that happens.
+let tableWinningHandClearTimer = null;
+function showWinningHandOnTable(state) {
   const r = state.showdownResult;
-  const popup = $('winnerPopup');
-  const potEl = $('potAnchor') || $('potDisplay');
-  if (!popup || !r || !r.winners || !r.winners.length) return;
+  const el = $('tableWinningHand');
+  if (!el || !r || !r.winners || !r.winners.length || !r.boardShown || !r.winners[0].hand) return;
 
-  const potRect = potEl.getBoundingClientRect();
-  const potX = potRect.left + potRect.width / 2;
-  const potY = potRect.top + potRect.height / 2;
-
-  // Per explicit follow-up request: a short, single-line summary is
-  // back (who won, what they won with, how much) -- kept as compact
-  // as the earlier no-text version was visually, just with the
-  // essential facts restored on one line rather than dropped entirely.
+  const winnerPos = r.winners[0].seat;
+  const winnerSeatEl = document.querySelector(`.seat[data-pos="${winnerPos}"]`);
   const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
   const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
-  $('winnerPopupSummary').textContent = r.boardShown
-    ? `${names} won ${totalWon} — ${r.winners[0].handName}`
-    : `${names} won ${totalWon}`;
-  $('winnerPopupCards').innerHTML = (r.boardShown && r.winners[0].hand)
-    ? r.winners[0].hand.map(c => cardHtml(c, false)).join('')
-    : '';
 
-  // Position the popup at a fixed, readable spot (screen center-ish),
-  // then set its transform-origin to wherever the pot actually is
-  // relative to that -- the scale-up animation then visibly emerges
-  // from the pot's exact position no matter where it sits on any given
-  // screen size. Only left/top/transform-origin are set inline here --
-  // transform itself is left entirely to the CSS class below, since an
-  // inline transform would permanently override the class's own
-  // transform rule and the popup would never actually animate.
-  popup.style.left = '50%';
-  // Per explicit request: pushed as far down toward the bottom of the
-  // screen as it can go while the popup's own content (summary text,
-  // cards, OK button) still fits fully on screen without its bottom
-  // edge getting clipped -- centered via translate(-50%,-50%), so this
-  // needs enough clearance below this point for roughly half the
-  // popup's own height, not just the anchor point itself.
-  popup.style.top = '84%';
-  popup.classList.remove('on');
-  // Force layout so the browser registers the reset before measuring.
-  void popup.offsetWidth;
-  const popupRect = popup.getBoundingClientRect();
-  const originX = potX - popupRect.left;
-  const originY = potY - popupRect.top;
-  popup.style.transformOrigin = `${originX}px ${originY}px`;
-  popup.classList.add('on');
+  $('tableWinningHandCards').innerHTML = r.winners[0].hand.map(c => cardHtml(c, false)).join('');
+  $('tableWinningHandLabel').textContent = `${names} won ${totalWon} — ${r.winners[0].handName}`;
+
+  el.classList.remove('on');
+  if (winnerSeatEl) {
+    const seatRect = winnerSeatEl.getBoundingClientRect();
+    void el.offsetWidth; // force layout before measuring
+    const elRect = el.getBoundingClientRect();
+    const originX = (seatRect.left + seatRect.width / 2) - elRect.left;
+    const originY = (seatRect.top + seatRect.height / 2) - elRect.top;
+    el.style.transformOrigin = `${originX}px ${originY}px`;
+  }
+  el.classList.add('on');
+
+  if (tableWinningHandClearTimer) clearTimeout(tableWinningHandClearTimer);
+  tableWinningHandClearTimer = setTimeout(() => { el.classList.remove('on'); }, 5000);
 }
-$('btnAckWinnerPopup').addEventListener('click', () => {
-  $('winnerPopup').classList.remove('on');
-});
+// Per explicit request: animates small card-back sprites flying from
+// the house dealer's own position out to each active seat in turn (a
+// slight stagger per seat, and a slight stagger between each seat's
+// own two cards, so it genuinely reads as the dealer working around
+// the table one card at a time rather than everything appearing at
+// once) right as a fresh hand's hole cards actually arrive. Purely
+// visual/temporary -- the real, persistent card-back rendering at each
+// seat is entirely unchanged and handled elsewhere; these flying
+// sprites are removed once they land.
+function animateDealingCards(state) {
+  const dealerEl = document.querySelector('.house-dealer');
+  if (!dealerEl) return;
+  const dealerRect = dealerEl.getBoundingClientRect();
+  const startX = dealerRect.left + dealerRect.width / 2;
+  const startY = dealerRect.top + dealerRect.height / 2;
+  const dealSeats = state.seats
+    .map((s, pos) => (s && !s.sittingOut && s.hand && s.hand.length ? pos : null))
+    .filter(pos => pos !== null);
+  dealSeats.forEach((pos, seatIdx) => {
+    const seatEl = document.querySelector(`.seat[data-pos="${pos}"]`);
+    if (!seatEl) return;
+    const seatRect = seatEl.getBoundingClientRect();
+    const endX = seatRect.left + seatRect.width / 2;
+    const endY = seatRect.top + seatRect.height / 2;
+    for (let cardIdx = 0; cardIdx < 2; cardIdx++) {
+      const delay = seatIdx * 90 + cardIdx * 140;
+      setTimeout(() => {
+        const card = document.createElement('div');
+        card.className = 'dealing-card';
+        card.style.left = startX + 'px';
+        card.style.top = startY + 'px';
+        card.style.transform = 'translate(-50%,-50%)';
+        document.body.appendChild(card);
+        setTimeout(() => { card.style.transform = `translate(${endX - startX}px, ${endY - startY}px)`; }, 20);
+        setTimeout(() => { card.remove(); }, 380);
+      }, delay);
+    }
+  });
+}
 function showWinnerBanner(state) {
   const r = state.showdownResult;
   const el = $('winnerBanner');
