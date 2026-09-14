@@ -68,7 +68,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    markup for the full reasoning. Sits just left of the board's own
    center point at the same vertical height, clear of the actual
    cards regardless of how many are currently dealt. */
-.pot-anchor{position:absolute;top:42%;left:38%;width:1px;height:1px;pointer-events:none}
+.pot-anchor{position:absolute;top:42%;left:32%;width:1px;height:1px;pointer-events:none}
 .pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
 
 /* ---- Visual poker chips ---- */
@@ -207,10 +207,12 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    glance -- who won, and how much -- read clearly and instantly.
    Blur increased to compensate for the lower opacity, keeping text
    legible against a busy felt/card background behind it. */
-.winner-popup{position:fixed;background:linear-gradient(160deg,rgba(20,38,22,0.4),rgba(10,24,13,0.4));backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1.5px solid rgba(244,196,48,0.85);outline:1px solid rgba(244,196,48,0.35);outline-offset:3px;border-radius:20px;padding:22px 30px;z-index:1900;text-align:center;box-shadow:0 0 50px rgba(244,196,48,0.35),0 12px 34px rgba(0,0,0,0.5);pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(0.15);transition:transform 0.5s cubic-bezier(.2,1.4,.3,1),opacity 0.35s ease;max-width:86vw}
+/* Per explicit follow-up request: fully transparent now -- no
+   background, blur, border, or glow at all, so only the winning cards
+   and the OK button themselves are visible, floating directly over
+   the table with nothing framing them. */
+.winner-popup{position:fixed;background:transparent;border:none;padding:14px 22px;z-index:1900;text-align:center;pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(0.15);transition:transform 0.5s cubic-bezier(.2,1.4,.3,1),opacity 0.35s ease;max-width:86vw}
 .winner-popup.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
-.winner-popup-title{color:var(--gold);font-size:1.25rem;font-weight:900;letter-spacing:0.3px;margin-bottom:10px;text-shadow:0 0 14px rgba(244,196,48,0.8),0 2px 6px rgba(0,0,0,0.9)}
-.winner-popup-sub{color:var(--gold);font-size:1.15rem;font-weight:800;margin-bottom:14px;text-shadow:0 2px 6px rgba(0,0,0,0.9)}
 .winner-popup-cards{display:flex;justify-content:center;gap:4px}
 .winner-popup-cards .card{animation:cardFlipReveal .45s ease both}
 .winner-popup-cards .card:nth-child(2){animation-delay:0.08s}
@@ -686,10 +688,8 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
   <div id="myChipsTop" class="desktop-top-readout"></div>
   <div id="myTurnTop" class="desktop-top-readout desktop-turn-tag">YOUR TURN</div>
   <div class="winner-popup" id="winnerPopup">
-    <div class="winner-popup-title" id="winnerPopupTitle"></div>
-    <div class="winner-popup-sub" id="winnerPopupSub"></div>
     <div class="winner-popup-cards" id="winnerPopupCards"></div>
-    <button class="btn btn-gold" id="btnAckWinnerPopup" style="width:100%;margin-top:14px;pointer-events:auto">OK</button>
+    <button class="btn btn-gold" id="btnAckWinnerPopup" style="margin-top:14px;pointer-events:auto;padding:8px 40px">OK</button>
   </div>
   <!-- Per explicit request: the safer of two options offered -- a
        plain, dismissible suggestion rather than any actual
@@ -1062,7 +1062,7 @@ function landChipInPotStack(color) {
   // settle" flourish as each one lands.
   const stackIndex = potChipStack.length % 2;
   const chipInThisStack = Math.floor(potChipStack.length / 2);
-  const stackSpacingX = 20;
+  const stackSpacingX = 8;
   const stackRiseY = 4.5;
   const offsetX = stackIndex === 0 ? -stackSpacingX : stackSpacingX;
   const offsetY = -chipInThisStack * stackRiseY;
@@ -1535,12 +1535,10 @@ function showWinnerPopup(state) {
   const potX = potRect.left + potRect.width / 2;
   const potY = potRect.top + potRect.height / 2;
 
-  const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
-  const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
-  $('winnerPopupTitle').textContent = `🏆 ${names} wins!`;
-  $('winnerPopupSub').textContent = r.boardShown
-    ? `${totalWon} chips with ${r.winners[0].handName}`
-    : `${totalWon} chips — everyone else folded`;
+  // Per explicit follow-up request: the popup itself is now fully
+  // transparent, showing only the winning cards and an OK button --
+  // no name, no chip total, no hand-name text at all, so nothing else
+  // is computed or set here anymore.
   $('winnerPopupCards').innerHTML = (r.boardShown && r.winners[0].hand)
     ? r.winners[0].hand.map(c => cardHtml(c, false)).join('')
     : '';
