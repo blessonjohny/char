@@ -5170,43 +5170,23 @@ function pokerTouch(t) { t.lastActivityAt = Date.now(); }
 // still a bot's turn -- if a human's turn comes up, it naturally stops
 // and waits for their actual input instead.
 //
-// Also covers the other half of "whose turn needs help": a DISCONNECTED
-// human. Unlike a bot (acts almost immediately, nobody's waiting on it
-// to "come back"), a disconnected human gets a real grace period first,
-// since they may simply be reconnecting. If that runs out with them
-// still gone, they're auto-played the same safe, standard way a poker
-// room handles an AFK player: check if that's free, otherwise fold --
-// never auto-calls or auto-bets on anyone's behalf. This was a genuine
-// gap before: nothing ever forced a decision for a disconnected player,
-// so their own turn could freeze the entire table indefinitely with no
-// way for anyone else to do anything about it.
-const POKER_DISCONNECT_GRACE_MS = 30000;
-const POKER_CONNECTED_BUT_STUCK_MS = 120000;
+// Per explicit, emphatic live instruction, Hold'em deliberately does
+// NOT do what 4-player/6-player do for a stuck or disconnected human
+// seat (auto-fold/auto-check them after a grace period as a last
+// resort) -- that behavior existed here too at one point and was
+// removed outright on direct request: "no one plays until that person
+// plays, period." A stuck or disconnected human's own turn now simply
+// leaves the whole table waiting on them, same as it would for anyone
+// still genuinely thinking, indefinitely, with nothing here ever
+// acting on their behalf. If a table actually gets stuck this way, the
+// real fix belongs in reconnection itself working properly (see
+// holdem.html's visibilitychange/healthPing handling), not in quietly
+// playing for the missing player.
 function pokerMaybeBotAct(t) {
   const p = t.engine.currentPlayer;
   if (p === -1) return;
   const seat = t.engine.seats[p];
   if (!seat || t.engine.phase === 'handEnd' || t.engine.phase === 'lobby') return;
-  // Track how long the current seat has actually been on the clock, same
-  // approach as the 4-player/6-player engines -- only a genuine turn
-  // change (a different seat, or a new hand) resets this.
-  if (t.engine._turnTrackedPlayer !== p || t.engine._turnTrackedHand !== t.engine.handNumber) {
-    t.engine._turnTrackedPlayer = p;
-    t.engine._turnTrackedHand = t.engine.handNumber;
-    t.engine.turnStartedAt = Date.now();
-  }
-  const turnAgeMs = Date.now() - (t.engine.turnStartedAt || Date.now());
-  // A seat that LOOKS connected but hasn't acted in 2 minutes is almost
-  // certainly a zombie connection (a network transition the socket layer
-  // never cleanly detected as a disconnect), not a human genuinely still
-  // deciding -- no real poker decision takes 2 minutes. Without this,
-  // poker had zero protection against exactly this case: the disconnect-
-  // grace-period branch below only ever fires when seat.connected is
-  // actually false, so a connection that LOOKS fine but simply never
-  // sends another action would freeze the table forever, with nothing
-  // to recover it short of an admin force-closing the table. This
-  // matches the exact same fix already in place on 4-player/6-player.
-  const treatAsStuck = seat.connected === false || turnAgeMs >= POKER_CONNECTED_BUT_STUCK_MS;
   if (seat.isBot) {
     setTimeout(() => {
       if (!pokerTables[t.engine.tableId]) return; // table closed in the meantime
@@ -5225,29 +5205,23 @@ function pokerMaybeBotAct(t) {
       if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
       else pokerMaybeBotAct(t);
     }, 900 + Math.random() * 700);
-  } else if (treatAsStuck) {
-    // A seat already past the zombie-connection threshold has used up
-    // its grace period already -- act promptly instead of making
-    // everyone else wait out a full fresh 30s on top of the 2 minutes
-    // it's already been stuck.
-    const delay = seat.connected === false ? POKER_DISCONNECT_GRACE_MS : 900;
-    setTimeout(() => {
-      if (!pokerTables[t.engine.tableId]) return;
-      if (t.engine.currentPlayer !== p) return; // already acted, or reconnected and acted, in the meantime
-      const seatNow = t.engine.seats[p];
-      const stillStuck = seatNow && (seatNow.connected === false || (Date.now() - (t.engine.turnStartedAt || Date.now())) >= POKER_CONNECTED_BUT_STUCK_MS);
-      if (!stillStuck) return; // reconnected (or genuinely just acted) within the grace period -- leave it entirely to them, no auto-act
-      const toCall = t.engine.currentBet - seatNow.bettedThisRound;
-      const result = t.engine.act(p, toCall > 0 ? 'fold' : 'check');
-      if (result.ok) {
-        t.engine.addLog(`${seatNow.name} was ${seatNow.connected === false ? 'disconnected' : 'unresponsive'} and auto-${toCall > 0 ? 'folded' : 'checked'}.`);
-      }
-      pokerTouch(t);
-      pokerBroadcast(t);
-      if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
-      else pokerMaybeBotAct(t);
-    }, delay);
   }
+  // Per explicit, emphatic live instruction: Hold'em must NEVER take an
+  // action on behalf of an actual human seat, for any reason, no matter
+  // how long they've been stuck or disconnected -- explicitly and
+  // deliberately different from the 4-player/6-player tables, which do
+  // auto-fold/auto-check a genuinely stuck human as a last resort. The
+  // instruction was direct: "no one plays until that person plays,
+  // period" -- if this ever looked like it was happening, the actual
+  // fix belongs in making reconnection itself work properly (see the
+  // visibilitychange/healthPing handling in holdem.html), never in
+  // quietly acting for them here. The old else-if branch that used to
+  // live here (auto-fold/auto-check a human seat past
+  // POKER_CONNECTED_BUT_STUCK_MS or POKER_DISCONNECT_GRACE_MS) has been
+  // removed outright, not merely disabled -- a stuck or disconnected
+  // human seat now simply leaves the table waiting on them
+  // indefinitely, same as it would for any other player still
+  // genuinely thinking, with nothing here ever acting in their place.
 }
 
 // Auto-deals the next hand a couple seconds after one ends, as long as
@@ -5577,10 +5551,18 @@ function sweepAbandonedSeats() {
     }
   }
   for (const t of Object.values(pokerTables)) {
-    if (sweepEngineSeats(t, t.engine.seats, () => { pokerMaybeBotAct(t); })) {
-      pokerTouch(t);
-      pokerBroadcast(t);
-    }
+    // Per the identical explicit instruction covering pokerMaybeBotAct
+    // above: Hold'em must never take an action, or even set up the
+    // conditions for one, on behalf of a real human seat. Converting a
+    // disconnected human's own seat.isBot to true would do exactly
+    // that -- it hands that seat straight to the normal bot-acting
+    // branch in pokerMaybeBotAct(), which would then genuinely start
+    // playing hands (folding, calling, betting) for a person who
+    // never agreed to that and may simply be reconnecting. Poker
+    // tables are deliberately excluded from this sweep entirely, not
+    // just given a longer grace period -- a disconnected human seat
+    // here stays a human seat, waiting, indefinitely, exactly as the
+    // instruction demanded.
   }
   for (const [code, r] of Object.entries(l56Rooms)) {
     if (!r.state || !r.state.seats) continue;
