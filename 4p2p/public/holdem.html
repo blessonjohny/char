@@ -1695,7 +1695,13 @@ function showWinnerPopup(state) {
   // inline transform would permanently override the class's own
   // transform rule and the popup would never actually animate.
   popup.style.left = '50%';
-  popup.style.top = '38%';
+  // Per explicit request: pushed as far down toward the bottom of the
+  // screen as it can go while the popup's own content (summary text,
+  // cards, OK button) still fits fully on screen without its bottom
+  // edge getting clipped -- centered via translate(-50%,-50%), so this
+  // needs enough clearance below this point for roughly half the
+  // popup's own height, not just the anchor point itself.
+  popup.style.top = '84%';
   popup.classList.remove('on');
   // Force layout so the browser registers the reset before measuring.
   void popup.offsetWidth;
