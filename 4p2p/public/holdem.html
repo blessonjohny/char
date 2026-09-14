@@ -84,6 +84,13 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 
 /* ---- Flying chip pot-payout animation ---- */
 .flying-chip{position:fixed;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.8);box-shadow:0 3px 8px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.7s cubic-bezier(.3,.6,.4,1), opacity 0.7s ease;}
+/* Per explicit request: chips that have actually landed and joined the
+   accumulating pot pile, spread across a small grid (see
+   landChipInPotStack) rather than a flat token count -- a bit smaller
+   than a chip still mid-flight so a full pile of them fits and reads
+   clearly without touching, and a lighter border since these are
+   meant to sit still, not draw the eye the way a moving chip does. */
+.pot-stack-chip{width:14px;height:14px;border-width:1.5px;z-index:6}
 .street-banner{position:absolute;top:72%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);border:2px solid var(--gold);border-radius:16px;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 10px rgba(244,196,48,0.6);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
 .street-banner.on{display:block}
 @keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
@@ -1011,6 +1018,44 @@ let lastCardRevealAnimatedFor = null;
 // since the last render (tracked in lastBettedThisRoundBySeat below),
 // not on every render regardless of what changed.
 const lastBettedThisRoundBySeat = {};
+// Per explicit request: chips landing at the pot no longer just fade
+// out and vanish -- they now join a real, visible, accumulating stack
+// sitting at the pot anchor (left of the community cards, the same
+// point the flight animation already targets), each new chip getting
+// its own small offset in a spread-out grid rather than sitting
+// directly on top of the last one, so the pile is readable as many
+// distinct chips of different colors, not one overlapping blob. This
+// stack is what actually travels to the winner at showdown -- the
+// real chips that piled up, not a fresh generic animation standing in
+// for them.
+let potChipStack = [];
+function landChipInPotStack(color) {
+  const potEl = $('potAnchor') || $('potDisplay');
+  if (!potEl) return;
+  const potRect = potEl.getBoundingClientRect();
+  const baseX = potRect.left + potRect.width / 2;
+  const baseY = potRect.top + potRect.height / 2;
+  // Small spread-out grid, 4 per row, centered on the anchor point --
+  // wide enough spacing that same-row neighbors don't touch.
+  const perRow = 4, spacing = 15;
+  const idx = potChipStack.length;
+  const col = idx % perRow, row = Math.floor(idx / perRow);
+  const offsetX = (col - (perRow - 1) / 2) * spacing;
+  const offsetY = -row * spacing;
+  const chip = document.createElement('div');
+  chip.className = 'flying-chip pot-stack-chip';
+  chip.style.background = color;
+  chip.style.left = (baseX + offsetX) + 'px';
+  chip.style.top = (baseY + offsetY) + 'px';
+  chip.style.transform = 'translate(-50%,-50%)';
+  chip.style.opacity = '1';
+  document.body.appendChild(chip);
+  potChipStack.push(chip);
+}
+function clearPotChipStack() {
+  potChipStack.forEach(c => c.remove());
+  potChipStack = [];
+}
 function animateChipToPot(seatPos, amount) {
   const potEl = $('potAnchor') || $('potDisplay');
   const seatEl = document.querySelector(`.seat[data-pos="${seatPos}"]`);
@@ -1021,40 +1066,79 @@ function animateChipToPot(seatPos, amount) {
   const startY = seatRect.top + seatRect.height / 2;
   const endX = potRect.left + potRect.width / 2;
   const endY = potRect.top + potRect.height / 2;
+  const color = chipGradientForValue(amount);
   const chip = document.createElement('div');
   chip.className = 'flying-chip';
-  chip.style.background = chipGradientForValue(amount);
+  chip.style.background = color;
   chip.style.left = startX + 'px';
   chip.style.top = startY + 'px';
   chip.style.transform = 'translate(-50%,-50%)';
   chip.style.opacity = '1';
   document.body.appendChild(chip);
   setTimeout(() => { chip.style.transform = `translate(${endX - startX}px, ${endY - startY}px)`; }, 20);
-  setTimeout(() => { chip.style.opacity = '0'; }, 480);
-  setTimeout(() => { chip.remove(); }, 630);
+  // Instead of fading this flying chip away into nothing, it's removed
+  // right as a new, permanently-landed chip takes its place in the
+  // stack -- reads as the chip actually settling in, not disappearing
+  // and something unrelated popping in separately.
+  setTimeout(() => {
+    chip.remove();
+    landChipInPotStack(color);
+  }, 560);
 }
 function animateChipsToWinners(state) {
   const potEl = $('potAnchor') || $('potDisplay');
   const winners = (state.showdownResult && state.showdownResult.winners) || [];
   if (!potEl || winners.length === 0) return;
-  const potRect = potEl.getBoundingClientRect();
-  const startX = potRect.left + potRect.width / 2;
-  const startY = potRect.top + potRect.height / 2;
+  // The real, already-landed pot stack IS the animation now -- split
+  // across winners (round-robin, so a split pot fans out fairly
+  // between them) and sent to each one's actual seat, rather than
+  // conjuring fresh chips from scratch at the pot's position.
+  const stackToUse = potChipStack.length ? potChipStack.slice() : null;
+  potChipStack = [];
 
+  const winnerTargets = [];
   for (const w of winners) {
     const seatEl = document.querySelector(`.seat[data-pos="${w.seat}"]`);
     if (!seatEl) continue;
-    const seatRect = seatEl.getBoundingClientRect();
-    const endX = seatRect.left + seatRect.width / 2;
-    const endY = seatRect.top + seatRect.height / 2;
+    const r = seatEl.getBoundingClientRect();
+    winnerTargets.push({ x: r.left + r.width / 2, y: r.top + r.height / 2, amount: w.amount });
+  }
+  if (winnerTargets.length === 0) return;
 
-    // A few chips per winner, slightly staggered, rather than one flat
-    // token -- reads much more like an actual pot payout.
-    const chipCount = Math.min(5, Math.max(2, Math.round(w.amount / Math.max(1, state.bigBlind))));
+  if (stackToUse && stackToUse.length) {
+    stackToUse.forEach((chip, i) => {
+      const target = winnerTargets[i % winnerTargets.length];
+      const rect = chip.getBoundingClientRect();
+      const startX = rect.left + rect.width / 2;
+      const startY = rect.top + rect.height / 2;
+      const delay = i * 60;
+      const jitterX = (Math.random() - 0.5) * 16;
+      const jitterY = (Math.random() - 0.5) * 16;
+      chip.style.left = startX + 'px';
+      chip.style.top = startY + 'px';
+      chip.style.transform = 'translate(-50%,-50%)';
+      setTimeout(() => {
+        chip.style.transform = `translate(${target.x - startX + jitterX}px, ${target.y - startY + jitterY}px)`;
+      }, delay + 20);
+      setTimeout(() => { chip.style.opacity = '0'; }, delay + 600);
+      setTimeout(() => { chip.remove(); }, delay + 750);
+    });
+    return;
+  }
+
+  // Fallback for the rare case nothing had actually accumulated in the
+  // stack (e.g. an all-in preflop with no further betting rounds to
+  // trigger landChipInPotStack) -- same generic conjured-chips approach
+  // as before so a payout is still always shown.
+  const potRect = potEl.getBoundingClientRect();
+  const startX = potRect.left + potRect.width / 2;
+  const startY = potRect.top + potRect.height / 2;
+  for (const target of winnerTargets) {
+    const chipCount = Math.min(5, Math.max(2, Math.round(target.amount / Math.max(1, state.bigBlind))));
     for (let i = 0; i < chipCount; i++) {
       const chip = document.createElement('div');
       chip.className = 'flying-chip';
-      chip.style.background = chipGradientForValue(w.amount);
+      chip.style.background = chipGradientForValue(target.amount);
       chip.style.left = startX + 'px';
       chip.style.top = startY + 'px';
       chip.style.transform = 'translate(-50%,-50%)';
@@ -1064,7 +1148,7 @@ function animateChipsToWinners(state) {
       const jitterX = (Math.random() - 0.5) * 16;
       const jitterY = (Math.random() - 0.5) * 16;
       setTimeout(() => {
-        chip.style.transform = `translate(${endX - startX + jitterX}px, ${endY - startY + jitterY}px)`;
+        chip.style.transform = `translate(${target.x - startX + jitterX}px, ${target.y - startY + jitterY}px)`;
       }, delay + 20);
       setTimeout(() => { chip.style.opacity = '0'; }, delay + 600);
       setTimeout(() => { chip.remove(); }, delay + 750);
@@ -1354,6 +1438,11 @@ function renderGameTable(state) {
   if (state.handNumber !== lastBettedThisRoundBySeat.__hand) {
     for (const k of Object.keys(lastBettedThisRoundBySeat)) delete lastBettedThisRoundBySeat[k];
     lastBettedThisRoundBySeat.__hand = state.handNumber;
+    // A fresh hand means whatever pot chips visually piled up from the
+    // previous one have already been sent to a winner (or should have
+    // been) -- clears any stragglers so a new pile starts genuinely
+    // empty instead of a new hand's chips landing on top of leftovers.
+    clearPotChipStack();
   }
   state.seats.forEach((s, pos) => {
     if (!s) return;
