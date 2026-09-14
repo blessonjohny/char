@@ -1246,20 +1246,25 @@ function seatPositions() {
     // below shifted right 2.5 (undoing about half of the earlier -4
     // left shift, which was tuned specifically for the much bigger
     // 500% avatar size and read as too far left once avatars were
-    // sized back down). On top of that, the back-row two pairs (3/4 on
-    // the left, 5/6 on the right) were confirmed overlapping each
-    // other at the smaller size, so each pair was additionally spread
-    // apart 2 more (the left seat of each pair 2 further left, the
-    // right seat of each pair 2 further right) to clear the overlap.
+    // sized back down).
+    //
+    // Per further explicit live report with a screenshot, confirmed
+    // genuine overlap between the upper-right/lower-right pair (6/7 --
+    // Bot7/Bot8) specifically, reported as substantially worse than
+    // the mirrored upper-left/lower-left pair (2/3 -- Bot3/Bot4), which
+    // only had a little. The vertical gap within each pair was widened
+    // accordingly and asymmetrically to match what was actually
+    // reported -- the right pair (6/7) pulled apart considerably more
+    // than the left pair (2/3).
     return [
       { x: 48.4, y: 74.3 },  // 0: my own seat
       { x: 29.5, y: 72.9 },  // 1: front-left-of-center
-      { x: 13.7, y: 65.3 },  // 2: lower-left
-      { x: 13.5, y: 34.5 },  // 3: upper-left
+      { x: 13.7, y: 67.3 },  // 2: lower-left
+      { x: 13.5, y: 32.5 },  // 3: upper-left
       { x: 30.4, y: 24.5 },  // 4: back-left-of-center (flanking the dealer)
       { x: 67.1, y: 26 },    // 5: back-right-of-center (mirrors 4)
-      { x: 83.5, y: 36 },    // 6: upper-right (mirrors 3)
-      { x: 83.2, y: 65.1 },  // 7: lower-right (mirrors 2)
+      { x: 83.5, y: 31 },    // 6: upper-right (mirrors 3)
+      { x: 83.2, y: 70.1 },  // 7: lower-right (mirrors 2)
       { x: 67.3, y: 73 },    // 8: front-right-of-center (mirrors 1)
     ];
   }
