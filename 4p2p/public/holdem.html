@@ -1250,22 +1250,26 @@ function seatPositions() {
     //
     // Per further explicit live report with a screenshot, confirmed
     // genuine overlap between the upper-right/lower-right pair (6/7 --
-    // Bot7/Bot8) specifically, reported as substantially worse than
-    // the mirrored upper-left/lower-left pair (2/3 -- Bot3/Bot4), which
-    // only had a little. The vertical gap within each pair was widened
-    // accordingly and asymmetrically to match what was actually
-    // reported -- the right pair (6/7) pulled apart considerably more
-    // than the left pair (2/3).
+    // Bot7/Bot8), reported worse than the mirrored left pair (2/3 --
+    // Bot3/Bot4). Widened asymmetrically to match -- right pair pulled
+    // apart considerably more than the left pair.
+    //
+    // Per a second explicit follow-up: the left pair (2/3) still had a
+    // bit of overlap even after the above, so widened further (3
+    // nudged up a bit more, 2 nudged down a bit more). Separately, the
+    // whole bottom-center row (0, 1, 8 -- test/you, Bot2, Bot9) was
+    // reported sitting noticeably too high ("pushed up... more than a
+    // little"), so moved back down by a real amount, not a token one.
     return [
-      { x: 48.4, y: 74.3 },  // 0: my own seat
-      { x: 29.5, y: 72.9 },  // 1: front-left-of-center
-      { x: 13.7, y: 67.3 },  // 2: lower-left
-      { x: 13.5, y: 32.5 },  // 3: upper-left
+      { x: 48.4, y: 78.3 },  // 0: my own seat
+      { x: 29.5, y: 76.9 },  // 1: front-left-of-center
+      { x: 13.7, y: 71.3 },  // 2: lower-left
+      { x: 13.5, y: 31 },    // 3: upper-left
       { x: 30.4, y: 24.5 },  // 4: back-left-of-center (flanking the dealer)
       { x: 67.1, y: 26 },    // 5: back-right-of-center (mirrors 4)
       { x: 83.5, y: 31 },    // 6: upper-right (mirrors 3)
       { x: 83.2, y: 70.1 },  // 7: lower-right (mirrors 2)
-      { x: 67.3, y: 73 },    // 8: front-right-of-center (mirrors 1)
+      { x: 67.3, y: 77 },    // 8: front-right-of-center (mirrors 1)
     ];
   }
   const positions = [];
