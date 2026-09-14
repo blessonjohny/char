@@ -90,7 +90,25 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    than a chip still mid-flight so a full pile of them fits and reads
    clearly without touching, and a lighter border since these are
    meant to sit still, not draw the eye the way a moving chip does. */
-.pot-stack-chip{width:14px;height:14px;border-width:1.5px;z-index:6}
+.pot-stack-chip{width:16px;height:16px;border-width:1.5px}
+/* Per explicit follow-up: chips settled into the pot pile read as
+   genuinely lying flat on the table -- squashed into an ellipse
+   (scaleY) the way a round chip actually looks viewed from this
+   table's own angle, rather than standing upright facing the camera
+   like a chip still mid-flight. flying-chip-landed also plays a
+   quick "drop and settle" on arrival: starts slightly oversized and
+   fully round, eases down into its final flattened, resting size --
+   reads as physically dropping onto the pile, not just appearing. */
+.flying-chip-landed{
+  transform: translate(-50%,-50%) scaleY(0.55);
+  opacity: 1;
+  animation: chipDropSettle 0.32s cubic-bezier(.34,1.4,.4,1) both;
+}
+@keyframes chipDropSettle{
+  0%{ transform: translate(-50%,-50%) scaleY(1) scale(1.5); opacity: 0.7; }
+  70%{ transform: translate(-50%,-50%) scaleY(0.5) scale(0.95); }
+  100%{ transform: translate(-50%,-50%) scaleY(0.55) scale(1); opacity: 1; }
+}
 .street-banner{position:absolute;top:72%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);border:2px solid var(--gold);border-radius:16px;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 10px rgba(244,196,48,0.6);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
 .street-banner.on{display:block}
 @keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
@@ -1035,20 +1053,25 @@ function landChipInPotStack(color) {
   const potRect = potEl.getBoundingClientRect();
   const baseX = potRect.left + potRect.width / 2;
   const baseY = potRect.top + potRect.height / 2;
-  // Small spread-out grid, 4 per row, centered on the anchor point --
-  // wide enough spacing that same-row neighbors don't touch.
-  const perRow = 4, spacing = 15;
-  const idx = potChipStack.length;
-  const col = idx % perRow, row = Math.floor(idx / perRow);
-  const offsetX = (col - (perRow - 1) / 2) * spacing;
-  const offsetY = -row * spacing;
+  // Per explicit follow-up: replaces the spread-out grid with two real
+  // vertical piles (alternating left/right of the anchor point) --
+  // each new chip in a pile stacks directly on top of the one before
+  // it, growing taller rather than wider, the way physical poker
+  // chips actually stack. flying-chip-landed adds the flattened,
+  // lying-on-the-table look (see its own CSS) plus a brief "drop and
+  // settle" flourish as each one lands.
+  const stackIndex = potChipStack.length % 2;
+  const chipInThisStack = Math.floor(potChipStack.length / 2);
+  const stackSpacingX = 20;
+  const stackRiseY = 4.5;
+  const offsetX = stackIndex === 0 ? -stackSpacingX : stackSpacingX;
+  const offsetY = -chipInThisStack * stackRiseY;
   const chip = document.createElement('div');
-  chip.className = 'flying-chip pot-stack-chip';
+  chip.className = 'flying-chip pot-stack-chip flying-chip-landed';
   chip.style.background = color;
   chip.style.left = (baseX + offsetX) + 'px';
   chip.style.top = (baseY + offsetY) + 'px';
-  chip.style.transform = 'translate(-50%,-50%)';
-  chip.style.opacity = '1';
+  chip.style.zIndex = String(6 + chipInThisStack);
   document.body.appendChild(chip);
   potChipStack.push(chip);
 }
