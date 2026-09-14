@@ -672,6 +672,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     <div style="flex-shrink:0">
       <button class="topbar-btn" id="btnFullscreen" onclick="requestHoldemFullscreen()" title="Full Screen">⛶</button>
       <button class="topbar-btn" id="btnInviteHoldem" title="Invite a Friend">💌 Invite</button>
+      <button class="topbar-btn" id="btnHoldemHostMenu" style="display:none" title="Host Menu">👑 Host</button>
       <button class="topbar-btn" id="btnShowLog">📜 Log</button>
       <button class="topbar-btn" id="btnLeaveTable">🚪 Leave</button>
     </div>
@@ -746,6 +747,32 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
     <button class="btn btn-gold" id="btnDismissTiltSuggest" style="width:100%;margin-top:14px">OK</button>
   </div>
   <div class="action-bar" id="actionBar"></div>
+</div>
+
+<!-- Per explicit request: real host controls, right on the table
+     itself, for whoever is actually hosting -- restart the tournament,
+     kick any seat instantly, change a seat's avatar, and approve/deny
+     anyone waiting to join a tournament already in progress. Only ever
+     shown to the actual host (see btnHoldemHostMenu's own display
+     toggle), same spirit as the 4-player table's own Host Menu. -->
+<div class="modal-overlay" id="holdemHostMenuOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2200;align-items:center;justify-content:center;padding:20px">
+  <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid rgba(244,196,48,0.4);border-radius:16px;padding:20px;width:100%;max-width:420px;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="color:var(--gold);font-weight:800;font-size:1rem">👑 Host Menu</div>
+      <button class="btn ghost" style="width:28px;height:28px;padding:0" id="btnCloseHoldemHostMenu">✕</button>
+    </div>
+    <button class="btn btn-gold" style="width:100%;margin-bottom:14px;text-align:left;padding:10px 14px" id="btnHoldemHostRestart">
+      🔁 Restart Tournament<br><span style="font-size:0.68rem;opacity:0.8;font-weight:400">Resets every seated player's chips and the hand count back to the start</span>
+    </button>
+    <div id="holdemHostPendingSection" style="display:none;border-top:1px solid rgba(255,255,255,0.08);padding-top:12px;margin-bottom:12px">
+      <div style="color:var(--gold);font-weight:700;font-size:0.8rem;margin-bottom:8px">⏳ Waiting to join</div>
+      <div id="holdemHostPendingList"></div>
+    </div>
+    <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:12px">
+      <div style="color:var(--cream);opacity:0.8;font-size:0.75rem;margin-bottom:8px">Players at the table:</div>
+      <div id="holdemHostSeatList"></div>
+    </div>
+  </div>
 </div>
 
 <div class="log-panel-backdrop" id="logPanelBackdrop"></div>
@@ -914,8 +941,13 @@ function holdemAvatarFor(name, pos) {
   for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
   return 'toon' + ((hash % HOLDEM_AVATAR_COUNT) + 1);
 }
-function holdemAvatarImgHtml(name, pos) {
-  return `<img src="/images/hero-avatars/${holdemAvatarFor(name, pos)}.png" class="seat-avatar-photo" alt="" draggable="false">`;
+function holdemAvatarImgHtml(name, pos, avatarOverride) {
+  // Per explicit admin-feature request: an admin-assigned avatar
+  // (seat.avatar, set via admin_pokerSetAvatar) takes priority over the
+  // normal deterministic name+pos hash below -- null/unset falls
+  // straight through to that same default exactly as before.
+  const file = avatarOverride || holdemAvatarFor(name, pos);
+  return `<img src="/images/hero-avatars/${file}.png" class="seat-avatar-photo" alt="" draggable="false">`;
 }
 // Per explicit request: color-codes each seat's own last-action badge
 // by what it actually was, matching a real poker room's own visual
@@ -1054,6 +1086,69 @@ function toast(msg) {
   setTimeout(() => el.remove(), 2500);
 }
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ---------------- Host menu (real, in-table host controls -- see the
+// HTML comment above holdemHostMenuOverlay's markup for the fuller
+// reasoning on why this exists alongside, not instead of, the separate
+// password-gated admin panel) ----------------
+function renderHoldemHostMenu(state) {
+  const pendingSection = $('holdemHostPendingSection');
+  const pendingList = $('holdemHostPendingList');
+  const pending = state.pendingJoinRequests || [];
+  if (pending.length) {
+    pendingSection.style.display = 'block';
+    pendingList.innerHTML = pending.map(r => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;background:rgba(244,196,48,0.1);border-radius:8px;padding:6px 10px;margin-bottom:6px">
+        <span style="font-size:0.8rem">${escapeHtml(r.name)}</span>
+        <span>
+          <button class="btn btn-gold" style="padding:4px 10px;font-size:0.7rem" onclick="holdemHostRespondJoin('${escapeHtml(r.playerId)}', true)">✓ Approve</button>
+          <button class="btn ghost" style="padding:4px 10px;font-size:0.7rem;margin-left:4px" onclick="holdemHostRespondJoin('${escapeHtml(r.playerId)}', false)">✕ Deny</button>
+        </span>
+      </div>`).join('');
+  } else {
+    pendingSection.style.display = 'none';
+  }
+  const seatList = $('holdemHostSeatList');
+  seatList.innerHTML = (state.seats || []).map((s, pos) => {
+    if (!s) return '';
+    const isSelf = pos === myPos;
+    const tag = s.isBot ? '🤖' : (s.connected ? '🟢' : '🔌');
+    const kickBtn = isSelf ? '' : `<button class="btn ghost" style="padding:4px 10px;font-size:0.7rem" onclick="holdemHostKick(${pos}, '${escapeHtml(s.name)}')">Kick</button>`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <span style="font-size:0.8rem">${tag} ${escapeHtml(s.name)}${isSelf ? ' (you)' : ''} · ${escapeHtml(s.chips)} chips</span>
+      <span style="display:flex;gap:4px;align-items:center">
+        <input type="text" placeholder="avatar" value="${escapeHtml(s.avatar || '')}" style="width:80px;font-size:0.7rem;background:rgba(255,255,255,0.05);color:var(--cream);border:1.5px solid rgba(255,255,255,0.15);border-radius:6px;padding:3px 6px" id="holdemAvatarInput_${pos}">
+        <button class="btn ghost" style="padding:4px 8px;font-size:0.7rem" onclick="holdemHostSetAvatar(${pos})">Set</button>
+        ${kickBtn}
+      </span>
+    </div>`;
+  }).join('');
+}
+function holdemHostRestart() {
+  if (!confirm('Restart this tournament? Every seated player\'s chips reset back to the starting amount and the hand count goes back to 0.')) return;
+  socket.emit('poker_hostRestart');
+}
+function holdemHostKick(pos, name) {
+  if (!confirm(`Remove ${name} from this table immediately?`)) return;
+  socket.emit('poker_hostKick', { pos });
+}
+function holdemHostSetAvatar(pos) {
+  const input = $('holdemAvatarInput_' + pos);
+  const avatar = input ? input.value.trim() : '';
+  if (!avatar) return;
+  socket.emit('poker_hostChangeAvatar', { targetPos: pos, avatar });
+}
+function holdemHostRespondJoin(requestPlayerId, approved) {
+  socket.emit('poker_respondJoinRequest', { requestPlayerId, approved });
+}
+$('btnHoldemHostMenu').addEventListener('click', () => {
+  if (!latestState) return;
+  renderHoldemHostMenu(latestState);
+  $('holdemHostMenuOverlay').style.display = 'flex';
+});
+$('btnCloseHoldemHostMenu').addEventListener('click', () => {
+  $('holdemHostMenuOverlay').style.display = 'none';
+});
 
 // Real poker chips are colored by denomination so a player can read a
 // stack at a glance instead of counting -- same idea here, mapped to
@@ -1390,11 +1485,52 @@ socket.on('poker_joined', (info) => {
     localStorage.setItem('holdem_session_time', String(Date.now()));
   } catch (e) {}
 });
+// Per explicit admin-feature request: a tournament already in progress
+// no longer seats a brand-new player immediately -- the server queues
+// the request instead and an admin has to actually approve it. This is
+// the "you're queued, wait" acknowledgment; poker_joinApproved/
+// poker_joinDenied (both further below) are what actually resolves it.
+socket.on('poker_joinPending', (info) => {
+  toast('⏳ Waiting for an admin to let you into this tournament...');
+});
+// Per explicit admin-feature request: once an admin approves a pending
+// join, the server has already seated this player at the engine level
+// and generated their real playerId -- this re-runs the exact same
+// join flow a returning player already uses to reclaim their seat
+// (poker_joinTable with that now-valid playerId), rather than needing
+// a second, separate "I've been approved" code path client-side.
+socket.on('poker_joinApproved', (info) => {
+  toast('✅ You\'re in! Joining the table...');
+  socket.emit('poker_joinTable', { tableId: info.tableId, playerId: info.playerId });
+});
+socket.on('poker_joinDenied', (info) => {
+  toast('❌ The admin declined to let you into this tournament.');
+});
+// Per explicit admin-feature request: an admin's instant kick, distinct
+// from the normal player-initiated requestKick (which waits for the
+// hand to finish) -- this fires immediately, so the affected player is
+// told directly and sent back to the landing screen right away rather
+// than being left looking at a table they've actually already been
+// removed from.
+socket.on('poker_kickedByAdmin', () => {
+  toast('⚠️ You were removed from this table by an admin.');
+  myTableId = null; myPos = null; myPlayerId = null; latestState = null;
+  try {
+    localStorage.removeItem('holdem_player_id');
+    localStorage.removeItem('holdem_table_id');
+    localStorage.removeItem('holdem_session_time');
+  } catch (e) {}
+  showScreen('landingScreen');
+  socket.emit('poker_listRooms');
+});
 
 // ---------------- State rendering ----------------
 socket.on('poker_state', (state) => {
   latestState = state;
   isHost = !!state.isHost;
+  const hostBtn = $('btnHoldemHostMenu');
+  if (hostBtn) hostBtn.style.display = isHost ? '' : 'none';
+  if ($('holdemHostMenuOverlay') && $('holdemHostMenuOverlay').style.display === 'flex') renderHoldemHostMenu(state);
   if (state.phase === 'tournamentOver') renderTournamentOver(state);
   else if (state.phase === 'lobby') renderLobby(state);
   else renderGameTable(state);
@@ -1544,7 +1680,7 @@ function renderGameTable(state) {
       ${!isActive && s.lastAction && !s.folded ? `<div class="action-badge action-badge-outer ${actionBadgeClass(s.lastAction)}">${escapeHtml(s.lastAction)}</div>` : ''}
       <div class="seat-avatar-wrap">
         <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
-        ${holdemAvatarImgHtml(s.name, pos)}
+        ${holdemAvatarImgHtml(s.name, pos, s.avatar)}
         ${pos === state.dealerSeat ? '<div class="dealer-chip">D</div>' : ''}
         ${s.allIn ? '<div class="allin-tag">ALL-IN</div>' : ''}
         ${s.bettedThisRound > 0 && !s.folded ? `<div class="seat-bet${state.board.length === 5 ? ' seat-bet-river' : ''}">${chipHtml(s.bettedThisRound, true)}${s.bettedThisRound}</div>` : ''}
