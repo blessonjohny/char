@@ -120,8 +120,58 @@ class PokerEngine {
       chips: this.startingChips, hand: [],
       folded: false, allIn: false, sittingOut: false,
       bettedThisRound: 0, totalBetThisHand: 0, hasActed: false, lastAction: null,
-      bustedAt: null, rebuysUsed: 0, eliminated: false, eliminatedAt: null
+      bustedAt: null, rebuysUsed: 0, eliminated: false, eliminatedAt: null,
+      // Per explicit admin-feature request: null means "no admin
+      // override yet, fall back to the client's own deterministic
+      // name+pos hash" (see holdemAvatarFor in holdem.html) -- set
+      // only via setSeatAvatar below, which is the actual admin
+      // action, so a normal seat is completely unaffected by this
+      // feature existing at all.
+      avatar: null
     };
+  }
+  // Per explicit admin-feature request: lets an admin assign a specific
+  // avatar image to a seat, overriding the default deterministic
+  // name+pos hash a seat would otherwise always resolve to. null clears
+  // the override, reverting to that default.
+  setSeatAvatar(pos, avatar) {
+    if (!this.seats[pos]) return { ok: false, reason: 'no_seat' };
+    this.seats[pos].avatar = avatar || null;
+    this.addLog(`${this.seats[pos].name}'s avatar was changed by an admin.`);
+    return { ok: true };
+  }
+  // Per explicit admin-feature request: a full, immediate reset of the
+  // table back to its brand-new starting state -- every seat's chips
+  // back to startingChips, all elimination/rebuy/bust tracking wiped,
+  // hand number back to 0, blind level back to the first one. Seats
+  // themselves (who's actually sitting where, human or bot) are left
+  // untouched -- this restarts the tournament these players are
+  // already at, it doesn't clear the table itself; that's what closing
+  // the table is for, a separate, already-existing admin action.
+  restartTournament(requestedBy) {
+    for (const p of this.occupiedSeats()) {
+      const s = this.seats[p];
+      s.chips = this.startingChips;
+      s.folded = false; s.allIn = false; s.sittingOut = false;
+      s.bettedThisRound = 0; s.totalBetThisHand = 0; s.hasActed = false; s.lastAction = null;
+      s.bustedAt = null; s.rebuysUsed = 0; s.eliminated = false; s.eliminatedAt = null;
+      s.hand = [];
+    }
+    this.handNumber = 0;
+    this.blindLevel = 0;
+    if (this.mode === 'tournament') {
+      this.smallBlind = PokerEngine.BLIND_LEVELS[0].sb;
+      this.bigBlind = PokerEngine.BLIND_LEVELS[0].bb;
+    }
+    this.phase = 'lobby';
+    this.board = [];
+    this.pots = [];
+    this.currentPlayer = -1;
+    this.currentBet = 0;
+    this.showdownResult = null;
+    this.eliminationSeq = 0;
+    this.addLog(`Tournament restarted by admin.`);
+    return { ok: true };
   }
   removeSeat(pos) {
     const s = this.seats[pos];
@@ -520,7 +570,7 @@ class PokerEngine {
         const isMe = i === viewerPos;
         const revealHand = isMe || (this.phase === 'handEnd' && this.showdownResult && this.showdownResult.boardShown && !s.folded);
         return {
-          name: s.name, isBot: s.isBot, connected: s.connected, chips: s.chips,
+          name: s.name, isBot: s.isBot, connected: s.connected, chips: s.chips, avatar: s.avatar,
           folded: s.folded, allIn: s.allIn, sittingOut: s.sittingOut,
           bettedThisRound: s.bettedThisRound, totalBetThisHand: s.totalBetThisHand,
           bustedAt: s.bustedAt, eliminated: s.eliminated, rebuysUsed: s.rebuysUsed,

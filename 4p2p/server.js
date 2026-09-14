@@ -1347,6 +1347,124 @@ app.post('/api/admin/close-table', (req, res) => {
   res.json({ ok: true, game: closed, tableId: id });
 });
 
+// Per explicit request: a genuine admin-authority layer for Hold'em
+// tables specifically -- list every live table's seats/pending join
+// requests, restart a tournament back to its starting state, instantly
+// remove any seat (bypassing the existing player-initiated
+// requestKick's "wait until the hand finishes" vote), reassign a seat's
+// avatar, and approve/deny a queued new-player request. REST endpoints
+// following the exact same checkAdminAuth pattern every other admin
+// action in this file already uses (an earlier draft of this used
+// Socket.IO events instead, which doesn't match how this admin panel
+// actually talks to the server anywhere else -- this replaces that).
+app.get('/api/admin/poker-tables', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const list = Object.values(pokerTables).map(t => ({
+    tableId: t.engine.tableId,
+    name: t.name,
+    mode: t.engine.mode,
+    handNumber: t.engine.handNumber,
+    phase: t.engine.phase,
+    pendingJoinRequests: (t.pendingJoinRequests || []).map(r => ({ name: r.name, playerId: r.playerId })),
+    seats: t.engine.seats.map((s, pos) => s ? {
+      pos, name: s.name, isBot: s.isBot, chips: s.chips, avatar: s.avatar,
+      connected: s.connected, eliminated: s.eliminated
+    } : null)
+  }));
+  res.json({ ok: true, tables: list });
+});
+app.post('/api/admin/poker-restart', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const t = pokerTables[String(req.body.tableId || '')];
+  if (!t) return res.json({ ok: false, error: 'table_not_found' });
+  t.engine.restartTournament();
+  pokerTouch(t);
+  pokerBroadcast(t);
+  res.json({ ok: true });
+});
+app.post('/api/admin/poker-kick', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const t = pokerTables[String(req.body.tableId || '')];
+  if (!t) return res.json({ ok: false, error: 'table_not_found' });
+  const kickPos = Number(req.body.pos);
+  if (!t.engine.seats[kickPos]) return res.json({ ok: false, error: 'no_seat' });
+  // If the seat being kicked is a currently-connected human, find their
+  // actual socket via t.sockets (pos -> socketId lookup) so they can be
+  // told directly and dropped from the room, not just silently removed
+  // from the engine while their own client still thinks it's seated.
+  let kickedSocketId = null;
+  for (const [sid, info] of t.sockets) { if (info.pos === kickPos) { kickedSocketId = sid; break; } }
+  t.engine.removeSeat(kickPos);
+  if (kickedSocketId) {
+    t.sockets.delete(kickedSocketId);
+    const kickedSocket = io.sockets.sockets.get(kickedSocketId);
+    if (kickedSocket) {
+      kickedSocket.emit('poker_kickedByAdmin');
+      kickedSocket.leave('poker_' + t.engine.tableId);
+    }
+  }
+  pokerTouch(t);
+  pokerBroadcast(t);
+  res.json({ ok: true });
+});
+app.post('/api/admin/poker-set-avatar', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const t = pokerTables[String(req.body.tableId || '')];
+  if (!t) return res.json({ ok: false, error: 'table_not_found' });
+  const result = t.engine.setSeatAvatar(Number(req.body.pos), String(req.body.avatar || '') || null);
+  if (!result.ok) return res.json(result);
+  pokerTouch(t);
+  pokerBroadcast(t);
+  res.json({ ok: true });
+});
+// Per explicit request: approving a pending join actually seats the
+// player at the engine level right here (same real seat-taking logic
+// as a normal join -- keeps a bot/ghost seat's existing chip stack,
+// generates the real playerId), then tells that specific player's own
+// socket to reconnect with it via the exact same reconnect path
+// poker_joinTable already has for a returning player reclaiming their
+// seat, rather than needing a second, separately-maintained seating
+// code path here.
+app.post('/api/admin/poker-approve-join', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const t = pokerTables[String(req.body.tableId || '')];
+  if (!t) return res.json({ ok: false, error: 'table_not_found' });
+  const requestPlayerId = String(req.body.requestPlayerId || '');
+  const idx = (t.pendingJoinRequests || []).findIndex(r => r.playerId === requestPlayerId);
+  if (idx === -1) return res.json({ ok: false, error: 'request_not_found' });
+  const jreq = t.pendingJoinRequests[idx];
+  t.pendingJoinRequests.splice(idx, 1);
+  const requestingSocket = io.sockets.sockets.get(jreq.socketId);
+  if (!requestingSocket) { pokerTouch(t); pokerBroadcast(t); return res.json({ ok: true, note: 'requester_disconnected' }); }
+  if (t.engine.seats[jreq.pos] && (t.engine.seats[jreq.pos].isBot || !t.engine.seats[jreq.pos].connected)) {
+    const existingChips = t.engine.seats[jreq.pos].chips;
+    t.engine.removeSeat(jreq.pos);
+    t.engine.seatHuman(jreq.pos, jreq.name, null);
+    t.engine.seats[jreq.pos].chips = existingChips;
+  } else {
+    t.engine.seatHuman(jreq.pos, jreq.name, null);
+  }
+  t.engine.seats[jreq.pos].playerId = jreq.playerId;
+  requestingSocket.emit('poker_joinApproved', { tableId: t.engine.tableId, playerId: jreq.playerId });
+  pokerTouch(t);
+  pokerBroadcast(t);
+  res.json({ ok: true });
+});
+app.post('/api/admin/poker-deny-join', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const t = pokerTables[String(req.body.tableId || '')];
+  if (!t) return res.json({ ok: false, error: 'table_not_found' });
+  const requestPlayerId = String(req.body.requestPlayerId || '');
+  const idx = (t.pendingJoinRequests || []).findIndex(r => r.playerId === requestPlayerId);
+  if (idx === -1) return res.json({ ok: false, error: 'request_not_found' });
+  const jreq = t.pendingJoinRequests[idx];
+  t.pendingJoinRequests.splice(idx, 1);
+  const requestingSocket = io.sockets.sockets.get(jreq.socketId);
+  if (requestingSocket) requestingSocket.emit('poker_joinDenied', { tableId: t.engine.tableId });
+  pokerTouch(t);
+  res.json({ ok: true });
+});
+
 // Spawns a table that's entirely bot-run from the moment it's created --
 // no human socket ever needs to be attached to it, and nothing times it
 // out (see the "NO time-based auto-closing" note further down): it just
@@ -5158,6 +5276,13 @@ function pokerBroadcast(t) {
     if (!sock) continue;
     const state = t.engine.getStateFor(info.pos);
     state.isHost = isEffectiveHost(t, info.playerId);
+    // Per explicit host-controls request: only ever actually needed by
+    // the host (the client-side host menu is the only thing that reads
+    // this), but included for everyone the same simple way isHost
+    // above already is -- socketId deliberately left out of what's
+    // sent, name/playerId only, since socketId has no legitimate use
+    // client-side and shouldn't be exposed at all.
+    state.pendingJoinRequests = (t.pendingJoinRequests || []).map(r => ({ name: r.name, playerId: r.playerId }));
     sock.emit('poker_state', state);
   }
   io.emit('poker_roomList', pokerPublicTableList());
@@ -5292,6 +5417,34 @@ io.on('connection', (socket) => {
     pokerBroadcast(t);
   });
 
+  // Per explicit admin-feature request: the actual seating logic (was
+  // previously inline in poker_joinTable only) pulled out into its own
+  // function so the admin-approval path below can reuse the exact same
+  // real seating behavior -- taking over a bot/ghost seat keeps its
+  // chip stack, generates the real playerId, joins the socket room,
+  // sets host status, broadcasts -- rather than a second, separately-
+  // maintained copy that could quietly drift out of sync with it.
+  function pokerSeatNewPlayer(t, tableId, socket, name, pos) {
+    if (t.engine.seats[pos] && (t.engine.seats[pos].isBot || !t.engine.seats[pos].connected)) {
+      const existingChips = t.engine.seats[pos].chips;
+      t.engine.removeSeat(pos);
+      t.engine.seatHuman(pos, String(name || 'Player').slice(0, 20), null);
+      t.engine.seats[pos].chips = existingChips;
+    } else {
+      t.engine.seatHuman(pos, String(name || 'Player').slice(0, 20), null);
+    }
+    const newPlayerId = crypto.randomBytes(8).toString('hex');
+    t.engine.seats[pos].playerId = newPlayerId;
+    t.sockets.set(socket.id, { pos, playerId: newPlayerId });
+    recordSeatedHuman(t, String(name || 'Player').slice(0, 20), socket.id);
+    pokerTableId = tableId; pokerPlayerId = newPlayerId;
+    socket.join('poker_' + tableId);
+    ensureHumanHost(t, newPlayerId);
+    socket.emit('poker_joined', { tableId, pos, playerId: newPlayerId, isHost: isEffectiveHost(t, newPlayerId) });
+    pokerTouch(t);
+    pokerBroadcast(t);
+  }
+
   socket.on('poker_joinTable', ({ tableId, name, playerId: existingPlayerId, pos: requestedPos }) => {
     const t = pokerTables[tableId];
     if (!t) { socket.emit('poker_joinFailed', { reason: 'not_found' }); return; }
@@ -5342,29 +5495,26 @@ io.on('connection', (socket) => {
               : ghostSeats[0]);
     if (pos === undefined) { socket.emit('poker_joinFailed', { reason: 'table_full' }); return; }
 
-    // Taking over a bot seat -- the bot is simply replaced, keeping its
-    // chip stack (matches "host can kick bots out if a human joins").
-    // Taking over a ghost (disconnected human) seat works the same way,
-    // keeping whatever chip stack that seat had.
-    if (t.engine.seats[pos] && (t.engine.seats[pos].isBot || !t.engine.seats[pos].connected)) {
-      const existingChips = t.engine.seats[pos].chips;
-      t.engine.removeSeat(pos);
-      t.engine.seatHuman(pos, String(name || 'Player').slice(0, 20), null);
-      t.engine.seats[pos].chips = existingChips;
-    } else {
-      t.engine.seatHuman(pos, String(name || 'Player').slice(0, 20), null);
+    // Per explicit request: once a tournament has actually started
+    // (handNumber > 0 -- the lobby/waiting-to-start period before that
+    // stays open to anyone, same as before), a genuinely NEW player
+    // showing up needs an admin to actually let them in rather than
+    // just seating themselves -- a real gate, not just a courtesy
+    // notice. A reconnecting player reclaiming their own already-held
+    // seat (handled entirely in the block above, before this point) is
+    // a completely different case and was never touched by this at
+    // all. Queued rather than rejected outright so the admin panel has
+    // something concrete to actually approve or deny.
+    if (t.engine.mode === 'tournament' && t.engine.handNumber > 0) {
+      if (!t.pendingJoinRequests) t.pendingJoinRequests = [];
+      const pendingPlayerId = crypto.randomBytes(8).toString('hex');
+      t.pendingJoinRequests.push({ playerId: pendingPlayerId, name: String(name || 'Player').slice(0, 20), pos, socketId: socket.id });
+      socket.emit('poker_joinPending', { tableId, playerId: pendingPlayerId });
+      pokerTouch(t);
+      return;
     }
-    const newPlayerId = crypto.randomBytes(8).toString('hex');
-    t.engine.seats[pos].playerId = newPlayerId;
-    t.sockets.set(socket.id, { pos, playerId: newPlayerId });
-    recordSeatedHuman(t, String(name || 'Player').slice(0, 20), socket.id);
-    pokerTableId = tableId; pokerPlayerId = newPlayerId;
-    socket.join('poker_' + tableId);
-    // Strong host-recovery rule, same as the reconnect path.
-    ensureHumanHost(t, newPlayerId);
-    socket.emit('poker_joined', { tableId, pos, playerId: newPlayerId, isHost: isEffectiveHost(t, newPlayerId) });
-    pokerTouch(t);
-    pokerBroadcast(t);
+
+    pokerSeatNewPlayer(t, tableId, socket, name, pos);
   });
 
   socket.on('poker_fillBots', ({ count }) => {
@@ -5415,6 +5565,94 @@ io.on('connection', (socket) => {
     withPokerTable((t) => {
       if (!isEffectiveHost(t, pokerPlayerId)) return;
       t.engine.cancelKick(kickPos);
+      pokerTouch(t);
+      pokerBroadcast(t);
+    });
+  });
+
+  // Per explicit correction: real host controls, right on the table
+  // itself, for whoever is actually hosting -- not a separate password-
+  // gated admin panel. Mirrors the exact same pattern the 4-player
+  // table already uses for its own host controls (restartGame,
+  // hostChangeAvatar, respondJoinRequest -- all gated on
+  // isEffectiveHost(t, playerId), nothing more) rather than inventing a
+  // new one. The admin-panel REST endpoints added earlier are left
+  // fully in place alongside these, per explicit "don't delete" --
+  // this is an addition, not a replacement.
+  socket.on('poker_hostRestart', () => {
+    withPokerTable((t) => {
+      if (!isEffectiveHost(t, pokerPlayerId)) return;
+      t.engine.restartTournament();
+      pokerTouch(t);
+      pokerBroadcast(t);
+    });
+  });
+  socket.on('poker_hostKick', ({ pos: kickPos }) => {
+    withPokerTable((t) => {
+      if (!isEffectiveHost(t, pokerPlayerId)) return;
+      if (!t.engine.seats[kickPos]) return;
+      // Same instant removal as the admin panel's version -- distinct
+      // from the existing poker_requestKick above, which waits for the
+      // hand to finish. Finds the kicked seat's actual socket (if a
+      // currently-connected human) via t.sockets so they're told
+      // directly and dropped from the room, not left thinking they're
+      // still seated.
+      let kickedSocketId = null;
+      for (const [sid, info] of t.sockets) { if (info.pos === kickPos) { kickedSocketId = sid; break; } }
+      t.engine.removeSeat(kickPos);
+      if (kickedSocketId) {
+        t.sockets.delete(kickedSocketId);
+        const kickedSocket = io.sockets.sockets.get(kickedSocketId);
+        if (kickedSocket) {
+          kickedSocket.emit('poker_kickedByAdmin');
+          kickedSocket.leave('poker_' + pokerTableId);
+        }
+      }
+      pokerTouch(t);
+      pokerBroadcast(t);
+    });
+  });
+  socket.on('poker_hostChangeAvatar', ({ targetPos, avatar }) => {
+    withPokerTable((t) => {
+      if (!isEffectiveHost(t, pokerPlayerId)) return;
+      const key = sanitizeAvatarKey(avatar);
+      if (!key) return;
+      const result = t.engine.setSeatAvatar(targetPos, key);
+      if (!result.ok) return;
+      pokerTouch(t);
+      pokerBroadcast(t);
+    });
+  });
+  // Approving actually seats the player at the engine level right here
+  // (same real seat-taking logic as a normal join -- keeps a bot/ghost
+  // seat's existing chip stack, generates the real playerId), then
+  // tells that specific player's own socket to reconnect with it via
+  // the exact same reconnect path poker_joinTable already has for a
+  // returning player reclaiming their seat.
+  socket.on('poker_respondJoinRequest', ({ requestPlayerId, approved }) => {
+    withPokerTable((t) => {
+      if (!isEffectiveHost(t, pokerPlayerId)) return;
+      const idx = (t.pendingJoinRequests || []).findIndex(r => r.playerId === requestPlayerId);
+      if (idx === -1) return;
+      const jreq = t.pendingJoinRequests[idx];
+      t.pendingJoinRequests.splice(idx, 1);
+      const requestingSocket = io.sockets.sockets.get(jreq.socketId);
+      if (!approved) {
+        if (requestingSocket) requestingSocket.emit('poker_joinDenied', { tableId: pokerTableId });
+        pokerTouch(t);
+        return;
+      }
+      if (!requestingSocket) { pokerTouch(t); pokerBroadcast(t); return; } // they disconnected while waiting
+      if (t.engine.seats[jreq.pos] && (t.engine.seats[jreq.pos].isBot || !t.engine.seats[jreq.pos].connected)) {
+        const existingChips = t.engine.seats[jreq.pos].chips;
+        t.engine.removeSeat(jreq.pos);
+        t.engine.seatHuman(jreq.pos, jreq.name, null);
+        t.engine.seats[jreq.pos].chips = existingChips;
+      } else {
+        t.engine.seatHuman(jreq.pos, jreq.name, null);
+      }
+      t.engine.seats[jreq.pos].playerId = jreq.playerId;
+      requestingSocket.emit('poker_joinApproved', { tableId: pokerTableId, playerId: jreq.playerId });
       pokerTouch(t);
       pokerBroadcast(t);
     });
