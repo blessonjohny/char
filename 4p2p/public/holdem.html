@@ -491,13 +491,19 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    tweaks that still meaningfully help at a genuinely short height. */
 @media (min-width: 521px) and (max-height: 500px) {
   body.k28-in-game .seat { width: 78px; }
-  body.k28-in-game .seat-avatar-wrap { width: 44px; height: 44px; }
+  /* Per explicit live report: this used to shrink avatars back down to
+     44px/50px on exactly the height range most real phones actually
+     land on in landscape (under 500px tall) -- completely overriding
+     the 290px/350px size just set above and silently undoing it, which
+     is exactly why the change "looked like nothing happened" on an
+     actual device even though it worked correctly in every screenshot
+     taken at a taller resolution. Removed outright so the big size
+     carries through at every height, not just tall desktop windows. */
   body.k28-in-game .seat-name { font-size: 0.58rem; margin-top: 2px; }
   body.k28-in-game .seat-chips { font-size: 0.55rem; }
   body.k28-in-game .seat-cards .card.mini { width: 18px; height: 25px; font-size: 0.55rem; }
   body.k28-in-game .board-area .card { width: 30px; height: 43px; font-size: 0.78rem; }
   body.k28-in-game .pot-display { font-size: 0.7rem; padding: 4px 10px; }
-  body.k28-in-game .house-dealer { width: 50px; height: 50px; }
   body.k28-in-game .action-btn { width: 46px; height: 46px; }
   body.k28-in-game .action-btn::before { font-size: 1.1rem; }
   body.k28-in-game .action-btn::after { font-size: 0.56rem; top: 50%; right: 100%; margin-right: 7px; }
