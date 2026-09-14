@@ -166,10 +166,21 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 .allin-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}
 .folded-tag{display:inline-block;background:rgba(0,0,0,0.5);color:rgba(255,255,255,0.55);font-size:0.6rem;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15)}
 
-.winner-popup{position:fixed;background:linear-gradient(160deg,rgba(26,47,28,0.82),rgba(13,31,16,0.82));backdrop-filter:blur(3px);border:3px solid var(--gold);border-radius:18px;padding:18px 22px;z-index:1900;text-align:center;box-shadow:0 0 40px rgba(244,196,48,0.5),0 10px 30px rgba(0,0,0,0.7);pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(0.15);transition:transform 0.5s cubic-bezier(.2,1.4,.3,1),opacity 0.35s ease;max-width:86vw}
+/* Per explicit request: the win announcement redesigned to be
+   noticeably more transparent (the felt and table stay visible
+   through it, rather than being covered by a near-solid card) and
+   generally more polished -- a thinner double-line gold border in
+   place of the old flat thick one, a soft glow instead of a hard
+   shadow, and the chip amount pulled out as its own larger, gold,
+   separately-emphasized line rather than folded into a small plain
+   sentence, so the two things a player actually cares about at a
+   glance -- who won, and how much -- read clearly and instantly.
+   Blur increased to compensate for the lower opacity, keeping text
+   legible against a busy felt/card background behind it. */
+.winner-popup{position:fixed;background:linear-gradient(160deg,rgba(20,38,22,0.4),rgba(10,24,13,0.4));backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1.5px solid rgba(244,196,48,0.85);outline:1px solid rgba(244,196,48,0.35);outline-offset:3px;border-radius:20px;padding:22px 30px;z-index:1900;text-align:center;box-shadow:0 0 50px rgba(244,196,48,0.35),0 12px 34px rgba(0,0,0,0.5);pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(0.15);transition:transform 0.5s cubic-bezier(.2,1.4,.3,1),opacity 0.35s ease;max-width:86vw}
 .winner-popup.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
-.winner-popup-title{color:var(--gold);font-size:1.1rem;font-weight:900;margin-bottom:6px;text-shadow:0 0 10px rgba(244,196,48,0.6)}
-.winner-popup-sub{color:var(--cream);font-size:0.8rem;margin-bottom:10px}
+.winner-popup-title{color:var(--gold);font-size:1.25rem;font-weight:900;letter-spacing:0.3px;margin-bottom:10px;text-shadow:0 0 14px rgba(244,196,48,0.8),0 2px 6px rgba(0,0,0,0.9)}
+.winner-popup-sub{color:var(--gold);font-size:1.15rem;font-weight:800;margin-bottom:14px;text-shadow:0 2px 6px rgba(0,0,0,0.9)}
 .winner-popup-cards{display:flex;justify-content:center;gap:4px}
 .winner-popup-cards .card{animation:cardFlipReveal .45s ease both}
 .winner-popup-cards .card:nth-child(2){animation-delay:0.08s}
