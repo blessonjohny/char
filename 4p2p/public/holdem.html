@@ -73,7 +73,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    base point, since new chips stack upward from there), pushed down a
    little further so it reads as a caption underneath the pile rather
    than overlapping it. */
-.pot-stack-total{position:absolute;top:42%;left:32%;transform:translate(-50%,14px);font-size:0.6rem;font-weight:800;color:var(--gold);text-shadow:0 1px 4px rgba(0,0,0,0.9);white-space:nowrap;pointer-events:none;z-index:6}
+.pot-stack-total{position:absolute;top:42%;left:32%;transform:translate(calc(-100% - 14px),-50%);font-size:0.6rem;font-weight:800;color:var(--gold);text-shadow:0 1px 4px rgba(0,0,0,0.9);white-space:nowrap;pointer-events:none;z-index:6}
 .pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
 
 /* ---- Visual poker chips ---- */
@@ -1431,12 +1431,18 @@ function renderGameTable(state) {
   $('blindsDisplay').textContent = state.smallBlind + '/' + state.bigBlind + (state.buyInType === 'fixed' ? ' fixed' : ' NL') + (state.mode === 'tournament' ? ` · Level ${(state.blindLevel || 0) + 1}` : '');
   const potTotal = state.pots.reduce((s, p) => s + p.amount, 0);
   $('potDisplay').innerHTML = (potTotal > 0 ? chipHtml(potTotal) : '') + 'Pot: ' + potTotal + (state.currentBet > 0 ? ` · Bet: ${state.currentBet}` : '');
-  // Per explicit request: a plain running-total number right at the
-  // chip pile itself, not just the Pot: readout pinned at the top of
-  // the screen -- just the number, since "Pot:" is already spelled
-  // out up there and repeating it here would be redundant this close
-  // to the actual chips.
-  if ($('potStackTotal')) $('potStackTotal').textContent = potTotal > 0 ? potTotal : '';
+  // Per explicit follow-up: the formal pot total (state.pots) only
+  // actually updates once a full betting round settles and everyone's
+  // individual bets get swept together -- which is exactly why this
+  // number used to stay blank through the whole preflop betting round
+  // (small/big blind included) and only appeared once the flop
+  // resolved things. The chip pile itself, though, already shows
+  // money the moment any bet lands (bettedThisRound, not waiting on
+  // pots), so this label now counts the same way the pile actually
+  // fills up -- live, from the very first blind -- rather than the
+  // official settled figure, which is a beat behind on purpose.
+  const liveChipTotal = potTotal + state.seats.reduce((s, seat) => s + (seat ? seat.bettedThisRound : 0), 0);
+  if ($('potStackTotal')) $('potStackTotal').textContent = liveChipTotal > 0 ? liveChipTotal : '';
   $('boardArea').innerHTML = state.board.map(c => cardHtml(c, false)).join('') || '<span style="opacity:0.4;font-size:0.7rem">— waiting for flop —</span>';
 
   const positions = seatPositions();
