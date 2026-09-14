@@ -1146,7 +1146,7 @@ function animateChipToPot(seatPos, amount) {
 function animateChipsToWinners(state) {
   const potEl = $('potAnchor') || $('potDisplay');
   const winners = (state.showdownResult && state.showdownResult.winners) || [];
-  if (!potEl || winners.length === 0) return;
+  if (!potEl || winners.length === 0) return 0;
   // The real, already-landed pot stack IS the animation now -- split
   // across winners (round-robin, so a split pot fans out fairly
   // between them) and sent to each one's actual seat, rather than
@@ -1161,9 +1161,20 @@ function animateChipsToWinners(state) {
     const r = seatEl.getBoundingClientRect();
     winnerTargets.push({ x: r.left + r.width / 2, y: r.top + r.height / 2, amount: w.amount });
   }
-  if (winnerTargets.length === 0) return;
+  if (winnerTargets.length === 0) return 0;
 
+  // Per explicit follow-up: the popup used to be scheduled on a fixed
+  // delay that assumed a small, roughly-constant number of chips --
+  // once the real pot pile (which can be many more chips than that
+  // fallback ever assumed) started being what actually flies out, a
+  // big pile could still be mid-flight when the popup appeared,
+  // reading as the two things happening on top of each other instead
+  // of one after the other. Returns the true total duration of
+  // whichever branch actually runs below, so the caller can wait for
+  // the genuine last chip to finish (removed from the DOM) before
+  // showing anything else -- not a guess.
   if (stackToUse && stackToUse.length) {
+    let maxDuration = 0;
     stackToUse.forEach((chip, i) => {
       const target = winnerTargets[i % winnerTargets.length];
       const rect = chip.getBoundingClientRect();
@@ -1180,8 +1191,9 @@ function animateChipsToWinners(state) {
       }, delay + 20);
       setTimeout(() => { chip.style.opacity = '0'; }, delay + 600);
       setTimeout(() => { chip.remove(); }, delay + 750);
+      maxDuration = Math.max(maxDuration, delay + 750);
     });
-    return;
+    return maxDuration;
   }
 
   // Fallback for the rare case nothing had actually accumulated in the
@@ -1191,6 +1203,7 @@ function animateChipsToWinners(state) {
   const potRect = potEl.getBoundingClientRect();
   const startX = potRect.left + potRect.width / 2;
   const startY = potRect.top + potRect.height / 2;
+  let maxDuration = 0;
   for (const target of winnerTargets) {
     const chipCount = Math.min(5, Math.max(2, Math.round(target.amount / Math.max(1, state.bigBlind))));
     for (let i = 0; i < chipCount; i++) {
@@ -1210,8 +1223,10 @@ function animateChipsToWinners(state) {
       }, delay + 20);
       setTimeout(() => { chip.style.opacity = '0'; }, delay + 600);
       setTimeout(() => { chip.remove(); }, delay + 750);
+      maxDuration = Math.max(maxDuration, delay + 750);
     }
   }
+  return maxDuration;
 }
 
 // ---------------- Landing ----------------
@@ -1532,9 +1547,19 @@ function renderGameTable(state) {
   // plus a small persistent on-table reminder that stays up longer.
   if (state.phase === 'handEnd' && state.showdownResult && state.handNumber !== lastShownWinnerBannerFor) {
     lastShownWinnerBannerFor = state.handNumber;
-    setTimeout(() => animateChipsToWinners(state), 900);
-    setTimeout(() => showWinnerPopup(state), 1500);
     setTimeout(() => showWinnerBanner(state), 1000);
+    // Per explicit follow-up: showWinnerPopup used to be scheduled on
+    // a fixed delay that assumed a small, roughly-constant chip count.
+    // Now the real accumulated pile (which can be much bigger than
+    // that old assumption) is what actually flies out, so the popup
+    // waits for animateChipsToWinners' own true, returned duration --
+    // the genuine last chip actually finishing, not a guessed number --
+    // plus a short beat after so the table visibly empties out first,
+    // then the popup appears, rather than the two overlapping.
+    setTimeout(() => {
+      const flightDuration = animateChipsToWinners(state);
+      setTimeout(() => showWinnerPopup(state), flightDuration + 250);
+    }, 900);
   }
   // Per explicit request: darkens every seat that reached a genuine
   // showdown but didn't win any share of any pot -- called
