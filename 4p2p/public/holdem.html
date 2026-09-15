@@ -41,21 +41,39 @@
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#0a1420;color:var(--cream);overflow-x:hidden}
 .hidden{display:none !important}
-.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;background:linear-gradient(160deg,#0a1420,#0d2416);overflow-y:auto}
-h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;background:radial-gradient(ellipse at 50% 0%, #142a3a 0%, #0a1420 55%, #06100a 100%);overflow-y:auto}
+h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rgba(0,0,0,0.6)}
 .subtitle{opacity:0.7;font-size:0.85rem;margin-bottom:20px}
-.text-input{width:100%;max-width:320px;padding:14px;border-radius:10px;border:2px solid rgba(244,196,48,0.3);background:rgba(255,255,255,0.06);color:#fff;font-size:1rem;margin-bottom:12px;text-align:center}
-.btn{padding:14px 24px;border-radius:12px;border:none;font-weight:700;font-size:0.95rem;cursor:pointer;margin:6px;min-height:48px}
-.btn-gold{background:linear-gradient(135deg,var(--gold),#c99a1e);color:#241a12}
-.btn-outline{background:rgba(255,255,255,0.06);color:var(--cream);border:1px solid rgba(255,255,255,0.2)}
+/* Per explicit request: the create-table form now sits inside a real,
+   framed card panel -- a soft gradient, a gold border, and a subtle
+   outer glow -- rather than its fields just floating loose directly on
+   the screen's own background the way they used to, so it reads as an
+   actual piece of UI, matching the level of polish already put into
+   the table itself. */
+.create-panel{background:linear-gradient(160deg,rgba(20,38,54,0.92),rgba(8,18,14,0.92));border:1.5px solid rgba(244,196,48,0.35);border-radius:18px;padding:26px 28px;box-shadow:0 0 40px rgba(244,196,48,0.08),0 12px 34px rgba(0,0,0,0.5);width:100%;max-width:380px}
+.create-note{font-size:0.75rem;color:var(--cream);opacity:0.75;margin:10px 0 16px;line-height:1.5}
+.text-input{width:100%;max-width:320px;padding:14px;border-radius:10px;border:2px solid rgba(244,196,48,0.3);background:rgba(255,255,255,0.06);color:#fff;font-size:1rem;margin-bottom:12px;text-align:center;transition:border-color 0.2s ease}
+.text-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,196,48,0.15)}
+/* Per explicit request: buttons given real depth -- a proper gradient
+   plus a matching drop shadow keyed to each button's own color, and a
+   crisp 1px edge -- instead of a flat single-color fill with no
+   shadow at all. */
+.btn{padding:14px 24px;border-radius:12px;border:none;font-weight:700;font-size:0.95rem;cursor:pointer;margin:6px;min-height:48px;transition:transform 0.12s ease,box-shadow 0.12s ease}
+.btn:active{transform:translateY(1px)}
+.btn-gold{background:linear-gradient(160deg,#ffd76b,var(--gold) 55%,#c99a1e);color:#241a12;box-shadow:0 4px 14px rgba(244,196,48,0.35),inset 0 1px 0 rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.25)}
+.btn-outline{background:linear-gradient(160deg,rgba(255,255,255,0.09),rgba(255,255,255,0.03));color:var(--cream);border:1px solid rgba(255,255,255,0.22);box-shadow:0 2px 8px rgba(0,0,0,0.3)}
 .btn-danger{background:var(--danger);color:#fff}
 .btn:disabled{opacity:0.4;cursor:not-allowed}
 .opts-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:360px;margin-bottom:10px}
-.opt-btn{padding:8px 14px;border-radius:20px;border:1px solid rgba(244,196,48,0.35);background:rgba(244,196,48,0.08);color:var(--cream);font-size:0.8rem;cursor:pointer}
-.opt-btn.active{background:var(--gold);color:#241a12;font-weight:800}
-.field-label{font-size:0.7rem;opacity:0.6;margin:8px 0 4px;text-transform:uppercase;letter-spacing:1px}
+/* Per explicit request: the pill-shaped mode/betting selectors given
+   the same gradient-plus-shadow treatment as the buttons above, with a
+   clearer, gold-glow active state so it's obvious at a glance which
+   option is actually picked, not just a flat solid-color fill. */
+.opt-btn{padding:9px 16px;border-radius:20px;border:1px solid rgba(244,196,48,0.35);background:linear-gradient(160deg,rgba(244,196,48,0.12),rgba(244,196,48,0.04));color:var(--cream);font-size:0.8rem;cursor:pointer;font-weight:600;transition:all 0.15s ease}
+.opt-btn.active{background:linear-gradient(160deg,#ffd76b,var(--gold) 60%,#c99a1e);color:#241a12;font-weight:800;border-color:rgba(255,255,255,0.3);box-shadow:0 2px 10px rgba(244,196,48,0.4)}
+.field-label{font-size:0.7rem;opacity:0.65;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold)}
 .table-list{width:100%;max-width:360px;margin-top:10px}
-.table-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(255,255,255,0.05);border-radius:10px;margin-bottom:6px;font-size:0.82rem}
+.table-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:linear-gradient(160deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));border:1px solid rgba(244,196,48,0.15);border-radius:10px;margin-bottom:6px;font-size:0.82rem}
 
 /* ---- Game screen ---- */
 #gameScreen{padding:0;justify-content:flex-start}
@@ -586,66 +604,67 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 
 <!-- ============ LANDING ============ -->
 <div class="screen" id="landingScreen">
-  <h1>♠️ Texas Hold'em</h1>
-  <div class="subtitle">9-Player Table</div>
-  <input class="text-input" id="nameInput" maxlength="18" placeholder="Your name">
-  <button class="btn btn-gold" id="btnShowCreate">Create Table</button>
-  <button class="btn btn-outline" id="btnShowJoin">Join with Code</button>
-  <button class="btn btn-outline hidden" id="btnContinuePrevious" style="display:none">▶ Continue with Previous</button>
-  <button class="btn btn-outline" id="btnBackToRooms">⬅ Back to Rooms</button>
-  <div class="table-list" id="publicTableList"></div>
+  <div class="create-panel">
+    <h1>♠️ Texas Hold'em</h1>
+    <div class="subtitle">9-Player Table</div>
+    <input class="text-input" id="nameInput" maxlength="18" placeholder="Your name">
+    <button class="btn btn-gold" id="btnShowCreate">Create Table</button>
+    <button class="btn btn-outline" id="btnShowJoin">Join with Code</button>
+    <button class="btn btn-outline hidden" id="btnContinuePrevious" style="display:none">▶ Continue with Previous</button>
+    <button class="btn btn-outline" id="btnBackToRooms">⬅ Back to Rooms</button>
+    <div class="table-list" id="publicTableList"></div>
+  </div>
 </div>
 
 <!-- ============ CREATE TABLE OPTIONS ============ -->
 <div class="screen hidden" id="createScreen">
-  <h1>Create Table</h1>
-  <div class="field-label">Mode</div>
-  <div class="opts-row" id="modeOpts">
-    <div class="opt-btn active" data-val="cash">Cash Game</div>
-    <div class="opt-btn" data-val="tournament">Tournament</div>
+  <div class="create-panel">
+    <h1>Create Table</h1>
+    <div class="field-label">Mode</div>
+    <div class="opts-row" id="modeOpts">
+      <div class="opt-btn" data-val="cash">Cash Game</div>
+      <div class="opt-btn active" data-val="tournament">Tournament</div>
+    </div>
+    <div class="field-label">Betting</div>
+    <div class="opts-row" id="buyInOpts">
+      <div class="opt-btn active" data-val="nolimit">No Limit</div>
+      <div class="opt-btn" data-val="fixed">Fixed Limit</div>
+    </div>
+    <!-- Per explicit request: blinds and starting chips no longer need
+         picking at all -- every table now always starts at the same
+         sensible, standard 5/10 blinds and 1000 starting chips
+         regardless of mode, so the whole form is just Mode and Betting
+         type, not a wall of extra choices that don't need making. -->
+    <div class="create-note">Every table starts with 1000 chips and 5/10 blinds — tournament blinds increase automatically as play goes on.</div>
+    <button class="btn btn-gold" id="btnCreateConfirm">Create</button>
+    <button class="btn btn-outline" id="btnCreateBack">Back</button>
   </div>
-  <div class="field-label">Betting</div>
-  <div class="opts-row" id="buyInOpts">
-    <div class="opt-btn active" data-val="nolimit">No Limit</div>
-    <div class="opt-btn" data-val="fixed">Fixed Limit</div>
-  </div>
-  <div class="field-label" id="blindsFieldLabel">Blinds</div>
-  <div class="opts-row" id="blindOpts">
-    <div class="opt-btn" data-sb="1" data-bb="2">1/2</div>
-    <div class="opt-btn active" data-sb="5" data-bb="10">5/10</div>
-    <div class="opt-btn" data-sb="25" data-bb="50">25/50</div>
-  </div>
-  <div id="tournamentBlindsNote" style="display:none;font-size:0.75rem;color:var(--text-dim,#9aa);margin:4px 0 8px">Tournament blinds always start at 5/10 and increase automatically as play goes on.</div>
-  <div class="field-label">Starting Chips</div>
-  <div class="opts-row" id="chipsOpts">
-    <div class="opt-btn active" data-val="1000">1000</div>
-    <div class="opt-btn" data-val="2000">2000</div>
-    <div class="opt-btn" data-val="5000">5000</div>
-  </div>
-  <button class="btn btn-gold" id="btnCreateConfirm">Create</button>
-  <button class="btn btn-outline" id="btnCreateBack">Back</button>
 </div>
 
 <!-- ============ JOIN BY CODE ============ -->
 <div class="screen hidden" id="joinScreen">
-  <h1>Join a Table</h1>
-  <input class="text-input" id="joinCodeInput" maxlength="12" placeholder="Table code" style="text-transform:uppercase">
-  <button class="btn btn-gold" id="btnJoinConfirm">Join</button>
-  <button class="btn btn-outline" id="btnJoinBack">Back</button>
+  <div class="create-panel">
+    <h1>Join a Table</h1>
+    <input class="text-input" id="joinCodeInput" maxlength="12" placeholder="Table code" style="text-transform:uppercase">
+    <button class="btn btn-gold" id="btnJoinConfirm">Join</button>
+    <button class="btn btn-outline" id="btnJoinBack">Back</button>
+  </div>
 </div>
 
 <!-- ============ LOBBY (seated, waiting for hand) ============ -->
 <div class="screen hidden" id="lobbyScreen">
-  <h1>Table Lobby</h1>
-  <div class="subtitle">Code: <b id="lobbyCode" style="color:var(--gold)"></b></div>
-  <div id="lobbySeatList" style="width:100%;max-width:360px;margin-bottom:16px"></div>
-  <div id="hostControls" class="hidden">
-    <div class="field-label">Fill empty seats with bots</div>
-    <div class="opts-row" id="botFillOpts"></div>
-    <button class="btn btn-gold" id="btnStartHand">▶ Start Hand</button>
+  <div class="create-panel">
+    <h1>Table Lobby</h1>
+    <div class="subtitle">Code: <b id="lobbyCode" style="color:var(--gold)"></b></div>
+    <div id="lobbySeatList" style="width:100%;max-width:360px;margin-bottom:16px"></div>
+    <div id="hostControls" class="hidden">
+      <div class="field-label">Fill empty seats with bots</div>
+      <div class="opts-row" id="botFillOpts"></div>
+      <button class="btn btn-gold" id="btnStartHand">▶ Start Hand</button>
+    </div>
+    <div id="waitingNote" class="subtitle"></div>
+    <button class="btn btn-outline" id="btnInviteHoldemLobby" style="margin-top:10px">💌 Invite a Friend</button>
   </div>
-  <div id="waitingNote" class="subtitle"></div>
-  <button class="btn" id="btnInviteHoldemLobby" style="margin-top:10px">💌 Invite a Friend</button>
 </div>
 
 <!-- ============ TOURNAMENT OVER ============ -->
@@ -787,7 +806,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
 const socket = io();
 let myPos = null, myPlayerId = null, myTableId = null, isHost = false;
 let latestState = null;
-let createOpts = { mode: 'cash', buyInType: 'nolimit', smallBlind: 5, bigBlind: 10, startingChips: 1000 };
+let createOpts = { mode: 'tournament', buyInType: 'nolimit', smallBlind: 5, bigBlind: 10, startingChips: 1000 };
 
 // A full page reload (not just a background tab suspending) wipes every
 // JS variable but leaves localStorage intact -- this is what actually
@@ -1424,19 +1443,13 @@ function wireOptRow(rowId, onPick) {
 }
 wireOptRow('modeOpts', btn => {
   createOpts.mode = btn.dataset.val;
-  // Real, confirmed gap: the blind-preset buttons let someone pick e.g. 25/50 for a
-  // tournament table, but tournament mode always starts at 5/10 regardless (a fixed, standard
-  // schedule, not a user-chosen stake) - left as-is, that selector would silently get ignored
-  // with no explanation. Swapped for a plain note instead whenever tournament is selected, and
-  // swapped back the moment they pick cash again.
-  const isTournament = createOpts.mode === 'tournament';
-  $('blindOpts').style.display = isTournament ? 'none' : '';
-  $('blindsFieldLabel').style.display = isTournament ? 'none' : '';
-  $('tournamentBlindsNote').style.display = isTournament ? '' : 'none';
+  // Per explicit request: blinds and starting chips are no longer
+  // user-configurable at all -- always 5/10 and 1000 regardless of
+  // mode -- so there's no longer anything here that needs to change
+  // based on which mode is picked; this handler now only records the
+  // mode itself.
 });
 wireOptRow('buyInOpts', btn => createOpts.buyInType = btn.dataset.val);
-wireOptRow('blindOpts', btn => { createOpts.smallBlind = Number(btn.dataset.sb); createOpts.bigBlind = Number(btn.dataset.bb); });
-wireOptRow('chipsOpts', btn => createOpts.startingChips = Number(btn.dataset.val));
 
 $('btnCreateConfirm').addEventListener('click', () => {
   const name = $('nameInput').value.trim() || 'Player';
