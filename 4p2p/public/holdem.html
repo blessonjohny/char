@@ -338,6 +338,33 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .seat-name{font-size:0.62rem;font-weight:700;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .seat-chips{font-size:0.6rem;color:var(--gold);font-weight:800}
 .seat-cards{display:flex;gap:2px;justify-content:center;margin-top:3px}
+/* Per explicit live report: the speech bubble for these four seats
+   (see the action-badge flip further down) sits below everything --
+   avatar, name, chips, cards -- and once the bubble itself got bigger,
+   that pushed it far enough down to run off the bottom of the actual
+   screen for seats already this close to the bottom edge. Rather than
+   fight the bubble's own position further, this shortens the stack
+   above it instead: the chip count moves to overlay directly on top
+   of the cards (via data-chips + ::before below) instead of taking its
+   own separate line, so the whole seat block is shorter and the
+   bubble sitting right after it lands higher up, comfortably on
+   screen. seat-chips itself is hidden here since data-chips carries
+   the same number now. */
+.seat[data-slot="1"] .seat-chips, .seat[data-slot="2"] .seat-chips,
+.seat[data-slot="7"] .seat-chips, .seat[data-slot="8"] .seat-chips {
+  display: none;
+}
+.seat[data-slot="1"] .seat-cards, .seat[data-slot="2"] .seat-cards,
+.seat[data-slot="7"] .seat-cards, .seat[data-slot="8"] .seat-cards {
+  position: relative;
+}
+.seat[data-slot="1"] .seat-cards::before, .seat[data-slot="2"] .seat-cards::before,
+.seat[data-slot="7"] .seat-cards::before, .seat[data-slot="8"] .seat-cards::before {
+  content: attr(data-chips);
+  position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+  font-size: 0.58rem; color: var(--gold); font-weight: 800;
+  background: rgba(0,0,0,0.55); padding: 0 4px; border-radius: 5px; white-space: nowrap;
+}
 /* Hidden by default (phone/portrait mode keeps the simple 🤖/🧑 emoji avatar, unchanged) -
    only shown via the desktop wide-table media query override further below. Real, confirmed
    bug caught before shipping: without this explicit default-hidden rule, the image rendered
@@ -1996,7 +2023,7 @@ function renderGameTable(state) {
       </div>
       <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
       <div class="seat-chips">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
-      <div class="seat-cards">${s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml}</div>
+      <div class="seat-cards" data-chips="${escapeHtml(s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : ''))}">${s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml}</div>
     </div>`;
   }).join('');
   if (isNewShowdownReveal) lastCardRevealAnimatedFor = state.handNumber;
