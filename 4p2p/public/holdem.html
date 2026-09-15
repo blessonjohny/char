@@ -270,7 +270,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    JS -- see lastActionBubbleTextBySeat), not on every unrelated
    re-render, so it reads as a fresh reaction each time someone acts
    rather than replaying constantly. */
-.action-badge{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:8px;background:rgba(20,16,12,0.95);border:2px solid var(--gold-soft,#c9a44c);color:#fff;font-size:0.72rem;font-weight:800;letter-spacing:0.3px;padding:5px 12px;border-radius:14px;white-space:nowrap;z-index:5;box-shadow:0 3px 10px rgba(0,0,0,0.5)}
+/* Per explicit live report: made genuinely translucent (was a nearly
+   opaque 0.95) so a chip pile sitting behind this bubble stays at
+   least partly visible through it rather than being fully hidden, and
+   z-index raised well past the chip stack's own range (which grows
+   per chip, 6+chipInThisStack -- with enough chips piled up it could
+   already exceed this bubble's old z-index of 5) so the bubble always
+   wins the overlap regardless of how tall a pile gets. */
+.action-badge{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:8px;background:rgba(20,16,12,0.55);border:2px solid var(--gold-soft,#c9a44c);color:#fff;font-size:0.72rem;font-weight:800;letter-spacing:0.3px;padding:5px 12px;border-radius:14px;white-space:nowrap;z-index:50;box-shadow:0 3px 10px rgba(0,0,0,0.4);backdrop-filter:blur(3px)}
 .action-badge::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--gold-soft,#c9a44c)}
 .action-badge.pop-in{animation:bubblePopIn 0.4s cubic-bezier(.25,1.6,.4,1) both}
 @keyframes bubblePopIn{0%{transform:translateX(-50%) scale(0.15);opacity:0}60%{transform:translateX(-50%) scale(1.12);opacity:1}100%{transform:translateX(-50%) scale(1);opacity:1}}
@@ -290,15 +297,15 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    one uniform rule covers all of them -- no more asymmetric per-slot
    overrides needed here. */
 .action-badge-raise {
-  background: rgba(20,90,40,0.92); border-color: #3ddc71; color: #eafff0;
+  background: rgba(20,90,40,0.55); border-color: #3ddc71; color: #eafff0;
 }
 .action-badge-raise::after { border-top-color: #3ddc71; }
 .action-badge-call {
-  background: rgba(20,55,110,0.92); border-color: #4aa3ff; color: #eaf4ff;
+  background: rgba(20,55,110,0.55); border-color: #4aa3ff; color: #eaf4ff;
 }
 .action-badge-call::after { border-top-color: #4aa3ff; }
 .action-badge-fold {
-  background: rgba(110,20,25,0.92); border-color: #ff5c5c; color: #ffeaea;
+  background: rgba(110,20,25,0.55); border-color: #ff5c5c; color: #ffeaea;
 }
 .action-badge-fold::after { border-top-color: #ff5c5c; }
 @keyframes turnTagPulse{0%,100%{transform:translateX(-50%) scale(1);}50%{transform:translateX(-50%) scale(1.08);}}
@@ -440,7 +447,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      the whole layout room to breathe. */
   body.k28-in-game .board-area { top: 48%; gap: 6px; }
   body.k28-in-game .table-winning-hand { top: 60%; }
-  body.k28-in-game .pot-anchor { top: 58%; }
+  body.k28-in-game .pot-anchor { top: 60%; left: 36%; }
   body.k28-in-game .pot-stack-total { font-size: 0.68rem; }
   body.k28-in-game .board-area .card { width: 40px; height: 57px; font-size: 0.95rem; }
   body.k28-in-game .pot-display {
@@ -1425,20 +1432,24 @@ function clearPotChipStack() {
   potChipStack.forEach(c => c.remove());
   potChipStack = [];
 }
-// Per explicit request: keeps the running-total label pinned to the
-// actual top-right corner of the pile, moving up as new chips make it
-// taller -- baseX/baseY/stackSpacingX/stackRiseY are the exact same
-// values landChipInPotStack just used to place the chip that triggered
-// this call, so the label always matches the pile's real current
-// geometry rather than a guessed or stale one.
+// Per explicit live report: recentered directly above the middle of
+// the two stacks (baseX itself, since the two piles sit at
+// baseX-spacing and baseX+spacing) instead of off to the right side --
+// baseX/baseY/stackSpacingX/stackRiseY are the exact same values
+// landChipInPotStack just used to place the chip that triggered this
+// call, so the label always matches the pile's real current geometry
+// rather than a guessed or stale one. Uses whichever column is
+// actually taller so it clears both piles, not just one.
 function updatePotStackTotalPosition(baseX, baseY, stackSpacingX, stackRiseY) {
   const label = $('potStackTotal');
   if (!label) return;
+  const leftColumnCount = Math.floor((potChipStack.length + 1) / 2);
   const rightColumnCount = Math.ceil(potChipStack.length / 2);
-  const topOfRightColumnY = baseY - Math.max(0, rightColumnCount - 1) * stackRiseY;
-  label.style.left = (baseX + stackSpacingX + 14) + 'px';
-  label.style.top = (topOfRightColumnY - 10) + 'px';
-  label.style.transform = 'translate(0,-100%)';
+  const tallestColumnCount = Math.max(leftColumnCount, rightColumnCount);
+  const topOfTallestColumnY = baseY - Math.max(0, tallestColumnCount - 1) * stackRiseY;
+  label.style.left = baseX + 'px';
+  label.style.top = (topOfTallestColumnY - 12) + 'px';
+  label.style.transform = 'translate(-50%,-100%)';
 }
 function animateChipToPot(seatPos, amount) {
   const potEl = $('potAnchor') || $('potDisplay');
