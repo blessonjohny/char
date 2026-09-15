@@ -89,17 +89,19 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px}
    a short pile or get buried under a tall one. Updated every time the
    pile's height actually changes instead. */
 .pot-stack-total{position:fixed;font-size:0.6rem;font-weight:800;color:var(--gold);text-shadow:0 1px 4px rgba(0,0,0,0.9);white-space:nowrap;pointer-events:none;z-index:6;transition:top 0.2s ease}
-/* Per explicit request: replaces the old end-of-hand popup -- the
-   winner's cards land here, at a fixed spot just below the community
-   cards, rather than a separate floating overlay anywhere else on
-   screen. Starts invisible/tiny and grows in exactly like the flying
-   chips settle, so it reads as the cards actually arriving here, not
-   a UI element just appearing. */
-.table-winning-hand{position:absolute;top:64%;left:50%;transform:translate(-50%,-50%) scale(0.3);text-align:center;z-index:7;pointer-events:none;opacity:0;transition:transform 0.4s cubic-bezier(.2,1.4,.3,1),opacity 0.3s ease}
-.table-winning-hand.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+/* Per explicit request: each of the 5 winning-hand cards now animates
+   in individually (see showWinningHandOnTable) -- the container itself
+   is just a plain fade-in frame they land inside of, not something
+   that itself scales/grows, since that would double up with each
+   card's own individual grow-in animation. */
+.table-winning-hand{position:absolute;top:64%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:7;pointer-events:none;opacity:0;transition:opacity 0.3s ease}
+.table-winning-hand.on{opacity:1}
 .table-winning-hand-cards{display:flex;justify-content:center;gap:4px;margin-bottom:6px}
-.table-winning-hand-cards .card{animation:cardFlipReveal .4s ease both}
-.table-winning-hand-cards .card:nth-child(2){animation-delay:0.08s}
+/* Invisible placeholder used only to measure each card's own real
+   final landing spot before it starts flying there -- never actually
+   seen, since it's swapped for the real card face the instant that
+   card arrives. */
+.table-winning-hand-slot{opacity:0}
 .table-winning-hand-label{color:var(--gold);font-size:0.85rem;font-weight:900;text-shadow:0 2px 6px rgba(0,0,0,0.95),0 0 10px rgba(244,196,48,0.6);white-space:nowrap}
 .pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
 
@@ -1660,6 +1662,19 @@ function renderGameTable(state) {
   // official settled figure, which is a beat behind on purpose.
   const liveChipTotal = potTotal + state.seats.reduce((s, seat) => s + (seat ? seat.bettedThisRound : 0), 0);
   if ($('potStackTotal')) $('potStackTotal').textContent = liveChipTotal > 0 ? liveChipTotal : '';
+  // Per explicit live report: the dealer needs to visibly deal the
+  // community cards too, one at a time, the same as the hole cards --
+  // triggers on any genuine growth in board length (0->3 for the flop's
+  // three together, 3->4 turn, 4->5 river), using whatever this
+  // specific board length last actually had animated as the count of
+  // cards already accounted for, so only the truly new ones fly in.
+  if (state.board.length > lastBoardDealAnimatedForLength) {
+    const newCards = state.board.slice(lastBoardDealAnimatedForLength);
+    animateDealingCommunityCards(newCards, lastBoardDealAnimatedForLength);
+    lastBoardDealAnimatedForLength = state.board.length;
+  } else if (state.board.length === 0) {
+    lastBoardDealAnimatedForLength = 0; // fresh hand, board cleared
+  }
   $('boardArea').innerHTML = state.board.map(c => cardHtml(c, false)).join('') || '<span style="opacity:0.4;font-size:0.7rem">— waiting for flop —</span>';
 
   const positions = seatPositions();
@@ -1828,30 +1843,92 @@ function darkenShowdownLosers(state) {
 // them. Held for a genuine 5 seconds, then cleared -- timed against
 // pokerMaybeAutoDeal's own matching 7.5s server-side delay before the
 // next hand deals, so this always finishes well before that happens.
+// Per explicit request: redesigned again -- each of the winning hand's
+// actual 5 cards (not just the 2 hole cards; winners[].hand is already
+// the real best-5-of-7 evaluated hand, hole cards plus whichever board
+// cards actually complete it) now animates individually into this
+// display, from wherever that specific card genuinely already is: the
+// winner's own two hole cards fly from their actual seat position
+// (matched against state.seats[winnerPos].hand, not assumed to always
+// be exactly the first two), growing from nothing to full size as they
+// land: the community cards among the five pop in place at their own
+// existing position on the board, since they're already sitting right
+// there and don't need to travel anywhere.
 let tableWinningHandClearTimer = null;
 function showWinningHandOnTable(state) {
   const r = state.showdownResult;
   const el = $('tableWinningHand');
-  if (!el || !r || !r.winners || !r.winners.length || !r.boardShown || !r.winners[0].hand) return;
+  const cardsContainer = $('tableWinningHandCards');
+  if (!el || !cardsContainer || !r || !r.winners || !r.winners.length || !r.boardShown || !r.winners[0].hand) return;
 
   const winnerPos = r.winners[0].seat;
+  const winnerSeat = state.seats[winnerPos];
   const winnerSeatEl = document.querySelector(`.seat[data-pos="${winnerPos}"]`);
+  const winningHand = r.winners[0].hand;
   const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
   const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
 
-  $('tableWinningHandCards').innerHTML = r.winners[0].hand.map(c => cardHtml(c, false)).join('');
-  $('tableWinningHandLabel').textContent = `${names} won ${totalWon} — ${r.winners[0].handName}`;
+  const cardKey = c => c.rank + c.suit;
+  const holeCardKeys = new Set((winnerSeat && winnerSeat.hand ? winnerSeat.hand : []).map(cardKey));
 
+  // Build 5 empty, invisible placeholder slots first purely to measure
+  // exactly where each card's own final resting spot actually is --
+  // real layout, real gap/sizing, not a guessed position.
+  cardsContainer.innerHTML = winningHand.map(() => `<div class="card table-winning-hand-slot"></div>`).join('');
+  $('tableWinningHandLabel').textContent = '';
   el.classList.remove('on');
-  if (winnerSeatEl) {
-    const seatRect = winnerSeatEl.getBoundingClientRect();
-    void el.offsetWidth; // force layout before measuring
-    const elRect = el.getBoundingClientRect();
-    const originX = (seatRect.left + seatRect.width / 2) - elRect.left;
-    const originY = (seatRect.top + seatRect.height / 2) - elRect.top;
-    el.style.transformOrigin = `${originX}px ${originY}px`;
-  }
   el.classList.add('on');
+  void cardsContainer.offsetWidth;
+  const slotEls = [...cardsContainer.querySelectorAll('.table-winning-hand-slot')];
+  const boardCardEls = [...($('boardArea') ? $('boardArea').querySelectorAll('.card') : [])];
+
+  let arrivedCount = 0;
+  winningHand.forEach((card, i) => {
+    const slotEl = slotEls[i];
+    if (!slotEl) return;
+    const slotRect = slotEl.getBoundingClientRect();
+    const isHoleCard = holeCardKeys.has(cardKey(card));
+    let startRect;
+    if (isHoleCard && winnerSeatEl) {
+      startRect = winnerSeatEl.getBoundingClientRect();
+    } else {
+      // Find this exact card among the current board cards so it pops
+      // from its own real position, not a generic board-center guess.
+      const matchIdx = state.board.findIndex(b => b && cardKey(b) === cardKey(card));
+      startRect = (matchIdx !== -1 && boardCardEls[matchIdx]) ? boardCardEls[matchIdx].getBoundingClientRect() : slotRect;
+    }
+    const startX = startRect.left + startRect.width / 2;
+    const startY = startRect.top + startRect.height / 2;
+    const endX = slotRect.left + slotRect.width / 2;
+    const endY = slotRect.top + slotRect.height / 2;
+    const delay = i * 130;
+    setTimeout(() => {
+      const flying = document.createElement('div');
+      flying.className = `card ${(card.suit === '♥' || card.suit === '♦') ? 'red' : 'black'}`;
+      flying.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
+      flying.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;width:${slotRect.width}px;height:${slotRect.height}px;margin:-${slotRect.height/2}px 0 0 -${slotRect.width/2}px;z-index:1850;transform:scale(0.15);opacity:0.6;transition:transform 0.4s cubic-bezier(.2,1.4,.3,1),left 0.4s cubic-bezier(.3,.5,.4,1),top 0.4s cubic-bezier(.3,.5,.4,1),opacity 0.25s ease;`;
+      document.body.appendChild(flying);
+      requestAnimationFrame(() => {
+        flying.style.left = endX + 'px';
+        flying.style.top = endY + 'px';
+        flying.style.transform = 'scale(1)';
+        flying.style.opacity = '1';
+      });
+      setTimeout(() => {
+        flying.remove();
+        slotEl.classList.remove('table-winning-hand-slot');
+        slotEl.classList.add((card.suit === '♥' || card.suit === '♦') ? 'red' : 'black');
+        slotEl.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
+        arrivedCount++;
+        if (arrivedCount === winningHand.length) {
+          $('tableWinningHandLabel').textContent = `${names} won ${totalWon} — ${r.winners[0].handName}`;
+        }
+      }, 420);
+    }, delay);
+  });
+
+  if (tableWinningHandClearTimer) clearTimeout(tableWinningHandClearTimer);
+  tableWinningHandClearTimer = setTimeout(() => { el.classList.remove('on'); }, 5000);
 
   if (tableWinningHandClearTimer) clearTimeout(tableWinningHandClearTimer);
   tableWinningHandClearTimer = setTimeout(() => { el.classList.remove('on'); }, 5000);
@@ -1869,19 +1946,35 @@ function animateDealingCards(state) {
   const dealerEl = document.querySelector('.house-dealer');
   if (!dealerEl) return;
   const dealerRect = dealerEl.getBoundingClientRect();
+  // Per explicit live report: starting from the dealer's own center
+  // read as coming out of their chest/torso, which looked wrong --
+  // starts from the bottom edge of the dealer avatar instead, the way
+  // cards actually come off a real dealer's hands in front of them.
   const startX = dealerRect.left + dealerRect.width / 2;
-  const startY = dealerRect.top + dealerRect.height / 2;
+  const startY = dealerRect.bottom;
   const dealSeats = state.seats
     .map((s, pos) => (s && !s.sittingOut && s.hand && s.hand.length ? pos : null))
     .filter(pos => pos !== null);
   dealSeats.forEach((pos, seatIdx) => {
     const seatEl = document.querySelector(`.seat[data-pos="${pos}"]`);
     if (!seatEl) return;
-    const seatRect = seatEl.getBoundingClientRect();
-    const endX = seatRect.left + seatRect.width / 2;
-    const endY = seatRect.top + seatRect.height / 2;
+    // Per explicit live report: aiming at the seat's own center looked
+    // wrong specifically for the back-row seats, where the info block
+    // (name/chips/cards) renders ABOVE the avatar rather than below it
+    // (see the column-reverse seat[data-slot] rules) -- aims at the
+    // actual .seat-cards element instead, which is genuinely wherever
+    // the cards render for that specific seat, front-row or back-row
+    // alike, rather than assuming one fixed layout for everyone.
+    const cardsEl = seatEl.querySelector('.seat-cards') || seatEl;
+    const targetRect = cardsEl.getBoundingClientRect();
+    const endX = targetRect.left + targetRect.width / 2;
+    const endY = targetRect.top + targetRect.height / 2;
+    // Per explicit live report: noticeably too fast to actually read as
+    // one-at-a-time dealing before -- slowed the stagger down (not
+    // drastically, just enough that each card's arrival is genuinely
+    // visible before the next one leaves the dealer).
     for (let cardIdx = 0; cardIdx < 2; cardIdx++) {
-      const delay = seatIdx * 90 + cardIdx * 140;
+      const delay = seatIdx * 220 + cardIdx * 190;
       setTimeout(() => {
         const card = document.createElement('div');
         card.className = 'dealing-card';
@@ -1890,9 +1983,49 @@ function animateDealingCards(state) {
         card.style.transform = 'translate(-50%,-50%)';
         document.body.appendChild(card);
         setTimeout(() => { card.style.transform = `translate(${endX - startX}px, ${endY - startY}px)`; }, 20);
-        setTimeout(() => { card.remove(); }, 380);
+        setTimeout(() => { card.remove(); }, 420);
       }, delay);
     }
+  });
+}
+// Per explicit live report: the community cards (flop/turn/river) also
+// need the dealer to visibly deal them one at a time, the same
+// treatment the hole cards already got, rather than the whole street
+// simply appearing all at once. Tracks which board length has already
+// played its own dealing animation (0->3 for the flop's three cards
+// together, 3->4 for the turn, 4->5 for the river) so it only fires
+// once per actual new street, not on every render while that street is
+// already showing.
+let lastBoardDealAnimatedForLength = 0;
+function animateDealingCommunityCards(newCards, existingCount) {
+  const dealerEl = document.querySelector('.house-dealer');
+  const boardEl = $('boardArea');
+  if (!dealerEl || !boardEl) return;
+  const dealerRect = dealerEl.getBoundingClientRect();
+  const startX = dealerRect.left + dealerRect.width / 2;
+  const startY = dealerRect.bottom;
+  newCards.forEach((_, i) => {
+    const cardIndex = existingCount + i;
+    const delay = i * 220;
+    setTimeout(() => {
+      // Measure the actual board card slot fresh each time -- by the
+      // time later cards in this same street animate, the board's own
+      // rendered card count may have already grown, which shifts every
+      // slot's position slightly (the row re-centers as it grows).
+      const boardCards = boardEl.querySelectorAll('.card');
+      const targetCard = boardCards[cardIndex];
+      const targetRect = (targetCard || boardEl).getBoundingClientRect();
+      const endX = targetRect.left + targetRect.width / 2;
+      const endY = targetRect.top + targetRect.height / 2;
+      const card = document.createElement('div');
+      card.className = 'dealing-card';
+      card.style.left = startX + 'px';
+      card.style.top = startY + 'px';
+      card.style.transform = 'translate(-50%,-50%)';
+      document.body.appendChild(card);
+      setTimeout(() => { card.style.transform = `translate(${endX - startX}px, ${endY - startY}px)`; }, 20);
+      setTimeout(() => { card.remove(); }, 420);
+    }, delay);
   });
 }
 function showWinnerBanner(state) {
