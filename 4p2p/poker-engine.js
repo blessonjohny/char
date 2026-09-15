@@ -502,12 +502,22 @@ class PokerEngine {
       let remainder = pot.amount - share * potWinners.length;
       const order = this._seatOrderFrom(this.dealerSeat);
       potWinners.sort((a, b) => order.indexOf(a.seat) - order.indexOf(b.seat));
+      // Per explicit live report: a pot layer with only one eligible
+      // seat isn't a real win over anyone -- it's that seat's own
+      // uncalled excess bet simply coming back to them, since nobody
+      // else's stack reached this level to even contest it. Flagged
+      // per-winner-entry so the client can visually tell "actually
+      // beat the table" apart from "got my own extra chips back," not
+      // celebrate both identically.
+      const isReturnedBet = pot.eligibleSeats.length === 1;
       for (const w of potWinners) {
         const amount = share + (remainder > 0 ? 1 : 0);
         if (remainder > 0) remainder--;
         this.seats[w.seat].chips += amount;
-        winners.push({ seat: w.seat, amount, handName: w.handName, hand: w.hand });
-        this.addLog(`${this.seats[w.seat].name} wins ${amount} with ${w.handName}.`);
+        winners.push({ seat: w.seat, amount, handName: w.handName, hand: w.hand, isReturnedBet });
+        this.addLog(isReturnedBet
+          ? `${this.seats[w.seat].name} gets ${amount} back (uncalled).`
+          : `${this.seats[w.seat].name} wins ${amount} with ${w.handName}.`);
       }
     }
     this.showdownResult = { winners, boardShown: true, board: this.board.slice(), allHands: rankedBySeat };
