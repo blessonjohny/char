@@ -878,6 +878,21 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      anyone waiting to join a tournament already in progress. Only ever
      shown to the actual host (see btnHoldemHostMenu's own display
      toggle), same spirit as the 4-player table's own Host Menu. -->
+<!-- Per explicit live report: replaces the native browser confirm()
+     dialog for leaving the table -- that looked jarringly generic
+     against the rest of this styled UI. Same simple styled-card
+     pattern as the host menu overlay just below, not a browser-native
+     popup at all. -->
+<div class="modal-overlay" id="holdemLeaveConfirmOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2300;align-items:center;justify-content:center;padding:20px">
+  <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid rgba(244,196,48,0.4);border-radius:16px;padding:24px;width:100%;max-width:360px;text-align:center">
+    <div style="color:var(--gold);font-weight:800;font-size:1rem;margin-bottom:10px">Leave this table?</div>
+    <div style="color:var(--cream);opacity:0.85;font-size:0.82rem;margin-bottom:18px;line-height:1.5">Your seat will open up for someone else, and any progress in this hand will be lost.</div>
+    <div style="display:flex;justify-content:space-between;gap:10px">
+      <button class="btn btn-outline" id="btnLeaveConfirmCancel">Cancel</button>
+      <button class="btn btn-gold" id="btnLeaveConfirmYes">🚪 Leave</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="holdemHostMenuOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2200;align-items:center;justify-content:center;padding:20px">
   <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid rgba(244,196,48,0.4);border-radius:16px;padding:20px;width:100%;max-width:420px;max-height:80vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
@@ -910,6 +925,16 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 <script>
 const socket = io();
 let myPos = null, myPlayerId = null, myTableId = null, isHost = false;
+// Per explicit live report, real confirmed bug: renderGameTable() calls
+// showScreen('gameScreen') unconditionally at its own start -- if a
+// poker_state broadcast was already in flight the instant Leave was
+// clicked (a bot's action resolving at that exact moment, say), it
+// would still arrive right after the transition to the landing screen
+// and silently flip the screen right back to the table, undoing the
+// leave the player just explicitly asked for. Set the moment Leave is
+// actually confirmed, checked at the very top of the poker_state
+// handler so nothing from this table can render again afterward.
+let hasLeftTable = false;
 let latestState = null;
 let createOpts = { mode: 'tournament', buyInType: 'nolimit', smallBlind: 5, bigBlind: 10, startingChips: 1000 };
 
@@ -1615,6 +1640,13 @@ socket.on('poker_joinFailed', (info) => {
 });
 
 socket.on('poker_joined', (info) => {
+  // Cleared here since joining any table (a fresh one, or reclaiming a
+  // seat at one after having left another) is exactly the "actually
+  // back in a real game" moment the guard in poker_state needs to
+  // start trusting state broadcasts again -- without this reset, the
+  // guard set by leaving one table would silently block every future
+  // table this session forever.
+  hasLeftTable = false;
   myPos = info.pos; myPlayerId = info.playerId; myTableId = info.tableId; isHost = info.isHost;
   try {
     localStorage.setItem('holdem_player_id', info.playerId);
@@ -1664,6 +1696,7 @@ socket.on('poker_kickedByAdmin', () => {
 // ---------------- State rendering ----------------
 let seenPendingJoinRequestIds = new Set();
 socket.on('poker_state', (state) => {
+  if (hasLeftTable) return;
   latestState = state;
   isHost = !!state.isHost;
   const hostBtn = $('btnHoldemHostMenu');
@@ -2479,8 +2512,20 @@ $('logPanelBackdrop').addEventListener('click', () => {
   $('logPanelBackdrop').classList.remove('on');
 });
 
+// Per explicit live report: replaces the native confirm() dialog with
+// the custom styled overlay above, and sets hasLeftTable (see its own
+// declaration up top) so a late-arriving poker_state can never flip
+// the screen back to the table after this -- the actual, confirmed
+// bug behind "hit leave, it still shows the table."
 $('btnLeaveTable').addEventListener('click', () => {
-  if (!confirm('Leave this table? Your seat will open up for someone else, and any progress in this hand will be lost.')) return;
+  $('holdemLeaveConfirmOverlay').style.display = 'flex';
+});
+$('btnLeaveConfirmCancel').addEventListener('click', () => {
+  $('holdemLeaveConfirmOverlay').style.display = 'none';
+});
+$('btnLeaveConfirmYes').addEventListener('click', () => {
+  $('holdemLeaveConfirmOverlay').style.display = 'none';
+  hasLeftTable = true;
   socket.emit('poker_leaveTable');
   myTableId = null; myPos = null; myPlayerId = null;
   try {
