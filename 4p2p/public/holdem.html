@@ -1973,12 +1973,18 @@ function showWinningHandOnTable(state) {
     const startY = startRect.top + startRect.height / 2;
     const endX = slotRect.left + slotRect.width / 2;
     const endY = slotRect.top + slotRect.height / 2;
-    const delay = i * 130;
+    // Per explicit live report: the math here made the whole 5-card
+    // sequence finish in well under a second (4*130ms stagger + one
+    // ~400ms flight), which reads as everything just appearing at once
+    // rather than genuinely watching each card travel -- stretched
+    // considerably, matching the same slower, more watchable pace
+    // already applied to the regular dealing animation.
+    const delay = i * 320;
     setTimeout(() => {
       const flying = document.createElement('div');
       flying.className = `card ${(card.suit === '♥' || card.suit === '♦') ? 'red' : 'black'}`;
       flying.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
-      flying.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;width:${slotRect.width}px;height:${slotRect.height}px;margin:-${slotRect.height/2}px 0 0 -${slotRect.width/2}px;z-index:1850;transform:scale(0.15);opacity:0.6;transition:transform 0.4s cubic-bezier(.2,1.4,.3,1),left 0.4s cubic-bezier(.3,.5,.4,1),top 0.4s cubic-bezier(.3,.5,.4,1),opacity 0.25s ease;`;
+      flying.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;width:${slotRect.width}px;height:${slotRect.height}px;margin:-${slotRect.height/2}px 0 0 -${slotRect.width/2}px;z-index:1850;transform:scale(0.15);opacity:0.6;transition:transform 0.55s cubic-bezier(.2,1.4,.3,1),left 0.55s cubic-bezier(.3,.5,.4,1),top 0.55s cubic-bezier(.3,.5,.4,1),opacity 0.3s ease;`;
       document.body.appendChild(flying);
       requestAnimationFrame(() => {
         flying.style.left = endX + 'px';
@@ -1995,7 +2001,7 @@ function showWinningHandOnTable(state) {
         if (arrivedCount === winningHand.length) {
           $('tableWinningHandLabel').textContent = `${names} won ${totalWon} — ${r.winners[0].handName}`;
         }
-      }, 420);
+      }, 560);
     }, delay);
   });
 
