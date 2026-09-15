@@ -1818,31 +1818,42 @@ function renderLobby(state) {
   $('waitingNote').textContent = isHost ? '' : `Waiting for host to start — ${occupied}/9 seated.`;
 }
 $('btnStartHand').addEventListener('click', () => {
-  // Per explicit request: starting the hand is the natural moment to
-  // switch a phone into landscape automatically, since that's
-  // genuinely the easier way to actually play Hold'em -- only
-  // attempted on a narrow/phone-like viewport (this makes no sense on
-  // an actual desktop window) and only ever entering, never exiting,
-  // since the player is about to start playing, not leave. Wrapped
-  // defensively: screen.orientation.lock() requires fullscreen first
-  // on most browsers and isn't supported at all on iOS Safari, so this
-  // silently does nothing there rather than erroring -- the existing
-  // manual fullscreen button and physical tilt-to-rotate still work
-  // regardless either way.
+  // Per explicit live report that this stopped working: rebuilt more
+  // defensively -- the previous version only ever attempted
+  // orientation.lock() inside requestFullscreen()'s own success
+  // callback, so if fullscreen itself silently failed or behaved
+  // differently on a given browser/Android version, the lock attempt
+  // never even ran at all, with nothing visible to show it. Now
+  // attempts the lock on its own too, independent of whether
+  // fullscreen succeeds, and surfaces a quiet, one-time toast if
+  // neither actually works so a real failure is at least visible
+  // instead of silent. Still only attempted on a narrow/phone-like
+  // viewport, still only ever entering, never exiting.
   if (window.innerWidth < 700 && !document.fullscreenElement && !document.webkitFullscreenElement) {
     const el = document.documentElement;
     const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    const tryLock = () => {
+      if (screen.orientation && screen.orientation.lock) {
+        return screen.orientation.lock('landscape').catch(() => false);
+      }
+      return Promise.resolve(false);
+    };
     if (req) {
       try {
         const result = req.call(el);
-        if (result && result.then) {
-          result.then(() => {
-            if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
-          }).catch(() => {});
-        } else if (screen.orientation && screen.orientation.lock) {
-          screen.orientation.lock('landscape').catch(() => {});
-        }
-      } catch (e) {}
+        const fsPromise = (result && result.then) ? result : Promise.resolve();
+        fsPromise.catch(() => {}).then(() => {
+          tryLock().then((lockResult) => {
+            if (lockResult === false && !document.fullscreenElement && !document.webkitFullscreenElement) {
+              toast('📱 Rotate your phone for the best view');
+            }
+          });
+        });
+      } catch (e) {
+        tryLock();
+      }
+    } else {
+      tryLock();
     }
   }
   const activeBtn = document.querySelector('#botFillOpts .opt-btn.active');
