@@ -41,7 +41,21 @@
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#0a1420;color:var(--cream);overflow-x:hidden}
 .hidden{display:none !important}
-.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;background:radial-gradient(ellipse at 50% 0%, #142a3a 0%, #0a1420 55%, #06100a 100%);overflow-y:auto}
+/* Per explicit live report: justify-content:center broke down the
+   moment a panel's content (the lobby's up to 9 seat rows, especially)
+   grew taller than the actual viewport -- centering overflowing
+   content pushes its top half above y=0, and since a fixed-position
+   flex container's default scroll position starts at the very top of
+   its rendered content, the header (title, table code) ended up
+   scrolled out of view above what was actually visible, with the
+   seat list itself as the first thing shown instead. margin:auto on
+   the panel itself (see .create-panel below) replaces
+   justify-content:center instead -- this still centers genuinely
+   short content (the landing screen) exactly the way center did, but
+   naturally settles to the top the moment content is taller than the
+   screen, since auto margins can't push a child above its container's
+   own start edge the way justify-content:center's overflow math does. */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;padding:20px;text-align:center;background:radial-gradient(ellipse at 50% 0%, #142a3a 0%, #0a1420 55%, #06100a 100%);overflow-y:auto}
 h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rgba(0,0,0,0.6)}
 .subtitle{opacity:0.7;font-size:0.85rem;margin-bottom:20px}
 /* Per explicit request: the create-table form now sits inside a real,
@@ -50,7 +64,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    the screen's own background the way they used to, so it reads as an
    actual piece of UI, matching the level of polish already put into
    the table itself. */
-.create-panel{background:linear-gradient(160deg,rgba(20,38,54,0.92),rgba(8,18,14,0.92));border:1.5px solid rgba(244,196,48,0.35);border-radius:18px;padding:26px 28px;box-shadow:0 0 40px rgba(244,196,48,0.08),0 12px 34px rgba(0,0,0,0.5);width:100%;max-width:380px}
+.create-panel{background:linear-gradient(160deg,rgba(20,38,54,0.92),rgba(8,18,14,0.92));border:1.5px solid rgba(244,196,48,0.35);border-radius:18px;padding:26px 28px;box-shadow:0 0 40px rgba(244,196,48,0.08),0 12px 34px rgba(0,0,0,0.5);width:100%;max-width:380px;margin:auto 0 20px;flex-shrink:0}
 .create-note{font-size:0.75rem;color:var(--cream);opacity:0.75;margin:10px 0 16px;line-height:1.5}
 .text-input{width:100%;max-width:320px;padding:14px;border-radius:10px;border:2px solid rgba(244,196,48,0.3);background:rgba(255,255,255,0.06);color:#fff;font-size:1rem;margin-bottom:12px;text-align:center;transition:border-color 0.2s ease}
 .text-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,196,48,0.15)}
@@ -126,7 +140,24 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    seen, since it's swapped for the real card face the instant that
    card arrives. */
 .table-winning-hand-slot{opacity:0}
-.table-winning-hand-label{color:var(--gold);font-size:0.85rem;font-weight:900;text-shadow:0 2px 6px rgba(0,0,0,0.95),0 0 10px rgba(244,196,48,0.6);white-space:nowrap}
+/* Per explicit live report: flat gold text read as unexciting for what
+   should be the actual celebratory moment of the hand -- switched to
+   white (reads as more "genuine announcement," gold everywhere else in
+   this UI already carries a calmer, informational meaning) with an
+   animated pop-in and a pulsing glow behind it, rather than static
+   colored text that just appears. */
+.table-winning-hand-label{color:#fff;font-size:0.92rem;font-weight:900;text-shadow:0 2px 6px rgba(0,0,0,0.95);white-space:nowrap;animation:winLabelPop 0.45s cubic-bezier(.2,1.4,.3,1) both,winLabelGlow 1.3s ease-in-out 0.45s infinite}
+@keyframes winLabelPop{0%{transform:scale(0.3);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes winLabelGlow{0%,100%{text-shadow:0 2px 6px rgba(0,0,0,0.95),0 0 8px rgba(244,196,48,0.5)}50%{text-shadow:0 2px 6px rgba(0,0,0,0.95),0 0 20px rgba(244,196,48,0.95)}}
+/* Per explicit live report: the winner's own avatar should visibly
+   react in the same moment -- a bright ring that flashes and pulses
+   around them plus a quick scale "pop" (a surprised little jump),
+   rather than the avatar just sitting there while everything else
+   celebrates around it. */
+.seat.winner-reaction .seat-avatar-wrap{animation:winnerAvatarPop 0.6s cubic-bezier(.3,1.6,.4,1) both}
+.seat.winner-reaction .seat-avatar-wrap::after{content:'';position:absolute;inset:-6px;border-radius:50%;border:3px solid rgba(244,196,48,0.9);opacity:0;animation:winnerRingPulse 1.3s ease-out 0.1s 3}
+@keyframes winnerAvatarPop{0%{transform:scale(1)}30%{transform:scale(1.18)}55%{transform:scale(0.96)}100%{transform:scale(1)}}
+@keyframes winnerRingPulse{0%{opacity:0.9;transform:scale(0.9)}100%{opacity:0;transform:scale(1.35)}}
 .pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
 
 /* ---- Visual poker chips ---- */
@@ -1013,7 +1044,13 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   $(id).classList.remove('hidden');
   const allGamesLink = $('allGamesLink');
-  if (allGamesLink) allGamesLink.style.display = (id === 'gameScreen') ? 'none' : '';
+  // Per explicit live report: this fixed-position link was overlapping
+  // directly on top of the lobby panel's own first seat row (both sit
+  // at roughly the same on-screen spot) -- hidden on every "actively
+  // setting up or seated at a table" screen now, not just the table
+  // itself, and only actually shown on the very first landing screen
+  // where navigating away to all games genuinely makes sense.
+  if (allGamesLink) allGamesLink.style.display = (id === 'landingScreen') ? '' : 'none';
   // Same pattern as six.js/index.html's desktop wide-table mode, and the same reasoning for
   // setting it synchronously right here rather than relying only on the polling fallback
   // below: a render can happen in the same synchronous tick as this call, and needs the class
@@ -1966,6 +2003,20 @@ function showWinningHandOnTable(state) {
   const winningHand = r.winners[0].hand;
   const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
   const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
+  // Per explicit live report: the winner's own avatar visibly reacts
+  // in the same moment (a bright pulsing ring plus a quick surprised
+  // "pop"), not just the cards/label off to the side -- applied to
+  // every winner's own seat for a split pot too, each independently
+  // re-triggerable via classList.remove+add so a later hand playing
+  // out the exact same animation class name still restarts it cleanly
+  // rather than silently no-op'ing because the class was already set.
+  r.winners.forEach(w => {
+    const seatEl = document.querySelector(`.seat[data-pos="${w.seat}"]`);
+    if (!seatEl) return;
+    seatEl.classList.remove('winner-reaction');
+    void seatEl.offsetWidth;
+    seatEl.classList.add('winner-reaction');
+  });
 
   const cardKey = c => c.rank + c.suit;
   const holeCardKeys = new Set((winnerSeat && winnerSeat.hand ? winnerSeat.hand : []).map(cardKey));
