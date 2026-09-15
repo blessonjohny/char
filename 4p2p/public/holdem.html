@@ -132,6 +132,37 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    is just a plain fade-in frame they land inside of, not something
    that itself scales/grows, since that would double up with each
    card's own individual grow-in animation. */
+/* Per explicit request: a genuinely dramatic reveal, not a subtle one
+   -- the winner's name starts small and balloons up to roughly half
+   the screen's own width before bursting, the way an actual balloon
+   (or watermelon) visibly swells before it pops, rather than just
+   fading or popping in at full size immediately. clamp() keeps the
+   peak size proportional and readable across very different screen
+   widths rather than a fixed vw value that could get absurd on a
+   large desktop window. */
+.winner-name-balloon{position:fixed;top:50%;left:50%;z-index:1900;pointer-events:none;color:#fff;font-weight:900;white-space:nowrap;text-shadow:0 4px 20px rgba(0,0,0,0.6),0 0 30px rgba(244,196,48,0.7);opacity:0;font-size:14px;transform:translate(-50%,-50%) scale(1)}
+.winner-name-balloon.growing{animation:balloonGrow 0.85s cubic-bezier(.25,.1,.4,1) forwards}
+.winner-name-balloon.popping{animation:balloonPop 0.18s ease-in forwards}
+@keyframes balloonGrow{
+  0%{opacity:0;font-size:14px;transform:translate(-50%,-50%) scale(0.6)}
+  15%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:1;font-size:clamp(48px, 12vw, 220px);transform:translate(-50%,-50%) scale(1.08)}
+}
+@keyframes balloonPop{
+  0%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}
+  40%{opacity:1;transform:translate(-50%,-50%) scale(1.3)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.5)}
+}
+/* Per explicit request: the actual "spill all over the table" moment
+   -- a burst of small fragments flung outward from center with a
+   little gravity-like drop and fade, standing in for actual watermelon
+   pieces/juice rather than the name simply vanishing after it pops.
+   Each individual fragment's own end position and rotation is set
+   inline per-particle by showWinnerNameBalloon (real randomized
+   directions, not one fixed shape repeated), this class only carries
+   the shared timing/easing every fragment uses. */
+.winner-splatter{position:fixed;top:50%;left:50%;z-index:1899;pointer-events:none;width:0;height:0}
+.splatter-piece{position:absolute;border-radius:40% 60% 55% 45%;transition:transform 0.75s cubic-bezier(.15,.6,.3,1),opacity 0.75s ease}
 .table-winning-hand{position:absolute;top:64%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:7;pointer-events:none;opacity:0;transition:opacity 0.3s ease}
 .table-winning-hand.on{opacity:1}
 .table-winning-hand-cards{display:flex;justify-content:center;gap:4px;margin-bottom:6px}
@@ -203,7 +234,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   70%{ transform: translate(-50%,-50%) scaleY(0.5) scale(0.95); }
   100%{ transform: translate(-50%,-50%) scaleY(0.55) scale(1); opacity: 1; }
 }
-.street-banner{position:absolute;top:72%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);border:2px solid var(--gold);border-radius:16px;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 10px rgba(244,196,48,0.6);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
+/* Per explicit request: no boxed background at all for this anymore --
+   just the glowing gold text floating directly over the table, the
+   same "no card/panel behind it" idea already applied to the winner
+   popup earlier. */
+.street-banner{position:absolute;top:72%;left:50%;transform:translate(-50%,-50%);background:transparent;border:none;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 14px rgba(244,196,48,0.9),0 2px 6px rgba(0,0,0,0.9);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
 .street-banner.on{display:block}
 @keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
 .card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0}
@@ -774,6 +809,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
          number updates and reads right next to the chips it's
          actually counting. -->
     <div class="pot-stack-total" id="potStackTotal"></div>
+    <!-- Per explicit request: a genuinely dramatic reveal moment --
+         the winner's name starts small, balloons up to roughly half
+         the screen, then bursts like a watermelon with fragments
+         spilling outward across the table, before the calmer cards-
+         on-the-table sequence (unchanged below) takes over. See
+         showWinnerNameBalloon() for the animation itself. -->
+    <div class="winner-name-balloon" id="winnerNameBalloon"></div>
+    <div class="winner-splatter" id="winnerSplatter"></div>
     <!-- Per explicit request: replaces the old end-of-hand popup
          entirely -- the winner's actual hole cards move here, onto the
          table itself, with the hand name (e.g. "Straight") shown right
@@ -1919,21 +1962,24 @@ function renderGameTable(state) {
   renderStreetBanner(state);
 
   // The table already shows the real showdown -- cards flip face-up at
-  // each seat, chips fly to the winner, then the winner's actual hole
+  // each seat, the winner's name balloons up and bursts across the
+  // table, then chips fly to the winner, then the winner's actual hole
   // cards move to the table itself with the hand name shown, held for
   // a real 5 seconds. No popup anywhere in this sequence anymore.
   if (state.phase === 'handEnd' && state.showdownResult && state.handNumber !== lastShownWinnerBannerFor) {
     lastShownWinnerBannerFor = state.handNumber;
     setTimeout(() => showWinnerBanner(state), 1000);
-    // Per explicit request: waits for animateChipsToWinners' own true,
-    // returned duration -- the genuine last chip actually finishing,
-    // not a guessed number -- plus a short beat after so the table
-    // visibly empties out first, then the winning hand appears on the
-    // table, rather than the two overlapping.
+    // Per explicit request: the dramatic name balloon-and-pop plays
+    // first, before anything else -- waits for its own real, returned
+    // duration (grow + pop, not the longer splatter fade, which can
+    // keep fading out underneath the rest without blocking it) before
+    // the chips even start flying, so the two moments read as
+    // sequential beats, not overlapping each other.
+    const balloonDuration = showWinnerNameBalloon(state);
     setTimeout(() => {
       const flightDuration = animateChipsToWinners(state);
       setTimeout(() => showWinningHandOnTable(state), flightDuration + 250);
-    }, 900);
+    }, balloonDuration + 300);
   }
   // Per explicit request: darkens every seat that reached a genuine
   // showdown but didn't win any share of any pot -- called
@@ -1991,6 +2037,82 @@ function darkenShowdownLosers(state) {
 // existing position on the board, since they're already sitting right
 // there and don't need to travel anywhere.
 let tableWinningHandClearTimer = null;
+// Per explicit request: a genuinely dramatic reveal -- the winner's
+// name starts small, balloons up to roughly half the screen's width
+// (see the CSS clamp() for the exact peak size), then bursts like a
+// watermelon with real fragments flung outward in randomized
+// directions and fading as they go, "spilling" across the table.
+// Returns the actual grow+pop duration so the caller can sequence the
+// rest of the end-of-hand flow (chips flying, etc.) to start right
+// after this finishes, not overlapping it.
+function showWinnerNameBalloon(state) {
+  const r = state.showdownResult;
+  const el = $('winnerNameBalloon');
+  const splatterEl = $('winnerSplatter');
+  if (!el || !r || !r.winners || !r.winners.length) return 0;
+  const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+
+  el.textContent = names;
+  el.classList.remove('growing', 'popping');
+  el.style.opacity = '0';
+  void el.offsetWidth;
+  el.classList.add('growing');
+
+  const growDuration = 850;
+  const popDuration = 180;
+
+  setTimeout(() => {
+    el.classList.remove('growing');
+    el.classList.add('popping');
+    // The actual "spill" -- a burst of fragments in random directions/
+    // distances/rotations/colors, each one a genuinely different
+    // shape and path rather than one repeated particle, so it reads as
+    // organic debris rather than a mechanical pattern.
+    splatterEl.innerHTML = '';
+    const colors = ['#e0453f', '#f4c430', '#7ec850', '#e8927c', '#c62828'];
+    const pieceCount = 18;
+    for (let i = 0; i < pieceCount; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'splatter-piece';
+      const size = 8 + Math.random() * 16;
+      const angle = (i / pieceCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+      const distance = 80 + Math.random() * 260;
+      const dx = Math.cos(angle) * distance;
+      const dy = Math.sin(angle) * distance * 0.7 + 60; // gravity-ish downward bias
+      const rot = (Math.random() - 0.5) * 400;
+      piece.style.width = size + 'px';
+      piece.style.height = size * (0.7 + Math.random() * 0.5) + 'px';
+      piece.style.background = colors[i % colors.length];
+      piece.style.left = '0px';
+      piece.style.top = '0px';
+      piece.style.opacity = '1';
+      piece.style.transform = 'translate(-50%,-50%) scale(0.4) rotate(0deg)';
+      splatterEl.appendChild(piece);
+      // Real, confirmed bug: creating all 18 pieces in this loop and
+      // relying on a single requestAnimationFrame per piece let the
+      // browser coalesce the initial and final styles into one paint,
+      // skipping the transition entirely -- opacity measured at 0
+      // barely 200ms in, when the CSS says this fade should take 750ms.
+      // Forcing a reflow (reading offsetWidth) before changing to the
+      // final style is what actually makes the browser commit the
+      // starting state first, so the transition has something to
+      // genuinely animate from.
+      void piece.offsetWidth;
+      requestAnimationFrame(() => {
+        piece.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1) rotate(${rot}deg)`;
+        piece.style.opacity = '0';
+      });
+    }
+    setTimeout(() => { splatterEl.innerHTML = ''; }, 800);
+  }, growDuration);
+
+  setTimeout(() => {
+    el.classList.remove('popping');
+    el.style.opacity = '0';
+  }, growDuration + popDuration);
+
+  return growDuration + popDuration;
+}
 function showWinningHandOnTable(state) {
   const r = state.showdownResult;
   const el = $('tableWinningHand');
