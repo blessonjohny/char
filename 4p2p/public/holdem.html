@@ -208,7 +208,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    during the new dealing animation (see animateDealingCards) -- a
    miniature version of the real .card.back styling so it reads as an
    actual card mid-flight, not a generic shape. */
-.dealing-card{position:fixed;width:16px;height:22px;border-radius:3px;background:linear-gradient(135deg,#8b2635,#5a1620);border:1.5px solid rgba(244,196,48,0.7);box-shadow:0 2px 6px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.5s cubic-bezier(.3,.5,.4,1);}
+/* Per explicit live report: this used a red gradient while the actual
+   card backs sitting at every seat are blue (see .card.back) -- fixed
+   to match exactly, since a dealt card visibly changing color the
+   instant it lands looked like two different decks. */
+.dealing-card{position:fixed;width:16px;height:22px;border-radius:3px;background:linear-gradient(135deg,#1a3a6b,#0d2038);border:1.5px solid var(--gold-soft);box-shadow:0 2px 6px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.5s cubic-bezier(.3,.5,.4,1);}
 /* Per explicit request: chips that have actually landed and joined the
    accumulating pot pile, spread across a small grid (see
    landChipInPotStack) rather than a flat token count -- a bit smaller
@@ -1274,6 +1278,11 @@ $('btnHoldemHostMenu').addEventListener('click', () => {
 $('btnCloseHoldemHostMenu').addEventListener('click', () => {
   $('holdemHostMenuOverlay').style.display = 'none';
 });
+// Real, confirmed bug: this button existed in the HTML and its own
+// handler function (holdemHostRestart) was fully defined, but nothing
+// ever actually connected the two -- clicking Restart genuinely did
+// nothing at all, silently, with no error to notice.
+$('btnHoldemHostRestart').addEventListener('click', holdemHostRestart);
 
 // Real poker chips are colored by denomination so a player can read a
 // stack at a glance instead of counting -- same idea here, mapped to
@@ -1653,11 +1662,27 @@ socket.on('poker_kickedByAdmin', () => {
 });
 
 // ---------------- State rendering ----------------
+let seenPendingJoinRequestIds = new Set();
 socket.on('poker_state', (state) => {
   latestState = state;
   isHost = !!state.isHost;
   const hostBtn = $('btnHoldemHostMenu');
   if (hostBtn) hostBtn.style.display = isHost ? '' : 'none';
+  // Real, confirmed bug: a new join request only ever showed up if the
+  // host happened to manually open the Host Menu and look -- nothing
+  // ever actually told them one was waiting. Tracks which request IDs
+  // have already been surfaced so this only fires once per genuinely
+  // new request, then actually pops the host menu open and toasts it,
+  // rather than requiring the host to guess to go check.
+  if (isHost && state.pendingJoinRequests && state.pendingJoinRequests.length) {
+    const newOnes = state.pendingJoinRequests.filter(r => !seenPendingJoinRequestIds.has(r.playerId));
+    if (newOnes.length) {
+      newOnes.forEach(r => seenPendingJoinRequestIds.add(r.playerId));
+      toast(`⏳ ${newOnes.map(r => r.name).join(', ')} wants to join — open Host to approve`);
+      renderHoldemHostMenu(state);
+      $('holdemHostMenuOverlay').style.display = 'flex';
+    }
+  }
   if ($('holdemHostMenuOverlay') && $('holdemHostMenuOverlay').style.display === 'flex') renderHoldemHostMenu(state);
   if (state.phase === 'tournamentOver') renderTournamentOver(state);
   else if (state.phase === 'lobby') renderLobby(state);
