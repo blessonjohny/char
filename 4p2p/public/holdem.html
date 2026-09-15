@@ -270,15 +270,16 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    JS -- see lastActionBubbleTextBySeat), not on every unrelated
    re-render, so it reads as a fresh reaction each time someone acts
    rather than replaying constantly. */
-/* Per explicit live report: made genuinely translucent (was a nearly
-   opaque 0.95) so a chip pile sitting behind this bubble stays at
-   least partly visible through it rather than being fully hidden, and
-   z-index raised well past the chip stack's own range (which grows
-   per chip, 6+chipInThisStack -- with enough chips piled up it could
-   already exceed this bubble's old z-index of 5) so the bubble always
-   wins the overlap regardless of how tall a pile gets. */
-.action-badge{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:8px;background:rgba(20,16,12,0.55);border:2px solid var(--gold-soft,#c9a44c);color:#fff;font-size:0.72rem;font-weight:800;letter-spacing:0.3px;padding:5px 12px;border-radius:14px;white-space:nowrap;z-index:50;box-shadow:0 3px 10px rgba(0,0,0,0.4);backdrop-filter:blur(3px)}
-.action-badge::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--gold-soft,#c9a44c)}
+/* Per explicit live report: this used to duplicate the separate
+   bet-amount chip badge (both said the same amount in slightly
+   different words right next to each other) -- that badge is gone
+   entirely now, and this bubble moved into its exact old spot
+   instead (bottom-of-avatar, nested inside seat-avatar-wrap the same
+   way that badge was, rather than floating above the whole seat). */
+.action-badge{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:rgba(20,16,12,0.55);border:2px solid var(--gold-soft,#c9a44c);color:#fff;font-size:0.72rem;font-weight:800;letter-spacing:0.3px;padding:5px 12px;border-radius:14px;white-space:nowrap;z-index:50;box-shadow:0 3px 10px rgba(0,0,0,0.4);backdrop-filter:blur(3px)}
+/* Per explicit follow-up: the pointed tail no longer makes sense now
+   that this sits directly on the avatar itself (not floating above
+   something anymore) -- removed rather than pointing at nothing. */
 .action-badge.pop-in{animation:bubblePopIn 0.4s cubic-bezier(.25,1.6,.4,1) both}
 @keyframes bubblePopIn{0%{transform:translateX(-50%) scale(0.15);opacity:0}60%{transform:translateX(-50%) scale(1.12);opacity:1}100%{transform:translateX(-50%) scale(1);opacity:1}}
 /* Per explicit live report: these four bottom-row seats' bubble used
@@ -299,15 +300,12 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .action-badge-raise {
   background: rgba(20,90,40,0.55); border-color: #3ddc71; color: #eafff0;
 }
-.action-badge-raise::after { border-top-color: #3ddc71; }
 .action-badge-call {
   background: rgba(20,55,110,0.55); border-color: #4aa3ff; color: #eaf4ff;
 }
-.action-badge-call::after { border-top-color: #4aa3ff; }
 .action-badge-fold {
   background: rgba(110,20,25,0.55); border-color: #ff5c5c; color: #ffeaea;
 }
-.action-badge-fold::after { border-top-color: #ff5c5c; }
 @keyframes turnTagPulse{0%,100%{transform:translateX(-50%) scale(1);}50%{transform:translateX(-50%) scale(1.08);}}
 .seat-avatar{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#2a3f5f,#101d2e);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:2.5px solid rgba(255,255,255,0.15)}
 .seat.active .seat-avatar{border-color:var(--gold);box-shadow:0 0 14px rgba(244,196,48,0.7);animation:seatPulse 1.1s ease-in-out infinite}
@@ -1984,23 +1982,30 @@ function renderGameTable(state) {
         : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
     return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" data-slot="${slot}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
       ${isActive && pos !== myPos ? `<div class="turn-tag turn-tag-outer">TURN</div>` : ''}
-      ${!isActive && s.lastAction && !s.folded ? (() => {
-        // Per explicit live report: only pops fresh (the grow-in
-        // animation) when this exact seat's action text has actually
-        // changed since the last render -- otherwise every unrelated
-        // state update (another seat acting, a chip animation tick,
-        // etc.) would replay the pop for every seat with a
-        // currently-showing bubble, not just the one that just acted.
-        const isFreshAction = lastActionBubbleTextBySeat[pos] !== s.lastAction;
-        lastActionBubbleTextBySeat[pos] = s.lastAction;
-        return `<div class="action-badge action-badge-outer ${actionBadgeClass(s.lastAction)}${isFreshAction ? ' pop-in' : ''}">${escapeHtml(s.lastAction)}</div>`;
-      })() : ''}
       <div class="seat-avatar-wrap">
         <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
         ${holdemAvatarImgHtml(s.name, pos, s.avatar)}
         ${pos === state.dealerSeat ? '<div class="dealer-chip">D</div>' : ''}
         ${s.allIn ? '<div class="allin-tag">ALL-IN</div>' : ''}
-        ${s.bettedThisRound > 0 && !s.folded ? `<div class="seat-bet${state.board.length === 5 ? ' seat-bet-river' : ''}">${chipHtml(s.bettedThisRound, true)}${s.bettedThisRound}</div>` : ''}
+        ${!isActive && s.lastAction && !s.folded ? (() => {
+          // Per explicit live report: this used to duplicate the
+          // separate bet-amount chip badge that sat in this exact
+          // spot (both effectively said the same thing -- "50" on a
+          // chip icon right next to "Raise to 50" right above it) --
+          // that older badge is removed entirely now (see the HTML
+          // this replaced), and this bubble moved into its place
+          // instead of the two coexisting.
+          //
+          // Per explicit live report: only pops fresh (the grow-in
+          // animation) when this exact seat's action text has actually
+          // changed since the last render -- otherwise every unrelated
+          // state update (another seat acting, a chip animation tick,
+          // etc.) would replay the pop for every seat with a
+          // currently-showing bubble, not just the one that just acted.
+          const isFreshAction = lastActionBubbleTextBySeat[pos] !== s.lastAction;
+          lastActionBubbleTextBySeat[pos] = s.lastAction;
+          return `<div class="action-badge ${actionBadgeClass(s.lastAction)}${isFreshAction ? ' pop-in' : ''}">${escapeHtml(s.lastAction)}</div>`;
+        })() : ''}
       </div>
       <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
       <div class="seat-chips">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
