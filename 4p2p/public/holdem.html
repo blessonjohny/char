@@ -1635,6 +1635,33 @@ function renderLobby(state) {
   $('waitingNote').textContent = isHost ? '' : `Waiting for host to start — ${occupied}/9 seated.`;
 }
 $('btnStartHand').addEventListener('click', () => {
+  // Per explicit request: starting the hand is the natural moment to
+  // switch a phone into landscape automatically, since that's
+  // genuinely the easier way to actually play Hold'em -- only
+  // attempted on a narrow/phone-like viewport (this makes no sense on
+  // an actual desktop window) and only ever entering, never exiting,
+  // since the player is about to start playing, not leave. Wrapped
+  // defensively: screen.orientation.lock() requires fullscreen first
+  // on most browsers and isn't supported at all on iOS Safari, so this
+  // silently does nothing there rather than erroring -- the existing
+  // manual fullscreen button and physical tilt-to-rotate still work
+  // regardless either way.
+  if (window.innerWidth < 700 && !document.fullscreenElement && !document.webkitFullscreenElement) {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (req) {
+      try {
+        const result = req.call(el);
+        if (result && result.then) {
+          result.then(() => {
+            if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+          }).catch(() => {});
+        } else if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
+        }
+      } catch (e) {}
+    }
+  }
   const activeBtn = document.querySelector('#botFillOpts .opt-btn.active');
   const n = activeBtn ? Number(activeBtn.dataset.n) : 0;
   socket.emit('poker_fillBots', { count: n });
