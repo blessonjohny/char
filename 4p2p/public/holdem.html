@@ -65,6 +65,12 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .btn-danger{background:var(--danger);color:#fff}
 .btn:disabled{opacity:0.4;cursor:not-allowed}
 .opts-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:360px;margin-bottom:10px}
+/* Per explicit request: a shorter, tighter version for rows that can
+   have up to 9 entries (the bot-fill count picker) -- smaller pills,
+   less padding, less gap, so it actually stays compact instead of
+   wrapping into extra rows or eating vertical space. */
+.opts-row-compact{gap:5px}
+.opts-row-compact .opt-btn{padding:6px 10px;font-size:0.72rem}
 /* Per explicit request: the pill-shaped mode/betting selectors given
    the same gradient-plus-shadow treatment as the buttons above, with a
    clearer, gold-glow active state so it's obvious at a glance which
@@ -140,7 +146,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    during the new dealing animation (see animateDealingCards) -- a
    miniature version of the real .card.back styling so it reads as an
    actual card mid-flight, not a generic shape. */
-.dealing-card{position:fixed;width:16px;height:22px;border-radius:3px;background:linear-gradient(135deg,#8b2635,#5a1620);border:1.5px solid rgba(244,196,48,0.7);box-shadow:0 2px 6px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.35s cubic-bezier(.3,.5,.4,1);}
+.dealing-card{position:fixed;width:16px;height:22px;border-radius:3px;background:linear-gradient(135deg,#8b2635,#5a1620);border:1.5px solid rgba(244,196,48,0.7);box-shadow:0 2px 6px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.5s cubic-bezier(.3,.5,.4,1);}
 /* Per explicit request: chips that have actually landed and joined the
    accumulating pot pile, spread across a small grid (see
    landChipInPotStack) rather than a flat token count -- a bit smaller
@@ -622,11 +628,16 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     <h1>Create Table</h1>
     <div class="field-label">Mode</div>
     <div class="opts-row" id="modeOpts">
-      <div class="opt-btn" data-val="cash">Cash Game</div>
       <div class="opt-btn active" data-val="tournament">Tournament</div>
+      <div class="opt-btn" data-val="cash">Cash Game</div>
     </div>
-    <div class="field-label">Betting</div>
-    <div class="opts-row" id="buyInOpts">
+    <!-- Per explicit request: tournaments are always no-limit, so this
+         entire selector (and the field label above it) only makes
+         sense for cash games -- hidden outright whenever tournament
+         mode is picked, rather than showing a choice that would just
+         get silently ignored. -->
+    <div class="field-label" id="buyInFieldLabel" style="display:none">Betting</div>
+    <div class="opts-row" id="buyInOpts" style="display:none">
       <div class="opt-btn active" data-val="nolimit">No Limit</div>
       <div class="opt-btn" data-val="fixed">Fixed Limit</div>
     </div>
@@ -659,11 +670,27 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     <div id="lobbySeatList" style="width:100%;max-width:360px;margin-bottom:16px"></div>
     <div id="hostControls" class="hidden">
       <div class="field-label">Fill empty seats with bots</div>
-      <div class="opts-row" id="botFillOpts"></div>
-      <button class="btn btn-gold" id="btnStartHand">▶ Start Hand</button>
+      <!-- Per explicit request: a tighter, more compact row -- smaller
+           pills with less padding so all the way up to 8 entries
+           genuinely fit on one line without wrapping or taking up
+           extra vertical space, rather than the same full-size pills
+           used everywhere else on this screen. -->
+      <div class="opts-row opts-row-compact" id="botFillOpts"></div>
+      <!-- Per explicit request: an actual way to leave from here at
+           all (there previously wasn't one once past this point) --
+           Cancel/Exit first on the left, Start Hand on the right,
+           rather than only a single centered action. -->
+      <div style="display:flex;justify-content:space-between;gap:10px;margin-top:6px">
+        <button class="btn btn-outline" id="btnExitLobby">✕ Cancel</button>
+        <button class="btn btn-gold" id="btnStartHand">▶ Start Hand</button>
+      </div>
     </div>
     <div id="waitingNote" class="subtitle"></div>
     <button class="btn btn-outline" id="btnInviteHoldemLobby" style="margin-top:10px">💌 Invite a Friend</button>
+    <!-- Per explicit request: a non-host guest waiting in the lobby had
+         no way to leave either -- shown only when hostControls (with
+         its own Cancel button covering the host's case) is hidden. -->
+    <button class="btn btn-outline" id="btnExitLobbyGuest" style="margin-top:10px">✕ Leave Table</button>
   </div>
 </div>
 
@@ -1443,11 +1470,16 @@ function wireOptRow(rowId, onPick) {
 }
 wireOptRow('modeOpts', btn => {
   createOpts.mode = btn.dataset.val;
-  // Per explicit request: blinds and starting chips are no longer
-  // user-configurable at all -- always 5/10 and 1000 regardless of
-  // mode -- so there's no longer anything here that needs to change
-  // based on which mode is picked; this handler now only records the
-  // mode itself.
+  // Per explicit request: tournaments are always no-limit, so the
+  // Betting selector (and its always-nolimit choice underneath it) is
+  // hidden outright the moment tournament mode is picked, and restored
+  // the moment cash is picked again -- buyInType itself is forced back
+  // to nolimit here too, so a tournament table is never accidentally
+  // created as fixed-limit from a choice made before switching modes.
+  const isTournament = createOpts.mode === 'tournament';
+  $('buyInFieldLabel').style.display = isTournament ? 'none' : '';
+  $('buyInOpts').style.display = isTournament ? 'none' : '';
+  if (isTournament) createOpts.buyInType = 'nolimit';
 });
 wireOptRow('buyInOpts', btn => createOpts.buyInType = btn.dataset.val);
 
@@ -1581,9 +1613,19 @@ function renderLobby(state) {
   const seats = state.seats.map((s, i) => s ? `<div class="table-row"><span>${i + 1}. ${escapeHtml(s.name)}${s.isBot ? ' 🤖' : ''}${i === myPos ? ' (you)' : ''}</span><span style="color:var(--gold)">${s.chips}</span></div>` : `<div class="table-row" style="opacity:0.4"><span>${i + 1}. Empty</span></div>`).join('');
   $('lobbySeatList').innerHTML = seats;
   $('hostControls').classList.toggle('hidden', !isHost);
+  // Per explicit request: the non-host leave button only makes sense
+  // to show when hostControls (which has its own Cancel button
+  // covering that exact case for the host) is hidden -- exactly
+  // opposite of hostControls' own visibility.
+  $('btnExitLobbyGuest').style.display = isHost ? 'none' : '';
   if (isHost) {
     const openCount = state.seats.filter(s => !s).length;
-    $('botFillOpts').innerHTML = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter(n => n <= openCount).map(n => `<div class="opt-btn${n === Math.min(3, openCount) ? ' active' : ''}" data-n="${n}">${n}</div>`).join('');
+    // Per explicit request: defaults to filling every remaining open
+    // seat with a bot, not an arbitrary smaller number -- a full table
+    // is normally exactly what's wanted, so that's the sensible
+    // starting point rather than something the host has to actively
+    // change up to almost every time.
+    $('botFillOpts').innerHTML = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter(n => n <= openCount).map(n => `<div class="opt-btn${n === openCount ? ' active' : ''}" data-n="${n}">${n}</div>`).join('');
     $('botFillOpts').querySelectorAll('.opt-btn').forEach(b => b.addEventListener('click', () => {
       $('botFillOpts').querySelectorAll('.opt-btn').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
@@ -1598,6 +1640,23 @@ $('btnStartHand').addEventListener('click', () => {
   socket.emit('poker_fillBots', { count: n });
   setTimeout(() => socket.emit('poker_startHand'), 250);
 });
+// Per explicit request: an actual way out of the lobby screen, for
+// both the host (Cancel, next to Start Hand) and a non-host guest
+// (Leave Table, shown in its place) -- there previously wasn't one at
+// all once past table creation/joining.
+function exitCreatedTable() {
+  socket.emit('poker_leaveTable');
+  myTableId = null; myPos = null; myPlayerId = null; latestState = null;
+  try {
+    localStorage.removeItem('holdem_player_id');
+    localStorage.removeItem('holdem_table_id');
+    localStorage.removeItem('holdem_session_time');
+  } catch (e) {}
+  showScreen('landingScreen');
+  socket.emit('poker_listRooms');
+}
+$('btnExitLobby').addEventListener('click', exitCreatedTable);
+$('btnExitLobbyGuest').addEventListener('click', exitCreatedTable);
 
 // Layout 9 seats evenly around an oval, seat 0 (or "my seat" rotated to
 // bottom) at the bottom-center, same viewer-relative convention the
@@ -1982,12 +2041,12 @@ function animateDealingCards(state) {
     const targetRect = cardsEl.getBoundingClientRect();
     const endX = targetRect.left + targetRect.width / 2;
     const endY = targetRect.top + targetRect.height / 2;
-    // Per explicit live report: noticeably too fast to actually read as
-    // one-at-a-time dealing before -- slowed the stagger down (not
-    // drastically, just enough that each card's arrival is genuinely
-    // visible before the next one leaves the dealer).
+    // Per explicit live report: still too fast to actually enjoy
+    // watching unfold, even after the first slowdown -- stretched
+    // considerably further this time, closer to how a real dealer's
+    // pace actually reads, not just barely-perceptible timing.
     for (let cardIdx = 0; cardIdx < 2; cardIdx++) {
-      const delay = seatIdx * 220 + cardIdx * 190;
+      const delay = seatIdx * 420 + cardIdx * 340;
       setTimeout(() => {
         const card = document.createElement('div');
         card.className = 'dealing-card';
@@ -1996,7 +2055,7 @@ function animateDealingCards(state) {
         card.style.transform = 'translate(-50%,-50%)';
         document.body.appendChild(card);
         setTimeout(() => { card.style.transform = `translate(${endX - startX}px, ${endY - startY}px)`; }, 20);
-        setTimeout(() => { card.remove(); }, 420);
+        setTimeout(() => { card.remove(); }, 520);
       }, delay);
     }
   });
@@ -2019,7 +2078,12 @@ function animateDealingCommunityCards(newCards, existingCount) {
   const startY = dealerRect.bottom;
   newCards.forEach((_, i) => {
     const cardIndex = existingCount + i;
-    const delay = i * 220;
+    // Per explicit live report: still too fast to actually enjoy
+    // watching, even after the first slowdown -- stretched
+    // considerably further, matching the same slower pace the hole
+    // cards themselves now use, so the flop's three cards genuinely
+    // read as being laid down one at a time rather than in a blur.
+    const delay = i * 450;
     setTimeout(() => {
       // Measure the actual board card slot fresh each time -- by the
       // time later cards in this same street animate, the board's own
@@ -2037,7 +2101,7 @@ function animateDealingCommunityCards(newCards, existingCount) {
       card.style.transform = 'translate(-50%,-50%)';
       document.body.appendChild(card);
       setTimeout(() => { card.style.transform = `translate(${endX - startX}px, ${endY - startY}px)`; }, 20);
-      setTimeout(() => { card.remove(); }, 420);
+      setTimeout(() => { card.remove(); }, 520);
     }, delay);
   });
 }
@@ -2132,12 +2196,17 @@ function renderStreetBanner(state) {
       // guarantees it clears itself regardless of table pace -- the
       // log-based dismissal right below still fires sooner if a real
       // action does happen first, whichever comes first wins.
+      // Per explicit live report requesting slower, more watchable
+      // pacing throughout: lengthened so the banner comfortably
+      // outlasts the community-card dealing animation's own now-longer
+      // duration (up to ~1.4s for the flop's three cards) instead of
+      // nearly racing it.
       if (streetBannerDismissTimer) clearTimeout(streetBannerDismissTimer);
       streetBannerDismissTimer = setTimeout(() => {
         el.classList.remove('on');
         streetBannerShownAtLogText = null;
         streetBannerDismissTimer = null;
-      }, 1600);
+      }, 2200);
     }
     // The last-hand winner display's whole purpose is to stay up as a
     // reminder while a new hand deals -- once the flop actually lands,
