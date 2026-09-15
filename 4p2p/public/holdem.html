@@ -261,7 +261,19 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    flashes and disappears before it's readable. Cleared automatically at the start of each new
    hand (see poker-engine.js's startHand()) and updated the instant that seat acts again -
    never stale from a previous street or a previous hand. */
-.action-badge{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px;background:rgba(20,16,12,0.9);border:1.5px solid var(--gold-soft,#c9a44c);color:#fff;font-size:0.5rem;font-weight:800;letter-spacing:0.3px;padding:2px 7px;border-radius:8px;white-space:nowrap;z-index:5}
+/* Per explicit live report ("honestly didn't see anything noticeable")
+   -- redesigned entirely as an actual speech/conversation bubble: a
+   real pointed tail toward the avatar (::after below), noticeably
+   bigger text and padding than the old small tag, and a genuine
+   grow-in pop animation (see .action-badge.pop-in / bubblePopIn) that
+   only plays when a seat's action text actually changes (handled in
+   JS -- see lastActionBubbleTextBySeat), not on every unrelated
+   re-render, so it reads as a fresh reaction each time someone acts
+   rather than replaying constantly. */
+.action-badge{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:8px;background:rgba(20,16,12,0.95);border:2px solid var(--gold-soft,#c9a44c);color:#fff;font-size:0.72rem;font-weight:800;letter-spacing:0.3px;padding:5px 12px;border-radius:14px;white-space:nowrap;z-index:5;box-shadow:0 3px 10px rgba(0,0,0,0.5)}
+.action-badge::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--gold-soft,#c9a44c)}
+.action-badge.pop-in{animation:bubblePopIn 0.4s cubic-bezier(.25,1.6,.4,1) both}
+@keyframes bubblePopIn{0%{transform:translateX(-50%) scale(0.15);opacity:0}60%{transform:translateX(-50%) scale(1.12);opacity:1}100%{transform:translateX(-50%) scale(1);opacity:1}}
 /* Per explicit follow-up request: for these same four bottom-row seats
    specifically, the colored action badge moves to sit BELOW the
    avatar instead of above it (the default position every other seat
@@ -269,7 +281,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    top/margin-top pairing to flip which edge it anchors to. */
 .seat[data-slot="1"] .action-badge, .seat[data-slot="2"] .action-badge,
 .seat[data-slot="7"] .action-badge, .seat[data-slot="8"] .action-badge {
-  bottom: auto; top: 100%; margin-bottom: 0; margin-top: 3px;
+  bottom: auto; top: 100%; margin-bottom: 0; margin-top: 8px;
+}
+/* Per explicit request: the speech-bubble tail flips to point upward
+   toward the avatar for these same bottom-row seats, matching the
+   bubble itself now sitting below rather than above. */
+.seat[data-slot="1"] .action-badge::after, .seat[data-slot="2"] .action-badge::after,
+.seat[data-slot="7"] .action-badge::after, .seat[data-slot="8"] .action-badge::after {
+  top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--gold-soft,#c9a44c);
 }
 /* Per explicit request: raise/call/fold badges color-coded like a real
    poker room, but scoped to the bottom-row seats only (Bot2, Bot3,
@@ -281,13 +300,25 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .seat[data-slot="7"] .action-badge-raise, .seat[data-slot="8"] .action-badge-raise {
   background: rgba(20,90,40,0.92); border-color: #3ddc71; color: #eafff0;
 }
+.seat[data-slot="1"] .action-badge-raise::after, .seat[data-slot="2"] .action-badge-raise::after,
+.seat[data-slot="7"] .action-badge-raise::after, .seat[data-slot="8"] .action-badge-raise::after {
+  border-bottom-color: #3ddc71;
+}
 .seat[data-slot="1"] .action-badge-call, .seat[data-slot="2"] .action-badge-call,
 .seat[data-slot="7"] .action-badge-call, .seat[data-slot="8"] .action-badge-call {
   background: rgba(20,55,110,0.92); border-color: #4aa3ff; color: #eaf4ff;
 }
+.seat[data-slot="1"] .action-badge-call::after, .seat[data-slot="2"] .action-badge-call::after,
+.seat[data-slot="7"] .action-badge-call::after, .seat[data-slot="8"] .action-badge-call::after {
+  border-bottom-color: #4aa3ff;
+}
 .seat[data-slot="1"] .action-badge-fold, .seat[data-slot="2"] .action-badge-fold,
 .seat[data-slot="7"] .action-badge-fold, .seat[data-slot="8"] .action-badge-fold {
   background: rgba(110,20,25,0.92); border-color: #ff5c5c; color: #ffeaea;
+}
+.seat[data-slot="1"] .action-badge-fold::after, .seat[data-slot="2"] .action-badge-fold::after,
+.seat[data-slot="7"] .action-badge-fold::after, .seat[data-slot="8"] .action-badge-fold::after {
+  border-bottom-color: #ff5c5c;
 }
 @keyframes turnTagPulse{0%,100%{transform:translateX(-50%) scale(1);}50%{transform:translateX(-50%) scale(1.08);}}
 .seat-avatar{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#2a3f5f,#101d2e);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:2.5px solid rgba(255,255,255,0.15)}
@@ -1361,6 +1392,14 @@ let lastDealAnimatedFor = null;
 // since the last render (tracked in lastBettedThisRoundBySeat below),
 // not on every render regardless of what changed.
 const lastBettedThisRoundBySeat = {};
+// Per explicit live report: tracks each seat's own last-shown action
+// bubble text so the grow-in pop animation (see .action-badge.pop-in)
+// only plays when that seat's action has genuinely just changed --
+// without this, the bubble would replay its pop every single render
+// (which happens on any state update, not just a new action),
+// reading as a constant, distracting flicker instead of one clean
+// reaction per actual action.
+const lastActionBubbleTextBySeat = {};
 // Per explicit request: chips landing at the pot no longer just fade
 // out and vanish -- they now join a real, visible, accumulating stack
 // sitting at the pot anchor (left of the community cards, the same
@@ -1937,7 +1976,17 @@ function renderGameTable(state) {
         : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
     return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" data-slot="${slot}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
       ${isActive && pos !== myPos ? `<div class="turn-tag turn-tag-outer">TURN</div>` : ''}
-      ${!isActive && s.lastAction && !s.folded ? `<div class="action-badge action-badge-outer ${actionBadgeClass(s.lastAction)}">${escapeHtml(s.lastAction)}</div>` : ''}
+      ${!isActive && s.lastAction && !s.folded ? (() => {
+        // Per explicit live report: only pops fresh (the grow-in
+        // animation) when this exact seat's action text has actually
+        // changed since the last render -- otherwise every unrelated
+        // state update (another seat acting, a chip animation tick,
+        // etc.) would replay the pop for every seat with a
+        // currently-showing bubble, not just the one that just acted.
+        const isFreshAction = lastActionBubbleTextBySeat[pos] !== s.lastAction;
+        lastActionBubbleTextBySeat[pos] = s.lastAction;
+        return `<div class="action-badge action-badge-outer ${actionBadgeClass(s.lastAction)}${isFreshAction ? ' pop-in' : ''}">${escapeHtml(s.lastAction)}</div>`;
+      })() : ''}
       <div class="seat-avatar-wrap">
         <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
         ${holdemAvatarImgHtml(s.name, pos, s.avatar)}
@@ -1985,6 +2034,10 @@ function renderGameTable(state) {
   if (state.handNumber !== lastBettedThisRoundBySeat.__hand) {
     for (const k of Object.keys(lastBettedThisRoundBySeat)) delete lastBettedThisRoundBySeat[k];
     lastBettedThisRoundBySeat.__hand = state.handNumber;
+    // A fresh hand's bubble should always pop fresh too, even if it
+    // happens to repeat the exact same action text (e.g. "Call 20"
+    // in back-to-back hands) as whatever was last showing.
+    for (const k of Object.keys(lastActionBubbleTextBySeat)) delete lastActionBubbleTextBySeat[k];
     // A fresh hand means whatever pot chips visually piled up from the
     // previous one have already been sent to a winner (or should have
     // been) -- clears any stragglers so a new pile starts genuinely
