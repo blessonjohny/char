@@ -140,6 +140,19 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    peak size proportional and readable across very different screen
    widths rather than a fixed vw value that could get absurd on a
    large desktop window. */
+/* Per explicit live report: a persistent, unmissable "Reconnecting" overlay covering the
+   entire screen - given z-index:2000, higher than the winner-celebration effects above
+   (topping out at 1900), since a reconnect can legitimately happen mid-celebration and should
+   always win visually over it. Hidden by default; shown/hidden entirely from JS at the exact
+   moments a reconnect actually starts and actually resolves (see the visibilitychange
+   listener and the poker_state handler elsewhere in this file) - never a fixed timer, since
+   guessing how long a reconnect will take is exactly the wrong approach here. */
+.reconnect-overlay{display:none;position:fixed;inset:0;z-index:2000;background:rgba(8,6,4,0.92);flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.reconnect-overlay.on{display:flex}
+.reconnect-spinner{width:52px;height:52px;border-radius:50%;border:4px solid rgba(244,196,48,0.25);border-top-color:var(--gold,#f4c430);animation:reconnectSpin 0.9s linear infinite}
+@keyframes reconnectSpin{to{transform:rotate(360deg)}}
+.reconnect-text{color:#fff;font-weight:800;font-size:1.05rem}
+.reconnect-subtext{color:rgba(255,255,255,0.65);font-size:0.8rem}
 .winner-name-balloon{position:fixed;top:50%;left:50%;z-index:1900;pointer-events:none;color:#fff;font-weight:900;white-space:nowrap;text-shadow:0 4px 20px rgba(0,0,0,0.6),0 0 30px rgba(244,196,48,0.7);opacity:0;font-size:14px;transform:translate(-50%,-50%) scale(1)}
 .winner-name-balloon.growing{animation:balloonGrow 0.85s cubic-bezier(.25,.1,.4,1) forwards}
 .winner-name-balloon.popping{animation:balloonPop 0.18s ease-in forwards}
@@ -791,6 +804,18 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 
 <!-- ============ GAME TABLE ============ -->
 <div class="screen hidden" id="gameScreen">
+  <!-- Per explicit live report: a health-check-forced reconnect (see the visibilitychange
+       listener elsewhere in this file) can take up to a few seconds, and a full fresh socket
+       connection can occasionally stretch close to 20 - with nothing on screen to explain
+       why, that gap reads as "this table is dead," not "this table is working on it." This is
+       a persistent, impossible-to-miss overlay that fills that entire gap: shown the instant a
+       reconnect is actually kicked off, hidden the instant a real, fresh state confirms the
+       table is genuinely working again - never a guess or a fixed timer either way. -->
+  <div class="reconnect-overlay" id="reconnectOverlay">
+    <div class="reconnect-spinner"></div>
+    <div class="reconnect-text">Reconnecting…</div>
+    <div class="reconnect-subtext">Hang tight, getting you back to the table</div>
+  </div>
   <div class="topbar">
     <div style="font-size:0.75rem;min-width:0;overflow:hidden">
       <div><span id="handNumDisplay">Hand 1</span> · <span id="blindsDisplay"></span></div>
@@ -1061,12 +1086,34 @@ socket.io.on('reconnect_attempt', (attempt) => {
 // response counts as "still connected." No ack in time (or the
 // transport already reporting disconnected) forces a completely
 // fresh connection rather than continuing to trust stale state.
+// Per explicit live report: the health-check/force-reconnect logic above already existed and
+// works, but had nothing visible attached to it - to the player, an up-to-20-second gap with
+// no feedback at all reads as "this table is dead," not "reconnecting." These two just
+// show/hide the overlay defined near the top of this file; shown only once a reconnect is
+// actually confirmed necessary (not merely being checked for - the common case, where the
+// connection turns out fine, never flashes it at all), hidden the instant a genuine fresh
+// state arrives. The safety-net timeout guards the one edge case neither of those covers on
+// its own: something goes wrong and no state ever arrives at all, which would otherwise leave
+// the spinner on screen forever with no way for the player to know that.
+let reconnectSafetyTimer = null;
+function showReconnectOverlay() {
+  const el = $('reconnectOverlay');
+  if (el) el.classList.add('on');
+  clearTimeout(reconnectSafetyTimer);
+  reconnectSafetyTimer = setTimeout(hideReconnectOverlay, 30000);
+}
+function hideReconnectOverlay() {
+  clearTimeout(reconnectSafetyTimer);
+  const el = $('reconnectOverlay');
+  if (el) el.classList.remove('on');
+}
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !myTableId || !myPlayerId) return;
   let settled = false;
   const forceReconnect = () => {
     if (settled) return;
     settled = true;
+    showReconnectOverlay();
     try { socket.disconnect(); } catch (e) {}
     socket.connect();
   };
@@ -1089,6 +1136,7 @@ document.addEventListener('visibilitychange', () => {
 // always fire visibilitychange at all, but does fire 'online'.
 window.addEventListener('online', () => {
   if (myTableId && myPlayerId && !socket.connected) {
+    showReconnectOverlay();
     socket.connect();
   }
 });
@@ -1742,6 +1790,11 @@ socket.on('poker_kickedByAdmin', () => {
 let seenPendingJoinRequestIds = new Set();
 socket.on('poker_state', (state) => {
   if (hasLeftTable) return;
+  // The one definitive "we're actually back" signal - a genuine, fresh state push from the
+  // server, which can only happen over a real, currently-working connection. Hiding it here
+  // rather than on the socket 'connect' event specifically, since 'connect' alone doesn't
+  // guarantee this table's own state has actually arrived yet.
+  hideReconnectOverlay();
   latestState = state;
   isHost = !!state.isHost;
   const hostBtn = $('btnHoldemHostMenu');
