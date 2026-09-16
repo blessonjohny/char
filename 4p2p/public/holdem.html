@@ -575,8 +575,8 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      testing at a wide viewport could never have caught. Every size
      in this whole feature converted to vw, scaled proportionally to
      the same 9.6vw the avatar itself uses. */
-  body.k28-in-game .seat-rail-chips { width: clamp(24px, 3.8vw, 40px); height: clamp(10px, 1.6vw, 16px); }
-  body.k28-in-game .rail-chip-pile { width: clamp(9px, 1.4vw, 15px); height: clamp(10px, 1.6vw, 16px); }
+  body.k28-in-game .seat-rail-chips { width: clamp(24px, 3.8vw, 40px); height: clamp(16px, 2.6vw, 26px); }
+  body.k28-in-game .rail-chip-pile { width: clamp(9px, 1.4vw, 15px); height: clamp(16px, 2.6vw, 26px); }
   body.k28-in-game .rail-chip-pile .pot-stack-chip { width: clamp(9px, 1.4vw, 15px); height: clamp(9px, 1.4vw, 15px); }
   body.k28-in-game .seat-avatar { display: none; }
   body.k28-in-game .seat-avatar-photo {
@@ -2037,18 +2037,20 @@ function renderRailChips(state) {
     // unpredictably.
     const dx = CENTER_X - p.x, dy = CENTER_Y - p.y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    // Real, confirmed bug fix, same live report as the CSS comment
-    // above: this offset used to be a fixed 26px, which is exactly
-    // the class of bug already fixed once for the avatar -- converted
-    // to vw here too (calibrated against the same ~844px reference
-    // width the avatar's own 9.6vw was validated at), so the actual
-    // on-screen distance now shrinks and grows in step with the
-    // avatar on any real device instead of staying fixed while the
-    // avatar around it changes size.
-    const OFFSET_VW = 3.1;
-    const offsetX = (dx / dist) * OFFSET_VW;
-    const offsetY = (dy / dist) * OFFSET_VW;
-    const railStyle = `left:calc(${p.x}% + ${offsetX.toFixed(2)}vw);top:calc(${p.y}% + ${offsetY.toFixed(2)}vw)`;
+    // Per explicit, repeated live report: "on the wooden rail," not
+    // just near the avatar -- the earlier small fixed offset kept
+    // chips close to the avatar itself, never actually reaching the
+    // table's own visible rail edge further toward center. Uses a
+    // real fraction of the distance from this seat to the table
+    // center instead (30%), which is a percentage of the table's own
+    // container -- unlike a vw/px offset, this scales correctly with
+    // the table's actual size on any device without reintroducing the
+    // earlier phone-vs-desktop mismatch, since both the seat position
+    // and this offset are percentages of that same container.
+    const RAIL_FRACTION = 0.3;
+    const railX = p.x + dx * RAIL_FRACTION;
+    const railY = p.y + dy * RAIL_FRACTION;
+    const railStyle = `left:${railX.toFixed(2)}%;top:${railY.toFixed(2)}%`;
     const chips = s.chips || 0;
     if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}"></div>`;
     const pileCount = 2;
@@ -2075,7 +2077,13 @@ function renderRailChips(state) {
         // position, directly on top of each other with no vertical
         // offset at all, rather than the staggered "staircase" spread
         // used before.
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:0;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+        // Per explicit live report ("where's the rest" -- fully
+        // overlapping chips made it look like only one existed):
+        // small non-zero offset restored so each chip in the pile
+        // peeks out slightly below the one on top of it, reading as
+        // a genuine multi-chip stack again, while staying much
+        // tighter than the original spread-out version.
+        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 1.5}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
       }).join('');
       // Per explicit live report: the two piles themselves read as far
       // apart -- brought in from 32/68 to 40/60, close enough that
