@@ -258,6 +258,19 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .pot-stack-chip{width:16px;height:16px;border-width:1.5px}
 .seat-rail-chips{position:absolute;width:34px;height:48px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
 .rail-chip-pile{position:absolute;bottom:0;left:50%;width:16px;height:48px;transform:translateX(-50%)}
+/* Real, confirmed bug fix per explicit live report with a screenshot
+   ("looks like a bar, not chips, no roundness -- barrel"): the real
+   pot pile's chips get their round shape from .flying-chip
+   (border-radius:50% + border + shadow), combined with .pot-stack-chip
+   only for its size override -- .pot-stack-chip alone has never had
+   any shape of its own. These rail piles used ONLY pot-stack-chip
+   with no base class supplying the round shape at all, so every chip
+   rendered as a plain square with hard corners, stacked into what
+   looked exactly like a striped bar. Giving pot-stack-chip its own
+   real border-radius/border/shadow directly (scoped so it doesn't
+   affect the real pot pile's own combined-class chips, which already
+   look correct) is what was actually missing. */
+.rail-chip-pile .pot-stack-chip{border-radius:50%;border:1.5px solid rgba(255,255,255,0.75);box-shadow:0 2px 3px rgba(0,0,0,0.5)}
 /* Per explicit follow-up: chips settled into the pot pile read as
    genuinely lying flat on the table -- squashed into an ellipse
    (scaleY) the way a round chip actually looks viewed from this
