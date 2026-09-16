@@ -2037,19 +2037,25 @@ function renderRailChips(state) {
     // unpredictably.
     const dx = CENTER_X - p.x, dy = CENTER_Y - p.y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    // Per explicit, repeated live report: "on the wooden rail," not
-    // just near the avatar -- the earlier small fixed offset kept
-    // chips close to the avatar itself, never actually reaching the
-    // table's own visible rail edge further toward center. Uses a
-    // real fraction of the distance from this seat to the table
-    // center instead (30%), which is a percentage of the table's own
-    // container -- unlike a vw/px offset, this scales correctly with
-    // the table's actual size on any device without reintroducing the
-    // earlier phone-vs-desktop mismatch, since both the seat position
-    // and this offset are percentages of that same container.
-    const RAIL_FRACTION = 0.3;
-    const railX = p.x + dx * RAIL_FRACTION;
-    const railY = p.y + dy * RAIL_FRACTION;
+    // Real, confirmed bug fix per explicit live report: a FRACTION of
+    // the total distance (30% of dx/dy directly) moves far-left/right
+    // seats -- which start much farther from center horizontally --
+    // by a much bigger raw amount than the more central seats, so the
+    // same fraction overshot badly for the side seats while barely
+    // reaching partway for the central ones. Normalized to a genuinely
+    // fixed percentage-point distance in the real direction toward
+    // center instead (12 points of travel for every seat alike,
+    // regardless of that seat's own raw distance to center), so every
+    // seat around the table moves the same real amount rather than a
+    // proportionally different one.
+    // Per explicit live report: front-row seats now land correctly on
+    // the rail with this distance, but the back row still falls short
+    // of actually reaching it -- back row gets a real, larger, own
+    // distance rather than reusing the front row's.
+    const FRONT_ROW_SLOTS = new Set([0, 1, 2, 7, 8]);
+    const RAIL_OFFSET_PERCENT = FRONT_ROW_SLOTS.has(slot) ? 12 : 20;
+    const railX = p.x + (dx / dist) * RAIL_OFFSET_PERCENT;
+    const railY = p.y + (dy / dist) * RAIL_OFFSET_PERCENT;
     const railStyle = `left:${railX.toFixed(2)}%;top:${railY.toFixed(2)}%`;
     const chips = s.chips || 0;
     if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}"></div>`;
