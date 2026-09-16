@@ -205,7 +205,13 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
 
 /* ---- Visual poker chips ---- */
-.chip{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.7);box-shadow:0 2px 4px rgba(0,0,0,0.5);flex-shrink:0}
+/* Per explicit live report: chips read as flat coins with zero
+   depth/thickness -- real poker chips are a visible cylinder, not a
+   flat disc. Added a solid (non-blurred) offset shadow directly under
+   the chip to read as its own side/edge rather than a drop shadow, on
+   top of the existing softer blurred shadow for actual lift off the
+   felt. Diameter also brought in slightly per request. */
+.chip{width:17px;height:17px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.7);box-shadow:0 2px 0 rgba(0,0,0,0.4),0 3px 4px rgba(0,0,0,0.5);flex-shrink:0}
 .chip.small{width:14px;height:14px;border-width:1.5px}
 .chip-stack{display:flex}
 .chip-stack .chip{margin-left:-10px}
@@ -216,7 +222,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 @keyframes cardFlipReveal{0%{transform:rotateY(90deg) scale(0.85);opacity:0.3;}60%{transform:rotateY(-12deg) scale(1.05);opacity:1;}100%{transform:rotateY(0) scale(1);opacity:1;}}
 
 /* ---- Flying chip pot-payout animation ---- */
-.flying-chip{position:fixed;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.8);box-shadow:0 3px 8px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.7s cubic-bezier(.3,.6,.4,1), opacity 0.7s ease;}
+/* Per explicit live report: same flat-coin problem as .chip above --
+   a solid offset shadow underneath reads as the chip's own side/edge,
+   giving it real cylindrical depth instead of looking like a painted
+   circle. Diameter brought in slightly per request too. */
+.flying-chip{position:fixed;width:19px;height:19px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.8);box-shadow:0 2.5px 0 rgba(0,0,0,0.45),0 4px 8px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.7s cubic-bezier(.3,.6,.4,1), opacity 0.7s ease;}
 /* Per explicit request: the small flying card-back sprite used only
    during the new dealing animation (see animateDealingCards) -- a
    miniature version of the real .card.back styling so it reads as an
@@ -232,7 +242,17 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    than a chip still mid-flight so a full pile of them fits and reads
    clearly without touching, and a lighter border since these are
    meant to sit still, not draw the eye the way a moving chip does. */
-.pot-stack-chip{width:16px;height:16px;border-width:1.5px}
+/* Per explicit live report ("the pot chips on the table looks flat"):
+   these are the ones sitting still, viewed at this table's own angle
+   (flattened into an ellipse by flying-chip-landed's scaleY below) --
+   exactly where the lack of depth was most noticeable, since a truly
+   flat ellipse with no edge reads as a painted coin, not a stack of
+   real chips lying down. The ::after below adds a visible darker rim
+   band along the bottom half specifically, standing in for the
+   chip's own side/thickness the way it would actually catch a shadow
+   at this viewing angle. */
+.pot-stack-chip{width:13px;height:13px;border-width:1.5px;position:relative}
+.pot-stack-chip::after{content:'';position:absolute;left:-1.5px;right:-1.5px;bottom:-2.5px;height:60%;border-radius:0 0 50% 50%/0 0 100% 100%;background:rgba(0,0,0,0.5);pointer-events:none}
 /* Per explicit follow-up: chips settled into the pot pile read as
    genuinely lying flat on the table -- squashed into an ellipse
    (scaleY) the way a round chip actually looks viewed from this
@@ -245,6 +265,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   transform: translate(-50%,-50%) scaleY(0.55);
   opacity: 1;
   animation: chipDropSettle 0.32s cubic-bezier(.34,1.4,.4,1) both;
+  /* Per explicit live report: a real grounding shadow beneath the
+     whole chip, on top of the ::after rim band above -- together
+     these read as genuine height off the felt rather than a sticker
+     laid flat on the table. */
+  box-shadow: 0 2px 0 rgba(0,0,0,0.4), 0 3px 5px rgba(0,0,0,0.55);
 }
 @keyframes chipDropSettle{
   0%{ transform: translate(-50%,-50%) scaleY(1) scale(1.5); opacity: 0.7; }
