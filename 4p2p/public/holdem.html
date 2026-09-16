@@ -2035,7 +2035,13 @@ function renderRailChips(state) {
   if (!container) return;
   const positions = seatPositions();
   const CENTER_X = 50, CENTER_Y = 48;
-  const TOWARD_CENTER_FRACTION = 0.16;
+  // Per explicit live report ("still in front of avatar, should be on
+  // the wooden rail"): the table itself is a background photo, not a
+  // CSS-drawn shape, so there's no boundary to measure against
+  // directly -- raised well past the first attempt's 0.16 based on
+  // checking against real screenshots, landing on the rail itself
+  // rather than barely clearing the avatar.
+  const TOWARD_CENTER_FRACTION = 0.38;
   container.innerHTML = state.seats.map((s, pos) => {
     if (!s || s.eliminated) return '';
     const slot = slotFor(pos);
@@ -2044,32 +2050,43 @@ function renderRailChips(state) {
     const railY = p.y + (CENTER_Y - p.y) * TOWARD_CENTER_FRACTION;
     const chips = s.chips || 0;
     if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="left:${railX}%;top:${railY}%"></div>`;
-    // 2 piles under ~600, 3 above -- an arbitrary but reasonable split
-    // just for visual variety between a modest stack and a big one.
-    const pileCount = chips > 600 ? 3 : 2;
+    // Per explicit live report: always exactly 2 piles now, not 2-or-3
+    // depending on chip count.
+    const pileCount = 2;
     const perPile = Math.ceil(chips / pileCount);
-    const capColor = chipGradientForValue(chips);
-    const solidColor = chipSolidColorForValue(chips);
-    // Real, confirmed bug: stacking multiple small overlapping ellipse
-    // sprites (the same technique the real accumulating pot pile uses,
-    // where each chip lands separately over time) never actually
-    // looked like individual chips here -- with no landing order/timing
-    // to stagger them and no rim shadow between adjacent same-colored
-    // ones, every attempt rendered as one solid, borderless block
-    // instead. Switched to a single shape per pile instead: a
-    // repeating-linear-gradient bakes the individual chip-edge stripes
-    // directly into one element's background (a standard technique for
-    // a static "stack of chips" icon), so the layering is guaranteed
-    // visible regardless of size or how many chips it represents,
-    // topped with a distinct ellipse cap standing in for the actual
-    // top chip's face.
+    // Per explicit live report ("looks like only 1 color, make it
+    // colorful"): a real stack this size would genuinely hold mixed
+    // denominations, not one single repeated color -- picks a handful
+    // of the game's own real chip-tier colors (not an arbitrary made-up
+    // palette) and cycles through them band-by-band in the stripe
+    // gradient below, so each pile reads as an actual mixed stack.
+    const paletteColors = CHIP_COLOR_STOPS.map(t => t.colors[1]);
     const pilesHtml = Array.from({ length: pileCount }, (_, pileIdx) => {
-      const pileHeight = Math.min(34, Math.max(10, Math.round(6 + Math.sqrt(perPile) * 0.9)));
-      // Piles positioned side by side across the container's own
-      // width (34px, matching a card) rather than all stacking at the
-      // same center point.
-      const pileLeftPercent = pileCount === 2 ? (pileIdx === 0 ? 32 : 68) : (pileIdx === 0 ? 20 : pileIdx === 1 ? 50 : 80);
-      return `<div class="rail-chip-pile" style="left:${pileLeftPercent}%;height:${pileHeight}px;background:repeating-linear-gradient(to bottom, ${solidColor} 0px, ${solidColor} 3px, rgba(0,0,0,0.35) 3px, rgba(0,0,0,0.35) 4px)"><div class="rail-chip-pile-cap" style="background:${capColor}"></div></div>`;
+      // Real, confirmed bug: stacking multiple small overlapping ellipse
+      // sprites (the same technique the real accumulating pot pile uses,
+      // where each chip lands separately over time) never actually
+      // looked like individual chips here -- with no landing order/timing
+      // to stagger them and no rim shadow between adjacent same-colored
+      // ones, every attempt rendered as one solid, borderless block
+      // instead. Switched to a single shape per pile instead: a
+      // repeating-linear-gradient bakes the individual chip-edge stripes
+      // directly into one element's background (a standard technique for
+      // a static "stack of chips" icon), so the layering is guaranteed
+      // visible regardless of size or how many chips it represents,
+      // topped with a distinct ellipse cap standing in for the actual
+      // top chip's face.
+      //
+      // Per explicit live report ("too big, make it smaller"): both
+      // the height formula and the pile's own width brought down.
+      const pileHeight = Math.min(24, Math.max(8, Math.round(4 + Math.sqrt(perPile) * 0.6)));
+      const bandCount = Math.max(2, Math.round(pileHeight / 4));
+      const gradientStops = Array.from({ length: bandCount }, (_, bandIdx) => {
+        const bandColor = paletteColors[(pileIdx * 2 + bandIdx) % paletteColors.length];
+        const y0 = (bandIdx / bandCount) * 100, yMid = ((bandIdx + 0.75) / bandCount) * 100, y1 = ((bandIdx + 1) / bandCount) * 100;
+        return `${bandColor} ${y0}%, ${bandColor} ${yMid}%, rgba(0,0,0,0.4) ${yMid}%, rgba(0,0,0,0.4) ${y1}%`;
+      }).join(', ');
+      const pileLeftPercent = pileIdx === 0 ? 32 : 68;
+      return `<div class="rail-chip-pile" style="left:${pileLeftPercent}%;width:10px;height:${pileHeight}px;background:linear-gradient(to bottom, ${gradientStops})"><div class="rail-chip-pile-cap" style="background:${chipGradientForValue(chips)}"></div></div>`;
     }).join('');
     return `<div class="seat-rail-chips" id="railChips${pos}" style="left:${railX}%;top:${railY}%">${pilesHtml}</div>`;
   }).join('');
