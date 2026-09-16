@@ -256,8 +256,8 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    here, via the ::after rim band below, not the chip's size or how
    the pile stacks. */
 .pot-stack-chip{width:16px;height:16px;border-width:1.5px}
-.seat-rail-chips{position:absolute;width:34px;height:48px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
-.rail-chip-pile{position:absolute;bottom:0;left:50%;width:13px;height:48px;transform:translateX(-50%)}
+.seat-rail-chips{position:absolute;width:34px;height:16px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+.rail-chip-pile{position:absolute;bottom:0;left:50%;width:13px;height:16px;transform:translateX(-50%)}
 /* Real, confirmed bug fix per explicit live report with a screenshot
    ("looks like a bar, not chips, no roundness -- barrel"): the real
    pot pile's chips get their round shape from .flying-chip
@@ -270,7 +270,20 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    real border-radius/border/shadow directly (scoped so it doesn't
    affect the real pot pile's own combined-class chips, which already
    look correct) is what was actually missing. */
-.rail-chip-pile .pot-stack-chip{border-radius:50%;border:1.5px solid rgba(255,255,255,0.75);box-shadow:0 2px 3px rgba(0,0,0,0.5)}
+/* Real, confirmed root-cause bug fix per explicit live report: .pot-
+   stack-chip has never had a position property of its own -- every
+   "bottom:Npx" value set inline on these chips has done precisely
+   nothing this entire time, since the bottom offset property only
+   has any effect on a positioned element, and these were defaulting
+   to position:static. Without one, these are just plain block-level
+   divs, stacking vertically in normal document flow one after
+   another -- exactly matching the actual measured gap between them
+   (15px, its own real rendered height), regardless of whatever
+   "bottom" value the JS was setting. This is the actual reason chips
+   always visually spread apart no matter how many times the spacing
+   number itself was changed. position:absolute here is what finally
+   makes bottom/left do anything at all. */
+.rail-chip-pile .pot-stack-chip{position:absolute;border-radius:50%;border:1.5px solid rgba(255,255,255,0.75);box-shadow:0 2px 3px rgba(0,0,0,0.5)}
 /* Per explicit follow-up: chips settled into the pot pile read as
    genuinely lying flat on the table -- squashed into an ellipse
    (scaleY) the way a round chip actually looks viewed from this
@@ -562,8 +575,8 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      testing at a wide viewport could never have caught. Every size
      in this whole feature converted to vw, scaled proportionally to
      the same 9.6vw the avatar itself uses. */
-  body.k28-in-game .seat-rail-chips { width: clamp(24px, 3.8vw, 40px); height: clamp(19px, 3vw, 32px); }
-  body.k28-in-game .rail-chip-pile { width: clamp(9px, 1.4vw, 15px); height: clamp(19px, 3vw, 32px); }
+  body.k28-in-game .seat-rail-chips { width: clamp(24px, 3.8vw, 40px); height: clamp(10px, 1.6vw, 16px); }
+  body.k28-in-game .rail-chip-pile { width: clamp(9px, 1.4vw, 15px); height: clamp(10px, 1.6vw, 16px); }
   body.k28-in-game .rail-chip-pile .pot-stack-chip { width: clamp(9px, 1.4vw, 15px); height: clamp(9px, 1.4vw, 15px); }
   body.k28-in-game .seat-avatar { display: none; }
   body.k28-in-game .seat-avatar-photo {
@@ -2057,7 +2070,12 @@ function renderRailChips(state) {
         // overlap amount stays proportionally correct on any real
         // device instead of a fixed px gap that reads as huge once
         // the avatar next to it is actually small on a real phone.
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${(i * 0.3).toFixed(2)}vw;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+        // Per explicit live report: height brought all the way down to
+        // 0 -- every chip in a pile now sits at the exact same
+        // position, directly on top of each other with no vertical
+        // offset at all, rather than the staggered "staircase" spread
+        // used before.
+        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:0;transform:translate(-50%,0) scaleY(0.5)"></div>`;
       }).join('');
       // Per explicit live report: the two piles themselves read as far
       // apart -- brought in from 32/68 to 40/60, close enough that
