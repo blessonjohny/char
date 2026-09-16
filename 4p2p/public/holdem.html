@@ -2054,8 +2054,25 @@ function renderRailChips(state) {
     // distance rather than reusing the front row's.
     const FRONT_ROW_SLOTS = new Set([0, 1, 2, 7, 8]);
     const RAIL_OFFSET_PERCENT = FRONT_ROW_SLOTS.has(slot) ? 12 : 20;
-    const railX = p.x + (dx / dist) * RAIL_OFFSET_PERCENT;
-    const railY = p.y + (dy / dist) * RAIL_OFFSET_PERCENT;
+    let railX = p.x + (dx / dist) * RAIL_OFFSET_PERCENT;
+    let railY = p.y + (dy / dist) * RAIL_OFFSET_PERCENT;
+    // Per explicit, seat-by-seat live report naming each one
+    // individually: the shared normalized-direction formula above
+    // gets every seat roughly toward the rail, but several specific
+    // seats needed real, individually-tuned correction on top of it,
+    // called out one at a time (slot 2 = Bot3, 3 = Bot4, 4 = Bot5,
+    // 5 = Bot6, 6 = Bot7, 7 = Bot8 -- slots 0/1/8, the dealer/Bot2/
+    // Bot9, were explicitly confirmed already fine and left untouched).
+    const MANUAL_CORRECTIONS = {
+      2: { dx: 0, dy: -8 },   // Bot3: up toward the rail
+      3: { dx: -10, dy: 10 }, // Bot4: down and left, a lot
+      4: { dx: -10, dy: 0 },  // Bot5: left, a lot
+      5: { dx: 10, dy: 0 },   // Bot6: right
+      6: { dx: 10, dy: 10 },  // Bot7: down a lot, and right
+      7: { dx: 4, dy: 0 },    // Bot8: a little right
+    };
+    const correction = MANUAL_CORRECTIONS[slot];
+    if (correction) { railX += correction.dx; railY += correction.dy; }
     const railStyle = `left:${railX.toFixed(2)}%;top:${railY.toFixed(2)}%`;
     const chips = s.chips || 0;
     if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}"></div>`;
