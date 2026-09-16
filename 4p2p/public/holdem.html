@@ -255,8 +255,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    exactly what they were -- only the flatness itself is addressed
    here, via the ::after rim band below, not the chip's size or how
    the pile stacks. */
-.pot-stack-chip{width:16px;height:16px;border-width:1.5px;position:relative}
-.pot-stack-chip::after{content:'';position:absolute;left:-1.5px;right:-1.5px;bottom:-2px;height:50%;border-radius:0 0 50% 50%/0 0 100% 100%;background:rgba(0,0,0,0.4);pointer-events:none}
+.pot-stack-chip{width:16px;height:16px;border-width:1.5px}
 /* Per explicit follow-up: chips settled into the pot pile read as
    genuinely lying flat on the table -- squashed into an ellipse
    (scaleY) the way a round chip actually looks viewed from this
@@ -269,11 +268,6 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   transform: translate(-50%,-50%) scaleY(0.55);
   opacity: 1;
   animation: chipDropSettle 0.32s cubic-bezier(.34,1.4,.4,1) both;
-  /* Per explicit live report: a real grounding shadow beneath the
-     whole chip, on top of the ::after rim band above -- together
-     these read as genuine height off the felt rather than a sticker
-     laid flat on the table. */
-  box-shadow: 0 2px 0 rgba(0,0,0,0.4), 0 3px 5px rgba(0,0,0,0.55);
 }
 @keyframes chipDropSettle{
   0%{ transform: translate(-50%,-50%) scaleY(1) scale(1.5); opacity: 0.7; }
