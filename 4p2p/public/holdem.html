@@ -1569,7 +1569,13 @@ function updatePotStackTotalPosition(baseX, baseY, stackSpacingX, stackRiseY) {
 }
 function animateChipToPot(seatPos, amount) {
   const potEl = $('potAnchor') || $('potDisplay');
-  const seatEl = document.querySelector(`.seat[data-pos="${seatPos}"]`);
+  // Per explicit request: chips now fly from each player's own rail
+  // chip stack (see renderRailChips) rather than the seat/avatar
+  // itself, since that's the real visual "base" a bet's chips should
+  // actually leave from -- falls back to the seat element in the rare
+  // case the rail element isn't in the DOM for some reason.
+  const railEl = $('railChips' + seatPos);
+  const seatEl = railEl || document.querySelector(`.seat[data-pos="${seatPos}"]`);
   if (!potEl || !seatEl) return;
   const potRect = potEl.getBoundingClientRect();
   const seatRect = seatEl.getBoundingClientRect();
@@ -1609,7 +1615,10 @@ function animateChipsToWinners(state) {
 
   const winnerTargets = [];
   for (const w of winners) {
-    const seatEl = document.querySelector(`.seat[data-pos="${w.seat}"]`);
+    // Per explicit request: chips now travel to each winner's own
+    // rail chip stack rather than the seat/avatar itself, matching
+    // the same change made to animateChipToPot above.
+    const seatEl = $('railChips' + w.seat) || document.querySelector(`.seat[data-pos="${w.seat}"]`);
     if (!seatEl) continue;
     const r = seatEl.getBoundingClientRect();
     // isReturnedBet (see poker-engine.js's _goToShowdown): this
@@ -2061,13 +2070,15 @@ function renderRailChips(state) {
     // gets every seat roughly toward the rail, but several specific
     // seats needed real, individually-tuned correction on top of it,
     // called out one at a time (slot 2 = Bot3, 3 = Bot4, 4 = Bot5,
-    // 5 = Bot6, 6 = Bot7, 7 = Bot8 -- slots 0/1/8, the dealer/Bot2/
-    // Bot9, were explicitly confirmed already fine and left untouched).
+    // 5 = Bot6, 6 = Bot7, 7 = Bot8). Slot 0 (the dealer/this player's
+    // own seat) added in this same follow-up round -- explicit report
+    // that their own chip stack wasn't visible enough, moved up.
     const MANUAL_CORRECTIONS = {
+      0: { dx: 0, dy: -6 },   // dealer/own seat: up, so it's actually visible
       2: { dx: 0, dy: -8 },   // Bot3: up toward the rail
-      3: { dx: -10, dy: 10 }, // Bot4: down and left, a lot
-      4: { dx: -10, dy: 0 },  // Bot5: left, a lot
-      5: { dx: 10, dy: 0 },   // Bot6: right
+      3: { dx: -6, dy: 10 },  // Bot4: down a lot, and right a little (less left than before)
+      4: { dx: -10, dy: 6 },  // Bot5: left a lot, and down
+      5: { dx: 10, dy: 3 },   // Bot6: right, and down half of Bot5's own down move
       6: { dx: 10, dy: 10 },  // Bot7: down a lot, and right
       7: { dx: 4, dy: 0 },    // Bot8: a little right
     };
