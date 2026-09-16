@@ -256,7 +256,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    here, via the ::after rim band below, not the chip's size or how
    the pile stacks. */
 .pot-stack-chip{width:16px;height:16px;border-width:1.5px}
-.seat-rail-chips{position:absolute;width:34px;height:48px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+.seat-rail-chips{position:absolute;width:34px;height:48px;transform:translate(-50%,-100%);z-index:3;pointer-events:none}
 .rail-chip-pile{position:absolute;bottom:0;left:50%;width:16px;height:48px;transform:translateX(-50%)}
 /* Real, confirmed bug fix per explicit live report with a screenshot
    ("looks like a bar, not chips, no roundness -- barrel"): the real
@@ -2015,9 +2015,17 @@ function renderRailChips(state) {
       const visualChipCount = Math.min(5, Math.max(2, Math.round(1 + Math.sqrt(perPile) * 0.25)));
       const chipsHtml = Array.from({ length: visualChipCount }, (_, i) => {
         const chipColor = paletteColors[(pileIdx * 2 + i) % paletteColors.length];
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 6}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+        // Per explicit live report: chips within a pile read as spread
+        // apart rather than genuinely stacked -- tightened from 6px to
+        // 4px between each one, closer to the real pot pile's own
+        // spacing, so they now visibly overlap like an actual stack.
+        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 4}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
       }).join('');
-      const pileLeftPercent = pileIdx === 0 ? 32 : 68;
+      // Per explicit live report: the two piles themselves read as far
+      // apart -- brought in from 32/68 to 40/60, close enough that
+      // they now look like one cohesive two-stack unit sitting
+      // together rather than two separate, disconnected piles.
+      const pileLeftPercent = pileIdx === 0 ? 40 : 60;
       return `<div class="rail-chip-pile" style="left:${pileLeftPercent}%">${chipsHtml}</div>`;
     }).join('');
     return `<div class="seat-rail-chips" id="railChips${pos}" style="left:${railX}%;top:${railY}%">${pilesHtml}</div>`;
