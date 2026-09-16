@@ -262,7 +262,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    on the table" scale everything else here already uses, holding 2-3
    little stacks side by side rather than one tall pile so it reads
    as a real cash-out tray rather than a single teetering column. */
-.seat-rail-chips{position:absolute;width:34px;height:48px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+.seat-rail-chips{position:absolute;width:34px;height:48px;transform:translate(-50%,-50%);z-index:4;pointer-events:none}
 /* Per explicit live report ("doesn't look nice, too boxy"): rounded
    into a genuine pill/cylinder shape (heavy border-radius top and
    bottom, not just a sharp-cornered rectangle with a flat cap glued
@@ -2035,21 +2035,19 @@ function renderRailChips(state) {
   if (!container) return;
   const positions = seatPositions();
   const CENTER_X = 50, CENTER_Y = 48;
-  // Per explicit live report with a screenshot: 0.38 landed correctly
-  // on the rail for the back-row seats (3-6), but overshot well past
-  // the front-row seats' own much shorter, closer rail -- those ended
-  // up floating above the avatar instead of in front of it. The
-  // table's rail simply isn't the same distance from every seat in
-  // this photo, so front-row and back-row now use their own separate,
-  // confirmed-correct fractions rather than one shared value.
-  const FRONT_ROW_SLOTS = new Set([0, 1, 2, 7, 8]);
+  // Per explicit live report ("still in front of avatar, should be on
+  // the wooden rail"): the table itself is a background photo, not a
+  // CSS-drawn shape, so there's no boundary to measure against
+  // directly -- raised well past the first attempt's 0.16 based on
+  // checking against real screenshots, landing on the rail itself
+  // rather than barely clearing the avatar.
+  const TOWARD_CENTER_FRACTION = 0.38;
   container.innerHTML = state.seats.map((s, pos) => {
     if (!s || s.eliminated) return '';
     const slot = slotFor(pos);
     const p = positions[slot];
-    const towardCenterFraction = FRONT_ROW_SLOTS.has(slot) ? 0.14 : 0.38;
-    const railX = p.x + (CENTER_X - p.x) * towardCenterFraction;
-    const railY = p.y + (CENTER_Y - p.y) * towardCenterFraction;
+    const railX = p.x + (CENTER_X - p.x) * TOWARD_CENTER_FRACTION;
+    const railY = p.y + (CENTER_Y - p.y) * TOWARD_CENTER_FRACTION;
     const chips = s.chips || 0;
     if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="left:${railX}%;top:${railY}%"></div>`;
     // Per explicit live report: always exactly 2 piles now, not 2-or-3
