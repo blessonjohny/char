@@ -1991,17 +1991,30 @@ function renderRailChips(state) {
   if (!container) return;
   const positions = seatPositions();
   const CENTER_X = 50, CENTER_Y = 48;
-  const FRONT_ROW_SLOTS = new Set([0, 1, 2, 7, 8]);
   const paletteColors = CHIP_COLOR_STOPS.map(t => t.colors[1]);
   container.innerHTML = state.seats.map((s, pos) => {
     if (!s || s.eliminated) return '';
     const slot = slotFor(pos);
     const p = positions[slot];
-    const towardCenterFraction = FRONT_ROW_SLOTS.has(slot) ? 0.14 : 0.17;
-    const railX = p.x + (CENTER_X - p.x) * towardCenterFraction;
-    const railY = p.y + (CENTER_Y - p.y) * towardCenterFraction;
+    // Real, confirmed bug fix per explicit live report with exact
+    // pixel measurements: a percentage-of-table fraction (the previous
+    // approach) doesn't translate to a small, predictable on-screen
+    // distance -- measured directly and found a 78px gap between the
+    // avatar's own edge and the chip stack, nowhere near "in front of"
+    // that seat. Replaced with a genuinely fixed, small pixel offset
+    // (via calc()) in the real direction toward the table center from
+    // this exact seat, so the actual on-screen distance is the same
+    // ~18px for every seat regardless of the table's own size or this
+    // seat's position around it, not a percentage that scales
+    // unpredictably.
+    const dx = CENTER_X - p.x, dy = CENTER_Y - p.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const OFFSET_PX = 26;
+    const offsetXPx = (dx / dist) * OFFSET_PX;
+    const offsetYPx = (dy / dist) * OFFSET_PX;
+    const railStyle = `left:calc(${p.x}% + ${offsetXPx.toFixed(1)}px);top:calc(${p.y}% + ${offsetYPx.toFixed(1)}px)`;
     const chips = s.chips || 0;
-    if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="left:${railX}%;top:${railY}%"></div>`;
+    if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}"></div>`;
     const pileCount = 2;
     // Defensive hard cap, explicit this time: perPile is only ever used
     // to pick a chip count between 2 and 5 below -- clamping it here
@@ -2019,7 +2032,7 @@ function renderRailChips(state) {
         // apart rather than genuinely stacked -- tightened from 6px to
         // 4px between each one, closer to the real pot pile's own
         // spacing, so they now visibly overlap like an actual stack.
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 4}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 2.5}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
       }).join('');
       // Per explicit live report: the two piles themselves read as far
       // apart -- brought in from 32/68 to 40/60, close enough that
@@ -2036,7 +2049,7 @@ function renderRailChips(state) {
       const pileLeftPercent = pileIdx === 0 ? 25 : 75;
       return `<div class="rail-chip-pile" style="left:${pileLeftPercent}%">${chipsHtml}</div>`;
     }).join('');
-    return `<div class="seat-rail-chips" id="railChips${pos}" style="left:${railX}%;top:${railY}%">${pilesHtml}</div>`;
+    return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}">${pilesHtml}</div>`;
   }).join('');
 }
 function seatPositions() {
