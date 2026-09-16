@@ -5518,6 +5518,16 @@ io.on('connection', (socket) => {
       t.pendingJoinRequests.push({ playerId: pendingPlayerId, name: String(name || 'Player').slice(0, 20), pos, socketId: socket.id });
       socket.emit('poker_joinPending', { tableId, playerId: pendingPlayerId });
       pokerTouch(t);
+      // Real, confirmed bug: this queued the request server-side
+      // correctly (the requesting player did get poker_joinPending),
+      // but nothing ever actually told the host -- pokerTouch only
+      // updates an internal last-activity timestamp for idle-table
+      // cleanup, it doesn't push new state to anyone. Without an
+      // actual broadcast, the host's own pendingJoinRequests stayed
+      // stale until some unrelated action happened to trigger one,
+      // which is exactly why the toast/auto-opened host menu never
+      // fired reliably the instant someone actually tried to join.
+      pokerBroadcast(t);
       return;
     }
 

@@ -249,6 +249,10 @@ class PokerEngine {
     // Cleared at the start of every genuinely new hand -- see
     // _advanceIfCurrentCantAct for where this actually gets set to true.
     this.allInShowdown = false;
+    // Reset for the new preflop round -- posting the blinds themselves
+    // isn't counted as a "raise" for this purpose (see below, right
+    // after blinds are posted), only real voluntary raises are.
+    this.raisesThisRound = 0;
 
     for (const pos of this.occupiedSeats()) {
       const s = this.seats[pos];
@@ -348,6 +352,17 @@ class PokerEngine {
         this.minRaise = Math.max(this.minRaise, newRaiseSize);
         this.currentBet = s.bettedThisRound;
         this.lastAggressorSeat = pos;
+        // Per explicit live report ("bots busting out before level 2
+        // finishes, tournament over too fast"): tracked so
+        // poker-bot.js's decision logic can see how many times THIS
+        // betting round has already been raised and temper its own
+        // raising accordingly -- without this, multiple bots kept
+        // re-raising each other in the same round with no awareness
+        // the pot had already escalated, since each bot only ever saw
+        // its own equity vs the current pot, never how many raises got
+        // it there. Reset at the start of every new street/hand (see
+        // _advanceStreet and startHand).
+        this.raisesThisRound = (this.raisesThisRound || 0) + 1;
         for (const p of this.occupiedSeats()) if (p !== pos && !this.seats[p].folded) this.seats[p].hasActed = false;
       }
       s.lastAction = s.allIn ? 'All-In' : `${action === 'bet' ? 'Bet' : 'Raise to'} ${s.bettedThisRound}`;
@@ -359,6 +374,7 @@ class PokerEngine {
         this.minRaise = Math.max(this.minRaise, s.bettedThisRound - this.currentBet);
         this.currentBet = s.bettedThisRound;
         this.lastAggressorSeat = pos;
+        this.raisesThisRound = (this.raisesThisRound || 0) + 1;
         for (const p of this.occupiedSeats()) if (p !== pos && !this.seats[p].folded) this.seats[p].hasActed = false;
       }
       s.lastAction = 'All-In';
@@ -469,6 +485,7 @@ class PokerEngine {
     this.currentBet = 0;
     this.minRaise = this.bigBlind;
     this.lastAggressorSeat = -1;
+    this.raisesThisRound = 0;
     for (const p of this.occupiedSeats()) { this.seats[p].hasActed = false; this.seats[p].bettedThisRound = 0; }
     this.currentPlayer = nextOccupiedSeat(this.seats, this.dealerSeat, true);
     this.addLog(`-- ${this.phase} --`);
