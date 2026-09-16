@@ -256,21 +256,6 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    here, via the ::after rim band below, not the chip's size or how
    the pile stacks. */
 .pot-stack-chip{width:16px;height:16px;border-width:1.5px}
-/* Per explicit request: each player's own persistent chip stack,
-   sitting on the table's rail in front of them -- sized to the same
-   footprint as a card (see .card) since that's the "settled, sitting
-   on the table" scale everything else here already uses, holding 2-3
-   little stacks side by side rather than one tall pile so it reads
-   as a real cash-out tray rather than a single teetering column. */
-.seat-rail-chips{position:absolute;width:34px;height:48px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
-/* Per explicit live report ("looks like a barrel, redesign like the
-   one on the table"): the single rounded-cylinder shape (previous
-   attempts) is gone entirely -- this is now just a plain positioning
-   box for real individual .pot-stack-chip discs (see renderRailChips),
-   the exact same element/technique the already-approved pot pile on
-   the table itself uses, so these genuinely look like the same kind
-   of chip, not a separate custom shape. */
-.rail-chip-pile{position:absolute;bottom:0;left:50%;width:16px;height:48px;transform:translateX(-50%)}
 /* Per explicit follow-up: chips settled into the pot pile read as
    genuinely lying flat on the table -- squashed into an ellipse
    (scaleY) the way a round chip actually looks viewed from this
@@ -915,15 +900,6 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
       <div class="table-winning-hand-label" id="tableWinningHandLabel"></div>
     </div>
     <div id="seatsContainer"></div>
-    <!-- Per explicit request: a persistent, always-visible chip stack
-         for every player, sitting on the table's own rail edge in
-         front of them (interpolated toward the table center from each
-         seat's own position -- see renderRailChips) rather than just
-         the plain number already shown in .seat-chips. Populated and
-         positioned entirely by renderRailChips(); also what the
-         flying-chip animations now actually travel to/from instead of
-         the seat itself. -->
-    <div id="railChipsContainer"></div>
     <!-- Per explicit correction: this is a house dealer standing at the table, not a 10th
          player seat - holdem has exactly 9 player seats plus one dealer, no teams. Desktop
          wide-table mode only (see CSS below) - phone mode has no dealer character at all,
@@ -1447,18 +1423,6 @@ function chipGradientForValue(value) {
   const [a, b, c] = tier.colors;
   return `radial-gradient(circle at 35% 30%, ${a}, ${b} 70%, ${c})`;
 }
-// Real, confirmed bug fix: a rail chip pile's own repeating-linear-
-// gradient (see renderRailChips) needs a genuine flat color as one of
-// its color-stops, not another gradient function nested inside it --
-// radial-gradient(...) used directly there produces invalid CSS, so
-// the whole background silently fails and falls back to nothing,
-// which is exactly why those piles were rendering plain gray instead
-// of gold/etc. Returns the tier's own light/highlight tone (the first
-// of its three colors) as a plain color for that specific use.
-function chipSolidColorForValue(value) {
-  const tier = CHIP_COLOR_STOPS.find(t => value <= t.max) || CHIP_COLOR_STOPS[CHIP_COLOR_STOPS.length - 1];
-  return tier.colors[1];
-}
 function chipHtml(value, small) {
   return `<span class="chip${small ? ' small' : ''}" style="background:${chipGradientForValue(value)}"></span>`;
 }
@@ -1561,13 +1525,7 @@ function updatePotStackTotalPosition(baseX, baseY, stackSpacingX, stackRiseY) {
 }
 function animateChipToPot(seatPos, amount) {
   const potEl = $('potAnchor') || $('potDisplay');
-  // Per explicit request: chips now fly from each player's own rail
-  // stack (see renderRailChips) rather than the seat/avatar itself,
-  // since that's the actual visual "base" a chip leaving to bet
-  // should come from -- falls back to the seat element in the rare
-  // case the rail element isn't in the DOM yet for some reason.
-  const railEl = $('railChips' + seatPos);
-  const seatEl = railEl || document.querySelector(`.seat[data-pos="${seatPos}"]`);
+  const seatEl = document.querySelector(`.seat[data-pos="${seatPos}"]`);
   if (!potEl || !seatEl) return;
   const potRect = potEl.getBoundingClientRect();
   const seatRect = seatEl.getBoundingClientRect();
@@ -1607,10 +1565,7 @@ function animateChipsToWinners(state) {
 
   const winnerTargets = [];
   for (const w of winners) {
-    // Per explicit request: chips now travel to each winner's own rail
-    // stack rather than the seat/avatar itself, matching the same
-    // change made to animateChipToPot above.
-    const seatEl = $('railChips' + w.seat) || document.querySelector(`.seat[data-pos="${w.seat}"]`);
+    const seatEl = document.querySelector(`.seat[data-pos="${w.seat}"]`);
     if (!seatEl) continue;
     const r = seatEl.getBoundingClientRect();
     // isReturnedBet (see poker-engine.js's _goToShowdown): this
@@ -2015,85 +1970,6 @@ $('btnExitLobbyGuest').addEventListener('click', exitCreatedTable);
 
 // Layout 9 seats evenly around an oval, seat 0 (or "my seat" rotated to
 // bottom) at the bottom-center, same viewer-relative convention the
-// other tables in this project use.
-// Per explicit request: each player's own persistent chip stack,
-// sitting on the table's rail in front of them rather than just the
-// plain number in .seat-chips -- position is each seat's own (x,y)
-// interpolated a fixed fraction of the way toward the table's center
-// (50, 48, matching where the community cards sit), so it reads as
-// "just in front of that seat, toward the felt" for every seat around
-// the oval without needing a separate per-slot direction rule the way
-// the action-badge flip needed. Split across 2 or 3 side-by-side
-// piles depending on how many chips there actually are, each one
-// capped at a reasonable visual height rather than literally
-// rendering one sprite per chip.
-function renderRailChips(state) {
-  const container = $('railChipsContainer');
-  if (!container) return;
-  const positions = seatPositions();
-  const CENTER_X = 50, CENTER_Y = 48;
-  // Per explicit live report with a screenshot: 0.38 landed correctly
-  // on the rail for the back-row seats (3-6), but overshot well past
-  // the front-row seats' own much shorter, closer rail -- those ended
-  // up floating above the avatar instead of in front of it. The
-  // table's rail simply isn't the same distance from every seat in
-  // this photo, so front-row and back-row now use their own separate,
-  // confirmed-correct fractions rather than one shared value.
-  const FRONT_ROW_SLOTS = new Set([0, 1, 2, 7, 8]);
-  container.innerHTML = state.seats.map((s, pos) => {
-    if (!s || s.eliminated) return '';
-    const slot = slotFor(pos);
-    const p = positions[slot];
-    // Real, confirmed bug fix per explicit live report with a
-    // screenshot ("way off top left right"): measured this directly --
-    // 0.38 was pushing back-row seats' chips 200-300+ pixels away from
-    // their own seat (versus front-row's much smaller ~60-120px), far
-    // enough to land nowhere near that seat at all once every seat's
-    // own direction toward center was accounted for, not just the one
-    // single-seat screenshot this was originally checked against.
-    // Brought down close to the front row's own value instead.
-    const towardCenterFraction = FRONT_ROW_SLOTS.has(slot) ? 0.14 : 0.17;
-    const railX = p.x + (CENTER_X - p.x) * towardCenterFraction;
-    const railY = p.y + (CENTER_Y - p.y) * towardCenterFraction;
-    const chips = s.chips || 0;
-    if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="left:${railX}%;top:${railY}%"></div>`;
-    // Per explicit live report: always exactly 2 piles now, not 2-or-3
-    // depending on chip count.
-    const pileCount = 2;
-    const perPile = Math.ceil(chips / pileCount);
-    // Per explicit live report ("looks like only 1 color, make it
-    // colorful"): a real stack this size would genuinely hold mixed
-    // denominations, not one single repeated color -- picks a handful
-    // of the game's own real chip-tier colors (not an arbitrary made-up
-    // palette) and cycles through them chip-by-chip below, so each pile
-    // reads as an actual mixed stack.
-    const paletteColors = CHIP_COLOR_STOPS.map(t => t.colors[1]);
-    // Real, confirmed bug fix per explicit live report ("looks like a
-    // barrel, redesign like the one on the table"): the single striped-
-    // gradient shape (rounded top AND bottom, one continuous fill) read
-    // as a barrel/cylinder, not a stack of individual chips -- switched
-    // to the exact same technique the real, already-approved pot pile
-    // on the table itself uses: actual individual flattened chip discs
-    // (.pot-stack-chip, same scaleY squash), each a different color
-    // from the palette so adjacent chips are genuinely distinguishable
-    // without needing a rim shadow, stacked with real spacing (6px,
-    // matching this same fix's own working numbers) rather than packed
-    // tight enough to merge into a solid mass. Flat-bottomed (sits on
-    // its bottom-most chip, no rounding under the pile) with only the
-    // very top chip's own border providing the "cap" look, rather than
-    // a separate glued-on cap shape.
-    const pilesHtml = Array.from({ length: pileCount }, (_, pileIdx) => {
-      const visualChipCount = Math.min(5, Math.max(2, Math.round(1 + Math.sqrt(perPile) * 0.25)));
-      const chipsHtml = Array.from({ length: visualChipCount }, (_, i) => {
-        const chipColor = paletteColors[(pileIdx * 2 + i) % paletteColors.length];
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 6}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
-      }).join('');
-      const pileLeftPercent = pileIdx === 0 ? 32 : 68;
-      return `<div class="rail-chip-pile" style="left:${pileLeftPercent}%">${chipsHtml}</div>`;
-    }).join('');
-    return `<div class="seat-rail-chips" id="railChips${pos}" style="left:${railX}%;top:${railY}%">${pilesHtml}</div>`;
-  }).join('');
-}
 function seatPositions() {
   // Per explicit, confirmed bug report with screenshots: only seats 0, 4, and 5 were actually
   // correct on a real device - every other seat was measured against the raw 1672x941 source
@@ -2236,7 +2112,6 @@ function renderGameTable(state) {
     </div>`;
   }).join('');
   if (isNewShowdownReveal) lastCardRevealAnimatedFor = state.handNumber;
-  renderRailChips(state);
 
   const mySeat = state.seats[myPos];
   $('myHandStrip').innerHTML = mySeat && mySeat.hand.length ? mySeat.hand.map(c => cardHtml(c, false)).join('') : '';
