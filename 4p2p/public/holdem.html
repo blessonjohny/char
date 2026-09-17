@@ -293,17 +293,17 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    fully round, eases down into its final flattened, resting size --
    reads as physically dropping onto the pile, not just appearing. */
 .flying-chip-landed{
-  /* Per explicit follow-up: a small further decrease in how tall the
-     resting chip reads on the table -- was 0.55, nudged down a
-     little. */
-  transform: translate(-50%,-50%) scaleY(0.48);
+  /* Per explicit request: matched to the exact same 0.5 squash the
+     rail chip piles use, so both chip systems read as the same kind
+     of chip lying at the same height. */
+  transform: translate(-50%,-50%) scaleY(0.5);
   opacity: 1;
   animation: chipDropSettle 0.32s cubic-bezier(.34,1.4,.4,1) both;
 }
 @keyframes chipDropSettle{
   0%{ transform: translate(-50%,-50%) scaleY(1) scale(1.5); opacity: 0.7; }
-  70%{ transform: translate(-50%,-50%) scaleY(0.44) scale(0.95); }
-  100%{ transform: translate(-50%,-50%) scaleY(0.48) scale(1); opacity: 1; }
+  70%{ transform: translate(-50%,-50%) scaleY(0.46) scale(0.95); }
+  100%{ transform: translate(-50%,-50%) scaleY(0.5) scale(1); opacity: 1; }
 }
 /* Per explicit request: no boxed background at all for this anymore --
    just the glowing gold text floating directly over the table, the
@@ -578,6 +578,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   body.k28-in-game .seat-rail-chips { width: clamp(24px, 3.8vw, 40px); height: clamp(16px, 2.6vw, 26px); }
   body.k28-in-game .rail-chip-pile { width: clamp(9px, 1.4vw, 15px); height: clamp(16px, 2.6vw, 26px); }
   body.k28-in-game .rail-chip-pile .pot-stack-chip { width: clamp(9px, 1.4vw, 15px); height: clamp(9px, 1.4vw, 15px); }
+  /* Per explicit request: the pot pile (the chips accumulating on the
+     table itself during betting) and the rail piles (each player's
+     own stack) should look like the exact same kind of chip -- same
+     size, same flattened height, same distance stacked on top of one
+     another. This matches the pot pile's own chip size to the rail's
+     (this rule is more general than the .rail-chip-pile-scoped one
+     above, so it only affects the real pot pile's chips, not these). */
+  body.k28-in-game .pot-stack-chip { width: clamp(9px, 1.4vw, 15px); height: clamp(9px, 1.4vw, 15px); }
   body.k28-in-game .seat-avatar { display: none; }
   body.k28-in-game .seat-avatar-photo {
     display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
@@ -1531,7 +1539,10 @@ function landChipInPotStack(color) {
   const stackIndex = potChipStack.length % 2;
   const chipInThisStack = Math.floor(potChipStack.length / 2);
   const stackSpacingX = 8;
-  const stackRiseY = 4.5;
+  // Per explicit request: matched to the exact same 1.5px-per-chip
+  // rise the rail piles use, so both chip systems stack at the same
+  // "distance on top of each other" instead of two different amounts.
+  const stackRiseY = 1.5;
   const offsetX = stackIndex === 0 ? -stackSpacingX : stackSpacingX;
   const offsetY = -chipInThisStack * stackRiseY;
   const chip = document.createElement('div');
@@ -2075,6 +2086,7 @@ function renderRailChips(state) {
     // that their own chip stack wasn't visible enough, moved up.
     const MANUAL_CORRECTIONS = {
       0: { dx: 0, dy: -6 },   // dealer/own seat: up, so it's actually visible
+      1: { dx: 0, dy: -3 },   // Bot2: up, a little little bit
       2: { dx: 0, dy: -8 },   // Bot3: up toward the rail
       3: { dx: -6, dy: 10 },  // Bot4: down a lot, and right a little (less left than before)
       4: { dx: -10, dy: 6 },  // Bot5: left a lot, and down
