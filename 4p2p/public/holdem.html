@@ -1667,41 +1667,56 @@ function animateChipToPot(seatPos, amount) {
   const startY = seatRect.top + seatRect.height / 2;
   const endX = potRect.left + potRect.width / 2;
   const endY = potRect.top + potRect.height / 2;
-  const color = chipGradientForValue(amount);
-  const chip = document.createElement('div');
-  // Real, confirmed bug fix per explicit live report ("flying anim is
-  // a bit not the same"): this used the plain .flying-chip class on
-  // its own, which is still its original 22px size -- never updated
-  // when the pot pile and rail piles were unified to a smaller,
-  // shared size. Added pot-stack-chip too so the flying chip is
-  // exactly the same size as the chip it's about to become.
-  chip.className = 'flying-chip pot-stack-chip';
-  chip.style.background = color;
-  chip.style.left = startX + 'px';
-  chip.style.top = startY + 'px';
-  chip.style.transform = 'translate(-50%,-50%)';
-  chip.style.opacity = '1';
-  document.body.appendChild(chip);
-  // Real, confirmed root-cause fix per explicit live report ("not
-  // flying straight, creates 2 angles, back and forth"): the flight's
-  // own transform used to completely replace the centering transform
-  // (translate(-50%,-50%)) with a raw pixel delta (translate(dXpx,
-  // dYpx)) -- two genuinely different transform bases, which the
-  // browser can interpolate inconsistently between, reading as a bent,
-  // two-segment path instead of one straight line. Keeping the exact
-  // same -50%/-50% centering term in both the start and end transform,
-  // only ever adding a pixel delta on top of it via calc(), means
-  // there's exactly one consistent basis the whole time and the path
-  // is genuinely linear start to finish.
-  setTimeout(() => { chip.style.transform = `translate(calc(-50% + ${endX - startX}px), calc(-50% + ${endY - startY}px))`; }, 20);
-  // Instead of fading this flying chip away into nothing, it's removed
-  // right as a new, permanently-landed chip takes its place in the
-  // stack -- reads as the chip actually settling in, not disappearing
-  // and something unrelated popping in separately.
-  setTimeout(() => {
-    chip.remove();
-    landChipInPotStack(color);
-  }, 560);
+  // Real, confirmed bug fix per explicit request ("chip returns should
+  // exact match those chips in numbers and colors... avatar chips
+  // don't match the table chips"): this used to send exactly one chip
+  // colored by whichever single tier the WHOLE bet amount fell into --
+  // a $12 bet and a $120 bet could produce the same one purple chip,
+  // nothing like the real, multi-denomination breakdown the rail
+  // piles already use. Decomposed the same way now (decomposeChipValue,
+  // the exact function the rail piles use), so a bet actually sends
+  // the real number of real-colored chips that make up its value --
+  // the same math, the same colors, on both sides of the table.
+  const denomColors = decomposeChipValue(amount, 5);
+  denomColors.forEach((color, i) => {
+    const delay = i * 90;
+    setTimeout(() => {
+      const chip = document.createElement('div');
+      // Real, confirmed bug fix per explicit live report ("flying anim is
+      // a bit not the same"): this used the plain .flying-chip class on
+      // its own, which is still its original 22px size -- never updated
+      // when the pot pile and rail piles were unified to a smaller,
+      // shared size. Added pot-stack-chip too so the flying chip is
+      // exactly the same size as the chip it's about to become.
+      chip.className = 'flying-chip pot-stack-chip';
+      chip.style.background = color;
+      chip.style.left = startX + 'px';
+      chip.style.top = startY + 'px';
+      chip.style.transform = 'translate(-50%,-50%)';
+      chip.style.opacity = '1';
+      document.body.appendChild(chip);
+      // Real, confirmed root-cause fix per explicit live report ("not
+      // flying straight, creates 2 angles, back and forth"): the flight's
+      // own transform used to completely replace the centering transform
+      // (translate(-50%,-50%)) with a raw pixel delta (translate(dXpx,
+      // dYpx)) -- two genuinely different transform bases, which the
+      // browser can interpolate inconsistently between, reading as a bent,
+      // two-segment path instead of one straight line. Keeping the exact
+      // same -50%/-50% centering term in both the start and end transform,
+      // only ever adding a pixel delta on top of it via calc(), means
+      // there's exactly one consistent basis the whole time and the path
+      // is genuinely linear start to finish.
+      setTimeout(() => { chip.style.transform = `translate(calc(-50% + ${endX - startX}px), calc(-50% + ${endY - startY}px))`; }, 20);
+      // Instead of fading this flying chip away into nothing, it's removed
+      // right as a new, permanently-landed chip takes its place in the
+      // stack -- reads as the chip actually settling in, not disappearing
+      // and something unrelated popping in separately.
+      setTimeout(() => {
+        chip.remove();
+        landChipInPotStack(color);
+      }, 560);
+    }, delay);
+  });
 }
 function animateChipsToWinners(state) {
   const potEl = $('potAnchor') || $('potDisplay');
