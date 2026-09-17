@@ -178,7 +178,23 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .splatter-piece{position:absolute;border-radius:40% 60% 55% 45%;transition:transform 0.75s cubic-bezier(.15,.6,.3,1),opacity 0.75s ease}
 .table-winning-hand{position:absolute;top:64%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:7;pointer-events:none;opacity:0;transition:opacity 0.3s ease}
 .table-winning-hand.on{opacity:1}
-.table-winning-hand-cards{display:flex;justify-content:center;gap:4px;margin-bottom:6px}
+/* Per explicit live report ("keep the same position, comes down"):
+   position:relative added so each card's own absolute-positioned slot
+   (set dynamically in JS, directly below its real source card) is
+   positioned relative to this row itself, not the page -- also given
+   a real height matching the card size, since position:absolute
+   children no longer contribute to this container's own natural
+   height the way normal flex children would. Real, confirmed bug fix:
+   a fixed width (5 cards at 34px + 4 gaps at 4px) is set explicitly
+   too -- without it, this container's own size (and therefore its
+   own centered position, since it's centered on ITS parent) shrinks
+   the instant a child switches to position:absolute and stops
+   contributing to the flex layout's width, which silently invalidated
+   every position measurement taken before that switch. Fixed width
+   means the container's own position never moves regardless of what
+   its children are doing.
+*/
+.table-winning-hand-cards{display:flex;justify-content:center;gap:4px;margin-bottom:6px;position:relative;height:48px;width:186px;margin-left:auto;margin-right:auto}
 /* Invisible placeholder used only to measure each card's own real
    final landing spot before it starts flying there -- never actually
    seen, since it's swapped for the real card face the instant that
@@ -190,8 +206,15 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    this UI already carries a calmer, informational meaning) with an
    animated pop-in and a pulsing glow behind it, rather than static
    colored text that just appears. */
-.table-winning-hand-label{color:#ff2b2b;font-size:0.92rem;font-weight:900;text-shadow:0 2px 6px rgba(0,0,0,0.95);white-space:nowrap;animation:winLabelPop 0.45s cubic-bezier(.2,1.4,.3,1) both,winLabelBlink 0.9s ease-in-out 0.45s infinite}
+.table-winning-hand-label{font-size:0.92rem;font-weight:900;text-shadow:0 2px 6px rgba(0,0,0,0.95);white-space:nowrap;animation:winLabelPop 0.45s cubic-bezier(.2,1.4,.3,1) both}
 @keyframes winLabelPop{0%{transform:scale(0.3);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1);opacity:1}}
+/* Per explicit live report: the two halves of this line need visibly
+   different styling -- who-won-how-much stays in a steady, readable
+   gold/white tone (this is information, not the celebration), while
+   only the actual hand name (Pair, Straight Flush, etc.) is what
+   flashes red, since that's the one piece meant to grab attention. */
+.table-winning-hand-label-summary{color:#f4c430;font-weight:800}
+.table-winning-hand-label-handname{color:#ff2b2b;font-weight:900;font-size:1.15em;animation:winLabelBlink 0.9s ease-in-out infinite}
 /* Per explicit request: the hand name (Straight Flush, Full House,
    etc.) reads as red and genuinely blinks/pops -- alternates between
    a bright red and a hot white-red flash, with the text itself
@@ -249,7 +272,17 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    the old placeholder, matching the board's own real card size),
    its own stacking order above the table, and the transition that
    makes the flight itself animate smoothly. */
-.flying-community-card{position:fixed;width:34px;height:48px;z-index:1800;pointer-events:none;transition:transform 0.5s cubic-bezier(.3,.5,.4,1);}
+/* Per explicit live report: 34x48 (the board's own exact card size)
+   read as too big for a card still in flight -- brought down a bit,
+   closer to but still bigger than the old 16x22 placeholder, so it's
+   clearly readable without being oversized. Real, confirmed bug:
+   .flying-community-card and .card are both single-class selectors of
+   equal specificity, so .card's own width/height (defined later in
+   this stylesheet) was silently winning over this one regardless of
+   which order the classes appeared in the element's own class list --
+   combined into one two-class selector here so this genuinely takes
+   priority over the plain .card size no matter the source order. */
+.flying-community-card.card{position:fixed;width:28px;height:39px;z-index:1800;pointer-events:none;transition:transform 0.5s cubic-bezier(.3,.5,.4,1);}
 /* Per explicit request: chips that have actually landed and joined the
    accumulating pot pile, spread across a small grid (see
    landChipInPotStack) rather than a flat token count -- a bit smaller
@@ -326,12 +359,19 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .street-banner{position:absolute;top:72%;left:50%;transform:translate(-50%,-50%);background:transparent;border:none;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 14px rgba(244,196,48,0.9),0 2px 6px rgba(0,0,0,0.9);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
 .street-banner.on{display:block}
 @keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
-.card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0}
+.card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0;transition:opacity 0.25s ease}
 /* Per explicit request: whichever board card the winning hand doesn't
    actually use (replaced by a stronger hole card) gets a visible red
    border on the real board itself, so it's clear at a glance which
    community cards weren't part of the final hand. */
 .board-card-unused{border:2.5px solid #ff2b2b;box-shadow:0 2px 5px rgba(0,0,0,0.4),0 0 8px rgba(255,43,43,0.7)}
+/* Per explicit live report ("already a card displayed... patchwork"):
+   a genuinely new board card is laid out and positioned immediately
+   (the flying-card animation needs its real, correct position to fly
+   toward), but stays invisible until that exact moment -- opacity
+   only, not display:none, so the layout/centering of the whole board
+   row never shifts once this card fades in. */
+.board-card-pending-reveal{opacity:0}
 .card.red{color:#c8302f}
 .card.black{color:#1a1a1a}
 .card.back{background:linear-gradient(135deg,#1a3a6b,#0d2038);border:2px solid var(--gold-soft)}
@@ -1498,10 +1538,10 @@ function chipHtml(value, small) {
   return `<span class="chip${small ? ' small' : ''}" style="background:${chipGradientForValue(value)}"></span>`;
 }
 
-function cardHtml(card, mini, revealFlip) {
+function cardHtml(card, mini, revealFlip, extraClass) {
   if (!card) return `<div class="card back${mini ? ' mini' : ''}"></div>`;
   const isRed = card.suit === '♥' || card.suit === '♦';
-  return `<div class="card${mini ? ' mini' : ''} ${isRed ? 'red' : 'black'}${revealFlip ? ' reveal-flip' : ''}"><div>${card.rank}</div><div>${card.suit}</div></div>`;
+  return `<div class="card${mini ? ' mini' : ''} ${isRed ? 'red' : 'black'}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}"><div>${card.rank}</div><div>${card.suit}</div></div>`;
 }
 let lastCardRevealAnimatedFor = null;
 // Per explicit request: tracks which hand number the dealing animation
@@ -1557,20 +1597,34 @@ function landChipInPotStack(color) {
   // settle" flourish as each one lands.
   const stackIndex = potChipStack.length % 2;
   const chipInThisStack = Math.floor(potChipStack.length / 2);
-  const stackSpacingX = 8;
+  const chip = document.createElement('div');
+  chip.className = 'flying-chip pot-stack-chip flying-chip-landed';
+  chip.style.background = color;
+  // Per explicit request ("2 stacks... make it touch one another,
+  // don't overlap"): stackSpacingX used to be a flat, guessed 8px
+  // regardless of the chip's own actual rendered size (which is now
+  // vw-based and genuinely varies by device/viewport, not a fixed
+  // number) -- appended first, off-screen-equivalent at the anchor
+  // point, purely to measure this chip's own real width right now,
+  // then sets the spacing to exactly half of that. Two piles offset
+  // by exactly half their own width on each side means their near
+  // edges meet precisely at the center point -- touching, not
+  // overlapping and not gapped, regardless of how big the chip
+  // actually renders on this specific device.
+  chip.style.left = baseX + 'px';
+  chip.style.top = baseY + 'px';
+  document.body.appendChild(chip);
+  const measuredChipWidth = chip.getBoundingClientRect().width || 15;
+  const stackSpacingX = measuredChipWidth / 2;
   // Per explicit request: matched to the exact same 1.5px-per-chip
   // rise the rail piles use, so both chip systems stack at the same
   // "distance on top of each other" instead of two different amounts.
   const stackRiseY = 1.5;
   const offsetX = stackIndex === 0 ? -stackSpacingX : stackSpacingX;
   const offsetY = -chipInThisStack * stackRiseY;
-  const chip = document.createElement('div');
-  chip.className = 'flying-chip pot-stack-chip flying-chip-landed';
-  chip.style.background = color;
   chip.style.left = (baseX + offsetX) + 'px';
   chip.style.top = (baseY + offsetY) + 'px';
   chip.style.zIndex = String(6 + chipInThisStack);
-  document.body.appendChild(chip);
   potChipStack.push(chip);
   updatePotStackTotalPosition(baseX, baseY, stackSpacingX, stackRiseY);
 }
@@ -2313,6 +2367,8 @@ function renderGameTable(state) {
   // three together, 3->4 turn, 4->5 river), using whatever this
   // specific board length last actually had animated as the count of
   // cards already accounted for, so only the truly new ones fly in.
+  const newBoardCardsCount = state.board.length - lastBoardDealAnimatedForLength;
+  const boardLenBeforeThisRender = lastBoardDealAnimatedForLength;
   if (state.board.length > lastBoardDealAnimatedForLength) {
     const newCards = state.board.slice(lastBoardDealAnimatedForLength);
     animateDealingCommunityCards(newCards, lastBoardDealAnimatedForLength);
@@ -2320,7 +2376,29 @@ function renderGameTable(state) {
   } else if (state.board.length === 0) {
     lastBoardDealAnimatedForLength = 0; // fresh hand, board cleared
   }
-  $('boardArea').innerHTML = state.board.map(c => cardHtml(c, false)).join('') || '<span style="opacity:0.4;font-size:0.7rem">— waiting for flop —</span>';
+  // Real, confirmed bug fix per explicit live report ("there's already
+  // a card displayed," "looks like a patchwork"): the real board
+  // cards' HTML used to be set immediately, on the very same tick as
+  // starting the flying-card animation above -- so the actual
+  // destination card appeared instantly while a second, flying copy of
+  // that same card was still visibly traveling toward it, reading as
+  // two overlapping cards rather than one arriving. Still rendered
+  // immediately (the animation above measures these real elements'
+  // actual position as its target, so they have to exist and be
+  // correctly laid out right away), but any genuinely new card this
+  // render adds starts invisible and only fades in once its own
+  // flying copy has actually finished traveling and landed.
+  $('boardArea').innerHTML = state.board.map((c, i) => {
+    const isNewThisRender = i >= boardLenBeforeThisRender;
+    return cardHtml(c, false, false, isNewThisRender ? 'board-card-pending-reveal' : '');
+  }).join('') || '<span style="opacity:0.4;font-size:0.7rem">— waiting for flop —</span>';
+  if (newBoardCardsCount > 0) {
+    const pendingEls = [...$('boardArea').querySelectorAll('.board-card-pending-reveal')];
+    pendingEls.forEach((cardEl, i) => {
+      const revealDelay = i * 450 + 500;
+      setTimeout(() => { cardEl.classList.remove('board-card-pending-reveal'); }, revealDelay);
+    });
+  }
 
   const positions = seatPositions();
   const seatsEl = $('seatsContainer');
@@ -2669,6 +2747,37 @@ function showWinningHandOnTable(state) {
   void cardsContainer.offsetWidth;
   const slotEls = [...cardsContainer.querySelectorAll('.table-winning-hand-slot')];
   const boardCardEls = [...($('boardArea') ? $('boardArea').querySelectorAll('.card') : [])];
+  const containerRect = cardsContainer.getBoundingClientRect();
+
+  // Real, confirmed fix per explicit, repeated live report ("keep the
+  // same position, comes down" -- said individually for every single
+  // card): each card used to fly in on whatever diagonal path
+  // connected its real source position to wherever the row's own
+  // flexbox layout happened to center that slot -- since the row's
+  // own spacing rarely lines up with the board's or the hand's own
+  // card spacing, that was a genuinely diagonal path, not a straight
+  // drop. Overrides each slot's own horizontal position to sit
+  // directly below (or above) its real source card instead, so the
+  // only thing left for the flight to do is move straight down (or
+  // up, for a hole card below the board), never sideways.
+  winningHand.forEach((card, i) => {
+    const slotEl = slotEls[i];
+    if (!slotEl) return;
+    const isHoleCard = holeCardKeys.has(cardKey(card));
+    let startRect;
+    if (isHoleCard && winnerSeatEl) {
+      startRect = winnerSeatEl.getBoundingClientRect();
+    } else {
+      const matchIdx = state.board.findIndex(b => b && cardKey(b) === cardKey(card));
+      startRect = (matchIdx !== -1 && boardCardEls[matchIdx]) ? boardCardEls[matchIdx].getBoundingClientRect() : null;
+    }
+    if (startRect) {
+      const startCenterX = startRect.left + startRect.width / 2;
+      slotEl.style.position = 'absolute';
+      slotEl.style.left = (startCenterX - containerRect.left) + 'px';
+      slotEl.style.transform = 'translateX(-50%)';
+    }
+  });
 
   let arrivedCount = 0;
   winningHand.forEach((card, i) => {
@@ -2685,7 +2794,11 @@ function showWinningHandOnTable(state) {
       const matchIdx = state.board.findIndex(b => b && cardKey(b) === cardKey(card));
       startRect = (matchIdx !== -1 && boardCardEls[matchIdx]) ? boardCardEls[matchIdx].getBoundingClientRect() : slotRect;
     }
-    const startX = startRect.left + startRect.width / 2;
+    // Real, confirmed fix, same report as above: startX is now always
+    // exactly slotRect's own center-X (guaranteed by the position
+    // override just above), so this is never anything but a pure
+    // vertical delta -- no horizontal component left to drift on.
+    const startX = slotRect.left + slotRect.width / 2;
     const startY = startRect.top + startRect.height / 2;
     const endX = slotRect.left + slotRect.width / 2;
     const endY = slotRect.top + slotRect.height / 2;
@@ -2715,7 +2828,14 @@ function showWinningHandOnTable(state) {
         slotEl.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
         arrivedCount++;
         if (arrivedCount === winningHand.length) {
-          $('tableWinningHandLabel').textContent = `${names} won ${totalWon} — ${r.winners[0].handName}`;
+          // Per explicit live report: only the hand name itself
+          // (Pair, Straight Flush, etc.) should blink -- the rest of
+          // the line (who won, how much) stays in its own steady
+          // style instead of flashing along with it. Split into two
+          // separate spans so the blink animation (still on
+          // .table-winning-hand-label-handname alone) never touches
+          // the name/amount text.
+          $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-summary">${names} won ${totalWon}</span> <span class="table-winning-hand-label-handname">${r.winners[0].handName}</span>`;
         }
       }, 560);
     }, delay);
@@ -2776,7 +2896,15 @@ function animateDealingCards(state) {
         card.style.top = startY + 'px';
         card.style.transform = 'translate(-50%,-50%)';
         document.body.appendChild(card);
-        setTimeout(() => { card.style.transform = `translate(${endX - startX}px, ${endY - startY}px)`; }, 20);
+        // Real, confirmed root-cause fix per explicit live report ("2
+        // handles," a bent path instead of a straight line) -- same
+        // class of bug already fixed for the chip flights and the
+        // community-card dealing: kept the exact same -50%/-50%
+        // centering term in both the start and end transform (only
+        // ever adding a pixel delta via calc() on top of it), instead
+        // of replacing it outright with a raw pixel translate, which
+        // is what produced the two-segment bent path.
+        setTimeout(() => { card.style.transform = `translate(calc(-50% + ${endX - startX}px), calc(-50% + ${endY - startY}px))`; }, 20);
         setTimeout(() => { card.remove(); }, 520);
       }, delay);
     }
