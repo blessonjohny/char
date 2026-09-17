@@ -2828,6 +2828,26 @@ function showWinningHandOnTable(state) {
         slotEl.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
         arrivedCount++;
         if (arrivedCount === winningHand.length) {
+          // Per explicit live report ("cards should replace the empty
+          // space"): the straight-down landing spots (directly below
+          // each card's own real source) are spread out to match the
+          // board's own spacing, with hole cards landing somewhere
+          // else on the table entirely -- correct for the drop itself,
+          // but it leaves the final row with real gaps in it rather
+          // than a clean five-card hand. Once every card has actually
+          // landed, slides each one sideways (a real CSS transition on
+          // left, added fresh here since the drop itself only ever
+          // animated the flying copy, not this element's own left)
+          // into a tight, evenly-spaced, centered row -- closing the
+          // gaps left behind by the drop instead of leaving them empty.
+          const cardWidthNow = slotEls[0] ? slotEls[0].getBoundingClientRect().width : 34;
+          const gapNow = 4;
+          const rowWidth = winningHand.length * cardWidthNow + (winningHand.length - 1) * gapNow;
+          const rowStartX = (containerRect.width - rowWidth) / 2;
+          slotEls.forEach((slotEl2, idx) => {
+            slotEl2.style.transition = 'left 0.4s cubic-bezier(.3,.5,.4,1)';
+            slotEl2.style.left = (rowStartX + idx * (cardWidthNow + gapNow) + cardWidthNow / 2) + 'px';
+          });
           // Per explicit live report: only the hand name itself
           // (Pair, Straight Flush, etc.) should blink -- the rest of
           // the line (who won, how much) stays in its own steady
