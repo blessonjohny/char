@@ -242,6 +242,34 @@ function botDecideAction(engine, pos) {
   // course of a hand, just not one that can exhaust a deep stack in a
   // single hand purely through ordinary betting.
   const stackCapFraction = (n) => Math.min(n, roundToBlind(Math.round(s.chips * 0.25)));
+  // New safety mechanism per explicit live report: even with every fix
+  // above, an 8-trial batch of full tournament runs still turned up a
+  // genuine outlier -- one run busted a player by hand 2 and the whole
+  // tournament was over by hand 5, purely from an unlucky sequence of
+  // ordinary (not "crazy") bets and calls compounding across all four
+  // streets of the same hand. Per-street caps alone can't catch that,
+  // since each individual street's bet can look perfectly reasonable
+  // while the same aggressor betting all four streets still adds up to
+  // most of a stack by the river. This adds a real per-HAND ceiling on
+  // top: how much of this seat's stack AT THE START of this specific
+  // hand (chips still in hand + whatever's already gone into this
+  // hand's pot -- not current chips, which would shrink the cap itself
+  // as the hand progresses and defeat the point) this bot is willing
+  // to voluntarily commit via its OWN raises. Calling is never capped
+  // by this -- a bot that's already committed can still call a bet
+  // someone else made, the same way a real player facing a bet doesn't
+  // get to un-call it for budget reasons -- only this bot's own choice
+  // to raise further is what's actually being kept in check here. A
+  // genuinely big hand (equity clear of 0.7) is explicitly exempt,
+  // since real players do go past this with the nuts, this is a
+  // guardrail against ordinary hands escalating a whole hand by
+  // accident, not a hard wall against ever committing a real stack.
+  const handStartStack = s.chips + s.totalBetThisHand;
+  const HAND_COMMIT_CAP_FRACTION = 0.4;
+  const raiseAllowedBySafety = (intendedTotalBet) => {
+    if (equity > 0.7) return true;
+    return intendedTotalBet <= handStartStack * HAND_COMMIT_CAP_FRACTION;
+  };
 
   if (toCall === 0) {
     // Free to act: bet for value with real equity, occasionally
@@ -263,7 +291,14 @@ function botDecideAction(engine, pos) {
       // Brought down to a genuinely standard sizing range instead.
       const sizeFraction = valueBet ? (0.35 + equity * 0.25) : 0.35; // bigger with stronger hands, standard c-bet size as a bluff
       const betSize = stackCapFraction(roundToBlind(Math.max(engine.bigBlind, Math.round(pot * sizeFraction * personality.aggression))));
-      return { action: 'bet', amount: s.bettedThisRound + betSize };
+      const intendedTotal = s.bettedThisRound + betSize;
+      if (raiseAllowedBySafety(intendedTotal)) {
+        return { action: 'bet', amount: intendedTotal };
+      }
+      // Per-hand safety cap hit: still a fine hand, just not one that
+      // should keep pushing this specific hand further -- checks
+      // instead of betting, exactly the "not folding, just not
+      // escalating" behavior this whole mechanism is for.
     }
     return { action: 'check' };
   }
@@ -296,7 +331,10 @@ function botDecideAction(engine, pos) {
     // infrequent so it doesn't become predictable or reckless.
     if (raiseDecay > 0 && Math.random() < 0.05 * personality.aggression * raiseDecay && toCall < s.chips * 0.25) {
       const raiseSize = stackCapFraction(roundToBlind(Math.max(engine.minRaise, Math.round(pot * 0.55))));
-      return { action: 'raise', amount: capToStack(engine.currentBet + raiseSize) };
+      const intendedTotal = capToStack(engine.currentBet + raiseSize);
+      if (raiseAllowedBySafety(intendedTotal)) {
+        return { action: 'raise', amount: intendedTotal };
+      }
     }
     return { action: 'fold' };
   }
@@ -315,7 +353,20 @@ function botDecideAction(engine, pos) {
   // else already cleared to get here.
   if (raiseDecay > 0 && equity > requiredEquity + 0.28 && Math.random() < 0.38 * personality.aggression * raiseDecay) {
     const raiseSize = stackCapFraction(roundToBlind(Math.max(engine.minRaise, Math.round(pot * (0.4 + equity * 0.2)))));
-    return { action: 'raise', amount: capToStack(engine.currentBet + raiseSize) };
+    const intendedTotal = capToStack(engine.currentBet + raiseSize);
+    // New safety mechanism per explicit live report: a genuinely
+    // reasonable-looking raise (this branch already requires clearing
+    // real pot odds by a healthy margin) can still be the one that
+    // pushes this specific hand's total commitment past a sane
+    // fraction of what this seat brought into the hand -- checked here
+    // rather than folding, since the hand is still genuinely good
+    // enough to continue, just not to keep raising it.
+    if (raiseAllowedBySafety(intendedTotal)) {
+      return { action: 'raise', amount: intendedTotal };
+    }
+    // Per-hand safety cap hit: falls through to the plain call below
+    // instead -- still a fine hand, still staying in, just not
+    // escalating this specific hand any further.
   }
 
   if (toCall >= s.chips) {
@@ -323,6 +374,27 @@ function botDecideAction(engine, pos) {
     // genuine equity clear of a coinflip, same principle as any
     // reasonable all-in-call standard.
     return equity > 0.5 ? { action: 'call' } : { action: 'fold' };
+  }
+  // New safety mechanism per explicit live report ("80-90% of chips
+  // gone within 2-3 hands"): confirmed directly in simulation that
+  // capping only this bot's own raises wasn't enough on its own --
+  // one aggressor betting a genuinely reasonable size every street,
+  // multiplied by several other bots each just calling along (never
+  // raising, so the raise-side caps above never even applied to them),
+  // still transferred most of the table's chips in a single hand. A
+  // real player doesn't mechanically call every street regardless of
+  // how much of their own stack it adds up to -- this mirrors that:
+  // once calling would push this bot's total commitment past 65% of
+  // what it brought into this specific hand, continuing needs genuine
+  // equity (a clear favorite, not just ahead of pot odds) to be worth
+  // it. Deliberately looser than the 40%/raising cap above and still
+  // exempt for strong hands, so this is a brake on the passive,
+  // no-raises-involved version of the same problem, not a source of
+  // extra folding on ordinary hands -- most calls never get anywhere
+  // near 65% of a stack in one hand to begin with.
+  const intendedCallTotal = s.bettedThisRound + toCall;
+  if (intendedCallTotal > handStartStack * 0.65 && equity < 0.55) {
+    return { action: 'fold' };
   }
   return { action: 'call' };
 }
