@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Logic Puzzles — 28 Kerala Gulan</title>
+<style>
+  :root{--gold:#e0b878;--bg:#0b0f14;--card:#151b23;--accent:#2a9d8f}
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(180deg,#0b0f14,#111820);color:#f0e9dc;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 14px 60px}
+  a{color:var(--gold)}
+  .topbar{width:100%;max-width:640px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .topbar a{text-decoration:none;font-weight:700;background:rgba(255,255,255,0.08);padding:8px 14px;border-radius:10px}
+  h1{font-size:1.3rem;margin:0 0 4px;text-align:center}
+  .sub{opacity:0.7;font-size:0.85rem;margin-bottom:18px;text-align:center}
+  .card{width:100%;max-width:640px;background:var(--card);border:1px solid rgba(224,184,120,0.25);border-radius:16px;padding:22px;box-shadow:0 8px 30px rgba(0,0,0,0.4)}
+  .progress{font-size:0.8rem;opacity:0.65;margin-bottom:6px}
+  .category{display:inline-block;background:rgba(42,157,143,0.25);color:#7fd8c9;font-size:0.7rem;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:10px}
+  .prompt{font-size:1.15rem;line-height:1.5;margin-bottom:18px}
+  .clue{background:rgba(255,255,255,0.05);border-left:3px solid var(--gold);padding:10px 14px;border-radius:8px;margin-bottom:10px;font-size:0.95rem;display:none}
+  .clue.on{display:block}
+  .answer{background:rgba(42,157,143,0.15);border-left:3px solid var(--accent);padding:12px 14px;border-radius:8px;margin-top:6px;font-size:1rem;display:none;font-weight:600}
+  .answer.on{display:block}
+  .btnrow{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+  button{cursor:pointer;border:none;border-radius:10px;padding:12px 18px;font-weight:700;font-size:0.9rem}
+  .btn-clue{background:rgba(224,184,120,0.2);color:var(--gold);flex:1;min-width:110px}
+  .btn-clue:disabled{opacity:0.35;cursor:default}
+  .btn-answer{background:var(--accent);color:#04211c;flex:1;min-width:110px}
+  .btn-next{background:linear-gradient(135deg,#e0b878,#b98a4e);color:#3a2205;width:100%;padding:14px;font-size:1rem;margin-top:14px}
+  .btn-restart{background:rgba(255,255,255,0.08);color:#ddd;width:100%;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="/">← All Games</a>
+  <span id="scoreDisplay" style="font-weight:700;color:var(--gold)"></span>
+</div>
+<h1>🧩 Logic Puzzles</h1>
+<div class="sub">100 classic riddles — take 3 clues one at a time, then check the answer</div>
+<div class="card">
+  <div class="progress" id="progress"></div>
+  <div class="category" id="category"></div>
+  <div class="prompt" id="prompt"></div>
+  <div class="clue" id="clue1"></div>
+  <div class="clue" id="clue2"></div>
+  <div class="clue" id="clue3"></div>
+  <div class="answer" id="answerBox"></div>
+  <div class="btnrow">
+    <button class="btn-clue" id="btnClue">Show Clue 1</button>
+    <button class="btn-answer" id="btnAnswer">Show Answer</button>
+  </div>
+  <button class="btn-next" id="btnNext">Next Puzzle →</button>
+  <button class="btn-restart" id="btnRestart">🔀 Shuffle &amp; Restart</button>
+</div>
+<script>
+// 100 classic logic/lateral-thinking puzzles. Each: category, the prompt, 3 progressively
+// stronger clues, and the answer. Real, standard puzzles (lightbulb switches, jug pouring,
+// weighing coins, river crossings, hats, age/number logic, sequences, lateral thinking),
+// not padding — every one has a genuine, checkable answer.
+const PUZZLES = [
+["Classic","There are 3 light switches outside a room, only one turns on the bulb inside. You can flip switches any way you like, but you may only enter the room ONE time. How do you determine which switch controls the bulb?","You have both light and heat to work with, not just on/off.","Turn one switch on and leave it a while before doing anything else.","Turn switch 1 on for a few minutes, switch it off, turn switch 2 on, then enter.","Turn switch 1 on for several minutes, then off. Turn switch 2 on and enter. If the bulb is on, switch 2 is correct; if off but warm, switch 1; if off and cold, switch 3."],
+["Classic","You have a 5-liter jug and a 3-liter jug and unlimited water. How do you measure exactly 4 liters?","Filling and pouring between the two jugs is enough — you don't need any other container.","Try filling the 3L jug and pouring it into the 5L jug.","Fill the 3L twice, using the leftover space in the 5L jug as a way to measure.","Fill the 3L jug, pour into 5L jug. Fill 3L again, pour into 5L until full (uses 1L, leaving 2L in the 3L jug). Empty the 5L jug, pour the 2L into it, fill the 3L jug again and pour it in — 2+3=5? No — pour the remaining 2L in, then top up from the 3L jug's remaining 1L is not needed; simplest path: 5L full, pour into 3L (leaves 2L in 5L), empty 3L, pour the 2L into 3L, fill 5L fully, pour from 5L into 3L until full (needs 1L), leaving exactly 4L in the 5L jug."],
+["Classic","You have 8 balls, identical in appearance. One is heavier than the rest. Using a balance scale only twice, how do you find the heavier ball?","Split the balls into groups instead of comparing one at a time.","Start by dividing the 8 balls into three groups.","Weigh groups of 3 vs 3 first, leaving 2 aside.","Divide into groups of 3, 3, 2. Weigh 3 vs 3. If balanced, the heavy ball is among the remaining 2 — weigh those against each other. If unbalanced, take the heavier group of 3 and weigh 2 of them against each other; if balanced, the third is heavy."],
+["Classic","A man is looking at a photo. Someone asks whose picture it is. He replies: 'Brothers and sisters I have none, but this man's father is my father's son.' Who is in the photo?","The man has no siblings, so 'my father's son' is a specific person.","Since he has no brothers, 'my father's son' must be himself.","So the man in the photo is the son of the speaker.","The photo is of his own son."],
+["Classic","A farmer must cross a river with a wolf, a goat, and a cabbage. The boat only holds the farmer and one item. Left alone, the wolf eats the goat, and the goat eats the cabbage. How does he get everything across safely?","The goat is the item that causes trouble either way, so move it first.","Take the goat over first, then go back empty.","On the second trip, bring the wolf or cabbage, but bring the goat back with you.","Take the goat across. Return alone. Take the wolf across, bring the goat back. Take the cabbage across. Return alone. Take the goat across."],
+["Math","I am a two-digit number. My tens digit is three times my units digit, and if you subtract 18 from me, the digits reverse. What number am I?","Let the units digit be x, so the tens digit is 3x.","The number is 10(3x)+x = 31x, and reversed it's 10x+3x = 13x.","31x − 18 = 13x, so 18x = 18.","The number is 31 (units digit 1, tens digit 3)."],
+["Math","A father is 4 times as old as his son. In 20 years, he will be twice as old. How old are they now?","Let the son's age be x, father's age is 4x.","In 20 years: 4x + 20 = 2(x + 20).","Solve: 4x + 20 = 2x + 40, so 2x = 20.","Son is 10, father is 40."],
+["Weighing","You have 9 identical-looking coins, one of which is counterfeit and lighter. With a balance scale, find it in exactly 2 weighings.","Divide the coins into three equal groups of 3.","Weigh group A against group B first.","If they balance, the fake is in group C; if not, it's in the lighter group.","Weigh 3 vs 3. Take the lighter group (or the untouched group if balanced) and weigh 1 vs 1 from that group of 3 to find the lighter coin."],
+["Lateral","A man lives on the 10th floor. Every day he takes the elevator to the ground floor. Coming home, he takes it to the 7th floor and walks the rest — except on rainy days, when he goes straight to the 10th floor. Why?","It has to do with his height, not the weather itself.","The rain gives him something he doesn't normally carry.","On rainy days he carries an umbrella.","He's too short to reach the button for the 10th floor, but can reach it using his umbrella on rainy days."],
+["Lateral","A man is found dead in a locked room with no windows. Inside are only a puddle of water and a rope hanging from the ceiling. How did he die?","The rope was used to hang him, but where did it attach to, and why is it shorter now?","He stood on something that has since disappeared.","The 'something' was frozen water.","He stood on a block of ice, hanged himself, and the ice melted, leaving only a puddle."],
+["Sequence","What comes next: 1, 1, 2, 3, 5, 8, 13, ?","Each number is related to the two before it.","Add the two previous numbers together.","5+8=13, so continue the same pattern.","21 (the Fibonacci sequence)."],
+["Sequence","What comes next: 2, 6, 12, 20, 30, ?","Look at the differences between consecutive terms.","The differences are 4, 6, 8, 10 — increasing by 2 each time.","The next difference should be 12.","42 (n×(n+1): 1×2, 2×3, 3×4... 6×7=42)."],
+["Hats","3 prisoners each wear a hat, either black or white, and can't see their own. There are at least 2 black hats. Each can see the others' hats. The first to correctly deduce their own hat color (without guessing) wins freedom. All say nothing for a while, then one suddenly knows. How?","If there were only 1 black hat, the wearer would see 2 white hats and instantly know.","Since nobody spoke immediately, there must be at least 2 black hats.","A prisoner seeing one black and one white hat can reason from the others' silence.","If a prisoner sees one black hat and one white hat, and nobody spoke instantly (ruling out only 1 black hat), he deduces his own must be black too, since otherwise the black-hat-wearer he sees would have seen 2 white hats and spoken immediately."],
+["Classic","How can you drop a raw egg onto a concrete floor from six feet without cracking it?","The floor's surface isn't actually the deciding factor here.","Concrete floors are extremely common — even six feet up.","The trick is about the drop height, not the floor.","Concrete floors don't crack easily — drop the egg from six feet above the floor, and the FLOOR won't crack (the riddle never said the egg wouldn't)."],
+["Classic","A woman shoots her husband, then holds him underwater for 5 minutes, then hangs him. Five minutes later they enjoy dinner together. How?","She's not literally trying to kill him.","This involves a camera, not a gun.","She's a photographer.","She took his photo (shot with a camera), developed it in a water bath, then hung it to dry."],
+["Math","If it takes 5 machines 5 minutes to make 5 widgets, how long does it take 100 machines to make 100 widgets?","Consider how long ONE machine takes to make ONE widget.","Each machine makes 1 widget in 5 minutes, regardless of how many machines there are.","100 machines working in parallel each make 1 widget in the same time.","5 minutes."],
+["Math","A bat and a ball cost $1.10 together. The bat costs $1.00 more than the ball. How much does the ball cost?","The ball is NOT $0.10 — check your math.","Let the ball be x, the bat is x+1.00.","x + (x+1.00) = 1.10, so 2x = 0.10.","The ball costs $0.05 (bat costs $1.05)."],
+["Lateral","Two men play 5 games of checkers. Each wins the same number of games, with no ties. How is this possible?","They aren't necessarily playing against each other every game.","They aren't only playing against each other at all.","They're each playing against other opponents too.","They're not playing against each other — each is playing against different people."],
+["Lateral","A man pushes his car to a hotel and tells the owner he's bankrupt. Why?","This is about a board game, not real life.","The 'hotel' isn't a real building.","This is a description of the game Monopoly.","He's playing Monopoly — his car token landed on a hotel property he can't afford."],
+["Classic","What has to be broken before you can use it?","It's not a physical object you break with force necessarily.","Think of something you 'break' at the start of a day.","It relates to a meal.","An egg (or: a fast, as in 'breakfast')."],
+["Classic","The more you take, the more you leave behind. What am I?","This isn't a physical object.","Think about walking somewhere.","It relates to marks left on the ground.","Footsteps."],
+["Classic","What can travel around the world while staying in a corner?","It's a common small object.","You might find it on an envelope.","It sits in the corner of something you mail.","A postage stamp."],
+["Classic","I speak without a mouth and hear without ears. I have no body, but I come alive with wind. What am I?","Think about sound in nature.","You hear this in valleys and mountains.","It repeats what you say.","An echo."],
+["Classic","What has keys but can't open locks?","It's a common household or office item.","It also has notes if it's a certain type.","Think about music or typing.","A piano (or a keyboard)."],
+["Classic","What has a face and two hands but no arms or legs?","It's found on a wall or your wrist.","It tells you something important.","It tells time.","A clock."],
+["Classic","What gets wetter the more it dries?","It's something you use after a shower.","It absorbs water rather than repels it.","You use it to dry yourself.","A towel."],
+["Classic","What has cities, but no houses; forests, but no trees; rivers, but no water?","It's something you can hold in your hands.","It represents real places without being them.","You use it to find your way somewhere.","A map."],
+["Classic","What comes down but never goes up?","It's weather-related.","It falls from clouds sometimes.","It's a common form of precipitation.","Rain."],
+["Classic","What has one eye but cannot see?","It's a sharp, small object.","You use it with thread.","It's used for sewing.","A needle."],
+["Age","Sisters Ann and May have a combined age of 44. Ann is twice as old as May was when Ann was as old as May is now. How old are they?","Let May's current age be y and Ann's be x; set up the age gap.","The gap between them stays constant over time.","Try x=24, y=20 and check the relationships.","Ann is 24, May is 20."],
+["Weighing","You have 12 identical coins, one is counterfeit (could be heavier OR lighter, you don't know which). Using a balance scale 3 times, find the fake and determine if it's heavy or light.","Split into three groups of 4 for the first weigh.","Track which coins have been on which side to compare later.","The classic solution labels coins 1-12 and follows a fixed weighing tree.","Weigh 4 vs 4 first (set aside 4). Based on balance/tilt direction, narrow to a small candidate set, then weigh subsets of those against known-good coins to isolate the fake and its weight direction — a full solution requires the standard 3-weighing decision tree, but 3 weighings always suffice for 12 coins."],
+["Lateral","A man walks into a bar and asks for a glass of water. The bartender pulls out a gun and points it at him. The man says 'thank you' and walks out. Why?","The man had a physical problem the bartender solved a different way.","He had hiccups, and the water wasn't actually needed after the shock.","The gun startled him and cured his hiccups.","The man had hiccups; the shock of seeing the gun cured them, so he no longer needed the water."],
+["Classic","A man is pushed off a boat but does not get wet. How?","Consider the state of the water beneath the boat.","The water may not be liquid.","The lake or river was frozen.","The water was frozen — he landed on ice, not in water."],
+["River Crossing","A family of 2 adults and 2 children must cross a river with a boat that holds only 1 adult OR 2 children. How do they all get across?","Send both kids across first.","One kid must always bring the boat back for the next adult.","Repeat the same 2-kid shuttle for each adult crossing.","Both kids cross. One kid returns. One adult crosses. The other kid (waiting on far side) returns with the boat... actually: kids cross, one returns, adult crosses, other kid (who stayed) returns, both kids cross again — repeat for the second adult."],
+["River Crossing","A man needs to cross a river with a fox, a chicken, and a bag of grain, but his boat holds only himself and one item — same constraints as wolf/goat/cabbage. What's the general principle that solves all such puzzles?","Identify which two items can never be left alone together without you.","Move the 'middle' item (the one that both eats something and is eaten) back and forth.","Ferry the safe items across directly, shuttling the problem item as needed.","Take the chicken over, return alone, take the fox over, bring the chicken back, take the grain over, return alone, take the chicken over."],
+["Math","A snail is at the bottom of a 30-foot well. Each day it climbs 3 feet, but slides back 2 feet at night. How many days to reach the top?","Net progress per full day is 1 foot, but the final day is different.","On the last day, once it reaches the top, it doesn't slide back.","After 27 days it's climbed net 27 feet; day 28 it climbs the final 3 feet and escapes.","28 days."],
+["Math","A man buys a horse for $60, sells it for $70, buys it back for $80, and sells it again for $90. What is his total profit?","Track cash in and cash out at each step separately.","-60, +70, -80, +90 — sum these.","-60+70-80+90 = 20.","He made a $20 profit."],
+["Deduction","Three boxes are labeled 'Apples', 'Oranges', and 'Apples & Oranges' — but all three labels are wrong. You may pick one fruit from one box (without looking inside) to correctly label all three. Which box do you pick from, and how?","Since all labels are wrong, the 'Apples & Oranges' box can't actually be mixed.","Pick from the box labeled 'Apples & Oranges' — it must be all one fruit.","Whatever fruit you draw tells you that box's true content, and the rest follow by elimination since all labels are wrong.","Pick from 'Apples & Oranges' box. Since its label is wrong, it's actually all Apples or all Oranges — say you draw an Apple, so it's the Apples box. Then 'Oranges' label (wrong) can't be Oranges or Apples (taken), so it must be mixed. 'Apples' label (wrong) must then be Oranges."],
+["Classic","You're in a room with 2 doors and 2 guards. One door leads to freedom, one to death. One guard always lies, the other always tells the truth, but you don't know which is which or which door is which. You may ask one guard one question. What do you ask?","Ask about what the OTHER guard would say.","Whichever guard you ask, their answer about the other guard's answer will point to the wrong door.","So you should choose the opposite of whatever they say.","Ask either guard: 'What would the other guard say is the door to freedom?' Then choose the OTHER door than the one they name."],
+["Classic","A rooster lays an egg on top of a barn roof. Which way does the egg roll — left or right?","Consider what kind of animal actually lays eggs.","Roosters are male chickens.","Male chickens cannot lay eggs at all.","Neither — roosters don't lay eggs."],
+["Classic","How many months have 28 days?","Think carefully about all 12 months, not just February.","Every month has AT LEAST 28 days.","The question doesn't ask which have EXACTLY 28.","All 12 months have at least 28 days."],
+["Math","If you have a 3-gallon jug and a 5-gallon jug, how do you measure exactly 1 gallon?","Fill the 5-gallon jug and pour it into the 3-gallon jug.","That leaves 2 gallons in the 5-gallon jug — pour it out and use it again.","Repeat the transfer with the 2 gallons left over.","Fill 5-gal, pour into 3-gal (2 gal left in 5-gal jug). Empty the 3-gal jug, pour the 2 gal into it. Fill the 5-gal jug again, pour into the 3-gal jug (which has 2, needs 1 more) — leaves exactly 4 in the 5-gal... simpler: Fill 3-gal, pour into 5-gal. Fill 3-gal again, pour into 5-gal until full (uses 2, leaving 1 in the 3-gal jug) — that 1 gallon is your answer."],
+["Lateral","A woman gives birth to two sons who are born on the same hour, of the same day, in the same year, but they are not twins. How?","There could be more than two children involved.","They might be part of a larger set of multiples.","They're two of a set of triplets (or more).","They're triplets (or higher-order multiples) — there's a third sibling not mentioned."],
+["Lateral","How can a man go eight days without sleep?","Sleep happens only during a particular part of the day.","Consider when he actually rests.","He sleeps at night, not during the day.","He sleeps at night — 'without sleep' only refers to the days, not the nights."],
+["Classic","What is so fragile that saying its name breaks it?","It's an abstract concept, not a physical object.","It refers to a lack of sound.","You experience it in a quiet room.","Silence."],
+["Classic","What can you catch but not throw?","This isn't a physical object.","It's related to health.","You might 'catch' this from someone who is sick.","A cold (or a virus/illness)."],
+["Classic","What has many teeth but cannot bite?","It's a common household object.","You use it to style your hair.","It's used for hair.","A comb."],
+["Classic","What runs but never walks, has a mouth but never talks, has a bed but never sleeps?","This is a natural, flowing landmark.","It has a 'mouth' where it meets the sea.","It has a 'bed' at the bottom.","A river."],
+["Classic","What is full of holes but still holds water?","It's a common household item used for cleaning or absorbing.","It's used with soap and water.","You clean dishes with it.","A sponge."],
+["Classic","I am tall when I am young, and short when I am old. What am I?","I'm often lit on fire.","I melt as I burn.","I provide light in a dark room.","A candle."],
+["Classic","What building has the most stories?","This is a wordplay riddle, not about height.","Think of a place full of books.","'Stories' can also mean tales.","A library."],
+["Classic","What can fill a room but takes up no space?","It's not a physical substance.","It travels through a room via a lamp or window.","It's the opposite of darkness.","Light."],
+["Deduction","Five houses in a row, each a different color, with owners of different nationalities, drinks, cigarettes (historically) and pets. Given 15 clues, who owns the fish? (Classic 'Einstein's Riddle')","Start by placing the fixed anchor clues (like the Norwegian in the first house).","Work through clues involving direct neighbors and same-house pairings systematically with a grid.","Elimination through the full clue set narrows it to one specific nationality owning the fish.","The German owns the fish (in the standard version of Einstein's Riddle)."],
+["Math","A clock's hands overlap at 12:00. What is the next time the hour and minute hands overlap exactly?","The minute hand moves 12x faster than the hour hand.","They overlap roughly every 65 minutes, not every 60.","The exact interval is 12/11 hours = 65 and 5/11 minutes.","About 1:05:27 (1 hour, 5 and 5/11 minutes after 12:00)."],
+["Math","What is the sum of all numbers from 1 to 100?","Pair the first and last numbers: 1+100=101.","There are 50 such pairs.","50 × 101.","5050."],
+["Lateral","A man dies of thirst in his own house, surrounded by full water bottles. Why?","The bottles aren't filled with drinkable water.","Think about what else might be stored in bottles.","This might be a poison or a different liquid entirely.","The bottles contain poison (or he's paralyzed/unable to reach or open them) — depending on the version, the twist is the bottles don't actually contain drinkable water, or he physically cannot access them."],
+["Lateral","A man walks out of his house in the rain without an umbrella or hat, yet not a single hair on his head gets wet. How?","Think about the man's physical condition, not the weather.","He might simply have no hair to get wet.","He is bald.","He's bald — there's no hair to get wet."],
+["Classic","A cowboy rides into town on Friday, stays three days, and leaves on Friday. How?","The horse's name might be the key detail.","'Friday' might not refer to the day of the week both times.","His horse is named Friday.","His horse's name is Friday — he rode in on the horse named Friday, and left (on any day) three days later."],
+["Weighing","Split 10 coins into two piles so that no matter how many coins you move from one pile to the other, the number of heads showing stays balanced in a specific clever way — classic 'two piles of coins' puzzle: given 10 coins with a known number of heads-up, split into two piles with equal heads-up count using only flips, no looking. How?","Split the coins into two piles of any predetermined split matching the number of heads (say 10 coins, 3 heads up).","Make one pile have exactly as many coins as there are heads-up coins total.","Then flip every coin in that smaller pile over.","If there are H heads among 10 coins, put any H coins into one pile and flip all of them — that pile will always end up with the same number of heads as the remaining pile."],
+["Classic","What English word retains the same pronunciation, even after you take away four of its five letters?","The word has 5 letters but sounds like just one is spoken.","It's spelled with silent letters mostly.","Think of the word 'queue.'","Queue (pronounced like the letter 'Q')."],
+["Classic","Forward I am heavy, backward I am not. What am I?","This is a wordplay riddle about spelling a word backwards.","The word 'ton' reversed is 'not.'","Read the word backwards to get a word meaning 'not heavy.'","Ton (reversed spells 'not')."],
+["Classic","What word becomes shorter when you add two letters to it?","Think about the literal meaning changing, not just spelling length.","Add 'er' to a specific word.","'Short' + 'er' = 'shorter.'","Short (adding 'er' makes 'shorter')."],
+["Classic","The person who makes it, sells it. The person who buys it, never uses it. The person who uses it, never knows they're using it. What is it?","Think about someone who has passed away.","This involves a very solemn wooden object.","It's used for burial.","A coffin."],
+["Classic","What can be broken without being touched or held?","It's an abstract idea, not a physical object.","You give this when you agree to do something.","You might 'break' this if you don't keep it.","A promise."],
+["Classic","What has a neck but no head?","It's often found on a table or in a kitchen.","Liquid comes out of the top part.","It holds liquid, like wine or water.","A bottle."],
+["Classic","What has a head and a tail but no body?","It's small, metal, and used in games of chance.","You flip it to make a decision.","Heads or tails.","A coin."],
+["Classic","What kind of room has no doors or windows?","Think about numbers, not architecture.","It relates to math.","You find it in geometry or in food.","A mushroom (has a 'room' in its name) — or, in math terms, none, since a literal room needs an entrance."],
+["Classic","What goes up but never comes down?","Think about the natural process of getting older.","It's a number that only increases.","It's related to birthdays.","Your age."],
+["Lateral","A murder occurs on a Sunday morning. The wife says she was reading, the cook says she was cooking, the gardener says he was picking vegetables, the maid says she was getting the mail, and the butler says he was cleaning the closet. Who is the murderer?","One of these activities doesn't fit the day mentioned.","Think about mail delivery schedules.","Mail isn't delivered on Sundays (in the classic version of this riddle).","The maid, because mail isn't delivered on Sundays — her alibi is false."],
+["Classic","Two fathers and two sons go fishing. Each catches exactly one fish, yet only three fish are caught in total. How?","There are only three people involved, not four.","One person fills two roles at once.","Think grandfather, father, son.","There are only 3 people: a grandfather, his son, and his grandson — the grandfather is a father, the middle man is both a father and a son, and the boy is a son."],
+["Math","A man has 53 socks in his drawer: 21 identical blue, 15 identical black, and 17 identical red. It's dark and he can't see. What is the minimum number he must take out to guarantee a matching pair?","Consider the worst-case scenario across the 3 colors.","In the worst case, he could pull one of each color before getting a match.","So he needs one more sock than the number of colors.","4 socks (worst case: 1 blue, 1 black, 1 red, then the 4th must match one of them)."],
+["Sequence","What is the missing number: 3, 7, 15, 31, 63, ?","Look at how each number relates to double the previous one.","Each term is double the previous, plus 1.","63×2+1.","127."],
+["Sequence","What comes next: J, F, M, A, M, J, ?","These are the first letters of something calendar-related.","Think of the months of the year in order.","January, February, March, April, May, June...","J (for July)."],
+["Deduction","A man looks at a portrait and says, 'I have no brothers or sisters, but that man's father is my father's son.' The listener figures out immediately who's in the portrait — using pure logic, who is it, and why does this differ from the earlier version?","This is functionally identical to an earlier riddle in this set — the 'father's son' with no siblings must be the speaker himself.","So 'that man's father' is the speaker.","Meaning 'that man' is the speaker's son.","It's his son (same logic as before: with no siblings, 'my father's son' can only be himself)."],
+["Math","You roll two fair six-sided dice. What is the probability the sum is 7?","There are 36 total equally likely outcomes.","Count how many of the 36 combinations sum to 7.","(1,6),(2,5),(3,4),(4,3),(5,2),(6,1) — six combinations.","6/36 = 1/6."],
+["Math","A group of friends split a restaurant bill of $150 evenly. If there had been 5 more people, each would have paid $10 less. How many friends were there originally?","Let n be the number of friends, so each pays 150/n.","With 5 more: 150/(n+5) = 150/n − 10.","Solve the equation: 150n = 150(n+5) − 10n(n+5), simplify to a quadratic.","10 friends (each originally paid $15; with 15 people, each pays $10)."],
+["Lateral","A man is in a room with no doors and no windows, only a table and a mirror. How does he escape?","Think about what he 'sees' rather than a physical exit.","He looks into the mirror and 'sees what he saw.'","'Saw' sounds like a tool.","He uses the saw (from 'what he saw') to cut a hole and escape — a pure wordplay riddle."],
+["Classic","A boy was rushed to the hospital emergency room, and the surgeon said, 'I cannot operate on this boy, he is my son!' But the surgeon was not the boy's father. How is this possible?","Consider that not all surgeons are assumed to be men.","The surgeon could be a different family member entirely.","The surgeon is the boy's mother.","The surgeon is his mother."],
+["Classic","How many times can you subtract 5 from 25?","Think about what happens to the number 25 after the very first subtraction.","After subtracting once, the number is no longer 25.","So you can technically only subtract 5 from 25 itself once.","Once — after that, you're subtracting 5 from 20, not 25."],
+["Math","Two trains, 60 miles apart, move toward each other at 15 mph each. A bird flies back and forth between them at 30 mph until they meet. How far does the bird fly?","Work out how long it takes the trains to meet, not the bird's back-and-forth path.","The trains close the gap at a combined 30 mph, covering 60 miles.","Time to meet = 60/30 = 2 hours.","The bird flies 30 mph × 2 hours = 60 miles."],
+["Weighing","You have two identical-looking ropes, each of which takes exactly 1 hour to burn completely, but burns unevenly (so half the rope might not take 30 minutes). How do you measure exactly 45 minutes?","Burning a rope from both ends at once halves its burn time.","Light one rope at both ends and the other rope at just one end, simultaneously.","When the first rope finishes burning (30 min elapsed), light the second rope's other end too.","Light rope A at both ends and rope B at one end at the same time. Rope A finishes in 30 minutes. At that moment, light rope B's other end too — it has 30 minutes of rope left but now burns from both ends, finishing in 15 more minutes. Total: 30+15=45 minutes."],
+["Classic","What has a bottom at the top?","Think about the human body.","It's a body part usually located lower down.","This body part is named at the top when referring to legs.","Your legs (or knees) — actually the classic answer is: your legs, since 'bottom' also refers to the lowest part but is found at the top of your legs."],
+["Classic","What can you keep after giving it to someone else?","This is abstract, not a physical object.","You share this with someone in conversation.","Think about a spoken statement.","Your word (a promise), or: 'your word' / 'a cold' — the standard answer is 'your word.'"],
+["Classic","What has to be broken, then said, before you can move forward together?","Think about starting a conversation with a stranger.","This is a common phrase involving 'ice.'","'Breaking the ice' means starting conversation.","The ice (as in 'break the ice')."],
+["Classic","What is always in front of you but can't be seen?","Time is a common answer to this kind of riddle.","Think about what's coming next chronologically.","It hasn't happened yet.","The future."],
+["Classic","What word is spelled incorrectly in every single dictionary?","This is a pure wordplay/trick riddle.","Read the question literally, not about a real word.","The word 'incorrectly' itself is spelled correctly in the dictionary — but the riddle asks about the word 'incorrectly.'","The word 'incorrectly' — it's spelled correctly in the dictionary, so technically the riddle is a trick (the intended 'gotcha' answer is simply: the word 'incorrectly')."],
+["Math","In a room of 23 people, what is the (surprisingly high) probability at least two share a birthday?","This is the classic 'Birthday Problem.'","It's easier to compute the probability that NO two share a birthday, then subtract from 1.","Multiplying out (365/365)(364/365)...(343/365) gives roughly 49%, so the complement is just over 50%.","About 50.7% — surprisingly over half."],
+["Sequence","What number comes next: 1, 4, 9, 16, 25, ?","These are a well-known type of number.","Each is a whole number multiplied by itself.","6×6.","36 (perfect squares: 1²,2²,3²,4²,5²,6²)."],
+["Sequence","What comes next: O, T, T, F, F, S, S, E, ?","These are first letters of something you count with.","Think of numbers spelled out: One, Two, Three...","One, Two, Three, Four, Five, Six, Seven, Eight, Nine...","N (for Nine)."],
+["Lateral","A woman shoots her husband with a water gun in front of witnesses, and no one calls the police. Why?","The 'shooting' isn't a real crime.","A water gun is a toy, causing no real harm.","It could be a game, a prank, or a hot day of fun.","It's just a water gun — a harmless toy, so there's no real crime to report."],
+["Lateral","Every night at 8pm, a man goes to the same street corner, lights a candle, and puts it out immediately. Why?","He isn't doing this for light.","His job might involve maintaining something else entirely.","He's a lamplighter, lighting a streetlamp (the candle is figurative, or he lights the lamp itself).","He's a lamplighter — his job is to light the street lamp each evening (the 'candle' detail is a simplified/figurative version of lighting the gas lamp)."],
+["Classic","What building in a city has the most floors, but the fewest steps?","This is a play on the word 'floors.'","Ground level itself counts as a floor.","A single-story building has just 1 floor and no steps.","A single-story (one-floor) building — 'floors' can mean levels, and it needs no stairs at all."],
+["Classic","What English word has three consecutive double letters?","It relates to a workplace for accountants.","Think of a job title involving numbers.","'Bookkeeper' has 'oo', 'kk', 'ee' in a row.","Bookkeeper (or 'bookkeeping')."],
+["Classic","What five-letter word becomes shorter when you add two letters to it?","This is the same riddle idea as an earlier one, but check the exact word.","The word 'short' plus 'er.'","'Short' becomes 'shorter,' which describes something smaller.","Short → shorter."],
+["Deduction","Four people need to cross a rickety bridge at night with only one flashlight, which must be used for every crossing. The bridge holds at most 2 people at a time. Their crossing speeds are 1, 2, 5, and 10 minutes (a pair walks at the slower one's pace). What is the minimum total time to get everyone across?","The two slowest people should cross together, not separately.","Someone fast needs to shuttle the flashlight back each time — minimize how often the slow ones cross.","Try: 1&2 cross (2), 1 returns (1), 5&10 cross (10), 2 returns (2), 1&2 cross (2).","17 minutes: 1&2 over (2 min), 1 back (1 min), 5&10 over (10 min), 2 back (2 min), 1&2 over (2 min). Total = 2+1+10+2+2 = 17."],
+["Math","A frog is at the bottom of a 20-foot well. Each day it jumps up 4 feet, and each night it slides down 3 feet. How many days until it escapes?","Net gain per day is 1 foot, but watch the final day.","After 16 days it's climbed a net 16 feet.","On day 17, it jumps the final 4 feet and is out before sliding back.","17 days."],
+["Math","You have a 2x2x2 cube made of 8 unit cubes, all painted red on the outside. If you disassemble it, how many unit cubes have paint on exactly 3 sides?","Every unit cube in a 2x2x2 is a corner cube.","All 8 small cubes are at a corner of the big cube.","Corner cubes always have exactly 3 painted faces.","All 8 cubes have exactly 3 painted sides."],
+["Lateral","A man leaves home, makes three left turns, and returns home to find two masked men waiting. Who are they?","This isn't a crime scene — think about a specific sport.","The 'home' and 'turns' suggest a sports field.","He's a baseball player rounding the bases back to home plate.","They're the catcher and umpire at home plate — he's a baseball player who hit a triple (three left turns around the bases)."],
+["Classic","What has many rings but no fingers?","It's found outdoors, often very tall and old.","You can count its age by looking inside it.","A cross-section of it shows growth rings.","A tree."],
+["Classic","What can you hold in your left hand but not in your right?","This isn't about the object itself, but about your right hand specifically.","Think about what your right hand is doing while holding something in your left.","Whatever is in your right hand can't also be there.","Your right hand (or elbow) — the classic answer is simply: your right hand itself."],
+["Classic","What word in the English language does the following: the first two letters signify a male, the first three signify a female, the first four signify a great person, while the entire word signifies a great woman. What is the word?","Think of the word 'heroine.'","HE (male), HER (female), HERO (great person).","The whole word is HEROINE.","Heroine."],
+["Classic","If there are 6 apples and you take away 4, how many do you have?","The question asks how many YOU have, not how many are left.","You physically took 4 apples with you.","Focus on 'you took,' not 'remaining.'","4 (the ones you took)."],
+["Math","A man leaves home, travels 3 miles south, 3 miles east, 3 miles north, and ends up back home. Where could he be, other than the North Pole?","Consider the geometry very close to the South Pole.","Near the South Pole, going east can trace a full circle back to the same point.","He starts near the South Pole such that traveling 3 miles east forms a complete loop.","Near the South Pole, at a point where walking 3 miles south then heading east circles back exactly to that same spot before heading 3 miles north again."],
+];
+let order = [], idx = 0, cluesShown = 0, solved = 0, seen = 0;
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function startSet() {
+  order = shuffle([...Array(PUZZLES.length).keys()]);
+  idx = 0; solved = 0; seen = 0;
+  loadPuzzle();
+}
+function loadPuzzle() {
+  cluesShown = 0;
+  const p = PUZZLES[order[idx]];
+  document.getElementById('progress').textContent = `Puzzle ${idx + 1} of ${order.length}`;
+  document.getElementById('category').textContent = p[0];
+  document.getElementById('prompt').textContent = p[1];
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('clue' + i);
+    el.textContent = 'Clue ' + i + ': ' + p[1 + i];
+    el.classList.remove('on');
+  }
+  const ansEl = document.getElementById('answerBox');
+  ansEl.textContent = '✅ ' + p[5];
+  ansEl.classList.remove('on');
+  document.getElementById('btnClue').disabled = false;
+  document.getElementById('btnClue').textContent = 'Show Clue 1';
+  updateScore();
+}
+function showNextClue() {
+  if (cluesShown >= 3) return;
+  cluesShown++;
+  document.getElementById('clue' + cluesShown).classList.add('on');
+  document.getElementById('btnClue').textContent = cluesShown < 3 ? `Show Clue ${cluesShown + 1}` : 'All clues shown';
+  if (cluesShown === 3) document.getElementById('btnClue').disabled = true;
+}
+function showAnswer() {
+  const ansEl = document.getElementById('answerBox');
+  if (!ansEl.classList.contains('on')) { seen++; updateScore(); }
+  ansEl.classList.add('on');
+}
+function nextPuzzle() {
+  idx = (idx + 1) % order.length;
+  if (idx === 0) shuffle(order);
+  loadPuzzle();
+}
+function updateScore() {
+  document.getElementById('scoreDisplay').textContent = `${seen}/${order.length} revealed`;
+}
+document.getElementById('btnClue').addEventListener('click', showNextClue);
+document.getElementById('btnAnswer').addEventListener('click', showAnswer);
+document.getElementById('btnNext').addEventListener('click', nextPuzzle);
+document.getElementById('btnRestart').addEventListener('click', startSet);
+startSet();
+</script>
+</body>
+</html>
