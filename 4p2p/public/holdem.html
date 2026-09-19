@@ -372,8 +372,24 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    only, not display:none, so the layout/centering of the whole board
    row never shifts once this card fades in. */
 .board-card-pending-reveal{opacity:0}
+/* Per explicit request ("solves card distribution problem with
+   identical colors"): a real 4-color deck -- every suit gets its own
+   distinct color instead of hearts/diamonds sharing red and
+   clubs/spades sharing black, the standard fix professional sites use
+   for exactly this "which suit is this at a glance" problem. Old
+   .card.red/.card.black rules kept as harmless fallbacks in case
+   anything elsewhere still references them directly. */
 .card.red{color:#c8302f}
 .card.black{color:#1a1a1a}
+.card.suit-hearts{color:#d1272a}
+.card.suit-diamonds{color:#1f5fd1}
+.card.suit-clubs{color:#1f8a3e}
+.card.suit-spades{color:#181818}
+/* Per explicit request ("king should have a king pic etc"): face
+   cards get a subtle gold accent border and a small royal icon next
+   to the rank letter, reading as a genuine face card at a glance. */
+.card.face-card{border:1.5px solid var(--gold-soft, #c9a24b);box-shadow:0 2px 5px rgba(0,0,0,0.4),inset 0 0 0 1px rgba(201,162,75,0.35)}
+.face-icon{font-size:0.7em;margin-left:1px;vertical-align:middle}
 .card.back{background:linear-gradient(135deg,#1a3a6b,#0d2038);border:2px solid var(--gold-soft)}
 .card.mini{width:26px;height:37px;font-size:0.65rem}
 
@@ -1538,10 +1554,31 @@ function chipHtml(value, small) {
   return `<span class="chip${small ? ' small' : ''}" style="background:${chipGradientForValue(value)}"></span>`;
 }
 
+// Per explicit request ("solves card distribution problem with
+// identical colors"): shared helper for the 4-color deck scheme
+// (hearts=red, diamonds=blue, clubs=green, spades=black) -- used by
+// cardHtml() and every other place in this file that independently
+// sets a card element's suit-color class, so all of them stay
+// consistent with each other instead of some places still using the
+// old 2-color red/black split.
+function suitClassFor(suit) {
+  return suit === '♥' ? 'suit-hearts'
+    : suit === '♦' ? 'suit-diamonds'
+    : suit === '♣' ? 'suit-clubs'
+    : 'suit-spades';
+}
 function cardHtml(card, mini, revealFlip, extraClass) {
   if (!card) return `<div class="card back${mini ? ' mini' : ''}"></div>`;
-  const isRed = card.suit === '♥' || card.suit === '♦';
-  return `<div class="card${mini ? ' mini' : ''} ${isRed ? 'red' : 'black'}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}"><div>${card.rank}</div><div>${card.suit}</div></div>`;
+  const suitClass = suitClassFor(card.suit);
+  // Per explicit request ("king should have a king pic etc"): face
+  // cards (K/Q/J) get a distinct visual treatment -- a small royal
+  // icon next to the rank letter and a subtle gold accent border,
+  // reading as a genuine face card at a glance rather than just a
+  // bigger letter, without needing actual illustrated artwork.
+  const faceIcon = card.rank === 'K' ? '♚' : card.rank === 'Q' ? '♛' : card.rank === 'J' ? '♞' : '';
+  const faceClass = faceIcon ? ' face-card' : '';
+  const rankDisplay = faceIcon ? `${card.rank}<span class="face-icon">${faceIcon}</span>` : card.rank;
+  return `<div class="card${mini ? ' mini' : ''} ${suitClass}${faceClass}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}"><div>${rankDisplay}</div><div>${card.suit}</div></div>`;
 }
 let lastCardRevealAnimatedFor = null;
 // Per explicit request: tracks which hand number the dealing animation
@@ -2738,21 +2775,16 @@ function showWinningHandOnTable(state) {
   const winnerPos = r.winners[0].seat;
   const winnerSeat = state.seats[winnerPos];
   const winnerSeatEl = document.querySelector(`.seat[data-pos="${winnerPos}"]`);
-  // Per explicit request ("position should remain same"): the hand
-  // evaluator returns these ordered by poker rank significance (the
-  // pair first, then kickers, etc.), which has nothing to do with
-  // where each card actually sits -- board cards in one place, hole
-  // cards in another. Re-sorted into the real physical layout order
-  // instead (board cards first, in their actual board position 0-4,
-  // then this player's own hole cards after), so the 5 slots always
-  // land in the same stable, predictable order hand after hand.
+  // Per explicit, most recent live report: reverted back to the hand
+  // evaluator's own natural order (pair first, then kickers by rank)
+  // -- an earlier request asked for board-position order instead, but
+  // this latest, explicit instruction asks for rank order specifically
+  // ("if a player wins with a pair, the pair should be in positions 1
+  // and 2, then the rest by ranking"), so this now uses
+  // r.winners[0].hand exactly as the evaluator already returns it,
+  // with no re-sorting on top.
   const cardKeyForSort = c => c.rank + c.suit;
-  const boardKeyOrder = new Map(state.board.map((c, i) => [cardKeyForSort(c), i]));
-  const winningHand = r.winners[0].hand.slice().sort((a, b) => {
-    const aIdx = boardKeyOrder.has(cardKeyForSort(a)) ? boardKeyOrder.get(cardKeyForSort(a)) : 100;
-    const bIdx = boardKeyOrder.has(cardKeyForSort(b)) ? boardKeyOrder.get(cardKeyForSort(b)) : 100;
-    return aIdx - bIdx;
-  });
+  const winningHand = r.winners[0].hand;
   const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
   const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
   // Per explicit live report: the winner's own avatar visibly reacts
@@ -2861,7 +2893,7 @@ function showWinningHandOnTable(state) {
     const delay = i * 320;
     setTimeout(() => {
       const flying = document.createElement('div');
-      flying.className = `card ${(card.suit === '♥' || card.suit === '♦') ? 'red' : 'black'}`;
+      flying.className = `card ${suitClassFor(card.suit)}`;
       flying.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
       flying.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;width:${slotRect.width}px;height:${slotRect.height}px;margin:-${slotRect.height/2}px 0 0 -${slotRect.width/2}px;z-index:1850;transform:scale(0.15);opacity:0.6;transition:transform 0.55s cubic-bezier(.2,1.4,.3,1),left 0.55s cubic-bezier(.3,.5,.4,1),top 0.55s cubic-bezier(.3,.5,.4,1),opacity 0.3s ease;`;
       document.body.appendChild(flying);
@@ -2874,7 +2906,7 @@ function showWinningHandOnTable(state) {
       setTimeout(() => {
         flying.remove();
         slotEl.classList.remove('table-winning-hand-slot');
-        slotEl.classList.add((card.suit === '♥' || card.suit === '♦') ? 'red' : 'black');
+        slotEl.classList.add(suitClassFor(card.suit));
         slotEl.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
         arrivedCount++;
         if (arrivedCount === winningHand.length) {
@@ -3023,7 +3055,7 @@ function animateDealingCommunityCards(newCards, existingCount) {
       // the board's own actual card size, so what's seen mid-flight is
       // the genuine card face, not a placeholder.
       const card = document.createElement('div');
-      card.className = `flying-community-card card ${cardData.suit === '♥' || cardData.suit === '♦' ? 'red' : 'black'}`;
+      card.className = `flying-community-card card ${suitClassFor(cardData.suit)}`;
       card.innerHTML = `<div>${cardData.rank}</div><div>${cardData.suit}</div>`;
       card.style.left = startX + 'px';
       card.style.top = startY + 'px';
