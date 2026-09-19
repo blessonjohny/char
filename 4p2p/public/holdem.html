@@ -239,10 +239,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    the chip to read as its own side/edge rather than a drop shadow, on
    top of the existing softer blurred shadow for actual lift off the
    felt. Diameter also brought in slightly per request. */
-/* Per explicit request: made pixel-identical to .pot-stack-chip (16px, 1.5px border) - the
-   chip shown near a player (the bet-amount badge) and the chips shown on the table itself now
-   share one single, exactly-matching size and style, not two different-looking chip designs. */
-.chip{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:1.5px solid rgba(255,255,255,0.75);box-shadow:0 2px 3px rgba(0,0,0,0.5);flex-shrink:0}
+.chip{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.7);box-shadow:0 2px 4px rgba(0,0,0,0.5);flex-shrink:0}
 .chip.small{width:14px;height:14px;border-width:1.5px}
 .chip-stack{display:flex}
 .chip-stack .chip{margin-left:-10px}
@@ -305,9 +302,9 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    exactly what they were -- only the flatness itself is addressed
    here, via the ::after rim band below, not the chip's size or how
    the pile stacks. */
-.pot-stack-chip{width:16px;height:16px;border-width:1.5px;position:absolute}
+.pot-stack-chip{width:16px;height:16px;border-width:1.5px}
 .seat-rail-chips{position:absolute;width:34px;height:16px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
-.rail-chip-pile{position:absolute;bottom:0;left:50%;width:16px;transform:translateX(-50%)}
+.rail-chip-pile{position:absolute;bottom:0;left:50%;width:13px;height:16px;transform:translateX(-50%)}
 /* Real, confirmed bug fix per explicit live report with a screenshot
    ("looks like a bar, not chips, no roundness -- barrel"): the real
    pot pile's chips get their round shape from .flying-chip
@@ -362,40 +359,12 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .street-banner{position:absolute;top:72%;left:50%;transform:translate(-50%,-50%);background:transparent;border:none;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 14px rgba(244,196,48,0.9),0 2px 6px rgba(0,0,0,0.9);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
 .street-banner.on{display:block}
 @keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
-.card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0;transition:opacity 0.25s ease;position:relative}
-.c-corner{position:absolute;display:flex;flex-direction:column;align-items:center;line-height:0.85;font-size:0.62em;font-weight:800}
-.c-corner span:last-child{font-size:0.9em}
-.c-tl{top:3px;left:3px}
-.c-br{bottom:3px;right:3px;transform:rotate(180deg)}
-.c-pip{font-size:1.7em}
-.card.blue-bg{background:#cfe8f5}
-/* Per explicit correction: face cards now layer their rank letter directly over their own
-   large suit symbol - the suit stays the dominant, immediately-readable shape, with the
-   letter just confirming which face card it is, rather than the letter alone hiding which
-   suit it belongs to. */
-.card.face .c-pip{position:relative;display:flex;align-items:center;justify-content:center}
-.c-face-suit{font-size:1.15em}
-.c-face-rank{position:absolute;font-family:Georgia,serif;font-size:0.62em;font-weight:900;-webkit-text-stroke:0.05em var(--cream,#faf6ec);paint-order:stroke fill}
-.card.mini .c-corner{font-size:0.5em}
-.card.mini .c-pip{font-size:1.2em}
-/* Per explicit, emphatic correction: only a PLAYER's own hole cards (bottom of screen) ever
-   get this treatment - never the dealer's board cards (see boardArea rendering, which no
-   longer touches this class at all). Changed to an actual double border (two concentric
-   outlines with a visible gap between them) per explicit request, replacing the single
-   soft-glow border from the previous version. */
-.card.winning-card{border:3px solid #2ecc71;outline:3px solid #2ecc71;outline-offset:3px;animation:winCardFlash 1s ease-in-out 2}
-/* Per explicit request: the table's own winning-hand row (below the board, see
-   showWinningHandOnTable) marks its replacement cards - the ones that came from the winner's
-   own hand rather than just being a copy of the board - with a single border only, kept
-   deliberately distinct from the double border+outline above (which stays exclusive to the
-   player's own hand strip at the bottom of the screen). */
-.card.winning-card-single{border:3px solid #2ecc71}
-@keyframes winCardFlash{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
+.card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0;transition:opacity 0.25s ease}
 /* Per explicit request: whichever board card the winning hand doesn't
    actually use (replaced by a stronger hole card) gets a visible red
    border on the real board itself, so it's clear at a glance which
    community cards weren't part of the final hand. */
-
+.board-card-unused{border:2.5px solid #ff2b2b;box-shadow:0 2px 5px rgba(0,0,0,0.4),0 0 8px rgba(255,43,43,0.7)}
 /* Per explicit live report ("already a card displayed... patchwork"):
    a genuinely new board card is laid out and positioned immediately
    (the flying-card animation needs its real, correct position to fly
@@ -695,11 +664,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   /* Card background color follows suit color, matching the reference exactly: red suits on a
      plain white/cream card, black suits on a pale blue card - not the same cream background
      for every card regardless of suit. */
-  /* Per explicit, emphatic correction: the pale blue background on black-suit cards was being
-     read as a confusing highlight, not a suit indicator - removed entirely. Every card now
-     shares the same plain background regardless of suit, same as a real physical deck; suit
-     is shown only by the symbol itself and its color (black vs red), never the card's
-     background. */
+  body.k28-in-game .card.black { background: #cfe8f5; }
   body.k28-in-game .seat-cards { margin-top: 3px; }
   body.k28-in-game .seat-cards .card.mini { width: 24px; height: 34px; font-size: 0.65rem; }
   body.k28-in-game .dealer-chip { width: 20px; height: 20px; font-size: 0.62rem; }
@@ -1576,47 +1541,9 @@ function chipHtml(value, small) {
 function cardHtml(card, mini, revealFlip, extraClass) {
   if (!card) return `<div class="card back${mini ? ' mini' : ''}"></div>`;
   const isRed = card.suit === '♥' || card.suit === '♦';
-  const face = ['K', 'Q', 'J'].includes(card.rank);
-  // Per explicit correction: a plain black/red deck still left Clubs indistinguishable from
-  // Spades, and Hearts from Diamonds, at a glance - especially at mini size. Rather than a
-  // single "black suits" background group (which read as a confusing stray highlight), each
-  // of the 4 suits now gets one of two backgrounds specifically: Clubs and Hearts share the
-  // pale blue background, Spades and Diamonds share the plain cream one - crossing the
-  // red/black color pairing on purpose, so background + text color together make all 4 suits
-  // visually distinct from one another, not just red vs black.
-  const blueBg = card.suit === '♣' || card.suit === '♥';
-  // Per explicit correction: a face card used to show ONLY its rank letter in the center,
-  // with the suit visible solely in the small corner index - exactly what made a King of
-  // Clubs and King of Spades hard to tell apart at a glance. The suit symbol is now always
-  // the dominant center element (large, immediately readable) on every card, face or number;
-  // face cards additionally show their rank letter smaller, layered just above the suit
-  // symbol, distinguishing "this is a face card" without needing real portrait artwork.
-  const pipHtml = face
-    ? `<span class="c-face-rank">${card.rank}</span><span class="c-face-suit">${card.suit}</span>`
-    : card.suit;
-  return `<div class="card${mini ? ' mini' : ''} ${isRed ? 'red' : 'black'}${blueBg ? ' blue-bg' : ''}${face ? ' face' : ''}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}" data-rank="${card.rank}" data-suit="${card.suit}">
-    <div class="c-corner c-tl"><span>${card.rank}</span><span>${card.suit}</span></div>
-    <div class="c-pip">${pipHtml}</div>
-    <div class="c-corner c-br"><span>${card.rank}</span><span>${card.suit}</span></div>
-  </div>`;
+  return `<div class="card${mini ? ' mini' : ''} ${isRed ? 'red' : 'black'}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}"><div>${card.rank}</div><div>${card.suit}</div></div>`;
 }
 let lastCardRevealAnimatedFor = null;
-// Per explicit request: at showdown, both the board and a winner's own hole cards get
-// reordered so the cards that actually make up their best 5-card hand come first (highest
-// rank first), instead of plain deal order - and those same cards get the green
-// winning-card highlight. Uses the server's own evaluator result (winner.hand, the literal
-// best-5 combo it already computed to decide the pot) rather than re-guessing from rank
-// frequency here, which would mis-highlight a lower pair that isn't actually part of the
-// winning 5 (e.g. a 3rd, unused pair on the board in a two-pair hand).
-const RANK_ORDER = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
-function cardKey(c) { return c ? c.rank + c.suit : ''; }
-function sortWinningFirst(cards, winSet) {
-  return cards.slice().sort((a, b) => {
-    const aw = winSet.has(cardKey(a)), bw = winSet.has(cardKey(b));
-    if (aw !== bw) return aw ? -1 : 1;
-    return RANK_ORDER[b.rank] - RANK_ORDER[a.rank];
-  });
-}
 // Per explicit request: tracks which hand number the dealing animation
 // has already played for, same pattern as lastCardRevealAnimatedFor --
 // see animateDealingCards below for what actually uses this.
@@ -1655,65 +1582,85 @@ const lastActionBubbleTextBySeat = {};
 // real chips that piled up, not a fresh generic animation standing in
 // for them.
 let potChipStack = [];
-// Per explicit correction: the pyramid belongs on the TABLE's own pot chips, not the
-// per-seat piles (those go back to plain 2 stacks below) - base width 5 here specifically
-// (smaller than the seat version's base-7 cap, since this pot pile is a single running total
-// rather than one pyramid per seat).
-const POT_PYRAMID_ROWS = [5, 4, 3, 2, 1]; // base row first, narrowing upward
-function potPyramidSlot(index) {
-  let cursor = 0;
-  for (let row = 0; row < POT_PYRAMID_ROWS.length; row++) {
-    const rowSize = POT_PYRAMID_ROWS[row];
-    if (index < cursor + rowSize) return { row, col: index - cursor, rowSize };
-    cursor += rowSize;
-  }
-  // Per explicit request, same capping approach used for a stack's own decomposed chip
-  // count elsewhere in this file: once the pyramid's full 15-chip capacity is used, further
-  // chips simply aren't added as individual elements - the pot's real total is already shown
-  // by its own text label regardless, this is only ever the decorative pile itself.
-  return null;
-}
 function landChipInPotStack(color) {
   const potEl = $('potAnchor') || $('potDisplay');
   if (!potEl) return;
-  const slot = potPyramidSlot(potChipStack.length);
-  if (!slot) return;
   const potRect = potEl.getBoundingClientRect();
   const baseX = potRect.left + potRect.width / 2;
   const baseY = potRect.top + potRect.height / 2;
+  // Per explicit request ("5 base pyramid... want that to be 3, all
+  // touching each other"): three real vertical piles now instead of
+  // two -- each new chip in a pile still stacks directly on top of
+  // the one before it, growing taller rather than wider, the way
+  // physical poker chips actually stack. flying-chip-landed adds the
+  // flattened, lying-on-the-table look (see its own CSS) plus a brief
+  // "drop and settle" flourish as each one lands.
+  const stackIndex = potChipStack.length % 3;
+  const chipInThisStack = Math.floor(potChipStack.length / 3);
   const chip = document.createElement('div');
   chip.className = 'flying-chip pot-stack-chip flying-chip-landed';
   chip.style.background = color;
+  // Per explicit request ("2 stacks... make it touch one another,
+  // don't overlap"), now extended to 3: stackSpacingX used to be a
+  // flat, guessed number regardless of the chip's own actual rendered
+  // size (which is vw-based and genuinely varies by device/viewport)
+  // -- appended first, off-screen-equivalent at the anchor point,
+  // purely to measure this chip's own real width right now, then sets
+  // each pile's center exactly one full chip-width apart from its
+  // neighbor. Adjacent piles' near edges meet exactly at that
+  // distance -- touching, not overlapping and not gapped, regardless
+  // of how big the chip actually renders on this specific device.
   chip.style.left = baseX + 'px';
   chip.style.top = baseY + 'px';
   document.body.appendChild(chip);
-  const measuredChipWidth = chip.getBoundingClientRect().width || 16;
-  const baseWidthPx = POT_PYRAMID_ROWS[0] * measuredChipWidth;
-  const rowWidthPx = slot.rowSize * measuredChipWidth;
-  const rowLeftPx = (baseWidthPx - rowWidthPx) / 2; // centers this row over the pyramid's base
+  // Real, confirmed root-cause bug fix: getBoundingClientRect() was
+  // being measured while the chip's own "drop and settle" landing
+  // animation was still at its opening keyframe (a deliberate 1.5x
+  // scale burst, see chipDropSettle) -- caught the chip mid-animation
+  // and measured 22.5px (exactly 15 * 1.5) instead of its real, settled
+  // 15px width, which is exactly why piles ended up with a real gap
+  // instead of touching. getComputedStyle().width reads the element's
+  // own base CSS size directly, unaffected by whatever transform
+  // animation happens to be running on it at this exact instant.
+  const measuredChipWidth = parseFloat(getComputedStyle(chip).width) || 15;
+  const stackSpacingX = measuredChipWidth;
   // Per explicit request: matched to the exact same 1.5px-per-chip
   // rise the rail piles use, so both chip systems stack at the same
   // "distance on top of each other" instead of two different amounts.
   const stackRiseY = 1.5;
-  const offsetX = -baseWidthPx / 2 + rowLeftPx + slot.col * measuredChipWidth + measuredChipWidth / 2;
-  const offsetY = -slot.row * (measuredChipWidth * 0.55);
+  const offsetX = (stackIndex - 1) * stackSpacingX;
+  const offsetY = -chipInThisStack * stackRiseY;
   chip.style.left = (baseX + offsetX) + 'px';
   chip.style.top = (baseY + offsetY) + 'px';
-  chip.style.zIndex = String(6 + slot.row);
+  chip.style.zIndex = String(6 + chipInThisStack);
   potChipStack.push(chip);
-  updatePotStackTotalPosition(baseX, baseY, slot.row, measuredChipWidth);
+  updatePotStackTotalPosition(baseX, baseY, stackSpacingX, stackRiseY);
 }
 function clearPotChipStack() {
   potChipStack.forEach(c => c.remove());
   potChipStack = [];
 }
-// Sits directly above the pyramid's current highest occupied row.
-function updatePotStackTotalPosition(baseX, baseY, topRow, chipWidth) {
+// Per explicit live report: recentered directly above the middle of
+// the three stacks (baseX itself, since the piles sit at baseX-spacing,
+// baseX, and baseX+spacing) instead of off to the side -- baseX/baseY/
+// stackSpacingX/stackRiseY are the exact same values landChipInPotStack
+// just used to place the chip that triggered this call, so the label
+// always matches the pile's real current geometry rather than a
+// guessed or stale one. Uses whichever column is actually tallest so
+// it clears all three piles, not just one.
+function updatePotStackTotalPosition(baseX, baseY, stackSpacingX, stackRiseY) {
   const label = $('potStackTotal');
   if (!label) return;
-  const topOfPyramidY = baseY - topRow * (chipWidth * 0.55);
+  // Per explicit request ("3, all touching"): now 3 columns instead of
+  // 2 -- each column's own count is how many chips landed at that
+  // exact (length % 3) remainder, computed directly rather than
+  // assuming an even 2-way split.
+  const columnCounts = [0, 0, 0];
+  for (let i = 0; i < potChipStack.length; i++) columnCounts[i % 3]++;
+  const tallestColumnCount = Math.max(...columnCounts);
+  const topOfTallestColumnY = baseY - Math.max(0, tallestColumnCount - 1) * stackRiseY;
   label.style.left = baseX + 'px';
-  label.style.top = (topOfPyramidY - 12) + 'px';
+  label.style.top = (topOfTallestColumnY - 12) + 'px';
   label.style.transform = 'translate(-50%,-100%)';
 }
 function animateChipToPot(seatPos, amount) {
@@ -2211,9 +2158,7 @@ $('btnExitLobbyGuest').addEventListener('click', exitCreatedTable);
 // the colors shown are mathematically derived from the real value
 // instead of an arbitrary repeating sequence that ignored it.
 const CHIP_DENOMINATIONS = [
-  // Per explicit request: the $500 denomination removed entirely, so a given stack value
-  // decomposes into more, smaller chips instead of collapsing quickly into just one or two
-  // big ones.
+  { value: 500, color: CHIP_COLOR_STOPS[6].colors[1] }, // gold
   { value: 100, color: CHIP_COLOR_STOPS[5].colors[1] }, // purple
   { value: 50, color: CHIP_COLOR_STOPS[4].colors[1] },  // black
   { value: 25, color: CHIP_COLOR_STOPS[3].colors[1] },  // green
@@ -2222,28 +2167,41 @@ const CHIP_DENOMINATIONS = [
   { value: 1, color: CHIP_COLOR_STOPS[0].colors[1] },   // white
 ];
 // Breaks a real chip value down into actual denomination chips,
-// largest first (exactly how a real cashier would count it out), then
-// returns at most maxChips of them -- keeping the largest
-// denominations (the ones that actually matter for representing the
-// value) rather than truncating arbitrarily, so a capped visual stack
-// still shows genuine, real chips that were actually part of the
-// total, not a fixed repeating rainbow unrelated to the number.
+// largest first (exactly how a real cashier would count it out).
+// Real, confirmed bug fix per explicit live report ("chips return
+// showing only 1 color"): the original version returned just the
+// first maxChips entries of this breakdown -- for any reasonably
+// large total, the greedy largest-first breakdown is dominated by
+// many copies of the single biggest denomination before a smaller one
+// ever appears at all, so a capped visual pile silently became
+// all-gold (or whatever the top tier is) the moment a stack grew past
+// a few thousand, even though the real breakdown underneath still
+// genuinely contains a mix. Computes the FULL real breakdown first
+// (every denomination actually present, not capped), then samples
+// evenly ACROSS that full list rather than truncating to its start --
+// every color returned is still a real denomination actually in the
+// total, just chosen to represent the real spread of the breakdown
+// instead of only its largest end.
 function decomposeChipValue(value, maxChips) {
   let remaining = Math.max(0, Math.floor(Number(value) || 0));
-  const colors = [];
+  const fullBreakdown = [];
   for (const denom of CHIP_DENOMINATIONS) {
-    while (remaining >= denom.value && colors.length < maxChips) {
-      colors.push(denom.color);
+    while (remaining >= denom.value) {
+      fullBreakdown.push(denom.color);
       remaining -= denom.value;
     }
-    if (colors.length >= maxChips) break;
   }
-  // Any leftover under the smallest denomination (or a value of 0)
-  // still needs to show at least one chip -- the smallest real
-  // denomination's own color is the honest choice, not a fallback
-  // rainbow color.
-  if (colors.length === 0) colors.push(CHIP_DENOMINATIONS[CHIP_DENOMINATIONS.length - 1].color);
-  return colors;
+  if (fullBreakdown.length === 0) return [CHIP_DENOMINATIONS[CHIP_DENOMINATIONS.length - 1].color];
+  if (fullBreakdown.length <= maxChips) return fullBreakdown;
+  // Evenly sampled indices across the full breakdown -- e.g. for a
+  // breakdown of 8 real chips capped to a visual 5, picks indices
+  // 0,1,3,5,7 rather than just 0,1,2,3,4, so both the large and small
+  // ends of the real mix actually get represented.
+  const sampled = [];
+  for (let i = 0; i < maxChips; i++) {
+    sampled.push(fullBreakdown[Math.floor(i * (fullBreakdown.length - 1) / (maxChips - 1))]);
+  }
+  return sampled;
 }
 function renderRailChips(state) {
   const container = $('railChipsContainer');
@@ -2310,18 +2268,61 @@ function renderRailChips(state) {
     const railStyle = `left:${railX.toFixed(2)}%;top:${railY.toFixed(2)}%`;
     const chips = s.chips || 0;
     if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}"></div>`;
-    // Per explicit correction: back to a plain 2-stack pile per seat - the pyramid shape
-    // moved to the table's own pot chips instead (see landChipInPotStack), not here.
     const pileCount = 2;
+    // Defensive hard cap, explicit this time: perPile is only ever used
+    // to pick a chip count between 2 and 5 below -- clamping it here
+    // too means even a corrupt or absurd chips value (negative, NaN,
+    // a huge number from a bug elsewhere) can never produce more than
+    // 5 real DOM elements per pile, so a repeat of the "full-height
+    // bar" failure literally cannot happen from this function alone
+    // regardless of what chips turns out to be.
     const perPile = Math.min(100000, Math.max(0, Math.ceil((Number(chips) || 0) / pileCount)));
+    // Per explicit request ("chips on the table and chips on hands
+    // should match the exact value... do all the math and assign
+    // values"): each pile's own share of the real chip total is
+    // decomposed into genuine denominations (see decomposeChipValue),
+    // so the colors shown are mathematically derived from the actual
+    // number instead of an arbitrary repeating sequence unrelated to
+    // it -- a player holding mostly small chips actually shows small-
+    // denomination colors, and a big stack actually shows the bigger
+    // ones.
     const pilesHtml = Array.from({ length: pileCount }, (_, pileIdx) => {
       const pileValue = pileIdx === 0 ? Math.ceil(chips / pileCount) : Math.floor(chips / pileCount);
-      const visualChipCount = Math.min(4, Math.max(2, Math.round(1 + Math.sqrt(perPile) * 0.25)));
+      const visualChipCount = Math.min(5, Math.max(2, Math.round(1 + Math.sqrt(perPile) * 0.25)));
       const pileColors = decomposeChipValue(pileValue, visualChipCount);
-      const chipsHtml = pileColors.map((chipColor, i) =>
-        `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 3}px;transform:translate(-50%,0) scaleY(0.5)"></div>`
-      ).join('');
-      const pileLeftPercent = pileIdx === 0 ? 40 : 60;
+      const chipsHtml = pileColors.map((chipColor, i) => {
+        // Per explicit live report: chips within a pile read as spread
+        // apart rather than genuinely stacked -- tightened, and also
+        // converted to vw (same reasoning as OFFSET_VW above) so the
+        // overlap amount stays proportionally correct on any real
+        // device instead of a fixed px gap that reads as huge once
+        // the avatar next to it is actually small on a real phone.
+        // Per explicit live report: height brought all the way down to
+        // 0 -- every chip in a pile now sits at the exact same
+        // position, directly on top of each other with no vertical
+        // offset at all, rather than the staggered "staircase" spread
+        // used before.
+        // Per explicit live report ("where's the rest" -- fully
+        // overlapping chips made it look like only one existed):
+        // small non-zero offset restored so each chip in the pile
+        // peeks out slightly below the one on top of it, reading as
+        // a genuine multi-chip stack again, while staying much
+        // tighter than the original spread-out version.
+        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 1.5}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+      }).join('');
+      // Per explicit live report: the two piles themselves read as far
+      // apart -- brought in from 32/68 to 40/60, close enough that
+      // they now look like one cohesive two-stack unit sitting
+      // together rather than two separate, disconnected piles.
+      // Real, confirmed math fix per explicit live report ("overlapping
+      // left and right"): the individual chip discs are 16px wide, but
+      // the previous pile positions (40%/60% of a 34px container, only
+      // ~7px apart) put the two piles' own chips overlapping by several
+      // pixels regardless of the container's own width -- 25%/75%
+      // actually clears the full 16px chip width on each side with a
+      // small real gap left over, checked against the actual pixel
+      // math this time, not just nudged by feel.
+      const pileLeftPercent = pileIdx === 0 ? 25 : 75;
       return `<div class="rail-chip-pile" style="left:${pileLeftPercent}%">${chipsHtml}</div>`;
     }).join('');
     return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}">${pilesHtml}</div>`;
@@ -2427,9 +2428,6 @@ function renderGameTable(state) {
   // correctly laid out right away), but any genuinely new card this
   // render adds starts invisible and only fades in once its own
   // flying copy has actually finished traveling and landed.
-  // Per explicit, emphatic correction: the board (the dealer's own 5 community cards) never
-  // gets reordered or highlighted at all - only the PLAYERS' own hole cards at the bottom do
-  // (further below). Reverted this back to plain, untouched board display.
   $('boardArea').innerHTML = state.board.map((c, i) => {
     const isNewThisRender = i >= boardLenBeforeThisRender;
     return cardHtml(c, false, false, isNewThisRender ? 'board-card-pending-reveal' : '');
@@ -2458,14 +2456,11 @@ function renderGameTable(state) {
     const p = positions[slot];
     const isActive = state.currentPlayer === pos && state.phase !== 'handEnd';
     const revealingNow = isNewShowdownReveal && pos !== myPos && !s.folded && s.hand.length && s.hand[0] && s.hand[0].rank;
-    const seatWinner = state.showdownResult && state.showdownResult.boardShown && state.showdownResult.winners.find(w => w.seat === pos && w.hand);
-    const seatWinSet = seatWinner ? new Set(seatWinner.hand.map(cardKey)) : null;
-    const seatHoleCards = seatWinSet ? sortWinningFirst(s.hand, seatWinSet) : s.hand;
     const cardsHtml = s.folded
       ? '' // no cards shown at all once folded -- the FOLDED tag below says why
       : (pos === myPos
         ? '' // full-size cards already shown in the hand strip below -- no need to duplicate them here too
-        : (seatHoleCards.length ? seatHoleCards.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow, seatWinSet && c && seatWinSet.has(cardKey(c)) ? 'winning-card' : '')).join('') : ''));
+        : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
     return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" data-slot="${slot}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
       ${isActive && pos !== myPos ? `<div class="turn-tag turn-tag-outer">TURN</div>` : ''}
       <div class="seat-avatar-wrap">
@@ -2502,10 +2497,7 @@ function renderGameTable(state) {
   renderRailChips(state);
 
   const mySeat = state.seats[myPos];
-  const myWinner = state.showdownResult && state.showdownResult.boardShown && state.showdownResult.winners.find(w => w.seat === myPos && w.hand);
-  const myWinSet = myWinner ? new Set(myWinner.hand.map(cardKey)) : null;
-  const myHoleCards = mySeat && (myWinSet ? sortWinningFirst(mySeat.hand, myWinSet) : mySeat.hand);
-  $('myHandStrip').innerHTML = myHoleCards && myHoleCards.length ? myHoleCards.map(c => cardHtml(c, false, false, myWinSet && myWinSet.has(cardKey(c)) ? 'winning-card' : '')).join('') : '';
+  $('myHandStrip').innerHTML = mySeat && mySeat.hand.length ? mySeat.hand.map(c => cardHtml(c, false)).join('') : '';
   $('myHandLabel').textContent = state.myHandName ? `You have: ${state.myHandName}` : '';
   // Desktop-only top readouts (see the CSS/HTML comments where these are defined for why they
   // exist as separate top-level elements rather than nested inside my own seat).
@@ -2771,10 +2763,19 @@ function showWinningHandOnTable(state) {
   const cardKey = c => c.rank + c.suit;
   const holeCardKeys = new Set((winnerSeat && winnerSeat.hand ? winnerSeat.hand : []).map(cardKey));
 
-  // Per explicit, emphatic correction: the real board never gets modified in any way, not
-  // even a red border marking which of its cards weren't used - removed entirely. Which cards
-  // were replaced is now shown only in the winning-hand row itself below (the replacement
-  // slots get a single green border there instead - see the flight-landing code further down).
+  // Per explicit request: any board card the winning hand doesn't
+  // actually use (a hole card took its place in the real best-5) gets
+  // marked with a red border directly on the real board, so it's
+  // visible at a glance which community cards weren't part of the
+  // final hand, without waiting for or squinting at the separate
+  // winning-hand row.
+  const winningHandKeys = new Set(winningHand.map(cardKey));
+  const boardAreaEls = [...($('boardArea') ? $('boardArea').querySelectorAll('.card') : [])];
+  state.board.forEach((boardCard, i) => {
+    const cardEl = boardAreaEls[i];
+    if (!cardEl) return;
+    cardEl.classList.toggle('board-card-unused', !winningHandKeys.has(cardKey(boardCard)));
+  });
 
   // Build 5 empty, invisible placeholder slots first purely to measure
   // exactly where each card's own final resting spot actually is --
@@ -2849,16 +2850,9 @@ function showWinningHandOnTable(state) {
     // already applied to the regular dealing animation.
     const delay = i * 320;
     setTimeout(() => {
-      // Real, confirmed bug fix, same class of bug already found and fixed in the
-      // community-card dealing animation: this built its own plain old-style markup by hand
-      // instead of calling the shared cardHtml() the rest of the table uses, which is exactly
-      // what produced "2 different card styles on screen at once" in a live report. Calls the
-      // real function now, so this card looks identical to every other card on the table.
-      // isHoleCard cards (a replacement, not a copy of an unused board card) also get the
-      // single green border here, per explicit request - the double border stays exclusive
-      // to the player's own hand strip.
       const flying = document.createElement('div');
-      flying.innerHTML = cardHtml(card, false, false, isHoleCard ? 'winning-card-single' : '');
+      flying.className = `card ${(card.suit === '♥' || card.suit === '♦') ? 'red' : 'black'}`;
+      flying.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
       flying.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;width:${slotRect.width}px;height:${slotRect.height}px;margin:-${slotRect.height/2}px 0 0 -${slotRect.width/2}px;z-index:1850;transform:scale(0.15);opacity:0.6;transition:transform 0.55s cubic-bezier(.2,1.4,.3,1),left 0.55s cubic-bezier(.3,.5,.4,1),top 0.55s cubic-bezier(.3,.5,.4,1),opacity 0.3s ease;`;
       document.body.appendChild(flying);
       requestAnimationFrame(() => {
@@ -2869,14 +2863,9 @@ function showWinningHandOnTable(state) {
       });
       setTimeout(() => {
         flying.remove();
-        // Keeps this exact same DOM node (not a replacement) since the "slide into a tight
-        // row" step further below still needs to reference it - copies cardHtml()'s own
-        // classes and inner markup onto it rather than replacing the node outright.
-        const tmp = document.createElement('div');
-        tmp.innerHTML = cardHtml(card, false, false, isHoleCard ? 'winning-card-single' : '');
-        const realCard = tmp.firstElementChild;
-        slotEl.className = realCard.className;
-        slotEl.innerHTML = realCard.innerHTML;
+        slotEl.classList.remove('table-winning-hand-slot');
+        slotEl.classList.add((card.suit === '♥' || card.suit === '♦') ? 'red' : 'black');
+        slotEl.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
         arrivedCount++;
         if (arrivedCount === winningHand.length) {
           // Per explicit live report ("cards should replace the empty
@@ -2994,37 +2983,48 @@ function animateDealingCommunityCards(newCards, existingCount) {
   const dealerEl = document.querySelector('.house-dealer');
   const boardEl = $('boardArea');
   if (!dealerEl || !boardEl) return;
-  // Real, confirmed fix per explicit live report with a screenshot showing two visually
-  // different card styles on screen at once: any flying community-card element left over
-  // from an earlier deal (e.g. a page re-render or a fast hand interrupting the 520ms
-  // self-removal timer below) never got cleared before starting a new one, so a stale
-  // flying card - built with the OLD hardcoded card markup, see below - could end up sitting
-  // on top of the real board card indefinitely. Clears out any leftovers before every new
-  // animation starts, regardless of why the previous one's own cleanup didn't run.
-  document.querySelectorAll('.flying-community-card').forEach(el => el.remove());
   const dealerRect = dealerEl.getBoundingClientRect();
   const startX = dealerRect.left + dealerRect.width / 2;
   const startY = dealerRect.bottom;
   newCards.forEach((cardData, i) => {
     const cardIndex = existingCount + i;
+    // Per explicit live report: still too fast to actually enjoy
+    // watching, even after the first slowdown -- stretched
+    // considerably further, matching the same slower pace the hole
+    // cards themselves now use, so the flop's three cards genuinely
+    // read as being laid down one at a time rather than in a blur.
     const delay = i * 450;
     setTimeout(() => {
+      // Measure the actual board card slot fresh each time -- by the
+      // time later cards in this same street animate, the board's own
+      // rendered card count may have already grown, which shifts every
+      // slot's position slightly (the row re-centers as it grows).
       const boardCards = boardEl.querySelectorAll('.card');
       const targetCard = boardCards[cardIndex];
       const targetRect = (targetCard || boardEl).getBoundingClientRect();
       const endX = targetRect.left + targetRect.width / 2;
       const endY = targetRect.top + targetRect.height / 2;
-      // Real, confirmed bug fix per explicit live report (a screenshot showing the board's
-      // flying card mid-flight in the plain old two-line style while every other card on
-      // screen already had the real corner-index/pip design): this built its own markup by
-      // hand instead of actually calling cardHtml() as the comment here always claimed it
-      // did - genuinely calling it now, so a flying card looks identical to the real one
-      // it's about to land as, not a visibly different placeholder.
+      // Real, confirmed bug fix per explicit live report ("should come
+      // face up and bigger, looks small"): this used the plain, tiny,
+      // permanently face-down .dealing-card style (16x22px, generic
+      // blue back) for every community card dealt, never actually
+      // showing what card it was until it landed. Uses the same real
+      // card-face markup (cardHtml) the board itself renders with, at
+      // the board's own actual card size, so what's seen mid-flight is
+      // the genuine card face, not a placeholder.
       const card = document.createElement('div');
-      card.className = 'flying-community-card';
-      card.innerHTML = cardHtml(cardData);
-      card.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;transform:translate(-50%,-50%);z-index:2000;transition:transform 0.5s cubic-bezier(.2,.8,.3,1)`;
+      card.className = `flying-community-card card ${cardData.suit === '♥' || cardData.suit === '♦' ? 'red' : 'black'}`;
+      card.innerHTML = `<div>${cardData.rank}</div><div>${cardData.suit}</div>`;
+      card.style.left = startX + 'px';
+      card.style.top = startY + 'px';
+      card.style.transform = 'translate(-50%,-50%)';
       document.body.appendChild(card);
+      // Real, confirmed root-cause fix, same class of bug as the chip
+      // flight animations: kept the exact same -50%/-50% centering
+      // term in both the start and end transform (only ever adding a
+      // pixel delta via calc() on top of it), so there's one
+      // consistent transform basis the whole time and the flight path
+      // is genuinely straight from the dealer to the actual card slot.
       setTimeout(() => { card.style.transform = `translate(calc(-50% + ${endX - startX}px), calc(-50% + ${endY - startY}px))`; }, 20);
       setTimeout(() => { card.remove(); }, 520);
     }, delay);
