@@ -587,7 +587,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      the whole layout room to breathe. */
   body.k28-in-game .board-area { top: 48%; gap: 6px; }
   body.k28-in-game .table-winning-hand { top: 60%; }
-  body.k28-in-game .pot-anchor { top: 60%; left: 36%; }
+  body.k28-in-game .pot-anchor { top: 58%; left: 34%; }
   body.k28-in-game .pot-stack-total { font-size: 0.68rem; }
   body.k28-in-game .board-area .card { width: 40px; height: 57px; font-size: 0.95rem; }
   body.k28-in-game .pot-display {
@@ -1570,15 +1570,16 @@ function suitClassFor(suit) {
 function cardHtml(card, mini, revealFlip, extraClass) {
   if (!card) return `<div class="card back${mini ? ' mini' : ''}"></div>`;
   const suitClass = suitClassFor(card.suit);
-  // Per explicit request ("king should have a king pic etc"): face
-  // cards (K/Q/J) get a distinct visual treatment -- a small royal
-  // icon next to the rank letter and a subtle gold accent border,
-  // reading as a genuine face card at a glance rather than just a
-  // bigger letter, without needing actual illustrated artwork.
-  const faceIcon = card.rank === 'K' ? '♚' : card.rank === 'Q' ? '♛' : card.rank === 'J' ? '♞' : '';
-  const faceClass = faceIcon ? ' face-card' : '';
-  const rankDisplay = faceIcon ? `${card.rank}<span class="face-icon">${faceIcon}</span>` : card.rank;
-  return `<div class="card${mini ? ' mini' : ''} ${suitClass}${faceClass}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}"><div>${rankDisplay}</div><div>${card.suit}</div></div>`;
+  // Per explicit live report ("I hate the font change to a super
+  // digital font"): the chess-piece unicode icons (♚♛♞) added for
+  // face cards aren't covered by this page's own font stack
+  // (-apple-system/Segoe UI/Roboto), so browsers were silently
+  // substituting a fallback symbol font just for that one character --
+  // exactly the kind of jarring, mismatched "digital" look being
+  // described. Removed the icon character entirely; keeps just the
+  // gold accent border below, which needs no font support at all.
+  const faceClass = (card.rank === 'K' || card.rank === 'Q' || card.rank === 'J') ? ' face-card' : '';
+  return `<div class="card${mini ? ' mini' : ''} ${suitClass}${faceClass}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}"><div>${card.rank}</div><div>${card.suit}</div></div>`;
 }
 let lastCardRevealAnimatedFor = null;
 // Per explicit request: tracks which hand number the dealing animation
@@ -2316,27 +2317,31 @@ function renderRailChips(state) {
     const chips = s.chips || 0;
     if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}"></div>`;
     const pileCount = 2;
-    // Defensive hard cap, explicit this time: perPile is only ever used
-    // to pick a chip count between 2 and 5 below -- clamping it here
-    // too means even a corrupt or absurd chips value (negative, NaN,
-    // a huge number from a bug elsewhere) can never produce more than
-    // 5 real DOM elements per pile, so a repeat of the "full-height
-    // bar" failure literally cannot happen from this function alone
-    // regardless of what chips turns out to be.
-    const perPile = Math.min(100000, Math.max(0, Math.ceil((Number(chips) || 0) / pileCount)));
     // Per explicit request ("chips on the table and chips on hands
     // should match the exact value... do all the math and assign
-    // values"): each pile's own share of the real chip total is
-    // decomposed into genuine denominations (see decomposeChipValue),
-    // so the colors shown are mathematically derived from the actual
-    // number instead of an arbitrary repeating sequence unrelated to
-    // it -- a player holding mostly small chips actually shows small-
-    // denomination colors, and a big stack actually shows the bigger
-    // ones.
+    // values"): the real chip total is decomposed into genuine
+    // denominations (see decomposeChipValue), so the colors shown are
+    // mathematically derived from the actual number instead of an
+    // arbitrary repeating sequence unrelated to it -- a player holding
+    // mostly small chips actually shows small-denomination colors, and
+    // a big stack actually shows the bigger ones.
+    // Real, confirmed bug fix per explicit live report ("avoided the
+    // 500 chips"): this used to split the total in half and decompose
+    // EACH half separately -- for a stack like 900, that's two piles
+    // of 450 each, and 450 is under the 500 threshold, so neither pile
+    // could ever show a gold chip even though the real, whole 900
+    // total obviously contains one. Decomposes the FULL total once
+    // now, then deals the resulting real chips out to the two piles
+    // alternately (like a real dealer splitting a stack in half by
+    // handing them out one at a time), so a genuinely large total
+    // still shows its real large-denomination chips somewhere in the
+    // display instead of them vanishing at the split.
+    const totalVisualCap = Math.min(10, Math.max(4, pileCount * 3));
+    const fullPileColors = decomposeChipValue(chips, totalVisualCap);
+    const pileColorSets = Array.from({ length: pileCount }, () => []);
+    fullPileColors.forEach((color, i) => pileColorSets[i % pileCount].push(color));
     const pilesHtml = Array.from({ length: pileCount }, (_, pileIdx) => {
-      const pileValue = pileIdx === 0 ? Math.ceil(chips / pileCount) : Math.floor(chips / pileCount);
-      const visualChipCount = Math.min(5, Math.max(2, Math.round(1 + Math.sqrt(perPile) * 0.25)));
-      const pileColors = decomposeChipValue(pileValue, visualChipCount);
+      const pileColors = pileColorSets[pileIdx];
       const chipsHtml = pileColors.map((chipColor, i) => {
         // Per explicit live report: chips within a pile read as spread
         // apart rather than genuinely stacked -- tightened, and also
@@ -2355,7 +2360,13 @@ function renderRailChips(state) {
         // peeks out slightly below the one on top of it, reading as
         // a genuine multi-chip stack again, while staying much
         // tighter than the original spread-out version.
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 1.5}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+        // Real, confirmed bug fix per explicit live report ("hands
+        // show the same color from top"): 1.5px was too tight for the
+        // colors underneath to actually be visible -- the topmost chip
+        // almost completely covered the ones below it, so a pile with
+        // real color variety still visually read as a single flat
+        // color. Widened enough that each chip genuinely peeks out.
+        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 3}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
       }).join('');
       // Per explicit live report: the two piles themselves read as far
       // apart -- brought in from 32/68 to 40/60, close enough that
@@ -2621,7 +2632,15 @@ function renderGameTable(state) {
   // a real 5 seconds. No popup anywhere in this sequence anymore.
   if (state.phase === 'handEnd' && state.showdownResult && state.handNumber !== lastShownWinnerBannerFor) {
     lastShownWinnerBannerFor = state.handNumber;
-    setTimeout(() => showWinnerBanner(state), 1000);
+    // Per explicit live report ("display who won display text should
+    // start as soon as they win, no delays"): this used to wait a full
+    // second before showing anything, purely to roughly sync up with
+    // the balloon animation below -- but that means the one piece of
+    // actual information (who won, how much, with what) was withheld
+    // for a second for no functional reason. Fires immediately now;
+    // the balloon/chips/cards sequence below is a separate, slower
+    // celebration and can keep its own pacing independently.
+    showWinnerBanner(state);
     // Per explicit request: the dramatic name balloon-and-pop plays
     // first, before anything else -- waits for its own real, returned
     // duration (grow + pop, not the longer splatter fade, which can
