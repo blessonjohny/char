@@ -1628,8 +1628,18 @@ function landChipInPotStack(color) {
   // rise the rail piles use, so both chip systems stack at the same
   // "distance on top of each other" instead of two different amounts.
   const stackRiseY = 1.5;
-  const offsetX = (stackIndex - 1) * stackSpacingX;
-  const offsetY = -chipInThisStack * stackRiseY;
+  // Per explicit request ("make it look like a toss rather than neat
+  // order"): a small random jitter on both axes for every chip that
+  // lands, instead of the previous perfectly uniform grid -- real
+  // tossed chips never land in an exact line, they scatter a little.
+  // Kept deliberately small (a few pixels) so the piles still read as
+  // genuine stacks sitting roughly where they should, not scattered
+  // across the table -- just enough randomness that no two landed
+  // chips ever look mechanically identical in position.
+  const jitterX = (Math.random() - 0.5) * 5;
+  const jitterY = (Math.random() - 0.5) * 6;
+  const offsetX = (stackIndex - 1) * stackSpacingX + jitterX;
+  const offsetY = -chipInThisStack * stackRiseY + jitterY;
   chip.style.left = (baseX + offsetX) + 'px';
   chip.style.top = (baseY + offsetY) + 'px';
   chip.style.zIndex = String(6 + chipInThisStack);
