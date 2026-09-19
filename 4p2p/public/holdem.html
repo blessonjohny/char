@@ -239,7 +239,10 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    the chip to read as its own side/edge rather than a drop shadow, on
    top of the existing softer blurred shadow for actual lift off the
    felt. Diameter also brought in slightly per request. */
-.chip{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.7);box-shadow:0 2px 4px rgba(0,0,0,0.5);flex-shrink:0}
+/* Per explicit request: made pixel-identical to .pot-stack-chip (16px, 1.5px border) - the
+   chip shown near a player (the bet-amount badge) and the chips shown on the table itself now
+   share one single, exactly-matching size and style, not two different-looking chip designs. */
+.chip{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:1.5px solid rgba(255,255,255,0.75);box-shadow:0 2px 3px rgba(0,0,0,0.5);flex-shrink:0}
 .chip.small{width:14px;height:14px;border-width:1.5px}
 .chip-stack{display:flex}
 .chip-stack .chip{margin-left:-10px}
@@ -302,9 +305,9 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    exactly what they were -- only the flatness itself is addressed
    here, via the ::after rim band below, not the chip's size or how
    the pile stacks. */
-.pot-stack-chip{width:16px;height:16px;border-width:1.5px}
-.seat-rail-chips{position:absolute;width:34px;height:16px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
-.rail-chip-pile{position:absolute;bottom:0;left:50%;width:13px;height:16px;transform:translateX(-50%)}
+.pot-stack-chip{width:16px;height:16px;border-width:1.5px;position:absolute}
+.seat-rail-chips{position:absolute;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+.rail-chip-pile{position:absolute;bottom:0;left:50%;transform:translateX(-50%)}
 /* Real, confirmed bug fix per explicit live report with a screenshot
    ("looks like a bar, not chips, no roundness -- barrel"): the real
    pot pile's chips get their round shape from .flying-chip
@@ -2315,76 +2318,43 @@ function renderRailChips(state) {
     const railStyle = `left:${railX.toFixed(2)}%;top:${railY.toFixed(2)}%`;
     const chips = s.chips || 0;
     if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}"></div>`;
-    // Per explicit correction: back to 2 stacks, but positioned close together as one
-    // compact cluster (not spread wide apart, not merged into one tall tower) - a realistic
-    // casual chip pile, capped shorter per stack so it doesn't read as a messy tall column.
-    const pileCount = 2;
-    // Defensive hard cap, explicit this time: perPile is only ever used
-    // to pick a chip count between 2 and 5 below -- clamping it here
-    // too means even a corrupt or absurd chips value (negative, NaN,
-    // a huge number from a bug elsewhere) can never produce more than
-    // 5 real DOM elements per pile, so a repeat of the "full-height
-    // bar" failure literally cannot happen from this function alone
-    // regardless of what chips turns out to be.
-    const perPile = Math.min(100000, Math.max(0, Math.ceil((Number(chips) || 0) / pileCount)));
-    // Per explicit request ("chips on the table and chips on hands
-    // should match the exact value... do all the math and assign
-    // values"): each pile's own share of the real chip total is
-    // decomposed into genuine denominations (see decomposeChipValue),
-    // so the colors shown are mathematically derived from the actual
-    // number instead of an arbitrary repeating sequence unrelated to
-    // it -- a player holding mostly small chips actually shows small-
-    // denomination colors, and a big stack actually shows the bigger
-    // ones.
-    const pilesHtml = Array.from({ length: pileCount }, (_, pileIdx) => {
-      const pileValue = pileIdx === 0 ? Math.ceil(chips / pileCount) : Math.floor(chips / pileCount);
-      // Per explicit correction: capped shorter (4 instead of 5) so a stack reads as a
-      // realistic short pile rather than a tall, messy-looking column.
-      const visualChipCount = Math.min(4, Math.max(2, Math.round(1 + Math.sqrt(perPile) * 0.25)));
-      const pileColors = decomposeChipValue(pileValue, visualChipCount);
-      const chipsHtml = pileColors.map((chipColor, i) => {
-        // Per explicit live report: chips within a pile read as spread
-        // apart rather than genuinely stacked -- tightened, and also
-        // converted to vw (same reasoning as OFFSET_VW above) so the
-        // overlap amount stays proportionally correct on any real
-        // device instead of a fixed px gap that reads as huge once
-        // the avatar next to it is actually small on a real phone.
-        // Per explicit live report: height brought all the way down to
-        // 0 -- every chip in a pile now sits at the exact same
-        // position, directly on top of each other with no vertical
-        // offset at all, rather than the staggered "staircase" spread
-        // used before.
-        // Per explicit live report ("where's the rest" -- fully
-        // overlapping chips made it look like only one existed):
-        // small non-zero offset restored so each chip in the pile
-        // peeks out slightly below the one on top of it, reading as
-        // a genuine multi-chip stack again, while staying much
-        // tighter than the original spread-out version.
-        // Per explicit live report: even the small non-zero peek from before still read as a
-        // messy pile stacked flat on itself rather than a neat, clearly-spread stack - opened
-        // the vertical gap between each chip up further (still uniform and orderly, not
-        // random/jittered, since "neat" and "spread" were both explicitly asked for together).
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 3}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
-      }).join('');
-      // Per explicit live report: the two piles themselves read as far
-      // apart -- brought in from 32/68 to 40/60, close enough that
-      // they now look like one cohesive two-stack unit sitting
-      // together rather than two separate, disconnected piles.
-      // Real, confirmed math fix per explicit live report ("overlapping
-      // left and right"): the individual chip discs are 16px wide, but
-      // the previous pile positions (40%/60% of a 34px container, only
-      // ~7px apart) put the two piles' own chips overlapping by several
-      // pixels regardless of the container's own width -- 25%/75%
-      // actually clears the full 16px chip width on each side with a
-      // small real gap left over, checked against the actual pixel
-      // math this time, not just nudged by feel.
-      // Per explicit correction: close together as one compact cluster - a real chip pile's
-      // two little stacks usually sit right next to each other, not spread across the whole
-      // available width.
-      const pileLeftPercent = pileIdx === 0 ? 40 : 60;
-      return `<div class="rail-chip-pile" style="left:${pileLeftPercent}%">${chipsHtml}</div>`;
+    // Per explicit request: a real casino-style chip pyramid instead of 1 or 2 plain vertical
+    // stacks - a wide base row of real physical chips, each row above it one chip narrower,
+    // up to a base width of 7 (capped there since a wider base stops reading as a pyramid and
+    // starts looking like a messy sprawl), scaled down automatically for a smaller total chip
+    // count instead of always maxing out the base width regardless of what's being shown.
+    const totalChipCount = Math.min(28, Math.max(1, Math.round(1 + Math.sqrt(chips) * 0.3)));
+    let base = 1;
+    while (base < 7 && (base * (base + 1)) / 2 < totalChipCount) base++;
+    const pileColors = decomposeChipValue(chips, totalChipCount);
+    // Builds the actual row sizes (e.g. base 3 -> [3,2,1]), filling from the wide base upward
+    // and stopping once every chip's been placed - a total that doesn't perfectly fill the
+    // pyramid just leaves its very top row incomplete, exactly how a real hand-built chip
+    // pyramid looks too.
+    const rows = [];
+    let remaining = pileColors.length, rowWidth = base;
+    while (remaining > 0 && rowWidth >= 1) {
+      const count = Math.min(rowWidth, remaining);
+      rows.push(count);
+      remaining -= count;
+      rowWidth--;
+    }
+    const CHIP_W = 16, CHIP_H_OVERLAP = 9; // px - matches .pot-stack-chip's actual real CSS size
+    const baseWidthPx = base * CHIP_W;
+    let colorIdx = 0;
+    const chipsHtml = rows.map((rowCount, rowIdx) => {
+      const rowWidthPx = rowCount * CHIP_W;
+      const rowLeftPx = (baseWidthPx - rowWidthPx) / 2; // centers every row over the base
+      let rowHtml = '';
+      for (let c = 0; c < rowCount; c++) {
+        const chipColor = pileColors[colorIdx++];
+        const leftPx = rowLeftPx + c * CHIP_W + CHIP_W / 2;
+        const bottomPx = rowIdx * CHIP_H_OVERLAP;
+        rowHtml += `<div class="pot-stack-chip" style="background:${chipColor};left:${leftPx}px;bottom:${bottomPx}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+      }
+      return rowHtml;
     }).join('');
-    return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}">${pilesHtml}</div>`;
+    return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}"><div class="rail-chip-pile" style="width:${baseWidthPx}px">${chipsHtml}</div></div>`;
   }).join('');
 }
 function seatPositions() {
