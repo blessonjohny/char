@@ -3006,48 +3006,37 @@ function animateDealingCommunityCards(newCards, existingCount) {
   const dealerEl = document.querySelector('.house-dealer');
   const boardEl = $('boardArea');
   if (!dealerEl || !boardEl) return;
+  // Real, confirmed fix per explicit live report with a screenshot showing two visually
+  // different card styles on screen at once: any flying community-card element left over
+  // from an earlier deal (e.g. a page re-render or a fast hand interrupting the 520ms
+  // self-removal timer below) never got cleared before starting a new one, so a stale
+  // flying card - built with the OLD hardcoded card markup, see below - could end up sitting
+  // on top of the real board card indefinitely. Clears out any leftovers before every new
+  // animation starts, regardless of why the previous one's own cleanup didn't run.
+  document.querySelectorAll('.flying-community-card').forEach(el => el.remove());
   const dealerRect = dealerEl.getBoundingClientRect();
   const startX = dealerRect.left + dealerRect.width / 2;
   const startY = dealerRect.bottom;
   newCards.forEach((cardData, i) => {
     const cardIndex = existingCount + i;
-    // Per explicit live report: still too fast to actually enjoy
-    // watching, even after the first slowdown -- stretched
-    // considerably further, matching the same slower pace the hole
-    // cards themselves now use, so the flop's three cards genuinely
-    // read as being laid down one at a time rather than in a blur.
     const delay = i * 450;
     setTimeout(() => {
-      // Measure the actual board card slot fresh each time -- by the
-      // time later cards in this same street animate, the board's own
-      // rendered card count may have already grown, which shifts every
-      // slot's position slightly (the row re-centers as it grows).
       const boardCards = boardEl.querySelectorAll('.card');
       const targetCard = boardCards[cardIndex];
       const targetRect = (targetCard || boardEl).getBoundingClientRect();
       const endX = targetRect.left + targetRect.width / 2;
       const endY = targetRect.top + targetRect.height / 2;
-      // Real, confirmed bug fix per explicit live report ("should come
-      // face up and bigger, looks small"): this used the plain, tiny,
-      // permanently face-down .dealing-card style (16x22px, generic
-      // blue back) for every community card dealt, never actually
-      // showing what card it was until it landed. Uses the same real
-      // card-face markup (cardHtml) the board itself renders with, at
-      // the board's own actual card size, so what's seen mid-flight is
-      // the genuine card face, not a placeholder.
+      // Real, confirmed bug fix per explicit live report (a screenshot showing the board's
+      // flying card mid-flight in the plain old two-line style while every other card on
+      // screen already had the real corner-index/pip design): this built its own markup by
+      // hand instead of actually calling cardHtml() as the comment here always claimed it
+      // did - genuinely calling it now, so a flying card looks identical to the real one
+      // it's about to land as, not a visibly different placeholder.
       const card = document.createElement('div');
-      card.className = `flying-community-card card ${cardData.suit === '♥' || cardData.suit === '♦' ? 'red' : 'black'}`;
-      card.innerHTML = `<div>${cardData.rank}</div><div>${cardData.suit}</div>`;
-      card.style.left = startX + 'px';
-      card.style.top = startY + 'px';
-      card.style.transform = 'translate(-50%,-50%)';
+      card.className = 'flying-community-card';
+      card.innerHTML = cardHtml(cardData);
+      card.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;transform:translate(-50%,-50%);z-index:2000;transition:transform 0.5s cubic-bezier(.2,.8,.3,1)`;
       document.body.appendChild(card);
-      // Real, confirmed root-cause fix, same class of bug as the chip
-      // flight animations: kept the exact same -50%/-50% centering
-      // term in both the start and end transform (only ever adding a
-      // pixel delta via calc() on top of it), so there's one
-      // consistent transform basis the whole time and the flight path
-      // is genuinely straight from the dealer to the actual card slot.
       setTimeout(() => { card.style.transform = `translate(calc(-50% + ${endX - startX}px), calc(-50% + ${endY - startY}px))`; }, 20);
       setTimeout(() => { card.remove(); }, 520);
     }, delay);
