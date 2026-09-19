@@ -368,11 +368,13 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .card.face .c-pip{font-family:Georgia,serif;font-size:1.9em;font-weight:900;text-shadow:0 0 1px currentColor}
 .card.mini .c-corner{font-size:0.5em}
 .card.mini .c-pip{font-size:1.2em}
-/* Per explicit request: the winning hand's actual cards (both on the board and in a winner's
-   own hole cards) get a thick green border with a brief flash, sized to frame the card without
-   covering any of its rank/suit/pip content. */
-.card.winning-card{border:3px solid #2ecc71;box-shadow:0 0 10px 3px rgba(46,204,113,0.7);animation:winCardFlash 1s ease-in-out 2}
-@keyframes winCardFlash{0%,100%{box-shadow:0 0 10px 3px rgba(46,204,113,0.7)}50%{box-shadow:0 0 18px 7px rgba(46,204,113,0.95)}}
+/* Per explicit, emphatic correction: only a PLAYER's own hole cards (bottom of screen) ever
+   get this treatment - never the dealer's board cards (see boardArea rendering, which no
+   longer touches this class at all). Changed to an actual double border (two concentric
+   outlines with a visible gap between them) per explicit request, replacing the single
+   soft-glow border from the previous version. */
+.card.winning-card{border:3px solid #2ecc71;outline:3px solid #2ecc71;outline-offset:3px;animation:winCardFlash 1s ease-in-out 2}
+@keyframes winCardFlash{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
 /* Per explicit request: whichever board card the winning hand doesn't
    actually use (replaced by a stronger hole card) gets a visible red
    border on the real board itself, so it's clear at a glance which
@@ -2440,13 +2442,12 @@ function renderGameTable(state) {
   // correctly laid out right away), but any genuinely new card this
   // render adds starts invisible and only fades in once its own
   // flying copy has actually finished traveling and landed.
-  const showdownWinner = state.showdownResult && state.showdownResult.boardShown && state.showdownResult.winners[0];
-  const mainWinSet = showdownWinner && showdownWinner.hand ? new Set(showdownWinner.hand.map(cardKey)) : null;
-  const boardCardsToShow = mainWinSet ? sortWinningFirst(state.board, mainWinSet) : state.board;
-  $('boardArea').innerHTML = boardCardsToShow.map((c, i) => {
+  // Per explicit, emphatic correction: the board (the dealer's own 5 community cards) never
+  // gets reordered or highlighted at all - only the PLAYERS' own hole cards at the bottom do
+  // (further below). Reverted this back to plain, untouched board display.
+  $('boardArea').innerHTML = state.board.map((c, i) => {
     const isNewThisRender = i >= boardLenBeforeThisRender;
-    const won = mainWinSet && mainWinSet.has(cardKey(c)) ? 'winning-card' : '';
-    return cardHtml(c, false, false, [isNewThisRender ? 'board-card-pending-reveal' : '', won].filter(Boolean).join(' '));
+    return cardHtml(c, false, false, isNewThisRender ? 'board-card-pending-reveal' : '');
   }).join('') || '<span style="opacity:0.4;font-size:0.7rem">— waiting for flop —</span>';
   if (newBoardCardsCount > 0) {
     const pendingEls = [...$('boardArea').querySelectorAll('.board-card-pending-reveal')];
