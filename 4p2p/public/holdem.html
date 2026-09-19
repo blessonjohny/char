@@ -381,12 +381,18 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    outlines with a visible gap between them) per explicit request, replacing the single
    soft-glow border from the previous version. */
 .card.winning-card{border:3px solid #2ecc71;outline:3px solid #2ecc71;outline-offset:3px;animation:winCardFlash 1s ease-in-out 2}
+/* Per explicit request: the table's own winning-hand row (below the board, see
+   showWinningHandOnTable) marks its replacement cards - the ones that came from the winner's
+   own hand rather than just being a copy of the board - with a single border only, kept
+   deliberately distinct from the double border+outline above (which stays exclusive to the
+   player's own hand strip at the bottom of the screen). */
+.card.winning-card-single{border:3px solid #2ecc71}
 @keyframes winCardFlash{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
 /* Per explicit request: whichever board card the winning hand doesn't
    actually use (replaced by a stronger hole card) gets a visible red
    border on the real board itself, so it's clear at a glance which
    community cards weren't part of the final hand. */
-.board-card-unused{border:2.5px solid #ff2b2b;box-shadow:0 2px 5px rgba(0,0,0,0.4),0 0 8px rgba(255,43,43,0.7)}
+
 /* Per explicit live report ("already a card displayed... patchwork"):
    a genuinely new board card is laid out and positioned immediately
    (the flying-card animation needs its real, correct position to fly
@@ -2347,7 +2353,11 @@ function renderRailChips(state) {
         // peeks out slightly below the one on top of it, reading as
         // a genuine multi-chip stack again, while staying much
         // tighter than the original spread-out version.
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 1.5}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+        // Per explicit live report: even the small non-zero peek from before still read as a
+        // messy pile stacked flat on itself rather than a neat, clearly-spread stack - opened
+        // the vertical gap between each chip up further (still uniform and orderly, not
+        // random/jittered, since "neat" and "spread" were both explicitly asked for together).
+        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 3}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
       }).join('');
       // Per explicit live report: the two piles themselves read as far
       // apart -- brought in from 32/68 to 40/60, close enough that
@@ -2811,19 +2821,10 @@ function showWinningHandOnTable(state) {
   const cardKey = c => c.rank + c.suit;
   const holeCardKeys = new Set((winnerSeat && winnerSeat.hand ? winnerSeat.hand : []).map(cardKey));
 
-  // Per explicit request: any board card the winning hand doesn't
-  // actually use (a hole card took its place in the real best-5) gets
-  // marked with a red border directly on the real board, so it's
-  // visible at a glance which community cards weren't part of the
-  // final hand, without waiting for or squinting at the separate
-  // winning-hand row.
-  const winningHandKeys = new Set(winningHand.map(cardKey));
-  const boardAreaEls = [...($('boardArea') ? $('boardArea').querySelectorAll('.card') : [])];
-  state.board.forEach((boardCard, i) => {
-    const cardEl = boardAreaEls[i];
-    if (!cardEl) return;
-    cardEl.classList.toggle('board-card-unused', !winningHandKeys.has(cardKey(boardCard)));
-  });
+  // Per explicit, emphatic correction: the real board never gets modified in any way, not
+  // even a red border marking which of its cards weren't used - removed entirely. Which cards
+  // were replaced is now shown only in the winning-hand row itself below (the replacement
+  // slots get a single green border there instead - see the flight-landing code further down).
 
   // Build 5 empty, invisible placeholder slots first purely to measure
   // exactly where each card's own final resting spot actually is --
@@ -2898,9 +2899,16 @@ function showWinningHandOnTable(state) {
     // already applied to the regular dealing animation.
     const delay = i * 320;
     setTimeout(() => {
+      // Real, confirmed bug fix, same class of bug already found and fixed in the
+      // community-card dealing animation: this built its own plain old-style markup by hand
+      // instead of calling the shared cardHtml() the rest of the table uses, which is exactly
+      // what produced "2 different card styles on screen at once" in a live report. Calls the
+      // real function now, so this card looks identical to every other card on the table.
+      // isHoleCard cards (a replacement, not a copy of an unused board card) also get the
+      // single green border here, per explicit request - the double border stays exclusive
+      // to the player's own hand strip.
       const flying = document.createElement('div');
-      flying.className = `card ${(card.suit === '♥' || card.suit === '♦') ? 'red' : 'black'}`;
-      flying.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
+      flying.innerHTML = cardHtml(card, false, false, isHoleCard ? 'winning-card-single' : '');
       flying.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;width:${slotRect.width}px;height:${slotRect.height}px;margin:-${slotRect.height/2}px 0 0 -${slotRect.width/2}px;z-index:1850;transform:scale(0.15);opacity:0.6;transition:transform 0.55s cubic-bezier(.2,1.4,.3,1),left 0.55s cubic-bezier(.3,.5,.4,1),top 0.55s cubic-bezier(.3,.5,.4,1),opacity 0.3s ease;`;
       document.body.appendChild(flying);
       requestAnimationFrame(() => {
@@ -2911,9 +2919,14 @@ function showWinningHandOnTable(state) {
       });
       setTimeout(() => {
         flying.remove();
-        slotEl.classList.remove('table-winning-hand-slot');
-        slotEl.classList.add((card.suit === '♥' || card.suit === '♦') ? 'red' : 'black');
-        slotEl.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
+        // Keeps this exact same DOM node (not a replacement) since the "slide into a tight
+        // row" step further below still needs to reference it - copies cardHtml()'s own
+        // classes and inner markup onto it rather than replacing the node outright.
+        const tmp = document.createElement('div');
+        tmp.innerHTML = cardHtml(card, false, false, isHoleCard ? 'winning-card-single' : '');
+        const realCard = tmp.firstElementChild;
+        slotEl.className = realCard.className;
+        slotEl.innerHTML = realCard.innerHTML;
         arrivedCount++;
         if (arrivedCount === winningHand.length) {
           // Per explicit live report ("cards should replace the empty
