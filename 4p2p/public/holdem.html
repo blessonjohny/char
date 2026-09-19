@@ -365,7 +365,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .c-tl{top:3px;left:3px}
 .c-br{bottom:3px;right:3px;transform:rotate(180deg)}
 .c-pip{font-size:1.7em}
-.card.face .c-pip{font-family:Georgia,serif;font-size:1.9em;font-weight:900;text-shadow:0 0 1px currentColor}
+.card.blue-bg{background:#cfe8f5}
+/* Per explicit correction: face cards now layer their rank letter directly over their own
+   large suit symbol - the suit stays the dominant, immediately-readable shape, with the
+   letter just confirming which face card it is, rather than the letter alone hiding which
+   suit it belongs to. */
+.card.face .c-pip{position:relative;display:flex;align-items:center;justify-content:center}
+.c-face-suit{font-size:1.15em}
+.c-face-rank{position:absolute;font-family:Georgia,serif;font-size:0.62em;font-weight:900;-webkit-text-stroke:0.05em var(--cream,#faf6ec);paint-order:stroke fill}
 .card.mini .c-corner{font-size:0.5em}
 .card.mini .c-pip{font-size:1.2em}
 /* Per explicit, emphatic correction: only a PLAYER's own hole cards (bottom of screen) ever
@@ -679,7 +686,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   /* Card background color follows suit color, matching the reference exactly: red suits on a
      plain white/cream card, black suits on a pale blue card - not the same cream background
      for every card regardless of suit. */
-  body.k28-in-game .card.black { background: #cfe8f5; }
+  /* Per explicit, emphatic correction: the pale blue background on black-suit cards was being
+     read as a confusing highlight, not a suit indicator - removed entirely. Every card now
+     shares the same plain background regardless of suit, same as a real physical deck; suit
+     is shown only by the symbol itself and its color (black vs red), never the card's
+     background. */
   body.k28-in-game .seat-cards { margin-top: 3px; }
   body.k28-in-game .seat-cards .card.mini { width: 24px; height: 34px; font-size: 0.65rem; }
   body.k28-in-game .dealer-chip { width: 20px; height: 20px; font-size: 0.62rem; }
@@ -1557,12 +1568,26 @@ function cardHtml(card, mini, revealFlip, extraClass) {
   if (!card) return `<div class="card back${mini ? ' mini' : ''}"></div>`;
   const isRed = card.suit === '♥' || card.suit === '♦';
   const face = ['K', 'Q', 'J'].includes(card.rank);
-  // Per explicit request: a real playing-card look (corner index top-left, mirrored
-  // bottom-right, big pip/letter centered) instead of two plain stacked text lines - CSS-only,
-  // no new images, so this stays cheap while still reading as a legitimate card at a glance.
-  return `<div class="card${mini ? ' mini' : ''} ${isRed ? 'red' : 'black'}${face ? ' face' : ''}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}" data-rank="${card.rank}" data-suit="${card.suit}">
+  // Per explicit correction: a plain black/red deck still left Clubs indistinguishable from
+  // Spades, and Hearts from Diamonds, at a glance - especially at mini size. Rather than a
+  // single "black suits" background group (which read as a confusing stray highlight), each
+  // of the 4 suits now gets one of two backgrounds specifically: Clubs and Hearts share the
+  // pale blue background, Spades and Diamonds share the plain cream one - crossing the
+  // red/black color pairing on purpose, so background + text color together make all 4 suits
+  // visually distinct from one another, not just red vs black.
+  const blueBg = card.suit === '♣' || card.suit === '♥';
+  // Per explicit correction: a face card used to show ONLY its rank letter in the center,
+  // with the suit visible solely in the small corner index - exactly what made a King of
+  // Clubs and King of Spades hard to tell apart at a glance. The suit symbol is now always
+  // the dominant center element (large, immediately readable) on every card, face or number;
+  // face cards additionally show their rank letter smaller, layered just above the suit
+  // symbol, distinguishing "this is a face card" without needing real portrait artwork.
+  const pipHtml = face
+    ? `<span class="c-face-rank">${card.rank}</span><span class="c-face-suit">${card.suit}</span>`
+    : card.suit;
+  return `<div class="card${mini ? ' mini' : ''} ${isRed ? 'red' : 'black'}${blueBg ? ' blue-bg' : ''}${face ? ' face' : ''}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}" data-rank="${card.rank}" data-suit="${card.suit}">
     <div class="c-corner c-tl"><span>${card.rank}</span><span>${card.suit}</span></div>
-    <div class="c-pip">${face ? card.rank : card.suit}</div>
+    <div class="c-pip">${pipHtml}</div>
     <div class="c-corner c-br"><span>${card.rank}</span><span>${card.suit}</span></div>
   </div>`;
 }
