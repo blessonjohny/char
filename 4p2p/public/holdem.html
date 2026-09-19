@@ -2216,7 +2216,9 @@ $('btnExitLobbyGuest').addEventListener('click', exitCreatedTable);
 // the colors shown are mathematically derived from the real value
 // instead of an arbitrary repeating sequence that ignored it.
 const CHIP_DENOMINATIONS = [
-  { value: 500, color: CHIP_COLOR_STOPS[6].colors[1] }, // gold
+  // Per explicit request: the $500 denomination removed entirely, so a given stack value
+  // decomposes into more, smaller chips instead of collapsing quickly into just one or two
+  // big ones.
   { value: 100, color: CHIP_COLOR_STOPS[5].colors[1] }, // purple
   { value: 50, color: CHIP_COLOR_STOPS[4].colors[1] },  // black
   { value: 25, color: CHIP_COLOR_STOPS[3].colors[1] },  // green
@@ -2313,6 +2315,9 @@ function renderRailChips(state) {
     const railStyle = `left:${railX.toFixed(2)}%;top:${railY.toFixed(2)}%`;
     const chips = s.chips || 0;
     if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}"></div>`;
+    // Per explicit correction: back to 2 stacks, but positioned close together as one
+    // compact cluster (not spread wide apart, not merged into one tall tower) - a realistic
+    // casual chip pile, capped shorter per stack so it doesn't read as a messy tall column.
     const pileCount = 2;
     // Defensive hard cap, explicit this time: perPile is only ever used
     // to pick a chip count between 2 and 5 below -- clamping it here
@@ -2333,7 +2338,9 @@ function renderRailChips(state) {
     // ones.
     const pilesHtml = Array.from({ length: pileCount }, (_, pileIdx) => {
       const pileValue = pileIdx === 0 ? Math.ceil(chips / pileCount) : Math.floor(chips / pileCount);
-      const visualChipCount = Math.min(5, Math.max(2, Math.round(1 + Math.sqrt(perPile) * 0.25)));
+      // Per explicit correction: capped shorter (4 instead of 5) so a stack reads as a
+      // realistic short pile rather than a tall, messy-looking column.
+      const visualChipCount = Math.min(4, Math.max(2, Math.round(1 + Math.sqrt(perPile) * 0.25)));
       const pileColors = decomposeChipValue(pileValue, visualChipCount);
       const chipsHtml = pileColors.map((chipColor, i) => {
         // Per explicit live report: chips within a pile read as spread
@@ -2371,7 +2378,10 @@ function renderRailChips(state) {
       // actually clears the full 16px chip width on each side with a
       // small real gap left over, checked against the actual pixel
       // math this time, not just nudged by feel.
-      const pileLeftPercent = pileIdx === 0 ? 25 : 75;
+      // Per explicit correction: close together as one compact cluster - a real chip pile's
+      // two little stacks usually sit right next to each other, not spread across the whole
+      // available width.
+      const pileLeftPercent = pileIdx === 0 ? 40 : 60;
       return `<div class="rail-chip-pile" style="left:${pileLeftPercent}%">${chipsHtml}</div>`;
     }).join('');
     return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}">${pilesHtml}</div>`;
