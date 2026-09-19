@@ -359,7 +359,20 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .street-banner{position:absolute;top:72%;left:50%;transform:translate(-50%,-50%);background:transparent;border:none;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 14px rgba(244,196,48,0.9),0 2px 6px rgba(0,0,0,0.9);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
 .street-banner.on{display:block}
 @keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
-.card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0;transition:opacity 0.25s ease}
+.card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0;transition:opacity 0.25s ease;position:relative}
+.c-corner{position:absolute;display:flex;flex-direction:column;align-items:center;line-height:0.85;font-size:0.62em;font-weight:800}
+.c-corner span:last-child{font-size:0.9em}
+.c-tl{top:3px;left:3px}
+.c-br{bottom:3px;right:3px;transform:rotate(180deg)}
+.c-pip{font-size:1.7em}
+.card.face .c-pip{font-family:Georgia,serif;font-size:1.9em;font-weight:900;text-shadow:0 0 1px currentColor}
+.card.mini .c-corner{font-size:0.5em}
+.card.mini .c-pip{font-size:1.2em}
+/* Per explicit request: the winning hand's actual cards (both on the board and in a winner's
+   own hole cards) get a thick green border with a brief flash, sized to frame the card without
+   covering any of its rank/suit/pip content. */
+.card.winning-card{border:3px solid #2ecc71;box-shadow:0 0 10px 3px rgba(46,204,113,0.7);animation:winCardFlash 1s ease-in-out 2}
+@keyframes winCardFlash{0%,100%{box-shadow:0 0 10px 3px rgba(46,204,113,0.7)}50%{box-shadow:0 0 18px 7px rgba(46,204,113,0.95)}}
 /* Per explicit request: whichever board card the winning hand doesn't
    actually use (replaced by a stronger hole card) gets a visible red
    border on the real board itself, so it's clear at a glance which
@@ -1541,9 +1554,33 @@ function chipHtml(value, small) {
 function cardHtml(card, mini, revealFlip, extraClass) {
   if (!card) return `<div class="card back${mini ? ' mini' : ''}"></div>`;
   const isRed = card.suit === '♥' || card.suit === '♦';
-  return `<div class="card${mini ? ' mini' : ''} ${isRed ? 'red' : 'black'}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}"><div>${card.rank}</div><div>${card.suit}</div></div>`;
+  const face = ['K', 'Q', 'J'].includes(card.rank);
+  // Per explicit request: a real playing-card look (corner index top-left, mirrored
+  // bottom-right, big pip/letter centered) instead of two plain stacked text lines - CSS-only,
+  // no new images, so this stays cheap while still reading as a legitimate card at a glance.
+  return `<div class="card${mini ? ' mini' : ''} ${isRed ? 'red' : 'black'}${face ? ' face' : ''}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}" data-rank="${card.rank}" data-suit="${card.suit}">
+    <div class="c-corner c-tl"><span>${card.rank}</span><span>${card.suit}</span></div>
+    <div class="c-pip">${face ? card.rank : card.suit}</div>
+    <div class="c-corner c-br"><span>${card.rank}</span><span>${card.suit}</span></div>
+  </div>`;
 }
 let lastCardRevealAnimatedFor = null;
+// Per explicit request: at showdown, both the board and a winner's own hole cards get
+// reordered so the cards that actually make up their best 5-card hand come first (highest
+// rank first), instead of plain deal order - and those same cards get the green
+// winning-card highlight. Uses the server's own evaluator result (winner.hand, the literal
+// best-5 combo it already computed to decide the pot) rather than re-guessing from rank
+// frequency here, which would mis-highlight a lower pair that isn't actually part of the
+// winning 5 (e.g. a 3rd, unused pair on the board in a two-pair hand).
+const RANK_ORDER = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
+function cardKey(c) { return c ? c.rank + c.suit : ''; }
+function sortWinningFirst(cards, winSet) {
+  return cards.slice().sort((a, b) => {
+    const aw = winSet.has(cardKey(a)), bw = winSet.has(cardKey(b));
+    if (aw !== bw) return aw ? -1 : 1;
+    return RANK_ORDER[b.rank] - RANK_ORDER[a.rank];
+  });
+}
 // Per explicit request: tracks which hand number the dealing animation
 // has already played for, same pattern as lastCardRevealAnimatedFor --
 // see animateDealingCards below for what actually uses this.
@@ -2403,9 +2440,13 @@ function renderGameTable(state) {
   // correctly laid out right away), but any genuinely new card this
   // render adds starts invisible and only fades in once its own
   // flying copy has actually finished traveling and landed.
-  $('boardArea').innerHTML = state.board.map((c, i) => {
+  const showdownWinner = state.showdownResult && state.showdownResult.boardShown && state.showdownResult.winners[0];
+  const mainWinSet = showdownWinner && showdownWinner.hand ? new Set(showdownWinner.hand.map(cardKey)) : null;
+  const boardCardsToShow = mainWinSet ? sortWinningFirst(state.board, mainWinSet) : state.board;
+  $('boardArea').innerHTML = boardCardsToShow.map((c, i) => {
     const isNewThisRender = i >= boardLenBeforeThisRender;
-    return cardHtml(c, false, false, isNewThisRender ? 'board-card-pending-reveal' : '');
+    const won = mainWinSet && mainWinSet.has(cardKey(c)) ? 'winning-card' : '';
+    return cardHtml(c, false, false, [isNewThisRender ? 'board-card-pending-reveal' : '', won].filter(Boolean).join(' '));
   }).join('') || '<span style="opacity:0.4;font-size:0.7rem">— waiting for flop —</span>';
   if (newBoardCardsCount > 0) {
     const pendingEls = [...$('boardArea').querySelectorAll('.board-card-pending-reveal')];
@@ -2431,11 +2472,14 @@ function renderGameTable(state) {
     const p = positions[slot];
     const isActive = state.currentPlayer === pos && state.phase !== 'handEnd';
     const revealingNow = isNewShowdownReveal && pos !== myPos && !s.folded && s.hand.length && s.hand[0] && s.hand[0].rank;
+    const seatWinner = state.showdownResult && state.showdownResult.boardShown && state.showdownResult.winners.find(w => w.seat === pos && w.hand);
+    const seatWinSet = seatWinner ? new Set(seatWinner.hand.map(cardKey)) : null;
+    const seatHoleCards = seatWinSet ? sortWinningFirst(s.hand, seatWinSet) : s.hand;
     const cardsHtml = s.folded
       ? '' // no cards shown at all once folded -- the FOLDED tag below says why
       : (pos === myPos
         ? '' // full-size cards already shown in the hand strip below -- no need to duplicate them here too
-        : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
+        : (seatHoleCards.length ? seatHoleCards.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow, seatWinSet && c && seatWinSet.has(cardKey(c)) ? 'winning-card' : '')).join('') : ''));
     return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" data-slot="${slot}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
       ${isActive && pos !== myPos ? `<div class="turn-tag turn-tag-outer">TURN</div>` : ''}
       <div class="seat-avatar-wrap">
@@ -2472,7 +2516,10 @@ function renderGameTable(state) {
   renderRailChips(state);
 
   const mySeat = state.seats[myPos];
-  $('myHandStrip').innerHTML = mySeat && mySeat.hand.length ? mySeat.hand.map(c => cardHtml(c, false)).join('') : '';
+  const myWinner = state.showdownResult && state.showdownResult.boardShown && state.showdownResult.winners.find(w => w.seat === myPos && w.hand);
+  const myWinSet = myWinner ? new Set(myWinner.hand.map(cardKey)) : null;
+  const myHoleCards = mySeat && (myWinSet ? sortWinningFirst(mySeat.hand, myWinSet) : mySeat.hand);
+  $('myHandStrip').innerHTML = myHoleCards && myHoleCards.length ? myHoleCards.map(c => cardHtml(c, false, false, myWinSet && myWinSet.has(cardKey(c)) ? 'winning-card' : '')).join('') : '';
   $('myHandLabel').textContent = state.myHandName ? `You have: ${state.myHandName}` : '';
   // Desktop-only top readouts (see the CSS/HTML comments where these are defined for why they
   // exist as separate top-level elements rather than nested inside my own seat).
