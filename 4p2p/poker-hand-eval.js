@@ -117,7 +117,69 @@ function evaluateBest(cards) {
       best = combo;
     }
   }
-  return { score: bestScore, hand: best, handName: HAND_NAMES[bestScore[0]] };
+  // Real, confirmed bug fix per explicit live report ("if it's a
+  // straight it should be the highest one then... if two pair, the
+  // highest pair first"): `best` above is just whichever 5-card combo
+  // scored highest, in whatever order those cards happened to already
+  // be in -- never actually reordered by significance. The score
+  // array (used for comparing hands) has always been correctly
+  // ordered internally; this sorts the actual returned CARD OBJECTS
+  // to match that same significance order for display, without
+  // touching any of the scoring logic above that decides who wins.
+  const orderedHand = sortHandForDisplay(bestScore, best);
+  return { score: bestScore, hand: orderedHand, handName: HAND_NAMES[bestScore[0]] };
+}
+
+// Reorders a winning 5-card hand for DISPLAY ONLY, to match how a
+// real player would expect to see it read left to right: the cards
+// that make the hand's actual pattern first (highest group first for
+// pairs/trips/quads, highest pair before the lower pair for two pair),
+// then any remaining kickers by rank descending. This never changes
+// which 5 cards are in the hand or the score used to decide winners --
+// it only changes the order those same 5 cards are returned in.
+function sortHandForDisplay(score, hand) {
+  const handType = score[0];
+  const byRankDesc = (a, b) => rv(b) - rv(a);
+  if (handType === 8 || handType === 5 || handType === 0) {
+    // Straight flush, flush, or high card: just rank descending. For
+    // the wheel (A-2-3-4-5 straight flush or straight), the Ace plays
+    // low, so it belongs at the END, not the start, despite being the
+    // highest-value card.
+    const sorted = hand.slice().sort(byRankDesc);
+    if (handType === 8 && score[1] === 5 && sorted[0].rank === 'A') {
+      sorted.push(sorted.shift());
+    }
+    return sorted;
+  }
+  if (handType === 4) {
+    // Straight (not a flush): same wheel exception as above.
+    const sorted = hand.slice().sort(byRankDesc);
+    if (score[1] === 5 && sorted[0].rank === 'A') sorted.push(sorted.shift());
+    return sorted;
+  }
+  // Everything else (quads, full house, trips, two pair, one pair) is
+  // some number of "groups" of matching rank, ordered by the score
+  // itself (score[1], score[2], ... are already the group ranks in
+  // the correct significance order) followed by any leftover kickers.
+  // Pulling each group's actual cards out in that exact score order,
+  // then appending whatever's left (kickers) sorted high to low,
+  // reproduces the real significance order directly from the score
+  // that already decided it -- no separate re-derivation to get wrong.
+  const remaining = hand.slice();
+  const ordered = [];
+  const groupRanks = score.slice(1); // e.g. [pairHigh, pairLow, kicker] for two pair
+  for (const groupRank of groupRanks) {
+    // Pull every remaining card matching this rank (handles groups of
+    // 4, 3, or 2 cards, e.g. all four Kings for quads) before moving
+    // to the next rank in the score.
+    for (let i = remaining.length - 1; i >= 0; i--) {
+      if (rv(remaining[i]) === groupRank) { ordered.push(remaining.splice(i, 1)[0]); }
+    }
+  }
+  // Any leftover kicker not explicitly named in the score (one-pair's
+  // 2nd/3rd kickers aren't individually listed) -- sorted high to low.
+  remaining.sort(byRankDesc);
+  return [...ordered, ...remaining];
 }
 
 // Ranks multiple players' hole cards against a shared board. Returns
