@@ -2901,9 +2901,31 @@ function showWinningHandOnTable(state) {
     if (!slotEl) return;
     const slotRect = slotEl.getBoundingClientRect();
     const isHoleCard = holeCardKeys.has(cardKey(card));
+    // Real, confirmed fix per explicit live report ("change the size
+    // to match... small to big, make it professional"): a hole card's
+    // real source was the whole seat/avatar circle's bounding box, not
+    // the actual small mini hole-card element sitting on it -- so the
+    // flying copy never started at that card's own genuine displayed
+    // size, only a generic fixed box shrunk by an arbitrary CSS scale
+    // factor. Finds this exact card's own real mini-card element in
+    // the seat's hand display (or the board card element, for a board
+    // card) and measures ITS real, current size and position directly,
+    // so the flight's starting point is the literal same size and
+    // place the card is actually showing right now, not an
+    // approximation.
     let startRect;
     if (isHoleCard && winnerSeatEl) {
-      startRect = winnerSeatEl.getBoundingClientRect();
+      // Real, confirmed bug fix: a winner who is this viewer's own
+      // seat never has cards in .seat-cards at all (that seat
+      // deliberately renders empty there -- this player's own hand
+      // shows in the separate #myHandStrip instead, at its own,
+      // different size), so the lookup needs to check both places.
+      const holeCardEls = winnerPos === myPos
+        ? [...document.querySelectorAll('#myHandStrip .card')]
+        : [...winnerSeatEl.querySelectorAll('.seat-cards .card')];
+      const holeCards = (winnerSeat && winnerSeat.hand) || [];
+      const matchIdx = holeCards.findIndex(h => h && cardKey(h) === cardKey(card));
+      startRect = (matchIdx !== -1 && holeCardEls[matchIdx]) ? holeCardEls[matchIdx].getBoundingClientRect() : winnerSeatEl.getBoundingClientRect();
     } else {
       // Find this exact card among the current board cards so it pops
       // from its own real position, not a generic board-center guess.
@@ -2918,6 +2940,16 @@ function showWinningHandOnTable(state) {
     const startY = startRect.top + startRect.height / 2;
     const endX = slotRect.left + slotRect.width / 2;
     const endY = slotRect.top + slotRect.height / 2;
+    // Real card sizes now, not a fixed box + arbitrary scale: starts
+    // at the source element's own actual current width/height
+    // (26x37 for a mini hole card, the board's own 34x48 for a board
+    // card, whatever it genuinely measures as), and the transition
+    // below animates width/height directly alongside position, so the
+    // card visibly and accurately grows from its real starting size to
+    // the winning-hand row's real card size -- true size-matching, not
+    // a transform-based approximation of it.
+    const startW = startRect.width || slotRect.width;
+    const startH = startRect.height || slotRect.height;
     // Per explicit live report: the math here made the whole 5-card
     // sequence finish in well under a second (4*130ms stagger + one
     // ~400ms flight), which reads as everything just appearing at once
@@ -2929,12 +2961,19 @@ function showWinningHandOnTable(state) {
       const flying = document.createElement('div');
       flying.className = `card ${suitClassFor(card.suit)}`;
       flying.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
-      flying.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;width:${slotRect.width}px;height:${slotRect.height}px;margin:-${slotRect.height/2}px 0 0 -${slotRect.width/2}px;z-index:1850;transform:scale(0.15);opacity:0.6;transition:transform 0.55s cubic-bezier(.2,1.4,.3,1),left 0.55s cubic-bezier(.3,.5,.4,1),top 0.55s cubic-bezier(.3,.5,.4,1),opacity 0.3s ease;`;
+      flying.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;width:${startW}px;height:${startH}px;margin:-${startH/2}px 0 0 -${startW/2}px;z-index:1850;opacity:0.75;transition:left 0.55s cubic-bezier(.3,.5,.4,1),top 0.55s cubic-bezier(.3,.5,.4,1),width 0.55s cubic-bezier(.2,1.4,.3,1),height 0.55s cubic-bezier(.2,1.4,.3,1),margin 0.55s cubic-bezier(.2,1.4,.3,1),opacity 0.3s ease;`;
       document.body.appendChild(flying);
       requestAnimationFrame(() => {
         flying.style.left = endX + 'px';
         flying.style.top = endY + 'px';
-        flying.style.transform = 'scale(1)';
+        // Real, confirmed fix, same report as above: animates width,
+        // height, and margin directly to the winning-hand row's real
+        // card size instead of a transform:scale -- a genuine size
+        // change from the card's real starting dimensions to its real
+        // ending dimensions, not a visual approximation of one.
+        flying.style.width = slotRect.width + 'px';
+        flying.style.height = slotRect.height + 'px';
+        flying.style.margin = `-${slotRect.height / 2}px 0 0 -${slotRect.width / 2}px`;
         flying.style.opacity = '1';
       });
       setTimeout(() => {
