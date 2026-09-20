@@ -896,6 +896,36 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    rather than off to the side of them. */
 #btnSoundMute{position:fixed;right:8px;bottom:8px;left:auto;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
 #btnSoundMute:active{transform:scale(0.92)}
+/* Real, confirmed feature per explicit request ("popup... like the
+   other tables"): ported directly from six.js/index.html's identical
+   "big moment" event popup, same class names and same visual
+   treatment, so a join notice here looks consistent with the other
+   tables rather than inventing a new style just for this one event.
+   Only the pieces this specific use (a join notice) actually needs
+   were ported -- not the trump-specific or minicard variants those
+   other tables also use for their own different event types. */
+.game-event-overlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0);pointer-events:none;animation:qmarkBackdropIn .25s ease forwards}
+.game-event-overlay.leaving{animation:qmarkBackdropOut .45s ease forwards}
+@keyframes qmarkBackdropIn{from{background:rgba(0,0,0,0)}to{background:rgba(0,0,0,0.55)}}
+@keyframes qmarkBackdropOut{from{background:rgba(0,0,0,0.55)}to{background:rgba(0,0,0,0)}}
+.game-event-box{position:relative;overflow:hidden;text-align:center;padding:26px 40px;border-radius:16px;max-width:88vw;background:linear-gradient(155deg, rgba(18,14,10,0.55), rgba(8,6,4,0.58));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1.5px solid var(--evt-color, #f4c430);box-shadow:0 0 1px var(--evt-color, #f4c430),0 12px 40px rgba(0,0,0,0.6),0 0 60px var(--evt-glow, rgba(244,196,48,0.25));animation:gameEventIn .5s cubic-bezier(.16,.9,.28,1) both}
+.game-event-overlay.leaving .game-event-box{animation:gameEventOut .4s ease both}
+@keyframes gameEventIn{0%{opacity:0;transform:translateY(14px) scale(0.96)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes gameEventOut{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-10px) scale(0.97)}}
+.game-event-box::before{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg, transparent, rgba(255,255,255,0.16), transparent);animation:gameEventSweep 1s ease 0.15s both}
+@keyframes gameEventSweep{0%{left:-60%}100%{left:130%}}
+.game-event-icon{font-size:2.6rem;line-height:1;font-weight:900;color:var(--evt-color, #f4c430);filter:drop-shadow(0 0 10px var(--evt-glow, rgba(244,196,48,0.6)))}
+.game-event-title{font-family:'Cinzel','Playfair Display',serif;font-size:1.35rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-top:8px;color:var(--evt-color, #f4c430);text-shadow:0 2px 8px rgba(0,0,0,0.6)}
+.game-event-detail{font-family:'Cinzel','Playfair Display',serif;font-size:1.6rem;font-weight:600;margin-top:4px;color:var(--evt-color, #fff);text-shadow:0 2px 6px rgba(0,0,0,0.5)}
+/* Real, confirmed feature per explicit request ("small red and green
+   for bots and live"): a small status dot on each seat, green for a
+   genuinely connected human, red for a bot (or a disconnected human
+   seat) -- same red/green convention already used elsewhere in this
+   file (e.g. suit colors), applied here to at-a-glance show who's
+   actually a live player. */
+.seat-live-dot{position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;border:1.5px solid rgba(0,0,0,0.5);box-shadow:0 0 4px rgba(0,0,0,0.6);z-index:5}
+.seat-live-dot.is-live{background:#2ecc71;box-shadow:0 0 6px rgba(46,204,113,0.8)}
+.seat-live-dot.is-bot{background:#e74c3c;box-shadow:0 0 6px rgba(231,76,60,0.6)}
 </style>
 </head>
 <body>
@@ -3151,6 +3181,7 @@ function renderGameTable(state) {
       <div class="seat-avatar-wrap">
         <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
         ${holdemAvatarImgHtml(s.name, pos, s.avatar)}
+        <div class="seat-live-dot ${s.isBot ? 'is-bot' : (s.connected !== false ? 'is-live' : 'is-bot')}" title="${s.isBot ? 'Bot' : (s.connected !== false ? 'Live player' : 'Disconnected')}"></div>
         ${pos === state.dealerSeat ? '<div class="dealer-chip">D</div>' : ''}
         ${s.allIn ? '<div class="allin-tag">ALL-IN</div>' : ''}
         ${!isActive && s.lastAction && !s.folded ? (() => {
@@ -3921,6 +3952,29 @@ function sendAction(action, amount) {
   socket.emit('poker_act', { action, amount });
 }
 socket.on('poker_actionError', (info) => toast('❌ ' + (info.reason || 'action failed').replace(/_/g, ' ')));
+// Real, confirmed feature per explicit request ("popup... like the
+// other tables"): same "big moment" event popup ported from
+// six.js/index.html above, now with the actual join-notice handler
+// that uses it -- fires for everyone else already at the table the
+// instant a real player (never a bot) takes a seat.
+function showGameEvent(icon, title, detail, color, opts) {
+  const overlay = document.createElement('div');
+  overlay.className = 'game-event-overlay';
+  overlay.style.setProperty('--evt-color', color);
+  overlay.style.setProperty('--evt-glow', color + '66');
+  overlay.innerHTML = `<div class="game-event-box">
+    <div class="game-event-icon">${icon}</div>
+    <div class="game-event-title">${title}</div>
+    <div class="game-event-detail">${detail}</div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const holdMs = (opts && opts.holdMs) || 2800;
+  setTimeout(() => overlay.classList.add('leaving'), holdMs);
+  setTimeout(() => overlay.remove(), holdMs + 450);
+}
+socket.on('poker_playerJoinedNotice', ({ name }) => {
+  showGameEvent('👋', 'New Player!', (name || 'Someone') + ' just joined the table', '#f4c430');
+});
 
 // A brief, unmistakable "FLOP! / TURN! / RIVER!" banner whenever new
 // community cards are revealed -- deliberately NOT on a fixed timer.
