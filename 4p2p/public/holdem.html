@@ -857,9 +857,61 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   body.k28-in-game .hand-strip .card { width: 32px; height: 45px; font-size: 0.78rem; }
   body.k28-in-game #myHandLabel { font-size: 0.6rem; }
 }
+/* Per explicit request ("use all characters like the 4 and 6 tables"):
+   the exact same avatar-picker grid styling as six.html/index.html,
+   so choosing a character here looks and feels identical to doing it
+   on those tables. */
+.my-avatar-picker{display:grid;grid-template-columns:repeat(auto-fill,68px);justify-content:center;gap:8px;margin:10px 0;max-height:260px;overflow-y:auto;padding:4px;width:100%}
+.my-avatar-choice{position:relative;width:68px;height:68px;border-radius:50%;cursor:pointer;border:2.5px solid rgba(255,255,255,0.15);overflow:hidden;transition:border-color 0.2s ease,transform 0.15s ease}
+.my-avatar-choice img{width:100%;height:100%;object-fit:cover;display:block}
+.my-avatar-choice:active{transform:scale(0.92)}
+.my-avatar-choice.picked{border-color:#f4c430;box-shadow:0 0 0 2px rgba(255,215,0,0.35),0 0 10px rgba(255,215,0,0.4)}
+.my-avatar-choice.picked::after{content:'✓';position:absolute;bottom:-2px;right:-2px;background:#f4c430;color:#241a12;width:16px;height:16px;border-radius:50%;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1.5px solid #1a1a2e}
+/* Personal-avatar PIN modal -- same styling and behavior as the 4p/6p
+   tables' identical modal, so the 6 PIN-protected personal avatars
+   work exactly the same way here too. */
+#pinModalOverlay{position:fixed;inset:0;z-index:20000;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.72);backdrop-filter:blur(2px)}
+#pinModalOverlay.on{display:flex;animation:pinFadeIn 0.2s ease}
+@keyframes pinFadeIn{from{opacity:0}to{opacity:1}}
+.pin-modal-box{width:min(320px,88vw);padding:26px 22px;text-align:center;background:radial-gradient(ellipse at center, rgba(40,28,10,0.98), rgba(15,10,4,0.99));border:2px solid #f4c430;border-radius:16px;box-shadow:0 0 40px rgba(244,196,48,0.35),0 20px 60px rgba(0,0,0,0.6);animation:pinBoxPop 0.25s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pinBoxPop{0%{transform:scale(0.85);opacity:0}100%{transform:scale(1);opacity:1}}
+.pin-modal-box.shake{animation:pinShake 0.4s ease}
+@keyframes pinShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+.pin-modal-icon{font-size:1.8rem;margin-bottom:4px}
+.pin-modal-title{font-weight:700;font-size:1.05rem;color:#f4c430;letter-spacing:0.5px}
+.pin-modal-sub{font-size:0.78rem;color:rgba(255,255,255,0.65);margin:6px 0 18px}
+.pin-digit-row{display:flex;gap:10px;justify-content:center;margin-bottom:10px}
+.pin-digit{width:46px;height:54px;text-align:center;font-size:1.5rem;font-weight:800;color:#fff;background:rgba(255,255,255,0.06);border:2px solid rgba(244,196,48,0.4);border-radius:10px;-webkit-appearance:none;appearance:none}
+.pin-digit:focus{outline:none;border-color:#f4c430;box-shadow:0 0 10px rgba(244,196,48,0.5);background:rgba(255,255,255,0.1)}
+.pin-modal-error{min-height:18px;font-size:0.75rem;color:#ff6b6b;margin-bottom:6px}
+.pin-modal-btns{display:flex;gap:10px;margin-top:8px}
+.pin-modal-btns button{flex:1;padding:10px;border-radius:10px;border:none;font-weight:700;font-size:0.85rem;cursor:pointer}
+#pinCancelBtn{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.75)}
+#pinSubmitBtn{background:linear-gradient(135deg,#f4c430,#d4a017);color:#1a1206}
 </style>
 </head>
 <body>
+<!-- Personal-avatar PIN modal -- top-level body child, matching the
+     4p/6p tables' identical placement fix (never nested inside a
+     conditionally-hidden screen container). -->
+<div id="pinModalOverlay">
+  <div class="pin-modal-box" id="pinModalBox">
+    <div class="pin-modal-icon">🔒</div>
+    <div class="pin-modal-title">Personal Avatar</div>
+    <div class="pin-modal-sub">Enter the 4-digit PIN to use it</div>
+    <div class="pin-digit-row">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="0">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="1">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="2">
+      <input type="tel" inputmode="numeric" maxlength="1" class="pin-digit" data-i="3">
+    </div>
+    <div class="pin-modal-error" id="pinModalError"></div>
+    <div class="pin-modal-btns">
+      <button id="pinCancelBtn">Cancel</button>
+      <button id="pinSubmitBtn">Unlock</button>
+    </div>
+  </div>
+</div>
 <script>
 </script>
 
@@ -871,6 +923,8 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     <h1>♠️ Texas Hold'em</h1>
     <div class="subtitle">9-Player Table</div>
     <input class="text-input" id="nameInput" maxlength="18" placeholder="Your name">
+    <p style="margin-top:10px;font-size:1.05rem;font-weight:600;color:var(--text-secondary,#aaa)">Choose your avatar</p>
+    <div id="myAvatarPickerHoldem" class="my-avatar-picker"></div>
     <button class="btn btn-gold" id="btnShowCreate">Create Table</button>
     <button class="btn btn-outline" id="btnShowJoin">Join with Code</button>
     <button class="btn btn-outline hidden" id="btnContinuePrevious" style="display:none">▶ Continue with Previous</button>
@@ -1125,6 +1179,125 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 <script>
 const socket = io();
 let myPos = null, myPlayerId = null, myTableId = null, isHost = false;
+// Per explicit request ("use all characters like the 4 and 6 tables"):
+// the exact same avatar system as six.html/index.html -- same full
+// key list, same 6 PIN-protected personal avatars excluded from any
+// random/automatic assignment, same localStorage key so a returning
+// player's choice carries over between this table and the others.
+let MY_AVATAR_KEY = '';
+try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
+const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+const PROTECTED_AVATAR_KEYS = new Set(['toon101', 'toon102', 'toon103', 'toon104', 'toon105', 'toon106']);
+const AVATAR_PINS = {
+  toon101: '0719', // JCK
+  toon102: '0000', // LJ
+  toon103: '0000', // JK
+  toon104: '0000', // Santhosh
+  toon105: '0000', // Jose
+  toon106: '0000', // Bless
+};
+const PROTECTED_NAME_TO_AVATAR = {
+  jck: 'toon101',
+  lj: 'toon102',
+  jk: 'toon103',
+  santhosh: 'toon104',
+  jose: 'toon105',
+  bless: 'toon106',
+};
+const PUBLIC_AVATAR_KEYS = ALL_AVATAR_KEYS.filter(k => !PROTECTED_AVATAR_KEYS.has(k));
+if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY) || PROTECTED_AVATAR_KEYS.has(MY_AVATAR_KEY)) {
+  MY_AVATAR_KEY = PUBLIC_AVATAR_KEYS[Math.floor(Math.random() * PUBLIC_AVATAR_KEYS.length)];
+}
+function checkAvatarPin(key) {
+  if (!AVATAR_PINS[key]) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('pinModalOverlay');
+    const box = document.getElementById('pinModalBox');
+    const errEl = document.getElementById('pinModalError');
+    const digits = Array.from(document.querySelectorAll('.pin-digit'));
+    const cancelBtn = document.getElementById('pinCancelBtn');
+    const submitBtn = document.getElementById('pinSubmitBtn');
+    digits.forEach(d => d.value = '');
+    errEl.textContent = '';
+    overlay.classList.add('on');
+    setTimeout(() => digits[0].focus(), 50);
+    function cleanup() {
+      overlay.classList.remove('on');
+      digits.forEach(d => { d.oninput = null; d.onkeydown = null; });
+      cancelBtn.onclick = null;
+      submitBtn.onclick = null;
+    }
+    function tryDigit(i, e) {
+      const v = e.target.value.replace(/\D/g, '').slice(0, 1);
+      e.target.value = v;
+      if (v && i < 3) digits[i + 1].focus();
+    }
+    function tryKeydown(i, e) {
+      if (e.key === 'Backspace' && !e.target.value && i > 0) digits[i - 1].focus();
+      if (e.key === 'Enter') attemptSubmit();
+    }
+    function attemptSubmit() {
+      const entered = digits.map(d => d.value).join('');
+      if (entered.length < 4) { errEl.textContent = 'Enter all 4 digits'; return; }
+      if (entered !== AVATAR_PINS[key]) {
+        errEl.textContent = 'Incorrect PIN';
+        box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+        digits.forEach(d => d.value = '');
+        digits[0].focus();
+        return;
+      }
+      cleanup();
+      resolve(true);
+    }
+    digits.forEach((d, i) => {
+      d.oninput = (e) => tryDigit(i, e);
+      d.onkeydown = (e) => tryKeydown(i, e);
+    });
+    submitBtn.onclick = attemptSubmit;
+    cancelBtn.onclick = () => { cleanup(); resolve(false); };
+  });
+}
+function shuffledAvatarKeys() {
+  const arr = ALL_AVATAR_KEYS.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function renderMyAvatarPickerHoldem() {
+  const el = document.getElementById('myAvatarPickerHoldem');
+  if (!el) return;
+  el.innerHTML = shuffledAvatarKeys().map(key =>
+    `<div class="my-avatar-choice${key === MY_AVATAR_KEY ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatarHoldem('${key}')">
+      <img src="/images/hero-avatars/${key}.png" alt="">
+    </div>`
+  ).join('');
+}
+async function pickMyAvatarHoldem(key) {
+  if (!(await checkAvatarPin(key))) return;
+  MY_AVATAR_KEY = key;
+  try { localStorage.setItem('k28_player_avatar', key); } catch (e) {}
+  document.querySelectorAll('#myAvatarPickerHoldem .my-avatar-choice').forEach(el => el.classList.toggle('picked', el.dataset.key === key));
+}
+renderMyAvatarPickerHoldem();
+// Per explicit request ("enter name must be at least 2 chars"): same
+// validation and same name->personal-avatar auto-match as the 4p/6p
+// tables' identical name-entry step.
+async function validateHoldemNameAndAvatar() {
+  const name = $('nameInput').value.trim();
+  if (!name || name.length < 2) {
+    toast('Enter a name (2+ chars)');
+    return null;
+  }
+  const matchedAvatar = PROTECTED_NAME_TO_AVATAR[name.toLowerCase()];
+  if (matchedAvatar) {
+    if (!(await checkAvatarPin(matchedAvatar))) return null;
+    MY_AVATAR_KEY = matchedAvatar;
+    try { localStorage.setItem('k28_player_avatar', matchedAvatar); } catch (e) {}
+  }
+  return name;
+}
 // Per explicit live report, real confirmed bug: renderGameTable() calls
 // showScreen('gameScreen') unconditionally at its own start -- if a
 // poker_state broadcast was already in flight the instant Leave was
@@ -1916,8 +2089,14 @@ function animateChipsToWinners(state) {
 }
 
 // ---------------- Landing ----------------
-$('btnShowCreate').addEventListener('click', () => showScreen('createScreen'));
-$('btnShowJoin').addEventListener('click', () => showScreen('joinScreen'));
+$('btnShowCreate').addEventListener('click', async () => {
+  const name = await validateHoldemNameAndAvatar();
+  if (name) showScreen('createScreen');
+});
+$('btnShowJoin').addEventListener('click', async () => {
+  const name = await validateHoldemNameAndAvatar();
+  if (name) showScreen('joinScreen');
+});
 // Only shown when a saved session actually exists - this is a visible,
 // explicit way to retry the rejoin (the same thing already attempted
 // silently on connect) in case that first automatic attempt didn't
@@ -1962,13 +2141,13 @@ wireOptRow('buyInOpts', btn => createOpts.buyInType = btn.dataset.val);
 
 $('btnCreateConfirm').addEventListener('click', () => {
   const name = $('nameInput').value.trim() || 'Player';
-  socket.emit('poker_createTable', { name, ...createOpts, reloadChips: Math.round(createOpts.startingChips / 2) });
+  socket.emit('poker_createTable', { name, avatar: MY_AVATAR_KEY, ...createOpts, reloadChips: Math.round(createOpts.startingChips / 2) });
 });
 $('btnJoinConfirm').addEventListener('click', () => {
   const code = $('joinCodeInput').value.trim().toUpperCase();
   const name = $('nameInput').value.trim() || 'Player';
   if (!code) return;
-  socket.emit('poker_joinTable', { tableId: code, name });
+  socket.emit('poker_joinTable', { tableId: code, name, avatar: MY_AVATAR_KEY });
 });
 
 socket.on('poker_roomList', (list) => {
@@ -1982,7 +2161,7 @@ socket.on('poker_roomList', (list) => {
 });
 function joinPublicTable(tableId) {
   const name = $('nameInput').value.trim() || 'Player';
-  socket.emit('poker_joinTable', { tableId, name });
+  socket.emit('poker_joinTable', { tableId, name, avatar: MY_AVATAR_KEY });
 }
 socket.emit('poker_listRooms');
 setInterval(() => { if (!myTableId) socket.emit('poker_listRooms'); }, 4000);
