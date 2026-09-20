@@ -13,6 +13,7 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
+let lastKnownDealRound = null;
 // Real, confirmed feature per explicit request ("add sound and touch
 // sensitivity... to all"): the exact same Web Audio API synthesis
 // engine as the 4-player table's own -- no audio files, every effect
@@ -68,6 +69,61 @@ function ensureSoundMuteButton() {
     if (!soundMuted) playSound('click');
   });
   document.body.appendChild(btn);
+}
+// ==================== REAL AUDIO FILES ====================
+// Per explicit request ("use these files... for all tables"): the
+// same real recorded sound files as Hold'em, mapped to this game's
+// own closest equivalent actions -- this game is trick-taking, not
+// chip-betting, so there's no literal "chip" here; the mapping is by
+// ACTION similarity, not by literal name:
+//   cardDeal   -> the initial hand being dealt (new, this table never
+//                 had its own dealing sound before, only a trick-play
+//                 one)
+//   cardPlay   -> a card being played to a trick (replaces the
+//                 synthesized 'cardPlayed')
+//   chipPlace  -> confirming a bid (replaces synthesized 'bidConfirm'
+//                 -- staking a bid is this game's real equivalent of
+//                 placing a chip)
+//   chipReturn -> winning a trick (replaces synthesized 'trickWin' --
+//                 the closest equivalent to "chips coming back to you")
+// Everything else (trickLose, trumpExposed, yourTurn, join, click,
+// cardPickup, shuffle) keeps its existing synthesized sound, since no
+// real file was provided for those.
+const REAL_SOUND_FILES = {
+  cardDeal: '/sounds/card-deal.mp3',
+  cardPlay: '/sounds/card-play.mp3',
+  chipPlace: '/sounds/chip-place.mp3',
+  chipReturn: '/sounds/chip-return.mp3',
+};
+const realSoundBuffers = {};
+const realSoundLoadPromises = {};
+function loadRealSound(kind) {
+  if (realSoundBuffers[kind]) return Promise.resolve(realSoundBuffers[kind]);
+  if (realSoundLoadPromises[kind]) return realSoundLoadPromises[kind];
+  const ctx = getAudioCtx();
+  if (!ctx) return Promise.resolve(null);
+  realSoundLoadPromises[kind] = fetch(REAL_SOUND_FILES[kind])
+    .then(r => r.arrayBuffer())
+    .then(arr => ctx.decodeAudioData(arr))
+    .then(buf => { realSoundBuffers[kind] = buf; return buf; })
+    .catch(e => { console.log('[six] failed to load sound', kind, e.message); return null; });
+  return realSoundLoadPromises[kind];
+}
+Object.keys(REAL_SOUND_FILES).forEach(loadRealSound);
+function playRealSound(kind, volumeMult) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  const buffer = realSoundBuffers[kind];
+  if (!ctx || !buffer) return;
+  try {
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = volumeMult != null ? volumeMult : 1;
+    src.connect(gain);
+    gain.connect(masterGainNode);
+    src.start(0);
+  } catch (e) { /* never let a sound glitch break gameplay */ }
 }
 let sharedNoiseBuffer = null;
 function getNoiseBuffer(ctx) {
@@ -167,8 +223,12 @@ const SOUND_BUILDERS = {
     noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(140, 200), Q: 1.2, startAt: 0.3, duration: rnd(0.35, 0.5), peakGain: rnd(0.16, 0.2), attack: 0.08 });
   },
 };
-function playSound(kind) {
+function playSound(kind, arg) {
   if (soundMuted) return;
+  if (REAL_SOUND_FILES[kind]) {
+    playRealSound(kind, arg);
+    return;
+  }
   const ctx = getAudioCtx();
   if (!ctx || !masterGainNode) return;
   const builder = SOUND_BUILDERS[kind];
@@ -1853,6 +1913,23 @@ function renderLobby(state) {
 
 function applyState(state) {
   ensureSoundMuteButton();
+  // Real, confirmed feature per explicit request ("use these files for
+  // all tables... sync with all animations"): this table never had its
+  // own card-flying dealing animation the way Hold'em does, so there's
+  // no existing per-card visual to attach a per-card sound to. Detects
+  // the actual transition into a new round instead (round number
+  // increasing) and plays a short staggered sequence of the real
+  // dealing sound -- one per seat actually being dealt into, at the
+  // same real pace an actual deal would take, rather than either a
+  // single generic sound or over-building a whole new visual system
+  // just to hang this on.
+  if (state.round && state.round !== lastKnownDealRound) {
+    lastKnownDealRound = state.round;
+    const dealtSeatCount = (state.seats || []).filter(Boolean).length || 6;
+    for (let i = 0; i < dealtSeatCount; i++) {
+      setTimeout(() => playSound('cardDeal'), i * 160);
+    }
+  }
   // Detect any genuinely new bid entries (not passes, and never the
   // forced opening bid at index 0) to fire a big event for a real raise
   // or an honors-level bid -- same logic as index.html's identical
@@ -2944,7 +3021,7 @@ function renderCompletedTrick(lastTrick) {
   // per completed trick, via the reveal queue below), so it's the right place for the
   // win/lose haptic rather than anywhere state gets re-rendered.
   if (MY_POS !== -1) {
-    playSound(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose'); playHaptic(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose');
+    playSound(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'chipReturn' : 'trickLose'); playHaptic(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose');
   }
 }
 
@@ -3422,7 +3499,7 @@ function renderHand(state) {
 
 function playHandCard(suit, rank) {
   if (!latestState || latestState.currentPlayer !== MY_POS) return;
-  playSound('cardPlayed'); playHaptic('cardPlayed');
+  playSound('cardPlay'); playHaptic('cardPlayed');
   socket.emit('sixp_playCard', { card: { suit, rank, points: POINTS[rank] } });
 }
 function playHiddenTrumpCard() { socket.emit('sixp_playHiddenTrump'); }
@@ -3688,7 +3765,7 @@ function showBidConfirm(state, bid, isPass) {
   confirmBtn.addEventListener('click', () => {
     biddingConfirmShowing = false;
     $('bidOverlay').classList.remove('on');
-    playSound('bidConfirm'); playHaptic('bidConfirm');
+    playSound('chipPlace'); playHaptic('bidConfirm');
     if (isThani) socket.emit('sixp_callThani');
     else socket.emit('sixp_placeBid', { bid: isPass ? 0 : bid });
   });

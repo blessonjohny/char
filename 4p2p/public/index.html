@@ -4212,6 +4212,12 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </button>
   </div>
 
+  <div style="display:flex;justify-content:center;margin-top:10px;margin-bottom:20px">
+    <a class="welcome-btn primary" href="/puzzles.html" style="max-width:360px;width:100%;min-height:70px;box-sizing:border-box;background:linear-gradient(135deg,rgba(87,60,130,0.78),rgba(56,38,86,0.75));border-color:rgba(233,185,73,0.5);color:#fff;text-decoration:none;backdrop-filter:blur(2px);flex-direction:column;gap:4px;text-align:center;justify-content:center">
+      <span class="btn28-badge" style="font-size:1.2rem">🧩 Logic Puzzles</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">100 logic puzzles &amp; riddles, with clues</span>
+    </a>
+  </div>
+
   <div class="welcome-subbtn-row">
     <button class="welcome-subbtn" id="btnRules"><span>📖</span> How to Play</button>
     <button class="welcome-subbtn" id="btnBrainManager"><span>🧠</span> Bot Brain Manager</button>
@@ -5135,7 +5141,7 @@ try { MY_NAME = localStorage.getItem('k28_player_name') || ''; } catch (e) {}
 // sticks across visits instead of resetting every time.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon107','toon108','toon109']).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 
 // ==================== SOUND ENGINE ====================
 // A full card-table sound system built entirely on the native Web Audio API - no audio files,
@@ -5215,6 +5221,52 @@ function setMasterVolume(vol) {
   masterVolume = Math.max(0, Math.min(1, vol));
   if (masterGainNode) masterGainNode.gain.value = masterVolume;
   try { localStorage.setItem('k28_sound_volume', String(masterVolume)); } catch (e) {}
+}
+
+// ==================== REAL AUDIO FILES ====================
+// Per explicit request ("use these files for all tables -- 4, 6, and
+// Hold'em"): same real recorded sound files, same mapping as six.js
+// (trick-taking game, not chip-betting -- mapped by action similarity,
+// not literal name): cardDeal = initial hand dealt, cardPlay = a card
+// played to a trick (replaces synthesized 'cardPlayed'), chipPlace =
+// confirming a bid (replaces synthesized 'bidConfirm'), chipReturn =
+// winning a trick (replaces synthesized 'trickWin'). Everything else
+// keeps its existing synthesized sound.
+const REAL_SOUND_FILES = {
+  cardDeal: '/sounds/card-deal.mp3',
+  cardPlay: '/sounds/card-play.mp3',
+  chipPlace: '/sounds/chip-place.mp3',
+  chipReturn: '/sounds/chip-return.mp3',
+};
+const realSoundBuffers = {};
+const realSoundLoadPromises = {};
+function loadRealSound(kind) {
+  if (realSoundBuffers[kind]) return Promise.resolve(realSoundBuffers[kind]);
+  if (realSoundLoadPromises[kind]) return realSoundLoadPromises[kind];
+  const ctx = getAudioCtx();
+  if (!ctx) return Promise.resolve(null);
+  realSoundLoadPromises[kind] = fetch(REAL_SOUND_FILES[kind])
+    .then(r => r.arrayBuffer())
+    .then(arr => ctx.decodeAudioData(arr))
+    .then(buf => { realSoundBuffers[kind] = buf; return buf; })
+    .catch(e => { console.log('[index] failed to load sound', kind, e.message); return null; });
+  return realSoundLoadPromises[kind];
+}
+Object.keys(REAL_SOUND_FILES).forEach(loadRealSound);
+function playRealSound(kind, volumeMult) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  const buffer = realSoundBuffers[kind];
+  if (!ctx || !buffer) return;
+  try {
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = volumeMult != null ? volumeMult : 1;
+    src.connect(gain);
+    gain.connect(masterGainNode);
+    src.start(0);
+  } catch (e) { /* never let a sound glitch break gameplay */ }
 }
 
 // A reusable white-noise buffer, generated once and reused (via playbackRate + filters to vary
@@ -18173,7 +18225,15 @@ function applyServerState(state) {
   // top of each other.
   if (lastChimedRound !== null && state.round !== lastChimedRound && state.phase !== 'lobby') {
     playSound('shuffle');
-    setTimeout(() => playSound('cardDeal'), 550);
+    // Real, confirmed enhancement per explicit request ("sync with all
+    // animations... if 3 cards then 3 cards"): a real deal isn't one
+    // sound, it's one card per seat in turn -- staggered here to
+    // actually sound like that instead of a single generic "cards were
+    // dealt" cue standing in for the whole deal.
+    const dealtSeatCount = (state.seats || []).filter(Boolean).length || 4;
+    for (let i = 0; i < dealtSeatCount; i++) {
+      setTimeout(() => playSound('cardDeal'), 550 + i * 160);
+    }
   }
   lastChimedRound = state.round;
   round = state.round;
@@ -18895,7 +18955,7 @@ function renderTrickSlotsWithWinnerPause(state) {
     // A card slap for the winning card landing already plays via renderTrickSlots for every
     // card as it's played - this is specifically the trick OUTCOME sound, playing once the
     // trick as a whole resolves, based on whether MY team (not just whoever won) took it.
-    playSound(getTeam(state.lastTrick.winner) === getTeam(MY_POS) ? 'trickWin' : 'trickLose');
+    playSound(getTeam(state.lastTrick.winner) === getTeam(MY_POS) ? 'chipReturn' : 'trickLose');
     playHaptic(getTeam(state.lastTrick.winner) === getTeam(MY_POS) ? 'trickWin' : 'trickLose');
     // Queue it rather than showing it immediately — if a trick is
     // ALREADY mid-reveal (bots can play fast enough that a second trick
@@ -19087,7 +19147,7 @@ function renderTrickSlots(state) {
       // once ~100-300ms later). Every other player's card only ever arrives through this
       // state-driven path in the first place, so this exclusion only ever skips MY card,
       // never anyone else's.
-      if (tc.player !== MY_POS) playSound('cardPlayed');
+      if (tc.player !== MY_POS) playSound('cardPlay');
       // Real bug fix, per explicit correction: this is the actual live,
       // real-time path every other player's card renders through in
       // online multiplayer (see the comment right above -- confirmed
@@ -19109,9 +19169,9 @@ function renderTrickSlots(state) {
 // old local-engine functions (processBid/playCard/etc.) entirely — those
 // remain untouched for local bot-mode play.
 
-function serverPlaceBid(bid) { playSound('bidConfirm'); playHaptic('bidConfirm'); gameSocket.emit('placeBid', { bid: bid || 0 }); }
+function serverPlaceBid(bid) { playSound('chipPlace'); playHaptic('bidConfirm'); gameSocket.emit('placeBid', { bid: bid || 0 }); }
 function serverChooseTrump(suit, hiddenCard) { gameSocket.emit('chooseTrump', { suit, hiddenCard: hiddenCard || null }); }
-function serverPlayCard(card) { playSound('cardPlayed'); playHaptic('cardPlayed'); gameSocket.emit('playCard', { card }); }
+function serverPlayCard(card) { playSound('cardPlay'); playHaptic('cardPlayed'); gameSocket.emit('playCard', { card }); }
 function serverPlayHiddenTrump() { gameSocket.emit('playHiddenTrump'); }
 
 // Bot Mode (auto-play) for server mode: picks a legal card and submits it,
@@ -19282,6 +19342,36 @@ function serverBotPlayForMe() {
       };
     });
     let lastT = performance.now();
+    // Real, confirmed gap per explicit report: unlike the table screensaver further down this
+    // file (which already checks every bouncer against every other one and resolves overlaps
+    // with proper physics), this welcome-screen version never checked bouncers against EACH
+    // OTHER at all - only against the screen edges. Every button, icon, and bouncing word
+    // could freely pass through one another and end up sitting stacked on top of each other
+    // indefinitely, which is exactly what reads as "overlapping" rather than each object
+    // moving independently. Ports the same simple elastic-collision idea used elsewhere in
+    // this file (equal-mass, conservation of momentum along the collision normal, no torque/
+    // spin here since these objects only ever translate, never rotate) so two colliding
+    // objects actually bounce apart from each other now, not just from the screen edges.
+    function resolveOverlap(A, B) {
+      const overlapX = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
+      const overlapY = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
+      let nx, ny;
+      if (overlapX < overlapY) {
+        const sign = (A.x + A.w / 2 < B.x + B.w / 2) ? -1 : 1;
+        nx = sign; ny = 0;
+        A.x += sign * overlapX / 2; B.x -= sign * overlapX / 2;
+      } else {
+        const sign = (A.y + A.h / 2 < B.y + B.h / 2) ? -1 : 1;
+        nx = 0; ny = sign;
+        A.y += sign * overlapY / 2; B.y -= sign * overlapY / 2;
+      }
+      const rvx = A.vx - B.vx, rvy = A.vy - B.vy;
+      const velAlongNormal = rvx * nx + rvy * ny;
+      if (velAlongNormal > 0) return; // already separating
+      const j = -velAlongNormal; // equal mass, restitution 1
+      A.vx += j * nx; A.vy += j * ny;
+      B.vx -= j * nx; B.vy -= j * ny;
+    }
     function frame(t) {
       if (!bouncers) return;
       const dt = Math.min(0.05, (t - lastT) / 1000);
@@ -19293,6 +19383,16 @@ function serverBotPlayForMe() {
         else if (b.x + b.w > viewportW) { b.x = viewportW - b.w; b.vx = -Math.abs(b.vx); }
         if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
         else if (b.y + b.h > viewportH) { b.y = viewportH - b.h; b.vy = -Math.abs(b.vy); }
+      }
+      for (let i = 0; i < bouncers.length; i++) {
+        for (let j2 = i + 1; j2 < bouncers.length; j2++) {
+          const A = bouncers[i], B = bouncers[j2];
+          if (A.x < B.x + B.w && A.x + A.w > B.x && A.y < B.y + B.h && A.y + A.h > B.y) {
+            resolveOverlap(A, B);
+          }
+        }
+      }
+      for (const b of bouncers) {
         b.el.style.transform = `translate(${(b.x - b.homeLeft).toFixed(1)}px,${(b.y - b.homeTop).toFixed(1)}px)`;
       }
       rafId = requestAnimationFrame(frame);

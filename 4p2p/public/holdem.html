@@ -1244,6 +1244,62 @@ function ensureSoundMuteButton() {
   });
   document.body.appendChild(btn);
 }
+// ==================== REAL AUDIO FILES ====================
+// Per explicit request: real recorded sound files (not synthesis) for
+// the 4 core actions that have one -- card dealing, card playing, chip
+// placing/calling, and chip winning/returning. Loaded once into
+// AudioBuffers (via fetch + decodeAudioData) and cached, then played
+// through fresh AudioBufferSourceNodes each time -- this is what
+// actually allows genuinely overlapping playback of the SAME sound
+// (dealing 3 cards in a row, or several chips landing close together)
+// without one cutting the previous one off, which a single reused
+// <audio> element could never do cleanly. Falls through to the
+// existing synthesized sound for anything that doesn't have a real
+// file (fold, check, win, lose, your-turn, all-in, click, shuffle) --
+// only these 4 are being replaced, nothing else.
+const REAL_SOUND_FILES = {
+  cardDeal: '/sounds/card-deal.mp3',
+  cardPlay: '/sounds/card-play.mp3',
+  chipPlace: '/sounds/chip-place.mp3',
+  chipReturn: '/sounds/chip-return.mp3',
+};
+const realSoundBuffers = {};
+const realSoundLoadPromises = {};
+function loadRealSound(kind) {
+  if (realSoundBuffers[kind]) return Promise.resolve(realSoundBuffers[kind]);
+  if (realSoundLoadPromises[kind]) return realSoundLoadPromises[kind];
+  const ctx = getAudioCtx();
+  if (!ctx) return Promise.resolve(null);
+  realSoundLoadPromises[kind] = fetch(REAL_SOUND_FILES[kind])
+    .then(r => r.arrayBuffer())
+    .then(arr => ctx.decodeAudioData(arr))
+    .then(buf => { realSoundBuffers[kind] = buf; return buf; })
+    .catch(e => { console.log('[holdem] failed to load sound', kind, e.message); return null; });
+  return realSoundLoadPromises[kind];
+}
+// Kick off loading all 4 real files immediately on page load (not
+// lazily on first use) -- so the very first card dealt in a player's
+// first hand already has its real sound ready, instead of the file
+// still being in flight and silently missing that one time.
+Object.keys(REAL_SOUND_FILES).forEach(loadRealSound);
+// Plays a real loaded sound at an optional volume multiplier (used to
+// make a big raise's chips sound a little more prominent than a small
+// call, the same scaling idea the old synthesized chipStack had).
+function playRealSound(kind, volumeMult) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  const buffer = realSoundBuffers[kind];
+  if (!ctx || !buffer) return;
+  try {
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = volumeMult != null ? volumeMult : 1;
+    src.connect(gain);
+    gain.connect(masterGainNode);
+    src.start(0);
+  } catch (e) { /* never let a sound glitch break gameplay */ }
+}
 let sharedNoiseBuffer = null;
 function getNoiseBuffer(ctx) {
   if (sharedNoiseBuffer) return sharedNoiseBuffer;
@@ -1332,29 +1388,33 @@ const SOUND_BUILDERS = {
     noiseSweep(ctx, dest, { filterType: 'bandpass', freqFrom: rnd(5500, 6500), freqTo: rnd(1800, 2400), Q: rnd(0.5, 0.9), duration: rnd(0.045, 0.06), peakGain: rnd(0.18, 0.24), attack: 0.001 });
     noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(180, 260), Q: 0.9, startAt: rnd(0.045, 0.06), duration: rnd(0.04, 0.06), peakGain: rnd(0.12, 0.17), attack: 0.003 });
   },
-  // Real, confirmed redesign, same live report: a real poker chip is a
-  // hard, dense clay/ceramic disc -- when it hits another chip or the
-  // table it doesn't just make noise, it RINGS, briefly, at a real
-  // pitch. Layers a fast-decaying tone (the actual "clink" resonance)
-  // directly under the sharp noise transient (the hard initial
-  // contact) -- the combination of a real pitch plus a hard transient
-  // is what noise alone could never produce, and is exactly what was
-  // missing before.
+  // Real, confirmed redesign per explicit live report ("ding dong
+  // xylophone... too robotic"): the previous version used clean
+  // oscillator tones (a triangle/sine wave) to give the chip its
+  // "ring" -- but a clean oscillator IS a musical note, which is
+  // exactly why it read as a xylophone instead of a physical object.
+  // Real materials don't ring at one pure pitch; they ring as a messy,
+  // narrow-band RESONANCE. Rebuilt using only very-high-Q bandpass-
+  // filtered noise (Q around 18-30) -- filtering noise that tightly
+  // makes the filter itself resonate/ring at its center frequency,
+  // producing a genuine metallic-sounding "clink" that's built from
+  // noise, not a musical oscillator, so it never has that clean-note
+  // xylophone quality no matter how it's pitched.
   chipBet(ctx, dest) {
-    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(3600, 4400), Q: rnd(1.5, 2.5), duration: rnd(0.012, 0.018), peakGain: rnd(0.26, 0.32), attack: 0.0005 });
-    tone(ctx, dest, { freq: rnd(1900, 2400), type: 'triangle', duration: rnd(0.07, 0.09), peakGain: rnd(0.14, 0.18), attack: 0.001 });
-    tone(ctx, dest, { freq: rnd(1100, 1400), type: 'sine', startAt: 0.006, duration: rnd(0.1, 0.13), peakGain: rnd(0.09, 0.12), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(3800, 4600), Q: rnd(1, 1.6), duration: rnd(0.008, 0.012), peakGain: rnd(0.24, 0.3), attack: 0.0004 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(2600, 3400), Q: rnd(20, 30), duration: rnd(0.05, 0.07), peakGain: rnd(0.16, 0.2), attack: 0.0006 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1400, 1900), Q: rnd(16, 24), startAt: 0.003, duration: rnd(0.06, 0.08), peakGain: rnd(0.1, 0.14), attack: 0.0006 });
   },
-  // A raise or a big bet -- several overlapping real chip clinks
-  // (each with its own hard transient + tonal ring, not a repeated
-  // noise burst), reading as a genuine stack landing rather than one
-  // chip repeated, scaled by how big the raise actually is.
+  // A raise or a big bet -- several overlapping real chip clinks,
+  // each with its own hard transient plus the same noise-resonance
+  // ring, reading as a genuine stack landing rather than one chip
+  // repeated, scaled by how big the raise actually is.
   chipStack(ctx, dest, size) {
     const count = Math.max(3, Math.min(9, Math.round(3 + (size || 0.5) * 6)));
     let t = 0;
     for (let i = 0; i < count; i++) {
-      noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(3600, 4400), Q: rnd(1.5, 2.5), startAt: t, duration: rnd(0.01, 0.016), peakGain: rnd(0.2, 0.26), attack: 0.0005 });
-      tone(ctx, dest, { freq: rnd(1700, 2500), type: 'triangle', startAt: t, duration: rnd(0.06, 0.08), peakGain: rnd(0.1, 0.15), attack: 0.001 });
+      noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(3800, 4600), Q: rnd(1, 1.6), startAt: t, duration: rnd(0.008, 0.012), peakGain: rnd(0.2, 0.25), attack: 0.0004 });
+      noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(2200, 3400), Q: rnd(18, 28), startAt: t + 0.003, duration: rnd(0.045, 0.065), peakGain: rnd(0.13, 0.18), attack: 0.0006 });
       t += rnd(0.028, 0.05);
     }
   },
@@ -1416,6 +1476,12 @@ const SOUND_BUILDERS = {
 };
 function playSound(kind, arg) {
   if (soundMuted) return;
+  // Real files take priority over synthesis for the 4 kinds that have
+  // one -- everything else still uses the synthesized engine below.
+  if (REAL_SOUND_FILES[kind]) {
+    playRealSound(kind, arg);
+    return;
+  }
   const ctx = getAudioCtx();
   if (!ctx || !masterGainNode) return;
   const builder = SOUND_BUILDERS[kind];
@@ -2214,10 +2280,6 @@ function updatePotStackTotalPosition(baseX, baseY, stackSpacingX, stackRiseY) {
 }
 function animateChipToPot(seatPos, amount) {
   const potEl = $('potAnchor') || $('potDisplay');
-  // Chip sound scales with bet size (relative to a reasonable
-  // reference of 200) -- a small call sounds like a couple chips, a
-  // big raise sounds like a real stack being pushed forward.
-  playSound('chipStack', Math.min(1, amount / 200));
   playHaptic('chipBet');
   // Per explicit request: chips now fly from each player's own rail
   // chip stack (see renderRailChips) rather than the seat/avatar
@@ -2247,6 +2309,14 @@ function animateChipToPot(seatPos, amount) {
   denomColors.forEach((color, i) => {
     const delay = i * 90;
     setTimeout(() => {
+      // Real, confirmed feature per explicit request ("sync with all
+      // animations... chips number of chips"): the real chip-placing
+      // sound now plays once per ACTUAL flying chip, at the exact
+      // moment that specific chip starts its flight -- a $120 bet that
+      // decomposes into 3 real chips plays the sound 3 times, staggered
+      // the same 90ms apart the chips themselves are, not one sound
+      // scaled by volume standing in for "however many chips this is."
+      playSound('chipPlace');
       const chip = document.createElement('div');
       // Real, confirmed bug fix per explicit live report ("flying anim is
       // a bit not the same"): this used the plain .flying-chip class on
@@ -2312,6 +2382,7 @@ function animateChipsToWinners(state) {
     winnerTargets.push({ x: r.left + r.width / 2, y: r.top + r.height / 2, amount: w.amount, isReturnedBet: !!w.isReturnedBet });
   }
   if (winnerTargets.length === 0) return 0;
+  playHaptic('chipBet');
 
   // Per explicit follow-up: the popup used to be scheduled on a fixed
   // delay that assumed a small, roughly-constant number of chips --
@@ -2337,6 +2408,15 @@ function animateChipsToWinners(state) {
     const stackTopToBottom = stackToUse.slice().reverse();
     stackTopToBottom.forEach((chip, i) => {
       const target = winnerTargets[i % winnerTargets.length];
+      // Real, confirmed bug fix per explicit live report ("chip is
+      // returning... there is no sound"), then refined per the
+      // follow-up request ("sync with all animations... chips number
+      // of chips"): the real chip-return sound now plays once per
+      // ACTUAL flying chip, timed to that specific chip's own flight
+      // start -- a 5-chip payout plays the sound 5 times, staggered
+      // the same 60ms apart the chips themselves fly, not one sound
+      // standing in for the whole payout regardless of size.
+      setTimeout(() => playSound('chipReturn'), i * 60);
       const rect = chip.getBoundingClientRect();
       const startX = rect.left + rect.width / 2;
       const startY = rect.top + rect.height / 2;
@@ -2403,6 +2483,11 @@ function animateChipsToWinners(state) {
       chip.style.opacity = '1';
       document.body.appendChild(chip);
       const delay = i * 70;
+      // Real, confirmed feature, same fix as the main branch above:
+      // one real chip-return sound per actual flying chip in this
+      // fallback path too, so a payout sounds consistent regardless of
+      // which of the two branches happens to run.
+      setTimeout(() => playSound('chipReturn'), delay);
       const jitterX = (Math.random() - 0.5) * 16;
       const jitterY = (Math.random() - 0.5) * 16;
       setTimeout(() => {
