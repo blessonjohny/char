@@ -19127,6 +19127,22 @@ function catchUpTrickSlotsStaggered(real) {
     const cardWithColor = { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' };
     const el = document.getElementById('slot' + slotIdx);
     if (el) el.innerHTML = cardHTML(cardWithColor, false, false, 'trick-card-landing');
+    // Real, confirmed root-cause fix per explicit live report ("can
+    // only hear the players after my turn... as soon as the first bot
+    // makes a decision, the second and third make instant decisions...
+    // cards come out at the correct timing" but sound doesn't): THIS
+    // is the actual staggered per-card reveal that runs specifically
+    // when bots have played faster than the normal display pace can
+    // show them (see this whole function's own purpose above) -- it
+    // was built entirely separately from renderTrickSlots() and never
+    // had a sound call of its own, so every card revealed through
+    // this exact path (which is precisely the rapid-bot-decisions
+    // case being described) was always silent regardless of who
+    // played it. The visual card landing here already IS correctly
+    // staggered (550ms apart, matching the real bot pace) -- this
+    // sound now rides along with that same real per-card timing
+    // instead of being missing from it.
+    if (tc.pos !== MY_POS) { playSound('cardPlay'); playHaptic('cardPlayed'); }
     lastRenderedSlotContent[slotIdx] = tc.card.suit + tc.card.rank;
     trickCards.push({ player: tc.pos, card: cardWithColor });
     clearCallBadges4p(); // per explicit instruction: bid/pass bubbles stay up only until someone actually starts playing

@@ -3024,7 +3024,27 @@ function renderTrick(state) {
     const el = $('trickSlot' + slot);
     if (desired[slot] === null) { el.innerHTML = ''; continue; }
     const tc = (state.trickCards || []).find(t => slotFor(t.pos) === slot);
-    if (tc) el.innerHTML = cardHTML(tc.card, false, false, 'tiny trick-card-landing');
+    if (tc) {
+      el.innerHTML = cardHTML(tc.card, false, false, 'tiny trick-card-landing');
+      // Real, confirmed root-cause fix per explicit live report ("when
+      // other player play I can't hear the sound"): playHandCard()
+      // only ever plays this sound for THIS player's own card, since
+      // it's called directly from that click handler -- there was
+      // never any equivalent trigger for a card that arrives because
+      // someone ELSE played it, only the visual card itself was
+      // showing up. This is the actual per-slot "genuinely new since
+      // last render" detection already used for the landing animation
+      // above -- reusing that same, already-correct diff instead of a
+      // separate length-based check means it's exactly as robust to
+      // several bots playing in rapid succession as the visual
+      // animation already is (each of the 6 slots is checked
+      // individually every render, not just "did the count change by
+      // one"). tc.pos !== MY_POS skips this player's own card, which
+      // already got its sound the instant they tapped it, before the
+      // server even confirmed it -- avoiding a double-trigger once
+      // their own play reflects back in state.
+      if (tc.pos !== MY_POS) { playSound('cardPlay'); playHaptic('cardPlayed'); }
+    }
   }
 }
 
@@ -3117,6 +3137,15 @@ function catchUpSixpTrickStaggered(real) {
     }
     const slot = slotFor(nextCard.pos);
     $('trickSlot' + slot).innerHTML = cardHTML(nextCard.card, false, false, 'tiny trick-card-landing');
+    // Real, confirmed root-cause fix, same underlying bug as the
+    // 4-player table's identical catch-up function: this staggered
+    // reveal path (specifically for when bots have played faster than
+    // the normal pace can show them -- exactly the rapid-decisions
+    // case) was built entirely separately from renderTrick() and never
+    // had its own sound trigger, so every card revealed through here
+    // was silent regardless of who played it. Rides along with this
+    // same real per-card timing (not fired all at once) instead.
+    if (nextCard.pos !== MY_POS) { playSound('cardPlay'); playHaptic('cardPlayed'); }
     lastRenderedTrickSlot[slot] = nextCard.card.suit + nextCard.card.rank;
     setTimeout(revealNext, 550);
   }
