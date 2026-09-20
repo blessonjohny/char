@@ -330,7 +330,12 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    always visually spread apart no matter how many times the spacing
    number itself was changed. position:absolute here is what finally
    makes bottom/left do anything at all. */
-.rail-chip-pile .pot-stack-chip{position:absolute;border-radius:50%;border:1.5px solid rgba(255,255,255,0.75);box-shadow:0 2px 3px rgba(0,0,0,0.5)}
+/* Real, confirmed bug fix per explicit live report ("no white marks,
+   looks so poor quality"): solid -> dashed, matching the real pot-pile
+   chip's own rim exactly (see .chip / .flying-chip) -- the dashed
+   white rim is what actually reads as a casino chip's edge markings;
+   a solid ring just looks like a plain outlined dot. */
+.rail-chip-pile .pot-stack-chip{position:absolute;border-radius:50%;border:1.5px dashed rgba(255,255,255,0.75);box-shadow:0 2px 3px rgba(0,0,0,0.5)}
 /* Per explicit follow-up: chips settled into the pot pile read as
    genuinely lying flat on the table -- squashed into an ellipse
    (scaleY) the way a round chip actually looks viewed from this
@@ -2206,13 +2211,23 @@ $('btnExitLobbyGuest').addEventListener('click', exitCreatedTable);
 // the colors shown are mathematically derived from the real value
 // instead of an arbitrary repeating sequence that ignored it.
 const CHIP_DENOMINATIONS = [
-  { value: 500, color: CHIP_COLOR_STOPS[6].colors[1] }, // gold
-  { value: 100, color: CHIP_COLOR_STOPS[5].colors[1] }, // purple
-  { value: 50, color: CHIP_COLOR_STOPS[4].colors[1] },  // black
-  { value: 25, color: CHIP_COLOR_STOPS[3].colors[1] },  // green
-  { value: 10, color: CHIP_COLOR_STOPS[2].colors[1] },  // blue
-  { value: 5, color: CHIP_COLOR_STOPS[1].colors[1] },   // red
-  { value: 1, color: CHIP_COLOR_STOPS[0].colors[1] },   // white
+  // Real, confirmed bug fix per explicit live report ("looks totally
+  // different... poor quality... inside color is coming to side"):
+  // this used to store just colors[1] (the flat middle tone) alone,
+  // while the real pot-pile chips (chipGradientForValue) build a full
+  // 3-stop radial-gradient(circle at 35% 30%, light, mid 70%, dark)
+  // from all three stops -- that's the entire reason the pot pile
+  // reads as a real, lit, 3D chip and the rail piles read as a flat
+  // painted dot. Builds the exact same gradient string here, from the
+  // exact same three color stops, so a chip is the same chip
+  // regardless of which pile it's sitting in.
+  { value: 500, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[6].colors[0]}, ${CHIP_COLOR_STOPS[6].colors[1]} 70%, ${CHIP_COLOR_STOPS[6].colors[2]})` }, // gold
+  { value: 100, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[5].colors[0]}, ${CHIP_COLOR_STOPS[5].colors[1]} 70%, ${CHIP_COLOR_STOPS[5].colors[2]})` }, // purple
+  { value: 50, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[4].colors[0]}, ${CHIP_COLOR_STOPS[4].colors[1]} 70%, ${CHIP_COLOR_STOPS[4].colors[2]})` },  // black
+  { value: 25, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[3].colors[0]}, ${CHIP_COLOR_STOPS[3].colors[1]} 70%, ${CHIP_COLOR_STOPS[3].colors[2]})` },  // green
+  { value: 10, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[2].colors[0]}, ${CHIP_COLOR_STOPS[2].colors[1]} 70%, ${CHIP_COLOR_STOPS[2].colors[2]})` },  // blue
+  { value: 5, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[1].colors[0]}, ${CHIP_COLOR_STOPS[1].colors[1]} 70%, ${CHIP_COLOR_STOPS[1].colors[2]})` },   // red
+  { value: 1, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[0].colors[0]}, ${CHIP_COLOR_STOPS[0].colors[1]} 70%, ${CHIP_COLOR_STOPS[0].colors[2]})` },   // white
 ];
 // Breaks a real chip value down into actual denomination chips,
 // largest first (exactly how a real cashier would count it out).
