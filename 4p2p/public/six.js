@@ -13,12 +13,178 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
-// Haptic-only feedback for this table - explicitly no sound engine here, per request. Same
-// pattern as the 4-player table's own vibrate()/playHaptic(), just without any of the Web
-// Audio API sound synthesis alongside it. navigator.vibrate doesn't exist at all on iOS
-// Safari (Apple has never implemented it) and is unsupported in some other browsers too -
-// both cases should silently do nothing rather than error, since this is a nice-to-have
-// enhancement, never a requirement.
+// Real, confirmed feature per explicit request ("add sound and touch
+// sensitivity... to all"): the exact same Web Audio API synthesis
+// engine as the 4-player table's own -- no audio files, every effect
+// built from filtered noise bursts and oscillator tones -- now added
+// here too, reversing the earlier haptic-only decision for this table.
+let sharedAudioCtx = null;
+let masterGainNode = null;
+let soundMuted = false;
+let masterVolume = 0.8;
+try {
+  soundMuted = localStorage.getItem('k28_sound_muted') === '1';
+  const savedVol = parseFloat(localStorage.getItem('k28_sound_volume'));
+  if (!isNaN(savedVol)) masterVolume = savedVol;
+} catch (e) {}
+function getAudioCtx() {
+  if (!sharedAudioCtx) {
+    try {
+      sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGainNode = sharedAudioCtx.createGain();
+      masterGainNode.gain.value = masterVolume;
+      masterGainNode.connect(sharedAudioCtx.destination);
+    } catch (e) { return null; }
+  }
+  if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume().catch(() => {});
+  return sharedAudioCtx;
+}
+let audioWarmedUp = false;
+function warmUpAudioContext() {
+  if (audioWarmedUp) return;
+  audioWarmedUp = true;
+  getAudioCtx();
+}
+['touchstart', 'mousedown', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, warmUpAudioContext, { once: true, passive: true });
+});
+function setSoundMuted(muted) {
+  soundMuted = muted;
+  try { localStorage.setItem('k28_sound_muted', muted ? '1' : '0'); } catch (e) {}
+  const btn = document.getElementById('btnSoundMute');
+  if (btn) btn.textContent = muted ? '🔇' : '🔊';
+}
+let soundMuteBtnBuilt = false;
+function ensureSoundMuteButton() {
+  if (soundMuteBtnBuilt) return;
+  soundMuteBtnBuilt = true;
+  const btn = document.createElement('button');
+  btn.id = 'btnSoundMute';
+  btn.title = 'Mute sound effects';
+  btn.style.display = 'flex';
+  btn.textContent = soundMuted ? '🔇' : '🔊';
+  btn.addEventListener('click', () => {
+    setSoundMuted(!soundMuted);
+    if (!soundMuted) playSound('click');
+  });
+  document.body.appendChild(btn);
+}
+let sharedNoiseBuffer = null;
+function getNoiseBuffer(ctx) {
+  if (sharedNoiseBuffer) return sharedNoiseBuffer;
+  const len = ctx.sampleRate * 1.0;
+  const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  sharedNoiseBuffer = buffer;
+  return buffer;
+}
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function noiseBurst(ctx, dest, { filterType = 'bandpass', freq = 2000, Q = 1, startAt = 0, duration = 0.05, peakGain = 0.3, attack = 0.002 }) {
+  const src = ctx.createBufferSource();
+  src.buffer = getNoiseBuffer(ctx);
+  src.loopStart = 0;
+  src.loopEnd = duration + 0.05;
+  const offset = Math.random() * 0.8;
+  const filter = ctx.createBiquadFilter();
+  filter.type = filterType;
+  filter.frequency.value = freq;
+  filter.Q.value = Q;
+  const gain = ctx.createGain();
+  const t = ctx.currentTime + startAt;
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(peakGain, t + attack);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(dest);
+  src.start(t, offset, duration + 0.05);
+  src.stop(t + duration + 0.05);
+}
+function tone(ctx, dest, { freq = 440, type = 'sine', startAt = 0, duration = 0.18, peakGain = 0.15, attack = 0.015 }) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  const t = ctx.currentTime + startAt;
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(peakGain, t + attack);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  osc.connect(gain);
+  gain.connect(dest);
+  osc.start(t);
+  osc.stop(t + duration + 0.05);
+}
+const SOUND_BUILDERS = {
+  cardDeal(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(3200, 4200), Q: 0.7, duration: rnd(0.02, 0.03), peakGain: rnd(0.16, 0.22), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(220, 320), Q: 1.2, startAt: rnd(0.02, 0.035), duration: rnd(0.03, 0.045), peakGain: rnd(0.1, 0.15) });
+  },
+  cardPlayed(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1400, 2200), Q: rnd(0.8, 1.3), duration: rnd(0.035, 0.05), peakGain: rnd(0.32, 0.4), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(180, 260), Q: 1, startAt: 0.004, duration: rnd(0.05, 0.07), peakGain: rnd(0.14, 0.2) });
+  },
+  cardPickup(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(3800, 4800), Q: 0.6, duration: rnd(0.012, 0.02), peakGain: rnd(0.06, 0.1), attack: 0.001 });
+  },
+  shuffle(ctx, dest) {
+    const count = Math.floor(rnd(10, 16));
+    let t = 0;
+    for (let i = 0; i < count; i++) {
+      noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1800, 3200), Q: rnd(1, 2), startAt: t, duration: rnd(0.015, 0.03), peakGain: rnd(0.1, 0.18), attack: 0.001 });
+      t += rnd(0.02, 0.045);
+    }
+  },
+  trickWin(ctx, dest) {
+    const base = rnd(520, 540);
+    [0, 4, 7].forEach((semi, i) => {
+      tone(ctx, dest, { freq: base * Math.pow(2, semi / 12), type: 'triangle', startAt: i * 0.07, duration: 0.22, peakGain: 0.14 });
+    });
+  },
+  trickLose(ctx, dest) {
+    const base = rnd(380, 400);
+    tone(ctx, dest, { freq: base, type: 'sine', startAt: 0, duration: 0.16, peakGain: 0.09 });
+    tone(ctx, dest, { freq: base * Math.pow(2, -3 / 12), type: 'sine', startAt: 0.09, duration: 0.22, peakGain: 0.08 });
+  },
+  bidConfirm(ctx, dest) {
+    tone(ctx, dest, { freq: rnd(820, 880), type: 'triangle', duration: 0.13, peakGain: 0.16, attack: 0.008 });
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: 3000, Q: 0.8, duration: 0.012, peakGain: 0.08, attack: 0.001 });
+  },
+  click(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1600, 2400), Q: 1.5, duration: rnd(0.006, 0.012), peakGain: rnd(0.05, 0.08), attack: 0.001 });
+  },
+  join(ctx, dest) {
+    tone(ctx, dest, { freq: 660, type: 'sine', duration: 0.22, peakGain: 0.12 });
+  },
+  yourTurn(ctx, dest) {
+    tone(ctx, dest, { freq: 740, type: 'sine', duration: 0.16, peakGain: 0.16 });
+    tone(ctx, dest, { freq: 988, type: 'sine', startAt: 0.14, duration: 0.22, peakGain: 0.18 });
+  },
+  trumpExposed(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(1800, 2600), Q: 0.6, duration: 0.035, peakGain: rnd(0.3, 0.36), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(280, 380), Q: 0.8, duration: 0.06, peakGain: rnd(0.4, 0.48), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(180, 260), Q: 1, startAt: 0.04, duration: rnd(0.5, 0.7), peakGain: rnd(0.26, 0.34), attack: 0.05 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(140, 200), Q: 1.2, startAt: 0.3, duration: rnd(0.35, 0.5), peakGain: rnd(0.16, 0.2), attack: 0.08 });
+  },
+};
+function playSound(kind) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  if (!ctx || !masterGainNode) return;
+  const builder = SOUND_BUILDERS[kind];
+  if (!builder) return;
+  try { builder(ctx, masterGainNode); } catch (e) { /* never let a sound glitch break gameplay */ }
+}
+function playChime(kind) { playSound(kind); }
+document.addEventListener('click', (e) => {
+  const target = e.target.closest('button, .btn, .btn-outline, .btn-primary, .icon-btn');
+  if (target) playSound('click');
+}, true);
+// Haptic feedback (phone vibration) - a separate concern from sound, but the same principle:
+// short, distinct patterns per action rather than one generic buzz for everything.
+// navigator.vibrate simply doesn't exist on iOS Safari at all (Apple has never implemented
+// it) and is unsupported/blocked in many desktop browsers - both cases should silently do
+// nothing rather than error, since this is a nice-to-have enhancement, never a requirement.
 function vibrate(pattern) {
   try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
 }
@@ -45,7 +211,7 @@ let isAutoReconnectAttempt6p = false;
 // player's choice carries over between tables instead of resetting.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon107','toon108','toon109']).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 // Per explicit request: these 5 are personal, PIN-protected avatars
 // (see pickMyAvatar/confirmSixpChangeAvatar for the actual PIN check)
 // and must never be handed to anyone automatically -- not as a bot,
@@ -1686,6 +1852,7 @@ function renderLobby(state) {
 // ---------------- Main state application ----------------
 
 function applyState(state) {
+  ensureSoundMuteButton();
   // Detect any genuinely new bid entries (not passes, and never the
   // forced opening bid at index 0) to fire a big event for a real raise
   // or an honors-level bid -- same logic as index.html's identical
@@ -1910,7 +2077,7 @@ function applyState(state) {
           showGameEvent(exposedSuitAtCall, 'Trump Exposed', trumpDetail, popupSuitColor, {
             trumpEvent: true, splitTitle: true, blackSuitIcon: !isRedSuitForIcon
           });
-          playHaptic('trumpExposed');
+          playSound('trumpExposed'); playHaptic('trumpExposed');
         }, 550);
         // Same table-wide pop/shake/glow reveal as the 4-player table - see the CSS comment
         // next to .table-oval.trump-exposed for why this touches two elements at once.
@@ -2039,8 +2206,15 @@ function applyState(state) {
   // non-empty, i.e. someone - bot or human - has genuinely played the first card of the
   // round, which is what "stay until a player plays a card" actually meant.
   if (state.phase === 'play' && state.trickCards && state.trickCards.length > 0) dismissBidWinnerCelebration6p();
-  if (state.phase === 'bidding1' && state.currentPlayer === MY_POS) showBidPanel(state);
-  else $('bidOverlay').classList.remove('on');
+  // Real, confirmed root-cause fix (see biddingConfirmShowing's own
+  // comment above showBidConfirm): skips re-calling showBidPanel while
+  // this player is already looking at the confirm screen for a bid
+  // they've picked but not yet sent -- without this, any unrelated
+  // state broadcast arriving in that window silently replaced the
+  // confirm screen with a freshly rebuilt number picker, which is
+  // exactly the "tap it, it vanishes, the picker comes back" bug.
+  if (state.phase === 'bidding1' && state.currentPlayer === MY_POS && !biddingConfirmShowing) showBidPanel(state);
+  else if (!(state.phase === 'bidding1' && state.currentPlayer === MY_POS)) $('bidOverlay').classList.remove('on');
 
   if (state.phase === 'choosingTrump' && state.currentPlayer === MY_POS && state.bidder === MY_POS) {
     // Show the player's actual hand while they decide, and disable any suit they don't hold
@@ -2770,7 +2944,7 @@ function renderCompletedTrick(lastTrick) {
   // per completed trick, via the reveal queue below), so it's the right place for the
   // win/lose haptic rather than anywhere state gets re-rendered.
   if (MY_POS !== -1) {
-    playHaptic(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose');
+    playSound(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose'); playHaptic(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose');
   }
 }
 
@@ -2988,7 +3162,7 @@ function updateTurnLabel(state) {
     // matching the same phase-aware pattern bidding1 and choosingTrump
     // already had.
     lbl.textContent = state.phase === 'bidding1' ? 'Your turn to bid' : state.phase === 'choosingTrump' ? 'Choose trump' : state.phase === 'play' ? 'Your turn to play' : 'Your turn';
-    if (lastHapticCurrentPlayer !== MY_POS && state.phase !== 'lobby') playHaptic('yourTurn');
+    if (lastHapticCurrentPlayer !== MY_POS && state.phase !== 'lobby') { playSound('yourTurn'); playHaptic('yourTurn'); }
   } else {
     const seat = state.seats[state.currentPlayer];
     lbl.textContent = seat ? (seat.name + "'s turn") : '';
@@ -3248,7 +3422,7 @@ function renderHand(state) {
 
 function playHandCard(suit, rank) {
   if (!latestState || latestState.currentPlayer !== MY_POS) return;
-  playHaptic('cardPlayed');
+  playSound('cardPlayed'); playHaptic('cardPlayed');
   socket.emit('sixp_playCard', { card: { suit, rank, points: POINTS[rank] } });
 }
 function playHiddenTrumpCard() { socket.emit('sixp_playHiddenTrump'); }
@@ -3445,7 +3619,37 @@ function showBidPanel(state) {
 // A confirm step before the bid actually goes to the server — a
 // mis-tap on a bid number was otherwise irreversible the instant it
 // registered, with real match points on the line.
+// Real, confirmed UX fix per explicit live report ("click it twice...
+// goes away comes back, all the bidding"): every single bid action --
+// a plain number, PASS, even just staying at your own current bid --
+// used to route through this same two-step confirm screen (pick a
+// number, then tap Confirm again to actually send it), which on a
+// table where bidding happens constantly reads exactly like "I tap
+// it, it vanishes, then a different screen comes back" on every single
+// action. Ordinary bids and PASS now submit immediately on the one tap
+// that was already an unambiguous, specific choice (a numbered button
+// or PASS is never a generic "are you sure" moment). THANI keeps its
+// own confirm step below -- going solo is a genuinely rare, high-
+// stakes, hard-to-reverse commitment (both teammates fold, must win
+// every trick), which is exactly the kind of action worth protecting
+// against a mis-tap, unlike routine numbered bidding.
+// Real, confirmed root-cause fix per explicit live report ("click OK,
+// it goes away, comes back"): this confirm screen previously had no
+// protection against the top-level render function's own
+// `if (phase==='bidding1' && currentPlayer===MY_POS) showBidPanel(state)`
+// check, which runs on EVERY state broadcast the client receives --
+// not just ones related to this bid. Since it's still genuinely this
+// player's turn (the bid hasn't reached the server yet, precisely
+// because they're still looking at the confirm screen deciding), any
+// unrelated broadcast arriving in that window (another seat's
+// unrelated activity, a periodic sync, anything) re-ran showBidPanel
+// and silently replaced the confirm screen with the original number
+// picker mid-decision -- exactly "I tapped a number, it vanished, the
+// picker came back." biddingConfirmShowing below tells that top-level
+// check to leave this screen alone while it's up.
+let biddingConfirmShowing = false;
 function showBidConfirm(state, bid, isPass) {
+  biddingConfirmShowing = true;
   const alreadyHighest = state.bidder === MY_POS;
   const isThani = bid === 'THANI';
   $('bidTitle').textContent = isThani ? 'Confirm THANI — Going Solo' : (isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Bid');
@@ -3472,7 +3676,7 @@ function showBidConfirm(state, bid, isPass) {
   cancelBtn.style.background = 'transparent';
   cancelBtn.style.border = '1.5px solid var(--border)';
   cancelBtn.textContent = '✕ Cancel';
-  cancelBtn.addEventListener('click', () => showBidPanel(state));
+  cancelBtn.addEventListener('click', () => { biddingConfirmShowing = false; showBidPanel(state); });
   btns.appendChild(cancelBtn);
 
   const confirmBtn = document.createElement('button');
@@ -3482,8 +3686,9 @@ function showBidConfirm(state, bid, isPass) {
   confirmBtn.style.fontWeight = '800';
   confirmBtn.textContent = isThani ? '🔥 Confirm THANI' : (isPass ? (alreadyHighest ? `✓ Stay at ${state.highestBid}` : '✓ Confirm Pass') : `✓ Confirm Bid ${bid}`);
   confirmBtn.addEventListener('click', () => {
+    biddingConfirmShowing = false;
     $('bidOverlay').classList.remove('on');
-    playHaptic('bidConfirm');
+    playSound('bidConfirm'); playHaptic('bidConfirm');
     if (isThani) socket.emit('sixp_callThani');
     else socket.emit('sixp_placeBid', { bid: isPass ? 0 : bid });
   });
