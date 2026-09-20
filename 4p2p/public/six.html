@@ -1620,7 +1620,27 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 #pinCancelBtn{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.75);}
 #pinSubmitBtn{background:linear-gradient(135deg,#f4c430,#d4a017);color:#1a1206;}
 /* Sound mute toggle -- same visual pattern as the 4-player table's own. */
-#btnSoundMute{position:fixed;left:64px;bottom:40px;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
+/* Real, confirmed repositioning per explicit request ("mute button
+   next to the mic, top left"): moved from bottom-left to top-left,
+   staying immediately adjacent to the mic button. The mic itself
+   (#k28vBtn) is injected by the shared voice.js used by every table,
+   so it's overridden here too, but ONLY within this page's own
+   stylesheet -- this has no effect on any other page, since each
+   page's CSS is self-contained. !important guards against voice.js's
+   own injected <style> tag potentially landing later in the DOM than
+   this one and winning on source order alone. Real, confirmed bug
+   fix, found by an actual screenshot check: top:10px collided with
+   the lobby's own "← 4 Player Table" back-link (also top-left) --
+   pushed down to top:52px, clear of it, while still reading as
+   top-left overall.
+*/
+#k28vBtn{left:10px !important;bottom:auto !important;top:52px !important;}
+/* The voice message panel used to appear ABOVE the mic (bottom:92px),
+   which only made sense while the mic itself sat near the bottom of
+   the screen. Now that the mic is at the top, the panel drops down
+   below it instead. */
+#k28vPanel{bottom:auto !important;top:106px !important;}
+#btnSoundMute{position:fixed;left:64px;top:52px;bottom:auto;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
 #btnSoundMute:active{transform:scale(0.92)}
 </style>
 </head>

@@ -890,7 +890,11 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 #pinSubmitBtn{background:linear-gradient(135deg,#f4c430,#d4a017);color:#1a1206}
 /* Sound mute toggle -- same visual pattern as the 4p/6p tables' own
    mute button, so it's immediately familiar. */
-#btnSoundMute{position:fixed;left:64px;bottom:40px;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
+/* Real, confirmed repositioning per explicit request ("right corner
+   below the fold check bid buttons"): moved from bottom-left to the
+   bottom-right corner, sitting below the action bar's own buttons
+   rather than off to the side of them. */
+#btnSoundMute{position:fixed;right:8px;bottom:8px;left:auto;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
 #btnSoundMute:active{transform:scale(0.92)}
 </style>
 </head>
