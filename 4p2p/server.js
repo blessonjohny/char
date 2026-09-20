@@ -5492,6 +5492,16 @@ io.on('connection', (socket) => {
     socket.emit('poker_joined', { tableId, pos, playerId: newPlayerId, isHost: isEffectiveHost(t, newPlayerId) });
     pokerTouch(t);
     pokerBroadcast(t);
+    // Real, confirmed feature per explicit request ("when someone joins
+    // the holdem table I should get a popup... like the other tables"):
+    // mirrors six.js/index.html's identical "someone new joined"
+    // notification exactly -- socket.to (not io.to) deliberately
+    // excludes the joining player's own connection, since a "so-and-so
+    // joined" popup about themselves the instant they join would be an
+    // odd, backwards thing to show them. Only ever reached via a real
+    // human taking a seat (seatHuman above, never seatBot), so this
+    // naturally never fires for a bot being added.
+    socket.to('poker_' + tableId).emit('poker_playerJoinedNotice', { name: String(name || 'Player').slice(0, 20) });
   }
 
   socket.on('poker_joinTable', ({ tableId, name, playerId: existingPlayerId, pos: requestedPos, avatar }) => {
@@ -5779,6 +5789,11 @@ io.on('connection', (socket) => {
       requestingSocket.emit('poker_joinApproved', { tableId: pokerTableId, playerId: jreq.playerId });
       pokerTouch(t);
       pokerBroadcast(t);
+      // Same "someone joined" notification as the immediate-join path
+      // above -- this is the delayed, host-approved join path (mid-
+      // tournament), which reaches a real human taking a seat just as
+      // much as the immediate path does, so it needs the same notice.
+      requestingSocket.to('poker_' + pokerTableId).emit('poker_playerJoinedNotice', { name: String(jreq.name || 'Player').slice(0, 20) });
     });
   });
 
