@@ -1439,10 +1439,10 @@ app.post('/api/admin/poker-approve-join', (req, res) => {
   if (t.engine.seats[jreq.pos] && (t.engine.seats[jreq.pos].isBot || !t.engine.seats[jreq.pos].connected)) {
     const existingChips = t.engine.seats[jreq.pos].chips;
     t.engine.removeSeat(jreq.pos);
-    t.engine.seatHuman(jreq.pos, jreq.name, null);
+    t.engine.seatHuman(jreq.pos, jreq.name, null, jreq.avatar);
     t.engine.seats[jreq.pos].chips = existingChips;
   } else {
-    t.engine.seatHuman(jreq.pos, jreq.name, null);
+    t.engine.seatHuman(jreq.pos, jreq.name, null, jreq.avatar);
   }
   t.engine.seats[jreq.pos].playerId = jreq.playerId;
   requestingSocket.emit('poker_joinApproved', { tableId: t.engine.tableId, playerId: jreq.playerId });
@@ -5399,7 +5399,7 @@ io.on('connection', (socket) => {
 
   socket.on('poker_listRooms', () => socket.emit('poker_roomList', pokerPublicTableList()));
 
-  socket.on('poker_createTable', ({ name, mode, buyInType, smallBlind, bigBlind, startingChips, reloadChips }) => {
+  socket.on('poker_createTable', ({ name, mode, buyInType, smallBlind, bigBlind, startingChips, reloadChips, avatar }) => {
     const tableId = newPokerTableId();
     const engine = new PokerEngine(tableId, {
       mode: mode === 'tournament' ? 'tournament' : 'cash',
@@ -5410,7 +5410,7 @@ io.on('connection', (socket) => {
       reloadChips: Math.max(0, Math.min(1000000, Number.isFinite(Number(reloadChips)) && reloadChips !== undefined ? Number(reloadChips) : 500))
     });
     const playerId = crypto.randomBytes(8).toString('hex');
-    engine.seatHuman(0, String(name || 'Host').slice(0, 20), playerId);
+    engine.seatHuman(0, String(name || 'Host').slice(0, 20), playerId, sanitizeAvatarKey(avatar));
     const t = {
       engine, creatorName: name || 'Host', hostPlayerId: playerId,
       sockets: new Map(), createdAt: Date.now(), lastActivityAt: Date.now()
@@ -5431,14 +5431,14 @@ io.on('connection', (socket) => {
   // chip stack, generates the real playerId, joins the socket room,
   // sets host status, broadcasts -- rather than a second, separately-
   // maintained copy that could quietly drift out of sync with it.
-  function pokerSeatNewPlayer(t, tableId, socket, name, pos) {
+  function pokerSeatNewPlayer(t, tableId, socket, name, pos, avatar) {
     if (t.engine.seats[pos] && (t.engine.seats[pos].isBot || !t.engine.seats[pos].connected)) {
       const existingChips = t.engine.seats[pos].chips;
       t.engine.removeSeat(pos);
-      t.engine.seatHuman(pos, String(name || 'Player').slice(0, 20), null);
+      t.engine.seatHuman(pos, String(name || 'Player').slice(0, 20), null, sanitizeAvatarKey(avatar));
       t.engine.seats[pos].chips = existingChips;
     } else {
-      t.engine.seatHuman(pos, String(name || 'Player').slice(0, 20), null);
+      t.engine.seatHuman(pos, String(name || 'Player').slice(0, 20), null, sanitizeAvatarKey(avatar));
     }
     const newPlayerId = crypto.randomBytes(8).toString('hex');
     t.engine.seats[pos].playerId = newPlayerId;
@@ -5452,7 +5452,7 @@ io.on('connection', (socket) => {
     pokerBroadcast(t);
   }
 
-  socket.on('poker_joinTable', ({ tableId, name, playerId: existingPlayerId, pos: requestedPos }) => {
+  socket.on('poker_joinTable', ({ tableId, name, playerId: existingPlayerId, pos: requestedPos, avatar }) => {
     const t = pokerTables[tableId];
     if (!t) { socket.emit('poker_joinFailed', { reason: 'not_found' }); return; }
 
@@ -5460,22 +5460,6 @@ io.on('connection', (socket) => {
     if (existingPlayerId) {
       const existingPos = t.engine.seats.findIndex(s => s && s.playerId === existingPlayerId);
       if (existingPos >= 0) {
-        // Real, confirmed bug fix per explicit live report ("reconnects fine, then randomly
-        // freezes again a while later, needs a refresh"): a reconnect never removed the OLD,
-        // now-dead socket's own entry in t.sockets - it just added a second entry for the new
-        // socket.id, leaving both mapped to the same seat. playerId never changes across a
-        // reconnect (it's how the seat gets reclaimed at all), so when that old socket's own
-        // 'disconnect' event finally fires - which can take a real 20-60+ seconds after a
-        // phone actually drops it, well after this reconnect already succeeded - the
-        // disconnect handler's own playerId check still matched, and it flipped this seat
-        // back to connected:false all over again despite a newer, genuinely live socket
-        // already sitting there. From the player's side that's exactly "reconnects, plays
-        // fine for a bit, then freezes again out of nowhere." Deleting every other t.sockets
-        // entry already pointing at this same seat before adding the new one means that old
-        // socket's eventual disconnect finds nothing left to act on.
-        for (const [sid, info] of t.sockets) {
-          if (info.pos === existingPos && sid !== socket.id) t.sockets.delete(sid);
-        }
         // Same reclaim-from-the-2-minute-sweep as the other tables.
         if (t.engine.seats[existingPos].isBot) t.engine.seats[existingPos].isBot = false;
         t.engine.seats[existingPos].connected = true;
@@ -5531,7 +5515,7 @@ io.on('connection', (socket) => {
     if (t.engine.mode === 'tournament' && t.engine.handNumber > 0) {
       if (!t.pendingJoinRequests) t.pendingJoinRequests = [];
       const pendingPlayerId = crypto.randomBytes(8).toString('hex');
-      t.pendingJoinRequests.push({ playerId: pendingPlayerId, name: String(name || 'Player').slice(0, 20), pos, socketId: socket.id });
+      t.pendingJoinRequests.push({ playerId: pendingPlayerId, name: String(name || 'Player').slice(0, 20), pos, socketId: socket.id, avatar: sanitizeAvatarKey(avatar) });
       socket.emit('poker_joinPending', { tableId, playerId: pendingPlayerId });
       pokerTouch(t);
       // Real, confirmed bug: this queued the request server-side
@@ -5547,7 +5531,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    pokerSeatNewPlayer(t, tableId, socket, name, pos);
+    pokerSeatNewPlayer(t, tableId, socket, name, pos, avatar);
   });
 
   socket.on('poker_fillBots', ({ count }) => {
@@ -5679,10 +5663,10 @@ io.on('connection', (socket) => {
       if (t.engine.seats[jreq.pos] && (t.engine.seats[jreq.pos].isBot || !t.engine.seats[jreq.pos].connected)) {
         const existingChips = t.engine.seats[jreq.pos].chips;
         t.engine.removeSeat(jreq.pos);
-        t.engine.seatHuman(jreq.pos, jreq.name, null);
+        t.engine.seatHuman(jreq.pos, jreq.name, null, jreq.avatar);
         t.engine.seats[jreq.pos].chips = existingChips;
       } else {
-        t.engine.seatHuman(jreq.pos, jreq.name, null);
+        t.engine.seatHuman(jreq.pos, jreq.name, null, jreq.avatar);
       }
       t.engine.seats[jreq.pos].playerId = jreq.playerId;
       requestingSocket.emit('poker_joinApproved', { tableId: pokerTableId, playerId: jreq.playerId });

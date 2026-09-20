@@ -103,9 +103,27 @@ class PokerEngine {
     if (this.log.length > 200) this.log.length = 200;
   }
 
-  seatHuman(pos, name, playerId) {
+  seatHuman(pos, name, playerId, avatar) {
     if (this.seats[pos]) return { ok: false, reason: 'seat_taken' };
     this.seats[pos] = this._freshSeat(name, false, playerId);
+    // Per explicit request ("use all characters like the 4 and 6
+    // tables"): a player's own deliberately-chosen avatar (from the
+    // same picker the 4p/6p tables use) is set directly here, reusing
+    // the exact same seat.avatar field and rendering path the admin
+    // override above already uses -- a genuine choice takes the same
+    // priority an admin's override would, falling back to the
+    // deterministic name+pos hash only when no avatar was sent at all.
+    // Validated against the real filename pattern first -- this value
+    // comes straight from the client and gets used as an <img> src
+    // path, so anything that isn't genuinely "toonN" is dropped rather
+    // than trusted and stored as-is. The 6 PIN-protected personal
+    // avatars are allowed through this same path (not blocked here) --
+    // the client only ever sends one of those after its own PIN check
+    // passes, the exact same lightweight, client-side-only protection
+    // the 4p/6p tables already rely on for this (their own code
+    // explicitly accepts that a determined client could bypass it;
+    // this isn't meant to be bulletproof, just a casual deterrent).
+    if (avatar && /^toon\d{1,3}$/.test(avatar)) this.seats[pos].avatar = avatar;
     this.addLog(`${name} sat down in seat ${pos + 1}.`);
     return { ok: true };
   }
