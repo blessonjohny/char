@@ -1898,7 +1898,14 @@ function computeTableDisplayName(seats, creatorName, existingGenericNames) {
 // (toon1-45) - the 6 protected personal ones (toon101-106) are listed separately since
 // they're not part of this sequential range.
 const VALID_AVATAR_KEYS = new Set(
-  Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106'])
+  // Per explicit request ("add 3 guys also to the list of avatars"):
+  // toon107-109 are 3 new real characters, added to the public/regular
+  // range alongside the existing 1-72 -- kept as an explicit separate
+  // concat rather than renumbering into the sequential range, since
+  // toon73-100 already exist on disk (from an earlier, larger roster)
+  // but are deliberately excluded from this active set; extending the
+  // {length:72} count would have silently pulled those back in too.
+  Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon107','toon108','toon109']).concat(['toon101','toon102','toon103','toon104','toon105','toon106'])
 );
 function sanitizeAvatarKey(k) { return (typeof k === 'string' && VALID_AVATAR_KEYS.has(k)) ? k : null; }
 
@@ -5283,6 +5290,19 @@ function pokerBroadcast(t) {
     // sent, name/playerId only, since socketId has no legitimate use
     // client-side and shouldn't be exposed at all.
     state.pendingJoinRequests = (t.pendingJoinRequests || []).map(r => ({ name: r.name, playerId: r.playerId }));
+    // Real, confirmed feature per explicit request: lets each client
+    // show an accurate "waiting for Continue" readout -- how many real
+    // players still need to click, and whether THIS viewer specifically
+    // has already clicked (so their own button can disable/confirm
+    // immediately rather than waiting on a round-trip).
+    if (t.engine.phase === 'handEnd') {
+      const clicked = t.pokerContinueClickedBy || new Set();
+      state.continueStatus = {
+        needed: pokerContinueThreshold(t),
+        clickedCount: clicked.size,
+        youClicked: !!(t.engine.seats[info.pos] && clicked.has(t.engine.seats[info.pos].playerId)),
+      };
+    }
     sock.emit('poker_state', state);
   }
   io.emit('poker_roomList', pokerPublicTableList());
@@ -5355,22 +5375,44 @@ function pokerMaybeBotAct(t) {
 // every single hand, the way a real cash game would just keep going.
 function pokerMaybeAutoDeal(t) {
   if (t.engine.phase !== 'handEnd') return;
-  // Per explicit request: the winning hand now gets laid face-up on
-  // the table itself and held there for a genuine 5 seconds before the
-  // next hand deals -- this delay lengthened from 3s to make room for
-  // that full sequence (chips flying to the winner, then the cards
-  // moving to the table, then the 5s hold) to actually finish playing
-  // out client-side before the next hand's data arrives and overwrites
-  // it.
-  setTimeout(() => {
+  // Real, confirmed feature change per explicit request: the next hand
+  // no longer deals itself on a fixed timer. Real (human) players at
+  // the table must actively click Continue on the winning-hand display
+  // first -- 1 click needed if there's only 1 real player at the
+  // table, but only 2 clicks needed even if there are 3 or more real
+  // players (never "everyone"), so the game isn't held hostage waiting
+  // on someone who stepped away. See poker_readyForNextHand below for
+  // where those clicks are actually counted and this gets triggered.
+  // A generous safety fallback still exists purely so an abandoned
+  // table (everyone left without clicking) doesn't stay stuck on the
+  // winning-hand screen forever.
+  t.pokerContinueClickedBy = new Set();
+  if (t.pokerAutoDealSafetyTimer) clearTimeout(t.pokerAutoDealSafetyTimer);
+  t.pokerAutoDealSafetyTimer = setTimeout(() => {
     if (!pokerTables[t.engine.tableId]) return;
     if (t.engine.phase !== 'handEnd') return;
-    t.engine.checkReloads();
-    t.engine.startHand();
-    pokerTouch(t);
-    pokerBroadcast(t);
-    pokerMaybeBotAct(t);
-  }, 7500);
+    pokerAdvanceToNextHand(t);
+  }, 45000);
+}
+
+function pokerRealPlayerCount(t) {
+  return t.engine.seats.filter(s => s && !s.isBot && s.connected).length;
+}
+
+function pokerContinueThreshold(t) {
+  // Exactly the rule as given: 1 real player needs 1 click; 2 or more
+  // real players need only 2 clicks, never the full count.
+  return Math.min(2, pokerRealPlayerCount(t));
+}
+
+function pokerAdvanceToNextHand(t) {
+  if (t.pokerAutoDealSafetyTimer) { clearTimeout(t.pokerAutoDealSafetyTimer); t.pokerAutoDealSafetyTimer = null; }
+  t.pokerContinueClickedBy = new Set();
+  t.engine.checkReloads();
+  t.engine.startHand();
+  pokerTouch(t);
+  pokerBroadcast(t);
+  pokerMaybeBotAct(t);
 }
 
 // Background reload-timer sweep -- catches a player whose 1-minute wait
@@ -5534,12 +5576,57 @@ io.on('connection', (socket) => {
     pokerSeatNewPlayer(t, tableId, socket, name, pos, avatar);
   });
 
+  // Real, confirmed feature per explicit request: a real player at the
+  // table clicking Continue on the winning-hand display. Counted by
+  // playerId (not socket, so it can't be inflated by one player with
+  // multiple tabs/devices open), and only counts at all while the hand
+  // is actually still in handEnd -- a stray/late click after the next
+  // hand has already started for some other reason is simply a no-op
+  // rather than accidentally arming a future one.
+  socket.on('poker_readyForNextHand', () => {
+    withPokerTable((t, pos) => {
+      if (t.engine.phase !== 'handEnd') return;
+      if (pos === null || pos === undefined || !t.engine.seats[pos] || t.engine.seats[pos].isBot) return;
+      if (!t.pokerContinueClickedBy) t.pokerContinueClickedBy = new Set();
+      t.pokerContinueClickedBy.add(t.engine.seats[pos].playerId);
+      const threshold = pokerContinueThreshold(t);
+      if (t.pokerContinueClickedBy.size >= threshold) {
+        pokerAdvanceToNextHand(t);
+      } else {
+        // Not enough clicks yet -- still broadcast so every client's
+        // own "waiting for N more" readout stays accurate in real time
+        // rather than only updating once the threshold is finally hit.
+        pokerTouch(t);
+        pokerBroadcast(t);
+      }
+    });
+  });
+
   socket.on('poker_fillBots', ({ count }) => {
     withPokerTable((t, pos) => {
       if (!isEffectiveHost(t, pokerPlayerId)) return;
       const openSeats = t.engine.seats.map((s, i) => s ? null : i).filter(i => i !== null);
       const n = Math.max(0, Math.min(openSeats.length, Number(count) || 0));
-      for (let i = 0; i < n; i++) t.engine.seatBot(openSeats[i], `Bot ${openSeats[i] + 1}`);
+      // Real, confirmed bug fix per explicit live report ("bots should
+      // have names instead of bot 2 3 4"): this used a flat `Bot N`
+      // label for every single bot, every single time, regardless of
+      // how many other tables (six.html, index.html) already solve
+      // this exact problem with a real name pool. A dedicated,
+      // poker-themed pool for this table specifically (Hold'em-style
+      // nicknames, not the Kerala-game one those other tables use, so
+      // this doesn't feel reused from an unrelated game), same
+      // duplicate-avoidance as those tables' own pool.
+      const holdemBotNamePool = ['Ace', 'Maverick', 'Duke', 'Slick', 'Diamond Jim', 'Lucky', 'Hawk', 'Reno', 'Vegas', 'Doc', 'Tex', 'Cash', 'Riverboat', 'Bluff', 'Shark', 'Copper', 'Wildcard', 'Preacher'];
+      const usedNames = new Set(t.engine.seats.filter(Boolean).map(s => s.name));
+      const shuffledPool = holdemBotNamePool.slice().sort(() => Math.random() - 0.5);
+      let poolIdx = 0;
+      for (let i = 0; i < n; i++) {
+        while (poolIdx < shuffledPool.length && usedNames.has(shuffledPool[poolIdx])) poolIdx++;
+        const name = shuffledPool[poolIdx] || `Bot ${openSeats[i] + 1}`;
+        usedNames.add(name);
+        poolIdx++;
+        t.engine.seatBot(openSeats[i], name);
+      }
       pokerTouch(t);
       pokerBroadcast(t);
     });

@@ -208,25 +208,6 @@ function botDecideAction(engine, pos) {
   // play a fixed strategy either.
   equity = Math.max(0, Math.min(1, equity + (Math.random() - 0.5) * 0.06));
 
-  // Real, confirmed root cause of the "wild by hand 3" report, found by tracing a hand
-  // action-by-action: every equity number above is computed as if only one opponent exists
-  // (roughly "how good is this hand on its own"), then compared straight against pot odds
-  // with zero regard for how many other live players are ALSO still in the same hand. Pot
-  // odds alone made each individual call look correct in isolation, so 6-7 bots routinely
-  // rode every street of the same hand together - the per-street and per-hand caps elsewhere
-  // in this file only limit how big any one bet gets, they don't stop that many players from
-  // seeing all four streets together in the first place, which is what actually funnels a
-  // table's chips into one pot. A real player's true chance of winning drops with every extra
-  // live opponent (more hands that can beat you), so this discounts the raw single-opponent
-  // equity above by the number of other players still contesting the pot - the standard,
-  // well-known shape of real multiway equity (roughly equity^opponents for a rough estimate,
-  // dampened here so it isn't overly punishing) rather than the flat, opponent-blind number
-  // used until now.
-  const liveOpponents = engine.occupiedSeats().filter(p => p !== pos && !engine.seats[p].folded).length;
-  if (liveOpponents > 1) {
-    equity = Math.pow(equity, 1 + (liveOpponents - 1) * 0.4);
-  }
-
   // Real, confirmed bug fix per explicit live report of bots calling/betting odd amounts like
   // 21, 24, 25 with 5/10 blinds, instead of clean multiples of the big blind (10, 20, 30...)
   // a real player would actually see offered. pot * someFraction was never going to land on a
