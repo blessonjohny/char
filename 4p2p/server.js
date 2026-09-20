@@ -5609,14 +5609,18 @@ io.on('connection', (socket) => {
       const n = Math.max(0, Math.min(openSeats.length, Number(count) || 0));
       // Real, confirmed bug fix per explicit live report ("bots should
       // have names instead of bot 2 3 4"): this used a flat `Bot N`
-      // label for every single bot, every single time, regardless of
-      // how many other tables (six.html, index.html) already solve
-      // this exact problem with a real name pool. A dedicated,
-      // poker-themed pool for this table specifically (Hold'em-style
-      // nicknames, not the Kerala-game one those other tables use, so
-      // this doesn't feel reused from an unrelated game), same
-      // duplicate-avoidance as those tables' own pool.
-      const holdemBotNamePool = ['Ace', 'Maverick', 'Duke', 'Slick', 'Diamond Jim', 'Lucky', 'Hawk', 'Reno', 'Vegas', 'Doc', 'Tex', 'Cash', 'Riverboat', 'Bluff', 'Shark', 'Copper', 'Wildcard', 'Preacher'];
+      // label for every single bot, every single time. A dedicated
+      // name pool for this table now, with the same duplicate-
+      // avoidance approach the 4p/6p tables' own pools already use.
+      // Real, confirmed fix per explicit live report ("not real
+      // names... don't want Indian names like the 28... want all
+      // around the world names"): replaced the poker-slang nickname
+      // pool (Ace, Maverick, etc.) with genuine human first names
+      // drawn broadly across regions/cultures worldwide -- deliberately
+      // NOT reusing the 28 Gulan pool (which is intentionally Kerala-
+      // Indian for that game specifically), and not just a single
+      // region here either.
+      const holdemBotNamePool = ['James', 'Carlos', 'Yuki', 'Fatima', 'Olga', 'Chen', 'Liam', 'Sofia', 'Amara', 'Dmitri', 'Hiroshi', 'Isabella', 'Kwame', 'Elena', 'Mateo', 'Aisha', 'Lars', 'Priya', 'Diego', 'Nadia', 'Kenji', 'Camille', 'Omar', 'Ingrid', 'Tariq', 'Yara', 'Sven', 'Mei', 'Alejandro', 'Freya'];
       const usedNames = new Set(t.engine.seats.filter(Boolean).map(s => s.name));
       const shuffledPool = holdemBotNamePool.slice().sort(() => Math.random() - 0.5);
       let poolIdx = 0;
