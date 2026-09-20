@@ -3130,7 +3130,19 @@ class GameEngine {
               candidates.push({ card: saferInSuit, score: sc + bySuit[s].length * 3, suit: s });
               continue;
             }
-            if (this._isRankSeen(s, 'J') || this._survivalProbability(pos, nineCard) >= 0.7) {
+            // Real, confirmed follow-up per explicit live report with a specific hand: bidder
+            // held a bare trump 9 (no other trump to substitute) with that trump's Jack
+            // genuinely unseen, and led it anyway because _survivalProbability judged it
+            // likely enough (>=0.7) to be safe -- an opponent held the Jack. With the Jack
+            // unseen and only 3 other hands it could be in, at best partner holds it (roughly
+            // 1-in-3 by plain combinatorics, worse than that once you account for there being
+            // 2 opponent hands to partner's 1) -- nowhere close to a genuine 70% survival rate,
+            // so the simulation returning >=0.7 here reflects a blind spot in that estimate for
+            // this exact situation, not a real edge. Matches the same "absolute never" already
+            // applied to this identical bare-9 case in the isEarly branch above, and to the
+            // Ace/10 case just below this one -- removed the probabilistic escape hatch here
+            // too, for the same reason and the same consistency.
+            if (this._isRankSeen(s, 'J')) {
               candidates.push({ card: nineCard, score: 45 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
               continue;
             }
@@ -3518,8 +3530,22 @@ class GameEngine {
       // other triggers (tPts>=trumpPtsThreshold, isLast, bidder
       // protection, first-time-led) are untouched and still apply on
       // their own terms regardless of this.
+      // Per explicit follow-up request with a specific hand: on a suit's second-or-later lead,
+      // this only ever triggered when the CURRENT trick already had a point in it (tPts>=1) --
+      // but a genuinely dangerous case was still slipping through untouched: the suit's own 9
+      // (its second-highest card and the one really worth guarding against, distinct from a
+      // merely 1-point Ace/10) still completely unseen, with only low, no-point cards played
+      // on this exact lead. Leaving that 9 unaccounted for risks it surviving to win a bigger
+      // trick later, and letting it go by uncut here (partner void, holding a cut, tPts===0)
+      // gains nothing by waiting - it doesn't get any safer to ignore. Now triggers on EITHER
+      // the existing tPts>=1 case, OR the suit's 9 specifically still being unseen, even at
+      // zero points this trick. An unseen Ace/10 alone (9 already accounted for) still doesn't
+      // trigger this on its own, matching the explicit "only 1 point, don't have to cut for
+      // that alone" distinction - tPts>=1 or genuine desperation (trumpPtsThreshold above)
+      // still cover that case on their own terms.
       const trickSuitTopCardsGone = this._isRankSeen(this.trickSuit, 'J') && this._isRankSeen(this.trickSuit, 'A') && this._isRankSeen(this.trickSuit, '10');
-      const worthTrumping = tPts >= trumpPtsThreshold || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1 && !trickSuitTopCardsGone) || firstTimeSuitLed;
+      const trickSuitNineUnseen = !this._isRankSeen(this.trickSuit, '9');
+      const worthTrumping = tPts >= trumpPtsThreshold || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && !trickSuitTopCardsGone && (tPts >= 1 || trickSuitNineUnseen)) || firstTimeSuitLed;
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {

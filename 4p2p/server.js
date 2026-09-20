@@ -5502,6 +5502,22 @@ io.on('connection', (socket) => {
     if (existingPlayerId) {
       const existingPos = t.engine.seats.findIndex(s => s && s.playerId === existingPlayerId);
       if (existingPos >= 0) {
+        // Real, confirmed bug fix per explicit live report ("reconnects fine, then randomly
+        // freezes again a while later, needs a refresh"): a reconnect never removed the OLD,
+        // now-dead socket's own entry in t.sockets - it just added a second entry for the new
+        // socket.id, leaving both mapped to the same seat. playerId never changes across a
+        // reconnect (it's how the seat gets reclaimed at all), so when that old socket's own
+        // 'disconnect' event finally fires - which can take a real 20-60+ seconds after a
+        // phone actually drops it, well after this reconnect already succeeded - the
+        // disconnect handler's own playerId check still matched, and it flipped this seat
+        // back to connected:false all over again despite a newer, genuinely live socket
+        // already sitting there. From the player's side that's exactly "reconnects, plays
+        // fine for a bit, then freezes again out of nowhere." Deleting every other t.sockets
+        // entry already pointing at this same seat before adding the new one means that old
+        // socket's eventual disconnect finds nothing left to act on.
+        for (const [sid, info] of t.sockets) {
+          if (info.pos === existingPos && sid !== socket.id) t.sockets.delete(sid);
+        }
         // Same reclaim-from-the-2-minute-sweep as the other tables.
         if (t.engine.seats[existingPos].isBot) t.engine.seats[existingPos].isBot = false;
         t.engine.seats[existingPos].connected = true;
