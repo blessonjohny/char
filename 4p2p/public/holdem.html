@@ -1866,49 +1866,40 @@ function buildCardFaceSVG(rank, suit) {
   const isFace = rank === 'K' || rank === 'Q' || rank === 'J';
   const isAce = rank === 'A';
   const rankDisplay = rank === '10' ? '10' : rank;
-  // Large corner index -- rank plus suit icon, top-left and mirrored
-  // (180-degree rotation, not a separate copy) at bottom-right.
+  // Real, confirmed bug fix per explicit, repeated live report ("suit
+  // is too small... can't fuckin see it"): both the rank text and the
+  // suit icon in the corner are substantially bigger again -- this is
+  // a small mobile card, and the corner index is the single most
+  // important thing on it to actually read at a glance.
   const cornerIndex = `
-    <g transform="translate(8,8)">
-      <text x="0" y="17" font-family="Georgia,'Times New Roman',serif" font-size="20" font-weight="700" fill="${color}" text-anchor="start">${rankDisplay}</text>
-      <path d="${suitPath}" transform="translate(1,21) scale(0.62)" fill="${color}" />
+    <g transform="translate(6,6)">
+      <text x="0" y="19" font-family="Georgia,'Times New Roman',serif" font-size="23" font-weight="700" fill="${color}" text-anchor="start">${rankDisplay}</text>
+      <path d="${suitPath}" transform="translate(0,24) scale(0.95)" fill="${color}" />
     </g>
-    <g transform="translate(92,132) rotate(180)">
-      <text x="0" y="17" font-family="Georgia,'Times New Roman',serif" font-size="20" font-weight="700" fill="${color}" text-anchor="start">${rankDisplay}</text>
-      <path d="${suitPath}" transform="translate(1,21) scale(0.62)" fill="${color}" />
+    <g transform="translate(94,134) rotate(180)">
+      <text x="0" y="19" font-family="Georgia,'Times New Roman',serif" font-size="23" font-weight="700" fill="${color}" text-anchor="start">${rankDisplay}</text>
+      <path d="${suitPath}" transform="translate(0,24) scale(0.95)" fill="${color}" />
     </g>`;
-  // Small ornamental corner flourishes, matching the reference's own
-  // curled corner accents.
-  const flourishes = `
-    <g stroke="${color}" stroke-width="0.7" fill="none" opacity="0.4">
-      <path d="M3,16 Q3,3 16,3" />
-      <path d="M97,16 Q97,3 84,3" />
-      <path d="M3,124 Q3,137 16,137" />
-      <path d="M97,124 Q97,137 84,137" />
-    </g>`;
-  const border = `
-    <rect x="2" y="2" width="96" height="136" rx="7" fill="none" stroke="${color}" stroke-width="1.3" opacity="0.7" />
-    <rect x="16" y="16" width="68" height="108" fill="none" stroke="${color}" stroke-width="0.7" opacity="0.35" />`;
+  const border = `<rect x="2" y="2" width="96" height="136" rx="7" fill="none" stroke="${color}" stroke-width="1.3" opacity="0.7" />`;
   let center = '';
   if (isAce) {
-    center = `<path d="${suitPath}" transform="translate(29,49) scale(1.9)" fill="${color}" />`;
+    center = `<path d="${suitPath}" transform="translate(24,45) scale(2.3)" fill="${color}" />`;
   } else if (isFace) {
-    center = `
-      <g fill="${color}">
-        <g transform="translate(0,7)">${cardRoyalFigureSVG(rank)}</g>
-        <g transform="translate(100,140) rotate(180) translate(0,7)">${cardRoyalFigureSVG(rank)}</g>
-      </g>`;
+    // Real, confirmed bug fix per explicit live report ("no mirror
+    // design inside J Q K... already small on mobile"): a single
+    // figure now, right-side up, at roughly double its previous size
+    // -- the earlier version split the vertical space between two
+    // mirrored copies, which on an already-tiny mobile card made both
+    // halves too small to actually read as anything. One clear, much
+    // bigger figure instead.
+    center = `<g fill="${color}" transform="translate(0,10) scale(1.55) translate(-16,-8)">${cardRoyalFigureSVG(rank)}</g>`;
   } else {
-    // Non-face number card: one large, unmistakable central number --
-    // matching the reference's own big-number-in-the-center approach
-    // rather than a small pip pattern, kept from the earlier explicit
-    // "numbers not readable" correction.
-    center = `<text x="50" y="82" font-family="Georgia,'Times New Roman',serif" font-size="46" font-weight="700" fill="${color}" text-anchor="middle">${rankDisplay}</text>`;
+    // Non-face number card: one large, unmistakable central number.
+    center = `<text x="50" y="86" font-family="Georgia,'Times New Roman',serif" font-size="52" font-weight="700" fill="${color}" text-anchor="middle">${rankDisplay}</text>`;
   }
   return `<svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">
     <rect x="0.5" y="0.5" width="99" height="139" rx="8" fill="#f2e9d5" stroke="none" />
     ${border}
-    ${flourishes}
     ${center}
     ${cornerIndex}
   </svg>`;
