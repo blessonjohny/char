@@ -263,7 +263,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    card backs sitting at every seat are blue (see .card.back) -- fixed
    to match exactly, since a dealt card visibly changing color the
    instant it lands looked like two different decks. */
-.dealing-card{position:fixed;width:16px;height:22px;border-radius:3px;z-index:1800;pointer-events:none;transition:transform 0.5s cubic-bezier(.3,.5,.4,1);overflow:hidden}
+.dealing-card{position:fixed;width:16px;height:22px;border-radius:3px;background:linear-gradient(135deg,#1a3a6b,#0d2038);border:1.5px solid var(--gold-soft);box-shadow:0 2px 6px rgba(0,0,0,0.6);z-index:1800;pointer-events:none;transition:transform 0.5s cubic-bezier(.3,.5,.4,1);}
 /* Per explicit live report ("should come face up and bigger, looks
    small"): layered on top of the real .card face styling (background,
    border-radius, the rank/suit text) rather than replacing it, adding
@@ -364,7 +364,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .street-banner{position:absolute;top:72%;left:50%;transform:translate(-50%,-50%);background:transparent;border:none;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 14px rgba(244,196,48,0.9),0 2px 6px rgba(0,0,0,0.9);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
 .street-banner.on{display:block}
 @keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
-.card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0;transition:opacity 0.25s ease;overflow:hidden}
+.card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0;transition:opacity 0.25s ease}
 /* Per explicit request: whichever board card the winning hand doesn't
    actually use (replaced by a stronger hole card) gets a visible red
    border on the real board itself, so it's clear at a glance which
@@ -395,7 +395,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    to the rank letter, reading as a genuine face card at a glance. */
 .card.face-card{border:1.5px solid var(--gold-soft, #c9a24b);box-shadow:0 2px 5px rgba(0,0,0,0.4),inset 0 0 0 1px rgba(201,162,75,0.35)}
 .face-icon{font-size:0.7em;margin-left:1px;vertical-align:middle}
-.card.back{border:none}
+.card.back{background:linear-gradient(135deg,#1a3a6b,#0d2038);border:2px solid var(--gold-soft)}
 .card.mini{width:26px;height:37px;font-size:0.65rem}
 
 .seat{position:absolute;width:82px;text-align:center;z-index:4}
@@ -1810,169 +1810,11 @@ function suitClassFor(suit) {
     : suit === '♣' ? 'suit-clubs'
     : 'suit-spades';
 }
-// =====================================================================
-// PREMIUM CARD FACE DESIGN SYSTEM
-// Per explicit request: "Redesign the playing cards... premium, polished
-// casino-style" while keeping ALL existing game logic, values, suits,
-// dealing, and animations exactly the same. This is purely what
-// cardHtml() renders INSIDE the existing .card element -- the element
-// itself, its classes (card/mini/suit-*/face-card/back), and every
-// place that calls cardHtml() are completely untouched, so every
-// existing size override, animation, and piece of CSS targeting
-// .card still works exactly as it did. Built as inline SVG (not
-// bitmap images) specifically so it stays crisp at any size, from a
-// tiny mini seat card up to the winning-hand display, per the "crisp
-// vector-style artwork... sharp on phones, tablets, desktop"
-// requirement -- a single viewBox scales perfectly at any rendered
-// size rather than needing separate assets per size.
-// Suit icon paths, each in its own small local coordinate box (0 0 24
-// 24) so they can be dropped in via <use> or a transformed <path> at
-// any position/scale needed elsewhere in the design.
-const CARD_SUIT_PATHS = {
-  '♥': 'M12,21.35 L10.55,20.03 C5.4,15.36 2,12.28 2,8.5 C2,5.42 4.42,3 7.5,3 C9.24,3 10.91,3.81 12,5.09 C13.09,3.81 14.76,3 16.5,3 C19.58,3 22,5.42 22,8.5 C22,12.28 18.6,15.36 13.45,20.04 Z',
-  '♦': 'M12,2 L22,12 L12,22 L2,12 Z',
-  '♣': 'M12,2 C9.5,2 7.5,4 7.5,6.5 C7.5,7.7 8,8.8 8.8,9.6 C7,9.9 5.5,11.4 5.5,13.3 C5.5,15.5 7.3,17.3 9.5,17.3 C10.3,17.3 11,17.1 11.6,16.7 C11.2,18.5 10.3,20.5 9,22 L15,22 C13.7,20.5 12.8,18.5 12.4,16.7 C13,17.1 13.7,17.3 14.5,17.3 C16.7,17.3 18.5,15.5 18.5,13.3 C18.5,11.4 17,9.9 15.2,9.6 C16,8.8 16.5,7.7 16.5,6.5 C16.5,4 14.5,2 12,2 Z',
-  '♠': 'M12,2 C12,2 4,9 4,14.5 C4,17.5 6.5,20 9.5,20 C10.3,20 11,19.8 11.6,19.5 C11.2,20.8 10.3,22 9,22 L15,22 C13.7,22 12.8,20.8 12.4,19.5 C13,19.8 13.7,20 14.5,20 C17.5,20 20,17.5 20,14.5 C20,9 12,2 12,2 Z',
-};
-// Every suit's own accent color, matching the existing 4-color deck
-// scheme exactly (hearts=red, diamonds=blue, clubs=green, spades=near-
-// black) -- kept identical to what's already established elsewhere in
-// this file (.card.suit-*), since that scheme was itself an explicit,
-// deliberate fix for suit legibility and this redesign shouldn't
-// quietly undo it.
-const CARD_SUIT_COLORS = { '♥': '#c81e2b', '♦': '#1f5fd1', '♣': '#1f8a3e', '♠': '#181818' };
-// Standard playing-card pip layouts, as fractional (x,y) positions
-// within the card's own pip zone (L/C/R columns, 0=top of pip zone to
-// 1=bottom), each with a rotation -- real cards mirror the bottom half
-// of the pip arrangement upside down, which is what the 180 entries
-// reproduce, matching "attractive top and bottom mirrored designs,
-// like professional real playing cards."
-const CARD_PIP_L = 30, CARD_PIP_C = 50, CARD_PIP_R = 70;
-const CARD_PIP_LAYOUTS = {
-  '2': [[CARD_PIP_C, 0.10, 0], [CARD_PIP_C, 0.90, 180]],
-  '3': [[CARD_PIP_C, 0.10, 0], [CARD_PIP_C, 0.50, 0], [CARD_PIP_C, 0.90, 180]],
-  '4': [[CARD_PIP_L, 0.10, 0], [CARD_PIP_R, 0.10, 0], [CARD_PIP_L, 0.90, 180], [CARD_PIP_R, 0.90, 180]],
-  '5': [[CARD_PIP_L, 0.10, 0], [CARD_PIP_R, 0.10, 0], [CARD_PIP_C, 0.50, 0], [CARD_PIP_L, 0.90, 180], [CARD_PIP_R, 0.90, 180]],
-  '6': [[CARD_PIP_L, 0.10, 0], [CARD_PIP_R, 0.10, 0], [CARD_PIP_L, 0.50, 0], [CARD_PIP_R, 0.50, 0], [CARD_PIP_L, 0.90, 180], [CARD_PIP_R, 0.90, 180]],
-  '7': [[CARD_PIP_L, 0.10, 0], [CARD_PIP_R, 0.10, 0], [CARD_PIP_C, 0.30, 0], [CARD_PIP_L, 0.50, 0], [CARD_PIP_R, 0.50, 0], [CARD_PIP_L, 0.90, 180], [CARD_PIP_R, 0.90, 180]],
-  '8': [[CARD_PIP_L, 0.10, 0], [CARD_PIP_R, 0.10, 0], [CARD_PIP_C, 0.28, 0], [CARD_PIP_L, 0.46, 0], [CARD_PIP_R, 0.46, 0], [CARD_PIP_C, 0.72, 180], [CARD_PIP_L, 0.90, 180], [CARD_PIP_R, 0.90, 180]],
-  '9': [[CARD_PIP_L, 0.08, 0], [CARD_PIP_R, 0.08, 0], [CARD_PIP_L, 0.32, 0], [CARD_PIP_R, 0.32, 0], [CARD_PIP_C, 0.50, 0], [CARD_PIP_L, 0.68, 180], [CARD_PIP_R, 0.68, 180], [CARD_PIP_L, 0.92, 180], [CARD_PIP_R, 0.92, 180]],
-  '10': [[CARD_PIP_L, 0.07, 0], [CARD_PIP_R, 0.07, 0], [CARD_PIP_C, 0.22, 0], [CARD_PIP_L, 0.28, 0], [CARD_PIP_R, 0.28, 0], [CARD_PIP_L, 0.72, 180], [CARD_PIP_R, 0.72, 180], [CARD_PIP_C, 0.78, 180], [CARD_PIP_L, 0.93, 180], [CARD_PIP_R, 0.93, 180]],
-};
-// Simplified, symmetric "royal" silhouette for face cards -- a single
-// design per rank, drawn once and mirrored top/bottom (real face
-// cards are built exactly this way: one figure, repeated upside-down)
-// rather than two different drawings. Deliberately restrained line-art
-// rather than a literal illustrated portrait, so it reads clean and
-// recognizable at a small size instead of turning to mud -- "unique
-// premium style," "instantly recognizable," "readable... uncluttered."
-function cardFaceRoyalSVG(rank) {
-  if (rank === 'K') {
-    // Crown over a simple head/shoulders silhouette.
-    return `<path d="M35,40 L40,28 L47,36 L50,26 L53,36 L60,28 L65,40 Z" />
-      <circle cx="50" cy="48" r="7" />
-      <path d="M38,64 C38,54 43,49 50,49 C57,49 62,54 62,64 Z" />`;
-  }
-  if (rank === 'Q') {
-    // Small tiara/points over a softer, rounded head/shoulders shape.
-    return `<path d="M38,38 L42,30 L46,36 L50,28 L54,36 L58,30 L62,38 Z" />
-      <circle cx="50" cy="47" r="6.5" />
-      <path d="M39,64 C39,54 44,48.5 50,48.5 C56,48.5 61,54 61,64 Z" />`;
-  }
-  // Jack: a simple cap and plain head/shoulders, no crown points.
-  return `<path d="M40,36 C40,31 44,28 50,28 C56,28 60,31 60,36 Z" />
-    <circle cx="50" cy="46" r="6.5" />
-    <path d="M39,64 C39,54 44,48.5 50,48.5 C56,48.5 61,54 61,64 Z" />`;
-}
-// Composes the complete inline SVG for one card face -- corner indices
-// (mirrored top-left / bottom-right, per "mirrored designs, like
-// professional real playing cards"), a thin ornamental double border,
-// small corner flourishes, and either a pip layout, a royal figure, or
-// the ace's own large ornate suit mark, depending on rank.
-function buildCardFaceSVG(rank, suit) {
-  const color = CARD_SUIT_COLORS[suit] || '#181818';
-  const suitPath = CARD_SUIT_PATHS[suit] || CARD_SUIT_PATHS['♠'];
-  const isFace = rank === 'K' || rank === 'Q' || rank === 'J';
-  const isAce = rank === 'A';
-  const rankDisplay = rank === '10' ? '10' : rank;
-  // Real, confirmed bug fix per explicit, emphatic live report
-  // ("numbers not even readable... need a microscope"): every element
-  // below is substantially larger and bolder than the first pass --
-  // legibility at an actual small on-screen size is the entire point
-  // of a corner index and a suit pip, and the previous sizing failed
-  // that basic job. Corner rank text nearly doubled, corner suit icon
-  // more than doubled, using a plain, extremely legible sans-serif
-  // (not a decorative serif face) specifically because clarity was
-  // called out as the priority over ornamentation.
-  const cornerIndex = `
-    <g transform="translate(9,9)">
-      <text x="0" y="17" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="900" fill="${color}" text-anchor="start">${rankDisplay}</text>
-      <path d="${suitPath}" transform="translate(0,21) scale(0.75)" fill="${color}" />
-    </g>
-    <g transform="translate(91,131) rotate(180)">
-      <text x="0" y="17" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="900" fill="${color}" text-anchor="start">${rankDisplay}</text>
-      <path d="${suitPath}" transform="translate(0,21) scale(0.75)" fill="${color}" />
-    </g>`;
-  // A single, clean border -- the earlier double hairline read as
-  // visual noise at a small size rather than an intentional detail.
-  const border = `<rect x="3" y="3" width="94" height="134" rx="7" fill="none" stroke="${color}" stroke-width="1.4" opacity="0.65" />`;
-  let center = '';
-  if (isAce) {
-    // One large, unmistakable suit mark filling most of the center --
-    // the classic, maximally-legible ace treatment.
-    center = `<path d="${suitPath}" transform="translate(28,48) scale(2)" fill="${color}" />`;
-  } else if (isFace) {
-    // Real, confirmed bug fix per explicit live report ("looks like a
-    // jack" regardless of the actual rank -- the abstract mirrored
-    // silhouette wasn't actually distinguishing K/Q/J from each other
-    // at a glance): leads with a big, bold, unmistakable letter --
-    // exactly as legible as the corner index, just larger -- with a
-    // small suit mark beneath it as a secondary accent, rather than
-    // an illustration doing the identification work on its own.
-    center = `
-      <text x="50" y="80" font-family="Arial,Helvetica,sans-serif" font-size="52" font-weight="900" fill="${color}" text-anchor="middle">${rank}</text>
-      <path d="${suitPath}" transform="translate(38,88) scale(1)" fill="${color}" opacity="0.85" />`;
-  } else {
-    // Number card: the real pip layout for this rank, noticeably
-    // bigger than the first pass so the actual count is easy to read
-    // at a glance instead of resolving to a blur of tiny dots.
-    const layout = CARD_PIP_LAYOUTS[rank] || [];
-    center = layout.map(([x, yFrac, rot]) => {
-      const y = 26 + yFrac * 88;
-      return `<path d="${suitPath}" transform="translate(${x - 8},${y - 8}) scale(0.68) rotate(${rot},12,12)" fill="${color}" />`;
-    }).join('');
-  }
-  return `<svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">
-    <rect x="0.5" y="0.5" width="99" height="139" rx="8" fill="#fffdf7" stroke="none" />
-    ${border}
-    ${center}
-    ${cornerIndex}
-  </svg>`;
-}
-// Premium card-back design: a repeating diamond lattice inside a
-// double border with a centered emblem, in the table's own gold/burgundy
-// palette rather than the old flat blue gradient -- "the card back
-// should also be redesigned to match the same premium deck style."
-function buildCardBackSVG() {
-  return `<svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">
-    <defs>
-      <pattern id="cardBackLattice" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-        <rect width="14" height="14" fill="#7a1620" />
-        <path d="M7,0 L14,7 L7,14 L0,7 Z" fill="none" stroke="#c9a24b" stroke-width="0.6" opacity="0.55" />
-      </pattern>
-    </defs>
-    <rect x="0.5" y="0.5" width="99" height="139" rx="8" fill="url(#cardBackLattice)" stroke="#c9a24b" stroke-width="1.5" />
-    <rect x="5" y="5" width="90" height="130" rx="5" fill="none" stroke="#c9a24b" stroke-width="0.6" opacity="0.7" />
-    <circle cx="50" cy="70" r="17" fill="#7a1620" stroke="#c9a24b" stroke-width="1.2" />
-    <circle cx="50" cy="70" r="12.5" fill="none" stroke="#c9a24b" stroke-width="0.6" opacity="0.8" />
-    <path d="${CARD_SUIT_PATHS['♠']}" transform="translate(38,58) scale(0.5)" fill="#c9a24b" />
-  </svg>`;
-}
 function cardHtml(card, mini, revealFlip, extraClass) {
-  if (!card) return `<div class="card back${mini ? ' mini' : ''}${extraClass ? ' ' + extraClass : ''}">${buildCardBackSVG()}</div>`;
+  if (!card) return `<div class="card back${mini ? ' mini' : ''}"></div>`;
   const suitClass = suitClassFor(card.suit);
   const faceClass = (card.rank === 'K' || card.rank === 'Q' || card.rank === 'J') ? ' face-card' : '';
-  return `<div class="card${mini ? ' mini' : ''} ${suitClass}${faceClass}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}">${buildCardFaceSVG(card.rank, card.suit)}</div>`;
+  return `<div class="card${mini ? ' mini' : ''} ${suitClass}${faceClass}${revealFlip ? ' reveal-flip' : ''}${extraClass ? ' ' + extraClass : ''}"><div>${card.rank}</div><div>${card.suit}</div></div>`;
 }
 let lastCardRevealAnimatedFor = null;
 // Per explicit request: tracks which hand number the dealing animation
@@ -3399,7 +3241,7 @@ function showWinningHandOnTable(state) {
     setTimeout(() => {
       const flying = document.createElement('div');
       flying.className = `card ${suitClassFor(card.suit)}`;
-      flying.innerHTML = buildCardFaceSVG(card.rank, card.suit);
+      flying.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
       flying.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;width:${startW}px;height:${startH}px;margin:-${startH/2}px 0 0 -${startW/2}px;z-index:1850;opacity:0.75;transition:left 0.55s cubic-bezier(.3,.5,.4,1),top 0.55s cubic-bezier(.3,.5,.4,1),width 0.55s cubic-bezier(.2,1.4,.3,1),height 0.55s cubic-bezier(.2,1.4,.3,1),margin 0.55s cubic-bezier(.2,1.4,.3,1),opacity 0.3s ease;`;
       document.body.appendChild(flying);
       requestAnimationFrame(() => {
@@ -3419,7 +3261,7 @@ function showWinningHandOnTable(state) {
         flying.remove();
         slotEl.classList.remove('table-winning-hand-slot');
         slotEl.classList.add(suitClassFor(card.suit));
-        slotEl.innerHTML = buildCardFaceSVG(card.rank, card.suit);
+        slotEl.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
         arrivedCount++;
         if (arrivedCount === winningHand.length) {
           // Per explicit live report ("cards should replace the empty
@@ -3514,7 +3356,6 @@ function animateDealingCards(state) {
       setTimeout(() => {
         const card = document.createElement('div');
         card.className = 'dealing-card';
-        card.innerHTML = buildCardBackSVG();
         card.style.left = startX + 'px';
         card.style.top = startY + 'px';
         card.style.transform = 'translate(-50%,-50%)';
@@ -3577,7 +3418,7 @@ function animateDealingCommunityCards(newCards, existingCount) {
       // the genuine card face, not a placeholder.
       const card = document.createElement('div');
       card.className = `flying-community-card card ${suitClassFor(cardData.suit)}`;
-      card.innerHTML = buildCardFaceSVG(cardData.rank, cardData.suit);
+      card.innerHTML = `<div>${cardData.rank}</div><div>${cardData.suit}</div>`;
       card.style.left = startX + 'px';
       card.style.top = startY + 'px';
       card.style.transform = 'translate(-50%,-50%)';
