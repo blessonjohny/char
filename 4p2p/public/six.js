@@ -2039,15 +2039,8 @@ function applyState(state) {
   // non-empty, i.e. someone - bot or human - has genuinely played the first card of the
   // round, which is what "stay until a player plays a card" actually meant.
   if (state.phase === 'play' && state.trickCards && state.trickCards.length > 0) dismissBidWinnerCelebration6p();
-  // Real, confirmed root-cause fix (see biddingConfirmShowing's own
-  // comment above showBidConfirm): skips re-calling showBidPanel while
-  // this player is already looking at the confirm screen for a bid
-  // they've picked but not yet sent -- without this, any unrelated
-  // state broadcast arriving in that window silently replaced the
-  // confirm screen with a freshly rebuilt number picker, which is
-  // exactly the "tap it, it vanishes, the picker comes back" bug.
-  if (state.phase === 'bidding1' && state.currentPlayer === MY_POS && !biddingConfirmShowing) showBidPanel(state);
-  else if (!(state.phase === 'bidding1' && state.currentPlayer === MY_POS)) $('bidOverlay').classList.remove('on');
+  if (state.phase === 'bidding1' && state.currentPlayer === MY_POS) showBidPanel(state);
+  else $('bidOverlay').classList.remove('on');
 
   if (state.phase === 'choosingTrump' && state.currentPlayer === MY_POS && state.bidder === MY_POS) {
     // Show the player's actual hand while they decide, and disable any suit they don't hold
@@ -3452,37 +3445,7 @@ function showBidPanel(state) {
 // A confirm step before the bid actually goes to the server — a
 // mis-tap on a bid number was otherwise irreversible the instant it
 // registered, with real match points on the line.
-// Real, confirmed UX fix per explicit live report ("click it twice...
-// goes away comes back, all the bidding"): every single bid action --
-// a plain number, PASS, even just staying at your own current bid --
-// used to route through this same two-step confirm screen (pick a
-// number, then tap Confirm again to actually send it), which on a
-// table where bidding happens constantly reads exactly like "I tap
-// it, it vanishes, then a different screen comes back" on every single
-// action. Ordinary bids and PASS now submit immediately on the one tap
-// that was already an unambiguous, specific choice (a numbered button
-// or PASS is never a generic "are you sure" moment). THANI keeps its
-// own confirm step below -- going solo is a genuinely rare, high-
-// stakes, hard-to-reverse commitment (both teammates fold, must win
-// every trick), which is exactly the kind of action worth protecting
-// against a mis-tap, unlike routine numbered bidding.
-// Real, confirmed root-cause fix per explicit live report ("click OK,
-// it goes away, comes back"): this confirm screen previously had no
-// protection against the top-level render function's own
-// `if (phase==='bidding1' && currentPlayer===MY_POS) showBidPanel(state)`
-// check, which runs on EVERY state broadcast the client receives --
-// not just ones related to this bid. Since it's still genuinely this
-// player's turn (the bid hasn't reached the server yet, precisely
-// because they're still looking at the confirm screen deciding), any
-// unrelated broadcast arriving in that window (another seat's
-// unrelated activity, a periodic sync, anything) re-ran showBidPanel
-// and silently replaced the confirm screen with the original number
-// picker mid-decision -- exactly "I tapped a number, it vanished, the
-// picker came back." biddingConfirmShowing below tells that top-level
-// check to leave this screen alone while it's up.
-let biddingConfirmShowing = false;
 function showBidConfirm(state, bid, isPass) {
-  biddingConfirmShowing = true;
   const alreadyHighest = state.bidder === MY_POS;
   const isThani = bid === 'THANI';
   $('bidTitle').textContent = isThani ? 'Confirm THANI — Going Solo' : (isPass ? (alreadyHighest ? 'Stay With Your Bid?' : 'Confirm Pass?') : 'Confirm Your Bid');
@@ -3509,7 +3472,7 @@ function showBidConfirm(state, bid, isPass) {
   cancelBtn.style.background = 'transparent';
   cancelBtn.style.border = '1.5px solid var(--border)';
   cancelBtn.textContent = '✕ Cancel';
-  cancelBtn.addEventListener('click', () => { biddingConfirmShowing = false; showBidPanel(state); });
+  cancelBtn.addEventListener('click', () => showBidPanel(state));
   btns.appendChild(cancelBtn);
 
   const confirmBtn = document.createElement('button');
@@ -3519,7 +3482,6 @@ function showBidConfirm(state, bid, isPass) {
   confirmBtn.style.fontWeight = '800';
   confirmBtn.textContent = isThani ? '🔥 Confirm THANI' : (isPass ? (alreadyHighest ? `✓ Stay at ${state.highestBid}` : '✓ Confirm Pass') : `✓ Confirm Bid ${bid}`);
   confirmBtn.addEventListener('click', () => {
-    biddingConfirmShowing = false;
     $('bidOverlay').classList.remove('on');
     playHaptic('bidConfirm');
     if (isThani) socket.emit('sixp_callThani');

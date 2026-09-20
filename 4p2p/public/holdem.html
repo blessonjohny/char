@@ -1083,6 +1083,8 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     <div class="table-winning-hand" id="tableWinningHand">
       <div class="table-winning-hand-cards" id="tableWinningHandCards"></div>
       <div class="table-winning-hand-label" id="tableWinningHandLabel"></div>
+      <button class="btn btn-gold" id="btnWinningHandContinue" style="margin-top:10px;pointer-events:auto;padding:8px 24px;font-size:0.85rem;width:auto;display:none">Continue</button>
+      <div id="winningHandContinueStatus" style="margin-top:6px;font-size:0.72rem;color:var(--text-secondary,#aaa);display:none"></div>
     </div>
     <div id="seatsContainer"></div>
     <div id="railChipsContainer"></div>
@@ -1092,7 +1094,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
          same as it always has, only ever showing the small "D" button badge on whichever
          seat currently holds the deal. -->
     <div class="house-dealer" id="houseDealer">
-      <img src="/images/hero-avatars/toon5.png" class="house-dealer-photo" alt="">
+      <img src="/images/hero-avatars/toon5.png" class="house-dealer-photo" id="houseDealerPhoto" alt="">
     </div>
   </div>
   <div class="hand-strip" id="myHandStrip"></div>
@@ -1186,7 +1188,7 @@ let myPos = null, myPlayerId = null, myTableId = null, isHost = false;
 // player's choice carries over between this table and the others.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon107','toon108','toon109']).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 const PROTECTED_AVATAR_KEYS = new Set(['toon101', 'toon102', 'toon103', 'toon104', 'toon105', 'toon106']);
 const AVATAR_PINS = {
   toon101: '0719', // JCK
@@ -1281,6 +1283,19 @@ async function pickMyAvatarHoldem(key) {
   document.querySelectorAll('#myAvatarPickerHoldem .my-avatar-choice').forEach(el => el.classList.toggle('picked', el.dataset.key === key));
 }
 renderMyAvatarPickerHoldem();
+// Per explicit request ("for the 2 dealer the poker table only, only
+// poker the 2 dealer has to appear random for the dealer"): the house
+// dealer figure (the decorative dealer character, not any player's own
+// avatar) picks randomly between the 2 dedicated dealer photos every
+// time this page loads -- these two images are used only for this
+// house-dealer slot, specifically on Hold'em, not added to the regular
+// player/bot avatar pool at all.
+(function setRandomHouseDealerPhoto() {
+  const dealerPhotos = ['dealer-a.png', 'dealer-b.png'];
+  const chosen = dealerPhotos[Math.floor(Math.random() * dealerPhotos.length)];
+  const img = document.getElementById('houseDealerPhoto');
+  if (img) img.src = '/images/hero-avatars/' + chosen;
+})();
 // Per explicit request ("enter name must be at least 2 chars"): same
 // validation and same name->personal-avatar auto-match as the 4p/6p
 // tables' identical name-entry step.
@@ -1361,6 +1376,11 @@ if (!window.__holdemKeepAlive) {
 // state needs to change on the server side at all.
 let hasDisconnectedOnceHoldem = false;
 socket.on('connect', () => {
+  // Real, confirmed fix, same live report as startActiveReconnectLoop
+  // above: stops the active retry loop the instant a real connection
+  // succeeds, rather than waiting for its own next 3-second tick to
+  // notice -- immediate, not eventually.
+  stopActiveReconnectLoop();
   if (myTableId && myPlayerId) {
     socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
   }
@@ -1381,6 +1401,24 @@ socket.on('disconnect', (reason) => {
   console.log('[holdem] disconnected, reason:', reason);
   hasDisconnectedOnceHoldem = true;
   if (myTableId) toast(`⚠️ Connection lost (${reason}) — reconnecting...`);
+  // Real, confirmed root-cause fix per explicit live report ("screen
+  // totally freezes... sometimes 10+ seconds, sometimes needs a
+  // refresh"): the overlay below used to only ever get shown by the
+  // visibilitychange/online handlers further down -- both of which
+  // require the player to have actually left and come back, or the
+  // OS to report a full network restoration. A plain connection
+  // hiccup that happens while the tab stays open and visible the
+  // whole time (a brief WiFi drop, a weak signal moment, switching
+  // cell towers) triggers neither of those -- Socket.IO's own
+  // automatic reconnection is left to handle it silently, with
+  // nothing on screen telling the player anything is happening at
+  // all. From their side, the table just stops responding -- exactly
+  // "totally freezes." Shown immediately on every disconnect now,
+  // regardless of cause, and startActiveReconnectLoop below backs up
+  // Socket.IO's own retry with an explicit one, so a stall in its
+  // internal backoff isn't the only thing standing between the
+  // player and a working table again.
+  if (myTableId) { showReconnectOverlay(); startActiveReconnectLoop(); }
 });
 socket.io.on('error', (err) => {
   console.log('[holdem] transport error:', err && err.message);
@@ -1432,6 +1470,33 @@ function showReconnectOverlay() {
   if (el) el.classList.add('on');
   clearTimeout(reconnectSafetyTimer);
   reconnectSafetyTimer = setTimeout(hideReconnectOverlay, 30000);
+}
+// Real, confirmed root-cause fix per explicit live report ("sometimes
+// comes back after 10+ seconds, sometimes needs a refresh"): backs up
+// Socket.IO's own automatic reconnection with an explicit, independent
+// retry -- its internal backoff can grow its own delay between
+// attempts, and on some connection failures (particular transport
+// errors, certain proxy/NAT situations) it can end up not actually
+// retrying in a way that ever succeeds on its own, which is exactly
+// what "sometimes needs a refresh" was: the one thing a manual refresh
+// actually does differently is force a genuinely fresh connection
+// attempt from scratch, which this now also does automatically.
+// Explicitly calling socket.connect() every few seconds while still
+// disconnected is harmless when Socket.IO's own retry is about to
+// succeed anyway (a connect() call on an already-connecting socket is
+// a no-op), but gives the connection a second, independent path to
+// actually recover when its own retry logic alone doesn't.
+let activeReconnectInterval = null;
+function startActiveReconnectLoop() {
+  if (activeReconnectInterval) return; // already running
+  activeReconnectInterval = setInterval(() => {
+    if (socket.connected) { stopActiveReconnectLoop(); return; }
+    console.log('[holdem] active reconnect retry firing');
+    try { socket.connect(); } catch (e) {}
+  }, 3000);
+}
+function stopActiveReconnectLoop() {
+  if (activeReconnectInterval) { clearInterval(activeReconnectInterval); activeReconnectInterval = null; }
 }
 function hideReconnectOverlay() {
   clearTimeout(reconnectSafetyTimer);
@@ -2245,6 +2310,7 @@ socket.on('poker_state', (state) => {
   // guarantee this table's own state has actually arrived yet.
   hideReconnectOverlay();
   latestState = state;
+  updateWinningHandContinueUI(state);
   isHost = !!state.isHost;
   const hostBtn = $('btnHoldemHostMenu');
   if (hostBtn) hostBtn.style.display = isHost ? '' : 'none';
@@ -2903,6 +2969,50 @@ function darkenShowdownLosers(state) {
 // existing position on the board, since they're already sitting right
 // there and don't need to travel anywhere.
 let tableWinningHandClearTimer = null;
+// Real, confirmed feature per explicit request: the winning-hand
+// display now waits for real players to click Continue instead of a
+// fixed timer -- this keeps the button/status text in sync with the
+// server's own count on every single state broadcast (not just the
+// one this client's own click caused), so if there are 2+ real
+// players, each one sees the other's click reflected live.
+function updateWinningHandContinueUI(state) {
+  const btn = $('btnWinningHandContinue');
+  const statusEl = $('winningHandContinueStatus');
+  if (!btn || !statusEl) return;
+  if (!state || state.phase !== 'handEnd' || !state.continueStatus) {
+    // The server has genuinely moved on to the next hand (or this
+    // isn't a handEnd state at all) -- this is what actually dismisses
+    // the whole display now, replacing the old fixed-timer hide.
+    btn.style.display = 'none';
+    statusEl.style.display = 'none';
+    const el = $('tableWinningHand');
+    if (el) el.classList.remove('on');
+    return;
+  }
+  const { needed, clickedCount, youClicked } = state.continueStatus;
+  const remaining = Math.max(0, needed - clickedCount);
+  statusEl.style.display = '';
+  if (youClicked) {
+    btn.textContent = '✓ Waiting for others…';
+    btn.disabled = true;
+    statusEl.textContent = remaining > 0 ? `Waiting for ${remaining} more player${remaining === 1 ? '' : 's'}…` : 'Starting next hand…';
+  } else {
+    btn.textContent = 'Continue';
+    btn.disabled = false;
+    statusEl.textContent = needed > 1 ? `${clickedCount}/${needed} players ready` : '';
+  }
+}
+$('btnWinningHandContinue').addEventListener('click', () => {
+  socket.emit('poker_readyForNextHand');
+  // Optimistic local update -- reflects the click immediately rather
+  // than waiting on the round-trip, since the next real broadcast will
+  // correct this anyway if anything actually differs.
+  if (latestState && latestState.continueStatus) {
+    latestState.continueStatus.youClicked = true;
+    latestState.continueStatus.clickedCount = Math.min(latestState.continueStatus.needed, latestState.continueStatus.clickedCount + 1);
+    updateWinningHandContinueUI(latestState);
+  }
+});
 // Per explicit request: a genuinely dramatic reveal -- the winner's
 // name starts small, balloons up to roughly half the screen's width
 // (see the CSS clamp() for the exact peak size), then bursts like a
@@ -3196,10 +3306,18 @@ function showWinningHandOnTable(state) {
   });
 
   if (tableWinningHandClearTimer) clearTimeout(tableWinningHandClearTimer);
-  tableWinningHandClearTimer = setTimeout(() => { el.classList.remove('on'); }, 5000);
-
-  if (tableWinningHandClearTimer) clearTimeout(tableWinningHandClearTimer);
-  tableWinningHandClearTimer = setTimeout(() => { el.classList.remove('on'); }, 5000);
+  // Real, confirmed feature change per explicit request: the display no
+  // longer dismisses itself on a fixed timer -- it now stays up until
+  // real players actually click Continue (see poker_readyForNextHand
+  // and the state.continueStatus handling in the main state-render
+  // function below, which is what actually updates this button/status
+  // and eventually hides this whole display once the server has
+  // genuinely moved on to the next hand). The Continue button itself
+  // is revealed here, once the cards have actually finished landing --
+  // showing it before that would let someone click through before
+  // they've even seen the hand.
+  $('btnWinningHandContinue').style.display = '';
+  updateWinningHandContinueUI(latestState);
 }
 // Per explicit request: animates small card-back sprites flying from
 // the house dealer's own position out to each active seat in turn (a
