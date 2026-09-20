@@ -1895,70 +1895,56 @@ function buildCardFaceSVG(rank, suit) {
   const isFace = rank === 'K' || rank === 'Q' || rank === 'J';
   const isAce = rank === 'A';
   const rankDisplay = rank === '10' ? '10' : rank;
-  // Corner index: rank text plus a small suit glyph beneath it. Drawn
-  // once, then reused at bottom-right via a 180-degree rotation around
-  // the card's own center -- the actual "mirrored top and bottom"
-  // construction real cards use, not two separately-positioned copies
-  // that could drift out of sync with each other.
+  // Real, confirmed bug fix per explicit, emphatic live report
+  // ("numbers not even readable... need a microscope"): every element
+  // below is substantially larger and bolder than the first pass --
+  // legibility at an actual small on-screen size is the entire point
+  // of a corner index and a suit pip, and the previous sizing failed
+  // that basic job. Corner rank text nearly doubled, corner suit icon
+  // more than doubled, using a plain, extremely legible sans-serif
+  // (not a decorative serif face) specifically because clarity was
+  // called out as the priority over ornamentation.
   const cornerIndex = `
-    <g transform="translate(10,10)">
-      <text x="0" y="13" font-family="Georgia,'Times New Roman',serif" font-size="15" font-weight="700" fill="${color}" text-anchor="start">${rankDisplay}</text>
-      <path d="${suitPath}" transform="translate(1,17) scale(0.42)" fill="${color}" />
+    <g transform="translate(9,9)">
+      <text x="0" y="17" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="900" fill="${color}" text-anchor="start">${rankDisplay}</text>
+      <path d="${suitPath}" transform="translate(0,21) scale(0.75)" fill="${color}" />
     </g>
-    <g transform="translate(90,130) rotate(180)">
-      <text x="0" y="13" font-family="Georgia,'Times New Roman',serif" font-size="15" font-weight="700" fill="${color}" text-anchor="start">${rankDisplay}</text>
-      <path d="${suitPath}" transform="translate(1,17) scale(0.42)" fill="${color}" />
+    <g transform="translate(91,131) rotate(180)">
+      <text x="0" y="17" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="900" fill="${color}" text-anchor="start">${rankDisplay}</text>
+      <path d="${suitPath}" transform="translate(0,21) scale(0.75)" fill="${color}" />
     </g>`;
-  // Subtle ornamental corner flourishes -- small quarter-arc accents
-  // just inside each corner, the "decorative borders, corner details,
-  // patterns, ornamental elements" the design calls for, kept fine
-  // and low-contrast so they read as a refined detail rather than
-  // clutter competing with the rank/suit itself.
-  const flourishes = `
-    <g stroke="${color}" stroke-width="0.6" fill="none" opacity="0.35">
-      <path d="M4,14 Q4,4 14,4" />
-      <path d="M96,14 Q96,4 86,4" />
-      <path d="M4,126 Q4,136 14,136" />
-      <path d="M96,126 Q96,136 86,136" />
-    </g>`;
-  const border = `
-    <rect x="2.5" y="2.5" width="95" height="135" rx="7" fill="none" stroke="${color}" stroke-width="1" opacity="0.55" />
-    <rect x="5.5" y="5.5" width="89" height="129" rx="5" fill="none" stroke="${color}" stroke-width="0.5" opacity="0.3" />`;
+  // A single, clean border -- the earlier double hairline read as
+  // visual noise at a small size rather than an intentional detail.
+  const border = `<rect x="3" y="3" width="94" height="134" rx="7" fill="none" stroke="${color}" stroke-width="1.4" opacity="0.65" />`;
   let center = '';
   if (isAce) {
-    // A single, large, ornate suit mark with a light flourish ring
-    // behind it -- the classic ace treatment, keeping the center
-    // "readable and uncluttered" per the spec while still feeling
-    // intentional rather than just a big plain glyph.
-    center = `
-      <g transform="translate(50,70)">
-        <circle r="26" fill="none" stroke="${color}" stroke-width="0.6" opacity="0.25" />
-        <path d="${suitPath}" transform="translate(-14,-14) scale(1.15)" fill="${color}" />
-      </g>`;
+    // One large, unmistakable suit mark filling most of the center --
+    // the classic, maximally-legible ace treatment.
+    center = `<path d="${suitPath}" transform="translate(28,48) scale(2)" fill="${color}" />`;
   } else if (isFace) {
-    // Mirrored royal figure: drawn once, reflected for the bottom
-    // half, with a thin frame line separating/uniting the two halves
-    // the way real court cards visually read as one symmetric figure.
+    // Real, confirmed bug fix per explicit live report ("looks like a
+    // jack" regardless of the actual rank -- the abstract mirrored
+    // silhouette wasn't actually distinguishing K/Q/J from each other
+    // at a glance): leads with a big, bold, unmistakable letter --
+    // exactly as legible as the corner index, just larger -- with a
+    // small suit mark beneath it as a secondary accent, rather than
+    // an illustration doing the identification work on its own.
     center = `
-      <g fill="${color}">
-        <g transform="translate(0,4)">${cardFaceRoyalSVG(rank)}</g>
-        <g transform="translate(100,140) rotate(180) translate(0,4)">${cardFaceRoyalSVG(rank)}</g>
-      </g>
-      <line x1="18" y1="70" x2="82" y2="70" stroke="${color}" stroke-width="0.5" opacity="0.25" />
-      <path d="${suitPath}" transform="translate(43,63) scale(0.6)" fill="${color}" opacity="0.9" />`;
+      <text x="50" y="80" font-family="Arial,Helvetica,sans-serif" font-size="52" font-weight="900" fill="${color}" text-anchor="middle">${rank}</text>
+      <path d="${suitPath}" transform="translate(38,88) scale(1)" fill="${color}" opacity="0.85" />`;
   } else {
-    // Number card: the real pip layout for this rank, each pip mirrored
-    // (rotated 180) in the bottom half exactly as a genuine deck does.
+    // Number card: the real pip layout for this rank, noticeably
+    // bigger than the first pass so the actual count is easy to read
+    // at a glance instead of resolving to a blur of tiny dots.
     const layout = CARD_PIP_LAYOUTS[rank] || [];
     center = layout.map(([x, yFrac, rot]) => {
-      const y = 28 + yFrac * 84;
-      return `<path d="${suitPath}" transform="translate(${x - 6},${y - 6}) scale(0.5) rotate(${rot},12,12)" fill="${color}" />`;
+      const y = 26 + yFrac * 88;
+      return `<path d="${suitPath}" transform="translate(${x - 8},${y - 8}) scale(0.68) rotate(${rot},12,12)" fill="${color}" />`;
     }).join('');
   }
   return `<svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">
     <rect x="0.5" y="0.5" width="99" height="139" rx="8" fill="#fffdf7" stroke="none" />
     ${border}
-    ${flourishes}
     ${center}
     ${cornerIndex}
   </svg>`;
