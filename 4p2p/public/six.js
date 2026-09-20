@@ -110,11 +110,7 @@ function loadRealSound(kind) {
   return realSoundLoadPromises[kind];
 }
 Object.keys(REAL_SOUND_FILES).forEach(loadRealSound);
-function playRealSound(kind, volumeMult) {
-  if (soundMuted) return;
-  const ctx = getAudioCtx();
-  const buffer = realSoundBuffers[kind];
-  if (!ctx || !buffer) return;
+function playRealSoundNow(ctx, buffer, volumeMult) {
   try {
     const src = ctx.createBufferSource();
     src.buffer = buffer;
@@ -124,6 +120,29 @@ function playRealSound(kind, volumeMult) {
     gain.connect(masterGainNode);
     src.start(0);
   } catch (e) { /* never let a sound glitch break gameplay */ }
+}
+// Real, confirmed root-cause fix per explicit live report ("only when
+// I play [a card] do I hear it, everything else doesn't"): the very
+// first bid of a round can genuinely happen within a second or two of
+// the page loading -- often before chip-place.mp3 has actually
+// finished being fetched and decoded, since that's a real network
+// round-trip, not instant. The old version just silently did nothing
+// if the buffer wasn't ready yet (`if (!buffer) return`), which is
+// exactly why an EARLY action (the first bid) could go silent while a
+// LATER one (playing a card, well after everything's had time to
+// load) worked fine -- it was a genuine race, not something broken in
+// how the sound itself was wired. Now falls back to loading the file
+// on demand and playing it the moment it's actually ready, instead of
+// dropping that one play attempt on the floor.
+function playRealSound(kind, volumeMult) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const buffer = realSoundBuffers[kind];
+  if (buffer) { playRealSoundNow(ctx, buffer, volumeMult); return; }
+  loadRealSound(kind).then(loadedBuffer => {
+    if (loadedBuffer && !soundMuted) playRealSoundNow(ctx, loadedBuffer, volumeMult);
+  });
 }
 let sharedNoiseBuffer = null;
 function getNoiseBuffer(ctx) {

@@ -5253,11 +5253,7 @@ function loadRealSound(kind) {
   return realSoundLoadPromises[kind];
 }
 Object.keys(REAL_SOUND_FILES).forEach(loadRealSound);
-function playRealSound(kind, volumeMult) {
-  if (soundMuted) return;
-  const ctx = getAudioCtx();
-  const buffer = realSoundBuffers[kind];
-  if (!ctx || !buffer) return;
+function playRealSoundNow(ctx, buffer, volumeMult) {
   try {
     const src = ctx.createBufferSource();
     src.buffer = buffer;
@@ -5267,6 +5263,23 @@ function playRealSound(kind, volumeMult) {
     gain.connect(masterGainNode);
     src.start(0);
   } catch (e) { /* never let a sound glitch break gameplay */ }
+}
+// Real, confirmed root-cause fix per explicit live report on the 6p
+// table (same underlying engine as this one): an early sound request
+// (e.g. the very first action after page load) can genuinely happen
+// before its own file has finished being fetched and decoded over the
+// network -- the old version just silently dropped that one play
+// attempt (`if (!buffer) return`). Falls back to loading it on demand
+// and playing it the instant it's ready, instead of going silent.
+function playRealSound(kind, volumeMult) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const buffer = realSoundBuffers[kind];
+  if (buffer) { playRealSoundNow(ctx, buffer, volumeMult); return; }
+  loadRealSound(kind).then(loadedBuffer => {
+    if (loadedBuffer && !soundMuted) playRealSoundNow(ctx, loadedBuffer, volumeMult);
+  });
 }
 
 // A reusable white-noise buffer, generated once and reused (via playbackRate + filters to vary
@@ -5418,8 +5431,12 @@ const SOUND_BUILDERS = {
   },
 };
 
-function playSound(kind) {
+function playSound(kind, arg) {
   if (soundMuted) return;
+  if (REAL_SOUND_FILES[kind]) {
+    playRealSound(kind, arg);
+    return;
+  }
   const ctx = getAudioCtx();
   if (!ctx || !masterGainNode) return;
   const builder = SOUND_BUILDERS[kind];

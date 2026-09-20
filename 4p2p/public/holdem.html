@@ -1285,11 +1285,7 @@ Object.keys(REAL_SOUND_FILES).forEach(loadRealSound);
 // Plays a real loaded sound at an optional volume multiplier (used to
 // make a big raise's chips sound a little more prominent than a small
 // call, the same scaling idea the old synthesized chipStack had).
-function playRealSound(kind, volumeMult) {
-  if (soundMuted) return;
-  const ctx = getAudioCtx();
-  const buffer = realSoundBuffers[kind];
-  if (!ctx || !buffer) return;
+function playRealSoundNow(ctx, buffer, volumeMult) {
   try {
     const src = ctx.createBufferSource();
     src.buffer = buffer;
@@ -1299,6 +1295,23 @@ function playRealSound(kind, volumeMult) {
     gain.connect(masterGainNode);
     src.start(0);
   } catch (e) { /* never let a sound glitch break gameplay */ }
+}
+// Real, confirmed root-cause fix per explicit live report on the 6p
+// table (same underlying engine as this one): an early sound request
+// (e.g. the very first action after page load) can genuinely happen
+// before its own file has finished being fetched and decoded over the
+// network -- the old version just silently dropped that one play
+// attempt (`if (!buffer) return`). Falls back to loading it on demand
+// and playing it the instant it's ready, instead of going silent.
+function playRealSound(kind, volumeMult) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const buffer = realSoundBuffers[kind];
+  if (buffer) { playRealSoundNow(ctx, buffer, volumeMult); return; }
+  loadRealSound(kind).then(loadedBuffer => {
+    if (loadedBuffer && !soundMuted) playRealSoundNow(ctx, loadedBuffer, volumeMult);
+  });
 }
 let sharedNoiseBuffer = null;
 function getNoiseBuffer(ctx) {
