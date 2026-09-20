@@ -1631,16 +1631,30 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    this one and winning on source order alone. Real, confirmed bug
    fix, found by an actual screenshot check: top:10px collided with
    the lobby's own "← 4 Player Table" back-link (also top-left) --
-   pushed down to top:52px, clear of it, while still reading as
-   top-left overall.
+   pushed down to top:52px, clear of it.
+   Second, confirmed follow-up fix per explicit live report ("mic and
+   mute is overlapping dealer and hidden trump... just under the
+   trump animation"): the FIRST fix (195px) was actually calculated
+   against the WRONG trump-chip position -- .trump-chip's own
+   top:150px override only takes effect inside
+   "@media (min-width: 521px)" (a wider/desktop-ish viewport). On a
+   genuinely mobile-width screen -- what this player is actually
+   using -- .trump-chip stays at its base top:80px, real bottom edge
+   ~105px, and 52px never came close to clearing it. Fixed for real
+   this time: base (mobile) position now clears the mobile trump-chip
+   position specifically (113px), with a second, separate override
+   inside that same width breakpoint so it also correctly clears the
+   chip's OWN wider-viewport position (187px) on a wider screen,
+   instead of one fixed number trying to cover both cases at once.
 */
-#k28vBtn{left:10px !important;bottom:auto !important;top:52px !important;}
-/* The voice message panel used to appear ABOVE the mic (bottom:92px),
-   which only made sense while the mic itself sat near the bottom of
-   the screen. Now that the mic is at the top, the panel drops down
-   below it instead. */
-#k28vPanel{bottom:auto !important;top:106px !important;}
-#btnSoundMute{position:fixed;left:64px;top:52px;bottom:auto;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
+#k28vBtn{left:10px !important;bottom:auto !important;top:113px !important;}
+#k28vPanel{bottom:auto !important;top:167px !important;}
+#btnSoundMute{position:fixed;left:64px;top:113px;bottom:auto;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
+@media (min-width: 521px) {
+  #k28vBtn{top:195px !important;}
+  #k28vPanel{top:249px !important;}
+  #btnSoundMute{top:195px !important;}
+}
 #btnSoundMute:active{transform:scale(0.92)}
 </style>
 </head>
