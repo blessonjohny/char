@@ -176,8 +176,10 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    the shared timing/easing every fragment uses. */
 .winner-splatter{position:fixed;top:50%;left:50%;z-index:1899;pointer-events:none;width:0;height:0}
 .splatter-piece{position:absolute;border-radius:40% 60% 55% 45%;transition:transform 0.75s cubic-bezier(.15,.6,.3,1),opacity 0.75s ease}
-.table-winning-hand{position:absolute;top:64%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:7;pointer-events:none;opacity:0;transition:opacity 0.3s ease}
+.table-winning-hand{position:absolute;top:70%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:7;pointer-events:none;opacity:0;transition:opacity 0.3s ease}
 .table-winning-hand.on{opacity:1}
+.winning-hand-continue-wrap{opacity:0;transition:opacity 0.3s ease}
+.winning-hand-continue-wrap.on{opacity:1}
 /* Per explicit live report ("keep the same position, comes down"):
    position:relative added so each card's own absolute-positioned slot
    (set dynamically in JS, directly below its real source card) is
@@ -1121,7 +1123,24 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     <div class="table-winning-hand" id="tableWinningHand">
       <div class="table-winning-hand-cards" id="tableWinningHandCards"></div>
       <div class="table-winning-hand-label" id="tableWinningHandLabel"></div>
-      <button class="btn btn-gold" id="btnWinningHandContinue" style="margin-top:10px;pointer-events:auto;padding:8px 24px;font-size:0.85rem;width:auto;display:none">Continue</button>
+    </div>
+    <!-- Real, confirmed layout fix per explicit live report ("final
+         display... on top of the cards dealt by dealer... move
+         continue button on top of the dealer middle"): the Continue
+         button and its status line used to live INSIDE
+         .table-winning-hand, directly below the 5 winning cards --
+         once that button was added, the whole block got taller, and
+         since .table-winning-hand is vertically centered on its own
+         anchor point, the extra height pushed its TOP edge up into
+         the board cards above it. Pulled the button out into its own,
+         independently-positioned element instead of just pushing
+         .table-winning-hand further down (which would only have
+         delayed the same collision at a different button height) --
+         positioned near the house dealer at the top of the table, per
+         the explicit request, rather than sitting right underneath
+         the winning cards at all. -->
+    <div id="winningHandContinueWrap" class="winning-hand-continue-wrap" style="position:absolute;left:49.8%;top:11%;transform:translate(-50%,-50%);z-index:8;text-align:center;pointer-events:none">
+      <button class="btn btn-gold" id="btnWinningHandContinue" style="pointer-events:auto;padding:8px 24px;font-size:0.85rem;width:auto;display:none">Continue</button>
       <div id="winningHandContinueStatus" style="margin-top:6px;font-size:0.72rem;color:var(--text-secondary,#aaa);display:none"></div>
     </div>
     <div id="seatsContainer"></div>
@@ -3387,6 +3406,7 @@ let tableWinningHandClearTimer = null;
 function updateWinningHandContinueUI(state) {
   const btn = $('btnWinningHandContinue');
   const statusEl = $('winningHandContinueStatus');
+  const wrap = $('winningHandContinueWrap');
   if (!btn || !statusEl) return;
   if (!state || state.phase !== 'handEnd' || !state.continueStatus) {
     // The server has genuinely moved on to the next hand (or this
@@ -3394,10 +3414,12 @@ function updateWinningHandContinueUI(state) {
     // the whole display now, replacing the old fixed-timer hide.
     btn.style.display = 'none';
     statusEl.style.display = 'none';
+    if (wrap) wrap.classList.remove('on');
     const el = $('tableWinningHand');
     if (el) el.classList.remove('on');
     return;
   }
+  if (wrap) wrap.classList.add('on');
   const { needed, clickedCount, youClicked } = state.continueStatus;
   const remaining = Math.max(0, needed - clickedCount);
   statusEl.style.display = '';
