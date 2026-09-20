@@ -888,6 +888,10 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .pin-modal-btns button{flex:1;padding:10px;border-radius:10px;border:none;font-weight:700;font-size:0.85rem;cursor:pointer}
 #pinCancelBtn{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.75)}
 #pinSubmitBtn{background:linear-gradient(135deg,#f4c430,#d4a017);color:#1a1206}
+/* Sound mute toggle -- same visual pattern as the 4p/6p tables' own
+   mute button, so it's immediately familiar. */
+#btnSoundMute{position:fixed;left:64px;bottom:40px;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
+#btnSoundMute:active{transform:scale(0.92)}
 </style>
 </head>
 <body>
@@ -1181,6 +1185,223 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 <script>
 const socket = io();
 let myPos = null, myPlayerId = null, myTableId = null, isHost = false;
+// ==================== SOUND + HAPTIC ENGINE ====================
+// Per explicit request ("add sound and touch sensitivity... the best
+// sound possible... to all"): the exact same Web Audio API synthesis
+// engine already proven on the 4-player table (no audio files at all
+// -- every effect is built from filtered noise bursts and oscillator
+// tones, so there's nothing to download, nothing to go stale, and it
+// scales to any device instantly), with a new set of poker-specific
+// sounds in place of that game's card-trick ones.
+let sharedAudioCtx = null;
+let masterGainNode = null;
+let soundMuted = false;
+let masterVolume = 0.8;
+try {
+  soundMuted = localStorage.getItem('k28_sound_muted') === '1';
+  const savedVol = parseFloat(localStorage.getItem('k28_sound_volume'));
+  if (!isNaN(savedVol)) masterVolume = savedVol;
+} catch (e) {}
+function getAudioCtx() {
+  if (!sharedAudioCtx) {
+    try {
+      sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGainNode = sharedAudioCtx.createGain();
+      masterGainNode.gain.value = masterVolume;
+      masterGainNode.connect(sharedAudioCtx.destination);
+    } catch (e) { return null; }
+  }
+  if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume().catch(() => {});
+  return sharedAudioCtx;
+}
+let audioWarmedUp = false;
+function warmUpAudioContext() {
+  if (audioWarmedUp) return;
+  audioWarmedUp = true;
+  getAudioCtx();
+}
+['touchstart', 'mousedown', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, warmUpAudioContext, { once: true, passive: true });
+});
+function setSoundMuted(muted) {
+  soundMuted = muted;
+  try { localStorage.setItem('k28_sound_muted', muted ? '1' : '0'); } catch (e) {}
+  const btn = document.getElementById('btnSoundMute');
+  if (btn) btn.textContent = muted ? '🔇' : '🔊';
+}
+let soundMuteBtnBuilt = false;
+function ensureSoundMuteButton() {
+  if (soundMuteBtnBuilt) return;
+  soundMuteBtnBuilt = true;
+  const btn = document.createElement('button');
+  btn.id = 'btnSoundMute';
+  btn.title = 'Mute sound effects';
+  btn.style.display = 'flex';
+  btn.textContent = soundMuted ? '🔇' : '🔊';
+  btn.addEventListener('click', () => {
+    setSoundMuted(!soundMuted);
+    if (!soundMuted) playSound('click');
+  });
+  document.body.appendChild(btn);
+}
+let sharedNoiseBuffer = null;
+function getNoiseBuffer(ctx) {
+  if (sharedNoiseBuffer) return sharedNoiseBuffer;
+  const len = ctx.sampleRate * 1.0;
+  const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  sharedNoiseBuffer = buffer;
+  return buffer;
+}
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function noiseBurst(ctx, dest, { filterType = 'bandpass', freq = 2000, Q = 1, startAt = 0, duration = 0.05, peakGain = 0.3, attack = 0.002 }) {
+  const src = ctx.createBufferSource();
+  src.buffer = getNoiseBuffer(ctx);
+  src.loopStart = 0;
+  src.loopEnd = duration + 0.05;
+  const offset = Math.random() * 0.8;
+  const filter = ctx.createBiquadFilter();
+  filter.type = filterType;
+  filter.frequency.value = freq;
+  filter.Q.value = Q;
+  const gain = ctx.createGain();
+  const t = ctx.currentTime + startAt;
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(peakGain, t + attack);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(dest);
+  src.start(t, offset, duration + 0.05);
+  src.stop(t + duration + 0.05);
+}
+function tone(ctx, dest, { freq = 440, type = 'sine', startAt = 0, duration = 0.18, peakGain = 0.15, attack = 0.015 }) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  const t = ctx.currentTime + startAt;
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(peakGain, t + attack);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  osc.connect(gain);
+  gain.connect(dest);
+  osc.start(t);
+  osc.stop(t + duration + 0.05);
+}
+const SOUND_BUILDERS = {
+  // A card dealt to a hand or the board: a quick high "flick" through
+  // the air immediately followed by a soft, low "tap" landing on felt.
+  cardDeal(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(3200, 4200), Q: 0.7, duration: rnd(0.02, 0.03), peakGain: rnd(0.16, 0.22), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(220, 320), Q: 1.2, startAt: rnd(0.02, 0.035), duration: rnd(0.03, 0.045), peakGain: rnd(0.1, 0.15) });
+  },
+  // A single chip (or a couple) placed as a bet or call -- one bright,
+  // short clink, the classic poker-chip sound.
+  chipBet(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(2600, 3400), Q: rnd(3, 5), duration: rnd(0.05, 0.08), peakGain: rnd(0.22, 0.28), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1400, 1800), Q: rnd(2, 3), startAt: 0.015, duration: rnd(0.04, 0.06), peakGain: rnd(0.12, 0.16), attack: 0.001 });
+  },
+  // A raise or a big bet -- several overlapping chip clinks in quick
+  // succession, reading as a real stack being pushed forward rather
+  // than a single chip, scaled by how big the raise actually is.
+  chipStack(ctx, dest, size) {
+    const count = Math.max(3, Math.min(9, Math.round(3 + (size || 0.5) * 6)));
+    let t = 0;
+    for (let i = 0; i < count; i++) {
+      noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(2200, 3400), Q: rnd(3, 5), startAt: t, duration: rnd(0.04, 0.07), peakGain: rnd(0.16, 0.24), attack: 0.001 });
+      t += rnd(0.025, 0.05);
+    }
+  },
+  // Folding -- cards being mucked, pushed face-down away across felt.
+  fold(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(700, 1000), Q: 0.8, duration: rnd(0.09, 0.13), peakGain: rnd(0.14, 0.18), attack: 0.006 });
+  },
+  // Checking -- a soft double-knock on the table, the real physical
+  // gesture players use to check.
+  checkKnock(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(200, 280), Q: 1.4, duration: 0.045, peakGain: rnd(0.2, 0.26), attack: 0.002 });
+    noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(200, 280), Q: 1.4, startAt: 0.09, duration: 0.045, peakGain: rnd(0.16, 0.2), attack: 0.002 });
+  },
+  // Winning the hand -- a bright, satisfying ascending run, bigger and
+  // longer than a per-trick win would be, since a whole hand (not just
+  // one trick) is a real, comparatively rare moment.
+  win(ctx, dest) {
+    const base = rnd(500, 520);
+    [0, 4, 7, 12].forEach((semi, i) => {
+      tone(ctx, dest, { freq: base * Math.pow(2, semi / 12), type: 'triangle', startAt: i * 0.075, duration: 0.26, peakGain: 0.15 });
+    });
+  },
+  // Losing the hand -- a soft, muted descent, understated rather than
+  // punishing.
+  lose(ctx, dest) {
+    const base = rnd(360, 380);
+    tone(ctx, dest, { freq: base, type: 'sine', duration: 0.17, peakGain: 0.09 });
+    tone(ctx, dest, { freq: base * Math.pow(2, -4 / 12), type: 'sine', startAt: 0.1, duration: 0.24, peakGain: 0.08 });
+  },
+  // It's your turn to act -- a clean two-note chime, noticeable but
+  // not alarming.
+  yourTurn(ctx, dest) {
+    tone(ctx, dest, { freq: 740, type: 'sine', duration: 0.16, peakGain: 0.16 });
+    tone(ctx, dest, { freq: 988, type: 'sine', startAt: 0.14, duration: 0.22, peakGain: 0.18 });
+  },
+  // Going all-in -- the single biggest moment at the table, gets the
+  // loudest, most dramatic sound: a sharp crack plus a rolling
+  // low-end swell, shifted into a range small phone speakers can
+  // actually reproduce.
+  allIn(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(1800, 2600), Q: 0.6, duration: 0.035, peakGain: rnd(0.3, 0.36), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(280, 380), Q: 0.8, duration: 0.06, peakGain: rnd(0.4, 0.48), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(180, 260), Q: 1, startAt: 0.04, duration: rnd(0.5, 0.65), peakGain: rnd(0.26, 0.32), attack: 0.05 });
+  },
+  // A new hand's deck being shuffled before dealing.
+  shuffle(ctx, dest) {
+    const count = Math.floor(rnd(10, 16));
+    let t = 0;
+    for (let i = 0; i < count; i++) {
+      noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1800, 3200), Q: rnd(1, 2), startAt: t, duration: rnd(0.015, 0.03), peakGain: rnd(0.1, 0.18), attack: 0.001 });
+      t += rnd(0.02, 0.045);
+    }
+  },
+  // Generic button click -- the quietest, shortest sound of the set,
+  // pure UI feedback.
+  click(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1600, 2400), Q: 1.5, duration: rnd(0.006, 0.012), peakGain: rnd(0.05, 0.08), attack: 0.001 });
+  },
+};
+function playSound(kind, arg) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  if (!ctx || !masterGainNode) return;
+  const builder = SOUND_BUILDERS[kind];
+  if (!builder) return;
+  try { builder(ctx, masterGainNode, arg); } catch (e) { /* never let a sound glitch break gameplay */ }
+}
+function vibrate(pattern) {
+  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+}
+const HAPTIC_PATTERNS = {
+  cardDeal: 10,
+  chipBet: 14,
+  fold: 18,
+  checkKnock: [10, 10],
+  win: [20, 40, 20],
+  lose: 30,
+  yourTurn: [15, 30, 15],
+  allIn: [30, 60, 30, 60, 40],
+  click: 8,
+};
+function playHaptic(kind) {
+  const pattern = HAPTIC_PATTERNS[kind];
+  if (pattern) vibrate(pattern);
+}
+// Delegated click feedback for every button on the page, rather than
+// adding a playSound call to each individual handler.
+document.addEventListener('click', (e) => {
+  const target = e.target.closest('button, .btn, .btn-outline, .btn-gold, .opt-btn');
+  if (target) { playSound('click'); playHaptic('click'); }
+}, true);
 // Per explicit request ("use all characters like the 4 and 6 tables"):
 // the exact same avatar system as six.html/index.html -- same full
 // key list, same 6 PIN-protected personal avatars excluded from any
@@ -1324,6 +1545,7 @@ async function validateHoldemNameAndAvatar() {
 // handler so nothing from this table can render again afterward.
 let hasLeftTable = false;
 let latestState = null;
+let lastKnownCurrentPlayer = null;
 let createOpts = { mode: 'tournament', buyInType: 'nolimit', smallBlind: 5, bigBlind: 10, startingChips: 1000 };
 
 // A full page reload (not just a background tab suspending) wipes every
@@ -1948,6 +2170,11 @@ function updatePotStackTotalPosition(baseX, baseY, stackSpacingX, stackRiseY) {
 }
 function animateChipToPot(seatPos, amount) {
   const potEl = $('potAnchor') || $('potDisplay');
+  // Chip sound scales with bet size (relative to a reasonable
+  // reference of 200) -- a small call sounds like a couple chips, a
+  // big raise sounds like a real stack being pushed forward.
+  playSound('chipStack', Math.min(1, amount / 200));
+  playHaptic('chipBet');
   // Per explicit request: chips now fly from each player's own rail
   // chip stack (see renderRailChips) rather than the seat/avatar
   // itself, since that's the real visual "base" a bet's chips should
@@ -2352,6 +2579,7 @@ $('btnTournamentExit').addEventListener('click', () => {
 
 function renderLobby(state) {
   showScreen('lobbyScreen');
+  ensureSoundMuteButton();
   $('lobbyCode').textContent = state.tableId;
   const seats = state.seats.map((s, i) => s ? `<div class="table-row"><span>${i + 1}. ${escapeHtml(s.name)}${s.isBot ? ' 🤖' : ''}${i === myPos ? ' (you)' : ''}</span><span style="color:var(--gold)">${s.chips}</span></div>` : `<div class="table-row" style="opacity:0.4"><span>${i + 1}. Empty</span></div>`).join('');
   $('lobbySeatList').innerHTML = seats;
@@ -2694,6 +2922,7 @@ function slotFor(pos) { return myPos === null ? pos : (pos - myPos + 9) % 9; }
 
 function renderGameTable(state) {
   showScreen('gameScreen');
+  ensureSoundMuteButton();
   maybeSuggestTilt();
   $('handNumDisplay').textContent = 'Hand ' + state.handNumber;
   $('blindsDisplay').textContent = state.smallBlind + '/' + state.bigBlind + (state.buyInType === 'fixed' ? ' fixed' : ' NL') + (state.mode === 'tournament' ? ` · Level ${(state.blindLevel || 0) + 1}` : '');
@@ -2813,6 +3042,17 @@ function renderGameTable(state) {
   // exist as separate top-level elements rather than nested inside my own seat).
   if ($('myChipsTop') && mySeat) $('myChipsTop').textContent = mySeat.eliminated ? 'OUT' : mySeat.chips;
   document.body.classList.toggle('my-turn-active', state.currentPlayer === myPos);
+  // Real, confirmed feature per explicit request ("sound and touch...
+  // to all"): a chime the instant it becomes this player's turn --
+  // tracked against the last-seen currentPlayer specifically so this
+  // fires once on the actual transition into "your turn," not on
+  // every single re-render while it's still your turn (which happens
+  // often, e.g. other seats' unrelated state updates).
+  if (state.currentPlayer === myPos && lastKnownCurrentPlayer !== myPos && mySeat && !mySeat.folded) {
+    playSound('yourTurn');
+    playHaptic('yourTurn');
+  }
+  lastKnownCurrentPlayer = state.currentPlayer;
   // Per explicit live report: a flat "YOUR TURN" told the player
   // nothing they didn't already know from their turn simply having
   // arrived -- what they actually need at a glance is what their real
@@ -3360,6 +3600,8 @@ function animateDealingCards(state) {
         card.style.top = startY + 'px';
         card.style.transform = 'translate(-50%,-50%)';
         document.body.appendChild(card);
+        playSound('cardDeal');
+        playHaptic('cardDeal');
         // Real, confirmed root-cause fix per explicit live report ("2
         // handles," a bent path instead of a straight line) -- same
         // class of bug already fixed for the chip flights and the
@@ -3423,6 +3665,8 @@ function animateDealingCommunityCards(newCards, existingCount) {
       card.style.top = startY + 'px';
       card.style.transform = 'translate(-50%,-50%)';
       document.body.appendChild(card);
+      playSound('cardDeal');
+      playHaptic('cardDeal');
       // Real, confirmed root-cause fix, same class of bug as the chip
       // flight animations: kept the exact same -50%/-50% centering
       // term in both the start and end transform (only ever adding a
@@ -3443,6 +3687,21 @@ function showWinnerBanner(state) {
   const handPart = r.boardShown ? ` with ${r.winners[0].handName}` : ' — everyone else folded';
   el.textContent = `🏆 ${names} wins ${totalWon}${handPart}`;
   el.style.display = 'block';
+  // Real, confirmed feature per explicit request ("sound and touch...
+  // to all"): win/lose feedback for the viewer specifically -- only
+  // plays "lose" if this player actually stayed in and lost, not for
+  // every hand they folded early out of (folding isn't a loss moment
+  // worth a sound of its own; sendAction's own fold sound already
+  // covers that action itself).
+  const iWon = r.winners.some(w => w.seat === myPos);
+  const myMuckedSeat = state.seats[myPos];
+  if (iWon) {
+    playSound('win');
+    playHaptic('win');
+  } else if (myMuckedSeat && !myMuckedSeat.folded && myMuckedSeat.hand && myMuckedSeat.hand.length) {
+    playSound('lose');
+    playHaptic('lose');
+  }
 }
 
 function renderActionBar(state) {
@@ -3496,6 +3755,23 @@ function adjustBetAmount(delta) {
   $('betAmountVal').textContent = slider.value;
 }
 function sendAction(action, amount) {
+  // Real, confirmed feature per explicit request ("add sound and
+  // touch... to all"): immediate local feedback the instant the
+  // player taps an action, rather than waiting on the server
+  // round-trip -- fold/check get their own distinct sound, bet/raise
+  // is handled by animateChipToPot's own chip sound once the state
+  // update actually arrives (so its volume/size can reflect the real
+  // amount), and a raise/bet that empties the stack gets the bigger
+  // all-in treatment.
+  if (action === 'fold') { playSound('fold'); playHaptic('fold'); }
+  else if (action === 'check') { playSound('checkKnock'); playHaptic('checkKnock'); }
+  else if ((action === 'bet' || action === 'raise') && latestState) {
+    const mySeat = latestState.seats[myPos];
+    if (mySeat && amount >= mySeat.chips + mySeat.bettedThisRound) { playSound('allIn'); playHaptic('allIn'); }
+  } else if (action === 'call' && latestState) {
+    const mySeat = latestState.seats[myPos];
+    if (mySeat && (latestState.currentBet - mySeat.bettedThisRound) >= mySeat.chips) { playSound('allIn'); playHaptic('allIn'); }
+  }
   socket.emit('poker_act', { action, amount });
 }
 socket.on('poker_actionError', (info) => toast('❌ ' + (info.reason || 'action failed').replace(/_/g, ' ')));
