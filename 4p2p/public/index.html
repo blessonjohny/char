@@ -561,6 +561,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .challenge-diff-dare:hover,.challenge-diff-dare:active{background:linear-gradient(135deg,#f87171,#c62828);box-shadow:0 8px 26px rgba(239,68,68,0.5);transform:translateY(-2px) scale(1.02)}
 .challenge-toggle-btn{width:100%;margin-bottom:8px;padding:11px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-weight:700;font-size:0.8rem;cursor:pointer;transition:all 0.2s;touch-action:manipulation}
 .challenge-toggle-btn:hover,.challenge-toggle-btn:active{background:rgba(255,215,0,0.1);box-shadow:0 4px 16px rgba(255,215,0,0.2);transform:translateY(-1px)}
+.challenge-label-static{width:100%;margin-bottom:8px;padding:11px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-weight:700;font-size:0.8rem;text-align:center}
 .btn28-badge{font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;line-height:1.15;letter-spacing:0.5px;display:block;
   background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
@@ -4397,8 +4398,14 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
            deficit and forced into the first bid, exactly like an
            ordinary table otherwise (anyone can join it the same way,
            same championship progression once it's under way). -->
-      <button type="button" id="btnShowChallengeOptions" class="challenge-toggle-btn">🎯 Create Challenge Table</button>
-      <div id="challengeOptionsRow" style="display:none;gap:8px;margin-bottom:8px">
+      <!-- Real, confirmed fix per explicit live report ("once u hit
+           that it opens, keep it open so no need for extra hit"): the
+           toggle-to-reveal step is gone entirely -- the label is now
+           purely informational (not clickable), and all 3 difficulty
+           buttons are visible immediately, so picking a difficulty is
+           a single tap instead of two. -->
+      <div class="challenge-label-static">🎯 Create Challenge Table</div>
+      <div id="challengeOptionsRow" style="display:flex;gap:8px;margin-bottom:8px">
         <button type="button" class="challenge-diff-btn challenge-diff-medium" data-handicap="5">Medium</button>
         <button type="button" class="challenge-diff-btn challenge-diff-hard" data-handicap="10">Hard</button>
         <button type="button" class="challenge-diff-btn challenge-diff-dare" data-handicap="13">Dare</button>
@@ -15612,10 +15619,6 @@ document.getElementById('playerNameInput').addEventListener('keydown', (e) => {
 document.getElementById('btnCreateRoom').addEventListener('click', () => {
   requestFullscreen28();
   createTableOnServer(MY_NAME);
-});
-document.getElementById('btnShowChallengeOptions').addEventListener('click', () => {
-  const row = document.getElementById('challengeOptionsRow');
-  row.style.display = row.style.display === 'flex' ? 'none' : 'flex';
 });
 document.querySelectorAll('.challenge-diff-btn').forEach(btn => {
   btn.addEventListener('click', () => {

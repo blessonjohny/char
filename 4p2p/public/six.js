@@ -1716,10 +1716,6 @@ $('btnCreate').addEventListener('click', () => {
   if (inviteBanner6pCreate) inviteBanner6pCreate.classList.add('hidden');
   showScreen('nameScreen');
 });
-$('btnShowChallengeOptions6p').addEventListener('click', () => {
-  const row = $('challengeOptionsRow6p');
-  row.style.display = row.style.display === 'flex' ? 'none' : 'flex';
-});
 document.querySelectorAll('.challenge-diff-btn-6p').forEach(btn => {
   btn.addEventListener('click', () => {
     pendingAction = 'create';
