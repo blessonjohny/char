@@ -2142,6 +2142,24 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 </defs>
 </svg>
 
+<!-- Real, confirmed feature per explicit request ("after winning or
+     losing a challenge they should have the option to continue to
+     next championship or new challenge"): matches the 4-player
+     table's identical overlay exactly. Placed here, before six.js
+     loads, specifically so these elements exist in the DOM before any
+     script tries to wire them up -- the earlier location (at the very
+     end of the body, after six.js) left them null when that wiring
+     code ran, and the buttons silently did nothing. -->
+<div id="challengeDecidedOverlay" style="display:none;position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;padding:20px">
+  <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid var(--accent);border-radius:16px;padding:28px 24px;max-width:360px;width:100%;text-align:center;box-shadow:0 0 40px rgba(255,215,0,0.15)">
+    <div id="challengeDecidedIcon" style="font-size:2.4rem;margin-bottom:8px">🎯</div>
+    <div id="challengeDecidedTitle" style="font-family:'Cinzel','Playfair Display',serif;font-size:1.3rem;font-weight:800;color:var(--accent);margin-bottom:8px">Challenge Decided</div>
+    <div id="challengeDecidedDetail" style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:20px"></div>
+    <button type="button" id="btnChallengeContinueChampionship" class="btn btn-primary" style="width:100%;margin-bottom:8px">▶ Continue to Next Championship</button>
+    <button type="button" id="btnChallengeStartNew" class="challenge-toggle-btn" style="width:100%">🎯 Start a New Challenge</button>
+  </div>
+</div>
+
 <script src="/six.js"></script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page (including
@@ -2160,5 +2178,6 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   body.appendChild(frame);
 })();
 </script>
+
 </body>
 </html>

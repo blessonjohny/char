@@ -15,6 +15,7 @@ let MY_NAME = '';
 let MY_POS = -1;
 let lastKnownDealRound = null;
 let challengeBeatenAnnouncedSix = false;
+let challengeResolvedPromptShownSix = false;
 let kunukkuGainedForRoundSix = null;
 // Real, confirmed feature per explicit request ("add sound and touch
 // sensitivity... to all"): the exact same Web Audio API synthesis
@@ -1885,6 +1886,13 @@ function showSeatPicker(info) {
 
 $('btnLeaveLobby').addEventListener('click', leaveToWelcome);
 $('btnGameOverLeave').addEventListener('click', leaveToWelcome);
+$('btnChallengeContinueChampionship').addEventListener('click', () => {
+  $('challengeDecidedOverlay').style.display = 'none';
+});
+$('btnChallengeStartNew').addEventListener('click', () => {
+  $('challengeDecidedOverlay').style.display = 'none';
+  leaveToWelcome();
+});
 function leaveToWelcome() {
   if (window.K28Voice) K28Voice.hideButton();
   if (socket) socket.emit('sixp_leaveTable');
@@ -2410,6 +2418,28 @@ function applyState(state) {
     challengeBeatenAnnouncedSix = true;
     showGameEvent('🎯', 'Challenge Beaten!', 'You overcame a ' + state.challengeHandicap + '-point deficit!', '#f4c430');
     playSound('happy');
+  }
+  // Real, confirmed feature per explicit request ("after winning or
+  // losing a challenge they should have the option to continue to
+  // next championship or new challenge"): matches the 4-player
+  // table's identical feature exactly.
+  if (state.challengeResolved && !challengeResolvedPromptShownSix) {
+    challengeResolvedPromptShownSix = true;
+    setTimeout(() => {
+      const icon = $('challengeDecidedIcon');
+      const title = $('challengeDecidedTitle');
+      const detail = $('challengeDecidedDetail');
+      if (state.challengeBeaten) {
+        icon.textContent = '🏆';
+        title.textContent = 'Challenge Beaten!';
+        detail.textContent = 'You overcame a ' + state.challengeHandicap + '-point deficit. Keep playing here, or start a fresh challenge?';
+      } else {
+        icon.textContent = '💔';
+        title.textContent = 'Challenge Not Beaten';
+        detail.textContent = 'The ' + state.challengeHandicap + '-point deficit held this time. Keep playing here, or try a new challenge?';
+      }
+      $('challengeDecidedOverlay').style.display = 'flex';
+    }, state.challengeBeaten ? 1800 : 200);
   }
   if (state.phase === 'roundEnd' && state.round !== lastRoundSeen && !state.gameOver) {
     lastRoundSeen = state.round;

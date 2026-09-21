@@ -2044,6 +2044,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .mc{animation:miniCardDeal 0.3s ease backwards}
 
 .player-row{animation:lobbyEntrance 0.35s ease backwards}
+/* Real, confirmed root-cause fix per explicit live report ("4 player
+   all the tables are flickering"): the server re-broadcasts the whole
+   public room list on every single game action at every table
+   (including bot moves -- see broadcastTable's own io.emit('roomList',
+   ...) server-side), which is completely normal and the same rate
+   6-player's own list updates at. The actual difference was this
+   entrance animation -- since the list's innerHTML gets fully replaced
+   on every one of those updates, brand new .player-row elements are
+   created each time, restarting this same "pop in" animation from
+   scratch every few seconds for as long as anyone's watching the
+   list. 6-player's own equivalent (.room-row) has no such animation at
+   all, which is exactly why it doesn't flicker. Scoped to just the
+   public rooms list specifically, not a global removal, so any other
+   legitimate one-time use of .player-row elsewhere keeps its entrance
+   effect.
+*/
+#publicRoomsList .player-row{animation:none}
 
 /* ===== TRUMP SUIT PULSE ANIMATION ===== */
 
@@ -5013,6 +5030,26 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 
 <!-- Hidden file input for loading saved games -->
 <input type="file" id="loadGameInput" accept=".k28,.json" style="display:none">
+
+<!-- Real, confirmed feature per explicit request ("after winning or
+     losing a challenge they should have the option to continue to
+     next championship or new challenge"): a real, explicit choice,
+     shown once the challenge is decided either way -- not just
+     silently continuing forward like an ordinary table would. Placed
+     here, before any script tag runs, specifically so the buttons
+     below actually exist in the DOM the moment later script code
+     tries to wire them up -- putting this at the very end of the body
+     instead (after every script) left those elements null when that
+     wiring code ran, and the buttons silently did nothing. -->
+<div id="challengeDecidedOverlay" style="display:none;position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;padding:20px">
+  <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid var(--accent);border-radius:16px;padding:28px 24px;max-width:360px;width:100%;text-align:center;box-shadow:0 0 40px rgba(255,215,0,0.15)">
+    <div id="challengeDecidedIcon" style="font-size:2.4rem;margin-bottom:8px">🎯</div>
+    <div id="challengeDecidedTitle" style="font-family:'Cinzel','Playfair Display',serif;font-size:1.3rem;font-weight:800;color:var(--accent);margin-bottom:8px">Challenge Decided</div>
+    <div id="challengeDecidedDetail" style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:20px"></div>
+    <button type="button" id="btnChallengeContinueChampionship" class="btn btn-primary" style="width:100%;margin-bottom:8px">▶ Continue to Next Championship</button>
+    <button type="button" id="btnChallengeStartNew" class="challenge-toggle-btn" style="width:100%">🎯 Start a New Challenge</button>
+  </div>
+</div>
 
 <!-- Socket.IO client — served by our own authoritative game server at
      the same origin as this page, so no separate URL/CDN is needed. -->
@@ -15471,6 +15508,15 @@ async function showLeaderboardPopup() {
     const res = await fetch('/api/leaderboard');
     const data = await res.json();
     const lb = data.leaderboard;
+    // Real, confirmed feature per explicit request ("its a challenge
+    // leaderboard, should specify what type of challenge and all
+    // possible infos"): fetched alongside the regular leaderboard so
+    // both sections can render together in one pass -- a separate,
+    // genuinely different dataset from the regular championship wins
+    // above (challenge-leaderboard.js, not leaderboard.js).
+    const clbRes = await fetch('/api/challenge-leaderboard');
+    const clbData = await clbRes.json();
+    const clb = clbData.leaderboard;
     // Per explicit request: shows all 3 positions (not just #1), the
     // opponent team too (previously only the winners were ever
     // recorded at all), and tightened into one compact line per entry
@@ -15506,7 +15552,42 @@ async function showLeaderboardPopup() {
         <div style="font-weight:800;color:var(--text-primary);font-size:0.82rem;margin-bottom:3px">${label}</div>
         ${fmtSection(lb.allTime[mode], '🏆 All-Time')}
       </div>`;
-    contentEl.innerHTML = fmtOne('4p', '4 Player') + fmtOne('6p', '6 Player');
+    // Real, confirmed feature per explicit request ("the leaderboard
+    // just says leaderboard, its a challenge leaderboard, should
+    // specify what type of challenge and all possible infos"): this
+    // section above is the ordinary championship leaderboard (fastest/
+    // biggest-gap win, no handicap involved) -- genuinely separate data
+    // from challenge-table wins, which is why it was never labeled as
+    // a challenge leaderboard at all. Fetches and adds that separate
+    // data here as its own clearly-labeled section, difficulty name
+    // (Medium/Hard/Dare) shown on every single row so it's obvious at
+    // a glance which level each entry actually beat, not just a bare
+    // handicap number.
+    const handicapLabel = (h) => h === 13 ? 'Dare' : h === 10 ? 'Hard' : h === 5 ? 'Medium' : ('+' + h);
+    const handicapColor = (h) => h === 13 ? '#ef4444' : h === 10 ? '#a855f7' : '#2ecc71';
+    const fmtChallengeRow = (e, rank) => {
+      if (!e) return `<div style="font-size:0.72rem;opacity:0.5;padding:2px 0">${rank}. —</div>`;
+      const names = e.names.map(nameSpan).join(', ');
+      const opp = (e.opponentNames && e.opponentNames.length > 0) ? ` <span style="opacity:0.55">beat</span> ${e.opponentNames.map(n => String(n).replace(/</g, '&lt;')).join(', ')}` : '';
+      const roundLabel = e.rounds === 1 ? 'Round' : 'Rounds';
+      const scorePart = (typeof e.winningScore === 'number' && typeof e.losingScore === 'number')
+        ? `<b style="color:var(--success)">${e.winningScore}</b>-<b style="color:var(--danger)">${e.losingScore}</b>, `
+        : '';
+      const diffBadge = `<span style="background:${handicapColor(e.handicap)};color:#fff;font-weight:800;font-size:0.6rem;padding:1px 6px;border-radius:8px;text-transform:uppercase;margin-right:4px">${handicapLabel(e.handicap)}</span>`;
+      return `<div style="font-size:0.72rem;padding:2px 0;line-height:1.3"><b style="opacity:0.6">${rank}.</b> ${diffBadge}${names}${opp} <span style="opacity:0.6">— ${scorePart}<b style="opacity:0.85">${e.rounds}</b> ${roundLabel}</span></div>`;
+    };
+    const fmtChallengeSection = (list, label) => `
+      <div style="margin-bottom:4px;font-size:0.68rem;color:var(--accent);opacity:0.85;font-weight:700">${label}</div>
+      ${Array.from({length: 10}, (_, i) => fmtChallengeRow(list[i], i + 1)).join('')}`;
+    const fmtChallengeOne = (mode, label) => `
+      <div style="margin-bottom:10px">
+        <div style="font-weight:800;color:var(--text-primary);font-size:0.82rem;margin-bottom:3px">${label}</div>
+        ${fmtChallengeSection(clb.allTime[mode], '🎯 Hardest Challenge Beaten')}
+      </div>`;
+    contentEl.innerHTML = fmtOne('4p', '4 Player') + fmtOne('6p', '6 Player')
+      + '<div style="border-top:1px solid rgba(255,255,255,0.12);margin:14px 0 12px;padding-top:10px;text-align:center;font-weight:800;color:var(--accent);font-size:0.9rem">🎯 Challenge Leaderboard</div>'
+      + '<div style="text-align:center;font-size:0.66rem;color:var(--text-secondary);opacity:0.8;margin-bottom:10px">Who overcame the biggest starting deficit — ranked by hardest difficulty beaten first, then score gap and rounds</div>'
+      + fmtChallengeOne('4p', '4 Player') + fmtChallengeOne('6p', '6 Player');
   } catch (e) {
     contentEl.innerHTML = '<div style="opacity:0.7">Could not load today\'s leaderboard.</div>';
   } finally {
@@ -15649,6 +15730,13 @@ document.getElementById('btnJoinRoom').addEventListener('click', () => {
 
 // Leave Room button
 document.getElementById('btnLeaveRoom').addEventListener('click', () => {
+  leaveServerTable();
+});
+document.getElementById('btnChallengeContinueChampionship').addEventListener('click', () => {
+  document.getElementById('challengeDecidedOverlay').style.display = 'none';
+});
+document.getElementById('btnChallengeStartNew').addEventListener('click', () => {
+  document.getElementById('challengeDecidedOverlay').style.display = 'none';
   leaveServerTable();
 });
 
@@ -17696,6 +17784,7 @@ let lastKnownHumanNamesInLobby = [];
 let lastChimedCurrentPlayer = null;
 let lastChimedRound = null;
 let challengeBeatenAnnounced = false;
+let challengeResolvedPromptShown = false;
 let lastChimedPhase2Round = null;
 // Per explicit request: populates the ready-room popup's player list
 // (names + bot count) and wires the Start button, mirroring
@@ -18757,6 +18846,33 @@ function applyServerState(state) {
     challengeBeatenAnnounced = true;
     showGameEvent('🎯', 'Challenge Beaten!', 'You overcame a ' + state.challengeHandicap + '-point deficit!', '#f4c430');
     playSound('happy');
+  }
+  // Real, confirmed feature per explicit request ("after winning or
+  // losing a challenge they should have the option to continue to
+  // next championship or new challenge"): a real, explicit choice,
+  // shown once (challengeResolvedPromptShown guard) right after the
+  // challenge is decided either way -- win or lose -- rather than the
+  // table just silently rolling forward into championship #2 like an
+  // ordinary table would. Delayed slightly so it doesn't compete with
+  // the "Challenge Beaten!" banner and its own sound right above on a
+  // win.
+  if (state.challengeResolved && !challengeResolvedPromptShown) {
+    challengeResolvedPromptShown = true;
+    setTimeout(() => {
+      const icon = document.getElementById('challengeDecidedIcon');
+      const title = document.getElementById('challengeDecidedTitle');
+      const detail = document.getElementById('challengeDecidedDetail');
+      if (state.challengeBeaten) {
+        icon.textContent = '🏆';
+        title.textContent = 'Challenge Beaten!';
+        detail.textContent = 'You overcame a ' + state.challengeHandicap + '-point deficit. Keep playing here, or start a fresh challenge?';
+      } else {
+        icon.textContent = '💔';
+        title.textContent = 'Challenge Not Beaten';
+        detail.textContent = 'The ' + state.challengeHandicap + '-point deficit held this time. Keep playing here, or try a new challenge?';
+      }
+      document.getElementById('challengeDecidedOverlay').style.display = 'flex';
+    }, state.challengeBeaten ? 1800 : 200);
   }
   if (state.phase === 'roundEnd' && state.roundWinnerAnnounced && serverRoundEndShown !== state.round) {
     serverRoundEndShown = state.round;
@@ -20012,5 +20128,6 @@ function serverBotPlayForMe() {
   body.appendChild(frame);
 })();
 </script>
+
 </body>
 </html>
