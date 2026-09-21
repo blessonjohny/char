@@ -438,6 +438,19 @@ h1{font-size:1.7rem;margin:0 0 4px;background:linear-gradient(135deg,#f4c430,#e6
 .btn{padding:14px 20px;border-radius:12px;border:none;font-weight:700;font-size:0.95rem;width:100%;max-width:320px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px}
 .btn-primary{background:linear-gradient(135deg,#9b59b6,#8e44ad);color:#fff}
 .btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--text-primary)}
+/* Real, confirmed styling per explicit request ("Medium hard and
+   dare... green purple and red... royal colors nice and pro, match
+   all my buttons"): matches the 4-player table's identical addition
+   exactly, same three jewel tones. */
+.challenge-diff-btn-6p{flex:1;padding:12px 4px;border-radius:10px;border:none;font-weight:800;font-size:0.8rem;letter-spacing:0.4px;text-transform:uppercase;cursor:pointer;color:#fff;transition:all 0.2s;touch-action:manipulation}
+.challenge-diff-medium{background:linear-gradient(135deg,#2ecc71,#0e8a4b);box-shadow:0 4px 16px rgba(46,204,113,0.35)}
+.challenge-diff-medium:hover,.challenge-diff-medium:active{background:linear-gradient(135deg,#3ee888,#12a85c);box-shadow:0 8px 26px rgba(46,204,113,0.5);transform:translateY(-2px) scale(1.02)}
+.challenge-diff-hard{background:linear-gradient(135deg,#a855f7,#6b21a8);box-shadow:0 4px 16px rgba(168,85,247,0.35)}
+.challenge-diff-hard:hover,.challenge-diff-hard:active{background:linear-gradient(135deg,#c084fc,#7e22ce);box-shadow:0 8px 26px rgba(168,85,247,0.5);transform:translateY(-2px) scale(1.02)}
+.challenge-diff-dare{background:linear-gradient(135deg,#ef4444,#a91e1e);box-shadow:0 4px 16px rgba(239,68,68,0.35)}
+.challenge-diff-dare:hover,.challenge-diff-dare:active{background:linear-gradient(135deg,#f87171,#c62828);box-shadow:0 8px 26px rgba(239,68,68,0.5);transform:translateY(-2px) scale(1.02)}
+.challenge-toggle-btn{transition:all 0.2s;touch-action:manipulation}
+.challenge-toggle-btn:hover,.challenge-toggle-btn:active{background:rgba(255,215,0,0.1);transform:translateY(-1px)}
 /* Quote button states -- see #btnQuoteDeclare. Visible to everyone the
    whole time; only "active" is genuinely clickable. */
 #btnQuoteDeclare.quote-btn-active{background:linear-gradient(135deg,#f4c430,#c99a1e)!important;border-color:#f4c430!important;color:#241a12!important;box-shadow:0 0 10px rgba(244,196,48,0.6);animation:quoteBtnPulse6p 1.6s ease-in-out infinite}
@@ -1704,11 +1717,11 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
        table with the challenger's team starting that deficit and
        forced into the first bid, otherwise a completely ordinary
        table. -->
-  <button class="btn btn-outline" id="btnShowChallengeOptions6p" style="border-color:var(--accent);color:var(--accent)">🎯 Create Challenge Table</button>
-  <div id="challengeOptionsRow6p" style="display:none;gap:6px;width:100%">
-    <button type="button" class="challenge-diff-btn-6p" data-handicap="5" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--text-primary);font-weight:700;font-size:0.75rem;cursor:pointer">0–5</button>
-    <button type="button" class="challenge-diff-btn-6p" data-handicap="10" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--text-primary);font-weight:700;font-size:0.75rem;cursor:pointer">0–10</button>
-    <button type="button" class="challenge-diff-btn-6p" data-handicap="13" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--text-primary);font-weight:700;font-size:0.75rem;cursor:pointer">0–13</button>
+  <button class="btn btn-outline challenge-toggle-btn" id="btnShowChallengeOptions6p">🎯 Create Challenge Table</button>
+  <div id="challengeOptionsRow6p" style="display:none;gap:8px;width:100%">
+    <button type="button" class="challenge-diff-btn-6p challenge-diff-medium" data-handicap="5">Medium</button>
+    <button type="button" class="challenge-diff-btn-6p challenge-diff-hard" data-handicap="10">Hard</button>
+    <button type="button" class="challenge-diff-btn-6p challenge-diff-dare" data-handicap="13">Dare</button>
   </div>
   <button class="btn btn-outline" id="btnShowJoin">🔑 Join Table</button>
   <a href="/" class="btn btn-outline" style="text-decoration:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box">⬅️ Back to Main Menu</a>

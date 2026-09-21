@@ -545,6 +545,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .welcome-btn .icon{font-size:1.2rem}
 .welcome-btn.primary{background:linear-gradient(135deg,var(--accent),#e6c200);color:var(--bg-dark);border-color:var(--accent);font-weight:800;box-shadow:0 4px 20px rgba(255,215,0,0.25)}
 .welcome-btn.primary:hover,.welcome-btn.primary:active{background:linear-gradient(135deg,#ffe033,#FFD700);box-shadow:0 8px 30px rgba(255,215,0,0.4);transform:translateY(-2px) scale(1.02)}
+/* Real, confirmed styling per explicit request ("Medium hard and dare
+   are 3 levels... green purple and red... royal colors nice and pro,
+   match all my buttons"): same gradient + matching-color glow + lift-
+   on-press language as this file's own welcome-btn.primary gold
+   button just above, rebuilt in three deep jewel tones instead of one
+   -- emerald, amethyst, ruby -- rather than the plain flat-outline
+   placeholder buttons this replaces. */
+.challenge-diff-btn{flex:1;padding:12px 4px;border-radius:10px;border:none;font-weight:800;font-size:0.8rem;letter-spacing:0.4px;text-transform:uppercase;cursor:pointer;color:#fff;transition:all 0.2s;touch-action:manipulation}
+.challenge-diff-medium{background:linear-gradient(135deg,#2ecc71,#0e8a4b);box-shadow:0 4px 16px rgba(46,204,113,0.35)}
+.challenge-diff-medium:hover,.challenge-diff-medium:active{background:linear-gradient(135deg,#3ee888,#12a85c);box-shadow:0 8px 26px rgba(46,204,113,0.5);transform:translateY(-2px) scale(1.02)}
+.challenge-diff-hard{background:linear-gradient(135deg,#a855f7,#6b21a8);box-shadow:0 4px 16px rgba(168,85,247,0.35)}
+.challenge-diff-hard:hover,.challenge-diff-hard:active{background:linear-gradient(135deg,#c084fc,#7e22ce);box-shadow:0 8px 26px rgba(168,85,247,0.5);transform:translateY(-2px) scale(1.02)}
+.challenge-diff-dare{background:linear-gradient(135deg,#ef4444,#a91e1e);box-shadow:0 4px 16px rgba(239,68,68,0.35)}
+.challenge-diff-dare:hover,.challenge-diff-dare:active{background:linear-gradient(135deg,#f87171,#c62828);box-shadow:0 8px 26px rgba(239,68,68,0.5);transform:translateY(-2px) scale(1.02)}
+.challenge-toggle-btn{width:100%;margin-bottom:8px;padding:11px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-weight:700;font-size:0.8rem;cursor:pointer;transition:all 0.2s;touch-action:manipulation}
+.challenge-toggle-btn:hover,.challenge-toggle-btn:active{background:rgba(255,215,0,0.1);box-shadow:0 4px 16px rgba(255,215,0,0.2);transform:translateY(-1px)}
 .btn28-badge{font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;line-height:1.15;letter-spacing:0.5px;display:block;
   background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
@@ -4381,11 +4397,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
            deficit and forced into the first bid, exactly like an
            ordinary table otherwise (anyone can join it the same way,
            same championship progression once it's under way). -->
-      <button type="button" id="btnShowChallengeOptions" style="width:100%;margin-bottom:8px;padding:10px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-weight:700;font-size:0.8rem;cursor:pointer">🎯 Create Challenge Table</button>
-      <div id="challengeOptionsRow" style="display:none;gap:6px;margin-bottom:8px">
-        <button type="button" class="challenge-diff-btn" data-handicap="5" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--text-primary);font-weight:700;font-size:0.75rem;cursor:pointer">0–5</button>
-        <button type="button" class="challenge-diff-btn" data-handicap="10" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--text-primary);font-weight:700;font-size:0.75rem;cursor:pointer">0–10</button>
-        <button type="button" class="challenge-diff-btn" data-handicap="13" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--text-primary);font-weight:700;font-size:0.75rem;cursor:pointer">0–13</button>
+      <button type="button" id="btnShowChallengeOptions" class="challenge-toggle-btn">🎯 Create Challenge Table</button>
+      <div id="challengeOptionsRow" style="display:none;gap:8px;margin-bottom:8px">
+        <button type="button" class="challenge-diff-btn challenge-diff-medium" data-handicap="5">Medium</button>
+        <button type="button" class="challenge-diff-btn challenge-diff-hard" data-handicap="10">Hard</button>
+        <button type="button" class="challenge-diff-btn challenge-diff-dare" data-handicap="13">Dare</button>
       </div>
       <div class="connection-status" id="hostStatus"><div class="status-dot"></div>Waiting for players...</div>
     </div>
