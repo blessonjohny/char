@@ -17570,6 +17570,7 @@ let lastRenderedPlayersSignature = null;
 let lastKnownHumanNamesInLobby = [];
 let lastChimedCurrentPlayer = null;
 let lastChimedRound = null;
+let lastChimedPhase2Round = null;
 // Per explicit request: populates the ready-room popup's player list
 // (names + bot count) and wires the Start button, mirroring
 // renderServerPlayersCard's own name-list formatting right below it.
@@ -18256,6 +18257,23 @@ function applyServerState(state) {
   }
   lastChimedRound = state.round;
   round = state.round;
+  // Real, confirmed fix per explicit live report ("4 player bidding
+  // phase 2, before 4 more cards were dealt, no sound was for the 4
+  // player"): a completely separate dealing moment from the new-round
+  // one just above -- _startPhase2() in game-engine.js deals 4 more
+  // cards to everyone (bringing them up to their full 8) the instant
+  // bidding2 begins, and nothing ever played a sound for it. Same
+  // per-seat staggered dealing sound as the new-round deal, triggered
+  // on the actual phase transition INTO bidding2 specifically (guarded
+  // by lastChimedPhase2Round so it can only ever fire once per round,
+  // not on every single unrelated re-render while already in bidding2).
+  if (state.phase === 'bidding2' && lastChimedPhase2Round !== state.round) {
+    lastChimedPhase2Round = state.round;
+    const dealtSeatCount = (state.seats || []).filter(Boolean).length || 4;
+    for (let i = 0; i < dealtSeatCount; i++) {
+      setTimeout(() => playSound('cardDeal'), i * 160);
+    }
+  }
   // A host-triggered restart (whole game or just the round) broadcasts a
   // fresh state directly - there's no client-side "moving to the next
   // round" trigger involved like there is for normal advancement, so
@@ -18315,7 +18333,15 @@ function applyServerState(state) {
         playChime('ping');
         playHaptic('yourTurn');
       }
-    }, 550);
+      // Real, confirmed fix per explicit live report ("ping is heard
+      // before the bot card sound, especially with 2 bots ahead of
+      // me"): 550ms was the exact SAME stagger the "bots played too
+      // fast" catch-up reveal already uses per card -- with 2 bots to
+      // catch up, that second bot's own sound is ALSO scheduled around
+      // 550ms, a genuine tie this delay alone couldn't reliably win.
+      // Extended clearly past that (750ms) so it can never land ahead
+      // of a 2-bot catch-up sequence, not just a 1-bot one.
+    }, 750);
   }
   lastChimedCurrentPlayer = state.currentPlayer;
   currentPlayer = state.currentPlayer;

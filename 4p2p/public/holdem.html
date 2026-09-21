@@ -1088,6 +1088,21 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
       <button class="btn btn-gold" id="btnEliminatedWatch" style="width:auto;padding:10px 20px">Continue Watching</button>
     </div>
   </div>
+  <!-- Real, confirmed feature per explicit request ("replace bots
+       continue the game... tell them temporary waiting and stuffs
+       like that with an ok popup"): a real player disconnecting gets
+       covered by a bot after a minute so the table keeps moving (this
+       logic already existed server-side) -- this is purely the piece
+       that was actually missing, telling the player plainly what
+       happened once they're back, rather than them just silently
+       finding themselves back in their seat with no explanation. -->
+  <div class="reconnect-overlay" id="botCoveredWelcomeBackOverlay">
+    <div class="reconnect-text">Welcome back!</div>
+    <div class="reconnect-subtext">You were disconnected for a bit, so a bot temporarily played your seat to keep the table moving. You're back in control now.</div>
+    <div style="margin-top:18px;pointer-events:auto">
+      <button class="btn btn-gold" id="btnBotCoveredOk" style="width:auto;padding:10px 28px">OK</button>
+    </div>
+  </div>
   <div class="topbar">
     <div style="font-size:0.75rem;min-width:0;overflow:hidden">
       <div><span id="handNumDisplay">Hand 1</span> · <span id="blindsDisplay"></span></div>
@@ -1258,7 +1273,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 
 <script>
 const socket = io();
-let myPos = null, myPlayerId = null, myTableId = null, isHost = false;
+let myPos = null, myPlayerId = null, myTableId = null, isHost = false, isRealHost = false;
 // ==================== SOUND + HAPTIC ENGINE ====================
 // Per explicit request ("add sound and touch sensitivity... the best
 // sound possible... to all"): the exact same Web Audio API synthesis
@@ -2691,7 +2706,11 @@ socket.on('poker_joined', (info) => {
   // guard set by leaving one table would silently block every future
   // table this session forever.
   hasLeftTable = false;
-  myPos = info.pos; myPlayerId = info.playerId; myTableId = info.tableId; isHost = info.isHost;
+  myPos = info.pos; myPlayerId = info.playerId; myTableId = info.tableId; isHost = info.isHost; isRealHost = !!info.isRealHost;
+  if (info.wasCoveredByBot) {
+    const el = $('botCoveredWelcomeBackOverlay');
+    if (el) el.classList.add('on');
+  }
   try {
     localStorage.setItem('holdem_player_id', info.playerId);
     localStorage.setItem('holdem_table_id', info.tableId);
@@ -2750,6 +2769,7 @@ socket.on('poker_state', (state) => {
   updateWinningHandContinueUI(state);
   updateRebuildEliminationUI(state);
   isHost = !!state.isHost;
+  isRealHost = !!state.isRealHost;
   const hostBtn = $('btnHoldemHostMenu');
   if (hostBtn) hostBtn.style.display = isHost ? '' : 'none';
   // Real, confirmed bug: a new join request only ever showed up if the
@@ -2802,13 +2822,17 @@ function renderLobby(state) {
   $('lobbyCode').textContent = state.tableId;
   const seats = state.seats.map((s, i) => s ? `<div class="table-row"><span>${i + 1}. ${escapeHtml(s.name)}${s.isBot ? ' 🤖' : ''}${i === myPos ? ' (you)' : ''}</span><span style="color:var(--gold)">${s.chips}</span></div>` : `<div class="table-row" style="opacity:0.4"><span>${i + 1}. Empty</span></div>`).join('');
   $('lobbySeatList').innerHTML = seats;
-  $('hostControls').classList.toggle('hidden', !isHost);
-  // Per explicit request: the non-host leave button only makes sense
-  // to show when hostControls (which has its own Cancel button
-  // covering that exact case for the host) is hidden -- exactly
-  // opposite of hostControls' own visibility.
-  $('btnExitLobbyGuest').style.display = isHost ? 'none' : '';
-  if (isHost) {
+  // Real, confirmed bug fix per explicit live report ("join players
+  // cannot start... waiting for host to start"): this used to key off
+  // isHost, which is deliberately "any connected human" (the right
+  // fallback for the general host-menu button) -- meaning a completely
+  // ordinary guest who just joined could see and actually click Start
+  // Hand themselves. Switched to isRealHost specifically here, the
+  // stricter "the actual designated host" flag -- only the real host
+  // sees these controls now, everyone else sees the waiting note below.
+  $('hostControls').classList.toggle('hidden', !isRealHost);
+  $('btnExitLobbyGuest').style.display = isRealHost ? 'none' : '';
+  if (isRealHost) {
     const openCount = state.seats.filter(s => !s).length;
     // Per explicit request: defaults to filling every remaining open
     // seat with a bot, not an arbitrary smaller number -- a full table
@@ -2822,7 +2846,7 @@ function renderLobby(state) {
     }));
   }
   const occupied = state.seats.filter(Boolean).length;
-  $('waitingNote').textContent = isHost ? '' : `Waiting for host to start — ${occupied}/9 seated.`;
+  $('waitingNote').textContent = isRealHost ? '' : `Waiting for host to start — ${occupied}/9 seated.`;
 }
 $('btnStartHand').addEventListener('click', () => {
   // Per explicit live report that this stopped working: rebuilt more
@@ -3499,6 +3523,9 @@ $('btnEliminatedLeave').addEventListener('click', () => {
   $('eliminatedOverlay').classList.remove('on');
   $('btnLeaveConfirmYes').click();
 });
+$('btnBotCoveredOk').addEventListener('click', () => {
+  $('botCoveredWelcomeBackOverlay').classList.remove('on');
+});
 function updateWinningHandContinueUI(state) {
   const btn = $('btnWinningHandContinue');
   const statusEl = $('winningHandContinueStatus');
@@ -3868,6 +3895,16 @@ function animateDealingCards(state) {
   const dealSeats = state.seats
     .map((s, pos) => (s && !s.sittingOut && s.hand && s.hand.length ? pos : null))
     .filter(pos => pos !== null);
+  // Real, confirmed fix per explicit request ("all players get 1 card
+  // each and goes around and gets the second"): the delay formula used
+  // to be seatIdx-outer/cardIdx-inner (seat0 gets BOTH its cards, then
+  // seat1 gets both of its own, and so on) -- a real dealer deals one
+  // card to every player in turn, then comes back around for the
+  // second. Swapped which index drives the OUTER stagger (cardIdx) vs
+  // the inner one (seatIdx) so every seat gets its first card before
+  // anyone gets a second, matching how an actual deal actually goes
+  // around the table.
+  const roundSpacing = dealSeats.length * 220 + 200;
   dealSeats.forEach((pos, seatIdx) => {
     const seatEl = document.querySelector(`.seat[data-pos="${pos}"]`);
     if (!seatEl) return;
@@ -3887,7 +3924,7 @@ function animateDealingCards(state) {
     // considerably further this time, closer to how a real dealer's
     // pace actually reads, not just barely-perceptible timing.
     for (let cardIdx = 0; cardIdx < 2; cardIdx++) {
-      const delay = seatIdx * 420 + cardIdx * 340;
+      const delay = cardIdx * roundSpacing + seatIdx * 220;
       setTimeout(() => {
         const card = document.createElement('div');
         card.className = 'dealing-card';
