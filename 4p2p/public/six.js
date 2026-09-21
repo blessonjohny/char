@@ -94,6 +94,14 @@ const REAL_SOUND_FILES = {
   cardPlay: '/sounds/card-play.mp3',
   chipPlace: '/sounds/chip-place.mp3',
   chipReturn: '/sounds/chip-return.mp3',
+  // Real, confirmed feature per explicit request: two more real sound
+  // files -- ping for "it's your turn" (replaces the synthesized
+  // yourTurn tone), and cardReceive for "a player receives winning
+  // cards from the table" (the trick-collection-to-winner moment, see
+  // processNextSixpTrickReveal below for where this is actually kept
+  // in sync with the real animation timing).
+  ping: '/sounds/ping.mp3',
+  cardReceive: '/sounds/card-receive.mp3',
 };
 const realSoundBuffers = {};
 const realSoundLoadPromises = {};
@@ -3056,12 +3064,18 @@ function renderCompletedTrick(lastTrick) {
     const isWinner = tc.pos === lastTrick.winner;
     $('trickSlot' + slot).innerHTML = cardHTML(tc.card, false, false, 'tiny' + (isWinner ? ' trick-winner' : ''));
   }
-  // A trick just fully resolved - single, reliable trigger point for this (only called once
-  // per completed trick, via the reveal queue below), so it's the right place for the
-  // win/lose haptic rather than anywhere state gets re-rendered.
-  if (MY_POS !== -1) {
-    playSound(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'chipReturn' : 'trickLose'); playHaptic(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose');
-  }
+  // Real, confirmed root-cause fix per explicit live report ("winner
+  // receives the trick, it's not syncing... should start when player
+  // receives the animation"): the win/lose sound used to fire HERE,
+  // immediately -- but the actual card-flying-to-the-winner animation
+  // (animateCardsToWinner) doesn't start until a full 2 SECONDS later
+  // (see processNextSixpTrickReveal's own setTimeout below, which
+  // deliberately holds the completed trick visible before flying it
+  // anywhere). That 2-second gap between "sound plays" and "cards
+  // actually move" is exactly the desync being described. Moved this
+  // sound out of here entirely, into that same setTimeout, right next
+  // to the animateCardsToWinner call it needs to line up with -- see
+  // processNextSixpTrickReveal below.
 }
 
 function processNextSixpTrickReveal() {
@@ -3077,6 +3091,17 @@ function processNextSixpTrickReveal() {
   // connection, cards can otherwise start flying away before everyone's
   // even finished seeing what was played.
   setTimeout(() => {
+    // Real, confirmed fix, same live report as above: fires exactly
+    // when the cards actually start flying, not 2 seconds before it --
+    // genuinely synced with animateCardsToWinner right below it, using
+    // the real cardReceive sound file specifically for "a player
+    // receives winning cards from the table" per its own explicit
+    // purpose, in place of the repurposed chipReturn sound used here
+    // before (which was only ever a stand-in, this game has no chips).
+    if (MY_POS !== -1) {
+      playSound(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'cardReceive' : 'trickLose');
+      playHaptic(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose');
+    }
     animateCardsToWinner(lastTrick.winner);
   }, 2000);
 
@@ -3287,7 +3312,7 @@ function updateTurnLabel(state) {
     // matching the same phase-aware pattern bidding1 and choosingTrump
     // already had.
     lbl.textContent = state.phase === 'bidding1' ? 'Your turn to bid' : state.phase === 'choosingTrump' ? 'Choose trump' : state.phase === 'play' ? 'Your turn to play' : 'Your turn';
-    if (lastHapticCurrentPlayer !== MY_POS && state.phase !== 'lobby') { playSound('yourTurn'); playHaptic('yourTurn'); }
+    if (lastHapticCurrentPlayer !== MY_POS && state.phase !== 'lobby') { playSound('ping'); playHaptic('yourTurn'); }
   } else {
     const seat = state.seats[state.currentPlayer];
     lbl.textContent = seat ? (seat.name + "'s turn") : '';

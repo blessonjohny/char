@@ -5237,6 +5237,8 @@ const REAL_SOUND_FILES = {
   cardPlay: '/sounds/card-play.mp3',
   chipPlace: '/sounds/chip-place.mp3',
   chipReturn: '/sounds/chip-return.mp3',
+  ping: '/sounds/ping.mp3',
+  cardReceive: '/sounds/card-receive.mp3',
 };
 const realSoundBuffers = {};
 const realSoundLoadPromises = {};
@@ -18310,7 +18312,7 @@ function applyServerState(state) {
       // Re-check at fire-time, not just schedule-time - if something else already changed
       // whose turn it is in the meantime (a fast bot, a reconnect), don't fire a stale chime.
       if (latestServerState && latestServerState.currentPlayer === MY_POS) {
-        playChime('yourTurn');
+        playChime('ping');
         playHaptic('yourTurn');
       }
     }, 550);
@@ -18969,11 +18971,14 @@ function renderTrickSlotsWithWinnerPause(state) {
 
   if (justResolved) {
     lastSeenTricksPlayed = state.tricksPlayed;
-    // A card slap for the winning card landing already plays via renderTrickSlots for every
-    // card as it's played - this is specifically the trick OUTCOME sound, playing once the
-    // trick as a whole resolves, based on whether MY team (not just whoever won) took it.
-    playSound(getTeam(state.lastTrick.winner) === getTeam(MY_POS) ? 'chipReturn' : 'trickLose');
-    playHaptic(getTeam(state.lastTrick.winner) === getTeam(MY_POS) ? 'trickWin' : 'trickLose');
+    // Real, confirmed root-cause fix per explicit live report ("winner
+    // receives the trick, it's not syncing... should start when player
+    // receives the animation"), same underlying bug as the 6-player
+    // table's identical code: this sound used to fire here,
+    // immediately -- 2 full seconds before the actual card-flying-to-
+    // the-winner animation starts (see the setTimeout around
+    // animateCardsToWinner further below). Moved there instead, so it
+    // fires in the same instant the cards actually start moving.
     // Queue it rather than showing it immediately — if a trick is
     // ALREADY mid-reveal (bots can play fast enough that a second trick
     // completes before the first one's pause finishes), starting this
@@ -19055,6 +19060,13 @@ function processTrickRevealQueue() {
   // started flying off before the pause had actually done anything.
   // Now the fly-away only starts once the pause has genuinely elapsed.
   setTimeout(() => {
+    // Real, confirmed fix, same live report as above: fires exactly
+    // when the cards actually start flying, not 2 seconds before it.
+    // cardReceive is the real sound file specifically for "a player
+    // receives winning cards from the table," replacing the repurposed
+    // chipReturn sound used here before (this game has no chips).
+    playSound(getTeam(lastTrick.winner) === getTeam(MY_POS) ? 'cardReceive' : 'trickLose');
+    playHaptic(getTeam(lastTrick.winner) === getTeam(MY_POS) ? 'trickWin' : 'trickLose');
     if (typeof animateCardsToWinner === 'function') animateCardsToWinner(lastTrick.winner);
   }, 2000);
 

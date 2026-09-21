@@ -1336,6 +1336,8 @@ const REAL_SOUND_FILES = {
   cardPlay: '/sounds/card-play.mp3',
   chipPlace: '/sounds/chip-place.mp3',
   chipReturn: '/sounds/chip-return.mp3',
+  ping: '/sounds/ping.mp3',
+  cardReceive: '/sounds/card-receive.mp3',
 };
 const realSoundBuffers = {};
 const realSoundLoadPromises = {};
@@ -3267,7 +3269,7 @@ function renderGameTable(state) {
   // every single re-render while it's still your turn (which happens
   // often, e.g. other seats' unrelated state updates).
   if (state.currentPlayer === myPos && lastKnownCurrentPlayer !== myPos && mySeat && !mySeat.folded) {
-    playSound('yourTurn');
+    playSound('ping');
     playHaptic('yourTurn');
   }
   lastKnownCurrentPlayer = state.currentPlayer;
