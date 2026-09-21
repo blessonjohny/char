@@ -14,6 +14,7 @@ try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
 let lastKnownDealRound = null;
+let kunukkuGainedForRoundSix = null;
 // Real, confirmed feature per explicit request ("add sound and touch
 // sensitivity... to all"): the exact same Web Audio API synthesis
 // engine as the 4-player table's own -- no audio files, every effect
@@ -102,6 +103,8 @@ const REAL_SOUND_FILES = {
   // in sync with the real animation timing).
   ping: '/sounds/ping.mp3',
   cardReceive: '/sounds/card-receive.mp3',
+  happy: '/sounds/happy.mp3',
+  sad: '/sounds/sad.mp3',
 };
 const realSoundBuffers = {};
 const realSoundLoadPromises = {};
@@ -2394,6 +2397,16 @@ function applyState(state) {
       const bidderName = (state.seats && state.seats[rw.bidder]) ? state.seats[rw.bidder].name : 'The bidder';
       if (rw.bidderWon) showGameEvent('🏆', 'Bid Made', bidderName + ' — ' + rw.highestBid, '#2ecc71');
       else showGameEvent('💥', 'Bid Failed', bidderName + ' — ' + rw.highestBid, '#e74c3c');
+      // Real, confirmed feature per explicit request ("every player or
+      // team should hear sounds according to win/lose bid and kunukku
+      // for all, same 4 and 6"): matches the 4-player table's identical
+      // feature -- winning team hears happy, losing team hears sad,
+      // unless a Kunukku was gained this exact round (which already
+      // played happy for everyone in showQMarkEventSix).
+      const myTeamWonThisRound = (sixpGetTeam(MY_POS) === sixpGetTeam(rw.bidder)) ? rw.bidderWon : !rw.bidderWon;
+      if (kunukkuGainedForRoundSix !== state.round) {
+        playSound(myTeamWonThisRound ? 'happy' : 'sad');
+      }
     }
     // The round can end right on the last trick, whose own 2s-hold +
     // fly-to-winner animation (~3.2s total) may still be playing. Wait for
@@ -2726,6 +2739,17 @@ function showQMarkEventSix(names, direction) {
   const overlay = document.createElement('div');
   overlay.className = 'qmark-event-overlay ' + direction;
   const isGained = direction === 'gained';
+  // Real, confirmed feature per explicit request ("when kunukku comes
+  // on sad comes off happy for all players... for all, 4 and 6"): same
+  // as the 4-player table's identical feature -- everyone at the table
+  // hears happy for a Kunukku gain, overriding the normal per-team
+  // win/lose sound that round-end would otherwise play (see
+  // kunukkuGainedForRoundSix and its check in applyState's own
+  // round-end handling).
+  if (isGained) {
+    playSound('happy');
+    kunukkuGainedForRoundSix = latestState ? latestState.round : null;
+  }
   const durationMs = isGained ? 7000 : 5000;
   // Explicitly celebratory framing for BOTH directions, per the request - getting a Kunukku
   // is still a real, notable event worth marking with a real moment on screen, not just the

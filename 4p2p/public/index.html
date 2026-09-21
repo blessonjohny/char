@@ -5239,6 +5239,8 @@ const REAL_SOUND_FILES = {
   chipReturn: '/sounds/chip-return.mp3',
   ping: '/sounds/ping.mp3',
   cardReceive: '/sounds/card-receive.mp3',
+  happy: '/sounds/happy.mp3',
+  sad: '/sounds/sad.mp3',
 };
 const realSoundBuffers = {};
 const realSoundLoadPromises = {};
@@ -7510,6 +7512,7 @@ function updateCardCounts() {
 // changed (gained a Kunukku from a shutout, or shed one from a
 // successful bid). First-ever call just syncs the baseline silently.
 let lastSeenQMarks4p = null;
+let kunukkuGainedForRound4p = null;
 function detectQMarkChanges4p() {
   if (!latestServerState) return;
   const newMarks = latestServerState.qMarks || {};
@@ -7561,6 +7564,20 @@ function showQMarkEvent4p(names, direction) {
   const overlay = document.createElement('div');
   overlay.className = 'qmark-event-overlay ' + direction;
   const isGained = direction === 'gained';
+  // Real, confirmed feature per explicit request ("when kunukku comes
+  // on sad comes off happy for all players... for all, 4 and 6"):
+  // getting shut out into a Kunukku is treated as a big, shared, even
+  // celebratory table moment in this game already (see the existing
+  // "explicitly celebratory framing for BOTH directions" design) --
+  // everyone at the table hears the happy sound for it, not just
+  // whoever got the mark, and this deliberately overrides the normal
+  // per-team win/lose sound that would otherwise play at this same
+  // round's end (see the kunukkuGainedForRound4p flag and its check in
+  // applyServerState's own round-end block).
+  if (isGained) {
+    playSound('happy');
+    kunukkuGainedForRound4p = latestServerState ? latestServerState.round : null;
+  }
   const durationMs = isGained ? 7000 : 5000;
   const title = isGained ? '😭 KUNUKKU!' : '🎉 KUNUKKU SHED!';
   const namesText = names.map(escapeHtml).join(', ');
@@ -18688,6 +18705,18 @@ function applyServerState(state) {
     const yourTeam = getTeam(MY_POS);
     const isYourBid = (getTeam(r.bidder) === yourTeam);
     const bidderName = playerAt(r.bidder) ? playerAt(r.bidder).name : 'The bidder';
+    // Real, confirmed feature per explicit request ("every player or
+    // team should hear sounds according to win/lose bid and kunukku
+    // for all, same 4 and 6"): the winning team hears happy, the
+    // losing team hears sad -- unless a Kunukku was just gained this
+    // exact round (kunukkuGainedForRound4p, set above in
+    // showQMarkEvent4p, which already played happy for everyone), in
+    // which case the sad sound is deliberately skipped rather than
+    // playing on top of/after it.
+    const myTeamWonThisRound = (yourTeam === bT) ? r.bidderWon : !r.bidderWon;
+    if (kunukkuGainedForRound4p !== state.round) {
+      playSound(myTeamWonThisRound ? 'happy' : 'sad');
+    }
     // Real, confirmed change per explicit live report: this used to also
     // show a separate showGameEvent() banner (green for a win, red for a
     // loss) announcing the exact same "did your team make the bid"
