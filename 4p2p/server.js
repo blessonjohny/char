@@ -1196,7 +1196,15 @@ function getAllTablesSummary() {
       if (!s) return;
       const team = getTeamFn(pos);
       if (team !== 0 && team !== 1) return;
-      teams[team].names.push((s.name || 'Player') + (s.isBot || s.bot ? ' (bot)' : ''));
+      // Real, confirmed fix per explicit live report ("the real player
+      // names should be displayed red right"): this used to flatten
+      // straight to a single joined string, losing which names were
+      // real players vs bots entirely -- renderSeatEntries's own
+      // existing red-for-real-players convention had no way to apply
+      // here. Keeps isBot on each entry now so the client can color
+      // them the exact same way.
+      const isBot = !!(s.isBot || s.bot);
+      teams[team].names.push({ name: s.name || 'Player', isBot });
     });
     return [0, 1].map(i => ({ names: teams[i].names, score: (gameScore && typeof gameScore[i] === 'number') ? gameScore[i] : 0 }));
   }
