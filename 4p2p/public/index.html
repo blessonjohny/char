@@ -8211,8 +8211,49 @@ function updateInfo() {
   // -- the element just keeps showing whatever it last correctly
   // showed until catch-up finishes and the next real render (which
   // always follows) updates it for real, in the right order.
+  const thaniActive = !!(SERVER_MODE && latestServerState && latestServerState.thaniCaller >= 0);
+  // Real, confirmed root-cause fix per explicit live report ("bot cut
+  // with clubs... wasn't announced... only announced after I played my
+  // spades"): this whole block, badge AND announcement together, used
+  // to be gated behind !trickRevealBusy -- correct for the small badge
+  // (see below, it should genuinely wait so it can't jump ahead of a
+  // still-catching-up card), but that same gate accidentally ALSO held
+  // back the actual "Trump Exposed" announcement popup/toast/table-
+  // shake, which has no business waiting on an unrelated trick-
+  // completion sequence at all. It's a one-time event notification
+  // that should fire promptly when trump is actually exposed (it
+  // already has its own deliberate short pause below) -- moved
+  // entirely outside the trickRevealBusy gate so it can never again
+  // get stuck waiting for a different trick to finish revealing.
+  if (SERVER_MODE && !thaniActive) {
+    if (trumpExposed && !serverLastAnnouncedTrumpExposed) {
+      // A brief, deliberate pause before the announcement rather than
+      // firing in the exact same instant the card lands -- the two
+      // together, simultaneously, meant the announcement effectively
+      // covered up the very card that just caused it, with no moment
+      // to actually register what just happened before the banner
+      // took over the screen.
+      const exposedSuitAtCall = trumpSuit;
+      setTimeout(() => {
+        showToast('⚡ Trump exposed: ' + exposedSuitAtCall + '!', 'win', 2200);
+        log('Trump exposed! ' + exposedSuitAtCall + ' is active.', 'win');
+        const rc = latestServerState && latestServerState.revealedTrumpCard;
+        const trumpDetail = rc ? miniCardHtml(rc.rank, rc.suit) : (exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall));
+        showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa', 'trump-event');
+        const table = document.getElementById('tableArea');
+        if (table) {
+          table.classList.remove('trump-exposed');
+          void table.offsetWidth; // force reflow so re-adding the class restarts the animation
+          table.classList.add('trump-exposed');
+          setTimeout(() => table.classList.remove('trump-exposed'), 5000);
+        }
+        playSound('trumpExposed');
+        playHaptic('trumpExposed');
+      }, 550);
+    }
+    serverLastAnnouncedTrumpExposed = trumpExposed;
+  }
   if (tr && !trickRevealBusy) {
-    const thaniActive = !!(SERVER_MODE && latestServerState && latestServerState.thaniCaller >= 0);
     if (thaniActive) {
       // Thani has no trump at all, permanently, for the whole round --
       // not "still hidden," not "about to be exposed," genuinely none.
@@ -8246,55 +8287,6 @@ function updateInfo() {
         tr.innerHTML = '🎯 <span style="color:var(--text-secondary)">Trump: Hidden</span>';
       }
       tr.classList.remove('trump-active');
-    }
-    // Server mode sets trumpExposed directly from the authoritative state
-    // (see applyServerState) rather than through the local exposeTrump()
-    // function below, which is the only place that already shows this
-    // announcement — so server-mode games never got any toast/log at all
-    // when trump flipped exposed, even though it correctly became visible
-    // in the banner above. Announce it exactly once per exposure here.
-    // Explicitly excluded during Thani even though trumpExposed should
-    // never actually be true during one -- belt and suspenders, since a
-    // stray announcement here would be actively misleading given trump
-    // isn't even in play this round at all.
-    if (SERVER_MODE && !thaniActive) {
-      if (trumpExposed && !serverLastAnnouncedTrumpExposed) {
-        // A brief, deliberate pause before the announcement rather than
-        // firing in the exact same instant the card lands -- the two
-        // together, simultaneously, meant the announcement effectively
-        // covered up the very card that just caused it, with no moment
-        // to actually register what just happened before the banner
-        // took over the screen.
-        const exposedSuitAtCall = trumpSuit;
-        setTimeout(() => {
-          showToast('⚡ Trump exposed: ' + exposedSuitAtCall + '!', 'win', 2200);
-          log('Trump exposed! ' + exposedSuitAtCall + ' is active.', 'win');
-          // This was the actual bug behind "no popup, no shake at all" in
-          // online play -- showGameEvent() and the table-shake class
-          // toggle only ever lived in the OFFLINE-only exposeTrump()
-          // function, which server-mode games never call at all. This is
-          // the real, actual trigger point for online trump exposure.
-          // Per explicit instruction: shows the actual specific card
-          // that was hidden (rank + suit, styled like the real card),
-          // not just the suit -- revealedTrumpCard is captured
-          // server-side the moment exposeTrump() runs, since the
-          // hiddenTrump field itself gets cleared/returned to the
-          // owner's private hand right after.
-          const rc = latestServerState && latestServerState.revealedTrumpCard;
-          const trumpDetail = rc ? miniCardHtml(rc.rank, rc.suit) : (exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall));
-          showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa', 'trump-event');
-          const table = document.getElementById('tableArea');
-          if (table) {
-            table.classList.remove('trump-exposed');
-            void table.offsetWidth; // force reflow so re-adding the class restarts the animation
-            table.classList.add('trump-exposed');
-            setTimeout(() => table.classList.remove('trump-exposed'), 5000);
-          }
-          playSound('trumpExposed');
-          playHaptic('trumpExposed');
-        }, 550);
-      }
-      serverLastAnnouncedTrumpExposed = trumpExposed;
     }
   }
 
@@ -18392,16 +18384,9 @@ function applyServerState(state) {
     // guess is still a guess, and the report confirmed it wasn't
     // reliable. queueSound guarantees ordering relative to other
     // QUEUED sounds -- but a trick that JUST completed runs on its own
-    // completely separate, deliberately-paced timeline (a real 2-
-    // second hold, then the win/lose sound, then the cards flying to
-    // the winner -- see renderTrickSlotsWithWinnerPause/
-    // processTrickRevealQueue), never queued at all. If it becomes
-    // this player's turn while THAT sequence is still genuinely
-    // running, the ping needs to wait for it specifically, not just
-    // for its own queue to empty. waitThenQueuePing polls
-    // trickRevealBusy and only actually queues the ping once that
-    // real sequence has genuinely finished.
-    waitThenQueuePing();
+    // Real, confirmed removal per explicit request ("your turn ding
+    // sound is don't want that"): the audible ping is gone -- kept the
+    // haptic vibration below, since that wasn't what was objected to.
     playHaptic('yourTurn');
   }
   lastChimedCurrentPlayer = state.currentPlayer;

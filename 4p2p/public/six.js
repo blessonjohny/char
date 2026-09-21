@@ -3320,18 +3320,11 @@ function updateTurnLabel(state) {
     // already had.
     lbl.textContent = state.phase === 'bidding1' ? 'Your turn to bid' : state.phase === 'choosingTrump' ? 'Choose trump' : state.phase === 'play' ? 'Your turn to play' : 'Your turn';
     if (lastHapticCurrentPlayer !== MY_POS && state.phase !== 'lobby') {
-      // Real, confirmed fix per explicit live report ("ping is heard
-      // before the bot card sound, when 2 bots play ahead of me"): the
-      // "bots played too fast" catch-up reveal stages each card 550ms
-      // apart -- with 2 bots to catch up, delaying the ping by any
-      // amount less than that risks landing ahead of the second bot's
-      // own sound, a genuine race rather than a guaranteed order.
-      // 750ms clears a 2-bot catch-up sequence with room to spare,
-      // matching the same fix and reasoning as the 4-player table's
-      // identical issue.
-      setTimeout(() => {
-        if (latestState && latestState.currentPlayer === MY_POS) { playSound('ping'); playHaptic('yourTurn'); }
-      }, 750);
+      // Real, confirmed removal per explicit request ("6 player also I
+      // don't need the your turn [sound]"): matches the same removal
+      // already made on the 4-player table -- audible ping gone, haptic
+      // vibration kept.
+      playHaptic('yourTurn');
     }
   } else {
     const seat = state.seats[state.currentPlayer];
