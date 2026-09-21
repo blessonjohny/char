@@ -142,6 +142,7 @@ class GameEngine6P {
     this.challengeHandicap = 0;
     this.challengerTeam = null;
     this.challengeBeaten = false;
+    this.challengeResolved = false;
     this.gameOver = null; // {winningTeam, finalScore} once the match ends
     // Per explicit request: leaderboard tracking -- see game-engine.js's
     // identical addition for the fuller reasoning. No "next match begins
@@ -1615,6 +1616,12 @@ class GameEngine6P {
           challengeLeaderboard.recordChallengeWin('6p', this.challengeHandicap, challengerNames, opponentNames, this.round, this.roundLossesThisMatch[winningTeam], scoreDiff, this.gameScore[winningTeam], this.gameScore[losingTeam]);
         }
       }
+      // Real, confirmed feature per explicit request -- see
+      // game-engine.js's identical 4-player addition for the fuller
+      // reasoning.
+      if (this.challengeHandicap > 0 && !this.challengeResolved) {
+        this.challengeResolved = true;
+      }
       // Every player on the losing team picks up a Q at match end, regardless of their exact
       // final score - not restricted to a true zero-point shutout. An earlier version of this
       // only fired the Q on a genuine 0-score loss, reasoning that a close 12-15 finish isn't
@@ -3087,6 +3094,7 @@ class GameEngine6P {
       challengeHandicap: this.challengeHandicap,
       challengerTeam: this.challengerTeam,
       challengeBeaten: this.challengeBeaten,
+      challengeResolved: this.challengeResolved,
       qMarks: this.qMarks,
       partnerSignals: this.partnerSignals,
       gameOver: this.gameOver,

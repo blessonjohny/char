@@ -415,6 +415,15 @@ class GameEngine {
     this.challengeHandicap = 0;
     this.challengerTeam = null;
     this.challengeBeaten = false; // true once the challenger's team wins despite the deficit -- only ever set once, never reverts
+    // Real, confirmed feature per explicit request ("after winning or
+    // losing a challenge they should have the option to continue to
+    // next championship or new challenge"): true once the FIRST
+    // championship on a genuine challenge table ends, win or lose --
+    // separate from challengeBeaten specifically so the client can
+    // detect "the challenge is now decided, show the choice" even on
+    // a LOSS, which challengeBeaten alone (win-only) could never
+    // signal on its own.
+    this.challengeResolved = false;
     this.resetRoundState();
     this.phase = 'lobby'; // lobby | bidding1 | choosingTrump | play | roundEnd
     this.log = [];
@@ -1974,6 +1983,17 @@ class GameEngine {
         if (challengerNames.length > 0) {
           challengeLeaderboard.recordChallengeWin('4p', this.challengeHandicap, challengerNames, opponentNames, championshipRounds, this.roundLossesThisChampionship[winningTeam], scoreDiff, this.gameScore[winningTeam], this.gameScore[losingTeam]);
         }
+      }
+      // Real, confirmed feature per explicit request ("after winning or
+      // losing a challenge they should have the option to continue to
+      // next championship or new challenge"): fires exactly once, the
+      // moment this table's very first championship ends -- regardless
+      // of whether the challenger's team actually won it. challengeBeaten
+      // alone can only ever signal a WIN; this is what lets the client
+      // detect "the challenge is decided" on a loss too, so it can show
+      // the same choice either way.
+      if (this.challengeHandicap > 0 && !this.challengeResolved) {
+        this.challengeResolved = true;
       }
       // This scoring system is zero-sum (every point gained by one team
       // is lost by the other), so every championship necessarily ends
@@ -3991,6 +4011,7 @@ class GameEngine {
       challengeHandicap: this.challengeHandicap,
       challengerTeam: this.challengerTeam,
       challengeBeaten: this.challengeBeaten,
+      challengeResolved: this.challengeResolved,
       qMarks: this.qMarks,
       qTotalEver: this.qTotalEver,
       partnerSignals: this.partnerSignals,
