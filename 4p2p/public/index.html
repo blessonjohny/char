@@ -8253,7 +8253,17 @@ function updateInfo() {
     }
     serverLastAnnouncedTrumpExposed = trumpExposed;
   }
-  if (tr && !trickRevealBusy) {
+  // Real, confirmed follow-up fix per explicit live report ("animation
+  // popup says trump exposed, but the top bar says trump hidden until
+  // I played"): the previous fix correctly separated the announcement
+  // (now fires promptly, right above) from this badge -- but left the
+  // badge itself gated behind !trickRevealBusy, meaning it could still
+  // lag well behind the announcement it's supposed to agree with,
+  // creating exactly this "popup says one thing, badge says another"
+  // mismatch. The badge should simply match reality the moment trump
+  // is actually exposed, same as the announcement now correctly does
+  // -- gate removed entirely.
+  if (tr) {
     if (thaniActive) {
       // Thani has no trump at all, permanently, for the whole round --
       // not "still hidden," not "about to be exposed," genuinely none.
