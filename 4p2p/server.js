@@ -1720,6 +1720,16 @@ app.post('/api/admin/spawn-ghost-player', (req, res) => {
   const mode = req.body.mode === '6p' ? '6p' : '4p';
   const avatar = sanitizeAvatarKey(req.body.avatar) || 'toon1';
   const name = String(req.body.name || 'Player').trim().slice(0, 20) || 'Player';
+  // Real, confirmed feature per explicit request ("ghost player can
+  // also start a challenge game and should be recorded in leaderboard
+  // if wins like usual"): same 3 real handicap values as a normal
+  // player's own challenge table, anything else is just an ordinary
+  // ghost table exactly as before. Leaderboard recording needs no
+  // separate wiring here at all -- it already lives entirely inside
+  // the engine's own championship-win detection (see game-engine.js /
+  // game-engine-6p.js), which fires the same way regardless of
+  // whether a real player or a ghost is sitting in that seat.
+  const challengeHandicap = (req.body.challengeHandicap === 5 || req.body.challengeHandicap === 10 || req.body.challengeHandicap === 13) ? req.body.challengeHandicap : 0;
 
   if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
     return res.status(429).json({ ok: false, error: 'room_cap_reached' });
@@ -1733,6 +1743,7 @@ app.post('/api/admin/spawn-ghost-player', (req, res) => {
     const hostPos = 3; // matches the seat position normal createTable uses for its host
     engine.seatHuman(hostPos, name, ghostPlayerId, avatar);
     engine.seats[hostPos].ghostPlayer = true;
+    if (challengeHandicap > 0) engine.activateChallengeMode(challengeHandicap, hostPos);
     const t = {
       id, engine, creatorName: name, hostPlayerId: ghostPlayerId,
       botFill: 3, createdAt: Date.now(), lastActivityAt: Date.now(),
@@ -1760,6 +1771,7 @@ app.post('/api/admin/spawn-ghost-player', (req, res) => {
     const hostPos = 0; // matches the seat position normal sixp_createTable uses for its host
     engine.seatHuman(hostPos, name, ghostPlayerId, avatar);
     engine.seats[hostPos].ghostPlayer = true;
+    if (challengeHandicap > 0) engine.activateChallengeMode(challengeHandicap, hostPos);
     const t = {
       id, engine, creatorName: name, hostPlayerId: ghostPlayerId,
       botFill: 5, createdAt: Date.now(), lastActivityAt: Date.now(),
