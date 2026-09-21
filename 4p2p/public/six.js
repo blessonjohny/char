@@ -3099,7 +3099,14 @@ function processNextSixpTrickReveal() {
     // purpose, in place of the repurposed chipReturn sound used here
     // before (which was only ever a stand-in, this game has no chips).
     if (MY_POS !== -1) {
-      playSound(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'cardReceive' : 'trickLose');
+      // Real, confirmed fix per explicit live report ("when an opp
+      // team receives a win, it's a generic sound"): trickLose was
+      // always the old synthesized placeholder, since no real file was
+      // ever provided specifically for "the other team won." But the
+      // actual physical event -- cards being gathered up by whoever
+      // won the trick -- is identical either way. Same real
+      // cardReceive sound for both now.
+      playSound('cardReceive');
       playHaptic(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose');
     }
     animateCardsToWinner(lastTrick.winner);

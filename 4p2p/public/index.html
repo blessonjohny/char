@@ -19167,7 +19167,16 @@ function processTrickRevealQueue() {
     // cardReceive is the real sound file specifically for "a player
     // receives winning cards from the table," replacing the repurposed
     // chipReturn sound used here before (this game has no chips).
-    playSound(getTeam(lastTrick.winner) === getTeam(MY_POS) ? 'cardReceive' : 'trickLose');
+    // Real, confirmed fix per explicit live report ("when an opp team
+    // receives a win, it's a generic sound"): trickLose was always the
+    // old synthesized placeholder, since no real file was ever
+    // provided specifically for "the other team won." But the actual
+    // physical event -- cards being gathered up by whoever won the
+    // trick -- is identical either way; only WHO wins differs, not
+    // what's actually happening. Uses the same real cardReceive sound
+    // for both now instead of a synthesized one just for the other
+    // team's wins.
+    playSound('cardReceive');
     playHaptic(getTeam(lastTrick.winner) === getTeam(MY_POS) ? 'trickWin' : 'trickLose');
     if (typeof animateCardsToWinner === 'function') animateCardsToWinner(lastTrick.winner);
   }, 2000);
