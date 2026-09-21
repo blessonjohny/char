@@ -410,7 +410,10 @@ function renderLivePlayers(tablesList) {
     const teamsHtml = (Array.isArray(t.teams) && (t.teams[0].names.length || t.teams[1].names.length))
       ? t.teams.map((team, i) => {
           const isChallenger = t.challengerTeam === i && t.challengeHandicap > 0;
-          return `<div class="who" style="font-size:0.75rem">${isChallenger ? '🎯 ' : ''}Team ${i + 1}: ${team.names.length ? esc(team.names.join(', ')) : '—'} <b style="color:#f4c430">${esc(team.score)}</b></div>`;
+          const namesHtml = team.names.length
+            ? team.names.map(n => n.isBot ? esc(n.name) + ' (bot)' : `<span style="color:#ff4d4d;font-weight:700">${esc(n.name)}</span>`).join(', ')
+            : '—';
+          return `<div class="who" style="font-size:0.75rem">${isChallenger ? '🎯 ' : ''}Team ${i + 1}: ${namesHtml} <b style="color:#f4c430">${esc(team.score)}</b></div>`;
         }).join('')
       : '';
     return `
