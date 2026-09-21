@@ -5479,6 +5479,20 @@ function runSoundQueue() {
   playSound(next.kind, next.arg);
   setTimeout(runSoundQueue, 380);
 }
+// Real, confirmed feature per the same live report as queueSound above:
+// polls until a genuinely in-progress trick-completion sequence
+// (trickRevealBusy -- the 2-second hold, win/lose sound, and cards-fly-
+// to-winner animation) has actually finished, before queueing the
+// your-turn ping at all -- that whole sequence runs completely outside
+// soundQueue, on its own real timing, so soundQueue alone could never
+// have known to wait for it.
+function waitThenQueuePing() {
+  if (typeof trickRevealBusy !== 'undefined' && trickRevealBusy) {
+    setTimeout(waitThenQueuePing, 150);
+    return;
+  }
+  queueSound('ping');
+}
 
 // Haptic feedback (phone vibration) - a separate concern from sound, but the same principle:
 // short, distinct patterns per action rather than one generic buzz for everything.
@@ -18376,12 +18390,18 @@ function applyServerState(state) {
     // proper sequence"): the previous version guessed a fixed delay
     // (750ms) long enough to usually clear a 2-bot catch-up -- but a
     // guess is still a guess, and the report confirmed it wasn't
-    // reliable. queueSound guarantees real ordering instead: pushed
-    // onto the exact same strict, sequential queue every bot card-play
-    // sound already goes through, so this can never play before a
-    // bot's sound that was queued ahead of it, regardless of how many
-    // bots there were or how close together their actions arrived.
-    queueSound('ping');
+    // reliable. queueSound guarantees ordering relative to other
+    // QUEUED sounds -- but a trick that JUST completed runs on its own
+    // completely separate, deliberately-paced timeline (a real 2-
+    // second hold, then the win/lose sound, then the cards flying to
+    // the winner -- see renderTrickSlotsWithWinnerPause/
+    // processTrickRevealQueue), never queued at all. If it becomes
+    // this player's turn while THAT sequence is still genuinely
+    // running, the ping needs to wait for it specifically, not just
+    // for its own queue to empty. waitThenQueuePing polls
+    // trickRevealBusy and only actually queues the ping once that
+    // real sequence has genuinely finished.
+    waitThenQueuePing();
     playHaptic('yourTurn');
   }
   lastChimedCurrentPlayer = state.currentPlayer;
@@ -19038,6 +19058,21 @@ function renderTrickSlotsWithWinnerPause(state) {
 
   if (justResolved) {
     lastSeenTricksPlayed = state.tricksPlayed;
+    // Real, confirmed root-cause fix per explicit, very specific live
+    // report ("last bot played his card and wins the trick... I hear
+    // my turn ping before the bot's card sound"): the card that
+    // actually COMPLETES a trick never went through renderTrickSlots
+    // at all -- this whole branch returns before ever reaching it, so
+    // that specific card's own "card play" sound was never queued
+    // anywhere. It only ever got the separate, deliberately
+    // 2-second-delayed win/lose sound further below -- meaning if it
+    // became this player's turn shortly after, their queued ping had
+    // nothing else genuinely ahead of it and fired essentially
+    // immediately, while that last card's own sound (and the win
+    // sound) were still seconds away. Queues that missing sound now,
+    // for whichever seat actually played the trick-completing card.
+    const completingCard = state.lastTrick.cards[state.lastTrick.cards.length - 1];
+    if (completingCard && completingCard.pos !== MY_POS) queueSound('cardPlay');
     // Real, confirmed root-cause fix per explicit live report ("winner
     // receives the trick, it's not syncing... should start when player
     // receives the animation"), same underlying bug as the 6-player
