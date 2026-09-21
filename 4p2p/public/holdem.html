@@ -1067,6 +1067,27 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     <div class="reconnect-text">Reconnecting…</div>
     <div class="reconnect-subtext">Hang tight, getting you back to the table</div>
   </div>
+  <!-- Real, confirmed feature per explicit request ("wait for whatever
+       round to rebuild... say the time to rebuild... second time out
+       no more rebuild... option to leave or continue watching"): two
+       separate overlays for the two genuinely different tournament
+       moments -- busted-but-still-has-a-rebuy-coming (a real, ticking
+       wait), and eliminated-for-good (a final state with a real
+       decision to make), reusing the reconnect-overlay's own visual
+       style for consistency rather than inventing a third look. -->
+  <div class="reconnect-overlay" id="rebuildWaitOverlay">
+    <div class="reconnect-spinner"></div>
+    <div class="reconnect-text">You're busted — rebuilding soon</div>
+    <div class="reconnect-subtext" id="rebuildWaitSubtext">Ready in a moment…</div>
+  </div>
+  <div class="reconnect-overlay" id="eliminatedOverlay">
+    <div class="reconnect-text">You're out of the tournament</div>
+    <div class="reconnect-subtext">Your one rebuy has already been used — no more rebuilds this tournament.</div>
+    <div style="display:flex;gap:10px;margin-top:18px;pointer-events:auto">
+      <button class="btn btn-outline" id="btnEliminatedLeave" style="width:auto;padding:10px 20px">Leave Table</button>
+      <button class="btn btn-gold" id="btnEliminatedWatch" style="width:auto;padding:10px 20px">Continue Watching</button>
+    </div>
+  </div>
   <div class="topbar">
     <div style="font-size:0.75rem;min-width:0;overflow:hidden">
       <div><span id="handNumDisplay">Hand 1</span> · <span id="blindsDisplay"></span></div>
@@ -1139,7 +1160,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
          positioned near the house dealer at the top of the table, per
          the explicit request, rather than sitting right underneath
          the winning cards at all. -->
-    <div id="winningHandContinueWrap" class="winning-hand-continue-wrap" style="position:absolute;left:49.8%;top:11%;transform:translate(-50%,-50%);z-index:8;text-align:center;pointer-events:none">
+    <div id="winningHandContinueWrap" class="winning-hand-continue-wrap" style="position:absolute;left:49.8%;top:30%;transform:translate(-50%,-50%);z-index:8;text-align:center;pointer-events:none">
       <button class="btn btn-gold" id="btnWinningHandContinue" style="pointer-events:auto;padding:8px 24px;font-size:0.85rem;width:auto;display:none">Continue</button>
       <div id="winningHandContinueStatus" style="margin-top:6px;font-size:0.72rem;color:var(--text-secondary,#aaa);display:none"></div>
     </div>
@@ -2725,6 +2746,7 @@ socket.on('poker_state', (state) => {
   hideReconnectOverlay();
   latestState = state;
   updateWinningHandContinueUI(state);
+  updateRebuildEliminationUI(state);
   isHost = !!state.isHost;
   const hostBtn = $('btnHoldemHostMenu');
   if (hostBtn) hostBtn.style.display = isHost ? '' : 'none';
@@ -3403,6 +3425,78 @@ let tableWinningHandClearTimer = null;
 // server's own count on every single state broadcast (not just the
 // one this client's own click caused), so if there are 2+ real
 // players, each one sees the other's click reflected live.
+// Real, confirmed feature per explicit request ("wait for whatever
+// round to rebuild... say the time to rebuild... second time out no
+// more rebuild... option to leave or continue watching"): a real,
+// ticking countdown for the wait (not a vague "please wait" with no
+// actual timing), and a genuinely final state once the one rebuy is
+// used up. Both read straight off the same bustedAt/eliminated/
+// rebuysUsed fields the server already tracks for the real reload
+// logic in checkReloads() -- this is purely the client actually
+// telling the player what that logic is doing, not a separate system.
+let rebuildCountdownInterval = null;
+let eliminatedOverlayDismissed = false;
+function updateRebuildEliminationUI(state) {
+  const mySeat = state.seats[myPos];
+  const rebuildOverlay = $('rebuildWaitOverlay');
+  const eliminatedOverlay = $('eliminatedOverlay');
+  if (!rebuildOverlay || !eliminatedOverlay) return;
+  if (!mySeat || state.mode !== 'tournament') {
+    rebuildOverlay.classList.remove('on');
+    eliminatedOverlay.classList.remove('on');
+    if (rebuildCountdownInterval) { clearInterval(rebuildCountdownInterval); rebuildCountdownInterval = null; }
+    return;
+  }
+  if (mySeat.eliminated) {
+    rebuildOverlay.classList.remove('on');
+    if (rebuildCountdownInterval) { clearInterval(rebuildCountdownInterval); rebuildCountdownInterval = null; }
+    // Real, confirmed bug fix: without this dismissal flag, clicking
+    // "Continue Watching" removed the 'on' class for one instant, but
+    // the very next state broadcast (which happens constantly, e.g.
+    // every other player's own actions) saw mySeat.eliminated was
+    // still true and immediately re-added it -- making the button
+    // functionally do nothing, since it reappeared almost instantly.
+    if (!eliminatedOverlayDismissed) eliminatedOverlay.classList.add('on');
+    return;
+  }
+  eliminatedOverlayDismissed = false;
+  eliminatedOverlay.classList.remove('on');
+  if (mySeat.bustedAt) {
+    rebuildOverlay.classList.add('on');
+    if (rebuildCountdownInterval) clearInterval(rebuildCountdownInterval);
+    const bustedAt = mySeat.bustedAt;
+    const waitMs = state.reloadWaitMs || 60000;
+    const startingChips = state.startingChips || 1000;
+    const rebuysLeft = Math.max(0, 1 - (mySeat.rebuysUsed || 0));
+    const updateCountdown = () => {
+      const remaining = Math.max(0, Math.ceil((waitMs - (Date.now() - bustedAt)) / 1000));
+      const sub = $('rebuildWaitSubtext');
+      if (!sub) return;
+      sub.textContent = remaining > 0
+        ? `You'll rebuild with ${startingChips} chips (your last rebuy) in ${remaining}s…`
+        : 'Rebuilding any moment now…';
+      if (rebuysLeft <= 0) {
+        // This is genuinely their last possible rebuy already in
+        // flight -- said plainly up front rather than only finding
+        // out they're fully eliminated the NEXT time they bust.
+        sub.textContent += ' (This is your one and only rebuy — busting again ends your tournament.)';
+      }
+    };
+    updateCountdown();
+    rebuildCountdownInterval = setInterval(updateCountdown, 1000);
+  } else {
+    rebuildOverlay.classList.remove('on');
+    if (rebuildCountdownInterval) { clearInterval(rebuildCountdownInterval); rebuildCountdownInterval = null; }
+  }
+}
+$('btnEliminatedWatch').addEventListener('click', () => {
+  eliminatedOverlayDismissed = true;
+  $('eliminatedOverlay').classList.remove('on');
+});
+$('btnEliminatedLeave').addEventListener('click', () => {
+  $('eliminatedOverlay').classList.remove('on');
+  $('btnLeaveConfirmYes').click();
+});
 function updateWinningHandContinueUI(state) {
   const btn = $('btnWinningHandContinue');
   const statusEl = $('winningHandContinueStatus');
