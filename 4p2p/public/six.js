@@ -2252,6 +2252,19 @@ function applyState(state) {
     }
     const tricksPlayed = state.tricksPlayed || 0;
     if (tricksPlayed > lastSeenTricksPlayed && state.lastTrick) {
+      // Real, confirmed root-cause fix per explicit live report ("last
+      // player's play card sound is not heard every trick"), same
+      // underlying bug as the 4-player table's identical issue: the
+      // card that actually COMPLETES a trick never went through the
+      // normal per-card renderTrick() path at all -- this branch
+      // queues the completed trick and returns before ever reaching
+      // it, so that specific card's own "card play" sound was never
+      // triggered anywhere. Plays it here explicitly for whichever
+      // seat played the trick-completing card (skipped for this
+      // player's own card, which already got its sound the instant
+      // they tapped it).
+      const completingCard = state.lastTrick.cards[state.lastTrick.cards.length - 1];
+      if (completingCard && completingCard.pos !== MY_POS) { playSound('cardPlay'); playHaptic('cardPlayed'); }
       // A trick just completed since the last render. Queue it rather than
       // showing it immediately — if a trick is already mid-reveal, starting
       // this one right now would cancel it early. Every trick gets its own
