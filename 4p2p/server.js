@@ -1012,6 +1012,19 @@ function visitorLogFilteredAndSummary(filter) {
   const cutoffs = { today: now - DAY, week: now - 7 * DAY, month: now - 30 * DAY, all: 0 };
   const cutoff = cutoffs[filter] !== undefined ? cutoffs[filter] : 0;
   const entries = visitorLog.filter(e => e.ts >= cutoff);
+  // Real, confirmed sort per explicit request ("still connected should
+  // be 1st priority then time and date sort"): still-connected visitors
+  // (sessionMs not yet set, and not an ended-by-restart entry -- the
+  // exact same condition the render side already uses to show "🟢
+  // Still connected") always come first, since an admin checking this
+  // panel almost always cares most about who's on RIGHT NOW. Within
+  // each of those two groups, most recent first.
+  entries.sort((a, b) => {
+    const aConnected = a.sessionMs == null && !a.endedByRestart;
+    const bConnected = b.sessionMs == null && !b.endedByRestart;
+    if (aConnected !== bConnected) return aConnected ? -1 : 1;
+    return b.ts - a.ts;
+  });
   const bucket = (c) => visitorLog.filter(e => e.ts >= c);
   const summarize = (list) => ({ visits: list.length, unique: uniqueIpCount(list) });
   const summary = {
@@ -5569,35 +5582,6 @@ io.on('connection', (socket) => {
             : (typeof requestedPos === 'number' && ghostSeats.includes(requestedPos)) ? requestedPos
               : ghostSeats[0]);
     if (pos === undefined) { socket.emit('poker_joinFailed', { reason: 'table_full' }); return; }
-
-    // Per explicit request: once a tournament has actually started
-    // (handNumber > 0 -- the lobby/waiting-to-start period before that
-    // stays open to anyone, same as before), a genuinely NEW player
-    // showing up needs an admin to actually let them in rather than
-    // just seating themselves -- a real gate, not just a courtesy
-    // notice. A reconnecting player reclaiming their own already-held
-    // seat (handled entirely in the block above, before this point) is
-    // a completely different case and was never touched by this at
-    // all. Queued rather than rejected outright so the admin panel has
-    // something concrete to actually approve or deny.
-    if (t.engine.mode === 'tournament' && t.engine.handNumber > 0) {
-      if (!t.pendingJoinRequests) t.pendingJoinRequests = [];
-      const pendingPlayerId = crypto.randomBytes(8).toString('hex');
-      t.pendingJoinRequests.push({ playerId: pendingPlayerId, name: String(name || 'Player').slice(0, 20), pos, socketId: socket.id, avatar: sanitizeAvatarKey(avatar) });
-      socket.emit('poker_joinPending', { tableId, playerId: pendingPlayerId });
-      pokerTouch(t);
-      // Real, confirmed bug: this queued the request server-side
-      // correctly (the requesting player did get poker_joinPending),
-      // but nothing ever actually told the host -- pokerTouch only
-      // updates an internal last-activity timestamp for idle-table
-      // cleanup, it doesn't push new state to anyone. Without an
-      // actual broadcast, the host's own pendingJoinRequests stayed
-      // stale until some unrelated action happened to trigger one,
-      // which is exactly why the toast/auto-opened host menu never
-      // fired reliably the instant someone actually tried to join.
-      pokerBroadcast(t);
-      return;
-    }
 
     pokerSeatNewPlayer(t, tableId, socket, name, pos, avatar);
   });

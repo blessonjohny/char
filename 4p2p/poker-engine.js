@@ -625,6 +625,16 @@ class PokerEngine {
       board: this.board, pots: this.pots, currentBet: this.currentBet, minRaise: this.minRaise,
       handNumber: this.handNumber, showdownResult: this.showdownResult, myHandName,
       allInShowdown: !!this.allInShowdown,
+      // Real, confirmed feature per explicit request ("wait for
+      // whatever round to rebuild... say the time to rebuild"): the
+      // client needs this to compute and display an accurate
+      // countdown for a busted player waiting on their reload/rebuy --
+      // bustedAt (per-seat, already sent below) plus this fixed wait
+      // duration is all it needs to show "ready in Ns" and count down
+      // for real, rather than guessing or showing a generic message
+      // with no actual timing.
+      reloadWaitMs: this.reloadWaitMs,
+      startingChips: this.startingChips,
       kickRequests: this.kickRequests,
       seats: this.seats.map((s, i) => {
         if (!s) return null;
