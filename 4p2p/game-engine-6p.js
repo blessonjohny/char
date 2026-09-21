@@ -25,6 +25,7 @@ const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1, '6
 const SEATS = 6;
 const brain = require('./bot-brain');
 const leaderboard = require('./leaderboard');
+const challengeLeaderboard = require('./challenge-leaderboard');
 brain.loadBrains();
 
 // Alternating seats form each team: 0,2,4 vs 1,3,5 — matches the source
@@ -135,6 +136,12 @@ class GameEngine6P {
     this.seats = new Array(SEATS).fill(null);
     this.round = 0;
     this.gameScore = [0, 0];
+    // Real, confirmed feature per explicit request -- see
+    // activateChallengeMode below and game-engine.js's identical
+    // 4-player addition for the fuller reasoning.
+    this.challengeHandicap = 0;
+    this.challengerTeam = null;
+    this.challengeBeaten = false;
     this.gameOver = null; // {winningTeam, finalScore} once the match ends
     // Per explicit request: leaderboard tracking -- see game-engine.js's
     // identical addition for the fuller reasoning. No "next match begins
@@ -266,6 +273,25 @@ class GameEngine6P {
 
   seatHuman(pos, name, playerId, avatar) {
     this.seats[pos] = { name, isBot: false, connected: true, playerId, hand: [], avatar: avatar || null };
+  }
+
+  // Real, confirmed feature per explicit request ("4 and 6 player
+  // should have a challenge table... pick your losing by this
+  // much... you will be the next bidder"): same mechanic as the
+  // 4-player table's identical method -- see there for the fuller
+  // reasoning. This table's nextPos is genuinely sequential
+  // ((p+1)%SEATS, no special rotation array the way 4-player has), and
+  // startRound() here follows the exact same "dealer advances once,
+  // then currentPlayer = nextPos of THAT" pattern -- confirmed
+  // directly that the initial dealer needs to be set two seats before
+  // the challenger, not one, for the same reason as 4-player.
+  activateChallengeMode(handicap, challengerPos) {
+    if (handicap !== 5 && handicap !== 10 && handicap !== 13) return;
+    this.challengeHandicap = handicap;
+    this.challengerTeam = getTeam(challengerPos);
+    this.gameScore[this.challengerTeam] = 0;
+    this.gameScore[1 - this.challengerTeam] = handicap;
+    this.dealer = (challengerPos - 2 + SEATS) % SEATS;
   }
 
   seatBot(pos, name) {
@@ -1577,6 +1603,17 @@ class GameEngine6P {
         // number -- passes both real numbers through now, ranking logic
         // itself is unchanged (still sorts by scoreDiff first).
         leaderboard.recordChampionshipWin('6p', winningPlayerNames, this.round, this.roundLossesThisMatch[winningTeam], opponentNames, scoreDiff, this.gameScore[winningTeam], this.gameScore[losingTeam]);
+      }
+      // Real, confirmed feature per explicit request -- see
+      // game-engine.js's identical 4-player addition for the fuller
+      // reasoning. this.round here plays the same role
+      // championshipRounds does for 4-player (rounds this match took).
+      if (this.challengeHandicap > 0 && !this.challengeBeaten && this.challengerTeam === winningTeam) {
+        this.challengeBeaten = true;
+        const challengerNames = winningPlayerNames.slice();
+        if (challengerNames.length > 0) {
+          challengeLeaderboard.recordChallengeWin('6p', this.challengeHandicap, challengerNames, opponentNames, this.round, this.roundLossesThisMatch[winningTeam], scoreDiff, this.gameScore[winningTeam], this.gameScore[losingTeam]);
+        }
       }
       // Every player on the losing team picks up a Q at match end, regardless of their exact
       // final score - not restricted to a true zero-point shutout. An earlier version of this
@@ -3047,6 +3084,9 @@ class GameEngine6P {
       trickSuit: this.trickSuit,
       teamPoints: this.teamPoints,
       gameScore: this.gameScore,
+      challengeHandicap: this.challengeHandicap,
+      challengerTeam: this.challengerTeam,
+      challengeBeaten: this.challengeBeaten,
       qMarks: this.qMarks,
       partnerSignals: this.partnerSignals,
       gameOver: this.gameOver,

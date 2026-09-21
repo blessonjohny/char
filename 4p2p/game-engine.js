@@ -51,6 +51,7 @@ const POINTS = { J: 3, '9': 2, A: 1, '10': 1, K: 0, Q: 0, '8': 0, '7': 0 };
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1 };
 const brain = require('./bot-brain');
 const leaderboard = require('./leaderboard');
+const challengeLeaderboard = require('./challenge-leaderboard');
 brain.loadBrains();
 
 // These two lines were wrong for this entire rewrite, and are the true
@@ -402,6 +403,18 @@ class GameEngine {
     // to hard-reset it to a fixed seat every single round, silently
     // undoing the rotation and making one specific seat "dealer" forever).
     this.dealer = Math.floor(Math.random() * 4);
+    // Real, confirmed feature per explicit request ("4 and 6 player
+    // should have a challenge table... pick your losing by this
+    // much... you will be the next bidder"): a challenge table gives
+    // the creator's team a deliberate starting deficit (5, 10, or 13
+    // points) for the very first championship only, plus forces them
+    // to be the first bidder of that first round -- both null/0 for a
+    // completely ordinary table. challengerTeam is set once the
+    // creator actually seats (always position 3 for 4-player, see
+    // server.js's createTable handler), never recomputed after.
+    this.challengeHandicap = 0;
+    this.challengerTeam = null;
+    this.challengeBeaten = false; // true once the challenger's team wins despite the deficit -- only ever set once, never reverts
     this.resetRoundState();
     this.phase = 'lobby'; // lobby | bidding1 | choosingTrump | play | roundEnd
     this.log = [];
@@ -567,6 +580,34 @@ class GameEngine {
 
   seatHuman(pos, name, playerId, avatar) {
     this.seats[pos] = { name, isBot: false, connected: true, playerId, hand: [], avatar: avatar || null };
+  }
+
+  // Real, confirmed feature per explicit request ("pick your losing by
+  // this much... you will be the next bidder"): called once, right
+  // after the creator seats, for a genuine challenge table only.
+  // Applies the deficit to gameScore (challenger's team stays at 0,
+  // the opponent team starts at the handicap value) and forces the
+  // dealer so the challenger is the very first bidder of the first
+  // round -- both effects are deliberately one-time, only for this
+  // table's first championship; every championship after this one
+  // resets gameScore to a normal 0-0 exactly as it always did.
+  activateChallengeMode(handicap, challengerPos) {
+    if (handicap !== 5 && handicap !== 10 && handicap !== 13) return;
+    this.challengeHandicap = handicap;
+    this.challengerTeam = getTeam(challengerPos);
+    this.gameScore[this.challengerTeam] = 0;
+    this.gameScore[1 - this.challengerTeam] = handicap;
+    // nextPos(dealer) becomes the first bidder once a round actually
+    // starts -- but startRound() itself ALSO advances the dealer once
+    // before using it (this.dealer = nextPos(this.dealer), then
+    // currentPlayer = nextPos of THAT), so the real first bidder ends
+    // up two rotation-steps ahead of whatever's set here, not one.
+    // Confirmed directly: setting dealer only one step back landed the
+    // first bid on the wrong seat. SEAT_ROTATION is not sequential
+    // ([3,2,0,1]), so both steps are looked up in the rotation array
+    // directly rather than assumed via arithmetic.
+    const rotIdx = SEAT_ROTATION.indexOf(challengerPos);
+    this.dealer = SEAT_ROTATION[(rotIdx + 2) % 4];
   }
 
   seatBot(pos, name) {
@@ -1918,6 +1959,21 @@ class GameEngine {
         // number -- passes both real numbers through now, ranking logic
         // itself is unchanged (still sorts by scoreDiff first).
         leaderboard.recordChampionshipWin('4p', winningPlayerNames, championshipRounds, this.roundLossesThisChampionship[winningTeam], opponentNames, scoreDiff, this.gameScore[winningTeam], this.gameScore[losingTeam]);
+      }
+      // Real, confirmed feature per explicit request ("after winning it
+      // should say u beat the challenge... leaderboard should only be
+      // top 10 challenge winners... priority is the hardest level"):
+      // only ever fires once, the very first time the challenger's team
+      // actually wins a championship on a genuine challenge table
+      // (challengeHandicap > 0) -- never re-fires on a later
+      // championship at this same table, since the deficit itself was
+      // only ever applied to the first one.
+      if (this.challengeHandicap > 0 && !this.challengeBeaten && this.challengerTeam === winningTeam) {
+        this.challengeBeaten = true;
+        const challengerNames = winningPlayerNames.slice();
+        if (challengerNames.length > 0) {
+          challengeLeaderboard.recordChallengeWin('4p', this.challengeHandicap, challengerNames, opponentNames, championshipRounds, this.roundLossesThisChampionship[winningTeam], scoreDiff, this.gameScore[winningTeam], this.gameScore[losingTeam]);
+        }
       }
       // This scoring system is zero-sum (every point gained by one team
       // is lost by the other), so every championship necessarily ends
@@ -3928,6 +3984,13 @@ class GameEngine {
       trickSuit: this.trickSuit,
       teamPoints: this.teamPoints,
       gameScore: this.gameScore,
+      // Real, confirmed feature per explicit request ("pick your
+      // losing by this much... you beat the challenge"): exposed so
+      // the client can show the handicap during play and the "you
+      // beat the challenge" message once challengeBeaten flips true.
+      challengeHandicap: this.challengeHandicap,
+      challengerTeam: this.challengerTeam,
+      challengeBeaten: this.challengeBeaten,
       qMarks: this.qMarks,
       qTotalEver: this.qTotalEver,
       partnerSignals: this.partnerSignals,

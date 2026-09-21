@@ -38,6 +38,7 @@ const { GameEngine } = require('./game-engine');
 const { SpadesEngine } = require('./spades-engine');
 const brain = require('./bot-brain');
 const leaderboard = require('./leaderboard');
+const challengeLeaderboard = require('./challenge-leaderboard');
 const l56Engine = require('./l56-engine');
 const geoip = require('geoip-lite');
 
@@ -1677,6 +1678,15 @@ app.get('/api/leaderboard', (req, res) => {
   res.json({ ok: true, leaderboard: leaderboard.getLeaderboard() });
 });
 
+// Real, confirmed feature per explicit request ("leaderboard should
+// only be top 10 challenge winners"): same public, no-auth pattern as
+// the regular leaderboard above, separate endpoint since this is a
+// genuinely separate list (challenge-table wins only, ranked by
+// handicap difficulty first).
+app.get('/api/challenge-leaderboard', (req, res) => {
+  res.json({ ok: true, leaderboard: challengeLeaderboard.getChallengeLeaderboard() });
+});
+
 // Lists every current table (both modes) that has at least one bot seat a ghost could step
 // into - reuses the exact same public listing already computed for the ordinary room list
 // rather than recomputing seat counts separately, so this never drifts out of sync with what
@@ -2273,7 +2283,7 @@ io.on('connection', (socket) => {
     socket.emit('adminPasswordChangeResult', { ok: true, newPassword: trimmed });
   });
 
-  socket.on('createTable', ({ name, avatar }) => {
+  socket.on('createTable', ({ name, avatar, challengeHandicap }) => {
     if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
       socket.emit('createBlocked', { maxRooms: roomCapMax });
       return;
@@ -2282,6 +2292,14 @@ io.on('connection', (socket) => {
     const engine = new GameEngine(id);
     playerId = newId();
     engine.seatHuman(3, name || 'Player', playerId, sanitizeAvatarKey(avatar));
+    // Real, confirmed feature per explicit request ("challenge table...
+    // pick your losing by this much"): only ever activated when the
+    // creator explicitly picked one of the 3 real handicap values (5,
+    // 10, or 13) -- an ordinary table (challengeHandicap omitted or any
+    // other value) is completely unaffected.
+    if (challengeHandicap === 5 || challengeHandicap === 10 || challengeHandicap === 13) {
+      engine.activateChallengeMode(challengeHandicap, 3);
+    }
     const t = {
       id, engine, creatorName: name || 'Player', hostPlayerId: playerId,
       botFill: 3, createdAt: Date.now(), lastActivityAt: Date.now(),
@@ -3314,7 +3332,7 @@ io.on('connection', (socket) => {
 
   socket.on('sixp_listRooms', () => { socket.emit('sixp_roomList', sixpPublicTableList()); });
 
-  socket.on('sixp_createTable', ({ name, avatar }) => {
+  socket.on('sixp_createTable', ({ name, avatar, challengeHandicap }) => {
     if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
       socket.emit('createBlocked', { maxRooms: roomCapMax });
       return;
@@ -3323,6 +3341,9 @@ io.on('connection', (socket) => {
     const engine = new GameEngine6P(id);
     sixpPlayerId = newId();
     engine.seatHuman(0, name || 'Player', sixpPlayerId, sanitizeAvatarKey(avatar));
+    if (challengeHandicap === 5 || challengeHandicap === 10 || challengeHandicap === 13) {
+      engine.activateChallengeMode(challengeHandicap, 0);
+    }
     const t = {
       id, engine, creatorName: name || 'Player', hostPlayerId: sixpPlayerId,
       botFill: 5, createdAt: Date.now(), lastActivityAt: Date.now(),
@@ -5425,7 +5446,19 @@ function pokerRealPlayerCount(t) {
 function pokerContinueThreshold(t) {
   // Exactly the rule as given: 1 real player needs 1 click; 2 or more
   // real players need only 2 clicks, never the full count.
-  return Math.min(2, pokerRealPlayerCount(t));
+  // Real, confirmed bug fix per explicit live report ("the other
+  // player is busted, waiting for continue, but that player can't
+  // because it's showing a blackout countdown -- so if it's like that,
+  // only 1 player needs to hit continue"): a player currently busted
+  // and waiting on their reload (or already eliminated) can't actually
+  // see or click the Continue button at all -- the full-screen
+  // rebuild-wait/eliminated overlay blocks it. Counting them toward
+  // the threshold meant the game could deadlock forever waiting on a
+  // click that was physically impossible to give. Only real players
+  // who are actually able to click right now count toward the
+  // threshold.
+  const clickCapable = t.engine.seats.filter(s => s && !s.isBot && s.connected && !s.bustedAt).length;
+  return Math.min(2, clickCapable);
 }
 
 function pokerAdvanceToNextHand(t) {
