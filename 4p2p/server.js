@@ -34,7 +34,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { Server } = require('socket.io');
-const { GameEngine } = require('./game-engine');
+const { GameEngine, getTeam: getTeam4p } = require('./game-engine');
 const { SpadesEngine } = require('./spades-engine');
 const brain = require('./bot-brain');
 const leaderboard = require('./leaderboard');
@@ -1183,6 +1183,23 @@ function getAllTablesSummary() {
     const summary = seatDetails.length ? seatDetails.join(', ') : 'empty';
     return { humans, bots, summary, seatEntries };
   }
+  // Real, confirmed feature per explicit request ("in the admin
+  // panel... table names then score then names score team then score
+  // team... this way easy to understand... also distinguish a
+  // challenge game"): groups seats by team (0/1) with each team's own
+  // player names and current score, rather than one flat name list and
+  // a bare score pair with no way to tell which names belong to which
+  // side.
+  function buildTeamBreakdown(seats, getTeamFn, gameScore) {
+    const teams = [{ names: [] }, { names: [] }];
+    (seats || []).forEach((s, pos) => {
+      if (!s) return;
+      const team = getTeamFn(pos);
+      if (team !== 0 && team !== 1) return;
+      teams[team].names.push((s.name || 'Player') + (s.isBot || s.bot ? ' (bot)' : ''));
+    });
+    return [0, 1].map(i => ({ names: teams[i].names, score: (gameScore && typeof gameScore[i] === 'number') ? gameScore[i] : 0 }));
+  }
   for (const t of Object.values(tables)) {
     const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
     // Per explicit request: admin panel's live-tables view now also
@@ -1194,11 +1211,11 @@ function getAllTablesSummary() {
     // admin-controlled ghost players currently seated here so the
     // client can offer "chat as <ghost name>" alongside the generic
     // "chat as Admin".
-    rows.push({ game: '4-Player', mode: '4p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
+    rows.push({ game: '4-Player', mode: '4p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, teams: buildTeamBreakdown(t.engine.seats, getTeam4p, t.engine.gameScore), challengeHandicap: t.engine.challengeHandicap || 0, challengerTeam: t.engine.challengerTeam, challengeBeaten: !!t.engine.challengeBeaten, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
   }
   for (const t of Object.values(sixpTables)) {
     const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
-    rows.push({ game: '6-Player', mode: '6p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
+    rows.push({ game: '6-Player', mode: '6p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, teams: buildTeamBreakdown(t.engine.seats, getTeam6p, t.engine.gameScore), challengeHandicap: t.engine.challengeHandicap || 0, challengerTeam: t.engine.challengerTeam, challengeBeaten: !!t.engine.challengeBeaten, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
   }
   for (const r of Object.values(l56Rooms)) {
     const seats = r.state && r.state.seats ? r.state.seats : [];
@@ -3245,7 +3262,7 @@ io.on('connection', (socket) => {
 // nothing in here can affect the 4-player tables, and nothing in the
 // 4-player handlers above can affect these.
 // ============================================================
-const { GameEngine6P } = require('./game-engine-6p');
+const { GameEngine6P, getTeam: getTeam6p } = require('./game-engine-6p');
 
 const sixpTables = {};
 const sixpPlayerIndex = {};
