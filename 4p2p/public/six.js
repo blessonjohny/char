@@ -14,6 +14,7 @@ try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
 let lastKnownDealRound = null;
+let challengeBeatenAnnouncedSix = false;
 let kunukkuGainedForRoundSix = null;
 // Real, confirmed feature per explicit request ("add sound and touch
 // sensitivity... to all"): the exact same Web Audio API synthesis
@@ -1706,12 +1707,27 @@ connectSocket(); // connect right away so every landing on this page gets logged
 // ---------------- Welcome / name / create / join flow ----------------
 
 let pendingAction = null; // 'create' | 'join'
+let pendingChallengeHandicap = null;
 
 $('btnCreate').addEventListener('click', () => {
   pendingAction = 'create';
+  pendingChallengeHandicap = null;
   const inviteBanner6pCreate = $('inviteBanner6p');
   if (inviteBanner6pCreate) inviteBanner6pCreate.classList.add('hidden');
   showScreen('nameScreen');
+});
+$('btnShowChallengeOptions6p').addEventListener('click', () => {
+  const row = $('challengeOptionsRow6p');
+  row.style.display = row.style.display === 'flex' ? 'none' : 'flex';
+});
+document.querySelectorAll('.challenge-diff-btn-6p').forEach(btn => {
+  btn.addEventListener('click', () => {
+    pendingAction = 'create';
+    pendingChallengeHandicap = Number(btn.dataset.handicap);
+    const inviteBanner6pChallenge = $('inviteBanner6p');
+    if (inviteBanner6pChallenge) inviteBanner6pChallenge.classList.add('hidden');
+    showScreen('nameScreen');
+  });
 });
 $('btnShowJoin').addEventListener('click', () => { showScreen('joinScreen'); refreshRoomList(); });
 $('btnNameBack').addEventListener('click', () => showScreen('welcomeScreen'));
@@ -1742,7 +1758,9 @@ async function submitPlayerName6p() {
   requestFullscreen6p();
   connectSocket();
   if (pendingAction === 'create') {
-    socket.emit('sixp_createTable', { name, avatar: MY_AVATAR_KEY });
+    const payload = { name, avatar: MY_AVATAR_KEY };
+    if (pendingChallengeHandicap === 5 || pendingChallengeHandicap === 10 || pendingChallengeHandicap === 13) payload.challengeHandicap = pendingChallengeHandicap;
+    socket.emit('sixp_createTable', payload);
   } else if (pendingAction === 'join' && pendingJoinCode) {
     socket.emit('sixp_joinTable', { tableId: pendingJoinCode, name, avatar: MY_AVATAR_KEY });
   }
@@ -2387,6 +2405,16 @@ function applyState(state) {
   // round-end popup entirely once the match itself has ended; the
   // game-over popup already carries the final result, so there's
   // nothing the round-end popup would add at that specific point.
+  // Real, confirmed feature per explicit request ("after winning it
+  // should say u beat the challenge... continue next championship like
+  // normal"): matches the 4-player table's identical feature -- fires
+  // once, right when the server confirms the challenger's team won
+  // despite their starting deficit.
+  if (state.challengeBeaten && !challengeBeatenAnnouncedSix) {
+    challengeBeatenAnnouncedSix = true;
+    showGameEvent('🎯', 'Challenge Beaten!', 'You overcame a ' + state.challengeHandicap + '-point deficit!', '#f4c430');
+    playSound('happy');
+  }
   if (state.phase === 'roundEnd' && state.round !== lastRoundSeen && !state.gameOver) {
     lastRoundSeen = state.round;
     // Same big event as index.html's identical hook -- fires exactly

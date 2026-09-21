@@ -1698,6 +1698,18 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   <h1>🎴 28 Kerala Gulan</h1>
   <div class="subtitle">6 PLAYER TABLE — 2 teams of 3</div>
   <button class="btn btn-primary" id="btnCreate">🏠 Create Table</button>
+  <!-- Real, confirmed feature per explicit request ("4 and 6 player
+       should have a challenge table"): same pattern as the 4-player
+       table's identical addition -- picking a difficulty creates the
+       table with the challenger's team starting that deficit and
+       forced into the first bid, otherwise a completely ordinary
+       table. -->
+  <button class="btn btn-outline" id="btnShowChallengeOptions6p" style="border-color:var(--accent);color:var(--accent)">🎯 Create Challenge Table</button>
+  <div id="challengeOptionsRow6p" style="display:none;gap:6px;width:100%">
+    <button type="button" class="challenge-diff-btn-6p" data-handicap="5" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--text-primary);font-weight:700;font-size:0.75rem;cursor:pointer">0–5</button>
+    <button type="button" class="challenge-diff-btn-6p" data-handicap="10" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--text-primary);font-weight:700;font-size:0.75rem;cursor:pointer">0–10</button>
+    <button type="button" class="challenge-diff-btn-6p" data-handicap="13" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--text-primary);font-weight:700;font-size:0.75rem;cursor:pointer">0–13</button>
+  </div>
   <button class="btn btn-outline" id="btnShowJoin">🔑 Join Table</button>
   <a href="/" class="btn btn-outline" style="text-decoration:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box">⬅️ Back to Main Menu</a>
   <div style="margin-top:20px;text-align:left;width:100%;max-width:320px">

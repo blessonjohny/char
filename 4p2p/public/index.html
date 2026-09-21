@@ -4373,6 +4373,20 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <h3>🏠 Host a Room</h3>
       <p id="hostCardTagline">Create a table and invite friends — or fill empty seats with bots and start right away</p>
       <button type="button" class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btnCreateRoom">Create Room</button>
+      <!-- Real, confirmed feature per explicit request ("4 and 6
+           player should have a challenge table... pick 0-5, 0-10, or
+           0-13... you'll be the next bidder"): a secondary option
+           right below the normal create button -- picking a
+           difficulty creates the table with that team starting the
+           deficit and forced into the first bid, exactly like an
+           ordinary table otherwise (anyone can join it the same way,
+           same championship progression once it's under way). -->
+      <button type="button" id="btnShowChallengeOptions" style="width:100%;margin-bottom:8px;padding:10px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-weight:700;font-size:0.8rem;cursor:pointer">🎯 Create Challenge Table</button>
+      <div id="challengeOptionsRow" style="display:none;gap:6px;margin-bottom:8px">
+        <button type="button" class="challenge-diff-btn" data-handicap="5" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--text-primary);font-weight:700;font-size:0.75rem;cursor:pointer">0–5</button>
+        <button type="button" class="challenge-diff-btn" data-handicap="10" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--text-primary);font-weight:700;font-size:0.75rem;cursor:pointer">0–10</button>
+        <button type="button" class="challenge-diff-btn" data-handicap="13" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--text-primary);font-weight:700;font-size:0.75rem;cursor:pointer">0–13</button>
+      </div>
       <div class="connection-status" id="hostStatus"><div class="status-dot"></div>Waiting for players...</div>
     </div>
     <div class="lobby-card" id="joinCard" style="display:none">
@@ -15583,6 +15597,16 @@ document.getElementById('btnCreateRoom').addEventListener('click', () => {
   requestFullscreen28();
   createTableOnServer(MY_NAME);
 });
+document.getElementById('btnShowChallengeOptions').addEventListener('click', () => {
+  const row = document.getElementById('challengeOptionsRow');
+  row.style.display = row.style.display === 'flex' ? 'none' : 'flex';
+});
+document.querySelectorAll('.challenge-diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    requestFullscreen28();
+    createTableOnServer(MY_NAME, Number(btn.dataset.handicap));
+  });
+});
 
 // Join a room (client side)
 
@@ -17247,10 +17271,12 @@ function hideKickNotice() {
 
 let cachedEntryCode = ''; // once a locked server accepts a code, reuse it silently for the rest of this session instead of re-prompting every time
 
-function createTableOnServer(name) {
+function createTableOnServer(name, challengeHandicap) {
   connectGameSocket();
   MY_NAME = name;
-  gameSocket.emit('createTable', { name, code: cachedEntryCode, avatar: MY_AVATAR_KEY });
+  const payload = { name, code: cachedEntryCode, avatar: MY_AVATAR_KEY };
+  if (challengeHandicap === 5 || challengeHandicap === 10 || challengeHandicap === 13) payload.challengeHandicap = challengeHandicap;
+  gameSocket.emit('createTable', payload);
 }
 
 let joinAttemptWatchdog = null;
@@ -17648,6 +17674,7 @@ let lastRenderedPlayersSignature = null;
 let lastKnownHumanNamesInLobby = [];
 let lastChimedCurrentPlayer = null;
 let lastChimedRound = null;
+let challengeBeatenAnnounced = false;
 let lastChimedPhase2Round = null;
 // Per explicit request: populates the ready-room popup's player list
 // (names + bot count) and wires the Start button, mirroring
@@ -18698,6 +18725,18 @@ function applyServerState(state) {
     }, 2500);
   }
 
+  // Real, confirmed feature per explicit request ("after winning it
+  // should say u beat the challenge and then continue next
+  // championship like normal"): fires once, the moment the server
+  // confirms the challenger's team actually won despite their starting
+  // deficit -- shown as its own distinct banner, separate from (and
+  // before) the normal championship-won flow right below, which
+  // continues completely unchanged after this.
+  if (state.challengeBeaten && !challengeBeatenAnnounced) {
+    challengeBeatenAnnounced = true;
+    showGameEvent('🎯', 'Challenge Beaten!', 'You overcame a ' + state.challengeHandicap + '-point deficit!', '#f4c430');
+    playSound('happy');
+  }
   if (state.phase === 'roundEnd' && state.roundWinnerAnnounced && serverRoundEndShown !== state.round) {
     serverRoundEndShown = state.round;
     const r = state.roundWinnerAnnounced;

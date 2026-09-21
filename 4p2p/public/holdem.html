@@ -2848,18 +2848,21 @@ function renderLobby(state) {
   const occupied = state.seats.filter(Boolean).length;
   $('waitingNote').textContent = isRealHost ? '' : `Waiting for host to start — ${occupied}/9 seated.`;
 }
-$('btnStartHand').addEventListener('click', () => {
-  // Per explicit live report that this stopped working: rebuilt more
-  // defensively -- the previous version only ever attempted
-  // orientation.lock() inside requestFullscreen()'s own success
-  // callback, so if fullscreen itself silently failed or behaved
-  // differently on a given browser/Android version, the lock attempt
-  // never even ran at all, with nothing visible to show it. Now
-  // attempts the lock on its own too, independent of whether
-  // fullscreen succeeds, and surfaces a quiet, one-time toast if
-  // neither actually works so a real failure is at least visible
-  // instead of silent. Still only attempted on a narrow/phone-like
-  // viewport, still only ever entering, never exiting.
+// Real, confirmed feature per explicit live report ("auto landscape
+// mode only came for the host, the guest started default in
+// portrait... I want that also landscape"): this whole fullscreen +
+// orientation-lock attempt used to live entirely inside
+// btnStartHand's own click handler -- which only the host ever
+// clicks, since starting the hand is a host-only action. A guest
+// never gets an equivalent moment, so they never got this at all.
+// Extracted into its own function so it can be called from the
+// host's own Start Hand click (unchanged) AND from the guest's first
+// tap anywhere on the game screen (see the delegated one-time
+// listener below) -- requestFullscreen() requires a real, direct user
+// gesture to work at all, so it genuinely can't be triggered purely
+// from a server-pushed "the game started" state update; the guest's
+// own first tap is the earliest real gesture available.
+function attemptFullscreenLandscape() {
   if (window.innerWidth < 700 && !document.fullscreenElement && !document.webkitFullscreenElement) {
     const el = document.documentElement;
     const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
@@ -2887,6 +2890,20 @@ $('btnStartHand').addEventListener('click', () => {
       tryLock();
     }
   }
+}
+// One-time: the first tap anywhere on the game screen for a non-host
+// guest triggers the same fullscreen/landscape attempt the host's own
+// Start Hand click already gets. Scoped to #gameScreen specifically so
+// it can't fire while still on the landing/lobby screens, and removes
+// itself after firing once so it doesn't re-trigger every later tap.
+let guestFullscreenAttempted = false;
+document.getElementById('gameScreen').addEventListener('click', function guestFsHandler() {
+  if (guestFullscreenAttempted || isRealHost) return;
+  guestFullscreenAttempted = true;
+  attemptFullscreenLandscape();
+}, { capture: true });
+$('btnStartHand').addEventListener('click', () => {
+  attemptFullscreenLandscape();
   const activeBtn = document.querySelector('#botFillOpts .opt-btn.active');
   const n = activeBtn ? Number(activeBtn.dataset.n) : 0;
   socket.emit('poker_fillBots', { count: n });
