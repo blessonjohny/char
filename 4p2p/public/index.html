@@ -552,7 +552,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    button just above, rebuilt in three deep jewel tones instead of one
    -- emerald, amethyst, ruby -- rather than the plain flat-outline
    placeholder buttons this replaces. */
-.challenge-diff-btn{flex:1;padding:12px 4px;border-radius:10px;border:none;font-weight:800;font-size:0.8rem;letter-spacing:0.4px;text-transform:uppercase;cursor:pointer;color:#fff;transition:all 0.2s;touch-action:manipulation}
+.challenge-diff-btn{flex:1;padding:10px 4px;border-radius:10px;border:none;cursor:pointer;color:#fff;transition:all 0.2s;touch-action:manipulation;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px}
+.challenge-diff-name{font-weight:800;font-size:0.8rem;letter-spacing:0.4px;text-transform:uppercase;line-height:1.1}
+.challenge-diff-sub{font-weight:600;font-size:0.62rem;opacity:0.85;letter-spacing:0.2px;line-height:1.1;white-space:nowrap}
 .challenge-diff-medium{background:linear-gradient(135deg,#2ecc71,#0e8a4b);box-shadow:0 4px 16px rgba(46,204,113,0.35)}
 .challenge-diff-medium:hover,.challenge-diff-medium:active{background:linear-gradient(135deg,#3ee888,#12a85c);box-shadow:0 8px 26px rgba(46,204,113,0.5);transform:translateY(-2px) scale(1.02)}
 .challenge-diff-hard{background:linear-gradient(135deg,#a855f7,#6b21a8);box-shadow:0 4px 16px rgba(168,85,247,0.35)}
@@ -4406,9 +4408,9 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
            a single tap instead of two. -->
       <div class="challenge-label-static">🎯 Create Challenge Table</div>
       <div id="challengeOptionsRow" style="display:flex;gap:8px;margin-bottom:8px">
-        <button type="button" class="challenge-diff-btn challenge-diff-medium" data-handicap="5">Medium</button>
-        <button type="button" class="challenge-diff-btn challenge-diff-hard" data-handicap="10">Hard</button>
-        <button type="button" class="challenge-diff-btn challenge-diff-dare" data-handicap="13">Dare</button>
+        <button type="button" class="challenge-diff-btn challenge-diff-medium" data-handicap="5"><span class="challenge-diff-name">Medium</span><span class="challenge-diff-sub">Start 0–5</span></button>
+        <button type="button" class="challenge-diff-btn challenge-diff-hard" data-handicap="10"><span class="challenge-diff-name">Hard</span><span class="challenge-diff-sub">Start 0–10</span></button>
+        <button type="button" class="challenge-diff-btn challenge-diff-dare" data-handicap="13"><span class="challenge-diff-name">Dare</span><span class="challenge-diff-sub">Start 0–13</span></button>
       </div>
       <div class="connection-status" id="hostStatus"><div class="status-dot"></div>Waiting for players...</div>
     </div>
