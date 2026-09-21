@@ -3485,6 +3485,24 @@ function updateRebuildEliminationUI(state) {
     if (!eliminatedOverlayDismissed) eliminatedOverlay.classList.add('on');
     return;
   }
+  // Real, confirmed bug fix per explicit live report ("2nd time when
+  // they busted they also get that blackout countdown... you don't
+  // need that, they don't get one more chance"): checkReloads() in
+  // poker-engine.js waits the SAME reloadWaitMs on a player's final
+  // bust as it does on a legitimate one, before actually setting
+  // eliminated:true -- during that whole wait, bustedAt is set but
+  // eliminated genuinely is still false server-side. The outcome is
+  // already certain the instant rebuysUsed reaches 1 though (the
+  // server's own reload logic guarantees no further rebuy is coming),
+  // so the client can and should go straight to the real "you're out"
+  // messaging instead of showing a countdown toward a rebuild that
+  // was never actually going to happen.
+  if (mySeat.bustedAt && (mySeat.rebuysUsed || 0) >= 1) {
+    rebuildOverlay.classList.remove('on');
+    if (rebuildCountdownInterval) { clearInterval(rebuildCountdownInterval); rebuildCountdownInterval = null; }
+    if (!eliminatedOverlayDismissed) eliminatedOverlay.classList.add('on');
+    return;
+  }
   eliminatedOverlayDismissed = false;
   eliminatedOverlay.classList.remove('on');
   if (mySeat.bustedAt) {

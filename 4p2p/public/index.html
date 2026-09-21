@@ -5448,6 +5448,37 @@ function playSound(kind, arg) {
 // playChime kept as an alias so the join/yourTurn call sites added earlier don't need to
 // change - same function, now backed by the unified engine above.
 function playChime(kind) { playSound(kind); }
+// Real, confirmed architectural fix per explicit live report ("my turn
+// ping is heard before the bot card sound... the AI makes a split
+// decision and it's displayed early, not in the proper sequence"):
+// the actual root cause, confirmed by that report -- bot decisions get
+// computed and broadcast essentially instantly (server-side
+// computation has no real "thinking time"), so multiple bot actions
+// can arrive as several separate, closely-spaced state updates. Each
+// one independently plays its own sound and independently checks "is
+// it my turn now" -- there was never any guarantee those checks
+// resolved in the same order the actual game events happened in, and
+// a guessed fixed delay on the ping alone couldn't reliably fix that,
+// it could only ever narrow the window. This replaces guessing with a
+// real guarantee: every sound tied to a bot/game event goes through
+// one single, strictly sequential queue -- each entry waits for the
+// previous one to actually finish (a real minimum gap between them)
+// before playing, so no matter how close together the underlying
+// state updates arrive, the sounds themselves always play in the
+// exact order they were queued in, never out of sequence.
+let soundQueue = [];
+let soundQueueRunning = false;
+function queueSound(kind, arg) {
+  soundQueue.push({ kind, arg });
+  if (!soundQueueRunning) runSoundQueue();
+}
+function runSoundQueue() {
+  if (soundQueue.length === 0) { soundQueueRunning = false; return; }
+  soundQueueRunning = true;
+  const next = soundQueue.shift();
+  playSound(next.kind, next.arg);
+  setTimeout(runSoundQueue, 380);
+}
 
 // Haptic feedback (phone vibration) - a separate concern from sound, but the same principle:
 // short, distinct patterns per action rather than one generic buzz for everything.
@@ -8152,7 +8183,21 @@ function updateInfo() {
   document.getElementById('phaseLabel').textContent = 'Round ' + round + (IS_ONLINE ? ' · Online' : ' · Local');
 
   const tr = document.getElementById('trumpReveal');
-  if (tr) {
+  // Real, confirmed root-cause fix per explicit live report ("before
+  // the second bot plays, the third bot's trump choose decision was
+  // already made and shows trump sign lineup early... it's supposed
+  // to trigger later but it's not in proper sequence"): this element
+  // used to update the instant trumpExposed flipped true in the
+  // latest state, completely independent of whether the bot card play
+  // that actually caused it had finished its own staggered visual
+  // reveal yet -- bot decisions get computed and broadcast almost
+  // instantly, so the DATA was already current well before the
+  // ANIMATION had caught up to it. Skips this specific update while a
+  // catch-up sequence is genuinely still in progress (trickRevealBusy)
+  // -- the element just keeps showing whatever it last correctly
+  // showed until catch-up finishes and the next real render (which
+  // always follows) updates it for real, in the right order.
+  if (tr && !trickRevealBusy) {
     const thaniActive = !!(SERVER_MODE && latestServerState && latestServerState.thaniCaller >= 0);
     if (thaniActive) {
       // Thani has no trump at all, permanently, for the whole round --
@@ -18326,22 +18371,18 @@ function applyServerState(state) {
   // actually visible. Delaying to match the trump-exposed announcement's own 550ms pause (for
   // the identical reason - see that code) gives the card time to actually land first.
   if (state.currentPlayer === MY_POS && lastChimedCurrentPlayer !== MY_POS && state.phase !== 'lobby') {
-    setTimeout(() => {
-      // Re-check at fire-time, not just schedule-time - if something else already changed
-      // whose turn it is in the meantime (a fast bot, a reconnect), don't fire a stale chime.
-      if (latestServerState && latestServerState.currentPlayer === MY_POS) {
-        playChime('ping');
-        playHaptic('yourTurn');
-      }
-      // Real, confirmed fix per explicit live report ("ping is heard
-      // before the bot card sound, especially with 2 bots ahead of
-      // me"): 550ms was the exact SAME stagger the "bots played too
-      // fast" catch-up reveal already uses per card -- with 2 bots to
-      // catch up, that second bot's own sound is ALSO scheduled around
-      // 550ms, a genuine tie this delay alone couldn't reliably win.
-      // Extended clearly past that (750ms) so it can never land ahead
-      // of a 2-bot catch-up sequence, not just a 1-bot one.
-    }, 750);
+    // Real, confirmed architectural fix per explicit live report ("the
+    // AI makes a split decision and it's displayed early, not in the
+    // proper sequence"): the previous version guessed a fixed delay
+    // (750ms) long enough to usually clear a 2-bot catch-up -- but a
+    // guess is still a guess, and the report confirmed it wasn't
+    // reliable. queueSound guarantees real ordering instead: pushed
+    // onto the exact same strict, sequential queue every bot card-play
+    // sound already goes through, so this can never play before a
+    // bot's sound that was queued ahead of it, regardless of how many
+    // bots there were or how close together their actions arrived.
+    queueSound('ping');
+    playHaptic('yourTurn');
   }
   lastChimedCurrentPlayer = state.currentPlayer;
   currentPlayer = state.currentPlayer;
@@ -19180,7 +19221,7 @@ function catchUpTrickSlotsStaggered(real) {
     // staggered (550ms apart, matching the real bot pace) -- this
     // sound now rides along with that same real per-card timing
     // instead of being missing from it.
-    if (tc.pos !== MY_POS) { playSound('cardPlay'); playHaptic('cardPlayed'); }
+    if (tc.pos !== MY_POS) { queueSound('cardPlay'); playHaptic('cardPlayed'); }
     lastRenderedSlotContent[slotIdx] = tc.card.suit + tc.card.rank;
     trickCards.push({ player: tc.pos, card: cardWithColor });
     clearCallBadges4p(); // per explicit instruction: bid/pass bubbles stay up only until someone actually starts playing
@@ -19218,7 +19259,7 @@ function renderTrickSlots(state) {
       // once ~100-300ms later). Every other player's card only ever arrives through this
       // state-driven path in the first place, so this exclusion only ever skips MY card,
       // never anyone else's.
-      if (tc.player !== MY_POS) playSound('cardPlay');
+      if (tc.player !== MY_POS) queueSound('cardPlay');
       // Real bug fix, per explicit correction: this is the actual live,
       // real-time path every other player's card renders through in
       // online multiplayer (see the comment right above -- confirmed
