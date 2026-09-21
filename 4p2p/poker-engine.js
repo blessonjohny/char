@@ -283,7 +283,15 @@ class PokerEngine {
       s.lastAction = null;
     }
 
-    this.dealerSeat = this.dealerSeat === -1 ? active[0] : nextOccupiedSeat(this.seats, this.dealerSeat, true);
+    // Real, confirmed fix per explicit request ("the dealer should be
+    // random at each tournament"): the very first dealer of a table's
+    // life used to always be active[0] specifically -- whichever seat
+    // happened to be first (almost always the host, since they're
+    // seated first) was dealing the opening hand every single time,
+    // never actually random. Every dealer AFTER this first one still
+    // rotates normally via nextOccupiedSeat below, completely
+    // unaffected -- only the one-time starting point changes.
+    this.dealerSeat = this.dealerSeat === -1 ? active[Math.floor(Math.random() * active.length)] : nextOccupiedSeat(this.seats, this.dealerSeat, true);
     if (this.dealerSeat === -1) this.dealerSeat = active[0];
 
     const order = this._seatOrderFrom(this.dealerSeat);

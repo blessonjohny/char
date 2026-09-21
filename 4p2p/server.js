@@ -5296,6 +5296,16 @@ function pokerBroadcast(t) {
     if (!sock) continue;
     const state = t.engine.getStateFor(info.pos);
     state.isHost = isEffectiveHost(t, info.playerId);
+    // Real, confirmed fix per explicit live report ("join players
+    // cannot start... waiting for host to start"): isHost above is
+    // deliberately "any connected human," the right fallback for the
+    // general host-menu button (kicking, filling bots, etc. all make
+    // sense for whoever's actively managing the table). Starting the
+    // hand specifically needs the real, actual designated host, not
+    // just anyone currently seated -- a separate, stricter field
+    // rather than changing isHost's existing meaning everywhere else
+    // it's already relied on.
+    state.isRealHost = t.hostPlayerId === info.playerId;
     // Per explicit host-controls request: only ever actually needed by
     // the host (the client-side host menu is the only thing that reads
     // this), but included for everyone the same simple way isHost
@@ -5475,7 +5485,7 @@ io.on('connection', (socket) => {
     t.sockets.set(socket.id, { pos: 0, playerId });
     pokerTableId = tableId; pokerPlayerId = playerId;
     socket.join('poker_' + tableId);
-    socket.emit('poker_joined', { tableId, pos: 0, playerId, isHost: true });
+    socket.emit('poker_joined', { tableId, pos: 0, playerId, isHost: true, isRealHost: true });
     pokerBroadcast(t);
   });
 
@@ -5502,7 +5512,7 @@ io.on('connection', (socket) => {
     pokerTableId = tableId; pokerPlayerId = newPlayerId;
     socket.join('poker_' + tableId);
     ensureHumanHost(t, newPlayerId);
-    socket.emit('poker_joined', { tableId, pos, playerId: newPlayerId, isHost: isEffectiveHost(t, newPlayerId) });
+    socket.emit('poker_joined', { tableId, pos, playerId: newPlayerId, isHost: isEffectiveHost(t, newPlayerId), isRealHost: t.hostPlayerId === newPlayerId });
     pokerTouch(t);
     pokerBroadcast(t);
     // Real, confirmed feature per explicit request ("when someone joins
@@ -5542,6 +5552,12 @@ io.on('connection', (socket) => {
           if (info.pos === existingPos && sid !== socket.id) t.sockets.delete(sid);
         }
         // Same reclaim-from-the-2-minute-sweep as the other tables.
+        // Real, confirmed feature per explicit request ("tell them
+        // temporary waiting... with an OK popup"): captured BEFORE
+        // clearing isBot, so the client can be told plainly what
+        // happened while they were away -- a bot covered their seat so
+        // the game could keep moving, and now they're back in control.
+        const wasCoveredByBot = t.engine.seats[existingPos].isBot;
         if (t.engine.seats[existingPos].isBot) t.engine.seats[existingPos].isBot = false;
         t.engine.seats[existingPos].connected = true;
         t.engine.seats[existingPos].disconnectedAt = null;
@@ -5550,7 +5566,7 @@ io.on('connection', (socket) => {
         socket.join('poker_' + tableId);
         // Strong host-recovery rule (same as the 4-player table).
         ensureHumanHost(t, existingPlayerId);
-        socket.emit('poker_joined', { tableId, pos: existingPos, playerId: existingPlayerId, isHost: isEffectiveHost(t, existingPlayerId) });
+        socket.emit('poker_joined', { tableId, pos: existingPos, playerId: existingPlayerId, isHost: isEffectiveHost(t, existingPlayerId), isRealHost: t.hostPlayerId === existingPlayerId, wasCoveredByBot });
         pokerTouch(t);
         pokerBroadcast(t);
         // Same as the 4-player/6-player tables: reconnecting always
@@ -5648,7 +5664,17 @@ io.on('connection', (socket) => {
 
   socket.on('poker_startHand', () => {
     withPokerTable((t) => {
-      if (!isEffectiveHost(t, pokerPlayerId)) return;
+      // Real, confirmed bug fix per explicit live report ("join players
+      // cannot start... waiting for host to start"): isEffectiveHost
+      // treats ANY connected human seat as host-equivalent, which is
+      // the right, intentional fallback for other host actions (taking
+      // over if the real host disconnects, etc.) but is wrong here
+      // specifically -- it meant a completely ordinary guest who just
+      // joined could actually start the hand themselves, not just see
+      // a button that happened to do nothing. Starting a hand needs the
+      // real, actual host specifically, not "any human currently at
+      // the table."
+      if (t.hostPlayerId !== pokerPlayerId) return;
       if (t.engine.phase !== 'lobby' && t.engine.phase !== 'handEnd') return;
       t.engine.startHand();
       pokerTouch(t);
