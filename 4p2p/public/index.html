@@ -19712,16 +19712,19 @@ function serverBotPlayForMe() {
       shatterIntoWords(el);
       el.querySelectorAll(':scope > span.k28-bounce-word, :scope > .k28-bounce-word').forEach(w => targets.push(w));
     });
-    // Hard safety cap, regardless of source: even after excluding the
-    // two biggest text blocks from shattering, this still measured
-    // 101 objects live -- clearly more than the "handful of words and
-    // icons drifting around" this was actually meant to look like.
-    // Rather than continuing to guess at which specific element is
-    // contributing too many, this guarantees a sane total no matter
-    // how much text this screen ever ends up with in the future.
-    // Evenly sampled (not just the first 50) so it's not always the
-    // exact same subset of elements bouncing every time.
-    const MAX_BOUNCERS = 50;
+    // Real, confirmed follow-up per explicit live report ("only one
+    // pool button is moving... all stuck in a circle"): direct
+    // testing at a 500x900 desktop-ish viewport shows every object
+    // genuinely moving, over a full 60 seconds -- but a real phone
+    // screen is meaningfully smaller than that, and this same 50
+    // fixed regardless of screen size means real phones get packed
+    // noticeably tighter than anything tested here. Scaled to the
+    // actual viewport area now instead of one fixed number: a small
+    // phone screen gets fewer objects sharing it, a bigger screen
+    // still gets up to 50 -- less crowding everywhere, worst case on
+    // the smallest real screens.
+    const viewportArea = window.innerWidth * window.innerHeight;
+    const MAX_BOUNCERS = Math.max(20, Math.min(50, Math.round(viewportArea / 9000)));
     if (targets.length > MAX_BOUNCERS) {
       const step = targets.length / MAX_BOUNCERS;
       const sampled = [];
