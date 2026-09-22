@@ -1795,6 +1795,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @keyframes buttonShine{0%{background-position:-200% center}100%{background-position:200% center}}
 
 .table.trump-exposed{animation:thunderShake 0.7s ease,tableGlowPulse 2s ease 0.6s 3,borderFlash 1.5s ease 0.6s 2;border:3px solid var(--accent)!important}
+/* Real, confirmed feature per explicit request ("challenge table...
+   background purple violet... as long as it's on challenge mode...
+   make sure nothing visually effected, hard to see, corners lit up in
+   that color, not overlapping"): a deliberately subtle, ambient
+   inset glow at the table's own corners/edges only -- never a solid
+   fill, never anything sitting on top of cards or UI, so nothing
+   about actual gameplay is visually affected. Purely a background
+   presence the whole time a genuine challenge is still undecided.
+   Removed automatically the instant the challenge resolves (win or
+   lose) since the class itself is only ever added while
+   challengeHandicap is set and challengeResolved is still false. */
+.table.challenge-active{box-shadow:inset 0 0 90px 18px rgba(168,85,247,0.4)}
 .table.trump-exposed .card{animation:cardShake 0.4s ease 0.2s}
 .table.trump-exposed .cross{animation:thunderShake 0.7s ease}
 
@@ -18841,6 +18853,18 @@ function applyServerState(state) {
       else if (watchdogPhase === 'bidding1') showBidPanel1();
       else if (watchdogPhase === 'bidding2') showRaisePanel();
     }, 2500);
+  }
+
+  // Real, confirmed feature per explicit request ("challenge table...
+  // background purple violet... as long as it's on challenge mode...
+  // if continue to regular it goes"): a genuine challenge is only
+  // ever "still on" while it has a real handicap AND hasn't been
+  // decided yet either way -- the instant it resolves (win or lose),
+  // this same check goes false and the glow comes off on the very
+  // next render, exactly matching "continue to regular, it goes."
+  const tableAreaEl = document.getElementById('tableArea');
+  if (tableAreaEl) {
+    tableAreaEl.classList.toggle('challenge-active', !!(state.challengeHandicap > 0 && !state.challengeResolved));
   }
 
   // Real, confirmed feature per explicit request ("after winning it

@@ -2447,6 +2447,15 @@ function applyState(state) {
   // round-end popup entirely once the match itself has ended; the
   // game-over popup already carries the final result, so there's
   // nothing the round-end popup would add at that specific point.
+  // Real, confirmed feature per explicit request ("challenge table...
+  // background purple violet... as long as it's on challenge mode...
+  // if continue to regular it goes") -- matches the 4-player table's
+  // identical addition exactly.
+  const sixOvalRailEl = document.querySelector('.six-oval-rail');
+  if (sixOvalRailEl) {
+    sixOvalRailEl.classList.toggle('challenge-active', !!(state.challengeHandicap > 0 && !state.challengeResolved));
+  }
+
   // Real, confirmed feature per explicit request ("after winning it
   // should say u beat the challenge... continue next championship like
   // normal"): matches the 4-player table's identical feature -- fires
