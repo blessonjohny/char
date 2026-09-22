@@ -19746,7 +19746,24 @@ function serverBotPlayForMe() {
       return {
         el, homeLeft: rect.left, homeTop: rect.top, w: rect.width, h: rect.height,
         x: rect.left, y: rect.top,
-        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        // Real, confirmed feature per explicit live report ("some
+        // objects [get] stuck... make the objects randomly smaller
+        // then back so I can squeeze thru"): a tightly-packed cluster
+        // of objects can genuinely wedge itself into a stable
+        // deadlock under this collision model -- every one pushing
+        // back on its neighbors with nowhere for any of them to
+        // actually go. Each object breathes independently now (its
+        // own random cycle length and starting point, so a whole
+        // cluster doesn't shrink and grow in sync and stay just as
+        // wedged as before) -- shrinking down to roughly two-thirds
+        // size and back on a slow, continuous cycle. That's enough for
+        // gaps to open up between neighbors on a regular basis, which
+        // is exactly the chance a stuck object needs to actually
+        // squeeze through and get moving again.
+        pulsePhase: Math.random() * Math.PI * 2,
+        pulsePeriod: 2.5 + Math.random() * 2.5, // 2.5-5s per full breathe cycle
+        scale: 1
       };
     });
     let lastT = performance.now();
@@ -19761,15 +19778,21 @@ function serverBotPlayForMe() {
     // spin here since these objects only ever translate, never rotate) so two colliding
     // objects actually bounce apart from each other now, not just from the screen edges.
     function resolveOverlap(A, B) {
-      const overlapX = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
-      const overlapY = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
+      // Uses each object's current breathing-cycle scale for the
+      // actual collision math, not just its full resting size -- two
+      // objects mid-shrink correctly get treated as smaller than they
+      // visually rest at, which is the whole point: a gap that
+      // wouldn't exist at full size can genuinely open up here.
+      const Aw = A.w * A.scale, Ah = A.h * A.scale, Bw = B.w * B.scale, Bh = B.h * B.scale;
+      const overlapX = Math.min(A.x + Aw, B.x + Bw) - Math.max(A.x, B.x);
+      const overlapY = Math.min(A.y + Ah, B.y + Bh) - Math.max(A.y, B.y);
       let nx, ny;
       if (overlapX < overlapY) {
-        const sign = (A.x + A.w / 2 < B.x + B.w / 2) ? -1 : 1;
+        const sign = (A.x + Aw / 2 < B.x + Bw / 2) ? -1 : 1;
         nx = sign; ny = 0;
         A.x += sign * overlapX / 2; B.x -= sign * overlapX / 2;
       } else {
-        const sign = (A.y + A.h / 2 < B.y + B.h / 2) ? -1 : 1;
+        const sign = (A.y + Ah / 2 < B.y + Bh / 2) ? -1 : 1;
         nx = 0; ny = sign;
         A.y += sign * overlapY / 2; B.y -= sign * overlapY / 2;
       }
@@ -19785,23 +19808,38 @@ function serverBotPlayForMe() {
       const dt = Math.min(0.05, (t - lastT) / 1000);
       lastT = t;
       for (const b of bouncers) {
+        // Real, confirmed feature per explicit live report ("some
+        // objects [get] stuck... make the objects randomly smaller
+        // then back so I can squeeze thru"): each object's own
+        // continuous breathing cycle, computed fresh every frame from
+        // elapsed real time (t) plus its own random phase/period, so
+        // every object is out of sync with every other one. Ranges
+        // from full size down to about two-thirds and back, smoothly,
+        // forever -- never fully stops moving, never fully vanishes.
+        b.scale = 1 - 0.35 * (0.5 + 0.5 * Math.sin((t / 1000) * (2 * Math.PI / b.pulsePeriod) + b.pulsePhase));
         b.x += b.vx * dt;
         b.y += b.vy * dt;
+        const ew = b.w * b.scale, eh = b.h * b.scale;
         if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
-        else if (b.x + b.w > viewportW) { b.x = viewportW - b.w; b.vx = -Math.abs(b.vx); }
+        else if (b.x + ew > viewportW) { b.x = viewportW - ew; b.vx = -Math.abs(b.vx); }
         if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
-        else if (b.y + b.h > viewportH) { b.y = viewportH - b.h; b.vy = -Math.abs(b.vy); }
+        else if (b.y + eh > viewportH) { b.y = viewportH - eh; b.vy = -Math.abs(b.vy); }
       }
       for (let i = 0; i < bouncers.length; i++) {
         for (let j2 = i + 1; j2 < bouncers.length; j2++) {
           const A = bouncers[i], B = bouncers[j2];
-          if (A.x < B.x + B.w && A.x + A.w > B.x && A.y < B.y + B.h && A.y + A.h > B.y) {
+          const Aw = A.w * A.scale, Ah = A.h * A.scale, Bw = B.w * B.scale, Bh = B.h * B.scale;
+          if (A.x < B.x + Bw && A.x + Aw > B.x && A.y < B.y + Bh && A.y + Ah > B.y) {
             resolveOverlap(A, B);
           }
         }
       }
       for (const b of bouncers) {
-        b.el.style.transform = `translate(${(b.x - b.homeLeft).toFixed(1)}px,${(b.y - b.homeTop).toFixed(1)}px)`;
+        // Scale applied around the object's own center (not its
+        // top-left corner) so shrinking never visually drifts it
+        // sideways -- it just breathes in place while still moving
+        // and bouncing normally underneath.
+        b.el.style.transform = `translate(${(b.x - b.homeLeft).toFixed(1)}px,${(b.y - b.homeTop).toFixed(1)}px) scale(${b.scale.toFixed(3)})`;
       }
       rafId = requestAnimationFrame(frame);
     }
