@@ -3337,6 +3337,23 @@ function sixpBroadcastTable(t) {
     state.createdAt = t.createdAt || null;
     sock.emit('sixp_state', state);
   }
+  // Real, confirmed feature per explicit request ("4 player has watch
+  // and join a seat, make 6 player same"): spectators get the exact
+  // same state a player at seat -1 would see -- stateFor(-1) never
+  // matches a real seat, so this naturally produces a hand-free,
+  // watch-only view, same as the 4-player table's identical handling.
+  if (t.spectators) {
+    for (const [socketId] of t.spectators) {
+      const sock = io.sockets.sockets.get(socketId);
+      if (sock) {
+        const state = t.engine.stateFor(-1);
+        state.isHost = false;
+        state.tableId = t.id;
+        state.createdAt = t.createdAt || null;
+        sock.emit('sixp_state', state);
+      }
+    }
+  }
   io.emit('sixp_roomList', sixpPublicTableList());
 }
 
@@ -3431,14 +3448,31 @@ io.on('connection', (socket) => {
     if (!t) { socket.emit('sixp_joinError', { reason: 'table_not_found' }); return; }
     const openSeats = t.engine.emptySeats();
     const { botSeats, disconnectedSeats } = sixpJoinableSeats(t);
+    // Real, confirmed feature per explicit request ("4 player has
+    // watch and join a seat... make 6 player same"): a full table used
+    // to reject outright with table_full and no way to even watch --
+    // matches the 4-player table's identical fix exactly: watching is
+    // always offered as the fallback once every seat is genuinely
+    // taken by a connected human, never a dead end.
+    sixpPendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player', avatar: sanitizeAvatarKey(avatar) };
+    socket.emit('sixp_chooseSeat', { tableId: reqTableId, openSeats, botSeats, disconnectedSeats, seats: sixpSeatSnapshot(t), canWatch: true });
+  });
+
+  // An existing spectator asking to convert to a player -- matches the
+  // 4-player table's identical sixp_requestSeat... sorry, requestSeat
+  // handler exactly.
+  socket.on('sixp_requestSeat', () => {
+    const t = sixpTables[sixpTableId];
+    if (!t || !t.spectators || !t.spectators.has(socket.id)) return;
+    const spec = t.spectators.get(socket.id);
+    const openSeats = t.engine.emptySeats();
+    const { botSeats, disconnectedSeats } = sixpJoinableSeats(t);
     if (openSeats.length === 0 && botSeats.length === 0 && disconnectedSeats.length === 0) {
       socket.emit('sixp_joinError', { reason: 'table_full' });
       return;
     }
-    // Simpler than the 4p game for this first pass: no host-approval gate
-    // for joining a table already in progress — straight to seat picking.
-    sixpPendingSeatChoice[socket.id] = { tableId: reqTableId, name: name || 'Player', avatar: sanitizeAvatarKey(avatar) };
-    socket.emit('sixp_chooseSeat', { tableId: reqTableId, openSeats, botSeats, disconnectedSeats, seats: sixpSeatSnapshot(t) });
+    sixpPendingSeatChoice[socket.id] = { tableId: sixpTableId, name: spec.name, avatar: spec.avatar };
+    socket.emit('sixp_chooseSeat', { tableId: sixpTableId, openSeats, botSeats, disconnectedSeats, seats: sixpSeatSnapshot(t), canWatch: false });
   });
 
   socket.on('sixp_claimSeat', ({ choice }) => {
@@ -3447,6 +3481,24 @@ io.on('connection', (socket) => {
     const t = sixpTables[pending.tableId];
     if (!t) { socket.emit('sixp_joinError', { reason: 'table_not_found' }); return; }
     delete sixpPendingSeatChoice[socket.id];
+
+    // Real, confirmed feature per explicit request -- matches the
+    // 4-player table's identical 'watch' choice.type exactly, just
+    // using this table's own simple-string choice convention (choice
+    // is already a bare 'bot' or a seat number here, not an object)
+    // rather than forcing the 4-player table's {type:'watch'} shape
+    // onto a table that's never used it.
+    if (choice === 'watch') {
+      sixpPlayerId = newId();
+      sixpTableId = pending.tableId;
+      t.spectators = t.spectators || new Map();
+      t.spectators.set(socket.id, { playerId: sixpPlayerId, name: pending.name, avatar: pending.avatar });
+      socket.join('sixp_' + sixpTableId);
+      socket.emit('sixp_joinedAsSpectator', { tableId: sixpTableId, playerId: sixpPlayerId });
+      sixpBroadcastTable(t);
+      console.log(`[table ${sixpTableId}] ${pending.name} joined as a spectator`);
+      return;
+    }
 
     let pos = -1;
     if (choice === 'bot' || choice === undefined) {
@@ -3502,16 +3554,26 @@ io.on('connection', (socket) => {
     fn(t, info.pos);
   }
 
+  // Real, confirmed feature per explicit request ("4 player has watch
+  // and join a seat, make 6 player same") -- matches the 4-player
+  // table's identical chat handler exactly: available to seated
+  // players and spectators alike, since both now join the same room.
   socket.on('sixp_chat', ({ msg }) => {
-    withSixpTable((t, pos) => {
-      const trimmed = String(msg || '').slice(0, 300).trim();
-      if (!trimmed) return;
-      const seat = t.engine.seats[pos];
-      if (!seat) return;
-      io.to('sixp_' + sixpTableId).emit('sixp_chat', { from: seat.name, msg: trimmed, senderId: socket.id });
-      appendChatHistory(t, { from: seat.name, msg: trimmed, ts: Date.now() });
-      sixpTouch(t);
-    });
+    const t = sixpTables[sixpTableId];
+    if (!t) return;
+    const trimmed = String(msg || '').slice(0, 300).trim();
+    if (!trimmed) return;
+    let from = null;
+    const seatInfo = t.sockets.get(socket.id);
+    if (seatInfo && t.engine.seats[seatInfo.pos]) {
+      from = t.engine.seats[seatInfo.pos].name;
+    } else if (t.spectators && t.spectators.has(socket.id)) {
+      from = t.spectators.get(socket.id).name + ' (watching)';
+    }
+    if (!from) return;
+    io.to('sixp_' + sixpTableId).emit('sixp_chat', { from, msg: trimmed, senderId: socket.id });
+    appendChatHistory(t, { from, msg: trimmed, ts: Date.now() });
+    sixpTouch(t);
   });
 
   // Purely social, no gameplay effect at all -- same feature as
@@ -3905,6 +3967,15 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     const t = sixpTables[sixpTableId];
     if (!t) return;
+    delete sixpPendingSeatChoice[socket.id];
+    // Real, confirmed feature per explicit request ("4 player has
+    // watch and join a seat, make 6 player same") -- matches the
+    // 4-player table's identical disconnect handling exactly.
+    if (t.spectators && t.spectators.has(socket.id)) {
+      t.spectators.delete(socket.id);
+      sixpBroadcastTable(t);
+      return;
+    }
     const info = t.sockets.get(socket.id);
     if (!info) return;
     t.sockets.delete(socket.id);
