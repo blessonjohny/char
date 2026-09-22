@@ -1807,6 +1807,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    lose) since the class itself is only ever added while
    challengeHandicap is set and challengeResolved is still false. */
 .table.challenge-active{box-shadow:inset 0 0 90px 18px rgba(168,85,247,0.4)}
+#challengeWatermark{display:none}
+.table.challenge-active #challengeWatermark{display:block}
 .table.trump-exposed .card{animation:cardShake 0.4s ease 0.2s}
 .table.trump-exposed .cross{animation:thunderShake 0.7s ease}
 
@@ -3392,6 +3394,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .table:not(.mode6) .lamp-glow-tr { top: 7.5%; left: 91%; animation-delay: 1.1s; }
   .table:not(.mode6) .lamp-glow-bl { top: 82%; left: 9%; width: 70px; height: 70px; animation-delay: 2.2s; }
   .table:not(.mode6) .lamp-glow-br { top: 82%; left: 91%; animation-delay: 0.6s; }
+  /* Real, confirmed follow-up per explicit live report ("nothing
+     really changed... my dark corners of the screen... the table
+     corners the lamps, maybe turn that into purple"): the earlier
+     inset box-shadow attempt was too subtle to actually read against
+     these same dark photo corners -- these 4 lamps are already the
+     one thing genuinely lit up and visible there, so recoloring them
+     to violet while a challenge is active is what actually shows up,
+     rather than adding another layer competing with the same
+     darkness. Same warm-glow shape/pulse/positions, just violet
+     instead of amber -- reverts to the normal warm glow the instant
+     the challenge resolves, since this only ever applies while
+     .challenge-active is present on .table.
+  */
+  .table.challenge-active:not(.mode6) .lamp-glow {
+    background: radial-gradient(circle, rgba(190,120,255,0.75) 0%, rgba(160,80,255,0.4) 35%, rgba(140,60,255,0) 70%);
+  }
   @keyframes lampGlowPulse {
     0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.92); }
     50% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.08); }
@@ -4591,6 +4609,16 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </div>
     <div class="king-progress-track" id="kingProgressTrack" style="display:none"><div class="king-progress-fill" id="kingProgressFill" style="width:0%"></div></div>
   </div><div class="table" id="tableArea">
+  <!-- Real, confirmed feature per explicit live report ("middle table
+       say challenge nice and underlapping actions"): a low-opacity
+       text watermark, dead center, sitting BEHIND every other piece of
+       real game UI (z-index 0, everything else on this table already
+       sits above that) and pointer-events:none so it can never
+       intercept a tap meant for a real button underneath it. Only
+       ever shown via the same .challenge-active class the lamps above
+       use, so it appears and disappears at the exact same moment they
+       do. -->
+  <div id="challengeWatermark" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Cinzel Decorative','Cinzel',serif;font-size:clamp(1.4rem,7vw,2.6rem);font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(190,120,255,0.28);z-index:0;pointer-events:none;white-space:nowrap">Challenge</div>
     <div class="lamp-glow lamp-glow-tl"></div>
     <div class="lamp-glow lamp-glow-tr"></div>
     <div class="lamp-glow lamp-glow-bl"></div>
@@ -17914,6 +17942,16 @@ function renderServerRoomList(rooms) {
     } else {
       tag = `<span class="p-tag tag-waiting" style="font-size:0.54rem;padding:1px 5px;white-space:nowrap;flex-shrink:0">${r.players}/4 · Lobby</span>`;
     }
+    // Real, confirmed feature per explicit request ("challenge tables
+    // should be displayed... purple and regular tables green royal...
+    // in the public tables list when creating a table"): a genuine
+    // challenge is only ever "still on" while it has a real handicap
+    // AND hasn't been decided yet either way -- same check as the
+    // table's own purple glow/lamps use, so this list agrees with
+    // what the table itself actually looks like once you join it.
+    const isChallengeTable = r.challengeHandicap > 0 && !r.challengeResolved;
+    const avatarBg = isChallengeTable ? 'linear-gradient(135deg,#a855f7,#6b21a8)' : 'linear-gradient(135deg,#2ecc71,#0e8a4b)';
+    const challengeTag = isChallengeTable ? `<span class="p-tag" style="background:rgba(168,85,247,0.18);color:#c084fc;border:1px solid rgba(168,85,247,0.35);font-size:0.54rem;padding:1px 5px;white-space:nowrap;flex-shrink:0">🎯 Challenge</span>` : '';
     let sub = '';
     if (r.isPlaying) {
       if (r.canJoinSeat) sub = (r.openSeats > 0 ? r.openSeats + ' open seat(s)' : '') + (r.openSeats > 0 && r.botSeats > 0 ? ', ' : '') + (r.botSeats > 0 ? r.botSeats + ' bot seat(s)' : '');
@@ -17921,10 +17959,10 @@ function renderServerRoomList(rooms) {
       if (r.spectators > 0) sub += (sub ? ' · ' : '') + r.spectators + ' watching';
     }
     return `<div class="player-row" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:4px" onclick="joinTableOnServer('${r.tableId}', MY_NAME)">` +
-      `<div class="p-avatar" style="background:linear-gradient(135deg,#4a90d9,#2a5a9a);width:24px;height:24px;font-size:0.75rem;flex-shrink:0">&#x1F3AE;</div>` +
+      `<div class="p-avatar" style="background:${avatarBg};width:24px;height:24px;font-size:0.75rem;flex-shrink:0">&#x1F3AE;</div>` +
       `<div style="flex:1;min-width:0"><div class="p-name" style="font-size:0.72rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</div>` +
       (sub ? `<div style="font-size:0.56rem;color:var(--text-secondary);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub}</div>` : '') +
-      `</div>${tag}` +
+      `</div>${challengeTag}${tag}` +
       `<button class="btn btn-primary" style="padding:3px 9px;font-size:0.62rem;margin-left:4px;flex-shrink:0" onclick="event.stopPropagation();joinTableOnServer('${r.tableId}', MY_NAME)">JOIN</button>` +
       `</div>`;
   }).join('');

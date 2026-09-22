@@ -1811,11 +1811,20 @@ function renderRoomList(rooms) {
   if (!targets.length) return;
   const html = !rooms.length
     ? '<div style="color:var(--text-secondary);font-size:0.8rem;padding:10px">No open tables right now.</div>'
-    : rooms.map(r => `
-    <div class="room-row">
-      <div><b>${escapeHtml(r.name)}</b><br><span style="color:var(--text-secondary)">${r.players}/6 · ${r.isPlaying ? 'Playing' : 'Lobby'}</span></div>
+    : rooms.map(r => {
+      // Real, confirmed feature per explicit request ("challenge
+      // tables should be displayed... purple and regular tables green
+      // royal... in the public tables list when creating a table") --
+      // matches the 4-player table's identical addition exactly.
+      const isChallengeTable = r.challengeHandicap > 0 && !r.challengeResolved;
+      const borderColor = isChallengeTable ? '#a855f7' : '#2ecc71';
+      const challengeTag = isChallengeTable ? ` <span style="background:rgba(168,85,247,0.18);color:#c084fc;border:1px solid rgba(168,85,247,0.35);font-size:0.62rem;padding:1px 6px;border-radius:8px;white-space:nowrap">🎯 Challenge</span>` : '';
+      return `
+    <div class="room-row" style="border-left:3px solid ${borderColor}">
+      <div><b>${escapeHtml(r.name)}</b>${challengeTag}<br><span style="color:var(--text-secondary)">${r.players}/6 · ${r.isPlaying ? 'Playing' : 'Lobby'}</span></div>
       <button class="btn btn-outline" style="width:auto;margin:0;padding:8px 14px" data-code="${r.tableId}" ${r.canJoinSeat ? '' : 'disabled'}>JOIN</button>
-    </div>`).join('');
+    </div>`;
+    }).join('');
   for (const list of targets) {
     list.innerHTML = html;
     list.querySelectorAll('button[data-code]').forEach(btn => {
@@ -2450,10 +2459,14 @@ function applyState(state) {
   // Real, confirmed feature per explicit request ("challenge table...
   // background purple violet... as long as it's on challenge mode...
   // if continue to regular it goes") -- matches the 4-player table's
-  // identical addition exactly.
-  const sixOvalRailEl = document.querySelector('.six-oval-rail');
-  if (sixOvalRailEl) {
-    sixOvalRailEl.classList.toggle('challenge-active', !!(state.challengeHandicap > 0 && !state.challengeResolved));
+  // identical addition. Toggled on #gameScreen specifically (not just
+  // .six-oval-rail) since the table's own decorative corner lamps
+  // (.fake-lamp-glow) are direct children of #gameScreen, not nested
+  // inside the oval at all -- one shared ancestor class lets both the
+  // table's glow AND the lamps react together.
+  const gameScreenEl = document.getElementById('gameScreen');
+  if (gameScreenEl) {
+    gameScreenEl.classList.toggle('challenge-active', !!(state.challengeHandicap > 0 && !state.challengeResolved));
   }
 
   // Real, confirmed feature per explicit request ("after winning it
