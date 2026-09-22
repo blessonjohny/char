@@ -3459,6 +3459,42 @@ io.on('connection', (socket) => {
         return;
       }
     }
+    // Real, confirmed bug fix per explicit live report ("while
+    // watching, it's been asking me the table join popup shows every
+    // 20 seconds or so"): a spectator's socket reconnecting (a normal
+    // network blip, a tab backgrounding on mobile, anything) re-emits
+    // this exact same event with their existing playerId -- but the
+    // reclaim check right above only ever looks at seated players
+    // (sixpPlayerIndex), never at spectators, so an existing spectator
+    // fell straight through to the code below every single time and
+    // got treated as a brand-new join request from scratch, complete
+    // with the seat-choice popup firing all over again for something
+    // they'd already answered once. Checked here, before that
+    // fallthrough: if this playerId already belongs to a spectator at
+    // this exact table (matched by value, since t.spectators itself is
+    // keyed by the old, now-stale socket.id), this is a genuine
+    // reconnect, not a new join -- moves that spectator entry onto the
+    // new socket.id and quietly reconnects them to their existing spot
+    // in the crowd, the exact same silent, no-popup treatment a seated
+    // player's own reconnect already gets above.
+    if (existingPlayerId) {
+      for (const t2 of Object.values(sixpTables)) {
+        if (!t2.spectators) continue;
+        for (const [oldSocketId, specInfo] of t2.spectators.entries()) {
+          if (specInfo.playerId !== existingPlayerId) continue;
+          if (oldSocketId !== socket.id) t2.spectators.delete(oldSocketId);
+          detachSocketFromAllTables(socket, t2.engine.tableId);
+          t2.spectators.set(socket.id, specInfo);
+          sixpPlayerId = existingPlayerId;
+          sixpTableId = t2.engine.tableId;
+          socket.join('sixp_' + sixpTableId);
+          socket.emit('sixp_joinedAsSpectator', { tableId: sixpTableId, playerId: sixpPlayerId });
+          sixpTouch(t2);
+          sixpBroadcastTable(t2);
+          return;
+        }
+      }
+    }
     const t = sixpTables[reqTableId];
     if (!t) { socket.emit('sixp_joinError', { reason: 'table_not_found' }); return; }
     const openSeats = t.engine.emptySeats();
@@ -3926,6 +3962,26 @@ io.on('connection', (socket) => {
   });
 
   socket.on('sixp_leaveTable', () => {
+    // Real, confirmed bug fix per explicit live report ("while
+    // watching and when u hit leave it's not logging me out, still
+    // showing table, I had to back it immediately"): withSixpTable
+    // below only ever looks a socket up in t.sockets, which is where
+    // SEATED players live -- a spectator's own connection lives in
+    // the separate t.spectators map instead, so withSixpTable's own
+    // internal lookup silently found nothing and its whole callback,
+    // this entire handler's actual leave logic, never ran at all for
+    // a spectator. Handled here, first, before any of that seat-
+    // specific logic: a spectator leaving just needs their own entry
+    // removed from the room and the spectators map, then broadcasts
+    // the table so everyone's spectator count updates too.
+    const tSpec = sixpTables[sixpTableId];
+    if (tSpec && tSpec.spectators && tSpec.spectators.has(socket.id)) {
+      tSpec.spectators.delete(socket.id);
+      socket.leave('sixp_' + sixpTableId);
+      sixpTouch(tSpec);
+      sixpBroadcastTable(tSpec);
+      return;
+    }
     withSixpTable((t, pos) => {
       t.sockets.delete(socket.id);
       const leavingPlayerId = t.engine.seats[pos] && t.engine.seats[pos].playerId;
@@ -5516,7 +5572,15 @@ function pokerMaybeBotAct(t) {
       // poker_act now applies here too.
       if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
       else pokerMaybeBotAct(t);
-    }, 900 + Math.random() * 700);
+      // Real, confirmed speed-up per explicit live report ("ghost bots
+      // are made to play like real humans slow sometimes, but
+      // sometimes it's too slow, make it faster"): 900-1600ms per bot
+      // decision, with several bots often needing to act in sequence
+      // during a single betting round, could genuinely stack into
+      // several real seconds of visible waiting -- still randomized
+      // (so it doesn't feel robotic/instant), just meaningfully
+      // shorter overall now.
+    }, 400 + Math.random() * 500);
   }
   // Per explicit, emphatic live instruction: Hold'em must NEVER take an
   // action on behalf of an actual human seat, for any reason, no matter

@@ -1986,7 +1986,23 @@ class GameEngine {
       // (challengeHandicap > 0) -- never re-fires on a later
       // championship at this same table, since the deficit itself was
       // only ever applied to the first one.
-      if (this.challengeHandicap > 0 && !this.challengeBeaten && this.challengerTeam === winningTeam) {
+      // Real, confirmed bug fix per explicit live report ("picked
+      // challenge 13, lost it, continued, then won a completely
+      // normal 15-7 championship, but it registered ME as a challenge
+      // winner"): this used to gate on !this.challengeBeaten, which
+      // only ever means "hasn't WON the challenge yet" -- if the
+      // challenger's team LOST the first, real challenge championship,
+      // challengeBeaten stays false forever, so this same condition
+      // stayed true forever too, and the very next ordinary
+      // championship win at this table (genuinely no handicap left,
+      // long since resolved) got recorded as a fresh challenge win
+      // all over again. challengeResolved is the actual "is this table
+      // still genuinely mid-challenge" flag -- it's set true the
+      // instant the first challenge championship ends, win OR lose,
+      // and correctly stays true forever after that, so nothing at
+      // this table can ever be mistaken for an active challenge again
+      // once the real one has already been decided either way.
+      if (this.challengeHandicap > 0 && !this.challengeResolved && this.challengerTeam === winningTeam) {
         this.challengeBeaten = true;
         const challengerNames = winningPlayerNames.slice();
         if (challengerNames.length > 0) {

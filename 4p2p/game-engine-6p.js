@@ -1611,7 +1611,15 @@ class GameEngine6P {
       // game-engine.js's identical 4-player addition for the fuller
       // reasoning. this.round here plays the same role
       // championshipRounds does for 4-player (rounds this match took).
-      if (this.challengeHandicap > 0 && !this.challengeBeaten && this.challengerTeam === winningTeam) {
+      // Real, confirmed bug fix per explicit live report -- see
+      // game-engine.js's identical fix for the fuller reasoning:
+      // gates on challengeResolved (genuinely "has this table's one
+      // real challenge been decided at all yet"), not challengeBeaten
+      // (only ever means "won it" -- stays false forever after a
+      // loss, which let every later, completely ordinary championship
+      // win at this table keep getting recorded as a fresh challenge
+      // win).
+      if (this.challengeHandicap > 0 && !this.challengeResolved && this.challengerTeam === winningTeam) {
         this.challengeBeaten = true;
         const challengerNames = winningPlayerNames.slice();
         if (challengerNames.length > 0) {
