@@ -521,7 +521,19 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .tilt-suggest-icon{font-size:2.2rem;margin-bottom:8px}
 .tilt-suggest-title{color:var(--gold);font-size:1.05rem;font-weight:900;margin-bottom:6px;text-shadow:0 0 10px rgba(244,196,48,0.6)}
 .tilt-suggest-sub{color:var(--cream);font-size:0.8rem;line-height:1.4}
-.hand-strip{display:flex;justify-content:center;gap:6px;padding:4px 0;flex-shrink:0}
+.hand-strip{display:flex;justify-content:center;gap:6px;padding:4px 0;flex-shrink:0;min-height:62px;min-width:94px}
+/* Real, confirmed follow-up fix per explicit live report ("my cards
+   are flickering every time and final position is now lined up with
+   the top dealt cards"): an empty flex container naturally collapses
+   to zero height, then jumps to its real 62px card-height the instant
+   any card actually appears -- with cards now revealing progressively
+   over roughly 1.5s (see the dealtCardCountBySeat feature) instead of
+   all landing at once, this jump became genuinely visible as the
+   whole hand strip shifting position partway through the deal.
+   Reserving the real card height here even while empty means the
+   strip's own position is already correct and stable from the very
+   first card onward -- nothing left to jump to.
+*/
 .hand-strip .card{width:44px;height:62px;font-size:1rem}
 
 .action-bar{width:100%;max-width:520px;margin:0 auto;padding:10px 14px 18px;flex-shrink:0}
@@ -3983,6 +3995,35 @@ function showWinningHandOnTable(state) {
 // visual/temporary -- the real, persistent card-back rendering at each
 // seat is entirely unchanged and handled elsewhere; these flying
 // sprites are removed once they land.
+// Real, confirmed root-cause fix per explicit live report ("my cards
+// are flickering every time and final position is now lined up with
+// the top dealt cards"): revealing a newly-dealt card used to call the
+// FULL renderGameTable(state) again -- which rebuilds the entire
+// seats container's innerHTML from scratch, every single seat, every
+// single time a single card lands anywhere at the table. That's not
+// just wasteful: destroying and recreating every seat's whole DOM
+// subtree repeatedly mid-deal is exactly what reads as flickering, and
+// since myHandStrip's own position/sizing can depend on layout state
+// that a full rebuild can disturb mid-flight, it could also end up
+// temporarily measuring the wrong layout and landing in the wrong
+// spot. This touches ONLY the one specific seat whose card just
+// landed -- the real other-seats .seat-cards markup, or myHandStrip
+// for the viewer's own seat -- and nothing else on the table at all.
+function revealDealtCardAt(state, pos) {
+  const s = state.seats[pos];
+  if (!s || !s.hand) return;
+  const dealtCount = dealtCardCountBySeat[pos] || 0;
+  const visibleHand = s.hand.slice(0, dealtCount);
+  if (pos === myPos) {
+    const strip = $('myHandStrip');
+    if (strip) strip.innerHTML = visibleHand.length ? visibleHand.map(c => cardHtml(c, false, false, 'dealt-card-pop')).join('') : '';
+    return;
+  }
+  const seatEl = document.querySelector(`.seat[data-pos="${pos}"]`);
+  const cardsEl = seatEl && seatEl.querySelector('.seat-cards');
+  if (!cardsEl || s.folded) return;
+  cardsEl.innerHTML = visibleHand.length ? visibleHand.map(c => cardHtml(c && c.rank ? c : null, true, false, 'dealt-card-pop')).join('') : '';
+}
 function animateDealingCards(state) {
   // Real, confirmed feature per explicit live report ("dealer is
   // dealing 2 rounds but my hand and others hands immediately shows 2
@@ -4076,7 +4117,7 @@ function animateDealingCards(state) {
         setTimeout(() => {
           if (dealtCardCountForHandNumber !== state.handNumber) return;
           dealtCardCountBySeat[pos] = cardIdx + 1;
-          renderGameTable(state);
+          revealDealtCardAt(state, pos);
         }, 520);
       }, delay);
     }
