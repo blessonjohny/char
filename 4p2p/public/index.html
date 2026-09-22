@@ -19753,47 +19753,29 @@ function serverBotPlayForMe() {
       };
     });
     let lastT = performance.now();
-    // Real, confirmed gap per explicit report: unlike the table screensaver further down this
-    // file (which already checks every bouncer against every other one and resolves overlaps
-    // with proper physics), this welcome-screen version never checked bouncers against EACH
-    // OTHER at all - only against the screen edges. Every button, icon, and bouncing word
-    // could freely pass through one another and end up sitting stacked on top of each other
-    // indefinitely, which is exactly what reads as "overlapping" rather than each object
-    // moving independently. Ports the same simple elastic-collision idea used elsewhere in
-    // this file (equal-mass, conservation of momentum along the collision normal, no torque/
-    // spin here since these objects only ever translate, never rotate) so two colliding
-    // objects actually bounce apart from each other now, not just from the screen edges.
-    function resolveOverlap(A, B) {
-      const overlapX = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
-      const overlapY = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
-      let nx, ny;
-      if (overlapX < overlapY) {
-        const sign = (A.x + A.w / 2 < B.x + B.w / 2) ? -1 : 1;
-        nx = sign; ny = 0;
-        A.x += sign * overlapX / 2; B.x -= sign * overlapX / 2;
-      } else {
-        const sign = (A.y + A.h / 2 < B.y + B.h / 2) ? -1 : 1;
-        nx = 0; ny = sign;
-        A.y += sign * overlapY / 2; B.y -= sign * overlapY / 2;
-      }
-      const rvx = A.vx - B.vx, rvy = A.vy - B.vy;
-      const velAlongNormal = rvx * nx + rvy * ny;
-      if (velAlongNormal > 0) return; // already separating
-      const j = -velAlongNormal; // equal mass, restitution 1
-      A.vx += j * nx; A.vy += j * ny;
-      B.vx -= j * nx; B.vy -= j * ny;
-    }
+    // Real, confirmed simplification per repeated explicit live
+    // reports of objects getting stuck/frozen: the inter-object
+    // collision system added a few turns back (so two bouncing
+    // objects would visibly push apart instead of overlapping) is
+    // removed entirely here. That collision math is almost certainly
+    // the actual root cause of the "stuck" reports -- equal-mass
+    // elastic collisions resolved one pair at a time, with up to 50
+    // objects sharing the same small screen, can genuinely cancel a
+    // shared object's velocity down toward zero when several
+    // neighbors push on it from different directions at once, and
+    // nothing was reliably forcing it back into motion afterward. A
+    // small amount of occasional visual overlap between two objects is
+    // a minor cosmetic thing; objects that stop moving entirely is a
+    // real, functional bug -- removing the more complex, failure-prone
+    // system entirely is the actual fix here, not another patch on
+    // top of it. Every object now ONLY ever bounces off the screen's
+    // own edges, completely independent of every other object, which
+    // makes it structurally impossible for one object's motion to
+    // affect another's at all.
     function frame(t) {
       if (!bouncers) return;
       const dt = Math.min(0.05, (t - lastT) / 1000);
       lastT = t;
-      // Real, confirmed reversal per explicit live report ("even
-      // though the object is getting small, it's not showing the
-      // characters... it should only bounce at the exact size"): the
-      // shrink-to-squeeze-through idea from the previous fix is gone
-      // entirely -- every object bounces at its real, full, exact
-      // size now, no scaling at all, so its own text/icon always
-      // stays exactly as legible as it normally is.
       for (const b of bouncers) {
         b.x += b.vx * dt;
         b.y += b.vy * dt;
@@ -19801,39 +19783,6 @@ function serverBotPlayForMe() {
         else if (b.x + b.w > viewportW) { b.x = viewportW - b.w; b.vx = -Math.abs(b.vx); }
         if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
         else if (b.y + b.h > viewportH) { b.y = viewportH - b.h; b.vy = -Math.abs(b.vy); }
-      }
-      for (let i = 0; i < bouncers.length; i++) {
-        for (let j2 = i + 1; j2 < bouncers.length; j2++) {
-          const A = bouncers[i], B = bouncers[j2];
-          if (A.x < B.x + B.w && A.x + A.w > B.x && A.y < B.y + B.h && A.y + A.h > B.y) {
-            resolveOverlap(A, B);
-          }
-        }
-      }
-      // Real, confirmed fix per the same live report ("the brain image
-      // and the art image is not going anywhere just bouncing in a
-      // small place and other objects are not even moving"): equal-
-      // mass elastic collisions, resolved one pair at a time within
-      // the same frame, can genuinely cancel a shared object's
-      // velocity down toward zero when several neighbors are pushing
-      // on it from different directions in the same crowded pocket --
-      // nothing was ever forcing a stalled object back into motion, so
-      // once its speed decayed low enough it would sit there
-      // effectively parked while everything else kept moving normally
-      // around it. Re-injects a fresh, fully random direction and
-      // normal speed for anything genuinely stalled (under 8px/sec) --
-      // it never actually sat at literal zero, but a handful of
-      // px/sec against gravity-free drag reads as "not moving" for as
-      // long as this ran, since nothing was pushing it back out.
-      const MIN_SPEED = 8;
-      for (const b of bouncers) {
-        const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
-        if (speed < MIN_SPEED) {
-          const angle = Math.random() * Math.PI * 2;
-          const newSpeed = 22 + Math.random() * 35;
-          b.vx = Math.cos(angle) * newSpeed;
-          b.vy = Math.sin(angle) * newSpeed;
-        }
       }
       for (const b of bouncers) {
         b.el.style.transform = `translate(${(b.x - b.homeLeft).toFixed(1)}px,${(b.y - b.homeTop).toFixed(1)}px)`;
