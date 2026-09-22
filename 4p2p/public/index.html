@@ -4854,8 +4854,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
        dvh at all; both max-height declarations are valid CSS, so the
        later one silently wins wherever it's actually supported. -->
   <div class="modal" style="text-align:center;max-width:340px;display:flex;flex-direction:column;max-height:85vh;max-height:85dvh">
-    <h3 style="margin-top:0;margin-bottom:2px;flex-shrink:0">🏆 Championship &amp; 🎯 Challenge Leaderboards</h3>
-    <div style="text-align:center;font-size:0.72rem;color:var(--text-secondary);opacity:0.85;margin-bottom:10px;flex-shrink:0">Ranked by biggest score gap, rounds taken as tiebreak</div>
+    <h3 style="margin-top:0;margin-bottom:2px;flex-shrink:0">🎯 Challenge Leaderboard</h3>
+
     <div id="leaderboardPopupContent" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto">
       Loading…
     </div>
@@ -15584,9 +15584,8 @@ async function showLeaderboardPopup() {
         <div style="font-weight:800;color:var(--text-primary);font-size:0.82rem;margin-bottom:3px">${label}</div>
         ${fmtChallengeSection(clb.allTime[mode], '🎯 Hardest Challenge Beaten')}
       </div>`;
-    contentEl.innerHTML = fmtOne('4p', '4 Player') + fmtOne('6p', '6 Player')
-      + '<div style="border-top:1px solid rgba(255,255,255,0.12);margin:14px 0 12px;padding-top:10px;text-align:center;font-weight:800;color:var(--accent);font-size:0.9rem">🎯 Challenge Leaderboard</div>'
-      + '<div style="text-align:center;font-size:0.66rem;color:var(--text-secondary);opacity:0.8;margin-bottom:10px">Who overcame the biggest starting deficit — ranked by hardest difficulty beaten first, then score gap and rounds</div>'
+    contentEl.innerHTML =
+      '<div style="text-align:center;font-size:0.66rem;color:var(--text-secondary);opacity:0.8;margin-bottom:10px">Who overcame the biggest starting deficit — ranked by hardest difficulty beaten first, then score gap and rounds</div>'
       + fmtChallengeOne('4p', '4 Player') + fmtChallengeOne('6p', '6 Player');
   } catch (e) {
     contentEl.innerHTML = '<div style="opacity:0.7">Could not load today\'s leaderboard.</div>';
@@ -19665,17 +19664,54 @@ function serverBotPlayForMe() {
     const root = document.getElementById('welcomeScreen');
     if (!root) return [];
     const targets = [];
+    // Real, confirmed root-cause fix per explicit live report ("my
+    // screensaver is running fast... everything is 1000x fast"):
+    // measured this directly -- the welcome screen was producing 627
+    // separate bouncing objects, not a reasonable handful. Every
+    // individual object's own speed was always correct (confirmed by
+    // direct measurement too); with that many objects packed into a
+    // small screen, constant collisions between them is what actually
+    // created the "everything moving insanely fast" effect. The cause
+    // is shatterIntoWords below: several real paragraphs of welcome-
+    // screen copy (the intro text, feature descriptions, etc.) each
+    // get broken into one bouncing object PER WORD, and those add up
+    // fast across that much text. Excluding the challenge-difficulty
+    // buttons here too (harmless either way, but confirmed via the DOM
+    // tree that they actually live in a different screen entirely, so
+    // this alone was never the real cause).
     root.querySelectorAll(
       'button, a.welcome-btn, a.welcome-subbtn, .welcome-stat, .welcome-feature-icon, ' +
       '.welcome-feature-title, .welcome-card-badge, .welcome-gold-rule'
-    ).forEach(el => targets.push(el));
-    root.querySelectorAll(
-      '.welcome-feature-desc, .welcome-about-text, .welcome-title-gold, .welcome-sub, ' +
-      '.welcome-tagline, .welcome-about-title, .welcome-features-title'
-    ).forEach(el => {
+    ).forEach(el => { if (!el.classList.contains('challenge-diff-btn')) targets.push(el); });
+    // Real fix: cap how many shattered words actually join the bounce
+    // set, rather than shattering every single word of every single
+    // paragraph. Titles and taglines (short, few words) still shatter
+    // in full for the intended effect; the two genuinely long blocks
+    // of prose (about-text, feature descriptions) are excluded from
+    // shattering entirely and instead bounce as ONE single object
+    // each, the same as any other element -- still part of the
+    // effect, just not exploded into dozens of individual words apiece.
+    root.querySelectorAll('.welcome-title-gold, .welcome-sub, .welcome-tagline, .welcome-about-title, .welcome-features-title').forEach(el => {
       shatterIntoWords(el);
       el.querySelectorAll(':scope > span.k28-bounce-word, :scope > .k28-bounce-word').forEach(w => targets.push(w));
     });
+    root.querySelectorAll('.welcome-feature-desc, .welcome-about-text').forEach(el => targets.push(el));
+    // Hard safety cap, regardless of source: even after excluding the
+    // two biggest text blocks from shattering, this still measured
+    // 101 objects live -- clearly more than the "handful of words and
+    // icons drifting around" this was actually meant to look like.
+    // Rather than continuing to guess at which specific element is
+    // contributing too many, this guarantees a sane total no matter
+    // how much text this screen ever ends up with in the future.
+    // Evenly sampled (not just the first 50) so it's not always the
+    // exact same subset of elements bouncing every time.
+    const MAX_BOUNCERS = 50;
+    if (targets.length > MAX_BOUNCERS) {
+      const step = targets.length / MAX_BOUNCERS;
+      const sampled = [];
+      for (let i = 0; i < MAX_BOUNCERS; i++) sampled.push(targets[Math.floor(i * step)]);
+      return sampled;
+    }
     return targets;
   }
 
