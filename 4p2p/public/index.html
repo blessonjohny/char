@@ -19692,19 +19692,26 @@ function serverBotPlayForMe() {
       'button, a.welcome-btn, a.welcome-subbtn, .welcome-stat, .welcome-feature-icon, ' +
       '.welcome-feature-title, .welcome-card-badge, .welcome-gold-rule'
     ).forEach(el => { if (!el.classList.contains('challenge-diff-btn')) targets.push(el); });
-    // Real fix: cap how many shattered words actually join the bounce
-    // set, rather than shattering every single word of every single
-    // paragraph. Titles and taglines (short, few words) still shatter
-    // in full for the intended effect; the two genuinely long blocks
-    // of prose (about-text, feature descriptions) are excluded from
-    // shattering entirely and instead bounce as ONE single object
-    // each, the same as any other element -- still part of the
-    // effect, just not exploded into dozens of individual words apiece.
-    root.querySelectorAll('.welcome-title-gold, .welcome-sub, .welcome-tagline, .welcome-about-title, .welcome-features-title').forEach(el => {
+    // Real, confirmed follow-up fix per explicit live report ("objects
+    // randomly overlaps all including buttons logos and words"):
+    // excluding the two biggest text blocks from shattering (below)
+    // was a genuine new mistake -- each one bounced around as ONE
+    // single, giant paragraph-sized object instead of many small word-
+    // sized ones, and the collision physics were never built to keep
+    // objects that large from swallowing everything else on screen.
+    // Shattering every real text block into individual words (as it
+    // always did before the 1000x-speed fix) is what actually kept
+    // every bouncing object roughly the same small size as every other
+    // one -- that was never the problem. The MAX_BOUNCERS cap further
+    // below is what actually solves the real object-count issue, on
+    // its own, without needing this exclusion at all.
+    root.querySelectorAll(
+      '.welcome-feature-desc, .welcome-about-text, .welcome-title-gold, .welcome-sub, ' +
+      '.welcome-tagline, .welcome-about-title, .welcome-features-title'
+    ).forEach(el => {
       shatterIntoWords(el);
       el.querySelectorAll(':scope > span.k28-bounce-word, :scope > .k28-bounce-word').forEach(w => targets.push(w));
     });
-    root.querySelectorAll('.welcome-feature-desc, .welcome-about-text').forEach(el => targets.push(el));
     // Hard safety cap, regardless of source: even after excluding the
     // two biggest text blocks from shattering, this still measured
     // 101 objects live -- clearly more than the "handful of words and
