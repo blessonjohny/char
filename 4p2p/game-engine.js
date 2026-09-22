@@ -595,28 +595,25 @@ class GameEngine {
   // this much... you will be the next bidder"): called once, right
   // after the creator seats, for a genuine challenge table only.
   // Applies the deficit to gameScore (challenger's team stays at 0,
-  // the opponent team starts at the handicap value) and forces the
-  // dealer so the challenger is the very first bidder of the first
-  // round -- both effects are deliberately one-time, only for this
-  // table's first championship; every championship after this one
-  // resets gameScore to a normal 0-0 exactly as it always did.
+  // the opponent team starts at the handicap value) -- deliberately
+  // one-time, only for this table's first championship; every
+  // championship after this one resets gameScore to a normal 0-0
+  // exactly as it always did.
+  // Real, confirmed follow-up per explicit request ("the challenge
+  // when started it should be random dealer, all tables"): this used
+  // to also force the dealer to a fixed, calculated seat so the
+  // challenger was guaranteed the very first bid -- meaning the same
+  // challenger seat always got the same dealer every single time,
+  // nothing random about it at all. Removed entirely: the dealer stays
+  // exactly as the constructor already set it moments earlier
+  // (Math.floor(Math.random() * 4)), a genuinely random seat each
+  // time, same as any ordinary table.
   activateChallengeMode(handicap, challengerPos) {
     if (handicap !== 5 && handicap !== 10 && handicap !== 13) return;
     this.challengeHandicap = handicap;
     this.challengerTeam = getTeam(challengerPos);
     this.gameScore[this.challengerTeam] = 0;
     this.gameScore[1 - this.challengerTeam] = handicap;
-    // nextPos(dealer) becomes the first bidder once a round actually
-    // starts -- but startRound() itself ALSO advances the dealer once
-    // before using it (this.dealer = nextPos(this.dealer), then
-    // currentPlayer = nextPos of THAT), so the real first bidder ends
-    // up two rotation-steps ahead of whatever's set here, not one.
-    // Confirmed directly: setting dealer only one step back landed the
-    // first bid on the wrong seat. SEAT_ROTATION is not sequential
-    // ([3,2,0,1]), so both steps are looked up in the rotation array
-    // directly rather than assumed via arithmetic.
-    const rotIdx = SEAT_ROTATION.indexOf(challengerPos);
-    this.dealer = SEAT_ROTATION[(rotIdx + 2) % 4];
   }
 
   seatBot(pos, name) {
@@ -1956,13 +1953,25 @@ class GameEngine {
         const s = this.seats[i];
         if (s && getTeam(i) === losingTeam) opponentNames.push(s.name);
       }
+      // Real, confirmed bug fix per explicit live report ("welcome
+      // leaderboard is blank... I beat a challenge, still blank"):
+      // scoreDiff used to be declared INSIDE this if-block with const,
+      // making it scoped to this block only -- but the challenge-win
+      // check right below is a separate, sibling if-statement, not
+      // nested inside this one, so it was reaching for a variable that
+      // didn't exist in its scope. That's a genuine ReferenceError at
+      // runtime (not something a syntax check can ever catch), which
+      // silently crashed this entire function the moment a challenge
+      // was actually won -- recordChallengeWin never even got called,
+      // and the crash likely disrupted whatever ran after it too.
+      // Hoisted out here so both blocks can actually use it.
+      const scoreDiff = this.gameScore[winningTeam] - this.gameScore[losingTeam];
       if (winningPlayerNames.length > 0) {
         // Per explicit request: 4-player leaderboard ranking now uses
         // the same score-gap-first rule already applied to 6-player
         // (see leaderboard.js's _insertIntoTop3), so both tables'
         // welcome-popup rankings are consistent with each other rather
         // than one using score and the other using rounds alone.
-        const scoreDiff = this.gameScore[winningTeam] - this.gameScore[losingTeam];
         // Per explicit follow-up request: the popup display should show
         // the actual final score (e.g. "15-7"), not just the bare gap
         // number -- passes both real numbers through now, ranking logic

@@ -278,21 +278,19 @@ class GameEngine6P {
 
   // Real, confirmed feature per explicit request ("4 and 6 player
   // should have a challenge table... pick your losing by this
-  // much... you will be the next bidder"): same mechanic as the
-  // 4-player table's identical method -- see there for the fuller
-  // reasoning. This table's nextPos is genuinely sequential
-  // ((p+1)%SEATS, no special rotation array the way 4-player has), and
-  // startRound() here follows the exact same "dealer advances once,
-  // then currentPlayer = nextPos of THAT" pattern -- confirmed
-  // directly that the initial dealer needs to be set two seats before
-  // the challenger, not one, for the same reason as 4-player.
+  // much"): applies the score deficit only -- matches the 4-player
+  // table's identical method.
+  // Real, confirmed follow-up per explicit request ("the challenge
+  // when started it should be random dealer, all tables"): no longer
+  // forces the dealer to a fixed seat -- see game-engine.js's
+  // identical follow-up for the fuller reasoning. The dealer stays
+  // exactly as the constructor already randomized it moments earlier.
   activateChallengeMode(handicap, challengerPos) {
     if (handicap !== 5 && handicap !== 10 && handicap !== 13) return;
     this.challengeHandicap = handicap;
     this.challengerTeam = getTeam(challengerPos);
     this.gameScore[this.challengerTeam] = 0;
     this.gameScore[1 - this.challengerTeam] = handicap;
-    this.dealer = (challengerPos - 2 + SEATS) % SEATS;
   }
 
   seatBot(pos, name) {
@@ -1591,6 +1589,11 @@ class GameEngine6P {
         const s = this.seats[i];
         if (s && getTeam(i) === losingTeam) opponentNames.push(s.name);
       }
+      // Real, confirmed bug fix per explicit live report -- see
+      // game-engine.js's identical fix for the fuller reasoning.
+      // scoreDiff hoisted out of the if-block below so the sibling
+      // challenge-win check further down can actually reach it too.
+      const scoreDiff = this.gameScore[winningTeam] - this.gameScore[losingTeam];
       if (winningPlayerNames.length > 0) {
         // Per explicit request: 6-player leaderboard ranking now uses
         // the final score gap between the two teams as the primary
@@ -1598,7 +1601,6 @@ class GameEngine6P {
         // tiebreaker only when the gap is equal -- a genuinely
         // different rule from 4-player's existing rounds-first
         // ranking, which stays untouched per explicit instruction.
-        const scoreDiff = this.gameScore[winningTeam] - this.gameScore[losingTeam];
         // Per explicit follow-up request: the popup display should show
         // the actual final score (e.g. "15-7"), not just the bare gap
         // number -- passes both real numbers through now, ranking logic
