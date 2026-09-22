@@ -251,6 +251,15 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .card.reveal-flip{animation:cardFlipReveal .5s ease both}
 @keyframes cardFlipReveal{0%{transform:rotateY(90deg) scale(0.85);opacity:0.3;}60%{transform:rotateY(-12deg) scale(1.05);opacity:1;}100%{transform:rotateY(0) scale(1);opacity:1;}}
 
+/* Real, confirmed feature per explicit live report ("makes big turn...
+   others same size... one at a time"): the exact instant a dealt card's
+   real slot actually reveals (matching the flying sprite's own genuine
+   arrival, see animateDealingCards), it briefly grows past its resting
+   size before settling back down -- reads as the card "landing" with
+   some real weight/impact, not just silently appearing. */
+.card.dealt-card-pop{animation:dealtCardPop .38s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes dealtCardPop{0%{transform:scale(0.4);opacity:0.4;}55%{transform:scale(1.22);opacity:1;}100%{transform:scale(1);opacity:1;}}
+
 /* ---- Flying chip pot-payout animation ---- */
 /* Per explicit live report: same flat-coin problem as .chip above --
    a solid offset shadow underneath reads as the chip's own side/edge,
@@ -2257,6 +2266,23 @@ let lastCardRevealAnimatedFor = null;
 // has already played for, same pattern as lastCardRevealAnimatedFor --
 // see animateDealingCards below for what actually uses this.
 let lastDealAnimatedFor = null;
+// Real, confirmed feature per explicit live report ("dealer is
+// dealing 2 rounds but my hand and others hands immediately shows 2
+// cards... one at a time"): the flying-card sprite animation
+// (animateDealingCards) was always purely a cosmetic overlay,
+// completely disconnected from the actual card slots at each seat --
+// the real hand contents came straight from the latest state and
+// rendered instantly and in full the moment a state update arrived,
+// regardless of how staggered the flying sprites themselves looked.
+// dealtCardCountBySeat tracks, per seat, how many of that seat's real
+// cards should currently be showing, for the hand identified by
+// dealtCardCountForHandNumber -- incremented by animateDealingCards
+// itself at the exact moment each seat's own flying sprite actually
+// lands there, and read by renderGameTable's own card-slicing logic
+// below, so a seat's real cards appear one at a time in step with
+// its own flying card's real arrival, not all at once regardless of it.
+let dealtCardCountBySeat = {};
+let dealtCardCountForHandNumber = null;
 
 // Animates a small handful of chips visually flying from the pot to
 // each winner's seat when a hand resolves -- purely a visual flourish
@@ -3255,11 +3281,23 @@ function renderGameTable(state) {
     const p = positions[slot];
     const isActive = state.currentPlayer === pos && state.phase !== 'handEnd';
     const revealingNow = isNewShowdownReveal && pos !== myPos && !s.folded && s.hand.length && s.hand[0] && s.hand[0].rank;
+    // Real, confirmed feature per explicit live report ("my hand and
+    // others hands immediately shows 2 cards... one at a time"):
+    // during this exact hand's own progressive deal (tracked by
+    // dealtCardCountForHandNumber matching state.handNumber),
+    // genuinely slices each seat's real hand down to only however
+    // many of that seat's own cards have actually landed so far --
+    // everywhere else (a hand already fully dealt, showdown, folding,
+    // etc.) shows the real, full hand exactly as before, completely
+    // unaffected.
+    const isMidDeal = dealtCardCountForHandNumber === state.handNumber;
+    const dealtCountHere = isMidDeal ? (dealtCardCountBySeat[pos] || 0) : (s.hand ? s.hand.length : 0);
+    const visibleHand = isMidDeal ? s.hand.slice(0, dealtCountHere) : s.hand;
     const cardsHtml = s.folded
       ? '' // no cards shown at all once folded -- the FOLDED tag below says why
       : (pos === myPos
         ? '' // full-size cards already shown in the hand strip below -- no need to duplicate them here too
-        : (s.hand.length ? s.hand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow)).join('') : ''));
+        : (visibleHand.length ? visibleHand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow, isMidDeal ? 'dealt-card-pop' : null)).join('') : ''));
     return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" data-slot="${slot}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
       ${isActive && pos !== myPos ? `<div class="turn-tag turn-tag-outer">TURN</div>` : ''}
       <div class="seat-avatar-wrap">
@@ -3297,7 +3335,13 @@ function renderGameTable(state) {
   renderRailChips(state);
 
   const mySeat = state.seats[myPos];
-  $('myHandStrip').innerHTML = mySeat && mySeat.hand.length ? mySeat.hand.map(c => cardHtml(c, false)).join('') : '';
+  // Real, confirmed feature per explicit live report -- same
+  // progressive-reveal slicing as the other seats' cards above,
+  // applied here too since the viewer's own hand renders through this
+  // completely separate line rather than the shared seat loop.
+  const myIsMidDeal = dealtCardCountForHandNumber === state.handNumber;
+  const myVisibleHand = mySeat ? (myIsMidDeal ? mySeat.hand.slice(0, dealtCardCountBySeat[myPos] || 0) : mySeat.hand) : [];
+  $('myHandStrip').innerHTML = myVisibleHand.length ? myVisibleHand.map(c => cardHtml(c, false, false, myIsMidDeal ? 'dealt-card-pop' : null)).join('') : '';
   $('myHandLabel').textContent = state.myHandName ? `You have: ${state.myHandName}` : '';
   // Desktop-only top readouts (see the CSS/HTML comments where these are defined for why they
   // exist as separate top-level elements rather than nested inside my own seat).
@@ -3869,6 +3913,17 @@ function showWinningHandOnTable(state) {
         flying.remove();
         slotEl.classList.remove('table-winning-hand-slot');
         slotEl.classList.add(suitClassFor(card.suit));
+        // Real, confirmed feature per explicit live report ("winning
+        // animation should do the same thing... pop out and change
+        // size"): the same landing-impact pop the dealt cards now get
+        // (see the .dealt-card-pop class and animateDealingCards),
+        // applied here too right as each winning card's own real slot
+        // actually settles into its final content -- the straight
+        // vertical path and the real size-matching (both already
+        // fixed in earlier work, see above) were the "no angle" and
+        // "change size" parts; this is specifically the "pop out"
+        // part, added on top of what already existed.
+        slotEl.classList.add('dealt-card-pop');
         slotEl.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
         arrivedCount++;
         if (arrivedCount === winningHand.length) {
@@ -3929,8 +3984,23 @@ function showWinningHandOnTable(state) {
 // seat is entirely unchanged and handled elsewhere; these flying
 // sprites are removed once they land.
 function animateDealingCards(state) {
+  // Real, confirmed feature per explicit live report ("dealer is
+  // dealing 2 rounds but my hand and others hands immediately shows 2
+  // cards... one at a time"): starts this hand's real card slots at 0
+  // revealed -- renderGameTable's own card-slicing logic (see there)
+  // will keep every seat showing nothing (or their previous hand's
+  // now-stale cards, if this hand's own dealtCardCountForHandNumber
+  // hasn't matched yet) until the timeouts below actually advance the
+  // count, in step with each round's own flying-sprite arrival.
+  dealtCardCountForHandNumber = state.handNumber;
+  dealtCardCountBySeat = {};
   const dealerEl = document.querySelector('.house-dealer');
-  if (!dealerEl) return;
+  if (!dealerEl) {
+    // No animation possible -- reveal every seat's cards immediately
+    // rather than hiding them forever with nothing left to advance the count.
+    state.seats.forEach((s, pos) => { if (s && s.hand) dealtCardCountBySeat[pos] = s.hand.length; });
+    return;
+  }
   const dealerRect = dealerEl.getBoundingClientRect();
   // Per explicit live report: starting from the dealer's own center
   // read as coming out of their chest/torso, which looked wrong --
@@ -3990,6 +4060,24 @@ function animateDealingCards(state) {
         // is what produced the two-segment bent path.
         setTimeout(() => { card.style.transform = `translate(calc(-50% + ${endX - startX}px), calc(-50% + ${endY - startY}px))`; }, 20);
         setTimeout(() => { card.remove(); }, 520);
+        // Real, confirmed feature per explicit live report ("my hand
+        // and others hands immediately shows 2 cards... one at a
+        // time... makes big turn"): the actual, real card slot at
+        // this specific seat only gets revealed right as its own
+        // flying sprite genuinely lands (520ms after this timeout
+        // itself fires, matching the sprite's own flight+removal
+        // timing above), one card at a time, in the exact same order
+        // the sprites themselves fly in -- not all at once the moment
+        // the hand data first arrives. Guards against a newer hand
+        // having already started by the time this fires (an old,
+        // slow timeout from a previous deal that's since become
+        // irrelevant) by checking the hand number is still the one
+        // this whole animation started for.
+        setTimeout(() => {
+          if (dealtCardCountForHandNumber !== state.handNumber) return;
+          dealtCardCountBySeat[pos] = cardIdx + 1;
+          renderGameTable(state);
+        }, 520);
       }, delay);
     }
   });
