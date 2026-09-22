@@ -937,7 +937,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 */
 #gameScreen.challenge-active .six-oval-rail{box-shadow:inset 0 0 90px 18px rgba(168,85,247,0.4)}
 #gameScreen.challenge-active .fake-lamp-glow{background:radial-gradient(circle, rgba(190,120,255,0.75) 0%, rgba(160,80,255,0.4) 35%, rgba(140,60,255,0) 70%)}
-#challengeWatermark6p{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Cinzel Decorative','Cinzel',serif;font-size:clamp(1.4rem,7vw,2.6rem);font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(190,120,255,0.28);z-index:0;pointer-events:none;white-space:nowrap}
+#challengeWatermark6p{display:none;position:absolute;top:62%;left:50%;transform:translate(-50%,-50%);font-family:'Cinzel Decorative','Cinzel',serif;font-size:clamp(1.4rem,7vw,2.6rem);font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(200,140,255,0.5);text-shadow:0 0 16px rgba(160,80,255,0.6);z-index:0;pointer-events:none;white-space:nowrap}
 #gameScreen.challenge-active #challengeWatermark6p{display:block}
 
 /* ---- Big game-event announcement -- generalized, reusable version,
@@ -1874,6 +1874,14 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
        directly instead of relying on an icon alone, so what it does is
        obvious without needing the title tooltip. -->
   <button class="btn-outline" id="btnInvite" title="Invite a Friend" style="position:fixed;left:48px;bottom:114px;z-index:150;display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:0.68rem;font-weight:800;white-space:nowrap">💌 Invite</button>
+  <!-- Real, confirmed feature per explicit live report ("to join if I
+       want, I should have a chair icon on it, so click on it, join
+       window should appear"): only ever shown while genuinely
+       spectating (toggled in JS off IS_SPECTATOR), sits directly below
+       Invite on the same fixed left edge. Clicking it is the ONLY
+       thing that opens the seat-choice popup for an existing
+       spectator now -- it no longer appears on its own. -->
+  <button class="btn-outline" id="btnSpectatorJoin" title="Take a Seat" style="display:none;position:fixed;left:48px;bottom:158px;z-index:150;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:0.68rem;font-weight:800;white-space:nowrap;background:var(--accent);border-color:var(--accent);color:#1a1a2e">🪑 Join</button>
   <!-- The manual "ask" button - separate from the Declare button above and never active at
        the same time as it (Declare only lights up when leading a fresh trick; Ask only lights
        up mid-trick when someone else holds the lead) - stacked directly below it on the same

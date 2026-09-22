@@ -2318,6 +2318,22 @@ const lastBettedThisRoundBySeat = {};
 // reading as a constant, distracting flicker instead of one clean
 // reaction per actual action.
 const lastActionBubbleTextBySeat = {};
+// Real, confirmed root-cause fix per explicit, emphatic live report
+// ("flickers or resets or pops up and settles when I make a move,
+// when others make a move, when dealer deals, every action"):
+// seatsEl.innerHTML used to be replaced in full, for every single
+// seat, on literally every state update at all -- a bet, a call, a
+// fold, a bot's turn ticking over, anything -- since it was one
+// combined string covering the whole table, not per seat. Destroying
+// and recreating every single seat's entire DOM subtree that often is
+// the actual, direct cause of the flickering -- not just during
+// dealing (already fixed separately), but on every ordinary action
+// too. lastRenderedSeatInnerHtml caches each seat's own last-rendered
+// inner content; the render loop below only actually touches a
+// seat's real DOM when its own content has genuinely changed, leaving
+// every other, unaffected seat completely untouched on any given
+// update.
+const lastRenderedSeatInnerHtml = {};
 // Per explicit request: chips landing at the pot no longer just fade
 // out and vanish -- they now join a real, visible, accumulating stack
 // sitting at the pot anchor (left of the community cards, the same
@@ -3287,8 +3303,13 @@ function renderGameTable(state) {
   // whichever of the two conditions fires first "claims" the
   // animation for this hand, so it never plays twice for the same one.
   const isNewShowdownReveal = (state.allInShowdown || (state.phase === 'handEnd' && state.showdownResult && state.showdownResult.boardShown)) && state.handNumber !== lastCardRevealAnimatedFor;
-  seatsEl.innerHTML = state.seats.map((s, pos) => {
-    if (!s) return '';
+  state.seats.forEach((s, pos) => {
+    if (!s) {
+      const existing = seatsEl.querySelector(`.seat[data-pos="${pos}"]`);
+      if (existing) existing.remove();
+      delete lastRenderedSeatInnerHtml[pos];
+      return;
+    }
     const slot = slotFor(pos);
     const p = positions[slot];
     const isActive = state.currentPlayer === pos && state.phase !== 'handEnd';
@@ -3310,7 +3331,9 @@ function renderGameTable(state) {
       : (pos === myPos
         ? '' // full-size cards already shown in the hand strip below -- no need to duplicate them here too
         : (visibleHand.length ? visibleHand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow, isMidDeal ? 'dealt-card-pop' : null)).join('') : ''));
-    return `<div class="seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}" data-pos="${pos}" data-slot="${slot}" style="left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)">
+    const outerClassName = `seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}`;
+    const outerStyle = `left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)`;
+    const innerHtml = `
       ${isActive && pos !== myPos ? `<div class="turn-tag turn-tag-outer">TURN</div>` : ''}
       <div class="seat-avatar-wrap">
         <div class="seat-avatar">${s.isBot ? '🤖' : '🧑'}</div>
@@ -3340,9 +3363,22 @@ function renderGameTable(state) {
       </div>
       <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
       <div class="seat-chips">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
-      <div class="seat-cards">${s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml}</div>
-    </div>`;
-  }).join('');
+      <div class="seat-cards">${s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml}</div>`;
+
+    let seatDiv = seatsEl.querySelector(`.seat[data-pos="${pos}"]`);
+    if (!seatDiv) {
+      seatDiv = document.createElement('div');
+      seatDiv.dataset.pos = pos;
+      seatDiv.dataset.slot = slot;
+      seatsEl.appendChild(seatDiv);
+    }
+    if (seatDiv.className !== outerClassName) seatDiv.className = outerClassName;
+    if (seatDiv.getAttribute('style') !== outerStyle) seatDiv.setAttribute('style', outerStyle);
+    if (lastRenderedSeatInnerHtml[pos] !== innerHtml) {
+      lastRenderedSeatInnerHtml[pos] = innerHtml;
+      seatDiv.innerHTML = innerHtml;
+    }
+  });
   if (isNewShowdownReveal) lastCardRevealAnimatedFor = state.handNumber;
   renderRailChips(state);
 

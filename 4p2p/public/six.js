@@ -1506,6 +1506,10 @@ function connectSocket() {
     MY_POS = info.pos;
     IS_HOST = info.isHost;
     IS_SPECTATOR = false;
+    // Real, confirmed feature per explicit live report -- the 🪑 Join
+    // button only ever makes sense while genuinely spectating; a
+    // freshly-seated player (this exact event) never sees it.
+    if ($('btnSpectatorJoin')) $('btnSpectatorJoin').style.display = 'none';
     try {
       localStorage.setItem('k28six_player_token', info.playerId);
       localStorage.setItem('k28six_table_id', info.tableId);
@@ -1540,6 +1544,12 @@ function connectSocket() {
     MY_POS = -1;
     IS_HOST = false;
     IS_SPECTATOR = true;
+    // Real, confirmed feature per explicit live report ("to join if I
+    // want, I should have a chair icon on it, so click on it, join
+    // window should appear"): the seat-choice popup no longer appears
+    // on its own for an existing spectator (see the matching server
+    // fix) -- this button is now the only way they ever open it again.
+    if ($('btnSpectatorJoin')) $('btnSpectatorJoin').style.display = 'flex';
     try {
       localStorage.setItem('k28six_player_token', info.playerId);
       localStorage.setItem('k28six_table_id', info.tableId);
@@ -1943,6 +1953,7 @@ $('btnChallengeStartNew').addEventListener('click', () => {
 function leaveToWelcome() {
   if (window.K28Voice) K28Voice.hideButton();
   if (socket) socket.emit('sixp_leaveTable');
+  if ($('btnSpectatorJoin')) $('btnSpectatorJoin').style.display = 'none';
   try {
     localStorage.removeItem('k28six_table_id');
     localStorage.removeItem('k28six_session_time');
@@ -4407,6 +4418,16 @@ function sendChat() {
 
 $('btnChat').addEventListener('click', openChat);
 $('btnInvite').addEventListener('click', shareInviteLink);
+// Real, confirmed feature per explicit live report ("to join if I
+// want, I should have a chair icon on it, so click on it, join
+// window should appear"): requests the seat-choice popup on demand --
+// the server's sixp_chooseSeat response (via showSeatPicker, already
+// wired above) is what actually renders it.
+if ($('btnSpectatorJoin')) {
+  $('btnSpectatorJoin').addEventListener('click', () => {
+    if (socket) socket.emit('sixp_requestSeat');
+  });
+}
 $('btnInviteFromLobby').addEventListener('click', shareInviteLink);
 
 // ==================== STILL PLAYING? (idle check) ====================
