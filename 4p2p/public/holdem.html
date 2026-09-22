@@ -3365,6 +3365,17 @@ function renderGameTable(state) {
     if (state.handNumber !== lastDealAnimatedFor && state.seats.some(s => s && s.hand && s.hand.length)) {
       lastDealAnimatedFor = state.handNumber;
       animateDealingCards(state);
+      // Real, confirmed additional safety net for the same root-cause
+      // fix as renderStreetBanner's boardLen >= 3 change above: new
+      // hole cards actually being dealt is an even earlier, more
+      // fundamental signal that a new hand has genuinely started than
+      // "the board reached 3 cards" is -- clears the previous hand's
+      // stale winner banner right here too, well before any betting
+      // on the new hand even begins, as a second, independent
+      // guarantee against it ever lingering into a hand it no longer
+      // describes.
+      const wbEl = $('winnerBanner');
+      if (wbEl) wbEl.style.display = 'none';
     }
   }
   state.seats.forEach((s, pos) => {
@@ -4206,7 +4217,21 @@ function renderStreetBanner(state) {
     // The last-hand winner display's whole purpose is to stay up as a
     // reminder while a new hand deals -- once the flop actually lands,
     // that reminder has served its purpose and the felt needs the room.
-    if (boardLen === 3) $('winnerBanner').style.display = 'none';
+    // Real, confirmed root-cause fix per explicit live report (a
+    // screenshot showing the previous hand's "X wins" banner still
+    // displayed well into the NEW hand, at the turn with 4 board
+    // cards showing and active betting underway): this used to check
+    // boardLen === 3 specifically -- an exact match, not "at least
+    // 3." If the client's very first observation of the new hand's
+    // board ever landed on 4 or 5 cards directly (a brief reconnect,
+    // a delayed/batched state update, anything that meant the exact
+    // moment boardLen was 3 was never itself rendered), this check
+    // could never fire at all, and the stale banner from the PREVIOUS
+    // hand would keep sitting there indefinitely, well past the point
+    // where it was still relevant. >= 3 catches the new hand having
+    // reached the flop or any later street, regardless of which exact
+    // board length the client happened to first observe it at.
+    if (boardLen >= 3) $('winnerBanner').style.display = 'none';
   }
   lastBoardLenForBanner = boardLen;
   if (boardLen === 0) {
