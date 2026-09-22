@@ -13,6 +13,7 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
+let IS_SPECTATOR = false;
 let lastKnownDealRound = null;
 let challengeBeatenAnnouncedSix = false;
 let challengeResolvedPromptShownSix = false;
@@ -1504,6 +1505,7 @@ function connectSocket() {
     MY_PLAYER_ID = info.playerId;
     MY_POS = info.pos;
     IS_HOST = info.isHost;
+    IS_SPECTATOR = false;
     try {
       localStorage.setItem('k28six_player_token', info.playerId);
       localStorage.setItem('k28six_table_id', info.tableId);
@@ -1526,6 +1528,27 @@ function connectSocket() {
       showScreen('lobbyScreen');
     }
     $('roomCodeDisplay').textContent = info.tableId;
+  });
+
+  // Real, confirmed feature per explicit request ("4 player has watch
+  // and join a seat, make 6 player same") -- matches the 4-player
+  // table's identical joinedAsSpectator handler, adapted to this
+  // table's own naming conventions.
+  socket.on('sixp_joinedAsSpectator', (info) => {
+    MY_TABLE_ID = info.tableId;
+    MY_PLAYER_ID = info.playerId;
+    MY_POS = -1;
+    IS_HOST = false;
+    IS_SPECTATOR = true;
+    try {
+      localStorage.setItem('k28six_player_token', info.playerId);
+      localStorage.setItem('k28six_table_id', info.tableId);
+      localStorage.setItem('k28six_session_time', String(Date.now()));
+    } catch (e) {}
+    $('seatPickerOverlay').classList.remove('on');
+    showScreen('lobbyScreen');
+    $('roomCodeDisplay').textContent = info.tableId;
+    showToast('👀 Watching the table', 'info', 2000);
   });
 
   socket.on('sixp_joinError', (err) => {
@@ -1878,8 +1901,23 @@ function showSeatPicker(info) {
   diagram += '<div class="mini-table-legend"><span><i class="dot open"></i>Open</span><span><i class="dot bot"></i>Replace bot</span><span><i class="dot disc"></i>Reclaim</span><span><i class="dot taken"></i>Taken</span></div>';
   diagram += '<div style="font-size:0.7rem;opacity:0.7;margin-top:6px">Seats 1‑3‑5 are one team, 2‑4‑6 are the other.</div>';
 
-  opts.innerHTML = diagram;
+  // Real, confirmed feature per explicit request ("4 player has watch
+  // and join a seat, make 6 player same"): matches the 4-player
+  // table's identical "Just Watch" fallback exactly.
+  const nothingToClaim = info.openSeats.length === 0 && info.botSeats.length === 0 && info.disconnectedSeats.length === 0;
+  let watchHtml = '';
+  if (info.canWatch || nothingToClaim) {
+    watchHtml = '<button class="btn btn-outline" style="width:100%;margin-top:10px" onclick="claimSixpSeatChoice(\'watch\')">👀 Just Watch</button>';
+  }
+  if (nothingToClaim && !info.canWatch) watchHtml += '<p style="color:var(--text-secondary);font-size:0.85rem">No spots available right now.</p>';
+
+  opts.innerHTML = diagram + watchHtml;
   $('seatPickerOverlay').classList.add('on');
+}
+
+function claimSixpSeatChoice(choice) {
+  $('seatPickerOverlay').classList.remove('on');
+  socket.emit('sixp_claimSeat', { choice });
 }
 
 // ---------------- Lobby ----------------
