@@ -2096,7 +2096,18 @@ function publicTableList() {
       isPlaying: t.engine.phase !== 'lobby',
       openSeats, botSeats,
       spectators: t.spectators ? t.spectators.size : 0,
-      canJoinSeat: openSeats > 0 || botSeats > 0
+      canJoinSeat: openSeats > 0 || botSeats > 0,
+      // Real, confirmed feature per explicit request ("challenge
+      // tables should be displayed... purple and regular tables
+      // green... in the public tables list when creating a table"):
+      // exposed here so the client can tell the two apart at a
+      // glance, before even joining. Genuinely only true while a
+      // challenge is still undecided -- once it resolves,
+      // challengeResolved flips true and the client's own check (both
+      // conditions together) correctly stops treating it as an active
+      // challenge, exactly matching the same table/lamp glow logic.
+      challengeHandicap: t.engine.challengeHandicap || 0,
+      challengeResolved: !!t.engine.challengeResolved
     };
   });
 }
@@ -3320,7 +3331,11 @@ function sixpPublicTableList() {
       players: t.engine.seats.filter(Boolean).length,
       isPlaying: t.engine.phase !== 'lobby',
       openSeats, botSeats,
-      canJoinSeat: openSeats > 0 || botSeats > 0
+      canJoinSeat: openSeats > 0 || botSeats > 0,
+      // Real, confirmed feature per explicit request -- matches the
+      // 4-player table's identical addition exactly.
+      challengeHandicap: t.engine.challengeHandicap || 0,
+      challengeResolved: !!t.engine.challengeResolved
     };
   });
 }
