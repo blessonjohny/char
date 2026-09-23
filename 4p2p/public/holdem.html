@@ -3855,6 +3855,8 @@ function showWinningHandOnTable(state) {
   }
 
   const winnerPos = r.winners[0].seat;
+  const winnerSeat = state.seats[winnerPos];
+  const winnerSeatEl = document.querySelector(`.seat[data-pos="${winnerPos}"]`);
   const winningHand = r.winners[0].hand;
   const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
   const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
@@ -3898,6 +3900,29 @@ function showWinningHandOnTable(state) {
   // the screen -- there is now no coordinate calculation left that a
   // resize, a 3D-transformed source card, or a mismeasured rect could
   // ever get wrong, because none of those inputs are used at all.
+  const holeCardKeys = new Set((winnerSeat && winnerSeat.hand ? winnerSeat.hand : []).map(cardKey));
+  const boardCardEls2 = boardAreaEls; // same real board card elements already measured above
+
+  // Real, confirmed rewrite per explicit follow-up request ("can you
+  // make it fly from the player's winning card to the table"): the
+  // flight itself is back, but built the robust way this time rather
+  // than repeating the old failure. The old approach used
+  // position:fixed with absolute pixel coordinates measured once and
+  // held for the whole ~0.5s flight -- if the mobile browser's own
+  // viewport shifted at all in that window (a URL bar collapsing, a
+  // keyboard closing), those pixel targets went stale and the card
+  // landed wherever that stale math pointed, sometimes a screen
+  // corner. This card is placed into cardsContainer's OWN real flex
+  // layout from the very first frame -- its landing spot is never a
+  // calculated pixel value at all, it's just wherever the browser's
+  // own live layout engine actually puts it, which is always correct
+  // by definition and can't go stale. The only thing computed here is
+  // a starting VISUAL offset (via CSS transform, not position/left/
+  // top) that makes it initially appear back at its source -- then
+  // that offset animates to zero. If the viewport shifts mid-flight,
+  // the real target (zero offset from the real layout slot) is
+  // completely unaffected; at worst the starting point of the visual
+  // arc is very slightly off on that one frame, never the landing spot.
   cardsContainer.innerHTML = '';
   $('tableWinningHandLabel').textContent = '';
   el.classList.remove('on');
@@ -3905,9 +3930,55 @@ function showWinningHandOnTable(state) {
   winningHand.forEach((card, i) => {
     setTimeout(() => {
       const card1 = document.createElement('div');
-      card1.className = `card ${suitClassFor(card.suit)} dealt-card-pop`;
+      card1.className = `card ${suitClassFor(card.suit)}`;
       card1.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
       cardsContainer.appendChild(card1);
+      // Real layout position now genuinely exists -- measure it AFTER
+      // it's really in the row, so this is the browser's own actual
+      // final answer, not a guess.
+      const finalRect = card1.getBoundingClientRect();
+      const finalCenterX = finalRect.left + finalRect.width / 2;
+      const finalCenterY = finalRect.top + finalRect.height / 2;
+
+      const isHoleCard = holeCardKeys.has(cardKey(card));
+      let sourceRect = null;
+      if (isHoleCard && winnerSeatEl) {
+        const holeCardEls = winnerPos === myPos
+          ? [...document.querySelectorAll('#myHandStrip .card')]
+          : [...winnerSeatEl.querySelectorAll('.seat-cards .card')];
+        const holeCards = (winnerSeat && winnerSeat.hand) || [];
+        const matchIdx = holeCards.findIndex(h => h && cardKey(h) === cardKey(card));
+        sourceRect = (matchIdx !== -1 && holeCardEls[matchIdx]) ? holeCardEls[matchIdx].getBoundingClientRect() : winnerSeatEl.getBoundingClientRect();
+      } else {
+        const matchIdx = state.board.findIndex(b => b && cardKey(b) === cardKey(card));
+        sourceRect = (matchIdx !== -1 && boardCardEls2[matchIdx]) ? boardCardEls2[matchIdx].getBoundingClientRect() : null;
+      }
+      // Defensive: any degenerate (zero-sized) or missing source just
+      // skips the visual flight for this one card -- it still lands
+      // correctly and instantly, since its real position was never in
+      // question, only the optional starting flourish is skipped.
+      if (sourceRect && sourceRect.width && sourceRect.height) {
+        const sourceCenterX = sourceRect.left + sourceRect.width / 2;
+        const sourceCenterY = sourceRect.top + sourceRect.height / 2;
+        const dx = sourceCenterX - finalCenterX;
+        const dy = sourceCenterY - finalCenterY;
+        const startScale = Math.max(0.3, Math.min(1, sourceRect.height / finalRect.height));
+        card1.style.transition = 'none';
+        card1.style.transform = `translate(${dx}px, ${dy}px) scale(${startScale})`;
+        card1.style.opacity = '0.75';
+        void card1.offsetWidth;
+        card1.style.transition = 'transform 0.55s cubic-bezier(.3,.5,.4,1), opacity 0.3s ease';
+        requestAnimationFrame(() => {
+          card1.style.transform = 'translate(0,0) scale(1)';
+          card1.style.opacity = '1';
+        });
+        setTimeout(() => {
+          card1.style.transition = '';
+          card1.classList.add('dealt-card-pop');
+        }, 560);
+      } else {
+        card1.classList.add('dealt-card-pop');
+      }
       if (i === winningHand.length - 1) {
         $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-summary">${names} won ${totalWon}</span> <span class="table-winning-hand-label-handname">${r.winners[0].handName}</span>`;
         $('btnWinningHandContinue').style.display = '';
