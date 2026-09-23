@@ -3834,22 +3834,6 @@ function showWinningHandOnTable(state) {
   const el = $('tableWinningHand');
   const cardsContainer = $('tableWinningHandCards');
   if (!el || !cardsContainer || !r || !r.winners || !r.winners.length) return;
-  // Real, confirmed bug fix per explicit live report ("if everyone
-  // fold I see a pause... it's not immediately starting next hand"):
-  // when everyone else folds (no genuine showdown), the engine sets
-  // showdownResult.boardShown:false and gives the winner no .hand at
-  // all (see poker-engine.js's _awardPotToSingleWinner) -- there's no
-  // real hand to reveal since nobody showed cards. This function used
-  // to just return immediately in that case and do NOTHING ELSE AT
-  // ALL, which meant the Continue button (only ever revealed further
-  // down in the full-reveal path below) never appeared for a
-  // fold-everyone-else-out win. Real players had no way to click
-  // Continue, so the table sat there until the server's 45-second
-  // safety-timer fallback finally forced the next hand -- exactly the
-  // long "pause" reported. There's no hand to fly onto the table here,
-  // but the winner/amount label and the Continue button both still
-  // need to show right away, same as a real showdown just without the
-  // card animation.
   if (!r.boardShown || !r.winners[0].hand) {
     r.winners.forEach(w => {
       const seatEl = document.querySelector(`.seat[data-pos="${w.seat}"]`);
@@ -3871,27 +3855,9 @@ function showWinningHandOnTable(state) {
   }
 
   const winnerPos = r.winners[0].seat;
-  const winnerSeat = state.seats[winnerPos];
-  const winnerSeatEl = document.querySelector(`.seat[data-pos="${winnerPos}"]`);
-  // Per explicit, most recent live report: reverted back to the hand
-  // evaluator's own natural order (pair first, then kickers by rank)
-  // -- an earlier request asked for board-position order instead, but
-  // this latest, explicit instruction asks for rank order specifically
-  // ("if a player wins with a pair, the pair should be in positions 1
-  // and 2, then the rest by ranking"), so this now uses
-  // r.winners[0].hand exactly as the evaluator already returns it,
-  // with no re-sorting on top.
-  const cardKeyForSort = c => c.rank + c.suit;
   const winningHand = r.winners[0].hand;
   const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
   const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
-  // Per explicit live report: the winner's own avatar visibly reacts
-  // in the same moment (a bright pulsing ring plus a quick surprised
-  // "pop"), not just the cards/label off to the side -- applied to
-  // every winner's own seat for a split pot too, each independently
-  // re-triggerable via classList.remove+add so a later hand playing
-  // out the exact same animation class name still restarts it cleanly
-  // rather than silently no-op'ing because the class was already set.
   r.winners.forEach(w => {
     const seatEl = document.querySelector(`.seat[data-pos="${w.seat}"]`);
     if (!seatEl) return;
@@ -3901,14 +3867,6 @@ function showWinningHandOnTable(state) {
   });
 
   const cardKey = c => c.rank + c.suit;
-  const holeCardKeys = new Set((winnerSeat && winnerSeat.hand ? winnerSeat.hand : []).map(cardKey));
-
-  // Per explicit request: any board card the winning hand doesn't
-  // actually use (a hole card took its place in the real best-5) gets
-  // marked with a red border directly on the real board, so it's
-  // visible at a glance which community cards weren't part of the
-  // final hand, without waiting for or squinting at the separate
-  // winning-hand row.
   const winningHandKeys = new Set(winningHand.map(cardKey));
   const boardAreaEls = [...($('boardArea') ? $('boardArea').querySelectorAll('.card') : [])];
   state.board.forEach((boardCard, i) => {
@@ -3917,181 +3875,45 @@ function showWinningHandOnTable(state) {
     cardEl.classList.toggle('board-card-unused', !winningHandKeys.has(cardKey(boardCard)));
   });
 
-  // Build 5 empty, invisible placeholder slots first purely to measure
-  // exactly where each card's own final resting spot actually is --
-  // real layout, real gap/sizing, not a guessed position.
-  cardsContainer.innerHTML = winningHand.map(() => `<div class="card table-winning-hand-slot"></div>`).join('');
+  // Real, confirmed full rewrite per explicit, repeated live report of
+  // glitchy, chaotic, misplaced flying cards ("looks terrible... like
+  // a glitch... flashing cards flying for no apparent aim"): the
+  // previous approach computed exact pixel coordinates for a
+  // position:fixed element to travel between two points on screen --
+  // fragile by nature, since it depended on precisely-measured source
+  // rects (seat cards, board cards, some behind 3D perspective
+  // transforms) staying valid for the full ~0.5s of the flight, on
+  // every device and orientation. Each attempted fix (size-matching,
+  // centering, straight-line paths, mobile viewport resize snapping)
+  // patched one specific failure mode without addressing the
+  // fundamental fragility of flying pixel-exact coordinates across a
+  // real, live-resizing mobile browser.
+  //
+  // This removes cross-screen movement from the mechanism entirely.
+  // Every card appears directly in its own real, final flex-row slot
+  // -- no position:fixed, no measured source rect, no viewport-
+  // relative pixel math to go stale. Each one still visibly "arrives"
+  // with real motion (grows from nothing, same landing-impact pop
+  // every other dealt card gets), just in place rather than crossing
+  // the screen -- there is now no coordinate calculation left that a
+  // resize, a 3D-transformed source card, or a mismeasured rect could
+  // ever get wrong, because none of those inputs are used at all.
+  cardsContainer.innerHTML = '';
   $('tableWinningHandLabel').textContent = '';
   el.classList.remove('on');
   el.classList.add('on');
-  void cardsContainer.offsetWidth;
-  const slotEls = [...cardsContainer.querySelectorAll('.table-winning-hand-slot')];
-  const boardCardEls = [...($('boardArea') ? $('boardArea').querySelectorAll('.card') : [])];
-
-  // Real, confirmed root-cause fix per explicit live report ("not
-  // aligned with the top cards... needs to be centered correctly...
-  // 2 angles, I only need straight from player to middle of table"):
-  // the previous approach forced every slot's horizontal position to
-  // match its own real source card, specifically to guarantee a
-  // purely vertical flight path -- but that broke the row's own
-  // overall centering, since hole cards (sourced from wherever the
-  // winner's actual seat sits around the oval, which is rarely
-  // anywhere near center) dragged their slots way off to whichever
-  // side that seat happened to be on, and the row as a whole no
-  // longer lined up with the board above it at all.
-  //
-  // The actual fix is at the CSS level (see .table-winning-hand-cards
-  // and its .card children at each breakpoint, now sized and gapped
-  // to exactly match .board-area's real numbers there): with both
-  // rows built from identically-sized cards at an identical gap and
-  // both centered the same way, this row's natural, untouched flexbox
-  // layout already lines up card-for-card with the board above it --
-  // index 0 under index 0, index 4 under index 4 -- with no
-  // per-card JS override needed at all. A flight from a hole card's
-  // real seat position to its own now-correctly-centered slot is a
-  // single straight line by definition (a CSS left/top transition is
-  // never anything but a straight line between two points) -- it may
-  // be a diagonal rather than a pure vertical drop when that seat
-  // isn't directly below its slot, but "straight, on a diagonal" is
-  // exactly what "straight from player to middle of table" describes,
-  // and it's what keeps the row itself properly centered.
-
-  // Real, confirmed root-cause fix per explicit live report ("something
-  // happening on the bottom... nothing on full screen computer") --
-  // reproduced headlessly with real geometry logging: the start/end
-  // pixel math itself is correct (verified against the winner's actual
-  // seat rect and the real board card rects), so this was never a
-  // wrong-source-seat bug. Each flying card locks in fixed left/top
-  // PIXEL VALUES once, then CSS-transitions to them over ~550ms per
-  // card (up to ~2s total across all 5). On a real phone, Chrome's URL
-  // bar collapsing/expanding -- which very commonly happens right as a
-  // hand ends, exactly when a person taps or scrolls -- resizes the
-  // visual viewport mid-flight, after those pixel targets were already
-  // computed against the OLD viewport. The transition keeps chasing the
-  // now-stale numbers and the card lands off in the wrong spot, often
-  // down near the screen edge. Desktop Chrome's viewport never resizes
-  // like this mid-interaction, which is exactly why it never showed up
-  // there. Rather than trying to recompute correct new pixel targets
-  // (fragile, and still visually janky), any card still mid-flight when
-  // a resize fires now just snaps immediately into its real layout
-  // position -- clearing position:fixed/left/top/margin drops it back
-  // into cardsContainer's own current flex layout, which is always
-  // correct because it's the browser's own live layout, not a value we
-  // calculated and could get wrong.
-  let arrivedCount = 0;
-  const inFlightCards = [];
-  const finishCard = (i, card1) => {
-    if (card1.dataset.landed === '1') return;
-    card1.dataset.landed = '1';
-    card1.style.position = '';
-    card1.style.left = '';
-    card1.style.top = '';
-    card1.style.margin = '';
-    card1.style.zIndex = '';
-    card1.style.transition = '';
-    card1.style.width = '';
-    card1.style.height = '';
-    card1.style.opacity = '1';
-    card1.classList.add('dealt-card-pop');
-    arrivedCount++;
-    if (arrivedCount === winningHand.length) {
-      $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-summary">${names} won ${totalWon}</span> <span class="table-winning-hand-label-handname">${r.winners[0].handName}</span>`;
-      $('btnWinningHandContinue').style.display = '';
-      updateWinningHandContinueUI(latestState);
-    }
-  };
-  if (!window._winningHandResizeSnapAttached) {
-    window._winningHandResizeSnapAttached = true;
-    const snapAllInFlight = () => {
-      (window.currentWinningHandFlightCards || []).forEach(({ i, card1 }) => finishCard(i, card1));
-    };
-    window.addEventListener('resize', snapAllInFlight);
-    if (window.visualViewport) window.visualViewport.addEventListener('resize', snapAllInFlight);
-  }
-  window.currentWinningHandFlightCards = inFlightCards;
   winningHand.forEach((card, i) => {
-    const slotEl = slotEls[i];
-    if (!slotEl) return;
-    const slotRect = slotEl.getBoundingClientRect();
-    const isHoleCard = holeCardKeys.has(cardKey(card));
-    let startRect;
-    if (isHoleCard && winnerSeatEl) {
-      const holeCardEls = winnerPos === myPos
-        ? [...document.querySelectorAll('#myHandStrip .card')]
-        : [...winnerSeatEl.querySelectorAll('.seat-cards .card')];
-      const holeCards = (winnerSeat && winnerSeat.hand) || [];
-      const matchIdx = holeCards.findIndex(h => h && cardKey(h) === cardKey(card));
-      startRect = (matchIdx !== -1 && holeCardEls[matchIdx]) ? holeCardEls[matchIdx].getBoundingClientRect() : winnerSeatEl.getBoundingClientRect();
-    } else {
-      const matchIdx = state.board.findIndex(b => b && cardKey(b) === cardKey(card));
-      startRect = (matchIdx !== -1 && boardCardEls[matchIdx]) ? boardCardEls[matchIdx].getBoundingClientRect() : slotRect;
-    }
-    // Real, confirmed defensive fix per explicit live report (a card
-    // stuck flying to/landing in the bottom-right screen corner,
-    // detached from the table entirely): every lookup above already
-    // has its own fallback, but every one of those fallbacks still
-    // assumes the element it falls back to (winnerSeatEl, or slotRect
-    // itself) is itself genuinely measurable -- if a seat or hole-card
-    // element briefly reports a degenerate rect (zero width/height,
-    // not yet laid out at the exact instant this reads it), the
-    // computed start position silently becomes garbage and the flight
-    // renders wherever that garbage coordinate happens to be, with
-    // nothing catching it. Falls back to the slot's own real, always-
-    // correct position instead whenever the resolved startRect comes
-    // back with no real size -- the card may skip the visual "flight"
-    // in that rare case, but it can never end up parked in a corner
-    // disconnected from the table.
-    if (!startRect || !startRect.width || !startRect.height) startRect = slotRect;
-    const startX = startRect.left + startRect.width / 2;
-    const startY = startRect.top + startRect.height / 2;
-    const endX = slotRect.left + slotRect.width / 2;
-    const endY = slotRect.top + slotRect.height / 2;
-    const startW = startRect.width || slotRect.width;
-    const startH = startRect.height || slotRect.height;
-    const delay = i * 320;
     setTimeout(() => {
-      // Real, confirmed rewrite per explicit, repeated live report ("I
-      // want that... physical card to travel... and this card should
-      // be the one that displays... ure going back and forth"): the
-      // previous approach created a separate, temporary flying copy
-      // that flew to the destination and then got thrown away, at
-      // which point a COMPLETELY DIFFERENT, pre-existing placeholder
-      // element (slotEl) was what actually got populated and stayed
-      // on screen -- two different DOM nodes standing in for one
-      // card, a real copy-then-swap. This is now the genuine single
-      // element for this card, start to finish: created once here,
-      // it IS what flies (starting sized and positioned exactly at
-      // its real source, via position:fixed so the flight is
-      // unaffected by the row's own flex layout), and it IS what
-      // settles into the row at the end -- the same node the whole
-      // way, never destroyed and replaced by a different one.
       const card1 = document.createElement('div');
-      card1.className = `card ${suitClassFor(card.suit)}`;
+      card1.className = `card ${suitClassFor(card.suit)} dealt-card-pop`;
       card1.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
-      card1.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;width:${startW}px;height:${startH}px;margin:-${startH/2}px 0 0 -${startW/2}px;z-index:1850;opacity:0.75;transition:left 0.55s cubic-bezier(.3,.5,.4,1),top 0.55s cubic-bezier(.3,.5,.4,1),width 0.55s cubic-bezier(.2,1.4,.3,1),height 0.55s cubic-bezier(.2,1.4,.3,1),margin 0.55s cubic-bezier(.2,1.4,.3,1),opacity 0.3s ease;`;
-      slotEl.replaceWith(card1);
-      slotEls[i] = card1;
-      inFlightCards.push({ i, card1 });
-      void card1.offsetWidth;
-      requestAnimationFrame(() => {
-        card1.style.left = endX + 'px';
-        card1.style.top = endY + 'px';
-        card1.style.width = slotRect.width + 'px';
-        card1.style.height = slotRect.height + 'px';
-        card1.style.margin = `-${slotRect.height / 2}px 0 0 -${slotRect.width / 2}px`;
-        card1.style.opacity = '1';
-      });
-      // Real card has genuinely arrived -- drop the flight's fixed
-      // positioning entirely so it settles naturally into the row's
-      // own flex layout at its real, permanent spot (matching every
-      // other landed card, including ones added after it), with the
-      // same landing-impact pop every other dealt card gets. Shared
-      // with the resize-snap path above (finishCard) via the
-      // card1.dataset.landed guard, so whichever fires first --
-      // the normal timer or an early resize-driven snap -- is the
-      // one that actually lands it, and the other becomes a no-op.
-      setTimeout(() => finishCard(i, card1), 560);
-    }, delay);
+      cardsContainer.appendChild(card1);
+      if (i === winningHand.length - 1) {
+        $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-summary">${names} won ${totalWon}</span> <span class="table-winning-hand-label-handname">${r.winners[0].handName}</span>`;
+        $('btnWinningHandContinue').style.display = '';
+        updateWinningHandContinueUI(latestState);
+      }
+    }, i * 320);
   });
 
   if (tableWinningHandClearTimer) clearTimeout(tableWinningHandClearTimer);
