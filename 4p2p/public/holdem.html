@@ -3833,7 +3833,42 @@ function showWinningHandOnTable(state) {
   const r = state.showdownResult;
   const el = $('tableWinningHand');
   const cardsContainer = $('tableWinningHandCards');
-  if (!el || !cardsContainer || !r || !r.winners || !r.winners.length || !r.boardShown || !r.winners[0].hand) return;
+  if (!el || !cardsContainer || !r || !r.winners || !r.winners.length) return;
+  // Real, confirmed bug fix per explicit live report ("if everyone
+  // fold I see a pause... it's not immediately starting next hand"):
+  // when everyone else folds (no genuine showdown), the engine sets
+  // showdownResult.boardShown:false and gives the winner no .hand at
+  // all (see poker-engine.js's _awardPotToSingleWinner) -- there's no
+  // real hand to reveal since nobody showed cards. This function used
+  // to just return immediately in that case and do NOTHING ELSE AT
+  // ALL, which meant the Continue button (only ever revealed further
+  // down in the full-reveal path below) never appeared for a
+  // fold-everyone-else-out win. Real players had no way to click
+  // Continue, so the table sat there until the server's 45-second
+  // safety-timer fallback finally forced the next hand -- exactly the
+  // long "pause" reported. There's no hand to fly onto the table here,
+  // but the winner/amount label and the Continue button both still
+  // need to show right away, same as a real showdown just without the
+  // card animation.
+  if (!r.boardShown || !r.winners[0].hand) {
+    r.winners.forEach(w => {
+      const seatEl = document.querySelector(`.seat[data-pos="${w.seat}"]`);
+      if (!seatEl) return;
+      seatEl.classList.remove('winner-reaction');
+      void seatEl.offsetWidth;
+      seatEl.classList.add('winner-reaction');
+    });
+    const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+    const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
+    cardsContainer.innerHTML = '';
+    $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-summary">${names} won ${totalWon}</span>`;
+    el.classList.remove('on');
+    el.classList.add('on');
+    if (tableWinningHandClearTimer) clearTimeout(tableWinningHandClearTimer);
+    $('btnWinningHandContinue').style.display = '';
+    updateWinningHandContinueUI(latestState);
+    return;
+  }
 
   const winnerPos = r.winners[0].seat;
   const winnerSeat = state.seats[winnerPos];
