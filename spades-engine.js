@@ -314,17 +314,30 @@ class SpadesEngine {
   maybeAutoAct() {
     const seat = this.seats[this.curP];
     if (!seat) return false;
-    if (!(seat.isBot || !seat.connected)) return false;
+    if (this._turnTrackedPlayer !== this.curP || this._turnTrackedHand !== this.handN || this._turnTrackedPhase !== this.phase) {
+      this._turnTrackedPlayer = this.curP;
+      this._turnTrackedHand = this.handN;
+      this._turnTrackedPhase = this.phase;
+      this.turnStartedAt = Date.now();
+    }
+    const turnAgeMs = Date.now() - (this.turnStartedAt || Date.now());
+    const CONNECTED_BUT_STUCK_MS = 120000;
+    const treatAsStuck = seat.isBot || !seat.connected || turnAgeMs >= CONNECTED_BUT_STUCK_MS;
+    if (!treatAsStuck) return false;
     if (this._autoActTimer) return false; // already scheduled, don't double-arm
     const capturedPos = this.curP;
     const capturedHand = this.handN;
     const capturedPhase = this.phase;
+    const capturedTurnStartedAt = this.turnStartedAt;
+    const delay = seat.isBot ? 900 : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
     this._autoActTimer = setTimeout(() => {
       this._autoActTimer = null;
       if (this.handN !== capturedHand || this.phase !== capturedPhase) return;
       if (this.curP !== capturedPos) return;
       const seatNow = this.seats[capturedPos];
-      if (!seatNow || (!seatNow.isBot && seatNow.connected)) return;
+      if (!seatNow) return;
+      const stillStuck = seatNow.isBot || !seatNow.connected || (Date.now() - (capturedTurnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
+      if (!stillStuck) return;
       if (this.phase === 'bidding') {
         try {
           this.placeBid(capturedPos, this._botBid(capturedPos));
@@ -349,7 +362,7 @@ class SpadesEngine {
           try { this.playCard(capturedPos, card); } catch (e3) { console.error('[bot-safety] fallback playCard ALSO threw:', e3 && e3.stack || e3); }
         }
       }
-    }, seat.isBot ? 900 : 20000); // bots act at a watchable pace; a disconnected human gets a real grace period for a brief network blip before anything is played for them
+    }, delay); // bots act at a watchable pace; a disconnected human gets a real grace period for a brief network blip before anything is played for them
     return true;
   }
 

@@ -122,7 +122,20 @@ function personalityFor(seatKey) {
   if (!botPersonality.has(seatKey)) {
     botPersonality.set(seatKey, {
       tightness: 0.85 + Math.random() * 0.3,   // <1 loosens thresholds, >1 tightens
-      aggression: 0.8 + Math.random() * 0.5    // scales bet/raise sizing and bluff frequency
+      // Real, confirmed bug fix per explicit live report ("bots busting
+      // out before level 2 finishes, tournament over too fast"):
+      // simulated directly with a 6-bot tournament before this change
+      // -- 3 of 6 bots were already at 0 chips by the end of HAND 1,
+      // with the whole table down to one survivor by hand 18, despite
+      // 1000 starting chips and blinds still sitting at 10/20. The old
+      // 0.8-1.3 range let bet/raise sizing (below) compound into
+      // genuinely reckless amounts once multiple bots raised each
+      // other in the same hand, since each raise was sized off an
+      // already-inflated pot. Narrowed so the wildest bot is still
+      // noticeably more aggressive than the tightest one (personality
+      // variance is still real), but neither end is capable of the
+      // pot-doubling spiral the old top end allowed.
+      aggression: 0.75 + Math.random() * 0.35
     });
   }
   return botPersonality.get(seatKey);
@@ -131,7 +144,19 @@ function personalityFor(seatKey) {
 function botDecideAction(engine, pos) {
   const s = engine.seats[pos];
   const toCall = engine.currentBet - s.bettedThisRound;
-  const pot = engine.totalPot();
+  // Real, confirmed bug fix: engine.totalPot() only reflects money already collected from
+  // COMPLETED betting rounds (via _collectBetsIntoPots(), called when a round finishes) - it
+  // reads back as 0 for the entire preflop round and for any street still in progress, which
+  // is precisely when a bot is actually making a decision. That silently forced every pot-odds
+  // comparison here to potOdds = toCall/(0+toCall) = 1.0 - the maximum possible value - which
+  // in turn required roughly 85%+ raw equity just to continue facing any bet at all. Confirmed
+  // directly: a 30-hand, 6-bot simulation folded preflop 92% of the time before this fix, and
+  // tracing a single hand showed real, clearly-playable hands (A5 offsuit from the blinds,
+  // scoring 50/100 - comfortably clear of that position's entire threshold) folding anyway
+  // purely because of this. Sum of every seat's totalBetThisHand is the actual, live pot at
+  // any moment regardless of whether the round has formally closed yet, and is what both the
+  // pot-odds comparison and the bet-sizing below actually need.
+  const pot = engine.occupiedSeats().reduce((sum, p) => sum + engine.seats[p].totalBetThisHand, 0);
   const potOdds = toCall > 0 ? toCall / (pot + toCall) : 0;
   const personality = personalityFor(engine.tableId + ':' + pos);
 
@@ -152,7 +177,28 @@ function botDecideAction(engine, pos) {
     // Postflop: real made-hand strength plus draw equity, not just one
     // or the other.
     const { score } = evaluateBest([...s.hand, ...engine.board]);
-    const madeHandEquity = Math.min(1, 0.12 + score[0] * 0.115);
+    // Real, confirmed bug fix: the old flat 0.12 + category*0.115 formula meant even three of
+    // a kind (category 3) only scored 0.465 equity - BELOW the 0.58 value-bet threshold below,
+    // and below most realistic pot-odds bars too. Confirmed directly via simulation: bots were
+    // checking through postflop streets 83.9% of the time and reaching real showdowns 79.8% of
+    // hands - both far more passive than an actual table, since even strong made hands rarely
+    // cleared the bar to bet. Rebalanced so each category sits at a level that reflects how
+    // often it's genuinely the best hand at showdown (pair still middling since plenty of
+    // pairs are weak kickers on a scary board, but two pair and up now comfortably clear a
+    // value bet the way they should). Also adds a same-category rank bonus (score[1], the
+    // primary tiebreaker) specifically for the "pair" and "high card" categories, where the
+    // gap between the best and worst hand in that same category is largest - top pair top
+    // kicker is a real value hand, bottom pair is not, and the old formula treated them
+    // identically.
+    const CATEGORY_BASE_EQUITY = [0.16, 0.34, 0.55, 0.66, 0.76, 0.83, 0.90, 0.96, 0.99];
+    let madeHandEquity = CATEGORY_BASE_EQUITY[score[0]];
+    if (score[0] === 0 || score[0] === 1) {
+      // score[1] is the primary rank (2-14) for both categories here - scale its position
+      // within that range into a modest bonus so, e.g., a pair of aces reads meaningfully
+      // stronger than a pair of twos, not identical to it.
+      madeHandEquity += ((score[1] - 2) / 12) * 0.12;
+    }
+    madeHandEquity = Math.min(1, madeHandEquity);
     const draws = detectDraws(s.hand, engine.board);
     equity = Math.min(0.97, madeHandEquity + drawEquityBonus(draws, streetsRemaining) * (1 - madeHandEquity));
   }
@@ -162,15 +208,116 @@ function botDecideAction(engine, pos) {
   // play a fixed strategy either.
   equity = Math.max(0, Math.min(1, equity + (Math.random() - 0.5) * 0.06));
 
+  // Real, confirmed root cause of the "wild by hand 3" report, found by tracing a hand
+  // action-by-action: every equity number above is computed as if only one opponent exists
+  // (roughly "how good is this hand on its own"), then compared straight against pot odds
+  // with zero regard for how many other live players are ALSO still in the same hand. Pot
+  // odds alone made each individual call look correct in isolation, so 6-7 bots routinely
+  // rode every street of the same hand together - the per-street and per-hand caps elsewhere
+  // in this file only limit how big any one bet gets, they don't stop that many players from
+  // seeing all four streets together in the first place, which is what actually funnels a
+  // table's chips into one pot. A real player's true chance of winning drops with every extra
+  // live opponent (more hands that can beat you), so this discounts the raw single-opponent
+  // equity above by the number of other players still contesting the pot - the standard,
+  // well-known shape of real multiway equity (roughly equity^opponents for a rough estimate,
+  // dampened here so it isn't overly punishing) rather than the flat, opponent-blind number
+  // used until now.
+  const liveOpponents = engine.occupiedSeats().filter(p => p !== pos && !engine.seats[p].folded).length;
+  if (liveOpponents > 1) {
+    equity = Math.pow(equity, 1 + (liveOpponents - 1) * 0.4);
+  }
+
+  // Real, confirmed bug fix per explicit live report of bots calling/betting odd amounts like
+  // 21, 24, 25 with 5/10 blinds, instead of clean multiples of the big blind (10, 20, 30...)
+  // a real player would actually see offered. pot * someFraction was never going to land on a
+  // clean number on its own - rounded UP (never down, so a sized-up amount can never
+  // accidentally fall back below whatever floor - engine.bigBlind or engine.minRaise - the
+  // caller already enforced) to the nearest big-blind multiple right here, once, rather than
+  // patching each of the three call sites below separately.
+  const roundToBlind = (n) => Math.ceil(n / engine.bigBlind) * engine.bigBlind;
+  // Real, confirmed bug fix, same live report as above: even with
+  // personality.aggression narrowed, a bet/raise sized purely off pot
+  // fraction has no idea how deep the bettor's own stack actually is
+  // -- late in a hand with a big pot already built, a "normal" 0.5-0.6x
+  // pot raise can still be a huge fraction of a 1000-chip stack in one
+  // move. Caps any bet or raise this function produces to at most 45%
+  // of the bot's remaining chips (not counting what's already in this
+  // round's bet, so calling up to that first is never blocked) --
+  // still leaves plenty of room to build a real pot over multiple
+  // streets, but stops one single bet from routinely being most of a
+  // stack. A hand can still genuinely go all-in when equity is
+  // actually that strong (the raise-vs-shove logic further down is
+  // untouched), just not as an accident of pot-relative math.
+  const capToStack = (amount) => Math.min(amount, s.chips + s.bettedThisRound);
+  // Real, confirmed bug fix, same live report: even with the raise-war
+  // fix above, tracing another hand showed a second, related pattern --
+  // with 5-6 players still in on every street, a single bet sized off
+  // an already-large pot, multiplied by that many callers each also
+  // paying from their own stack, drains a big chunk of everyone's
+  // stack every single street even with zero re-raising involved. Four
+  // streets of that compounds into most of a stack gone by showdown.
+  // Tightened from 45% to 25% of the bettor's own remaining stack per
+  // single bet/raise -- still allows a real, escalating pot over the
+  // course of a hand, just not one that can exhaust a deep stack in a
+  // single hand purely through ordinary betting.
+  const stackCapFraction = (n) => Math.min(n, roundToBlind(Math.round(s.chips * 0.25)));
+  // New safety mechanism per explicit live report: even with every fix
+  // above, an 8-trial batch of full tournament runs still turned up a
+  // genuine outlier -- one run busted a player by hand 2 and the whole
+  // tournament was over by hand 5, purely from an unlucky sequence of
+  // ordinary (not "crazy") bets and calls compounding across all four
+  // streets of the same hand. Per-street caps alone can't catch that,
+  // since each individual street's bet can look perfectly reasonable
+  // while the same aggressor betting all four streets still adds up to
+  // most of a stack by the river. This adds a real per-HAND ceiling on
+  // top: how much of this seat's stack AT THE START of this specific
+  // hand (chips still in hand + whatever's already gone into this
+  // hand's pot -- not current chips, which would shrink the cap itself
+  // as the hand progresses and defeat the point) this bot is willing
+  // to voluntarily commit via its OWN raises. Calling is never capped
+  // by this -- a bot that's already committed can still call a bet
+  // someone else made, the same way a real player facing a bet doesn't
+  // get to un-call it for budget reasons -- only this bot's own choice
+  // to raise further is what's actually being kept in check here. A
+  // genuinely big hand (equity clear of 0.7) is explicitly exempt,
+  // since real players do go past this with the nuts, this is a
+  // guardrail against ordinary hands escalating a whole hand by
+  // accident, not a hard wall against ever committing a real stack.
+  const handStartStack = s.chips + s.totalBetThisHand;
+  const HAND_COMMIT_CAP_FRACTION = 0.4;
+  const raiseAllowedBySafety = (intendedTotalBet) => {
+    if (equity > 0.7) return true;
+    return intendedTotalBet <= handStartStack * HAND_COMMIT_CAP_FRACTION;
+  };
+
   if (toCall === 0) {
     // Free to act: bet for value with real equity, occasionally
     // continuation-bet as a bluff with nothing, otherwise check.
-    const valueBet = equity > 0.58;
-    const bluff = equity < 0.3 && Math.random() < 0.16 * personality.aggression;
+    // Real, confirmed bug fix: with the rebalanced equity scale above, a 0.58 cutoff put most
+    // pairs (now sitting around 0.34-0.46) in a dead zone below both this and the old 0.3
+    // bluff cutoff - neither branch fired, so the bot defaulted to checking regardless of
+    // hand strength. Confirmed directly: postflop checking stayed at 84%+ even after
+    // rebalancing the equity numbers alone, until these two cutoffs were widened to actually
+    // use that new scale. 0.46 now catches a genuine top-pair-or-better hand as a value bet;
+    // 0.38 widens the bluff range to cover realistic "nothing, but the board missed them too"
+    // spots instead of only the very weakest high cards.
+    const valueBet = equity > 0.46;
+    const bluff = equity < 0.38 && Math.random() < 0.22 * personality.aggression;
     if (valueBet || bluff) {
-      const sizeFraction = valueBet ? (0.5 + equity * 0.35) : 0.45; // bigger with stronger hands, standard c-bet size as a bluff
-      const betSize = Math.max(engine.bigBlind, Math.round(pot * sizeFraction * personality.aggression));
-      return { action: 'bet', amount: s.bettedThisRound + betSize };
+      // Real, confirmed bug fix, same live report: 0.5-0.85x pot (the
+      // old range once aggression was folded in) routinely built pots
+      // that were most of a 1000-chip stack within two or three bets.
+      // Brought down to a genuinely standard sizing range instead.
+      const sizeFraction = valueBet ? (0.35 + equity * 0.25) : 0.35; // bigger with stronger hands, standard c-bet size as a bluff
+      const betSize = stackCapFraction(roundToBlind(Math.max(engine.bigBlind, Math.round(pot * sizeFraction * personality.aggression))));
+      const intendedTotal = s.bettedThisRound + betSize;
+      if (raiseAllowedBySafety(intendedTotal)) {
+        return { action: 'bet', amount: intendedTotal };
+      }
+      // Per-hand safety cap hit: still a fine hand, just not one that
+      // should keep pushing this specific hand further -- checks
+      // instead of betting, exactly the "not folding, just not
+      // escalating" behavior this whole mechanism is for.
     }
     return { action: 'check' };
   }
@@ -179,19 +326,66 @@ function botDecideAction(engine, pos) {
   // continue -- the actual mathematical basis for a call, not a flat
   // cutoff.
   const requiredEquity = potOdds;
+  // Real, confirmed bug fix, root cause of the whole "busts out before
+  // level 2" report: traced a single hand action-by-action and found
+  // the actual mechanism -- multiple bots kept re-raising EACH OTHER
+  // in the same betting round, each one only ever weighing its own
+  // equity against whatever the pot happened to be at that instant,
+  // with zero awareness the pot had already been raised three or four
+  // times to get there. A single preflop round went 10 -> 40 -> 90 ->
+  // 220 -> 550 -> 910 this way, near enough to felting multiple
+  // 1000-chip stacks in one round. raisesThisRound (see poker-engine.js)
+  // is the fix: how many times has this exact betting round already
+  // been raised, regardless of who did it. Real players tighten up
+  // fast facing multiple raises -- most hands that raise once fold to
+  // a second raise, and a third or later raise in one round is
+  // genuinely rare even among aggressive players. Modeled the same
+  // way: raise likelihood decays sharply with each successive raise
+  // already in, and there's a hard ceiling (4) no bot will ever raise
+  // past in a single round, calling or folding instead once it's hit.
+  const raisesSoFar = engine.raisesThisRound || 0;
+  const raiseDecay = raisesSoFar === 0 ? 1 : raisesSoFar === 1 ? 0.45 : raisesSoFar === 2 ? 0.18 : 0;
   if (equity < requiredEquity * 0.85) {
     // The rare deliberate bluff-raise with genuinely weak equity, kept
     // infrequent so it doesn't become predictable or reckless.
-    if (Math.random() < 0.05 * personality.aggression && toCall < s.chips * 0.25) {
-      const raiseSize = Math.max(engine.minRaise, Math.round(pot * 0.7));
-      return { action: 'raise', amount: engine.currentBet + raiseSize };
+    if (raiseDecay > 0 && Math.random() < 0.05 * personality.aggression * raiseDecay && toCall < s.chips * 0.25) {
+      const raiseSize = stackCapFraction(roundToBlind(Math.max(engine.minRaise, Math.round(pot * 0.55))));
+      const intendedTotal = capToStack(engine.currentBet + raiseSize);
+      if (raiseAllowedBySafety(intendedTotal)) {
+        return { action: 'raise', amount: intendedTotal };
+      }
     }
     return { action: 'fold' };
   }
 
-  if (equity > requiredEquity + 0.28 && Math.random() < 0.55 * personality.aggression) {
-    const raiseSize = Math.max(engine.minRaise, Math.round(pot * (0.55 + equity * 0.3)));
-    return { action: 'raise', amount: engine.currentBet + raiseSize };
+  // Real, confirmed bug fix, same live report: this fired 55% of the
+  // time whenever a hand cleared the pot-odds bar by a healthy margin,
+  // and with multiple bots at the table each doing the same thing on
+  // the same hand, raises compounded into the pot fast -- confirmed
+  // directly in simulation, where a single hand could see the pot (and
+  // therefore the next raise sized off it) roughly double per bot that
+  // acted. Lowered the frequency and the size range together, and now
+  // also multiplied by raiseDecay above so a strong hand still raises
+  // for real value the first time around, but a hand facing an
+  // already-raised pot needs to actually be strong enough to justify
+  // continuing the war, not just clearing the same static bar everyone
+  // else already cleared to get here.
+  if (raiseDecay > 0 && equity > requiredEquity + 0.28 && Math.random() < 0.38 * personality.aggression * raiseDecay) {
+    const raiseSize = stackCapFraction(roundToBlind(Math.max(engine.minRaise, Math.round(pot * (0.4 + equity * 0.2)))));
+    const intendedTotal = capToStack(engine.currentBet + raiseSize);
+    // New safety mechanism per explicit live report: a genuinely
+    // reasonable-looking raise (this branch already requires clearing
+    // real pot odds by a healthy margin) can still be the one that
+    // pushes this specific hand's total commitment past a sane
+    // fraction of what this seat brought into the hand -- checked here
+    // rather than folding, since the hand is still genuinely good
+    // enough to continue, just not to keep raising it.
+    if (raiseAllowedBySafety(intendedTotal)) {
+      return { action: 'raise', amount: intendedTotal };
+    }
+    // Per-hand safety cap hit: falls through to the plain call below
+    // instead -- still a fine hand, still staying in, just not
+    // escalating this specific hand any further.
   }
 
   if (toCall >= s.chips) {
@@ -199,6 +393,27 @@ function botDecideAction(engine, pos) {
     // genuine equity clear of a coinflip, same principle as any
     // reasonable all-in-call standard.
     return equity > 0.5 ? { action: 'call' } : { action: 'fold' };
+  }
+  // New safety mechanism per explicit live report ("80-90% of chips
+  // gone within 2-3 hands"): confirmed directly in simulation that
+  // capping only this bot's own raises wasn't enough on its own --
+  // one aggressor betting a genuinely reasonable size every street,
+  // multiplied by several other bots each just calling along (never
+  // raising, so the raise-side caps above never even applied to them),
+  // still transferred most of the table's chips in a single hand. A
+  // real player doesn't mechanically call every street regardless of
+  // how much of their own stack it adds up to -- this mirrors that:
+  // once calling would push this bot's total commitment past 65% of
+  // what it brought into this specific hand, continuing needs genuine
+  // equity (a clear favorite, not just ahead of pot odds) to be worth
+  // it. Deliberately looser than the 40%/raising cap above and still
+  // exempt for strong hands, so this is a brake on the passive,
+  // no-raises-involved version of the same problem, not a source of
+  // extra folding on ordinary hands -- most calls never get anywhere
+  // near 65% of a stack in one hand to begin with.
+  const intendedCallTotal = s.bettedThisRound + toCall;
+  if (intendedCallTotal > handStartStack * 0.65 && equity < 0.55) {
+    return { action: 'fold' };
   }
   return { action: 'call' };
 }

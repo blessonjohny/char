@@ -1,6 +1,12 @@
 // ============================================================
 // 28 KERALA GULAN — AUTHORITATIVE GAME ENGINE
 // ============================================================
+// NAMING: this file is specifically the ONLINE "4 player" engine (per
+// explicit user instruction). The separate offline, single-device,
+// no-server bot mode lives entirely client-side in public/index.html
+// (chooseBotCardBase() and friends) and should be called the "learn
+// table"/"learn mode" instead -- see the full explanation in the
+// comment at the very top of public/index.html.
 // This runs on the SERVER, not in any player's browser. That's the whole
 // point: previously the "host" player's browser ran this exact logic
 // locally, and if their tab died, the entire game died with it — nobody
@@ -13,8 +19,9 @@
 // Rules implemented, ported from the original client's engine:
 //  - 32-card deck (7,8,9,10,J,Q,K,A x 4 suits). J=3pts, 9=2pts, A=1pt,
 //    10=1pt, everything else 0pts. 28 points in the deck total.
-//  - Teams are fixed by seat: seats 0 & 2 vs seats 1 & 3.
-//  - Bidding: 4 cards dealt first. First bidder (dealer's left) must bid
+//  - Teams are fixed by seat: seats 0 & 3 vs seats 1 & 2 (partners sit
+//    directly across the table from each other, not next to each other).
+//  - Bidding: 4 cards dealt first. First bidder (dealer's right) must bid
 //    at least 14 and cannot pass. Bids strictly increase. Bidding ends
 //    once 3 players in a row have passed after some bid exists.
 //  - Bid winner picks a trump suit and sets aside ("hides") one trump
@@ -43,6 +50,8 @@ const RANKS = ['7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 const POINTS = { J: 3, '9': 2, A: 1, '10': 1, K: 0, Q: 0, '8': 0, '7': 0 };
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1 };
 const brain = require('./bot-brain');
+const leaderboard = require('./leaderboard');
+const challengeLeaderboard = require('./challenge-leaderboard');
 brain.loadBrains();
 
 // These two lines were wrong for this entire rewrite, and are the true
@@ -56,6 +65,7 @@ brain.loadBrains();
 const SEAT_ROTATION = [3, 2, 0, 1];
 function getTeam(pos) { return (pos === 0 || pos === 3) ? 1 : 0; }
 function nextPos(p) { return SEAT_ROTATION[(SEAT_ROTATION.indexOf(p) + 1) % 4]; }
+function partnerOf(pos) { return pos === 0 ? 3 : pos === 3 ? 0 : pos === 1 ? 2 : 1; }
 
 function freshDeck() {
   const deck = [];
@@ -94,6 +104,102 @@ function evaluatePhase1Hand(hand) {
   for (const s of SUITS) bySuit[s] = [];
   for (const c of hand) bySuit[c.suit].push(c);
 
+  // Hard ceiling based on actual cards held, not a probability curve.
+  // Real-game feedback: bots kept bidding well past what their hand
+  // could support because a continuous "confidence" estimate can always
+  // be nudged a little further by aggression, learned patterns, or a
+  // partner bonus. A structural ceiling tied directly to concrete card
+  // composition can't be talked past that way - it's an actual cap, not
+  // a starting point.
+  let eligibleToRaise = false;
+  let jSuitCeiling = 14;
+  let jPlusOneCompanionSuits = 0;
+  // Suits where this hand holds ONLY a lone Jack (no companion at all in
+  // that suit) -- tracked for the 9-A-10-no-Jack rule further below,
+  // which needs to know about a genuinely separate bonus Jack elsewhere.
+  const loneJackSuits = [];
+  for (const s of SUITS) {
+    const cards = bySuit[s];
+    if (cards.length === 0) continue;
+    const hasJ = cards.some(c => c.rank === 'J');
+    const has9 = cards.some(c => c.rank === '9');
+    const hasA = cards.some(c => c.rank === 'A');
+    if (!hasJ) {
+      // No Jack in this suit: only justifies raising at all if it's a
+      // real 3+ card suit that also includes the 9 - a genuine strong
+      // suit, not just a pile of low cards.
+      if (cards.length >= 3 && has9) { eligibleToRaise = true; jSuitCeiling = Math.max(jSuitCeiling, 15); }
+      continue;
+    }
+    eligibleToRaise = true;
+    const companions = cards.filter(c => c.rank !== 'J');
+    let suitCeiling;
+    if (companions.length === 0) {
+      suitCeiling = 14; // a lone Jack, no companion - not enough to raise on its own
+      loneJackSuits.push(s);
+    } else if (has9 && hasA) {
+      // Jack+9+Ace (with or without the 10 too) is the single strongest
+      // hand type here - full command of the suit's point structure PLUS
+      // the Jack itself locking the suit down. Raised from 20 to 23 per
+      // updated tuning; still a real ceiling, not a starting point, so
+      // the confidence/pullback logic elsewhere still decides how close
+      // to it a given bot actually commits.
+      suitCeiling = 23;
+    } else if (companions.length >= 2) {
+      const hasPointCompanion = companions.some(c => c.points > 0);
+      suitCeiling = hasPointCompanion ? 20 : 18;
+    } else {
+      suitCeiling = 15;
+      jPlusOneCompanionSuits++;
+    }
+    jSuitCeiling = Math.max(jSuitCeiling, suitCeiling);
+  }
+  // Two separate suits each with a Jack + one companion reads as
+  // slightly more than either alone, even though neither individually
+  // clears the next tier up.
+  if (jPlusOneCompanionSuits >= 2) jSuitCeiling = Math.max(jSuitCeiling, 16);
+
+  // Three of a kind (same rank, spread across three different suits) is
+  // its own real signal, independent of the same-suit Jack reasoning
+  // above -- a trio of 10s/Aces/9s isn't captured by anything above,
+  // since none of those individually needs a Jack of its own suit.
+  const rankCounts = {};
+  for (const c of hand) rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1;
+  if ((rankCounts['10'] || 0) >= 3 || (rankCounts['A'] || 0) >= 3) {
+    eligibleToRaise = true;
+    jSuitCeiling = Math.max(jSuitCeiling, 16);
+  }
+  if ((rankCounts['9'] || 0) >= 3) {
+    eligibleToRaise = true;
+    jSuitCeiling = Math.max(jSuitCeiling, 18);
+  }
+
+  // 9-A-10 of one suit, with NO Jack of that suit, plus a separate bonus
+  // Jack sitting alone in a different suit. Deliberately kept just under
+  // the J+9+A ceiling above (19 vs 23) -- this hand has full command of
+  // the suit's points but no Jack to actually lock the suit itself, so
+  // it reads as very strong rather than the single best hand type.
+  // suggestedTrumpSuit tells the bot's trump-suit choice (a separate
+  // function) which suit to actually call, rather than leaving it to
+  // fall back on generic point-counting.
+  let suggestedTrumpSuit = null;
+  for (const s of SUITS) {
+    const cards = bySuit[s];
+    const hasJ = cards.some(c => c.rank === 'J');
+    const has9 = cards.some(c => c.rank === '9');
+    const hasA = cards.some(c => c.rank === 'A');
+    const has10 = cards.some(c => c.rank === '10');
+    if (!hasJ && has9 && hasA && has10 && loneJackSuits.some(js => js !== s)) {
+      eligibleToRaise = true;
+      jSuitCeiling = Math.max(jSuitCeiling, 19);
+      suggestedTrumpSuit = s;
+    }
+  }
+
+  const hardCeiling = eligibleToRaise ? jSuitCeiling : 14;
+
+  // Suit-dominance scoring retained for the existing defensive-vs-
+  // offensive read elsewhere - no longer drives the bid ceiling itself.
   let bestSuit = null, bestSuitScore = -1, bestSuitCount = 0;
   for (const s of SUITS) {
     const cards = bySuit[s];
@@ -102,12 +208,7 @@ function evaluatePhase1Hand(hand) {
     const has9 = cards.some(c => c.rank === '9');
     const hasA = cards.some(c => c.rank === 'A');
     const has10 = cards.some(c => c.rank === '10');
-    // Raw rank strength of what's held in this suit...
     let score = cards.reduce((s2, c) => s2 + RANK_ORDER[c.rank], 0);
-    // ...plus a CONTROL bonus that compounds the more of the suit's top
-    // end you hold together — owning J+9+A+10 of one suit isn't just
-    // "4 good cards", it's near-total command of that suit, which is
-    // worth far more than the individual card values suggest.
     if (hasJ) score += 4;
     if (hasJ && has9) score += 6;
     if (hasJ && has9 && hasA) score += 8;
@@ -118,42 +219,16 @@ function evaluatePhase1Hand(hand) {
 
   const jacks = hand.filter(c => c.rank === 'J');
   const jackSuits = new Set(jacks.map(c => c.suit));
-  // Jacks scattered one-per-suit contribute almost nothing to suit
-  // control (each is an island), even though they're individually the
-  // highest card of their own suit.
   const jacksScattered = jacks.length >= 2 && jackSuits.size === jacks.length;
-
   const highCardCount = hand.filter(c => ['J', '9', 'A', '10'].includes(c.rank)).length;
-
-  // Offensive score: mostly driven by how dominant the single best suit
-  // is, with a modest allowance for genuine uncertainty about the 4
-  // still-unseen cards (more high cards already in hand -> more likely
-  // the rest helps too, but this is capped since it's still a guess).
   let offensive = bestSuitScore * 3 + Math.min(6, highCardCount * 1.5);
-  if (jacksScattered) offensive -= (jacks.length - 1) * 4; // scattered Jacks don't buy suit control
-
-  // Defensive score: raw stopping power — every Jack is a guaranteed
-  // trick-stopper regardless of suit, and low filler cards are safe
-  // discards while waiting to spring them.
+  if (jacksScattered) offensive -= (jacks.length - 1) * 4;
   const defensive = jacks.length * 10 + hand.filter(c => c.points === 0).length * 2;
-
-  // Convert the offensive score into a "comfortable ceiling" bid, then a
-  // full probability curve around it — smooth and continuous, not a
-  // lookup table, so it genuinely reflects THESE cards.
-  const ceiling = 14 + offensive / 8;
-  const winProbAtBid = (bid) => {
-    const margin = ceiling - bid; // positive = comfortably within range, negative = stretching past it
-    let p = margin >= 0
-      ? 0.97 - 0.25 * Math.exp(-margin / 3)   // approaches ~97% the more comfortable margin there is
-      : 0.72 * Math.exp(margin / 3);          // starts from the SAME ~0.72 the positive branch reaches at margin=0 (0.97-0.25), then decays smoothly the further past the ceiling - previously jumped to ~0.97 here instead, creating a false confidence spike right at each hand's own ceiling
-    return Math.max(0.02, Math.min(0.97, p));
-  };
-  const probByBid = {};
-  for (let bid = 14; bid <= 28; bid++) probByBid[bid] = winProbAtBid(bid);
 
   return {
     offensive, defensive, bestSuit, bestSuitScore, bestSuitCount,
-    jacksScattered, jackCount: jacks.length, highCardCount, ceiling, probByBid
+    jacksScattered, jackCount: jacks.length, highCardCount, hardCeiling, eligibleToRaise,
+    suggestedTrumpSuit
   };
 }
 
@@ -209,7 +284,32 @@ function evaluatePhase2Hand(hand, trumpSuit) {
     const sc = suitControl[s];
     if (sc.hasJ) guaranteedTricks += 1;
     if (sc.has9) { if (sc.hasJ) guaranteedTricks += 1; else likelyTricks += 1; }
-    if (sc.hasA) { if (sc.hasJ && sc.has9) likelyTricks += 1; else possibleTricks += 1; }
+    // Real, confirmed scoring inconsistency found during a strategy
+    // audit: with the full four-card lock on a suit (J+9+A+10 all
+    // held), the Jack, 9, and 10 were each correctly counted as
+    // guaranteed -- nothing left in that suit can ever beat any of
+    // them -- but the Ace still fell through to the "likely" bucket
+    // regardless, purely because the has10 check lived in a separate
+    // condition below rather than being folded into this one. Now
+    // treats the Ace as guaranteed too whenever the full lock is held,
+    // and only as merely "likely" when it's J+9+A without the 10.
+    // Real, confirmed logic error found via direct question, going
+    // beyond the earlier full-lock fix: RANK_ORDER in this game has J
+    // > 9 > A > 10 -- the 10 ranks BELOW the Ace, not above it. That
+    // means the Jack and the 9 are the ONLY two cards that can ever
+    // beat an Ace in this suit. Once this hand holds both of those
+    // itself, the Ace is already fully safe regardless of who holds
+    // the 10 -- a 10 sitting in someone else's hand can never beat an
+    // Ace anyway. The earlier fix only recognized this for the
+    // complete four-card lock (J+9+A+10 all held together); holding
+    // just J+9+A without the 10 is equally safe for the Ace specifically,
+    // since nothing about not holding the 10 changes what could beat
+    // it. Guaranteed now triggers on hasJ && has9 alone; has10 no
+    // longer gates it at all.
+    if (sc.hasA) {
+      if (sc.hasJ && sc.has9) guaranteedTricks += 1;
+      else possibleTricks += 1;
+    }
     if (sc.has10 && sc.hasJ && sc.has9 && sc.hasA) guaranteedTricks += 1; // the full 4-card lock
   }
 
@@ -244,15 +344,33 @@ function bestPhase2Evaluation(hand) {
   return best;
 }
 
+// Must match the length of TABLE_THEMES in public/index.html (Royal Red,
+// Royal Blue, Emerald Green, Royal Purple, Onyx & Gold, Sapphire Teal) —
+// the server just picks an index each round, the client owns the colors.
+const TABLE_THEME_COUNT = 6;
+
 class GameEngine {
   constructor(tableId) {
     this.tableId = tableId;
     // seats[i] = { name, isBot, connected, hand: [cards] } for i in 0..3
     this.seats = [null, null, null, null];
     this.round = 0;
-    this.gameScore = [6, 6]; // match score, team 0 / team 1 (mirrors client default)
+    // Random table felt theme, rerolled once per round (see startRound()),
+    // synced to every client via stateFor() so everyone sees the same color.
+    this.tableTheme = Math.floor(Math.random() * TABLE_THEME_COUNT);
+    this.gameScore = [0, 0]; // match score, team 0 / team 1 -- per explicit request, now starts at 0-0 exactly like 6-player, not the old [6,6] baseline
     this.championshipNumber = 1;
     this.kingStreak = [0, 0]; // consecutive championships won by each team
+    // Per explicit request: leaderboard tracking -- how many rounds
+    // this specific championship has taken so far, and how many of
+    // those rounds each team has LOST (the other team scored that
+    // round), reset fresh at the start of every new championship (see
+    // both the initial start and the "next championship begins"
+    // reset further down). Used at the moment a championship is won
+    // to record a "fastest championship" leaderboard entry: fewest
+    // rounds first, fewest round-losses along the way as the tiebreak.
+    this.championshipStartRound = this.round;
+    this.roundLossesThisChampionship = [0, 0];
     // "Q" penalty marks: a shame counter that sticks to a player (by
     // name) across championships within this table's lifetime, not just
     // within one match. Every loss (this scoring system is zero-sum, so
@@ -262,6 +380,12 @@ class GameEngine {
     // exact rule, including the first-hand-of-a-new-championship
     // exception where a successful bidder's partner can shed one too.
     this.qMarks = {};
+    // Cumulative running total of Kunukku marks ever acquired, per
+    // player, for this table's whole lifetime - unlike qMarks above,
+    // this NEVER decreases when a Q gets shed by winning a bid. Only
+    // resets on a genuine new game (constructor or restartGame()), not
+    // on shedding a Q or starting a new championship.
+    this.qTotalEver = {};
     this.isFirstHandOfChampionship = true;
     // Partner bidding signals: a human tells their partner (bot or
     // human) how to approach the NEXT hand's bidding relative to normal
@@ -279,6 +403,27 @@ class GameEngine {
     // to hard-reset it to a fixed seat every single round, silently
     // undoing the rotation and making one specific seat "dealer" forever).
     this.dealer = Math.floor(Math.random() * 4);
+    // Real, confirmed feature per explicit request ("4 and 6 player
+    // should have a challenge table... pick your losing by this
+    // much... you will be the next bidder"): a challenge table gives
+    // the creator's team a deliberate starting deficit (5, 10, or 13
+    // points) for the very first championship only, plus forces them
+    // to be the first bidder of that first round -- both null/0 for a
+    // completely ordinary table. challengerTeam is set once the
+    // creator actually seats (always position 3 for 4-player, see
+    // server.js's createTable handler), never recomputed after.
+    this.challengeHandicap = 0;
+    this.challengerTeam = null;
+    this.challengeBeaten = false; // true once the challenger's team wins despite the deficit -- only ever set once, never reverts
+    // Real, confirmed feature per explicit request ("after winning or
+    // losing a challenge they should have the option to continue to
+    // next championship or new challenge"): true once the FIRST
+    // championship on a genuine challenge table ends, win or lose --
+    // separate from challengeBeaten specifically so the client can
+    // detect "the challenge is now decided, show the choice" even on
+    // a LOSS, which challengeBeaten alone (win-only) could never
+    // signal on its own.
+    this.challengeResolved = false;
     this.resetRoundState();
     this.phase = 'lobby'; // lobby | bidding1 | choosingTrump | play | roundEnd
     this.log = [];
@@ -308,10 +453,31 @@ class GameEngine {
     this.passes = 0;
     this.bidHistory = []; // [{pos, bid}]
     this.p2History = []; // [{pos, bid}] — phase 2 raises/passes, reset again when phase 2 actually starts
+    // Phase 1 bidding flow: the first bidder's partner doesn't get their
+    // turn in the normal seating order — it's deferred until the seat
+    // right before them (going around the table) has actually acted,
+    // and depending on how that plays out, their eventual turn is either
+    // completely normal or pre-restricted to Honors (20) or higher. See
+    // _afterBidAction() for the full flow this supports.
+    this.partnerTurnDeferred = false; // true from the first forced bid until the partner actually gets a turn
+    this.partnerTurnRestrictedWhenReached = false; // true only in the "both opponents passed" branch
+    this._partnerTurnWasDelayed = false; // true only between partner's delayed turn finishing and the redirect back to the first bidder
+    this.firstBidderPos = -1;
+    this.p1SeatsActed = {}; // {seatPos: true} - anyone who's had a genuine turn already this phase 1 round
+    // Tracks total phase-1 bidding actions taken (bid OR pass, including
+    // the forced first bid), separate from `passes` above -- `passes`
+    // resets to 0 every time someone raises, which meant the auction
+    // could effectively restart its own clock mid-round and let a seat
+    // get asked to act a genuine second time, as long as enough people
+    // happened to bid instead of pass along the way. The real rule,
+    // matching what 6-player already correctly does: one turn per seat,
+    // four turns total, then it's over however the bids landed.
+    this.p1TurnsTaken = 0;
     this.trumpSuit = '';
     this.trumpExposed = false;
     this.roundVoidMessage = null;
     this.hiddenTrump = null; // {suit, rank, points}
+    this.revealedTrumpCard = null; // {rank, suit} -- set once, publicly, the moment trump is exposed; unlike hiddenTrump this is never cleared again until the next round resets it here
     this.hiddenTrumpOwner = -1; // who physically hid it — NOT necessarily this.bidder, since a phase-2 raise can change the bidder while the original chooser still holds the hidden card
     this.mustPlayTrumpBy = -1; // seat that just ASKED for trump to be opened (callTrump) — Kerala rule: having asked, they must play a trump card this trick if they hold one
     this.trickCards = []; // [{pos, card}]
@@ -336,10 +502,57 @@ class GameEngine {
     // Lets bot leading/discard decisions reason about who's likely to
     // trump in on a given suit, not just what's in their own hand.
     this.voidSuits = [new Set(), new Set(), new Set(), new Set()];
+    // Per explicit report: which suits have already been cut (led,
+    // then won by trump instead of the led suit itself) this round --
+    // populated in _resolveTrick() below. A bot holding the Jack of a
+    // suit that's already been cut once knows leading it again risks
+    // losing it to trump; one that hasn't been cut yet is still safe to
+    // lead the Jack into directly, which is exactly the distinction
+    // "unless someone cut it with trump" describes.
+    this.suitsCutThisRound = new Set();
     this.tricksPlayed = 0;
     this.teamPoints = [0, 0]; // points captured THIS round
     this.lastTrick = null; // {cards:[{pos,card}], winner, points, team}
     this.roundWinnerAnnounced = null; // {bidderWon, made, bidder, highestBid}
+    // "Already won" early-round-end feature: once EITHER team's outcome
+    // becomes mathematically certain (the bidding team has already
+    // captured >= their bid, or the defense has captured enough that the
+    // bidder can no longer reach it even with every remaining point),
+    // the winning team (if it includes a real human -- bots don't need
+    // this) is offered the choice to skip the now-meaningless remaining
+    // tricks. See the early-win check in _resolveTrick() and
+    // respondToEarlyWin().
+    this.pendingEarlyWinChoice = null; // {team, made} while awaiting a human choice
+    this.earlyWinDeclined = false; // true once the winning team has chosen "keep playing" -- suppresses re-prompting every subsequent trick this round
+    // Quote: available to WHICHEVER team is currently "clean" (hasn't
+    // lost a single trick yet this round -- trivially true for BOTH
+    // teams before the first trick, so it's live from the very start),
+    // valid for ANY player on that team on their own turn (leading or
+    // following), as long as the bid was <=19. Declaring it is a bet on
+    // the FULL 8-trick, 28-point sweep, evaluated as an absolute fact
+    // regardless of when it's declared -- calling it on trick 1 is a
+    // much bigger bet than calling it on trick 7, since either way the
+    // requirement is the same: every single trick, no exceptions.
+    // Success replaces normal scoring with a flat +2 for the declaring
+    // team; losing even one trick afterward replaces it with a flat -3
+    // against them, however many points they'd already banked. See
+    // _isQuoteEligibleFor(), the quote checks in _resolveTrick(), and
+    // declareQuote()/_endRound().
+    this.teamStillClean = [true, true]; // per-team: has this team won every trick so far (both start true, at most one stays true past trick 1)
+    this.quoteState = null; // {team} once COT/MaruCOT has actually been declared this round
+    // Thani: a Phase-2 bid that beats any numeric raise (effectively
+    // "above 28"). Whoever calls it leads the very first trick
+    // immediately, regardless of normal turn order; their partner
+    // folds out of the round entirely -- never dealt into any trick,
+    // never taking a turn. It's a genuinely different win condition
+    // from every other bid: not points, just tricks -- the caller must
+    // win literally every trick played (their own hand size worth),
+    // failing the instant they lose even one. Scoring reuses the
+    // existing >=28 tier (+3/-4) since highestBid gets set to a value
+    // that already falls in it -- see callThani()/_resolveTrick()/
+    // _endRound().
+    this.thaniCaller = -1; // -1 = no thani this round, else the seat who called it
+    this.foldedSeats = []; // seats sitting out entirely this round (the thani caller's partner)
     // Phase 2 (the "second chance to raise" round after trump is chosen,
     // once everyone's holding their full 8 cards). p2LastRaiser stays -1
     // for the whole phase if nobody ever raises.
@@ -374,8 +587,33 @@ class GameEngine {
     return this.seats.filter(s => s && !s.isBot).length;
   }
 
-  seatHuman(pos, name, playerId) {
-    this.seats[pos] = { name, isBot: false, connected: true, playerId, hand: [] };
+  seatHuman(pos, name, playerId, avatar) {
+    this.seats[pos] = { name, isBot: false, connected: true, playerId, hand: [], avatar: avatar || null };
+  }
+
+  // Real, confirmed feature per explicit request ("pick your losing by
+  // this much... you will be the next bidder"): called once, right
+  // after the creator seats, for a genuine challenge table only.
+  // Applies the deficit to gameScore (challenger's team stays at 0,
+  // the opponent team starts at the handicap value) -- deliberately
+  // one-time, only for this table's first championship; every
+  // championship after this one resets gameScore to a normal 0-0
+  // exactly as it always did.
+  // Real, confirmed follow-up per explicit request ("the challenge
+  // when started it should be random dealer, all tables"): this used
+  // to also force the dealer to a fixed, calculated seat so the
+  // challenger was guaranteed the very first bid -- meaning the same
+  // challenger seat always got the same dealer every single time,
+  // nothing random about it at all. Removed entirely: the dealer stays
+  // exactly as the constructor already set it moments earlier
+  // (Math.floor(Math.random() * 4)), a genuinely random seat each
+  // time, same as any ordinary table.
+  activateChallengeMode(handicap, challengerPos) {
+    if (handicap !== 5 && handicap !== 10 && handicap !== 13) return;
+    this.challengeHandicap = handicap;
+    this.challengerTeam = getTeam(challengerPos);
+    this.gameScore[this.challengerTeam] = 0;
+    this.gameScore[1 - this.challengerTeam] = handicap;
   }
 
   seatBot(pos, name) {
@@ -398,19 +636,30 @@ class GameEngine {
     seat.isBot = true;
     seat.connected = true;
     seat.playerId = null;
+    // Clears any leftover ghost-player flag (see maybeAutoAct()) - isBot alone is already
+    // sufficient to drive bot-speed auto-play from here on, and leaving this stale would
+    // incorrectly follow the seat if a real human later takes it over via replaceBot(),
+    // forcing artificial few-second auto-play on their own genuine turns.
+    seat.ghostPlayer = false;
     return true;
   }
 
   // A human taking over a bot's seat mid-game — inherits the bot's exact
   // current hand and state rather than starting fresh, since the round
   // may already be well underway. Fails if that seat isn't currently a bot.
-  replaceBot(pos, playerId, name) {
+  replaceBot(pos, playerId, name, avatar) {
     const seat = this.seats[pos];
     if (!seat || !seat.isBot) return false;
     seat.isBot = false;
     seat.connected = true;
     seat.playerId = playerId;
     seat.name = name;
+    seat.avatar = avatar || null;
+    // Explicitly cleared, not just left unset - a bot seat can be the leftover remains of a
+    // previously-stopped ghost player (see convertToBot()), and a genuine real human taking
+    // it over here must never inherit that flag, or their own real turns would get forced
+    // into the ghost's artificial few-second auto-play instead of waiting on them normally.
+    seat.ghostPlayer = false;
     return true;
   }
 
@@ -423,7 +672,7 @@ class GameEngine {
   // nowhere to go even though that exact seat was sitting there idle.
   // This lets a new joiner step into any seat that's either a bot OR
   // simply disconnected, inheriting whatever hand/state is already there.
-  takeOverSeat(pos, playerId, name) {
+  takeOverSeat(pos, playerId, name, avatar) {
     const seat = this.seats[pos];
     if (!seat) return false;
     if (!seat.isBot && seat.connected) return false; // seat is a real, present human — not up for grabs
@@ -431,11 +680,41 @@ class GameEngine {
     seat.connected = true;
     seat.playerId = playerId;
     seat.name = name;
+    seat.avatar = avatar || null;
+    // See convertToBot()/replaceBot() above for the full reasoning.
+    seat.ghostPlayer = false;
     return true;
   }
 
   markConnected(pos, connected) {
-    if (this.seats[pos]) this.seats[pos].connected = connected;
+    if (!this.seats[pos]) return;
+    this.seats[pos].connected = connected;
+    // Timestamp of the most recent disconnect, cleared the moment they
+    // reconnect -- used by the server's table-name logic (see
+    // getSeatBasedTableName in server.js) to know whether a disconnected
+    // seat has genuinely been gone long enough (2 minutes) to switch the
+    // table's public listing away from their name.
+    if (!connected) this.seats[pos].disconnectedAt = Date.now();
+    else this.seats[pos].disconnectedAt = null;
+    // Real bug fix, per explicit report on the 6-player table -- see
+    // that engine's identical fix for the fuller reasoning. Same
+    // CONNECTED_BUT_STUCK_MS mechanism exists here too, with the same
+    // gap: turnStartedAt never reset on reconnect, only on an actual
+    // player/round change, so a genuine pause that ran past the
+    // threshold left that turn permanently "stuck" for its remainder
+    // regardless of how promptly the player actually returned.
+    if (connected && this.currentPlayer === pos) {
+      this.turnStartedAt = Date.now();
+    }
+  }
+
+  // Per explicit request: same "tab returns to foreground" reclaim
+  // signal the 6-player engine already has -- see there for the fuller
+  // reasoning. Ported here since this engine never had an equivalent.
+  reclaimTurn(pos) {
+    if (this.currentPlayer === pos) {
+      this.turnStartedAt = Date.now();
+    }
   }
 
   findSeatByPlayerId(playerId) {
@@ -448,8 +727,24 @@ class GameEngine {
     return this.seats.filter(Boolean).length >= 2;
   }
 
+  // Per explicit request: a genuinely separate "ready room" step between
+  // the lobby (where seats/bots get picked) and the actual deal --
+  // shows the real table with everyone seated (bots already filled in
+  // by the caller before this runs), but doesn't deal cards or start
+  // bidding yet. Any seated player can then trigger the actual start
+  // from there via startRound() itself, once they've seen who's
+  // actually at the table.
+  readyUp() {
+    if (this.phase !== 'lobby') return false;
+    if (!this.canStart()) return false;
+    this.phase = 'readyRoom';
+    this.addLog('Table is ready — waiting for a player to start.');
+    return true;
+  }
+
   startRound() {
     this.round++;
+    this.tableTheme = Math.floor(Math.random() * TABLE_THEME_COUNT);
     this.resetRoundState();
     this.dealer = nextPos(this.dealer);
     this.currentPlayer = nextPos(this.dealer);
@@ -459,9 +754,65 @@ class GameEngine {
     }
     this.dealCards(4);
     this.phase = 'bidding1';
+    // Silently redeals (no intermediate notify) until neither
+    // auto-reshuffle condition holds, so clients only ever see ONE clean
+    // final state -- with reshuffleReason explaining what happened, if
+    // anything did. Same dealer throughout, per round of edits.
+    this.reshuffleReason = this._dealSameHandUntilValid();
     this.addLog(`Round ${this.round} started. Dealer seat ${this.dealer}.`);
     this._notify();
     this.maybeAutoAct();
+  }
+
+  // Redeals (same dealer, no notify/side effects per attempt) until
+  // neither auto-reshuffle condition is true: the forced first bidder
+  // holding nothing but 7s/8s (an unplayable hand they'd otherwise be
+  // forced to bid on), or any single seat holding all four Jacks.
+  // Returns the reason for the FIRST bad deal hit in the chain (or null
+  // if the original deal was already fine) -- that first reason is the
+  // one actually worth telling players about; anything after it is just
+  // this same safety net doing its job again on the replacement deal.
+  _dealSameHandUntilValid() {
+    let reason = null;
+    let guard = 0;
+    while (guard++ < 100) { // effectively unbounded in practice; just a hard safety cap
+      const firstBidderSeat = nextPos(this.dealer);
+      const firstBidderHand = this.seats[firstBidderSeat] ? this.seats[firstBidderSeat].hand : [];
+      const isAll78 = firstBidderHand.length === 4 && firstBidderHand.every(c => c.rank === '7' || c.rank === '8');
+      let allJacksSeat = -1;
+      if (!isAll78) {
+        for (let i = 0; i < 4; i++) {
+          const hand = this.seats[i] ? this.seats[i].hand : [];
+          if (hand.filter(c => c.rank === 'J').length === 4) { allJacksSeat = i; break; }
+        }
+      }
+      // Per explicit request: same broader "genuinely worthless hand" check as the 6-player
+      // engine's identical addition - see there for the full reasoning. Adjusted for this
+      // game's 4-card hand instead of 6.
+      let all678Seat = -1;
+      if (!isAll78 && allJacksSeat === -1) {
+        for (let i = 0; i < 4; i++) {
+          const hand = this.seats[i] ? this.seats[i].hand : [];
+          if (hand.length === 4 && hand.every(c => c.rank === '6' || c.rank === '7' || c.rank === '8')) { all678Seat = i; break; }
+        }
+      }
+      if (!isAll78 && allJacksSeat === -1 && all678Seat === -1) break; // this deal is fine, stop here
+      if (!reason) {
+        reason = isAll78
+          ? { type: 'all78', seat: firstBidderSeat, name: this.seats[firstBidderSeat] ? this.seats[firstBidderSeat].name : ('Seat ' + firstBidderSeat), round: this.round, ts: Date.now() }
+          : allJacksSeat !== -1
+          ? { type: 'allJacks', seat: allJacksSeat, name: this.seats[allJacksSeat].name, round: this.round, ts: Date.now() }
+          : { type: 'all678', seat: all678Seat, name: this.seats[all678Seat].name, round: this.round, ts: Date.now() };
+        const reasonText = reason.type === 'all78' ? "was forced to bid with a hand of only 7s and 8s"
+          : reason.type === 'allJacks' ? "was dealt all four Jacks"
+          : "was dealt a hand of nothing but 6s, 7s, and 8s";
+        this.addLog(`Reshuffling — ${reason.name} ${reasonText}. Same dealer, fresh deal.`);
+      }
+      for (let i = 0; i < 4; i++) { if (this.seats[i]) this.seats[i].hand = []; }
+      this.deck = freshDeck();
+      this.dealCards(4);
+    }
+    return reason;
   }
 
   // Host control: reshuffle and redeal the CURRENT round from scratch —
@@ -481,7 +832,13 @@ class GameEngine {
     }
     this.dealCards(4);
     this.phase = 'bidding1';
-    this.addLog(`Round ${this.round} restarted by the host — fresh shuffle.`);
+    // Always reflects what happened during THIS specific redeal -- never
+    // left stale from an earlier, unrelated trigger. _startPlay()'s
+    // no-trump check already broadcasts its OWN reshuffleReason once,
+    // directly, right before calling this -- so resetting it here based
+    // on this fresh deal (null if it's clean) is correct, not a loss.
+    this.reshuffleReason = this._dealSameHandUntilValid();
+    this.addLog(`Round ${this.round} restarted — fresh shuffle.`);
     this._notify();
     this.maybeAutoAct();
   }
@@ -490,10 +847,13 @@ class GameEngine {
   // and king streak all reset — and deal a fresh round 1. Also works from
   // any phase for the same reason as restartRound().
   restartGame() {
-    this.gameScore = [6, 6];
+    this.gameScore = [0, 0]; // per explicit request, matches 6-player's own reset value
     this.championshipNumber = 1;
     this.kingStreak = [0, 0];
+    this.championshipStartRound = this.round;
+    this.roundLossesThisChampionship = [0, 0];
     this.qMarks = {};
+    this.qTotalEver = {};
     this.isFirstHandOfChampionship = true;
     this.lastChampionshipResult = null;
     this.round = 0;
@@ -565,6 +925,30 @@ class GameEngine {
     return this.highestBid === 0 && this.passes === 0 && pos === nextPos(this.dealer);
   }
 
+  // Whether pos's NEXT bid must be Honors (20) or higher rather than a
+  // normal one-higher-than-the-current-bid raise. Three conditions,
+  // any one of which is enough:
+  // 1. Already had a genuine turn this phase 1 round and is now
+  //    cycling back.
+  // 2. The first bidder's partner specifically, when their delayed
+  //    turn was reached via both opponents passing.
+  // 3. The core rule, confirmed and traced turn-by-turn against the
+  //    real engine before adding this: whenever it's genuinely pos's
+  //    turn and pos's own partner already holds the current highest
+  //    bid (regardless of how the turn got to them), a plain raise
+  //    isn't the point anymore -- their own side is already ahead, so
+  //    only a genuine honors-level bid makes sense. This was the
+  //    actual gap: conditions 1 and 2 above are specific edge cases,
+  //    neither one actually covers this general situation, which is
+  //    exactly what let a completely unrestricted "Min: 16" show up
+  //    on screen with a player's own partner already sitting on top.
+  _isBidRestrictedToHonors(pos) {
+    if (this.p1SeatsActed[pos]) return true;
+    if (pos === partnerOf(this.firstBidderPos) && this.partnerTurnRestrictedWhenReached) return true;
+    if (this.highestBid > 0 && getTeam(this.bidder) === getTeam(pos)) return true;
+    return false;
+  }
+
   // A human telling their partner how to approach the next hand's
   // bidding -- same, more aggressive, or less aggressive than usual.
   // Only meaningful between the seat that just finished a round and
@@ -584,30 +968,52 @@ class GameEngine {
     if (this.phase !== 'bidding1') return { ok: false, reason: 'not_bidding' };
     if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
     const first = this.isFirstBidder(pos);
+    if (first) {
+      this.firstBidderPos = pos;
+      this.partnerTurnDeferred = true;
+    }
+    const restricted = this._isBidRestrictedToHonors(pos);
     if (bid === 0) {
       if (first) bid = 14; // first bidder cannot pass
       else {
         this.passes++;
+        this.p1SeatsActed[pos] = true;
+        this.p1TurnsTaken++;
         this.bidHistory.push({ pos, bid: 0 });
         this.addLog(`Seat ${pos} passed.`);
-        return this._afterBidAction();
+        return this._afterBidAction(pos, false);
       }
     }
-    const minBid = this.highestBid > 0 ? this.highestBid + 1 : 14;
+    const minBid = restricted ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 14);
     if (bid < minBid || bid > 28) return { ok: false, reason: 'invalid_bid_amount' };
     this.highestBid = bid;
     this.bidder = pos;
     this.passes = 0;
+    this.p1SeatsActed[pos] = true;
+    this.p1TurnsTaken++;
     this.bidHistory.push({ pos, bid });
     // Snapshot the hand profile now, at bid-time — by round end this
     // hand will be empty, too late to learn anything from it.
     if (this.seats[pos]) this._bidderHandProfileForLearning = brain.getHandProfile(this.seats[pos].hand);
     this.addLog(`Seat ${pos} bid ${bid}.`);
-    return this._afterBidAction();
+    return this._afterBidAction(pos, true);
   }
 
-  _afterBidAction() {
-    if ((this.passes >= 3 && this.highestBid > 0) || this.passes >= 4) {
+  _afterBidAction(actingPos, wasABid) {
+    // Ends once every seat has had exactly one turn (bid or pass) --
+    // p1TurnsTaken tracks that directly and is the only thing gating
+    // this now. `passes` is left fully alone for everything else that
+    // still depends on it (isFirstBidder(), _isBidRestrictedToHonors()'s
+    // first condition, the client's bid display).
+    if (this.p1TurnsTaken >= 4) {
+      if (this.highestBid === 0) {
+        // Shouldn't be reachable in practice (the first bidder is
+        // always forced to bid, never pass), but matches the same
+        // defensive redeal check 6-player has for the equivalent case.
+        this.addLog('No valid bids. Redealing...');
+        this.startRound();
+        return { ok: true };
+      }
       this.phase = 'choosingTrump';
       this.currentPlayer = this.bidder;
       this.addLog(`Bidding done. Seat ${this.bidder} won with ${this.highestBid}.`);
@@ -615,7 +1021,44 @@ class GameEngine {
       this.maybeAutoAct();
       return { ok: true };
     }
-    this.currentPlayer = nextPos(this.currentPlayer);
+
+    const partnerSeat = partnerOf(this.firstBidderPos);
+    const p2Seat = nextPos(this.firstBidderPos);
+    const p4Seat = nextPos(nextPos(p2Seat));
+
+    if (actingPos === partnerSeat && this._partnerTurnWasDelayed) {
+      // Partner's delayed turn (normal or Honors-restricted) just
+      // finished. The natural continuation is back to the very start
+      // of the round - not the seat that would come next in an
+      // uninterrupted rotation, since in this branch that seat (P4)
+      // already had its own turn just before partner's delayed one.
+      this._partnerTurnWasDelayed = false;
+      this.currentPlayer = this.firstBidderPos;
+    } else if (this.partnerTurnDeferred) {
+      if (actingPos === this.firstBidderPos) {
+        this.currentPlayer = nextPos(actingPos); // -> P2, normal
+      } else if (actingPos === p2Seat) {
+        if (wasABid) {
+          // P2 bid - partner gets a completely normal, in-sequence turn.
+          this.partnerTurnDeferred = false;
+          this.currentPlayer = partnerSeat;
+        } else {
+          // P2 passed - skip partner entirely, straight to P4.
+          this.currentPlayer = p4Seat;
+        }
+      } else if (actingPos === p4Seat) {
+        // Only reached when P2 passed (partner still deferred).
+        this.partnerTurnDeferred = false;
+        this._partnerTurnWasDelayed = true;
+        this.partnerTurnRestrictedWhenReached = !wasABid; // true only if P4 also passed
+        this.currentPlayer = partnerSeat;
+      } else {
+        this.currentPlayer = nextPos(actingPos);
+      }
+    } else {
+      this.currentPlayer = nextPos(actingPos);
+    }
+
     this._notify();
     this.maybeAutoAct();
     return { ok: true };
@@ -664,7 +1107,7 @@ class GameEngine {
 
   // ---------------- Phase 2: the "second chance to raise" round ----------------
   // Once trump is picked, everyone gets dealt up to their full 8 cards, then
-  // starting from the dealer's left again, each player may either raise the
+  // starting from the dealer's right again, each player may either raise the
   // bid (becoming the new bidder — the trump already chosen stays as-is) or
   // pass. Ends once everyone's passed with no raise at all, or 3 straight
   // passes follow whoever raised last.
@@ -718,6 +1161,57 @@ class GameEngine {
     return { ok: true };
   }
 
+  // Thani: available any time it's genuinely someone's turn in Phase 2 --
+  // it always beats any numeric bid (effectively "above 28"), so unlike
+  // isPhase2RaiseOption there's no threshold to check beyond it not
+  // having already been called this round.
+  isThaniOption() {
+    return this.thaniCaller === -1;
+  }
+
+  // Calling Thani: locks in the caller as bidder with a bid that already
+  // falls in the existing >=28 scoring tier (+3/-4), folds their partner
+  // out of the round entirely (never dealt into any trick again), and --
+  // like an ordinary raise -- sends them to choose a fresh trump, except
+  // afterward it skips straight to play instead of returning to more
+  // Phase 2 bidding (see chooseTrump() above). _startPlay() itself
+  // handles making the caller lead the very first trick, overriding the
+  // normal "dealer's right leads" rule.
+  callThani(pos) {
+    if (this.phase !== 'bidding2') return { ok: false, reason: 'not_phase2' };
+    if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
+    if (!this.isThaniOption()) return { ok: false, reason: 'thani_already_called' };
+    this.highestBid = 29; // deliberately just above 28, so it naturally falls in the existing >=28 scoring tier
+    this.bidder = pos;
+    this.thaniCaller = pos;
+    const partnerPos = pos === 0 ? 3 : pos === 3 ? 0 : pos === 1 ? 2 : 1;
+    this.foldedSeats = [partnerPos];
+    this.p2LastRaiser = pos;
+    this.p2Passes = 0;
+    this.p2History.push({ pos, bid: 'THANI' });
+    if (this.seats[pos]) this._bidderHandProfileForLearning = brain.getHandProfile(this.seats[pos].hand);
+    const callerSeat = this.seats[pos];
+    const partnerSeat = this.seats[partnerPos];
+    this.addLog(`Seat ${pos} called THANI — going it alone, needing to win every single trick! ${partnerSeat ? partnerSeat.name : 'Their partner'} folds out of this round.`);
+    // Thani plays with NO trump suit at all -- not hidden, not chosen,
+    // not contestable. Whatever trump was in play before (if this
+    // followed an earlier ordinary raise) simply stops mattering: the
+    // hidden card, if any, returns to whoever actually hid it, and
+    // trumpSuit stays permanently empty for the rest of this round.
+    // isRealTrump() throughout the engine already gates on
+    // this.trumpExposed, and exposeTrump() is never called during a
+    // Thani round, so every trick this round is naturally decided by
+    // "highest card of the led suit," with nothing able to cut it.
+    if (this.hiddenTrump && this.hiddenTrumpOwner >= 0 && this.seats[this.hiddenTrumpOwner]) {
+      this.seats[this.hiddenTrumpOwner].hand.push(this.hiddenTrump);
+    }
+    this.hiddenTrump = null;
+    this.hiddenTrumpOwner = -1;
+    this.trumpSuit = '';
+    this._startPlay();
+    return { ok: true };
+  }
+
   passPhase2(pos) {
     if (this.phase !== 'bidding2') return { ok: false, reason: 'not_phase2' };
     if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
@@ -751,17 +1245,25 @@ class GameEngine {
   _startPlay() {
     // Rule: if NEITHER player on the defending team (the team that didn't
     // win the bid) holds even a single card of the trump suit, they have
-    // no way to ever contest trump at all — the round is void. Redeal
-    // with the next dealer rather than playing out something that was
-    // never really contestable. (The bidder's own hidden trump card
-    // doesn't count here — this check is specifically about the
-    // DEFENDING side having zero trump between them.)
+    // no way to ever contest trump at all — the round is void. Reshuffle
+    // with the SAME dealer (matching the other two auto-reshuffle rules
+    // in _checkAndHandleBadDeal()) rather than playing out something
+    // that was never really contestable. (The bidder's own hidden trump
+    // card doesn't count here — this check is specifically about the
+    // DEFENDING side having zero trump between them.) Thani rounds have
+    // no trump suit at all by design (trumpSuit stays permanently
+    // empty), so this check is meaningless for them and must be skipped
+    // entirely -- otherwise "no card matches an empty suit string" would
+    // incorrectly look identical to "genuinely no trump," voiding and
+    // reshuffling every single Thani round without exception.
     const bidTeam = getTeam(this.bidder);
-    const defendingHasTrump = this.seats.some((s, i) => s && getTeam(i) !== bidTeam && s.hand.some(c => c.suit === this.trumpSuit));
+    const defendingTeam = bidTeam === 0 ? 1 : 0;
+    const defendingHasTrump = this.thaniCaller >= 0 || this.seats.some((s, i) => s && getTeam(i) !== bidTeam && s.hand.some(c => c.suit === this.trumpSuit));
     if (!defendingHasTrump) {
-      this.roundVoidMessage = `The defending team has no ${this.trumpSuit} at all this round — nothing to contest. Round voided, moving to the next dealer.`;
+      this.roundVoidMessage = `The defending team has no ${this.trumpSuit} at all this round — nothing to contest. Reshuffling with the same dealer.`;
+      this.reshuffleReason = { type: 'noTrump', team: defendingTeam, suit: this.trumpSuit, round: this.round, ts: Date.now() };
       this.addLog(this.roundVoidMessage);
-      // Broadcast the void message FIRST — startRound() immediately
+      // Broadcast the void message FIRST — restartRound() immediately
       // clears it again as part of resetting for the new deal, so
       // without this explicit notify the client would never actually
       // see it before it's already gone.
@@ -772,7 +1274,7 @@ class GameEngine {
       // play well with synchronous testing either. The client's toast
       // for this message already stays up for a few seconds on its own,
       // which is what actually gives players time to read it.
-      this.startRound();
+      this.restartRound();
       return;
     }
 
@@ -781,9 +1283,12 @@ class GameEngine {
     this.trickCards = [];
     this.trickSuit = '';
     this.suitLeadCount = { '♠': 0, '♥': 0, '♦': 0, '♣': 0 };
-    // Play is always led by the dealer's left — the same seat phase-1
+    // Play is always led by the dealer's right — the same seat phase-1
     // bidding started with — regardless of who ended up winning the bid.
-    this.currentPlayer = nextPos(this.dealer);
+    // Thani is the one deliberate exception: the caller leads the very
+    // first trick themselves, immediately, no matter whose turn it would
+    // otherwise have been.
+    this.currentPlayer = this.thaniCaller >= 0 ? this.thaniCaller : nextPos(this.dealer);
     this.addLog(`Play begins. Seat ${this.currentPlayer} leads.`);
     this._notify();
     this.maybeAutoAct();
@@ -808,6 +1313,26 @@ class GameEngine {
     }
     const hasSuit = hand.some(c => c.suit === this.trickSuit);
     if (hasSuit && card.suit !== this.trickSuit) return false;
+    // New rule: void in the led suit, a player may cut with trump or
+    // discard - but a discard (anything that isn't trump) can never be
+    // a Jack of any suit. Cutting with the trump Jack itself is still
+    // completely fine, since that's a cut, not a discard. Falls back to
+    // allowing it only if there's truly no other legal option (no trump
+    // to cut with, and every other card outside the led suit is also a
+    // Jack).
+    if (!hasSuit && card.suit !== this.trumpSuit && card.rank === 'J') {
+      const hasAlternative = hand.some(c => c.suit === this.trumpSuit || (c.suit !== this.trickSuit && c.rank !== 'J'));
+      if (hasAlternative) return false;
+    }
+    // Same restriction as the leading case above, but for following while
+    // void: the hidden-trump owner can't discard from the trump suit
+    // before it's properly exposed, even when they're not leading -
+    // unless trump is genuinely their only option left (every card they
+    // hold outside the led suit is trump).
+    if (!hasSuit && pos === this.hiddenTrumpOwner && !this.trumpExposed && card.suit === this.trumpSuit) {
+      const hasOtherOption = hand.some(c => c.suit !== this.trumpSuit && c.suit !== this.trickSuit);
+      if (hasOtherOption) return false;
+    }
     // If this player just ASKED for the trump to be opened (callTrump),
     // they're bound by the classic rule: having demanded the reveal, they
     // must play a trump card this trick if they're holding one.
@@ -827,6 +1352,7 @@ class GameEngine {
   callTrump(pos) {
     if (this.phase !== 'play') return { ok: false, reason: 'not_playing' };
     if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
+    if (this.thaniCaller >= 0) return { ok: false, reason: 'no_trump_this_round' }; // Thani has no trump at all -- nothing to open
     if (this.trumpExposed) return { ok: false, reason: 'already_exposed' };
     if (this.trickSuit === '') return { ok: false, reason: 'cannot_call_when_leading' };
     const hand = this.seats[pos].hand;
@@ -859,10 +1385,13 @@ class GameEngine {
 
     this.addLog(`Seat ${pos} played ${played.rank}${played.suit}.`);
 
-    if (this.trickCards.length === 4) {
+    // A folded seat (Thani's partner) never plays, so a trick is
+    // complete once every ACTIVE player has played, not always
+    // literally 4 -- normally still 4, but 3 during a Thani round.
+    if (this.trickCards.length === 4 - this.foldedSeats.length) {
       this._resolveTrick();
     } else {
-      this.currentPlayer = nextPos(this.currentPlayer);
+      this.currentPlayer = this._nextActivePos(this.currentPlayer);
       this._notify();
       this.maybeAutoAct();
     }
@@ -878,6 +1407,11 @@ class GameEngine {
     if (pos !== this.currentPlayer || pos !== this.hiddenTrumpOwner) return { ok: false, reason: 'not_your_turn' };
     if (!this.hiddenTrump) return { ok: false, reason: 'no_hidden_card' };
     const card = this.hiddenTrump;
+    // Captured here too, same reasoning as inside exposeTrump() itself
+    // -- this path clears hiddenTrump BEFORE calling exposeTrump() below,
+    // so that function's own capture would never fire for this specific
+    // path (the card being played directly rather than just revealed).
+    this.revealedTrumpCard = { rank: card.rank, suit: card.suit };
     this.hiddenTrump = null;
     this.hiddenTrumpOwner = -1;
     if (this.mustPlayTrumpBy === pos) this.mustPlayTrumpBy = -1;
@@ -885,10 +1419,10 @@ class GameEngine {
     if (this.trickSuit === '') { this.trickSuit = card.suit; this.suitLeadCount[card.suit]++; }
     this.trickCards.push({ pos, card });
     this.addLog(`Seat ${pos} played the hidden trump ${card.rank}${card.suit}!`);
-    if (this.trickCards.length === 4) {
+    if (this.trickCards.length === 4 - this.foldedSeats.length) {
       this._resolveTrick();
     } else {
-      this.currentPlayer = nextPos(this.currentPlayer);
+      this.currentPlayer = this._nextActivePos(this.currentPlayer);
       this._notify();
       this.maybeAutoAct();
     }
@@ -902,10 +1436,59 @@ class GameEngine {
     // which may have changed to a different seat via a phase-2 raise while
     // the original chooser is still the one physically missing a card.
     if (this.hiddenTrump && this.hiddenTrumpOwner >= 0 && this.seats[this.hiddenTrumpOwner]) {
+      // Per explicit instruction, the exact card is now public knowledge
+      // the moment it's exposed, not just its suit -- captured here
+      // BEFORE hiddenTrump gets cleared below, since the card itself
+      // goes back into the owner's private hand and would otherwise
+      // have no public record of which specific card it was at all.
+      // Deliberately a separate field from hiddenTrump (which stays
+      // cleared/private as before) rather than reusing it, so this
+      // doesn't accidentally leak into any of hiddenTrump's other,
+      // legitimately-private uses elsewhere in this file.
+      this.revealedTrumpCard = { rank: this.hiddenTrump.rank, suit: this.hiddenTrump.suit };
       this.seats[this.hiddenTrumpOwner].hand.push(this.hiddenTrump);
       this.hiddenTrump = null;
       this.hiddenTrumpOwner = -1;
     }
+  }
+
+  // Reusable, always-computed-fresh check (never a stored flag that
+  // could go stale) -- true iff Quote is genuinely available for THIS
+  // exact player, right now: they still have a real cutoff window left
+  // (at least 3 cards still in their own hand on this table -- the
+  // 6-player table uses 2 instead, confirmed deliberately different,
+  // not scaled proportionally to hand size either way; miss it and
+  // Quote is gone for the rest of the round, no matter how clean their
+  // team stays), they're the one OPENING the trick (the first card of
+  // it, not following into one already started), their team is still
+  // clean (hasn't lost a trick), it's actually the play phase (not
+  // bidding, not between rounds), the bid qualifies, nobody's already
+  // declared it this round, and there isn't a paused early-win decision
+  // blocking normal play at this exact moment (declaring into that
+  // pause would create two simultaneous, conflicting decisions).
+  _isQuoteEligibleFor(pos) {
+    if (pos === null || pos === undefined || !this.seats[pos]) return false;
+    if (this.seats[pos].hand.length < 3) return false; // cutoff: must still have at least 3 cards of your own left
+    if (this.trickCards.length !== 0) return false; // only the trick's opener can declare, not someone following mid-trick
+    if (this.quoteState) return false;
+    if (this.phase !== 'play') return false;
+    if (this.highestBid > 19) return false;
+    if (this.pendingEarlyWinChoice) return false;
+    return !!this.teamStillClean[getTeam(pos)];
+  }
+
+  // During a Thani round, the caller's partner is folded out entirely --
+  // never gets a turn, never gets dealt into any trick. This is what
+  // every "move to the next player" step during actual play uses
+  // instead of the plain nextPos() (which bidding still uses normally,
+  // since Thani can only ever be called during bidding, before anyone's
+  // folded yet). Outside of a Thani round, foldedSeats is always empty
+  // and this behaves identically to nextPos().
+  _nextActivePos(p) {
+    let n = nextPos(p);
+    let guard = 0;
+    while (this.foldedSeats.includes(n) && guard++ < 4) n = nextPos(n);
+    return n;
   }
 
   _trickWinner() {
@@ -932,6 +1515,15 @@ class GameEngine {
     const points = this.trickCards.reduce((s, tc) => s + tc.card.points, 0);
     const team = getTeam(winner.pos);
     this.teamPoints[team] += points;
+    // Per explicit report: records this suit as "cut" the moment it's
+    // actually won by something other than itself -- the winning
+    // card's suit differs from the suit that was led, which given how
+    // _trickWinner() works can only happen via a genuine trump win, not
+    // a same-suit higher card. Checked before this.trickSuit gets reset
+    // for the next trick elsewhere.
+    if (this.trickSuit && winner.card.suit !== this.trickSuit) {
+      this.suitsCutThisRound.add(this.trickSuit);
+    }
     this.lastTrick = {
       cards: this.trickCards.slice(),
       winner: winner.pos,
@@ -939,6 +1531,14 @@ class GameEngine {
       team
     };
     this.addLog(`Seat ${winner.pos} won the trick (+${points}pts).`);
+
+    // Per-team clean tracking for Quote eligibility -- whichever team
+    // did NOT win this trick permanently loses their "still clean"
+    // status for the rest of the round (it can never come back once
+    // lost). At most one team can remain clean past trick 1, since a
+    // trick always goes to exactly one side.
+    const bidTeamThisRound = getTeam(this.bidder);
+    this.teamStillClean[1 - team] = false;
 
     // Anyone who didn't follow the led suit just proved they're out of
     // it entirely (following suit is mandatory whenever you can) — a
@@ -966,7 +1566,36 @@ class GameEngine {
     this.trickSuit = '';
     this.mustPlayTrumpBy = -1; // never carries across tricks
 
-    const cardsLeft = this.seats.reduce((s, seat) => s + (seat ? seat.hand.length : 0), 0);
+    // Quote resolution: if quote is already active, its outcome is
+    // decided the instant the declaring team loses ANY trick (fails
+    // immediately -- no reason to keep playing out a bet that's already
+    // lost). Success isn't specially checked here at all -- it just
+    // falls through to the normal cardsLeft===0 path below like any
+    // other round ending, since _endRound() already correctly checks
+    // "did the declaring team capture all 28 points" regardless of
+    // whether quote was ever involved.
+    if (this.quoteState && team !== this.quoteState.team) {
+      this._endRound();
+      return;
+    }
+
+    // Thani resolution -- same "fail immediately" shape as COT above,
+    // except the win condition is tricks, not points: the instant
+    // anyone other than the caller wins a trick, it's over. Success,
+    // like COT, isn't specially checked here -- it just falls through
+    // to the normal cardsLeft===0 ending below, and by construction
+    // that can only be reached having never failed this check on any
+    // earlier trick, i.e. the caller won every single one.
+    if (this.thaniCaller >= 0 && winner.pos !== this.thaniCaller) {
+      this._endRound();
+      return;
+    }
+
+    // Folded seats (Thani's partner) never play a single card, so their
+    // hand sits untouched, full, for the entire round -- counting it
+    // here would mean this could never reach 0 even after every ACTIVE
+    // player has played out their whole hand.
+    const cardsLeft = this.seats.reduce((s, seat, i) => s + (seat && !this.foldedSeats.includes(i) ? seat.hand.length : 0), 0);
     if (cardsLeft === 0 && this.hiddenTrump) {
       // Everyone else is out of cards but the hidden card's owner never
       // got to expose it — it becomes their forced final play. This is
@@ -976,30 +1605,235 @@ class GameEngine {
       this.maybeAutoAct();
     } else if (cardsLeft === 0) {
       this._endRound();
+    } else if (this.thaniCaller >= 0) {
+      // Thani has no early-win concept of its own -- its win condition
+      // is handled entirely by the two checks above (fail the instant
+      // anyone but the caller wins a trick; succeed by reaching
+      // cardsLeft===0 without ever failing). The normal early-win math
+      // below assumes a numeric highestBid<=28 (it computes
+      // 28-highestBid, which goes negative and breaks completely once
+      // highestBid is Thani's 29 sentinel) -- skipping it here avoids
+      // that outright, not just working around its symptom.
+      this.currentPlayer = winner.pos;
+      this._notify();
+      this.maybeAutoAct();
     } else {
+      // Early-win offer: the outcome of this round just became
+      // mathematically certain -- either the bidding team has already
+      // captured enough to have made their bid regardless of what's
+      // left, or the defense has captured enough that the bidder can
+      // no longer reach their bid even by winning every remaining
+      // point. Only offered once per round (earlyWinDeclined).
+      const oT = 1 - bidTeamThisRound;
+      const bidderClinched = this.teamPoints[bidTeamThisRound] >= this.highestBid;
+      const defenseClinched = this.teamPoints[oT] > (28 - this.highestBid);
+      const winningTeam = bidderClinched ? bidTeamThisRound : oT;
+      // If the winning team (whichever one it is -- Quote is no longer
+      // bidder-only) is STILL clean and their bid qualifies, don't
+      // interrupt them with this popup -- Quote is available to them
+      // right now (or will be the instant it's their turn), and forcing
+      // the early-win choice first would cut across that. Once their
+      // sweep actually breaks, this stops applying and the popup fires
+      // normally.
+      const stillQuoteCandidate = this.teamStillClean[winningTeam] && this.highestBid <= 19;
+      if (!stillQuoteCandidate && !this.earlyWinDeclined && (bidderClinched || defenseClinched)) {
+        // Ghost-controlled seats (isBot:false, per explicit request) can't answer this prompt
+        // either - excluded here for the same reason as the stillHasHuman check inside
+        // maybeAutoAct(), and critically important here specifically: this branch returns
+        // without ever calling maybeAutoAct() itself, so if this check alone were wrong, a
+        // ghost-only winning team would set this choice and then wait forever with nothing
+        // left to ever re-check or resolve it.
+        const hasHuman = [0, 1, 2, 3].some(p => getTeam(p) === winningTeam && this.seats[p] && !this.seats[p].isBot && !this.seats[p].ghostPlayer);
+        if (hasHuman) {
+          // A real person is on the winning team -- offer them the
+          // choice and wait, however long it takes, for an actual
+          // answer (see respondToEarlyWin()).
+          this.pendingEarlyWinChoice = { team: winningTeam, made: bidderClinched };
+          this.currentPlayer = winner.pos;
+          this._notify();
+          return;
+        }
+        // Nobody who'd need to see the remaining tricks is even
+        // watching -- skip straight to ending the round instead of
+        // pointlessly playing out an outcome that's already decided
+        // with no one around who needs it. _endRound()'s scoring is a
+        // pure threshold check either way, so this is exactly as
+        // correct as playing it all the way out would have been.
+        this._endRound();
+        return;
+      }
+
       this.currentPlayer = winner.pos;
       this._notify();
       this.maybeAutoAct();
     }
   }
 
+  // Either player on the team that's just been offered the early-win
+  // choice can respond for their team -- it affects the whole team, and
+  // either partner making the call is reasonable. continuePlay=true just
+  // resumes normal play (and won't be asked again this round);
+  // continuePlay=false ends the round right now using the CURRENT,
+  // already-decided point totals -- correct because _endRound()'s
+  // scoring is a pure threshold check (did the bidding team's points
+  // reach their bid), not dependent on how many tricks were actually
+  // played.
+  respondToEarlyWin(pos, continuePlay) {
+    if (!this.pendingEarlyWinChoice) return false;
+    if (getTeam(pos) !== this.pendingEarlyWinChoice.team) return false;
+    this.pendingEarlyWinChoice = null;
+    if (continuePlay) {
+      this.earlyWinDeclined = true;
+      this._notify();
+      this.maybeAutoAct();
+    } else {
+      this._endRound();
+    }
+    return true;
+  }
+
+  // Declares COT (or MaruCOT, if declared by the non-bidding team -- see
+  // the client for how the button's own LABEL reflects this; the
+  // underlying mechanic is identical either way) -- a pure declaration,
+  // not a card play. The player still plays their card normally
+  // afterward via the usual playCard() flow; this just locks in the bet
+  // before they do. Any player, on either team, can call it on their
+  // own turn as long as their team is still clean -- see
+  // _isQuoteEligibleFor() for the full check. Scoring differs by which
+  // team declares it -- see _endRound() for the actual numbers.
+  declareQuote(pos) {
+    if (pos !== this.currentPlayer) return false;
+    if (!this._isQuoteEligibleFor(pos)) return false;
+    this.quoteState = { team: getTeam(pos) };
+    const seat = this.seats[pos];
+    const isBidderTeam = getTeam(pos) === getTeam(this.bidder);
+    this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared ${isBidderTeam ? 'COT' : 'MaruCOT'} — betting on a full sweep of all 8 tricks!`);
+    this._notify();
+    return true;
+  }
+
   _endRound() {
     const bT = getTeam(this.bidder);
     const oT = 1 - bT;
-    const made = this.teamPoints[bT] >= this.highestBid;
-    let pts;
+    const isQuote = !!this.quoteState;
+    const isThani = this.thaniCaller >= 0;
+    let made, pts;
+    if (isThani) {
+      // Thani's win condition is tricks, not points -- highestBid was
+      // deliberately set to 29 (unreachable by points alone, max is 28),
+      // so the normal teamPoints>=highestBid check literally could never
+      // be true and isn't used here at all. By the time _endRound() runs
+      // for a Thani round, _resolveTrick() has already guaranteed one of
+      // exactly two things happened: either it early-failed the instant
+      // anyone but the caller won a trick, or every single trick
+      // (including this last one) went to the caller -- so simply
+      // checking who won the most recent trick correctly tells us which.
+      made = !!(this.lastTrick && this.lastTrick.winner === this.thaniCaller);
+      pts = made ? 3 : 4;
+      const isHonors = true;
+      // Real, confirmed bug fix per explicit live report: 4-player used
+      // to be zero-sum here -- every point awarded to one team was
+      // simultaneously subtracted from the other, which is exactly the
+      // "point system is different from 6-player" gap that an earlier,
+      // incomplete fix (the championship target number) never actually
+      // addressed. 6-player only ever adds to the winning side's own
+      // score and leaves the other team's number untouched -- matches
+      // that here, removing the deduction entirely.
+      if (made) { this.gameScore[bT] += pts; }
+      else { this.gameScore[oT] += pts; }
+      this.roundWinnerAnnounced = {
+        bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
+        teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
+        thani: true, thaniSuccess: made, tricksPlayed: this.tricksPlayed
+      };
+      this.phase = 'roundEnd';
+      this.addLog(`Round ${this.round} over. Thani ${made ? 'succeeded — every trick won!' : 'failed'} (${made ? '+' : '-'}${pts}).`);
+      this._finishRoundBookkeeping(bT, made);
+      return;
+    }
+    if (isQuote) {
+      // COT/MaruCOT replaces normal scoring entirely, evaluated as a
+      // simple absolute fact -- did the DECLARING team (this.quoteState.
+      // team -- NOT necessarily the bidder; either team can declare)
+      // capture every one of the 28 points (a full 8-trick sweep).
+      // Scoring depends on which side declared it: the bidding team's
+      // own COT is +2 on success / -3 on failure (unchanged from
+      // before); the non-bidding team's MaruCOT is +3 on success / -2
+      // on failure -- a deliberately different risk/reward, not the
+      // same numbers mirrored. This replaced an earlier "challenge"
+      // system entirely (one team declares, the other optionally
+      // challenges to escalate the stakes) -- there is no challenge
+      // anymore, no escalation, just two different fixed payouts
+      // depending on who declares.
+      const cotTeam = this.quoteState.team;
+      const otherTeam = 1 - cotTeam;
+      const cotTeamIsBidder = cotTeam === bT;
+      made = this.teamPoints[cotTeam] >= 28;
+      if (cotTeamIsBidder) pts = made ? 2 : 3;
+      else pts = made ? 3 : 2;
+      const isHonors = this.highestBid >= 20;
+      // Real, confirmed bug fix per explicit live report -- same
+      // zero-sum-to-additive-only change as the Thani branch above and
+      // the plain-bid branch below, applied here too since COT/MaruCOT
+      // scoring had the identical deduction.
+      if (made) { this.gameScore[cotTeam] += pts; }
+      else { this.gameScore[otherTeam] += pts; }
+      this.roundWinnerAnnounced = {
+        bidderWon: getTeam(this.bidder) === cotTeam ? made : !made,
+        made, bidder: this.bidder, highestBid: this.highestBid,
+        teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
+        quote: true, quoteSuccess: made, cotTeam, cotTeamIsBidder
+      };
+      this.phase = 'roundEnd';
+      this.addLog(`Round ${this.round} over. ${cotTeamIsBidder ? 'COT' : 'MaruCOT'} ${made ? 'succeeded — full sweep!' : 'failed'} (${made ? '+' : '-'}${pts}).`);
+      // The Q-mark/bot-learning logic below is entirely about whether
+      // the BIDDER personally succeeded, which isn't the same question
+      // as "did the COT-declaring team win their bet" -- if the DEFENSE
+      // was the one who declared COT, their success means the bidder
+      // was completely shut out, the opposite of the bidder succeeding.
+      // Converting to the bidder's own true outcome here keeps
+      // _finishRoundBookkeeping()'s bT/made parameters meaning exactly
+      // what they've always meant, regardless of any of this COT
+      // complexity above it.
+      const bidderMadeIt = (getTeam(this.bidder) === cotTeam) ? made : !made;
+      this._finishRoundBookkeeping(bT, bidderMadeIt);
+      return;
+    }
+    made = this.teamPoints[bT] >= this.highestBid;
     if (this.highestBid >= 28) pts = made ? 3 : 4;
     else if (this.highestBid >= 20) pts = made ? 2 : 3;
     else pts = made ? 1 : 2;
     const isHonors = this.highestBid >= 20;
-    if (made) { this.gameScore[bT] += pts; this.gameScore[oT] -= pts; }
-    else { this.gameScore[oT] += pts; this.gameScore[bT] -= pts; }
+    // Real, confirmed bug fix per explicit live report -- same
+    // zero-sum-to-additive-only change as the Thani and COT/MaruCOT
+    // branches above, applied here for the plain-bid case too.
+    if (made) { this.gameScore[bT] += pts; }
+    else { this.gameScore[oT] += pts; }
     this.roundWinnerAnnounced = {
       bidderWon: made, made, bidder: this.bidder, highestBid: this.highestBid,
-      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors
+      teamPoints: this.teamPoints.slice(), pts, bidTeam: bT, isHonors,
+      quote: false, quoteSuccess: undefined
     };
     this.phase = 'roundEnd';
     this.addLog(`Round ${this.round} over. ${made ? 'Bid made' : 'Bid failed'} (+/-${pts}).`);
+    this._finishRoundBookkeeping(bT, made);
+  }
+
+  // Shared tail end of _endRound() -- Q-mark shedding, bot learning,
+  // and whatever else follows scoring, factored out so both the COT and
+  // normal scoring branches above can share it without duplicating it
+  // or risking the two copies drifting apart later. bT/made here are
+  // always BIDDER-centric ("did the bidder's own team come out ahead"),
+  // never COT-team-centric -- see the conversion in the COT branch above
+  // for why that distinction matters.
+  _finishRoundBookkeeping(bT, made) {
+    // Per explicit request: leaderboard tracking -- see the property
+    // declarations near the constructor for the fuller reasoning. The
+    // team that DIDN'T win this specific round just took a round-loss
+    // toward this championship's tally.
+    const roundWinningTeam = made ? bT : (1 - bT);
+    const roundLosingTeam = 1 - roundWinningTeam;
+    this.roundLossesThisChampionship[roundLosingTeam]++;
 
     // Q-mark removal: personally calling and winning a bid sheds one Q
     // from yourself, if you're carrying any. On the very first hand of a
@@ -1061,12 +1895,19 @@ class GameEngine {
     // handlers) can never lose more than the tricks within a single round.
     brain.saveBrains();
 
-    // Championship check: matches the reference exactly — a championship
-    // ends when either team reaches 12, OR when either team's score drops
-    // to 0 or below (losing badly enough counts as the other side winning
-    // outright, not just a very low score).
+    // Championship check: per explicit request, the target score
+    // matches 6-player's own championship threshold (15), and per a
+    // further, more fundamental fix, scoring itself is now additive
+    // only just like 6-player -- the zero-sum deduction that used to
+    // subtract from the losing side every round is gone (see the three
+    // scoring branches above). With that removed, a score can never
+    // actually reach 0 or below again once the match is underway
+    // (nothing ever subtracts from it) -- the <= 0 half of this check
+    // is now the exact same kind of leftover dead condition 6-player's
+    // own identical check already had removed for the same reason.
+    // Dropped here too rather than left in as inert dead code.
     this.lastChampionshipResult = null;
-    if (this.gameScore[0] >= 12 || this.gameScore[1] >= 12 || this.gameScore[0] <= 0 || this.gameScore[1] <= 0) {
+    if (this.gameScore[0] >= 15 || this.gameScore[1] >= 15) {
       const winningTeam = this.gameScore[0] > this.gameScore[1] ? 0 : 1;
       const losingTeam = 1 - winningTeam;
       this.kingStreak[winningTeam]++;
@@ -1078,6 +1919,107 @@ class GameEngine {
         kingStreak: this.kingStreak.slice(), isKing
       };
       this.addLog(`Championship ${this.championshipNumber} won by team ${winningTeam} (streak: ${this.kingStreak[winningTeam]})${isKing ? ' — KING OF THE TABLE!' : ''}.`);
+      // Per explicit request: leaderboard recording, right here where
+      // every piece of data needed already exists -- winning team's
+      // player names, how many rounds this specific championship
+      // took (current round minus the round it started on), and how
+      // many of those rounds the winning team lost along the way.
+      const championshipRounds = this.round - this.championshipStartRound;
+      // Per explicit report: this used to only collect non-bot names,
+      // on the reasoning that "a bot winning isn't a player achievement
+      // to rank" -- correct for excluding a fully bot-only team, but it
+      // also silently dropped a real player's own BOT PARTNER from the
+      // recorded names, since that filter applied per-seat, not per-team.
+      // A team win is a team's achievement, not an individual's -- if
+      // even one real player is on the winning team, every teammate's
+      // name belongs in the record, bot or not, using their actual name
+      // either way (never a generic "Bot" placeholder). Still excludes
+      // an entirely bot team with zero real players, same as before.
+      const winningTeamHasRealPlayer = [0, 1, 2, 3].some(i => this.seats[i] && !this.seats[i].isBot && getTeam(i) === winningTeam);
+      const winningPlayerNames = [];
+      if (winningTeamHasRealPlayer) {
+        for (let i = 0; i < 4; i++) {
+          const s = this.seats[i];
+          if (s && getTeam(i) === winningTeam) winningPlayerNames.push(s.name);
+        }
+      }
+      // Per explicit request: the losing team's names, alongside the
+      // winners -- no "at least one real player" gate here the way the
+      // winning side has one, since displaying who was beaten doesn't
+      // carry the same "is this a real achievement to rank" question
+      // the winning side's gate exists for.
+      const opponentNames = [];
+      for (let i = 0; i < 4; i++) {
+        const s = this.seats[i];
+        if (s && getTeam(i) === losingTeam) opponentNames.push(s.name);
+      }
+      // Real, confirmed bug fix per explicit live report ("welcome
+      // leaderboard is blank... I beat a challenge, still blank"):
+      // scoreDiff used to be declared INSIDE this if-block with const,
+      // making it scoped to this block only -- but the challenge-win
+      // check right below is a separate, sibling if-statement, not
+      // nested inside this one, so it was reaching for a variable that
+      // didn't exist in its scope. That's a genuine ReferenceError at
+      // runtime (not something a syntax check can ever catch), which
+      // silently crashed this entire function the moment a challenge
+      // was actually won -- recordChallengeWin never even got called,
+      // and the crash likely disrupted whatever ran after it too.
+      // Hoisted out here so both blocks can actually use it.
+      const scoreDiff = this.gameScore[winningTeam] - this.gameScore[losingTeam];
+      if (winningPlayerNames.length > 0) {
+        // Per explicit request: 4-player leaderboard ranking now uses
+        // the same score-gap-first rule already applied to 6-player
+        // (see leaderboard.js's _insertIntoTop3), so both tables'
+        // welcome-popup rankings are consistent with each other rather
+        // than one using score and the other using rounds alone.
+        // Per explicit follow-up request: the popup display should show
+        // the actual final score (e.g. "15-7"), not just the bare gap
+        // number -- passes both real numbers through now, ranking logic
+        // itself is unchanged (still sorts by scoreDiff first).
+        leaderboard.recordChampionshipWin('4p', winningPlayerNames, championshipRounds, this.roundLossesThisChampionship[winningTeam], opponentNames, scoreDiff, this.gameScore[winningTeam], this.gameScore[losingTeam]);
+      }
+      // Real, confirmed feature per explicit request ("after winning it
+      // should say u beat the challenge... leaderboard should only be
+      // top 10 challenge winners... priority is the hardest level"):
+      // only ever fires once, the very first time the challenger's team
+      // actually wins a championship on a genuine challenge table
+      // (challengeHandicap > 0) -- never re-fires on a later
+      // championship at this same table, since the deficit itself was
+      // only ever applied to the first one.
+      // Real, confirmed bug fix per explicit live report ("picked
+      // challenge 13, lost it, continued, then won a completely
+      // normal 15-7 championship, but it registered ME as a challenge
+      // winner"): this used to gate on !this.challengeBeaten, which
+      // only ever means "hasn't WON the challenge yet" -- if the
+      // challenger's team LOST the first, real challenge championship,
+      // challengeBeaten stays false forever, so this same condition
+      // stayed true forever too, and the very next ordinary
+      // championship win at this table (genuinely no handicap left,
+      // long since resolved) got recorded as a fresh challenge win
+      // all over again. challengeResolved is the actual "is this table
+      // still genuinely mid-challenge" flag -- it's set true the
+      // instant the first challenge championship ends, win OR lose,
+      // and correctly stays true forever after that, so nothing at
+      // this table can ever be mistaken for an active challenge again
+      // once the real one has already been decided either way.
+      if (this.challengeHandicap > 0 && !this.challengeResolved && this.challengerTeam === winningTeam) {
+        this.challengeBeaten = true;
+        const challengerNames = winningPlayerNames.slice();
+        if (challengerNames.length > 0) {
+          challengeLeaderboard.recordChallengeWin('4p', this.challengeHandicap, challengerNames, opponentNames, championshipRounds, this.roundLossesThisChampionship[winningTeam], scoreDiff, this.gameScore[winningTeam], this.gameScore[losingTeam]);
+        }
+      }
+      // Real, confirmed feature per explicit request ("after winning or
+      // losing a challenge they should have the option to continue to
+      // next championship or new challenge"): fires exactly once, the
+      // moment this table's very first championship ends -- regardless
+      // of whether the challenger's team actually won it. challengeBeaten
+      // alone can only ever signal a WIN; this is what lets the client
+      // detect "the challenge is decided" on a loss too, so it can show
+      // the same choice either way.
+      if (this.challengeHandicap > 0 && !this.challengeResolved) {
+        this.challengeResolved = true;
+      }
       // This scoring system is zero-sum (every point gained by one team
       // is lost by the other), so every championship necessarily ends
       // 12-0/0-12 — there's no such thing as a "close" loss here. Every
@@ -1086,6 +2028,7 @@ class GameEngine {
         const s = this.seats[i];
         if (!s || getTeam(i) !== losingTeam) continue;
         this.qMarks[s.name] = (this.qMarks[s.name] || 0) + 1;
+        this.qTotalEver[s.name] = (this.qTotalEver[s.name] || 0) + 1;
       }
       this.addLog(`Team ${losingTeam} shut out — every player picks up a Q.`);
       // Start the next championship: reset the match score, keep everyone
@@ -1093,9 +2036,11 @@ class GameEngine {
       // became King, the streak naturally starts back at 0 next time
       // (matches the reference: winning again after being crowned just
       // starts building a fresh streak, it doesn't lock the table).
-      this.gameScore = [6, 6];
+      this.gameScore = [0, 0]; // per explicit request, matches 6-player's own reset value for a new championship
       this.championshipNumber++;
       this.isFirstHandOfChampionship = true;
+      this.championshipStartRound = this.round;
+      this.roundLossesThisChampionship = [0, 0];
     }
 
     this._notify();
@@ -1108,9 +2053,64 @@ class GameEngine {
   // presentation/flavor on top if desired.
 
   maybeAutoAct() {
+    // A pending early-win choice isn't a card-play turn at all -- it's a
+    // yes/no decision offered to a specific team, and the normal
+    // stuck-seat logic below (which assumes currentPlayer owes a CARD)
+    // doesn't apply to it. But the same underlying risk still exists: if
+    // the human this was offered to disconnects before responding, the
+    // whole table would otherwise wait forever for an answer that's
+    // never coming. If literally everyone on the winning team is now a
+    // bot or disconnected (checked fresh here, since that can change
+    // after the prompt was first shown), auto-resolve with "keep
+    // playing" -- the safest, least-surprising default that just
+    // continues the round normally, exactly as if this feature didn't
+    // exist for them.
+    if (this.pendingEarlyWinChoice) {
+      const team = this.pendingEarlyWinChoice.team;
+      // A ghost-controlled seat (isBot:false, per explicit request) can't actually respond to
+      // this prompt any more than a real bot can - there's no client to send the choice back.
+      // Excluded here the same way isBot seats already are, otherwise a team made up of only
+      // ghosts and bots would leave this waiting forever for an answer nobody can send.
+      const stillHasHuman = [0, 1, 2, 3].some(p => getTeam(p) === team && this.seats[p] && !this.seats[p].isBot && !this.seats[p].ghostPlayer && this.seats[p].connected);
+      if (!stillHasHuman) {
+        const anyPosOnTeam = [0, 1, 2, 3].find(p => getTeam(p) === team);
+        this.respondToEarlyWin(anyPosOnTeam, true);
+      }
+      return;
+    }
     const seat = this.seats[this.currentPlayer];
     if (!seat) return; // truly empty seat — caller must fill or skip
-    if (seat.isBot || !seat.connected) {
+    // Track how long the current seat has actually been on the clock,
+    // not how long ago maybeAutoAct() happened to last be called (which
+    // can be re-invoked many times for the same turn, e.g. once per
+    // reconnect) - only a genuine turn change resets this.
+    if (this._turnTrackedPlayer !== this.currentPlayer || this._turnTrackedRound !== this.round) {
+      this._turnTrackedPlayer = this.currentPlayer;
+      this._turnTrackedRound = this.round;
+      this.turnStartedAt = Date.now();
+    }
+    const turnAgeMs = Date.now() - (this.turnStartedAt || Date.now());
+    // A seat that LOOKS connected but hasn't actually acted in a very
+    // long time is almost certainly a zombie connection (a network
+    // transition the socket layer never cleanly detected as a
+    // disconnect) rather than a human genuinely still thinking - no
+    // real turn takes that long. Once past that, treat it exactly like
+    // an explicitly disconnected seat so the table can recover on its
+    // own instead of staying stuck until someone happens to reconnect
+    // in a way that coincidentally un-sticks it.
+    // Per explicit request: set to exactly 1:50 (110s) -- long enough
+    // that a brief real-world break (a bathroom run, a knock at the
+    // door) doesn't trigger the bot taking over, without leaving it so
+    // long that the rest of the table sits waiting excessively either.
+    const CONNECTED_BUT_STUCK_MS = 110000;
+    // A ghost-player seat (admin-run, per explicit request) is deliberately kept isBot:false
+    // so it displays and behaves as a genuine connected human everywhere else in the game
+    // (green "live" status dot, counted as a real player for room listings, etc.) - but still
+    // needs the engine to actually play it, since there's no real socket ever sending moves
+    // for it. Checked as its own separate condition here rather than folded into isBot itself.
+    const isGhost = seat.ghostPlayer === true;
+    const treatAsStuck = seat.isBot || isGhost || !seat.connected || turnAgeMs >= CONNECTED_BUT_STUCK_MS;
+    if (treatAsStuck) {
       // A disconnected human gets covered the same way a bot seat does —
       // otherwise their turn just freezes the whole table indefinitely
       // waiting for them to come back. The moment they reconnect, control
@@ -1125,6 +2125,28 @@ class GameEngine {
       // correct, the human just never got a chance to see the steps.
       const capturedPos = this.currentPlayer;
       const capturedRound = this.round;
+      const capturedTurnStartedAt = this.turnStartedAt;
+      // Real, confirmed root-cause bug fix per explicit live report
+      // (multiple live tables observed permanently stuck in an endless
+      // "[bot-watchdog]... retrying" loop right after a round actually
+      // finished): neither this timeout nor the watchdog one further
+      // below ever checked the game's PHASE at all, only round number
+      // and currentPlayer. A bot action scheduled during the very last
+      // trick of a round (while phase was legitimately 'play') could
+      // still be sitting on this timer when that trick resolved and the
+      // round moved on to 'roundEnd' -- same round number, and
+      // currentPlayer can easily still coincidentally equal the same
+      // seat, so neither existing check caught it. The timer then fired
+      // anyway, called _botAct() for a phase _botActInner() has no
+      // matching branch for at all (bidding1/choosingTrump/bidding2/play
+      // are the only ones handled), which did nothing and left
+      // currentPlayer completely unchanged -- so the watchdog re-armed
+      // itself over and over, forever, since nothing about the
+      // condition it was checking ever actually changed. Capturing and
+      // re-verifying phase alongside round/currentPlayer closes this
+      // exactly the same way those other two staleness checks already
+      // work.
+      const capturedPhase = this.phase;
       // Bots always act at a comfortable, watchable pace. A disconnected
       // HUMAN gets a real grace period instead — brief network hiccups are
       // common and often invisible to the person experiencing them (their
@@ -1135,21 +2157,91 @@ class GameEngine {
       // Same reasoning as the 6-player engine: 10s was too tight to
       // absorb a brief mobile connectivity blip before a bot takes over
       // an actively-present human's seat.
-      const delay = seat.isBot ? 900 : 35000;
+      // A seat that's already past the connected-but-stuck threshold has
+      // used up its grace period already - act promptly rather than
+      // making the table wait out a full fresh 35s on top of the 2
+      // minutes it's already been stuck.
+      const delay = seat.isBot ? 900
+        // Real, confirmed speed-up per explicit live report ("80% more
+        // is slow, make them faster"; follow-up: "3 sec is max"): the
+        // old uniform 2-6s window put its own floor at 2s and was
+        // evenly spread across the whole range, so it read as slow
+        // almost every single time, never snappy. Replaced with a
+        // weighted mix that's fast most of the time (a quick,
+        // decisive-looking move) and only occasionally pauses like
+        // someone actually thinking - 80% fast / 20% slow - with 3s as
+        // a hard ceiling on the slow band, never longer.
+        : isGhost ? (Math.random() < 0.8
+            ? (300 + Math.floor(Math.random() * 900))   // fast: 0.3-1.2s, 80% of turns
+            : (1500 + Math.floor(Math.random() * 1500))) // slow: 1.5-3.0s, 20% of turns, 3s hard cap
+        : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         // Re-check everything at fire-time, not just at schedule-time:
         // - the round hasn't moved on
         // - it's still actually this seat's turn
-        // - this seat is STILL a bot or STILL disconnected — if a human
-        //   reconnected during this delay, they should get to act
-        //   themselves now, not have a card auto-played out from under
-        //   them the moment they came back.
+        // - this seat is STILL a bot, STILL disconnected, or STILL past
+        //   the connected-but-stuck threshold (re-derived fresh here,
+        //   not reused from schedule-time) — if a human reconnected AND
+        //   genuinely resumed play during this delay, they should get
+        //   to act themselves now, not have a card auto-played out from
+        //   under them the moment they came back.
         if (this.round !== capturedRound) return;
+        if (this.phase !== capturedPhase) return;
         if (this.currentPlayer !== capturedPos) return;
         const seatNow = this.seats[capturedPos];
-        if (!seatNow || (!seatNow.isBot && seatNow.connected)) return;
+        if (!seatNow) return;
+        // Real bug fix, per explicit report on the 6-player table -- see
+        // that engine's identical fix for the fuller reasoning. Same
+        // stale-closure gap here: this re-check compared against
+        // capturedTurnStartedAt, frozen the moment THIS timer was
+        // scheduled, so a reconnect that reset the LIVE turnStartedAt
+        // any time after that (but before this timeout fired) got
+        // silently ignored -- the bot took over anyway regardless of
+        // how promptly the player actually came back.
+        const stillStuck = seatNow.isBot || seatNow.ghostPlayer === true || !seatNow.connected || (Date.now() - (this.turnStartedAt || Date.now())) >= CONNECTED_BUT_STUCK_MS;
+        if (!stillStuck) return;
         this._botAct(capturedPos);
       }, delay);
+      // Per explicit report on the 6-player table (a bot's turn observed
+      // getting skipped entirely in live play) -- see that engine's
+      // identical addition for the fuller reasoning. Ported here since
+      // this file had no equivalent second safety check at all: if it's
+      // STILL that bot's uncompleted turn a few seconds later, retry via
+      // maybeAutoAct() itself (not a direct _botAct call), so it goes
+      // through every one of the normal guards again with a fresh view
+      // of the current state, rather than assuming the original
+      // captured values still apply.
+      // Real, confirmed bug fix per explicit report ("ghost bots stop
+      // after some time"): this watchdog only ever fired for seat.isBot,
+      // completely excluding ghost-player seats. Ghost seats are
+      // deliberately kept isBot:false (see the comment above on isGhost)
+      // so they display as a real connected human everywhere else in the
+      // game -- but that also meant this second-chance retry silently
+      // never covered them. If the first timeout-based _botAct call ever
+      // failed to actually complete a ghost's turn for any reason, there
+      // was no fallback at all and the table just sat there permanently
+      // on that ghost's turn -- exactly the reported symptom.
+      if (seat.isBot || isGhost) {
+        const watchdogPos = this.currentPlayer;
+        const watchdogRound = this.round;
+        // Same phase-staleness fix as the timer right above this one --
+        // see that one's comment for the fuller root-cause reasoning.
+        // Without this, the watchdog itself becomes the thing keeping a
+        // fully-finished round stuck: it re-arms itself via
+        // maybeAutoAct() every 3s forever, since nothing it was actually
+        // checking (round number, currentPlayer) ever changes once the
+        // round has quietly moved to 'roundEnd' out from under it.
+        const watchdogPhase = this.phase;
+        setTimeout(() => {
+          if (this.round !== watchdogRound) return;
+          if (this.phase !== watchdogPhase) return;
+          if (this.currentPlayer !== watchdogPos) return;
+          const seatNow = this.seats[watchdogPos];
+          if (!seatNow || !(seatNow.isBot || seatNow.ghostPlayer === true)) return;
+          this.addLog(`[bot-watchdog] Seat ${watchdogPos} still hadn't acted after 3s -- retrying.`);
+          this.maybeAutoAct();
+        }, 3000);
+      }
     }
     // Connected human seats just wait for a client message; nothing to do here.
   }
@@ -1199,7 +2291,8 @@ class GameEngine {
       const b = brain.getBrain(botName);
       const hand = this.seats[pos].hand;
       const first = this.isFirstBidder(pos);
-      const minBid = this.highestBid > 0 ? this.highestBid + 1 : 14;
+      const restricted = this._isBidRestrictedToHonors(pos);
+      const minBid = restricted ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 14);
 
       // Suit-dominance based evaluation (see evaluatePhase1Hand above) —
       // replaces flat point-counting, which badly overrated hands like
@@ -1210,7 +2303,7 @@ class GameEngine {
 
       // How comfortable this particular bot is committing depends on its
       // brain's personality: a cautious/low-level bot wants a much safer
-      // win probability before bidding than a confident, aggressive one.
+      // margin before bidding than a confident, aggressive one.
       // Raised from 0.75 after real-game reports of bots committing to
       // bids their actual hand didn't support and losing badly — even a
       // confident, high-level bot should want real odds before bidding.
@@ -1233,25 +2326,27 @@ class GameEngine {
       const comfortThreshold = Math.min(0.9, Math.max(0.45,
         0.85 - (b.level - 1) * 0.08 - (b.bidWeights.aggression - 1) * 0.1 + performanceAdjustment));
 
-      // Walk the dynamically-computed probability curve and take the
-      // highest bid level that still clears this bot's comfort bar. Bids
-      // of 20+ ("Honors") pay and cost more per point than sub-20 bids —
-      // a bad guess up there is a bigger absolute swing on the
-      // scoreboard, not just a bigger number, so the bar to cross into
-      // that territory (and again into 28) is a bit higher than the
-      // plain curve alone would ask for. This is on top of the comfort
-      // bar, not instead of it — a hand that wasn't going to clear the
-      // ordinary bar doesn't get pulled up here.
-      let target = 14;
-      for (let bidLevel = 14; bidLevel <= 28; bidLevel++) {
-        const honorsPremium = bidLevel >= 28 ? 0.08 : bidLevel >= 20 ? 0.05 : bidLevel >= 18 ? 0.03 : 0;
-        if (ev.probByBid[bidLevel] >= comfortThreshold + honorsPremium) target = bidLevel;
-        else break;
-      }
+      // The hand itself sets a hard ceiling (see evaluatePhase1Hand) -
+      // confidence only decides how close to it this bot actually
+      // commits, never past it. A high comfortThreshold (cautious/
+      // unproven bot) holds back a little even on a strong hand; a low
+      // one (confident, proven bot) commits to the full ceiling the
+      // cards support. Real-game reports of bots bidding well past what
+      // their hand justified were exactly this: a confidence estimate
+      // that could keep climbing on its own, disconnected from what was
+      // actually in hand. Now the cards decide the ceiling; confidence
+      // only ever pulls back from it, never past it.
+      const confidenceFactor = Math.max(0, Math.min(1, (0.9 - comfortThreshold) / (0.9 - 0.45)));
+      // Modest pullback (at most 2) for a cautious/unproven bot, not a
+      // full rescale of the whole range - the hand's own composition is
+      // the dominant factor here, personality is a small nudge around
+      // it, not something that can swamp what the cards actually support.
+      const pullback = Math.round((1 - confidenceFactor) * 2);
+      let target = ev.eligibleToRaise ? Math.max(14, ev.hardCeiling - pullback) : 14;
 
       // A hand that reads as much better for DEFENSE than OFFENSE — the
       // classic "scattered Jacks, no suit control" case — should pull the
-      // bot back from committing high even if the raw curve alone looked
+      // bot back from committing high even if the ceiling itself looked
       // OK, mirroring the real distinction between a good bidding hand
       // and a good defending hand.
       if (ev.defensive > ev.offensive * 1.3) {
@@ -1273,7 +2368,7 @@ class GameEngine {
         this.partnerSignals[pos].signal === 'lower';
       if (this.partnerSignals[pos] && this.partnerSignals[pos].forRound === this.round) {
         const sig = this.partnerSignals[pos].signal;
-        if (sig === 'higher') target = Math.min(28, target + 3);
+        if (sig === 'higher') target = Math.min(ev.hardCeiling, target + 3);
       }
 
       // Partner already winning the bidding is worth leaning into a
@@ -1287,7 +2382,7 @@ class GameEngine {
         const trust = (partnerSeat && !partnerSeat.isBot) ? brain.partnerTrustMultiplier(b, partnerSeat.playerId) : 1.0;
         pb = 1 * b.bidWeights.partnerSupport * trust;
       }
-      target = Math.min(28, Math.round(target + pb));
+      target = Math.min(ev.hardCeiling, Math.round(target + pb));
 
       // Pattern memory: has this bot seen a similar hand work out before?
       // Blended with (rather than fully overriding) the principled target
@@ -1331,6 +2426,19 @@ class GameEngine {
       // Faithful port of the reference's botChooseTrumpWithBrain.
       const b = brain.getBrain(this.seats[pos].name);
       const hand = this.seats[pos].hand;
+      // The hand is still the original 4 cards here -- the second batch
+      // of 4 isn't dealt until after trump is chosen (see the rules
+      // comment at the top of this file) -- so this is the exact same
+      // hand evaluatePhase1Hand already scored during bidding. If it
+      // flagged a specific suit (9-A-10 of one suit, no Jack of that
+      // suit, plus a separate bonus Jack elsewhere), that's a strong
+      // enough signal to just call it directly rather than leave the
+      // choice to the generic point-counting below.
+      const ev = evaluatePhase1Hand(hand);
+      if (ev.suggestedTrumpSuit) {
+        this.chooseTrump(pos, ev.suggestedTrumpSuit, null);
+        return;
+      }
       const ss = {};
       for (const s of SUITS) ss[s] = { points: 0, hasJ: false, has9: false, hasK: false, hasQ: false, count: 0 };
       for (const c of hand) {
@@ -1448,10 +2556,30 @@ class GameEngine {
           else if ((this.suitLeadCount[this.trickSuit] || 0) >= 2 && tPts >= 1) callTrump = true;
           else if (trumps.some(t => t.rank === 'J' || t.rank === '9')) callTrump = true;
           else if (this.trickCards.some(tc => tc.card.points > 0 || tc.card.rank === 'J' || tc.card.rank === '9')) callTrump = true;
+          // Same "first time this suit's been led this round" trigger
+          // added to the post-exposure cutting decision — but that fix
+          // alone didn't cover this actual reported case, since trump
+          // hadn't been exposed yet at all when it happened. This is
+          // the real decision point for that: whether to be the one who
+          // calls for trump to be opened in the first place. wt !==
+          // myTeam above still applies regardless of this new trigger,
+          // same reasoning as before — never call trump just to win a
+          // trick our own partner already has for free.
+          else if ((this.suitLeadCount[this.trickSuit] || 0) === 1) callTrump = true;
         }
         if (callTrump) {
           const goodOutcome = wt !== myTeam; // calling trump to steal back a trick the other team was winning
           brain.recordTrumpExposure(this.seats[pos].name, { trickLen: this.trickCards.length }, true, goodOutcome);
+          if (pos === this.hiddenTrumpOwner && this.hiddenTrump) {
+            // The hidden-trump owner reveals by playing their specific
+            // hidden card, not an arbitrary trump card from their open
+            // hand - that's the whole point of it being hidden. Any
+            // other trump cards this bot happens to also be holding
+            // openly stay subject to the normal incidental-discard /
+            // now-illegal-until-exposed rules, same as anyone else's.
+            this.playHiddenTrump(pos);
+            return;
+          }
           this.exposeTrump();
           if (trumps.length > 0) {
             trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
@@ -1469,12 +2597,20 @@ class GameEngine {
             let cutCard = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
               : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
               : trumps[trumps.length - 1];
-            // Still respect real overtake risk: if other players still
-            // act after us in this same trick and the trump Jack hasn't
-            // been seen yet, a big enough trick is worth committing our
-            // strongest trump to make sure it actually holds up.
-            if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && cutCard.rank !== 'J' && tPts >= 3) {
-              cutCard = trumps[0];
+            // Per explicit report: escalating all the way to trumps[0]
+            // here -- the single highest trump in hand, which IS the
+            // Jack whenever we hold it -- was exactly the waste being
+            // reported: cutting with the Jack when a lower trump was
+            // available. Overtake risk is real and worth respecting,
+            // but the ceiling for that escalation is the highest
+            // non-Jack trump (at most a 9), never the Jack itself --
+            // the Jack gets preserved regardless of how real the risk
+            // of getting over-cut is. Explicit: "use up to a 9, never a
+            // J" -- if even that highest non-Jack trump isn't available,
+            // there's nothing safe left to escalate to, so cutCard just
+            // stays whatever it already was.
+            if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && cutCard.rank !== 'J' && tPts >= 3 && nonJackTrumps.length > 0) {
+              cutCard = nonJackTrumps[0];
             }
             this.playCard(pos, cutCard);
           } else {
@@ -1486,6 +2622,23 @@ class GameEngine {
       }
 
       const chosen = this._chooseBotCardBase(pos, hand, myTeam, bidTeam, isBT, isLast, cw, wt, cwc, tPts);
+      // TEMPORARY DIAGNOSTIC per explicit live report -- removed before
+      // shipping. Identical to the one already added to 6-player's
+      // equivalent function -- see there for the fuller reasoning on
+      // why it's split into these two specific cases rather than
+      // flagging any other trump in hand at all.
+      if (chosen && chosen.rank === 'J' && chosen.suit === this.trumpSuit && this.trickSuit !== '' && this.trickSuit !== this.trumpSuit) {
+        let otherTrumps;
+        if (wt === myTeam) {
+          otherTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'J');
+        } else {
+          const cwcRank = (cwc && cwc.suit === this.trumpSuit) ? RANK_ORDER[cwc.rank] : -1;
+          otherTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'J' && RANK_ORDER[c.rank] > cwcRank);
+        }
+        if (otherTrumps.length > 0) {
+          console.error('[JACK-CUT-DEBUG-4P] pos=' + pos + ' hand=' + JSON.stringify(hand) + ' trickSuit=' + this.trickSuit + ' cwc=' + JSON.stringify(cwc) + ' tPts=' + tPts + ' isLast=' + isLast + ' wt=' + wt + ' myTeam=' + myTeam + ' trumpExposed=' + this.trumpExposed + ' otherTrumps=' + JSON.stringify(otherTrumps));
+        }
+      }
       this.playCard(pos, chosen);
     }
   }
@@ -1499,6 +2652,182 @@ class GameEngine {
   }
   _isRankSeen(suit, rank) {
     return this._cardsSeenSoFar().some(c => c.suit === suit && c.rank === rank);
+  }
+
+  // ============================================================
+  // CARD-COUNTING FOUNDATION (per explicit request: bots should reason
+  // about the actual, current probability of who holds an unseen card
+  // -- based on real information already available -- rather than a
+  // flat "seen means safe, unseen means risky" binary. This is the
+  // first building block that later simulation-based decisions are
+  // built on top of: for a given seat, exactly which cards are still
+  // unaccounted for, and for each one, exactly which OTHER seats could
+  // still possibly be holding it, given what's already been proven by
+  // play so far (a seat that failed to follow a suit is proven void in
+  // it -- it cannot hold any card of that suit at all, full stop, not
+  // just "probably doesn't").
+  // ============================================================
+  // Every card genuinely still unaccounted for from THIS seat's own
+  // point of view: not in its own hand, not already played this round,
+  // and -- critically -- not the hidden trump card if this seat isn't
+  // the one who knows it (the hiddenTrumpOwner and, once exposed,
+  // everyone). Getting this wrong (treating the hidden card as
+  // "unseen and could be anywhere") would make the bidder's own
+  // concealed card incorrectly count as a live threat to itself.
+  _unseenCardsFor(pos) {
+    const seenOrHeld = new Set();
+    const key = (c) => c.suit + c.rank;
+    for (const c of this._cardsSeenSoFar()) seenOrHeld.add(key(c));
+    for (const c of this.seats[pos].hand) seenOrHeld.add(key(c));
+    if (this.hiddenTrump && (pos === this.hiddenTrumpOwner || this.trumpExposed)) {
+      seenOrHeld.add(key(this.hiddenTrump));
+    }
+    const all = [];
+    for (const s of SUITS) for (const r of RANKS) all.push({ suit: s, rank: r, points: POINTS[r] });
+    return all.filter(c => !seenOrHeld.has(key(c)));
+  }
+  // For every unseen card, which OTHER seats (not pos itself) could
+  // still possibly be the one holding it -- excluding any seat already
+  // proven void in that card's suit. A seat still in the "possible"
+  // list isn't guaranteed to hold that exact card, just not yet ruled
+  // out; a seat proven void in a suit is removed from every card of
+  // that suit's list entirely, since that's certain, not a guess. The
+  // hidden trump card (if this pos doesn't know it) is treated as
+  // "held" by the hiddenTrumpOwner specifically, not left as an open
+  // possibility for anyone -- that ownership is a fixed fact of the
+  // deal, not something to guess at, even though this pos doesn't
+  // personally know WHICH card it is yet.
+  _possibleHoldersFor(pos) {
+    const unseen = this._unseenCardsFor(pos);
+    const otherSeats = [0, 1, 2, 3].filter(p => p !== pos && this.seats[p]);
+    const result = new Map();
+    for (const c of unseen) {
+      const key = c.suit + c.rank;
+      if (this.hiddenTrump && cardEq(c, this.hiddenTrump) && pos !== this.hiddenTrumpOwner && !this.trumpExposed) {
+        result.set(key, [this.hiddenTrumpOwner]);
+        continue;
+      }
+      result.set(key, otherSeats.filter(p => !this.voidSuits[p].has(c.suit)));
+    }
+    return result;
+  }
+
+  // Produces ONE random, valid guess at how the unseen cards could
+  // actually be distributed among the other seats -- respecting each
+  // seat's real, currently-known hand size (public information: how
+  // many cards a seat holds is visible to everyone, even though WHICH
+  // cards isn't) and the possibleHolders constraint computed above (a
+  // seat proven void in a suit can never receive a card of it in this
+  // guess). This is the core primitive real simulation-based play is
+  // built on: instead of one fixed assumption about where the unseen
+  // cards are, generate MANY different plausible guesses (see
+  // _simulateBestCard below) and see which actual play holds up best
+  // across most of them, rather than betting everything on a single
+  // static read of the situation.
+  _simulateOneDeal(pos) {
+    const possibleHolders = this._possibleHoldersFor(pos);
+    const unseen = this._unseenCardsFor(pos);
+    const otherSeats = [0, 1, 2, 3].filter(p => p !== pos && this.seats[p]);
+    const handSize = {};
+    for (const p of otherSeats) handSize[p] = this.seats[p].hand.length;
+    // Deal the most-constrained cards first (fewest possible holders),
+    // same reasoning as solving a constraint puzzle by its tightest
+    // clues first -- a card only one seat could possibly hold should
+    // never lose that slot to a less-constrained card grabbing it
+    // first and leaving no valid seat left for it at all.
+    const shuffled = unseen.slice().sort((a, b) => {
+      const ha = possibleHolders.get(a.suit + a.rank) || [];
+      const hb = possibleHolders.get(b.suit + b.rank) || [];
+      return ha.length - hb.length;
+    });
+    const dealt = {};
+    for (const p of otherSeats) dealt[p] = [];
+    for (const c of shuffled) {
+      const eligible = (possibleHolders.get(c.suit + c.rank) || []).filter(p => dealt[p].length < handSize[p]);
+      if (eligible.length === 0) continue; // over-constrained corner case -- card simply doesn't get placed this simulation
+      const pick = eligible[Math.floor(Math.random() * eligible.length)];
+      dealt[pick].push(c);
+    }
+    return dealt;
+  }
+
+  // Which seats still get a turn to act in THIS trick, after pos has
+  // played. Needed so a simulation only has to worry about cards that
+  // could realistically still come after this card, not the whole
+  // table -- someone who already played earlier this exact trick can't
+  // suddenly produce a new card to beat this one with.
+  _seatsActingAfter(pos) {
+    const numAlreadyPlayed = this.trickCards.length;
+    const leader = this.trickCards.length > 0 ? this.trickCards[0].pos : this.currentPlayer;
+    const order = [];
+    let p = leader;
+    for (let i = 0; i < 4; i++) { order.push(p); p = nextPos(p); }
+    const myIndex = order.indexOf(pos);
+    return order.slice(myIndex + 1);
+  }
+
+  // Real simulation-based replacement for the old binary "is the Jack
+  // seen yet, treat as risky/safe" heuristic (per explicit request:
+  // reason about the actual current odds, not a flat yes/no). Deals
+  // out the unseen cards many different plausible ways, and for each
+  // one, checks whether any seat still left to act in this trick could
+  // actually beat the candidate card given what they'd hold in THAT
+  // specific deal -- assuming, conservatively, that a rational
+  // opponent holding a card that beats this one would actually play
+  // it. Returns the fraction of simulations where the candidate
+  // genuinely survives to win, e.g. 0.82 meaning it held up in 82% of
+  // plausible deals. This doesn't require recursively simulating every
+  // other seat's own full decision-making -- just whether a
+  // beating card exists in their simulated hand at all, which is the
+  // actual question "is this safe to play" is really asking.
+  _survivalProbability(pos, candidateCard, iterations = 300) {
+    const actingAfter = this._seatsActingAfter(pos);
+    if (actingAfter.length === 0) return 1; // last to act this trick -- nothing left that could beat it
+    const trickSuit = this.trickSuit || candidateCard.suit;
+    const isCandidateTrump = this.trumpExposed && candidateCard.suit === this.trumpSuit;
+    // Real, confirmed bug fix per explicit live report -- same
+    // teammate-vs-opponent fix already applied to 6-player's identical
+    // function: every caller here is really asking "will MY TEAM still
+    // be winning this trick," not "will this exact card specifically
+    // still be the one on top." 4-player only has one partner, but
+    // that partner can still act after pos in plenty of trick
+    // orderings, and if they later overtake pos's own card with
+    // something better, pos's team still wins the trick either way --
+    // that's not a threat. This was still counting the partner as a
+    // threat exactly like 6-player's version used to before that fix.
+    const myTeam = getTeam(pos);
+    const threatSeats = actingAfter.filter(p => getTeam(p) !== myTeam);
+    if (threatSeats.length === 0) return 1;
+    let survived = 0;
+    for (let i = 0; i < iterations; i++) {
+      const deal = this._simulateOneDeal(pos);
+      let beaten = false;
+      for (const p of threatSeats) {
+        const simHand = deal[p] || [];
+        // A card beats the candidate if: it's a higher card of the
+        // SAME suit as the candidate, OR (once trump is exposed and
+        // the candidate itself isn't trump) a trump cut -- but a cut is
+        // only actually LEGAL if this seat holds no card of the suit
+        // actually led at all (following suit is mandatory whenever
+        // possible). Real, confirmed bug fix found while extending
+        // this to the discard branches: this used to treat holding ANY
+        // trump card as enough to "beat" the candidate, with no check
+        // on whether this simulated seat could even legally play it --
+        // a seat holding both the led suit and trump is required to
+        // follow suit, not free to cut, so this was drastically
+        // overestimating risk in almost every simulated deal (most
+        // random hands contain some trump purely by chance).
+        const simSeatVoidInLedSuit = !simHand.some(c => c.suit === trickSuit);
+        const canBeat = simHand.some(c => {
+          if (c.suit === candidateCard.suit) return RANK_ORDER[c.rank] > RANK_ORDER[candidateCard.rank];
+          if (this.trumpExposed && c.suit === this.trumpSuit && !isCandidateTrump && simSeatVoidInLedSuit) return true;
+          return false;
+        });
+        if (canBeat) { beaten = true; break; }
+      }
+      if (!beaten) survived++;
+    }
+    return survived / iterations;
   }
 
   // Who's winning the CURRENT (in-progress) trick so far — used by bot
@@ -1523,6 +2852,34 @@ class GameEngine {
   _chooseBotCardBase(pos, hand, myTeam, bidTeam, isBT, isLast, cw, wt, cwc, tPts) {
     const b = brain.getBrain(this.seats[pos].name);
     const isBidder = pos === this.bidder;
+    // Bid-target awareness: teamPoints was already tracked live (updated
+    // after every trick) but never actually READ by any decision here --
+    // the bots had no notion of whether their own side was falling
+    // behind what it needs, or had already secured the round's outcome.
+    // myTeamTarget/myTeamNeeds is generic across both roles: the bidding
+    // team needs teamPoints >= highestBid; the defending team's
+    // equivalent goal is capturing enough to guarantee the bid fails
+    // (more than 28-highestBid, i.e. at least 29-highestBid).
+    const myTeamTarget = isBT ? this.highestBid : (29 - this.highestBid);
+    const myTeamNeeds = myTeamTarget - this.teamPoints[myTeam];
+    const pointsRemainingInPlay = 28 - this.teamPoints[0] - this.teamPoints[1];
+    // "Desperate": genuinely needs most of what's mathematically still
+    // available, not just "behind by a little" -- a low bar here would
+    // make bots panic-spend trump on ordinary tricks constantly, which
+    // isn't what real urgency looks like. 70% of what's left is a real,
+    // meaningful threshold: comfortably still gettable with a normal
+    // strategy stays under it, genuinely at-risk situations clear it.
+    const myTeamDesperate = myTeamNeeds > 0 && pointsRemainingInPlay > 0 && myTeamNeeds >= pointsRemainingInPlay * 0.7;
+    // "Already secured": this side's own goal is already mathematically
+    // locked in regardless of what happens in the remaining tricks.
+    // Deliberately gated on !quoteState -- Quote/COT is a completely
+    // separate bet, either side can declare it, and its win condition is
+    // a full 28-point sweep of every trick, not the original bid number.
+    // A bot that eased off the instant its base bid was merely satisfied
+    // would actively sabotage that separate, still-live commitment --
+    // this must stay fully engaged for every remaining point whenever
+    // Quote is in play, no matter how "safe" the base bid already looks.
+    const myTeamSecured = myTeamNeeds <= 0 && !this.quoteState;
     if (this.trickSuit === '') {
       const isEarly = this.tricksPlayed < 4;
       const bySuit = {};
@@ -1535,12 +2892,31 @@ class GameEngine {
       // unbeatable in its own suit barring trump, and this should never
       // lose out to some other candidate happening to score higher, or
       // get skipped because some other special case returned first.
+      // Per explicit request, one specific exception carved out of this
+      // otherwise-absolute rule: a defending bot (not on the bidding
+      // team) holding the trump Jack in an otherwise weak trump hand
+      // (the Jack plus at most one other trump card) with trump already
+      // exposed should NOT cash it in immediately -- leading it now
+      // only wins whatever happens to be in this one specific trick,
+      // while holding onto it lets it get played later once bigger,
+      // more point-laden tricks are actually on the table, capturing
+      // more value overall. Scoped tightly: only trump (a non-trump
+      // Jack is still always safe and correct to lead immediately,
+      // since a non-trump suit genuinely does risk being cut later if
+      // held too long -- trump itself can never be cut by anything, so
+      // there's no equivalent downside to waiting here), only the
+      // defending side (the bidding team has its own separate reasons
+      // to want trump moving, already handled elsewhere in this
+      // function), and only a genuinely weak trump holding (a bot
+      // sitting on several trump cards already has enough control that
+      // leading the Jack now is fine -- this exception is specifically
+      // about not burning your ONLY real trump asset on a small trick).
       for (const s of SUITS) {
         if (bySuit[s].length === 0) continue;
         const holdsJackHere = bySuit[s].some(c => c.rank === 'J');
-        if (holdsJackHere && (s !== this.trumpSuit || this.trumpExposed)) {
-          return bySuit[s].find(c => c.rank === 'J');
-        }
+        if (!holdsJackHere || (s === this.trumpSuit && !this.trumpExposed)) continue;
+        if (s === this.trumpSuit && !isBT && bySuit[s].length <= 2) continue;
+        return bySuit[s].find(c => c.rank === 'J');
       }
       if (!this.trumpExposed && isBidder) {
         const nt = hand.filter(c => c.suit !== this.trumpSuit);
@@ -1556,13 +2932,152 @@ class GameEngine {
           }
         }
       }
+      // Per explicit bug report: a bot holding the Jack of some suit
+      // PLUS other, lower cards in that same suit (e.g. J+K+Q) was
+      // leading the low card instead of the Jack -- the "lead low
+      // early" branch further down only ever special-cased a suit held
+      // as EXACTLY a bare Jack or J+9 together (see low.rank==='J'
+      // check inside that loop), so a suit with the Jack plus anything
+      // else fell straight through to generic length/points scoring
+      // with no priority at all, and could easily lose out to some
+      // unrelated suit's score. This is an absolute, unconditional
+      // check ahead of everything below, including the trump-lead
+      // fallback right after it -- exactly the confirmed priority
+      // order: play the Jack if there's an uncut suit to lead it into,
+      // and only fall back to leading trump when there ISN'T one.
+      // "unless someone cut it with trump" per explicit report:
+      // a Jack the bot holds is safe to lead into any suit that hasn't
+      // already been cut by trump this round (see suitsCutThisRound,
+      // populated in _resolveTrick()). Picks the longest such suit if
+      // more than one qualifies, since a longer suit alongside the
+      // Jack is strictly safer to keep leading in later tricks too.
+      // Real, confirmed bug fix per explicit live report on the
+      // 6-player table (a bot's turn observed getting permanently
+      // stuck with these exact cards) -- see that engine's identical
+      // fix for the fuller reasoning. This specific check didn't
+      // exclude the trump suit the way the separate, earlier Jack
+      // check above it already does -- if the bidder still holds
+      // their own trump suit's Jack in hand (a different, lower trump
+      // card got spliced out as the hidden card instead), this would
+      // return that Jack to lead, but canPlayCard's bidder-hidden-
+      // trump rule explicitly rejects a bidder leading trump while
+      // holding other non-trump cards and trump isn't exposed yet --
+      // a guaranteed-rejected candidate with nothing to catch or retry
+      // it. The earlier check above already prevents this from being
+      // reached in the exact same scenario this session hit, but this
+      // one had the identical gap and is fixed the same way for
+      // consistency and defense in depth.
+      // Real, confirmed root-cause bug fix per explicit live report of
+      // a 4-player bot getting permanently stuck late in a match
+      // (round 24): this checked isBidder, but hiddenTrumpOwner is
+      // explicitly NOT always the same seat as the current bidder --
+      // this.hiddenTrumpOwner's own declaration comment says so
+      // directly: a phase-2 raise can hand the bidder role to a
+      // different seat entirely while the ORIGINAL chooser still
+      // physically holds the hidden trump card in their hand.
+      // canPlayCard's own restriction correctly checks
+      // pos===hiddenTrumpOwner, not isBidder -- so whenever a raise
+      // had actually happened, this scoring logic and the actual legal-
+      // move check disagreed about who was restricted, handing back a
+      // candidate that was guaranteed to be rejected as illegal with no
+      // fallback, leaving the bot stuck indefinitely. Checks the same
+      // condition canPlayCard itself checks now, not a proxy for it.
+      const restrictedFromTrumpLead = !this.trumpExposed && pos === this.hiddenTrumpOwner && hand.some(c => c.suit !== this.trumpSuit);
+      // Per explicit follow-up request: same weak-trump-hand defending
+      // exception added to the earlier, separate Jack-lead rule above
+      // -- this is a second, independent rule that reaches the exact
+      // same trump Jack through a different path (a suit-cut-tracking
+      // check instead of the simple trumpExposed check the first rule
+      // uses), so it needed the identical carve-out repeated here too.
+      // See the comment on the first rule for the fuller reasoning.
+      const weakDefendingTrump = !isBT && bySuit[this.trumpSuit] && bySuit[this.trumpSuit].length <= 2;
+      const uncutJackSuits = SUITS.filter(s =>
+        bySuit[s].some(c => c.rank === 'J') && !this.suitsCutThisRound.has(s) &&
+        !(restrictedFromTrumpLead && s === this.trumpSuit) &&
+        !(weakDefendingTrump && s === this.trumpSuit)
+      );
+      if (uncutJackSuits.length > 0) {
+        uncutJackSuits.sort((a, b) => bySuit[b].length - bySuit[a].length);
+        return bySuit[uncutJackSuits[0]].find(c => c.rank === 'J');
+      }
+      // Per explicit instruction: a bot that just won leading a Jack and
+      // no longer holds one to lead again shouldn't automatically fall
+      // through to the normal weakest-card lead if its OWN partner is
+      // the bid winner -- leading a trump (any trump except the Ace,
+      // saving that as the guaranteed winner for later) keeps applying
+      // pressure for the team instead of surrendering the initiative.
+      // Gated on trump actually being exposed: a non-bidder bot has no
+      // legitimate way to know the trump suit before that (see the
+      // hidden-trump mechanic -- only the bidder knows it pre-exposure).
+      // Falls through to the normal logic below with no special
+      // handling at all if the bot holds no non-Ace trump, exactly as
+      // instructed. Confirmed explicitly: this only fires once the
+      // Jack check above has already found nothing to lead, not before
+      // it -- per explicit confirmation, trump-leading here is
+      // specifically the fallback for when there's no Jack available,
+      // not a competing option checked first.
+      if (this.trumpExposed && !isBidder && getTeam(this.bidder) === myTeam) {
+        // Real, confirmed bug fix found during a strategy audit -- same
+        // exact pattern already found and fixed on the 6-player table:
+        // this used to return the lowest non-Ace trump unconditionally,
+        // with no check for whether this suit's Jack has actually been
+        // seen yet. Partner being the bidder doesn't guarantee partner
+        // actually holds the trump Jack -- the hidden-trump mechanic
+        // means they could easily have spliced out a different card, or
+        // simply not have it. If the lowest non-Ace trump happened to
+        // be a bare 9, this bypassed the same "never lead a 9 with an
+        // unseen Jack" rule enforced everywhere else in this function.
+        // Excludes an unsafe 9 the same way, falling through to the
+        // normal per-suit scoring loop below instead of forcing a
+        // specific card here.
+        const nonAceTrumps = hand.filter(c => c.suit === this.trumpSuit && c.rank !== 'A' &&
+          !(c.rank === '9' && !this._isRankSeen(this.trumpSuit, 'J')));
+        if (nonAceTrumps.length > 0) {
+          nonAceTrumps.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+          return nonAceTrumps[0];
+        }
+      }
       const candidates = [];
       for (const s of SUITS) {
         if (bySuit[s].length === 0) continue;
+        // Real, confirmed bug fix per explicit live report on the
+        // 6-player table (a bot's turn observed permanently stuck with
+        // this exact hand shape) -- see that engine's identical fix for
+        // the fuller reasoning. Ported here too: a restricted bidder's
+        // trump suit used to only take a score penalty further below,
+        // not an outright exclusion, so it could still end up the only
+        // candidate pushed whenever every other suit got skipped by the
+        // safety rules -- and canPlayCard() rejects it outright
+        // regardless of score. Excluded entirely now.
+        if (restrictedFromTrumpLead && s === this.trumpSuit) continue;
+        // Real, confirmed follow-up per explicit live report, matching
+        // the identical fix on the 6-player table: the earlier
+        // weakDefendingTrump exclusion (added to the absolute Jack-lead
+        // rule and uncutJackSuits above) only blocked those two
+        // specific places -- this general per-suit scoring loop still
+        // had the Jack sitting in bySuit[s] as its `high` card (the
+        // only, and therefore highest, card in a genuinely weak trump
+        // holding), so it could still get pushed as a scored candidate
+        // here and potentially win out if every other suit happened to
+        // score low enough. Removes the Jack from consideration for
+        // this suit at the source instead -- if that leaves nothing at
+        // all, the suit is skipped entirely for this lead; if there's a
+        // second trump card left, that one gets evaluated normally in
+        // its place.
+        if (weakDefendingTrump && s === this.trumpSuit) {
+          bySuit[s] = bySuit[s].filter(c => c.rank !== 'J');
+          if (bySuit[s].length === 0) continue;
+        }
         bySuit[s].sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
         const low = bySuit[s][0], high = bySuit[s][bySuit[s].length - 1];
-        const jSeen = this._isRankSeen(s, 'J');
-        const nineSeen = this._isRankSeen(s, '9');
+        // Per explicit further extension of the simulation-based
+        // approach: jSeen/nineSeen (binary "has this rank been played
+        // yet" flags) are no longer used anywhere in this suit's lead
+        // scoring -- every check that used to read them now calls the
+        // real _survivalProbability simulation directly instead, which
+        // accounts for far more than just whether a specific rank has
+        // been played (who's actually still holding what, given real
+        // hand sizes and proven voids).
         const iHold9 = bySuit[s].some(c => c.rank === '9');
         // A known opponent (not partner — partner being void isn't a
         // threat to us) already out of this suit can trump straight over
@@ -1588,31 +3103,80 @@ class GameEngine {
         // ("what can my partner cut"), not just a read on this bot's own
         // hand. Only counts once trump is actually exposed; before that
         // a partner "void" here hasn't been proven safe to exploit yet.
+        // Per explicit follow-up request: scaled up further the more
+        // suits partner has already proven void in overall (tracked via
+        // this same this.voidSuits the base bonus already reads) --
+        // being void in just one suit could still mean a perfectly
+        // healthy hand in everything else, but a partner void in two or
+        // three suits already is genuinely running out of safe options
+        // and heading toward being stuck with little but trump left,
+        // exactly the situation worth actively routing the lead toward
+        // rather than just mildly favoring.
         let partnerVoidBonus = 0;
         for (let p = 0; p < 4; p++) {
           if (p === pos || getTeam(p) !== myTeam) continue;
-          if (this.voidSuits[p].has(s) && this.trumpExposed) { partnerVoidBonus = 18; break; }
+          if (this.voidSuits[p].has(s) && this.trumpExposed) {
+            const partnerVoidSuitCount = SUITS.filter(vs => this.voidSuits[p].has(vs)).length;
+            partnerVoidBonus = 18 + Math.max(0, partnerVoidSuitCount - 1) * 12;
+            break;
+          }
         }
         let sc = -voidOpponentPenalty + partnerVoidBonus;
         if (isEarly) {
           if (low.rank === 'J' || low.rank === '9') {
-            if (bySuit[s].length > 1) { candidates.push({ card: bySuit[s][1], score: bySuit[s].length * 5 - voidOpponentPenalty + partnerVoidBonus, suit: s }); continue; }
-            // A LONE 9 (or J) with nothing else in that suit — there's no
-            // second card to lead instead, so this exact card is the only
-            // option if this suit gets picked at all. A lone Jack is
-            // still fine (nothing beats it barring trump), but a lone 9
-            // is exactly the "leading a point card into a suit where the
-            // opponent may still hold the Jack" mistake if that Jack
-            // hasn't been seen yet — this was previously falling through
-            // with zero penalty just because there was no second card to
-            // swap in instead.
-            if (low.rank === '9' && !jSeen) sc -= 25;
+            if (bySuit[s].length > 1) {
+              // Given RANK_ORDER, the ONLY way low.rank can be '9' with
+              // more than one card in the suit is holding J+9 together
+              // (nothing ranks between them) -- the strongest possible
+              // holding in a suit, since the Jack is unbeatable in its
+              // own suit and the 9 becomes safe the moment the Jack is
+              // seen. This was previously scored as barely more than a
+              // generic length bonus (~length*5, same as any random
+              // 2-card suit with nothing special in it) -- badly
+              // undervaluing a genuine J+9 lock and letting a short,
+              // merely-safe suit with zero real strength outscore it.
+              // Matches the same +60 baseline the non-early branch
+              // already gives a bare Jack below -- holding the 9
+              // alongside it is worth at least as much, not less.
+              candidates.push({ card: bySuit[s][1], score: 60 + bySuit[s].length * 5 - voidOpponentPenalty + partnerVoidBonus, suit: s }); continue;
+            }
+            // Real, confirmed follow-up per explicit live report: the
+            // simulation-based survival probability above still let a
+            // bare 9 (no Jack alongside it) get led whenever the sim
+            // judged it likely enough to be safe -- but the explicit,
+            // absolute rule wanted here is stricter than "probably
+            // fine": never lead a bare 9 (of ANY suit, not just trump)
+            // unless that suit's own Jack has actually already been
+            // played. A live bot doing this exact thing (leading a
+            // bare 9 with the Jack still genuinely unseen) is exactly
+            // the case being fixed. Real, confirmed follow-up bug found
+            // on a second live report of the same issue persisting:
+            // this checked this._isRankSeen(this.trumpSuit, 'J') --
+            // trump's Jack specifically -- regardless of which suit s
+            // actually is in this per-suit loop. For a non-trump suit
+            // (hearts, say), this incorrectly asked whether TRUMP's
+            // Jack had been seen instead of hearts' own Jack, so a bare
+            // 9 of hearts could get led as soon as trump's Jack merely
+            // happened to have appeared for an unrelated reason, with
+            // hearts' own Jack still fully unseen. Checks this suit's
+            // actual Jack now (via low.suit, which is s here).
+            if (low.rank === '9' && !this._isRankSeen(low.suit, 'J')) continue;
           }
+          // Same real simulation-based check extended to the Ace/10
+          // case directly below.
+          if ((low.rank === 'A' || low.rank === '10') && this._survivalProbability(pos, low) < 0.7) continue;
           sc += bySuit[s].length * 5;
           if (low.points === 0) sc += 20;
           if (low.rank === '7' || low.rank === '8') sc += 15;
           if (high.points > 0) sc -= 10;
           if (s === this.trumpSuit) sc -= 30;
+          // Real, confirmed dead-code cleanup found during the same
+          // audit: this block used to apply a scaled penalty for a
+          // lone point-card lead risking capture by an unseen Jack/9 --
+          // now unreachable with any actual risk to penalize, since the
+          // 9/A/10 exclusions added above already skip this suit
+          // entirely (via continue) in every case this block used to
+          // fire for. Removed rather than left in as inert code.
           candidates.push({ card: low, score: sc, suit: s });
         } else {
           const trumpIneligibleHere = s === this.trumpSuit && !this.trumpExposed;
@@ -1632,27 +3196,147 @@ class GameEngine {
           // once that suit's Jack has genuinely been accounted for —
           // otherwise it's exactly the "leading a point card into a suit
           // where the opponent may still hold the Jack" mistake, and
-          // often just gives points away for nothing.
+          // often just gives points away for nothing. If a safer, lower
+          // card in this SAME suit exists (e.g. holding 9+7 of trump —
+          // the 9 unsafe, the 7 completely safe), lead that instead of
+          // the 9 outright: the -40 penalty below only ever affected
+          // whether this suit got chosen over other suits, never which
+          // actual card got played once it was — meaning a bot with
+          // only that one risky suit left to lead from was always stuck
+          // committing to the 9 anyway, even holding a strictly safer
+          // card in the exact same suit the whole time.
           if (iHold9) {
-            if (jSeen) {
-              candidates.push({ card: bySuit[s].find(c => c.rank === '9'), score: 45 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
+            const nineCard = bySuit[s].find(c => c.rank === '9');
+            // Real, confirmed follow-up per explicit live report with a
+            // specific hand: bot held a suit's 9 alongside a lower card
+            // in that same suit (the Ace) with that suit's Jack
+            // genuinely unseen, and led the 9 anyway because the
+            // survival-probability check below judged it likely enough
+            // to be safe -- the opponent turned out to actually hold
+            // the Jack. The explicit fix wanted here: whenever ANY
+            // other card exists in the same suit (not just a zero-point
+            // one -- an Ace or 10 counts too), lead that lower card
+            // first instead of the 9, regardless of how favorable the
+            // simulated odds looked. The whole point is to risk the
+            // less valuable card "testing" for the Jack, keeping the 9
+            // safe in hand for once the Jack is actually accounted
+            // for -- a high survival percentage doesn't change that the
+            // 9 is the more painful card to lose if the odds happen to
+            // be wrong this specific time. Only actually leads the 9
+            // itself once the Jack has genuinely been seen already
+            // (fully safe by then) or there's truly no other card left
+            // to substitute. Real, confirmed follow-up bug found on a
+            // second live report of the same issue persisting: this
+            // checked this._isRankSeen(this.trumpSuit, 'J') -- trump's
+            // Jack specifically -- regardless of which suit s actually
+            // is here. For a non-trump suit, this incorrectly asked
+            // whether TRUMP's Jack had been seen instead of this suit's
+            // own Jack, letting a bare 9 through as soon as trump's
+            // Jack merely happened to appear for an unrelated reason.
+            // Checks this suit's actual Jack now (s is this suit).
+            const saferInSuit = bySuit[s].find(c => c.rank !== '9');
+            if (!this._isRankSeen(s, 'J') && saferInSuit) {
+              candidates.push({ card: saferInSuit, score: sc + bySuit[s].length * 3, suit: s });
               continue;
             }
-            sc -= 25; // real risk, not a lead to favor
+            // Real, confirmed follow-up per explicit live report with a specific hand: bidder
+            // held a bare trump 9 (no other trump to substitute) with that trump's Jack
+            // genuinely unseen, and led it anyway because _survivalProbability judged it
+            // likely enough (>=0.7) to be safe -- an opponent held the Jack. With the Jack
+            // unseen and only 3 other hands it could be in, at best partner holds it (roughly
+            // 1-in-3 by plain combinatorics, worse than that once you account for there being
+            // 2 opponent hands to partner's 1) -- nowhere close to a genuine 70% survival rate,
+            // so the simulation returning >=0.7 here reflects a blind spot in that estimate for
+            // this exact situation, not a real edge. Matches the same "absolute never" already
+            // applied to this identical bare-9 case in the isEarly branch above, and to the
+            // Ace/10 case just below this one -- removed the probabilistic escape hatch here
+            // too, for the same reason and the same consistency.
+            if (this._isRankSeen(s, 'J')) {
+              candidates.push({ card: nineCard, score: 45 + bySuit[s].length * 3 - voidOpponentPenalty, suit: s });
+              continue;
+            }
+            // Real, confirmed inconsistency found during a strategy
+            // audit: with no safer card in the same suit to substitute,
+            // this used to still push the risky 9 itself as a
+            // candidate with just a score penalty -- meaning it could
+            // still get chosen if every other suit happened to score
+            // even worse. Matches the isEarly branch's own upgrade to
+            // an absolute "never": skip this suit as a lead candidate
+            // entirely instead. The function's own end-of-line fallback
+            // (for the case every suit gets excluded this way) already
+            // exists and is safe to rely on here.
+            continue;
           }
           sc += bySuit[s].reduce((a, c) => a + c.points, 0) * 10 + bySuit[s].length * 3;
           // Aces and 10s carry real points but are still beaten by an
           // unseen Jack or 9 of the same suit — only lead them with
-          // confidence once both are already accounted for.
-          if ((high.rank === 'A' || high.rank === '10') && (!jSeen || !nineSeen)) sc -= 15;
+          // confidence once both are already accounted for. Same
+          // threats*points*20 formula as the isEarly branch above, so a
+          // 9 and an Ace/10 facing the same number of unseen threats are
+          // penalized consistently by their actual point value either way.
+          // Same "prefer a safer card in the same suit if one exists"
+          // fallback as the 9 case above, for the identical reason.
+          if (high.rank === 'A' || high.rank === '10') {
+            // Same real simulation-based check as elsewhere, replacing
+            // the old binary unseen-threats count with the actual
+            // survival probability of leading this specific card.
+            if (this._survivalProbability(pos, high) < 0.7) {
+              const saferInSuit = bySuit[s].find(c => c !== high && c.points === 0);
+              if (saferInSuit) {
+                let sc2 = sc;
+                if (s === this.trumpSuit) sc2 -= 10;
+                candidates.push({ card: saferInSuit, score: sc2, suit: s });
+                continue;
+              }
+              // Real, confirmed inconsistency found during the same
+              // audit as the 9 case above: with no safer card to
+              // substitute, this used to still push the risky Ace/10
+              // itself with just a scaled penalty applied -- upgraded
+              // to the same absolute "never" instead, for the same
+              // reason.
+              continue;
+            }
+          }
           if (s === this.trumpSuit) sc -= 10;
           candidates.push({ card: high, score: sc, suit: s });
         }
       }
       candidates.sort((a, c) => c.score - a.score);
+      // Real, confirmed follow-up per explicit live report and explicit
+      // choice on how to resolve it, same fix as the 6-player engine's
+      // identical change -- see there for the fuller reasoning. An
+      // opponent bot (!isBT) with no safe lead at all ends up here with
+      // trump as the only candidate, since every non-trump suit got
+      // excluded outright above while trump only ever takes a score
+      // penalty, never an exclusion. Per explicit instruction: an
+      // opponent bot should accept the known, bounded risk of the
+      // excluded non-trump lead rather than spend trump on it.
+      if (!isBT && candidates.length > 0 && candidates[0].suit === this.trumpSuit) {
+        const excludedNonTrumpSuits = SUITS.filter(s =>
+          s !== this.trumpSuit && bySuit[s].length > 0 && !candidates.some(cd => cd.suit === s));
+        if (excludedNonTrumpSuits.length > 0) {
+          excludedNonTrumpSuits.sort((a, b) => bySuit[b].length - bySuit[a].length);
+          const chosenSuit = excludedNonTrumpSuits[0];
+          const sorted = [...bySuit[chosenSuit]].sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+          return isEarly ? sorted[0] : sorted[sorted.length - 1];
+        }
+      }
       if (candidates.length > 0) return candidates[0].card;
-      hand.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
-      return isEarly ? hand[0] : hand[hand.length - 1];
+      // Real, confirmed bug fix per explicit live report on the
+      // 6-player table -- see that engine's identical fix for the
+      // fuller reasoning. This fallback used to sort and pick from the
+      // FULL hand with zero awareness of the bidder's hidden-trump
+      // restriction -- if every non-trump suit got excluded above (all
+      // "risky" lone Aces/9s with J/9 unseen) and this bot is a
+      // restricted bidder, it could pick a trump-suit card here that
+      // canPlayCard() unconditionally rejects, leaving the turn
+      // permanently stuck with nothing to catch or retry it. Falls back
+      // to whatever's actually legal to lead, low to high, so there's
+      // always something to return.
+      let pool = restrictedFromTrumpLead ? hand.filter(c => c.suit !== this.trumpSuit) : hand;
+      if (pool.length === 0) pool = hand; // only trump left at all -- must lead it, nothing else to give
+      pool.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+      return isEarly ? pool[0] : pool[pool.length - 1];
     }
 
     const follow = hand.filter(c => c.suit === this.trickSuit);
@@ -1664,23 +3348,161 @@ class GameEngine {
       else if (this.trumpExposed && cwc.suit === this.trumpSuit) canWin = false;
       if (canWin) {
         const hasJ = follow.some(c => c.rank === 'J'), has9 = follow.some(c => c.rank === '9');
-        if (hasJ) return follow.find(c => c.rank === 'J');
-        if (has9) {
+        // Real, confirmed bug fix per explicit live report, same fix as
+        // the 6-player engine's identical change: this whole "canWin"
+        // branch only ever checked whether this bot's best card beats
+        // cwc -- it never checked WHO cwc belongs to. When partner is
+        // the one already winning (wt===myTeam), "winning" by beating
+        // your own partner's card accomplishes nothing on its own --
+        // the trick is already going to your team either way. The
+        // Jack/9 are too valuable (30/20 points) to spend reflexively
+        // overtaking your own teammate; they're only actually
+        // justified here if a remaining opponent could otherwise still
+        // steal the trick from partner's card, checked via the same
+        // simulated survival probability already used for the
+        // equivalent "can't beat it" decision further below.
+        // Real, confirmed follow-up per explicit live report with a
+        // specific hand: this bot was the last of all four to act in
+        // the trick, meaning its own partner's card was ALREADY
+        // mathematically guaranteed to win regardless of what this bot
+        // played -- _survivalProbability returns exactly 1 in that
+        // exact case (see _seatsActingAfter -- nobody left to act at
+        // all). But the tPts < 3 condition below still forced this
+        // bot to burn its Jack "topping" its own already-guaranteed-
+        // winning partner anyway, purely because the trick happened to
+        // be worth 3+ points -- even though there was no actual risk
+        // left to protect against at all. The tPts threshold only
+        // makes sense as a hedge against a survival estimate that's
+        // genuinely uncertain (60-99%, worth playing safe on a big
+        // trick rather than trusting the odds); it makes no sense
+        // against a probability that's already 100% certain. Treats an
+        // exact 1 as always safe, independent of tPts, and only
+        // applies the point-value hedge to the genuinely uncertain
+        // 60-99% range.
+        const partnerSurvival = cwc ? this._survivalProbability(pos, cwc) : 1;
+        const partnerCardSafe = wt === myTeam && (partnerSurvival === 1 || (partnerSurvival >= 0.6 && tPts < 3));
+        // Real, confirmed follow-up per explicit live report: rename
+        // reflects this now covering both the Jack and the 9, not just
+        // the Jack -- same underlying reasoning applies to both: a
+        // saved TRUMP card can never be cut, so delaying it is free,
+        // but a saved non-trump card sitting in hand is genuinely at
+        // risk the next time this suit comes up, whether that's from
+        // an opponent going void and cutting it, or (specific to the 9)
+        // this exact suit's Jack finally surfacing and beating it where
+        // it would have won outright right now.
+        const nonTrumpHighCardAlwaysSafe = this.trickSuit !== this.trumpSuit;
+        if (hasJ && (!partnerCardSafe || nonTrumpHighCardAlwaysSafe)) return follow.find(c => c.rank === 'J');
+        if (has9 && (!partnerCardSafe || nonTrumpHighCardAlwaysSafe)) {
+          // Real, confirmed follow-up per explicit live report with a
+          // specific hand: bot held the 9 alongside a lower trump card,
+          // an opponent's card (K) was on the table, and the Jack was
+          // genuinely unseen. The lower trump card (an Ace, here)
+          // already outranks a King on its own -- RANK_ORDER has Ace
+          // above King in this suit's ranking -- so there was never
+          // any actual need to reach for the 9 at all. This used to
+          // jump straight to weighing the 9's own survival odds without
+          // ever first checking whether some OTHER, lower card already
+          // wins outright on its own merits. Generalized per explicit
+          // instruction beyond just the 9 specifically: any card that
+          // needs a still-unseen higher card to have not appeared yet
+          // in order to survive is a genuine risk to "overtake" with
+          // when a cheaper, already-sufficient card exists instead --
+          // using more card than the situation actually calls for buys
+          // nothing extra (the trick is won either way) while exposing
+          // the more valuable card to a risk that was completely
+          // avoidable. Checks for exactly that first: a different,
+          // already-winning card in the same suit besides the 9 --
+          // but only actually matters while the Jack is genuinely
+          // unseen. Once it's already been played, the 9 carries no
+          // risk left to avoid at all, and the existing "cash it in
+          // now rather than save it" reasoning for non-trump suits
+          // (see the hasJ/has9 gating above) already wants the 9 used
+          // directly in that case, not swapped for a different card
+          // for no reason.
+          const alreadyWinningCard = cwc && cwc.suit === this.trickSuit && !this._isRankSeen(this.trickSuit, 'J')
+            ? follow.find(c => c.rank !== '9' && c.rank !== 'J' && RANK_ORDER[c.rank] > RANK_ORDER[cwc.rank])
+            : null;
+          if (alreadyWinningCard) return alreadyWinningCard;
+          // Real, confirmed follow-up per explicit live report and
+          // explicit instruction to make this an absolute, simple rule
+          // rather than another probability threshold: if the Jack is
+          // unseen and this bot holds ANY zero-point card in the same
+          // suit (whether or not it would actually win this specific
+          // trick), play that instead of the 9 -- full stop, no
+          // survival-odds weighing involved at all. The reasoning is
+          // exactly as explicitly stated: if you have a card that costs
+          // nothing to lose, use it instead of one that costs you real
+          // points the moment the still-live Jack shows up and beats
+          // it. This deliberately doesn't care whether the zero-point
+          // card wins the trick or not -- conceding a trick that was
+          // led with a low card in the first place is a small, known
+          // cost; losing the 9's own points to an unseen Jack is a
+          // real, avoidable one.
+          // Per explicit follow-up refinement, one specific exception
+          // carved out of this otherwise-absolute rule: trump only, and
+          // only when the BIDDER themselves led this exact trick. The
+          // bidder is the single most likely seat to actually hold the
+          // trump Jack (they called this suit), so a bidder who leads
+          // trump with something other than the Jack is real,
+          // meaningful evidence they don't have it -- and having
+          // already played this trick, they can't suddenly produce it
+          // later in it either. The simulation-based survival
+          // probability just below already accounts for exactly this
+          // (it reasons about who could still plausibly hold the Jack
+          // given who's already played what), so it's genuinely more
+          // accurate here than the blanket zero-point rule -- this one
+          // narrow case is trusted to the real numbers instead of the
+          // absolute shortcut.
+          const trumpLedByBidder = this.trickSuit === this.trumpSuit &&
+            this.trickCards.length > 0 && this.trickCards[0].pos === this.bidder;
+          const zeroPointAlt = !this._isRankSeen(this.trickSuit, 'J') && !trumpLedByBidder
+            ? follow.find(c => c.rank !== '9' && c.points === 0)
+            : null;
+          if (zeroPointAlt) return zeroPointAlt;
           // A 9 beats everything else in this suit — but not the Jack.
-          // If the Jack hasn't shown up yet and someone still acts after
-          // us this trick, spending the 9 here risks exactly the mistake
-          // reported: winning the trick only for a later opponent's
-          // unseen Jack to steal it right back, for nothing. Worth the
-          // risk once it's genuinely the last word (isLast), the Jack's
-          // already accounted for, or the trick carries enough points to
-          // justify it regardless — same threshold already used for this
-          // same tradeoff elsewhere in this file (trump cut-in).
-          const jackRisk = !isLast && !this._isRankSeen(this.trickSuit, 'J');
-          if (jackRisk && tPts < 3) return follow[follow.length - 1];
-          return follow.find(c => c.rank === '9');
+          // Per explicit request: replaced the old binary "seen means
+          // safe, unseen means risky" read of this with the real
+          // simulation-based survival probability built earlier this
+          // session -- across many plausible guesses at where the
+          // unseen cards actually are (respecting real hand sizes and
+          // proven voids), what fraction of the time does this 9
+          // actually survive to win? isLast is no longer a separate
+          // special case at all -- _survivalProbability already
+          // returns 1 outright whenever no one is left to act this
+          // trick, which is the exact same thing isLast was checking
+          // for, just derived from the actual game state instead of a
+          // separately-passed flag.
+          const myNine = follow.find(c => c.rank === '9');
+          const survivalProb = this._survivalProbability(pos, myNine);
+          // Same underlying tradeoff as before -- risk the 9 once
+          // there's a high enough chance it actually holds up, OR
+          // once the trick is worth enough that even a real risk of
+          // losing the 9 is worth it regardless.
+          if (survivalProb < 0.6 && tPts < 3) return follow[follow.length - 1];
+          return myNine;
         }
+        // Real, confirmed bug fix per explicit live report with a very
+        // specific hand (J/10/A of trump, partner's 9 already
+        // mathematically guaranteed to win as the last-to-act seat):
+        // this fallthrough used to search for "the lowest card in this
+        // suit that beats cwc" completely unconditionally, with no
+        // check on who cwc actually belongs to. When partner already
+        // owns cwc and is safely winning (partnerCardSafe, computed
+        // above), there is nothing to gain from "beating" your own
+        // teammate's card at all -- the trick already belongs to your
+        // team regardless of which of your own cards you add to it.
+        // With only the Jack actually outranking a 9 in this specific
+        // hand (10 and Ace both rank below 9), that search had no
+        // lower option to find and was forcing the Jack out purely to
+        // overtake a partner who'd already won. Skips the whole
+        // "find something that beats cwc" step entirely when partner's
+        // card is already safe, playing this suit's lowest card
+        // instead -- exactly the reasoning already used one line
+        // below for the tPts<2 case, just no longer gated behind it.
         let winner = follow[0];
-        if (cwc && cwc.suit === this.trickSuit) {
+        if (partnerCardSafe) {
+          winner = follow[follow.length - 1];
+        } else if (cwc && cwc.suit === this.trickSuit) {
           for (let i = follow.length - 1; i >= 0; i--) {
             if (RANK_ORDER[follow[i].rank] > RANK_ORDER[cwc.rank]) { winner = follow[i]; break; }
           }
@@ -1693,17 +3515,86 @@ class GameEngine {
       // point card (Ace/10) instead of the bare lowest hands over the
       // same points to our own team rather than wasting the opportunity,
       // as long as it isn't a Jack/9 we'd rather keep for later.
+      // BUT: that's only genuinely free value if the trick is actually
+      // secure. If someone still acts after us this trick AND this
+      // suit's Jack hasn't been seen yet, a later opponent could still
+      // steal the trick out from under our partner with it -- in which
+      // case our fed point card just handed the opponent extra points
+      // instead of our own team. Same jackRisk concept already used for
+      // the 9-lead case above, and the same tPts>=3 override: worth
+      // feeding anyway once enough points are already on the table to
+      // justify the risk regardless.
+      // Real, confirmed bug fix per explicit report: this used to also
+      // skip entirely once myTeamSecured, on the theory that with the
+      // round's goal already mathematically locked in there was no
+      // benefit left to optimizing which card feeds partner -- but that
+      // reasoning doesn't actually hold. A partner about to win the
+      // trick regardless benefits from an extra point card every time,
+      // securedround or not -- there's no downside to feeding it, and
+      // discarding a real point card (a 10, here) instead of a genuine
+      // zero-point card (an 8 or K) for no reason at all is exactly the
+      // reported waste. Dropped the myTeamSecured condition entirely --
+      // this optimization is unconditionally correct whenever the trick
+      // is actually safe to feed into.
       if (wt === myTeam) {
-        const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
-        if (feedable.length > 0) {
-          feedable.sort((a, c) => c.points - a.points);
-          return feedable[0];
+        // Real, confirmed deeper finding from extending simulation to
+        // the discard branches: this used to treat partner's Jack as
+        // unconditionally, always safe -- true for same-suit comparison
+        // (nothing outranks a Jack in its own suit) but incomplete,
+        // since a LATER player who's void in this suit could still cut
+        // it with trump regardless of rank. The simulation already
+        // accounts for exactly this (trump-cut risk, not just same-suit
+        // rank), so this now checks survival for real instead of
+        // assuming it -- still feeds the highest card including the 9
+        // once that's actually confirmed safe, not just because the
+        // card on top happens to be a Jack specifically.
+        const jackSurvival = cwc && cwc.rank === 'J' ? this._survivalProbability(pos, cwc) : 0;
+        if (cwc && cwc.rank === 'J' && jackSurvival >= 0.9) {
+          const best = follow.filter(c => c.rank !== 'J');
+          if (best.length > 0) {
+            best.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+            return best[0];
+          }
+        }
+        // Per explicit request: same real simulation-based replacement
+        // as the has9 case above, applied here to whether partner's
+        // OWN current winning card will actually hold up -- checking
+        // cwc's survival odds directly works the same way regardless
+        // of whose card is being evaluated.
+        const survivalProb = cwc && cwc.rank === 'J' ? jackSurvival : this._survivalProbability(pos, cwc);
+        if (survivalProb >= 0.6 || tPts >= 3) {
+          const feedable = follow.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+          if (feedable.length > 0) {
+            feedable.sort((a, c) => c.points - a.points);
+            return feedable[0];
+          }
         }
       }
       return follow[follow.length - 1];
     }
 
     const trumps = hand.filter(c => c.suit === this.trumpSuit);
+    // Having personally asked for trump to be opened, this bot owes a
+    // trump card this trick if it's holding one at all — a flat Kerala
+    // rule, not a strategic choice weighed against trick value or who's
+    // currently winning. This was a real gap: the strategic cut/discard
+    // decision below (worthTrumping, trumpWinning, wt !== myTeam) had no
+    // awareness of this obligation at all, so a bot that had just asked
+    // to see trump could still walk right past it and discard instead
+    // whenever the trick wasn't judged worth spending trump on — exactly
+    // the "bot asked to see trump but didn't play it" bug reported. The
+    // rule only requires playing A trump card, not necessarily the
+    // strongest one, so the cheapest zero-point trump (falling back to
+    // the weakest non-Jack, then the weakest overall) satisfies it while
+    // still not wasting more than necessary.
+    if (this.mustPlayTrumpBy === pos && trumps.length > 0) {
+      trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+      const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+      const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+      return zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+        : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+        : trumps[trumps.length - 1];
+    }
     if (this.trumpExposed && trumps.length > 0) {
       trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
       let trumpWinning;
@@ -1722,28 +3613,83 @@ class GameEngine {
       // gone well learns to be a little pickier (higher bar); one whose
       // calls have gone poorly stays looser, same as before it learned
       // anything at all.
-      const trumpPtsThreshold = Math.round(2 * b.playWeights.trumpManagement);
-      const worthTrumping = tPts >= trumpPtsThreshold || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && tPts >= 1);
+      // When genuinely desperate for points (see myTeamDesperate above),
+      // that bar drops to 1 -- even a single point is worth spending
+      // trump on when this side needs nearly everything that's left to
+      // still have a shot. Still gated on tPts (a genuinely zero-point
+      // trick gets no benefit from this at all -- there's nothing there
+      // to capture regardless of how desperate this side is).
+      const trumpPtsThreshold = myTeamDesperate ? 1 : Math.round(2 * b.playWeights.trumpManagement);
+      // A suit being led for the very first time this round (suitRepeat
+      // === 1, counting this exact lead) is now its own trigger to cut,
+      // independent of the trick's point value — added per specific
+      // request, layered alongside the existing triggers rather than
+      // replacing them. trumpWinning and wt !== myTeam above still both
+      // apply regardless of why we're cutting: never spend trump that
+      // wouldn't actually win the trick, and never cut over our own
+      // partner who's already winning it for free.
+      const firstTimeSuitLed = suitRepeat === 1;
+      // Per explicit request: on the second-or-later time this suit has
+      // been led, cutting for even a single point stopped making sense
+      // once the suit's own high-value cards (Jack, Ace, 10) are all
+      // already accounted for -- there's nothing left in that suit worth
+      // spending a trump to chase, this trick's low value is exactly
+      // what's left over once the real value already came and went.
+      // Scoped narrowly to the suitRepeat>=2 trigger specifically; the
+      // other triggers (tPts>=trumpPtsThreshold, isLast, bidder
+      // protection, first-time-led) are untouched and still apply on
+      // their own terms regardless of this.
+      // Per explicit follow-up request with a specific hand: on a suit's second-or-later lead,
+      // this only ever triggered when the CURRENT trick already had a point in it (tPts>=1) --
+      // but a genuinely dangerous case was still slipping through untouched: the suit's own 9
+      // (its second-highest card and the one really worth guarding against, distinct from a
+      // merely 1-point Ace/10) still completely unseen, with only low, no-point cards played
+      // on this exact lead. Leaving that 9 unaccounted for risks it surviving to win a bigger
+      // trick later, and letting it go by uncut here (partner void, holding a cut, tPts===0)
+      // gains nothing by waiting - it doesn't get any safer to ignore. Now triggers on EITHER
+      // the existing tPts>=1 case, OR the suit's 9 specifically still being unseen, even at
+      // zero points this trick. An unseen Ace/10 alone (9 already accounted for) still doesn't
+      // trigger this on its own, matching the explicit "only 1 point, don't have to cut for
+      // that alone" distinction - tPts>=1 or genuine desperation (trumpPtsThreshold above)
+      // still cover that case on their own terms.
+      const trickSuitTopCardsGone = this._isRankSeen(this.trickSuit, 'J') && this._isRankSeen(this.trickSuit, 'A') && this._isRankSeen(this.trickSuit, '10');
+      const trickSuitNineUnseen = !this._isRankSeen(this.trickSuit, '9');
+      const worthTrumping = tPts >= trumpPtsThreshold || isLast || (isBidder && tPts >= 1) || (suitRepeat >= 2 && !trickSuitTopCardsGone && (tPts >= 1 || trickSuitNineUnseen)) || firstTimeSuitLed;
       if (trumpWinning && wt !== myTeam && worthTrumping) {
         let wtr;
         if (cwc && cwc.suit === this.trumpSuit) {
-          // Over-cutting another trump that's currently winning — find the
-          // minimal trump that still beats it, not necessarily our best.
-          wtr = trumps[0];
-          for (let i = trumps.length - 1; i >= 0; i--) {
-            if (RANK_ORDER[trumps[i].rank] > RANK_ORDER[cwc.rank]) { wtr = trumps[i]; break; }
-          }
-          // The minimal sufficient trump only stays safe if no one still
-          // to act in this trick can hold a bigger one — in practice,
-          // whether the trump Jack is still unaccounted for. Spending our
-          // ONLY realistic winner (a bare 9, say) into a trick a live
-          // Jack can still take away is exactly the kind of waste this
-          // was meant to avoid — better to commit the strongest trump we
-          // have when that risk is real and there's still real value on
-          // the table for it.
-          if (!isLast && !this._isRankSeen(this.trumpSuit, 'J') && wtr.rank !== 'J' && tPts >= 3) {
+          // Over-cutting another trump that's currently winning. Same
+          // "prefer a zero-point trump, not just the rank-cheapest one"
+          // philosophy as the first-cut branch below -- this used to only
+          // search for the rank-minimal card that beats cwc, with no
+          // regard for point value at all. That happened to work out most
+          // of the time since Q/K generally rank below the point cards,
+          // but not always: if cwc.rank is high enough, the rank-minimal
+          // winner can skip straight past every zero-point option and
+          // land on a point card, or the Jack, when a cheaper win was
+          // sitting right there just because it wasn't the very next
+          // rank up.
+          const zeroPtBeats = trumps.filter(c => c.points === 0 && RANK_ORDER[c.rank] > RANK_ORDER[cwc.rank]);
+          if (zeroPtBeats.length > 0) {
+            wtr = zeroPtBeats.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank])[0];
+          } else {
             wtr = trumps[0];
+            for (let i = trumps.length - 1; i >= 0; i--) {
+              if (RANK_ORDER[trumps[i].rank] > RANK_ORDER[cwc.rank]) { wtr = trumps[i]; break; }
+            }
           }
+          // Real, confirmed bug fix found during a strategy audit (a
+          // bot on the 6-player table was reported cutting with the
+          // Jack despite holding lower sufficient trumps): per explicit
+          // instruction, the "escalate to a bigger trump if the minimal
+          // one might not be safe against an unseen Jack" logic that
+          // used to sit here was removed entirely on 6-player rather
+          // than continue trying to patch it -- the minimal sufficient
+          // trump found above is used as-is now, with no further
+          // escalation step that could end up reaching for the Jack.
+          // This engine had the identical escalation logic in the
+          // identical spot and was missed at the time; removed here too
+          // for consistency between the two engines.
         } else {
           // The FIRST cut in this trick — nothing on the table is trump
           // yet, so literally any trump we hold wins it. Reflexively
@@ -1753,10 +3699,73 @@ class GameEngine {
           // cheapest trump we have, preferring a zero-point one so we're
           // not even giving up bonus points to do it.
           const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+          // Per explicit follow-up request (same enhancement already
+          // applied to 6-player's identical branch): being last to act
+          // this trick means literally any trump wins it right now,
+          // guaranteed -- the single safest possible moment to spend a
+          // point-card trump (9/A/10) that's still actually AT RISK of
+          // losing its own points later, rather than reflexively saving
+          // it. "At risk" means some higher trump rank than it hasn't
+          // been seen yet -- if the Jack (or whatever outranks this
+          // card) is still unseen, someone could still play it in a
+          // future trick and beat this exact card then, wasting its
+          // points for nothing; spending it now while guaranteed to win
+          // locks those points in instead. A genuine zero-point trump
+          // has no such risk (no points to lose either way) and stays
+          // the default choice otherwise.
+          if (isLast) {
+            const atRiskPointTrumps = nonJackTrumps.filter(c => {
+              if (c.points === 0) return false;
+              const higherRanks = RANKS.filter(r => RANK_ORDER[r] > RANK_ORDER[c.rank]);
+              return higherRanks.some(r => !this._isRankSeen(this.trumpSuit, r));
+            });
+            if (atRiskPointTrumps.length > 0) {
+              atRiskPointTrumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+              wtr = atRiskPointTrumps[0];
+              return wtr;
+            }
+          }
           const zeroPt = nonJackTrumps.filter(c => c.points === 0);
           wtr = zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
             : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
             : trumps[trumps.length - 1];
+          // Going cheap here is only safe once there's no real chance of
+          // getting over-cut right back by someone still left to act
+          // this same trick. That risk isn't fixed -- it's read directly
+          // off how many times the LED suit (the one actually being cut,
+          // not the trump suit) has already been led this round:
+          // suitRepeat===0 means this is its first time out, so the odds
+          // another player is also already void in it (and holding a
+          // trump ready to cut) are genuinely low -- go cheap regardless
+          // of who's left to act. Once that suit has been led multiple
+          // times, though, players who followed it earlier have shown
+          // they hold it, narrowing down who's actually still void — and
+          // the more it's been led, the likelier it becomes that someone
+          // still to act this trick is void too and holding their own
+          // cut. On the actual last turn this never applies at all --
+          // nobody's left to over-cut regardless of any of this.
+          // Per explicit request: replaced the suitRepeat-based proxy
+          // with the real simulation-based survival probability built
+          // this session -- instead of guessing "this suit's been led
+          // enough times that someone's probably void and holding a
+          // cut," directly check the actual odds THIS specific card
+          // survives given who's really still left to act and what
+          // they could really be holding. isLast is no longer a
+          // separate check -- survival probability is already 1
+          // outright when no one's left to act.
+          const cutSurvival = this._survivalProbability(pos, wtr);
+          if (cutSurvival < 0.6 && tPts >= 2 && wtr.rank !== 'J') {
+            // Never escalates to the Jack itself, per the same explicit
+            // instruction as the earlier fix above -- caps at whatever
+            // the highest non-Jack trump actually is.
+            const nine = trumps.find(c => c.rank === '9');
+            if (nine) {
+              wtr = nine;
+            } else {
+              const nonJackTrumpsHere = trumps.filter(c => c.rank !== 'J');
+              if (nonJackTrumpsHere.length > 0) wtr = nonJackTrumpsHere[0];
+            }
+          }
         }
         return wtr;
       }
@@ -1772,23 +3781,221 @@ class GameEngine {
       const nonTrumpDiscard = hand.filter(c => c.suit !== this.trumpSuit);
       if (nonTrumpDiscard.length > 0) {
         const feedablePts = nonTrumpDiscard.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
-        if (wt === myTeam && feedablePts.length > 0) {
+        // Real, confirmed gap found while extending the simulation-based
+        // approach: unlike the equivalent follow-suit feed-partner
+        // block, this discard version fed points into partner's trick
+        // completely unconditionally whenever wt===myTeam -- with no
+        // check at all for whether partner's own current card will
+        // actually survive to win it. If a later opponent could still
+        // overtake it, these fed points go to THEM instead once the
+        // trick resolves, not partner. Same real simulation-based check
+        // as the follow-suit version now applies here too.
+        const cwcSurvival = cwc ? this._survivalProbability(pos, cwc) : 1;
+        // Per explicit follow-up request (same addition already applied
+        // to 6-player's identical block): a genuinely different, much
+        // narrower case than the feedablePts rule right below it, which
+        // deliberately excludes the Jack/9 -- covers a bot stuck
+        // holding a non-trump Jack that will likely never get a real
+        // chance to win a trick on its own, once partner has ALREADY
+        // CUT this exact trick (cwc.suit is trump, not just any
+        // winning card) with a near-guaranteed hold, and this bot's own
+        // remaining trump is weak (no Jack or 9 of its own left).
+        // Feeding it into an already-secured cut locks its 3 points in
+        // for the team instead of risking them on a Jack that may
+        // never lead a trick of its own again this round.
+        if (wt === myTeam && !myTeamSecured && cwc && cwc.suit === this.trumpSuit && cwcSurvival >= 0.85) {
+          // Real, confirmed bug fix per explicit live report of a
+          // 4-player bot getting permanently stuck: this used to check
+          // only whether this bot's OWN trump was "weak" (no Jack or 9
+          // left in it) before feeding a non-trump Jack into an
+          // already-secured partner cut. But canPlayCard's own rule
+          // doesn't care how weak the trump is -- holding ANY trump
+          // card at all (even a bare 7) already counts as "an
+          // alternative" that makes a plain Jack discard illegal in
+          // 4-player. A hand with, say, a King and 7 of trump plus a
+          // stray Jack of a different suit would pass the old
+          // myTrumpIsWeak check (no Jack/9 of its own) and then get
+          // rejected by canPlayCard for exactly the reason that check
+          // never considered. This only ever needs to fire when
+          // holding literally zero trump of any kind -- the one
+          // situation where a Jack genuinely has no legal alternative
+          // to lose to.
+          const strandedJacks = nonTrumpDiscard.filter(c => c.rank === 'J');
+          if (trumps.length === 0 && strandedJacks.length > 0) {
+            return strandedJacks[0];
+          }
+        }
+        if (wt === myTeam && !myTeamSecured && (cwcSurvival >= 0.6 || tPts >= 3) && feedablePts.length > 0) {
           feedablePts.sort((a, c) => c.points - a.points);
           return feedablePts[0];
+        }
+        // A Jack can never be played as a plain discard (see canPlayCard) -
+        // exclude it from consideration here the same way, so the bot
+        // doesn't pick one and then have it rejected as illegal.
+        const nonJackDiscard = nonTrumpDiscard.filter(c => c.rank !== 'J');
+        if (nonJackDiscard.length > 0) {
+          // Per explicit request: discarding from a suit this bot holds
+          // only a single card of empties that suit out entirely,
+          // meaning any future trick led in it becomes a free cut with
+          // trump instead of a forced follow. Given a choice among
+          // otherwise-reasonable discards, prefer the singleton over an
+          // equally-cheap card from a suit still held in depth -- the
+          // void it creates is a real, lasting advantage the depth-held
+          // suit's card doesn't offer. Scoped to genuinely low-value
+          // candidates only (0-1 points) so this never means giving up
+          // an actual point card just to chase a void.
+          const suitCounts = {};
+          for (const c of hand) suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1;
+          const cheapSingletons = nonJackDiscard.filter(c => c.points <= 1 && suitCounts[c.suit] === 1);
+          if (cheapSingletons.length > 0) {
+            cheapSingletons.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+            return cheapSingletons[0];
+          }
+          nonJackDiscard.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
+          return nonJackDiscard[0];
+        }
+        // Every remaining non-trump card is a Jack. If trump is still
+        // available, cutting with it is the legal alternative (canPlayCard
+        // would reject a Jack discard here) - only fall through to
+        // actually playing the Jack when there's genuinely no trump left
+        // either, matching canPlayCard's own last-resort exception.
+        // Real, confirmed bug fix found during a strategy audit: trumps
+        // only ever gets sorted descending inside the earlier
+        // this.trumpExposed branch above -- if trump ISN'T exposed yet,
+        // that sort never ran at all, so trumps[trumps.length-1] here
+        // could pick an arbitrary, unsorted trump card in this rare
+        // "every other card is a Jack" situation -- potentially even
+        // the trump Jack itself. Sorts explicitly here instead of
+        // relying on an earlier block having already done it, and
+        // prefers a genuine zero-point non-Jack trump the same way
+        // every other trump fallback in this function does.
+        if (trumps.length > 0) {
+          const sortedTrumps = trumps.slice().sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+          const nonJackT = sortedTrumps.filter(c => c.rank !== 'J');
+          const zeroPtT = nonJackT.filter(c => c.points === 0);
+          return zeroPtT.length > 0 ? zeroPtT[zeroPtT.length - 1]
+            : nonJackT.length > 0 ? nonJackT[nonJackT.length - 1]
+            : sortedTrumps[sortedTrumps.length - 1];
         }
         nonTrumpDiscard.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
         return nonTrumpDiscard[0];
       }
-      return trumps[trumps.length - 1]; // genuinely nothing else left to throw
+      // Real, confirmed bug fix found during the same audit as the
+      // fallback above: same unsorted-trumps risk when trump isn't
+      // exposed yet -- this bot's entire hand being trump cards is an
+      // even rarer situation, but the same fix applies for the same
+      // reason. Sorts explicitly and prefers a genuine zero-point
+      // non-Jack trump rather than picking an arbitrary card from
+      // whatever order the hand happened to be in.
+      {
+        const sortedTrumps = trumps.slice().sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+        const nonJackT = sortedTrumps.filter(c => c.rank !== 'J');
+        const zeroPtT = nonJackT.filter(c => c.points === 0);
+        return zeroPtT.length > 0 ? zeroPtT[zeroPtT.length - 1]
+          : nonJackT.length > 0 ? nonJackT[nonJackT.length - 1]
+          : sortedTrumps[sortedTrumps.length - 1];
+      }
     }
 
     if (!this.trumpExposed && trumps.length > 0 && this.trickSuit !== this.trumpSuit) {
-      if (isLast && wt !== myTeam && tPts >= 2) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
-      if (isBidder && wt !== myTeam && tPts >= 3) { trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]); return trumps[0]; }
+      // Same reasoning as the other "first cut" spots above: trump isn't
+      // exposed yet, so literally any trump card wins this trick outright
+      // - reflexively reaching for the highest one (often the Jack) to
+      // win with a King or 7 just as easily is the same unnecessary
+      // waste, not a special case just because exposing trump is also
+      // happening here.
+      // Real, confirmed bug fix per explicit follow-up report: the
+      // "cut on a suit's very first lead, regardless of trick value"
+      // rule was only ever added to the POST-exposure cutting branch
+      // further up this function -- this separate PRE-exposure branch
+      // (the far more common case, since trump usually hasn't been
+      // exposed yet the first time a bot actually goes void) never had
+      // it at all, so the rule effectively never fired for the single
+      // most common situation it was meant to cover. Ported the same
+      // trigger here: still respects the same pos !== hiddenTrumpOwner
+      // restriction and the same wt !== myTeam guard (never cut over a
+      // partner already winning it for free) that the rest of this
+      // branch already enforces.
+      const firstTimeSuitLedPreExposure = (this.suitLeadCount[this.trickSuit] || 0) === 1;
+      const cutForWin = pos !== this.hiddenTrumpOwner && wt !== myTeam &&
+        (isLast && tPts >= 2 || isBidder && tPts >= 3 || firstTimeSuitLedPreExposure);
+      if (cutForWin) {
+        trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+        const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+        const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+        return zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+          : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+          : trumps[trumps.length - 1];
+      }
     }
 
+    // Final fallback: void in the led suit AND holding no trump at all
+    // (a very common situation, not a rare edge case) -- everything
+    // above this point specifically required trumps.length>0 to even
+    // run, so this was the one discard path with no awareness at all of
+    // whether our own partner is already winning the trick. Same "feed
+    // points to a winning partner rather than waste the chance" logic
+    // used everywhere else in this function above, applied here too --
+    // team points are what wins the game, so a partner who's already
+    // won this trick should get every safe point we can hand them
+    // rather than have us just dump our cheapest card on reflex.
     let disc = hand.filter(c => c.suit !== this.trumpSuit);
     if (!disc.length) disc = hand;
+    // Real, confirmed bug fix per explicit live report of a 4-player
+    // bot getting permanently stuck: this fallback's own comment
+    // assumes it's only ever reached holding NO trump at all, but
+    // that's not actually true -- it's also reached whenever the
+    // strategic cutForWin check above declines to cut (partner already
+    // winning, trick not worth it, etc.) even while genuinely holding
+    // trump. In 4-player specifically, a plain discard can never be a
+    // Jack of any suit once an alternative exists (see canPlayCard) --
+    // so on the rare hand where every remaining non-trump card happens
+    // to be a Jack, "disc" here was silently illegal, the client
+    // rejected the play, and the bot never advanced at all. Falls back
+    // to cutting with trump instead whenever that's true, exactly the
+    // same as canPlayCard's own last-resort rule requires. Real,
+    // confirmed 6-player note: this exact restriction is 4-player-only
+    // -- 6-player's canPlayCard has no equivalent rule at all, a plain
+    // Jack discard is always legal there, so no matching fix belongs on
+    // that engine.
+    const discAllJacks = disc.length > 0 && disc.every(c => c.rank === 'J');
+    if (discAllJacks && trumps.length > 0) {
+      trumps.sort((a, c) => RANK_ORDER[c.rank] - RANK_ORDER[a.rank]);
+      const nonJackTrumps = trumps.filter(c => c.rank !== 'J');
+      const zeroPt = nonJackTrumps.filter(c => c.points === 0);
+      return zeroPt.length > 0 ? zeroPt[zeroPt.length - 1]
+        : nonJackTrumps.length > 0 ? nonJackTrumps[nonJackTrumps.length - 1]
+        : trumps[trumps.length - 1];
+    }
+    // Per explicit follow-up: made this more explicit and robust rather
+    // than trusting the points-ascending sort further down to naturally
+    // sort a Jack (always the single highest point value in this game,
+    // 3) toward the end on its own. A mixed hand -- Jack alongside
+    // something like a 9 of a different suit -- should never even
+    // consider the Jack a candidate here at all while a legal
+    // alternative exists in "disc", not just happen to rank it lower.
+    // Excluding it outright removes any doubt, rather than relying on
+    // point-value ordering to always coincidentally do the right thing.
+    const discNonJack = disc.filter(c => c.rank !== 'J');
+    if (discNonJack.length > 0) disc = discNonJack;
+    // Same myTeamSecured skip as the equivalent block above -- once our
+    // own goal is already locked in (and Quote/COT isn't live), there's
+    // nothing left to optimize here either.
+    // Real, confirmed gap found while extending the simulation-based
+    // approach -- same fix as the equivalent trump-holding discard
+    // block above, applied here too since this is a genuinely separate
+    // code path (only reached when holding literally zero trump at
+    // all), not a duplicate: fed points into partner's trick
+    // unconditionally with no check on whether partner's own card will
+    // actually survive to win it.
+    const cwcSurvival2 = cwc ? this._survivalProbability(pos, cwc) : 1;
+    if (wt === myTeam && !myTeamSecured && (cwcSurvival2 >= 0.6 || tPts >= 3)) {
+      const feedablePts = disc.filter(c => c.points > 0 && c.rank !== 'J' && c.rank !== '9');
+      if (feedablePts.length > 0) {
+        feedablePts.sort((a, c) => c.points - a.points);
+        return feedablePts[0];
+      }
+    }
     disc.sort((a, c) => a.points !== c.points ? a.points - c.points : RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
     return disc[0];
   }
@@ -1802,6 +4009,7 @@ class GameEngine {
     return {
       tableId: this.tableId,
       round: this.round,
+      tableTheme: this.tableTheme,
       phase: this.phase,
       dealer: this.dealer,
       tricksPlayed: this.tricksPlayed,
@@ -1813,29 +4021,55 @@ class GameEngine {
       p2History: this.p2History,
       p2LastRaiser: this.p2LastRaiser,
       p2MinRaise: this.phase === 'bidding2' ? Math.max(20, this.highestBid + 1) : null,
+      p1MinBid: this.phase === 'bidding1' ? (this._isBidRestrictedToHonors(this.currentPlayer) ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 14)) : null,
+      p1CurrentTurnRestricted: this.phase === 'bidding1' ? this._isBidRestrictedToHonors(this.currentPlayer) : false,
       learningPulseCount: this.learningPulseCount,
       lastLearningBotName: this.lastLearningBotName,
       trumpSuit: this.trumpSuit, // the chosen SUIT is known to everyone once picked — only the specific hidden CARD stays secret until exposure
       trumpExposed: this.trumpExposed,
       roundVoidMessage: this.roundVoidMessage,
+      reshuffleReason: this.reshuffleReason || null,
       mustPlayTrump: this.mustPlayTrumpBy === viewerPos, // viewer just asked for the reveal and owes a trump card this trick if holding one
       hasHiddenTrump: !!this.hiddenTrump,
+      revealedTrumpCard: this.revealedTrumpCard,
       myHiddenTrumpCard: (this.hiddenTrump && viewerPos === this.hiddenTrumpOwner) ? this.hiddenTrump : null,
       trickCards: this.trickCards,
       trickSuit: this.trickSuit,
       teamPoints: this.teamPoints,
       gameScore: this.gameScore,
+      // Real, confirmed feature per explicit request ("pick your
+      // losing by this much... you beat the challenge"): exposed so
+      // the client can show the handicap during play and the "you
+      // beat the challenge" message once challengeBeaten flips true.
+      challengeHandicap: this.challengeHandicap,
+      challengerTeam: this.challengerTeam,
+      challengeBeaten: this.challengeBeaten,
+      challengeResolved: this.challengeResolved,
       qMarks: this.qMarks,
+      qTotalEver: this.qTotalEver,
       partnerSignals: this.partnerSignals,
       championshipNumber: this.championshipNumber,
       kingStreak: this.kingStreak,
       lastChampionshipResult: this.lastChampionshipResult,
       lastTrick: this.lastTrick,
       roundWinnerAnnounced: this.roundWinnerAnnounced,
+      pendingEarlyWinChoice: this.pendingEarlyWinChoice,
+      // Computed fresh every time (never a stored flag) -- true iff
+      // it's genuinely valid for whoever's turn it currently is to
+      // declare Quote right now. The client combines this with its own
+      // currentPlayer===MY_POS check to decide whether ITS OWN quote
+      // button should be enabled -- the button itself stays visible to
+      // everyone at the table regardless, per how this was designed.
+      quoteEligible: this._isQuoteEligibleFor(this.currentPlayer),
+      teamStillClean: this.teamStillClean,
+      quoteState: this.quoteState,
+      thaniCaller: this.thaniCaller,
+      foldedSeats: this.foldedSeats,
       seats: this.seats.map((s, i) => s ? {
         name: s.name, isBot: s.isBot, connected: s.connected,
         cardCount: s.hand.length,
-        hand: i === viewerPos ? s.hand : undefined
+        hand: i === viewerPos ? s.hand : undefined,
+        avatar: s.avatar || null
       } : null)
     };
   }

@@ -26,12 +26,38 @@ function nextOccupiedSeat(seats, from, requireActive) {
 }
 
 class PokerEngine {
+  // Per explicit request: a standard tournament blind schedule - starts at 5/10 and climbs on
+  // its own as the tournament goes on, exactly the progression given (5/10, 10/20, 15/30,
+  // 20/40, 25/50, 30/60), continuing on in the same standard-tournament shape afterward
+  // (linear steps early, then roughly doubling once the numbers get big enough that a flat
+  // step stops mattering much). Only ever used in mode:'tournament' - a cash game's blinds
+  // stay exactly where the table was created with them, same as any real cash table would.
+  static BLIND_LEVELS = [
+    { sb: 5, bb: 10 }, { sb: 10, bb: 20 }, { sb: 15, bb: 30 }, { sb: 20, bb: 40 },
+    { sb: 25, bb: 50 }, { sb: 30, bb: 60 }, { sb: 40, bb: 80 }, { sb: 50, bb: 100 },
+    { sb: 75, bb: 150 }, { sb: 100, bb: 200 }, { sb: 150, bb: 300 }, { sb: 200, bb: 400 },
+    { sb: 300, bb: 600 }, { sb: 400, bb: 800 }, { sb: 500, bb: 1000 }, { sb: 750, bb: 1500 },
+    { sb: 1000, bb: 2000 },
+  ];
+
   constructor(tableId, opts) {
     this.tableId = tableId;
     this.mode = (opts && opts.mode) || 'cash';
     this.buyInType = (opts && opts.buyInType) || 'nolimit';
-    this.smallBlind = (opts && opts.smallBlind) ?? 5;
-    this.bigBlind = (opts && opts.bigBlind) ?? 10;
+    this.blindLevel = 0;
+    this.allInShowdown = false;
+    // How many hands each level lasts before the blinds step up to the next one - only
+    // relevant in tournament mode. A round, deliberately-chosen number, not tied to real-world
+    // clock time (bots play at whatever pace they play at, so hand count is what stays
+    // meaningful regardless of how long any one hand actually takes).
+    this.handsPerLevel = (opts && opts.handsPerLevel) ?? 10;
+    if (this.mode === 'tournament') {
+      this.smallBlind = PokerEngine.BLIND_LEVELS[0].sb;
+      this.bigBlind = PokerEngine.BLIND_LEVELS[0].bb;
+    } else {
+      this.smallBlind = (opts && opts.smallBlind) ?? 5;
+      this.bigBlind = (opts && opts.bigBlind) ?? 10;
+    }
     this.startingChips = (opts && opts.startingChips) ?? 1000;
     this.reloadChips = (opts && opts.reloadChips) ?? 500;
     this.reloadWaitMs = (opts && opts.reloadWaitMs) ?? 60 * 1000;
@@ -47,9 +73,29 @@ class PokerEngine {
     this.minRaise = 0;
     this.lastAggressorSeat = -1;
     this.handNumber = 0;
+    this.eliminationSeq = 0;
     this.log = [];
     this.showdownResult = null;
     this.kickRequests = {};
+  }
+
+  // Advances the blind level if enough hands have passed at the current one, per the fixed
+  // schedule above. Called once at the start of every new hand (see startHand() below) -
+  // never mid-hand, so a hand already in progress always finishes at the blinds it started
+  // at, exactly like a real tournament clock only ever taking effect between hands.
+  _maybeAdvanceBlindLevel() {
+    if (this.mode !== 'tournament') return;
+    const targetLevel = Math.min(
+      Math.floor(this.handNumber / this.handsPerLevel),
+      PokerEngine.BLIND_LEVELS.length - 1
+    );
+    if (targetLevel > this.blindLevel) {
+      this.blindLevel = targetLevel;
+      const { sb, bb } = PokerEngine.BLIND_LEVELS[this.blindLevel];
+      this.smallBlind = sb;
+      this.bigBlind = bb;
+      this.addLog(`Blinds increase to ${sb}/${bb} (level ${this.blindLevel + 1}).`);
+    }
   }
 
   addLog(msg) {
@@ -57,9 +103,27 @@ class PokerEngine {
     if (this.log.length > 200) this.log.length = 200;
   }
 
-  seatHuman(pos, name, playerId) {
+  seatHuman(pos, name, playerId, avatar) {
     if (this.seats[pos]) return { ok: false, reason: 'seat_taken' };
     this.seats[pos] = this._freshSeat(name, false, playerId);
+    // Per explicit request ("use all characters like the 4 and 6
+    // tables"): a player's own deliberately-chosen avatar (from the
+    // same picker the 4p/6p tables use) is set directly here, reusing
+    // the exact same seat.avatar field and rendering path the admin
+    // override above already uses -- a genuine choice takes the same
+    // priority an admin's override would, falling back to the
+    // deterministic name+pos hash only when no avatar was sent at all.
+    // Validated against the real filename pattern first -- this value
+    // comes straight from the client and gets used as an <img> src
+    // path, so anything that isn't genuinely "toonN" is dropped rather
+    // than trusted and stored as-is. The 6 PIN-protected personal
+    // avatars are allowed through this same path (not blocked here) --
+    // the client only ever sends one of those after its own PIN check
+    // passes, the exact same lightweight, client-side-only protection
+    // the 4p/6p tables already rely on for this (their own code
+    // explicitly accepts that a determined client could bypass it;
+    // this isn't meant to be bulletproof, just a casual deterrent).
+    if (avatar && /^toon\d{1,3}$/.test(avatar)) this.seats[pos].avatar = avatar;
     this.addLog(`${name} sat down in seat ${pos + 1}.`);
     return { ok: true };
   }
@@ -74,9 +138,59 @@ class PokerEngine {
       name, isBot, connected: true, playerId,
       chips: this.startingChips, hand: [],
       folded: false, allIn: false, sittingOut: false,
-      bettedThisRound: 0, totalBetThisHand: 0, hasActed: false,
-      bustedAt: null, rebuysUsed: 0, eliminated: false
+      bettedThisRound: 0, totalBetThisHand: 0, hasActed: false, lastAction: null,
+      bustedAt: null, rebuysUsed: 0, eliminated: false, eliminatedAt: null,
+      // Per explicit admin-feature request: null means "no admin
+      // override yet, fall back to the client's own deterministic
+      // name+pos hash" (see holdemAvatarFor in holdem.html) -- set
+      // only via setSeatAvatar below, which is the actual admin
+      // action, so a normal seat is completely unaffected by this
+      // feature existing at all.
+      avatar: null
     };
+  }
+  // Per explicit admin-feature request: lets an admin assign a specific
+  // avatar image to a seat, overriding the default deterministic
+  // name+pos hash a seat would otherwise always resolve to. null clears
+  // the override, reverting to that default.
+  setSeatAvatar(pos, avatar) {
+    if (!this.seats[pos]) return { ok: false, reason: 'no_seat' };
+    this.seats[pos].avatar = avatar || null;
+    this.addLog(`${this.seats[pos].name}'s avatar was changed by an admin.`);
+    return { ok: true };
+  }
+  // Per explicit admin-feature request: a full, immediate reset of the
+  // table back to its brand-new starting state -- every seat's chips
+  // back to startingChips, all elimination/rebuy/bust tracking wiped,
+  // hand number back to 0, blind level back to the first one. Seats
+  // themselves (who's actually sitting where, human or bot) are left
+  // untouched -- this restarts the tournament these players are
+  // already at, it doesn't clear the table itself; that's what closing
+  // the table is for, a separate, already-existing admin action.
+  restartTournament(requestedBy) {
+    for (const p of this.occupiedSeats()) {
+      const s = this.seats[p];
+      s.chips = this.startingChips;
+      s.folded = false; s.allIn = false; s.sittingOut = false;
+      s.bettedThisRound = 0; s.totalBetThisHand = 0; s.hasActed = false; s.lastAction = null;
+      s.bustedAt = null; s.rebuysUsed = 0; s.eliminated = false; s.eliminatedAt = null;
+      s.hand = [];
+    }
+    this.handNumber = 0;
+    this.blindLevel = 0;
+    if (this.mode === 'tournament') {
+      this.smallBlind = PokerEngine.BLIND_LEVELS[0].sb;
+      this.bigBlind = PokerEngine.BLIND_LEVELS[0].bb;
+    }
+    this.phase = 'lobby';
+    this.board = [];
+    this.pots = [];
+    this.currentPlayer = -1;
+    this.currentBet = 0;
+    this.showdownResult = null;
+    this.eliminationSeq = 0;
+    this.addLog(`Tournament restarted by admin.`);
+    return { ok: true };
   }
   removeSeat(pos) {
     const s = this.seats[pos];
@@ -110,14 +224,53 @@ class PokerEngine {
   startHand() {
     this._applyPendingKicks();
     const active = this.activeSeats();
-    if (active.length < 2) { this.phase = 'lobby'; this.addLog('Not enough players with chips to start a hand.'); return; }
+    if (active.length < 2) {
+      // Real, confirmed bug fix per explicit live report: a genuine tournament conclusion (a
+      // hand has actually been played, and it's down to exactly one seat left with chips
+      // while every other occupied seat has been formally eliminated) was being treated
+      // identically to "this brand-new table doesn't have enough players seated yet" - both
+      // just sent everyone back to the plain pre-game lobby screen, which has no leave/exit
+      // control of any kind and a "Start Hand" button that would only fail again immediately.
+      // That's exactly the "stuck, can't exit, can't start a new game" dead end described.
+      // Distinguished properly now: only route to the real tournament-over screen when a hand
+      // has actually been played AND every other occupied seat is specifically eliminated
+      // (not just empty, which is the ordinary not-enough-players-yet case that still
+      // correctly belongs on the normal lobby screen).
+      const occupied = this.occupiedSeats();
+      const isRealTournamentConclusion = this.mode === 'tournament' && this.handNumber > 0 &&
+        active.length === 1 && occupied.every(p => active.includes(p) || this.seats[p].eliminated);
+      if (isRealTournamentConclusion) {
+        this.phase = 'tournamentOver';
+        const winner = active[0];
+        // Winner first, then everyone else ordered by how late they were eliminated (the last
+        // one out finished 2nd, and so on back to whoever busted first placing last).
+        const others = occupied.filter(p => p !== winner)
+          .sort((a, b) => (this.seats[b].eliminatedAt || 0) - (this.seats[a].eliminatedAt || 0));
+        this.tournamentStandings = [winner, ...others].map((pos, i) => ({
+          pos, name: this.seats[pos].name, place: i + 1, isBot: this.seats[pos].isBot,
+        }));
+        this.addLog(`🏆 ${this.seats[winner].name} wins the tournament!`);
+      } else {
+        this.phase = 'lobby';
+        this.addLog('Not enough players with chips to start a hand.');
+      }
+      return;
+    }
 
     this.handNumber++;
+    this._maybeAdvanceBlindLevel();
     this.deck = freshDeck();
     this.board = [];
     this.pots = [];
     this.currentBet = 0;
     this.showdownResult = null;
+    // Cleared at the start of every genuinely new hand -- see
+    // _advanceIfCurrentCantAct for where this actually gets set to true.
+    this.allInShowdown = false;
+    // Reset for the new preflop round -- posting the blinds themselves
+    // isn't counted as a "raise" for this purpose (see below, right
+    // after blinds are posted), only real voluntary raises are.
+    this.raisesThisRound = 0;
 
     for (const pos of this.occupiedSeats()) {
       const s = this.seats[pos];
@@ -127,9 +280,18 @@ class PokerEngine {
       s.bettedThisRound = 0;
       s.totalBetThisHand = 0;
       s.hasActed = false;
+      s.lastAction = null;
     }
 
-    this.dealerSeat = this.dealerSeat === -1 ? active[0] : nextOccupiedSeat(this.seats, this.dealerSeat, true);
+    // Real, confirmed fix per explicit request ("the dealer should be
+    // random at each tournament"): the very first dealer of a table's
+    // life used to always be active[0] specifically -- whichever seat
+    // happened to be first (almost always the host, since they're
+    // seated first) was dealing the opening hand every single time,
+    // never actually random. Every dealer AFTER this first one still
+    // rotates normally via nextOccupiedSeat below, completely
+    // unaffected -- only the one-time starting point changes.
+    this.dealerSeat = this.dealerSeat === -1 ? active[Math.floor(Math.random() * active.length)] : nextOccupiedSeat(this.seats, this.dealerSeat, true);
     if (this.dealerSeat === -1) this.dealerSeat = active[0];
 
     const order = this._seatOrderFrom(this.dealerSeat);
@@ -139,8 +301,8 @@ class PokerEngine {
 
     const sbSeat = order[0];
     const bbSeat = order.length > 1 ? order[1] : order[0];
-    this._postBlind(sbSeat, this.smallBlind);
-    this._postBlind(bbSeat, this.bigBlind);
+    this._postBlind(sbSeat, this.smallBlind, 'Small Blind');
+    this._postBlind(bbSeat, this.bigBlind, 'Big Blind');
     this.currentBet = this.bigBlind;
     this.minRaise = this.bigBlind;
     this.lastAggressorSeat = bbSeat;
@@ -162,13 +324,20 @@ class PokerEngine {
     return order;
   }
 
-  _postBlind(seat, amount) {
+  _postBlind(seat, amount, label) {
     const s = this.seats[seat];
     const posted = Math.min(amount, s.chips);
     s.chips -= posted;
     s.bettedThisRound += posted;
     s.totalBetThisHand += posted;
     if (s.chips === 0) s.allIn = true;
+    // Real, confirmed fix per explicit live report ("first round small
+    // and big blind should say that popup also"): posting a blind never
+    // set lastAction, so it never got the same action-badge popup every
+    // other action (fold/check/call/raise) gets on the client. label is
+    // 'Small Blind' or 'Big Blind' so the badge reads clearly rather
+    // than just a bare number.
+    s.lastAction = `${label}${s.allIn ? ' (all-in)' : ''} ${posted}`;
     this.addLog(`${s.name} posts ${posted}${posted < amount ? ' (all-in)' : ''}.`);
   }
 
@@ -177,19 +346,32 @@ class PokerEngine {
     if (!['fold', 'check', 'call', 'bet', 'raise', 'allin'].includes(action)) return { ok: false, reason: 'bad_action' };
     const s = this.seats[pos];
     if (!s || s.folded) return { ok: false, reason: 'no_seat' };
+    // Real, confirmed gap per explicit "never allow invalid betting amounts" requirement:
+    // amount arrives straight from the client with no validation at all - a malformed value
+    // (a non-numeric string, an object, NaN itself) would silently poison every downstream
+    // calculation with NaN (Math.max/min propagate NaN rather than catching it), corrupting
+    // that seat's chip count for the rest of the hand. Coerced and range-checked once here,
+    // before any action branch, rather than trusting the raw input in each one individually.
+    if (amount !== undefined && amount !== null) {
+      amount = Number(amount);
+      if (!Number.isFinite(amount) || amount < 0) return { ok: false, reason: 'bad_amount' };
+    }
 
     const toCall = this.currentBet - s.bettedThisRound;
 
     if (action === 'fold') {
       s.folded = true;
+      s.lastAction = 'Fold';
       this.addLog(`${s.name} folds.`);
     } else if (action === 'check') {
       if (toCall > 0) return { ok: false, reason: 'must_call_or_fold' };
+      s.lastAction = 'Check';
       this.addLog(`${s.name} checks.`);
     } else if (action === 'call') {
       const pay = Math.min(toCall, s.chips);
       s.chips -= pay; s.bettedThisRound += pay; s.totalBetThisHand += pay;
       if (s.chips === 0) s.allIn = true;
+      s.lastAction = s.allIn ? 'All-In' : `Call ${pay}`;
       this.addLog(`${s.name} calls ${pay}${s.allIn ? ' (all-in)' : ''}.`);
     } else if (action === 'bet' || action === 'raise') {
       if (this.buyInType === 'fixed') amount = this.currentBet > 0 ? this.currentBet + this.bigBlind : this.bigBlind;
@@ -203,8 +385,20 @@ class PokerEngine {
         this.minRaise = Math.max(this.minRaise, newRaiseSize);
         this.currentBet = s.bettedThisRound;
         this.lastAggressorSeat = pos;
+        // Per explicit live report ("bots busting out before level 2
+        // finishes, tournament over too fast"): tracked so
+        // poker-bot.js's decision logic can see how many times THIS
+        // betting round has already been raised and temper its own
+        // raising accordingly -- without this, multiple bots kept
+        // re-raising each other in the same round with no awareness
+        // the pot had already escalated, since each bot only ever saw
+        // its own equity vs the current pot, never how many raises got
+        // it there. Reset at the start of every new street/hand (see
+        // _advanceStreet and startHand).
+        this.raisesThisRound = (this.raisesThisRound || 0) + 1;
         for (const p of this.occupiedSeats()) if (p !== pos && !this.seats[p].folded) this.seats[p].hasActed = false;
       }
+      s.lastAction = s.allIn ? 'All-In' : `${action === 'bet' ? 'Bet' : 'Raise to'} ${s.bettedThisRound}`;
       this.addLog(`${s.name} ${action === 'bet' ? 'bets' : 'raises to'} ${s.bettedThisRound}${s.allIn ? ' (all-in)' : ''}.`);
     } else if (action === 'allin') {
       const pay = s.chips;
@@ -213,8 +407,10 @@ class PokerEngine {
         this.minRaise = Math.max(this.minRaise, s.bettedThisRound - this.currentBet);
         this.currentBet = s.bettedThisRound;
         this.lastAggressorSeat = pos;
+        this.raisesThisRound = (this.raisesThisRound || 0) + 1;
         for (const p of this.occupiedSeats()) if (p !== pos && !this.seats[p].folded) this.seats[p].hasActed = false;
       }
+      s.lastAction = 'All-In';
       this.addLog(`${s.name} goes all-in for ${pay}.`);
     }
 
@@ -251,6 +447,17 @@ class PokerEngine {
     if (contesting.length <= 1) { if (contesting.length === 1) this._awardPotToSingleWinner(contesting[0]); return; }
     const canAct = contesting.filter(p => !this.seats[p].allIn);
     if (canAct.length === 0) {
+      // Per explicit live report: a genuine all-in showdown (nobody
+      // left who can still act -- every remaining player is either
+      // all-in or the very last bet just made everyone else all-in
+      // too) should reveal every contesting hand immediately, the same
+      // way a real poker room turns every remaining card face-up right
+      // then rather than making players wait for handEnd to see what
+      // they were actually up against while the rest of the board runs
+      // out. Cleared the moment a genuinely new hand starts (see
+      // startHand) so it can never leak into a hand that hasn't
+      // reached this point yet.
+      this.allInShowdown = true;
       this._collectBetsIntoPots();
       this._runOutRemainingStreets();
       return;
@@ -311,6 +518,7 @@ class PokerEngine {
     this.currentBet = 0;
     this.minRaise = this.bigBlind;
     this.lastAggressorSeat = -1;
+    this.raisesThisRound = 0;
     for (const p of this.occupiedSeats()) { this.seats[p].hasActed = false; this.seats[p].bettedThisRound = 0; }
     this.currentPlayer = nextOccupiedSeat(this.seats, this.dealerSeat, true);
     this.addLog(`-- ${this.phase} --`);
@@ -344,12 +552,22 @@ class PokerEngine {
       let remainder = pot.amount - share * potWinners.length;
       const order = this._seatOrderFrom(this.dealerSeat);
       potWinners.sort((a, b) => order.indexOf(a.seat) - order.indexOf(b.seat));
+      // Per explicit live report: a pot layer with only one eligible
+      // seat isn't a real win over anyone -- it's that seat's own
+      // uncalled excess bet simply coming back to them, since nobody
+      // else's stack reached this level to even contest it. Flagged
+      // per-winner-entry so the client can visually tell "actually
+      // beat the table" apart from "got my own extra chips back," not
+      // celebrate both identically.
+      const isReturnedBet = pot.eligibleSeats.length === 1;
       for (const w of potWinners) {
         const amount = share + (remainder > 0 ? 1 : 0);
         if (remainder > 0) remainder--;
         this.seats[w.seat].chips += amount;
-        winners.push({ seat: w.seat, amount, handName: w.handName, hand: w.hand });
-        this.addLog(`${this.seats[w.seat].name} wins ${amount} with ${w.handName}.`);
+        winners.push({ seat: w.seat, amount, handName: w.handName, hand: w.hand, isReturnedBet });
+        this.addLog(isReturnedBet
+          ? `${this.seats[w.seat].name} gets ${amount} back (uncalled).`
+          : `${this.seats[w.seat].name} wins ${amount} with ${w.handName}.`);
       }
     }
     this.showdownResult = { winners, boardShown: true, board: this.board.slice(), allHands: rankedBySeat };
@@ -379,6 +597,7 @@ class PokerEngine {
         if (s.isBot) {
           s.sittingOut = true;
           s.eliminated = true;
+          s.eliminatedAt = ++this.eliminationSeq;
           s.bustedAt = null;
           this.addLog(`${s.name} is eliminated from the tournament.`);
         } else if (s.rebuysUsed < 1) {
@@ -389,6 +608,7 @@ class PokerEngine {
         } else {
           s.sittingOut = true;
           s.eliminated = true;
+          s.eliminatedAt = ++this.eliminationSeq;
           s.bustedAt = null;
           this.addLog(`${s.name} is eliminated from the tournament (rebuy already used).`);
         }
@@ -414,20 +634,40 @@ class PokerEngine {
     }
     return {
       tableId: this.tableId, mode: this.mode, buyInType: this.buyInType,
-      smallBlind: this.smallBlind, bigBlind: this.bigBlind,
+      smallBlind: this.smallBlind, bigBlind: this.bigBlind, blindLevel: this.blindLevel,
+      tournamentStandings: this.tournamentStandings || null,
       phase: this.phase, dealerSeat: this.dealerSeat, currentPlayer: this.currentPlayer,
       board: this.board, pots: this.pots, currentBet: this.currentBet, minRaise: this.minRaise,
       handNumber: this.handNumber, showdownResult: this.showdownResult, myHandName,
+      allInShowdown: !!this.allInShowdown,
+      // Real, confirmed feature per explicit request ("wait for
+      // whatever round to rebuild... say the time to rebuild"): the
+      // client needs this to compute and display an accurate
+      // countdown for a busted player waiting on their reload/rebuy --
+      // bustedAt (per-seat, already sent below) plus this fixed wait
+      // duration is all it needs to show "ready in Ns" and count down
+      // for real, rather than guessing or showing a generic message
+      // with no actual timing.
+      reloadWaitMs: this.reloadWaitMs,
+      startingChips: this.startingChips,
       kickRequests: this.kickRequests,
       seats: this.seats.map((s, i) => {
         if (!s) return null;
         const isMe = i === viewerPos;
-        const revealHand = isMe || (this.phase === 'handEnd' && this.showdownResult && this.showdownResult.boardShown && !s.folded);
+        // Per explicit live report: a genuine all-in showdown reveals
+        // every contesting hand right then, the same as the real
+        // showdown-at-handEnd condition just after it -- not waiting
+        // for the hand to actually end while the remaining board runs
+        // out with everyone still in the dark about what they're up
+        // against.
+        const revealHand = isMe || (this.allInShowdown && !s.folded) ||
+          (this.phase === 'handEnd' && this.showdownResult && this.showdownResult.boardShown && !s.folded);
         return {
-          name: s.name, isBot: s.isBot, connected: s.connected, chips: s.chips,
+          name: s.name, isBot: s.isBot, connected: s.connected, chips: s.chips, avatar: s.avatar,
           folded: s.folded, allIn: s.allIn, sittingOut: s.sittingOut,
           bettedThisRound: s.bettedThisRound, totalBetThisHand: s.totalBetThisHand,
           bustedAt: s.bustedAt, eliminated: s.eliminated, rebuysUsed: s.rebuysUsed,
+          lastAction: s.lastAction || null,
           hand: revealHand ? s.hand : (s.hand.length ? s.hand.map(() => null) : [])
         };
       }),
