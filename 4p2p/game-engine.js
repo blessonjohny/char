@@ -2162,18 +2162,19 @@ class GameEngine {
       // making the table wait out a full fresh 35s on top of the 2
       // minutes it's already been stuck.
       const delay = seat.isBot ? 900
-        // Real, confirmed speed-up per explicit live report ("80% more
-        // is slow, make them faster"; follow-up: "3 sec is max"): the
-        // old uniform 2-6s window put its own floor at 2s and was
-        // evenly spread across the whole range, so it read as slow
-        // almost every single time, never snappy. Replaced with a
-        // weighted mix that's fast most of the time (a quick,
-        // decisive-looking move) and only occasionally pauses like
-        // someone actually thinking - 80% fast / 20% slow - with 3s as
-        // a hard ceiling on the slow band, never longer.
-        : isGhost ? (Math.random() < 0.8
-            ? (300 + Math.floor(Math.random() * 900))   // fast: 0.3-1.2s, 80% of turns
-            : (1500 + Math.floor(Math.random() * 1500))) // slow: 1.5-3.0s, 20% of turns, 3s hard cap
+        // Real, confirmed tuning per explicit live report ("super fast
+        // max is 3, keep everything 90% around 1 to 2, the less than 1
+        // and more than 2 rest"): replaces the earlier flat 80/20
+        // fast-vs-slow split with this exact three-band weighting -
+        // 90% of turns land in the 1.0-2.0s "normal" band, and the
+        // remaining 10% is split evenly between a quicker sub-1s turn
+        // and a slower 2.0-3.0s one. 3s stays the hard ceiling.
+        : isGhost ? (() => {
+            const r = Math.random();
+            if (r < 0.90) return 1000 + Math.floor(Math.random() * 1000); // 1.0-2.0s, 90% of turns
+            if (r < 0.95) return 300 + Math.floor(Math.random() * 700);   // <1s: 0.3-1.0s, 5% of turns
+            return 2000 + Math.floor(Math.random() * 1000);               // >2s: 2.0-3.0s, 5% of turns, 3s hard cap
+          })()
         : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         // Re-check everything at fire-time, not just at schedule-time:
