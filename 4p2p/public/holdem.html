@@ -3324,7 +3324,19 @@ function renderGameTable(state) {
   if (newBoardCardsCount > 0) {
     const pendingEls = [...$('boardArea').querySelectorAll('.board-card-pending-reveal')];
     pendingEls.forEach((cardEl, i) => {
-      const revealDelay = i * 450 + 500;
+      // Real, confirmed fix per explicit live report ("I see a bottom
+      // layer already there... looks like pasting on top"): the real,
+      // permanent board card used to reveal (opacity 0->1) at 500ms,
+      // but the flying copy flying toward that exact same spot wasn't
+      // removed until 520ms -- 20ms where both the real card and its
+      // own flying copy were visible on top of each other at once.
+      // Barely noticeable for a single turn/river card, but the
+      // flop's three cards each carry their own 20ms overlap in quick
+      // succession, which is what actually reads as "pasting" rather
+      // than one clean card landing. Reveals the real card slightly
+      // AFTER the flying copy is gone (530ms, 10ms clear of its own
+      // 520ms removal) instead of slightly before it.
+      const revealDelay = i * 450 + 530;
       setTimeout(() => { cardEl.classList.remove('board-card-pending-reveal'); }, revealDelay);
     });
   }
