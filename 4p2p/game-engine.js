@@ -2162,10 +2162,18 @@ class GameEngine {
       // making the table wait out a full fresh 35s on top of the 2
       // minutes it's already been stuck.
       const delay = seat.isBot ? 900
-        // Per explicit request: a ghost seat should "sometimes take a few sec to play" rather
-        // than react instantly like a bot or wait out a long human grace period - a randomized
-        // 2-6s window reads as someone actually thinking about their move, not a script.
-        : isGhost ? (2000 + Math.floor(Math.random() * 4000))
+        // Real, confirmed speed-up per explicit live report ("80% more
+        // is slow, make them faster"; follow-up: "3 sec is max"): the
+        // old uniform 2-6s window put its own floor at 2s and was
+        // evenly spread across the whole range, so it read as slow
+        // almost every single time, never snappy. Replaced with a
+        // weighted mix that's fast most of the time (a quick,
+        // decisive-looking move) and only occasionally pauses like
+        // someone actually thinking - 80% fast / 20% slow - with 3s as
+        // a hard ceiling on the slow band, never longer.
+        : isGhost ? (Math.random() < 0.8
+            ? (300 + Math.floor(Math.random() * 900))   // fast: 0.3-1.2s, 80% of turns
+            : (1500 + Math.floor(Math.random() * 1500))) // slow: 1.5-3.0s, 20% of turns, 3s hard cap
         : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         // Re-check everything at fire-time, not just at schedule-time:

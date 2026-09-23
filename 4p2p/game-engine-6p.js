@@ -1716,8 +1716,15 @@ class GameEngine6P {
       // real chance to notice and act before the bot takes over anyway.
       // A seat already past the connected-but-stuck threshold has used
       // up its grace period - act promptly instead of waiting a fresh 35s.
+      // Real, confirmed speed-up per explicit live report ("80% more is
+      // slow, make them faster"; follow-up: "3 sec is max") -- see
+      // game-engine.js's identical fix for the fuller reasoning. Same
+      // weighted 80% fast / 20% slow mix, 3s hard cap, here so the 4p
+      // and 6p tables feel consistent with each other.
       const delay = seat.isBot ? 900
-        : isGhost ? (2000 + Math.floor(Math.random() * 4000))
+        : isGhost ? (Math.random() < 0.8
+            ? (300 + Math.floor(Math.random() * 900))
+            : (1500 + Math.floor(Math.random() * 1500)))
         : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         if (this.round !== capturedRound) return;
