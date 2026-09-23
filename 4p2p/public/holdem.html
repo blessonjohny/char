@@ -2050,6 +2050,11 @@ function actionBadgeClass(lastAction) {
   if (/^(Raise|Bet)/.test(lastAction)) return 'action-badge-raise';
   if (/^(Call|All-In)/.test(lastAction)) return 'action-badge-call';
   if (/^Fold/.test(lastAction)) return 'action-badge-fold';
+  // Blinds now set lastAction too (see poker-engine.js _postBlind) so
+  // the preflop small/big blind post gets the same action-badge popup
+  // every other action already gets -- styled like a call/check rather
+  // than a raise, since posting a blind isn't a voluntary bet.
+  if (/^(Small Blind|Big Blind)/.test(lastAction)) return 'action-badge-call';
   return '';
 }
 function showScreen(id) {
@@ -3372,7 +3377,7 @@ function renderGameTable(state) {
         <div class="seat-live-dot ${s.isBot ? 'is-bot' : (s.connected !== false ? 'is-live' : 'is-bot')}" title="${s.isBot ? 'Bot' : (s.connected !== false ? 'Live player' : 'Disconnected')}"></div>
         ${pos === state.dealerSeat ? '<div class="dealer-chip">D</div>' : ''}
         ${s.allIn ? '<div class="allin-tag">ALL-IN</div>' : ''}
-        ${!isActive && s.lastAction && !s.folded ? (() => {
+        ${!isActive && s.lastAction ? (() => {
           // Per explicit live report: this used to duplicate the
           // separate bet-amount chip badge that sat in this exact
           // spot (both effectively said the same thing -- "50" on a
@@ -3387,6 +3392,14 @@ function renderGameTable(state) {
           // state update (another seat acting, a chip animation tick,
           // etc.) would replay the pop for every seat with a
           // currently-showing bubble, not just the one that just acted.
+          // Real, confirmed fix per explicit live report ("if someone
+          // fold in the first chance the fold is not showing"): this
+          // used to also require !s.folded, but folding sets folded and
+          // lastAction='Fold' in the same instant, so that condition
+          // could never be true for a fold, on any hand, not just an
+          // early one -- the "Fold" bubble simply never appeared for
+          // anyone. Removed; it now coexists fine with the separate
+          // FOLDED tag in the cards area below.
           const isFreshAction = lastActionBubbleTextBySeat[pos] !== s.lastAction;
           lastActionBubbleTextBySeat[pos] = s.lastAction;
           return `<div class="action-badge ${actionBadgeClass(s.lastAction)}${isFreshAction ? ' pop-in' : ''}">${escapeHtml(s.lastAction)}</div>`;
@@ -4062,9 +4075,30 @@ function animateDealingCards(state) {
   // cards actually come off a real dealer's hands in front of them.
   const startX = dealerRect.left + dealerRect.width / 2;
   const startY = dealerRect.bottom;
-  const dealSeats = state.seats
-    .map((s, pos) => (s && !s.sittingOut && s.hand && s.hand.length ? pos : null))
-    .filter(pos => pos !== null);
+  // Real, confirmed fix per explicit live report ("dealer deals...
+  // referring me to middle bottom player" -- the deal always looked
+  // like it started from the viewer's own seat): this used to just
+  // walk state.seats in raw seat-index order (0,1,2...), so whichever
+  // occupied seat happened to have the lowest index -- almost always
+  // seat 0, the table's host/creator -- was always dealt first,
+  // regardless of who the real game actually deals to first. A real
+  // Hold'em deal starts at the seat immediately after the dealer (the
+  // small blind) and goes clockwise -- mirrors _seatOrderFrom in
+  // poker-engine.js so the animation matches the actual deal order.
+  const numSeats = state.seats.length;
+  const dealSeats = [];
+  if (Number.isInteger(state.dealerSeat) && state.dealerSeat >= 0) {
+    for (let i = 1; i <= numSeats; i++) {
+      const pos = (state.dealerSeat + i) % numSeats;
+      const s = state.seats[pos];
+      if (s && !s.sittingOut && s.hand && s.hand.length) dealSeats.push(pos);
+    }
+  } else {
+    // No dealer seat yet (shouldn't normally happen once a hand is
+    // actually dealing) -- fall back to the old raw order rather than
+    // deal to nobody.
+    state.seats.forEach((s, pos) => { if (s && !s.sittingOut && s.hand && s.hand.length) dealSeats.push(pos); });
+  }
   // Real, confirmed fix per explicit request ("all players get 1 card
   // each and goes around and gets the second"): the delay formula used
   // to be seatIdx-outer/cardIdx-inner (seat0 gets BOTH its cards, then
