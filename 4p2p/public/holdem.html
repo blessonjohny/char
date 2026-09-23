@@ -3993,6 +3993,18 @@ function showWinningHandOnTable(state) {
         arrivedCount++;
         if (arrivedCount === winningHand.length) {
           $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-summary">${names} won ${totalWon}</span> <span class="table-winning-hand-label-handname">${r.winners[0].handName}</span>`;
+          // Real, confirmed bug fix per explicit live report (cards fly
+          // in, "then the continue ok button appears"): this used to
+          // sit unconditionally right after the forEach loop below, so
+          // it ran synchronously the instant this function was called
+          // -- before a single card had even started its flight, let
+          // alone landed. The surrounding comment already claimed it
+          // "is revealed here, once the cards have actually finished
+          // landing," but the code never actually waited for that; it's
+          // moved into this arrived-count completion branch now so the
+          // button genuinely only shows once the last card has landed.
+          $('btnWinningHandContinue').style.display = '';
+          updateWinningHandContinueUI(latestState);
         }
       }, 560);
     }, delay);
@@ -4005,12 +4017,7 @@ function showWinningHandOnTable(state) {
   // and the state.continueStatus handling in the main state-render
   // function below, which is what actually updates this button/status
   // and eventually hides this whole display once the server has
-  // genuinely moved on to the next hand). The Continue button itself
-  // is revealed here, once the cards have actually finished landing --
-  // showing it before that would let someone click through before
-  // they've even seen the hand.
-  $('btnWinningHandContinue').style.display = '';
-  updateWinningHandContinueUI(latestState);
+  // genuinely moved on to the next hand).
 }
 // Per explicit request: animates small card-back sprites flying from
 // the house dealer's own position out to each active seat in turn (a
