@@ -3975,11 +3975,32 @@ function showWinningHandOnTable(state) {
         const dx = sourceCenterX - finalCenterX;
         const dy = sourceCenterY - finalCenterY;
         const startScale = Math.max(0.3, Math.min(1, sourceRect.height / finalRect.height));
+        // Real, confirmed feature per explicit live report ("flying
+        // animation is awesome, make it a little slow with a trail
+        // comet tail, that tail small end should be the user"):
+        // slowed from 0.55s to 0.85s, and a separate, purely
+        // decorative trail element is added alongside the card --
+        // position:fixed like the old flight used to be, but since
+        // it's only ever a visual flourish (never the thing carrying
+        // the actual card data or determining where it lands), even a
+        // stale measurement here can only ever make the trail slightly
+        // off, never the card itself, which still always lands in its
+        // own real, robust layout slot regardless.
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+        const FLIGHT_MS = 850;
+        if (distance > 4) {
+          const tail = document.createElement('div');
+          tail.style.cssText = `position:fixed;left:${finalCenterX}px;top:${finalCenterY}px;width:${distance}px;height:10px;margin-top:-5px;transform-origin:0% 50%;transform:rotate(${angleDeg}deg) scaleX(1);background:linear-gradient(to right, rgba(255,235,180,0.85), rgba(255,235,180,0));border-radius:5px;z-index:1840;pointer-events:none;opacity:0.9;transition:opacity ${FLIGHT_MS}ms ease;`;
+          document.body.appendChild(tail);
+          requestAnimationFrame(() => { tail.style.opacity = '0'; });
+          setTimeout(() => tail.remove(), FLIGHT_MS + 60);
+        }
         card1.style.transition = 'none';
         card1.style.transform = `translate(${dx}px, ${dy}px) scale(${startScale})`;
         card1.style.opacity = '0.75';
         void card1.offsetWidth;
-        card1.style.transition = 'transform 0.55s cubic-bezier(.3,.5,.4,1), opacity 0.3s ease';
+        card1.style.transition = `transform ${FLIGHT_MS}ms cubic-bezier(.3,.5,.4,1), opacity 0.3s ease`;
         requestAnimationFrame(() => {
           card1.style.transform = 'translate(0,0) scale(1)';
           card1.style.opacity = '1';
@@ -3987,7 +4008,7 @@ function showWinningHandOnTable(state) {
         setTimeout(() => {
           card1.style.transition = '';
           card1.classList.add('dealt-card-pop');
-        }, 560);
+        }, FLIGHT_MS + 10);
       } else {
         card1.classList.add('dealt-card-pop');
       }
@@ -4213,7 +4234,16 @@ function animateDealingCommunityCards(newCards, existingCount) {
       card.innerHTML = `<div>${cardData.rank}</div><div>${cardData.suit}</div>`;
       card.style.left = startX + 'px';
       card.style.top = startY + 'px';
-      card.style.transform = 'translate(-50%,-50%)';
+      // Real, confirmed fix per explicit live report ("I see the flop
+      // cards flats"): the real board cards all sit under a 3D
+      // perspective tilt (see .board-area .card's rotateX(35deg)),
+      // but this flying copy never carried that same tilt -- so it
+      // traveled dead flat, then visibly snapped into the tilted look
+      // the instant it landed and the real, tilted board card took
+      // over. Carries the identical rotateX the whole flight now, so
+      // there's no snap: it already looks like the same tilted card
+      // the board itself uses, before it even lands.
+      card.style.transform = 'translate(-50%,-50%) rotateX(35deg)';
       document.body.appendChild(card);
       playSound('cardDeal');
       playHaptic('cardDeal');
@@ -4223,7 +4253,7 @@ function animateDealingCommunityCards(newCards, existingCount) {
       // pixel delta via calc() on top of it), so there's one
       // consistent transform basis the whole time and the flight path
       // is genuinely straight from the dealer to the actual card slot.
-      setTimeout(() => { card.style.transform = `translate(calc(-50% + ${endX - startX}px), calc(-50% + ${endY - startY}px))`; }, 20);
+      setTimeout(() => { card.style.transform = `translate(calc(-50% + ${endX - startX}px), calc(-50% + ${endY - startY}px)) rotateX(35deg)`; }, 20);
       setTimeout(() => { card.remove(); }, 520);
     }, delay);
   });
