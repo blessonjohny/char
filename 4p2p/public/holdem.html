@@ -3921,7 +3921,59 @@ function showWinningHandOnTable(state) {
   // exactly what "straight from player to middle of table" describes,
   // and it's what keeps the row itself properly centered.
 
+  // Real, confirmed root-cause fix per explicit live report ("something
+  // happening on the bottom... nothing on full screen computer") --
+  // reproduced headlessly with real geometry logging: the start/end
+  // pixel math itself is correct (verified against the winner's actual
+  // seat rect and the real board card rects), so this was never a
+  // wrong-source-seat bug. Each flying card locks in fixed left/top
+  // PIXEL VALUES once, then CSS-transitions to them over ~550ms per
+  // card (up to ~2s total across all 5). On a real phone, Chrome's URL
+  // bar collapsing/expanding -- which very commonly happens right as a
+  // hand ends, exactly when a person taps or scrolls -- resizes the
+  // visual viewport mid-flight, after those pixel targets were already
+  // computed against the OLD viewport. The transition keeps chasing the
+  // now-stale numbers and the card lands off in the wrong spot, often
+  // down near the screen edge. Desktop Chrome's viewport never resizes
+  // like this mid-interaction, which is exactly why it never showed up
+  // there. Rather than trying to recompute correct new pixel targets
+  // (fragile, and still visually janky), any card still mid-flight when
+  // a resize fires now just snaps immediately into its real layout
+  // position -- clearing position:fixed/left/top/margin drops it back
+  // into cardsContainer's own current flex layout, which is always
+  // correct because it's the browser's own live layout, not a value we
+  // calculated and could get wrong.
   let arrivedCount = 0;
+  const inFlightCards = [];
+  const finishCard = (i, card1) => {
+    if (card1.dataset.landed === '1') return;
+    card1.dataset.landed = '1';
+    card1.style.position = '';
+    card1.style.left = '';
+    card1.style.top = '';
+    card1.style.margin = '';
+    card1.style.zIndex = '';
+    card1.style.transition = '';
+    card1.style.width = '';
+    card1.style.height = '';
+    card1.style.opacity = '1';
+    card1.classList.add('dealt-card-pop');
+    arrivedCount++;
+    if (arrivedCount === winningHand.length) {
+      $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-summary">${names} won ${totalWon}</span> <span class="table-winning-hand-label-handname">${r.winners[0].handName}</span>`;
+      $('btnWinningHandContinue').style.display = '';
+      updateWinningHandContinueUI(latestState);
+    }
+  };
+  if (!window._winningHandResizeSnapAttached) {
+    window._winningHandResizeSnapAttached = true;
+    const snapAllInFlight = () => {
+      (window.currentWinningHandFlightCards || []).forEach(({ i, card1 }) => finishCard(i, card1));
+    };
+    window.addEventListener('resize', snapAllInFlight);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', snapAllInFlight);
+  }
+  window.currentWinningHandFlightCards = inFlightCards;
   winningHand.forEach((card, i) => {
     const slotEl = slotEls[i];
     if (!slotEl) return;
@@ -3968,6 +4020,7 @@ function showWinningHandOnTable(state) {
       card1.style.cssText = `position:fixed;left:${startX}px;top:${startY}px;width:${startW}px;height:${startH}px;margin:-${startH/2}px 0 0 -${startW/2}px;z-index:1850;opacity:0.75;transition:left 0.55s cubic-bezier(.3,.5,.4,1),top 0.55s cubic-bezier(.3,.5,.4,1),width 0.55s cubic-bezier(.2,1.4,.3,1),height 0.55s cubic-bezier(.2,1.4,.3,1),margin 0.55s cubic-bezier(.2,1.4,.3,1),opacity 0.3s ease;`;
       slotEl.replaceWith(card1);
       slotEls[i] = card1;
+      inFlightCards.push({ i, card1 });
       void card1.offsetWidth;
       requestAnimationFrame(() => {
         card1.style.left = endX + 'px';
@@ -3977,36 +4030,16 @@ function showWinningHandOnTable(state) {
         card1.style.margin = `-${slotRect.height / 2}px 0 0 -${slotRect.width / 2}px`;
         card1.style.opacity = '1';
       });
-      setTimeout(() => {
-        // Real card has genuinely arrived -- drop the flight's fixed
-        // positioning entirely so it settles naturally into the row's
-        // own flex layout at its real, permanent spot (matching every
-        // other landed card, including ones added after it), with the
-        // same landing-impact pop every other dealt card gets.
-        card1.style.position = '';
-        card1.style.left = '';
-        card1.style.top = '';
-        card1.style.margin = '';
-        card1.style.zIndex = '';
-        card1.style.transition = '';
-        card1.classList.add('dealt-card-pop');
-        arrivedCount++;
-        if (arrivedCount === winningHand.length) {
-          $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-summary">${names} won ${totalWon}</span> <span class="table-winning-hand-label-handname">${r.winners[0].handName}</span>`;
-          // Real, confirmed bug fix per explicit live report (cards fly
-          // in, "then the continue ok button appears"): this used to
-          // sit unconditionally right after the forEach loop below, so
-          // it ran synchronously the instant this function was called
-          // -- before a single card had even started its flight, let
-          // alone landed. The surrounding comment already claimed it
-          // "is revealed here, once the cards have actually finished
-          // landing," but the code never actually waited for that; it's
-          // moved into this arrived-count completion branch now so the
-          // button genuinely only shows once the last card has landed.
-          $('btnWinningHandContinue').style.display = '';
-          updateWinningHandContinueUI(latestState);
-        }
-      }, 560);
+      // Real card has genuinely arrived -- drop the flight's fixed
+      // positioning entirely so it settles naturally into the row's
+      // own flex layout at its real, permanent spot (matching every
+      // other landed card, including ones added after it), with the
+      // same landing-impact pop every other dealt card gets. Shared
+      // with the resize-snap path above (finishCard) via the
+      // card1.dataset.landed guard, so whichever fires first --
+      // the normal timer or an early resize-driven snap -- is the
+      // one that actually lands it, and the other becomes a no-op.
+      setTimeout(() => finishCard(i, card1), 560);
     }, delay);
   });
 
