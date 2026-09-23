@@ -2334,6 +2334,15 @@ const lastActionBubbleTextBySeat = {};
 // every other, unaffected seat completely untouched on any given
 // update.
 const lastRenderedSeatInnerHtml = {};
+// Real, confirmed follow-up fix per explicit live report ("my cards
+// are still flashing every move"): the diff-caching above only ever
+// covered the OTHER seats' cards (rendered through that shared loop)
+// -- the viewer's own hand, rendered through the completely separate
+// myHandStrip line below, never got the same treatment and kept
+// unconditionally replacing its innerHTML on literally every render,
+// every single action, regardless of whether the viewer's own cards
+// had actually changed at all.
+let lastRenderedMyHandHtml = null;
 // Per explicit request: chips landing at the pot no longer just fade
 // out and vanish -- they now join a real, visible, accumulating stack
 // sitting at the pot anchor (left of the community cards, the same
@@ -3389,7 +3398,11 @@ function renderGameTable(state) {
   // completely separate line rather than the shared seat loop.
   const myIsMidDeal = dealtCardCountForHandNumber === state.handNumber;
   const myVisibleHand = mySeat ? (myIsMidDeal ? mySeat.hand.slice(0, dealtCardCountBySeat[myPos] || 0) : mySeat.hand) : [];
-  $('myHandStrip').innerHTML = myVisibleHand.length ? myVisibleHand.map(c => cardHtml(c, false, false, myIsMidDeal ? 'dealt-card-pop' : null)).join('') : '';
+  const myHandHtml = myVisibleHand.length ? myVisibleHand.map(c => cardHtml(c, false, false, myIsMidDeal ? 'dealt-card-pop' : null)).join('') : '';
+  if (lastRenderedMyHandHtml !== myHandHtml) {
+    lastRenderedMyHandHtml = myHandHtml;
+    $('myHandStrip').innerHTML = myHandHtml;
+  }
   $('myHandLabel').textContent = state.myHandName ? `You have: ${state.myHandName}` : '';
   // Desktop-only top readouts (see the CSS/HTML comments where these are defined for why they
   // exist as separate top-level elements rather than nested inside my own seat).
