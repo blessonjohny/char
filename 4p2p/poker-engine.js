@@ -301,8 +301,8 @@ class PokerEngine {
 
     const sbSeat = order[0];
     const bbSeat = order.length > 1 ? order[1] : order[0];
-    this._postBlind(sbSeat, this.smallBlind);
-    this._postBlind(bbSeat, this.bigBlind);
+    this._postBlind(sbSeat, this.smallBlind, 'Small Blind');
+    this._postBlind(bbSeat, this.bigBlind, 'Big Blind');
     this.currentBet = this.bigBlind;
     this.minRaise = this.bigBlind;
     this.lastAggressorSeat = bbSeat;
@@ -324,13 +324,20 @@ class PokerEngine {
     return order;
   }
 
-  _postBlind(seat, amount) {
+  _postBlind(seat, amount, label) {
     const s = this.seats[seat];
     const posted = Math.min(amount, s.chips);
     s.chips -= posted;
     s.bettedThisRound += posted;
     s.totalBetThisHand += posted;
     if (s.chips === 0) s.allIn = true;
+    // Real, confirmed fix per explicit live report ("first round small
+    // and big blind should say that popup also"): posting a blind never
+    // set lastAction, so it never got the same action-badge popup every
+    // other action (fold/check/call/raise) gets on the client. label is
+    // 'Small Blind' or 'Big Blind' so the badge reads clearly rather
+    // than just a bare number.
+    s.lastAction = `${label}${s.allIn ? ' (all-in)' : ''} ${posted}`;
     this.addLog(`${s.name} posts ${posted}${posted < amount ? ' (all-in)' : ''}.`);
   }
 
