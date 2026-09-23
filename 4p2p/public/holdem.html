@@ -618,6 +618,20 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   body.k28-in-game .pot-anchor { top: 58%; left: 34%; }
   body.k28-in-game .pot-stack-total { font-size: 0.68rem; }
   body.k28-in-game .board-area .card { width: 40px; height: 57px; font-size: 0.95rem; }
+  /* Real, confirmed root-cause fix per explicit live report ("not
+     aligned with the top cards that dealer dealt... needs to be
+     centered correctly"): the winning-hand row's own cards were never
+     actually the same size as the board's cards at this breakpoint --
+     .board-area .card grows to 40x57 here while the winning-hand row
+     silently kept the base 34x48 size, with no override of its own at
+     all. Two 5-card rows built from different-sized cards can never
+     line up card-for-card no matter how they're centered -- matches
+     the board's real width/height AND its 6px gap exactly, so index 0
+     genuinely sits under index 0, index 4 under index 4, and so on,
+     regardless of which specific cards (hole or board) land at which
+     index. width recalculated to match: 5*40 + 4*6 = 224px. */
+  body.k28-in-game .table-winning-hand-cards { gap: 6px; width: 224px; }
+  body.k28-in-game .table-winning-hand-cards .card { width: 40px; height: 57px; font-size: 0.95rem; }
   body.k28-in-game .pot-display {
     position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
     font-size: 0.85rem; padding: 6px 16px; z-index: 48;
@@ -871,6 +885,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   body.k28-in-game .seat-chips { font-size: 0.55rem; }
   body.k28-in-game .seat-cards .card.mini { width: 18px; height: 25px; font-size: 0.55rem; }
   body.k28-in-game .board-area .card { width: 30px; height: 43px; font-size: 0.78rem; }
+  /* Real, confirmed root-cause fix -- see the identical fix at the
+     other breakpoint above for the fuller reasoning. gap already
+     cascades down as 6px from that same rule (never reset here, same
+     as .board-area's own gap isn't either) -- just the card size and
+     the container's own total width need to match this breakpoint's
+     real numbers: 5*30 + 4*6 = 174px. */
+  body.k28-in-game .table-winning-hand-cards { width: 174px; }
+  body.k28-in-game .table-winning-hand-cards .card { width: 30px; height: 43px; font-size: 0.78rem; }
   body.k28-in-game .pot-display { font-size: 0.7rem; padding: 4px 10px; }
   body.k28-in-game .action-btn { width: 46px; height: 46px; }
   body.k28-in-game .action-btn::before { font-size: 1.1rem; }
@@ -3857,37 +3879,34 @@ function showWinningHandOnTable(state) {
   void cardsContainer.offsetWidth;
   const slotEls = [...cardsContainer.querySelectorAll('.table-winning-hand-slot')];
   const boardCardEls = [...($('boardArea') ? $('boardArea').querySelectorAll('.card') : [])];
-  const containerRect = cardsContainer.getBoundingClientRect();
 
-  // Real, confirmed fix per explicit, repeated live report ("keep the
-  // same position, comes down" -- said individually for every single
-  // card): each card used to fly in on whatever diagonal path
-  // connected its real source position to wherever the row's own
-  // flexbox layout happened to center that slot -- since the row's
-  // own spacing rarely lines up with the board's or the hand's own
-  // card spacing, that was a genuinely diagonal path, not a straight
-  // drop. Overrides each slot's own horizontal position to sit
-  // directly below (or above) its real source card instead, so the
-  // only thing left for the flight to do is move straight down (or
-  // up, for a hole card below the board), never sideways.
-  winningHand.forEach((card, i) => {
-    const slotEl = slotEls[i];
-    if (!slotEl) return;
-    const isHoleCard = holeCardKeys.has(cardKey(card));
-    let startRect;
-    if (isHoleCard && winnerSeatEl) {
-      startRect = winnerSeatEl.getBoundingClientRect();
-    } else {
-      const matchIdx = state.board.findIndex(b => b && cardKey(b) === cardKey(card));
-      startRect = (matchIdx !== -1 && boardCardEls[matchIdx]) ? boardCardEls[matchIdx].getBoundingClientRect() : null;
-    }
-    if (startRect) {
-      const startCenterX = startRect.left + startRect.width / 2;
-      slotEl.style.position = 'absolute';
-      slotEl.style.left = (startCenterX - containerRect.left) + 'px';
-      slotEl.style.transform = 'translateX(-50%)';
-    }
-  });
+  // Real, confirmed root-cause fix per explicit live report ("not
+  // aligned with the top cards... needs to be centered correctly...
+  // 2 angles, I only need straight from player to middle of table"):
+  // the previous approach forced every slot's horizontal position to
+  // match its own real source card, specifically to guarantee a
+  // purely vertical flight path -- but that broke the row's own
+  // overall centering, since hole cards (sourced from wherever the
+  // winner's actual seat sits around the oval, which is rarely
+  // anywhere near center) dragged their slots way off to whichever
+  // side that seat happened to be on, and the row as a whole no
+  // longer lined up with the board above it at all.
+  //
+  // The actual fix is at the CSS level (see .table-winning-hand-cards
+  // and its .card children at each breakpoint, now sized and gapped
+  // to exactly match .board-area's real numbers there): with both
+  // rows built from identically-sized cards at an identical gap and
+  // both centered the same way, this row's natural, untouched flexbox
+  // layout already lines up card-for-card with the board above it --
+  // index 0 under index 0, index 4 under index 4 -- with no
+  // per-card JS override needed at all. A flight from a hole card's
+  // real seat position to its own now-correctly-centered slot is a
+  // single straight line by definition (a CSS left/top transition is
+  // never anything but a straight line between two points) -- it may
+  // be a diagonal rather than a pure vertical drop when that seat
+  // isn't directly below its slot, but "straight, on a diagonal" is
+  // exactly what "straight from player to middle of table" describes,
+  // and it's what keeps the row itself properly centered.
 
   let arrivedCount = 0;
   winningHand.forEach((card, i) => {
@@ -3988,26 +4007,6 @@ function showWinningHandOnTable(state) {
         slotEl.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
         arrivedCount++;
         if (arrivedCount === winningHand.length) {
-          // Per explicit live report ("cards should replace the empty
-          // space"): the straight-down landing spots (directly below
-          // each card's own real source) are spread out to match the
-          // board's own spacing, with hole cards landing somewhere
-          // else on the table entirely -- correct for the drop itself,
-          // but it leaves the final row with real gaps in it rather
-          // than a clean five-card hand. Once every card has actually
-          // landed, slides each one sideways (a real CSS transition on
-          // left, added fresh here since the drop itself only ever
-          // animated the flying copy, not this element's own left)
-          // into a tight, evenly-spaced, centered row -- closing the
-          // gaps left behind by the drop instead of leaving them empty.
-          const cardWidthNow = slotEls[0] ? slotEls[0].getBoundingClientRect().width : 34;
-          const gapNow = 4;
-          const rowWidth = winningHand.length * cardWidthNow + (winningHand.length - 1) * gapNow;
-          const rowStartX = (containerRect.width - rowWidth) / 2;
-          slotEls.forEach((slotEl2, idx) => {
-            slotEl2.style.transition = 'left 0.4s cubic-bezier(.3,.5,.4,1)';
-            slotEl2.style.left = (rowStartX + idx * (cardWidthNow + gapNow) + cardWidthNow / 2) + 'px';
-          });
           // Per explicit live report: only the hand name itself
           // (Pair, Straight Flush, etc.) should blink -- the rest of
           // the line (who won, how much) stays in its own steady
