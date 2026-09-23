@@ -4026,6 +4026,22 @@ function showWinningHandOnTable(state) {
       const matchIdx = state.board.findIndex(b => b && cardKey(b) === cardKey(card));
       startRect = (matchIdx !== -1 && boardCardEls[matchIdx]) ? boardCardEls[matchIdx].getBoundingClientRect() : slotRect;
     }
+    // Real, confirmed defensive fix per explicit live report (a card
+    // stuck flying to/landing in the bottom-right screen corner,
+    // detached from the table entirely): every lookup above already
+    // has its own fallback, but every one of those fallbacks still
+    // assumes the element it falls back to (winnerSeatEl, or slotRect
+    // itself) is itself genuinely measurable -- if a seat or hole-card
+    // element briefly reports a degenerate rect (zero width/height,
+    // not yet laid out at the exact instant this reads it), the
+    // computed start position silently becomes garbage and the flight
+    // renders wherever that garbage coordinate happens to be, with
+    // nothing catching it. Falls back to the slot's own real, always-
+    // correct position instead whenever the resolved startRect comes
+    // back with no real size -- the card may skip the visual "flight"
+    // in that rare case, but it can never end up parked in a corner
+    // disconnected from the table.
+    if (!startRect || !startRect.width || !startRect.height) startRect = slotRect;
     const startX = startRect.left + startRect.width / 2;
     const startY = startRect.top + startRect.height / 2;
     const endX = slotRect.left + slotRect.width / 2;
