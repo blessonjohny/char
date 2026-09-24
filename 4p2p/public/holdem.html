@@ -1063,6 +1063,19 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .seat-live-dot{position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;border:1.5px solid rgba(0,0,0,0.5);box-shadow:0 0 4px rgba(0,0,0,0.6);z-index:5}
 .seat-live-dot.is-live{background:#2ecc71;box-shadow:0 0 6px rgba(46,204,113,0.8)}
 .seat-live-dot.is-bot{background:#e74c3c;box-shadow:0 0 6px rgba(231,76,60,0.6)}
+/* Real, confirmed live request, PC/Mac only ("double avatar size...
+   lets see how this looks"): (hover: hover) and (pointer: fine) is a
+   real mouse/trackpad, not just a wide screen -- see the JS-side
+   isDesktopPointer comment for the fuller reasoning on why this is
+   safer than a width check (a landscape phone can report the same
+   width as a laptop, but never reports pointer:fine/hover:hover).
+   Placed after every other rule in this stylesheet so it reliably
+   wins over the mobile-landscape sizing above on an actual desktop,
+   regardless of selector order elsewhere. First pass, to look at and
+   adjust from -- not final numbers yet. */
+@media (hover: hover) and (pointer: fine) {
+  body.k28-in-game .seat-avatar-wrap { width: clamp(120px, 19.2vw, 200px); height: clamp(120px, 19.2vw, 200px); }
+}
 </style>
 </head>
 <body>
@@ -1406,7 +1419,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid rgba(244,196,48,0.4);border-radius:16px;padding:24px;width:100%;max-width:360px;text-align:center">
     <div style="color:var(--gold);font-weight:800;font-size:1rem;margin-bottom:10px" id="holdemRestartCountdownTitle">🔁 Restarting tournament</div>
     <div style="color:var(--cream);opacity:0.85;font-size:0.82rem;margin-bottom:14px;line-height:1.5" id="holdemRestartCountdownDetail"></div>
-    <div style="color:var(--gold);font-weight:900;font-size:1.8rem;margin-bottom:18px" id="holdemRestartCountdownNumber">5</div>
+    <div style="color:var(--gold);font-weight:900;font-size:1.8rem;margin-bottom:18px" id="holdemRestartCountdownNumber">10</div>
     <div id="holdemRestartCountdownActions"></div>
   </div>
 </div>
@@ -1450,6 +1463,15 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 </div>
 
 <script>
+// Real, confirmed live request, PC/Mac only ("adjust the avatar size
+// position etc on just for the pc. The phone should be the same"):
+// (hover: hover) and (pointer: fine) is the standard, reliable way to
+// detect an actual mouse/trackpad rather than a touchscreen -- unlike
+// a width check, it can't be fooled by a phone turned sideways into
+// landscape (which can easily report the same width as a laptop, but
+// always still reports pointer:coarse/hover:none). Computed once at
+// load; see seatPositions() and the matching CSS for what it changes.
+const isDesktopPointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 const socket = io();
 let myPos = null, myPlayerId = null, myTableId = null, isHost = false, isRealHost = false;
 // ==================== SOUND + HAPTIC ENGINE ====================
@@ -3392,7 +3414,7 @@ function seatPositions() {
     // whole bottom-center row (0, 1, 8 -- test/you, Bot2, Bot9) was
     // reported sitting noticeably too high ("pushed up... more than a
     // little"), so moved back down by a real amount, not a token one.
-    return [
+    const positions = [
       { x: 48.4, y: 78.3 },  // 0: my own seat
       { x: 29.5, y: 76.9 },  // 1: front-left-of-center
       { x: 13.7, y: 71.3 },  // 2: lower-left
@@ -3403,6 +3425,24 @@ function seatPositions() {
       { x: 83.2, y: 70.1 },  // 7: lower-right (mirrors 2)
       { x: 67.3, y: 77 },    // 8: front-right-of-center (mirrors 1)
     ];
+    // Real, confirmed live request, PC/Mac only ("double avatar size...
+    // pull down the top left and right avatars a little... avatar
+    // right to dealer move a little to right... my avatar a tiny
+    // right... lets see how this looks"): (hover: hover) and
+    // (pointer: fine) is a real mouse/trackpad, not just a wide
+    // screen -- a phone held sideways in landscape can easily report
+    // the same width as a laptop, but always reports pointer:coarse,
+    // hover:none, so this correctly leaves every phone (any
+    // orientation) on the exact positions above and only nudges these
+    // for an actual desktop/laptop browser. First pass, to look at and
+    // adjust from -- not final numbers yet.
+    if (isDesktopPointer) {
+      positions[0].x += 1.2;   // my own seat: a tiny right
+      positions[3].y += 3;     // upper-left: pulled down a little
+      positions[6].y += 3;     // upper-right: pulled down a little
+      positions[5].x += 2.5;   // back-right-of-center: right of the dealer, moved a little right
+    }
+    return positions;
   }
   const positions = [];
   const cx = 50, cy = 50, rx = 42, ry = 40;
