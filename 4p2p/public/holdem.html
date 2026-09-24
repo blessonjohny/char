@@ -208,7 +208,13 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    this UI already carries a calmer, informational meaning) with an
    animated pop-in and a pulsing glow behind it, rather than static
    colored text that just appears. */
-.table-winning-hand-label{font-size:0.92rem;font-weight:900;text-shadow:0 2px 6px rgba(0,0,0,0.95);white-space:nowrap;animation:winLabelPop 0.45s cubic-bezier(.2,1.4,.3,1) both}
+.table-winning-hand-label{font-size:0.92rem;font-weight:900;text-shadow:0 2px 6px rgba(0,0,0,0.95);white-space:nowrap;animation:winLabelPop 0.45s cubic-bezier(.2,1.4,.3,1) both;
+  /* Real, confirmed feature per explicit live report ("that popup like
+     background cuz now the text is camouflage"): same pill treatment
+     as the action-badge popups (dark translucent fill, gold border,
+     blurred backdrop) so the winner text actually stands out against
+     the busy table photo behind it instead of blending in. */
+  display:inline-block;color:#fff;background:rgba(20,16,12,0.72);border:2px solid var(--gold-soft,#c9a44c);border-radius:16px;padding:8px 18px;backdrop-filter:blur(3px);box-shadow:0 3px 10px rgba(0,0,0,0.5)}
 @keyframes winLabelPop{0%{transform:scale(0.3);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1);opacity:1}}
 /* Per explicit live report: the two halves of this line need visibly
    different styling -- who-won-how-much stays in a steady, readable
@@ -219,7 +225,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    bold in roman font bronze color. 100 font bold royal green colour"):
    split the old single gold summary span into two independently
    styled pieces -- the winner's name and the amount they won. */
-.table-winning-hand-label-name{font-family:"Times New Roman", Times, serif;font-weight:900;color:#cd7f32}
+.table-winning-hand-label-name{font-family:"Times New Roman", Times, serif;font-weight:900;color:#cd7f32;font-size:1.18em;text-transform:uppercase}
 .table-winning-hand-label-amount{font-weight:900;color:#146b3a}
 .table-winning-hand-label-handname{color:#ff2b2b;font-weight:900;font-size:1.15em;animation:winLabelBlink 0.9s ease-in-out infinite}
 /* Per explicit request: the hand name (Straight Flush, Full House,
