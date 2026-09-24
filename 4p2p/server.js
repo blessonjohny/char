@@ -5699,6 +5699,21 @@ setInterval(() => {
     if (t.pendingRestart && now >= t.pendingRestart.deadline) {
       t.pendingRestart = null;
       t.engine.restartTournament();
+      // Real, confirmed bug fix per explicit live report ("it's putting
+      // me back to the menu after the countdown... thats it no more
+      // menu"): restartTournament() on its own only resets chips and
+      // leaves phase at 'lobby', which then showed everyone the Table
+      // Lobby screen with its own separate "Start Tournament" button --
+      // an extra manual step nobody asked for after already sitting
+      // through the restart countdown. Immediately starting the first
+      // hand here (same call the manual Start button itself makes)
+      // means the countdown finishing is genuinely the end of it: chips
+      // reset, a dealer's picked, and the next hand is already under
+      // way with no extra menu in between.
+      if (t.engine.occupiedSeats().length >= 2) {
+        t.engine.startHand();
+        pokerMaybeBotAct(t);
+      }
       pokerTouch(t);
       pokerBroadcast(t);
     }
