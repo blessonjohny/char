@@ -310,7 +310,23 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .card-comet-fx{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:-1}
 .card-comet-fx .fireball-glow{position:absolute;left:50%;top:50%;width:220%;height:220%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle, rgba(255,244,214,0.95) 0%, rgba(255,178,60,0.75) 28%, rgba(255,110,30,0.4) 52%, rgba(255,90,20,0) 75%);filter:blur(2px);animation:cardFireballPulse 0.42s ease-in-out infinite;opacity:0}
 .card-comet-fx.flying .fireball-glow{opacity:1}
-.card-comet-fx .comet-tail{position:absolute;left:50%;top:50%;height:14px;margin-top:-7px;transform-origin:0% 50%;border-radius:7px;background:linear-gradient(to right, rgba(255,120,30,0) 0%, rgba(255,150,40,0.55) 35%, rgba(255,210,120,0.9) 80%, rgba(255,244,220,1) 100%);opacity:0}
+/* Real, confirmed fix per explicit live report ("comet looks like a
+   white line... make that a fire trail instead, the fire point should
+   be 10 times bigger the ball point then gradually to the tail
+   point"): two bugs fixed together here. First, the gradient direction
+   was backwards -- 0% (the card/head end, since transform-origin is
+   0% 50% right at the card's own center) was fully transparent while
+   100% (the far end, trailing away) was the brightest, near-white
+   stop, so the one visible part read as a disconnected pale line out
+   at the tip rather than fire coming off the card. Reversed so the
+   hot white-yellow core sits right at the card and fades through
+   orange down to nothing at the tail's far tip. Second, the shape
+   itself was a uniform-height bar the whole way -- clip-path now tapers
+   it from full height at the card end down to a sharp point at the far
+   end (a real flame/comet silhouette, not a rectangle), giving that
+   "10x bigger at the fire point" ratio the width/height itself, not
+   just the color fade. */
+.card-comet-fx .comet-tail{position:absolute;left:50%;top:50%;height:14px;margin-top:-7px;transform-origin:0% 50%;background:linear-gradient(to right, rgba(255,250,230,1) 0%, rgba(255,200,80,0.95) 15%, rgba(255,140,40,0.85) 38%, rgba(255,80,20,0.5) 68%, rgba(255,60,10,0) 100%);clip-path:polygon(0% 0%, 0% 100%, 100% 50%);opacity:0}
 .card-comet-fx.flying .comet-tail{opacity:1;animation:cardCometTailFade linear both}
 .card-comet-fx .comet-burst{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:radial-gradient(circle, rgba(255,250,235,1) 0%, rgba(255,190,90,0.9) 35%, rgba(255,120,40,0.6) 60%, rgba(255,120,40,0) 78%);opacity:0}
 .card-comet-fx .comet-burst.go{animation:cardCometBurst 0.42s cubic-bezier(.2,.7,.3,1) both}
