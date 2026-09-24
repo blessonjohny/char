@@ -230,8 +230,17 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    celebrates around it. */
 .seat.winner-reaction .seat-avatar-wrap{animation:winnerAvatarPop 0.6s cubic-bezier(.3,1.6,.4,1) both}
 .seat.winner-reaction .seat-avatar-wrap::after{content:'';position:absolute;inset:-6px;border-radius:50%;border:3px solid rgba(244,196,48,0.9);opacity:0;animation:winnerRingPulse 1.3s ease-out 0.1s 3}
+/* Real, confirmed feature per explicit live report ("the winning
+   avatar should also glow with that firebird like the fireball"): same
+   warm radial-gradient fireball palette as the flying winning card's
+   own glow (see .card-comet-fx .fireball-glow), sized around the
+   avatar instead. Negative z-index keeps it strictly behind the real
+   avatar image (same trick as the card), so the actual avatar photo
+   stays perfectly clear on top -- only the halo around it is fiery. */
+.seat.winner-reaction .seat-avatar-wrap::before{content:'';position:absolute;inset:-40%;border-radius:50%;background:radial-gradient(circle, rgba(255,244,214,0.95) 0%, rgba(255,178,60,0.75) 28%, rgba(255,110,30,0.4) 52%, rgba(255,90,20,0) 75%);filter:blur(3px);z-index:-1;opacity:0;animation:winnerFireballGlow 1.8s ease-out 0.1s both}
 @keyframes winnerAvatarPop{0%{transform:scale(1)}30%{transform:scale(1.18)}55%{transform:scale(0.96)}100%{transform:scale(1)}}
 @keyframes winnerRingPulse{0%{opacity:0.9;transform:scale(0.9)}100%{opacity:0;transform:scale(1.35)}}
+@keyframes winnerFireballGlow{0%{opacity:0;transform:scale(0.6)}18%{opacity:1;transform:scale(1.12)}45%{opacity:0.95;transform:scale(1)}100%{opacity:0;transform:scale(1.25)}}
 .pot-display{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.5);border:1px solid var(--gold);border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:800;color:var(--gold);z-index:5;white-space:nowrap;display:flex;align-items:center;gap:6px}
 
 /* ---- Visual poker chips ---- */
