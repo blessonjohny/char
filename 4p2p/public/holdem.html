@@ -2362,6 +2362,32 @@ function requestHoldemFullscreen() {
     } catch (e) {}
   }
 }
+// Real, confirmed feature per explicit live report ("on apple if you're
+// on a web page and you push up the address bar and associated stuff
+// will move up and full screen is available in landscape... can we do
+// something just for iPhones"): true fullscreen genuinely isn't
+// available to a regular Safari tab (see the meta tags and install
+// hint above), but Safari's address bar/toolbar DOES still collapse on
+// its own the same way it does when a person manually scrolls the
+// page down slightly -- this is the standard, long-used trick for
+// nudging that collapse programmatically rather than waiting for a
+// real manual scroll: force the document to genuinely be a little
+// taller than the viewport (documentElement.style.height, since some
+// pages -- this one included, being built from position:fixed,
+// inset:0 screens -- have essentially zero natural scrollable height
+// on their own, so there'd be nothing to scroll to otherwise), then
+// scroll down by 1px, which Safari treats the same as a real user
+// scroll for the purposes of collapsing its own chrome. iOS-only:
+// Android browsers get the real, actual Fullscreen API above instead,
+// where collapsing chrome this way isn't needed at all.
+function nudgeIosAddressBarCollapse() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  if (!isIOS) return;
+  document.documentElement.style.height = (window.innerHeight + 1) + 'px';
+  window.scrollTo(0, 1);
+  setTimeout(() => window.scrollTo(0, 1), 300);
+}
+window.addEventListener('load', nudgeIosAddressBarCollapse);
 document.addEventListener('fullscreenchange', () => {
   const btn = $('btnFullscreen');
   if (btn) btn.textContent = (document.fullscreenElement) ? '⛶ Exit' : '⛶';
@@ -2389,6 +2415,11 @@ window.addEventListener('orientationchange', () => {
     if (wasPortraitForAutoFs && isLandscapeNow && myTableId && !document.fullscreenElement && !document.webkitFullscreenElement) {
       requestHoldemFullscreen();
     }
+    // iPhone specifically: requestHoldemFullscreen() above is a no-op
+    // there (Apple restriction, not a bug), so this runs regardless of
+    // whether that call actually did anything, landscape being the
+    // one condition that actually matters for it.
+    if (isLandscapeNow) nudgeIosAddressBarCollapse();
     wasPortraitForAutoFs = !isLandscapeNow;
   }, 200); // orientationchange can fire slightly before innerWidth/innerHeight actually update
 });
