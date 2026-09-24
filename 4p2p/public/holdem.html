@@ -230,7 +230,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      resizing this label can never again affect the cards' position --
      they're no longer sharing any layout calculation at all. */
   position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:8px}
-@keyframes winLabelPop{0%{transform:scale(0.3);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes winLabelPop{0%{transform:translateX(-50%) scale(0.3);opacity:0}60%{transform:translateX(-50%) scale(1.15);opacity:1}100%{transform:translateX(-50%) scale(1);opacity:1}}
 /* Per explicit live report: the two halves of this line need visibly
    different styling -- who-won-how-much stays in a steady, readable
    gold/white tone (this is information, not the celebration), while
