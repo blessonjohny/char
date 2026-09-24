@@ -5543,6 +5543,31 @@ function pokerBroadcast(t) {
     }
     sock.emit('poker_state', state);
   }
+  // Real, confirmed feature per explicit request ("From the admin
+  // panel I should be able to watch the game... same like a viewer
+  // clicking from the view when they join, only difference no
+  // notifications is sent to host... dont see players cards just like
+  // a regular viewer"): admin watchers get the exact same
+  // getStateFor(-1) spectator view a genuine non-seated viewer would
+  // -- -1 never matches a real seat index, so the engine's own
+  // isMe/revealHand logic naturally shows nobody's hole cards except
+  // at a real, legitimate reveal (showdown, all-in), with zero special
+  // casing needed here. They're never added to t.sockets (the actual
+  // seat/player map), which is exactly why nothing elsewhere that
+  // announces a join (the toast, the pending-join-request flow, seat
+  // counts) ever fires for them -- structurally silent, not just
+  // suppressed.
+  if (t.adminWatchers && t.adminWatchers.size) {
+    const spectatorState = t.engine.getStateFor(-1);
+    spectatorState.isHost = false;
+    spectatorState.isRealHost = false;
+    spectatorState.isAdminWatch = true;
+    for (const socketId of t.adminWatchers) {
+      const sock = io.sockets.sockets.get(socketId);
+      if (!sock) { t.adminWatchers.delete(socketId); continue; }
+      sock.emit('poker_state', spectatorState);
+    }
+  }
   io.emit('poker_roomList', pokerPublicTableList());
 }
 
@@ -5723,6 +5748,15 @@ setInterval(() => {
 io.on('connection', (socket) => {
   let pokerTableId = null;
   let pokerPlayerId = null;
+  // Real, confirmed feature per explicit request ("From the admin
+  // panel I should be able to watch the game... only difference no
+  // notifications is sent to host, its the admin view only for
+  // admin"): tracked completely separately from pokerTableId/
+  // pokerPlayerId above -- an admin watcher is never seated and never
+  // touches t.sockets (the real player/seat map) at all, so nothing
+  // that keys off that map (join/leave notices, seat counts, host
+  // migration, kick, etc.) can ever see or be affected by them.
+  let pokerAdminWatchTableId = null;
 
   function withPokerTable(fn) {
     const t = pokerTables[pokerTableId];
@@ -5733,6 +5767,32 @@ io.on('connection', (socket) => {
   }
 
   socket.on('poker_listRooms', () => socket.emit('poker_roomList', pokerPublicTableList()));
+
+  socket.on('poker_adminWatch', ({ tableId, adminPassword }) => {
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) { socket.emit('poker_adminWatchResult', { ok: false, reason: auth.reason }); return; }
+    const t = pokerTables[tableId];
+    if (!t) { socket.emit('poker_adminWatchResult', { ok: false, reason: 'not_found' }); return; }
+    t.adminWatchers = t.adminWatchers || new Set();
+    t.adminWatchers.add(socket.id);
+    pokerAdminWatchTableId = tableId;
+    socket.emit('poker_adminWatchResult', { ok: true, tableId });
+    // Sends this one socket an immediate snapshot rather than making it
+    // wait for the next unrelated broadcast -- same spectator-safe
+    // getStateFor(-1) view pokerBroadcast's own admin-watcher loop uses.
+    const spectatorState = t.engine.getStateFor(-1);
+    spectatorState.isHost = false;
+    spectatorState.isRealHost = false;
+    spectatorState.isAdminWatch = true;
+    socket.emit('poker_state', spectatorState);
+    console.log(`[poker] admin started watching table ${tableId}`);
+  });
+  socket.on('poker_adminStopWatch', () => {
+    if (!pokerAdminWatchTableId) return;
+    const t = pokerTables[pokerAdminWatchTableId];
+    if (t && t.adminWatchers) t.adminWatchers.delete(socket.id);
+    pokerAdminWatchTableId = null;
+  });
 
   socket.on('poker_createTable', ({ name, mode, buyInType, smallBlind, bigBlind, startingChips, reloadChips, avatar }) => {
     const tableId = newPokerTableId();
@@ -6187,6 +6247,16 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', (reason) => {
+    // Real, confirmed feature per the same admin-watch request above:
+    // cleans up the watcher registration independently of the real
+    // player disconnect handling just below -- an admin watcher was
+    // never in t.sockets, so none of that logic (seat state, host
+    // migration, etc.) applies to or needs to run for them at all.
+    if (pokerAdminWatchTableId) {
+      const wt = pokerTables[pokerAdminWatchTableId];
+      if (wt && wt.adminWatchers) wt.adminWatchers.delete(socket.id);
+      pokerAdminWatchTableId = null;
+    }
     if (!pokerTableId) return;
     const t = pokerTables[pokerTableId];
     if (!t) return;
