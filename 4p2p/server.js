@@ -5526,6 +5526,21 @@ function pokerBroadcast(t) {
         youClicked: !!(t.engine.seats[info.pos] && clicked.has(t.engine.seats[info.pos].playerId)),
       };
     }
+    // Real, confirmed feature per explicit request (see
+    // poker_hostRequestRestart above): deliberately sends the raw
+    // deadline timestamp rather than a pre-computed "secondsLeft" --
+    // the client ticks its own local countdown display off this, so it
+    // stays smooth between broadcasts instead of only updating whenever
+    // the next unrelated state happens to arrive.
+    if (t.pendingRestart) {
+      state.pendingRestart = {
+        deadline: t.pendingRestart.deadline,
+        requestedByName: t.pendingRestart.requestedByName,
+        isRequester: info.playerId === t.hostPlayerId,
+        confirmedCount: t.pendingRestart.confirmedBy.size,
+        youConfirmed: t.pendingRestart.confirmedBy.has(info.playerId),
+      };
+    }
     sock.emit('poker_state', state);
   }
   io.emit('poker_roomList', pokerPublicTableList());
@@ -5670,6 +5685,23 @@ setInterval(() => {
   }
 }, 5000);
 
+// Real, confirmed feature per explicit request (see poker_hostRequestRestart
+// above for the fuller reasoning): a 1-second sweep so the countdown
+// actually executes close to on time -- separate from the 5-second reload
+// sweep above since a restart countdown genuinely needs second-level
+// precision, not just eventual consistency.
+setInterval(() => {
+  const now = Date.now();
+  for (const t of Object.values(pokerTables)) {
+    if (t.pendingRestart && now >= t.pendingRestart.deadline) {
+      t.pendingRestart = null;
+      t.engine.restartTournament();
+      pokerTouch(t);
+      pokerBroadcast(t);
+    }
+  }
+}, 1000);
+
 io.on('connection', (socket) => {
   let pokerTableId = null;
   let pokerPlayerId = null;
@@ -5698,7 +5730,15 @@ io.on('connection', (socket) => {
     engine.seatHuman(0, String(name || 'Host').slice(0, 20), playerId, sanitizeAvatarKey(avatar));
     const t = {
       engine, creatorName: name || 'Host', hostPlayerId: playerId,
-      sockets: new Map(), createdAt: Date.now(), lastActivityAt: Date.now()
+      sockets: new Map(), createdAt: Date.now(), lastActivityAt: Date.now(),
+      // Real, confirmed feature per explicit request ("restart tournament
+      // that menu hit restart... generic popup... it should restart
+      // countdown and ask one more real person... if no one present just
+      // restart, 5 sec countdown, if 2nd click ok 3 sec countdown"): null
+      // when no restart is pending; otherwise { deadline, confirmedBy,
+      // requestedByName } -- see pokerRequestRestart/pokerConfirmRestart
+      // and the 1s sweep below that actually executes it at deadline.
+      pendingRestart: null,
     };
     recordSeatedHuman(t, String(name || 'Host').slice(0, 20), socket.id);
     pokerTables[tableId] = t;
@@ -5943,10 +5983,49 @@ io.on('connection', (socket) => {
   // new one. The admin-panel REST endpoints added earlier are left
   // fully in place alongside these, per explicit "don't delete" --
   // this is an addition, not a replacement.
-  socket.on('poker_hostRestart', () => {
+  // Real, confirmed feature per explicit request ("restart tournament
+  // that menu hit restart... generic popup... it should restart
+  // countdown and ask one more real person to say ok, if no one present
+  // just restart tournament a 5 sec countdown, if 2nd click ok 3 sec
+  // countdown start"): restarting is no longer instant. The host
+  // requesting it starts a 5-second countdown (broadcast to everyone at
+  // the table, see pendingRestart in pokerBroadcast below); any OTHER
+  // real, non-host player at the table can confirm it early, which
+  // shortens the remaining countdown to 3 seconds instead of waiting out
+  // the full 5. If nobody else is even there to confirm, it just runs
+  // out the base 5-second countdown on its own and restarts -- the
+  // countdown itself is the "no one present" case, not a separate path.
+  socket.on('poker_hostRequestRestart', () => {
     withPokerTable((t) => {
       if (!isEffectiveHost(t, pokerPlayerId)) return;
-      t.engine.restartTournament();
+      if (t.pendingRestart) return; // already counting down -- ignore a repeat click
+      const hostSeat = t.engine.seats.find(s => s && s.playerId === t.hostPlayerId);
+      t.pendingRestart = {
+        deadline: Date.now() + 5000,
+        confirmedBy: new Set(),
+        requestedByName: hostSeat ? hostSeat.name : 'The host',
+      };
+      pokerTouch(t);
+      pokerBroadcast(t);
+    });
+  });
+  socket.on('poker_confirmRestart', () => {
+    withPokerTable((t) => {
+      if (!t.pendingRestart) return;
+      if (pokerPlayerId === t.hostPlayerId) return; // the requester isn't a separate confirmation
+      if (t.pendingRestart.confirmedBy.has(pokerPlayerId)) return;
+      t.pendingRestart.confirmedBy.add(pokerPlayerId);
+      const threeSecFromNow = Date.now() + 3000;
+      if (t.pendingRestart.deadline > threeSecFromNow) t.pendingRestart.deadline = threeSecFromNow;
+      pokerTouch(t);
+      pokerBroadcast(t);
+    });
+  });
+  socket.on('poker_cancelRestart', () => {
+    withPokerTable((t) => {
+      if (!isEffectiveHost(t, pokerPlayerId)) return;
+      if (!t.pendingRestart) return;
+      t.pendingRestart = null;
       pokerTouch(t);
       pokerBroadcast(t);
     });
@@ -6030,6 +6109,15 @@ io.on('connection', (socket) => {
   socket.on('poker_leaveTable', () => {
     let shouldClose = false;
     withPokerTable((t, pos) => {
+      // Real, confirmed feature per explicit live report ("when user
+      // leaves the table there is no message"): every other real
+      // player at the table now gets the same toast-style notice the
+      // join side already has (poker_playerJoinedNotice) -- captured
+      // before removeSeat wipes this seat's data, and sent to
+      // everyone else still in the room, mirroring the exact pattern
+      // used for joins just above in this file.
+      const leavingName = t.engine.seats[pos] ? t.engine.seats[pos].name : 'A player';
+      socket.to('poker_' + pokerTableId).emit('poker_playerLeftNotice', { name: leavingName });
       t.engine.removeSeat(pos);
       t.sockets.delete(socket.id);
       socket.leave('poker_' + pokerTableId);
