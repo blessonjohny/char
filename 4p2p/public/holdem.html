@@ -196,7 +196,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    means the container's own position never moves regardless of what
    its children are doing.
 */
-.table-winning-hand-cards{display:flex;justify-content:center;gap:4px;margin-bottom:6px;position:relative;height:48px;width:186px;margin-left:auto;margin-right:auto}
+.table-winning-hand-cards{display:flex;justify-content:center;gap:4px;margin-bottom:14px;position:relative;height:48px;width:186px;margin-left:auto;margin-right:auto}
 /* Invisible placeholder used only to measure each card's own real
    final landing spot before it starts flying there -- never actually
    seen, since it's swapped for the real card face the instant that
@@ -214,7 +214,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      as the action-badge popups (dark translucent fill, gold border,
      blurred backdrop) so the winner text actually stands out against
      the busy table photo behind it instead of blending in. */
-  display:inline-block;color:#fff;background:rgba(20,16,12,0.72);border:2px solid var(--gold-soft,#c9a44c);border-radius:16px;padding:8px 18px;backdrop-filter:blur(3px);box-shadow:0 3px 10px rgba(0,0,0,0.5)}
+  display:inline-block;color:#fff;background:rgba(20,16,12,0.72);border:2px solid var(--gold-soft,#c9a44c);border-radius:16px;padding:8px 18px;backdrop-filter:blur(3px);box-shadow:0 3px 10px rgba(0,0,0,0.5);
+  /* Real, confirmed feature per explicit follow-up ("needs to sit
+     right below the bottom displayed cards, dont overlap"): the pill's
+     own padding/border made it taller than the plain text it replaced,
+     so the small original gap to the cards row above was no longer
+     enough -- margin-top here plus the matching margin-bottom increase
+     on .table-winning-hand-cards above gives it real breathing room. */
+  margin-top:6px}
 @keyframes winLabelPop{0%{transform:scale(0.3);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1);opacity:1}}
 /* Per explicit live report: the two halves of this line need visibly
    different styling -- who-won-how-much stays in a steady, readable
