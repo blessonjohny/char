@@ -259,6 +259,27 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    some real weight/impact, not just silently appearing. */
 .card.dealt-card-pop{animation:dealtCardPop .38s cubic-bezier(.34,1.56,.64,1) both}
 @keyframes dealtCardPop{0%{transform:scale(0.4);opacity:0.4;}55%{transform:scale(1.22);opacity:1;}100%{transform:scale(1);opacity:1;}}
+/* Real, confirmed feature per explicit live report ("when that card
+   starts it should appear like a fireball with the card leaving a
+   comet-like trail and exploding at the table, and the card appears
+   clear/design"): the glow/tail/burst are all separate elements
+   layered UNDER the card's own face (lower z-index, and the card
+   itself gets no filter/opacity dimming at any point) so the actual
+   rank/suit stay perfectly crisp and legible throughout -- only the
+   decoration around the card is fiery, never the card content itself.
+   All three are children of the flying card element itself, so they
+   automatically travel with it via the card's own existing translate()
+   transform with zero extra position tracking. */
+.card-comet-fx{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:-1}
+.card-comet-fx .fireball-glow{position:absolute;left:50%;top:50%;width:220%;height:220%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle, rgba(255,244,214,0.95) 0%, rgba(255,178,60,0.75) 28%, rgba(255,110,30,0.4) 52%, rgba(255,90,20,0) 75%);filter:blur(2px);animation:cardFireballPulse 0.42s ease-in-out infinite;opacity:0}
+.card-comet-fx.flying .fireball-glow{opacity:1}
+.card-comet-fx .comet-tail{position:absolute;left:50%;top:50%;height:14px;margin-top:-7px;transform-origin:0% 50%;border-radius:7px;background:linear-gradient(to right, rgba(255,120,30,0) 0%, rgba(255,150,40,0.55) 35%, rgba(255,210,120,0.9) 80%, rgba(255,244,220,1) 100%);opacity:0}
+.card-comet-fx.flying .comet-tail{opacity:1;animation:cardCometTailFade linear both}
+.card-comet-fx .comet-burst{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:radial-gradient(circle, rgba(255,250,235,1) 0%, rgba(255,190,90,0.9) 35%, rgba(255,120,40,0.6) 60%, rgba(255,120,40,0) 78%);opacity:0}
+.card-comet-fx .comet-burst.go{animation:cardCometBurst 0.42s cubic-bezier(.2,.7,.3,1) both}
+@keyframes cardFireballPulse{0%,100%{opacity:0.85;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}}
+@keyframes cardCometTailFade{0%{opacity:0.95}75%{opacity:0.5}100%{opacity:0}}
+@keyframes cardCometBurst{0%{opacity:1;transform:translate(-50%,-50%) scale(0.3)}55%{opacity:0.85}100%{opacity:0;transform:translate(-50%,-50%) scale(5.5)}}
 
 /* ---- Flying chip pot-payout animation ---- */
 /* Per explicit live report: same flat-coin problem as .chip above --
@@ -3943,7 +3964,20 @@ function showWinningHandOnTable(state) {
     setTimeout(() => {
       const card1 = document.createElement('div');
       card1.className = `card ${suitClassFor(card.suit)}`;
-      card1.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
+      card1.style.position = 'relative';
+      // Real, confirmed feature per explicit live report ("when that
+      // card starts it should appear like a fireball with the card
+      // leaving a comet-like train and exploding at the table, and the
+      // card appears clear/design"): these three FX elements are
+      // children of the card itself, layered behind it via negative
+      // z-index (see .card-comet-fx's CSS) -- the fireball glow and
+      // comet tail automatically travel along with the card's own
+      // existing translate() transform with no separate position
+      // tracking of their own, and the actual rank/suit content below
+      // is never dimmed, blurred, or tinted by any of it, so the card
+      // face itself always reads perfectly crisp and clear, only the
+      // decoration around it is fiery.
+      card1.innerHTML = `<div class="card-comet-fx"><div class="fireball-glow"></div><div class="comet-tail"></div><div class="comet-burst"></div></div><div>${card.rank}</div><div>${card.suit}</div>`;
       cardsContainer.appendChild(card1);
       // Real layout position now genuinely exists -- measure it AFTER
       // it's really in the row, so this is the browser's own actual
@@ -3965,6 +3999,9 @@ function showWinningHandOnTable(state) {
         const matchIdx = state.board.findIndex(b => b && cardKey(b) === cardKey(card));
         sourceRect = (matchIdx !== -1 && boardCardEls2[matchIdx]) ? boardCardEls2[matchIdx].getBoundingClientRect() : null;
       }
+      const cometFx = card1.querySelector('.card-comet-fx');
+      const tailEl = card1.querySelector('.comet-tail');
+      const burstEl = card1.querySelector('.comet-burst');
       // Defensive: any degenerate (zero-sized) or missing source just
       // skips the visual flight for this one card -- it still lands
       // correctly and instantly, since its real position was never in
@@ -3975,27 +4012,24 @@ function showWinningHandOnTable(state) {
         const dx = sourceCenterX - finalCenterX;
         const dy = sourceCenterY - finalCenterY;
         const startScale = Math.max(0.3, Math.min(1, sourceRect.height / finalRect.height));
-        // Real, confirmed feature per explicit live report ("flying
-        // animation is awesome, make it a little slow with a trail
-        // comet tail, that tail small end should be the user"):
-        // slowed from 0.55s to 0.85s, and a separate, purely
-        // decorative trail element is added alongside the card --
-        // position:fixed like the old flight used to be, but since
-        // it's only ever a visual flourish (never the thing carrying
-        // the actual card data or determining where it lands), even a
-        // stale measurement here can only ever make the trail slightly
-        // off, never the card itself, which still always lands in its
-        // own real, robust layout slot regardless.
         const distance = Math.sqrt(dx * dx + dy * dy);
         const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
         const FLIGHT_MS = 850;
-        if (distance > 4) {
-          const tail = document.createElement('div');
-          tail.style.cssText = `position:fixed;left:${finalCenterX}px;top:${finalCenterY}px;width:${distance}px;height:10px;margin-top:-5px;transform-origin:0% 50%;transform:rotate(${angleDeg}deg) scaleX(1);background:linear-gradient(to right, rgba(255,235,180,0.85), rgba(255,235,180,0));border-radius:5px;z-index:1840;pointer-events:none;opacity:0.9;transition:opacity ${FLIGHT_MS}ms ease;`;
-          document.body.appendChild(tail);
-          requestAnimationFrame(() => { tail.style.opacity = '0'; });
-          setTimeout(() => tail.remove(), FLIGHT_MS + 60);
+        // Comet tail: anchored at the card's own center, pointing back
+        // toward the source it came from (the same angle already used
+        // for the old fixed-position tail), fixed at a moderate length
+        // (capped, not the full source-to-destination distance -- a
+        // real comet's visible tail doesn't stretch the entire flight
+        // path) and fading out via cardCometTailFade over the same
+        // duration as the flight, so it visibly burns away as the card
+        // arrives rather than just vanishing abruptly.
+        if (distance > 4 && tailEl) {
+          const tailLen = Math.min(distance * 0.6, 90);
+          tailEl.style.width = tailLen + 'px';
+          tailEl.style.transform = `rotate(${angleDeg}deg)`;
+          tailEl.style.animationDuration = FLIGHT_MS + 'ms';
         }
+        if (cometFx) cometFx.classList.add('flying');
         card1.style.transition = 'none';
         card1.style.transform = `translate(${dx}px, ${dy}px) scale(${startScale})`;
         card1.style.opacity = '0.75';
@@ -4008,6 +4042,12 @@ function showWinningHandOnTable(state) {
         setTimeout(() => {
           card1.style.transition = '';
           card1.classList.add('dealt-card-pop');
+          // Landing: the fireball/tail cut off immediately and a quick
+          // radial burst "explodes" at the card's real resting spot,
+          // then fades away on its own -- leaving just the plain, crisp
+          // card face behind, nothing fiery lingering on top of it.
+          if (cometFx) cometFx.classList.remove('flying');
+          if (burstEl) burstEl.classList.add('go');
         }, FLIGHT_MS + 10);
       } else {
         card1.classList.add('dealt-card-pop');
