@@ -3437,7 +3437,7 @@ function seatPositions() {
     // for an actual desktop/laptop browser. First pass, to look at and
     // adjust from -- not final numbers yet.
     if (isDesktopPointer) {
-      positions[0].x += 1.2;   // my own seat: a tiny right
+      positions[0].x += 0.5;   // my own seat: nudged right, less than before (1.2 overshot past the stool's center)
       positions[3].y += 3;     // upper-left: pulled down a little
       positions[6].y += 3;     // upper-right: pulled down a little
       positions[5].x += 2.5;   // back-right-of-center: right of the dealer, moved a little right
@@ -3458,6 +3458,28 @@ function renderGameTable(state) {
   showScreen('gameScreen');
   ensureSoundMuteButton();
   maybeSuggestTilt();
+  // Real, confirmed bug fix per explicit live report ("before dealing i
+  // see my hand cards already... I shouldn't be seeing that card early,
+  // only when dealer deals"): this exact check-and-trigger already
+  // existed further down in this function (still there, now a
+  // harmless no-op repeat for this same hand since lastDealAnimatedFor
+  // is already updated by the time it runs again) -- but everything
+  // that reads dealtCardCountForHandNumber to decide whether to hide
+  // an in-progress deal (both this seat loop's isMidDeal below and my
+  // own hand strip's myIsMidDeal further down) runs BEFORE that
+  // original trigger did. On the very first render of a freshly-dealt
+  // hand, that meant dealtCardCountForHandNumber still held the
+  // PREVIOUS hand's number for this entire render pass, so the
+  // mid-deal check never matched and the real, complete hand rendered
+  // immediately, in full, before the dealer's own flying-card
+  // animation had shown a single card. Moved the trigger itself here,
+  // ahead of every place that depends on it, so the very first render
+  // of a new hand already knows to hide everything until it's actually
+  // been dealt.
+  if (state.handNumber !== lastDealAnimatedFor && state.seats.some(s => s && s.hand && s.hand.length)) {
+    lastDealAnimatedFor = state.handNumber;
+    animateDealingCards(state);
+  }
   $('handNumDisplay').textContent = 'Hand ' + state.handNumber;
   $('blindsDisplay').textContent = state.smallBlind + '/' + state.bigBlind + (state.buyInType === 'fixed' ? ' fixed' : ' NL') + (state.mode === 'tournament' ? ` · Level ${(state.blindLevel || 0) + 1}` : '');
   const potTotal = state.pots.reduce((s, p) => s + p.amount, 0);
@@ -3718,24 +3740,16 @@ function renderGameTable(state) {
     if ($('tableWinningHand')) $('tableWinningHand').classList.remove('on');
     if (tableWinningHandClearTimer) { clearTimeout(tableWinningHandClearTimer); tableWinningHandClearTimer = null; }
     // Per explicit request: the dealer visibly deals to each player
-    // the moment a fresh hand's hole cards actually arrive -- checked
-    // here (seat positions haven't been re-rendered yet this cycle, so
-    // measuring them now still reflects last hand's positions, which
-    // are the same positions this hand uses too) rather than after,
-    // since the flying sprites need real coordinates to animate
-    // between.
-    if (state.handNumber !== lastDealAnimatedFor && state.seats.some(s => s && s.hand && s.hand.length)) {
-      lastDealAnimatedFor = state.handNumber;
-      animateDealingCards(state);
-      // Real, confirmed additional safety net for the same root-cause
-      // fix as renderStreetBanner's boardLen >= 3 change above: new
-      // hole cards actually being dealt is an even earlier, more
-      // fundamental signal that a new hand has genuinely started than
-      // "the board reached 3 cards" is -- clears the previous hand's
-      // stale winner banner right here too, well before any betting
-      // on the new hand even begins, as a second, independent
-      // guarantee against it ever lingering into a hand it no longer
-      // describes.
+    // the moment a fresh hand's hole cards actually arrive -- this
+    // used to be triggered right here, but that ran too late (after
+    // the seat loop and my-hand-strip code below had already read
+    // dealtCardCountForHandNumber for this render), so the trigger
+    // itself moved to the very top of this function instead -- see the
+    // comment there. What's left here is just the other cleanup that
+    // genuinely does belong at this point in a fresh hand: an extra,
+    // independent safety net clearing any stale winner banner from the
+    // previous hand, well before this new hand's own betting begins.
+    if (state.seats.some(s => s && s.hand && s.hand.length)) {
       const wbEl = $('winnerBanner');
       if (wbEl) wbEl.style.display = 'none';
     }
