@@ -2,7 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- Real, confirmed bug fix per explicit live report ("apple phone his
+     view on landscape even after pressing the full view showed
+     address bar"): this page was missing the same apple-mobile-web-
+     app-capable tags index.html already has. iOS Safari genuinely
+     cannot hide its own address bar via the Fullscreen API for a
+     regular browser tab -- Apple restricts that outright, not a bug
+     in this code -- "Add to Home Screen" launching as a standalone
+     app is the only real way to get a truly chrome-free view on
+     iPhone, and these tags are what make that possible at all. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hold'em — 28 Kerala Gulan">
 <title>Texas Hold'em — 28 Kerala Gulan</title>
 <meta name="description" content="Play Texas Hold'em Poker online free — 9-player tables, cash games, live multiplayer, no download. Play poker online with friends or strangers, straight from your browser.">
 <meta name="keywords" content="texas holdem, play poker online, poker online free, holdem online, play cards online, free poker, multiplayer poker, online poker rooms, poker no download">
@@ -1493,6 +1505,38 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 // always still reports pointer:coarse/hover:none). Computed once at
 // load; see seatPositions() and the matching CSS for what it changes.
 const isDesktopPointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+// Real, confirmed feature per explicit live report ("apple phone his
+// view on landscape even after pressing the full view showed address
+// bar"): iOS Safari does not let any web page hide its own browser
+// chrome via JavaScript, on principle -- Apple restricts the
+// Fullscreen API on iPhone specifically, so requestHoldemFullscreen()
+// above silently does nothing there no matter what. The one real way
+// to get the same chrome-free, full-screen feel on iPhone is "Add to
+// Home Screen" (the apple-mobile-web-app-capable meta tag added to
+// <head> makes that launch standalone, with no Safari bars at all) --
+// so rather than stay silent about a feature that just doesn't work
+// for them, this shows a single, dismissible, one-time tip pointing at
+// the actual fix. Ported verbatim from index.html's identical
+// maybeShowIosInstallHint, which this page never had. Only shown to
+// genuine iPhone/iPad Safari visitors who haven't already installed it
+// (standalone mode is detectable) and haven't seen the tip before.
+function maybeShowHoldemIosInstallHint(){
+  try {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+    if (!isIOS || !isSafari || isStandalone) return;
+    if (sessionStorage.getItem('holdem_seenIosInstallHint')) return;
+    sessionStorage.setItem('holdem_seenIosInstallHint', '1');
+  } catch (e) { return; }
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);max-width:320px;width:calc(100% - 32px);background:rgba(20,20,30,0.97);border:1px solid rgba(244,196,48,0.5);border-radius:14px;padding:14px 16px;z-index:3000;box-shadow:0 8px 24px rgba(0,0,0,0.5);text-align:left;color:#fff;font-size:0.85rem;line-height:1.4';
+  el.innerHTML = `📱 For a full-screen, app-like table with no Safari bars: tap <b>Share</b> ⬆️ then <b>Add to Home Screen</b>.
+    <div style="text-align:right;margin-top:8px"><button id="iosHintDismissHoldem" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.8);font-size:0.8rem">Got it</button></div>`;
+  document.body.appendChild(el);
+  document.getElementById('iosHintDismissHoldem').addEventListener('click', () => el.remove());
+}
+maybeShowHoldemIosInstallHint();
 const socket = io();
 let myPos = null, myPlayerId = null, myTableId = null, isHost = false, isRealHost = false;
 let isAdminWatchMode = false;
@@ -2294,7 +2338,29 @@ function requestHoldemFullscreen() {
   }
   const el = document.documentElement;
   const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-  if (req) { try { req.call(el).catch(() => {}); } catch (e) {} }
+  // Real, confirmed bug fix per explicit live report (Dolphin browser
+  // not auto-rotating to landscape even after tapping this button):
+  // this used to only ever call requestFullscreen() and stop there --
+  // a completely separate function elsewhere in this file
+  // (attemptFullscreenLandscape, used for the host's Start Hand click
+  // and a guest's first tap) already correctly follows a successful
+  // fullscreen entry with screen.orientation.lock('landscape'), which
+  // is what actually asks the browser to rotate the view. The visible
+  // button here was simply never given that same second step. Most
+  // mobile Chromium-based browsers (Dolphin included) only allow the
+  // orientation lock to succeed once already in fullscreen, which is
+  // why this is sequenced after, not instead of, the fullscreen call.
+  if (req) {
+    try {
+      const result = req.call(el);
+      const fsPromise = (result && result.then) ? result : Promise.resolve();
+      fsPromise.catch(() => {}).then(() => {
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
+        }
+      });
+    } catch (e) {}
+  }
 }
 document.addEventListener('fullscreenchange', () => {
   const btn = $('btnFullscreen');
