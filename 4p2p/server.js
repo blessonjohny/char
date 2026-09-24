@@ -5536,7 +5536,7 @@ function pokerBroadcast(t) {
       state.pendingRestart = {
         deadline: t.pendingRestart.deadline,
         requestedByName: t.pendingRestart.requestedByName,
-        isRequester: info.playerId === t.hostPlayerId,
+        isRequester: info.playerId === t.pendingRestart.requestedByPlayerId,
         confirmedCount: t.pendingRestart.confirmedBy.size,
         youConfirmed: t.pendingRestart.confirmedBy.has(info.playerId),
       };
@@ -5634,11 +5634,14 @@ function pokerMaybeAutoDeal(t) {
   // winning-hand screen forever.
   t.pokerContinueClickedBy = new Set();
   if (t.pokerAutoDealSafetyTimer) clearTimeout(t.pokerAutoDealSafetyTimer);
+  // Real, confirmed feature per explicit request ("waiting for others
+  // to start next hand make it default 10 sec, all default start
+  // should be 10 sec"): shortened from the original 45s.
   t.pokerAutoDealSafetyTimer = setTimeout(() => {
     if (!pokerTables[t.engine.tableId]) return;
     if (t.engine.phase !== 'handEnd') return;
     pokerAdvanceToNextHand(t);
-  }, 45000);
+  }, 10000);
 }
 
 function pokerRealPlayerCount(t) {
@@ -5992,18 +5995,38 @@ io.on('connection', (socket) => {
   // the table, see pendingRestart in pokerBroadcast below); any OTHER
   // real, non-host player at the table can confirm it early, which
   // shortens the remaining countdown to 3 seconds instead of waiting out
-  // the full 5. If nobody else is even there to confirm, it just runs
-  // out the base 5-second countdown on its own and restarts -- the
+  // the full default. If nobody else is even there to confirm, it just
+  // runs out the base default countdown on its own and restarts -- the
   // countdown itself is the "no one present" case, not a separate path.
+  // Real, confirmed feature per explicit follow-up ("all default start
+  // should be 10 sec"): the base default raised from 5s to 10s; the
+  // 3s confirmed-early shortcut is unchanged.
+  // Real, confirmed root-cause fix per explicit live report ("a non
+  // host tried to restart tournament and got literally end up nowhere
+  // ... a non host can also create or restart a tournament"): the
+  // request/confirm gating here (isEffectiveHost) is deliberately
+  // broad -- ANY connected real player at the table can request a
+  // restart here, same as they already can kick or set an avatar via
+  // the Host Menu, not just the one original creator. That part was
+  // always fine. The actual bug was downstream: "requester" was being
+  // tracked as literally t.hostPlayerId everywhere below, so when a
+  // real but non-original-host player successfully requested a
+  // restart, THEIR OWN client would see isRequester:false (since they
+  // aren't t.hostPlayerId) and get shown the bystander's "OK, restart
+  // now" screen instead of their own "Cancel" screen -- exactly the
+  // dead-end confusion reported. Now stores exactly who actually made
+  // THIS request (requestedByPlayerId) and every check below compares
+  // against that, not the table's original creator.
   socket.on('poker_hostRequestRestart', () => {
     withPokerTable((t) => {
       if (!isEffectiveHost(t, pokerPlayerId)) return;
       if (t.pendingRestart) return; // already counting down -- ignore a repeat click
-      const hostSeat = t.engine.seats.find(s => s && s.playerId === t.hostPlayerId);
+      const requesterSeat = t.engine.seats.find(s => s && s.playerId === pokerPlayerId);
       t.pendingRestart = {
-        deadline: Date.now() + 5000,
+        deadline: Date.now() + 10000,
         confirmedBy: new Set(),
-        requestedByName: hostSeat ? hostSeat.name : 'The host',
+        requestedByPlayerId: pokerPlayerId,
+        requestedByName: requesterSeat ? requesterSeat.name : 'A player',
       };
       pokerTouch(t);
       pokerBroadcast(t);
@@ -6012,7 +6035,7 @@ io.on('connection', (socket) => {
   socket.on('poker_confirmRestart', () => {
     withPokerTable((t) => {
       if (!t.pendingRestart) return;
-      if (pokerPlayerId === t.hostPlayerId) return; // the requester isn't a separate confirmation
+      if (pokerPlayerId === t.pendingRestart.requestedByPlayerId) return; // the requester isn't a separate confirmation
       if (t.pendingRestart.confirmedBy.has(pokerPlayerId)) return;
       t.pendingRestart.confirmedBy.add(pokerPlayerId);
       const threeSecFromNow = Date.now() + 3000;
