@@ -1075,6 +1075,26 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    adjust from -- not final numbers yet. */
 @media (hover: hover) and (pointer: fine) {
   body.k28-in-game .seat-avatar-wrap { width: clamp(120px, 19.2vw, 200px); height: clamp(120px, 19.2vw, 200px); }
+  /* Real, confirmed feature per explicit follow-up ("now my dealer
+     size, did u fix any?"): this was a genuine miss the first time --
+     only the player seats got doubled, the dealer figure itself was
+     left at its original mobile size. Same doubling treatment, same
+     clamp ratio, applied to .house-dealer here. */
+  body.k28-in-game .house-dealer { width: clamp(144px, 23.2vw, 240px); height: clamp(144px, 23.2vw, 240px); }
+  /* Real, confirmed feature per explicit request ("make the cards a
+     little bigger too my cards.. and make all the cards including
+     other players same size as mine.. this for pc only"): my own
+     hand-strip cards sized up about 30% from the mobile-landscape
+     40x57 base, then every other card context (other seats' cards,
+     the community board, the winning-hand row) set to that exact same
+     size so nothing looks mismatched next to my own. Placed after
+     both existing mobile-landscape card-size breakpoints (the normal
+     one and the short-height one further down) so this reliably wins
+     on an actual desktop regardless of window height. */
+  body.k28-in-game .hand-strip .card { width: 52px; height: 74px; font-size: 1.24rem; }
+  body.k28-in-game .seat-cards .card.mini { width: 52px; height: 74px; font-size: 1.24rem; }
+  body.k28-in-game .board-area .card { width: 52px; height: 74px; font-size: 1.24rem; }
+  body.k28-in-game .table-winning-hand-cards .card { width: 52px; height: 74px; font-size: 1.24rem; }
 }
 </style>
 </head>
