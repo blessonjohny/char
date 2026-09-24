@@ -27,6 +27,20 @@
 -->
 <html lang="en">
 <head>
+<script>
+// Real, confirmed bug fix found during admin-watch feature testing:
+// this flag must be set as early as absolutely possible in the page's
+// lifecycle -- several unrelated things later in this file (the
+// "what's new" announcement popup, the auth-screen DOMContentLoaded
+// race, etc.) run and create/show their own overlays well before the
+// actual admin-watch bootstrap script (way down near </body>, since it
+// depends on functions/globals only defined by then) ever gets a
+// chance to run. Setting just this one flag here, right at the very
+// top of <head> before anything else on the page executes, lets every
+// one of those later pieces check it and skip themselves accordingly,
+// without needing to move or duplicate any of that logic.
+window.__isAdminWatchMode = new URLSearchParams(window.location.search).has('adminWatch');
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <!-- Lets this be added to an iPhone's home screen as a proper chrome-free
@@ -15911,6 +15925,19 @@ showModal = function(title, text) {
 
 // ==================== INIT ====================
 window.addEventListener('DOMContentLoaded', async () => {
+  // Real, confirmed bug fix per explicit admin-watch feature testing:
+  // this whole auth-screen dance (including its own internal 100ms
+  // delay below) runs unconditionally on every page load, with no
+  // awareness that an admin-watch session might already be underway.
+  // Since it fires asynchronously, it was winning a race against the
+  // admin-watch bootstrap's own synchronous hide of authScreen,
+  // silently covering the entire spectator view with a login screen at
+  // a higher z-index. window.__isAdminWatchMode is set synchronously,
+  // before this listener's own body starts running, by the
+  // admin-watch bootstrap script further down this file -- checking it
+  // here is simpler and more robust than trying to out-race the
+  // timing directly.
+  if (window.__isAdminWatchMode) return;
   const hasAuth = await initAuth0();
   let alreadyChoseGuest = false;
   try { alreadyChoseGuest = localStorage.getItem('k28_guestModeChosen') === '1'; } catch (e) {}
@@ -17638,7 +17665,13 @@ function maybeShowUpdateAnnouncement(){
     openCommentBox();
   });
 }
-maybeShowUpdateAnnouncement();
+// Real, confirmed bug fix found during admin-watch feature testing:
+// this creates a full-screen, high z-index overlay unconditionally
+// (gated only by a localStorage "seen version" check), completely
+// unaware an admin-watch session might be starting -- it was covering
+// the entire spectator view underneath. window.__isAdminWatchMode is
+// set at the very top of <head>, well before this line ever runs.
+if (!window.__isAdminWatchMode) maybeShowUpdateAnnouncement();
 
 // Formats a visitor-log session length (ms) as "2h 14m", "5m 32s", or
 // "12s" -- whichever units are actually meaningful, never "0h 0m".
@@ -20224,6 +20257,58 @@ function serverBotPlayForMe() {
   var body = document.body;
   while (body.firstChild) frame.appendChild(body.firstChild);
   body.appendChild(frame);
+})();
+</script>
+
+<script>
+// Real, confirmed feature per explicit request ("From the admin panel
+// I should be able to watch the game... join secretly without anyone
+// knowing including host... just watch like a regular viewer... when
+// they view all players gets popups, admin no popups"): a
+// ?adminWatch=<tableId> link (opened from the admin panel's new Watch
+// button, see admin.html) skips the whole welcome/name-entry/lobby
+// flow and drops straight into the exact same read-only spectator
+// experience a regular player already gets from the "Watch Only" seat
+// picker option -- same MY_POS=-1/IS_SPECTATOR=true state, same
+// joinedAsSpectator event, same rendering, nothing new to maintain on
+// the viewing side. The "no popup" part is already true of ordinary
+// spectating too, not something added here: playerJoinedNotice (the
+// popup every seated player gets) only ever fires for someone actually
+// taking a SEAT, never for joining to watch -- confirmed by reading
+// that code path directly. This reuses that same silence rather than
+// needing its own suppression logic.
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const watchTableId = params.get('adminWatch');
+  if (!watchTableId) return;
+  // Set synchronously, before anything else in this block runs, so the
+  // DOMContentLoaded auth-screen listener elsewhere in this file
+  // (which fires asynchronously and would otherwise win the race
+  // against this script) can check it and skip entirely. See that
+  // listener's own comment for the fuller reasoning.
+  window.__isAdminWatchMode = true;
+  const adminPw = sessionStorage.getItem('admin_watch_password') || '';
+  // Real, confirmed bug fix found during testing: authScreen can be
+  // showing by default at this point (whatever normal login/name-entry
+  // check runs earlier in the page's own bootstrap put it there,
+  // independent of this code) at z-index 2500 -- well above gameWrap's
+  // own effectively-zero z-index, so it was silently sitting on top of
+  // and completely blocking the spectator view underneath, even though
+  // the actual game state was rendering correctly the whole time.
+  // Hidden explicitly here, same as welcomeScreen below, since this
+  // script runs last and reliably wins regardless of what set it.
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('welcomeScreen').style.display = 'none';
+  document.getElementById('reconnectingOverlay').style.display = 'flex';
+  SERVER_MODE = true;
+  connectGameSocket();
+  gameSocket.emit('adminWatchTable', { tableId: watchTableId, adminPassword: adminPw, mode: '4p' });
+  gameSocket.on('adminWatchResult', (res) => {
+    if (!res.ok) {
+      hideReconnectingOverlay();
+      showToast('❌ Could not open admin view: ' + (res.reason || 'unknown error'), 'lose', 4000);
+    }
+  });
 })();
 </script>
 

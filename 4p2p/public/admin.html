@@ -422,6 +422,7 @@ function renderLivePlayers(tablesList) {
         <span class="game-badge">${esc(t.game)} · table ${esc(t.tableId)}</span>
         <span style="font-size:0.68rem;padding:2px 8px;border-radius:10px;white-space:nowrap;background:${t.isPlaying ? 'rgba(46,204,113,0.18)' : 'rgba(244,196,48,0.18)'};color:${t.isPlaying ? '#2ecc71' : '#f4c430'}">${t.isPlaying ? '🎮 Playing' : '🟢 In Lobby'}</span>
         ${challengeBadge}
+        ${(t.mode === '4p' || t.mode === '6p') ? `<button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="watchTable('${esc(t.tableId)}', '${t.mode}')">👁 Watch</button>` : ''}
         <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="openTableChat('${esc(t.tableId)}')">💬 Chat</button>
         <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="closeTable('${esc(t.tableId)}')">✕ Close table</button>
       </div>
@@ -501,6 +502,19 @@ function renderPokerAdmin(tablesList) {
 // reasoning as adminFetch's own header-over-query-string choice above:
 // a URL is the wrong place for a secret), which the new tab reads once
 // on load and never needs to persist beyond that.
+// Real, confirmed feature per explicit request ("From the admin panel
+// I should be able to watch the game... I was talking about 4 player
+// and 6 player... join secretly without anyone knowing including
+// host"): opens the real 4-player (index.html) or 6-player (six.html)
+// client in a new tab in the exact same silent, read-only spectator
+// mode a regular "Watch Only" join already uses -- no seat, no
+// notification to anyone, can't see anyone's hand. Same
+// sessionStorage-over-URL password handling as watchPokerTable below.
+function watchTable(tableId, mode) {
+  sessionStorage.setItem('admin_watch_password', PASSWORD);
+  const page = mode === '6p' ? 'six.html' : 'index.html';
+  window.open(`/${page}?adminWatch=${encodeURIComponent(tableId)}`, '_blank');
+}
 function watchPokerTable(tableId) {
   sessionStorage.setItem('admin_watch_password', PASSWORD);
   window.open(`/holdem.html?adminWatch=${encodeURIComponent(tableId)}`, '_blank');

@@ -5325,3 +5325,32 @@ function requestFullscreen28() {
   {name:'Babi',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,#c2266f,#8e1c52)'},
   {name:'Oliver',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
 ];
+
+// Real, confirmed feature per explicit request ("From the admin panel
+// I should be able to watch the game... join secretly without anyone
+// knowing including host... just watch like a regular viewer... when
+// they view all players gets popups, admin no popups"): a
+// ?adminWatch=<tableId> link (opened from the admin panel's new Watch
+// button, see admin.html) skips the whole welcome/name-entry/lobby
+// flow and drops straight into the exact same read-only spectator
+// experience a regular player already gets from the "Watch Only" seat
+// picker option -- same MY_POS=-1/IS_SPECTATOR=true state, same
+// sixp_joinedAsSpectator event (which already calls showScreen itself),
+// nothing new to maintain on the viewing side. The "no popup" part is
+// already true of ordinary spectating too, not something added here:
+// sixp_playerJoinedNotice (the popup every seated player gets) only
+// ever fires for someone actually taking a SEAT, never for joining to
+// watch -- confirmed by reading that code path directly.
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const watchTableId = params.get('adminWatch');
+  if (!watchTableId) return;
+  const adminPw = sessionStorage.getItem('admin_watch_password') || '';
+  connectSocket();
+  socket.emit('sixp_adminWatchTable', { tableId: watchTableId, adminPassword: adminPw });
+  socket.on('sixp_adminWatchResult', (res) => {
+    if (!res.ok) {
+      showToast('❌ Could not open admin view: ' + (res.reason || 'unknown error'), 'lose', 4000);
+    }
+  });
+})();
