@@ -2281,6 +2281,39 @@ io.on('connection', (socket) => {
     socket.emit('roomList', publicTableList());
   });
 
+  // Real, confirmed feature per explicit request ("From the admin
+  // panel I should be able to watch the game... join secretly without
+  // anyone knowing including host... just watch like a regular
+  // viewer... when they view all players gets popups, admin no
+  // popups"): admin gets added directly to the exact same t.spectators
+  // map a regular "Watch Only" join uses, and receives the exact same
+  // joinedAsSpectator event -- structurally identical to a real
+  // spectator, not a separate parallel mechanism, which is exactly why
+  // it's already silent: playerJoinedNotice (the popup every seated
+  // player gets) only ever fires for someone actually taking a SEAT
+  // (see claimSeat's choice.type !== 'watch' branch above), never for
+  // joining to watch, so there's no separate suppression needed here.
+  // Tracked via its own adminWatchTableId, completely separate from
+  // this connection's normal tableId/playerId, so nothing that keys
+  // off a real seat (host migration, kicks, etc.) can ever see or be
+  // affected by an admin watcher.
+  let adminWatchTableId = null;
+  socket.on('adminWatchTable', ({ tableId: watchId, adminPassword }) => {
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) { socket.emit('adminWatchResult', { ok: false, reason: auth.reason }); return; }
+    const t = tables[watchId];
+    if (!t) { socket.emit('adminWatchResult', { ok: false, reason: 'not_found' }); return; }
+    const watchPlayerId = newId();
+    t.spectators = t.spectators || new Map();
+    t.spectators.set(socket.id, { playerId: watchPlayerId, name: 'Admin' });
+    socket.join(watchId);
+    adminWatchTableId = watchId;
+    socket.emit('adminWatchResult', { ok: true, tableId: watchId });
+    socket.emit('joinedAsSpectator', { tableId: watchId, playerId: watchPlayerId });
+    broadcastTable(t);
+    console.log(`[table ${watchId}] admin started watching`);
+  });
+
   // Admin-only: enable/change or clear the room cap. Verified against a
   // server-side secret so this can't just be called from devtools by
   // anyone who noticed the event name — the client's own password prompt
@@ -3088,6 +3121,16 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    // Real, confirmed feature per the same admin-watch request above:
+    // cleans up the watcher registration independently of
+    // handleDisconnectOrLeave below, since that function keys off the
+    // OUTER tableId variable, which an admin watcher never sets (they
+    // never go through the normal join flow at all).
+    if (adminWatchTableId) {
+      const wt = tables[adminWatchTableId];
+      if (wt && wt.spectators) wt.spectators.delete(socket.id);
+      adminWatchTableId = null;
+    }
     handleDisconnectOrLeave(false);
   });
 
@@ -3400,6 +3443,26 @@ io.on('connection', (socket) => {
   let sixpTableId = null;
 
   socket.on('sixp_listRooms', () => { socket.emit('sixp_roomList', sixpPublicTableList()); });
+
+  // Real, confirmed feature per the same admin-watch request as the
+  // 4-player table's identical handler above -- same reasoning
+  // throughout, just against sixpTables/GameEngine6P instead.
+  let sixpAdminWatchTableId = null;
+  socket.on('sixp_adminWatchTable', ({ tableId: watchId, adminPassword }) => {
+    const auth = checkAdminAuthSocket(socket, adminPassword);
+    if (!auth.ok) { socket.emit('sixp_adminWatchResult', { ok: false, reason: auth.reason }); return; }
+    const t = sixpTables[watchId];
+    if (!t) { socket.emit('sixp_adminWatchResult', { ok: false, reason: 'not_found' }); return; }
+    const watchPlayerId = newId();
+    t.spectators = t.spectators || new Map();
+    t.spectators.set(socket.id, { playerId: watchPlayerId, name: 'Admin' });
+    socket.join('sixp_' + watchId);
+    sixpAdminWatchTableId = watchId;
+    socket.emit('sixp_adminWatchResult', { ok: true, tableId: watchId });
+    socket.emit('sixp_joinedAsSpectator', { tableId: watchId, playerId: watchPlayerId });
+    sixpBroadcastTable(t);
+    console.log(`[sixp table ${watchId}] admin started watching`);
+  });
 
   socket.on('sixp_createTable', ({ name, avatar, challengeHandicap }) => {
     if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
@@ -4036,6 +4099,15 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    // Real, confirmed feature per the same admin-watch request as the
+    // 4-player table's identical fix above: cleans up independently
+    // since this lookup below keys off the OUTER sixpTableId variable,
+    // which an admin watcher never sets.
+    if (sixpAdminWatchTableId) {
+      const wt = sixpTables[sixpAdminWatchTableId];
+      if (wt && wt.spectators) wt.spectators.delete(socket.id);
+      sixpAdminWatchTableId = null;
+    }
     const t = sixpTables[sixpTableId];
     if (!t) return;
     delete sixpPendingSeatChoice[socket.id];
