@@ -482,6 +482,7 @@ function renderPokerAdmin(tablesList) {
     <div class="live-card" style="flex-direction:column;align-items:stretch;gap:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <span class="game-badge">🃏 ${esc(t.name || t.tableId)} · ${esc(t.mode)} · hand ${esc(t.handNumber)}</span>
+        <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="watchPokerTable('${esc(t.tableId)}')">👁 Watch</button>
         <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="restartPokerTournament('${esc(t.tableId)}')">🔁 Restart tournament</button>
         <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="closeTable('${esc(t.tableId)}')">✕ Close table</button>
       </div>
@@ -489,6 +490,20 @@ function renderPokerAdmin(tablesList) {
       <div style="display:flex;flex-direction:column;gap:4px">${seatRows}</div>
     </div>`;
   }).join('');
+}
+// Real, confirmed feature per explicit request ("From the admin panel
+// I should be able to watch the game... same like a viewer clicking
+// from the view when they join, only difference no notifications is
+// sent to host, its the admin view only for admin"): opens holdem.html
+// in a new tab in a silent, read-only spectator mode -- no seat, no
+// notification to the host, can't see anyone's hole cards. The
+// password travels via sessionStorage rather than the URL (same
+// reasoning as adminFetch's own header-over-query-string choice above:
+// a URL is the wrong place for a secret), which the new tab reads once
+// on load and never needs to persist beyond that.
+function watchPokerTable(tableId) {
+  sessionStorage.setItem('admin_watch_password', PASSWORD);
+  window.open(`/holdem.html?adminWatch=${encodeURIComponent(tableId)}`, '_blank');
 }
 async function restartPokerTournament(tableId) {
   if (!confirm(`Restart this tournament? Every seated player's chips reset back to the starting amount and the hand count goes back to 0. Who's actually seated is left alone.`)) return;

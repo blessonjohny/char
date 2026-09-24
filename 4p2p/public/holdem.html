@@ -1257,6 +1257,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
       <div id="winnerBanner" style="display:none;color:var(--gold);font-weight:800;font-size:0.66rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     </div>
     <div style="flex-shrink:0">
+      <span id="adminWatchBadge" style="display:none;background:rgba(244,196,48,0.15);border:1px solid rgba(244,196,48,0.4);color:var(--gold);font-size:0.68rem;font-weight:700;padding:4px 10px;border-radius:10px;margin-right:6px">👁 Admin View</span>
       <button class="topbar-btn" id="btnFullscreen" onclick="requestHoldemFullscreen()" title="Full Screen">⛶</button>
       <button class="topbar-btn" id="btnInviteHoldem" title="Invite a Friend">💌 Invite</button>
       <button class="topbar-btn" id="btnHoldemHostMenu" style="display:none" title="Host Menu">👑 Host</button>
@@ -1474,6 +1475,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 const isDesktopPointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 const socket = io();
 let myPos = null, myPlayerId = null, myTableId = null, isHost = false, isRealHost = false;
+let isAdminWatchMode = false;
 // ==================== SOUND + HAPTIC ENGINE ====================
 // Per explicit request ("add sound and touch sensitivity... the best
 // sound possible... to all"): the exact same Web Audio API synthesis
@@ -2334,6 +2336,37 @@ $('btnInviteHoldemLobby').addEventListener('click', shareHoldemInviteLink);
   const invited = params.get('invite');
   if (invited) $('joinCodeInput').value = invited.toUpperCase();
 })();
+// Real, confirmed feature per explicit request ("From the admin panel
+// I should be able to watch the game... same like a viewer clicking
+// from the view when they join, only difference no notifications is
+// sent to host, its the admin view only for admin, dont see players
+// cards just like a regular viewer"): a ?adminWatch=<tableId> link
+// (opened from the admin panel, see admin.html's new Watch button)
+// skips the entire normal landing/create/join flow and goes straight
+// to a read-only view of that table. myPos is deliberately left at its
+// default null the whole time -- slotFor() already treats null as "no
+// personal seat, show seats in raw order" (the same fallback used
+// before anyone's ever joined anything), so seats render in a stable,
+// neutral layout, the action bar never activates (nothing ever equals
+// state.currentPlayer), and the hand strip stays empty -- all for
+// free, with no separate rendering path needed for this mode at all.
+(() => {
+  const params = new URLSearchParams(window.location.search);
+  const watchTableId = params.get('adminWatch');
+  if (!watchTableId) return;
+  isAdminWatchMode = true;
+  const adminPw = sessionStorage.getItem('admin_watch_password') || '';
+  showScreen('gameScreen');
+  socket.on('connect', () => {
+    socket.emit('poker_adminWatch', { tableId: watchTableId, adminPassword: adminPw });
+  });
+  if (socket.connected) socket.emit('poker_adminWatch', { tableId: watchTableId, adminPassword: adminPw });
+})();
+socket.on('poker_adminWatchResult', (res) => {
+  if (!res.ok) {
+    toast('❌ Could not open admin view: ' + (res.reason || 'unknown error'));
+  }
+});
 function toast(msg) {
   const el = document.createElement('div');
   el.className = 'toast';
@@ -3026,8 +3059,24 @@ socket.on('poker_state', (state) => {
   renderRestartCountdown(state);
   isHost = !!state.isHost;
   isRealHost = !!state.isRealHost;
+  // Real, confirmed feature per explicit request ("From the admin
+  // panel I should be able to watch the game... dont see players
+  // cards just like a regular viewer"): none of these controls make
+  // sense for a silent, read-only admin watcher -- there's no seat to
+  // leave, no invite to send, nothing to host. Hidden here, once, off
+  // the server's own isAdminWatch flag rather than the client-side
+  // isAdminWatchMode flag, so it can never be out of sync with what
+  // the server actually granted.
+  if (state.isAdminWatch) {
+    const leaveBtn = $('btnLeaveTable');
+    const inviteBtn = $('btnInviteHoldem');
+    if (leaveBtn) leaveBtn.style.display = 'none';
+    if (inviteBtn) inviteBtn.style.display = 'none';
+    const watchBadge = $('adminWatchBadge');
+    if (watchBadge) watchBadge.style.display = '';
+  }
   const hostBtn = $('btnHoldemHostMenu');
-  if (hostBtn) hostBtn.style.display = isHost ? '' : 'none';
+  if (hostBtn) hostBtn.style.display = (isHost && !state.isAdminWatch) ? '' : 'none';
   // Real, confirmed bug: a new join request only ever showed up if the
   // host happened to manually open the Host Menu and look -- nothing
   // ever actually told them one was waiting. Tracks which request IDs
