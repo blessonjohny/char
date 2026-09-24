@@ -92,7 +92,15 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .opt-btn{padding:9px 16px;border-radius:20px;border:1px solid rgba(244,196,48,0.35);background:linear-gradient(160deg,rgba(244,196,48,0.12),rgba(244,196,48,0.04));color:var(--cream);font-size:0.8rem;cursor:pointer;font-weight:600;transition:all 0.15s ease}
 .opt-btn.active{background:linear-gradient(160deg,#ffd76b,var(--gold) 60%,#c99a1e);color:#241a12;font-weight:800;border-color:rgba(255,255,255,0.3);box-shadow:0 2px 10px rgba(244,196,48,0.4)}
 .field-label{font-size:0.7rem;opacity:0.65;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold)}
-.table-list{width:100%;max-width:360px;margin-top:10px}
+/* Real, confirmed feature per explicit live report ("table lobby menu
+   is too tall, only 10 or 12 fits, going off of my phone"): this had
+   no height limit at all, so a long list just kept growing and pushed
+   itself off the bottom of the screen with the only way to see more
+   being to scroll the ENTIRE page (create/join buttons and all) out of
+   view. Bounded and independently scrollable now -- the buttons above
+   it always stay in view, and the list itself scrolls within its own
+   reasonably-sized box instead of taking over the whole screen. */
+.table-list{width:100%;max-width:360px;margin-top:10px;max-height:34vh;overflow-y:auto;padding-right:4px}
 .table-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:linear-gradient(160deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));border:1px solid rgba(244,196,48,0.15);border-radius:10px;margin-bottom:6px;font-size:0.82rem}
 
 /* ---- Game screen ---- */
@@ -1369,6 +1377,49 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     </div>
   </div>
 </div>
+<!-- Real, confirmed feature per explicit live report ("hit restart
+     tournament I get generic popup. need all nice custom popups"):
+     replaces the native confirm() the host used to get, same styled-
+     card pattern as the Leave modal just above. Confirming here doesn't
+     restart immediately -- it starts the countdown (see
+     holdemRestartCountdownOverlay below) so other real players get a
+     chance to weigh in first. -->
+<div class="modal-overlay" id="holdemRestartConfirmOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2400;align-items:center;justify-content:center;padding:20px">
+  <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid rgba(244,196,48,0.4);border-radius:16px;padding:24px;width:100%;max-width:360px;text-align:center">
+    <div style="color:var(--gold);font-weight:800;font-size:1rem;margin-bottom:10px">🔁 Restart this tournament?</div>
+    <div style="color:var(--cream);opacity:0.85;font-size:0.82rem;margin-bottom:18px;line-height:1.5">Every seated player's chips reset back to the starting amount and the hand count goes back to 0. Other real players at the table will get a few seconds' notice before it happens.</div>
+    <div style="display:flex;justify-content:space-between;gap:10px">
+      <button class="btn btn-outline" id="btnRestartConfirmCancel">Cancel</button>
+      <button class="btn btn-gold" id="btnRestartConfirmYes">🔁 Restart</button>
+    </div>
+  </div>
+</div>
+<!-- Real, confirmed feature per explicit request ("it should restart
+     countdown and ask one more real person to say ok, if no one
+     present just restart tournament a 5 sec countdown, if 2nd click ok
+     3 sec countdown start"): shown to EVERYONE at the table (not just
+     the host) whenever state.pendingRestart is present. The host sees
+     a Cancel option; every other real player sees an "OK" button that
+     shortens the countdown, or a confirmed indicator once they've
+     already clicked it. -->
+<div class="modal-overlay" id="holdemRestartCountdownOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2400;align-items:center;justify-content:center;padding:20px">
+  <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid rgba(244,196,48,0.4);border-radius:16px;padding:24px;width:100%;max-width:360px;text-align:center">
+    <div style="color:var(--gold);font-weight:800;font-size:1rem;margin-bottom:10px" id="holdemRestartCountdownTitle">🔁 Restarting tournament</div>
+    <div style="color:var(--cream);opacity:0.85;font-size:0.82rem;margin-bottom:14px;line-height:1.5" id="holdemRestartCountdownDetail"></div>
+    <div style="color:var(--gold);font-weight:900;font-size:1.8rem;margin-bottom:18px" id="holdemRestartCountdownNumber">5</div>
+    <div id="holdemRestartCountdownActions"></div>
+  </div>
+</div>
+<div class="modal-overlay" id="holdemKickConfirmOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2400;align-items:center;justify-content:center;padding:20px">
+  <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid rgba(244,196,48,0.4);border-radius:16px;padding:24px;width:100%;max-width:360px;text-align:center">
+    <div style="color:var(--gold);font-weight:800;font-size:1rem;margin-bottom:10px">Remove this player?</div>
+    <div style="color:var(--cream);opacity:0.85;font-size:0.82rem;margin-bottom:18px;line-height:1.5" id="holdemKickConfirmDetail"></div>
+    <div style="display:flex;justify-content:space-between;gap:10px">
+      <button class="btn btn-outline" id="btnKickConfirmCancel">Cancel</button>
+      <button class="btn btn-gold" id="btnKickConfirmYes">Remove</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="holdemHostMenuOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2200;align-items:center;justify-content:center;padding:20px">
   <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid rgba(244,196,48,0.4);border-radius:16px;padding:20px;width:100%;max-width:420px;max-height:80vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
@@ -2308,12 +2359,20 @@ function renderHoldemHostMenu(state) {
   }).join('');
 }
 function holdemHostRestart() {
-  if (!confirm('Restart this tournament? Every seated player\'s chips reset back to the starting amount and the hand count goes back to 0.')) return;
-  socket.emit('poker_hostRestart');
+  // Real, confirmed feature per explicit live report ("hit restart
+  // tournament I get generic popup. need all nice custom popups"):
+  // native confirm() replaced with the same styled-card modal pattern
+  // as the Leave confirm above, wired up right after these function
+  // defs (see btnRestartConfirmYes/Cancel listeners further down).
+  $('holdemRestartConfirmOverlay').style.display = 'flex';
 }
+let pendingKick = null;
 function holdemHostKick(pos, name) {
-  if (!confirm(`Remove ${name} from this table immediately?`)) return;
-  socket.emit('poker_hostKick', { pos });
+  // Real, confirmed feature per the same live report as restart above:
+  // native confirm() replaced with a styled modal here too.
+  pendingKick = pos;
+  $('holdemKickConfirmDetail').textContent = `Remove ${name} from this table immediately?`;
+  $('holdemKickConfirmOverlay').style.display = 'flex';
 }
 function holdemHostSetAvatar(pos) {
   const input = $('holdemAvatarInput_' + pos);
@@ -2942,6 +3001,7 @@ socket.on('poker_state', (state) => {
   latestState = state;
   updateWinningHandContinueUI(state);
   updateRebuildEliminationUI(state);
+  renderRestartCountdown(state);
   isHost = !!state.isHost;
   isRealHost = !!state.isRealHost;
   const hostBtn = $('btnHoldemHostMenu');
@@ -4560,6 +4620,13 @@ function showGameEvent(icon, title, detail, color, opts) {
 socket.on('poker_playerJoinedNotice', ({ name }) => {
   showGameEvent('👋', 'New Player!', (name || 'Someone') + ' just joined the table', '#f4c430');
 });
+// Real, confirmed feature per explicit live report ("when user leaves
+// the table there is no message"): same toast treatment as the join
+// notice just above, so everyone else at the table actually sees that
+// a seat opened up and why, instead of a seat just silently vanishing.
+socket.on('poker_playerLeftNotice', ({ name }) => {
+  showGameEvent('🚪', 'Player Left', (name || 'A player') + ' left the table', '#ff8a5c');
+});
 
 // A brief, unmistakable "FLOP! / TURN! / RIVER!" banner whenever new
 // community cards are revealed -- deliberately NOT on a fixed timer.
@@ -4676,6 +4743,71 @@ $('btnLeaveConfirmYes').addEventListener('click', () => {
   showScreen('landingScreen');
   socket.emit('poker_listRooms');
 });
+
+// Real, confirmed feature per explicit live report ("hit restart
+// tournament I get generic popup. need all nice custom popups"): wires
+// up the styled restart-confirm modal added above. Confirming doesn't
+// restart directly -- it requests the countdown (see
+// poker_hostRequestRestart server-side and renderRestartCountdown
+// below for the actual countdown UI everyone sees).
+$('btnRestartConfirmCancel').addEventListener('click', () => {
+  $('holdemRestartConfirmOverlay').style.display = 'none';
+});
+$('btnRestartConfirmYes').addEventListener('click', () => {
+  $('holdemRestartConfirmOverlay').style.display = 'none';
+  socket.emit('poker_hostRequestRestart');
+});
+$('btnKickConfirmCancel').addEventListener('click', () => {
+  pendingKick = null;
+  $('holdemKickConfirmOverlay').style.display = 'none';
+});
+$('btnKickConfirmYes').addEventListener('click', () => {
+  $('holdemKickConfirmOverlay').style.display = 'none';
+  if (pendingKick !== null) socket.emit('poker_hostKick', { pos: pendingKick });
+  pendingKick = null;
+});
+
+// Real, confirmed feature per explicit request ("it should restart
+// countdown and ask one more real person to say ok, if no one present
+// just restart tournament a 5 sec countdown, if 2nd click ok 3 sec
+// countdown start"): renders the shared countdown modal every real
+// player at the table sees while state.pendingRestart is present.
+// Ticks its own local display off the received deadline timestamp
+// (see the server-side comment on why: stays smooth between broadcasts
+// rather than only updating whenever the next unrelated state update
+// happens to arrive) and auto-hides the instant pendingRestart is gone
+// (either it actually ran, or the host cancelled it).
+let restartCountdownTickTimer = null;
+function renderRestartCountdown(state) {
+  const overlay = $('holdemRestartCountdownOverlay');
+  const pr = state && state.pendingRestart;
+  if (!pr) {
+    overlay.style.display = 'none';
+    if (restartCountdownTickTimer) { clearInterval(restartCountdownTickTimer); restartCountdownTickTimer = null; }
+    return;
+  }
+  overlay.style.display = 'flex';
+  $('holdemRestartCountdownDetail').textContent = pr.isRequester
+    ? `Every seated player's chips will reset and the hand count goes back to 0.`
+    : `${pr.requestedByName} wants to restart the tournament. Every seated player's chips will reset.`;
+  const actionsEl = $('holdemRestartCountdownActions');
+  if (pr.isRequester) {
+    actionsEl.innerHTML = `<button class="btn btn-outline" id="btnRestartCountdownCancel" style="width:100%">Cancel</button>`;
+    $('btnRestartCountdownCancel').addEventListener('click', () => socket.emit('poker_cancelRestart'));
+  } else if (pr.youConfirmed) {
+    actionsEl.innerHTML = `<div style="color:#3ddc71;font-weight:700;font-size:0.85rem">✓ You confirmed -- restarting soon</div>`;
+  } else {
+    actionsEl.innerHTML = `<button class="btn btn-gold" id="btnRestartCountdownOk" style="width:100%">OK, restart now</button>`;
+    $('btnRestartCountdownOk').addEventListener('click', () => socket.emit('poker_confirmRestart'));
+  }
+  const tick = () => {
+    const secondsLeft = Math.max(0, Math.ceil((pr.deadline - Date.now()) / 1000));
+    $('holdemRestartCountdownNumber').textContent = String(secondsLeft);
+  };
+  tick();
+  if (restartCountdownTickTimer) clearInterval(restartCountdownTickTimer);
+  restartCountdownTickTimer = setInterval(tick, 250);
+}
 
 // Keeps the screen from timing out/locking while this page is open --
 // see six.js's identical implementation for the full reasoning. Not
