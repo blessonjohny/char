@@ -215,7 +215,12 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    gold/white tone (this is information, not the celebration), while
    only the actual hand name (Pair, Straight Flush, etc.) is what
    flashes red, since that's the one piece meant to grab attention. */
-.table-winning-hand-label-summary{color:#f4c430;font-weight:800}
+/* Real, confirmed feature per explicit live report ("player should be
+   bold in roman font bronze color. 100 font bold royal green colour"):
+   split the old single gold summary span into two independently
+   styled pieces -- the winner's name and the amount they won. */
+.table-winning-hand-label-name{font-family:"Times New Roman", Times, serif;font-weight:900;color:#cd7f32}
+.table-winning-hand-label-amount{font-weight:900;color:#146b3a}
 .table-winning-hand-label-handname{color:#ff2b2b;font-weight:900;font-size:1.15em;animation:winLabelBlink 0.9s ease-in-out infinite}
 /* Per explicit request: the hand name (Straight Flush, Full House,
    etc.) reads as red and genuinely blinks/pops -- alternates between
@@ -3593,28 +3598,41 @@ function renderGameTable(state) {
   // table, then chips fly to the winner, then the winner's actual hole
   // cards move to the table itself with the hand name shown, held for
   // a real 5 seconds. No popup anywhere in this sequence anymore.
+  // Real, confirmed defensive fix per explicit live report (a freeze
+  // after folding/at showdown that only a refresh fixed, "at the end
+  // if 2 live players need to hit continue... having this issue"):
+  // this whole banner/balloon/chips/cards sequence used to run with no
+  // safety net at all -- if ANY step threw for any reason (a null
+  // seat element, an unexpected DOM state, anything), everything after
+  // that point in the chain simply never ran, including the one thing
+  // that actually matters most: revealing the Continue button. That
+  // left the table showing nothing but the previous betting round's
+  // stale action badges forever, with no way forward except a manual
+  // refresh -- exactly the reported symptom. Every step below is now
+  // wrapped so a failure anywhere still guarantees Continue actually
+  // appears via forceShowContinueButtonFallback, rather than silently
+  // stalling the whole hand.
   if (state.phase === 'handEnd' && state.showdownResult && state.handNumber !== lastShownWinnerBannerFor) {
     lastShownWinnerBannerFor = state.handNumber;
-    // Per explicit live report ("display who won display text should
-    // start as soon as they win, no delays"): this used to wait a full
-    // second before showing anything, purely to roughly sync up with
-    // the balloon animation below -- but that means the one piece of
-    // actual information (who won, how much, with what) was withheld
-    // for a second for no functional reason. Fires immediately now;
-    // the balloon/chips/cards sequence below is a separate, slower
-    // celebration and can keep its own pacing independently.
-    showWinnerBanner(state);
-    // Per explicit request: the dramatic name balloon-and-pop plays
-    // first, before anything else -- waits for its own real, returned
-    // duration (grow + pop, not the longer splatter fade, which can
-    // keep fading out underneath the rest without blocking it) before
-    // the chips even start flying, so the two moments read as
-    // sequential beats, not overlapping each other.
-    const balloonDuration = showWinnerNameBalloon(state);
-    setTimeout(() => {
-      const flightDuration = animateChipsToWinners(state);
-      setTimeout(() => showWinningHandOnTable(state), flightDuration + 250);
-    }, balloonDuration + 300);
+    try {
+      showWinnerBanner(state);
+      const balloonDuration = showWinnerNameBalloon(state);
+      setTimeout(() => {
+        try {
+          const flightDuration = animateChipsToWinners(state);
+          setTimeout(() => {
+            try { showWinningHandOnTable(state); }
+            catch (e) { console.error('[holdem] showWinningHandOnTable threw, falling back', e); forceShowContinueButtonFallback(state); }
+          }, flightDuration + 250);
+        } catch (e) {
+          console.error('[holdem] animateChipsToWinners threw, falling back', e);
+          forceShowContinueButtonFallback(state);
+        }
+      }, balloonDuration + 300);
+    } catch (e) {
+      console.error('[holdem] showWinnerBanner/showWinnerNameBalloon threw, falling back', e);
+      forceShowContinueButtonFallback(state);
+    }
   }
   // Per explicit request: darkens every seat that reached a genuine
   // showdown but didn't win any share of any pot -- called
@@ -3894,6 +3912,29 @@ function showWinnerNameBalloon(state) {
 
   return growDuration + popDuration;
 }
+// Real, confirmed defensive fallback per the same freeze fix above:
+// the one guaranteed way back to a playable table if any part of the
+// fancier winner-reveal sequence fails -- shows the plain winner/
+// amount text and the Continue button directly, skipping every
+// animation. Deliberately minimal and wrapped in its own try/catch so
+// this absolute last resort can't itself become the thing that hangs.
+function forceShowContinueButtonFallback(state) {
+  try {
+    const r = state && state.showdownResult;
+    if (!r || !r.winners || !r.winners.length) return;
+    const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+    const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
+    const el = $('tableWinningHand');
+    if (el) el.classList.add('on');
+    const labelEl = $('tableWinningHandLabel');
+    if (labelEl) labelEl.innerHTML = `<span class="table-winning-hand-label-name">${names}</span> won <span class="table-winning-hand-label-amount">${totalWon}</span>`;
+    const btn = $('btnWinningHandContinue');
+    if (btn) btn.style.display = '';
+    updateWinningHandContinueUI(latestState);
+  } catch (e) {
+    console.error('[holdem] fallback continue-reveal itself failed', e);
+  }
+}
 function showWinningHandOnTable(state) {
   const r = state.showdownResult;
   const el = $('tableWinningHand');
@@ -3910,7 +3951,7 @@ function showWinningHandOnTable(state) {
     const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
     const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
     cardsContainer.innerHTML = '';
-    $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-summary">${names} won ${totalWon}</span>`;
+    $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-name">${names}</span> won <span class="table-winning-hand-label-amount">${totalWon}</span>`;
     el.classList.remove('on');
     el.classList.add('on');
     if (tableWinningHandClearTimer) clearTimeout(tableWinningHandClearTimer);
@@ -3994,98 +4035,109 @@ function showWinningHandOnTable(state) {
   el.classList.add('on');
   winningHand.forEach((card, i) => {
     setTimeout(() => {
-      const card1 = document.createElement('div');
-      card1.className = `card ${suitClassFor(card.suit)}`;
-      card1.style.position = 'relative';
-      // Real, confirmed feature per explicit live report ("when that
-      // card starts it should appear like a fireball with the card
-      // leaving a comet-like train and exploding at the table, and the
-      // card appears clear/design"): these three FX elements are
-      // children of the card itself, layered behind it via negative
-      // z-index (see .card-comet-fx's CSS) -- the fireball glow and
-      // comet tail automatically travel along with the card's own
-      // existing translate() transform with no separate position
-      // tracking of their own, and the actual rank/suit content below
-      // is never dimmed, blurred, or tinted by any of it, so the card
-      // face itself always reads perfectly crisp and clear, only the
-      // decoration around it is fiery.
-      card1.innerHTML = `<div class="card-comet-fx"><div class="fireball-glow"></div><div class="comet-tail"></div><div class="comet-burst"></div></div><div>${card.rank}</div><div>${card.suit}</div>`;
-      cardsContainer.appendChild(card1);
-      // Real layout position now genuinely exists -- measure it AFTER
-      // it's really in the row, so this is the browser's own actual
-      // final answer, not a guess.
-      const finalRect = card1.getBoundingClientRect();
-      const finalCenterX = finalRect.left + finalRect.width / 2;
-      const finalCenterY = finalRect.top + finalRect.height / 2;
+      // Real, confirmed defensive fix, same freeze report as above:
+      // wraps just this one card's own flight setup (DOM creation,
+      // getBoundingClientRect lookups, geometry math) so a failure on
+      // any single card -- especially the LAST one -- can never
+      // prevent the completion step just below from running. Before
+      // this, an exception here on the final card meant the Continue
+      // button right after it simply never executed at all.
+      try {
+        const card1 = document.createElement('div');
+        card1.className = `card ${suitClassFor(card.suit)}`;
+        card1.style.position = 'relative';
+        // Real, confirmed feature per explicit live report ("when that
+        // card starts it should appear like a fireball with the card
+        // leaving a comet-like train and exploding at the table, and the
+        // card appears clear/design"): these three FX elements are
+        // children of the card itself, layered behind it via negative
+        // z-index (see .card-comet-fx's CSS) -- the fireball glow and
+        // comet tail automatically travel along with the card's own
+        // existing translate() transform with no separate position
+        // tracking of their own, and the actual rank/suit content below
+        // is never dimmed, blurred, or tinted by any of it, so the card
+        // face itself always reads perfectly crisp and clear, only the
+        // decoration around it is fiery.
+        card1.innerHTML = `<div class="card-comet-fx"><div class="fireball-glow"></div><div class="comet-tail"></div><div class="comet-burst"></div></div><div>${card.rank}</div><div>${card.suit}</div>`;
+        cardsContainer.appendChild(card1);
+        // Real layout position now genuinely exists -- measure it AFTER
+        // it's really in the row, so this is the browser's own actual
+        // final answer, not a guess.
+        const finalRect = card1.getBoundingClientRect();
+        const finalCenterX = finalRect.left + finalRect.width / 2;
+        const finalCenterY = finalRect.top + finalRect.height / 2;
 
-      const isHoleCard = holeCardKeys.has(cardKey(card));
-      let sourceRect = null;
-      if (isHoleCard && winnerSeatEl) {
-        const holeCardEls = winnerPos === myPos
-          ? [...document.querySelectorAll('#myHandStrip .card')]
-          : [...winnerSeatEl.querySelectorAll('.seat-cards .card')];
-        const holeCards = (winnerSeat && winnerSeat.hand) || [];
-        const matchIdx = holeCards.findIndex(h => h && cardKey(h) === cardKey(card));
-        sourceRect = (matchIdx !== -1 && holeCardEls[matchIdx]) ? holeCardEls[matchIdx].getBoundingClientRect() : winnerSeatEl.getBoundingClientRect();
-      } else {
-        const matchIdx = state.board.findIndex(b => b && cardKey(b) === cardKey(card));
-        sourceRect = (matchIdx !== -1 && boardCardEls2[matchIdx]) ? boardCardEls2[matchIdx].getBoundingClientRect() : null;
-      }
-      const cometFx = card1.querySelector('.card-comet-fx');
-      const tailEl = card1.querySelector('.comet-tail');
-      const burstEl = card1.querySelector('.comet-burst');
-      // Defensive: any degenerate (zero-sized) or missing source just
-      // skips the visual flight for this one card -- it still lands
-      // correctly and instantly, since its real position was never in
-      // question, only the optional starting flourish is skipped.
-      if (sourceRect && sourceRect.width && sourceRect.height) {
-        const sourceCenterX = sourceRect.left + sourceRect.width / 2;
-        const sourceCenterY = sourceRect.top + sourceRect.height / 2;
-        const dx = sourceCenterX - finalCenterX;
-        const dy = sourceCenterY - finalCenterY;
-        const startScale = Math.max(0.3, Math.min(1, sourceRect.height / finalRect.height));
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
-        const FLIGHT_MS = 850;
-        // Comet tail: anchored at the card's own center, pointing back
-        // toward the source it came from (the same angle already used
-        // for the old fixed-position tail), fixed at a moderate length
-        // (capped, not the full source-to-destination distance -- a
-        // real comet's visible tail doesn't stretch the entire flight
-        // path) and fading out via cardCometTailFade over the same
-        // duration as the flight, so it visibly burns away as the card
-        // arrives rather than just vanishing abruptly.
-        if (distance > 4 && tailEl) {
-          const tailLen = Math.min(distance * 0.6, 90);
-          tailEl.style.width = tailLen + 'px';
-          tailEl.style.transform = `rotate(${angleDeg}deg)`;
-          tailEl.style.animationDuration = FLIGHT_MS + 'ms';
+        const isHoleCard = holeCardKeys.has(cardKey(card));
+        let sourceRect = null;
+        if (isHoleCard && winnerSeatEl) {
+          const holeCardEls = winnerPos === myPos
+            ? [...document.querySelectorAll('#myHandStrip .card')]
+            : [...winnerSeatEl.querySelectorAll('.seat-cards .card')];
+          const holeCards = (winnerSeat && winnerSeat.hand) || [];
+          const matchIdx = holeCards.findIndex(h => h && cardKey(h) === cardKey(card));
+          sourceRect = (matchIdx !== -1 && holeCardEls[matchIdx]) ? holeCardEls[matchIdx].getBoundingClientRect() : winnerSeatEl.getBoundingClientRect();
+        } else {
+          const matchIdx = state.board.findIndex(b => b && cardKey(b) === cardKey(card));
+          sourceRect = (matchIdx !== -1 && boardCardEls2[matchIdx]) ? boardCardEls2[matchIdx].getBoundingClientRect() : null;
         }
-        if (cometFx) cometFx.classList.add('flying');
-        card1.style.transition = 'none';
-        card1.style.transform = `translate(${dx}px, ${dy}px) scale(${startScale})`;
-        card1.style.opacity = '0.75';
-        void card1.offsetWidth;
-        card1.style.transition = `transform ${FLIGHT_MS}ms cubic-bezier(.3,.5,.4,1), opacity 0.3s ease`;
-        requestAnimationFrame(() => {
-          card1.style.transform = 'translate(0,0) scale(1)';
-          card1.style.opacity = '1';
-        });
-        setTimeout(() => {
-          card1.style.transition = '';
+        const cometFx = card1.querySelector('.card-comet-fx');
+        const tailEl = card1.querySelector('.comet-tail');
+        const burstEl = card1.querySelector('.comet-burst');
+        // Defensive: any degenerate (zero-sized) or missing source just
+        // skips the visual flight for this one card -- it still lands
+        // correctly and instantly, since its real position was never in
+        // question, only the optional starting flourish is skipped.
+        if (sourceRect && sourceRect.width && sourceRect.height) {
+          const sourceCenterX = sourceRect.left + sourceRect.width / 2;
+          const sourceCenterY = sourceRect.top + sourceRect.height / 2;
+          const dx = sourceCenterX - finalCenterX;
+          const dy = sourceCenterY - finalCenterY;
+          const startScale = Math.max(0.3, Math.min(1, sourceRect.height / finalRect.height));
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+          const FLIGHT_MS = 850;
+          // Comet tail: anchored at the card's own center, pointing back
+          // toward the source it came from (the same angle already used
+          // for the old fixed-position tail), fixed at a moderate length
+          // (capped, not the full source-to-destination distance -- a
+          // real comet's visible tail doesn't stretch the entire flight
+          // path) and fading out via cardCometTailFade over the same
+          // duration as the flight, so it visibly burns away as the card
+          // arrives rather than just vanishing abruptly.
+          if (distance > 4 && tailEl) {
+            const tailLen = Math.min(distance * 0.6, 90);
+            tailEl.style.width = tailLen + 'px';
+            tailEl.style.transform = `rotate(${angleDeg}deg)`;
+            tailEl.style.animationDuration = FLIGHT_MS + 'ms';
+          }
+          if (cometFx) cometFx.classList.add('flying');
+          card1.style.transition = 'none';
+          card1.style.transform = `translate(${dx}px, ${dy}px) scale(${startScale})`;
+          card1.style.opacity = '0.75';
+          void card1.offsetWidth;
+          card1.style.transition = `transform ${FLIGHT_MS}ms cubic-bezier(.3,.5,.4,1), opacity 0.3s ease`;
+          requestAnimationFrame(() => {
+            card1.style.transform = 'translate(0,0) scale(1)';
+            card1.style.opacity = '1';
+          });
+          setTimeout(() => {
+            card1.style.transition = '';
+            card1.classList.add('dealt-card-pop');
+            // Landing: the fireball/tail cut off immediately and a quick
+            // radial burst "explodes" at the card's real resting spot,
+            // then fades away on its own -- leaving just the plain, crisp
+            // card face behind, nothing fiery lingering on top of it.
+            if (cometFx) cometFx.classList.remove('flying');
+            if (burstEl) burstEl.classList.add('go');
+          }, FLIGHT_MS + 10);
+        } else {
           card1.classList.add('dealt-card-pop');
-          // Landing: the fireball/tail cut off immediately and a quick
-          // radial burst "explodes" at the card's real resting spot,
-          // then fades away on its own -- leaving just the plain, crisp
-          // card face behind, nothing fiery lingering on top of it.
-          if (cometFx) cometFx.classList.remove('flying');
-          if (burstEl) burstEl.classList.add('go');
-        }, FLIGHT_MS + 10);
-      } else {
-        card1.classList.add('dealt-card-pop');
+        }
+      } catch (e) {
+        console.error('[holdem] winning-hand card flight failed for card', i, e);
       }
       if (i === winningHand.length - 1) {
-        $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-summary">${names} won ${totalWon}</span> <span class="table-winning-hand-label-handname">${r.winners[0].handName}</span>`;
+        $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-name">${names}</span> won <span class="table-winning-hand-label-amount">${totalWon}</span> <span class="table-winning-hand-label-handname">${r.winners[0].handName}</span>`;
         $('btnWinningHandContinue').style.display = '';
         updateWinningHandContinueUI(latestState);
       }
