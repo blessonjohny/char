@@ -967,6 +967,41 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     text-shadow: 0 1px 4px rgba(0,0,0,0.9);
   }
 }
+/* Real, confirmed feature per explicit request ("here is a better
+   image... make this the portrait view for phones"): the phone-
+   portrait counterpart to the landscape photo background above -- same
+   mechanism (table-wrap gets the real photo, .felt hides the plain
+   fallback design), but deliberately NOT nested inside the min-width:
+   521px media query the landscape version lives in above, since an
+   actual portrait phone is narrower than that and would never match it
+   -- gating on the k28-portrait-photo class alone (toggled alongside
+   k28-in-game itself, see showScreen() and its matching safety-net
+   interval) is both necessary and sufficient here. background-position
+   biased toward the top since the image's own empty floor space sits
+   at the bottom -- cropping into that on a taller phone screen loses
+   nothing that matters, unlike cropping into the chairs themselves
+   would. */
+body.k28-portrait-photo .table-wrap {
+  position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none;
+  aspect-ratio: unset; margin: 0; border-radius: 0;
+  background: url('/images/holdem-portrait-table.jpg') center 12% / cover no-repeat;
+  box-shadow: none;
+}
+body.k28-portrait-photo .felt { display: none; }
+/* Real, confirmed feature per the same request as the background
+   above: positions the dealer figure at the actual empty top-center
+   chair spot in the new photo (measured directly off the image, same
+   as the seat coordinates in seatPositions()), sized to roughly match
+   the chairs around it rather than the landscape-specific clamp
+   values, which were tuned against a completely different photo. */
+body.k28-portrait-photo .house-dealer {
+  display: block; position: absolute; left: 50%; top: 13%; transform: translate(-50%, -50%);
+  width: clamp(70px, 15vw, 110px); height: clamp(70px, 15vw, 110px); z-index: 4;
+}
+body.k28-portrait-photo .house-dealer-photo {
+  width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+  border: 2.5px solid var(--gold-soft); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+}
 /* Per explicit correction: a phone tilted to landscape should also get this fuller desktop-
    style view (unlike the 4-player/6-player tables, which stay in their simple portrait layout
    regardless of orientation) - that's already working correctly on its own, since a tilted
@@ -2296,6 +2331,11 @@ function showScreen(id) {
   // below: a render can happen in the same synchronous tick as this call, and needs the class
   // already correct by then, not on the next tick after an async observer catches up.
   document.body.classList.toggle('k28-in-game', id === 'gameScreen' && window.innerWidth >= 521);
+  // Real, confirmed feature per explicit request ("make this the
+  // portrait view for phones"): the exact inverse condition of
+  // k28-in-game just above (narrow AND taller-than-wide, instead of
+  // wide) -- same synchronous-toggle reasoning applies here too.
+  document.body.classList.toggle('k28-portrait-photo', id === 'gameScreen' && window.innerWidth < 521 && window.innerHeight > window.innerWidth);
 }
 // Per explicit request: suggests (never forces) rotating to landscape,
 // once per browser session, the very first moment the table itself is
@@ -2322,8 +2362,9 @@ $('btnDismissTiltSuggest').addEventListener('click', () => {
 setInterval(() => {
   const gs = document.getElementById('gameScreen');
   if (!gs) return;
-  const shouldBeActive = !gs.classList.contains('hidden') && window.innerWidth >= 521;
-  document.body.classList.toggle('k28-in-game', shouldBeActive);
+  const visible = !gs.classList.contains('hidden');
+  document.body.classList.toggle('k28-in-game', visible && window.innerWidth >= 521);
+  document.body.classList.toggle('k28-portrait-photo', visible && window.innerWidth < 521 && window.innerHeight > window.innerWidth);
 }, 500);
 // Per explicit request: a full-screen toggle for phone in particular (though it works on any
 // device), matching the exact same requestFullscreen/exitFullscreen pattern already proven on
@@ -3531,6 +3572,32 @@ function renderRailChips(state) {
   }).join('');
 }
 function seatPositions() {
+  // Real, confirmed feature per explicit request ("here is a better
+  // image... make this the portrait view for phones... top is the
+  // dealer solution, total 10, we need to redesign this for it"): the
+  // new portrait photo has 10 chairs, one more than this game's 9 real
+  // seats -- the top-center chair is deliberately left unused here and
+  // treated as the dealer's own spot (same idea as the landscape
+  // photo's separate .house-dealer overlay sitting between seats 4 and
+  // 5), and the other 9 are mapped below, measured directly off the
+  // actual image at /images/holdem-portrait-table.jpg (843x1264): 4
+  // chairs down the left side, 4 down the right, 1 at the very bottom
+  // closest to the viewer -- same slot numbering convention as the
+  // landscape layout (0 is always my own seat, 4/5 are the pair
+  // flanking the dealer's spot).
+  if (document.body.classList.contains('k28-portrait-photo')) {
+    return [
+      { x: 50, y: 68 },   // 0: my own seat (bottom-center, closest to viewer)
+      { x: 16, y: 63 },   // 1: front-left-of-center
+      { x: 8, y: 49 },    // 2: lower-left
+      { x: 9, y: 33 },    // 3: upper-left
+      { x: 22, y: 19 },   // 4: back-left-of-center (flanking the dealer's spot)
+      { x: 78, y: 19 },   // 5: back-right-of-center (mirrors 4)
+      { x: 90, y: 33 },   // 6: upper-right (mirrors 3)
+      { x: 91, y: 49 },   // 7: lower-right (mirrors 2)
+      { x: 83, y: 63 },   // 8: front-right-of-center (mirrors 1)
+    ];
+  }
   // Per explicit, confirmed bug report with screenshots: only seats 0, 4, and 5 were actually
   // correct on a real device - every other seat was measured against the raw 1672x941 source
   // photo's own proportions, but the background is displayed with background-size:cover,
