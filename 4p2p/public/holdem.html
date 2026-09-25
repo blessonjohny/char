@@ -1097,7 +1097,13 @@ body.k28-portrait-photo .seat.folded .seat-avatar-photo { opacity: 0.35; filter:
    pot display moves up a smaller amount too, to keep it looking like
    it still sits just below the board rather than stranding it in a
    now-oversized gap of its own. */
-body.k28-portrait-photo .board-area { top: 27%; }
+/* Real, confirmed follow-up per explicit live report ("dealer just
+   dealt cards... top is overlapping the top left and right avatars
+   cards... move down a little so it will only overlap the tip"): this
+   is the LIVE board specifically (mid-hand, not the end-of-hand
+   winning-hand display -- that's a separate element, untouched here
+   on purpose per explicit instruction). Small, precise nudge only. */
+body.k28-portrait-photo .board-area { top: 30%; }
 /* Real, confirmed feature per explicit live report ("the dealer cards
    should be way up, we have space, all this also move up"): the board
    (community cards) was still sitting at the base 42% top -- fine for
