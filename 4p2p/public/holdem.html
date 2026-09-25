@@ -641,17 +641,17 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .hand-strip .card{width:44px;height:62px;font-size:1rem}
 
 .action-bar{width:100%;max-width:520px;margin:0 auto;padding:10px 14px 18px;flex-shrink:0}
-.action-row{display:flex;gap:8px;margin-bottom:8px}
-.action-btn{flex:1;padding:14px 6px;border-radius:12px;border:none;font-weight:800;font-size:0.85rem;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,0.35),0 4px 10px rgba(0,0,0,0.4);border-bottom:2px solid rgba(0,0,0,0.25);transition:transform 0.08s ease,box-shadow 0.08s ease;position:relative}
+.action-row{display:flex;gap:6px;margin-bottom:6px}
+.action-btn{flex:1;padding:8px 4px;border-radius:9px;border:none;font-weight:700;font-size:0.7rem;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,0.3),0 2px 5px rgba(0,0,0,0.35);border-bottom:1.5px solid rgba(0,0,0,0.25);transition:transform 0.08s ease,box-shadow 0.08s ease;position:relative}
 .action-btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,0.35),0 2px 6px rgba(0,0,0,0.4)}
 .action-fold{background:linear-gradient(180deg,#e35555,#c53434);color:#fff}
 .action-check{background:linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.1));color:#fff;border:1px solid rgba(255,255,255,0.25)}
 .action-call{background:linear-gradient(180deg,var(--accent),#2a6bb0);color:#fff}
 .action-bet{background:linear-gradient(180deg,#ffd866,var(--gold) 55%,#c99a1e);color:#241a12}
-.amount-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.06);border-radius:12px;padding:8px 10px}
+.amount-row{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border-radius:10px;padding:5px 8px}
 .amount-row input[type=range]{flex:1}
-.amount-val{font-weight:800;color:var(--gold);min-width:60px;text-align:right;font-size:0.9rem}
-.stepper-btn{background:rgba(255,255,255,0.1);border:none;color:#fff;width:30px;height:30px;border-radius:8px;font-size:1rem;cursor:pointer}
+.amount-val{font-weight:800;color:var(--gold);min-width:44px;text-align:right;font-size:0.78rem}
+.stepper-btn{background:rgba(255,255,255,0.1);border:none;color:#fff;width:24px;height:24px;border-radius:6px;font-size:0.85rem;cursor:pointer}
 
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center;z-index:2000;padding:20px}
 .overlay.on{display:flex}
@@ -1020,7 +1020,7 @@ body.k28-portrait-photo .house-dealer-photo {
 body.k28-portrait-photo .action-bar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
   width: 100%; max-width: 460px; margin: 0 auto;
-  padding: 14px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0) 100%);
 }
 /* Real, confirmed bug fix, same root cause as .action-bar just above:
@@ -1029,16 +1029,17 @@ body.k28-portrait-photo .action-bar {
    table image. Positioned above the action bar (not at the very
    bottom like landscape's version, which has the action buttons off
    in separate side columns instead of a bottom bar, so there's no
-   bottom bar to clear there). Real, confirmed follow-up fix per
-   explicit live report ("I still can't see my cards" after the first
-   attempt at this value): the action bar's real rendered height is
-   ~188px once it actually has 2 button rows plus the bet slider
-   between them (measured directly, not estimated) -- the original
-   96px clearance here was nowhere near enough and the cards were
-   still landing behind it. 200px properly clears the real height with
-   a small margin, regardless of which action-bar branch is showing. */
+   bottom bar to clear there). Real, confirmed second follow-up fix per
+   explicit live report ("I want small very tiny 4 buttons... huge
+   buttons blocking my cards view"): the 4 action buttons themselves
+   are now genuinely small (see .action-btn/.action-row/.amount-row
+   above), which dropped the bar's real rendered height from the
+   previous ~188px down to ~120px (measured directly again, not
+   estimated) -- clearance tightened to match, so the extra ~70px of
+   now-unnecessary gap goes back to actually showing the table instead
+   of sitting empty above a much shorter bar. */
 body.k28-portrait-photo .hand-strip {
-  position: fixed; bottom: 200px; left: 50%; transform: translateX(-50%); z-index: 40; gap: 4px;
+  position: fixed; bottom: 130px; left: 50%; transform: translateX(-50%); z-index: 40; gap: 4px;
 }
 body.k28-portrait-photo .hand-strip .card { width: 44px; height: 62px; font-size: 1rem; }
 body.k28-portrait-photo .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
@@ -1084,7 +1085,7 @@ body.k28-portrait-photo .table-winning-hand { top: 33%; }
    plain normal flow, so it was hidden the same way. Sits just above
    the hand-strip cards. */
 body.k28-portrait-photo #myHandLabel {
-  position: fixed; bottom: 280px; left: 50%; transform: translateX(-50%); z-index: 41;
+  position: fixed; bottom: 208px; left: 50%; transform: translateX(-50%); z-index: 41;
   text-shadow: 0 1px 6px rgba(0,0,0,0.95); width: 100%;
   /* Real, confirmed feature per explicit live report ("i still have a
      generic writing small say u have 3 of a kind"): the inline
@@ -4955,7 +4956,7 @@ function renderActionBar(state) {
     </div>`;
     bottomBtnHtml = `<button class="action-btn action-bet" data-label="${state.currentBet > 0 ? 'Raise' : 'Bet'}" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}', Number(document.getElementById('betSlider').value))">${state.currentBet > 0 ? 'Raise' : 'Bet'}</button>`;
   }
-  html += `<div class="action-row" style="margin-top:8px">
+  html += `<div class="action-row" style="margin-top:4px">
     <button class="action-btn action-bet" data-label="All-In" onclick="sendAction('allin')">All-In</button>
     ${bottomBtnHtml}
   </div>`;
