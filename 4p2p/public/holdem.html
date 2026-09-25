@@ -1061,8 +1061,13 @@ body.k28-portrait-photo .action-bar {
    estimated) -- clearance tightened to match, so the extra ~70px of
    now-unnecessary gap goes back to actually showing the table instead
    of sitting empty above a much shorter bar. */
+/* Real, confirmed follow-up per explicit live report ("pull my cards a
+   little down so the slider is almost touching my card not
+   touching"): tightened from 95px (a comfortable ~10px gap above the
+   85px-tall action bar) down to 89px, a small ~4px gap -- close
+   without actually touching or overlapping. */
 body.k28-portrait-photo .hand-strip {
-  position: fixed; bottom: 95px; left: 50%; transform: translateX(-50%); z-index: 40; gap: 4px;
+  position: fixed; bottom: 89px; left: 50%; transform: translateX(-50%); z-index: 40; gap: 4px;
 }
 body.k28-portrait-photo .hand-strip .card { width: 44px; height: 62px; font-size: 1rem; }
 body.k28-portrait-photo .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
@@ -1093,16 +1098,20 @@ body.k28-portrait-photo .seat.folded .seat-avatar-photo { opacity: 0.35; filter:
    it still sits just below the board rather than stranding it in a
    now-oversized gap of its own. */
 body.k28-portrait-photo .board-area { top: 27%; }
-/* Real, confirmed follow-up fix found while chasing the winning-hand
-   overlap reports below: as .table-winning-hand kept moving down
-   (33% -> 37% -> 40% -> 44%) to clear the seats above it, this ended
-   up landing right on top of both the winning-hand cards AND its
-   label underneath (measured directly: pot at 383-410px overlapped
-   cards ending at 395px and label starting at 403px). Moved up into
-   the real gap between the live board and where the winning-hand
-   block now starts instead -- clear of both the live board and the
-   hand-end display, verified with real coordinates in both cases. */
-body.k28-portrait-photo .pot-display { top: 35%; }
+/* Real, confirmed feature per explicit live report ("the dealer cards
+   should be way up, we have space, all this also move up"): the board
+   (community cards) was still sitting at the base 42% top -- fine for
+   the plain generic felt layout that value was tuned for, but this
+   photo has the dealer at just 13% and the seats flanking it at 19%,
+   leaving a big stretch of unused felt between them and the board.
+   Moved up to sit closer to the dealer/back-seats area instead. The
+   pot display moves up a smaller amount too, to keep it looking like
+   it still sits just below the board rather than stranding it in a
+   now-oversized gap of its own. (A later pass briefly moved this to
+   35% while chasing an overlap that turned out to be caused by moving
+   a completely different element too far -- see the undo note on
+   .table-winning-hand-cards below. Back to its real, correct value.) */
+body.k28-portrait-photo .pot-display { top: 47%; }
 /* Real, confirmed feature per explicit live report ("make the final
    display upper i told u last time"): this sits at the base 70% top,
    which is almost exactly where my own seat/avatar/name sit in this
@@ -1121,19 +1130,47 @@ body.k28-portrait-photo .pot-display { top: 35%; }
    live report ("dealer dealt cards position need to be down a bit"):
    still not enough clearance -- nudged a little further to 44% (a
    small step, not a big jump, per explicit direction on this one). */
-body.k28-portrait-photo .table-winning-hand { top: 44%; }
+body.k28-portrait-photo .table-winning-hand { top: 33%; }
+/* Real, confirmed undo per explicit live report ("you're pulling the
+   wrong thing down... I said the 5 cards, not the whole thing... now
+   everything is overlapping continue"): every value above this line
+   is back to where it originally was (33%) -- the last several passes
+   kept moving the whole .table-winning-hand container to fix an
+   overlap with the seats above, but that container holds the label
+   too, and dragging it down far enough to clear the seats kept
+   colliding with Pot/Continue below instead, needing THEM nudged too,
+   compounding every time. What was actually asked for the whole time
+   was simpler: only the 5 cards themselves need to sit a little lower,
+   nothing else. Done properly below with a transform on just the cards
+   element -- .table-winning-hand-label sits at top:100% of the
+   CONTAINER's own layout box (see its own comment), which a transform
+   never changes, only visual position, so nudging the cards this way
+   can never drag the label, Pot, or Continue along with it again. */
+body.k28-portrait-photo .table-winning-hand-cards { transform: translateY(20px); }
+/* Real, confirmed follow-up to the fix directly above, found while
+   verifying it with real coordinates: the label was only ever 8px
+   below the cards to begin with (position:absolute;top:100% of the
+   container, whose layout height already equals the cards' own
+   height) -- shifting the cards down 20px via transform (which only
+   moves them visually, not their layout box) ate straight into that
+   8px gap and created a brand new overlap between cards and label.
+   Increasing the label's own margin-top by the same 20px keeps that
+   original 8px gap intact, so cards+label move together as the one
+   small visual unit they actually are, while Pot and Continue --
+   genuinely separate elements -- stay completely untouched, exactly
+   as asked. */
+body.k28-portrait-photo .table-winning-hand-label { margin-top: 28px; }
 /* Real, confirmed bug fix per explicit live report ("continue button
    needs to come down its overlapping the display card"): this has its
    own independent inline top:37% (landscape-tuned, positioned near
    the dealer there on purpose), completely unaware of where the
-   portrait cards+label block above actually sits (centered on 33%,
-   spanning roughly 27%-40% once its real height is counted) -- 37%
-   landed right inside that range. Moved safely below it. Real,
-   confirmed follow-up per explicit live report ("continue button is
-   overlapping the final test hand, make it come down more"): 48%
-   still wasn't enough clearance once .table-winning-hand itself also
-   moved down to 37% above -- pushed further to 56%. */
-body.k28-portrait-photo #winningHandContinueWrap { top: 56% !important; }
+   portrait cards+label block above actually sits. Moved safely below
+   it, to 48%. (A later pass pushed this further to 56% while chasing
+   an overlap that turned out to be caused by moving .table-winning-
+   hand itself too far down, not by this being wrong -- see the undo
+   note on .table-winning-hand-cards above. Back to its real, correct
+   value now that the actual cause is fixed properly instead.) */
+body.k28-portrait-photo #winningHandContinueWrap { top: 48% !important; }
 /* Real, confirmed feature per explicit request ("click anywhere to
    continue"): a full-screen, invisible tap target active only while
    the real Continue button is actually showing (see the matching
@@ -1154,9 +1191,11 @@ body.k28-portrait-photo #btnSoundMute {
    above: this label (shows things like "You have: Pair" right above
    my own cards) has no position set at all outside landscape mode --
    plain normal flow, so it was hidden the same way. Sits just above
-   the hand-strip cards. */
+   the hand-strip cards -- nudged down 6px along with them (95px ->
+   89px) to keep the same relative gap once the cards themselves moved
+   down per the live report right above. */
 body.k28-portrait-photo #myHandLabel {
-  position: fixed; bottom: 173px; left: 50%; transform: translateX(-50%); z-index: 41;
+  position: fixed; bottom: 167px; left: 50%; transform: translateX(-50%); z-index: 41;
   text-shadow: 0 1px 6px rgba(0,0,0,0.95); width: 100%;
   /* Real, confirmed feature per explicit live report ("i still have a
      generic writing small say u have 3 of a kind"): the inline
