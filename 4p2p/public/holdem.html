@@ -914,21 +914,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   }
   body.k28-in-game .action-row {
     position: fixed; right: 14px; left: auto; bottom: auto; top: 50%; margin: 0; height: fit-content;
-    /* Real, confirmed feature per explicit live report ("the top button
-       is all the way to the top, make all the buttons a little down,
-       make sure not to overlap the mute button on the bottom"): this
-       used to center the whole column with top:0;bottom:0;margin:auto
-       0 -- true vertical centering, which on a short landscape phone
-       viewport put the topmost button right up against the topbar.
-       Centers the same way, then nudges the whole column down a fixed
-       24px via transform (not a plain top offset, so it stays centered
-       -- just lower -- regardless of viewport height, rather than
-       anchoring to some specific pixel distance from the top that
-       would look wrong on a differently-sized screen). Verified with
-       real coordinates that the bottom-most button still clears the
-       mute button (fixed bottom:8px, 44px tall) with real room to
-       spare, not just shifted blindly. */
-    transform: translateY(calc(-50% + 24px));
+    /* Real, confirmed follow-up per explicit live report ("that was a
+       little too much... the bottom button is under [the mute
+       button]"): the mute button has moved to the other side entirely
+       now (see #btnSoundMute below), so it's no longer this column's
+       problem to avoid at all -- but the original complaint (top
+       button crowding the topbar) was real too, so this keeps a
+       smaller nudge rather than reverting to zero. */
+    transform: translateY(calc(-50% + 10px));
     flex-direction: column; gap: 34px; align-items: center; z-index: 45;
   }
   body.k28-in-game .action-btn {
@@ -977,9 +970,30 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   body.k28-in-game .amount-row {
     background: rgba(0,0,0,0.55); padding: 12px 8px; flex-direction: column; gap: 10px;
     width: fit-content; margin: 0 auto;
+    /* Real, confirmed follow-up per explicit live report ("make the
+       mute button on the other side, top, were the slider is, and
+       make the slider down"): the mute button moved here (see
+       #btnSoundMute below), sitting above this same left-side column
+       now, so the slider shifts down out of its way. Genuinely
+       confirmed root cause found while verifying this: putting this
+       shift on .action-bar (this element's own parent) via transform
+       instead broke .action-row's positioning entirely -- a transform
+       on any ancestor makes it the containing block for position:fixed
+       descendants per the CSS spec, and .action-row (a sibling of this
+       element, both children of .action-bar) depends on being fixed
+       relative to the real viewport to sit on the opposite side of the
+       screen at all. Applied directly to this element instead, which
+       is a normal (non-fixed) child with no fixed-position descendants
+       of its own, so it can't cause that same problem for anything. */
+    margin-top: 40px;
   }
   body.k28-in-game .amount-row input[type=range] {
-    writing-mode: vertical-lr; direction: rtl; width: 8px; height: 130px; flex: none;
+    /* Real, confirmed feature per the same live report as the two
+       nudges above ("adjust the slider size a bit"): shortened from
+       130px now that the mute button sits above this same column and
+       takes some of its own vertical room, so the whole column still
+       comfortably fits top to bottom. */
+    writing-mode: vertical-lr; direction: rtl; width: 8px; height: 110px; flex: none;
   }
   body.k28-in-game .amount-val { font-size: 0.78rem; min-width: 44px; text-align: center; }
   /* The submit button becomes a round circle matching Fold/Check/All-In exactly - same
@@ -1358,6 +1372,13 @@ body.k28-portrait-photo #handNumDisplay, body.k28-portrait-photo #blindsDisplay 
    bottom-right corner, sitting below the action bar's own buttons
    rather than off to the side of them. */
 #btnSoundMute{position:fixed;right:8px;bottom:8px;left:auto;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
+/* Real, confirmed feature per explicit live report ("make the mute
+   button on the other side, top, were the slider is"): moved from its
+   default bottom-right spot to the top of the left-side column instead
+   (the same side the bet slider lives on, per .action-bar above),
+   clear of both the topbar and the now-lower slider beneath it --
+   verified with real coordinates against both. */
+body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: auto; }
 #btnSoundMute:active{transform:scale(0.92)}
 /* Real, confirmed feature per explicit request ("popup... like the
    other tables"): ported directly from six.js/index.html's identical
