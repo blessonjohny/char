@@ -3964,7 +3964,21 @@ function renderGameTable(state) {
   // the actual running total a player would expect "Pot" to mean.
   const potTotal = state.pots.reduce((s, p) => s + p.amount, 0)
     + state.seats.reduce((s, seat) => s + (seat && seat.bettedThisRound ? seat.bettedThisRound : 0), 0);
-  $('potDisplay').innerHTML = (potTotal > 0 ? chipHtml(potTotal) : '') + 'Pot: ' + potTotal + (state.currentBet > 0 ? ` · Bet: ${state.currentBet}` : '');
+  // Real, confirmed feature per explicit request ("when there is
+  // multiple bidders there is side pots after one player bids all
+  // in... that pots should be shown separately and should have the
+  // exact value for each pile and a total of all"): state.pots already
+  // holds each real side-pot layer separately (see _collectBetsIntoPots
+  // in poker-engine.js, which only ever produces more than one entry
+  // once a genuine side pot actually exists) -- this was always being
+  // silently flattened into one combined number. Once there's more
+  // than one, lists each by name (the first is the main pot, each
+  // after it a side pot) with its own exact amount, plus the same
+  // running total as before.
+  const potLabelText = state.pots.length > 1
+    ? state.pots.map((p, i) => (i === 0 ? 'Main' : 'Side ' + i) + ': ' + p.amount).join(' · ') + ' · Total: ' + potTotal
+    : 'Pot: ' + potTotal;
+  $('potDisplay').innerHTML = (potTotal > 0 ? chipHtml(potTotal) : '') + potLabelText + (state.currentBet > 0 ? ` · Bet: ${state.currentBet}` : '');
   // Per explicit follow-up: the formal pot total (state.pots) only
   // actually updates once a full betting round settles and everyone's
   // individual bets get swept together -- which is exactly why this
@@ -3975,7 +3989,15 @@ function renderGameTable(state) {
   // pots), so this label now counts the same way the pile actually
   // fills up -- live, from the very first blind -- rather than the
   // official settled figure, which is a beat behind on purpose.
-  const liveChipTotal = potTotal + state.seats.reduce((s, seat) => s + (seat ? seat.bettedThisRound : 0), 0);
+  // Real, confirmed bug fix per explicit live report ("pot in the
+  // table and pot popup is both showing different... it should be
+  // 15"): this used to add bettedThisRound a second time to compensate
+  // for potTotal not yet including live bets -- now that the fix
+  // directly above already folds bettedThisRound into potTotal itself,
+  // this was double-counting the exact same money (15 real + 15 again
+  // = the 30 seen live), rather than genuinely tracking anything extra.
+  // potTotal already IS the live, correct total now.
+  const liveChipTotal = potTotal;
   if ($('potStackTotal')) $('potStackTotal').textContent = liveChipTotal > 0 ? liveChipTotal : '';
   // Per explicit live report: the dealer needs to visibly deal the
   // community cards too, one at a time, the same as the hole cards --
@@ -4963,7 +4985,27 @@ function animateDealingCards(state) {
   const roundSpacing = dealSeats.length * 220 + 200;
   dealSeats.forEach((pos, seatIdx) => {
     const seatEl = document.querySelector(`.seat[data-pos="${pos}"]`);
-    if (!seatEl) return;
+    // Real, confirmed bug fix per explicit live report with screenshots
+    // ("i dont have cards" -- reproduced in both portrait and
+    // landscape, hand 1 specifically, recovering on hand 2): this used
+    // to just silently skip the whole seat when its DOM element wasn't
+    // found yet and leave it there -- which is exactly what happens on
+    // the very first-ever render of a table, since this function now
+    // runs at the very top of renderGameTable, before the seat-
+    // rendering loop later in that same function has actually created
+    // any .seat elements yet. With nothing else ever incrementing this
+    // seat's dealt count afterward, its cards stayed hidden for the
+    // entire hand -- only the NEXT hand's fresh animateDealingCards
+    // call (by which point the seats genuinely do exist from the
+    // previous render) ever fixed it. Same fallback as the missing-
+    // dealer-element case above: if there's truly no element to animate
+    // toward, reveal that seat's real cards immediately instead of
+    // leaving them stuck.
+    if (!seatEl) {
+      const s = state.seats[pos];
+      if (s && s.hand) dealtCardCountBySeat[pos] = s.hand.length;
+      return;
+    }
     // Per explicit live report: aiming at the seat's own center looked
     // wrong specifically for the back-row seats, where the info block
     // (name/chips/cards) renders ABOVE the avatar rather than below it
