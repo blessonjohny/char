@@ -927,17 +927,29 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     text-shadow: 0 1px 4px rgba(0,0,0,0.9);
   }
   body.k28-in-game .action-fold { color: #f04a4a; }
-  body.k28-in-game .action-fold::after { content: attr(data-label); }
-  body.k28-in-game .action-fold::before { content: '✕'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; border: 2.5px solid currentColor; border-radius: 50%; }
   body.k28-in-game .action-check { color: #2dd4bf; }
-  body.k28-in-game .action-check::after { content: attr(data-label); }
-  body.k28-in-game .action-check::before { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; border: 2.5px solid currentColor; border-radius: 50%; }
   body.k28-in-game .action-call { color: #2dd4bf; }
-  body.k28-in-game .action-call::after { content: attr(data-label); }
-  body.k28-in-game .action-call::before { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; border: 2.5px solid currentColor; border-radius: 50%; }
   body.k28-in-game .action-bet { color: #f4c430; }
-  body.k28-in-game .action-bet::after { content: attr(data-label); }
-  body.k28-in-game .action-bet::before { content: '▲'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; border: 2.5px solid currentColor; border-radius: 50%; }
+  /* Real, confirmed feature per explicit live report ("4 x tick and 2
+     triangle button on one side, don't know what is what, instead of
+     tick x it should say pass check fold etc"): the real, underlying
+     ambiguity wasn't just that icons are less clear than words -- the
+     All-In and Raise/Bet buttons share this exact same .action-bet
+     class, so they were rendering the literal same ▲ symbol as each
+     other, genuinely indistinguishable, not just visually similar.
+     Same story for Check and Call both showing an identical ✓. Content
+     now pulls the button's own real data-label (Fold, Check, Call X,
+     Raise, Bet, All-In -- whatever it actually says) directly into the
+     circle instead of a fixed symbol, so every button legitimately
+     shows what it does. The old separate ::after side-label (outside
+     the circle) showed this exact same text a second time in a
+     different spot -- now redundant and removed, one clear label
+     instead of two. */
+  body.k28-in-game .action-btn::before {
+    content: attr(data-label); position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; text-align: center; font-size: 0.6rem; font-weight: 800; line-height: 1.05;
+    padding: 0 4px; border: 2.5px solid currentColor; border-radius: 50%; white-space: normal;
+  }
   /* Per explicit correction: the slider itself needs to actually be vertical (sliding up/down)
      with a round submit button below it matching the same circular style as Fold/Check/All-In
      - not a horizontal row of controls with a pill-shaped button underneath, which is what the
@@ -1287,8 +1299,7 @@ body.k28-portrait-photo #handNumDisplay, body.k28-portrait-photo #blindsDisplay 
   body.k28-in-game .table-winning-hand-cards .card { width: 30px; height: 43px; font-size: 0.78rem; }
   body.k28-in-game .pot-display { font-size: 0.7rem; padding: 4px 10px; }
   body.k28-in-game .action-btn { width: 46px; height: 46px; }
-  body.k28-in-game .action-btn::before { font-size: 1.1rem; }
-  body.k28-in-game .action-btn::after { font-size: 0.56rem; top: 50%; right: 100%; margin-right: 7px; }
+  body.k28-in-game .action-btn::before { font-size: 0.52rem; }
   body.k28-in-game .action-row { gap: 18px; right: 8px; }
   body.k28-in-game .action-bar { left: 8px; max-width: 150px; }
   body.k28-in-game .hand-strip .card { width: 32px; height: 45px; font-size: 0.78rem; }
