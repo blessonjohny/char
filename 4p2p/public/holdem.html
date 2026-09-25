@@ -3953,7 +3953,17 @@ function renderGameTable(state) {
   }
   $('handNumDisplay').textContent = 'Hand ' + state.handNumber;
   $('blindsDisplay').textContent = state.smallBlind + '/' + state.bigBlind + (state.buyInType === 'fixed' ? ' fixed' : ' NL') + (state.mode === 'tournament' ? ` · Level ${(state.blindLevel || 0) + 1}` : '');
-  const potTotal = state.pots.reduce((s, p) => s + p.amount, 0);
+  // Real, confirmed bug fix per explicit live report ("the pot is 15
+  // when it's my turn... it only updates after I bid"): state.pots
+  // only ever holds bets already SWEPT into it at the end of a betting
+  // round (see _collectBetsIntoPots in poker-engine.js) -- during an
+  // active round, real money already in play (blinds, calls so far)
+  // sits in each seat's own bettedThisRound and genuinely hasn't been
+  // swept yet, so summing pots alone reads 0 even mid-round with real
+  // chips on the table. Adding every seat's live bettedThisRound gives
+  // the actual running total a player would expect "Pot" to mean.
+  const potTotal = state.pots.reduce((s, p) => s + p.amount, 0)
+    + state.seats.reduce((s, seat) => s + (seat && seat.bettedThisRound ? seat.bettedThisRound : 0), 0);
   $('potDisplay').innerHTML = (potTotal > 0 ? chipHtml(potTotal) : '') + 'Pot: ' + potTotal + (state.currentBet > 0 ? ` · Bet: ${state.currentBet}` : '');
   // Per explicit follow-up: the formal pot total (state.pots) only
   // actually updates once a full betting round settles and everyone's
