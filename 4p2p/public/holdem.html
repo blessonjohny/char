@@ -648,27 +648,16 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .hand-strip .card{width:44px;height:62px;font-size:1rem}
 
 .action-bar{width:100%;max-width:520px;margin:0 auto;padding:10px 14px 18px;flex-shrink:0}
-.action-row{display:flex;gap:6px;margin-bottom:6px}
-.action-btn{flex:1;padding:8px 4px;border-radius:9px;border:none;font-weight:700;font-size:0.7rem;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,0.3),0 2px 5px rgba(0,0,0,0.35);border-bottom:1.5px solid rgba(0,0,0,0.25);transition:transform 0.08s ease,box-shadow 0.08s ease;position:relative;overflow:hidden}
-/* Real, confirmed feature per explicit request ("professional looking
-   colored and shines"): a glossy highlight band across the top third
-   of every button, like real glass/plastic button-ware catches light
-   -- layered on top of each button's own color via ::before so it
-   works identically regardless of which color variant it's on. */
-.action-btn::before{
-  content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
-  background:linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.12) 35%, rgba(255,255,255,0) 60%);
-}
-.action-btn:active::before{ opacity:0.6; }
-.action-btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,0.35),0 2px 6px rgba(0,0,0,0.4)}
-.action-fold{background:linear-gradient(180deg,#e35555,#c53434);color:#fff}
-.action-check{background:linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.1));color:#fff;border:1px solid rgba(255,255,255,0.25)}
-.action-call{background:linear-gradient(180deg,var(--accent),#2a6bb0);color:#fff}
-.action-bet{background:linear-gradient(180deg,#ffd866,var(--gold) 55%,#c99a1e);color:#241a12}
-.amount-row{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border-radius:10px;padding:5px 8px}
+.action-row{display:flex;gap:8px;margin-bottom:8px}
+.action-btn{flex:1;padding:14px 6px;border-radius:12px;border:none;font-weight:800;font-size:0.85rem;cursor:pointer}
+.action-fold{background:rgba(231,64,64,0.85);color:#fff}
+.action-check{background:rgba(255,255,255,0.15);color:#fff}
+.action-call{background:var(--accent);color:#fff}
+.action-bet{background:linear-gradient(135deg,var(--gold),#c99a1e);color:#241a12}
+.amount-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.06);border-radius:12px;padding:8px 10px}
 .amount-row input[type=range]{flex:1}
-.amount-val{font-weight:800;color:var(--gold);min-width:44px;text-align:right;font-size:0.78rem}
-.stepper-btn{background:rgba(255,255,255,0.1);border:none;color:#fff;width:24px;height:24px;border-radius:6px;font-size:0.85rem;cursor:pointer}
+.amount-val{font-weight:800;color:var(--gold);min-width:60px;text-align:right;font-size:0.9rem}
+.stepper-btn{background:rgba(255,255,255,0.1);border:none;color:#fff;width:30px;height:30px;border-radius:8px;font-size:1rem;cursor:pointer}
 
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center;z-index:2000;padding:20px}
 .overlay.on{display:flex}
@@ -1046,6 +1035,46 @@ body.k28-portrait-photo .action-bar {
   padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0) 100%);
 }
+/* Real, confirmed bug fix per explicit live report ("when we switched
+   the controllers for portrait mode the computer and landscape buttons
+   changed too... some of it characters"): every one of the rules below
+   (tiny sizing, the glossy shine, the gradient colors) was originally
+   added directly to the base .action-btn/.action-row/.amount-row/
+   .amount-val/.stepper-btn/.action-fold etc. rules -- which landscape
+   (body.k28-in-game) falls back to for anything it doesn't explicitly
+   re-override. Landscape's own circular buttons already use
+   .action-fold::before etc. for their ✕/✓/▲ icon characters -- the
+   base .action-btn::before shine this added didn't set its own
+   content, so landscape's icon content still won there, but its
+   gradient BACKGROUND was never overridden by landscape's rule (CSS
+   cascades per property, not per rule), so that gradient was smearing
+   across/muddying the icon on every landscape button, and the
+   .action-fold/check/call/bet gradient backgrounds were changing
+   landscape's own circle colors too. All of it moved here, scoped to
+   portrait-photo specifically, and the base rules above restored to
+   their original, pre-this-whole-detour values -- landscape now falls
+   back to exactly what it always did again. */
+body.k28-portrait-photo .action-row { gap: 6px; margin-bottom: 6px; }
+body.k28-portrait-photo .action-btn {
+  padding: 8px 4px; border-radius: 9px; font-weight: 700; font-size: 0.7rem;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.3), 0 2px 5px rgba(0,0,0,0.35);
+  border-bottom: 1.5px solid rgba(0,0,0,0.25);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  position: relative; overflow: hidden;
+}
+body.k28-portrait-photo .action-btn::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.12) 35%, rgba(255,255,255,0) 60%);
+}
+body.k28-portrait-photo .action-btn:active::before { opacity: 0.6; }
+body.k28-portrait-photo .action-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.4); }
+body.k28-portrait-photo .action-fold { background: linear-gradient(180deg,#e35555,#c53434); color: #fff; }
+body.k28-portrait-photo .action-check { background: linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.1)); color: #fff; border: 1px solid rgba(255,255,255,0.25); }
+body.k28-portrait-photo .action-call { background: linear-gradient(180deg,var(--accent),#2a6bb0); color: #fff; }
+body.k28-portrait-photo .action-bet { background: linear-gradient(180deg,#ffd866,var(--gold) 55%,#c99a1e); color: #241a12; }
+body.k28-portrait-photo .amount-row { gap: 6px; border-radius: 10px; padding: 5px 8px; }
+body.k28-portrait-photo .amount-val { min-width: 44px; font-size: 0.78rem; }
+body.k28-portrait-photo .stepper-btn { width: 24px; height: 24px; border-radius: 6px; font-size: 0.85rem; }
 /* Real, confirmed bug fix, same root cause as .action-bar just above:
    my own hole cards live in .hand-strip, which was ALSO still sitting
    in normal document flow and getting hidden under the now-fixed
@@ -4693,10 +4722,25 @@ function showWinningHandOnTable(state) {
     return;
   }
 
-  const winnerPos = r.winners[0].seat;
-  const winnerSeat = state.seats[winnerPos];
-  const winnerSeatEl = document.querySelector(`.seat[data-pos="${winnerPos}"]`);
-  const winningHand = r.winners[0].hand;
+  // Real, confirmed feature per explicit request ("split pot winner
+  // both are announced as winners... the animation also should show
+  // split -- first going to the top, then after going to the rest,
+  // like that, all should be synced"): every winner's own seat already
+  // correctly gets the fireball glow just below, regardless of how
+  // many there are -- what didn't handle a real split at all was the
+  // actual center-table hand reveal, which only ever showed
+  // r.winners[0]'s specific 5 cards and hand name, silently ignoring
+  // any other winner entirely. A genuine split (2+ different winning
+  // hands, not just one seat's own uncalled bet coming back to them)
+  // now cycles through each winner's own hand in turn -- the exact
+  // same full card-by-card flight animation a single winner already
+  // gets, one winner after another, only advancing to the Continue
+  // button once the very last one finishes. Wrapped the entire
+  // existing single-winner reveal (completely unchanged below, just
+  // parameterized by which winner) in revealOneWinner so the single-
+  // winner case (by far the common one) behaves exactly as it always
+  // has -- sequence has only one entry, isLastWinner is true
+  // immediately, Continue shows right after, identical to before.
   const names = uniqueWinnerNames(state, r.winners);
   const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
   r.winners.forEach(w => {
@@ -4706,6 +4750,16 @@ function showWinningHandOnTable(state) {
     void seatEl.offsetWidth;
     seatEl.classList.add('winner-reaction');
   });
+  const realWinners = r.winners.filter(w => w.hand && w.hand.length);
+  const sequence = realWinners.length ? realWinners : [r.winners[0]];
+
+  function revealOneWinner(winnerIdx) {
+  const w = sequence[winnerIdx];
+  const isLastWinner = winnerIdx === sequence.length - 1;
+  const winnerPos = w.seat;
+  const winnerSeat = state.seats[winnerPos];
+  const winnerSeatEl = document.querySelector(`.seat[data-pos="${winnerPos}"]`);
+  const winningHand = w.hand;
 
   const cardKey = c => c.rank + c.suit;
   const winningHandKeys = new Set(winningHand.map(cardKey));
@@ -4715,6 +4769,9 @@ function showWinningHandOnTable(state) {
     if (!cardEl) return;
     cardEl.classList.toggle('board-card-unused', !winningHandKeys.has(cardKey(boardCard)));
   });
+
+  const holeCardKeys = new Set((winnerSeat && winnerSeat.hand ? winnerSeat.hand : []).map(cardKey));
+  const boardCardEls2 = boardAreaEls; // same real board card elements already measured above
 
   // Real, confirmed full rewrite per explicit, repeated live report of
   // glitchy, chaotic, misplaced flying cards ("looks terrible... like
@@ -4739,8 +4796,6 @@ function showWinningHandOnTable(state) {
   // the screen -- there is now no coordinate calculation left that a
   // resize, a 3D-transformed source card, or a mismeasured rect could
   // ever get wrong, because none of those inputs are used at all.
-  const holeCardKeys = new Set((winnerSeat && winnerSeat.hand ? winnerSeat.hand : []).map(cardKey));
-  const boardCardEls2 = boardAreaEls; // same real board card elements already measured above
 
   // Real, confirmed rewrite per explicit follow-up request ("can you
   // make it fly from the player's winning card to the table"): the
@@ -4870,12 +4925,28 @@ function showWinningHandOnTable(state) {
         console.error('[holdem] winning-hand card flight failed for card', i, e);
       }
       if (i === winningHand.length - 1) {
-        $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-name">${names}</span> won <span class="table-winning-hand-label-amount">${totalWon}</span> <span class="table-winning-hand-label-handname">${r.winners[0].handName}</span>`;
-        $('btnWinningHandContinue').style.display = '';
-        updateWinningHandContinueUI(latestState);
+        // Real, confirmed feature per the same split-pot request above:
+        // a single winner keeps the exact same combined "everyone,
+        // total" label as always (sequence.length is 1, so the ternary
+        // below picks the original names/totalWon path unchanged) --
+        // a genuine split instead shows THIS winner's own name and
+        // exact share while their hand is the one actually on screen,
+        // then either moves on to the next winner's own reveal or, on
+        // the last one, finally shows Continue.
+        const labelName = sequence.length > 1 ? (state.seats[winnerPos] ? escapeHtml(state.seats[winnerPos].name) : '?') : names;
+        const labelAmount = sequence.length > 1 ? w.amount : totalWon;
+        $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-name">${labelName}</span> won <span class="table-winning-hand-label-amount">${labelAmount}</span> <span class="table-winning-hand-label-handname">${w.handName}</span>`;
+        if (isLastWinner) {
+          $('btnWinningHandContinue').style.display = '';
+          updateWinningHandContinueUI(latestState);
+        } else {
+          setTimeout(() => revealOneWinner(winnerIdx + 1), 1600);
+        }
       }
     }, i * 320);
   });
+  } // end revealOneWinner
+  revealOneWinner(0);
 
   if (tableWinningHandClearTimer) clearTimeout(tableWinningHandClearTimer);
   // Real, confirmed feature change per explicit request: the display no
