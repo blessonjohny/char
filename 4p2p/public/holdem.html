@@ -1146,7 +1146,7 @@ body.k28-portrait-photo .table-winning-hand { top: 33%; }
    CONTAINER's own layout box (see its own comment), which a transform
    never changes, only visual position, so nudging the cards this way
    can never drag the label, Pot, or Continue along with it again. */
-body.k28-portrait-photo .table-winning-hand-cards { transform: translateY(20px); }
+body.k28-portrait-photo .table-winning-hand-cards { transform: translateY(45px); }
 /* Real, confirmed follow-up to the fix directly above, found while
    verifying it with real coordinates: the label was only ever 8px
    below the cards to begin with (position:absolute;top:100% of the
@@ -1159,7 +1159,7 @@ body.k28-portrait-photo .table-winning-hand-cards { transform: translateY(20px);
    small visual unit they actually are, while Pot and Continue --
    genuinely separate elements -- stay completely untouched, exactly
    as asked. */
-body.k28-portrait-photo .table-winning-hand-label { margin-top: 28px; }
+body.k28-portrait-photo .table-winning-hand-label { margin-top: 53px; }
 /* Real, confirmed bug fix per explicit live report ("continue button
    needs to come down its overlapping the display card"): this has its
    own independent inline top:37% (landscape-tuned, positioned near
@@ -1170,7 +1170,7 @@ body.k28-portrait-photo .table-winning-hand-label { margin-top: 28px; }
    hand itself too far down, not by this being wrong -- see the undo
    note on .table-winning-hand-cards above. Back to its real, correct
    value now that the actual cause is fixed properly instead.) */
-body.k28-portrait-photo #winningHandContinueWrap { top: 48% !important; }
+body.k28-portrait-photo #winningHandContinueWrap { top: 62% !important; }
 /* Real, confirmed feature per explicit request ("click anywhere to
    continue"): a full-screen, invisible tap target active only while
    the real Continue button is actually showing (see the matching
