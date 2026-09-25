@@ -1035,6 +1035,33 @@ body.k28-portrait-photo .hand-strip {
 body.k28-portrait-photo .hand-strip .card { width: 44px; height: 62px; font-size: 1rem; }
 body.k28-portrait-photo .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
 body.k28-portrait-photo .hand-strip .card:last-child { transform: rotate(8deg) translateY(2px); }
+/* Real, confirmed bug fix found from a real-device screenshot ("2
+   avatars are not there only dealer"): every seat's actual avatar
+   photo is display:none by default and only ever switched on via a
+   landscape-only override (body.k28-in-game .seat-avatar-photo) --
+   the dealer's own avatar and "you"'s emoji fallback use separate,
+   always-visible elements, which is exactly why only those two showed
+   while every other seat sat blank. Same display/border/glow/fold
+   treatment as landscape, mirrored here. */
+body.k28-portrait-photo .seat-avatar { display: none; }
+body.k28-portrait-photo .seat-avatar-photo {
+  display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+  border: 2.5px solid rgba(255,255,255,0.25); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+}
+body.k28-portrait-photo .seat.active .seat-avatar-photo { border-color: var(--gold); box-shadow: 0 0 18px rgba(244,196,48,0.8); animation: seatPulse 1.1s ease-in-out infinite; }
+body.k28-portrait-photo .seat.folded .seat-avatar-photo { opacity: 0.35; filter: grayscale(1); }
+/* Real, confirmed feature per explicit live report ("the dealer cards
+   should be way up, we have space, all this also move up"): the board
+   (community cards) was still sitting at the base 42% top -- fine for
+   the plain generic felt layout that value was tuned for, but this
+   photo has the dealer at just 13% and the seats flanking it at 19%,
+   leaving a big stretch of unused felt between them and the board.
+   Moved up to sit closer to the dealer/back-seats area instead. The
+   pot display moves up a smaller amount too, to keep it looking like
+   it still sits just below the board rather than stranding it in a
+   now-oversized gap of its own. */
+body.k28-portrait-photo .board-area { top: 27%; }
+body.k28-portrait-photo .pot-display { top: 47%; }
 /* Real, confirmed bug fix, same root cause as the two fixes just
    above: this label (shows things like "You have: Pair" right above
    my own cards) has no position set at all outside landscape mode --
