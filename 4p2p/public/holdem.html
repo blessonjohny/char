@@ -1162,6 +1162,31 @@ body.k28-portrait-photo .seat.folded .seat-avatar-photo { opacity: 0.35; filter:
    computation and outer seat class this hooks into for the fuller
    reasoning -- purely declutters the moment a hand is genuinely
    revealed, never touches a normal face-down seat. */
+/* Real, confirmed feature per explicit live report ("owners name and
+   the amount goes on top of the face down cards... not tip"): for
+   portrait specifically, the name and the numeric chip-amount text
+   move from their own separate rows above the cards to sit layered
+   directly ON TOP of the card-backs themselves -- .seat-cards becomes
+   the positioning context (position:relative) these two absolutely
+   position against, centered over the cards, with a dark backdrop
+   behind the text so it stays readable against the card-back image
+   underneath it. The physical chip graphics on the felt (the rail
+   chip stacks, a completely separate element) are untouched -- this
+   is only the name and the seat's own chip-COUNT text. When the hand
+   is genuinely revealed face-up, .seat.seat-cards-revealed (see the
+   isFaceUpNow logic in the render loop) already hides both of these
+   completely, exactly as before -- they naturally reappear the moment
+   that stops being true again (the very next hand, once this seat's
+   cards go back to being masked), no separate timer needed for that. */
+body.k28-portrait-photo .seat-cards { position: relative; }
+body.k28-portrait-photo .seat-name,
+body.k28-portrait-photo .seat-chips {
+  position: absolute; left: 50%; transform: translateX(-50%); z-index: 6;
+  margin: 0; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.95);
+  background: rgba(0,0,0,0.55); border-radius: 4px; padding: 0 3px; pointer-events: none;
+}
+body.k28-portrait-photo .seat-name { top: -2px; font-size: 0.56rem; }
+body.k28-portrait-photo .seat-chips { top: 11px; font-size: 0.56rem; }
 body.k28-portrait-photo .seat.seat-cards-revealed .seat-name,
 body.k28-portrait-photo .seat.seat-cards-revealed .seat-chips { display: none; }
 /* Real, confirmed feature per explicit live report ("the dealer cards
