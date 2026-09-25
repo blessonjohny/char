@@ -3613,7 +3613,21 @@ function renderRailChips(state) {
     // toward-center geometry above alone, which is layout-agnostic and
     // still reasonable without them.
     const isPortraitPhoto = document.body.classList.contains('k28-portrait-photo');
-    const MANUAL_CORRECTIONS = isPortraitPhoto ? {} : {
+    // Real, confirmed live per-seat correction pass for the portrait
+    // photo, same idea as the landscape corrections below but tuned
+    // against THIS layout's own real gold cup-holder positions instead
+    // (explicit report: "top 2 needs to go up, you see the cup holder
+    // is kinda close to dealer's left and right, the middle left right
+    // also needs to go up a little more") -- slots 4/5 flank the
+    // dealer directly and need the biggest upward nudge, 3/6 sit one
+    // ring out and need a smaller one.
+    const PORTRAIT_MANUAL_CORRECTIONS = {
+      4: { dx: 0, dy: -8 },  // upper-left, flanking dealer: up more
+      5: { dx: 0, dy: -8 },  // upper-right, flanking dealer: up more (mirrors 4)
+      3: { dx: 0, dy: -4 },  // mid-left: up a little
+      6: { dx: 0, dy: -4 },  // mid-right: up a little (mirrors 3)
+    };
+    const MANUAL_CORRECTIONS = isPortraitPhoto ? PORTRAIT_MANUAL_CORRECTIONS : {
       0: { dx: 0, dy: -6 },   // dealer/own seat: up, so it's actually visible
       1: { dx: 0, dy: -3 },   // Bot2: up, a little little bit
       2: { dx: 0, dy: -8 },   // Bot3: up toward the rail
