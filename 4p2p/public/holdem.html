@@ -1093,7 +1093,16 @@ body.k28-portrait-photo .seat.folded .seat-avatar-photo { opacity: 0.35; filter:
    it still sits just below the board rather than stranding it in a
    now-oversized gap of its own. */
 body.k28-portrait-photo .board-area { top: 27%; }
-body.k28-portrait-photo .pot-display { top: 47%; }
+/* Real, confirmed follow-up fix found while chasing the winning-hand
+   overlap reports below: as .table-winning-hand kept moving down
+   (33% -> 37% -> 40% -> 44%) to clear the seats above it, this ended
+   up landing right on top of both the winning-hand cards AND its
+   label underneath (measured directly: pot at 383-410px overlapped
+   cards ending at 395px and label starting at 403px). Moved up into
+   the real gap between the live board and where the winning-hand
+   block now starts instead -- clear of both the live board and the
+   hand-end display, verified with real coordinates in both cases. */
+body.k28-portrait-photo .pot-display { top: 35%; }
 /* Real, confirmed feature per explicit live report ("make the final
    display upper i told u last time"): this sits at the base 70% top,
    which is almost exactly where my own seat/avatar/name sit in this
@@ -1108,8 +1117,11 @@ body.k28-portrait-photo .pot-display { top: 47%; }
    follow-up per explicit live report ("dealer dealing card... still
    overlapping top players cards, make it come down a little bit just
    to clear the top cards a little"): 37% still wasn't quite enough --
-   nudged again to 40%. */
-body.k28-portrait-photo .table-winning-hand { top: 40%; }
+   nudged again to 40%. Real, confirmed third follow-up per explicit
+   live report ("dealer dealt cards position need to be down a bit"):
+   still not enough clearance -- nudged a little further to 44% (a
+   small step, not a big jump, per explicit direction on this one). */
+body.k28-portrait-photo .table-winning-hand { top: 44%; }
 /* Real, confirmed bug fix per explicit live report ("continue button
    needs to come down its overlapping the display card"): this has its
    own independent inline top:37% (landscape-tuned, positioned near
