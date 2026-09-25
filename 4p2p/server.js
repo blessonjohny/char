@@ -6095,9 +6095,60 @@ io.on('connection', (socket) => {
 
   socket.on('poker_act', ({ action, amount }) => {
     withPokerTable((t, pos) => {
+      const boardLenBefore = t.engine.board.length;
+      const wasAllInShowdown = t.engine.allInShowdown;
       const result = t.engine.act(pos, action, amount);
       if (!result.ok) { socket.emit('poker_actionError', result); return; }
       pokerTouch(t);
+      // Real, confirmed feature per explicit request ("when all
+      // players all in, the board should be shown during the flop
+      // turn river"): a single action that triggers a genuine all-in
+      // showdown makes the engine deal out and resolve every remaining
+      // street synchronously in one shot (see _runOutRemainingStreets
+      // in poker-engine.js) -- the board and the full result would
+      // otherwise both land in the very next broadcast at once, with
+      // no flop/turn/river pause at all. Paces the reveal instead:
+      // broadcasts a partial view of the (already fully-determined)
+      // board one real street at a time with a delay between each,
+      // then the true final state -- the same dramatic run-out a real
+      // poker room gives when nobody has anything left to bet on.
+      // showdownResult is a persistent engine field (present in every
+      // broadcast regardless of phase, not recomputed from phase), so
+      // it's temporarily cleared during the staged reveals and only
+      // restored for the final broadcast -- otherwise the winner
+      // would leak before the board even finished coming out.
+      const finalBoard = t.engine.board.slice();
+      const isFreshAllInShowdown = !wasAllInShowdown && t.engine.allInShowdown && finalBoard.length > boardLenBefore + 1;
+      if (isFreshAllInShowdown) {
+        const finalPhase = t.engine.phase;
+        const finalShowdownResult = t.engine.showdownResult;
+        const phaseForCount = c => (c <= 3 ? 'flop' : c === 4 ? 'turn' : 'river');
+        const revealSteps = [];
+        let cursor = boardLenBefore;
+        if (cursor === 0) { revealSteps.push(3); cursor = 3; }
+        while (cursor < finalBoard.length) { revealSteps.push(1); cursor += 1; }
+        let shownCount = boardLenBefore;
+        let stepIdx = 0;
+        t.engine.showdownResult = null;
+        const revealNext = () => {
+          if (stepIdx >= revealSteps.length) {
+            t.engine.board = finalBoard;
+            t.engine.phase = finalPhase;
+            t.engine.showdownResult = finalShowdownResult;
+            pokerBroadcast(t);
+            if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
+            return;
+          }
+          shownCount += revealSteps[stepIdx];
+          t.engine.board = finalBoard.slice(0, shownCount);
+          t.engine.phase = phaseForCount(shownCount);
+          pokerBroadcast(t);
+          stepIdx++;
+          setTimeout(revealNext, 1400);
+        };
+        revealNext();
+        return;
+      }
       pokerBroadcast(t);
       if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
       else pokerMaybeBotAct(t);
