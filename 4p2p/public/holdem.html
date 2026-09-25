@@ -1020,7 +1020,15 @@ body.k28-portrait-photo .house-dealer-photo {
 body.k28-portrait-photo .action-bar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
   width: 100%; max-width: 460px; margin: 0 auto;
-  padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
+  /* Real, confirmed bug fix found from a real render check: the
+     always-present sound-mute button (#btnSoundMute, fixed at
+     right:8px/bottom:8px, 44px wide, z-index:150 -- always on top of
+     everything) was overlapping the last of the 4 buttons in this row,
+     since this bar didn't know to leave it any room. Extra padding on
+     the right only shifts the whole row left just enough to clear it,
+     without shrinking any button or otherwise changing the layout. */
+  padding: 6px 60px 6px 12px;
+  padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0) 100%);
 }
 /* Real, confirmed bug fix, same root cause as .action-bar just above:
@@ -1039,7 +1047,7 @@ body.k28-portrait-photo .action-bar {
    now-unnecessary gap goes back to actually showing the table instead
    of sitting empty above a much shorter bar. */
 body.k28-portrait-photo .hand-strip {
-  position: fixed; bottom: 130px; left: 50%; transform: translateX(-50%); z-index: 40; gap: 4px;
+  position: fixed; bottom: 95px; left: 50%; transform: translateX(-50%); z-index: 40; gap: 4px;
 }
 body.k28-portrait-photo .hand-strip .card { width: 44px; height: 62px; font-size: 1rem; }
 body.k28-portrait-photo .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
@@ -1085,7 +1093,7 @@ body.k28-portrait-photo .table-winning-hand { top: 33%; }
    plain normal flow, so it was hidden the same way. Sits just above
    the hand-strip cards. */
 body.k28-portrait-photo #myHandLabel {
-  position: fixed; bottom: 208px; left: 50%; transform: translateX(-50%); z-index: 41;
+  position: fixed; bottom: 173px; left: 50%; transform: translateX(-50%); z-index: 41;
   text-shadow: 0 1px 6px rgba(0,0,0,0.95); width: 100%;
   /* Real, confirmed feature per explicit live report ("i still have a
      generic writing small say u have 3 of a kind"): the inline
@@ -3593,7 +3601,19 @@ function renderRailChips(state) {
     // 5 = Bot6, 6 = Bot7, 7 = Bot8). Slot 0 (the dealer/this player's
     // own seat) added in this same follow-up round -- explicit report
     // that their own chip stack wasn't visible enough, moved up.
-    const MANUAL_CORRECTIONS = {
+    // Real, confirmed bug fix per explicit live report ("all the chips
+    // of avatars are all over the place no one is in correct spot"):
+    // these corrections were hand-tuned, one seat at a time, against
+    // the LANDSCAPE layout's own seat coordinates specifically (see
+    // each comment below naming a landscape seat) -- portrait-photo
+    // mode uses a completely different seatPositions() layout, so
+    // applying these same landscape-specific nudges on top of it was
+    // adding essentially random offsets, not corrections. Skipped
+    // entirely for portrait-photo, falling back to the generic
+    // toward-center geometry above alone, which is layout-agnostic and
+    // still reasonable without them.
+    const isPortraitPhoto = document.body.classList.contains('k28-portrait-photo');
+    const MANUAL_CORRECTIONS = isPortraitPhoto ? {} : {
       0: { dx: 0, dy: -6 },   // dealer/own seat: up, so it's actually visible
       1: { dx: 0, dy: -3 },   // Bot2: up, a little little bit
       2: { dx: 0, dy: -8 },   // Bot3: up toward the rail
@@ -4339,12 +4359,36 @@ $('btnWinningHandContinue').addEventListener('click', () => {
 // Returns the actual grow+pop duration so the caller can sequence the
 // rest of the end-of-hand flow (chips flying, etc.) to start right
 // after this finishes, not overlapping it.
+// Real, confirmed bug fix per explicit live report ("LARS, LARS, TEST,
+// TEST won 9245 Flush... why did test win"): r.winners has one entry
+// PER POT LAYER a seat wins, not one per unique player -- a genuine,
+// correct side pot (a player all-in for less than others creates a
+// separate side pot the shorter stack isn't even eligible for) can
+// legitimately let the same seat win more than one layer, or let two
+// different seats each win a different layer of the same hand. That's
+// real, valid poker; what's actually a bug is every one of these 5
+// display spots joining the raw per-layer list directly, so a seat
+// who won 2 layers shows up twice, reading like 4 separate winners
+// splitting one pot instead of (for example) one seat winning two
+// pot layers plus a different seat winning a third. Deduped here once
+// so every one of those 5 spots shows each real winner's name exactly
+// once, regardless of how many separate pot layers they actually won.
+function uniqueWinnerNames(state, winners) {
+  const seen = new Set();
+  const names = [];
+  for (const w of winners) {
+    if (seen.has(w.seat)) continue;
+    seen.add(w.seat);
+    names.push(state.seats[w.seat] ? state.seats[w.seat].name : '?');
+  }
+  return names.join(', ');
+}
 function showWinnerNameBalloon(state) {
   const r = state.showdownResult;
   const el = $('winnerNameBalloon');
   const splatterEl = $('winnerSplatter');
   if (!el || !r || !r.winners || !r.winners.length) return 0;
-  const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+  const names = uniqueWinnerNames(state, r.winners);
 
   el.textContent = names;
   el.classList.remove('growing', 'popping');
@@ -4417,7 +4461,7 @@ function forceShowContinueButtonFallback(state) {
   try {
     const r = state && state.showdownResult;
     if (!r || !r.winners || !r.winners.length) return;
-    const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+    const names = uniqueWinnerNames(state, r.winners);
     const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
     const el = $('tableWinningHand');
     if (el) el.classList.add('on');
@@ -4443,7 +4487,7 @@ function showWinningHandOnTable(state) {
       void seatEl.offsetWidth;
       seatEl.classList.add('winner-reaction');
     });
-    const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+    const names = uniqueWinnerNames(state, r.winners);
     const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
     cardsContainer.innerHTML = '';
     $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-name">${names}</span> won <span class="table-winning-hand-label-amount">${totalWon}</span>`;
@@ -4459,7 +4503,7 @@ function showWinningHandOnTable(state) {
   const winnerSeat = state.seats[winnerPos];
   const winnerSeatEl = document.querySelector(`.seat[data-pos="${winnerPos}"]`);
   const winningHand = r.winners[0].hand;
-  const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+  const names = uniqueWinnerNames(state, r.winners);
   const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
   r.winners.forEach(w => {
     const seatEl = document.querySelector(`.seat[data-pos="${w.seat}"]`);
@@ -4881,7 +4925,7 @@ function showWinnerBanner(state) {
   const r = state.showdownResult;
   const el = $('winnerBanner');
   if (!el || !r || !r.winners || !r.winners.length) return;
-  const names = r.winners.map(w => (state.seats[w.seat] ? state.seats[w.seat].name : '?')).join(', ');
+  const names = uniqueWinnerNames(state, r.winners);
   const totalWon = r.winners.reduce((s, w) => s + w.amount, 0);
   const handPart = r.boardShown ? ` with ${r.winners[0].handName}` : ' — everyone else folded';
   el.textContent = `🏆 ${names} wins ${totalWon}${handPart}`;
@@ -4928,13 +4972,14 @@ function renderActionBar(state) {
   // fixed clearance the hand-strip cards were given above it, so the
   // actual cards were rendering right behind the bar, hidden. This
   // shape is shorter regardless of which branch below fires.
-  let html = '<div class="action-row">';
-  html += `<button class="action-btn action-fold" data-label="Fold" onclick="sendAction('fold')">Fold</button>`;
-  html += canCheck
-    ? `<button class="action-btn action-check" data-label="Check" onclick="sendAction('check')">Check</button>`
-    : `<button class="action-btn action-call" data-label="Call ${Math.min(toCall, mySeat.chips)}" onclick="sendAction('call')">Call ${Math.min(toCall, mySeat.chips)}</button>`;
-  html += '</div>';
-
+  // Real, confirmed redesign per explicit live report ("I only need 2
+  // lines, 1 line is the slider, line 2 I need 4 buttons"): this was
+  // still wrong -- 2 rows of 2 buttons flanking the slider, when what
+  // was actually asked for is exactly 2 lines total: the slider alone
+  // on its own line, then all 4 buttons together on one single line
+  // below it. Slider markup itself still completely untouched, same
+  // as every prior pass.
+  let sliderHtml = '';
   let bottomBtnHtml = '';
   if (state.buyInType === 'fixed') {
     const fixedLabel = state.currentBet > 0 ? 'Raise to ' + (state.currentBet + state.bigBlind) : 'Bet ' + state.bigBlind;
@@ -4948,7 +4993,7 @@ function renderActionBar(state) {
     // actually allows. raiseStep matches the same Math.max(minRaise, bigBlind) formula minBet
     // itself already uses just above, so all four numbers agree with each other.
     const raiseStep = Math.max(state.minRaise, state.bigBlind);
-    html += `<div class="amount-row">
+    sliderHtml = `<div class="amount-row">
       <button class="stepper-btn" onclick="adjustBetAmount(-${raiseStep})">−</button>
       <input type="range" id="betSlider" min="${minBet}" max="${maxBet}" step="${raiseStep}" value="${minBet}">
       <button class="stepper-btn" onclick="adjustBetAmount(${raiseStep})">+</button>
@@ -4956,10 +5001,19 @@ function renderActionBar(state) {
     </div>`;
     bottomBtnHtml = `<button class="action-btn action-bet" data-label="${state.currentBet > 0 ? 'Raise' : 'Bet'}" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}', Number(document.getElementById('betSlider').value))">${state.currentBet > 0 ? 'Raise' : 'Bet'}</button>`;
   }
-  html += `<div class="action-row" style="margin-top:4px">
-    <button class="action-btn action-bet" data-label="All-In" onclick="sendAction('allin')">All-In</button>
-    ${bottomBtnHtml}
-  </div>`;
+  // Line 1: the slider (only line 1 when it actually applies -- a
+  // fixed-buyin table or a stack too short to raise has no slider at
+  // all, in which case the 4-button line below is simply the only line).
+  let html = sliderHtml;
+  // Line 2: all 4 buttons together, one single row.
+  html += '<div class="action-row" style="margin-top:4px">';
+  html += `<button class="action-btn action-fold" data-label="Fold" onclick="sendAction('fold')">Fold</button>`;
+  html += canCheck
+    ? `<button class="action-btn action-check" data-label="Check" onclick="sendAction('check')">Check</button>`
+    : `<button class="action-btn action-call" data-label="Call ${Math.min(toCall, mySeat.chips)}" onclick="sendAction('call')">Call ${Math.min(toCall, mySeat.chips)}</button>`;
+  html += `<button class="action-btn action-bet" data-label="All-In" onclick="sendAction('allin')">All-In</button>`;
+  html += bottomBtnHtml;
+  html += '</div>';
   bar.innerHTML = html;
   const slider = $('betSlider');
   if (slider) slider.addEventListener('input', () => { $('betAmountVal').textContent = slider.value; });
