@@ -607,6 +607,13 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .dealer-chip{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#241a12;font-size:0.55rem;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #241a12}
 .allin-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap}
 .folded-tag{display:inline-block;background:rgba(0,0,0,0.5);color:rgba(255,255,255,0.55);font-size:0.6rem;font-weight:800;letter-spacing:1px;padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15)}
+/* Real, confirmed feature per explicit live report ("the winner's
+   cards is on fire and the loser's cards should be dimmed"): applied
+   to a revealed-but-losing hand at showdown (see the isShowdownLoser
+   checks in both the per-seat and my-own-hand render code) -- a real,
+   visible dim/desaturate so a losing hand doesn't sit at the same
+   brightness as the winner's, still fully readable, just visibly lost. */
+.card.showdown-loser-dim{opacity:0.45;filter:grayscale(0.6) brightness(0.75);transition:opacity 0.4s ease,filter 0.4s ease}
 
 /* Per explicit correction: the old popup-based win announcement was
    removed entirely per direct request ("I don't like the end popup,
@@ -1093,16 +1100,24 @@ body.k28-portrait-photo .pot-display { top: 47%; }
    photo (68%) -- explains the bad overlap with "test (you)" seen in
    the real screenshot. Moved up to roughly where the live board itself
    now sits (27%, see .board-area above), since the winning-hand
-   display is what visually replaces the board at the end of a hand. */
-body.k28-portrait-photo .table-winning-hand { top: 33%; }
+   display is what visually replaces the board at the end of a hand.
+   Real, confirmed follow-up per explicit live report ("the dealer
+   card is overlapping top avatars cards, make the whole thing come a
+   little down"): 33% still overlapped the seats immediately above it
+   -- nudged down a bit further to 37%. */
+body.k28-portrait-photo .table-winning-hand { top: 37%; }
 /* Real, confirmed bug fix per explicit live report ("continue button
    needs to come down its overlapping the display card"): this has its
    own independent inline top:37% (landscape-tuned, positioned near
    the dealer there on purpose), completely unaware of where the
    portrait cards+label block above actually sits (centered on 33%,
    spanning roughly 27%-40% once its real height is counted) -- 37%
-   landed right inside that range. Moved safely below it. */
-body.k28-portrait-photo #winningHandContinueWrap { top: 48% !important; }
+   landed right inside that range. Moved safely below it. Real,
+   confirmed follow-up per explicit live report ("continue button is
+   overlapping the final test hand, make it come down more"): 48%
+   still wasn't enough clearance once .table-winning-hand itself also
+   moved down to 37% above -- pushed further to 56%. */
+body.k28-portrait-photo #winningHandContinueWrap { top: 56% !important; }
 /* Real, confirmed feature per explicit request ("click anywhere to
    continue"): a full-screen, invisible tap target active only while
    the real Continue button is actually showing (see the matching
@@ -3975,11 +3990,21 @@ function renderGameTable(state) {
     const isMidDeal = dealtCardCountForHandNumber === state.handNumber;
     const dealtCountHere = isMidDeal ? (dealtCardCountBySeat[pos] || 0) : (s.hand ? s.hand.length : 0);
     const visibleHand = isMidDeal ? s.hand.slice(0, dealtCountHere) : s.hand;
+    // Real, confirmed feature per explicit live report ("the winner's
+    // cards is on fire and the loser's cards should be dimmed as soon
+    // as they lost"): at a real showdown, anyone who showed their hand
+    // but isn't among the actual winners gets their revealed cards
+    // dimmed, for the same contrast the winner already gets from their
+    // own fireball glow -- a losing hand should visibly read as lost,
+    // not sit at full brightness identically to the winning one.
+    const isShowdownLoser = state.phase === 'handEnd' && state.showdownResult && state.showdownResult.boardShown
+      && !s.folded && !state.showdownResult.winners.some(w => w.seat === pos);
+    const cardExtraClass = [isMidDeal ? 'dealt-card-pop' : null, isShowdownLoser ? 'showdown-loser-dim' : null].filter(Boolean).join(' ') || null;
     const cardsHtml = s.folded
       ? '' // no cards shown at all once folded -- the FOLDED tag below says why
       : (pos === myPos
         ? '' // full-size cards already shown in the hand strip below -- no need to duplicate them here too
-        : (visibleHand.length ? visibleHand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow, isMidDeal ? 'dealt-card-pop' : null)).join('') : ''));
+        : (visibleHand.length ? visibleHand.map(c => cardHtml(c && c.rank ? c : null, true, revealingNow, cardExtraClass)).join('') : ''));
     // Real, confirmed bug fix found while making the winner-reaction
     // fireball glow persist until Continue (see below): this seat's
     // full className gets reassigned wholesale on basically every
@@ -4046,7 +4071,7 @@ function renderGameTable(state) {
       </div>
       <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
       <div class="seat-chips">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
-      <div class="seat-cards">${s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml}</div>`;
+      <div class="seat-cards">${s.eliminated ? '<span class="folded-tag">OUT</span>' : (s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml)}</div>`;
 
     let seatDiv = seatsEl.querySelector(`.seat[data-pos="${pos}"]`);
     if (!seatDiv) {
@@ -4072,7 +4097,14 @@ function renderGameTable(state) {
   // completely separate line rather than the shared seat loop.
   const myIsMidDeal = dealtCardCountForHandNumber === state.handNumber;
   const myVisibleHand = mySeat ? (myIsMidDeal ? mySeat.hand.slice(0, dealtCardCountBySeat[myPos] || 0) : mySeat.hand) : [];
-  const myHandHtml = myVisibleHand.length ? myVisibleHand.map(c => cardHtml(c, false, false, myIsMidDeal ? 'dealt-card-pop' : null)).join('') : '';
+  // Real, confirmed feature per the same live report as the other
+  // seats' identical dimming above: if I'm the one who showed down and
+  // lost, my own cards get the same dim treatment as anyone else's
+  // losing hand, not a free pass just because they're mine.
+  const myIsShowdownLoser = mySeat && state.phase === 'handEnd' && state.showdownResult && state.showdownResult.boardShown
+    && !mySeat.folded && !state.showdownResult.winners.some(w => w.seat === myPos);
+  const myCardExtraClass = [myIsMidDeal ? 'dealt-card-pop' : null, myIsShowdownLoser ? 'showdown-loser-dim' : null].filter(Boolean).join(' ') || null;
+  const myHandHtml = myVisibleHand.length ? myVisibleHand.map(c => cardHtml(c, false, false, myCardExtraClass)).join('') : '';
   if (lastRenderedMyHandHtml !== myHandHtml) {
     lastRenderedMyHandHtml = myHandHtml;
     $('myHandStrip').innerHTML = myHandHtml;
