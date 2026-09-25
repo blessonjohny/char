@@ -642,11 +642,12 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 
 .action-bar{width:100%;max-width:520px;margin:0 auto;padding:10px 14px 18px;flex-shrink:0}
 .action-row{display:flex;gap:8px;margin-bottom:8px}
-.action-btn{flex:1;padding:14px 6px;border-radius:12px;border:none;font-weight:800;font-size:0.85rem;cursor:pointer}
-.action-fold{background:rgba(231,64,64,0.85);color:#fff}
-.action-check{background:rgba(255,255,255,0.15);color:#fff}
-.action-call{background:var(--accent);color:#fff}
-.action-bet{background:linear-gradient(135deg,var(--gold),#c99a1e);color:#241a12}
+.action-btn{flex:1;padding:14px 6px;border-radius:12px;border:none;font-weight:800;font-size:0.85rem;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,0.35),0 4px 10px rgba(0,0,0,0.4);border-bottom:2px solid rgba(0,0,0,0.25);transition:transform 0.08s ease,box-shadow 0.08s ease;position:relative}
+.action-btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,0.35),0 2px 6px rgba(0,0,0,0.4)}
+.action-fold{background:linear-gradient(180deg,#e35555,#c53434);color:#fff}
+.action-check{background:linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.1));color:#fff;border:1px solid rgba(255,255,255,0.25)}
+.action-call{background:linear-gradient(180deg,var(--accent),#2a6bb0);color:#fff}
+.action-bet{background:linear-gradient(180deg,#ffd866,var(--gold) 55%,#c99a1e);color:#241a12}
 .amount-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.06);border-radius:12px;padding:8px 10px}
 .amount-row input[type=range]{flex:1}
 .amount-val{font-weight:800;color:var(--gold);min-width:60px;text-align:right;font-size:0.9rem}
@@ -1025,12 +1026,19 @@ body.k28-portrait-photo .action-bar {
 /* Real, confirmed bug fix, same root cause as .action-bar just above:
    my own hole cards live in .hand-strip, which was ALSO still sitting
    in normal document flow and getting hidden under the now-fixed
-   table image. Positioned just above the action bar (not at the very
+   table image. Positioned above the action bar (not at the very
    bottom like landscape's version, which has the action buttons off
    in separate side columns instead of a bottom bar, so there's no
-   bottom bar to clear there) so the two don't overlap each other. */
+   bottom bar to clear there). Real, confirmed follow-up fix per
+   explicit live report ("I still can't see my cards" after the first
+   attempt at this value): the action bar's real rendered height is
+   ~188px once it actually has 2 button rows plus the bet slider
+   between them (measured directly, not estimated) -- the original
+   96px clearance here was nowhere near enough and the cards were
+   still landing behind it. 200px properly clears the real height with
+   a small margin, regardless of which action-bar branch is showing. */
 body.k28-portrait-photo .hand-strip {
-  position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%); z-index: 40; gap: 4px;
+  position: fixed; bottom: 200px; left: 50%; transform: translateX(-50%); z-index: 40; gap: 4px;
 }
 body.k28-portrait-photo .hand-strip .card { width: 44px; height: 62px; font-size: 1rem; }
 body.k28-portrait-photo .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
@@ -1062,14 +1070,29 @@ body.k28-portrait-photo .seat.folded .seat-avatar-photo { opacity: 0.35; filter:
    now-oversized gap of its own. */
 body.k28-portrait-photo .board-area { top: 27%; }
 body.k28-portrait-photo .pot-display { top: 47%; }
+/* Real, confirmed feature per explicit live report ("make the final
+   display upper i told u last time"): this sits at the base 70% top,
+   which is almost exactly where my own seat/avatar/name sit in this
+   photo (68%) -- explains the bad overlap with "test (you)" seen in
+   the real screenshot. Moved up to roughly where the live board itself
+   now sits (27%, see .board-area above), since the winning-hand
+   display is what visually replaces the board at the end of a hand. */
+body.k28-portrait-photo .table-winning-hand { top: 33%; }
 /* Real, confirmed bug fix, same root cause as the two fixes just
    above: this label (shows things like "You have: Pair" right above
    my own cards) has no position set at all outside landscape mode --
    plain normal flow, so it was hidden the same way. Sits just above
    the hand-strip cards. */
 body.k28-portrait-photo #myHandLabel {
-  position: fixed; bottom: 162px; left: 50%; transform: translateX(-50%); z-index: 41;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.9); width: 100%;
+  position: fixed; bottom: 280px; left: 50%; transform: translateX(-50%); z-index: 41;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.95); width: 100%;
+  /* Real, confirmed feature per explicit live report ("i still have a
+     generic writing small say u have 3 of a kind"): the inline
+     font-size on this element (0.72rem) was tuned for the old plain
+     felt design, not this photo -- bumped up and bolded so it actually
+     reads clearly against the busy table image instead of disappearing
+     into it. */
+  font-size: 0.95rem !important; font-weight: 800;
 }
 /* Real, confirmed bug fix, same root cause as the fixes above: the
    topbar (Hand/blinds readout, Invite/Host/Log/Leave buttons) was ALSO
@@ -4891,17 +4914,30 @@ function renderActionBar(state) {
   const maxBet = mySeat.chips + mySeat.bettedThisRound;
   const minBet = Math.min(maxBet, state.currentBet + Math.max(state.minRaise, state.bigBlind));
 
+  // Real, confirmed redesign per explicit live report ("I can't see my
+  // cards... I have a solution: slider keep it there exactly no
+  // changes, the 4 others are buttons make them same size, 2 on both
+  // sides"): Fold/Check-or-Call paired in their own equal-width row
+  // above the slider, All-In paired with Bet/Raise in an equal-width
+  // row below it -- the slider itself (amount-row) keeps the exact
+  // same markup, position, and styling it already had, completely
+  // untouched. This also fixes the real bug that prompted the request:
+  // the old layout (3-across row, then slider, then a separate
+  // full-width Bet/Raise button) made the whole bar taller than the
+  // fixed clearance the hand-strip cards were given above it, so the
+  // actual cards were rendering right behind the bar, hidden. This
+  // shape is shorter regardless of which branch below fires.
   let html = '<div class="action-row">';
   html += `<button class="action-btn action-fold" data-label="Fold" onclick="sendAction('fold')">Fold</button>`;
   html += canCheck
     ? `<button class="action-btn action-check" data-label="Check" onclick="sendAction('check')">Check</button>`
     : `<button class="action-btn action-call" data-label="Call ${Math.min(toCall, mySeat.chips)}" onclick="sendAction('call')">Call ${Math.min(toCall, mySeat.chips)}</button>`;
-  html += `<button class="action-btn action-bet" data-label="All-In" onclick="sendAction('allin')">All-In</button>`;
   html += '</div>';
 
+  let bottomBtnHtml = '';
   if (state.buyInType === 'fixed') {
     const fixedLabel = state.currentBet > 0 ? 'Raise to ' + (state.currentBet + state.bigBlind) : 'Bet ' + state.bigBlind;
-    html += `<button class="action-btn action-bet" data-label="${fixedLabel}" style="width:100%" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}')">${fixedLabel}</button>`;
+    bottomBtnHtml = `<button class="action-btn action-bet" data-label="${fixedLabel}" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}')">${fixedLabel}</button>`;
   } else if (maxBet > minBet) {
     // Real, confirmed bug fix per explicit report: the slider step and both +/- stepper
     // buttons all used the table's big blind directly, ignoring the actual current minimum
@@ -4916,9 +4952,13 @@ function renderActionBar(state) {
       <input type="range" id="betSlider" min="${minBet}" max="${maxBet}" step="${raiseStep}" value="${minBet}">
       <button class="stepper-btn" onclick="adjustBetAmount(${raiseStep})">+</button>
       <span class="amount-val" id="betAmountVal">${minBet}</span>
-    </div>
-    <button class="action-btn action-bet" data-label="${state.currentBet > 0 ? 'Raise' : 'Bet'}" style="width:100%;margin-top:8px" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}', Number(document.getElementById('betSlider').value))">${state.currentBet > 0 ? 'Raise' : 'Bet'}</button>`;
+    </div>`;
+    bottomBtnHtml = `<button class="action-btn action-bet" data-label="${state.currentBet > 0 ? 'Raise' : 'Bet'}" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}', Number(document.getElementById('betSlider').value))">${state.currentBet > 0 ? 'Raise' : 'Bet'}</button>`;
   }
+  html += `<div class="action-row" style="margin-top:8px">
+    <button class="action-btn action-bet" data-label="All-In" onclick="sendAction('allin')">All-In</button>
+    ${bottomBtnHtml}
+  </div>`;
   bar.innerHTML = html;
   const slider = $('betSlider');
   if (slider) slider.addEventListener('input', () => { $('betAmountVal').textContent = slider.value; });
