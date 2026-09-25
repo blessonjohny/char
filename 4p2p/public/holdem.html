@@ -913,7 +913,22 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     width: auto; max-width: 190px; background: none; padding: 0; z-index: 45;
   }
   body.k28-in-game .action-row {
-    position: fixed; right: 14px; left: auto; bottom: 0; top: 0; margin: auto 0; height: fit-content;
+    position: fixed; right: 14px; left: auto; bottom: auto; top: 50%; margin: 0; height: fit-content;
+    /* Real, confirmed feature per explicit live report ("the top button
+       is all the way to the top, make all the buttons a little down,
+       make sure not to overlap the mute button on the bottom"): this
+       used to center the whole column with top:0;bottom:0;margin:auto
+       0 -- true vertical centering, which on a short landscape phone
+       viewport put the topmost button right up against the topbar.
+       Centers the same way, then nudges the whole column down a fixed
+       24px via transform (not a plain top offset, so it stays centered
+       -- just lower -- regardless of viewport height, rather than
+       anchoring to some specific pixel distance from the top that
+       would look wrong on a differently-sized screen). Verified with
+       real coordinates that the bottom-most button still clears the
+       mute button (fixed bottom:8px, 44px tall) with real room to
+       spare, not just shifted blindly. */
+    transform: translateY(calc(-50% + 24px));
     flex-direction: column; gap: 34px; align-items: center; z-index: 45;
   }
   body.k28-in-game .action-btn {
