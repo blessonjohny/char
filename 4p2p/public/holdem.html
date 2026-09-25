@@ -1157,6 +1157,13 @@ body.k28-portrait-photo .seat-avatar-photo {
 }
 body.k28-portrait-photo .seat.active .seat-avatar-photo { border-color: var(--gold); box-shadow: 0 0 18px rgba(244,196,48,0.8); animation: seatPulse 1.1s ease-in-out infinite; }
 body.k28-portrait-photo .seat.folded .seat-avatar-photo { opacity: 0.35; filter: grayscale(1); }
+/* Real, confirmed feature per explicit live report ("when the card
+   shows the name and points should disappear"): see the isFaceUpNow
+   computation and outer seat class this hooks into for the fuller
+   reasoning -- purely declutters the moment a hand is genuinely
+   revealed, never touches a normal face-down seat. */
+body.k28-portrait-photo .seat.seat-cards-revealed .seat-name,
+body.k28-portrait-photo .seat.seat-cards-revealed .seat-chips { display: none; }
 /* Real, confirmed feature per explicit live report ("the dealer cards
    should be way up, we have space, all this also move up"): the board
    (community cards) was still sitting at the base 42% top -- fine for
@@ -4189,7 +4196,20 @@ function renderGameTable(state) {
     // (the next real hand starts and showdownResult moves on) --
     // without needing its own separate persistence mechanism at all.
     const isCurrentWinner = state.phase === 'handEnd' && state.showdownResult && state.showdownResult.winners && state.showdownResult.winners.some(w => w.seat === pos);
-    const outerClassName = `seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}${isCurrentWinner ? ' winner-reaction' : ''}`;
+    // Real, confirmed feature per explicit live report ("it's confusing
+    // whose card is what... pull the cards up so the name and points
+    // come on top, and when the card shows the name and points should
+    // disappear"): whenever this seat's hand data actually includes
+    // real rank info (meaning the server has genuinely revealed it to
+    // this viewer -- a showdown, an all-in reveal -- not just a
+    // card-back placeholder), the name/chips text hides for as long as
+    // that stays true, so the revealed cards get full visual priority
+    // instead of competing for space and attention with the text right
+    // next to them. A face-down card-back seat is completely unaffected
+    // -- name and chips still show normally the entire time, exactly as
+    // requested.
+    const isFaceUpNow = !s.folded && s.hand && s.hand.length && s.hand[0] && s.hand[0].rank;
+    const outerClassName = `seat${isActive ? ' active' : ''}${s.folded ? ' folded' : ''}${s.eliminated ? ' folded' : ''}${isCurrentWinner ? ' winner-reaction' : ''}${isFaceUpNow ? ' seat-cards-revealed' : ''}`;
     const outerStyle = `left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%)`;
     const innerHtml = `
       ${isActive && pos !== myPos ? `<div class="turn-tag turn-tag-outer">TURN</div>` : ''}
