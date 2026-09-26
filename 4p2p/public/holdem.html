@@ -1452,8 +1452,16 @@ body.k28-portrait-photo #btnSoundMute {
    plain normal flow, so it was hidden the same way. Sits just above
    the hand-strip cards -- nudged up 10px along with them (89px -> 99px)
    when the action bar grew taller, keeping the same relative gap. */
+/* Real, confirmed reposition per explicit request with a marked-up
+   screenshot ("that popup should be were I marked with blue pen"):
+   measured the actual marked region directly against the screenshot's
+   own pixel dimensions -- centers at roughly 54% of the screen height,
+   spanning the open felt area near the lower rail. Switched from a
+   bottom-pixel offset (tied to the hand-strip cards) to a top-percent
+   position instead, since this now sits in a completely different part
+   of the table, unrelated to the cards below it. */
 body.k28-portrait-photo #myHandLabel {
-  position: fixed; bottom: 185px; left: 50%; transform: translateX(-50%); z-index: 41;
+  position: fixed; top: 54%; bottom: auto; left: 50%; transform: translate(-50%, -50%); z-index: 41;
   text-shadow: 0 1px 6px rgba(0,0,0,0.95); width: 100%;
   /* Real, confirmed feature per explicit live report ("i still have a
      generic writing small say u have 3 of a kind"): the inline
