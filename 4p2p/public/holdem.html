@@ -1339,7 +1339,18 @@ body.k28-portrait-photo .pot-display { top: 47%; }
    when the action bar grew taller) so these two stay aligned with the
    cards exactly as originally intended, not just at whatever value
    happened to be here before that change. */
-body.k28-portrait-photo .pot-display-pot { left: 4%; right: auto; top: auto; bottom: 107px; transform: none; }
+/* Real, confirmed reversal per explicit request ("make the pots on the
+   table in the center only for the portrait view"): moved back to the
+   table's own center (top:47%, the shared .pot-display rule above),
+   away from beside the cards -- this makes real sense once side pots
+   are involved too, since a real breakdown ("Main: 600 · Side 1: 400 ·
+   Total: 1000") needs more width than the narrow space next to the
+   cards ever had. Bet stays exactly where it was (right of the cards,
+   combined with the your-turn hint) -- that was a separate, more
+   recent request and nothing here changes it. */
+body.k28-portrait-photo .pot-display-pot {
+  left: 50%; right: auto; top: 47%; bottom: auto; transform: translate(-50%, -50%);
+}
 body.k28-portrait-photo .pot-display-bet { left: auto; right: 3%; top: auto; bottom: 107px; transform: none; }
 body.k28-portrait-photo .pot-display-pot, body.k28-portrait-photo .pot-display-bet {
   flex-direction: column; gap: 1px; padding: 7px 12px;
