@@ -3111,6 +3111,20 @@ const lastBettedThisRoundBySeat = {};
 // reading as a constant, distracting flicker instead of one clean
 // reaction per actual action.
 const lastActionBubbleTextBySeat = {};
+// Real, confirmed defensive fix per explicit live report ("cards
+// display fold before my turn... as soon as I call the cards
+// disappear, that action is inconsistent"): lastRenderedSeatInnerHtml
+// and lastActionBubbleTextBySeat above are never otherwise reset, so
+// in principle a seat whose generated HTML for a genuinely NEW hand
+// happens to exactly match a string cached from an EARLIER hand (the
+// same player, same chip count, same folded state recurring) could
+// have its DOM update silently skipped, since the diff check has no
+// way to know the two matching strings came from different hands.
+// Direct testing of a normal single-hand active-to-folded transition
+// didn't reproduce a stale render on its own, but resetting both
+// caches at the start of every new hand closes off this entire class
+// of cross-hand staleness regardless, cheaply and with no downside.
+let lastRenderedHandNumberForSeatCache = null;
 // Real, confirmed root-cause fix per explicit, emphatic live report
 // ("flickers or resets or pops up and settles when I make a move,
 // when others make a move, when dealer deals, every action"):
@@ -4128,6 +4142,11 @@ function renderGameTable(state) {
   showScreen('gameScreen');
   ensureSoundMuteButton();
   maybeSuggestTilt();
+  if (lastRenderedHandNumberForSeatCache !== state.handNumber) {
+    lastRenderedHandNumberForSeatCache = state.handNumber;
+    for (const k of Object.keys(lastRenderedSeatInnerHtml)) delete lastRenderedSeatInnerHtml[k];
+    for (const k of Object.keys(lastActionBubbleTextBySeat)) delete lastActionBubbleTextBySeat[k];
+  }
   // Real, confirmed bug fix per explicit live report ("before dealing i
   // see my hand cards already... I shouldn't be seeing that card early,
   // only when dealer deals"): this exact check-and-trigger already
@@ -4394,8 +4413,8 @@ function renderGameTable(state) {
       </div>
       <div class="seat-cards">
         <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
-        <div class="seat-chips" data-name="${escapeHtml(s.name)}">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
-        ${s.eliminated ? '<span class="folded-tag">OUT</span>' : (s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml)}
+        <div class="seat-chips" data-name="${escapeHtml(s.name)}">${(s.eliminated || s.bustedAt) ? 'OUT' : s.chips}</div>
+        ${(s.eliminated || s.bustedAt) ? '<span class="folded-tag">OUT</span>' : (s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml)}
       </div>`;
 
     let seatDiv = seatsEl.querySelector(`.seat[data-pos="${pos}"]`);
@@ -4437,7 +4456,7 @@ function renderGameTable(state) {
   $('myHandLabel').textContent = state.myHandName ? `You have: ${state.myHandName}` : '';
   // Desktop-only top readouts (see the CSS/HTML comments where these are defined for why they
   // exist as separate top-level elements rather than nested inside my own seat).
-  if ($('myChipsTop') && mySeat) $('myChipsTop').textContent = mySeat.eliminated ? 'OUT' : mySeat.chips;
+  if ($('myChipsTop') && mySeat) $('myChipsTop').textContent = (mySeat.eliminated || mySeat.bustedAt) ? 'OUT' : mySeat.chips;
   document.body.classList.toggle('my-turn-active', state.currentPlayer === myPos);
   // Real, confirmed feature per explicit request ("sound and touch...
   // to all"): a chime the instant it becomes this player's turn --
