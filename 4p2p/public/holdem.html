@@ -1743,7 +1743,7 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
          the explicit request, rather than sitting right underneath
          the winning cards at all. -->
     <div id="winningHandContinueWrap" class="winning-hand-continue-wrap" style="position:absolute;left:49.8%;top:37%;transform:translate(-50%,-50%);z-index:8;text-align:center;pointer-events:none">
-      <button class="btn btn-gold" id="btnWinningHandContinue" style="pointer-events:auto;padding:8px 24px;font-size:0.85rem;width:auto;display:none">Continue</button>
+      <button class="btn btn-gold" id="btnWinningHandContinue" style="pointer-events:auto;padding:8px 24px;font-size:0.6rem;line-height:1.35;width:130px;display:none">Click anywhere<br>to continue</button>
       <div id="winningHandContinueStatus" style="margin-top:6px;font-size:0.72rem;color:var(--text-secondary,#aaa);display:none"></div>
     </div>
     <div class="continue-anywhere-catcher" id="continueAnywhereCatcher"></div>
@@ -4661,7 +4661,7 @@ function updateWinningHandContinueUI(state) {
     btn.disabled = true;
     statusEl.textContent = remaining > 0 ? `Waiting for ${remaining} more player${remaining === 1 ? '' : 's'}…` : 'Starting next hand…';
   } else {
-    btn.textContent = 'Continue';
+    btn.innerHTML = 'Click anywhere<br>to continue';
     btn.disabled = false;
     statusEl.textContent = needed > 1 ? `${clickedCount}/${needed} players ready` : '';
   }
