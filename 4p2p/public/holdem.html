@@ -1315,24 +1315,24 @@ body.k28-portrait-photo .pot-display { top: 47%; }
    so both popups align with the cards rather than floating at an
    unrelated height. */
 body.k28-portrait-photo .pot-display-pot { left: 4%; right: auto; top: auto; bottom: 89px; transform: none; }
-body.k28-portrait-photo .pot-display-bet { left: auto; right: 4%; top: auto; bottom: 89px; transform: none; }
+body.k28-portrait-photo .pot-display-bet { left: auto; right: 3%; top: auto; bottom: 89px; transform: none; }
 body.k28-portrait-photo .pot-display-pot, body.k28-portrait-photo .pot-display-bet {
   flex-direction: column; gap: 1px; padding: 7px 12px;
   background: linear-gradient(145deg, rgba(36,26,14,0.94), rgba(10,8,5,0.94));
   border: 1.5px solid var(--gold-soft, #c9a44c);
   box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
 }
-/* Real, confirmed follow-up per the same combined-popup request: the
-   turn-hint text ("Call 10 or Raise or Fold") is meaningfully longer
-   than "Bet: 20" ever was, and this popup's base .pot-display rule
-   sets white-space:nowrap -- without overriding that specifically
-   here, the longer line would run off past the screen's right edge
-   instead of wrapping. Allowed to wrap and given a sensible width to
-   wrap within instead. */
+/* Real, confirmed follow-up per explicit live report ("make it nice,
+   it's overlapping my cards a little"): moved further right (right:4%
+   -> 1%) and shrunk (118px -> 96px wide, smaller hint text) to open up
+   real clearance from the hand-strip cards -- measured directly, not
+   just eyeballed, since the previous size left only a modest ~14px gap
+   that could easily disappear on a narrower phone or the taller two-
+   line content. */
 body.k28-portrait-photo .pot-display-bet {
-  white-space: normal; max-width: 118px; text-align: center;
+  white-space: normal; max-width: 96px; text-align: center;
 }
-body.k28-portrait-photo .pot-display-turn-hint { display: block; font-size: 0.68rem; }
+body.k28-portrait-photo .pot-display-turn-hint { display: block; font-size: 0.6rem; }
 /* Real, confirmed feature per explicit live report ("make the final
    display upper i told u last time"): this sits at the base 70% top,
    which is almost exactly where my own seat/avatar/name sit in this
