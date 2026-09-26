@@ -1206,6 +1206,21 @@ body.k28-portrait-photo .seat-chips {
 }
 body.k28-portrait-photo .seat-name { top: -2px; bottom: auto; font-size: 0.56rem; }
 body.k28-portrait-photo .seat-chips { top: 11px; bottom: auto; font-size: 0.56rem; }
+/* Real, confirmed bug fix per explicit live report with screenshot
+   ("when a player is fold... can't see the name or amount... the name
+   and amount should only disappear if the cards are turned face up,
+   when face down the name and amount should be there"): the overlay
+   positioning above assumes .seat-cards actually contains 2 real
+   card-back images at their normal height -- for a folded (or
+   eliminated) seat, .seat-cards instead contains only the small
+   FOLDED/OUT tag, so that box collapses to a fraction of its normal
+   height and the same top:-2px/top:11px values land cramped into or
+   overlapping that much shorter space instead of sitting cleanly.
+   Falls back to the original "stacked above the box" positioning
+   (matching landscape's own look) specifically for a folded seat,
+   since there's no real card image left to overlay onto there anyway. */
+body.k28-portrait-photo .seat.folded .seat-name { top: auto; bottom: calc(100% + 13px); }
+body.k28-portrait-photo .seat.folded .seat-chips { top: auto; bottom: 100%; }
 body.k28-portrait-photo .seat.seat-cards-revealed .seat-name,
 body.k28-portrait-photo .seat.seat-cards-revealed .seat-chips { display: none; }
 /* Real, confirmed feature per explicit live report ("the dealer cards
