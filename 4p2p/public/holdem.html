@@ -1191,6 +1191,23 @@ body.k28-portrait-photo .hand-strip {
 body.k28-portrait-photo .hand-strip .card { width: 44px; height: 62px; font-size: 1rem; }
 body.k28-portrait-photo .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
 body.k28-portrait-photo .hand-strip .card:last-child { transform: rotate(8deg) translateY(2px); }
+/* Real, confirmed feature per explicit request ("my amount is not
+   here anywhere... let's see where we can put it in the middle of the
+   cards bottom"): my own chip count had no display anywhere in
+   portrait at all -- the per-seat name/chips overlay built for every
+   OTHER seat's cards doesn't apply here, since my own cards render
+   through this completely separate hand-strip element, not the
+   generic .seat-cards path. Reused #myChipsTop (already correctly
+   populated with my real chip count -- see the JS setting its
+   textContent, unchanged) instead of building a new element, and
+   positioned it centered between my two cards, low in their real
+   height (cards span bottom:107px to 169px; sits at 114px, well
+   inside that range near the bottom edge). */
+body.k28-portrait-photo #myChipsTop {
+  display: block; position: fixed; bottom: 114px; left: 50%; transform: translateX(-50%); z-index: 42;
+  font-size: 0.85rem; font-weight: 900; color: var(--gold); text-shadow: 0 1px 5px rgba(0,0,0,0.95);
+  background: rgba(0,0,0,0.55); border: 1px solid var(--gold-soft, #c9a44c); border-radius: 8px; padding: 2px 8px;
+}
 /* Real, confirmed bug fix found from a real-device screenshot ("2
    avatars are not there only dealer"): every seat's actual avatar
    photo is display:none by default and only ever switched on via a
