@@ -4539,6 +4539,31 @@ let tableWinningHandClearTimer = null;
 // telling the player what that logic is doing, not a separate system.
 let rebuildCountdownInterval = null;
 let eliminatedOverlayDismissed = false;
+// Real, confirmed bug fix per explicit live report ("when I get busted
+// I don't see the last hand, bust happens right after I lose... it's
+// gotta be at the end of animation before the next hand starts"):
+// tracks whether the delayed reveal below has already been scheduled
+// for THIS elimination specifically, so repeat renders while waiting
+// for it (state broadcasts constantly, e.g. bots still finishing their
+// own actions elsewhere) don't spawn a new competing timer on every
+// single one of them -- reset the moment elimination genuinely clears
+// (a rebuy, a fresh table) so a later, real elimination schedules its
+// own reveal properly again.
+let eliminatedOverlayScheduled = false;
+// Real, confirmed bug fix per the same live report above: the actual
+// fix -- delays showing the overlay itself rather than the checks that
+// decide whether to, giving the winning-hand card-flight animation
+// (see showWinningHandOnTable) real time to actually play and be seen
+// first. Guarded by eliminatedOverlayScheduled so the many repeat
+// renders that happen during that same wait (state broadcasts
+// constantly) don't each start their own competing timer.
+function showEliminatedOverlaySoon(eliminatedOverlay) {
+  if (eliminatedOverlayDismissed || eliminatedOverlayScheduled) return;
+  eliminatedOverlayScheduled = true;
+  setTimeout(() => {
+    if (!eliminatedOverlayDismissed) eliminatedOverlay.classList.add('on');
+  }, 4000);
+}
 function updateRebuildEliminationUI(state) {
   const mySeat = state.seats[myPos];
   const rebuildOverlay = $('rebuildWaitOverlay');
@@ -4559,7 +4584,7 @@ function updateRebuildEliminationUI(state) {
     // every other player's own actions) saw mySeat.eliminated was
     // still true and immediately re-added it -- making the button
     // functionally do nothing, since it reappeared almost instantly.
-    if (!eliminatedOverlayDismissed) eliminatedOverlay.classList.add('on');
+    if (!eliminatedOverlayDismissed) showEliminatedOverlaySoon(eliminatedOverlay);
     return;
   }
   // Real, confirmed bug fix per explicit live report ("2nd time when
@@ -4577,10 +4602,11 @@ function updateRebuildEliminationUI(state) {
   if (mySeat.bustedAt && (mySeat.rebuysUsed || 0) >= 1) {
     rebuildOverlay.classList.remove('on');
     if (rebuildCountdownInterval) { clearInterval(rebuildCountdownInterval); rebuildCountdownInterval = null; }
-    if (!eliminatedOverlayDismissed) eliminatedOverlay.classList.add('on');
+    if (!eliminatedOverlayDismissed) showEliminatedOverlaySoon(eliminatedOverlay);
     return;
   }
   eliminatedOverlayDismissed = false;
+  eliminatedOverlayScheduled = false;
   eliminatedOverlay.classList.remove('on');
   if (mySeat.bustedAt) {
     rebuildOverlay.classList.add('on');
@@ -4862,12 +4888,36 @@ function showWinningHandOnTable(state) {
     seatEl.classList.add('winner-reaction');
   });
   const realWinners = r.winners.filter(w => w.hand && w.hand.length);
-  const sequence = realWinners.length ? realWinners : [r.winners[0]];
+  // Real, confirmed feature per the same side-pot request: the real,
+  // main-pot winner always shows first (their cards are the actual
+  // table display for the whole sequence, side-pot winners after them
+  // just get announced in text without changing it), regardless of
+  // whatever order the server happened to push pot layers in.
+  const sequence = (realWinners.length ? realWinners : [r.winners[0]]).slice().sort((a, b) => (a.isSidePot ? 1 : 0) - (b.isSidePot ? 1 : 0));
 
   function revealOneWinner(winnerIdx) {
   const w = sequence[winnerIdx];
   const isLastWinner = winnerIdx === sequence.length - 1;
   const winnerPos = w.seat;
+  // Real, confirmed feature per explicit request ("if it's a side pot
+  // winner it should say side pot winner, not the real winner... the
+  // real winner's cards only gets displayed"): a side-pot winner gets a
+  // plain text announcement only -- no card-flight animation, and the
+  // actual table display (cards, unused-board marking) is left exactly
+  // as the real main-pot winner already set it, never touched or
+  // replaced for a side pot. Short pause to read it, then moves on.
+  if (w.isSidePot) {
+    const seatEl = document.querySelector(`.seat[data-pos="${winnerPos}"]`);
+    const sideName = state.seats[winnerPos] ? escapeHtml(state.seats[winnerPos].name) : '?';
+    $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-name">${sideName}</span> <span class="table-winning-hand-label-handname">Side Pot Winner</span> won <span class="table-winning-hand-label-amount">${w.amount}</span>`;
+    if (isLastWinner) {
+      $('btnWinningHandContinue').style.display = '';
+      updateWinningHandContinueUI(latestState);
+    } else {
+      setTimeout(() => revealOneWinner(winnerIdx + 1), 1200);
+    }
+    return;
+  }
   const winnerSeat = state.seats[winnerPos];
   const winnerSeatEl = document.querySelector(`.seat[data-pos="${winnerPos}"]`);
   const winningHand = w.hand;
