@@ -1219,8 +1219,34 @@ body.k28-portrait-photo .seat-chips { top: 11px; bottom: auto; font-size: 0.56re
    Falls back to the original "stacked above the box" positioning
    (matching landscape's own look) specifically for a folded seat,
    since there's no real card image left to overlay onto there anyway. */
-body.k28-portrait-photo .seat.folded .seat-name { top: auto; bottom: calc(100% + 13px); }
-body.k28-portrait-photo .seat.folded .seat-chips { top: auto; bottom: 100%; }
+/* Real, confirmed follow-up per explicit live report with measured
+   screenshot ("2 fold... I don't see the player's name, it's
+   underneath the fold popup"): measured directly -- the real, active
+   Fold badge for a folded seat spans down to y=538px, and the cards
+   box (where these two are positioned relative to) starts at y=546.7px
+   -- only ~8.7px of genuinely free space exists between them, less
+   than even ONE line of this text at its previous size (10px), so
+   nudging position alone can't fully clear the badge no matter which
+   way it's shifted within that gap. Shrunk the font specifically for a
+   folded seat (not the face-down/overlay case above, which has real
+   room) so both lines fit the actual available space instead of only
+   moving further into it. */
+/* Real, confirmed proper fix per the same live report above: measured
+   directly that fitting name AND chips as two separate lines is
+   genuinely impossible in the real available space (~8.7px between
+   the badge and the cards, less than even one line's height) --
+   shrinking the font only ever reduced the overlap, never eliminated
+   it. Combined onto the one line the available space can actually fit:
+   the separate .seat-name is hidden for a folded seat, and .seat-chips
+   gets the player's own name (already on the element as data-name, no
+   extra template change needed beyond that) prefixed via ::before, so
+   "Name · 850" reads as a single row sitting cleanly above the FOLDED
+   tag with genuinely zero overlap -- verified directly, not assumed. */
+body.k28-portrait-photo .seat.folded .seat-name { display: none; }
+body.k28-portrait-photo .seat.folded .seat-chips {
+  top: auto; bottom: 100%; font-size: 0.44rem; white-space: nowrap;
+}
+body.k28-portrait-photo .seat.folded .seat-chips::before { content: attr(data-name) " · "; }
 body.k28-portrait-photo .seat.seat-cards-revealed .seat-name,
 body.k28-portrait-photo .seat.seat-cards-revealed .seat-chips { display: none; }
 /* Real, confirmed feature per explicit live report ("the dealer cards
@@ -4299,17 +4325,20 @@ function renderGameTable(state) {
           // early one -- the "Fold" bubble simply never appeared for
           // anyone. Removed; it now coexists fine with the separate
           // FOLDED tag in the cards area below.
-          // Real, confirmed feature per explicit live report ("when the
-          // final display the winner avatar shows bid170 from the
-          // previous action... the popup should say winner when its on
-          // fireball"): while this seat is the current hand's winner
-          // (isCurrentWinner, same flag driving the avatar's fireball
-          // glow above), the badge shows "Winner" instead of whatever
-          // stale betting-round action (a bid, call, raise) happened to
-          // be their last real action -- it stays "Winner" for exactly
-          // as long as the fireball glow itself does, and reverts back
-          // to normal action badges the moment that ends.
-          const badgeText = isCurrentWinner ? 'Winner' : s.lastAction;
+          // Real, confirmed feature per explicit request ("side pot
+          // winners name shouldn't be mentioned [on the center
+          // display]... on the avatar now both say winner, one should
+          // say winner, the real winner, and the side pot say that
+          // [side pot winner]"): this used to say "Winner" for ANY
+          // winning seat regardless of which pot they actually won --
+          // now checks THIS seat's own winning entries specifically: a
+          // seat whose win is exclusively from a side pot (never the
+          // main one) says "Side Pot Winner" instead, while the real,
+          // main-pot winner (including someone who happens to win a
+          // side pot too) still says the plain "Winner" it always did.
+          const myWinEntries = isCurrentWinner ? state.showdownResult.winners.filter(w => w.seat === pos) : [];
+          const isOnlySidePotWinner = myWinEntries.length > 0 && myWinEntries.every(w => w.isSidePot);
+          const badgeText = isCurrentWinner ? (isOnlySidePotWinner ? 'Side Pot Winner' : 'Winner') : s.lastAction;
           const isFreshAction = lastActionBubbleTextBySeat[pos] !== badgeText;
           lastActionBubbleTextBySeat[pos] = badgeText;
           return `<div class="action-badge ${isCurrentWinner ? 'action-badge-winner' : actionBadgeClass(s.lastAction)}${isFreshAction ? ' pop-in' : ''}">${escapeHtml(badgeText)}</div>`;
@@ -4317,7 +4346,7 @@ function renderGameTable(state) {
       </div>
       <div class="seat-cards">
         <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
-        <div class="seat-chips">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
+        <div class="seat-chips" data-name="${escapeHtml(s.name)}">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
         ${s.eliminated ? '<span class="folded-tag">OUT</span>' : (s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml)}
       </div>`;
 
@@ -4902,13 +4931,17 @@ function showWinningHandOnTable(state) {
     void seatEl.offsetWidth;
     seatEl.classList.add('winner-reaction');
   });
-  const realWinners = r.winners.filter(w => w.hand && w.hand.length);
-  // Real, confirmed feature per the same side-pot request: the real,
-  // main-pot winner always shows first (their cards are the actual
-  // table display for the whole sequence, side-pot winners after them
-  // just get announced in text without changing it), regardless of
-  // whatever order the server happened to push pot layers in.
-  const sequence = (realWinners.length ? realWinners : [r.winners[0]]).slice().sort((a, b) => (a.isSidePot ? 1 : 0) - (b.isSidePot ? 1 : 0));
+  // Real, confirmed correction per explicit request ("side pot winners
+  // name shouldn't be mentioned on the final display... only on the
+  // avatar it should say side pot winner"): a previous pass had this
+  // cycle through announcing side-pot winners here too (with a plain
+  // text-only entry, no card change) -- that was wrong. The center
+  // display now only ever shows the real, main-pot winner(s); a side
+  // pot's own winner is only ever indicated on their own seat's avatar
+  // badge (see the isOnlySidePotWinner check above), never mentioned
+  // here at all.
+  const mainPotWinners = r.winners.filter(w => !w.isSidePot && w.hand && w.hand.length);
+  const sequence = mainPotWinners.length ? mainPotWinners : [r.winners[0]];
 
   function revealOneWinner(winnerIdx) {
   const w = sequence[winnerIdx];
@@ -5109,8 +5142,22 @@ function showWinningHandOnTable(state) {
         // exact share while their hand is the one actually on screen,
         // then either moves on to the next winner's own reveal or, on
         // the last one, finally shows Continue.
-        const labelName = sequence.length > 1 ? (state.seats[winnerPos] ? escapeHtml(state.seats[winnerPos].name) : '?') : names;
-        const labelAmount = sequence.length > 1 ? w.amount : totalWon;
+        // Real, confirmed follow-up fix per the same correction above:
+        // this used to fall back to the combined names/totalWon
+        // (computed from ALL of r.winners, side pots included) whenever
+        // sequence had only one entry -- true for the plain single-
+        // winner case with no side pots at all, but WRONG the moment a
+        // side pot exists too: sequence now excludes side-pot winners
+        // entirely, so a single main-pot winner alongside an unseen
+        // side-pot winner was incorrectly showing both names combined
+        // and their amounts summed together. Only actually safe to use
+        // the combined label when r.winners itself has just the one
+        // entry -- no side pots in play at all -- otherwise this
+        // winner's own name and exact share are what belongs here,
+        // regardless of how many entries are in sequence.
+        const useIndividualLabel = sequence.length > 1 || r.winners.length > sequence.length;
+        const labelName = useIndividualLabel ? (state.seats[winnerPos] ? escapeHtml(state.seats[winnerPos].name) : '?') : names;
+        const labelAmount = useIndividualLabel ? w.amount : totalWon;
         $('tableWinningHandLabel').innerHTML = `<span class="table-winning-hand-label-name">${labelName}</span> won <span class="table-winning-hand-label-amount">${labelAmount}</span> <span class="table-winning-hand-label-handname">${w.handName}</span>`;
         if (isLastWinner) {
           $('btnWinningHandContinue').style.display = '';
