@@ -1296,8 +1296,16 @@ body.k28-portrait-photo .pot-display { top: 47%; }
    side of the table, each with a more polished look (soft gradient,
    inner highlight, real depth) instead of the plain flat pill both
    used to share. */
-body.k28-portrait-photo .pot-display-pot { left: 4%; right: auto; transform: translateY(-50%); }
-body.k28-portrait-photo .pot-display-bet { left: auto; right: 4%; transform: translateY(-50%); }
+/* Real, confirmed follow-up per explicit live report ("it's not where
+   I wanted, next to my cards"): the vertical middle of the table
+   (top:47%) was the wrong spot -- it happened to land right on top of
+   whichever seat sits at that height on each side (Aisha on the left,
+   Sofia on the right in the actual report). Moved to sit beside my own
+   hand-strip cards instead, at the exact same bottom:89px those use,
+   so both popups align with the cards rather than floating at an
+   unrelated height. */
+body.k28-portrait-photo .pot-display-pot { left: 4%; right: auto; top: auto; bottom: 89px; transform: none; }
+body.k28-portrait-photo .pot-display-bet { left: auto; right: 4%; top: auto; bottom: 89px; transform: none; }
 body.k28-portrait-photo .pot-display-pot, body.k28-portrait-photo .pot-display-bet {
   flex-direction: column; gap: 1px; padding: 7px 12px;
   background: linear-gradient(145deg, rgba(36,26,14,0.94), rgba(10,8,5,0.94));
