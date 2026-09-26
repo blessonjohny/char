@@ -1135,7 +1135,12 @@ body.k28-portrait-photo .action-btn {
      above it -- so the hand-strip's own position (see its rule further
      down) is nudged up by the same amount this adds, keeping a small,
      deliberate gap instead of the two colliding. */
-  padding: 13px 4px; border-radius: 9px; font-weight: 700; font-size: 0.7rem;
+  /* Real, confirmed follow-up per explicit request ("make the buttons a
+     little bit more taller"): grown again, 13px -> 17px top/bottom
+     padding (+8px total height on top of the earlier +10px increase).
+     Same pattern as before: hand-strip/popups/label all nudged up the
+     same 8px to preserve the small gap rather than let it collide. */
+  padding: 17px 4px; border-radius: 9px; font-weight: 700; font-size: 0.7rem;
   box-shadow: 0 2px 0 rgba(0,0,0,0.3), 0 2px 5px rgba(0,0,0,0.35);
   border-bottom: 1.5px solid rgba(0,0,0,0.25);
   transition: transform 0.08s ease, box-shadow 0.08s ease;
@@ -1176,8 +1181,12 @@ body.k28-portrait-photo .stepper-btn { width: 24px; height: 24px; border-radius:
    it (anchored to the real screen bottom already) -- nudged this up by
    the same 10px (89px -> 99px) to keep the small, deliberate gap
    instead of the two colliding, verified with real coordinates. */
+/* Real, confirmed second follow-up per explicit request ("make the
+   buttons a little bit more taller"): the action bar grew another 8px
+   (see .action-btn's padding above), nudged up the same 8px again
+   (99px -> 107px) to keep the gap rather than collide. */
 body.k28-portrait-photo .hand-strip {
-  position: fixed; bottom: 99px; left: 50%; transform: translateX(-50%); z-index: 40; gap: 4px;
+  position: fixed; bottom: 107px; left: 50%; transform: translateX(-50%); z-index: 40; gap: 4px;
 }
 body.k28-portrait-photo .hand-strip .card { width: 44px; height: 62px; font-size: 1rem; }
 body.k28-portrait-photo .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
@@ -1330,8 +1339,8 @@ body.k28-portrait-photo .pot-display { top: 47%; }
    when the action bar grew taller) so these two stay aligned with the
    cards exactly as originally intended, not just at whatever value
    happened to be here before that change. */
-body.k28-portrait-photo .pot-display-pot { left: 4%; right: auto; top: auto; bottom: 99px; transform: none; }
-body.k28-portrait-photo .pot-display-bet { left: auto; right: 3%; top: auto; bottom: 99px; transform: none; }
+body.k28-portrait-photo .pot-display-pot { left: 4%; right: auto; top: auto; bottom: 107px; transform: none; }
+body.k28-portrait-photo .pot-display-bet { left: auto; right: 3%; top: auto; bottom: 107px; transform: none; }
 body.k28-portrait-photo .pot-display-pot, body.k28-portrait-photo .pot-display-bet {
   flex-direction: column; gap: 1px; padding: 7px 12px;
   background: linear-gradient(145deg, rgba(36,26,14,0.94), rgba(10,8,5,0.94));
@@ -1431,7 +1440,7 @@ body.k28-portrait-photo #btnSoundMute {
    the hand-strip cards -- nudged up 10px along with them (89px -> 99px)
    when the action bar grew taller, keeping the same relative gap. */
 body.k28-portrait-photo #myHandLabel {
-  position: fixed; bottom: 177px; left: 50%; transform: translateX(-50%); z-index: 41;
+  position: fixed; bottom: 185px; left: 50%; transform: translateX(-50%); z-index: 41;
   text-shadow: 0 1px 6px rgba(0,0,0,0.95); width: 100%;
   /* Real, confirmed feature per explicit live report ("i still have a
      generic writing small say u have 3 of a kind"): the inline
