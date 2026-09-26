@@ -1305,6 +1305,14 @@ body.k28-portrait-photo .seat.seat-cards-revealed .seat-chips { display: none; }
    winning-hand display -- that's a separate element, untouched here
    on purpose per explicit instruction). Small, precise nudge only. */
 body.k28-portrait-photo .board-area { top: 30%; }
+/* Real, confirmed feature per explicit request ("the pots on the
+   table when players place... only for portrait" -- the actual chip-
+   pile graphic that accumulates in the middle as bets come in, not the
+   text popup): the base .pot-anchor sits at left:32%, visibly off-
+   center on the narrower portrait table specifically (landscape's
+   wider felt makes the same value look fine there, untouched here on
+   purpose). Recentered to left:50% for portrait only. */
+body.k28-portrait-photo .pot-anchor { left: 50%; }
 /* Real, confirmed feature per explicit live report ("the dealer cards
    should be way up, we have space, all this also move up"): the board
    (community cards) was still sitting at the base 42% top -- fine for
@@ -1339,18 +1347,12 @@ body.k28-portrait-photo .pot-display { top: 47%; }
    when the action bar grew taller) so these two stay aligned with the
    cards exactly as originally intended, not just at whatever value
    happened to be here before that change. */
-/* Real, confirmed reversal per explicit request ("make the pots on the
-   table in the center only for the portrait view"): moved back to the
-   table's own center (top:47%, the shared .pot-display rule above),
-   away from beside the cards -- this makes real sense once side pots
-   are involved too, since a real breakdown ("Main: 600 · Side 1: 400 ·
-   Total: 1000") needs more width than the narrow space next to the
-   cards ever had. Bet stays exactly where it was (right of the cards,
-   combined with the your-turn hint) -- that was a separate, more
-   recent request and nothing here changes it. */
-body.k28-portrait-photo .pot-display-pot {
-  left: 50%; right: auto; top: 47%; bottom: auto; transform: translate(-50%, -50%);
-}
+/* Real, confirmed undo per explicit correction ("pots, not pits...
+   the pots were players bid" -- meaning the chip-pile graphic on the
+   felt, not this text popup at all; "undo, put the pot back where it
+   is"): reverted back to beside the hand-strip cards, exactly as it
+   was right before the previous, mistaken move to center. */
+body.k28-portrait-photo .pot-display-pot { left: 4%; right: auto; top: auto; bottom: 107px; transform: none; }
 body.k28-portrait-photo .pot-display-bet { left: auto; right: 3%; top: auto; bottom: 107px; transform: none; }
 body.k28-portrait-photo .pot-display-pot, body.k28-portrait-photo .pot-display-bet {
   flex-direction: column; gap: 1px; padding: 7px 12px;
