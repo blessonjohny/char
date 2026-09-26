@@ -5399,18 +5399,19 @@ function renderActionBar(state) {
     </div>`;
     bottomBtnHtml = `<button class="action-btn action-bet" data-label="${state.currentBet > 0 ? 'Raise' : 'Bet'}" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}', Number(document.getElementById('betSlider').value))">${state.currentBet > 0 ? 'Raise' : 'Bet'}</button>`;
   }
-  // Line 1: the slider (only line 1 when it actually applies -- a
-  // fixed-buyin table or a stack too short to raise has no slider at
-  // all, in which case the 4-button line below is simply the only line).
+  // Line 2: all 4 buttons together, one single row. Real, confirmed
+  // reorder per explicit request ("All-in bet fold check, this should
+  // be the button order left to right"): was Fold, Check/Call, All-In,
+  // Bet/Raise -- now All-In, Bet/Raise, Fold, Check/Call, exactly as
+  // specified.
   let html = sliderHtml;
-  // Line 2: all 4 buttons together, one single row.
   html += '<div class="action-row" style="margin-top:4px">';
+  html += `<button class="action-btn action-bet" data-label="All-In" onclick="sendAction('allin')">All-In</button>`;
+  html += bottomBtnHtml;
   html += `<button class="action-btn action-fold" data-label="Fold" onclick="sendAction('fold')">Fold</button>`;
   html += canCheck
     ? `<button class="action-btn action-check" data-label="Check" onclick="sendAction('check')">Check</button>`
     : `<button class="action-btn action-call" data-label="Call ${Math.min(toCall, mySeat.chips)}" onclick="sendAction('call')">Call ${Math.min(toCall, mySeat.chips)}</button>`;
-  html += `<button class="action-btn action-bet" data-label="All-In" onclick="sendAction('allin')">All-In</button>`;
-  html += bottomBtnHtml;
   html += '</div>';
   bar.innerHTML = html;
   const slider = $('betSlider');
