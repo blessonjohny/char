@@ -767,6 +767,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
     font-size: 0.85rem; padding: 6px 16px; z-index: 48;
   }
+  /* Real, confirmed fix so the two now-separate pot/bet elements (see
+     the portrait split above) don't land exactly on top of each other
+     here too, sharing the same base .pot-display rule -- kept as a
+     small side-by-side pair near the same top-center spot rather than
+     a bigger redesign, since the "looks bad" complaint was specifically
+     about portrait's dead-center placement, not landscape's. */
+  body.k28-in-game .pot-display-pot { left: calc(50% - 58px); transform: translateX(-50%); }
+  body.k28-in-game .pot-display-bet { left: calc(50% + 58px); transform: translateX(-50%); }
   body.k28-in-game .street-banner { top: 62%; font-size: 1.3rem; padding: 12px 26px; }
   /* "YOUR TURN" and my own chip count both get a dedicated, real top-level element instead
      (#myTurnTop, #myChipsTop, styled together below) - see the HTML comment where they're
@@ -1280,6 +1288,22 @@ body.k28-portrait-photo .board-area { top: 30%; }
    a completely different element too far -- see the undo note on
    .table-winning-hand-cards below. Back to its real, correct value.) */
 body.k28-portrait-photo .pot-display { top: 47%; }
+/* Real, confirmed feature per explicit request ("that pot bet in the
+   middle of the table looks bad... pot should display on the left, bet
+   on the right, we have huge space there, make both nice and
+   individual popups, now it's generic"): split from one combined
+   center pill into two separate ones on the open felt space either
+   side of the table, each with a more polished look (soft gradient,
+   inner highlight, real depth) instead of the plain flat pill both
+   used to share. */
+body.k28-portrait-photo .pot-display-pot { left: 4%; right: auto; transform: translateY(-50%); }
+body.k28-portrait-photo .pot-display-bet { left: auto; right: 4%; transform: translateY(-50%); }
+body.k28-portrait-photo .pot-display-pot, body.k28-portrait-photo .pot-display-bet {
+  flex-direction: column; gap: 1px; padding: 7px 12px;
+  background: linear-gradient(145deg, rgba(36,26,14,0.94), rgba(10,8,5,0.94));
+  border: 1.5px solid var(--gold-soft, #c9a44c);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+}
 /* Real, confirmed feature per explicit live report ("make the final
    display upper i told u last time"): this sits at the base 70% top,
    which is almost exactly where my own seat/avatar/name sit in this
@@ -1728,7 +1752,8 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
     <div class="felt"></div>
     <div class="street-banner" id="streetBanner"></div>
     <div class="board-area" id="boardArea"></div>
-    <div class="pot-display" id="potDisplay">Pot: 0</div>
+    <div class="pot-display pot-display-pot" id="potDisplayPot">Pot: 0</div>
+    <div class="pot-display pot-display-bet" id="potDisplayBet" style="display:none">Bet: 0</div>
     <!-- Per explicit live report: the chip-to-pot flying animation's
          real destination used to just be potDisplay itself -- fine on
          mobile where that reads inline near the board, but in
@@ -3115,7 +3140,7 @@ let lastRenderedMyHandHtml = null;
 // for them.
 let potChipStack = [];
 function landChipInPotStack(color) {
-  const potEl = $('potAnchor') || $('potDisplay');
+  const potEl = $('potAnchor') || $('potDisplayPot');
   if (!potEl) return;
   const potRect = potEl.getBoundingClientRect();
   const baseX = potRect.left + potRect.width / 2;
@@ -3206,7 +3231,7 @@ function updatePotStackTotalPosition(baseX, baseY, stackSpacingX, stackRiseY) {
   label.style.transform = 'translate(-50%,-100%)';
 }
 function animateChipToPot(seatPos, amount) {
-  const potEl = $('potAnchor') || $('potDisplay');
+  const potEl = $('potAnchor') || $('potDisplayPot');
   playHaptic('chipBet');
   // Per explicit request: chips now fly from each player's own rail
   // chip stack (see renderRailChips) rather than the seat/avatar
@@ -3282,7 +3307,7 @@ function animateChipToPot(seatPos, amount) {
   });
 }
 function animateChipsToWinners(state) {
-  const potEl = $('potAnchor') || $('potDisplay');
+  const potEl = $('potAnchor') || $('potDisplayPot');
   const winners = (state.showdownResult && state.showdownResult.winners) || [];
   if (!potEl || winners.length === 0) return 0;
   // The real, already-landed pot stack IS the animation now -- split
@@ -4144,7 +4169,22 @@ function renderGameTable(state) {
   const potLabelText = state.pots.length > 1
     ? state.pots.map((p, i) => (i === 0 ? 'Main' : 'Side ' + i) + ': ' + p.amount).join(' · ') + ' · Total: ' + potTotal
     : 'Pot: ' + potTotal;
-  $('potDisplay').innerHTML = (potTotal > 0 ? chipHtml(potTotal) : '') + potLabelText + (state.currentBet > 0 ? ` · Bet: ${state.currentBet}` : '');
+  // Real, confirmed feature per explicit request ("that pot bet in the
+  // middle of the table looks bad... pot should display on the left,
+  // bet on the right, we have huge space there, make both nice and
+  // individual popups"): split out of one combined center pill into
+  // two separate ones, positioned on the empty left/right felt space
+  // in portrait (see the matching CSS) -- the actual data and side-pot
+  // breakdown logic above is completely unchanged, just rendered into
+  // two elements instead of concatenated into one.
+  $('potDisplayPot').innerHTML = (potTotal > 0 ? chipHtml(potTotal) : '') + potLabelText;
+  const betEl = $('potDisplayBet');
+  if (state.currentBet > 0) {
+    betEl.style.display = '';
+    betEl.textContent = 'Bet: ' + state.currentBet;
+  } else {
+    betEl.style.display = 'none';
+  }
   // Per explicit follow-up: the formal pot total (state.pots) only
   // actually updates once a full betting round settles and everyone's
   // individual bets get swept together -- which is exactly why this
