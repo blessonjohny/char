@@ -2602,6 +2602,23 @@ socket.on('connect', () => {
   // succeeds, rather than waiting for its own next 3-second tick to
   // notice -- immediate, not eventually.
   stopActiveReconnectLoop();
+  // Real, confirmed fix per explicit live report with a Hand Log
+  // screenshot showing repeated rapid "host disconnected / X is now the
+  // host" cycles -- a genuinely unstable connection, not a one-off:
+  // some seats were showing stale card-backs with no name overlay
+  // despite their own Fold badge being correct, right around a period
+  // of repeated disconnects. The per-seat render caches (which normally
+  // skip re-touching a seat's DOM when its generated HTML hasn't
+  // changed, as a performance optimization) have no way to know that a
+  // reconnect happened in between two renders -- clearing them here
+  // forces the very next render after a real reconnect to rebuild
+  // every seat from scratch, regardless of what either cache thinks it
+  // already shows, closing off connection instability as a possible
+  // cause of stale seat visuals even if the exact mechanism isn't
+  // provable from the log alone.
+  for (const k of Object.keys(lastRenderedSeatInnerHtml)) delete lastRenderedSeatInnerHtml[k];
+  for (const k of Object.keys(lastActionBubbleTextBySeat)) delete lastActionBubbleTextBySeat[k];
+  lastRenderedHandNumberForSeatCache = null;
   if (myTableId && myPlayerId) {
     socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
   }
