@@ -1125,7 +1125,17 @@ body.k28-portrait-photo .action-bar {
    back to exactly what it always did again. */
 body.k28-portrait-photo .action-row { gap: 6px; margin-bottom: 6px; }
 body.k28-portrait-photo .action-btn {
-  padding: 8px 4px; border-radius: 9px; font-weight: 700; font-size: 0.7rem;
+  /* Real, confirmed feature per explicit request ("increase the height
+     of the bottom 4 buttons only for portrait... the top of the slider
+     should be as close to the both side popups and my cards, we have a
+     little space there"): padding grown from 8px to 13px top/bottom
+     (+10px total button height). Measured directly first: the whole
+     action bar is anchored to the real screen bottom with no room to
+     grow into below it, and the hand-strip cards already sat only 3px
+     above it -- so the hand-strip's own position (see its rule further
+     down) is nudged up by the same amount this adds, keeping a small,
+     deliberate gap instead of the two colliding. */
+  padding: 13px 4px; border-radius: 9px; font-weight: 700; font-size: 0.7rem;
   box-shadow: 0 2px 0 rgba(0,0,0,0.3), 0 2px 5px rgba(0,0,0,0.35);
   border-bottom: 1.5px solid rgba(0,0,0,0.25);
   transition: transform 0.08s ease, box-shadow 0.08s ease;
@@ -1159,13 +1169,15 @@ body.k28-portrait-photo .stepper-btn { width: 24px; height: 24px; border-radius:
    estimated) -- clearance tightened to match, so the extra ~70px of
    now-unnecessary gap goes back to actually showing the table instead
    of sitting empty above a much shorter bar. */
-/* Real, confirmed follow-up per explicit live report ("pull my cards a
-   little down so the slider is almost touching my card not
-   touching"): tightened from 95px (a comfortable ~10px gap above the
-   85px-tall action bar) down to 89px, a small ~4px gap -- close
-   without actually touching or overlapping. */
+/* Real, confirmed follow-up per explicit request ("increase the height
+   of the bottom 4 buttons... the top of the slider should be as close
+   to the both side popups and my cards"): the action bar grew by 10px
+   (see .action-btn's padding above) with nowhere to expand into below
+   it (anchored to the real screen bottom already) -- nudged this up by
+   the same 10px (89px -> 99px) to keep the small, deliberate gap
+   instead of the two colliding, verified with real coordinates. */
 body.k28-portrait-photo .hand-strip {
-  position: fixed; bottom: 89px; left: 50%; transform: translateX(-50%); z-index: 40; gap: 4px;
+  position: fixed; bottom: 99px; left: 50%; transform: translateX(-50%); z-index: 40; gap: 4px;
 }
 body.k28-portrait-photo .hand-strip .card { width: 44px; height: 62px; font-size: 1rem; }
 body.k28-portrait-photo .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
@@ -1314,8 +1326,12 @@ body.k28-portrait-photo .pot-display { top: 47%; }
    hand-strip cards instead, at the exact same bottom:89px those use,
    so both popups align with the cards rather than floating at an
    unrelated height. */
-body.k28-portrait-photo .pot-display-pot { left: 4%; right: auto; top: auto; bottom: 89px; transform: none; }
-body.k28-portrait-photo .pot-display-bet { left: auto; right: 3%; top: auto; bottom: 89px; transform: none; }
+/* bottom kept in sync with .hand-strip's own bottom above (89px -> 99px
+   when the action bar grew taller) so these two stay aligned with the
+   cards exactly as originally intended, not just at whatever value
+   happened to be here before that change. */
+body.k28-portrait-photo .pot-display-pot { left: 4%; right: auto; top: auto; bottom: 99px; transform: none; }
+body.k28-portrait-photo .pot-display-bet { left: auto; right: 3%; top: auto; bottom: 99px; transform: none; }
 body.k28-portrait-photo .pot-display-pot, body.k28-portrait-photo .pot-display-bet {
   flex-direction: column; gap: 1px; padding: 7px 12px;
   background: linear-gradient(145deg, rgba(36,26,14,0.94), rgba(10,8,5,0.94));
@@ -1412,11 +1428,10 @@ body.k28-portrait-photo #btnSoundMute {
    above: this label (shows things like "You have: Pair" right above
    my own cards) has no position set at all outside landscape mode --
    plain normal flow, so it was hidden the same way. Sits just above
-   the hand-strip cards -- nudged down 6px along with them (95px ->
-   89px) to keep the same relative gap once the cards themselves moved
-   down per the live report right above. */
+   the hand-strip cards -- nudged up 10px along with them (89px -> 99px)
+   when the action bar grew taller, keeping the same relative gap. */
 body.k28-portrait-photo #myHandLabel {
-  position: fixed; bottom: 167px; left: 50%; transform: translateX(-50%); z-index: 41;
+  position: fixed; bottom: 177px; left: 50%; transform: translateX(-50%); z-index: 41;
   text-shadow: 0 1px 6px rgba(0,0,0,0.95); width: 100%;
   /* Real, confirmed feature per explicit live report ("i still have a
      generic writing small say u have 3 of a kind"): the inline
