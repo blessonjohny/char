@@ -1255,6 +1255,22 @@ body.k28-portrait-photo .seat.folded .seat-chips {
   top: auto; bottom: 100%; font-size: 0.44rem; white-space: nowrap;
 }
 body.k28-portrait-photo .seat.folded .seat-chips::before { content: attr(data-name) " · "; }
+/* Real, confirmed feature per explicit request ("it should also say
+   more things like when it's your turn it should say your turn"):
+   #myTurnTop already existed and already computes the exact right
+   text ("Call 10 or Raise or Fold", etc, see the JS right where it's
+   set) -- it was only ever actually shown for landscape/desktop
+   (body.k28-in-game), hidden the whole time for portrait by the base
+   .desktop-top-readout{display:none} rule despite doing the useful
+   work already. Enabled here too, positioned just below the topbar,
+   only visible while my-turn-active is genuinely on the body (my
+   actual turn) and gone the instant it isn't. */
+body.k28-portrait-photo .desktop-top-readout { display: none; position: fixed; left: 50%; transform: translateX(-50%); z-index: 48; text-align: center; }
+body.k28-portrait-photo.my-turn-active #myTurnTop {
+  display: block; top: 44px; background: rgba(0,0,0,0.55); border: 1px solid var(--gold-soft, #c9a44c);
+  border-radius: 10px; padding: 4px 12px; color: var(--gold); font-weight: 900;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.9); font-size: 0.8rem; animation: none;
+}
 body.k28-portrait-photo .seat.seat-cards-revealed .seat-name,
 body.k28-portrait-photo .seat.seat-cards-revealed .seat-chips { display: none; }
 /* Real, confirmed feature per explicit live report ("the dealer cards
