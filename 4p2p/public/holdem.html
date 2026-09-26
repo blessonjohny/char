@@ -2731,24 +2731,26 @@ function requestHoldemFullscreen() {
   }
   const el = document.documentElement;
   const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-  // Real, confirmed bug fix per explicit live report (Dolphin browser
-  // not auto-rotating to landscape even after tapping this button):
-  // this used to only ever call requestFullscreen() and stop there --
-  // a completely separate function elsewhere in this file
-  // (attemptFullscreenLandscape, used for the host's Start Hand click
-  // and a guest's first tap) already correctly follows a successful
-  // fullscreen entry with screen.orientation.lock('landscape'), which
-  // is what actually asks the browser to rotate the view. The visible
-  // button here was simply never given that same second step. Most
-  // mobile Chromium-based browsers (Dolphin included) only allow the
-  // orientation lock to succeed once already in fullscreen, which is
-  // why this is sequenced after, not instead of, the fullscreen call.
+  // Real, confirmed follow-up per explicit request ("now that portrait
+  // mode is good I don't want to force landscape mode... if you hit
+  // the fullscreen button while on portrait mode, just eliminate the
+  // address bar"): the landscape-lock below (needed for some mobile
+  // Chromium browsers, Dolphin included, to actually rotate at all)
+  // used to fire unconditionally, forcing a rotation to landscape even
+  // when someone pressed this button while deliberately staying in
+  // portrait. Only locks to landscape now when the phone is already
+  // physically in landscape at the moment this runs (true both for a
+  // press of this same button while landscape, and for the tilt-
+  // triggered auto-fullscreen elsewhere in this file, which only ever
+  // calls this after the tilt has already happened) -- a portrait
+  // press just goes fullscreen and stops there, exactly as asked.
+  const wasLandscapeAtPress = window.innerWidth > window.innerHeight;
   if (req) {
     try {
       const result = req.call(el);
       const fsPromise = (result && result.then) ? result : Promise.resolve();
       fsPromise.catch(() => {}).then(() => {
-        if (screen.orientation && screen.orientation.lock) {
+        if (wasLandscapeAtPress && screen.orientation && screen.orientation.lock) {
           screen.orientation.lock('landscape').catch(() => {});
         }
       });
@@ -3660,31 +3662,27 @@ function renderLobby(state) {
 // from a server-pushed "the game started" state update; the guest's
 // own first tap is the earliest real gesture available.
 function attemptFullscreenLandscape() {
+  // Real, confirmed feature per explicit request ("now that portrait
+  // mode is good I don't want to force landscape mode... whatever
+  // position they open in... if they tilt to landscape automatically
+  // full-screen should come"): this used to unconditionally push for
+  // fullscreen+landscape (and nudge with a "rotate your phone" toast)
+  // the moment the host starts a hand or a guest taps anywhere, no
+  // matter which way the phone was actually being held -- portrait
+  // wasn't a real, supported way to play yet at the time this was
+  // written, so forcing the rotation made sense then. Now that it is,
+  // this simply does nothing at all while the phone is in portrait,
+  // leaving the person to keep using it exactly as they opened it.
+  // Landscape still gets its fullscreen (no orientation lock needed --
+  // it's already landscape) exactly as before, and the physical-tilt
+  // listener elsewhere in this file (unchanged) is what handles
+  // fullscreen actually kicking in automatically once someone rotates.
+  if (window.innerHeight > window.innerWidth) return;
   if (window.innerWidth < 700 && !document.fullscreenElement && !document.webkitFullscreenElement) {
     const el = document.documentElement;
     const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-    const tryLock = () => {
-      if (screen.orientation && screen.orientation.lock) {
-        return screen.orientation.lock('landscape').catch(() => false);
-      }
-      return Promise.resolve(false);
-    };
     if (req) {
-      try {
-        const result = req.call(el);
-        const fsPromise = (result && result.then) ? result : Promise.resolve();
-        fsPromise.catch(() => {}).then(() => {
-          tryLock().then((lockResult) => {
-            if (lockResult === false && !document.fullscreenElement && !document.webkitFullscreenElement) {
-              toast('📱 Rotate your phone for the best view');
-            }
-          });
-        });
-      } catch (e) {
-        tryLock();
-      }
-    } else {
-      tryLock();
+      try { req.call(el).catch(() => {}); } catch (e) {}
     }
   }
 }
