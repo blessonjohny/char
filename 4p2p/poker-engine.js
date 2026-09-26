@@ -543,9 +543,9 @@ class PokerEngine {
     const rankedBySeat = ranked.map(r => ({ seat: contesting[r.index], score: r.score, handName: r.handName, hand: r.hand }));
 
     const winners = [];
-    for (const pot of this.pots) {
+    this.pots.forEach((pot, potIndex) => {
       const eligibleRanked = rankedBySeat.filter(r => pot.eligibleSeats.includes(r.seat));
-      if (eligibleRanked.length === 0) continue;
+      if (eligibleRanked.length === 0) return;
       const bestScore = eligibleRanked[0].score;
       const potWinners = eligibleRanked.filter(r => JSON.stringify(r.score) === JSON.stringify(bestScore));
       const share = Math.floor(pot.amount / potWinners.length);
@@ -560,16 +560,24 @@ class PokerEngine {
       // beat the table" apart from "got my own extra chips back," not
       // celebrate both identically.
       const isReturnedBet = pot.eligibleSeats.length === 1;
+      // Real, confirmed feature per explicit request ("if it's a side
+      // pot winner it should say side pot winner, not the real
+      // winner... the real winner's cards only gets displayed"): pot
+      // index 0 is always the main pot (this.pots is built main-pot-
+      // first, side pots after, in _collectBetsIntoPots) -- tagged here
+      // so the client can tell a side-pot win apart from the real, main
+      // pot winner and announce/animate them differently.
+      const isSidePot = potIndex > 0;
       for (const w of potWinners) {
         const amount = share + (remainder > 0 ? 1 : 0);
         if (remainder > 0) remainder--;
         this.seats[w.seat].chips += amount;
-        winners.push({ seat: w.seat, amount, handName: w.handName, hand: w.hand, isReturnedBet });
+        winners.push({ seat: w.seat, amount, handName: w.handName, hand: w.hand, isReturnedBet, isSidePot });
         this.addLog(isReturnedBet
           ? `${this.seats[w.seat].name} gets ${amount} back (uncalled).`
           : `${this.seats[w.seat].name} wins ${amount} with ${w.handName}.`);
       }
-    }
+    });
     this.showdownResult = { winners, boardShown: true, board: this.board.slice(), allHands: rankedBySeat };
     this.phase = 'handEnd';
     this.pots = [];
