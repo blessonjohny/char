@@ -585,7 +585,27 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .seat.showdown-lost .seat-bet { opacity: 0.55; }
 .seat-name{font-size:0.62rem;font-weight:700;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .seat-chips{font-size:0.6rem;color:var(--gold);font-weight:800}
-.seat-cards{display:flex;gap:2px;justify-content:center;margin-top:3px}
+.seat-cards{display:flex;gap:2px;justify-content:center;margin-top:3px;position:relative}
+/* Real, confirmed bug fix found while chasing why the portrait overlay
+   wasn't landing correctly on a real device: .seat-name/.seat-chips
+   moved to be genuine DOM children of .seat-cards (see the seat
+   template), so position:absolute on them correctly anchors to
+   .seat-cards's own box specifically -- regardless of variable-height
+   content before it (an action badge, say), rather than to the whole
+   .seat container starting at the avatar, which was the actual root
+   cause of the mismatch. Since .seat-cards is display:flex, without
+   this base rule the name/chips would become extra flex items sitting
+   awkwardly beside the 2 real cards, everywhere (landscape included).
+   Positioned here to preserve landscape's original look exactly --
+   stacked above the cards, same visual order as before this whole
+   restructuring -- with portrait's own overlay-on-the-cards
+   positioning (already defined further down) overriding both bottom
+   values for that mode specifically. */
+.seat-cards .seat-name, .seat-cards .seat-chips {
+  position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; margin: 0;
+}
+.seat-cards .seat-name { bottom: calc(100% + 13px); }
+.seat-cards .seat-chips { bottom: 100%; }
 /* Hidden by default (phone/portrait mode keeps the simple 🤖/🧑 emoji avatar, unchanged) -
    only shown via the desktop wide-table media query override further below. Real, confirmed
    bug caught before shipping: without this explicit default-hidden rule, the image rendered
@@ -1178,15 +1198,14 @@ body.k28-portrait-photo .seat.folded .seat-avatar-photo { opacity: 0.35; filter:
    completely, exactly as before -- they naturally reappear the moment
    that stops being true again (the very next hand, once this seat's
    cards go back to being masked), no separate timer needed for that. */
-body.k28-portrait-photo .seat-cards { position: relative; }
 body.k28-portrait-photo .seat-name,
 body.k28-portrait-photo .seat-chips {
   position: absolute; left: 50%; transform: translateX(-50%); z-index: 6;
   margin: 0; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.95);
   background: rgba(0,0,0,0.55); border-radius: 4px; padding: 0 3px; pointer-events: none;
 }
-body.k28-portrait-photo .seat-name { top: -2px; font-size: 0.56rem; }
-body.k28-portrait-photo .seat-chips { top: 11px; font-size: 0.56rem; }
+body.k28-portrait-photo .seat-name { top: -2px; bottom: auto; font-size: 0.56rem; }
+body.k28-portrait-photo .seat-chips { top: 11px; bottom: auto; font-size: 0.56rem; }
 body.k28-portrait-photo .seat.seat-cards-revealed .seat-name,
 body.k28-portrait-photo .seat.seat-cards-revealed .seat-chips { display: none; }
 /* Real, confirmed feature per explicit live report ("the dealer cards
@@ -4283,9 +4302,11 @@ function renderGameTable(state) {
           return `<div class="action-badge ${isCurrentWinner ? 'action-badge-winner' : actionBadgeClass(s.lastAction)}${isFreshAction ? ' pop-in' : ''}">${escapeHtml(badgeText)}</div>`;
         })() : ''}
       </div>
-      <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
-      <div class="seat-chips">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
-      <div class="seat-cards">${s.eliminated ? '<span class="folded-tag">OUT</span>' : (s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml)}</div>`;
+      <div class="seat-cards">
+        <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
+        <div class="seat-chips">${s.eliminated ? 'OUT' : s.chips + (s.bustedAt ? ' ⏳' : '')}</div>
+        ${s.eliminated ? '<span class="folded-tag">OUT</span>' : (s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml)}
+      </div>`;
 
     let seatDiv = seatsEl.querySelector(`.seat[data-pos="${pos}"]`);
     if (!seatDiv) {
