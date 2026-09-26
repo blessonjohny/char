@@ -1255,22 +1255,16 @@ body.k28-portrait-photo .seat.folded .seat-chips {
   top: auto; bottom: 100%; font-size: 0.44rem; white-space: nowrap;
 }
 body.k28-portrait-photo .seat.folded .seat-chips::before { content: attr(data-name) " · "; }
-/* Real, confirmed feature per explicit request ("it should also say
-   more things like when it's your turn it should say your turn"):
-   #myTurnTop already existed and already computes the exact right
-   text ("Call 10 or Raise or Fold", etc, see the JS right where it's
-   set) -- it was only ever actually shown for landscape/desktop
-   (body.k28-in-game), hidden the whole time for portrait by the base
-   .desktop-top-readout{display:none} rule despite doing the useful
-   work already. Enabled here too, positioned just below the topbar,
-   only visible while my-turn-active is genuinely on the body (my
-   actual turn) and gone the instant it isn't. */
-body.k28-portrait-photo .desktop-top-readout { display: none; position: fixed; left: 50%; transform: translateX(-50%); z-index: 48; text-align: center; }
-body.k28-portrait-photo.my-turn-active #myTurnTop {
-  display: block; top: 44px; background: rgba(0,0,0,0.55); border: 1px solid var(--gold-soft, #c9a44c);
-  border-radius: 10px; padding: 4px 12px; color: var(--gold); font-weight: 900;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.9); font-size: 0.8rem; animation: none;
-}
+/* Real, confirmed follow-up per explicit request ("that popup in the
+   middle above my avatar... combine that to the bet popup, show it on
+   the right of the card"): the separate top banner from the previous
+   pass is removed again -- the same information now lives inside the
+   right-side Bet popup instead (see the JS building potDisplayBet's
+   content, and .pot-display-turn-hint below for its styling within
+   that popup). .desktop-top-readout stays at its base display:none
+   for portrait; nothing further needed to actually hide #myTurnTop
+   here now that its own specific override is gone. */
+.pot-display-turn-hint { color: var(--gold); }
 body.k28-portrait-photo .seat.seat-cards-revealed .seat-name,
 body.k28-portrait-photo .seat.seat-cards-revealed .seat-chips { display: none; }
 /* Real, confirmed feature per explicit live report ("the dealer cards
@@ -1328,6 +1322,17 @@ body.k28-portrait-photo .pot-display-pot, body.k28-portrait-photo .pot-display-b
   border: 1.5px solid var(--gold-soft, #c9a44c);
   box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
 }
+/* Real, confirmed follow-up per the same combined-popup request: the
+   turn-hint text ("Call 10 or Raise or Fold") is meaningfully longer
+   than "Bet: 20" ever was, and this popup's base .pot-display rule
+   sets white-space:nowrap -- without overriding that specifically
+   here, the longer line would run off past the screen's right edge
+   instead of wrapping. Allowed to wrap and given a sensible width to
+   wrap within instead. */
+body.k28-portrait-photo .pot-display-bet {
+  white-space: normal; max-width: 118px; text-align: center;
+}
+body.k28-portrait-photo .pot-display-turn-hint { display: block; font-size: 0.68rem; }
 /* Real, confirmed feature per explicit live report ("make the final
    display upper i told u last time"): this sits at the base 70% top,
    which is almost exactly where my own seat/avatar/name sit in this
@@ -4221,10 +4226,27 @@ function renderGameTable(state) {
   // breakdown logic above is completely unchanged, just rendered into
   // two elements instead of concatenated into one.
   $('potDisplayPot').innerHTML = (potTotal > 0 ? chipHtml(potTotal) : '') + potLabelText;
+  // Real, confirmed feature per explicit request ("that popup in the
+  // middle above my avatar that says call 20 etc, combine that to the
+  // bet popup... show it on the right of the card"): the your-turn
+  // action text (same computation as #myTurnTop, which this replaces
+  // for portrait -- see it hidden below) now lives inside this same
+  // right-side Bet popup instead of a separate banner up top, showing
+  // whenever it's genuinely my turn regardless of whether there's
+  // actually a bet to display alongside it.
   const betEl = $('potDisplayBet');
-  if (state.currentBet > 0) {
+  const myTurnSeat = state.seats[myPos];
+  let turnHint = '';
+  if (myTurnSeat && state.currentPlayer === myPos && !myTurnSeat.folded) {
+    const toCall = state.currentBet - myTurnSeat.bettedThisRound;
+    const canCheck = toCall <= 0;
+    const firstAction = canCheck ? 'Check' : `Call ${Math.min(toCall, myTurnSeat.chips)}`;
+    turnHint = `${firstAction} or Raise or Fold`;
+  }
+  if (state.currentBet > 0 || turnHint) {
     betEl.style.display = '';
-    betEl.textContent = 'Bet: ' + state.currentBet;
+    betEl.innerHTML = (state.currentBet > 0 ? `Bet: ${state.currentBet}` : '')
+      + (turnHint ? (state.currentBet > 0 ? '<br>' : '') + `<span class="pot-display-turn-hint">${turnHint}</span>` : '');
   } else {
     betEl.style.display = 'none';
   }
