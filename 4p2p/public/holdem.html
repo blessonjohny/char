@@ -407,9 +407,15 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    exactly what they were -- only the flatness itself is addressed
    here, via the ::after rim band below, not the chip's size or how
    the pile stacks. */
-.pot-stack-chip{width:16px;height:16px;border-width:1.5px}
-.seat-rail-chips{position:absolute;width:34px;height:16px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
-.rail-chip-pile{position:absolute;bottom:0;left:50%;width:13px;height:16px;transform:translateX(-50%)}
+/* Real, confirmed size reduction per explicit live report ("make the
+   chips overall size a little small... aim is to have more chips on
+   the table"): every dimension here scaled down ~15% together (chip
+   itself, its container, and the pile it sits in), so the piles stay
+   proportioned correctly at the smaller size instead of the chips
+   floating inside an unchanged, now-oversized container. */
+.pot-stack-chip{width:14px;height:14px;border-width:1.3px}
+.seat-rail-chips{position:absolute;width:29px;height:14px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+.rail-chip-pile{position:absolute;bottom:0;left:50%;width:11px;height:14px;transform:translateX(-50%)}
 /* Real, confirmed bug fix per explicit live report with a screenshot
    ("looks like a bar, not chips, no roundness -- barrel"): the real
    pot pile's chips get their round shape from .flying-chip
@@ -3989,8 +3995,15 @@ const CHIP_DENOMINATIONS = [
   // painted dot. Builds the exact same gradient string here, from the
   // exact same three color stops, so a chip is the same chip
   // regardless of which pile it's sitting in.
-  { value: 500, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[6].colors[0]}, ${CHIP_COLOR_STOPS[6].colors[1]} 70%, ${CHIP_COLOR_STOPS[6].colors[2]})` }, // gold
-  { value: 100, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[5].colors[0]}, ${CHIP_COLOR_STOPS[5].colors[1]} 70%, ${CHIP_COLOR_STOPS[5].colors[2]})` }, // purple
+  // Real, confirmed change per explicit live report ("we have chips
+  // upto 100 so take 100 off, need till 50... aim is to have more
+  // chips on the table"): the 500 and 100 denominations are dropped
+  // entirely, capping the real breakdown at 50 -- a large total now
+  // genuinely decomposes into more, smaller-denomination chips instead
+  // of collapsing into a couple of big ones, which is also what makes
+  // "more chips on the table" true (a real, larger fullBreakdown array
+  // for decomposeChipValue's even-sampling above to actually draw from)
+  // rather than just a cosmetic change.
   { value: 50, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[4].colors[0]}, ${CHIP_COLOR_STOPS[4].colors[1]} 70%, ${CHIP_COLOR_STOPS[4].colors[2]})` },  // black
   { value: 25, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[3].colors[0]}, ${CHIP_COLOR_STOPS[3].colors[1]} 70%, ${CHIP_COLOR_STOPS[3].colors[2]})` },  // green
   { value: 10, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[2].colors[0]}, ${CHIP_COLOR_STOPS[2].colors[1]} 70%, ${CHIP_COLOR_STOPS[2].colors[2]})` },  // blue
@@ -4170,7 +4183,13 @@ function renderRailChips(state) {
     // handing them out one at a time), so a genuinely large total
     // still shows its real large-denomination chips somewhere in the
     // display instead of them vanishing at the split.
-    const totalVisualCap = Math.min(10, Math.max(4, pileCount * 3));
+    // Real, confirmed bump per explicit live report ("aim is to have
+    // more chips on the table"): raised from 3 to 4 chips per pile now
+    // that the chips themselves are smaller (room for more without the
+    // pile reading as overcrowded) and the denominations above cap out
+    // lower (a big total's real breakdown now actually contains more
+    // individual chips for this to draw from in the first place).
+    const totalVisualCap = Math.min(10, Math.max(4, pileCount * 4));
     const fullPileColors = decomposeChipValue(chips, totalVisualCap);
     const pileColorSets = Array.from({ length: pileCount }, () => []);
     fullPileColors.forEach((color, i) => pileColorSets[i % pileCount].push(color));
