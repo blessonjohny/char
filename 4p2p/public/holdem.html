@@ -3169,13 +3169,21 @@ $('btnHoldemHostRestart').addEventListener('click', holdemHostRestart);
 // Real poker chips are colored by denomination so a player can read a
 // stack at a glance instead of counting -- same idea here, mapped to
 // this table's typical bet sizes rather than literal casino values.
+// Real, confirmed recolor per explicit live report ("all colors royal,
+// 50 violet pink royal... 100 chrome gold... green blue and red royal"):
+// the 5-chip (red), 10-chip (blue), 20-chip (green), 50-chip (was
+// black, now violet/pink) and 100-chip (was purple, now chrome gold)
+// tiers all swapped to richer, more jewel-toned "royal" versions of
+// their color -- white (the <=4 tier, no chip this game actually uses
+// this low) and the top gold tier (>249, likewise unused by any real
+// chip now that 100 is the largest) are left as they were.
 const CHIP_COLOR_STOPS = [
   { max: 4, colors: ['#fdfdfd', '#c9c9c9', '#8f8f8f'] },      // white
-  { max: 9, colors: ['#ff8a8a', '#d13a3a', '#7a1414'] },      // red
-  { max: 24, colors: ['#7ec1ff', '#2a6fd1', '#123a70'] },     // blue
-  { max: 49, colors: ['#7be08a', '#1f9e3e', '#0d5620'] },     // green
-  { max: 99, colors: ['#4a4a52', '#1a1a1f', '#000000'] },     // black
-  { max: 249, colors: ['#c98aff', '#7c2fcf', '#3d1466'] },    // purple
+  { max: 9, colors: ['#ff5c7a', '#c4102f', '#6b0018'] },      // royal red
+  { max: 24, colors: ['#8fb8ff', '#1a3fd1', '#0a1a66'] },     // royal blue
+  { max: 49, colors: ['#8effc2', '#0e9e4a', '#004d20'] },     // royal green
+  { max: 99, colors: ['#ffb3f0', '#c724b1', '#5c0a52'] },     // royal violet/pink
+  { max: 249, colors: ['#fff6d0', '#ffd700', '#7a5c00'] },    // chrome gold
   { max: Infinity, colors: ['#ffd76b', '#c9922b', '#8a611c'] } // gold, top tier
 ];
 // Per explicit correction: the per-seat "YOUR TURN" badge idea was
@@ -3997,20 +4005,19 @@ const CHIP_DENOMINATIONS = [
   // painted dot. Builds the exact same gradient string here, from the
   // exact same three color stops, so a chip is the same chip
   // regardless of which pile it's sitting in.
-  // Real, confirmed change per explicit live report ("we have chips
-  // upto 100 so take 100 off, need till 50... aim is to have more
-  // chips on the table"): the 500 and 100 denominations are dropped
-  // entirely, capping the real breakdown at 50 -- a large total now
-  // genuinely decomposes into more, smaller-denomination chips instead
-  // of collapsing into a couple of big ones, which is also what makes
-  // "more chips on the table" true (a real, larger fullBreakdown array
-  // for decomposeChipValue's even-sampling above to actually draw from)
-  // rather than just a cosmetic change.
-  { value: 50, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[4].colors[0]}, ${CHIP_COLOR_STOPS[4].colors[1]} 70%, ${CHIP_COLOR_STOPS[4].colors[2]})` },  // black
-  { value: 25, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[3].colors[0]}, ${CHIP_COLOR_STOPS[3].colors[1]} 70%, ${CHIP_COLOR_STOPS[3].colors[2]})` },  // green
-  { value: 10, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[2].colors[0]}, ${CHIP_COLOR_STOPS[2].colors[1]} 70%, ${CHIP_COLOR_STOPS[2].colors[2]})` },  // blue
-  { value: 5, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[1].colors[0]}, ${CHIP_COLOR_STOPS[1].colors[1]} 70%, ${CHIP_COLOR_STOPS[1].colors[2]})` },   // red
-  { value: 1, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[0].colors[0]}, ${CHIP_COLOR_STOPS[0].colors[1]} 70%, ${CHIP_COLOR_STOPS[0].colors[2]})` },   // white
+  // Real, confirmed change per explicit live report ("add 100. 100 a
+  // player shouldn't have more than 3, 100... 6 50, rest 20 10 and 5"):
+  // 100 is back, but capped -- a real player's breakdown only ever
+  // uses the 100 and 50 tiers up to their own maxCount (enforced in
+  // decomposeChipValue below), then covers whatever's left with an
+  // unlimited number of 20s, 10s and 5s. 25 and 1 are dropped entirely
+  // (replaced by 20, and nothing needs a 1 now that every real amount
+  // in this game is a multiple of 5).
+  { value: 100, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[5].colors[0]}, ${CHIP_COLOR_STOPS[5].colors[1]} 70%, ${CHIP_COLOR_STOPS[5].colors[2]})`, maxCount: 3 }, // chrome gold
+  { value: 50, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[4].colors[0]}, ${CHIP_COLOR_STOPS[4].colors[1]} 70%, ${CHIP_COLOR_STOPS[4].colors[2]})`, maxCount: 6 },  // royal violet/pink
+  { value: 20, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[3].colors[0]}, ${CHIP_COLOR_STOPS[3].colors[1]} 70%, ${CHIP_COLOR_STOPS[3].colors[2]})` },  // royal green
+  { value: 10, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[2].colors[0]}, ${CHIP_COLOR_STOPS[2].colors[1]} 70%, ${CHIP_COLOR_STOPS[2].colors[2]})` },  // royal blue
+  { value: 5, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[1].colors[0]}, ${CHIP_COLOR_STOPS[1].colors[1]} 70%, ${CHIP_COLOR_STOPS[1].colors[2]})` },   // royal red
 ];
 // Breaks a real chip value down into actual denomination chips,
 // largest first (exactly how a real cashier would count it out).
@@ -4032,9 +4039,21 @@ function decomposeChipValue(value, maxChips) {
   let remaining = Math.max(0, Math.floor(Number(value) || 0));
   const fullBreakdown = [];
   for (const denom of CHIP_DENOMINATIONS) {
-    while (remaining >= denom.value) {
+    // Real, confirmed change per explicit live report ("a player
+    // shouldn't have more than 3, 100... 6 50, rest 20 10 and 5"): a
+    // denomination with its own maxCount (100 and 50 -- see
+    // CHIP_DENOMINATIONS above) only ever contributes up to that many
+    // chips to the breakdown, however large the remaining total is;
+    // whatever it can't cover falls through to the next denomination
+    // down, same as running out of real 100s at a cash cage and moving
+    // on to 50s. Denominations with no maxCount (20, 10, 5) stay
+    // unlimited, same as before.
+    const cap = denom.maxCount == null ? Infinity : denom.maxCount;
+    let count = 0;
+    while (remaining >= denom.value && count < cap) {
       fullBreakdown.push(denom.color);
       remaining -= denom.value;
+      count++;
     }
   }
   if (fullBreakdown.length === 0) return [CHIP_DENOMINATIONS[CHIP_DENOMINATIONS.length - 1].color];
