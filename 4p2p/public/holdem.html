@@ -1301,24 +1301,29 @@ body.k28-portrait-photo .seat-chips { top: 11px; bottom: auto; font-size: 0.56re
    before the badge above) -- a little visually tighter than ideal,
    but reliably present is worth more than pixel-perfect and sometimes
    missing. */
-body.k28-portrait-photo .seat.folded .seat-name {
-  top: auto; bottom: calc(100% + 7px); font-size: 0.4rem; white-space: nowrap;
-}
+/* Real, confirmed redesign per explicit live request ("that fold and folded is repeat or
+   same thing i dont want the bottom folded announcement. Make the name and amount bigger its
+   really tiny. make it all centered and nice"): the separate "FOLDED" tag is dropped entirely
+   for a folded (non-eliminated) seat -- the red "Fold" action badge above the avatar already
+   says the same thing, so it was pure repetition. Removing it frees up all of .seat-cards'
+   space, so the name and chip count no longer need the cramped "stacked in the ~8.7px gap
+   above the box" positioning from all the earlier fixes -- they go back to being plain,
+   normal (non-absolute) flex children of .seat-cards, which centers them automatically via
+   its own existing justify-content:center, sized up now that there's real room for it. */
+body.k28-portrait-photo .seat.folded .seat-name,
 body.k28-portrait-photo .seat.folded .seat-chips {
-  top: auto; bottom: 100%; font-size: 0.4rem; white-space: nowrap;
+  position: static; top: auto; bottom: auto; left: auto; transform: none;
+  background: none; padding: 0; text-shadow: 0 1px 3px rgba(0,0,0,0.95);
+  font-size: 0.72rem; font-weight: 800; white-space: nowrap;
 }
-/* Real, confirmed root-cause fix found from a live-recorded video
-   showing the name "flickering" in and out: the name WAS actually
-   rendering correctly the whole time (a sliver of real text was
-   visible peeking out in a zoomed frame) -- it was the Fold action
-   badge itself (z-index:50, positioned independently at the seat's
-   own bottom:6px) sitting almost directly on top of it, and the
-   badge's own pop-in animation was periodically covering and
-   uncovering that sliver, reading as a flicker. Moved the badge up
-   out of the way specifically for a folded seat, opening genuine,
-   measured clearance for the name/chips below it instead of the two
-   fighting for the same few pixels. */
-body.k28-portrait-photo .seat.folded .action-badge { bottom: 18px; }
+body.k28-portrait-photo .seat.folded .seat-chips { color: var(--gold); }
+body.k28-portrait-photo .seat.folded .seat-cards {
+  flex-direction: column; align-items: center; gap: 1px; margin-top: 4px;
+}
+/* The action-badge:bottom:18px nudge this used to need is gone along with the old cramped
+   "stack the name above the box" positioning it was compensating for -- name/chips now sit
+   in their own normal space below the avatar, nowhere near the badge, so the badge is back to
+   its plain default position (bottom:6px, same as every other seat's Fold/Call/Raise badge). */
 /* Real, confirmed follow-up per explicit request ("that popup in the
    middle above my avatar... combine that to the bet popup, show it on
    the right of the card"): the separate top banner from the previous
@@ -4338,16 +4343,12 @@ function enforceFoldedSeatDisplay(state) {
     }
     if (nameEl && nameEl.textContent !== expectedName) nameEl.textContent = expectedName;
     if (chipsEl && chipsEl.textContent !== String(s.chips)) chipsEl.textContent = String(s.chips);
-    if (!foldedTag) {
-      const cardsEl = seatDiv.querySelector('.seat-cards');
-      if (cardsEl) {
-        [...cardsEl.querySelectorAll('.card')].forEach(c => c.remove());
-        const tag = document.createElement('span');
-        tag.className = 'folded-tag';
-        tag.textContent = 'FOLDED';
-        cardsEl.appendChild(tag);
-      }
-    }
+    // Per explicit live request, the separate "FOLDED" tag is gone (the red "Fold" action
+    // badge already says it) -- this now just clears away any stray leftover card-back
+    // images for a folded seat instead of replacing them with that tag.
+    if (foldedTag) foldedTag.remove();
+    const cardsEl = seatDiv.querySelector('.seat-cards');
+    if (cardsEl) [...cardsEl.querySelectorAll('.card')].forEach(c => c.remove());
   });
 }
 setInterval(() => { if (latestState) enforceFoldedSeatDisplay(latestState); }, 1500);
@@ -4644,7 +4645,7 @@ function renderGameTable(state) {
       <div class="seat-cards">
         <div class="seat-name">${escapeHtml(s.name) || `Seat ${pos + 1}`}${pos === myPos ? ' (you)' : ''}</div>
         <div class="seat-chips" data-name="${escapeHtml(s.name) || `Seat ${pos + 1}`}">${(s.eliminated || s.bustedAt) ? 'OUT' : s.chips}</div>
-        ${(s.eliminated || s.bustedAt) ? '<span class="folded-tag">OUT</span>' : (s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml)}
+        ${(s.eliminated || s.bustedAt) ? '<span class="folded-tag">OUT</span>' : (s.folded ? '' : cardsHtml)}
       </div>`;
 
     let seatDiv = seatsEl.querySelector(`.seat[data-pos="${pos}"]`);
