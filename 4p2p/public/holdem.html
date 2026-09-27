@@ -298,26 +298,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    the chip to read as its own side/edge rather than a drop shadow, on
    top of the existing softer blurred shadow for actual lift off the
    felt. Diameter also brought in slightly per request. */
-.chip{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.7);box-shadow:0 2px 4px rgba(0,0,0,0.5);flex-shrink:0;position:relative}
-/* Real, confirmed feature per explicit request ("all my chips need
-   that carbon fiber finish, all chips including avatars and the one on
-   the table, the one that flies, all chips"): every chip's actual
-   color/value comes from an inline style.background set directly in
-   JS (chipGradientForValue and its call sites), which as a shorthand
-   property would silently wipe out any background-image layered onto
-   this same .chip rule the normal way -- a ::before overlay sidesteps
-   that entirely, sitting on top of whatever color the chip actually
-   has underneath rather than fighting it, so this one rule covers
-   every chip everywhere (seat piles, the pot pile, the flying chip
-   animation, the small inline icon) with no JS changes needed at all. */
-.chip::before{
-  content:''; position:absolute; inset:0; border-radius:50%; pointer-events:none;
-  background-image:
-    repeating-linear-gradient(45deg, rgba(0,0,0,0.35) 0px, rgba(0,0,0,0.35) 1px, transparent 1px, transparent 2.5px),
-    repeating-linear-gradient(-45deg, rgba(0,0,0,0.35) 0px, rgba(0,0,0,0.35) 1px, transparent 1px, transparent 2.5px);
-  mix-blend-mode: multiply; opacity: 0.55;
-}
-.chip.small::before{ background-size: 60% 60%; }
+.chip{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #ffd76b, #c9922b 70%, #8a611c);border:2px dashed rgba(255,255,255,0.7);box-shadow:0 2px 4px rgba(0,0,0,0.5);flex-shrink:0}
 .chip.small{width:14px;height:14px;border-width:1.5px}
 .chip-stack{display:flex}
 .chip-stack .chip{margin-left:-10px}
@@ -426,18 +407,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    exactly what they were -- only the flatness itself is addressed
    here, via the ::after rim band below, not the chip's size or how
    the pile stacks. */
-.pot-stack-chip{width:16px;height:16px;border-width:1.5px;position:relative}
-/* Real, confirmed follow-up to the same carbon-fiber request: the pot
-   pile and the flying chip animation both use this class specifically,
-   not .chip (see flying-chip's own className) -- same overlay pattern
-   applied here directly so neither is missed. */
-.pot-stack-chip::before{
-  content:''; position:absolute; inset:0; border-radius:50%; pointer-events:none;
-  background-image:
-    repeating-linear-gradient(45deg, rgba(0,0,0,0.35) 0px, rgba(0,0,0,0.35) 1px, transparent 1px, transparent 2.5px),
-    repeating-linear-gradient(-45deg, rgba(0,0,0,0.35) 0px, rgba(0,0,0,0.35) 1px, transparent 1px, transparent 2.5px);
-  mix-blend-mode: multiply; opacity: 0.55;
-}
+.pot-stack-chip{width:16px;height:16px;border-width:1.5px}
 .seat-rail-chips{position:absolute;width:34px;height:16px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
 .rail-chip-pile{position:absolute;bottom:0;left:50%;width:13px;height:16px;transform:translateX(-50%)}
 /* Real, confirmed bug fix per explicit live report with a screenshot
@@ -1397,27 +1367,6 @@ body.k28-portrait-photo .pot-display-pot, body.k28-portrait-photo .pot-display-b
   background: linear-gradient(145deg, rgba(36,26,14,0.94), rgba(10,8,5,0.94));
   border: 1.5px solid var(--gold-soft, #c9a44c);
   box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
-  position: relative; overflow: hidden;
-}
-/* Real, confirmed feature per explicit request ("bet 10 that popup
-   should have a border... make all the finish of the popups on the
-   right and left carbon fiber finish"): the border already existed
-   (1.5px solid gold-soft above) but apparently wasn't reading clearly
-   enough -- thickened slightly and given a genuine carbon-weave
-   texture via ::before (layered separately from the popup's own
-   gradient background, so it doesn't fight it), matching the same
-   pattern now used on every chip. */
-body.k28-portrait-photo .pot-display-pot, body.k28-portrait-photo .pot-display-bet {
-  border-width: 2px;
-}
-body.k28-portrait-photo .pot-display-pot::before, body.k28-portrait-photo .pot-display-bet::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 4px),
-    repeating-linear-gradient(-45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 4px);
-}
-body.k28-portrait-photo .pot-display-pot > *, body.k28-portrait-photo .pot-display-bet > * {
-  position: relative; z-index: 1;
 }
 /* Real, confirmed follow-up per explicit live report ("make it nice,
    it's overlapping my cards a little"): moved further right (right:4%
@@ -4086,34 +4035,20 @@ function renderRailChips(state) {
     // dealer directly and need the biggest upward nudge, 3/6 sit one
     // ring out and need a smaller one.
     const PORTRAIT_MANUAL_CORRECTIONS = {
-      // Real, confirmed follow-up per explicit live report ("chen chip
-      // is not seen, it needs to move right and up like James mirror"):
-      // James (slot 5, the true geometric mirror of this seat) reads
-      // fine with its own correction -- Chen's identical-looking mirror
-      // value wasn't enough here specifically, likely because the two
-      // sides of this portrait photo aren't perfectly symmetric to
-      // begin with. Nudged further right (less negative dx) and up
-      // (more negative dy) rather than assuming the mirrored number
-      // alone would match how James actually looks.
-      4: { dx: -4, dy: -20 },  // upper-left (Chen): further right and up than its plain mirror value
+      // Real, confirmed undo per explicit live report ("undo the
+      // position of chips, all a mess, u didn't do one thing proper"):
+      // the whole set of changes from the previous pass (Chen/Carlos/
+      // Mateo/Sofia adjustments, my own chip nudge) is reverted back
+      // to exactly what it was before that pass, in full.
+      4: { dx: -12, dy: -14 }, // upper-left, flanking dealer: up more, and left toward its own avatar
       5: { dx: 12, dy: -14 },  // upper-right, flanking dealer: up more, and right (mirrors 4)
       3: { dx: -8, dy: -8 },   // mid-left: up a little, and left a little
-      // Real, confirmed follow-up per explicit live report ("Carlos
-      // Mateo Sofia 3 avatars chips move closer to them a little bit
-      // not too much, it will look like the rest"): pulled each further
-      // toward its own seat than the generic toward-center formula
-      // alone was placing it.
-      6: { dx: 14, dy: -12 },  // mid-right (Carlos): pulled in closer than before
-      7: { dx: -8, dy: 8 },    // lower-right (Mateo): new correction, pulled toward its own seat
-      8: { dx: -6, dy: 6 },    // front-right (Sofia): new correction, pulled toward its own seat
+      6: { dx: 8, dy: -8 },    // mid-right: up a little, and right a little (mirrors 3)
       // Real, confirmed follow-up per explicit live report ("my chips
       // are way up"): the generic toward-center formula alone was
       // pushing my own seat's stack too far from my actual seat for
       // this layout specifically -- pulled back down toward it.
-      // Real, confirmed second follow-up ("my chips a little up not too
-      // much"): 10 was slightly too far down after the first pass --
-      // eased back up a little.
-      0: { dx: 0, dy: 5 },
+      0: { dx: 0, dy: 10 },
     };
     const MANUAL_CORRECTIONS = isPortraitPhoto ? PORTRAIT_MANUAL_CORRECTIONS : {
       0: { dx: 0, dy: -6 },   // dealer/own seat: up, so it's actually visible
