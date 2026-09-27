@@ -467,6 +467,23 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    same "no card/panel behind it" idea already applied to the winner
    popup earlier. */
 .street-banner{position:absolute;top:72%;left:50%;transform:translate(-50%,-50%);background:transparent;border:none;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 14px rgba(244,196,48,0.9),0 2px 6px rgba(0,0,0,0.9);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
+/* Real, confirmed feature per explicit request ("after each level
+   there is no announcement, should have one nice popup and say the
+   small, large [blind] and level"): a real, dedicated announcement
+   instead of the level-up only ever showing as a single easy-to-miss
+   log line -- see pendingLevelUpAnnouncement in poker-engine.js for
+   where this actually gets triggered, once per real level-up. */
+.level-up-banner{
+  position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);z-index:70;
+  background:linear-gradient(145deg, rgba(36,26,14,0.96), rgba(10,8,5,0.96));
+  border:2px solid var(--gold-soft,#c9a44c); border-radius:16px; padding:18px 28px;
+  text-align:center; white-space:nowrap; display:none;
+  box-shadow:0 8px 28px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+  animation:streetBannerIn .4s cubic-bezier(.2,1.5,.4,1) both;
+}
+.level-up-banner.on{display:block}
+.level-up-banner-title{color:var(--gold);font-size:1.3rem;font-weight:900;text-shadow:0 2px 8px rgba(0,0,0,0.9)}
+.level-up-banner-blinds{color:#fff;font-size:1rem;font-weight:700;margin-top:6px;text-shadow:0 1px 5px rgba(0,0,0,0.9)}
 .street-banner.on{display:block}
 @keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
 .card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0;transition:opacity 0.25s ease}
@@ -1191,11 +1208,11 @@ body.k28-portrait-photo .hand-strip {
 body.k28-portrait-photo .hand-strip .card { width: 44px; height: 62px; font-size: 1rem; }
 body.k28-portrait-photo .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
 body.k28-portrait-photo .hand-strip .card:last-child { transform: rotate(8deg) translateY(2px); }
-/* Real, confirmed follow-up per explicit request ("my chips a little
-   up not too much"): nudged up a small 6px (107px -> 113px), a modest
-   change rather than a big jump. */
+/* Real, confirmed second follow-up per explicit request ("move my
+   chips a little up, just a little"): nudged up another small 5px
+   (113px -> 118px). */
 body.k28-portrait-photo #myChipsTop {
-  display: block; position: fixed; bottom: 113px; left: 50%; transform: translate(-50%, 50%); z-index: 42;
+  display: block; position: fixed; bottom: 118px; left: 50%; transform: translate(-50%, 50%); z-index: 42;
   font-size: 0.85rem; font-weight: 900; color: var(--gold); text-shadow: 0 1px 5px rgba(0,0,0,0.95);
   background: rgba(0,0,0,0.55); border: 1px solid var(--gold-soft, #c9a44c); border-radius: 8px; padding: 2px 8px;
 }
@@ -1279,11 +1296,26 @@ body.k28-portrait-photo .seat-chips { top: 11px; bottom: auto; font-size: 0.56re
    extra template change needed beyond that) prefixed via ::before, so
    "Name · 850" reads as a single row sitting cleanly above the FOLDED
    tag with genuinely zero overlap -- verified directly, not assumed. */
-body.k28-portrait-photo .seat.folded .seat-name { display: none; }
-body.k28-portrait-photo .seat.folded .seat-chips {
-  top: auto; bottom: 100%; font-size: 0.44rem; white-space: nowrap;
+/* Real, confirmed redesign per repeated live reports that the name
+   still wasn't showing on folded seats even after several previous
+   fixes: the previous approach hid the real .seat-name element and
+   instead showed the name via a ::before pseudo-element reading a
+   data-name attribute -- every other seat state (active, face-down)
+   uses the name/chips as real, direct text content instead, and only
+   THIS state has ever kept coming back broken. Rather than chase
+   exactly why the attribute-based approach keeps failing, switched
+   folded seats to the same plain, direct-text method already proven
+   reliable everywhere else: both real elements, genuinely visible,
+   just stacked tightly given the limited real space here (~8.7px
+   before the badge above) -- a little visually tighter than ideal,
+   but reliably present is worth more than pixel-perfect and sometimes
+   missing. */
+body.k28-portrait-photo .seat.folded .seat-name {
+  top: auto; bottom: calc(100% + 7px); font-size: 0.4rem; white-space: nowrap;
 }
-body.k28-portrait-photo .seat.folded .seat-chips::before { content: attr(data-name) " · "; }
+body.k28-portrait-photo .seat.folded .seat-chips {
+  top: auto; bottom: 100%; font-size: 0.4rem; white-space: nowrap;
+}
 /* Real, confirmed follow-up per explicit request ("that popup in the
    middle above my avatar... combine that to the bet popup, show it on
    the right of the card"): the separate top banner from the previous
@@ -1313,6 +1345,12 @@ body.k28-portrait-photo .seat.seat-cards-revealed .seat-chips { display: none; }
    winning-hand display -- that's a separate element, untouched here
    on purpose per explicit instruction). Small, precise nudge only. */
 body.k28-portrait-photo .board-area { top: 30%; }
+/* Real, confirmed feature per explicit live report ("river shows up
+   on top of my card, that popup shows up once a while"): no portrait
+   override existed at all for this -- the base 72% was landing right
+   on my own seat/cards after this session's several increases to how
+   high the hand-strip sits. Moved up to sit safely above that area. */
+body.k28-portrait-photo .street-banner { top: 62%; }
 /* Real, confirmed feature per explicit request ("the pots on the
    table when players place... only for portrait" -- the actual chip-
    pile graphic that accumulates in the middle as bets come in, not the
@@ -1833,6 +1871,7 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
   <div class="table-wrap">
     <div class="felt"></div>
     <div class="street-banner" id="streetBanner"></div>
+    <div class="level-up-banner" id="levelUpBanner"></div>
     <div class="board-area" id="boardArea"></div>
     <div class="pot-display pot-display-pot" id="potDisplayPot">Pot: 0</div>
     <div class="pot-display pot-display-bet" id="potDisplayBet" style="display:none">Bet: 0</div>
@@ -3719,6 +3758,27 @@ socket.on('poker_kickedByAdmin', () => {
 
 // ---------------- State rendering ----------------
 let seenPendingJoinRequestIds = new Set();
+// Real, confirmed feature per explicit request ("after each level
+// there is no announcement, should have one nice popup and say the
+// small, large and level"): shown once per real level-up. The server
+// only ever includes levelUpAnnouncement on the single broadcast right
+// after it happens (see pendingLevelUpAnnouncement in poker-engine.js,
+// cleared immediately after that one broadcast cycle), so no separate
+// "already shown" tracking is needed here at all -- if it's present,
+// it's new.
+let levelUpBannerHideTimer = null;
+function showLevelUpAnnouncementIfAny(state) {
+  if (!state.levelUpAnnouncement) return;
+  const { level, sb, bb } = state.levelUpAnnouncement;
+  const el = $('levelUpBanner');
+  if (!el) return;
+  el.innerHTML = `<div class="level-up-banner-title">Level ${level}</div><div class="level-up-banner-blinds">Small Blind ${sb} · Big Blind ${bb}</div>`;
+  el.classList.remove('on');
+  void el.offsetWidth;
+  el.classList.add('on');
+  if (levelUpBannerHideTimer) clearTimeout(levelUpBannerHideTimer);
+  levelUpBannerHideTimer = setTimeout(() => { el.classList.remove('on'); }, 3200);
+}
 socket.on('poker_state', (state) => {
   if (hasLeftTable) return;
   // The one definitive "we're actually back" signal - a genuine, fresh state push from the
@@ -3730,6 +3790,7 @@ socket.on('poker_state', (state) => {
   updateWinningHandContinueUI(state);
   updateRebuildEliminationUI(state);
   renderRestartCountdown(state);
+  showLevelUpAnnouncementIfAny(state);
   isHost = !!state.isHost;
   isRealHost = !!state.isRealHost;
   // Real, confirmed feature per explicit request ("From the admin
@@ -5682,10 +5743,10 @@ function renderActionBar(state) {
     // itself already uses just above, so all four numbers agree with each other.
     const raiseStep = Math.max(state.minRaise, state.bigBlind);
     sliderHtml = `<div class="amount-row">
+      <span class="amount-val" id="betAmountVal">${minBet}</span>
       <button class="stepper-btn" onclick="adjustBetAmount(-${raiseStep})">−</button>
       <input type="range" id="betSlider" min="${minBet}" max="${maxBet}" step="${raiseStep}" value="${minBet}">
       <button class="stepper-btn" onclick="adjustBetAmount(${raiseStep})">+</button>
-      <span class="amount-val" id="betAmountVal">${minBet}</span>
     </div>`;
     bottomBtnHtml = `<button class="action-btn action-bet" data-label="${state.currentBet > 0 ? 'Raise' : 'Bet'}" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}', Number(document.getElementById('betSlider').value))">${state.currentBet > 0 ? 'Raise' : 'Bet'}</button>`;
   }
