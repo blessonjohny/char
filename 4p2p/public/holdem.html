@@ -409,13 +409,15 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    the pile stacks. */
 /* Real, confirmed size reduction per explicit live report ("make the
    chips overall size a little small... aim is to have more chips on
-   the table"): every dimension here scaled down ~15% together (chip
-   itself, its container, and the pile it sits in), so the piles stay
-   proportioned correctly at the smaller size instead of the chips
-   floating inside an unchanged, now-oversized container. */
-.pot-stack-chip{width:14px;height:14px;border-width:1.3px}
-.seat-rail-chips{position:absolute;width:29px;height:14px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
-.rail-chip-pile{position:absolute;bottom:0;left:50%;width:11px;height:14px;transform:translateX(-50%)}
+   the table"), then reduced a further notch per explicit live follow-up
+   ("make the chips a little bit more smaller just a bit"): every
+   dimension here scaled down together (chip itself, its container, and
+   the pile it sits in), so the piles stay proportioned correctly at the
+   smaller size instead of the chips floating inside an unchanged,
+   now-oversized container. */
+.pot-stack-chip{width:12px;height:12px;border-width:1.2px}
+.seat-rail-chips{position:absolute;width:25px;height:12px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+.rail-chip-pile{position:absolute;bottom:0;left:50%;width:10px;height:12px;transform:translateX(-50%)}
 /* Real, confirmed bug fix per explicit live report with a screenshot
    ("looks like a bar, not chips, no roundness -- barrel"): the real
    pot pile's chips get their round shape from .flying-chip
@@ -447,6 +449,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    white rim is what actually reads as a casino chip's edge markings;
    a solid ring just looks like a plain outlined dot. */
 .rail-chip-pile .pot-stack-chip{position:absolute;border-radius:50%;border:1.5px dashed rgba(255,255,255,0.75);box-shadow:0 2px 3px rgba(0,0,0,0.5)}
+/* The count label on a rail-chip disc (e.g. "19" on a black 50-chip) --
+   what makes the pile's total actually add up visibly instead of just
+   being a color the player has to trust. Centered on the disc itself
+   (the disc is already scaleY(0.5)'d to lie flat, so this is scaleY(2)
+   to cancel that back out and read upright and undistorted), sized to
+   fit even a 2-digit count on a ~14px disc, with a dark outline so it
+   stays legible on light chip colors (white/red) as well as dark ones. */
+.rail-chip-count{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transform:scaleY(2);font-size:6px;font-weight:900;color:#fff;text-shadow:0 0 2px #000,0 0 2px #000,0 1px 1px #000;pointer-events:none;line-height:1}
 /* Per explicit follow-up: chips settled into the pot pile read as
    genuinely lying flat on the table -- squashed into an ellipse
    (scaleY) the way a round chip actually looks viewed from this
@@ -4047,6 +4057,35 @@ function decomposeChipValue(value, maxChips) {
   }
   return sampled;
 }
+// Real, confirmed root-cause fix per explicit live report with an exact
+// screenshot ("I have 990 and my chips... 7 black and 1 red chips it
+// dont add up to 990"): the rail piles below used to call
+// decomposeChipValue() with a small visual cap (evenly SAMPLING a
+// subset of the real per-chip breakdown -- see its own comment above),
+// which is honest about individual chip colors but was never going to
+// literally sum back to the real total once sampled down from, say, 22
+// real chips to 8 displayed ones. There's no way to both show every
+// individual chip AND keep the pile small for a stack of hundreds, so
+// instead of one disc per chip, this groups the real breakdown by
+// denomination (at most one disc per distinct value actually present --
+// 5 possible now that denominations top out at 50) and returns each
+// group's own real count, which the rail-chip renderer below then
+// prints directly on the disc (e.g. a black 50-chip disc reading "x19").
+// The sum of value*count across the returned groups is exactly the
+// real total, not an approximation -- genuinely verifiable by adding
+// the numbers on the piles, which is the actual bar being asked for.
+function decomposeChipCounts(value) {
+  let remaining = Math.max(0, Math.floor(Number(value) || 0));
+  const groups = [];
+  for (const denom of CHIP_DENOMINATIONS) {
+    const count = Math.floor(remaining / denom.value);
+    if (count > 0) {
+      groups.push({ value: denom.value, color: denom.color, count });
+      remaining -= count * denom.value;
+    }
+  }
+  return groups;
+}
 function renderRailChips(state) {
   const container = $('railChipsContainer');
   if (!container) return;
@@ -4164,62 +4203,36 @@ function renderRailChips(state) {
     const chips = s.chips || 0;
     if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}"></div>`;
     const pileCount = 2;
-    // Per explicit request ("chips on the table and chips on hands
-    // should match the exact value... do all the math and assign
-    // values"): the real chip total is decomposed into genuine
-    // denominations (see decomposeChipValue), so the colors shown are
-    // mathematically derived from the actual number instead of an
-    // arbitrary repeating sequence unrelated to it -- a player holding
-    // mostly small chips actually shows small-denomination colors, and
-    // a big stack actually shows the bigger ones.
-    // Real, confirmed bug fix per explicit live report ("avoided the
-    // 500 chips"): this used to split the total in half and decompose
-    // EACH half separately -- for a stack like 900, that's two piles
-    // of 450 each, and 450 is under the 500 threshold, so neither pile
-    // could ever show a gold chip even though the real, whole 900
-    // total obviously contains one. Decomposes the FULL total once
-    // now, then deals the resulting real chips out to the two piles
-    // alternately (like a real dealer splitting a stack in half by
-    // handing them out one at a time), so a genuinely large total
-    // still shows its real large-denomination chips somewhere in the
-    // display instead of them vanishing at the split.
-    // Real, confirmed bump per explicit live report ("aim is to have
-    // more chips on the table"): raised from 3 to 4 chips per pile now
-    // that the chips themselves are smaller (room for more without the
-    // pile reading as overcrowded) and the denominations above cap out
-    // lower (a big total's real breakdown now actually contains more
-    // individual chips for this to draw from in the first place).
-    const totalVisualCap = Math.min(10, Math.max(4, pileCount * 4));
-    const fullPileColors = decomposeChipValue(chips, totalVisualCap);
-    const pileColorSets = Array.from({ length: pileCount }, () => []);
-    fullPileColors.forEach((color, i) => pileColorSets[i % pileCount].push(color));
+    // Real, confirmed root-cause rewrite per explicit live report with
+    // an exact screenshot ("I have 990 and my chips... 7 black and 1
+    // red chips it dont add up to 990... should all add up to correct
+    // count"): the previous version sampled a handful of individual
+    // chips out of the real per-chip breakdown to keep the pile small,
+    // which meant the discs on screen were real chip colors but their
+    // count no longer summed back to the real total once large stacks
+    // got sampled down. decomposeChipCounts() instead groups the real
+    // breakdown by denomination (at most 5 groups now that CHIP_
+    // DENOMINATIONS tops out at 50) and gives back each group's real
+    // count -- one disc per denomination actually present, labeled with
+    // how many of that denomination there really are, so what's on
+    // screen is the complete, exact total, not a representative subset.
+    const denomGroups = decomposeChipCounts(chips);
+    const pileGroupSets = Array.from({ length: pileCount }, () => []);
+    denomGroups.forEach((group, i) => pileGroupSets[i % pileCount].push(group));
     const pilesHtml = Array.from({ length: pileCount }, (_, pileIdx) => {
-      const pileColors = pileColorSets[pileIdx];
-      const chipsHtml = pileColors.map((chipColor, i) => {
-        // Per explicit live report: chips within a pile read as spread
-        // apart rather than genuinely stacked -- tightened, and also
-        // converted to vw (same reasoning as OFFSET_VW above) so the
-        // overlap amount stays proportionally correct on any real
-        // device instead of a fixed px gap that reads as huge once
-        // the avatar next to it is actually small on a real phone.
-        // Per explicit live report: height brought all the way down to
-        // 0 -- every chip in a pile now sits at the exact same
-        // position, directly on top of each other with no vertical
-        // offset at all, rather than the staggered "staircase" spread
-        // used before.
-        // Per explicit live report ("where's the rest" -- fully
-        // overlapping chips made it look like only one existed):
-        // small non-zero offset restored so each chip in the pile
-        // peeks out slightly below the one on top of it, reading as
-        // a genuine multi-chip stack again, while staying much
-        // tighter than the original spread-out version.
-        // Real, confirmed bug fix per explicit live report ("hands
-        // show the same color from top"): 1.5px was too tight for the
-        // colors underneath to actually be visible -- the topmost chip
-        // almost completely covered the ones below it, so a pile with
-        // real color variety still visually read as a single flat
-        // color. Widened enough that each chip genuinely peeks out.
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 3}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+      const pileGroups = pileGroupSets[pileIdx];
+      const chipsHtml = pileGroups.map((group, i) => {
+        // One disc per denomination actually present (not one per real
+        // chip), tightly stacked the same way single chips used to be.
+        // The count label is what makes the total actually verifiable --
+        // a black (50) disc reading "x19" plus a blue (10) disc reading
+        // "x1" genuinely adds to 960, matched by the real remaining
+        // denominations in the other pile, rather than an unlabeled
+        // pile the player has to just trust.
+        const countLabel = group.count > 1
+          ? `<span class="rail-chip-count">${group.count}</span>`
+          : '';
+        return `<div class="pot-stack-chip" style="background:${group.color};bottom:${i * 3}px;transform:translate(-50%,0) scaleY(0.5)">${countLabel}</div>`;
       }).join('');
       // Per explicit live report: the two piles themselves read as far
       // apart -- brought in from 32/68 to 40/60, close enough that
