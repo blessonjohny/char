@@ -5615,6 +5615,13 @@ function pokerBroadcast(t) {
     }
     sock.emit('poker_state', state);
   }
+  // Real, confirmed feature per the same level-up announcement request:
+  // cleared here, once, AFTER every viewer in this broadcast cycle has
+  // already had it included in their own getStateFor() call above --
+  // clearing it inside getStateFor itself would wipe it after just the
+  // first viewer, leaving everyone else's copy of this same broadcast
+  // without the announcement they should also get.
+  if (t.engine.pendingLevelUpAnnouncement) t.engine.pendingLevelUpAnnouncement = null;
   // Real, confirmed feature per explicit request ("From the admin
   // panel I should be able to watch the game... same like a viewer
   // clicking from the view when they join, only difference no

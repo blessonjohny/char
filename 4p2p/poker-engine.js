@@ -85,16 +85,36 @@ class PokerEngine {
   // at, exactly like a real tournament clock only ever taking effect between hands.
   _maybeAdvanceBlindLevel() {
     if (this.mode !== 'tournament') return;
-    const targetLevel = Math.min(
-      Math.floor(this.handNumber / this.handsPerLevel),
-      PokerEngine.BLIND_LEVELS.length - 1
-    );
+    // Real, confirmed feature per explicit request ("after hand 15
+    // every level should be half the time, level 2 ends at 15, next
+    // level 20, like that after each level"): the very first level
+    // keeps its original full-length duration (handsPerLevel, 10 hands
+    // by default: hands 0-9), but every level after that is only half
+    // as long (5 hands each: 10-14, 15-19, 20-24, ...) instead of the
+    // old uniform Math.floor(handNumber / handsPerLevel), which gave
+    // every level, including the first, the same full length.
+    const halfLevel = this.handsPerLevel / 2;
+    const targetLevel = this.handNumber < this.handsPerLevel
+      ? 0
+      : Math.min(
+          1 + Math.floor((this.handNumber - this.handsPerLevel) / halfLevel),
+          PokerEngine.BLIND_LEVELS.length - 1
+        );
     if (targetLevel > this.blindLevel) {
       this.blindLevel = targetLevel;
       const { sb, bb } = PokerEngine.BLIND_LEVELS[this.blindLevel];
       this.smallBlind = sb;
       this.bigBlind = bb;
       this.addLog(`Blinds increase to ${sb}/${bb} (level ${this.blindLevel + 1}).`);
+      // Real, confirmed feature per the same explicit request ("there
+      // is no announcement, should have one nice popup and say the
+      // small [blind], large [blind] and level"): a level-up used to
+      // only ever show up as a single log line, easy to miss entirely
+      // mid-hand -- this flag drives a real, dedicated popup on the
+      // client (see levelUpAnnouncement in getStateFor and its handling
+      // in holdem.html) shown once, right when a genuinely new hand
+      // starts at the new level.
+      this.pendingLevelUpAnnouncement = { level: this.blindLevel + 1, sb, bb };
     }
   }
 
@@ -644,6 +664,7 @@ class PokerEngine {
       tableId: this.tableId, mode: this.mode, buyInType: this.buyInType,
       smallBlind: this.smallBlind, bigBlind: this.bigBlind, blindLevel: this.blindLevel,
       tournamentStandings: this.tournamentStandings || null,
+      levelUpAnnouncement: this.pendingLevelUpAnnouncement || null,
       phase: this.phase, dealerSeat: this.dealerSeat, currentPlayer: this.currentPlayer,
       board: this.board, pots: this.pots, currentBet: this.currentBet, minRaise: this.minRaise,
       handNumber: this.handNumber, showdownResult: this.showdownResult, myHandName,
