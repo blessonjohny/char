@@ -1208,11 +1208,12 @@ body.k28-portrait-photo .hand-strip {
 body.k28-portrait-photo .hand-strip .card { width: 44px; height: 62px; font-size: 1rem; }
 body.k28-portrait-photo .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
 body.k28-portrait-photo .hand-strip .card:last-child { transform: rotate(8deg) translateY(2px); }
-/* Real, confirmed second follow-up per explicit request ("move my
-   chips a little up, just a little"): nudged up another small 5px
-   (113px -> 118px). */
+/* Real, confirmed bigger follow-up per explicit live report ("my chip
+   is still the same"): the previous 5px nudge (113px -> 118px) was
+   likely too subtle to actually notice on a real device -- moved much
+   more this time (118px -> 135px) so it's unambiguous either way. */
 body.k28-portrait-photo #myChipsTop {
-  display: block; position: fixed; bottom: 118px; left: 50%; transform: translate(-50%, 50%); z-index: 42;
+  display: block; position: fixed; bottom: 135px; left: 50%; transform: translate(-50%, 50%); z-index: 42;
   font-size: 0.85rem; font-weight: 900; color: var(--gold); text-shadow: 0 1px 5px rgba(0,0,0,0.95);
   background: rgba(0,0,0,0.55); border: 1px solid var(--gold-soft, #c9a44c); border-radius: 8px; padding: 2px 8px;
 }
