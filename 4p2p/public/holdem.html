@@ -4109,15 +4109,30 @@ function renderRailChips(state) {
       // the whole set of changes from the previous pass (Chen/Carlos/
       // Mateo/Sofia adjustments, my own chip nudge) is reverted back
       // to exactly what it was before that pass, in full.
-      4: { dx: -12, dy: -14 }, // upper-left, flanking dealer: up more, and left toward its own avatar
-      5: { dx: 12, dy: -14 },  // upper-right, flanking dealer: up more, and right (mirrors 4)
+      // Real, confirmed live per-seat nudge per explicit report ("top
+      // left move a little right"): horizontal-only, no change to the
+      // vertical (up/down) placement already set above.
+      4: { dx: -7, dy: -14 }, // upper-left, flanking dealer: up more, and left toward its own avatar
+      // Real, confirmed live per-seat nudge per explicit report ("top
+      // right avatar move a tiny tiny left"): horizontal-only, no
+      // change to the vertical (up/down) placement already set above.
+      5: { dx: 9, dy: -14 },  // upper-right, flanking dealer: up more, and right (mirrors 4)
       3: { dx: -8, dy: -8 },   // mid-left: up a little, and left a little
-      6: { dx: 8, dy: -8 },    // mid-right: up a little, and right a little (mirrors 3)
+      // Real, confirmed live per-seat nudge per explicit report ("right
+      // 3 from bottom move chips a little to right", counting up from
+      // the bottom-most right seat -- that's this one, upper-right of
+      // the two mid-right seats): horizontal-only, no change to the
+      // vertical (up/down) placement already set above.
+      6: { dx: 12, dy: -8 },   // mid-right: up a little, and right a little (mirrors 3)
       // Real, confirmed follow-up per explicit live report ("my chips
       // are way up"): the generic toward-center formula alone was
       // pushing my own seat's stack too far from my actual seat for
       // this layout specifically -- pulled back down toward it.
-      0: { dx: 0, dy: 10 },
+      // Real, confirmed live nudge per explicit report ("my chips in
+      // front of me has to move up a little"): vertical-only, pulled
+      // back up a bit from that prior correction; horizontal (dx) left
+      // untouched.
+      0: { dx: 0, dy: 6 },
     };
     const MANUAL_CORRECTIONS = isPortraitPhoto ? PORTRAIT_MANUAL_CORRECTIONS : {
       0: { dx: 0, dy: -6 },   // dealer/own seat: up, so it's actually visible

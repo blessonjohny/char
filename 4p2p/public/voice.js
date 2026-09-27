@@ -276,6 +276,23 @@
     return pc;
   }
 
+  // A brief real-world network drop (wifi hiccup, phone locking, a
+  // carrier tower handoff) can take the underlying Socket.IO connection
+  // down along with it. The server correctly can't tell that's temporary
+  // -- from its side that socket is simply gone -- so the moment it
+  // happens, it already removes this player from the voice room and
+  // tells every other peer they left (see the 'disconnect' handler in
+  // server.js). Reconnecting gets a brand-new socket id, so unless this
+  // device also rejoins voice specifically, everyone else's side stays
+  // torn down forever even though the game itself reconnected fine --
+  // exactly the reported "have to rejoin manually" symptom. This clears
+  // out the now-stale peer connections left over from before the drop
+  // (the other ends already closed theirs) so a fresh join can rebuild
+  // them cleanly.
+  function clearStalePeers() {
+    for (const id of Array.from(peers.keys())) removePeer(id);
+  }
+
   function removePeer(id) {
     const pc = peers.get(id);
     if (pc) { pc.close(); peers.delete(id); }
@@ -501,6 +518,19 @@
     socket.on('voicePeerJoined', (p) => { names.set(p.id, p.name); renderList(); updateActiveLight(); });
     socket.on('voicePeerLeft', ({ id }) => removePeer(id));
     socket.on('voiceSignal', ({ from, signal }) => handleSignal(from, signal));
+    // Fires on every successful (re)connection of the underlying game
+    // socket, including the very first one -- inCall is still false at
+    // that point (nobody's tapped the mic yet) so this is a harmless
+    // no-op then. It only does something on a genuine RECONNECT after an
+    // actual voice call was already underway, silently rebuilding it
+    // with the still-held microphone stream (no new permission prompt,
+    // no visible interruption) instead of leaving voice quietly dead
+    // until the person notices and manually retaps the mic button.
+    socket.on('connect', () => {
+      if (!inCall) return;
+      clearStalePeers();
+      socket.emit('voiceJoin', { name: getName() });
+    });
     document.addEventListener('click', retryBlockedAudio, { passive: true });
   }
 
