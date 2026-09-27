@@ -894,35 +894,22 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
     border: 2.5px solid var(--gold-soft); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
   }
-  /* Per explicit request: seats 3, 4, 5, and 6 (both pairs flanking the dealer, and the
-     upper-left/upper-right pair below them) all get their name/chips/cards band flipped to
-     sit ABOVE the avatar instead of below - extended here from the original fix for just 3/6,
-     since 4/5 sit close enough to the dealer and to 3/6 below them to have the exact same
-     below-the-avatar crowding problem. Every other seat keeps its normal layout, untouched. */
-  body.k28-in-game .seat[data-slot="3"], body.k28-in-game .seat[data-slot="4"],
-  body.k28-in-game .seat[data-slot="5"], body.k28-in-game .seat[data-slot="6"] {
-    display: flex; flex-direction: column-reverse; align-items: center;
-  }
-  body.k28-in-game .seat[data-slot="3"] .seat-avatar-wrap, body.k28-in-game .seat[data-slot="4"] .seat-avatar-wrap,
-  body.k28-in-game .seat[data-slot="5"] .seat-avatar-wrap, body.k28-in-game .seat[data-slot="6"] .seat-avatar-wrap {
-    order: 0;
-  }
-  /* column-reverse flips the whole stack, including the relative order within the info
-     block itself - these explicit order values put it back in its natural reading order
-     (name, then chips, then cards) working down from the top, with the avatar anchored at
-     the bottom via its own order:0 above. */
-  body.k28-in-game .seat[data-slot="3"] .seat-name, body.k28-in-game .seat[data-slot="4"] .seat-name,
-  body.k28-in-game .seat[data-slot="5"] .seat-name, body.k28-in-game .seat[data-slot="6"] .seat-name { order: 3; }
-  body.k28-in-game .seat[data-slot="3"] .seat-chips, body.k28-in-game .seat[data-slot="4"] .seat-chips,
-  body.k28-in-game .seat[data-slot="5"] .seat-chips, body.k28-in-game .seat[data-slot="6"] .seat-chips { order: 2; }
-  body.k28-in-game .seat[data-slot="3"] .seat-cards, body.k28-in-game .seat[data-slot="4"] .seat-cards,
-  body.k28-in-game .seat[data-slot="5"] .seat-cards, body.k28-in-game .seat[data-slot="6"] .seat-cards { order: 1; }
-  body.k28-in-game .seat[data-slot="3"] .turn-tag, body.k28-in-game .seat[data-slot="3"] .action-badge,
-  body.k28-in-game .seat[data-slot="4"] .turn-tag, body.k28-in-game .seat[data-slot="4"] .action-badge,
-  body.k28-in-game .seat[data-slot="5"] .turn-tag, body.k28-in-game .seat[data-slot="5"] .action-badge,
-  body.k28-in-game .seat[data-slot="6"] .turn-tag, body.k28-in-game .seat[data-slot="6"] .action-badge {
-    position: static; transform: none; margin: 0 0 3px; order: 4;
-  }
+  /* Per explicit live report with a screenshot: seats 3, 4, 5, and 6 sit close enough to the
+     very top edge of the (now full-viewport) table photo that flipping their name/chips band
+     to sit ABOVE the avatar (the older fix below, kept here only as history) pushed that text
+     above the visible screen on shorter viewports -- it wasn't hidden by any CSS, it was
+     rendered above y:0 of the fixed, inset:0 table box, i.e. off the top of the device screen
+     entirely. That's exactly the reported bug: those seats' name/amount vanished specifically
+     when there wasn't much slack above them, while every other seat (whose info band already
+     sits below the avatar, same direction as the open space beneath it) was unaffected. Reverted
+     to the same normal below-the-avatar layout every other seat already uses, so all seats are
+     visually consistent and none of them can run off the top edge:
+    body.k28-in-game .seat[data-slot="3"], body.k28-in-game .seat[data-slot="4"],
+    body.k28-in-game .seat[data-slot="5"], body.k28-in-game .seat[data-slot="6"] {
+      display: flex; flex-direction: column-reverse; align-items: center;
+    }
+    ...(order overrides for avatar-wrap/name/chips/cards/turn-tag/action-badge removed with it)
+  */
 
   /* My own hand sits right at my own seat, same as the reference's cards over its own player's
      avatar, instead of a separate strip claiming its own dedicated row of screen space. */
@@ -4330,10 +4317,25 @@ function enforceFoldedSeatDisplay(state) {
     const seatDiv = seatsEl.querySelector(`.seat[data-pos="${pos}"]`);
     if (!seatDiv) return;
     if (!seatDiv.classList.contains('folded')) seatDiv.classList.add('folded');
-    const nameEl = seatDiv.querySelector('.seat-name');
-    const chipsEl = seatDiv.querySelector('.seat-chips');
+    let nameEl = seatDiv.querySelector('.seat-name');
+    let chipsEl = seatDiv.querySelector('.seat-chips');
     const foldedTag = seatDiv.querySelector('.seat-cards .folded-tag');
     const expectedName = (escapeHtml(s.name) || `Seat ${pos + 1}`) + (pos === myPos ? ' (you)' : '');
+    // Real, confirmed extra safety net for the same name/amount-missing bug this whole
+    // function already exists to catch: recreates the two elements from scratch if some other
+    // direct DOM edit (like the deal-animation fix above) ever deletes them outright, rather
+    // than only fixing their text when they still happen to exist.
+    const cardsElForCreate = seatDiv.querySelector('.seat-cards');
+    if (!nameEl && cardsElForCreate) {
+      nameEl = document.createElement('div');
+      nameEl.className = 'seat-name';
+      cardsElForCreate.insertBefore(nameEl, cardsElForCreate.firstChild);
+    }
+    if (!chipsEl && cardsElForCreate) {
+      chipsEl = document.createElement('div');
+      chipsEl.className = 'seat-chips';
+      cardsElForCreate.insertBefore(chipsEl, nameEl ? nameEl.nextSibling : cardsElForCreate.firstChild);
+    }
     if (nameEl && nameEl.textContent !== expectedName) nameEl.textContent = expectedName;
     if (chipsEl && chipsEl.textContent !== String(s.chips)) chipsEl.textContent = String(s.chips);
     if (!foldedTag) {
@@ -5512,7 +5514,24 @@ function revealDealtCardAt(state, pos) {
   const seatEl = document.querySelector(`.seat[data-pos="${pos}"]`);
   const cardsEl = seatEl && seatEl.querySelector('.seat-cards');
   if (!cardsEl || s.folded) return;
-  cardsEl.innerHTML = visibleHand.length ? visibleHand.map(c => cardHtml(c && c.rank ? c : null, true, false, 'dealt-card-pop')).join('') : '';
+  // Real, confirmed root-cause fix per explicit live report with a real-device screenshot
+  // ("on the right there's no name or amount numbers on the right 3 avatars"): in the portrait
+  // layout, .seat-name and .seat-chips are real child nodes INSIDE .seat-cards (overlaid on top
+  // of the card-back images there), not siblings before it. This function used to replace
+  // .seat-cards' entire innerHTML with just the freshly-dealt card images every time a card
+  // landed during the deal animation -- deleting those two child nodes outright, not just
+  // hiding them. The main render loop's own diff cache only reassigns a seat's innerHTML when
+  // its OWN computed template string changes, so it had no way to know this direct DOM edit had
+  // quietly stripped them out from underneath it, and a seat that folded before its next real
+  // template change never got them rebuilt -- exactly why only some seats (whichever ones
+  // happened to still be mid-deal, or hadn't re-rendered since) ever lost their name/amount,
+  // and why it looked essentially random which ones. Preserving the two elements' own real,
+  // current markup across this rewrite keeps every seat's name/amount showing throughout the
+  // deal and after a fold, with nothing else about the deal animation itself touched.
+  const preservedNameHtml = cardsEl.querySelector('.seat-name')?.outerHTML || '';
+  const preservedChipsHtml = cardsEl.querySelector('.seat-chips')?.outerHTML || '';
+  const dealtCardsHtml = visibleHand.length ? visibleHand.map(c => cardHtml(c && c.rank ? c : null, true, false, 'dealt-card-pop')).join('') : '';
+  cardsEl.innerHTML = preservedNameHtml + preservedChipsHtml + dealtCardsHtml;
 }
 function animateDealingCards(state) {
   // Real, confirmed feature per explicit live report ("dealer is
