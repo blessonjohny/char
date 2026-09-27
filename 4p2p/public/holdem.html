@@ -4006,15 +4006,15 @@ const CHIP_DENOMINATIONS = [
   // exact same three color stops, so a chip is the same chip
   // regardless of which pile it's sitting in.
   // Real, confirmed change per explicit live report ("add 100. 100 a
-  // player shouldn't have more than 3, 100... 6 50, rest 20 10 and 5"):
-  // 100 is back, but capped -- a real player's breakdown only ever
-  // uses the 100 and 50 tiers up to their own maxCount (enforced in
-  // decomposeChipValue below), then covers whatever's left with an
-  // unlimited number of 20s, 10s and 5s. 25 and 1 are dropped entirely
-  // (replaced by 20, and nothing needs a 1 now that every real amount
-  // in this game is a multiple of 5).
-  { value: 100, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[5].colors[0]}, ${CHIP_COLOR_STOPS[5].colors[1]} 70%, ${CHIP_COLOR_STOPS[5].colors[2]})`, maxCount: 3 }, // chrome gold
-  { value: 50, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[4].colors[0]}, ${CHIP_COLOR_STOPS[4].colors[1]} 70%, ${CHIP_COLOR_STOPS[4].colors[2]})`, maxCount: 6 },  // royal violet/pink
+  // player shouldn't have more than 3, 100... 6 50, rest 20 10 and 5"),
+  // caps then raised per explicit live follow-up ("4 hundred 8 50"): a
+  // real player's breakdown only ever uses the 100 and 50 tiers up to
+  // their own maxCount (enforced in decomposeChipValue below), then
+  // covers whatever's left with an unlimited number of 20s, 10s and 5s.
+  // 25 and 1 are dropped entirely (replaced by 20, and nothing needs a
+  // 1 now that every real amount in this game is a multiple of 5).
+  { value: 100, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[5].colors[0]}, ${CHIP_COLOR_STOPS[5].colors[1]} 70%, ${CHIP_COLOR_STOPS[5].colors[2]})`, maxCount: 4 }, // chrome gold
+  { value: 50, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[4].colors[0]}, ${CHIP_COLOR_STOPS[4].colors[1]} 70%, ${CHIP_COLOR_STOPS[4].colors[2]})`, maxCount: 8 },  // royal violet/pink
   { value: 20, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[3].colors[0]}, ${CHIP_COLOR_STOPS[3].colors[1]} 70%, ${CHIP_COLOR_STOPS[3].colors[2]})` },  // royal green
   { value: 10, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[2].colors[0]}, ${CHIP_COLOR_STOPS[2].colors[1]} 70%, ${CHIP_COLOR_STOPS[2].colors[2]})` },  // royal blue
   { value: 5, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[1].colors[0]}, ${CHIP_COLOR_STOPS[1].colors[1]} 70%, ${CHIP_COLOR_STOPS[1].colors[2]})` },   // royal red
@@ -4037,18 +4037,29 @@ const CHIP_DENOMINATIONS = [
 // instead of only its largest end.
 function decomposeChipValue(value, maxChips) {
   let remaining = Math.max(0, Math.floor(Number(value) || 0));
+  // Real, confirmed change per explicit live report ("that is per
+  // 1000... if its more then recalculate and do the bigger chips"): the
+  // 100/50 maxCounts on CHIP_DENOMINATIONS are a rate per 1000 of the
+  // real total, not a hard ceiling regardless of size -- a 2500 stack
+  // gets 2.5x the allowance a 1000 stack gets, so a large total still
+  // leans on its real bigger chips instead of the excess all piling up
+  // as an ever-growing tail of 20s once the total crosses 1000.
+  // Computed from the ORIGINAL total (not the shrinking remaining
+  // balance below), so it doesn't shift partway through as denominations
+  // get consumed.
+  const capScale = Math.max(1, remaining / 1000);
   const fullBreakdown = [];
   for (const denom of CHIP_DENOMINATIONS) {
     // Real, confirmed change per explicit live report ("a player
     // shouldn't have more than 3, 100... 6 50, rest 20 10 and 5"): a
     // denomination with its own maxCount (100 and 50 -- see
     // CHIP_DENOMINATIONS above) only ever contributes up to that many
-    // chips to the breakdown, however large the remaining total is;
-    // whatever it can't cover falls through to the next denomination
-    // down, same as running out of real 100s at a cash cage and moving
-    // on to 50s. Denominations with no maxCount (20, 10, 5) stay
-    // unlimited, same as before.
-    const cap = denom.maxCount == null ? Infinity : denom.maxCount;
+    // chips per 1000 of the total (scaled by capScale above); whatever
+    // it can't cover falls through to the next denomination down, same
+    // as running out of real 100s at a cash cage and moving on to 50s.
+    // Denominations with no maxCount (20, 10, 5) stay unlimited, same
+    // as before.
+    const cap = denom.maxCount == null ? Infinity : Math.ceil(denom.maxCount * capScale);
     let count = 0;
     while (remaining >= denom.value && count < cap) {
       fullBreakdown.push(denom.color);
