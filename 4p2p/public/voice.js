@@ -15,30 +15,36 @@
 // Google STUN servers below to help browsers find each other across
 // different networks.
 //
-// One caveat: a small number of restrictive networks (some corporate
-// wifi, some mobile carriers) block direct peer connections outright. On
-// those, voice can fail to connect for just that one player even though
-// everyone else is fine. The fix is a free TURN relay account — see the
-// TURN_SERVERS note below. Not required to ship this; only add it if
-// someone reports voice not connecting for them specifically.
+// One caveat: most real-world networks (mobile data, plenty of home/office
+// wifi) need a TURN relay to get audio through at all -- STUN alone only
+// covers direct peer-to-peer connections, which carrier-grade NAT and many
+// routers block outright. TURN_USERNAME/TURN_CREDENTIAL below currently
+// point at Open Relay Project's free SHARED community login -- the same
+// public username/password every other app using their free tier also
+// uses, worldwide, all drawing against the same pool. That's exactly why
+// voice can look "connected" (mic goes live) but carry no audio, and why
+// it's inconsistent rather than a clean always-fails: whether a given
+// connection gets through depends on how loaded that shared relay happens
+// to be at that moment for everyone using it, not on this game specifically.
+// Fix: get a free DEDICATED account (2-minute signup, 20GB/month free,
+// used only by this game) at https://www.metered.ca/tools/openrelay/ and
+// paste its username/credential into the two constants below -- no other
+// code changes needed.
 // ============================================================
 (function () {
+  // Swap these two for a personal Metered.ca (or any TURN provider's)
+  // dedicated username/credential to stop sharing a relay with the entire
+  // internet. Leaving them as-is keeps using the free shared community pool.
+  const TURN_USERNAME = 'openrelayproject';
+  const TURN_CREDENTIAL = 'openrelayproject';
+
   const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    // Free, shared community TURN relay (Open Relay Project) — no signup.
-    // Needed whenever a direct connection can't be made — most commonly
-    // when someone is on mobile data, since carriers almost always sit
-    // everyone behind carrier-grade NAT that blocks direct peer audio
-    // even though the two devices can still "find" each other via STUN.
-    // Being a shared public relay it can occasionally be slow/rate-limited;
-    // if voice still misbehaves for someone, swap these 3 lines for a free
-    // personal Metered.ca account (2-minute signup, 20GB/month free,
-    // dedicated to just this game): https://www.metered.ca/tools/openrelay/
     { urls: 'stun:openrelay.metered.ca:80' },
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:80', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+    { urls: 'turn:openrelay.metered.ca:443', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
   ];
 
   let socket = null;
@@ -235,18 +241,38 @@
       attemptPlay(audio);
       watchLevel(id, e.streams[0]);
     };
+    // Real-world networks (mobile data, restrictive wifi) can leave a peer
+    // connection stuck exactly the way it's been reported live: the mic
+    // button goes "live" (that only means the local mic + signaling
+    // succeeded, not that audio is actually flowing both ways) while the
+    // ICE/media path itself never completes or drops silently -- same-
+    // machine testing can't reproduce this because localhost never needs
+    // STUN/TURN to begin with. WebRTC's standard recovery for that is an
+    // ICE restart on the existing connection rather than tearing the peer
+    // down immediately and hoping it reconnects some other way.
     pc.onconnectionstatechange = () => {
-      if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) removePeer(id);
+      if (pc.connectionState === 'failed') {
+        try { pc.restartIce(); } catch (e) {}
+        return;
+      }
+      if (['closed', 'disconnected'].includes(pc.connectionState)) removePeer(id);
     };
-    if (isInitiator) {
-      pc.onnegotiationneeded = async () => {
-        try {
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          socket.emit('voiceSignal', { to: id, signal: { sdp: pc.localDescription } });
-        } catch (e) { console.warn('[voice] negotiation error', e); }
-      };
-    }
+    // Both sides can end up needing to originate a fresh offer later (an
+    // ICE restart from either end fires this same event), but the very
+    // first time this fires on the ANSWER side it's just the browser
+    // reacting to addTrack() before any negotiation has happened at all --
+    // that initial handshake is already driven explicitly by the incoming
+    // offer in handleSignal() below, so it's ignored here via the
+    // pc._answered guard, which only flips true once that first answer has
+    // actually been sent.
+    pc.onnegotiationneeded = async () => {
+      if (!isInitiator && !pc._answered) return;
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('voiceSignal', { to: id, signal: { sdp: pc.localDescription } });
+      } catch (e) { console.warn('[voice] negotiation error', e); }
+    };
     return pc;
   }
 
@@ -270,6 +296,7 @@
       if (signal.sdp.type === 'offer') {
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        pc._answered = true;
         socket.emit('voiceSignal', { to: from, signal: { sdp: pc.localDescription } });
       }
     } else if (signal.candidate) {

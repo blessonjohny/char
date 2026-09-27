@@ -2584,6 +2584,18 @@ function applyState(state) {
     // Resetting here, the moment the current state genuinely shows no gameOver (i.e. a fresh
     // match is underway), re-arms it correctly for the next time one actually ends.
     gameOverShownFor = false;
+    // Real, confirmed root-cause fix per explicit live report ("when first-person hits
+    // continue new championship all players should start instead all hitting new"): only the
+    // host ever sees a restart button (btnGameOverRestart is hidden for everyone else), and
+    // that button's own click handler was the ONLY place that ever removed the 'on' class
+    // from gameOverOverlay. The moment the host restarts, the server broadcasts the fresh,
+    // already-started championship to every seated player -- but every non-host player's
+    // screen still had the old Game Over overlay sitting on top of it, since nothing had ever
+    // told THEIR overlay to close. They had no way to even see the new match had begun, let
+    // alone play it, until they did something themselves to force their own UI to catch up.
+    // Closing it here, for every player, the instant the real server state confirms a fresh
+    // match is underway, means one person restarting genuinely starts it for the whole table.
+    $('gameOverOverlay').classList.remove('on');
   }
 
   // Per explicit request: triggers the new Bot Mode auto-play the same
