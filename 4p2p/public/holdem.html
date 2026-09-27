@@ -4333,7 +4333,7 @@ function enforceFoldedSeatDisplay(state) {
     const nameEl = seatDiv.querySelector('.seat-name');
     const chipsEl = seatDiv.querySelector('.seat-chips');
     const foldedTag = seatDiv.querySelector('.seat-cards .folded-tag');
-    const expectedName = escapeHtml(s.name) + (pos === myPos ? ' (you)' : '');
+    const expectedName = (escapeHtml(s.name) || `Seat ${pos + 1}`) + (pos === myPos ? ' (you)' : '');
     if (nameEl && nameEl.textContent !== expectedName) nameEl.textContent = expectedName;
     if (chipsEl && chipsEl.textContent !== String(s.chips)) chipsEl.textContent = String(s.chips);
     if (!foldedTag) {
@@ -4640,8 +4640,8 @@ function renderGameTable(state) {
         })() : ''}
       </div>
       <div class="seat-cards">
-        <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
-        <div class="seat-chips" data-name="${escapeHtml(s.name)}">${(s.eliminated || s.bustedAt) ? 'OUT' : s.chips}</div>
+        <div class="seat-name">${escapeHtml(s.name) || `Seat ${pos + 1}`}${pos === myPos ? ' (you)' : ''}</div>
+        <div class="seat-chips" data-name="${escapeHtml(s.name) || `Seat ${pos + 1}`}">${(s.eliminated || s.bustedAt) ? 'OUT' : s.chips}</div>
         ${(s.eliminated || s.bustedAt) ? '<span class="folded-tag">OUT</span>' : (s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml)}
       </div>`;
 
