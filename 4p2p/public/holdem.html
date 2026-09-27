@@ -1320,6 +1320,18 @@ body.k28-portrait-photo .seat.folded .seat-name {
 body.k28-portrait-photo .seat.folded .seat-chips {
   top: auto; bottom: 100%; font-size: 0.4rem; white-space: nowrap;
 }
+/* Real, confirmed root-cause fix found from a live-recorded video
+   showing the name "flickering" in and out: the name WAS actually
+   rendering correctly the whole time (a sliver of real text was
+   visible peeking out in a zoomed frame) -- it was the Fold action
+   badge itself (z-index:50, positioned independently at the seat's
+   own bottom:6px) sitting almost directly on top of it, and the
+   badge's own pop-in animation was periodically covering and
+   uncovering that sliver, reading as a flicker. Moved the badge up
+   out of the way specifically for a folded seat, opening genuine,
+   measured clearance for the name/chips below it instead of the two
+   fighting for the same few pixels. */
+body.k28-portrait-photo .seat.folded .action-badge { bottom: 18px; }
 /* Real, confirmed follow-up per explicit request ("that popup in the
    middle above my avatar... combine that to the bet popup, show it on
    the right of the card"): the separate top banner from the previous
@@ -4299,6 +4311,44 @@ function seatPositions() {
 }
 function slotFor(pos) { return myPos === null ? pos : (pos - myPos + 9) % 9; }
 
+// Real, confirmed defensive fix per repeated live reports of folded
+// seats showing stale card-backs with no name -- reproduced again in a
+// screen recording even after this same fix's first version, run only
+// from inside renderGameTable itself. Extracted into its own function
+// so it can ALSO run independently on a plain timer below (see
+// setInterval near the bottom of this script), not just whenever a
+// render happens to fire -- if the real trigger turns out to be some
+// timing gap between state arriving and the DOM actually updating,
+// this catches it within a couple seconds regardless, rather than
+// depending on another render event to ever come along and fix it.
+function enforceFoldedSeatDisplay(state) {
+  if (!state || !state.seats) return;
+  const seatsEl = $('seatsContainer');
+  if (!seatsEl) return;
+  state.seats.forEach((s, pos) => {
+    if (!s || !s.folded || s.eliminated || s.bustedAt) return;
+    const seatDiv = seatsEl.querySelector(`.seat[data-pos="${pos}"]`);
+    if (!seatDiv) return;
+    if (!seatDiv.classList.contains('folded')) seatDiv.classList.add('folded');
+    const nameEl = seatDiv.querySelector('.seat-name');
+    const chipsEl = seatDiv.querySelector('.seat-chips');
+    const foldedTag = seatDiv.querySelector('.seat-cards .folded-tag');
+    const expectedName = (escapeHtml(s.name) || `Seat ${pos + 1}`) + (pos === myPos ? ' (you)' : '');
+    if (nameEl && nameEl.textContent !== expectedName) nameEl.textContent = expectedName;
+    if (chipsEl && chipsEl.textContent !== String(s.chips)) chipsEl.textContent = String(s.chips);
+    if (!foldedTag) {
+      const cardsEl = seatDiv.querySelector('.seat-cards');
+      if (cardsEl) {
+        [...cardsEl.querySelectorAll('.card')].forEach(c => c.remove());
+        const tag = document.createElement('span');
+        tag.className = 'folded-tag';
+        tag.textContent = 'FOLDED';
+        cardsEl.appendChild(tag);
+      }
+    }
+  });
+}
+setInterval(() => { if (latestState) enforceFoldedSeatDisplay(latestState); }, 1500);
 function renderGameTable(state) {
   showScreen('gameScreen');
   ensureSoundMuteButton();
@@ -4590,8 +4640,8 @@ function renderGameTable(state) {
         })() : ''}
       </div>
       <div class="seat-cards">
-        <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
-        <div class="seat-chips" data-name="${escapeHtml(s.name)}">${(s.eliminated || s.bustedAt) ? 'OUT' : s.chips}</div>
+        <div class="seat-name">${escapeHtml(s.name) || `Seat ${pos + 1}`}${pos === myPos ? ' (you)' : ''}</div>
+        <div class="seat-chips" data-name="${escapeHtml(s.name) || `Seat ${pos + 1}`}">${(s.eliminated || s.bustedAt) ? 'OUT' : s.chips}</div>
         ${(s.eliminated || s.bustedAt) ? '<span class="folded-tag">OUT</span>' : (s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml)}
       </div>`;
 
@@ -4609,47 +4659,7 @@ function renderGameTable(state) {
       seatDiv.innerHTML = innerHtml;
     }
   });
-  // Real, confirmed defensive fix per repeated live reports of folded
-  // seats showing stale card-backs with no name, despite the server
-  // logic, the template logic, and the render caches all checking out
-  // correct in isolation every time this has been investigated: the
-  // per-seat loop above gates BOTH className and innerHTML updates
-  // behind their own separate diffing checks (only touching the DOM
-  // when the newly-computed string differs from what's cached) -- if
-  // those two checks ever disagree with each other for the same seat
-  // in the same render (one deciding "no change" while the other
-  // doesn't, for whatever reason), the result is exactly this
-  // symptom: stale content that no longer matches what the class says,
-  // or a class that no longer matches what the content shows. Rather
-  // than continue chasing the exact trigger blindly, this second pass
-  // runs after the real one above, completely bypassing every cache,
-  // and forcibly re-asserts the correct class and content for every
-  // seat that state.seats itself says is folded right now -- a
-  // guaranteed correction regardless of whatever caused the first pass
-  // to disagree with itself.
-  state.seats.forEach((s, pos) => {
-    if (!s || !s.folded || s.eliminated || s.bustedAt) return;
-    const seatDiv = seatsEl.querySelector(`.seat[data-pos="${pos}"]`);
-    if (!seatDiv) return;
-    if (!seatDiv.classList.contains('folded')) seatDiv.classList.add('folded');
-    const nameEl = seatDiv.querySelector('.seat-name');
-    const chipsEl = seatDiv.querySelector('.seat-chips');
-    const foldedTag = seatDiv.querySelector('.seat-cards .folded-tag');
-    const expectedName = escapeHtml(s.name) + (pos === myPos ? ' (you)' : '');
-    if (nameEl && nameEl.textContent !== expectedName) nameEl.textContent = expectedName;
-    if (chipsEl && chipsEl.textContent !== String(s.chips)) chipsEl.textContent = String(s.chips);
-    if (!foldedTag) {
-      const cardsEl = seatDiv.querySelector('.seat-cards');
-      if (cardsEl) {
-        const stale = cardsEl.querySelector('.card');
-        if (stale) [...cardsEl.querySelectorAll('.card')].forEach(c => c.remove());
-        const tag = document.createElement('span');
-        tag.className = 'folded-tag';
-        tag.textContent = 'FOLDED';
-        cardsEl.appendChild(tag);
-      }
-    }
-  });
+  enforceFoldedSeatDisplay(state);
   if (isNewShowdownReveal) lastCardRevealAnimatedFor = state.handNumber;
   renderRailChips(state);
 
