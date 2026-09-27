@@ -416,9 +416,9 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    itself, its container, and the pile it sits in), so the piles stay
    proportioned correctly at the smaller size instead of the chips
    floating inside an unchanged, now-oversized container. */
-.pot-stack-chip{width:10px;height:10px;border-width:1px}
-.seat-rail-chips{position:absolute;width:21px;height:10px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
-.rail-chip-pile{position:absolute;bottom:0;left:50%;width:8px;height:10px;transform:translateX(-50%)}
+.pot-stack-chip{width:8px;height:8px;border-width:0.8px}
+.seat-rail-chips{position:absolute;width:17px;height:8px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+.rail-chip-pile{position:absolute;bottom:0;left:50%;width:7px;height:8px;transform:translateX(-50%)}
 /* Real, confirmed bug fix per explicit live report with a screenshot
    ("looks like a bar, not chips, no roundness -- barrel"): the real
    pot pile's chips get their round shape from .flying-chip
@@ -4222,7 +4222,7 @@ function renderRailChips(state) {
         // what actually determines how tall a pile of many real chips
         // gets -- brought down from 3px to 2px so a big stack's pile
         // sits noticeably shorter without needing to hide any chips.
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 2}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 1.5}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
       }).join('');
       // Per explicit live report: the two piles themselves read as far
       // apart -- brought in from 32/68 to 40/60, close enough that
