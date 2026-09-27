@@ -1208,12 +1208,15 @@ body.k28-portrait-photo .hand-strip {
 body.k28-portrait-photo .hand-strip .card { width: 44px; height: 62px; font-size: 1rem; }
 body.k28-portrait-photo .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
 body.k28-portrait-photo .hand-strip .card:last-child { transform: rotate(8deg) translateY(2px); }
-/* Real, confirmed bigger follow-up per explicit live report ("my chip
-   is still the same"): the previous 5px nudge (113px -> 118px) was
-   likely too subtle to actually notice on a real device -- moved much
-   more this time (118px -> 135px) so it's unambiguous either way. */
+/* Real, confirmed correction per explicit live report with screenshot
+   ("my amount, we [want it in the] middle in the bottom gap"): 135px
+   overshot -- landing up inside the cards themselves (visible sitting
+   between the two card faces in the actual screenshot) rather than in
+   the real gap below them. Back to 107px, centered exactly on the
+   boundary between the cards' own bottom edge and the action bar
+   below -- the actual gap, not up inside the cards. */
 body.k28-portrait-photo #myChipsTop {
-  display: block; position: fixed; bottom: 135px; left: 50%; transform: translate(-50%, 50%); z-index: 42;
+  display: block; position: fixed; bottom: 107px; left: 50%; transform: translate(-50%, 50%); z-index: 42;
   font-size: 0.85rem; font-weight: 900; color: var(--gold); text-shadow: 0 1px 5px rgba(0,0,0,0.95);
   background: rgba(0,0,0,0.55); border: 1px solid var(--gold-soft, #c9a44c); border-radius: 8px; padding: 2px 8px;
 }
@@ -4604,6 +4607,47 @@ function renderGameTable(state) {
     if (lastRenderedSeatInnerHtml[pos] !== innerHtml) {
       lastRenderedSeatInnerHtml[pos] = innerHtml;
       seatDiv.innerHTML = innerHtml;
+    }
+  });
+  // Real, confirmed defensive fix per repeated live reports of folded
+  // seats showing stale card-backs with no name, despite the server
+  // logic, the template logic, and the render caches all checking out
+  // correct in isolation every time this has been investigated: the
+  // per-seat loop above gates BOTH className and innerHTML updates
+  // behind their own separate diffing checks (only touching the DOM
+  // when the newly-computed string differs from what's cached) -- if
+  // those two checks ever disagree with each other for the same seat
+  // in the same render (one deciding "no change" while the other
+  // doesn't, for whatever reason), the result is exactly this
+  // symptom: stale content that no longer matches what the class says,
+  // or a class that no longer matches what the content shows. Rather
+  // than continue chasing the exact trigger blindly, this second pass
+  // runs after the real one above, completely bypassing every cache,
+  // and forcibly re-asserts the correct class and content for every
+  // seat that state.seats itself says is folded right now -- a
+  // guaranteed correction regardless of whatever caused the first pass
+  // to disagree with itself.
+  state.seats.forEach((s, pos) => {
+    if (!s || !s.folded || s.eliminated || s.bustedAt) return;
+    const seatDiv = seatsEl.querySelector(`.seat[data-pos="${pos}"]`);
+    if (!seatDiv) return;
+    if (!seatDiv.classList.contains('folded')) seatDiv.classList.add('folded');
+    const nameEl = seatDiv.querySelector('.seat-name');
+    const chipsEl = seatDiv.querySelector('.seat-chips');
+    const foldedTag = seatDiv.querySelector('.seat-cards .folded-tag');
+    const expectedName = escapeHtml(s.name) + (pos === myPos ? ' (you)' : '');
+    if (nameEl && nameEl.textContent !== expectedName) nameEl.textContent = expectedName;
+    if (chipsEl && chipsEl.textContent !== String(s.chips)) chipsEl.textContent = String(s.chips);
+    if (!foldedTag) {
+      const cardsEl = seatDiv.querySelector('.seat-cards');
+      if (cardsEl) {
+        const stale = cardsEl.querySelector('.card');
+        if (stale) [...cardsEl.querySelectorAll('.card')].forEach(c => c.remove());
+        const tag = document.createElement('span');
+        tag.className = 'folded-tag';
+        tag.textContent = 'FOLDED';
+        cardsEl.appendChild(tag);
+      }
     }
   });
   if (isNewShowdownReveal) lastCardRevealAnimatedFor = state.handNumber;
