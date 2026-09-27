@@ -1320,6 +1320,18 @@ body.k28-portrait-photo .seat.folded .seat-name {
 body.k28-portrait-photo .seat.folded .seat-chips {
   top: auto; bottom: 100%; font-size: 0.4rem; white-space: nowrap;
 }
+/* Real, confirmed root-cause fix found from a live-recorded video
+   showing the name "flickering" in and out: the name WAS actually
+   rendering correctly the whole time (a sliver of real text was
+   visible peeking out in a zoomed frame) -- it was the Fold action
+   badge itself (z-index:50, positioned independently at the seat's
+   own bottom:6px) sitting almost directly on top of it, and the
+   badge's own pop-in animation was periodically covering and
+   uncovering that sliver, reading as a flicker. Moved the badge up
+   out of the way specifically for a folded seat, opening genuine,
+   measured clearance for the name/chips below it instead of the two
+   fighting for the same few pixels. */
+body.k28-portrait-photo .seat.folded .action-badge { bottom: 18px; }
 /* Real, confirmed follow-up per explicit request ("that popup in the
    middle above my avatar... combine that to the bet popup, show it on
    the right of the card"): the separate top banner from the previous
