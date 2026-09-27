@@ -4080,6 +4080,18 @@ function decomposeChipValue(value, maxChips) {
   }
   return sampled;
 }
+
+// Per explicit request ("1 straight pile like now and 1 half random
+// landing messy"): a small deterministic pseudo-random generator, not
+// Math.random(), so the "messy" pile's scatter is seeded by the seat
+// and chip index and comes out the same every time this re-renders --
+// otherwise every chip would visibly jump to a new random spot on each
+// game-state update, which would look broken, not messy-in-a-good-way.
+function messyRand(seed) {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 function renderRailChips(state) {
   const container = $('railChipsContainer');
   if (!container) return;
@@ -4215,14 +4227,29 @@ function renderRailChips(state) {
     fullPileColors.forEach((color, i) => pileColorSets[i % pileCount].push(color));
     const pilesHtml = Array.from({ length: pileCount }, (_, pileIdx) => {
       const pileColors = pileColorSets[pileIdx];
+      // Per explicit request: pile 0 stays exactly the neat straight
+      // stack it already was; pile 1 (index 1) becomes a "half random
+      // landing messy" pile instead -- each of its chips gets its own
+      // small seeded rotation and left/bottom jitter on top of the
+      // same base stacking, so it reads as a loose hand of chips
+      // dropped down rather than a second tidy tower next to the first.
+      const isMessyPile = pileIdx === 1;
       const chipsHtml = pileColors.map((chipColor, i) => {
-        // Real, confirmed change per explicit live report ("make the
-        // height a little shorter"): the per-chip vertical offset
-        // (how far each chip peeks out below the one on top of it) is
-        // what actually determines how tall a pile of many real chips
-        // gets -- brought down from 3px to 2px so a big stack's pile
-        // sits noticeably shorter without needing to hide any chips.
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 1.5}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+        if (!isMessyPile) {
+          // Real, confirmed change per explicit live report ("make the
+          // height a little shorter"): the per-chip vertical offset
+          // (how far each chip peeks out below the one on top of it) is
+          // what actually determines how tall a pile of many real chips
+          // gets -- brought down from 3px to 2px so a big stack's pile
+          // sits noticeably shorter without needing to hide any chips.
+          return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 1.5}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+        }
+        const seed = pos * 97 + i * 13 + 1;
+        const rot = (messyRand(seed) * 2 - 1) * 18;       // -18..18deg tilt
+        const jx = (messyRand(seed + 1) * 2 - 1) * 4;     // -4..4px sideways scatter
+        const jyJitter = (messyRand(seed + 2) * 2 - 1) * 1.4;
+        const jy = i * 1.1 + jyJitter;                    // looser, uneven stacking
+        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${jy.toFixed(2)}px;transform:translate(calc(-50% + ${jx.toFixed(2)}px),0) rotate(${rot.toFixed(1)}deg) scaleY(0.55)"></div>`;
       }).join('');
       // Per explicit live report: the two piles themselves read as far
       // apart -- brought in from 32/68 to 40/60, close enough that
