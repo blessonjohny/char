@@ -18,33 +18,33 @@
 // One caveat: most real-world networks (mobile data, plenty of home/office
 // wifi) need a TURN relay to get audio through at all -- STUN alone only
 // covers direct peer-to-peer connections, which carrier-grade NAT and many
-// routers block outright. TURN_USERNAME/TURN_CREDENTIAL below currently
-// point at Open Relay Project's free SHARED community login -- the same
-// public username/password every other app using their free tier also
-// uses, worldwide, all drawing against the same pool. That's exactly why
-// voice can look "connected" (mic goes live) but carry no audio, and why
-// it's inconsistent rather than a clean always-fails: whether a given
-// connection gets through depends on how loaded that shared relay happens
-// to be at that moment for everyone using it, not on this game specifically.
-// Fix: get a free DEDICATED account (2-minute signup, 20GB/month free,
-// used only by this game) at https://www.metered.ca/tools/openrelay/ and
-// paste its username/credential into the two constants below -- no other
-// code changes needed.
+// routers block outright. TURN_USERNAME/TURN_CREDENTIAL below are this
+// game's own DEDICATED Metered.ca account (free tier, 500MB/month, used
+// only by this game -- not shared with any other app), which replaced the
+// previous setup here: Open Relay Project's free SHARED community login,
+// the same public username/password every other app on their free tier
+// also used, worldwide, all drawing against the same pool. That's exactly
+// why voice used to look "connected" (mic goes live) but carry no audio
+// only some of the time -- whether a given connection got through depended
+// on how loaded that shared relay happened to be at that moment for
+// everyone using it, not on this game specifically.
 // ============================================================
 (function () {
-  // Swap these two for a personal Metered.ca (or any TURN provider's)
-  // dedicated username/credential to stop sharing a relay with the entire
-  // internet. Leaving them as-is keeps using the free shared community pool.
-  const TURN_USERNAME = 'openrelayproject';
-  const TURN_CREDENTIAL = 'openrelayproject';
+  // This game's own dedicated Metered.ca TURN credentials (account:
+  // charuvillathu, generated Sep-27-2026). If these ever need rotating,
+  // generate a new credential at the account's TURN Server page and swap
+  // it in here -- no other code changes needed.
+  const TURN_USERNAME = 'afb27d87eaced6a06d082d19';
+  const TURN_CREDENTIAL = 'Qa/I48+wyv12rmqn';
 
   const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:openrelay.metered.ca:80' },
-    { urls: 'turn:openrelay.metered.ca:80', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
-    { urls: 'turn:openrelay.metered.ca:443', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    { urls: 'turn:global.relay.metered.ca:80', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+    { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+    { urls: 'turn:global.relay.metered.ca:443', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+    { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
   ];
 
   let socket = null;
