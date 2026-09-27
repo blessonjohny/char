@@ -409,15 +409,16 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    the pile stacks. */
 /* Real, confirmed size reduction per explicit live report ("make the
    chips overall size a little small... aim is to have more chips on
-   the table"), then reduced a further notch per explicit live follow-up
-   ("make the chips a little bit more smaller just a bit"): every
-   dimension here scaled down together (chip itself, its container, and
-   the pile it sits in), so the piles stay proportioned correctly at the
-   smaller size instead of the chips floating inside an unchanged,
-   now-oversized container. */
-.pot-stack-chip{width:12px;height:12px;border-width:1.2px}
-.seat-rail-chips{position:absolute;width:25px;height:12px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
-.rail-chip-pile{position:absolute;bottom:0;left:50%;width:10px;height:12px;transform:translateX(-50%)}
+   the table"), reduced a further notch per explicit live follow-up
+   ("make the chips a little bit more smaller just a bit"), and reduced
+   once more per explicit live follow-up ("overall make the chips a
+   little smaller"): every dimension here scaled down together (chip
+   itself, its container, and the pile it sits in), so the piles stay
+   proportioned correctly at the smaller size instead of the chips
+   floating inside an unchanged, now-oversized container. */
+.pot-stack-chip{width:10px;height:10px;border-width:1px}
+.seat-rail-chips{position:absolute;width:21px;height:10px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+.rail-chip-pile{position:absolute;bottom:0;left:50%;width:8px;height:10px;transform:translateX(-50%)}
 /* Real, confirmed bug fix per explicit live report with a screenshot
    ("looks like a bar, not chips, no roundness -- barrel"): the real
    pot pile's chips get their round shape from .flying-chip
@@ -4215,7 +4216,13 @@ function renderRailChips(state) {
     const pilesHtml = Array.from({ length: pileCount }, (_, pileIdx) => {
       const pileColors = pileColorSets[pileIdx];
       const chipsHtml = pileColors.map((chipColor, i) => {
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 3}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+        // Real, confirmed change per explicit live report ("make the
+        // height a little shorter"): the per-chip vertical offset
+        // (how far each chip peeks out below the one on top of it) is
+        // what actually determines how tall a pile of many real chips
+        // gets -- brought down from 3px to 2px so a big stack's pile
+        // sits noticeably shorter without needing to hide any chips.
+        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 2}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
       }).join('');
       // Per explicit live report: the two piles themselves read as far
       // apart -- brought in from 32/68 to 40/60, close enough that
