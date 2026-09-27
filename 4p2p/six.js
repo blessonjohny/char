@@ -13,12 +13,271 @@ let MY_PLAYER_ID = null;
 try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
 let MY_NAME = '';
 let MY_POS = -1;
-// Haptic-only feedback for this table - explicitly no sound engine here, per request. Same
-// pattern as the 4-player table's own vibrate()/playHaptic(), just without any of the Web
-// Audio API sound synthesis alongside it. navigator.vibrate doesn't exist at all on iOS
-// Safari (Apple has never implemented it) and is unsupported in some other browsers too -
-// both cases should silently do nothing rather than error, since this is a nice-to-have
-// enhancement, never a requirement.
+let IS_SPECTATOR = false;
+let lastKnownDealRound = null;
+let challengeBeatenAnnouncedSix = false;
+let challengeResolvedPromptShownSix = false;
+let kunukkuGainedForRoundSix = null;
+// Real, confirmed feature per explicit request ("add sound and touch
+// sensitivity... to all"): the exact same Web Audio API synthesis
+// engine as the 4-player table's own -- no audio files, every effect
+// built from filtered noise bursts and oscillator tones -- now added
+// here too, reversing the earlier haptic-only decision for this table.
+let sharedAudioCtx = null;
+let masterGainNode = null;
+let soundMuted = false;
+let masterVolume = 0.8;
+try {
+  soundMuted = localStorage.getItem('k28_sound_muted') === '1';
+  const savedVol = parseFloat(localStorage.getItem('k28_sound_volume'));
+  if (!isNaN(savedVol)) masterVolume = savedVol;
+} catch (e) {}
+function getAudioCtx() {
+  if (!sharedAudioCtx) {
+    try {
+      sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGainNode = sharedAudioCtx.createGain();
+      masterGainNode.gain.value = masterVolume;
+      masterGainNode.connect(sharedAudioCtx.destination);
+    } catch (e) { return null; }
+  }
+  if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume().catch(() => {});
+  return sharedAudioCtx;
+}
+let audioWarmedUp = false;
+function warmUpAudioContext() {
+  if (audioWarmedUp) return;
+  audioWarmedUp = true;
+  getAudioCtx();
+}
+['touchstart', 'mousedown', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, warmUpAudioContext, { once: true, passive: true });
+});
+function setSoundMuted(muted) {
+  soundMuted = muted;
+  try { localStorage.setItem('k28_sound_muted', muted ? '1' : '0'); } catch (e) {}
+  const btn = document.getElementById('btnSoundMute');
+  if (btn) btn.textContent = muted ? '🔇' : '🔊';
+}
+let soundMuteBtnBuilt = false;
+function ensureSoundMuteButton() {
+  if (soundMuteBtnBuilt) return;
+  soundMuteBtnBuilt = true;
+  const btn = document.createElement('button');
+  btn.id = 'btnSoundMute';
+  btn.title = 'Mute sound effects';
+  btn.style.display = 'flex';
+  btn.textContent = soundMuted ? '🔇' : '🔊';
+  btn.addEventListener('click', () => {
+    setSoundMuted(!soundMuted);
+    if (!soundMuted) playSound('click');
+  });
+  document.body.appendChild(btn);
+}
+// ==================== REAL AUDIO FILES ====================
+// Per explicit request ("use these files... for all tables"): the
+// same real recorded sound files as Hold'em, mapped to this game's
+// own closest equivalent actions -- this game is trick-taking, not
+// chip-betting, so there's no literal "chip" here; the mapping is by
+// ACTION similarity, not by literal name:
+//   cardDeal   -> the initial hand being dealt (new, this table never
+//                 had its own dealing sound before, only a trick-play
+//                 one)
+//   cardPlay   -> a card being played to a trick (replaces the
+//                 synthesized 'cardPlayed')
+//   chipPlace  -> confirming a bid (replaces synthesized 'bidConfirm'
+//                 -- staking a bid is this game's real equivalent of
+//                 placing a chip)
+//   chipReturn -> winning a trick (replaces synthesized 'trickWin' --
+//                 the closest equivalent to "chips coming back to you")
+// Everything else (trickLose, trumpExposed, yourTurn, join, click,
+// cardPickup, shuffle) keeps its existing synthesized sound, since no
+// real file was provided for those.
+const REAL_SOUND_FILES = {
+  cardDeal: '/sounds/card-deal.mp3',
+  cardPlay: '/sounds/card-play.mp3',
+  chipPlace: '/sounds/chip-place.mp3',
+  chipReturn: '/sounds/chip-return.mp3',
+  // Real, confirmed feature per explicit request: two more real sound
+  // files -- ping for "it's your turn" (replaces the synthesized
+  // yourTurn tone), and cardReceive for "a player receives winning
+  // cards from the table" (the trick-collection-to-winner moment, see
+  // processNextSixpTrickReveal below for where this is actually kept
+  // in sync with the real animation timing).
+  ping: '/sounds/ping.mp3',
+  cardReceive: '/sounds/card-receive.mp3',
+  happy: '/sounds/happy.mp3',
+  sad: '/sounds/sad.mp3',
+};
+const realSoundBuffers = {};
+const realSoundLoadPromises = {};
+function loadRealSound(kind) {
+  if (realSoundBuffers[kind]) return Promise.resolve(realSoundBuffers[kind]);
+  if (realSoundLoadPromises[kind]) return realSoundLoadPromises[kind];
+  const ctx = getAudioCtx();
+  if (!ctx) return Promise.resolve(null);
+  realSoundLoadPromises[kind] = fetch(REAL_SOUND_FILES[kind])
+    .then(r => r.arrayBuffer())
+    .then(arr => ctx.decodeAudioData(arr))
+    .then(buf => { realSoundBuffers[kind] = buf; return buf; })
+    .catch(e => { console.log('[six] failed to load sound', kind, e.message); return null; });
+  return realSoundLoadPromises[kind];
+}
+Object.keys(REAL_SOUND_FILES).forEach(loadRealSound);
+function playRealSoundNow(ctx, buffer, volumeMult) {
+  try {
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = volumeMult != null ? volumeMult : 1;
+    src.connect(gain);
+    gain.connect(masterGainNode);
+    src.start(0);
+  } catch (e) { /* never let a sound glitch break gameplay */ }
+}
+// Real, confirmed root-cause fix per explicit live report ("only when
+// I play [a card] do I hear it, everything else doesn't"): the very
+// first bid of a round can genuinely happen within a second or two of
+// the page loading -- often before chip-place.mp3 has actually
+// finished being fetched and decoded, since that's a real network
+// round-trip, not instant. The old version just silently did nothing
+// if the buffer wasn't ready yet (`if (!buffer) return`), which is
+// exactly why an EARLY action (the first bid) could go silent while a
+// LATER one (playing a card, well after everything's had time to
+// load) worked fine -- it was a genuine race, not something broken in
+// how the sound itself was wired. Now falls back to loading the file
+// on demand and playing it the moment it's actually ready, instead of
+// dropping that one play attempt on the floor.
+function playRealSound(kind, volumeMult) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const buffer = realSoundBuffers[kind];
+  if (buffer) { playRealSoundNow(ctx, buffer, volumeMult); return; }
+  loadRealSound(kind).then(loadedBuffer => {
+    if (loadedBuffer && !soundMuted) playRealSoundNow(ctx, loadedBuffer, volumeMult);
+  });
+}
+let sharedNoiseBuffer = null;
+function getNoiseBuffer(ctx) {
+  if (sharedNoiseBuffer) return sharedNoiseBuffer;
+  const len = ctx.sampleRate * 1.0;
+  const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  sharedNoiseBuffer = buffer;
+  return buffer;
+}
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function noiseBurst(ctx, dest, { filterType = 'bandpass', freq = 2000, Q = 1, startAt = 0, duration = 0.05, peakGain = 0.3, attack = 0.002 }) {
+  const src = ctx.createBufferSource();
+  src.buffer = getNoiseBuffer(ctx);
+  src.loopStart = 0;
+  src.loopEnd = duration + 0.05;
+  const offset = Math.random() * 0.8;
+  const filter = ctx.createBiquadFilter();
+  filter.type = filterType;
+  filter.frequency.value = freq;
+  filter.Q.value = Q;
+  const gain = ctx.createGain();
+  const t = ctx.currentTime + startAt;
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(peakGain, t + attack);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(dest);
+  src.start(t, offset, duration + 0.05);
+  src.stop(t + duration + 0.05);
+}
+function tone(ctx, dest, { freq = 440, type = 'sine', startAt = 0, duration = 0.18, peakGain = 0.15, attack = 0.015 }) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  const t = ctx.currentTime + startAt;
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(peakGain, t + attack);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  osc.connect(gain);
+  gain.connect(dest);
+  osc.start(t);
+  osc.stop(t + duration + 0.05);
+}
+const SOUND_BUILDERS = {
+  cardDeal(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(3200, 4200), Q: 0.7, duration: rnd(0.02, 0.03), peakGain: rnd(0.16, 0.22), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(220, 320), Q: 1.2, startAt: rnd(0.02, 0.035), duration: rnd(0.03, 0.045), peakGain: rnd(0.1, 0.15) });
+  },
+  cardPlayed(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1400, 2200), Q: rnd(0.8, 1.3), duration: rnd(0.035, 0.05), peakGain: rnd(0.32, 0.4), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'lowpass', freq: rnd(180, 260), Q: 1, startAt: 0.004, duration: rnd(0.05, 0.07), peakGain: rnd(0.14, 0.2) });
+  },
+  cardPickup(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(3800, 4800), Q: 0.6, duration: rnd(0.012, 0.02), peakGain: rnd(0.06, 0.1), attack: 0.001 });
+  },
+  shuffle(ctx, dest) {
+    const count = Math.floor(rnd(10, 16));
+    let t = 0;
+    for (let i = 0; i < count; i++) {
+      noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1800, 3200), Q: rnd(1, 2), startAt: t, duration: rnd(0.015, 0.03), peakGain: rnd(0.1, 0.18), attack: 0.001 });
+      t += rnd(0.02, 0.045);
+    }
+  },
+  trickWin(ctx, dest) {
+    const base = rnd(520, 540);
+    [0, 4, 7].forEach((semi, i) => {
+      tone(ctx, dest, { freq: base * Math.pow(2, semi / 12), type: 'triangle', startAt: i * 0.07, duration: 0.22, peakGain: 0.14 });
+    });
+  },
+  trickLose(ctx, dest) {
+    const base = rnd(380, 400);
+    tone(ctx, dest, { freq: base, type: 'sine', startAt: 0, duration: 0.16, peakGain: 0.09 });
+    tone(ctx, dest, { freq: base * Math.pow(2, -3 / 12), type: 'sine', startAt: 0.09, duration: 0.22, peakGain: 0.08 });
+  },
+  bidConfirm(ctx, dest) {
+    tone(ctx, dest, { freq: rnd(820, 880), type: 'triangle', duration: 0.13, peakGain: 0.16, attack: 0.008 });
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: 3000, Q: 0.8, duration: 0.012, peakGain: 0.08, attack: 0.001 });
+  },
+  click(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(1600, 2400), Q: 1.5, duration: rnd(0.006, 0.012), peakGain: rnd(0.05, 0.08), attack: 0.001 });
+  },
+  join(ctx, dest) {
+    tone(ctx, dest, { freq: 660, type: 'sine', duration: 0.22, peakGain: 0.12 });
+  },
+  yourTurn(ctx, dest) {
+    tone(ctx, dest, { freq: 740, type: 'sine', duration: 0.16, peakGain: 0.16 });
+    tone(ctx, dest, { freq: 988, type: 'sine', startAt: 0.14, duration: 0.22, peakGain: 0.18 });
+  },
+  trumpExposed(ctx, dest) {
+    noiseBurst(ctx, dest, { filterType: 'highpass', freq: rnd(1800, 2600), Q: 0.6, duration: 0.035, peakGain: rnd(0.3, 0.36), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(280, 380), Q: 0.8, duration: 0.06, peakGain: rnd(0.4, 0.48), attack: 0.001 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(180, 260), Q: 1, startAt: 0.04, duration: rnd(0.5, 0.7), peakGain: rnd(0.26, 0.34), attack: 0.05 });
+    noiseBurst(ctx, dest, { filterType: 'bandpass', freq: rnd(140, 200), Q: 1.2, startAt: 0.3, duration: rnd(0.35, 0.5), peakGain: rnd(0.16, 0.2), attack: 0.08 });
+  },
+};
+function playSound(kind, arg) {
+  if (soundMuted) return;
+  if (REAL_SOUND_FILES[kind]) {
+    playRealSound(kind, arg);
+    return;
+  }
+  const ctx = getAudioCtx();
+  if (!ctx || !masterGainNode) return;
+  const builder = SOUND_BUILDERS[kind];
+  if (!builder) return;
+  try { builder(ctx, masterGainNode); } catch (e) { /* never let a sound glitch break gameplay */ }
+}
+function playChime(kind) { playSound(kind); }
+document.addEventListener('click', (e) => {
+  const target = e.target.closest('button, .btn, .btn-outline, .btn-primary, .icon-btn');
+  if (target) playSound('click');
+}, true);
+// Haptic feedback (phone vibration) - a separate concern from sound, but the same principle:
+// short, distinct patterns per action rather than one generic buzz for everything.
+// navigator.vibrate simply doesn't exist on iOS Safari at all (Apple has never implemented
+// it) and is unsupported/blocked in many desktop browsers - both cases should silently do
+// nothing rather than error, since this is a nice-to-have enhancement, never a requirement.
 function vibrate(pattern) {
   try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
 }
@@ -45,7 +304,7 @@ let isAutoReconnectAttempt6p = false;
 // player's choice carries over between tables instead of resetting.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon107','toon108','toon109']).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 // Per explicit request: these 5 are personal, PIN-protected avatars
 // (see pickMyAvatar/confirmSixpChangeAvatar for the actual PIN check)
 // and must never be handed to anyone automatically -- not as a bot,
@@ -1246,6 +1505,11 @@ function connectSocket() {
     MY_PLAYER_ID = info.playerId;
     MY_POS = info.pos;
     IS_HOST = info.isHost;
+    IS_SPECTATOR = false;
+    // Real, confirmed feature per explicit live report -- the 🪑 Join
+    // button only ever makes sense while genuinely spectating; a
+    // freshly-seated player (this exact event) never sees it.
+    if ($('btnSpectatorJoin')) $('btnSpectatorJoin').style.display = 'none';
     try {
       localStorage.setItem('k28six_player_token', info.playerId);
       localStorage.setItem('k28six_table_id', info.tableId);
@@ -1268,6 +1532,33 @@ function connectSocket() {
       showScreen('lobbyScreen');
     }
     $('roomCodeDisplay').textContent = info.tableId;
+  });
+
+  // Real, confirmed feature per explicit request ("4 player has watch
+  // and join a seat, make 6 player same") -- matches the 4-player
+  // table's identical joinedAsSpectator handler, adapted to this
+  // table's own naming conventions.
+  socket.on('sixp_joinedAsSpectator', (info) => {
+    MY_TABLE_ID = info.tableId;
+    MY_PLAYER_ID = info.playerId;
+    MY_POS = -1;
+    IS_HOST = false;
+    IS_SPECTATOR = true;
+    // Real, confirmed feature per explicit live report ("to join if I
+    // want, I should have a chair icon on it, so click on it, join
+    // window should appear"): the seat-choice popup no longer appears
+    // on its own for an existing spectator (see the matching server
+    // fix) -- this button is now the only way they ever open it again.
+    if ($('btnSpectatorJoin')) $('btnSpectatorJoin').style.display = 'flex';
+    try {
+      localStorage.setItem('k28six_player_token', info.playerId);
+      localStorage.setItem('k28six_table_id', info.tableId);
+      localStorage.setItem('k28six_session_time', String(Date.now()));
+    } catch (e) {}
+    $('seatPickerOverlay').classList.remove('on');
+    showScreen('lobbyScreen');
+    $('roomCodeDisplay').textContent = info.tableId;
+    showToast('👀 Watching the table', 'info', 2000);
   });
 
   socket.on('sixp_joinError', (err) => {
@@ -1450,12 +1741,23 @@ connectSocket(); // connect right away so every landing on this page gets logged
 // ---------------- Welcome / name / create / join flow ----------------
 
 let pendingAction = null; // 'create' | 'join'
+let pendingChallengeHandicap = null;
 
 $('btnCreate').addEventListener('click', () => {
   pendingAction = 'create';
+  pendingChallengeHandicap = null;
   const inviteBanner6pCreate = $('inviteBanner6p');
   if (inviteBanner6pCreate) inviteBanner6pCreate.classList.add('hidden');
   showScreen('nameScreen');
+});
+document.querySelectorAll('.challenge-diff-btn-6p').forEach(btn => {
+  btn.addEventListener('click', () => {
+    pendingAction = 'create';
+    pendingChallengeHandicap = Number(btn.dataset.handicap);
+    const inviteBanner6pChallenge = $('inviteBanner6p');
+    if (inviteBanner6pChallenge) inviteBanner6pChallenge.classList.add('hidden');
+    showScreen('nameScreen');
+  });
 });
 $('btnShowJoin').addEventListener('click', () => { showScreen('joinScreen'); refreshRoomList(); });
 $('btnNameBack').addEventListener('click', () => showScreen('welcomeScreen'));
@@ -1486,7 +1788,9 @@ async function submitPlayerName6p() {
   requestFullscreen6p();
   connectSocket();
   if (pendingAction === 'create') {
-    socket.emit('sixp_createTable', { name, avatar: MY_AVATAR_KEY });
+    const payload = { name, avatar: MY_AVATAR_KEY };
+    if (pendingChallengeHandicap === 5 || pendingChallengeHandicap === 10 || pendingChallengeHandicap === 13) payload.challengeHandicap = pendingChallengeHandicap;
+    socket.emit('sixp_createTable', payload);
   } else if (pendingAction === 'join' && pendingJoinCode) {
     socket.emit('sixp_joinTable', { tableId: pendingJoinCode, name, avatar: MY_AVATAR_KEY });
   }
@@ -1517,11 +1821,20 @@ function renderRoomList(rooms) {
   if (!targets.length) return;
   const html = !rooms.length
     ? '<div style="color:var(--text-secondary);font-size:0.8rem;padding:10px">No open tables right now.</div>'
-    : rooms.map(r => `
-    <div class="room-row">
-      <div><b>${escapeHtml(r.name)}</b><br><span style="color:var(--text-secondary)">${r.players}/6 · ${r.isPlaying ? 'Playing' : 'Lobby'}</span></div>
+    : rooms.map(r => {
+      // Real, confirmed feature per explicit request ("challenge
+      // tables should be displayed... purple and regular tables green
+      // royal... in the public tables list when creating a table") --
+      // matches the 4-player table's identical addition exactly.
+      const isChallengeTable = r.challengeHandicap > 0 && !r.challengeResolved;
+      const borderColor = isChallengeTable ? '#a855f7' : '#2ecc71';
+      const challengeTag = isChallengeTable ? ` <span style="background:rgba(168,85,247,0.18);color:#c084fc;border:1px solid rgba(168,85,247,0.35);font-size:0.62rem;padding:1px 6px;border-radius:8px;white-space:nowrap">🎯 Challenge</span>` : '';
+      return `
+    <div class="room-row" style="border-left:3px solid ${borderColor}">
+      <div><b>${escapeHtml(r.name)}</b>${challengeTag}<br><span style="color:var(--text-secondary)">${r.players}/6 · ${r.isPlaying ? 'Playing' : 'Lobby'}</span></div>
       <button class="btn btn-outline" style="width:auto;margin:0;padding:8px 14px" data-code="${r.tableId}" ${r.canJoinSeat ? '' : 'disabled'}>JOIN</button>
-    </div>`).join('');
+    </div>`;
+    }).join('');
   for (const list of targets) {
     list.innerHTML = html;
     list.querySelectorAll('button[data-code]').forEach(btn => {
@@ -1607,17 +1920,40 @@ function showSeatPicker(info) {
   diagram += '<div class="mini-table-legend"><span><i class="dot open"></i>Open</span><span><i class="dot bot"></i>Replace bot</span><span><i class="dot disc"></i>Reclaim</span><span><i class="dot taken"></i>Taken</span></div>';
   diagram += '<div style="font-size:0.7rem;opacity:0.7;margin-top:6px">Seats 1‑3‑5 are one team, 2‑4‑6 are the other.</div>';
 
-  opts.innerHTML = diagram;
+  // Real, confirmed feature per explicit request ("4 player has watch
+  // and join a seat, make 6 player same"): matches the 4-player
+  // table's identical "Just Watch" fallback exactly.
+  const nothingToClaim = info.openSeats.length === 0 && info.botSeats.length === 0 && info.disconnectedSeats.length === 0;
+  let watchHtml = '';
+  if (info.canWatch || nothingToClaim) {
+    watchHtml = '<button class="btn btn-outline" style="width:100%;margin-top:10px" onclick="claimSixpSeatChoice(\'watch\')">👀 Just Watch</button>';
+  }
+  if (nothingToClaim && !info.canWatch) watchHtml += '<p style="color:var(--text-secondary);font-size:0.85rem">No spots available right now.</p>';
+
+  opts.innerHTML = diagram + watchHtml;
   $('seatPickerOverlay').classList.add('on');
+}
+
+function claimSixpSeatChoice(choice) {
+  $('seatPickerOverlay').classList.remove('on');
+  socket.emit('sixp_claimSeat', { choice });
 }
 
 // ---------------- Lobby ----------------
 
 $('btnLeaveLobby').addEventListener('click', leaveToWelcome);
 $('btnGameOverLeave').addEventListener('click', leaveToWelcome);
+$('btnChallengeContinueChampionship').addEventListener('click', () => {
+  $('challengeDecidedOverlay').style.display = 'none';
+});
+$('btnChallengeStartNew').addEventListener('click', () => {
+  $('challengeDecidedOverlay').style.display = 'none';
+  leaveToWelcome();
+});
 function leaveToWelcome() {
   if (window.K28Voice) K28Voice.hideButton();
   if (socket) socket.emit('sixp_leaveTable');
+  if ($('btnSpectatorJoin')) $('btnSpectatorJoin').style.display = 'none';
   try {
     localStorage.removeItem('k28six_table_id');
     localStorage.removeItem('k28six_session_time');
@@ -1686,6 +2022,24 @@ function renderLobby(state) {
 // ---------------- Main state application ----------------
 
 function applyState(state) {
+  ensureSoundMuteButton();
+  // Real, confirmed feature per explicit request ("use these files for
+  // all tables... sync with all animations"): this table never had its
+  // own card-flying dealing animation the way Hold'em does, so there's
+  // no existing per-card visual to attach a per-card sound to. Detects
+  // the actual transition into a new round instead (round number
+  // increasing) and plays a short staggered sequence of the real
+  // dealing sound -- one per seat actually being dealt into, at the
+  // same real pace an actual deal would take, rather than either a
+  // single generic sound or over-building a whole new visual system
+  // just to hang this on.
+  if (state.round && state.round !== lastKnownDealRound) {
+    lastKnownDealRound = state.round;
+    const dealtSeatCount = (state.seats || []).filter(Boolean).length || 6;
+    for (let i = 0; i < dealtSeatCount; i++) {
+      setTimeout(() => playSound('cardDeal'), i * 160);
+    }
+  }
   // Detect any genuinely new bid entries (not passes, and never the
   // forced opening bid at index 0) to fire a big event for a real raise
   // or an honors-level bid -- same logic as index.html's identical
@@ -1910,7 +2264,7 @@ function applyState(state) {
           showGameEvent(exposedSuitAtCall, 'Trump Exposed', trumpDetail, popupSuitColor, {
             trumpEvent: true, splitTitle: true, blackSuitIcon: !isRedSuitForIcon
           });
-          playHaptic('trumpExposed');
+          playSound('trumpExposed'); playHaptic('trumpExposed');
         }, 550);
         // Same table-wide pop/shake/glow reveal as the 4-player table - see the CSS comment
         // next to .table-oval.trump-exposed for why this touches two elements at once.
@@ -1981,6 +2335,19 @@ function applyState(state) {
     }
     const tricksPlayed = state.tricksPlayed || 0;
     if (tricksPlayed > lastSeenTricksPlayed && state.lastTrick) {
+      // Real, confirmed root-cause fix per explicit live report ("last
+      // player's play card sound is not heard every trick"), same
+      // underlying bug as the 4-player table's identical issue: the
+      // card that actually COMPLETES a trick never went through the
+      // normal per-card renderTrick() path at all -- this branch
+      // queues the completed trick and returns before ever reaching
+      // it, so that specific card's own "card play" sound was never
+      // triggered anywhere. Plays it here explicitly for whichever
+      // seat played the trick-completing card (skipped for this
+      // player's own card, which already got its sound the instant
+      // they tapped it).
+      const completingCard = state.lastTrick.cards[state.lastTrick.cards.length - 1];
+      if (completingCard && completingCard.pos !== MY_POS) { playSound('cardPlay'); playHaptic('cardPlayed'); }
       // A trick just completed since the last render. Queue it rather than
       // showing it immediately — if a trick is already mid-reveal, starting
       // this one right now would cancel it early. Every trick gets its own
@@ -2100,6 +2467,51 @@ function applyState(state) {
   // round-end popup entirely once the match itself has ended; the
   // game-over popup already carries the final result, so there's
   // nothing the round-end popup would add at that specific point.
+  // Real, confirmed feature per explicit request ("challenge table...
+  // background purple violet... as long as it's on challenge mode...
+  // if continue to regular it goes") -- matches the 4-player table's
+  // identical addition. Toggled on #gameScreen specifically (not just
+  // .six-oval-rail) since the table's own decorative corner lamps
+  // (.fake-lamp-glow) are direct children of #gameScreen, not nested
+  // inside the oval at all -- one shared ancestor class lets both the
+  // table's glow AND the lamps react together.
+  const gameScreenEl = document.getElementById('gameScreen');
+  if (gameScreenEl) {
+    gameScreenEl.classList.toggle('challenge-active', !!(state.challengeHandicap > 0 && !state.challengeResolved));
+  }
+
+  // Real, confirmed feature per explicit request ("after winning it
+  // should say u beat the challenge... continue next championship like
+  // normal"): matches the 4-player table's identical feature -- fires
+  // once, right when the server confirms the challenger's team won
+  // despite their starting deficit.
+  if (state.challengeBeaten && !challengeBeatenAnnouncedSix) {
+    challengeBeatenAnnouncedSix = true;
+    showGameEvent('🎯', 'Challenge Beaten!', 'You overcame a ' + state.challengeHandicap + '-point deficit!', '#f4c430');
+    playSound('happy');
+  }
+  // Real, confirmed feature per explicit request ("after winning or
+  // losing a challenge they should have the option to continue to
+  // next championship or new challenge"): matches the 4-player
+  // table's identical feature exactly.
+  if (state.challengeResolved && !challengeResolvedPromptShownSix) {
+    challengeResolvedPromptShownSix = true;
+    setTimeout(() => {
+      const icon = $('challengeDecidedIcon');
+      const title = $('challengeDecidedTitle');
+      const detail = $('challengeDecidedDetail');
+      if (state.challengeBeaten) {
+        icon.textContent = '🏆';
+        title.textContent = 'Challenge Beaten!';
+        detail.textContent = 'You overcame a ' + state.challengeHandicap + '-point deficit. Keep playing here, or start a fresh challenge?';
+      } else {
+        icon.textContent = '💔';
+        title.textContent = 'Challenge Not Beaten';
+        detail.textContent = 'The ' + state.challengeHandicap + '-point deficit held this time. Keep playing here, or try a new challenge?';
+      }
+      $('challengeDecidedOverlay').style.display = 'flex';
+    }, state.challengeBeaten ? 1800 : 200);
+  }
   if (state.phase === 'roundEnd' && state.round !== lastRoundSeen && !state.gameOver) {
     lastRoundSeen = state.round;
     // Same big event as index.html's identical hook -- fires exactly
@@ -2110,6 +2522,16 @@ function applyState(state) {
       const bidderName = (state.seats && state.seats[rw.bidder]) ? state.seats[rw.bidder].name : 'The bidder';
       if (rw.bidderWon) showGameEvent('🏆', 'Bid Made', bidderName + ' — ' + rw.highestBid, '#2ecc71');
       else showGameEvent('💥', 'Bid Failed', bidderName + ' — ' + rw.highestBid, '#e74c3c');
+      // Real, confirmed feature per explicit request ("every player or
+      // team should hear sounds according to win/lose bid and kunukku
+      // for all, same 4 and 6"): matches the 4-player table's identical
+      // feature -- winning team hears happy, losing team hears sad,
+      // unless a Kunukku was gained this exact round (which already
+      // played happy for everyone in showQMarkEventSix).
+      const myTeamWonThisRound = (sixpGetTeam(MY_POS) === sixpGetTeam(rw.bidder)) ? rw.bidderWon : !rw.bidderWon;
+      if (kunukkuGainedForRoundSix !== state.round) {
+        playSound(myTeamWonThisRound ? 'happy' : 'sad');
+      }
     }
     // The round can end right on the last trick, whose own 2s-hold +
     // fly-to-winner animation (~3.2s total) may still be playing. Wait for
@@ -2442,6 +2864,17 @@ function showQMarkEventSix(names, direction) {
   const overlay = document.createElement('div');
   overlay.className = 'qmark-event-overlay ' + direction;
   const isGained = direction === 'gained';
+  // Real, confirmed feature per explicit request ("when kunukku comes
+  // on sad comes off happy for all players... for all, 4 and 6"): same
+  // as the 4-player table's identical feature -- everyone at the table
+  // hears happy for a Kunukku gain, overriding the normal per-team
+  // win/lose sound that round-end would otherwise play (see
+  // kunukkuGainedForRoundSix and its check in applyState's own
+  // round-end handling).
+  if (isGained) {
+    playSound('happy');
+    kunukkuGainedForRoundSix = latestState ? latestState.round : null;
+  }
   const durationMs = isGained ? 7000 : 5000;
   // Explicitly celebratory framing for BOTH directions, per the request - getting a Kunukku
   // is still a real, notable event worth marking with a real moment on screen, not just the
@@ -2761,7 +3194,27 @@ function renderTrick(state) {
     const el = $('trickSlot' + slot);
     if (desired[slot] === null) { el.innerHTML = ''; continue; }
     const tc = (state.trickCards || []).find(t => slotFor(t.pos) === slot);
-    if (tc) el.innerHTML = cardHTML(tc.card, false, false, 'tiny trick-card-landing');
+    if (tc) {
+      el.innerHTML = cardHTML(tc.card, false, false, 'tiny trick-card-landing');
+      // Real, confirmed root-cause fix per explicit live report ("when
+      // other player play I can't hear the sound"): playHandCard()
+      // only ever plays this sound for THIS player's own card, since
+      // it's called directly from that click handler -- there was
+      // never any equivalent trigger for a card that arrives because
+      // someone ELSE played it, only the visual card itself was
+      // showing up. This is the actual per-slot "genuinely new since
+      // last render" detection already used for the landing animation
+      // above -- reusing that same, already-correct diff instead of a
+      // separate length-based check means it's exactly as robust to
+      // several bots playing in rapid succession as the visual
+      // animation already is (each of the 6 slots is checked
+      // individually every render, not just "did the count change by
+      // one"). tc.pos !== MY_POS skips this player's own card, which
+      // already got its sound the instant they tapped it, before the
+      // server even confirmed it -- avoiding a double-trigger once
+      // their own play reflects back in state.
+      if (tc.pos !== MY_POS) { playSound('cardPlay'); playHaptic('cardPlayed'); }
+    }
   }
 }
 
@@ -2773,12 +3226,18 @@ function renderCompletedTrick(lastTrick) {
     const isWinner = tc.pos === lastTrick.winner;
     $('trickSlot' + slot).innerHTML = cardHTML(tc.card, false, false, 'tiny' + (isWinner ? ' trick-winner' : ''));
   }
-  // A trick just fully resolved - single, reliable trigger point for this (only called once
-  // per completed trick, via the reveal queue below), so it's the right place for the
-  // win/lose haptic rather than anywhere state gets re-rendered.
-  if (MY_POS !== -1) {
-    playHaptic(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose');
-  }
+  // Real, confirmed root-cause fix per explicit live report ("winner
+  // receives the trick, it's not syncing... should start when player
+  // receives the animation"): the win/lose sound used to fire HERE,
+  // immediately -- but the actual card-flying-to-the-winner animation
+  // (animateCardsToWinner) doesn't start until a full 2 SECONDS later
+  // (see processNextSixpTrickReveal's own setTimeout below, which
+  // deliberately holds the completed trick visible before flying it
+  // anywhere). That 2-second gap between "sound plays" and "cards
+  // actually move" is exactly the desync being described. Moved this
+  // sound out of here entirely, into that same setTimeout, right next
+  // to the animateCardsToWinner call it needs to line up with -- see
+  // processNextSixpTrickReveal below.
 }
 
 function processNextSixpTrickReveal() {
@@ -2794,6 +3253,24 @@ function processNextSixpTrickReveal() {
   // connection, cards can otherwise start flying away before everyone's
   // even finished seeing what was played.
   setTimeout(() => {
+    // Real, confirmed fix, same live report as above: fires exactly
+    // when the cards actually start flying, not 2 seconds before it --
+    // genuinely synced with animateCardsToWinner right below it, using
+    // the real cardReceive sound file specifically for "a player
+    // receives winning cards from the table" per its own explicit
+    // purpose, in place of the repurposed chipReturn sound used here
+    // before (which was only ever a stand-in, this game has no chips).
+    if (MY_POS !== -1) {
+      // Real, confirmed fix per explicit live report ("when an opp
+      // team receives a win, it's a generic sound"): trickLose was
+      // always the old synthesized placeholder, since no real file was
+      // ever provided specifically for "the other team won." But the
+      // actual physical event -- cards being gathered up by whoever
+      // won the trick -- is identical either way. Same real
+      // cardReceive sound for both now.
+      playSound('cardReceive');
+      playHaptic(sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS) ? 'trickWin' : 'trickLose');
+    }
     animateCardsToWinner(lastTrick.winner);
   }, 2000);
 
@@ -2854,6 +3331,15 @@ function catchUpSixpTrickStaggered(real) {
     }
     const slot = slotFor(nextCard.pos);
     $('trickSlot' + slot).innerHTML = cardHTML(nextCard.card, false, false, 'tiny trick-card-landing');
+    // Real, confirmed root-cause fix, same underlying bug as the
+    // 4-player table's identical catch-up function: this staggered
+    // reveal path (specifically for when bots have played faster than
+    // the normal pace can show them -- exactly the rapid-decisions
+    // case) was built entirely separately from renderTrick() and never
+    // had its own sound trigger, so every card revealed through here
+    // was silent regardless of who played it. Rides along with this
+    // same real per-card timing (not fired all at once) instead.
+    if (nextCard.pos !== MY_POS) { playSound('cardPlay'); playHaptic('cardPlayed'); }
     lastRenderedTrickSlot[slot] = nextCard.card.suit + nextCard.card.rank;
     setTimeout(revealNext, 550);
   }
@@ -2995,7 +3481,13 @@ function updateTurnLabel(state) {
     // matching the same phase-aware pattern bidding1 and choosingTrump
     // already had.
     lbl.textContent = state.phase === 'bidding1' ? 'Your turn to bid' : state.phase === 'choosingTrump' ? 'Choose trump' : state.phase === 'play' ? 'Your turn to play' : 'Your turn';
-    if (lastHapticCurrentPlayer !== MY_POS && state.phase !== 'lobby') playHaptic('yourTurn');
+    if (lastHapticCurrentPlayer !== MY_POS && state.phase !== 'lobby') {
+      // Real, confirmed removal per explicit request ("6 player also I
+      // don't need the your turn [sound]"): matches the same removal
+      // already made on the 4-player table -- audible ping gone, haptic
+      // vibration kept.
+      playHaptic('yourTurn');
+    }
   } else {
     const seat = state.seats[state.currentPlayer];
     lbl.textContent = seat ? (seat.name + "'s turn") : '';
@@ -3255,7 +3747,7 @@ function renderHand(state) {
 
 function playHandCard(suit, rank) {
   if (!latestState || latestState.currentPlayer !== MY_POS) return;
-  playHaptic('cardPlayed');
+  playSound('cardPlay'); playHaptic('cardPlayed');
   socket.emit('sixp_playCard', { card: { suit, rank, points: POINTS[rank] } });
 }
 function playHiddenTrumpCard() { socket.emit('sixp_playHiddenTrump'); }
@@ -3521,7 +4013,7 @@ function showBidConfirm(state, bid, isPass) {
   confirmBtn.addEventListener('click', () => {
     biddingConfirmShowing = false;
     $('bidOverlay').classList.remove('on');
-    playHaptic('bidConfirm');
+    playSound('chipPlace'); playHaptic('bidConfirm');
     if (isThani) socket.emit('sixp_callThani');
     else socket.emit('sixp_placeBid', { bid: isPass ? 0 : bid });
   });
@@ -3926,6 +4418,16 @@ function sendChat() {
 
 $('btnChat').addEventListener('click', openChat);
 $('btnInvite').addEventListener('click', shareInviteLink);
+// Real, confirmed feature per explicit live report ("to join if I
+// want, I should have a chair icon on it, so click on it, join
+// window should appear"): requests the seat-choice popup on demand --
+// the server's sixp_chooseSeat response (via showSeatPicker, already
+// wired above) is what actually renders it.
+if ($('btnSpectatorJoin')) {
+  $('btnSpectatorJoin').addEventListener('click', () => {
+    if (socket) socket.emit('sixp_requestSeat');
+  });
+}
 $('btnInviteFromLobby').addEventListener('click', shareInviteLink);
 
 // ==================== STILL PLAYING? (idle check) ====================
@@ -4823,3 +5325,32 @@ function requestFullscreen28() {
   {name:'Babi',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,#c2266f,#8e1c52)'},
   {name:'Oliver',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
 ];
+
+// Real, confirmed feature per explicit request ("From the admin panel
+// I should be able to watch the game... join secretly without anyone
+// knowing including host... just watch like a regular viewer... when
+// they view all players gets popups, admin no popups"): a
+// ?adminWatch=<tableId> link (opened from the admin panel's new Watch
+// button, see admin.html) skips the whole welcome/name-entry/lobby
+// flow and drops straight into the exact same read-only spectator
+// experience a regular player already gets from the "Watch Only" seat
+// picker option -- same MY_POS=-1/IS_SPECTATOR=true state, same
+// sixp_joinedAsSpectator event (which already calls showScreen itself),
+// nothing new to maintain on the viewing side. The "no popup" part is
+// already true of ordinary spectating too, not something added here:
+// sixp_playerJoinedNotice (the popup every seated player gets) only
+// ever fires for someone actually taking a SEAT, never for joining to
+// watch -- confirmed by reading that code path directly.
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const watchTableId = params.get('adminWatch');
+  if (!watchTableId) return;
+  const adminPw = sessionStorage.getItem('admin_watch_password') || '';
+  connectSocket();
+  socket.emit('sixp_adminWatchTable', { tableId: watchTableId, adminPassword: adminPw });
+  socket.on('sixp_adminWatchResult', (res) => {
+    if (!res.ok) {
+      showToast('❌ Could not open admin view: ' + (res.reason || 'unknown error'), 'lose', 4000);
+    }
+  });
+})();

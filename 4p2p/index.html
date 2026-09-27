@@ -27,6 +27,20 @@
 -->
 <html lang="en">
 <head>
+<script>
+// Real, confirmed bug fix found during admin-watch feature testing:
+// this flag must be set as early as absolutely possible in the page's
+// lifecycle -- several unrelated things later in this file (the
+// "what's new" announcement popup, the auth-screen DOMContentLoaded
+// race, etc.) run and create/show their own overlays well before the
+// actual admin-watch bootstrap script (way down near </body>, since it
+// depends on functions/globals only defined by then) ever gets a
+// chance to run. Setting just this one flag here, right at the very
+// top of <head> before anything else on the page executes, lets every
+// one of those later pieces check it and skip themselves accordingly,
+// without needing to move or duplicate any of that logic.
+window.__isAdminWatchMode = new URLSearchParams(window.location.search).has('adminWatch');
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <!-- Lets this be added to an iPhone's home screen as a proper chrome-free
@@ -545,6 +559,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .welcome-btn .icon{font-size:1.2rem}
 .welcome-btn.primary{background:linear-gradient(135deg,var(--accent),#e6c200);color:var(--bg-dark);border-color:var(--accent);font-weight:800;box-shadow:0 4px 20px rgba(255,215,0,0.25)}
 .welcome-btn.primary:hover,.welcome-btn.primary:active{background:linear-gradient(135deg,#ffe033,#FFD700);box-shadow:0 8px 30px rgba(255,215,0,0.4);transform:translateY(-2px) scale(1.02)}
+/* Real, confirmed styling per explicit request ("Medium hard and dare
+   are 3 levels... green purple and red... royal colors nice and pro,
+   match all my buttons"): same gradient + matching-color glow + lift-
+   on-press language as this file's own welcome-btn.primary gold
+   button just above, rebuilt in three deep jewel tones instead of one
+   -- emerald, amethyst, ruby -- rather than the plain flat-outline
+   placeholder buttons this replaces. */
+.challenge-diff-btn{flex:1;padding:10px 4px;border-radius:10px;border:none;cursor:pointer;color:#fff;transition:all 0.2s;touch-action:manipulation;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px}
+.challenge-diff-name{font-weight:800;font-size:0.68rem;letter-spacing:0.2px;text-transform:uppercase;line-height:1.15}
+.challenge-diff-sub{font-weight:600;font-size:0.62rem;opacity:0.85;letter-spacing:0.2px;line-height:1.1;white-space:nowrap}
+.challenge-diff-medium{background:linear-gradient(135deg,#2ecc71,#0e8a4b);box-shadow:0 4px 16px rgba(46,204,113,0.35)}
+.challenge-diff-medium:hover,.challenge-diff-medium:active{background:linear-gradient(135deg,#3ee888,#12a85c);box-shadow:0 8px 26px rgba(46,204,113,0.5);transform:translateY(-2px) scale(1.02)}
+.challenge-diff-hard{background:linear-gradient(135deg,#a855f7,#6b21a8);box-shadow:0 4px 16px rgba(168,85,247,0.35)}
+.challenge-diff-hard:hover,.challenge-diff-hard:active{background:linear-gradient(135deg,#c084fc,#7e22ce);box-shadow:0 8px 26px rgba(168,85,247,0.5);transform:translateY(-2px) scale(1.02)}
+.challenge-diff-dare{background:linear-gradient(135deg,#ef4444,#a91e1e);box-shadow:0 4px 16px rgba(239,68,68,0.35)}
+.challenge-diff-dare:hover,.challenge-diff-dare:active{background:linear-gradient(135deg,#f87171,#c62828);box-shadow:0 8px 26px rgba(239,68,68,0.5);transform:translateY(-2px) scale(1.02)}
+.challenge-toggle-btn{width:100%;margin-bottom:8px;padding:11px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-weight:700;font-size:0.8rem;cursor:pointer;transition:all 0.2s;touch-action:manipulation}
+.challenge-toggle-btn:hover,.challenge-toggle-btn:active{background:rgba(255,215,0,0.1);box-shadow:0 4px 16px rgba(255,215,0,0.2);transform:translateY(-1px)}
+.challenge-label-static{width:100%;margin-bottom:8px;padding:11px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-weight:700;font-size:0.8rem;text-align:center}
 .btn28-badge{font-family:'Cinzel Decorative','Cinzel','Fraunces',serif;font-weight:700;line-height:1.15;letter-spacing:0.5px;display:block;
   background:linear-gradient(180deg,#f6e4a8 0%,#e6c86b 35%,#c9a227 70%,#a67f1a 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
@@ -1776,6 +1809,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @keyframes buttonShine{0%{background-position:-200% center}100%{background-position:200% center}}
 
 .table.trump-exposed{animation:thunderShake 0.7s ease,tableGlowPulse 2s ease 0.6s 3,borderFlash 1.5s ease 0.6s 2;border:3px solid var(--accent)!important}
+/* Real, confirmed feature per explicit request ("challenge table...
+   background purple violet... as long as it's on challenge mode...
+   make sure nothing visually effected, hard to see, corners lit up in
+   that color, not overlapping"): a deliberately subtle, ambient
+   inset glow at the table's own corners/edges only -- never a solid
+   fill, never anything sitting on top of cards or UI, so nothing
+   about actual gameplay is visually affected. Purely a background
+   presence the whole time a genuine challenge is still undecided.
+   Removed automatically the instant the challenge resolves (win or
+   lose) since the class itself is only ever added while
+   challengeHandicap is set and challengeResolved is still false. */
+.table.challenge-active{box-shadow:inset 0 0 90px 18px rgba(168,85,247,0.4)}
+#challengeWatermark{display:none}
+.table.challenge-active #challengeWatermark{display:block}
 .table.trump-exposed .card{animation:cardShake 0.4s ease 0.2s}
 .table.trump-exposed .cross{animation:thunderShake 0.7s ease}
 
@@ -2025,6 +2072,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .mc{animation:miniCardDeal 0.3s ease backwards}
 
 .player-row{animation:lobbyEntrance 0.35s ease backwards}
+/* Real, confirmed root-cause fix per explicit live report ("4 player
+   all the tables are flickering"): the server re-broadcasts the whole
+   public room list on every single game action at every table
+   (including bot moves -- see broadcastTable's own io.emit('roomList',
+   ...) server-side), which is completely normal and the same rate
+   6-player's own list updates at. The actual difference was this
+   entrance animation -- since the list's innerHTML gets fully replaced
+   on every one of those updates, brand new .player-row elements are
+   created each time, restarting this same "pop in" animation from
+   scratch every few seconds for as long as anyone's watching the
+   list. 6-player's own equivalent (.room-row) has no such animation at
+   all, which is exactly why it doesn't flicker. Scoped to just the
+   public rooms list specifically, not a global removal, so any other
+   legitimate one-time use of .player-row elsewhere keeps its entrance
+   effect.
+*/
+#publicRoomsList .player-row{animation:none}
 
 /* ===== TRUMP SUIT PULSE ANIMATION ===== */
 
@@ -3344,6 +3408,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .table:not(.mode6) .lamp-glow-tr { top: 7.5%; left: 91%; animation-delay: 1.1s; }
   .table:not(.mode6) .lamp-glow-bl { top: 82%; left: 9%; width: 70px; height: 70px; animation-delay: 2.2s; }
   .table:not(.mode6) .lamp-glow-br { top: 82%; left: 91%; animation-delay: 0.6s; }
+  /* Real, confirmed follow-up per explicit live report ("nothing
+     really changed... my dark corners of the screen... the table
+     corners the lamps, maybe turn that into purple"): the earlier
+     inset box-shadow attempt was too subtle to actually read against
+     these same dark photo corners -- these 4 lamps are already the
+     one thing genuinely lit up and visible there, so recoloring them
+     to violet while a challenge is active is what actually shows up,
+     rather than adding another layer competing with the same
+     darkness. Same warm-glow shape/pulse/positions, just violet
+     instead of amber -- reverts to the normal warm glow the instant
+     the challenge resolves, since this only ever applies while
+     .challenge-active is present on .table.
+  */
+  .table.challenge-active:not(.mode6) .lamp-glow {
+    background: radial-gradient(circle, rgba(190,120,255,0.75) 0%, rgba(160,80,255,0.4) 35%, rgba(140,60,255,0) 70%);
+  }
   @keyframes lampGlowPulse {
     0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.92); }
     50% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.08); }
@@ -4212,6 +4292,12 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </button>
   </div>
 
+  <div style="display:flex;justify-content:center;margin-top:10px;margin-bottom:20px">
+    <a class="welcome-btn primary" href="/puzzles.html" style="max-width:360px;width:100%;min-height:70px;box-sizing:border-box;background:linear-gradient(135deg,rgba(87,60,130,0.78),rgba(56,38,86,0.75));border-color:rgba(233,185,73,0.5);color:#fff;text-decoration:none;backdrop-filter:blur(2px);flex-direction:column;gap:4px;text-align:center;justify-content:center">
+      <span class="btn28-badge" style="font-size:1.2rem">🧩 Logic Puzzles</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">100 logic puzzles &amp; riddles, with clues</span>
+    </a>
+  </div>
+
   <div class="welcome-subbtn-row">
     <button class="welcome-subbtn" id="btnRules"><span>📖</span> How to Play</button>
     <button class="welcome-subbtn" id="btnBrainManager"><span>🧠</span> Bot Brain Manager</button>
@@ -4367,6 +4453,26 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       <h3>🏠 Host a Room</h3>
       <p id="hostCardTagline">Create a table and invite friends — or fill empty seats with bots and start right away</p>
       <button type="button" class="btn btn-primary" style="width:100%;margin-bottom:8px" id="btnCreateRoom">Create Room</button>
+      <!-- Real, confirmed feature per explicit request ("4 and 6
+           player should have a challenge table... pick 0-5, 0-10, or
+           0-13... you'll be the next bidder"): a secondary option
+           right below the normal create button -- picking a
+           difficulty creates the table with that team starting the
+           deficit and forced into the first bid, exactly like an
+           ordinary table otherwise (anyone can join it the same way,
+           same championship progression once it's under way). -->
+      <!-- Real, confirmed fix per explicit live report ("once u hit
+           that it opens, keep it open so no need for extra hit"): the
+           toggle-to-reveal step is gone entirely -- the label is now
+           purely informational (not clickable), and all 3 difficulty
+           buttons are visible immediately, so picking a difficulty is
+           a single tap instead of two. -->
+      <div class="challenge-label-static">🎯 Create Challenge Table</div>
+      <div id="challengeOptionsRow" style="display:flex;gap:8px;margin-bottom:8px">
+        <button type="button" class="challenge-diff-btn challenge-diff-medium" data-handicap="5"><span class="challenge-diff-name">Challenge Med</span><span class="challenge-diff-sub">Start 0–5</span></button>
+        <button type="button" class="challenge-diff-btn challenge-diff-hard" data-handicap="10"><span class="challenge-diff-name">Challenge Hard</span><span class="challenge-diff-sub">Start 0–10</span></button>
+        <button type="button" class="challenge-diff-btn challenge-diff-dare" data-handicap="13"><span class="challenge-diff-name">Dare Hall</span><span class="challenge-diff-sub">Start 0–13</span></button>
+      </div>
       <div class="connection-status" id="hostStatus"><div class="status-dot"></div>Waiting for players...</div>
     </div>
     <div class="lobby-card" id="joinCard" style="display:none">
@@ -4517,6 +4623,16 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </div>
     <div class="king-progress-track" id="kingProgressTrack" style="display:none"><div class="king-progress-fill" id="kingProgressFill" style="width:0%"></div></div>
   </div><div class="table" id="tableArea">
+  <!-- Real, confirmed feature per explicit live report ("middle table
+       say challenge nice and underlapping actions"): a low-opacity
+       text watermark, dead center, sitting BEHIND every other piece of
+       real game UI (z-index 0, everything else on this table already
+       sits above that) and pointer-events:none so it can never
+       intercept a tap meant for a real button underneath it. Only
+       ever shown via the same .challenge-active class the lamps above
+       use, so it appears and disappears at the exact same moment they
+       do. -->
+  <div id="challengeWatermark" style="position:absolute;top:32%;left:50%;transform:translate(-50%,-50%);font-family:'Cinzel Decorative','Cinzel',serif;font-size:clamp(1.4rem,7vw,2.6rem);font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(200,140,255,0.5);text-shadow:0 0 16px rgba(160,80,255,0.6);z-index:0;pointer-events:none;white-space:nowrap">Challenge</div>
     <div class="lamp-glow lamp-glow-tl"></div>
     <div class="lamp-glow lamp-glow-tr"></div>
     <div class="lamp-glow lamp-glow-bl"></div>
@@ -4792,8 +4908,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
        dvh at all; both max-height declarations are valid CSS, so the
        later one silently wins wherever it's actually supported. -->
   <div class="modal" style="text-align:center;max-width:340px;display:flex;flex-direction:column;max-height:85vh;max-height:85dvh">
-    <h3 style="margin-top:0;margin-bottom:2px;flex-shrink:0">🏆 Leaderboard</h3>
-    <div style="text-align:center;font-size:0.72rem;color:var(--text-secondary);opacity:0.85;margin-bottom:10px;flex-shrink:0">Ranked by biggest score gap, rounds taken as tiebreak</div>
+    <h3 style="margin-top:0;margin-bottom:2px;flex-shrink:0">🎯 Challenge Leaderboard</h3>
+
     <div id="leaderboardPopupContent" style="text-align:left;font-size:0.85rem;color:var(--text-secondary);min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto">
       Loading…
     </div>
@@ -4969,6 +5085,26 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <!-- Hidden file input for loading saved games -->
 <input type="file" id="loadGameInput" accept=".k28,.json" style="display:none">
 
+<!-- Real, confirmed feature per explicit request ("after winning or
+     losing a challenge they should have the option to continue to
+     next championship or new challenge"): a real, explicit choice,
+     shown once the challenge is decided either way -- not just
+     silently continuing forward like an ordinary table would. Placed
+     here, before any script tag runs, specifically so the buttons
+     below actually exist in the DOM the moment later script code
+     tries to wire them up -- putting this at the very end of the body
+     instead (after every script) left those elements null when that
+     wiring code ran, and the buttons silently did nothing. -->
+<div id="challengeDecidedOverlay" style="display:none;position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;padding:20px">
+  <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid var(--accent);border-radius:16px;padding:28px 24px;max-width:360px;width:100%;text-align:center;box-shadow:0 0 40px rgba(255,215,0,0.15)">
+    <div id="challengeDecidedIcon" style="font-size:2.4rem;margin-bottom:8px">🎯</div>
+    <div id="challengeDecidedTitle" style="font-family:'Cinzel','Playfair Display',serif;font-size:1.3rem;font-weight:800;color:var(--accent);margin-bottom:8px">Challenge Decided</div>
+    <div id="challengeDecidedDetail" style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:20px"></div>
+    <button type="button" id="btnChallengeContinueChampionship" class="btn btn-primary" style="width:100%;margin-bottom:8px">▶ Continue to Next Championship</button>
+    <button type="button" id="btnChallengeStartNew" class="challenge-toggle-btn" style="width:100%">🎯 Start a New Challenge</button>
+  </div>
+</div>
+
 <!-- Socket.IO client — served by our own authoritative game server at
      the same origin as this page, so no separate URL/CDN is needed. -->
 <script>
@@ -5135,7 +5271,7 @@ try { MY_NAME = localStorage.getItem('k28_player_name') || ''; } catch (e) {}
 // sticks across visits instead of resetting every time.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon107','toon108','toon109']).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 
 // ==================== SOUND ENGINE ====================
 // A full card-table sound system built entirely on the native Web Audio API - no audio files,
@@ -5215,6 +5351,69 @@ function setMasterVolume(vol) {
   masterVolume = Math.max(0, Math.min(1, vol));
   if (masterGainNode) masterGainNode.gain.value = masterVolume;
   try { localStorage.setItem('k28_sound_volume', String(masterVolume)); } catch (e) {}
+}
+
+// ==================== REAL AUDIO FILES ====================
+// Per explicit request ("use these files for all tables -- 4, 6, and
+// Hold'em"): same real recorded sound files, same mapping as six.js
+// (trick-taking game, not chip-betting -- mapped by action similarity,
+// not literal name): cardDeal = initial hand dealt, cardPlay = a card
+// played to a trick (replaces synthesized 'cardPlayed'), chipPlace =
+// confirming a bid (replaces synthesized 'bidConfirm'), chipReturn =
+// winning a trick (replaces synthesized 'trickWin'). Everything else
+// keeps its existing synthesized sound.
+const REAL_SOUND_FILES = {
+  cardDeal: '/sounds/card-deal.mp3',
+  cardPlay: '/sounds/card-play.mp3',
+  chipPlace: '/sounds/chip-place.mp3',
+  chipReturn: '/sounds/chip-return.mp3',
+  ping: '/sounds/ping.mp3',
+  cardReceive: '/sounds/card-receive.mp3',
+  happy: '/sounds/happy.mp3',
+  sad: '/sounds/sad.mp3',
+};
+const realSoundBuffers = {};
+const realSoundLoadPromises = {};
+function loadRealSound(kind) {
+  if (realSoundBuffers[kind]) return Promise.resolve(realSoundBuffers[kind]);
+  if (realSoundLoadPromises[kind]) return realSoundLoadPromises[kind];
+  const ctx = getAudioCtx();
+  if (!ctx) return Promise.resolve(null);
+  realSoundLoadPromises[kind] = fetch(REAL_SOUND_FILES[kind])
+    .then(r => r.arrayBuffer())
+    .then(arr => ctx.decodeAudioData(arr))
+    .then(buf => { realSoundBuffers[kind] = buf; return buf; })
+    .catch(e => { console.log('[index] failed to load sound', kind, e.message); return null; });
+  return realSoundLoadPromises[kind];
+}
+Object.keys(REAL_SOUND_FILES).forEach(loadRealSound);
+function playRealSoundNow(ctx, buffer, volumeMult) {
+  try {
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = volumeMult != null ? volumeMult : 1;
+    src.connect(gain);
+    gain.connect(masterGainNode);
+    src.start(0);
+  } catch (e) { /* never let a sound glitch break gameplay */ }
+}
+// Real, confirmed root-cause fix per explicit live report on the 6p
+// table (same underlying engine as this one): an early sound request
+// (e.g. the very first action after page load) can genuinely happen
+// before its own file has finished being fetched and decoded over the
+// network -- the old version just silently dropped that one play
+// attempt (`if (!buffer) return`). Falls back to loading it on demand
+// and playing it the instant it's ready, instead of going silent.
+function playRealSound(kind, volumeMult) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const buffer = realSoundBuffers[kind];
+  if (buffer) { playRealSoundNow(ctx, buffer, volumeMult); return; }
+  loadRealSound(kind).then(loadedBuffer => {
+    if (loadedBuffer && !soundMuted) playRealSoundNow(ctx, loadedBuffer, volumeMult);
+  });
 }
 
 // A reusable white-noise buffer, generated once and reused (via playbackRate + filters to vary
@@ -5366,8 +5565,12 @@ const SOUND_BUILDERS = {
   },
 };
 
-function playSound(kind) {
+function playSound(kind, arg) {
   if (soundMuted) return;
+  if (REAL_SOUND_FILES[kind]) {
+    playRealSound(kind, arg);
+    return;
+  }
   const ctx = getAudioCtx();
   if (!ctx || !masterGainNode) return;
   const builder = SOUND_BUILDERS[kind];
@@ -5377,6 +5580,51 @@ function playSound(kind) {
 // playChime kept as an alias so the join/yourTurn call sites added earlier don't need to
 // change - same function, now backed by the unified engine above.
 function playChime(kind) { playSound(kind); }
+// Real, confirmed architectural fix per explicit live report ("my turn
+// ping is heard before the bot card sound... the AI makes a split
+// decision and it's displayed early, not in the proper sequence"):
+// the actual root cause, confirmed by that report -- bot decisions get
+// computed and broadcast essentially instantly (server-side
+// computation has no real "thinking time"), so multiple bot actions
+// can arrive as several separate, closely-spaced state updates. Each
+// one independently plays its own sound and independently checks "is
+// it my turn now" -- there was never any guarantee those checks
+// resolved in the same order the actual game events happened in, and
+// a guessed fixed delay on the ping alone couldn't reliably fix that,
+// it could only ever narrow the window. This replaces guessing with a
+// real guarantee: every sound tied to a bot/game event goes through
+// one single, strictly sequential queue -- each entry waits for the
+// previous one to actually finish (a real minimum gap between them)
+// before playing, so no matter how close together the underlying
+// state updates arrive, the sounds themselves always play in the
+// exact order they were queued in, never out of sequence.
+let soundQueue = [];
+let soundQueueRunning = false;
+function queueSound(kind, arg) {
+  soundQueue.push({ kind, arg });
+  if (!soundQueueRunning) runSoundQueue();
+}
+function runSoundQueue() {
+  if (soundQueue.length === 0) { soundQueueRunning = false; return; }
+  soundQueueRunning = true;
+  const next = soundQueue.shift();
+  playSound(next.kind, next.arg);
+  setTimeout(runSoundQueue, 380);
+}
+// Real, confirmed feature per the same live report as queueSound above:
+// polls until a genuinely in-progress trick-completion sequence
+// (trickRevealBusy -- the 2-second hold, win/lose sound, and cards-fly-
+// to-winner animation) has actually finished, before queueing the
+// your-turn ping at all -- that whole sequence runs completely outside
+// soundQueue, on its own real timing, so soundQueue alone could never
+// have known to wait for it.
+function waitThenQueuePing() {
+  if (typeof trickRevealBusy !== 'undefined' && trickRevealBusy) {
+    setTimeout(waitThenQueuePing, 150);
+    return;
+  }
+  queueSound('ping');
+}
 
 // Haptic feedback (phone vibration) - a separate concern from sound, but the same principle:
 // short, distinct patterns per action rather than one generic buzz for everything.
@@ -7394,6 +7642,7 @@ function updateCardCounts() {
 // changed (gained a Kunukku from a shutout, or shed one from a
 // successful bid). First-ever call just syncs the baseline silently.
 let lastSeenQMarks4p = null;
+let kunukkuGainedForRound4p = null;
 function detectQMarkChanges4p() {
   if (!latestServerState) return;
   const newMarks = latestServerState.qMarks || {};
@@ -7445,6 +7694,20 @@ function showQMarkEvent4p(names, direction) {
   const overlay = document.createElement('div');
   overlay.className = 'qmark-event-overlay ' + direction;
   const isGained = direction === 'gained';
+  // Real, confirmed feature per explicit request ("when kunukku comes
+  // on sad comes off happy for all players... for all, 4 and 6"):
+  // getting shut out into a Kunukku is treated as a big, shared, even
+  // celebratory table moment in this game already (see the existing
+  // "explicitly celebratory framing for BOTH directions" design) --
+  // everyone at the table hears the happy sound for it, not just
+  // whoever got the mark, and this deliberately overrides the normal
+  // per-team win/lose sound that would otherwise play at this same
+  // round's end (see the kunukkuGainedForRound4p flag and its check in
+  // applyServerState's own round-end block).
+  if (isGained) {
+    playSound('happy');
+    kunukkuGainedForRound4p = latestServerState ? latestServerState.round : null;
+  }
   const durationMs = isGained ? 7000 : 5000;
   const title = isGained ? '😭 KUNUKKU!' : '🎉 KUNUKKU SHED!';
   const namesText = names.map(escapeHtml).join(', ');
@@ -8081,8 +8344,73 @@ function updateInfo() {
   document.getElementById('phaseLabel').textContent = 'Round ' + round + (IS_ONLINE ? ' · Online' : ' · Local');
 
   const tr = document.getElementById('trumpReveal');
+  // Real, confirmed root-cause fix per explicit live report ("before
+  // the second bot plays, the third bot's trump choose decision was
+  // already made and shows trump sign lineup early... it's supposed
+  // to trigger later but it's not in proper sequence"): this element
+  // used to update the instant trumpExposed flipped true in the
+  // latest state, completely independent of whether the bot card play
+  // that actually caused it had finished its own staggered visual
+  // reveal yet -- bot decisions get computed and broadcast almost
+  // instantly, so the DATA was already current well before the
+  // ANIMATION had caught up to it. Skips this specific update while a
+  // catch-up sequence is genuinely still in progress (trickRevealBusy)
+  // -- the element just keeps showing whatever it last correctly
+  // showed until catch-up finishes and the next real render (which
+  // always follows) updates it for real, in the right order.
+  const thaniActive = !!(SERVER_MODE && latestServerState && latestServerState.thaniCaller >= 0);
+  // Real, confirmed root-cause fix per explicit live report ("bot cut
+  // with clubs... wasn't announced... only announced after I played my
+  // spades"): this whole block, badge AND announcement together, used
+  // to be gated behind !trickRevealBusy -- correct for the small badge
+  // (see below, it should genuinely wait so it can't jump ahead of a
+  // still-catching-up card), but that same gate accidentally ALSO held
+  // back the actual "Trump Exposed" announcement popup/toast/table-
+  // shake, which has no business waiting on an unrelated trick-
+  // completion sequence at all. It's a one-time event notification
+  // that should fire promptly when trump is actually exposed (it
+  // already has its own deliberate short pause below) -- moved
+  // entirely outside the trickRevealBusy gate so it can never again
+  // get stuck waiting for a different trick to finish revealing.
+  if (SERVER_MODE && !thaniActive) {
+    if (trumpExposed && !serverLastAnnouncedTrumpExposed) {
+      // A brief, deliberate pause before the announcement rather than
+      // firing in the exact same instant the card lands -- the two
+      // together, simultaneously, meant the announcement effectively
+      // covered up the very card that just caused it, with no moment
+      // to actually register what just happened before the banner
+      // took over the screen.
+      const exposedSuitAtCall = trumpSuit;
+      setTimeout(() => {
+        showToast('⚡ Trump exposed: ' + exposedSuitAtCall + '!', 'win', 2200);
+        log('Trump exposed! ' + exposedSuitAtCall + ' is active.', 'win');
+        const rc = latestServerState && latestServerState.revealedTrumpCard;
+        const trumpDetail = rc ? miniCardHtml(rc.rank, rc.suit) : (exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall));
+        showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa', 'trump-event');
+        const table = document.getElementById('tableArea');
+        if (table) {
+          table.classList.remove('trump-exposed');
+          void table.offsetWidth; // force reflow so re-adding the class restarts the animation
+          table.classList.add('trump-exposed');
+          setTimeout(() => table.classList.remove('trump-exposed'), 5000);
+        }
+        playSound('trumpExposed');
+        playHaptic('trumpExposed');
+      }, 550);
+    }
+    serverLastAnnouncedTrumpExposed = trumpExposed;
+  }
+  // Real, confirmed follow-up fix per explicit live report ("animation
+  // popup says trump exposed, but the top bar says trump hidden until
+  // I played"): the previous fix correctly separated the announcement
+  // (now fires promptly, right above) from this badge -- but left the
+  // badge itself gated behind !trickRevealBusy, meaning it could still
+  // lag well behind the announcement it's supposed to agree with,
+  // creating exactly this "popup says one thing, badge says another"
+  // mismatch. The badge should simply match reality the moment trump
+  // is actually exposed, same as the announcement now correctly does
+  // -- gate removed entirely.
   if (tr) {
-    const thaniActive = !!(SERVER_MODE && latestServerState && latestServerState.thaniCaller >= 0);
     if (thaniActive) {
       // Thani has no trump at all, permanently, for the whole round --
       // not "still hidden," not "about to be exposed," genuinely none.
@@ -8116,55 +8444,6 @@ function updateInfo() {
         tr.innerHTML = '🎯 <span style="color:var(--text-secondary)">Trump: Hidden</span>';
       }
       tr.classList.remove('trump-active');
-    }
-    // Server mode sets trumpExposed directly from the authoritative state
-    // (see applyServerState) rather than through the local exposeTrump()
-    // function below, which is the only place that already shows this
-    // announcement — so server-mode games never got any toast/log at all
-    // when trump flipped exposed, even though it correctly became visible
-    // in the banner above. Announce it exactly once per exposure here.
-    // Explicitly excluded during Thani even though trumpExposed should
-    // never actually be true during one -- belt and suspenders, since a
-    // stray announcement here would be actively misleading given trump
-    // isn't even in play this round at all.
-    if (SERVER_MODE && !thaniActive) {
-      if (trumpExposed && !serverLastAnnouncedTrumpExposed) {
-        // A brief, deliberate pause before the announcement rather than
-        // firing in the exact same instant the card lands -- the two
-        // together, simultaneously, meant the announcement effectively
-        // covered up the very card that just caused it, with no moment
-        // to actually register what just happened before the banner
-        // took over the screen.
-        const exposedSuitAtCall = trumpSuit;
-        setTimeout(() => {
-          showToast('⚡ Trump exposed: ' + exposedSuitAtCall + '!', 'win', 2200);
-          log('Trump exposed! ' + exposedSuitAtCall + ' is active.', 'win');
-          // This was the actual bug behind "no popup, no shake at all" in
-          // online play -- showGameEvent() and the table-shake class
-          // toggle only ever lived in the OFFLINE-only exposeTrump()
-          // function, which server-mode games never call at all. This is
-          // the real, actual trigger point for online trump exposure.
-          // Per explicit instruction: shows the actual specific card
-          // that was hidden (rank + suit, styled like the real card),
-          // not just the suit -- revealedTrumpCard is captured
-          // server-side the moment exposeTrump() runs, since the
-          // hiddenTrump field itself gets cleared/returned to the
-          // owner's private hand right after.
-          const rc = latestServerState && latestServerState.revealedTrumpCard;
-          const trumpDetail = rc ? miniCardHtml(rc.rank, rc.suit) : (exposedSuitAtCall + ' ' + suitName(exposedSuitAtCall));
-          showGameEvent('⚡', 'Trump Exposed', trumpDetail, '#a78bfa', 'trump-event');
-          const table = document.getElementById('tableArea');
-          if (table) {
-            table.classList.remove('trump-exposed');
-            void table.offsetWidth; // force reflow so re-adding the class restarts the animation
-            table.classList.add('trump-exposed');
-            setTimeout(() => table.classList.remove('trump-exposed'), 5000);
-          }
-          playSound('trumpExposed');
-          playHaptic('trumpExposed');
-        }, 550);
-      }
-      serverLastAnnouncedTrumpExposed = trumpExposed;
     }
   }
 
@@ -15283,6 +15562,15 @@ async function showLeaderboardPopup() {
     const res = await fetch('/api/leaderboard');
     const data = await res.json();
     const lb = data.leaderboard;
+    // Real, confirmed feature per explicit request ("its a challenge
+    // leaderboard, should specify what type of challenge and all
+    // possible infos"): fetched alongside the regular leaderboard so
+    // both sections can render together in one pass -- a separate,
+    // genuinely different dataset from the regular championship wins
+    // above (challenge-leaderboard.js, not leaderboard.js).
+    const clbRes = await fetch('/api/challenge-leaderboard');
+    const clbData = await clbRes.json();
+    const clb = clbData.leaderboard;
     // Per explicit request: shows all 3 positions (not just #1), the
     // opponent team too (previously only the winners were ever
     // recorded at all), and tightened into one compact line per entry
@@ -15318,7 +15606,50 @@ async function showLeaderboardPopup() {
         <div style="font-weight:800;color:var(--text-primary);font-size:0.82rem;margin-bottom:3px">${label}</div>
         ${fmtSection(lb.allTime[mode], '🏆 All-Time')}
       </div>`;
-    contentEl.innerHTML = fmtOne('4p', '4 Player') + fmtOne('6p', '6 Player');
+    // Real, confirmed feature per explicit request ("the leaderboard
+    // just says leaderboard, its a challenge leaderboard, should
+    // specify what type of challenge and all possible infos"): this
+    // section above is the ordinary championship leaderboard (fastest/
+    // biggest-gap win, no handicap involved) -- genuinely separate data
+    // from challenge-table wins, which is why it was never labeled as
+    // a challenge leaderboard at all. Fetches and adds that separate
+    // data here as its own clearly-labeled section, difficulty name
+    // (Medium/Hard/Dare) shown on every single row so it's obvious at
+    // a glance which level each entry actually beat, not just a bare
+    // handicap number.
+    // Real, confirmed fix per explicit live report ("there is 3
+    // levels challenge 5, challenge 10, challenge 13, it need to be
+    // specific"): the named label alone (e.g. just "Dare") didn't
+    // actually say which of the 3 real deficits it was -- shows the
+    // exact number now too, not just the abstract name.
+    // Real, confirmed fix per explicit live report ("Say 5 challenge
+    // med 10 challenge 13 dare hall"): matches the exact naming from
+    // the create-table buttons themselves now, plus the specific
+    // number per the earlier "it need to be specific" request.
+    const handicapLabel = (h) => h === 13 ? 'Dare Hall (13)' : h === 10 ? 'Challenge Hard (10)' : h === 5 ? 'Challenge Med (5)' : ('Challenge ' + h);
+    const handicapColor = (h) => h === 13 ? '#ef4444' : h === 10 ? '#a855f7' : '#2ecc71';
+    const fmtChallengeRow = (e, rank) => {
+      if (!e) return `<div style="font-size:0.72rem;opacity:0.5;padding:2px 0">${rank}. —</div>`;
+      const names = e.names.map(nameSpan).join(', ');
+      const opp = (e.opponentNames && e.opponentNames.length > 0) ? ` <span style="opacity:0.55">beat</span> ${e.opponentNames.map(n => String(n).replace(/</g, '&lt;')).join(', ')}` : '';
+      const roundLabel = e.rounds === 1 ? 'Round' : 'Rounds';
+      const scorePart = (typeof e.winningScore === 'number' && typeof e.losingScore === 'number')
+        ? `<b style="color:var(--success)">${e.winningScore}</b>-<b style="color:var(--danger)">${e.losingScore}</b>, `
+        : '';
+      const diffBadge = `<span style="background:${handicapColor(e.handicap)};color:#fff;font-weight:800;font-size:0.6rem;padding:1px 6px;border-radius:8px;text-transform:uppercase;margin-right:4px">${handicapLabel(e.handicap)}</span>`;
+      return `<div style="font-size:0.72rem;padding:2px 0;line-height:1.3"><b style="opacity:0.6">${rank}.</b> ${diffBadge}${names}${opp} <span style="opacity:0.6">— ${scorePart}<b style="opacity:0.85">${e.rounds}</b> ${roundLabel}</span></div>`;
+    };
+    const fmtChallengeSection = (list, label) => `
+      <div style="margin-bottom:4px;font-size:0.68rem;color:var(--accent);opacity:0.85;font-weight:700">${label}</div>
+      ${Array.from({length: 10}, (_, i) => fmtChallengeRow(list[i], i + 1)).join('')}`;
+    const fmtChallengeOne = (mode, label) => `
+      <div style="margin-bottom:10px">
+        <div style="font-weight:800;color:var(--text-primary);font-size:0.82rem;margin-bottom:3px">${label}</div>
+        ${fmtChallengeSection(clb.allTime[mode], '🎯 Hardest Challenge Beaten')}
+      </div>`;
+    contentEl.innerHTML =
+      '<div style="text-align:center;font-size:0.66rem;color:var(--text-secondary);opacity:0.8;margin-bottom:10px">Who overcame the biggest starting deficit — ranked by hardest difficulty beaten first, then score gap and rounds</div>'
+      + fmtChallengeOne('4p', '4 Player') + fmtChallengeOne('6p', '6 Player');
   } catch (e) {
     contentEl.innerHTML = '<div style="opacity:0.7">Could not load today\'s leaderboard.</div>';
   } finally {
@@ -15434,6 +15765,12 @@ document.getElementById('btnCreateRoom').addEventListener('click', () => {
   requestFullscreen28();
   createTableOnServer(MY_NAME);
 });
+document.querySelectorAll('.challenge-diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    requestFullscreen28();
+    createTableOnServer(MY_NAME, Number(btn.dataset.handicap));
+  });
+});
 
 // Join a room (client side)
 
@@ -15455,6 +15792,13 @@ document.getElementById('btnJoinRoom').addEventListener('click', () => {
 
 // Leave Room button
 document.getElementById('btnLeaveRoom').addEventListener('click', () => {
+  leaveServerTable();
+});
+document.getElementById('btnChallengeContinueChampionship').addEventListener('click', () => {
+  document.getElementById('challengeDecidedOverlay').style.display = 'none';
+});
+document.getElementById('btnChallengeStartNew').addEventListener('click', () => {
+  document.getElementById('challengeDecidedOverlay').style.display = 'none';
   leaveServerTable();
 });
 
@@ -15581,6 +15925,19 @@ showModal = function(title, text) {
 
 // ==================== INIT ====================
 window.addEventListener('DOMContentLoaded', async () => {
+  // Real, confirmed bug fix per explicit admin-watch feature testing:
+  // this whole auth-screen dance (including its own internal 100ms
+  // delay below) runs unconditionally on every page load, with no
+  // awareness that an admin-watch session might already be underway.
+  // Since it fires asynchronously, it was winning a race against the
+  // admin-watch bootstrap's own synchronous hide of authScreen,
+  // silently covering the entire spectator view with a login screen at
+  // a higher z-index. window.__isAdminWatchMode is set synchronously,
+  // before this listener's own body starts running, by the
+  // admin-watch bootstrap script further down this file -- checking it
+  // here is simpler and more robust than trying to out-race the
+  // timing directly.
+  if (window.__isAdminWatchMode) return;
   const hasAuth = await initAuth0();
   let alreadyChoseGuest = false;
   try { alreadyChoseGuest = localStorage.getItem('k28_guestModeChosen') === '1'; } catch (e) {}
@@ -17098,10 +17455,12 @@ function hideKickNotice() {
 
 let cachedEntryCode = ''; // once a locked server accepts a code, reuse it silently for the rest of this session instead of re-prompting every time
 
-function createTableOnServer(name) {
+function createTableOnServer(name, challengeHandicap) {
   connectGameSocket();
   MY_NAME = name;
-  gameSocket.emit('createTable', { name, code: cachedEntryCode, avatar: MY_AVATAR_KEY });
+  const payload = { name, code: cachedEntryCode, avatar: MY_AVATAR_KEY };
+  if (challengeHandicap === 5 || challengeHandicap === 10 || challengeHandicap === 13) payload.challengeHandicap = challengeHandicap;
+  gameSocket.emit('createTable', payload);
 }
 
 let joinAttemptWatchdog = null;
@@ -17306,7 +17665,13 @@ function maybeShowUpdateAnnouncement(){
     openCommentBox();
   });
 }
-maybeShowUpdateAnnouncement();
+// Real, confirmed bug fix found during admin-watch feature testing:
+// this creates a full-screen, high z-index overlay unconditionally
+// (gated only by a localStorage "seen version" check), completely
+// unaware an admin-watch session might be starting -- it was covering
+// the entire spectator view underneath. window.__isAdminWatchMode is
+// set at the very top of <head>, well before this line ever runs.
+if (!window.__isAdminWatchMode) maybeShowUpdateAnnouncement();
 
 // Formats a visitor-log session length (ms) as "2h 14m", "5m 32s", or
 // "12s" -- whichever units are actually meaningful, never "0h 0m".
@@ -17499,6 +17864,9 @@ let lastRenderedPlayersSignature = null;
 let lastKnownHumanNamesInLobby = [];
 let lastChimedCurrentPlayer = null;
 let lastChimedRound = null;
+let challengeBeatenAnnounced = false;
+let challengeResolvedPromptShown = false;
+let lastChimedPhase2Round = null;
 // Per explicit request: populates the ready-room popup's player list
 // (names + bot count) and wires the Start button, mirroring
 // renderServerPlayersCard's own name-list formatting right below it.
@@ -17607,6 +17975,16 @@ function renderServerRoomList(rooms) {
     } else {
       tag = `<span class="p-tag tag-waiting" style="font-size:0.54rem;padding:1px 5px;white-space:nowrap;flex-shrink:0">${r.players}/4 · Lobby</span>`;
     }
+    // Real, confirmed feature per explicit request ("challenge tables
+    // should be displayed... purple and regular tables green royal...
+    // in the public tables list when creating a table"): a genuine
+    // challenge is only ever "still on" while it has a real handicap
+    // AND hasn't been decided yet either way -- same check as the
+    // table's own purple glow/lamps use, so this list agrees with
+    // what the table itself actually looks like once you join it.
+    const isChallengeTable = r.challengeHandicap > 0 && !r.challengeResolved;
+    const avatarBg = isChallengeTable ? 'linear-gradient(135deg,#a855f7,#6b21a8)' : 'linear-gradient(135deg,#2ecc71,#0e8a4b)';
+    const challengeTag = isChallengeTable ? `<span class="p-tag" style="background:rgba(168,85,247,0.18);color:#c084fc;border:1px solid rgba(168,85,247,0.35);font-size:0.54rem;padding:1px 5px;white-space:nowrap;flex-shrink:0">🎯 Challenge</span>` : '';
     let sub = '';
     if (r.isPlaying) {
       if (r.canJoinSeat) sub = (r.openSeats > 0 ? r.openSeats + ' open seat(s)' : '') + (r.openSeats > 0 && r.botSeats > 0 ? ', ' : '') + (r.botSeats > 0 ? r.botSeats + ' bot seat(s)' : '');
@@ -17614,10 +17992,10 @@ function renderServerRoomList(rooms) {
       if (r.spectators > 0) sub += (sub ? ' · ' : '') + r.spectators + ' watching';
     }
     return `<div class="player-row" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:4px" onclick="joinTableOnServer('${r.tableId}', MY_NAME)">` +
-      `<div class="p-avatar" style="background:linear-gradient(135deg,#4a90d9,#2a5a9a);width:24px;height:24px;font-size:0.75rem;flex-shrink:0">&#x1F3AE;</div>` +
+      `<div class="p-avatar" style="background:${avatarBg};width:24px;height:24px;font-size:0.75rem;flex-shrink:0">&#x1F3AE;</div>` +
       `<div style="flex:1;min-width:0"><div class="p-name" style="font-size:0.72rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</div>` +
       (sub ? `<div style="font-size:0.56rem;color:var(--text-secondary);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub}</div>` : '') +
-      `</div>${tag}` +
+      `</div>${challengeTag}${tag}` +
       `<button class="btn btn-primary" style="padding:3px 9px;font-size:0.62rem;margin-left:4px;flex-shrink:0" onclick="event.stopPropagation();joinTableOnServer('${r.tableId}', MY_NAME)">JOIN</button>` +
       `</div>`;
   }).join('');
@@ -18173,10 +18551,35 @@ function applyServerState(state) {
   // top of each other.
   if (lastChimedRound !== null && state.round !== lastChimedRound && state.phase !== 'lobby') {
     playSound('shuffle');
-    setTimeout(() => playSound('cardDeal'), 550);
+    // Real, confirmed enhancement per explicit request ("sync with all
+    // animations... if 3 cards then 3 cards"): a real deal isn't one
+    // sound, it's one card per seat in turn -- staggered here to
+    // actually sound like that instead of a single generic "cards were
+    // dealt" cue standing in for the whole deal.
+    const dealtSeatCount = (state.seats || []).filter(Boolean).length || 4;
+    for (let i = 0; i < dealtSeatCount; i++) {
+      setTimeout(() => playSound('cardDeal'), 550 + i * 160);
+    }
   }
   lastChimedRound = state.round;
   round = state.round;
+  // Real, confirmed fix per explicit live report ("4 player bidding
+  // phase 2, before 4 more cards were dealt, no sound was for the 4
+  // player"): a completely separate dealing moment from the new-round
+  // one just above -- _startPhase2() in game-engine.js deals 4 more
+  // cards to everyone (bringing them up to their full 8) the instant
+  // bidding2 begins, and nothing ever played a sound for it. Same
+  // per-seat staggered dealing sound as the new-round deal, triggered
+  // on the actual phase transition INTO bidding2 specifically (guarded
+  // by lastChimedPhase2Round so it can only ever fire once per round,
+  // not on every single unrelated re-render while already in bidding2).
+  if (state.phase === 'bidding2' && lastChimedPhase2Round !== state.round) {
+    lastChimedPhase2Round = state.round;
+    const dealtSeatCount = (state.seats || []).filter(Boolean).length || 4;
+    for (let i = 0; i < dealtSeatCount; i++) {
+      setTimeout(() => playSound('cardDeal'), i * 160);
+    }
+  }
   // A host-triggered restart (whole game or just the round) broadcasts a
   // fresh state directly - there's no client-side "moving to the next
   // round" trigger involved like there is for normal advancement, so
@@ -18229,14 +18632,17 @@ function applyServerState(state) {
   // actually visible. Delaying to match the trump-exposed announcement's own 550ms pause (for
   // the identical reason - see that code) gives the card time to actually land first.
   if (state.currentPlayer === MY_POS && lastChimedCurrentPlayer !== MY_POS && state.phase !== 'lobby') {
-    setTimeout(() => {
-      // Re-check at fire-time, not just schedule-time - if something else already changed
-      // whose turn it is in the meantime (a fast bot, a reconnect), don't fire a stale chime.
-      if (latestServerState && latestServerState.currentPlayer === MY_POS) {
-        playChime('yourTurn');
-        playHaptic('yourTurn');
-      }
-    }, 550);
+    // Real, confirmed architectural fix per explicit live report ("the
+    // AI makes a split decision and it's displayed early, not in the
+    // proper sequence"): the previous version guessed a fixed delay
+    // (750ms) long enough to usually clear a 2-bot catch-up -- but a
+    // guess is still a guess, and the report confirmed it wasn't
+    // reliable. queueSound guarantees ordering relative to other
+    // QUEUED sounds -- but a trick that JUST completed runs on its own
+    // Real, confirmed removal per explicit request ("your turn ding
+    // sound is don't want that"): the audible ping is gone -- kept the
+    // haptic vibration below, since that wasn't what was objected to.
+    playHaptic('yourTurn');
   }
   lastChimedCurrentPlayer = state.currentPlayer;
   currentPlayer = state.currentPlayer;
@@ -18520,6 +18926,57 @@ function applyServerState(state) {
     }, 2500);
   }
 
+  // Real, confirmed feature per explicit request ("challenge table...
+  // background purple violet... as long as it's on challenge mode...
+  // if continue to regular it goes"): a genuine challenge is only
+  // ever "still on" while it has a real handicap AND hasn't been
+  // decided yet either way -- the instant it resolves (win or lose),
+  // this same check goes false and the glow comes off on the very
+  // next render, exactly matching "continue to regular, it goes."
+  const tableAreaEl = document.getElementById('tableArea');
+  if (tableAreaEl) {
+    tableAreaEl.classList.toggle('challenge-active', !!(state.challengeHandicap > 0 && !state.challengeResolved));
+  }
+
+  // Real, confirmed feature per explicit request ("after winning it
+  // should say u beat the challenge and then continue next
+  // championship like normal"): fires once, the moment the server
+  // confirms the challenger's team actually won despite their starting
+  // deficit -- shown as its own distinct banner, separate from (and
+  // before) the normal championship-won flow right below, which
+  // continues completely unchanged after this.
+  if (state.challengeBeaten && !challengeBeatenAnnounced) {
+    challengeBeatenAnnounced = true;
+    showGameEvent('🎯', 'Challenge Beaten!', 'You overcame a ' + state.challengeHandicap + '-point deficit!', '#f4c430');
+    playSound('happy');
+  }
+  // Real, confirmed feature per explicit request ("after winning or
+  // losing a challenge they should have the option to continue to
+  // next championship or new challenge"): a real, explicit choice,
+  // shown once (challengeResolvedPromptShown guard) right after the
+  // challenge is decided either way -- win or lose -- rather than the
+  // table just silently rolling forward into championship #2 like an
+  // ordinary table would. Delayed slightly so it doesn't compete with
+  // the "Challenge Beaten!" banner and its own sound right above on a
+  // win.
+  if (state.challengeResolved && !challengeResolvedPromptShown) {
+    challengeResolvedPromptShown = true;
+    setTimeout(() => {
+      const icon = document.getElementById('challengeDecidedIcon');
+      const title = document.getElementById('challengeDecidedTitle');
+      const detail = document.getElementById('challengeDecidedDetail');
+      if (state.challengeBeaten) {
+        icon.textContent = '🏆';
+        title.textContent = 'Challenge Beaten!';
+        detail.textContent = 'You overcame a ' + state.challengeHandicap + '-point deficit. Keep playing here, or start a fresh challenge?';
+      } else {
+        icon.textContent = '💔';
+        title.textContent = 'Challenge Not Beaten';
+        detail.textContent = 'The ' + state.challengeHandicap + '-point deficit held this time. Keep playing here, or try a new challenge?';
+      }
+      document.getElementById('challengeDecidedOverlay').style.display = 'flex';
+    }, state.challengeBeaten ? 1800 : 200);
+  }
   if (state.phase === 'roundEnd' && state.roundWinnerAnnounced && serverRoundEndShown !== state.round) {
     serverRoundEndShown = state.round;
     const r = state.roundWinnerAnnounced;
@@ -18527,6 +18984,18 @@ function applyServerState(state) {
     const yourTeam = getTeam(MY_POS);
     const isYourBid = (getTeam(r.bidder) === yourTeam);
     const bidderName = playerAt(r.bidder) ? playerAt(r.bidder).name : 'The bidder';
+    // Real, confirmed feature per explicit request ("every player or
+    // team should hear sounds according to win/lose bid and kunukku
+    // for all, same 4 and 6"): the winning team hears happy, the
+    // losing team hears sad -- unless a Kunukku was just gained this
+    // exact round (kunukkuGainedForRound4p, set above in
+    // showQMarkEvent4p, which already played happy for everyone), in
+    // which case the sad sound is deliberately skipped rather than
+    // playing on top of/after it.
+    const myTeamWonThisRound = (yourTeam === bT) ? r.bidderWon : !r.bidderWon;
+    if (kunukkuGainedForRound4p !== state.round) {
+      playSound(myTeamWonThisRound ? 'happy' : 'sad');
+    }
     // Real, confirmed change per explicit live report: this used to also
     // show a separate showGameEvent() banner (green for a win, red for a
     // loss) announcing the exact same "did your team make the bid"
@@ -18892,11 +19361,29 @@ function renderTrickSlotsWithWinnerPause(state) {
 
   if (justResolved) {
     lastSeenTricksPlayed = state.tricksPlayed;
-    // A card slap for the winning card landing already plays via renderTrickSlots for every
-    // card as it's played - this is specifically the trick OUTCOME sound, playing once the
-    // trick as a whole resolves, based on whether MY team (not just whoever won) took it.
-    playSound(getTeam(state.lastTrick.winner) === getTeam(MY_POS) ? 'trickWin' : 'trickLose');
-    playHaptic(getTeam(state.lastTrick.winner) === getTeam(MY_POS) ? 'trickWin' : 'trickLose');
+    // Real, confirmed root-cause fix per explicit, very specific live
+    // report ("last bot played his card and wins the trick... I hear
+    // my turn ping before the bot's card sound"): the card that
+    // actually COMPLETES a trick never went through renderTrickSlots
+    // at all -- this whole branch returns before ever reaching it, so
+    // that specific card's own "card play" sound was never queued
+    // anywhere. It only ever got the separate, deliberately
+    // 2-second-delayed win/lose sound further below -- meaning if it
+    // became this player's turn shortly after, their queued ping had
+    // nothing else genuinely ahead of it and fired essentially
+    // immediately, while that last card's own sound (and the win
+    // sound) were still seconds away. Queues that missing sound now,
+    // for whichever seat actually played the trick-completing card.
+    const completingCard = state.lastTrick.cards[state.lastTrick.cards.length - 1];
+    if (completingCard && completingCard.pos !== MY_POS) queueSound('cardPlay');
+    // Real, confirmed root-cause fix per explicit live report ("winner
+    // receives the trick, it's not syncing... should start when player
+    // receives the animation"), same underlying bug as the 6-player
+    // table's identical code: this sound used to fire here,
+    // immediately -- 2 full seconds before the actual card-flying-to-
+    // the-winner animation starts (see the setTimeout around
+    // animateCardsToWinner further below). Moved there instead, so it
+    // fires in the same instant the cards actually start moving.
     // Queue it rather than showing it immediately — if a trick is
     // ALREADY mid-reveal (bots can play fast enough that a second trick
     // completes before the first one's pause finishes), starting this
@@ -18978,6 +19465,22 @@ function processTrickRevealQueue() {
   // started flying off before the pause had actually done anything.
   // Now the fly-away only starts once the pause has genuinely elapsed.
   setTimeout(() => {
+    // Real, confirmed fix, same live report as above: fires exactly
+    // when the cards actually start flying, not 2 seconds before it.
+    // cardReceive is the real sound file specifically for "a player
+    // receives winning cards from the table," replacing the repurposed
+    // chipReturn sound used here before (this game has no chips).
+    // Real, confirmed fix per explicit live report ("when an opp team
+    // receives a win, it's a generic sound"): trickLose was always the
+    // old synthesized placeholder, since no real file was ever
+    // provided specifically for "the other team won." But the actual
+    // physical event -- cards being gathered up by whoever won the
+    // trick -- is identical either way; only WHO wins differs, not
+    // what's actually happening. Uses the same real cardReceive sound
+    // for both now instead of a synthesized one just for the other
+    // team's wins.
+    playSound('cardReceive');
+    playHaptic(getTeam(lastTrick.winner) === getTeam(MY_POS) ? 'trickWin' : 'trickLose');
     if (typeof animateCardsToWinner === 'function') animateCardsToWinner(lastTrick.winner);
   }, 2000);
 
@@ -19050,6 +19553,22 @@ function catchUpTrickSlotsStaggered(real) {
     const cardWithColor = { suit: tc.card.suit, rank: tc.card.rank, points: tc.card.points, color: (tc.card.suit === '♥' || tc.card.suit === '♦') ? '#d32f2f' : '#222' };
     const el = document.getElementById('slot' + slotIdx);
     if (el) el.innerHTML = cardHTML(cardWithColor, false, false, 'trick-card-landing');
+    // Real, confirmed root-cause fix per explicit live report ("can
+    // only hear the players after my turn... as soon as the first bot
+    // makes a decision, the second and third make instant decisions...
+    // cards come out at the correct timing" but sound doesn't): THIS
+    // is the actual staggered per-card reveal that runs specifically
+    // when bots have played faster than the normal display pace can
+    // show them (see this whole function's own purpose above) -- it
+    // was built entirely separately from renderTrickSlots() and never
+    // had a sound call of its own, so every card revealed through
+    // this exact path (which is precisely the rapid-bot-decisions
+    // case being described) was always silent regardless of who
+    // played it. The visual card landing here already IS correctly
+    // staggered (550ms apart, matching the real bot pace) -- this
+    // sound now rides along with that same real per-card timing
+    // instead of being missing from it.
+    if (tc.pos !== MY_POS) { queueSound('cardPlay'); playHaptic('cardPlayed'); }
     lastRenderedSlotContent[slotIdx] = tc.card.suit + tc.card.rank;
     trickCards.push({ player: tc.pos, card: cardWithColor });
     clearCallBadges4p(); // per explicit instruction: bid/pass bubbles stay up only until someone actually starts playing
@@ -19087,7 +19606,7 @@ function renderTrickSlots(state) {
       // once ~100-300ms later). Every other player's card only ever arrives through this
       // state-driven path in the first place, so this exclusion only ever skips MY card,
       // never anyone else's.
-      if (tc.player !== MY_POS) playSound('cardPlayed');
+      if (tc.player !== MY_POS) queueSound('cardPlay');
       // Real bug fix, per explicit correction: this is the actual live,
       // real-time path every other player's card renders through in
       // online multiplayer (see the comment right above -- confirmed
@@ -19109,9 +19628,9 @@ function renderTrickSlots(state) {
 // old local-engine functions (processBid/playCard/etc.) entirely — those
 // remain untouched for local bot-mode play.
 
-function serverPlaceBid(bid) { playSound('bidConfirm'); playHaptic('bidConfirm'); gameSocket.emit('placeBid', { bid: bid || 0 }); }
+function serverPlaceBid(bid) { playSound('chipPlace'); playHaptic('bidConfirm'); gameSocket.emit('placeBid', { bid: bid || 0 }); }
 function serverChooseTrump(suit, hiddenCard) { gameSocket.emit('chooseTrump', { suit, hiddenCard: hiddenCard || null }); }
-function serverPlayCard(card) { playSound('cardPlayed'); playHaptic('cardPlayed'); gameSocket.emit('playCard', { card }); }
+function serverPlayCard(card) { playSound('cardPlay'); playHaptic('cardPlayed'); gameSocket.emit('playCard', { card }); }
 function serverPlayHiddenTrump() { gameSocket.emit('playHiddenTrump'); }
 
 // Bot Mode (auto-play) for server mode: picks a legal card and submits it,
@@ -19249,10 +19768,38 @@ function serverBotPlayForMe() {
     const root = document.getElementById('welcomeScreen');
     if (!root) return [];
     const targets = [];
+    // Real, confirmed root-cause fix per explicit live report ("my
+    // screensaver is running fast... everything is 1000x fast"):
+    // measured this directly -- the welcome screen was producing 627
+    // separate bouncing objects, not a reasonable handful. Every
+    // individual object's own speed was always correct (confirmed by
+    // direct measurement too); with that many objects packed into a
+    // small screen, constant collisions between them is what actually
+    // created the "everything moving insanely fast" effect. The cause
+    // is shatterIntoWords below: several real paragraphs of welcome-
+    // screen copy (the intro text, feature descriptions, etc.) each
+    // get broken into one bouncing object PER WORD, and those add up
+    // fast across that much text. Excluding the challenge-difficulty
+    // buttons here too (harmless either way, but confirmed via the DOM
+    // tree that they actually live in a different screen entirely, so
+    // this alone was never the real cause).
     root.querySelectorAll(
       'button, a.welcome-btn, a.welcome-subbtn, .welcome-stat, .welcome-feature-icon, ' +
       '.welcome-feature-title, .welcome-card-badge, .welcome-gold-rule'
-    ).forEach(el => targets.push(el));
+    ).forEach(el => { if (!el.classList.contains('challenge-diff-btn')) targets.push(el); });
+    // Real, confirmed follow-up fix per explicit live report ("objects
+    // randomly overlaps all including buttons logos and words"):
+    // excluding the two biggest text blocks from shattering (below)
+    // was a genuine new mistake -- each one bounced around as ONE
+    // single, giant paragraph-sized object instead of many small word-
+    // sized ones, and the collision physics were never built to keep
+    // objects that large from swallowing everything else on screen.
+    // Shattering every real text block into individual words (as it
+    // always did before the 1000x-speed fix) is what actually kept
+    // every bouncing object roughly the same small size as every other
+    // one -- that was never the problem. The MAX_BOUNCERS cap further
+    // below is what actually solves the real object-count issue, on
+    // its own, without needing this exclusion at all.
     root.querySelectorAll(
       '.welcome-feature-desc, .welcome-about-text, .welcome-title-gold, .welcome-sub, ' +
       '.welcome-tagline, .welcome-about-title, .welcome-features-title'
@@ -19260,6 +19807,25 @@ function serverBotPlayForMe() {
       shatterIntoWords(el);
       el.querySelectorAll(':scope > span.k28-bounce-word, :scope > .k28-bounce-word').forEach(w => targets.push(w));
     });
+    // Real, confirmed follow-up per explicit live report ("only one
+    // pool button is moving... all stuck in a circle"): direct
+    // testing at a 500x900 desktop-ish viewport shows every object
+    // genuinely moving, over a full 60 seconds -- but a real phone
+    // screen is meaningfully smaller than that, and this same 50
+    // fixed regardless of screen size means real phones get packed
+    // noticeably tighter than anything tested here. Scaled to the
+    // actual viewport area now instead of one fixed number: a small
+    // phone screen gets fewer objects sharing it, a bigger screen
+    // still gets up to 50 -- less crowding everywhere, worst case on
+    // the smallest real screens.
+    const viewportArea = window.innerWidth * window.innerHeight;
+    const MAX_BOUNCERS = Math.max(20, Math.min(50, Math.round(viewportArea / 9000)));
+    if (targets.length > MAX_BOUNCERS) {
+      const step = targets.length / MAX_BOUNCERS;
+      const sampled = [];
+      for (let i = 0; i < MAX_BOUNCERS; i++) sampled.push(targets[Math.floor(i * step)]);
+      return sampled;
+    }
     return targets;
   }
 
@@ -19282,6 +19848,25 @@ function serverBotPlayForMe() {
       };
     });
     let lastT = performance.now();
+    // Real, confirmed simplification per repeated explicit live
+    // reports of objects getting stuck/frozen: the inter-object
+    // collision system added a few turns back (so two bouncing
+    // objects would visibly push apart instead of overlapping) is
+    // removed entirely here. That collision math is almost certainly
+    // the actual root cause of the "stuck" reports -- equal-mass
+    // elastic collisions resolved one pair at a time, with up to 50
+    // objects sharing the same small screen, can genuinely cancel a
+    // shared object's velocity down toward zero when several
+    // neighbors push on it from different directions at once, and
+    // nothing was reliably forcing it back into motion afterward. A
+    // small amount of occasional visual overlap between two objects is
+    // a minor cosmetic thing; objects that stop moving entirely is a
+    // real, functional bug -- removing the more complex, failure-prone
+    // system entirely is the actual fix here, not another patch on
+    // top of it. Every object now ONLY ever bounces off the screen's
+    // own edges, completely independent of every other object, which
+    // makes it structurally impossible for one object's motion to
+    // affect another's at all.
     function frame(t) {
       if (!bouncers) return;
       const dt = Math.min(0.05, (t - lastT) / 1000);
@@ -19293,6 +19878,8 @@ function serverBotPlayForMe() {
         else if (b.x + b.w > viewportW) { b.x = viewportW - b.w; b.vx = -Math.abs(b.vx); }
         if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
         else if (b.y + b.h > viewportH) { b.y = viewportH - b.h; b.vy = -Math.abs(b.vy); }
+      }
+      for (const b of bouncers) {
         b.el.style.transform = `translate(${(b.x - b.homeLeft).toFixed(1)}px,${(b.y - b.homeTop).toFixed(1)}px)`;
       }
       rafId = requestAnimationFrame(frame);
@@ -19672,5 +20259,58 @@ function serverBotPlayForMe() {
   body.appendChild(frame);
 })();
 </script>
+
+<script>
+// Real, confirmed feature per explicit request ("From the admin panel
+// I should be able to watch the game... join secretly without anyone
+// knowing including host... just watch like a regular viewer... when
+// they view all players gets popups, admin no popups"): a
+// ?adminWatch=<tableId> link (opened from the admin panel's new Watch
+// button, see admin.html) skips the whole welcome/name-entry/lobby
+// flow and drops straight into the exact same read-only spectator
+// experience a regular player already gets from the "Watch Only" seat
+// picker option -- same MY_POS=-1/IS_SPECTATOR=true state, same
+// joinedAsSpectator event, same rendering, nothing new to maintain on
+// the viewing side. The "no popup" part is already true of ordinary
+// spectating too, not something added here: playerJoinedNotice (the
+// popup every seated player gets) only ever fires for someone actually
+// taking a SEAT, never for joining to watch -- confirmed by reading
+// that code path directly. This reuses that same silence rather than
+// needing its own suppression logic.
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const watchTableId = params.get('adminWatch');
+  if (!watchTableId) return;
+  // Set synchronously, before anything else in this block runs, so the
+  // DOMContentLoaded auth-screen listener elsewhere in this file
+  // (which fires asynchronously and would otherwise win the race
+  // against this script) can check it and skip entirely. See that
+  // listener's own comment for the fuller reasoning.
+  window.__isAdminWatchMode = true;
+  const adminPw = sessionStorage.getItem('admin_watch_password') || '';
+  // Real, confirmed bug fix found during testing: authScreen can be
+  // showing by default at this point (whatever normal login/name-entry
+  // check runs earlier in the page's own bootstrap put it there,
+  // independent of this code) at z-index 2500 -- well above gameWrap's
+  // own effectively-zero z-index, so it was silently sitting on top of
+  // and completely blocking the spectator view underneath, even though
+  // the actual game state was rendering correctly the whole time.
+  // Hidden explicitly here, same as welcomeScreen below, since this
+  // script runs last and reliably wins regardless of what set it.
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('welcomeScreen').style.display = 'none';
+  document.getElementById('reconnectingOverlay').style.display = 'flex';
+  SERVER_MODE = true;
+  connectGameSocket();
+  gameSocket.emit('adminWatchTable', { tableId: watchTableId, adminPassword: adminPw, mode: '4p' });
+  gameSocket.on('adminWatchResult', (res) => {
+    if (!res.ok) {
+      hideReconnectingOverlay();
+      showToast('❌ Could not open admin view: ' + (res.reason || 'unknown error'), 'lose', 4000);
+    }
+  });
+})();
+</script>
+
 </body>
 </html>

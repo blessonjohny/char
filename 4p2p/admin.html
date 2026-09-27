@@ -56,6 +56,7 @@
       <button class="tab" id="tabBots">🤖 Bot Tables</button>
       <button class="tab" id="tabGhost">🕵️ Ghost Players</button>
       <button class="tab" id="tabLeaderboard">🏆 Leaderboard</button>
+      <button class="tab" id="tabPoker">🃏 Hold'em Admin</button>
     </div>
     <div id="commentsView">
       <div class="toolbar">
@@ -137,6 +138,19 @@
             <button class="tab on" id="ghostMode4p" type="button">4-Player</button>
             <button class="tab" id="ghostMode6p" type="button">6-Player</button>
           </div>
+          <!-- Real, confirmed feature per explicit request ("ghost
+               player can also start a challenge game and should be
+               recorded in leaderboard if wins like usual"): same
+               difficulty options and colors as a normal player's own
+               challenge table -- "None" is the default, an ordinary
+               ghost table exactly as before. -->
+          <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">Challenge (optional)</div>
+          <div style="display:flex;gap:6px;margin-bottom:16px">
+            <button type="button" class="ghost-challenge-btn on" data-handicap="0" style="flex:1;padding:9px 4px;border-radius:8px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-weight:700;font-size:0.72rem;cursor:pointer">None</button>
+            <button type="button" class="ghost-challenge-btn" data-handicap="5" style="flex:1;padding:9px 4px;border-radius:8px;border:none;background:linear-gradient(135deg,#2ecc71,#0e8a4b);color:#fff;font-weight:700;font-size:0.68rem;cursor:pointer;opacity:0.5">Challenge Med</button>
+            <button type="button" class="ghost-challenge-btn" data-handicap="10" style="flex:1;padding:9px 4px;border-radius:8px;border:none;background:linear-gradient(135deg,#a855f7,#6b21a8);color:#fff;font-weight:700;font-size:0.68rem;cursor:pointer;opacity:0.5">Challenge Hard</button>
+            <button type="button" class="ghost-challenge-btn" data-handicap="13" style="flex:1;padding:9px 4px;border-radius:8px;border:none;background:linear-gradient(135deg,#ef4444,#a91e1e);color:#fff;font-weight:700;font-size:0.68rem;cursor:pointer;opacity:0.5">Dare Hall</button>
+          </div>
         </div>
         <div id="ghostJoinTableWrap" style="display:none">
           <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">
@@ -179,6 +193,13 @@
            offers one, but works regardless of hosting setup. -->
       <input type="file" id="importLeaderboardFile" accept="application/json" style="display:none">
       <div id="leaderboardContent"></div>
+    </div>
+    <div id="pokerView" style="display:none">
+      <div class="toolbar">
+        <span class="sub" id="pokerCount" style="margin:0;align-self:center">—</span>
+        <button class="btn ghost" id="btnRefreshPoker">🔄 Refresh</button>
+      </div>
+      <div id="pokerList"></div>
     </div>
   </div>
 </div>
@@ -303,6 +324,7 @@ document.getElementById('btnRefresh').addEventListener('click', refresh);
 
 // ---------------- Live players (who's currently connected, and where from) ----------------
 let liveRefreshInterval = null;
+let pokerRefreshInterval = null;
 
 function switchTab(tab) {
   document.getElementById('tabComments').classList.toggle('on', tab === 'comments');
@@ -312,6 +334,7 @@ function switchTab(tab) {
   document.getElementById('tabBots').classList.toggle('on', tab === 'bots');
   document.getElementById('tabGhost').classList.toggle('on', tab === 'ghost');
   document.getElementById('tabLeaderboard').classList.toggle('on', tab === 'leaderboard');
+  document.getElementById('tabPoker').classList.toggle('on', tab === 'poker');
   document.getElementById('commentsView').style.display = tab === 'comments' ? 'block' : 'none';
   document.getElementById('liveView').style.display = tab === 'live' ? 'block' : 'none';
   document.getElementById('visitorsView').style.display = tab === 'visitors' ? 'block' : 'none';
@@ -319,7 +342,15 @@ function switchTab(tab) {
   document.getElementById('botsView').style.display = tab === 'bots' ? 'block' : 'none';
   document.getElementById('ghostView').style.display = tab === 'ghost' ? 'block' : 'none';
   document.getElementById('leaderboardView').style.display = tab === 'leaderboard' ? 'block' : 'none';
+  document.getElementById('pokerView').style.display = tab === 'poker' ? 'block' : 'none';
   if (tab === 'leaderboard') refreshLeaderboard();
+  if (tab === 'poker') {
+    refreshPokerAdmin();
+    if (!pokerRefreshInterval) pokerRefreshInterval = setInterval(refreshPokerAdmin, 4000);
+  } else if (pokerRefreshInterval) {
+    clearInterval(pokerRefreshInterval);
+    pokerRefreshInterval = null;
+  }
   if (tab === 'live') {
     refreshLivePlayers();
     if (!liveRefreshInterval) liveRefreshInterval = setInterval(refreshLivePlayers, 5000);
@@ -366,16 +397,37 @@ function renderLivePlayers(tablesList) {
   el.innerHTML = tablesList.map(t => {
     const openFor = t.createdAt ? fmtDuration(now - t.createdAt) : '—';
     const idleFor = t.lastActivityAt ? fmtDuration(now - t.lastActivityAt) : '—';
+    // Real, confirmed feature per explicit request ("distinguish a
+    // challenge game... table names then score then names score team
+    // then score team, this way easy to understand"): a clear badge
+    // for a genuine challenge table (never shown for an ordinary one,
+    // challengeHandicap is 0 there), plus each team's own names
+    // grouped with their own current score, instead of one flat name
+    // list and a bare "12-9" with no way to tell whose score is whose.
+    const challengeBadge = t.challengeHandicap > 0
+      ? `<span style="font-size:0.66rem;padding:2px 8px;border-radius:10px;white-space:nowrap;background:rgba(168,85,247,0.18);color:#c084fc">🎯 Challenge ${esc(t.challengeHandicap)}${t.challengeBeaten ? ' · Beaten!' : ''}</span>`
+      : '';
+    const teamsHtml = (Array.isArray(t.teams) && (t.teams[0].names.length || t.teams[1].names.length))
+      ? t.teams.map((team, i) => {
+          const isChallenger = t.challengerTeam === i && t.challengeHandicap > 0;
+          const namesHtml = team.names.length
+            ? team.names.map(n => n.isBot ? esc(n.name) + ' (bot)' : `<span style="color:#ff4d4d;font-weight:700">${esc(n.name)}</span>`).join(', ')
+            : '—';
+          return `<div class="who" style="font-size:0.75rem">${isChallenger ? '🎯 ' : ''}Team ${i + 1}: ${namesHtml} <b style="color:#f4c430">${esc(team.score)}</b></div>`;
+        }).join('')
+      : '';
     return `
     <div class="live-card" style="flex-direction:column;align-items:stretch;gap:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <span class="game-badge">${esc(t.game)} · table ${esc(t.tableId)}</span>
         <span style="font-size:0.68rem;padding:2px 8px;border-radius:10px;white-space:nowrap;background:${t.isPlaying ? 'rgba(46,204,113,0.18)' : 'rgba(244,196,48,0.18)'};color:${t.isPlaying ? '#2ecc71' : '#f4c430'}">${t.isPlaying ? '🎮 Playing' : '🟢 In Lobby'}</span>
+        ${challengeBadge}
+        ${(t.mode === '4p' || t.mode === '6p') ? `<button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="watchTable('${esc(t.tableId)}', '${t.mode}')">👁 Watch</button>` : ''}
         <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="openTableChat('${esc(t.tableId)}')">💬 Chat</button>
         <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="closeTable('${esc(t.tableId)}')">✕ Close table</button>
       </div>
-      <div class="who" style="font-size:0.8rem">${renderSeatEntries(t.seatEntries, t.summary)}</div>
-      ${(t.round || (t.gameScore && (t.gameScore[0] || t.gameScore[1]))) ? `<div class="who" style="font-size:0.72rem;opacity:0.85">🃏 Round ${esc(t.round || 0)}${t.gameScore ? ` · Score ${esc(t.gameScore[0])}-${esc(t.gameScore[1])}` : ''}</div>` : ''}
+      ${t.round ? `<div class="who" style="font-size:0.72rem;opacity:0.85">🃏 Round ${esc(t.round)}</div>` : ''}
+      ${teamsHtml || `<div class="who" style="font-size:0.8rem">${renderSeatEntries(t.seatEntries, t.summary)}</div>`}
       <div class="who" style="font-size:0.7rem;opacity:0.75">🕐 Open ${openFor} · 💤 Idle ${idleFor}</div>
     </div>
   `;
@@ -393,6 +445,125 @@ async function closeTable(tableId) {
   if (data.ok) { alert(`Closed ${data.game} table ${data.tableId}.`); refreshLivePlayers(); }
   else alert('Could not close that table: ' + (data.error || 'unknown error'));
 }
+
+// ---------------- Hold'em admin (restart tournament, kick a seat, change
+// a seat's avatar, approve/deny a new player trying to join a tournament
+// already in progress) ----------------
+async function refreshPokerAdmin() {
+  const res = await adminFetch('/api/admin/poker-tables');
+  if (!res.ok) return;
+  const data = await res.json();
+  renderPokerAdmin((data.tables) || []);
+}
+function renderPokerAdmin(tablesList) {
+  const el = document.getElementById('pokerList');
+  const countEl = document.getElementById('pokerCount');
+  countEl.textContent = `${tablesList.length} Hold'em table${tablesList.length === 1 ? '' : 's'} running`;
+  if (!tablesList.length) { el.innerHTML = '<div class="empty">No Hold\'em tables running right now.</div>'; return; }
+  window._pokerTablesById = {};
+  tablesList.forEach(t => { window._pokerTablesById[t.tableId] = t; });
+  el.innerHTML = tablesList.map(t => {
+    const seatRows = t.seats.map((s, pos) => {
+      if (!s) return `<div class="who" style="font-size:0.75rem;opacity:0.5">Seat ${pos + 1}: empty</div>`;
+      return `
+        <div class="who" style="font-size:0.78rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="flex:1 1 auto;min-width:120px">Seat ${pos + 1}: ${esc(s.name)}${s.isBot ? ' (bot)' : ''}${s.connected === false ? ' (disconnected)' : ''}${s.eliminated ? ' — eliminated' : ''} · ${esc(s.chips)} chips</span>
+          <input type="text" placeholder="avatar (e.g. toon5)" value="${esc(s.avatar || '')}" style="width:110px;font-size:0.72rem;background:rgba(255,255,255,0.05);color:var(--text);border:1.5px solid var(--border);border-radius:6px;padding:3px 6px" id="pokerAvatarInput_${esc(t.tableId)}_${pos}">
+          <button class="btn ghost" style="padding:3px 8px;font-size:0.7rem" onclick="setPokerAvatar('${esc(t.tableId)}', ${pos})">Set avatar</button>
+          <button class="btn ghost" style="padding:3px 8px;font-size:0.7rem" onclick="kickPokerSeat('${esc(t.tableId)}', ${pos}, '${esc(s.name)}')">✕ Kick</button>
+        </div>`;
+    }).join('');
+    const pendingRows = (t.pendingJoinRequests || []).map(r => `
+      <div class="who" style="font-size:0.78rem;display:flex;align-items:center;gap:6px;background:rgba(244,196,48,0.1);border-radius:6px;padding:4px 8px">
+        <span style="flex:1 1 auto">⏳ ${esc(r.name)} wants to join</span>
+        <button class="btn ghost" style="padding:3px 8px;font-size:0.7rem" onclick="approvePokerJoin('${esc(t.tableId)}', '${esc(r.playerId)}')">✓ Approve</button>
+        <button class="btn ghost" style="padding:3px 8px;font-size:0.7rem" onclick="denyPokerJoin('${esc(t.tableId)}', '${esc(r.playerId)}')">✕ Deny</button>
+      </div>`).join('');
+    return `
+    <div class="live-card" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <span class="game-badge">🃏 ${esc(t.name || t.tableId)} · ${esc(t.mode)} · hand ${esc(t.handNumber)}</span>
+        <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="watchPokerTable('${esc(t.tableId)}')">👁 Watch</button>
+        <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="restartPokerTournament('${esc(t.tableId)}')">🔁 Restart tournament</button>
+        <button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="closeTable('${esc(t.tableId)}')">✕ Close table</button>
+      </div>
+      ${pendingRows ? `<div style="display:flex;flex-direction:column;gap:4px">${pendingRows}</div>` : ''}
+      <div style="display:flex;flex-direction:column;gap:4px">${seatRows}</div>
+    </div>`;
+  }).join('');
+}
+// Real, confirmed feature per explicit request ("From the admin panel
+// I should be able to watch the game... same like a viewer clicking
+// from the view when they join, only difference no notifications is
+// sent to host, its the admin view only for admin"): opens holdem.html
+// in a new tab in a silent, read-only spectator mode -- no seat, no
+// notification to the host, can't see anyone's hole cards. The
+// password travels via sessionStorage rather than the URL (same
+// reasoning as adminFetch's own header-over-query-string choice above:
+// a URL is the wrong place for a secret), which the new tab reads once
+// on load and never needs to persist beyond that.
+// Real, confirmed feature per explicit request ("From the admin panel
+// I should be able to watch the game... I was talking about 4 player
+// and 6 player... join secretly without anyone knowing including
+// host"): opens the real 4-player (index.html) or 6-player (six.html)
+// client in a new tab in the exact same silent, read-only spectator
+// mode a regular "Watch Only" join already uses -- no seat, no
+// notification to anyone, can't see anyone's hand. Same
+// sessionStorage-over-URL password handling as watchPokerTable below.
+function watchTable(tableId, mode) {
+  sessionStorage.setItem('admin_watch_password', PASSWORD);
+  const page = mode === '6p' ? 'six.html' : 'index.html';
+  window.open(`/${page}?adminWatch=${encodeURIComponent(tableId)}`, '_blank');
+}
+function watchPokerTable(tableId) {
+  sessionStorage.setItem('admin_watch_password', PASSWORD);
+  window.open(`/holdem.html?adminWatch=${encodeURIComponent(tableId)}`, '_blank');
+}
+async function restartPokerTournament(tableId) {
+  if (!confirm(`Restart this tournament? Every seated player's chips reset back to the starting amount and the hand count goes back to 0. Who's actually seated is left alone.`)) return;
+  const res = await adminFetch('/api/admin/poker-restart', undefined, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tableId })
+  });
+  const data = await res.json();
+  if (data.ok) refreshPokerAdmin();
+  else alert('Could not restart: ' + (data.error || 'unknown error'));
+}
+async function kickPokerSeat(tableId, pos, name) {
+  if (!confirm(`Remove ${name} from this table immediately?`)) return;
+  const res = await adminFetch('/api/admin/poker-kick', undefined, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tableId, pos })
+  });
+  const data = await res.json();
+  if (data.ok) refreshPokerAdmin();
+  else alert('Could not kick: ' + (data.error || 'unknown error'));
+}
+async function setPokerAvatar(tableId, pos) {
+  const input = document.getElementById(`pokerAvatarInput_${tableId}_${pos}`);
+  const avatar = input ? input.value.trim() : '';
+  const res = await adminFetch('/api/admin/poker-set-avatar', undefined, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tableId, pos, avatar })
+  });
+  const data = await res.json();
+  if (data.ok) refreshPokerAdmin();
+  else alert('Could not set avatar: ' + (data.error || 'unknown error'));
+}
+async function approvePokerJoin(tableId, requestPlayerId) {
+  const res = await adminFetch('/api/admin/poker-approve-join', undefined, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tableId, requestPlayerId })
+  });
+  const data = await res.json();
+  if (data.ok) refreshPokerAdmin();
+  else alert('Could not approve: ' + (data.error || 'unknown error'));
+}
+async function denyPokerJoin(tableId, requestPlayerId) {
+  const res = await adminFetch('/api/admin/poker-deny-join', undefined, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tableId, requestPlayerId })
+  });
+  const data = await res.json();
+  if (data.ok) refreshPokerAdmin();
+  else alert('Could not deny: ' + (data.error || 'unknown error'));
+}
+document.getElementById('btnRefreshPoker').addEventListener('click', refreshPokerAdmin);
 
 // ---------------- Table chat (view/send into a specific table's chat, as Admin or a seated ghost) ----------------
 let tableChatState = null; // { mode, tableId } while the modal is open
@@ -526,6 +697,7 @@ document.getElementById('tabHistory').addEventListener('click', () => switchTab(
 document.getElementById('tabBots').addEventListener('click', () => switchTab('bots'));
 document.getElementById('tabGhost').addEventListener('click', () => switchTab('ghost'));
 document.getElementById('tabLeaderboard').addEventListener('click', () => switchTab('leaderboard'));
+document.getElementById('tabPoker').addEventListener('click', () => switchTab('poker'));
 document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
 document.getElementById('btnRefreshHistory').addEventListener('click', refreshTableHistory);
 
@@ -614,6 +786,16 @@ let ghostAvatarGridBuilt = false;
 let selectedGhostAvatar = 'toon1';
 let ghostMode = 'new';        // 'new' or 'join'
 let ghostNewTableType = '4p'; // only relevant when ghostMode === 'new'
+let selectedGhostChallengeHandicap = 0; // 0 = no challenge, an ordinary ghost table
+document.querySelectorAll('.ghost-challenge-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    selectedGhostChallengeHandicap = Number(btn.dataset.handicap);
+    document.querySelectorAll('.ghost-challenge-btn').forEach(b => {
+      b.classList.toggle('on', b === btn);
+      b.style.opacity = b === btn ? '1' : '0.5';
+    });
+  });
+});
 let ghostListRefreshInterval = null;
 let joinableTablesCache = [];
 
@@ -692,7 +874,7 @@ document.getElementById('btnStartGhost').addEventListener('click', async () => {
       res = await adminFetch('/api/admin/spawn-ghost-player', undefined, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: ghostNewTableType, avatar: selectedGhostAvatar, name })
+        body: JSON.stringify({ mode: ghostNewTableType, avatar: selectedGhostAvatar, name, challengeHandicap: selectedGhostChallengeHandicap })
       });
     } else {
       const sel = document.getElementById('ghostJoinableSelect');
@@ -881,6 +1063,47 @@ function formatLbList(list, mode) {
   return list.map((e, i) => formatLbEntry(e, i + 1, mode)).join('');
 }
 
+// Real, confirmed feature per explicit live report ("admin leaderboard
+// shows that shit but no details... I want both to have much details,
+// like what type of challenge, score"): matches the welcome-screen
+// popup's own detailed challenge display exactly -- difficulty badge,
+// both teams' names, the actual score, and rounds taken, all on the
+// row, not just a bare entry with nothing to actually read.
+// Real, confirmed fix per explicit live report ("there is 3 levels
+// challenge 5, challenge 10, challenge 13, it need to be specific"):
+// matches the welcome-screen popup's identical fix -- the exact number
+// now, not just the abstract name.
+// Real, confirmed fix per explicit live report ("Say 5 challenge med
+// 10 challenge 13 dare hall"): matches the create-table buttons'
+// exact naming, plus the specific number per the earlier "it need to
+// be specific" request.
+const CHALLENGE_DIFF_LABEL = (h) => h === 13 ? 'Dare Hall (13)' : h === 10 ? 'Challenge Hard (10)' : h === 5 ? 'Challenge Med (5)' : ('Challenge ' + h);
+const CHALLENGE_DIFF_COLOR = (h) => h === 13 ? '#ef4444' : h === 10 ? '#a855f7' : '#2ecc71';
+function formatChallengeLbEntry(e, position) {
+  const names = e.names.map(esc).join(', ');
+  const oppNames = (e.opponentNames && e.opponentNames.length > 0) ? e.opponentNames.map(esc).join(', ') : null;
+  const when = new Date(e.ts).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const roundLabel = e.rounds === 1 ? 'Round' : 'Rounds';
+  const hasScore = typeof e.winningScore === 'number' && typeof e.losingScore === 'number';
+  const diffBadge = `<span style="background:${CHALLENGE_DIFF_COLOR(e.handicap)};color:#fff;font-weight:800;font-size:0.62rem;padding:1px 7px;border-radius:8px;text-transform:uppercase;flex-shrink:0">${CHALLENGE_DIFF_LABEL(e.handicap)}</span>`;
+  const winnersPart = hasScore ? `<b>${names}</b>: <b style="color:#4ade80">${e.winningScore}</b>` : `<b>${names}</b>`;
+  const oppPart = oppNames ? (hasScore ? `${oppNames}: <b style="color:#f87171">${e.losingScore}</b>` : oppNames) : null;
+  return `
+    <div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <div style="font-weight:800;color:var(--accent);width:16px;flex-shrink:0;font-size:0.85rem">${position}</div>
+      ${diffBadge}
+      <div style="flex:1;min-width:0;font-size:0.78rem;line-height:1.35">
+        ${winnersPart}${oppPart ? ` <span style="opacity:0.6">vs</span> ${oppPart}` : ''}
+        <span style="opacity:0.7"> — <b style="opacity:0.9">${e.rounds}</b> ${roundLabel} · ${esc(when)}</span>
+      </div>
+    </div>
+  `;
+}
+function formatChallengeLbList(list) {
+  if (!list || list.length === 0) return '<div class="sub" style="margin:0;padding:5px 0">None yet.</div>';
+  return list.map((e, i) => formatChallengeLbEntry(e, i + 1)).join('');
+}
+
 async function refreshLeaderboard() {
   const contentEl = document.getElementById('leaderboardContent');
   contentEl.innerHTML = '<div class="sub" style="margin:0">Loading…</div>';
@@ -888,6 +1111,15 @@ async function refreshLeaderboard() {
     const res = await adminFetch('/api/admin/leaderboard');
     const data = await res.json();
     const lb = data.leaderboard;
+    // Real, confirmed feature per explicit live report ("admin
+    // leaderboard shows that shit but no details... I want both to
+    // have much details"): fetched alongside the regular leaderboard
+    // -- a genuinely separate dataset (challenge-leaderboard.js, not
+    // leaderboard.js), same public endpoint the welcome-screen popup
+    // itself uses.
+    const clbRes = await fetch('/api/challenge-leaderboard');
+    const clbData = await clbRes.json();
+    const clb = clbData.leaderboard;
     // Per explicit follow-up request: "Today" section is gone entirely
     // now (matches the same simplification already made to the actual
     // player-facing popup) -- this used to reference lb.today directly,
@@ -910,6 +1142,16 @@ async function refreshLeaderboard() {
         </div>
         <div style="font-weight:700;font-size:0.8rem;margin-bottom:8px;opacity:0.85">🏆 All-Time Top 10</div>
         ${formatLbList(lb.allTime[mode], mode)}
+      </div>
+    `).join('')
+    + '<div style="border-top:1px solid rgba(255,255,255,0.12);margin:8px 0 18px;padding-top:14px;font-weight:700;font-size:1rem;color:var(--accent)">🎯 Challenge Leaderboard</div>'
+    + ['4p', '6p'].map(mode => `
+      <div style="margin-bottom:24px">
+        <div style="font-weight:700;font-size:0.95rem;margin-bottom:10px;color:var(--accent)">
+          ${mode === '4p' ? '4-Player' : '6-Player'}
+        </div>
+        <div style="font-weight:700;font-size:0.8rem;margin-bottom:8px;opacity:0.85">🎯 Hardest Challenge Beaten — Top 10</div>
+        ${formatChallengeLbList(clb.allTime[mode])}
       </div>
     `).join('');
     wireLeaderboardSelection();

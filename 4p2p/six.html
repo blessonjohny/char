@@ -438,6 +438,22 @@ h1{font-size:1.7rem;margin:0 0 4px;background:linear-gradient(135deg,#f4c430,#e6
 .btn{padding:14px 20px;border-radius:12px;border:none;font-weight:700;font-size:0.95rem;width:100%;max-width:320px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px}
 .btn-primary{background:linear-gradient(135deg,#9b59b6,#8e44ad);color:#fff}
 .btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--text-primary)}
+/* Real, confirmed styling per explicit request ("Medium hard and
+   dare... green purple and red... royal colors nice and pro, match
+   all my buttons"): matches the 4-player table's identical addition
+   exactly, same three jewel tones. */
+.challenge-diff-btn-6p{flex:1;padding:10px 4px;border-radius:10px;border:none;cursor:pointer;color:#fff;transition:all 0.2s;touch-action:manipulation;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px}
+.challenge-diff-name{font-weight:800;font-size:0.68rem;letter-spacing:0.2px;text-transform:uppercase;line-height:1.15}
+.challenge-diff-sub{font-weight:600;font-size:0.62rem;opacity:0.85;letter-spacing:0.2px;line-height:1.1;white-space:nowrap}
+.challenge-diff-medium{background:linear-gradient(135deg,#2ecc71,#0e8a4b);box-shadow:0 4px 16px rgba(46,204,113,0.35)}
+.challenge-diff-medium:hover,.challenge-diff-medium:active{background:linear-gradient(135deg,#3ee888,#12a85c);box-shadow:0 8px 26px rgba(46,204,113,0.5);transform:translateY(-2px) scale(1.02)}
+.challenge-diff-hard{background:linear-gradient(135deg,#a855f7,#6b21a8);box-shadow:0 4px 16px rgba(168,85,247,0.35)}
+.challenge-diff-hard:hover,.challenge-diff-hard:active{background:linear-gradient(135deg,#c084fc,#7e22ce);box-shadow:0 8px 26px rgba(168,85,247,0.5);transform:translateY(-2px) scale(1.02)}
+.challenge-diff-dare{background:linear-gradient(135deg,#ef4444,#a91e1e);box-shadow:0 4px 16px rgba(239,68,68,0.35)}
+.challenge-diff-dare:hover,.challenge-diff-dare:active{background:linear-gradient(135deg,#f87171,#c62828);box-shadow:0 8px 26px rgba(239,68,68,0.5);transform:translateY(-2px) scale(1.02)}
+.challenge-toggle-btn{transition:all 0.2s;touch-action:manipulation}
+.challenge-toggle-btn:hover,.challenge-toggle-btn:active{background:rgba(255,215,0,0.1);transform:translateY(-1px)}
+.challenge-label-static{width:100%;margin-bottom:8px;padding:11px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-weight:700;font-size:0.8rem;text-align:center}
 /* Quote button states -- see #btnQuoteDeclare. Visible to everyone the
    whole time; only "active" is genuinely clickable. */
 #btnQuoteDeclare.quote-btn-active{background:linear-gradient(135deg,#f4c430,#c99a1e)!important;border-color:#f4c430!important;color:#241a12!important;box-shadow:0 0 10px rgba(244,196,48,0.6);animation:quoteBtnPulse6p 1.6s ease-in-out infinite}
@@ -700,7 +716,48 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
     1.2px -1.2px 0 #ef4444, -1.2px 1.2px 0 #ef4444;
 }
 .seat .cc{font-size:0.6rem;color:var(--accent);display:none}
-.seat .bdg{position:absolute;top:-6px;right:-6px;background:var(--accent);color:#111;border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800}
+/* Per explicit live report: dealer/bidder badges sat at the avatar's
+   top-right corner regardless of which side of the table the seat was
+   actually on, so for a left-side seat the badge floated off toward
+   the table's center -- away from that seat's own body -- and read as
+   if it belonged to a neighboring player instead. Repositioned to sit
+   right at shoulder height (down from the very top corner) and, via
+   the side-specific overrides just below, on the actual outer-shoulder
+   side of each seat: left shoulder for the left-side seats, right
+   shoulder for the right-side ones. Bidder stacked above dealer per
+   explicit request, each its own independent element now (see the JS
+   change removing the old shared single-badge element that silently
+   let the bidder badge overwrite the dealer one whenever a seat was
+   both at once). */
+/* Per explicit live follow-up: still reading as floating away from the
+   avatar rather than sitting on it -- brought in from -8px to +6px
+   (now overlapping the avatar's own edge slightly, not hovering just
+   past it) so the badge visually touches the shoulder instead of
+   sitting a visible gap away from the body. */
+/* Per second explicit live follow-up: still reading as too far from
+   the avatar even after the first adjustment -- pulled in further on
+   both axes this time. Horizontally, moved from a 6px inset to a
+   percentage-based one (12% of the avatar's own width) so it lands
+   properly on the body itself rather than barely grazing the edge on
+   every differently-sized avatar across the different seats.
+   Vertically, pushed down from the head/neck area (24%/38%) to genuine
+   shoulder height (46%/60%), since a person's shoulders sit roughly
+   midway down a head-and-shoulders portrait, not near the very top of
+   it. */
+.seat .bdg{position:absolute;right:12%;background:var(--accent);color:#111;border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800;white-space:nowrap;z-index:6}
+.seat .bdg-bidder{top:46%}
+.seat .bdg-dealer{top:60%}
+/* Per explicit live follow-up (after the first attempt put badges on
+   the wrong side and off-screen): the shared default above already
+   places the badge on each avatar's own right side, which for the
+   left-side seats (4 and 5) IS the side facing inward toward the
+   table center -- open space, no screen edge nearby, no override
+   needed for them at all. The right-side seats (1 and 2) are the ones
+   that need flipping: their own right side faces straight off the
+   edge of a narrow phone screen, so they're mirrored onto their left
+   instead -- also inward toward the table center, and safely on-screen
+   regardless of viewport width. */
+#seatWrap1 .bdg, #seatWrap2 .bdg{right:auto;left:12%}
 .seat .bdg-q{position:absolute;top:-6px;left:-6px;background:rgba(180,60,80,0.35);color:#e08a9a;border:1px solid rgba(224,138,154,0.6);border-radius:8px;font-size:0.55rem;padding:1px 4px;font-weight:800;white-space:nowrap;z-index:5}
 /* The bidding "call" bubble - what a seat actually said (Bid 17 / Pass / Bid Thani), shown
    above their avatar and left up for everyone to see through the whole rest of the auction
@@ -866,6 +923,22 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 @keyframes borderFlash{0%,100%{filter:brightness(1)}20%{filter:brightness(1.6)}40%{filter:brightness(1)}60%{filter:brightness(1.6)}80%{filter:brightness(1)}}
 .table-oval.trump-exposed{animation:thunderShake 0.7s ease}
 .six-oval-rail.trump-exposed{animation:tableGlowPulse 2s ease 0.6s 3,borderFlash 1.5s ease 0.6s 2}
+/* Real, confirmed feature per explicit request ("challenge table...
+   background purple violet... as long as it's on challenge mode...
+   if continue to regular it goes... the lamps, maybe turn that into
+   purple... middle table say challenge") -- matches the 4-player
+   table's identical addition exactly: the table's own inset glow,
+   the 4 corner lamps recolored violet (same shape/pulse, just not
+   amber), and a low-opacity "Challenge" watermark dead center,
+   sitting behind every real piece of game UI and never intercepting
+   a tap. All three tied to the same #gameScreen.challenge-active
+   class, so all three appear and disappear together, exactly when
+   the challenge itself starts and resolves.
+*/
+#gameScreen.challenge-active .six-oval-rail{box-shadow:inset 0 0 90px 18px rgba(168,85,247,0.4)}
+#gameScreen.challenge-active .fake-lamp-glow{background:radial-gradient(circle, rgba(190,120,255,0.75) 0%, rgba(160,80,255,0.4) 35%, rgba(140,60,255,0) 70%)}
+#challengeWatermark6p{display:none;position:absolute;top:62%;left:50%;transform:translate(-50%,-50%);font-family:'Cinzel Decorative','Cinzel',serif;font-size:clamp(1.4rem,7vw,2.6rem);font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(200,140,255,0.5);text-shadow:0 0 16px rgba(160,80,255,0.6);z-index:0;pointer-events:none;white-space:nowrap}
+#gameScreen.challenge-active #challengeWatermark6p{display:block}
 
 /* ---- Big game-event announcement -- generalized, reusable version,
    identical to index.html's own version of this. See there for the
@@ -1578,6 +1651,43 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 }
 #pinCancelBtn{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.75);}
 #pinSubmitBtn{background:linear-gradient(135deg,#f4c430,#d4a017);color:#1a1206;}
+/* Sound mute toggle -- same visual pattern as the 4-player table's own. */
+/* Real, confirmed repositioning per explicit request ("mute button
+   next to the mic, top left"): moved from bottom-left to top-left,
+   staying immediately adjacent to the mic button. The mic itself
+   (#k28vBtn) is injected by the shared voice.js used by every table,
+   so it's overridden here too, but ONLY within this page's own
+   stylesheet -- this has no effect on any other page, since each
+   page's CSS is self-contained. !important guards against voice.js's
+   own injected <style> tag potentially landing later in the DOM than
+   this one and winning on source order alone. Real, confirmed bug
+   fix, found by an actual screenshot check: top:10px collided with
+   the lobby's own "← 4 Player Table" back-link (also top-left) --
+   pushed down to top:52px, clear of it.
+   Second, confirmed follow-up fix per explicit live report ("mic and
+   mute is overlapping dealer and hidden trump... just under the
+   trump animation"): the FIRST fix (195px) was actually calculated
+   against the WRONG trump-chip position -- .trump-chip's own
+   top:150px override only takes effect inside
+   "@media (min-width: 521px)" (a wider/desktop-ish viewport). On a
+   genuinely mobile-width screen -- what this player is actually
+   using -- .trump-chip stays at its base top:80px, real bottom edge
+   ~105px, and 52px never came close to clearing it. Fixed for real
+   this time: base (mobile) position now clears the mobile trump-chip
+   position specifically (113px), with a second, separate override
+   inside that same width breakpoint so it also correctly clears the
+   chip's OWN wider-viewport position (187px) on a wider screen,
+   instead of one fixed number trying to cover both cases at once.
+*/
+#k28vBtn{left:10px !important;bottom:auto !important;top:113px !important;}
+#k28vPanel{bottom:auto !important;top:167px !important;}
+#btnSoundMute{position:fixed;left:64px;top:113px;bottom:auto;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2a3f5f,#1a2942);border:2px solid rgba(255,255,255,0.15);color:#fff;font-size:1.15rem;display:none;align-items:center;justify-content:center;z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
+@media (min-width: 521px) {
+  #k28vBtn{top:195px !important;}
+  #k28vPanel{top:249px !important;}
+  #btnSoundMute{top:195px !important;}
+}
+#btnSoundMute:active{transform:scale(0.92)}
 </style>
 </head>
 <body>
@@ -1620,6 +1730,18 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   <h1>🎴 28 Kerala Gulan</h1>
   <div class="subtitle">6 PLAYER TABLE — 2 teams of 3</div>
   <button class="btn btn-primary" id="btnCreate">🏠 Create Table</button>
+  <!-- Real, confirmed feature per explicit request ("4 and 6 player
+       should have a challenge table"): same pattern as the 4-player
+       table's identical addition -- picking a difficulty creates the
+       table with the challenger's team starting that deficit and
+       forced into the first bid, otherwise a completely ordinary
+       table. -->
+  <div class="challenge-label-static">🎯 Create Challenge Table</div>
+  <div id="challengeOptionsRow6p" style="display:flex;gap:8px;width:100%">
+    <button type="button" class="challenge-diff-btn-6p challenge-diff-medium" data-handicap="5"><span class="challenge-diff-name">Challenge Med</span><span class="challenge-diff-sub">Start 0–5</span></button>
+    <button type="button" class="challenge-diff-btn-6p challenge-diff-hard" data-handicap="10"><span class="challenge-diff-name">Challenge Hard</span><span class="challenge-diff-sub">Start 0–10</span></button>
+    <button type="button" class="challenge-diff-btn-6p challenge-diff-dare" data-handicap="13"><span class="challenge-diff-name">Dare Hall</span><span class="challenge-diff-sub">Start 0–13</span></button>
+  </div>
   <button class="btn btn-outline" id="btnShowJoin">🔑 Join Table</button>
   <a href="/" class="btn btn-outline" style="text-decoration:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box">⬅️ Back to Main Menu</a>
   <div style="margin-top:20px;text-align:left;width:100%;max-width:320px">
@@ -1714,6 +1836,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 
 <!-- ============ GAME ============ -->
 <div id="gameScreen">
+  <div id="challengeWatermark6p">Challenge</div>
   <div class="fake-lamp-glow fake-lamp-glow-tl"><div class="fake-lamp-core"></div></div>
   <div class="fake-lamp-glow fake-lamp-glow-tr"><div class="fake-lamp-core"></div></div>
   <div class="fake-lamp-glow fake-lamp-glow-bl"><div class="fake-lamp-core"></div></div>
@@ -1751,6 +1874,14 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
        directly instead of relying on an icon alone, so what it does is
        obvious without needing the title tooltip. -->
   <button class="btn-outline" id="btnInvite" title="Invite a Friend" style="position:fixed;left:48px;bottom:114px;z-index:150;display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:0.68rem;font-weight:800;white-space:nowrap">💌 Invite</button>
+  <!-- Real, confirmed feature per explicit live report ("to join if I
+       want, I should have a chair icon on it, so click on it, join
+       window should appear"): only ever shown while genuinely
+       spectating (toggled in JS off IS_SPECTATOR), sits directly below
+       Invite on the same fixed left edge. Clicking it is the ONLY
+       thing that opens the seat-choice popup for an existing
+       spectator now -- it no longer appears on its own. -->
+  <button class="btn-outline" id="btnSpectatorJoin" title="Take a Seat" style="display:none;position:fixed;left:48px;bottom:158px;z-index:150;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:0.68rem;font-weight:800;white-space:nowrap;background:var(--accent);border-color:var(--accent);color:#1a1a2e">🪑 Join</button>
   <!-- The manual "ask" button - separate from the Declare button above and never active at
        the same time as it (Declare only lights up when leading a fresh trick; Ask only lights
        up mid-trick when someone else holds the lead) - stacked directly below it on the same
@@ -2036,6 +2167,24 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 </defs>
 </svg>
 
+<!-- Real, confirmed feature per explicit request ("after winning or
+     losing a challenge they should have the option to continue to
+     next championship or new challenge"): matches the 4-player
+     table's identical overlay exactly. Placed here, before six.js
+     loads, specifically so these elements exist in the DOM before any
+     script tries to wire them up -- the earlier location (at the very
+     end of the body, after six.js) left them null when that wiring
+     code ran, and the buttons silently did nothing. -->
+<div id="challengeDecidedOverlay" style="display:none;position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;padding:20px">
+  <div style="background:linear-gradient(135deg,#111d2e,#0a1628);border:2px solid var(--accent);border-radius:16px;padding:28px 24px;max-width:360px;width:100%;text-align:center;box-shadow:0 0 40px rgba(255,215,0,0.15)">
+    <div id="challengeDecidedIcon" style="font-size:2.4rem;margin-bottom:8px">🎯</div>
+    <div id="challengeDecidedTitle" style="font-family:'Cinzel','Playfair Display',serif;font-size:1.3rem;font-weight:800;color:var(--accent);margin-bottom:8px">Challenge Decided</div>
+    <div id="challengeDecidedDetail" style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:20px"></div>
+    <button type="button" id="btnChallengeContinueChampionship" class="btn btn-primary" style="width:100%;margin-bottom:8px">▶ Continue to Next Championship</button>
+    <button type="button" id="btnChallengeStartNew" class="challenge-toggle-btn" style="width:100%">🎯 Start a New Challenge</button>
+  </div>
+</div>
+
 <script src="/six.js"></script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page (including
@@ -2054,5 +2203,6 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   body.appendChild(frame);
 })();
 </script>
+
 </body>
 </html>
