@@ -569,7 +569,31 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    just the glowing gold text floating directly over the table, the
    same "no card/panel behind it" idea already applied to the winner
    popup earlier. */
-.street-banner{position:absolute;top:72%;left:50%;transform:translate(-50%,-50%);background:transparent;border:none;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 14px rgba(244,196,48,0.9),0 2px 6px rgba(0,0,0,0.9);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
+.street-banner{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);background:transparent;border:none;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 14px rgba(244,196,48,0.9),0 2px 6px rgba(0,0,0,0.9);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
+/* Real, confirmed feature per explicit request ("should be on top of
+   cards... right in the middle... make it appear with a shooting
+   fireball"): the FLOP!/TURN!/RIVER! gold banner used to sit well
+   below the community cards (top:72% vs the board's own ~42-48%) --
+   moved to share the board's own vertical center here and in both
+   the landscape/portrait overrides below, so it now lands directly
+   over the cards instead of near the felt's lower rail. z-index was
+   already above the board (.street-banner is 20, .board-area is 5),
+   so no stacking change was needed there, only position. A small
+   fireball -- a radial-gradient flame blob with its own glow -- flies
+   in from off-screen and bursts right as the gold text scales in,
+   via the ::before pseudo-element/keyframes just below. */
+.street-banner::before{
+  content:''; position:absolute; left:50%; top:50%; width:34px; height:34px;
+  margin-left:-17px; margin-top:-17px; border-radius:50%; z-index:-1; opacity:0;
+  background:radial-gradient(circle at 35% 35%, #fff8dc 0%, #ffd76b 22%, #ff9a1f 48%, #ff3c1f 72%, transparent 82%);
+  box-shadow:0 0 18px 8px rgba(255,120,20,0.85), 0 0 36px 18px rgba(255,60,20,0.5);
+}
+.street-banner.on::before{animation:streetBannerFireball .55s cubic-bezier(.25,.6,.3,1) both}
+@keyframes streetBannerFireball{
+  0%{opacity:1;transform:translate(-220px,-30px) scale(0.35) rotate(-25deg)}
+  65%{opacity:1;transform:translate(0,0) scale(1.15) rotate(0deg)}
+  100%{opacity:0;transform:translate(0,0) scale(2.6) rotate(8deg)}
+}
 /* Real, confirmed feature per explicit request ("after each level
    there is no announcement, should have one nice popup and say the
    small, large [blind] and level"): a real, dedicated announcement
@@ -895,7 +919,7 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      about portrait's dead-center placement, not landscape's. */
   body.k28-in-game .pot-display-pot { left: calc(50% - 58px); transform: translateX(-50%); }
   body.k28-in-game .pot-display-bet { left: calc(50% + 58px); transform: translateX(-50%); }
-  body.k28-in-game .street-banner { top: 62%; font-size: 1.3rem; padding: 12px 26px; }
+  body.k28-in-game .street-banner { top: 48%; font-size: 1.3rem; padding: 12px 26px; }
   /* "YOUR TURN" and my own chip count both get a dedicated, real top-level element instead
      (#myTurnTop, #myChipsTop, styled together below) - see the HTML comment where they're
      defined for why nesting these inside my own seat div didn't work. */
@@ -1620,7 +1644,7 @@ body.k28-portrait-photo .board-area { top: 30%; }
    override existed at all for this -- the base 72% was landing right
    on my own seat/cards after this session's several increases to how
    high the hand-strip sits. Moved up to sit safely above that area. */
-body.k28-portrait-photo .street-banner { top: 62%; }
+body.k28-portrait-photo .street-banner { top: 30%; }
 /* Real, confirmed feature per explicit request ("the pots on the
    table when players place... only for portrait" -- the actual chip-
    pile graphic that accumulates in the middle as bets come in, not the
@@ -2515,6 +2539,19 @@ const REAL_SOUND_FILES = {
   chipReturn: '/sounds/chip-return.mp3',
   ping: '/sounds/ping.mp3',
   cardReceive: '/sounds/card-receive.mp3',
+  // Real, confirmed feature per explicit request ("add this sound to
+  // all woof effects... flop river turn... final animation use this
+  // sound a lot"): the user's own uploaded fireball-whoosh recording,
+  // used everywhere something already flies/bursts in with fire (the
+  // FLOP!/TURN!/RIVER! banner's own fireball, and each card of the
+  // winning hand's fireball-comet reveal), plus a couple of other
+  // moments that had NO sound at all before (the level-up banner, a
+  // player getting eliminated) -- deliberately not added to frequent,
+  // low-drama events (every single turn, every new hand's shuffle)
+  // even though those also have gaps, since a loud whoosh on every
+  // turn would get old fast; those already have their own quieter,
+  // purpose-built (if currently unused) synth sounds instead.
+  fireballWhoosh: '/sounds/fireball-whoosh.mp3',
 };
 const realSoundBuffers = {};
 const realSoundLoadPromises = {};
@@ -4106,6 +4143,11 @@ function showLevelUpAnnouncementIfAny(state) {
   el.classList.remove('on');
   void el.offsetWidth;
   el.classList.add('on');
+  // Real, confirmed feature per explicit follow-up request ("wherever
+  // else we don't have a current sound"): this banner had no sound of
+  // its own at all before -- a new blind level is exactly the kind of
+  // occasional, attention-worthy moment the fireball whoosh fits.
+  playSound('fireballWhoosh');
   if (levelUpBannerHideTimer) clearTimeout(levelUpBannerHideTimer);
   levelUpBannerHideTimer = setTimeout(() => { el.classList.remove('on'); }, 3200);
 }
@@ -5500,7 +5542,14 @@ function showEliminatedOverlaySoon(eliminatedOverlay) {
   if (eliminatedOverlayDismissed || eliminatedOverlayScheduled) return;
   eliminatedOverlayScheduled = true;
   setTimeout(() => {
-    if (!eliminatedOverlayDismissed) eliminatedOverlay.classList.add('on');
+    if (!eliminatedOverlayDismissed) {
+      eliminatedOverlay.classList.add('on');
+      // Real, confirmed feature per explicit follow-up request
+      // ("wherever else we don't have a current sound"): getting
+      // busted had no sound at all before -- this dramatic, rare
+      // moment gets the same fireball whoosh.
+      playSound('fireballWhoosh');
+    }
   }, 4000);
 }
 // Real, confirmed bug fix per explicit live report ("getting busted
@@ -6026,6 +6075,14 @@ function showWinningHandOnTable(state) {
             tailEl.style.animationDuration = FLIGHT_MS + 'ms';
           }
           if (cometFx) cometFx.classList.add('flying');
+          // Real, confirmed feature per explicit request ("final
+          // animation use this sound a lot... woof woof woof"): the
+          // same fireball whoosh as the street banner, once per card
+          // as each one launches on its own comet flight -- up to 5
+          // in a row for a full winning hand, at a slightly reduced
+          // volume so a full run of them layers into one rolling
+          // effect rather than 5 full-volume hits stacking painfully.
+          playSound('fireballWhoosh', 0.55);
           card1.style.transition = 'none';
           card1.style.transform = `translate(${dx}px, ${dy}px) scale(${startScale})`;
           card1.style.opacity = '0.75';
@@ -6536,6 +6593,7 @@ function renderStreetBanner(state) {
     if (label) {
       el.textContent = label;
       el.classList.add('on');
+      playSound('fireballWhoosh');
       streetBannerShownAtLogText = (state.log[0] && state.log[0].text) || null;
       // Per explicit live report: waiting on "has a new action happened
       // since this appeared" alone meant a slow bot, or simply nobody
