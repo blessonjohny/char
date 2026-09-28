@@ -5692,7 +5692,8 @@ function pokerTouch(t) { t.lastActivityAt = Date.now(); }
 // poker_act and a bot's automatic action -- go through the exact same
 // staged reveal, autodeal, and next-bot-turn handling instead of two
 // independently-maintained copies that had quietly drifted apart.
-function pokerHandleActionOutcome(t, boardLenBefore, wasAllInShowdown) {
+function pokerHandleActionOutcome(t, pos, preAction, wasAllInShowdown) {
+  const boardLenBefore = preAction.boardLen;
   // Real, confirmed feature per explicit request ("when all
   // players all in, the board should be shown during the flop
   // turn river"): a single action that triggers a genuine all-in
@@ -5742,9 +5743,101 @@ function pokerHandleActionOutcome(t, boardLenBefore, wasAllInShowdown) {
     revealNext();
     return;
   }
+  // Real, confirmed bug fix per explicit live report ("if I raise, the
+  // last player calls, I don't see the call -- it won't animate the
+  // chip, it's not saying he called, his chips don't move, but he
+  // called -- not registering"): whenever this action was the LAST one
+  // needed to complete a betting round (any normal call/bet/raise, not
+  // just an all-in), the engine advances the street and resets every
+  // seat's bettedThisRound to 0 SYNCHRONOUSLY, inside the same act()
+  // call, before this function ever gets to broadcast anything. The
+  // client's chip-flight animation and bet-amount display both work by
+  // comparing THIS broadcast's bettedThisRound against the previous
+  // one (see animateChipToPot's call site in holdem.html) -- since the
+  // very first broadcast this action ever produces already has
+  // bettedThisRound back at 0 for the new street, that comparison never
+  // sees the rise, and the animation/amount silently never fires. Same
+  // root cause as the all-in-showdown bug above, just for the ordinary
+  // (non-all-in) case of a call/bet/raise that happens to be the round's
+  // final action. Fixed the same way: broadcast the moment right after
+  // this action -- old board/phase, this seat's bettedThisRound bumped
+  // by exactly what totalBetThisHand grew by (the same amount the
+  // engine added to both fields together, see the 'call'/'bet'/'raise'/
+  // 'allin' branches in poker-engine.js's act()) -- THEN, after a short
+  // pause for the chip to actually fly and land, broadcast the real,
+  // already-advanced state. Every other seat's bettedThisRound (their
+  // own already-matched amounts from earlier in this same round) is
+  // restored too, not just the acting seat's, since the live pot total
+  // shown to players is computed by summing every seat's bettedThisRound
+  // (see the potTotal calculation in holdem.html) -- leaving the others
+  // at their real, already-collected 0 would make the pot briefly look
+  // smaller than it actually was at that exact moment.
+  const seatAfter = t.engine.seats[pos];
+  const contributed = seatAfter ? (seatAfter.totalBetThisHand - preAction.totalBetThisHand) : 0;
+  const isOrdinaryStreetAdvance = t.engine.phase !== preAction.phase && contributed > 0;
+  if (isOrdinaryStreetAdvance) {
+    const finalPhase = t.engine.phase;
+    const finalShowdownResult = t.engine.showdownResult;
+    const finalPots = t.engine.pots;
+    const finalCurrentBet = t.engine.currentBet;
+    const finalCurrentPlayer = t.engine.currentPlayer;
+    const finalSeatBettedThisRound = t.engine.seats.map(s => (s ? s.bettedThisRound : null));
+    const finalSeatHasActed = t.engine.seats.map(s => (s ? s.hasActed : null));
+
+    t.engine.board = finalBoard.slice(0, boardLenBefore);
+    t.engine.phase = preAction.phase;
+    t.engine.showdownResult = preAction.showdownResult;
+    t.engine.pots = preAction.pots;
+    t.engine.currentBet = preAction.currentBet;
+    t.engine.currentPlayer = pos;
+    t.engine.seats.forEach((s, i) => {
+      if (!s) return;
+      s.bettedThisRound = i === pos ? (preAction.seatBettedThisRound[i] + contributed) : preAction.seatBettedThisRound[i];
+      s.hasActed = preAction.seatHasActed[i];
+    });
+    pokerBroadcast(t);
+
+    setTimeout(() => {
+      t.engine.board = finalBoard;
+      t.engine.phase = finalPhase;
+      t.engine.showdownResult = finalShowdownResult;
+      t.engine.pots = finalPots;
+      t.engine.currentBet = finalCurrentBet;
+      t.engine.currentPlayer = finalCurrentPlayer;
+      t.engine.seats.forEach((s, i) => {
+        if (!s) return;
+        s.bettedThisRound = finalSeatBettedThisRound[i];
+        s.hasActed = finalSeatHasActed[i];
+      });
+      pokerBroadcast(t);
+      if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
+      else pokerMaybeBotAct(t);
+    }, 900);
+    return;
+  }
   pokerBroadcast(t);
   if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
   else pokerMaybeBotAct(t);
+}
+
+// Real, confirmed helper per the same fix above: snapshots exactly the
+// fields pokerHandleActionOutcome needs to reconstruct the "moment
+// right after this action, before the round was collected" broadcast,
+// captured BEFORE engine.act() runs (since several of these fields get
+// overwritten or reset synchronously inside act() itself when it
+// completes a betting round).
+function pokerSnapshotPreAction(t, pos) {
+  const actingSeat = t.engine.seats[pos];
+  return {
+    boardLen: t.engine.board.length,
+    phase: t.engine.phase,
+    showdownResult: t.engine.showdownResult,
+    pots: t.engine.pots,
+    currentBet: t.engine.currentBet,
+    totalBetThisHand: actingSeat ? actingSeat.totalBetThisHand : 0,
+    seatBettedThisRound: t.engine.seats.map(s => (s ? s.bettedThisRound : null)),
+    seatHasActed: t.engine.seats.map(s => (s ? s.hasActed : null)),
+  };
 }
 
 function pokerMaybeBotAct(t) {
@@ -5756,7 +5849,7 @@ function pokerMaybeBotAct(t) {
     setTimeout(() => {
       if (!pokerTables[t.engine.tableId]) return; // table closed in the meantime
       if (t.engine.currentPlayer !== p) return; // already moved on somehow
-      const boardLenBefore = t.engine.board.length;
+      const preAction = pokerSnapshotPreAction(t, p);
       const wasAllInShowdown = t.engine.allInShowdown;
       pokerBotAct(t.engine, p);
       pokerTouch(t);
@@ -5768,8 +5861,9 @@ function pokerMaybeBotAct(t) {
       // Whenever a bot happened to be the one whose action closed out a
       // hand, the table would sit at handEnd forever. Same handling as
       // poker_act now applies here too (see pokerHandleActionOutcome,
-      // which also now covers the staged all-in reveal for this path).
-      pokerHandleActionOutcome(t, boardLenBefore, wasAllInShowdown);
+      // which also now covers the staged all-in reveal AND the ordinary
+      // last-call-of-the-round reveal for this path).
+      pokerHandleActionOutcome(t, p, preAction, wasAllInShowdown);
       // Real, confirmed speed-up per explicit live report ("ghost bots
       // are made to play like real humans slow sometimes, but
       // sometimes it's too slow, make it faster"): 900-1600ms per bot
@@ -6181,16 +6275,17 @@ io.on('connection', (socket) => {
 
   socket.on('poker_act', ({ action, amount }) => {
     withPokerTable((t, pos) => {
-      const boardLenBefore = t.engine.board.length;
+      const preAction = pokerSnapshotPreAction(t, pos);
       const wasAllInShowdown = t.engine.allInShowdown;
       const result = t.engine.act(pos, action, amount);
       if (!result.ok) { socket.emit('poker_actionError', result); return; }
       pokerTouch(t);
       // See pokerHandleActionOutcome (near pokerMaybeBotAct) for the
-      // staged all-in-showdown reveal, autodeal, and next-bot-turn
-      // handling -- shared with the bot action path so both go through
-      // identical behavior instead of two copies that had drifted apart.
-      pokerHandleActionOutcome(t, boardLenBefore, wasAllInShowdown);
+      // staged all-in-showdown reveal, the ordinary last-call-of-the-
+      // round reveal, autodeal, and next-bot-turn handling -- shared
+      // with the bot action path so both go through identical behavior
+      // instead of two copies that had drifted apart.
+      pokerHandleActionOutcome(t, pos, preAction, wasAllInShowdown);
     });
   });
 
