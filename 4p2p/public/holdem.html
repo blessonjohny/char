@@ -1084,7 +1084,7 @@ body.k28-portrait-photo .felt { display: none; }
    the chairs around it rather than the landscape-specific clamp
    values, which were tuned against a completely different photo. */
 body.k28-portrait-photo .house-dealer {
-  display: block; position: absolute; left: 50%; top: 13%; transform: translate(-50%, -50%);
+  display: block; position: absolute; left: 50%; top: 10%; transform: translate(-50%, -50%);
   /* Real, confirmed change per explicit request ("the dealer also
      should be the same size... I think dealer is double the size, if
      it's not, make it, if it's over the double make the avatars the
@@ -1102,7 +1102,14 @@ body.k28-portrait-photo .house-dealer {
      the exact same point via the unchanged translate(-50%,-50%), so its
      position doesn't move, only its size grows around that same point.
   */
-  width: 92px; height: 92px; z-index: 4;
+  /* Real, confirmed follow-up per explicit request ("move the dealer a
+     little up and make the dealer a little small"): top nudged from
+     13% to 10% (moves up, position only -- still centered on itself via
+     the same translate(-50%,-50%), no change to the avatar-size-match
+     logic above), and this size brought down from the exact 92px match
+     to 78px so it reads as a little smaller than the seat avatars again
+     rather than a change back to the old un-matched clamp() sizing. */
+  width: 78px; height: 78px; z-index: 4;
 }
 body.k28-portrait-photo .house-dealer-photo {
   width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
