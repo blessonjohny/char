@@ -716,6 +716,14 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .seat-avatar{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#2a3f5f,#101d2e);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:2.5px solid rgba(255,255,255,0.15)}
 .seat.active .seat-avatar{border-color:var(--gold);box-shadow:0 0 14px rgba(244,196,48,0.7);animation:seatPulse 1.1s ease-in-out infinite}
 @keyframes seatPulse{0%,100%{box-shadow:0 0 14px rgba(244,196,48,0.7)}50%{box-shadow:0 0 22px rgba(244,196,48,1)}}
+/* Used on the borderless photo avatars (.seat-avatar-photo) instead of seatPulse above --
+   drop-shadow follows the character's own alpha-channel silhouette rather than glowing a
+   circular border that photo mode no longer has. Same pairing/reasoning as six.html's
+   turnActiveGlow6 fix for its own photo avatars. */
+@keyframes avatarPhotoActiveGlow{
+  0%,100%{filter:drop-shadow(0 0 8px rgba(244,196,48,0.75))}
+  50%{filter:drop-shadow(0 0 16px rgba(244,196,48,1))}
+}
 .seat.folded .seat-avatar{opacity:0.35;filter:grayscale(1)}
 /* Per explicit request: a split/multi-way pot showdown makes it
    obvious at a glance who actually lost -- darkened and desaturated,
@@ -1028,22 +1036,31 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      above, so it only affects the real pot pile's chips, not these). */
   body.k28-in-game .pot-stack-chip { width: clamp(9px, 1.4vw, 15px); height: clamp(9px, 1.4vw, 15px); }
   body.k28-in-game .seat-avatar { display: none; }
-  /* Real, confirmed root-cause fix ("round outline on every avatar...
-     since I made the avatars big") -- the circular clip + border/glow
-     now live on this new wrapper (a fixed-size box, exactly the old
-     img's own box), while the img itself (just below) gets a
-     compensating zoom to crop the source photo's transparent side
-     padding out before that fixed clip is applied -- see
-     holdemAvatarImgHtml's comment for the full reasoning. */
+  /* Real, confirmed follow-up per explicit live report ("I don't want that
+     [ring] since I made the avatars big... like on 4-player and 6-player the
+     avatars have body highlights and no circle"): the earlier fix (moving the
+     circular clip to a wrapper + zooming the img to crop the source PNG's
+     transparent padding out) DID stop the ring from being visibly cut off
+     mid-crop, but it was still, fundamentally, a circle drawn around every
+     avatar -- exactly the look the 4p/6p tables deliberately do NOT have.
+     Those tables solve the transparent-padding problem a completely
+     different way (see six.html's own "no edges" media rule, same
+     reasoning): no clip/border/background at all, object-fit:contain instead
+     of cover, so the full character photo shows at its own natural alpha
+     shape with the transparent padding simply invisible against the felt --
+     there's nothing left to draw a ring around. Matched here exactly: no
+     border-radius, no border, no box-shadow, no overflow:hidden anywhere in
+     this chain any more. */
   body.k28-in-game .seat-avatar-photo-clip {
-    display: block; width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
-    border: 2.5px solid rgba(255,255,255,0.25); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+    display: block; width: 100%; height: 100%;
   }
   body.k28-in-game .seat-avatar-photo {
-    display: block; width: 100%; height: 100%; object-fit: cover;
-    transform: scale(1.5); transform-origin: center center;
+    display: block; width: 100%; height: 100%; object-fit: contain;
   }
-  body.k28-in-game .seat.active .seat-avatar-photo-clip { border-color: var(--gold); box-shadow: 0 0 18px rgba(244,196,48,0.8); animation: seatPulse 1.1s ease-in-out infinite; }
+  /* Turn-highlight now follows the character's own alpha-channel silhouette
+     (drop-shadow) instead of glowing a circular border that no longer
+     exists -- same technique/reasoning as six.html's turnActiveGlow6 fix. */
+  body.k28-in-game .seat.active .seat-avatar-photo { animation: avatarPhotoActiveGlow 1.1s ease-in-out infinite; }
   body.k28-in-game .seat.folded .seat-avatar-photo { opacity: 0.35; filter: grayscale(1); }
   /* Real, confirmed feature per explicit live request ("make the cards
      appear in the avatars like the portrait, name and numbers"): ported
@@ -1132,9 +1149,18 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     display: block; position: absolute; left: 49.8%; top: 24%; transform: translate(-50%, -50%);
     width: clamp(108px, 17.4vw, 180px); height: clamp(108px, 17.4vw, 180px); z-index: 4;
   }
+  /* Real, confirmed follow-up per explicit live report with a screenshot
+     ("I want the avatars like that [six.html's borderless photos] not in a
+     circle"): the dealer's own photo had the exact same circular
+     clip/border/box-shadow as the seat avatars did before that fix just
+     above -- missed the first time since toon5.png (this dealer's fixed
+     portrait) has no transparent side-padding to crop, so it never showed
+     the "ring" symptom, but it's still a circle drawn around an avatar,
+     which the 4p/6p tables never have. Matched to the same borderless
+     object-fit:contain treatment for consistency across every avatar on
+     this table. */
   body.k28-in-game .house-dealer-photo {
-    width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
-    border: 2.5px solid var(--gold-soft); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+    width: 100%; height: 100%; object-fit: contain;
   }
   /* Per explicit live report with a screenshot: seats 3, 4, 5, and 6 sit close enough to the
      very top edge of the (now full-viewport) table photo that flipping their name/chips band
@@ -1358,9 +1384,10 @@ body.k28-portrait-photo .house-dealer {
      rather than a change back to the old un-matched clamp() sizing. */
   width: 78px; height: 78px; z-index: 4;
 }
+/* Real, confirmed follow-up, mirrored from the landscape rule above (see its
+   comment for the full reasoning) -- same borderless treatment. */
 body.k28-portrait-photo .house-dealer-photo {
-  width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
-  border: 2.5px solid var(--gold-soft); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+  width: 100%; height: 100%; object-fit: contain;
 }
 /* Real, confirmed bug fix found in real-device testing ("I'm missing
    the buttons raise call etc"): .table-wrap above is now position:
@@ -1496,29 +1523,22 @@ body.k28-portrait-photo #myChipsTop {
    while every other seat sat blank. Same display/border/glow/fold
    treatment as landscape, mirrored here. */
 body.k28-portrait-photo .seat-avatar { display: none; }
-/* Real, confirmed root-cause fix ("round outline on every avatar...
-   since I made the avatars big"), mirrored from the landscape rule --
-   the circular clip/border/glow and the "enlarge in place" scale(2)
-   (kept, same reasoning as before: a layout-size change would push
-   the name/cards below it, see the fuller comment that used to live
-   here, preserved on the landscape twin of this rule) both move to
-   this new wrapper, while the inner img gets its own separate,
-   smaller zoom that crops the source photo's transparent side padding
-   out BEFORE this wrapper's fixed clip is applied -- the two scales
-   compose (img crops the content, then the whole clipped circle is
-   enlarged), so both effects happen independently and correctly. */
+/* Real, confirmed follow-up per explicit live report -- mirrored from the
+   landscape rule above (see its comment for the full reasoning): no more
+   circular clip/border/glow anywhere in this chain. The "enlarge in place"
+   scale(2) on the wrapper is dropped along with it -- it existed only to
+   compensate for the fixed clip's cropping, which no longer happens, so
+   keeping it would just zoom the now-uncropped photo past its box and
+   overlap neighboring seats. object-fit:contain on the plain, unclipped img
+   shows the whole character at the wrapper's own natural size instead,
+   exactly like six.html's photo-mode avatars. */
 body.k28-portrait-photo .seat-avatar-photo-clip {
-  display: block; width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
-  border: 2.5px solid rgba(255,255,255,0.25); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
-  transform: scale(2);
-  transform-origin: center center;
+  display: block; width: 100%; height: 100%;
 }
 body.k28-portrait-photo .seat-avatar-photo {
-  display: block; width: 100%; height: 100%; object-fit: cover;
-  transform: scale(1.5);
-  transform-origin: center center;
+  display: block; width: 100%; height: 100%; object-fit: contain;
 }
-body.k28-portrait-photo .seat.active .seat-avatar-photo-clip { border-color: var(--gold); box-shadow: 0 0 18px rgba(244,196,48,0.8); animation: seatPulse 1.1s ease-in-out infinite; }
+body.k28-portrait-photo .seat.active .seat-avatar-photo { animation: avatarPhotoActiveGlow 1.1s ease-in-out infinite; }
 body.k28-portrait-photo .seat.folded .seat-avatar-photo { opacity: 0.35; filter: grayscale(1); }
 /* Real, confirmed feature per explicit live report ("when the card
    shows the name and points should disappear"): see the isFaceUpNow
@@ -3229,30 +3249,21 @@ function holdemAvatarImgHtml(name, pos, avatarOverride) {
   // normal deterministic name+pos hash below -- null/unset falls
   // straight through to that same default exactly as before.
   const file = avatarOverride || holdemAvatarFor(name, pos);
-  // Real, confirmed root-cause fix per explicit live report ("I have a
-  // round outline on every avatar I don't want that since I made the
-  // avatars big... like on 4 player and 6 player the avatars body
-  // highlights and no circle"): the hero-avatar source photos
-  // (public/images/hero-avatars/toon*.png) are square canvases with
-  // the actual person only filling part of that square -- transparent
-  // padding on the sides for most of them -- so the round photo crop
-  // was always showing a ring of see-through background between the
-  // subject and the circle's own edge. It was barely visible at the
-  // old small avatar size; doubling the avatars (both the deliberate
-  // portrait scale(2) and the landscape clamp-based doubling) doubled
-  // that gap right along with everything else, which is exactly what
-  // made it read as a distinct unwanted "outline" now. A plain CSS
-  // border/box-shadow on the image itself can't fix this -- the empty
-  // space is real transparent pixels within the image, not a drawn
-  // ring -- and applying a zoom via transform directly on this same
-  // element (border-radius-clipped) only ever magnifies the already-
-  // clipped circle as one rigid unit (verified empirically), never
-  // crops the margin away. Splitting the circular clip onto a new
-  // wrapper div (.seat-avatar-photo-clip, fixed size, its own
-  // border/box-shadow/border-radius) and applying a compensating zoom
-  // to this inner <img> instead genuinely crops the transparent
-  // padding out before the fixed-size clip is ever applied, which is
-  // the only way to actually remove it. See the matching CSS.
+  // Real, confirmed fix per explicit live report, second pass ("I don't want
+  // that [ring]... like on 4-player and 6-player the avatars have body
+  // highlights and no circle" -- with an actual screenshot of six.html's
+  // borderless photo avatars to match). The first pass at this (a wrapper
+  // div doing a circular clip + a compensating zoom on the inner <img> to
+  // crop the source PNG's transparent side padding out) did stop the crop
+  // from cutting the ring off mid-photo, but it was still a circle drawn
+  // around every avatar, which is exactly the look those other two tables
+  // deliberately don't have. They solve it the opposite way instead (see
+  // six.html's own "no edges"/photo-mode media rule): no clip, no border, no
+  // background at all -- object-fit:contain shows the whole character photo
+  // at the wrapper's natural size, so the transparent padding is simply
+  // invisible against the felt instead of being cropped. This wrapper div
+  // is kept only as a stable sizing box for the CSS (width/height:100%,
+  // no visual styling of its own any more) -- see the matching CSS.
   return `<div class="seat-avatar-photo-clip"><img src="/images/hero-avatars/${file}.png" class="seat-avatar-photo" alt="" draggable="false"></div>`;
 }
 // Per explicit request: color-codes each seat's own last-action badge
