@@ -4237,6 +4237,7 @@ function safelyShowGameOver(state) {
       $('gameOverBody').textContent = 'Final score: ' + state.gameOver.finalScore[0] + ' - ' + state.gameOver.finalScore[1];
       $('btnGameOverRestart').style.display = IS_HOST ? 'flex' : 'none';
       $('gameOverOverlay').classList.add('on');
+      updateGameOverRestartButton(state);
     } catch (e2) {
       console.error('[safelyShowGameOver] fallback also failed:', e2);
     }
@@ -4250,9 +4251,48 @@ function showGameOver(state) {
   $('gameOverBody').innerHTML = `Final score — Your Team: ${state.gameOver.finalScore[myTeam]}, Opp Team: ${state.gameOver.finalScore[1 - myTeam]}`;
   $('btnGameOverRestart').style.display = IS_HOST ? 'flex' : 'none';
   $('gameOverOverlay').classList.add('on');
+  updateGameOverRestartButton(state);
+}
+
+// The server now refuses sixp_restartGame for SIXP_GAMEOVER_MIN_VIEW_MS after a match
+// actually ends (see that handler's comment in server.js) -- that gate exists so every
+// seated player's client has had real time to finish its own last-trick animation and
+// show this game-over screen before the host can sweep it away into a fresh match. Without
+// this countdown, the host's "New Game" button would just silently do nothing for the first
+// few seconds, which looks broken. This mirrors it client-side purely for feedback: it
+// disables the button and counts down using the same window and the server-stamped
+// gameOverAt timestamp, then enables it right when the server will actually honor a click.
+const SIXP_GAMEOVER_MIN_VIEW_MS_CLIENT = 5000;
+let gameOverRestartCountdownTimer = null;
+function updateGameOverRestartButton(state) {
+  const btn = $('btnGameOverRestart');
+  if (gameOverRestartCountdownTimer) { clearInterval(gameOverRestartCountdownTimer); gameOverRestartCountdownTimer = null; }
+  if (!IS_HOST) return;
+  const goAt = state.gameOver && state.gameOver.gameOverAt;
+  const tick = () => {
+    const left = goAt ? Math.ceil((SIXP_GAMEOVER_MIN_VIEW_MS_CLIENT - (Date.now() - goAt)) / 1000) : 0;
+    if (left > 0) {
+      btn.disabled = true;
+      btn.textContent = `New Game (${left}s)`;
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'New Game';
+      if (gameOverRestartCountdownTimer) { clearInterval(gameOverRestartCountdownTimer); gameOverRestartCountdownTimer = null; }
+    }
+  };
+  tick();
+  gameOverRestartCountdownTimer = setInterval(tick, 250);
 }
 $('btnGameOverRestart').addEventListener('click', () => {
-  $('gameOverOverlay').classList.remove('on');
+  if ($('btnGameOverRestart').disabled) return;
+  // Don't hide the overlay locally here anymore -- the server may still refuse this click
+  // (e.g. a stale/late click racing the gate above), and closing it unconditionally on
+  // every click was the same "all players clicking reset the cards" bug in miniature: the
+  // host's own overlay would vanish even on a click that didn't actually restart anything,
+  // leaving the host confused about whether a new match had really started. The overlay now
+  // closes for the host the same way it closes for every other seated player -- automatically,
+  // the instant the server's broadcast confirms a fresh match is actually underway (see the
+  // `!state.gameOver && gameOverShownFor` branch above).
   socket.emit('sixp_restartGame');
 });
 
@@ -4316,15 +4356,37 @@ function initChatPanelPosition() {
 // window 'resize' event -- only visualViewport 'resize'/'scroll' fire --
 // so without this the panel (and its input row) could end up sitting
 // right behind the keyboard, invisible while typing.
+//
+// Real, confirmed root-cause fix per explicit live report with a real
+// Android screenshot ("when I type 6 player I cannot see my text that
+// I'm typing"): visualViewport.height only ever reflects the actual OS
+// keyboard itself -- it does NOT shrink further for Chrome's own
+// autofill/account suggestion strip (the row of key/card/pin icons
+// that sits ABOVE the keyboard once a text field is focused, seen in
+// that screenshot). That strip's own height is real, on-screen, and
+// invisible to this code, so a panel clamped to exactly fill
+// visualViewport's reported space still had its bottom row (the input
+// + Send button) sitting right under that extra strip, off-screen.
+// CHAT_KEYBOARD_SAFETY_MARGIN reserves guaranteed breathing room below
+// the clamped panel for exactly that strip, so the input row it
+// actually matters for stays clear of the keyboard even when this
+// extra OS chrome isn't reflected in the viewport numbers at all.
+const CHAT_KEYBOARD_SAFETY_MARGIN = 56;
 function clampChatPanelToViewport() {
   const panel = $('chatPanel');
   if (!panel) return;
   const vv = window.visualViewport;
   const vw = vv ? vv.width : window.innerWidth;
-  const vh = vv ? vv.height : window.innerHeight;
+  const rawVh = vv ? vv.height : window.innerHeight;
   const offX = vv ? vv.offsetLeft : 0;
   const offY = vv ? vv.offsetTop : 0;
   const rect = panel.getBoundingClientRect();
+  // Only reserve the safety margin once the keyboard actually looks
+  // open (viewport visibly shorter than the full layout height) --
+  // otherwise this would needlessly shrink the panel while it's just
+  // sitting normally on screen with no keyboard up at all.
+  const keyboardLikelyOpen = vv && vv.height < window.innerHeight - 40;
+  const vh = keyboardLikelyOpen ? rawVh - CHAT_KEYBOARD_SAFETY_MARGIN : rawVh;
 
   // Shrink the panel first if the keyboard has left less room than the
   // panel's current size -- otherwise it simply can't fit on-screen at all.
@@ -4416,12 +4478,19 @@ function closeChat() { $('chatOverlay').classList.remove('on'); }
     window.visualViewport.addEventListener('resize', () => { if (chatPanelInited) clampChatPanelToViewport(); });
     window.visualViewport.addEventListener('scroll', () => { if (chatPanelInited) clampChatPanelToViewport(); });
   }
-  // Belt-and-suspenders: also re-clamp shortly after the input gets focus,
-  // in case the viewport event lands after the keyboard's show animation.
+  // Belt-and-suspenders: also re-clamp several times after the input gets
+  // focus, not just once -- the keyboard's own show animation, and
+  // separately Chrome's autofill/account suggestion strip appearing on
+  // top of it (see CHAT_KEYBOARD_SAFETY_MARGIN's comment above), don't
+  // necessarily finish settling in time for a single 300ms check, and
+  // that strip in particular can appear without firing any
+  // visualViewport event at all. Re-checking across this whole window
+  // catches it whenever it actually finishes moving.
   const chatInputEl = $('chatInput');
   if (chatInputEl) {
     chatInputEl.addEventListener('focus', () => {
-      if (chatPanelInited) setTimeout(clampChatPanelToViewport, 300);
+      if (!chatPanelInited) return;
+      [100, 300, 600, 900, 1300].forEach(delay => setTimeout(clampChatPanelToViewport, delay));
     });
   }
 })();

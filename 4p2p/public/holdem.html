@@ -757,6 +757,10 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    phone layout - the desktop override alone is not enough, since a media query that doesn't
    match applies nothing at all, not even to fall back on. */
 .seat-avatar-photo{display:none}
+/* New wrapper introduced for the transparent-margin/ring fix (see
+   holdemAvatarImgHtml's comment) -- hidden by default for the exact
+   same reason as .seat-avatar-photo just above. */
+.seat-avatar-photo-clip{display:none}
 /* Hidden by default for the exact same reason as .seat-avatar-photo above (see that comment) -
    only shown via the desktop wide-table media query rule further below. */
 .desktop-top-readout{display:none}
@@ -1024,11 +1028,22 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      above, so it only affects the real pot pile's chips, not these). */
   body.k28-in-game .pot-stack-chip { width: clamp(9px, 1.4vw, 15px); height: clamp(9px, 1.4vw, 15px); }
   body.k28-in-game .seat-avatar { display: none; }
-  body.k28-in-game .seat-avatar-photo {
-    display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+  /* Real, confirmed root-cause fix ("round outline on every avatar...
+     since I made the avatars big") -- the circular clip + border/glow
+     now live on this new wrapper (a fixed-size box, exactly the old
+     img's own box), while the img itself (just below) gets a
+     compensating zoom to crop the source photo's transparent side
+     padding out before that fixed clip is applied -- see
+     holdemAvatarImgHtml's comment for the full reasoning. */
+  body.k28-in-game .seat-avatar-photo-clip {
+    display: block; width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
     border: 2.5px solid rgba(255,255,255,0.25); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
   }
-  body.k28-in-game .seat.active .seat-avatar-photo { border-color: var(--gold); box-shadow: 0 0 18px rgba(244,196,48,0.8); animation: seatPulse 1.1s ease-in-out infinite; }
+  body.k28-in-game .seat-avatar-photo {
+    display: block; width: 100%; height: 100%; object-fit: cover;
+    transform: scale(1.5); transform-origin: center center;
+  }
+  body.k28-in-game .seat.active .seat-avatar-photo-clip { border-color: var(--gold); box-shadow: 0 0 18px rgba(244,196,48,0.8); animation: seatPulse 1.1s ease-in-out infinite; }
   body.k28-in-game .seat.folded .seat-avatar-photo { opacity: 0.35; filter: grayscale(1); }
   /* Real, confirmed feature per explicit live request ("make the cards
      appear in the avatars like the portrait, name and numbers"): ported
@@ -1481,32 +1496,29 @@ body.k28-portrait-photo #myChipsTop {
    while every other seat sat blank. Same display/border/glow/fold
    treatment as landscape, mirrored here. */
 body.k28-portrait-photo .seat-avatar { display: none; }
-body.k28-portrait-photo .seat-avatar-photo {
-  display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+/* Real, confirmed root-cause fix ("round outline on every avatar...
+   since I made the avatars big"), mirrored from the landscape rule --
+   the circular clip/border/glow and the "enlarge in place" scale(2)
+   (kept, same reasoning as before: a layout-size change would push
+   the name/cards below it, see the fuller comment that used to live
+   here, preserved on the landscape twin of this rule) both move to
+   this new wrapper, while the inner img gets its own separate,
+   smaller zoom that crops the source photo's transparent side padding
+   out BEFORE this wrapper's fixed clip is applied -- the two scales
+   compose (img crops the content, then the whole clipped circle is
+   enlarged), so both effects happen independently and correctly. */
+body.k28-portrait-photo .seat-avatar-photo-clip {
+  display: block; width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
   border: 2.5px solid rgba(255,255,255,0.25); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
-  /* Real, confirmed feature per explicit request ("double the size of
-     avatars in portrait mode only... only the avatar round the pic,
-     all cards all numbers names all stay exactly where it is, so the
-     cards and all will overlap the avatar like it is"): a plain
-     width/height increase on this element's actual box would grow
-     .seat-avatar-wrap's layout footprint, which pushes .seat-name/
-     .seat-cards (siblings laid out below it in normal flow, see the
-     seat template) further down -- exactly the movement this explicitly
-     said not to cause. transform:scale() instead enlarges only the
-     painted circle, in place, around its own center -- the element's
-     real layout box (and therefore every sibling's position: name,
-     chips, cards, the dealer-chip/live-dot/action-badge that share this
-     same wrap) stays completely untouched. Because this photo comes
-     before .seat-cards in the DOM with neither given an explicit
-     z-index, normal stacking order already paints .seat-cards on top of
-     it wherever the enlarged circle now reaches into that space, which
-     is the requested overlap-like-it-already-does behavior, not a new
-     z-index rule.
-  */
   transform: scale(2);
   transform-origin: center center;
 }
-body.k28-portrait-photo .seat.active .seat-avatar-photo { border-color: var(--gold); box-shadow: 0 0 18px rgba(244,196,48,0.8); animation: seatPulse 1.1s ease-in-out infinite; }
+body.k28-portrait-photo .seat-avatar-photo {
+  display: block; width: 100%; height: 100%; object-fit: cover;
+  transform: scale(1.5);
+  transform-origin: center center;
+}
+body.k28-portrait-photo .seat.active .seat-avatar-photo-clip { border-color: var(--gold); box-shadow: 0 0 18px rgba(244,196,48,0.8); animation: seatPulse 1.1s ease-in-out infinite; }
 body.k28-portrait-photo .seat.folded .seat-avatar-photo { opacity: 0.35; filter: grayscale(1); }
 /* Real, confirmed feature per explicit live report ("when the card
    shows the name and points should disappear"): see the isFaceUpNow
@@ -3217,7 +3229,31 @@ function holdemAvatarImgHtml(name, pos, avatarOverride) {
   // normal deterministic name+pos hash below -- null/unset falls
   // straight through to that same default exactly as before.
   const file = avatarOverride || holdemAvatarFor(name, pos);
-  return `<img src="/images/hero-avatars/${file}.png" class="seat-avatar-photo" alt="" draggable="false">`;
+  // Real, confirmed root-cause fix per explicit live report ("I have a
+  // round outline on every avatar I don't want that since I made the
+  // avatars big... like on 4 player and 6 player the avatars body
+  // highlights and no circle"): the hero-avatar source photos
+  // (public/images/hero-avatars/toon*.png) are square canvases with
+  // the actual person only filling part of that square -- transparent
+  // padding on the sides for most of them -- so the round photo crop
+  // was always showing a ring of see-through background between the
+  // subject and the circle's own edge. It was barely visible at the
+  // old small avatar size; doubling the avatars (both the deliberate
+  // portrait scale(2) and the landscape clamp-based doubling) doubled
+  // that gap right along with everything else, which is exactly what
+  // made it read as a distinct unwanted "outline" now. A plain CSS
+  // border/box-shadow on the image itself can't fix this -- the empty
+  // space is real transparent pixels within the image, not a drawn
+  // ring -- and applying a zoom via transform directly on this same
+  // element (border-radius-clipped) only ever magnifies the already-
+  // clipped circle as one rigid unit (verified empirically), never
+  // crops the margin away. Splitting the circular clip onto a new
+  // wrapper div (.seat-avatar-photo-clip, fixed size, its own
+  // border/box-shadow/border-radius) and applying a compensating zoom
+  // to this inner <img> instead genuinely crops the transparent
+  // padding out before the fixed-size clip is ever applied, which is
+  // the only way to actually remove it. See the matching CSS.
+  return `<div class="seat-avatar-photo-clip"><img src="/images/hero-avatars/${file}.png" class="seat-avatar-photo" alt="" draggable="false"></div>`;
 }
 // Per explicit request: color-codes each seat's own last-action badge
 // by what it actually was, matching a real poker room's own visual
