@@ -1560,7 +1560,11 @@ class GameEngine6P {
     if (this.gameScore[0] >= 15 || this.gameScore[1] >= 15) {
       const winningTeam = this.gameScore[0] > this.gameScore[1] ? 0 : 1;
       const losingTeam = 1 - winningTeam;
-      this.gameOver = { winningTeam, finalScore: this.gameScore.slice() };
+      // gameOverAt lets the server refuse an immediate sixp_restartGame -- see
+      // that handler's comment for the full reasoning (guests were missing
+      // the final result/animation entirely when the host restarted within
+      // a second or two of the match ending).
+      this.gameOver = { winningTeam, finalScore: this.gameScore.slice(), gameOverAt: Date.now() };
       this.addLog(`Match over — team ${winningTeam} wins ${this.gameScore[winningTeam]}-${this.gameScore[1 - winningTeam]}.`);
       // Per explicit request: leaderboard recording -- see
       // game-engine.js's identical addition for the fuller reasoning.

@@ -3903,9 +3903,27 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Real, confirmed root-cause fix per explicit live report ("at the
+  // end of a championship... guest players don't see the last
+  // animation or anything"): nothing here ever stopped the host from
+  // restarting within a second of the match actually ending -- and
+  // showGameOver() on every client (see six.js) already has to wait
+  // for that client's OWN last-trick fly animation to finish before it
+  // even shows the game-over screen at all. If the host's own restart
+  // (or the host being quick to click, not even seeing it themselves)
+  // landed before a slower guest's local wait finished, the incoming
+  // fresh match state cancelled that guest's pending game-over screen
+  // outright -- they saw the match just reset with nothing shown, not
+  // even the final score. Refusing the restart until a minimum window
+  // has passed since gameOver was actually set guarantees every seated
+  // player's client has had real time to finish its own animation and
+  // show the summary before anyone can advance past it.
+  const SIXP_GAMEOVER_MIN_VIEW_MS = 5000;
   socket.on('sixp_restartGame', () => {
     withSixpTable((t) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;
+      const goAt = t.engine.gameOver && t.engine.gameOver.gameOverAt;
+      if (goAt && Date.now() - goAt < SIXP_GAMEOVER_MIN_VIEW_MS) return;
       t.engine.restartGame();
       sixpTouch(t);
       sixpBroadcastTable(t);
