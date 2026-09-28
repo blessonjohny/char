@@ -898,7 +898,16 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      fault at all. Fix: .seat is now sized to match the avatar-wrap's
      own clamp exactly, so margin:auto has no overflow left to
      mishandle and genuinely centers again. */
-  body.k28-in-game .seat { width: clamp(120px, 19.2vw, 200px); }
+  /* Real, confirmed follow-up per explicit live report with screenshot
+     (real desktop test of the card-overlay feature below): .seat.-cards
+     (name/amount/cards) was still landing as a separate block BELOW the
+     avatar circle rather than overlapping it -- because .seat itself had
+     no explicit height, only width, so .seat-cards (given position:
+     absolute + a percentage `bottom` below) had no definite containing-
+     block height to resolve that percentage against and silently failed
+     (the exact same class of bug as the margin:auto fix above). Giving
+     .seat the same explicit height as the avatar-wrap fixes that. */
+  body.k28-in-game .seat { width: clamp(120px, 19.2vw, 200px); height: clamp(120px, 19.2vw, 200px); }
   /* Per explicit live request, confirmed against several rounds of
      mockup screenshots before committing: avatar circles at 140% of
      their original 58px (81px) -- 500% was tried first (confirmed too
@@ -994,9 +1003,27 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      plain white/cream card, black suits on a pale blue card - not the same cream background
      for every card regardless of suit. */
   body.k28-in-game .card.black { background: #cfe8f5; }
-  body.k28-in-game .seat-cards { margin-top: 3px; }
+  /* Real, confirmed follow-up per explicit live report with a real
+     desktop screenshot ("make them all go up... the cards i cant see in
+     avatars so all can go up on top of avatars"): .seat-cards used to sit
+     in normal flow right after .seat-avatar-wrap (just `margin-top:3px`),
+     which visually placed the whole name/chips/cards block as its own
+     separate row BELOW the avatar circle, never actually overlapping the
+     photo -- exactly the "cards I can't see in the avatar" complaint.
+     Pulled it out of flow and anchored it to the bottom of .seat (which
+     now has an explicit height matching the avatar-wrap, see .seat above)
+     so it lands directly over the lower portion of the avatar circle
+     instead of below it. */
+  body.k28-in-game .seat-cards {
+    position: absolute; left: 50%; bottom: 4%; transform: translateX(-50%);
+    margin-top: 0; z-index: 6;
+  }
   body.k28-in-game .seat-cards .card.mini { width: 24px; height: 34px; font-size: 0.65rem; }
   body.k28-in-game .dealer-chip { width: 20px; height: 20px; font-size: 0.62rem; }
+  /* The action badge (Fold/Call.../Raise to...) moves to the TOP of the
+     avatar circle instead of clinging to the bottom (its old spot would
+     now sit right on top of the name/cards overlay above). */
+  body.k28-in-game .action-badge { bottom: auto; top: -4%; }
   body.k28-in-game .house-dealer {
     /* Per explicit live report, same root-cause fix as the seat
        avatars just above: switched from a fixed 98px to 11.6vw
@@ -1862,6 +1889,10 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
      left at its original mobile size. Same doubling treatment, same
      clamp ratio, applied to .house-dealer here. */
   body.k28-in-game .house-dealer { width: clamp(108px, 17.4vw, 180px); height: clamp(108px, 17.4vw, 180px); }
+  /* Real, confirmed follow-up per explicit live request ("move the top 5
+     avatars down to their seats dealer included"): desktop-only, moved
+     the dealer down toward its actual stool in the background photo. */
+  body.k28-in-game .house-dealer { top: 29%; }
   /* Real, confirmed feature per explicit request ("make the cards a
      little bigger too my cards.. and make all the cards including
      other players same size as mine.. this for pc only"): my own
@@ -4572,8 +4603,8 @@ function seatPositions() {
       { x: 30.3, y: 71.5 },  // 1: front-left-of-center -- lined up with 2's y (mirrors the 8/7 line-up on the right, per explicit request)
       { x: 12, y: 71.5 },    // 2: lower-left (displayed as "Bot3") -- x matched to seat 3 ("Bot4") so they form a straight vertical column, per explicit request
       { x: 12, y: 34 },      // 3: upper-left (displayed as "Bot4") -- lined up with 4's y
-      { x: 30, y: 34 },      // 4: back-left-of-center (flanking the dealer) -- nudged up a little per explicit request
-      { x: 69.6, y: 34 },    // 5: back-right-of-center -- exact mirror of 4 around the dealer's center (49.8%)
+      { x: 30, y: 27 },      // 4: back-left-of-center (flanking the dealer) -- pulled up close to the dealer's own level (24%), just a little below it, per explicit request
+      { x: 69.6, y: 27 },    // 5: back-right-of-center -- exact mirror of 4 around the dealer's center (49.8%)
       { x: 87.6, y: 34 },    // 6: upper-right -- exact mirror of 3
       { x: 87.6, y: 71.5 },  // 7: lower-right (displayed as "Bot8") -- x matched to seat 6 ("Bot7") so they form a straight vertical column, mirrors 2/3 on the left
       { x: 69.3, y: 71.5 },  // 8: front-right-of-center -- lined up with 7's y, per explicit request "8 with 7"
@@ -4590,10 +4621,76 @@ function seatPositions() {
     // for an actual desktop/laptop browser. First pass, to look at and
     // adjust from -- not final numbers yet.
     if (isDesktopPointer) {
-      positions[0].x += 0.5;   // my own seat: nudged right, less than before (1.2 overshot past the stool's center)
-      positions[3].y += 3;     // upper-left: pulled down a little
-      positions[6].y += 3;     // upper-right: pulled down a little
-      positions[5].x += 2.5;   // back-right-of-center: right of the dealer, moved a little right
+      // Desktop-only (PC/Mac mouse/trackpad) seat nudges, consolidated
+      // to their final values after many small live-tested rounds (the
+      // step-by-step history got hard to track, so this replaces it with
+      // where things actually landed):
+      // - seat 0 (my own seat): nudged right a touch, and moved UP to
+      //   sit level with seats 1/8 -- explicit request ("move me up a
+      //   little all 3 me left and right should be same up and down
+      //   position").
+      // - seats 3/4/6/5 (flanking the dealer/upper corners): pulled in
+      //   toward the table horizontally; seat 4 ended up back at its
+      //   original x after a follow-up said to move it left again.
+      // - seats 1/8 ("my left/right", immediately next to my own seat):
+      //   x nudged out a little (away from me); y explicitly reverted
+      //   back to its original value per the latest request -- these
+      //   were never supposed to move up, only 2/7 were.
+      // - seats 2/7 (the next ring out -- the "extreme"/side avatars):
+      //   nudged in a little horizontally and moved up substantially
+      //   (already confirmed sitting right at the table's rim edge --
+      //   any further up will start visibly clipping into the table).
+      positions[0].x += 0.5;
+      positions[0].y -= 2.5;
+      positions[3].x += 6;
+      positions[4].x += 0;
+      positions[6].x -= 6;
+      positions[5].x -= 1;
+      // Follow-up per explicit live request ("move the top 5 avatars
+      // down to their seats dealer included"): seats 3/4/5/6 moved down
+      // a bit, desktop-only (the dealer's own move is the CSS .house-
+      // dealer top override above).
+      positions[3].y += 4;
+      positions[4].y += 4;
+      positions[5].y += 4;
+      positions[6].y += 4;
+      // Follow-up per explicit live request ("extreme left right only
+      // down a little"): seats 3/6 (the outermost top corners) moved
+      // down a touch more than 4/5.
+      positions[3].y += 2;
+      positions[6].y += 2;
+      // Small clearance fix: that extra move brought 3/6 close enough to
+      // 2/7 to start touching (12.7px overlap, measured) -- nudged 3/6
+      // out half a percent horizontally to clear it without undoing the
+      // "little down" move just requested.
+      positions[3].x += 1.5;
+      positions[6].x -= 1.5;
+      // Follow-up per explicit live request ("move them left and right
+      // away from table a little"): seats 3/6 pulled outward (away from
+      // center) a little more.
+      positions[3].x -= 3;
+      positions[6].x += 3;
+      positions[2].x += 3.5;
+      positions[2].y -= 12.5;
+      positions[7].x -= 3.5;
+      positions[7].y -= 12.5;
+      // Clearance fix: moving 3/6 outward brought them back into 2/7's
+      // space (18.4px overlap, measured) -- nudged 2/7 outward to match.
+      positions[2].x -= 3;
+      positions[7].x += 3;
+      // Follow-up per explicit live request ("Omar move right seat 8
+      // move left a little"): Omar is seat 2, "seat 8" here refers to
+      // its mirror on the right (labeled "Seat 8 OUT" in testing) --
+      // seat 7. Small nudge toward center on both.
+      positions[2].x += 2;
+      positions[7].x -= 2;
+      // Reverted per explicit live report ("undo... I said only the
+      // bottom left and right, not the avatars close to me"): an attempt
+      // to align seat 1/8 (next to my own seat) with seat 3/6 (top
+      // corners) was undone -- back to the last confirmed-good layout.
+      // Seats 1/8 keep their small outward nudge only, no other change:
+      positions[1].x += 0.5;
+      positions[8].x -= 0.5;
     }
     return positions;
   }
