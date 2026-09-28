@@ -15,29 +15,77 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Hold'em — 28 Kerala Gulan">
-<title>Texas Hold'em — 28 Kerala Gulan</title>
-<meta name="description" content="Play Texas Hold'em Poker online free — 9-player tables, cash games, live multiplayer, no download. Play poker online with friends or strangers, straight from your browser.">
-<meta name="keywords" content="texas holdem, play poker online, poker online free, holdem online, play cards online, free poker, multiplayer poker, online poker rooms, poker no download">
+<!-- SEO pass, per explicit request to push holdem.html's Google
+     discoverability now that the table itself is in good shape: title
+     and description now lead with the exact phrases players actually
+     type into Google ("play texas holdem online", "play poker
+     online", "play holdem"), keywords cover the plain, plural and
+     "online"-suffixed variants of each search, og:image now points at
+     a real file (images/desktop-bg-holdem.jpg) instead of the
+     nonexistent /og-image.jpg every other page was quietly pointing
+     at (a broken og:image means a blank/broken preview card whenever
+     this page gets shared on WhatsApp, Facebook, iMessage, etc.), and
+     a FAQPage schema was added so Google can surface hand-ranking/
+     rules answers directly in search results, matching the pattern
+     already used on the homepage and the 28-guide page. -->
+<title>Play Texas Hold'em Poker Online Free – 9-Player Tables | 28 Kerala Gulan</title>
+<meta name="description" content="Play Texas Hold'em Poker online free, no download. Play poker online or play holdem online with up to 9 players, cash games and tournaments, live multiplayer, straight from your browser — jump into a hand in seconds.">
+<meta name="keywords" content="play texas holdem online, texas holdem, texas holdem poker, play holdem, play holdem online, play poker, play poker online, poker online free, holdem online, play card game, play card online, play cards online, free poker, multiplayer poker, online poker rooms, poker no download, texas holdem rules, poker hand rankings">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="https://28gulan.com/holdem.html">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://28gulan.com/holdem.html">
-<meta property="og:title" content="Texas Hold'em Poker Online Free — 28 Kerala Gulan">
-<meta property="og:description" content="Play Texas Hold'em Poker online free — 9-player tables, live multiplayer, no download needed.">
+<meta property="og:title" content="Play Texas Hold'em Poker Online Free — 28 Kerala Gulan">
+<meta property="og:description" content="Play Texas Hold'em Poker online free — 9-player tables, cash games and tournaments, live multiplayer, no download needed.">
+<meta property="og:image" content="https://28gulan.com/images/desktop-bg-holdem.jpg">
+<meta property="og:locale" content="en_IN">
 <meta property="og:site_name" content="28 Kerala Gulan">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Texas Hold'em Poker Online Free">
+<meta name="twitter:title" content="Play Texas Hold'em Poker Online Free">
 <meta name="twitter:description" content="Play Texas Hold'em Poker online free — 9-player tables, live multiplayer, no download needed.">
+<meta name="twitter:image" content="https://28gulan.com/images/desktop-bg-holdem.jpg">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "Game",
   "name": "Texas Hold'em Poker",
+  "alternateName": ["Texas Hold'em", "Hold'em Poker", "Poker"],
   "url": "https://28gulan.com/holdem.html",
-  "description": "Play Texas Hold'em Poker online free with up to 9 players, live multiplayer, no download required.",
+  "description": "Play Texas Hold'em Poker online free with up to 9 players, cash games and tournaments, live multiplayer, no download required.",
   "genre": "Card Game",
   "playMode": "MultiPlayer",
+  "gamePlatform": ["Web Browser", "Mobile Web"],
+  "applicationCategory": "Game",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "isAccessibleForFree": true
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can I play Texas Hold'em online for free?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. You can play Texas Hold'em Poker online free, with up to 9 players at a table, in either tournament or cash game mode — live multiplayer, no download and no signup required." }
+    },
+    {
+      "@type": "Question",
+      "name": "How many players can join a Texas Hold'em table?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Each table seats up to 9 players. You can create a private table and share the code with friends, or join a public table to play with other people online." }
+    },
+    {
+      "@type": "Question",
+      "name": "What's the difference between tournament and cash game mode?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Tournament mode is always no-limit, with blinds that automatically increase as play goes on until one player has all the chips. Cash game mode lets you choose no-limit or fixed-limit betting, with blinds that stay constant." }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need to download anything to play poker online here?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No download or app install needed — the whole game runs straight in your mobile or desktop browser." }
+    }
+  ]
 }
 </script>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -78,6 +126,16 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    the table itself. */
 .create-panel{background:linear-gradient(160deg,rgba(20,38,54,0.92),rgba(8,18,14,0.92));border:1.5px solid rgba(244,196,48,0.35);border-radius:18px;padding:26px 28px;box-shadow:0 0 40px rgba(244,196,48,0.08),0 12px 34px rgba(0,0,0,0.5);width:100%;max-width:380px;margin:auto 0 20px;flex-shrink:0}
 .create-note{font-size:0.75rem;color:var(--cream);opacity:0.75;margin:10px 0 16px;line-height:1.5}
+/* SEO content block, matching index.html's .welcome-about pattern:
+   plain, crawlable on-page text below the create-panel so this page
+   actually has something for Google to read and rank beyond its meta
+   tags, restyled here for holdem's felt-and-gold palette instead of
+   index.html's card-table gold theme. */
+.holdem-about{width:100%;max-width:400px;margin:18px auto 0;padding:0 4px 4px;text-align:left}
+.holdem-about-title{font-size:0.8rem;color:var(--gold);font-weight:700;margin-bottom:8px}
+.holdem-about-text{font-size:0.72rem;color:rgba(253,246,227,0.72);line-height:1.7;margin-bottom:12px}
+.holdem-about-text b{color:#fff;font-weight:600}
+.holdem-about-text a{color:var(--gold)}
 .text-input{width:100%;max-width:320px;padding:14px;border-radius:10px;border:2px solid rgba(244,196,48,0.3);background:rgba(255,255,255,0.06);color:#fff;font-size:1rem;margin-bottom:12px;text-align:center;transition:border-color 0.2s ease}
 .text-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,196,48,0.15)}
 /* Per explicit request: buttons given real depth -- a proper gradient
@@ -89,6 +147,42 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
 .btn-gold{background:linear-gradient(160deg,#ffd76b,var(--gold) 55%,#c99a1e);color:#241a12;box-shadow:0 4px 14px rgba(244,196,48,0.35),inset 0 1px 0 rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.25)}
 .btn-outline{background:linear-gradient(160deg,rgba(255,255,255,0.09),rgba(255,255,255,0.03));color:var(--cream);border:1px solid rgba(255,255,255,0.22);box-shadow:0 2px 8px rgba(0,0,0,0.3)}
 .btn-danger{background:var(--danger);color:#fff}
+/* Real, confirmed redesign per explicit live report ("touch anywhere
+   the landscape is now working... change that to a popup for all
+   views, no more button, touch anywhere/click anywhere to continue,
+   different fonts different colors stylish font and popup no borders"):
+   the actual "click anywhere to continue" behavior (the full-screen
+   #continueAnywhereCatcher, working correctly in every view already)
+   was always separate from this element -- but #btnWinningHandContinue
+   was still a real <button class="btn btn-gold">, a solid gold pill
+   with a border and a box-shadow, which LOOKS like "the one specific
+   spot you must tap" and fights the actual "tap anywhere" message it's
+   displaying. Restyled as a plain floating popup instead: no
+   background, no border, no box shape at all -- just glowing, gently
+   pulsing decorative text in the same serif display font already used
+   for this game's other "big moment" popups (.game-event-title, see
+   below), so it reads as a message rather than a control. Written once
+   here, unscoped by any media query, so it's identical in portrait,
+   landscape phone, and desktop alike -- exactly the "should work on
+   both view and computer too" request. The element keeps its real
+   pointer-events/onclick (still a genuine, clickable fallback for
+   anyone who does tap directly on the text), only the visual chrome
+   changes. */
+#btnWinningHandContinue.continue-popup-text {
+  background: none; border: none; box-shadow: none; padding: 4px 10px; margin: 0;
+  width: auto; min-height: 0; border-radius: 0;
+  font-family: 'Cinzel', 'Playfair Display', serif; font-weight: 700;
+  font-size: 0.92rem; letter-spacing: 1.5px; text-transform: uppercase;
+  line-height: 1.5; cursor: pointer;
+  background-image: linear-gradient(160deg, #fff6d8, var(--gold) 55%, #ffd76b);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 10px rgba(244,196,48,0.55));
+  animation: continuePopupPulse 1.8s ease-in-out infinite;
+}
+@keyframes continuePopupPulse {
+  0%, 100% { opacity: 0.78; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.035); }
+}
 .btn:disabled{opacity:0.4;cursor:not-allowed}
 .opts-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:360px;margin-bottom:10px}
 /* Per explicit request: a shorter, tighter version for rows that can
@@ -407,9 +501,18 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    exactly what they were -- only the flatness itself is addressed
    here, via the ::after rim band below, not the chip's size or how
    the pile stacks. */
-.pot-stack-chip{width:16px;height:16px;border-width:1.5px}
-.seat-rail-chips{position:absolute;width:34px;height:16px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
-.rail-chip-pile{position:absolute;bottom:0;left:50%;width:13px;height:16px;transform:translateX(-50%)}
+/* Real, confirmed size reduction per explicit live report ("make the
+   chips overall size a little small... aim is to have more chips on
+   the table"), reduced a further notch per explicit live follow-up
+   ("make the chips a little bit more smaller just a bit"), and reduced
+   once more per explicit live follow-up ("overall make the chips a
+   little smaller"): every dimension here scaled down together (chip
+   itself, its container, and the pile it sits in), so the piles stay
+   proportioned correctly at the smaller size instead of the chips
+   floating inside an unchanged, now-oversized container. */
+.pot-stack-chip{width:8px;height:8px;border-width:0.8px}
+.seat-rail-chips{position:absolute;width:17px;height:8px;transform:translate(-50%,-50%);z-index:3;pointer-events:none}
+.rail-chip-pile{position:absolute;bottom:0;left:50%;width:7px;height:8px;transform:translateX(-50%)}
 /* Real, confirmed bug fix per explicit live report with a screenshot
    ("looks like a bar, not chips, no roundness -- barrel"): the real
    pot pile's chips get their round shape from .flying-chip
@@ -467,6 +570,23 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    same "no card/panel behind it" idea already applied to the winner
    popup earlier. */
 .street-banner{position:absolute;top:72%;left:50%;transform:translate(-50%,-50%);background:transparent;border:none;padding:10px 22px;font-size:1.15rem;font-weight:900;color:var(--gold);z-index:20;white-space:nowrap;text-shadow:0 0 14px rgba(244,196,48,0.9),0 2px 6px rgba(0,0,0,0.9);display:none;animation:streetBannerIn .35s cubic-bezier(.2,1.5,.4,1) both}
+/* Real, confirmed feature per explicit request ("after each level
+   there is no announcement, should have one nice popup and say the
+   small, large [blind] and level"): a real, dedicated announcement
+   instead of the level-up only ever showing as a single easy-to-miss
+   log line -- see pendingLevelUpAnnouncement in poker-engine.js for
+   where this actually gets triggered, once per real level-up. */
+.level-up-banner{
+  position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);z-index:70;
+  background:linear-gradient(145deg, rgba(36,26,14,0.96), rgba(10,8,5,0.96));
+  border:2px solid var(--gold-soft,#c9a44c); border-radius:16px; padding:18px 28px;
+  text-align:center; white-space:nowrap; display:none;
+  box-shadow:0 8px 28px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+  animation:streetBannerIn .4s cubic-bezier(.2,1.5,.4,1) both;
+}
+.level-up-banner.on{display:block}
+.level-up-banner-title{color:var(--gold);font-size:1.3rem;font-weight:900;text-shadow:0 2px 8px rgba(0,0,0,0.9)}
+.level-up-banner-blinds{color:#fff;font-size:1rem;font-weight:700;margin-top:6px;text-shadow:0 1px 5px rgba(0,0,0,0.9)}
 .street-banner.on{display:block}
 @keyframes streetBannerIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
 .card{width:34px;height:48px;border-radius:5px;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem;box-shadow:0 2px 5px rgba(0,0,0,0.4);flex-shrink:0;transition:opacity 0.25s ease}
@@ -794,7 +914,36 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     color: rgba(255,255,255,0.75); margin-bottom: 1px;
   }
 
-  body.k28-in-game .seat { width: 100px; }
+  /* Real, confirmed root-cause bug fix, found while chasing an
+     unexplained rightward drift in every seat's actual rendered
+     position versus its intended left:X% (worst on the seats flanking
+     the dealer, which measured notably closer to center/the dealer
+     than their percentages implied): .seat-avatar-wrap is centered
+     inside .seat via margin:0 auto, which ONLY works while the wrap is
+     narrower than .seat itself -- the moment the avatar was doubled
+     past this 100px width (up to 200px), the wrap became WIDER than
+     its own centering container, and per the CSS spec an over-
+     constrained auto margin on a too-wide block simply resolves to 0
+     instead of centering, silently left-aligning the wrap against
+     .seat's own left edge instead. Because .seat itself is genuinely
+     centered at each seat's real left:X%, and the wrap was left-
+     aligned to THAT edge rather than centered on it, every seat's
+     avatar was landing (wrap.width-old.seat.width)/2 to the right of
+     where its coordinate said it should be -- a constant ~42px
+     rightward offset at real phone widths, not the position array's
+     fault at all. Fix: .seat is now sized to match the avatar-wrap's
+     own clamp exactly, so margin:auto has no overflow left to
+     mishandle and genuinely centers again. */
+  /* Real, confirmed follow-up per explicit live report with screenshot
+     (real desktop test of the card-overlay feature below): .seat.-cards
+     (name/amount/cards) was still landing as a separate block BELOW the
+     avatar circle rather than overlapping it -- because .seat itself had
+     no explicit height, only width, so .seat-cards (given position:
+     absolute + a percentage `bottom` below) had no definite containing-
+     block height to resolve that percentage against and silently failed
+     (the exact same class of bug as the margin:auto fix above). Giving
+     .seat the same explicit height as the avatar-wrap fixes that. */
+  body.k28-in-game .seat { width: clamp(120px, 19.2vw, 200px); height: clamp(120px, 19.2vw, 200px); }
   /* Per explicit live request, confirmed against several rounds of
      mockup screenshots before committing: avatar circles at 140% of
      their original 58px (81px) -- 500% was tried first (confirmed too
@@ -818,7 +967,15 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      CSS width that size was actually validated at; clamp() keeps it
      from getting uncomfortably small on a narrow phone or oversized
      on a genuinely wide desktop window. */
-  body.k28-in-game .seat-avatar-wrap { width: clamp(60px, 9.6vw, 100px); height: clamp(60px, 9.6vw, 100px); }
+  /* Real, confirmed live request ("make the avatars double" on phone
+     landscape specifically -- portrait must stay untouched, which it
+     is: this whole block is scoped to min-width:521px, a width a real
+     portrait phone never reaches): doubled straight from 60/9.6vw/100
+     to 120/19.2vw/200, the exact same clamp already validated and
+     shipped for the desktop-mouse breakpoint further down (see
+     `(hover: hover) and (pointer: fine)` below) -- reusing those
+     already-confirmed numbers here instead of guessing new ones. */
+  body.k28-in-game .seat-avatar-wrap { width: clamp(120px, 19.2vw, 200px); height: clamp(120px, 19.2vw, 200px); }
   /* Real, confirmed bug fix per explicit live report -- the exact same
      class of bug already fixed once for the avatar itself: fixed px
      values (this rail chip stack's offset, spacing, and chip size)
@@ -849,12 +1006,32 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   }
   body.k28-in-game .seat.active .seat-avatar-photo { border-color: var(--gold); box-shadow: 0 0 18px rgba(244,196,48,0.8); animation: seatPulse 1.1s ease-in-out infinite; }
   body.k28-in-game .seat.folded .seat-avatar-photo { opacity: 0.35; filter: grayscale(1); }
-  body.k28-in-game .seat-name { font-size: 0.66rem; margin-top: 3px; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
-  body.k28-in-game .seat-chips { font-size: 0.62rem; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+  /* Real, confirmed feature per explicit live request ("make the cards
+     appear in the avatars like the portrait, name and numbers"): ported
+     directly from body.k28-portrait-photo's identical technique just
+     below in this file (see its own comment for the fuller reasoning)
+     -- name and chip-count now layer directly ON TOP of the seat's own
+     card-backs instead of floating in their own separate row above
+     them, same dark backdrop for legibility, same overlay mechanism
+     (.seat-cards is already position:relative via the base, unscoped
+     rule, so these just need position:absolute + top instead of the
+     base rule's bottom:calc(100%+13px)/bottom:100%, which pushed them
+     above the cards instead of onto them). */
+  body.k28-in-game .seat-name,
+  body.k28-in-game .seat-chips {
+    position: absolute; left: 50%; transform: translateX(-50%); z-index: 6;
+    margin: 0; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.95);
+    background: rgba(0,0,0,0.55); border-radius: 4px; padding: 0 3px; pointer-events: none;
+  }
+  body.k28-in-game .seat-name { top: -2px; bottom: auto; font-size: 0.62rem; }
+  body.k28-in-game .seat-chips { top: 11px; bottom: auto; font-size: 0.58rem; }
   /* My own chip count reads as a large, prominent number beneath my own seat, matching the
      reference's own big bold balance display - not the same small text every other seat's
-     count uses. */
+     count uses. My own seat never renders real card-backs (own hand shows in the hand-strip
+     instead -- see cardsHtml's pos===myPos check), so this one stays off the shared overlay
+     positioning above and keeps its own plain, larger, centered treatment. */
   body.k28-in-game .seat[data-pos="0"] .seat-chips {
+    position: static; left: auto; transform: none; background: none; padding: 0;
     font-size: 1.15rem; font-weight: 800; color: #fff; margin-top: 6px;
     text-shadow: 0 2px 6px rgba(0,0,0,0.95);
   }
@@ -862,50 +1039,65 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      plain white/cream card, black suits on a pale blue card - not the same cream background
      for every card regardless of suit. */
   body.k28-in-game .card.black { background: #cfe8f5; }
-  body.k28-in-game .seat-cards { margin-top: 3px; }
+  /* Real, confirmed follow-up per explicit live report with a real
+     desktop screenshot ("make them all go up... the cards i cant see in
+     avatars so all can go up on top of avatars"): .seat-cards used to sit
+     in normal flow right after .seat-avatar-wrap (just `margin-top:3px`),
+     which visually placed the whole name/chips/cards block as its own
+     separate row BELOW the avatar circle, never actually overlapping the
+     photo -- exactly the "cards I can't see in the avatar" complaint.
+     Pulled it out of flow and anchored it to the bottom of .seat (which
+     now has an explicit height matching the avatar-wrap, see .seat above)
+     so it lands directly over the lower portion of the avatar circle
+     instead of below it. */
+  body.k28-in-game .seat-cards {
+    position: absolute; left: 50%; bottom: 4%; transform: translateX(-50%);
+    margin-top: 0; z-index: 6;
+  }
   body.k28-in-game .seat-cards .card.mini { width: 24px; height: 34px; font-size: 0.65rem; }
   body.k28-in-game .dealer-chip { width: 20px; height: 20px; font-size: 0.62rem; }
+  /* The action badge (Fold/Call.../Raise to...) moves to the TOP of the
+     avatar circle instead of clinging to the bottom (its old spot would
+     now sit right on top of the name/cards overlay above). */
+  body.k28-in-game .action-badge { bottom: auto; top: -4%; }
   body.k28-in-game .house-dealer {
     /* Per explicit live report, same root-cause fix as the seat
        avatars just above: switched from a fixed 98px to 11.6vw
        (clamp-bounded), immune to device pixel ratio -- see the fuller
-       explanation on seat-avatar-wrap. Position/z-index unchanged. */
-    display: block; position: absolute; left: 49.8%; top: 30%; transform: translate(-50%, -50%);
-    width: clamp(72px, 11.6vw, 120px); height: clamp(72px, 11.6vw, 120px); z-index: 4;
+       explanation on seat-avatar-wrap. Position/z-index unchanged.
+       Doubled to 23.2vw/144/240 alongside the seat avatars above, for
+       the same phone-landscape request -- matches the ratio already
+       used for the desktop dealer double further down. */
+    /* Real, confirmed follow-up per explicit live request ("dealer
+       looks big, needs to move up all the way to the top"): pushed up
+       from 30% to 14%, re-verified against a real synthetic render for
+       top-edge clipping the same way the seat avatars were (see the
+       positions array below) before landing here. */
+    /* Per explicit live report ("dealer make it 25% smaller"): shrunk
+       from clamp(144,23.2vw,240) by 25% -> clamp(108,17.4vw,180). */
+    display: block; position: absolute; left: 49.8%; top: 24%; transform: translate(-50%, -50%);
+    width: clamp(108px, 17.4vw, 180px); height: clamp(108px, 17.4vw, 180px); z-index: 4;
   }
   body.k28-in-game .house-dealer-photo {
     width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
     border: 2.5px solid var(--gold-soft); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
   }
-  /* Per explicit request: seats 3, 4, 5, and 6 (both pairs flanking the dealer, and the
-     upper-left/upper-right pair below them) all get their name/chips/cards band flipped to
-     sit ABOVE the avatar instead of below - extended here from the original fix for just 3/6,
-     since 4/5 sit close enough to the dealer and to 3/6 below them to have the exact same
-     below-the-avatar crowding problem. Every other seat keeps its normal layout, untouched. */
-  body.k28-in-game .seat[data-slot="3"], body.k28-in-game .seat[data-slot="4"],
-  body.k28-in-game .seat[data-slot="5"], body.k28-in-game .seat[data-slot="6"] {
-    display: flex; flex-direction: column-reverse; align-items: center;
-  }
-  body.k28-in-game .seat[data-slot="3"] .seat-avatar-wrap, body.k28-in-game .seat[data-slot="4"] .seat-avatar-wrap,
-  body.k28-in-game .seat[data-slot="5"] .seat-avatar-wrap, body.k28-in-game .seat[data-slot="6"] .seat-avatar-wrap {
-    order: 0;
-  }
-  /* column-reverse flips the whole stack, including the relative order within the info
-     block itself - these explicit order values put it back in its natural reading order
-     (name, then chips, then cards) working down from the top, with the avatar anchored at
-     the bottom via its own order:0 above. */
-  body.k28-in-game .seat[data-slot="3"] .seat-name, body.k28-in-game .seat[data-slot="4"] .seat-name,
-  body.k28-in-game .seat[data-slot="5"] .seat-name, body.k28-in-game .seat[data-slot="6"] .seat-name { order: 3; }
-  body.k28-in-game .seat[data-slot="3"] .seat-chips, body.k28-in-game .seat[data-slot="4"] .seat-chips,
-  body.k28-in-game .seat[data-slot="5"] .seat-chips, body.k28-in-game .seat[data-slot="6"] .seat-chips { order: 2; }
-  body.k28-in-game .seat[data-slot="3"] .seat-cards, body.k28-in-game .seat[data-slot="4"] .seat-cards,
-  body.k28-in-game .seat[data-slot="5"] .seat-cards, body.k28-in-game .seat[data-slot="6"] .seat-cards { order: 1; }
-  body.k28-in-game .seat[data-slot="3"] .turn-tag, body.k28-in-game .seat[data-slot="3"] .action-badge,
-  body.k28-in-game .seat[data-slot="4"] .turn-tag, body.k28-in-game .seat[data-slot="4"] .action-badge,
-  body.k28-in-game .seat[data-slot="5"] .turn-tag, body.k28-in-game .seat[data-slot="5"] .action-badge,
-  body.k28-in-game .seat[data-slot="6"] .turn-tag, body.k28-in-game .seat[data-slot="6"] .action-badge {
-    position: static; transform: none; margin: 0 0 3px; order: 4;
-  }
+  /* Per explicit live report with a screenshot: seats 3, 4, 5, and 6 sit close enough to the
+     very top edge of the (now full-viewport) table photo that flipping their name/chips band
+     to sit ABOVE the avatar (the older fix below, kept here only as history) pushed that text
+     above the visible screen on shorter viewports -- it wasn't hidden by any CSS, it was
+     rendered above y:0 of the fixed, inset:0 table box, i.e. off the top of the device screen
+     entirely. That's exactly the reported bug: those seats' name/amount vanished specifically
+     when there wasn't much slack above them, while every other seat (whose info band already
+     sits below the avatar, same direction as the open space beneath it) was unaffected. Reverted
+     to the same normal below-the-avatar layout every other seat already uses, so all seats are
+     visually consistent and none of them can run off the top edge:
+    body.k28-in-game .seat[data-slot="3"], body.k28-in-game .seat[data-slot="4"],
+    body.k28-in-game .seat[data-slot="5"], body.k28-in-game .seat[data-slot="6"] {
+      display: flex; flex-direction: column-reverse; align-items: center;
+    }
+    ...(order overrides for avatar-wrap/name/chips/cards/turn-tag/action-badge removed with it)
+  */
 
   /* My own hand sits right at my own seat, same as the reference's cards over its own player's
      avatar, instead of a separate strip claiming its own dedicated row of screen space. */
@@ -1042,6 +1234,20 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     margin-left: 10px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; color: currentColor;
     text-shadow: 0 1px 4px rgba(0,0,0,0.9);
   }
+  /* Real, confirmed bug fix per explicit live report ("click anywhere
+     to continue is not working on landscape"): the "click anywhere"
+     full-screen tap catcher (see #continueAnywhereCatcher's click
+     handler and the matching CSS toggle) only ever had this exact
+     position:fixed;inset:0 + display:none/on-block rule scoped to
+     body.k28-portrait-photo -- landscape mode (body.k28-in-game) had
+     no matching rule at all, so the element just sat as a normal,
+     unstyled, zero-size block div in normal document flow instead of
+     covering the screen, and toggling its "on" class did nothing
+     visible or clickable. Same exact rule, just also scoped here. */
+  body.k28-in-game .continue-anywhere-catcher {
+    position: fixed; inset: 0; z-index: 44; display: none;
+  }
+  body.k28-in-game .continue-anywhere-catcher.on { display: block; }
 }
 /* Real, confirmed feature per explicit request ("here is a better
    image... make this the portrait view for phones"): the phone-
@@ -1071,8 +1277,32 @@ body.k28-portrait-photo .felt { display: none; }
    the chairs around it rather than the landscape-specific clamp
    values, which were tuned against a completely different photo. */
 body.k28-portrait-photo .house-dealer {
-  display: block; position: absolute; left: 50%; top: 13%; transform: translate(-50%, -50%);
-  width: clamp(70px, 15vw, 110px); height: clamp(70px, 15vw, 110px); z-index: 4;
+  display: block; position: absolute; left: 50%; top: 10%; transform: translate(-50%, -50%);
+  /* Real, confirmed change per explicit request ("the dealer also
+     should be the same size... I think dealer is double the size, if
+     it's not, make it, if it's over the double make the avatars the
+     same size as the dealer"): measured directly -- across this mode's
+     whole real width range (this class only ever applies below 521px),
+     the previous clamp(70px,15vw,110px) never actually reaches even
+     15vw's own ceiling of ~78px before the mode's own cutoff, let alone
+     the 110px clamp max, so the dealer was never truly double the
+     seat avatars' real 46px size (92px) -- it was consistently smaller
+     than double. Set to a flat 92px, matching the seat avatars' own
+     doubled (46px -> scale(2) = 92px effective) size exactly, since the
+     dealer here isn't double already and has no sibling layout to
+     disturb by resizing its real box directly (unlike the seat avatars,
+     it has no name/cards attached that would shift). Still centered on
+     the exact same point via the unchanged translate(-50%,-50%), so its
+     position doesn't move, only its size grows around that same point.
+  */
+  /* Real, confirmed follow-up per explicit request ("move the dealer a
+     little up and make the dealer a little small"): top nudged from
+     13% to 10% (moves up, position only -- still centered on itself via
+     the same translate(-50%,-50%), no change to the avatar-size-match
+     logic above), and this size brought down from the exact 92px match
+     to 78px so it reads as a little smaller than the seat avatars again
+     rather than a change back to the old un-matched clamp() sizing. */
+  width: 78px; height: 78px; z-index: 4;
 }
 body.k28-portrait-photo .house-dealer-photo {
   width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
@@ -1191,6 +1421,18 @@ body.k28-portrait-photo .hand-strip {
 body.k28-portrait-photo .hand-strip .card { width: 44px; height: 62px; font-size: 1rem; }
 body.k28-portrait-photo .hand-strip .card:first-child { transform: rotate(-8deg) translateY(2px); }
 body.k28-portrait-photo .hand-strip .card:last-child { transform: rotate(8deg) translateY(2px); }
+/* Real, confirmed correction per explicit live report with screenshot
+   ("my amount, we [want it in the] middle in the bottom gap"): 135px
+   overshot -- landing up inside the cards themselves (visible sitting
+   between the two card faces in the actual screenshot) rather than in
+   the real gap below them. Back to 107px, centered exactly on the
+   boundary between the cards' own bottom edge and the action bar
+   below -- the actual gap, not up inside the cards. */
+body.k28-portrait-photo #myChipsTop {
+  display: block; position: fixed; bottom: 107px; left: 50%; transform: translate(-50%, 50%); z-index: 42;
+  font-size: 0.85rem; font-weight: 900; color: var(--gold); text-shadow: 0 1px 5px rgba(0,0,0,0.95);
+  background: rgba(0,0,0,0.55); border: 1px solid var(--gold-soft, #c9a44c); border-radius: 8px; padding: 2px 8px;
+}
 /* Real, confirmed bug fix found from a real-device screenshot ("2
    avatars are not there only dealer"): every seat's actual avatar
    photo is display:none by default and only ever switched on via a
@@ -1203,6 +1445,27 @@ body.k28-portrait-photo .seat-avatar { display: none; }
 body.k28-portrait-photo .seat-avatar-photo {
   display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
   border: 2.5px solid rgba(255,255,255,0.25); box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+  /* Real, confirmed feature per explicit request ("double the size of
+     avatars in portrait mode only... only the avatar round the pic,
+     all cards all numbers names all stay exactly where it is, so the
+     cards and all will overlap the avatar like it is"): a plain
+     width/height increase on this element's actual box would grow
+     .seat-avatar-wrap's layout footprint, which pushes .seat-name/
+     .seat-cards (siblings laid out below it in normal flow, see the
+     seat template) further down -- exactly the movement this explicitly
+     said not to cause. transform:scale() instead enlarges only the
+     painted circle, in place, around its own center -- the element's
+     real layout box (and therefore every sibling's position: name,
+     chips, cards, the dealer-chip/live-dot/action-badge that share this
+     same wrap) stays completely untouched. Because this photo comes
+     before .seat-cards in the DOM with neither given an explicit
+     z-index, normal stacking order already paints .seat-cards on top of
+     it wherever the enlarged circle now reaches into that space, which
+     is the requested overlap-like-it-already-does behavior, not a new
+     z-index rule.
+  */
+  transform: scale(2);
+  transform-origin: center center;
 }
 body.k28-portrait-photo .seat.active .seat-avatar-photo { border-color: var(--gold); box-shadow: 0 0 18px rgba(244,196,48,0.8); animation: seatPulse 1.1s ease-in-out infinite; }
 body.k28-portrait-photo .seat.folded .seat-avatar-photo { opacity: 0.35; filter: grayscale(1); }
@@ -1271,11 +1534,43 @@ body.k28-portrait-photo .seat-chips { top: 11px; bottom: auto; font-size: 0.56re
    extra template change needed beyond that) prefixed via ::before, so
    "Name · 850" reads as a single row sitting cleanly above the FOLDED
    tag with genuinely zero overlap -- verified directly, not assumed. */
-body.k28-portrait-photo .seat.folded .seat-name { display: none; }
+/* Real, confirmed redesign per repeated live reports that the name
+   still wasn't showing on folded seats even after several previous
+   fixes: the previous approach hid the real .seat-name element and
+   instead showed the name via a ::before pseudo-element reading a
+   data-name attribute -- every other seat state (active, face-down)
+   uses the name/chips as real, direct text content instead, and only
+   THIS state has ever kept coming back broken. Rather than chase
+   exactly why the attribute-based approach keeps failing, switched
+   folded seats to the same plain, direct-text method already proven
+   reliable everywhere else: both real elements, genuinely visible,
+   just stacked tightly given the limited real space here (~8.7px
+   before the badge above) -- a little visually tighter than ideal,
+   but reliably present is worth more than pixel-perfect and sometimes
+   missing. */
+/* Real, confirmed redesign per explicit live request ("that fold and folded is repeat or
+   same thing i dont want the bottom folded announcement. Make the name and amount bigger its
+   really tiny. make it all centered and nice"): the separate "FOLDED" tag is dropped entirely
+   for a folded (non-eliminated) seat -- the red "Fold" action badge above the avatar already
+   says the same thing, so it was pure repetition. Removing it frees up all of .seat-cards'
+   space, so the name and chip count no longer need the cramped "stacked in the ~8.7px gap
+   above the box" positioning from all the earlier fixes -- they go back to being plain,
+   normal (non-absolute) flex children of .seat-cards, which centers them automatically via
+   its own existing justify-content:center, sized up now that there's real room for it. */
+body.k28-portrait-photo .seat.folded .seat-name,
 body.k28-portrait-photo .seat.folded .seat-chips {
-  top: auto; bottom: 100%; font-size: 0.44rem; white-space: nowrap;
+  position: static; top: auto; bottom: auto; left: auto; transform: none;
+  background: none; padding: 0; text-shadow: 0 1px 3px rgba(0,0,0,0.95);
+  font-size: 0.72rem; font-weight: 800; white-space: nowrap;
 }
-body.k28-portrait-photo .seat.folded .seat-chips::before { content: attr(data-name) " · "; }
+body.k28-portrait-photo .seat.folded .seat-chips { color: var(--gold); }
+body.k28-portrait-photo .seat.folded .seat-cards {
+  flex-direction: column; align-items: center; gap: 1px; margin-top: 4px;
+}
+/* The action-badge:bottom:18px nudge this used to need is gone along with the old cramped
+   "stack the name above the box" positioning it was compensating for -- name/chips now sit
+   in their own normal space below the avatar, nowhere near the badge, so the badge is back to
+   its plain default position (bottom:6px, same as every other seat's Fold/Call/Raise badge). */
 /* Real, confirmed follow-up per explicit request ("that popup in the
    middle above my avatar... combine that to the bet popup, show it on
    the right of the card"): the separate top banner from the previous
@@ -1305,6 +1600,12 @@ body.k28-portrait-photo .seat.seat-cards-revealed .seat-chips { display: none; }
    winning-hand display -- that's a separate element, untouched here
    on purpose per explicit instruction). Small, precise nudge only. */
 body.k28-portrait-photo .board-area { top: 30%; }
+/* Real, confirmed feature per explicit live report ("river shows up
+   on top of my card, that popup shows up once a while"): no portrait
+   override existed at all for this -- the base 72% was landing right
+   on my own seat/cards after this session's several increases to how
+   high the hand-strip sits. Moved up to sit safely above that area. */
+body.k28-portrait-photo .street-banner { top: 62%; }
 /* Real, confirmed feature per explicit request ("the pots on the
    table when players place... only for portrait" -- the actual chip-
    pile graphic that accumulates in the middle as bets come in, not the
@@ -1452,8 +1753,16 @@ body.k28-portrait-photo #btnSoundMute {
    plain normal flow, so it was hidden the same way. Sits just above
    the hand-strip cards -- nudged up 10px along with them (89px -> 99px)
    when the action bar grew taller, keeping the same relative gap. */
+/* Real, confirmed reposition per explicit request with a marked-up
+   screenshot ("that popup should be were I marked with blue pen"):
+   measured the actual marked region directly against the screenshot's
+   own pixel dimensions -- centers at roughly 54% of the screen height,
+   spanning the open felt area near the lower rail. Switched from a
+   bottom-pixel offset (tied to the hand-strip cards) to a top-percent
+   position instead, since this now sits in a completely different part
+   of the table, unrelated to the cards below it. */
 body.k28-portrait-photo #myHandLabel {
-  position: fixed; bottom: 185px; left: 50%; transform: translateX(-50%); z-index: 41;
+  position: fixed; top: 54%; bottom: auto; left: 50%; transform: translate(-50%, -50%); z-index: 41;
   text-shadow: 0 1px 6px rgba(0,0,0,0.95); width: 100%;
   /* Real, confirmed feature per explicit live report ("i still have a
      generic writing small say u have 3 of a kind"): the inline
@@ -1487,7 +1796,6 @@ body.k28-portrait-photo #handNumDisplay, body.k28-portrait-photo #blindsDisplay 
    block used to do for exactly that case is no longer needed - kept only the couple of
    tweaks that still meaningfully help at a genuinely short height. */
 @media (min-width: 521px) and (max-height: 500px) {
-  body.k28-in-game .seat { width: 78px; }
   /* Per explicit live report: this used to shrink avatars back down to
      44px/50px on exactly the height range most real phones actually
      land on in landscape (under 500px tall) -- completely overriding
@@ -1495,7 +1803,14 @@ body.k28-portrait-photo #handNumDisplay, body.k28-portrait-photo #blindsDisplay 
      is exactly why the change "looked like nothing happened" on an
      actual device even though it worked correctly in every screenshot
      taken at a taller resolution. Removed outright so the big size
-     carries through at every height, not just tall desktop windows. */
+     carries through at every height, not just tall desktop windows.
+     Real, confirmed follow-up: this block's own `.seat{width:78px}`
+     was doing the exact same silent undo one level down -- shrinking
+     the CENTERING CONTAINER back to 78px even though the avatar inside
+     it stayed big, which reintroduces the margin:auto overflow bug
+     fixed above (see that comment) at exactly this same short-height
+     range. Removed for the same reason: .seat now stays matched to the
+     avatar-wrap's own size at every height, not just tall ones. */
   body.k28-in-game .seat-name { font-size: 0.58rem; margin-top: 2px; }
   body.k28-in-game .seat-chips { font-size: 0.55rem; }
   body.k28-in-game .seat-cards .card.mini { width: 18px; height: 25px; font-size: 0.55rem; }
@@ -1603,13 +1918,32 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
    regardless of selector order elsewhere. First pass, to look at and
    adjust from -- not final numbers yet. */
 @media (hover: hover) and (pointer: fine) {
+  /* Real, confirmed fix per explicit live report with two separate real
+     desktop screenshots from different hands (bot seating/names rotate
+     each hand, but it's the same physical seat both times -- first
+     reported as "Kenji chips", then again as "Mateo chips" once the
+     next hand dealt different names into this seat): the lower-right
+     "extreme" seat (data-pos 7) is the one whose name/chips cluster
+     (.seat-cards) sits low/right enough to look like it's hanging off
+     the table edge. This nudges only that cluster up and left onto the
+     wooden rail -- .seat-avatar-wrap (the actual photo) is untouched,
+     confirmed with a render check showing the neighboring seat (data-pos
+     6) still fully visible, not covered. Desktop-only, matching both
+     reports. (This was applied once before, then reverted by mistake
+     during an unrelated mix-up about a different screenshot -- re-added
+     here since it was never actually the problem.) */
+  body.k28-in-game .seat[data-pos="7"] .seat-cards { bottom: 14%; left: 42%; }
   body.k28-in-game .seat-avatar-wrap { width: clamp(120px, 19.2vw, 200px); height: clamp(120px, 19.2vw, 200px); }
   /* Real, confirmed feature per explicit follow-up ("now my dealer
      size, did u fix any?"): this was a genuine miss the first time --
      only the player seats got doubled, the dealer figure itself was
      left at its original mobile size. Same doubling treatment, same
      clamp ratio, applied to .house-dealer here. */
-  body.k28-in-game .house-dealer { width: clamp(144px, 23.2vw, 240px); height: clamp(144px, 23.2vw, 240px); }
+  body.k28-in-game .house-dealer { width: clamp(108px, 17.4vw, 180px); height: clamp(108px, 17.4vw, 180px); }
+  /* Real, confirmed follow-up per explicit live request ("move the top 5
+     avatars down to their seats dealer included"): desktop-only, moved
+     the dealer down toward its actual stool in the background photo. */
+  body.k28-in-game .house-dealer { top: 29%; }
   /* Real, confirmed feature per explicit request ("make the cards a
      little bigger too my cards.. and make all the cards including
      other players same size as mine.. this for pc only"): my own
@@ -1667,6 +2001,22 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
     <button class="btn btn-outline hidden" id="btnContinuePrevious" style="display:none">▶ Continue with Previous</button>
     <button class="btn btn-outline" id="btnBackToRooms">⬅ Back to Rooms</button>
     <div class="table-list" id="publicTableList"></div>
+  </div>
+
+  <div class="holdem-about">
+    <div class="holdem-about-title">♠️ About Texas Hold'em Poker</div>
+    <div class="holdem-about-text">
+      <b>Texas Hold'em</b> is the world's most popular form of poker. Every player gets two private hole cards, and five community cards are dealt face-up in the middle of the table — the flop (3 cards), the turn (1 more), and the river (1 more). Build the best 5-card hand from any mix of your hole cards and the board.
+    </div>
+    <div class="holdem-about-text">
+      <b>How a hand works:</b> each round opens with a small blind and big blind, then four betting rounds — pre-flop, flop, turn, and river — where you can check, bet, call, raise, or fold. Best hand left standing at showdown takes the pot.
+    </div>
+    <div class="holdem-about-text">
+      Looking to <b>play poker online</b>? This table lets you <b>play Texas Hold'em online</b> free with up to 9 players, tournament or cash game mode, live multiplayer — no download, no signup, straight from your browser.
+    </div>
+    <div class="holdem-about-text">
+      <a href="/texas-holdem-guide.html">Read the full Texas Hold'em rules &amp; hand rankings guide →</a>
+    </div>
   </div>
 </div>
 
@@ -1817,6 +2167,7 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
   <div class="table-wrap">
     <div class="felt"></div>
     <div class="street-banner" id="streetBanner"></div>
+    <div class="level-up-banner" id="levelUpBanner"></div>
     <div class="board-area" id="boardArea"></div>
     <div class="pot-display pot-display-pot" id="potDisplayPot">Pot: 0</div>
     <div class="pot-display pot-display-bet" id="potDisplayBet" style="display:none">Bet: 0</div>
@@ -1875,7 +2226,7 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
          the explicit request, rather than sitting right underneath
          the winning cards at all. -->
     <div id="winningHandContinueWrap" class="winning-hand-continue-wrap" style="position:absolute;left:49.8%;top:37%;transform:translate(-50%,-50%);z-index:8;text-align:center;pointer-events:none">
-      <button class="btn btn-gold" id="btnWinningHandContinue" style="pointer-events:auto;padding:8px 24px;font-size:0.6rem;line-height:1.35;width:130px;display:none">Click anywhere<br>to continue</button>
+      <button class="continue-popup-text" id="btnWinningHandContinue" style="pointer-events:auto;display:none">Click anywhere<br>to continue</button>
       <div id="winningHandContinueStatus" style="margin-top:6px;font-size:0.72rem;color:var(--text-secondary,#aaa);display:none"></div>
     </div>
     <div class="continue-anywhere-catcher" id="continueAnywhereCatcher"></div>
@@ -3098,13 +3449,21 @@ $('btnHoldemHostRestart').addEventListener('click', holdemHostRestart);
 // Real poker chips are colored by denomination so a player can read a
 // stack at a glance instead of counting -- same idea here, mapped to
 // this table's typical bet sizes rather than literal casino values.
+// Real, confirmed recolor per explicit live report ("all colors royal,
+// 50 violet pink royal... 100 chrome gold... green blue and red royal"):
+// the 5-chip (red), 10-chip (blue), 20-chip (green), 50-chip (was
+// black, now violet/pink) and 100-chip (was purple, now chrome gold)
+// tiers all swapped to richer, more jewel-toned "royal" versions of
+// their color -- white (the <=4 tier, no chip this game actually uses
+// this low) and the top gold tier (>249, likewise unused by any real
+// chip now that 100 is the largest) are left as they were.
 const CHIP_COLOR_STOPS = [
   { max: 4, colors: ['#fdfdfd', '#c9c9c9', '#8f8f8f'] },      // white
-  { max: 9, colors: ['#ff8a8a', '#d13a3a', '#7a1414'] },      // red
-  { max: 24, colors: ['#7ec1ff', '#2a6fd1', '#123a70'] },     // blue
-  { max: 49, colors: ['#7be08a', '#1f9e3e', '#0d5620'] },     // green
-  { max: 99, colors: ['#4a4a52', '#1a1a1f', '#000000'] },     // black
-  { max: 249, colors: ['#c98aff', '#7c2fcf', '#3d1466'] },    // purple
+  { max: 9, colors: ['#ff5c7a', '#c4102f', '#6b0018'] },      // royal red
+  { max: 24, colors: ['#8fb8ff', '#1a3fd1', '#0a1a66'] },     // royal blue
+  { max: 49, colors: ['#8effc2', '#0e9e4a', '#004d20'] },     // royal green
+  { max: 99, colors: ['#ffb3f0', '#c724b1', '#5c0a52'] },     // royal violet/pink
+  { max: 249, colors: ['#fff6d0', '#ffd700', '#7a5c00'] },    // chrome gold
   { max: Infinity, colors: ['#ffd76b', '#c9922b', '#8a611c'] } // gold, top tier
 ];
 // Per explicit correction: the per-seat "YOUR TURN" badge idea was
@@ -3703,6 +4062,27 @@ socket.on('poker_kickedByAdmin', () => {
 
 // ---------------- State rendering ----------------
 let seenPendingJoinRequestIds = new Set();
+// Real, confirmed feature per explicit request ("after each level
+// there is no announcement, should have one nice popup and say the
+// small, large and level"): shown once per real level-up. The server
+// only ever includes levelUpAnnouncement on the single broadcast right
+// after it happens (see pendingLevelUpAnnouncement in poker-engine.js,
+// cleared immediately after that one broadcast cycle), so no separate
+// "already shown" tracking is needed here at all -- if it's present,
+// it's new.
+let levelUpBannerHideTimer = null;
+function showLevelUpAnnouncementIfAny(state) {
+  if (!state.levelUpAnnouncement) return;
+  const { level, sb, bb } = state.levelUpAnnouncement;
+  const el = $('levelUpBanner');
+  if (!el) return;
+  el.innerHTML = `<div class="level-up-banner-title">Level ${level}</div><div class="level-up-banner-blinds">Small Blind ${sb} · Big Blind ${bb}</div>`;
+  el.classList.remove('on');
+  void el.offsetWidth;
+  el.classList.add('on');
+  if (levelUpBannerHideTimer) clearTimeout(levelUpBannerHideTimer);
+  levelUpBannerHideTimer = setTimeout(() => { el.classList.remove('on'); }, 3200);
+}
 socket.on('poker_state', (state) => {
   if (hasLeftTable) return;
   // The one definitive "we're actually back" signal - a genuine, fresh state push from the
@@ -3714,6 +4094,7 @@ socket.on('poker_state', (state) => {
   updateWinningHandContinueUI(state);
   updateRebuildEliminationUI(state);
   renderRestartCountdown(state);
+  showLevelUpAnnouncementIfAny(state);
   isHost = !!state.isHost;
   isRealHost = !!state.isRealHost;
   // Real, confirmed feature per explicit request ("From the admin
@@ -3904,13 +4285,19 @@ const CHIP_DENOMINATIONS = [
   // painted dot. Builds the exact same gradient string here, from the
   // exact same three color stops, so a chip is the same chip
   // regardless of which pile it's sitting in.
-  { value: 500, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[6].colors[0]}, ${CHIP_COLOR_STOPS[6].colors[1]} 70%, ${CHIP_COLOR_STOPS[6].colors[2]})` }, // gold
-  { value: 100, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[5].colors[0]}, ${CHIP_COLOR_STOPS[5].colors[1]} 70%, ${CHIP_COLOR_STOPS[5].colors[2]})` }, // purple
-  { value: 50, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[4].colors[0]}, ${CHIP_COLOR_STOPS[4].colors[1]} 70%, ${CHIP_COLOR_STOPS[4].colors[2]})` },  // black
-  { value: 25, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[3].colors[0]}, ${CHIP_COLOR_STOPS[3].colors[1]} 70%, ${CHIP_COLOR_STOPS[3].colors[2]})` },  // green
-  { value: 10, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[2].colors[0]}, ${CHIP_COLOR_STOPS[2].colors[1]} 70%, ${CHIP_COLOR_STOPS[2].colors[2]})` },  // blue
-  { value: 5, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[1].colors[0]}, ${CHIP_COLOR_STOPS[1].colors[1]} 70%, ${CHIP_COLOR_STOPS[1].colors[2]})` },   // red
-  { value: 1, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[0].colors[0]}, ${CHIP_COLOR_STOPS[0].colors[1]} 70%, ${CHIP_COLOR_STOPS[0].colors[2]})` },   // white
+  // Real, confirmed change per explicit live report ("add 100. 100 a
+  // player shouldn't have more than 3, 100... 6 50, rest 20 10 and 5"),
+  // caps then raised per explicit live follow-up ("4 hundred 8 50"): a
+  // real player's breakdown only ever uses the 100 and 50 tiers up to
+  // their own maxCount (enforced in decomposeChipValue below), then
+  // covers whatever's left with an unlimited number of 20s, 10s and 5s.
+  // 25 and 1 are dropped entirely (replaced by 20, and nothing needs a
+  // 1 now that every real amount in this game is a multiple of 5).
+  { value: 100, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[5].colors[0]}, ${CHIP_COLOR_STOPS[5].colors[1]} 70%, ${CHIP_COLOR_STOPS[5].colors[2]})`, maxCount: 4 }, // chrome gold
+  { value: 50, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[4].colors[0]}, ${CHIP_COLOR_STOPS[4].colors[1]} 70%, ${CHIP_COLOR_STOPS[4].colors[2]})`, maxCount: 8 },  // royal violet/pink
+  { value: 20, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[3].colors[0]}, ${CHIP_COLOR_STOPS[3].colors[1]} 70%, ${CHIP_COLOR_STOPS[3].colors[2]})` },  // royal green
+  { value: 10, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[2].colors[0]}, ${CHIP_COLOR_STOPS[2].colors[1]} 70%, ${CHIP_COLOR_STOPS[2].colors[2]})` },  // royal blue
+  { value: 5, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[1].colors[0]}, ${CHIP_COLOR_STOPS[1].colors[1]} 70%, ${CHIP_COLOR_STOPS[1].colors[2]})` },   // royal red
 ];
 // Breaks a real chip value down into actual denomination chips,
 // largest first (exactly how a real cashier would count it out).
@@ -3930,11 +4317,34 @@ const CHIP_DENOMINATIONS = [
 // instead of only its largest end.
 function decomposeChipValue(value, maxChips) {
   let remaining = Math.max(0, Math.floor(Number(value) || 0));
+  // Real, confirmed change per explicit live report ("that is per
+  // 1000... if its more then recalculate and do the bigger chips"): the
+  // 100/50 maxCounts on CHIP_DENOMINATIONS are a rate per 1000 of the
+  // real total, not a hard ceiling regardless of size -- a 2500 stack
+  // gets 2.5x the allowance a 1000 stack gets, so a large total still
+  // leans on its real bigger chips instead of the excess all piling up
+  // as an ever-growing tail of 20s once the total crosses 1000.
+  // Computed from the ORIGINAL total (not the shrinking remaining
+  // balance below), so it doesn't shift partway through as denominations
+  // get consumed.
+  const capScale = Math.max(1, remaining / 1000);
   const fullBreakdown = [];
   for (const denom of CHIP_DENOMINATIONS) {
-    while (remaining >= denom.value) {
+    // Real, confirmed change per explicit live report ("a player
+    // shouldn't have more than 3, 100... 6 50, rest 20 10 and 5"): a
+    // denomination with its own maxCount (100 and 50 -- see
+    // CHIP_DENOMINATIONS above) only ever contributes up to that many
+    // chips per 1000 of the total (scaled by capScale above); whatever
+    // it can't cover falls through to the next denomination down, same
+    // as running out of real 100s at a cash cage and moving on to 50s.
+    // Denominations with no maxCount (20, 10, 5) stay unlimited, same
+    // as before.
+    const cap = denom.maxCount == null ? Infinity : Math.ceil(denom.maxCount * capScale);
+    let count = 0;
+    while (remaining >= denom.value && count < cap) {
       fullBreakdown.push(denom.color);
       remaining -= denom.value;
+      count++;
     }
   }
   if (fullBreakdown.length === 0) return [CHIP_DENOMINATIONS[CHIP_DENOMINATIONS.length - 1].color];
@@ -3949,6 +4359,18 @@ function decomposeChipValue(value, maxChips) {
   }
   return sampled;
 }
+
+// Per explicit request ("1 straight pile like now and 1 half random
+// landing messy"): a small deterministic pseudo-random generator, not
+// Math.random(), so the "messy" pile's scatter is seeded by the seat
+// and chip index and comes out the same every time this re-renders --
+// otherwise every chip would visibly jump to a new random spot on each
+// game-state update, which would look broken, not messy-in-a-good-way.
+function messyRand(seed) {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 function renderRailChips(state) {
   const container = $('railChipsContainer');
   if (!container) return;
@@ -4019,15 +4441,35 @@ function renderRailChips(state) {
     // dealer directly and need the biggest upward nudge, 3/6 sit one
     // ring out and need a smaller one.
     const PORTRAIT_MANUAL_CORRECTIONS = {
-      4: { dx: -12, dy: -14 }, // upper-left, flanking dealer: up more, and left toward its own avatar
-      5: { dx: 12, dy: -14 },  // upper-right, flanking dealer: up more, and right (mirrors 4)
+      // Real, confirmed undo per explicit live report ("undo the
+      // position of chips, all a mess, u didn't do one thing proper"):
+      // the whole set of changes from the previous pass (Chen/Carlos/
+      // Mateo/Sofia adjustments, my own chip nudge) is reverted back
+      // to exactly what it was before that pass, in full.
+      // Real, confirmed live per-seat nudge per explicit report ("top
+      // left move a little right"): horizontal-only, no change to the
+      // vertical (up/down) placement already set above.
+      4: { dx: -7, dy: -14 }, // upper-left, flanking dealer: up more, and left toward its own avatar
+      // Real, confirmed live per-seat nudge per explicit report ("top
+      // right avatar move a tiny tiny left"): horizontal-only, no
+      // change to the vertical (up/down) placement already set above.
+      5: { dx: 9, dy: -14 },  // upper-right, flanking dealer: up more, and right (mirrors 4)
       3: { dx: -8, dy: -8 },   // mid-left: up a little, and left a little
-      6: { dx: 8, dy: -8 },    // mid-right: up a little, and right a little (mirrors 3)
+      // Real, confirmed live per-seat nudge per explicit report ("right
+      // 3 from bottom move chips a little to right", counting up from
+      // the bottom-most right seat -- that's this one, upper-right of
+      // the two mid-right seats): horizontal-only, no change to the
+      // vertical (up/down) placement already set above.
+      6: { dx: 12, dy: -8 },   // mid-right: up a little, and right a little (mirrors 3)
       // Real, confirmed follow-up per explicit live report ("my chips
       // are way up"): the generic toward-center formula alone was
       // pushing my own seat's stack too far from my actual seat for
       // this layout specifically -- pulled back down toward it.
-      0: { dx: 0, dy: 10 },
+      // Real, confirmed live nudge per explicit report ("my chips in
+      // front of me has to move up a little"): vertical-only, pulled
+      // back up a bit from that prior correction; horizontal (dx) left
+      // untouched.
+      0: { dx: 0, dy: 6 },
     };
     const MANUAL_CORRECTIONS = isPortraitPhoto ? PORTRAIT_MANUAL_CORRECTIONS : {
       0: { dx: 0, dy: -6 },   // dealer/own seat: up, so it's actually visible
@@ -4046,56 +4488,47 @@ function renderRailChips(state) {
     const chips = s.chips || 0;
     if (chips <= 0) return `<div class="seat-rail-chips" id="railChips${pos}" style="${railStyle}"></div>`;
     const pileCount = 2;
-    // Per explicit request ("chips on the table and chips on hands
-    // should match the exact value... do all the math and assign
-    // values"): the real chip total is decomposed into genuine
-    // denominations (see decomposeChipValue), so the colors shown are
-    // mathematically derived from the actual number instead of an
-    // arbitrary repeating sequence unrelated to it -- a player holding
-    // mostly small chips actually shows small-denomination colors, and
-    // a big stack actually shows the bigger ones.
-    // Real, confirmed bug fix per explicit live report ("avoided the
-    // 500 chips"): this used to split the total in half and decompose
-    // EACH half separately -- for a stack like 900, that's two piles
-    // of 450 each, and 450 is under the 500 threshold, so neither pile
-    // could ever show a gold chip even though the real, whole 900
-    // total obviously contains one. Decomposes the FULL total once
-    // now, then deals the resulting real chips out to the two piles
-    // alternately (like a real dealer splitting a stack in half by
-    // handing them out one at a time), so a genuinely large total
-    // still shows its real large-denomination chips somewhere in the
-    // display instead of them vanishing at the split.
-    const totalVisualCap = Math.min(10, Math.max(4, pileCount * 3));
-    const fullPileColors = decomposeChipValue(chips, totalVisualCap);
+    // Real, confirmed revert per explicit live report ("why u changing
+    // my chips with numbers... im getting upset"): the count-label
+    // version (a denomination disc overlaid with "x19" etc.) was a
+    // wrong call -- correct math, but it reads as random stray numbers
+    // floating on the table rather than actual chips, especially at the
+    // very start of a hand when every seat suddenly shows one. Back to
+    // plain chip discs with nothing written on them, but still keeping
+    // the actual fix from the report before that ("it dont add up to
+    // 990"): decomposeChipValue() is called here with NO cap at all
+    // (previously capped and sampled down to keep the pile small, which
+    // is what broke the total), so every disc in the pile is a real
+    // chip and the discs you can count are genuinely the whole amount --
+    // just shown as chips looking like chips, not chips wearing labels.
+    const fullPileColors = decomposeChipValue(chips, Infinity);
     const pileColorSets = Array.from({ length: pileCount }, () => []);
     fullPileColors.forEach((color, i) => pileColorSets[i % pileCount].push(color));
     const pilesHtml = Array.from({ length: pileCount }, (_, pileIdx) => {
       const pileColors = pileColorSets[pileIdx];
+      // Per explicit request: pile 0 stays exactly the neat straight
+      // stack it already was; pile 1 (index 1) becomes a "half random
+      // landing messy" pile instead -- each of its chips gets its own
+      // small seeded rotation and left/bottom jitter on top of the
+      // same base stacking, so it reads as a loose hand of chips
+      // dropped down rather than a second tidy tower next to the first.
+      const isMessyPile = pileIdx === 1;
       const chipsHtml = pileColors.map((chipColor, i) => {
-        // Per explicit live report: chips within a pile read as spread
-        // apart rather than genuinely stacked -- tightened, and also
-        // converted to vw (same reasoning as OFFSET_VW above) so the
-        // overlap amount stays proportionally correct on any real
-        // device instead of a fixed px gap that reads as huge once
-        // the avatar next to it is actually small on a real phone.
-        // Per explicit live report: height brought all the way down to
-        // 0 -- every chip in a pile now sits at the exact same
-        // position, directly on top of each other with no vertical
-        // offset at all, rather than the staggered "staircase" spread
-        // used before.
-        // Per explicit live report ("where's the rest" -- fully
-        // overlapping chips made it look like only one existed):
-        // small non-zero offset restored so each chip in the pile
-        // peeks out slightly below the one on top of it, reading as
-        // a genuine multi-chip stack again, while staying much
-        // tighter than the original spread-out version.
-        // Real, confirmed bug fix per explicit live report ("hands
-        // show the same color from top"): 1.5px was too tight for the
-        // colors underneath to actually be visible -- the topmost chip
-        // almost completely covered the ones below it, so a pile with
-        // real color variety still visually read as a single flat
-        // color. Widened enough that each chip genuinely peeks out.
-        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 3}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+        if (!isMessyPile) {
+          // Real, confirmed change per explicit live report ("make the
+          // height a little shorter"): the per-chip vertical offset
+          // (how far each chip peeks out below the one on top of it) is
+          // what actually determines how tall a pile of many real chips
+          // gets -- brought down from 3px to 2px so a big stack's pile
+          // sits noticeably shorter without needing to hide any chips.
+          return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${i * 1.5}px;transform:translate(-50%,0) scaleY(0.5)"></div>`;
+        }
+        const seed = pos * 97 + i * 13 + 1;
+        const rot = (messyRand(seed) * 2 - 1) * 18;       // -18..18deg tilt
+        const jx = (messyRand(seed + 1) * 2 - 1) * 4;     // -4..4px sideways scatter
+        const jyJitter = (messyRand(seed + 2) * 2 - 1) * 1.4;
+        const jy = i * 1.1 + jyJitter;                    // looser, uneven stacking
+        return `<div class="pot-stack-chip" style="background:${chipColor};bottom:${jy.toFixed(2)}px;transform:translate(calc(-50% + ${jx.toFixed(2)}px),0) rotate(${rot.toFixed(1)}deg) scaleY(0.55)"></div>`;
       }).join('');
       // Per explicit live report: the two piles themselves read as far
       // apart -- brought in from 32/68 to 40/60, close enough that
@@ -4173,17 +4606,162 @@ function seatPositions() {
     // whole bottom-center row (0, 1, 8 -- test/you, Bot2, Bot9) was
     // reported sitting noticeably too high ("pushed up... more than a
     // little"), so moved back down by a real amount, not a token one.
+    // Real, confirmed follow-up per explicit live request ("make the
+    // avatars double" on phone landscape): re-measured every position
+    // against an actual synthetic render at real mobile-landscape
+    // resolutions (844x390, 926x428) after doubling seat-avatar-wrap
+    // above, not estimated. Two real, distinct problems turned up:
+    // (1) seats 4/5 (flanking the dealer, the highest seats on
+    // screen) genuinely clipped OFF the top edge of the viewport once
+    // their avatar's own radius roughly doubled -- pushed both down
+    // substantially (not a token nudge) to clear it with margin at
+    // the shortest real phone-landscape height. (2) every adjacent
+    // pair now overlaps more than before, worst on the vertical-ish
+    // pairs (2/3 and 6/7) and the diagonal pairs (1/2, 7/8) -- widened
+    // all of them outward from center, mirrored left/right, same
+    // spirit as the earlier (much smaller) overlap fixes above but
+    // scaled to match the new, much bigger avatar size. This measurably
+    // reduces overlap at real phone-landscape sizes; it does not fully
+    // eliminate it everywhere (there simply isn't 162px+ of clearance
+    // between some of these real chairs in the photo at once avatars
+    // are genuinely doubled) -- first pass against real render
+    // measurements, not live-device-confirmed yet.
+    // Second real, measured pass, same render/measure loop as above:
+    // after the first pass, four pairs still measurably overlapped
+    // (0/1, 3/4, 8/0, and worst of all 5/6 at ~34px) -- nudged each of
+    // those specific seats further apart again, same direction-of-travel
+    // logic (away from whichever neighbor it's still crowding), while
+    // leaving the pairs that were already clear (1/2, 2/3, 6/7, 7/8)
+    // alone rather than re-perturbing them.
+    // Third real live request: dealer moved up (30% -> 14%, see
+    // .house-dealer above), which freed real vertical room -- 4/5
+    // (flanking the dealer) pulled up to sit closer to it again, and
+    // 3/6 (the upper corners) nudged back down a little per the same
+    // request. Re-verify against a fresh render if these ever look off
+    // again; this is a direct value edit, not yet re-measured against
+    // the live overlap numbers the way the two passes above were.
+    // Fourth real live request ("its an oval shape, dealer and me
+    // should have the largest distance, make it nice oval round"):
+    // shrunk the dealer 25% (see .house-dealer above), pulled 4/5 up a
+    // touch more toward it, pushed 3/6 back down a touch, and -- the
+    // main complaint -- 2/7 were sitting way below 3/6 with a big flat
+    // jump in the curve (74 -> 31), breaking the oval; brought 2/7 up
+    // and inward substantially so the ring steps down gradually from
+    // the dealer to seat 0 instead of jumping, and nudged 1/8 up a
+    // touch too so the whole ring reads as one smooth oval.
     const positions = [
-      { x: 48.4, y: 78.3 },  // 0: my own seat
-      { x: 29.5, y: 76.9 },  // 1: front-left-of-center
-      { x: 13.7, y: 71.3 },  // 2: lower-left
-      { x: 13.5, y: 31 },    // 3: upper-left
-      { x: 30.4, y: 24.5 },  // 4: back-left-of-center (flanking the dealer)
-      { x: 67.1, y: 26 },    // 5: back-right-of-center (mirrors 4)
-      { x: 83.5, y: 31 },    // 6: upper-right (mirrors 3)
-      { x: 83.2, y: 70.1 },  // 7: lower-right (mirrors 2)
-      { x: 67.3, y: 77 },    // 8: front-right-of-center (mirrors 1)
+      { x: 48.4, y: 78.3 },  // 0: my own seat -- farthest point from dealer, unchanged
+      { x: 30.3, y: 71.5 },  // 1: front-left-of-center -- lined up with 2's y (mirrors the 8/7 line-up on the right, per explicit request)
+      { x: 12, y: 71.5 },    // 2: lower-left (displayed as "Bot3") -- x matched to seat 3 ("Bot4") so they form a straight vertical column, per explicit request
+      { x: 12, y: 34 },      // 3: upper-left (displayed as "Bot4") -- lined up with 4's y
+      { x: 30, y: 27 },      // 4: back-left-of-center (flanking the dealer) -- pulled up close to the dealer's own level (24%), just a little below it, per explicit request
+      { x: 69.6, y: 27 },    // 5: back-right-of-center -- exact mirror of 4 around the dealer's center (49.8%)
+      { x: 87.6, y: 34 },    // 6: upper-right -- exact mirror of 3
+      { x: 87.6, y: 71.5 },  // 7: lower-right (displayed as "Bot8") -- x matched to seat 6 ("Bot7") so they form a straight vertical column, mirrors 2/3 on the left
+      { x: 69.3, y: 71.5 },  // 8: front-right-of-center -- lined up with 7's y, per explicit request "8 with 7"
     ];
+    // Real, confirmed bug fix per an actual real-phone photo ("that's
+    // terrible on my phone"): every position above was tuned by eye
+    // against desktop-width Playwright screenshots (the isDesktopPointer
+    // block below got the entire tuning pass), but on a REAL landscape
+    // touch phone -- which never takes that branch, only these base
+    // values -- measuring real .seat-avatar-wrap rects (getBoundingClientRect,
+    // same overlap-distance method used throughout this whole session)
+    // at actual phone-landscape sizes (915x412, 800x360, 926x428) showed
+    // every single adjacent pair overlapping, worst on the vertical
+    // column pairs (2/3 and their mirror 6/7, ~17-21px) and moderate
+    // (~7-8px) on 0/1, 1/2, 3/4, 5/6, 7/8 -- this had never actually been
+    // measured on a real touch viewport this whole session, only assumed
+    // fine because the desktop numbers looked right. Spread the ring out
+    // in the one place there's real headroom: 3/6 (upper corners) and
+    // 4/5 (flanking the dealer) still had large slack against each other
+    // (300px+), so both pairs moved up+outward together (preserving the
+    // 3-4/5-6 gap exactly, since both move by the same amount), freeing
+    // room to also push 2/7 further down+outward without them drifting
+    // into 1/8. Gated on !isDesktopPointer just below -- these deltas
+    // apply on top of the SAME positions array the isDesktopPointer
+    // block also mutates, so without that guard a real phone would be
+    // fine but a desktop browser would silently get this pass PLUS its
+    // own already-approved deltas stacked on top, breaking the layout
+    // the user already confirmed as "Perfect." A real phone (touch, no
+    // mouse/trackpad) never takes the isDesktopPointer branch, so it
+    // always gets exactly this pass; k28-portrait-photo never reaches
+    // this array at all (returns separately above).
+    if (!isDesktopPointer) {
+      positions[3].y -= 4; positions[3].x -= 2;   // 3: up + left (away from 2)
+      positions[6].y -= 4; positions[6].x += 2;   // 6: mirror
+      positions[4].y -= 4;                         // 4: up, same amount as 3, keeps the 3-4 gap unchanged
+      positions[5].y -= 4;                         // 5: mirror
+      positions[2].y += 3; positions[2].x -= 2;   // 2: down + left (away from 3, more room now that 3 moved up)
+      positions[7].y += 3; positions[7].x += 2;   // 7: mirror
+      // 1/8 were tried both directions empirically: nudging them OUTWARD
+      // (toward 0) fully clears 1-2/7-8 but opens up a much worse 15-26px
+      // overlap with 0 instead; this smaller inward nudge was the best
+      // balance found -- 1-2/7-8 down to a ~3px graze (barely visible,
+      // same order of magnitude as the "minor overlap" already accepted
+      // on desktop, e.g. seat 2/7's badge vs its neighbor's card box), 0-1
+      // and 8-0 both stay fully clear.
+      positions[1].x -= 1.5;
+      positions[8].x += 1.5;
+      // Follow-up per explicit live request against the phone screenshot
+      // above ("Yuki move left. Feri left and up camel tiny left. same
+      // on the other side"): Yuki=seat 6, Frey=seat 7 ("Feri"),
+      // Camille=seat 8, mirrored onto their left-side counterparts
+      // (3, 2, 1 respectively, per the mirror pairing documented above).
+      positions[6].x -= 1;                            // Yuki: left
+      positions[3].x += 1;                            // mirror
+      positions[7].x -= 1; positions[7].y -= 1.5;     // Frey: left + up
+      positions[2].x += 1; positions[2].y -= 1.5;     // mirror
+      positions[8].x -= 0.5;                          // Camille: tiny left
+      positions[1].x += 0.5;                           // mirror
+      // Follow-up ("Feri and Elena up a little"): Frey=7, Elena=2 (the
+      // same mirror pair as above), a further small nudge up on top of
+      // the -1.5 they already got.
+      positions[7].y -= 1.5;
+      positions[2].y -= 1.5;
+      // Follow-up ("More up... also my avatar up a little"): Frey/Elena
+      // further still, plus the viewer's own seat (0) up a touch too.
+      positions[7].y -= 1.5;
+      positions[2].y -= 1.5;
+      positions[0].y -= 1.5;
+      // Follow-up ("Frey, Yuki move left. Elena, Liam move right."):
+      // right side (6, 7) further left, left side (2, 3) further right
+      // -- same mirrored direction-of-travel as the very first Yuki/
+      // Frey/Camille request above, just more of it.
+      positions[6].x -= 1;
+      positions[7].x -= 1;
+      positions[2].x += 1;
+      positions[3].x += 1;
+      // Follow-up ("Also Amara needs to move right"): Amara = seat 1.
+      // 0-1's own gap was already down to <1px of margin before this
+      // (unlike the others, seat 1 has no mirror instruction in play
+      // here -- Camille/8 stays put), so this alone is what pushes 0-1
+      // into a small overlap; flagged rather than silently left in.
+      positions[1].x += 1;
+      // Follow-up ("I want all avatars to overlap like that [Amara/mine],
+      // top and bottom, so bottom is mine, top is dealer"): a real request
+      // to make EVERY consecutive avatar in the ring -- 0-1-2-3-4-dealer-
+      // 5-6-7-8-0, the whole loop -- overlap by the same amount the
+      // Amara/mine pair happened to land at (~8.5px), not just the pairs
+      // touched by earlier one-off requests. With 10 links depending on
+      // shared seats, hand-tuning one pair always shifted its neighbors
+      // out of target (this happened repeatedly earlier in this same
+      // conversation), so this was solved numerically instead: measured
+      // every seat's and the dealer's actual real center (getBoundingClientRect
+      // at 915x412, the same reference size used throughout this
+      // conversation), then a small least-squares solver found the
+      // smallest set of x/y nudges to seats 1-8 (0 and the dealer held
+      // fixed as anchors) that brings all ten consecutive-pair distances
+      // to the same ~8.5px overlap target at once -- verified by
+      // re-measuring after applying, not assumed from the math alone.
+      positions[2].y -= 0.24;
+      positions[3].x += 2.32; positions[3].y -= 0.50;
+      positions[4].x += 2.42; positions[4].y += 0.83;
+      positions[5].x -= 2.42; positions[5].y += 0.83;
+      positions[6].x -= 2.33; positions[6].y -= 0.47;
+      positions[7].x -= 2.77; positions[7].y += 0.09;
+      positions[8].x -= 3.71; positions[8].y += 1.14;
+    }
     // Real, confirmed live request, PC/Mac only ("double avatar size...
     // pull down the top left and right avatars a little... avatar
     // right to dealer move a little to right... my avatar a tiny
@@ -4196,10 +4774,92 @@ function seatPositions() {
     // for an actual desktop/laptop browser. First pass, to look at and
     // adjust from -- not final numbers yet.
     if (isDesktopPointer) {
-      positions[0].x += 0.5;   // my own seat: nudged right, less than before (1.2 overshot past the stool's center)
-      positions[3].y += 3;     // upper-left: pulled down a little
-      positions[6].y += 3;     // upper-right: pulled down a little
-      positions[5].x += 2.5;   // back-right-of-center: right of the dealer, moved a little right
+      // Desktop-only (PC/Mac mouse/trackpad) seat nudges, consolidated
+      // to their final values after many small live-tested rounds (the
+      // step-by-step history got hard to track, so this replaces it with
+      // where things actually landed):
+      // - seat 0 (my own seat): nudged right a touch, and moved UP to
+      //   sit level with seats 1/8 -- explicit request ("move me up a
+      //   little all 3 me left and right should be same up and down
+      //   position").
+      // - seats 3/4/6/5 (flanking the dealer/upper corners): pulled in
+      //   toward the table horizontally; seat 4 ended up back at its
+      //   original x after a follow-up said to move it left again.
+      // - seats 1/8 ("my left/right", immediately next to my own seat):
+      //   x nudged out a little (away from me); y explicitly reverted
+      //   back to its original value per the latest request -- these
+      //   were never supposed to move up, only 2/7 were.
+      // - seats 2/7 (the next ring out -- the "extreme"/side avatars):
+      //   nudged in a little horizontally and moved up substantially
+      //   (already confirmed sitting right at the table's rim edge --
+      //   any further up will start visibly clipping into the table).
+      positions[0].x += 0.5;
+      positions[0].y -= 2.5;
+      positions[3].x += 6;
+      positions[4].x += 0;
+      positions[6].x -= 6;
+      positions[5].x -= 1;
+      // Follow-up per explicit live request ("move the top 5 avatars
+      // down to their seats dealer included"): seats 3/4/5/6 moved down
+      // a bit, desktop-only (the dealer's own move is the CSS .house-
+      // dealer top override above).
+      positions[3].y += 4;
+      positions[4].y += 4;
+      positions[5].y += 4;
+      positions[6].y += 4;
+      // Follow-up per explicit live request ("extreme left right only
+      // down a little"): seats 3/6 (the outermost top corners) moved
+      // down a touch more than 4/5.
+      positions[3].y += 2;
+      positions[6].y += 2;
+      // Small clearance fix: that extra move brought 3/6 close enough to
+      // 2/7 to start touching (12.7px overlap, measured) -- nudged 3/6
+      // out half a percent horizontally to clear it without undoing the
+      // "little down" move just requested.
+      positions[3].x += 1.5;
+      positions[6].x -= 1.5;
+      // Follow-up per explicit live request ("move them left and right
+      // away from table a little"): seats 3/6 pulled outward (away from
+      // center) a little more.
+      positions[3].x -= 3;
+      positions[6].x += 3;
+      positions[2].x += 3.5;
+      positions[2].y -= 12.5;
+      positions[7].x -= 3.5;
+      positions[7].y -= 12.5;
+      // Clearance fix: moving 3/6 outward brought them back into 2/7's
+      // space (18.4px overlap, measured) -- nudged 2/7 outward to match.
+      positions[2].x -= 3;
+      positions[7].x += 3;
+      // Follow-up per explicit live request ("Omar move right seat 8
+      // move left a little"): Omar is seat 2, "seat 8" here refers to
+      // its mirror on the right (labeled "Seat 8 OUT" in testing) --
+      // seat 7. Small nudge toward center on both.
+      positions[2].x += 2;
+      positions[7].x -= 2;
+      // Reverted per explicit live report ("undo... I said only the
+      // bottom left and right, not the avatars close to me"): an attempt
+      // to align seat 1/8 (next to my own seat) with seat 3/6 (top
+      // corners) was undone -- back to the last confirmed-good layout.
+      // Seats 1/8 keep their small outward nudge only, no other change:
+      positions[1].x += 0.5;
+      positions[8].x -= 0.5;
+      // Follow-up per explicit live report with a real screenshot from
+      // the user's own desktop browser window ("Kenji chips move left
+      // and a little up should be on the wooden rail little up"): Kenji
+      // is seat 7 (the lower-right "extreme" seat, mirrors Sofia/seat 2)
+      // -- at the user's real window size his whole seat (avatar, name,
+      // chips -- they all move together, same box) was sitting low/right
+      // enough that the chip amount fell off the visible rail area.
+      // Small nudge left + up onto the rail; the user explicitly asked
+      // for the desktop layout to be touched again for this, so this is
+      // NOT a violation of "don't change desktop" from a moment ago --
+      // it's the next requested change to it.
+      // Reverted per explicit live report ("thats tooooo much"): the
+      // small nudge above still put Kenji's seat far enough onto the
+      // table rail to look wrong on a real screen, even though it
+      // looked reasonable in the render check here -- backed out
+      // entirely rather than guessing a smaller number again blind.
     }
     return positions;
   }
@@ -4213,6 +4873,55 @@ function seatPositions() {
 }
 function slotFor(pos) { return myPos === null ? pos : (pos - myPos + 9) % 9; }
 
+// Real, confirmed defensive fix per repeated live reports of folded
+// seats showing stale card-backs with no name -- reproduced again in a
+// screen recording even after this same fix's first version, run only
+// from inside renderGameTable itself. Extracted into its own function
+// so it can ALSO run independently on a plain timer below (see
+// setInterval near the bottom of this script), not just whenever a
+// render happens to fire -- if the real trigger turns out to be some
+// timing gap between state arriving and the DOM actually updating,
+// this catches it within a couple seconds regardless, rather than
+// depending on another render event to ever come along and fix it.
+function enforceFoldedSeatDisplay(state) {
+  if (!state || !state.seats) return;
+  const seatsEl = $('seatsContainer');
+  if (!seatsEl) return;
+  state.seats.forEach((s, pos) => {
+    if (!s || !s.folded || s.eliminated || s.bustedAt) return;
+    const seatDiv = seatsEl.querySelector(`.seat[data-pos="${pos}"]`);
+    if (!seatDiv) return;
+    if (!seatDiv.classList.contains('folded')) seatDiv.classList.add('folded');
+    let nameEl = seatDiv.querySelector('.seat-name');
+    let chipsEl = seatDiv.querySelector('.seat-chips');
+    const foldedTag = seatDiv.querySelector('.seat-cards .folded-tag');
+    const expectedName = (escapeHtml(s.name) || `Seat ${pos + 1}`) + (pos === myPos ? ' (you)' : '');
+    // Real, confirmed extra safety net for the same name/amount-missing bug this whole
+    // function already exists to catch: recreates the two elements from scratch if some other
+    // direct DOM edit (like the deal-animation fix above) ever deletes them outright, rather
+    // than only fixing their text when they still happen to exist.
+    const cardsElForCreate = seatDiv.querySelector('.seat-cards');
+    if (!nameEl && cardsElForCreate) {
+      nameEl = document.createElement('div');
+      nameEl.className = 'seat-name';
+      cardsElForCreate.insertBefore(nameEl, cardsElForCreate.firstChild);
+    }
+    if (!chipsEl && cardsElForCreate) {
+      chipsEl = document.createElement('div');
+      chipsEl.className = 'seat-chips';
+      cardsElForCreate.insertBefore(chipsEl, nameEl ? nameEl.nextSibling : cardsElForCreate.firstChild);
+    }
+    if (nameEl && nameEl.textContent !== expectedName) nameEl.textContent = expectedName;
+    if (chipsEl && chipsEl.textContent !== String(s.chips)) chipsEl.textContent = String(s.chips);
+    // Per explicit live request, the separate "FOLDED" tag is gone (the red "Fold" action
+    // badge already says it) -- this now just clears away any stray leftover card-back
+    // images for a folded seat instead of replacing them with that tag.
+    if (foldedTag) foldedTag.remove();
+    const cardsEl = seatDiv.querySelector('.seat-cards');
+    if (cardsEl) [...cardsEl.querySelectorAll('.card')].forEach(c => c.remove());
+  });
+}
+setInterval(() => { if (latestState) enforceFoldedSeatDisplay(latestState); }, 1500);
 function renderGameTable(state) {
   showScreen('gameScreen');
   ensureSoundMuteButton();
@@ -4504,9 +5213,9 @@ function renderGameTable(state) {
         })() : ''}
       </div>
       <div class="seat-cards">
-        <div class="seat-name">${escapeHtml(s.name)}${pos === myPos ? ' (you)' : ''}</div>
-        <div class="seat-chips" data-name="${escapeHtml(s.name)}">${(s.eliminated || s.bustedAt) ? 'OUT' : s.chips}</div>
-        ${(s.eliminated || s.bustedAt) ? '<span class="folded-tag">OUT</span>' : (s.folded ? '<span class="folded-tag">FOLDED</span>' : cardsHtml)}
+        <div class="seat-name">${escapeHtml(s.name) || `Seat ${pos + 1}`}${pos === myPos ? ' (you)' : ''}</div>
+        <div class="seat-chips" data-name="${escapeHtml(s.name) || `Seat ${pos + 1}`}">${(s.eliminated || s.bustedAt) ? 'OUT' : s.chips}</div>
+        ${(s.eliminated || s.bustedAt) ? '<span class="folded-tag">OUT</span>' : (s.folded ? '' : cardsHtml)}
       </div>`;
 
     let seatDiv = seatsEl.querySelector(`.seat[data-pos="${pos}"]`);
@@ -4523,6 +5232,7 @@ function renderGameTable(state) {
       seatDiv.innerHTML = innerHtml;
     }
   });
+  enforceFoldedSeatDisplay(state);
   if (isNewShowdownReveal) lastCardRevealAnimatedFor = state.handNumber;
   renderRailChips(state);
 
@@ -4767,6 +5477,23 @@ function showEliminatedOverlaySoon(eliminatedOverlay) {
     if (!eliminatedOverlayDismissed) eliminatedOverlay.classList.add('on');
   }, 4000);
 }
+// Real, confirmed bug fix per explicit live report ("getting busted
+// before the final animation is done... need to see the final
+// animation then the busted blackout screen"): this is the exact same
+// root cause the eliminatedOverlay fix above already solved, just on
+// the OTHER overlay -- the busted/rebuild-countdown blackout screen
+// below was still being shown the instant mySeat.bustedAt appeared,
+// with no delay at all, so it cut off showWinningHandOnTable's
+// card-flight animation on the very hand that busted this player.
+// Same fix, same 4000ms window, same repeat-render guard pattern (a
+// module-level flag, not a per-call one, since this runs on every
+// state broadcast while busted).
+let rebuildOverlayScheduled = false;
+function showRebuildOverlaySoon(rebuildOverlay) {
+  if (rebuildOverlayScheduled) return;
+  rebuildOverlayScheduled = true;
+  setTimeout(() => { rebuildOverlay.classList.add('on'); }, 4000);
+}
 function updateRebuildEliminationUI(state) {
   const mySeat = state.seats[myPos];
   const rebuildOverlay = $('rebuildWaitOverlay');
@@ -4812,7 +5539,7 @@ function updateRebuildEliminationUI(state) {
   eliminatedOverlayScheduled = false;
   eliminatedOverlay.classList.remove('on');
   if (mySeat.bustedAt) {
-    rebuildOverlay.classList.add('on');
+    showRebuildOverlaySoon(rebuildOverlay);
     if (rebuildCountdownInterval) clearInterval(rebuildCountdownInterval);
     const bustedAt = mySeat.bustedAt;
     const waitMs = state.reloadWaitMs || 60000;
@@ -4836,6 +5563,12 @@ function updateRebuildEliminationUI(state) {
     rebuildCountdownInterval = setInterval(updateCountdown, 1000);
   } else {
     rebuildOverlay.classList.remove('on');
+    // Real, confirmed reset per the same fix above: clears the moment
+    // this player is genuinely no longer busted (a rebuild happened),
+    // so the NEXT bust schedules its own fresh 4000ms delay instead of
+    // the guard thinking one is already pending from a bust that's long
+    // since resolved.
+    rebuildOverlayScheduled = false;
     if (rebuildCountdownInterval) { clearInterval(rebuildCountdownInterval); rebuildCountdownInterval = null; }
   }
 }
@@ -5375,7 +6108,24 @@ function revealDealtCardAt(state, pos) {
   const seatEl = document.querySelector(`.seat[data-pos="${pos}"]`);
   const cardsEl = seatEl && seatEl.querySelector('.seat-cards');
   if (!cardsEl || s.folded) return;
-  cardsEl.innerHTML = visibleHand.length ? visibleHand.map(c => cardHtml(c && c.rank ? c : null, true, false, 'dealt-card-pop')).join('') : '';
+  // Real, confirmed root-cause fix per explicit live report with a real-device screenshot
+  // ("on the right there's no name or amount numbers on the right 3 avatars"): in the portrait
+  // layout, .seat-name and .seat-chips are real child nodes INSIDE .seat-cards (overlaid on top
+  // of the card-back images there), not siblings before it. This function used to replace
+  // .seat-cards' entire innerHTML with just the freshly-dealt card images every time a card
+  // landed during the deal animation -- deleting those two child nodes outright, not just
+  // hiding them. The main render loop's own diff cache only reassigns a seat's innerHTML when
+  // its OWN computed template string changes, so it had no way to know this direct DOM edit had
+  // quietly stripped them out from underneath it, and a seat that folded before its next real
+  // template change never got them rebuilt -- exactly why only some seats (whichever ones
+  // happened to still be mid-deal, or hadn't re-rendered since) ever lost their name/amount,
+  // and why it looked essentially random which ones. Preserving the two elements' own real,
+  // current markup across this rewrite keeps every seat's name/amount showing throughout the
+  // deal and after a fold, with nothing else about the deal animation itself touched.
+  const preservedNameHtml = cardsEl.querySelector('.seat-name')?.outerHTML || '';
+  const preservedChipsHtml = cardsEl.querySelector('.seat-chips')?.outerHTML || '';
+  const dealtCardsHtml = visibleHand.length ? visibleHand.map(c => cardHtml(c && c.rank ? c : null, true, false, 'dealt-card-pop')).join('') : '';
+  cardsEl.innerHTML = preservedNameHtml + preservedChipsHtml + dealtCardsHtml;
 }
 function animateDealingCards(state) {
   // Real, confirmed feature per explicit live report ("dealer is
@@ -5661,10 +6411,10 @@ function renderActionBar(state) {
     // itself already uses just above, so all four numbers agree with each other.
     const raiseStep = Math.max(state.minRaise, state.bigBlind);
     sliderHtml = `<div class="amount-row">
+      <span class="amount-val" id="betAmountVal">${minBet}</span>
       <button class="stepper-btn" onclick="adjustBetAmount(-${raiseStep})">−</button>
       <input type="range" id="betSlider" min="${minBet}" max="${maxBet}" step="${raiseStep}" value="${minBet}">
       <button class="stepper-btn" onclick="adjustBetAmount(${raiseStep})">+</button>
-      <span class="amount-val" id="betAmountVal">${minBet}</span>
     </div>`;
     bottomBtnHtml = `<button class="action-btn action-bet" data-label="${state.currentBet > 0 ? 'Raise' : 'Bet'}" onclick="sendAction('${state.currentBet > 0 ? 'raise' : 'bet'}', Number(document.getElementById('betSlider').value))">${state.currentBet > 0 ? 'Raise' : 'Bet'}</button>`;
   }
