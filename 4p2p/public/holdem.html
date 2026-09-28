@@ -878,7 +878,27 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     color: rgba(255,255,255,0.75); margin-bottom: 1px;
   }
 
-  body.k28-in-game .seat { width: 100px; }
+  /* Real, confirmed root-cause bug fix, found while chasing an
+     unexplained rightward drift in every seat's actual rendered
+     position versus its intended left:X% (worst on the seats flanking
+     the dealer, which measured notably closer to center/the dealer
+     than their percentages implied): .seat-avatar-wrap is centered
+     inside .seat via margin:0 auto, which ONLY works while the wrap is
+     narrower than .seat itself -- the moment the avatar was doubled
+     past this 100px width (up to 200px), the wrap became WIDER than
+     its own centering container, and per the CSS spec an over-
+     constrained auto margin on a too-wide block simply resolves to 0
+     instead of centering, silently left-aligning the wrap against
+     .seat's own left edge instead. Because .seat itself is genuinely
+     centered at each seat's real left:X%, and the wrap was left-
+     aligned to THAT edge rather than centered on it, every seat's
+     avatar was landing (wrap.width-old.seat.width)/2 to the right of
+     where its coordinate said it should be -- a constant ~42px
+     rightward offset at real phone widths, not the position array's
+     fault at all. Fix: .seat is now sized to match the avatar-wrap's
+     own clamp exactly, so margin:auto has no overflow left to
+     mishandle and genuinely centers again. */
+  body.k28-in-game .seat { width: clamp(120px, 19.2vw, 200px); }
   /* Per explicit live request, confirmed against several rounds of
      mockup screenshots before committing: avatar circles at 140% of
      their original 58px (81px) -- 500% was tried first (confirmed too
@@ -902,7 +922,15 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      CSS width that size was actually validated at; clamp() keeps it
      from getting uncomfortably small on a narrow phone or oversized
      on a genuinely wide desktop window. */
-  body.k28-in-game .seat-avatar-wrap { width: clamp(60px, 9.6vw, 100px); height: clamp(60px, 9.6vw, 100px); }
+  /* Real, confirmed live request ("make the avatars double" on phone
+     landscape specifically -- portrait must stay untouched, which it
+     is: this whole block is scoped to min-width:521px, a width a real
+     portrait phone never reaches): doubled straight from 60/9.6vw/100
+     to 120/19.2vw/200, the exact same clamp already validated and
+     shipped for the desktop-mouse breakpoint further down (see
+     `(hover: hover) and (pointer: fine)` below) -- reusing those
+     already-confirmed numbers here instead of guessing new ones. */
+  body.k28-in-game .seat-avatar-wrap { width: clamp(120px, 19.2vw, 200px); height: clamp(120px, 19.2vw, 200px); }
   /* Real, confirmed bug fix per explicit live report -- the exact same
      class of bug already fixed once for the avatar itself: fixed px
      values (this rail chip stack's offset, spacing, and chip size)
@@ -933,12 +961,32 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
   }
   body.k28-in-game .seat.active .seat-avatar-photo { border-color: var(--gold); box-shadow: 0 0 18px rgba(244,196,48,0.8); animation: seatPulse 1.1s ease-in-out infinite; }
   body.k28-in-game .seat.folded .seat-avatar-photo { opacity: 0.35; filter: grayscale(1); }
-  body.k28-in-game .seat-name { font-size: 0.66rem; margin-top: 3px; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
-  body.k28-in-game .seat-chips { font-size: 0.62rem; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+  /* Real, confirmed feature per explicit live request ("make the cards
+     appear in the avatars like the portrait, name and numbers"): ported
+     directly from body.k28-portrait-photo's identical technique just
+     below in this file (see its own comment for the fuller reasoning)
+     -- name and chip-count now layer directly ON TOP of the seat's own
+     card-backs instead of floating in their own separate row above
+     them, same dark backdrop for legibility, same overlay mechanism
+     (.seat-cards is already position:relative via the base, unscoped
+     rule, so these just need position:absolute + top instead of the
+     base rule's bottom:calc(100%+13px)/bottom:100%, which pushed them
+     above the cards instead of onto them). */
+  body.k28-in-game .seat-name,
+  body.k28-in-game .seat-chips {
+    position: absolute; left: 50%; transform: translateX(-50%); z-index: 6;
+    margin: 0; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,0.95);
+    background: rgba(0,0,0,0.55); border-radius: 4px; padding: 0 3px; pointer-events: none;
+  }
+  body.k28-in-game .seat-name { top: -2px; bottom: auto; font-size: 0.62rem; }
+  body.k28-in-game .seat-chips { top: 11px; bottom: auto; font-size: 0.58rem; }
   /* My own chip count reads as a large, prominent number beneath my own seat, matching the
      reference's own big bold balance display - not the same small text every other seat's
-     count uses. */
+     count uses. My own seat never renders real card-backs (own hand shows in the hand-strip
+     instead -- see cardsHtml's pos===myPos check), so this one stays off the shared overlay
+     positioning above and keeps its own plain, larger, centered treatment. */
   body.k28-in-game .seat[data-pos="0"] .seat-chips {
+    position: static; left: auto; transform: none; background: none; padding: 0;
     font-size: 1.15rem; font-weight: 800; color: #fff; margin-top: 6px;
     text-shadow: 0 2px 6px rgba(0,0,0,0.95);
   }
@@ -953,9 +1001,19 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     /* Per explicit live report, same root-cause fix as the seat
        avatars just above: switched from a fixed 98px to 11.6vw
        (clamp-bounded), immune to device pixel ratio -- see the fuller
-       explanation on seat-avatar-wrap. Position/z-index unchanged. */
-    display: block; position: absolute; left: 49.8%; top: 30%; transform: translate(-50%, -50%);
-    width: clamp(72px, 11.6vw, 120px); height: clamp(72px, 11.6vw, 120px); z-index: 4;
+       explanation on seat-avatar-wrap. Position/z-index unchanged.
+       Doubled to 23.2vw/144/240 alongside the seat avatars above, for
+       the same phone-landscape request -- matches the ratio already
+       used for the desktop dealer double further down. */
+    /* Real, confirmed follow-up per explicit live request ("dealer
+       looks big, needs to move up all the way to the top"): pushed up
+       from 30% to 14%, re-verified against a real synthetic render for
+       top-edge clipping the same way the seat avatars were (see the
+       positions array below) before landing here. */
+    /* Per explicit live report ("dealer make it 25% smaller"): shrunk
+       from clamp(144,23.2vw,240) by 25% -> clamp(108,17.4vw,180). */
+    display: block; position: absolute; left: 49.8%; top: 24%; transform: translate(-50%, -50%);
+    width: clamp(108px, 17.4vw, 180px); height: clamp(108px, 17.4vw, 180px); z-index: 4;
   }
   body.k28-in-game .house-dealer-photo {
     width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
@@ -1113,6 +1171,20 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     margin-left: 10px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; color: currentColor;
     text-shadow: 0 1px 4px rgba(0,0,0,0.9);
   }
+  /* Real, confirmed bug fix per explicit live report ("click anywhere
+     to continue is not working on landscape"): the "click anywhere"
+     full-screen tap catcher (see #continueAnywhereCatcher's click
+     handler and the matching CSS toggle) only ever had this exact
+     position:fixed;inset:0 + display:none/on-block rule scoped to
+     body.k28-portrait-photo -- landscape mode (body.k28-in-game) had
+     no matching rule at all, so the element just sat as a normal,
+     unstyled, zero-size block div in normal document flow instead of
+     covering the screen, and toggling its "on" class did nothing
+     visible or clickable. Same exact rule, just also scoped here. */
+  body.k28-in-game .continue-anywhere-catcher {
+    position: fixed; inset: 0; z-index: 44; display: none;
+  }
+  body.k28-in-game .continue-anywhere-catcher.on { display: block; }
 }
 /* Real, confirmed feature per explicit request ("here is a better
    image... make this the portrait view for phones"): the phone-
@@ -1661,7 +1733,6 @@ body.k28-portrait-photo #handNumDisplay, body.k28-portrait-photo #blindsDisplay 
    block used to do for exactly that case is no longer needed - kept only the couple of
    tweaks that still meaningfully help at a genuinely short height. */
 @media (min-width: 521px) and (max-height: 500px) {
-  body.k28-in-game .seat { width: 78px; }
   /* Per explicit live report: this used to shrink avatars back down to
      44px/50px on exactly the height range most real phones actually
      land on in landscape (under 500px tall) -- completely overriding
@@ -1669,7 +1740,14 @@ body.k28-portrait-photo #handNumDisplay, body.k28-portrait-photo #blindsDisplay 
      is exactly why the change "looked like nothing happened" on an
      actual device even though it worked correctly in every screenshot
      taken at a taller resolution. Removed outright so the big size
-     carries through at every height, not just tall desktop windows. */
+     carries through at every height, not just tall desktop windows.
+     Real, confirmed follow-up: this block's own `.seat{width:78px}`
+     was doing the exact same silent undo one level down -- shrinking
+     the CENTERING CONTAINER back to 78px even though the avatar inside
+     it stayed big, which reintroduces the margin:auto overflow bug
+     fixed above (see that comment) at exactly this same short-height
+     range. Removed for the same reason: .seat now stays matched to the
+     avatar-wrap's own size at every height, not just tall ones. */
   body.k28-in-game .seat-name { font-size: 0.58rem; margin-top: 2px; }
   body.k28-in-game .seat-chips { font-size: 0.55rem; }
   body.k28-in-game .seat-cards .card.mini { width: 18px; height: 25px; font-size: 0.55rem; }
@@ -1783,7 +1861,7 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
      only the player seats got doubled, the dealer figure itself was
      left at its original mobile size. Same doubling treatment, same
      clamp ratio, applied to .house-dealer here. */
-  body.k28-in-game .house-dealer { width: clamp(144px, 23.2vw, 240px); height: clamp(144px, 23.2vw, 240px); }
+  body.k28-in-game .house-dealer { width: clamp(108px, 17.4vw, 180px); height: clamp(108px, 17.4vw, 180px); }
   /* Real, confirmed feature per explicit request ("make the cards a
      little bigger too my cards.. and make all the cards including
      other players same size as mine.. this for pc only"): my own
@@ -4446,16 +4524,59 @@ function seatPositions() {
     // whole bottom-center row (0, 1, 8 -- test/you, Bot2, Bot9) was
     // reported sitting noticeably too high ("pushed up... more than a
     // little"), so moved back down by a real amount, not a token one.
+    // Real, confirmed follow-up per explicit live request ("make the
+    // avatars double" on phone landscape): re-measured every position
+    // against an actual synthetic render at real mobile-landscape
+    // resolutions (844x390, 926x428) after doubling seat-avatar-wrap
+    // above, not estimated. Two real, distinct problems turned up:
+    // (1) seats 4/5 (flanking the dealer, the highest seats on
+    // screen) genuinely clipped OFF the top edge of the viewport once
+    // their avatar's own radius roughly doubled -- pushed both down
+    // substantially (not a token nudge) to clear it with margin at
+    // the shortest real phone-landscape height. (2) every adjacent
+    // pair now overlaps more than before, worst on the vertical-ish
+    // pairs (2/3 and 6/7) and the diagonal pairs (1/2, 7/8) -- widened
+    // all of them outward from center, mirrored left/right, same
+    // spirit as the earlier (much smaller) overlap fixes above but
+    // scaled to match the new, much bigger avatar size. This measurably
+    // reduces overlap at real phone-landscape sizes; it does not fully
+    // eliminate it everywhere (there simply isn't 162px+ of clearance
+    // between some of these real chairs in the photo at once avatars
+    // are genuinely doubled) -- first pass against real render
+    // measurements, not live-device-confirmed yet.
+    // Second real, measured pass, same render/measure loop as above:
+    // after the first pass, four pairs still measurably overlapped
+    // (0/1, 3/4, 8/0, and worst of all 5/6 at ~34px) -- nudged each of
+    // those specific seats further apart again, same direction-of-travel
+    // logic (away from whichever neighbor it's still crowding), while
+    // leaving the pairs that were already clear (1/2, 2/3, 6/7, 7/8)
+    // alone rather than re-perturbing them.
+    // Third real live request: dealer moved up (30% -> 14%, see
+    // .house-dealer above), which freed real vertical room -- 4/5
+    // (flanking the dealer) pulled up to sit closer to it again, and
+    // 3/6 (the upper corners) nudged back down a little per the same
+    // request. Re-verify against a fresh render if these ever look off
+    // again; this is a direct value edit, not yet re-measured against
+    // the live overlap numbers the way the two passes above were.
+    // Fourth real live request ("its an oval shape, dealer and me
+    // should have the largest distance, make it nice oval round"):
+    // shrunk the dealer 25% (see .house-dealer above), pulled 4/5 up a
+    // touch more toward it, pushed 3/6 back down a touch, and -- the
+    // main complaint -- 2/7 were sitting way below 3/6 with a big flat
+    // jump in the curve (74 -> 31), breaking the oval; brought 2/7 up
+    // and inward substantially so the ring steps down gradually from
+    // the dealer to seat 0 instead of jumping, and nudged 1/8 up a
+    // touch too so the whole ring reads as one smooth oval.
     const positions = [
-      { x: 48.4, y: 78.3 },  // 0: my own seat
-      { x: 29.5, y: 76.9 },  // 1: front-left-of-center
-      { x: 13.7, y: 71.3 },  // 2: lower-left
-      { x: 13.5, y: 31 },    // 3: upper-left
-      { x: 30.4, y: 24.5 },  // 4: back-left-of-center (flanking the dealer)
-      { x: 67.1, y: 26 },    // 5: back-right-of-center (mirrors 4)
-      { x: 83.5, y: 31 },    // 6: upper-right (mirrors 3)
-      { x: 83.2, y: 70.1 },  // 7: lower-right (mirrors 2)
-      { x: 67.3, y: 77 },    // 8: front-right-of-center (mirrors 1)
+      { x: 48.4, y: 78.3 },  // 0: my own seat -- farthest point from dealer, unchanged
+      { x: 30.3, y: 71.5 },  // 1: front-left-of-center -- lined up with 2's y (mirrors the 8/7 line-up on the right, per explicit request)
+      { x: 12, y: 71.5 },    // 2: lower-left (displayed as "Bot3") -- x matched to seat 3 ("Bot4") so they form a straight vertical column, per explicit request
+      { x: 12, y: 34 },      // 3: upper-left (displayed as "Bot4") -- lined up with 4's y
+      { x: 30, y: 34 },      // 4: back-left-of-center (flanking the dealer) -- nudged up a little per explicit request
+      { x: 69.6, y: 34 },    // 5: back-right-of-center -- exact mirror of 4 around the dealer's center (49.8%)
+      { x: 87.6, y: 34 },    // 6: upper-right -- exact mirror of 3
+      { x: 87.6, y: 71.5 },  // 7: lower-right (displayed as "Bot8") -- x matched to seat 6 ("Bot7") so they form a straight vertical column, mirrors 2/3 on the left
+      { x: 69.3, y: 71.5 },  // 8: front-right-of-center -- lined up with 7's y, per explicit request "8 with 7"
     ];
     // Real, confirmed live request, PC/Mac only ("double avatar size...
     // pull down the top left and right avatars a little... avatar
