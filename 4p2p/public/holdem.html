@@ -1730,7 +1730,15 @@ body.k28-portrait-photo .table-winning-hand-label { margin-top: 53px; }
    hand itself too far down, not by this being wrong -- see the undo
    note on .table-winning-hand-cards above. Back to its real, correct
    value now that the actual cause is fixed properly instead.) */
-body.k28-portrait-photo #winningHandContinueWrap { top: 62% !important; }
+/* Follow-up per explicit live request ("potrait make it appear more
+   upper towards top part of the table"): moved up from 62% to 48%. */
+body.k28-portrait-photo #winningHandContinueWrap { top: 26% !important; }
+/* Same live request's other half ("landscape make it come down a
+   little"): landscape's own copy was still on its original inline
+   top:37% (see the <div> itself), never overridden before -- nudged
+   down to 41%. Applies to both mobile landscape and desktop, since
+   both share body.k28-in-game and neither was singled out. */
+body.k28-in-game #winningHandContinueWrap { top: 46% !important; }
 /* Real, confirmed feature per explicit request ("click anywhere to
    continue"): a full-screen, invisible tap target active only while
    the real Continue button is actually showing (see the matching
