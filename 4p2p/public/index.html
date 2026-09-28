@@ -3342,15 +3342,41 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    on each frame -- a translate set only outside the animation would get
    discarded the instant the animation starts and the popup would jump
    to the top-left corner. */
+/* Real, confirmed redesign per explicit request ("popup chat in the
+   middle of table looks so bad... semi-transparent back and some
+   border, cloud design"): the old version was a solid, opaque cream
+   comic-book box with a hard black outline and a flat drop shadow --
+   replaced with a frosted-glass "cloud" bubble instead: a translucent
+   dark background (so the table stays visible through it, not blocked
+   by a solid card), a soft blur behind it for a genuine glass feel, a
+   thin glowing gold border matching the game's own gold accent color
+   rather than a stark black one, and two small round "puffs" bleeding
+   off the bottom-left corner (see ::before/::after below) so it reads
+   as an actual cloud/speech-bubble shape instead of a plain rounded
+   rectangle. Position/centering/animation timing all left exactly as
+   they were (already fixed per an earlier request) -- this only
+   changes what the bubble itself looks like.
+*/
 .comic-chat-popup{
   position:fixed;top:50%;left:50%;max-width:320px;min-width:200px;z-index:650;
-  background:#fdf6e3;color:#1a1a1a;border:4px solid #1a1a1a;border-radius:20px 20px 6px 20px;
-  padding:16px 20px;font-family:serif;font-size:1.05rem;line-height:1.4;text-align:center;
-  box-shadow:6px 6px 0 rgba(0,0,0,0.35);
+  background:rgba(26,22,36,0.55);
+  -webkit-backdrop-filter:blur(16px) saturate(160%);
+  backdrop-filter:blur(16px) saturate(160%);
+  color:#fdf6e3;border:1.5px solid rgba(244,196,48,0.55);
+  border-radius:26px 26px 26px 8px;
+  padding:16px 20px;font-family:'Segoe UI',system-ui,sans-serif;font-size:1.05rem;line-height:1.4;text-align:center;
+  box-shadow:0 10px 32px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.07), 0 0 22px rgba(244,196,48,0.18);
   animation:comicPopIn .25s cubic-bezier(.2,1.4,.4,1) both, comicPopOut .3s ease-in 2.7s both;
   pointer-events:none;
 }
-.comic-chat-popup .comic-from{font-weight:900;text-transform:uppercase;font-size:0.85rem;letter-spacing:0.3px;color:#7c2334;margin-bottom:4px}
+.comic-chat-popup::before,.comic-chat-popup::after{
+  content:'';position:absolute;border-radius:50%;
+  background:inherit;border:inherit;
+  -webkit-backdrop-filter:inherit;backdrop-filter:inherit;
+}
+.comic-chat-popup::before{width:16px;height:16px;left:22px;bottom:-9px;}
+.comic-chat-popup::after{width:9px;height:9px;left:10px;bottom:-16px;}
+.comic-chat-popup .comic-from{font-weight:800;text-transform:uppercase;font-size:0.8rem;letter-spacing:0.5px;color:var(--gold,#f4c430);margin-bottom:4px;text-shadow:0 1px 3px rgba(0,0,0,0.6)}
 @keyframes comicPopIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.5) rotate(-4deg);}60%{transform:translate(-50%,-50%) scale(1.06) rotate(1deg);}100%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(-1deg);}}
 @keyframes comicPopOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(-1deg);}100%{opacity:0;transform:translate(-50%,calc(-50% - 6px)) scale(0.92);}}
 .chat-badge.on{display:flex}
