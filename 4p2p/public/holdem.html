@@ -1054,7 +1054,22 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
     position: absolute; left: 50%; bottom: 4%; transform: translateX(-50%);
     margin-top: 0; z-index: 6;
   }
-  body.k28-in-game .seat-cards .card.mini { width: 24px; height: 34px; font-size: 0.65rem; }
+  /* Real, confirmed feature per explicit live report with a real desktop
+     screenshot: on landscape, other seats' mini card-backs bump up to
+     the same size as my own hole cards (.hand-strip .card, same
+     breakpoint) -- previously landscape was the one context left at
+     its small original size after the earlier "make the cards bigger"
+     request was applied PC-only and to portrait separately. */
+  body.k28-in-game .seat-cards .card.mini { width: 40px; height: 57px; font-size: 0.95rem; }
+  /* Real, confirmed feature per the same report ("when its showing face
+     up the name and number should hide"): landscape gets the same
+     face-up declutter portrait already had (.seat.seat-cards-revealed,
+     set by the isFaceUpNow logic in the render loop) -- a seat's own
+     name/chip-count text hides itself the moment its hand is genuinely
+     revealed face-up, so the label doesn't sit on top of the (now much
+     bigger) revealed cards. Folded/face-down seats are unaffected. */
+  body.k28-in-game .seat.seat-cards-revealed .seat-name,
+  body.k28-in-game .seat.seat-cards-revealed .seat-chips { display: none; }
   body.k28-in-game .dealer-chip { width: 20px; height: 20px; font-size: 0.62rem; }
   /* The action badge (Fold/Call.../Raise to...) moves to the TOP of the
      avatar circle instead of clinging to the bottom (its old spot would
@@ -1821,7 +1836,10 @@ body.k28-portrait-photo #handNumDisplay, body.k28-portrait-photo #blindsDisplay 
      avatar-wrap's own size at every height, not just tall ones. */
   body.k28-in-game .seat-name { font-size: 0.58rem; margin-top: 2px; }
   body.k28-in-game .seat-chips { font-size: 0.55rem; }
-  body.k28-in-game .seat-cards .card.mini { width: 18px; height: 25px; font-size: 0.55rem; }
+  /* Same "same size as my own cards" treatment as the normal-height
+     landscape rule above, matched to THIS breakpoint's own hand-strip
+     size (.hand-strip .card is 32x45 here, not 40x57). */
+  body.k28-in-game .seat-cards .card.mini { width: 32px; height: 45px; font-size: 0.78rem; }
   body.k28-in-game .board-area .card { width: 30px; height: 43px; font-size: 0.78rem; }
   /* Real, confirmed root-cause fix -- see the identical fix at the
      other breakpoint above for the fuller reasoning. gap already
