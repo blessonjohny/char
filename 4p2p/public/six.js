@@ -4414,8 +4414,36 @@ function showComicChatPopup(from, msg) {
   document.querySelectorAll('.comic-chat-popup').forEach(el => el.remove());
   const el = document.createElement('div');
   el.className = 'comic-chat-popup';
-  el.innerHTML = '<div class="comic-from">' + escapeHtml(from) + '</div>' + linkifyEscaped(escapeHtml(msg));
+  el.innerHTML =
+    '<div class="comic-cloud-halo"></div>' +
+    '<div class="comic-cloud-body"><div class="comic-from">' + escapeHtml(from) + '</div>' + linkifyEscaped(escapeHtml(msg)) + '</div>' +
+    '<div class="comic-cloud-tail"><span class="puff puff-1"></span><span class="puff puff-2"></span><span class="puff puff-3"></span></div>';
   document.body.appendChild(el);
+  // Real, confirmed feature per explicit follow-up request ("that tail
+  // should end were the chatter is"): points the 3 tail puffs at the
+  // real angle from screen-center (where this popup is always anchored,
+  // see .comic-chat-popup's top:50%/left:50%) toward the actual sender's
+  // on-table name label -- found by a plain text match against who just
+  // spoke, since the chat event only ever hands this function a display
+  // name, not a seat index. Falls back to the fixed default direction
+  // already set in CSS if no matching label is found (e.g. the name got
+  // trimmed or displayed differently somewhere), so the tail is never
+  // left pointing somewhere broken.
+  const tail = el.querySelector('.comic-cloud-tail');
+  if (tail) {
+    const nameEls = document.querySelectorAll('.pname, .nm');
+    let target = null;
+    for (const nameEl of nameEls) {
+      if (nameEl.textContent && nameEl.textContent.trim() === String(from).trim()) { target = nameEl; break; }
+    }
+    if (target) {
+      const r = target.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const dx = cx - window.innerWidth / 2, dy = cy - window.innerHeight / 2;
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      tail.style.transform = 'rotate(' + angle.toFixed(1) + 'deg)';
+    }
+  }
   setTimeout(() => el.remove(), 3000);
 }
 
