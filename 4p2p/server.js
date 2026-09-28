@@ -5669,6 +5669,84 @@ function pokerTouch(t) { t.lastActivityAt = Date.now(); }
 // real fix belongs in reconnection itself working properly (see
 // holdem.html's visibilitychange/healthPing handling), not in quietly
 // playing for the missing player.
+// Real, confirmed bug fix per explicit live report ("nothing got
+// updated" after the all-in-showdown fix): this staged, one-street-at-
+// a-time board reveal used to live ONLY inline inside the human
+// poker_act handler below. pokerMaybeBotAct (right here) had its own,
+// separate, much older copy of the "broadcast then decide what's next"
+// logic that never had this staged reveal at all -- it just broadcast
+// the engine's state as-is. Since _runOutRemainingStreets() (in
+// poker-engine.js) deals every remaining street and resolves the whole
+// hand SYNCHRONOUSLY in one call, a bot action that completed an
+// all-in showdown was broadcasting the fully-finished hand (final
+// board, winner, everything) in one single frame, with zero pacing and
+// zero delay -- the exact "cards need to flip face up and the dealer
+// deals the streets out, not skip straight to the end" bug the player
+// kept reporting, just never fixed on THIS path. Given how often a
+// bot's own action is what actually completes a hand (most seats at a
+// table are usually bots), this was very likely why the player kept
+// seeing no visible change no matter what got fixed in poker-engine.js
+// itself -- the engine-side fix was correct, but this second, separate
+// broadcast path bypassed it entirely. Pulled the shared logic out into
+// pokerHandleActionOutcome() below so both paths -- a human's own
+// poker_act and a bot's automatic action -- go through the exact same
+// staged reveal, autodeal, and next-bot-turn handling instead of two
+// independently-maintained copies that had quietly drifted apart.
+function pokerHandleActionOutcome(t, boardLenBefore, wasAllInShowdown) {
+  // Real, confirmed feature per explicit request ("when all
+  // players all in, the board should be shown during the flop
+  // turn river"): a single action that triggers a genuine all-in
+  // showdown makes the engine deal out and resolve every remaining
+  // street synchronously in one shot (see _runOutRemainingStreets
+  // in poker-engine.js) -- the board and the full result would
+  // otherwise both land in the very next broadcast at once, with
+  // no flop/turn/river pause at all. Paces the reveal instead:
+  // broadcasts a partial view of the (already fully-determined)
+  // board one real street at a time with a delay between each,
+  // then the true final state -- the same dramatic run-out a real
+  // poker room gives when nobody has anything left to bet on.
+  // showdownResult is a persistent engine field (present in every
+  // broadcast regardless of phase, not recomputed from phase), so
+  // it's temporarily cleared during the staged reveals and only
+  // restored for the final broadcast -- otherwise the winner
+  // would leak before the board even finished coming out.
+  const finalBoard = t.engine.board.slice();
+  const isFreshAllInShowdown = !wasAllInShowdown && t.engine.allInShowdown && finalBoard.length > boardLenBefore + 1;
+  if (isFreshAllInShowdown) {
+    const finalPhase = t.engine.phase;
+    const finalShowdownResult = t.engine.showdownResult;
+    const phaseForCount = c => (c <= 3 ? 'flop' : c === 4 ? 'turn' : 'river');
+    const revealSteps = [];
+    let cursor = boardLenBefore;
+    if (cursor === 0) { revealSteps.push(3); cursor = 3; }
+    while (cursor < finalBoard.length) { revealSteps.push(1); cursor += 1; }
+    let shownCount = boardLenBefore;
+    let stepIdx = 0;
+    t.engine.showdownResult = null;
+    const revealNext = () => {
+      if (stepIdx >= revealSteps.length) {
+        t.engine.board = finalBoard;
+        t.engine.phase = finalPhase;
+        t.engine.showdownResult = finalShowdownResult;
+        pokerBroadcast(t);
+        if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
+        return;
+      }
+      shownCount += revealSteps[stepIdx];
+      t.engine.board = finalBoard.slice(0, shownCount);
+      t.engine.phase = phaseForCount(shownCount);
+      pokerBroadcast(t);
+      stepIdx++;
+      setTimeout(revealNext, 1400);
+    };
+    revealNext();
+    return;
+  }
+  pokerBroadcast(t);
+  if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
+  else pokerMaybeBotAct(t);
+}
+
 function pokerMaybeBotAct(t) {
   const p = t.engine.currentPlayer;
   if (p === -1) return;
@@ -5678,9 +5756,10 @@ function pokerMaybeBotAct(t) {
     setTimeout(() => {
       if (!pokerTables[t.engine.tableId]) return; // table closed in the meantime
       if (t.engine.currentPlayer !== p) return; // already moved on somehow
+      const boardLenBefore = t.engine.board.length;
+      const wasAllInShowdown = t.engine.allInShowdown;
       pokerBotAct(t.engine, p);
       pokerTouch(t);
-      pokerBroadcast(t);
       // This was the actual bug behind "table freezes after a few rounds":
       // if THIS bot action is what ends the hand (e.g. it's the fold that
       // leaves one player standing, or the call that completes the last
@@ -5688,9 +5767,9 @@ function pokerMaybeBotAct(t) {
       // deal -- that only ever happened from the human poker_act handler.
       // Whenever a bot happened to be the one whose action closed out a
       // hand, the table would sit at handEnd forever. Same handling as
-      // poker_act now applies here too.
-      if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
-      else pokerMaybeBotAct(t);
+      // poker_act now applies here too (see pokerHandleActionOutcome,
+      // which also now covers the staged all-in reveal for this path).
+      pokerHandleActionOutcome(t, boardLenBefore, wasAllInShowdown);
       // Real, confirmed speed-up per explicit live report ("ghost bots
       // are made to play like real humans slow sometimes, but
       // sometimes it's too slow, make it faster"): 900-1600ms per bot
@@ -6107,58 +6186,11 @@ io.on('connection', (socket) => {
       const result = t.engine.act(pos, action, amount);
       if (!result.ok) { socket.emit('poker_actionError', result); return; }
       pokerTouch(t);
-      // Real, confirmed feature per explicit request ("when all
-      // players all in, the board should be shown during the flop
-      // turn river"): a single action that triggers a genuine all-in
-      // showdown makes the engine deal out and resolve every remaining
-      // street synchronously in one shot (see _runOutRemainingStreets
-      // in poker-engine.js) -- the board and the full result would
-      // otherwise both land in the very next broadcast at once, with
-      // no flop/turn/river pause at all. Paces the reveal instead:
-      // broadcasts a partial view of the (already fully-determined)
-      // board one real street at a time with a delay between each,
-      // then the true final state -- the same dramatic run-out a real
-      // poker room gives when nobody has anything left to bet on.
-      // showdownResult is a persistent engine field (present in every
-      // broadcast regardless of phase, not recomputed from phase), so
-      // it's temporarily cleared during the staged reveals and only
-      // restored for the final broadcast -- otherwise the winner
-      // would leak before the board even finished coming out.
-      const finalBoard = t.engine.board.slice();
-      const isFreshAllInShowdown = !wasAllInShowdown && t.engine.allInShowdown && finalBoard.length > boardLenBefore + 1;
-      if (isFreshAllInShowdown) {
-        const finalPhase = t.engine.phase;
-        const finalShowdownResult = t.engine.showdownResult;
-        const phaseForCount = c => (c <= 3 ? 'flop' : c === 4 ? 'turn' : 'river');
-        const revealSteps = [];
-        let cursor = boardLenBefore;
-        if (cursor === 0) { revealSteps.push(3); cursor = 3; }
-        while (cursor < finalBoard.length) { revealSteps.push(1); cursor += 1; }
-        let shownCount = boardLenBefore;
-        let stepIdx = 0;
-        t.engine.showdownResult = null;
-        const revealNext = () => {
-          if (stepIdx >= revealSteps.length) {
-            t.engine.board = finalBoard;
-            t.engine.phase = finalPhase;
-            t.engine.showdownResult = finalShowdownResult;
-            pokerBroadcast(t);
-            if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
-            return;
-          }
-          shownCount += revealSteps[stepIdx];
-          t.engine.board = finalBoard.slice(0, shownCount);
-          t.engine.phase = phaseForCount(shownCount);
-          pokerBroadcast(t);
-          stepIdx++;
-          setTimeout(revealNext, 1400);
-        };
-        revealNext();
-        return;
-      }
-      pokerBroadcast(t);
-      if (t.engine.phase === 'handEnd') pokerMaybeAutoDeal(t);
-      else pokerMaybeBotAct(t);
+      // See pokerHandleActionOutcome (near pokerMaybeBotAct) for the
+      // staged all-in-showdown reveal, autodeal, and next-bot-turn
+      // handling -- shared with the bot action path so both go through
+      // identical behavior instead of two copies that had drifted apart.
+      pokerHandleActionOutcome(t, boardLenBefore, wasAllInShowdown);
     });
   });
 
