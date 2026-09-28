@@ -15,29 +15,77 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Hold'em — 28 Kerala Gulan">
-<title>Texas Hold'em — 28 Kerala Gulan</title>
-<meta name="description" content="Play Texas Hold'em Poker online free — 9-player tables, cash games, live multiplayer, no download. Play poker online with friends or strangers, straight from your browser.">
-<meta name="keywords" content="texas holdem, play poker online, poker online free, holdem online, play cards online, free poker, multiplayer poker, online poker rooms, poker no download">
+<!-- SEO pass, per explicit request to push holdem.html's Google
+     discoverability now that the table itself is in good shape: title
+     and description now lead with the exact phrases players actually
+     type into Google ("play texas holdem online", "play poker
+     online", "play holdem"), keywords cover the plain, plural and
+     "online"-suffixed variants of each search, og:image now points at
+     a real file (images/desktop-bg-holdem.jpg) instead of the
+     nonexistent /og-image.jpg every other page was quietly pointing
+     at (a broken og:image means a blank/broken preview card whenever
+     this page gets shared on WhatsApp, Facebook, iMessage, etc.), and
+     a FAQPage schema was added so Google can surface hand-ranking/
+     rules answers directly in search results, matching the pattern
+     already used on the homepage and the 28-guide page. -->
+<title>Play Texas Hold'em Poker Online Free – 9-Player Tables | 28 Kerala Gulan</title>
+<meta name="description" content="Play Texas Hold'em Poker online free, no download. Play poker online or play holdem online with up to 9 players, cash games and tournaments, live multiplayer, straight from your browser — jump into a hand in seconds.">
+<meta name="keywords" content="play texas holdem online, texas holdem, texas holdem poker, play holdem, play holdem online, play poker, play poker online, poker online free, holdem online, play card game, play card online, play cards online, free poker, multiplayer poker, online poker rooms, poker no download, texas holdem rules, poker hand rankings">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="https://28gulan.com/holdem.html">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://28gulan.com/holdem.html">
-<meta property="og:title" content="Texas Hold'em Poker Online Free — 28 Kerala Gulan">
-<meta property="og:description" content="Play Texas Hold'em Poker online free — 9-player tables, live multiplayer, no download needed.">
+<meta property="og:title" content="Play Texas Hold'em Poker Online Free — 28 Kerala Gulan">
+<meta property="og:description" content="Play Texas Hold'em Poker online free — 9-player tables, cash games and tournaments, live multiplayer, no download needed.">
+<meta property="og:image" content="https://28gulan.com/images/desktop-bg-holdem.jpg">
+<meta property="og:locale" content="en_IN">
 <meta property="og:site_name" content="28 Kerala Gulan">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Texas Hold'em Poker Online Free">
+<meta name="twitter:title" content="Play Texas Hold'em Poker Online Free">
 <meta name="twitter:description" content="Play Texas Hold'em Poker online free — 9-player tables, live multiplayer, no download needed.">
+<meta name="twitter:image" content="https://28gulan.com/images/desktop-bg-holdem.jpg">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "Game",
   "name": "Texas Hold'em Poker",
+  "alternateName": ["Texas Hold'em", "Hold'em Poker", "Poker"],
   "url": "https://28gulan.com/holdem.html",
-  "description": "Play Texas Hold'em Poker online free with up to 9 players, live multiplayer, no download required.",
+  "description": "Play Texas Hold'em Poker online free with up to 9 players, cash games and tournaments, live multiplayer, no download required.",
   "genre": "Card Game",
   "playMode": "MultiPlayer",
+  "gamePlatform": ["Web Browser", "Mobile Web"],
+  "applicationCategory": "Game",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "isAccessibleForFree": true
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can I play Texas Hold'em online for free?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. You can play Texas Hold'em Poker online free, with up to 9 players at a table, in either tournament or cash game mode — live multiplayer, no download and no signup required." }
+    },
+    {
+      "@type": "Question",
+      "name": "How many players can join a Texas Hold'em table?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Each table seats up to 9 players. You can create a private table and share the code with friends, or join a public table to play with other people online." }
+    },
+    {
+      "@type": "Question",
+      "name": "What's the difference between tournament and cash game mode?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Tournament mode is always no-limit, with blinds that automatically increase as play goes on until one player has all the chips. Cash game mode lets you choose no-limit or fixed-limit betting, with blinds that stay constant." }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need to download anything to play poker online here?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No download or app install needed — the whole game runs straight in your mobile or desktop browser." }
+    }
+  ]
 }
 </script>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -78,6 +126,16 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
    the table itself. */
 .create-panel{background:linear-gradient(160deg,rgba(20,38,54,0.92),rgba(8,18,14,0.92));border:1.5px solid rgba(244,196,48,0.35);border-radius:18px;padding:26px 28px;box-shadow:0 0 40px rgba(244,196,48,0.08),0 12px 34px rgba(0,0,0,0.5);width:100%;max-width:380px;margin:auto 0 20px;flex-shrink:0}
 .create-note{font-size:0.75rem;color:var(--cream);opacity:0.75;margin:10px 0 16px;line-height:1.5}
+/* SEO content block, matching index.html's .welcome-about pattern:
+   plain, crawlable on-page text below the create-panel so this page
+   actually has something for Google to read and rank beyond its meta
+   tags, restyled here for holdem's felt-and-gold palette instead of
+   index.html's card-table gold theme. */
+.holdem-about{width:100%;max-width:400px;margin:18px auto 0;padding:0 4px 4px;text-align:left}
+.holdem-about-title{font-size:0.8rem;color:var(--gold);font-weight:700;margin-bottom:8px}
+.holdem-about-text{font-size:0.72rem;color:rgba(253,246,227,0.72);line-height:1.7;margin-bottom:12px}
+.holdem-about-text b{color:#fff;font-weight:600}
+.holdem-about-text a{color:var(--gold)}
 .text-input{width:100%;max-width:320px;padding:14px;border-radius:10px;border:2px solid rgba(244,196,48,0.3);background:rgba(255,255,255,0.06);color:#fff;font-size:1rem;margin-bottom:12px;text-align:center;transition:border-color 0.2s ease}
 .text-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(244,196,48,0.15)}
 /* Per explicit request: buttons given real depth -- a proper gradient
@@ -1783,6 +1841,22 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
     <button class="btn btn-outline hidden" id="btnContinuePrevious" style="display:none">▶ Continue with Previous</button>
     <button class="btn btn-outline" id="btnBackToRooms">⬅ Back to Rooms</button>
     <div class="table-list" id="publicTableList"></div>
+  </div>
+
+  <div class="holdem-about">
+    <div class="holdem-about-title">♠️ About Texas Hold'em Poker</div>
+    <div class="holdem-about-text">
+      <b>Texas Hold'em</b> is the world's most popular form of poker. Every player gets two private hole cards, and five community cards are dealt face-up in the middle of the table — the flop (3 cards), the turn (1 more), and the river (1 more). Build the best 5-card hand from any mix of your hole cards and the board.
+    </div>
+    <div class="holdem-about-text">
+      <b>How a hand works:</b> each round opens with a small blind and big blind, then four betting rounds — pre-flop, flop, turn, and river — where you can check, bet, call, raise, or fold. Best hand left standing at showdown takes the pot.
+    </div>
+    <div class="holdem-about-text">
+      Looking to <b>play poker online</b>? This table lets you <b>play Texas Hold'em online</b> free with up to 9 players, tournament or cash game mode, live multiplayer — no download, no signup, straight from your browser.
+    </div>
+    <div class="holdem-about-text">
+      <a href="/texas-holdem-guide.html">Read the full Texas Hold'em rules &amp; hand rankings guide →</a>
+    </div>
   </div>
 </div>
 
