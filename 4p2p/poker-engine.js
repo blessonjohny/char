@@ -535,6 +535,45 @@ class PokerEngine {
     else if (this.phase === 'turn') { this._dealBoard(1); this.phase = 'river'; }
     else if (this.phase === 'river') { this._goToShowdown(); return; }
 
+    // Real, confirmed bug fix per explicit live report ("when 2 or more
+    // people call all-in... or one calls all-in, other calls, whatever
+    // that situation is, they need to flip their cards face up... but
+    // the dealer deals normally"): this exact case -- one player shoves
+    // all-in and the only remaining opponent CALLS with chips left over
+    // (so that opponent isn't allIn themselves) -- was never reaching
+    // the existing all-in-showdown reveal at all. That reveal only ever
+    // got set from _advanceIfCurrentCantAct()'s canAct.length===0 check,
+    // but the call action here already satisfies _bettingRoundComplete()
+    // the instant it's made (the caller is the only non-all-in
+    // contestant and just matched the bet), so _afterAction() routes
+    // straight here to _advanceStreet() instead, and canAct.length was
+    // 1, not 0, so it slipped past that check on every later street too
+    // -- hands only got shown at the very end (handEnd), same bug the
+    // player described.
+    //
+    // The real poker rule this was missing: once at most one contesting
+    // player still has chips (canAct.length<=1), there is nobody left
+    // who could face a further bet from them, so no more betting is
+    // possible for the rest of the hand -- exactly the same "run it out
+    // and turn every hand face-up" situation as the canAct===0 case,
+    // just one player short of it literally reaching zero. Scoped to
+    // right here (the top of a FRESH street, immediately after dealing,
+    // before anyone has been asked to act on it) rather than inside
+    // _advanceIfCurrentCantAct() itself, because that function is also
+    // called mid-betting-round (from _afterAction, e.g. heads-up preflop
+    // the instant a shove happens, before the other player has even
+    // responded) where canAct.length can legitimately be 1 with that
+    // one player's own decision (call/fold) still genuinely pending --
+    // auto-revealing there would skip a real decision instead of only
+    // skipping betting that's already provably dead.
+    const contestingForDeadStreet = this._stillContesting();
+    const canActForDeadStreet = contestingForDeadStreet.filter(p => !this.seats[p].allIn);
+    if (contestingForDeadStreet.length > 1 && canActForDeadStreet.length <= 1) {
+      this.allInShowdown = true;
+      this._runOutRemainingStreets();
+      return;
+    }
+
     this.currentBet = 0;
     this.minRaise = this.bigBlind;
     this.lastAggressorSeat = -1;
