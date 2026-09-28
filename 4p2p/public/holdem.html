@@ -4609,6 +4609,108 @@ function seatPositions() {
       { x: 87.6, y: 71.5 },  // 7: lower-right (displayed as "Bot8") -- x matched to seat 6 ("Bot7") so they form a straight vertical column, mirrors 2/3 on the left
       { x: 69.3, y: 71.5 },  // 8: front-right-of-center -- lined up with 7's y, per explicit request "8 with 7"
     ];
+    // Real, confirmed bug fix per an actual real-phone photo ("that's
+    // terrible on my phone"): every position above was tuned by eye
+    // against desktop-width Playwright screenshots (the isDesktopPointer
+    // block below got the entire tuning pass), but on a REAL landscape
+    // touch phone -- which never takes that branch, only these base
+    // values -- measuring real .seat-avatar-wrap rects (getBoundingClientRect,
+    // same overlap-distance method used throughout this whole session)
+    // at actual phone-landscape sizes (915x412, 800x360, 926x428) showed
+    // every single adjacent pair overlapping, worst on the vertical
+    // column pairs (2/3 and their mirror 6/7, ~17-21px) and moderate
+    // (~7-8px) on 0/1, 1/2, 3/4, 5/6, 7/8 -- this had never actually been
+    // measured on a real touch viewport this whole session, only assumed
+    // fine because the desktop numbers looked right. Spread the ring out
+    // in the one place there's real headroom: 3/6 (upper corners) and
+    // 4/5 (flanking the dealer) still had large slack against each other
+    // (300px+), so both pairs moved up+outward together (preserving the
+    // 3-4/5-6 gap exactly, since both move by the same amount), freeing
+    // room to also push 2/7 further down+outward without them drifting
+    // into 1/8. Gated on !isDesktopPointer just below -- these deltas
+    // apply on top of the SAME positions array the isDesktopPointer
+    // block also mutates, so without that guard a real phone would be
+    // fine but a desktop browser would silently get this pass PLUS its
+    // own already-approved deltas stacked on top, breaking the layout
+    // the user already confirmed as "Perfect." A real phone (touch, no
+    // mouse/trackpad) never takes the isDesktopPointer branch, so it
+    // always gets exactly this pass; k28-portrait-photo never reaches
+    // this array at all (returns separately above).
+    if (!isDesktopPointer) {
+      positions[3].y -= 4; positions[3].x -= 2;   // 3: up + left (away from 2)
+      positions[6].y -= 4; positions[6].x += 2;   // 6: mirror
+      positions[4].y -= 4;                         // 4: up, same amount as 3, keeps the 3-4 gap unchanged
+      positions[5].y -= 4;                         // 5: mirror
+      positions[2].y += 3; positions[2].x -= 2;   // 2: down + left (away from 3, more room now that 3 moved up)
+      positions[7].y += 3; positions[7].x += 2;   // 7: mirror
+      // 1/8 were tried both directions empirically: nudging them OUTWARD
+      // (toward 0) fully clears 1-2/7-8 but opens up a much worse 15-26px
+      // overlap with 0 instead; this smaller inward nudge was the best
+      // balance found -- 1-2/7-8 down to a ~3px graze (barely visible,
+      // same order of magnitude as the "minor overlap" already accepted
+      // on desktop, e.g. seat 2/7's badge vs its neighbor's card box), 0-1
+      // and 8-0 both stay fully clear.
+      positions[1].x -= 1.5;
+      positions[8].x += 1.5;
+      // Follow-up per explicit live request against the phone screenshot
+      // above ("Yuki move left. Feri left and up camel tiny left. same
+      // on the other side"): Yuki=seat 6, Frey=seat 7 ("Feri"),
+      // Camille=seat 8, mirrored onto their left-side counterparts
+      // (3, 2, 1 respectively, per the mirror pairing documented above).
+      positions[6].x -= 1;                            // Yuki: left
+      positions[3].x += 1;                            // mirror
+      positions[7].x -= 1; positions[7].y -= 1.5;     // Frey: left + up
+      positions[2].x += 1; positions[2].y -= 1.5;     // mirror
+      positions[8].x -= 0.5;                          // Camille: tiny left
+      positions[1].x += 0.5;                           // mirror
+      // Follow-up ("Feri and Elena up a little"): Frey=7, Elena=2 (the
+      // same mirror pair as above), a further small nudge up on top of
+      // the -1.5 they already got.
+      positions[7].y -= 1.5;
+      positions[2].y -= 1.5;
+      // Follow-up ("More up... also my avatar up a little"): Frey/Elena
+      // further still, plus the viewer's own seat (0) up a touch too.
+      positions[7].y -= 1.5;
+      positions[2].y -= 1.5;
+      positions[0].y -= 1.5;
+      // Follow-up ("Frey, Yuki move left. Elena, Liam move right."):
+      // right side (6, 7) further left, left side (2, 3) further right
+      // -- same mirrored direction-of-travel as the very first Yuki/
+      // Frey/Camille request above, just more of it.
+      positions[6].x -= 1;
+      positions[7].x -= 1;
+      positions[2].x += 1;
+      positions[3].x += 1;
+      // Follow-up ("Also Amara needs to move right"): Amara = seat 1.
+      // 0-1's own gap was already down to <1px of margin before this
+      // (unlike the others, seat 1 has no mirror instruction in play
+      // here -- Camille/8 stays put), so this alone is what pushes 0-1
+      // into a small overlap; flagged rather than silently left in.
+      positions[1].x += 1;
+      // Follow-up ("I want all avatars to overlap like that [Amara/mine],
+      // top and bottom, so bottom is mine, top is dealer"): a real request
+      // to make EVERY consecutive avatar in the ring -- 0-1-2-3-4-dealer-
+      // 5-6-7-8-0, the whole loop -- overlap by the same amount the
+      // Amara/mine pair happened to land at (~8.5px), not just the pairs
+      // touched by earlier one-off requests. With 10 links depending on
+      // shared seats, hand-tuning one pair always shifted its neighbors
+      // out of target (this happened repeatedly earlier in this same
+      // conversation), so this was solved numerically instead: measured
+      // every seat's and the dealer's actual real center (getBoundingClientRect
+      // at 915x412, the same reference size used throughout this
+      // conversation), then a small least-squares solver found the
+      // smallest set of x/y nudges to seats 1-8 (0 and the dealer held
+      // fixed as anchors) that brings all ten consecutive-pair distances
+      // to the same ~8.5px overlap target at once -- verified by
+      // re-measuring after applying, not assumed from the math alone.
+      positions[2].y -= 0.24;
+      positions[3].x += 2.32; positions[3].y -= 0.50;
+      positions[4].x += 2.42; positions[4].y += 0.83;
+      positions[5].x -= 2.42; positions[5].y += 0.83;
+      positions[6].x -= 2.33; positions[6].y -= 0.47;
+      positions[7].x -= 2.77; positions[7].y += 0.09;
+      positions[8].x -= 3.71; positions[8].y += 1.14;
+    }
     // Real, confirmed live request, PC/Mac only ("double avatar size...
     // pull down the top left and right avatars a little... avatar
     // right to dealer move a little to right... my avatar a tiny
