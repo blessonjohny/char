@@ -1771,13 +1771,17 @@ body.k28-portrait-photo .table-winning-hand-label { margin-top: 53px; }
    value now that the actual cause is fixed properly instead.) */
 /* Follow-up per explicit live request ("potrait make it appear more
    upper towards top part of the table"): moved up from 62% to 48%. */
-body.k28-portrait-photo #winningHandContinueWrap { top: 26% !important; }
-/* Same live request's other half ("landscape make it come down a
-   little"): landscape's own copy was still on its original inline
-   top:37% (see the <div> itself), never overridden before -- nudged
-   down to 41%. Applies to both mobile landscape and desktop, since
-   both share body.k28-in-game and neither was singled out. */
-body.k28-in-game #winningHandContinueWrap { top: 46% !important; }
+/* Follow-up per explicit live request ("move up a little more"):
+   nudged further up from 26% to 22%. */
+body.k28-portrait-photo #winningHandContinueWrap { top: 22% !important; }
+/* Real, confirmed feature per explicit live request ("make that on the
+   dealer center it landscape"): instead of an arbitrary tuned percent,
+   this now matches .house-dealer's own top exactly, for mobile
+   landscape here (24%, see .house-dealer above) and separately for
+   desktop in the hover:hover block below (dealer sits at 29% there --
+   a different value on purpose, since the two views' dealer photos
+   aren't at the same height). Applies to both unless overridden. */
+body.k28-in-game #winningHandContinueWrap { top: 24% !important; }
 /* Real, confirmed feature per explicit request ("click anywhere to
    continue"): a full-screen, invisible tap target active only while
    the real Continue button is actually showing (see the matching
@@ -1994,6 +1998,11 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
      avatars down to their seats dealer included"): desktop-only, moved
      the dealer down toward its actual stool in the background photo. */
   body.k28-in-game .house-dealer { top: 29%; }
+  /* Real, confirmed feature per explicit live request ("make that on
+     the dealer center it landscape"): desktop's own dealer center
+     (29%, immediately above) differs from mobile landscape's (24%,
+     the base k28-in-game rule), so this wins here specifically. */
+  body.k28-in-game #winningHandContinueWrap { top: 29% !important; }
   /* Real, confirmed feature per explicit request ("make the cards a
      little bigger too my cards.. and make all the cards including
      other players same size as mine.. this for pc only"): my own
