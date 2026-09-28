@@ -4309,14 +4309,35 @@ function initChatPanelPosition() {
   panel.style.top = Math.max(8, vh - h - 90) + 'px';
   chatPanelInited = true;
 }
+// Uses visualViewport (when the browser supports it) instead of
+// window.innerWidth/innerHeight so the panel is clamped to the space the
+// on-screen keyboard actually leaves visible, not the full layout viewport.
+// On iOS Safari in particular, opening the keyboard does NOT fire a
+// window 'resize' event -- only visualViewport 'resize'/'scroll' fire --
+// so without this the panel (and its input row) could end up sitting
+// right behind the keyboard, invisible while typing.
 function clampChatPanelToViewport() {
   const panel = $('chatPanel');
   if (!panel) return;
-  const vw = window.innerWidth, vh = window.innerHeight;
+  const vv = window.visualViewport;
+  const vw = vv ? vv.width : window.innerWidth;
+  const vh = vv ? vv.height : window.innerHeight;
+  const offX = vv ? vv.offsetLeft : 0;
+  const offY = vv ? vv.offsetTop : 0;
   const rect = panel.getBoundingClientRect();
+
+  // Shrink the panel first if the keyboard has left less room than the
+  // panel's current size -- otherwise it simply can't fit on-screen at all.
+  const maxW = Math.max(220, vw - 16);
+  const maxH = Math.max(180, vh - 16);
+  const w = Math.min(rect.width, maxW);
+  const h = Math.min(rect.height, maxH);
+  if (w !== rect.width) panel.style.width = w + 'px';
+  if (h !== rect.height) panel.style.height = h + 'px';
+
   let left = rect.left, top = rect.top;
-  left = Math.min(Math.max(left, -rect.width + 60), vw - 60);
-  top = Math.min(Math.max(top, 0), vh - 44);
+  left = Math.min(Math.max(left, offX), offX + vw - w);
+  top = Math.min(Math.max(top, offY), offY + vh - h);
   panel.style.left = left + 'px';
   panel.style.top = top + 'px';
 }
@@ -4389,6 +4410,20 @@ function closeChat() { $('chatOverlay').classList.remove('on'); }
   grip.addEventListener('pointercancel', endResize);
 
   window.addEventListener('resize', () => { if (chatPanelInited) clampChatPanelToViewport(); });
+  // The mobile keyboard opening/closing is what visualViewport reports;
+  // plain window resize often doesn't fire for it at all (iOS Safari).
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => { if (chatPanelInited) clampChatPanelToViewport(); });
+    window.visualViewport.addEventListener('scroll', () => { if (chatPanelInited) clampChatPanelToViewport(); });
+  }
+  // Belt-and-suspenders: also re-clamp shortly after the input gets focus,
+  // in case the viewport event lands after the keyboard's show animation.
+  const chatInputEl = $('chatInput');
+  if (chatInputEl) {
+    chatInputEl.addEventListener('focus', () => {
+      if (chatPanelInited) setTimeout(clampChatPanelToViewport, 300);
+    });
+  }
 })();
 
 function addChatMessage(from, msg, isMine) {
