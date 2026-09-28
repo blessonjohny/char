@@ -5016,6 +5016,23 @@ function showEliminatedOverlaySoon(eliminatedOverlay) {
     if (!eliminatedOverlayDismissed) eliminatedOverlay.classList.add('on');
   }, 4000);
 }
+// Real, confirmed bug fix per explicit live report ("getting busted
+// before the final animation is done... need to see the final
+// animation then the busted blackout screen"): this is the exact same
+// root cause the eliminatedOverlay fix above already solved, just on
+// the OTHER overlay -- the busted/rebuild-countdown blackout screen
+// below was still being shown the instant mySeat.bustedAt appeared,
+// with no delay at all, so it cut off showWinningHandOnTable's
+// card-flight animation on the very hand that busted this player.
+// Same fix, same 4000ms window, same repeat-render guard pattern (a
+// module-level flag, not a per-call one, since this runs on every
+// state broadcast while busted).
+let rebuildOverlayScheduled = false;
+function showRebuildOverlaySoon(rebuildOverlay) {
+  if (rebuildOverlayScheduled) return;
+  rebuildOverlayScheduled = true;
+  setTimeout(() => { rebuildOverlay.classList.add('on'); }, 4000);
+}
 function updateRebuildEliminationUI(state) {
   const mySeat = state.seats[myPos];
   const rebuildOverlay = $('rebuildWaitOverlay');
@@ -5061,7 +5078,7 @@ function updateRebuildEliminationUI(state) {
   eliminatedOverlayScheduled = false;
   eliminatedOverlay.classList.remove('on');
   if (mySeat.bustedAt) {
-    rebuildOverlay.classList.add('on');
+    showRebuildOverlaySoon(rebuildOverlay);
     if (rebuildCountdownInterval) clearInterval(rebuildCountdownInterval);
     const bustedAt = mySeat.bustedAt;
     const waitMs = state.reloadWaitMs || 60000;
@@ -5085,6 +5102,12 @@ function updateRebuildEliminationUI(state) {
     rebuildCountdownInterval = setInterval(updateCountdown, 1000);
   } else {
     rebuildOverlay.classList.remove('on');
+    // Real, confirmed reset per the same fix above: clears the moment
+    // this player is genuinely no longer busted (a rebuild happened),
+    // so the NEXT bust schedules its own fresh 4000ms delay instead of
+    // the guard thinking one is already pending from a bust that's long
+    // since resolved.
+    rebuildOverlayScheduled = false;
     if (rebuildCountdownInterval) { clearInterval(rebuildCountdownInterval); rebuildCountdownInterval = null; }
   }
 }
