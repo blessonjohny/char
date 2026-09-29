@@ -1886,6 +1886,49 @@ app.post('/api/admin/stop-ghost-player', (req, res) => {
   return res.json({ ok: true });
 });
 
+// ---------------- Visual Layout Editor (positions only, no game data) ----------------
+// Per explicit request for a drag/resize "EDIT TABLE" design mode: this is
+// PURELY cosmetic positioning data (percent-based x/y/width/height/rotation
+// per element, per breakpoint, per table), stored as its own flat JSON file
+// completely separate from any table/engine/game state above or below. The
+// client (public/layout-apply.js) fetches this at normal page load and
+// injects it as CSS -- it never touches seating, dealing, betting, scoring,
+// or any multiplayer logic. Writing a layout is admin-password-gated (same
+// checkAdminAuth() used by every other /api/admin/* route); reading is
+// public since every visiting player's page needs it to render correctly.
+const LAYOUT_CONFIG_DIR = path.join(__dirname, 'layout-configs');
+if (!fs.existsSync(LAYOUT_CONFIG_DIR)) { try { fs.mkdirSync(LAYOUT_CONFIG_DIR); } catch (e) {} }
+function layoutConfigFile(table) {
+  const safe = String(table || '').replace(/[^a-z0-9]/gi, '');
+  if (!safe) return null;
+  return path.join(LAYOUT_CONFIG_DIR, safe + '-layout.json');
+}
+app.get('/api/layout-config/:table', (req, res) => {
+  const file = layoutConfigFile(req.params.table);
+  if (!file) return res.status(400).json({ ok: false, error: 'invalid_table' });
+  if (!fs.existsSync(file)) return res.json({ ok: true, config: null });
+  try {
+    const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+    res.json({ ok: true, config });
+  } catch (e) {
+    res.json({ ok: true, config: null });
+  }
+});
+app.post('/api/admin/layout-config/:table', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const file = layoutConfigFile(req.params.table);
+  if (!file) return res.status(400).json({ ok: false, error: 'invalid_table' });
+  const config = req.body && req.body.config;
+  if (!config || typeof config !== 'object') return res.status(400).json({ ok: false, error: 'bad_config' });
+  try {
+    fs.writeFileSync(file, JSON.stringify(config, null, 2));
+    console.log(`[layout-editor] saved layout config for table "${req.params.table}"`);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'write_failed' });
+  }
+});
+
 // ---------------- Table registry ----------------
 // tableId -> {
 //   engine: GameEngine,
