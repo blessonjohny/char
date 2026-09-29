@@ -91,7 +91,46 @@
     // right/bottom instead of left/top -- extraDecls clears those so our
     // left/top override isn't fighting a leftover right/bottom value.
     { key: 'soundMute', label: 'Sound Mute Button', category: 'Top Bar', selector: '#btnSoundMute', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'right:auto !important;bottom:auto !important;', viewportRelative: true },
+    // .amount-row (the bet-size slider + its value label + the round
+    // submit button) is dealt-with by the real page as a normal in-flow
+    // CHILD of #actionBar, not a separately positioned element -- which is
+    // exactly why it couldn't be moved on its own before ("the bottom
+    // bars" -- plural -- weren't actually independent). Forcing
+    // position:fixed here (same technique as topbar above) detaches it
+    // from that flow so it becomes its own freely-moveable element,
+    // completely independent of the Fold/Check/Bet buttons now.
+    { key: 'betSlider', label: 'Bet Amount Slider', category: 'Action Bar', selector: '.amount-row', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'position:fixed !important;z-index:46 !important;', viewportRelative: true },
+    // The three elements below are only ever shown by the real game
+    // toggling a `.on` CSS class onto them at the right moment (a new
+    // street being dealt, a level-up, a hand's winning cards being
+    // revealed) -- at rest they render `display:none`/`opacity:0`, so
+    // normally there's nothing on screen for the editor to select at all.
+    // The editor (layout-editor-holdem.js) force-adds this same `.on`
+    // class to all three, ONLY while Edit Table is switched on, purely so
+    // they're visible/selectable/draggable here -- never touches real
+    // gameplay, and is removed again the instant Edit Table is switched
+    // back off.
+    { key: 'streetBanner', label: 'Street Banner (Flop/Turn/River)', category: 'Popups', selector: '.street-banner', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;' },
+    { key: 'levelUpBanner', label: 'Level-Up Banner', category: 'Popups', selector: '.level-up-banner', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;', viewportRelative: true },
+    { key: 'tableWinningHand', label: 'Winning Hand Reveal (table)', category: 'Popups', selector: '.table-winning-hand', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;' },
   ];
+
+  // Keys of the "hidden until a real game moment triggers them" popups
+  // (see the comment above their ELEMENTS entries). Exposed so the editor
+  // can force/clear their `.on` class for preview without duplicating this
+  // list.
+  const PREVIEW_ON_KEYS = ['streetBanner', 'levelUpBanner', 'tableWinningHand'];
+
+  function setPreviewOnClasses(doc, on) {
+    if (!doc) return;
+    for (const key of PREVIEW_ON_KEYS) {
+      const def = elementByKey(key);
+      if (!def) continue;
+      const el = doc.querySelector(def.selector);
+      if (!el) continue;
+      el.classList.toggle('on', !!on);
+    }
+  }
 
   function elementByKey(key) { return ELEMENTS.find((e) => e.key === key) || null; }
 
@@ -331,8 +370,8 @@
   }
 
   global.LayoutHoldem = {
-    SEAT_COUNT, BREAKPOINTS, ELEMENTS,
+    SEAT_COUNT, BREAKPOINTS, ELEMENTS, PREVIEW_ON_KEYS,
     elementByKey, bpForDoc, buildOverrideCSS, applyCSSConfig, patchSeatPositions,
-    applySeatStyles, patchRenderGameTable, applyAll, forceRerender,
+    applySeatStyles, patchRenderGameTable, applyAll, forceRerender, setPreviewOnClasses,
   };
 })(window);

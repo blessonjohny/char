@@ -96,6 +96,10 @@
     tiltPopup: 'posPercent+sizePx',
     topbar: 'posPercent+sizePx',
     soundMute: 'posPercent+sizePx',
+    betSlider: 'posPercent+sizePx',
+    streetBanner: 'posPercent+sizePx',
+    levelUpBanner: 'posPercent+sizePx',
+    tableWinningHand: 'posPercent+sizePx',
   };
   const CSS_LAYERS = LH.ELEMENTS.map((el) => Object.assign({ type: 'css', dragKind: CSS_DRAG_KIND[el.key] || 'size' }, el));
   const ALL_LAYERS = SEAT_LAYERS.concat(CHIP_LAYERS, CARD_LAYERS, CHIP_LABEL_LAYERS, CSS_LAYERS);
@@ -213,6 +217,10 @@
       // it CURRENTLY points to, not a snapshot frozen at this moment.
       if (win.LayoutHoldem) win.LayoutHoldem.applyAll(frame.contentDocument, win, () => config);
       setupOverlayMutationObserver(frame.contentDocument, win);
+      // The frame can reload (e.g. leaving/rejoining a table) while Edit
+      // Table is still switched on -- keep the forced-visible popups/
+      // banners (see setPreviewOnClasses below) in sync with that.
+      if (editMode && win.LayoutHoldem) win.LayoutHoldem.setPreviewOnClasses(frame.contentDocument, true);
     } catch (e) { /* cross-origin or not-yet-ready -- ignore */ }
     scheduleRebuildOverlays();
   });
@@ -252,6 +260,20 @@
     btnEditToggle.textContent = editMode ? '✏️ Edit Table: ON' : '✏️ Edit Table: OFF';
     btnEditToggle.classList.toggle('active', editMode);
     frame.classList.toggle('editing', editMode);
+    // Street Banner / Level-Up Banner / Winning Hand Reveal are normally
+    // only shown by the real game for a moment, at specific points in a
+    // hand -- at rest they're display:none/opacity:0 and invisible to
+    // rebuildOverlays entirely (a zero-size element is skipped, same as
+    // "nothing dealt there yet"), which is exactly why they were never
+    // selectable/editable before ("animations I cannot edit"). Forcing
+    // their `.on` class ONLY while Edit Table is on makes them render at
+    // their configured spot so they can be selected/dragged here, same as
+    // everything else -- and it's undone the instant Edit Table goes back
+    // off, so it never touches what a real player sees mid-hand.
+    try {
+      const win = frame.contentWindow;
+      if (win && win.LayoutHoldem) win.LayoutHoldem.setPreviewOnClasses(frame.contentDocument, editMode);
+    } catch (e) {}
     if (editMode) { rebuildOverlays(); startLoop(); }
     else { stopLoop(); clearOverlays(); }
   });
@@ -393,6 +415,13 @@
     clearOverlays();
     if (!editMode) return;
     ensureOverlayStyles(doc);
+    // A real game re-render (renderGameTable's own innerHTML diffing, same
+    // mechanism the MutationObserver above watches for) can recreate the
+    // street/level-up/winning-hand nodes from scratch, dropping the forced
+    // `.on` class this same toggle set a moment ago -- reapplying it on
+    // every rebuild (cheap, a no-op once it's already set) keeps them
+    // visible/selectable the whole time Edit Table stays on.
+    try { if (win.LayoutHoldem) win.LayoutHoldem.setPreviewOnClasses(doc, true); } catch (e) {}
     ALL_LAYERS.forEach((def) => {
       const target = targetFor(doc, win, def);
       if (!target) return;
