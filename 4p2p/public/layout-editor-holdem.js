@@ -345,8 +345,21 @@
     @keyframes led-pulse{0%,100%{opacity:1}50%{opacity:0.6}}
     .led-label{position:absolute;top:-22px;left:-3px;background:#12181f;color:#e8edf2;font:800 11px -apple-system,sans-serif;padding:3px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,0.6);border:1px solid rgba(74,163,255,0.6)}
     .led-box.led-selected .led-label{background:#f4c430;color:#241a12;border-color:#f4c430}
-    .led-handle{position:absolute;width:18px;height:18px;background:#f4c430;border:2.5px solid #241a12;border-radius:4px;cursor:nwse-resize;z-index:2147483002;box-shadow:0 2px 8px rgba(0,0,0,0.6);touch-action:none;-ms-touch-action:none}
-    .led-handle.led-br{right:-10px;bottom:-10px}
+    .led-handle{position:absolute;width:20px;height:20px;background:#f4c430;border:2.5px solid #241a12;border-radius:4px;cursor:nwse-resize;z-index:2147483002;box-shadow:0 2px 8px rgba(0,0,0,0.6);touch-action:none;-ms-touch-action:none}
+    /* Real, concrete bug this fixes: a small element (a chip pile is only
+       ~9px on screen) gets its BOX inflated up to 30x30 for tappability
+       (MIN_TOUCH_TARGET below), but the resize handle used to sit at
+       right:-10px/bottom:-10px -- measured from that INFLATED box's own
+       corner, not the tiny real element -- which put the handle
+       overlapping the box's own bottom-right ~8x8px region. Reported
+       symptom: "when I move the chips it's changing width" -- dragging
+       what looked like the middle of the chip was actually landing on
+       the resize handle sitting on top of it. Offsetting the handle by
+       its own full width/height (instead of half) means it never
+       overlaps the box at all -- it sits fully outside it, corner-
+       adjacent but with zero shared pixels, so a move-drag anywhere
+       inside the box can never be mistaken for a resize-drag again. */
+    .led-handle.led-br{right:-22px;bottom:-22px}
     /* On a crowded seat, two elements' resize handles can sit almost on
        top of each other (an avatar's corner and its own seat's dealt
        cards, say). Once you've selected one of them, ITS handle always
