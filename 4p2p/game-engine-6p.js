@@ -2253,6 +2253,26 @@ class GameEngine6P {
       const bySuit = {};
       for (const s of SUITS) bySuit[s] = [];
       for (const c of hand) bySuit[c.suit].push(c);
+      // Per explicit request ("only a bot should never start a play with [the] opposite
+      // team's trump, unless no option left"): a hard, absolute rule layered on top of every
+      // other lead-selection path below, not just another score penalty like the existing
+      // "sc -= 30 if s === trumpSuit" adjustments further down -- those only made trump a
+      // less attractive candidate, they never actually stopped an opponent bot (one whose
+      // OWN team didn't call trump -- !isBT) from leading it anyway whenever it happened to
+      // score highest, or from grabbing it via the separate uncut-Jack shortcut, or via the
+      // final low-to-high fallback pool, none of which previously excluded trump for a
+      // non-bidding-team bot at all. Scoped deliberately narrow: only !isBT (this bot's team
+      // does NOT own the trump -- the "opposite team's trump" the request names; a bot ON the
+      // bidding team leading its own team's trump is normal, intentional play, untouched
+      // here) AND only when at least one non-trump card actually exists in hand -- the
+      // moment that's false (hand.every(c => c.suit === trumpSuit)), mustAvoidTrump flips
+      // false too, restoring trump as a normal candidate everywhere below, which is exactly
+      // the "unless no option left" exception. Applied at each of the three places a trump
+      // suit could otherwise still be chosen as the lead (the uncut-Jack shortcut, the main
+      // per-suit scoring loop, and the final safe-hand fallback pool) rather than only in one
+      // of them, since any single path left unguarded would still leak the exact behavior
+      // this is meant to stop.
+      const mustAvoidTrump = !isBT && hand.some(c => c.suit !== this.trumpSuit);
       // Per explicit bug report: this whole "bidder leading before trump
       // exposure" branch right below used to run BEFORE any Jack/9
       // safety check at all -- it picks the longest non-trump suit and
@@ -2300,7 +2320,8 @@ class GameEngine6P {
       const uncutJackSuits = SUITS.filter(s =>
         bySuit[s].some(c => c.rank === 'J') && !this.suitsCutThisRound.has(s) &&
         !(restrictedFromTrumpLead && s === this.trumpSuit) &&
-        !(weakDefendingTrump && s === this.trumpSuit)
+        !(weakDefendingTrump && s === this.trumpSuit) &&
+        !(mustAvoidTrump && s === this.trumpSuit)
       );
       if (uncutJackSuits.length > 0) {
         uncutJackSuits.sort((a, b) => bySuit[b].length - bySuit[a].length);
@@ -2390,6 +2411,11 @@ class GameEngine6P {
         // Excluded entirely now, matching the same exclusion already
         // applied to the uncutJackSuits check earlier in this function.
         if (restrictedFromTrumpLead && s === this.trumpSuit) continue;
+        // See mustAvoidTrump's own definition/comment above for the full reasoning -- an
+        // opponent bot (trump belongs to the OTHER team) skips trump as a lead candidate
+        // entirely here too, not just via the -30/-10 score penalty a few lines below (which
+        // only discourages it, never actually excludes it).
+        if (mustAvoidTrump && s === this.trumpSuit) continue;
         // Real, confirmed follow-up per explicit live report: the
         // earlier weakDefendingTrump exclusion (added to uncutJackSuits
         // above) only blocked the FIRST of several separate places
@@ -2607,10 +2633,11 @@ class GameEngine6P {
       const safeHand = hand.filter(c =>
         !(c.rank === '9' && !this._isRankSeen(c.suit, 'J')) &&
         !((c.rank === 'A' || c.rank === '10') && (!this._isRankSeen(c.suit, 'J') || !this._isRankSeen(c.suit, '9'))) &&
-        !(restrictedFromTrumpLead && c.suit === this.trumpSuit)
+        !(restrictedFromTrumpLead && c.suit === this.trumpSuit) &&
+        !(mustAvoidTrump && c.suit === this.trumpSuit)
       );
-      let pool = safeHand.length > 0 ? safeHand : hand.filter(c => !(restrictedFromTrumpLead && c.suit === this.trumpSuit));
-      if (pool.length === 0) pool = hand; // only trump left at all -- must lead it, nothing else to give
+      let pool = safeHand.length > 0 ? safeHand : hand.filter(c => !(restrictedFromTrumpLead && c.suit === this.trumpSuit) && !(mustAvoidTrump && c.suit === this.trumpSuit));
+      if (pool.length === 0) pool = hand; // only trump left at all (or only-trump-left-that's-legal for a restricted bidder) -- must lead it, nothing else to give. This is the literal "unless no option left" exception mustAvoidTrump is designed to fall through to.
       pool.sort((a, c) => RANK_ORDER[a.rank] - RANK_ORDER[c.rank]);
       return isEarly ? pool[0] : pool[pool.length - 1];
     }
