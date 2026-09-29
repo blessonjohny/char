@@ -931,16 +931,18 @@ h1{color:var(--gold);font-size:1.6rem;margin-bottom:6px;text-shadow:0 2px 8px rg
      about portrait's dead-center placement, not landscape's. */
   body.k28-in-game .pot-display-pot { left: calc(50% - 58px); transform: translateX(-50%); }
   body.k28-in-game .pot-display-bet { left: calc(50% + 58px); transform: translateX(-50%); }
-  /* Real, confirmed follow-up per explicit live report ("make it on top of the player dealing
-     cards, just above [the board]"): previously centered over the community-card board area
-     (48%, matching .board-area's own top there) -- moved to sit right on the house-dealer
-     avatar instead (24%, matching body.k28-in-game .house-dealer's own top exactly, same
-     "match the dealer's real position" technique already used for
-     #winningHandContinueWrap above/below), since the dealer -- the one actually announcing
-     each street -- sits above the board, not on it. .street-banner's z-index (20) already
-     beats .house-dealer's (4), so the banner renders in front of the dealer's photo, not
-     behind it. */
-  body.k28-in-game .street-banner { top: 24%; font-size: 1.3rem; padding: 12px 26px; }
+  /* Real, confirmed follow-up per explicit live report ("that's way too high... just above the
+     dealer['s] dealt cards, [top of the] cards, and bottom of the animation should almost
+     touch"): the previous move (24%, dead center on the dealer avatar) put the WHOLE banner
+     up near the dealer's face, which reads as "way too high" once actually seen live -- this
+     table's dealer and board sit close together (mobile landscape has only ~7px of clearance
+     between the dealer's own bottom edge and the board cards' top edge, measured directly), so
+     "on the dealer, just above the cards" really means anchored to the board cards' top edge,
+     not the dealer's own vertical center. Retargeted to put the banner's BOTTOM edge (not its
+     center) a few px above the community cards' actual top edge -- measured directly off a
+     real render (board card top ~185.7px of 412px viewport here) and solved backward through
+     the element's own translate(-50%,-50%) centering and its own height, not eyeballed. */
+  body.k28-in-game .street-banner { top: 38%; font-size: 1.3rem; padding: 12px 26px; }
   /* "YOUR TURN" and my own chip count both get a dedicated, real top-level element instead
      (#myTurnTop, #myChipsTop, styled together below) - see the HTML comment where they're
      defined for why nesting these inside my own seat div didn't work. */
@@ -1680,13 +1682,15 @@ body.k28-portrait-photo .seat.seat-cards-revealed .seat-chips { display: none; }
    winning-hand display -- that's a separate element, untouched here
    on purpose per explicit instruction). Small, precise nudge only. */
 body.k28-portrait-photo .board-area { top: 30%; }
-/* Real, confirmed follow-up per explicit live report ("make it on top of the player dealing
-   cards, just above [the board]"): moved again, from 30% (over the community-card board,
-   matching .board-area's own top there) to 10% -- matching body.k28-portrait-photo
-   .house-dealer's own top exactly, same reasoning as the landscape twin of this rule
-   above. The original 72%->30% move (see the history kept above) was about clearing my own
-   hand-strip; this is a separate, later move onto the dealer instead of the board. */
-body.k28-portrait-photo .street-banner { top: 10%; }
+/* Real, confirmed follow-up per explicit live report ("that's way too high... just above the
+   dealer['s] dealt cards, bottom of the animation should almost touch"): 10% (dead center on
+   the dealer avatar) put the whole banner up near the dealer's face. Retargeted the same way
+   as the landscape twin of this rule above -- the banner's bottom edge sits a few px above the
+   community cards' own top edge (measured ~239.9px of 844px viewport here), solved backward
+   through the element's translate(-50%,-50%) centering and its own height. The original
+   72%->30% move (see the history kept above) was about clearing my own hand-strip; this is a
+   separate, later retarget from "on the board" to "just above the board". */
+body.k28-portrait-photo .street-banner { top: 25%; }
 /* Real, confirmed feature per explicit request ("the pots on the
    table when players place... only for portrait" -- the actual chip-
    pile graphic that accumulates in the middle as bets come in, not the
@@ -2045,11 +2049,10 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
      (29%, immediately above) differs from mobile landscape's (24%,
      the base k28-in-game rule), so this wins here specifically. */
   body.k28-in-game #winningHandContinueWrap { top: 29% !important; }
-  /* Same reasoning as the mobile-landscape .street-banner rule above -- desktop's own dealer
-     center (29%) differs from mobile landscape's (24%), so this wins here specifically,
-     matching the exact same override pattern already used for #winningHandContinueWrap just
-     above. */
-  body.k28-in-game .street-banner { top: 29%; }
+  /* Same follow-up as the mobile-landscape .street-banner rule above (see its comment for the
+     full reasoning) -- desktop has its own board-card top edge (measured ~436.9px of 950px
+     viewport here), different from mobile landscape's, so this wins here specifically. */
+  body.k28-in-game .street-banner { top: 43%; }
   /* Real, confirmed feature per explicit request ("make the cards a
      little bigger too my cards.. and make all the cards including
      other players same size as mine.. this for pc only"): my own
