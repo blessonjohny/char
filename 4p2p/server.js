@@ -3150,21 +3150,35 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Real, confirmed bug fix per explicit live report ("from admin panel I went and watched a
+  // real table and when I exit I'm not able to exit, it's putting me back to the table"):
+  // this used to call ONLY handleDisconnectOrLeave(true), which keys off the OUTER tableId
+  // variable (see its own comment) -- an admin watcher never sets that, they go through
+  // adminWatchTable instead, which only ever set adminWatchTableId. An explicit "Leave" click
+  // therefore hit handleDisconnectOrLeave's `if (!t) return;` immediately and did NOTHING:
+  // adminWatchTableId stayed set, the socket stayed in t.spectators, and broadcastTable() (see
+  // there -- it pushes 'state' per-socket straight off t.sockets/t.spectators, not via a
+  // Socket.IO room) kept pushing this table's live state at the still-open tab forever, which
+  // is exactly "clicking Leave puts me back in the table" -- the leave was silently a no-op.
+  // The disconnect handler below already had the correct cleanup for the OTHER way a watch
+  // session ends (closing the tab); this now runs that exact same cleanup for an explicit
+  // Leave too, before still also running the normal handleDisconnectOrLeave for the rare case
+  // where the same socket somehow also holds a real seat.
+  function cleanupAdminWatch() {
+    if (adminWatchTableId) {
+      const wt = tables[adminWatchTableId];
+      if (wt && wt.spectators) wt.spectators.delete(socket.id);
+      try { socket.leave(adminWatchTableId); } catch (e) {}
+      adminWatchTableId = null;
+    }
+  }
   socket.on('leaveTable', () => {
+    cleanupAdminWatch();
     handleDisconnectOrLeave(true);
   });
 
   socket.on('disconnect', () => {
-    // Real, confirmed feature per the same admin-watch request above:
-    // cleans up the watcher registration independently of
-    // handleDisconnectOrLeave below, since that function keys off the
-    // OUTER tableId variable, which an admin watcher never sets (they
-    // never go through the normal join flow at all).
-    if (adminWatchTableId) {
-      const wt = tables[adminWatchTableId];
-      if (wt && wt.spectators) wt.spectators.delete(socket.id);
-      adminWatchTableId = null;
-    }
+    cleanupAdminWatch();
     handleDisconnectOrLeave(false);
   });
 
@@ -3174,6 +3188,11 @@ io.on('connection', (socket) => {
     if (!t) return;
     if (t.spectators && t.spectators.has(socket.id)) {
       t.spectators.delete(socket.id);
+      // Matches cleanupAdminWatch's own socket.leave() just above -- a plain (non-admin)
+      // spectator leaving explicitly should stop receiving this table's room-broadcast events
+      // (chat, tableClosed, etc. -- see the io.to(tableId) calls elsewhere in this file) too,
+      // not just the per-socket 'state' pushes that not being in t.spectators already stops.
+      try { socket.leave(tableId); } catch (e) {}
       broadcastTable(t);
       return;
     }
@@ -4089,6 +4108,26 @@ io.on('connection', (socket) => {
     // specific logic: a spectator leaving just needs their own entry
     // removed from the room and the spectators map, then broadcasts
     // the table so everyone's spectator count updates too.
+    // Real, confirmed follow-up bug fix per explicit live report ("from admin panel I went
+    // and watched a real table and when I exit I'm not able to exit, it's putting me back to
+    // the table... 4p and 6p"): the spectator check right above only ever looked at
+    // sixpTableId, which is exactly what the comment on that check already says a spectator's
+    // socket uses -- but an ADMIN watcher (sixp_adminWatchTable, above) never sets
+    // sixpTableId at all, only its own separate sixpAdminWatchTableId. An admin clicking
+    // Leave fell through the spectator check (found nothing under sixpTableId), then fell
+    // through withSixpTable below too (that only looks up SEATED players), so the whole
+    // handler was a silent no-op for an admin watcher specifically -- sixpAdminWatchTableId
+    // stayed set, the socket stayed in the table's spectators map, and sixpBroadcastTable
+    // kept pushing this table's live state at the still-open tab forever. Mirrors the
+    // 4-player table's identical fix.
+    if (sixpAdminWatchTableId) {
+      const wt = sixpTables[sixpAdminWatchTableId];
+      if (wt && wt.spectators) wt.spectators.delete(socket.id);
+      try { socket.leave('sixp_' + sixpAdminWatchTableId); } catch (e) {}
+      if (wt) sixpBroadcastTable(wt);
+      sixpAdminWatchTableId = null;
+      return;
+    }
     const tSpec = sixpTables[sixpTableId];
     if (tSpec && tSpec.spectators && tSpec.spectators.has(socket.id)) {
       tSpec.spectators.delete(socket.id);
