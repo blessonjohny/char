@@ -84,18 +84,18 @@
   for (let i = 0; i < LH.SEAT_COUNT; i++) {
     CHIP_LABEL_LAYERS.push({ key: 'chipLabel' + i, slot: i, label: 'Chip Count — Slot ' + i + (i === 0 ? ' (You)' : ''), category: 'Chip Count (per seat)', type: 'chipLabel', dragKind: 'fontSize' });
   }
+  // Every CSS-type element now carries both position AND size (see the
+  // comment above LH.ELEMENTS), so they all use the same drag kind.
   const CSS_DRAG_KIND = {
     dealer: 'posPercent+sizePx',
-    boardArea: 'posPercent',
-    boardCard: 'size',
-    handCard: 'size',
-    handStrip: 'posPercent',
-    potAnchor: 'posPercent',
+    boardArea: 'posPercent+sizePx',
+    handStrip: 'posPercent+sizePx',
+    potAnchor: 'posPercent+sizePx',
     actionBar: 'posPercent+sizePx',
-    winnerPopup: 'posPercent',
-    tiltPopup: 'posPercent',
+    winnerPopup: 'posPercent+sizePx',
+    tiltPopup: 'posPercent+sizePx',
     topbar: 'posPercent+sizePx',
-    soundMute: 'posPercent',
+    soundMute: 'posPercent+sizePx',
   };
   const CSS_LAYERS = LH.ELEMENTS.map((el) => Object.assign({ type: 'css', dragKind: CSS_DRAG_KIND[el.key] || 'size' }, el));
   const ALL_LAYERS = SEAT_LAYERS.concat(CHIP_LAYERS, CARD_LAYERS, CHIP_LABEL_LAYERS, CSS_LAYERS);
@@ -476,7 +476,7 @@
     box.addEventListener('pointerdown', (ev) => {
       if (ev.target === handle) return;
       selectElement(def.key);
-      if (def.dragKind === 'size' || def.dragKind === 'fontSize') return; // resize-only elements have no body-drag
+      if (def.dragKind === 'size') return; // resize-only elements (no meaningful position of their own) have no body-drag
       beginDrag(doc, win, def, ev, 'move');
     });
     if (handle) {
@@ -582,7 +582,15 @@
           cur.height = Math.max(8, Math.round(startVal.height + dy));
         }
       } else if (def.dragKind === 'fontSize') {
-        cur.fontSize = Math.max(6, Math.round(startVal.fontSize + dy));
+        // The chip-count number: body-drag moves it (a plain px nudge,
+        // same technique as dealt cards -- see the note there), the
+        // corner handle resizes it (bigger/smaller text, via font-size).
+        if (mode === 'move') {
+          cur.offsetX = Math.round(startVal.offsetX + dx);
+          cur.offsetY = Math.round(startVal.offsetY + dy);
+        } else {
+          cur.fontSize = Math.max(6, Math.round(startVal.fontSize + dy));
+        }
       }
       bucket[def.key] = cur;
       if (def.type === 'css') {
@@ -647,22 +655,36 @@
         live = { left: round2(((cx - tableRect.left) / tableRect.width) * 100), top: round2(((cy - tableRect.top) / tableRect.height) * 100) };
       } else if (def.dragKind === 'posPercent+sizePx') {
         const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+        // Community Cards / Your Hand: position is measured off the
+        // container (`rect`, above), but size needs to come from an
+        // actual card inside it (`sizeSelector`) -- the container's own
+        // rect spans BOTH cards plus the gap between them, which would
+        // show roughly double the real per-card size otherwise.
+        let sizeRect = rect;
+        if (def.sizeSelector) {
+          const sizeTarget = doc.querySelector(def.sizeSelector);
+          if (sizeTarget) sizeRect = sizeTarget.getBoundingClientRect();
+        }
         live = {
           left: round2(((cx - tableRect.left) / tableRect.width) * 100), top: round2(((cy - tableRect.top) / tableRect.height) * 100),
-          width: Math.round(rect.width), height: Math.round(rect.height),
+          width: Math.round(sizeRect.width), height: Math.round(sizeRect.height),
         };
       } else if (def.dragKind === 'fontSize') {
-        live = { fontSize: Math.round(parseFloat(win.getComputedStyle(target).fontSize)) || 10 };
+        live = {
+          offsetX: Math.round(parseFloat(win.getComputedStyle(target).marginLeft)) || 0,
+          offsetY: Math.round(parseFloat(win.getComputedStyle(target).marginTop)) || 0,
+          fontSize: Math.round(parseFloat(win.getComputedStyle(target).fontSize)) || 10,
+        };
       }
     } else if (def.dragKind === 'size') {
       // Reasonable fallbacks for when nothing's on screen yet to measure
       // (e.g. no hand dealt, no cards dealt to that seat yet) -- overwritten
       // the instant a real element shows up, and self-correcting on the
       // very next read.
-      const SIZE_FALLBACKS = { boardCard: { width: 44, height: 62 }, handCard: { width: 44, height: 62 } };
+      const SIZE_FALLBACKS = { boardArea: { width: 44, height: 62 }, handStrip: { width: 44, height: 62 } };
       live = SIZE_FALLBACKS[def.key] || { width: 44, height: 62 };
     } else if (def.dragKind === 'fontSize') {
-      live = { fontSize: 10 };
+      live = { offsetX: 0, offsetY: 0, fontSize: 10 };
     }
     return Object.assign({}, live, saved || {});
   }
@@ -733,7 +755,9 @@
     if (def.type === 'cards') return ['offsetX', 'offsetY', 'width', 'height'];
     if (def.dragKind === 'size') return ['width', 'height'];
     if (def.dragKind === 'posPercent') return ['left', 'top'];
-    if (def.dragKind === 'fontSize') return ['fontSize'];
+    // The chip-count number: X/Y move it, "Size" is its font size (a
+    // literal width/height on a bare number wouldn't mean anything).
+    if (def.dragKind === 'fontSize') return ['offsetX', 'offsetY', 'fontSize'];
     return ['left', 'top', 'width', 'height'];
   }
   function renderInspector() {

@@ -51,24 +51,35 @@
   // rotation puts a different PHYSICAL seat at any given visual slot), so
   // they're applied per-render in JS instead (see applySeatStyles below),
   // keyed by slot the same way seat positions already are.
+  // Every entry below carries all 4 controls (X, Y, W, H) by explicit
+  // design decision: some real elements naturally split "where the group
+  // sits" (a container) from "how big each piece is" (children inside
+  // it) -- Community Cards and Your Hand are both a positioned container
+  // plus individually-sized card elements. Rather than leave those as
+  // two half-empty layers (position-only / size-only, like this used to
+  // work), `sizeSelector` lets ONE layer drive both: left/top apply to
+  // `selector` (the container), width/height apply to `sizeSelector`
+  // (the children) -- see buildOverrideCSS below for how that's split
+  // into two separate CSS rules. Elements that are already one single
+  // element for both (a button, a popup) just reuse `selector` for both
+  // and don't need it.
   const ELEMENTS = [
     { key: 'dealer', label: 'Dealer', category: 'Dealer', selector: '.house-dealer', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;' },
-    { key: 'boardArea', label: 'Community Cards (position)', category: 'Cards', selector: '.board-area', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' }, extraDecls: 'transform:translate(-50%,-50%) !important;' },
-    { key: 'boardCard', label: 'Community Cards (size)', category: 'Cards', selector: '.board-area .card', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
-    { key: 'handCard', label: 'Your Hand (card size)', category: 'Cards', selector: '.hand-strip .card', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
+    { key: 'boardArea', label: 'Community Cards', category: 'Cards', selector: '.board-area', sizeSelector: '.board-area .card', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;' },
     // `.hand-strip` positions itself with position:fixed (viewport, not
-    // the table -- see the file-level `viewportRelative` note below), so
-    // it needed its own position control separate from handCard's size.
-    { key: 'handStrip', label: 'Your Hand (position)', category: 'Cards', selector: '.hand-strip', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' }, extraDecls: 'transform:translate(-50%,-50%) !important;', viewportRelative: true },
-    { key: 'potAnchor', label: 'Table Pot (position)', category: 'Chips', selector: '.pot-anchor', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' } },
+    // the table -- see the file-level `viewportRelative` note below);
+    // its individual cards (`.hand-strip .card`) are sized separately via
+    // sizeSelector, same pattern as Community Cards above.
+    { key: 'handStrip', label: 'Your Hand', category: 'Cards', selector: '.hand-strip', sizeSelector: '.hand-strip .card', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;', viewportRelative: true },
+    { key: 'potAnchor', label: 'Table Pot', category: 'Chips', selector: '.pot-anchor', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' } },
     // Also position:fixed (viewport-relative), same reasoning as handStrip.
     { key: 'actionBar', label: 'Action Buttons (Fold/Check/Bet)', category: 'Action Bar', selector: '#actionBar', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, viewportRelative: true },
     // Table-relative (position:absolute, set inline in the HTML) -- no
     // viewportRelative flag, our !important override wins over the
     // inline style the same way it does for every other element here.
-    { key: 'winnerPopup', label: 'Winner "Continue" Popup', category: 'Popups', selector: '#winningHandContinueWrap', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' } },
+    { key: 'winnerPopup', label: 'Winner "Continue" Popup', category: 'Popups', selector: '#winningHandContinueWrap', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' } },
     // position:fixed (viewport-relative) -- the "rotate your phone" hint.
-    { key: 'tiltPopup', label: 'Rotate-Device Popup', category: 'Popups', selector: '.tilt-suggest-popup', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' }, extraDecls: 'transform:translate(-50%,-50%) !important;', viewportRelative: true },
+    { key: 'tiltPopup', label: 'Rotate-Device Popup', category: 'Popups', selector: '.tilt-suggest-popup', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;', viewportRelative: true },
     // The top strip (hand number/blinds, Fullscreen/Invite/Host/Log/Leave
     // buttons) normally just sits in the page's own document flow at the
     // very top -- it doesn't use position:fixed/absolute at all, so plain
@@ -79,7 +90,7 @@
     // The round sound on/off button. Its own CSS normally anchors it by
     // right/bottom instead of left/top -- extraDecls clears those so our
     // left/top override isn't fighting a leftover right/bottom value.
-    { key: 'soundMute', label: 'Sound Mute Button', category: 'Top Bar', selector: '#btnSoundMute', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' }, extraDecls: 'right:auto !important;bottom:auto !important;', viewportRelative: true },
+    { key: 'soundMute', label: 'Sound Mute Button', category: 'Top Bar', selector: '#btnSoundMute', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'right:auto !important;bottom:auto !important;', viewportRelative: true },
   ];
 
   function elementByKey(key) { return ELEMENTS.find((e) => e.key === key) || null; }
@@ -91,16 +102,19 @@
     return null;
   }
 
-  function declsFor(el, values) {
+  // fieldsSubset (optional) restricts which of el.cssProps get emitted --
+  // used to split a merged position+size element's fields across its two
+  // different real selectors (see sizeSelector note above ELEMENTS).
+  function declsFor(el, values, fieldsSubset) {
     if (!values) return '';
     let out = '';
     for (const [field, cssProp] of Object.entries(el.cssProps)) {
+      if (fieldsSubset && !fieldsSubset.includes(field)) continue;
       const v = values[field];
       if (v === undefined || v === null || v === '') continue;
       const unit = (el.fieldUnits && el.fieldUnits[field]) || 'px';
       out += `${cssProp}:${v}${unit} !important;`;
     }
-    if (out && el.extraDecls) out += el.extraDecls;
     return out;
   }
 
@@ -116,9 +130,22 @@
       if (!values || typeof values !== 'object') continue;
       let body = '';
       for (const el of ELEMENTS) {
-        const decls = declsFor(el, values[el.key]);
-        if (!decls) continue;
-        body += `body.${bp.bodyClass} ${el.selector}{${decls}}\n`;
+        const v = values[el.key];
+        if (!v) continue;
+        if (el.sizeSelector) {
+          // Position fields go on the container (`selector`), size fields
+          // go on the children (`sizeSelector`) -- two separate rules from
+          // one saved value, since they're two different real elements.
+          let posDecls = declsFor(el, v, ['left', 'top']);
+          if (posDecls && el.extraDecls) posDecls += el.extraDecls;
+          const sizeDecls = declsFor(el, v, ['width', 'height']);
+          if (posDecls) body += `body.${bp.bodyClass} ${el.selector}{${posDecls}}\n`;
+          if (sizeDecls) body += `body.${bp.bodyClass} ${el.sizeSelector}{${sizeDecls}}\n`;
+        } else {
+          let decls = declsFor(el, v);
+          if (decls && el.extraDecls) decls += el.extraDecls;
+          if (decls) body += `body.${bp.bodyClass} ${el.selector}{${decls}}\n`;
+        }
       }
       if (body) css += body;
     }
@@ -235,11 +262,16 @@
       }
 
       // The numeric chip-count label under each player's name (e.g. "985")
-      // -- a plain text element, so "size" here just means font size.
+      // -- a plain text element, so "size" here just means font size;
+      // position is a margin nudge, same technique as dealt cards above.
       const chipLabel = bucket['chipLabel' + slot];
-      if (chipLabel && chipLabel.fontSize != null) {
+      if (chipLabel) {
         const chipsEl = seatEl.querySelector('.seat-chips');
-        if (chipsEl) chipsEl.style.setProperty('font-size', chipLabel.fontSize + 'px', 'important');
+        if (chipsEl) {
+          if (chipLabel.offsetX != null) chipsEl.style.setProperty('margin-left', chipLabel.offsetX + 'px', 'important');
+          if (chipLabel.offsetY != null) chipsEl.style.setProperty('margin-top', chipLabel.offsetY + 'px', 'important');
+          if (chipLabel.fontSize != null) chipsEl.style.setProperty('font-size', chipLabel.fontSize + 'px', 'important');
+        }
       }
     });
   }
