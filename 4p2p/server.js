@@ -1219,21 +1219,21 @@ function getAllTablesSummary() {
     // admin-controlled ghost players currently seated here so the
     // client can offer "chat as <ghost name>" alongside the generic
     // "chat as Admin".
-    rows.push({ game: '4-Player', mode: '4p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, teams: buildTeamBreakdown(t.engine.seats, getTeam4p, t.engine.gameScore), challengeHandicap: t.engine.challengeHandicap || 0, challengerTeam: t.engine.challengerTeam, challengeBeaten: !!t.engine.challengeBeaten, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
+    rows.push({ game: '4-Player', mode: '4p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, maxSeats: (t.engine.seats || []).length, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, teams: buildTeamBreakdown(t.engine.seats, getTeam4p, t.engine.gameScore), challengeHandicap: t.engine.challengeHandicap || 0, challengerTeam: t.engine.challengerTeam, challengeBeaten: !!t.engine.challengeBeaten, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
   }
   for (const t of Object.values(sixpTables)) {
     const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
-    rows.push({ game: '6-Player', mode: '6p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, teams: buildTeamBreakdown(t.engine.seats, getTeam6p, t.engine.gameScore), challengeHandicap: t.engine.challengeHandicap || 0, challengerTeam: t.engine.challengerTeam, challengeBeaten: !!t.engine.challengeBeaten, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
+    rows.push({ game: '6-Player', mode: '6p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, maxSeats: (t.engine.seats || []).length, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, teams: buildTeamBreakdown(t.engine.seats, getTeam6p, t.engine.gameScore), challengeHandicap: t.engine.challengeHandicap || 0, challengerTeam: t.engine.challengerTeam, challengeBeaten: !!t.engine.challengeBeaten, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
   }
   for (const r of Object.values(l56Rooms)) {
     const seats = r.state && r.state.seats ? r.state.seats : [];
     const { humans, bots, summary, seatEntries } = summarizeSeats(seats, r.sockets);
     const phase = r.state ? r.state.phase : 'lobby';
-    rows.push({ game: '56', tableId: r.code, phase, isPlaying: phase !== 'lobby', humans, bots, summary, seatEntries, createdAt: r.createdAt || null, lastActivityAt: r.lastActivityAt || null });
+    rows.push({ game: '56', mode: '56', tableId: r.code, phase, isPlaying: phase !== 'lobby', humans, bots, maxSeats: seats.length, summary, seatEntries, createdAt: r.createdAt || null, lastActivityAt: r.lastActivityAt || null });
   }
   for (const t of Object.values(pokerTables)) {
     const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
-    rows.push({ game: "Hold'em", tableId: t.engine.tableId, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, summary, seatEntries, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
+    rows.push({ game: "Hold'em", mode: 'holdem', tableId: t.engine.tableId, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, maxSeats: (t.engine.seats || []).length, summary, seatEntries, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
   }
   return rows;
 }
@@ -1246,6 +1246,40 @@ app.get('/api/live-players', (req, res) => {
 app.get('/api/all-tables', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
   res.json({ ok: true, tables: getAllTablesSummary() });
+});
+
+// Real, confirmed feature per explicit request ("the welcome page should
+// show all the live matches that are running with at least 1 real
+// player... so people know if any table 4p/6p/holdem/56 is running"):
+// deliberately a SEPARATE, unauthenticated endpoint rather than just
+// opening up /api/all-tables above -- that one is meant for the admin
+// panel and its rows include real player names and (via seatEntries'
+// location text) each connected human's city/region derived from their
+// IP, which is fine behind checkAdminAuth but must never be exposed to
+// every visitor on the public landing page. This reuses the exact same
+// per-game walk (getAllTablesSummary), then strips every row down to
+// just the counts/phase a "is anything live?" widget needs, and drops
+// any table with zero real humans seated -- an empty or all-bot table
+// isn't "live" from a visitor's point of view, no matter how long it's
+// sat open in memory.
+app.get('/api/public-live-tables', (req, res) => {
+  const rows = getAllTablesSummary()
+    .filter((r) => r.humans > 0)
+    .map((r) => ({
+      game: r.game,
+      mode: r.mode || null,
+      tableId: r.tableId,
+      humans: r.humans,
+      bots: r.bots,
+      maxSeats: r.maxSeats || (r.humans + r.bots),
+      isPlaying: r.isPlaying,
+      phase: r.phase,
+    }))
+    // Busiest tables (most real humans) first, so a visitor scanning the
+    // list sees the liveliest games at the top rather than in whatever
+    // arbitrary order they happen to sit in the server's table registry.
+    .sort((a, b) => b.humans - a.humans);
+  res.json({ ok: true, tables: rows });
 });
 
 // Per explicit request: lets the admin panel show and send into a
