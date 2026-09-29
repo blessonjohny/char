@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>28 Gulan Hold'em — Visual Layout Editor</title>
-<link rel="stylesheet" href="layout-editor.css">
+<link rel="stylesheet" href="layout-editor.css?v=8">
 </head>
 <body>
 <div id="edRoot">
@@ -14,7 +14,7 @@
          possible to tell at a glance, just by looking at the screen,
          whether a phone/browser is actually running the latest files or
          a stale cached copy. No functional purpose otherwise. -->
-    <span id="edBuildTag" style="font-size:0.65rem;color:#5a7a9a;font-weight:700;letter-spacing:0.03em">build v7</span>
+    <span id="edBuildTag" style="font-size:0.65rem;color:#5a7a9a;font-weight:700;letter-spacing:0.03em">build v8</span>
     <div class="ed-sep"></div>
     <select id="edBreakpointSelect"></select>
     <button class="ed-btn" id="edBtnEditToggle">✏️ Edit Table: OFF</button>
@@ -51,7 +51,14 @@
     </div>
   </div>
 </div>
-<script src="layout-engine-holdem.js"></script>
-<script src="layout-editor-holdem.js"></script>
+<!-- ?v=8 cache-busts these two files specifically: a phone browser (or a
+     CDN in front of the live site) can keep serving an old cached copy of
+     a .js file under its old URL even after the file on disk changed.
+     Bump this number on every future delivery -- a new URL can never
+     return a stale cached response, so this makes "the fix didn't show
+     up" impossible for these two files regardless of any cache
+     configuration upstream. -->
+<script src="layout-engine-holdem.js?v=8"></script>
+<script src="layout-editor-holdem.js?v=8"></script>
 </body>
 </html>
