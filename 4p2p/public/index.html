@@ -17750,6 +17750,24 @@ function leaveCurrentTableCleanup() {
   try { localStorage.removeItem('k28_table_id'); localStorage.removeItem('k28_session_time'); } catch (e) {}
   const linkBox = document.getElementById('roomLinkBox');
   if (linkBox) { linkBox.style.display = 'none'; linkBox.innerHTML = ''; }
+  // Real, confirmed bug fix per explicit live report ("from admin panel I went and watched a
+  // real table and when I exit I'm not able to exit, it's putting me back to the table"): the
+  // server-side half of this fix (see server.js's leaveTable/adminWatchTable handlers) stops
+  // the leave from silently no-op'ing, but admin.html's watchTable() opens this page with
+  // ?adminWatch=<tableId> in the URL (see the IIFE near this file's admin-watch auto-connect,
+  // window.__isAdminWatchMode), and nothing ever cleared that afterward -- a reload, or even
+  // just the browser restoring the tab, would immediately re-run that same auto-watch IIFE and
+  // rejoin the exact table just left, which is the other half of "it's putting me back". Strips
+  // the param from the address bar (without a navigation/reload) and clears the in-memory flag
+  // so neither this session nor a future reload of this same tab can auto-rejoin.
+  if (window.__isAdminWatchMode) {
+    window.__isAdminWatchMode = false;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('adminWatch');
+      history.replaceState({}, '', url.pathname + url.search + url.hash);
+    } catch (e) {}
+  }
 }
 
 function leaveServerTable() {

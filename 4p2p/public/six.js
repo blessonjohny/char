@@ -1959,6 +1959,22 @@ function leaveToWelcome() {
     localStorage.removeItem('k28six_session_time');
   } catch (e) {}
   MY_TABLE_ID = null;
+  // Real, confirmed bug fix per explicit live report ("from admin panel I went and watched a
+  // real table and when I exit I'm not able to exit, it's putting me back to the table...4p
+  // and 6p"): the server-side half of this fix (server.js's sixp_leaveTable/
+  // sixp_adminWatchTable handlers) stops the leave from silently no-op'ing for an admin
+  // watcher, but this page was opened with ?adminWatch=<tableId> in the URL (see the
+  // auto-watch IIFE near the bottom of this file), and nothing ever cleared that afterward --
+  // that IIFE re-reads window.location.search fresh on every load, so a reload or a restored
+  // tab would immediately re-run it and rejoin the exact table just left. Strips the param
+  // from the address bar (no navigation/reload) so that can't happen again in this tab.
+  if (new URLSearchParams(window.location.search).has('adminWatch')) {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('adminWatch');
+      history.replaceState({}, '', url.pathname + url.search + url.hash);
+    } catch (e) {}
+  }
   document.querySelectorAll('.modal-overlay,.overlay').forEach(o => o.classList.remove('on'));
   $('gameScreen').style.display = 'none';
   showScreen('welcomeScreen');
