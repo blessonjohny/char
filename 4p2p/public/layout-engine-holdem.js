@@ -56,7 +56,19 @@
     { key: 'boardArea', label: 'Community Cards (position)', category: 'Cards', selector: '.board-area', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' }, extraDecls: 'transform:translate(-50%,-50%) !important;' },
     { key: 'boardCard', label: 'Community Cards (size)', category: 'Cards', selector: '.board-area .card', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
     { key: 'handCard', label: 'Your Hand (card size)', category: 'Cards', selector: '.hand-strip .card', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
+    // `.hand-strip` positions itself with position:fixed (viewport, not
+    // the table -- see the file-level `viewportRelative` note below), so
+    // it needed its own position control separate from handCard's size.
+    { key: 'handStrip', label: 'Your Hand (position)', category: 'Cards', selector: '.hand-strip', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' }, extraDecls: 'transform:translate(-50%,-50%) !important;', viewportRelative: true },
     { key: 'potAnchor', label: 'Table Pot (position)', category: 'Chips', selector: '.pot-anchor', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' } },
+    // Also position:fixed (viewport-relative), same reasoning as handStrip.
+    { key: 'actionBar', label: 'Action Buttons (Fold/Check/Bet)', category: 'Action Bar', selector: '#actionBar', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, viewportRelative: true },
+    // Table-relative (position:absolute, set inline in the HTML) -- no
+    // viewportRelative flag, our !important override wins over the
+    // inline style the same way it does for every other element here.
+    { key: 'winnerPopup', label: 'Winner "Continue" Popup', category: 'Popups', selector: '#winningHandContinueWrap', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' } },
+    // position:fixed (viewport-relative) -- the "rotate your phone" hint.
+    { key: 'tiltPopup', label: 'Rotate-Device Popup', category: 'Popups', selector: '.tilt-suggest-popup', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' }, extraDecls: 'transform:translate(-50%,-50%) !important;', viewportRelative: true },
   ];
 
   function elementByKey(key) { return ELEMENTS.find((e) => e.key === key) || null; }

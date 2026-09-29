@@ -21,6 +21,7 @@ html,body{margin:0;height:100%;background:var(--ed-bg);color:var(--ed-text);font
 .ed-btn.danger:hover{background:rgba(231,64,64,0.15)}
 .ed-btn.active{background:var(--ed-gold);border-color:var(--ed-gold);color:#241a12}
 #edBreakpointSelect{background:#243040;color:var(--ed-text);border:1px solid var(--ed-border);border-radius:6px;padding:6px 10px;font-size:0.8rem}
+#edZoomLabel{font-size:0.78rem;color:var(--ed-text-dim);min-width:38px;text-align:center;font-weight:700}
 #edStatus{font-size:0.72rem;color:var(--ed-text-dim);margin-left:auto}
 #edStatus.saved{color:#4ade80}
 #edStatus.error{color:var(--ed-danger)}

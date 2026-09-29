@@ -30,6 +30,10 @@
   const btnRedo = document.getElementById('edBtnRedo');
   const btnReset = document.getElementById('edBtnReset');
   const btnSave = document.getElementById('edBtnSave');
+  const btnZoomOut = document.getElementById('edBtnZoomOut');
+  const btnZoomIn = document.getElementById('edBtnZoomIn');
+  const btnZoomFit = document.getElementById('edBtnZoomFit');
+  const zoomLabel = document.getElementById('edZoomLabel');
   const statusEl = document.getElementById('edStatus');
   const layersEl = document.getElementById('edLayers');
   const inspectorEl = document.getElementById('edInspector');
@@ -43,6 +47,10 @@
   let overlays = {}; // key -> { box, handle, target, def }
   let dragState = null;
   let rafId = null;
+  // null = auto-fit-to-screen (the default); a number = the person picked
+  // their own zoom level with the +/-/Fit buttons, and it stays put across
+  // resizes/breakpoint switches until they hit Fit again.
+  let manualZoom = null;
 
   // ---------------------------------------------------------------------
   // Layer definitions: 9 seats (bespoke, JS-driven) + the CSS elements
@@ -81,7 +89,11 @@
     boardArea: 'posPercent',
     boardCard: 'size',
     handCard: 'size',
+    handStrip: 'posPercent',
     potAnchor: 'posPercent',
+    actionBar: 'posPercent+sizePx',
+    winnerPopup: 'posPercent',
+    tiltPopup: 'posPercent',
   };
   const CSS_LAYERS = LH.ELEMENTS.map((el) => Object.assign({ type: 'css', dragKind: CSS_DRAG_KIND[el.key] || 'size' }, el));
   const ALL_LAYERS = SEAT_LAYERS.concat(CHIP_LAYERS, CARD_LAYERS, CHIP_LABEL_LAYERS, CSS_LAYERS);
@@ -139,16 +151,41 @@
     frame.style.transformOrigin = 'top left';
     frameWrap.style.width = bp.previewWidth + 'px';
     frameWrap.style.height = bp.previewHeight + 'px';
-    const availW = stage.clientWidth - 4; // small safety margin
-    const availH = stage.clientHeight - 4;
-    const scale = Math.min(1, availW / bp.previewWidth, availH / bp.previewHeight);
-    if (scale > 0 && scale < 1) {
+    let scale;
+    if (manualZoom != null) {
+      // The person picked their own zoom -- respect it exactly, even if
+      // that means the table is now bigger than the stage (scrolling
+      // inside #edStage, which stays overflow:auto, takes over from there
+      // so they can pan to whatever part they're working on).
+      scale = manualZoom;
+    } else {
+      const availW = stage.clientWidth - 4; // small safety margin
+      const availH = stage.clientHeight - 4;
+      scale = Math.min(1, availW / bp.previewWidth, availH / bp.previewHeight);
+    }
+    if (scale > 0 && scale !== 1) {
       frame.style.transform = 'scale(' + scale + ')';
       frameWrap.style.width = Math.round(bp.previewWidth * scale) + 'px';
       frameWrap.style.height = Math.round(bp.previewHeight * scale) + 'px';
     }
+    zoomLabel.textContent = Math.round(scale * 100) + '%';
+    scheduleRebuildOverlays();
   }
-  window.addEventListener('resize', fitFrameToStage);
+  window.addEventListener('resize', () => { if (manualZoom == null) fitFrameToStage(); });
+
+  const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.66, 0.75, 1, 1.25, 1.5, 2];
+  function stepZoom(dir) {
+    const bp = bpInfo(currentBp);
+    const current = manualZoom != null ? manualZoom : Math.min(1, (stage.clientWidth - 4) / bp.previewWidth, (stage.clientHeight - 4) / bp.previewHeight);
+    let next;
+    if (dir > 0) next = ZOOM_STEPS.find((s) => s > current + 0.001) || ZOOM_STEPS[ZOOM_STEPS.length - 1];
+    else next = [...ZOOM_STEPS].reverse().find((s) => s < current - 0.001) || ZOOM_STEPS[0];
+    manualZoom = next;
+    fitFrameToStage();
+  }
+  btnZoomOut.addEventListener('click', () => stepZoom(-1));
+  btnZoomIn.addEventListener('click', () => stepZoom(1));
+  btnZoomFit.addEventListener('click', () => { manualZoom = null; fitFrameToStage(); });
 
   // ---------------------------------------------------------------------
   // Load existing saved config, then boot the frame
@@ -173,9 +210,37 @@
       // seatPositions()/renderGameTable() need to keep reading whatever
       // it CURRENTLY points to, not a snapshot frozen at this moment.
       if (win.LayoutHoldem) win.LayoutHoldem.applyAll(frame.contentDocument, win, () => config);
+      setupOverlayMutationObserver(frame.contentDocument, win);
     } catch (e) { /* cross-origin or not-yet-ready -- ignore */ }
     scheduleRebuildOverlays();
   });
+
+  // The live game keeps rebuilding parts of the table on its own (a bot
+  // acts, a card lands, chips change) -- most of the time it just updates
+  // text/attributes on the SAME DOM nodes, but sometimes (see
+  // renderGameTable()'s own innerHTML diffing) it throws away and
+  // recreates a seat's inner elements (avatar wrap, chip piles, mini
+  // cards, chip-count label) even when nothing WE'RE tracking visually
+  // changed. When that happens, the overlay boxes built by rebuildOverlays
+  // are still pointing at the OLD, now-detached nodes -- they silently
+  // stop tracking position (getBoundingClientRect on a detached node is
+  // all-zero) and become unclickable, which is exactly what "I can't go
+  // back to editing chips/cards after touching something else" looks
+  // like: it's not really about avatars specifically, it's that ANY live
+  // update in between can quietly break other overlays' targets. Watching
+  // .table-wrap (everything seat/chip/card/dealer/board-related lives
+  // inside it; our own .led-box overlays are appended to doc.body, OUTSIDE
+  // it, so this can't ever trigger itself) and rebuilding on any change
+  // keeps every overlay pointed at a real, current element.
+  let overlayMutationObserver = null;
+  function setupOverlayMutationObserver(doc, win) {
+    if (win.__ledMutationObserverSet) return;
+    const tableWrap = doc.querySelector('.table-wrap');
+    if (!tableWrap) return;
+    win.__ledMutationObserverSet = true;
+    overlayMutationObserver = new MutationObserver(() => scheduleRebuildOverlays());
+    overlayMutationObserver.observe(tableWrap, { childList: true, subtree: true });
+  }
 
   // ---------------------------------------------------------------------
   // Edit mode toggle
@@ -200,7 +265,15 @@
   function scheduleRebuildOverlays() {
     if (!editMode || rebuildScheduled) return;
     rebuildScheduled = true;
-    setTimeout(() => { rebuildScheduled = false; rebuildOverlays(); }, 50);
+    setTimeout(() => {
+      rebuildScheduled = false;
+      // Never yank the DOM out from under an in-progress drag -- rebuilding
+      // replaces every overlay element, which would abandon whatever the
+      // person is currently mid-drag on. Just retry shortly; a drag is
+      // never more than a couple seconds.
+      if (dragState) { scheduleRebuildOverlays(); return; }
+      rebuildOverlays();
+    }, 50);
   }
 
   // ---------------------------------------------------------------------
@@ -258,6 +331,7 @@
     .led-box{position:fixed;border:3px dashed #4aa3ff;background:rgba(74,163,255,0.18);box-shadow:0 0 0 1px rgba(0,0,0,0.6),0 0 14px rgba(74,163,255,0.7);z-index:2147483000;cursor:move;box-sizing:border-box;animation:led-pulse 1.6s ease-in-out infinite}
     .led-box.led-nodrag{cursor:default}
     .led-box.led-selected{border-color:#f4c430;border-style:solid;background:rgba(244,196,48,0.22);box-shadow:0 0 0 1px rgba(0,0,0,0.6),0 0 18px rgba(244,196,48,0.9);z-index:2147483001;animation:none}
+    .led-box.led-dimmed{opacity:0.2;animation:none}
     @keyframes led-pulse{0%,100%{opacity:1}50%{opacity:0.6}}
     .led-label{position:absolute;top:-22px;left:-3px;background:#12181f;color:#e8edf2;font:800 11px -apple-system,sans-serif;padding:3px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,0.6);border:1px solid rgba(74,163,255,0.6)}
     .led-box.led-selected .led-label{background:#f4c430;color:#241a12;border-color:#f4c430}
@@ -311,16 +385,57 @@
       wireBoxEvents(doc, win, def, box, handle);
     });
     repositionOverlays();
-    if (selectedKey) setSelected(selectedKey);
+    setSelected(selectedKey);
+    wireBackgroundDeselect(doc, win);
   }
 
+  // Overlapping boxes are unavoidable on a crowded 9-seat table (an
+  // avatar, its chip pile, its dealt cards and its chip-count label can
+  // all sit in nearly the same spot), and whichever box happened to be on
+  // top used to "win" every click there -- resizing the avatar could
+  // actually grab the cards box underneath it instead. Once something is
+  // selected, every OTHER box stops accepting pointer events (still
+  // visible, just dimmed and click-through) so a drag can only ever reach
+  // the one element you picked. Tapping the empty table background (or
+  // the selected box itself, to re-drag it) is unaffected; to switch to a
+  // different overlapping element, use the Layers list, which is always
+  // unambiguous, or tap empty space first to deselect.
+  function wireBackgroundDeselect(doc, win) {
+    if (win.__ledDeselectWired) return;
+    win.__ledDeselectWired = true;
+    doc.body.addEventListener('pointerdown', (ev) => {
+      const hitBox = ev.target && ev.target.closest && ev.target.closest('.led-box');
+      if (!hitBox) selectElement(null);
+    });
+  }
+
+  // Comfortable minimum touch/click target -- several real elements (a
+  // single chip disc, a mini card back) are only 8-20px on screen, which
+  // is unusable to tap precisely, worse once the whole table is scaled
+  // down to fit a phone screen. The VISIBLE border still traces the real
+  // element, but the box is inflated (symmetrically, around the same
+  // center) to at least this size so it's actually possible to hit.
+  const MIN_TOUCH_TARGET = 30;
   function repositionOverlays() {
     Object.values(overlays).forEach(({ box, target }) => {
       const r = target.getBoundingClientRect();
-      box.style.left = r.left + 'px';
-      box.style.top = r.top + 'px';
-      box.style.width = r.width + 'px';
-      box.style.height = r.height + 'px';
+      if (r.width === 0 && r.height === 0 && r.left === 0 && r.top === 0) {
+        // Detached/gone (e.g. the game re-rendered and replaced this DOM
+        // node before a rebuild caught up) -- hide rather than show a
+        // bogus box pinned to the corner. scheduleRebuildOverlays (driven
+        // by the MutationObserver below) will drop or replace this entry
+        // shortly.
+        box.style.display = 'none';
+        return;
+      }
+      box.style.display = '';
+      let left = r.left, top = r.top, width = r.width, height = r.height;
+      if (width < MIN_TOUCH_TARGET) { left -= (MIN_TOUCH_TARGET - width) / 2; width = MIN_TOUCH_TARGET; }
+      if (height < MIN_TOUCH_TARGET) { top -= (MIN_TOUCH_TARGET - height) / 2; height = MIN_TOUCH_TARGET; }
+      box.style.left = left + 'px';
+      box.style.top = top + 'px';
+      box.style.width = width + 'px';
+      box.style.height = height + 'px';
     });
   }
 
@@ -348,12 +463,25 @@
     if (tw) return tw.getBoundingClientRect();
     return { left: 0, top: 0, width: doc.documentElement.clientWidth, height: doc.documentElement.clientHeight };
   }
+  // A few real elements (the action bar, your hand, the two popups) use
+  // position:fixed in the actual game CSS, not position:absolute inside
+  // .table-wrap -- their left/top percentages are relative to the whole
+  // viewport, not the table. Dragging them with table-relative percentages
+  // would compute a plausible-looking number that lands somewhere else
+  // entirely once applied (a different % of a different box). `def`s for
+  // those set `viewportRelative: true` (see layout-engine-holdem.js).
+  function referenceRectOf(doc, def) {
+    if (def && def.viewportRelative) {
+      return { left: 0, top: 0, width: doc.documentElement.clientWidth, height: doc.documentElement.clientHeight };
+    }
+    return tableRectOf(doc);
+  }
 
   function beginDrag(doc, win, def, ev, mode) {
     ev.preventDefault();
     pushUndoSnapshot();
     const startX = ev.clientX, startY = ev.clientY;
-    const tableRect = tableRectOf(doc);
+    const tableRect = referenceRectOf(doc, def);
     const startVal = Object.assign({}, effectiveValue(doc, win, def));
     dragState = { def, mode, startX, startY, startVal, tableRect, doc, win };
     const onMove = (mv) => handleDragMove(mv);
@@ -447,7 +575,7 @@
     let live = {};
     if (target) {
       const rect = target.getBoundingClientRect();
-      const tableRect = tableRectOf(doc);
+      const tableRect = referenceRectOf(doc, def);
       if (def.dragKind === 'size') {
         live = { width: Math.round(rect.width), height: Math.round(rect.height) };
       } else if (def.dragKind === 'posPercent') {
@@ -480,7 +608,19 @@
   // ---------------------------------------------------------------------
   function selectElement(key) { selectedKey = key; setSelected(key); renderInspector(); renderLayers(); }
   function setSelected(key) {
-    Object.entries(overlays).forEach(([k, o]) => o.box.classList.toggle('led-selected', k === key));
+    Object.entries(overlays).forEach(([k, o]) => {
+      const isSel = k === key;
+      o.box.classList.toggle('led-selected', isSel);
+      if (key) {
+        // Only the selected box can be clicked/dragged -- see
+        // wireBackgroundDeselect above for why this matters.
+        o.box.style.pointerEvents = isSel ? 'auto' : 'none';
+        o.box.classList.toggle('led-dimmed', !isSel);
+      } else {
+        o.box.style.pointerEvents = 'auto';
+        o.box.classList.remove('led-dimmed');
+      }
+    });
   }
 
   function isEdited(def) {
