@@ -51,6 +51,9 @@
     { key: 'boardArea', label: 'Community Cards (position)', category: 'Cards', selector: '.board-area', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' }, extraDecls: 'transform:translate(-50%,-50%) !important;' },
     { key: 'boardCard', label: 'Community Cards (size)', category: 'Cards', selector: '.board-area .card', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
     { key: 'handCard', label: 'Your Hand (card size)', category: 'Cards', selector: '.hand-strip .card', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
+    { key: 'potAnchor', label: 'Pot Chip Stack (position)', category: 'Chips', selector: '.pot-anchor', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' } },
+    { key: 'chipPileSize', label: 'Chip Piles (size)', category: 'Chips', selector: '.rail-chip-pile', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
+    { key: 'chipDiscSize', label: 'Individual Chips (size)', category: 'Chips', selector: '.rail-chip-pile .pot-stack-chip', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
   ];
 
   function elementByKey(key) { return ELEMENTS.find((e) => e.key === key) || null; }

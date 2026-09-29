@@ -56,6 +56,9 @@
     boardArea: 'posPercent',
     boardCard: 'size',
     handCard: 'size',
+    potAnchor: 'posPercent',
+    chipPileSize: 'size',
+    chipDiscSize: 'size',
   };
   const CSS_LAYERS = LH.ELEMENTS.map((el) => Object.assign({ type: 'css', dragKind: CSS_DRAG_KIND[el.key] || 'size' }, el));
   const ALL_LAYERS = SEAT_LAYERS.concat(CSS_LAYERS);
@@ -164,7 +167,34 @@
 
   // ---------------------------------------------------------------------
   // Overlay boxes -- live inside the iframe's own document (same-origin).
+  // The parent editor page's own stylesheet (layout-editor.css) never
+  // reaches into the iframe's separate document, so the .led-box/.led-
+  // label/.led-handle rules are injected directly into the iframe here --
+  // without this, the boxes exist in the DOM with the right coordinates
+  // but render unstyled (no position:fixed, no visible border), making
+  // them invisible and unclickable even though everything else works.
   // ---------------------------------------------------------------------
+  const OVERLAY_CSS = `
+    .led-box{position:fixed;border:3px dashed #4aa3ff;background:rgba(74,163,255,0.18);box-shadow:0 0 0 1px rgba(0,0,0,0.6),0 0 14px rgba(74,163,255,0.7);z-index:2147483000;cursor:move;box-sizing:border-box;animation:led-pulse 1.6s ease-in-out infinite}
+    .led-box.led-nodrag{cursor:default}
+    .led-box.led-selected{border-color:#f4c430;border-style:solid;background:rgba(244,196,48,0.22);box-shadow:0 0 0 1px rgba(0,0,0,0.6),0 0 18px rgba(244,196,48,0.9);z-index:2147483001;animation:none}
+    @keyframes led-pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+    .led-label{position:absolute;top:-22px;left:-3px;background:#12181f;color:#e8edf2;font:800 11px -apple-system,sans-serif;padding:3px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,0.6);border:1px solid rgba(74,163,255,0.6)}
+    .led-box.led-selected .led-label{background:#f4c430;color:#241a12;border-color:#f4c430}
+    .led-handle{position:absolute;width:18px;height:18px;background:#f4c430;border:2.5px solid #241a12;border-radius:4px;cursor:nwse-resize;z-index:2147483002;box-shadow:0 2px 8px rgba(0,0,0,0.6)}
+    .led-handle.led-br{right:-10px;bottom:-10px}
+  `;
+  function ensureOverlayStyles(doc) {
+    if (!doc || !doc.head) return;
+    let tag = doc.getElementById('led-overlay-styles');
+    if (!tag) {
+      tag = doc.createElement('style');
+      tag.id = 'led-overlay-styles';
+      doc.head.appendChild(tag);
+    }
+    tag.textContent = OVERLAY_CSS;
+  }
+
   function clearOverlays() {
     let doc;
     try { doc = frame.contentDocument; } catch (e) { doc = null; }
@@ -178,6 +208,7 @@
     if (!doc || !doc.body) return;
     clearOverlays();
     if (!editMode) return;
+    ensureOverlayStyles(doc);
     ALL_LAYERS.forEach((def) => {
       const target = targetFor(doc, win, def);
       if (!target) return;
@@ -329,7 +360,11 @@
         };
       }
     } else if (def.dragKind === 'size') {
-      live = { width: 44, height: 62 }; // reasonable fallback when no card is on screen yet
+      // Reasonable fallbacks for when nothing's on screen yet to measure
+      // (e.g. no hand dealt, no bets placed) -- overwritten the instant a
+      // real element shows up, and self-correcting on the very next read.
+      const SIZE_FALLBACKS = { boardCard: { width: 44, height: 62 }, handCard: { width: 44, height: 62 }, chipPileSize: { width: 9, height: 16 }, chipDiscSize: { width: 9, height: 9 } };
+      live = SIZE_FALLBACKS[def.key] || { width: 44, height: 62 };
     }
     return Object.assign({}, live, saved || {});
   }
