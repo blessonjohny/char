@@ -199,6 +199,14 @@
           });
         }
       }
+
+      // The numeric chip-count label under each player's name (e.g. "985")
+      // -- a plain text element, so "size" here just means font size.
+      const chipLabel = bucket['chipLabel' + slot];
+      if (chipLabel && chipLabel.fontSize != null) {
+        const chipsEl = seatEl.querySelector('.seat-chips');
+        if (chipsEl) chipsEl.style.setProperty('font-size', chipLabel.fontSize + 'px', 'important');
+      }
     });
   }
 
@@ -222,11 +230,20 @@
     };
   }
 
-  function applyAll(doc, win, config) {
-    applyCSSConfig(doc, config);
-    patchSeatPositions(win, () => config);
-    patchRenderGameTable(win, () => config);
-    applySeatStyles(doc, win, config);
+  // `configOrGetter` accepts either a plain config object (the live page,
+  // layout-apply-holdem.js -- fetched once, never reassigned afterward) or
+  // a function returning the CURRENT config (the editor, whose own
+  // `config` variable gets reassigned wholesale on load / undo / redo --
+  // patchSeatPositions/patchRenderGameTable close over this getter and
+  // must always read the live value, not a snapshot taken once at page
+  // load, or edits made after that snapshot would silently never reach
+  // the real DOM even though they're saved correctly).
+  function applyAll(doc, win, configOrGetter) {
+    const getConfig = typeof configOrGetter === 'function' ? configOrGetter : () => configOrGetter;
+    applyCSSConfig(doc, getConfig());
+    patchSeatPositions(win, getConfig);
+    patchRenderGameTable(win, getConfig);
+    applySeatStyles(doc, win, getConfig());
   }
 
   // Seat position is only ever (re)written to the DOM inside the page's own

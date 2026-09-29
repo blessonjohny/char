@@ -22,6 +22,8 @@
   const LH = window.LayoutHoldem;
 
   const frame = document.getElementById('edFrame');
+  const frameWrap = document.getElementById('edFrameWrap');
+  const stage = document.getElementById('edStage');
   const bpSelect = document.getElementById('edBreakpointSelect');
   const btnEditToggle = document.getElementById('edBtnEditToggle');
   const btnUndo = document.getElementById('edBtnUndo');
@@ -68,6 +70,12 @@
   for (let i = 1; i < LH.SEAT_COUNT; i++) {
     CARD_LAYERS.push({ key: 'cards' + i, slot: i, label: 'Dealt Cards — Slot ' + i, category: 'Dealt Cards (per seat)', type: 'cards', dragKind: 'size' });
   }
+  // The numeric chip-count label under each player's name/avatar (e.g.
+  // "985") -- text, not a chip disc, so its "size" is just font size.
+  const CHIP_LABEL_LAYERS = [];
+  for (let i = 0; i < LH.SEAT_COUNT; i++) {
+    CHIP_LABEL_LAYERS.push({ key: 'chipLabel' + i, slot: i, label: 'Chip Count — Slot ' + i + (i === 0 ? ' (You)' : ''), category: 'Chip Count (per seat)', type: 'chipLabel', dragKind: 'fontSize' });
+  }
   const CSS_DRAG_KIND = {
     dealer: 'posPercent+sizePx',
     boardArea: 'posPercent',
@@ -76,7 +84,7 @@
     potAnchor: 'posPercent',
   };
   const CSS_LAYERS = LH.ELEMENTS.map((el) => Object.assign({ type: 'css', dragKind: CSS_DRAG_KIND[el.key] || 'size' }, el));
-  const ALL_LAYERS = SEAT_LAYERS.concat(CHIP_LAYERS, CARD_LAYERS, CSS_LAYERS);
+  const ALL_LAYERS = SEAT_LAYERS.concat(CHIP_LAYERS, CARD_LAYERS, CHIP_LABEL_LAYERS, CSS_LAYERS);
   function layerByKey(key) { return ALL_LAYERS.find((l) => l.key === key) || null; }
 
   function bpInfo(key) { return LH.BREAKPOINTS.find((b) => b.key === key); }
@@ -111,7 +119,36 @@
     frame.style.width = bp.previewWidth + 'px';
     frame.style.height = bp.previewHeight + 'px';
     try { frame.contentWindow.dispatchEvent(new Event('resize')); } catch (e) {}
+    fitFrameToStage();
   }
+
+  // The iframe is always rendered at the breakpoint's real device size
+  // (e.g. 430x860 for Mobile Portrait) so the page inside sees a real,
+  // accurate viewport -- but that's routinely bigger than the actual
+  // screen this editor itself is open on (a phone showing "Mobile
+  // Portrait" can't fit a 430x860 box without cropping). This scales the
+  // WHOLE iframe down visually (CSS transform) to fit whatever room the
+  // stage actually has, so the entire table is visible on screen without
+  // side-to-side or up-down scrolling -- without changing anything the
+  // game itself sees (it still measures/renders at the real 430x860).
+  // Click/drag coordinates keep working unmodified: getBoundingClientRect()
+  // and mouse events both already reflect the CSS transform automatically.
+  function fitFrameToStage() {
+    const bp = bpInfo(currentBp);
+    frame.style.transform = 'none';
+    frame.style.transformOrigin = 'top left';
+    frameWrap.style.width = bp.previewWidth + 'px';
+    frameWrap.style.height = bp.previewHeight + 'px';
+    const availW = stage.clientWidth - 4; // small safety margin
+    const availH = stage.clientHeight - 4;
+    const scale = Math.min(1, availW / bp.previewWidth, availH / bp.previewHeight);
+    if (scale > 0 && scale < 1) {
+      frame.style.transform = 'scale(' + scale + ')';
+      frameWrap.style.width = Math.round(bp.previewWidth * scale) + 'px';
+      frameWrap.style.height = Math.round(bp.previewHeight * scale) + 'px';
+    }
+  }
+  window.addEventListener('resize', fitFrameToStage);
 
   // ---------------------------------------------------------------------
   // Load existing saved config, then boot the frame
@@ -131,7 +168,11 @@
   frame.addEventListener('load', () => {
     try {
       const win = frame.contentWindow;
-      if (win.LayoutHoldem) win.LayoutHoldem.applyAll(frame.contentDocument, win, config);
+      // Pass a getter, not `config` itself -- `config` gets reassigned
+      // wholesale (loading a saved layout, undo, redo), and the patched
+      // seatPositions()/renderGameTable() need to keep reading whatever
+      // it CURRENTLY points to, not a snapshot frozen at this moment.
+      if (win.LayoutHoldem) win.LayoutHoldem.applyAll(frame.contentDocument, win, () => config);
     } catch (e) { /* cross-origin or not-yet-ready -- ignore */ }
     scheduleRebuildOverlays();
   });
@@ -195,6 +236,12 @@
       const seatEl = doc.querySelector(`.seat[data-pos="${pos}"]`);
       return seatEl ? seatEl.querySelector('.seat-cards') : null;
     }
+    if (def.type === 'chipLabel') {
+      const pos = physicalPosForSlot(doc, win, def.slot);
+      if (pos == null) return null;
+      const seatEl = doc.querySelector(`.seat[data-pos="${pos}"]`);
+      return seatEl ? seatEl.querySelector('.seat-chips') : null;
+    }
     return doc.querySelector(def.selector);
   }
 
@@ -254,7 +301,7 @@
       label.textContent = def.label;
       box.appendChild(label);
       let handle = null;
-      if (def.dragKind === 'size' || def.dragKind === 'posPercent+sizePx' || def.dragKind === 'seatPosSize') {
+      if (def.dragKind === 'size' || def.dragKind === 'posPercent+sizePx' || def.dragKind === 'seatPosSize' || def.dragKind === 'fontSize') {
         handle = doc.createElement('div');
         handle.className = 'led-handle led-br';
         box.appendChild(handle);
@@ -284,7 +331,7 @@
     box.addEventListener('pointerdown', (ev) => {
       if (ev.target === handle) return;
       selectElement(def.key);
-      if (def.dragKind === 'size') return; // resize-only elements have no body-drag
+      if (def.dragKind === 'size' || def.dragKind === 'fontSize') return; // resize-only elements have no body-drag
       beginDrag(doc, win, def, ev, 'move');
     });
     if (handle) {
@@ -357,6 +404,8 @@
           cur.width = Math.max(8, Math.round(startVal.width + dx));
           cur.height = Math.max(8, Math.round(startVal.height + dy));
         }
+      } else if (def.dragKind === 'fontSize') {
+        cur.fontSize = Math.max(6, Math.round(startVal.fontSize + dy));
       }
       bucket[def.key] = cur;
       if (def.type === 'css') {
@@ -410,6 +459,8 @@
           left: round2(((cx - tableRect.left) / tableRect.width) * 100), top: round2(((cy - tableRect.top) / tableRect.height) * 100),
           width: Math.round(rect.width), height: Math.round(rect.height),
         };
+      } else if (def.dragKind === 'fontSize') {
+        live = { fontSize: Math.round(parseFloat(win.getComputedStyle(target).fontSize)) || 10 };
       }
     } else if (def.dragKind === 'size') {
       // Reasonable fallbacks for when nothing's on screen yet to measure
@@ -418,6 +469,8 @@
       // very next read.
       const SIZE_FALLBACKS = { boardCard: { width: 44, height: 62 }, handCard: { width: 44, height: 62 } };
       live = SIZE_FALLBACKS[def.key] || { width: 44, height: 62 };
+    } else if (def.dragKind === 'fontSize') {
+      live = { fontSize: 10 };
     }
     return Object.assign({}, live, saved || {});
   }
@@ -467,11 +520,12 @@
   // ---------------------------------------------------------------------
   // Inspector (precise numeric entry -- works with or without Edit Table on)
   // ---------------------------------------------------------------------
-  const FIELD_META = { x: { label: 'X', unit: '%' }, y: { label: 'Y', unit: '%' }, left: { label: 'X', unit: '%' }, top: { label: 'Y', unit: '%' }, width: { label: 'W', unit: 'px' }, height: { label: 'H', unit: 'px' } };
+  const FIELD_META = { x: { label: 'X', unit: '%' }, y: { label: 'Y', unit: '%' }, left: { label: 'X', unit: '%' }, top: { label: 'Y', unit: '%' }, width: { label: 'W', unit: 'px' }, height: { label: 'H', unit: 'px' }, fontSize: { label: 'Size', unit: 'px' } };
   function fieldsFor(def) {
     if (def.type === 'seat') return ['x', 'y', 'width', 'height'];
     if (def.dragKind === 'size') return ['width', 'height'];
     if (def.dragKind === 'posPercent') return ['left', 'top'];
+    if (def.dragKind === 'fontSize') return ['fontSize'];
     return ['left', 'top', 'width', 'height'];
   }
   function renderInspector() {

@@ -85,11 +85,13 @@ html,body{margin:0;height:100%;background:var(--ed-bg);color:var(--ed-text);font
   #edStatus{flex:1 1 100%;margin-left:0;text-align:center}
 
   #edBody{flex-direction:column;min-height:0}
-  #edStage{width:100%;flex:none;padding:14px 10px;min-height:38vh;max-height:60vh}
+  /* The iframe itself is scaled down in JS (fitFrameToStage(), in
+     layout-editor-holdem.js) to fit exactly inside this box, so the whole
+     table is visible without scrolling -- this just sets how much of the
+     screen's height that box gets to work with. overflow stays auto as a
+     safety net for an extreme aspect ratio, not the normal case anymore. */
+  #edStage{width:100%;flex:none;padding:10px;min-height:38vh;max-height:68vh}
   #edSidebar{width:100%;flex-shrink:0;border-left:none;border-top:2px solid var(--ed-border);max-height:none}
   .ed-sidebar-section{max-height:44vh}
   .ed-sidebar-section[style*="55%"], .ed-sidebar-section[style*="45%"]{flex-basis:auto !important}
-}
-@media (max-width: 480px){
-  #edFrameWrap{transform-origin:top left}
 }
