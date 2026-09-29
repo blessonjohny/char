@@ -330,14 +330,22 @@
   // them invisible and unclickable even though everything else works.
   // ---------------------------------------------------------------------
   const OVERLAY_CSS = `
-    .led-box{position:fixed;border:3px dashed #4aa3ff;background:rgba(74,163,255,0.18);box-shadow:0 0 0 1px rgba(0,0,0,0.6),0 0 14px rgba(74,163,255,0.7);z-index:2147483000;cursor:move;box-sizing:border-box;animation:led-pulse 1.6s ease-in-out infinite}
+    /* touch-action:none is the fix for a real, live-phone-only bug: without
+       it, a finger-drag that starts on one of these boxes can get claimed
+       by the browser's own native scroll/pan gesture instead of reaching
+       our pointermove handler at all -- it LOOKS like "nothing drags,"
+       because from the browser's point of view the whole page (or iframe)
+       just panned a few pixels under your finger and swallowed the
+       gesture. A mouse has no such native gesture to compete with, which
+       is exactly why this never showed up in mouse-driven testing. */
+    .led-box{position:fixed;border:3px dashed #4aa3ff;background:rgba(74,163,255,0.18);box-shadow:0 0 0 1px rgba(0,0,0,0.6),0 0 14px rgba(74,163,255,0.7);z-index:2147483000;cursor:move;box-sizing:border-box;animation:led-pulse 1.6s ease-in-out infinite;touch-action:none;-ms-touch-action:none}
     .led-box.led-nodrag{cursor:default}
     .led-box.led-selected{border-color:#f4c430;border-style:solid;background:rgba(244,196,48,0.22);box-shadow:0 0 0 1px rgba(0,0,0,0.6),0 0 18px rgba(244,196,48,0.9);z-index:2147483001;animation:none}
     .led-box.led-dimmed{opacity:0.2;animation:none}
     @keyframes led-pulse{0%,100%{opacity:1}50%{opacity:0.6}}
     .led-label{position:absolute;top:-22px;left:-3px;background:#12181f;color:#e8edf2;font:800 11px -apple-system,sans-serif;padding:3px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,0.6);border:1px solid rgba(74,163,255,0.6)}
     .led-box.led-selected .led-label{background:#f4c430;color:#241a12;border-color:#f4c430}
-    .led-handle{position:absolute;width:18px;height:18px;background:#f4c430;border:2.5px solid #241a12;border-radius:4px;cursor:nwse-resize;z-index:2147483002;box-shadow:0 2px 8px rgba(0,0,0,0.6)}
+    .led-handle{position:absolute;width:18px;height:18px;background:#f4c430;border:2.5px solid #241a12;border-radius:4px;cursor:nwse-resize;z-index:2147483002;box-shadow:0 2px 8px rgba(0,0,0,0.6);touch-action:none;-ms-touch-action:none}
     .led-handle.led-br{right:-10px;bottom:-10px}
     /* On a crowded seat, two elements' resize handles can sit almost on
        top of each other (an avatar's corner and its own seat's dealt
