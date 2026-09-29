@@ -4,17 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>28 Gulan Hold'em — Visual Layout Editor</title>
-<link rel="stylesheet" href="layout-editor.css?v=9">
+<link rel="stylesheet" href="layout-editor.css?v=10">
 </head>
 <body>
+<!-- Big, impossible-to-miss build banner -- full width, top of the page,
+     above everything else, before any toolbar buttons that could get cut
+     off/wrapped on a narrow phone screen. Bumped on every delivered fix
+     so there's a single, obvious, unmissable way to tell whether a phone
+     is actually running the latest files or a stale/undeployed copy --
+     no functional purpose otherwise. -->
+<div id="edBuildBanner" style="background:#f4c430;color:#1a1206;font-size:1.15rem;font-weight:900;text-align:center;padding:10px 6px;letter-spacing:0.04em;position:sticky;top:0;z-index:999999">BUILD V10</div>
 <div id="edRoot">
   <div id="edTopbar">
     <h1>🎰 Hold'em Table Layout Editor</h1>
-    <!-- Visible build marker -- bumped on every delivered fix so it's
-         possible to tell at a glance, just by looking at the screen,
-         whether a phone/browser is actually running the latest files or
-         a stale cached copy. No functional purpose otherwise. -->
-    <span id="edBuildTag" style="font-size:0.65rem;color:#5a7a9a;font-weight:700;letter-spacing:0.03em">build v9</span>
+    <span id="edBuildTag" style="font-size:0.65rem;color:#5a7a9a;font-weight:700;letter-spacing:0.03em">build v10</span>
     <div class="ed-sep"></div>
     <select id="edBreakpointSelect"></select>
     <button class="ed-btn" id="edBtnEditToggle">✏️ Edit Table: OFF</button>
@@ -58,7 +61,7 @@
      return a stale cached response, so this makes "the fix didn't show
      up" impossible for these two files regardless of any cache
      configuration upstream. -->
-<script src="layout-engine-holdem.js?v=9"></script>
-<script src="layout-editor-holdem.js?v=9"></script>
+<script src="layout-engine-holdem.js?v=10"></script>
+<script src="layout-editor-holdem.js?v=10"></script>
 </body>
 </html>
