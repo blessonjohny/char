@@ -94,6 +94,8 @@
     actionBar: 'posPercent+sizePx',
     winnerPopup: 'posPercent',
     tiltPopup: 'posPercent',
+    topbar: 'posPercent+sizePx',
+    soundMute: 'posPercent',
   };
   const CSS_LAYERS = LH.ELEMENTS.map((el) => Object.assign({ type: 'css', dragKind: CSS_DRAG_KIND[el.key] || 'size' }, el));
   const ALL_LAYERS = SEAT_LAYERS.concat(CHIP_LAYERS, CARD_LAYERS, CHIP_LABEL_LAYERS, CSS_LAYERS);
@@ -337,6 +339,13 @@
     .led-box.led-selected .led-label{background:#f4c430;color:#241a12;border-color:#f4c430}
     .led-handle{position:absolute;width:18px;height:18px;background:#f4c430;border:2.5px solid #241a12;border-radius:4px;cursor:nwse-resize;z-index:2147483002;box-shadow:0 2px 8px rgba(0,0,0,0.6)}
     .led-handle.led-br{right:-10px;bottom:-10px}
+    /* On a crowded seat, two elements' resize handles can sit almost on
+       top of each other (an avatar's corner and its own seat's dealt
+       cards, say). Once you've selected one of them, ITS handle always
+       wins that overlap -- so the second tap-and-drag (the actual
+       resize gesture) reliably lands on the element you meant, even
+       though the very first tap that picked it was itself ambiguous. */
+    .led-box.led-selected .led-handle{z-index:2147483003}
   `;
   function ensureOverlayStyles(doc) {
     if (!doc || !doc.head) return;
@@ -608,18 +617,21 @@
   // ---------------------------------------------------------------------
   function selectElement(key) { selectedKey = key; setSelected(key); renderInspector(); renderLayers(); }
   function setSelected(key) {
+    // Earlier version of this made every OTHER box pointer-events:none
+    // while one was selected, to stop an overlapping handle from
+    // stealing a drag. Real report after shipping that: tapping a
+    // different, unselected avatar directly on the table then did
+    // nothing at all ("I cannot move avatars") whenever something else
+    // had been selected moments before -- worse than the bug it fixed.
+    // Every box stays tappable now. What actually protects a drag from
+    // landing on the wrong overlapping element is z-index: the selected
+    // element (and its resize handle) always sorts on top, so once
+    // you've selected the one you mean, dragging it again reliably hits
+    // IT even if something else visually overlaps at that spot.
     Object.entries(overlays).forEach(([k, o]) => {
       const isSel = k === key;
       o.box.classList.toggle('led-selected', isSel);
-      if (key) {
-        // Only the selected box can be clicked/dragged -- see
-        // wireBackgroundDeselect above for why this matters.
-        o.box.style.pointerEvents = isSel ? 'auto' : 'none';
-        o.box.classList.toggle('led-dimmed', !isSel);
-      } else {
-        o.box.style.pointerEvents = 'auto';
-        o.box.classList.remove('led-dimmed');
-      }
+      o.box.classList.toggle('led-dimmed', !!key && !isSel);
     });
   }
 

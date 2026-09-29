@@ -21,7 +21,16 @@ html,body{margin:0;height:100%;background:var(--ed-bg);color:var(--ed-text);font
 .ed-btn.danger:hover{background:rgba(231,64,64,0.15)}
 .ed-btn.active{background:var(--ed-gold);border-color:var(--ed-gold);color:#241a12}
 #edBreakpointSelect{background:#243040;color:var(--ed-text);border:1px solid var(--ed-border);border-radius:6px;padding:6px 10px;font-size:0.8rem}
-#edZoomLabel{font-size:0.78rem;color:var(--ed-text-dim);min-width:38px;text-align:center;font-weight:700}
+/* Grouped so the whole zoom cluster (-, %, +, Fit) wraps to the next
+   line together on a narrow screen instead of splitting mid-group --
+   without this a flex-wrap topbar can strand the "-" button alone at
+   the end of one line with "66% + Fit" starting the next, which reads
+   as a stray dash rather than a connected zoom control (real report:
+   "where is the zoom in/out"). Also given its own subtle background so
+   it reads as one control at a glance. */
+.ed-zoom-group{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.04);border:1px solid var(--ed-border);border-radius:8px;padding:3px 5px}
+.ed-zoom-group .ed-btn{padding:6px 10px}
+#edZoomLabel{font-size:0.78rem;color:var(--ed-text-dim);min-width:34px;text-align:center;font-weight:700}
 #edStatus{font-size:0.72rem;color:var(--ed-text-dim);margin-left:auto}
 #edStatus.saved{color:#4ade80}
 #edStatus.error{color:var(--ed-danger)}

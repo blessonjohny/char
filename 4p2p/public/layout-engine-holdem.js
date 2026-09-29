@@ -69,6 +69,17 @@
     { key: 'winnerPopup', label: 'Winner "Continue" Popup', category: 'Popups', selector: '#winningHandContinueWrap', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' } },
     // position:fixed (viewport-relative) -- the "rotate your phone" hint.
     { key: 'tiltPopup', label: 'Rotate-Device Popup', category: 'Popups', selector: '.tilt-suggest-popup', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' }, extraDecls: 'transform:translate(-50%,-50%) !important;', viewportRelative: true },
+    // The top strip (hand number/blinds, Fullscreen/Invite/Host/Log/Leave
+    // buttons) normally just sits in the page's own document flow at the
+    // very top -- it doesn't use position:fixed/absolute at all, so plain
+    // left/top would do nothing to it. Forcing position:fixed here (this
+    // element only, via extraDecls) is what makes it moveable the same
+    // way as everything else.
+    { key: 'topbar', label: 'Top Bar (Host / Log / Leave / Invite)', category: 'Top Bar', selector: '.topbar', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'position:fixed !important;z-index:120 !important;', viewportRelative: true },
+    // The round sound on/off button. Its own CSS normally anchors it by
+    // right/bottom instead of left/top -- extraDecls clears those so our
+    // left/top override isn't fighting a leftover right/bottom value.
+    { key: 'soundMute', label: 'Sound Mute Button', category: 'Top Bar', selector: '#btnSoundMute', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' }, extraDecls: 'right:auto !important;bottom:auto !important;', viewportRelative: true },
   ];
 
   function elementByKey(key) { return ELEMENTS.find((e) => e.key === key) || null; }
