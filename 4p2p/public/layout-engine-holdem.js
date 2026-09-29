@@ -216,6 +216,17 @@
       if (cards) {
         const cardsEl = seatEl.querySelector('.seat-cards');
         if (cardsEl) {
+          // .seat-cards is positioned relative to its own (small) .seat
+          // box via left:50%/bottom:4%/transform:translateX(-50%) in the
+          // real stylesheet, not relative to the whole table -- so a
+          // table-relative left/top percentage (like chipPile above)
+          // would mean something different once applied here. margin
+          // just nudges it a fixed number of pixels from wherever it
+          // already sits, independent of any containing-block math, and
+          // matches 1:1 with how far you actually dragged it in the
+          // editor.
+          if (cards.offsetX != null) cardsEl.style.setProperty('margin-left', cards.offsetX + 'px', 'important');
+          if (cards.offsetY != null) cardsEl.style.setProperty('margin-top', cards.offsetY + 'px', 'important');
           cardsEl.querySelectorAll('.card.mini').forEach((c) => {
             if (cards.width != null) c.style.setProperty('width', cards.width + 'px', 'important');
             if (cards.height != null) c.style.setProperty('height', cards.height + 'px', 'important');

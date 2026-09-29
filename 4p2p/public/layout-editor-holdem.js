@@ -76,7 +76,7 @@
   // hand strip, not at your own seat.
   const CARD_LAYERS = [];
   for (let i = 1; i < LH.SEAT_COUNT; i++) {
-    CARD_LAYERS.push({ key: 'cards' + i, slot: i, label: 'Dealt Cards — Slot ' + i, category: 'Dealt Cards (per seat)', type: 'cards', dragKind: 'size' });
+    CARD_LAYERS.push({ key: 'cards' + i, slot: i, label: 'Dealt Cards — Slot ' + i, category: 'Dealt Cards (per seat)', type: 'cards', dragKind: 'cardsPosSize' });
   }
   // The numeric chip-count label under each player's name/avatar (e.g.
   // "985") -- text, not a chip disc, so its "size" is just font size.
@@ -384,7 +384,7 @@
       label.textContent = def.label;
       box.appendChild(label);
       let handle = null;
-      if (def.dragKind === 'size' || def.dragKind === 'posPercent+sizePx' || def.dragKind === 'seatPosSize' || def.dragKind === 'fontSize') {
+      if (def.dragKind === 'size' || def.dragKind === 'posPercent+sizePx' || def.dragKind === 'seatPosSize' || def.dragKind === 'cardsPosSize' || def.dragKind === 'fontSize') {
         handle = doc.createElement('div');
         handle.className = 'led-handle led-br';
         box.appendChild(handle);
@@ -525,6 +525,25 @@
         ensureSeatsBucket(currentBp)[def.slot] = { x: cur.x, y: cur.y };
       }
       try { if (win.LayoutHoldem) win.LayoutHoldem.forceRerender(); } catch (e) {}
+    } else if (def.type === 'cards') {
+      // Dealt (hole) cards at another seat -- position AND size, same as
+      // an avatar, but stored as a plain pixel nudge (offsetX/offsetY)
+      // from the card-back's own default spot rather than a table-wide
+      // percentage: .seat-cards is positioned relative to its own small
+      // .seat box, not the whole table, so a table-relative percentage
+      // would compute a number that means something completely different
+      // once applied there (see referenceRectOf's comment for the same
+      // issue elsewhere). A margin nudge sidesteps that entirely and
+      // moves 1:1 with the finger/mouse regardless of table size.
+      if (mode === 'resize') {
+        cur.width = Math.max(8, Math.round(startVal.width + dx));
+        cur.height = Math.max(8, Math.round(startVal.height + dy));
+      } else {
+        cur.offsetX = Math.round(startVal.offsetX + dx);
+        cur.offsetY = Math.round(startVal.offsetY + dy);
+      }
+      ensureBpBucket(currentBp)[def.key] = cur;
+      try { if (win.LayoutHoldem) win.LayoutHoldem.applySeatStyles(doc, win, config); } catch (e) {}
     } else {
       const bucket = ensureBpBucket(currentBp);
       if (def.dragKind === 'size') {
@@ -578,6 +597,21 @@
       if (savedSize) { width = savedSize.width; height = savedSize.height; }
       else if (avatarEl) { const r = avatarEl.getBoundingClientRect(); width = Math.round(r.width); height = Math.round(r.height); }
       return { x, y, width, height };
+    }
+    if (def.type === 'cards') {
+      const saved = bucket[def.key];
+      const target = targetFor(doc, win, def);
+      let offsetX = 0, offsetY = 0, width = 40, height = 57;
+      if (target) {
+        offsetX = Math.round(parseFloat(win.getComputedStyle(target).marginLeft)) || 0;
+        offsetY = Math.round(parseFloat(win.getComputedStyle(target).marginTop)) || 0;
+        // Measure the actual mini card, not the two-card container (which
+        // includes both cards plus the gap between them) -- otherwise the
+        // inspector would show roughly double the real per-card size.
+        const cm = target.querySelector('.card.mini');
+        if (cm) { const r = cm.getBoundingClientRect(); width = Math.round(r.width); height = Math.round(r.height); }
+      }
+      return Object.assign({ offsetX, offsetY, width, height }, saved || {});
     }
     const saved = bucket[def.key];
     const target = targetFor(doc, win, def);
@@ -672,9 +706,10 @@
   // ---------------------------------------------------------------------
   // Inspector (precise numeric entry -- works with or without Edit Table on)
   // ---------------------------------------------------------------------
-  const FIELD_META = { x: { label: 'X', unit: '%' }, y: { label: 'Y', unit: '%' }, left: { label: 'X', unit: '%' }, top: { label: 'Y', unit: '%' }, width: { label: 'W', unit: 'px' }, height: { label: 'H', unit: 'px' }, fontSize: { label: 'Size', unit: 'px' } };
+  const FIELD_META = { x: { label: 'X', unit: '%' }, y: { label: 'Y', unit: '%' }, left: { label: 'X', unit: '%' }, top: { label: 'Y', unit: '%' }, width: { label: 'W', unit: 'px' }, height: { label: 'H', unit: 'px' }, fontSize: { label: 'Size', unit: 'px' }, offsetX: { label: 'X', unit: 'px' }, offsetY: { label: 'Y', unit: 'px' } };
   function fieldsFor(def) {
     if (def.type === 'seat') return ['x', 'y', 'width', 'height'];
+    if (def.type === 'cards') return ['offsetX', 'offsetY', 'width', 'height'];
     if (def.dragKind === 'size') return ['width', 'height'];
     if (def.dragKind === 'posPercent') return ['left', 'top'];
     if (def.dragKind === 'fontSize') return ['fontSize'];
