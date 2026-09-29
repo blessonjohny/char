@@ -46,22 +46,37 @@
   // Layer definitions: 9 seats (bespoke, JS-driven) + the CSS elements
   // LayoutHoldem already knows about.
   // ---------------------------------------------------------------------
+  // Seat layers: drag the BODY to move the seat (position, as before);
+  // drag the corner HANDLE to resize just THAT seat's avatar. One overlay
+  // per seat, so clicking any one avatar only ever affects that one --
+  // fixes the earlier bug where a single global "all avatars" control sat
+  // visually on top of one seat and resized every seat at once.
   const SEAT_LAYERS = [];
   for (let i = 0; i < LH.SEAT_COUNT; i++) {
-    SEAT_LAYERS.push({ key: 'seat' + i, slot: i, label: 'Seat — Slot ' + i + (i === 0 ? ' (You)' : ''), category: 'Seats', type: 'seat' });
+    SEAT_LAYERS.push({ key: 'seat' + i, slot: i, label: 'Seat — Slot ' + i + (i === 0 ? ' (You)' : ''), category: 'Seats', type: 'seat', dragKind: 'seatPosSize' });
+  }
+  // Chip piles: one per seat, position + size, independent of every other
+  // seat's pile and of the center table pot (potAnchor, in CSS_LAYERS).
+  const CHIP_LAYERS = [];
+  for (let i = 0; i < LH.SEAT_COUNT; i++) {
+    CHIP_LAYERS.push({ key: 'chipPile' + i, slot: i, label: 'Chip Pile — Slot ' + i + (i === 0 ? ' (You)' : ''), category: 'Chips (per seat)', type: 'chipPile', dragKind: 'posPercent+sizePx' });
+  }
+  // Dealt (hole) cards at each OTHER seat -- your own two cards are the
+  // existing "Your Hand" card size instead, since those render in the
+  // hand strip, not at your own seat.
+  const CARD_LAYERS = [];
+  for (let i = 1; i < LH.SEAT_COUNT; i++) {
+    CARD_LAYERS.push({ key: 'cards' + i, slot: i, label: 'Dealt Cards — Slot ' + i, category: 'Dealt Cards (per seat)', type: 'cards', dragKind: 'size' });
   }
   const CSS_DRAG_KIND = {
-    avatarSize: 'size',
     dealer: 'posPercent+sizePx',
     boardArea: 'posPercent',
     boardCard: 'size',
     handCard: 'size',
     potAnchor: 'posPercent',
-    chipPileSize: 'size',
-    chipDiscSize: 'size',
   };
   const CSS_LAYERS = LH.ELEMENTS.map((el) => Object.assign({ type: 'css', dragKind: CSS_DRAG_KIND[el.key] || 'size' }, el));
-  const ALL_LAYERS = SEAT_LAYERS.concat(CSS_LAYERS);
+  const ALL_LAYERS = SEAT_LAYERS.concat(CHIP_LAYERS, CARD_LAYERS, CSS_LAYERS);
   function layerByKey(key) { return ALL_LAYERS.find((l) => l.key === key) || null; }
 
   function bpInfo(key) { return LH.BREAKPOINTS.find((b) => b.key === key); }
@@ -151,16 +166,34 @@
   // Find the real DOM element a layer refers to right now (may not exist
   // yet -- e.g. no hand in progress, or no community cards dealt).
   // ---------------------------------------------------------------------
+  // Finds which PHYSICAL seat (data-pos) currently sits at a given visual
+  // SLOT for this viewer -- the same mapping the real game uses
+  // (slotFor()), needed because a slot's physical seat differs per viewer.
+  function physicalPosForSlot(doc, win, slot) {
+    const seats = [...doc.querySelectorAll('.seat[data-pos]')];
+    for (const el of seats) {
+      const pos = Number(el.dataset.pos);
+      let s = pos;
+      try { if (typeof win.slotFor === 'function') s = win.slotFor(pos); } catch (e) {}
+      if (s === slot) return pos;
+    }
+    return null;
+  }
+
   function targetFor(doc, win, def) {
     if (def.type === 'seat') {
-      const seats = [...doc.querySelectorAll('.seat[data-pos]')];
-      for (const el of seats) {
-        const pos = Number(el.dataset.pos);
-        let slot = pos;
-        try { if (typeof win.slotFor === 'function') slot = win.slotFor(pos); } catch (e) {}
-        if (slot === def.slot) return el;
-      }
-      return null;
+      const pos = physicalPosForSlot(doc, win, def.slot);
+      return pos == null ? null : doc.querySelector(`.seat[data-pos="${pos}"]`);
+    }
+    if (def.type === 'chipPile') {
+      const pos = physicalPosForSlot(doc, win, def.slot);
+      return pos == null ? null : doc.getElementById('railChips' + pos);
+    }
+    if (def.type === 'cards') {
+      const pos = physicalPosForSlot(doc, win, def.slot);
+      if (pos == null) return null;
+      const seatEl = doc.querySelector(`.seat[data-pos="${pos}"]`);
+      return seatEl ? seatEl.querySelector('.seat-cards') : null;
     }
     return doc.querySelector(def.selector);
   }
@@ -221,7 +254,7 @@
       label.textContent = def.label;
       box.appendChild(label);
       let handle = null;
-      if (def.dragKind === 'size' || def.dragKind === 'posPercent+sizePx') {
+      if (def.dragKind === 'size' || def.dragKind === 'posPercent+sizePx' || def.dragKind === 'seatPosSize') {
         handle = doc.createElement('div');
         handle.className = 'led-handle led-br';
         box.appendChild(handle);
@@ -294,10 +327,19 @@
     const cur = Object.assign({}, startVal);
 
     if (def.type === 'seat') {
-      cur.x = round2(startVal.x + (dx / tableRect.width) * 100);
-      cur.y = round2(startVal.y + (dy / tableRect.height) * 100);
-      const seats = ensureSeatsBucket(currentBp);
-      seats[def.slot] = cur;
+      if (mode === 'resize') {
+        // Corner handle: resize just THIS seat's avatar. Stored
+        // separately from seat position (its own flat key, 'avatar'+slot)
+        // so moving a seat never touches its size and vice versa.
+        cur.width = Math.max(8, Math.round(startVal.width + dx));
+        cur.height = Math.max(8, Math.round(startVal.height + dy));
+        ensureBpBucket(currentBp)['avatar' + def.slot] = { width: cur.width, height: cur.height };
+      } else {
+        // Body drag: move just this seat (unchanged from before).
+        cur.x = round2(startVal.x + (dx / tableRect.width) * 100);
+        cur.y = round2(startVal.y + (dy / tableRect.height) * 100);
+        ensureSeatsBucket(currentBp)[def.slot] = { x: cur.x, y: cur.y };
+      }
       try { if (win.LayoutHoldem) win.LayoutHoldem.forceRerender(); } catch (e) {}
     } else {
       const bucket = ensureBpBucket(currentBp);
@@ -317,7 +359,13 @@
         }
       }
       bucket[def.key] = cur;
-      try { LH.applyCSSConfig(doc, config); } catch (e) {}
+      if (def.type === 'css') {
+        try { LH.applyCSSConfig(doc, config); } catch (e) {}
+      } else {
+        // Per-seat chip pile / dealt-card overrides aren't CSS-selector
+        // based (see layout-engine-holdem.js) -- re-apply directly.
+        try { if (win.LayoutHoldem) win.LayoutHoldem.applySeatStyles(doc, win, config); } catch (e) {}
+      }
     }
     repositionOverlays();
     if (selectedKey === def.key) renderInspector();
@@ -333,13 +381,17 @@
   function effectiveValue(doc, win, def) {
     const bucket = config[currentBp] || {};
     if (def.type === 'seat') {
-      const saved = bucket.seats && bucket.seats[def.slot];
-      if (saved) return saved;
+      const savedPos = bucket.seats && bucket.seats[def.slot];
+      const savedSize = bucket['avatar' + def.slot];
       const target = targetFor(doc, win, def);
-      if (target && target.style.left && target.style.top) {
-        return { x: parseFloat(target.style.left) || 0, y: parseFloat(target.style.top) || 0 };
-      }
-      return { x: 50, y: 50 };
+      let x = 50, y = 50;
+      if (savedPos) { x = savedPos.x; y = savedPos.y; }
+      else if (target && target.style.left && target.style.top) { x = parseFloat(target.style.left) || 0; y = parseFloat(target.style.top) || 0; }
+      let width = 46, height = 46;
+      const avatarEl = target && target.querySelector('.seat-avatar-wrap');
+      if (savedSize) { width = savedSize.width; height = savedSize.height; }
+      else if (avatarEl) { const r = avatarEl.getBoundingClientRect(); width = Math.round(r.width); height = Math.round(r.height); }
+      return { x, y, width, height };
     }
     const saved = bucket[def.key];
     const target = targetFor(doc, win, def);
@@ -361,9 +413,10 @@
       }
     } else if (def.dragKind === 'size') {
       // Reasonable fallbacks for when nothing's on screen yet to measure
-      // (e.g. no hand dealt, no bets placed) -- overwritten the instant a
-      // real element shows up, and self-correcting on the very next read.
-      const SIZE_FALLBACKS = { boardCard: { width: 44, height: 62 }, handCard: { width: 44, height: 62 }, chipPileSize: { width: 9, height: 16 }, chipDiscSize: { width: 9, height: 9 } };
+      // (e.g. no hand dealt, no cards dealt to that seat yet) -- overwritten
+      // the instant a real element shows up, and self-correcting on the
+      // very next read.
+      const SIZE_FALLBACKS = { boardCard: { width: 44, height: 62 }, handCard: { width: 44, height: 62 } };
       live = SIZE_FALLBACKS[def.key] || { width: 44, height: 62 };
     }
     return Object.assign({}, live, saved || {});
@@ -380,7 +433,7 @@
   function isEdited(def) {
     const bucket = config[currentBp];
     if (!bucket) return false;
-    if (def.type === 'seat') return !!(bucket.seats && bucket.seats[def.slot]);
+    if (def.type === 'seat') return !!(bucket.seats && bucket.seats[def.slot]) || !!bucket['avatar' + def.slot];
     return !!bucket[def.key];
   }
 
@@ -416,7 +469,7 @@
   // ---------------------------------------------------------------------
   const FIELD_META = { x: { label: 'X', unit: '%' }, y: { label: 'Y', unit: '%' }, left: { label: 'X', unit: '%' }, top: { label: 'Y', unit: '%' }, width: { label: 'W', unit: 'px' }, height: { label: 'H', unit: 'px' } };
   function fieldsFor(def) {
-    if (def.type === 'seat') return ['x', 'y'];
+    if (def.type === 'seat') return ['x', 'y', 'width', 'height'];
     if (def.dragKind === 'size') return ['width', 'height'];
     if (def.dragKind === 'posPercent') return ['left', 'top'];
     return ['left', 'top', 'width', 'height'];
@@ -442,11 +495,19 @@
         const cur = Object.assign({}, d ? effectiveValue(d, w, def) : {});
         cur[input.dataset.field] = Number(input.value) || 0;
         if (def.type === 'seat') {
-          ensureSeatsBucket(currentBp)[def.slot] = cur;
+          const field = input.dataset.field;
+          if (field === 'x' || field === 'y') {
+            ensureSeatsBucket(currentBp)[def.slot] = { x: cur.x, y: cur.y };
+          } else {
+            ensureBpBucket(currentBp)['avatar' + def.slot] = { width: cur.width, height: cur.height };
+          }
           try { if (w && w.LayoutHoldem) w.LayoutHoldem.forceRerender(); } catch (e) {}
         } else {
           ensureBpBucket(currentBp)[def.key] = cur;
-          if (d) { try { LH.applyCSSConfig(d, config); } catch (e) {} }
+          if (d) {
+            if (def.type === 'css') { try { LH.applyCSSConfig(d, config); } catch (e) {} }
+            else { try { if (w && w.LayoutHoldem) w.LayoutHoldem.applySeatStyles(d, w, config); } catch (e) {} }
+          }
         }
         repositionOverlays();
         renderLayers();

@@ -45,15 +45,18 @@
   // Non-seat elements. `fieldUnits` gives each CSS field its own unit since
   // position fields (left/top) are % of .table-wrap and size fields
   // (width/height) are px, on the very same element (the dealer figure).
+  // Per-seat elements (avatar size, chip pile, dealt cards) are NOT listed
+  // here -- unlike these, a single CSS class selector can't target "seat 3
+  // as this viewer sees it" (each viewer's own seatPositions()/slotFor()
+  // rotation puts a different PHYSICAL seat at any given visual slot), so
+  // they're applied per-render in JS instead (see applySeatStyles below),
+  // keyed by slot the same way seat positions already are.
   const ELEMENTS = [
-    { key: 'avatarSize', label: 'Player Avatars (all seats)', category: 'Avatars', selector: '.seat-avatar-wrap', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
     { key: 'dealer', label: 'Dealer', category: 'Dealer', selector: '.house-dealer', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;' },
     { key: 'boardArea', label: 'Community Cards (position)', category: 'Cards', selector: '.board-area', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' }, extraDecls: 'transform:translate(-50%,-50%) !important;' },
     { key: 'boardCard', label: 'Community Cards (size)', category: 'Cards', selector: '.board-area .card', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
     { key: 'handCard', label: 'Your Hand (card size)', category: 'Cards', selector: '.hand-strip .card', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
-    { key: 'potAnchor', label: 'Pot Chip Stack (position)', category: 'Chips', selector: '.pot-anchor', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' } },
-    { key: 'chipPileSize', label: 'Chip Piles (size)', category: 'Chips', selector: '.rail-chip-pile', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
-    { key: 'chipDiscSize', label: 'Individual Chips (size)', category: 'Chips', selector: '.rail-chip-pile .pot-stack-chip', kind: 'size', cssProps: { width: 'width', height: 'height' }, fieldUnits: { width: 'px', height: 'px' } },
+    { key: 'potAnchor', label: 'Table Pot (position)', category: 'Chips', selector: '.pot-anchor', kind: 'position', cssProps: { left: 'left', top: 'top' }, fieldUnits: { left: '%', top: '%' } },
   ];
 
   function elementByKey(key) { return ELEMENTS.find((e) => e.key === key) || null; }
@@ -138,9 +141,92 @@
     };
   }
 
+  // ---------------------------------------------------------------------
+  // Per-seat overrides (avatar size, chip pile position/size, dealt-card
+  // size). Keyed by SLOT (not physical data-pos) so "seat 3" always means
+  // the same visual seat for every viewer, exactly like seat positions:
+  //   config[bp]['avatar'+slot]    = { width, height }
+  //   config[bp]['chipPile'+slot]  = { left, top, width, height }
+  //   config[bp]['cards'+slot]     = { width, height }
+  // Applied as inline styles with !important (wins over both the base
+  // stylesheet and our own class-based CSS overrides above), directly on
+  // the real DOM elements for that seat -- safe to call as often as
+  // needed since it's a pure re-apply, never touches game state.
+  // ---------------------------------------------------------------------
+  function applySeatStyles(doc, win, config) {
+    if (!doc || !doc.body || !config) return;
+    const bpKey = bpForDoc(doc);
+    if (!bpKey) return;
+    const bucket = config[bpKey];
+    if (!bucket) return;
+    const seats = doc.querySelectorAll('.seat[data-pos]');
+    seats.forEach((seatEl) => {
+      const pos = Number(seatEl.dataset.pos);
+      let slot = pos;
+      try { if (typeof win.slotFor === 'function') slot = win.slotFor(pos); } catch (e) {}
+
+      const avatar = bucket['avatar' + slot];
+      if (avatar) {
+        const av = seatEl.querySelector('.seat-avatar-wrap');
+        if (av) {
+          if (avatar.width != null) av.style.setProperty('width', avatar.width + 'px', 'important');
+          if (avatar.height != null) av.style.setProperty('height', avatar.height + 'px', 'important');
+        }
+      }
+
+      const chipPile = bucket['chipPile' + slot];
+      if (chipPile) {
+        const rail = doc.getElementById('railChips' + pos);
+        if (rail) {
+          if (chipPile.left != null) rail.style.setProperty('left', chipPile.left + '%', 'important');
+          if (chipPile.top != null) rail.style.setProperty('top', chipPile.top + '%', 'important');
+          if (chipPile.width != null || chipPile.height != null) {
+            rail.querySelectorAll('.pot-stack-chip').forEach((c) => {
+              if (chipPile.width != null) c.style.setProperty('width', chipPile.width + 'px', 'important');
+              if (chipPile.height != null) c.style.setProperty('height', chipPile.height + 'px', 'important');
+            });
+          }
+        }
+      }
+
+      const cards = bucket['cards' + slot];
+      if (cards) {
+        const cardsEl = seatEl.querySelector('.seat-cards');
+        if (cardsEl) {
+          cardsEl.querySelectorAll('.card.mini').forEach((c) => {
+            if (cards.width != null) c.style.setProperty('width', cards.width + 'px', 'important');
+            if (cards.height != null) c.style.setProperty('height', cards.height + 'px', 'important');
+          });
+        }
+      }
+    });
+  }
+
+  // Wraps window.renderGameTable() exactly once so every real re-render
+  // (a new hand, a bet, a fold, cards being dealt -- anything that
+  // rebuilds seat DOM) re-applies the per-seat overrides above right
+  // after the game's own render finishes, the same "wrap the original,
+  // call it, then layer our own change on top" pattern as
+  // patchSeatPositions.
+  function patchRenderGameTable(win, getConfig) {
+    if (!win || typeof win.renderGameTable !== 'function' || win.__layoutHoldemRenderPatched) return;
+    const original = win.renderGameTable;
+    win.__layoutHoldemRenderPatched = true;
+    win.renderGameTable = function () {
+      const result = original.apply(this, arguments);
+      try {
+        const config = getConfig ? getConfig() : null;
+        if (config) applySeatStyles(win.document, win, config);
+      } catch (e) { /* not ready / not applicable -- ignore */ }
+      return result;
+    };
+  }
+
   function applyAll(doc, win, config) {
     applyCSSConfig(doc, config);
     patchSeatPositions(win, () => config);
+    patchRenderGameTable(win, () => config);
+    applySeatStyles(doc, win, config);
   }
 
   // Seat position is only ever (re)written to the DOM inside the page's own
@@ -163,6 +249,7 @@
 
   global.LayoutHoldem = {
     SEAT_COUNT, BREAKPOINTS, ELEMENTS,
-    elementByKey, bpForDoc, buildOverrideCSS, applyCSSConfig, patchSeatPositions, applyAll, forceRerender,
+    elementByKey, bpForDoc, buildOverrideCSS, applyCSSConfig, patchSeatPositions,
+    applySeatStyles, patchRenderGameTable, applyAll, forceRerender,
   };
 })(window);
