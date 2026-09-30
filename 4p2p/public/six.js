@@ -402,7 +402,17 @@ function heroAvatarHtml(key) {
   // or out-of-range key -- see index.html's identical function for the
   // full reasoning (a large hardcoded bot list references avatar
   // numbers from before the set was trimmed multiple times).
-  const TOON_COUNT = 106;
+  //
+  // Real bug fix, per explicit report on the 6-player table ("when I
+  // select an avatar it's not picking the right one"): this was 106,
+  // but ALL_AVATAR_KEYS (and the picker grid above) also includes
+  // toon107/108/109 -- three bonus avatars added after the original
+  // 1-106 set. Since 107-109 are all > 106, validNum below rejected
+  // every one of them as "out of range" even though they're valid
+  // choices, so picking any of those 3 silently hashed you into a
+  // random unrelated avatar instead of the one actually tapped. 109 is
+  // now the true top of the valid range.
+  const TOON_COUNT = 109;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
   // Per explicit correction: validNum must NOT reject protected keys --
   // this function also renders a human's own CORRECTLY, PIN-validated

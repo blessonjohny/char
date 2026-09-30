@@ -5953,7 +5953,17 @@ function heroAvatarHtml(key) {
   // way a function declaration is). TOON_COUNT below is the same number
   // ALL_AVATAR_KEYS is built from, just usable this early. Update both
   // places together if the avatar set size changes again.
-  const TOON_COUNT = 106;
+  //
+  // Real bug fix, per explicit report ("when I select an avatar it's
+  // not picking the right one"): this was 106, but ALL_AVATAR_KEYS
+  // (and the picker grid built from it) also includes toon107/108/109
+  // -- three extra bonus avatars added after the original 1-106 set.
+  // Since 107-109 are all > 106, validNum below rejected every one of
+  // them as "out of range" even though they're perfectly legitimate,
+  // so picking any of those 3 silently hashed you into a random
+  // unrelated avatar instead of the one you actually tapped. 109 is
+  // now the true top of the valid range.
+  const TOON_COUNT = 109;
   // Per explicit request: the 5 personal, PIN-protected avatars
   // (toon101-105) must never be handed out automatically -- this
   // fallback path only runs for an already-invalid/out-of-range key,
