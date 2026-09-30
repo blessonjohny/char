@@ -759,6 +759,35 @@
       if (screenDist < DRAG_THRESHOLD_PX) return; // still just a click/jitter -- do nothing yet
       dragState.crossedThreshold = true;
       pushUndoSnapshot(); // record the undo step only once a real drag actually starts
+
+      // "Mother-child" fix: the real game (holdem.html) recomputes each
+      // chip rail's on-screen left/top FRESH on every render, anchored to
+      // that seat's CURRENT position -- so until a chip pile has its own
+      // explicit saved override, it always visually tracks its seat, even
+      // just-started drags that haven't been dropped yet (real report:
+      // "if i select the player first all [chips] moves"; after a chip
+      // pile has been dragged/saved once it correctly stays independent
+      // from then on, since applySeatStyles's !important override then
+      // wins over the game's own recompute). Pinning the chip pile's
+      // CURRENT on-screen spot as an explicit override right here --
+      // the instant a real seat drag begins, before the seat has actually
+      // moved at all this call -- means the override is already in place
+      // before the seat's own position (and the game's next re-render)
+      // ever changes, so the chip pile never visibly tags along, not even
+      // on the very first drag. Gated on crossedThreshold (not pointerdown)
+      // so a plain click-to-select never pins/edits anything either.
+      if (def.type === 'seat' && mode === 'move') {
+        const chipDef = layerByKey('chipPile' + def.slot);
+        const bucket = config[currentBp] || {};
+        if (chipDef && !bucket['chipPile' + def.slot]) {
+          const pinned = effectiveValue(doc, win, chipDef);
+          ensureBpBucket(currentBp)['chipPile' + def.slot] = {
+            left: pinned.left, top: pinned.top, width: pinned.width, height: pinned.height,
+          };
+          try { if (win.LayoutHoldem) win.LayoutHoldem.applySeatStyles(doc, win, config); } catch (e) {}
+          markLayerEdited('chipPile' + def.slot);
+        }
+      }
     }
     const cur = Object.assign({}, startVal);
 
