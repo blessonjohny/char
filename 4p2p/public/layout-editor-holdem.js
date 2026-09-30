@@ -548,7 +548,21 @@
     ALL_LAYERS.forEach((def) => {
       const target = targetFor(doc, win, def);
       if (!target) return;
-      const rect = target.getBoundingClientRect();
+      // Real report, confirmed by screenshot: selecting a Seat highlighted
+      // "the whole thing including chips cards" -- because `target` for a
+      // seat is the ENTIRE .seat container (name, chip-count label, dealt
+      // cards and the fold badge all live inside it too, each with its
+      // own separate layer already). The box/handle shown and dragged
+      // here now traces just the avatar photo instead -- matching what
+      // resizing actually changes -- while MOVING a seat still correctly
+      // repositions the whole group together underneath (handleDragMove
+      // still operates on `target`, the real seat element, unchanged).
+      let visualTarget = target;
+      if (def.type === 'seat') {
+        const avatarWrap = target.querySelector('.seat-avatar-wrap');
+        if (avatarWrap) visualTarget = avatarWrap;
+      }
+      const rect = visualTarget.getBoundingClientRect();
       if (rect.width === 0 && rect.height === 0) return;
       const box = doc.createElement('div');
       box.className = 'led-box';
@@ -563,7 +577,7 @@
         box.appendChild(handle);
       }
       doc.body.appendChild(box);
-      overlays[def.key] = { box, handle, target, def };
+      overlays[def.key] = { box, handle, target, visualTarget, def };
       wireBoxEvents(doc, win, def, box, handle);
     });
     repositionOverlays();
@@ -599,8 +613,8 @@
   // center) to at least this size so it's actually possible to hit.
   const MIN_TOUCH_TARGET = 30;
   function repositionOverlays() {
-    Object.values(overlays).forEach(({ box, target }) => {
-      const r = target.getBoundingClientRect();
+    Object.values(overlays).forEach(({ box, target, visualTarget }) => {
+      const r = (visualTarget || target).getBoundingClientRect();
       if (r.width === 0 && r.height === 0 && r.left === 0 && r.top === 0) {
         // Detached/gone (e.g. the game re-rendered and replaced this DOM
         // node before a rebuild caught up) -- hide rather than show a
@@ -949,6 +963,22 @@
     if (def.dragKind === 'fontSize') return ['offsetX', 'offsetY', 'fontSize'];
     return ['left', 'top', 'width', 'height'];
   }
+  // Fallback for the rare moment the iframe's document isn't reachable
+  // (e.g. it's mid-reload) when a field gets edited -- reads whatever is
+  // ALREADY saved for this element instead of an empty object. Real bug
+  // this fixes: editing just one field (say X) used to always start from
+  // `{}` in that situation, so every OTHER field (Y, width, height...)
+  // silently went missing from the saved config the moment you changed
+  // anything -- "my values weren't proper" after a single edit quietly
+  // dropped everything else already set for that element.
+  function savedValueFor(def) {
+    const bucket = config[currentBp] || {};
+    if (def.type === 'seat') {
+      return Object.assign({ x: 50, y: 50, width: 46, height: 46 }, (bucket.seats && bucket.seats[def.slot]) || {}, bucket['avatar' + def.slot] || {});
+    }
+    return Object.assign({}, bucket[def.key] || {});
+  }
+
   function renderInspector() {
     if (!selectedKey) { inspectorEl.innerHTML = '<div class="ed-inspector-empty">Join or host a table inside the frame and start a hand so the real seats are on screen, turn on Edit Table, then click an element (or pick one from Layers) to adjust it here.</div>'; return; }
     const def = layerByKey(selectedKey);
@@ -967,7 +997,7 @@
         pushUndoSnapshot();
         let d, w;
         try { d = frame.contentDocument; w = frame.contentWindow; } catch (e) { d = null; w = null; }
-        const cur = Object.assign({}, d ? effectiveValue(d, w, def) : {});
+        const cur = Object.assign({}, d ? effectiveValue(d, w, def) : savedValueFor(def));
         cur[input.dataset.field] = Number(input.value) || 0;
         if (def.type === 'seat') {
           const field = input.dataset.field;
