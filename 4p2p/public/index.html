@@ -17592,16 +17592,17 @@ gameSocket.on('chooseSeat', (info) => {
   });
 
   // "New Round" restart notice, visible to every connected real player (not just whoever
-  // clicked Restart) - see server.js's beginVetoableRestart for the actual 3s timer/veto
-  // logic this is just displaying. Anyone seated can tap "No" to cancel it outright; if
-  // nobody does within the window, the server proceeds on its own and this same event
-  // (restartProceeded) just closes the notice - the actual restart itself arrives moments
-  // later as a completely ordinary 'state' update, no separate handling needed for it.
+  // clicked Restart) - see server.js's beginConfirmRestart for the actual 5s timer/confirm
+  // logic this is just displaying. Another seated player must tap "Yes" within the window
+  // for the restart to happen; a "No", or no response at all, both cancel it - default is
+  // NO restart. Either way this same event (restartProceeded, or restartCancelled) just
+  // closes the notice - a proceeded restart arrives moments later as a completely ordinary
+  // 'state' update, no separate handling needed for it.
   gameSocket.on('restartPending', (info) => {
-    showRestartNotice(info.kind, info.seconds || 3);
+    showRestartNotice(info.kind, info.seconds || 5);
   });
   gameSocket.on('restartCancelled', (info) => {
-    hideRestartNotice(`🚫 Restart cancelled — ${info.byName} said no.`);
+    hideRestartNotice(info.timedOut ? '🚫 Restart cancelled — no one confirmed in time.' : `🚫 Restart cancelled — ${info.byName} said no.`);
   });
   gameSocket.on('restartProceeded', () => {
     hideRestartNotice(null);
@@ -17624,10 +17625,17 @@ function showRestartNotice(kind, seconds) {
   let remaining = seconds;
   const render = () => {
     el.innerHTML = `
-      <div style="font-size:1.3rem;font-weight:800;color:var(--accent,#f4c430);margin-bottom:6px">🔄 ${label}</div>
-      <div style="font-size:0.85rem;color:#ccc;margin-bottom:14px">Starting in ${remaining}s unless someone says no…</div>
-      <button id="restartNoticeVetoBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">✋ No, don't restart</button>
+      <div style="font-size:1.3rem;font-weight:800;color:var(--accent,#f4c430);margin-bottom:6px">🔄 ${label}?</div>
+      <div style="font-size:0.85rem;color:#ccc;margin-bottom:14px">Needs someone else to say yes within ${remaining}s, or it won't restart…</div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button id="restartNoticeYesBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#2ecc71,#27ae60);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">✅ Yes, restart</button>
+        <button id="restartNoticeVetoBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">✋ No</button>
+      </div>
     `;
+    document.getElementById('restartNoticeYesBtn').onclick = () => {
+      gameSocket.emit('confirmRestart');
+      hideRestartNotice(null);
+    };
     document.getElementById('restartNoticeVetoBtn').onclick = () => {
       gameSocket.emit('vetoRestart');
       hideRestartNotice(null);

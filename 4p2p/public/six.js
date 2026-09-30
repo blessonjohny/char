@@ -4318,8 +4318,11 @@ $('btnGameOverRestart').addEventListener('click', () => {
   // leaving the host confused about whether a new match had really started. The overlay now
   // closes for the host the same way it closes for every other seated player -- automatically,
   // the instant the server's broadcast confirms a fresh match is actually underway (see the
-  // `!state.gameOver && gameOverShownFor` branch above).
-  socket.emit('sixp_restartGame');
+  // `!state.gameOver && gameOverShownFor` branch above). This now goes through the same
+  // networked 5-second confirm flow as the Host Menu's restart buttons (see
+  // sixp_requestRestartGame/showSixpRestartNotice above) instead of restarting instantly --
+  // another real seated player has to say yes, same as everywhere else restart is offered.
+  socket.emit('sixp_requestRestartGame');
 });
 
 // ---------------- Auto-reconnect (same staleness rule as the 4p game) ----------------
@@ -5013,9 +5016,69 @@ $('btnRestartConfirmCancel').addEventListener('click', () => {
 });
 $('btnRestartConfirmOk').addEventListener('click', () => {
   $('restartConfirmOverlay').classList.remove('on');
-  if (pendingSixpRestartAction === 'round') socket.emit('sixp_restartRound');
-  else if (pendingSixpRestartAction === 'game') socket.emit('sixp_restartGame');
+  if (pendingSixpRestartAction === 'round') socket.emit('sixp_requestRestartRound');
+  else if (pendingSixpRestartAction === 'game') socket.emit('sixp_requestRestartGame');
   pendingSixpRestartAction = null;
+});
+
+// Networked confirm-style restart, matching the 4-player table exactly (same 5-second
+// window, same default-is-NO-restart semantics): the click above doesn't restart anything by
+// itself anymore, it just asks the server to broadcast this notice to every connected real
+// player (including the requester) and start a 5s window. Another real, seated player has to
+// tap "Yes" during that window for the restart to actually happen; a "No", or nobody
+// responding within 5 seconds, both cancel it.
+let sixpRestartNoticeCountdownTimer = null;
+function showSixpRestartNotice(kind, seconds) {
+  let el = document.getElementById('sixpRestartNoticeToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sixpRestartNoticeToast';
+    el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3000;background:rgba(20,20,30,0.97);border:2px solid var(--accent, #f4c430);border-radius:16px;padding:22px 26px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.6);min-width:220px';
+    document.body.appendChild(el);
+  }
+  const label = kind === 'game' ? 'New Game' : 'New Round';
+  let remaining = seconds;
+  const render = () => {
+    el.innerHTML = `
+      <div style="font-size:1.3rem;font-weight:800;color:var(--accent,#f4c430);margin-bottom:6px">🔄 ${label}?</div>
+      <div style="font-size:0.85rem;color:#ccc;margin-bottom:14px">Needs someone else to say yes within ${remaining}s, or it won't restart…</div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button id="sixpRestartNoticeYesBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#2ecc71,#27ae60);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">✅ Yes, restart</button>
+        <button id="sixpRestartNoticeNoBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">✋ No</button>
+      </div>
+    `;
+    document.getElementById('sixpRestartNoticeYesBtn').onclick = () => {
+      socket.emit('sixp_confirmRestart');
+      hideSixpRestartNotice(null);
+    };
+    document.getElementById('sixpRestartNoticeNoBtn').onclick = () => {
+      socket.emit('sixp_vetoRestart');
+      hideSixpRestartNotice(null);
+    };
+  };
+  render();
+  el.style.display = 'block';
+  clearInterval(sixpRestartNoticeCountdownTimer);
+  sixpRestartNoticeCountdownTimer = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) { clearInterval(sixpRestartNoticeCountdownTimer); return; }
+    render();
+  }, 1000);
+}
+function hideSixpRestartNotice(cancelMessage) {
+  clearInterval(sixpRestartNoticeCountdownTimer);
+  const el = document.getElementById('sixpRestartNoticeToast');
+  if (el) el.style.display = 'none';
+  if (cancelMessage) showToast(cancelMessage, 'info', 2500);
+}
+socket.on('sixp_restartPending', (info) => {
+  showSixpRestartNotice(info.kind, info.seconds || 5);
+});
+socket.on('sixp_restartCancelled', (info) => {
+  hideSixpRestartNotice(info.timedOut ? '🚫 Restart cancelled — no one confirmed in time.' : `🚫 Restart cancelled — ${info.byName} said no.`);
+});
+socket.on('sixp_restartProceeded', () => {
+  hideSixpRestartNotice(null);
 });
 
 (function startLiveTypewriter6p(){
