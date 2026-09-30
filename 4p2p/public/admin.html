@@ -59,6 +59,7 @@
       <button class="tab" id="tabLeaderboard">🏆 Leaderboard</button>
       <button class="tab" id="tabPoker">🃏 Hold'em Admin</button>
       <button class="tab" id="tabLayout">🎨 Layout Editors</button>
+      <button class="tab" id="tabUsage">📶 Data Usage</button>
     </div>
     <div id="commentsView">
       <div class="toolbar">
@@ -92,6 +93,21 @@
         <button class="btn ghost" id="btnRefreshHistory">🔄 Refresh</button>
       </div>
       <div id="historyList"></div>
+    </div>
+    <div id="usageView" style="display:none">
+      <div class="sub" style="margin-top:0">
+        Total network traffic (in + out) through this server, read straight from the
+        container's own network counters — so it covers everything, including Socket.io
+        game traffic and this admin panel's own polling, not just whatever any one
+        feature happens to log. This is a very close proxy for what Railway bills you
+        for, but isn't guaranteed to match their invoice to the byte. Tracking only
+        covers time since this feature was deployed — nothing before that.
+      </div>
+      <div class="toolbar">
+        <button class="btn ghost" id="btnRefreshUsage">🔄 Refresh</button>
+      </div>
+      <div id="usageSummary" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
+      <div id="usageList"></div>
     </div>
     <div id="botsView" style="display:none">
       <div class="sub" style="margin-top:0">
@@ -358,6 +374,7 @@ function switchTab(tab) {
   document.getElementById('tabLeaderboard').classList.toggle('on', tab === 'leaderboard');
   document.getElementById('tabPoker').classList.toggle('on', tab === 'poker');
   document.getElementById('tabLayout').classList.toggle('on', tab === 'layout');
+  document.getElementById('tabUsage').classList.toggle('on', tab === 'usage');
   document.getElementById('commentsView').style.display = tab === 'comments' ? 'block' : 'none';
   document.getElementById('liveView').style.display = tab === 'live' ? 'block' : 'none';
   document.getElementById('visitorsView').style.display = tab === 'visitors' ? 'block' : 'none';
@@ -367,6 +384,7 @@ function switchTab(tab) {
   document.getElementById('leaderboardView').style.display = tab === 'leaderboard' ? 'block' : 'none';
   document.getElementById('pokerView').style.display = tab === 'poker' ? 'block' : 'none';
   document.getElementById('layoutView').style.display = tab === 'layout' ? 'block' : 'none';
+  document.getElementById('usageView').style.display = tab === 'usage' ? 'block' : 'none';
   if (tab === 'leaderboard') refreshLeaderboard();
   if (tab === 'poker') {
     refreshPokerAdmin();
@@ -384,6 +402,7 @@ function switchTab(tab) {
   }
   if (tab === 'visitors') refreshVisitorLog();
   if (tab === 'history') refreshTableHistory();
+  if (tab === 'usage') refreshNetworkUsage();
   if (tab === 'bots' && !botAvatarGridBuilt) buildBotAvatarGrid();
   if (tab === 'ghost') {
     if (!ghostAvatarGridBuilt) buildGhostAvatarGrid();
@@ -723,6 +742,7 @@ document.getElementById('tabGhost').addEventListener('click', () => switchTab('g
 document.getElementById('tabLeaderboard').addEventListener('click', () => switchTab('leaderboard'));
 document.getElementById('tabPoker').addEventListener('click', () => switchTab('poker'));
 document.getElementById('tabLayout').addEventListener('click', () => switchTab('layout'));
+document.getElementById('tabUsage').addEventListener('click', () => switchTab('usage'));
 document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
 document.getElementById('btnRefreshHistory').addEventListener('click', refreshTableHistory);
 
@@ -1237,6 +1257,52 @@ async function deleteLeaderboardEntry(mode, id) {
 
 // ---------------- Visitor log (everyone who's ever visited, with location and time) ----------------
 let visitorFilter = 'today';
+
+function fmtBytes(n) {
+  if (!n) return '0 MB';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return v.toFixed(i === 0 ? 0 : 2) + ' ' + units[i];
+}
+async function refreshNetworkUsage() {
+  const res = await adminFetch('/api/admin/network-usage');
+  if (!res.ok) return;
+  const data = await res.json();
+  renderNetworkUsage(data);
+}
+function renderNetworkUsage(data) {
+  const summaryEl = document.getElementById('usageSummary');
+  summaryEl.innerHTML = `
+    <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
+      <span class="who" style="font-size:1.1rem">${fmtBytes(data.today)}</span>
+      <span class="where">today</span>
+    </div>
+    <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
+      <span class="who" style="font-size:1.1rem">${fmtBytes(data.last7Days)}</span>
+      <span class="where">last 7 days</span>
+    </div>
+    <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
+      <span class="who" style="font-size:1.1rem">${fmtBytes(data.last30Days)}</span>
+      <span class="where">last 30 days</span>
+    </div>
+    <div class="live-card" style="flex:1;flex-direction:column;text-align:center;gap:2px">
+      <span class="who" style="font-size:1.1rem">${fmtBytes(data.allTime)}</span>
+      <span class="where">all time${data.trackingSince ? ' (since ' + esc(data.trackingSince) + ')' : ''}</span>
+    </div>
+  `;
+  const listEl = document.getElementById('usageList');
+  if (!data.days || !data.days.length) { listEl.innerHTML = '<div class="empty">No usage recorded yet — check back in a few minutes.</div>'; return; }
+  const sorted = [...data.days].sort((a, b) => b.date.localeCompare(a.date));
+  listEl.innerHTML = sorted.map(d => `
+    <div class="live-card">
+      <div class="who">${esc(d.date)}</div>
+      <div class="time">${fmtBytes(d.bytes)}</div>
+    </div>
+  `).join('');
+}
+document.getElementById('btnRefreshUsage').addEventListener('click', refreshNetworkUsage);
 
 async function refreshVisitorLog() {
   const res = await adminFetch('/api/visitor-log?filter=' + encodeURIComponent(visitorFilter));
