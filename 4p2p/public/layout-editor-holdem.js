@@ -242,6 +242,70 @@
   btnZoomFit.addEventListener('click', () => { manualZoom = null; fitFrameToStage(); });
 
   // ---------------------------------------------------------------------
+  // Pinch / ctrl+scroll zoom -- scoped to just the table, never the
+  // browser's own page zoom. Real, repeated report: using the normal
+  // pinch or ctrl+scroll gesture zoomed the WHOLE page -- toolbar,
+  // dropdowns, bottom bar and all -- instead of just the table being
+  // edited, because the browser's native page-zoom was handling that
+  // gesture by default (the viewport meta tag now stops that outright).
+  // Every such gesture is caught here and redirected to this editor's own
+  // zoom instead -- the exact same one the +/-/Fit buttons already drive
+  // -- wired on both the outer page AND inside the iframe's own document
+  // (a wheel/touch event that starts over the iframed table fires inside
+  // ITS document, never reaching a listener on the outer page at all).
+  // ---------------------------------------------------------------------
+  function clampZoom(z) { return Math.min(3, Math.max(0.1, z)); }
+  function currentEffectiveZoom() {
+    const bp = bpInfo(currentBp);
+    return manualZoom != null ? manualZoom : Math.min(1, (stage.clientWidth - 4) / bp.previewWidth, (stage.clientHeight - 4) / bp.previewHeight);
+  }
+  function zoomByFactor(factor) {
+    manualZoom = clampZoom(currentEffectiveZoom() * factor);
+    fitFrameToStage();
+  }
+  function handleZoomWheel(ev) {
+    if (!ev.ctrlKey) return; // an ordinary scroll/trackpad pan is left completely alone
+    ev.preventDefault();
+    zoomByFactor(ev.deltaY < 0 ? 1.08 : 1 / 1.08);
+  }
+  window.addEventListener('wheel', handleZoomWheel, { passive: false });
+
+  let pinchStartDist = null;
+  let pinchStartZoom = 1;
+  function touchDist(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  }
+  function handleTouchStart(ev) {
+    if (ev.touches.length === 2) { pinchStartDist = touchDist(ev.touches); pinchStartZoom = currentEffectiveZoom(); }
+  }
+  function handleTouchMove(ev) {
+    if (ev.touches.length === 2 && pinchStartDist) {
+      ev.preventDefault();
+      manualZoom = clampZoom(pinchStartZoom * (touchDist(ev.touches) / pinchStartDist));
+      fitFrameToStage();
+    }
+  }
+  function handleTouchEnd(ev) { if (ev.touches.length < 2) pinchStartDist = null; }
+  stage.addEventListener('touchstart', handleTouchStart, { passive: true });
+  stage.addEventListener('touchmove', handleTouchMove, { passive: false });
+  stage.addEventListener('touchend', handleTouchEnd, { passive: true });
+  stage.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+
+  function wireIframeZoomGestures(doc) {
+    if (!doc) return;
+    const win = doc.defaultView;
+    if (!win || win.__ledZoomGesturesWired) return;
+    win.__ledZoomGesturesWired = true;
+    doc.addEventListener('wheel', handleZoomWheel, { passive: false });
+    doc.addEventListener('touchstart', handleTouchStart, { passive: true });
+    doc.addEventListener('touchmove', handleTouchMove, { passive: false });
+    doc.addEventListener('touchend', handleTouchEnd, { passive: true });
+    doc.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+  }
+
+  // ---------------------------------------------------------------------
   // Load existing saved config, then boot the frame
   // ---------------------------------------------------------------------
   fetch('/api/layout-config/holdem')
@@ -275,6 +339,7 @@
       if (win.LayoutHoldem) win.LayoutHoldem.applyAll(frame.contentDocument, win, () => config);
       if (win.LayoutHoldem) win.LayoutHoldem.applyBackgroundConfig(frame.contentDocument, bgConfig);
       setupOverlayMutationObserver(frame.contentDocument, win);
+      wireIframeZoomGestures(frame.contentDocument);
       // The frame can reload (e.g. leaving/rejoining a table) while Edit
       // Table is still switched on -- keep the forced-visible popups/
       // banners (see setPreviewOnClasses below) in sync with that.

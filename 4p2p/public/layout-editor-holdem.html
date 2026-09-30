@@ -2,10 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- maximum-scale=1, user-scalable=no stop the BROWSER's own native pinch/
+     ctrl-scroll page zoom here -- without this, pinching or ctrl-scrolling
+     anywhere on this editor (even right over the table) zoomed the whole
+     page, toolbar and all, because nothing told the browser not to. Real
+     zoom now comes entirely from the +/-/Fit buttons and the ctrl+scroll/
+     pinch handling in layout-editor-holdem.js, which only ever scale the
+     table itself. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>28 Gulan Hold'em — Visual Layout Editor</title>
 <link rel="stylesheet" href="layout-editor.css?v=11">
-<link rel="stylesheet" href="layout-editor-holdem.css?v=1">
+<link rel="stylesheet" href="layout-editor-holdem.css?v=2">
 </head>
 <body>
 <!-- Big, impossible-to-miss build banner -- full width, top of the page,
@@ -14,11 +21,11 @@
      so there's a single, obvious, unmissable way to tell whether a phone
      is actually running the latest files or a stale/undeployed copy --
      no functional purpose otherwise. -->
-<div id="edBuildBanner" style="background:#f4c430;color:#1a1206;font-size:1.15rem;font-weight:900;text-align:center;padding:10px 6px;letter-spacing:0.04em;position:sticky;top:0;z-index:999999">BUILD V12</div>
+<div id="edBuildBanner" style="background:#f4c430;color:#1a1206;font-size:1.15rem;font-weight:900;text-align:center;padding:10px 6px;letter-spacing:0.04em;position:sticky;top:0;z-index:999999">BUILD V13</div>
 <div id="edRoot">
   <div id="edTopbar">
     <h1>🎰 Hold'em Table Layout Editor</h1>
-    <span id="edBuildTag" style="font-size:0.65rem;color:#5a7a9a;font-weight:700;letter-spacing:0.03em">build v12</span>
+    <span id="edBuildTag" style="font-size:0.65rem;color:#5a7a9a;font-weight:700;letter-spacing:0.03em">build v13</span>
     <div class="ed-sep"></div>
     <select id="edBreakpointSelect"></select>
     <button class="ed-btn" id="edBtnEditToggle">✏️ Edit Table: OFF</button>
@@ -83,7 +90,7 @@
      number on every future delivery -- a new URL can never return a stale
      cached response, so this makes "the fix didn't show up" impossible for
      these files regardless of any cache configuration upstream. -->
-<script src="layout-engine-holdem.js?v=12"></script>
-<script src="layout-editor-holdem.js?v=12"></script>
+<script src="layout-engine-holdem.js?v=13"></script>
+<script src="layout-editor-holdem.js?v=13"></script>
 </body>
 </html>
