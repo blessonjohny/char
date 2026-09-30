@@ -6580,14 +6580,20 @@ function renderActionBar(state) {
   // be the button order left to right"): was Fold, Check/Call, All-In,
   // Bet/Raise -- now All-In, Bet/Raise, Fold, Check/Call, exactly as
   // specified.
+  // IDs below (actBtnAllIn/actBtnBet/actBtnFold/actBtnCheck) exist purely
+  // so the Layout Editor can target each button individually -- the
+  // Bet/Raise button reuses the same "action-bet" CLASS as All-In (so a
+  // class selector alone can't tell them apart), and Check/Call swaps
+  // which class it uses depending on game state, so only a stable ID
+  // works for all four. No effect on game logic; onclick handlers unchanged.
   let html = sliderHtml;
   html += '<div class="action-row" style="margin-top:4px">';
-  html += `<button class="action-btn action-bet" data-label="All-In" onclick="sendAction('allin')">All-In</button>`;
-  html += bottomBtnHtml;
-  html += `<button class="action-btn action-fold" data-label="Fold" onclick="sendAction('fold')">Fold</button>`;
+  html += `<button id="actBtnAllIn" class="action-btn action-bet" data-label="All-In" onclick="sendAction('allin')">All-In</button>`;
+  html += bottomBtnHtml.replace('class="action-btn action-bet"', 'id="actBtnBet" class="action-btn action-bet"');
+  html += `<button id="actBtnFold" class="action-btn action-fold" data-label="Fold" onclick="sendAction('fold')">Fold</button>`;
   html += canCheck
-    ? `<button class="action-btn action-check" data-label="Check" onclick="sendAction('check')">Check</button>`
-    : `<button class="action-btn action-call" data-label="Call ${Math.min(toCall, mySeat.chips)}" onclick="sendAction('call')">Call ${Math.min(toCall, mySeat.chips)}</button>`;
+    ? `<button id="actBtnCheck" class="action-btn action-check" data-label="Check" onclick="sendAction('check')">Check</button>`
+    : `<button id="actBtnCheck" class="action-btn action-call" data-label="Call ${Math.min(toCall, mySeat.chips)}" onclick="sendAction('call')">Call ${Math.min(toCall, mySeat.chips)}</button>`;
   html += '</div>';
   bar.innerHTML = html;
   const slider = $('betSlider');

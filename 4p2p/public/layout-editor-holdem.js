@@ -37,8 +37,10 @@
   const statusEl = document.getElementById('edStatus');
   const layersEl = document.getElementById('edLayers');
   const inspectorEl = document.getElementById('edInspector');
+  const bgPanelEl = document.getElementById('edBgPanel');
 
   let config = { portraitPhoto: {}, landscape: {} };
+  let bgConfig = {}; // { landscape?: url, portrait?: url } -- custom uploaded photos, separate from config above
   let currentBp = LH.BREAKPOINTS[0].key;
   let editMode = false;
   let selectedKey = null;
@@ -100,6 +102,19 @@
     streetBanner: 'posPercent+sizePx',
     levelUpBanner: 'posPercent+sizePx',
     tableWinningHand: 'posPercent+sizePx',
+    actBtnAllIn: 'posPercent+sizePx',
+    actBtnBet: 'posPercent+sizePx',
+    actBtnFold: 'posPercent+sizePx',
+    actBtnCheck: 'posPercent+sizePx',
+    potDisplayPot: 'posPercent+sizePx',
+    potDisplayBet: 'posPercent+sizePx',
+    // Position-only, and deliberately its own dragKind ('bgPosPercent',
+    // not 'posPercent') -- see the effectiveValue/handleDragMove
+    // branches below for why: .table-wrap is always full-screen, so
+    // reading/writing its own bounding-box position (what 'posPercent'
+    // does) would be meaningless here. This reads/writes the CSS
+    // background-position-x/-y of the photo itself instead.
+    tableBgPhoto: 'bgPosPercent',
   };
   const CSS_LAYERS = LH.ELEMENTS.map((el) => Object.assign({ type: 'css', dragKind: CSS_DRAG_KIND[el.key] || 'size' }, el));
   const ALL_LAYERS = SEAT_LAYERS.concat(CHIP_LAYERS, CARD_LAYERS, CHIP_LABEL_LAYERS, CSS_LAYERS);
@@ -208,6 +223,15 @@
       renderLayers();
     });
 
+  // Separate system, separate fetch -- see applyBackgroundConfig's own
+  // comment in layout-engine-holdem.js. Loaded independently of the
+  // position config above so one failing never blocks the other.
+  fetch('/api/background-config/holdem')
+    .then((r) => r.json())
+    .then((data) => { if (data && data.ok) bgConfig = data; })
+    .catch(() => {})
+    .finally(() => renderBgPanel());
+
   frame.addEventListener('load', () => {
     try {
       const win = frame.contentWindow;
@@ -216,6 +240,7 @@
       // seatPositions()/renderGameTable() need to keep reading whatever
       // it CURRENTLY points to, not a snapshot frozen at this moment.
       if (win.LayoutHoldem) win.LayoutHoldem.applyAll(frame.contentDocument, win, () => config);
+      if (win.LayoutHoldem) win.LayoutHoldem.applyBackgroundConfig(frame.contentDocument, bgConfig);
       setupOverlayMutationObserver(frame.contentDocument, win);
       // The frame can reload (e.g. leaving/rejoining a table) while Edit
       // Table is still switched on -- keep the forced-visible popups/
@@ -599,7 +624,12 @@
       if (def.dragKind === 'size') {
         cur.width = Math.max(8, Math.round(startVal.width + dx));
         cur.height = Math.max(8, Math.round(startVal.height + dy));
-      } else if (def.dragKind === 'posPercent') {
+      } else if (def.dragKind === 'posPercent' || def.dragKind === 'bgPosPercent') {
+        // Same "drag distance as % of the table" math as posPercent --
+        // for bgPosPercent this nudges the background-position % instead
+        // of the element's own left/top (see effectiveValue below for
+        // the matching read side), but a 1:1 finger-distance feel is
+        // just as correct either way.
         cur.left = round2(startVal.left + (dx / tableRect.width) * 100);
         cur.top = round2(startVal.top + (dy / tableRect.height) * 100);
       } else if (def.dragKind === 'posPercent+sizePx') {
@@ -682,6 +712,20 @@
       } else if (def.dragKind === 'posPercent') {
         const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
         live = { left: round2(((cx - tableRect.left) / tableRect.width) * 100), top: round2(((cy - tableRect.top) / tableRect.height) * 100) };
+      } else if (def.dragKind === 'bgPosPercent') {
+        // .table-wrap's own box is always the full screen -- there's no
+        // meaningful "where is this element" to measure via its rect, so
+        // unlike posPercent above, this reads the actual CSS
+        // background-position-x/-y of the photo instead. Chromium (and
+        // every other engine tested) reports this back as a percentage
+        // when it was set as one, matching the % this same value gets
+        // written as on save -- parseFloat handles that directly; a
+        // keyword fallback ('center' etc, which some engines could in
+        // principle report) falls back to 50 (dead center), matching the
+        // base stylesheet's own default.
+        const cs = win.getComputedStyle(target);
+        const parsePct = (raw) => { const n = parseFloat(raw); return isNaN(n) ? 50 : n; };
+        live = { left: parsePct(cs.backgroundPositionX), top: parsePct(cs.backgroundPositionY) };
       } else if (def.dragKind === 'posPercent+sizePx') {
         const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
         // Community Cards / Your Hand: position is measured off the
@@ -783,7 +827,7 @@
     if (def.type === 'seat') return ['x', 'y', 'width', 'height'];
     if (def.type === 'cards') return ['offsetX', 'offsetY', 'width', 'height'];
     if (def.dragKind === 'size') return ['width', 'height'];
-    if (def.dragKind === 'posPercent') return ['left', 'top'];
+    if (def.dragKind === 'posPercent' || def.dragKind === 'bgPosPercent') return ['left', 'top'];
     // The chip-count number: X/Y move it, "Size" is its font size (a
     // literal width/height on a bare number wouldn't mean anything).
     if (def.dragKind === 'fontSize') return ['offsetX', 'offsetY', 'fontSize'];
@@ -894,6 +938,92 @@
       })
       .catch(() => setStatus('Save failed: network error.', 'error'));
   });
+
+  // ---------------------------------------------------------------------
+  // Background Photos panel -- upload a replacement photo, or restore the
+  // built-in default. Separate from the drag-based layers above (see
+  // applyBackgroundConfig's comment in layout-engine-holdem.js): this
+  // swaps the actual image file; the "Table Background Photo" layer's
+  // X/Y drag still controls where that photo (custom or default) is
+  // cropped/centered, and keeps working exactly the same either way.
+  // ---------------------------------------------------------------------
+  const BG_PANEL_ITEMS = [
+    { key: 'holdem-landscape', field: 'landscape', label: 'Landscape / Desktop' },
+    { key: 'holdem-portrait', field: 'portrait', label: 'Mobile Portrait' },
+  ];
+  function renderBgPanel() {
+    bgPanelEl.innerHTML = BG_PANEL_ITEMS.map((item) => {
+      const custom = !!bgConfig[item.field];
+      return `
+        <div class="ed-bg-row" data-key="${item.key}" style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.08)">
+          <div style="font-weight:700;font-size:0.8rem;margin-bottom:4px">${item.label}</div>
+          <div style="font-size:0.72rem;opacity:0.75;margin-bottom:6px">${custom ? '📷 Custom photo uploaded' : '🖼️ Using the default photo'}</div>
+          <input type="file" accept="image/jpeg,image/png,image/webp" class="ed-bg-file" style="font-size:0.72rem;max-width:100%">
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button class="ed-btn ed-bg-upload" type="button" style="font-size:0.72rem;padding:5px 8px">⬆️ Upload</button>
+            ${custom ? '<button class="ed-btn danger ed-bg-restore" type="button" style="font-size:0.72rem;padding:5px 8px">↺ Restore Default</button>' : ''}
+          </div>
+          <div class="ed-bg-status" style="font-size:0.7rem;margin-top:4px"></div>
+        </div>
+      `;
+    }).join('');
+
+    bgPanelEl.querySelectorAll('.ed-bg-row').forEach((row) => {
+      const key = row.dataset.key;
+      const item = BG_PANEL_ITEMS.find((i) => i.key === key);
+      const statusEl2 = row.querySelector('.ed-bg-status');
+      const fileInput = row.querySelector('.ed-bg-file');
+      row.querySelector('.ed-bg-upload').addEventListener('click', () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) { statusEl2.textContent = 'Choose a photo first.'; return; }
+        const pw = prompt('Admin password to publish this background for every player:');
+        if (pw === null) return;
+        statusEl2.textContent = 'Uploading…';
+        const fd = new FormData();
+        fd.append('image', file);
+        fetch('/api/admin/upload-background/' + key, {
+          method: 'POST',
+          headers: { 'x-admin-password': pw },
+          body: fd,
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data && data.ok) {
+              statusEl2.textContent = 'Uploaded — live for every player now.';
+              return fetch('/api/background-config/holdem').then((r) => r.json()).then((d) => { if (d && d.ok) bgConfig = d; });
+            } else {
+              const errMsgs = { bad_password: 'wrong password', unsupported_type: 'unsupported file type (use JPG/PNG/WebP)', file_too_large: 'file too large (8MB max)', no_file: 'file was not saved (too large, over 8MB, or an unsupported type)' };
+              statusEl2.textContent = 'Upload failed: ' + (errMsgs[data && data.error] || (data && data.error) || 'unknown error');
+            }
+          })
+          .then(() => {
+            renderBgPanel();
+            try { if (frame.contentWindow && frame.contentWindow.LayoutHoldem) frame.contentWindow.LayoutHoldem.applyBackgroundConfig(frame.contentDocument, bgConfig); } catch (e) {}
+          })
+          .catch(() => { statusEl2.textContent = 'Upload failed: network error.'; });
+      });
+      const restoreBtn = row.querySelector('.ed-bg-restore');
+      if (restoreBtn) {
+        restoreBtn.addEventListener('click', () => {
+          if (!confirm('Remove the custom ' + item.label + ' photo and go back to the default?')) return;
+          const pw = prompt('Admin password to publish this change for every player:');
+          if (pw === null) return;
+          statusEl2.textContent = 'Restoring…';
+          fetch('/api/admin/upload-background/' + key, { method: 'DELETE', headers: { 'x-admin-password': pw } })
+            .then((r) => r.json())
+            .then((data) => {
+              if (data && data.ok) { delete bgConfig[item.field]; statusEl2.textContent = 'Restored default.'; }
+              else statusEl2.textContent = 'Failed: ' + (data && data.error === 'bad_password' ? 'wrong password' : (data && data.error) || 'unknown error');
+            })
+            .then(() => {
+              renderBgPanel();
+              try { if (frame.contentWindow && frame.contentWindow.LayoutHoldem) frame.contentWindow.LayoutHoldem.applyBackgroundConfig(frame.contentDocument, bgConfig); } catch (e) {}
+            })
+            .catch(() => { statusEl2.textContent = 'Failed: network error.'; });
+        });
+      }
+    });
+  }
 
   updateUndoRedoButtons();
 })();

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>28 Gulan Hold'em — Visual Layout Editor</title>
-<link rel="stylesheet" href="layout-editor.css?v=10">
+<link rel="stylesheet" href="layout-editor.css?v=11">
 </head>
 <body>
 <!-- Big, impossible-to-miss build banner -- full width, top of the page,
@@ -13,11 +13,11 @@
      so there's a single, obvious, unmissable way to tell whether a phone
      is actually running the latest files or a stale/undeployed copy --
      no functional purpose otherwise. -->
-<div id="edBuildBanner" style="background:#f4c430;color:#1a1206;font-size:1.15rem;font-weight:900;text-align:center;padding:10px 6px;letter-spacing:0.04em;position:sticky;top:0;z-index:999999">BUILD V10</div>
+<div id="edBuildBanner" style="background:#f4c430;color:#1a1206;font-size:1.15rem;font-weight:900;text-align:center;padding:10px 6px;letter-spacing:0.04em;position:sticky;top:0;z-index:999999">BUILD V11</div>
 <div id="edRoot">
   <div id="edTopbar">
     <h1>🎰 Hold'em Table Layout Editor</h1>
-    <span id="edBuildTag" style="font-size:0.65rem;color:#5a7a9a;font-weight:700;letter-spacing:0.03em">build v10</span>
+    <span id="edBuildTag" style="font-size:0.65rem;color:#5a7a9a;font-weight:700;letter-spacing:0.03em">build v11</span>
     <div class="ed-sep"></div>
     <select id="edBreakpointSelect"></select>
     <button class="ed-btn" id="edBtnEditToggle">✏️ Edit Table: OFF</button>
@@ -51,6 +51,10 @@
         <h2>Selected Element</h2>
         <div id="edInspector"><div class="ed-inspector-empty">Join or host a table inside the frame and start a hand so the real seats are on screen, turn on Edit Table, then click an element (or pick one from Layers) to adjust it here.</div></div>
       </div>
+      <div class="ed-sidebar-section" style="flex:0 0 auto">
+        <h2>Background Photos</h2>
+        <div id="edBgPanel"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -61,7 +65,7 @@
      return a stale cached response, so this makes "the fix didn't show
      up" impossible for these two files regardless of any cache
      configuration upstream. -->
-<script src="layout-engine-holdem.js?v=10"></script>
-<script src="layout-editor-holdem.js?v=10"></script>
+<script src="layout-engine-holdem.js?v=11"></script>
+<script src="layout-editor-holdem.js?v=11"></script>
 </body>
 </html>

@@ -100,6 +100,38 @@
     // from that flow so it becomes its own freely-moveable element,
     // completely independent of the Fold/Check/Bet buttons now.
     { key: 'betSlider', label: 'Bet Amount Slider', category: 'Action Bar', selector: '.amount-row', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'position:fixed !important;z-index:46 !important;', viewportRelative: true },
+    // Per explicit request: the 4 action buttons (All-In, Bet/Raise, Fold,
+    // Check/Call) made independently moveable, same "detach with
+    // position:fixed" technique as betSlider just above -- each button
+    // gets its own stable id (added in holdem.html's renderActionBar,
+    // see the comment there) since class selectors alone can't tell
+    // Bet/Raise apart from All-In (both share "action-bet"), or Check
+    // apart from Call (state-dependent class).
+    { key: 'actBtnAllIn', label: 'Action Button — All-In', category: 'Action Bar', selector: '#actBtnAllIn', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'position:fixed !important;z-index:47 !important;flex:none !important;', viewportRelative: true },
+    { key: 'actBtnBet', label: 'Action Button — Bet/Raise', category: 'Action Bar', selector: '#actBtnBet', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'position:fixed !important;z-index:47 !important;flex:none !important;', viewportRelative: true },
+    { key: 'actBtnFold', label: 'Action Button — Fold', category: 'Action Bar', selector: '#actBtnFold', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'position:fixed !important;z-index:47 !important;flex:none !important;', viewportRelative: true },
+    { key: 'actBtnCheck', label: 'Action Button — Check/Call', category: 'Action Bar', selector: '#actBtnCheck', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'position:fixed !important;z-index:47 !important;flex:none !important;', viewportRelative: true },
+    // Per explicit request: the pot readout near the bet controls, as its
+    // own moveable layer -- separate from "Table Pot" (potAnchor) above,
+    // which is only an invisible landing spot for the chip-flying
+    // animation, not the actual text readout. Table-relative (not
+    // viewportRelative), same as potAnchor/boardArea -- it lives inside
+    // .table-wrap, not pinned to the viewport.
+    { key: 'potDisplayPot', label: 'Pot Readout ("Pot: X")', category: 'Chips', selector: '#potDisplayPot', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;bottom:auto !important;right:auto !important;' },
+    { key: 'potDisplayBet', label: 'Bet Readout ("Bet: X")', category: 'Chips', selector: '#potDisplayBet', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;bottom:auto !important;right:auto !important;' },
+    // Per explicit request: reposition (crop) the table's background
+    // PHOTO -- not a box on top of the table, the photo itself. .table-
+    // wrap already covers the full viewport in both breakpoints (see its
+    // own CSS), so there's no meaningful width/height to drag here, only
+    // WHICH PART of the photo shows -- exactly the same "center 12%"
+    // hand-tuned crop already baked into the base stylesheet for
+    // portrait. cssProps deliberately point left/top at the LONGHAND
+    // background-position-x/-y (real, valid separate CSS properties)
+    // instead of the element's actual left/top, so dragging nudges the
+    // photo's crop point, not the (already full-screen, fixed) div
+    // itself. Position-only ('bgPosPercent' dragKind, see CSS_DRAG_KIND
+    // in layout-editor-holdem.js) -- no width/height fields.
+    { key: 'tableBgPhoto', label: 'Table Background Photo', category: 'Background', selector: '.table-wrap', kind: 'position', cssProps: { left: 'background-position-x', top: 'background-position-y' }, fieldUnits: { left: '%', top: '%' } },
     // The three elements below are only ever shown by the real game
     // toggling a `.on` CSS class onto them at the right moment (a new
     // street being dealt, a level-up, a hand's winning cards being
@@ -189,6 +221,29 @@
       if (body) css += body;
     }
     return css;
+  }
+
+  // Applies a CUSTOM UPLOADED background photo (separate system from
+  // buildOverrideCSS/applyCSSConfig above -- this is about swapping the
+  // actual image file, not repositioning it; the tableBgPhoto ELEMENTS
+  // entry's background-position-x/-y override still applies on top of
+  // whichever image ends up showing, custom or default). bgConfig is
+  // whatever /api/background-config/holdem returns: { landscape?: url,
+  // portrait?: url }, either field simply absent when no custom photo
+  // has been uploaded for that breakpoint yet -- a no-op, real photo
+  // stays exactly as the base stylesheet already has it.
+  function applyBackgroundConfig(doc, bgConfig) {
+    if (!doc || !doc.head || !bgConfig) return;
+    let tag = doc.getElementById('bg-override-holdem');
+    if (!tag) {
+      tag = doc.createElement('style');
+      tag.id = 'bg-override-holdem';
+      doc.head.appendChild(tag);
+    }
+    let css = '';
+    if (bgConfig.landscape) css += `body.k28-in-game .table-wrap{background-image:url(${JSON.stringify(bgConfig.landscape)}) !important;}\n`;
+    if (bgConfig.portrait) css += `body.k28-portrait-photo .table-wrap{background-image:url(${JSON.stringify(bgConfig.portrait)}) !important;}\n`;
+    tag.textContent = css;
   }
 
   // Injects (or re-appends, to stay last) the override <style> tag.
@@ -371,7 +426,7 @@
 
   global.LayoutHoldem = {
     SEAT_COUNT, BREAKPOINTS, ELEMENTS, PREVIEW_ON_KEYS,
-    elementByKey, bpForDoc, buildOverrideCSS, applyCSSConfig, patchSeatPositions,
+    elementByKey, bpForDoc, buildOverrideCSS, applyCSSConfig, applyBackgroundConfig, patchSeatPositions,
     applySeatStyles, patchRenderGameTable, applyAll, forceRerender, setPreviewOnClasses,
   };
 })(window);

@@ -27,4 +27,14 @@
       window.LayoutHoldem.applyAll(document, window, data.config);
     })
     .catch(function () {});
+  // Separate system, separate fetch -- see applyBackgroundConfig's own
+  // comment in layout-engine-holdem.js for why a custom uploaded photo
+  // isn't just folded into the position config above.
+  fetch('/api/background-config/holdem')
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) {
+      if (!data || !data.ok || !window.LayoutHoldem) return;
+      window.LayoutHoldem.applyBackgroundConfig(document, data);
+    })
+    .catch(function () {});
 })();
