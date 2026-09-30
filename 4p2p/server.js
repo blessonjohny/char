@@ -195,6 +195,69 @@ app.get('/status', (req, res) => {
 });
 
 // ============================================================
+// VOICE CHAT TURN CREDENTIALS -- Cloudflare Realtime TURN
+// ============================================================
+// public/voice.js needs a TURN relay for players whose network (mobile
+// data, plenty of home/office wifi) blocks direct peer-to-peer WebRTC.
+// Switched from Metered.ca (free tier: 500MB/month) to Cloudflare's
+// Realtime TURN (free tier: 1,000GB/month).
+//
+// Cloudflare's real key (CF_TURN_KEY_ID + CF_TURN_API_TOKEN below) is a
+// powerful, permanent secret -- unlike Metered's old setup, it must
+// NEVER be shipped in any public website file, since anyone who got
+// hold of it could mint unlimited credentials against this account's
+// quota. It's set as a Railway environment variable instead (same
+// pattern as ADMIN_SECRET) and used ONLY here, server-side. What this
+// route actually hands the browser is a short-lived, temporary
+// username/password (expires in TURN_TTL_SECONDS) generated fresh from
+// that real key -- so even if someone inspects the site's public code,
+// all they'd ever see is a pass that's already about to expire.
+//
+// Cached in memory and reused for every player who joins voice during
+// TURN_CACHE_MS, rather than calling Cloudflare's API again for every
+// single call join -- one generated credential set already works for
+// any number of peer connections made before it expires.
+let turnCredCache = { expiresAt: 0, data: null };
+const TURN_TTL_SECONDS = 24 * 60 * 60;       // credential is valid 24h
+const TURN_CACHE_MS = 12 * 60 * 60 * 1000;   // refresh halfway through, well before it actually expires
+app.get('/api/turn-credentials', async (req, res) => {
+  const keyId = process.env.CF_TURN_KEY_ID;
+  const apiToken = process.env.CF_TURN_API_TOKEN;
+  const stunOnlyFallback = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+    ]
+  };
+  if (!keyId || !apiToken) {
+    // Not configured yet (env vars missing) -- fall back to STUN-only
+    // so voice still works for anyone who doesn't need a relay, rather
+    // than erroring out for everyone.
+    return res.json(stunOnlyFallback);
+  }
+  const now = Date.now();
+  if (turnCredCache.data && turnCredCache.expiresAt > now) {
+    return res.json(turnCredCache.data);
+  }
+  try {
+    const cfResp = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate-ice-servers`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ttl: TURN_TTL_SECONDS }),
+    });
+    if (!cfResp.ok) throw new Error(`Cloudflare TURN API returned HTTP ${cfResp.status}`);
+    const data = await cfResp.json();
+    turnCredCache = { data, expiresAt: now + TURN_CACHE_MS };
+    res.json(data);
+  } catch (e) {
+    console.error('[turn-credentials] Failed to generate Cloudflare TURN credentials:', e.message);
+    // Serve a still-valid cached credential rather than nothing, if we have one.
+    if (turnCredCache.data && turnCredCache.expiresAt > now - TURN_CACHE_MS) return res.json(turnCredCache.data);
+    res.json(stunOnlyFallback);
+  }
+});
+
+// ============================================================
 // COMMENT BOX — lets a player leave a message from the welcome screen
 // without needing any email server. Readable only through /api/comments
 // with the admin password -- that's the "admin panel" this feeds; see
