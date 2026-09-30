@@ -15,31 +15,49 @@
 // Google STUN servers below to help browsers find each other across
 // different networks.
 //
-// One caveat: a small number of restrictive networks (some corporate
-// wifi, some mobile carriers) block direct peer connections outright. On
-// those, voice can fail to connect for just that one player even though
-// everyone else is fine. The fix is a free TURN relay account — see the
-// TURN_SERVERS note below. Not required to ship this; only add it if
-// someone reports voice not connecting for them specifically.
+// One caveat: most real-world networks (mobile data, plenty of home/office
+// wifi) need a TURN relay to get audio through at all -- STUN alone only
+// covers direct peer-to-peer connections, which carrier-grade NAT and many
+// routers block outright. TURN_USERNAME/TURN_CREDENTIAL below are this
+// game's own DEDICATED Metered.ca account (free tier, 500MB/month, used
+// only by this game -- not shared with any other app), which replaced the
+// previous setup here: Open Relay Project's free SHARED community login,
+// the same public username/password every other app on their free tier
+// also used, worldwide, all drawing against the same pool. That's exactly
+// why voice used to look "connected" (mic goes live) but carry no audio
+// only some of the time -- whether a given connection got through depended
+// on how loaded that shared relay happened to be at that moment for
+// everyone using it, not on this game specifically.
 // ============================================================
 (function () {
-  const ICE_SERVERS = [
+  // Switched from Metered.ca (free tier: 500MB/month -- too small a
+  // ceiling once real usage picks up) to Cloudflare's Realtime TURN
+  // service (free tier: 1,000GB/month). Unlike Metered's setup, the
+  // real Cloudflare credential is a powerful, permanent secret that
+  // must never be shipped in this public file -- it lives ONLY on the
+  // server (server.js, as the CF_TURN_KEY_ID/CF_TURN_API_TOKEN
+  // environment variables) and is never visible to anyone viewing this
+  // site's source. This file instead asks the server for a temporary,
+  // short-lived (24h) username/password every time voice loads, via
+  // /api/turn-credentials -- see that route in server.js for the full
+  // reasoning. Starts as STUN-only and gets replaced once the fetch
+  // below resolves; if the fetch fails for any reason, voice chat still
+  // works for anyone whose connection doesn't need TURN, it just won't
+  // get the relay fallback that flaky mobile/wifi connections need.
+  let ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    // Free, shared community TURN relay (Open Relay Project) — no signup.
-    // Needed whenever a direct connection can't be made — most commonly
-    // when someone is on mobile data, since carriers almost always sit
-    // everyone behind carrier-grade NAT that blocks direct peer audio
-    // even though the two devices can still "find" each other via STUN.
-    // Being a shared public relay it can occasionally be slow/rate-limited;
-    // if voice still misbehaves for someone, swap these 3 lines for a free
-    // personal Metered.ca account (2-minute signup, 20GB/month free,
-    // dedicated to just this game): https://www.metered.ca/tools/openrelay/
-    { urls: 'stun:openrelay.metered.ca:80' },
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
   ];
+  const iceServersReady = fetch('/api/turn-credentials')
+    .then(r => r.json())
+    .then(data => {
+      if (data && Array.isArray(data.iceServers) && data.iceServers.length) {
+        ICE_SERVERS = data.iceServers;
+      }
+    })
+    .catch((e) => {
+      console.warn('[voice] Could not fetch TURN credentials, falling back to STUN-only:', e.message);
+    });
 
   let socket = null;
   let localStream = null;
@@ -235,19 +253,56 @@
       attemptPlay(audio);
       watchLevel(id, e.streams[0]);
     };
+    // Real-world networks (mobile data, restrictive wifi) can leave a peer
+    // connection stuck exactly the way it's been reported live: the mic
+    // button goes "live" (that only means the local mic + signaling
+    // succeeded, not that audio is actually flowing both ways) while the
+    // ICE/media path itself never completes or drops silently -- same-
+    // machine testing can't reproduce this because localhost never needs
+    // STUN/TURN to begin with. WebRTC's standard recovery for that is an
+    // ICE restart on the existing connection rather than tearing the peer
+    // down immediately and hoping it reconnects some other way.
     pc.onconnectionstatechange = () => {
-      if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) removePeer(id);
+      if (pc.connectionState === 'failed') {
+        try { pc.restartIce(); } catch (e) {}
+        return;
+      }
+      if (['closed', 'disconnected'].includes(pc.connectionState)) removePeer(id);
     };
-    if (isInitiator) {
-      pc.onnegotiationneeded = async () => {
-        try {
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          socket.emit('voiceSignal', { to: id, signal: { sdp: pc.localDescription } });
-        } catch (e) { console.warn('[voice] negotiation error', e); }
-      };
-    }
+    // Both sides can end up needing to originate a fresh offer later (an
+    // ICE restart from either end fires this same event), but the very
+    // first time this fires on the ANSWER side it's just the browser
+    // reacting to addTrack() before any negotiation has happened at all --
+    // that initial handshake is already driven explicitly by the incoming
+    // offer in handleSignal() below, so it's ignored here via the
+    // pc._answered guard, which only flips true once that first answer has
+    // actually been sent.
+    pc.onnegotiationneeded = async () => {
+      if (!isInitiator && !pc._answered) return;
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('voiceSignal', { to: id, signal: { sdp: pc.localDescription } });
+      } catch (e) { console.warn('[voice] negotiation error', e); }
+    };
     return pc;
+  }
+
+  // A brief real-world network drop (wifi hiccup, phone locking, a
+  // carrier tower handoff) can take the underlying Socket.IO connection
+  // down along with it. The server correctly can't tell that's temporary
+  // -- from its side that socket is simply gone -- so the moment it
+  // happens, it already removes this player from the voice room and
+  // tells every other peer they left (see the 'disconnect' handler in
+  // server.js). Reconnecting gets a brand-new socket id, so unless this
+  // device also rejoins voice specifically, everyone else's side stays
+  // torn down forever even though the game itself reconnected fine --
+  // exactly the reported "have to rejoin manually" symptom. This clears
+  // out the now-stale peer connections left over from before the drop
+  // (the other ends already closed theirs) so a fresh join can rebuild
+  // them cleanly.
+  function clearStalePeers() {
+    for (const id of Array.from(peers.keys())) removePeer(id);
   }
 
   function removePeer(id) {
@@ -270,6 +325,7 @@
       if (signal.sdp.type === 'offer') {
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        pc._answered = true;
         socket.emit('voiceSignal', { to: from, signal: { sdp: pc.localDescription } });
       }
     } else if (signal.candidate) {
@@ -280,6 +336,12 @@
   // ---------------- Public API ----------------
   async function join() {
     if (inCall) return true;
+    // Make sure the real TURN credentials (not just the STUN-only
+    // starting value above) have arrived before anyone actually tries
+    // to connect -- this resolves almost instantly in practice since
+    // the fetch kicked off the moment this script loaded, well before
+    // a player taps the mic button.
+    await iceServersReady;
     try {
       await ensureMic();
     } catch (e) {
@@ -474,6 +536,19 @@
     socket.on('voicePeerJoined', (p) => { names.set(p.id, p.name); renderList(); updateActiveLight(); });
     socket.on('voicePeerLeft', ({ id }) => removePeer(id));
     socket.on('voiceSignal', ({ from, signal }) => handleSignal(from, signal));
+    // Fires on every successful (re)connection of the underlying game
+    // socket, including the very first one -- inCall is still false at
+    // that point (nobody's tapped the mic yet) so this is a harmless
+    // no-op then. It only does something on a genuine RECONNECT after an
+    // actual voice call was already underway, silently rebuilding it
+    // with the still-held microphone stream (no new permission prompt,
+    // no visible interruption) instead of leaving voice quietly dead
+    // until the person notices and manually retaps the mic button.
+    socket.on('connect', () => {
+      if (!inCall) return;
+      clearStalePeers();
+      socket.emit('voiceJoin', { name: getName() });
+    });
     document.addEventListener('click', retryBlockedAudio, { passive: true });
   }
 

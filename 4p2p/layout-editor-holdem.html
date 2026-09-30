@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- maximum-scale=1, user-scalable=no stop the BROWSER's own native pinch/
+     ctrl-scroll page zoom here -- without this, pinching or ctrl-scrolling
+     anywhere on this editor (even right over the table) zoomed the whole
+     page, toolbar and all, because nothing told the browser not to. Real
+     zoom now comes entirely from the +/-/Fit buttons and the ctrl+scroll/
+     pinch handling in layout-editor-holdem.js, which only ever scale the
+     table itself. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>28 Gulan Hold'em — Visual Layout Editor</title>
+<link rel="stylesheet" href="layout-editor.css?v=11">
+<link rel="stylesheet" href="layout-editor-holdem.css?v=3">
+</head>
+<body>
+<div id="edRoot">
+  <div id="edTopbar">
+    <h1>🎰 Hold'em Layout Editor</h1>
+    <!-- Tiny, unobtrusive version tag -- replaces the old full-width
+         shouting yellow banner (real, repeated complaint: "long
+         horizontal bars", "a kid keyed out"). Still bumped on every
+         delivered fix so a stale cached copy is still detectable, just
+         without demanding the whole top of the screen to do it. -->
+    <span id="edBuildTag" title="Build version">v16</span>
+    <select id="edBreakpointSelect"></select>
+    <button class="ed-btn" id="edBtnEditToggle">✏️ Edit Table</button>
+    <div class="ed-dropdown-wrap">
+      <button class="ed-btn" id="edBtnLayersToggle" type="button">🗂️ Layers</button>
+      <div class="ed-dropdown-panel" id="edLayersPanel" style="display:none">
+        <div class="ed-sidebar-section">
+          <h2>Layers</h2>
+          <div id="edLayers"></div>
+        </div>
+      </div>
+    </div>
+    <div class="ed-dropdown-wrap">
+      <button class="ed-btn" id="edBtnBgToggle" type="button">🖼️ Background</button>
+      <div class="ed-dropdown-panel" id="edBgDropdownPanel" style="display:none">
+        <div class="ed-sidebar-section">
+          <h2>Background Photos</h2>
+          <div id="edBgPanel"></div>
+        </div>
+      </div>
+    </div>
+    <div class="ed-zoom-group">
+      <button class="ed-btn" id="edBtnZoomOut" title="Zoom out">−</button>
+      <span id="edZoomLabel">100%</span>
+      <button class="ed-btn" id="edBtnZoomIn" title="Zoom in">+</button>
+      <button class="ed-btn" id="edBtnZoomFit" title="Fit to screen">Fit</button>
+    </div>
+    <button class="ed-btn" id="edBtnUndo" disabled title="Undo">↶</button>
+    <button class="ed-btn" id="edBtnRedo" disabled title="Redo">↷</button>
+    <button class="ed-btn danger" id="edBtnReset" title="Reset this layout">Reset</button>
+    <button class="ed-btn primary" id="edBtnSave">💾 Save</button>
+    <div id="edStatus">Loading…</div>
+  </div>
+  <div id="edBody">
+    <div id="edStage">
+      <div id="edFrameWrap">
+        <iframe id="edFrame" src="holdem.html"></iframe>
+      </div>
+    </div>
+    <!-- Slim bottom bar for the selected element's fields -- replaces the
+         old tall "Selected Element" sidebar panel. Stays thin and out of
+         the canvas's way; only the field row itself takes real width, and
+         that scrolls sideways on a narrow screen rather than pushing the
+         table down. -->
+    <div id="edPropsBar">
+      <div id="edInspector"><div class="ed-inspector-empty">Turn on Edit Table, then tap an element (or pick one from Layers).</div></div>
+    </div>
+  </div>
+</div>
+<!-- ?v= cache-busts these files specifically: a phone browser (or a CDN in
+     front of the live site) can keep serving an old cached copy of a .js
+     file under its old URL even after the file on disk changed. Bump this
+     number on every future delivery -- a new URL can never return a stale
+     cached response, so this makes "the fix didn't show up" impossible for
+     these files regardless of any cache configuration upstream. -->
+<script src="layout-engine-holdem.js?v=16"></script>
+<script src="layout-editor-holdem.js?v=16"></script>
+</body>
+</html>

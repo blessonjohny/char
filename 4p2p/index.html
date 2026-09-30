@@ -87,7 +87,7 @@ window.__isAdminWatchMode = new URLSearchParams(window.location.search).has('adm
 <meta property="og:url" content="https://28gulan.com/">
 <meta property="og:title" content="Play Card Games Online Free – 28, Poker, Spades, Carrom & Pool">
 <meta property="og:description" content="Play card games online free with friends or offline vs smart AI bots — 28 (Kerala Gulan / Eripathettu), Texas Hold'em Poker, Spades, Carrom, and 8-Ball Pool. No download needed.">
-<meta property="og:image" content="https://28gulan.com/og-image.jpg">
+<meta property="og:image" content="https://28gulan.com/images/desktop-bg-4p.jpg">
 <meta property="og:locale" content="en_IN">
 <meta property="og:site_name" content="28 Kerala Gulan">
 
@@ -95,7 +95,7 @@ window.__isAdminWatchMode = new URLSearchParams(window.location.search).has('adm
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Play 28 Card Game Online Free | Kerala Gulan">
 <meta name="twitter:description" content="Play the classic Kerala 28 (Gulan / Eripathettu) card game online with voice chat, or vs AI bots offline. Free, instant, no download.">
-<meta name="twitter:image" content="https://28gulan.com/og-image.jpg">
+<meta name="twitter:image" content="https://28gulan.com/images/desktop-bg-4p.jpg">
 
 <!-- Structured data: helps Google + AI assistants understand and cite this page -->
 <script type="application/ld+json">
@@ -622,6 +622,36 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .welcome-stat{text-align:center}
 .welcome-stat-num{font-size:1.3rem;font-weight:800;color:var(--accent);line-height:1}
 .welcome-stat-label{font-size:0.55rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+/* "Live Now" panel -- see the matching HTML/script block right after welcome-btn-wrap opens,
+   for the full feature reasoning. Same rounded-card, gold-hairline language as the rest of
+   this screen (welcome-btn, welcome-stats-bar) so it reads as part of the same design system
+   rather than a bolted-on widget. */
+/* flex-shrink:0 is load-bearing, not decorative: .welcome-screen is a column flexbox that can
+   run taller than the viewport, and this card's own overflow:hidden (wanted purely to clip its
+   rounded corners) makes its flex min-height resolve to 0 per spec -- without an explicit
+   flex-shrink:0, the layout engine was squashing this card down to ~2px to make room for the
+   taller sibling elements instead of leaving that to the screen's own overflow-y:auto scroll,
+   which is what every other section here already relies on. Found by literally measuring the
+   collapsed box with a live render, not by guessing. */
+.welcome-live-tables{width:100%;max-width:500px;margin:0 auto 18px;background:rgba(255,215,0,0.04);border:1px solid rgba(255,215,0,0.18);border-radius:14px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.25);flex-shrink:0}
+.wlt-header{display:flex;align-items:center;gap:8px;padding:10px 16px;font-family:'Cinzel','Playfair Display',serif;font-weight:700;font-size:0.74rem;letter-spacing:1px;color:var(--accent);text-transform:uppercase;border-bottom:1px solid rgba(255,215,0,0.12);background:rgba(255,215,0,0.05)}
+.wlt-dot{width:8px;height:8px;border-radius:50%;background:#3ddc70;box-shadow:0 0 6px rgba(61,220,112,0.9);flex-shrink:0;animation:wltPulse 1.4s ease-in-out infinite}
+@keyframes wltPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.45;transform:scale(0.7)}}
+/* Scrolls once there are more live tables than comfortably fit -- per explicit request
+   ("if more than that space... makebit nice and pro looking... scroll it"). ~4 rows visible
+   before scrolling kicks in. */
+.wlt-list{max-height:224px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.wlt-list::-webkit-scrollbar{width:6px}
+.wlt-list::-webkit-scrollbar-thumb{background:rgba(255,215,0,0.25);border-radius:3px}
+.wlt-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.05);text-decoration:none;transition:background 0.15s ease}
+.wlt-row:last-child{border-bottom:none}
+.wlt-row:hover,.wlt-row:active{background:rgba(255,215,0,0.09)}
+.wlt-badge{flex-shrink:0;font-family:'Cinzel Decorative','Cinzel',serif;font-weight:700;font-size:0.6rem;letter-spacing:0.3px;color:#241a12;background:linear-gradient(135deg,var(--accent),#e6c200);border-radius:6px;padding:4px 8px;min-width:46px;text-align:center;white-space:nowrap}
+.wlt-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.wlt-name{font-size:0.78rem;font-weight:700;color:#f0e4c8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wlt-meta{font-size:0.64rem;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wlt-join{flex-shrink:0;font-size:0.66rem;font-weight:800;color:var(--bg-dark);background:var(--accent);border-radius:20px;padding:5px 13px;letter-spacing:0.3px;box-shadow:0 2px 8px rgba(255,215,0,0.3)}
+.wlt-empty{padding:18px 16px;text-align:center;font-size:0.75rem;color:var(--text-secondary);line-height:1.5}
 .welcome-footer{font-size:0.6rem;color:rgba(139,164,190,0.5);padding:0 20px 20px;text-align:center;letter-spacing:1px;width:100%;max-width:500px;margin:0 auto}
 .welcome-rules{display:none}
 
@@ -3331,18 +3361,86 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* unread badge on chat btn */
 .chat-badge{position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;font-size:0.5rem;font-weight:800;border-radius:50%;width:14px;height:14px;display:none;align-items:center;justify-content:center}
 
-/* ---- Comic-book style chat popup (brief, auto-dismissing) ---- */
+/* ---- Comic-book style chat popup (brief, auto-dismissing) ----
+   Per explicit live report: moved from a small top-right corner card to
+   dead center of the screen and made noticeably bigger (wider box,
+   larger text), same change applied identically on the 4-player and
+   6-player tables. The pop-in/pop-out keyframes now bake the
+   translate(-50%,-50%) centering into every step of their own transform
+   (rather than leaving it in a separate, un-animated base transform),
+   since a running CSS animation overwrites the whole transform property
+   on each frame -- a translate set only outside the animation would get
+   discarded the instant the animation starts and the popup would jump
+   to the top-left corner. */
+/* Real, confirmed redesign, round 2, per explicit live follow-up
+   ("main cloud looks like a line... make is oval... i see 2 or 3
+   bubble tail, that tail should end were the chatter is... outer part
+   of the oval can be blurry to look like a cloud"): the previous
+   version was still one flat box with a small fixed corner-radius --
+   on a short, wide message that reads as a barely-rounded line, not an
+   oval. Restructured into three separate, layered pieces instead:
+     - .comic-cloud-halo: a blurred duplicate sitting BEHIND the real
+       bubble. Blurring the bubble itself would blur the message text
+       too, so the soft, fuzzy "cloud edge" look lives on this separate
+       layer instead, with the real bubble crisp on top of it.
+     - .comic-cloud-body: the actual readable bubble. border-radius:50%
+       on a rectangular box is what genuinely turns it into an ellipse
+       (an oval, not a rounded rectangle) at ANY width/height, which is
+       what actually fixes "looks like a line" for short messages.
+     - .comic-cloud-tail: 3 small round puffs trailing off the bubble.
+       Built pointing along a fixed direction by default, then rotated
+       by JS (see showComicChatPopup below) around the bubble's own
+       center to the REAL angle toward whichever seat actually sent the
+       message, so the tail genuinely ends where the chatter is instead
+       of always trailing the same fixed corner regardless of who spoke.
+*/
 .comic-chat-popup{
-  position:fixed;top:56px;right:10px;max-width:220px;z-index:650;
-  background:#fdf6e3;color:#1a1a1a;border:3px solid #1a1a1a;border-radius:16px 16px 4px 16px;
-  padding:10px 12px;font-family:serif;font-size:0.78rem;line-height:1.3;
-  box-shadow:4px 4px 0 rgba(0,0,0,0.35);
+  position:fixed;top:50%;left:50%;z-index:650;pointer-events:none;
   animation:comicPopIn .25s cubic-bezier(.2,1.4,.4,1) both, comicPopOut .3s ease-in 2.7s both;
-  pointer-events:none;
 }
-.comic-chat-popup .comic-from{font-weight:900;text-transform:uppercase;font-size:0.68rem;letter-spacing:0.3px;color:#7c2334;margin-bottom:2px}
-@keyframes comicPopIn{0%{opacity:0;transform:scale(0.5) rotate(-4deg);}60%{transform:scale(1.06) rotate(1deg);}100%{opacity:1;transform:scale(1) rotate(-1deg);}}
-@keyframes comicPopOut{0%{opacity:1;}100%{opacity:0;transform:scale(0.92) translateY(-6px);}}
+.comic-cloud-halo{
+  position:absolute;inset:-20px;border-radius:50%;
+  background:rgba(30,24,42,0.55);
+  filter:blur(20px);
+  z-index:0;
+}
+.comic-cloud-body{
+  position:relative;z-index:2;
+  max-width:290px;min-width:190px;min-height:64px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:#fdf6e3;
+  padding:20px 36px;
+  font-family:'Segoe UI',system-ui,sans-serif;font-size:1.02rem;line-height:1.4;text-align:center;
+}
+.comic-cloud-body::before{
+  content:'';position:absolute;inset:0;z-index:-1;
+  background:rgba(26,22,36,0.62);
+  -webkit-backdrop-filter:blur(14px) saturate(160%);
+  backdrop-filter:blur(14px) saturate(160%);
+  border:2.5px solid rgba(244,196,48,0.65);
+  border-radius:50%;
+  box-shadow:0 10px 30px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.08);
+  filter:url(#cloudyEdge);
+}
+.comic-cloud-body .comic-from{font-weight:800;text-transform:uppercase;font-size:0.78rem;letter-spacing:0.5px;color:var(--gold,#f4c430);margin-bottom:4px;text-shadow:0 1px 3px rgba(0,0,0,0.6)}
+.comic-cloud-tail{
+  position:absolute;top:50%;left:50%;width:0;height:0;z-index:1;
+  transform:rotate(145deg);
+}
+.comic-cloud-tail .puff{
+  position:absolute;top:0;left:0;border-radius:50%;
+  background:rgba(26,22,36,0.62);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  border:2px solid rgba(244,196,48,0.7);
+  box-shadow:0 3px 10px rgba(0,0,0,0.4);
+  transform:translate(-50%,-50%);
+  filter:url(#cloudyEdge);
+}
+.comic-cloud-tail .puff-1{width:20px;height:20px;left:88px;}
+.comic-cloud-tail .puff-2{width:13px;height:13px;left:112px;}
+.comic-cloud-tail .puff-3{width:8px;height:8px;left:130px;}
+@keyframes comicPopIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.5) rotate(-4deg);}60%{transform:translate(-50%,-50%) scale(1.06) rotate(1deg);}100%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(-1deg);}}
+@keyframes comicPopOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(-1deg);}100%{opacity:0;transform:translate(-50%,calc(-50% - 6px)) scale(0.92);}}
 .chat-badge.on{display:flex}
 /* #btnChat now lives fixed at the table's bottom-right corner (see
    .table-corner-btn / voice.js positionButtons()) instead of inline in
@@ -4081,6 +4179,25 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 </style>
 </head>
 <body>
+<!-- Real, confirmed feature per explicit follow-up request ("the
+     boarders of all bubbles shouldn't be solid it should be cloudy"):
+     a zero-size, invisible SVG holding one <filter> definition, reused
+     by both the chat bubble's own border and its 3 tail puffs (see
+     .comic-cloud-body::before and .comic-cloud-tail .puff in the CSS).
+     feTurbulence generates a smooth, organic noise field; feDisplacementMap
+     then pushes each pixel of the shape it's applied to around by that
+     noise amount -- the net effect is a perfectly ordinary smooth oval
+     border coming out visibly wobbly and uneven, like a hand-drawn
+     cartoon cloud outline, instead of a crisp, ruler-straight ring. This
+     is applied only to a background pseudo-element behind the message
+     text (never to the text itself, which would otherwise get warped
+     and unreadable right along with the border). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="cloudyEdge" x="-20%" y="-20%" width="140%" height="140%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.018 0.05" numOctaves="2" seed="7" result="cloudNoise"/>
+    <feDisplacementMap in="SourceGraphic" in2="cloudNoise" scale="9" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
 <!-- Personal-avatar PIN modal -- deliberately placed here, as an
      always-present top-level body child, not nested inside #gameWrap
      or any other conditionally-hidden screen container. Real bug fix,
@@ -4265,6 +4382,82 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </div>
   </div>
 
+  <!-- Real, confirmed feature per explicit live report, with a screenshot marking exactly
+       where ("this is the welcome page see were I marked with blue pen there it should show
+       all the live matches that are running with at least 1 real player... make it nice and
+       pro looking so people know if any table 4p/6p/holdem/56 running"): a scrollable "Live
+       Now" panel sitting right between the stat row and the mode buttons, polling the new
+       public /api/public-live-tables endpoint (server.js) -- deliberately a separate,
+       unauthenticated, privacy-stripped endpoint from the admin panel's /api/all-tables,
+       since that one includes real player names and IP-derived locations that must never
+       reach every visitor. Only tables with at least one real (non-bot) seated human show up
+       here at all -- an empty or all-bot table isn't "live" to a visitor deciding whether to
+       join. See the render/poll script right after this block's closing tag. -->
+  <div class="welcome-live-tables" id="welcomeLiveTables">
+    <div class="wlt-header"><span class="wlt-dot"></span><span>Live Now</span></div>
+    <div class="wlt-list" id="wltList">
+      <div class="wlt-empty">Checking for live tables…</div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    // Maps each game's `mode` (as returned by /api/public-live-tables, itself sourced from
+    // getAllTablesSummary()'s own per-table `mode` field in server.js) to the page that table
+    // is actually played on and a short display badge -- every one of these pages already
+    // supports a `?invite=<tableId>` deep link (see shareHoldemInviteLink/six.js's own invite
+    // link builder/index.html's inviteParam handling), so "Join" here reuses that exact same
+    // mechanism rather than inventing a new join flow.
+    var WLT_GAME_META = {
+      '4p':     { label: '28 · 4P',    page: '/index.html' },
+      '6p':     { label: '28 · 6P',    page: '/six.html' },
+      '56':     { label: '56',         page: '/56.html' },
+      'holdem': { label: "Hold'em",    page: '/holdem.html' },
+    };
+    var listEl = document.getElementById('wltList');
+    var inFlight = false;
+    function phaseLabel(t) {
+      if (!t.isPlaying) return 'Waiting for players';
+      return 'In progress';
+    }
+    function render(tables) {
+      if (!listEl) return;
+      if (!tables.length) {
+        listEl.innerHTML = '<div class="wlt-empty">No live tables right now — start one below and be the first! 👇</div>';
+        return;
+      }
+      var html = tables.map(function (t) {
+        var meta = WLT_GAME_META[t.mode] || { label: t.game, page: '/index.html' };
+        var href = meta.page + '?invite=' + encodeURIComponent(t.tableId);
+        var seats = t.humans + t.bots;
+        return '<a class="wlt-row" href="' + href + '">' +
+          '<span class="wlt-badge">' + meta.label + '</span>' +
+          '<span class="wlt-info">' +
+            '<span class="wlt-name">' + phaseLabel(t) + '</span>' +
+            '<span class="wlt-meta">' + seats + ' of ' + t.maxSeats + ' seats · ' + t.humans + (t.humans === 1 ? ' real player' : ' real players') + '</span>' +
+          '</span>' +
+          '<span class="wlt-join">Join</span>' +
+        '</a>';
+      }).join('');
+      listEl.innerHTML = html;
+    }
+    function poll() {
+      if (inFlight) return;
+      inFlight = true;
+      fetch('/api/public-live-tables').then(function (r) { return r.json(); }).then(function (data) {
+        inFlight = false;
+        if (data && data.ok && Array.isArray(data.tables)) render(data.tables);
+      }).catch(function () {
+        inFlight = false;
+        // Leave whatever was last successfully rendered on screen rather than replacing it
+        // with an error state -- a single dropped request shouldn't flash "no tables" at
+        // someone who was just looking at a real list a few seconds ago.
+      });
+    }
+    poll();
+    setInterval(poll, 8000);
+  })();
+  </script>
+
   <div class="welcome-btn-wrap welcome-btn-grid">
     <button class="welcome-btn primary" id="btnPlayOnline" style="background:linear-gradient(160deg,rgba(138,34,28,0.78) 0%,rgba(92,21,15,0.75) 55%,rgba(43,6,3,0.72) 100%);border-color:#cfa160;color:#f0cf94;backdrop-filter:blur(2px)">
       <span class="btn28-badge">28</span><span class="btn28-modelabel">4 Player</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">🎙️ live voice chat</span>
@@ -4386,7 +4579,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       Beyond 28, this is a full <b>play cards online</b> and <b>play board games online</b> hub — five more free games, all live multiplayer or offline against AI bots, no download required.
     </div>
     <div class="welcome-about-text">
-      <b><a href="/holdem.html" style="color:var(--accent, #FFD700)">Texas Hold'em Poker</a></b> — <b>play poker online</b> free, 9-player tables, classic no-limit Hold'em action straight from your browser.
+      <b><a href="/holdem.html" style="color:var(--accent, #FFD700)">Texas Hold'em Poker</a></b> — <b>play poker online</b> free, 9-player tables, classic no-limit Hold'em action straight from your browser. New to the game? Read the <a href="/texas-holdem-guide.html" style="color:var(--accent, #FFD700);text-decoration:underline">Texas Hold'em rules &amp; hand rankings guide →</a>
     </div>
     <div class="welcome-about-text">
       <b><a href="/spades.html" style="color:var(--accent, #FFD700)">Spades</a></b> — <b>play Spades online</b> free, the classic 4-player partnership card game, live multiplayer or offline vs smart AI bots.
@@ -5760,7 +5953,17 @@ function heroAvatarHtml(key) {
   // way a function declaration is). TOON_COUNT below is the same number
   // ALL_AVATAR_KEYS is built from, just usable this early. Update both
   // places together if the avatar set size changes again.
-  const TOON_COUNT = 106;
+  //
+  // Real bug fix, per explicit report ("when I select an avatar it's
+  // not picking the right one"): this was 106, but ALL_AVATAR_KEYS
+  // (and the picker grid built from it) also includes toon107/108/109
+  // -- three extra bonus avatars added after the original 1-106 set.
+  // Since 107-109 are all > 106, validNum below rejected every one of
+  // them as "out of range" even though they're perfectly legitimate,
+  // so picking any of those 3 silently hashed you into a random
+  // unrelated avatar instead of the one you actually tapped. 109 is
+  // now the true top of the valid range.
+  const TOON_COUNT = 109;
   // Per explicit request: the 5 personal, PIN-protected avatars
   // (toon101-105) must never be handed out automatically -- this
   // fallback path only runs for an already-invalid/out-of-range key,
@@ -13696,14 +13899,35 @@ function initChatPanelPosition() {
   chatPanelInited = true;
 }
 
+// Uses visualViewport (when the browser supports it) instead of
+// window.innerWidth/innerHeight so the panel is clamped to the space the
+// on-screen keyboard actually leaves visible, not the full layout viewport.
+// On iOS Safari in particular, opening the keyboard does NOT fire a
+// window 'resize' event -- only visualViewport 'resize'/'scroll' fire --
+// so without this the panel (and its input row) could end up sitting
+// right behind the keyboard, invisible while typing.
 function clampChatPanelToViewport() {
   const panel = document.getElementById('chatPanel');
   if (!panel) return;
-  const vw = window.innerWidth, vh = window.innerHeight;
+  const vv = window.visualViewport;
+  const vw = vv ? vv.width : window.innerWidth;
+  const vh = vv ? vv.height : window.innerHeight;
+  const offX = vv ? vv.offsetLeft : 0;
+  const offY = vv ? vv.offsetTop : 0;
   const rect = panel.getBoundingClientRect();
+
+  // Shrink the panel first if the keyboard has left less room than the
+  // panel's current size -- otherwise it simply can't fit on-screen at all.
+  const maxW = Math.max(220, vw - 16);
+  const maxH = Math.max(180, vh - 16);
+  const w = Math.min(rect.width, maxW);
+  const h = Math.min(rect.height, maxH);
+  if (w !== rect.width) panel.style.width = w + 'px';
+  if (h !== rect.height) panel.style.height = h + 'px';
+
   let left = rect.left, top = rect.top;
-  left = Math.min(Math.max(left, -rect.width + 60), vw - 60);
-  top = Math.min(Math.max(top, 0), vh - 44);
+  left = Math.min(Math.max(left, offX), offX + vw - w);
+  top = Math.min(Math.max(top, offY), offY + vh - h);
   panel.style.left = left + 'px';
   panel.style.top = top + 'px';
 }
@@ -13791,6 +14015,20 @@ function closeChat() {
   // A phone rotation or resize could otherwise leave the panel partly (or
   // entirely) off the new, smaller viewport.
   window.addEventListener('resize', () => { if (chatPanelInited) clampChatPanelToViewport(); });
+  // The mobile keyboard opening/closing is what visualViewport reports;
+  // plain window resize often doesn't fire for it at all (iOS Safari).
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => { if (chatPanelInited) clampChatPanelToViewport(); });
+    window.visualViewport.addEventListener('scroll', () => { if (chatPanelInited) clampChatPanelToViewport(); });
+  }
+  // Belt-and-suspenders: also re-clamp shortly after the input gets focus,
+  // in case the viewport event lands after the keyboard's show animation.
+  const chatInputEl = document.getElementById('chatInput');
+  if (chatInputEl) {
+    chatInputEl.addEventListener('focus', () => {
+      if (chatPanelInited) setTimeout(clampChatPanelToViewport, 300);
+    });
+  }
 })();
 
 function addChatMessage(from, msg, isMine) {
@@ -13817,8 +14055,36 @@ function showComicChatPopup(from, msg) {
   document.querySelectorAll('.comic-chat-popup').forEach(el => el.remove());
   const el = document.createElement('div');
   el.className = 'comic-chat-popup';
-  el.innerHTML = '<div class="comic-from">' + escapeHtml(from) + '</div>' + linkifyEscaped(escapeHtml(msg));
+  el.innerHTML =
+    '<div class="comic-cloud-halo"></div>' +
+    '<div class="comic-cloud-body"><div class="comic-from">' + escapeHtml(from) + '</div>' + linkifyEscaped(escapeHtml(msg)) + '</div>' +
+    '<div class="comic-cloud-tail"><span class="puff puff-1"></span><span class="puff puff-2"></span><span class="puff puff-3"></span></div>';
   document.body.appendChild(el);
+  // Real, confirmed feature per explicit follow-up request ("that tail
+  // should end were the chatter is"): points the 3 tail puffs at the
+  // real angle from screen-center (where this popup is always anchored,
+  // see .comic-chat-popup's top:50%/left:50%) toward the actual sender's
+  // on-table name label -- found by a plain text match against who just
+  // spoke, since the chat event only ever hands this function a display
+  // name, not a seat index. Falls back to the fixed default direction
+  // already set in CSS if no matching label is found (e.g. the name got
+  // trimmed or displayed differently somewhere), so the tail is never
+  // left pointing somewhere broken.
+  const tail = el.querySelector('.comic-cloud-tail');
+  if (tail) {
+    const nameEls = document.querySelectorAll('.pname, .nm');
+    let target = null;
+    for (const nameEl of nameEls) {
+      if (nameEl.textContent && nameEl.textContent.trim() === String(from).trim()) { target = nameEl; break; }
+    }
+    if (target) {
+      const r = target.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const dx = cx - window.innerWidth / 2, dy = cy - window.innerHeight / 2;
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      tail.style.transform = 'rotate(' + angle.toFixed(1) + 'deg)';
+    }
+  }
   setTimeout(() => el.remove(), 3000);
 }
 
@@ -17326,16 +17592,17 @@ gameSocket.on('chooseSeat', (info) => {
   });
 
   // "New Round" restart notice, visible to every connected real player (not just whoever
-  // clicked Restart) - see server.js's beginVetoableRestart for the actual 3s timer/veto
-  // logic this is just displaying. Anyone seated can tap "No" to cancel it outright; if
-  // nobody does within the window, the server proceeds on its own and this same event
-  // (restartProceeded) just closes the notice - the actual restart itself arrives moments
-  // later as a completely ordinary 'state' update, no separate handling needed for it.
+  // clicked Restart) - see server.js's beginConfirmRestart for the actual 5s timer/confirm
+  // logic this is just displaying. Another seated player must tap "Yes" within the window
+  // for the restart to happen; a "No", or no response at all, both cancel it - default is
+  // NO restart. Either way this same event (restartProceeded, or restartCancelled) just
+  // closes the notice - a proceeded restart arrives moments later as a completely ordinary
+  // 'state' update, no separate handling needed for it.
   gameSocket.on('restartPending', (info) => {
-    showRestartNotice(info.kind, info.seconds || 3);
+    showRestartNotice(info.kind, info.seconds || 5);
   });
   gameSocket.on('restartCancelled', (info) => {
-    hideRestartNotice(`🚫 Restart cancelled — ${info.byName} said no.`);
+    hideRestartNotice(info.timedOut ? '🚫 Restart cancelled — no one confirmed in time.' : `🚫 Restart cancelled — ${info.byName} said no.`);
   });
   gameSocket.on('restartProceeded', () => {
     hideRestartNotice(null);
@@ -17358,10 +17625,17 @@ function showRestartNotice(kind, seconds) {
   let remaining = seconds;
   const render = () => {
     el.innerHTML = `
-      <div style="font-size:1.3rem;font-weight:800;color:var(--accent,#f4c430);margin-bottom:6px">🔄 ${label}</div>
-      <div style="font-size:0.85rem;color:#ccc;margin-bottom:14px">Starting in ${remaining}s unless someone says no…</div>
-      <button id="restartNoticeVetoBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">✋ No, don't restart</button>
+      <div style="font-size:1.3rem;font-weight:800;color:var(--accent,#f4c430);margin-bottom:6px">🔄 ${label}?</div>
+      <div style="font-size:0.85rem;color:#ccc;margin-bottom:14px">Needs someone else to say yes within ${remaining}s, or it won't restart…</div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button id="restartNoticeYesBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#2ecc71,#27ae60);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">✅ Yes, restart</button>
+        <button id="restartNoticeVetoBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">✋ No</button>
+      </div>
     `;
+    document.getElementById('restartNoticeYesBtn').onclick = () => {
+      gameSocket.emit('confirmRestart');
+      hideRestartNotice(null);
+    };
     document.getElementById('restartNoticeVetoBtn').onclick = () => {
       gameSocket.emit('vetoRestart');
       hideRestartNotice(null);
@@ -17494,6 +17768,24 @@ function leaveCurrentTableCleanup() {
   try { localStorage.removeItem('k28_table_id'); localStorage.removeItem('k28_session_time'); } catch (e) {}
   const linkBox = document.getElementById('roomLinkBox');
   if (linkBox) { linkBox.style.display = 'none'; linkBox.innerHTML = ''; }
+  // Real, confirmed bug fix per explicit live report ("from admin panel I went and watched a
+  // real table and when I exit I'm not able to exit, it's putting me back to the table"): the
+  // server-side half of this fix (see server.js's leaveTable/adminWatchTable handlers) stops
+  // the leave from silently no-op'ing, but admin.html's watchTable() opens this page with
+  // ?adminWatch=<tableId> in the URL (see the IIFE near this file's admin-watch auto-connect,
+  // window.__isAdminWatchMode), and nothing ever cleared that afterward -- a reload, or even
+  // just the browser restoring the tab, would immediately re-run that same auto-watch IIFE and
+  // rejoin the exact table just left, which is the other half of "it's putting me back". Strips
+  // the param from the address bar (without a navigation/reload) and clears the in-memory flag
+  // so neither this session nor a future reload of this same tab can auto-rejoin.
+  if (window.__isAdminWatchMode) {
+    window.__isAdminWatchMode = false;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('adminWatch');
+      history.replaceState({}, '', url.pathname + url.search + url.hash);
+    } catch (e) {}
+  }
 }
 
 function leaveServerTable() {
@@ -20312,5 +20604,10 @@ function serverBotPlayForMe() {
 })();
 </script>
 
+<!-- Visual Layout Editor: positioning-only override, applied on top of the
+     normal page after everything above has already run. See
+     layout-engine-4p.js for what this can and can't touch. -->
+<script src="layout-engine-4p.js"></script>
+<script src="layout-apply.js"></script>
 </body>
 </html>

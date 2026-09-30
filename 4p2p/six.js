@@ -402,7 +402,17 @@ function heroAvatarHtml(key) {
   // or out-of-range key -- see index.html's identical function for the
   // full reasoning (a large hardcoded bot list references avatar
   // numbers from before the set was trimmed multiple times).
-  const TOON_COUNT = 106;
+  //
+  // Real bug fix, per explicit report on the 6-player table ("when I
+  // select an avatar it's not picking the right one"): this was 106,
+  // but ALL_AVATAR_KEYS (and the picker grid above) also includes
+  // toon107/108/109 -- three bonus avatars added after the original
+  // 1-106 set. Since 107-109 are all > 106, validNum below rejected
+  // every one of them as "out of range" even though they're valid
+  // choices, so picking any of those 3 silently hashed you into a
+  // random unrelated avatar instead of the one actually tapped. 109 is
+  // now the true top of the valid range.
+  const TOON_COUNT = 109;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
   // Per explicit correction: validNum must NOT reject protected keys --
   // this function also renders a human's own CORRECTLY, PIN-validated
@@ -1959,6 +1969,22 @@ function leaveToWelcome() {
     localStorage.removeItem('k28six_session_time');
   } catch (e) {}
   MY_TABLE_ID = null;
+  // Real, confirmed bug fix per explicit live report ("from admin panel I went and watched a
+  // real table and when I exit I'm not able to exit, it's putting me back to the table...4p
+  // and 6p"): the server-side half of this fix (server.js's sixp_leaveTable/
+  // sixp_adminWatchTable handlers) stops the leave from silently no-op'ing for an admin
+  // watcher, but this page was opened with ?adminWatch=<tableId> in the URL (see the
+  // auto-watch IIFE near the bottom of this file), and nothing ever cleared that afterward --
+  // that IIFE re-reads window.location.search fresh on every load, so a reload or a restored
+  // tab would immediately re-run it and rejoin the exact table just left. Strips the param
+  // from the address bar (no navigation/reload) so that can't happen again in this tab.
+  if (new URLSearchParams(window.location.search).has('adminWatch')) {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('adminWatch');
+      history.replaceState({}, '', url.pathname + url.search + url.hash);
+    } catch (e) {}
+  }
   document.querySelectorAll('.modal-overlay,.overlay').forEach(o => o.classList.remove('on'));
   $('gameScreen').style.display = 'none';
   showScreen('welcomeScreen');
@@ -2584,6 +2610,18 @@ function applyState(state) {
     // Resetting here, the moment the current state genuinely shows no gameOver (i.e. a fresh
     // match is underway), re-arms it correctly for the next time one actually ends.
     gameOverShownFor = false;
+    // Real, confirmed root-cause fix per explicit live report ("when first-person hits
+    // continue new championship all players should start instead all hitting new"): only the
+    // host ever sees a restart button (btnGameOverRestart is hidden for everyone else), and
+    // that button's own click handler was the ONLY place that ever removed the 'on' class
+    // from gameOverOverlay. The moment the host restarts, the server broadcasts the fresh,
+    // already-started championship to every seated player -- but every non-host player's
+    // screen still had the old Game Over overlay sitting on top of it, since nothing had ever
+    // told THEIR overlay to close. They had no way to even see the new match had begun, let
+    // alone play it, until they did something themselves to force their own UI to catch up.
+    // Closing it here, for every player, the instant the real server state confirms a fresh
+    // match is underway, means one person restarting genuinely starts it for the whole table.
+    $('gameOverOverlay').classList.remove('on');
   }
 
   // Per explicit request: triggers the new Bot Mode auto-play the same
@@ -4225,6 +4263,7 @@ function safelyShowGameOver(state) {
       $('gameOverBody').textContent = 'Final score: ' + state.gameOver.finalScore[0] + ' - ' + state.gameOver.finalScore[1];
       $('btnGameOverRestart').style.display = IS_HOST ? 'flex' : 'none';
       $('gameOverOverlay').classList.add('on');
+      updateGameOverRestartButton(state);
     } catch (e2) {
       console.error('[safelyShowGameOver] fallback also failed:', e2);
     }
@@ -4238,10 +4277,52 @@ function showGameOver(state) {
   $('gameOverBody').innerHTML = `Final score — Your Team: ${state.gameOver.finalScore[myTeam]}, Opp Team: ${state.gameOver.finalScore[1 - myTeam]}`;
   $('btnGameOverRestart').style.display = IS_HOST ? 'flex' : 'none';
   $('gameOverOverlay').classList.add('on');
+  updateGameOverRestartButton(state);
+}
+
+// The server now refuses sixp_restartGame for SIXP_GAMEOVER_MIN_VIEW_MS after a match
+// actually ends (see that handler's comment in server.js) -- that gate exists so every
+// seated player's client has had real time to finish its own last-trick animation and
+// show this game-over screen before the host can sweep it away into a fresh match. Without
+// this countdown, the host's "New Game" button would just silently do nothing for the first
+// few seconds, which looks broken. This mirrors it client-side purely for feedback: it
+// disables the button and counts down using the same window and the server-stamped
+// gameOverAt timestamp, then enables it right when the server will actually honor a click.
+const SIXP_GAMEOVER_MIN_VIEW_MS_CLIENT = 5000;
+let gameOverRestartCountdownTimer = null;
+function updateGameOverRestartButton(state) {
+  const btn = $('btnGameOverRestart');
+  if (gameOverRestartCountdownTimer) { clearInterval(gameOverRestartCountdownTimer); gameOverRestartCountdownTimer = null; }
+  if (!IS_HOST) return;
+  const goAt = state.gameOver && state.gameOver.gameOverAt;
+  const tick = () => {
+    const left = goAt ? Math.ceil((SIXP_GAMEOVER_MIN_VIEW_MS_CLIENT - (Date.now() - goAt)) / 1000) : 0;
+    if (left > 0) {
+      btn.disabled = true;
+      btn.textContent = `New Game (${left}s)`;
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'New Game';
+      if (gameOverRestartCountdownTimer) { clearInterval(gameOverRestartCountdownTimer); gameOverRestartCountdownTimer = null; }
+    }
+  };
+  tick();
+  gameOverRestartCountdownTimer = setInterval(tick, 250);
 }
 $('btnGameOverRestart').addEventListener('click', () => {
-  $('gameOverOverlay').classList.remove('on');
-  socket.emit('sixp_restartGame');
+  if ($('btnGameOverRestart').disabled) return;
+  // Don't hide the overlay locally here anymore -- the server may still refuse this click
+  // (e.g. a stale/late click racing the gate above), and closing it unconditionally on
+  // every click was the same "all players clicking reset the cards" bug in miniature: the
+  // host's own overlay would vanish even on a click that didn't actually restart anything,
+  // leaving the host confused about whether a new match had really started. The overlay now
+  // closes for the host the same way it closes for every other seated player -- automatically,
+  // the instant the server's broadcast confirms a fresh match is actually underway (see the
+  // `!state.gameOver && gameOverShownFor` branch above). This now goes through the same
+  // networked 5-second confirm flow as the Host Menu's restart buttons (see
+  // sixp_requestRestartGame/showSixpRestartNotice above) instead of restarting instantly --
+  // another real seated player has to say yes, same as everywhere else restart is offered.
+  socket.emit('sixp_requestRestartGame');
 });
 
 // ---------------- Auto-reconnect (same staleness rule as the 4p game) ----------------
@@ -4297,14 +4378,57 @@ function initChatPanelPosition() {
   panel.style.top = Math.max(8, vh - h - 90) + 'px';
   chatPanelInited = true;
 }
+// Uses visualViewport (when the browser supports it) instead of
+// window.innerWidth/innerHeight so the panel is clamped to the space the
+// on-screen keyboard actually leaves visible, not the full layout viewport.
+// On iOS Safari in particular, opening the keyboard does NOT fire a
+// window 'resize' event -- only visualViewport 'resize'/'scroll' fire --
+// so without this the panel (and its input row) could end up sitting
+// right behind the keyboard, invisible while typing.
+//
+// Real, confirmed root-cause fix per explicit live report with a real
+// Android screenshot ("when I type 6 player I cannot see my text that
+// I'm typing"): visualViewport.height only ever reflects the actual OS
+// keyboard itself -- it does NOT shrink further for Chrome's own
+// autofill/account suggestion strip (the row of key/card/pin icons
+// that sits ABOVE the keyboard once a text field is focused, seen in
+// that screenshot). That strip's own height is real, on-screen, and
+// invisible to this code, so a panel clamped to exactly fill
+// visualViewport's reported space still had its bottom row (the input
+// + Send button) sitting right under that extra strip, off-screen.
+// CHAT_KEYBOARD_SAFETY_MARGIN reserves guaranteed breathing room below
+// the clamped panel for exactly that strip, so the input row it
+// actually matters for stays clear of the keyboard even when this
+// extra OS chrome isn't reflected in the viewport numbers at all.
+const CHAT_KEYBOARD_SAFETY_MARGIN = 56;
 function clampChatPanelToViewport() {
   const panel = $('chatPanel');
   if (!panel) return;
-  const vw = window.innerWidth, vh = window.innerHeight;
+  const vv = window.visualViewport;
+  const vw = vv ? vv.width : window.innerWidth;
+  const rawVh = vv ? vv.height : window.innerHeight;
+  const offX = vv ? vv.offsetLeft : 0;
+  const offY = vv ? vv.offsetTop : 0;
   const rect = panel.getBoundingClientRect();
+  // Only reserve the safety margin once the keyboard actually looks
+  // open (viewport visibly shorter than the full layout height) --
+  // otherwise this would needlessly shrink the panel while it's just
+  // sitting normally on screen with no keyboard up at all.
+  const keyboardLikelyOpen = vv && vv.height < window.innerHeight - 40;
+  const vh = keyboardLikelyOpen ? rawVh - CHAT_KEYBOARD_SAFETY_MARGIN : rawVh;
+
+  // Shrink the panel first if the keyboard has left less room than the
+  // panel's current size -- otherwise it simply can't fit on-screen at all.
+  const maxW = Math.max(220, vw - 16);
+  const maxH = Math.max(180, vh - 16);
+  const w = Math.min(rect.width, maxW);
+  const h = Math.min(rect.height, maxH);
+  if (w !== rect.width) panel.style.width = w + 'px';
+  if (h !== rect.height) panel.style.height = h + 'px';
+
   let left = rect.left, top = rect.top;
-  left = Math.min(Math.max(left, -rect.width + 60), vw - 60);
-  top = Math.min(Math.max(top, 0), vh - 44);
+  left = Math.min(Math.max(left, offX), offX + vw - w);
+  top = Math.min(Math.max(top, offY), offY + vh - h);
   panel.style.left = left + 'px';
   panel.style.top = top + 'px';
 }
@@ -4377,6 +4501,27 @@ function closeChat() { $('chatOverlay').classList.remove('on'); }
   grip.addEventListener('pointercancel', endResize);
 
   window.addEventListener('resize', () => { if (chatPanelInited) clampChatPanelToViewport(); });
+  // The mobile keyboard opening/closing is what visualViewport reports;
+  // plain window resize often doesn't fire for it at all (iOS Safari).
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => { if (chatPanelInited) clampChatPanelToViewport(); });
+    window.visualViewport.addEventListener('scroll', () => { if (chatPanelInited) clampChatPanelToViewport(); });
+  }
+  // Belt-and-suspenders: also re-clamp several times after the input gets
+  // focus, not just once -- the keyboard's own show animation, and
+  // separately Chrome's autofill/account suggestion strip appearing on
+  // top of it (see CHAT_KEYBOARD_SAFETY_MARGIN's comment above), don't
+  // necessarily finish settling in time for a single 300ms check, and
+  // that strip in particular can appear without firing any
+  // visualViewport event at all. Re-checking across this whole window
+  // catches it whenever it actually finishes moving.
+  const chatInputEl = $('chatInput');
+  if (chatInputEl) {
+    chatInputEl.addEventListener('focus', () => {
+      if (!chatPanelInited) return;
+      [100, 300, 600, 900, 1300].forEach(delay => setTimeout(clampChatPanelToViewport, delay));
+    });
+  }
 })();
 
 function addChatMessage(from, msg, isMine) {
@@ -4402,8 +4547,36 @@ function showComicChatPopup(from, msg) {
   document.querySelectorAll('.comic-chat-popup').forEach(el => el.remove());
   const el = document.createElement('div');
   el.className = 'comic-chat-popup';
-  el.innerHTML = '<div class="comic-from">' + escapeHtml(from) + '</div>' + linkifyEscaped(escapeHtml(msg));
+  el.innerHTML =
+    '<div class="comic-cloud-halo"></div>' +
+    '<div class="comic-cloud-body"><div class="comic-from">' + escapeHtml(from) + '</div>' + linkifyEscaped(escapeHtml(msg)) + '</div>' +
+    '<div class="comic-cloud-tail"><span class="puff puff-1"></span><span class="puff puff-2"></span><span class="puff puff-3"></span></div>';
   document.body.appendChild(el);
+  // Real, confirmed feature per explicit follow-up request ("that tail
+  // should end were the chatter is"): points the 3 tail puffs at the
+  // real angle from screen-center (where this popup is always anchored,
+  // see .comic-chat-popup's top:50%/left:50%) toward the actual sender's
+  // on-table name label -- found by a plain text match against who just
+  // spoke, since the chat event only ever hands this function a display
+  // name, not a seat index. Falls back to the fixed default direction
+  // already set in CSS if no matching label is found (e.g. the name got
+  // trimmed or displayed differently somewhere), so the tail is never
+  // left pointing somewhere broken.
+  const tail = el.querySelector('.comic-cloud-tail');
+  if (tail) {
+    const nameEls = document.querySelectorAll('.pname, .nm');
+    let target = null;
+    for (const nameEl of nameEls) {
+      if (nameEl.textContent && nameEl.textContent.trim() === String(from).trim()) { target = nameEl; break; }
+    }
+    if (target) {
+      const r = target.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const dx = cx - window.innerWidth / 2, dy = cy - window.innerHeight / 2;
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      tail.style.transform = 'rotate(' + angle.toFixed(1) + 'deg)';
+    }
+  }
   setTimeout(() => el.remove(), 3000);
 }
 
@@ -4843,9 +5016,69 @@ $('btnRestartConfirmCancel').addEventListener('click', () => {
 });
 $('btnRestartConfirmOk').addEventListener('click', () => {
   $('restartConfirmOverlay').classList.remove('on');
-  if (pendingSixpRestartAction === 'round') socket.emit('sixp_restartRound');
-  else if (pendingSixpRestartAction === 'game') socket.emit('sixp_restartGame');
+  if (pendingSixpRestartAction === 'round') socket.emit('sixp_requestRestartRound');
+  else if (pendingSixpRestartAction === 'game') socket.emit('sixp_requestRestartGame');
   pendingSixpRestartAction = null;
+});
+
+// Networked confirm-style restart, matching the 4-player table exactly (same 5-second
+// window, same default-is-NO-restart semantics): the click above doesn't restart anything by
+// itself anymore, it just asks the server to broadcast this notice to every connected real
+// player (including the requester) and start a 5s window. Another real, seated player has to
+// tap "Yes" during that window for the restart to actually happen; a "No", or nobody
+// responding within 5 seconds, both cancel it.
+let sixpRestartNoticeCountdownTimer = null;
+function showSixpRestartNotice(kind, seconds) {
+  let el = document.getElementById('sixpRestartNoticeToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sixpRestartNoticeToast';
+    el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3000;background:rgba(20,20,30,0.97);border:2px solid var(--accent, #f4c430);border-radius:16px;padding:22px 26px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.6);min-width:220px';
+    document.body.appendChild(el);
+  }
+  const label = kind === 'game' ? 'New Game' : 'New Round';
+  let remaining = seconds;
+  const render = () => {
+    el.innerHTML = `
+      <div style="font-size:1.3rem;font-weight:800;color:var(--accent,#f4c430);margin-bottom:6px">🔄 ${label}?</div>
+      <div style="font-size:0.85rem;color:#ccc;margin-bottom:14px">Needs someone else to say yes within ${remaining}s, or it won't restart…</div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button id="sixpRestartNoticeYesBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#2ecc71,#27ae60);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">✅ Yes, restart</button>
+        <button id="sixpRestartNoticeNoBtn" style="padding:9px 22px;border-radius:8px;border:none;background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;font-weight:700;font-size:0.9rem;cursor:pointer">✋ No</button>
+      </div>
+    `;
+    document.getElementById('sixpRestartNoticeYesBtn').onclick = () => {
+      socket.emit('sixp_confirmRestart');
+      hideSixpRestartNotice(null);
+    };
+    document.getElementById('sixpRestartNoticeNoBtn').onclick = () => {
+      socket.emit('sixp_vetoRestart');
+      hideSixpRestartNotice(null);
+    };
+  };
+  render();
+  el.style.display = 'block';
+  clearInterval(sixpRestartNoticeCountdownTimer);
+  sixpRestartNoticeCountdownTimer = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) { clearInterval(sixpRestartNoticeCountdownTimer); return; }
+    render();
+  }, 1000);
+}
+function hideSixpRestartNotice(cancelMessage) {
+  clearInterval(sixpRestartNoticeCountdownTimer);
+  const el = document.getElementById('sixpRestartNoticeToast');
+  if (el) el.style.display = 'none';
+  if (cancelMessage) showToast(cancelMessage, 'info', 2500);
+}
+socket.on('sixp_restartPending', (info) => {
+  showSixpRestartNotice(info.kind, info.seconds || 5);
+});
+socket.on('sixp_restartCancelled', (info) => {
+  hideSixpRestartNotice(info.timedOut ? '🚫 Restart cancelled — no one confirmed in time.' : `🚫 Restart cancelled — ${info.byName} said no.`);
+});
+socket.on('sixp_restartProceeded', () => {
+  hideSixpRestartNotice(null);
 });
 
 (function startLiveTypewriter6p(){
