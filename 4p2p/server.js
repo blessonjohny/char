@@ -33,6 +33,7 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const multer = require('multer');
 
 // ============================================================
 // PERSISTENT DATA DIRECTORY
@@ -2131,6 +2132,86 @@ app.post('/api/admin/layout-config/:table', (req, res) => {
     res.status(500).json({ ok: false, error: 'write_failed' });
   }
 });
+
+// ---------------- Layout Editor: custom background photo upload ----------------
+// Per explicit request: on top of REPOSITIONING the existing table
+// background photo (the "tableBgPhoto" layer above), let an admin
+// actually REPLACE it with a different photo entirely. Uploaded files go
+// under DATA_DIR (same persistent-Volume fix as everything else in this
+// file) so a swapped-in photo survives redeploys same as any other admin
+// data, and are served back out publicly (plain photos, nothing
+// sensitive) at /uploads/bg/<filename>. Only two keys exist -- one per
+// Hold'em breakpoint, matching the two real background images in the
+// stylesheet -- deliberately whitelisted rather than accepting an
+// arbitrary key, so this can never be used to write an arbitrary
+// filename anywhere else on disk.
+const BG_UPLOAD_DIR = path.join(DATA_DIR, 'uploads', 'bg');
+try { fs.mkdirSync(BG_UPLOAD_DIR, { recursive: true }); } catch (e) {}
+const BG_KEYS = { 'holdem-landscape': 'landscape', 'holdem-portrait': 'portrait' };
+const BG_MIME_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
+// Removes any OTHER extension previously saved for this key (e.g. a
+// prior .png before this upload is a .jpg) so re-uploading actually
+// replaces the photo instead of leaving a stale file the "does a custom
+// photo exist" check could pick up ahead of the new one.
+function clearOtherBgFiles(key, keepFilename) {
+  let entries = [];
+  try { entries = fs.readdirSync(BG_UPLOAD_DIR); } catch (e) { return; }
+  for (const name of entries) {
+    if (name === keepFilename) continue;
+    if (name.startsWith('bg-' + key + '.')) {
+      try { fs.unlinkSync(path.join(BG_UPLOAD_DIR, name)); } catch (e) {}
+    }
+  }
+}
+const bgUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, BG_UPLOAD_DIR),
+    filename: (req, file, cb) => {
+      const ext = BG_MIME_EXT[file.mimetype];
+      if (!ext) return cb(new Error('unsupported_type'));
+      cb(null, 'bg-' + req.params.key + ext);
+    },
+  }),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => cb(BG_MIME_EXT[file.mimetype] ? null : new Error('unsupported_type')),
+});
+app.post('/api/admin/upload-background/:key', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  if (!BG_KEYS[req.params.key]) return res.status(400).json({ ok: false, error: 'bad_key' });
+  bgUpload.single('image')(req, res, (err) => {
+    if (err) return res.status(400).json({ ok: false, error: err.code === 'LIMIT_FILE_SIZE' ? 'file_too_large' : err.message === 'unsupported_type' ? 'unsupported_type' : 'upload_failed' });
+    if (!req.file) return res.status(400).json({ ok: false, error: 'no_file' });
+    clearOtherBgFiles(req.params.key, req.file.filename);
+    console.log(`[layout-editor] custom background uploaded for "${req.params.key}": ${req.file.filename}`);
+    res.json({ ok: true, filename: req.file.filename });
+  });
+});
+app.delete('/api/admin/upload-background/:key', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  if (!BG_KEYS[req.params.key]) return res.status(400).json({ ok: false, error: 'bad_key' });
+  clearOtherBgFiles(req.params.key, null); // null keepFilename -- removes every variant for this key
+  res.json({ ok: true });
+});
+// Public (read-only, no admin gate -- same reasoning as GET
+// /api/layout-config/:table above: every visiting player's page needs
+// this to render correctly). The mtime-based ?v= query string is a cache
+// buster: without it, a browser (or an in-front CDN) that already cached
+// the old photo at this same URL would keep showing it after a re-upload.
+app.get('/api/background-config/holdem', (req, res) => {
+  const result = { ok: true };
+  for (const key of Object.keys(BG_KEYS)) {
+    let entries = [];
+    try { entries = fs.readdirSync(BG_UPLOAD_DIR); } catch (e) {}
+    const found = entries.find((name) => name.startsWith('bg-' + key + '.'));
+    if (found) {
+      let v = Date.now();
+      try { v = Math.round(fs.statSync(path.join(BG_UPLOAD_DIR, found)).mtimeMs); } catch (e) {}
+      result[BG_KEYS[key]] = '/uploads/bg/' + found + '?v=' + v;
+    }
+  }
+  res.json(result);
+});
+app.use('/uploads/bg', express.static(BG_UPLOAD_DIR));
 
 // ---------------- Table registry ----------------
 // tableId -> {
