@@ -30,6 +30,15 @@
   .tabs .tab{flex:1 1 auto;min-width:110px}
   .tab{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-weight:700;font-size:0.82rem}
   .tab.on{background:linear-gradient(135deg,#f4c430,#e6a817);color:#0a1628;border-color:transparent}
+  /* Top-level menu (category) bar -- a handful of big, obvious buttons instead
+     of one long row of everything. Picking one reveals just that category's
+     own sub-tabs underneath, so the whole admin panel never shows more than
+     a category bar + a short, focused row of sub-tabs at once. */
+  .cat-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .cat-btn{flex:1 1 auto;min-width:130px;padding:12px 10px;border-radius:12px;border:1.5px solid var(--border);background:rgba(255,255,255,0.04);color:var(--text2);font-weight:800;font-size:0.86rem;letter-spacing:0.01em}
+  .cat-btn.on{background:linear-gradient(135deg,#f4c430,#e6a817);color:#0a1628;border-color:transparent;box-shadow:0 2px 14px rgba(244,196,48,0.25)}
+  .sub-tab-bar{margin-bottom:14px;padding:10px 0 0;border-top:1px dashed var(--border)}
+  .sub-tab-bar .tab{min-width:96px;padding:8px 10px;font-size:0.76rem}
   .live-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
   .live-card .who{font-weight:800;color:#fff;font-size:0.88rem}
   .live-card .where{color:var(--text2);font-size:0.72rem;margin-top:2px}
@@ -49,17 +58,26 @@
   </div>
 
   <div id="panel" style="display:none">
-    <div class="tabs">
-      <button class="tab on" id="tabComments">💌 Comments</button>
-      <button class="tab" id="tabLive">🟢 Live Players</button>
-      <button class="tab" id="tabVisitors">📊 Visitor Log</button>
-      <button class="tab" id="tabHistory">📅 Table History</button>
-      <button class="tab" id="tabBots">🤖 Bot Tables</button>
-      <button class="tab" id="tabGhost">🕵️ Ghost Players</button>
-      <button class="tab" id="tabLeaderboard">🏆 Leaderboard</button>
-      <button class="tab" id="tabPoker">🃏 Hold'em Admin</button>
-      <button class="tab" id="tabLayout">🎨 Layout Editors</button>
-      <button class="tab" id="tabUsage">📶 Data Usage</button>
+    <!-- Top-level menu: pick a category, its own sub-tabs appear right below.
+         Every tab button below keeps its original id and click wiring exactly
+         as before -- this only changes which ones are visible at once. -->
+    <div class="cat-bar" id="catBar">
+      <button class="cat-btn on" data-cat="overview" type="button">🏠 Overview</button>
+      <button class="cat-btn" data-cat="tools" type="button">🎮 Game Tools</button>
+      <button class="cat-btn" data-cat="stats" type="button">📊 Stats</button>
+      <button class="cat-btn" data-cat="design" type="button">🎨 Layout Editors</button>
+    </div>
+    <div class="tabs sub-tab-bar" id="subTabBar">
+      <button class="tab on" id="tabComments" data-cat="overview">💌 Comments</button>
+      <button class="tab" id="tabLive" data-cat="overview">🟢 Live Players</button>
+      <button class="tab" id="tabBots" data-cat="tools" style="display:none">🤖 Bot Tables</button>
+      <button class="tab" id="tabGhost" data-cat="tools" style="display:none">🕵️ Ghost Players</button>
+      <button class="tab" id="tabPoker" data-cat="tools" style="display:none">🃏 Hold'em Admin</button>
+      <button class="tab" id="tabVisitors" data-cat="stats" style="display:none">📊 Visitor Log</button>
+      <button class="tab" id="tabHistory" data-cat="stats" style="display:none">📅 Table History</button>
+      <button class="tab" id="tabUsage" data-cat="stats" style="display:none">📶 Data Usage</button>
+      <button class="tab" id="tabLeaderboard" data-cat="stats" style="display:none">🏆 Leaderboard</button>
+      <button class="tab" id="tabLayout" data-cat="design" style="display:none">🎨 Layout Editors</button>
     </div>
     <div id="commentsView">
       <div class="toolbar">
@@ -745,6 +763,24 @@ document.getElementById('tabLayout').addEventListener('click', () => switchTab('
 document.getElementById('tabUsage').addEventListener('click', () => switchTab('usage'));
 document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
 document.getElementById('btnRefreshHistory').addEventListener('click', refreshTableHistory);
+
+// ---------------- Top-level menu (category) bar ----------------
+// Groups the 10 flat tabs above into 4 categories so the panel never shows
+// more than a short, focused row at once: pick a category up top, its own
+// sub-tabs appear right underneath, and the first one opens automatically.
+// Every original tab id/click-handler/switchTab() call is untouched -- this
+// purely controls which sub-tab buttons are visible.
+const CATEGORY_DEFAULT_TAB = { overview: 'comments', tools: 'bots', stats: 'visitors', design: 'layout' };
+function switchCategory(cat) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('on', b.dataset.cat === cat));
+  document.querySelectorAll('#subTabBar .tab').forEach(b => {
+    b.style.display = b.dataset.cat === cat ? '' : 'none';
+  });
+  switchTab(CATEGORY_DEFAULT_TAB[cat]);
+}
+document.querySelectorAll('.cat-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchCategory(btn.dataset.cat));
+});
 
 // ---------------- Bot tables (spawn a self-running, all-bot table) ----------------
 // Same avatar key convention used by the live game itself (see

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>28 Gulan Hold'em — Visual Layout Editor</title>
 <link rel="stylesheet" href="layout-editor.css?v=11">
+<link rel="stylesheet" href="layout-editor-holdem.css?v=1">
 </head>
 <body>
 <!-- Big, impossible-to-miss build banner -- full width, top of the page,
@@ -13,14 +14,38 @@
      so there's a single, obvious, unmissable way to tell whether a phone
      is actually running the latest files or a stale/undeployed copy --
      no functional purpose otherwise. -->
-<div id="edBuildBanner" style="background:#f4c430;color:#1a1206;font-size:1.15rem;font-weight:900;text-align:center;padding:10px 6px;letter-spacing:0.04em;position:sticky;top:0;z-index:999999">BUILD V11</div>
+<div id="edBuildBanner" style="background:#f4c430;color:#1a1206;font-size:1.15rem;font-weight:900;text-align:center;padding:10px 6px;letter-spacing:0.04em;position:sticky;top:0;z-index:999999">BUILD V12</div>
 <div id="edRoot">
   <div id="edTopbar">
     <h1>🎰 Hold'em Table Layout Editor</h1>
-    <span id="edBuildTag" style="font-size:0.65rem;color:#5a7a9a;font-weight:700;letter-spacing:0.03em">build v11</span>
+    <span id="edBuildTag" style="font-size:0.65rem;color:#5a7a9a;font-weight:700;letter-spacing:0.03em">build v12</span>
     <div class="ed-sep"></div>
     <select id="edBreakpointSelect"></select>
     <button class="ed-btn" id="edBtnEditToggle">✏️ Edit Table: OFF</button>
+    <div class="ed-sep"></div>
+    <!-- Replaces the old always-visible Layers panel: a dropdown menu that
+         only takes screen space while it's open. Picking a layer (or
+         clicking the element right on the table) both select it and close
+         this automatically. -->
+    <div class="ed-dropdown-wrap">
+      <button class="ed-btn ed-dropdown-trigger" id="edBtnLayersToggle" type="button">🗂️ Layers ▾</button>
+      <div class="ed-dropdown-panel" id="edLayersPanel" style="display:none">
+        <div class="ed-sidebar-section">
+          <h2>Layers</h2>
+          <div id="edLayers"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Replaces the old always-visible Background Photos panel, same idea. -->
+    <div class="ed-dropdown-wrap">
+      <button class="ed-btn ed-dropdown-trigger" id="edBtnBgToggle" type="button">🖼️ Background ▾</button>
+      <div class="ed-dropdown-panel" id="edBgDropdownPanel" style="display:none">
+        <div class="ed-sidebar-section">
+          <h2>Background Photos</h2>
+          <div id="edBgPanel"></div>
+        </div>
+      </div>
+    </div>
     <div class="ed-sep"></div>
     <div class="ed-zoom-group">
       <button class="ed-btn" id="edBtnZoomOut" title="Zoom out">−</button>
@@ -42,30 +67,23 @@
         <iframe id="edFrame" src="holdem.html"></iframe>
       </div>
     </div>
-    <div id="edSidebar">
-      <div class="ed-sidebar-section" style="flex:1 1 55%">
-        <h2>Layers</h2>
-        <div id="edLayers"></div>
-      </div>
-      <div class="ed-sidebar-section" style="flex:1 1 45%;overflow-y:auto">
-        <h2>Selected Element</h2>
-        <div id="edInspector"><div class="ed-inspector-empty">Join or host a table inside the frame and start a hand so the real seats are on screen, turn on Edit Table, then click an element (or pick one from Layers) to adjust it here.</div></div>
-      </div>
-      <div class="ed-sidebar-section" style="flex:0 0 auto">
-        <h2>Background Photos</h2>
-        <div id="edBgPanel"></div>
-      </div>
+    <!-- Slim bottom bar for the selected element's fields -- replaces the
+         old tall "Selected Element" sidebar panel. Stays thin and out of
+         the canvas's way; only the field row itself takes real width, and
+         that scrolls sideways on a narrow screen rather than pushing the
+         table down. -->
+    <div id="edPropsBar">
+      <div id="edInspector"><div class="ed-inspector-empty">Join or host a table inside the frame and start a hand so the real seats are on screen, turn on Edit Table, then click an element on the table (or pick one from the Layers menu above) to adjust it here.</div></div>
     </div>
   </div>
 </div>
-<!-- ?v=8 cache-busts these two files specifically: a phone browser (or a
-     CDN in front of the live site) can keep serving an old cached copy of
-     a .js file under its old URL even after the file on disk changed.
-     Bump this number on every future delivery -- a new URL can never
-     return a stale cached response, so this makes "the fix didn't show
-     up" impossible for these two files regardless of any cache
-     configuration upstream. -->
-<script src="layout-engine-holdem.js?v=11"></script>
-<script src="layout-editor-holdem.js?v=11"></script>
+<!-- ?v= cache-busts these files specifically: a phone browser (or a CDN in
+     front of the live site) can keep serving an old cached copy of a .js
+     file under its old URL even after the file on disk changed. Bump this
+     number on every future delivery -- a new URL can never return a stale
+     cached response, so this makes "the fix didn't show up" impossible for
+     these files regardless of any cache configuration upstream. -->
+<script src="layout-engine-holdem.js?v=12"></script>
+<script src="layout-editor-holdem.js?v=12"></script>
 </body>
 </html>

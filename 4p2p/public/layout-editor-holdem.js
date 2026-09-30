@@ -38,6 +38,10 @@
   const layersEl = document.getElementById('edLayers');
   const inspectorEl = document.getElementById('edInspector');
   const bgPanelEl = document.getElementById('edBgPanel');
+  const btnLayersToggle = document.getElementById('edBtnLayersToggle');
+  const layersPanel = document.getElementById('edLayersPanel');
+  const btnBgToggle = document.getElementById('edBtnBgToggle');
+  const bgDropdownPanel = document.getElementById('edBgDropdownPanel');
 
   let config = { portraitPhoto: {}, landscape: {} };
   let bgConfig = {}; // { landscape?: url, portrait?: url } -- custom uploaded photos, separate from config above
@@ -53,6 +57,34 @@
   // their own zoom level with the +/-/Fit buttons, and it stays put across
   // resizes/breakpoint switches until they hit Fit again.
   let manualZoom = null;
+  // Kept in sync by fitFrameToStage() -- lets the drag-threshold check
+  // below convert real iframe-pixel movement into actual on-screen pixels,
+  // so "has the person moved far enough to mean a drag" feels the same
+  // whether the table is currently shown at 50% or 150%.
+  let currentScale = 1;
+
+  // ---------------------------------------------------------------------
+  // Toolbar dropdown menus (Layers, Background) -- replace the old
+  // always-visible sidebar panels. Only one open at a time; either closes
+  // on its own toggle button, on picking something inside it, or by
+  // clicking anywhere else on the page.
+  // ---------------------------------------------------------------------
+  function closeDropdowns() {
+    layersPanel.style.display = 'none';
+    bgDropdownPanel.style.display = 'none';
+    btnLayersToggle.classList.remove('on');
+    btnBgToggle.classList.remove('on');
+  }
+  function toggleDropdown(panel, btn) {
+    const isOpen = panel.style.display !== 'none';
+    closeDropdowns();
+    if (!isOpen) { panel.style.display = 'block'; btn.classList.add('on'); }
+  }
+  btnLayersToggle.addEventListener('click', (ev) => { ev.stopPropagation(); toggleDropdown(layersPanel, btnLayersToggle); });
+  btnBgToggle.addEventListener('click', (ev) => { ev.stopPropagation(); toggleDropdown(bgDropdownPanel, btnBgToggle); });
+  document.addEventListener('click', (ev) => {
+    if (!ev.target.closest('.ed-dropdown-wrap')) closeDropdowns();
+  });
 
   // ---------------------------------------------------------------------
   // Layer definitions: 9 seats (bespoke, JS-driven) + the CSS elements
@@ -189,6 +221,7 @@
       frameWrap.style.width = Math.round(bp.previewWidth * scale) + 'px';
       frameWrap.style.height = Math.round(bp.previewHeight * scale) + 'px';
     }
+    currentScale = scale > 0 ? scale : 1;
     zoomLabel.textContent = Math.round(scale * 100) + '%';
     scheduleRebuildOverlays();
   }
@@ -561,13 +594,25 @@
     return tableRectOf(doc);
   }
 
+  // A real, deliberate drag distance before anything actually moves or
+  // gets written to the config -- measured in true on-screen pixels
+  // (divided back out of currentScale so it feels the same at any zoom
+  // level). Fixes a real report ("when I try to select to move it down the
+  // items are catching right away and moving"): with no threshold, a
+  // plain click to just SELECT something -- any tiny 1-2px hand-shake
+  // between pointerdown and pointerup, completely normal with a mouse or
+  // a finger -- was read as a genuine drag, silently nudging the element
+  // and recording an undo step for a click that was never meant to move
+  // anything. Now a click that doesn't clear this distance changes
+  // nothing at all; only a real drag does.
+  const DRAG_THRESHOLD_PX = 4;
+
   function beginDrag(doc, win, def, ev, mode) {
     ev.preventDefault();
-    pushUndoSnapshot();
     const startX = ev.clientX, startY = ev.clientY;
     const tableRect = referenceRectOf(doc, def);
     const startVal = Object.assign({}, effectiveValue(doc, win, def));
-    dragState = { def, mode, startX, startY, startVal, tableRect, doc, win };
+    dragState = { def, mode, startX, startY, startVal, tableRect, doc, win, crossedThreshold: false };
     const onMove = (mv) => handleDragMove(mv);
     const onUp = () => {
       doc.removeEventListener('pointermove', onMove);
@@ -583,6 +628,12 @@
     const { def, mode, startX, startY, startVal, tableRect, doc, win } = dragState;
     const dx = ev.clientX - startX;
     const dy = ev.clientY - startY;
+    if (!dragState.crossedThreshold) {
+      const screenDist = Math.hypot(dx, dy) * currentScale;
+      if (screenDist < DRAG_THRESHOLD_PX) return; // still just a click/jitter -- do nothing yet
+      dragState.crossedThreshold = true;
+      pushUndoSnapshot(); // record the undo step only once a real drag actually starts
+    }
     const cur = Object.assign({}, startVal);
 
     if (def.type === 'seat') {
@@ -808,7 +859,7 @@
         row.className = 'ed-layer-row' + (def.key === selectedKey ? ' selected' : '') + (isEdited(def) ? ' edited' : '');
         row.dataset.key = def.key;
         row.innerHTML = '<span class="ed-dot"></span><span>' + def.label + '</span>';
-        row.addEventListener('click', () => selectElement(def.key));
+        row.addEventListener('click', () => { selectElement(def.key); closeDropdowns(); });
         group.appendChild(row);
       });
       layersEl.appendChild(group);
