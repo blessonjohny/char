@@ -1301,6 +1301,7 @@ function getAllLivePlayers() {
     addFromSocketsMap(r.sockets, '56', r.code, (info) => r.state && r.state.seats && r.state.seats[info.pos], r.state ? r.state.phase : 'lobby');
   }
   for (const t of Object.values(pokerTables)) {
+    if (t.hidden) continue; // Layout Editor preview table -- not a real player to show anywhere admin-facing either
     addFromSocketsMap(t.sockets, "Hold'em", t.engine.tableId, (info) => t.engine.seats[info.pos], t.engine.phase);
   }
   return rows;
@@ -1412,6 +1413,18 @@ function getAllTablesSummary() {
     rows.push({ game: '56', mode: '56', tableId: r.code, phase, isPlaying: phase !== 'lobby', humans, bots, maxSeats: seats.length, summary, seatEntries, createdAt: r.createdAt || null, lastActivityAt: r.lastActivityAt || null });
   }
   for (const t of Object.values(pokerTables)) {
+    // Real, confirmed fix per explicit live report ("from my main page i
+    // see the table running in the live" -- no join button, since it's
+    // the Layout Editor's own private preview table, not a real one a
+    // visitor could ever join): this table-summary view feeds BOTH the
+    // admin panel's live-tables list AND, via /api/public-live-tables
+    // below, the public site's own "live now" widget -- pokerPublicTableList's
+    // hidden-table filter (the actual join lobby) never covered this
+    // separate summary path at all, so the preview table's one real
+    // human (the admin/editor session itself) made it through the "at
+    // least 1 human" filter there and showed up publicly anyway. Hidden
+    // preview tables are skipped here too now, in both places at once.
+    if (t.hidden) continue;
     const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
     rows.push({ game: "Hold'em", mode: 'holdem', tableId: t.engine.tableId, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, maxSeats: (t.engine.seats || []).length, summary, seatEntries, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
   }
