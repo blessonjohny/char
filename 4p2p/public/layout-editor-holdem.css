@@ -8,11 +8,17 @@
    Real, repeated feedback this addresses: the toolbar looked amateurish --
    mismatched button colors and sizes, a full-width dropdown stretched into
    a giant bar, a shouting full-width yellow banner, and a permanent wall of
-   explaining text. This locks the whole toolbar to ONE uniform button
-   height, ONE accent color for "this is currently on" (reusing the shared
-   `.active` style everywhere instead of a different color per button), and
-   cuts the on-screen text down to short labels -- a plain, professional
-   tool bar instead of a pile of differently-styled long bars.
+   explaining text -- fixed in the previous round. Then a real, concrete bug
+   on top of that: the toolbar was STILL wrapping into 3 stacked rows on a
+   phone instead of one, and the dropdown panels were positioned with a
+   plain CSS left/right:0 trick that put them partway off the LEFT edge of
+   the screen on a narrow phone (the page hides horizontal overflow, so
+   that just silently clipped the first few letters of every line -- "the
+   fuckin letters"). Both fixed properly here: the toolbar is ONE row that
+   scrolls sideways instead of wrapping, and the dropdown panels are
+   positioned in JS from the button's real on-screen position, clamped to
+   always stay fully inside the viewport no matter where that button ends
+   up.
 ============================================================================ */
 
 /* #edBody was a left-right split (stage | sidebar) in the shared file.
@@ -21,28 +27,36 @@
 #edBody{flex-direction:column}
 #edStage{padding:16px}
 
-/* ---- Uniform toolbar: every control (buttons, the breakpoint select,
-   the zoom cluster) is the exact same height and sits in a single tight
-   row, wrapping as a whole unit rather than each control wrapping to its
-   own ragged-height line. ---- */
-#edTopbar{align-items:center;gap:6px;padding:8px 12px;row-gap:6px}
-#edTopbar h1{font-size:0.86rem;margin-right:2px}
-#edBuildTag{font-size:0.6rem;color:var(--ed-text-dim);font-weight:600;margin-right:6px;opacity:0.7}
+/* ---- One single toolbar row, always -- never wraps. Too many controls
+   for the screen width just means scrolling sideways to reach the rest,
+   same as any phone app's horizontally-scrolling tab bar, instead of
+   stacking into multiple ragged rows. ---- */
+#edTopbar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;align-items:center;gap:6px;padding:8px 12px}
+#edTopbar::-webkit-scrollbar{height:4px}
+#edTopbar > *{flex-shrink:0}
+#edTopbar h1{font-size:0.86rem;margin-right:2px;white-space:nowrap}
+#edBuildTag{font-size:0.6rem;color:var(--ed-text-dim);font-weight:600;margin-right:4px;opacity:0.7;white-space:nowrap}
 #edTopbar .ed-btn,
 #edTopbar #edBreakpointSelect,
 #edTopbar .ed-zoom-group{height:36px;box-sizing:border-box}
-#edTopbar .ed-btn{display:inline-flex;align-items:center;justify-content:center;padding:0 12px;font-size:0.78rem;border-radius:7px}
-#edTopbar #edBreakpointSelect{flex:0 0 auto;width:auto;max-width:150px;border-radius:7px}
-#edTopbar #edStatus{margin-left:auto;font-size:0.7rem}
+#edTopbar .ed-btn{display:inline-flex;align-items:center;justify-content:center;padding:0 12px;font-size:0.78rem;border-radius:7px;white-space:nowrap}
+#edTopbar #edBreakpointSelect{flex:0 0 auto;width:auto;max-width:140px;border-radius:7px}
+#edTopbar #edStatus{margin-left:8px;font-size:0.7rem;white-space:nowrap}
 
 /* One single accent (gold, the shared `.active` style) means "this is on
    right now" everywhere -- Edit Table, Layers open, Background open all
    look identical when active instead of three different colors. */
 #edTopbar .ed-btn.active{background:var(--ed-gold);border-color:var(--ed-gold);color:#241a12}
 
-/* ---- Toolbar dropdown menus (Layers, Background) ---- */
+/* ---- Toolbar dropdown menus (Layers, Background) -- position is set in
+   JS (see openDropdownPanel in layout-editor-holdem.js) from the
+   trigger button's actual on-screen position, clamped to the viewport,
+   NOT a CSS-only left/right:0 guess -- that guess broke as soon as a
+   button wasn't exactly where the guess assumed. `position:fixed` (not
+   `absolute`) so it's positioned against the real viewport regardless of
+   the topbar's own horizontal scroll position. ---- */
 .ed-dropdown-wrap{position:relative;display:inline-block}
-.ed-dropdown-panel{position:absolute;top:100%;left:0;margin-top:8px;width:320px;max-width:calc(100vw - 24px);background:var(--ed-panel);border:1px solid var(--ed-border);border-radius:12px;box-shadow:0 16px 46px rgba(0,0,0,0.6);z-index:900;overflow:hidden}
+.ed-dropdown-panel{position:fixed;width:320px;max-width:calc(100vw - 16px);background:var(--ed-panel);border:1px solid var(--ed-border);border-radius:12px;box-shadow:0 16px 46px rgba(0,0,0,0.6);z-index:900;overflow:hidden}
 .ed-dropdown-panel .ed-sidebar-section{border-bottom:none;max-height:min(62vh,520px)}
 .ed-dropdown-panel #edLayers,
 .ed-dropdown-panel #edBgPanel{max-height:min(62vh,520px);overflow-y:auto;padding-bottom:6px}
@@ -60,9 +74,6 @@
 #edPropsBar .ed-field-row input[type=number]{width:68px}
 
 @media (max-width: 860px){
-  .ed-dropdown-panel{left:auto;right:0}
-  #edStage{padding:8px;min-height:44vh}
+  #edStage{padding:8px;min-height:40vh}
   #edPropsBar{padding:8px 10px}
-  #edTopbar h1{flex:1 1 100%;order:-1}
-  #edTopbar #edStatus{flex:1 1 100%;margin-left:0;text-align:center;order:99}
 }

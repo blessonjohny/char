@@ -80,11 +80,41 @@
     btnLayersToggle.classList.remove('active');
     btnBgToggle.classList.remove('active');
   }
+  // Positions a dropdown panel in real viewport coordinates from its
+  // trigger button's actual on-screen position, clamped so the panel can
+  // NEVER extend past either edge of the screen. Real, concrete bug this
+  // replaces: a plain CSS `right:0` guess (relative to the button's own
+  // wrapper) put the panel partway off the LEFT edge of the screen
+  // whenever the button wasn't already flush against the right edge --
+  // the page hides horizontal overflow, so that silently clipped the
+  // first few letters of every line inside it ("the fuckin letters").
+  // Computed fresh every time the panel opens, using getBoundingClientRect
+  // (viewport coordinates), so it's correct regardless of the topbar's
+  // own horizontal scroll position or the button's actual spot on screen.
+  function positionDropdownPanel(panel, btn) {
+    const btnRect = btn.getBoundingClientRect();
+    const panelWidth = Math.min(320, window.innerWidth - 16);
+    let left = btnRect.left;
+    left = Math.max(8, Math.min(left, window.innerWidth - panelWidth - 8));
+    panel.style.width = panelWidth + 'px';
+    panel.style.left = left + 'px';
+    panel.style.top = (btnRect.bottom + 8) + 'px';
+  }
   function toggleDropdown(panel, btn) {
     const isOpen = panel.style.display !== 'none';
     closeDropdowns();
-    if (!isOpen) { panel.style.display = 'block'; btn.classList.add('active'); }
+    if (!isOpen) {
+      positionDropdownPanel(panel, btn);
+      panel.style.display = 'block';
+      btn.classList.add('active');
+    }
   }
+  // Re-clamp on resize/orientation-change while a panel is open -- a phone
+  // rotating mid-edit shouldn't leave the panel stranded off-screen.
+  window.addEventListener('resize', () => {
+    if (layersPanel.style.display !== 'none') positionDropdownPanel(layersPanel, btnLayersToggle);
+    if (bgDropdownPanel.style.display !== 'none') positionDropdownPanel(bgDropdownPanel, btnBgToggle);
+  });
   btnLayersToggle.addEventListener('click', (ev) => { ev.stopPropagation(); toggleDropdown(layersPanel, btnLayersToggle); });
   btnBgToggle.addEventListener('click', (ev) => { ev.stopPropagation(); toggleDropdown(bgDropdownPanel, btnBgToggle); });
   document.addEventListener('click', (ev) => {
