@@ -72,13 +72,18 @@
   function closeDropdowns() {
     layersPanel.style.display = 'none';
     bgDropdownPanel.style.display = 'none';
-    btnLayersToggle.classList.remove('on');
-    btnBgToggle.classList.remove('on');
+    // Reuses the exact same "active" styling Edit Table uses -- one single
+    // consistent color means "this is on/open" everywhere in the toolbar,
+    // instead of a different accent per button (real complaint: the gold
+    // Edit Table button next to a differently-colored Layers button read
+    // as inconsistent/unpolished).
+    btnLayersToggle.classList.remove('active');
+    btnBgToggle.classList.remove('active');
   }
   function toggleDropdown(panel, btn) {
     const isOpen = panel.style.display !== 'none';
     closeDropdowns();
-    if (!isOpen) { panel.style.display = 'block'; btn.classList.add('on'); }
+    if (!isOpen) { panel.style.display = 'block'; btn.classList.add('active'); }
   }
   btnLayersToggle.addEventListener('click', (ev) => { ev.stopPropagation(); toggleDropdown(layersPanel, btnLayersToggle); });
   btnBgToggle.addEventListener('click', (ev) => { ev.stopPropagation(); toggleDropdown(bgDropdownPanel, btnBgToggle); });
@@ -380,7 +385,8 @@
   // ---------------------------------------------------------------------
   btnEditToggle.addEventListener('click', () => {
     editMode = !editMode;
-    btnEditToggle.textContent = editMode ? '✏️ Edit Table: ON' : '✏️ Edit Table: OFF';
+    // The active/gold highlight alone says whether this is on -- no
+    // ON/OFF text swap needed, one less thing for the label to shout.
     btnEditToggle.classList.toggle('active', editMode);
     frame.classList.toggle('editing', editMode);
     // Street Banner / Level-Up Banner / Winning Hand Reveal are normally
@@ -546,6 +552,17 @@
     // visible/selectable the whole time Edit Table stays on.
     try { if (win.LayoutHoldem) win.LayoutHoldem.setPreviewOnClasses(doc, true); } catch (e) {}
     ALL_LAYERS.forEach((def) => {
+      // The background photo is a special case: its real element
+      // (.table-wrap) covers the ENTIRE table full-screen, underneath
+      // everything else. Real report: giving it a canvas overlay box like
+      // every other layer meant that box -- being full-screen -- sat on
+      // top of and intercepted taps meant for seats/chips/cards beneath
+      // it ("when I touch other items it will click background"). It's
+      // no longer given a box on the canvas at all -- still fully
+      // selectable and editable, just only through the Background/Layers
+      // dropdown menus and the X/Y fields that opens, never by tapping
+      // the table itself.
+      if (def.key === 'tableBgPhoto') return;
       const target = targetFor(doc, win, def);
       if (!target) return;
       // Real report, confirmed by screenshot: selecting a Seat highlighted

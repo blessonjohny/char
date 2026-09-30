@@ -12,30 +12,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>28 Gulan Hold'em — Visual Layout Editor</title>
 <link rel="stylesheet" href="layout-editor.css?v=11">
-<link rel="stylesheet" href="layout-editor-holdem.css?v=2">
+<link rel="stylesheet" href="layout-editor-holdem.css?v=3">
 </head>
 <body>
-<!-- Big, impossible-to-miss build banner -- full width, top of the page,
-     above everything else, before any toolbar buttons that could get cut
-     off/wrapped on a narrow phone screen. Bumped on every delivered fix
-     so there's a single, obvious, unmissable way to tell whether a phone
-     is actually running the latest files or a stale/undeployed copy --
-     no functional purpose otherwise. -->
-<div id="edBuildBanner" style="background:#f4c430;color:#1a1206;font-size:1.15rem;font-weight:900;text-align:center;padding:10px 6px;letter-spacing:0.04em;position:sticky;top:0;z-index:999999">BUILD V14</div>
 <div id="edRoot">
   <div id="edTopbar">
-    <h1>🎰 Hold'em Table Layout Editor</h1>
-    <span id="edBuildTag" style="font-size:0.65rem;color:#5a7a9a;font-weight:700;letter-spacing:0.03em">build v14</span>
-    <div class="ed-sep"></div>
+    <h1>🎰 Hold'em Layout Editor</h1>
+    <!-- Tiny, unobtrusive version tag -- replaces the old full-width
+         shouting yellow banner (real, repeated complaint: "long
+         horizontal bars", "a kid keyed out"). Still bumped on every
+         delivered fix so a stale cached copy is still detectable, just
+         without demanding the whole top of the screen to do it. -->
+    <span id="edBuildTag" title="Build version">v16</span>
     <select id="edBreakpointSelect"></select>
-    <button class="ed-btn" id="edBtnEditToggle">✏️ Edit Table: OFF</button>
-    <div class="ed-sep"></div>
-    <!-- Replaces the old always-visible Layers panel: a dropdown menu that
-         only takes screen space while it's open. Picking a layer (or
-         clicking the element right on the table) both select it and close
-         this automatically. -->
+    <button class="ed-btn" id="edBtnEditToggle">✏️ Edit Table</button>
     <div class="ed-dropdown-wrap">
-      <button class="ed-btn ed-dropdown-trigger" id="edBtnLayersToggle" type="button">🗂️ Layers ▾</button>
+      <button class="ed-btn" id="edBtnLayersToggle" type="button">🗂️ Layers</button>
       <div class="ed-dropdown-panel" id="edLayersPanel" style="display:none">
         <div class="ed-sidebar-section">
           <h2>Layers</h2>
@@ -43,9 +35,8 @@
         </div>
       </div>
     </div>
-    <!-- Replaces the old always-visible Background Photos panel, same idea. -->
     <div class="ed-dropdown-wrap">
-      <button class="ed-btn ed-dropdown-trigger" id="edBtnBgToggle" type="button">🖼️ Background ▾</button>
+      <button class="ed-btn" id="edBtnBgToggle" type="button">🖼️ Background</button>
       <div class="ed-dropdown-panel" id="edBgDropdownPanel" style="display:none">
         <div class="ed-sidebar-section">
           <h2>Background Photos</h2>
@@ -53,20 +44,17 @@
         </div>
       </div>
     </div>
-    <div class="ed-sep"></div>
     <div class="ed-zoom-group">
       <button class="ed-btn" id="edBtnZoomOut" title="Zoom out">−</button>
       <span id="edZoomLabel">100%</span>
       <button class="ed-btn" id="edBtnZoomIn" title="Zoom in">+</button>
       <button class="ed-btn" id="edBtnZoomFit" title="Fit to screen">Fit</button>
     </div>
-    <div class="ed-sep"></div>
-    <button class="ed-btn" id="edBtnUndo" disabled>↶ Undo</button>
-    <button class="ed-btn" id="edBtnRedo" disabled>↷ Redo</button>
-    <button class="ed-btn danger" id="edBtnReset">Reset Layout</button>
-    <div class="ed-sep"></div>
-    <button class="ed-btn primary" id="edBtnSave">💾 Save Layout</button>
-    <div id="edStatus">Loading current layout…</div>
+    <button class="ed-btn" id="edBtnUndo" disabled title="Undo">↶</button>
+    <button class="ed-btn" id="edBtnRedo" disabled title="Redo">↷</button>
+    <button class="ed-btn danger" id="edBtnReset" title="Reset this layout">Reset</button>
+    <button class="ed-btn primary" id="edBtnSave">💾 Save</button>
+    <div id="edStatus">Loading…</div>
   </div>
   <div id="edBody">
     <div id="edStage">
@@ -80,7 +68,7 @@
          that scrolls sideways on a narrow screen rather than pushing the
          table down. -->
     <div id="edPropsBar">
-      <div id="edInspector"><div class="ed-inspector-empty">Join or host a table inside the frame and start a hand so the real seats are on screen, turn on Edit Table, then click an element on the table (or pick one from the Layers menu above) to adjust it here.</div></div>
+      <div id="edInspector"><div class="ed-inspector-empty">Turn on Edit Table, then tap an element (or pick one from Layers).</div></div>
     </div>
   </div>
 </div>
@@ -90,7 +78,7 @@
      number on every future delivery -- a new URL can never return a stale
      cached response, so this makes "the fix didn't show up" impossible for
      these files regardless of any cache configuration upstream. -->
-<script src="layout-engine-holdem.js?v=14"></script>
-<script src="layout-editor-holdem.js?v=14"></script>
+<script src="layout-engine-holdem.js?v=16"></script>
+<script src="layout-editor-holdem.js?v=16"></script>
 </body>
 </html>
