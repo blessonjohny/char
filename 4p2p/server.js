@@ -3276,25 +3276,21 @@ io.on('connection', (socket) => {
     });
   });
 
-  // A 3-second, vetoable version of the two handlers above. The host's tap doesn't restart
-  // anything immediately anymore - it broadcasts a "New Round" notice to every connected
-  // real player at the table (bots can't and don't need to respond) and starts a 3s window.
-  // Any other real, connected seated player can veto during that window by emitting
-  // vetoRestart, which cancels it outright. If nobody does, it proceeds exactly like the
-  // direct handlers above once the window closes. If the host is alone with only bots, there's
-  // nobody who *could* veto, so it just quietly restarts once the 3s notice has run its course
-  // - same end result as an instant restart, just with the same brief courtesy notice always
-  // shown rather than special-casing "am I alone" to skip it.
-  function beginVetoableRestart(t, kind) {
+  // A 5-second, CONFIRM-style version of the two handlers above. Changed per explicit request
+  // ("5 seconds to agree or no restart, immediate cancel for all, same 5 seconds on both the
+  // 4-player and 6-player tables"): this used to be vetoable (proceeded by default unless
+  // someone said no). Now it's the opposite default -- the requester's tap broadcasts a
+  // "New Round"/"New Game" notice to every connected real player and starts a 5s window, but
+  // restarting now requires another real, connected, seated player to explicitly tap "Yes"
+  // during that window. If anyone taps "No", or nobody responds within 5 seconds, it's
+  // cancelled outright -- no restart happens. One deliberate exception: if the requester is
+  // the only real player at the table (everyone else is a bot), there's nobody who COULD ever
+  // confirm, so it proceeds immediately rather than always timing out and leaving a solo real
+  // player unable to ever restart their own table.
+  function beginConfirmRestart(t, kind, requesterPlayerId) {
     if (t.pendingRestart) return; // one already in flight - a second tap does nothing new
-    t.pendingRestart = { kind, vetoed: false };
-    for (const [socketId] of t.sockets) {
-      const sock = io.sockets.sockets.get(socketId);
-      if (sock) sock.emit('restartPending', { kind, seconds: 3 });
-    }
-    t.pendingRestart.timer = setTimeout(() => {
-      if (!t.pendingRestart || t.pendingRestart.vetoed) return;
-      t.pendingRestart = null;
+    const hasOtherRealPlayer = t.engine.seats.some(s => s && !s.isBot && s.playerId !== requesterPlayerId);
+    if (!hasOtherRealPlayer) {
       if (kind === 'game') t.engine.restartGame(); else t.engine.restartRound();
       touch(t);
       broadcastTable(t);
@@ -3302,15 +3298,32 @@ io.on('connection', (socket) => {
         const sock = io.sockets.sockets.get(socketId);
         if (sock) sock.emit('restartProceeded', { kind });
       }
-      console.log(`[table ${tableId}] vetoable ${kind} restart proceeded (no veto)`);
-    }, 3000);
+      console.log(`[table ${tableId}] confirm ${kind} restart proceeded (no one else present to confirm)`);
+      return;
+    }
+    t.pendingRestart = { kind, confirmed: false, requesterPlayerId };
+    for (const [socketId] of t.sockets) {
+      const sock = io.sockets.sockets.get(socketId);
+      if (sock) sock.emit('restartPending', { kind, seconds: 5 });
+    }
+    t.pendingRestart.timer = setTimeout(() => {
+      if (!t.pendingRestart) return;
+      const confirmed = t.pendingRestart.confirmed;
+      t.pendingRestart = null;
+      if (confirmed) return; // already handled synchronously by confirmRestart below
+      console.log(`[table ${tableId}] confirm ${kind} restart cancelled (no response in 5s)`);
+      for (const [socketId] of t.sockets) {
+        const sock = io.sockets.sockets.get(socketId);
+        if (sock) sock.emit('restartCancelled', { byName: null, timedOut: true });
+      }
+    }, 5000);
   }
 
   socket.on('requestRestartGame', () => {
     withTable((t, pos) => {
       if (!isEffectiveHost(t, playerId)) return;
       if (t.engine.phase === 'lobby') return;
-      beginVetoableRestart(t, 'game');
+      beginConfirmRestart(t, 'game', playerId);
     });
   });
 
@@ -3318,19 +3331,39 @@ io.on('connection', (socket) => {
     withTable((t, pos) => {
       if (!isEffectiveHost(t, playerId)) return;
       if (t.engine.phase === 'lobby') return;
-      beginVetoableRestart(t, 'round');
+      beginConfirmRestart(t, 'round', playerId);
+    });
+  });
+
+  socket.on('confirmRestart', () => {
+    withTable((t, pos) => {
+      if (!t.pendingRestart || t.pendingRestart.confirmed) return;
+      const seat = t.engine.seats[pos];
+      if (!seat || seat.isBot) return; // only a real seated player's own confirm counts
+      if (seat.playerId === t.pendingRestart.requesterPlayerId) return; // requester isn't a separate confirmation
+      t.pendingRestart.confirmed = true;
+      clearTimeout(t.pendingRestart.timer);
+      const kind = t.pendingRestart.kind;
+      t.pendingRestart = null;
+      if (kind === 'game') t.engine.restartGame(); else t.engine.restartRound();
+      touch(t);
+      broadcastTable(t);
+      console.log(`[table ${tableId}] confirm ${kind} restart proceeded (confirmed by ${seat.name})`);
+      for (const [socketId] of t.sockets) {
+        const sock = io.sockets.sockets.get(socketId);
+        if (sock) sock.emit('restartProceeded', { kind });
+      }
     });
   });
 
   socket.on('vetoRestart', () => {
     withTable((t, pos) => {
-      if (!t.pendingRestart || t.pendingRestart.vetoed) return;
+      if (!t.pendingRestart) return;
       const seat = t.engine.seats[pos];
-      if (!seat || seat.isBot) return; // only a real seated player's own veto counts
-      t.pendingRestart.vetoed = true;
+      if (!seat || seat.isBot) return; // only a real seated player's own "no" counts
       clearTimeout(t.pendingRestart.timer);
       t.pendingRestart = null;
-      console.log(`[table ${tableId}] restart vetoed by ${seat.name}`);
+      console.log(`[table ${tableId}] restart declined by ${seat.name}`);
       for (const [socketId] of t.sockets) {
         const sock = io.sockets.sockets.get(socketId);
         if (sock) sock.emit('restartCancelled', { byName: seat.name });
@@ -4299,23 +4332,96 @@ io.on('connection', (socket) => {
   // player's client has had real time to finish its own animation and
   // show the summary before anyone can advance past it.
   const SIXP_GAMEOVER_MIN_VIEW_MS = 5000;
-  socket.on('sixp_restartGame', () => {
+
+  // Same 5-second CONFIRM-style restart as the 4-player table (see beginConfirmRestart's
+  // comment above for the full reasoning) -- ported here so both tables behave identically:
+  // requesting a restart broadcasts a notice and starts a 5s window; another real, connected,
+  // seated player must explicitly tap "Yes" or it's cancelled (a "No", or no response at all
+  // within 5 seconds, both cancel it). If the requester is the only real player at the table,
+  // it proceeds immediately since nobody else could ever confirm it. The pre-existing
+  // SIXP_GAMEOVER_MIN_VIEW_MS gate on restarting the game right after a match ends is
+  // preserved and checked at request time, same as before.
+  function sixpBeginConfirmRestart(t, kind, requesterPlayerId) {
+    if (t.pendingRestart) return;
+    const hasOtherRealPlayer = t.engine.seats.some(s => s && !s.isBot && s.playerId !== requesterPlayerId);
+    if (!hasOtherRealPlayer) {
+      if (kind === 'game') t.engine.restartGame(); else t.engine.restartRound();
+      sixpTouch(t);
+      sixpBroadcastTable(t);
+      for (const [socketId] of t.sockets) {
+        const sock = io.sockets.sockets.get(socketId);
+        if (sock) sock.emit('sixp_restartProceeded', { kind });
+      }
+      console.log(`[6p table ${tableId}] confirm ${kind} restart proceeded (no one else present to confirm)`);
+      return;
+    }
+    t.pendingRestart = { kind, confirmed: false, requesterPlayerId };
+    for (const [socketId] of t.sockets) {
+      const sock = io.sockets.sockets.get(socketId);
+      if (sock) sock.emit('sixp_restartPending', { kind, seconds: 5 });
+    }
+    t.pendingRestart.timer = setTimeout(() => {
+      if (!t.pendingRestart) return;
+      const confirmed = t.pendingRestart.confirmed;
+      t.pendingRestart = null;
+      if (confirmed) return;
+      console.log(`[6p table ${tableId}] confirm ${kind} restart cancelled (no response in 5s)`);
+      for (const [socketId] of t.sockets) {
+        const sock = io.sockets.sockets.get(socketId);
+        if (sock) sock.emit('sixp_restartCancelled', { byName: null, timedOut: true });
+      }
+    }, 5000);
+  }
+
+  socket.on('sixp_requestRestartGame', () => {
     withSixpTable((t) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;
       const goAt = t.engine.gameOver && t.engine.gameOver.gameOverAt;
       if (goAt && Date.now() - goAt < SIXP_GAMEOVER_MIN_VIEW_MS) return;
-      t.engine.restartGame();
-      sixpTouch(t);
-      sixpBroadcastTable(t);
+      sixpBeginConfirmRestart(t, 'game', sixpPlayerId);
     });
   });
 
-  socket.on('sixp_restartRound', () => {
+  socket.on('sixp_requestRestartRound', () => {
     withSixpTable((t) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;
-      t.engine.restartRound();
+      sixpBeginConfirmRestart(t, 'round', sixpPlayerId);
+    });
+  });
+
+  socket.on('sixp_confirmRestart', () => {
+    withSixpTable((t, pos) => {
+      if (!t.pendingRestart || t.pendingRestart.confirmed) return;
+      const seat = t.engine.seats[pos];
+      if (!seat || seat.isBot) return;
+      if (seat.playerId === t.pendingRestart.requesterPlayerId) return;
+      t.pendingRestart.confirmed = true;
+      clearTimeout(t.pendingRestart.timer);
+      const kind = t.pendingRestart.kind;
+      t.pendingRestart = null;
+      if (kind === 'game') t.engine.restartGame(); else t.engine.restartRound();
       sixpTouch(t);
       sixpBroadcastTable(t);
+      console.log(`[6p table ${tableId}] confirm ${kind} restart proceeded (confirmed by ${seat.name})`);
+      for (const [socketId] of t.sockets) {
+        const sock = io.sockets.sockets.get(socketId);
+        if (sock) sock.emit('sixp_restartProceeded', { kind });
+      }
+    });
+  });
+
+  socket.on('sixp_vetoRestart', () => {
+    withSixpTable((t, pos) => {
+      if (!t.pendingRestart) return;
+      const seat = t.engine.seats[pos];
+      if (!seat || seat.isBot) return;
+      clearTimeout(t.pendingRestart.timer);
+      t.pendingRestart = null;
+      console.log(`[6p table ${tableId}] restart declined by ${seat.name}`);
+      for (const [socketId] of t.sockets) {
+        const sock = io.sockets.sockets.get(socketId);
+        if (sock) sock.emit('sixp_restartCancelled', { byName: seat.name });
+      }
     });
   });
 
