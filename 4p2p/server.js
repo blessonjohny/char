@@ -1616,7 +1616,7 @@ app.post('/api/admin/close-table', (req, res) => {
     io.emit('l56_roomList', l56PublicList());
   } else if (pokerTables[id]) {
     io.to('poker_' + id).emit('poker_tableClosed', { reason: 'admin' });
-    recordTableClosed(id, "Hold'em", pokerTables[id].createdAt, 'admin', pokerTables[id].seatedHumans);
+    if (!pokerTables[id].hidden) recordTableClosed(id, "Hold'em", pokerTables[id].createdAt, 'admin', pokerTables[id].seatedHumans);
     delete pokerTables[id]; closed = "Hold'em";
   }
   if (!closed) return res.status(404).json({ ok: false, error: 'table_not_found' });
@@ -1636,7 +1636,7 @@ app.post('/api/admin/close-table', (req, res) => {
 // actually talks to the server anywhere else -- this replaces that).
 app.get('/api/admin/poker-tables', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
-  const list = Object.values(pokerTables).map(t => ({
+  const list = Object.values(pokerTables).filter(t => !t.hidden).map(t => ({
     tableId: t.engine.tableId,
     name: t.name,
     mode: t.engine.mode,
@@ -6071,7 +6071,15 @@ io.on('connection', (socket) => {
 function newPokerTableId() { return 'P' + crypto.randomBytes(4).toString('hex').toUpperCase(); }
 
 function pokerPublicTableList() {
-  const list = Object.values(pokerTables).filter(t => t.engine.seats.some(Boolean));
+  // Real player report ("when I'm editing it's going live and people
+  // join"): the Layout Editor's preview iframe was creating a genuine,
+  // real Hold'em table -- indistinguishable from any player's own table
+  // -- which then showed up right here in everyone's lobby list, so real
+  // players could (and did) join it mid-edit. Preview tables are now
+  // flagged `hidden` at creation (see poker_createTable) and filtered out
+  // of the one list every client's lobby is built from, so they're simply
+  // never offered to anyone to join in the first place.
+  const list = Object.values(pokerTables).filter(t => t.engine.seats.some(Boolean) && !t.hidden);
   const genericNamesSoFar = [];
   return list.map(t => {
     const name = computeTableDisplayName(t.engine.seats, t.creatorName, genericNamesSoFar);
@@ -6570,7 +6578,7 @@ io.on('connection', (socket) => {
     pokerAdminWatchTableId = null;
   });
 
-  socket.on('poker_createTable', ({ name, mode, buyInType, smallBlind, bigBlind, startingChips, reloadChips, avatar }) => {
+  socket.on('poker_createTable', ({ name, mode, buyInType, smallBlind, bigBlind, startingChips, reloadChips, avatar, preview }) => {
     const tableId = newPokerTableId();
     const engine = new PokerEngine(tableId, {
       mode: mode === 'tournament' ? 'tournament' : 'cash',
@@ -6593,6 +6601,17 @@ io.on('connection', (socket) => {
       // requestedByName } -- see pokerRequestRestart/pokerConfirmRestart
       // and the 1s sweep below that actually executes it at deadline.
       pendingRestart: null,
+      // Real, confirmed feature per explicit live report ("when I'm
+      // editing it's going live and people join"): the Layout Editor's
+      // preview iframe passes `preview: true` here instead of silently
+      // reusing/creating a normal discoverable table. `hidden` keeps it
+      // out of pokerPublicTableList (the lobby) and the admin panel's
+      // live-tables view, and previewOwnerPlayerId is checked in
+      // poker_joinTable so nobody but the editor's own reconnect can ever
+      // get seated at it, even with the room code -- a private table only
+      // its own creator can ever be in, not just an unlisted one.
+      hidden: !!preview,
+      previewOwnerPlayerId: preview ? playerId : null,
     };
     recordSeatedHuman(t, String(name || 'Host').slice(0, 20), socket.id);
     pokerTables[tableId] = t;
@@ -6644,6 +6663,13 @@ io.on('connection', (socket) => {
   socket.on('poker_joinTable', ({ tableId, name, playerId: existingPlayerId, pos: requestedPos, avatar }) => {
     const t = pokerTables[tableId];
     if (!t) { socket.emit('poker_joinFailed', { reason: 'not_found' }); return; }
+    // A hidden (Layout Editor preview) table only ever lets its own
+    // creator back in -- reported as "not_found" (same as a genuinely
+    // missing table) rather than a distinct error, so a stranger with a
+    // guessed/leaked room code learns nothing about it even existing.
+    if (t.hidden && existingPlayerId !== t.previewOwnerPlayerId) {
+      socket.emit('poker_joinFailed', { reason: 'not_found' }); return;
+    }
 
     // Reconnect: same playerId claiming their existing seat back.
     if (existingPlayerId) {
@@ -7019,7 +7045,7 @@ io.on('connection', (socket) => {
     if (shouldClose && pokerTableId && pokerTables[pokerTableId]) {
       const t = pokerTables[pokerTableId];
       io.to('poker_' + pokerTableId).emit('poker_tableClosed', { reason: 'lastPlayerLeft' });
-      recordTableClosed(pokerTableId, "Hold'em", t.createdAt, 'lastPlayerLeft', t.seatedHumans);
+      if (!t.hidden) recordTableClosed(pokerTableId, "Hold'em", t.createdAt, 'lastPlayerLeft', t.seatedHumans);
       delete pokerTables[pokerTableId];
       io.emit('roomList', publicTableList());
       console.log(`[poker] table ${pokerTableId} closed — last real player explicitly left via Leave Table`);
@@ -7044,6 +7070,19 @@ io.on('connection', (socket) => {
     const info = t.sockets.get(socket.id);
     console.log(`[poker] socket ${socket.id} disconnected from table ${pokerTableId} (seat ${info ? info.pos : '?'}), reason: ${reason}`);
     t.sockets.delete(socket.id);
+    // A hidden Layout Editor preview table has exactly one human ever
+    // allowed in it (its own creator, enforced in poker_joinTable above)
+    // -- no one else can ever reconnect to it, so there's no reason to
+    // keep it around for the usual bot-covers-the-seat grace period once
+    // that one connection drops (editor tab closed/reloaded/navigated
+    // away). Closes it immediately instead of leaving it to linger,
+    // unseen, until the 5am daily reset.
+    if (t.hidden) {
+      console.log(`[poker] preview table ${pokerTableId} closed — editor disconnected`);
+      delete pokerTables[pokerTableId];
+      pokerTableId = null; pokerPlayerId = null;
+      return;
+    }
     if (info && t.engine.seats[info.pos] && t.engine.seats[info.pos].playerId === info.playerId) {
       // Keep the seat (reconnect-friendly, same as the other tables),
       // just mark it disconnected. disconnectedAt feeds the table-name
@@ -7180,7 +7219,7 @@ function dailyCloseAllTables() {
   for (const [k, t] of Object.entries(tables)) recordTableClosed(k, '4-Player', t.createdAt, 'dailyReset', t.seatedHumans);
   for (const [k, t] of Object.entries(sixpTables)) recordTableClosed(k, '6-Player', t.createdAt, 'dailyReset', t.seatedHumans);
   for (const [k, r] of Object.entries(l56Rooms)) recordTableClosed(k, '56', r.createdAt, 'dailyReset', r.seatedHumans);
-  for (const [k, t] of Object.entries(pokerTables)) recordTableClosed(k, "Hold'em", t.createdAt, 'dailyReset', t.seatedHumans);
+  for (const [k, t] of Object.entries(pokerTables)) { if (!t.hidden) recordTableClosed(k, "Hold'em", t.createdAt, 'dailyReset', t.seatedHumans); }
   for (const k of Object.keys(tables)) delete tables[k];
   for (const k of Object.keys(sixpTables)) delete sixpTables[k];
   for (const k of Object.keys(l56Rooms)) delete l56Rooms[k];
