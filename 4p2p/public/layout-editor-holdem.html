@@ -23,7 +23,7 @@
          horizontal bars", "a kid keyed out"). Still bumped on every
          delivered fix so a stale cached copy is still detectable, just
          without demanding the whole top of the screen to do it. -->
-    <span id="edBuildTag" title="Build version">v18</span>
+    <span id="edBuildTag" title="Build version">v19</span>
     <select id="edBreakpointSelect"></select>
     <button class="ed-btn" id="edBtnEditToggle">✏️ Edit Table</button>
     <div class="ed-dropdown-wrap">
@@ -59,7 +59,13 @@
   <div id="edBody">
     <div id="edStage">
       <div id="edFrameWrap">
-        <iframe id="edFrame" src="holdem.html"></iframe>
+        <!-- editorPreview=1 (see holdem.html) makes this iframe create its
+             own brand-new, PRIVATE practice table -- server-flagged hidden
+             from the public lobby and rejoinable only by this same editor
+             session -- instead of touching or exposing any real table.
+             Real, confirmed fix per explicit live report ("when I'm
+             editing it's going live and people join"). -->
+        <iframe id="edFrame" src="holdem.html?editorPreview=1"></iframe>
       </div>
     </div>
     <!-- Slim bottom bar for the selected element's fields -- replaces the
@@ -78,7 +84,7 @@
      number on every future delivery -- a new URL can never return a stale
      cached response, so this makes "the fix didn't show up" impossible for
      these files regardless of any cache configuration upstream. -->
-<script src="layout-engine-holdem.js?v=18"></script>
-<script src="layout-editor-holdem.js?v=18"></script>
+<script src="layout-engine-holdem.js?v=19"></script>
+<script src="layout-editor-holdem.js?v=19"></script>
 </body>
 </html>

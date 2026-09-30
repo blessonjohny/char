@@ -3020,6 +3020,21 @@ let latestState = null;
 let lastKnownCurrentPlayer = null;
 let createOpts = { mode: 'tournament', buyInType: 'nolimit', smallBlind: 5, bigBlind: 10, startingChips: 1000 };
 
+// The Layout Editor iframe (layout-editor-holdem.html) loads this exact
+// page so it can drag its REAL rendered elements around -- but this page
+// is also the real live game, and loading it plainly used to mean the
+// editor either resurrected whatever real table was sitting in the
+// admin's own browser session (localStorage is shared with every tab on
+// this origin, editor iframe included) or created an ordinary table that
+// then showed up in everyone's public lobby, joinable by any real player
+// mid-edit (real report: "when I'm editing it's going live and people
+// join"). `editorPreview=1` (set only by the editor's own iframe src)
+// switches this whole page into a private, throwaway table just for
+// that preview -- see the `IS_EDITOR_PREVIEW` branches below and in
+// poker_joined.
+const IS_EDITOR_PREVIEW = new URLSearchParams(location.search).get('editorPreview') === '1';
+let previewAutoContinuedFor = null;
+
 // A full page reload (not just a background tab suspending) wipes every
 // JS variable but leaves localStorage intact -- this is what actually
 // lets the player find their way back to the table on the very first
@@ -3028,22 +3043,27 @@ let createOpts = { mode: 'tournament', buyInType: 'nolimit', smallBlind: 5, bigB
 // MY_TABLE_ID read back at the top of the script) -- this was the real
 // difference: holdem.html was saving a session on join but never once
 // reading it back, so it had zero memory of anything after a real reload.
-try { myPlayerId = localStorage.getItem('holdem_player_id') || null; } catch (e) {}
-try { myTableId = localStorage.getItem('holdem_table_id') || null; } catch (e) {}
-// A stale session shouldn't be retried forever -- if it's been sitting
-// unused for a long stretch, the table has very likely moved on or
-// closed; same 90-minute cutoff spirit as the other games' session
-// handling, so an old browser tab doesn't keep trying to resurrect a
-// table from days ago.
-try {
-  const savedAt = parseInt(localStorage.getItem('holdem_session_time') || '0', 10);
-  if (!savedAt || (Date.now() - savedAt) > 90 * 60 * 1000) {
-    myPlayerId = null; myTableId = null;
-    localStorage.removeItem('holdem_player_id');
-    localStorage.removeItem('holdem_table_id');
-    localStorage.removeItem('holdem_session_time');
-  }
-} catch (e) {}
+// Skipped entirely in editor-preview mode: the editor always wants a
+// brand new private table of its own, never whatever real table happens
+// to be saved in this browser's own localStorage.
+if (!IS_EDITOR_PREVIEW) {
+  try { myPlayerId = localStorage.getItem('holdem_player_id') || null; } catch (e) {}
+  try { myTableId = localStorage.getItem('holdem_table_id') || null; } catch (e) {}
+  // A stale session shouldn't be retried forever -- if it's been sitting
+  // unused for a long stretch, the table has very likely moved on or
+  // closed; same 90-minute cutoff spirit as the other games' session
+  // handling, so an old browser tab doesn't keep trying to resurrect a
+  // table from days ago.
+  try {
+    const savedAt = parseInt(localStorage.getItem('holdem_session_time') || '0', 10);
+    if (!savedAt || (Date.now() - savedAt) > 90 * 60 * 1000) {
+      myPlayerId = null; myTableId = null;
+      localStorage.removeItem('holdem_player_id');
+      localStorage.removeItem('holdem_table_id');
+      localStorage.removeItem('holdem_session_time');
+    }
+  } catch (e) {}
+}
 
 // Free-tier hosts (Render, etc.) put the whole server to sleep after a
 // stretch of no HTTP traffic -- and since every table lives in that
@@ -3092,7 +3112,14 @@ socket.on('connect', () => {
   for (const k of Object.keys(lastRenderedSeatInnerHtml)) delete lastRenderedSeatInnerHtml[k];
   for (const k of Object.keys(lastActionBubbleTextBySeat)) delete lastActionBubbleTextBySeat[k];
   lastRenderedHandNumberForSeatCache = null;
-  if (myTableId && myPlayerId) {
+  if (IS_EDITOR_PREVIEW) {
+    // Editor preview mode never has (or wants) a saved session to
+    // reconnect to -- it always asks the server for a brand new, private
+    // table instead (see poker_createTable's `preview: true` and
+    // poker_joined below, which auto-fills it with bots and deals a hand
+    // so the editor has real seats/chips/cards on screen to drag).
+    socket.emit('poker_createTable', { name: 'Layout Preview', preview: true, avatar: MY_AVATAR_KEY });
+  } else if (myTableId && myPlayerId) {
     socket.emit('poker_joinTable', { tableId: myTableId, playerId: myPlayerId });
   }
   // The "connection lost" toast never had a matching "you're back"
@@ -4152,12 +4179,33 @@ socket.on('poker_joined', (info) => {
     const el = $('botCoveredWelcomeBackOverlay');
     if (el) el.classList.add('on');
   }
+  if (IS_EDITOR_PREVIEW) {
+    // Never save a preview table's session -- it's a private, throwaway
+    // table the server closes the instant this tab disconnects (see
+    // server.js), so there's nothing worth ever reconnecting to, and
+    // saving it here would just overwrite this same browser's real
+    // holdem session the next time the ADMIN (not just the editor)
+    // opens a real table in a normal tab on this origin.
+    fillPreviewTableAndDeal();
+    return;
+  }
   try {
     localStorage.setItem('holdem_player_id', info.playerId);
     localStorage.setItem('holdem_table_id', info.tableId);
     localStorage.setItem('holdem_session_time', String(Date.now()));
   } catch (e) {}
 });
+// Editor-preview-only: seat the table full of bots and deal a hand
+// immediately, with no host interaction -- the Layout Editor needs real
+// seats, chips and cards on screen to drag around, not an empty lobby
+// waiting for a human to click Start Hand. Mirrors the existing "Fill
+// Table with Bots" + Start Hand flow (see btnStartHand's own click
+// handler) exactly, just fired automatically instead of by a click.
+function fillPreviewTableAndDeal() {
+  if (!IS_EDITOR_PREVIEW) return;
+  socket.emit('poker_fillBots', { count: 8 });
+  setTimeout(() => socket.emit('poker_startHand'), 250);
+}
 // Per explicit admin-feature request: a tournament already in progress
 // no longer seats a brand-new player immediately -- the server queues
 // the request instead and an admin has to actually approve it. This is
@@ -4233,6 +4281,16 @@ socket.on('poker_state', (state) => {
   // guarantee this table's own state has actually arrived yet.
   hideReconnectOverlay();
   latestState = state;
+  // Editor-preview-only: with no real player there to click Continue,
+  // a preview table would otherwise sit frozen on the first hand's
+  // results forever -- auto-advance so the editor sees a fresh hand
+  // (new cards, a moving pot, community cards appearing/clearing) to
+  // work against instead of one static frame. Guarded so it only ever
+  // fires once per hand reaching handEnd, not on every state push.
+  if (IS_EDITOR_PREVIEW && state.phase === 'handEnd' && state.handNumber !== previewAutoContinuedFor) {
+    previewAutoContinuedFor = state.handNumber;
+    setTimeout(() => socket.emit('poker_readyForNextHand'), 1500);
+  }
   updateWinningHandContinueUI(state);
   updateRebuildEliminationUI(state);
   renderRestartCountdown(state);
