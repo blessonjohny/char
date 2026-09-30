@@ -30,22 +30,34 @@
 // everyone using it, not on this game specifically.
 // ============================================================
 (function () {
-  // This game's own dedicated Metered.ca TURN credentials (account:
-  // charuvillathu, generated Sep-27-2026). If these ever need rotating,
-  // generate a new credential at the account's TURN Server page and swap
-  // it in here -- no other code changes needed.
-  const TURN_USERNAME = 'afb27d87eaced6a06d082d19';
-  const TURN_CREDENTIAL = 'Qa/I48+wyv12rmqn';
-
-  const ICE_SERVERS = [
+  // Switched from Metered.ca (free tier: 500MB/month -- too small a
+  // ceiling once real usage picks up) to Cloudflare's Realtime TURN
+  // service (free tier: 1,000GB/month). Unlike Metered's setup, the
+  // real Cloudflare credential is a powerful, permanent secret that
+  // must never be shipped in this public file -- it lives ONLY on the
+  // server (server.js, as the CF_TURN_KEY_ID/CF_TURN_API_TOKEN
+  // environment variables) and is never visible to anyone viewing this
+  // site's source. This file instead asks the server for a temporary,
+  // short-lived (24h) username/password every time voice loads, via
+  // /api/turn-credentials -- see that route in server.js for the full
+  // reasoning. Starts as STUN-only and gets replaced once the fetch
+  // below resolves; if the fetch fails for any reason, voice chat still
+  // works for anyone whose connection doesn't need TURN, it just won't
+  // get the relay fallback that flaky mobile/wifi connections need.
+  let ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun.relay.metered.ca:80' },
-    { urls: 'turn:global.relay.metered.ca:80', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
-    { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
-    { urls: 'turn:global.relay.metered.ca:443', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
-    { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: TURN_USERNAME, credential: TURN_CREDENTIAL },
   ];
+  const iceServersReady = fetch('/api/turn-credentials')
+    .then(r => r.json())
+    .then(data => {
+      if (data && Array.isArray(data.iceServers) && data.iceServers.length) {
+        ICE_SERVERS = data.iceServers;
+      }
+    })
+    .catch((e) => {
+      console.warn('[voice] Could not fetch TURN credentials, falling back to STUN-only:', e.message);
+    });
 
   let socket = null;
   let localStream = null;
@@ -324,6 +336,12 @@
   // ---------------- Public API ----------------
   async function join() {
     if (inCall) return true;
+    // Make sure the real TURN credentials (not just the STUN-only
+    // starting value above) have arrived before anyone actually tries
+    // to connect -- this resolves almost instantly in practice since
+    // the fetch kicked off the moment this script loaded, well before
+    // a player taps the mic button.
+    await iceServersReady;
     try {
       await ensureMic();
     } catch (e) {
