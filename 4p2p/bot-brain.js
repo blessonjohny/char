@@ -18,7 +18,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const BRAINS_FILE = path.join(__dirname, 'bot-brains-data.json');
+// Same persistent-storage fix as server.js: point at a Railway Volume via
+// DATA_DIR (set as an env var) instead of the throwaway container disk, so
+// bot learning data survives redeploys. Unset DATA_DIR = unchanged old
+// behavior (next to the source code).
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
+const BRAINS_FILE = path.join(DATA_DIR, 'bot-brains-data.json');
 
 let botBrains = {};
 let dirty = false;

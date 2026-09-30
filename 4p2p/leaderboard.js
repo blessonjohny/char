@@ -28,7 +28,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const LEADERBOARD_FILE = path.join(__dirname, 'leaderboard-data.json');
+// Same persistent-storage fix as server.js/bot-brain.js: point at a
+// Railway Volume via DATA_DIR (env var) instead of the throwaway
+// container disk, so the leaderboard survives redeploys. Unset DATA_DIR
+// = unchanged old behavior (next to the source code).
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
+const LEADERBOARD_FILE = path.join(DATA_DIR, 'leaderboard-data.json');
 const TOP_N = 10;
 
 let data = {

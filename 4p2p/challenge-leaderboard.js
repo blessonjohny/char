@@ -23,7 +23,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const CHALLENGE_LEADERBOARD_FILE = path.join(__dirname, 'challenge-leaderboard-data.json');
+// Same persistent-storage fix as leaderboard.js/bot-brain.js: point at a
+// Railway Volume via DATA_DIR (env var) instead of the throwaway
+// container disk, so this survives redeploys. Unset DATA_DIR = unchanged
+// old behavior (next to the source code).
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
+const CHALLENGE_LEADERBOARD_FILE = path.join(DATA_DIR, 'challenge-leaderboard-data.json');
 const TOP_N = 10;
 
 let data = {

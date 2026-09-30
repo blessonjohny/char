@@ -118,7 +118,13 @@ function poolBroadcastList() { io.emit('pool_roomList', poolPublicList()); }
 // clients repopulate it themselves through the normal join flow.
 // carromPlayerIndex isn't saved separately either, since it's fully
 // derivable from the restored seats and gets rebuilt from them on load.
-const CARROM_TABLES_FILE = path.join(__dirname, 'carrom-tables-data.json');
+// Same persistent-storage fix used across server.js/bot-brain.js/
+// leaderboard.js: point at a Railway Volume via DATA_DIR (env var)
+// instead of the throwaway container disk, so this survives redeploys.
+// Unset DATA_DIR = unchanged old behavior (next to the source code).
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
+const CARROM_TABLES_FILE = path.join(DATA_DIR, 'carrom-tables-data.json');
 const GITHUB_CARROM_TABLES_PATH = '4p2p/data/carrom-tables.json';
 let carromTablesFileSha = null;
 let carromTablesDirty = false;

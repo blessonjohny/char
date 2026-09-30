@@ -33,6 +33,22 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+
+// ============================================================
+// PERSISTENT DATA DIRECTORY
+// ============================================================
+// All of this server's on-disk data (visitor log, table history, layout
+// configs, bot brains) used to be written next to the source code
+// (__dirname). On Railway/Render, every fresh deploy replaces the whole
+// container filesystem with a brand-new copy of the source — so anything
+// written under __dirname vanishes on the very next deploy.
+//
+// Fix: everything now goes under DATA_DIR instead. Set the DATA_DIR env
+// var to a mounted persistent Volume's path (e.g. "/data" on Railway) and
+// this data survives redeploys. Leave it unset and behavior is unchanged
+// (falls back to __dirname, same as before) — safe for local dev.
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 const { Server } = require('socket.io');
 const { GameEngine, getTeam: getTeam4p } = require('./game-engine');
 const { SpadesEngine } = require('./spades-engine');
@@ -275,7 +291,7 @@ app.get('/api/turn-credentials', async (req, res) => {
 // ============================================================
 app.use(express.json({ limit: '32kb' }));
 
-const COMMENTS_FILE = path.join(__dirname, 'comments-data.json');
+const COMMENTS_FILE = path.join(DATA_DIR, 'comments-data.json');
 const GITHUB_COMMENTS_PATH = '4p2p/data/comments.json';
 let comments = [];
 let commentsDirty = false;
@@ -506,7 +522,7 @@ const io = new Server(server, {
 // Without them, this quietly falls back to local-file-only (same
 // unreliable-on-restart behavior as before) rather than crashing.
 const fs2 = require('fs');
-const VISITOR_LOG_FILE = path.join(__dirname, 'visitor-log-data.json');
+const VISITOR_LOG_FILE = path.join(DATA_DIR, 'visitor-log-data.json');
 const VISITOR_LOG_MAX = 500;
 const VISITOR_LOG_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
@@ -719,6 +735,106 @@ loadVisitorLog();
 loadComments();
 
 // ============================================================
+// NETWORK USAGE TRACKING — for the admin panel's "Data Usage" tab
+// ============================================================
+// What this answers: "how much data has actually gone in/out of this
+// server, including stuff I wouldn't normally see" (Socket.io game
+// traffic, the admin panel's own polling, health checks, everything —
+// not just whatever a single feature like the visitor log happens to
+// log). Rather than trying to instrument every HTTP route and every
+// socket.io emit by hand (fragile, easy to miss something — exactly the
+// "hidden" usage this is meant to catch), this reads the container's own
+// network interface counters straight from the kernel via
+// /proc/net/dev, which sees literally every byte that crosses the
+// network interface, no matter which part of the code sent it.
+//
+// Caveat, stated plainly rather than glossed over: this measures total
+// interface traffic (receive + transmit, summed across all non-loopback
+// interfaces), which is a very close proxy for what Railway meters, but
+// isn't guaranteed to be the exact byte-for-byte figure Railway's own
+// billing system uses internally. Treat it as "how much data this app
+// is actually moving," not a guaranteed-exact invoice line. Tracking
+// only covers time since this feature was deployed — there's no way to
+// recover historical usage from before that.
+const NETWORK_USAGE_FILE = path.join(DATA_DIR, 'network-usage-data.json');
+const NETWORK_USAGE_POLL_MS = 60 * 1000; // sample once a minute
+const NETWORK_USAGE_MAX_DAYS = 120; // trimmed periodically, generous window
+let networkUsageDays = {}; // { 'YYYY-MM-DD': totalBytes }
+let networkUsageDirty = false;
+let networkUsagePrevBytes = null; // baseline from the last poll (or null until the first poll)
+
+function loadNetworkUsage() {
+  try {
+    if (fs2.existsSync(NETWORK_USAGE_FILE)) {
+      const parsed = JSON.parse(fs2.readFileSync(NETWORK_USAGE_FILE, 'utf8'));
+      if (parsed && typeof parsed === 'object') networkUsageDays = parsed;
+    }
+  } catch (e) {
+    console.error('[network-usage] Failed to load saved usage data, starting fresh:', e.message);
+  }
+}
+function saveNetworkUsageLocal() {
+  if (!networkUsageDirty) return;
+  try {
+    fs2.writeFileSync(NETWORK_USAGE_FILE, JSON.stringify(networkUsageDays));
+    networkUsageDirty = false;
+  } catch (e) {
+    console.error('[network-usage] Failed to save usage data:', e.message);
+  }
+}
+function readInterfaceBytesNow() {
+  // Sums rx (column 2) + tx (column 10) across every interface except
+  // loopback, straight out of /proc/net/dev's fixed-width table.
+  try {
+    const raw = fs2.readFileSync('/proc/net/dev', 'utf8');
+    const lines = raw.split('\n').slice(2); // skip the two header lines
+    let total = 0;
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const [ifaceRaw, rest] = line.split(':');
+      const iface = (ifaceRaw || '').trim();
+      if (!iface || iface === 'lo') continue;
+      const cols = rest.trim().split(/\s+/).map(Number);
+      const rxBytes = cols[0] || 0;
+      const txBytes = cols[8] || 0;
+      total += rxBytes + txBytes;
+    }
+    return total;
+  } catch (e) {
+    return null; // e.g. not on Linux, or /proc unavailable — polling just skips this tick
+  }
+}
+function pollNetworkUsage() {
+  const nowBytes = readInterfaceBytesNow();
+  if (nowBytes == null) return;
+  if (networkUsagePrevBytes == null) {
+    // First sample since this process started: just establishes the
+    // baseline. Counting it as "usage" would double-count everything
+    // this same container already sent before this feature existed.
+    networkUsagePrevBytes = nowBytes;
+    return;
+  }
+  let delta = nowBytes - networkUsagePrevBytes;
+  if (delta < 0) delta = 0; // counters reset (rare) — skip this tick rather than log garbage
+  networkUsagePrevBytes = nowBytes;
+  if (delta === 0) return;
+  const today = new Date().toISOString().slice(0, 10); // UTC calendar day, consistent regardless of server timezone
+  networkUsageDays[today] = (networkUsageDays[today] || 0) + delta;
+  networkUsageDirty = true;
+}
+function trimNetworkUsageHistory() {
+  const keys = Object.keys(networkUsageDays).sort();
+  if (keys.length <= NETWORK_USAGE_MAX_DAYS) return;
+  const toRemove = keys.slice(0, keys.length - NETWORK_USAGE_MAX_DAYS);
+  toRemove.forEach(k => delete networkUsageDays[k]);
+  networkUsageDirty = true;
+}
+loadNetworkUsage();
+setInterval(pollNetworkUsage, NETWORK_USAGE_POLL_MS);
+setInterval(saveNetworkUsageLocal, 10000);
+setInterval(trimNetworkUsageHistory, 6 * 60 * 60 * 1000);
+
+// ============================================================
 // GENERIC GITHUB-BACKED LOG (used by the table-history feature below)
 // ============================================================
 // A reusable version of the exact same proven pattern the visitor log
@@ -877,7 +993,7 @@ function createGithubBackedLog({ logName, localFile, githubPath }) {
 // table can ever actually close, per the comment on dailyCloseAllTables
 // below: an explicit admin close, the last real player explicitly
 // leaving, or the hard 5am daily reset.
-const TABLE_HISTORY_FILE = path.join(__dirname, 'table-history-data.json');
+const TABLE_HISTORY_FILE = path.join(DATA_DIR, 'table-history-data.json');
 const TABLE_HISTORY_MAX = 20000; // generous cap; at even 200 tables/day this covers ~100 days before anything gets trimmed
 const TABLE_HISTORY_MAX_AGE_MS = 400 * 24 * 60 * 60 * 1000; // kept well past the 1-month view the admin panel actually shows, in case that window ever needs to grow later
 const GITHUB_TABLE_HISTORY_PATH = '4p2p/data/table-history.json';
@@ -1445,6 +1561,30 @@ app.get('/api/visitor-log', (req, res) => {
   res.json({ ok: true, entries, summary });
 });
 
+// Admin: network usage (see the NETWORK USAGE TRACKING section above for
+// what this measures and its caveats). Returns per-day totals plus a few
+// convenience rollups so the admin panel doesn't have to re-sum them.
+app.get('/api/admin/network-usage', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const days = Object.keys(networkUsageDays).sort().map(date => ({ date, bytes: networkUsageDays[date] }));
+  const sumLastNDays = (n) => {
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - (n - 1));
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    return days.filter(d => d.date >= cutoffStr).reduce((s, d) => s + d.bytes, 0);
+  };
+  const todayStr = new Date().toISOString().slice(0, 10);
+  res.json({
+    ok: true,
+    days,
+    today: networkUsageDays[todayStr] || 0,
+    last7Days: sumLastNDays(7),
+    last30Days: sumLastNDays(30),
+    allTime: days.reduce((s, d) => s + d.bytes, 0),
+    trackingSince: days.length ? days[0].date : null,
+  });
+});
+
 // Admin: force-close ANY table in ANY of the four games, no matter what
 // state it's in — active game, human present, doesn't matter. This is
 // the explicit override the regular auto-close removal above doesn't
@@ -1959,7 +2099,7 @@ app.post('/api/admin/stop-ghost-player', (req, res) => {
 // or any multiplayer logic. Writing a layout is admin-password-gated (same
 // checkAdminAuth() used by every other /api/admin/* route); reading is
 // public since every visiting player's page needs it to render correctly.
-const LAYOUT_CONFIG_DIR = path.join(__dirname, 'layout-configs');
+const LAYOUT_CONFIG_DIR = path.join(DATA_DIR, 'layout-configs');
 if (!fs.existsSync(LAYOUT_CONFIG_DIR)) { try { fs.mkdirSync(LAYOUT_CONFIG_DIR); } catch (e) {} }
 function layoutConfigFile(table) {
   const safe = String(table || '').replace(/[^a-z0-9]/gi, '');
