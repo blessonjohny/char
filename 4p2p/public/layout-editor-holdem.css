@@ -27,6 +27,26 @@
 #edBody{flex-direction:column}
 #edStage{padding:16px}
 
+/* Real, confirmed live report ("the zoom is locked in one dimension...
+   once zooming can't move left right...what's the point of zooming to
+   center"): the shared #edStage centers its content with
+   `justify-content:center` (a flexbox rule) -- which looks identical to
+   margin-based centering right up until the content is zoomed in past
+   the stage's own width. At that point `justify-content:center` has a
+   well-known limitation: it only ever lets you scroll into the overflow
+   on one side (the end), not both -- the table's LEFT edge becomes
+   permanently unreachable no matter how far you scroll, because the
+   centering math reserves space for a "left half" that the scroll
+   container never actually extends into. That's exactly the reported
+   symptom, and exactly why it was left-right specific (align-items is
+   already flex-start up top, which never had this problem -- only
+   justify-content was centering, and only centering has this bug).
+   Fixed by centering the frame with its own `margin:auto` instead (the
+   standard fix for a centered-but-still-fully-scrollable flex item) and
+   turning off the parent's own centering so the two don't fight. */
+#edStage{justify-content:flex-start}
+#edFrameWrap{margin:auto}
+
 /* ---- One single toolbar row, always -- never wraps. Too many controls
    for the screen width just means scrolling sideways to reach the rest,
    same as any phone app's horizontally-scrolling tab bar, instead of
