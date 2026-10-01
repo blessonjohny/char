@@ -307,22 +307,53 @@
 
   let pinchStartDist = null;
   let pinchStartZoom = 1;
+  // Real, confirmed live report ("when I pinch to zoom it only zoom in
+  // one dimension...if not released move left right zoom left right"):
+  // a genuine, real bug, not a perception thing. Pinching with two
+  // fingers fires TWO separate 'pointerdown' events (one per finger) in
+  // addition to the touch events this pinch handler already used -- so
+  // if either finger landed on or near a seat/chip overlay box, that
+  // box's own pointerdown handler (see wireBoxEvents/beginDrag below)
+  // started a genuine element DRAG at the same time as the pinch. Worse,
+  // that drag's own pointermove listener was never filtered to the ONE
+  // finger that started it, so once two fingers were both moving, it
+  // was reading a chaotic MIX of both fingers' coordinates as if they
+  // were one continuous finger -- producing exactly the reported
+  // "moves left/right, zooms left/right" erratic, one-axis-at-a-time
+  // behavior, on top of (and fighting with) the real, correct 2D pinch
+  // scale this code was already computing correctly the whole time.
+  // `activeTouchPoints` lets both sides of that conflict be shut down
+  // the instant a second finger appears -- see beginDrag/handleDragMove.
+  let activeTouchPoints = 0;
   function touchDist(touches) {
     const dx = touches[0].clientX - touches[1].clientX;
     const dy = touches[0].clientY - touches[1].clientY;
     return Math.hypot(dx, dy);
   }
   function handleTouchStart(ev) {
-    if (ev.touches.length === 2) { pinchStartDist = touchDist(ev.touches); pinchStartZoom = currentEffectiveZoom(); }
+    activeTouchPoints = ev.touches.length;
+    if (ev.touches.length === 2) {
+      pinchStartDist = touchDist(ev.touches);
+      pinchStartZoom = currentEffectiveZoom();
+      // A second finger touching down always means "this is a pinch,"
+      // even if the first finger had already started dragging an
+      // element a moment earlier -- cancel that drag outright rather
+      // than let it keep running alongside the pinch.
+      dragState = null;
+    }
   }
   function handleTouchMove(ev) {
+    activeTouchPoints = ev.touches.length;
     if (ev.touches.length === 2 && pinchStartDist) {
       ev.preventDefault();
       manualZoom = clampZoom(pinchStartZoom * (touchDist(ev.touches) / pinchStartDist));
       fitFrameToStage();
     }
   }
-  function handleTouchEnd(ev) { if (ev.touches.length < 2) pinchStartDist = null; }
+  function handleTouchEnd(ev) {
+    activeTouchPoints = ev.touches.length;
+    if (ev.touches.length < 2) pinchStartDist = null;
+  }
   stage.addEventListener('touchstart', handleTouchStart, { passive: true });
   stage.addEventListener('touchmove', handleTouchMove, { passive: false });
   stage.addEventListener('touchend', handleTouchEnd, { passive: true });
@@ -689,12 +720,18 @@
     box.addEventListener('pointerdown', (ev) => {
       if (ev.target === handle) return;
       selectElement(def.key);
+      // A pinch's SECOND finger lands its own separate pointerdown too --
+      // never let that one start (or fight) a drag; two fingers down
+      // always means "zoom," never "move this element" (see
+      // activeTouchPoints above).
+      if (activeTouchPoints >= 2) return;
       if (def.dragKind === 'size') return; // resize-only elements (no meaningful position of their own) have no body-drag
       beginDrag(doc, win, def, ev, 'move');
     });
     if (handle) {
       handle.addEventListener('pointerdown', (ev) => {
         ev.stopPropagation();
+        if (activeTouchPoints >= 2) return;
         selectElement(def.key);
         beginDrag(doc, win, def, ev, 'resize');
       });
@@ -738,19 +775,40 @@
     const startX = ev.clientX, startY = ev.clientY;
     const tableRect = referenceRectOf(doc, def);
     const startVal = Object.assign({}, effectiveValue(doc, win, def));
-    dragState = { def, mode, startX, startY, startVal, tableRect, doc, win, crossedThreshold: false };
+    // Real, confirmed live report ("if not released move left right zoom
+    // left right...one dimension"): pointermove was never filtered to
+    // the ONE finger/pointer that actually started this drag, so once a
+    // second finger came down to pinch-zoom, ITS pointermove events were
+    // also reaching this same handler and getting blended into the same
+    // dx/dy math as the first finger's -- two different fingers' motion
+    // read as if they were one, producing exactly that erratic,
+    // one-axis-at-a-time behavior. Recording which pointer started this
+    // drag, and ignoring every other pointer's events in handleDragMove,
+    // is what actually fixes it (activeTouchPoints above additionally
+    // stops a drag from starting at all once a pinch is already under way).
+    dragState = { def, mode, startX, startY, startVal, tableRect, doc, win, crossedThreshold: false, pointerId: ev.pointerId };
     const onMove = (mv) => handleDragMove(mv);
-    const onUp = () => {
+    const onUp = (upEv) => {
+      if (upEv && dragState && upEv.pointerId !== dragState.pointerId) return;
       doc.removeEventListener('pointermove', onMove);
       doc.removeEventListener('pointerup', onUp);
+      doc.removeEventListener('pointercancel', onUp);
       dragState = null;
     };
     doc.addEventListener('pointermove', onMove);
     doc.addEventListener('pointerup', onUp);
+    // A pinch beginning mid-drag (or the OS claiming the gesture for
+    // something else) fires 'pointercancel', not 'pointerup', on the
+    // pointer that was dragging -- without also cleaning up here, that
+    // pointer's onMove listener never got removed, leaking a stale
+    // listener that could still react to a completely different,
+    // later pointer reusing the same id.
+    doc.addEventListener('pointercancel', onUp);
   }
 
   function handleDragMove(ev) {
     if (!dragState) return;
+    if (ev.pointerId !== dragState.pointerId) return; // a second finger's own movement -- never this drag's
     const { def, mode, startX, startY, startVal, tableRect, doc, win } = dragState;
     const dx = ev.clientX - startX;
     const dy = ev.clientY - startY;

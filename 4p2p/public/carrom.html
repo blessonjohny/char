@@ -564,17 +564,21 @@
 (() => {
   "use strict";
 
-  // Carrom now runs as its own, fully separate server process (see
-  // carrom-server.js) -- deliberately isolated after a bug in Carrom's
-  // own code once destabilized the shared card-game server too. All
-  // socket/API traffic for this page targets THIS server, not the one
-  // that serves this HTML file (which may be the same host or a
-  // completely different one, depending on deployment).
-  // CHANGE THIS after deploying carrom-server.js as its own service:
-  // replace the placeholder below with that service's actual URL.
+  // Real, confirmed live report ("Its not working"): this used to point
+  // at carrom-server.js running as its own separate Render service
+  // (carromkerala-server.onrender.com), kept deliberately isolated after
+  // a bug in Carrom's own code once destabilized the shared card-game
+  // server too. That standalone service is gone (confirmed dead -- the
+  // URL now just 404s), and Carrom's table logic has since been folded
+  // into the main server (server.js) as its own self-contained,
+  // isolated io.on('connection') block anyway, same pattern the other
+  // games already use -- so this now simply talks to whichever server
+  // actually served this page, exactly like Spades already does,
+  // instead of a separate address that can go stale and silently break
+  // the game with no visible error.
   const CARROM_SERVER_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-    ? 'http://localhost:9001'
-    : 'https://carromkerala-server.onrender.com';
+    ? 'http://localhost:9000' // same port server.js itself listens on locally now that Carrom lives there too (was 9001, carrom-server.js's own now-unused port)
+    : window.location.origin;
 
   // Replaces native browser confirm() dialogs (which show the site's
   // own URL/domain, an unstyled, jarring interruption) with an in-app

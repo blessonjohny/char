@@ -580,15 +580,19 @@ let poolLastAliveAt = Date.now();
 let poolWatchdogTimer = null;
 try { poolMyPlayerId = localStorage.getItem('pool_player_token'); } catch(e) {}
 
-// Pool now connects through the same standalone server Carrom uses,
-// rather than true peer-to-peer -- a direct P2P link works fine most
-// of the time but has no way to recover from a dropped connection or
-// give either player a real reconnect path if their signal blips.
-// Routing through a server gives Pool the exact same robust
-// disconnect/reconnect handling already proven for Carrom.
+// Pool connects through a server rather than true peer-to-peer -- a
+// direct P2P link works fine most of the time but has no way to recover
+// from a dropped connection or give either player a real reconnect path
+// if their signal blips. Real, confirmed live report ("Its not
+// working"): this used to point at the same separate Render service
+// Carrom used (carromkerala-server.onrender.com), which is now
+// confirmed dead. Pool's server-side relay logic has been folded into
+// the main server (server.js) alongside Carrom's, so this now simply
+// talks to whichever server actually served this page, same as Spades
+// and Carrom, instead of a separate address that can go stale.
 const POOL_SERVER_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'http://localhost:9001'
-  : 'https://carromkerala-server.onrender.com';
+  ? 'http://localhost:9000' // same port server.js itself listens on locally now that Pool lives there too (was 9001, carrom-server.js's own now-unused port)
+  : window.location.origin;
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
