@@ -4405,11 +4405,36 @@ io.on('connection', (socket) => {
     }, 5000);
   }
 
+  // Real, confirmed regression per explicit live report: this single event is fired from two
+  // very different places in six.js -- the Host Menu's mid-match "Restart" action (abandons an
+  // ACTIVE match everyone's invested in, which is exactly why that one needs another real
+  // player's explicit "Yes" first) and the Game-Over screen's own "New Game" button, which only
+  // ever appears once a championship has ALREADY finished (engine.gameOver is set) and there is
+  // no active match left for a confirm to be protecting. Before the 5-second confirm flow was
+  // added for the mid-match case, continuing past a finished championship was instant -- this
+  // had silently started requiring a second real player to click "Yes" within 5 seconds for
+  // THAT case too, purely because both buttons happen to emit the same event name. Splitting on
+  // engine.gameOver restores the old instant-continue behavior for a genuinely finished
+  // championship (anyone who'd rather not play another match still has the separate "Leave"
+  // button for exactly that) while leaving the mid-match confirm-before-abandoning behavior
+  // fully intact for the Host Menu's own restart.
   socket.on('sixp_requestRestartGame', () => {
     withSixpTable((t) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;
       const goAt = t.engine.gameOver && t.engine.gameOver.gameOverAt;
       if (goAt && Date.now() - goAt < SIXP_GAMEOVER_MIN_VIEW_MS) return;
+      if (t.engine.gameOver) {
+        // Championship is actually over -- nothing active to protect with a confirm. Start the
+        // new championship immediately, same as before the confirm-restart feature existed.
+        t.engine.restartGame();
+        sixpTouch(t);
+        sixpBroadcastTable(t);
+        for (const [socketId] of t.sockets) {
+          const sock = io.sockets.sockets.get(socketId);
+          if (sock) sock.emit('sixp_restartProceeded', { kind: 'game' });
+        }
+        return;
+      }
       sixpBeginConfirmRestart(t, 'game', sixpPlayerId);
     });
   });
