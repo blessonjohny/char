@@ -573,7 +573,7 @@ function renderPokerAdmin(tablesList) {
 // sessionStorage-over-URL password handling as watchPokerTable below.
 function watchTable(tableId, mode) {
   sessionStorage.setItem('admin_watch_password', PASSWORD);
-  const page = mode === '6p' ? 'six.html' : 'index.html';
+  const page = mode === '6p' ? 'play6.html' : 'index.html';
   window.open(`/${page}?adminWatch=${encodeURIComponent(tableId)}`, '_blank');
 }
 function watchPokerTable(tableId) {
