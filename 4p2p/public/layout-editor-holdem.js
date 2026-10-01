@@ -262,6 +262,35 @@
   }
   window.addEventListener('resize', () => { if (manualZoom == null) fitFrameToStage(); });
 
+  // Real, confirmed live report ("it's zooming to top left corner"): switching #edStage from
+  // `justify-content:center` to `flex-start` + `margin:auto` on #edFrameWrap (see
+  // layout-editor-holdem.css -- that change fixed a real bug where the left edge became
+  // permanently unreachable after zooming in) only centers the frame while it's SMALLER than
+  // the stage. The moment zooming in makes it bigger than the stage, `margin:auto` collapses to
+  // 0 on both sides (there's no leftover space left to split), so the frame now starts flush
+  // against the stage's top-left corner instead -- every zoom step was visibly jumping there.
+  // CSS alignment was never actually "zooming toward the center" on its own; it only looked
+  // that way before because centering a same-sized-both-ways box happens to do that. The real
+  // fix is what every zoom UI actually does: explicitly keep one chosen point -- the stage's own
+  // center for the +/-/Fit buttons, the cursor for ctrl+scroll, the pinch midpoint for pinch --
+  // visually fixed by adjusting scroll position to match, regardless of how the box is aligned.
+  function applyManualZoom(newZoom, anchorVX, anchorVY) {
+    if (anchorVX == null) anchorVX = stage.clientWidth / 2;
+    if (anchorVY == null) anchorVY = stage.clientHeight / 2;
+    const oldWidth = frameWrap.offsetWidth || 1;
+    const oldHeight = frameWrap.offsetHeight || 1;
+    // Where the anchor point currently sits, as a fraction of the (pre-zoom) frame size --
+    // this fraction is what has to stay under the same screen position after rescaling.
+    const fracX = (stage.scrollLeft + anchorVX) / oldWidth;
+    const fracY = (stage.scrollTop + anchorVY) / oldHeight;
+    manualZoom = newZoom;
+    fitFrameToStage();
+    const newWidth = frameWrap.offsetWidth || 1;
+    const newHeight = frameWrap.offsetHeight || 1;
+    stage.scrollLeft = Math.max(0, fracX * newWidth - anchorVX);
+    stage.scrollTop = Math.max(0, fracY * newHeight - anchorVY);
+  }
+
   const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.66, 0.75, 1, 1.25, 1.5, 2];
   function stepZoom(dir) {
     const bp = bpInfo(currentBp);
@@ -269,12 +298,11 @@
     let next;
     if (dir > 0) next = ZOOM_STEPS.find((s) => s > current + 0.001) || ZOOM_STEPS[ZOOM_STEPS.length - 1];
     else next = [...ZOOM_STEPS].reverse().find((s) => s < current - 0.001) || ZOOM_STEPS[0];
-    manualZoom = next;
-    fitFrameToStage();
+    applyManualZoom(next, stage.clientWidth / 2, stage.clientHeight / 2);
   }
   btnZoomOut.addEventListener('click', () => stepZoom(-1));
   btnZoomIn.addEventListener('click', () => stepZoom(1));
-  btnZoomFit.addEventListener('click', () => { manualZoom = null; fitFrameToStage(); });
+  btnZoomFit.addEventListener('click', () => { manualZoom = null; fitFrameToStage(); stage.scrollLeft = 0; stage.scrollTop = 0; });
 
   // ---------------------------------------------------------------------
   // Pinch / ctrl+scroll zoom -- scoped to just the table, never the
@@ -294,14 +322,26 @@
     const bp = bpInfo(currentBp);
     return manualZoom != null ? manualZoom : Math.min(1, (stage.clientWidth - 4) / bp.previewWidth, (stage.clientHeight - 4) / bp.previewHeight);
   }
-  function zoomByFactor(factor) {
-    manualZoom = clampZoom(currentEffectiveZoom() * factor);
-    fitFrameToStage();
+  // A wheel/touch event that starts INSIDE the iframe reports clientX/clientY in the iframe's
+  // own (unscaled) coordinate space, not the outer page's -- converts that into "pixels from
+  // #edStage's own top-left", the same space applyManualZoom's anchor expects, by locating the
+  // iframe element's own on-screen rect (which DOES already reflect the CSS scale transform)
+  // and scaling the in-iframe point by the current zoom before adding it in.
+  function clientPointToStageViewport(clientX, clientY, sourceIsIframe) {
+    const stageRect = stage.getBoundingClientRect();
+    if (!sourceIsIframe) return { x: clientX - stageRect.left, y: clientY - stageRect.top };
+    const frameRect = frame.getBoundingClientRect();
+    return { x: (frameRect.left + clientX * currentScale) - stageRect.left, y: (frameRect.top + clientY * currentScale) - stageRect.top };
+  }
+  function zoomByFactor(factor, anchorVX, anchorVY) {
+    applyManualZoom(clampZoom(currentEffectiveZoom() * factor), anchorVX, anchorVY);
   }
   function handleZoomWheel(ev) {
     if (!ev.ctrlKey) return; // an ordinary scroll/trackpad pan is left completely alone
     ev.preventDefault();
-    zoomByFactor(ev.deltaY < 0 ? 1.08 : 1 / 1.08);
+    const sourceIsIframe = !!(ev.target && ev.target.ownerDocument && ev.target.ownerDocument !== document);
+    const pt = clientPointToStageViewport(ev.clientX, ev.clientY, sourceIsIframe);
+    zoomByFactor(ev.deltaY < 0 ? 1.08 : 1 / 1.08, pt.x, pt.y);
   }
   window.addEventListener('wheel', handleZoomWheel, { passive: false });
 
@@ -346,8 +386,11 @@
     activeTouchPoints = ev.touches.length;
     if (ev.touches.length === 2 && pinchStartDist) {
       ev.preventDefault();
-      manualZoom = clampZoom(pinchStartZoom * (touchDist(ev.touches) / pinchStartDist));
-      fitFrameToStage();
+      const sourceIsIframe = !!(ev.target && ev.target.ownerDocument && ev.target.ownerDocument !== document);
+      const midX = (ev.touches[0].clientX + ev.touches[1].clientX) / 2;
+      const midY = (ev.touches[0].clientY + ev.touches[1].clientY) / 2;
+      const pt = clientPointToStageViewport(midX, midY, sourceIsIframe);
+      applyManualZoom(clampZoom(pinchStartZoom * (touchDist(ev.touches) / pinchStartDist)), pt.x, pt.y);
     }
   }
   function handleTouchEnd(ev) {
