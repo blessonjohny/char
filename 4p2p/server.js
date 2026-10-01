@@ -201,6 +201,25 @@ function checkAdminAuthSocket(socket, password) {
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store, must-revalidate'); }
 }));
+
+// The 6-player page was renamed from six.html to play6.html -- confirmed,
+// reproducible live symptom: requests to /six.html with ANY query string
+// (any invite code, even a made-up one) returned a genuine 404, while the
+// exact same path with no query string loaded fine, and every other page
+// (holdem.html, 56.html, the homepage) worked normally with a query string.
+// No code anywhere in this app treats six.html differently from any other
+// page, so that behavior had to be coming from something outside this
+// server entirely (a CDN/edge cache or rule tied to that literal filename)
+// -- renaming the file sidesteps it rather than chasing infrastructure this
+// app has no visibility into. This redirect exists purely so links already
+// shared with the old /six.html?invite=... URL (texts, chat history, etc.)
+// still land the player on the real table instead of a dead link; it
+// preserves the full query string (the invite code) across the redirect.
+app.get('/six.html', (req, res) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(301, '/play6.html' + qs);
+});
+
 app.get('/status', (req, res) => {
   res.json({
     ok: true,
@@ -1844,7 +1863,7 @@ app.post('/api/admin/spawn-bot-table', (req, res) => {
     sixpBroadcastTable(t);
     io.emit('sixp_roomList', sixpPublicTableList());
     console.log(`[admin] spawned self-running 6-player bot table ${id} (seat ${hostPos} as "${name}")`);
-    return res.json({ ok: true, mode: '6p', tableId: id, inviteUrl: `/six.html?invite=${id}` });
+    return res.json({ ok: true, mode: '6p', tableId: id, inviteUrl: `/play6.html?invite=${id}` });
   }
 });
 
@@ -1891,7 +1910,7 @@ function ghostSnapshot() {
       // still shows up in the list as stale rather than throwing - the admin panel can then
       // just let the person clear it, rather than the endpoint pretending everything's fine.
       stillActive: !!(t && seat && seat.ghostPlayer === true),
-      inviteUrl: g.mode === '6p' ? `/six.html?invite=${g.tableId}` : `/?invite=${g.tableId}`
+      inviteUrl: g.mode === '6p' ? `/play6.html?invite=${g.tableId}` : `/?invite=${g.tableId}`
     };
   });
 }
@@ -2051,7 +2070,7 @@ app.post('/api/admin/spawn-ghost-player', (req, res) => {
     sixpBroadcastTable(t);
     io.emit('sixp_roomList', sixpPublicTableList());
     console.log(`[admin] spawned ghost-player 6-player table ${id} (seat ${hostPos} as "${name}")`);
-    return res.json({ ok: true, ghostId, mode: '6p', tableId: id, inviteUrl: `/six.html?invite=${id}` });
+    return res.json({ ok: true, ghostId, mode: '6p', tableId: id, inviteUrl: `/play6.html?invite=${id}` });
   }
 });
 
@@ -2080,7 +2099,7 @@ app.post('/api/admin/join-ghost-player', (req, res) => {
   else { touch(t); broadcastTable(t); io.emit('roomList', publicTableList()); }
 
   console.log(`[admin] ghost-player joined ${mode === '6p' ? '6-player' : '4-player'} table ${tableId} (seat ${botPos} as "${name}")`);
-  return res.json({ ok: true, ghostId, mode, tableId, pos: botPos, inviteUrl: mode === '6p' ? `/six.html?invite=${tableId}` : `/?invite=${tableId}` });
+  return res.json({ ok: true, ghostId, mode, tableId, pos: botPos, inviteUrl: mode === '6p' ? `/play6.html?invite=${tableId}` : `/?invite=${tableId}` });
 });
 
 app.post('/api/admin/stop-ghost-player', (req, res) => {
