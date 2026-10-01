@@ -1314,6 +1314,7 @@ function getAllLivePlayers() {
     addFromSocketsMap(t.sockets, '4-Player', t.id, (info) => t.engine.seats[info.pos], t.engine.phase);
   }
   for (const t of Object.values(sixpTables)) {
+    if (t.hidden) continue; // Layout Editor preview table -- not a real player to show anywhere admin-facing either
     addFromSocketsMap(t.sockets, '6-Player', t.id, (info) => t.engine.seats[info.pos], t.engine.phase);
   }
   for (const r of Object.values(l56Rooms)) {
@@ -1422,6 +1423,13 @@ function getAllTablesSummary() {
     rows.push({ game: '4-Player', mode: '4p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, maxSeats: (t.engine.seats || []).length, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, teams: buildTeamBreakdown(t.engine.seats, getTeam4p, t.engine.gameScore), challengeHandicap: t.engine.challengeHandicap || 0, challengerTeam: t.engine.challengerTeam, challengeBeaten: !!t.engine.challengeBeaten, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
   }
   for (const t of Object.values(sixpTables)) {
+    // Real, confirmed fix per explicit live report (same reasoning as
+    // pokerTables' identical skip below): this table-summary view feeds
+    // BOTH the admin panel's live-tables list AND the public site's own
+    // "live now" widget -- a hidden Layout Editor preview table is not a
+    // real one a visitor could ever join, so it's skipped here too, not
+    // just in sixpPublicTableList's own separate lobby-join path.
+    if (t.hidden) continue;
     const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
     rows.push({ game: '6-Player', mode: '6p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, maxSeats: (t.engine.seats || []).length, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, teams: buildTeamBreakdown(t.engine.seats, getTeam6p, t.engine.gameScore), challengeHandicap: t.engine.challengeHandicap || 0, challengerTeam: t.engine.challengerTeam, challengeBeaten: !!t.engine.challengeBeaten, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
   }
@@ -3807,7 +3815,16 @@ function sixpSeatSnapshot(t) {
 function sixpHasAnyHuman(t) { return t.engine.seats.some(s => s && !s.isBot); }
 
 function sixpPublicTableList() {
-  const list = Object.values(sixpTables).filter(t => t.engine.seats.some(Boolean));
+  // Real player report ("when I'm editing it's going live and people
+  // join"): the 6-Player Layout Editor's preview iframe was creating a
+  // genuine, real table -- indistinguishable from any player's own table
+  // -- which then showed up right here in everyone's lobby list, so real
+  // players could (and did) join it mid-edit. Preview tables are now
+  // flagged `hidden` at creation (see sixp_createTable) and filtered out
+  // of the one list every client's lobby is built from, so they're simply
+  // never offered to anyone to join in the first place. Mirrors
+  // pokerPublicTableList's identical `!t.hidden` filter exactly.
+  const list = Object.values(sixpTables).filter(t => t.engine.seats.some(Boolean) && !t.hidden);
   const genericNamesSoFar = [];
   return list.map(t => {
     const openSeats = t.engine.emptySeats().length;
@@ -3909,7 +3926,7 @@ io.on('connection', (socket) => {
     console.log(`[sixp table ${watchId}] admin started watching`);
   });
 
-  socket.on('sixp_createTable', ({ name, avatar, challengeHandicap }) => {
+  socket.on('sixp_createTable', ({ name, avatar, challengeHandicap, preview }) => {
     if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
       socket.emit('createBlocked', { maxRooms: roomCapMax });
       return;
@@ -3924,7 +3941,21 @@ io.on('connection', (socket) => {
     const t = {
       id, engine, creatorName: name || 'Player', hostPlayerId: sixpPlayerId,
       botFill: 5, createdAt: Date.now(), lastActivityAt: Date.now(),
-      sockets: new Map()
+      sockets: new Map(),
+      // Real, confirmed feature per explicit live report ("when I'm
+      // editing it's going live and people join"): the 6-Player Layout
+      // Editor's preview iframe passes `preview: true` here instead of
+      // silently reusing/creating a normal discoverable table -- mirrors
+      // holdem.html/poker_createTable's identical `hidden`/
+      // `previewOwnerPlayerId` handling exactly. `hidden` keeps it out of
+      // sixpPublicTableList (the lobby) and the admin panel's live-tables
+      // view (see getAllTablesSummary), and previewOwnerPlayerId is
+      // checked in sixp_joinTable so nobody but the editor's own
+      // reconnect can ever get seated at it, even with the room code -- a
+      // private table only its own creator can ever be in, not just an
+      // unlisted one.
+      hidden: !!preview,
+      previewOwnerPlayerId: preview ? sixpPlayerId : null,
     };
     recordSeatedHuman(t, name || 'Player', socket.id);
     engine.onChange = () => { sixpTouch(t); sixpBroadcastTable(t); };
@@ -4005,6 +4036,17 @@ io.on('connection', (socket) => {
     }
     const t = sixpTables[reqTableId];
     if (!t) { socket.emit('sixp_joinError', { reason: 'table_not_found' }); return; }
+    // A hidden (Layout Editor preview) table only ever lets its own
+    // creator back in -- reported as "table_not_found" (same as a
+    // genuinely missing table) rather than a distinct error, so a
+    // stranger with a guessed/leaked room code learns nothing about it
+    // even existing. The creator's own reconnect never reaches this far
+    // (it's already handled by the sixpPlayerIndex reclaim branch above),
+    // so this unconditionally blocks the fresh-join path for everyone
+    // else. Mirrors poker_joinTable's identical `t.hidden` check exactly.
+    if (t.hidden && existingPlayerId !== t.previewOwnerPlayerId) {
+      socket.emit('sixp_joinError', { reason: 'table_not_found' }); return;
+    }
     const openSeats = t.engine.emptySeats();
     const { botSeats, disconnectedSeats } = sixpJoinableSeats(t);
     // Real, confirmed feature per explicit request ("4 player has
@@ -4692,6 +4734,21 @@ io.on('connection', (socket) => {
     const t = sixpTables[sixpTableId];
     if (!t) return;
     delete sixpPendingSeatChoice[socket.id];
+    // A hidden Layout Editor preview table has exactly one human ever
+    // allowed in it (its own creator, enforced in sixp_joinTable above) --
+    // no one else can ever reconnect to it, so there's no reason to keep
+    // it around for the usual bot-covers-the-seat grace period once that
+    // one connection drops (editor tab closed/reloaded/navigated away).
+    // Closes it immediately instead of leaving it to linger, unseen, until
+    // the next cleanup sweep. Mirrors poker's identical `t.hidden`
+    // disconnect handling exactly.
+    if (t.hidden) {
+      console.log(`[6p] preview table ${sixpTableId} closed — editor disconnected`);
+      for (const s of t.engine.seats) if (s && s.playerId) delete sixpPlayerIndex[s.playerId];
+      delete sixpTables[sixpTableId];
+      sixpTableId = null; sixpPlayerId = null;
+      return;
+    }
     // Real, confirmed feature per explicit request ("4 player has
     // watch and join a seat, make 6 player same") -- matches the
     // 4-player table's identical disconnect handling exactly.
