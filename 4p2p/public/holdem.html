@@ -3630,6 +3630,18 @@ const CHIP_COLOR_STOPS = [
   { max: 249, colors: ['#fff6d0', '#ffd700', '#7a5c00'] },    // chrome gold
   { max: Infinity, colors: ['#ffd76b', '#c9922b', '#8a611c'] } // gold, top tier
 ];
+// Real, confirmed fix needed for the new chip-color editor
+// (layout-engine-holdem.js's applyChipTierColors): a plain `const` at
+// script top level is visible to a LATER script tag in the SAME
+// document as a bare identifier, but never becomes a property of
+// `window` -- harmless on the live site (nothing there needed
+// window.CHIP_COLOR_STOPS before), but the editor's own script runs in
+// a DIFFERENT window (the parent page) and reaches into this one
+// through the iframe's contentWindow, which only ever sees real
+// `window` properties, not another frame's bare top-level bindings.
+// One explicit export line, nothing about the existing const or any of
+// its current uses touched or changed.
+window.CHIP_COLOR_STOPS = CHIP_COLOR_STOPS;
 // Per explicit correction: the per-seat "YOUR TURN" badge idea was
 // scrapped outright -- it duplicated the existing top-of-screen
 // readout (#myTurnTop, still the single source of truth for "what

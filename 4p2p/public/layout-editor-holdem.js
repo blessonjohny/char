@@ -572,6 +572,12 @@
       const seatEl = doc.querySelector(`.seat[data-pos="${pos}"]`);
       return seatEl ? seatEl.querySelector('.seat-chips') : null;
     }
+    // Real, confirmed fix for the new chip-color layers: these have no
+    // `selector` at all (there's no single DOM element a chip's color
+    // lives on -- see applyChipTierColors in layout-engine-holdem.js) --
+    // without this, the generic `doc.querySelector(def.selector)` below
+    // would be called with undefined and throw.
+    if (def.type === 'chipTier') return null;
     return doc.querySelector(def.selector);
   }
 
@@ -993,6 +999,18 @@
       else if (avatarEl) { const r = avatarEl.getBoundingClientRect(); width = Math.round(r.width); height = Math.round(r.height); }
       return { x, y, width, height };
     }
+    // Real, confirmed feature per the chip-colors request: no live DOM
+    // target to measure at all (a chip's color is computed in JS per
+    // instance, not sitting as one element's style) -- reads straight
+    // from the live page's own CHIP_COLOR_STOPS array for this tier's
+    // current 3 stops, falling back to the plain saved value if the
+    // iframe isn't reachable for whatever reason.
+    if (def.type === 'chipTier') {
+      const saved = bucket[def.key];
+      const stop = win && win.CHIP_COLOR_STOPS && win.CHIP_COLOR_STOPS[def.tierIndex];
+      const live = stop ? { chipColorA: stop.colors[0], chipColorB: stop.colors[1], chipColorC: stop.colors[2] } : {};
+      return Object.assign({}, live, saved || {});
+    }
     if (def.type === 'cards') {
       const saved = bucket[def.key];
       const target = targetFor(doc, win, def);
@@ -1067,6 +1085,16 @@
           fontSize: Math.round(parseFloat(win.getComputedStyle(target).fontSize)) || 10,
           rotate: 0,
         };
+      } else if (def.dragKind === 'cardStyle') {
+        const cs = win.getComputedStyle(target);
+        live = {
+          bgColor: rgbToHex(cs.backgroundColor) || '#fff8e7',
+          borderColor: rgbToHex(cs.borderColor) || '#000000',
+          borderWidth: Math.round(parseFloat(cs.borderWidth)) || 0,
+          shadowDepth: 2,
+        };
+      } else if (def.dragKind === 'suitTextColor') {
+        live = { suitColor: rgbToHex(win.getComputedStyle(target).color) || '#000000' };
       }
     } else if (def.dragKind === 'size') {
       // Reasonable fallbacks for when nothing's on screen yet to measure
@@ -1079,8 +1107,27 @@
       live = { offsetX: 0, offsetY: 0, fontSize: 10 };
     } else if (def.dragKind === 'fontSizeRotate') {
       live = { offsetX: 0, offsetY: 0, fontSize: 10, rotate: 0 };
+    } else if (def.dragKind === 'cardStyle') {
+      live = { bgColor: '#fff8e7', borderColor: '#000000', borderWidth: 0, shadowDepth: 2 };
+    } else if (def.dragKind === 'suitTextColor') {
+      live = { suitColor: '#000000' };
     }
     return Object.assign({}, live, saved || {});
+  }
+  // Real, confirmed helper for the color-picker fields above: reading a
+  // live computed style back gives "rgb(r, g, b)" (or "rgba(...)"),
+  // never a hex string -- but <input type="color"> only accepts hex, so
+  // this converts one to the other. Returns null (letting the caller's
+  // own fallback hex take over) for anything it can't parse, including
+  // "transparent"/"rgba(0,0,0,0)", since a color picker can't represent
+  // "no color" anyway.
+  function rgbToHex(rgbStr) {
+    if (!rgbStr) return null;
+    const m = rgbStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (!m) return null;
+    if (m[4] !== undefined && parseFloat(m[4]) === 0) return null;
+    const toHex = (n) => Number(n).toString(16).padStart(2, '0');
+    return '#' + toHex(m[1]) + toHex(m[2]) + toHex(m[3]);
   }
 
   // ---------------------------------------------------------------------
@@ -1143,7 +1190,22 @@
   // ---------------------------------------------------------------------
   // Inspector (precise numeric entry -- works with or without Edit Table on)
   // ---------------------------------------------------------------------
-  const FIELD_META = { x: { label: 'X', unit: '%' }, y: { label: 'Y', unit: '%' }, left: { label: 'X', unit: '%' }, top: { label: 'Y', unit: '%' }, width: { label: 'W', unit: 'px' }, height: { label: 'H', unit: 'px' }, fontSize: { label: 'Size', unit: 'px' }, offsetX: { label: 'X', unit: 'px' }, offsetY: { label: 'Y', unit: 'px' }, rotate: { label: 'Rotate', unit: '°' } };
+  const FIELD_META = { x: { label: 'X', unit: '%' }, y: { label: 'Y', unit: '%' }, left: { label: 'X', unit: '%' }, top: { label: 'Y', unit: '%' }, width: { label: 'W', unit: 'px' }, height: { label: 'H', unit: 'px' }, fontSize: { label: 'Size', unit: 'px' }, offsetX: { label: 'X', unit: 'px' }, offsetY: { label: 'Y', unit: 'px' }, rotate: { label: 'Rotate', unit: '°' },
+    // Real, confirmed feature per explicit request ("card colors
+    // borders... depth tilt design... color changes"): color fields are
+    // a genuinely different kind of input from every field above (a
+    // color swatch, not a number+unit), marked with isColor so
+    // renderInspector below knows to render <input type="color"> and
+    // skip appending a unit or coercing the value through Number(...).
+    suitColor: { label: 'Color', isColor: true },
+    bgColor: { label: 'Background', isColor: true },
+    borderColor: { label: 'Border Color', isColor: true },
+    borderWidth: { label: 'Border Width', unit: 'px' },
+    shadowDepth: { label: 'Depth (Shadow)', unit: 'px' },
+    chipColorA: { label: 'Color (center)', isColor: true },
+    chipColorB: { label: 'Color (mid)', isColor: true },
+    chipColorC: { label: 'Color (edge)', isColor: true },
+  };
   function fieldsFor(def) {
     if (def.type === 'seat') return ['x', 'y', 'width', 'height'];
     if (def.type === 'cards') return ['offsetX', 'offsetY', 'width', 'height'];
@@ -1158,6 +1220,18 @@
     // one case so far where "how this text sits" needs an actual angle,
     // not just a position and a size.
     if (def.dragKind === 'fontSizeRotate') return ['offsetX', 'offsetY', 'fontSize', 'rotate'];
+    // Real, confirmed feature per the same request: card face styling
+    // (background, border, depth) has no position/size at all -- it's a
+    // single shared look applied to every card everywhere, not something
+    // you'd drag around.
+    if (def.dragKind === 'cardStyle') return ['bgColor', 'borderColor', 'borderWidth', 'shadowDepth'];
+    // Suit text color -- separate from rankColor/suitColor fonts above
+    // (those are offsetX/fontSize/rotate) because this is purely a color
+    // swatch with nothing to drag.
+    if (def.dragKind === 'suitTextColor') return ['suitColor'];
+    // One chip "tier" (a value range -- see CHIP_COLOR_STOPS in
+    // holdem.html): the 3 stops of its radial gradient, center to edge.
+    if (def.dragKind === 'chipTierColor') return ['chipColorA', 'chipColorB', 'chipColorC'];
     return ['left', 'top', 'width', 'height'];
   }
   // Fallback for the rare moment the iframe's document isn't reachable
@@ -1186,7 +1260,15 @@
     html += '<div id="edInspectorMeta">' + def.category + ' · ' + bpInfo(currentBp).label + '</div>';
     fieldsFor(def).forEach((field) => {
       const meta = FIELD_META[field];
-      html += '<div class="ed-field-row"><label>' + meta.label + '</label><input type="number" step="any" data-field="' + field + '" value="' + (val[field] !== undefined ? val[field] : '') + '"><span class="ed-unit">' + meta.unit + '</span></div>';
+      // Real, confirmed feature per explicit request ("color changes"):
+      // a color field renders as a real color swatch picker instead of a
+      // number box, and skips the little unit suffix (ed-unit) entirely
+      // since a hex color has no unit to show.
+      if (meta.isColor) {
+        html += '<div class="ed-field-row"><label>' + meta.label + '</label><input type="color" data-field="' + field + '" data-color="1" value="' + (val[field] || '#ffffff') + '"></div>';
+      } else {
+        html += '<div class="ed-field-row"><label>' + meta.label + '</label><input type="number" step="any" data-field="' + field + '" value="' + (val[field] !== undefined ? val[field] : '') + '"><span class="ed-unit">' + meta.unit + '</span></div>';
+      }
     });
     inspectorEl.innerHTML = html;
     inspectorEl.querySelectorAll('input[data-field]').forEach((input) => {
@@ -1195,7 +1277,10 @@
         let d, w;
         try { d = frame.contentDocument; w = frame.contentWindow; } catch (e) { d = null; w = null; }
         const cur = Object.assign({}, d ? effectiveValue(d, w, def) : savedValueFor(def));
-        cur[input.dataset.field] = Number(input.value) || 0;
+        // Color fields keep their raw string value (a hex code) --
+        // Number('#ff0000') is NaN, which the old `|| 0` fallback would
+        // have silently turned into the number 0 instead of a color.
+        cur[input.dataset.field] = input.dataset.color ? input.value : (Number(input.value) || 0);
         if (def.type === 'seat') {
           const field = input.dataset.field;
           if (field === 'x' || field === 'y') {
@@ -1204,6 +1289,14 @@
             ensureBpBucket(currentBp)['avatar' + def.slot] = { width: cur.width, height: cur.height };
           }
           try { if (w && w.LayoutHoldem) w.LayoutHoldem.forceRerender(); } catch (e) {}
+        } else if (def.type === 'chipTier') {
+          // Real, confirmed feature per the same request ("chips depth
+          // tilt design"): chip colors aren't plain CSS (see CHIP_TIERS
+          // in layout-engine-holdem.js) -- applyChipTierColors mutates
+          // the live page's own CHIP_COLOR_STOPS array directly instead
+          // of going through applyCSSConfig/applySeatStyles.
+          ensureBpBucket(currentBp)[def.key] = cur;
+          if (w) { try { if (w.LayoutHoldem) w.LayoutHoldem.applyChipTierColors(w, config); } catch (e) {} }
         } else {
           ensureBpBucket(currentBp)[def.key] = cur;
           if (d) {
@@ -1216,6 +1309,7 @@
       });
     });
   }
+
 
   // ---------------------------------------------------------------------
   // Undo / Redo

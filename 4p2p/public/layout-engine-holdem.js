@@ -162,7 +162,69 @@
     // used for the chip count label.
     { key: 'cardRankText', label: 'Card Rank (number/letter)', category: 'Cards', type: 'css', selector: '.card > div:first-child', dragKind: 'fontSizeRotate', cssProps: { offsetX: 'margin-left', offsetY: 'margin-top', fontSize: 'font-size', rotate: 'ROTATE' }, fieldUnits: { offsetX: 'px', offsetY: 'px', fontSize: 'px', rotate: 'deg' } },
     { key: 'cardSuitSymbol', label: 'Card Suit Symbol', category: 'Cards', type: 'css', selector: '.card > div:last-child', dragKind: 'fontSizeRotate', cssProps: { offsetX: 'margin-left', offsetY: 'margin-top', fontSize: 'font-size', rotate: 'ROTATE' }, fieldUnits: { offsetX: 'px', offsetY: 'px', fontSize: 'px', rotate: 'deg' } },
+    // Real, confirmed feature per explicit follow-up request ("card
+    // colors borders... depth... color changes"): the card face itself
+    // (background, border, a "depth" shadow) -- one shared look for
+    // every card everywhere, same reasoning as rank/suit above. No
+    // position/size fields at all; see fieldsFor's 'cardStyle' case.
+    { key: 'cardFaceStyle', label: 'Card Face (background/border/depth)', category: 'Cards', type: 'css', selector: '.card', dragKind: 'cardStyle', cssProps: { bgColor: 'background', borderColor: 'border-color', borderWidth: 'border-width', shadowDepth: 'SHADOW_DEPTH' }, fieldUnits: { bgColor: '', borderColor: '', borderWidth: 'px', shadowDepth: '' }, extraDecls: 'border-style:solid !important;' },
+    // One color picker per suit -- same color already drives both the
+    // rank text and suit symbol together today (.card.suit-X{color:...}
+    // in the base stylesheet, inherited by both child divs), so this
+    // keeps that single-color-per-suit behavior intact rather than
+    // splitting it into two separately-colored pieces nobody asked for.
+    { key: 'suitColorHearts', label: 'Suit Color — Hearts ♥', category: 'Cards', type: 'css', selector: '.card.suit-hearts', dragKind: 'suitTextColor', cssProps: { suitColor: 'color' }, fieldUnits: { suitColor: '' } },
+    { key: 'suitColorDiamonds', label: 'Suit Color — Diamonds ♦', category: 'Cards', type: 'css', selector: '.card.suit-diamonds', dragKind: 'suitTextColor', cssProps: { suitColor: 'color' }, fieldUnits: { suitColor: '' } },
+    { key: 'suitColorClubs', label: 'Suit Color — Clubs ♣', category: 'Cards', type: 'css', selector: '.card.suit-clubs', dragKind: 'suitTextColor', cssProps: { suitColor: 'color' }, fieldUnits: { suitColor: '' } },
+    { key: 'suitColorSpades', label: 'Suit Color — Spades ♠', category: 'Cards', type: 'css', selector: '.card.suit-spades', dragKind: 'suitTextColor', cssProps: { suitColor: 'color' }, fieldUnits: { suitColor: '' } },
   ];
+  // Real, confirmed feature per the same request ("if chips depth tilt
+  // design... same with cards... apply it should apply to cards and
+  // chips"): chip colors are NOT plain CSS the way every ELEMENTS entry
+  // above is -- holdem.html computes a chip's gradient in JS per chip,
+  // from CHIP_COLOR_STOPS (an array of value tiers, each a 3-stop
+  // radial-gradient: center/mid/edge), then sets it as that one chip's
+  // own inline style. A CSS override here would either fight that inline
+  // style or have to apply the exact same color to literally every chip
+  // regardless of value, losing the tiers entirely. Instead, see
+  // applyChipTierColors below: it edits CHIP_COLOR_STOPS itself, inside
+  // the live page, so the page's own existing per-chip logic keeps
+  // working unmodified and just picks up the new colors.
+  const CHIP_TIERS = [
+    { index: 0, label: 'Chip Color — Tier 1 (White, ≤4)' },
+    { index: 1, label: 'Chip Color — Tier 2 (Red, ≤9)' },
+    { index: 2, label: 'Chip Color — Tier 3 (Blue, ≤24)' },
+    { index: 3, label: 'Chip Color — Tier 4 (Green, ≤49)' },
+    { index: 4, label: 'Chip Color — Tier 5 (Violet, ≤99)' },
+    { index: 5, label: 'Chip Color — Tier 6 (Gold, ≤249)' },
+    { index: 6, label: 'Chip Color — Tier 7 (Top gold, 250+)' },
+  ];
+  const CHIP_TIER_LAYERS = CHIP_TIERS.map((t) => ({ key: 'chipTier' + t.index, label: t.label, category: 'Chips', type: 'chipTier', tierIndex: t.index, dragKind: 'chipTierColor' }));
+  ELEMENTS.push(...CHIP_TIER_LAYERS);
+  // Mutates the live page's own CHIP_COLOR_STOPS array in place (never
+  // replaces it) so every existing call to chipGradientForValue --
+  // already scattered across holdem.html for the pot pile, seat piles,
+  // and the flying chip animation alike -- picks up the new colors
+  // automatically, with no changes needed to any of those call sites.
+  function applyChipTierColors(win, config) {
+    if (!win || !win.CHIP_COLOR_STOPS) return;
+    // Chip colors are a visual design choice, not a per-breakpoint layout
+    // one -- deliberately read from ONE bucket regardless of which
+    // breakpoint is currently selected in the editor, by checking both
+    // and preferring portraitPhoto, so a chip looks the same whichever
+    // device loads the page instead of needing to be set twice.
+    const bucket = (config.portraitPhoto && config.portraitPhoto) || {};
+    const landscapeBucket = config.landscape || {};
+    for (const tier of CHIP_TIERS) {
+      const saved = bucket['chipTier' + tier.index] || landscapeBucket['chipTier' + tier.index];
+      if (!saved) continue;
+      const stop = win.CHIP_COLOR_STOPS[tier.index];
+      if (!stop) continue;
+      if (saved.chipColorA) stop.colors[0] = saved.chipColorA;
+      if (saved.chipColorB) stop.colors[1] = saved.chipColorB;
+      if (saved.chipColorC) stop.colors[2] = saved.chipColorC;
+    }
+  }
 
   // Keys of the "hidden until a real game moment triggers them" popups
   // (see the comment above their ELEMENTS entries). Exposed so the editor
@@ -200,16 +262,19 @@
       if (fieldsSubset && !fieldsSubset.includes(field)) continue;
       const v = values[field];
       if (v === undefined || v === null || v === '') continue;
-      const unit = (el.fieldUnits && el.fieldUnits[field]) || 'px';
-      // Real, confirmed feature per explicit request ("all numbers and
-      // signs rotate"): a rotation can't just be concatenated with a unit
-      // like every other field here (`transform:45deg` isn't valid CSS --
-      // it has to be `transform:rotate(45deg)`), so this one field name is
-      // special-cased to wrap its value in rotate(...) instead of using
-      // cssProp directly as a bare property name. Marked by the element
-      // itself pointing this field's cssProp at the literal string
-      // 'ROTATE' rather than a real CSS property name.
+      // Real, confirmed feature per explicit request ("card colors
+      // borders... depth"): fieldUnits uses '' (empty string, explicitly
+      // present as a key) for a field that takes a raw value with no unit
+      // suffix at all (colors, and the depth formula below) -- checked
+      // for key presence rather than truthiness, since `|| 'px'` would
+      // wrongly treat an intentional empty-string unit as "no unit given,
+      // default to px" and append "px" onto a color value.
+      const unit = (el.fieldUnits && field in el.fieldUnits) ? el.fieldUnits[field] : 'px';
       if (cssProp === 'ROTATE') { out += `transform:rotate(${v}${unit}) !important;`; continue; }
+      // "Depth" is a single intuitive number standing in for a real
+      // multi-part box-shadow (offset + blur + color) -- a bigger number
+      // reads as the card sitting up further off the felt.
+      if (cssProp === 'SHADOW_DEPTH') { out += `box-shadow:0 ${v}px ${v * 2}px rgba(0,0,0,0.45) !important;`; continue; }
       out += `${cssProp}:${v}${unit} !important;`;
     }
     return out;
@@ -229,6 +294,12 @@
       for (const el of ELEMENTS) {
         const v = values[el.key];
         if (!v) continue;
+        // Real, confirmed fix: chip-tier entries have no cssProps/selector
+        // at all (see CHIP_TIER_LAYERS above -- applied via
+        // applyChipTierColors instead, a separate mechanism entirely)
+        // -- without this, Object.entries(el.cssProps) below throws on
+        // undefined the moment a chip color is ever saved.
+        if (!el.cssProps) continue;
         if (el.sizeSelector) {
           // Position fields go on the container (`selector`), size fields
           // go on the children (`sizeSelector`) -- two separate rules from
@@ -430,6 +501,7 @@
     patchSeatPositions(win, getConfig);
     patchRenderGameTable(win, getConfig);
     applySeatStyles(doc, win, getConfig());
+    applyChipTierColors(win, getConfig());
   }
 
   // Seat position is only ever (re)written to the DOM inside the page's own
@@ -454,5 +526,6 @@
     SEAT_COUNT, BREAKPOINTS, ELEMENTS, PREVIEW_ON_KEYS,
     elementByKey, bpForDoc, buildOverrideCSS, applyCSSConfig, applyBackgroundConfig, patchSeatPositions,
     applySeatStyles, patchRenderGameTable, applyAll, forceRerender, setPreviewOnClasses,
+    applyChipTierColors,
   };
 })(window);
