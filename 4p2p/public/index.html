@@ -14226,7 +14226,7 @@ document.getElementById('btnInvite').addEventListener('click', shareInviteLink);
 // (something like xxxxx.onrender.com), and an invite generated from
 // there would otherwise show that raw address instead of the actual
 // 28gulan.com domain people recognize and trust.
-const BRAND_ORIGIN = 'https://28gulan.com';
+const BRAND_ORIGIN = 'https://www.28gulan.com';
 async function shareInviteLink() {
   if (!MY_TABLE_ID) { showToast('Join a table first', 'lose', 1500); return; }
   const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);

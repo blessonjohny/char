@@ -4801,7 +4801,7 @@ function handleQuoteDeclaredToast(state) {
 }
 // Deliberately the branded custom domain, not window.location.origin --
 // see index.html's identical constant for the full reasoning.
-const BRAND_ORIGIN = 'https://28gulan.com';
+const BRAND_ORIGIN = 'https://www.28gulan.com';
 async function shareInviteLink() {
   if (!MY_TABLE_ID) { showToast('Join a table first', 'lose', 1500); return; }
   const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(MY_TABLE_ID);

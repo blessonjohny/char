@@ -3469,7 +3469,7 @@ window.addEventListener('orientationchange', () => {
 // on-screen room code as the last resort if even clipboard access is denied. Reuses the same
 // BRAND_ORIGIN + ?invite=<code> link shape those two tables already use, so a link generated
 // from any of the three games opens correctly for whichever game it actually points to.
-const BRAND_ORIGIN = 'https://28gulan.com';
+const BRAND_ORIGIN = 'https://www.28gulan.com';
 async function shareHoldemInviteLink() {
   if (!myTableId) { toast('Join a table first'); return; }
   const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(myTableId);

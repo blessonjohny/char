@@ -1629,7 +1629,7 @@ document.getElementById('btnJoinInvite56').addEventListener('click', () => {
 
 // Deliberately the branded custom domain, not window.location.origin --
 // see index.html's identical constant for the full reasoning.
-const BRAND_ORIGIN = 'https://28gulan.com';
+const BRAND_ORIGIN = 'https://www.28gulan.com';
 async function shareInviteLink56(){
   if(!roomCode){ showToast('Join a table first'); return; }
   const link = BRAND_ORIGIN + window.location.pathname + '?invite=' + encodeURIComponent(roomCode);
