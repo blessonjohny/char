@@ -2669,18 +2669,13 @@ function applyState(state) {
     // Resetting here, the moment the current state genuinely shows no gameOver (i.e. a fresh
     // match is underway), re-arms it correctly for the next time one actually ends.
     gameOverShownFor = false;
-    // Real, confirmed root-cause fix per explicit live report ("when first-person hits
-    // continue new championship all players should start instead all hitting new"): only the
-    // host ever sees a restart button (btnGameOverRestart is hidden for everyone else), and
-    // that button's own click handler was the ONLY place that ever removed the 'on' class
-    // from gameOverOverlay. The moment the host restarts, the server broadcasts the fresh,
-    // already-started championship to every seated player -- but every non-host player's
-    // screen still had the old Game Over overlay sitting on top of it, since nothing had ever
-    // told THEIR overlay to close. They had no way to even see the new match had begun, let
-    // alone play it, until they did something themselves to force their own UI to catch up.
-    // Closing it here, for every player, the instant the real server state confirms a fresh
-    // match is underway, means one person restarting genuinely starts it for the whole table.
+    // gameOverOverlay itself is no longer ever shown (see showGameOver() -- replaced with a
+    // toast + automatic continue), but this cleanup stays harmless-and-defensive: if anything
+    // ever adds 'on' back, a fresh match starting always clears it for everyone. Also cancel
+    // any still-pending auto-continue timer -- a fresh match already being underway means
+    // whatever gameOver this was scheduled for has already been handled.
     $('gameOverOverlay').classList.remove('on');
+    if (autoNewChampionshipTimer) { clearTimeout(autoNewChampionshipTimer); autoNewChampionshipTimer = null; }
   }
 
   // Per explicit request: triggers the new Bot Mode auto-play the same
@@ -4314,29 +4309,51 @@ function safelyShowGameOver(state) {
   try {
     showGameOver(state);
   } catch (e) {
-    console.error('[safelyShowGameOver] showGameOver() threw - falling back so the match-over screen can still appear:', e);
+    console.error('[safelyShowGameOver] showGameOver() threw:', e);
     try {
       const myTeam = sixpGetTeam(MY_POS);
       const won = state.gameOver.winningTeam === myTeam;
-      $('gameOverTitle').textContent = won ? 'You Win!' : 'Defeat';
-      $('gameOverBody').textContent = 'Final score: ' + state.gameOver.finalScore[0] + ' - ' + state.gameOver.finalScore[1];
-      $('btnGameOverRestart').style.display = IS_HOST ? 'flex' : 'none';
-      $('gameOverOverlay').classList.add('on');
-      updateGameOverRestartButton(state);
+      showToast((won ? '🏆 Championship won! ' : '😢 Championship lost. ') + 'Final: ' + state.gameOver.finalScore[0] + '-' + state.gameOver.finalScore[1], won ? 'win' : 'lose', 5000);
+      scheduleAutoNewChampionship(state);
     } catch (e2) {
       console.error('[safelyShowGameOver] fallback also failed:', e2);
     }
   }
 }
+// Real, explicit, repeated request: NO popup at the end of a championship -- it was getting
+// stuck on screen over the NEXT championship's already-live play (every non-host player's old
+// game-over overlay never got told to close, and even when it did close properly, it still
+// forced the whole table to stop and wait for the host to click something before a new
+// championship could begin). Replaced entirely with a brief, non-blocking toast -- same as any
+// other table notification -- plus a fully automatic continue: the host's own client fires the
+// restart itself once the server's view-time gate passes, so a new championship just starts for
+// everyone with nothing to click, exactly like it worked before the confirm-restart popup system
+// was ever added. The confirm-popup system itself is untouched and still fully in effect for the
+// Host Menu's own mid-match restart -- this only removes it from the championship-end case, which
+// was always the one place it genuinely had nothing left to protect.
 function showGameOver(state) {
   $('roundEndOverlay').classList.remove('on');
   const myTeam = sixpGetTeam(MY_POS);
   const won = state.gameOver.winningTeam === myTeam;
-  $('gameOverTitle').textContent = won ? '🏆 You Win!' : '😢 Defeat';
-  $('gameOverBody').innerHTML = `Final score — Your Team: ${state.gameOver.finalScore[myTeam]}, Opp Team: ${state.gameOver.finalScore[1 - myTeam]}`;
-  $('btnGameOverRestart').style.display = IS_HOST ? 'flex' : 'none';
-  $('gameOverOverlay').classList.add('on');
-  updateGameOverRestartButton(state);
+  const scoreText = `Final score — Your Team: ${state.gameOver.finalScore[myTeam]}, Opp Team: ${state.gameOver.finalScore[1 - myTeam]}`;
+  showToast((won ? '🏆 Championship won! ' : '😢 Championship lost. ') + scoreText, won ? 'win' : 'lose', 5000);
+  scheduleAutoNewChampionship(state);
+}
+
+// Schedules the actual continue -- host-only (same authority rule the old restart button had),
+// and timed to land just after SIXP_GAMEOVER_MIN_VIEW_MS_CLIENT/the server's matching gate, so
+// it never races the server's own "give everyone a moment to see the result" minimum. Guarded so
+// a flaky extra state update while one of these is already pending can't double-schedule it.
+let autoNewChampionshipTimer = null;
+function scheduleAutoNewChampionship(state) {
+  if (!IS_HOST) return;
+  if (autoNewChampionshipTimer) return;
+  const goAt = (state.gameOver && state.gameOver.gameOverAt) || Date.now();
+  const wait = Math.max(0, SIXP_GAMEOVER_MIN_VIEW_MS_CLIENT - (Date.now() - goAt)) + 150;
+  autoNewChampionshipTimer = setTimeout(() => {
+    autoNewChampionshipTimer = null;
+    socket.emit('sixp_requestRestartGame');
+  }, wait);
 }
 
 // The server now refuses sixp_restartGame for SIXP_GAMEOVER_MIN_VIEW_MS after a match
