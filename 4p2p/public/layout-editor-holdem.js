@@ -1055,6 +1055,18 @@
           offsetY: Math.round(parseFloat(win.getComputedStyle(target).marginTop)) || 0,
           fontSize: Math.round(parseFloat(win.getComputedStyle(target).fontSize)) || 10,
         };
+      } else if (def.dragKind === 'fontSizeRotate') {
+        // Same measurement as fontSize above, plus rotate -- deliberately
+        // NOT read back from the live computed transform (that reports a
+        // full matrix(...), not a plain degrees number, and parsing one
+        // back out reliably isn't worth it here) -- 0 unless already
+        // saved, same fallback shape as every other field on this type.
+        live = {
+          offsetX: Math.round(parseFloat(win.getComputedStyle(target).marginLeft)) || 0,
+          offsetY: Math.round(parseFloat(win.getComputedStyle(target).marginTop)) || 0,
+          fontSize: Math.round(parseFloat(win.getComputedStyle(target).fontSize)) || 10,
+          rotate: 0,
+        };
       }
     } else if (def.dragKind === 'size') {
       // Reasonable fallbacks for when nothing's on screen yet to measure
@@ -1065,6 +1077,8 @@
       live = SIZE_FALLBACKS[def.key] || { width: 44, height: 62 };
     } else if (def.dragKind === 'fontSize') {
       live = { offsetX: 0, offsetY: 0, fontSize: 10 };
+    } else if (def.dragKind === 'fontSizeRotate') {
+      live = { offsetX: 0, offsetY: 0, fontSize: 10, rotate: 0 };
     }
     return Object.assign({}, live, saved || {});
   }
@@ -1129,7 +1143,7 @@
   // ---------------------------------------------------------------------
   // Inspector (precise numeric entry -- works with or without Edit Table on)
   // ---------------------------------------------------------------------
-  const FIELD_META = { x: { label: 'X', unit: '%' }, y: { label: 'Y', unit: '%' }, left: { label: 'X', unit: '%' }, top: { label: 'Y', unit: '%' }, width: { label: 'W', unit: 'px' }, height: { label: 'H', unit: 'px' }, fontSize: { label: 'Size', unit: 'px' }, offsetX: { label: 'X', unit: 'px' }, offsetY: { label: 'Y', unit: 'px' } };
+  const FIELD_META = { x: { label: 'X', unit: '%' }, y: { label: 'Y', unit: '%' }, left: { label: 'X', unit: '%' }, top: { label: 'Y', unit: '%' }, width: { label: 'W', unit: 'px' }, height: { label: 'H', unit: 'px' }, fontSize: { label: 'Size', unit: 'px' }, offsetX: { label: 'X', unit: 'px' }, offsetY: { label: 'Y', unit: 'px' }, rotate: { label: 'Rotate', unit: '°' } };
   function fieldsFor(def) {
     if (def.type === 'seat') return ['x', 'y', 'width', 'height'];
     if (def.type === 'cards') return ['offsetX', 'offsetY', 'width', 'height'];
@@ -1138,6 +1152,12 @@
     // The chip-count number: X/Y move it, "Size" is its font size (a
     // literal width/height on a bare number wouldn't mean anything).
     if (def.dragKind === 'fontSize') return ['offsetX', 'offsetY', 'fontSize'];
+    // Real, confirmed feature per explicit request ("rotate... move
+    // positions inside the cards"): same as fontSize above, plus a
+    // rotate field -- used for the card rank text and suit symbol, the
+    // one case so far where "how this text sits" needs an actual angle,
+    // not just a position and a size.
+    if (def.dragKind === 'fontSizeRotate') return ['offsetX', 'offsetY', 'fontSize', 'rotate'];
     return ['left', 'top', 'width', 'height'];
   }
   // Fallback for the rare moment the iframe's document isn't reachable

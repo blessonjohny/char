@@ -145,6 +145,23 @@
     { key: 'streetBanner', label: 'Street Banner (Flop/Turn/River)', category: 'Popups', selector: '.street-banner', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;' },
     { key: 'levelUpBanner', label: 'Level-Up Banner', category: 'Popups', selector: '.level-up-banner', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;', viewportRelative: true },
     { key: 'tableWinningHand', label: 'Winning Hand Reveal (table)', category: 'Popups', selector: '.table-winning-hand', kind: 'position+size', cssProps: { left: 'left', top: 'top', width: 'width', height: 'height' }, fieldUnits: { left: '%', top: '%', width: 'px', height: 'px' }, extraDecls: 'transform:translate(-50%,-50%) !important;' },
+    // Real, confirmed feature per explicit request ("I should be able to
+    // edit the cards... the numbers symbols... add more numbers make them
+    // big add symbols make them big... rotate... move positions inside the
+    // cards"): cardHtml() (holdem.html) renders every card everywhere --
+    // your hand, the board, every opponent's revealed hand, the flying
+    // deal animation -- as one shared structure: <div class="card ..">
+    // <div>RANK</div><div>SUIT</div></div>. Targeting those two inner divs
+    // directly, globally (no per-seat/per-card split -- a design choice
+    // here applies to every card everywhere at once, matching "all
+    // numbers and signs"), with the same offsetX/offsetY/fontSize pattern
+    // already proven for the per-seat chip count, plus the new rotate
+    // field above for literal rotation. margin-left/top (not left/top)
+    // because these are plain inline-flow children with no positioning
+    // context of their own -- the same nudge-via-margin technique already
+    // used for the chip count label.
+    { key: 'cardRankText', label: 'Card Rank (number/letter)', category: 'Cards', type: 'css', selector: '.card > div:first-child', dragKind: 'fontSizeRotate', cssProps: { offsetX: 'margin-left', offsetY: 'margin-top', fontSize: 'font-size', rotate: 'ROTATE' }, fieldUnits: { offsetX: 'px', offsetY: 'px', fontSize: 'px', rotate: 'deg' } },
+    { key: 'cardSuitSymbol', label: 'Card Suit Symbol', category: 'Cards', type: 'css', selector: '.card > div:last-child', dragKind: 'fontSizeRotate', cssProps: { offsetX: 'margin-left', offsetY: 'margin-top', fontSize: 'font-size', rotate: 'ROTATE' }, fieldUnits: { offsetX: 'px', offsetY: 'px', fontSize: 'px', rotate: 'deg' } },
   ];
 
   // Keys of the "hidden until a real game moment triggers them" popups
@@ -184,6 +201,15 @@
       const v = values[field];
       if (v === undefined || v === null || v === '') continue;
       const unit = (el.fieldUnits && el.fieldUnits[field]) || 'px';
+      // Real, confirmed feature per explicit request ("all numbers and
+      // signs rotate"): a rotation can't just be concatenated with a unit
+      // like every other field here (`transform:45deg` isn't valid CSS --
+      // it has to be `transform:rotate(45deg)`), so this one field name is
+      // special-cased to wrap its value in rotate(...) instead of using
+      // cssProp directly as a bare property name. Marked by the element
+      // itself pointing this field's cssProp at the literal string
+      // 'ROTATE' rather than a real CSS property name.
+      if (cssProp === 'ROTATE') { out += `transform:rotate(${v}${unit}) !important;`; continue; }
       out += `${cssProp}:${v}${unit} !important;`;
     }
     return out;
