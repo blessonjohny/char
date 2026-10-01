@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- maximum-scale=1, user-scalable=no stop the BROWSER's own native pinch/
+     ctrl-scroll page zoom here, same reasoning as the other editors --
+     real zoom comes entirely from the +/-/Fit buttons and the ctrl+scroll/
+     pinch handling in layout-editor-56.js. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>56 — Visual Layout Editor</title>
+<link rel="stylesheet" href="layout-editor.css?v=12">
+<link rel="stylesheet" href="layout-editor-56.css?v=1">
+</head>
+<body>
+<div id="edRoot">
+  <div id="edTopbar">
+    <h1>🂡 56 Layout Editor</h1>
+    <span id="edBuildTag" title="Build version">v1</span>
+    <select id="edBreakpointSelect"></select>
+    <button class="ed-btn" id="edBtnEditToggle">✏️ Edit Table</button>
+    <div class="ed-dropdown-wrap">
+      <button class="ed-btn" id="edBtnLayersToggle" type="button">🗂️ Layers</button>
+      <div class="ed-dropdown-panel" id="edLayersPanel" style="display:none">
+        <div class="ed-sidebar-section">
+          <h2>Layers</h2>
+          <div id="edLayers"></div>
+        </div>
+      </div>
+    </div>
+    <div class="ed-zoom-group">
+      <button class="ed-btn" id="edBtnZoomOut" title="Zoom out">−</button>
+      <span id="edZoomLabel">100%</span>
+      <button class="ed-btn" id="edBtnZoomIn" title="Zoom in">+</button>
+      <button class="ed-btn" id="edBtnZoomFit" title="Fit to screen">Fit</button>
+    </div>
+    <button class="ed-btn" id="edBtnUndo" disabled title="Undo">↶</button>
+    <button class="ed-btn" id="edBtnRedo" disabled title="Redo">↷</button>
+    <button class="ed-btn danger" id="edBtnReset" title="Reset this layout">Reset</button>
+    <button class="ed-btn primary" id="edBtnSave">💾 Save</button>
+    <div id="edStatus">Loading…</div>
+  </div>
+  <div id="edBody">
+    <div id="edStage">
+      <div id="edFrameWrap">
+        <!-- No editorPreview=1 (or equivalent private-preview) support
+             exists in 56.html today (unlike holdem.html) -- this iframes
+             the REAL 56.html directly. Known limitation, called out
+             explicitly per the task: join/host a real (or bot-filled)
+             table inside this frame to see real seats/cards to drag,
+             same as the 4-player and 6-player editors already do against
+             their own live pages. Adding a private, server-flagged-
+             hidden practice-table mode to 56.html's own matchmaking
+             would need changes to the server's table-creation flow,
+             which is out of scope for this pass. -->
+        <iframe id="edFrame" src="56.html"></iframe>
+      </div>
+    </div>
+    <div id="edPropsBar">
+      <div id="edInspector"><div class="ed-inspector-empty">Join or host a table inside the frame, turn on Edit Table, then tap an element (or pick one from Layers).</div></div>
+    </div>
+  </div>
+</div>
+<!-- ?v= cache-busts these files -- bump on every future delivery. -->
+<script src="layout-engine-56.js?v=1"></script>
+<script src="layout-editor-56.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+/* ============================================================================
+   layout-editor-4p.css
+   4-player-ONLY redesign overrides, loaded AFTER the shared layout-editor.css
+   (which the Hold'em editor also used to use, before its own redesign got
+   its own override file). Kept in its own file instead of editing
+   layout-editor.css directly -- every rule here only ever applies to
+   layout-editor.html, so nothing here can affect any other editor.
+
+   Real, explicit request ("now we need to make it like this for all
+   tables"), after the Hold'em editor's toolbar+dropdown+see-through-panel
+   redesign landed well: same toolbar-row, same collapsible see-through
+   Layers panel (replacing the old permanent side-by-side sidebar that used
+   up to half the screen just showing a list), same slim bottom properties
+   bar for the Selected Element fields. The underlying drag/undo/save logic
+   in layout-editor.js is completely unchanged -- this is a pure layout/visual
+   pass, same as Hold'em's was.
+============================================================================ */
+
+/* #edBody was a left-right split (stage | sidebar) in the shared file.
+   Matches Hold'em: stack stage-on-top, slim properties bar underneath. */
+#edBody{flex-direction:column}
+#edStage{padding:16px}
+
+/* Same fix as Hold'em's: `justify-content:center` on the stage only ever
+   lets you scroll into overflow on ONE side once content is wider than the
+   stage (a well-known flexbox limitation) -- `margin:auto` on the frame
+   itself, with the parent's own centering turned off, doesn't have that
+   problem. Applied proactively here even though this editor has no zoom
+   feature (yet) -- a tall/wide breakpoint preview can already overflow a
+   small phone screen on its own, and this avoids hitting that exact bug
+   again rather than waiting for a live report of it. */
+#edStage{justify-content:flex-start}
+#edFrameWrap{margin:auto}
+
+/* ---- One single toolbar row, always -- never wraps, scrolls sideways
+   instead if there's not enough width. Same pattern as Hold'em's. ---- */
+#edTopbar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;align-items:center;gap:6px;padding:8px 12px}
+#edTopbar::-webkit-scrollbar{height:4px}
+#edTopbar > *{flex-shrink:0}
+#edTopbar h1{font-size:0.86rem;margin-right:2px;white-space:nowrap}
+#edBuildTag{font-size:0.6rem;color:var(--ed-text-dim);font-weight:600;margin-right:4px;opacity:0.7;white-space:nowrap}
+#edTopbar .ed-btn,
+#edTopbar #edBreakpointSelect,
+#edTopbar .ed-zoom-group{height:36px;box-sizing:border-box}
+#edTopbar .ed-zoom-group .ed-btn{padding:0 10px}
+#edTopbar .ed-btn{display:inline-flex;align-items:center;justify-content:center;padding:0 12px;font-size:0.78rem;border-radius:7px;white-space:nowrap}
+#edTopbar #edBreakpointSelect{flex:0 0 auto;width:auto;max-width:140px;border-radius:7px}
+#edTopbar #edStatus{margin-left:8px;font-size:0.7rem;white-space:nowrap}
+#edTopbar .ed-btn.active{background:var(--ed-gold);border-color:var(--ed-gold);color:#241a12}
+
+/* ---- Layers dropdown -- position set in JS (see layout-editor.js) from
+   the trigger button's real on-screen position, clamped to the viewport.
+   Plain, sharp translucency (no backdrop-filter blur) per explicit live
+   report on the Hold'em version of this exact panel -- a blur is still
+   mostly opaque, just a smeared version of it, not actually see-through. ---- */
+.ed-dropdown-wrap{position:relative;display:inline-block}
+.ed-dropdown-panel{position:fixed;width:210px;max-width:calc(100vw - 16px);background:rgba(10,8,6,0.22);border:1px solid var(--ed-border);border-radius:10px;box-shadow:0 16px 46px rgba(0,0,0,0.5);z-index:900;overflow:hidden}
+.ed-dropdown-panel .ed-sidebar-section{border-bottom:none;max-height:min(62vh,520px)}
+.ed-dropdown-panel .ed-sidebar-section h2{padding:7px 10px 3px;font-size:0.74rem;text-shadow:0 1px 3px rgba(0,0,0,0.9)}
+.ed-dropdown-panel .ed-layer-group-label{padding:4px 10px 1px;text-shadow:0 1px 3px rgba(0,0,0,0.9)}
+.ed-dropdown-panel .ed-layer-row{padding:4px 10px 4px 16px;font-size:0.74rem;text-shadow:0 1px 3px rgba(0,0,0,0.9)}
+.ed-dropdown-panel #edLayers{max-height:min(62vh,520px);overflow-y:auto;padding-bottom:4px}
+
+/* ---- Bottom properties bar: replaces the old "Selected Element" sidebar
+   section with one slim horizontal strip. ---- */
+#edPropsBar{flex-shrink:0;background:var(--ed-panel);border-top:1px solid var(--ed-border);padding:8px 14px;overflow-x:auto;min-height:20px}
+#edPropsBar #edInspector{display:flex;align-items:center;gap:16px;white-space:nowrap;font-size:0.78rem}
+#edPropsBar .ed-inspector-empty{white-space:normal;padding:0;color:var(--ed-text-dim);font-size:0.72rem}
+#edPropsBar #edInspectorTitle{margin-bottom:0;flex-shrink:0;font-size:0.82rem}
+#edPropsBar #edInspectorMeta{margin-bottom:0;flex-shrink:0}
+#edPropsBar .ed-field-row{margin-bottom:0;flex-shrink:0}
+#edPropsBar .ed-field-row input[type=number]{width:68px}
+
+@media (max-width: 860px){
+  #edStage{padding:8px;min-height:40vh}
+  #edPropsBar{padding:8px 10px}
+}

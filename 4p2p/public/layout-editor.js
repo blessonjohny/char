@@ -15,15 +15,57 @@
   const L4P = window.Layout4P;
 
   const frame = document.getElementById('edFrame');
+  const frameWrap = document.getElementById('edFrameWrap');
+  const stage = document.getElementById('edStage');
   const bpSelect = document.getElementById('edBreakpointSelect');
   const btnEditToggle = document.getElementById('edBtnEditToggle');
   const btnUndo = document.getElementById('edBtnUndo');
   const btnRedo = document.getElementById('edBtnRedo');
   const btnReset = document.getElementById('edBtnReset');
   const btnSave = document.getElementById('edBtnSave');
+  const btnZoomOut = document.getElementById('edBtnZoomOut');
+  const btnZoomIn = document.getElementById('edBtnZoomIn');
+  const btnZoomFit = document.getElementById('edBtnZoomFit');
+  const zoomLabel = document.getElementById('edZoomLabel');
   const statusEl = document.getElementById('edStatus');
   const layersEl = document.getElementById('edLayers');
   const inspectorEl = document.getElementById('edInspector');
+  const btnLayersToggle = document.getElementById('edBtnLayersToggle');
+  const layersPanel = document.getElementById('edLayersPanel');
+
+  // ---------------------------------------------------------------------
+  // Layers dropdown -- replaces the old permanent sidebar (see
+  // layout-editor-4p.css), matching the same pattern the Hold'em editor
+  // uses: positioned in real viewport coordinates from the trigger
+  // button's actual on-screen spot, clamped so it can never run off
+  // either edge, closes on its own toggle, on picking a layer, or on
+  // clicking anywhere else on the page.
+  // ---------------------------------------------------------------------
+  function closeLayersDropdown() {
+    layersPanel.style.display = 'none';
+    btnLayersToggle.classList.remove('active');
+  }
+  function positionLayersPanel() {
+    const btnRect = btnLayersToggle.getBoundingClientRect();
+    const panelWidth = Math.min(210, window.innerWidth - 16);
+    let left = btnRect.left;
+    left = Math.max(8, Math.min(left, window.innerWidth - panelWidth - 8));
+    layersPanel.style.width = panelWidth + 'px';
+    layersPanel.style.left = left + 'px';
+    layersPanel.style.top = (btnRect.bottom + 8) + 'px';
+  }
+  btnLayersToggle.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const isOpen = layersPanel.style.display !== 'none';
+    closeLayersDropdown();
+    if (!isOpen) {
+      positionLayersPanel();
+      layersPanel.style.display = 'block';
+      btnLayersToggle.classList.add('active');
+    }
+  });
+  window.addEventListener('resize', () => { if (layersPanel.style.display !== 'none') positionLayersPanel(); });
+  document.addEventListener('click', (ev) => { if (!ev.target.closest('.ed-dropdown-wrap')) closeLayersDropdown(); });
 
   let config = { portrait: {}, desktopWide: {} };
   let currentBp = L4P.BREAKPOINTS[0].key;
@@ -60,6 +102,14 @@
     scheduleRebuildOverlays();
   });
 
+  // The iframe's own intrinsic size always stays the real breakpoint size (bp.previewWidth x
+  // previewHeight) -- zoom never touches this. fitFrameToStage() below visually scales the
+  // WHOLE iframe down/up with a CSS transform on top of that, same split Hold'em's editor uses:
+  // click/drag coordinates inside the iframe's own document are completely unaffected by the
+  // outer page's CSS transform (both the overlay boxes and the real elements they track live in
+  // that same iframe document, so they move together regardless of how the outer page scales
+  // the iframe visually) -- only the zoom UI itself (stepZoom/zoomByFactor/pinch) needs to know
+  // about the current scale, to convert a screen-space anchor point into iframe-space.
   function applyFrameSize() {
     const bp = bpInfo(currentBp);
     frame.width = bp.previewWidth;
@@ -67,6 +117,140 @@
     frame.style.width = bp.previewWidth + 'px';
     frame.style.height = bp.previewHeight + 'px';
     try { frame.contentWindow.dispatchEvent(new Event('resize')); } catch (e) {}
+    fitFrameToStage();
+  }
+
+  let manualZoom = null;
+  let currentScale = 1;
+  function fitFrameToStage() {
+    const bp = bpInfo(currentBp);
+    frame.style.transform = 'none';
+    frame.style.transformOrigin = 'top left';
+    frameWrap.style.width = bp.previewWidth + 'px';
+    frameWrap.style.height = bp.previewHeight + 'px';
+    let scale;
+    if (manualZoom != null) {
+      scale = manualZoom;
+    } else {
+      const availW = stage.clientWidth - 4;
+      const availH = stage.clientHeight - 4;
+      scale = Math.min(1, availW / bp.previewWidth, availH / bp.previewHeight);
+    }
+    if (scale > 0 && scale !== 1) {
+      frame.style.transform = 'scale(' + scale + ')';
+      frameWrap.style.width = Math.round(bp.previewWidth * scale) + 'px';
+      frameWrap.style.height = Math.round(bp.previewHeight * scale) + 'px';
+    }
+    currentScale = scale > 0 ? scale : 1;
+    zoomLabel.textContent = Math.round(scale * 100) + '%';
+  }
+  window.addEventListener('resize', () => { if (manualZoom == null) fitFrameToStage(); });
+
+  // ---------------------------------------------------------------------
+  // Zoom -- +/-/Fit buttons, ctrl+scroll, and pinch, all driving the same
+  // manualZoom/fitFrameToStage this editor already uses. Keeps whatever
+  // point you're zooming around (screen center for the buttons, the
+  // cursor for ctrl+scroll, the pinch midpoint for pinch) visually fixed
+  // by adjusting scroll position after rescaling, rather than relying on
+  // CSS layout to do it (see layout-editor-holdem.js's identical function
+  // for the fuller reasoning -- same technique, ported here verbatim).
+  // ---------------------------------------------------------------------
+  function applyManualZoom(newZoom, anchorVX, anchorVY) {
+    if (anchorVX == null) anchorVX = stage.clientWidth / 2;
+    if (anchorVY == null) anchorVY = stage.clientHeight / 2;
+    const oldWidth = frameWrap.offsetWidth || 1;
+    const oldHeight = frameWrap.offsetHeight || 1;
+    const fracX = (stage.scrollLeft + anchorVX) / oldWidth;
+    const fracY = (stage.scrollTop + anchorVY) / oldHeight;
+    manualZoom = newZoom;
+    fitFrameToStage();
+    const newWidth = frameWrap.offsetWidth || 1;
+    const newHeight = frameWrap.offsetHeight || 1;
+    stage.scrollLeft = Math.max(0, fracX * newWidth - anchorVX);
+    stage.scrollTop = Math.max(0, fracY * newHeight - anchorVY);
+  }
+  const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.66, 0.75, 1, 1.25, 1.5, 2];
+  function stepZoom(dir) {
+    const bp = bpInfo(currentBp);
+    const current = manualZoom != null ? manualZoom : Math.min(1, (stage.clientWidth - 4) / bp.previewWidth, (stage.clientHeight - 4) / bp.previewHeight);
+    let next;
+    if (dir > 0) next = ZOOM_STEPS.find((s) => s > current + 0.001) || ZOOM_STEPS[ZOOM_STEPS.length - 1];
+    else next = [...ZOOM_STEPS].reverse().find((s) => s < current - 0.001) || ZOOM_STEPS[0];
+    applyManualZoom(next, stage.clientWidth / 2, stage.clientHeight / 2);
+  }
+  btnZoomOut.addEventListener('click', () => stepZoom(-1));
+  btnZoomIn.addEventListener('click', () => stepZoom(1));
+  btnZoomFit.addEventListener('click', () => { manualZoom = null; fitFrameToStage(); stage.scrollLeft = 0; stage.scrollTop = 0; });
+
+  function clampZoom(z) { return Math.min(3, Math.max(0.1, z)); }
+  function currentEffectiveZoom() {
+    const bp = bpInfo(currentBp);
+    return manualZoom != null ? manualZoom : Math.min(1, (stage.clientWidth - 4) / bp.previewWidth, (stage.clientHeight - 4) / bp.previewHeight);
+  }
+  function clientPointToStageViewport(clientX, clientY, sourceIsIframe) {
+    const stageRect = stage.getBoundingClientRect();
+    if (!sourceIsIframe) return { x: clientX - stageRect.left, y: clientY - stageRect.top };
+    const frameRect = frame.getBoundingClientRect();
+    return { x: (frameRect.left + clientX * currentScale) - stageRect.left, y: (frameRect.top + clientY * currentScale) - stageRect.top };
+  }
+  function zoomByFactor(factor, anchorVX, anchorVY) {
+    applyManualZoom(clampZoom(currentEffectiveZoom() * factor), anchorVX, anchorVY);
+  }
+  function handleZoomWheel(ev) {
+    if (!ev.ctrlKey) return;
+    ev.preventDefault();
+    const sourceIsIframe = !!(ev.target && ev.target.ownerDocument && ev.target.ownerDocument !== document);
+    const pt = clientPointToStageViewport(ev.clientX, ev.clientY, sourceIsIframe);
+    zoomByFactor(ev.deltaY < 0 ? 1.08 : 1 / 1.08, pt.x, pt.y);
+  }
+  window.addEventListener('wheel', handleZoomWheel, { passive: false });
+
+  let pinchStartDist = null;
+  let pinchStartZoom = 1;
+  let activeTouchPoints = 0;
+  function touchDist(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  }
+  function handleTouchStart(ev) {
+    activeTouchPoints = ev.touches.length;
+    if (ev.touches.length === 2) {
+      pinchStartDist = touchDist(ev.touches);
+      pinchStartZoom = currentEffectiveZoom();
+      dragState = null; // a second finger always means pinch -- cancel any in-progress drag
+    }
+  }
+  function handleTouchMove(ev) {
+    activeTouchPoints = ev.touches.length;
+    if (ev.touches.length === 2 && pinchStartDist) {
+      ev.preventDefault();
+      const sourceIsIframe = !!(ev.target && ev.target.ownerDocument && ev.target.ownerDocument !== document);
+      const midX = (ev.touches[0].clientX + ev.touches[1].clientX) / 2;
+      const midY = (ev.touches[0].clientY + ev.touches[1].clientY) / 2;
+      const pt = clientPointToStageViewport(midX, midY, sourceIsIframe);
+      applyManualZoom(clampZoom(pinchStartZoom * (touchDist(ev.touches) / pinchStartDist)), pt.x, pt.y);
+    }
+  }
+  function handleTouchEnd(ev) {
+    activeTouchPoints = ev.touches.length;
+    if (ev.touches.length < 2) pinchStartDist = null;
+  }
+  stage.addEventListener('touchstart', handleTouchStart, { passive: true });
+  stage.addEventListener('touchmove', handleTouchMove, { passive: false });
+  stage.addEventListener('touchend', handleTouchEnd, { passive: true });
+  stage.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+
+  function wireIframeZoomGestures(doc) {
+    if (!doc) return;
+    const win = doc.defaultView;
+    if (!win || win.__ledZoomGesturesWired) return;
+    win.__ledZoomGesturesWired = true;
+    doc.addEventListener('wheel', handleZoomWheel, { passive: false });
+    doc.addEventListener('touchstart', handleTouchStart, { passive: true });
+    doc.addEventListener('touchmove', handleTouchMove, { passive: false });
+    doc.addEventListener('touchend', handleTouchEnd, { passive: true });
+    doc.addEventListener('touchcancel', handleTouchEnd, { passive: true });
   }
 
   // ---------------------------------------------------------------------
@@ -88,6 +272,7 @@
     try {
       L4P.applyConfig(frame.contentDocument, config);
     } catch (e) { /* cross-origin or not-yet-ready -- ignore */ }
+    try { wireIframeZoomGestures(frame.contentDocument); } catch (e) {}
     scheduleRebuildOverlays();
   });
 
@@ -202,6 +387,7 @@
   // ---------------------------------------------------------------------
   function wireBoxEvents(doc, el, box, handle) {
     box.addEventListener('pointerdown', (ev) => {
+      if (activeTouchPoints >= 2) return; // a pinch already in progress -- never also start a drag
       if (ev.target === handle) return; // handled separately below
       selectElement(el.key);
       if (el.kind === 'size') return; // size-only elements have no body-drag
@@ -209,6 +395,7 @@
     });
     if (handle) {
       handle.addEventListener('pointerdown', (ev) => {
+        if (activeTouchPoints >= 2) return;
         ev.stopPropagation();
         selectElement(el.key);
         beginDrag(doc, el, ev, 'resize');
@@ -223,15 +410,18 @@
     const tableArea = doc.getElementById('tableArea');
     const tableRect = tableArea ? tableArea.getBoundingClientRect() : { width: doc.documentElement.clientWidth, height: doc.documentElement.clientHeight };
     const startVal = Object.assign({}, L4P.effectiveValue(config, currentBp, el.key));
-    dragState = { el, mode, startX, startY, startVal, tableRect, doc };
-    const onMove = (mv) => handleDragMove(mv);
-    const onUp = () => {
+    dragState = { el, mode, startX, startY, startVal, tableRect, doc, pointerId: ev.pointerId };
+    const onMove = (mv) => { if (mv.pointerId === dragState.pointerId) handleDragMove(mv); };
+    const onUp = (upEv) => {
+      if (upEv && dragState && upEv.pointerId !== dragState.pointerId) return;
       doc.removeEventListener('pointermove', onMove);
       doc.removeEventListener('pointerup', onUp);
+      doc.removeEventListener('pointercancel', onUp);
       dragState = null;
     };
     doc.addEventListener('pointermove', onMove);
     doc.addEventListener('pointerup', onUp);
+    doc.addEventListener('pointercancel', onUp);
   }
 
   function ensureBpBucket(bpKey) { if (!config[bpKey]) config[bpKey] = {}; return config[bpKey]; }
@@ -296,7 +486,7 @@
         const hasOverride = config[currentBp] && config[currentBp][el.key];
         row.className = 'ed-layer-row' + (el.key === selectedKey ? ' selected' : '') + (hasOverride ? ' edited' : '');
         row.innerHTML = '<span class="ed-dot"></span><span>' + el.label + '</span>';
-        row.addEventListener('click', () => selectElement(el.key));
+        row.addEventListener('click', () => { selectElement(el.key); closeLayersDropdown(); });
         group.appendChild(row);
       });
       layersEl.appendChild(group);

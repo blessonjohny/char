@@ -2,23 +2,37 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>28 Gulan — Visual Layout Editor</title>
-<link rel="stylesheet" href="layout-editor.css">
+<link rel="stylesheet" href="layout-editor.css?v=12">
+<link rel="stylesheet" href="layout-editor-4p.css?v=1">
 </head>
 <body>
 <div id="edRoot">
   <div id="edTopbar">
     <h1>🎨 Table Layout Editor</h1>
-    <div class="ed-sep"></div>
+    <span id="edBuildTag" title="Build version">v2</span>
     <select id="edBreakpointSelect"></select>
     <button class="ed-btn" id="edBtnEditToggle">✏️ Edit Table: OFF</button>
-    <div class="ed-sep"></div>
+    <div class="ed-dropdown-wrap">
+      <button class="ed-btn" id="edBtnLayersToggle" type="button">🗂️ Layers</button>
+      <div class="ed-dropdown-panel" id="edLayersPanel" style="display:none">
+        <div class="ed-sidebar-section">
+          <h2>Layers</h2>
+          <div id="edLayers"></div>
+        </div>
+      </div>
+    </div>
+    <div class="ed-zoom-group">
+      <button class="ed-btn" id="edBtnZoomOut" title="Zoom out">−</button>
+      <span id="edZoomLabel">100%</span>
+      <button class="ed-btn" id="edBtnZoomIn" title="Zoom in">+</button>
+      <button class="ed-btn" id="edBtnZoomFit" title="Fit to screen">Fit</button>
+    </div>
     <button class="ed-btn" id="edBtnUndo" disabled>↶ Undo</button>
     <button class="ed-btn" id="edBtnRedo" disabled>↷ Redo</button>
-    <button class="ed-btn danger" id="edBtnReset">Reset Layout</button>
-    <div class="ed-sep"></div>
-    <button class="ed-btn primary" id="edBtnSave">💾 Save Layout</button>
+    <button class="ed-btn danger" id="edBtnReset">Reset</button>
+    <button class="ed-btn primary" id="edBtnSave">💾 Save</button>
     <div id="edStatus">Loading current layout…</div>
   </div>
   <div id="edBody">
@@ -27,19 +41,12 @@
         <iframe id="edFrame" src="index.html"></iframe>
       </div>
     </div>
-    <div id="edSidebar">
-      <div class="ed-sidebar-section" style="flex:1 1 55%">
-        <h2>Layers</h2>
-        <div id="edLayers"></div>
-      </div>
-      <div class="ed-sidebar-section" style="flex:1 1 45%;overflow-y:auto">
-        <h2>Selected Element</h2>
-        <div id="edInspector"><div class="ed-inspector-empty">Turn on Edit Table, then click an element on the table (or pick one from Layers) to adjust it here.</div></div>
-      </div>
+    <div id="edPropsBar">
+      <div id="edInspector"><div class="ed-inspector-empty">Turn on Edit Table, then click an element on the table (or pick one from Layers) to adjust it here.</div></div>
     </div>
   </div>
 </div>
 <script src="layout-engine-4p.js"></script>
-<script src="layout-editor.js"></script>
+<script src="layout-editor.js?v=3"></script>
 </body>
 </html>
