@@ -76,10 +76,27 @@
    `absolute`) so it's positioned against the real viewport regardless of
    the topbar's own horizontal scroll position. ---- */
 .ed-dropdown-wrap{position:relative;display:inline-block}
-.ed-dropdown-panel{position:fixed;width:320px;max-width:calc(100vw - 16px);background:var(--ed-panel);border:1px solid var(--ed-border);border-radius:12px;box-shadow:0 16px 46px rgba(0,0,0,0.6);z-index:900;overflow:hidden}
+/* Real, confirmed live report ("make the background completely see thru when I select the
+   item from menu i should see it on the exit page"): the Layers/Background panel's solid
+   `var(--ed-panel)` background was fully opaque, covering almost the entire table underneath
+   while open -- there was no way to see a seat/layer highlighted on the actual table while
+   still browsing the list that picks it. Swapped for a frosted-glass panel (a translucent dark
+   tint + backdrop-filter blur) instead of a flat color -- the real table shows through behind
+   it, while the blur (not plain transparency alone) keeps the row text and rounded icons
+   legible over whatever busy table felt/background photo happens to be behind it. Also
+   trimmed a bit narrower and tighter per the same report ("make it nice and tight"). Falls
+   back to the old solid panel automatically on any browser without backdrop-filter support
+   (Firefox before 103, older WebViews) since the plain `background` below still applies there. */
+.ed-dropdown-panel{position:fixed;width:280px;max-width:calc(100vw - 16px);background:rgba(17,14,11,0.9);border:1px solid var(--ed-border);border-radius:12px;box-shadow:0 16px 46px rgba(0,0,0,0.6);z-index:900;overflow:hidden}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))){
+  .ed-dropdown-panel{background:rgba(17,14,11,0.38);backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3)}
+}
 .ed-dropdown-panel .ed-sidebar-section{border-bottom:none;max-height:min(62vh,520px)}
+.ed-dropdown-panel .ed-sidebar-section h2{padding:8px 12px 4px;font-size:0.76rem}
+.ed-dropdown-panel .ed-layer-group-label{padding:5px 12px 1px}
+.ed-dropdown-panel .ed-layer-row{padding:4px 12px 4px 18px;font-size:0.76rem}
 .ed-dropdown-panel #edLayers,
-.ed-dropdown-panel #edBgPanel{max-height:min(62vh,520px);overflow-y:auto;padding-bottom:6px}
+.ed-dropdown-panel #edBgPanel{max-height:min(62vh,520px);overflow-y:auto;padding-bottom:4px}
 
 /* ---- Bottom properties bar: replaces the old vertical "Selected
    Element" panel with one slim, horizontally-laid-out strip so it never
