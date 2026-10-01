@@ -295,7 +295,7 @@
       if (win.LayoutSix) win.LayoutSix.applyAll(frame.contentDocument, win, () => config);
       setupOverlayMutationObserver(frame.contentDocument, win);
       wireIframeZoomGestures(frame.contentDocument);
-      if (editMode && win.LayoutSix) win.LayoutSix.setPreviewOn(frame.contentDocument, true);
+      if (editMode && win.LayoutSix) win.LayoutSix.setPreviewOn(frame.contentDocument, selectedKey);
     } catch (e) { /* cross-origin or not-yet-ready -- ignore */ }
     scheduleRebuildOverlays();
   });
@@ -324,7 +324,10 @@
     frame.classList.toggle('editing', editMode);
     try {
       const win = frame.contentWindow;
-      if (win && win.LayoutSix) win.LayoutSix.setPreviewOn(frame.contentDocument, editMode);
+      // Only the currently-selected popup (if any) is ever force-shown --
+      // see setPreviewOn's own comment in layout-engine-6p.js. Edit Table
+      // switching off always clears every popup regardless of selection.
+      if (win && win.LayoutSix) win.LayoutSix.setPreviewOn(frame.contentDocument, editMode ? selectedKey : null);
     } catch (e) {}
     if (editMode) { rebuildOverlays(); startLoop(); }
     else { stopLoop(); clearOverlays(); }
@@ -409,7 +412,11 @@
     clearOverlays();
     if (!editMode) return;
     ensureOverlayStyles(doc);
-    try { if (win.LayoutSix) win.LayoutSix.setPreviewOn(doc, true); } catch (e) {}
+    // Only force-show the currently selected popup (if it is one) -- every
+    // other popup stays hidden and simply gets no overlay box below (its
+    // target element measures 0x0 and is skipped), instead of all 11
+    // popups rendering simultaneously, stacked on top of each other.
+    try { if (win.LayoutSix) win.LayoutSix.setPreviewOn(doc, selectedKey); } catch (e) {}
     ALL_LAYERS.forEach((def) => {
       const target = targetFor(doc, def);
       if (!target) return;
@@ -593,7 +600,26 @@
   // ---------------------------------------------------------------------
   // Selection + Layers panel
   // ---------------------------------------------------------------------
-  function selectElement(key) { selectedKey = key; setSelected(key); renderInspector(); renderLayers(); }
+  // Selecting (or clearing) a popup-category layer changes which single
+  // popup is force-shown (see setPreviewOn) -- when that's the case, a
+  // full rebuildOverlays() is needed so the newly-selected popup's own
+  // overlay box gets created (it had no box at all while hidden) and the
+  // previously-selected popup's box disappears again. A plain seat/card
+  // selection never affects popup visibility, so it skips the rebuild and
+  // just re-marks which existing box is highlighted, same as before.
+  function selectElement(key) {
+    const prevKey = selectedKey;
+    selectedKey = key;
+    const popupKeys = LH.PREVIEW_ON_KEYS || [];
+    const popupVisibilityChanged = popupKeys.includes(prevKey) || popupKeys.includes(key);
+    if (editMode && popupVisibilityChanged) {
+      rebuildOverlays(); // re-measures with only `key`'s popup (if any) forced visible; also re-applies selection styling
+    } else {
+      setSelected(key);
+    }
+    renderInspector();
+    renderLayers();
+  }
   function setSelected(key) {
     Object.entries(overlays).forEach(([k, o]) => {
       const isSel = k === key;

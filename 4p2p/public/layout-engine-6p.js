@@ -138,20 +138,34 @@
   // generalized to cover both the `.on`-class popups and the handful of
   // plain style.display ones (midTrickQuotePopup, bidWinnerBubble,
   // bidStatusBanner) in one pass.
+  //
+  // Real, confirmed bug fix per explicit live report with a screenshot:
+  // with 11 popups in this list (vs Hold'em's 3), force-showing ALL of
+  // them at once the instant Edit Table turned on meant every popup
+  // rendered simultaneously, full-opacity, stacked directly on top of
+  // each other in the center of the screen -- completely illegible.
+  // setPreviewOn now takes the currently SELECTED key (or null/undefined
+  // for none) instead of a plain on/off boolean, and only force-shows the
+  // ONE popup matching that key -- every other popup stays in its normal
+  // hidden state and simply renders no box until it's the one selected.
+  // Seats/trick-cards/hand-strip aren't in this list at all (they're
+  // always on screen already) and keep rendering their boxes exactly as
+  // before, unaffected by this change.
   const PREVIEW_ON_KEYS = ELEMENTS.filter((e) => e.previewToggleSelector).map((e) => e.key);
 
-  function setPreviewOn(doc, on) {
+  function setPreviewOn(doc, selectedKey) {
     if (!doc) return;
     for (const key of PREVIEW_ON_KEYS) {
       const def = elementByKey(key);
       if (!def) continue;
       const el = doc.querySelector(def.previewToggleSelector);
       if (!el) continue;
+      const show = key === selectedKey;
       if (def.previewToggleMode === 'style') {
-        if (on) el.style.setProperty('display', 'block', 'important');
+        if (show) el.style.setProperty('display', 'block', 'important');
         else el.style.removeProperty('display');
       } else {
-        el.classList.toggle('on', !!on);
+        el.classList.toggle('on', show);
       }
     }
   }

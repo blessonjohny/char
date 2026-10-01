@@ -10,7 +10,24 @@
 let socket = null;
 let MY_TABLE_ID = null;
 let MY_PLAYER_ID = null;
-try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
+// The Layout Editor iframe (layout-editor-6p.html) loads this exact page so
+// it can drag its REAL rendered elements around -- but this page is also the
+// real live game, and loading it plainly used to mean the editor either
+// resurrected whatever real table was sitting in the admin's own browser
+// session (localStorage is shared with every tab on this origin, editor
+// iframe included) or created an ordinary table that then showed up in
+// everyone's public lobby, joinable by any real player mid-edit (real
+// report: "when I'm editing it's going live and people join"). This mirrors
+// holdem.html's identical `editorPreview=1` fix exactly -- see the
+// IS_EDITOR_PREVIEW branches below, in the 'connect' handler, and in
+// sixp_joined.
+const IS_EDITOR_PREVIEW = new URLSearchParams(location.search).get('editorPreview') === '1';
+// Skipped entirely in editor-preview mode: the editor always wants a brand
+// new private table of its own, never whatever real table happens to be
+// saved in this browser's own localStorage.
+if (!IS_EDITOR_PREVIEW) {
+  try { MY_PLAYER_ID = localStorage.getItem('k28six_player_token'); } catch (e) {}
+}
 let MY_NAME = '';
 let MY_POS = -1;
 let IS_SPECTATOR = false;
@@ -1372,6 +1389,17 @@ function connectSocket() {
     sixpTrickRevealQueue = [];
     lastRenderedTrickSlot = [null, null, null, null, null, null];
     sixpCatchUpGen++;
+    if (IS_EDITOR_PREVIEW) {
+      // Editor preview mode never has (or wants) a saved session to
+      // reconnect to -- it always asks the server for a brand new, private,
+      // lobby-hidden practice table instead (see sixp_createTable's
+      // `preview: true` handling in server.js and sixp_joined below, which
+      // auto-fills it with bots and starts a game so the editor has real
+      // seats/cards on screen to drag). Mirrors holdem.html's identical
+      // poker_createTable preview branch.
+      socket.emit('sixp_createTable', { name: 'Layout Preview', preview: true, avatar: MY_AVATAR_KEY });
+      return;
+    }
     if (MY_TABLE_ID && MY_PLAYER_ID) {
       // Same silent-recovery flag as the other two health-check-driven
       // rejoins -- see there for the fuller reasoning. A real network
@@ -1520,6 +1548,17 @@ function connectSocket() {
     // button only ever makes sense while genuinely spectating; a
     // freshly-seated player (this exact event) never sees it.
     if ($('btnSpectatorJoin')) $('btnSpectatorJoin').style.display = 'none';
+    if (IS_EDITOR_PREVIEW) {
+      // Never save a preview table's session -- it's a private, throwaway
+      // table the server closes the instant this tab disconnects (see
+      // server.js), so there's nothing worth ever reconnecting to, and
+      // saving it here would overwrite this same browser's real k28six
+      // session the next time a normal (non-editor) tab on this origin
+      // opens a real table.
+      $('seatPickerOverlay').classList.remove('on');
+      fillPreviewTableAndDeal6p();
+      return;
+    }
     try {
       localStorage.setItem('k28six_player_token', info.playerId);
       localStorage.setItem('k28six_table_id', info.tableId);
@@ -1745,6 +1784,26 @@ function connectSocket() {
   socket.on('createBlocked', ({ maxRooms }) => {
     showToast(`🚧 Room Restricted for now to ${maxRooms} — will reopen in a few.`, 'lose', 4000);
   });
+}
+// Editor-preview-only: seat the table full of bots and start a game
+// immediately, with no human interaction -- the Layout Editor needs real
+// seats, chips and cards on screen to drag around, not an empty lobby
+// waiting for a human to click Start Game. Mirrors the existing "Start
+// Game" flow (fillBots + startGame, see btnStartGame's own click handler
+// above) exactly, just fired automatically instead of by a click. Mirrors
+// holdem.html's identical fillPreviewTableAndDeal.
+function fillPreviewTableAndDeal6p() {
+  if (!IS_EDITOR_PREVIEW) return;
+  socket.emit('sixp_fillBots', { count: 5 });
+  // sixp_startGame only fills the empty seats with bots and moves the
+  // table to the 'readyRoom' phase (see server.js) -- the real deal only
+  // happens once the host explicitly confirms via sixp_confirmStart
+  // (normally btnReadyRoomStart6p's click handler above). With no human
+  // there to click it, fire that confirm automatically right after, same
+  // "no human interaction needed" spirit as holdem.html's identical
+  // fillPreviewTableAndDeal.
+  socket.emit('sixp_startGame');
+  setTimeout(() => socket.emit('sixp_confirmStart'), 250);
 }
 connectSocket(); // connect right away so every landing on this page gets logged as a visitor, not just the ones who go on to create/join a table
 
@@ -4329,6 +4388,14 @@ $('btnGameOverRestart').addEventListener('click', () => {
 
 window.addEventListener('DOMContentLoaded', () => {
   showScreen('welcomeScreen');
+  if (IS_EDITOR_PREVIEW) {
+    // The editor's own `connect` handler above already takes care of
+    // creating (and re-creating, on every reconnect) a private preview
+    // table automatically -- none of the normal invite-code or saved-
+    // session reconnect flow below applies, and none of it should ever
+    // touch this browser's real k28six session.
+    return;
+  }
   // The room list now shows directly on this screen (not just after
   // clicking "Join Table"), so it needs to actually be populated the
   // moment the page loads too, not only when that button gets clicked.

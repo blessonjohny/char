@@ -273,8 +273,26 @@
       L4P.applyConfig(frame.contentDocument, config);
     } catch (e) { /* cross-origin or not-yet-ready -- ignore */ }
     try { wireIframeZoomGestures(frame.contentDocument); } catch (e) {}
+    applyPopupPreview();
     scheduleRebuildOverlays();
   });
+
+  // ---------------------------------------------------------------------
+  // Popup declutter -- popups (category 'Popups' in L4P.POPUP_KEYS) are
+  // normally hidden on the real page until a real game moment shows them.
+  // Showing every single one at once in Edit Table mode (4-player has
+  // enough of them now) would overlap into unreadable clutter, so only
+  // the CURRENTLY SELECTED popup -- if any, and only while Edit Table is
+  // on -- is force-shown here; every other one stays exactly as hidden as
+  // it is on the live page. Call this any time `selectedKey` or `editMode`
+  // changes, before rebuildOverlays() (which needs the element actually
+  // visible/non-zero-size to build a box for it at all).
+  // ---------------------------------------------------------------------
+  function applyPopupPreview() {
+    let doc; try { doc = frame.contentDocument; } catch (e) { doc = null; }
+    if (!doc || !L4P.setPreviewPopup) return;
+    try { L4P.setPreviewPopup(doc, editMode ? selectedKey : null); } catch (e) {}
+  }
 
   // ---------------------------------------------------------------------
   // Edit mode toggle
@@ -284,6 +302,7 @@
     btnEditToggle.textContent = editMode ? '✏️ Edit Table: ON' : '✏️ Edit Table: OFF';
     btnEditToggle.classList.toggle('active', editMode);
     frame.classList.toggle('editing', editMode);
+    applyPopupPreview();
     if (editMode) { rebuildOverlays(); startLoop(); }
     else { stopLoop(); clearOverlays(); }
   });
@@ -359,7 +378,7 @@
       label.textContent = el.label;
       box.appendChild(label);
       let handle = null;
-      if (el.kind === 'size' || el.kind === 'nudge+size') {
+      if (el.kind === 'size' || el.kind === 'nudge+size' || el.kind === 'position+size') {
         handle = doc.createElement('div');
         handle.className = 'led-handle led-br';
         box.appendChild(handle);
@@ -403,14 +422,51 @@
     }
   }
 
+  // Base rect that a 'position+size' element's percent/px fields are
+  // measured against: the full viewport for `viewportRelative` entries
+  // (matching their forced position:fixed override), or #tableArea for
+  // everything else (matching how every other percent-based kind here --
+  // seats, etc -- already works).
+  function computeBaseRect(el, doc) {
+    const tableArea = doc.getElementById('tableArea');
+    const tableRect = tableArea ? tableArea.getBoundingClientRect() : { left: 0, top: 0, width: doc.documentElement.clientWidth, height: doc.documentElement.clientHeight };
+    if (el.viewportRelative) return { left: 0, top: 0, width: doc.documentElement.clientWidth, height: doc.documentElement.clientHeight };
+    return { left: tableRect.left || 0, top: tableRect.top || 0, width: tableRect.width, height: tableRect.height };
+  }
+
+  // A 'position+size' element has no DEFAULTS entry (unlike the original
+  // seat/avatar/etc elements) -- until the very first drag or manual edit,
+  // `startVal` can be missing some/all of left/top/width/height. Rather
+  // than leave those as NaN (which would corrupt every subsequent drag
+  // math), fill any missing field from the element's own CURRENT on-screen
+  // box, converted into the same unit (% or px) that field is saved in --
+  // self-correcting the same way every other kind here already is.
+  function fillMissingPositionSize(el, startVal, baseRect) {
+    const ov = overlays[el.key];
+    if (!ov) return startVal;
+    const r = ov.target.getBoundingClientRect();
+    const out = Object.assign({}, startVal);
+    Object.keys(el.cssProps).forEach((field) => {
+      if (out[field] !== undefined && out[field] !== null) return;
+      const unit = (el.fieldUnits && el.fieldUnits[field]) || 'px';
+      if (field === 'left') out.left = unit === '%' ? round2(((r.left - baseRect.left) / baseRect.width) * 100) : Math.round(r.left - baseRect.left);
+      else if (field === 'top') out.top = unit === '%' ? round2(((r.top - baseRect.top) / baseRect.height) * 100) : Math.round(r.top - baseRect.top);
+      else if (field === 'width') out.width = Math.round(r.width);
+      else if (field === 'height') out.height = Math.round(r.height);
+    });
+    return out;
+  }
+
   function beginDrag(doc, el, ev, mode) {
     ev.preventDefault();
     pushUndoSnapshot();
     const startX = ev.clientX, startY = ev.clientY;
     const tableArea = doc.getElementById('tableArea');
     const tableRect = tableArea ? tableArea.getBoundingClientRect() : { width: doc.documentElement.clientWidth, height: doc.documentElement.clientHeight };
-    const startVal = Object.assign({}, L4P.effectiveValue(config, currentBp, el.key));
-    dragState = { el, mode, startX, startY, startVal, tableRect, doc, pointerId: ev.pointerId };
+    let startVal = Object.assign({}, L4P.effectiveValue(config, currentBp, el.key));
+    const baseRect = el.kind === 'position+size' ? computeBaseRect(el, doc) : null;
+    if (el.kind === 'position+size') startVal = fillMissingPositionSize(el, startVal, baseRect);
+    dragState = { el, mode, startX, startY, startVal, tableRect, baseRect, doc, pointerId: ev.pointerId };
     const onMove = (mv) => { if (mv.pointerId === dragState.pointerId) handleDragMove(mv); };
     const onUp = (upEv) => {
       if (upEv && dragState && upEv.pointerId !== dragState.pointerId) return;
@@ -428,7 +484,7 @@
 
   function handleDragMove(ev) {
     if (!dragState) return;
-    const { el, mode, startX, startY, startVal, tableRect } = dragState;
+    const { el, mode, startX, startY, startVal, tableRect, baseRect } = dragState;
     const dx = ev.clientX - startX;
     const dy = ev.clientY - startY;
     const bucket = ensureBpBucket(currentBp);
@@ -440,6 +496,21 @@
     } else if (el.kind === 'size') {
       cur.width = Math.max(8, Math.round(startVal.width + dx));
       cur.height = Math.max(8, Math.round(startVal.height + dy));
+    } else if (el.kind === 'position+size') {
+      // Generic position+size drag: each field moves/resizes in whatever
+      // unit it's actually saved in (el.fieldUnits[field], % or px),
+      // matching layout-engine-holdem.js's own per-field unit handling.
+      const fields = mode === 'resize' ? ['width', 'height'] : ['left', 'top'];
+      fields.forEach((field) => {
+        if (!(field in el.cssProps)) return;
+        const unit = (el.fieldUnits && el.fieldUnits[field]) || 'px';
+        const delta = (field === 'left' || field === 'width') ? dx : dy;
+        const dim = (field === 'left' || field === 'width') ? baseRect.width : baseRect.height;
+        const base = startVal[field] || 0;
+        const minVal = (field === 'width' || field === 'height') ? (unit === '%' ? 2 : 8) : -Infinity;
+        const raw = unit === '%' ? base + (delta / dim) * 100 : base + delta;
+        cur[field] = unit === '%' ? Math.max(minVal, round2(raw)) : Math.max(minVal, Math.round(raw));
+      });
     } else if (el.kind === 'nudge+size') {
       if (mode === 'move') { cur.left = Math.round(startVal.left + dx); cur.top = Math.round(startVal.top + dy); }
       else { cur.width = Math.max(8, Math.round(startVal.width + dx)); cur.height = Math.max(8, Math.round(startVal.height + dy)); }
@@ -465,7 +536,18 @@
   // ---------------------------------------------------------------------
   // Selection + Layers panel
   // ---------------------------------------------------------------------
-  function selectElement(key) { selectedKey = key; setSelected(key); renderInspector(); renderLayers(); }
+  function selectElement(key) {
+    selectedKey = key;
+    // Picking a popup forces it visible (see applyPopupPreview); picking
+    // anything else hides whichever popup was previously forced-shown.
+    // Either way the set of on-screen boxes can change, so a full
+    // rebuild (not just setSelected) is needed -- cheap enough for the
+    // handful of elements this editor has.
+    applyPopupPreview();
+    if (editMode) rebuildOverlays(); else setSelected(key);
+    renderInspector();
+    renderLayers();
+  }
   function setSelected(key) {
     Object.entries(overlays).forEach(([k, o]) => o.box.classList.toggle('led-selected', k === key));
   }
@@ -507,12 +589,16 @@
   function renderInspector() {
     if (!selectedKey) { inspectorEl.innerHTML = '<div class="ed-inspector-empty">Turn on Edit Table, then click an element on the table (or pick one from Layers) to adjust it here.</div>'; return; }
     const el = L4P.elementByKey(selectedKey);
-    const val = L4P.effectiveValue(config, currentBp, selectedKey);
+    let val = L4P.effectiveValue(config, currentBp, selectedKey);
+    if (el.kind === 'position+size' && overlays[selectedKey]) {
+      let doc; try { doc = frame.contentDocument; } catch (e) { doc = null; }
+      if (doc) val = fillMissingPositionSize(el, Object.assign({}, val), computeBaseRect(el, doc));
+    }
     let html = '<div id="edInspectorTitle">' + el.label + '</div>';
     html += '<div id="edInspectorMeta">' + el.category + ' · ' + bpInfo(currentBp).label + '</div>';
     Object.keys(el.cssProps).forEach((field) => {
       const meta = FIELD_META[field] || { label: field };
-      const unit = el.unit === 'percent' ? '%' : 'px';
+      const unit = (el.fieldUnits && el.fieldUnits[field]) || (el.unit === 'percent' ? '%' : 'px');
       html += '<div class="ed-field-row"><label>' + meta.label + '</label><input type="number" step="any" data-field="' + field + '" value="' + (val[field] !== undefined ? val[field] : '') + '"><span class="ed-unit">' + unit + '</span></div>';
     });
     inspectorEl.innerHTML = html;
