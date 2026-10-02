@@ -4598,6 +4598,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 
   <div class="welcome-footer">
     Made with ♥ for card game lovers · Auto-saves every 15 seconds · Works offline
+    <div style="margin-top:6px"><a href="/privacy.html" style="color:inherit;text-decoration:underline">Privacy &amp; Terms</a> · 13+ for chat &amp; voice</div>
     <div id="homeVersionTag" style="margin-top:6px;opacity:0.6;font-size:0.7rem;letter-spacing:0.5px">v7</div>
   </div>
   <!-- Hidden admin trigger - long-press or triple-click the logo to open admin -->
@@ -14094,7 +14095,7 @@ function showComicChatPopup(from, msg) {
 function sendChat() {
   const inp = document.getElementById('chatInput');
   if (!inp) return;
-  const msg = inp.value.trim();
+  const msg = (window.NameFilter ? NameFilter.censor(inp.value.trim()) : inp.value.trim());
   if (!msg) return;
   inp.value = '';
   if (SERVER_MODE) {
@@ -14733,6 +14734,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   <div class="welcome-footer">
     Made with ♥ for card game lovers · Auto-saves every 15 seconds · Works offline
+    <div style="margin-top:6px"><a href="/privacy.html" style="color:inherit;text-decoration:underline">Privacy &amp; Terms</a> · 13+ for chat &amp; voice</div>
     <div id="authVersionTag" style="margin-top:6px;opacity:0.6;font-size:0.7rem;letter-spacing:0.5px">v7</div>
   </div>
   <!-- Hidden admin trigger - long-press or triple-click the logo to open admin -->

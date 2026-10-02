@@ -976,7 +976,8 @@ function escapeHtml(s) {
 }
 function sendChatMessage() {
   const input = document.getElementById('chatInput');
-  const text = input?.value?.trim();
+  const rawText = input?.value?.trim();
+  const text = (rawText && window.NameFilter) ? NameFilter.censor(rawText) : rawText;
   if (!text) return;
   input.value = '';
   addChatMessage(MYNAME, text, true, false);

@@ -4668,7 +4668,7 @@ function showComicChatPopup(from, msg) {
 function sendChat() {
   const inp = $('chatInput');
   if (!inp || !socket) return;
-  const msg = inp.value.trim();
+  const msg = (window.NameFilter ? NameFilter.censor(inp.value.trim()) : inp.value.trim());
   if (!msg) return;
   inp.value = '';
   socket.emit('sixp_chat', { msg: msg });

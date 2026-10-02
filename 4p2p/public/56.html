@@ -2128,7 +2128,7 @@ function showComicChatPopup(from, msg){
 function sendChat56(){
   const inp = document.getElementById('chatInput56');
   if(!inp || !syncSocket) return;
-  const msg = inp.value.trim();
+  const msg = (window.NameFilter ? NameFilter.censor(inp.value.trim()) : inp.value.trim());
   if(!msg) return;
   inp.value = '';
   syncSocket.emit('l56_chat', {msg: msg});

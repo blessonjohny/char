@@ -149,6 +149,8 @@
     btn.addEventListener('click', async () => {
       retryBlockedAudio(); // a real tap — good moment to also unstick any blocked playback
       if (!inCall) {
+        // Password first -- the microphone isn't touched until it's accepted.
+        if (!(await ensureVoiceAccess())) return;
         const ok = await join();
         if (ok) { btn.classList.add('live'); panel.classList.add('on'); renderList(); }
       } else {
@@ -160,6 +162,90 @@
 
     ui = { btn, panel, list: panel.querySelector('#k28vList'), soundBanner };
     return ui;
+  }
+
+  // ---------------- Voice password ----------------
+  // Voice is behind a short password (checked by the SERVER, never stored in
+  // this file, so editing the page can't skip it). Asked when voice is
+  // switched on; once it's been entered correctly it is remembered for this
+  // browser tab only (sessionStorage), so toggling the mic or refreshing
+  // doesn't ask again -- closing the tab does.
+  let voiceCode = '';
+  try { voiceCode = sessionStorage.getItem('k28v_code') || ''; } catch (e) {}
+  function serverAcceptsCode(code) {
+    return new Promise((resolve) => {
+      if (!socket) { resolve(false); return; }
+      let settled = false;
+      const t = setTimeout(() => { if (!settled) { settled = true; resolve(false); } }, 6000);
+      try {
+        socket.emit('voiceCheck', { code: code }, (res) => {
+          if (settled) return; settled = true; clearTimeout(t);
+          resolve(!!(res && res.ok));
+        });
+      } catch (e) { if (!settled) { settled = true; clearTimeout(t); resolve(false); } }
+    });
+  }
+  // Resolves true once a correct password has been given (or was already
+  // given earlier in this tab); false if cancelled.
+  async function ensureVoiceAccess() {
+    if (voiceCode && await serverAcceptsCode(voiceCode)) return true;
+    voiceCode = '';
+    try { sessionStorage.removeItem('k28v_code'); } catch (e) {}
+    return new Promise((resolve) => {
+      if (document.getElementById('k28vPwOverlay')) { resolve(false); return; }
+      if (!document.getElementById('k28vPwStyle')) {
+        const st = document.createElement('style');
+        st.id = 'k28vPwStyle';
+        st.textContent = `
+          #k28vPwOverlay{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+          #k28vPwBox{width:100%;max-width:320px;background:#12181f;color:#e8edf2;border:1px solid #f4c430;border-radius:14px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,0.6);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+          #k28vPwBox h3{margin:0 0 12px;font-size:1.05rem;color:#f4c430}
+          #k28vPwInput{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:#0e141b;color:#fff;font-size:1.05rem;letter-spacing:3px;text-align:center}
+          #k28vPwErr{min-height:18px;margin:6px 0 0;font-size:0.78rem;color:#ff7b7b;text-align:center}
+          #k28vPwBtns{display:flex;gap:10px;margin-top:8px}
+          #k28vPwBtns button{flex:1;padding:11px 8px;border-radius:9px;font-weight:800;font-size:0.85rem;cursor:pointer;border:1px solid rgba(255,255,255,0.25);background:#243040;color:#e8edf2}
+          #k28vPwBtns button.go{background:linear-gradient(135deg,#f4c430,#c99a1e);border-color:#f4c430;color:#241a12}
+        `;
+        document.head.appendChild(st);
+      }
+      const ov = document.createElement('div');
+      ov.id = 'k28vPwOverlay';
+      ov.innerHTML = `
+        <div id="k28vPwBox" role="dialog" aria-modal="true" aria-labelledby="k28vPwTitle">
+          <h3 id="k28vPwTitle">🎙️ Voice chat</h3>
+          <input id="k28vPwInput" type="password" inputmode="numeric" autocomplete="off" placeholder="Password" maxlength="40">
+          <div id="k28vPwErr"></div>
+          <div id="k28vPwBtns">
+            <button type="button" id="k28vPwCancel">Cancel</button>
+            <button type="button" id="k28vPwGo" class="go">Join voice</button>
+          </div>
+        </div>`;
+      const input = () => ov.querySelector('#k28vPwInput');
+      const err = (m) => { ov.querySelector('#k28vPwErr').textContent = m; };
+      const done = (val) => { document.removeEventListener('keydown', onKey, true); ov.remove(); resolve(val); };
+      const submit = async () => {
+        const code = input().value.trim();
+        if (!code) { err('Enter the password'); return; }
+        const goBtn = ov.querySelector('#k28vPwGo'); goBtn.disabled = true;
+        const ok = await serverAcceptsCode(code);
+        goBtn.disabled = false;
+        if (ok) {
+          voiceCode = code;
+          try { sessionStorage.setItem('k28v_code', code); } catch (e) {}
+          done(true);
+        } else { err('Wrong password'); input().value = ''; input().focus(); }
+      };
+      const onKey = (e) => {
+        if (e.key === 'Escape') { e.stopPropagation(); done(false); }
+        else if (e.key === 'Enter' && document.activeElement === input()) { e.preventDefault(); submit(); }
+      };
+      document.addEventListener('keydown', onKey, true);
+      ov.addEventListener('click', (e) => { if (e.target === ov) done(false); });
+      document.body.appendChild(ov);
+      ov.querySelector('#k28vPwCancel').addEventListener('click', () => done(false));
+      ov.querySelector('#k28vPwGo').addEventListener('click', submit);
+      setTimeout(() => input().focus(), 50);
+    });
   }
 
   // Deliberately the ONLY thing a non-participant ever learns about voice
@@ -349,7 +435,7 @@
       return false;
     }
     inCall = true;
-    socket.emit('voiceJoin', { name: getName() });
+    socket.emit('voiceJoin', { name: getName(), code: voiceCode });
     updateActiveLight();
     return true;
   }
@@ -535,6 +621,10 @@
     socket.on('voicePeers', (list) => { list.forEach(p => { names.set(p.id, p.name); makePeer(p.id, true); }); renderList(); updateActiveLight(); });
     socket.on('voicePeerJoined', (p) => { names.set(p.id, p.name); renderList(); updateActiveLight(); });
     socket.on('voicePeerLeft', ({ id }) => removePeer(id));
+    socket.on('voiceDenied', () => {
+      voiceCode = ''; try { sessionStorage.removeItem('k28v_code'); } catch (e) {}
+      if (inCall) { leave(); if (ui) { ui.btn.classList.remove('live', 'speaking'); ui.panel.classList.remove('on'); } }
+    });
     socket.on('voiceSignal', ({ from, signal }) => handleSignal(from, signal));
     // Fires on every successful (re)connection of the underlying game
     // socket, including the very first one -- inCall is still false at
@@ -547,7 +637,7 @@
     socket.on('connect', () => {
       if (!inCall) return;
       clearStalePeers();
-      socket.emit('voiceJoin', { name: getName() });
+      socket.emit('voiceJoin', { name: getName(), code: voiceCode });
     });
     document.addEventListener('click', retryBlockedAudio, { passive: true });
   }

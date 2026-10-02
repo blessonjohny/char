@@ -198,6 +198,41 @@
     return false;
   }
 
+  // ---- chat: mask bad words instead of blocking the whole message ----------
+  // "what the fuck" -> "what the ****". Same word rules as names (so
+  // "Dickson", "class", "Kshitij" in a sentence are left alone). Spaced-out
+  // letters ("f u c k", "f.u.c.k") are caught too.
+  function censor(text) {
+    if (text == null) return text;
+    const src = String(text);
+    // split into words and the separators between them, keeping both
+    const parts = src.split(/(\s+)/);
+    const out = parts.slice();
+    const isWordIdx = (i) => i % 2 === 0 && parts[i] !== '';
+    // mask the word itself but keep punctuation around it: "fuck," -> "****,"
+    const mask = (w) => w.replace(/^([^\p{L}\p{N}@$]*)([\s\S]*?)([^\p{L}\p{N}@$]*)$/u, (m, lead, core, trail) => lead + core.replace(/[^\s]/g, '*') + trail);
+    // 1) single words (also catches bad words glued inside longer words via stems)
+    for (let i = 0; i < parts.length; i++) {
+      if (!isWordIdx(i)) continue;
+      if (isBad(parts[i])) out[i] = mask(parts[i]);
+    }
+    // 2) runs of single letters separated by spaces/dots: "f u c k", "b i t c h"
+    let i = 0;
+    while (i < parts.length) {
+      if (isWordIdx(i) && /^[^\s]$/.test(parts[i]) && /[a-z0-9@$!]/i.test(parts[i])) {
+        let j = i, letters = '';
+        const idxs = [];
+        while (j < parts.length && (j % 2 === 1 || (/^[^\s]$/.test(parts[j]) && /[a-z0-9@$!]/i.test(parts[j])))) {
+          if (j % 2 === 0) { letters += parts[j]; idxs.push(j); }
+          j++;
+        }
+        if (idxs.length >= 3 && isBad(letters)) idxs.forEach((k) => { out[k] = '*'; });
+        i = Math.max(j, i + 1);
+      } else i++;
+    }
+    return out.join('');
+  }
+
   const DEFAULT_MESSAGE = "That name isn't allowed. Please choose a different name.";
 
   // Returns { ok:true } or { ok:false, message }
@@ -229,5 +264,5 @@
     compile(extraStems.filter(Boolean), extraWords.filter(Boolean));
   }());
 
-  return { isBad, check, guard, MESSAGE: DEFAULT_MESSAGE, _lists: { STEMS, WORDS } };
+  return { isBad, check, guard, censor, MESSAGE: DEFAULT_MESSAGE, _lists: { STEMS, WORDS } };
 }));
