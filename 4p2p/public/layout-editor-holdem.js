@@ -487,6 +487,8 @@
   // ---------------------------------------------------------------------
   // Edit mode toggle
   // ---------------------------------------------------------------------
+  stage.addEventListener('pointerdown', (ev) => { if (ev.target === stage || ev.target === document.getElementById('edFrameWrap')) selectElement(null); });
+
   btnEditToggle.addEventListener('click', () => {
     editMode = !editMode;
     // The active/gold highlight alone says whether this is on -- no
@@ -508,8 +510,50 @@
       if (win && win.LayoutHoldem) win.LayoutHoldem.setPreviewOnClasses(frame.contentDocument, editMode);
     } catch (e) {}
     if (editMode) { rebuildOverlays(); startLoop(); }
-    else { stopLoop(); clearOverlays(); }
+    else { stopLoop(); clearOverlays(); Object.keys(sentBack).forEach((k) => delete sentBack[k]); selectedKey = null; renderInspector(); }
   });
+
+  // ---------------------------------------------------------------------
+  // Pause / Play: freezes every running animation & transition on the
+  // table (card deals, chip slides, glows, pulses...) so things hold still
+  // while you position them. Editor-only -- injected into the preview
+  // iframe, never saved, and Play (or leaving the page) restores it all.
+  // The hand itself still advances on the server; only visuals freeze.
+  // ---------------------------------------------------------------------
+  const btnPause = document.getElementById('edBtnPause');
+  let paused = false, pauseTimer = null;
+  function freezeNow() {
+    let doc;
+    try { doc = frame.contentDocument; } catch (e) { return; }
+    if (!doc) return;
+    if (!doc.getElementById('led-pause-style') && doc.head) {
+      const st = doc.createElement('style');
+      st.id = 'led-pause-style';
+      st.textContent = '*,*::before,*::after{animation-play-state:paused !important;transition:none !important}';
+      doc.head.appendChild(st);
+    }
+    try { doc.getAnimations().forEach((a) => { try { a.pause(); } catch (e) {} }); } catch (e) {}
+  }
+  function setPaused(on) {
+    paused = on;
+    btnPause.classList.toggle('active', on);
+    btnPause.textContent = on ? '▶ Play' : '⏸ Pause';
+    let doc;
+    try { doc = frame.contentDocument; } catch (e) { doc = null; }
+    if (pauseTimer) { clearInterval(pauseTimer); pauseTimer = null; }
+    if (on) {
+      freezeNow();
+      // animations started AFTER pausing (new deals, popups) get frozen too
+      pauseTimer = setInterval(freezeNow, 120);
+    } else if (doc) {
+      const st = doc.getElementById('led-pause-style');
+      if (st) st.remove();
+      try { doc.getAnimations().forEach((a) => { try { a.play(); } catch (e) {} }); } catch (e) {}
+    }
+  }
+  btnPause.addEventListener('click', () => setPaused(!paused));
+  // a reloaded preview (breakpoint switch) starts un-frozen -- re-apply if still paused
+  frame.addEventListener('load', () => { if (paused) setPaused(true); });
 
   function startLoop() {
     if (rafId) return;
@@ -599,14 +643,19 @@
        just panned a few pixels under your finger and swallowed the
        gesture. A mouse has no such native gesture to compete with, which
        is exactly why this never showed up in mouse-driven testing. */
-    .led-box{position:fixed;border:3px dashed #4aa3ff;background:rgba(74,163,255,0.18);box-shadow:0 0 0 1px rgba(0,0,0,0.6),0 0 14px rgba(74,163,255,0.7);z-index:2147483000;cursor:move;box-sizing:border-box;animation:led-pulse 1.6s ease-in-out infinite;touch-action:none;-ms-touch-action:none}
+    /* Boxes are INVISIBLE until you hover (mouse) or select them -- still
+       hit-testable so a tap/click lands, but nothing glows on the table by
+       default. Hover = blue outline + the element's name; selected = gold
+       outline + name + resize handle. */
+    .led-box{position:fixed;border:2px solid transparent;background:transparent;box-shadow:none;z-index:2147483000;cursor:pointer;box-sizing:border-box;animation:none;touch-action:none;-ms-touch-action:none}
     .led-box.led-nodrag{cursor:default}
-    .led-box.led-selected{border-color:#f4c430;border-style:solid;background:rgba(244,196,48,0.22);box-shadow:0 0 0 1px rgba(0,0,0,0.6),0 0 18px rgba(244,196,48,0.9);z-index:2147483001;animation:none}
-    .led-box.led-dimmed{opacity:0.2;animation:none}
-    @keyframes led-pulse{0%,100%{opacity:1}50%{opacity:0.6}}
-    .led-label{position:absolute;top:-22px;left:-3px;background:#12181f;color:#e8edf2;font:800 11px -apple-system,sans-serif;padding:3px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,0.6);border:1px solid rgba(74,163,255,0.6)}
+    .led-box.led-hover{border:2px dashed #4aa3ff;background:rgba(74,163,255,0.14);box-shadow:0 0 0 1px rgba(0,0,0,0.5),0 0 10px rgba(74,163,255,0.6);cursor:move}
+    .led-box.led-selected{border:3px solid #f4c430;background:rgba(244,196,48,0.18);box-shadow:0 0 0 1px rgba(0,0,0,0.6),0 0 16px rgba(244,196,48,0.9);z-index:2147483001;cursor:move}
+    .led-box.led-dimmed{opacity:1;animation:none}
+    .led-label{display:none;position:absolute;top:-24px;left:-3px;z-index:2;background:#12181f;color:#e8edf2;font:800 11px -apple-system,sans-serif;padding:3px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,0.6);border:1px solid rgba(74,163,255,0.6)}
+    .led-box.led-hover .led-label,.led-box.led-selected .led-label{display:block}
     .led-box.led-selected .led-label{background:#f4c430;color:#241a12;border-color:#f4c430}
-    .led-handle{position:absolute;width:20px;height:20px;background:#f4c430;border:2.5px solid #241a12;border-radius:4px;cursor:nwse-resize;z-index:2147483002;box-shadow:0 2px 8px rgba(0,0,0,0.6);touch-action:none;-ms-touch-action:none}
+    .led-handle{display:none;position:absolute;width:20px;height:20px;background:#f4c430;border:2.5px solid #241a12;border-radius:4px;cursor:nwse-resize;z-index:2147483002;box-shadow:0 2px 8px rgba(0,0,0,0.6);touch-action:none;-ms-touch-action:none}
     /* Real, concrete bug this fixes: a small element (a chip pile is only
        ~9px on screen) gets its BOX inflated up to 30x30 for tappability
        (MIN_TOUCH_TARGET below), but the resize handle used to sit at
@@ -627,7 +676,7 @@
        wins that overlap -- so the second tap-and-drag (the actual
        resize gesture) reliably lands on the element you meant, even
        though the very first tap that picked it was itself ambiguous. */
-    .led-box.led-selected .led-handle{z-index:2147483003}
+    .led-box.led-selected .led-handle{display:block;z-index:2147483003}
   `;
   function ensureOverlayStyles(doc) {
     if (!doc || !doc.head) return;
@@ -693,6 +742,7 @@
       if (rect.width === 0 && rect.height === 0) return;
       const box = doc.createElement('div');
       box.className = 'led-box';
+      box.title = def.label;
       const label = doc.createElement('div');
       label.className = 'led-label';
       label.textContent = def.label;
@@ -726,10 +776,53 @@
   function wireBackgroundDeselect(doc, win) {
     if (win.__ledDeselectWired) return;
     win.__ledDeselectWired = true;
+    // Tap/click anywhere that is NOT an element box = deselect everything.
     doc.body.addEventListener('pointerdown', (ev) => {
       const hitBox = ev.target && ev.target.closest && ev.target.closest('.led-box');
       if (!hitBox) selectElement(null);
     });
+    // Mouse hover: outline + name of the ONE element under the pointer
+    // (touch has no hover -- a tap selects and shows the name instead).
+    doc.addEventListener('pointermove', (ev) => {
+      if (ev.pointerType !== 'mouse' || dragState) return;
+      setHover(pickAt(ev.clientX, ev.clientY));
+    });
+    doc.addEventListener('pointerleave', () => setHover(null));
+    doc.documentElement.addEventListener('mouseleave', () => setHover(null));
+  }
+  // When boxes overlap (avatar / cards / chips on a seat), the SMALLEST box
+  // under the pointer wins -- so small things stay pickable under big ones.
+  // EDIT-ONLY stacking: double-click (or double-tap) an element to send it
+  // to the BOTTOM of whatever it overlaps, so the next one underneath can be
+  // picked. Never touches the real table's z-order or the saved layout, and
+  // is forgotten when Edit Table is turned off.
+  const sentBack = {};      // key -> order it was sent back (higher = further back)
+  let sentBackCounter = 0;
+  function pickAt(x, y) {
+    let best = null, bestScore = null;
+    Object.values(overlays).forEach((o) => {
+      if (o.box.style.display === 'none') return;
+      const r = o.box.getBoundingClientRect();
+      if (x < r.left || x > r.right || y < r.top || y > r.bottom) return;
+      const area = r.width * r.height;
+      // not-sent-back first, then (among those) smallest; sent-back ones
+      // rank behind everything, most recently sent = furthest back.
+      const score = [sentBack[o.def.key] || 0, area];
+      if (!bestScore || score[0] < bestScore[0] || (score[0] === bestScore[0] && score[1] < bestScore[1])) { bestScore = score; best = o; }
+    });
+    return best;
+  }
+  function sendToBack(key) {
+    sentBack[key] = ++sentBackCounter;
+    // If everything under the pointer has been sent back, start the cycle over.
+  }
+  let lastTap = { t: 0, x: 0, y: 0 };
+  let hoverKey = null;
+  function setHover(o) {
+    const key = o && o.def.key !== selectedKey ? o.def.key : null;
+    if (key === hoverKey) return;
+    hoverKey = key;
+    Object.entries(overlays).forEach(([k, ov]) => ov.box.classList.toggle('led-hover', k === key));
   }
 
   // Comfortable minimum touch/click target -- several real elements (a
@@ -768,14 +861,37 @@
   function wireBoxEvents(doc, win, def, box, handle) {
     box.addEventListener('pointerdown', (ev) => {
       if (ev.target === handle) return;
-      selectElement(def.key);
+      // Overlapping boxes: act on the smallest one under the pointer, not
+      // just whichever happens to be on top. The already-selected element
+      // keeps priority so re-dragging it never jumps to something else.
+      const hit = pickAt(ev.clientX, ev.clientY);
+      const selO = selectedKey && overlays[selectedKey];
+      let useDef = def;
+      if (selO) {
+        const sr = selO.box.getBoundingClientRect();
+        const inSel = ev.clientX >= sr.left && ev.clientX <= sr.right && ev.clientY >= sr.top && ev.clientY <= sr.bottom;
+        if (inSel) useDef = selO.def; else if (hit) useDef = hit.def;
+      } else if (hit) useDef = hit.def;
+      // Double-click / double-tap: send this element to the bottom of the
+      // overlap stack (edit-only), then select whatever is now on top.
+      const now = Date.now();
+      const isDouble = (now - lastTap.t) < 380 && Math.abs(ev.clientX - lastTap.x) < 12 && Math.abs(ev.clientY - lastTap.y) < 12;
+      lastTap = isDouble ? { t: 0, x: 0, y: 0 } : { t: now, x: ev.clientX, y: ev.clientY };
+      if (isDouble) {
+        const under = selectedKey && overlays[selectedKey] ? overlays[selectedKey].def.key : useDef.key;
+        sendToBack(under);
+        const next = pickAt(ev.clientX, ev.clientY);
+        selectElement(next ? next.def.key : null);
+        return;
+      }
+      selectElement(useDef.key);
       // A pinch's SECOND finger lands its own separate pointerdown too --
       // never let that one start (or fight) a drag; two fingers down
       // always means "zoom," never "move this element" (see
       // activeTouchPoints above).
       if (activeTouchPoints >= 2) return;
-      if (def.dragKind === 'size') return; // resize-only elements (no meaningful position of their own) have no body-drag
-      beginDrag(doc, win, def, ev, 'move');
+      if (useDef.dragKind === 'size') return; // resize-only elements have no body-drag
+      beginDrag(doc, win, useDef, ev, 'move');
     });
     if (handle) {
       handle.addEventListener('pointerdown', (ev) => {
@@ -1149,14 +1265,14 @@
     Object.entries(overlays).forEach(([k, o]) => {
       const isSel = k === key;
       o.box.classList.toggle('led-selected', isSel);
-      o.box.classList.toggle('led-dimmed', !!key && !isSel);
+      if (isSel) o.box.classList.remove('led-hover');
     });
   }
 
   function isEdited(def) {
     const bucket = config[currentBp];
     if (!bucket) return false;
-    if (def.type === 'seat') return !!(bucket.seats && bucket.seats[def.slot]) || !!bucket['avatar' + def.slot];
+    if (def.type === 'seat') return !!(bucket.seats && bucket.seats[def.slot]) || !!bucket['avatar' + def.slot] || !!bucket['avatarOverlap' + def.slot];
     return !!bucket[def.key];
   }
 
@@ -1270,7 +1386,24 @@
         html += '<div class="ed-field-row"><label>' + meta.label + '</label><input type="number" step="any" data-field="' + field + '" value="' + (val[field] !== undefined ? val[field] : '') + '"><span class="ed-unit">' + meta.unit + '</span></div>';
       }
     });
+    if (def.type === 'seat') {
+      const ov = (config[currentBp] && config[currentBp]['avatarOverlap' + def.slot]) || {};
+      html += '<div class="ed-field-row ed-check-row"><label>Overlap top avatar</label><input type="checkbox" data-overlap="top"' + (ov.top ? ' checked' : '') + '></div>';
+      html += '<div class="ed-field-row ed-check-row"><label>Overlap bottom avatar</label><input type="checkbox" data-overlap="bottom"' + (ov.bottom ? ' checked' : '') + '></div>';
+    }
     inspectorEl.innerHTML = html;
+    inspectorEl.querySelectorAll('input[data-overlap]').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        pushUndoSnapshot();
+        const b = ensureBpBucket(currentBp);
+        const cur = Object.assign({ top: false, bottom: false }, b['avatarOverlap' + def.slot] || {});
+        cur[cb.dataset.overlap] = cb.checked;
+        if (!cur.top && !cur.bottom) delete b['avatarOverlap' + def.slot]; else b['avatarOverlap' + def.slot] = cur;
+        try { const w = frame.contentWindow; if (w && w.LayoutHoldem) w.LayoutHoldem.forceRerender(); } catch (e) {}
+        repositionOverlays();
+        renderLayers();
+      });
+    });
     inspectorEl.querySelectorAll('input[data-field]').forEach((input) => {
       input.addEventListener('change', () => {
         pushUndoSnapshot();

@@ -110,3 +110,9 @@
   #edStage{padding:8px;min-height:40vh}
   #edPropsBar{padding:8px 10px}
 }
+
+/* Avatar overlap toggles (Overlap top avatar / Overlap bottom avatar) */
+#edPropsBar .ed-field-row label[for],
+.ed-field-row.ed-check-row label{width:auto;white-space:nowrap}
+.ed-field-row.ed-check-row input[type=checkbox]{width:22px;height:22px;flex:none;accent-color:#f4c430;cursor:pointer}
+#edBtnPause.active{background:#f4c430;color:#241a12;border-color:#f4c430}

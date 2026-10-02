@@ -400,6 +400,7 @@
     if (!bpKey) return;
     const bucket = config[bpKey];
     if (!bucket) return;
+    try { applyAvatarOverlap(doc, win, bucket); } catch (e) {}
     const seats = doc.querySelectorAll('.seat[data-pos]');
     seats.forEach((seatEl) => {
       const pos = Number(seatEl.dataset.pos);
@@ -463,6 +464,55 @@
           if (chipLabel.offsetY != null) chipsEl.style.setProperty('margin-top', chipLabel.offsetY + 'px', 'important');
           if (chipLabel.fontSize != null) chipsEl.style.setProperty('font-size', chipLabel.fontSize + 'px', 'important');
         }
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Avatar overlap order. Each seat slot can carry
+  //   config[bp]['avatarOverlap'+slot] = { top: bool, bottom: bool }
+  //   top    = this avatar is drawn IN FRONT of the avatar directly above it
+  //   bottom = this avatar is drawn IN FRONT of the avatar directly below it
+  // "Above/below" is judged by where the avatars actually sit on screen
+  // right now (sorted by vertical position), so it stays correct for every
+  // viewer's rotation. Seats with no setting keep the game's own z-index
+  // untouched. Only the .seat z-index is written (never position/size).
+  // ---------------------------------------------------------------------
+  function applyAvatarOverlap(doc, win, bucket) {
+    const seatEls = Array.from(doc.querySelectorAll('.seat[data-pos]'));
+    const items = [];
+    seatEls.forEach((el) => {
+      const pos = Number(el.dataset.pos);
+      let slot = pos;
+      try { if (typeof win.slotFor === 'function') slot = win.slotFor(pos); } catch (e) {}
+      const av = el.querySelector('.seat-avatar-wrap') || el;
+      const r = av.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) return;
+      items.push({ el, slot, y: r.top + r.height / 2, x: r.left + r.width / 2, cfg: bucket['avatarOverlap' + slot] || null });
+    });
+    items.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    // edges: [front, back]
+    const edges = [];
+    items.forEach((it, i) => {
+      if (!it.cfg) return;
+      if (it.cfg.top && items[i - 1]) edges.push([i, i - 1]);
+      if (it.cfg.bottom && items[i + 1]) edges.push([i, i + 1]);
+    });
+    const rank = items.map(() => 0);
+    for (let pass = 0; pass < items.length + 1; pass++) {
+      let changed = false;
+      edges.forEach(([f, b]) => { if (rank[f] <= rank[b]) { rank[f] = rank[b] + 1; changed = true; } });
+      if (!changed) break;
+    }
+    const involved = new Set();
+    edges.forEach(([f, b]) => { involved.add(f); involved.add(b); });
+    items.forEach((it, i) => {
+      if (involved.has(i)) {
+        it.el.style.setProperty('z-index', String(4 + Math.min(rank[i], 30)), 'important');
+        it.el.dataset.ledZ = '1';
+      } else if (it.el.dataset.ledZ) {
+        it.el.style.removeProperty('z-index');
+        delete it.el.dataset.ledZ;
       }
     });
   }
