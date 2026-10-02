@@ -1366,6 +1366,7 @@
     return Object.assign({}, bucket[def.key] || {});
   }
 
+  let suppressUndoSnapshot = false;
   function renderInspector() {
     if (!selectedKey) { inspectorEl.innerHTML = '<div class="ed-inspector-empty">Join or host a table inside the frame and start a hand so the real seats are on screen, turn on Edit Table, then click an element (or pick one from Layers) to adjust it here.</div>'; return; }
     const def = layerByKey(selectedKey);
@@ -1383,7 +1384,7 @@
       if (meta.isColor) {
         html += '<div class="ed-field-row"><label>' + meta.label + '</label><input type="color" data-field="' + field + '" data-color="1" value="' + (val[field] || '#ffffff') + '"></div>';
       } else {
-        html += '<div class="ed-field-row"><label>' + meta.label + '</label><input type="number" step="any" data-field="' + field + '" value="' + (val[field] !== undefined ? val[field] : '') + '"><span class="ed-unit">' + meta.unit + '</span></div>';
+        html += '<div class="ed-field-row"><label>' + meta.label + '</label><input type="number" step="any" data-field="' + field + '" value="' + (val[field] !== undefined ? val[field] : '') + '"><span class="ed-stepper"><button type="button" tabindex="-1" data-step="1" aria-label="Increase by 1">&#9650;</button><button type="button" tabindex="-1" data-step="-1" aria-label="Decrease by 1">&#9660;</button></span><span class="ed-unit">' + meta.unit + '</span></div>';
       }
     });
     if (def.type === 'seat') {
@@ -1406,7 +1407,7 @@
     });
     inspectorEl.querySelectorAll('input[data-field]').forEach((input) => {
       input.addEventListener('change', () => {
-        pushUndoSnapshot();
+        if (!suppressUndoSnapshot) pushUndoSnapshot();
         let d, w;
         try { d = frame.contentDocument; w = frame.contentWindow; } catch (e) { d = null; w = null; }
         const cur = Object.assign({}, d ? effectiveValue(d, w, def) : savedValueFor(def));
@@ -1439,6 +1440,36 @@
         }
         repositionOverlays();
         renderLayers();
+      });
+    });
+    // Up/down steppers (1 by 1) -- phones have no native spinner arrows on a
+    // number box, so these give touch the same +/-1 control a mouse gets.
+    // Tap = one step; hold = repeats (one undo step for the whole hold).
+    inspectorEl.querySelectorAll('.ed-stepper').forEach((box) => {
+      const input = box.parentElement.querySelector('input[type=number]');
+      if (!input) return;
+      const nudge = (dir) => {
+        const cur = parseFloat(input.value);
+        const next = Math.round(((isNaN(cur) ? 0 : cur) + dir) * 1000) / 1000;
+        input.value = next;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      box.querySelectorAll('button').forEach((btn) => {
+        const dir = Number(btn.dataset.step);
+        let holdTimer = null, repeatTimer = null;
+        const stop = () => {
+          clearTimeout(holdTimer); clearInterval(repeatTimer);
+          holdTimer = repeatTimer = null; suppressUndoSnapshot = false;
+        };
+        btn.addEventListener('pointerdown', (ev) => {
+          ev.preventDefault();            // keep the phone keyboard from popping up
+          try { btn.setPointerCapture(ev.pointerId); } catch (e) {}
+          nudge(dir);                     // first step records the undo snapshot
+          suppressUndoSnapshot = true;    // ...held repeats don't spam undo
+          holdTimer = setTimeout(() => { repeatTimer = setInterval(() => nudge(dir), 70); }, 400);
+        });
+        ['pointerup', 'pointercancel', 'lostpointercapture', 'pointerleave'].forEach((e) => btn.addEventListener(e, stop));
+        btn.addEventListener('contextmenu', (ev) => ev.preventDefault());
       });
     });
   }

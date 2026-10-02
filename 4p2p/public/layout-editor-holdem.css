@@ -116,3 +116,16 @@
 .ed-field-row.ed-check-row label{width:auto;white-space:nowrap}
 .ed-field-row.ed-check-row input[type=checkbox]{width:22px;height:22px;flex:none;accent-color:#f4c430;cursor:pointer}
 #edBtnPause.active{background:#f4c430;color:#241a12;border-color:#f4c430}
+
+/* Up/down 1-by-1 steppers beside each number field. Desktop already has the
+   browser's own spinner arrows on hover, so these only show on touch devices
+   (no hover / coarse pointer), where a number box has none. */
+.ed-stepper{display:none;flex-direction:column;gap:2px;flex:none}
+.ed-stepper button{width:34px;height:20px;padding:0;line-height:1;font-size:11px;border:1px solid var(--ed-border);border-radius:5px;background:#1a232e;color:var(--ed-text);cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.ed-stepper button:active{background:#f4c430;color:#241a12;border-color:#f4c430}
+@media (hover:none), (pointer:coarse){
+  .ed-stepper{display:flex}
+  #edPropsBar .ed-field-row input[type=number]{width:60px;-moz-appearance:textfield;appearance:textfield}
+  #edPropsBar .ed-field-row input[type=number]::-webkit-inner-spin-button,
+  #edPropsBar .ed-field-row input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+}
