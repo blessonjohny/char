@@ -4177,6 +4177,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 #pinCancelBtn{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.75);}
 #pinSubmitBtn{background:linear-gradient(135deg,#f4c430,#d4a017);color:#1a1206;}
 </style>
+<script src="name-filter.js?v=1"></script>
 </head>
 <body>
 <!-- Real, confirmed feature per explicit follow-up request ("the
@@ -5457,6 +5458,8 @@ let IS_ONLINE = false;
 let IS_HOST = false;
 let MY_NAME = '';
 try { MY_NAME = localStorage.getItem('k28_player_name') || ''; } catch (e) {}
+// A name saved before the profanity filter existed must not be silently reused.
+if (window.NameFilter && NameFilter.isBad(MY_NAME)) { MY_NAME = ''; try { localStorage.removeItem('k28_player_name'); } catch (e) {} }
 // The avatar the player picked on the "Enter your name" screen for online play - a plain
 // key like "men3" or "ladies7" (matching the hero-avatars image filenames), not tied to any
 // of the ALL_PLAYERS preset names, since online players type a free-text name instead of
@@ -15981,6 +15984,7 @@ async function submitPlayerName() {
     showToast('Enter a name (2+ chars)', 'lose', 1500);
     return;
   }
+  if (!NameFilter.guard(name, (m) => showToast(m, 'lose', 3500))) return;
   // Per explicit request: a name that matches one of the personal
   // avatars (case-insensitive) auto-selects that avatar, still gated
   // by the same PIN check every other selection path uses. A wrong or
@@ -17508,6 +17512,7 @@ gameSocket.on('chooseSeat', (info) => {
     leaveServerTable();
   });
 
+  gameSocket.on('nameRejected', (info) => { showToast((info && info.message) || NameFilter.MESSAGE, 'lose', 4000); });
   gameSocket.on('createBlocked', ({ maxRooms }) => {
     showToast(`🚧 Room Restricted for now to ${maxRooms} — will reopen in a few.`, 'lose', 4000);
   });
@@ -17730,6 +17735,7 @@ function hideKickNotice() {
 let cachedEntryCode = ''; // once a locked server accepts a code, reuse it silently for the rest of this session instead of re-prompting every time
 
 function createTableOnServer(name, challengeHandicap) {
+  if (!NameFilter.guard(name, (m) => showToast(m, 'lose', 3500))) return;
   connectGameSocket();
   MY_NAME = name;
   const payload = { name, code: cachedEntryCode, avatar: MY_AVATAR_KEY };
@@ -17739,6 +17745,7 @@ function createTableOnServer(name, challengeHandicap) {
 
 let joinAttemptWatchdog = null;
 function joinTableOnServer(tableIdRaw, name) {
+  if (!NameFilter.guard(name, (m) => showToast(m, 'lose', 3500))) return;
   connectGameSocket();
   MY_NAME = name;
   const tableId = tableIdRaw.trim().toUpperCase();
@@ -19941,11 +19948,10 @@ function serverBotPlayForMe() {
     serverPlayHiddenTrump();
     return;
   }
-  const legal = hand.filter(c => canPlay(c));
-  if (legal.length === 0) return; // shouldn't happen; server will reject anything illegal anyway
-  // Simple heuristic matching the server's own bots: lowest legal card.
-  legal.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
-  serverPlayCard({ suit: legal[0].suit, rank: legal[0].rank, points: legal[0].points });
+  // The server plays this turn with the same AI the table's bots use
+  // (follow suit, cut with trump, protect the Jack, count cards) -- it holds
+  // the full game state, so no card choice is made here any more.
+  gameSocket.emit('botAssistPlay');
 }
 
 // The other games (6-player, 56, Hold'em) each live on their own page,

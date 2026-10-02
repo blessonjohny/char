@@ -645,6 +645,7 @@
     #hand-area{padding:4px 10px 8px;}
   }
 </style>
+<script src="name-filter.js?v=1"></script>
 </head>
 <body>
 <script>
@@ -1276,6 +1277,10 @@ function ensureSyncSocket(){
     enterTableAsSeat(pos, state);
   });
 
+  syncSocket.on('nameRejected', (info) => {
+    showToast((info && info.message) || NameFilter.MESSAGE, 3500);
+    const jp = document.getElementById('joinPendingOverlay'); if (jp) jp.classList.add('hidden');
+  });
   syncSocket.on('l56_joinDenied', ({reason}) => {
     document.getElementById('joinPendingOverlay').classList.add('hidden');
     const msgs = {
@@ -1551,6 +1556,7 @@ let isHost = false;
 function requireName(){
   const name = document.getElementById('nameInput').value.trim();
   if(!name){ alert('Please enter your name first.'); return null; }
+  if(!NameFilter.guard(name, function(m){ showToast(m, 3500); })) return null;
   return name;
 }
 

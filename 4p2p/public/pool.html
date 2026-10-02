@@ -190,6 +190,7 @@
   .tutorial-hint.show{display:flex}
   .tutorial-box{background:rgba(0,0,0,0.7);padding:10px 18px;border-radius:10px;font-size:12px;color:var(--gold);text-align:center}
 </style>
+<script src="name-filter.js?v=1"></script>
 </head>
 <body>
 
@@ -641,6 +642,7 @@ function poolConnect() {
     poolWasDisconnected = true;
     setConnectionStatus('disconnected', 'Reconnecting...');
   });
+  poolSocket.on('nameRejected', (info) => { alert((info && info.message) || NameFilter.MESSAGE); });
   poolSocket.on('pool_joined', (info) => {
     poolMyTableId = info.tableId; poolMyPlayerId = info.playerId; poolMyPos = info.pos;
     isHost = (info.pos === 0);
@@ -826,6 +828,7 @@ function poolConnect() {
 }
 
 function createRoom() {
+  if (!NameFilter.guard(document.getElementById('hostName').value.trim())) return;
   myName = document.getElementById('hostName').value.trim() || 'Host';
   isHost = true;
   // Explicit, fresh action -- clear any stale table/player data from a
@@ -878,6 +881,7 @@ function poolRenderOpenTables(rooms) {
   `).join('');
 }
 function poolJoinFromList(tableId) {
+  if (!NameFilter.guard(document.getElementById('joinName').value.trim())) return;
   myName = document.getElementById('joinName').value.trim() || 'Guest';
   isHost = false;
   try { localStorage.removeItem('pool_table_id'); localStorage.removeItem('pool_player_token'); } catch(e) {}
@@ -923,6 +927,7 @@ function poolFillBot(difficulty) {
 }
 
 function joinRoom() {
+  if (!NameFilter.guard(document.getElementById('joinName').value.trim())) return;
   myName = document.getElementById('joinName').value.trim() || 'Guest';
   const code = document.getElementById('joinCode').value.trim().toUpperCase();
   if (code.length !== 4) { alert('Please enter a valid 4-digit room code'); return; }

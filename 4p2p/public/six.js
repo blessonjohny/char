@@ -1672,6 +1672,7 @@ function connectSocket() {
     });
   }
 
+  socket.on('nameRejected', (info) => { showToast((info && info.message) || NameFilter.MESSAGE, 'lose', 4000); });
   socket.on('sixp_actionError', (err) => {
     console.log('[server] action rejected:', err.reason);
     // Short, specific messages per rejection reason instead of one generic "that card can't
@@ -1843,6 +1844,7 @@ async function submitPlayerName6p() {
     showToast('Enter a name (2+ chars)', 'lose', 1500);
     return;
   }
+  if (!NameFilter.guard(name, (m) => showToast(m, 'lose', 3500))) return;
   // Per explicit request: same auto-match + PIN-gate as index.html's
   // identical addition, see there for the fuller reasoning.
   const matchedAvatar = PROTECTED_NAME_TO_AVATAR[name.toLowerCase()];
@@ -3881,11 +3883,10 @@ function sixpBotPlayForMe() {
     playHiddenTrumpCard();
     return;
   }
-  const legal = hand.filter(c => canPlay(latestState, c));
-  if (legal.length === 0) return; // shouldn't happen; server rejects anything illegal anyway
-  // Simple heuristic matching the 4-player version: lowest legal card.
-  legal.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
-  playHandCard(legal[0].suit, legal[0].rank);
+  // The server plays this turn with the same AI the table's bots use
+  // (follow suit, cut with trump, protect the Jack, count cards) -- it holds
+  // the full game state, so no card choice is made here any more.
+  socket.emit('sixp_botAssistPlay');
 }
 
 $('btnCallTrumpYes').addEventListener('click', () => {

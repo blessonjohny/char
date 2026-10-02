@@ -434,6 +434,7 @@
   .confirm-box .confirm-yes{ background:#a11; color:#fff; }
   .confirm-box .confirm-cancel{ background:transparent; border:1px solid #666; color:#ddd; }
 </style>
+<script src="name-filter.js?v=1"></script>
 </head>
 <body>
 <script>
@@ -986,6 +987,7 @@
       carromWasDisconnected = true;
       carromSetConnStatus('⚠️ Connection lost — reconnecting...', '#a11');
     });
+    carromSocket.on('nameRejected', (info) => { alert((info && info.message) || NameFilter.MESSAGE); });
     carromSocket.on('carrom_joined', (info) => {
       carromIsAutoRejoinAttempt = false;
       carromReannounceToken++; // this join succeeded -- supersede any still-pending lightweight attempt's stale timer
@@ -1146,11 +1148,15 @@
     }).join('');
   }
   function carromJoinFromList(tableId) {
+    if (!carromNameOk()) return;
     carromConnect();
     carromSocket.emit('carrom_joinTable', { tableId, name: carromNameOrDefault() });
   }
   window.carromJoinFromList = carromJoinFromList; // called from an inline onclick= attribute, which runs in global scope -- inaccessible without this, throwing a silent error on every click
 
+  function carromNameOk() {
+    return NameFilter.guard(document.getElementById('carromNameInput').value.trim());
+  }
   function carromNameOrDefault() {
     const v = document.getElementById('carromNameInput').value.trim();
     return v || 'Player';
@@ -1193,6 +1199,7 @@
     btn.classList.add('active');
   });
   document.getElementById('carromCreateBtn').addEventListener('click', () => {
+    if (!carromNameOk()) return;
     carromConnect();
     const pc = parseInt(document.querySelector('#onlinePlayerCountRow .opt-btn.active').dataset.onlinePlayers, 10);
     carromSocket.emit('carrom_createTable', { name: carromNameOrDefault(), playerCount: pc });
@@ -1200,6 +1207,7 @@
   function carromDoJoin() {
     const code = document.getElementById('carromJoinCodeInput').value.trim().toUpperCase();
     if (!code) return;
+    if (!carromNameOk()) return;
     carromConnect();
     carromSocket.emit('carrom_joinTable', { tableId: code, name: carromNameOrDefault() });
   }

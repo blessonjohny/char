@@ -66,6 +66,7 @@
 }
 #homeBtn:hover,#homeBtn:active{background:rgba(212,175,55,.2);border-color:#f0c93a;opacity:1;transform:scale(1.12)}
 </style>
+<script src="name-filter.js?v=1"></script>
 </head>
 <body>
 <a id="homeBtn" href="../index.html" title="Home" onclick="return spadesHandleHomeClick(event)">🏠</a>
@@ -541,6 +542,7 @@ function uScore(){
   document.getElementById('bagsThem').textContent=tBags[theirTeam]?'👜'+tBags[theirTeam]:'';
 }
 function startLocalGame(){
+  if (!NameFilter.guard(document.getElementById('nameInput').value.trim(), function(m){ toast(m, 'lose', 3500); })) return;
   uRecord();
   MYNAME=document.getElementById('nameInput').value.trim()||'You';
   spadesConnect();
@@ -1096,6 +1098,7 @@ function spadesConnect() {
     spadesWasDisconnected = true;
     setSpadesConnStatus('Reconnecting…');
   });
+  spadesSocket.on('nameRejected', (info) => { toast((info && info.message) || NameFilter.MESSAGE, 'lose', 3500); });
   spadesSocket.on('spades_joined', (info) => {
     spadesTableId = info.tableId; spadesPlayerId = info.playerId; MYPOS = info.pos;
     spadesIsHost = (info.pos === 0);
@@ -1308,6 +1311,7 @@ function showSpadesHandSummary(summary) {
 document.getElementById('btnOnline').addEventListener('click', () => { showScr('lobbyScreen'); });
 document.getElementById('btnLocal').addEventListener('click', () => { startLocalGame(); });
 document.getElementById('btnSetName').addEventListener('click', () => {
+  if (!NameFilter.guard(document.getElementById('nameInput').value.trim(), function(m){ toast(m, 'lose', 3500); })) return;
   MYNAME = document.getElementById('nameInput').value.trim() || 'You';
   document.getElementById('nameCard').style.display = 'none';
   document.getElementById('hostJoinCard').style.display = 'block';

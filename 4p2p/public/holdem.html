@@ -2069,6 +2069,7 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
   body.k28-in-game .table-winning-hand-cards .card { width: 52px; height: 74px; font-size: 1.24rem; }
 }
 </style>
+<script src="name-filter.js?v=1"></script>
 </head>
 <body>
 <!-- Personal-avatar PIN modal -- top-level body child, matching the
@@ -4138,11 +4139,13 @@ wireOptRow('buyInOpts', btn => createOpts.buyInType = btn.dataset.val);
 
 $('btnCreateConfirm').addEventListener('click', () => {
   const name = $('nameInput').value.trim() || 'Player';
+  if (!NameFilter.guard(name, (m) => toast('❌ ' + m))) return;
   socket.emit('poker_createTable', { name, avatar: MY_AVATAR_KEY, ...createOpts, reloadChips: Math.round(createOpts.startingChips / 2) });
 });
 $('btnJoinConfirm').addEventListener('click', () => {
   const code = $('joinCodeInput').value.trim().toUpperCase();
   const name = $('nameInput').value.trim() || 'Player';
+  if (!NameFilter.guard(name, (m) => toast('❌ ' + m))) return;
   if (!code) return;
   socket.emit('poker_joinTable', { tableId: code, name, avatar: MY_AVATAR_KEY });
 });
@@ -4158,11 +4161,13 @@ socket.on('poker_roomList', (list) => {
 });
 function joinPublicTable(tableId) {
   const name = $('nameInput').value.trim() || 'Player';
+  if (!NameFilter.guard(name, (m) => toast('❌ ' + m))) return;
   socket.emit('poker_joinTable', { tableId, name, avatar: MY_AVATAR_KEY });
 }
 socket.emit('poker_listRooms');
 setInterval(() => { if (!myTableId) socket.emit('poker_listRooms'); }, 4000);
 
+socket.on('nameRejected', (info) => { toast('❌ ' + ((info && info.message) || NameFilter.MESSAGE)); });
 socket.on('poker_joinFailed', (info) => {
   toast('❌ Could not join: ' + (info.reason || 'unknown'));
   // If this happened while we were already seated at a table (i.e. this
