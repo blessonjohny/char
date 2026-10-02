@@ -42,6 +42,66 @@
     { key: 'landscape', label: 'Landscape / Desktop', bodyClass: 'k28-in-game', previewWidth: 1400, previewHeight: 900 },
   ];
 
+  // ---------------------------------------------------------------------
+  // Screen-width scaling ("design units"). Positions are percentages, so
+  // they follow any screen -- but sizes (avatar, cards, buttons, text)
+  // were plain pixels, so the SAME saved layout looked proportionally
+  // bigger on a narrow phone than in the editor (a 46px avatar is 10.7% of
+  // a 430px screen but 12.8% of a 360px one). Every saved px value is now
+  // read as "px on a screen of the breakpoint's reference width"
+  // (BREAKPOINTS[].previewWidth -- 430 phone / 1400 landscape, i.e. the
+  // exact size the editor always previewed, so layouts saved before this
+  // change keep their exact look there) and multiplied by --led-u =
+  // (this screen's width / reference width) when applied. Result: the table
+  // keeps the same proportions on every phone.
+  // ---------------------------------------------------------------------
+  const UNIT_VAR = '--led-u';
+  function bpKeyForWidth(w) { return w < 521 ? 'portraitPhoto' : 'landscape'; }
+  function unitFor(win) {
+    try {
+      const w = win.innerWidth || win.document.documentElement.clientWidth || 0;
+      if (!w) return 1;
+      const key = bpKeyForWidth(w);
+      const bp = BREAKPOINTS.find((b) => b.key === key);
+      let u = w / bp.previewWidth;
+      u = key === 'landscape' ? Math.min(1, Math.max(0.35, u)) : Math.min(1.5, Math.max(0.6, u));
+      return Math.round(u * 10000) / 10000;
+    } catch (e) { return 1; }
+  }
+  function setScaleVar(doc) {
+    if (!doc || !doc.documentElement) return;
+    const win = doc.defaultView;
+    if (!win) return;
+    doc.documentElement.style.setProperty(UNIT_VAR, String(unitFor(win)));
+    if (!win.__ledScaleWired) {
+      win.__ledScaleWired = true;
+      win.addEventListener('resize', () => setScaleVar(doc));
+    }
+  }
+  function pxv(v) { return 'calc(' + v + 'px * var(' + UNIT_VAR + ', 1))'; }
+
+  // Preview-only: make a desktop browser behave like a touch phone for the
+  // stylesheet's `(hover:hover) and (pointer:fine)` blocks (they re-tune
+  // landscape avatar/dealer sizes for a real mouse). A phone never matches
+  // them, so the editor previewing "phone landscape" on a PC deletes them
+  // from the preview document -- the page's own JS flag (isDesktopPointer)
+  // is switched by the ?emulate=touch URL parameter. Never used on the live
+  // site.
+  function emulateTouch(doc) {
+    if (!doc || doc.__ledTouchEmulated) return 0;
+    let removed = 0;
+    Array.from(doc.styleSheets).forEach((sheet) => {
+      let rules; try { rules = sheet.cssRules; } catch (e) { return; }
+      for (let i = rules.length - 1; i >= 0; i--) {
+        const r = rules[i];
+        const cond = r && (r.conditionText || (r.media && r.media.mediaText) || '');
+        if (r && r.type === 4 && /hover\s*:\s*hover/.test(cond) && /pointer\s*:\s*fine/.test(cond)) { sheet.deleteRule(i); removed++; }
+      }
+    });
+    doc.__ledTouchEmulated = true;
+    return removed;
+  }
+
   // Non-seat elements. `fieldUnits` gives each CSS field its own unit since
   // position fields (left/top) are % of .table-wrap and size fields
   // (width/height) are px, on the very same element (the dealer figure).
@@ -275,7 +335,15 @@
       // multi-part box-shadow (offset + blur + color) -- a bigger number
       // reads as the card sitting up further off the felt.
       if (cssProp === 'SHADOW_DEPTH') { out += `box-shadow:0 ${v}px ${v * 2}px rgba(0,0,0,0.45) !important;`; continue; }
-      out += `${cssProp}:${v}${unit} !important;`;
+      if (unit === 'px') out += cssProp + ':' + pxv(v) + ' !important;';
+      else out += `${cssProp}:${v}${unit} !important;`;
+      // Sizes are MEASURED as the border-box (what you see on screen); a
+      // plain CSS width/height is the content-box on most of these
+      // elements, so applying a measured size used to make padded/bordered
+      // pills (pot, bet, buttons) grow by their padding the first time
+      // they were touched. border-box makes "what was measured" == "what
+      // is applied".
+      if (cssProp === 'width' || cssProp === 'height') out += 'box-sizing:border-box !important;';
     }
     return out;
   }
@@ -311,7 +379,11 @@
           if (sizeDecls) body += `body.${bp.bodyClass} ${el.sizeSelector}{${sizeDecls}}\n`;
         } else {
           let decls = declsFor(el, v);
-          if (decls && el.extraDecls) decls += el.extraDecls;
+          // extraDecls (re-centering transform, position:fixed, z-index...)
+          // belong to the POSITION fields -- applying them when only a size
+          // was saved would shift the element by half its own size.
+          const hasPos = (v.left != null && v.left !== '') || (v.top != null && v.top !== '');
+          if (decls && el.extraDecls && (hasPos || !(el.cssProps && el.cssProps.left))) decls += el.extraDecls;
           if (decls) body += `body.${bp.bodyClass} ${el.selector}{${decls}}\n`;
         }
       }
@@ -346,6 +418,7 @@
   // Injects (or re-appends, to stay last) the override <style> tag.
   function applyCSSConfig(doc, config) {
     if (!doc || !doc.head) return;
+    setScaleVar(doc);
     let tag = doc.getElementById('layout-overrides-holdem');
     const css = buildOverrideCSS(config);
     if (!tag) {
@@ -394,12 +467,35 @@
   // the real DOM elements for that seat -- safe to call as often as
   // needed since it's a pure re-apply, never touches game state.
   // ---------------------------------------------------------------------
+  // Sets (or, when value is null, REMOVES) one inline !important property on
+  // an element and remembers that we own it -- so deleting a saved override
+  // (Reset / Undo) really puts the element back to the game's own value
+  // instead of leaving our old inline style behind forever.
+  function setManaged(el, prop, value) {
+    if (!el) return;
+    const owned = el.__ledSet || (el.__ledSet = new Set());
+    if (value == null) {
+      if (owned.has(prop)) { el.style.removeProperty(prop); owned.delete(prop); }
+    } else {
+      el.style.setProperty(prop, value, 'important');
+      owned.add(prop);
+    }
+  }
+  const pxOrNull = (v) => (v == null ? null : pxv(v));
+  // Position nudge for a seat's dealt cards / chip count. Uses the CSS
+  // `translate` property, NOT margin: these boxes are shrink-wrapped and
+  // centred (left:50% + translateX(-50%)), so a margin changed the width
+  // they shrink-wrap to and the box drifted by half the nudge (and stretched)
+  // -- a big part of "things move on their own". translate moves the box
+  // exactly, composes with the existing centring, and never reflows anything.
+  const nudgeOrNull = (x, y) => (x == null && y == null) ? null : (pxv(x || 0) + ' ' + pxv(y || 0));
+
   function applySeatStyles(doc, win, config) {
     if (!doc || !doc.body || !config) return;
+    setScaleVar(doc);
     const bpKey = bpForDoc(doc);
     if (!bpKey) return;
-    const bucket = config[bpKey];
-    if (!bucket) return;
+    const bucket = config[bpKey] || {};
     try { applyAvatarOverlap(doc, win, bucket); } catch (e) {}
     const seats = doc.querySelectorAll('.seat[data-pos]');
     seats.forEach((seatEl) => {
@@ -407,63 +503,48 @@
       let slot = pos;
       try { if (typeof win.slotFor === 'function') slot = win.slotFor(pos); } catch (e) {}
 
-      const avatar = bucket['avatar' + slot];
-      if (avatar) {
-        const av = seatEl.querySelector('.seat-avatar-wrap');
-        if (av) {
-          if (avatar.width != null) av.style.setProperty('width', avatar.width + 'px', 'important');
-          if (avatar.height != null) av.style.setProperty('height', avatar.height + 'px', 'important');
-        }
+      const avatar = bucket['avatar' + slot] || {};
+      const av = seatEl.querySelector('.seat-avatar-wrap');
+      if (av) {
+        setManaged(av, 'width', pxOrNull(avatar.width));
+        setManaged(av, 'height', pxOrNull(avatar.height));
       }
 
-      const chipPile = bucket['chipPile' + slot];
-      if (chipPile) {
-        const rail = doc.getElementById('railChips' + pos);
-        if (rail) {
-          if (chipPile.left != null) rail.style.setProperty('left', chipPile.left + '%', 'important');
-          if (chipPile.top != null) rail.style.setProperty('top', chipPile.top + '%', 'important');
-          if (chipPile.width != null || chipPile.height != null) {
-            rail.querySelectorAll('.pot-stack-chip').forEach((c) => {
-              if (chipPile.width != null) c.style.setProperty('width', chipPile.width + 'px', 'important');
-              if (chipPile.height != null) c.style.setProperty('height', chipPile.height + 'px', 'important');
-            });
-          }
-        }
+      const chipPile = bucket['chipPile' + slot] || {};
+      const rail = doc.getElementById('railChips' + pos);
+      if (rail) {
+        setManaged(rail, 'left', chipPile.left != null ? chipPile.left + '%' : null);
+        setManaged(rail, 'top', chipPile.top != null ? chipPile.top + '%' : null);
+        rail.querySelectorAll('.pot-stack-chip').forEach((c) => {
+          setManaged(c, 'width', pxOrNull(chipPile.width));
+          setManaged(c, 'height', pxOrNull(chipPile.height));
+        });
       }
 
-      const cards = bucket['cards' + slot];
-      if (cards) {
-        const cardsEl = seatEl.querySelector('.seat-cards');
-        if (cardsEl) {
-          // .seat-cards is positioned relative to its own (small) .seat
-          // box via left:50%/bottom:4%/transform:translateX(-50%) in the
-          // real stylesheet, not relative to the whole table -- so a
-          // table-relative left/top percentage (like chipPile above)
-          // would mean something different once applied here. margin
-          // just nudges it a fixed number of pixels from wherever it
-          // already sits, independent of any containing-block math, and
-          // matches 1:1 with how far you actually dragged it in the
-          // editor.
-          if (cards.offsetX != null) cardsEl.style.setProperty('margin-left', cards.offsetX + 'px', 'important');
-          if (cards.offsetY != null) cardsEl.style.setProperty('margin-top', cards.offsetY + 'px', 'important');
-          cardsEl.querySelectorAll('.card.mini').forEach((c) => {
-            if (cards.width != null) c.style.setProperty('width', cards.width + 'px', 'important');
-            if (cards.height != null) c.style.setProperty('height', cards.height + 'px', 'important');
-          });
-        }
+      // .seat-cards sits inside its own small .seat box (left:50%/bottom:4%
+      // + translateX(-50%)), so its saved offset is a plain pixel nudge
+      // (margin) from wherever it already sits -- 1:1 with how far you
+      // dragged it, independent of any table-percentage maths.
+      const cards = bucket['cards' + slot] || {};
+      const cardsEl = seatEl.querySelector('.seat-cards');
+      if (cardsEl) {
+        setManaged(cardsEl, 'margin-left', null);   // (older builds nudged with margin)
+        setManaged(cardsEl, 'margin-top', null);
+        setManaged(cardsEl, 'translate', nudgeOrNull(cards.offsetX, cards.offsetY));
+        cardsEl.querySelectorAll('.card.mini').forEach((c) => {
+          setManaged(c, 'width', pxOrNull(cards.width));
+          setManaged(c, 'height', pxOrNull(cards.height));
+        });
       }
 
-      // The numeric chip-count label under each player's name (e.g. "985")
-      // -- a plain text element, so "size" here just means font size;
-      // position is a margin nudge, same technique as dealt cards above.
-      const chipLabel = bucket['chipLabel' + slot];
-      if (chipLabel) {
-        const chipsEl = seatEl.querySelector('.seat-chips');
-        if (chipsEl) {
-          if (chipLabel.offsetX != null) chipsEl.style.setProperty('margin-left', chipLabel.offsetX + 'px', 'important');
-          if (chipLabel.offsetY != null) chipsEl.style.setProperty('margin-top', chipLabel.offsetY + 'px', 'important');
-          if (chipLabel.fontSize != null) chipsEl.style.setProperty('font-size', chipLabel.fontSize + 'px', 'important');
-        }
+      // The chip-count number under each name: font size + margin nudge.
+      const chipLabel = bucket['chipLabel' + slot] || {};
+      const chipsEl = seatEl.querySelector('.seat-chips');
+      if (chipsEl) {
+        setManaged(chipsEl, 'margin-left', null);
+        setManaged(chipsEl, 'margin-top', null);
+        setManaged(chipsEl, 'translate', nudgeOrNull(chipLabel.offsetX, chipLabel.offsetY));
+        setManaged(chipsEl, 'font-size', pxOrNull(chipLabel.fontSize));
       }
     });
   }
@@ -548,6 +629,7 @@
   function applyAll(doc, win, configOrGetter) {
     const getConfig = typeof configOrGetter === 'function' ? configOrGetter : () => configOrGetter;
     applyCSSConfig(doc, getConfig());
+    setScaleVar(doc);
     patchSeatPositions(win, getConfig);
     patchRenderGameTable(win, getConfig);
     applySeatStyles(doc, win, getConfig());
@@ -576,6 +658,6 @@
     SEAT_COUNT, BREAKPOINTS, ELEMENTS, PREVIEW_ON_KEYS,
     elementByKey, bpForDoc, buildOverrideCSS, applyCSSConfig, applyBackgroundConfig, patchSeatPositions,
     applySeatStyles, patchRenderGameTable, applyAll, forceRerender, setPreviewOnClasses,
-    applyChipTierColors,
+    applyChipTierColors, unitFor, setScaleVar, emulateTouch, bpKeyForWidth,
   };
 })(window);

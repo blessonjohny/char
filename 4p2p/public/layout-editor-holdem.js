@@ -191,6 +191,49 @@
   function cloneConfig() { return JSON.parse(JSON.stringify(config)); }
   function setStatus(text, kind) { statusEl.textContent = text; statusEl.className = kind || ''; }
   function round2(n) { return Math.round(n * 100) / 100; }
+  function r1(n) { return Math.round(n * 10) / 10; }
+  // px-per-design-unit of the preview right now (see unitFor in the engine):
+  // saved sizes are stored in design units, measured/dragged px are divided
+  // by this, so what you see in the editor is exactly what any phone shows.
+  // The nudge applied to a seat's dealt cards / chip count (the CSS
+  // `translate` property -- see nudgeOrNull in the engine for why).
+  function readTranslate(win, el) {
+    try {
+      const t = win.getComputedStyle(el).translate;
+      if (!t || t === 'none') return [0, 0];
+      const p = t.split(/\s+/).map(parseFloat);
+      return [p[0] || 0, p[1] || 0];
+    } catch (e) { return [0, 0]; }
+  }
+  // The point an element's saved left/top place on screen. Elements the
+  // engine re-centres (extraDecls translate(-50%,-50%)) are placed by their
+  // CENTRE; everything else is placed by its top-left corner (+ any
+  // translate its own stylesheet already applies). Measuring a corner-placed
+  // element by its centre -- what this used to do for the action buttons,
+  // bet slider, top bar, mute button and popups -- made it jump by half its
+  // own size the first time it was touched.
+  function anchorOf(win, el, rect, def) {
+    if (def && /translate\(\s*-50%/.test(def.extraDecls || '')) return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    let tx = 0, ty = 0;
+    try {
+      const m = new win.DOMMatrix(win.getComputedStyle(el).transform);
+      if (Math.abs(m.a - 1) < 1e-3 && Math.abs(m.d - 1) < 1e-3 && Math.abs(m.b) < 1e-3 && Math.abs(m.c) < 1e-3) { tx = m.e; ty = m.f; }
+    } catch (e) {}
+    return { x: rect.left - tx, y: rect.top - ty };
+  }
+  function uNow() { try { return LH.unitFor(frame.contentWindow) || 1; } catch (e) { return 1; } }
+  // Merge ONLY the fields you actually changed into this element's saved
+  // override. (Before, any drag/edit saved all four of left/top/width/
+  // height from whatever was measured at that instant -- silently freezing
+  // sizes you never touched, measured on whatever device the editor was
+  // running on.)
+  function patchSaved(key, patch) {
+    const b = ensureBpBucket(currentBp);
+    b[key] = Object.assign({}, b[key] || {}, patch);
+    return b[key];
+  }
+  let moveTogether = false;
+  try { moveTogether = localStorage.getItem('ledHoldemMoveTogether') === '1'; } catch (e) {}
   function ensureBpBucket(bpKey) { if (!config[bpKey]) config[bpKey] = {}; return config[bpKey]; }
   function ensureSeatsBucket(bpKey) { const b = ensureBpBucket(bpKey); if (!b.seats) b.seats = {}; return b.seats; }
 
@@ -205,6 +248,7 @@
   bpSelect.value = currentBp;
   bpSelect.addEventListener('change', () => {
     currentBp = bpSelect.value;
+    renderDeviceSelect();
     applyFrameSize();
     selectedKey = null;
     renderInspector();
@@ -212,14 +256,101 @@
     scheduleRebuildOverlays();
   });
 
+  // ---------------------------------------------------------------------
+  // Device preview. The preview used to be ONE fixed size (430x860 phone /
+  // 1400x900 landscape), so what you perfected there was a different shape
+  // from your own phone -- the background photo crops differently and
+  // percentage positions land elsewhere. Now you pick the screen you are
+  // designing for: common phones, "This device" (the exact size of the
+  // screen you opened the editor on -- best choice when editing on your own
+  // phone), or any custom width x height. Phone-landscape sizes also switch
+  // the preview into touch mode (no mouse-only CSS), like a real phone.
+  // ---------------------------------------------------------------------
+  const deviceSelect = document.getElementById('edDeviceSelect');
+  const DEVICES = {
+    portraitPhoto: [
+      { id: 'default', label: '430 × 860 (default)', w: 430, h: 860 },
+      { id: 'p430', label: '430 × 932 · large iPhone', w: 430, h: 932 },
+      { id: 'p412', label: '412 × 915 · Android', w: 412, h: 915 },
+      { id: 'p393', label: '393 × 852 · iPhone 15', w: 393, h: 852 },
+      { id: 'p390', label: '390 × 844 · iPhone 12–14', w: 390, h: 844 },
+      { id: 'p375', label: '375 × 812 · iPhone mini/X', w: 375, h: 812 },
+      { id: 'p360', label: '360 × 740 · small Android', w: 360, h: 740 },
+    ],
+    landscape: [
+      { id: 'default', label: '1400 × 900 (default desktop)', w: 1400, h: 900 },
+      { id: 'l1280', label: '1280 × 720 · laptop', w: 1280, h: 720 },
+      { id: 'l915', label: '915 × 412 · phone (touch)', w: 915, h: 412, touch: true },
+      { id: 'l844', label: '844 × 390 · phone (touch)', w: 844, h: 390, touch: true },
+      { id: 'l740', label: '740 × 360 · small phone (touch)', w: 740, h: 360, touch: true },
+    ],
+  };
+  let deviceChoice = {};           // bp -> { id, w, h, touch }
+  try { deviceChoice = JSON.parse(localStorage.getItem('ledHoldemDevice') || '{}') || {}; } catch (e) { deviceChoice = {}; }
+  function thisDeviceFits(bpKey) {
+    const w = window.innerWidth, h = window.innerHeight;
+    return bpKey === 'portraitPhoto' ? (w < 521 && h > w) : (w >= 521);
+  }
+  function deviceList(bpKey) {
+    const list = DEVICES[bpKey].slice();
+    if (thisDeviceFits(bpKey)) list.push({ id: 'device', label: '📱 This device (' + window.innerWidth + ' × ' + window.innerHeight + ')', w: window.innerWidth, h: window.innerHeight });
+    const c = deviceChoice[bpKey];
+    if (c && c.id === 'custom') list.push({ id: 'custom', label: 'Custom (' + c.w + ' × ' + c.h + ')', w: c.w, h: c.h, touch: !!c.touch });
+    return list;
+  }
+  function previewDevice() {
+    const list = deviceList(currentBp);
+    const wantId = (deviceChoice[currentBp] && deviceChoice[currentBp].id) || 'default';
+    let d = list.find((x) => x.id === wantId) || list[0];
+    if (d.id === 'device') d = Object.assign({}, d, { w: window.innerWidth, h: window.innerHeight });
+    return d;
+  }
+  function pv() { const d = previewDevice(); return { w: d.w, h: d.h, touch: !!d.touch }; }
+  function renderDeviceSelect() {
+    if (!deviceSelect) return;
+    const list = deviceList(currentBp);
+    const cur = previewDevice().id;
+    deviceSelect.innerHTML = list.map((d) => '<option value="' + d.id + '">' + d.label + '</option>').join('') + '<option value="__custom">Custom size…</option>';
+    deviceSelect.value = cur;
+  }
+  if (deviceSelect) {
+    deviceSelect.addEventListener('change', () => {
+      if (deviceSelect.value === '__custom') {
+        const cur = pv();
+        const raw = prompt('Preview size as WIDTH x HEIGHT in CSS pixels (e.g. 390x844):', cur.w + 'x' + cur.h);
+        const m = raw && raw.match(/^\s*(\d{2,4})\s*[x×*,]\s*(\d{2,4})\s*$/i);
+        if (!m) { renderDeviceSelect(); return; }
+        const w = +m[1], h = +m[2];
+        const fits = currentBp === 'portraitPhoto' ? (w < 521 && h > w) : (w >= 521);
+        if (!fits) { alert(currentBp === 'portraitPhoto' ? 'Mobile Portrait needs a width under 521 and a height taller than the width.' : 'Landscape needs a width of 521 or more.'); renderDeviceSelect(); return; }
+        deviceChoice[currentBp] = { id: 'custom', w, h, touch: currentBp === 'landscape' && w < 1000 };
+      } else {
+        deviceChoice[currentBp] = { id: deviceSelect.value };
+      }
+      try { localStorage.setItem('ledHoldemDevice', JSON.stringify(deviceChoice)); } catch (e) {}
+      renderDeviceSelect();
+      applyFrameSize();
+    });
+  }
+  let frameTouchMode = false;      // is the iframe currently loaded in touch-emulation mode?
   function applyFrameSize() {
-    const bp = bpInfo(currentBp);
-    frame.width = bp.previewWidth;
-    frame.height = bp.previewHeight;
-    frame.style.width = bp.previewWidth + 'px';
-    frame.style.height = bp.previewHeight + 'px';
+    const d = pv();
+    // Touch emulation needs a fresh page load (the page reads ?emulate=touch
+    // once, at start-up) -- only happens when switching between desktop-style
+    // and phone-landscape previews.
+    if (d.touch !== frameTouchMode) {
+      frameTouchMode = d.touch;
+      try { frame.src = 'holdem.html?editorPreview=1' + (d.touch ? '&emulate=touch' : ''); } catch (e) {}
+    }
+    frame.width = d.w;
+    frame.height = d.h;
+    frame.style.width = d.w + 'px';
+    frame.style.height = d.h + 'px';
     try { frame.contentWindow.dispatchEvent(new Event('resize')); } catch (e) {}
+    try { const cw = frame.contentWindow; if (cw && cw.LayoutHoldem) cw.LayoutHoldem.setScaleVar(frame.contentDocument); } catch (e) {}
     fitFrameToStage();
+    scheduleRebuildOverlays();
+    renderInspector();
   }
 
   // The iframe is always rendered at the breakpoint's real device size
@@ -234,11 +365,11 @@
   // Click/drag coordinates keep working unmodified: getBoundingClientRect()
   // and mouse events both already reflect the CSS transform automatically.
   function fitFrameToStage() {
-    const bp = bpInfo(currentBp);
+    const bp = pv();
     frame.style.transform = 'none';
     frame.style.transformOrigin = 'top left';
-    frameWrap.style.width = bp.previewWidth + 'px';
-    frameWrap.style.height = bp.previewHeight + 'px';
+    frameWrap.style.width = bp.w + 'px';
+    frameWrap.style.height = bp.h + 'px';
     let scale;
     if (manualZoom != null) {
       // The person picked their own zoom -- respect it exactly, even if
@@ -249,12 +380,12 @@
     } else {
       const availW = stage.clientWidth - 4; // small safety margin
       const availH = stage.clientHeight - 4;
-      scale = Math.min(1, availW / bp.previewWidth, availH / bp.previewHeight);
+      scale = Math.min(1, availW / bp.w, availH / bp.h);
     }
     if (scale > 0 && scale !== 1) {
       frame.style.transform = 'scale(' + scale + ')';
-      frameWrap.style.width = Math.round(bp.previewWidth * scale) + 'px';
-      frameWrap.style.height = Math.round(bp.previewHeight * scale) + 'px';
+      frameWrap.style.width = Math.round(bp.w * scale) + 'px';
+      frameWrap.style.height = Math.round(bp.h * scale) + 'px';
     }
     currentScale = scale > 0 ? scale : 1;
     zoomLabel.textContent = Math.round(scale * 100) + '%';
@@ -293,8 +424,8 @@
 
   const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.66, 0.75, 1, 1.25, 1.5, 2];
   function stepZoom(dir) {
-    const bp = bpInfo(currentBp);
-    const current = manualZoom != null ? manualZoom : Math.min(1, (stage.clientWidth - 4) / bp.previewWidth, (stage.clientHeight - 4) / bp.previewHeight);
+    const bp = pv();
+    const current = manualZoom != null ? manualZoom : Math.min(1, (stage.clientWidth - 4) / bp.w, (stage.clientHeight - 4) / bp.h);
     let next;
     if (dir > 0) next = ZOOM_STEPS.find((s) => s > current + 0.001) || ZOOM_STEPS[ZOOM_STEPS.length - 1];
     else next = [...ZOOM_STEPS].reverse().find((s) => s < current - 0.001) || ZOOM_STEPS[0];
@@ -319,8 +450,8 @@
   // ---------------------------------------------------------------------
   function clampZoom(z) { return Math.min(3, Math.max(0.1, z)); }
   function currentEffectiveZoom() {
-    const bp = bpInfo(currentBp);
-    return manualZoom != null ? manualZoom : Math.min(1, (stage.clientWidth - 4) / bp.previewWidth, (stage.clientHeight - 4) / bp.previewHeight);
+    const bp = pv();
+    return manualZoom != null ? manualZoom : Math.min(1, (stage.clientWidth - 4) / bp.w, (stage.clientHeight - 4) / bp.h);
   }
   // A wheel/touch event that starts INSIDE the iframe reports clientX/clientY in the iframe's
   // own (unscaled) coordinate space, not the outer page's -- converts that into "pixels from
@@ -425,6 +556,7 @@
     })
     .catch(() => setStatus('Could not load saved layout (starting from the default table look).', 'error'))
     .finally(() => {
+      renderDeviceSelect();
       applyFrameSize();
       renderLayers();
     });
@@ -441,6 +573,8 @@
   frame.addEventListener('load', () => {
     try {
       const win = frame.contentWindow;
+      // Phone-landscape preview: behave like a touch phone (see emulateTouch).
+      if (frameTouchMode && win.LayoutHoldem) win.LayoutHoldem.emulateTouch(frame.contentDocument);
       // Pass a getter, not `config` itself -- `config` gets reassigned
       // wholesale (loading a saved layout, undo, redo), and the patched
       // seatPositions()/renderGameTable() need to keep reading whatever
@@ -872,19 +1006,39 @@
         const inSel = ev.clientX >= sr.left && ev.clientX <= sr.right && ev.clientY >= sr.top && ev.clientY <= sr.bottom;
         if (inSel) useDef = selO.def; else if (hit) useDef = hit.def;
       } else if (hit) useDef = hit.def;
-      // Double-click / double-tap: send this element to the bottom of the
-      // overlap stack (edit-only), then select whatever is now on top.
-      const now = Date.now();
-      const isDouble = (now - lastTap.t) < 380 && Math.abs(ev.clientX - lastTap.x) < 12 && Math.abs(ev.clientY - lastTap.y) < 12;
-      lastTap = isDouble ? { t: 0, x: 0, y: 0 } : { t: now, x: ev.clientX, y: ev.clientY };
-      if (isDouble) {
-        const under = selectedKey && overlays[selectedKey] ? overlays[selectedKey].def.key : useDef.key;
-        sendToBack(under);
-        const next = pickAt(ev.clientX, ev.clientY);
-        selectElement(next ? next.def.key : null);
-        return;
-      }
       selectElement(useDef.key);
+      // Double-click / double-tap = send this element to the BOTTOM of the
+      // overlap stack (edit-only) and pick whatever is now on top. Decided
+      // on RELEASE, and only when that press never turned into a drag -- so
+      // "tap to select, then immediately drag" can never be mistaken for a
+      // double-click (the earlier version decided on the second PRESS and
+      // swallowed such drags).
+      const downX = ev.clientX, downY = ev.clientY, downKey = useDef.key;
+      const onTapUp = (up) => {
+        if (up.pointerId !== ev.pointerId) return;
+        doc.removeEventListener('pointerup', onTapUp, true);
+        doc.removeEventListener('pointercancel', onTapUp, true);
+        if (up.type === 'pointercancel') { lastTap = { t: 0, x: 0, y: 0 }; return; }
+        const wasDrag = !!(dragState && dragState.def.key === downKey && dragState.crossedThreshold) || dragMovedSinceDown;
+        if (wasDrag) { lastTap = { t: 0, x: 0, y: 0 }; return; }
+        const now = Date.now();
+        const isDouble = (now - lastTap.t) < 380 && Math.abs(downX - lastTap.x) < 12 && Math.abs(downY - lastTap.y) < 12;
+        if (!isDouble) { lastTap = { t: now, x: downX, y: downY }; return; }
+        lastTap = { t: 0, x: 0, y: 0 };
+        const under = selectedKey && overlays[selectedKey] ? overlays[selectedKey].def.key : downKey;
+        sendToBack(under);
+        const next = pickAt(downX, downY);
+        selectElement(next ? next.def.key : null);
+      };
+      let dragMovedSinceDown = false;
+      const onTapMove = (mv) => {
+        if (mv.pointerId !== ev.pointerId) return;
+        if (Math.hypot(mv.clientX - downX, mv.clientY - downY) * currentScale >= DRAG_THRESHOLD_PX) dragMovedSinceDown = true;
+      };
+      doc.addEventListener('pointermove', onTapMove, true);
+      doc.addEventListener('pointerup', (u) => { doc.removeEventListener('pointermove', onTapMove, true); }, { once: true, capture: true });
+      doc.addEventListener('pointerup', onTapUp, true);
+      doc.addEventListener('pointercancel', onTapUp, true);
       // A pinch's SECOND finger lands its own separate pointerdown too --
       // never let that one start (or fight) a drag; two fingers down
       // always means "zoom," never "move this element" (see
@@ -971,6 +1125,63 @@
     doc.addEventListener('pointercancel', onUp);
   }
 
+  // ---- seat parts: independent by default -------------------------------
+  // A seat's dealt cards, chip count and chip pile all live INSIDE (or are
+  // anchored to) the seat, so moving the seat used to drag every one of them
+  // along ("elements are attached -- when one moves the next moves"). By
+  // default the parts now stay exactly where they are on screen while the
+  // avatar moves: we pin their current spot and cancel out the seat's own
+  // movement. Tick "Move seat parts together" to get the old group move.
+  function capturePartStart(doc, win, def) {
+    const ps = {};
+    const cd = layerByKey('cards' + def.slot);
+    if (cd) { const v = effectiveValue(doc, win, cd); ps.cards = { offsetX: v.offsetX, offsetY: v.offsetY }; }
+    const ld = layerByKey('chipLabel' + def.slot);
+    if (ld) { const v = effectiveValue(doc, win, ld); ps.chipLabel = { offsetX: v.offsetX, offsetY: v.offsetY }; }
+    return ps;
+  }
+  // Pins the chip pile at its CURRENT on-screen spot (position only -- its
+  // size is left as the game draws it) so it stops tracking its seat.
+  function pinChipPile(doc, win, slot) {
+    const chipDef = layerByKey('chipPile' + slot);
+    const bucket = config[currentBp] || {};
+    if (!chipDef || bucket['chipPile' + slot]) return;
+    const pinned = effectiveValue(doc, win, chipDef);
+    if (pinned.left == null || pinned.top == null || isNaN(pinned.left) || isNaN(pinned.top)) return;
+    patchSaved('chipPile' + slot, { left: pinned.left, top: pinned.top });
+    try { if (win.LayoutHoldem) win.LayoutHoldem.applySeatStyles(doc, win, config); } catch (e) {}
+    markLayerEdited('chipPile' + slot);
+  }
+  // The four action buttons live side by side in ONE flex row. Taking a single
+  // button out of that row (position:fixed, which is what moving it does)
+  // makes the other three reflow into the gap -- they visibly jump/stretch,
+  // which looks exactly like "when I move one, the next one moves too".
+  // The first time any of them is touched, all four are pinned at their
+  // CURRENT on-screen spot and size, so nothing reflows and each one is
+  // truly independent from then on.
+  const ACTION_GROUP = ['actBtnAllIn', 'actBtnBet', 'actBtnFold', 'actBtnCheck'];
+  function pinActionGroup(doc, win, def) {
+    if (!def || ACTION_GROUP.indexOf(def.key) < 0) return;
+    const b = config[currentBp] || {};
+    if (ACTION_GROUP.some((k) => b[k] && b[k].left !== undefined)) return; // already detached together
+    const vals = ACTION_GROUP.map((k) => ({ k, v: effectiveValue(doc, win, layerByKey(k)) }));
+    if (vals.some((x) => x.v.left == null || isNaN(x.v.left) || isNaN(x.v.width))) return;
+    vals.forEach((x) => patchSaved(x.k, { left: x.v.left, top: x.v.top, width: x.v.width, height: x.v.height }));
+    try { LH.applyCSSConfig(doc, config); } catch (e) {}
+    ACTION_GROUP.forEach(markLayerEdited);
+  }
+
+  // Single place that moves a seat (drag AND the X/Y boxes use it).
+  function setSeatPosition(doc, win, def, startVal, partStart, newX, newY) {
+    ensureSeatsBucket(currentBp)[def.slot] = { x: newX, y: newY };
+    if (moveTogether || !partStart) return;
+    const tr = tableRectOf(doc), u = uNow();
+    const mvX = ((newX - startVal.x) / 100) * tr.width / u;
+    const mvY = ((newY - startVal.y) / 100) * tr.height / u;
+    if (partStart.cards) patchSaved('cards' + def.slot, { offsetX: r1(partStart.cards.offsetX - mvX), offsetY: r1(partStart.cards.offsetY - mvY) });
+    if (partStart.chipLabel) patchSaved('chipLabel' + def.slot, { offsetX: r1(partStart.chipLabel.offsetX - mvX), offsetY: r1(partStart.chipLabel.offsetY - mvY) });
+  }
+
   function handleDragMove(ev) {
     if (!dragState) return;
     if (ev.pointerId !== dragState.pointerId) return; // a second finger's own movement -- never this drag's
@@ -982,109 +1193,67 @@
       if (screenDist < DRAG_THRESHOLD_PX) return; // still just a click/jitter -- do nothing yet
       dragState.crossedThreshold = true;
       pushUndoSnapshot(); // record the undo step only once a real drag actually starts
-
-      // "Mother-child" fix: the real game (holdem.html) recomputes each
-      // chip rail's on-screen left/top FRESH on every render, anchored to
-      // that seat's CURRENT position -- so until a chip pile has its own
-      // explicit saved override, it always visually tracks its seat, even
-      // just-started drags that haven't been dropped yet (real report:
-      // "if i select the player first all [chips] moves"; after a chip
-      // pile has been dragged/saved once it correctly stays independent
-      // from then on, since applySeatStyles's !important override then
-      // wins over the game's own recompute). Pinning the chip pile's
-      // CURRENT on-screen spot as an explicit override right here --
-      // the instant a real seat drag begins, before the seat has actually
-      // moved at all this call -- means the override is already in place
-      // before the seat's own position (and the game's next re-render)
-      // ever changes, so the chip pile never visibly tags along, not even
-      // on the very first drag. Gated on crossedThreshold (not pointerdown)
-      // so a plain click-to-select never pins/edits anything either.
+      // Seat body-drag: freeze the parts that should stay put BEFORE the
+      // seat moves at all (gated on the real threshold, so a plain
+      // click-to-select never pins or edits anything).
+      if (def.type === 'css') pinActionGroup(doc, win, def);
       if (def.type === 'seat' && mode === 'move') {
-        const chipDef = layerByKey('chipPile' + def.slot);
-        const bucket = config[currentBp] || {};
-        if (chipDef && !bucket['chipPile' + def.slot]) {
-          const pinned = effectiveValue(doc, win, chipDef);
-          ensureBpBucket(currentBp)['chipPile' + def.slot] = {
-            left: pinned.left, top: pinned.top, width: pinned.width, height: pinned.height,
-          };
-          try { if (win.LayoutHoldem) win.LayoutHoldem.applySeatStyles(doc, win, config); } catch (e) {}
-          markLayerEdited('chipPile' + def.slot);
-        }
+        dragState.partStart = capturePartStart(doc, win, def);
+        if (!moveTogether) pinChipPile(doc, win, def.slot);
       }
     }
+    // px moved in the page -> design units (so a saved size means the same
+    // thing on every phone width).
+    const u = uNow();
+    const dxu = dx / u, dyu = dy / u;
     const cur = Object.assign({}, startVal);
 
     if (def.type === 'seat') {
       if (mode === 'resize') {
-        // Corner handle: resize just THIS seat's avatar. Stored
-        // separately from seat position (its own flat key, 'avatar'+slot)
-        // so moving a seat never touches its size and vice versa.
-        cur.width = Math.max(8, Math.round(startVal.width + dx));
-        cur.height = Math.max(8, Math.round(startVal.height + dy));
+        cur.width = Math.max(8, r1(startVal.width + dxu));
+        cur.height = Math.max(8, r1(startVal.height + dyu));
         ensureBpBucket(currentBp)['avatar' + def.slot] = { width: cur.width, height: cur.height };
       } else {
-        // Body drag: move just this seat (unchanged from before).
         cur.x = round2(startVal.x + (dx / tableRect.width) * 100);
         cur.y = round2(startVal.y + (dy / tableRect.height) * 100);
-        ensureSeatsBucket(currentBp)[def.slot] = { x: cur.x, y: cur.y };
+        setSeatPosition(doc, win, def, startVal, dragState.partStart, cur.x, cur.y);
       }
       try { if (win.LayoutHoldem) win.LayoutHoldem.forceRerender(); } catch (e) {}
     } else if (def.type === 'cards') {
-      // Dealt (hole) cards at another seat -- position AND size, same as
-      // an avatar, but stored as a plain pixel nudge (offsetX/offsetY)
-      // from the card-back's own default spot rather than a table-wide
-      // percentage: .seat-cards is positioned relative to its own small
-      // .seat box, not the whole table, so a table-relative percentage
-      // would compute a number that means something completely different
-      // once applied there (see referenceRectOf's comment for the same
-      // issue elsewhere). A margin nudge sidesteps that entirely and
-      // moves 1:1 with the finger/mouse regardless of table size.
+      // Dealt (hole) cards at another seat: a plain pixel nudge from the
+      // card-back's own default spot (it is positioned relative to its own
+      // small .seat box, not the whole table), plus size.
       if (mode === 'resize') {
-        cur.width = Math.max(8, Math.round(startVal.width + dx));
-        cur.height = Math.max(8, Math.round(startVal.height + dy));
+        cur.width = Math.max(8, r1(startVal.width + dxu));
+        cur.height = Math.max(8, r1(startVal.height + dyu));
+        patchSaved(def.key, { width: cur.width, height: cur.height });
       } else {
-        cur.offsetX = Math.round(startVal.offsetX + dx);
-        cur.offsetY = Math.round(startVal.offsetY + dy);
+        cur.offsetX = r1(startVal.offsetX + dxu);
+        cur.offsetY = r1(startVal.offsetY + dyu);
+        patchSaved(def.key, { offsetX: cur.offsetX, offsetY: cur.offsetY });
       }
-      ensureBpBucket(currentBp)[def.key] = cur;
       try { if (win.LayoutHoldem) win.LayoutHoldem.applySeatStyles(doc, win, config); } catch (e) {}
     } else {
-      const bucket = ensureBpBucket(currentBp);
+      let patch = null;
       if (def.dragKind === 'size') {
-        cur.width = Math.max(8, Math.round(startVal.width + dx));
-        cur.height = Math.max(8, Math.round(startVal.height + dy));
+        patch = { width: Math.max(8, r1(startVal.width + dxu)), height: Math.max(8, r1(startVal.height + dyu)) };
       } else if (def.dragKind === 'posPercent' || def.dragKind === 'bgPosPercent') {
-        // Same "drag distance as % of the table" math as posPercent --
-        // for bgPosPercent this nudges the background-position % instead
-        // of the element's own left/top (see effectiveValue below for
-        // the matching read side), but a 1:1 finger-distance feel is
-        // just as correct either way.
-        cur.left = round2(startVal.left + (dx / tableRect.width) * 100);
-        cur.top = round2(startVal.top + (dy / tableRect.height) * 100);
+        patch = { left: round2(startVal.left + (dx / tableRect.width) * 100), top: round2(startVal.top + (dy / tableRect.height) * 100) };
       } else if (def.dragKind === 'posPercent+sizePx') {
         if (mode === 'move') {
-          cur.left = round2(startVal.left + (dx / tableRect.width) * 100);
-          cur.top = round2(startVal.top + (dy / tableRect.height) * 100);
+          patch = { left: round2(startVal.left + (dx / tableRect.width) * 100), top: round2(startVal.top + (dy / tableRect.height) * 100) };
         } else {
-          cur.width = Math.max(8, Math.round(startVal.width + dx));
-          cur.height = Math.max(8, Math.round(startVal.height + dy));
+          patch = { width: Math.max(8, r1(startVal.width + dxu)), height: Math.max(8, r1(startVal.height + dyu)) };
         }
       } else if (def.dragKind === 'fontSize') {
-        // The chip-count number: body-drag moves it (a plain px nudge,
-        // same technique as dealt cards -- see the note there), the
-        // corner handle resizes it (bigger/smaller text, via font-size).
-        if (mode === 'move') {
-          cur.offsetX = Math.round(startVal.offsetX + dx);
-          cur.offsetY = Math.round(startVal.offsetY + dy);
-        } else {
-          cur.fontSize = Math.max(6, Math.round(startVal.fontSize + dy));
-        }
+        if (mode === 'move') patch = { offsetX: r1(startVal.offsetX + dxu), offsetY: r1(startVal.offsetY + dyu) };
+        else patch = { fontSize: Math.max(6, r1(startVal.fontSize + dyu)) };
       }
-      bucket[def.key] = cur;
+      if (patch) patchSaved(def.key, patch);
       if (def.type === 'css') {
         try { LH.applyCSSConfig(doc, config); } catch (e) {}
       } else {
-        // Per-seat chip pile / dealt-card overrides aren't CSS-selector
+        // Per-seat chip pile / chip-count overrides aren't CSS-selector
         // based (see layout-engine-holdem.js) -- re-apply directly.
         try { if (win.LayoutHoldem) win.LayoutHoldem.applySeatStyles(doc, win, config); } catch (e) {}
       }
@@ -1112,7 +1281,7 @@
       let width = 46, height = 46;
       const avatarEl = target && target.querySelector('.seat-avatar-wrap');
       if (savedSize) { width = savedSize.width; height = savedSize.height; }
-      else if (avatarEl) { const r = avatarEl.getBoundingClientRect(); width = Math.round(r.width); height = Math.round(r.height); }
+      else if (avatarEl) { const r = avatarEl.getBoundingClientRect(); const u = uNow(); width = r1(r.width / u); height = r1(r.height / u); }
       return { x, y, width, height };
     }
     // Real, confirmed feature per the chip-colors request: no live DOM
@@ -1132,13 +1301,12 @@
       const target = targetFor(doc, win, def);
       let offsetX = 0, offsetY = 0, width = 40, height = 57;
       if (target) {
-        offsetX = Math.round(parseFloat(win.getComputedStyle(target).marginLeft)) || 0;
-        offsetY = Math.round(parseFloat(win.getComputedStyle(target).marginTop)) || 0;
+        { const u = uNow(); const tr = readTranslate(win, target); offsetX = r1(tr[0] / u); offsetY = r1(tr[1] / u); }
         // Measure the actual mini card, not the two-card container (which
         // includes both cards plus the gap between them) -- otherwise the
         // inspector would show roughly double the real per-card size.
         const cm = target.querySelector('.card.mini');
-        if (cm) { const r = cm.getBoundingClientRect(); width = Math.round(r.width); height = Math.round(r.height); }
+        if (cm) { const r = cm.getBoundingClientRect(); const u = uNow(); width = r1(r.width / u); height = r1(r.height / u); }
       }
       return Object.assign({ offsetX, offsetY, width, height }, saved || {});
     }
@@ -1148,11 +1316,12 @@
     if (target) {
       const rect = target.getBoundingClientRect();
       const tableRect = referenceRectOf(doc, def);
+      const U = uNow();
       if (def.dragKind === 'size') {
-        live = { width: Math.round(rect.width), height: Math.round(rect.height) };
+        live = { width: r1(rect.width / U), height: r1(rect.height / U) };
       } else if (def.dragKind === 'posPercent') {
-        const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
-        live = { left: round2(((cx - tableRect.left) / tableRect.width) * 100), top: round2(((cy - tableRect.top) / tableRect.height) * 100) };
+        const an = anchorOf(win, target, rect, def);
+        live = { left: round2(((an.x - tableRect.left) / tableRect.width) * 100), top: round2(((an.y - tableRect.top) / tableRect.height) * 100) };
       } else if (def.dragKind === 'bgPosPercent') {
         // .table-wrap's own box is always the full screen -- there's no
         // meaningful "where is this element" to measure via its rect, so
@@ -1168,7 +1337,7 @@
         const parsePct = (raw) => { const n = parseFloat(raw); return isNaN(n) ? 50 : n; };
         live = { left: parsePct(cs.backgroundPositionX), top: parsePct(cs.backgroundPositionY) };
       } else if (def.dragKind === 'posPercent+sizePx') {
-        const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+        const an = anchorOf(win, target, rect, def);
         // Community Cards / Your Hand: position is measured off the
         // container (`rect`, above), but size needs to come from an
         // actual card inside it (`sizeSelector`) -- the container's own
@@ -1180,14 +1349,15 @@
           if (sizeTarget) sizeRect = sizeTarget.getBoundingClientRect();
         }
         live = {
-          left: round2(((cx - tableRect.left) / tableRect.width) * 100), top: round2(((cy - tableRect.top) / tableRect.height) * 100),
-          width: Math.round(sizeRect.width), height: Math.round(sizeRect.height),
+          left: round2(((an.x - tableRect.left) / tableRect.width) * 100), top: round2(((an.y - tableRect.top) / tableRect.height) * 100),
+          width: r1(sizeRect.width / U), height: r1(sizeRect.height / U),
         };
       } else if (def.dragKind === 'fontSize') {
+        const trl = readTranslate(win, target);
         live = {
-          offsetX: Math.round(parseFloat(win.getComputedStyle(target).marginLeft)) || 0,
-          offsetY: Math.round(parseFloat(win.getComputedStyle(target).marginTop)) || 0,
-          fontSize: Math.round(parseFloat(win.getComputedStyle(target).fontSize)) || 10,
+          offsetX: r1(trl[0] / U),
+          offsetY: r1(trl[1] / U),
+          fontSize: r1((parseFloat(win.getComputedStyle(target).fontSize) || 10 * U) / U),
         };
       } else if (def.dragKind === 'fontSizeRotate') {
         // Same measurement as fontSize above, plus rotate -- deliberately
@@ -1196,9 +1366,9 @@
         // back out reliably isn't worth it here) -- 0 unless already
         // saved, same fallback shape as every other field on this type.
         live = {
-          offsetX: Math.round(parseFloat(win.getComputedStyle(target).marginLeft)) || 0,
-          offsetY: Math.round(parseFloat(win.getComputedStyle(target).marginTop)) || 0,
-          fontSize: Math.round(parseFloat(win.getComputedStyle(target).fontSize)) || 10,
+          offsetX: r1((parseFloat(win.getComputedStyle(target).marginLeft) || 0) / U),
+          offsetY: r1((parseFloat(win.getComputedStyle(target).marginTop) || 0) / U),
+          fontSize: r1((parseFloat(win.getComputedStyle(target).fontSize) || 10 * U) / U),
           rotate: 0,
         };
       } else if (def.dragKind === 'cardStyle') {
@@ -1206,7 +1376,7 @@
         live = {
           bgColor: rgbToHex(cs.backgroundColor) || '#fff8e7',
           borderColor: rgbToHex(cs.borderColor) || '#000000',
-          borderWidth: Math.round(parseFloat(cs.borderWidth)) || 0,
+          borderWidth: r1((parseFloat(cs.borderWidth) || 0) / U),
           shadowDepth: 2,
         };
       } else if (def.dragKind === 'suitTextColor') {
@@ -1366,6 +1536,73 @@
     return Object.assign({}, bucket[def.key] || {});
   }
 
+  // Which parts of an element have something SAVED that can be reset.
+  const POS_FIELDS = ['left', 'top', 'offsetX', 'offsetY'];
+  const SIZE_FIELDS = ['width', 'height', 'fontSize'];
+  function resetGroupsFor(def) {
+    const b = config[currentBp] || {};
+    if (def.type === 'seat') {
+      return { pos: !!(b.seats && b.seats[def.slot]), size: !!b['avatar' + def.slot] };
+    }
+    if (def.type === 'chipTier') return { pos: false, size: false };
+    const sv = b[def.key];
+    if (!sv) return { pos: false, size: false };
+    return { pos: POS_FIELDS.some((f) => sv[f] !== undefined), size: SIZE_FIELDS.some((f) => sv[f] !== undefined) };
+  }
+  function resetGroup(def, which) {
+    pushUndoSnapshot();
+    const b = ensureBpBucket(currentBp);
+    let d0, w0;
+    try { d0 = frame.contentDocument; w0 = frame.contentWindow; } catch (e) { d0 = null; w0 = null; }
+    if (def.type === 'seat') {
+      if (which === 'pos') {
+        // Send the seat back to the game's own spot using the SAME rule as a
+        // drag (parts stay put unless "move together" is on), so its dealt
+        // cards / chip count end up exactly where they visibly were, then
+        // drop the now-redundant saved numbers.
+        let base = null;
+        try { const fn = w0 && w0.__layoutHoldemOriginalSeatPositions; if (fn) base = fn()[def.slot]; } catch (e) {}
+        if (d0 && base && b.seats && b.seats[def.slot]) {
+          const startVal = effectiveValue(d0, w0, def);
+          const partStart = capturePartStart(d0, w0, def);
+          setSeatPosition(d0, w0, def, startVal, partStart, base.x, base.y);
+          ['cards', 'chipLabel'].forEach((k) => {
+            const e = b[k + def.slot];
+            if (!e) return;
+            ['offsetX', 'offsetY'].forEach((f) => { if (e[f] !== undefined && Math.abs(e[f]) < 0.06) delete e[f]; });
+            if (!Object.keys(e).length) delete b[k + def.slot];
+          });
+        }
+        if (b.seats) delete b.seats[def.slot];
+        // The chip pile was pinned when the seat first moved; if it now sits
+        // exactly where the game would put it anyway, drop the pin too.
+        const pin = b['chipPile' + def.slot];
+        if (pin && pin.left !== undefined && Object.keys(pin).every((k) => k === 'left' || k === 'top') && d0 && w0) {
+          const saved = Object.assign({}, pin);
+          delete b['chipPile' + def.slot];
+          try { w0.LayoutHoldem.applySeatStyles(d0, w0, config); w0.LayoutHoldem.forceRerender(); } catch (e) {}
+          const cd = layerByKey('chipPile' + def.slot);
+          const now = cd ? effectiveValue(d0, w0, cd) : null;
+          if (!now || Math.abs(now.left - saved.left) > 0.3 || Math.abs(now.top - saved.top) > 0.3) b['chipPile' + def.slot] = saved;
+        }
+      } else delete b['avatar' + def.slot];
+    } else if (b[def.key]) {
+      const fields = which === 'pos' ? POS_FIELDS : SIZE_FIELDS;
+      fields.forEach((f) => { delete b[def.key][f]; });
+      if (!Object.keys(b[def.key]).length) delete b[def.key];
+    }
+    let d, w;
+    try { d = frame.contentDocument; w = frame.contentWindow; } catch (e) { d = null; w = null; }
+    if (d) {
+      try { LH.applyCSSConfig(d, config); } catch (e) {}
+      try { if (w && w.LayoutHoldem) w.LayoutHoldem.applySeatStyles(d, w, config); } catch (e) {}
+      try { if (w && w.LayoutHoldem) w.LayoutHoldem.forceRerender(); } catch (e) {}
+    }
+    repositionOverlays();
+    renderLayers();
+    renderInspector();
+  }
+
   let suppressUndoSnapshot = false;
   function renderInspector() {
     if (!selectedKey) { inspectorEl.innerHTML = '<div class="ed-inspector-empty">Join or host a table inside the frame and start a hand so the real seats are on screen, turn on Edit Table, then click an element (or pick one from Layers) to adjust it here.</div>'; return; }
@@ -1388,11 +1625,28 @@
       }
     });
     if (def.type === 'seat') {
+      html += '<div class="ed-field-row ed-check-row"><label>Move seat parts together</label><input type="checkbox" data-together="1"' + (moveTogether ? ' checked' : '') + ' title="Off: dealt cards, chip count and chips stay put when you move the avatar. On: they travel with it."></div>';
+    }
+    {
+      const rg = resetGroupsFor(def);
+      if (rg.pos) html += '<div class="ed-field-row ed-reset-row"><button type="button" class="ed-btn ed-mini" data-reset="pos" title="Forget the saved position and go back to the game\'s own">↺ Position</button></div>';
+      if (rg.size) html += '<div class="ed-field-row ed-reset-row"><button type="button" class="ed-btn ed-mini" data-reset="size" title="Forget the saved size and go back to the game\'s own">↺ Size</button></div>';
+    }
+    if (def.type === 'seat') {
       const ov = (config[currentBp] && config[currentBp]['avatarOverlap' + def.slot]) || {};
       html += '<div class="ed-field-row ed-check-row"><label>Overlap top avatar</label><input type="checkbox" data-overlap="top"' + (ov.top ? ' checked' : '') + '></div>';
       html += '<div class="ed-field-row ed-check-row"><label>Overlap bottom avatar</label><input type="checkbox" data-overlap="bottom"' + (ov.bottom ? ' checked' : '') + '></div>';
     }
     inspectorEl.innerHTML = html;
+    inspectorEl.querySelectorAll('input[data-together]').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        moveTogether = cb.checked;
+        try { localStorage.setItem('ledHoldemMoveTogether', moveTogether ? '1' : '0'); } catch (e) {}
+      });
+    });
+    inspectorEl.querySelectorAll('button[data-reset]').forEach((btn) => {
+      btn.addEventListener('click', () => resetGroup(def, btn.dataset.reset));
+    });
     inspectorEl.querySelectorAll('input[data-overlap]').forEach((cb) => {
       cb.addEventListener('change', () => {
         pushUndoSnapshot();
@@ -1410,29 +1664,27 @@
         if (!suppressUndoSnapshot) pushUndoSnapshot();
         let d, w;
         try { d = frame.contentDocument; w = frame.contentWindow; } catch (e) { d = null; w = null; }
+        const field = input.dataset.field;
+        const value = input.dataset.color ? input.value : (Number(input.value) || 0);
+        if (d && def.type === 'css') pinActionGroup(d, w, def);
         const cur = Object.assign({}, d ? effectiveValue(d, w, def) : savedValueFor(def));
-        // Color fields keep their raw string value (a hex code) --
-        // Number('#ff0000') is NaN, which the old `|| 0` fallback would
-        // have silently turned into the number 0 instead of a color.
-        cur[input.dataset.field] = input.dataset.color ? input.value : (Number(input.value) || 0);
         if (def.type === 'seat') {
-          const field = input.dataset.field;
           if (field === 'x' || field === 'y') {
-            ensureSeatsBucket(currentBp)[def.slot] = { x: cur.x, y: cur.y };
+            const startVal = Object.assign({}, cur);
+            const partStart = d ? capturePartStart(d, w, def) : null;
+            if (d && !moveTogether) pinChipPile(d, w, def.slot);
+            cur[field] = value;
+            setSeatPosition(d, w, def, startVal, partStart, cur.x, cur.y);
           } else {
+            cur[field] = value;
             ensureBpBucket(currentBp)['avatar' + def.slot] = { width: cur.width, height: cur.height };
           }
           try { if (w && w.LayoutHoldem) w.LayoutHoldem.forceRerender(); } catch (e) {}
         } else if (def.type === 'chipTier') {
-          // Real, confirmed feature per the same request ("chips depth
-          // tilt design"): chip colors aren't plain CSS (see CHIP_TIERS
-          // in layout-engine-holdem.js) -- applyChipTierColors mutates
-          // the live page's own CHIP_COLOR_STOPS array directly instead
-          // of going through applyCSSConfig/applySeatStyles.
-          ensureBpBucket(currentBp)[def.key] = cur;
+          patchSaved(def.key, { [field]: value });
           if (w) { try { if (w.LayoutHoldem) w.LayoutHoldem.applyChipTierColors(w, config); } catch (e) {} }
         } else {
-          ensureBpBucket(currentBp)[def.key] = cur;
+          patchSaved(def.key, { [field]: value });
           if (d) {
             if (def.type === 'css') { try { LH.applyCSSConfig(d, config); } catch (e) {} }
             else { try { if (w && w.LayoutHoldem) w.LayoutHoldem.applySeatStyles(d, w, config); } catch (e) {} }

@@ -12,7 +12,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>28 Gulan Hold'em — Visual Layout Editor</title>
 <link rel="stylesheet" href="layout-editor.css?v=11">
-<link rel="stylesheet" href="layout-editor-holdem.css?v=9">
+<link rel="stylesheet" href="layout-editor-holdem.css?v=11">
 </head>
 <body>
 <div id="edRoot">
@@ -23,8 +23,9 @@
          horizontal bars", "a kid keyed out"). Still bumped on every
          delivered fix so a stale cached copy is still detectable, just
          without demanding the whole top of the screen to do it. -->
-    <span id="edBuildTag" title="Build version">v27</span>
+    <span id="edBuildTag" title="Build version">v29</span>
     <select id="edBreakpointSelect"></select>
+    <select id="edDeviceSelect" title="Which screen size to preview and design for"></select>
     <button class="ed-btn" id="edBtnEditToggle">✏️ Edit Table</button>
     <div class="ed-dropdown-wrap">
       <button class="ed-btn" id="edBtnLayersToggle" type="button">🗂️ Layers</button>
@@ -85,7 +86,7 @@
      number on every future delivery -- a new URL can never return a stale
      cached response, so this makes "the fix didn't show up" impossible for
      these files regardless of any cache configuration upstream. -->
-<script src="layout-engine-holdem.js?v=21"></script>
-<script src="layout-editor-holdem.js?v=24"></script>
+<script src="layout-engine-holdem.js?v=23"></script>
+<script src="layout-editor-holdem.js?v=26"></script>
 </body>
 </html>

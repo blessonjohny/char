@@ -58,6 +58,7 @@
 #edBuildTag{font-size:0.6rem;color:var(--ed-text-dim);font-weight:600;margin-right:4px;opacity:0.7;white-space:nowrap}
 #edTopbar .ed-btn,
 #edTopbar #edBreakpointSelect,
+#edTopbar #edDeviceSelect,
 #edTopbar .ed-zoom-group{height:36px;box-sizing:border-box}
 #edTopbar .ed-btn{display:inline-flex;align-items:center;justify-content:center;padding:0 12px;font-size:0.78rem;border-radius:7px;white-space:nowrap}
 #edTopbar #edBreakpointSelect{flex:0 0 auto;width:auto;max-width:140px;border-radius:7px}
@@ -129,3 +130,16 @@
   #edPropsBar .ed-field-row input[type=number]::-webkit-inner-spin-button,
   #edPropsBar .ed-field-row input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 }
+
+/* Device preview dropdown + inspector reset buttons */
+#edDeviceSelect{background:#243040;color:var(--ed-text);border:1px solid var(--ed-border);border-radius:7px;padding:6px 10px;font-size:0.8rem;flex:0 0 auto;width:auto;max-width:200px}
+.ed-btn.ed-mini{padding:4px 9px;font-size:0.7rem}
+.ed-field-row.ed-reset-row{flex:none}
+
+/* The preview frame used to have a 2px BORDER (layout-editor.css) that sat
+   inside its box-sizing:border-box size -- so the game inside saw a screen
+   4px narrower and shorter than the size shown (426x856 instead of 430x860),
+   and every preview differed slightly from a real phone. The edge is now a
+   box-shadow, which takes no room: the game sees EXACTLY the chosen size. */
+#edFrame{border:0;box-shadow:0 0 0 2px var(--ed-border)}
+#edFrame.editing{border:0;box-shadow:0 0 0 2px var(--ed-accent)}
