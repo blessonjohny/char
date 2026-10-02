@@ -2370,7 +2370,19 @@ class GameEngine6P {
       // even when the bot DOES hold a Jack it should lead instead,
       // exactly the case this whole rule is meant to only apply once
       // that's no longer true.
-      if (this.trumpExposed && !isBidder && getTeam(this.bidder) === myTeam) {
+      // Real, confirmed follow-up per explicit live report ("that
+      // feeding should only happen once... one round is gone for trump
+      // cards"): reuses the existing suitLeadCount tracker (already
+      // incremented the instant ANY suit, trump included, gets led --
+      // see the two increment sites in playCard/playHiddenTrump, and
+      // the identical suitRepeat pattern just below in this same
+      // function for an ordinary suit) rather than adding separate new
+      // state just for this one case. Once trump has been led even
+      // once this round, this "lead trump toward my partner" branch is
+      // skipped for the rest of the round -- falls through to the
+      // normal per-suit scoring loop below, which treats trump as just
+      // another ordinary suit candidate from then on.
+      if (this.trumpExposed && !isBidder && getTeam(this.bidder) === myTeam && this.suitLeadCount[this.trumpSuit] === 0) {
         const holdsLeadableJack = SUITS.some(s => bySuit[s].some(c => c.rank === 'J') && (s !== this.trumpSuit || this.trumpExposed));
         if (!holdsLeadableJack) {
           // Real, confirmed bug fix per explicit live report: this used
@@ -2459,20 +2471,32 @@ class GameEngine6P {
         // bonus to a non-bidder partner pre-exposure would have the bot
         // acting on information it has no legitimate way to know.
         let partnerVoidBonus = 0;
-        for (let p = 0; p < SEATS; p++) {
-          if (p === pos || getTeam(p) !== myTeam) continue;
-          if (this.voidSuits[p].has(s) && (this.trumpExposed || p === this.hiddenTrumpOwner)) {
-            // Per explicit follow-up request (same enhancement applied
-            // to the 4-player table's identical bonus): scaled up
-            // further the more suits this partner has already proven
-            // void in overall -- one void suit could still mean a
-            // healthy hand everywhere else, but a partner void in two
-            // or three suits already is genuinely running low on
-            // options and heading toward being stuck with little but
-            // trump left, worth actively routing the lead toward.
-            const partnerVoidSuitCount = SUITS.filter(vs => this.voidSuits[p].has(vs)).length;
-            partnerVoidBonus = 18 + Math.max(0, partnerVoidSuitCount - 1) * 12;
-            break;
+        // Real, confirmed follow-up per the same explicit live report
+        // ("one round is gone for trump cards"): same suitLeadCount
+        // reuse as the lead-trump branch above -- this general "lead
+        // toward a void partner" tactic applies to every suit including
+        // trump once exposed, and without this guard would keep
+        // rewarding leading trump toward a void partner for the rest of
+        // the round. Scoped to trump only (s === this.trumpSuit); the
+        // same bonus for an ordinary non-trump suit is unrelated to
+        // trump-feeding and stays exactly as it was.
+        const trumpAlreadyLed = s === this.trumpSuit && this.suitLeadCount[this.trumpSuit] > 0;
+        if (!trumpAlreadyLed) {
+          for (let p = 0; p < SEATS; p++) {
+            if (p === pos || getTeam(p) !== myTeam) continue;
+            if (this.voidSuits[p].has(s) && (this.trumpExposed || p === this.hiddenTrumpOwner)) {
+              // Per explicit follow-up request (same enhancement applied
+              // to the 4-player table's identical bonus): scaled up
+              // further the more suits this partner has already proven
+              // void in overall -- one void suit could still mean a
+              // healthy hand everywhere else, but a partner void in two
+              // or three suits already is genuinely running low on
+              // options and heading toward being stuck with little but
+              // trump left, worth actively routing the lead toward.
+              const partnerVoidSuitCount = SUITS.filter(vs => this.voidSuits[p].has(vs)).length;
+              partnerVoidBonus = 18 + Math.max(0, partnerVoidSuitCount - 1) * 12;
+              break;
+            }
           }
         }
         let sc = -voidOpponentPenalty + partnerVoidBonus;
