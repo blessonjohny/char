@@ -2247,6 +2247,28 @@ class GameEngine {
     // Connected human seats just wait for a client message; nothing to do here.
   }
 
+  // Brain used for card decisions at a seat. A real player who switches on
+  // "Bot Mode" is played by the SAME card logic the bots use, but through a
+  // neutral stock brain -- so a person's name never gets a bot-brain entry
+  // created for it (learning only ever runs for isBot seats anyway).
+  _brainNameFor(pos) {
+    return this._assistActive ? '__assist__' : this.seats[pos].name;
+  }
+
+  // "Bot Mode" button: play THIS seat's current turn with the real bot AI --
+  // follows suit, cuts with trump, protects the Jack, plays for the bid
+  // target -- instead of the old client-side "lowest legal card", which
+  // never called trump. Only valid on the seat's own play turn.
+  botAssistPlay(pos) {
+    const seat = this.seats[pos];
+    if (!seat) return { ok: false, reason: 'no seat' };
+    if (this.phase !== 'play' || this.currentPlayer !== pos) return { ok: false, reason: 'not your turn' };
+    if (this.pendingEarlyWinChoice || this.pendingMidTrickQuote) return { ok: false, reason: 'a prompt is waiting' };
+    this._assistActive = true;
+    try { this._botAct(pos); } finally { this._assistActive = false; }
+    return { ok: true };
+  }
+
   _botAct(pos) {
     try {
       this._botActInner(pos);
@@ -2522,7 +2544,7 @@ class GameEngine {
       if (!raised) this.passPhase2(pos);
     } else if (this.phase === 'play' && this.currentPlayer === pos) {
       // Faithful port of the reference's botPlayWithBrain + chooseBotCardBase.
-      const b = brain.getBrain(this.seats[pos].name);
+      const b = brain.getBrain(this._brainNameFor(pos));
       const hand = this.seats[pos].hand;
       if (hand.length === 0 && this.hiddenTrump && pos === this.hiddenTrumpOwner) {
         this.playHiddenTrump(pos);
@@ -2851,7 +2873,7 @@ class GameEngine {
   // Faithful port of the reference's chooseBotCardBase — the actual card-
   // selection strategy (leading, following suit, trumping in, discarding).
   _chooseBotCardBase(pos, hand, myTeam, bidTeam, isBT, isLast, cw, wt, cwc, tPts) {
-    const b = brain.getBrain(this.seats[pos].name);
+    const b = brain.getBrain(this._brainNameFor(pos));
     const isBidder = pos === this.bidder;
     // Bid-target awareness: teamPoints was already tracked live (updated
     // after every trick) but never actually READ by any decision here --

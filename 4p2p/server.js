@@ -57,6 +57,27 @@ const brain = require('./bot-brain');
 const leaderboard = require('./leaderboard');
 const challengeLeaderboard = require('./challenge-leaderboard');
 const l56Engine = require('./l56-engine');
+
+// ---------------------------------------------------------------------------
+// Player-name profanity filter. ONE shared file (public/name-filter.js) is
+// used by every game page (to stop a bad name before it is sent) AND here
+// (the real enforcement -- a modified page can skip its own check, never
+// this one). Applies to every game that takes a name: 28/4-player, 6-player,
+// 56, Hold'em, Spades, Carrom, Pool and voice chat.
+//   - creating a table / joining as a NEW player with a blocked name:
+//     rejected, the client gets 'nameRejected' and nothing is created/joined;
+//   - RECONNECTING (existing playerId) with an old saved blocked name: the
+//     reconnect still works, the bad name is simply ignored (the seat keeps
+//     its current name) so nobody gets locked out of a game in progress.
+// ---------------------------------------------------------------------------
+const NameFilter = require('./public/name-filter.js');
+function vetName(socket, name, existingPlayerId, ack) {
+  if (name == null || name === '' || !NameFilter.isBad(name)) return { block: false, name };
+  if (existingPlayerId) return { block: false, name: undefined };
+  try { socket.emit('nameRejected', { message: NameFilter.MESSAGE }); } catch (e) {}
+  if (typeof ack === 'function') { try { ack({ ok: false, error: 'name_not_allowed', message: NameFilter.MESSAGE }); } catch (e) {} }
+  return { block: true, name };
+}
 const geoip = require('geoip-lite');
 
 // ============================================================
@@ -2766,6 +2787,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('createTable', ({ name, avatar, challengeHandicap }) => {
+    { const _nv = vetName(socket, name, undefined); if (_nv.block) return; name = _nv.name; }
     if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
       socket.emit('createBlocked', { maxRooms: roomCapMax });
       return;
@@ -2808,6 +2830,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('joinTable', ({ tableId: reqTableId, name, playerId: existingPlayerId, code, avatar }) => {
+    { const _nv = vetName(socket, name, existingPlayerId); if (_nv.block) return; name = _nv.name; }
     // Reconnect path: known token pointing at a real, still-existing seat.
     if (existingPlayerId && playerIndex[existingPlayerId]) {
       const idx = playerIndex[existingPlayerId];
@@ -3203,6 +3226,16 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Bot Mode (4-player): the seat's own player asked the real bot AI to
+  // make this turn's move for them (follow suit / cut with trump / etc.).
+  socket.on('botAssistPlay', () => {
+    withTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.botAssistPlay(pos);
+      if (!r.ok) socket.emit('actionError', r);
+    });
+  });
+
   // Purely social, no gameplay effect at all -- one player tapping
   // another's avatar to send a friendly greeting. Broadcast to the
   // whole table rather than targeting just the one recipient socket;
@@ -3499,6 +3532,7 @@ io.on('connection', (socket) => {
   socket.on('changeBotName', ({ pos, newName }) => {
     withTable((t) => {
       if (!isEffectiveHost(t, playerId)) return;
+      if (NameFilter.isBad(newName)) { socket.emit('nameRejected', { message: NameFilter.MESSAGE }); return; }
       const result = t.engine.renameBotSeat(pos, newName);
       if (!result.ok) socket.emit('actionError', result);
       else console.log(`[table ${tableId}] host renamed bot at seat ${pos} to ${newName}`);
@@ -3749,6 +3783,7 @@ function voiceRoomOf(socket) {
 
 io.on('connection', (socket) => {
   socket.on('voiceJoin', ({ name }) => {
+    if (name && NameFilter.isBad(name)) name = 'Player';
     const room = voiceRoomOf(socket);
     if (!room) return;
     let peers = voiceRooms.get(room);
@@ -3927,6 +3962,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('sixp_createTable', ({ name, avatar, challengeHandicap, preview }) => {
+    { const _nv = vetName(socket, name, undefined); if (_nv.block) return; name = _nv.name; }
     if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
       socket.emit('createBlocked', { maxRooms: roomCapMax });
       return;
@@ -3973,6 +4009,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('sixp_joinTable', ({ tableId: reqTableId, name, playerId: existingPlayerId, avatar }) => {
+    { const _nv = vetName(socket, name, existingPlayerId); if (_nv.block) return; name = _nv.name; }
     if (existingPlayerId && sixpPlayerIndex[existingPlayerId]) {
       const idx = sixpPlayerIndex[existingPlayerId];
       const t = sixpTables[idx.tableId];
@@ -4303,6 +4340,16 @@ io.on('connection', (socket) => {
     withSixpTable((t, pos) => { t.engine.playHiddenTrump(pos); sixpTouch(t); });
   });
 
+  // Bot Mode (6-player): same as the 4-player event above.
+  socket.on('sixp_botAssistPlay', () => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return;
+      const r = t.engine.botAssistPlay(pos);
+      if (!r.ok) socket.emit('sixp_actionError', { reason: r.reason });
+      sixpTouch(t);
+    });
+  });
+
   // "Already won" early-round-end: whoever's on the winning team answers
   // for their whole team (either teammate can respond). continuePlay=true
   // keeps playing normally; false ends the round right now using the
@@ -4620,6 +4667,7 @@ io.on('connection', (socket) => {
   socket.on('sixp_changeBotName', ({ pos, newName }) => {
     withSixpTable((t) => {
       if (!isEffectiveHost(t, sixpPlayerId)) return;
+      if (NameFilter.isBad(newName)) { socket.emit('nameRejected', { message: NameFilter.MESSAGE }); return; }
       const result = t.engine.renameBotSeat(pos, newName);
       if (!result.ok) { socket.emit('sixp_actionError', result); return; }
       sixpTouch(t);
@@ -5420,6 +5468,7 @@ io.on('connection', (socket) => {
   socket.on('l56_listRooms', () => { socket.emit('l56_roomList', l56PublicList()); });
 
   socket.on('l56_createTable', ({ name }) => {
+    { const _nv = vetName(socket, name, undefined); if (_nv.block) return; name = _nv.name; }
     if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
       socket.emit('createBlocked', { maxRooms: roomCapMax });
       return;
@@ -5443,6 +5492,7 @@ io.on('connection', (socket) => {
 
   // Reconnect path: a known token pointing at a seat that's still there.
   socket.on('l56_reconnect', ({ code, playerId, name }) => {
+    { const _nv = vetName(socket, name, playerId); if (_nv.block) return; name = _nv.name; }
     const r = l56Rooms[code];
     if (!r || !r.state) { socket.emit('l56_reconnectFailed'); return; }
     const pos = (r.state.seats || []).findIndex(s => s && s.playerId === playerId);
@@ -5472,6 +5522,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('l56_requestJoin', ({ code, name }) => {
+    { const _nv = vetName(socket, name, undefined); if (_nv.block) return; name = _nv.name; }
     const r = l56Rooms[code];
     if (!r) { socket.emit('l56_joinDenied', { reason: 'not_found' }); return; }
     const seats = (r.state && r.state.seats) || [];
@@ -5541,6 +5592,7 @@ io.on('connection', (socket) => {
   // actual seat assignment in the shared state blob is written by the
   // client itself via the existing saveState(), same as it always was.
   socket.on('l56_claimSeat', ({ code, pos, playerId, name }) => {
+    { const _nv = vetName(socket, name, playerId); if (_nv.block) return; name = _nv.name; }
     const r = l56Rooms[code];
     if (!r) return;
     r.sockets.set(socket.id, { playerId, pos, name });
@@ -6038,6 +6090,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('carrom_createTable', ({ name, playerCount }) => {
+    { const _nv = vetName(socket, name, undefined); if (_nv.block) return; name = _nv.name; }
     const pc = playerCount === 4 ? 4 : 2;
     const id = 'C' + crypto.randomBytes(4).toString('hex').toUpperCase();
     const playerId = crypto.randomBytes(8).toString('hex');
@@ -6056,6 +6109,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('carrom_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
+    { const _nv = vetName(socket, name, existingPlayerId); if (_nv.block) return; name = _nv.name; }
     // Reconnect via saved token first.
     if (existingPlayerId && carromPlayerIndex[existingPlayerId]) {
       const idx = carromPlayerIndex[existingPlayerId];
@@ -6278,6 +6332,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('pool_createTable', ({ name }, ack) => {
+    { const _nv = vetName(socket, name, undefined, ack); if (_nv.block) return; name = _nv.name; }
     const id = poolNewTableId();
     const playerId = crypto.randomBytes(8).toString('hex');
     const t = {
@@ -6324,6 +6379,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('pool_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
+    { const _nv = vetName(socket, name, existingPlayerId); if (_nv.block) return; name = _nv.name; }
     // Reconnect via saved token first, same pattern as Carrom.
     if (existingPlayerId && poolPlayerIndex[existingPlayerId]) {
       const idx = poolPlayerIndex[existingPlayerId];
@@ -6956,6 +7012,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('poker_createTable', ({ name, mode, buyInType, smallBlind, bigBlind, startingChips, reloadChips, avatar, preview }) => {
+    { const _nv = vetName(socket, name, undefined); if (_nv.block) return; name = _nv.name; }
     const tableId = newPokerTableId();
     const engine = new PokerEngine(tableId, {
       mode: mode === 'tournament' ? 'tournament' : 'cash',
@@ -7038,6 +7095,7 @@ io.on('connection', (socket) => {
   }
 
   socket.on('poker_joinTable', ({ tableId, name, playerId: existingPlayerId, pos: requestedPos, avatar }) => {
+    { const _nv = vetName(socket, name, existingPlayerId); if (_nv.block) return; name = _nv.name; }
     const t = pokerTables[tableId];
     if (!t) { socket.emit('poker_joinFailed', { reason: 'not_found' }); return; }
     // A hidden (Layout Editor preview) table only ever lets its own
@@ -7745,6 +7803,7 @@ io.on('connection', (socket) => {
   socket.on('spades_ping', () => socket.emit('spades_pong'));
 
   socket.on('spades_createTable', ({ name }, ack) => {
+    { const _nv = vetName(socket, name, undefined, ack); if (_nv.block) return; name = _nv.name; }
     const id = newSpadesTableId();
     const engine = new SpadesEngine(id);
     spadesPlayerId = crypto.randomBytes(8).toString('hex');
@@ -7763,6 +7822,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('spades_joinTable', ({ tableId, name, playerId: existingPlayerId }) => {
+    { const _nv = vetName(socket, name, existingPlayerId); if (_nv.block) return; name = _nv.name; }
     // Reconnect via saved token first, same pattern as every other game.
     if (existingPlayerId && spadesPlayerIndex[existingPlayerId]) {
       const idx = spadesPlayerIndex[existingPlayerId];

@@ -1798,6 +1798,20 @@ class GameEngine6P {
     }
   }
 
+  // "Bot Mode" button: play THIS seat's current turn with the real bot AI
+  // (follows suit, cuts with trump when worth it, protects the Jack, counts
+  // cards) instead of the old client-side "lowest legal card", which never
+  // called trump. Only valid on the seat's own play turn. The play-phase
+  // logic reads no bot "brain", so nothing is created for a person's name.
+  botAssistPlay(pos) {
+    const seat = this.seats[pos];
+    if (!seat) return { ok: false, reason: 'no seat' };
+    if (this.phase !== 'play' || this.currentPlayer !== pos) return { ok: false, reason: 'not your turn' };
+    if (this.pendingEarlyWinChoice || this.pendingMidTrickQuote) return { ok: false, reason: 'a prompt is waiting' };
+    this._botAct(pos);
+    return { ok: true };
+  }
+
   _botAct(pos) {
     try {
       this._botActInner(pos);
