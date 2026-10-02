@@ -71,6 +71,8 @@ const l56Engine = require('./l56-engine');
 //     its current name) so nobody gets locked out of a game in progress.
 // ---------------------------------------------------------------------------
 const NameFilter = require('./public/name-filter.js');
+const VOICE_PASSWORD = String(process.env.VOICE_PASSWORD || '2856');
+function voiceCodeOk(code) { return String(code == null ? '' : code).trim() === VOICE_PASSWORD; }
 function vetName(socket, name, existingPlayerId, ack) {
   if (name == null || name === '' || !NameFilter.isBad(name)) return { block: false, name };
   if (existingPlayerId) return { block: false, name: undefined };
@@ -3547,7 +3549,7 @@ io.on('connection', (socket) => {
   socket.on('chat', ({ msg }) => {
     const t = tables[tableId];
     if (!t) return;
-    const trimmed = String(msg || '').slice(0, 300).trim();
+    const trimmed = NameFilter.censor(String(msg || '').slice(0, 300).trim());
     if (!trimmed) return;
     let from = null;
     const seatInfo = t.sockets.get(socket.id);
@@ -3782,7 +3784,13 @@ function voiceRoomOf(socket) {
 }
 
 io.on('connection', (socket) => {
-  socket.on('voiceJoin', ({ name }) => {
+  // Voice chat password (change it without editing code by setting the
+  // VOICE_PASSWORD environment variable on the server).
+  socket.on('voiceCheck', ({ code } = {}, ack) => {
+    if (typeof ack === 'function') ack({ ok: voiceCodeOk(code) });
+  });
+  socket.on('voiceJoin', ({ name, code }) => {
+    if (!voiceCodeOk(code)) { socket.emit('voiceDenied'); return; }
     if (name && NameFilter.isBad(name)) name = 'Player';
     const room = voiceRoomOf(socket);
     if (!room) return;
@@ -4199,7 +4207,7 @@ io.on('connection', (socket) => {
   socket.on('sixp_chat', ({ msg }) => {
     const t = sixpTables[sixpTableId];
     if (!t) return;
-    const trimmed = String(msg || '').slice(0, 300).trim();
+    const trimmed = NameFilter.censor(String(msg || '').slice(0, 300).trim());
     if (!trimmed) return;
     let from = null;
     const seatInfo = t.sockets.get(socket.id);
@@ -5885,7 +5893,7 @@ io.on('connection', (socket) => {
     if (!info) return;
     const r = l56Rooms[info.code];
     if (!r) return;
-    const trimmed = String(msg || '').slice(0, 300).trim();
+    const trimmed = NameFilter.censor(String(msg || '').slice(0, 300).trim());
     if (!trimmed) return;
     const seat = r.state && r.state.seats && r.state.seats[info.pos];
     const name = seat ? seat.name : 'Player';
@@ -7921,7 +7929,7 @@ io.on('connection', (socket) => {
     if (!info) return;
     const seat = t.engine.seats[info.pos];
     if (!seat) return;
-    io.to(spadesSocketRoom(spadesTableId)).except(socket.id).emit('spades_chatMsg', { from: seat.name, msg: String(msg || '').slice(0, 300), isEmote: !!isEmote, pos: info.pos });
+    io.to(spadesSocketRoom(spadesTableId)).except(socket.id).emit('spades_chatMsg', { from: seat.name, msg: isEmote ? String(msg || '').slice(0, 300) : NameFilter.censor(String(msg || '').slice(0, 300)), isEmote: !!isEmote, pos: info.pos });
   });
 
   socket.on('spades_leaveTable', () => {
