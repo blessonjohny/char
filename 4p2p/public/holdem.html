@@ -4511,8 +4511,12 @@ const CHIP_DENOMINATIONS = [
   // covers whatever's left with an unlimited number of 20s, 10s and 5s.
   // 25 and 1 are dropped entirely (replaced by 20, and nothing needs a
   // 1 now that every real amount in this game is a multiple of 5).
-  { value: 100, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[5].colors[0]}, ${CHIP_COLOR_STOPS[5].colors[1]} 70%, ${CHIP_COLOR_STOPS[5].colors[2]})`, maxCount: 4 }, // chrome gold
-  { value: 50, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[4].colors[0]}, ${CHIP_COLOR_STOPS[4].colors[1]} 70%, ${CHIP_COLOR_STOPS[4].colors[2]})`, maxCount: 8 },  // royal violet/pink
+  // CAPS RELEASED per explicit request ("don't add a 500 chip, release the caps for 100 and 50"):
+  // the 100 and 50 tiers used to be limited to 4 and 8 chips per 1000, which pushed most of a stack
+  // into long rows of 20s/10s/5s. They are now unlimited, so every stack is counted out with as many
+  // 100s and 50s as it really contains and only the remainder uses 20s, 10s and 5s -- far fewer chips.
+  { value: 100, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[5].colors[0]}, ${CHIP_COLOR_STOPS[5].colors[1]} 70%, ${CHIP_COLOR_STOPS[5].colors[2]})` }, // chrome gold (no cap)
+  { value: 50, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[4].colors[0]}, ${CHIP_COLOR_STOPS[4].colors[1]} 70%, ${CHIP_COLOR_STOPS[4].colors[2]})` },  // royal violet/pi (no cap)nk
   { value: 20, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[3].colors[0]}, ${CHIP_COLOR_STOPS[3].colors[1]} 70%, ${CHIP_COLOR_STOPS[3].colors[2]})` },  // royal green
   { value: 10, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[2].colors[0]}, ${CHIP_COLOR_STOPS[2].colors[1]} 70%, ${CHIP_COLOR_STOPS[2].colors[2]})` },  // royal blue
   { value: 5, color: `radial-gradient(circle at 35% 30%, ${CHIP_COLOR_STOPS[1].colors[0]}, ${CHIP_COLOR_STOPS[1].colors[1]} 70%, ${CHIP_COLOR_STOPS[1].colors[2]})` },   // royal red
