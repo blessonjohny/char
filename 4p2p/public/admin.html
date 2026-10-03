@@ -790,8 +790,8 @@ document.querySelectorAll('.cat-btn').forEach(btn => {
 // Same avatar key convention used by the live game itself (see
 // VALID_AVATAR_KEYS in server.js and ALL_PLAYERS in index.html) --
 // 100 cartoon mascot-style images, filenames
-// /images/hero-avatars/toon{1-100}.png.
-const BOT_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+// /images/hero-avatars/toon{1-90}.png (+ the 6 personal toon101-106).
+const BOT_AVATAR_KEYS = Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 let botAvatarGridBuilt = false;
 let selectedBotAvatar = 'toon1';
 let selectedBotMode = '4p';
@@ -866,7 +866,7 @@ document.getElementById('btnSpawnBotTable').addEventListener('click', async () =
 
 // ---------------- Ghost players (admin-run seats that display and behave as real connected
 // humans, not bots - see server.js's spawn/join/stop-ghost-player endpoints) ----------------
-const GHOST_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+const GHOST_AVATAR_KEYS = Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 let ghostAvatarGridBuilt = false;
 let selectedGhostAvatar = 'toon1';
 let ghostMode = 'new';        // 'new' or 'join'

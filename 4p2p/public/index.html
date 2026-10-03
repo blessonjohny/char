@@ -5053,21 +5053,93 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <button class="btn btn-primary" style="width:100%" id="btnStillPlaying">Yes, I'm here!</button>
   </div>
 </div>
+<style id="commentPageStyle">
+/* ---- Community Feedback page (replaces the old plain comment box) ----
+   Two screens inside one sheet: (1) the wall -- what people have said, with
+   a clear "Leave a comment" button underneath; (2) the write screen. */
+#commentOverlay{padding:0}
+#commentBox.cmt-sheet{max-width:560px;width:100%;height:100%;max-height:100%;padding:0;border-radius:0;border:0;text-align:left;display:flex;flex-direction:column;overflow:hidden;background:linear-gradient(180deg,#101c2c 0%,#0b1624 100%);animation:none}
+@media (min-width:600px){
+  #commentOverlay{padding:24px}
+  #commentBox.cmt-sheet{height:min(92vh,780px);border-radius:18px;border:1.5px solid rgba(255,215,0,0.25)}
+}
+.cmt-view{display:flex;flex-direction:column;flex:1;min-height:0}
+.cmt-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;padding-top:max(14px,env(safe-area-inset-top))}
+.cmt-title{display:flex;align-items:center;gap:10px;min-width:0}
+.cmt-ico{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,rgba(255,215,0,0.22),rgba(255,215,0,0.06));border:1px solid rgba(255,215,0,0.35);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.cmt-h1{font-size:1.02rem;font-weight:800;color:#fff;line-height:1.15;letter-spacing:0.2px}
+.cmt-sub{font-size:0.72rem;color:var(--text-secondary);margin-top:2px}
+.cmt-x,.cmt-back{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;cursor:pointer;font-family:inherit}
+.cmt-x{width:36px;height:36px;font-size:0.95rem;flex-shrink:0}
+.cmt-back{padding:8px 12px;font-size:0.8rem;font-weight:700;flex-shrink:0}
+.cmt-x:active,.cmt-back:active{background:rgba(255,215,0,0.2)}
+.cmt-intro{padding:10px 16px 0;font-size:0.78rem;line-height:1.45;color:var(--text-secondary);flex-shrink:0}
+.cmt-feed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 8px}
+.cmt-card{background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.09);border-radius:14px;padding:12px;margin-bottom:12px}
+.cmt-card.fresh{border-color:rgba(255,215,0,0.55);box-shadow:0 0 0 3px rgba(255,215,0,0.12)}
+.cmt-row{display:flex;gap:10px;align-items:flex-start}
+.cmt-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.9rem;color:#fff;flex-shrink:0;text-shadow:0 1px 2px rgba(0,0,0,0.35)}
+.cmt-av.sm{width:26px;height:26px;font-size:0.72rem}
+.cmt-main{flex:1;min-width:0}
+.cmt-meta{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.cmt-name{font-weight:800;font-size:0.86rem;color:#fff}
+.cmt-time{font-size:0.68rem;color:var(--text-secondary)}
+.cmt-badge{font-size:0.6rem;font-weight:800;letter-spacing:0.4px;text-transform:uppercase;color:#241a12;background:var(--accent);border-radius:6px;padding:1px 6px}
+.cmt-text{font-size:0.88rem;line-height:1.5;color:#e8edf3;white-space:pre-wrap;word-break:break-word;margin-top:3px}
+.cmt-actions{margin-top:6px}
+.cmt-reply-btn{background:none;border:none;color:var(--accent);font-size:0.74rem;font-weight:700;padding:4px 0;cursor:pointer;font-family:inherit}
+.cmt-replies{margin-top:10px;margin-left:44px;padding-left:12px;border-left:2px solid rgba(255,215,0,0.25)}
+.cmt-reply{margin-bottom:10px}
+.cmt-reply:last-child{margin-bottom:0}
+.cmt-empty{text-align:center;padding:38px 20px;color:var(--text-secondary)}
+.cmt-empty .big{font-size:2.2rem;margin-bottom:8px}
+.cmt-empty b{display:block;color:#fff;font-size:0.95rem;margin-bottom:4px}
+.cmt-foot{padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));border-top:1px solid rgba(255,255,255,0.08);background:rgba(8,14,24,0.9);flex-shrink:0}
+.cmt-primary{width:100%;padding:14px 16px;border:0;border-radius:12px;font-size:0.98rem;font-weight:800;letter-spacing:0.2px;cursor:pointer;font-family:inherit;color:#241a12;background:linear-gradient(135deg,#ffe066,#e9b949);box-shadow:0 4px 16px rgba(233,185,73,0.35)}
+.cmt-primary:active{transform:scale(0.985)}
+.cmt-primary:disabled{opacity:0.6}
+.cmt-form{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px}
+.cmt-label{display:flex;justify-content:space-between;font-size:0.74rem;font-weight:700;color:var(--text-secondary);margin:0 0 6px}
+.cmt-field{width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.05);color:#fff;font-size:0.95rem;font-family:inherit;margin-bottom:14px}
+.cmt-field:focus{outline:none;border-color:var(--accent);background:rgba(255,255,255,0.08)}
+textarea.cmt-field{resize:vertical;min-height:130px;line-height:1.45}
+.cmt-replying{display:none;align-items:center;justify-content:space-between;gap:8px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);border-radius:10px;padding:8px 10px;margin-bottom:14px;font-size:0.78rem;color:var(--accent)}
+.cmt-replying button{background:none;border:none;color:var(--accent);cursor:pointer;font-size:1rem;padding:0 4px}
+.cmt-note{font-size:0.72rem;line-height:1.45;color:var(--text-secondary);margin-top:12px;text-align:center}
+.cmt-note a{color:var(--accent)}
+#cmtComposeTitle{white-space:nowrap;font-size:0.98rem}
+</style>
 <div class="modal-overlay" id="commentOverlay" style="z-index:2100">
-  <div class="modal" id="commentBox" style="text-align:left;max-height:85vh;display:flex;flex-direction:column">
-    <h3 style="text-align:center;flex-shrink:0">💌 Comments</h3>
-    <p style="text-align:center;color:var(--text-secondary);font-size:0.8rem;margin-top:-6px;flex-shrink:0">Made with love for card game lovers — tell me what you think, report a bug, or request a feature. Everyone can see and reply here.</p>
-    <div id="commentFeed" style="overflow-y:auto;flex:1;min-height:80px;margin-bottom:10px;-webkit-overflow-scrolling:touch"></div>
-    <div id="commentReplyingBanner" style="display:none;background:rgba(244,196,48,0.12);border:1px solid rgba(244,196,48,0.3);border-radius:8px;padding:6px 10px;margin-bottom:8px;font-size:0.75rem;color:var(--accent);flex-shrink:0;display:flex;justify-content:space-between;align-items:center">
-      <span id="commentReplyingText"></span>
-      <button onclick="cancelCommentReply()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:0.9rem;padding:0 4px">✕</button>
+  <div class="modal cmt-sheet" id="commentBox" role="dialog" aria-modal="true" aria-labelledby="cmtHeading">
+    <!-- SCREEN 1: what people have said -->
+    <div class="cmt-view" id="cmtViewFeed">
+      <div class="cmt-head">
+        <div class="cmt-title">
+          <div class="cmt-ico">💬</div>
+          <div><div class="cmt-h1" id="cmtHeading">Community Feedback</div><div class="cmt-sub" id="cmtCount">Loading…</div></div>
+        </div>
+        <button type="button" class="cmt-x" id="btnCloseComment" aria-label="Close">✕</button>
+      </div>
+      <div class="cmt-intro">Tell us what you think, report a bug or request a feature. Everyone can see and reply here.</div>
+      <div id="commentFeed" class="cmt-feed"></div>
+      <div class="cmt-foot"><button type="button" class="cmt-primary" id="btnOpenCompose">✍️ Leave a comment</button></div>
     </div>
-    <div style="flex-shrink:0">
-      <input type="text" id="commentName" placeholder="Your name (optional)" maxlength="40" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.9rem;margin-bottom:10px;font-family:inherit;box-sizing:border-box">
-      <textarea id="commentMsg" placeholder="Your message..." maxlength="2000" rows="3" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.9rem;margin-bottom:10px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
-      <button class="btn btn-primary" style="width:100%" id="btnSendComment">Send</button>
-      <button class="btn" style="width:100%;margin-top:8px;background:transparent;border:1.5px solid var(--border);color:#fff" id="btnCloseComment">Close</button>
-      <div style="text-align:center;margin-top:12px;font-size:0.7rem;color:var(--text-secondary)">Prefer email? <a href="mailto:blessonjohny@gmail.com" style="color:var(--accent)">blessonjohny@gmail.com</a></div>
+    <!-- SCREEN 2: write one -->
+    <div class="cmt-view" id="cmtViewCompose" style="display:none">
+      <div class="cmt-head">
+        <button type="button" class="cmt-back" id="btnComposeBack">← Comments</button>
+        <div class="cmt-h1" id="cmtComposeTitle" style="text-align:center;flex:1">Leave a comment</div>
+        <span style="width:92px;flex-shrink:0"></span>
+      </div>
+      <div class="cmt-form">
+        <div id="commentReplyingBanner" class="cmt-replying"><span id="commentReplyingText"></span><button type="button" onclick="cancelCommentReply()" aria-label="Cancel reply">✕</button></div>
+        <div class="cmt-label"><span>Your name (optional)</span></div>
+        <input type="text" id="commentName" class="cmt-field" placeholder="Anonymous" maxlength="40" autocomplete="nickname">
+        <div class="cmt-label"><span>Your message</span><span id="cmtCharCount">0 / 2000</span></div>
+        <textarea id="commentMsg" class="cmt-field" placeholder="What's on your mind?" maxlength="2000" rows="5"></textarea>
+        <div class="cmt-note">Please be respectful and don't share personal details.<br>Prefer email? <a href="mailto:blessonjohny@gmail.com">blessonjohny@gmail.com</a></div>
+      </div>
+      <div class="cmt-foot"><button type="button" class="cmt-primary" id="btnSendComment">Post comment</button></div>
     </div>
   </div>
 </div>
@@ -5323,117 +5395,117 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <script>
 // ==================== CONFIG ====================
 const ALL_PLAYERS = [
-  {name:'Ancy',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Ajai',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Alok',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Anup',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Anjali',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Appu',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Arun',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Meera',emoji:heroAvatarHtml('toon3'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Benson',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Neha',emoji:heroAvatarHtml('toon6'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Binchu',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Charlie',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Jerin',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Priya',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Johny',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Reena',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Koshy',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Nate',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Divya',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Peter',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Lakshmi',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Rahul',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Rajesh',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Randall',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Sarah',emoji:heroAvatarHtml('toon12'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Renji',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Roji',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Nisha',emoji:heroAvatarHtml('toon14'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Roney',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Sanjay',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Shyam',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Deepa',emoji:heroAvatarHtml('toon15'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Stev',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Vinod',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Wesley',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Elsa',emoji:heroAvatarHtml('toon16'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Abin',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Maya',emoji:heroAvatarHtml('toon17'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Bibin',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Sherin',emoji:heroAvatarHtml('toon18'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Cibin',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Denny',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Eldho',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Teena',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Frankie',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'George',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Anu',emoji:heroAvatarHtml('toon20'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Hari',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Ivan',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Reshma',emoji:heroAvatarHtml('toon21'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Jibin',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Kevin',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Libin',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Jisha',emoji:heroAvatarHtml('toon22'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Manoj',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Nibin',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Oommen',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Nimmy',emoji:heroAvatarHtml('toon23'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Pauly',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Robin',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Beena',emoji:heroAvatarHtml('toon24'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Sibin',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Tibin',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Unni',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Soumya',emoji:heroAvatarHtml('toon25'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Vishnu',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Wilson',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Liya',emoji:heroAvatarHtml('toon28'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Xavier',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Yohan',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Merin',emoji:heroAvatarHtml('toon29'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Zachariah',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Aby',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Bijoy',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Asha',emoji:heroAvatarHtml('toon30'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Anita',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Cyriac',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Davis',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Betty',emoji:heroAvatarHtml('toon32'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Ebin',emoji:heroAvatarHtml('toon65'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Fenil',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Gibin',emoji:heroAvatarHtml('toon69'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Celine',emoji:heroAvatarHtml('toon33'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Diya',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Hillary',emoji:heroAvatarHtml('toon35'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Fiona',emoji:heroAvatarHtml('toon36'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Ittoop',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Gracy',emoji:heroAvatarHtml('toon37'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Hema',emoji:heroAvatarHtml('toon38'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
-  {name:'Jaison',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
-  {name:'Indu',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
-  {name:'Jessy',emoji:heroAvatarHtml('toon40'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
-  {name:'Kurian',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
-  {name:'Lijo',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
-  {name:'Kavya',emoji:heroAvatarHtml('toon41'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
-  {name:'Mathew',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
-  {name:'Leena',emoji:heroAvatarHtml('toon44'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
-  {name:'Ninan',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
-  {name:'Mariya',emoji:heroAvatarHtml('toon45'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
-  {name:'Babi',emoji:heroAvatarHtml('toon47'),bg:'linear-gradient(135deg,linear-gradient(135deg,#c2266f,#8e1c52))'},
-  {name:'Oliver',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
-  {name:'Linda',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
-  {name:'Babitha',emoji:heroAvatarHtml('toon49'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
-  {name:'Maria',emoji:heroAvatarHtml('toon50'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
-  {name:'Leela',emoji:heroAvatarHtml('toon51'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
-  {name:'Anna',emoji:heroAvatarHtml('toon52'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
-  {name:'Thankam',emoji:heroAvatarHtml('toon53'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
-  {name:'Lincy',emoji:heroAvatarHtml('toon54'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
-  {name:'Princy',emoji:heroAvatarHtml('toon55'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
-  {name:'Easo',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
-  {name:'Joseph',emoji:heroAvatarHtml('toon46'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
+  {name:'Ancy',emoji:heroAvatarHtml('toon47'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Ajai',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Alok',emoji:heroAvatarHtml('toon63'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Anup',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Anjali',emoji:heroAvatarHtml('toon11'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Appu',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Arun',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Meera',emoji:heroAvatarHtml('toon20'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Benson',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Neha',emoji:heroAvatarHtml('toon49'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Binchu',emoji:heroAvatarHtml('toon58'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Charlie',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Jerin',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Priya',emoji:heroAvatarHtml('toon86'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Johny',emoji:heroAvatarHtml('toon80'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Reena',emoji:heroAvatarHtml('toon2'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Koshy',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Nate',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Divya',emoji:heroAvatarHtml('toon55'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Peter',emoji:heroAvatarHtml('toon24'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Lakshmi',emoji:heroAvatarHtml('toon61'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Rahul',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Rajesh',emoji:heroAvatarHtml('toon74'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Randall',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Sarah',emoji:heroAvatarHtml('toon15'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Renji',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Roji',emoji:heroAvatarHtml('toon45'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Nisha',emoji:heroAvatarHtml('toon21'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Roney',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Sanjay',emoji:heroAvatarHtml('toon63'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Shyam',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Deepa',emoji:heroAvatarHtml('toon7'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Stev',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Vinod',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Wesley',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Elsa',emoji:heroAvatarHtml('toon40'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Abin',emoji:heroAvatarHtml('toon58'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Maya',emoji:heroAvatarHtml('toon44'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Bibin',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Sherin',emoji:heroAvatarHtml('toon52'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Cibin',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Denny',emoji:heroAvatarHtml('toon80'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Eldho',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Teena',emoji:heroAvatarHtml('toon54'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Frankie',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'George',emoji:heroAvatarHtml('toon24'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Anu',emoji:heroAvatarHtml('toon64'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Hari',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Ivan',emoji:heroAvatarHtml('toon74'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Reshma',emoji:heroAvatarHtml('toon73'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Jibin',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Kevin',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Libin',emoji:heroAvatarHtml('toon45'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Jisha',emoji:heroAvatarHtml('toon83'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Manoj',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Nibin',emoji:heroAvatarHtml('toon63'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Oommen',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Nimmy',emoji:heroAvatarHtml('toon77'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Pauly',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Robin',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Beena',emoji:heroAvatarHtml('toon71'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Sibin',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Tibin',emoji:heroAvatarHtml('toon58'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Unni',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Soumya',emoji:heroAvatarHtml('toon50'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Vishnu',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Wilson',emoji:heroAvatarHtml('toon80'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Liya',emoji:heroAvatarHtml('toon13'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Xavier',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Yohan',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Merin',emoji:heroAvatarHtml('toon56'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Zachariah',emoji:heroAvatarHtml('toon24'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Aby',emoji:heroAvatarHtml('toon48'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Bijoy',emoji:heroAvatarHtml('toon74'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Asha',emoji:heroAvatarHtml('toon42'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Anita',emoji:heroAvatarHtml('toon10'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Cyriac',emoji:heroAvatarHtml('toon66'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Davis',emoji:heroAvatarHtml('toon39'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Betty',emoji:heroAvatarHtml('toon60'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Ebin',emoji:heroAvatarHtml('toon45'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Fenil',emoji:heroAvatarHtml('toon1'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Gibin',emoji:heroAvatarHtml('toon63'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Celine',emoji:heroAvatarHtml('toon89'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Diya',emoji:heroAvatarHtml('toon57'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Hillary',emoji:heroAvatarHtml('toon8'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Fiona',emoji:heroAvatarHtml('toon76'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Ittoop',emoji:heroAvatarHtml('toon62'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Gracy',emoji:heroAvatarHtml('toon29'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Hema',emoji:heroAvatarHtml('toon31'),bg:'linear-gradient(135deg,linear-gradient(135deg,#1abc9c,#16a085))'},
+  {name:'Jaison',emoji:heroAvatarHtml('toon27'),bg:'linear-gradient(135deg,linear-gradient(135deg,#4a90d9,#2a5a9a))'},
+  {name:'Indu',emoji:heroAvatarHtml('toon9'),bg:'linear-gradient(135deg,linear-gradient(135deg,#f0932b,#c26e0f))'},
+  {name:'Jessy',emoji:heroAvatarHtml('toon41'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00cec9,#00a8a3))'},
+  {name:'Kurian',emoji:heroAvatarHtml('toon26'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e84393,#c2266f))'},
+  {name:'Lijo',emoji:heroAvatarHtml('toon58'),bg:'linear-gradient(135deg,linear-gradient(135deg,#6c5ce7,#4834b0))'},
+  {name:'Kavya',emoji:heroAvatarHtml('toon85'),bg:'linear-gradient(135deg,linear-gradient(135deg,#fdcb6e,#e0a83c))'},
+  {name:'Mathew',emoji:heroAvatarHtml('toon34'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00a8ff,#0077b3))'},
+  {name:'Leena',emoji:heroAvatarHtml('toon81'),bg:'linear-gradient(135deg,linear-gradient(135deg,#ff8fab,#e0648a))'},
+  {name:'Ninan',emoji:heroAvatarHtml('toon19'),bg:'linear-gradient(135deg,linear-gradient(135deg,#e17055,#c44536))'},
+  {name:'Mariya',emoji:heroAvatarHtml('toon53'),bg:'linear-gradient(135deg,linear-gradient(135deg,#00b894,#00a085))'},
+  {name:'Babi',emoji:heroAvatarHtml('toon23'),bg:'linear-gradient(135deg,linear-gradient(135deg,#c2266f,#8e1c52))'},
+  {name:'Oliver',emoji:heroAvatarHtml('toon80'),bg:'linear-gradient(135deg,linear-gradient(135deg,#8e44ad,#6c3483))'},
+  {name:'Linda',emoji:heroAvatarHtml('toon59'),bg:'linear-gradient(135deg,#ff8fab,#e0648a)'},
+  {name:'Babitha',emoji:heroAvatarHtml('toon35'),bg:'linear-gradient(135deg,#e17055,#c44536)'},
+  {name:'Maria',emoji:heroAvatarHtml('toon28'),bg:'linear-gradient(135deg,#00b894,#00a085)'},
+  {name:'Leela',emoji:heroAvatarHtml('toon22'),bg:'linear-gradient(135deg,#8e44ad,#6c3483)'},
+  {name:'Anna',emoji:heroAvatarHtml('toon84'),bg:'linear-gradient(135deg,#1abc9c,#16a085)'},
+  {name:'Thankam',emoji:heroAvatarHtml('toon87'),bg:'linear-gradient(135deg,#4a90d9,#2a5a9a)'},
+  {name:'Lincy',emoji:heroAvatarHtml('toon4'),bg:'linear-gradient(135deg,#f0932b,#c26e0f)'},
+  {name:'Princy',emoji:heroAvatarHtml('toon78'),bg:'linear-gradient(135deg,#00cec9,#00a8a3)'},
+  {name:'Easo',emoji:heroAvatarHtml('toon5'),bg:'linear-gradient(135deg,#e84393,#c2266f)'},
+  {name:'Joseph',emoji:heroAvatarHtml('toon43'),bg:'linear-gradient(135deg,#6c5ce7,#4834b0)'},
 ];
 
 const SUITS=['♠','♦','♥','♣'];
@@ -5468,7 +5540,7 @@ if (window.NameFilter && NameFilter.isBad(MY_NAME)) { MY_NAME = ''; try { localS
 // sticks across visits instead of resetting every time.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon107','toon108','toon109']).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+const ALL_AVATAR_KEYS = Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 
 // ==================== SOUND ENGINE ====================
 // A full card-table sound system built entirely on the native Web Audio API - no audio files,
@@ -5967,7 +6039,7 @@ function heroAvatarHtml(key) {
   // so picking any of those 3 silently hashed you into a random
   // unrelated avatar instead of the one you actually tapped. 109 is
   // now the true top of the valid range.
-  const TOON_COUNT = 109;
+  const TOON_COUNT = 90;   // public avatars are toon1..toon90; the 6 personal ones (toon101-106) are also valid, see validNum below
   // Per explicit request: the 5 personal, PIN-protected avatars
   // (toon101-105) must never be handed out automatically -- this
   // fallback path only runs for an already-invalid/out-of-range key,
@@ -5978,9 +6050,9 @@ function heroAvatarHtml(key) {
   // file, before ALL_AVATAR_KEYS is defined at all. The protected 5
   // are exactly the last 5 (101-105), so capping the fallback range to
   // the first 100 excludes them with no array needed.
-  const PUBLIC_TOON_COUNT = 100;
+  const PUBLIC_TOON_COUNT = 90;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
-  const validNum = m && Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT;
+  const validNum = m && ((Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT) || (Number(m[1]) >= 101 && Number(m[1]) <= 106));
   if (!validNum) {
     // Hash the ORIGINAL invalid key (not a random pick) so the same
     // bot name/key always remaps to the same fallback avatar
@@ -7438,77 +7510,108 @@ function closeLog() { document.getElementById('logSheet').classList.remove('on')
 // reply to any of them, which is the whole point — a shared feedback
 // wall rather than messages vanishing into a black box.
 let commentReplyingToId = null;
+let commentFreshId = null;          // highlights the comment you just posted
+function showCommentView(which) {
+  document.getElementById('cmtViewFeed').style.display = which === 'feed' ? 'flex' : 'none';
+  document.getElementById('cmtViewCompose').style.display = which === 'compose' ? 'flex' : 'none';
+}
+// Opening the comments button lands on what people have said (the wall) --
+// "Leave a comment" is the clear next step underneath it.
 function openCommentBox() {
   document.getElementById('commentOverlay').classList.add('on');
   cancelCommentReply();
+  showCommentView('feed');
   loadCommentFeed();
 }
 function closeCommentBox() { document.getElementById('commentOverlay').classList.remove('on'); }
+function openCommentCompose() {
+  cancelCommentReply();
+  showCommentView('compose');
+  setTimeout(() => { const m = document.getElementById('commentMsg'); if (m) m.focus(); }, 60);
+}
 
 function startCommentReply(id, name) {
   commentReplyingToId = id;
   document.getElementById('commentReplyingBanner').style.display = 'flex';
   document.getElementById('commentReplyingText').textContent = `Replying to ${name}`;
-  const msgEl = document.getElementById('commentMsg');
-  msgEl.focus();
-  msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  document.getElementById('cmtComposeTitle').textContent = 'Reply';
+  showCommentView('compose');
+  setTimeout(() => { const m = document.getElementById('commentMsg'); if (m) m.focus(); }, 60);
 }
 function cancelCommentReply() {
   commentReplyingToId = null;
-  document.getElementById('commentReplyingBanner').style.display = 'none';
+  const b = document.getElementById('commentReplyingBanner'); if (b) b.style.display = 'none';
+  const t = document.getElementById('cmtComposeTitle'); if (t) t.textContent = 'Leave a comment';
 }
 
 function timeAgoLabel(ms) {
-  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (!Number.isFinite(Number(ms))) return '';   // never show "NaN" if a time is missing
+  const s = Math.max(0, Math.round((Date.now() - Number(ms)) / 1000));
   if (s < 60) return 'just now';
   const m = Math.round(s / 60);
   if (m < 60) return `${m}m ago`;
   const h = Math.round(m / 60);
   if (h < 24) return `${h}h ago`;
   const d = Math.round(h / 24);
-  return `${d}d ago`;
+  if (d < 30) return `${d}d ago`;
+  const mo = Math.round(d / 30);
+  return mo < 12 ? `${mo}mo ago` : `${Math.round(mo / 12)}y ago`;
 }
+const CMT_AVATAR_COLORS = ['#e07a5f', '#3d85c6', '#6aa84f', '#8e63ce', '#d4932a', '#2fa39b', '#c2557c', '#5c7cfa'];
+function cmtAvatar(name, small) {
+  const n = String(name || 'Anonymous');
+  let h = 0; for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0;
+  const initial = (n.trim()[0] || 'A').toUpperCase();
+  return `<div class="cmt-av${small ? ' sm' : ''}" style="background:${CMT_AVATAR_COLORS[h % CMT_AVATAR_COLORS.length]}">${escapeHtml(initial)}</div>`;
+}
+// Replies from the site owner get a small "Owner" badge so they stand out.
+// (Plain text only everywhere below -- links in comments are NOT made
+// clickable, on purpose, so nobody can use the wall to spread a bad link.)
+const CMT_OWNER_RE = /^(admin|owner|28gulan|blesson|moderator)\b/i;
 
 function renderCommentFeed(comments) {
   const feed = document.getElementById('commentFeed');
+  const count = document.getElementById('cmtCount');
   if (!comments || !comments.length) {
-    feed.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:0.8rem;padding:20px 0">No comments yet — be the first!</div>';
+    if (count) count.textContent = 'Be the first to comment';
+    feed.innerHTML = '<div class="cmt-empty"><div class="big">💬</div><b>No comments yet</b>Be the first to share your thoughts.</div>';
     return;
   }
-  feed.innerHTML = comments.map(c => `
-    <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px">
-        <b style="font-size:0.85rem">${escapeHtml(c.name || 'Anonymous')}</b>
-        <span style="font-size:0.68rem;color:var(--text-secondary);white-space:nowrap">${timeAgoLabel(c.time)}</span>
-      </div>
-      <div style="font-size:0.85rem;line-height:1.4;white-space:pre-wrap;word-break:break-word">${escapeHtml(c.message)}</div>
-      <button onclick="startCommentReply('${c.id}', '${escapeHtml(c.name || 'Anonymous').replace(/'/g, "\\'")}')" style="background:none;border:none;color:var(--accent);font-size:0.72rem;padding:6px 0 0;cursor:pointer">↩ Reply</button>
-      ${(c.replies && c.replies.length) ? `
-        <div style="margin-top:8px;padding-left:12px;border-left:2px solid var(--border)">
-          ${c.replies.map(r => `
-            <div style="margin-bottom:8px">
-              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px">
-                <b style="font-size:0.78rem">${escapeHtml(r.name || 'Anonymous')}</b>
-                <span style="font-size:0.65rem;color:var(--text-secondary);white-space:nowrap">${timeAgoLabel(r.time)}</span>
-              </div>
-              <div style="font-size:0.8rem;line-height:1.4;white-space:pre-wrap;word-break:break-word">${escapeHtml(r.message)}</div>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
-    </div>
-  `).join('');
+  const replyTotal = comments.reduce((n, c) => n + ((c.replies && c.replies.length) || 0), 0);
+  if (count) count.textContent = `${comments.length} comment${comments.length === 1 ? '' : 's'}` + (replyTotal ? ` · ${replyTotal} repl${replyTotal === 1 ? 'y' : 'ies'}` : '');
+  feed.innerHTML = comments.map(c => {
+    const nm = c.name || 'Anonymous';
+    const replies = (c.replies && c.replies.length) ? `
+      <div class="cmt-replies">${c.replies.map(r => {
+        const rn = r.name || 'Anonymous';
+        return `<div class="cmt-reply"><div class="cmt-row">${cmtAvatar(rn, true)}<div class="cmt-main">
+          <div class="cmt-meta"><span class="cmt-name">${escapeHtml(rn)}</span>${CMT_OWNER_RE.test(rn) ? '<span class="cmt-badge">Owner</span>' : ''}<span class="cmt-time">${timeAgoLabel(r.time)}</span></div>
+          <div class="cmt-text">${escapeHtml(r.message)}</div></div></div></div>`;
+      }).join('')}</div>` : '';
+    return `<div class="cmt-card${c.id === commentFreshId ? ' fresh' : ''}">
+      <div class="cmt-row">${cmtAvatar(nm, false)}<div class="cmt-main">
+        <div class="cmt-meta"><span class="cmt-name">${escapeHtml(nm)}</span>${CMT_OWNER_RE.test(nm) ? '<span class="cmt-badge">Owner</span>' : ''}<span class="cmt-time">${timeAgoLabel(c.time)}</span></div>
+        <div class="cmt-text">${escapeHtml(c.message)}</div>
+        <div class="cmt-actions"><button type="button" class="cmt-reply-btn" data-reply-id="${escapeHtml(c.id)}" data-reply-name="${escapeHtml(nm)}">↩ Reply${(c.replies && c.replies.length) ? ' · ' + c.replies.length : ''}</button></div>
+      </div></div>${replies}</div>`;
+  }).join('');
+  feed.querySelectorAll('.cmt-reply-btn').forEach(btn => {
+    btn.addEventListener('click', () => startCommentReply(btn.dataset.replyId, btn.dataset.replyName));
+  });
 }
 
 async function loadCommentFeed() {
   const feed = document.getElementById('commentFeed');
-  feed.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:0.8rem;padding:20px 0">Loading…</div>';
+  const count = document.getElementById('cmtCount');
+  if (count) count.textContent = 'Loading…';
+  feed.innerHTML = '<div class="cmt-empty">Loading…</div>';
   try {
     const res = await fetch('/api/comments');
     const data = await res.json();
     renderCommentFeed(data.comments || []);
   } catch (e) {
-    feed.innerHTML = '<div style="text-align:center;color:var(--text-secondary);font-size:0.8rem;padding:20px 0">Couldn\u2019t load comments right now.</div>';
+    if (count) count.textContent = '';
+    feed.innerHTML = '<div class="cmt-empty"><div class="big">⚠️</div><b>Couldn\u2019t load comments</b>Please try again in a moment.</div>';
   }
 }
 
@@ -7518,9 +7621,10 @@ async function sendComment() {
   const message = msgEl.value.trim();
   if (!message) { showToast('Write a message first', 'lose', 1800); return; }
   const btn = document.getElementById('btnSendComment');
-  btn.disabled = true; btn.textContent = 'Sending...';
+  btn.disabled = true; btn.textContent = 'Posting…';
   try {
-    const url = commentReplyingToId ? `/api/comments/${commentReplyingToId}/reply` : '/api/comments';
+    const isReply = !!commentReplyingToId;
+    const url = isReply ? `/api/comments/${commentReplyingToId}/reply` : '/api/comments';
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -7528,15 +7632,26 @@ async function sendComment() {
     });
     if (!res.ok) throw new Error('bad response');
     msgEl.value = '';
+    document.getElementById('cmtCharCount').textContent = '0 / 2000';
+    const parentId = commentReplyingToId;
     cancelCommentReply();
-    showToast('💌 Posted!', 'win', 2000);
-    loadCommentFeed(); // refresh the feed in place rather than closing — this is a conversation, not a one-shot form
+    showToast(isReply ? '✅ Reply posted' : '✅ Comment posted — thank you!', 'win', 2200);
+    // Straight back to the wall so you can see it there.
+    commentFreshId = isReply ? parentId : null;
+    showCommentView('feed');
+    await loadCommentFeed();
+    const feedEl = document.getElementById('commentFeed');
+    if (!isReply) { feedEl.scrollTop = 0; const first = feedEl.querySelector('.cmt-card'); if (first) first.classList.add('fresh'); }
+    else { const f = feedEl.querySelector('.cmt-card.fresh'); if (f) f.scrollIntoView({ block: 'nearest' }); }
   } catch (e) {
-    showToast('⚠️ Could not send — email blessonjohny@gmail.com instead', 'lose', 3500);
+    showToast('⚠️ Could not post — email blessonjohny@gmail.com instead', 'lose', 3500);
   } finally {
-    btn.disabled = false; btn.textContent = 'Send';
+    btn.disabled = false; btn.textContent = 'Post comment';
   }
 }
+document.getElementById('btnOpenCompose').addEventListener('click', openCommentCompose);
+document.getElementById('btnComposeBack').addEventListener('click', () => { cancelCommentReply(); showCommentView('feed'); });
+document.getElementById('commentMsg').addEventListener('input', (e) => { document.getElementById('cmtCharCount').textContent = `${e.target.value.length} / 2000`; });
 document.getElementById('btnLeaveComment').addEventListener('click', openCommentBox);
 document.getElementById('btnCloseComment').addEventListener('click', closeCommentBox);
 document.getElementById('commentOverlay').addEventListener('click', (e) => { if (e.target.id === 'commentOverlay') closeCommentBox(); });

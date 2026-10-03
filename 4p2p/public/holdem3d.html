@@ -2380,7 +2380,7 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
          same as it always has, only ever showing the small "D" button badge on whichever
          seat currently holds the deal. -->
     <div class="house-dealer" id="houseDealer">
-      <img src="/images/hero-avatars/toon5.png" class="house-dealer-photo" id="houseDealerPhoto" alt="">
+      <img src="/images/hero-avatars/dealer-a.png" class="house-dealer-photo" id="houseDealerPhoto" alt="">
     </div>
   </div>
   <div class="hand-strip" id="myHandStrip"></div>
@@ -2914,7 +2914,7 @@ document.addEventListener('click', (e) => {
 // player's choice carries over between this table and the others.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon107','toon108','toon109']).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+const ALL_AVATAR_KEYS = Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
 const PROTECTED_AVATAR_KEYS = new Set(['toon101', 'toon102', 'toon103', 'toon104', 'toon105', 'toon106']);
 const AVATAR_PINS = {
   toon101: '0719', // JCK
@@ -3283,11 +3283,11 @@ window.addEventListener('online', () => {
 
 function $(id) { return document.getElementById(id); }
 // Lightweight, deterministic seat-to-avatar mapping reusing the same photo pool as the other
-// tables (public/images/hero-avatars/toon1.png .. toon72.png) - holdem seats have no avatar
+// tables (public/images/hero-avatars/toon1.png .. toon90.png) - holdem seats have no avatar
 // field of their own yet, so this assigns one from name+seat position, stable for the seat's
 // entire time at the table (same name+pos always maps to the same photo) without needing a
 // full avatar-picker feature built out for this table too.
-const HOLDEM_AVATAR_COUNT = 72;
+const HOLDEM_AVATAR_COUNT = 90;
 function holdemAvatarFor(name, pos) {
   const str = String(name || '') + ':' + pos;
   let hash = 0;
