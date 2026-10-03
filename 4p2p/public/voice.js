@@ -391,6 +391,47 @@
     for (const id of Array.from(peers.keys())) removePeer(id);
   }
 
+  // ---------------- Voice data usage (reported to the admin "Usage" page) ----------------
+  // The audio goes straight between phones (or through the TURN relay), never through our server, so only
+  // the browser can count it. Every 30 s -- and once more when you leave the call -- this adds up the NEW
+  // audio bytes since the last report (RTP payload + RTP headers + an estimate of UDP/IP headers per packet)
+  // and sends just those numbers, flagged by whether the connection runs through a relay. No audio, names or
+  // anything else is sent. It is an estimate; the server also caps and rate-limits what it accepts.
+  const lastStats = new Map();   // peer id -> cumulative { sent, recv } already reported
+  let statsTimer = null;
+  async function collectStats() {
+    const entries = Array.from(peers.entries());     // snapshot: peers may be closed while we wait
+    let dSent = 0, dRecv = 0, dRelSent = 0, dRelRecv = 0;
+    for (const [id, pc] of entries) {
+      try {
+        const rep = await pc.getStats();
+        let sent = 0, recv = 0, relayed = false, pair = null;
+        const cands = new Map();
+        rep.forEach((st) => {
+          const audio = st.kind === 'audio' || st.mediaType === 'audio';
+          if (st.type === 'outbound-rtp' && audio) sent += (st.bytesSent || 0) + (st.headerBytesSent || 0) + (st.packetsSent || 0) * 28;
+          else if (st.type === 'inbound-rtp' && audio) recv += (st.bytesReceived || 0) + (st.headerBytesReceived || 0) + (st.packetsReceived || 0) * 28;
+          else if (st.type === 'local-candidate' || st.type === 'remote-candidate') cands.set(st.id, st);
+          else if (st.type === 'candidate-pair' && (st.nominated || st.state === 'succeeded')) { if (!pair || st.nominated) pair = st; }
+        });
+        if (pair) {
+          const l = cands.get(pair.localCandidateId), r = cands.get(pair.remoteCandidateId);
+          relayed = !!((l && l.candidateType === 'relay') || (r && r.candidateType === 'relay'));
+        }
+        const prev = lastStats.get(id) || { sent: 0, recv: 0 };
+        const ds = Math.max(0, sent - prev.sent), dr = Math.max(0, recv - prev.recv);
+        lastStats.set(id, { sent: Math.max(sent, prev.sent), recv: Math.max(recv, prev.recv) });
+        dSent += ds; dRecv += dr;
+        if (relayed) { dRelSent += ds; dRelRecv += dr; }
+      } catch (e) { /* a closed/failed connection simply contributes nothing */ }
+    }
+    if ((dSent || dRecv) && socket) {
+      try { socket.emit('voiceStats', { sent: Math.round(dSent), recv: Math.round(dRecv), relaySent: Math.round(dRelSent), relayRecv: Math.round(dRelRecv) }); } catch (e) {}
+    }
+  }
+  function startStatsReporting() { stopStatsReporting(); statsTimer = setInterval(() => { collectStats(); }, 30000); }
+  function stopStatsReporting() { if (statsTimer) { clearInterval(statsTimer); statsTimer = null; } }
+
   function removePeer(id) {
     const pc = peers.get(id);
     if (pc) { pc.close(); peers.delete(id); }
@@ -436,6 +477,7 @@
     }
     inCall = true;
     socket.emit('voiceJoin', { name: getName(), code: voiceCode });
+    startStatsReporting();
     updateActiveLight();
     return true;
   }
@@ -444,7 +486,16 @@
     if (!inCall) return;
     inCall = false;
     if (socket) socket.emit('voiceLeave');
-    for (const id of Array.from(peers.keys())) removePeer(id);
+    stopStatsReporting();
+    // Report the last stretch of audio BEFORE the connections are closed (closed connections can't be read),
+    // but never hold up leaving for more than a moment.
+    let closed = false;
+    const closeAll = () => {
+      if (closed) return; closed = true;
+      for (const id of Array.from(peers.keys())) removePeer(id);
+      lastStats.clear();
+    };
+    Promise.race([collectStats(), new Promise((r) => setTimeout(r, 700))]).then(closeAll, closeAll);
     if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
     analysers.delete('me');
     blockedAudio.clear();

@@ -44,6 +44,48 @@
   .live-card .where{color:var(--text2);font-size:0.72rem;margin-top:2px}
   .live-card .game-badge{background:rgba(244,196,48,0.15);color:var(--accent);font-size:0.68rem;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap}
   .live-card.disconnected{opacity:0.5}
+  /* Usage breakdown panel */
+  .ub-h{margin:0 0 4px;font-size:1.02rem;color:var(--accent)}
+  .ub-sec{margin:20px 0 8px;font-size:0.84rem;font-weight:800;color:#fff;letter-spacing:.2px}
+  .ub-sec small{display:block;font-weight:500;color:var(--text2);font-size:0.68rem;margin-top:2px;line-height:1.35}
+  .ub-cards{display:flex;gap:8px;flex-wrap:wrap}
+  .ub-card{flex:1 1 30%;min-width:96px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 8px;text-align:center}
+  .ub-card b{display:block;font-size:1.05rem;color:#fff}
+  .ub-card span{display:block;font-size:0.66rem;color:var(--text2);margin-top:3px;line-height:1.3}
+  .ub-card.big{border-color:rgba(244,196,48,0.45)}
+  .ub-row{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:6px}
+  .ub-row .top{display:flex;justify-content:space-between;gap:8px;font-size:0.8rem;color:#fff}
+  .ub-row .top em{font-style:normal;color:var(--text2);font-size:0.7rem;white-space:nowrap}
+  .ub-row .note{color:var(--text2);font-size:0.68rem;margin-top:3px}
+  .ub-bar{height:5px;border-radius:99px;background:rgba(255,255,255,0.08);margin-top:6px;overflow:hidden}
+  .ub-bar i{display:block;height:100%;background:linear-gradient(90deg,#f4c430,#e6a817);border-radius:99px}
+  .ub-bar.warn i{background:linear-gradient(90deg,#ff9a5a,#ff5a5a)}
+  .ub-game{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+  .ub-game .gname{font-weight:800;color:#fff;font-size:0.86rem;margin-bottom:6px}
+  .ub-game .grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:0.72rem;color:var(--text2)}
+  .ub-game .grid b{color:#fff;font-weight:700}
+  .ub-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .ub-form label{font-size:0.66rem;color:var(--text2);display:block;margin-bottom:3px}
+  .ub-form input{width:100%;box-sizing:border-box;padding:9px 10px;border-radius:8px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.82rem}
+  .ub-form .full{grid-column:1 / -1}
+  /* Visitor log, grouped by IP: one card per IP (live ones first, then most recent), earlier visits tucked underneath */
+  .vgroup{background:var(--panel);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;overflow:hidden}
+  .vgroup.live{border-color:rgba(61,214,140,0.55);box-shadow:0 0 0 1px rgba(61,214,140,0.18)}
+  .vgroup.heavy{background:rgba(255,80,80,0.10);border-color:rgba(255,80,80,0.35)}
+  .vgroup .vtop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:12px 14px}
+  .vgroup .vtime{text-align:right;font-size:0.8rem;color:#fff;white-space:nowrap}
+  .vgroup .vtime .ago{display:block;color:var(--text2);font-size:0.68rem;margin-top:3px}
+  .vgroup .vbadge{display:inline-block;font-size:0.66rem;font-weight:800;padding:2px 8px;border-radius:999px;margin:0 6px 0 0;white-space:nowrap}
+  .vgroup .vbadge.livebadge{background:rgba(61,214,140,0.18);color:#3dd68c}
+  .vgroup .vbadge.count{background:rgba(244,196,48,0.15);color:var(--accent)}
+  .vgroup details{border-top:1px solid var(--border);background:rgba(0,0,0,0.18)}
+  .vgroup summary{cursor:pointer;list-style:none;padding:9px 14px;font-size:0.74rem;font-weight:700;color:var(--accent);-webkit-user-select:none;user-select:none}
+  .vgroup summary::-webkit-details-marker{display:none}
+  .vgroup summary::before{content:'▸';display:inline-block;margin-right:7px}
+  .vgroup details[open] summary::before{content:'▾'}
+  .vgroup .vsub{display:flex;justify-content:space-between;gap:10px;padding:8px 14px 8px 22px;border-top:1px dashed rgba(255,255,255,0.08);font-size:0.72rem;color:var(--text2)}
+  .vgroup .vsub .vwhen{color:#fff;white-space:nowrap}
+  .vgroup .vsub b{color:#fff;font-weight:700}
 </style>
 </head>
 <body>
@@ -126,6 +168,24 @@
       </div>
       <div id="usageSummary" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
       <div id="usageList"></div>
+
+      <div id="ubPanel" style="margin-top:26px;padding-top:18px;border-top:1px dashed var(--border)">
+        <h3 class="ub-h">📊 Usage breakdown</h3>
+        <div class="sub" style="margin-top:0">
+          Where the data and the time go: web files, live game / text-chat / voice traffic, time at tables
+          versus wandering, voice audio, and the TURN-relay quota. Voice audio and the relay estimate are
+          <b>reported by players' phones</b> (the audio never passes through this server), so treat them as
+          close estimates.
+        </div>
+        <div id="ubRange" class="tabs" style="margin:12px 0">
+          <button class="tab on" data-range="today">Today</button>
+          <button class="tab" data-range="7d">7 days</button>
+          <button class="tab" data-range="30d">30 days</button>
+          <button class="tab" data-range="all">All time</button>
+        </div>
+        <div class="toolbar"><button class="btn ghost" id="btnRefreshUb">🔄 Refresh breakdown</button></div>
+        <div id="ubBody"><div class="empty">Loading…</div></div>
+      </div>
     </div>
     <div id="botsView" style="display:none">
       <div class="sub" style="margin-top:0">
@@ -424,7 +484,7 @@ function switchTab(tab) {
   }
   if (tab === 'visitors') refreshVisitorLog();
   if (tab === 'history') refreshTableHistory();
-  if (tab === 'usage') refreshNetworkUsage();
+  if (tab === 'usage') { refreshNetworkUsage(); refreshUsageBreakdown(); }
   if (tab === 'bots' && !botAvatarGridBuilt) buildBotAvatarGrid();
   if (tab === 'ghost') {
     if (!ghostAvatarGridBuilt) buildGhostAvatarGrid();
@@ -1344,6 +1404,123 @@ function renderNetworkUsage(data) {
 }
 document.getElementById('btnRefreshUsage').addEventListener('click', refreshNetworkUsage);
 
+// ---------------- Usage breakdown ----------------
+let ubRangeSel = 'today';
+const UB_HTTP_LABEL = { pages: 'Pages (HTML)', scripts: 'Scripts, styles & fonts', avatars: 'Avatar pictures', images: 'Other images (backgrounds, art)', sounds: 'Sounds & video', api: 'API calls (comments, config…)', admin: 'This admin panel', other: 'Other files' };
+const UB_SOCK_LABEL = { game: 'Game traffic (moves, state)', chat: 'Text chat', voiceSig: 'Voice setup (signalling only)' };
+function ubRow(label, valueText, pct, note, warn) {
+  const w = Math.max(0, Math.min(100, pct || 0));
+  return `<div class="ub-row"><div class="top"><span>${label}</span><em>${valueText}</em></div>` +
+    (pct != null ? `<div class="ub-bar${warn ? ' warn' : ''}"><i style="width:${w}%"></i></div>` : '') +
+    (note ? `<div class="note">${note}</div>` : '') + `</div>`;
+}
+function ubCard(value, label, big) { return `<div class="ub-card${big ? ' big' : ''}"><b>${value}</b><span>${label}</span></div>`; }
+function ubDur(ms) { return ms ? fmtDuration(ms) : '0s'; }
+function renderUsageBreakdown(d) {
+  const body = document.getElementById('ubBody');
+  if (!d || !d.ok) { body.innerHTML = '<div class="empty">Could not load the breakdown.</div>'; return; }
+  const S = d.server, V = d.voice, T = d.time;
+  const pct = (n, of) => of > 0 ? (n / of) * 100 : 0;
+  const share = (n) => S.containerBytes > 0 ? ` · ${(pct(n, S.containerBytes)).toFixed(1)}%` : '';
+  let h = '';
+
+  // 1. combined
+  h += `<div class="ub-sec">Combined totals<small>${esc(d.from)}${d.to !== d.from ? ' → ' + esc(d.to) : ''} · tracked since ${esc(d.trackingSince || '—')}</small></div>`;
+  h += `<div class="ub-cards">${ubCard(fmtBytes(S.containerBytes), 'Server data<br>(everything your server sent + received)')}${ubCard(fmtBytes(V.wireBytes), 'Voice audio<br>(phone to phone / relay)')}${ubCard(fmtBytes(d.combinedBytes), 'Real total<br>server + voice', true)}</div>`;
+
+  // 2. server data by type
+  h += `<div class="ub-sec">Server data by type<small>The server total split into what it was spent on. "Unattributed" is protocol overhead (encryption, headers, keep-alives) that can't be assigned to a feature.</small></div>`;
+  const httpOrder = ['pages', 'scripts', 'avatars', 'images', 'sounds', 'api', 'admin', 'other'];
+  httpOrder.forEach(k => {
+    const x = S.http[k]; if (!x) return;
+    h += ubRow(esc(UB_HTTP_LABEL[k]), fmtBytes(x.bytes) + share(x.bytes), pct(x.bytes, S.containerBytes), `${x.n.toLocaleString()} requests`);
+  });
+  ['game', 'chat', 'voiceSig'].forEach(k => {
+    const x = S.sock[k]; if (!x) return;
+    const tot = (x.in || 0) + (x.out || 0);
+    h += ubRow(esc(UB_SOCK_LABEL[k]), fmtBytes(tot) + share(tot), pct(tot, S.containerBytes), `sent by players ${fmtBytes(x.in || 0)} · sent to players ${fmtBytes(x.out || 0)}`);
+  });
+  h += ubRow('Unattributed (overhead)', fmtBytes(S.unattributedBytes) + share(S.unattributedBytes), pct(S.unattributedBytes, S.containerBytes), 'container total minus everything above');
+
+  // 3. voice
+  h += `<div class="ub-sec">Voice chat<small>Audio counted by the players' own phones (payload + packet headers). It does not pass through your server, so it is NOT inside "Server data".</small></div>`;
+  h += ubRow('Voice audio on the wire', fmtBytes(V.wireBytes), null, 'each byte counted once, as it was sent');
+  h += ubRow("Players' phones (sent + received)", fmtBytes(V.phoneBytes), null, 'what voice cost the players\' own mobile data');
+  h += ubRow('Through the TURN relay', fmtBytes(V.relayBytes), pct(V.relayBytes, V.phoneBytes), 'connections that could not go direct');
+  h += ubRow('Direct phone-to-phone', fmtBytes(Math.max(0, V.phoneBytes - V.relayBytes)), pct(Math.max(0, V.phoneBytes - V.relayBytes), V.phoneBytes), 'costs you nothing');
+  h += ubRow('Time on voice', ubDur(Object.values(T.voice).reduce((a, b) => a + b, 0)), null, `${(V.reports || 0).toLocaleString()} reports received`);
+
+  // 4. time
+  h += `<div class="ub-sec">Time<small>Measured on the server. "Page time" is any open connection; "wandering" is connected but not sitting at a table.</small></div>`;
+  const tableTotal = Object.values(T.table).reduce((a, b) => a + b, 0);
+  h += ubRow('Page time (connected)', ubDur(T.page), 100, `${(T.sessions || 0).toLocaleString()} visits · average ${T.sessions ? ubDur(T.page / T.sessions) : '—'} each`);
+  h += ubRow('Sitting at a table', ubDur(tableTotal), pct(tableTotal, T.page), 'all games together');
+  h += ubRow('Wandering (menus, lobby, browsing)', ubDur(T.wander), pct(T.wander, T.page), 'connected but not at a table');
+
+  // 5. per game
+  h += `<div class="ub-sec">By game<small>Live traffic is the game's own moves and chat. Pool has no table rooms, so its time shows under wandering.</small></div>`;
+  d.games.filter(g => g.liveBytes || g.tableMs || g.voiceMs || g.chatMsgs || g.voiceSent).forEach(g => {
+    h += `<div class="ub-game"><div class="gname">${esc(g.label)}</div><div class="grid">
+      <div>Live data <b>${fmtBytes(g.liveBytes)}</b></div><div>At tables <b>${ubDur(g.tableMs)}</b></div>
+      <div>Text chat <b>${g.chatMsgs.toLocaleString()} msgs</b> · ${fmtBytes(g.chatBytes)}</div><div>Voice time <b>${ubDur(g.voiceMs)}</b></div>
+      <div>Voice data <b>${fmtBytes(g.voiceSent)}</b></div><div>…via relay <b>${fmtBytes(g.voiceRelay)}</b></div></div></div>`;
+  });
+  if (!d.games.some(g => g.liveBytes || g.tableMs || g.chatMsgs)) h += '<div class="empty" style="padding:14px">No game activity recorded for this period yet.</div>';
+
+  // 6. text chat total
+  const chatMsgs = Object.values(d.chat).reduce((a, x) => a + (x.msgs || 0), 0), chatBytes = Object.values(d.chat).reduce((a, x) => a + (x.bytes || 0), 0);
+  h += `<div class="ub-sec">Text chat</div>` + ubRow('Messages sent by players', chatMsgs.toLocaleString(), null, `${fmtBytes(chatBytes)} typed · the server then sends each message to everyone at the table (see "Text chat" under server data)`);
+
+  // 7. busiest tables
+  h += `<div class="ub-sec">Busiest tables<small>Most time seated. Table codes are random; "joins" counts how many times someone sat down.</small></div>`;
+  if (!d.tables.length) h += '<div class="empty" style="padding:14px">No tables recorded for this period yet.</div>';
+  d.tables.slice(0, 10).forEach(t => {
+    const code = String(t.key).split(':').slice(1).join(':').replace(/^(sixp_|l56_|carrom_|poker_|spades_|pool_)/, '');
+    const g = (d.games.find(x => x.game === t.game) || {}).label || t.game;
+    h += ubRow(`${esc(g)} · <b>${esc(code)}</b>`, ubDur(t.ms), null, `${fmtBytes(t.bytes)} live data · ${t.chatMsgs} chat msgs · ${fmtBytes(t.voiceSent)} voice · ${t.joins} joins`);
+  });
+
+  // 8. TURN quota
+  const q = d.turnQuota;
+  const usedPct = q.limitBytes ? (q.estimatedUsedBytes / q.limitBytes) * 100 : 0;
+  h += `<div class="ub-sec">TURN relay quota<small>Typed in from the provider's own dashboard (the provider doesn't tell us automatically). Renews on the ${esc(q.nextRenewalDate)} — the monthly allowance resets then.</small></div>`;
+  h += ubRow(`${esc(q.provider)}`, `${fmtBytes(q.estimatedUsedBytes)} of ${fmtBytes(q.limitBytes)}`, usedPct, `${usedPct.toFixed(1)}% used · renews in ${q.daysToRenewal} day${q.daysToRenewal === 1 ? '' : 's'} · last typed in ${esc(new Date(q.asOf).toLocaleString())} (${fmtBytes(q.usedBytes)}) + about ${fmtBytes(q.relaySinceAsOf || 0)} relayed since, from player reports`, usedPct >= 80);
+  if (q.readingIsFromEarlierPeriod) h += `<div class="ub-row" style="border-color:rgba(255,90,90,0.5)"><div class="note" style="color:#ff9a9a">The plan renewed after the number you typed in, so it is out of date. Type the new number from the dashboard below.</div></div>`;
+  h += `<div class="ub-row"><div class="note" style="margin-bottom:6px">Update from the dashboard (Quota Usage):</div>
+    <div class="ub-form">
+      <div class="full"><label>Provider</label><input id="ubqProvider" value="${esc(q.provider)}"></div>
+      <div><label>Used so far (MB)</label><input id="ubqUsed" type="number" min="0" step="any" value="${Math.round(q.usedBytes / 1048576 * 10) / 10}"></div>
+      <div><label>Monthly limit (MB)</label><input id="ubqLimit" type="number" min="1" step="any" value="${Math.round(q.limitBytes / 1048576)}"></div>
+      <div class="full"><label>Renews on (date)</label><input id="ubqRenews" type="date" value="${esc(q.renewsOn)}"></div>
+    </div>
+    <button class="btn" id="btnSaveQuota" style="margin-top:10px">Save these numbers</button></div>`;
+  body.innerHTML = h;
+  document.getElementById('btnSaveQuota').addEventListener('click', saveTurnQuota);
+}
+async function refreshUsageBreakdown() {
+  try {
+    const res = await adminFetch('/api/admin/usage-breakdown?range=' + encodeURIComponent(ubRangeSel));
+    if (!res.ok) { document.getElementById('ubBody').innerHTML = '<div class="empty">Could not load the breakdown.</div>'; return; }
+    renderUsageBreakdown(await res.json());
+  } catch (e) { document.getElementById('ubBody').innerHTML = '<div class="empty">Could not load the breakdown.</div>'; }
+}
+async function saveTurnQuota() {
+  const btn = document.getElementById('btnSaveQuota'); btn.disabled = true;
+  try {
+    await adminFetch('/api/admin/turn-quota', undefined, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      provider: document.getElementById('ubqProvider').value, usedMB: document.getElementById('ubqUsed').value,
+      limitMB: document.getElementById('ubqLimit').value, renewsOn: document.getElementById('ubqRenews').value }) });
+  } catch (e) {}
+  await refreshUsageBreakdown();
+}
+document.getElementById('btnRefreshUb').addEventListener('click', refreshUsageBreakdown);
+document.getElementById('ubRange').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-range]'); if (!btn) return;
+  ubRangeSel = btn.dataset.range;
+  [...document.getElementById('ubRange').children].forEach(b => b.classList.toggle('on', b === btn));
+  refreshUsageBreakdown();
+});
+
 async function refreshVisitorLog() {
   const res = await adminFetch('/api/visitor-log?filter=' + encodeURIComponent(visitorFilter));
   if (!res.ok) return;
@@ -1373,49 +1550,74 @@ function renderVisitorLog(entries, summary) {
   `;
   const listEl = document.getElementById('visitorList');
   if (!entries.length) { listEl.innerHTML = '<div class="empty">No visits logged for this period.</div>'; return; }
-  // Same IP appearing more than once in the currently-loaded entries is
-  // exactly the "refreshed the page" / "opened two tabs" signal worth
-  // flagging visually, since the header numbers above already fix the
-  // headline unique-vs-total confusion.
-  const ipCounts = {};
-  entries.forEach(e => { if (e.ip) ipCounts[e.ip] = (ipCounts[e.ip] || 0) + 1; });
-  listEl.innerHTML = entries.map(e => {
-    const dup = e.ip && ipCounts[e.ip] > 1;
-    const location = [e.city, e.regionName || e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+  // GROUPED BY IP: one card per IP address. The card shows that IP's latest visit; every earlier visit from the
+  // same IP sits underneath in a collapsible "Earlier visits" list (newest first). Order of the cards:
+  //   1) IPs that are connected RIGHT NOW (a visit with no end time yet) come first,
+  //   2) then everything else by most recent visit.
+  const isLive = (e) => e.sessionMs == null && !e.endedByRestart;
+  const groups = new Map();
+  [...entries].sort((x, y) => (y.ts || 0) - (x.ts || 0)).forEach(e => {
+    const key = e.ip || 'unknown IP';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(e);               // already newest-first within each group
+  });
+  const ordered = [...groups.entries()].sort((A, B) => {
+    const liveA = A[1].some(isLive) ? 1 : 0, liveB = B[1].some(isLive) ? 1 : 0;
+    if (liveA !== liveB) return liveB - liveA;
+    return (B[1][0].ts || 0) - (A[1][0].ts || 0);
+  });
+  const durText = (e) => e.sessionMs != null
+    ? `⏱️ ${fmtDuration(e.sessionMs)}`
+    : e.endedByRestart ? '🔌 ended (server restarted)' : '🟢 still connected';
+  const ago = (ms) => {
+    const sec = Math.max(0, Math.round((Date.now() - ms) / 1000));
+    if (sec < 60) return 'just now';
+    const m = Math.round(sec / 60); if (m < 60) return m + ' min ago';
+    const h = Math.round(m / 60); if (h < 24) return h + ' h ago';
+    return Math.round(h / 24) + ' d ago';
+  };
+  const locOf = (e) => [e.city, e.regionName || e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+  const devOf = (e) => [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
+  listEl.innerHTML = ordered.map(([ip, visits]) => {
+    const e = visits[0];                       // latest visit = the card's headline
+    const earlier = visits.slice(1);
+    const live = visits.some(isLive);
+    const heavy = visits.length >= 10;         // same IP 10+ times in this view: worth a look (refreshing / a bot)
     const mapLink = (e.lat != null && e.lon != null)
       ? ` <a href="https://www.google.com/maps?q=${e.lat},${e.lon}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">(map)</a>`
       : '';
-    const deviceLine = [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
-    // sessionMs is only set once the connection actually ends (see the
-    // 'disconnect' handler in server.js). endedByRestart marks a session
-    // that was still open when a PREVIOUS server process stopped -- its
-    // real socket is gone, so exactly when it ended is unknowable; shown
-    // distinctly rather than faking a duration or leaving it looking
-    // like it's still connected days later.
-    const durationLine = e.sessionMs != null
-      ? `⏱️ Logged in ${fmtDuration(e.sessionMs)}`
-      : e.endedByRestart
-        ? '🔌 Ended (server restarted) — duration unknown'
-        : '🟢 Still connected';
     const badges = [
-      e.returning ? '🔁 returning' : '✨ new',
-      dup ? `⚠️ seen ${ipCounts[e.ip]}× in this view` : ''
-    ].filter(Boolean).join(' &middot; ');
+      live ? '<span class="vbadge livebadge">🟢 LIVE</span>' : '',
+      visits.length > 1 ? `<span class="vbadge count">${visits.length} visits</span>` : '',
+      e.returning ? '🔁 returning' : '✨ new'
+    ].filter(Boolean).join('');
+    const subs = earlier.map(v => {
+      const sameLoc = locOf(v) === locOf(e), sameDev = devOf(v) === devOf(e);
+      const diff = [sameLoc ? '' : '📍 ' + esc(locOf(v)), sameDev ? '' : '📱 ' + esc(devOf(v))].filter(Boolean).join(' · ');
+      return `<div class="vsub"><div>${durText(v)}${v.referrer ? ' · ↪️ ' + esc(v.referrer) : ''}${diff ? '<br>' + diff : ''}</div><div class="vwhen">${esc(fmtTime(v.ts))}</div></div>`;
+    }).join('');
+    const open = visitorOpenIps.has(ip) ? ' open' : '';
     return `
-      <div class="live-card" style="${dup ? 'background:rgba(255,80,80,0.12);border-color:rgba(255,80,80,0.35)' : ''}">
-        <div>
-          <div class="who">${esc(e.ip || 'unknown IP')}</div>
-          <div class="where">📍 ${esc(location)}${mapLink}</div>
-          <div class="where">📱 ${esc(deviceLine)}${e.language ? ' · 🌐 ' + esc(e.language) : ''}</div>
-          <div class="where">${durationLine}</div>
-          ${e.referrer ? `<div class="where">↪️ from ${esc(e.referrer)}</div>` : ''}
-          <div class="where" style="opacity:0.8">${badges}</div>
+      <div class="vgroup${live ? ' live' : ''}${heavy ? ' heavy' : ''}">
+        <div class="vtop">
+          <div>
+            <div class="who">${esc(ip)}</div>
+            <div class="where">📍 ${esc(locOf(e))}${mapLink}</div>
+            <div class="where">📱 ${esc(devOf(e))}${e.language ? ' · 🌐 ' + esc(e.language) : ''}</div>
+            <div class="where">${durText(e)}${e.referrer ? ' · ↪️ from ' + esc(e.referrer) : ''}</div>
+            <div class="where" style="margin-top:5px">${badges}</div>
+          </div>
+          <div class="vtime">${esc(fmtTime(e.ts))}<span class="ago">${esc(ago(e.ts))}</span></div>
         </div>
-        <div class="time">${esc(fmtTime(e.ts))}</div>
-      </div>
-    `;
+        ${earlier.length ? `<details data-ip="${esc(ip)}"${open}><summary>Earlier visits (${earlier.length})</summary>${subs}</details>` : ''}
+      </div>`;
   }).join('');
+  // remember which groups the admin expanded, so an auto-refresh doesn't snap them shut
+  listEl.querySelectorAll('details[data-ip]').forEach(d => {
+    d.addEventListener('toggle', () => { if (d.open) visitorOpenIps.add(d.dataset.ip); else visitorOpenIps.delete(d.dataset.ip); });
+  });
 }
+const visitorOpenIps = new Set();
 
 document.getElementById('btnRefreshVisitors').addEventListener('click', refreshVisitorLog);
 document.getElementById('visitorFilters').addEventListener('click', (e) => {
