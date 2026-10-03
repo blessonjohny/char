@@ -221,6 +221,12 @@ function checkAdminAuthSocket(socket, password) {
 // keep seeing whatever old version their browser already cached. The game
 // is small enough, and changes often enough during active development,
 // that it's worth explicitly telling every browser never to cache it.
+// Usage breakdown (see usage-stats.js): where the data and the time go -- web files by type, live game/chat/voice
+// traffic per game, time at tables vs wandering, voice reported by players' browsers. Counting only; never
+// changes what is served, and every hook inside is wrapped so it cannot break a request or a game.
+const { createUsageStats } = require('./usage-stats');
+const usage = createUsageStats({ file: path.join(DATA_DIR, 'usage-breakdown-data.json') });
+app.use(usage.httpMiddleware);
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store, must-revalidate'); }
 }));
@@ -539,6 +545,8 @@ const io = new Server(server, {
   pingInterval: 25000,
   pingTimeout: 60000
 });
+usage.attachIo(io);                                   // registered first: instruments every socket before any game handler
+setInterval(() => { try { usage.tick(); } catch (e) {} }, 60 * 1000);   // credits live time + saves once a minute
 
 // ---------------- Visitor location log (admin-only, anti-cheat visibility) ----------------
 // The previous "visitor stats" in the admin panel were purely client-side
@@ -1123,8 +1131,8 @@ async function finalVisitorLogFlush() {
     ]);
   }
 }
-process.on('SIGTERM', async () => { await finalVisitorLogFlush(); process.exit(0); });
-process.on('SIGINT', async () => { await finalVisitorLogFlush(); process.exit(0); });
+process.on('SIGTERM', async () => { try { usage.save(); } catch (e) {} await finalVisitorLogFlush(); process.exit(0); });
+process.on('SIGINT', async () => { try { usage.save(); } catch (e) {} await finalVisitorLogFlush(); process.exit(0); });
 
 function clientIpFor(socket) {
   // x-forwarded-for can be a comma-separated chain (proxy hops) -- the
@@ -1647,6 +1655,31 @@ app.get('/api/admin/network-usage', (req, res) => {
     allTime: days.reduce((s, d) => s + d.bytes, 0),
     trackingSince: days.length ? days[0].date : null,
   });
+});
+
+// Usage breakdown (admin): ?range=today|7d|30d|all
+app.get('/api/admin/usage-breakdown', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  try {
+    const days = Object.keys(networkUsageDays).sort().map(date => ({ date, bytes: networkUsageDays[date] }));
+    res.json(usage.report(String(req.query.range || 'today'), days));
+  } catch (e) {
+    console.error('[usage-stats] report failed:', e.message);
+    res.status(500).json({ ok: false, error: 'report_failed' });
+  }
+});
+// The TURN relay quota note (numbers typed in from the provider's own dashboard, e.g. Metered.ca / Cloudflare)
+app.post('/api/admin/turn-quota', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const b = req.body || {};
+  const mb = (v) => (v === '' || v == null ? undefined : Number(v) * 1024 * 1024);
+  const q = usage.setQuota({
+    provider: b.provider,
+    usedBytes: mb(b.usedMB),
+    limitBytes: mb(b.limitMB),
+    renewsOn: b.renewsOn,
+  });
+  res.json({ ok: true, quota: q });
 });
 
 // Admin: force-close ANY table in ANY of the four games, no matter what
@@ -3793,6 +3826,7 @@ io.on('connection', (socket) => {
     peers.set(socket.id, String(name || 'Player').slice(0, 20));
     socket.emit('voicePeers', existing);
     socket.to(room).emit('voicePeerJoined', { id: socket.id, name: peers.get(socket.id) });
+    try { usage.voiceJoined(socket); } catch (e) {}
   });
 
   socket.on('voiceSignal', ({ to, signal }) => {
@@ -3804,6 +3838,7 @@ io.on('connection', (socket) => {
     const room = voiceRoomOf(socket);
     if (room && voiceRooms.has(room)) voiceRooms.get(room).delete(socket.id);
     if (room) socket.to(room).emit('voicePeerLeft', { id: socket.id });
+    try { usage.voiceLeft(socket); } catch (e) {}
   });
 
   socket.on('disconnect', () => {
