@@ -646,6 +646,7 @@
   }
 </style>
 <script src="name-filter.js?v=1"></script>
+<script src="table-faces.js?v=1"></script>
 </head>
 <body>
 <script>
@@ -2445,6 +2446,13 @@ function ensureSeatSkeleton(div){
 
 function renderTable(state){
   ensureTableSkeleton();
+  // No two players at this table may show the same face (see table-faces.js).
+  if (window.TableFaces) {
+    TableFaces.update(state.seats.map((o, i) => (o && (o.avatar || o.bot))
+      ? { name: o.name, avatar: o.avatar || null,
+          pref: (ALL_BOT_AVATARS_56.find(b => b.name === o.name) || ALL_BOT_AVATARS_56[i % ALL_BOT_AVATARS_56.length]).emoji }
+      : null).filter(Boolean));
+  }
 
   for(let seat=0; seat<6; seat++){
     const slot = displaySlot(seat);
@@ -2482,7 +2490,8 @@ function renderTable(state){
       avatarEl.classList.toggle('has-q', qCount > 0);
     } else if (occ && occ.bot) {
       const botMeta = ALL_BOT_AVATARS_56.find(b => b.name === occ.name) || ALL_BOT_AVATARS_56[seat % ALL_BOT_AVATARS_56.length];
-      if (avatarEl.dataset.v !== 'bot:' + botMeta.name) { avatarEl.dataset.v = 'bot:' + botMeta.name; avatarEl.innerHTML = botMeta.emoji; }
+      const botFaceHtml = window.TableFaces ? heroAvatarHtml(TableFaces.faceFor(occ.name, botMeta.emoji)) : botMeta.emoji;
+      if (avatarEl.dataset.v !== 'bot:' + botMeta.name + ':' + botFaceHtml) { avatarEl.dataset.v = 'bot:' + botMeta.name + ':' + botFaceHtml; avatarEl.innerHTML = botFaceHtml; }
       avatarEl.style.background = botMeta.bg;
       avatarEl.classList.toggle('has-q', qCount > 0);
     } else {

@@ -4178,6 +4178,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 #pinSubmitBtn{background:linear-gradient(135deg,#f4c430,#d4a017);color:#1a1206;}
 </style>
 <script src="name-filter.js?v=1"></script>
+<script src="table-faces.js?v=1"></script>
 </head>
 <body>
 <!-- Real, confirmed feature per explicit follow-up request ("the
@@ -6141,6 +6142,18 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
 let MY_PEER_ID = '';
 let ROOM_ID = '';
 let PLAYERS = [];
+// No two players at a table may show the same face (see table-faces.js). Humans keep their own pick;
+// a bot whose preferred face is already taken gets another unused face of the same gender.
+function dedupePlayerFaces() {
+  if (!window.TableFaces || !Array.isArray(PLAYERS)) return;
+  const live = PLAYERS.filter(Boolean);
+  TableFaces.update(live.map(p => ({ name: p.name, avatar: p.isBot ? null : p.emoji, pref: p.isBot ? p.emoji : null })));
+  live.forEach(p => {
+    if (!p.isBot) return;
+    const k = TableFaces.faceFor(p.name, p.emoji);
+    if (TableFaces.keyOf(p.emoji) !== k) p.emoji = heroAvatarHtml(k);
+  });
+}
 // Safe by-position lookup. PLAYERS is *usually* dense and sorted so that
 // PLAYERS[i].pos === i, but that invariant can slip — a newly-connected but
 // not-yet-seated joiner sits in the array with pos -1, a mid-round bot swap
@@ -6653,6 +6666,7 @@ function fillSeatWithBot(pos) {
   const bot = botNames.length > 0 ? botNames[0] : ALL_PLAYERS[pos % ALL_PLAYERS.length];
   PLAYERS.push({ name: bot.name + ' (Bot)', emoji: bot.emoji, bg: bot.bg, isBot: true, isLocal: false, peerId: null, pos: pos });
   PLAYERS.sort((a, b) => a.pos - b.pos);
+  dedupePlayerFaces();
   log('Host filled seat ' + (pos + 1) + ' with a bot');
   showToast('🤖 Bot added to seat ' + (pos + 1), 'info', 1800);
   updatePlayerList();
@@ -6682,6 +6696,7 @@ function removeBotFromSeat(pos) {
     occupant.name = newBot.name + ' (Bot)';
     occupant.emoji = newBot.emoji;
     occupant.bg = newBot.bg;
+    dedupePlayerFaces();
     log('Host swapped seat ' + (pos + 1) + ' to a new bot: ' + occupant.name);
     showToast('🔄 Seat ' + (pos + 1) + ' is now ' + occupant.name + '!', 'info', 1800);
     // The Manage Room panel re-reads PLAYERS fresh every time it's opened, so
@@ -6889,13 +6904,14 @@ function confirmPlayer() {
     { name: bots[2].name, emoji: bots[2].emoji, bg: bots[2].bg, isBot: true, isLocal: false, peerId: null, pos: 2 },
     { name: you.name, emoji: you.emoji, bg: you.bg, isBot: false, isLocal: true, peerId: null, pos: 3 }
   ];
+  dedupePlayerFaces();
   MY_POS = 3;
   const avs = [bots[0], bots[1], bots[2], you];
   for (let i = 0; i < 4; i++) {
     const av = document.getElementById('av' + i);
     const nm = document.getElementById('name' + i);
     const teamDot = PLAYERS[i].isBot ? 'topp' : 'tyou';
-    if (av) { av.style.background = avs[i].bg; av.innerHTML = avs[i].emoji + '<span class="tdot ' + teamDot + '"></span>'; }
+    if (av) { av.style.background = avs[i].bg; av.innerHTML = PLAYERS[i].emoji + '<span class="tdot ' + teamDot + '"></span>'; }
     if (nm) nm.textContent = formatPlayerName(PLAYERS[i].name, PLAYERS[i].isBot);
   }
   document.getElementById('pickerScreen').style.display = 'none';
@@ -15839,6 +15855,7 @@ function startLocalGameWithPosition(yourPos) {
     };
   }
 
+  dedupePlayerFaces();
   for (let i = 0; i < 4; i++) {
     const p = PLAYERS[i];
     const slot = slotForPlayer(i);
@@ -18908,6 +18925,15 @@ function applyServerState(state) {
   }
 
   // 1. Seats -> the same PLAYERS shape local-mode rendering already expects
+  // Resolve every seat's face first so no two players at this table share one (bots get another unused
+  // face of the same gender when their usual one is taken; a human's own pick is never changed).
+  if (window.TableFaces) {
+    TableFaces.update(state.seats.map((s, i) => {
+      if (!s) return null;
+      const m = ALL_PLAYERS.find(b => b.name === s.name) || ALL_PLAYERS[i % ALL_PLAYERS.length];
+      return { name: s.name, avatar: s.avatar || null, pref: m.emoji };
+    }).filter(Boolean));
+  }
   PLAYERS = state.seats.map((s, i) => {
     if (!s) return null;
     const meta = ALL_PLAYERS.find(b => b.name === s.name) || ALL_PLAYERS[i % ALL_PLAYERS.length];
@@ -18919,7 +18945,7 @@ function applyServerState(state) {
     // when a real avatar was already showing, so it could visibly mismatch whatever
     // portrait was actually picked. A neutral, consistent background behind an
     // explicitly-chosen portrait avoids that entirely.
-    const emojiHtml = s.avatar ? heroAvatarHtml(s.avatar) : meta.emoji;
+    const emojiHtml = s.avatar ? heroAvatarHtml(s.avatar) : (window.TableFaces ? heroAvatarHtml(TableFaces.faceFor(s.name, meta.emoji)) : meta.emoji);
     const bg = s.avatar ? 'linear-gradient(135deg,#2a3f5f,#1a2942)' : meta.bg;
     return { name: s.name, pos: i, isBot: s.isBot, isLocal: i === MY_POS, emoji: emojiHtml, bg };
   }).filter(Boolean);

@@ -2070,6 +2070,7 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
 }
 </style>
 <script src="name-filter.js?v=1"></script>
+<script src="table-faces.js?v=1"></script>
 </head>
 <body>
 <!-- Personal-avatar PIN modal -- top-level body child, matching the
@@ -3294,7 +3295,7 @@ function holdemAvatarImgHtml(name, pos, avatarOverride) {
   // (seat.avatar, set via admin_pokerSetAvatar) takes priority over the
   // normal deterministic name+pos hash below -- null/unset falls
   // straight through to that same default exactly as before.
-  const file = avatarOverride || holdemAvatarFor(name, pos);
+  const file = avatarOverride || (window.TableFaces ? TableFaces.faceFor(name, holdemAvatarFor(name, pos)) : holdemAvatarFor(name, pos));
   // Real, confirmed fix per explicit live report, second pass ("I don't want
   // that [ring]... like on 4-player and 6-player the avatars have body
   // highlights and no circle" -- with an actual screenshot of six.html's
@@ -5141,6 +5142,13 @@ function enforceFoldedSeatDisplay(state) {
 setInterval(() => { if (latestState) enforceFoldedSeatDisplay(latestState); }, 1500);
 function renderGameTable(state) {
   showScreen('gameScreen');
+  // No two players at this table may show the same face (see table-faces.js). The name+seat hash below can
+  // land two seats on one portrait; this hands the later seat another unused face of the same gender.
+  if (window.TableFaces) {
+    TableFaces.update(state.seats.map((s, pos) => s
+      ? { name: s.name, avatar: s.avatar || null, pref: holdemAvatarFor(s.name, pos) }
+      : null).filter(Boolean));
+  }
   ensureSoundMuteButton();
   maybeSuggestTilt();
   if (lastRenderedHandNumberForSeatCache !== state.handNumber) {

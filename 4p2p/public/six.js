@@ -3088,6 +3088,14 @@ function enforceSeatAvatarSizing6p() {
 window.addEventListener('resize', enforceSeatAvatarSizing6p);
 
 function renderSeats(state) {
+  // No two players at this table may show the same face (see table-faces.js): a bot whose usual face is
+  // already taken gets another unused face of the same gender; a human's own pick is never changed.
+  if (window.TableFaces) {
+    TableFaces.update(state.seats.map((s, i) => (s && (s.avatar || s.isBot))
+      ? { name: s.name, avatar: s.avatar || null,
+          pref: (ALL_BOT_AVATARS_6P.find(b => b.name === s.name) || ALL_BOT_AVATARS_6P[i % ALL_BOT_AVATARS_6P.length]).emoji }
+      : null).filter(Boolean));
+  }
   detectQMarkChangesSix(state);
   enforceSeatAvatarSizing6p();
   const folded = state.foldedSeats || [];
@@ -3121,7 +3129,7 @@ function renderSeats(state) {
         baseHtml = heroAvatarHtml(seat.avatar);
       } else if (seat.isBot) {
         const botMeta = ALL_BOT_AVATARS_6P.find(b => b.name === seat.name) || ALL_BOT_AVATARS_6P[pos % ALL_BOT_AVATARS_6P.length];
-        baseHtml = botMeta.emoji;
+        baseHtml = window.TableFaces ? heroAvatarHtml(TableFaces.faceFor(seat.name, botMeta.emoji)) : botMeta.emoji;
         av.style.background = botMeta.bg;
       } else {
         baseHtml = pos === MY_POS ? '😊' : '👤';
