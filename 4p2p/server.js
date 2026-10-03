@@ -2378,18 +2378,11 @@ function computeTableDisplayName(seats, creatorName, existingGenericNames) {
 // the exact known set of real filenames here (rather than trusting whatever string arrives)
 // means a malicious client can never get an arbitrary value reflected into other players'
 // pages through this field.
-// Per explicit request: the generic bot roster was cut down from 100 to 45 curated avatars
-// (toon1-45) - the 6 protected personal ones (toon101-106) are listed separately since
-// they're not part of this sequential range.
+// Public avatars are toon1-toon90 (the current set); the 6 protected personal ones (toon101-106) are listed
+// separately since they're not part of that sequential range. Anything else (e.g. the old toon91-100 /
+// toon107-109) is rejected.
 const VALID_AVATAR_KEYS = new Set(
-  // Per explicit request ("add 3 guys also to the list of avatars"):
-  // toon107-109 are 3 new real characters, added to the public/regular
-  // range alongside the existing 1-72 -- kept as an explicit separate
-  // concat rather than renumbering into the sequential range, since
-  // toon73-100 already exist on disk (from an earlier, larger roster)
-  // but are deliberately excluded from this active set; extending the
-  // {length:72} count would have silently pulled those back in too.
-  Array.from({length:72}, (_,i) => 'toon'+(i+1)).concat(['toon107','toon108','toon109']).concat(['toon101','toon102','toon103','toon104','toon105','toon106'])
+  Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106'])
 );
 function sanitizeAvatarKey(k) { return (typeof k === 'string' && VALID_AVATAR_KEYS.has(k)) ? k : null; }
 
