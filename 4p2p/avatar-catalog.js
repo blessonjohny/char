@@ -186,8 +186,23 @@ function createAvatarCatalog(opts) {
     state.entries[key] = { gender, label: String(b.label || '').replace(/[^\p{L}\p{N} .'-]/gu, '').trim().slice(0, 40), ext: info.ext, mime: info.mime, bytes: buf.length, addedAt: Date.now() };
     const name = cleanName(b.nameFor);
     if (name) state.nameFace[name] = key;
+    // "Edit an existing avatar" saves the edited picture as a NEW avatar and, if asked, retires the old one: bot names that
+    // used the old face move to the new one, then the old one is deleted (uploaded) or hidden (built-in). The new picture is
+    // added first, so the count of faces never dips below the safety floor in between.
+    let replaced = null, replaceNote = null;
+    const old = typeof b.replaces === 'string' ? b.replaces : null;
+    if (old && old !== key) {
+      if (PERSONAL.includes(old)) replaceNote = 'Personal avatars are protected, so the original was kept.';
+      else if (!isActive(old)) replaceNote = 'The original was already gone.';
+      else {
+        const moved = Object.keys(state.nameFace).filter((n) => state.nameFace[n] === old);
+        const r = remove(old);                                  // may refuse (floor) when the gender was changed
+        if (r.ok) { moved.forEach((n) => { state.nameFace[n] = key; }); replaced = old; save(); }
+        else replaceNote = r.error || 'The original could not be removed.';
+      }
+    }
     rev += 1; save();
-    return { ok: true, status: 200, key, avatar: list().find((r) => r.key === key) };
+    return { ok: true, status: 200, key, replaced, replaceNote, avatar: list().find((r) => r.key === key) };
   }
   function remove(key) {
     if (PERSONAL.includes(key)) return { ok: false, status: 400, error: 'Personal avatars are protected and cannot be deleted.' };

@@ -248,11 +248,48 @@ app.get('/images/hero-avatars/:file', (req, res, next) => {
   res.sendFile(f.path);
 });
 // Uploading needs a bigger body limit than the site-wide 32 KB, so it is registered before the general JSON parser.
+app.post('/api/admin/scenery/:table/:slot', express.json({ limit: '2mb' }), (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const r = scenery.setBackground(req.params.table, req.params.slot, req.body || {});
+  res.status(r.status || 200).json(r);
+});
+app.post('/api/admin/kunukku/:which', express.json({ limit: '1mb' }), (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const r = scenery.setKunukku(req.params.which, req.body || {});
+  res.status(r.status || 200).json(r);
+});
 app.post('/api/admin/avatars', express.json({ limit: '1mb' }), (req, res) => {
   if (!checkAdminAuth(req, res)) return;
   const r = avatars.add(req.body || {});
   res.status(r.status || 200).json(r);
 });
+// ---- Scenery: admin-managed backgrounds (per table and screen type) and replaceable Kunukku pictures (see scenery.js) ------
+const { createScenery } = require('./scenery');
+const scenery = createScenery({ dataDir: DATA_DIR });
+app.get('/scenery.css', (req, res) => {
+  res.setHeader('Content-Type', 'text/css; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');                 // tiny; always asks, answers 304-style when unchanged
+  res.end(scenery.css());
+});
+app.get('/scenery/:file', (req, res, next) => {
+  const f = scenery.fileByName(req.params.file);
+  if (!f) return next();
+  res.setHeader('Content-Type', f.mime);
+  res.setHeader('Cache-Control', 'public, max-age=604800, immutable');   // every upload gets a new file name
+  res.sendFile(f.path);
+});
+// A replaced Kunukku picture is served under the ORIGINAL url, so no page needs to change. The game only ever shows and hides
+// the coconut with a CSS class, so swapping the picture cannot interfere with it appearing and disappearing.
+app.get(/^\/images\/kunukku\/[a-z0-9-]+\.png$/i, (req, res, next) => {
+  const f = scenery.kunukkuFileForUrl(req.path);
+  if (!f) return next();
+  res.setHeader('Content-Type', f.mime);
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('ETag', 'W/"k' + f.at + '"');
+  if (req.headers['if-none-match'] === 'W/"k' + f.at + '"') return res.status(304).end();
+  res.sendFile(f.path);
+});
+
 // WebP twins of the avatars and backgrounds (see image-optimizer.js): pages still ask for .png/.jpg and a browser that
 // understands WebP is answered with the much smaller twin. Switched on/off from the admin panel; off = the originals.
 const { createImageOptimizer } = require('./image-optimizer');
@@ -1364,7 +1401,7 @@ const socketLocations = new Map(); // socket.id -> {ip, city, region, country}, 
 // registry directly rather than needing every game to separately
 // publish this, since the shape (a Map of socket.id -> seat info,
 // plus named seats) is already consistent across all four games.
-function getAllLivePlayers() {
+function getAllLivePlayers(includeHidden) {
   const rows = [];
   function addFromSocketsMap(socketsMap, gameLabel, tableId, seatLookup, phase) {
     if (!socketsMap) return;
@@ -1383,18 +1420,22 @@ function getAllLivePlayers() {
       });
     }
   }
+  // Editor-preview tables (made by a Layout Editor's own preview frame) are included ONLY when the admin panel asks for
+  // them (includeHidden) -- the admin can see that an editor table is running, while players never can.
   for (const t of Object.values(tables)) {
+    if (t.hidden && !includeHidden) continue;
     addFromSocketsMap(t.sockets, '4-Player', t.id, (info) => t.engine.seats[info.pos], t.engine.phase);
   }
   for (const t of Object.values(sixpTables)) {
-    if (t.hidden) continue; // Layout Editor preview table -- not a real player to show anywhere admin-facing either
+    if (t.hidden && !includeHidden) continue;
     addFromSocketsMap(t.sockets, '6-Player', t.id, (info) => t.engine.seats[info.pos], t.engine.phase);
   }
   for (const r of Object.values(l56Rooms)) {
+    if (r.hidden && !includeHidden) continue;
     addFromSocketsMap(r.sockets, '56', r.code, (info) => r.state && r.state.seats && r.state.seats[info.pos], r.state ? r.state.phase : 'lobby');
   }
   for (const t of Object.values(pokerTables)) {
-    if (t.hidden) continue; // Layout Editor preview table -- not a real player to show anywhere admin-facing either
+    if (t.hidden && !includeHidden) continue;
     addFromSocketsMap(t.sockets, "Hold'em", t.engine.tableId, (info) => t.engine.seats[info.pos], t.engine.phase);
   }
   return rows;
@@ -1410,7 +1451,7 @@ function getAllLivePlayers() {
 // up, each with a plain-English seat summary ("4 bots" / "1 human, 3
 // bots") rather than requiring the admin to open every table to see
 // who's actually in it.
-function getAllTablesSummary() {
+function getAllTablesSummary(includeHidden) {
   const rows = [];
   function summarizeSeats(seats, socketsMap) {
     // socketsMap (t.sockets) maps a live socket to {pos, ...}, letting a
@@ -1483,6 +1524,7 @@ function getAllTablesSummary() {
     return [0, 1].map(i => ({ names: teams[i].names, score: (gameScore && typeof gameScore[i] === 'number') ? gameScore[i] : 0 }));
   }
   for (const t of Object.values(tables)) {
+    if (t.hidden && !includeHidden) continue;
     const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
     // Per explicit request: admin panel's live-tables view now also
     // shows the current round number and championship score (e.g.
@@ -1493,7 +1535,7 @@ function getAllTablesSummary() {
     // admin-controlled ghost players currently seated here so the
     // client can offer "chat as <ghost name>" alongside the generic
     // "chat as Admin".
-    rows.push({ game: '4-Player', mode: '4p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, maxSeats: (t.engine.seats || []).length, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, teams: buildTeamBreakdown(t.engine.seats, getTeam4p, t.engine.gameScore), challengeHandicap: t.engine.challengeHandicap || 0, challengerTeam: t.engine.challengerTeam, challengeBeaten: !!t.engine.challengeBeaten, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
+    rows.push({ editorPreview: !!t.hidden, game: '4-Player', mode: '4p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, maxSeats: (t.engine.seats || []).length, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, teams: buildTeamBreakdown(t.engine.seats, getTeam4p, t.engine.gameScore), challengeHandicap: t.engine.challengeHandicap || 0, challengerTeam: t.engine.challengerTeam, challengeBeaten: !!t.engine.challengeBeaten, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
   }
   for (const t of Object.values(sixpTables)) {
     // Real, confirmed fix per explicit live report (same reasoning as
@@ -1502,15 +1544,16 @@ function getAllTablesSummary() {
     // "live now" widget -- a hidden Layout Editor preview table is not a
     // real one a visitor could ever join, so it's skipped here too, not
     // just in sixpPublicTableList's own separate lobby-join path.
-    if (t.hidden) continue;
+    if (t.hidden && !includeHidden) continue;
     const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
-    rows.push({ game: '6-Player', mode: '6p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, maxSeats: (t.engine.seats || []).length, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, teams: buildTeamBreakdown(t.engine.seats, getTeam6p, t.engine.gameScore), challengeHandicap: t.engine.challengeHandicap || 0, challengerTeam: t.engine.challengerTeam, challengeBeaten: !!t.engine.challengeBeaten, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
+    rows.push({ editorPreview: !!t.hidden, game: '6-Player', mode: '6p', tableId: t.id, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, maxSeats: (t.engine.seats || []).length, summary, seatEntries, round: t.engine.round || 0, gameScore: t.engine.gameScore || null, teams: buildTeamBreakdown(t.engine.seats, getTeam6p, t.engine.gameScore), challengeHandicap: t.engine.challengeHandicap || 0, challengerTeam: t.engine.challengerTeam, challengeBeaten: !!t.engine.challengeBeaten, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null, ghostSeats: t.engine.seats.filter(s => s && s.ghostPlayer).map(s => s.name) });
   }
   for (const r of Object.values(l56Rooms)) {
+    if (r.hidden && !includeHidden) continue;
     const seats = r.state && r.state.seats ? r.state.seats : [];
     const { humans, bots, summary, seatEntries } = summarizeSeats(seats, r.sockets);
     const phase = r.state ? r.state.phase : 'lobby';
-    rows.push({ game: '56', mode: '56', tableId: r.code, phase, isPlaying: phase !== 'lobby', humans, bots, maxSeats: seats.length, summary, seatEntries, createdAt: r.createdAt || null, lastActivityAt: r.lastActivityAt || null });
+    rows.push({ editorPreview: !!r.hidden, game: '56', mode: '56', tableId: r.code, phase, isPlaying: phase !== 'lobby', humans, bots, maxSeats: seats.length, summary, seatEntries, createdAt: r.createdAt || null, lastActivityAt: r.lastActivityAt || null });
   }
   for (const t of Object.values(pokerTables)) {
     // Real, confirmed fix per explicit live report ("from my main page i
@@ -1524,21 +1567,21 @@ function getAllTablesSummary() {
     // human (the admin/editor session itself) made it through the "at
     // least 1 human" filter there and showed up publicly anyway. Hidden
     // preview tables are skipped here too now, in both places at once.
-    if (t.hidden) continue;
+    if (t.hidden && !includeHidden) continue;
     const { humans, bots, summary, seatEntries } = summarizeSeats(t.engine.seats, t.sockets);
-    rows.push({ game: "Hold'em", mode: 'holdem', tableId: t.engine.tableId, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, maxSeats: (t.engine.seats || []).length, summary, seatEntries, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
+    rows.push({ editorPreview: !!t.hidden, game: "Hold'em", mode: 'holdem', tableId: t.engine.tableId, phase: t.engine.phase, isPlaying: t.engine.phase !== 'lobby', humans, bots, maxSeats: (t.engine.seats || []).length, summary, seatEntries, createdAt: t.createdAt || null, lastActivityAt: t.lastActivityAt || null });
   }
   return rows;
 }
 
 app.get('/api/live-players', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
-  res.json({ ok: true, players: getAllLivePlayers() });
+  res.json({ ok: true, players: getAllLivePlayers(true) });
 });
 
 app.get('/api/all-tables', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
-  res.json({ ok: true, tables: getAllTablesSummary() });
+  res.json({ ok: true, tables: getAllTablesSummary(true) });          // admin: includes editor-preview tables, marked editorPreview
 });
 
 // Real, confirmed feature per explicit request ("the welcome page should
@@ -1725,6 +1768,22 @@ app.post('/api/admin/turn-quota', (req, res) => {
     note: b.note,
   });
   res.json({ ok: true, quota: q });
+});
+
+// Scenery manager (admin)
+app.get('/api/admin/scenery', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  res.json({ ok: true, backgrounds: scenery.listBackgrounds(), kunukku: scenery.listKunukku(), rev: scenery.rev() });
+});
+app.delete('/api/admin/scenery/:table/:slot', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const r = scenery.clearBackground(req.params.table, req.params.slot);
+  res.status(r.status || 200).json(r);
+});
+app.delete('/api/admin/kunukku/:which', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const r = scenery.clearKunukku(req.params.which);
+  res.status(r.status || 200).json(r);
 });
 
 // Avatar manager (admin): list everything, delete, restore a hidden built-in, give an avatar to a bot name
@@ -2625,7 +2684,7 @@ function ensureHumanHost(t, preferPlayerId) {
 }
 
 function publicTableList() {
-  const list = Object.values(tables).filter(t => t.engine.seats.some(Boolean));
+  const list = Object.values(tables).filter(t => t.engine.seats.some(Boolean) && !t.hidden);   // editor-preview tables are never listed
   // Collect which tables are ALREADY showing a generic "TableX" name in
   // this same pass, so a second table going generic around the same
   // moment doesn't collide with the first -- computed fresh every call,
@@ -2911,7 +2970,7 @@ io.on('connection', (socket) => {
     socket.emit('adminPasswordChangeResult', { ok: true, newPassword: trimmed });
   });
 
-  socket.on('createTable', ({ name, avatar, challengeHandicap }) => {
+  socket.on('createTable', ({ name, avatar, challengeHandicap, preview }) => {
     { const _nv = vetName(socket, name, undefined); if (_nv.block) return; name = _nv.name; }
     if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
       socket.emit('createBlocked', { maxRooms: roomCapMax });
@@ -2932,7 +2991,11 @@ io.on('connection', (socket) => {
     const t = {
       id, engine, creatorName: name || 'Player', hostPlayerId: playerId,
       botFill: 3, createdAt: Date.now(), lastActivityAt: Date.now(),
-      sockets: new Map()
+      sockets: new Map(),
+      // A table made by a Layout Editor's own preview frame: hidden from the public lobby and the public "live now" list, joinable
+      // only by its own creator, closed the moment that editor connection drops. The admin panel still lists it (marked).
+      hidden: !!preview,
+      previewOwnerPlayerId: preview ? playerId : null
     };
     recordSeatedHuman(t, name || 'Player', socket.id);
     // This is the fix that makes bot moves actually reach players: bots
@@ -3001,6 +3064,7 @@ io.on('connection', (socket) => {
     // room cap only throttles brand new CREATE requests — joining or
     // watching a table that already exists is always allowed, cap or not.
     const t = tables[reqTableId];
+    if (t && t.hidden && existingPlayerId !== t.previewOwnerPlayerId) { socket.emit('joinError', { reason: 'table_not_found' }); return; }   // editor preview: private to its creator
     if (!t) {
       console.log(`[join-diag] table_not_found for tableId="${reqTableId}" existingPlayerId="${existingPlayerId}" name="${name}" — playerIndex has this player: ${!!(existingPlayerId && playerIndex[existingPlayerId])} — currently live table IDs: [${Object.keys(tables).join(', ')}]`);
       socket.emit('joinError', { reason: 'table_not_found' });
@@ -3745,6 +3809,15 @@ io.on('connection', (socket) => {
     const t = tables[tableId];
     delete pendingSeatChoice[socket.id];
     if (!t) return;
+    // A Layout Editor preview table has exactly one human ever allowed in it (its creator). Once that connection drops (tab
+    // closed, reloaded, navigated away) nothing can ever come back to it, so it is closed at once -- no need to "exit properly".
+    if (t.hidden) {
+      console.log(`[4p] preview table ${tableId} closed — editor disconnected`);
+      for (const sd of t.engine.seats) if (sd && sd.playerId) delete playerIndex[sd.playerId];
+      delete tables[tableId];
+      tableId = null; playerId = null;
+      return;
+    }
     if (t.spectators && t.spectators.has(socket.id)) {
       t.spectators.delete(socket.id);
       // Matches cleanupAdminWatch's own socket.leave() just above -- a plain (non-admin)
@@ -5011,7 +5084,7 @@ function l56SocketRoom(code) { return 'l56_' + code; }
 
 function l56PublicList() {
   const genericNamesSoFar = [];
-  return Object.entries(l56Rooms).map(([code, r]) => {
+  return Object.entries(l56Rooms).filter(([, r]) => !r.hidden).map(([code, r]) => {          // editor-preview tables are never listed
     const seats = (r.state && r.state.seats) || [];
     const players = seats.filter(Boolean).length;
     const phase = (r.state && r.state.phase) || 'lobby';
@@ -5600,7 +5673,7 @@ io.on('connection', (socket) => {
 
   socket.on('l56_listRooms', () => { socket.emit('l56_roomList', l56PublicList()); });
 
-  socket.on('l56_createTable', ({ name }) => {
+  socket.on('l56_createTable', ({ name, preview }) => {
     { const _nv = vetName(socket, name, undefined); if (_nv.block) return; name = _nv.name; }
     if (roomCapEnabled && totalActiveRooms() >= roomCapMax) {
       socket.emit('createBlocked', { maxRooms: roomCapMax });
@@ -5611,7 +5684,8 @@ io.on('connection', (socket) => {
     const r = {
       code, state: null, createdAt: Date.now(), lastActivityAt: Date.now(),
       hostPlayerId: playerId, creatorName: name || 'Player',
-      sockets: new Map(), pendingRequests: new Map(), stillPlayingTimer: null
+      sockets: new Map(), pendingRequests: new Map(), stillPlayingTimer: null,
+      hidden: !!preview, previewOwnerPlayerId: preview ? playerId : null      // Layout Editor preview: private, unlisted, closes with the editor
     };
     r.sockets.set(socket.id, { playerId, pos: 0, name: name || 'Player' });
     recordSeatedHuman(r, name || 'Player', socket.id);
@@ -5657,7 +5731,7 @@ io.on('connection', (socket) => {
   socket.on('l56_requestJoin', ({ code, name }) => {
     { const _nv = vetName(socket, name, undefined); if (_nv.block) return; name = _nv.name; }
     const r = l56Rooms[code];
-    if (!r) { socket.emit('l56_joinDenied', { reason: 'not_found' }); return; }
+    if (!r || r.hidden) { socket.emit('l56_joinDenied', { reason: 'not_found' }); return; }       // an editor preview looks like a table that does not exist
     const seats = (r.state && r.state.seats) || [];
     const openSeats = seats.map((s, i) => s ? null : i).filter(i => i !== null);
     const botSeats = seats.map((s, i) => (s && s.bot) ? i : null).filter(i => i !== null);
@@ -6119,6 +6193,11 @@ io.on('connection', (socket) => {
     if (!info) return;
     const r = l56Rooms[info.code];
     if (!r) return;
+    if (r.hidden) {                                   // editor preview: close it with the editor connection
+      console.log(`[56] preview table ${info.code} closed — editor disconnected`);
+      delete l56Rooms[info.code]; socket.data.l56 = null;
+      return;
+    }
     console.log(`[56] socket ${socket.id} disconnected from table ${info.code} (seat ${info.pos}), reason: ${reason}`);
     r.sockets.delete(socket.id);
     if (r.state && r.state.seats && r.state.seats[info.pos] && r.state.seats[info.pos].playerId === info.playerId) {
