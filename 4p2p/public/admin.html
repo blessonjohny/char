@@ -1429,18 +1429,32 @@ function renderUsageBreakdown(d) {
   h += `<div class="ub-cards">${ubCard(fmtBytes(S.containerBytes), 'Server data<br>(everything your server sent + received)')}${ubCard(fmtBytes(V.wireBytes), 'Voice audio<br>(phone to phone / relay)')}${ubCard(fmtBytes(d.combinedBytes), 'Real total<br>server + voice', true)}</div>`;
 
   // 2. server data by type
-  h += `<div class="ub-sec">Server data by type<small>The server total split into what it was spent on. "Unattributed" is protocol overhead (encryption, headers, keep-alives) that can't be assigned to a feature.</small></div>`;
+  h += `<div class="ub-sec">Server data by type<small>The server total split into what it was spent on, including the server's own requests to other services and network packet headers. "Still unknown" is only what none of these measurements account for.</small></div>`;
   const httpOrder = ['pages', 'scripts', 'avatars', 'images', 'sounds', 'api', 'admin', 'other'];
   httpOrder.forEach(k => {
     const x = S.http[k]; if (!x) return;
-    h += ubRow(esc(UB_HTTP_LABEL[k]), fmtBytes(x.bytes) + share(x.bytes), pct(x.bytes, S.containerBytes), `${x.n.toLocaleString()} requests`);
+    const tot = (x.bytes || 0) + (x.head || 0) + (x.in || 0);
+    h += ubRow(esc(UB_HTTP_LABEL[k]), fmtBytes(tot) + share(tot), pct(tot, S.containerBytes),
+      `${x.n.toLocaleString()} requests · files ${fmtBytes(x.bytes || 0)} · headers ${fmtBytes(x.head || 0)} · requests from browsers ${fmtBytes(x.in || 0)}`);
   });
   ['game', 'chat', 'voiceSig'].forEach(k => {
     const x = S.sock[k]; if (!x) return;
     const tot = (x.in || 0) + (x.out || 0);
     h += ubRow(esc(UB_SOCK_LABEL[k]), fmtBytes(tot) + share(tot), pct(tot, S.containerBytes), `sent by players ${fmtBytes(x.in || 0)} · sent to players ${fmtBytes(x.out || 0)}`);
   });
-  h += ubRow('Unattributed (overhead)', fmtBytes(S.unattributedBytes) + share(S.unattributedBytes), pct(S.unattributedBytes, S.containerBytes), 'container total minus everything above');
+  // the server's OWN requests to other services (GitHub backups, TURN keys, ...)
+  const ob = S.outbound || [];
+  h += ubRow("Server's own requests to other services", fmtBytes(S.outboundBytes || 0) + share(S.outboundBytes || 0), pct(S.outboundBytes || 0, S.containerBytes),
+    ob.length ? 'backups to GitHub, voice-relay keys, lookups — traffic that no player ever sees' : 'none recorded yet');
+  ob.slice(0, 8).forEach(o => {
+    h += ubRow(`&nbsp;&nbsp;↳ ${esc(o.label)}`, fmtBytes(o.total), pct(o.total, S.containerBytes),
+      `${o.n.toLocaleString()} requests · sent ${fmtBytes(o.sent)} · received ${fmtBytes(o.recv)} · about ${fmtBytes(o.n ? o.total / o.n : 0)} each`, pct(o.total, S.containerBytes) >= 15);
+  });
+  const nt = S.net || { packets: 0, rx: 0, tx: 0, headerEstimate: 0 };
+  h += ubRow('Network packet headers (estimate)', fmtBytes(nt.headerEstimate) + share(nt.headerEstimate), pct(nt.headerEstimate, S.containerBytes),
+    `${(nt.packets || 0).toLocaleString()} packets × 52 bytes of IP + TCP header each`);
+  h += ubRow('Still unknown', fmtBytes(S.unattributedBytes) + share(S.unattributedBytes), pct(S.unattributedBytes, S.containerBytes),
+    'container total minus everything above' + ((nt.rx || nt.tx) ? ` · interface counters this period: sent by server ${fmtBytes(nt.tx)}, received ${fmtBytes(nt.rx)}` : ''));
 
   // 3. voice
   h += `<div class="ub-sec">Voice chat<small>Audio counted by the players' own phones (payload + packet headers). It does not pass through your server, so it is NOT inside "Server data".</small></div>`;
@@ -1480,20 +1494,38 @@ function renderUsageBreakdown(d) {
     h += ubRow(`${esc(g)} · <b>${esc(code)}</b>`, ubDur(t.ms), null, `${fmtBytes(t.bytes)} live data · ${t.chatMsgs} chat msgs · ${fmtBytes(t.voiceSent)} voice · ${t.joins} joins`);
   });
 
-  // 8. TURN quota
+  // 8. voice relay allowance (Cloudflare Realtime TURN)
   const q = d.turnQuota;
+  const dec = (n) => {                       // decimal units, like Cloudflare's own dashboard (1 GB = 1,000,000,000 bytes)
+    n = Number(n) || 0;
+    if (n >= 1e12) return (n / 1e12).toFixed(2) + ' TB';
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + ' GB';
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + ' MB';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + ' KB';
+    return Math.round(n) + ' B';
+  };
   const usedPct = q.limitBytes ? (q.estimatedUsedBytes / q.limitBytes) * 100 : 0;
-  h += `<div class="ub-sec">TURN relay quota<small>Typed in from the provider's own dashboard (the provider doesn't tell us automatically). Renews on the ${esc(q.nextRenewalDate)} — the monthly allowance resets then.</small></div>`;
-  h += ubRow(`${esc(q.provider)}`, `${fmtBytes(q.estimatedUsedBytes)} of ${fmtBytes(q.limitBytes)}`, usedPct, `${usedPct.toFixed(1)}% used · renews in ${q.daysToRenewal} day${q.daysToRenewal === 1 ? '' : 's'} · last typed in ${esc(new Date(q.asOf).toLocaleString())} (${fmtBytes(q.usedBytes)}) + about ${fmtBytes(q.relaySinceAsOf || 0)} relayed since, from player reports`, usedPct >= 80);
-  if (q.readingIsFromEarlierPeriod) h += `<div class="ub-row" style="border-color:rgba(255,90,90,0.5)"><div class="note" style="color:#ff9a9a">The plan renewed after the number you typed in, so it is out of date. Type the new number from the dashboard below.</div></div>`;
-  h += `<div class="ub-row"><div class="note" style="margin-bottom:6px">Update from the dashboard (Quota Usage):</div>
+  const money = (v) => '$' + (v < 0.005 ? '0.00' : v.toFixed(2));
+  const egress = q.basis !== 'both';
+  h += `<div class="ub-sec">Voice relay allowance<small>${esc(q.provider)} · cycle ${esc(q.cycleStartDate)} → ${esc(q.cycleEndDate)} · renews ${esc(q.nextRenewalDate)} (in ${q.daysToRenewal} day${q.daysToRenewal === 1 ? '' : 's'})</small></div>`;
+  h += `<div class="ub-cards">${ubCard(dec(q.limitBytes), 'free every month')}${ubCard('$' + Number(q.pricePerGB).toFixed(2), 'per GB after the free allowance')}${ubCard(money(q.estimatedCharge), 'estimated charge this cycle', true)}</div>`;
+  h += ubRow('Used this cycle (estimate)', `${dec(q.estimatedUsedBytes)} of ${dec(q.limitBytes)}`, usedPct,
+    `${usedPct < 0.1 ? 'under 0.1' : usedPct.toFixed(1)}% of the free allowance · ` +
+    (q.usedFromReading ? `your typed reading ${dec(q.usedBytes)} plus about ${dec(q.relaySinceAsOf || 0)} reported since` : `from players' reports since tracking began (no typed reading this cycle)`) +
+    ` · counts ${egress ? 'relayed audio received by players (what Cloudflare bills)' : 'relayed audio in both directions'}`, usedPct >= 80);
+  if (q.estimatedOverBytes > 0) h += ubRow('Over the free allowance', dec(q.estimatedOverBytes), null, `about ${money(q.estimatedCharge)} at $${Number(q.pricePerGB).toFixed(2)} per GB`, true);
+  if (q.note) h += `<div class="ub-row"><div class="note">📋 ${esc(q.note)}</div></div>`;
+  if (q.readingIsFromEarlierPeriod) h += `<div class="ub-row" style="border-color:rgba(255,90,90,0.5)"><div class="note" style="color:#ff9a9a">A new billing cycle started after the reading you typed in, so it isn't counted. Type a fresh number below if you have one.</div></div>`;
+  h += `<div class="ub-row"><div class="note" style="margin-bottom:6px">Update from Cloudflare (Realtime → TURN usage, or Billing → Billable usage). Leave "Used so far" at 0 if you don't have a number.</div>
     <div class="ub-form">
       <div class="full"><label>Provider</label><input id="ubqProvider" value="${esc(q.provider)}"></div>
-      <div><label>Used so far (MB)</label><input id="ubqUsed" type="number" min="0" step="any" value="${Math.round(q.usedBytes / 1048576 * 10) / 10}"></div>
-      <div><label>Monthly limit (MB)</label><input id="ubqLimit" type="number" min="1" step="any" value="${Math.round(q.limitBytes / 1048576)}"></div>
-      <div class="full"><label>Renews on (date)</label><input id="ubqRenews" type="date" value="${esc(q.renewsOn)}"></div>
+      <div><label>Used this cycle (GB, optional)</label><input id="ubqUsed" type="number" min="0" step="any" value="${q.usedBytes > 0 ? Math.round(q.usedBytes / 1e7) / 100 : 0}"></div>
+      <div><label>Free allowance (GB / month)</label><input id="ubqLimit" type="number" min="1" step="any" value="${Math.round(q.limitBytes / 1e9 * 100) / 100}"></div>
+      <div><label>Price per GB over (USD)</label><input id="ubqPrice" type="number" min="0" step="any" value="${q.pricePerGB}"></div>
+      <div><label>A cycle start date</label><input id="ubqCycle" type="date" value="${esc(q.cycleStartDate)}"></div>
+      <div class="full"><label>Note from the dashboard</label><input id="ubqNote" value="${esc(q.note || '')}"></div>
     </div>
-    <button class="btn" id="btnSaveQuota" style="margin-top:10px">Save these numbers</button></div>`;
+    <button class="btn" id="btnSaveQuota" style="margin-top:10px">Save</button></div>`;
   body.innerHTML = h;
   document.getElementById('btnSaveQuota').addEventListener('click', saveTurnQuota);
 }
@@ -1508,8 +1540,9 @@ async function saveTurnQuota() {
   const btn = document.getElementById('btnSaveQuota'); btn.disabled = true;
   try {
     await adminFetch('/api/admin/turn-quota', undefined, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-      provider: document.getElementById('ubqProvider').value, usedMB: document.getElementById('ubqUsed').value,
-      limitMB: document.getElementById('ubqLimit').value, renewsOn: document.getElementById('ubqRenews').value }) });
+      provider: document.getElementById('ubqProvider').value, usedGB: document.getElementById('ubqUsed').value,
+      limitGB: document.getElementById('ubqLimit').value, pricePerGB: document.getElementById('ubqPrice').value,
+      cycleStart: document.getElementById('ubqCycle').value, note: document.getElementById('ubqNote').value }) });
   } catch (e) {}
   await refreshUsageBreakdown();
 }
