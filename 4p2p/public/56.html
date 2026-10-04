@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-scenery="56">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -648,6 +648,7 @@
 <script src="name-filter.js?v=1"></script>
 <script src="/avatar-catalog.js"></script>
 <script src="table-faces.js?v=1"></script>
+<link rel="stylesheet" href="/scenery.css">
 </head>
 <body>
 <script>
@@ -1812,7 +1813,8 @@ function createTable(){
   requestFullscreen56();
   myName = name;
   ensureSyncSocket();
-  syncSocket.emit('l56_createTable', {name});
+  // Opened inside a Layout Editor's preview frame: ask the server for a private editor table (hidden from players, visible in the admin).
+  syncSocket.emit('l56_createTable', { name, preview: (function(){try{const q=new URLSearchParams(location.search);return q.get('proEditor')==='1'||q.get('editorPreview')==='1'}catch(e){return false}})() });
 }
 
 function requestJoinRoom(code){

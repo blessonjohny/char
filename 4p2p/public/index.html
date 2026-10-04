@@ -25,7 +25,7 @@
   paths should be read/edited under that name in comments going
   forward too.
 -->
-<html lang="en">
+<html lang="en" data-scenery="4p">
 <head>
 <script>
 // Real, confirmed bug fix found during admin-watch feature testing:
@@ -4180,6 +4180,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <script src="name-filter.js?v=1"></script>
 <script src="/avatar-catalog.js"></script>
 <script src="table-faces.js?v=1"></script>
+<link rel="stylesheet" href="/scenery.css">
 </head>
 <body>
 <!-- Real, confirmed feature per explicit follow-up request ("the
@@ -17876,6 +17877,8 @@ function createTableOnServer(name, challengeHandicap) {
   MY_NAME = name;
   const payload = { name, code: cachedEntryCode, avatar: MY_AVATAR_KEY };
   if (challengeHandicap === 5 || challengeHandicap === 10 || challengeHandicap === 13) payload.challengeHandicap = challengeHandicap;
+  // Opened inside a Layout Editor's preview frame: ask the server for a private editor table (hidden from players, visible in the admin).
+  if ((function(){try{const q=new URLSearchParams(location.search);return q.get('proEditor')==='1'||q.get('editorPreview')==='1'}catch(e){return false}})()) payload.preview = true;
   gameSocket.emit('createTable', payload);
 }
 

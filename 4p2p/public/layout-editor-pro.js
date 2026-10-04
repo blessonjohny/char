@@ -26,12 +26,35 @@
             legacy: (doc, win, cfg) => { if (window.LayoutFiftySix) window.LayoutFiftySix.applyAll(doc, win, cfg); },
             hint: 'Host a table with bots inside the frame so the real seats are on screen.' },
   };
+  // Popups that only exist for a moment in a real game. Each button calls the game's own function with harmless sample values,
+  // inside the preview, and switches Pause on so the popup stays until you press Play.
+  const SAMPLE_COMMON = [
+    { label: '🔔 Toast message', fn: 'showToast', args: (t) => t === '56' ? ['Sample message — this is how a toast looks', 20000] : ['Sample message — this is how a toast looks', 'info', 20000] },
+    { label: '💬 Comic chat popup', fn: 'showComicChatPopup', args: () => ['Sample player', 'Nice hand!'] },
+    { label: '⏰ "Still playing?" popup', fn: 'showStillPlayingPopup', alt: 'showStillPlaying56', args: () => [45] },
+  ];
+  const SAMPLES = {
+    '4p': SAMPLE_COMMON.concat([
+      { label: '✨ Game event (trump exposed)', fn: 'showGameEvent', args: () => ['🃏', 'TRUMP EXPOSED', 'Hearts ♥', '#f4c430'] },
+      { label: '🪟 Round / game-over box', fn: 'showModal', args: () => ['Round over', 'Sample text: Your team won 2 points.'] },
+      { label: '🗨️ Chat bubble', fn: 'showChatBubble', args: () => ['Sample player', 'Hello there!'] },
+      { label: '🤖 Bot toast', fn: 'showBotToast', args: () => ['Sample bot message'] },
+      { label: '➕ Floating points', fn: 'showPointFloat', args: () => ['av1', '+28', 'good'] },
+    ]),
+    '6p': SAMPLE_COMMON.concat([
+      { label: '✨ Game event (trump exposed)', fn: 'showGameEvent', args: () => ['🃏', 'TRUMP EXPOSED', 'Hearts ♥', '#f4c430'] },
+      { label: '❓ Confirm question box', fn: 'showThemedConfirm', args: () => ['Sample question: are you sure?', function () {}] },
+    ]),
+    '56': SAMPLE_COMMON,
+  };
   const params = new URLSearchParams(location.search);
   const tableKey = TABLES[params.get('table')] ? params.get('table') : '4p';
   const T = TABLES[tableKey];
 
   // ---- state ---------------------------------------------------------------------------------
   let config = {};
+  window.__editorKeepsDraft = true;                           // editor-nav.js words its leave warning accordingly (changes survive as a draft)
+  window.__editorGetConfig = () => config;                     // lets editor-nav.js tell whether there are unsaved changes
   let editMode = false, paused = false;
   let device = { w: 390, h: 844 };
   let manualZoom = null, scale = 1;
@@ -50,6 +73,11 @@
   const unit = () => { const d = doc(); return d ? (parseFloat(d.documentElement.style.getPropertyValue('--lpu')) || 1) : 1; };
   const round1 = (n) => Math.round(n * 10) / 10;
   function status(msg, kind) { const s = $('edStatus'); s.textContent = msg; s.className = kind || ''; }
+  // Anything unexpected is shown (never swallowed) and the work so far is kept as a draft.
+  window.__proEditorErrors = [];
+  function oops(what) { try { window.__proEditorErrors.push(String(what)); console.error('[pro-editor]', what); status('⚠ Something went wrong (' + String(what).slice(0, 60) + '). Your work is kept — Save, or reload and choose "bring it back".', 'error'); saveDraft(); } catch (e) {} }
+  window.addEventListener('error', (ev) => { if (ev && ev.filename && /layout-editor-pro|layout-pro/.test(ev.filename)) oops(ev.message); });
+  window.addEventListener('unhandledrejection', (ev) => oops(ev && ev.reason && ev.reason.message || ev.reason));
 
   // ---- config load / save -----------------------------------------------------------------------
   function ensurePro() {
@@ -58,6 +86,10 @@
     p.v = 1; p.items = p.items && typeof p.items === 'object' ? p.items : {};
     LP.LAYOUTS.forEach((l) => { if (!Array.isArray(p.items[l.key])) p.items[l.key] = []; });
   }
+  // Every change is also kept as a draft in this browser, so a crash, an accidental reload or a lost connection never costs you your work.
+  const draftKey = () => 'proEditorDraft:' + tableKey;
+  function saveDraft() { try { localStorage.setItem(draftKey(), JSON.stringify({ at: Date.now(), pro: config.__pro })); } catch (e) {} }
+  function clearDraft() { try { localStorage.removeItem(draftKey()); } catch (e) {} }
   async function loadConfig() {
     try {
       const r = await fetch('/api/layout-config/' + tableKey);
@@ -66,17 +98,34 @@
       status('Loaded saved layout.');
     } catch (e) { config = {}; status('Could not reach the server — starting empty.', 'error'); }
     ensurePro();
+    try {
+      const raw = localStorage.getItem(draftKey()); const dr = raw && JSON.parse(raw);
+      if (dr && dr.pro && JSON.stringify(dr.pro) !== JSON.stringify(config.__pro)) {
+        const serverSnapshot = JSON.stringify(config);
+        const n = LP.LAYOUTS.reduce((a, l) => a + ((dr.pro.items && dr.pro.items[l.key]) || []).length, 0);
+        if (n && confirm('You have unsaved work from ' + new Date(dr.at).toLocaleString() + ' (' + n + ' changed item' + (n === 1 ? '' : 's') + ').\n\nOK = bring it back     Cancel = discard it')) { window.__editorBaselineOverride = serverSnapshot; config.__pro = dr.pro; ensurePro(); status('Your unsaved work was brought back — remember to Save.'); }
+        else clearDraft();
+      }
+    } catch (e) {}
   }
   async function save() {
     const pw = prompt('Admin password to publish this layout for every player:');
     if (pw === null) return;
     status('Saving…');
     try {
-      const r = await fetch('/api/admin/layout-config/' + tableKey, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': pw }, body: JSON.stringify({ config }) });
+      // Merge into the LATEST saved layout (someone may have saved the classic editor's settings since this page loaded), so only the
+      // Pro changes are written and nothing saved elsewhere is overwritten.
+      let latest = {}; try { const g = await fetch('/api/layout-config/' + tableKey); const gd = g.ok ? await g.json() : null; if (gd && gd.ok && gd.config) latest = gd.config; } catch (e) {}
+      const out = Object.assign({}, latest, { __pro: config.__pro });
+      const r = await fetch('/api/admin/layout-config/' + tableKey, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': pw }, body: JSON.stringify({ config: out }) });
       const d = await r.json();
-      if (d && d.ok) status('Saved — live for every player now.', 'saved');
-      else status('Save failed: ' + (d && d.error === 'bad_password' ? 'wrong password' : (d && d.error) || 'unknown error'), 'error');
-    } catch (e) { status('Save failed: network error.', 'error'); }
+      if (!(d && d.ok)) { status('Save failed: ' + (d && d.error === 'bad_password' ? 'wrong password' : (d && d.error) || 'unknown error') + ' — your work is still here.', 'error'); return; }
+      // read it back to be sure it really is what players will get
+      let verified = false;
+      try { const v = await fetch('/api/layout-config/' + tableKey + '?t=' + Date.now()); const vd = v.ok ? await v.json() : null; verified = !!(vd && vd.ok && vd.config && JSON.stringify(vd.config.__pro) === JSON.stringify(config.__pro)); } catch (e) {}
+      config = Object.assign({}, out, { __pro: config.__pro }); clearDraft();
+      status(verified ? 'Saved and checked — live for every player now.' : 'Saved, but I could not read it back to double-check. Reload to be sure.', verified ? 'saved' : 'error');
+    } catch (e) { status('Save failed: network error — your work is still here, try again.', 'error'); }
   }
 
   // ---- undo / redo ------------------------------------------------------------------------------
@@ -98,6 +147,7 @@
     if (d && w) { LP.apply(d, w, config); }
     updateAll();
     scheduleIssues();
+    saveDraft();
   }
   function updateAll() { renderInspector(); renderEdited(); syncUndo(); drawOverlays(); }
 
@@ -525,25 +575,40 @@
   }
   function renderHidden() {
     const d = doc(), box = $('edItemsList'); if (!d) return;
-    let h = `<div class="pro-row"><div class="l"><b>🥥 Kunukku coconut + count</b><small>The sad coconut shown on a shut-out player's avatar</small></div><button data-k="sample" class="${kSamples.length ? 'on' : ''}">${kSamples.length ? 'Hide' : 'Show'}</button></div>
+    const w = win(); const keep = (box.querySelector('#edHiddenFilter') || {}).value || '';
+    const samples = (SAMPLES[tableKey] || []).filter((x) => typeof w[x.fn] === 'function' || (x.alt && typeof w[x.alt] === 'function'));
+    let h = `<div class="pro-dev">Kunukku</div>
+      <div class="pro-row"><div class="l"><b>🥥 Kunukku coconut + count</b><small>The sad coconut shown on a shut-out player's avatar</small></div><button data-k="sample" class="${kSamples.length ? 'on' : ''}">${kSamples.length ? 'Hide' : 'Show'}</button></div>
       <div class="pro-row"><div class="l"><b>🎉 Kunukku banner (gained)</b><small>The big "KUNUKKU!" popup. Turns Pause on so it stays.</small></div><button data-k="gained">Show</button></div>
-      <div class="pro-row"><div class="l"><b>🎉 Kunukku banner (shed)</b><small>The "KUNUKKU SHED!" popup</small></div><button data-k="shed">Show</button></div>`;
-    const found = []; const seen = new Set();
+      <div class="pro-row"><div class="l"><b>🎉 Kunukku banner (shed)</b><small>The "KUNUKKU SHED!" popup</small></div><button data-k="shed">Show</button></div>
+      <div class="pro-dev">Sample popups <span style="font-weight:500;color:var(--ed-text-dim)">· the game's own popups, shown with sample words</span></div>`;
+    h += samples.length ? samples.map((x, i) => `<div class="pro-row"><div class="l"><b>${esc(x.label)}</b></div><button data-sp="${i}">Show</button></div>`).join('') : '<div class="pro-empty">Start a game in the preview to use these.</div>';
+    h += `<div class="pro-dev">Everything else that is hidden right now</div><div class="pro-row"><input id="edHiddenFilter" placeholder="Search (bid, chat, trump, round…)" value="${esc(keep)}" style="width:100%;box-sizing:border-box;padding:7px 9px;border-radius:7px;border:1px solid var(--ed-border);background:#10171f;color:#fff;font-size:0.76rem"></div>`;
+    const found = []; const seen = new Set(); const re = /(overlay|popup|bubble|banner|modal|toast|panel|sheet|dialog|prompt|menu|picker|notice|tooltip|drawer|celebration|confirm)/i;
     d.querySelectorAll('[id], [class]').forEach((el) => {
-      if (found.length >= 24 || isUi(el)) return;
+      if (found.length >= 120 || isUi(el) || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
       const cls = typeof el.className === 'string' ? el.className : '';
-      if (!(/(overlay|popup|bubble|banner|modal|toast|panel)/i.test(el.id || '') || /(overlay|popup|bubble|banner|modal|toast)/i.test(cls))) return;
+      if (!(re.test(el.id || '') || re.test(cls))) return;
       if (isDisplayed(el) && !shown.has(el)) return;
-      const key = el.id || cls; if (seen.has(key) || el.tagName === 'SCRIPT') return; seen.add(key); found.push(el);
+      const key = el.id || cls; if (seen.has(key)) return; seen.add(key); found.push(el);
     });
-    h += found.map((el, i) => `<div class="pro-row"><div class="l"><b>${esc(LP.prettyLabel(el, ''))}</b><small>${esc(el.id ? '#' + el.id : '.' + (typeof el.className === 'string' ? el.className.split(/\s+/)[0] : ''))}</small></div><button data-el="${i}" class="${shown.has(el) ? 'on' : ''}">${shown.has(el) ? 'Hide' : 'Show'}</button></div>`).join('');
+    const flt = keep.trim().toLowerCase();
+    const vis = found.filter((el) => !flt || (el.id + ' ' + (typeof el.className === 'string' ? el.className : '') + ' ' + LP.prettyLabel(el, '')).toLowerCase().includes(flt));
+    h += vis.length ? vis.map((el) => { const i = found.indexOf(el); return `<div class="pro-row"><div class="l"><b>${esc(LP.prettyLabel(el, ''))}</b><small>${esc(el.id ? '#' + el.id : '.' + (typeof el.className === 'string' ? el.className.split(/\s+/)[0] : ''))}</small></div><button data-el="${i}" class="${shown.has(el) ? 'on' : ''}">${shown.has(el) ? 'Hide' : 'Show'}</button></div>`; }).join('') : '<div class="pro-empty">' + (flt ? 'Nothing matches that.' : 'Nothing else is hidden right now.') + '</div>';
     box.innerHTML = h;
+    const ff = box.querySelector('#edHiddenFilter'); if (ff) { ff.addEventListener('input', () => { const pos = ff.selectionStart; renderHidden(); const n = $('edItemsList').querySelector('#edHiddenFilter'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }); }
     box.querySelectorAll('[data-k]').forEach((b) => b.addEventListener('click', () => {
-      const k = b.dataset.k;
-      if (k === 'sample') { kSamples.length ? kunukkuSampleOff() : kunukkuSampleOn(); } else kunukkuBanner(k === 'gained' ? 'gained' : 'shed');
-      renderHidden();
+      const k = b.dataset.k; let showing = true;
+      if (k === 'sample') { showing = !kSamples.length; kSamples.length ? kunukkuSampleOff() : kunukkuSampleOn(); } else kunukkuBanner(k === 'gained' ? 'gained' : 'shed');
+      renderHidden(); if (showing) { closePanels(); if (!editMode) setEdit(true); }
     }));
-    box.querySelectorAll('[data-el]').forEach((b) => b.addEventListener('click', () => { const el = found[Number(b.dataset.el)]; shown.has(el) ? hideEl(el) : showEl(el); renderHidden(); if (shown.has(el) && !editMode) setEdit(true); }));
+    box.querySelectorAll('[data-sp]').forEach((b) => b.addEventListener('click', () => {
+      const x = samples[Number(b.dataset.sp)]; const fn = typeof w[x.fn] === 'function' ? x.fn : x.alt;
+      if (!paused) setPause(true);
+      try { w[fn].apply(w, x.args(tableKey)); status('Showing: ' + x.label + ' — it stays until you press Play.'); } catch (e) { status('That popup needs a running game first.', 'error'); }
+      closePanels(); if (!editMode) setEdit(true);
+    }));
+    box.querySelectorAll('[data-el]').forEach((b) => b.addEventListener('click', () => { const el = found[Number(b.dataset.el)]; shown.has(el) ? hideEl(el) : showEl(el); renderHidden(); if (shown.has(el)) { closePanels(); if (!editMode) setEdit(true); } }));
   }
 
   // ---- problem checks --------------------------------------------------------------------------------------------------
@@ -630,9 +695,18 @@
 
   // ---- table select + boot --------------------------------------------------------------------------------------------------
   const tSel = $('edTableSelect');
-  tSel.innerHTML = Object.keys(TABLES).map((k) => `<option value="${k}">${TABLES[k].label}</option>`).join('') + (tableKey === '4p' ? '<option value="__quick">▶ Quick start (offline game)</option>' : '');
+  tSel.innerHTML = Object.keys(TABLES).map((k) => `<option value="${k}">${TABLES[k].label}</option>`).join('') + '<option value="__holdem">🎰 Hold\'em (opens its own editor)</option>' + (tableKey === '4p' ? '<option value="__quick">▶ Quick start (offline game)</option>' : '');
   tSel.value = tableKey;
-  tSel.addEventListener('change', () => { if (tSel.value === '__quick') { tSel.value = tableKey; quickStart(); } else location.search = '?table=' + tSel.value; });
+  tSel.addEventListener('change', () => {
+    const v = tSel.value;
+    if (v === '__quick') { tSel.value = tableKey; quickStart(); return; }
+    // switching tables reloads this editor for the other table: its own saved layout, its own preview table. Unsaved work is protected.
+    const nav = window.__editorNav;
+    if (nav && !nav.confirmLeave()) { tSel.value = tableKey; return; }
+    if (nav) nav.markClean();
+    if (v === '__holdem') { location.href = '/layout-editor-holdem.html'; return; }
+    location.href = '/layout-editor-pro.html?table=' + v;
+  });
   $('edBtnSave').addEventListener('click', save);
 
   frame.addEventListener('load', () => {

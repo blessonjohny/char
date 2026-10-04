@@ -76,6 +76,33 @@
   .av-tile .row{display:flex;gap:4px;margin-top:5px}
   .av-tile button{flex:1;padding:5px 2px;font-size:0.64rem;font-weight:700;border-radius:7px;border:1px solid var(--border);background:rgba(255,255,255,0.06);color:#fff;cursor:pointer}
   .av-tile button.del{border-color:rgba(255,90,90,0.45);color:#ff9a9a}
+  /* Avatar editor */
+  .ave-stage{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .ave-stage canvas#avPvMain{width:min(300px,100%);aspect-ratio:1/1;border-radius:12px;border:1px solid var(--border);touch-action:none;cursor:grab;background:repeating-conic-gradient(#d8d8d8 0% 25%,#f2f2f2 0% 50%) 50%/20px 20px}
+  .ave-stage.bg-table canvas#avPvMain{background:#3a0c12}.ave-stage.bg-dark canvas#avPvMain{background:#0b0f16}
+  .ave-bgsw{display:flex;gap:6px}.ave-bgsw button,.ave-tabs button,.ed-mini{background:#243040;color:#e8edf2;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:0.72rem;font-weight:700;cursor:pointer}
+  .ave-bgsw button.on,.ave-tabs button.on{background:var(--accent);border-color:var(--accent);color:#241a12}
+  .ave-small{display:flex;gap:14px;justify-content:center;align-items:flex-end;margin-top:8px}
+  .ave-small .av-pv canvas{width:auto;height:auto;border-radius:10px;display:block;margin:0 auto 3px}
+  #avPvTable{background:#3a0c12}#avPvCheck,#avPvMini{background:#3a0c12}
+  .ave-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .ave-panel{margin-top:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+  .ave-slider{margin-bottom:10px}.ave-slider:last-child{margin-bottom:0}
+  .ave-slider .t{display:flex;justify-content:space-between;font-size:0.72rem;color:#e8edf2;margin-bottom:2px}.ave-slider .t em{font-style:normal;color:var(--accent);font-weight:700}
+  .ave-slider small{display:block;color:var(--text2);font-size:0.64rem;margin-top:1px}
+  .ave-slider input[type=range]{width:100%;accent-color:#f4c430}
+  .ave-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .ave-touch canvas{width:100%;border-radius:10px;border:1px solid var(--border);touch-action:none;cursor:crosshair;background:repeating-conic-gradient(#d8d8d8 0% 25%,#f2f2f2 0% 50%) 50%/16px 16px;display:block}
+  .ed-mini.on{background:var(--accent);border-color:var(--accent);color:#241a12}
+  .be-devices{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;justify-content:center}
+  .be-dev{text-align:center;font-size:0.62rem;color:var(--text2)}
+  .be-dev canvas{display:block;border-radius:6px;border:1px solid var(--border);margin:0 auto 3px;background:#0b0f16}
+  .ave-stage canvas#bePvMain{width:min(300px,100%);height:auto;border-radius:10px;border:1px solid var(--border);touch-action:none;cursor:grab;background:#0b0f16}
+  .be-slot{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border)}
+  .be-slot:first-of-type{border-top:0}
+  .be-thumb{flex:none;width:64px;height:64px;border-radius:8px;border:1px solid var(--border);background:#0b0f16 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:0.58rem;color:var(--text2);text-align:center}
+  .av-tile button.ed{width:100%;margin-top:5px;border-color:rgba(244,196,48,.45);color:#f4c430}
+
   /* Usage breakdown panel */
   .ub-h{margin:0 0 4px;font-size:1.02rem;color:var(--accent)}
   .ub-sec{margin:20px 0 8px;font-size:0.84rem;font-weight:800;color:#fff;letter-spacing:.2px}
@@ -149,6 +176,7 @@
       <button class="tab" id="tabGhost" data-cat="tools" style="display:none">🕵️ Ghost Players</button>
       <button class="tab" id="tabPoker" data-cat="tools" style="display:none">🃏 Hold'em Admin</button>
       <button class="tab" id="tabAvatars" data-cat="tools" style="display:none">🖼️ Avatars</button>
+      <button class="tab" id="tabScenery" data-cat="tools" style="display:none">🌄 Backgrounds</button>
       <button class="tab" id="tabVisitors" data-cat="stats" style="display:none">📊 Visitor Log</button>
       <button class="tab" id="tabHistory" data-cat="stats" style="display:none">📅 Table History</button>
       <button class="tab" id="tabUsage" data-cat="stats" style="display:none">📶 Data Usage</button>
@@ -259,6 +287,30 @@
         <div id="ubBody"><div class="empty">Loading…</div></div>
       </div>
     </div>
+    <div id="sceneryView" style="display:none">
+      <h3 class="ub-h">🌄 Backgrounds</h3>
+      <div class="sub" style="margin-top:0">
+        The picture behind each table, for each kind of screen. <b>Add</b> a picture (56 has none yet), <b>replace</b> one, or <b>delete</b> a custom one to go back to the original. Changes are live immediately. Each picture is framed here for its screen shape, and the previews show how it fits on typical phones, tablets and computers.
+      </div>
+      <div class="ub-row" id="beCard" style="display:none;margin-top:12px">
+        <div class="top"><span id="beTitle">Edit background</span><button class="ed-mini" id="beCancel">✕ Close</button></div>
+        <div class="ave-actions" style="margin-top:8px"><input type="file" id="beFile" accept="image/png,image/webp,image/jpeg,image/*" style="color:var(--text2);font-size:0.78rem;max-width:100%"><button class="ed-mini" id="beCurrent">↺ Start from the current picture</button></div>
+        <div id="beWork" style="display:none">
+          <div class="ave-stage" style="margin-top:10px"><canvas id="bePvMain" width="300" height="300" title="Drag to move, pinch or scroll to zoom"></canvas></div>
+          <div class="ave-actions" style="justify-content:center"><button class="ed-mini on" data-bemode="fill">Fill the screen (crop to fit)</button><button class="ed-mini" data-bemode="whole">Show the whole picture</button></div>
+          <div class="ub-sec" style="margin:12px 0 6px;font-size:0.76rem">How it fits on real screens<small>Screens differ in shape, so each shows a slightly different part. Keep what matters inside what every one shows.</small></div>
+          <div id="beDevices" class="be-devices"></div>
+          <div class="ave-tabs" id="beTabs"><button data-t="fit" class="on">Fit &amp; size</button><button data-t="color">Colour</button></div>
+          <div class="ave-panel" id="bePanel"></div>
+          <div class="ave-actions"><button class="ed-mini" id="beFlip">↔ Flip</button><button class="ed-mini" id="beRotL">⟲ 90°</button><button class="ed-mini" id="beRotR">⟳ 90°</button><button class="ed-mini" id="beReset">↺ Start over</button></div>
+          <div id="beInfo" class="note" style="margin-top:8px"></div>
+          <div id="beMsg" class="note" style="min-height:16px"></div>
+          <button class="btn" id="beSave" style="margin-top:6px" disabled>Save background</button>
+        </div>
+      </div>
+      <div id="sceneryList"></div>
+    </div>
+
     <div id="avatarsView" style="display:none">
       <h3 class="ub-h">🖼️ Avatars</h3>
       <div class="sub" style="margin-top:0">
@@ -267,26 +319,36 @@
       </div>
       <div id="avCounts" class="ub-cards" style="margin:12px 0"></div>
 
-      <div class="ub-sec">Add an avatar<small>Pick a picture of one person, waist-up. A transparent PNG/WebP is best; a photo on a plain white or black background can be cut out here. It is cropped, sized to 320 × 320 and compressed for you.</small></div>
-      <div class="ub-row">
+      <div class="ub-sec">Add or edit an avatar<small>Pick a picture of one person, waist-up. The background is cut out for you; then trim, zoom, straighten, tune the colours and fix edges by hand until it looks right. Use "Edit" on any avatar below to improve an existing one.</small></div>
+      <div class="ub-row" id="avEditorCard">
         <input type="file" id="avFile" accept="image/png,image/webp,image/jpeg,image/*" style="width:100%;color:var(--text2);font-size:0.82rem">
-        <div class="ub-form">
+        <div id="avEditBanner" class="note" style="display:none;margin-top:8px;color:#f4c430"></div>
+        <div id="avPreview" style="display:none;margin-top:12px">
+          <div class="ave-stage">
+            <canvas id="avPvMain" width="320" height="320" title="Drag to move, pinch or scroll to zoom"></canvas>
+            <div class="ave-bgsw" id="avBgSw"><button data-bg="check" class="on">Light</button><button data-bg="table">Table</button><button data-bg="dark">Dark</button></div>
+          </div>
+          <div class="ave-small"><div class="av-pv"><canvas id="avPvTable" width="96" height="96"></canvas><span>on the table</span></div><div class="av-pv"><canvas id="avPvCheck" width="48" height="48"></canvas><span>small (48 px)</span></div><div class="av-pv"><canvas id="avPvMini" width="32" height="32"></canvas><span>tiny (32 px)</span></div></div>
+          <div class="ave-tabs" id="avTabs"><button data-t="cut" class="on">Cut-out</button><button data-t="crop">Crop &amp; size</button><button data-t="color">Colour</button><button data-t="edge">Edges</button><button data-t="touch">Touch-up</button></div>
+          <div class="ave-panel" id="avPanel"></div>
+          <div class="ave-actions"><button class="ed-mini" id="avFlip">↔ Flip</button><button class="ed-mini" id="avRotL">⟲ 90°</button><button class="ed-mini" id="avRotR">⟳ 90°</button><button class="ed-mini" id="avAuto">✨ Auto-fit</button><button class="ed-mini" id="avUndoAll">↺ Start over</button></div>
+          <div id="avInfo" class="note" style="margin-top:8px"></div>
+        </div>
+        <div class="ub-form" style="margin-top:12px">
           <div><label>Gender (bots keep matching faces)</label><select id="avGender" class="av-sel"><option value="f">Female</option><option value="m">Male</option></select></div>
           <div><label>Format</label><select id="avFormat" class="av-sel"><option value="webp">Smaller file (WebP)</option><option value="png">Most compatible (PNG)</option></select></div>
           <div><label>Label (optional, for you)</label><input id="avLabel" maxlength="40" placeholder="e.g. Anitha"></div>
           <div><label>Give this face to bot name (optional)</label><input id="avNameFor" maxlength="30" placeholder="e.g. Meera"></div>
+          <div class="full" id="avReplaceRow" style="display:none"><label style="display:flex;align-items:center;gap:8px;font-size:0.78rem"><input type="checkbox" id="avReplace" checked style="width:auto"> <span id="avReplaceText">Replace the original</span></label></div>
           <div class="full"><label style="display:flex;align-items:center;gap:8px;font-size:0.78rem"><input type="checkbox" id="avRemoveBg" style="width:auto"> Remove the plain background (white / black / any single colour)</label></div>
-        </div>
-        <div id="avPreview" style="display:none;margin-top:12px">
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <div class="av-pv"><canvas id="avPvCheck" width="160" height="160"></canvas><span>on light</span></div>
-            <div class="av-pv"><canvas id="avPvTable" width="160" height="160"></canvas><span>on the table</span></div>
-          </div>
-          <div id="avInfo" class="note" style="margin-top:8px"></div>
         </div>
         <div id="avMsg" class="note" style="margin-top:8px;min-height:16px"></div>
         <button class="btn" id="btnAvAdd" style="margin-top:8px" disabled>Add avatar</button>
       </div>
+
+      <div class="ub-sec">🥥 Kunukku pictures<small>The sad coconut shown on a player who is shut out. Edit it with the same tools as the avatars. The game only shows and hides it (as before); only the picture changes. Use the Pro editor's "Show hidden → Kunukku coconut" to place and size it.</small></div>
+      <div id="kunukkuList"></div>
+      <input type="file" id="kunukkuFile" accept="image/png,image/webp,image/*" style="display:none">
 
       <div class="ub-sec">All avatars</div>
       <div id="avFilters" class="tabs" style="margin-bottom:10px">
@@ -415,25 +477,25 @@
       </div>
       <div class="card">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">🎴 4-Player Table</div>
-        <a class="btn" href="/layout-editor-pro.html?table=4p" target="_blank" style="display:block;text-align:center;text-decoration:none">✨ Open 4-Player Pro Editor ↗</a>
+        <a class="btn" href="/layout-editor-pro.html?table=4p" style="display:block;text-align:center;text-decoration:none">✨ Open 4-Player Pro Editor ↗</a>
         <div style="font-size:0.68rem;color:var(--text2);margin:6px 2px 10px;line-height:1.4">Pick anything on the table (even the Kunukku and popups), set X / Y / W / H, pause the game, and check for problems on other phones.</div>
-        <a class="btn" href="/layout-editor.html" target="_blank" style="display:block;text-align:center;text-decoration:none;opacity:.7">Open the older 4-Player Layout Editor ↗</a>
+        <a class="btn" href="/layout-editor.html" style="display:block;text-align:center;text-decoration:none;opacity:.7">Open the older 4-Player Layout Editor ↗</a>
       </div>
       <div class="card">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">🎰 Hold'em Table</div>
-        <a class="btn" href="/layout-editor-holdem.html" target="_blank" style="display:block;text-align:center;text-decoration:none">Open Hold'em Layout Editor ↗</a>
+        <a class="btn" href="/layout-editor-holdem.html" style="display:block;text-align:center;text-decoration:none">Open Hold'em Layout Editor ↗</a>
       </div>
       <div class="card">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">🎲 6-Player Table</div>
-        <a class="btn" href="/layout-editor-pro.html?table=6p" target="_blank" style="display:block;text-align:center;text-decoration:none">✨ Open 6-Player Pro Editor ↗</a>
+        <a class="btn" href="/layout-editor-pro.html?table=6p" style="display:block;text-align:center;text-decoration:none">✨ Open 6-Player Pro Editor ↗</a>
         <div style="font-size:0.68rem;color:var(--text2);margin:6px 2px 10px;line-height:1.4">Pick anything on the table (even the Kunukku and popups), set X / Y / W / H, pause the game, and check for problems on other phones.</div>
-        <a class="btn" href="/layout-editor-6p.html" target="_blank" style="display:block;text-align:center;text-decoration:none;opacity:.7">Open the older 6-Player Layout Editor ↗</a>
+        <a class="btn" href="/layout-editor-6p.html" style="display:block;text-align:center;text-decoration:none;opacity:.7">Open the older 6-Player Layout Editor ↗</a>
       </div>
       <div class="card">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">🂡 56 Table</div>
-        <a class="btn" href="/layout-editor-pro.html?table=56" target="_blank" style="display:block;text-align:center;text-decoration:none">✨ Open 56 Pro Editor ↗</a>
+        <a class="btn" href="/layout-editor-pro.html?table=56" style="display:block;text-align:center;text-decoration:none">✨ Open 56 Pro Editor ↗</a>
         <div style="font-size:0.68rem;color:var(--text2);margin:6px 2px 10px;line-height:1.4">Pick anything on the table (even the Kunukku and popups), set X / Y / W / H, pause the game, and check for problems on other phones.</div>
-        <a class="btn" href="/layout-editor-56.html" target="_blank" style="display:block;text-align:center;text-decoration:none;opacity:.7">Open the older 56 Layout Editor ↗</a>
+        <a class="btn" href="/layout-editor-56.html" style="display:block;text-align:center;text-decoration:none;opacity:.7">Open the older 56 Layout Editor ↗</a>
       </div>
     </div>
   </div>
@@ -520,9 +582,11 @@ async function unlock() {
     return;
   }
   PASSWORD = pwd;
+  try { sessionStorage.setItem('admin_session_pw', pwd); } catch (e) {}      // this tab only; lets you come back from an editor without logging in again
   document.getElementById('gate').style.display = 'none';
   document.getElementById('panel').style.display = 'block';
   refresh();
+  if (location.hash === '#layout') { try { switchCategory('design'); } catch (e) {} history.replaceState(null, '', location.pathname); }   // "Exit" from an editor lands here
 }
 
 async function refresh() {
@@ -555,6 +619,8 @@ function render(list) {
 
 document.getElementById('btnEnter').addEventListener('click', unlock);
 document.getElementById('pwd').addEventListener('keydown', (e) => { if (e.key === 'Enter') unlock(); });
+// coming back from an editor in the same tab: log in again automatically with the password used earlier in this tab
+(function () { let pw = null; try { pw = sessionStorage.getItem('admin_session_pw'); } catch (e) {} if (pw) { document.getElementById('pwd').value = pw; unlock().catch(() => {}); } })();
 document.getElementById('btnRefresh').addEventListener('click', refresh);
 
 // ---------------- Live players (who's currently connected, and where from) ----------------
@@ -573,6 +639,9 @@ function switchTab(tab) {
   document.getElementById('tabLayout').classList.toggle('on', tab === 'layout');
   document.getElementById('tabUsage').classList.toggle('on', tab === 'usage');
   document.getElementById('tabAvatars').classList.toggle('on', tab === 'avatars');
+  document.getElementById('tabScenery').classList.toggle('on', tab === 'scenery');
+  document.getElementById('sceneryView').style.display = tab === 'scenery' ? 'block' : 'none';
+  if (tab === 'scenery') refreshScenery();
   document.getElementById('avatarsView').style.display = tab === 'avatars' ? 'block' : 'none';
   if (tab === 'avatars') refreshAvatarManager();
   document.getElementById('commentsView').style.display = tab === 'comments' ? 'block' : 'none';
@@ -625,9 +694,10 @@ async function refreshLivePlayers() {
 function renderLivePlayers(tablesList) {
   const el = document.getElementById('liveList');
   const countEl = document.getElementById('liveCount');
-  const playingCount = tablesList.filter(t => t.isPlaying).length;
-  const lobbyCount = tablesList.length - playingCount;
-  countEl.textContent = `${tablesList.length} table${tablesList.length === 1 ? '' : 's'} · ${playingCount} playing · ${lobbyCount} in lobby`;
+  const realTables = tablesList.filter(t => !t.editorPreview), editorTables = tablesList.filter(t => t.editorPreview);
+  const playingCount = realTables.filter(t => t.isPlaying).length;
+  const lobbyCount = realTables.length - playingCount;
+  countEl.textContent = `${realTables.length} table${realTables.length === 1 ? '' : 's'} · ${playingCount} playing · ${lobbyCount} in lobby` + (editorTables.length ? ` · 🛠 ${editorTables.length} editor preview${editorTables.length === 1 ? '' : 's'} (only you can see ${editorTables.length === 1 ? 'it' : 'them'})` : '');
   if (!tablesList.length) { el.innerHTML = '<div class="empty">No tables running right now.</div>'; return; }
   const now = Date.now();
   // Per explicit request: keyed by tableId so openTableChat() (called
@@ -660,9 +730,10 @@ function renderLivePlayers(tablesList) {
         }).join('')
       : '';
     return `
-    <div class="live-card" style="flex-direction:column;align-items:stretch;gap:8px">
+    <div class="live-card" style="flex-direction:column;align-items:stretch;gap:8px${t.editorPreview ? ';border-color:rgba(120,160,255,0.55);background:rgba(120,160,255,0.06)' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
         <span class="game-badge">${esc(t.game)} · table ${esc(t.tableId)}</span>
+        ${t.editorPreview ? '<span title="Made by a Layout Editor preview. Players cannot see or join it, and it closes by itself when the editor is closed." style="font-size:0.66rem;padding:2px 8px;border-radius:10px;white-space:nowrap;background:rgba(120,160,255,0.2);color:#9db8ff;font-weight:800">🛠 EDITOR PREVIEW · private</span>' : ''}
         <span style="font-size:0.68rem;padding:2px 8px;border-radius:10px;white-space:nowrap;background:${t.isPlaying ? 'rgba(46,204,113,0.18)' : 'rgba(244,196,48,0.18)'};color:${t.isPlaying ? '#2ecc71' : '#f4c430'}">${t.isPlaying ? '🎮 Playing' : '🟢 In Lobby'}</span>
         ${challengeBadge}
         ${(t.mode === '4p' || t.mode === '6p') ? `<button class="btn ghost" style="padding:4px 10px;font-size:0.72rem;flex-shrink:0" onclick="watchTable('${esc(t.tableId)}', '${t.mode}')">👁 Watch</button>` : ''}
@@ -944,6 +1015,7 @@ document.getElementById('tabPoker').addEventListener('click', () => switchTab('p
 document.getElementById('tabLayout').addEventListener('click', () => switchTab('layout'));
 document.getElementById('tabUsage').addEventListener('click', () => switchTab('usage'));
 document.getElementById('tabAvatars').addEventListener('click', () => switchTab('avatars'));
+document.getElementById('tabScenery').addEventListener('click', () => switchTab('scenery'));
 document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
 document.getElementById('btnRefreshHistory').addEventListener('click', refreshTableHistory);
 
@@ -1524,7 +1596,7 @@ function renderNetworkUsage(data) {
 document.getElementById('btnRefreshUsage').addEventListener('click', refreshNetworkUsage);
 
 // ---------------- Avatar manager ----------------
-let avList = [], avFilter = 'active', avProcessed = null;
+let avList = [], avFilter = 'active';
 function avMsg(text, bad) { const m = document.getElementById('avMsg'); m.textContent = text || ''; m.style.color = bad ? '#ff9a9a' : ''; }
 async function refreshAvatarManager() {
   try {
@@ -1532,6 +1604,7 @@ async function refreshAvatarManager() {
     if (!res.ok) throw new Error('bad');
     const data = await res.json();
     avList = data.avatars || [];
+    refreshKunukku();
     // the grids elsewhere in this page (bot tables, ghost players) follow the live list too
     const live = avList.filter(a => !a.removed).map(a => a.key).concat(['toon101', 'toon102', 'toon103', 'toon104', 'toon105', 'toon106']);
     BOT_AVATAR_KEYS = live.slice(); GHOST_AVATAR_KEYS = live.slice();
@@ -1555,10 +1628,12 @@ function renderAvatarManager() {
       <div class="row">
         ${a.removed ? `<button data-restore="${esc(a.key)}">Restore</button>` : `<button data-name="${esc(a.key)}">Bot name</button><button class="del" data-del="${esc(a.key)}">Delete</button>`}
       </div>
+      ${a.removed ? '' : `<button class="ed" data-edit="${esc(a.key)}">✏️ Edit</button>`}
     </div>`).join('');
   grid.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => avDelete(b.dataset.del)));
   grid.querySelectorAll('[data-restore]').forEach(b => b.addEventListener('click', () => avRestore(b.dataset.restore)));
   grid.querySelectorAll('[data-name]').forEach(b => b.addEventListener('click', () => avNameFace(b.dataset.name)));
+  grid.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => avEditExisting(b.dataset.edit)));
 }
 async function avCall(url, method, body) {
   const res = await adminFetch(url, undefined, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
@@ -1587,21 +1662,28 @@ async function avNameFace(key) {
   await refreshAvatarManager();
 }
 
-// ---- preparing a picture in the browser: optional plain-background removal, crop, 320x320, compress ----
-const AV_SIZE = 320;
-function avLoadImage(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file); const img = new Image();
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file could not be read as a picture.')); };
-    img.src = url;
-  });
-}
-function avHasTransparency(data, w, h) {
-  const pts = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1], [w >> 1, 0], [0, h >> 1], [w - 1, h >> 1]];
-  return pts.some(([x, y]) => data[(y * w + x) * 4 + 3] < 200);
-}
-// flood fill from the picture's edge: every pixel connected to the border that is close to the border colour becomes transparent
+// ---- the avatar editor: cut out the background, trim all four sides, zoom, move, rotate, flip, colour, edges, hand touch-up ----
+let AV_W = 320, AV_H = 320;               // the output frame: square for avatars, taller for the Kunukku coconut
+const AE = { src: null, w: 0, h: 0, auto: null, manual: null, cut: null, bbox: null, hasAlphaOrig: false, tab: 'cut', bg: 'check', replaces: null, undo: [],
+  brush: { mode: 'erase', size: 24 }, p: null };
+const AE_DEFAULTS = { tol: 26, cropL: 0, cropR: 0, cropT: 0, cropB: 0, zoom: 100, mx: 0, my: 0, rot: 0, r90: 0, flip: 0, bri: 0, con: 0, sat: 0, warm: 0, shrink: 0, soft: 0 };
+const AE_CONTROLS = {
+  cut: [{ k: 'tol', label: 'Cut-out strength', min: 4, max: 70, step: 1, unit: '', hint: 'Higher removes more of the background (and can eat into light clothes). Fix the rest in Touch-up.' }],
+  crop: [
+    { k: 'cropL', label: 'Trim left', min: 0, max: 45, step: 1, unit: '%' }, { k: 'cropR', label: 'Trim right', min: 0, max: 45, step: 1, unit: '%' },
+    { k: 'cropT', label: 'Trim top', min: 0, max: 45, step: 1, unit: '%' }, { k: 'cropB', label: 'Trim bottom', min: 0, max: 45, step: 1, unit: '%' },
+    { k: 'zoom', label: 'Zoom', min: 40, max: 300, step: 1, unit: '%', hint: 'Above 100% the edges of the picture go outside the frame — that is the "chop".' },
+    { k: 'mx', label: 'Move left / right', min: -120, max: 120, step: 1, unit: ' px' }, { k: 'my', label: 'Move up / down', min: -160, max: 160, step: 1, unit: ' px' },
+    { k: 'rot', label: 'Straighten', min: -45, max: 45, step: 0.5, unit: '°' }],
+  color: [
+    { k: 'bri', label: 'Brightness', min: -60, max: 60, step: 1, unit: '' }, { k: 'con', label: 'Contrast', min: -60, max: 60, step: 1, unit: '' },
+    { k: 'sat', label: 'Colour strength', min: -100, max: 100, step: 1, unit: '' }, { k: 'warm', label: 'Warmth (cooler ↔ warmer)', min: -60, max: 60, step: 1, unit: '' }],
+  edge: [
+    { k: 'shrink', label: 'Shrink the edge', min: 0, max: 5, step: 1, unit: ' px', hint: 'Removes a thin light or dark halo left from the old background.' },
+    { k: 'soft', label: 'Soften the edge', min: 0, max: 5, step: 1, unit: ' px', hint: 'Smooths jagged outlines so the person blends into the table.' }],
+};
+const avClamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
 function avRemoveBackground(data, w, h, tol) {
   const border = [];
   for (let x = 0; x < w; x++) { border.push([x, 0], [x, h - 1]); }
@@ -1643,87 +1725,460 @@ function avRemoveBackground(data, w, h, tol) {
   }
   data.set(out);
 }
-async function avPrepare(file, removeBg, format) {
+
+function avLoadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file could not be read as a picture.')); };
+    img.src = url;
+  });
+}
+function avHasTransparency(data, w, h) {
+  const pts = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1], [w >> 1, 0], [0, h >> 1], [w - 1, h >> 1]];
+  return pts.some(([x, y]) => data[(y * w + x) * 4 + 3] < 200);
+}
+// avatars have a gender / label / bot name; a Kunukku picture has none of those
+function avShowFields(on) {
+  ['avGender', 'avLabel', 'avNameFor'].forEach((id) => { const e = document.getElementById(id); if (e && e.closest('div')) e.closest('div').style.display = on ? '' : 'none'; });
+}
+// ---- stage 1: the picture, and which parts are "person" (automatic cut-out + hand touch-ups)
+async function avLoadFile(file, opts) {
+  opts = opts || {};
+  avMsg('Reading the picture…');
   const img = await avLoadImage(file);
   const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
   const w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale));
-  const c0 = document.createElement('canvas'); c0.width = w; c0.height = h;
-  const x0 = c0.getContext('2d', { willReadFrequently: true }); x0.drawImage(img, 0, 0, w, h);
-  const id = x0.getImageData(0, 0, w, h);
-  const already = avHasTransparency(id.data, w, h);
-  if (removeBg && !already) { avRemoveBackground(id.data, w, h, 26); x0.putImageData(id, 0, 0); }
-  const hasAlphaNow = avHasTransparency(id.data, w, h);
-  // crop to the person (everything that is not transparent), then fit into the square, standing on the bottom edge
-  let minX = w, minY = h, maxX = -1, maxY = -1;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (id.data[(y * w + x) * 4 + 3] > 24) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
-  if (maxX < 0) throw new Error('Nothing is left of the picture after removing the background. Untick "remove background" or use another picture.');
-  const bw = maxX - minX + 1, bh = maxY - minY + 1;
-  const k = Math.min((AV_SIZE - 12) / bw, (AV_SIZE - 6) / bh);
-  const dw = Math.round(bw * k), dh = Math.round(bh * k);
-  const out = document.createElement('canvas'); out.width = AV_SIZE; out.height = AV_SIZE;
-  const ox = out.getContext('2d'); ox.imageSmoothingQuality = 'high';
-  ox.drawImage(c0, minX, minY, bw, bh, Math.round((AV_SIZE - dw) / 2), AV_SIZE - dh, dw, dh);
-  const toBlob = (type, q) => new Promise((r) => out.toBlob(r, type, q));
-  let blob = format === 'webp' ? await toBlob('image/webp', 0.86) : null;
-  if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/png');   // browser can't write WebP -> PNG
-  return { canvas: out, blob, hasAlphaNow, wasTransparent: already, removed: removeBg && !already };
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, w, h);
+  AE.src = x.getImageData(0, 0, w, h); AE.w = w; AE.h = h;
+  AE.hasAlphaOrig = avHasTransparency(AE.src.data, w, h);
+  AE.kunukku = opts.kunukku || null;                                   // null = an avatar; otherwise { which, aspect } = a Kunukku picture
+  AV_W = 320; AV_H = AE.kunukku ? Math.round(320 / AE.kunukku.aspect) : 320;
+  avShowFields(!AE.kunukku);
+  AE.manual = new Uint8Array(w * h); AE.undo = []; AE.p = Object.assign({}, AE_DEFAULTS);
+  document.getElementById('avRemoveBg').checked = !AE.hasAlphaOrig;
+  AE.replaces = opts.replaces || null;
+  const ban = document.getElementById('avEditBanner'), rr = document.getElementById('avReplaceRow');
+  if (AE.kunukku) {
+    ban.style.display = 'block'; ban.textContent = '🥥 Editing the Kunukku picture "' + AE.kunukku.label + '". Saving puts it live for every player straight away.'; rr.style.display = 'none';
+  } else if (AE.replaces) {
+    ban.style.display = 'block'; ban.textContent = '✏️ Editing ' + AE.replaces + '. Save adds your edited version as a new avatar.';
+    rr.style.display = 'block'; document.getElementById('avReplace').checked = true;
+    document.getElementById('avReplaceText').textContent = 'Replace ' + AE.replaces + ' (its bot names move to the new one; the original is hidden or deleted)';
+    if (opts.gender) document.getElementById('avGender').value = opts.gender;
+    document.getElementById('avLabel').value = opts.label || ('edited ' + AE.replaces);
+  } else { ban.style.display = 'none'; rr.style.display = 'none'; }
+  document.getElementById('btnAvAdd').textContent = AE.kunukku ? 'Save Kunukku picture' : 'Add avatar';
+  document.getElementById('avPreview').style.display = 'block';
+  avRecut(); avBuildPanel(); avRenderAll();
+  avMsg('');
 }
-function avDrawPreview(canvas) {
-  const a = document.getElementById('avPvCheck').getContext('2d'), b = document.getElementById('avPvTable').getContext('2d');
-  a.clearRect(0, 0, 160, 160);
-  for (let y = 0; y < 160; y += 16) for (let x = 0; x < 160; x += 16) { a.fillStyle = ((x + y) / 16) % 2 ? '#d8d8d8' : '#f2f2f2'; a.fillRect(x, y, 16, 16); }
-  b.fillStyle = '#3a0c12'; b.fillRect(0, 0, 160, 160);
-  a.drawImage(canvas, 0, 0, 160, 160); b.drawImage(canvas, 0, 0, 160, 160);
+let avCutTimer = null;
+function avRecut() {
+  if (!AE.src) return;
+  const { w, h } = AE; const n = w * h;
+  const rm = document.getElementById('avRemoveBg').checked && !AE.hasAlphaOrig;
+  const alpha = new Uint8ClampedArray(n);
+  if (AE.hasAlphaOrig || !rm) { for (let i = 0; i < n; i++) alpha[i] = AE.src.data[i * 4 + 3]; }
+  else {
+    const copy = new Uint8ClampedArray(AE.src.data); avRemoveBackground(copy, w, h, AE.p.tol);
+    for (let i = 0; i < n; i++) alpha[i] = copy[i * 4 + 3];
+  }
+  AE.auto = alpha; avComposeCut();
+}
+// final person mask = automatic cut-out, overridden by hand strokes (1 = erased, 2 = brought back)
+function avComposeCut() {
+  const { w, h } = AE; const n = w * h;
+  if (!AE.cut) { AE.cut = document.createElement('canvas'); }
+  AE.cut.width = w; AE.cut.height = h;
+  const out = new ImageData(new Uint8ClampedArray(AE.src.data), w, h); const d = out.data;
+  let minX = w, minY = h, maxX = -1, maxY = -1, clear = 0;
+  for (let i = 0; i < n; i++) {
+    const m = AE.manual[i]; let a = AE.auto[i];
+    if (m === 1) a = 0; else if (m === 2) a = Math.max(a, AE.src.data[i * 4 + 3] > 0 ? 255 : 0);
+    d[i * 4 + 3] = a;
+    if (a < 250) clear++;
+    if (a > 24) { const x = i % w, y = (i / w) | 0; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  }
+  AE.cut.getContext('2d').putImageData(out, 0, 0);
+  AE.bbox = maxX >= 0 ? { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 } : null;
+  AE.clearFrac = clear / n;                                            // how much of the picture is see-through now
+}
+// ---- stage 2: place the person in the 320 x 320 frame, then colour and edge clean-up on the finished pixels
+function avRender() {
+  const out = document.createElement('canvas'); out.width = AV_W; out.height = AV_H;
+  const bb = AE.bbox; if (!bb) return { canvas: out, empty: true };
+  const p = AE.p, ctx = out.getContext('2d', { willReadFrequently: true }); ctx.imageSmoothingQuality = 'high';
+  const cx0 = bb.x + bb.w * p.cropL / 100, cx1 = bb.x + bb.w * (1 - p.cropR / 100), cy0 = bb.y + bb.h * p.cropT / 100, cy1 = bb.y + bb.h * (1 - p.cropB / 100);
+  const cw = Math.max(4, cx1 - cx0), ch = Math.max(4, cy1 - cy0);
+  const odd = p.r90 % 2 === 1, fw = odd ? ch : cw, fh = odd ? cw : ch;
+  const k = Math.min((AV_W - 12) / fw, (AV_H - 6) / fh) * (p.zoom / 100);
+  const cx = AV_W / 2 + p.mx, cy = AV_H - (fh * k) / 2 + p.my;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(((p.rot + 90 * p.r90) * Math.PI) / 180); if (p.flip) ctx.scale(-1, 1);
+  ctx.drawImage(AE.cut, cx0, cy0, cw, ch, -cw * k / 2, -ch * k / 2, cw * k, ch * k); ctx.restore();
+  if (p.bri || p.con || p.sat || p.warm || p.shrink || p.soft) {
+    const id = ctx.getImageData(0, 0, AV_W, AV_H), d = id.data, n = AV_W * AV_H;
+    if (p.bri || p.con || p.sat || p.warm) {
+      const cf = (259 * (p.con * 2.55 + 255)) / (255 * (259 - p.con * 2.55)), sf = 1 + p.sat / 100, bo = p.bri * 2.55, wm = p.warm * 0.6;
+      for (let i = 0; i < n; i++) {
+        const j = i * 4; if (d[j + 3] === 0) continue;
+        let r = d[j], g = d[j + 1], b = d[j + 2];
+        const gr = 0.299 * r + 0.587 * g + 0.114 * b; r = gr + (r - gr) * sf; g = gr + (g - gr) * sf; b = gr + (b - gr) * sf;
+        r = (r - 128) * cf + 128 + bo + wm; g = (g - 128) * cf + 128 + bo; b = (b - 128) * cf + 128 + bo - wm;
+        d[j] = r < 0 ? 0 : r > 255 ? 255 : r; d[j + 1] = g < 0 ? 0 : g > 255 ? 255 : g; d[j + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+      }
+    }
+    if (p.shrink || p.soft) {
+      let a = new Uint8ClampedArray(n); for (let i = 0; i < n; i++) a[i] = d[i * 4 + 3];
+      const W = AV_W, H = AV_H;
+      for (let s = 0; s < p.shrink; s++) {                                   // shrink: each pass takes the smallest of the 4 neighbours
+        const b = new Uint8ClampedArray(a);
+        for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const i = y * W + x; b[i] = Math.min(a[i], a[i - 1], a[i + 1], a[i - W], a[i + W]); }
+        a = b;
+      }
+      for (let s = 0; s < p.soft; s++) {                                     // soften: weighted 3 x 3 average of the alpha
+        const b = new Uint8ClampedArray(a);
+        for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+          const i = y * W + x;
+          b[i] = (a[i - W - 1] + a[i - W] + a[i - W + 1] + a[i - 1] + a[i] * 2 + a[i + 1] + a[i + W - 1] + a[i + W] + a[i + W + 1]) / 10;
+        }
+        a = b;
+      }
+      for (let i = 0; i < n; i++) d[i * 4 + 3] = a[i];
+    }
+    ctx.putImageData(id, 0, 0);
+  }
+  return { canvas: out, empty: false };
+}
+let avRaf = 0, avLast = null;
+function avRenderAll() { if (avRaf) return; avRaf = requestAnimationFrame(() => { avRaf = 0; avPaint(); }); }
+function avPaint() {
+  if (!AE.src) return;
+  const r = avRender(); avLast = r;
+  const pv = document.getElementById('avPvMain'); if (pv.width !== AV_W || pv.height !== AV_H) { pv.width = AV_W; pv.height = AV_H; pv.style.aspectRatio = AV_W + ' / ' + AV_H; }
+  const m = pv.getContext('2d'); m.clearRect(0, 0, AV_W, AV_H); m.drawImage(r.canvas, 0, 0);
+  const small = (id, size) => { const c = document.getElementById(id), x = c.getContext('2d'); const w = Math.round(size * AV_W / Math.max(AV_W, AV_H)), h = Math.round(size * AV_H / Math.max(AV_W, AV_H)); c.width = w; c.height = h; x.imageSmoothingQuality = 'high'; x.drawImage(r.canvas, 0, 0, w, h); };
+  small('avPvTable', 96); small('avPvCheck', 48); small('avPvMini', 32);
+  const btn = document.getElementById('btnAvAdd'), info = document.getElementById('avInfo');
+  if (r.empty) { info.textContent = ''; avMsg('Nothing is left of the picture. Lower the cut-out strength or untick "Remove the plain background".', true); btn.disabled = true; return; }
+  const px = r.canvas.getContext('2d').getImageData(0, 0, AV_W, AV_H).data; let solid = 0;
+  for (let i = 0; i < px.length; i += 4) if (px[i + 3] > 40) solid++;
+  const cover = Math.round(100 * solid / (AV_W * AV_H));
+  info.textContent = `${AV_W} × ${AV_H} · the ${AE.kunukku ? 'picture' : 'person'} fills about ${cover}% of the frame` + (AE.hasAlphaOrig ? ' · picture already had a transparent background' : document.getElementById('avRemoveBg').checked ? ' · plain background removed' : ' · no transparent background — tick "Remove the plain background"');
+  if (cover < 6) { avMsg('The person is tiny in the frame — zoom in or trim the sides.', true); btn.disabled = true; return; }
+  if (AE.clearFrac < 0.005) { avMsg('This picture has no transparent background. Tick "Remove the plain background", paint the background away in Touch-up, or upload a cut-out.', true); btn.disabled = true; return; }
+  avMsg(''); btn.disabled = false;
+}
+// ---- the control panels (sliders per tab) and the touch-up canvas
+function avSliderHtml(c) {
+  const v = AE.p[c.k];
+  return `<div class="ave-slider"><div class="t"><span>${c.label}</span><em id="avv_${c.k}">${v}${c.unit}</em></div><input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${v}" data-k="${c.k}">${c.hint ? `<small>${c.hint}</small>` : ''}</div>`;
+}
+function avBuildPanel() {
+  const panel = document.getElementById('avPanel'); const t = AE.tab;
+  if (t === 'touch') {
+    panel.innerHTML = `<div class="ave-touch"><div class="note" style="margin-bottom:8px">Paint on the picture to fix the cut-out by hand: <b>Erase</b> removes leftover background, <b>Bring back</b> restores a part that was cut away by mistake.</div>
+      <div class="ave-actions" style="margin:0 0 8px"><button class="ed-mini ${AE.brush.mode === 'erase' ? 'on' : ''}" data-b="erase">🧽 Erase</button><button class="ed-mini ${AE.brush.mode === 'keep' ? 'on' : ''}" data-b="keep">✨ Bring back</button><button class="ed-mini" id="avBrushUndo">↶ Undo stroke</button><button class="ed-mini" id="avBrushClear">Clear touch-ups</button></div>
+      <div class="ave-slider"><div class="t"><span>Brush size</span><em id="avv_brush">${AE.brush.size}</em></div><input type="range" min="4" max="80" step="1" value="${AE.brush.size}" id="avBrushSize"></div>
+      <canvas id="avTouch"></canvas></div>`;
+    avDrawTouch();
+    panel.querySelectorAll('[data-b]').forEach((b) => b.addEventListener('click', () => { AE.brush.mode = b.dataset.b; avBuildPanel(); }));
+    panel.querySelector('#avBrushSize').addEventListener('input', (e) => { AE.brush.size = Number(e.target.value); panel.querySelector('#avv_brush').textContent = AE.brush.size; });
+    panel.querySelector('#avBrushUndo').addEventListener('click', () => { const u = AE.undo.pop(); if (u) { AE.manual = u; avComposeCut(); avDrawTouch(); avRenderAll(); } });
+    panel.querySelector('#avBrushClear').addEventListener('click', () => { AE.undo.push(new Uint8Array(AE.manual)); AE.manual.fill(0); avComposeCut(); avDrawTouch(); avRenderAll(); });
+    avWireTouch(); return;
+  }
+  panel.innerHTML = AE_CONTROLS[t].map(avSliderHtml).join('');
+  panel.querySelectorAll('input[type=range]').forEach((inp) => {
+    const c = AE_CONTROLS[t].find((x) => x.k === inp.dataset.k);
+    inp.addEventListener('input', () => {
+      AE.p[c.k] = Number(inp.value); document.getElementById('avv_' + c.k).textContent = AE.p[c.k] + c.unit;
+      if (c.k === 'tol') { clearTimeout(avCutTimer); avCutTimer = setTimeout(() => { avRecut(); avRenderAll(); }, 120); } else avRenderAll();
+    });
+  });
+}
+function avDrawTouch() {
+  const c = document.getElementById('avTouch'); if (!c || !AE.cut) return;
+  const maxW = 600, k = Math.min(1, maxW / AE.w); c.width = Math.round(AE.w * k); c.height = Math.round(AE.h * k);
+  const x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height); x.drawImage(AE.cut, 0, 0, c.width, c.height);
+}
+function avWireTouch() {
+  const c = document.getElementById('avTouch'); if (!c) return; let down = false, snap = false;
+  const paint = (ev) => {
+    const r = c.getBoundingClientRect(), fx = (ev.clientX - r.left) / r.width, fy = (ev.clientY - r.top) / r.height;
+    const sx = fx * AE.w, sy = fy * AE.h, rad = AE.brush.size * (AE.w / r.width) / 2, val = AE.brush.mode === 'erase' ? 1 : 2;
+    const x0 = Math.max(0, Math.floor(sx - rad)), x1 = Math.min(AE.w - 1, Math.ceil(sx + rad)), y0 = Math.max(0, Math.floor(sy - rad)), y1 = Math.min(AE.h - 1, Math.ceil(sy + rad));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if ((x - sx) * (x - sx) + (y - sy) * (y - sy) <= rad * rad) AE.manual[y * AE.w + x] = val;
+    avComposeCut(); avDrawTouch(); avRenderAll();
+  };
+  c.addEventListener('pointerdown', (ev) => { ev.preventDefault(); down = true; try { c.setPointerCapture(ev.pointerId); } catch (e) {} AE.undo.push(new Uint8Array(AE.manual)); if (AE.undo.length > 8) AE.undo.shift(); paint(ev); });
+  c.addEventListener('pointermove', (ev) => { if (down) paint(ev); });
+  ['pointerup', 'pointercancel'].forEach((t) => c.addEventListener(t, () => { down = false; }));
+}
+document.getElementById('avTabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-t]'); if (!b) return; AE.tab = b.dataset.t;
+  [...document.getElementById('avTabs').children].forEach((x) => x.classList.toggle('on', x === b)); if (AE.src) avBuildPanel();
+});
+document.getElementById('avBgSw').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-bg]'); if (!b) return; AE.bg = b.dataset.bg;
+  [...document.getElementById('avBgSw').children].forEach((x) => x.classList.toggle('on', x === b));
+  const st = document.querySelector('.ave-stage'); st.classList.toggle('bg-table', AE.bg === 'table'); st.classList.toggle('bg-dark', AE.bg === 'dark');
+});
+// quick buttons
+document.getElementById('avFlip').addEventListener('click', () => { if (!AE.src) return; AE.p.flip = AE.p.flip ? 0 : 1; avRenderAll(); });
+document.getElementById('avRotL').addEventListener('click', () => { if (!AE.src) return; AE.p.r90 = (AE.p.r90 + 3) % 4; avRenderAll(); });
+document.getElementById('avRotR').addEventListener('click', () => { if (!AE.src) return; AE.p.r90 = (AE.p.r90 + 1) % 4; avRenderAll(); });
+document.getElementById('avAuto').addEventListener('click', () => { if (!AE.src) return; Object.assign(AE.p, { cropL: 0, cropR: 0, cropT: 0, cropB: 0, zoom: 100, mx: 0, my: 0, rot: 0, r90: 0 }); avBuildPanel(); avRenderAll(); });
+document.getElementById('avUndoAll').addEventListener('click', () => { if (!AE.src) return; AE.p = Object.assign({}, AE_DEFAULTS); AE.manual.fill(0); AE.undo = []; avRecut(); avBuildPanel(); avRenderAll(); });
+// drag to move, pinch / wheel to zoom, right on the preview
+(function () {
+  const c = document.getElementById('avPvMain'); const pts = new Map(); let start = null;
+  const sync = () => { if (AE.tab === 'crop') avBuildPanel(); };
+  c.addEventListener('pointerdown', (ev) => { if (!AE.src) return; c.setPointerCapture(ev.pointerId); pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); start = { mx: AE.p.mx, my: AE.p.my, zoom: AE.p.zoom, d: null }; });
+  c.addEventListener('pointermove', (ev) => {
+    if (!pts.has(ev.pointerId) || !AE.src) return; const prev = pts.get(ev.pointerId); const r = c.getBoundingClientRect(), k = AV_W / r.width;
+    if (pts.size === 1) { AE.p.mx = avClamp(Math.round(AE.p.mx + (ev.clientX - prev.x) * k), -120, 120); AE.p.my = avClamp(Math.round(AE.p.my + (ev.clientY - prev.y) * k), -160, 160); }
+    pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (start.d) AE.p.zoom = avClamp(Math.round(start.zoom * d / start.d), 40, 300); else start.d = d; }
+    avRenderAll(); sync();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => c.addEventListener(t, (ev) => { pts.delete(ev.pointerId); if (pts.size < 2 && start) start.d = null; }));
+  c.addEventListener('wheel', (ev) => { if (!AE.src) return; ev.preventDefault(); AE.p.zoom = avClamp(Math.round(AE.p.zoom * (ev.deltaY < 0 ? 1.06 : 0.94)), 40, 300); avRenderAll(); sync(); }, { passive: false });
+})();
+// ---- loading a file, editing an existing avatar, and saving
+document.getElementById('avFile').addEventListener('change', async () => {
+  const file = document.getElementById('avFile').files[0]; if (!file) { document.getElementById('avPreview').style.display = 'none'; AE.src = null; document.getElementById('btnAvAdd').disabled = true; return; }
+  try { await avLoadFile(file, {}); document.getElementById('btnAvAdd').textContent = 'Add avatar'; } catch (e) { avMsg(e.message || 'Could not read that picture.', true); document.getElementById('avPreview').style.display = 'none'; }
+});
+document.getElementById('avRemoveBg').addEventListener('change', () => { if (AE.src) { avRecut(); avRenderAll(); } });
+async function avEditExisting(key) {
+  const a = avList.find((x) => x.key === key); if (!a) return;
+  avMsg('Loading ' + key + '…');
+  try {
+    const r = await fetch('/images/hero-avatars/' + encodeURIComponent(key) + '.png?nowebp=1&t=' + Date.now());
+    if (!r.ok) throw new Error('missing'); const blob = await r.blob();
+    document.getElementById('avFile').value = '';
+    await avLoadFile(new File([blob], key + '.png', { type: blob.type || 'image/png' }), { replaces: key, gender: a.gender, label: a.label || '' });
+    document.getElementById('avEditorCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) { avMsg('Could not load ' + key + ' to edit.', true); }
 }
 function avBlobToBase64(blob) {
   return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result).split(',')[1] || ''); r.onerror = reject; r.readAsDataURL(blob); });
 }
-let avPrepSeq = 0;
-async function avReprocess() {
-  const file = document.getElementById('avFile').files[0];
-  const btn = document.getElementById('btnAvAdd');
-  avProcessed = null; btn.disabled = true;
-  if (!file) { document.getElementById('avPreview').style.display = 'none'; return; }
-  const seq = ++avPrepSeq;
-  try {
-    avMsg('Preparing…');
-    const r = await avPrepare(file, document.getElementById('avRemoveBg').checked, document.getElementById('avFormat').value);
-    if (seq !== avPrepSeq) return;
-    avProcessed = r;
-    document.getElementById('avPreview').style.display = 'block';
-    avDrawPreview(r.canvas);
-    const kb = Math.round(r.blob.size / 1024);
-    document.getElementById('avInfo').textContent = `${AV_SIZE} × ${AV_SIZE} · ${kb} KB ${r.blob.type === 'image/webp' ? 'WebP' : 'PNG'}` +
-      (r.wasTransparent ? ' · picture already had a transparent background' : r.removed ? ' · plain background removed' : ' · no transparent background — tick "Remove the plain background"');
-    if (!r.hasAlphaNow) { avMsg('This picture has no transparent background. Tick "Remove the plain background" (works on a single-colour background) or upload a cut-out.', true); btn.disabled = true; }
-    else if (r.blob.size > 240 * 1024) { avMsg('Still too big after compression (' + kb + ' KB). Try a simpler picture.', true); btn.disabled = true; }
-    else { avMsg(''); btn.disabled = false; }
-  } catch (e) { if (seq === avPrepSeq) { avMsg(e.message || 'Could not prepare that picture.', true); document.getElementById('avPreview').style.display = 'none'; } }
-}
-document.getElementById('avFile').addEventListener('change', async () => {
-  // a photo on a plain background will almost always want the background removed: tick it automatically after a quick look
-  const file = document.getElementById('avFile').files[0];
-  if (file) { try { const img = await avLoadImage(file); const c = document.createElement('canvas'); c.width = Math.min(200, img.naturalWidth); c.height = Math.min(200, img.naturalHeight); const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, c.width, c.height); document.getElementById('avRemoveBg').checked = !avHasTransparency(x.getImageData(0, 0, c.width, c.height).data, c.width, c.height); } catch (e) {} }
-  avReprocess();
-});
-document.getElementById('avRemoveBg').addEventListener('change', avReprocess);
-document.getElementById('avFormat').addEventListener('change', avReprocess);
 document.getElementById('btnAvAdd').addEventListener('click', async () => {
-  if (!avProcessed) return;
+  if (!AE.src || !avLast || avLast.empty) return;
   const btn = document.getElementById('btnAvAdd'); btn.disabled = true; avMsg('Uploading…');
   try {
-    const data = await avBlobToBase64(avProcessed.blob);
-    const r = await avCall('/api/admin/avatars', 'POST', { gender: document.getElementById('avGender').value, label: document.getElementById('avLabel').value, nameFor: document.getElementById('avNameFor').value, data });
+    const toBlob = (type, q) => new Promise((r) => avLast.canvas.toBlob(r, type, q));
+    let blob = document.getElementById('avFormat').value === 'webp' ? await toBlob('image/webp', 0.86) : null;
+    if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/png');                      // browser cannot write WebP -> PNG
+    if (blob.size > 240 * 1024) { avMsg('Too big after compression (' + Math.round(blob.size / 1024) + ' KB). Zoom out or simplify the picture.', true); btn.disabled = false; return; }
+    const data = await avBlobToBase64(blob);
+    if (AE.kunukku) {
+      if (blob.size > 380 * 1024) { avMsg('Too big for the Kunukku picture (' + Math.round(blob.size / 1024) + ' KB, limit 380). Zoom out or simplify it.', true); btn.disabled = false; return; }
+      const kr = await avCall('/api/admin/kunukku/' + AE.kunukku.which, 'POST', { data });
+      if (!kr.ok) { avMsg(kr.data.error || 'The server did not accept that picture.', true); btn.disabled = false; return; }
+      avMsg('Saved. The new Kunukku picture is live now.');
+      document.getElementById('avFile').value = ''; document.getElementById('avPreview').style.display = 'none'; document.getElementById('avEditBanner').style.display = 'none';
+      AE.src = null; AE.kunukku = null; AV_W = AV_H = 320; avShowFields(true); document.getElementById('btnAvAdd').textContent = 'Add avatar'; await refreshKunukku(); return;
+    }
+    const replaces = AE.replaces && document.getElementById('avReplace').checked ? AE.replaces : null;
+    const r = await avCall('/api/admin/avatars', 'POST', { gender: document.getElementById('avGender').value, label: document.getElementById('avLabel').value, nameFor: document.getElementById('avNameFor').value, data, replaces });
     if (!r.ok) { avMsg(r.data.error || 'The server did not accept that picture.', true); btn.disabled = false; return; }
-    avMsg('Added ' + r.data.key + '. It is live now.');
+    avMsg('Added ' + r.data.key + '. It is live now.' + (r.data.replaced ? ' ' + r.data.replaced + ' was replaced.' : '') + (r.data.replaceNote ? ' (' + r.data.replaceNote + ')' : ''));
     document.getElementById('avFile').value = ''; document.getElementById('avLabel').value = ''; document.getElementById('avNameFor').value = '';
-    document.getElementById('avPreview').style.display = 'none'; avProcessed = null;
-    await refreshAvatarManager();
+    document.getElementById('avPreview').style.display = 'none'; document.getElementById('avEditBanner').style.display = 'none'; document.getElementById('avReplaceRow').style.display = 'none';
+    AE.src = null; AE.replaces = null; await refreshAvatarManager();
   } catch (e) { avMsg('Upload failed. Check your connection and try again.', true); btn.disabled = false; }
 });
 document.getElementById('avFilters').addEventListener('click', (e) => {
   const b = e.target.closest('[data-f]'); if (!b) return;
   avFilter = b.dataset.f; [...document.getElementById('avFilters').children].forEach(x => x.classList.toggle('on', x === b)); renderAvatarManager();
+});
+
+// ---------------- Backgrounds ----------------
+const BG_TABLE_LABEL = { '4p': '🎴 4-Player (28)', '6p': '🎲 6-Player', '56': '🂡 56' };
+const BG_SLOT_LABEL = { portrait: '📱 Phone upright', landscape: '📱 Phone sideways', desktop: '🖥️ Computer / big tablet' };
+const BG_DEVICES = {
+  portrait: [[360, 740, 'Small phone'], [390, 844, 'iPhone'], [430, 932, 'Large phone'], [768, 1024, 'Tablet']],
+  landscape: [[740, 360, 'Small phone'], [844, 390, 'iPhone'], [932, 430, 'Large phone']],
+  desktop: [[1024, 768, 'Tablet'], [1280, 720, 'Laptop'], [1440, 900, 'Desktop'], [1920, 1080, 'Full HD']],
+};
+let sceneryData = null;
+async function refreshScenery() {
+  try { const r = await adminFetch('/api/admin/scenery'); if (!r.ok) throw new Error('bad'); sceneryData = await r.json(); kunukkuData = sceneryData.kunukku || kunukkuData; renderScenery(); }
+  catch (e) { document.getElementById('sceneryList').innerHTML = '<div class="empty">Could not load the backgrounds.</div>'; }
+}
+function renderScenery() {
+  const el = document.getElementById('sceneryList'); if (!sceneryData) return;
+  const kb = (n) => Math.round(n / 1024) + ' KB';
+  el.innerHTML = ['4p', '6p', '56'].map(t => `<div class="ub-row" style="margin-top:10px"><div class="top"><span><b>${BG_TABLE_LABEL[t]}</b></span></div>` +
+    sceneryData.backgrounds.filter(b => b.table === t).map(b => {
+      const src = b.custom ? b.custom.url : (b.original ? b.original + '?t=1' : '');
+      const st = b.custom ? `Your picture · ${kb(b.custom.bytes)} · ${b.custom.w} × ${b.custom.h}` : (b.original ? 'Original picture that comes with the game' : 'No picture yet — plain dark table');
+      return `<div class="be-slot"><div class="be-thumb" style="${src ? `background-image:url('${esc(src)}')` : ''}">${src ? '' : 'none'}</div>
+        <div style="flex:1;min-width:0"><div style="font-size:0.8rem;color:#fff;font-weight:700">${BG_SLOT_LABEL[b.slot]}</div><div class="note">${st}</div>
+        <div class="ave-actions" style="margin-top:6px"><button class="ed-mini" data-bgadd="${t}:${b.slot}">${b.custom || b.original ? '✏️ Replace / adjust' : '➕ Add a picture'}</button>${b.custom ? `<button class="ed-mini" data-bgdel="${t}:${b.slot}" style="color:#ff9a9a">🗑 Delete</button>` : ''}</div></div></div>`;
+    }).join('') + '</div>').join('');
+  el.querySelectorAll('[data-bgadd]').forEach(b => b.addEventListener('click', () => beOpen(...b.dataset.bgadd.split(':'))));
+  el.querySelectorAll('[data-bgdel]').forEach(b => b.addEventListener('click', async () => {
+    const [t, sl] = b.dataset.bgdel.split(':'); const o = sceneryData.backgrounds.find(x => x.table === t && x.slot === sl);
+    if (!confirm('Delete your picture for ' + BG_TABLE_LABEL[t] + ' · ' + BG_SLOT_LABEL[sl] + '?\n' + (o && o.original ? 'The table goes back to the original picture.' : 'The table goes back to the plain dark background.'))) return;
+    const r = await avCall('/api/admin/scenery/' + t + '/' + sl, 'DELETE'); if (!r.ok) alert(r.data.error || 'Could not delete.'); await refreshScenery();
+  }));
+}
+// ---- the background editor: frame the picture for one screen shape, then bake it ----
+const BE = { table: null, slot: null, frame: null, img: null, sw: 0, sh: 0, tab: 'fit', p: null, last: null };
+const BE_DEFAULTS = { mode: 'fill', zoom: 100, mx: 0, my: 0, rot: 0, r90: 0, flip: 0, bri: 0, con: 0, sat: 0, warm: 0, dim: 0 };
+const BE_CONTROLS = {
+  fit: [{ k: 'zoom', label: 'Zoom', min: 100, max: 400, step: 1, unit: '%' }, { k: 'mx', label: 'Move left / right', min: -100, max: 100, step: 1, unit: '%' }, { k: 'my', label: 'Move up / down', min: -100, max: 100, step: 1, unit: '%' }, { k: 'rot', label: 'Straighten', min: -45, max: 45, step: 0.5, unit: '°' }],
+  color: [{ k: 'bri', label: 'Brightness', min: -60, max: 60, step: 1, unit: '' }, { k: 'con', label: 'Contrast', min: -60, max: 60, step: 1, unit: '' }, { k: 'sat', label: 'Colour strength', min: -100, max: 100, step: 1, unit: '' }, { k: 'warm', label: 'Warmth', min: -60, max: 60, step: 1, unit: '' }, { k: 'dim', label: 'Darken (helps buttons and text stand out)', min: 0, max: 70, step: 1, unit: '%' }],
+};
+function beMsg(t, bad) { const m = document.getElementById('beMsg'); m.textContent = t || ''; m.style.color = bad ? '#ff9a9a' : ''; }
+async function beOpen(table, slot) {
+  const o = sceneryData.backgrounds.find(x => x.table === table && x.slot === slot);
+  BE.table = table; BE.slot = slot; BE.frame = o.frame; BE.img = null; BE.p = Object.assign({}, BE_DEFAULTS); BE.last = null;
+  document.getElementById('beTitle').textContent = BG_TABLE_LABEL[table] + ' · ' + BG_SLOT_LABEL[slot] + ' — ' + o.frame.w + ' × ' + o.frame.h;
+  document.getElementById('beCurrent').style.display = (o.custom || o.original) ? '' : 'none';
+  document.getElementById('beFile').value = ''; document.getElementById('beWork').style.display = 'none'; beMsg('');
+  document.getElementById('beCard').style.display = 'block'; document.getElementById('beCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+async function beLoad(blobOrFile) {
+  beMsg('Reading the picture…');
+  const img = await avLoadImage(blobOrFile);
+  const sc = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight)); const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(img.naturalWidth * sc)); c.height = Math.max(1, Math.round(img.naturalHeight * sc)); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  BE.img = c; BE.sw = c.width; BE.sh = c.height; BE.p = Object.assign({}, BE_DEFAULTS);
+  const pv = document.getElementById('bePvMain'); const k = Math.min(300 / BE.frame.w, 360 / BE.frame.h); pv.width = Math.round(BE.frame.w * k); pv.height = Math.round(BE.frame.h * k);
+  document.getElementById('beWork').style.display = 'block'; beBuildPanel(); beSyncModes(); bePaint(); beMsg('');
+}
+function beSyncModes() { document.querySelectorAll('[data-bemode]').forEach(b => b.classList.toggle('on', b.dataset.bemode === BE.p.mode)); }
+// draw the picture into a canvas of the frame's shape (any size): fill = cover, whole = contain over a blurred copy
+function beDraw(canvas, w, h) {
+  canvas.width = w; canvas.height = h; const ctx = canvas.getContext('2d', { willReadFrequently: true }); const p = BE.p; ctx.imageSmoothingQuality = 'high';
+  const odd = p.r90 % 2 === 1, fw = odd ? BE.sh : BE.sw, fh = odd ? BE.sw : BE.sh;
+  ctx.fillStyle = '#05070a'; ctx.fillRect(0, 0, w, h);
+  const cover = Math.max(w / fw, h / fh), whole = Math.min(w / fw, h / fh);
+  if (p.mode === 'whole') {                                    // a blurred, stretched copy behind, so the bars are not empty
+    ctx.save(); try { ctx.filter = 'blur(' + Math.round(w / 40) + 'px) brightness(0.7)'; } catch (e) {}
+    ctx.translate(w / 2, h / 2); ctx.rotate(((p.rot + 90 * p.r90) * Math.PI) / 180); if (p.flip) ctx.scale(-1, 1);
+    ctx.drawImage(BE.img, -BE.sw * cover / 2, -BE.sh * cover / 2, BE.sw * cover, BE.sh * cover); ctx.restore();
+  }
+  const k = (p.mode === 'whole' ? whole : cover) * p.zoom / 100;
+  ctx.save(); ctx.translate(w / 2 + p.mx * w / 100, h / 2 + p.my * h / 100); ctx.rotate(((p.rot + 90 * p.r90) * Math.PI) / 180); if (p.flip) ctx.scale(-1, 1);
+  ctx.drawImage(BE.img, -BE.sw * k / 2, -BE.sh * k / 2, BE.sw * k, BE.sh * k); ctx.restore();
+  if (p.bri || p.con || p.sat || p.warm) {
+    const id = ctx.getImageData(0, 0, w, h), d = id.data, n = w * h;
+    const cf = (259 * (p.con * 2.55 + 255)) / (255 * (259 - p.con * 2.55)), sf = 1 + p.sat / 100, bo = p.bri * 2.55, wm = p.warm * 0.6;
+    for (let i = 0; i < n; i++) {
+      const j = i * 4; let r = d[j], g = d[j + 1], b = d[j + 2]; const gr = 0.299 * r + 0.587 * g + 0.114 * b;
+      r = gr + (r - gr) * sf; g = gr + (g - gr) * sf; b = gr + (b - gr) * sf;
+      r = (r - 128) * cf + 128 + bo + wm; g = (g - 128) * cf + 128 + bo; b = (b - 128) * cf + 128 + bo - wm;
+      d[j] = r < 0 ? 0 : r > 255 ? 255 : r; d[j + 1] = g < 0 ? 0 : g > 255 ? 255 : g; d[j + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+    }
+    ctx.putImageData(id, 0, 0);
+  }
+  if (p.dim) { ctx.fillStyle = 'rgba(0,0,0,' + (p.dim / 100) + ')'; ctx.fillRect(0, 0, w, h); }
+}
+let beRaf = 0, beSizeTimer = null;
+function bePaint() { if (beRaf) return; beRaf = requestAnimationFrame(() => { beRaf = 0; beDoPaint(); }); }
+function beDoPaint() {
+  if (!BE.img) return;
+  const pv = document.getElementById('bePvMain'); beDraw(pv, pv.width, pv.height); BE.last = pv;
+  // each real screen shape shows the part the page will really show ("cover": fill the screen, centred)
+  const box = document.getElementById('beDevices'); const devs = BG_DEVICES[BE.slot];
+  if (box.children.length !== devs.length) box.innerHTML = devs.map(([w, h, n], i) => `<div class="be-dev"><canvas data-i="${i}"></canvas>${w}×${h}<br>${n}</div>`).join('');
+  devs.forEach(([dw, dh], i) => {
+    const c = box.children[i].querySelector('canvas'); const maxW = BE.slot === 'portrait' ? 62 : 120, maxH = BE.slot === 'portrait' ? 120 : 76;
+    const k = Math.min(maxW / dw, maxH / dh); c.width = Math.round(dw * k); c.height = Math.round(dh * k);
+    const sa = pv.width / pv.height, da = dw / dh; let sx = 0, sy = 0, sw = pv.width, sh = pv.height;
+    if (da > sa) { sh = pv.width / da; sy = (pv.height - sh) / 2; } else { sw = pv.height * da; sx = (pv.width - sw) / 2; }
+    c.getContext('2d').drawImage(pv, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  });
+  clearTimeout(beSizeTimer); beSizeTimer = setTimeout(beMeasure, 500);
+}
+async function beBake(type, q) { const c = document.createElement('canvas'); beDraw(c, BE.frame.w, BE.frame.h); return await new Promise(r => c.toBlob(r, type, q)); }
+async function beMeasure() {
+  if (!BE.img) return; let blob = await beBake('image/webp', 0.8); if (!blob || blob.type !== 'image/webp') blob = await beBake('image/jpeg', 0.82);
+  BE.bytes = blob.size; const kb = Math.round(blob.size / 1024), save = document.getElementById('beSave');
+  document.getElementById('beInfo').textContent = `Saved as ${BE.frame.w} × ${BE.frame.h} · about ${kb} KB (${blob.type === 'image/webp' ? 'WebP' : 'JPEG'})`;
+  if (blob.size > 1150 * 1024) { beMsg('Too big (' + kb + ' KB, limit about 1150). Try a simpler picture or darken it a little.', true); save.disabled = true; } else { beMsg(''); save.disabled = false; }
+}
+function beBuildPanel() {
+  const panel = document.getElementById('bePanel'); const list = BE_CONTROLS[BE.tab];
+  panel.innerHTML = list.map(c => `<div class="ave-slider"><div class="t"><span>${c.label}</span><em id="bev_${c.k}">${BE.p[c.k]}${c.unit}</em></div><input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${BE.p[c.k]}" data-k="${c.k}"></div>`).join('');
+  panel.querySelectorAll('input[type=range]').forEach(inp => { const c = list.find(x => x.k === inp.dataset.k); inp.addEventListener('input', () => { BE.p[c.k] = Number(inp.value); document.getElementById('bev_' + c.k).textContent = BE.p[c.k] + c.unit; bePaint(); }); });
+}
+document.getElementById('beTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-t]'); if (!b) return; BE.tab = b.dataset.t; [...document.getElementById('beTabs').children].forEach(x => x.classList.toggle('on', x === b)); if (BE.img) beBuildPanel(); });
+document.querySelectorAll('[data-bemode]').forEach(b => b.addEventListener('click', () => { if (!BE.img) return; BE.p.mode = b.dataset.bemode; if (BE.p.mode === 'whole' && BE.p.zoom < 100) BE.p.zoom = 100; beSyncModes(); bePaint(); }));
+document.getElementById('beFlip').addEventListener('click', () => { if (BE.img) { BE.p.flip = BE.p.flip ? 0 : 1; bePaint(); } });
+document.getElementById('beRotL').addEventListener('click', () => { if (BE.img) { BE.p.r90 = (BE.p.r90 + 3) % 4; bePaint(); } });
+document.getElementById('beRotR').addEventListener('click', () => { if (BE.img) { BE.p.r90 = (BE.p.r90 + 1) % 4; bePaint(); } });
+document.getElementById('beReset').addEventListener('click', () => { if (BE.img) { BE.p = Object.assign({}, BE_DEFAULTS); beBuildPanel(); beSyncModes(); bePaint(); } });
+document.getElementById('beCancel').addEventListener('click', () => { document.getElementById('beCard').style.display = 'none'; BE.img = null; });
+document.getElementById('beFile').addEventListener('change', async () => { const f = document.getElementById('beFile').files[0]; if (f) { try { await beLoad(f); } catch (e) { beMsg(e.message || 'Could not read that picture.', true); } } });
+document.getElementById('beCurrent').addEventListener('click', async () => {
+  const o = sceneryData.backgrounds.find(x => x.table === BE.table && x.slot === BE.slot); const url = o.custom ? o.custom.url : o.original; if (!url) return;
+  try { const r = await fetch(url + (o.custom ? '' : '?nowebp=1') + (url.includes('?') ? '&' : '?') + 't=' + Date.now()); if (!r.ok) throw new Error('missing'); await beLoad(await r.blob()); }
+  catch (e) { beMsg('Could not load the current picture.', true); }
+});
+// drag to move, pinch / wheel to zoom, directly on the preview
+(function () {
+  const c = document.getElementById('bePvMain'); const pts = new Map(); let start = null;
+  c.addEventListener('pointerdown', (ev) => { if (!BE.img) return; c.setPointerCapture(ev.pointerId); pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); start = { zoom: BE.p.zoom, d: null }; });
+  c.addEventListener('pointermove', (ev) => {
+    if (!pts.has(ev.pointerId) || !BE.img) return; const prev = pts.get(ev.pointerId), r = c.getBoundingClientRect();
+    if (pts.size === 1) { BE.p.mx = avClamp(Math.round((BE.p.mx + (ev.clientX - prev.x) / r.width * 100) * 10) / 10, -100, 100); BE.p.my = avClamp(Math.round((BE.p.my + (ev.clientY - prev.y) / r.height * 100) * 10) / 10, -100, 100); }
+    pts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (start.d) BE.p.zoom = avClamp(Math.round(start.zoom * d / start.d), 100, 400); else start.d = d; }
+    bePaint(); if (BE.tab === 'fit') beBuildPanel();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => c.addEventListener(t, (ev) => { pts.delete(ev.pointerId); if (pts.size < 2 && start) start.d = null; }));
+  c.addEventListener('wheel', (ev) => { if (!BE.img) return; ev.preventDefault(); BE.p.zoom = avClamp(Math.round(BE.p.zoom * (ev.deltaY < 0 ? 1.06 : 0.94)), 100, 400); bePaint(); if (BE.tab === 'fit') beBuildPanel(); }, { passive: false });
+})();
+document.getElementById('beSave').addEventListener('click', async () => {
+  if (!BE.img) return; const btn = document.getElementById('beSave'); btn.disabled = true; beMsg('Saving…');
+  try {
+    let blob = await beBake('image/webp', 0.8); if (!blob || blob.type !== 'image/webp') blob = await beBake('image/jpeg', 0.82);
+    const data = await avBlobToBase64(blob); const r = await avCall('/api/admin/scenery/' + BE.table + '/' + BE.slot, 'POST', { data });
+    if (!r.ok) { beMsg(r.data.error || 'The server did not accept that picture.', true); btn.disabled = false; return; }
+    beMsg('Saved — live now for every player.'); document.getElementById('beCard').style.display = 'none'; BE.img = null; await refreshScenery();
+  } catch (e) { beMsg('Saving failed. Check your connection and try again.', true); btn.disabled = false; }
+});
+
+// ---------------- Kunukku pictures ----------------
+let kunukkuData = [];
+async function refreshKunukku() {
+  try { const r = await adminFetch('/api/admin/scenery'); if (!r.ok) throw new Error('bad'); const d = await r.json(); kunukkuData = d.kunukku || []; sceneryData = d; renderKunukku(); }
+  catch (e) { const el = document.getElementById('kunukkuList'); if (el) el.innerHTML = '<div class="empty">Could not load the Kunukku pictures.</div>'; }
+}
+function renderKunukku() {
+  const el = document.getElementById('kunukkuList'); if (!el) return;
+  el.innerHTML = kunukkuData.map(k => `<div class="ub-row"><div style="display:flex;gap:12px;align-items:center">
+      <div class="io-pane" style="width:84px;flex:none;padding:4px"><div class="box" style="height:84px"><img alt="" src="${esc(k.url)}?nowebp=1&t=${Date.now()}"></div></div>
+      <div style="flex:1;min-width:0"><div class="top"><span>${esc(k.label)}</span></div>
+        <div class="note">${k.custom ? 'Your picture · ' + Math.round(k.custom.bytes / 1024) + ' KB · ' + k.custom.w + ' × ' + k.custom.h : 'Original picture that comes with the game'}</div>
+        <div class="ave-actions" style="margin-top:6px"><button class="ed-mini" data-kedit="${esc(k.which)}">✏️ Edit</button><button class="ed-mini" data-kup="${esc(k.which)}">⬆ Upload new</button>${k.custom ? `<button class="ed-mini" data-kdel="${esc(k.which)}" style="color:#ff9a9a">↩ Back to original</button>` : ''}</div></div></div></div>`).join('');
+  el.querySelectorAll('[data-kedit]').forEach(b => b.addEventListener('click', () => kunukkuEdit(b.dataset.kedit)));
+  el.querySelectorAll('[data-kup]').forEach(b => b.addEventListener('click', () => { kunukkuPending = b.dataset.kup; document.getElementById('kunukkuFile').click(); }));
+  el.querySelectorAll('[data-kdel]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Go back to the original Kunukku picture that comes with the game?')) return;
+    const r = await avCall('/api/admin/kunukku/' + encodeURIComponent(b.dataset.kdel), 'DELETE'); avMsg(r.ok ? 'Back to the original.' : (r.data.error || 'Could not delete.'), !r.ok); await refreshKunukku();
+  }));
+}
+let kunukkuPending = null;
+async function kunukkuEdit(which, file) {
+  const k = kunukkuData.find(x => x.which === which); if (!k) return;
+  try {
+    if (!file) { const r = await fetch(k.url + '?nowebp=1&t=' + Date.now()); if (!r.ok) throw new Error('missing'); const blob = await r.blob(); file = new File([blob], which + '.png', { type: blob.type || 'image/png' }); }
+    document.getElementById('avFile').value = '';
+    await avLoadFile(file, { kunukku: { which, aspect: k.aspect, label: k.label } });
+    document.getElementById('avEditorCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) { avMsg('Could not load that picture to edit.', true); }
+}
+document.getElementById('kunukkuFile').addEventListener('change', async (ev) => {
+  const f = ev.target.files[0]; ev.target.value = ''; if (f && kunukkuPending) await kunukkuEdit(kunukkuPending, f);
 });
 
 // ---------------- Image size (WebP) ----------------
@@ -1736,13 +2191,13 @@ async function refreshImgOpt() {
   } catch (e) { document.getElementById('imgBody').innerHTML = '<div class="empty">Could not load the image settings.</div>'; }
 }
 const ioKB = (b) => b >= 1048576 ? (b / 1048576).toFixed(2) + ' MB' : Math.round(b / 1024) + ' KB';
-const IO_GROUP = { avatars: '🙂 Avatars', backgrounds: '🌄 Table backgrounds', art: '🃏 Other art' };
+const IO_GROUP = { avatars: '🙂 Avatars', backgrounds: '🌄 Table backgrounds', art: '🃏 Other art', kunukku: '🥥 Kunukku pictures' };
 function renderImgOpt(selectedFile) {
   const d = imgOptData, el = document.getElementById('imgBody'); if (!d) return;
   let h = `<div class="ub-row" style="border-color:${d.enabled ? 'rgba(61,214,140,.55)' : 'rgba(255,90,90,.45)'}"><div class="top"><span>Smaller pictures (WebP) are <b>${d.enabled ? 'ON' : 'OFF'}</b></span><em>${d.twins} pictures ready</em></div>
     <div class="note" style="margin-top:6px">${d.enabled ? 'Phones that support WebP are getting the small copies now.' : 'Everyone is getting the original pictures (the old behaviour).'}</div>
     <button class="btn" id="btnImgToggle" style="margin-top:10px;${d.enabled ? '' : ''}">${d.enabled ? 'Switch OFF (go back to originals)' : 'Switch ON'}</button></div>`;
-  const keys = ['avatars', 'backgrounds', 'art'].filter(k => d.groups[k]);
+  const keys = ['avatars', 'backgrounds', 'art', 'kunukku'].filter(k => d.groups[k]);
   if (keys.length) {
     h += `<div class="ub-sec">How much smaller<small>Quality used: avatars ${d.avatarQuality}, backgrounds ${d.backgroundQuality} (out of 100). "Match" is how close the small copy is to the original: 100% would be identical; above about 95% is not visible to the eye at game size.</small></div>`;
     keys.forEach(k => {

@@ -45,6 +45,7 @@
   const layersPanel = document.getElementById('edLayersPanel');
 
   let config = { mobile: {}, desktop: {} };
+  window.__editorGetConfig = () => config;                // lets editor-nav.js tell whether there are unsaved changes
   let currentBp = LH.BREAKPOINTS[0].key;
   let editMode = false;
   let selectedKey = null;
@@ -722,11 +723,12 @@
     const pw = prompt('Admin password to publish this layout for every player:');
     if (pw === null) return;
     setStatus('Saving…');
-    fetch('/api/admin/layout-config/56', {
+    // First pick up the Pro editor's latest changes (if any were saved since this page loaded), so this save never wipes them.
+    fetch('/api/layout-config/56').then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && d.ok && d.config && d.config.__pro) config.__pro = d.config.__pro; }).catch(() => {}).then(() => fetch('/api/admin/layout-config/56', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-password': pw },
       body: JSON.stringify({ config }),
-    })
+    }))
       .then((r) => r.json())
       .then((data) => {
         if (data && data.ok) setStatus('Saved — live for every player now.', 'saved');

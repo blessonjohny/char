@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-04 16:27",
+ "generated": "2026-10-04 22:06",
  "avatarQuality": 84,
  "backgroundQuality": 86,
  "files": [
@@ -883,6 +883,24 @@
    "webp": 18328,
    "ssim": 0.9887,
    "meanDiff": 1.15,
+   "q": 84
+  },
+  {
+   "file": "images/kunukku/sad-coconut-face-icon.png",
+   "group": "kunukku",
+   "orig": 475182,
+   "webp": 58868,
+   "ssim": 0.9665,
+   "meanDiff": 2.08,
+   "q": 84
+  },
+  {
+   "file": "images/kunukku/sad-coconut.png",
+   "group": "kunukku",
+   "orig": 1551266,
+   "webp": 128518,
+   "ssim": 0.9832,
+   "meanDiff": 1.1,
    "q": 84
   },
   {

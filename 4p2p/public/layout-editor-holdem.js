@@ -44,6 +44,7 @@
   const bgDropdownPanel = document.getElementById('edBgDropdownPanel');
 
   let config = { portraitPhoto: {}, landscape: {} };
+  window.__editorGetConfig = () => config;                // lets editor-nav.js tell whether there are unsaved changes
   let bgConfig = {}; // { landscape?: url, portrait?: url } -- custom uploaded photos, separate from config above
   let currentBp = LH.BREAKPOINTS[0].key;
   let editMode = false;
