@@ -1450,11 +1450,23 @@ function renderUsageBreakdown(d) {
     h += ubRow(`&nbsp;&nbsp;↳ ${esc(o.label)}`, fmtBytes(o.total), pct(o.total, S.containerBytes),
       `${o.n.toLocaleString()} requests · sent ${fmtBytes(o.sent)} · received ${fmtBytes(o.recv)} · about ${fmtBytes(o.n ? o.total / o.n : 0)} each`, pct(o.total, S.containerBytes) >= 15);
   });
-  const nt = S.net || { packets: 0, rx: 0, tx: 0, headerEstimate: 0 };
+  // measured at the sockets: everything the server's listening sockets read and wrote, minus what the categories explain
+  const ap = S.app || { rx: 0, tx: 0, total: 0, engineOverhead: 0 };
+  h += ubRow('WebSocket frames, pings & handshakes (measured)', fmtBytes(ap.engineOverhead || 0) + share(ap.engineOverhead || 0), pct(ap.engineOverhead || 0, S.containerBytes),
+    `the live connection's own housekeeping: frame headers, keep-alive pings, connection set-up · all sockets together moved ${fmtBytes(ap.total || 0)} (in ${fmtBytes(ap.rx || 0)}, out ${fmtBytes(ap.tx || 0)})`);
+  const nt = S.net || { packets: 0, rx: 0, tx: 0, headerEstimate: 0, avgPacket: 0, impliedPerPacket: 0 };
   h += ubRow('Network packet headers (estimate)', fmtBytes(nt.headerEstimate) + share(nt.headerEstimate), pct(nt.headerEstimate, S.containerBytes),
-    `${(nt.packets || 0).toLocaleString()} packets × 52 bytes of IP + TCP header each`);
+    `${(nt.packets || 0).toLocaleString()} packets × 52 bytes of IP + TCP header each` + (nt.packets ? ` · average packet ${nt.avgPacket} bytes` : ' · nothing sampled yet — wait a couple of minutes after a restart'));
+  // what is left, and a plain-English verdict from the evidence
+  let verdict = '';
+  if (nt.packets > 0) {
+    const ip = Math.round(nt.impliedPerPacket);
+    verdict = ip <= 100
+      ? ` · After everything measured, about ${ip} bytes per packet remain — that is just normal packet-header size (IP + TCP are 52–90 bytes, IPv6 is larger), so this "unknown" is network overhead, not hidden traffic.`
+      : ` · After everything measured, about ${ip} bytes per packet remain — MORE than normal packet headers (52–90), so something else is moving data (retransmissions, or traffic outside the web server).`;
+  }
   h += ubRow('Still unknown', fmtBytes(S.unattributedBytes) + share(S.unattributedBytes), pct(S.unattributedBytes, S.containerBytes),
-    'container total minus everything above' + ((nt.rx || nt.tx) ? ` · interface counters this period: sent by server ${fmtBytes(nt.tx)}, received ${fmtBytes(nt.rx)}` : ''));
+    'container total minus everything above' + ((nt.rx || nt.tx) ? ` · interface counters this period: sent by server ${fmtBytes(nt.tx)}, received ${fmtBytes(nt.rx)}` : '') + verdict);
 
   // 3. voice
   h += `<div class="ub-sec">Voice chat<small>Audio counted by the players' own phones (payload + packet headers). It does not pass through your server, so it is NOT inside "Server data".</small></div>`;
