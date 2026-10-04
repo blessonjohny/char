@@ -227,6 +227,32 @@ function checkAdminAuthSocket(socket, password) {
 const { createUsageStats } = require('./usage-stats');
 const usage = createUsageStats({ file: path.join(DATA_DIR, 'usage-breakdown-data.json') });
 app.use(usage.httpMiddleware);
+
+// ---- Avatars managed from the admin panel (see avatar-catalog.js) ----------------------------------------------
+// /avatar-catalog.js tells every page which avatars exist right now (loaded before the page's own scripts), and
+// uploaded avatars are served from the data volume under the SAME url shape as the built-in ones, so no page
+// needs to know the difference.
+const { createAvatarCatalog } = require('./avatar-catalog');
+const avatars = createAvatarCatalog({ dataDir: DATA_DIR });
+app.get('/avatar-catalog.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store, must-revalidate');
+  res.end(avatars.clientJs());
+});
+app.get('/images/hero-avatars/:file', (req, res, next) => {
+  const m = /^(toon\d+)\.(png|webp)$/.exec(req.params.file);
+  const f = m && avatars.fileFor(m[1]);
+  if (!f) return next();                                   // built-in avatars come from the normal static folder
+  res.setHeader('Content-Type', f.mime);                   // may be WebP bytes behind a .png url; browsers go by the type
+  res.setHeader('Cache-Control', 'public, max-age=604800, immutable');   // a key is never reused, so this is safe
+  res.sendFile(f.path);
+});
+// Uploading needs a bigger body limit than the site-wide 32 KB, so it is registered before the general JSON parser.
+app.post('/api/admin/avatars', express.json({ limit: '1mb' }), (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const r = avatars.add(req.body || {});
+  res.status(r.status || 200).json(r);
+});
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store, must-revalidate'); }
 }));
@@ -1687,6 +1713,41 @@ app.post('/api/admin/turn-quota', (req, res) => {
   res.json({ ok: true, quota: q });
 });
 
+// Avatar manager (admin): list everything, delete, restore a hidden built-in, give an avatar to a bot name
+app.get('/api/admin/avatars', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  res.json({ ok: true, avatars: avatars.list(), rev: avatars.clientData().rev });
+});
+app.post('/api/admin/avatars/name-face', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const b = req.body || {};
+  const r = avatars.setNameFace(b.name, b.key || null);
+  res.status(r.status || 200).json(r);
+});
+app.delete('/api/admin/avatars/:key', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const r = avatars.remove(req.params.key);
+  res.status(r.status || 200).json(r);
+});
+app.post('/api/admin/avatars/:key/restore', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const r = avatars.restore(req.params.key);
+  res.status(r.status || 200).json(r);
+});
+
+// The Railway bill settings (billing-cycle day, rates, plan fee/credit) and Railway's own numbers typed in as a check
+app.post('/api/admin/bill-settings', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  try {
+    const b = req.body || {};
+    const days = Object.keys(networkUsageDays).sort().map(date => ({ date, bytes: networkUsageDays[date] }));
+    res.json({ ok: true, bill: usage.setBill(b, days) });
+  } catch (e) {
+    console.error('[usage-stats] bill settings failed:', e.message);
+    res.status(500).json({ ok: false, error: 'bill_settings_failed' });
+  }
+});
+
 // Admin: force-close ANY table in ANY of the four games, no matter what
 // state it's in — active game, human present, doesn't matter. This is
 // the explicit override the regular auto-close removal above doesn't
@@ -2419,10 +2480,9 @@ function computeTableDisplayName(seats, creatorName, existingGenericNames) {
 // Public avatars are toon1-toon90 (the current set); the 6 protected personal ones (toon101-106) are listed
 // separately since they're not part of that sequential range. Anything else (e.g. the old toon91-100 /
 // toon107-109) is rejected.
-const VALID_AVATAR_KEYS = new Set(
-  Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106'])
-);
-function sanitizeAvatarKey(k) { return (typeof k === 'string' && VALID_AVATAR_KEYS.has(k)) ? k : null; }
+// The list of valid avatars is the managed catalog (avatar-catalog.js): built-ins that are not hidden, uploaded ones, and
+// the 6 protected personal ones. Adding/deleting in the admin panel takes effect here immediately.
+function sanitizeAvatarKey(k) { return (typeof k === 'string' && avatars.isValidKey(k)) ? k : null; }
 
 // Shared bot-name pool used anywhere seats get auto-filled with bots --
 // 4p's startGame, 6p's startGame, and the admin auto-bot-table spawner

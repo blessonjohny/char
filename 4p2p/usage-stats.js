@@ -46,6 +46,7 @@ function emptyDay() {
     out: {},             // the SERVER'S OWN requests to other services: label -> { n, sent, recv }
     net: { packets: 0, rx: 0, tx: 0 },   // interface counters sampled once a minute
     app: { rx: 0, tx: 0 },               // bytes the server's listening sockets read/wrote (everything above TCP)
+    cost: { minutes: 0, memGBmin: 0, cpuMin: 0, volGBmin: 0 },   // sampled once a minute: what Railway bills by the minute
   };
 }
 // A day saved by an EARLIER version of this file is missing the newer fields (out, net, app). Without this, adding to
@@ -57,6 +58,7 @@ function ensureDay(d) {
   for (const k of Object.keys(e.voice)) if (d.voice[k] == null) d.voice[k] = e.voice[k];
   for (const k of Object.keys(e.net)) if (d.net[k] == null) d.net[k] = e.net[k];
   for (const k of Object.keys(e.app)) if (d.app[k] == null) d.app[k] = e.app[k];
+  for (const k of Object.keys(e.cost)) if (d.cost[k] == null) d.cost[k] = e.cost[k];
   return d;
 }
 function bump(o, k, f, n) { const x = o[k] || (o[k] = {}); x[f] = (x[f] || 0) + n; }
@@ -141,6 +143,75 @@ function createUsageStats(opts) {
     };
   }
 
+  // ---- Railway bill: settings -------------------------------------------------
+  // Rates are the ones shown on the owner's Railway "Project Cost" screen (per minute / per GB).
+  // Railway bills MEMORY and CPU and VOLUME by the minute, and NETWORK by the GB that leaves (egress).
+  function defaultBill() {
+    return {
+      cycleDay: 1,                                    // day of the month Railway's usage resets -- set to yours
+      rates: { memPerGBmin: 0.000231, cpuPerVcpuMin: 0.000463, egressPerGB: 0.05, volPerGBmin: 0.00000347 },
+      planFee: 0, includedCredit: 0,                  // optional: monthly plan price and the usage credit it includes
+      egressOffsetBytes: 0, offsetCycleStart: null,   // set when you type Railway's egress GB (covers traffic before tracking began)
+      usdOffset: 0,                                   // set when you type Railway's current $ (covers memory/CPU/volume before tracking began)
+      reading: null,                                  // { usd, asOf, ourUsd } -- Railway's own number, to check accuracy
+    };
+  }
+  let bill = null;
+  const GIB = 1024 * 1024 * 1024;
+
+  // ---- what the container is using right now (for the per-minute costs) -------
+  const readText = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return null; } };
+  function readMemoryBytes() {
+    // working set = usage minus easily-reclaimable file cache, which is what a "RAM" graph normally shows
+    let cur = readText('/sys/fs/cgroup/memory.current');
+    let stat = readText('/sys/fs/cgroup/memory.stat');
+    let inactive = stat ? Number((stat.match(/^inactive_file\s+(\d+)/m) || [])[1] || 0) : 0;
+    if (cur == null) {
+      cur = readText('/sys/fs/cgroup/memory/memory.usage_in_bytes');
+      stat = readText('/sys/fs/cgroup/memory/memory.stat');
+      inactive = stat ? Number((stat.match(/^total_inactive_file\s+(\d+)/m) || [])[1] || 0) : 0;
+    }
+    const n = Number(cur);
+    if (Number.isFinite(n) && n > 0) return Math.max(0, n - inactive);
+    return process.memoryUsage().rss;
+  }
+  function readCpuSeconds() {
+    let t = readText('/sys/fs/cgroup/cpu.stat');
+    if (t) { const m = t.match(/^usage_usec\s+(\d+)/m); if (m) return Number(m[1]) / 1e6; }
+    for (const f of ['/sys/fs/cgroup/cpuacct/cpuacct.usage', '/sys/fs/cgroup/cpu/cpuacct.usage']) {
+      const v = Number(readText(f)); if (Number.isFinite(v) && v > 0) return v / 1e9;
+    }
+    const c = process.cpuUsage(); return (c.user + c.system) / 1e6;
+  }
+  function readVolumeBytes() {
+    // only a volume that is a SEPARATE disk counts; if the data folder is on the container's own disk it is free
+    try {
+      const dir = (opts && opts.dataDir) || (file ? require('path').dirname(file) : null);
+      if (!dir) return 0;
+      if (fs.statSync(dir).dev === fs.statSync('/').dev) return 0;
+      const st = fs.statfsSync(dir);
+      return Math.max(0, (st.blocks - st.bfree) * st.bsize);
+    } catch (_) { return 0; }
+  }
+  let prevCost = null;
+  function sampleCost(readers) {
+    const R = readers || { mem: readMemoryBytes, cpu: readCpuSeconds, vol: readVolumeBytes };
+    const t = now();
+    const cpu = R.cpu();
+    if (prevCost) {
+      const dtMin = Math.min((t - prevCost.t) / 60000, 5);          // a long gap (restart) is never credited as usage
+      if (dtMin > 0) {
+        const d = day(t);
+        d.cost.minutes += dtMin;
+        d.cost.memGBmin += (R.mem() / GIB) * dtMin;
+        d.cost.cpuMin += Math.max(0, cpu - prevCost.cpu) / 60;     // vCPU-minutes actually used
+        d.cost.volGBmin += (R.vol() / GIB) * dtMin;
+        dirty = true;
+      }
+    }
+    prevCost = { t, cpu };
+  }
+
   // ---- persistence --------------------------------------------------------
   function load() {
     try {
@@ -148,11 +219,14 @@ function createUsageStats(opts) {
         const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
         if (parsed && parsed.days && typeof parsed.days === 'object') { days = parsed.days; for (const k of Object.keys(days)) { try { ensureDay(days[k]); } catch (_) {} } }
         if (parsed && parsed.quota) quota = parsed.quota;
+        if (parsed && parsed.bill) bill = parsed.bill;
       }
     } catch (e) { console.error('[usage-stats] could not load saved data, starting fresh:', e.message); days = {}; }
     // Older builds stored a Metered.ca note (512 MB, no cycle day). The relay is Cloudflare Realtime now,
     // so anything without the new fields is replaced by the Cloudflare defaults below.
     if (!quota || typeof quota.cycleDay !== 'number') { quota = defaultQuota(); dirty = true; }
+    const db = defaultBill();
+    bill = Object.assign(db, bill || {}); bill.rates = Object.assign(db.rates, (bill && bill.rates) || {});
   }
   function trim() {
     const keys = Object.keys(days).sort();
@@ -167,7 +241,7 @@ function createUsageStats(opts) {
   }
   function save() {
     if (!dirty || !file) return;
-    try { trim(); fs.writeFileSync(file, JSON.stringify({ version: 1, days, quota })); dirty = false; }
+    try { trim(); fs.writeFileSync(file, JSON.stringify({ version: 1, days, quota, bill })); dirty = false; }
     catch (e) { console.error('[usage-stats] could not save:', e.message); }
   }
 
@@ -255,6 +329,7 @@ function createUsageStats(opts) {
     const t = now();
     for (const ctx of live.values()) accrue(ctx, t);
     try { sampleNet(); } catch (_) {}
+    try { sampleCost(); } catch (_) {}
     for (const rec of conns.values()) { try { rec.settle(); } catch (_) {} }
     save();
   }
@@ -454,6 +529,133 @@ function createUsageStats(opts) {
     return getQuota();
   }
 
+  // ---- Railway bill (estimate, per Railway billing cycle) ------------------------------------------------------
+  // Egress is the GB that LEAVE the server (the share of the container's total that is outgoing, measured from the
+  // interface counters), memory/CPU/volume come from the once-a-minute samples. All priced with Railway's own rates.
+  const DAY_MS = 86400000;
+  function prevCycleStart(startMs, cycleDay) {
+    const d = new Date(startMs); let y = d.getUTCFullYear(), m = d.getUTCMonth() - 1;
+    if (m < 0) { m = 11; y -= 1; }
+    return Date.UTC(y, m, dayInMonth(y, m, cycleDay));
+  }
+  function egressShare() {
+    let tx = 0, tot = 0;
+    for (const d of Object.values(days)) { const n = d.net || {}; tx += n.tx || 0; tot += (n.tx || 0) + (n.rx || 0); }
+    return tot > 1e6 ? Math.min(1, Math.max(0.5, tx / tot)) : 0.96;     // until enough is sampled, assume ~96% is outgoing
+  }
+  // add up one window [startMs, endMs) day by day
+  function sumWindow(startMs, endMs, netMap, share) {
+    const out = { egressBytes: 0, memGBmin: 0, cpuMin: 0, volGBmin: 0, minutes: 0, byDay: [], firstNet: null, firstCost: null };
+    for (let t0 = startMs; t0 < endMs; t0 += DAY_MS) {
+      const key = dayKey(t0), nd = netMap[key], dd = days[key];
+      const eg = nd != null ? nd * share : ((dd && dd.net && dd.net.tx) || 0);
+      const c = (dd && dd.cost) || { minutes: 0, memGBmin: 0, cpuMin: 0, volGBmin: 0 };
+      out.egressBytes += eg; out.memGBmin += c.memGBmin || 0; out.cpuMin += c.cpuMin || 0; out.volGBmin += c.volGBmin || 0; out.minutes += c.minutes || 0;
+      if (nd != null && out.firstNet == null) out.firstNet = t0;
+      if ((c.minutes || 0) > 0 && out.firstCost == null) out.firstCost = t0;
+      out.byDay.push({ key, eg, c });
+    }
+    return out;
+  }
+  function priceParts(w, R, offsetBytes) {
+    const eg = w.egressBytes + (offsetBytes || 0);
+    return {
+      memory: w.memGBmin * R.memPerGBmin, cpu: w.cpuMin * R.cpuPerVcpuMin,
+      egress: (eg / 1e9) * R.egressPerGB, volume: w.volGBmin * R.volPerGBmin,
+    };
+  }
+  const totalOf = (p) => p.memory + p.cpu + p.egress + p.volume;
+  function billReport(t, networkDays) {
+    const R = bill.rates;
+    const netMap = {}; (networkDays || []).forEach((x) => { netMap[x.date] = x.bytes; });
+    const share = egressShare();
+    const cyc = cycleAt(bill.cycleDay, t);
+    const sameCycle = bill.offsetCycleStart === dayKey(cyc.start);
+    const offset = sameCycle ? (bill.egressOffsetBytes || 0) : 0;
+    const usdOffset = sameCycle ? (bill.usdOffset || 0) : 0;      // money already spent before tracking began, from Railway's own number
+    const w = sumWindow(cyc.start, Math.min(cyc.next, t + 1), netMap, share);
+    const parts = priceParts(w, R, offset);
+    const soFar = totalOf(parts) + usdOffset;
+    // projection: keep spending at the pace measured so far for the rest of the cycle
+    const remainMs = Math.max(0, cyc.next - t), remainMin = remainMs / 60000;
+    const trackedNetMs = w.firstNet != null ? Math.max(1, t - w.firstNet) : 0;
+    const proj = {
+      memory: w.minutes > 0 ? parts.memory + (w.memGBmin / w.minutes) * remainMin * R.memPerGBmin : parts.memory,
+      cpu: w.minutes > 0 ? parts.cpu + (w.cpuMin / w.minutes) * remainMin * R.cpuPerVcpuMin : parts.cpu,
+      egress: trackedNetMs > 6 * 3600000 ? parts.egress + ((w.egressBytes / 1e9) * R.egressPerGB / trackedNetMs) * remainMs : parts.egress,
+      volume: w.minutes > 0 ? parts.volume + (w.volGBmin / w.minutes) * remainMin * R.volPerGBmin : parts.volume,
+    };
+    const projected = totalOf(proj) + usdOffset;
+    const todayKey2 = dayKey(t);
+    const dayUsd = (b) => (b.c.memGBmin * R.memPerGBmin) + (b.c.cpuMin * R.cpuPerVcpuMin) + (b.eg / 1e9) * R.egressPerGB + (b.c.volGBmin * R.volPerGBmin);
+    const byDay = w.byDay.map((b) => ({ date: b.key, usd: dayUsd(b), egressBytes: b.eg })).slice(-14).reverse();
+    const todayUsd = (w.byDay.find((b) => b.key === todayKey2) ? dayUsd(w.byDay.find((b) => b.key === todayKey2)) : 0);
+    // history: this cycle and the 11 before it
+    const history = [];
+    let start = cyc.start, next = cyc.next;
+    const trackStart = Math.min(...[w.firstNet, w.firstCost].filter((x) => x != null), Infinity);
+    for (let k = 0; k < 12; k++) {
+      const ww = sumWindow(start, Math.min(next, t + 1), netMap, share);
+      const pp = priceParts(ww, R, k === 0 ? offset : 0);
+      const any = ww.egressBytes > 0 || ww.minutes > 0;
+      if (any || k === 0) history.push({ start: dayKey(start), end: dayKey(next - DAY_MS), usd: totalOf(pp) + (k === 0 ? usdOffset : 0), egressBytes: ww.egressBytes + (k === 0 ? offset : 0), partial: Number.isFinite(trackStart) && start < trackStart, current: k === 0 });
+      next = start; start = prevCycleStart(start, bill.cycleDay);
+    }
+    // calendar year to date
+    const y0 = Date.UTC(new Date(t).getUTCFullYear(), 0, 1);
+    const wy = sumWindow(y0, t + 1, netMap, share);
+    const yearUsd = totalOf(priceParts(wy, R, 0));
+    const last12 = history.reduce((a, h) => a + h.usd, 0);
+    const credit = bill.includedCredit || 0, fee = bill.planFee || 0;
+    return {
+      cycleStartDate: dayKey(cyc.start), cycleEndDate: dayKey(cyc.next - DAY_MS), nextDate: dayKey(cyc.next),
+      daysLeft: Math.max(0, Math.round((cyc.next - Date.UTC(new Date(t).getUTCFullYear(), new Date(t).getUTCMonth(), new Date(t).getUTCDate())) / DAY_MS)),
+      rates: R, settings: { cycleDay: bill.cycleDay, planFee: fee, includedCredit: credit },
+      components: [
+        { key: 'memory', label: 'Memory', qty: w.memGBmin, unit: 'GB-minutes', usd: parts.memory, projectedUsd: proj.memory },
+        { key: 'cpu', label: 'CPU', qty: w.cpuMin, unit: 'vCPU-minutes', usd: parts.cpu, projectedUsd: proj.cpu },
+        { key: 'egress', label: 'Network (egress)', qty: w.egressBytes + offset, unit: 'bytes', usd: parts.egress, projectedUsd: proj.egress },
+        { key: 'volume', label: 'Volume', qty: w.volGBmin, unit: 'GB-minutes', usd: parts.volume, projectedUsd: proj.volume },
+      ].concat(usdOffset > 0.005 ? [{ key: 'before', label: 'Before tracking began (from Railway)', qty: 0, unit: '', usd: usdOffset, projectedUsd: usdOffset }] : []),
+      usdOffsetApplied: usdOffset,
+      totalUsd: soFar, projectedUsd: projected, todayUsd,
+      invoiceEstimate: (fee > 0 || credit > 0) ? fee + Math.max(0, projected - credit) : null,
+      byDay, history, yearUsd, yearLabel: String(new Date(t).getUTCFullYear()), last12Usd: last12,
+      egressShare: share, offsetBytes: offset,
+      coverage: { network: w.firstNet != null ? dayKey(w.firstNet) : null, cost: w.firstCost != null ? dayKey(w.firstCost) : null },
+      reading: bill.reading ? Object.assign({}, bill.reading) : null,
+    };
+  }
+  function setBill(b, networkDays) {
+    b = b || {};
+    const num = (v, d) => { v = Number(v); return Number.isFinite(v) && v >= 0 ? v : d; };
+    const before = bill.cycleDay;
+    const cd = Math.round(num(b.cycleDay, bill.cycleDay));
+    bill.cycleDay = cd >= 1 && cd <= 31 ? cd : bill.cycleDay;
+    if (b.rates && typeof b.rates === 'object') for (const k of Object.keys(bill.rates)) bill.rates[k] = num(b.rates[k], bill.rates[k]);
+    bill.planFee = num(b.planFee, bill.planFee); bill.includedCredit = num(b.includedCredit, bill.includedCredit);
+    if (bill.cycleDay !== before) { bill.egressOffsetBytes = 0; bill.usdOffset = 0; bill.offsetCycleStart = null; bill.reading = null; }
+    const t = now();
+    // Railway's own numbers, typed in: a check on accuracy, and (for egress) a correction for traffic before tracking began
+    const cyc = cycleAt(bill.cycleDay, t);
+    if (b.clearReading) { bill.reading = null; bill.egressOffsetBytes = 0; bill.usdOffset = 0; bill.offsetCycleStart = null; }
+    if (b.readingEgressGB != null && b.readingEgressGB !== '' && Number(b.readingEgressGB) >= 0) {
+      const netMap = {}; (networkDays || []).forEach((x) => { netMap[x.date] = x.bytes; });
+      const w = sumWindow(cyc.start, t + 1, netMap, egressShare());
+      bill.egressOffsetBytes = Math.max(0, Number(b.readingEgressGB) * 1e9 - w.egressBytes);
+      bill.offsetCycleStart = dayKey(cyc.start);
+    }
+    if (b.readingUsd != null && b.readingUsd !== '' && Number(b.readingUsd) >= 0) {
+      if (bill.offsetCycleStart !== dayKey(cyc.start)) { bill.offsetCycleStart = dayKey(cyc.start); bill.egressOffsetBytes = bill.egressOffsetBytes || 0; }
+      const rep = billReport(t, networkDays);
+      const base = rep.totalUsd - (rep.usdOffsetApplied || 0);      // our own estimate, without any earlier correction
+      bill.usdOffset = Math.max(0, Number(b.readingUsd) - base);    // the rest of Railway's number = what was spent before tracking
+      bill.reading = { usd: Number(b.readingUsd), asOf: t, ourUsd: base };
+    }
+    dirty = true; save();
+    return billReport(t, networkDays);
+  }
+
   // ---- report for the admin page -------------------------------------------
   function datesFor(range, t) {
     const all = Object.keys(days).sort();
@@ -543,6 +745,7 @@ function createUsageStats(opts) {
       games,
       chat: sum.chat,
       tables: Object.values(tables).sort((a, b) => b.ms - a.ms).slice(0, 15),
+      bill: billReport(t, networkDays),
       turnQuota: Object.assign({}, q, {
         cycleStartDate: dayKey(cyc.start),
         cycleEndDate: dayKey(cyc.next - 86400000),
@@ -558,8 +761,8 @@ function createUsageStats(opts) {
   }
 
   load();
-  return { httpMiddleware, attachIo, tick, save, voiceJoined, voiceLeft, report, getQuota, setQuota, wrapFetch, trackSocket,
-    _internals: { onPacket, accrue, live, days: () => days, day, addVoiceReport, addOutbound, sampleNet, labelForUrl } };
+  return { httpMiddleware, attachIo, tick, save, voiceJoined, voiceLeft, report, getQuota, setQuota, setBill, wrapFetch, trackSocket,
+    _internals: { onPacket, accrue, live, days: () => days, day, addVoiceReport, addOutbound, sampleNet, sampleCost, labelForUrl } };
 }
 
 module.exports = { createUsageStats, eventName, catOfHttp, catOfEvent, gameOfRoom, gameOfEvent, GAMES, GAME_LABEL };
