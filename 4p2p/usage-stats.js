@@ -45,7 +45,19 @@ function emptyDay() {
     tables: {},          // 'game:room' -> { game, ms, bytes, joins, voiceSent, chatMsgs }
     out: {},             // the SERVER'S OWN requests to other services: label -> { n, sent, recv }
     net: { packets: 0, rx: 0, tx: 0 },   // interface counters sampled once a minute
+    app: { rx: 0, tx: 0 },               // bytes the server's listening sockets read/wrote (everything above TCP)
   };
+}
+// A day saved by an EARLIER version of this file is missing the newer fields (out, net, app). Without this, adding to
+// them threw and was silently swallowed, so e.g. packets and the server's own requests stayed at zero all day.
+function ensureDay(d) {
+  const e = emptyDay();
+  for (const k of Object.keys(e)) if (d[k] == null) d[k] = e[k];
+  for (const k of Object.keys(e.time)) if (d.time[k] == null) d.time[k] = e.time[k];
+  for (const k of Object.keys(e.voice)) if (d.voice[k] == null) d.voice[k] = e.voice[k];
+  for (const k of Object.keys(e.net)) if (d.net[k] == null) d.net[k] = e.net[k];
+  for (const k of Object.keys(e.app)) if (d.app[k] == null) d.app[k] = e.app[k];
+  return d;
 }
 function bump(o, k, f, n) { const x = o[k] || (o[k] = {}); x[f] = (x[f] || 0) + n; }
 
@@ -134,7 +146,7 @@ function createUsageStats(opts) {
     try {
       if (file && fs.existsSync(file)) {
         const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
-        if (parsed && parsed.days && typeof parsed.days === 'object') days = parsed.days;
+        if (parsed && parsed.days && typeof parsed.days === 'object') { days = parsed.days; for (const k of Object.keys(days)) { try { ensureDay(days[k]); } catch (_) {} } }
         if (parsed && parsed.quota) quota = parsed.quota;
       }
     } catch (e) { console.error('[usage-stats] could not load saved data, starting fresh:', e.message); days = {}; }
@@ -161,7 +173,7 @@ function createUsageStats(opts) {
 
   function day(t) {
     const k = dayKey(t == null ? now() : t);
-    if (k !== todayKey) { todayKey = k; today = days[k] || (days[k] = emptyDay()); }
+    if (k !== todayKey) { todayKey = k; today = ensureDay(days[k] || (days[k] = emptyDay())); }
     return today;
   }
   const tableRec = (d, ctx) => {
@@ -243,6 +255,7 @@ function createUsageStats(opts) {
     const t = now();
     for (const ctx of live.values()) accrue(ctx, t);
     try { sampleNet(); } catch (_) {}
+    for (const rec of conns.values()) { try { rec.settle(); } catch (_) {} }
     save();
   }
   function onJoin(ctx, room) {
@@ -339,6 +352,24 @@ function createUsageStats(opts) {
     wrapped.__usageWrapped = true;
     g.fetch = wrapped;
     return true;
+  }
+  // Everything the server's LISTENING sockets read and wrote -- HTTP headers and bodies, WebSocket frames, Socket.IO
+  // pings and handshakes: all of it, counted by the socket itself rather than guessed from a category. Anything the
+  // categories above explain is subtracted in the report; what remains here is WebSocket/engine overhead.
+  const conns = new Map();
+  function trackSocket(sock) {
+    try {
+      const rec = { r: 0, w: 0 };
+      const settle = () => {
+        const r = sock.bytesRead || 0, w = sock.bytesWritten || 0;
+        const d = day();
+        d.app.rx += Math.max(0, r - rec.r); d.app.tx += Math.max(0, w - rec.w);
+        rec.r = r; rec.w = w; dirty = true;
+      };
+      rec.settle = settle;
+      conns.set(sock, rec);
+      sock.on('close', () => { try { settle(); } catch (_) {} conns.delete(sock); });
+    } catch (_) {}
   }
   // interface counters: bytes in/out and PACKET counts (every packet carries ~52 bytes of IP+TCP header)
   let prevNet = null;
@@ -444,11 +475,12 @@ function createUsageStats(opts) {
       voice: { sent: 0, recv: 0, relaySent: 0, relayRecv: 0, reports: 0, byGame: {} },
     };
     const tables = {};
-    const outAgg = {}, net = { packets: 0, rx: 0, tx: 0 };
+    const outAgg = {}, net = { packets: 0, rx: 0, tx: 0 }, app = { rx: 0, tx: 0 };
     for (const k of dates) {
       const d = days[k]; if (!d) continue;
       for (const [c, v] of Object.entries(d.http || {})) { bump(sum.http, c, 'bytes', v.bytes); bump(sum.http, c, 'n', v.n); bump(sum.http, c, 'head', v.head || 0); bump(sum.http, c, 'in', v.in || 0); }
       for (const [label, v] of Object.entries(d.out || {})) { bump(outAgg, label, 'n', v.n || 0); bump(outAgg, label, 'sent', v.sent || 0); bump(outAgg, label, 'recv', v.recv || 0); }
+      app.rx += (d.app || {}).rx || 0; app.tx += (d.app || {}).tx || 0;
       net.packets += (d.net || {}).packets || 0; net.rx += (d.net || {}).rx || 0; net.tx += (d.net || {}).tx || 0;
       for (const [c, v] of Object.entries(d.sock || {})) { bump(sum.sock, c, 'in', v.in || 0); bump(sum.sock, c, 'out', v.out || 0); }
       for (const [g, v] of Object.entries(d.sockGame || {})) { bump(sum.sockGame, g, 'in', v.in || 0); bump(sum.sockGame, g, 'out', v.out || 0); }
@@ -470,7 +502,11 @@ function createUsageStats(opts) {
     const outbound = Object.entries(outAgg).map(([label, v]) => ({ label, n: v.n, sent: v.sent, recv: v.recv, total: v.sent + v.recv })).sort((a, b) => b.total - a.total);
     const outboundBytes = outbound.reduce((s2, x) => s2 + x.total, 0);
     const headerEstimate = net.packets * 52;      // IPv4 (20) + TCP with timestamps (32) per packet
-    const attributed = httpBytes + sockIn + sockOut + outboundBytes + headerEstimate;
+    // what the listening sockets really moved, versus what the categories explain
+    const appTotal = app.rx + app.tx;
+    const categorised = httpBytes + sockIn + sockOut;
+    const engineOverhead = appTotal > categorised ? appTotal - categorised : 0;   // WebSocket frames, pings, handshakes
+    const attributed = Math.max(appTotal, categorised) + outboundBytes + headerEstimate;
     const containerBytes = (networkDays || []).filter((x) => dates.includes(x.date)).reduce((s, x) => s + (x.bytes || 0), 0);
     const games = GAMES.map((g) => {
       const sg = sum.sockGame[g] || {}, ch = sum.chat[g] || {}, vg = sum.voice.byGame[g] || {};
@@ -496,7 +532,11 @@ function createUsageStats(opts) {
     return {
       ok: true, range, from: dates[0], to: dates[dates.length - 1],
       trackingSince: Object.keys(days).sort()[0] || null,
-      server: { containerBytes, attributedBytes: attributed, unattributedBytes: Math.max(0, containerBytes - attributed), http: sum.http, sock: sum.sock, outbound, outboundBytes, net: { packets: net.packets, rx: net.rx, tx: net.tx, headerEstimate } },
+      server: { containerBytes, attributedBytes: attributed, unattributedBytes: Math.max(0, containerBytes - attributed), http: sum.http, sock: sum.sock, outbound, outboundBytes,
+        app: { rx: app.rx, tx: app.tx, total: appTotal, engineOverhead },
+        net: { packets: net.packets, rx: net.rx, tx: net.tx, headerEstimate,
+               avgPacket: net.packets ? Math.round((net.rx + net.tx) / net.packets) : 0,
+               impliedPerPacket: net.packets ? Math.max(0, ((net.rx + net.tx) - appTotal - outboundBytes) / net.packets) : 0 } },
       voice: Object.assign({ wireBytes: sum.voice.sent, phoneBytes: sum.voice.sent + sum.voice.recv, relayBytes: sum.voice.relaySent + sum.voice.relayRecv }, sum.voice),
       combinedBytes: containerBytes + sum.voice.sent,
       time: sum.time,
@@ -518,7 +558,7 @@ function createUsageStats(opts) {
   }
 
   load();
-  return { httpMiddleware, attachIo, tick, save, voiceJoined, voiceLeft, report, getQuota, setQuota, wrapFetch,
+  return { httpMiddleware, attachIo, tick, save, voiceJoined, voiceLeft, report, getQuota, setQuota, wrapFetch, trackSocket,
     _internals: { onPacket, accrue, live, days: () => days, day, addVoiceReport, addOutbound, sampleNet, labelForUrl } };
 }
 

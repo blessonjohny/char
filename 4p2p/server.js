@@ -547,6 +547,7 @@ const io = new Server(server, {
 });
 usage.attachIo(io);                                   // registered first: instruments every socket before any game handler
 try { usage.wrapFetch(); } catch (e) {}                   // count the server's own outgoing requests (GitHub backups, TURN keys...) by target
+server.on('connection', (sock) => { try { usage.trackSocket(sock); } catch (e) {} });   // exact bytes read/written by every listening socket
 setInterval(() => { try { usage.tick(); } catch (e) {} }, 60 * 1000);   // credits live time + saves once a minute
 
 // ---------------- Visitor location log (admin-only, anti-cheat visibility) ----------------
