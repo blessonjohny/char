@@ -253,8 +253,21 @@ app.post('/api/admin/avatars', express.json({ limit: '1mb' }), (req, res) => {
   const r = avatars.add(req.body || {});
   res.status(r.status || 200).json(r);
 });
+// WebP twins of the avatars and backgrounds (see image-optimizer.js): pages still ask for .png/.jpg and a browser that
+// understands WebP is answered with the much smaller twin. Switched on/off from the admin panel; off = the originals.
+const { createImageOptimizer } = require('./image-optimizer');
+const imageOpt = createImageOptimizer({ publicDir: path.join(__dirname, 'public'), file: path.join(DATA_DIR, 'image-optimization.json') });
+app.use(imageOpt.middleware);
 app.use(express.static(path.join(__dirname, 'public'), {
-  setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store, must-revalidate'); }
+  setHeaders: (res, filePath) => {
+    // Pictures and sounds rarely change: let the browser keep them but CHECK each time (the file's ETag), so an unchanged
+    // picture costs a tiny "304 not modified" answer instead of being downloaded again on every page load. Pages, scripts
+    // and styles stay uncached exactly as before so a code update is never missed.
+    if (/\.(png|jpe?g|webp|gif|svg|ico|mp3|ogg|wav|m4a)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache');
+      if (/\.(png|jpe?g)$/i.test(filePath)) res.setHeader('Vary', 'Accept');
+    } else res.setHeader('Cache-Control', 'no-store, must-revalidate');
+  }
 }));
 
 // The 6-player page was renamed from six.html to play6.html -- confirmed,
@@ -1734,6 +1747,17 @@ app.post('/api/admin/avatars/:key/restore', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
   const r = avatars.restore(req.params.key);
   res.status(r.status || 200).json(r);
+});
+
+// Image optimisation (admin): the on/off switch and the before/after numbers for the compare view
+app.get('/api/admin/image-optimization', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  res.json(Object.assign({ ok: true }, imageOpt.status()));
+});
+app.post('/api/admin/image-optimization', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const on = imageOpt.setEnabled(!!(req.body && req.body.enabled));
+  res.json({ ok: true, enabled: on });
 });
 
 // RAM history + spike analysis for the admin chart: ?range=1h|6h|24h|7d|30d
