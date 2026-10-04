@@ -159,6 +159,64 @@ function createUsageStats(opts) {
   let bill = null;
   const GIB = 1024 * 1024 * 1024;
 
+  // ---- RAM history (what the Railway RAM graph shows, plus the things that explain it) --------------------------------
+  // Sampled every ~15 s; kept per MINUTE for 48 h (max + average), older history per 10 MINUTES for 30 days. Each record
+  // also stores how many people were connected at the time and how the memory splits (JS objects / buffers / total process),
+  // so a spike can be matched against players joining, restarts and GitHub backups instead of guessed at.
+  const MIN_MS = 60000, KEEP_MIN_MS = 48 * 3600000, KEEP_10_MS = 30 * 86400000;
+  const memFile = (opts && opts.memFile) || (file ? require('path').join(require('path').dirname(file), 'memory-history.json') : null);
+  let memMin = [], mem10 = [], memMarkers = [], memCur = null, memDirty = false, lastMemSave = 0;
+  function addMarker(type, label, bytes) {
+    memMarkers.push({ t: now(), type, label: String(label || '').slice(0, 80), bytes: bytes || 0 });
+    if (memMarkers.length > 300) memMarkers.splice(0, memMarkers.length - 300);
+    memDirty = true;
+  }
+  function loadMem() {
+    try {
+      if (memFile && fs.existsSync(memFile)) {
+        const p = JSON.parse(fs.readFileSync(memFile, 'utf8'));
+        if (Array.isArray(p.memMin)) memMin = p.memMin; if (Array.isArray(p.mem10)) mem10 = p.mem10; if (Array.isArray(p.markers)) memMarkers = p.markers;
+      }
+    } catch (e) { console.error('[usage-stats] could not read the RAM history, starting fresh:', e.message); }
+    addMarker('boot', 'Server started');                          // a restart/deploy is the most common cause of a spike
+  }
+  function saveMem(force) {
+    if (!memFile || (!memDirty && !force)) return;
+    const t = now(); if (!force && t - lastMemSave < 5 * MIN_MS) return;
+    try { fs.writeFileSync(memFile, JSON.stringify({ version: 1, memMin, mem10, markers: memMarkers })); memDirty = false; lastMemSave = t; }
+    catch (e) { console.error('[usage-stats] could not save the RAM history:', e.message); }
+  }
+  function rollOld() {
+    const cut = now() - KEEP_MIN_MS;
+    while (memMin.length && memMin[0].t < cut) {
+      const r = memMin.shift(), b = Math.floor(r.t / (10 * MIN_MS)) * 10 * MIN_MS;
+      const last = mem10[mem10.length - 1];
+      if (last && last.t === b) {
+        last.avg = Math.round((last.avg * last.n + r.avg) / (last.n + 1)); last.n += 1;
+        last.max = Math.max(last.max, r.max); last.rss = Math.max(last.rss, r.rss); last.heap = Math.max(last.heap, r.heap);
+        last.ext = Math.max(last.ext, r.ext); last.conns = Math.max(last.conns, r.conns); last.seated = Math.max(last.seated, r.seated);
+      } else mem10.push({ t: b, n: 1, avg: r.avg, max: r.max, rss: r.rss, heap: r.heap, ext: r.ext, conns: r.conns, seated: r.seated });
+    }
+    const cut10 = now() - KEEP_10_MS; while (mem10.length && mem10[0].t < cut10) mem10.shift();
+  }
+  function pushMem(c) {
+    memMin.push({ t: c.t, avg: Math.round(c.sum / c.n), max: c.max, rss: c.rss, heap: c.heap, ext: c.ext, conns: c.conns, seated: c.seated });
+    rollOld(); memDirty = true;
+  }
+  function sampleMemory(readers) {
+    try {
+      const t = now(), minute = Math.floor(t / MIN_MS) * MIN_MS;
+      const ws = readers && readers.mem ? readers.mem() : readMemoryBytes();
+      const pm = readers && readers.proc ? readers.proc() : process.memoryUsage();
+      if (memCur && memCur.t !== minute) { pushMem(memCur); memCur = null; }
+      if (!memCur) memCur = { t: minute, n: 0, sum: 0, max: 0, rss: 0, heap: 0, ext: 0, conns: 0, seated: 0 };
+      memCur.n += 1; memCur.sum += ws; if (ws > memCur.max) memCur.max = ws;
+      if (pm.rss > memCur.rss) memCur.rss = pm.rss; if (pm.heapUsed > memCur.heap) memCur.heap = pm.heapUsed; if ((pm.external || 0) > memCur.ext) memCur.ext = pm.external || 0;
+      let seated = 0; for (const c of live.values()) if (c.table) seated += 1;
+      if (live.size > memCur.conns) memCur.conns = live.size; if (seated > memCur.seated) memCur.seated = seated;
+    } catch (_) {}
+  }
+
   // ---- what the container is using right now (for the per-minute costs) -------
   const readText = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return null; } };
   function readMemoryBytes() {
@@ -330,6 +388,7 @@ function createUsageStats(opts) {
     for (const ctx of live.values()) accrue(ctx, t);
     try { sampleNet(); } catch (_) {}
     try { sampleCost(); } catch (_) {}
+    try { saveMem(); } catch (_) {}
     for (const rec of conns.values()) { try { rec.settle(); } catch (_) {} }
     save();
   }
@@ -397,6 +456,7 @@ function createUsageStats(opts) {
       const d = day();
       const x = d.out[label] || (d.out[label] = { n: 0, sent: 0, recv: 0 });
       x.n += 1; x.sent += sent; x.recv += recv; dirty = true;
+      if (/^GitHub/.test(label) && sent + recv >= 100 * 1024) addMarker('github', label, sent + recv);   // a big backup builds big strings in memory
     } catch (_) {}
   }
   function wrapFetch(g) {
@@ -656,6 +716,91 @@ function createUsageStats(opts) {
     return billReport(t, networkDays);
   }
 
+  // ---- RAM report: the chart series, the spikes and what most likely caused each one ---------------------------------------
+  const median = (a) => { if (!a.length) return 0; const b = a.slice().sort((x, y) => x - y); const m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+  function detectSpikes(pts, win) {
+    const flagged = [];
+    for (let i = 0; i < pts.length; i++) {
+      const prev = pts.slice(Math.max(0, i - win), i).map((p) => p.avg);
+      if (prev.length < 5) continue;
+      const base = median(prev), p = pts[i];
+      if (p.max > base * 1.25 && p.max - base > 50e6) flagged.push({ i, base });   // a quarter above normal AND at least 50 MB
+    }
+    const groups = [];
+    for (const f of flagged) {
+      const g = groups[groups.length - 1];
+      if (g && f.i - g.last <= 2) { g.last = f.i; g.bases.push(f.base); } else groups.push({ first: f.i, last: f.i, bases: [f.base] });
+    }
+    return groups;
+  }
+  function memoryReport(range) {
+    range = ['1h', '6h', '24h', '7d', '30d'].includes(range) ? range : '6h';
+    const span = { '1h': 3600e3, '6h': 6 * 3600e3, '24h': 24 * 3600e3, '7d': 7 * 86400e3, '30d': 30 * 86400e3 }[range];
+    const t = now(), from = t - span;
+    const cur = memCur ? [{ t: memCur.t, avg: Math.round(memCur.sum / memCur.n), max: memCur.max, rss: memCur.rss, heap: memCur.heap, ext: memCur.ext, conns: memCur.conns, seated: memCur.seated }] : [];
+    const firstMin = memMin.length ? memMin[0].t : Infinity;
+    const pts = [];
+    for (const r of mem10) if (r.t < firstMin && r.t >= from - 10 * MIN_MS) pts.push(r);
+    for (const r of memMin) if (r.t >= from) pts.push(r);
+    for (const r of cur) if (r.t >= from) pts.push(r);
+    const stepMs = pts.length > 1 ? Math.max(MIN_MS, median(pts.slice(1).map((p, i) => p.t - pts[i].t))) : MIN_MS;
+    // ---- spikes (computed on the full-resolution series, not the downsampled one)
+    const groups = detectSpikes(pts, stepMs >= 5 * MIN_MS ? 6 : 60);
+    const spikes = groups.map((g) => {
+      const seg = pts.slice(g.first, g.last + 1);
+      let pk = seg[0]; for (const p of seg) if (p.max > pk.max) pk = p;
+      const before = pts.slice(Math.max(0, g.first - (stepMs >= 5 * MIN_MS ? 6 : 60)), g.first);
+      const base = median(g.bases), start = seg[0].t, end = seg[seg.length - 1].t + stepMs;
+      const connsBase = median(before.map((p) => p.conns)), heapBase = median(before.map((p) => p.heap)), extBase = median(before.map((p) => p.ext));
+      const delta = pk.max - base, heapDelta = pk.heap - heapBase, extDelta = pk.ext - extBase;
+      const near = memMarkers.filter((m) => m.t >= start - 4 * MIN_MS && m.t <= end + 2 * MIN_MS);
+      const boot = near.find((m) => m.type === 'boot'), backup = near.find((m) => m.type === 'github');
+      let kind, why;
+      if (boot) { kind = 'restart'; why = 'A restart / deploy happened just before. While a new copy starts, Railway runs it next to the old one, so memory briefly doubles.'; }
+      else if (backup) { kind = 'backup'; why = 'A GitHub backup (' + backup.label.replace(/^GitHub: /, '') + ', about ' + Math.round(backup.bytes / 1024) + ' KB) ran at the same time — it builds the whole file as text in memory.'; }
+      else if (pk.conns - connsBase >= Math.max(3, connsBase * 0.5)) { kind = 'players'; why = 'More people connected at that moment (' + Math.round(connsBase) + ' → ' + pk.conns + ' connections).'; }
+      else if (extDelta > 0.5 * delta && extDelta > 20e6) { kind = 'buffers'; why = 'Large buffers (files, images or big JSON) rather than game objects — something read or built a big block of data.'; }
+      else if (heapDelta > 0.5 * delta && heapDelta > 20e6) { kind = 'heap'; why = 'The game\'s own objects grew (state, logs, history) — normally cleared again by Node\'s garbage collection.'; }
+      else { kind = 'unexplained'; why = 'Not explained by players, a restart or a backup. Usually the container\'s file cache or garbage-collection timing, not your code.'; }
+      return { start, end, peak: pk.max, peakAt: pk.t, base, delta, connsBase: Math.round(connsBase), connsPeak: pk.conns, seatedPeak: pk.seated, heapDelta, extDelta, kind, why };
+    }).sort((a, b) => b.delta - a.delta).slice(0, 12);
+    // ---- relation between players and memory (last 24 h of the series, per-minute points only)
+    const rel = pts.filter((p) => p.t >= t - 24 * 3600e3);
+    let correlation = null;
+    if (rel.length >= 30) {
+      const n = rel.length, mx = rel.reduce((a, p) => a + p.conns, 0) / n, my = rel.reduce((a, p) => a + p.avg, 0) / n;
+      let sxx = 0, syy = 0, sxy = 0;
+      for (const p of rel) { sxx += (p.conns - mx) ** 2; syy += (p.avg - my) ** 2; sxy += (p.conns - mx) * (p.avg - my); }
+      const minC = Math.min(...rel.map((p) => p.conns)), maxC = Math.max(...rel.map((p) => p.conns));
+      const r = sxx > 0 && syy > 0 ? sxy / Math.sqrt(sxx * syy) : 0;
+      const slope = sxx > 0 ? sxy / sxx : 0;
+      correlation = { n, r: Math.round(r * 100) / 100, mbPerPlayer: Math.round(slope / 1e6 * 10) / 10, baselineMb: Math.round((my - slope * mx) / 1e6), minConns: minC, maxConns: maxC };
+    }
+    let verdict;
+    if (!correlation) verdict = { level: 'wait', text: 'Not enough history yet to say. Leave it running for a few hours; this fills in by itself.' };
+    else if (correlation.maxConns - correlation.minConns <= 1) verdict = { level: 'no', text: 'The number of people connected barely changed, so RAM changes are not coming from player count.' };
+    else if (correlation.r >= 0.6 && correlation.mbPerPlayer >= 1) verdict = { level: 'yes', text: 'Yes — memory rises with players: about ' + correlation.mbPerPlayer + ' MB per connected person on top of a base of about ' + correlation.baselineMb + ' MB (match strength ' + correlation.r + ').' };
+    else if (correlation.r >= 0.3) verdict = { level: 'partly', text: 'Partly — more players tends to mean more RAM (about ' + correlation.mbPerPlayer + ' MB each, match strength ' + correlation.r + '), but most of the movement has other causes.' };
+    else verdict = { level: 'no', text: 'No — memory does not follow the number of players (match strength ' + correlation.r + '). Look at the spike causes below instead.' };
+    // ---- the chart series, thinned to <= 360 points while keeping each bucket's PEAK so spikes are never smoothed away
+    const buckets = 360, bw = Math.max(stepMs, span / buckets);
+    const out = [];
+    for (const p of pts) {
+      const b = Math.floor((p.t - from) / bw);
+      const last = out[out.length - 1];
+      if (last && last.b === b) { last.max = Math.max(last.max, p.max); last.sum += p.avg; last.n += 1; last.rss = Math.max(last.rss, p.rss); last.heap = Math.max(last.heap, p.heap); last.ext = Math.max(last.ext, p.ext); last.conns = Math.max(last.conns, p.conns); last.seated = Math.max(last.seated, p.seated); }
+      else out.push({ b, t: p.t, max: p.max, sum: p.avg, n: 1, rss: p.rss, heap: p.heap, ext: p.ext, conns: p.conns, seated: p.seated });
+    }
+    const points = out.map((o) => [o.t, o.max, Math.round(o.sum / o.n), o.rss, o.heap, o.ext, o.conns, o.seated]);
+    const peak = pts.reduce((a, p) => (p.max > a.max ? p : a), pts[0] || { max: 0, t: t, conns: 0 });
+    return {
+      ok: true, range, from, to: t, resolution: stepMs >= 5 * MIN_MS ? '10 minutes' : '1 minute', points,
+      stats: { count: pts.length, now: pts.length ? pts[pts.length - 1].max : 0, nowConns: live.size, peak: peak.max, peakAt: peak.t, peakConns: peak.conns || 0, avg: pts.length ? Math.round(pts.reduce((a, p) => a + p.avg, 0) / pts.length) : 0, baseline: Math.round(median(pts.map((p) => p.avg))) },
+      spikes, correlation, verdict,
+      markers: memMarkers.filter((m) => m.t >= from),
+    };
+  }
+
   // ---- report for the admin page -------------------------------------------
   function datesFor(range, t) {
     const all = Object.keys(days).sort();
@@ -760,9 +905,9 @@ function createUsageStats(opts) {
     };
   }
 
-  load();
-  return { httpMiddleware, attachIo, tick, save, voiceJoined, voiceLeft, report, getQuota, setQuota, setBill, wrapFetch, trackSocket,
-    _internals: { onPacket, accrue, live, days: () => days, day, addVoiceReport, addOutbound, sampleNet, sampleCost, labelForUrl } };
+  load(); loadMem();
+  return { httpMiddleware, attachIo, tick, save, voiceJoined, voiceLeft, report, getQuota, setQuota, setBill, wrapFetch, trackSocket, sampleMemory, memoryReport, saveMem,
+    _internals: { addMarker, onPacket, accrue, live, days: () => days, day, addVoiceReport, addOutbound, sampleNet, sampleCost, labelForUrl } };
 }
 
 module.exports = { createUsageStats, eventName, catOfHttp, catOfEvent, gameOfRoom, gameOfEvent, GAMES, GAME_LABEL };

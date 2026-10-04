@@ -574,7 +574,8 @@ const io = new Server(server, {
 usage.attachIo(io);                                   // registered first: instruments every socket before any game handler
 try { usage.wrapFetch(); } catch (e) {}                   // count the server's own outgoing requests (GitHub backups, TURN keys...) by target
 server.on('connection', (sock) => { try { usage.trackSocket(sock); } catch (e) {} });   // exact bytes read/written by every listening socket
-setInterval(() => { try { usage.tick(); } catch (e) {} }, 60 * 1000);   // credits live time + saves once a minute
+setInterval(() => { try { usage.tick(); } catch (e) {} }, 60 * 1000);
+setInterval(() => { try { usage.sampleMemory(); } catch (e) {} }, 15 * 1000);   // RAM history for the admin chart (a spike can be shorter than a minute)   // credits live time + saves once a minute
 
 // ---------------- Visitor location log (admin-only, anti-cheat visibility) ----------------
 // The previous "visitor stats" in the admin panel were purely client-side
@@ -1159,8 +1160,8 @@ async function finalVisitorLogFlush() {
     ]);
   }
 }
-process.on('SIGTERM', async () => { try { usage.save(); } catch (e) {} await finalVisitorLogFlush(); process.exit(0); });
-process.on('SIGINT', async () => { try { usage.save(); } catch (e) {} await finalVisitorLogFlush(); process.exit(0); });
+process.on('SIGTERM', async () => { try { usage.save(); usage.saveMem(true); } catch (e) {} await finalVisitorLogFlush(); process.exit(0); });
+process.on('SIGINT', async () => { try { usage.save(); usage.saveMem(true); } catch (e) {} await finalVisitorLogFlush(); process.exit(0); });
 
 function clientIpFor(socket) {
   // x-forwarded-for can be a comma-separated chain (proxy hops) -- the
@@ -1733,6 +1734,13 @@ app.post('/api/admin/avatars/:key/restore', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
   const r = avatars.restore(req.params.key);
   res.status(r.status || 200).json(r);
+});
+
+// RAM history + spike analysis for the admin chart: ?range=1h|6h|24h|7d|30d
+app.get('/api/admin/memory', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  try { res.json(usage.memoryReport(String(req.query.range || '6h'))); }
+  catch (e) { console.error('[usage-stats] memory report failed:', e.message); res.status(500).json({ ok: false, error: 'memory_report_failed' }); }
 });
 
 // The Railway bill settings (billing-cycle day, rates, plan fee/credit) and Railway's own numbers typed in as a check
