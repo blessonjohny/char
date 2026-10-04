@@ -43,6 +43,8 @@ function emptyDay() {
     time: { table: {}, voice: {}, page: 0, wander: 0, sessions: 0 },
     voice: { sent: 0, recv: 0, relaySent: 0, relayRecv: 0, reports: 0, byGame: {} },
     tables: {},          // 'game:room' -> { game, ms, bytes, joins, voiceSent, chatMsgs }
+    out: {},             // the SERVER'S OWN requests to other services: label -> { n, sent, recv }
+    net: { packets: 0, rx: 0, tx: 0 },   // interface counters sampled once a minute
   };
 }
 function bump(o, k, f, n) { const x = o[k] || (o[k] = {}); x[f] = (x[f] || 0) + n; }
@@ -108,6 +110,25 @@ function createUsageStats(opts) {
   const live = new Map();               // socket id -> ctx
   let todayKey = null, today = null;
 
+  // The voice relay is Cloudflare Realtime TURN (confirmed on the owner's dashboard: Realtime = Active, Workers Free,
+  // Billable usage $0.00 "all usage is within included tier limits", billing cycle 30 Sep - 29 Oct 2026, so each cycle
+  // starts on the 30th). Cloudflare gives 1,000 GB of TURN traffic free per month, then (as far as I know) $0.05 per GB.
+  // Cloudflare bills the data the relay SENDS to players (egress), so the estimate counts relayed audio RECEIVED.
+  function defaultQuota() {
+    return {
+      provider: 'Cloudflare Realtime (TURN)',
+      limitBytes: 1000 * 1e9,                 // 1,000 GB free per month (decimal GB, like Cloudflare's own dashboard)
+      pricePerGB: 0.05,                       // USD per GB beyond the free allowance
+      cycleDay: 30,                           // billing cycle starts on this day of each month
+      cycleStart: '2026-09-30',
+      basis: 'egress',                        // 'egress' = relayed audio received by players; 'both' = sent + received
+      usedBytes: 0,                           // optional reading typed in from the provider (0 = none)
+      asOf: now(),
+      relaySinceAsOf: 0,
+      note: 'Cloudflare Billable usage (4 Oct 2026): $0.00, all usage within included tier limits.',
+    };
+  }
+
   // ---- persistence --------------------------------------------------------
   function load() {
     try {
@@ -117,20 +138,9 @@ function createUsageStats(opts) {
         if (parsed && parsed.quota) quota = parsed.quota;
       }
     } catch (e) { console.error('[usage-stats] could not load saved data, starting fresh:', e.message); days = {}; }
-    if (!quota) {
-      // Seeded from the Metered.ca dashboard the owner screenshotted: free plan, 68 MB of 0.5 GB used,
-      // plan renews 27 Oct 2026. The admin page lets these be updated any time.
-      quota = {
-        provider: 'Metered.ca (free plan)',
-        usedBytes: 68 * 1024 * 1024,
-        limitBytes: 512 * 1024 * 1024,
-        renewsOn: '2026-10-27',
-        asOf: now(),
-        relaySinceAsOf: 0,
-        seeded: true,
-      };
-      dirty = true;
-    }
+    // Older builds stored a Metered.ca note (512 MB, no cycle day). The relay is Cloudflare Realtime now,
+    // so anything without the new fields is replaced by the Cloudflare defaults below.
+    if (!quota || typeof quota.cycleDay !== 'number') { quota = defaultQuota(); dirty = true; }
   }
   function trim() {
     const keys = Object.keys(days).sort();
@@ -163,6 +173,8 @@ function createUsageStats(opts) {
   function httpMiddleware(req, res, next) {
     try {
       let bytes = 0, done = false;
+      const sock = req.socket;
+      const rbBase = (sock && sock.__usageLast) || 0;          // bytes already read on this connection by earlier requests
       const w = res.write, e = res.end;
       const count = (chunk, enc) => {
         if (!chunk || typeof chunk === 'function') return;
@@ -175,8 +187,13 @@ function createUsageStats(opts) {
         try {
           const cat = catOfHttp(req.originalUrl || req.url, res.getHeader && res.getHeader('content-type'));
           const d = day();
-          const x = d.http[cat] || (d.http[cat] = { bytes: 0, n: 0 });
-          x.bytes += bytes; x.n += 1; dirty = true;
+          const x = d.http[cat] || (d.http[cat] = { bytes: 0, n: 0, head: 0, in: 0 });
+          x.bytes += bytes; x.n += 1;
+          x.head = (x.head || 0) + (res._header ? Buffer.byteLength(String(res._header)) : 0);   // response headers
+          const rb1 = (sock && sock.bytesRead) || 0;
+          x.in = (x.in || 0) + Math.max(0, rb1 - rbBase);                                         // what the browser sent (headers + body)
+          if (sock) sock.__usageLast = rb1;
+          dirty = true;
         } catch (_) {}
       };
       res.on('finish', finish); res.on('close', finish);
@@ -225,6 +242,7 @@ function createUsageStats(opts) {
   function tick() {
     const t = now();
     for (const ctx of live.values()) accrue(ctx, t);
+    try { sampleNet(); } catch (_) {}
     save();
   }
   function onJoin(ctx, room) {
@@ -271,6 +289,84 @@ function createUsageStats(opts) {
   function voiceJoined(socket) { const c = socket && live.get(socket.id); if (c) { accrue(c, now()); c.voiceSince = now(); } }
   function voiceLeft(socket) { const c = socket && live.get(socket.id); if (c) { accrue(c, now()); c.voiceSince = null; } }
 
+  // ---- the server's OWN requests to other services (GitHub backups, TURN keys, ...) ----
+  // These never touch a player, yet they cross the network interface, so they were part of the
+  // "unattributed" remainder. Every fetch() the server makes is counted and labelled by where it went
+  // (for GitHub: which file), e.g. "GitHub: data/visitor-log.json".
+  function labelForUrl(u) {
+    try {
+      const url = new URL(String(u));
+      if (url.hostname === 'api.github.com') {
+        const m = url.pathname.match(/\/contents\/(.+)$/);
+        return 'GitHub: ' + (m ? decodeURIComponent(m[1]) : url.pathname);
+      }
+      if (url.hostname.endsWith('cloudflare.com')) return 'Cloudflare TURN keys';
+      return url.host;
+    } catch (_) { return 'other'; }
+  }
+  function addOutbound(label, sent, recv) {
+    try {
+      const d = day();
+      const x = d.out[label] || (d.out[label] = { n: 0, sent: 0, recv: 0 });
+      x.n += 1; x.sent += sent; x.recv += recv; dirty = true;
+    } catch (_) {}
+  }
+  function wrapFetch(g) {
+    g = g || globalThis;
+    if (!g.fetch || g.fetch.__usageWrapped) return false;
+    const orig = g.fetch.bind(g);
+    const wrapped = async function (input, init) {
+      const url = typeof input === 'string' ? input : (input && (input.url || String(input)));
+      const label = labelForUrl(url);
+      let sent = 350;                                    // typical request line + headers
+      try {
+        const b = init && init.body;
+        if (typeof b === 'string') sent += Buffer.byteLength(b);
+        else if (b && typeof b.length === 'number') sent += b.length;
+        else if (b && typeof b.byteLength === 'number') sent += b.byteLength;
+      } catch (_) {}
+      let res;
+      try { res = await orig(input, init); }
+      catch (e) { addOutbound(label, sent, 0); throw e; }
+      try {
+        const clh = res.headers && res.headers.get ? res.headers.get('content-length') : null;   // null when the body is chunked
+        const cl = clh == null || clh === '' ? NaN : Number(clh);
+        if (Number.isFinite(cl) && cl >= 0) addOutbound(label, sent, cl + 300);
+        else res.clone().arrayBuffer().then((buf) => addOutbound(label, sent, buf.byteLength + 300), () => addOutbound(label, sent, 300));
+      } catch (_) { addOutbound(label, sent, 300); }
+      return res;
+    };
+    wrapped.__usageWrapped = true;
+    g.fetch = wrapped;
+    return true;
+  }
+  // interface counters: bytes in/out and PACKET counts (every packet carries ~52 bytes of IP+TCP header)
+  let prevNet = null;
+  function readNet() {
+    try {
+      const raw = fs.readFileSync('/proc/net/dev', 'utf8').split('\n').slice(2);
+      let rx = 0, tx = 0, packets = 0;
+      for (const line of raw) {
+        if (!line.trim()) continue;
+        const [name, rest] = line.split(':');
+        if (!name || name.trim() === 'lo') continue;
+        const c = rest.trim().split(/\s+/).map(Number);
+        rx += c[0] || 0; packets += (c[1] || 0); tx += c[8] || 0; packets += (c[9] || 0);
+      }
+      return { rx, tx, packets };
+    } catch (_) { return null; }
+  }
+  function sampleNet(reader) {
+    const cur = (reader || readNet)();
+    if (!cur) return;
+    if (prevNet) {
+      const d = day();
+      d.net.rx += Math.max(0, cur.rx - prevNet.rx); d.net.tx += Math.max(0, cur.tx - prevNet.tx);
+      d.net.packets += Math.max(0, cur.packets - prevNet.packets); dirty = true;
+    }
+    prevNet = cur;
+  }
+
   // ---- voice audio, reported by the player's own browser -------------------
   function addVoiceReport(ctx, rep) {
     if (!rep || typeof rep !== 'object') return;
@@ -289,35 +385,42 @@ function createUsageStats(opts) {
     bump(d.voice.byGame, g, 'relay', relaySent + relayRecv);
     if (ctx.table) tableRec(d, ctx).voiceSent += sent;
     // running estimate for the TURN-relay quota note (relayed audio passes through the relay both ways)
-    if (quota) quota.relaySinceAsOf = (quota.relaySinceAsOf || 0) + relaySent + relayRecv;
+    if (quota) quota.relaySinceAsOf = (quota.relaySinceAsOf || 0) + (quota.basis === 'both' ? relaySent + relayRecv : relayRecv);
     dirty = true;
   }
 
-  // ---- TURN quota note (typed in from the provider's dashboard) -------------
+  // ---- TURN relay allowance (provider, free allowance, price, billing cycle) ----
   function getQuota() { return Object.assign({}, quota); }
+  const dayInMonth = (y, m, d) => Math.min(d, new Date(Date.UTC(y, m + 1, 0)).getUTCDate());   // 30th -> 28th in February
+  // the cycle that contains time t: { start, next } (UTC dates as ms); cycles start on cycleDay each month
+  function cycleAt(cycleDay, t) {
+    const dt = new Date(t);
+    let y = dt.getUTCFullYear(), m = dt.getUTCMonth();
+    let start = Date.UTC(y, m, dayInMonth(y, m, cycleDay));
+    const todayMs = Date.UTC(y, m, dt.getUTCDate());
+    if (start > todayMs) { m -= 1; if (m < 0) { m = 11; y -= 1; } start = Date.UTC(y, m, dayInMonth(y, m, cycleDay)); }
+    let ny = y, nm = m + 1; if (nm > 11) { nm = 0; ny += 1; }
+    return { start, next: Date.UTC(ny, nm, dayInMonth(ny, nm, cycleDay)) };
+  }
   function setQuota(q) {
     q = q || {};
-    const n = (v, d) => { v = Number(v); return Number.isFinite(v) && v >= 0 ? v : d; };
-    const renews = /^\d{4}-\d{2}-\d{2}$/.test(String(q.renewsOn || '')) ? String(q.renewsOn) : quota.renewsOn;
+    const num = (v, d) => { v = Number(v); return Number.isFinite(v) && v >= 0 ? v : d; };
+    const provider = String(q.provider || quota.provider || 'TURN relay').slice(0, 60);
+    let cycleStart = quota.cycleStart, cycleDay = quota.cycleDay;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(q.cycleStart || ''))) { cycleStart = String(q.cycleStart); cycleDay = Number(cycleStart.slice(8, 10)); }
     quota = {
-      provider: String(q.provider || quota.provider || 'TURN relay').slice(0, 60),
-      usedBytes: n(q.usedBytes, quota.usedBytes),
-      limitBytes: n(q.limitBytes, quota.limitBytes) || quota.limitBytes,
-      renewsOn: renews,
+      provider,
+      limitBytes: num(q.limitBytes, quota.limitBytes) || quota.limitBytes,
+      pricePerGB: num(q.pricePerGB, quota.pricePerGB),
+      cycleDay, cycleStart,
+      basis: /cloudflare/i.test(provider) ? 'egress' : (q.basis === 'egress' ? 'egress' : 'both'),
+      usedBytes: num(q.usedBytes, 0),
       asOf: now(),
-      relaySinceAsOf: 0,                    // a fresh reading from the dashboard restarts the running estimate
+      relaySinceAsOf: 0,                    // a fresh reading restarts the running estimate
+      note: q.note != null ? String(q.note).slice(0, 200) : quota.note,
     };
     dirty = true; save();
     return getQuota();
-  }
-  // next renewal date on/after today (renewals repeat on the same day each month)
-  function nextRenewal(renewsOn, t) {
-    const [y, m, d] = renewsOn.split('-').map(Number);
-    let dt = new Date(Date.UTC(y, m - 1, d));
-    const todayMs = Date.UTC(new Date(t).getUTCFullYear(), new Date(t).getUTCMonth(), new Date(t).getUTCDate());
-    let guard = 0;
-    while (dt.getTime() < todayMs && guard++ < 240) dt = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, d));
-    return dt;
   }
 
   // ---- report for the admin page -------------------------------------------
@@ -341,9 +444,12 @@ function createUsageStats(opts) {
       voice: { sent: 0, recv: 0, relaySent: 0, relayRecv: 0, reports: 0, byGame: {} },
     };
     const tables = {};
+    const outAgg = {}, net = { packets: 0, rx: 0, tx: 0 };
     for (const k of dates) {
       const d = days[k]; if (!d) continue;
-      for (const [c, v] of Object.entries(d.http || {})) { bump(sum.http, c, 'bytes', v.bytes); bump(sum.http, c, 'n', v.n); }
+      for (const [c, v] of Object.entries(d.http || {})) { bump(sum.http, c, 'bytes', v.bytes); bump(sum.http, c, 'n', v.n); bump(sum.http, c, 'head', v.head || 0); bump(sum.http, c, 'in', v.in || 0); }
+      for (const [label, v] of Object.entries(d.out || {})) { bump(outAgg, label, 'n', v.n || 0); bump(outAgg, label, 'sent', v.sent || 0); bump(outAgg, label, 'recv', v.recv || 0); }
+      net.packets += (d.net || {}).packets || 0; net.rx += (d.net || {}).rx || 0; net.tx += (d.net || {}).tx || 0;
       for (const [c, v] of Object.entries(d.sock || {})) { bump(sum.sock, c, 'in', v.in || 0); bump(sum.sock, c, 'out', v.out || 0); }
       for (const [g, v] of Object.entries(d.sockGame || {})) { bump(sum.sockGame, g, 'in', v.in || 0); bump(sum.sockGame, g, 'out', v.out || 0); }
       for (const [g, v] of Object.entries(d.chat || {})) { bump(sum.chat, g, 'msgs', v.msgs || 0); bump(sum.chat, g, 'bytes', v.bytes || 0); }
@@ -359,9 +465,12 @@ function createUsageStats(opts) {
       }
     }
     const sumObj = (o, f) => Object.values(o).reduce((s, x) => s + (x[f] || 0), 0);
-    const httpBytes = sumObj(sum.http, 'bytes');
+    const httpBytes = sumObj(sum.http, 'bytes') + sumObj(sum.http, 'head') + sumObj(sum.http, 'in');
     const sockIn = sumObj(sum.sock, 'in'), sockOut = sumObj(sum.sock, 'out');
-    const attributed = httpBytes + sockIn + sockOut;
+    const outbound = Object.entries(outAgg).map(([label, v]) => ({ label, n: v.n, sent: v.sent, recv: v.recv, total: v.sent + v.recv })).sort((a, b) => b.total - a.total);
+    const outboundBytes = outbound.reduce((s2, x) => s2 + x.total, 0);
+    const headerEstimate = net.packets * 52;      // IPv4 (20) + TCP with timestamps (32) per packet
+    const attributed = httpBytes + sockIn + sockOut + outboundBytes + headerEstimate;
     const containerBytes = (networkDays || []).filter((x) => dates.includes(x.date)).reduce((s, x) => s + (x.bytes || 0), 0);
     const games = GAMES.map((g) => {
       const sg = sum.sockGame[g] || {}, ch = sum.chat[g] || {}, vg = sum.voice.byGame[g] || {};
@@ -372,12 +481,22 @@ function createUsageStats(opts) {
       };
     });
     const q = getQuota();
-    const nxt = nextRenewal(q.renewsOn, t);
-    const periodStart = new Date(Date.UTC(nxt.getUTCFullYear(), nxt.getUTCMonth() - 1, nxt.getUTCDate())).getTime();
+    const cyc = cycleAt(q.cycleDay, t);
+    const todayUtc = Date.UTC(new Date(t).getUTCFullYear(), new Date(t).getUTCMonth(), new Date(t).getUTCDate());
+    // relayed audio this cycle, from the per-day player reports (egress = what players received through the relay)
+    let cycleRelay = 0;
+    for (const [k, d] of Object.entries(days)) {
+      if (Date.parse(k + 'T00:00:00Z') < cyc.start) continue;
+      const v = (d && d.voice) || {};
+      cycleRelay += q.basis === 'both' ? (v.relaySent || 0) + (v.relayRecv || 0) : (v.relayRecv || 0);
+    }
+    const typedThisCycle = q.usedBytes > 0 && q.asOf >= cyc.start;
+    const estimatedUsedBytes = typedThisCycle ? q.usedBytes + (q.relaySinceAsOf || 0) : cycleRelay;
+    const overBytes = Math.max(0, estimatedUsedBytes - q.limitBytes);
     return {
       ok: true, range, from: dates[0], to: dates[dates.length - 1],
       trackingSince: Object.keys(days).sort()[0] || null,
-      server: { containerBytes, attributedBytes: attributed, unattributedBytes: Math.max(0, containerBytes - attributed), http: sum.http, sock: sum.sock },
+      server: { containerBytes, attributedBytes: attributed, unattributedBytes: Math.max(0, containerBytes - attributed), http: sum.http, sock: sum.sock, outbound, outboundBytes, net: { packets: net.packets, rx: net.rx, tx: net.tx, headerEstimate } },
       voice: Object.assign({ wireBytes: sum.voice.sent, phoneBytes: sum.voice.sent + sum.voice.recv, relayBytes: sum.voice.relaySent + sum.voice.relayRecv }, sum.voice),
       combinedBytes: containerBytes + sum.voice.sent,
       time: sum.time,
@@ -385,17 +504,22 @@ function createUsageStats(opts) {
       chat: sum.chat,
       tables: Object.values(tables).sort((a, b) => b.ms - a.ms).slice(0, 15),
       turnQuota: Object.assign({}, q, {
-        nextRenewalDate: dayKey(nxt.getTime()),
-        daysToRenewal: Math.max(0, Math.round((nxt.getTime() - Date.UTC(new Date(t).getUTCFullYear(), new Date(t).getUTCMonth(), new Date(t).getUTCDate())) / 86400000)),
-        estimatedUsedBytes: (q.asOf >= periodStart ? q.usedBytes : 0) + (q.relaySinceAsOf || 0),
-        readingIsFromEarlierPeriod: q.asOf < periodStart,
+        cycleStartDate: dayKey(cyc.start),
+        cycleEndDate: dayKey(cyc.next - 86400000),
+        nextRenewalDate: dayKey(cyc.next),
+        daysToRenewal: Math.max(0, Math.round((cyc.next - todayUtc) / 86400000)),
+        estimatedUsedBytes,
+        estimatedOverBytes: overBytes,
+        estimatedCharge: (overBytes / 1e9) * (q.pricePerGB || 0),
+        usedFromReading: typedThisCycle,
+        readingIsFromEarlierPeriod: q.usedBytes > 0 && q.asOf < cyc.start,
       }),
     };
   }
 
   load();
-  return { httpMiddleware, attachIo, tick, save, voiceJoined, voiceLeft, report, getQuota, setQuota,
-    _internals: { onPacket, accrue, live, days: () => days, day, addVoiceReport } };
+  return { httpMiddleware, attachIo, tick, save, voiceJoined, voiceLeft, report, getQuota, setQuota, wrapFetch,
+    _internals: { onPacket, accrue, live, days: () => days, day, addVoiceReport, addOutbound, sampleNet, labelForUrl } };
 }
 
 module.exports = { createUsageStats, eventName, catOfHttp, catOfEvent, gameOfRoom, gameOfEvent, GAMES, GAME_LABEL };

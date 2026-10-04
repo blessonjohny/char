@@ -546,6 +546,7 @@ const io = new Server(server, {
   pingTimeout: 60000
 });
 usage.attachIo(io);                                   // registered first: instruments every socket before any game handler
+try { usage.wrapFetch(); } catch (e) {}                   // count the server's own outgoing requests (GitHub backups, TURN keys...) by target
 setInterval(() => { try { usage.tick(); } catch (e) {} }, 60 * 1000);   // credits live time + saves once a minute
 
 // ---------------- Visitor location log (admin-only, anti-cheat visibility) ----------------
@@ -1668,16 +1669,19 @@ app.get('/api/admin/usage-breakdown', (req, res) => {
     res.status(500).json({ ok: false, error: 'report_failed' });
   }
 });
-// The TURN relay quota note (numbers typed in from the provider's own dashboard, e.g. Metered.ca / Cloudflare)
+// The voice-relay allowance (provider, free GB, price per GB, billing-cycle start, optional reading typed in
+// from the provider's own dashboard). GB here are decimal GB, matching Cloudflare's own dashboard.
 app.post('/api/admin/turn-quota', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
   const b = req.body || {};
-  const mb = (v) => (v === '' || v == null ? undefined : Number(v) * 1024 * 1024);
+  const gb = (v) => (v === '' || v == null ? undefined : Number(v) * 1e9);
   const q = usage.setQuota({
     provider: b.provider,
-    usedBytes: mb(b.usedMB),
-    limitBytes: mb(b.limitMB),
-    renewsOn: b.renewsOn,
+    usedBytes: gb(b.usedGB),
+    limitBytes: gb(b.limitGB),
+    pricePerGB: b.pricePerGB === '' || b.pricePerGB == null ? undefined : Number(b.pricePerGB),
+    cycleStart: b.cycleStart,
+    note: b.note,
   });
   res.json({ ok: true, quota: q });
 });
